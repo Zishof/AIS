@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="barcode_report_new" columnCount="2" printOrder="Horizontal" pageWidth="651" pageHeight="569" orientation="Landscape" whenNoDataType="AllSectionsNoDetail" columnWidth="314" leftMargin="12" rightMargin="10" topMargin="2" bottomMargin="5">
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="transaction_id" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["73D8127801AB"]]></defaultValueExpression>
+	</parameter>
+	<field name="barcode" class="java.lang.String"/>
+	<field name="code" class="java.lang.String"/>
+	<field name="c_code" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band splitType="Stretch"/>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<columnHeader>
+		<band splitType="Stretch"/>
+	</columnHeader>
+	<detail>
+		<band height="140" splitType="Stretch">
+			<rectangle>
+				<reportElement key="rectangle-1" x="32" y="13" width="249" height="114"/>
+			</rectangle>
+			<image scaleImage="RetainShape" hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="38" y="54" width="237" height="51"/>
+				<imageExpression><![CDATA[$F{barcode}]]></imageExpression>
+			</image>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="38" y="13" width="237" height="41"/>
+				<textElement textAlignment="Center" verticalAlignment="Bottom">
+					<font size="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{code}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-1" x="38" y="105" width="237" height="16"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{c_code}]]></textFieldExpression>
+			</textField>
+			<rectangle>
+				<reportElement key="rectangle-2" x="266" y="30" width="0" height="0"/>
+			</rectangle>
+		</band>
+	</detail>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band splitType="Stretch"/>
+	</pageFooter>
+	<summary>
+		<band splitType="Stretch"/>
+	</summary>
+</jasperReport>

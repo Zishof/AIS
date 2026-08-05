@@ -1,0 +1,301 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.LogHostToHostAction" width="100%"
+		height="100%">
+
+
+		<tabbox width="100%" height="100%">
+
+			<tabs>
+				<tab use="ais.ui.util.MyTabConfig" selected="true">
+					Dasbor
+				</tab>
+
+				<tab use="ais.ui.util.MyTabConfig">
+					Transaksi H2H
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onVa">
+					Virtual Account
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig" id="tabFinpay"
+					forward="onClick=onFinpay">
+					Transaksi H2H via Finpay
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig" id="tabIpaymu"
+					forward="onClick=onIpaymu">
+					Transaksi H2H via Ipaymu
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig" id="tabFaspay"
+					forward="onClick=onFaspay">
+					Transaksi H2H via Faspay
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig" id="tabJatelindo"
+					forward="onClick=onJatelindo">
+					Transaksi H2H via Mandiri
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig" id="tabCimb"
+					forward="onClick=onCimb">
+					Transaksi H2H via Cimb
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig" id="tabBni"
+					forward="onClick=onBni">
+					Transaksi H2H via Bni
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig" id="tabBsi"
+					forward="onClick=onBsi">
+					Transaksi H2H via Bsi
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig" id="tabBri"
+					forward="onClick=onBri">
+					Transaksi H2H via Bri
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig" visible="false"
+					forward="onClick=onRekonsiliasi">
+					Rekonsiliasi
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig" visible="false"
+					forward="onClick=onCicilanGagal">
+					Pembayaran gagal hasil rekonsiliasi
+				</tab>
+			</tabs>
+
+			<tabpanels>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<vbox width="100%" height="100%">
+						<html id="progressHtml" visible="false" />
+						<html id="dashboardHtml">
+							<![CDATA[
+<div style="font-family:system-ui,Arial,sans-serif;padding:24px 16px;color:#64748b;text-align:center;">
+  <div style="font-size:15px;font-weight:700;color:#1e40af;">Memuat Dasbor Pembayaran...</div>
+  <div style="font-size:11px;margin-top:6px;">Mohon tunggu, data sedang dihitung.</div>
+</div>
+]]>
+						</html>
+					</vbox>
+				</tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel">
+
+					<borderlayout>
+															<north border="none" size="204px" autoscroll="true" flex="false" splittable="false">
+				<div style="padding:12px;box-sizing:border-box;">
+					<div sclass="ais-crud-filter-card">
+						<div sclass="ais-crud-filter-head">
+							<span sclass="ais-crud-filter-title">Pencarian &amp; Filter</span>
+						<div sclass="ais-crud-filter-actions">
+							<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;log_host_to_host&quot;, &quot;Bantuan&quot;);"/>
+						</div>
+						</div>
+						<div sclass="ais-crud-filter-body">
+
+							<grid use="ais.ui.util.MyGrid" 
+								fixedLayout="true" sclass="ais-crud-filter-grid">
+								<columns>
+									<column
+										use="ais.ui.util.MyColumnConfig" width="50px">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig" width="50px">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig" width="50px">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig" width="50px">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig" width="50px">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig" width="50px">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig" width="50px">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig">
+									</column>
+								</columns>
+								<rows>
+
+
+									<row>
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Bank" />
+										<textbox
+											forward="onOK=onSearchDefault" id="searchbank" width="95%" />
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Kode" />
+										<textbox
+											forward="onOK=onSearchDefault" id="searchkode" width="95%" />
+										<label
+											use="ais.ui.util.MyLabelConfig" value="NIM/Noreg/Nama" />
+										<textbox
+											forward="onOK=onSearchDefault" id="searchnim" width="95%" />
+
+
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Request" />
+										<textbox
+											forward="onOK=onSearchDefault" id="searchnama" width="95%" />
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Respons" />
+										<textbox
+											forward="onOK=onSearchDefault" id="searchketerangan"
+											width="95%" />
+
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Mulai" />
+										<datebox
+											use="ais.ui.util.MyDatebox"
+											forward="onChange=onSearchDefault" id="searchmulai"
+											width="95%" />
+
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Sampai" />
+										<datebox
+											use="ais.ui.util.MyDatebox"
+											forward="onChange=onSearchDefault" id="searchsampai"
+											width="95%" />
+
+									</row>
+
+
+									<row spans="14">
+
+										<toolbar>
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+												
+												tooltiptext="Cari data" forward="onClick=onSearchDefault"
+												id="find" label="Cari" image="/img/search.gif">
+											</toolbarbutton>
+
+											
+
+										</toolbar>
+									</row>
+								</rows>
+							</grid>
+						</div>
+					</div>
+				</div>
+			</north>
+						<center border="none"
+							flex="true">
+
+							<grid use="ais.ui.util.MyGrid" sclass="fgrid">
+								<rows>
+									<row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-atas" height="64px" /></row>
+									<row>
+										<paging use="ais.ui.util.MyPagingKembar" visible="false"
+											id="paging" detailed="true" />
+									</row>
+									<row>
+										<grid use="ais.ui.util.MyGrid" 
+											sclass="dgrid" fixedLayout="true" id="grid">
+											<columns>
+												<column
+													use="ais.ui.util.MyColumnConfig" width="7%" label="IP" />
+												<column
+													use="ais.ui.util.MyColumnConfig" width="8%" label="Bank" />
+												<column
+													use="ais.ui.util.MyColumnConfig" width="9%" label="NIM / Nama" />
+												<column
+													use="ais.ui.util.MyColumnConfig" width="10%" label="Waktu" />
+												<column
+													use="ais.ui.util.MyColumnConfig" width="14%" label="Request" />
+												<column
+													use="ais.ui.util.MyColumnConfig" width="14%" label="Response" />
+												<column
+													use="ais.ui.util.MyColumnConfig" width="6%" label="Status" />
+												<column
+													use="ais.ui.util.MyColumnConfig" width="8%" label="Kode" />
+												<column
+													use="ais.ui.util.MyColumnConfig" width="7%" label="Nominal" />
+												<column
+													use="ais.ui.util.MyColumnConfig" width="9%" label="Item" />
+												<column
+													use="ais.ui.util.MyColumnConfig" width="8%" label="Aksi" />
+											</columns>
+
+										</grid>
+
+
+									</row>
+									<row><paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar" /></row>
+									<row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-bawah" height="128px" /></row>
+								</rows>
+							</grid>
+						</center>
+					</borderlayout>
+
+		</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="tabpanelVa">
+
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="tabpanelFinpay">
+
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="tabpanelIpaymu">
+
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="tabpanelFaspay">
+
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="tabpanelJatelindo">
+
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="tabpanelCimb">
+
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="tabpanelBni">
+
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="tabpanelBsi">
+
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="tabpanelBri">
+
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="rekonsiliasi">
+
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="rekonsiliasiGagal">
+
+				</tabpanel>
+			</tabpanels>
+		</tabbox>
+
+	</window>
+
+
+</zk>

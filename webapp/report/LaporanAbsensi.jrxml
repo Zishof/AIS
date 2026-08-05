@@ -1,0 +1,1865 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="LaporanAbsensi" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20" uuid="e1ce49b4-038b-427b-bcfb-acdc72e838f2">
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<property name="ireport.zoom" value="1.2396694214876032"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="One Empty Record"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="perkuliahan" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[94284L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tampil_nilai" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["1"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="barcode" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="kaprodi" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="nip" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="tanggal" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_jurusan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Prodi"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_fakultas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Fakultas"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_kota" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Ciputat"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="waktu_dicetak" class="java.util.Date" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new java.util.Date()]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[(
+	select
+
+	((select substr(max(cc.absensi),position(b.mahasiswa||',' in max(cc.absensi))+length(b.mahasiswa||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 1)) as p1,
+	((select substr(max(cc.absensi),position(b.mahasiswa||',' in max(cc.absensi))+length(b.mahasiswa||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 2)) as p2,
+	((select substr(max(cc.absensi),position(b.mahasiswa||',' in max(cc.absensi))+length(b.mahasiswa||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 3)) as p3,
+	((select substr(max(cc.absensi),position(b.mahasiswa||',' in max(cc.absensi))+length(b.mahasiswa||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 4)) as p4,
+	((select substr(max(cc.absensi),position(b.mahasiswa||',' in max(cc.absensi))+length(b.mahasiswa||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 5)) as p5,
+	((select substr(max(cc.absensi),position(b.mahasiswa||',' in max(cc.absensi))+length(b.mahasiswa||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 6)) as p6,
+	((select substr(max(cc.absensi),position(b.mahasiswa||',' in max(cc.absensi))+length(b.mahasiswa||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 7)) as p7,
+	((select substr(max(cc.absensi),position(b.mahasiswa||',' in max(cc.absensi))+length(b.mahasiswa||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 8)) as p8,
+	((select substr(max(cc.absensi),position(b.mahasiswa||',' in max(cc.absensi))+length(b.mahasiswa||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 9)) as p9,
+	((select substr(max(cc.absensi),position(b.mahasiswa||',' in max(cc.absensi))+length(b.mahasiswa||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 10)) as p10,
+	((select substr(max(cc.absensi),position(b.mahasiswa||',' in max(cc.absensi))+length(b.mahasiswa||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 11)) as p11,
+	((select substr(max(cc.absensi),position(b.mahasiswa||',' in max(cc.absensi))+length(b.mahasiswa||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 12)) as p12,
+	((select substr(max(cc.absensi),position(b.mahasiswa||',' in max(cc.absensi))+length(b.mahasiswa||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 13)) as p13,
+	((select substr(max(cc.absensi),position(b.mahasiswa||',' in max(cc.absensi))+length(b.mahasiswa||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 14)) as p14,
+	((select substr(max(cc.absensi),position(b.mahasiswa||',' in max(cc.absensi))+length(b.mahasiswa||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 15)) as p15,
+	((select substr(max(cc.absensi),position(b.mahasiswa||',' in max(cc.absensi))+length(b.mahasiswa||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 16)) as p16,
+	((select substr(max(cc.absensi),position(b.mahasiswa||',' in max(cc.absensi))+length(b.mahasiswa||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 17)) as p17,
+	((select substr(max(cc.absensi),position(b.mahasiswa||',' in max(cc.absensi))+length(b.mahasiswa||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 18)) as p18,
+	((select substr(max(cc.absensi),position(b.mahasiswa||',' in max(cc.absensi))+length(b.mahasiswa||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 19)) as p19,
+	((select count(bb.id) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) where aa.mahasiswa = e.id and cc.perkuliahan = a.id and bb.id=1)) as jumlah,
+
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.mahasiswa = e.id and cc.perkuliahan = a.id and ff.nama = 'Tugas')) as Tugas,
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.mahasiswa = e.id and cc.perkuliahan = a.id and ff.nama = 'UTS')) as UTS,
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.mahasiswa = e.id and cc.perkuliahan = a.id and ff.nama = 'UAS')) as UAS,
+
+	e.nim AS nim,
+	e.nama AS nama,
+	d.nama as nama_matakuliah,
+	cc.nama as ruang,
+	d.sks,
+	(case (a.semester % 2) when 0 then 'Genap' else 'Ganjil' end) AS jenis_semester,
+	a.tahun_ajaran AS tahun_ajaran,
+	h.nama AS fakultas,
+	a.kelas,
+	g.nama as nama_jurusan,
+	a.semester,
+	(case when ii.code is null then hh.nip else ii.code end) as nip_kaprodi,
+	(case when ii.nama is null then hh.nama else ii.nama end) as nama_kaprodi,
+	a.waktu_mulai|| ' s.d '||a.waktu_selesai as waktu,
+	a.hari
+
+	from perkuliahan a
+	inner join detailperkuliahan b on (a.id = b.perkuliahan or a.perkuliahan_paralel = b.perkuliahan)
+	left join matakuliah d on (d.id = a.matakuliah)
+	left join mahasiswa e on b.mahasiswa = e.id
+	left join jurusan g on g.id = a.jurusan
+	left join fakultas h on g.fakultas = h.id
+	left join ruang cc on (a.ruang = cc.id)
+	left join (
+		select aa.nama, aa.nip, aa.jurusan
+		from staff aa
+		left join jabatan bb on (aa.jabatan = bb.id)
+		where bb.nama ilike '%kaprodi%'
+	) hh on (hh.jurusan = a.jurusan)
+	left join dosen ii on (g.kaprodi = ii.id)
+
+	where a.id = $P{perkuliahan}
+	and b.persetujuan = 1
+	order by e.nim
+)
+
+union all
+
+(
+	select
+
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 1)) as p1,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 2)) as p2,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 3)) as p3,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 4)) as p4,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 5)) as p5,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 6)) as p6,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 7)) as p7,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 8)) as p8,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 9)) as p9,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 10)) as p10,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 11)) as p11,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 12)) as p12,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 13)) as p13,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 14)) as p14,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 15)) as p15,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 16)) as p16,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 17)) as p17,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 18)) as p18,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 19)) as p19,
+	((select count(bb.id) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) where aa.dosen = e.id and cc.perkuliahan = a.id and bb.id=1)) as jumlah,
+
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'Tugas')) as Tugas,
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'UTS')) as UTS,
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'UAS')) as UAS,
+
+	'Dosen 1' AS nim,
+	e.nama AS nama,
+	d.nama as nama_matakuliah,
+	cc.nama as ruang,
+	d.sks,
+	(case (a.semester % 2) when 0 then 'Genap' else 'Ganjil' end) AS jenis_semester,
+	a.tahun_ajaran AS tahun_ajaran,
+	h.nama AS fakultas,
+	a.kelas,
+	g.nama as nama_jurusan,
+	a.semester,
+	(case when ii.code is null then hh.nip else ii.code end) as nip_kaprodi,
+	(case when ii.nama is null then hh.nama else ii.nama end) as nama_kaprodi,
+	a.waktu_mulai|| ' s.d '||a.waktu_selesai as waktu,
+	a.hari
+
+	from perkuliahan a
+	left join matakuliah d on (d.id = a.matakuliah)
+	inner join dosen e on a.dosen1 = e.id
+	left join jurusan g on g.id = a.jurusan
+	left join fakultas h on g.fakultas = h.id
+	left join ruang cc on (a.ruang = cc.id)
+	left join (
+		select aa.nama, aa.nip, aa.jurusan
+		from staff aa
+		left join jabatan bb on (aa.jabatan = bb.id)
+		where bb.nama ilike '%kaprodi%'
+	) hh on (hh.jurusan = a.jurusan)
+	left join dosen ii on (g.kaprodi = ii.id)
+
+	where a.id = $P{perkuliahan}
+)
+
+
+union all
+
+(
+	select
+
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 1)) as p1,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 2)) as p2,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 3)) as p3,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 4)) as p4,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 5)) as p5,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 6)) as p6,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 7)) as p7,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 8)) as p8,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 9)) as p9,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 10)) as p10,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 11)) as p11,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 12)) as p12,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 13)) as p13,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 14)) as p14,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 15)) as p15,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 16)) as p16,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 17)) as p17,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 18)) as p18,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 19)) as p19,
+	((select count(bb.id) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) where aa.dosen = e.id and cc.perkuliahan = a.id and bb.id=1)) as jumlah,
+
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'Tugas')) as Tugas,
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'UTS')) as UTS,
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'UAS')) as UAS,
+
+	'Dosen 2' AS nim,
+	e.nama AS nama,
+	d.nama as nama_matakuliah,
+	cc.nama as ruang,
+	d.sks,
+	(case (a.semester % 2) when 0 then 'Genap' else 'Ganjil' end) AS jenis_semester,
+	a.tahun_ajaran AS tahun_ajaran,
+	h.nama AS fakultas,
+	a.kelas,
+	g.nama as nama_jurusan,
+	a.semester,
+	(case when ii.code is null then hh.nip else ii.code end) as nip_kaprodi,
+	(case when ii.nama is null then hh.nama else ii.nama end) as nama_kaprodi,
+	a.waktu_mulai|| ' s.d '||a.waktu_selesai as waktu,
+	a.hari
+
+	from perkuliahan a
+	left join matakuliah d on (d.id = a.matakuliah)
+	inner join dosen e on a.dosen2 = e.id
+	left join jurusan g on g.id = a.jurusan
+	left join fakultas h on g.fakultas = h.id
+	left join ruang cc on (a.ruang = cc.id)
+	left join (
+		select aa.nama, aa.nip, aa.jurusan
+		from staff aa
+		left join jabatan bb on (aa.jabatan = bb.id)
+		where bb.nama ilike '%kaprodi%'
+	) hh on (hh.jurusan = a.jurusan)
+	left join dosen ii on (g.kaprodi = ii.id)
+
+	where a.id = $P{perkuliahan}
+)
+
+
+
+union all
+
+(
+	select
+
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 1)) as p1,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 2)) as p2,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 3)) as p3,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 4)) as p4,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 5)) as p5,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 6)) as p6,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 7)) as p7,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 8)) as p8,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 9)) as p9,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 10)) as p10,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 11)) as p11,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 12)) as p12,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 13)) as p13,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 14)) as p14,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 15)) as p15,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 16)) as p16,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 17)) as p17,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 18)) as p18,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 19)) as p19,
+	((select count(bb.id) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) where aa.dosen = e.id and cc.perkuliahan = a.id and bb.id=1)) as jumlah,
+
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'Tugas')) as Tugas,
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'UTS')) as UTS,
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'UAS')) as UAS,
+
+	'Dosen 3' AS nim,
+	e.nama AS nama,
+	d.nama as nama_matakuliah,
+	cc.nama as ruang,
+	d.sks,
+	(case (a.semester % 2) when 0 then 'Genap' else 'Ganjil' end) AS jenis_semester,
+	a.tahun_ajaran AS tahun_ajaran,
+	h.nama AS fakultas,
+	a.kelas,
+	g.nama as nama_jurusan,
+	a.semester,
+	(case when ii.code is null then hh.nip else ii.code end) as nip_kaprodi,
+	(case when ii.nama is null then hh.nama else ii.nama end) as nama_kaprodi,
+	a.waktu_mulai|| ' s.d '||a.waktu_selesai as waktu,
+	a.hari
+
+	from perkuliahan a
+	left join matakuliah d on (d.id = a.matakuliah)
+	inner join dosen e on a.dosen3 = e.id
+	left join jurusan g on g.id = a.jurusan
+	left join fakultas h on g.fakultas = h.id
+	left join ruang cc on (a.ruang = cc.id)
+	left join (
+		select aa.nama, aa.nip, aa.jurusan
+		from staff aa
+		left join jabatan bb on (aa.jabatan = bb.id)
+		where bb.nama ilike '%kaprodi%'
+	) hh on (hh.jurusan = a.jurusan)
+	left join dosen ii on (g.kaprodi = ii.id)
+
+	where a.id = $P{perkuliahan}
+)
+
+
+
+union all
+
+(
+	select
+
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 1)) as p1,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 2)) as p2,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 3)) as p3,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 4)) as p4,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 5)) as p5,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 6)) as p6,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 7)) as p7,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 8)) as p8,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 9)) as p9,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 10)) as p10,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 11)) as p11,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 12)) as p12,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 13)) as p13,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 14)) as p14,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 15)) as p15,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 16)) as p16,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 17)) as p17,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 18)) as p18,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 19)) as p19,
+	((select count(bb.id) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) where aa.dosen = e.id and cc.perkuliahan = a.id and bb.id=1)) as jumlah,
+
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'Tugas')) as Tugas,
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'UTS')) as UTS,
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'UAS')) as UAS,
+
+	'Dosen 4' AS nim,
+	e.nama AS nama,
+	d.nama as nama_matakuliah,
+	cc.nama as ruang,
+	d.sks,
+	(case (a.semester % 2) when 0 then 'Genap' else 'Ganjil' end) AS jenis_semester,
+	a.tahun_ajaran AS tahun_ajaran,
+	h.nama AS fakultas,
+	a.kelas,
+	g.nama as nama_jurusan,
+	a.semester,
+	(case when ii.code is null then hh.nip else ii.code end) as nip_kaprodi,
+	(case when ii.nama is null then hh.nama else ii.nama end) as nama_kaprodi,
+	a.waktu_mulai|| ' s.d '||a.waktu_selesai as waktu,
+	a.hari
+
+	from perkuliahan a
+	left join matakuliah d on (d.id = a.matakuliah)
+	inner join dosen e on a.dosen4 = e.id
+	left join jurusan g on g.id = a.jurusan
+	left join fakultas h on g.fakultas = h.id
+	left join ruang cc on (a.ruang = cc.id)
+	left join (
+		select aa.nama, aa.nip, aa.jurusan
+		from staff aa
+		left join jabatan bb on (aa.jabatan = bb.id)
+		where bb.nama ilike '%kaprodi%'
+	) hh on (hh.jurusan = a.jurusan)
+	left join dosen ii on (g.kaprodi = ii.id)
+
+	where a.id = $P{perkuliahan}
+)
+
+
+
+
+union all
+
+(
+	select
+
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 1)) as p1,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 2)) as p2,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 3)) as p3,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 4)) as p4,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 5)) as p5,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 6)) as p6,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 7)) as p7,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 8)) as p8,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 9)) as p9,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 10)) as p10,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 11)) as p11,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 12)) as p12,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 13)) as p13,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 14)) as p14,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 15)) as p15,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 16)) as p16,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 17)) as p17,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 18)) as p18,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 19)) as p19,
+	((select count(bb.id) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) where aa.dosen = e.id and cc.perkuliahan = a.id and bb.id=1)) as jumlah,
+
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'Tugas')) as Tugas,
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'UTS')) as UTS,
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'UAS')) as UAS,
+
+	'Dosen 5' AS nim,
+	e.nama AS nama,
+	d.nama as nama_matakuliah,
+	cc.nama as ruang,
+	d.sks,
+	(case (a.semester % 2) when 0 then 'Genap' else 'Ganjil' end) AS jenis_semester,
+	a.tahun_ajaran AS tahun_ajaran,
+	h.nama AS fakultas,
+	a.kelas,
+	g.nama as nama_jurusan,
+	a.semester,
+	(case when ii.code is null then hh.nip else ii.code end) as nip_kaprodi,
+	(case when ii.nama is null then hh.nama else ii.nama end) as nama_kaprodi,
+	a.waktu_mulai|| ' s.d '||a.waktu_selesai as waktu,
+	a.hari
+
+	from perkuliahan a
+	left join matakuliah d on (d.id = a.matakuliah)
+	inner join dosen e on a.dosen5 = e.id
+	left join jurusan g on g.id = a.jurusan
+	left join fakultas h on g.fakultas = h.id
+	left join ruang cc on (a.ruang = cc.id)
+	left join (
+		select aa.nama, aa.nip, aa.jurusan
+		from staff aa
+		left join jabatan bb on (aa.jabatan = bb.id)
+		where bb.nama ilike '%kaprodi%'
+	) hh on (hh.jurusan = a.jurusan)
+	left join dosen ii on (g.kaprodi = ii.id)
+
+	where a.id = $P{perkuliahan}
+)
+
+
+
+union all
+
+(
+	select
+
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 1)) as p1,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 2)) as p2,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 3)) as p3,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 4)) as p4,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 5)) as p5,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 6)) as p6,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 7)) as p7,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 8)) as p8,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 9)) as p9,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 10)) as p10,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 11)) as p11,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 12)) as p12,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 13)) as p13,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 14)) as p14,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 15)) as p15,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 16)) as p16,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 17)) as p17,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 18)) as p18,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 19)) as p19,
+	((select count(bb.id) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) where aa.dosen = e.id and cc.perkuliahan = a.id and bb.id=1)) as jumlah,
+
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'Tugas')) as Tugas,
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'UTS')) as UTS,
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'UAS')) as UAS,
+
+	'Dosen 6' AS nim,
+	e.nama AS nama,
+	d.nama as nama_matakuliah,
+	cc.nama as ruang,
+	d.sks,
+	(case (a.semester % 2) when 0 then 'Genap' else 'Ganjil' end) AS jenis_semester,
+	a.tahun_ajaran AS tahun_ajaran,
+	h.nama AS fakultas,
+	a.kelas,
+	g.nama as nama_jurusan,
+	a.semester,
+	(case when ii.code is null then hh.nip else ii.code end) as nip_kaprodi,
+	(case when ii.nama is null then hh.nama else ii.nama end) as nama_kaprodi,
+	a.waktu_mulai|| ' s.d '||a.waktu_selesai as waktu,
+	a.hari
+
+	from perkuliahan a
+	left join matakuliah d on (d.id = a.matakuliah)
+	inner join dosen e on a.dosen6 = e.id
+	left join jurusan g on g.id = a.jurusan
+	left join fakultas h on g.fakultas = h.id
+	left join ruang cc on (a.ruang = cc.id)
+	left join (
+		select aa.nama, aa.nip, aa.jurusan
+		from staff aa
+		left join jabatan bb on (aa.jabatan = bb.id)
+		where bb.nama ilike '%kaprodi%'
+	) hh on (hh.jurusan = a.jurusan)
+	left join dosen ii on (g.kaprodi = ii.id)
+
+	where a.id = $P{perkuliahan}
+)
+
+
+
+union all
+
+(
+	select
+
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 1)) as p1,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 2)) as p2,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 3)) as p3,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 4)) as p4,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 5)) as p5,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 6)) as p6,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 7)) as p7,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 8)) as p8,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 9)) as p9,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 10)) as p10,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 11)) as p11,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 12)) as p12,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 13)) as p13,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 14)) as p14,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 15)) as p15,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 16)) as p16,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 17)) as p17,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 18)) as p18,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 19)) as p19,
+	((select count(bb.id) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) where aa.dosen = e.id and cc.perkuliahan = a.id and bb.id=1)) as jumlah,
+
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'Tugas')) as Tugas,
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'UTS')) as UTS,
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'UAS')) as UAS,
+
+	'Dosen 7' AS nim,
+	e.nama AS nama,
+	d.nama as nama_matakuliah,
+	cc.nama as ruang,
+	d.sks,
+	(case (a.semester % 2) when 0 then 'Genap' else 'Ganjil' end) AS jenis_semester,
+	a.tahun_ajaran AS tahun_ajaran,
+	h.nama AS fakultas,
+	a.kelas,
+	g.nama as nama_jurusan,
+	a.semester,
+	(case when ii.code is null then hh.nip else ii.code end) as nip_kaprodi,
+	(case when ii.nama is null then hh.nama else ii.nama end) as nama_kaprodi,
+	a.waktu_mulai|| ' s.d '||a.waktu_selesai as waktu,
+	a.hari
+
+	from perkuliahan a
+	left join matakuliah d on (d.id = a.matakuliah)
+	inner join dosen e on a.dosen7 = e.id
+	left join jurusan g on g.id = a.jurusan
+	left join fakultas h on g.fakultas = h.id
+	left join ruang cc on (a.ruang = cc.id)
+	left join (
+		select aa.nama, aa.nip, aa.jurusan
+		from staff aa
+		left join jabatan bb on (aa.jabatan = bb.id)
+		where bb.nama ilike '%kaprodi%'
+	) hh on (hh.jurusan = a.jurusan)
+	left join dosen ii on (g.kaprodi = ii.id)
+
+	where a.id = $P{perkuliahan}
+)
+
+
+
+
+union all
+
+(
+	select
+
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 1)) as p1,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 2)) as p2,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 3)) as p3,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 4)) as p4,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 5)) as p5,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 6)) as p6,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 7)) as p7,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 8)) as p8,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 9)) as p9,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 10)) as p10,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 11)) as p11,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 12)) as p12,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 13)) as p13,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 14)) as p14,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 15)) as p15,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 16)) as p16,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 17)) as p17,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 18)) as p18,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 19)) as p19,
+	((select count(bb.id) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) where aa.dosen = e.id and cc.perkuliahan = a.id and bb.id=1)) as jumlah,
+
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'Tugas')) as Tugas,
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'UTS')) as UTS,
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'UAS')) as UAS,
+
+	'Dosen 8' AS nim,
+	e.nama AS nama,
+	d.nama as nama_matakuliah,
+	cc.nama as ruang,
+	d.sks,
+	(case (a.semester % 2) when 0 then 'Genap' else 'Ganjil' end) AS jenis_semester,
+	a.tahun_ajaran AS tahun_ajaran,
+	h.nama AS fakultas,
+	a.kelas,
+	g.nama as nama_jurusan,
+	a.semester,
+	(case when ii.code is null then hh.nip else ii.code end) as nip_kaprodi,
+	(case when ii.nama is null then hh.nama else ii.nama end) as nama_kaprodi,
+	a.waktu_mulai|| ' s.d '||a.waktu_selesai as waktu,
+	a.hari
+
+	from perkuliahan a
+	left join matakuliah d on (d.id = a.matakuliah)
+	inner join dosen e on a.dosen8 = e.id
+	left join jurusan g on g.id = a.jurusan
+	left join fakultas h on g.fakultas = h.id
+	left join ruang cc on (a.ruang = cc.id)
+	left join (
+		select aa.nama, aa.nip, aa.jurusan
+		from staff aa
+		left join jabatan bb on (aa.jabatan = bb.id)
+		where bb.nama ilike '%kaprodi%'
+	) hh on (hh.jurusan = a.jurusan)
+	left join dosen ii on (g.kaprodi = ii.id)
+
+	where a.id = $P{perkuliahan}
+)
+
+
+
+union all
+
+(
+	select
+
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 1)) as p1,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 2)) as p2,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 3)) as p3,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 4)) as p4,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 5)) as p5,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 6)) as p6,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 7)) as p7,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 8)) as p8,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 9)) as p9,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 10)) as p10,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 11)) as p11,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 12)) as p12,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 13)) as p13,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 14)) as p14,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 15)) as p15,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 16)) as p16,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 17)) as p17,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 18)) as p18,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 19)) as p19,
+	((select count(bb.id) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) where aa.dosen = e.id and cc.perkuliahan = a.id and bb.id=1)) as jumlah,
+
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'Tugas')) as Tugas,
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'UTS')) as UTS,
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'UAS')) as UAS,
+
+	'Dosen 9' AS nim,
+	e.nama AS nama,
+	d.nama as nama_matakuliah,
+	cc.nama as ruang,
+	d.sks,
+	(case (a.semester % 2) when 0 then 'Genap' else 'Ganjil' end) AS jenis_semester,
+	a.tahun_ajaran AS tahun_ajaran,
+	h.nama AS fakultas,
+	a.kelas,
+	g.nama as nama_jurusan,
+	a.semester,
+	(case when ii.code is null then hh.nip else ii.code end) as nip_kaprodi,
+	(case when ii.nama is null then hh.nama else ii.nama end) as nama_kaprodi,
+	a.waktu_mulai|| ' s.d '||a.waktu_selesai as waktu,
+	a.hari
+
+	from perkuliahan a
+	left join matakuliah d on (d.id = a.matakuliah)
+	inner join dosen e on a.dosen9 = e.id
+	left join jurusan g on g.id = a.jurusan
+	left join fakultas h on g.fakultas = h.id
+	left join ruang cc on (a.ruang = cc.id)
+	left join (
+		select aa.nama, aa.nip, aa.jurusan
+		from staff aa
+		left join jabatan bb on (aa.jabatan = bb.id)
+		where bb.nama ilike '%kaprodi%'
+	) hh on (hh.jurusan = a.jurusan)
+	left join dosen ii on (g.kaprodi = ii.id)
+
+	where a.id = $P{perkuliahan}
+)
+
+
+
+union all
+
+(
+	select
+
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 1)) as p1,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 2)) as p2,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 3)) as p3,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 4)) as p4,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 5)) as p5,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 6)) as p6,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 7)) as p7,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 8)) as p8,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 9)) as p9,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 10)) as p10,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 11)) as p11,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 12)) as p12,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 13)) as p13,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 14)) as p14,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 15)) as p15,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 16)) as p16,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 17)) as p17,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 18)) as p18,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 19)) as p19,
+	((select count(bb.id) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) where aa.dosen = e.id and cc.perkuliahan = a.id and bb.id=1)) as jumlah,
+
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'Tugas')) as Tugas,
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'UTS')) as UTS,
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'UAS')) as UAS,
+
+	'Dosen 10' AS nim,
+	e.nama AS nama,
+	d.nama as nama_matakuliah,
+	cc.nama as ruang,
+	d.sks,
+	(case (a.semester % 2) when 0 then 'Genap' else 'Ganjil' end) AS jenis_semester,
+	a.tahun_ajaran AS tahun_ajaran,
+	h.nama AS fakultas,
+	a.kelas,
+	g.nama as nama_jurusan,
+	a.semester,
+	(case when ii.code is null then hh.nip else ii.code end) as nip_kaprodi,
+	(case when ii.nama is null then hh.nama else ii.nama end) as nama_kaprodi,
+	a.waktu_mulai|| ' s.d '||a.waktu_selesai as waktu,
+	a.hari
+
+	from perkuliahan a
+	left join matakuliah d on (d.id = a.matakuliah)
+	inner join dosen e on a.dosen10 = e.id
+	left join jurusan g on g.id = a.jurusan
+	left join fakultas h on g.fakultas = h.id
+	left join ruang cc on (a.ruang = cc.id)
+	left join (
+		select aa.nama, aa.nip, aa.jurusan
+		from staff aa
+		left join jabatan bb on (aa.jabatan = bb.id)
+		where bb.nama ilike '%kaprodi%'
+	) hh on (hh.jurusan = a.jurusan)
+	left join dosen ii on (g.kaprodi = ii.id)
+
+	where a.id = $P{perkuliahan}
+)
+
+
+
+union all
+
+(
+	select
+
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 1)) as p1,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 2)) as p2,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 3)) as p3,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 4)) as p4,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 5)) as p5,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 6)) as p6,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 7)) as p7,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 8)) as p8,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 9)) as p9,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 10)) as p10,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 11)) as p11,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 12)) as p12,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 13)) as p13,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 14)) as p14,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 15)) as p15,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 16)) as p16,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 17)) as p17,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 18)) as p18,
+	((select substr(max(cc.absensi),position(e.id||',' in max(cc.absensi))+length(e.id||',')+2,1) from pertemuan cc where cc.perkuliahan = a.id and cc.pertemuan_ke = 19)) as p19,
+	((select count(bb.id) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) where aa.dosen = e.id and cc.perkuliahan = a.id and bb.id=1)) as jumlah,
+
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'Tugas')) as Tugas,
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'UTS')) as UTS,
+	((select max(bb.kode) from statuskehadiran aa inner join statusabsensi bb on (aa.statusabsensi = bb.id) inner join pertemuan cc on (aa.pertemuan = cc.id) inner join status_pertemuan ff on (cc.status_pertemuan = ff.id) where aa.dosen = e.id and cc.perkuliahan = a.id and ff.nama = 'UAS')) as UAS,
+
+	'Asisten Dosen' AS nim,
+	e.nama AS nama,
+	d.nama as nama_matakuliah,
+	cc.nama as ruang,
+	d.sks,
+	(case (a.semester % 2) when 0 then 'Genap' else 'Ganjil' end) AS jenis_semester,
+	a.tahun_ajaran AS tahun_ajaran,
+	h.nama AS fakultas,
+	a.kelas,
+	g.nama as nama_jurusan,
+	a.semester,
+	(case when ii.code is null then hh.nip else ii.code end) as nip_kaprodi,
+	(case when ii.nama is null then hh.nama else ii.nama end) as nama_kaprodi,
+	a.waktu_mulai|| ' s.d '||a.waktu_selesai as waktu,
+	a.hari
+
+	from perkuliahan a
+	left join matakuliah d on (d.id = a.matakuliah)
+	inner join mahasiswa_jadi_asisten e1 on e1.perkuliahan = a.id
+	inner join mahasiswa e on e1.mahasiswa = e.id
+	left join jurusan g on g.id = a.jurusan
+	left join fakultas h on g.fakultas = h.id
+	left join ruang cc on (a.ruang = cc.id)
+	left join (
+		select aa.nama, aa.nip, aa.jurusan
+		from staff aa
+		left join jabatan bb on (aa.jabatan = bb.id)
+		where bb.nama ilike '%kaprodi%'
+	) hh on (hh.jurusan = a.jurusan)
+	left join dosen ii on (g.kaprodi = ii.id)
+
+	where a.id = $P{perkuliahan}
+)]]>
+	</queryString>
+	<field name="p1" class="java.lang.String"/>
+	<field name="p2" class="java.lang.String"/>
+	<field name="p3" class="java.lang.String"/>
+	<field name="p4" class="java.lang.String"/>
+	<field name="p5" class="java.lang.String"/>
+	<field name="p6" class="java.lang.String"/>
+	<field name="p7" class="java.lang.String"/>
+	<field name="p8" class="java.lang.String"/>
+	<field name="p9" class="java.lang.String"/>
+	<field name="p10" class="java.lang.String"/>
+	<field name="p11" class="java.lang.String"/>
+	<field name="p12" class="java.lang.String"/>
+	<field name="p13" class="java.lang.String"/>
+	<field name="p14" class="java.lang.String"/>
+	<field name="p15" class="java.lang.String"/>
+	<field name="p16" class="java.lang.String"/>
+	<field name="p17" class="java.lang.String"/>
+	<field name="p18" class="java.lang.String"/>
+	<field name="p19" class="java.lang.String"/>
+	<field name="jumlah" class="java.lang.Long"/>
+	<field name="tugas" class="java.lang.String"/>
+	<field name="uts" class="java.lang.String"/>
+	<field name="uas" class="java.lang.String"/>
+	<field name="nim" class="java.lang.String"/>
+	<field name="nama" class="java.lang.String"/>
+	<field name="nama_matakuliah" class="java.lang.String"/>
+	<field name="ruang" class="java.lang.String"/>
+	<field name="sks" class="java.lang.Integer"/>
+	<field name="jenis_semester" class="java.lang.String"/>
+	<field name="tahun_ajaran" class="java.lang.String"/>
+	<field name="fakultas" class="java.lang.String"/>
+	<field name="kelas" class="java.lang.String"/>
+	<field name="nama_jurusan" class="java.lang.String"/>
+	<field name="semester" class="java.lang.Integer"/>
+	<field name="nip_kaprodi" class="java.lang.String"/>
+	<field name="nama_kaprodi" class="java.lang.String"/>
+	<field name="waktu" class="java.lang.String"/>
+	<field name="hari" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="81" splitType="Stretch">
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-1" x="0" y="55" width="535" height="25" uuid="f655e104-6429-4c10-963a-5690ca3a7863"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Serif" size="12" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA["DAFTAR HADIR PERKULIAHAN "+$F{jenis_semester}.toUpperCase()+" "+$F{tahun_ajaran}.toUpperCase()]]></textFieldExpression>
+			</textField>
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="0" y="-16" width="78" height="71" uuid="89ff1f82-1101-4415-a1af-57f6d12f0c47"/>
+				<box>
+					<bottomPen lineWidth="1.0"/>
+				</box>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-46" x="3" y="18" width="530" height="17" uuid="3fe3aa6f-77e0-41a6-884d-46caf9a968f3"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{label_jurusan}.toUpperCase()+ " " + $F{nama_jurusan}.toUpperCase()]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="3" y="35" width="530" height="20" uuid="9e5f18a8-7c3b-4d11-bddc-f5af49915208"/>
+				<box>
+					<bottomPen lineWidth="1.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{label_universitas}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-21" x="3" y="2" width="530" height="17" uuid="5e4f4d2a-7cf9-4bb2-b1a4-875496a539a2"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[($F{fakultas} == null || $F{fakultas}.equals("-") || $P{label_fakultas}==null || $P{label_fakultas}.equals("") ? "" : $F{fakultas}.toUpperCase())]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<columnHeader>
+		<band height="40" splitType="Stretch">
+			<staticText>
+				<reportElement key="staticText-1" x="3" y="20" width="21" height="20" uuid="a15c86b2-0d92-453c-8347-32b0f37b6845"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[NO]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-2" x="24" y="20" width="82" height="20" uuid="65a625cc-1a07-4184-9879-0270a2bb8bb5"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[NIM]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-3" x="106" y="20" width="175" height="20" uuid="4c1c6403-847e-4f12-a9c4-862b11f9bfa4"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[NAMA]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-4" x="281" y="20" width="13" height="20" uuid="3f70784e-d24c-4a1a-9563-3611fadd0686"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[1]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-5" x="294" y="20" width="13" height="20" uuid="db16a39f-8a72-4464-88d8-de84411cfb21"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[2]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-6" x="307" y="20" width="13" height="20" uuid="0ef9ee67-cc3c-4102-86fb-5aaaab898ff8"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[3]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-7" x="320" y="20" width="13" height="20" uuid="bac01e06-0da8-496c-ac82-518a0346ee79"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[4]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-8" x="333" y="20" width="13" height="20" uuid="e0fb9f67-b735-482f-889b-058faa2090ca"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[5]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-9" x="346" y="20" width="13" height="20" uuid="12bb7d65-25e8-4377-8ad8-146333998d26"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[6]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-10" x="359" y="20" width="13" height="20" uuid="62287a54-6f30-43e7-8fbb-33fb8cfdc38d"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[7]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-11" x="372" y="20" width="13" height="20" uuid="1a421dd8-5602-410f-a38b-0cd4256e90ab"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[8]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-12" x="385" y="20" width="13" height="20" uuid="1bc13baa-91c4-40d5-9d7c-f1d3a42e879c"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[9]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-13" x="398" y="20" width="13" height="20" uuid="27fe7209-8061-4e79-b81e-867df0346148"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[10]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-14" x="411" y="20" width="13" height="20" uuid="39122dcf-5c9b-4137-934d-17b6c260aa39"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[11]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-15" x="424" y="20" width="13" height="20" uuid="1767fe49-364c-4d7c-b253-1c6f429d7ba1"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[12]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-16" x="437" y="20" width="13" height="20" uuid="bf048e0b-bb54-4c87-9024-34c2f6e70d25"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[13]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-17" x="450" y="20" width="13" height="20" uuid="2ad832b5-cabd-4c2f-afad-57fb803888fe"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[14]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-18" x="463" y="20" width="13" height="20" uuid="c80bdef9-f43c-4a1d-bd1b-a1260defcf6d"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[15]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-19" x="476" y="20" width="13" height="20" uuid="ec3637c4-537d-4d8a-be8a-df670118ec98"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[16]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-31" x="489" y="20" width="46" height="20" uuid="561fa9eb-55f1-4dc2-b527-f52f817ece17"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[KET.]]></text>
+			</staticText>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-17" x="3" y="0" width="532" height="20" uuid="8b840a0a-13ff-4c20-a6aa-ea0ce6dca444"/>
+				<box leftPadding="3">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["MATKUL : "+$F{nama_matakuliah}.toUpperCase()+"\tSKS : "+$F{sks}+"\tSMT/KLS/RNG/HR/WKT: "+($F{semester} == null ? "" : $F{semester}) + " / "+($F{kelas} == null ? "" : $F{kelas}) + " / " + ($F{ruang} == null ? "" : $F{ruang})+" / "+($F{hari} == null?"":$F{hari})+" / "+($F{waktu}==null?"": " "+$F{waktu})]]></textFieldExpression>
+			</textField>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="18" splitType="Stretch">
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="3" y="0" width="21" height="18" uuid="f944d98b-ea1b-4bcd-b450-ccdaa70cde33"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="24" y="0" width="82" height="18" uuid="d5005da7-671c-406a-8198-546c944a4b04"/>
+				<box leftPadding="4">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nim}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="106" y="0" width="175" height="18" uuid="7ff8dc73-0185-4f17-8bc3-94a4a9886a2f"/>
+				<box leftPadding="4">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nama}.toUpperCase()]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="281" y="0" width="13" height="18" uuid="d135422f-fe1c-4342-81a6-7be3ecb0e32d">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("1"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{p1}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-2" x="294" y="0" width="13" height="18" uuid="c3b208d1-0084-45eb-bb78-bb00ea967bc9">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("1"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{p2}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-3" x="307" y="0" width="13" height="18" uuid="7e9b0f8e-0c86-4db5-8612-97713c5062fa">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("1"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{p3}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-4" x="320" y="0" width="13" height="18" uuid="e8c23adc-1b16-46c6-a70d-a245d6d6cf9d">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("1"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{p4}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-5" x="333" y="0" width="13" height="18" uuid="2a65dbe6-5a6f-41e0-9eb8-e2af5866e333">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("1"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{p5}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-6" x="346" y="0" width="13" height="18" uuid="2d7d4728-98f2-485d-a10b-7f0d25c8f988">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("1"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{p6}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-7" x="359" y="0" width="13" height="18" uuid="a548123d-e3a3-4747-a04d-07aee343c8c3">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("1"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{p7}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-8" x="372" y="0" width="13" height="18" uuid="e98de586-b2c9-486b-8a71-6b8eee04b768">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("1"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{p8}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-9" x="385" y="0" width="13" height="18" uuid="75a0075d-db25-4f48-a7d7-ad54d6833dd8">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("1"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{p9}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-10" x="398" y="0" width="13" height="18" uuid="62108177-3405-4b24-99f4-459e80a1382b">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("1"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{p10}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-11" x="411" y="0" width="13" height="18" uuid="70402060-adcf-48e9-8f06-636bfd1f4aa5">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("1"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{p11}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-12" x="424" y="0" width="13" height="18" uuid="58e5e3f9-178f-4300-a7fb-382370d6e774">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("1"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{p12}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-13" x="437" y="0" width="13" height="18" uuid="66128436-20da-432e-b1bf-964d604a576e">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("1"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{p13}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-14" x="450" y="0" width="13" height="18" uuid="b920414f-f12b-4ed4-9464-960b7a1bd627">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("1"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{p14}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-15" x="463" y="0" width="13" height="18" uuid="142998bb-c861-4509-9241-3a82e09bfda1">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("1"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{p15}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-16" x="476" y="0" width="13" height="18" uuid="860b8fc6-68f6-4237-9bfc-cab729d2959b">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("1"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{p16}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-32" x="489" y="0" width="46" height="18" uuid="ed038b3b-143e-4a91-bc71-b7042943b700"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<text><![CDATA[]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-22" x="281" y="0" width="13" height="18" uuid="b325a2da-7eaa-4c18-9e4e-b7653b525ab8">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("0"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-23" x="294" y="0" width="13" height="18" uuid="08e2fb41-b5ef-4e66-ab32-67f24e45bf38">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("0"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-24" x="307" y="0" width="13" height="18" uuid="65a0ae4b-21a2-4243-95de-52cdb157fb67">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("0"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-25" x="320" y="0" width="13" height="18" uuid="20012744-2d5d-4674-9b37-090481b68e78">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("0"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-26" x="333" y="0" width="13" height="18" uuid="103b1667-ba30-4a17-8407-a5583d3cd9e5">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("0"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-27" x="346" y="0" width="13" height="18" uuid="8282b0a4-5f1e-4fa5-a5a7-4384a7ac1057">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("0"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-28" x="359" y="0" width="13" height="18" uuid="7dda5003-496f-4bb1-b1f0-c579916cb9db">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("0"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-29" x="372" y="0" width="13" height="18" uuid="0b2bd9e2-83e5-4b44-966e-ba9b20028104">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("0"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-30" x="385" y="0" width="13" height="18" uuid="1ee39c5d-7cf8-432a-947e-8851a139b7a2">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("0"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-31" x="398" y="0" width="13" height="18" uuid="3f799b6c-9b8a-4e03-b558-ae742af6de91">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("0"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-32" x="411" y="0" width="13" height="18" uuid="3486493f-8f86-4088-aeb8-44cf39e657a0">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("0"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-33" x="424" y="0" width="13" height="18" uuid="9a597249-e4cd-433f-ba43-619959a5c429">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("0"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-34" x="437" y="0" width="13" height="18" uuid="625da8e2-12bb-4d0a-8196-513fa3d3403e">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("0"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-35" x="450" y="0" width="13" height="18" uuid="e79ac554-8eb0-4201-917e-060887bd9c1d">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("0"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-36" x="463" y="0" width="13" height="18" uuid="a7a2b44d-75fe-422c-854a-571c56be22c9">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("0"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-37" x="476" y="0" width="13" height="18" uuid="266f705c-4091-429f-a20c-5d9abfc98539">
+					<printWhenExpression><![CDATA[new Boolean($P{tampil_nilai}.equals("0"))]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<columnFooter>
+		<band height="15" splitType="Stretch">
+			<textField pattern="EEEEE, dd MMMMM yyyy HH:mm:ss">
+				<reportElement x="92" y="0" width="443" height="15" uuid="6d8720ac-9bea-4563-bde0-7e0a1745c21e">
+					<printWhenExpression><![CDATA[$P{waktu_dicetak} != null]]></printWhenExpression>
+				</reportElement>
+				<textElement verticalAlignment="Bottom">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{waktu_dicetak}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-42" x="3" y="0" width="78" height="15" uuid="5f936a2d-8033-402d-b5b5-d001f131316d">
+					<printWhenExpression><![CDATA[$P{waktu_dicetak} != null]]></printWhenExpression>
+				</reportElement>
+				<textElement textAlignment="Right" verticalAlignment="Bottom">
+					<font size="8" isUnderline="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Waktu Dicetak :"]]></textFieldExpression>
+			</textField>
+		</band>
+	</columnFooter>
+	<pageFooter>
+		<band height="20">
+			<image scaleImage="FillFrame" vAlign="Middle">
+				<reportElement key="image-2" x="0" y="0" width="300" height="20" uuid="a8daf2a1-5476-4d3d-b725-2be3d1bbb178"/>
+				<imageExpression><![CDATA[$P{barcode}]]></imageExpression>
+			</image>
+		</band>
+	</pageFooter>
+	<summary>
+		<band height="114" splitType="Stretch">
+			<!-- Sisi Dosen -->
+			<image hAlign="Left" vAlign="Middle" onErrorType="Blank">
+				<reportElement key="image-dosen" x="0" y="16" width="196" height="71" uuid="f72ef544-5678-8ef0-c123-4e5f6071829a"/>
+				<box>
+					<bottomPen lineWidth="1.0"/>
+				</box>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("ttd_dosen1")]]></imageExpression>
+			</image>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-dosen-label" x="3" y="0" width="196" height="50" uuid="083f0655-6789-9f01-d234-5f607182930b"/>
+				<textFieldExpression><![CDATA[$P{label_kota}+", "+$P{tanggal}+"\nDosen Pengampu\n\n\n\n"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-dosen-nama" x="3" y="74" width="196" height="17" uuid="19401766-7890-0012-e345-607182930a1c"/>
+				<textElement>
+					<font isBold="true" isUnderline="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("nama_dosen1") == null ? ".............................." : $P{REPORT_PARAMETERS_MAP}.get("nama_dosen1").toString().toUpperCase()]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-dosen-nidn" x="3" y="91" width="196" height="23" uuid="2a512877-8901-1123-f456-7182930a1b2d"/>
+				<textElement>
+					<font isUnderline="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["NIDN : "+($P{REPORT_PARAMETERS_MAP}.get("nidn_dosen1") == null ? "" : $P{REPORT_PARAMETERS_MAP}.get("nidn_dosen1").toString())]]></textFieldExpression>
+			</textField>
+			<!-- Sisi Kaprodi -->
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-44" x="339" y="0" width="196" height="50" uuid="4e6cce35-8abf-4de4-8ede-8fc3ffbc8109"/>
+				<textElement textAlignment="Center"/>
+				<textFieldExpression><![CDATA[$P{label_kota}+", "+$P{tanggal}+"\n Ka. Prodi\n\n\n\n"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-4" x="339" y="74" width="196" height="17" uuid="fd2a155f-a91a-4ddd-984f-c665dba434be"/>
+				<textElement textAlignment="Center">
+					<font isBold="true" isUnderline="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nama_kaprodi}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-5" x="339" y="91" width="196" height="23" uuid="13c46687-bea2-48ed-966d-57fc14528b98"/>
+				<textElement textAlignment="Center">
+					<font isUnderline="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[($P{REPORT_PARAMETERS_MAP}.get( "tulisan_nip" ) == null || $P{REPORT_PARAMETERS_MAP}.get( "tulisan_nip" ).toString().trim().isEmpty() ? "NIP. " : $P{REPORT_PARAMETERS_MAP}.get( "tulisan_nip" ).toString().trim())  + ($F{nip_kaprodi} == null ? "" : $F{nip_kaprodi})]]></textFieldExpression>
+			</textField>
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement key="image-1" x="339" y="16" width="196" height="71" uuid="efeb9ab6-da9b-4f30-b823-287516bf8d9c">
+					<printWhenExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "ttd_kaprodi" ) != null]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<bottomPen lineWidth="1.0"/>
+				</box>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "ttd_kaprodi" )]]></imageExpression>
+			</image>
+		</band>
+	</summary>
+</jasperReport>

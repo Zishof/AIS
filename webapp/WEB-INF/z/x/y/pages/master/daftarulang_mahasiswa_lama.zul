@@ -1,0 +1,244 @@
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" id="window"
+		apply="ais.action.master.DaftarUlangMahasiswaLamaAction" border="none"
+		width="100%" height="100%">
+
+		<tabbox width="100%" height="100%">
+
+			<tabs>
+				<tab use="ais.ui.util.MyTabConfig" selected="true">
+					Pembayaran Mahasiswa
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig" id="keranjang"
+					visible="false" forward="onClick=onKeranjangPembayaran">
+					Keranjang Pembayaran
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					id="tabUploadDanDownloadNilaiFormatEpsbed"
+					forward="onClick=onUploadDanDownloadCicilanMahasiswa">
+					Upload dan Download
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onBuktiPembayaran">
+					Bukti Pembayaran
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onDepositMahasiswa">
+					Tabungan
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onPembelianMahasiswa">
+					Pembelian
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onPengeluaranMahasiswa">
+					Pengeluaran
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onDiskonMahasiswa">
+					Diskon
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onBlokirMahasiswa">
+					Blokir Mahasiswa
+				</tab>
+			</tabs>
+
+			<tabpanels>
+
+				<tabpanel use="ais.ui.util.MyTabpanel">
+
+					<borderlayout>
+
+						<!-- Filter pemilihan mahasiswa: selalu tampil (halaman pembayaran) -->
+						<north border="none" size="64px" flex="false" splittable="false"
+							sclass="ecampus-inline-filter-north"><div sclass="ecampus-bantuan-north-wrap" style="width:100%; height:100%; display:flex; align-items:center; gap:8px;">
+				<toolbar style="background:transparent;border:0;padding:0;"><toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;daftarulang_mahasiswa_lama&quot;, &quot;Bantuan&quot;);"/></toolbar>
+							<div sclass="ecampus-inline-filter" width="100%">
+								<grid use="ais.ui.util.MyGrid" fixedLayout="true" id="grid"
+									sclass="fgrid ecampus-inline-filter-grid">
+									<columns>
+										<column use="ais.ui.util.MyColumnConfig" width="150px" />
+										<column use="ais.ui.util.MyColumnConfig" width="170px" />
+										<column use="ais.ui.util.MyColumnConfig" width="130px" />
+										<column use="ais.ui.util.MyColumnConfig" />
+										<column use="ais.ui.util.MyColumnConfig" width="110px" />
+										<column use="ais.ui.util.MyColumnConfig" width="150px" />
+										<column use="ais.ui.util.MyColumnConfig" width="110px" />
+									</columns>
+									<rows>
+										<row>
+											<label use="ais.ui.util.MyLabelConfig"
+												value="Pilih Jenis Pembayaran" />
+											<combobox width="95%" readonly="true"
+												forward="onChange=onCariMahasiswa" id="jenisPembayaran" />
+											<label use="ais.ui.util.MyLabelConfig"
+												value="Pilih Mahasiswa" />
+											<bandbox
+												use="ais.action.master.helper.AmbilDataMahasiswaBanbox"
+												width="95%" id="nim" />
+											<label use="ais.ui.util.MyLabelConfig"
+												value="Pilih Semester" />
+											<combobox width="95%" readonly="true"
+												forward="onChange=onCariMahasiswa" id="semesterPilihan" />
+											<button use="ais.ui.util.MyButtonConfig"
+												label="Refresh" visible="false" id="tombolRefresh"
+												width="95%" image="/img/options.png"
+												forward="onClick=onCariMahasiswa">
+											</button>
+										</row>
+									</rows>
+								</grid>
+							</div>
+						</div></north>
+
+						<center>
+
+							<!-- WADAH: harus <div> (blok, regang penuh), BUKAN <vbox>.
+							     ZK Box dirender sebagai <table> dgn sel shrink-to-fit →
+							     width:100% portalHost resolve melingkar ke lebar konten →
+							     kolom portal 50% jatuh ke min-content (strip tipis). -->
+							<!-- overflow:auto → wadah ini jadi area scroll saat tinggi dibatasi
+							     (mis. ditampilkan di POPUP modal pembayaran wajib): portal
+							     tumbuh alami sehingga daftar tagihan yang panjang bisa di-scroll,
+							     bukan terpotong. Filter di north tetap diam. -->
+							<div width="100%" height="100%" style="overflow:auto;">
+								<div id="portalHost" width="100%" sclass="ais-portal-host" />
+								<vbox id="center" width="100%">
+
+									<grid use="ais.ui.util.MyGrid" sclass="fgrid"
+										fixedLayout="true" width="100%" id="grids">
+										<columns>
+											<column use="ais.ui.util.MyColumnConfig" width="25%" />
+											<column use="ais.ui.util.MyColumnConfig" />
+										</columns>
+										<rows>
+
+											<row id="rowInfoTunggakan" spans="2" visible="false">
+											</row>
+
+											<row id="rowNim" visible="false">
+												<label use="ais.ui.util.MyLabelConfig" value="Mahasiswa" />
+												<hbox align="start" pack="center">
+													<vbox id="labelFotoMahasiswa" />
+													<vbox>
+														<label id="labelNimMahasiswa" />
+														<label id="labelNamaMahasiswa" />
+														<label use="ais.ui.util.MyLabelBoldAja"
+															id="labelTabungan" />
+													</vbox>
+												</hbox>
+											</row>
+
+											<row id="rowJenisKuliah" visible="false">
+												<label use="ais.ui.util.MyLabelConfig"
+													value="Jenis Kuliah" />
+												<label id="jenisKuliah" />
+											</row>
+
+											<row id="rowProdi" visible="false">
+												<label use="ais.ui.util.MyLabelConfig" value="Prodi" />
+												<label id="prodi" />
+											</row>
+
+											<row id="rowSemester" visible="false">
+												<label use="ais.ui.util.MyLabelConfig" value="Semester" />
+												<hbox>
+													<label id="semester" width="100px" />
+													<hbox id="informasi">
+													</hbox>
+												</hbox>
+											</row>
+
+											<row id="rowTahunMasuk" visible="false">
+												<label use="ais.ui.util.MyLabelConfig"
+													value="Tahun Masuk" />
+												<label id="labelTahunMasuk" />
+											</row>
+
+											<row id="rowTahunAkademik" visible="false">
+												<label use="ais.ui.util.MyLabelConfig"
+													value="Tahun Akademik" />
+												<label id="labelTahunAkademik" />
+											</row>
+
+											<row id="rowTanggalValidasi" visible="false">
+												<label use="ais.ui.util.MyLabelConfig"
+													value="Tanggal Validasi" />
+												<label width="100px" id="tanggalValidasi" />
+											</row>
+
+											<row id="rowValidator" visible="false">
+												<label use="ais.ui.util.MyLabelConfig" value="Validator" />
+												<label id="validator" />
+											</row>
+
+											<row id="rowButton" visible="false">
+												<button use="ais.ui.util.MyButtonConfig"
+													label="Refresh Daftar Item Biaya"
+													forward="onRefreshDaftarItemBiaya" />
+											</row>
+
+											<row id="rowListBiaya" visible="false" spans="2">
+											</row>
+
+											<row id="rowPengurangan" visible="false">
+											</row>
+
+											<row id="rowKeterangan" visible="false">
+												<label use="ais.ui.util.MyLabelConfig"
+													value="Keterangan" />
+												<textbox id="keterangan" width="95%" rows="3">
+												</textbox>
+											</row>
+
+											<row spans="2" id="rowMobile">
+												<h:div style="text-align:center;padding:32px 16px 20px;box-sizing:border-box;">
+													<h:div style="font-size:32px;color:#cbd5e1;margin-bottom:10px;">⊙</h:div>
+													<h:div style="font-size:13px;font-weight:600;color:#475569;margin-bottom:6px;">Pilih mahasiswa</h:div>
+													<h:div style="font-size:12px;color:#94a3b8;line-height:1.6;">
+														Pilih Jenis Pembayaran &amp; Mahasiswa<h:br/>
+														pada filter di atas untuk melihat<h:br/>
+														rincian tagihan dan pembayaran.
+													</h:div>
+												</h:div>
+											</row>
+
+										</rows>
+									</grid>
+
+								</vbox>
+
+							</div>
+
+						</center>
+
+					</borderlayout>
+
+				</tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="tabpanelKeranjangPembayaran"></tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="tabpanelUploadDanDownloadCicilanMahasiswa">
+				</tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="tabpanelBuktiPembayaran"></tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="tabpanelDepositMahasiswa"></tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="tabpanelPembelianMahasiswa"></tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="tabpanelPengeluaranMahasiswa"></tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="tabpanelDiskonMahasiswa"></tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="tabpanelBlokirMahasiswa"></tabpanel>
+			</tabpanels>
+		</tabbox>
+
+	</window>
+</zk>

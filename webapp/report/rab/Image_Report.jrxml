@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Image_Report" pageWidth="595" pageHeight="389" orientation="Landscape" whenNoDataType="AllSectionsNoDetail" columnWidth="563" leftMargin="16" rightMargin="16" topMargin="20" bottomMargin="20">
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="tahun" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new Integer(2009)]]></defaultValueExpression>
+	</parameter>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["../logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="judul" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_fakultas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Fakultas"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_jurusan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Prodi"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="image" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["../logo.png"]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[]]>
+	</queryString>
+	<field name="image" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="349" splitType="Stretch">
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="0" y="1" width="563" height="56"/>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<textField>
+				<reportElement x="0" y="57" width="567" height="29"/>
+				<textElement textAlignment="Center" verticalAlignment="Bottom">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{label_universitas}]]></textFieldExpression>
+			</textField>
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="0" y="100" width="563" height="249"/>
+				<imageExpression><![CDATA[$P{image}]]></imageExpression>
+			</image>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<columnHeader>
+		<band splitType="Stretch"/>
+	</columnHeader>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band splitType="Stretch"/>
+	</pageFooter>
+	<summary>
+		<band splitType="Stretch"/>
+	</summary>
+</jasperReport>

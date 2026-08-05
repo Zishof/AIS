@@ -1,0 +1,188 @@
+/* =====================================================================
+   BASE KARIR CSS - Portal Rekrutmen / Lowongan Kerja
+   Semua gaya khusus modul KARIR dipusatkan di sini.
+   Dipakai bersama base-theme.css dan file tema, misalnya hijau_kuning.css.
+   ===================================================================== */
+:root {
+    --karir-primary: var(--theme-primary, #2563eb);
+    --karir-secondary: var(--theme-hover, #7c3aed);
+    --karir-gradient: linear-gradient(135deg, var(--karir-primary), var(--karir-secondary));
+    --karir-soft: #f8fafc;
+    --karir-dark: #0f172a;
+    --karir-muted: #64748b;
+    --karir-border: rgba(148, 163, 184, .22);
+    --karir-shadow: 0 18px 55px rgba(15, 23, 42, .08);
+    --karir-shadow-strong: 0 24px 70px rgba(15, 23, 42, .14);
+}
+html { scroll-behavior: smooth; }
+body[class*="karir-body-"] {
+    background: #f8fafc;
+    color: #0f172a;
+    font-family: Inter, Poppins, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    overflow-x: hidden;
+    text-rendering: optimizeLegibility;
+}
+[class*="karir-bg-"] {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    background: radial-gradient(circle at top left, rgba(37,99,235,.16), transparent 36%), radial-gradient(circle at right 18%, rgba(124,58,237,.12), transparent 32%), linear-gradient(180deg,#f8fafc 0%, #eef2ff 100%);
+}
+[class*="karir-navbar-"] {
+    background: rgba(255,255,255,.90);
+    backdrop-filter: blur(18px);
+    border-bottom: 1px solid rgba(148,163,184,.20);
+    box-shadow: 0 14px 40px rgba(15,23,42,.06);
+}
+[class*="karir-brand-logo-"] { width:48px; height:48px; object-fit:contain; border-radius:16px; background:#fff; box-shadow:0 10px 24px rgba(15,23,42,.10); padding:6px; }
+[class*="karir-gradient-text-"] { background:var(--karir-gradient); -webkit-background-clip:text; background-clip:text; color:transparent; }
+[class*="karir-btn-gradient-"] { background:var(--karir-gradient); color:#fff!important; border:0; box-shadow:0 14px 30px rgba(37,99,235,.22); transition:.22s ease; }
+[class*="karir-btn-gradient-"]:hover { transform:translateY(-1px); box-shadow:0 18px 38px rgba(37,99,235,.30); }
+[class*="karir-pill-"] { border-radius:999px; }
+[class*="karir-soft-card-"] { background:rgba(255,255,255,.96); border:1px solid rgba(148,163,184,.20); border-radius:28px; box-shadow:var(--karir-shadow); backdrop-filter:blur(14px); color:#0f172a; }
+[class*="karir-hover-card-"] { transition:.25s ease; }
+[class*="karir-hover-card-"]:hover { transform:translateY(-5px); box-shadow:var(--karir-shadow-strong); }
+[class*="karir-section-title-"] { font-weight:900; letter-spacing:-.04em; color:#0f172a; }
+.karir-required::after { content:" *"; color:#dc2626; font-weight:800; }
+.karir-badge-soft { background:#eef2ff; color:var(--karir-primary); border:1px solid rgba(37,99,235,.16); }
+[class*="karir-stat-"] { border-left:5px solid var(--karir-primary); min-height: 118px; }
+.karir-table thead th { font-size:.75rem; text-transform:uppercase; letter-spacing:.05em; color:#64748b; background:#f8fafc; white-space:nowrap; }
+[class*="karir-loader-"] { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,.70); backdrop-filter:blur(8px); z-index:9999; }
+[class*="karir-loader-"].show { display:flex; }
+.karir-loader-box { background:rgba(15,23,42,.78); border:1px solid rgba(255,255,255,.18); min-width:280px; }
+.karir-step { display:flex; gap:14px; align-items:flex-start; color:#0f172a; }
+.karir-step-icon { width:42px; height:42px; flex:0 0 42px; border-radius:16px; display:flex; align-items:center; justify-content:center; background:#eef2ff; color:var(--karir-primary); }
+.nav-pills .nav-link { color:#334155; font-weight:800; border-radius:999px; }
+.nav-pills .nav-link.active { background:var(--karir-gradient)!important; color:#fff!important; }
+.karir-hero { background-size: cover !important; background-position: center !important; }
+.karir-hero-badge { background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.26); }
+.karir-hero-mini { background:rgba(255,255,255,.12); }
+.karir-logo-md { width:52px; height:52px; object-fit:contain; }
+.karir-panel-muted { background:#f8fafc; border:1px solid rgba(148,163,184,.18); }
+.karir-panel-gradient-soft { background:linear-gradient(135deg,#eff6ff,#f5f3ff); border:1px solid rgba(37,99,235,.12); }
+[class*="karir-flow-card-"] { background:rgba(255,255,255,.94)!important; color:#0f172a!important; border:1px solid rgba(226,232,240,.88)!important; box-shadow:0 18px 46px rgba(15,23,42,.16)!important; }
+[class*="karir-flow-card-"] h4, [class*="karir-flow-card-"] h5, [class*="karir-flow-card-"] strong { color:#0f172a!important; text-shadow:none!important; }
+[class*="karir-flow-card-"] small, [class*="karir-flow-card-"] .text-muted { color:#64748b!important; }
+[class*="karir-flow-card-"] .karir-step { display:flex; gap:12px; align-items:flex-start; padding:12px 0; border-bottom:1px solid rgba(226,232,240,.9); }
+[class*="karir-flow-card-"] .karir-step:last-child { border-bottom:0; padding-bottom:0; }
+[class*="karir-flow-card-"] .karir-step-icon { width:34px; height:34px; flex:0 0 34px; border-radius:12px; display:flex; align-items:center; justify-content:center; background:rgba(37,99,235,.10); color:var(--karir-primary); font-size:.9rem; }
+[class*="karir-flow-note-"] { background:#eff6ff; color:#1e40af; border:1px solid #dbeafe; border-radius:18px; padding:12px 14px; font-size:.86rem; line-height:1.45; }
+[class*="karir-job-card-"] { position:relative; overflow:hidden; cursor:default; }
+[class*="karir-job-card-"]:focus { outline:3px solid rgba(37,99,235,.28); outline-offset:4px; }
+[class*="karir-job-card-"]::before { content:""; position:absolute; inset:0 auto 0 0; width:7px; background:var(--karir-gradient); }
+[class*="karir-job-topline-"] { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+[class*="karir-job-meta-grid-"] { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+[class*="karir-job-mini-"] { border:1px solid rgba(148,163,184,.22); background:linear-gradient(180deg,#fff,#f8fafc); border-radius:18px; padding:14px; min-height:88px; }
+[class*="karir-job-mini-"] .karir-job-mini-label { color:#64748b; font-size:.72rem; text-transform:uppercase; letter-spacing:.055em; font-weight:800; margin-bottom:5px; }
+[class*="karir-job-mini-"] .karir-job-mini-value { color:#0f172a; font-size:.95rem; font-weight:800; line-height:1.35; word-break:break-word; }
+[class*="karir-lowongan-hero-"] { background:linear-gradient(135deg,rgba(37,99,235,.08),rgba(124,58,237,.08)); border:1px solid rgba(37,99,235,.14); border-radius:24px; }
+[class*="karir-job-long-"] { height:100%; border:1px solid rgba(148,163,184,.20); border-radius:18px; background:#fff; padding:15px 16px; box-shadow:0 8px 22px rgba(15,23,42,.04); }
+[class*="karir-job-long-"] h6 { display:flex; align-items:center; gap:8px; font-weight:900; margin-bottom:10px; color:#0f172a; }
+[class*="karir-job-long-"] .karir-long-text { color:#475569; line-height:1.68; font-size:.91rem; max-height:none; overflow:visible; padding-right:4px; }
+[class*="karir-job-side-"] { background:linear-gradient(180deg,#0f172a 0%,#111827 100%); color:#fff; border-radius:24px; padding:22px; height:100%; box-shadow:0 16px 42px rgba(15,23,42,.16); }
+[class*="karir-job-side-"] small, [class*="karir-job-side-"] .small { color:rgba(255,255,255,.70)!important; }
+[class*="karir-job-side-"] .karir-side-row { display:flex; gap:12px; align-items:flex-start; padding:12px 0; border-bottom:1px solid rgba(255,255,255,.10); }
+[class*="karir-job-side-"] .karir-side-row:last-child { border-bottom:0; }
+.karir-job-side-icon { width:38px; height:38px; border-radius:14px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.12); color:#facc15; flex:0 0 38px; }
+[class*="karir-form-flag-"] { border:1px solid rgba(148,163,184,.28); background:#fff; border-radius:999px; padding:6px 10px; font-size:.76rem; font-weight:800; color:#334155; }
+[class*="karir-lowongan-detail-"] { margin-top:18px; border:1px solid rgba(148,163,184,.18); background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%); padding:18px; border-radius:24px; box-shadow:0 14px 36px rgba(15,23,42,.055); }
+[class*="karir-lowongan-detail-title-"] { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-start; gap:12px; margin-bottom:14px; }
+[class*="karir-lowongan-detail-title-"] .title-box { display:flex; align-items:flex-start; gap:12px; }
+[class*="karir-lowongan-detail-title-"] .title-icon { width:44px; height:44px; border-radius:16px; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,rgba(37,99,235,.12),rgba(124,58,237,.12)); color:var(--karir-primary); flex:0 0 44px; }
+[class*="karir-disclaimer-"] { border:1px dashed rgba(245,158,11,.55); background:#fffbeb; color:#92400e; border-radius:20px; padding:16px 18px; }
+[class*="karir-side-hint-"] { margin-top:14px; padding:13px 14px; border-radius:18px; background:rgba(250,204,21,.12); border:1px solid rgba(250,204,21,.25); color:#fde68a; font-size:.86rem; line-height:1.45; }
+[class*="karir-side-hint-"] i { color:#facc15; }
+[class*="karir-card-select-hint-"] { display:inline-flex; align-items:center; gap:8px; margin-top:10px; color:#2563eb; font-weight:800; font-size:.88rem; }
+[class*="karir-apply-btn-"] { background:linear-gradient(135deg,#facc15,#f59e0b); color:#111827!important; border:0; box-shadow:0 12px 28px rgba(245,158,11,.22); }
+[class*="karir-apply-btn-"]:hover { transform:translateY(-1px); box-shadow:0 18px 34px rgba(245,158,11,.30); }
+[class*="karir-apply-btn-"]:disabled { background:#e2e8f0!important; color:#64748b!important; box-shadow:none!important; cursor:not-allowed; transform:none!important; }
+[class*="karir-period-note-"] { border-radius:18px; padding:12px 14px; font-size:.86rem; line-height:1.45; font-weight:700; }
+[class*="karir-period-note-"].open { background:#ecfdf5; color:#047857; border:1px solid #bbf7d0; }
+[class*="karir-period-note-"].closed { background:#fff7ed; color:#9a3412; border:1px solid #fed7aa; }
+[class*="karir-period-note-"].future { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
+[class*="karir-selected-lock-"] { background:linear-gradient(135deg,#ecfdf5,#eff6ff); border:1px solid rgba(16,185,129,.25); border-radius:18px; padding:14px 16px; color:#0f172a; }
+[class*="karir-modal-form-"] .modal-dialog { height:calc(100vh - 28px); max-height:calc(100vh - 28px); margin-top:14px; margin-bottom:14px; }
+[class*="karir-modal-form-"] .modal-content { border:0; border-radius:28px; overflow:hidden; box-shadow:0 28px 90px rgba(15,23,42,.30); height:100%; max-height:100%; display:flex; flex-direction:column; }
+[class*="karir-modal-form-"] .modal-header { background:linear-gradient(135deg,#0f172a,#2563eb); color:#fff; border:0; flex:0 0 auto; }
+[class*="karir-modal-form-"] form { min-height:0; flex:1 1 auto; display:flex; flex-direction:column; }
+[class*="karir-modal-form-"] .modal-body { background:#f8fafc; overflow-y:auto; flex:1 1 auto; min-height:0; max-height:none; scrollbar-width:thin; }
+[class*="karir-modal-form-"] .modal-footer { flex:0 0 auto; box-shadow:0 -14px 34px rgba(15,23,42,.08); }
+[class*="karir-submit-register-btn-"] { min-width:260px; }
+[class*="karir-modal-form-"] .modal-body::-webkit-scrollbar { width:8px; }
+[class*="karir-modal-form-"] .modal-body::-webkit-scrollbar-thumb { background:rgba(100,116,139,.45); border-radius:999px; }
+[class*="karir-modal-form-"] .modal-body::-webkit-scrollbar-track { background:rgba(226,232,240,.65); }
+[class*="karir-ann-card-"] { position:relative; overflow:hidden; height:100%; border:1px solid rgba(148,163,184,.20); border-radius:24px; background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%); box-shadow:0 16px 42px rgba(15,23,42,.07); transition:.22s ease; }
+[class*="karir-ann-card-"]:hover { transform:translateY(-3px); box-shadow:0 24px 60px rgba(15,23,42,.11); }
+[class*="karir-ann-card-"]::before { content:""; position:absolute; inset:0 0 auto 0; height:5px; background:var(--karir-gradient); }
+[class*="karir-ann-date-"] { display:inline-flex; align-items:center; gap:7px; border-radius:999px; background:#eff6ff; color:#1d4ed8; padding:7px 11px; font-size:.78rem; font-weight:800; }
+[class*="karir-ann-text-"] { color:#475569; line-height:1.68; font-size:.93rem; white-space:pre-line; max-height:135px; overflow:hidden; }
+[class*="karir-ann-empty-"] { border:1px dashed rgba(148,163,184,.45); border-radius:24px; background:#f8fafc; color:#64748b; }
+.karir-css-chart-card { background:#fff; border:1px solid rgba(148,163,184,.18); border-radius:24px; padding:18px; box-shadow:0 12px 34px rgba(15,23,42,.055); }
+.karir-progress-line { height:14px; border-radius:999px; background:#e2e8f0; overflow:hidden; }
+.karir-progress-line span { display:block; height:100%; width:0; background:var(--karir-gradient); border-radius:999px; transition:width .6s ease; }
+.karir-css-donut { --value: 0; width:128px; height:128px; border-radius:50%; background:conic-gradient(var(--karir-primary) calc(var(--value) * 1%), #e2e8f0 0); display:grid; place-items:center; margin:auto; }
+.karir-css-donut::before { content:attr(data-label); width:90px; height:90px; border-radius:50%; background:#fff; display:grid; place-items:center; font-weight:900; color:#0f172a; box-shadow:inset 0 0 0 1px rgba(148,163,184,.15); }
+.karir-css-spider { --a:50%; --b:50%; --c:50%; --d:50%; --e:50%; position:relative; min-height:230px; display:grid; place-items:center; }
+.karir-css-spider .web { width:190px; height:190px; background:repeating-radial-gradient(circle, transparent 0 18px, rgba(148,163,184,.28) 19px 20px), conic-gradient(from -90deg, rgba(37,99,235,.14), rgba(124,58,237,.14), rgba(16,185,129,.14), rgba(245,158,11,.14), rgba(37,99,235,.14)); clip-path:polygon(50% 0, 97% 35%, 79% 91%, 21% 91%, 3% 35%); }
+.karir-css-spider .shape { position:absolute; width:190px; height:190px; background:rgba(37,99,235,.42); clip-path:polygon(50% calc(50% - var(--a)*.5), calc(50% + var(--b)*.48) calc(50% - var(--b)*.15), calc(50% + var(--c)*.30) calc(50% + var(--c)*.42), calc(50% - var(--d)*.30) calc(50% + var(--d)*.42), calc(50% - var(--e)*.48) calc(50% - var(--e)*.15)); filter:drop-shadow(0 14px 24px rgba(37,99,235,.18)); }
+.karir-css-spider .spider-label { position:absolute; font-size:.76rem; font-weight:800; color:#64748b; }
+.karir-css-spider .l1 { top:0; left:50%; transform:translateX(-50%); } .karir-css-spider .l2 { top:66px; right:0; } .karir-css-spider .l3 { bottom:0; right:28px; } .karir-css-spider .l4 { bottom:0; left:28px; } .karir-css-spider .l5 { top:66px; left:0; }
+.karir-trend-bars { display:flex; align-items:end; gap:8px; height:116px; padding:14px 10px; border-radius:18px; background:#f8fafc; }
+.karir-trend-bars span { flex:1; min-width:18px; border-radius:999px 999px 8px 8px; background:var(--karir-gradient); height:20%; box-shadow:0 8px 20px rgba(37,99,235,.16); }
+@media (max-width: 992px) { [class*="karir-job-meta-grid-"] { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width: 576px) { [class*="karir-job-meta-grid-"] { grid-template-columns:1fr; } }
+@media (max-width: 768px) {
+    .display-4, .display-5 { font-size:2.15rem; }
+    [class*="karir-soft-card-"] { border-radius:22px; }
+    [class*="karir-modal-form-"] .modal-dialog { height:calc(100vh - 12px); max-height:calc(100vh - 12px); margin:6px; }
+    [class*="karir-modal-form-"] .modal-header { padding:18px!important; }
+    [class*="karir-modal-form-"] .modal-body { padding:18px!important; }
+    [class*="karir-modal-form-"] .modal-footer { padding:14px!important; }
+    [class*="karir-modal-form-"] .modal-footer .btn { width:100%; }
+    [class*="karir-submit-register-btn-"] { min-width:0; }
+    [class*="karir-lowongan-detail-"] { padding:18px; }
+    [class*="karir-lowongan-detail-title-"] { align-items:flex-start; }
+    [class*="karir-lowongan-detail-title-"] .btn { width:100%; }
+}
+
+.karir-modal-gradient { background: var(--karir-gradient) !important; }
+
+.karir-max-760 { max-width: 760px; }
+
+.karir-footer { background: linear-gradient(135deg,#0f172a,#1e293b); }
+
+.karir-spinner-lg { width:3.25rem; height:3.25rem; }
+.karir-brand-title { line-height:1; }
+.karir-hero-title { font-weight:950; letter-spacing:-.055em; }
+.karir-search-input { min-width:260px; }
+.karir-white-panel { background:#fff; border:1px solid #e2e8f0; }
+.karir-ann-title { letter-spacing:-.02em; color:#0f172a; }
+.karir-job-title { font-weight:950; letter-spacing:-.035em; }
+.karir-upload-col { width:260px; }
+
+
+/* Utility tambahan khusus Portal KARIR */
+.fw-black { font-weight: 900 !important; }
+@media (min-width: 992px) { .py-lg-6 { padding-top: 5rem !important; padding-bottom: 5rem !important; } }
+.karir-table { --bs-table-bg: transparent; }
+.karir-table td, .karir-table th { vertical-align: top; }
+.karir-table td { word-break: break-word; }
+.karir-dashboard-welcome { max-width: 920px; }
+.karir-safe-link { word-break: break-all; }
+
+
+/* Halaman panduan dan footer Portal KARIR */
+.karir-footer-list li { margin-bottom: .35rem; }
+.karir-footer-list a { display:inline-flex; align-items:center; gap:.1rem; transition:.18s ease; }
+.karir-footer-list a:hover { color:#fff !important; transform:translateX(3px); }
+.karir-footer-social { width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center; }
+.karir-guide-section { position:relative; }
+.karir-guide-hero { border-radius:32px; background:linear-gradient(135deg,rgba(255,255,255,.96),rgba(248,250,252,.92)); border:1px solid rgba(148,163,184,.22); box-shadow:0 24px 70px rgba(15,23,42,.09); }
+.karir-guide-icon { width:70px; height:70px; border-radius:24px; display:flex; align-items:center; justify-content:center; background:var(--karir-gradient); color:#fff; font-size:1.65rem; box-shadow:0 18px 38px rgba(37,99,235,.20); flex:0 0 70px; }
+.karir-guide-title { letter-spacing:-.04em; color:#0f172a; }
+.karir-guide-card { border-radius:32px; background:#fff; border:1px solid rgba(148,163,184,.18); box-shadow:0 20px 58px rgba(15,23,42,.075); }
+.karir-guide-content { color:#334155; line-height:1.86; font-size:1rem; text-align:justify; }
+.karir-guide-content p { margin-bottom:1.25rem; }
+.karir-guide-side { position:sticky; top:100px; border-radius:28px; background:linear-gradient(180deg,#0f172a,#111827); color:#fff; box-shadow:0 20px 58px rgba(15,23,42,.14); }
+@media (max-width: 992px) { .karir-guide-side { position:relative; top:auto; } .karir-guide-content { text-align:left; } }

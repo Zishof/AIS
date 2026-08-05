@@ -1,0 +1,66 @@
+<?page title="Pilihan Paket dan Biaya" contentType="text/html;charset=UTF-8"?>
+<zk>
+<borderlayout height="100%">
+		<west width="30%">
+
+		</west>
+		<center autoscroll="true">
+				<box>
+				<separator height="30px"></separator>
+				<box width="90%" align="center">
+					<label use="ais.ui.util.MyLabelConfig">
+						Paket Pilihan Program Studi dan Biaya 
+					</label>
+				</box>
+				<separator height="10px"></separator>
+				<html>
+				<![CDATA[
+				
+							<center>
+			        		<table border="1" bordercolor='#ACACAC'>
+                      			<tr>
+                        			<td rowspan="2" bgcolor="#000066"><div align="center"><font color="white">No</font></div></td>
+                        			<td rowspan="2" bgcolor="#000066"><font color="white">Paket Pilihan</font></td>
+                        			<td bgcolor="#000066"><font color="white">Biaya Pendaftaran (Rp)</font></td>
+                      			</tr>
+                      			<tr>
+                        			<td bgcolor="#000066"><font color="white">Jalur Mandiri</font></td>
+                      			</tr>
+                      			<tr >
+                        			<td ><div align="center">1</div></td>
+                        			<td >Paket A (Agama)</td>
+                        			<td >300.000,-</td>
+                      			</tr>
+                      			<tr bgcolor="#DBE7F9">
+                        			<td><div align="center">2</div></td>
+                        			<td>Paket B (Sosial)</td>
+                        			<td>300.000,-</td>
+                      			</tr>
+                      			<tr >
+                        			<td ><div align="center">3</div></td>
+                        			<td >Paket C (Sains)</td>
+                        			<td >300.000,-</td>
+                      			</tr>
+                      			<tr bgcolor="#DBE7F9">
+                        			<td><div align="center">4</div></td>
+                        			<td>Paket AB (Agama-Sosial)</td>
+                        			<td>300.000,-</td>
+                      			</tr>
+                     			<tr >
+                        			<td ><div align="center">5</div></td>
+                        			<td >Paket BC (Sosial-Sains)</td>
+                        			<td >300.000,-</td>
+                      			</tr>
+                      			<tr bgcolor="#DBE7F9">
+                        			<td><div align="center">6</div></td>
+                        			<td>Paket AC (Agama-Sains)</td>
+                        			<td>300.000,-</td>
+                      			</tr>
+                    		</table>
+                    		</center>
+                    		]]>
+                    		</html>
+			</box>
+		</center>
+	</borderlayout>
+</zk>

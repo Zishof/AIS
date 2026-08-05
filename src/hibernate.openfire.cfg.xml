@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE hibernate-configuration PUBLIC
+"-//Hibernate/Hibernate Configuration DTD 3.0//EN"
+"http://hibernate.sourceforge.net/hibernate-configuration-3.0.dtd">
+<hibernate-configuration>
+	<session-factory name="HibernateSessionFactory">
+
+
+
+		<property name="hibernate.connection.driver_class">org.postgresql.Driver</property>
+		<property name="hibernate.connection.url">${url}</property>
+		<property name="hibernate.connection.username">${username}</property>
+		<property name="hibernate.connection.password">${password}</property>
+
+		<!-- <property name="connection.datasource">java:comp/env/jdbc/aisDB</property> -->
+		<property name="hibernate.dialect">org.hibernate.dialect.PostgreSQLDialect</property>
+
+		<property name="hibernate.format_sql">false</property>
+		<property name="hibernate.show_sql">false</property>
+		<property name="hbm2ddl.auto">update</property>
+		<property name="hibernate.connection.autocommit">false</property>
+		<property name="connection.pool_size">2000</property>
+		<property name="current_session_context_class">thread</property>
+		<!-- <property name="hibernate.cache.provider_class">org.hibernate.cache.OSCacheProvider</property> -->
+		<property name="hibernate.use_identifier_rollback">true</property>
+		<property name="hibernate.transaction.auto_close_session">false</property>
+
+
+
+
+		<!-- Connection auto reconnect after long inactivity -->
+		<property name="connection.autoReconnect">true</property>
+		<property name="connection.autoReconnectForPools">true</property>
+		<property name="connection.is-connection-validation-required">true</property>
+
+
+		<mapping class="ais.database.model.file.LampiranLainMahasiswa" />
+		<mapping class="ais.database.model.file.LampiranLainBiodataCalonMahasiswa" />
+		
+	</session-factory>
+
+</hibernate-configuration>

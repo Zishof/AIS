@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="tracer_pasien" pageWidth="282" pageHeight="212" orientation="Landscape" whenNoDataType="AllSectionsNoDetail" columnWidth="268" leftMargin="7" rightMargin="7" topMargin="5" bottomMargin="5" uuid="ea4c79cf-3d46-4dd6-8c95-59fd3bd78590">
+	<property name="ireport.scriptlethandling" value="2"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<property name="ireport.zoom" value="2.6620000000000013"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="pendaftaran" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new Long(1000)]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mybarcode" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select
+a.kode as no_reg,
+a.tanggalpendaftaran,
+b.kode as mr,
+b.nama as nama_pasien,
+c.nama as nama_poli,
+a.nomor_antrian,
+d.nama as nama_dokter
+
+
+from pendaftaran a
+left join pasien b on (a.pasien = b.id)
+left join poly c on (a.poly = c.id)
+left join dokter d on (a.dokter = d.id)
+where a.id = $P{pendaftaran}]]>
+	</queryString>
+	<field name="no_reg" class="java.lang.String"/>
+	<field name="tanggalpendaftaran" class="java.util.Date"/>
+	<field name="mr" class="java.lang.String"/>
+	<field name="nama_pasien" class="java.lang.String"/>
+	<field name="nama_poli" class="java.lang.String"/>
+	<field name="nomor_antrian" class="java.lang.Integer"/>
+	<field name="nama_dokter" class="java.lang.String"/>
+	<title>
+		<band height="202" splitType="Stretch">
+			<staticText>
+				<reportElement key="staticText-1" x="0" y="0" width="270" height="16" uuid="bd0f8992-1771-4209-b738-114a4e19830d"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[Tracer Pasien Rawat Jalan]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-3" x="0" y="77" width="38" height="17" uuid="79907b14-34c4-4f3c-871d-0671767ecfa5"/>
+				<textElement verticalAlignment="Middle">
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[Waktu]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-4" x="0" y="94" width="38" height="17" uuid="b3ac814b-58c9-42cf-82bc-e84816c5cbcd"/>
+				<textElement verticalAlignment="Middle">
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[No. MR]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-5" x="0" y="112" width="38" height="17" uuid="65386256-e970-43b3-85b8-c733be2b5c8e"/>
+				<textElement verticalAlignment="Middle">
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[Nama]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-6" x="0" y="129" width="38" height="18" uuid="1ab37ba1-3c2b-44db-b4e5-7f9f0899aa55"/>
+				<textElement verticalAlignment="Middle">
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[Poli]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-7" x="0" y="164" width="38" height="38" uuid="be6741fc-c841-4452-be4c-da62ee84e683"/>
+				<textElement verticalAlignment="Middle">
+					<font size="9" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Antrian]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-8" x="1" y="147" width="37" height="17" uuid="7fe49688-06c7-4445-b6f6-9c4c18e89c4b"/>
+				<textElement verticalAlignment="Middle">
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[Dokter]]></text>
+			</staticText>
+			<textField pattern="dd-MM-yyyy HH.mm.ss" isBlankWhenNull="false">
+				<reportElement key="textField" x="42" y="77" width="226" height="17" uuid="863d8d93-3fcf-43ed-8840-f2bd8c7d9669"/>
+				<box leftPadding="5"/>
+				<textElement verticalAlignment="Middle">
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{tanggalpendaftaran}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="42" y="94" width="226" height="17" uuid="600536ac-1df9-4bb2-884e-2e406300ea34"/>
+				<box leftPadding="5"/>
+				<textElement verticalAlignment="Middle">
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{mr}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="42" y="112" width="226" height="17" uuid="5185eaa4-3510-4f43-9a05-95ab0b66d534"/>
+				<box leftPadding="5"/>
+				<textElement verticalAlignment="Middle">
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nama_pasien}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="42" y="129" width="226" height="18" uuid="3b310c3c-5598-426f-9d70-03d5624bf9e6"/>
+				<box leftPadding="5"/>
+				<textElement verticalAlignment="Middle">
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nama_poli}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="42" y="164" width="226" height="38" uuid="0d07e13c-bc09-4200-9f2f-901ddb2d92d1"/>
+				<box leftPadding="5"/>
+				<textElement verticalAlignment="Middle">
+					<font size="24" isBold="true" isUnderline="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nomor_antrian}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="42" y="147" width="227" height="17" uuid="5e6241e1-4ab5-4ab4-af1c-ed4dcfce3c99"/>
+				<box leftPadding="5"/>
+				<textElement verticalAlignment="Middle">
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nama_dokter}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-10" x="38" y="147" width="4" height="17" uuid="0fb7c8e7-abeb-4016-a887-bdbd1b001c7e"/>
+				<textElement verticalAlignment="Top">
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-11" x="38" y="164" width="4" height="38" uuid="272af602-388e-4f3d-b1d8-cf0c7dd34429"/>
+				<textElement verticalAlignment="Middle">
+					<font size="9" isBold="true"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-12" x="38" y="129" width="4" height="18" uuid="4d48878b-bad9-417b-acb9-f38d5b946a3e"/>
+				<textElement verticalAlignment="Top">
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-13" x="38" y="112" width="4" height="17" uuid="67ca4ba7-e316-43c5-ad95-e20583b763cf"/>
+				<textElement verticalAlignment="Top">
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-14" x="38" y="94" width="4" height="17" uuid="00685dc5-fc1b-485e-a81a-a409fe1fd888"/>
+				<textElement verticalAlignment="Top">
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-15" x="38" y="77" width="4" height="17" uuid="28f80287-6668-459d-98b2-eb8805c9d4a9"/>
+				<textElement verticalAlignment="Top">
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<image scaleImage="RetainShape" hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement key="image-1" x="1" y="16" width="268" height="61" uuid="a8da3700-fbae-4536-a9a1-e8284ea2358c"/>
+				<box>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<imageExpression><![CDATA[$P{mybarcode}]]></imageExpression>
+			</image>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<columnHeader>
+		<band splitType="Stretch"/>
+	</columnHeader>
+	<detail>
+		<band splitType="Stretch"/>
+	</detail>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band splitType="Stretch"/>
+	</pageFooter>
+	<summary>
+		<band splitType="Stretch"/>
+	</summary>
+</jasperReport>

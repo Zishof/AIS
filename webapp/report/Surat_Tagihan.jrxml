@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="KartuUjianSpmbMandiri" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20" uuid="c22e76cd-5430-4377-bc03-f3fd33dc2580">
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<property name="ireport.zoom" value="1.6105100000000045"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="389"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="logo1" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="biodata_id" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[181L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="foto" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_kota" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Ciputat"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="nomorUjian" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["---"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="SUBREPORT_DIR" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["C:\\Users\\M Fauzi M\\Documents\\My Project\\Academic Information System\\AIS\\ais\\web\\report\\"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="info" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="jurusan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Prodi"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="fakultas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Fakultas"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="infotambahan" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="nomor" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="tahunakademik" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="kaprodi" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="dedaline" class="java.util.Date" isForPrompting="false"/>
+	<parameter name="prosentaseDenda" class="java.lang.Double" isForPrompting="false">
+		<defaultValueExpression><![CDATA[0.0]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select UPPER(a.nama) as nama,
+a.jenis_kartu_identitas_mahasiswa_baru,
+a.no_identitas,
+a.jenis_kelamin,
+UPPER(a.tempat_lahir) as tempat_lahir,
+a.tanggal_lahir,
+UPPER(a.alamat) as alamat,
+UPPER(a.asal_sma) as asal_sma,
+a.no_registrasi,
+a.no_ujian,
+b.nama as p1,
+c.nama as p2,
+c1.nama as p3,
+c2.nama as p4,
+c3.nama as p5,
+d.nama as kartu,
+a.nama_ayah,
+a.tahunakademik,
+lulus.nama as lulus,
+lulusfakultas.nama as lulusfakultas,
+g.nama gelombang_pendaftaran,
+p.nama as nama_perguruan_tinggi,
+a.program,
+g.tanggaldaftarulangberakhir,
+a.nomor_surat_kelulusan,
+a.tanggalsuratkelulusan
+
+from  biodata_calon_mahasiswa a
+
+left join jurusan b on a.prodi_1=b.id
+left join jurusan c on a.prodi_2=c.id
+left join jurusan c1 on a.prodi3=c1.id
+left join jurusan c2 on a.prodi4=c2.id
+left join jurusan c3 on a.prodi5=c3.id
+left join jurusan lulus on a.prodi_lulus=lulus.id
+left join fakultas lulusfakultas on lulus.fakultas = lulusfakultas.id
+left join jenis_kartu_identitas_mahasiswa_baru d on a.jenis_kartu_identitas_mahasiswa_baru=d.id
+left join gelombang_pendaftaran g on (g.id = a.gelombang_pendaftaran)
+left join fakultas f on (b.fakultas=f.id)
+left join perguruan_tinggi p on (p.id=f.perguruan_tinggi)
+
+where a.id=$P{biodata_id}
+
+order by a.id desc
+limit 1]]>
+	</queryString>
+	<field name="nama" class="java.lang.String"/>
+	<field name="jenis_kartu_identitas_mahasiswa_baru" class="java.lang.Long"/>
+	<field name="no_identitas" class="java.lang.String"/>
+	<field name="jenis_kelamin" class="java.lang.String"/>
+	<field name="tempat_lahir" class="java.lang.String"/>
+	<field name="tanggal_lahir" class="java.sql.Date"/>
+	<field name="alamat" class="java.lang.String"/>
+	<field name="asal_sma" class="java.lang.String"/>
+	<field name="no_registrasi" class="java.lang.String"/>
+	<field name="no_ujian" class="java.lang.String"/>
+	<field name="p1" class="java.lang.String"/>
+	<field name="p2" class="java.lang.String"/>
+	<field name="p3" class="java.lang.String"/>
+	<field name="p4" class="java.lang.String"/>
+	<field name="p5" class="java.lang.String"/>
+	<field name="kartu" class="java.lang.String"/>
+	<field name="nama_ayah" class="java.lang.String"/>
+	<field name="tahunakademik" class="java.lang.String"/>
+	<field name="lulus" class="java.lang.String"/>
+	<field name="lulusfakultas" class="java.lang.String"/>
+	<field name="gelombang_pendaftaran" class="java.lang.String"/>
+	<field name="nama_perguruan_tinggi" class="java.lang.String"/>
+	<field name="program" class="java.lang.String"/>
+	<field name="tanggaldaftarulangberakhir" class="java.sql.Date"/>
+	<field name="nomor_surat_kelulusan" class="java.lang.String"/>
+	<field name="tanggalsuratkelulusan" class="java.sql.Date"/>
+	<field name="nilai" class="java.lang.Double"/>
+	<field name="label" class="java.lang.String"/>
+	<field name="jenis_tagihan" class="java.lang.String"/>
+	<field name="jenis_tagihan_id" class="java.lang.Long"/>
+	<variable name="Tanggal" class="java.util.Date">
+		<variableExpression><![CDATA[new java.util.Date()]]></variableExpression>
+	</variable>
+	<variable name="total" class="java.lang.Double" calculation="Sum">
+		<variableExpression><![CDATA[$F{nilai}]]></variableExpression>
+	</variable>
+	<group name="jenis_tagihan_id">
+		<groupExpression><![CDATA[$F{jenis_tagihan_id}]]></groupExpression>
+		<groupHeader>
+			<band height="15">
+				<textField isBlankWhenNull="true">
+					<reportElement key="textField" x="65" y="0" width="440" height="15" uuid="9439d232-6f1b-47d7-b9ec-e389f87965eb"/>
+					<box leftPadding="3">
+						<pen lineWidth="0.5"/>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement verticalAlignment="Middle">
+						<font isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{jenis_tagihan}]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupHeader>
+	</group>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="309" splitType="Stretch">
+			<textField>
+				<reportElement x="53" y="86" width="482" height="223" uuid="a72b77d0-8a5a-4d62-9781-b024392ac9b0"/>
+				<textElement textAlignment="Justified" markup="html">
+					<font size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA["No. 	: "+($P{nomor})+"<br>" +
+"Hal 	: -<br><br>" +
+"Kepada Yth.<br>" +
+"Orang Tua/Wali <br>" +
+$P{REPORT_PARAMETERS_MAP}.get( "nama" )+"<br>" +
+$P{REPORT_PARAMETERS_MAP}.get( "nim" )+"<br>" +
+"Di <br>" +
+"        Tempat	<br>" +
+"<br><br>" +
+"Dengan hormat,<br>" +
+"<br>" +
+"Teriring salam dan hormat kami kepada Bapak/Ibu/ Wali orangtua mahasiswa, yang telah memberikan kepercayaan kepada kami dalam proses belajar mengajar di "+$P{REPORT_PARAMETERS_MAP}.get( "fakultas" )+".<br>" +
+"<br>" +
+"Sehubungan dengan hal tersebut diatas, kami sampaikan informasi atas catatan administrasi keuangan yang ada pada kami sebagai berikut :<br>"+
+"<br> 1). Bahwa kewajiban pembayaran biaya pendidikan Putra / Putri Bapak/Ibu yang bersangkutan belum diselesaikan adalah sebagai berikut :"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="113" y="21" width="420" height="34" uuid="7f7092c3-bfdb-464d-93f3-5f9c26b4d7a9"/>
+				<textElement textAlignment="Center" verticalAlignment="Bottom">
+					<font size="14" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{label_universitas}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="113" y="55" width="420" height="23" uuid="a845dfed-6965-4b26-86ed-4e97daa8521d"/>
+				<box>
+					<bottomPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="9" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "alamat_kampus" )]]></textFieldExpression>
+			</textField>
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="-3" y="21" width="116" height="57" uuid="1b30a359-3945-437d-a1ae-44ffcc9bf26c"/>
+				<box>
+					<bottomPen lineWidth="0.5"/>
+				</box>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<columnHeader>
+		<band splitType="Stretch"/>
+	</columnHeader>
+	<detail>
+		<band height="15">
+			<textField pattern="#,##0;-#,##0" isBlankWhenNull="true">
+				<reportElement key="textField" x="387" y="0" width="118" height="15" uuid="5ee92c75-c572-4d01-9f56-b27421a1fe1a"/>
+				<box rightPadding="3">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{nilai}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="65" y="0" width="322" height="15" uuid="595854aa-9357-410a-8499-261f3eadde26"/>
+				<box leftPadding="3">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{label}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band splitType="Stretch"/>
+	</pageFooter>
+	<summary>
+		<band height="358" splitType="Stretch">
+			<textField pattern="dd/MM/yyyy" isBlankWhenNull="false">
+				<reportElement key="textField" x="315" y="237" width="218" height="16" uuid="ece147c9-c71b-4631-b16d-c3d74562bc5e"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$P{label_kota}+", "+new java.text.SimpleDateFormat("dd MMMMM yyyy",$P{REPORT_LOCALE}).format($P{REPORT_PARAMETERS_MAP}.get( "tanggal" )==null?new java.util.Date():$P{REPORT_PARAMETERS_MAP}.get( "tanggal" ))]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="315" y="253" width="218" height="26" uuid="940ac29d-06ff-4790-bbcb-d9edaefbabb6"/>
+				<textElement textAlignment="Center">
+					<font isUnderline="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Hormat Kami"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="317" y="330" width="218" height="28" uuid="b9d36d6f-839f-4d9c-ba1b-8f731593a273"/>
+				<textElement textAlignment="Center">
+					<font isUnderline="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{kaprodi}
++"\nKaprodi "+$P{jurusan}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="51" y="17" width="482" height="220" uuid="9740cf0f-8bbb-4e1a-9696-5892e6a946df"/>
+				<textElement textAlignment="Justified" markup="html">
+					<font size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA["<br>Kami  mengharapkan agar  tagihan tersebut dapat diselesaikan segera dan dibayarkan paling lambat <b>tanggal "+($P{REPORT_PARAMETERS_MAP}.get( "tanggalJatuhTempo" )==null?".............":new java.text.SimpleDateFormat("dd MMMMM yyyy",$P{REPORT_LOCALE}).format($P{REPORT_PARAMETERS_MAP}.get( "tanggalJatuhTempo" )))+"</b> "+($P{REPORT_PARAMETERS_MAP}.get( "rekening_pembayaran" )==null?"":$P{REPORT_PARAMETERS_MAP}.get( "rekening_pembayaran" )+".")+" <br>"+
+($P{prosentaseDenda} < 0.1 ? "" : "<br>Sesuai dengan \"Surat Perjanjian Pembayaran  Biaya Pendidikan\" yang telah disepakati dan ditandatangani, bahwa  atas  keterlambatan  pembayaran dikenakan denda "+(NumberFormat.getNumberInstance($P{REPORT_LOCALE}).format($P{prosentaseDenda}))+"% dari nilai tertunggak dan tidak diijinkan mengikuti perkuliahan / ujian.<br>")+
+"<br>Kami harapkan Bapak/Ibu dapat mengusahakan untuk segera menyelesaikan  pembayaran tersebut di atas, guna keberlangsungan kegiatan proses belajar mengajar dengan lancar di "+$P{REPORT_PARAMETERS_MAP}.get( "fakultas" )+".<br>"+
+"<br><b>Demikian pemberitahuan ini, bilamana Bapak/Ibu telah melakukan pembayaran sebelum menerima surat ini, mohon agar surat ini dapat diabaikan.</b><br><br>"+
+"Kami mengucapkan terima kasih atas kepercayaan dan bantuan yang Bapak/Ibu berikan selama ini."]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="65" y="0" width="322" height="15" uuid="3cd49a18-8e8f-4bcb-8e29-950c4714c9f7"/>
+				<box leftPadding="3">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Total"]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0;-#,##0" isBlankWhenNull="true">
+				<reportElement key="textField" x="387" y="0" width="118" height="15" uuid="0f63045c-a19f-4682-966a-354c06dee9aa"/>
+				<box rightPadding="3">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{total}]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
+</jasperReport>

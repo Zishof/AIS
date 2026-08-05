@@ -1,0 +1,91 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window border="none" id="window"
+		apply="ais.action.master.kpi.NilaiKpiTreeAction" width="100%"
+		height="100%">
+
+
+		<borderlayout>
+									<north border="none" size="150px" autoscroll="true" flex="false" splittable="false">
+				<div style="padding:12px;box-sizing:border-box;">
+					<div sclass="ais-crud-filter-card">
+						<div sclass="ais-crud-filter-head">
+							<span sclass="ais-crud-filter-title">Pencarian &amp; Filter</span>
+						<div sclass="ais-crud-filter-actions">
+							<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;nilai_kpi&quot;, &quot;Bantuan&quot;);"/>
+						</div>
+						</div>
+						<div sclass="ais-crud-filter-body">
+
+				<toolbar>
+
+					
+
+					<toolbarbutton id="bukaKunciDetail" visible="false"
+						image="/img/svg/unlock.svg">
+					</toolbarbutton>
+
+					<toolbarbutton id="kunciDetail" visible="false"
+						image="/img/svg/lock.svg">
+					</toolbarbutton>
+
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" forward="onClick=onCetak"
+						label="Cetak" image="/img/svg/printer.svg">
+					</toolbarbutton>
+
+					<space></space>
+					<space></space>
+					<space></space>
+					<label use="ais.ui.util.MyLabelConfig" value="Pegawai" id="pegawaiBanboxLabel" />
+					<bandbox
+						use="ais.action.master.kpi.helper.AmbilDataPegawaiFormatKPIBanbox"
+						id="pegawaiBanbox" width="100px" />
+					<label use="ais.ui.util.MyLabelConfig" value="Tahun" />
+					<combobox id="ta" width="100px" />
+					<space></space>
+					<space></space>
+					<label use="ais.ui.util.MyLabelBoldConfig" value="Target : " />
+					<label use="ais.ui.util.MyLabelBold" id="totalTarget"
+						value="0.0" />
+					<space></space>
+					<space></space>
+					<label use="ais.ui.util.MyLabelBoldConfig"
+						value="Realisasi : " />
+					<label use="ais.ui.util.MyLabelBold" id="totalRealisasi"
+						value="0.0" />
+
+					<space></space>
+					<space></space>
+					<label use="ais.ui.util.MyLabelBold" id="totalPersen"
+						value="0.0" />
+					<label use="ais.ui.util.MyLabelBoldConfig" value="%" />
+				</toolbar>
+						</div>
+					</div>
+				</div>
+			</north>
+			<center border="none" flex="true">
+
+				<tree width="100%" zclass="z-dottree" height="100%" id="tree">
+
+				</tree>
+
+
+
+			</center>
+
+		</borderlayout>
+
+		</window>
+
+
+</zk>

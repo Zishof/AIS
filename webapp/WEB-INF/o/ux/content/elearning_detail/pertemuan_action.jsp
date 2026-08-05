@@ -1,0 +1,102 @@
+<%@page import="ais.database.model.GeneralValueObject"%>
+<%@page import="ais.database.model.Pertemuan"%>
+<%@page import="ais.common.Common"%>
+<%
+Long index = request.getParameter("index") == null ? 0L : Long.parseLong(request.getParameter("index"));
+Pertemuan pertemuan = (Pertemuan) GeneralValueObject.ambilData(Pertemuan.class, request.getParameter("id"));
+request.setAttribute("pertemuan", pertemuan.info());
+int tinggi = 450;
+if (Common.isMobile(request)) {
+	tinggi = 750;
+}
+%>
+
+<!DOCTYPE html>
+<html lang="id">
+<jsp:include page="/WEB-INF/o/ux/content/common/header.jsp"></jsp:include>
+<!--begin::Body-->
+<body data-kt-name="metronic" id="kt_app_body"
+	data-kt-app-layout="dark-sidebar" data-kt-app-header-fixed="true"
+	data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true"
+	data-kt-app-sidebar-hoverable="true"
+	data-kt-app-sidebar-push-header="true"
+	data-kt-app-sidebar-push-toolbar="true"
+	data-kt-app-sidebar-push-footer="true"
+	data-kt-app-toolbar-enabled="true" class="app-default">
+	<jsp:include page="/WEB-INF/o/ux/content/common/mode.jsp"></jsp:include>
+	<!--begin::App-->
+	<div class="d-flex flex-column flex-root app-root" id="kt_app_root">
+		<!--begin::Page-->
+		<div class="app-page flex-column flex-column-fluid" id="kt_app_page">
+
+
+			<jsp:include page="/WEB-INF/o/ux/content/common/header_app.jsp"></jsp:include>
+
+
+			<!--begin::Wrapper-->
+			<div class="app-wrapper flex-column flex-row-fluid"
+				id="kt_app_wrapper">
+
+
+				<jsp:include page="/WEB-INF/o/ux/content/common/sidebar.jsp"></jsp:include>
+
+
+				<!--begin:::Main-->
+				<div class="app-main flex-column flex-row-fluid" id="kt_app_main">
+					<!--begin::Content wrapper-->
+					<div class="d-flex flex-column flex-column-fluid ">
+
+						<!--begin::Content-->
+						<div id="kt_app_content" class="app-content flex-column-fluid">
+
+
+							<jsp:include page="/WEB-INF/o/ux/content/common/page_title.jsp">
+								<jsp:param value="E-Learning" name="judul" />
+								<jsp:param value="Pertemuan - ${pertemuan}" name="subjudul" />
+							</jsp:include>
+
+
+							<!--begin::Content container-->
+							<div id="kt_app_content_container"
+								class="app-container container-xxl">
+
+								<!--begin::Navbar-->
+								<div class="card mb-6 mb-xl-9">
+									<div class="card-body pt-9 pb-0">
+
+										<iframe id="iFrame1"
+											src="<%=request.getContextPath()%>/pages/ux/content/elearning_detail/pertemuan_action.zul?id=<%=request.getParameter("id")%>&index=<%=index%>&is_mobile=true"
+											width="100%" style="border: none;" height="<%=tinggi%>px"></iframe>
+
+
+									</div>
+								</div>
+								<!--end::Navbar-->
+
+
+
+
+
+							</div>
+							<!--end::Content container-->
+						</div>
+						<!--end::Content-->
+					</div>
+					<!--end::Content wrapper-->
+					<jsp:include page="/WEB-INF/o/ux/content/common/app_footer.jsp"></jsp:include>
+				</div>
+				<!--end:::Main-->
+			</div>
+			<!--end::Wrapper-->
+		</div>
+		<!--end::Page-->
+	</div>
+	<!--end::App-->
+
+
+	<!--end::Drawers-->
+
+	<jsp:include page="/WEB-INF/o/ux/content/common/footer.jsp"></jsp:include>
+</body>
+<!--end::Body-->
+</html>

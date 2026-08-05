@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="penerima-beasiswa" language="groovy" columnCount="2" printOrder="Horizontal" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="277" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="fb5c2167-97ab-444d-bfab-7d1244e28d7a">
+	<property name="ireport.zoom" value="1.9487171000000014"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="118"/>
+	<parameter name="id_pkl" class="java.lang.Long">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="logo1" class="java.lang.String">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="diterima" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[0]]></defaultValueExpression>
+	</parameter>
+	<parameter name="belumDiterima" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[0]]></defaultValueExpression>
+	</parameter>
+	<parameter name="nim" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[SELECT
+b.id,
+b.nama as nama_mhs,
+b.kelamin,
+b.nim as nim_mhs,
+d.nama as jurusan,
+e.nama as fakultas,
+b.telp,
+b.email,
+c.nama as nama_beasiswa,
+cc.nama as nama_kelompok,
+c1.nama as dosen1,
+c2.nama as dosen2,
+c3.nama as dosen3,
+c4.nama as dosen4,
+c5.nama as dosen5,
+cc.alamat,
+a.totalnilai,
+a.nilaihuruf,
+a.diterima,
+a.nilaihuruf,
+a.diterima
+
+FROM mahasiswa_dapat_kelompok_kelompok_pkl a
+LEFT JOIN mahasiswa b on a.mahasiswa = b."id"
+
+LEFT JOIN kelompok_pkl cc on cc.id = a.kelompok_pkl
+LEFT JOIN pkl c on cc.pkl = c."id"
+
+LEFT JOIN dosen c1 on cc.dosen_pembimbing1 = c1."id"
+LEFT JOIN dosen c2 on cc.dosen_pembimbing2 = c2."id"
+LEFT JOIN dosen c3 on cc.dosen_pembimbing3 = c3."id"
+LEFT JOIN dosen c4 on cc.dosen_pembimbing4 = c4."id"
+LEFT JOIN dosen c5 on cc.dosen_pembimbing5 = c5."id"
+
+left join jurusan d on b.jurusan = d."id"
+LEFT JOIN fakultas e on d.fakultas = e."id"
+
+WHERE a.kelompok_pkl = $P{id_pkl}
+and case when $P{diterima}=0 then true else diterima end
+and case when $P{belumDiterima}=1 then diterima = false else true end
+and case when $P{nim} != '' then b.nim ilike '%'||$P{nim}||'%' or b.nama ilike '%'||$P{nim}||'%' else true end
+order by b.nim]]>
+	</queryString>
+	<field name="id" class="java.lang.Long"/>
+	<field name="nama_mhs" class="java.lang.String"/>
+	<field name="kelamin" class="java.lang.String"/>
+	<field name="nim_mhs" class="java.lang.String"/>
+	<field name="jurusan" class="java.lang.String"/>
+	<field name="fakultas" class="java.lang.String"/>
+	<field name="telp" class="java.lang.String"/>
+	<field name="email" class="java.lang.String"/>
+	<field name="nama_beasiswa" class="java.lang.String"/>
+	<field name="nama_kelompok" class="java.lang.String"/>
+	<field name="dosen1" class="java.lang.String"/>
+	<field name="dosen2" class="java.lang.String"/>
+	<field name="dosen3" class="java.lang.String"/>
+	<field name="dosen4" class="java.lang.String"/>
+	<field name="dosen5" class="java.lang.String"/>
+	<field name="alamat" class="java.lang.String"/>
+	<field name="totalnilai" class="java.lang.Double"/>
+	<field name="nilaihuruf" class="java.lang.String"/>
+	<field name="diterima" class="java.lang.Boolean"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="79" splitType="Stretch">
+			<rectangle>
+				<reportElement x="0" y="0" width="555" height="79" uuid="34c5701d-610b-4bcf-b9ce-323d6ed8f9ab"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="45" y="16" width="510" height="27" uuid="2375c44d-68e2-417b-8edf-62c7554da801"/>
+				<textElement textAlignment="Center">
+					<font size="16" isBold="true"/>
+				</textElement>
+				<text><![CDATA[PESERTA PKL]]></text>
+			</staticText>
+			<image>
+				<reportElement x="49" y="6" width="91" height="63" uuid="08ec2e6e-96c0-4366-a5fd-df2c8ff04fad"/>
+				<imageExpression><![CDATA[$P{logo1}]]></imageExpression>
+			</image>
+			<textField>
+				<reportElement x="45" y="43" width="510" height="20" uuid="0d36a8c6-06b4-4f6d-b9cc-e61096c1ac7d"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{label_universitas}]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<pageHeader>
+		<band height="80" splitType="Stretch">
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" stretchType="RelativeToTallestObject" x="0" y="0" width="555" height="80" uuid="bd9457ff-0051-4803-8545-36b33ab06264"/>
+				<box leftPadding="3">
+					<pen lineWidth="0.0" lineStyle="Solid"/>
+					<topPen lineWidth="0.0" lineStyle="Solid"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="0.0" lineStyle="Solid"/>
+					<rightPen lineWidth="0.0" lineStyle="Solid"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Nama PKL \t\t : "+$F{nama_beasiswa}.toUpperCase()+"\n"+
+"Nama Kelompok\t : "+$F{nama_kelompok}.toUpperCase()+"\n"+
+"Pembimbing\t\t : "+($F{dosen1} == null ? "" : $F{dosen1})+($F{dosen2} == null ? "" : ", "+$F{dosen2})+($F{dosen3} == null ? "" : ", "+$F{dosen3})+($F{dosen4} == null ? "" : ", "+$F{dosen4})+($F{dosen5} == null ? "" : ", "+$F{dosen5})+"\n"+
+"Alamat pkl\t\t : "+($F{alamat}==null?"":$F{alamat})]]></textFieldExpression>
+			</textField>
+		</band>
+	</pageHeader>
+	<columnHeader>
+		<band height="28" splitType="Stretch">
+			<staticText>
+				<reportElement key="staticText-7" x="29" y="0" width="246" height="28" uuid="45500121-81dd-4bc7-a489-7ea61706de26"/>
+				<box leftPadding="3">
+					<pen lineWidth="1.0" lineStyle="Solid"/>
+					<topPen lineWidth="1.0" lineStyle="Solid"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="12" isBold="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[Mahasiswa]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-8" x="0" y="0" width="29" height="28" uuid="4f2d6d2c-3065-4a1a-9b8a-33cdd9f97e33"/>
+				<box leftPadding="3">
+					<pen lineWidth="1.0" lineStyle="Solid"/>
+					<topPen lineWidth="1.0" lineStyle="Solid"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="12" isBold="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[NO]]></text>
+			</staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="85" splitType="Stretch">
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-1" stretchType="RelativeToTallestObject" x="0" y="0" width="29" height="85" uuid="4699da01-3fe8-4e5a-8a73-a5dc843e016b"/>
+				<box>
+					<pen lineWidth="1.0" lineStyle="Solid"/>
+					<topPen lineWidth="0.5" lineStyle="Solid"/>
+					<leftPen lineWidth="0.5" lineStyle="Solid"/>
+					<bottomPen lineWidth="0.5" lineStyle="Solid"/>
+					<rightPen lineWidth="0.5" lineStyle="Solid"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Top"/>
+				<textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" stretchType="RelativeToTallestObject" x="96" y="0" width="179" height="85" uuid="50bd8efc-d3d8-418a-a031-b817d796309f"/>
+				<box leftPadding="3">
+					<pen lineWidth="1.0" lineStyle="Solid"/>
+					<topPen lineWidth="0.5" lineStyle="Solid"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="0.5" lineStyle="Solid"/>
+					<rightPen lineWidth="0.5" lineStyle="Solid"/>
+				</box>
+				<textElement verticalAlignment="Top">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA["NIM \t: "+$F{nim_mhs}+"\n"+
+"Nama\t: "+$F{nama_mhs}+"\n"+
+"Jk  \t: "+$F{kelamin}+"\n"+
+"HP  \t: "+$F{telp}+"\n"+
+"Email\t: "+$F{email}+"\n"+
+"Prodi\t: "+$F{jurusan}+"\n"+
+"Fakultas\t: "+$F{fakultas}+
+($F{totalnilai} != null && $F{nilaihuruf} != null && $F{totalnilai}>0.1 ? "\nNilai \t: "+$F{totalnilai}+" ("+$F{nilaihuruf}+")" : "")
++"\nDiterima\t: "+($F{diterima}!=null&&$F{diterima}?"Ya":"Tidak")]]></textFieldExpression>
+			</textField>
+			<image hAlign="Center" vAlign="Middle" onErrorType="Icon">
+				<reportElement x="29" y="0" width="67" height="85" uuid="52a214c4-1cf2-455d-b563-a6cbb929d801"/>
+				<box>
+					<bottomPen lineWidth="0.5"/>
+				</box>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "current_url" )+"/AmbilMedia?id="+$F{id}+"&name=nama&foto=foto&clazz=ais.database.model.file.FotoMahasiswa&property=mahasiswa&var=3"]]></imageExpression>
+			</image>
+		</band>
+	</detail>
+</jasperReport>

@@ -1,0 +1,212 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.UploadVirtualAccountBRIAction" width="100%"
+		height="100%">
+
+		<tabbox width="100%" height="100%">
+
+			<tabs>
+
+				<tab use="ais.ui.util.MyTabConfig" selected="true">Upload Virtual Account</tab>
+				<tab use="ais.ui.util.MyTabConfig" forward="onClick=onDownloadTagihanMahasiswa">
+					Download Tagihan Mahasiswa
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onDownloadTagihanNoRegCalonMahasiswa">
+					Download Tagihan Berdasarkan No. Reg. Calon
+					Mahasiswa
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onDownloadTagihanNoUjianCalonMahasiswa">
+					Download Tagihan Berdasarkan No. Ujian Calon
+					Mahasiswa
+				</tab>
+			</tabs>
+
+			<tabpanels>
+
+				<tabpanel use="ais.ui.util.MyTabpanel">
+
+
+					<tabbox width="100%" height="100%">
+
+						<tabs>
+
+							<tab use="ais.ui.util.MyTabConfig" selected="true">
+								Upload Data Virtual Account
+							</tab>
+							<tab use="ais.ui.util.MyTabConfig">Hasil Upload Data Pembayaran</tab>
+						</tabs>
+
+
+
+						<tabpanels>
+
+							<tabpanel use="ais.ui.util.MyTabpanel">
+								<panel use="ais.ui.util.MyPanel"
+									width="100%" height="100%" id="panel"
+									title="Data UploadBiodataCalonMahasiswa">
+									<panelchildren>
+
+
+
+										<borderlayout>
+
+											<center border="none"
+												flex="true">
+												<borderlayout>
+													<north border="none"
+														open="true">
+														<grid use="ais.ui.util.MyGrid"
+															fixedLayout="true">
+															<columns>
+																<column use="ais.ui.util.MyColumnConfig"
+																	width="100px">
+																</column>
+																<column use="ais.ui.util.MyColumnConfig"></column>
+																<column use="ais.ui.util.MyColumnConfig"
+																	width="100px">
+																</column>
+																<column use="ais.ui.util.MyColumnConfig"></column>
+																<column use="ais.ui.util.MyColumnConfig"
+																	width="100px">
+																</column>
+																<column use="ais.ui.util.MyColumnConfig"></column>
+															</columns>
+															<rows>
+
+																<row>
+																	<label use="ais.ui.util.MyLabelConfig"
+																		value="Nama File" />
+																	<textbox
+																		forward="onOK=onSearchDefault" id="searchnama"
+																		width="95%" />
+
+																	<label use="ais.ui.util.MyLabelConfig"
+																		value="Tahun Akademik" />
+																	<combobox
+																		forward="onChange=onSearchDefault"
+																		id="searchTahunAjaran" width="95%" />
+
+																	<label use="ais.ui.util.MyLabelConfig"
+																		value="Semester" />
+																	<combobox
+																		forward="onChange=onSearchDefault" id="jenisSemester"
+																		width="95%" />
+
+																</row>
+
+																<row
+																	spans="6">
+
+																	<toolbar>
+																		<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"  
+																			tooltiptext="Upload Virtual Account Baru"
+																			forward="onClick=onAdd" id="add"
+																			label="Upload Virtual Account Baru"
+																			image="/img/new.gif">
+																		</toolbarbutton>
+																		<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"  
+																			tooltiptext="Cari data"
+																			forward="onClick=onSearchDefault" id="find"
+																			label="Cari" image="/img/search.gif">
+																		</toolbarbutton>
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;upload_virtual_account_bri&quot;, &quot;Bantuan&quot;);"/>
+			</toolbar>
+																</row>
+															</rows>
+														</grid>
+
+													</north>
+													<center
+														border="none" flex="true">
+
+														<grid use="ais.ui.util.MyGrid" 
+															fixedLayout="true" id="grid" mold="paging"
+															pageSize="25">
+															<columns>
+																<column use="ais.ui.util.MyColumnConfig"
+																	label="Kode Briva" />
+																<column use="ais.ui.util.MyColumnConfig"
+																	label="Tahun Akademik" />
+																<column use="ais.ui.util.MyColumnConfig"
+																	label="Semester" />
+																<column use="ais.ui.util.MyColumnConfig"
+																	label="File" sort="auto(nama)" />
+																<column use="ais.ui.util.MyColumnConfig"
+																	label="Tipe" />
+																<column use="ais.ui.util.MyColumnConfig"
+																	label="Jenis Upload" />
+																<column use="ais.ui.util.MyColumnConfig"
+																	label="Jml. terupload" />
+																<column use="ais.ui.util.MyColumnConfig"
+																	label="Tanggal Upload" />
+																<column use="ais.ui.util.MyColumnConfig"
+																	label="Diupload oleh" />
+																<column use="ais.ui.util.MyColumnConfig"
+																	label="Keterangan"  />
+																<column use="ais.ui.util.MyColumnConfig"
+																	width="15%" label="" />
+															</columns>
+
+														</grid>
+
+
+													</center>
+													<south
+														border="none">
+														<paging
+															visible="false" id="paging" />
+													</south>
+												</borderlayout>
+											</center>
+										</borderlayout>
+									</panelchildren>
+								</panel>
+
+
+							</tabpanel>
+
+							<tabpanel use="ais.ui.util.MyTabpanel">
+								<iframe height="100%" width="100%"
+									src="/WEB-INF/z/x/y/pages/master/kegiatan.zul?va=true">
+								</iframe>
+							</tabpanel>
+
+						</tabpanels>
+					</tabbox>
+
+
+				</tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="downloadTagihanMahasiswa"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="downloadTagihanNoRegCalonMahasiswa"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="downloadTagihanNoUjianCalonMahasiswa"></tabpanel>
+
+			</tabpanels>
+		</tabbox>
+
+		<window use="ais.ui.util.MyWindow" id="addWindow" title="Upload Virtual Account"
+			visible="false" mode="popup" position="center,center" border="normal"
+			width="550px" height="290px">
+
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+	</window>
+
+
+</zk>

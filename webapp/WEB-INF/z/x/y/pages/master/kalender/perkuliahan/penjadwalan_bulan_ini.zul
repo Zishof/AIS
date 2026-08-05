@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?page title="ZK Calendars Demo"?>
+<?link rel="stylesheet" type="text/css" href="/calendar.css.dsp?v=${desktop.webApp.build}"?>
+<?component name="divtab" macro-uri="/WEB-INF/z/x/y/pages/master/kalender/perkuliahan/divtab.zul" inline="true"?>
+<?component name="divarrow" macro-uri="/WEB-INF/z/x/y/pages/master/kalender/perkuliahan/divarrow.zul" inline="true"?>
+
+
+<zk xmlns:w="client">
+	<window use="ais.ui.util.MyWindow"
+		sclass="ais-cal-page"
+		apply="ais.action.master.helper.CalendarPerkuliahanBulanIniComposer"
+		height="100%" width="100%">
+
+		<borderlayout id="main" vflex="1" sclass="ais-cal-main">
+			<center border="none" sclass="ais-cal-center">
+				<calendars id="calendars" firstDayOfWeek="Sunday"
+					model="${cm}" mold="month" width="100%" height="100%" sclass="ais-cal-view">
+					<toolbar sclass="calendar-toolbar ais-cal-toolbar">
+						<div class="float-left ais-cal-filter-wrap">
+							<grid use="ais.ui.util.MyGrid" sclass="ais-cal-filter-grid">
+
+								<rows>
+
+									<row id="row1"
+										sclass="ais-cal-row">
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Tahun Akademik" />
+										<combobox id="tahunAjaran"
+											cols="10" forward="onChange=onRefresh">
+										</combobox>
+
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Fakultas" />
+										<combobox
+											forward="onChange=onRefresh" id="fakultas" width="95%" />
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Prodi" />
+										<combobox id="jurusan"
+											forward="onChange=onRefresh" width="95%" />
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Program" />
+										<combobox id="program"
+											forward="onChange=onRefresh" width="95%" />
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Semester" />
+										<combobox id="semester"
+											width="95%" forward="onChange=onRefresh">
+										</combobox>
+
+									</row>
+
+									<row id="row2"
+										sclass="ais-cal-row">
+
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Kelas" />
+										<bandbox
+											use="ais.action.master.helper.AmbilDataKelasBanbox"
+											id="kelas" width="95%" forward="onChange=onRefresh">
+										</bandbox>
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Ruang" />
+										<bandbox
+											use="ais.action.master.helper.AmbilDataRuangBanbox"
+											id="ruang" width="95%" forward="onChange=onRefresh">
+										</bandbox>
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Dosen" />
+										<bandbox
+											use="ais.action.master.helper.AmbilDataDosenBanbox"
+											id="dosen" width="95%" forward="onChange=onRefresh">
+										</bandbox>
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Mahasiswa" />
+										<bandbox
+											use="ais.action.master.helper.AmbilDataMahasiswaBanbox"
+											id="mahasiswa" width="95%" forward="onChange=onRefresh">
+										</bandbox>
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Kurikulum" />
+										<bandbox
+											use="ais.action.master.helper.AmbilDataKurikulumBanbox"
+											id="kurikulum" width="95%" forward="onChange=onRefresh">
+										</bandbox>
+									</row>
+
+									<row spans="10"
+										sclass="ais-cal-row">
+										<toolbar sclass="ais-cal-actionbar">
+											<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+												
+												tooltiptext="Refresh" forward="onClick=onRefresh" id="find"
+												label="Muat Ulang" image="/img/svg/refresh-cw.svg">
+											</toolbarbutton>
+
+											<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+												
+												tooltiptext="Agenda Dosen" forward="onClick=onAgendaDosen"
+												label="Agenda Dosen" image="/img/svg/printer.svg">
+											</toolbarbutton>
+
+											<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="prev"
+												forward="onClick=onBack" label="Sebelumnya"
+												image="/img/svg/arrow-left.svg" />
+											<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="next"
+												forward="onClick=onNext" label="Berikutnya"
+												image="/img/svg/arrow-right.svg" />
+
+
+											<checkbox
+												label="Perkuliahan" id="jadwalPerkuliahan"
+												forward="onClick=onRefresh" checked="true"
+												use="ais.ui.util.MyCheckboxConfig">
+											</checkbox>
+											<checkbox label="KKN"
+												id="jadwalKkn" forward="onClick=onRefresh" checked="true"
+												use="ais.ui.util.MyCheckboxConfig">
+											</checkbox>
+											<checkbox label="PKL"
+												id="jadwalPkl" forward="onClick=onRefresh" checked="true"
+												use="ais.ui.util.MyCheckboxConfig">
+											</checkbox>
+											<checkbox label="Bimbingan"
+												id="jadwalBimbingan" forward="onClick=onRefresh"
+												checked="true" use="ais.ui.util.MyCheckboxConfig">
+											</checkbox>
+											<checkbox
+												label="Sidang dan Revisi" id="jadwalRevisi"
+												forward="onClick=onRefresh" checked="true"
+												use="ais.ui.util.MyCheckboxConfig">
+											</checkbox>
+											<checkbox
+												label="Konsultasi PA" id="jadwalKonsultasi"
+												forward="onClick=onRefresh" checked="true"
+												use="ais.ui.util.MyCheckboxConfig">
+											</checkbox>
+
+											<checkbox
+												label="Konsultasi Lain" id="jadwalKonsultasiLain"
+												forward="onClick=onRefresh" checked="true"
+												use="ais.ui.util.MyCheckboxConfig">
+											</checkbox>
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;penjadwalan_bulan_ini&quot;, &quot;Bantuan&quot;);"/>
+			</toolbar>
+									</row>
+
+								</rows>
+
+							</grid>
+
+
+						</div>
+
+					</toolbar>
+				</calendars>
+			</center>
+
+		</borderlayout>
+
+
+	</window>
+
+	<style><![CDATA[
+	.ais-cal-page {background:#eef3f8;}
+	.ais-cal-main {background:#eef3f8; padding:8px; box-sizing:border-box;}
+	.ais-cal-center {background:#eef3f8;}
+	.ais-cal-view {border:1px solid #dbe3ef; border-radius:18px; overflow:hidden; background:#ffffff; box-shadow:0 12px 28px rgba(15,23,42,.08);}
+	.ais-cal-toolbar {border:0; background:linear-gradient(135deg,#ffffff,#f8fbff); padding:10px 12px; min-height:70px; box-sizing:border-box;}
+	.ais-cal-filter-wrap {width:100%; display:block;}
+	.ais-cal-filter-grid {border:0; background:transparent; width:100%;}
+	.ais-cal-filter-grid .z-row-cnt, .ais-cal-filter-grid .z-row-inner {font-size:11px; vertical-align:middle;}
+	.ais-cal-filter-grid input, .ais-cal-filter-grid .z-combobox-inp, .ais-cal-filter-grid .z-bandbox-inp {border-radius:8px; border:1px solid #cbd5e1; min-height:22px;}
+	.ais-cal-actionbar {border:0; background:transparent; min-height:34px; padding:6px 0; white-space:normal;}
+	.ais-cal-actionbar .z-toolbarbutton {margin-right:4px; margin-bottom:4px;}
+	.ais-cal-row {border:0; background:transparent;}
+	
+	]]></style>
+
+</zk>

@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="hasil_karya" language="groovy" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="d133c609-b1e7-4dd5-8b71-1cdb848bf39f">
+	<property name="ireport.zoom" value="1.9487171000000014"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<field name="waktu" class="java.util.Date"/>
+	<field name="1_1985" class="java.lang.String"/>
+	<field name="1_1984" class="java.lang.String"/>
+	<field name="1_1986" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="79" splitType="Stretch">
+			<textField>
+				<reportElement x="0" y="48" width="298" height="20" uuid="9e815b1f-4ae2-43dc-9c8d-306f2f2291b0"/>
+				<textFieldExpression><![CDATA["Nama : "+$P{REPORT_PARAMETERS_MAP}.get( "nama" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="18" width="555" height="20" uuid="9f1335d2-17c0-4f0b-a999-71d475f6ae8b"/>
+				<textElement textAlignment="Center">
+					<font size="14" isBold="true" isUnderline="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["CATATAN ANEKDOT KB & TK TARUNA BAKTI"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="385" y="48" width="170" height="20" uuid="87e72f1c-24c4-4f38-85a5-886fc3e4af67"/>
+				<textFieldExpression><![CDATA["Kelas : "+$P{REPORT_PARAMETERS_MAP}.get( "kelas" )]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<columnHeader>
+		<band height="20" splitType="Stretch">
+			<textField>
+				<reportElement x="0" y="0" width="24" height="20" uuid="15b935b0-1c4b-41ee-96f1-fc4bb7a98e68"/>
+				<box leftPadding="2">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textFieldExpression><![CDATA["No."]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="24" y="0" width="77" height="20" uuid="e1cd1c56-95fb-4223-a90d-d02fac7dd7b0"/>
+				<box leftPadding="2">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textFieldExpression><![CDATA["Hari/Tanggal"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="101" y="0" width="126" height="20" uuid="4effa92b-12ee-4b9d-a32e-d587b6f84be7"/>
+				<box leftPadding="2">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textFieldExpression><![CDATA["Nama Kegiatan"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="227" y="0" width="175" height="20" uuid="7276df50-beb9-4637-93a5-07ef9cc1b34b"/>
+				<box leftPadding="2">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textFieldExpression><![CDATA["Observasi/Pengamatan"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="402" y="0" width="153" height="20" uuid="0ed12431-4d29-47d8-9a13-882977994b09"/>
+				<box leftPadding="2">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textFieldExpression><![CDATA["Aspek Perkembangan"]]></textFieldExpression>
+			</textField>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="128" splitType="Stretch">
+			<textField>
+				<reportElement x="1" y="0" width="23" height="128" uuid="c3386e83-6941-495a-971c-7ecde61be7e3"/>
+				<box leftPadding="2">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement>
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
+			</textField>
+			<textField pattern="EEEEE, dd MMMMM yyyy">
+				<reportElement x="24" y="0" width="77" height="128" uuid="72bf2656-43fc-45da-b5b9-520958d28967"/>
+				<box leftPadding="2">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement>
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{waktu}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="101" y="0" width="126" height="128" uuid="207e5b78-08ad-4cef-a3a2-ce715e64e4c0"/>
+				<box leftPadding="2">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement>
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{1_1985}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="227" y="0" width="175" height="128" uuid="a070225f-ff22-45f6-83e0-1a9ada9ae56c"/>
+				<box leftPadding="2">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement>
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{1_1984}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="402" y="0" width="153" height="128" uuid="ee2cd3d0-3096-41d9-9f49-08e2df91d7de"/>
+				<box leftPadding="2">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement>
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{1_1986}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<summary>
+		<band height="105" splitType="Stretch"/>
+	</summary>
+</jasperReport>

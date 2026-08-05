@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dasbor Pimpinan — Taruna Bakti University</title>
+<link rel="stylesheet" href="assets/tbu.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar"></aside>
+  <div class="main">
+    <header class="topbar"></header>
+    <main class="content">
+
+      <div class="hero" style="margin-bottom:18px">
+        <h2>Selamat pagi, Prof. Dr. Rahmat Saleh &#128075;</h2>
+        <p>Pantau seluruh aktivitas dan kinerja Taruna Bakti University dalam satu platform terintegrasi.</p>
+        <div style="display:flex;gap:9px;flex-wrap:wrap;position:relative">
+          <span class="pill"><i class="fa-regular fa-calendar"></i> Kamis, 22 Mei 2025</span>
+          <span class="pill"><i class="fa-solid fa-book"></i> Tahun Akademik 2024/2025 Genap</span>
+          <span class="pill"><i class="fa-solid fa-building-columns"></i> Yayasan Taruna Bakti</span>
+        </div>
+      </div>
+
+      <!-- STAT ROW -->
+      <div class="grid g-6" style="margin-bottom:18px">
+        <div class="stat"><div class="top"><div class="ic" style="background:linear-gradient(135deg,#4f46e5,#6d28d9)"><i class="fa-solid fa-user-graduate"></i></div><span class="delta up"><i class="fa-solid fa-arrow-up"></i>5,8%</span></div><div class="val">8.742</div><div class="lbl">Mahasiswa Aktif</div></div>
+        <div class="stat"><div class="top"><div class="ic" style="background:linear-gradient(135deg,#0ea5e9,#2563eb)"><i class="fa-solid fa-chalkboard-user"></i></div><span class="delta up"><i class="fa-solid fa-arrow-up"></i>2,1%</span></div><div class="val">642</div><div class="lbl">Dosen &amp; Tendik</div></div>
+        <div class="stat"><div class="top"><div class="ic" style="background:linear-gradient(135deg,#f59e0b,#d97706)"><i class="fa-solid fa-building-columns"></i></div><span class="delta">&ndash;</span></div><div class="val">7 / 28</div><div class="lbl">Fakultas / Prodi</div></div>
+        <div class="stat"><div class="top"><div class="ic" style="background:linear-gradient(135deg,#10b981,#059669)"><i class="fa-solid fa-wallet"></i></div><span class="delta up"><i class="fa-solid fa-arrow-up"></i>12,6%</span></div><div class="val">Rp 8,76 M</div><div class="lbl">Pendapatan Bulan Ini</div></div>
+        <div class="stat"><div class="top"><div class="ic" style="background:linear-gradient(135deg,#ef4444,#dc2626)"><i class="fa-solid fa-file-invoice-dollar"></i></div><span class="delta down"><i class="fa-solid fa-arrow-down"></i>7,3%</span></div><div class="val">Rp 1,24 M</div><div class="lbl">Tunggakan</div></div>
+        <div class="stat"><div class="top"><div class="ic" style="background:linear-gradient(135deg,#7c3aed,#6d28d9)"><i class="fa-solid fa-star"></i></div><span class="delta up"><i class="fa-solid fa-arrow-up"></i>0,04</span></div><div class="val">3,68</div><div class="lbl">IPK Rata-rata</div></div>
+      </div>
+
+      <!-- CHARTS ROW 1 -->
+      <div class="grid" style="grid-template-columns:1.4fr 1fr 1fr;margin-bottom:18px">
+        <div class="card card-pad">
+          <div class="card-h"><h3>Tren Pendaftaran &amp; Pembayaran</h3><span class="badge b-gray">6 Bulan Terakhir</span></div>
+          <svg class="spark" viewBox="0 0 520 150" preserveAspectRatio="none" style="height:150px">
+            <defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4f46e5" stop-opacity=".22"/><stop offset="1" stop-color="#4f46e5" stop-opacity="0"/></linearGradient></defs>
+            <polyline fill="url(#g1)" stroke="none" points="0,120 0,95 90,80 180,88 270,55 360,60 450,35 520,40 520,150 0,150"/>
+            <polyline fill="none" stroke="#4f46e5" stroke-width="3" points="0,95 90,80 180,88 270,55 360,60 450,35 520,40"/>
+            <polyline fill="none" stroke="#10b981" stroke-width="3" stroke-dasharray="0" points="0,125 90,118 180,110 270,100 360,92 450,78 520,70"/>
+            <circle cx="450" cy="35" r="4.5" fill="#4f46e5"/><circle cx="520" cy="70" r="4.5" fill="#10b981"/>
+          </svg>
+          <div style="display:flex;gap:18px;margin-top:8px"><span class="small"><i class="fa-solid fa-circle" style="color:#4f46e5;font-size:8px"></i> Pendaftar</span><span class="small"><i class="fa-solid fa-circle" style="color:#10b981;font-size:8px"></i> Pembayaran (Rp)</span></div>
+        </div>
+        <div class="card card-pad">
+          <div class="card-h"><h3>Ringkasan Kehadiran</h3></div>
+          <div style="display:flex;align-items:center;gap:14px">
+            <div class="donut" style="background:conic-gradient(#10b981 0 92.4%,#f59e0b 92.4% 96.5%,#0ea5e9 96.5% 98.8%,#ef4444 98.8% 100%)"><div class="c"><b>92,4%</b><span>Kehadiran</span></div></div>
+            <div class="legend">
+              <div class="li"><span class="sw" style="background:#10b981"></span> Hadir <b style="margin-left:auto">92,4%</b></div>
+              <div class="li"><span class="sw" style="background:#f59e0b"></span> Izin <b style="margin-left:auto">4,1%</b></div>
+              <div class="li"><span class="sw" style="background:#0ea5e9"></span> Sakit <b style="margin-left:auto">2,3%</b></div>
+              <div class="li"><span class="sw" style="background:#ef4444"></span> Alpa <b style="margin-left:auto">1,2%</b></div>
+            </div>
+          </div>
+        </div>
+        <div class="card card-pad">
+          <div class="card-h"><h3>Distribusi Fakultas</h3></div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <div class="donut" style="width:130px;height:130px;background:conic-gradient(#4f46e5 0 29%,#10b981 29% 51%,#f59e0b 51% 69%,#7c3aed 69% 82%,#0ea5e9 82% 94%,#94a3b8 94% 100%)"><div class="c"><b>8.742</b><span>Total</span></div></div>
+            <div class="legend" style="font-size:11.5px">
+              <div class="li"><span class="sw" style="background:#4f46e5"></span> Teknik <b style="margin-left:auto">29%</b></div>
+              <div class="li"><span class="sw" style="background:#10b981"></span> Ekonomi <b style="margin-left:auto">22%</b></div>
+              <div class="li"><span class="sw" style="background:#f59e0b"></span> KIP <b style="margin-left:auto">18%</b></div>
+              <div class="li"><span class="sw" style="background:#7c3aed"></span> Hukum <b style="margin-left:auto">13%</b></div>
+              <div class="li"><span class="sw" style="background:#0ea5e9"></span> FISIP <b style="margin-left:auto">12%</b></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ROW 2: bar + activity + akses cepat -->
+      <div class="grid" style="grid-template-columns:1.1fr 1.2fr .9fr">
+        <div class="card card-pad">
+          <div class="card-h"><h3>Rekap Keuangan</h3><span class="badge b-gray">Bulan Ini</span></div>
+          <div class="bars">
+            <div class="col"><div class="bar" style="height:88%"></div><span class="bx">Akademik</span></div>
+            <div class="col"><div class="bar" style="height:62%"></div><span class="bx">SPP/UKT</span></div>
+            <div class="col"><div class="bar" style="height:44%"></div><span class="bx">PMB</span></div>
+            <div class="col"><div class="bar" style="height:30%;background:linear-gradient(135deg,#0ea5e9,#2563eb)"></div><span class="bx">Usaha</span></div>
+            <div class="col"><div class="bar" style="height:54%;background:linear-gradient(135deg,#ef4444,#dc2626)"></div><span class="bx">Operasional</span></div>
+          </div>
+          <div class="grid g-3" style="margin-top:14px;gap:8px">
+            <div style="background:#f0fdf4;border-radius:10px;padding:9px 11px"><div class="small muted">Pendapatan</div><b style="color:#047857">Rp 8,76 M</b></div>
+            <div style="background:#fef2f2;border-radius:10px;padding:9px 11px"><div class="small muted">Pengeluaran</div><b style="color:#b91c1c">Rp 5,21 M</b></div>
+            <div style="background:#eef2ff;border-radius:10px;padding:9px 11px"><div class="small muted">Surplus</div><b style="color:#4f46e5">Rp 3,55 M</b></div>
+          </div>
+        </div>
+
+        <div class="card card-pad">
+          <div class="card-h"><h3>Aktivitas Terbaru</h3><a class="small" style="color:#4f46e5;font-weight:700">Lihat Semua</a></div>
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <div style="display:flex;gap:11px;padding:9px 0;border-bottom:1px solid #f1f5f9"><div class="u av" style="background:#e0f2fe;color:#0369a1"><i class="fa-solid fa-money-bill"></i></div><div style="flex:1"><b class="small">Pembayaran UKT oleh Andi Pratama</b><div class="small muted">Rp 5.000.000 &middot; BNI Virtual Account</div></div><span class="small muted">10 mnt</span></div>
+            <div style="display:flex;gap:11px;padding:9px 0;border-bottom:1px solid #f1f5f9"><div class="u av" style="background:#ede9fe;color:#6d28d9"><i class="fa-solid fa-user-plus"></i></div><div style="flex:1"><b class="small">Pendaftar Baru — Siti Nur Aisyah</b><div class="small muted">S1 Teknik Informatika &middot; Jalur Prestasi</div></div><span class="small muted">35 mnt</span></div>
+            <div style="display:flex;gap:11px;padding:9px 0;border-bottom:1px solid #f1f5f9"><div class="u av" style="background:#d1fae5;color:#047857"><i class="fa-solid fa-clipboard-check"></i></div><div style="flex:1"><b class="small">Absensi Dosen diperbarui</b><div class="small muted">Mata Kuliah: Basis Data Lanjut</div></div><span class="small muted">1 jam</span></div>
+            <div style="display:flex;gap:11px;padding:9px 0;border-bottom:1px solid #f1f5f9"><div class="u av" style="background:#fef3c7;color:#b45309"><i class="fa-solid fa-file-signature"></i></div><div style="flex:1"><b class="small">Pengajuan Cuti — Dr. Rina Lestari</b><div class="small muted">Menunggu persetujuan (SOP Workflow)</div></div><span class="small muted">2 jam</span></div>
+            <div style="display:flex;gap:11px;padding:9px 0"><div class="u av" style="background:#e0e7ff;color:#3730a3"><i class="fa-solid fa-box"></i></div><div style="flex:1"><b class="small">Penerimaan Barang Inventaris</b><div class="small muted">20 Unit Laptop — Lab Komputer</div></div><span class="small muted">3 jam</span></div>
+          </div>
+        </div>
+
+        <div class="card card-pad">
+          <div class="card-h"><h3>Akses Cepat Modul</h3></div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:11px">
+            <a class="qa" href="pmb.html" style="text-align:center"><div class="ic" style="width:44px;height:44px;border-radius:13px;margin:0 auto 7px;display:flex;align-items:center;justify-content:center;color:#fff;background:linear-gradient(135deg,#4f46e5,#6d28d9)"><i class="fa-solid fa-user-plus"></i></div><span class="small" style="font-weight:600">PMB / RPL</span></a>
+            <a class="qa" href="index.html#lms" style="text-align:center"><div class="ic" style="width:44px;height:44px;border-radius:13px;margin:0 auto 7px;display:flex;align-items:center;justify-content:center;color:#fff;background:linear-gradient(135deg,#0ea5e9,#2563eb)"><i class="fa-solid fa-laptop-code"></i></div><span class="small" style="font-weight:600">LMS</span></a>
+            <a class="qa" href="index.html#finance" style="text-align:center"><div class="ic" style="width:44px;height:44px;border-radius:13px;margin:0 auto 7px;display:flex;align-items:center;justify-content:center;color:#fff;background:linear-gradient(135deg,#10b981,#059669)"><i class="fa-solid fa-credit-card"></i></div><span class="small" style="font-weight:600">Keuangan</span></a>
+            <a class="qa" href="index.html#akuntansi" style="text-align:center"><div class="ic" style="width:44px;height:44px;border-radius:13px;margin:0 auto 7px;display:flex;align-items:center;justify-content:center;color:#fff;background:linear-gradient(135deg,#f59e0b,#d97706)"><i class="fa-solid fa-calculator"></i></div><span class="small" style="font-weight:600">Akuntansi</span></a>
+            <a class="qa" href="index.html#sdm" style="text-align:center"><div class="ic" style="width:44px;height:44px;border-radius:13px;margin:0 auto 7px;display:flex;align-items:center;justify-content:center;color:#fff;background:linear-gradient(135deg,#7c3aed,#6d28d9)"><i class="fa-solid fa-users-gear"></i></div><span class="small" style="font-weight:600">SDM</span></a>
+            <a class="qa" href="index.html#spmi" style="text-align:center"><div class="ic" style="width:44px;height:44px;border-radius:13px;margin:0 auto 7px;display:flex;align-items:center;justify-content:center;color:#fff;background:linear-gradient(135deg,#0d9488,#0f766e)"><i class="fa-solid fa-clipboard-check"></i></div><span class="small" style="font-weight:600">SPMI</span></a>
+            <a class="qa" href="index.html#perpustakaan" style="text-align:center"><div class="ic" style="width:44px;height:44px;border-radius:13px;margin:0 auto 7px;display:flex;align-items:center;justify-content:center;color:#fff;background:linear-gradient(135deg,#ec4899,#db2777)"><i class="fa-solid fa-book-open"></i></div><span class="small" style="font-weight:600">Pustaka</span></a>
+            <a class="qa" href="index.html#ewallet" style="text-align:center"><div class="ic" style="width:44px;height:44px;border-radius:13px;margin:0 auto 7px;display:flex;align-items:center;justify-content:center;color:#fff;background:linear-gradient(135deg,#f97316,#ea580c)"><i class="fa-solid fa-utensils"></i></div><span class="small" style="font-weight:600">Kantin/POS</span></a>
+            <a class="qa" href="index.html" style="text-align:center"><div class="ic" style="width:44px;height:44px;border-radius:13px;margin:0 auto 7px;display:flex;align-items:center;justify-content:center;color:#fff;background:linear-gradient(135deg,#64748b,#475569)"><i class="fa-solid fa-table-cells-large"></i></div><span class="small" style="font-weight:600">Semua</span></a>
+          </div>
+          <a class="btn btn-soft" style="width:100%;justify-content:center;margin-top:14px" href="index.html"><i class="fa-solid fa-grip"></i> Lihat 46 Modul</a>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+<script>window.TBU_PAGE='dashboard';</script>
+<script src="assets/tbu.js"></script>
+</body>
+</html>

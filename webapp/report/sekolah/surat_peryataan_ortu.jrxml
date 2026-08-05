@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="surat_peryataan_ortu" language="groovy" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="17c63559-c9a7-4d75-87ef-a92782305779">
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="175"/>
+	<parameter name="ta" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2022/2023"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="sekolah" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["SMK Karsa Mulya Palangka Raya"]]></defaultValueExpression>
+	</parameter>
+	<title>
+		<band height="647" splitType="Stretch">
+			<textField>
+				<reportElement x="0" y="0" width="555" height="57" uuid="73050d56-1cd3-4ea6-b8f5-68816998307b"/>
+				<textElement textAlignment="Center">
+					<font size="14" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["SURAT PERNYATAAN KESEPAKATAN\n"+
+"BERSAMA ORANG TUA \n"+
+"TAHUN PELAJARAN "+$P{REPORT_PARAMETERS_MAP}.get( "ta" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="67" y="76" width="488" height="84" uuid="f840b645-ceae-4ff4-9705-16ad1487f6e5"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Menindaklanjuti hasil wawancara dalam pertemuan antara orang tua/wali siswa tahun pelajaran "+$P{REPORT_PARAMETERS_MAP}.get( "ta" )+" bersama penyelenggara sekolah  dan demi kelancaran seluruh kegiatan dalam proses belajar dan pendidikan putra/putri kami di "+$P{REPORT_PARAMETERS_MAP}.get( "sekolah" )+", maka kami:"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="107" y="160" width="448" height="80" uuid="9c80424b-93b2-4b01-ad22-f0960f935aa5"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Nama Orang tua/wali\t: "+$P{REPORT_PARAMETERS_MAP}.get( "ortu" )+"\n"+
+"Nama Siswa	\t\t: "+$P{REPORT_PARAMETERS_MAP}.get( "siswa" )+"\n"+
+($P{REPORT_PARAMETERS_MAP}.get( "jurusan" ) == null || $P{REPORT_PARAMETERS_MAP}.get( "jurusan" ).toString().isEmpty() ? "" : "Jurusan	\t\t: "+$P{REPORT_PARAMETERS_MAP}.get( "jurusan" )+"\n")+
+"Sekolah Asal	\t\t: "+$P{REPORT_PARAMETERS_MAP}.get( "sekolah_asal" )
+]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="67" y="240" width="488" height="18" uuid="70a1453d-f09b-4e81-acd7-df42518367c3"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["MENYATAKAN"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="67" y="258" width="22" height="48" uuid="7c6bb727-2670-4387-95d7-842295d39421"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA["1."]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="89" y="258" width="466" height="48" uuid="5f57429c-8cbe-4783-94ac-d7d289cc5b24"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Menyadari sepenuhnya bahwa "+$P{REPORT_PARAMETERS_MAP}.get( "sekolah" )+" adalah sekolah swasta, yang biaya operasionalnya sangat tergantung dari kontribusi orang tua siswa."]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="67" y="306" width="22" height="47" uuid="cc59a519-b955-45cd-a289-0a22f5a89f3a"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA["2."]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="89" y="306" width="466" height="47" uuid="68ebbd4c-80b7-46c6-8280-1033cb9734cb"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Mentaati dan mendukung seluruh program pada "+$P{REPORT_PARAMETERS_MAP}.get( "sekolah" )+" semata-mata untuk keberhasilan putra/putri kami dalam menempuh pendidikan di "+$P{REPORT_PARAMETERS_MAP}.get( "sekolah" )+"."]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="89" y="353" width="466" height="47" uuid="e9ca281b-7683-4235-a2d1-6721c8224492"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Menyetujui besaran biaya sesuai dengan hasil kesepakatan dalam Rapat/ Wawancara antara penyelenggara pendidikan dan orang tua."]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="67" y="353" width="22" height="47" uuid="7d3a587f-f3c6-407c-93fa-24bd157c1edd"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA["3."]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="67" y="400" width="488" height="84" uuid="42c3c7f7-b59b-43af-904c-7be7bd39eb1a"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Demikian pernyataan ini saya buat dan ditanda tangani tanpa ada paksaan dari pihak manapun, semata-mata untuk kelancaran seluruh proses pendidikan putra/putri kami."]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="315" y="484" width="240" height="151" uuid="0bab8f0c-ff3c-4160-b4b6-34d95c94eb2d"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "label_kota" )+", "+(new SimpleDateFormat("dd MMMMMM yyyy",$P{REPORT_LOCALE})).format(new Date())+"\n"+
+"Yang Menyatakan,\n\n\n\n\n"+
+"………………………………………………"]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+</jasperReport>

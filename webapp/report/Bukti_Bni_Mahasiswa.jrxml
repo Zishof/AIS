@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Kartu_Hasil_Studi" pageWidth="595" pageHeight="425" whenNoDataType="AllSectionsNoDetail" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20" uuid="3a486cc5-5f12-46d5-b244-26da40ce5364">
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="logo" class="java.lang.String">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="fakultas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Hukum"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jenis_semester" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Genap"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tahun_ajaran" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2009/2010"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="semester" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new Integer(1)]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tanggal" class="java.util.Date" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new java.util.Date()]]></defaultValueExpression>
+	</parameter>
+	<parameter name="pembantu_dekan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Nursva. A. SH. MH."]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mahasiswa" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[13636L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="barcode" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="nip" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="kaprodi" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_jurusan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Prodi"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_fakultas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Fakultas"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_kota" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Ciputat"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="kegiatan" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="SUBREPORT_DIR" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["C:\\Users\\Mohammad Fauzi\\Documents\\My Project\\Academic Information System\\AIS\\ais\\web\\report\\"]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select
+b.kode,
+b.nama as item_biaya,
+sum(a1.nilai) biaya,
+max(d.nim) as nim,
+max(d.nama) as nama_mahasiswa,
+max(e.nama) as nama_jurusan,
+max(f.nama) as nama_fakultas,
+max(c.semster) as semester,
+max(c.tahun_akademik) as tahun_ajaran,
+max(g.nama_kegiatan) as nama_kegiatan,
+max(c.ref_number) as ref_number,
+max(c.program) as program,
+max(c.validator) as validator,
+max(c.bulan) as bulan
+
+from cicilan_pembayaran a1
+inner join pengaturan_pembayaran_bulanan a2 on (a1.pengaturan_pembayaran_bulanan = a2.id)
+left join detail_biaya a on (a.id = a2.detail_biaya)
+left join item_biaya b on (a.item_biaya = b.id)
+left join kegiatan c on (a1.kegiatan = c.id)
+left join mahasiswa d on (c.mahasiswa = d.id)
+left join jurusan e on (d.jurusan = e.id)
+left join fakultas f on (e.fakultas = f.id)
+left join jenis_kegiatan g on (c.jenis_kegiatan = g.id)
+
+where c.id = $P{kegiatan}
+group by b.id]]>
+	</queryString>
+	<field name="kode" class="java.lang.String"/>
+	<field name="item_biaya" class="java.lang.String"/>
+	<field name="biaya" class="java.lang.Double"/>
+	<field name="nim" class="java.lang.String"/>
+	<field name="nama_mahasiswa" class="java.lang.String"/>
+	<field name="nama_jurusan" class="java.lang.String"/>
+	<field name="nama_fakultas" class="java.lang.String"/>
+	<field name="semester" class="java.lang.Integer"/>
+	<field name="tahun_ajaran" class="java.lang.String"/>
+	<field name="nama_kegiatan" class="java.lang.String"/>
+	<field name="ref_number" class="java.lang.String"/>
+	<field name="program" class="java.lang.String"/>
+	<field name="validator" class="java.lang.String"/>
+	<field name="bulan" class="java.lang.Integer"/>
+	<variable name="sum_total" class="java.lang.Double" calculation="Sum">
+		<variableExpression><![CDATA[$F{biaya}]]></variableExpression>
+	</variable>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="385" splitType="Stretch">
+			<staticText>
+				<reportElement key="staticText-1" x="1" y="73" width="535" height="26" uuid="a733800a-6e69-4a33-9a09-d6287ace4d98"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="12" isBold="true" isUnderline="false" pdfFontName="Helvetica"/>
+				</textElement>
+				<text><![CDATA[PEMBAYARAN VIA BNI]]></text>
+			</staticText>
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="0" y="-17" width="535" height="71" uuid="e0cb0774-e031-4585-bbc6-dabc23b44b23"/>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<textField>
+				<reportElement x="0" y="54" width="535" height="19" uuid="0ec73b33-3fe8-409e-b0e9-eec4a10901ca"/>
+				<textElement textAlignment="Center" verticalAlignment="Bottom">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{label_universitas}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="1" y="99" width="535" height="286" uuid="b4daec14-b126-450d-ba9b-fe82919f1b39"/>
+				<box leftPadding="30"/>
+				<textElement verticalAlignment="Top">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "info" )]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+</jasperReport>

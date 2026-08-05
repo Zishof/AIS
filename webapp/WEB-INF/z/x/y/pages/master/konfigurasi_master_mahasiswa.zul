@@ -1,0 +1,72 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		width="100%" height="100%">
+
+		<borderlayout>
+			<center border="none" flex="true">
+				<grid fixedLayout="true" use="ais.ui.util.MyGrid" sclass="dgrid">
+					<rows>
+						<row>
+
+
+							<tabbox width="100%" height="2000px">
+								<tabs>
+									<tab use="ais.ui.util.MyTabConfig" selected="true">
+										Negara
+									</tab>
+									<tab use="ais.ui.util.MyTabConfig">
+										Propinsi
+									</tab>
+									<tab use="ais.ui.util.MyTabConfig">
+										Kota
+									</tab>
+									<tab use="ais.ui.util.MyTabConfig">
+										Jenis Kartu Identitas
+									</tab>
+								</tabs>
+								<tabpanels>
+									<tabpanel use="ais.ui.util.MyTabpanel">
+										<include use="ais.ui.util.MyInclude"
+											src="/WEB-INF/z/x/y/pages/master/negara.zul"></include>
+									</tabpanel>
+									<tabpanel use="ais.ui.util.MyTabpanel">
+										<include use="ais.ui.util.MyInclude"
+											src="/WEB-INF/z/x/y/pages/master/propinsi.zul"></include>
+									</tabpanel>
+									<tabpanel use="ais.ui.util.MyTabpanel">
+										<include use="ais.ui.util.MyInclude"
+											src="/WEB-INF/z/x/y/pages/master/kota.zul"></include>
+									</tabpanel>
+									<tabpanel use="ais.ui.util.MyTabpanel">
+										<include use="ais.ui.util.MyInclude"
+											src="/WEB-INF/z/x/y/pages/master/agama.zul"></include>
+									</tabpanel>
+									<tabpanel use="ais.ui.util.MyTabpanel">
+										<include
+											src="/WEB-INF/z/x/y/pages/master/jenis_kartu_identitas.zul">
+										</include>
+									</tabpanel>
+								</tabpanels>
+
+							</tabbox>
+
+						</row>
+					</rows>
+				</grid>
+			</center>
+		</borderlayout>
+
+	</window>
+
+
+</zk>

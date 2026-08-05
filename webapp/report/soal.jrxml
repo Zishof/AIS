@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="report" language="groovy" pageWidth="612" pageHeight="935" whenNoDataType="AllSectionsNoDetail" columnWidth="572" leftMargin="0" rightMargin="40" topMargin="20" bottomMargin="14" uuid="99387baa-91f5-440a-80c4-d3624838f704">
+	<property name="ireport.zoom" value="2.1435888100000104"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="siswa.id" class="java.lang.String"/>
+	<field name="nomor" class="java.lang.Integer"/>
+	<field name="soal" class="java.lang.String"/>
+	<field name="bobot" class="java.lang.Double"/>
+	<title>
+		<band height="17">
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-14" mode="Opaque" x="0" y="0" width="40" height="17" backcolor="#CCCCCC" uuid="73e41cc1-602b-4d7e-ba20-8f95c83dfe00"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA["No Soal"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-14" mode="Opaque" x="539" y="0" width="31" height="17" backcolor="#CCCCCC" uuid="e405c576-989c-481b-afe7-d862878312a9"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Skor"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-14" mode="Opaque" x="40" y="0" width="499" height="17" backcolor="#CCCCCC" uuid="9ba84bd3-38dc-428e-89e6-95891e74831f"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA["SOAL"]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<detail>
+		<band height="41" splitType="Stretch">
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-14" x="40" y="0" width="499" height="41" uuid="a503e98e-bc9c-4fe4-8768-4cd391211b4b"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="5" isBold="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{soal}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-14" x="0" y="0" width="40" height="41" uuid="0e69be5e-a732-4021-ba75-51fd2bbcd65b"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nomor}]]></textFieldExpression>
+			</textField>
+			<textField pattern="###0;-###0" isBlankWhenNull="false">
+				<reportElement key="textField-14" x="539" y="0" width="31" height="41" uuid="db9e8564-63f8-494e-bf6a-55f36ef4358c"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{bobot}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<summary>
+		<band height="137">
+			<image hAlign="Left" vAlign="Middle" onErrorType="Blank">
+				<reportElement x="267" y="23" width="272" height="113" uuid="6d726aab-2d10-4318-951d-3dfd1b1d062c"/>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "jurusan.ttd.kaprodi" )]]></imageExpression>
+			</image>
+			<staticText>
+				<reportElement key="staticText-10" x="267" y="3" width="272" height="20" uuid="dbf6038e-155e-4dd3-b562-5c31a854019a"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle"/>
+				<text><![CDATA[Diverifikasi oleh :]]></text>
+			</staticText>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-20" x="267" y="116" width="272" height="20" uuid="eb1e2670-9d25-4d72-85c5-d9b9f0e00b94"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="9" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "nama_kaprodi" )]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-20" x="267" y="23" width="272" height="20" uuid="0cd2dac7-1361-4fe5-8de0-6889a9fb32b5"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="9" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Ketua Program Studi "+$P{REPORT_PARAMETERS_MAP}.get( "jurusan" )]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
+</jasperReport>

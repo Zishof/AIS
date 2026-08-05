@@ -1,0 +1,228 @@
+<?page title="Selamat Datang di Sistem Informasi Kampus" contentType="text/html;charset=UTF-8"?>
+<zk>
+
+
+	<window use="ais.ui.util.MyWindow" apply="ais.action.maintenance.MainAction" width="100%"
+		height="100%" border="none">
+
+
+
+		<zscript><![CDATA[
+	ais.common.Common.getCurrentFromSpringUser();
+	String nama = ais.common.Common.getCurrentUser() == null ? ""
+			: ais.common.Common.getCurrentUser().getUserNama();
+	String role = ais.common.Common.getCurrentUser() == null
+			|| ais.common.Common.getCurrentUser().getUserRole() == null ? ""
+			: ais.common.Common.getCurrentUser().getUserRole().getRoleName();
+	String jurusan = ais.common.Common.getCurrentUser() == null ? ""
+			: ais.common.Common.getCurrentUser().getMahasiswa() == null ? ""
+					: ais.common.Common.getCurrentUser().getMahasiswa()
+							.getJurusan() == null ? "" : ais.common.Common
+							.getCurrentUser().getMahasiswa().getJurusan()
+							.getNama();
+	String status = ais.common.Common.getCurrentUser().getMahasiswa() == null ? ""
+			: ais.common.Common.getCurrentUser().getMahasiswa().getStatus() == null ? ""
+					: ais.common.Common.getCurrentUser().getMahasiswa()
+							.getStatus().getNama();
+]]></zscript>
+
+
+
+
+
+		<borderlayout height="100%" width="100%">
+			<north border="none" height="80px">
+
+				<borderlayout height="80px" width="100%">
+
+					<center border="none" flex="true" id="mycenter">
+						<hbox pack="start" align="center">
+							<image align="center" id="header"
+								src="/img/header-blue.jpg" />
+							<label use="ais.ui.util.MyLabelConfig">
+								Anda Login Sebagai :
+							</label>
+							<label use="ais.ui.util.MyLabelConfig"
+								value="${nama} (${role}) ${jurusan} , (${status})"  />
+
+							<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"  
+								forward="onClick=onLihatOnline"
+								 id="usersOnline" label="Online user(s): 0" />
+							<timer id="timer" delay="110000"
+								repeats="true" forward="onTimer=onUpdateUserOnline" />
+						</hbox>
+
+					</center>
+
+					<zscript>
+	// AIS_RESET_DEFAULT_ZKOSS_STYLE mycenter.setStyle(null);
+</zscript>
+
+
+
+					<!-- 
+						<south border="none" flex="true">
+						
+						<menubar id="menubar" width="200px" />
+						
+						</south>					
+					-->
+
+				</borderlayout>
+			</north>
+
+			<west title="Navigasi" size="220px" flex="true"
+				border="none" id="navigation"  minsize="110"
+				maxsize="300">
+
+				<tree id="menubar" fixedLayout="true" rows="20"
+					zclass="z-dottree">
+				</tree>
+
+			</west>
+
+
+			<center border="none" flex="true">
+
+				<tabbox id="include" width="100%" height="100%">
+					<tabs>
+						<tab use="ais.ui.util.MyTabConfig" label="Pengumuman Akademis"
+							closable="true" />
+					</tabs>
+					<tabpanels>
+						<tabpanel use="ais.ui.util.MyTabpanel">
+							<include use="ais.ui.util.MyIframe"
+								src="tampilan_pengumuman_akademis.zul" width="100%"
+								height="100%" />
+						</tabpanel>
+
+					</tabpanels>
+				</tabbox>
+
+
+			</center>
+
+
+			<south>
+				<hbox pack="center" align="center"
+					width="100%">
+					<label use="ais.ui.util.MyLabelConfig" value="© 2010 " />
+					<a href="http://uinjkt.ac.id" target="new"
+						id="footer">
+						Universitas Islam Negeri Syarif Hidayatullah
+						Jakarta
+					</a>
+					<separator orient="horizontal" bar="true" />
+
+
+				</hbox>
+			</south>
+
+		</borderlayout>
+
+	</window>
+
+
+
+	<window use="ais.ui.util.MyWindow" id="changePassword" title="Ganti Password"
+		apply="ais.action.maintenance.MainAction" visible="false" mode="popup"
+		position="center,center" border="normal" width="600px"
+		height="240px">
+		<borderlayout>
+			<center border="none" flex="true">
+
+				<grid use="ais.ui.util.MyGrid"  fixedLayout="true" width="100%" height="100%">
+					<columns>
+						<column use="ais.ui.util.MyColumnConfig" width="30%"></column>
+						<column use="ais.ui.util.MyColumnConfig" width="70%"></column>
+					</columns>
+					<rows>
+						<row>
+							<label use="ais.ui.util.MyLabelConfig" value="Password Lama" />
+							<textbox width="95%" type="password" id="pl" />
+						</row>
+						<row>
+							<label use="ais.ui.util.MyLabelConfig" value="Password Baru" />
+							<textbox width="95%" type="password" id="pb" />
+						</row>
+						<row>
+							<label use="ais.ui.util.MyLabelConfig" value="Ulangi Password Baru" />
+							<textbox width="95%" type="password" id="upb" />
+						</row>
+
+					</rows>
+				</grid>
+			</center>
+			<south>
+				<toolbar>
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"   image="/img/cancel.gif">
+						<attribute name="onClick">
+	changePassword.setVisible(false);
+</attribute>
+					</toolbarbutton>
+
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"   forward="onClick=onChangePassword"
+						image="/img/save.gif" />
+				</toolbar>
+			</south>
+		</borderlayout>
+	</window>
+
+	<zscript><![CDATA[
+	changePassword.setVisible(false);
+]]></zscript>
+
+
+
+	<window use="ais.ui.util.MyWindow" id="bantuan" title="Bantuan"
+		apply="ais.action.report.Report" visible="false" mode="popup"
+		position="center,center" border="normal" width="500px"
+		height="350px">
+		<borderlayout>
+			<center border="none" flex="true">
+
+				<grid use="ais.ui.util.MyGrid"  fixedLayout="true" width="100%" height="100%">
+					<columns>
+						<column use="ais.ui.util.MyColumnConfig" width="100%"></column>
+					</columns>
+					<rows>
+						<row>
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Klik tombol bergambar printer untuk mengunduh bantuan" />
+						</row>
+
+						<row>
+
+							<toolbar>
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"  
+									image="/img/cancel.gif">
+									<attribute name="onClick">
+	bantuan.setVisible(false);
+</attribute>
+								</toolbarbutton>
+
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"  
+									forward="onClick=onBantuan" image="/img/print.png" />
+							</toolbar>
+						</row>
+					</rows>
+				</grid>
+			</center>
+		</borderlayout>
+		<caption>
+			<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"   label=" X ">
+				<attribute name="onClick">
+	bantuan.setVisible(false);
+</attribute>
+			</toolbarbutton>
+		</caption>
+	</window>
+
+	<zscript><![CDATA[
+	bantuan.setVisible(false);
+]]></zscript>
+
+
+
+
+</zk>

@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Kartu_Hasil_Studi" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="565" leftMargin="0" rightMargin="30" topMargin="20" bottomMargin="20">
+	<property name="ireport.zoom" value="0.35049389948139253"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="logo" class="java.lang.String">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="fakultas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Hukum"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jenis_semester" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Genap"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tahun_ajaran" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2009/2010"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="semester" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new Integer(1)]]></defaultValueExpression>
+	</parameter>
+	<parameter name="pembantu_dekan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Nursva. A. SH. MH."]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mahasiswa" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[14138L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="barcode" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="nip" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["196406231988022001"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="kaprodi" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["DIEN NUR ROSIVA, SKM"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_jurusan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Prodi"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_fakultas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Fakultas"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_kota" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Ungaran"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_ka_prodi" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["KASI AKADEMIK DAN PENELITIAN \nCHIEF OF ACADEMIC AND RESEARCH AFFAIRS,"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tanggal" class="java.util.Date" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new java.util.Date()]]></defaultValueExpression>
+	</parameter>
+	<parameter name="direktur_akademi" class="java.lang.String">
+		<defaultValueExpression><![CDATA["S.RETNO WULANDARI,SKM,M.Kes"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="nip_direktur" class="java.lang.String">
+		<defaultValueExpression><![CDATA["195812021981122002"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="alamat_akper" class="java.lang.String">
+		<defaultValueExpression><![CDATA["Kampus 1 Jalan Pakuwojo Po. Box. 04/104 Wonosobo, Telp/Fax : (0286) 321122\n"+
+"Kampus 2 Jalan Merapi 17A Suwakul, Ungaran Kabupaten SemarangPhone/ Fax : (024) 6921477 \n"+
+"Website: www.akperpemprov.jatengprov.go.id     Email  :  akper_unggulan@yahoo.com"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="SUBREPORT_DIR" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["C:\\Users\\Asrofi\\Documents\\AKPER\\akper\\akper\\web\\report\\"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tahunangkatan" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[2013]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jurusan" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[13L]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select
+c.id as id_mahasiswa,
+c.nim
+
+from mahasiswa c
+where c.tahunangkatan = $P{tahunangkatan}
+and c.jurusan = $P{jurusan}
+
+order by nim]]>
+	</queryString>
+	<field name="id_mahasiswa" class="java.lang.Long"/>
+	<field name="nim" class="java.lang.String"/>
+	<group name="nim" isStartNewPage="true" minHeightToStartNewPage="100">
+		<groupExpression><![CDATA[$F{nim}]]></groupExpression>
+	</group>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<detail>
+		<band height="802" splitType="Stretch">
+			<subreport>
+				<reportElement x="0" y="0" width="565" height="802"/>
+				<subreportParameter name="label_universitas">
+					<subreportParameterExpression><![CDATA[$P{label_universitas}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="jenis_semester">
+					<subreportParameterExpression><![CDATA[$P{jenis_semester}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="logo">
+					<subreportParameterExpression><![CDATA[$P{logo}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_kota">
+					<subreportParameterExpression><![CDATA[$P{label_kota}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="kaprodi">
+					<subreportParameterExpression><![CDATA[$P{kaprodi}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="alamat_akper">
+					<subreportParameterExpression><![CDATA[$P{alamat_akper}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_ka_prodi">
+					<subreportParameterExpression><![CDATA[$P{label_ka_prodi}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="barcode">
+					<subreportParameterExpression><![CDATA[$P{barcode}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="mahasiswa">
+					<subreportParameterExpression><![CDATA[$F{id_mahasiswa}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="tanggal">
+					<subreportParameterExpression><![CDATA[$P{tanggal}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="direktur_akademi">
+					<subreportParameterExpression><![CDATA[$P{direktur_akademi}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="SUBREPORT_DIR">
+					<subreportParameterExpression><![CDATA[$P{SUBREPORT_DIR}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="tahun_ajaran">
+					<subreportParameterExpression><![CDATA[$P{tahun_ajaran}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="nip_direktur">
+					<subreportParameterExpression><![CDATA[$P{nip_direktur}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_fakultas">
+					<subreportParameterExpression><![CDATA[$P{label_fakultas}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="pembantu_dekan">
+					<subreportParameterExpression><![CDATA[$P{pembantu_dekan}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="fakultas">
+					<subreportParameterExpression><![CDATA[$P{fakultas}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="nip">
+					<subreportParameterExpression><![CDATA[$P{nip}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_jurusan">
+					<subreportParameterExpression><![CDATA[$P{label_jurusan}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="semester">
+					<subreportParameterExpression><![CDATA[$P{semester}]]></subreportParameterExpression>
+				</subreportParameter>
+				<connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
+				<subreportExpression><![CDATA[$P{SUBREPORT_DIR} + "Kartu_Hasil_Studi_akperjateng.jasper"]]></subreportExpression>
+			</subreport>
+		</band>
+	</detail>
+</jasperReport>

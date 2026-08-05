@@ -1,0 +1,55 @@
+<?page id="dashboardKepatuhanKantin" title="Dasbor Kepatuhan Operasional" cacheable="false"
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.koperasi.DashboardKepatuhanKantinAction" width="100%" height="100%">
+
+		<div sclass="ais-crud-portal">
+
+			<!-- ═══ KARTU FILTER / PERIODE ═══ -->
+			<div sclass="ais-crud-filter-card">
+				<div sclass="ais-crud-filter-head">
+					<span sclass="ais-crud-filter-title">Periode &amp; Tindakan</span>
+					<div sclass="ais-crud-filter-actions">
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+							id="refresh" label="Segarkan" image="/img/refresh.gif"
+							tooltiptext="Muat ulang dasbor" forward="onClick=onRefresh"/>
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+							id="download" label="Unduh Semua Rekap" image="/img/excel.png"
+							tooltiptext="Unduh seluruh temuan kepatuhan (opname, selisih, sesi kas, diskon manual) dalam satu berkas Excel"
+							forward="onClick=onDownload"/>
+					</div>
+				</div>
+				<div sclass="ais-crud-filter-body">
+					<grid use="ais.ui.util.MyGrid" fixedLayout="true" sclass="ais-crud-filter-grid">
+						<columns>
+							<column use="ais.ui.util.MyColumnConfig" width="120px"/>
+							<column use="ais.ui.util.MyColumnConfig"/>
+						</columns>
+						<rows>
+							<row>
+								<label use="ais.ui.util.MyLabelConfig" value="Periode"/>
+								<combobox id="searchPeriode" width="240px" readonly="true"
+									forward="onSelect=onRefresh"
+									tooltiptext="Periode untuk temuan yang terikat waktu (selisih opname, selisih kas, diskon manual). Kepatuhan opname dan sesi kas yang masih terbuka selalu menampilkan kondisi terkini."/>
+							</row>
+						</rows>
+					</grid>
+				</div>
+			</div>
+
+			<!-- ═══ KARTU DATA (DASBOR) ═══ -->
+			<div sclass="ais-crud-data-card">
+				<div id="dashHost" width="100%"/>
+			</div>
+
+		</div>
+
+	</window>
+
+</zk>

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="statistik" language="groovy" pageWidth="271" pageHeight="234" columnWidth="271" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0">
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<queryString>
+		<![CDATA[select
+'Laki-laki' as nama,
+sum(case when kelamin = 'Laki-laki' then 1 else 0 end) as jenis
+from pegawai
+union all
+select
+'Perempuan' as nama,
+sum(case when kelamin = 'Laki-laki' then 0 else 1 end) as jenis
+from pegawai
+where status_pegawai = 1]]>
+	</queryString>
+	<field name="nama" class="java.lang.String"/>
+	<field name="jenis" class="java.lang.Long"/>
+	<title>
+		<band height="234">
+			<pie3DChart>
+				<chart evaluationTime="Report" theme="aegean">
+					<reportElement x="0" y="39" width="271" height="195"/>
+					<chartTitle/>
+					<chartSubtitle/>
+					<chartLegend/>
+				</chart>
+				<pieDataset>
+					<keyExpression><![CDATA[$F{nama}+" - "+$F{jenis}]]></keyExpression>
+					<valueExpression><![CDATA[$F{jenis}]]></valueExpression>
+				</pieDataset>
+				<pie3DPlot>
+					<plot/>
+					<itemLabel/>
+				</pie3DPlot>
+			</pie3DChart>
+			<staticText>
+				<reportElement x="0" y="0" width="271" height="39"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Statistik Jenis Kelamin]]></text>
+			</staticText>
+		</band>
+	</title>
+</jasperReport>

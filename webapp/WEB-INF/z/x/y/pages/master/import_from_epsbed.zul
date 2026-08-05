@@ -1,0 +1,78 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.ImportFromEpsbedAction" width="100%"
+		height="100%">
+
+
+
+
+
+		<borderlayout width="100%" height="100%">
+
+			<center border="none" flex="true">
+				<borderlayout width="100%"
+					height="100%">
+
+					<north border="none"
+						flex="true">
+						<hbox align="center" pack="center" width="100%"
+							height="100%">
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Directory (folder) File DBF">
+							</label>
+							<textbox id="directory" cols="80"></textbox>
+
+						</hbox>
+					</north>
+
+					<center border="none"
+						flex="true">
+						<div width="100%" height="100%">
+							<label use="ais.ui.util.MyLabelConfig"
+								id="labelProses" value="Proses : ">
+							</label>
+
+							<progressmeter id="progressmeterChild"
+								value="0" width="100%">
+							</progressmeter>
+
+							<progressmeter id="progressmeter" value="0"
+								width="100%">
+							</progressmeter>
+
+						</div>
+
+					</center>
+
+
+
+					<south border="none">
+						<toolbar>
+
+							<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+								 id="button"
+								forward="onClick=onImport" label="Import Data Dari Epsbed"
+								image="/img/dashboard.png">
+							</toolbarbutton>
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;import_from_epsbed&quot;, &quot;Bantuan&quot;);"/>
+			</toolbar>
+					</south>
+				</borderlayout>
+			</center>
+		</borderlayout>
+
+
+	</window>
+
+
+</zk>

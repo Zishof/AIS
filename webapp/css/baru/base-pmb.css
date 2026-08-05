@@ -1,0 +1,837 @@
+/* ==============================================================
+   BASE PMB CSS (Centralized & Dynamic)
+   ============================================================== */
+
+/* Background Wrapper */
+.page-bg-pmb { 
+    position: fixed; 
+    top: 0; left: 0; 
+    width: 100vw; height: 100vh; 
+    background: url('../../img/pmb_bg.jpg') center/cover no-repeat; 
+    opacity: 0.08; 
+    z-index: -999; 
+    pointer-events: none; 
+}
+
+/* Hero Section - Mengikuti Gradien Tema */
+.hero-section-pmb { 
+    background: var(--theme-gradient) !important; 
+    color: var(--theme-text-on-primary) !important;
+    padding: 100px 0 60px 0; 
+    position: relative; 
+    overflow: hidden; 
+}
+
+.hero-pattern-pmb { 
+    position: absolute; 
+    top: 0; left: 0; 
+    width: 100%; height: 100%; 
+    background-image: radial-gradient(rgba(255,255,255,0.1) 2px, transparent 2px); 
+    background-size: 30px 30px; 
+    opacity: 0.3; 
+}
+
+/* Navbar PMB Glassmorphism */
+.navbar-pmb { 
+    background-color: rgba(255, 255, 255, 0.95); 
+    backdrop-filter: blur(10px); 
+    box-shadow: 0 2px 15px rgba(0,0,0,0.1); 
+    transition: all 0.3s ease; 
+}
+
+.nav-link-pmb { 
+    font-weight: 600; 
+    color: #495057 !important; 
+    padding: 0.5rem 1rem; 
+    transition: all 0.3s ease; 
+}
+
+.nav-link-pmb:hover, 
+.nav-link-pmb.active { 
+    color: var(--theme-primary) !important; 
+}
+
+/* Button Primary PMB */
+.btn-primary-pmb { 
+    background: var(--theme-gradient) !important; 
+    color: var(--theme-text-on-primary) !important;
+    border: 1px solid var(--theme-primary-dark) !important; 
+    padding: 10px 25px; 
+    font-weight: 600; 
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
+    border-radius: 50px;
+    transition: all 0.3s ease;
+}
+
+.btn-primary-pmb:hover { 
+    transform: translateY(-2px); 
+    box-shadow: 0 6px 20px rgba(0,0,0,0.2); 
+    filter: brightness(1.1); 
+    color: var(--theme-text-on-primary) !important;
+}
+
+/* Card Khusus PMB */
+.card-pmb { 
+    border: none; 
+    border-radius: 15px; 
+    transition: all 0.3s ease; 
+    border-bottom: 4px solid transparent; 
+    background-color: #ffffff;
+}
+
+.card-pmb:hover { 
+    transform: translateY(-10px); 
+    border-bottom: 4px solid var(--theme-primary); 
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+}
+
+/* Utility Classes */
+.text-primary-pmb { color: var(--theme-primary) !important; }
+.bg-primary-light-pmb { background-color: var(--theme-light) !important; }
+
+.step-number-pmb { 
+    width: 40px; height: 40px; 
+    background: var(--theme-gradient); 
+    color: var(--theme-text-on-primary); 
+    border-radius: 50%; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    font-weight: bold; 
+    margin-bottom: 1rem; 
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+
+/* ==============================================================
+   FIX: TOMBOL LOGIN / TAMPILAN KLASIK PMB (Di Atas Hero Gradient)
+   ============================================================== */
+/* Menargetkan tombol di pojok kanan atas agar kontras dengan background gradient */
+.btn-login-pmb.btn-light {
+    background-color: #ffffff !important; /* Putih solid */
+    color: var(--theme-primary-dark) !important; /* Teks tegas dengan warna tema versi gelap */
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15) !important;
+    font-weight: 700 !important;
+    backdrop-filter: none !important; /* Mencegah kaca yang terlalu pudar */
+    transition: all 0.3s ease !important;
+    opacity: 1 !important; /* Memastikan tidak ada efek pudar bawaan template */
+}
+
+/* Memaksa ikon FontAwesome di dalamnya agar selaras */
+.btn-login-pmb.btn-light svg,
+.btn-login-pmb.btn-light i {
+    color: var(--theme-primary) !important;
+    fill: var(--theme-primary) !important;
+    transition: all 0.3s ease !important;
+}
+
+/* Efek Sorot (Hover) - Tombol menyala dan sedikit terangkat */
+.btn-login-pmb.btn-light:hover {
+    background-color: var(--theme-light) !important; /* Sedikit sentuhan warna tema */
+    color: var(--theme-primary-dark) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25) !important;
+    border-color: #ffffff !important;
+}
+
+.btn-login-pmb.btn-light:hover svg,
+.btn-login-pmb.btn-light:hover i {
+    transform: scale(1.1); /* Ikon sedikit membesar saat disorot */
+}
+
+
+/* ==============================================================
+   FIX: TEKS MOTTO / SUBTITLE DI HERO SECTION (text-shadow-pmb)
+   ============================================================== */
+/* Menghilangkan paksaan warna kuning dari class text-warning bawaan Bootstrap */
+.hero-section-pmb .text-warning,
+.hero-section-pmb .text-shadow-pmb {
+    color: var(--theme-text-on-primary) !important; /* Mengikuti kontras tema: Putih di tema gelap, Gelap di tema terang */
+    
+    /* Memberikan bayangan hitam transparan agar teks selalu terbaca dan "pop-out" dari background */
+    text-shadow: 1px 2px 5px rgba(0, 0, 0, 0.6), 0 0 12px rgba(0, 0, 0, 0.3) !important;
+    
+    /* Sedikit ditebalkan dari fw-light agar hurufnya lebih tajam */
+    font-weight: 400 !important; 
+    opacity: 0.95 !important;
+}
+
+/* ==============================================================
+   FIX: MENGEMBALIKAN BACKGROUND IMAGE PMB DI HERO SECTION
+   ============================================================== */
+.hero-section-pmb { 
+    background: var(--theme-gradient) !important; 
+    color: var(--theme-text-on-primary) !important;
+    padding: 100px 0 60px 0; 
+    position: relative; 
+    
+    /* Mengembalikan lengkungan bawah dan border dari desain asli JSP */
+    border-radius: 0 0 2.5rem 2.5rem !important; 
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15) !important; 
+    border-bottom: 5px solid var(--theme-primary-dark) !important;
+    
+    z-index: 1; /* Wajib agar konten teks tetap di atas */
+}
+
+/* Trik menyisipkan gambar pmb_bg.jpg tanpa menutupi gradien tema */
+.hero-section-pmb::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    
+    /* Menggunakan path relatif (../../) yang efeknya sama persis dengan <%=Common.ROOT%> */
+    background: url('../../img/pmb_bg.jpg') center/cover no-repeat !important;
+    
+    opacity: 0.25; /* Membuatnya menjadi transparan seperti watermark */
+    z-index: -1; /* Meletakkannya di belakang teks tapi di atas warna dasar */
+    mix-blend-mode: overlay; /* Membuat gambar menyatu dengan warna tema secara elegan */
+}
+
+/* ==============================================================
+   FIX: JUDUL TRANSPARAN DI HERO SECTION (Menimpa Global CSS)
+   ============================================================== */
+/* Memaksa semua tag heading (h2, h3, h5) di dalam hero section agar tidak memiliki kotak background */
+.hero-section-pmb h2,
+.hero-section-pmb h3,
+.hero-section-pmb h4,
+.hero-section-pmb h5 {
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    display: block !important; /* Memastikan perilakunya tetap sebagai teks blok normal */
+}
+
+
+/* ==============================================================
+   FIX: LINGKARAN IKON KONTRAS TINGGI (icon-circle)
+   ============================================================== */
+/* Menangkap semua div yang mengandung kata "icon-circle" dipadu bg-primary */
+div[class*="icon-circle"].bg-primary.bg-opacity-10.text-primary {
+    /* 1. Bunuh warna pekat bawaan template */
+    background: transparent !important;
+    background-image: none !important;
+    
+    /* 2. Berikan warna latar transparan 10% dari tema */
+    background-color: var(--theme-light) !important;
+    
+    /* 3. Berikan garis tepi tipis agar lingkaran terlihat tegas */
+    border: 1px solid var(--theme-primary) !important;
+    
+    /* 4. Berikan sedikit bayangan agar elegan */
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05) !important;
+}
+
+/* Memaksa ikon FontAwesome di dalamnya menggunakan warna tema versi GELAP */
+div[class*="icon-circle"].bg-primary.bg-opacity-10.text-primary svg,
+div[class*="icon-circle"].bg-primary.bg-opacity-10.text-primary i {
+    color: var(--theme-primary-dark) !important;
+    fill: var(--theme-primary-dark) !important;
+    
+    /* Memastikan ikon membesar sedikit saat disorot jika ada efek hover */
+    transition: transform 0.3s ease !important;
+}
+
+/* Efek opsional: Ikon sedikit berdenyut saat disorot mouse */
+div[class*="icon-circle"].bg-primary.bg-opacity-10.text-primary:hover svg {
+    transform: scale(1.15);
+}
+
+
+/* ==============================================================
+   FORM PENDAFTARAN WIZARD (pendaftaran_mahasiswa.jsp)
+   ============================================================== */
+
+/* ==============================================================
+   FIX: MENGEMBALIKAN BACKGROUND GAMBAR DI HERO PENDAFTARAN
+   ============================================================== */
+.hero-pendaftaran-pmb {
+    background: var(--theme-gradient) !important;
+    color: var(--theme-text-on-primary) !important;
+    border-radius: 0 0 2rem 2rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    position: relative; 
+    z-index: 1; 
+    overflow: hidden;
+}
+
+/* Menambahkan kembali gambar pmb_bg.jpg tanpa merusak gradien tema */
+.hero-pendaftaran-pmb::before {
+    content: "";
+    position: absolute; 
+    top: 0; left: 0; right: 0; bottom: 0;
+    
+    /* Path relatif ini fungsinya 100% SAMA dengan <%=Common.ROOT%>/img/pmb_bg.jpg */
+    background: url('../../img/pmb_bg.jpg') center/cover no-repeat !important;
+    
+    opacity: 0.25; /* Tingkat ketebalan gambar. Ubah ke 0.4 jika ingin lebih tebal */
+    z-index: -1; /* Memastikan gambar berada di bawah teks */
+    mix-blend-mode: overlay; /* Trik agar gambar menyatu cantik dengan warna tema */
+}
+
+/* ==============================================================
+   FIX: JUDUL TRANSPARAN DI HERO FORM PENDAFTARAN
+   ============================================================== */
+/* Memaksa semua heading di dalam hero form pendaftaran agar tidak memiliki kotak background */
+.hero-pendaftaran-pmb h1,
+.hero-pendaftaran-pmb h2,
+.hero-pendaftaran-pmb h3,
+.hero-pendaftaran-pmb h4,
+.hero-pendaftaran-pmb h5,
+.hero-pendaftaran-pmb h6 {
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    display: block !important;
+}
+
+/* Navigasi Wizard (Indikator Langkah Atas) */
+.wizard-nav-pmb {
+    display: flex; justify-content: space-between;
+    border-bottom: 2px solid #e9ecef;
+    padding-bottom: 1rem; margin-bottom: 2rem;
+}
+
+.wizard-step-pmb {
+    text-align: center; flex: 1; position: relative;
+    color: #adb5bd; font-weight: 600; cursor: pointer; transition: 0.3s;
+}
+
+/* Warna Step yang Sedang Aktif (Mengikuti Tema) */
+.wizard-step-pmb.active {
+    color: var(--theme-primary) !important;
+}
+
+.wizard-step-pmb .step-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px; border-radius: 50%;
+    background: #e9ecef; margin-bottom: 0.5rem;
+    font-size: 1.2rem; transition: 0.3s;
+}
+
+.wizard-step-pmb.active .step-icon {
+    background: var(--theme-primary) !important;
+    color: var(--theme-text-on-primary) !important;
+    box-shadow: 0 0 0 0.2rem var(--theme-light);
+}
+
+/* Readonly / Kunci Input */
+.readonly-label-pmb {
+    background-color: var(--theme-light) !important;
+    border: 1px dashed var(--theme-primary) !important;
+    padding: 0.5rem 1rem; border-radius: 0.5rem;
+    font-weight: 600; color: var(--theme-primary-dark) !important;
+}
+
+/* ==============================================================
+   KUNCI PERBAIKAN: MENYEMBUNYIKAN KONTEN WIZARD YANG TIDAK AKTIF
+   ============================================================== */
+/* Semua Panel disembunyikan secara default */
+div[class*="wizard-pane-"] {
+    display: none; 
+    animation: fadeInPmb 0.4s ease-in-out; /* Efek transisi halus saat pindah tab */
+}
+
+/* Hanya panel yang memiliki class .active yang ditampilkan */
+div[class*="wizard-pane-"].active {
+    display: block;
+}
+
+/* Keyframe untuk efek transisi pindah form */
+@keyframes fadeInPmb {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+
+/* ==============================================================
+   CARD GELOMBANG & DAFTAR PRODI
+   ============================================================== */
+.card-gelombang {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-gelombang:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1) !important;
+}
+
+.pmb-card-border {
+    border: 1px solid rgba(0,0,0,0.05) !important;
+}
+
+.card-disabled {
+    opacity: 0.7;
+    filter: grayscale(40%);
+}
+
+.pmb-prodi-badge {
+    font-size: 0.75rem !important;
+    white-space: normal; /* Memungkinkan teks prodi panjang untuk wrap (turun ke bawah) */
+    text-align: left;
+}
+
+/* ==============================================================
+   DEADLINE INFO BOXES
+   ============================================================== */
+.pmb-deadline-title {
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+}
+
+.pmb-deadline-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.pmb-deadline-val {
+    font-size: 0.85rem;
+}
+
+.text-warning.text-darken {
+    color: #b58900 !important; /* Warna kuning yang sedikit digelapkan agar lebih kontras di latar terang */
+}
+
+/* ==============================================================
+   LAYOUT KOLOM TOMBOL AKSI
+   ============================================================== */
+.pmb-action-col {
+    min-width: 220px;
+}
+
+/* Responsif untuk layar besar (Desktop) */
+@media (min-width: 992px) {
+    .pmb-action-col {
+        border-left: 1px solid #dee2e6;
+        padding-left: 1.5rem !important; /* Setara dengan ps-lg-4 */
+    }
+}
+
+
+/* ==============================================================
+   FOOTER PMB (LANDING PAGE) STYLING - MENYESUAIKAN HERO HEADER
+   ============================================================== */
+.footer-pmb-custom {
+    /* 1. Menggunakan gradien utama yang sama persis dengan Hero Header */
+    background: var(--theme-gradient) !important; 
+    color: var(--theme-text-on-primary) !important;
+    
+    /* 2. Garis batas atas untuk mempertegas area */
+    border-top: 5px solid var(--theme-primary-dark) !important; 
+    
+    position: relative;
+    z-index: 1;
+    margin-top: 4rem;
+    overflow: hidden; /* Wajib agar efek background gambar tidak bocor */
+}
+
+/* 3. Menyisipkan background pmb_bg.jpg agar serasi dengan Hero atas */
+.footer-pmb-custom::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: url('../../img/pmb_bg.jpg') center/cover no-repeat !important;
+    opacity: 0.25; /* Transparansi gambar seperti watermark */
+    z-index: -1;
+    mix-blend-mode: overlay; /* Menyatu cantik dengan gradien tema */
+}
+
+/* Teks Judul dan Aksen */
+.footer-pmb-custom .text-theme {
+    color: var(--theme-text-on-primary) !important;
+    text-shadow: 1px 2px 5px rgba(0, 0, 0, 0.4) !important; /* Efek pop-out */
+}
+
+.footer-pmb-custom h5 {
+    letter-spacing: 1px;
+}
+
+/* Tombol Sosial Media */
+.footer-pmb-custom .social-icon {
+    width: 38px;
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15) !important;
+    color: var(--theme-text-on-primary) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    transition: all 0.3s ease !important;
+    margin-right: 0.5rem;
+    text-decoration: none !important;
+}
+
+/* Efek Hover Sosial Media (Menyala Kontras) */
+.footer-pmb-custom .social-icon:hover {
+    background: var(--theme-text-on-primary) !important; /* Latar jadi putih/terang */
+    color: var(--theme-primary-dark) !important; /* Ikon jadi warna tema gelap */
+    transform: translateY(-4px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Teks Deskripsi & Info (Meningkatkan Keterbacaan di atas Gradien) */
+.footer-pmb-custom .text-white-50 {
+    color: rgba(255, 255, 255, 0.8) !important; 
+}
+
+/* Efek Hover Tautan/Menu */
+.footer-pmb-custom .hover-text-theme {
+    transition: all 0.3s ease !important;
+}
+.footer-pmb-custom .hover-text-theme:hover {
+    color: #ffffff !important;
+    padding-left: 5px !important;
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Garis Pemisah Tipis */
+.footer-pmb-custom hr.divider {
+    border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+
+/* ==============================================================
+   MODUL: FOOTER PMB & MODAL INFORMASI
+   ============================================================== */
+
+/* Efek transisi untuk tautan bantuan */
+.footer-pmb-custom .hover-text-theme:hover {
+    color: #0d6efd !important; /* Anda bisa mengubah #0d6efd dengan kode warna kampus Anda */
+    padding-left: 5px;
+}
+
+/* Penyeragaman tombol media sosial */
+.footer-pmb-custom .social-icon-btn {
+    width: 40px; 
+    height: 40px; 
+    display: inline-flex; 
+    align-items: center; 
+    justify-content: center; 
+    transition: all 0.3s ease;
+}
+
+/* Efek saat tombol media sosial disorot (hover) */
+.footer-pmb-custom .btn-outline-light:hover {
+    background-color: #0d6efd; /* Warna latar saat di-hover */
+    border-color: #0d6efd;
+    color: #ffffff;
+    transform: translateY(-3px);
+}
+
+/* Pengaturan bingkai (iframe) untuk dokumen Alur Pendaftaran */
+.iframe-doc-pmb {
+    width: 100%; 
+    height: 100%; 
+    border: none; 
+    opacity: 0; 
+    transition: opacity 0.5s ease;
+}
+
+/* ==============================================================
+   FONT AWESOME & ICON VISIBILITY FIX PMB
+   ============================================================== */
+
+/* Font Awesome compatibility: FA 6 tetap utama, tetapi aman untuk class lama FA 4/5. */
+.fa,
+.fas,
+.fa-solid {
+    font-family: "Font Awesome 6 Free", "Font Awesome 5 Free", FontAwesome, Arial, sans-serif !important;
+    font-weight: 900 !important;
+}
+.far,
+.fa-regular {
+    font-family: "Font Awesome 6 Free", "Font Awesome 5 Free", FontAwesome, Arial, sans-serif !important;
+    font-weight: 400 !important;
+}
+.fab,
+.fa-brands {
+    font-family: "Font Awesome 6 Brands", "Font Awesome 5 Brands", FontAwesome, Arial, sans-serif !important;
+    font-weight: 400 !important;
+}
+
+.fa,
+.fas,
+.far,
+.fab,
+.fa-solid,
+.fa-regular,
+.fa-brands,
+.svg-inline--fa {
+    display: inline-block !important;
+    width: 1em !important;
+    min-width: 1em !important;
+    height: 1em !important;
+    line-height: 1 !important;
+    overflow: visible !important;
+    vertical-align: -0.125em !important;
+    color: inherit !important;
+    fill: currentColor !important;
+    flex: 0 0 auto !important;
+    text-rendering: auto !important;
+}
+
+button .fa,
+button .fas,
+button .far,
+button .fab,
+button .svg-inline--fa,
+.btn .fa,
+.btn .fas,
+.btn .far,
+.btn .fab,
+.btn .svg-inline--fa {
+    position: relative !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+.pmb-fa-fallback {
+    font-family: inherit !important;
+    font-weight: inherit !important;
+    font-size: 1em !important;
+    text-align: center !important;
+}
+
+.btn-primary-pmb,
+.pmb-btn-preview-dokumen,
+.btn.pmb-btn-preview-dokumen {
+    background: var(--theme-gradient) !important;
+    color: var(--theme-text-on-primary) !important;
+    border: 1px solid var(--theme-primary-dark) !important;
+    text-shadow: var(--theme-text-shadow) !important;
+}
+
+.btn-primary-pmb:hover,
+.pmb-btn-preview-dokumen:hover,
+.btn.pmb-btn-preview-dokumen:hover {
+    background: var(--theme-primary-dark) !important;
+    color: var(--theme-text-on-primary) !important;
+    border-color: var(--theme-primary-dark) !important;
+    filter: brightness(1.04);
+}
+
+.pmb-btn-preview-dokumen .fa,
+.pmb-btn-preview-dokumen .fas,
+.pmb-btn-preview-dokumen .svg-inline--fa {
+    color: var(--theme-text-on-primary) !important;
+    fill: currentColor !important;
+}
+
+.pmb-upload-box,
+.pmb-upload-placeholder,
+.pmb-upload-area,
+input[type="file"].form-control,
+input[type="file"].form-control-sm {
+    color: #334155 !important;
+    background-color: #ffffff !important;
+    border-color: rgba(15, 23, 42, 0.16) !important;
+}
+
+/* Upload component common fallback: agar tombol pilih/lihat berkas tetap terlihat jelas di halaman PMB. */
+.z-upload,
+.z-upload button,
+.z-upload .z-button,
+.z-fileupload,
+.z-fileupload-button,
+.pmb-upload-box .btn,
+.pmb-upload-placeholder .btn,
+.pmb-upload-area .btn {
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+.z-upload .fa,
+.z-upload .fas,
+.z-upload .far,
+.z-upload .fab,
+.z-upload .svg-inline--fa,
+.z-fileupload .fa,
+.z-fileupload .fas,
+.z-fileupload .far,
+.z-fileupload .fab,
+.z-fileupload .svg-inline--fa {
+    color: inherit !important;
+    fill: currentColor !important;
+}
+
+/* ==============================================================
+   PMB BUTTON, FILE INPUT & ICON VISIBILITY FINAL FIX
+   ============================================================== */
+body .btn-primary-pmb,
+body .btn.btn-primary-pmb,
+body button.btn-primary-pmb,
+body a.btn-primary-pmb,
+body .pmb-btn-preview-dokumen,
+body .btn.pmb-btn-preview-dokumen,
+body button.pmb-btn-preview-dokumen,
+body a.pmb-btn-preview-dokumen {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.35rem !important;
+    min-height: 34px !important;
+    background-color: var(--theme-primary, #1a4087) !important;
+    background-image: var(--theme-gradient, linear-gradient(90deg, #1a4087 0%, #4682b4 100%)) !important;
+    color: var(--theme-text-on-primary, #ffffff) !important;
+    border: 1px solid var(--theme-primary-dark, #102a5c) !important;
+    text-shadow: var(--theme-text-shadow, none) !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    text-decoration: none !important;
+    white-space: normal !important;
+    line-height: 1.2 !important;
+    -webkit-text-fill-color: var(--theme-text-on-primary, #ffffff) !important;
+}
+
+body .btn-primary-pmb *,
+body .pmb-btn-preview-dokumen *,
+body .btn-primary-pmb .fa,
+body .btn-primary-pmb .fas,
+body .btn-primary-pmb .far,
+body .btn-primary-pmb .fab,
+body .btn-primary-pmb .svg-inline--fa,
+body .pmb-btn-preview-dokumen .fa,
+body .pmb-btn-preview-dokumen .fas,
+body .pmb-btn-preview-dokumen .far,
+body .pmb-btn-preview-dokumen .fab,
+body .pmb-btn-preview-dokumen .svg-inline--fa {
+    color: inherit !important;
+    fill: currentColor !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    -webkit-text-fill-color: currentColor !important;
+}
+
+body .btn-primary-pmb:hover,
+body .btn-primary-pmb:focus,
+body .btn-primary-pmb:active,
+body .pmb-btn-preview-dokumen:hover,
+body .pmb-btn-preview-dokumen:focus,
+body .pmb-btn-preview-dokumen:active {
+    background-color: var(--theme-primary-dark, #102a5c) !important;
+    background-image: none !important;
+    color: var(--theme-text-on-primary, #ffffff) !important;
+    border-color: var(--theme-primary-dark, #102a5c) !important;
+    text-shadow: var(--theme-text-shadow, none) !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    -webkit-text-fill-color: var(--theme-text-on-primary, #ffffff) !important;
+}
+
+body .btn-outline-primary,
+body button.btn-outline-primary,
+body a.btn-outline-primary {
+    color: var(--theme-primary, #0d6efd) !important;
+    border-color: var(--theme-primary, #0d6efd) !important;
+    background-color: #ffffff !important;
+    background-image: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    -webkit-text-fill-color: var(--theme-primary, #0d6efd) !important;
+}
+
+body .btn-outline-primary .fa,
+body .btn-outline-primary .fas,
+body .btn-outline-primary .far,
+body .btn-outline-primary .fab,
+body .btn-outline-primary .svg-inline--fa {
+    color: inherit !important;
+    fill: currentColor !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+body .btn-outline-primary:hover,
+body .btn-outline-primary:focus,
+body .btn-outline-primary:active {
+    background-color: var(--theme-primary, #0d6efd) !important;
+    background-image: none !important;
+    color: var(--theme-text-on-primary, #ffffff) !important;
+    border-color: var(--theme-primary-dark, #0a58ca) !important;
+    -webkit-text-fill-color: var(--theme-text-on-primary, #ffffff) !important;
+}
+
+body .btn-outline-primary:hover *,
+body .btn-outline-primary:focus *,
+body .btn-outline-primary:active * {
+    color: inherit !important;
+    fill: currentColor !important;
+    -webkit-text-fill-color: currentColor !important;
+}
+
+/* Tombol bawaan input type=file sering hanya tampak saat hover pada beberapa kombinasi theme/browser.
+   Aturan ini membuat tombol unggah selalu jelas sejak halaman pertama kali terbuka. */
+body input[type="file"],
+body input[type="file"].form-control,
+body input[type="file"].form-control-sm {
+    color: #334155 !important;
+    background-color: #ffffff !important;
+    border: 1px solid rgba(15, 23, 42, 0.18) !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    -webkit-text-fill-color: #334155 !important;
+}
+
+body input[type="file"]::file-selector-button,
+body input[type="file"].form-control::file-selector-button,
+body input[type="file"].form-control-sm::file-selector-button {
+    margin-right: 0.85rem !important;
+    padding: 0.48rem 0.95rem !important;
+    border: 1px solid var(--theme-primary-dark, #102a5c) !important;
+    border-radius: 999px !important;
+    background-color: var(--theme-primary, #1a4087) !important;
+    background-image: var(--theme-gradient, linear-gradient(90deg, #1a4087 0%, #4682b4 100%)) !important;
+    color: var(--theme-text-on-primary, #ffffff) !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    -webkit-text-fill-color: var(--theme-text-on-primary, #ffffff) !important;
+}
+
+body input[type="file"]::-webkit-file-upload-button,
+body input[type="file"].form-control::-webkit-file-upload-button,
+body input[type="file"].form-control-sm::-webkit-file-upload-button {
+    margin-right: 0.85rem !important;
+    padding: 0.48rem 0.95rem !important;
+    border: 1px solid var(--theme-primary-dark, #102a5c) !important;
+    border-radius: 999px !important;
+    background-color: var(--theme-primary, #1a4087) !important;
+    background-image: var(--theme-gradient, linear-gradient(90deg, #1a4087 0%, #4682b4 100%)) !important;
+    color: var(--theme-text-on-primary, #ffffff) !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    -webkit-text-fill-color: var(--theme-text-on-primary, #ffffff) !important;
+}
+
+body input[type="file"]:hover::file-selector-button,
+body input[type="file"]:focus::file-selector-button,
+body input[type="file"]:hover::-webkit-file-upload-button,
+body input[type="file"]:focus::-webkit-file-upload-button {
+    background-color: var(--theme-primary-dark, #102a5c) !important;
+    background-image: none !important;
+    color: var(--theme-text-on-primary, #ffffff) !important;
+    -webkit-text-fill-color: var(--theme-text-on-primary, #ffffff) !important;
+}
+
+/* Komponen upload ZK/common yang dibuka dari JSP PMB. */
+body .z-upload,
+body .z-upload button,
+body .z-upload .z-button,
+body .z-fileupload,
+body .z-fileupload-button,
+body .pmb-upload-box .btn,
+body .pmb-upload-placeholder .btn,
+body .pmb-upload-area .btn {
+    opacity: 1 !important;
+    visibility: visible !important;
+    color: #334155 !important;
+}

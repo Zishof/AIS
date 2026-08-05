@@ -1,0 +1,24 @@
+<?page title="new page title" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<window use="ais.ui.util.MyWindow" border="none" height="100%" width="100%">
+
+
+		<tabbox height="100%" width="100%">
+			<tabs>
+				<tab use="ais.ui.util.MyTabConfig">STANDAR BIAYA</tab>
+				<tab use="ais.ui.util.MyTabConfig" id="t2">BAGAN AKUN STANDAR</tab>
+			</tabs>
+			<tabpanels>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<include use="ais.ui.util.MyInclude" src="jenis_tugas.zul"></include>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" fulfill="t2.onSelect">
+					<include use="ais.ui.util.MyInclude" src="akun.zul"></include>
+				</tabpanel>
+			</tabpanels>
+
+		</tabbox>
+
+
+	</window>
+</zk>

@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="laporan_daftar_surat_per_jenis" language="groovy" columnCount="4" pageWidth="842" pageHeight="595" orientation="Landscape" whenNoDataType="AllSectionsNoDetail" columnWidth="200" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="e98a6908-dcdb-4c99-98b7-a42f1fb6d5b0">
+	<property name="ireport.zoom" value="1.1"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="kop" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["D:\\Documents\\My Project\\MALANG\\archieve\\web-app\\images\\kop.jpg"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jenis" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="loker" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="sampai" class="java.util.Date" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new Date()]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mulai" class="java.util.Date" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new Date()]]></defaultValueExpression>
+	</parameter>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["../logo.png"]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[SELECT
+     count(*) jumlah,
+     c."nama" AS surat_jenis,
+     surat."tanggal" AS surat_tanggal_surat
+FROM
+     surat.loker_surat loker
+     INNER JOIN surat.surat_masuk surat ON loker."id" = surat."loker"
+     inner join surat.klasifikasi_surat_masuk c on (surat.klasifikasi_surat_masuk = c.id)
+where 1=1
+and case $P{loker} when -1 then true else surat."loker" = $P{loker} end
+and case $P{jenis} when -1 then true else surat.klasifikasi_surat_masuk = $P{jenis} end
+and date(surat."tanggal") >= date($P{mulai}) and date(surat."tanggal") <= (date($P{sampai})+integer '1')
+group by c."nama",surat."tanggal"
+order by c."nama"]]>
+	</queryString>
+	<field name="jumlah" class="java.lang.Long"/>
+	<field name="surat_jenis" class="java.lang.String"/>
+	<field name="surat_tanggal_surat" class="java.sql.Date"/>
+	<variable name="jumlah" class="java.lang.Long" resetType="Group" resetGroup="jenis" calculation="Sum">
+		<variableExpression><![CDATA[$F{jumlah}]]></variableExpression>
+	</variable>
+	<variable name="jumlah_total" class="java.lang.Long" calculation="Sum">
+		<variableExpression><![CDATA[$F{jumlah}]]></variableExpression>
+	</variable>
+	<group name="jenis">
+		<groupExpression><![CDATA[$F{surat_jenis}]]></groupExpression>
+		<groupHeader>
+			<band height="40">
+				<textField isBlankWhenNull="true">
+					<reportElement x="0" y="0" width="200" height="20" uuid="804eff0d-bced-4735-b32e-685b6bef155f"/>
+					<textElement verticalAlignment="Middle"/>
+					<textFieldExpression><![CDATA[$F{surat_jenis}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement x="0" y="20" width="158" height="20" uuid="2a526226-39ed-46b1-8a17-a69637817787"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle"/>
+					<text><![CDATA[Tanggal]]></text>
+				</staticText>
+				<staticText>
+					<reportElement x="158" y="20" width="42" height="20" uuid="ee4b6650-eb6f-44c2-90bf-0a975c060330"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle"/>
+					<text><![CDATA[Jumlah]]></text>
+				</staticText>
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band height="20">
+				<staticText>
+					<reportElement x="0" y="0" width="158" height="20" uuid="294d0728-8f21-4373-b108-962ca4348a34"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle"/>
+					<text><![CDATA[Total]]></text>
+				</staticText>
+				<textField pattern="#,##0;-#,##0">
+					<reportElement x="158" y="0" width="42" height="20" uuid="56577227-daad-4ab2-ac40-9da6a50398d1"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle"/>
+					<textFieldExpression><![CDATA[$V{jumlah}]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupFooter>
+	</group>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="119" splitType="Stretch">
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-14" x="0" y="62" width="802" height="57" uuid="c7723958-970b-4e44-bad7-c4da9ff0c2f6"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="12" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Laporan Statistik Surat Masuk Berdasarkan Jenis\n"+
+"Mulai tanggal "+(new java.text.SimpleDateFormat("dd-MM-yyyy").format($P{mulai}))+" s.d "+(new java.text.SimpleDateFormat("dd-MM-yyyy").format($P{sampai}))+"\n"]]></textFieldExpression>
+			</textField>
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement x="0" y="-16" width="802" height="78" uuid="d2bad4be-cabd-44f8-b086-eca1afb118ab"/>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+		</band>
+	</title>
+	<detail>
+		<band height="19">
+			<textField pattern="#,##0;-#,##0">
+				<reportElement x="158" y="0" width="42" height="19" uuid="6c31f970-8ce2-43a7-82bd-9e0f0f21cf70"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{jumlah}]]></textFieldExpression>
+			</textField>
+			<textField pattern="EEEEE, dd MMMMM yyyy">
+				<reportElement x="0" y="0" width="158" height="19" uuid="37465750-3afd-405d-ad3f-07e4fe284989"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{surat_tanggal_surat}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<summary>
+		<band height="238">
+			<lineChart>
+				<chart theme="default">
+					<reportElement x="0" y="21" width="802" height="217" uuid="40146d8e-f8a8-466c-9e06-ef657f750045"/>
+					<chartTitle/>
+					<chartSubtitle/>
+					<chartLegend position="Left"/>
+				</chart>
+				<categoryDataset>
+					<categorySeries>
+						<seriesExpression><![CDATA[$F{surat_jenis}]]></seriesExpression>
+						<categoryExpression><![CDATA[$F{surat_tanggal_surat}]]></categoryExpression>
+						<valueExpression><![CDATA[$F{jumlah}]]></valueExpression>
+					</categorySeries>
+				</categoryDataset>
+				<linePlot>
+					<plot labelRotation="45.0"/>
+					<categoryAxisFormat labelRotation="45.0">
+						<axisFormat/>
+					</categoryAxisFormat>
+					<valueAxisFormat>
+						<axisFormat/>
+					</valueAxisFormat>
+				</linePlot>
+			</lineChart>
+			<staticText>
+				<reportElement x="0" y="0" width="158" height="20" uuid="e6b5e103-5b08-4259-9398-4f4cfdf3ee23"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[Jumlah Total]]></text>
+			</staticText>
+			<textField pattern="#,##0;-#,##0">
+				<reportElement x="158" y="0" width="42" height="20" uuid="c053362d-71d1-4b23-8479-67b23d448687"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$V{jumlah_total}]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
+</jasperReport>

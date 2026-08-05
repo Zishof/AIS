@@ -1,0 +1,195 @@
+<?link rel="shortcut icon" href="/img/logo.png" type="image/x-icon"?>
+<?page title="Selamat Datang di Sistem Informasi Kampus" contentType="text/html;charset=UTF-8"?>
+<?meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" ?>
+<?meta name="description" content="Seleksi Penerimaan Mahasiswa Baru" ?>
+<?meta name="author" content="Mohammad Fauzi Murtadho" ?>
+<zk>
+
+
+
+	<window use="ais.ui.util.MyWindow" width="100%" height="100%"
+		id="main" forward="onClientInfo=onInfo"
+		apply="ais.action.maintenance.PMBAction" border="none">
+
+		<style id="mystyle">
+
+		</style>
+
+		<zscript>
+		<![CDATA[
+	ais.database.model.PerguruanTinggi perguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil
+			.getPerguruanTinggi((javax.servlet.http.HttpServletRequest) execution.getNativeRequest());
+	String background_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruanTinggiMedia(
+			(javax.servlet.http.HttpServletRequest) execution.getNativeRequest(), "banner_perguruanTinggi_");
+	if (background_PerguruanTinggi == null || background_PerguruanTinggi.trim().isEmpty()) {
+		background_PerguruanTinggi = ais.common.Common.getRequestHostWithProtocol() + "/img/header.jpg";
+	}
+	String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruanTinggiMedia(
+			(javax.servlet.http.HttpServletRequest) execution.getNativeRequest(), "logo_perguruanTinggi_");
+	if (logo_PerguruanTinggi == null || logo_PerguruanTinggi.trim().isEmpty()) {
+		logo_PerguruanTinggi = "/img/logo.png";
+	}
+]]>
+		</zscript>
+
+
+
+		<borderlayout height="100%" width="100%" id="myborder">
+			<center border="none" flex="true">
+				<grid use="ais.ui.util.MyGrid">
+					<rows>
+						<row>
+							<hbox id="headerHbox">
+
+								<grid fixedLayout="true" use="ais.ui.util.MyGrid"
+									sclass="fgrid">
+									<columns>
+										<column></column>
+										<column width="30%"></column>
+									</columns>
+
+									<rows>
+										<row id="rowHeader"
+											valign="middle">
+
+											<hbox>
+												<space></space>
+												<image id="idLogo"
+													src="/img/logo.png" height="80px">
+												</image>
+												<space></space>
+												<vbox>
+													<label id="title">
+													</label>
+													<label id="motto">
+													</label>
+													<label id="alamat">
+													</label>
+												</vbox>
+											</hbox>
+
+											<vbox
+												pack="end" align="right" width="100%">
+												<space></space>
+
+												<hbox
+													pack="end" id="headerHboxButton" align="right"
+													width="100%">
+
+												</hbox>
+												<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+													forward="onClick=onLihatOnline" 
+													id="usersOnline" label="Online user(s): 0" />
+
+											</vbox>
+
+										</row>
+									</rows>
+								</grid>
+
+
+
+
+
+								<zscript>
+								<![CDATA[
+	idLogo.setSrc(logo_PerguruanTinggi);
+	rowHeader.setStyle(null);
+	title.setValue(perguruanTinggi == null ? "" : perguruanTinggi.getNama());
+	motto.setValue(
+			perguruanTinggi == null || perguruanTinggi.getMotto() == null || perguruanTinggi.getMotto().trim().isEmpty()
+					? "eCampus Information System"
+					: perguruanTinggi.getMotto());
+	alamat.setValue(perguruanTinggi == null ? ""
+			: perguruanTinggi.getAlamat1() + ", Telp. " + perguruanTinggi.getTelepon() + ", Email : "
+					+ perguruanTinggi.getEmail());
+	title.setStyle(null);
+	motto.setStyle(null);
+	alamat.setStyle(null);
+]]>
+								</zscript>
+							</hbox>
+
+						</row>
+						<row>
+
+							<borderlayout id="pmbLayout">
+
+
+							</borderlayout>
+
+						</row>
+					</rows>
+				</grid>
+			</center>
+
+			<south>
+
+				<vbox width="100%">
+
+
+
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="back_to_top" sclass="back_to_top"
+						image="/img/back_to_top.png"
+						hoverImage="/img/back_to_top_2.png">
+						<attribute name='onClick'><![CDATA[
+	Clients.scrollIntoView(headerHbox);
+]]></attribute>
+					</toolbarbutton>
+
+					<hbox id="footerHbox" align="center" width="100%"
+						pack="center">
+						<label id="copyright"></label>
+					</hbox>
+
+					<zscript>
+								<![CDATA[
+	if (ais.common.Common.isMobile((javax.servlet.http.HttpServletRequest) execution.getNativeRequest())) {
+		back_to_top.setHoverImage("");
+		String styleTop = "position:fixed;bottom:15px;right:20px;";
+		String styleCopyright = ais.common.Common
+				.getKonfigurasi("copyright_style_mobile",
+						"font-family: 'Open Sans', sans-serif;font-size: 8px;color:black;font-weight: bold;")
+				.getNilai();
+		String styleFooter = ais.common.Common
+				.getKonfigurasi("footer_style_mobile", "border-top: 1px dotted;position:fixed;bottom:0px;left:0px;")
+				.getNilai();
+
+		// AIS_RESET_DEFAULT_ZKOSS_STYLE back_to_top.setStyle(null);
+		// AIS_RESET_DEFAULT_ZKOSS_STYLE copyright.setStyle(null);
+		footerHbox.setStyle(null);
+	} else {
+
+		String styleTop = "position:fixed;bottom:15px;right:20px;";
+		String styleCopyright = ais.common.Common
+				.getKonfigurasi("copyright_style_dekstop",
+						"font-family: 'Open Sans', sans-serif;font-size: 11px;color:black;font-weight: bold;")
+				.getNilai();
+		String styleFooter = ais.common.Common
+				.getKonfigurasi("footer_style_dekstop", "border-top: 1px dotted;position:fixed;bottom:0px;left:0px;")
+				.getNilai();
+
+		// AIS_RESET_DEFAULT_ZKOSS_STYLE back_to_top.setStyle(null);
+		// AIS_RESET_DEFAULT_ZKOSS_STYLE copyright.setStyle(null);
+		footerHbox.setStyle(null);
+	}
+	copyright.setValue(perguruanTinggi == null ? ""
+			: ("Copyright © " + java.util.Calendar.getInstance().get(java.util.Calendar.YEAR) + " "
+					+ perguruanTinggi.getNama()));
+]]>
+</zscript>
+
+				</vbox>
+
+
+			</south>
+
+		</borderlayout>
+
+
+
+
+	</window>
+
+
+</zk>

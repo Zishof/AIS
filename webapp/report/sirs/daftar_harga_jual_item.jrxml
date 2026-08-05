@@ -1,0 +1,410 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="daftar_harga_jual_item" language="groovy" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20">
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<style name="Title" fontSize="50" isBold="true" pdfFontName="Times-Bold"/>
+	<style name="SubTitle" forecolor="#736343" fontSize="18"/>
+	<style name="Column header" forecolor="#666666" fontSize="12" isBold="true"/>
+	<style name="Detail" fontSize="12"/>
+	<style name="Row" mode="Transparent">
+		<conditionalStyle>
+			<conditionExpression><![CDATA[$V{REPORT_COUNT}%2 == 0]]></conditionExpression>
+			<style backcolor="#E6DAC3"/>
+		</conditionalStyle>
+	</style>
+	<parameter name="jenisItem" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[15L]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select
+a.kode,
+a.nama as item,
+c.nama as jenis_barang,
+(case when b1.harga_jual is null then 0 else b1.harga_jual end) as harga_normal,
+(case when b2.harga_jual is null then 0 else b2.harga_jual end) as svip,
+(case when b3.harga_jual is null then 0 else b3.harga_jual end) as vip,
+(case when b4.harga_jual is null then 0 else b4.harga_jual end) as kelas1,
+(case when b5.harga_jual is null then 0 else b5.harga_jual end) as kelas2,
+(case when b6.harga_jual is null then 0 else b6.harga_jual end) as kelas3,
+(case when b7.harga_jual is null then 0 else b7.harga_jual end) as intermediate
+
+from item a
+left join jenis_barang c on (c.id = a.jenis_item)
+left join (
+	select
+	item,
+	max(harga_jual) harga_jual
+	from harga_jual_item
+	where kelas_perawatan = 0
+	group by item
+) b1 on (a.id = b1.item)
+left join (
+	select
+	item,
+	max(harga_jual) harga_jual
+	from harga_jual_item
+	where kelas_perawatan = 9
+	group by item
+) b2 on (a.id = b2.item)
+left join (
+	select
+	item,
+	max(harga_jual) harga_jual
+	from harga_jual_item
+	where kelas_perawatan = 10
+	group by item
+) b3 on (a.id = b3.item)
+left join (
+	select
+	item,
+	max(harga_jual) harga_jual
+	from harga_jual_item
+	where kelas_perawatan = 11
+	group by item
+) b4 on (a.id = b4.item)
+left join (
+	select
+	item,
+	max(harga_jual) harga_jual
+	from harga_jual_item
+	where kelas_perawatan = 12
+	group by item
+) b5 on (a.id = b5.item)
+left join (
+	select
+	item,
+	max(harga_jual) harga_jual
+	from harga_jual_item
+	where kelas_perawatan = 13
+	group by item
+) b6 on (a.id = b6.item)
+left join (
+	select
+	item,
+	max(harga_jual) harga_jual
+	from harga_jual_item
+	where kelas_perawatan = 14
+	group by item
+) b7 on (a.id = b7.item)
+where a.jenis_item = (case when $P{jenisItem} = -1 then a.jenis_item else $P{jenisItem} end)
+order by a.nama]]>
+	</queryString>
+	<field name="kode" class="java.lang.String"/>
+	<field name="item" class="java.lang.String"/>
+	<field name="jenis_barang" class="java.lang.String"/>
+	<field name="harga_normal" class="java.lang.Double"/>
+	<field name="svip" class="java.lang.Double"/>
+	<field name="vip" class="java.lang.Double"/>
+	<field name="kelas1" class="java.lang.Double"/>
+	<field name="kelas2" class="java.lang.Double"/>
+	<field name="kelas3" class="java.lang.Double"/>
+	<field name="intermediate" class="java.lang.Double"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="157" splitType="Stretch">
+			<textField>
+				<reportElement x="0" y="111" width="555" height="30"/>
+				<textElement/>
+				<textFieldExpression class="java.lang.String"><![CDATA["DAFTAR HARGA JUAL BARANG / ITEM\n"+($P{jenisItem}.equals(-1L) ? "" : "JENIS ITEM : "+$F{jenis_barang})]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement style="Column header" x="0" y="141" width="61" height="16" forecolor="#010101"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[kode]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="Column header" x="61" y="141" width="150" height="16" forecolor="#010101"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[item]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="Column header" x="275" y="141" width="40" height="16" forecolor="#010101"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[Normal]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="Column header" x="315" y="141" width="40" height="16" forecolor="#010101"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[SVIP]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="Column header" x="355" y="141" width="40" height="16" forecolor="#010101"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[VIP]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="Column header" x="395" y="141" width="40" height="16" forecolor="#010101"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[K1]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="Column header" x="435" y="141" width="40" height="16" forecolor="#010101"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[K2]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="Column header" x="475" y="141" width="40" height="16" forecolor="#010101"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[K3]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="Column header" x="515" y="141" width="40" height="16" forecolor="#010101"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[Itermed]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="Column header" x="211" y="141" width="64" height="16" forecolor="#010101"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[Jenis]]></text>
+			</staticText>
+			<image>
+				<reportElement x="0" y="-7" width="163" height="105"/>
+				<imageExpression class="java.lang.String"><![CDATA["logo.jpg"]]></imageExpression>
+			</image>
+			<staticText>
+				<reportElement style="Title" x="109" y="12" width="446" height="31"/>
+				<textElement verticalAlignment="Middle">
+					<font size="24" pdfFontName="Times-Roman"/>
+				</textElement>
+				<text><![CDATA[PUSREHAB KEMHAN]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="SubTitle" x="109" y="43" width="446" height="23" forecolor="#000000"/>
+				<textElement>
+					<font pdfFontName="Times-Roman"/>
+				</textElement>
+				<text><![CDATA[Rs. Dr. SUYOTO]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="109" y="66" width="446" height="31"/>
+				<textElement>
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[Jl. RC Veteran No. 178 Bintaro Jakarta Selatan]]></text>
+			</staticText>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<detail>
+		<band height="15" splitType="Stretch">
+			<textField isStretchWithOverflow="true">
+				<reportElement style="Detail" x="0" y="0" width="61" height="15"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{kode}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true">
+				<reportElement style="Detail" x="61" y="0" width="150" height="15"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{item}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" pattern="#,##0;-#,##0">
+				<reportElement style="Detail" x="275" y="0" width="40" height="15"/>
+				<box rightPadding="2">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression class="java.lang.Double"><![CDATA[$F{harga_normal}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" pattern="#,##0;-#,##0">
+				<reportElement style="Detail" x="315" y="0" width="40" height="15"/>
+				<box rightPadding="2">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression class="java.lang.Double"><![CDATA[$F{svip}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" pattern="#,##0;-#,##0">
+				<reportElement style="Detail" x="355" y="0" width="40" height="15"/>
+				<box rightPadding="2">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression class="java.lang.Double"><![CDATA[$F{vip}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" pattern="#,##0;-#,##0">
+				<reportElement style="Detail" x="395" y="0" width="40" height="15"/>
+				<box rightPadding="2">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression class="java.lang.Double"><![CDATA[$F{kelas1}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" pattern="#,##0;-#,##0">
+				<reportElement style="Detail" x="435" y="0" width="40" height="15"/>
+				<box rightPadding="2">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression class="java.lang.Double"><![CDATA[$F{kelas2}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" pattern="#,##0;-#,##0">
+				<reportElement style="Detail" x="475" y="0" width="40" height="15"/>
+				<box rightPadding="2">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression class="java.lang.Double"><![CDATA[$F{kelas3}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" pattern="#,##0;-#,##0">
+				<reportElement style="Detail" x="515" y="0" width="40" height="15"/>
+				<box rightPadding="2">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression class="java.lang.Double"><![CDATA[$F{intermediate}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true">
+				<reportElement style="Detail" x="211" y="0" width="64" height="15"/>
+				<box rightPadding="2">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{jenis_barang}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<summary>
+		<band splitType="Stretch"/>
+	</summary>
+</jasperReport>

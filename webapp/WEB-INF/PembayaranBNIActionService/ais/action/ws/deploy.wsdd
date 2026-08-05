@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- Use this file to deploy some handlers/chains and services      --><!-- Two ways to do this:                                           --><!--   java org.apache.axis.client.AdminClient deploy.wsdd          --><!--      after the axis server is running                          --><!-- or                                                             --><!--   java org.apache.axis.utils.Admin client|server deploy.wsdd   --><!--      from the same directory that the Axis engine runs         --><deployment xmlns="http://xml.apache.org/axis/wsdd/" xmlns:java="http://xml.apache.org/axis/wsdd/providers/java">
+
+  <!-- Services from PembayaranBNIActionService WSDL service -->
+
+  <service name="PembayaranBNIAction" provider="java:RPC" style="wrapped" use="literal">
+      <parameter name="wsdlTargetNamespace" value="http://ws.action.ais"/>
+      <parameter name="wsdlServiceElement" value="PembayaranBNIActionService"/>
+      <parameter name="schemaQualified" value="http://model.ws.action.ais,http://ws.action.ais"/>
+      <parameter name="wsdlServicePort" value="PembayaranBNIAction"/>
+      <parameter name="className" value="ais.action.ws.PembayaranBNIAction"/>
+      <parameter name="wsdlPortType" value="PembayaranBNIAction"/>
+      <parameter name="typeMappingVersion" value="1.2"/>
+      <operation xmlns:operNS="http://ws.action.ais" xmlns:retNS="http://ws.action.ais" xmlns:rtns="http://model.ws.action.ais" name="inquiry" qname="operNS:inquiry" returnQName="retNS:inquiryReturn" returnType="rtns:Response" soapAction="">
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:language" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:trxDateTime" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:transmissionDateTime" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:companyCode" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:channelID" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:billKey" type="tns:string"/>
+      </operation>
+      <operation xmlns:operNS="http://ws.action.ais" xmlns:retNS="http://ws.action.ais" xmlns:rtns="http://www.w3.org/2001/XMLSchema" name="hello" qname="operNS:hello" returnQName="retNS:helloReturn" returnType="rtns:string" soapAction="">
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:name" type="tns:string"/>
+      </operation>
+      <operation xmlns:operNS="http://ws.action.ais" xmlns:retNS="http://ws.action.ais" xmlns:rtns="http://model.ws.action.ais" name="reversal" qname="operNS:reversal" returnQName="retNS:reversalReturn" returnType="rtns:Response" soapAction="">
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:language" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:trxDateTime" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:originalTrxDateTime" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:transmissionDateTime" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:originalTransmissionDateTime" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:companyCode" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:channelID" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:billKey" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:nominalPayment" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:trxID" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:currency" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:financialReffNum" type="tns:string"/>
+      </operation>
+      <operation xmlns:operNS="http://ws.action.ais" xmlns:retNS="http://ws.action.ais" xmlns:rtns="http://model.ws.action.ais" name="pay" qname="operNS:pay" returnQName="retNS:payReturn" returnType="rtns:Response" soapAction="">
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:language" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:trxDateTime" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:transmissionDateTime" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:companyCode" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:channelID" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:billKey" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:paymentDetail" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:nominalPayment" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:currency" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:trxID" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:financialReffNum" type="tns:string"/>
+      </operation>
+      <parameter name="allowedMethods" value="hello inquiry pay reversal"/>
+
+      <typeMapping xmlns:ns="http://model.ws.action.ais" qname="ns:Response" type="java:ais.action.ws.model.Response" serializer="org.apache.axis.encoding.ser.BeanSerializerFactory" deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory" encodingStyle=""/>
+  </service>
+</deployment>

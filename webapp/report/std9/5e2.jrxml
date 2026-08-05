@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="5e1" language="groovy" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="20629ce1-c3e0-414e-afee-74ebd55c8561">
+	<property name="ireport.zoom" value="1.1000000000000005"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<field name="programPendidikan" class="java.lang.String"/>
+	<field name="jmlLulusanBekerja" class="java.lang.Double"/>
+	<field name="jmlLokalTidakBBerbadanHukum" class="java.lang.Double"/>
+	<field name="jmlNasionalBerbadanHukum" class="java.lang.Double"/>
+	<field name="internasional" class="java.lang.Double"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="39" splitType="Stretch">
+			<staticText>
+				<reportElement x="0" y="0" width="555" height="20" uuid="650af210-a2f6-48c4-841a-f2c1a4602261"/>
+				<text><![CDATA[Tabel 5.e.2) Tempat Kerja Lulusan]]></text>
+			</staticText>
+		</band>
+	</title>
+	<columnHeader>
+		<band height="135" splitType="Stretch">
+			<staticText>
+				<reportElement mode="Opaque" x="29" y="0" width="221" height="115" backcolor="#6699FF" uuid="7b314f08-d460-4576-8308-2cc0235916da"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[Program Pendidikan]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="250" y="0" width="96" height="115" backcolor="#6699FF" uuid="c38b4330-637c-45e5-96aa-e2c198768def"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[Banyaknya Lulusan yang Telah Bekerja/ Berwirausaha]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="346" y="20" width="70" height="95" backcolor="#6699FF" uuid="eb09c034-704e-4128-8444-9cf749e7212b"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[Lokal/ Wilayah/ Berwirausaha tidak Berbadan Hukum]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="416" y="20" width="70" height="95" backcolor="#6699FF" uuid="e0a6473b-de5c-4659-b861-08f1e389fba4"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[Nasional/ Berwirausaha Berbadan Hukum]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="485" y="20" width="70" height="95" backcolor="#6699FF" uuid="10f10407-1799-4c37-a439-a26340fb7778"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[Multinasiona/ Internasional]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="346" y="0" width="209" height="20" backcolor="#6699FF" uuid="89a6d8cb-6ec9-4b14-ba7b-a6b8f43377b3"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[Tingkat/Ukuran Tempat Kerja/Berwirausaha]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="0" y="0" width="29" height="115" backcolor="#6699FF" uuid="36c13e9c-843f-4929-ba8b-ed8415596ece"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[No.]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="0" y="115" width="29" height="20" backcolor="#CCCCCC" uuid="bd20caf3-698b-4e1c-8355-1dc7eaf0284d"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[1]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="29" y="115" width="221" height="20" backcolor="#CCCCCC" uuid="c5474e9a-09f6-42b3-a074-07b51100dbf5"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[2]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="250" y="115" width="96" height="20" backcolor="#CCCCCC" uuid="4165fe3a-0e49-494e-acd5-276b8eefb324"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[3]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="346" y="115" width="70" height="20" backcolor="#CCCCCC" uuid="3411851c-c568-4ea3-a46d-c3570d8ca298"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[4]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="416" y="115" width="69" height="20" backcolor="#CCCCCC" uuid="85ab470f-882e-465a-9f49-e4114f83785f"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[5]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="485" y="115" width="70" height="20" backcolor="#CCCCCC" uuid="329f01f7-38d4-4e0a-a60b-1c74b9baf18d"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[6]]></text>
+			</staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="20" splitType="Stretch">
+			<textField>
+				<reportElement x="29" y="0" width="221" height="20" uuid="3c1cc278-7adf-4fa8-a7a2-fc7617af586c"/>
+				<box leftPadding="5">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{programPendidikan}]]></textFieldExpression>
+			</textField>
+			<textField pattern="###0">
+				<reportElement mode="Opaque" x="416" y="0" width="69" height="20" backcolor="#FFFF66" uuid="6adb14bd-3f0f-426c-a81e-6a1ae2ba93d2"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{jmlNasionalBerbadanHukum}]]></textFieldExpression>
+			</textField>
+			<textField pattern="###0">
+				<reportElement mode="Opaque" x="250" y="0" width="96" height="20" backcolor="#FFFF66" uuid="30c80cf5-84db-432e-ba78-096c565c2198"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{jmlLulusanBekerja}]]></textFieldExpression>
+			</textField>
+			<textField pattern="###0">
+				<reportElement mode="Opaque" x="485" y="0" width="70" height="20" backcolor="#FFFF66" uuid="24d5fbd9-f4fc-47c5-a3dd-d1d49e20efe2"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{internasional}]]></textFieldExpression>
+			</textField>
+			<textField pattern="###0">
+				<reportElement mode="Opaque" x="346" y="0" width="70" height="20" backcolor="#FFFF66" uuid="a786bac5-554d-4871-b944-885b93fb93df"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{jmlLokalTidakBBerbadanHukum}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="0" width="29" height="20" uuid="39696dd5-cfa7-468d-a354-da66b1f96475"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+</jasperReport>

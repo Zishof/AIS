@@ -1,0 +1,28 @@
+<?link rel="shortcut icon" href="/img/logo.png" type="image/x-icon"?>
+<?page title="Sistem Informasi Kehadiran" contentType="text/html;charset=UTF-8"?>
+<?meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" ?>
+<?meta name="description" content="Sistem Informasi Perhadiran" ?>
+<?meta name="author" content="Mohammad Fauzi Murtadho" ?>
+<zk>
+
+
+
+	<window use="ais.ui.util.MyWindow" width="100%" height="100%"
+		id="main" forward="onClientInfo=onInfo"
+		apply="ais.action.maintenance.HadirAction" border="none">
+		
+		<style id="mystyle">
+
+		</style>
+
+		<borderlayout id="hadirLayout">
+
+
+		</borderlayout>
+		
+		
+
+	</window>
+
+
+</zk>

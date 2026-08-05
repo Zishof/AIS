@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="kartu_pasien" pageWidth="240" pageHeight="170" orientation="Landscape" whenNoDataType="AllSectionsNoDetail" columnWidth="227" leftMargin="6" rightMargin="7" topMargin="5" bottomMargin="5" uuid="2b5a90fc-250c-4dcd-af75-71df14c67ab5">
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<property name="ireport.zoom" value="1.9487171000000014"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="nama" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Abdullah"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="alamat" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Kp. Pabuaran"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="wkt_reg" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2010-01-01 00:00:00"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mybarcode" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="nip" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["123"]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select 1]]>
+	</queryString>
+	<field name="?column?" class="java.lang.Integer"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="143" splitType="Stretch">
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="0" y="56" width="227" height="42" uuid="0b795680-8799-4dab-873f-044ecb8bec19"/>
+				<textElement verticalAlignment="Middle">
+					<font size="14" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{nama}]]></textFieldExpression>
+			</textField>
+			<image scaleImage="RetainShape" hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement key="image-1" x="157" y="78" width="70" height="65" uuid="e8c67b36-5314-483b-a04f-08688647f606"/>
+				<imageExpression><![CDATA[$P{mybarcode}]]></imageExpression>
+			</image>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<columnHeader>
+		<band splitType="Stretch"/>
+	</columnHeader>
+	<detail>
+		<band splitType="Stretch"/>
+	</detail>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band splitType="Stretch"/>
+	</pageFooter>
+	<summary>
+		<band splitType="Stretch"/>
+	</summary>
+</jasperReport>

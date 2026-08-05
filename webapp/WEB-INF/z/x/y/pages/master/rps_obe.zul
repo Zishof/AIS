@@ -1,0 +1,97 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false"
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.RpsObeAction" width="100%" height="100%">
+
+		<div sclass="ais-crud-portal">
+
+			<!-- ═══ KARTU FILTER ═══
+			     Hanya berisi pemilihan Mata Kuliah & Kurikulum. Bila RPS dibuka untuk satu
+			     mata kuliah tertentu (kolomnya sudah pasti), kartu ini disembunyikan otomatis
+			     oleh RpsObeAction (id "filterCard") agar tidak menyisakan kotak kosong. -->
+			<div sclass="ais-crud-filter-card" id="filterCard">
+				<div sclass="ais-crud-filter-head">
+					<span sclass="ais-crud-filter-title">Pencarian &amp; Filter</span>
+				</div>
+				<div sclass="ais-crud-filter-body">
+					<grid use="ais.ui.util.MyGrid" fixedLayout="true" sclass="ais-crud-filter-grid">
+						<columns>
+
+						<column use="ais.ui.util.MyColumnConfig" width="150px" />
+						<column use="ais.ui.util.MyColumnConfig" />
+						<column use="ais.ui.util.MyColumnConfig" width="150px" />
+						<column use="ais.ui.util.MyColumnConfig" />
+
+						</columns>
+						<rows>
+						<row>
+						<label use="ais.ui.util.MyLabelConfig" value="Matakuliah *" />
+						<bandbox use="ais.action.master.helper.AmbilDataMatakuliahBanbox" id="searchMk" width="95%" />
+
+						<label use="ais.ui.util.MyLabelConfig" id="labelKurikulum" value="Kurikulum *" />
+						<combobox width="95%" forward="onChange=onSearchDefault" id="searchKurikulum" />
+						</row>
+						</rows>
+					</grid>
+				</div>
+			</div>
+
+			<!-- ═══ KARTU DATA ═══
+			     Header modern (judul + penjelasan singkat + tombol aksi) menempel di atas
+			     deretan tab RPS, lalu tabbox form RPS OBE dibangun oleh RpsObeAction. -->
+			<div sclass="ais-crud-data-card">
+
+				<div sclass="ais-crud-data-head">
+					<div sclass="ais-crud-data-head-info">
+						<span sclass="ais-crud-data-head-title">Rencana Pembelajaran Semester (OBE)</span>
+						<span sclass="ais-crud-data-head-desc">Menyusun rencana kuliah satu semester berbasis capaian: identitas mata kuliah, capaian pembelajaran, penilaian, dan agenda tiap pertemuan. Perubahan tersimpan otomatis.</span>
+					</div>
+					<div sclass="ais-crud-filter-actions ais-crud-data-actions">
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+							id="find" label="Refresh" image="/img/Button-Refresh-icon.png"
+							tooltiptext="Muat ulang data" forward="onClick=onSearchDefault"/>
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+							id="cetak" label="Cetak PDF" image="/img/print.png"
+							tooltiptext="Cetak RPS OBE ke PDF" forward="onClick=onCetak"/>
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+							id="cetakHtml" label="Cetak (HTML)" image="/img/print.png"
+							tooltiptext="Tampilkan RPS OBE versi siap cetak (HTML)" forward="onClick=onCetakHtml"/>
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif"
+							tooltiptext="Panduan penggunaan halaman ini"
+							onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;rps_obe&quot;, &quot;Bantuan&quot;);"/>
+					</div>
+				</div>
+
+				<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true"/>
+				<grid use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true" id="grid">
+					<columns>
+
+						<column use="ais.ui.util.MyColumnConfig" width="20%" label="" />
+						<column use="ais.ui.util.MyColumnConfig" label="" />
+
+					</columns>
+					<rows id="rowsUtama">
+					</rows>
+				</grid>
+				<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>
+			</div>
+
+		</div>
+
+		<window use="ais.ui.util.MyWindow" id="addWindow" title="" visible="false" mode="popup" position="center,center" border="normal" width="600px" height="500px">
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+	</window>
+
+
+</zk>

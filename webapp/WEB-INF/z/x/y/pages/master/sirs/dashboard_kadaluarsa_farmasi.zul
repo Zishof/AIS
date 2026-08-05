@@ -1,0 +1,25 @@
+<?page id="dashboardKadaluarsaFarmasi" title="Dasbor Kewaspadaan Kadaluarsa"
+	cacheable="false" language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<!--
+	Dasbor "Kewaspadaan Kadaluarsa Obat/Barang Medis (Farmasi)" — barang yang sudah/akan segera
+	kadaluarsa, dikelompokkan menurut sisa waktu, plus daftar paling mendesak. Grafik HTML+CSS modern
+	(tanpa JFreeChart) oleh KadaluarsaFarmasiDashboardBuilder. Snapshot; tombol Segarkan memuat ulang.
+-->
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window" width="100%" height="100%"
+		apply="ais.action.master.sirs.chart.KadaluarsaFarmasiDashboardAction">
+
+		<div sclass="ais-crud-portal" style="padding:12px;">
+			<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="refresh" label="Segarkan"
+					image="/img/refresh.png" tooltiptext="Muat ulang kondisi terkini" />
+			</div>
+			<div id="chartKadaluarsa" use="ais.ui.util.MyChart" width="100%" />
+		</div>
+	</window>
+</zk>

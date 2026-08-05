@@ -1,0 +1,45 @@
+<zk xmlns="http://www.zkoss.org/2005/zul">
+	<borderlayout>
+		<north border="none" size="110px">
+			<div>
+				<html><![CDATA[<div class="aj-panel-info">
+					<strong>Riwayat Transaksi Scan Gerbang</strong> &mdash;
+					Setiap kali kartu penjemput discan di gerbang, sebuah transaksi tercatat di sini secara
+					otomatis. Transaksi berisi nomor antrian, waktu scan, penjemput, dan status terkini.
+					Gunakan halaman ini untuk memonitor atau memproses ulang panggilan yang tertunda.
+				</div>]]></html>
+				<toolbar sclass="aj-filter">
+					<label use="ais.ui.util.MyLabelConfig" value="Cari:" style="font-size:12px;color:#475569;font-weight:600;" />
+					<textbox id="searchTransaksi" width="220px"
+						forward="onOK=onSearchTransaksi"
+						tooltiptext="Cari berdasarkan nomor antrian atau nomor scan barcode" />
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+						label="Cari" image="/img/search.gif"
+						forward="onClick=onSearchTransaksi"
+						tooltiptext="Cari transaksi" />
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+						label="Refresh" image="/img/refresh.gif"
+						forward="onClick=onRefresh"
+						tooltiptext="Muat ulang data transaksi" />
+				</toolbar>
+			</div>
+		</north>
+		<center border="none">
+			<grid use="ais.ui.util.MyGrid" id="gridTransaksi" sclass="dgrid" fixedLayout="true">
+				<columns>
+					<column use="ais.ui.util.MyColumnConfig" label="Antrian"   width="90px" />
+					<column use="ais.ui.util.MyColumnConfig" label="Waktu"     width="150px" />
+					<column use="ais.ui.util.MyColumnConfig" label="Tipe Scan" width="100px" />
+					<column use="ais.ui.util.MyColumnConfig" label="Nomor Scan" />
+					<column use="ais.ui.util.MyColumnConfig" label="Gerbang" />
+					<column use="ais.ui.util.MyColumnConfig" label="Penjemput" />
+					<column use="ais.ui.util.MyColumnConfig" label="Status"    width="145px" />
+					<column use="ais.ui.util.MyColumnConfig" label="Aksi"      width="240px" />
+				</columns>
+			</grid>
+		</center>
+		<south border="none" size="32px">
+			<paging id="pagingTransaksi" detailed="true" />
+		</south>
+	</borderlayout>
+</zk>

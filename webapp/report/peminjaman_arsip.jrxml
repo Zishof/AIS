@@ -1,0 +1,416 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="report5" language="groovy" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="76bee52d-a7e7-4b95-912a-68bf3dea7433">
+	<property name="ireport.zoom" value="1.652892561983471"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<property name="ireport.background.image" value="D:\jaspersoft\MX-M315NV_20230110_145352.jpg"/>
+	<property name="ireport.background.image.properties" value="false,true,0.25,0,0,0,0,0,0"/>
+	<style name="Title"/>
+	<style name="Page Header"/>
+	<style name="Column Header"/>
+	<style name="Row">
+		<conditionalStyle>
+			<conditionExpression><![CDATA[$V{REPORT_COUNT}%2 == 0]]></conditionExpression>
+			<style/>
+		</conditionalStyle>
+	</style>
+	<style name="table">
+		<box>
+			<pen lineWidth="1.0" lineColor="#000000"/>
+		</box>
+	</style>
+	<style name="table_TH" mode="Opaque" backcolor="#F0F8FF">
+		<box>
+			<pen lineWidth="0.5" lineColor="#000000"/>
+		</box>
+	</style>
+	<style name="table_CH" mode="Opaque" backcolor="#BFE1FF">
+		<box>
+			<pen lineWidth="0.5" lineColor="#000000"/>
+		</box>
+	</style>
+	<style name="table_TD" mode="Opaque" backcolor="#FFFFFF">
+		<box>
+			<pen lineWidth="0.5" lineColor="#000000"/>
+		</box>
+	</style>
+	<parameter name="kop" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="nomor.surat" class="java.lang.String"/>
+	<parameter name="isi_surat" class="java.lang.String"/>
+	<parameter name="pegawai.oleh" class="java.lang.String"/>
+	<parameter name="pegawai.nama" class="java.lang.String"/>
+	<parameter name="dari" class="java.lang.String"/>
+	<parameter name="kepada" class="java.lang.String"/>
+	<parameter name="lampiran" class="java.lang.String"/>
+	<parameter name="perihal" class="java.lang.String"/>
+	<parameter name="pegawai.ttd" class="java.lang.String"/>
+	<parameter name="tanda_tangan" class="java.lang.String"/>
+	<parameter name="semua.2.pejabat.ttd.peg " class="java.lang.String"/>
+	<parameter name="tanggal.formated2" class="java.lang.String"/>
+	<parameter name="ttd.kepala_smp" class="java.lang.String"/>
+	<parameter name="pejabat.ttd.peg.kepala_kb_&amp;_tk" class="java.lang.String"/>
+	<parameter name="KOP_SEKOLAH_5" class="java.lang.String"/>
+	<parameter name="no" class="java.lang.String"/>
+	<parameter name="judul_arsip" class="java.lang.String"/>
+	<field name="suratMasuk.kode" class="java.lang.String"/>
+	<field name="suratMasuk.perihal" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="125" splitType="Stretch">
+			<staticText>
+				<reportElement x="0" y="96" width="555" height="16" uuid="78fd33ea-3dc4-4717-84e8-0299fb64b18b"/>
+				<textElement textAlignment="Center">
+					<font fontName="DejaVu Serif" size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[APLIKASI PEMINJAMAN ARSIP / DOKUMEN]]></text>
+			</staticText>
+			<image scaleImage="RetainShape" hAlign="Center" onErrorType="Blank">
+				<reportElement x="0" y="0" width="555" height="85" uuid="9ca34d41-e868-4bad-a91a-9de77917c7e1"/>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "kop_surat" )]]></imageExpression>
+			</image>
+			<textField>
+				<reportElement positionType="Float" x="11" y="85" width="219" height="11" uuid="05f706b5-4287-4ea6-9d29-dc8c41329787"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="8" isBold="true" isItalic="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["(Diisi oleh Pemohon/Calon Pengguna Arsip)"]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<columnHeader>
+		<band height="106" splitType="Immediate">
+			<textField>
+				<reportElement positionType="Float" x="39" y="52" width="151" height="15" uuid="a9d47974-fa19-44f6-b205-93114c934f9f"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Dari"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" x="190" y="52" width="20" height="15" uuid="ad0dbfdd-bd78-4b8b-98db-7075bb30ec92"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[" : "]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" x="39" y="69" width="151" height="15" uuid="c9cbb476-3334-41c9-b189-4bc370ed62cc"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Tujuan Peminjaman"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" x="190" y="69" width="20" height="15" uuid="203b5c77-87fc-4408-8b40-7b0ef4a61480"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[" : "]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement positionType="Float" x="39" y="86" width="151" height="15" uuid="b2671b93-1914-4e09-89c5-54f639816bff"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Lama Peminjaman"]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement positionType="Float" x="190" y="86" width="20" height="15" uuid="0d0e7326-0e03-419a-a31a-518d9045349b"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[" : "]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement positionType="Float" isPrintRepeatedValues="false" x="330" y="52" width="182" height="15" uuid="7e736bd9-842d-45ae-a01a-58bf9199643e"/>
+				<box topPadding="2"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "satuanKerja.nama" )]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement positionType="Float" x="210" y="69" width="302" height="15" isPrintWhenDetailOverflows="true" uuid="6cb214e5-6b52-411a-819e-e22ce0073c54"/>
+				<box topPadding="2"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "tujuanPeminjaman" )]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement positionType="Float" x="210" y="86" width="302" height="15" uuid="130a04be-2c7e-4975-91d5-1f2951ad94c9"/>
+				<box topPadding="2"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "mulai.formated5" )+" sd "+$P{REPORT_PARAMETERS_MAP}.get( "sampai.formated5" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" x="39" y="35" width="151" height="15" uuid="f104bc26-40f7-4f32-af76-87d723dced58"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Kepada"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" x="190" y="35" width="20" height="15" uuid="e544afad-e116-484c-8bbd-e2bd6f6ab9dc"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[" : "]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement positionType="Float" isPrintRepeatedValues="false" x="330" y="37" width="182" height="15" isPrintWhenDetailOverflows="true" uuid="f7af260b-6cc8-4f3d-af48-70ca480b0973"/>
+				<box topPadding="2"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "kepadaSatuanKerja.nama" )]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="210" y="1" width="302" height="15" uuid="6a070a44-5512-4d91-bbbe-156ba35dd148"/>
+				<box topPadding="2"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "tanggalPembuatan.formated5" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" x="190" y="1" width="20" height="15" uuid="7538a36a-4659-4751-92b9-d77481f07538"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[" : "]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" x="39" y="18" width="151" height="15" uuid="2d20492a-59f2-4f71-8bfd-af94641e1833"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA["No. Peminjaman"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" x="190" y="18" width="20" height="15" uuid="6ccfee24-e5c8-4961-bb18-7e738ecf6ff9"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[" : "]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="210" y="18" width="302" height="15" uuid="db573383-1813-4183-b9d8-a354ba2c758b"/>
+				<box topPadding="2"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "kode" )]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement positionType="Float" isPrintRepeatedValues="false" x="210" y="35" width="120" height="15" isPrintWhenDetailOverflows="true" uuid="c71b883f-0e6a-4302-a493-1549b2d01570"/>
+				<box topPadding="2"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Cabang / Satuan Kerja"]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement positionType="Float" isPrintRepeatedValues="false" x="210" y="52" width="120" height="15" isPrintWhenDetailOverflows="true" uuid="60d44db6-dfee-4606-b876-9b2896bf9074"/>
+				<box topPadding="2"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Cabang / Satuan Kerja"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" x="39" y="1" width="151" height="15" uuid="68efac59-2242-4c23-b2e3-4012828ef27b"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Tanggal"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="39" y="16" width="473" height="2" uuid="6916e1a2-352b-4434-b7ea-3f2ddfd07371"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="39" y="33" width="473" height="2" uuid="8dee09ac-6928-448c-b8b8-217dc5f640bb"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="39" y="50" width="473" height="2" uuid="3ae0e80d-8556-4ca5-9742-7920451ae31a"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="39" y="67" width="473" height="2" uuid="ee914d33-a373-483d-8f24-7df55cb42bc5"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement positionType="Float" x="39" y="84" width="473" height="2" uuid="95b24037-1b80-457a-8982-159c32a98239"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="15">
+			<textField>
+				<reportElement positionType="Float" x="39" y="0" width="28" height="15" uuid="34b149ed-97f0-43a0-b838-d285dbcbf9e6"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{REPORT_COUNT}+"."]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="71" y="0" width="441" height="15" uuid="47733684-cf33-4550-b0bf-85d07949c4c4"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{suratMasuk.kode}+" "+$F{suratMasuk.perihal}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<summary>
+		<band height="116">
+			<textField>
+				<reportElement positionType="Float" x="39" y="8" width="230" height="15" uuid="82e6721f-530a-48b9-9f0e-bc6d6a37b1d6"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Mengetahui,"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="39" y="23" width="180" height="60" uuid="59be54f0-1053-4da4-9477-87b5dd2db756"/>
+				<box>
+					<bottomPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" x="39" y="83" width="52" height="15" uuid="c4d1a73b-05cb-4a13-9ed6-a2d16658dced"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Nama"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" x="39" y="98" width="52" height="15" uuid="e45bfe1c-30de-4481-b900-2fac8c7b175d"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Jabatan"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" x="91" y="83" width="20" height="15" uuid="c6d50f09-8061-48de-bb48-c61781d3662d"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[" : "]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" x="91" y="98" width="20" height="15" uuid="41c1d4b2-a148-403c-928e-a1833a202057"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[" : "]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="111" y="83" width="158" height="15" uuid="95de4fc5-911c-462c-86f9-d5f636f503ee"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "disetujuiOleh.userNama" )]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="111" y="98" width="158" height="15" uuid="e6b8eaa0-3907-4ed3-a67c-56bff93ae33d"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "disetujuiOleh.pegawai.jabatan" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" x="282" y="8" width="230" height="15" uuid="2e7bf52b-5be8-4268-87cf-2ea3be209f82"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Pemohon,"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="282" y="23" width="180" height="60" uuid="1b29b3cf-6878-41cf-ae76-f1414789babc"/>
+				<box>
+					<bottomPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" x="282" y="83" width="52" height="15" uuid="6692dc75-2240-46db-8595-d0680116e362"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Nama"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" x="282" y="98" width="52" height="15" uuid="b2bad099-037c-4091-9e18-8b521d4bdb12"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Jabatan"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" x="334" y="83" width="20" height="15" uuid="8f0c16e2-cd7b-4371-9a4c-d79248f1d882"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[" : "]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" x="334" y="98" width="20" height="15" uuid="89c5746e-2990-437d-bda3-9f6d072062e5"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[" : "]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="354" y="83" width="158" height="15" uuid="0200a946-a8ef-4b64-8c5d-7d33eebcc83c"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "peminjamSurat.nama" )]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="354" y="98" width="158" height="15" uuid="06dcea13-dd13-480d-894a-fbd763d1fef3"/>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "peminjamSurat.pegawai.jabatan" )]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
+</jasperReport>

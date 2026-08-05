@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="laporan_dosen_pembina_matakuliah" language="groovy" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="595" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="1f4fdede-1084-4665-901a-9eaa3ca8bd8b">
+	<property name="ireport.zoom" value="2.357947691000002"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<style name="Title" fontSize="26" isBold="true" pdfFontName="Helvetica-Bold"/>
+	<style name="SubTitle" forecolor="#666666" fontSize="18"/>
+	<style name="Column header" forecolor="#666666" fontSize="12" isBold="true"/>
+	<style name="Detail" fontSize="12"/>
+	<parameter name="label_fakultas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Fakultas"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_jurusan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Prodi"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["../logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jurusan" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tahun_akademik" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["-1"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="semester" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1]]></defaultValueExpression>
+	</parameter>
+	<parameter name="fakultas" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_kota_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Jakarta"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jenis_ujian" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["uts"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="id_jenis_ujian" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[4L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="fakultas_nama" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jurusan_nama" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+	</parameter>
+	<parameter name="kelas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+	</parameter>
+	<parameter name="SUBREPORT_DIR" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["C:\\Users\\admin\\Documents\\My Project\\Academic Information System\\AIS\\ais\\web\\report\\"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="SUBREPORT_DIR_UJIAN" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA[$P{SUBREPORT_DIR} + "Cetak_KUAS_Mahasiswa.jasper"]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select
+aa.mahasiswa,
+m.nama as namamahasiswa,
+case when $P{jenis_ujian}='uts' then k.nouts else k.nouas end as nomoujian,
+f.nama as namafakultas
+
+
+from detailperkuliahan aa
+inner join perkuliahan a on (aa.perkuliahan=a.id)
+inner join mahasiswa m on (aa.mahasiswa=m.id)
+left join jurusan d on (d.id = a.jurusan)
+left join fakultas f on (d.fakultas=d.id)
+inner join krs_mahasiswa k on (aa.mahasiswa=k.mahasiswa and aa.semester=k.semester and semesterpendek is null)
+
+where d.fakultas is not null
+and case $P{kelas} when '' then true else m.kelas ilike '%'||$P{kelas}||'%' end
+and case $P{semester} when -1 then true else aa.semester=$P{semester} end
+and case $P{tahun_akademik} when '-1' then true else a.tahun_ajaran = $P{tahun_akademik} end
+and case $P{jurusan} when -1 then true else a.jurusan = $P{jurusan} end
+and case $P{fakultas} when -1 then true else d.fakultas=$P{fakultas} end
+order by m.nim ]]>
+	</queryString>
+	<field name="mahasiswa" class="java.lang.Long"/>
+	<field name="namamahasiswa" class="java.lang.String"/>
+	<field name="nomoujian" class="java.lang.String"/>
+	<field name="namafakultas" class="java.lang.String"/>
+	<group name="mhs" isStartNewPage="true">
+		<groupExpression><![CDATA[$F{mahasiswa}]]></groupExpression>
+		<groupHeader>
+			<band height="7">
+				<subreport isUsingCache="true">
+					<reportElement x="0" y="4" width="595" height="3" uuid="8a2cb4e8-8d6f-4a44-a887-f20138e76031"/>
+					<parametersMapExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}]]></parametersMapExpression>
+					<subreportParameter name="jurusan">
+						<subreportParameterExpression><![CDATA[$P{jurusan}]]></subreportParameterExpression>
+					</subreportParameter>
+					<subreportParameter name="namamahasiswa">
+						<subreportParameterExpression><![CDATA[$F{namamahasiswa}]]></subreportParameterExpression>
+					</subreportParameter>
+					<subreportParameter name="tahun_akademik">
+						<subreportParameterExpression><![CDATA[$P{tahun_akademik}]]></subreportParameterExpression>
+					</subreportParameter>
+					<subreportParameter name="tanggal">
+						<subreportParameterExpression><![CDATA[new java.text.SimpleDateFormat("dd-MM-yyyy").format(new java.util.Date())]]></subreportParameterExpression>
+					</subreportParameter>
+					<subreportParameter name="mahasiswa">
+						<subreportParameterExpression><![CDATA[$F{mahasiswa}]]></subreportParameterExpression>
+					</subreportParameter>
+					<subreportParameter name="SUBREPORT_DIR">
+						<subreportParameterExpression><![CDATA[$P{SUBREPORT_DIR}]]></subreportParameterExpression>
+					</subreportParameter>
+					<subreportParameter name="id_jenis_ujian">
+						<subreportParameterExpression><![CDATA[$P{id_jenis_ujian}]]></subreportParameterExpression>
+					</subreportParameter>
+					<subreportParameter name="fakultas_nama">
+						<subreportParameterExpression><![CDATA[$P{fakultas_nama}]]></subreportParameterExpression>
+					</subreportParameter>
+					<subreportParameter name="jurusan_nama">
+						<subreportParameterExpression><![CDATA[$P{jurusan_nama}]]></subreportParameterExpression>
+					</subreportParameter>
+					<subreportParameter name="label_kota_universitas">
+						<subreportParameterExpression><![CDATA[$P{label_kota_universitas}]]></subreportParameterExpression>
+					</subreportParameter>
+					<subreportParameter name="nomor_ujian">
+						<subreportParameterExpression><![CDATA[$F{nomoujian}]]></subreportParameterExpression>
+					</subreportParameter>
+					<subreportParameter name="namafakultas">
+						<subreportParameterExpression><![CDATA[$F{namafakultas}]]></subreportParameterExpression>
+					</subreportParameter>
+					<subreportParameter name="fakultas">
+						<subreportParameterExpression><![CDATA[$P{fakultas}]]></subreportParameterExpression>
+					</subreportParameter>
+					<subreportParameter name="foto">
+						<subreportParameterExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "current_local_url" )+"/AmbilMedia?id="+$F{mahasiswa}+"&name=nama&foto=foto&clazz=ais.database.model.file.FotoMahasiswa&property=mahasiswa&var=3"]]></subreportParameterExpression>
+					</subreportParameter>
+					<subreportParameter name="kelas">
+						<subreportParameterExpression><![CDATA[$P{kelas}]]></subreportParameterExpression>
+					</subreportParameter>
+					<subreportParameter name="jenis_ujian">
+						<subreportParameterExpression><![CDATA[$P{jenis_ujian}]]></subreportParameterExpression>
+					</subreportParameter>
+					<connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
+					<subreportExpression><![CDATA[$P{SUBREPORT_DIR_UJIAN}]]></subreportExpression>
+				</subreport>
+			</band>
+		</groupHeader>
+	</group>
+</jasperReport>

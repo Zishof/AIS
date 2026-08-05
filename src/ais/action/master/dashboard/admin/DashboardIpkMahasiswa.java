@@ -1,0 +1,667 @@
+package ais.action.master.dashboard.admin;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+
+import org.hibernate.Criteria;
+import org.hibernate.Session;
+import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Projections;
+import org.hibernate.criterion.Restrictions;
+import org.zkoss.zk.ui.event.Event;
+import org.zkoss.zk.ui.event.EventListener;
+import org.zkoss.zul.A;
+import org.zkoss.zul.Auxhead;
+import org.zkoss.zul.Auxheader;
+import org.zkoss.zul.Borderlayout;
+import org.zkoss.zul.Center;
+import org.zkoss.zul.Div;
+import org.zkoss.zul.Columns;
+import org.zkoss.zul.Combobox;
+import org.zkoss.zul.Grid;
+import org.zkoss.zul.Hbox;
+import org.zkoss.zul.Label;
+import org.zkoss.zul.North;
+import org.zkoss.zul.Row;
+import ais.ui.util.MyFormRow;
+import org.zkoss.zul.Rows;
+import org.zkoss.zul.SimpleCategoryModel;
+
+import ais.common.Common;
+import ais.database.hibernate.HibernateUtil;
+import ais.database.model.Fakultas;
+import ais.database.model.Jurusan;
+import ais.database.model.KrsMahasiswa;
+import ais.database.model.Perkuliahan;
+import ais.database.model.StatusAwalMahasiswa;
+import ais.database.model.StatusKeluar;
+import ais.ui.util.DataCriteriaWithColumn;
+import ais.ui.util.MyColumnConfig;
+import ais.ui.util.MyComboitemConfig;
+import ais.ui.util.MyLabelBoldAja;
+import ais.ui.util.MyLabelConfig;
+import ais.ui.util.MyToolbarbuttonConfig;
+import ais.ui.util.MyWindow;
+import ais.ui.util.UIUtil;
+
+import ais.ui.util.DashboardModernHtmlUtil;
+public class DashboardIpkMahasiswa extends MyWindow {
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 3557603220165512688L;
+	// private Intbox mulai;
+	// private Intbox sampai;
+	private Combobox searchStatusAwalMahasiswa;
+	private Combobox searchprogram;
+	private Div center;
+	private Combobox searchfakultas;
+	private Combobox searchjurusan;
+	private Combobox searchTahunAjaran;
+	protected Grid grid;
+	private Combobox searchSmt;
+	private int width = 750;
+	private int height = 100;
+	private Combobox searchStatusKeluar;
+
+	public DashboardIpkMahasiswa() {
+		super();
+		try {
+
+			init();
+
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+		}
+	}
+
+	public DashboardIpkMahasiswa(String title, String border, boolean closable) {
+		super(title, border, closable);
+		try {
+			init();
+			// initSpreadsheet();
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+		}
+	}
+
+	private void init() throws Exception {
+		setHeight("100%");
+		setWidth("100%");
+		setBorder("none");
+		setClosable(false);
+		setPosition("center");
+
+		/* Portal responsif (menumpuk di HP) menggantikan Borderlayout North+Center. */
+		org.zkoss.zk.ui.Component[] hostPortal = ais.ui.util.DasborResponsifHelper.saringanDanIsi(this,
+				"Saringan Data",
+				"Pilih saringan untuk menyesuaikan data yang ditampilkan.",
+				"IPK Mahasiswa",
+				"Sebaran IPK mahasiswa, beserta grafiknya.");
+		org.zkoss.zk.ui.Component saringanHost = hostPortal[0];
+		center = (org.zkoss.zul.Div) hostPortal[1];
+
+		Grid grid = new Grid();
+		grid.setSclass("dgrid");
+		grid.setWidth("100%");
+		grid.setParent(saringanHost);
+		grid.setWidth("100%");
+		grid.setHeight("100%");
+
+		Rows rows = new Rows();
+		rows.setParent(grid);
+
+		MyFormRow row = new MyFormRow();
+		row.setValign("top");
+		row.setParent(rows);
+
+		EventListener eventListener = new EventListener() {
+
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				reload();
+			}
+		};
+
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("TA"));
+
+		row.appendChild(searchTahunAjaran = new Combobox());
+		searchTahunAjaran.setWidth("90%");
+		Common.generateTahunAjaran(searchTahunAjaran);
+		searchTahunAjaran.addEventListener("onChange", eventListener);
+
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Semester"));
+
+		row.appendChild(searchSmt = new Combobox());
+		searchSmt.setWidth("90%");
+		MyComboitemConfig comboitem = new MyComboitemConfig();
+		comboitem.setLabel(Perkuliahan.GANJIL);
+		comboitem.setValue(Perkuliahan.GANJIL);
+		searchSmt.appendChild(comboitem);
+		comboitem = new MyComboitemConfig();
+		comboitem.setLabel(Perkuliahan.GENAP);
+		comboitem.setValue(Perkuliahan.GENAP);
+		searchSmt.appendChild(comboitem);
+		Common.selectComboItem(searchSmt, Common.isNowSemensterGanjil() ? Perkuliahan.GANJIL : Perkuliahan.GENAP);
+		searchSmt.addEventListener("onChange", eventListener);
+		searchSmt.setReadonly(true);
+
+		searchStatusAwalMahasiswa = new Combobox();
+		row.appendChild(new MyLabelConfig("Status Awal"));
+		row.appendChild(searchStatusAwalMahasiswa);
+		Common.insertComboDanSemua(searchStatusAwalMahasiswa, "nama", StatusAwalMahasiswa.class,
+				Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
+		searchStatusAwalMahasiswa.setWidth("90%");
+
+		row = new MyFormRow();
+		searchStatusKeluar = new Combobox();
+		row.appendChild(new MyLabelConfig("Status Keluar"));
+		row.appendChild(searchStatusKeluar);
+		Common.insertComboDanSemua(searchStatusKeluar, "nama", StatusKeluar.class);
+		searchStatusKeluar.setWidth("90%");
+		row.setParent(rows);searchStatusKeluar.addEventListener("onChange", eventListener);
+
+		searchprogram = new Combobox();
+		row.appendChild(new MyLabelConfig("Program"));
+		Common.initPrograms(searchprogram);
+		row.appendChild(searchprogram);
+		searchprogram.setWidth("90%");
+		searchprogram.setReadonly(true);
+
+		searchStatusAwalMahasiswa.addEventListener("onChange", eventListener);
+		searchprogram.addEventListener("onChange", eventListener);
+
+		searchfakultas = new Combobox();
+		searchjurusan = new Combobox();
+		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
+		row.appendChild(new MyLabelConfig("Fakultas / Prodi"));
+		Hbox hbox = new Hbox();
+		hbox.setParent(row);
+		hbox.appendChild(searchfakultas);
+		hbox.appendChild(searchjurusan);
+		searchfakultas.addEventListener("onChange", eventListener);
+		searchjurusan.addEventListener("onChange", eventListener);
+		searchfakultas.setCols(2);
+		searchjurusan.setCols(2);
+
+
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		MyToolbarbuttonConfig toolbarbutton = new MyToolbarbuttonConfig("Download", "/img/print.png");
+		toolbarbutton.setParent(row);
+		toolbarbutton.addEventListener("onClick", new EventListener() {
+
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				UIUtil.downloadGrid(DashboardIpkMahasiswa.this.grid);
+			}
+		});
+
+		Common.createDefaultTimerNoBusy(new EventListener() {
+			public void onEvent(Event e) throws Exception {
+				reload();
+			}
+		});
+	}
+
+	@SuppressWarnings("unchecked")
+	private void reload() {
+		Common.clear(center);
+
+		final StatusAwalMahasiswa statusAwalMahasiswa = (StatusAwalMahasiswa) (searchStatusAwalMahasiswa
+				.getSelectedItem() == null || searchStatusAwalMahasiswa.getSelectedItem().getValue() == null ? null
+						: searchStatusAwalMahasiswa.getSelectedItem().getValue());
+		final String program = (String) (searchprogram.getSelectedItem() == null
+				|| searchprogram.getSelectedItem().getValue() == null ? null
+						: searchprogram.getSelectedItem().getValue());
+		final StatusKeluar statusKeluar = (StatusKeluar) (searchStatusKeluar.getSelectedItem() == null
+				|| searchStatusKeluar.getSelectedItem().getValue() == null ? null
+						: searchStatusKeluar.getSelectedItem().getValue());
+		final String ta = (String) (searchTahunAjaran.getSelectedItem() == null
+				|| searchTahunAjaran.getSelectedItem().getValue() == null ? Common.getCurrentTahunAkademik()
+						: searchTahunAjaran.getSelectedItem().getValue());
+
+		final String smt = (String) searchSmt.getSelectedItem().getValue();
+
+		Fakultas fak = (Fakultas) (searchfakultas.getSelectedItem() == null ? null
+				: searchfakultas.getSelectedItem().getValue());
+		Jurusan jur = (Jurusan) (searchjurusan.getSelectedItem() == null ? null
+				: searchjurusan.getSelectedItem().getValue());
+		final List<Jurusan> jurusans = HibernateUtil.currentSession().createCriteria(Jurusan.class)
+				.add(jur == null ? Restrictions.sqlRestriction("true") : Restrictions.eq("id", jur.getId()))
+				.add(fak == null ? Restrictions.sqlRestriction("true") : Restrictions.eq("fakultas", fak))
+				.addOrder(Order.asc("fakultas"))
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).list();
+
+		final int mul = Integer.parseInt(ta.split("/")[0]) - 4;
+		final int sam = mul + 4;
+
+		final Map<Long, List<Object[]>> datas = new HashMap<Long, List<Object[]>>();
+
+		final Label label = Common.displayLoadBar(new EventListener() {
+
+			@SuppressWarnings("deprecation")
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				Common.clear(center);
+
+				grid = new Grid();
+				grid.setWidth("100%");
+				grid.setParent(center);
+				grid.setWidth("100%");
+				grid.setHeight("100%");
+
+				Auxhead auxhead = new Auxhead();
+				auxhead.setParent(grid);
+
+				Auxheader auxheader = new Auxheader("Program Studi");
+				auxheader.setColspan(2);
+				auxheader.setParent(auxhead);
+
+				auxheader = new Auxheader("Rata-rata IPK");
+				auxheader.setColspan((sam - mul) + 1);
+				auxheader.setParent(auxhead);
+
+				auxheader = new Auxheader("Minimal IPK");
+				auxheader.setColspan((sam - mul) + 1);
+				auxheader.setParent(auxhead);
+
+				auxheader = new Auxheader("Maksimal IPK");
+				auxheader.setColspan((sam - mul) + 1);
+				auxheader.setParent(auxhead);
+
+				Columns columns = new Columns();
+				columns.setParent(grid);
+
+				MyColumnConfig column = new MyColumnConfig("Fakultas");
+				column.setParent(columns);
+				column.setWidth("15%");
+
+				column.setParent(columns);
+				column = new MyColumnConfig("Jurusan");
+				column.setParent(columns);
+
+				column.setWidth("15%");
+
+				for (int tahun = mul; tahun <= sam; tahun++) {
+					column.setParent(columns);
+					column = new MyColumnConfig(tahun + "");
+					column.setAlign("center");
+					column.setParent(columns);
+				}
+
+				for (int tahun = mul; tahun <= sam; tahun++) {
+					column.setParent(columns);
+					column = new MyColumnConfig(tahun + "");
+					column.setAlign("center");
+					column.setParent(columns);
+				}
+
+				for (int tahun = mul; tahun <= sam; tahun++) {
+					column.setParent(columns);
+					column = new MyColumnConfig(tahun + "");
+					column.setAlign("center");
+					column.setParent(columns);
+				}
+
+				Rows rows = new Rows();
+				rows.setParent(grid);
+
+				SimpleCategoryModel categoryModelRataRata = new SimpleCategoryModel();
+				categoryModelRataRata.clear();
+
+				SimpleCategoryModel categoryModelMin = new SimpleCategoryModel();
+				categoryModelMin.clear();
+
+				SimpleCategoryModel categoryModelMax = new SimpleCategoryModel();
+				categoryModelMax.clear();
+
+				for (final Jurusan jurusan : jurusans) {
+					MyFormRow row = new MyFormRow();
+		row.setValign("top");
+					row.setParent(rows);
+					row.appendChild(new MyLabelBoldAja(jurusan.getFakultas().getNama()));
+					row.appendChild(new MyLabelBoldAja(jurusan.getNama()));
+
+					List<Object[]> dataIpk = datas.get(jurusan.getId());
+
+					TreeMap<Integer, Object[]> data = new TreeMap<Integer, Object[]>();
+
+					for (Integer tahun = mul; tahun <= sam; tahun++) {
+
+						Number rataRata = 0;
+						Number min = 0;
+						Number max = 0;
+
+						for (Object[] o : dataIpk) {
+							Object tahunangkatan = o[3];
+							if (tahunangkatan != null && tahunangkatan.toString().equalsIgnoreCase(tahun.toString())) {
+								rataRata = (Number) o[0];
+								min = (Number) o[1];
+								max = (Number) o[2];
+								break;
+							}
+						}
+
+						data.put(tahun, new Object[] { rataRata, min, max });
+					}
+
+					for (final Integer tahun : data.keySet()) {
+						Object[] d = data.get(tahun);
+						Number ipk = (Number) d[0];
+						A a = new A(Common.numberFormat.get().format(ipk == null ? 0.0 : ipk.doubleValue()));
+						a.setStyle("font-size:12px;");
+						a.setParent(row);
+						a.addEventListener("onClick", new EventListener() {
+
+							@Override
+							public void onEvent(Event arg0) throws Exception {
+
+								EventListener eventListener = (EventListener) Common
+										.cetakDataCustomButton(KrsMahasiswa.class, new DataCriteriaWithColumn() {
+
+											@Override
+											public Object[] initCriteria(boolean order) {
+
+												try {
+
+													Criteria criteria = HibernateUtil.currentSession()
+															.createCriteria(KrsMahasiswa.class)
+															.add(Restrictions.eq("tahunAkademik", ta))
+															.add(Restrictions.sqlRestriction("semester%2="
+																	+ (smt.equals(Perkuliahan.GANJIL) ? 1 : 0) + ""))
+															.add(Restrictions.isNull("semesterPendek"))
+															.createCriteria("mahasiswa")
+
+															.add(Restrictions.or(Restrictions.isNull("aktif"),
+																	Restrictions.eq("aktif", true)))
+															.add(statusAwalMahasiswa == null
+																	? Restrictions.sqlRestriction("true")
+																	: Restrictions.eq("statusAwalMahasiswa",
+																			statusAwalMahasiswa))
+
+															.add(statusKeluar == null
+																	? Restrictions.sqlRestriction("true")
+																	: Restrictions.eq("statusKeluar", statusKeluar))
+
+															.add(program == null ? Restrictions.sqlRestriction("true")
+																	: Restrictions.eq("program", program))
+
+															.add(Restrictions.eq("jurusan", jurusan))
+															.add(Restrictions.eq("tahunangkatan", tahun))
+															.addOrder(Order.asc("nim"));
+
+													return new Object[] { criteria, new String[] { "mahasiswa.nim",
+															"mahasiswa.nama", "sksk", "ipk" } };
+
+												} catch (Exception e) {
+													Common.tampilErrorJikaAdmin(e);
+												}
+												return null;
+											}
+
+										}, null, "Download Data", "/img/print.png", null, null, false, null,
+												"DATA TAMBAHAN",
+												new String[] { "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "" })
+										.getAttribute("eventListener");
+
+								eventListener.onEvent(null);
+
+							}
+						});
+
+						categoryModelRataRata.setValue(jurusan.getNama(), tahun, ipk == null ? 0.0 : ipk.doubleValue());
+
+					}
+
+					for (final Integer tahun : data.keySet()) {
+						Object[] d = data.get(tahun);
+						Number ipk = (Number) d[1];
+						A a = new A(Common.numberFormat.get().format(ipk == null ? 0.0 : ipk.doubleValue()));
+						a.setStyle("font-size:12px;");
+						a.setParent(row);
+						a.addEventListener("onClick", new EventListener() {
+
+							@Override
+							public void onEvent(Event arg0) throws Exception {
+
+								EventListener eventListener = (EventListener) Common
+										.cetakDataCustomButton(KrsMahasiswa.class, new DataCriteriaWithColumn() {
+
+											@Override
+											public Object[] initCriteria(boolean order) {
+
+												try {
+
+													Criteria criteria = HibernateUtil.currentSession()
+															.createCriteria(KrsMahasiswa.class)
+															.addOrder(Order.asc("ipk"))
+															.add(Restrictions.eq("tahunAkademik", ta))
+															.add(Restrictions.sqlRestriction("semester%2="
+																	+ (smt.equals(Perkuliahan.GANJIL) ? 1 : 0) + ""))
+															.add(Restrictions.isNull("semesterPendek"))
+															.createCriteria("mahasiswa")
+
+															.add(Restrictions.or(Restrictions.isNull("aktif"),
+																	Restrictions.eq("aktif", true)))
+															.add(statusAwalMahasiswa == null
+																	? Restrictions.sqlRestriction("true")
+																	: Restrictions.eq("statusAwalMahasiswa",
+																			statusAwalMahasiswa))
+
+															.add(statusKeluar == null
+																	? Restrictions.sqlRestriction("true")
+																	: Restrictions.eq("statusKeluar", statusKeluar))
+
+															.add(program == null ? Restrictions.sqlRestriction("true")
+																	: Restrictions.eq("program", program))
+
+															.add(Restrictions.eq("jurusan", jurusan))
+															.add(Restrictions.eq("tahunangkatan", tahun));
+
+													return new Object[] { criteria, new String[] { "mahasiswa.nim",
+															"mahasiswa.nama", "sksk", "ipk" } };
+
+												} catch (Exception e) {
+													Common.tampilErrorJikaAdmin(e);
+												}
+												return null;
+											}
+
+										}, null, "Download Data", "/img/print.png", null, null, false, null,
+												"DATA TAMBAHAN",
+												new String[] { "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "" })
+										.getAttribute("eventListener");
+
+								eventListener.onEvent(null);
+
+							}
+						});
+
+						categoryModelMin.setValue(jurusan.getNama(), tahun, ipk == null ? 0.0 : ipk.doubleValue());
+
+					}
+
+					for (final Integer tahun : data.keySet()) {
+						Object[] d = data.get(tahun);
+						Number ipk = (Number) d[2];
+						A a = new A(Common.numberFormat.get().format(ipk == null ? 0.0 : ipk.doubleValue()));
+						a.setStyle("font-size:12px;");
+						a.setParent(row);
+						a.addEventListener("onClick", new EventListener() {
+
+							@Override
+							public void onEvent(Event arg0) throws Exception {
+
+								EventListener eventListener = (EventListener) Common
+										.cetakDataCustomButton(KrsMahasiswa.class, new DataCriteriaWithColumn() {
+
+											@Override
+											public Object[] initCriteria(boolean order) {
+
+												try {
+
+													Criteria criteria = HibernateUtil.currentSession()
+															.createCriteria(KrsMahasiswa.class)
+															.addOrder(Order.desc("ipk"))
+															.add(Restrictions.eq("tahunAkademik", ta))
+															.add(Restrictions.sqlRestriction("semester%2="
+																	+ (smt.equals(Perkuliahan.GANJIL) ? 1 : 0) + ""))
+															.add(Restrictions.isNull("semesterPendek"))
+															.createCriteria("mahasiswa")
+
+															.add(Restrictions.or(Restrictions.isNull("aktif"),
+																	Restrictions.eq("aktif", true)))
+															.add(statusAwalMahasiswa == null
+																	? Restrictions.sqlRestriction("true")
+																	: Restrictions.eq("statusAwalMahasiswa",
+																			statusAwalMahasiswa))
+
+															.add(statusKeluar == null
+																	? Restrictions.sqlRestriction("true")
+																	: Restrictions.eq("statusKeluar", statusKeluar))
+
+															.add(program == null ? Restrictions.sqlRestriction("true")
+																	: Restrictions.eq("program", program))
+
+															.add(Restrictions.eq("jurusan", jurusan))
+															.add(Restrictions.eq("tahunangkatan", tahun));
+
+													return new Object[] { criteria, new String[] { "mahasiswa.nim",
+															"mahasiswa.nama", "sksk", "ipk" } };
+
+												} catch (Exception e) {
+													Common.tampilErrorJikaAdmin(e);
+												}
+												return null;
+											}
+
+										}, null, "Download Data", "/img/print.png", null, null, false, null,
+												"DATA TAMBAHAN",
+												new String[] { "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+														"", "", "", "", "", "", "", "", "", "" })
+										.getAttribute("eventListener");
+
+								eventListener.onEvent(null);
+
+							}
+						});
+
+						categoryModelMax.setValue(jurusan.getNama(), tahun, ipk == null ? 0.0 : ipk.doubleValue());
+
+					}
+				}
+
+				MyFormRow row = new MyFormRow();
+		row.setValign("top");
+				row.setParent(rows);
+				row.setSpans((((sam - mul) * 3) + 2) + "");
+				row.setAlign("center");
+
+				row.appendChild(DashboardModernHtmlUtil.createAnyChart(categoryModelRataRata, String.valueOf("Rata-rata IPK Mahasiswa"), "Perbandingan data dibuat ringkas agar kelompok terbesar dan terkecil mudah terlihat.", String.valueOf("bar")));
+row = new MyFormRow();
+				row.setParent(rows);
+				row.setSpans((((sam - mul) * 3) + 2) + "");
+				row.setAlign("center");
+
+				row.appendChild(DashboardModernHtmlUtil.createAnyChart(categoryModelMin, String.valueOf("Minimal IPK Mahasiswa"), "Nilai IPK terendah per kelompok ditampilkan agar data akademik yang perlu perhatian cepat terlihat.", String.valueOf("bar")));
+
+
+
+				row = new MyFormRow();
+				row.setParent(rows);
+				row.setSpans((((sam - mul) * 3) + 2) + "");
+				row.setAlign("center");
+
+				row.appendChild(DashboardModernHtmlUtil.createAnyChart(categoryModelMax, String.valueOf("Maksimal IPK Mahasiswa"), "Nilai IPK tertinggi per kelompok ditampilkan agar capaian akademik terbaik mudah dibandingkan.", String.valueOf("bar")));
+
+
+			}
+
+		});
+
+		new Thread(new Runnable() {
+
+			@Override
+			public void run() {
+				try {
+
+				Session session = HibernateUtil.currentNativeSession();
+
+				int i = 1;
+				for (final Jurusan jurusan : jurusans) {
+					label.setValue("Sedang memproses data di prodi " + jurusan.getNama() + " ("
+							+ Common.numberFormat.get().format((i * 100.0) / jurusans.size()) + ")");
+					i++;
+
+					List<Object[]> dataIpk = session.createCriteria(KrsMahasiswa.class)
+							.createAlias("mahasiswa", "mahasiswa")
+
+							.add(statusKeluar == null ? Restrictions.sqlRestriction("true")
+									: Restrictions.eq("mahasiswa.statusKeluar", statusKeluar))
+
+							.setProjection(Projections.projectionList().add(Projections.avg("ipk"))
+									.add(Projections.min("ipk")).add(Projections.max("ipk"))
+									.add(Projections.groupProperty("mahasiswa.tahunangkatan")))
+							.add(Restrictions.gt("ipk", 0.1)).add(Restrictions.eq("tahunAkademik", ta))
+							.add(Restrictions
+									.sqlRestriction("semester%2=" + (smt.equals(Perkuliahan.GANJIL) ? 1 : 0) + ""))
+							.add(Restrictions.isNull("semesterPendek"))
+
+							.add(Restrictions.or(Restrictions.isNull("mahasiswa.aktif"),
+									Restrictions.eq("mahasiswa.aktif", true)))
+							.add(statusAwalMahasiswa == null ? Restrictions.sqlRestriction("true")
+									: Restrictions.eq("mahasiswa.statusAwalMahasiswa", statusAwalMahasiswa))
+
+							.add(program == null ? Restrictions.sqlRestriction("true")
+									: Restrictions.eq("mahasiswa.program", program))
+
+							.add(Restrictions.eq("mahasiswa.jurusan", jurusan)).list();
+
+					datas.put(jurusan.getId(), dataIpk);
+				}
+				HibernateUtil.closeSession();
+
+				label.setValue("");
+							} finally {
+					ais.database.hibernate.HibernateUtil.closeSession();
+				}
+			}
+		}).start();
+	}
+}

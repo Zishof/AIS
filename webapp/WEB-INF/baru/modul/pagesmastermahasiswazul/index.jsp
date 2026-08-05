@@ -1,0 +1,1 @@
+<jsp:include page="/WEB-INF/baru/modul/mahasiswa/index_dynamic_crud.jsp"></jsp:include>

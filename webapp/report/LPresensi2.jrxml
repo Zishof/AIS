@@ -1,0 +1,952 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="LPresensi1" language="groovy" pageWidth="1224" pageHeight="612" orientation="Landscape" whenNoDataType="AllSectionsNoDetail" columnWidth="1184" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="5" uuid="368d0e66-8a02-4b29-80a8-f591f76d8957">
+	<property name="ireport.zoom" value="1.1289478601075547"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="nip" class="java.lang.String"/>
+	<parameter name="nama" class="java.lang.String"/>
+	<parameter name="SUBREPORT_DIR" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["C:\\Users\\Benny\\Downloads\\"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mulai" class="java.lang.String"/>
+	<parameter name="sampai" class="java.lang.String"/>
+	<parameter name="tanggal_1" class="java.util.Date"/>
+	<parameter name="tanggal_2" class="java.util.Date"/>
+	<parameter name="tanggal_3" class="java.util.Date"/>
+	<parameter name="tanggal_4" class="java.util.Date"/>
+	<parameter name="tanggal_5" class="java.util.Date"/>
+	<parameter name="tanggal_6" class="java.util.Date"/>
+	<parameter name="tanggal_7" class="java.util.Date"/>
+	<parameter name="tanggal_8" class="java.util.Date"/>
+	<parameter name="tanggal_9" class="java.util.Date"/>
+	<parameter name="tanggal_10" class="java.util.Date"/>
+	<parameter name="tanggal_11" class="java.util.Date"/>
+	<parameter name="tanggal_12" class="java.util.Date"/>
+	<parameter name="tanggal_13" class="java.util.Date"/>
+	<parameter name="tanggal_14" class="java.util.Date"/>
+	<parameter name="tanggal_15" class="java.util.Date"/>
+	<parameter name="tanggal_16" class="java.util.Date"/>
+	<parameter name="tanggal_17" class="java.util.Date"/>
+	<parameter name="tanggal_18" class="java.util.Date"/>
+	<parameter name="tanggal_19" class="java.util.Date"/>
+	<parameter name="tanggal_20" class="java.util.Date"/>
+	<parameter name="tanggal_21" class="java.util.Date"/>
+	<parameter name="tanggal_22" class="java.util.Date"/>
+	<parameter name="tanggal_23" class="java.util.Date"/>
+	<parameter name="tanggal_24" class="java.util.Date"/>
+	<parameter name="tanggal_25" class="java.util.Date"/>
+	<parameter name="tanggal_26" class="java.util.Date"/>
+	<parameter name="tanggal_27" class="java.util.Date"/>
+	<parameter name="tanggal_28" class="java.util.Date"/>
+	<parameter name="tanggal_29" class="java.util.Date"/>
+	<parameter name="tanggal_30" class="java.util.Date"/>
+	<parameter name="tanggal_31" class="java.util.Date"/>
+	<field name="line" class="java.lang.String"/>
+	<field name="mycode" class="java.lang.String"/>
+	<field name="nama" class="java.lang.String"/>
+	<field name="satuanKerja.nama" class="java.lang.String"/>
+	<field name="id" class="java.lang.Long"/>
+	<field name="satuanKerja.id" class="java.lang.String"/>
+	<field name="jrMapKehadiran" class="java.lang.Object"/>
+	<field name="masuk" class="java.lang.Long"/>
+	<field name="alpa" class="java.lang.Long"/>
+	<field name="sakit" class="java.lang.Long"/>
+	<field name="izin" class="java.lang.Long"/>
+	<field name="belum" class="java.lang.Long"/>
+	<field name="lain" class="java.lang.Long"/>
+	<field name="jumlahCuti" class="java.lang.Integer"/>
+	<field name="jmljamMasuk" class="java.lang.Double"/>
+	<field name="jmljamLembur" class="java.lang.Double"/>
+	<field name="tidak_hadir" class="java.lang.Long"/>
+	<field name="cuti_memotong" class="java.lang.Long"/>
+	<field name="tanggal" class="java.lang.String"/>
+	<group name="satuanKerja">
+		<groupExpression><![CDATA[$F{satuanKerja.id}]]></groupExpression>
+	</group>
+	<title>
+		<band height="171" splitType="Stretch">
+			<image hAlign="Left" vAlign="Middle" onErrorType="Blank">
+				<reportElement x="0" y="0" width="1184" height="84" uuid="558e9d16-4db3-4c4c-aec0-51c638538eda"/>
+				<box>
+					<bottomPen lineWidth="0.0"/>
+				</box>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "kop_surat" )]]></imageExpression>
+			</image>
+			<textField>
+				<reportElement x="0" y="90" width="348" height="20" uuid="5ec5dedc-17a4-42e4-8ef5-d0974a9dd820"/>
+				<box leftPadding="10" rightPadding="5">
+					<bottomPen lineWidth="1.25" lineStyle="Double"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Data Transaksi Karyawan"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="348" y="90" width="841" height="20" uuid="c866631d-9603-41ef-8b9f-48f279677a4d"/>
+				<box rightPadding="5">
+					<bottomPen lineWidth="1.25" lineStyle="Double"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Periode : "+$P{mulai}+" s/d "+$P{sampai}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="114" width="195" height="22" uuid="552f9f1b-2743-4996-a31e-ae902ff6a250"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Nama"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement isPrintRepeatedValues="false" mode="Opaque" x="0" y="139" width="1188" height="32" backcolor="#CCCCCC" uuid="d5c63a0e-6a0b-475f-8fc2-2e06427a92e3"/>
+				<box leftPadding="10">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{satuanKerja.nama}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="195" y="114" width="32" height="22" uuid="0aae5e6b-b719-4ee7-97c6-5b95ec4bae96"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_1})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="227" y="114" width="32" height="22" uuid="deb20adb-ed5e-49db-a2f9-06a19e0d8f39"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_2})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="259" y="114" width="32" height="22" uuid="7a8c3629-0d67-4762-9406-781456479edf"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_3})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="291" y="114" width="32" height="22" uuid="fe12612e-0842-466d-9ee4-70ce54c6c54b"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_4})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="323" y="114" width="32" height="22" uuid="675862d9-759f-40b2-a5cd-7fa89520dabb"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_5})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="355" y="114" width="32" height="22" uuid="0afdb437-0b15-48bc-85b4-c7490dc7373d"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_6})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="387" y="114" width="32" height="22" uuid="4f768e24-ed6c-4bf1-bf74-7ff78d11630b"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_7})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="419" y="114" width="32" height="22" uuid="b6bb9605-b5a6-4ba4-a828-ca8a2c412697"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_8})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="451" y="114" width="32" height="22" uuid="33e2c9c4-cd25-4cf1-87cf-5136b4aa570d"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_9})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="483" y="114" width="32" height="22" uuid="c5c6d6d4-1d61-4442-8a71-52eeffeb5c8c"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_10})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="515" y="114" width="32" height="22" uuid="e5c78afd-3bbc-4c85-9342-30f5cd64abe1"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_11})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="547" y="114" width="32" height="22" uuid="f0a72f84-eaa2-4d27-85f0-a8a89c8c27ed"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_12})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="579" y="114" width="32" height="22" uuid="f0445eb3-ff50-4a03-8342-6d26b986e273"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_13})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="611" y="114" width="32" height="22" uuid="46e4680e-806a-4b71-8033-7d38b2c1f8cc"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_14})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="643" y="114" width="32" height="22" uuid="9a5b0dba-3fe3-4c73-bc52-3f54da582855"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_15})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="675" y="114" width="32" height="22" uuid="23e99a0b-9400-4609-b004-929d24fe0141"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_16})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="707" y="114" width="32" height="22" uuid="31c73032-3e1d-426e-8723-ee81be290c45"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_17})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="739" y="114" width="32" height="22" uuid="788b4547-27c2-4922-92b3-847944bf3b87"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_18})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="771" y="114" width="32" height="22" uuid="d6e6dcea-2959-4d88-92fd-0191ca20ec71"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_19})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="803" y="114" width="32" height="22" uuid="538cc822-bb73-41b7-9169-c132f96091b9"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_20})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="835" y="114" width="32" height="22" uuid="563022de-46e6-4d77-9736-1ce33b73431f"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_21})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="867" y="114" width="32" height="22" uuid="fc0bdca1-61a6-4099-9a11-6eb056219ce8"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_22})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="899" y="114" width="32" height="22" uuid="86431163-16b3-4fd6-b701-d943978626d1"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_23})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="931" y="114" width="32" height="22" uuid="22b2f2c4-e7e8-452b-b3d4-01bb71c656a7"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_24})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="963" y="114" width="32" height="22" uuid="7f2478a5-8bd8-4f09-8cfd-937e36d720ec"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_25})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="995" y="114" width="32" height="22" uuid="3e54a97c-9b37-4c7e-8730-2b79b9330a8b"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_26})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="1027" y="114" width="32" height="22" uuid="56e758e6-ff27-44fd-9d44-e82eae8e00e9"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_27})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="1059" y="114" width="32" height="22" uuid="b7120482-9d50-4651-b4c1-dfc8d5dd3d4c"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_28})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="1091" y="114" width="32" height="22" uuid="f794feca-b631-4780-b698-be29c0a0b461"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_29})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="1123" y="114" width="32" height="22" uuid="d9291f87-8278-4b1d-80ed-01e68da39229"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_30})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="1155" y="114" width="32" height="22" uuid="d322911b-2337-43df-a391-60faf4244fd6"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd/MM").format($P{tanggal_31})]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<detail>
+		<band height="23" splitType="Immediate">
+			<textField>
+				<reportElement key="textField-21" x="0" y="0" width="195" height="23" uuid="c254ec99-3b17-4fb2-bce2-785cbec84641"/>
+				<box leftPadding="10">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nama}+"\n"+" ( "+$F{mycode}+" )"]]></textFieldExpression>
+			</textField>
+			<subreport>
+				<reportElement x="195" y="0" width="994" height="23" uuid="53c963cf-003d-4b34-a8a5-175036474c86"/>
+				<parametersMapExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}]]></parametersMapExpression>
+				<dataSourceExpression><![CDATA[$F{jrMapKehadiran}]]></dataSourceExpression>
+				<subreportExpression><![CDATA["SBPresensi2.jasper"]]></subreportExpression>
+			</subreport>
+			<textField>
+				<reportElement x="195" y="0" width="32" height="23" uuid="83b2539d-cf9c-4a0f-b656-171a487087c4"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="227" y="0" width="32" height="23" uuid="7b607931-8562-4da9-8b31-46e037f96a8c"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="259" y="0" width="32" height="23" uuid="b796e632-2663-4f03-a660-a1291a0338ce"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="291" y="0" width="32" height="23" uuid="ad0ee506-4a5a-4307-a810-7a491dc0cd88"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="323" y="0" width="32" height="23" uuid="7766d653-8fb0-409e-ab82-61cb9bdc06da"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="355" y="0" width="32" height="23" uuid="96f1ad77-7f40-4743-a29c-d357d263468f"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="387" y="0" width="32" height="23" uuid="6e8f826c-d429-4156-9a97-909e18d326d4"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="419" y="0" width="32" height="23" uuid="03a48eba-7547-4309-adf6-c68823eb0bc9"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="451" y="0" width="32" height="23" uuid="0b143425-18a0-4d3c-a6c4-6b0ecf2e2d2a"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="483" y="0" width="32" height="23" uuid="b72f8e6b-1ae4-44a8-9af0-12a2d23a3c22"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="515" y="0" width="32" height="23" uuid="c034d6b5-8bb1-487b-bb4c-fb037754b5a4"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="547" y="0" width="32" height="23" uuid="3aac9668-8f12-46b4-b6fe-72a0836f0594"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="579" y="0" width="32" height="23" uuid="1e8256a8-428e-40ef-8181-08dbb6f05c1b"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="611" y="0" width="32" height="23" uuid="338f28db-7d2f-4991-9178-a950eee97ba5"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="643" y="0" width="32" height="23" uuid="4337ee90-53c9-4c1b-a0ba-e768d537abcc"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="675" y="0" width="32" height="23" uuid="0cf8ee4d-ec79-4d68-81dd-28d79d005f6a"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="707" y="0" width="32" height="23" uuid="8c69dbb8-3444-4220-988d-8ee19a579996"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="739" y="0" width="32" height="23" uuid="4999b1b6-4e3e-4a18-a79d-69a4eafcef5b"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="771" y="0" width="32" height="23" uuid="5ab8e084-7844-439b-add4-e21aad2459de"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="803" y="0" width="32" height="23" uuid="0d747e9d-de0b-4746-8bc6-175ec599f39e"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="835" y="0" width="32" height="23" uuid="27e0106b-6414-492a-ab8d-8f1620d8498d"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="867" y="0" width="32" height="23" uuid="c0df3fd7-3676-478e-aac1-dcb773e75d8d"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="899" y="0" width="32" height="23" uuid="4e562e00-3e51-458d-bd66-adda4387e455"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="931" y="0" width="32" height="23" uuid="9c9a3179-02d2-444e-a0e7-735c2d9600dd"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="963" y="0" width="32" height="23" uuid="3de8d902-60d3-420e-8ee4-3b7fd335c597"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="995" y="0" width="32" height="23" uuid="b93b47db-41f8-4711-b063-ac00f4b57dc9"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="1027" y="0" width="32" height="23" uuid="3121123b-58df-4131-b88f-59784ef1f6b1"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="1059" y="0" width="32" height="23" uuid="2c747018-88c2-4809-af5b-829ace90212c"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="1091" y="0" width="32" height="23" uuid="26c92241-0135-49ab-a6d5-322ac5747a11"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="1123" y="0" width="32" height="23" uuid="609fc836-6e66-4286-b261-e574150651fd"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="1155" y="0" width="32" height="23" uuid="bb655486-d7f1-4b3f-ba90-775853b28b72"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5" lineColor="#000000"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+</jasperReport>

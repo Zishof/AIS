@@ -1,0 +1,108 @@
+<?page id="revisiZul" title="Global Revision History" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.RevisiAction" width="100%" height="100%">
+		<tabbox width="100%" height="100%">
+			<tabs>
+				<tab use="ais.ui.util.MyTabConfig" selected="true">
+					Dasbor
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig">
+					Data
+				</tab>
+			</tabs>
+			<tabpanels>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<vbox width="100%" height="100%">
+						<html id="progressHtml" visible="false" />
+						<html id="dashboardHtml">
+							<![CDATA[
+<div>
+  <div>
+    <div>Dasbor</div>
+    <div>Ringkasan utama akan tampil otomatis setelah data selesai dimuat. Gunakan filter untuk melihat data yang lebih spesifik.</div>
+    <div>
+      <div><b>Total Data</b><br/><span>Mengikuti filter aktif.</span></div>
+      <div><b>Tren</b><br/><span>Perubahan aktivitas terbaru.</span></div>
+      <div><b>Perlu Perhatian</b><br/><span>Data gagal atau bermasalah.</span></div>
+      <div><b>Komposisi</b><br/><span>Kategori data utama.</span></div>
+    </div>
+  </div>
+</div>
+]]>
+						</html>
+					</vbox>
+				</tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel">
+
+
+		<div sclass="ais-crud-portal">
+							<div sclass="ais-crud-filter-card">
+								<div sclass="ais-crud-filter-head">
+									<span sclass="ais-crud-filter-title">Pencarian &amp; Filter</span>
+									<div sclass="ais-crud-filter-actions">
+										<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="find" label="Cari" image="/img/search.gif" tooltiptext="Cari data" forward="onClick=onSearchDefault"/>
+<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;revisi&quot;, &quot;Bantuan&quot;);"/></div>
+								</div>
+								<div sclass="ais-crud-filter-body">
+									<grid use="ais.ui.util.MyGrid" fixedLayout="true" sclass="ais-crud-filter-grid">
+										<columns>
+						<column use="ais.ui.util.MyColumnConfig" width="15%" />
+						<column use="ais.ui.util.MyColumnConfig" width="35%" />
+						<column use="ais.ui.util.MyColumnConfig" width="15%" />
+						<column use="ais.ui.util.MyColumnConfig" width="35%" />
+					</columns>
+										<rows>
+											<row>
+							<label use="ais.ui.util.MyLabelConfig" value="Nama Tabel / Class *" />
+							<combobox id="searchClass" width="95%" readonly="true" forward="onChange=onChangeClass" />
+							
+							<label use="ais.ui.util.MyLabelConfig" value="Nama Kolom" />
+							<combobox id="searchKolom" width="95%" readonly="true"  />
+						</row>
+										<row>
+							<label use="ais.ui.util.MyLabelConfig" value="Data yang dicari" />
+							<textbox id="searchData" width="95%" forward="onOK=onSearchDefault"  />
+							
+							<label use="ais.ui.util.MyLabelConfig" value="Jenis Perubahan" />
+							<combobox id="searchTipe" width="95%" readonly="true">
+								<comboitem label="Semua Perubahan" value="ALL" />
+								<comboitem label="Hanya Dihapus (DEL)" value="DEL" />
+								<comboitem label="Hanya Diubah (MOD)" value="MOD" />
+								<comboitem label="Hanya Ditambah (ADD)" value="ADD" />
+							</combobox>
+						</row>
+										</rows>
+									</grid>
+								</div>
+							</div>
+							<div sclass="ais-crud-data-card">
+								<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true"/>
+								<grid use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true" id="grid">
+								<columns>
+									<column use="ais.ui.util.MyColumnConfig" width="5%" label="ID" />
+									<column use="ais.ui.util.MyColumnConfig" width="9%" label="Tipe" />
+									<column use="ais.ui.util.MyColumnConfig" width="19%" label="Waktu &amp; Oleh" />
+									<column use="ais.ui.util.MyColumnConfig" width="51%" label="Ringkasan Data" />
+									<column use="ais.ui.util.MyColumnConfig" width="8%" label="Aksi" />
+									<column use="ais.ui.util.MyColumnConfig" width="8%" label="Hapus" />
+								</columns>
+							</grid>
+								<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>
+							</div>
+						</div>
+
+
+</tabpanel>
+			</tabpanels>
+		</tabbox>
+</window>
+</zk>

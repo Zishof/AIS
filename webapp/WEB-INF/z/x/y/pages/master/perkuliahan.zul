@@ -1,0 +1,603 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+
+
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.PerkuliahanAction" width="100%"
+		height="100%">
+
+
+		<tabbox width="100%" height="100%">
+
+			<tabs>
+
+				<tab use="ais.ui.util.MyTabConfig" selected="true">
+					Perkuliahan
+				</tab>
+				<!-- Tab "SP" DIHILANGKAN: fitur Semester Pendek kini diakses lewat filter "Jenis Smt = Semester Pendek"
+				     pada tab Perkuliahan, dan lewat pilihan "Semester Pendek (SP)" saat Tambah/Edit jadwal. -->
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onJadwalRemedial">
+					Remedial
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onEkstrakurikuler">
+					Ekstrakurikuler
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onPraPerkuliahan">
+					Pra Perkuliahan
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onPerkuliahanUmum">
+					Perkuliahan Umum
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onMasaPerkuliahan">
+					Masa Perkuliahan
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onStatistik">
+					Statistik
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig">
+					Timetable
+				</tab>
+			</tabs>
+
+			<tabpanels>
+
+				<tabpanel use="ais.ui.util.MyTabpanel">
+
+					<tabbox width="100%" height="100%">
+
+						<tabs>
+							<tab use="ais.ui.util.MyTabConfig"
+								selected="true">
+								Manajemen Jadwal
+							</tab>
+
+							<tab use="ais.ui.util.MyTabConfig"
+								forward="onClick=onTampiliLaporanJadwalPerkuliahan">
+								Jadwal Per Hari
+							</tab>
+							<tab use="ais.ui.util.MyTabConfig"
+								forward="onClick=onJadwalPerkuliahanPerDosen">
+								Jadwal Per Dosen
+							</tab>
+							<tab use="ais.ui.util.MyTabConfig"
+								forward="onClick=onTampilDaftarHadirDosen">
+								Daftar Hadir Dosen
+							</tab>
+							<tab use="ais.ui.util.MyTabConfig"
+								forward="onClick=onTampilLaporanJadwalPerkuliahanPerSemester">
+								Per Kelas
+							</tab>
+							<tab use="ais.ui.util.MyTabConfig"
+								forward="onClick=onTampilLaporanJadwalPerkuliahanPerRuangan">
+								Per Ruangan
+							</tab>
+							<tab use="ais.ui.util.MyTabConfig"
+								forward="onClick=onTampilLaporanJadwalPerkuliahanPerMatakuliah">
+								Per Matakuliah
+							</tab>
+							<tab use="ais.ui.util.MyTabConfig"
+								forward="onClick=onJadwalPerkuliahanPerAsisten">
+								Per Asisten
+							</tab>
+							<tab use="ais.ui.util.MyTabConfig"
+								visible="false" forward="onClick=onTampilLaporanCoverAbsensi">
+								Cover Absensi
+							</tab>
+							<tab use="ais.ui.util.MyTabConfig"
+								visible="false" forward="onClick=onTampilLaporanAbsensi">
+								Absensi
+							</tab>
+							<tab use="ais.ui.util.MyTabConfig"
+								forward="onClick=onJmlSKSDosen">
+								Jml SKS Dosen
+							</tab>
+							<tab use="ais.ui.util.MyTabConfig"
+								forward="onClick=onJmlSKSDosenPerMatakuliah">
+								Jml SKS Matakuliah
+							</tab>
+							<tab use="ais.ui.util.MyTabConfig"
+								forward="onClick=onRekapDosen">
+								Rekap Dosen
+							</tab>
+							<tab use="ais.ui.util.MyTabConfig"
+								forward="onClick=onTampiliLaporanDosenPembinaMahasiswa">
+								Dosen dan Mahasiswa
+							</tab>
+							<tab use="ais.ui.util.MyTabConfig"
+								forward="onClick=onTampilRekapiLaporanDosenPembinaMahasiswa">
+								Rekap Dosen dan Mahasiswa
+							</tab>
+							<tab use="ais.ui.util.MyTabConfig"
+								forward="onClick=onTampiliLaporanDosenPembinaMatakuliah">
+								Dosen Pembina
+							</tab>
+							<tab use="ais.ui.util.MyTabConfig"
+								visible="false" forward="onClick=onTampilJadwalDosenMengajar">
+								Dosen Mengajar
+							</tab>
+							<tab use="ais.ui.util.MyTabConfig"
+								forward="onClick=onSebaranJadwal">
+								Sebaran Jadwal
+							</tab>
+						</tabs>
+
+						<tabpanels>
+
+							<tabpanel use="ais.ui.util.MyTabpanel">
+
+
+								<div sclass="ais-crud-portal">
+							<div sclass="ais-crud-filter-card">
+								<div sclass="ais-crud-filter-head">
+									<span sclass="ais-crud-filter-title">Pencarian &amp; Filter</span>
+									<div sclass="ais-crud-filter-actions">
+										<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="add" label="Tambah" image="/img/new.gif" tooltiptext="Tambah data baru" forward="onClick=onAdd"/>
+											<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="addJadwalKurikulum" label="Tambah Berdasar Kurikulum" image="/img/new.gif" tooltiptext="Tambah Jadwal berdasarkan kurikulum" forward="onClick=onInitJadwalKurikulum"/>
+										<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="find" label="Cari" image="/img/search.gif" tooltiptext="Cari data" forward="onClick=onSearchDefault"/>
+										<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Pencarian Lanjut" image="/img/search.gif" tooltiptext="Filter lanjutan" onClick="filterLanjut.setVisible(!filterLanjut.isVisible());"/>
+										<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="bersihkan" label="Bersihkan" image="/img/svg/trash.svg" tooltiptext="Hapus perkuliahan kosong (tanpa mahasiswa dan pertemuan) berdasarkan rentang tanggal" forward="onClick=onBersihkanPerkuliahan"/>
+										<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="toggleAktifPenjadwalan" label="Aktif/Non-aktifkan Penjadwalan" image="/img/svg/check2-circle.svg" tooltiptext="Khusus admin: aktifkan / non-aktifkan penjadwalan untuk Tahun Akademik &amp; Jenis Smt yang dipilih pada filter (mendukung SP)" forward="onClick=onToggleAktifPenjadwalan" visible="false"/>
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;perkuliahan&quot;, &quot;Bantuan&quot;);"/></div>
+								</div>
+								<div sclass="ais-crud-filter-body">
+									<grid use="ais.ui.util.MyGrid" fixedLayout="true" sclass="ais-crud-filter-grid">
+										<columns>
+												<column
+													use="ais.ui.util.MyColumnConfig" width="8%">
+												</column>
+												<column
+													use="ais.ui.util.MyColumnConfig">
+												</column>
+												<column
+													use="ais.ui.util.MyColumnConfig" width="8%">
+												</column>
+												<column
+													use="ais.ui.util.MyColumnConfig">
+												</column>
+												<column
+													use="ais.ui.util.MyColumnConfig" width="8%">
+												</column>
+												<column
+													use="ais.ui.util.MyColumnConfig">
+												</column>
+
+												<column
+													use="ais.ui.util.MyColumnConfig" width="8%">
+												</column>
+												<column
+													use="ais.ui.util.MyColumnConfig">
+												</column>
+
+
+
+											</columns>
+										<rows>
+											<row
+													spans="1,1,1,1,1,1,2">
+													<label
+														use="ais.ui.util.MyLabelConfig" value="Hari" />
+
+													<hbox width="95%">
+														<combobox
+															id="searchhari" forward="onChange=onSearchDefault"
+															cols="4" />
+														<label use="ais.ui.util.MyLabelConfig" value="Jml Dsn"/>
+														<combobox
+															id="searchjmldosen" forward="onChange=onSearchDefault"
+															cols="4" />
+													</hbox>
+													<label
+														use="ais.ui.util.MyLabelConfig" value="Tahun Akademik" />
+													<combobox
+														forward="onChange=onSearchDefault" id="searchTahunAjaran"
+														width="95%" />
+													<label
+														use="ais.ui.util.MyLabelConfig" value="Jenis Smt" />
+													<hbox width="95%">
+														<combobox
+															cols="4" forward="onChange=onSearchDefault"
+															id="searchJenisSemester" />
+														<label use="ais.ui.util.MyLabelConfig" value="Semester"/>
+														<combobox
+															cols="4" forward="onChange=onSearchDefault"
+															id="searchsemester" />
+													</hbox>
+
+
+
+													<hbox width="95%">
+														<checkbox
+															label="Paralel" use="ais.ui.util.MyCheckboxConfig"
+															forward="onCheck=onSearchDefault" id="searchparalel" />
+														<checkbox
+															label="Tanpa Kelas" use="ais.ui.util.MyCheckboxConfig"
+															forward="onCheck=onSearchDefault" id="searchtanpakelas" />
+														<checkbox
+															label="Praktek" use="ais.ui.util.MyCheckboxConfig"
+															forward="onCheck=onSearchDefault" id="searchpraktek" />
+														<checkbox use="ais.ui.util.MyCheckboxConfig"
+															id="searchaktif" label="Aktif" checked="true"
+															forward="onClick=onSearchDefault" width="95%" />
+													</hbox>
+
+
+
+												</row>
+										</rows>
+									</grid>
+								</div>
+							</div>
+							<div sclass="ais-crud-data-card">
+								<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true"/>
+								<grid
+														use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true"
+														width="100%" id="grid">
+														<columns>
+															<column
+																use="ais.ui.util.MyColumnConfig" width="50px" />
+															<column
+																use="ais.ui.util.MyColumnConfig" width="17%"
+																label="Hari/Jam/Ruang" />
+															<column
+																use="ais.ui.util.MyColumnConfig" width="9%"
+																id="colwaktu" label="Waktu" />
+															<column
+																use="ais.ui.util.MyColumnConfig" width="13%"
+																label="Perkuliahan" />
+															<!-- Kolom Dosen/Asisten TANPA width → otomatis menyerap sisa lebar
+																 (mis. saat kolom Waktu/Minggu disembunyikan), agar tabel penuh
+																 100% tanpa celah kosong di kanan. -->
+															<column
+																use="ais.ui.util.MyColumnConfig"
+																label="Dosen/Asisten" />
+															<column
+																use="ais.ui.util.MyColumnConfig" width="4%" label="Kap" />
+															<column
+																use="ais.ui.util.MyColumnConfig" width="4%"
+																id="colMinggu" label="Minggu" />
+															<column
+																use="ais.ui.util.MyColumnConfig" width="9%"
+																label="Smt/Kls" />
+															<column
+																use="ais.ui.util.MyColumnConfig" width="13%"
+																label="Jml Mhs" />
+															<column
+																use="ais.ui.util.MyColumnConfig" width="9%" label="" />
+														</columns>
+
+													</grid>
+								<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>
+							</div>
+						</div>
+
+								<div id="filterLanjut" visible="false" sclass="ecampus-zul-filter-window ais-legacy-filter-overlay"><div sclass="ais-legacy-filter-backdrop" onClick="filterLanjut.setVisible(false);"></div><toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" sclass="ais-legacy-filter-close" label="&#10005; Tutup" tooltiptext="Tutup pencarian lanjutan" onClick="filterLanjut.setVisible(false);"></toolbarbutton>
+							<vbox width="100%" sclass="ecampus-zul-filter-window-body">
+								<label use="ais.ui.util.MyLabelConfig" value="Filter lanjutan — atur lalu klik Cari untuk menampilkan data yang sesuai." sclass="ecampus-zul-filter-window-info"/>
+								<separator/>
+								<grid use="ais.ui.util.MyGrid" fixedLayout="true">
+									<columns>
+												<column
+													use="ais.ui.util.MyColumnConfig" width="8%">
+												</column>
+												<column
+													use="ais.ui.util.MyColumnConfig">
+												</column>
+												<column
+													use="ais.ui.util.MyColumnConfig" width="8%">
+												</column>
+												<column
+													use="ais.ui.util.MyColumnConfig">
+												</column>
+												<column
+													use="ais.ui.util.MyColumnConfig" width="8%">
+												</column>
+												<column
+													use="ais.ui.util.MyColumnConfig">
+												</column>
+
+												<column
+													use="ais.ui.util.MyColumnConfig" width="8%">
+												</column>
+												<column
+													use="ais.ui.util.MyColumnConfig">
+												</column>
+
+
+
+											</columns>
+									<rows>
+										<row
+													spans="1,1,1,1,1,1,2">
+
+													<label
+														use="ais.ui.util.MyLabelConfig" value="Dosen" />
+													<hbox width="95%">
+														<bandbox
+															id="searchdosen"
+															use="ais.action.master.helper.AmbilDataDosenBanbox"
+															cols="4" />
+														<textbox
+															forward="onOK=onSearchDefault" id="searchnamadsn"
+															cols="4" />
+													</hbox>
+													<label
+														use="ais.ui.util.MyLabelConfig" value="Matakuliah" />
+													<hbox width="95%">
+														<bandbox
+															use="ais.action.master.helper.AmbilDataMatakuliahBanbox"
+															forward="onChange=onSearchDefault" id="searchmatakuliah"
+															cols="4" />
+														<textbox
+															forward="onOK=onSearchDefault" id="searchnamamk"
+															cols="4" />
+													</hbox>
+
+													<label
+														use="ais.ui.util.MyLabelConfig" value="Fakultas" />
+
+													<hbox width="95%">
+														<combobox
+															forward="onChange=onSearchDefault" id="searchfakultas"
+															cols="5" />
+														<label use="ais.ui.util.MyLabelConfig" value="Prodi"/>
+														<combobox
+															id="searchjurusan" forward="onChange=onSearchDefault"
+															cols="5" />
+													</hbox>
+
+
+													<hbox width="95%">
+														<checkbox
+															label="Blm Msk Feeder" use="ais.ui.util.MyCheckboxConfig"
+															forward="onCheck=onSearchDefault"
+															id="searchbelummasukFeeder" />
+														<checkbox
+															label="Msk Feeder" use="ais.ui.util.MyCheckboxConfig"
+															forward="onCheck=onSearchDefault" id="searchmasukFeeder" />
+
+													</hbox>
+
+												</row>
+										<row>
+													<label
+														use="ais.ui.util.MyLabelConfig" value="Program" />
+													<combobox
+														id="searchprogram" forward="onChange=onSearchDefault"
+														width="95%" />
+
+													<label
+														use="ais.ui.util.MyLabelConfig" value="Masa Perkuliahan" />
+													<bandbox
+														id="searchmasaperkulaiahan"
+														use="ais.action.master.helper.AmbilDataMasaPerkuliahanBanbox"
+														width="95%" />
+
+													<label
+														use="ais.ui.util.MyLabelConfig" value="Keterangan" />
+													<textbox
+														forward="onOK=onSearchDefault" id="searchKeterangan"
+														width="95%" />
+
+													<label
+														use="ais.ui.util.MyLabelConfig" value="Kelas" />
+
+													<bandbox
+														use="ais.action.master.helper.AmbilDataKelasBanbox"
+														forward="onChange=onSearchDefault" id="searchkelas"
+														width="95%" />
+
+
+												</row>
+										<row>
+
+													<label
+														use="ais.ui.util.MyLabelConfig" value="Kurikulum" />
+													<bandbox
+														id="searchkurikulum"
+														use="ais.action.master.helper.AmbilDataKurikulumBanbox"
+														width="95%" />
+
+													<label
+														use="ais.ui.util.MyLabelConfig"
+														value="NIM / Nama Mahasiswa" />
+													<hbox width="95%">
+														<textbox
+															forward="onOK=onSearchDefault" id="searchnim" cols="4" />
+														<textbox
+															forward="onOK=onSearchDefault" id="searchnamamhs"
+															cols="4" />
+													</hbox>
+
+													<label
+														use="ais.ui.util.MyLabelConfig" value="Asisten Dosen" />
+													<hbox width="95%">
+														<bandbox
+															use="ais.action.master.helper.AmbilDataMahasiswaBanbox"
+															forward="onChange=onSearchDefault" id="searchasisten"
+															cols="4" />
+														<textbox
+															forward="onOK=onSearchDefault" id="searchnamaasisten"
+															cols="4" />
+													</hbox>
+
+
+													<label
+														use="ais.ui.util.MyLabelConfig" value="Ruang" />
+
+													<bandbox
+														use="ais.action.master.helper.AmbilDataRuangBanbox"
+														forward="onChange=onSearchDefault" id="searchruang"
+														width="95%" />
+
+												</row>
+										<row>
+													<label use="ais.ui.util.MyLabelConfig" value="Tampilan Kurikulum" />
+													<combobox id="searchObe" readonly="true" width="95%"
+														forward="onChange=onSearchDefault"
+														tooltiptext="Saring perkuliahan berdasarkan jenis kurikulum">
+														<comboitem label="Tampilkan Semua" value="" />
+														<comboitem label="Hanya Tampilkan Kurikulum OBE" value="OBE" />
+														<comboitem label="Hanya Tampilkan Kurikulum Bukan OBE" value="NONOBE" />
+													</combobox>
+												</row>
+										<row spans="8">
+											<toolbar>
+												<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Cari" image="/img/search.gif" tooltiptext="Cari data" forward="onClick=onSearchDefault"/>
+											<toolbarbutton
+															use="ais.ui.util.MyToolbarbuttonConfig"
+															label="Copy Semua" forward="onClick=onCopyPerkuliahan"
+															id="copy" visible="false" image="/img/copy.png">
+														</toolbarbutton>
+											<toolbarbutton
+															use="ais.ui.util.MyToolbarbuttonConfig"
+															label="Hapus Semua" forward="onClick=onDeletePerkuliahan"
+															id="hapus" visible="false" image="/img/delete.gif">
+														</toolbarbutton>
+											<toolbarbutton
+															use="ais.ui.util.MyToolbarbuttonConfig" visible="false"
+															label="Laporan Dosen Pembina Matakuliah"
+															forward="onClick=onCetakLaporanDosenPembinaMatakuliah"
+															image="/img/print.png">
+														</toolbarbutton>
+											</toolbar>
+										</row>
+									</rows>
+								</grid>
+							</vbox>
+						</div>
+
+		
+
+
+
+							</tabpanel>
+
+
+
+							<tabpanel use="ais.ui.util.MyTabpanel" id="laporanJadwalPerkuliahan"></tabpanel>
+
+							<tabpanel use="ais.ui.util.MyTabpanel" id="jadwalPerkuliahanPerDosen"></tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="laporanDaftarHadirDosen"></tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel"
+								id="laporanJadwalPerkuliahanPerSemester">
+							</tabpanel>
+
+
+							<tabpanel use="ais.ui.util.MyTabpanel"
+								id="laporanJadwalPerkuliahanPerRuangan">
+							</tabpanel>
+
+							<tabpanel use="ais.ui.util.MyTabpanel"
+								id="laporanJadwalPerkuliahanPerMatakuliah">
+							</tabpanel>
+
+							<tabpanel use="ais.ui.util.MyTabpanel"
+								id="jadwalPerkuliahanPerAsisten">
+							</tabpanel>
+
+							<tabpanel use="ais.ui.util.MyTabpanel" id="laporanCoverAbsensi">
+							</tabpanel>
+
+							<tabpanel use="ais.ui.util.MyTabpanel" id="laporanAbsensi"></tabpanel>
+
+							<tabpanel use="ais.ui.util.MyTabpanel" id="laporanJmlSksDosen">
+							</tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel"
+								id="laporanJmlSksDosenPerMatakuliah">
+							</tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="laporanRekapDosen"></tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel"
+								id="laporanDosenPembinaMahasiswa">
+							</tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel"
+								id="laporanRekapDosenPembinaMahasiswa">
+							</tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel"
+								id="laporanDosenPembinaMatakuliah">
+							</tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="laporanJadwalDosenMengajar">
+							</tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="laporanSebaranJadwal">
+							</tabpanel>
+
+						</tabpanels>
+					</tabbox>
+
+				</tabpanel>
+
+				<!-- tabpanel "jadwalSp" DIHILANGKAN bersama tab "SP" (lihat catatan di atas). -->
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="jadwalRemedial"></tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="ekstrakurikulerTab">
+
+				</tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="praPerkuliahanTab">
+
+				</tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="perkuliahanUmumTab">
+
+				</tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="masaPerkuliahanTab"></tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="statistik">
+
+				</tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<window width="100%" height="100%"
+						use="ais.action.master.helper.TimetablePerkuliahanWindow">
+					</window>
+				</tabpanel>
+
+			</tabpanels>
+
+		</tabbox>
+
+
+		<window use="ais.ui.util.MyWindow" id="addWindow"
+			title="Tambah Perkuliahan" visible="false" mode="popup"
+			position="center,center" border="normal" width="550px"
+			height="97%">
+
+		</window>
+
+		<window use="ais.ui.util.MyWindow" id="paralelWindow"
+			title="Tambah Jadwal Perkuliahan Paralel" visible="false"
+			mode="popup" position="center,center" border="normal" width="550px"
+			height="97%">
+
+		</window>
+
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+	paralelWindow.setVisible(false);
+]]></zscript>
+
+
+	</window>
+
+
+
+
+</zk>

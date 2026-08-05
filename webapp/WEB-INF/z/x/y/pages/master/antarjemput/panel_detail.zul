@@ -1,0 +1,44 @@
+<zk xmlns="http://www.zkoss.org/2005/zul">
+	<borderlayout>
+		<north border="none" size="110px">
+			<div>
+				<html><![CDATA[<div class="aj-panel-info">
+					<strong>Detail Panggilan Kelas</strong> &mdash;
+					Halaman ini menampilkan status panggilan setiap individu dalam satu transaksi penjemputan:
+					apakah sudah dipanggil, sedang keluar kelas, atau sudah diserahkan ke penjemput.
+					Petugas dapat memperbarui status secara manual jika diperlukan untuk memastikan keakuratan data.
+				</div>]]></html>
+				<toolbar sclass="aj-filter">
+					<label use="ais.ui.util.MyLabelConfig" value="Cari:" style="font-size:12px;color:#475569;font-weight:600;" />
+					<textbox id="searchDetail" width="220px"
+						forward="onOK=onSearchDetail"
+						tooltiptext="Cari berdasarkan nama peserta atau status panggilan" />
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+						label="Cari" image="/img/search.gif"
+						forward="onClick=onSearchDetail"
+						tooltiptext="Cari detail panggilan" />
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+						label="Refresh" image="/img/refresh.gif"
+						forward="onClick=onRefresh"
+						tooltiptext="Muat ulang data panggilan" />
+				</toolbar>
+			</div>
+		</north>
+		<center border="none">
+			<grid use="ais.ui.util.MyGrid" id="gridDetail" sclass="dgrid" fixedLayout="true">
+				<columns>
+					<column use="ais.ui.util.MyColumnConfig" label="Nama" />
+					<column use="ais.ui.util.MyColumnConfig" label="Tujuan / Kelas"  width="160px" />
+					<column use="ais.ui.util.MyColumnConfig" label="Teks Panggilan" />
+					<column use="ais.ui.util.MyColumnConfig" label="Status"          width="160px" />
+					<column use="ais.ui.util.MyColumnConfig" label="Dipanggil"       width="145px" />
+					<column use="ais.ui.util.MyColumnConfig" label="Serah Terima"    width="145px" />
+					<column use="ais.ui.util.MyColumnConfig" label="Aksi"            width="240px" />
+				</columns>
+			</grid>
+		</center>
+		<south border="none" size="32px">
+			<paging id="pagingDetail" detailed="true" />
+		</south>
+	</borderlayout>
+</zk>

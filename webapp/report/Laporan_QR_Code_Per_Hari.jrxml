@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="LaporanAbsensi" columnCount="3" printOrder="Horizontal" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="178" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20" uuid="1f021d57-acb3-4579-91c7-f24e7da6b495">
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<property name="ireport.zoom" value="1.7715610000000015"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="perkuliahan" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new Long(6)]]></defaultValueExpression>
+	</parameter>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tampil_nilai" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["1"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="barcode" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="kaprodi" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="nip" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tanggal" class="java.lang.Integer" isForPrompting="false"/>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_jurusan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Prodi"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_fakultas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Fakultas"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_kota" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Ciputat"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="waktu_dicetak" class="java.util.Date" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new java.util.Date()]]></defaultValueExpression>
+	</parameter>
+	<parameter name="wisuda" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="satuan_kerja" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jurusan" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="program" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Reguler"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="bulan" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[10]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tahun" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[2011]]></defaultValueExpression>
+	</parameter>
+	<parameter name="nama_satuan_kerja" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+	</parameter>
+	<parameter name="nama" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[]]>
+	</queryString>
+	<field name="hours" class="java.lang.Integer"/>
+	<field name="minutes" class="java.lang.Integer"/>
+	<field name="terlambat_jam" class="java.lang.Integer"/>
+	<field name="terlambat_menit" class="java.lang.Integer"/>
+	<field name="cepat_pulang_jam" class="java.lang.Integer"/>
+	<field name="cepat_pulang_menit" class="java.lang.Integer"/>
+	<field name="jam_masuk_jam" class="java.lang.Integer"/>
+	<field name="jam_masuk_menit" class="java.lang.Integer"/>
+	<field name="jam_pulang_jam" class="java.lang.Integer"/>
+	<field name="jam_pulang_menit" class="java.lang.Integer"/>
+	<field name="hari" class="java.lang.String"/>
+	<field name="tanggal" class="java.lang.String"/>
+	<field name="jam_kerja" class="java.lang.String"/>
+	<field name="keterangan" class="java.lang.String"/>
+	<field name="lembur_jam" class="java.lang.Integer"/>
+	<field name="lembur_menit" class="java.lang.Integer"/>
+	<field name="pegawai" class="java.lang.Long"/>
+	<field name="nama" class="java.lang.String"/>
+	<field name="nip" class="java.lang.String"/>
+	<field name="nama_satuan_kerja" class="java.lang.String"/>
+	<field name="jumlahLemburMasuk" class="java.lang.Double"/>
+	<field name="jumlahTerlambat" class="java.lang.Double"/>
+	<field name="jumlahCepatKeluar" class="java.lang.Double"/>
+	<field name="masuk" class="java.lang.String"/>
+	<field name="pulang" class="java.lang.String"/>
+	<field name="apakah_dosen" class="java.lang.Boolean"/>
+	<field name="qr_code" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="112" splitType="Stretch">
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-1" x="0" y="70" width="535" height="40" uuid="ba319cf9-39b6-488c-ac42-17cd27af8a70"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA["QR-CODE HARIAN\nPERIODE "+$P{REPORT_PARAMETERS_MAP}.get( "mulai" )+" s.d "+$P{REPORT_PARAMETERS_MAP}.get( "sampai" )]]></textFieldExpression>
+			</textField>
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement key="image-1" x="0" y="-21" width="535" height="91" uuid="a5c55563-d613-4895-b405-da9421b779e1"/>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "kop_surat" )]]></imageExpression>
+			</image>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<detail>
+		<band height="153">
+			<textField>
+				<reportElement x="0" y="0" width="178" height="153" uuid="ae1a1bc0-7079-4901-888b-7e1a4a17f507"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center"/>
+				<textFieldExpression><![CDATA[$F{hari}]]></textFieldExpression>
+			</textField>
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement x="0" y="15" width="178" height="136" uuid="e91fcbd1-275f-481d-bfc7-18ac145ce772"/>
+				<imageExpression><![CDATA[$F{qr_code}]]></imageExpression>
+			</image>
+		</band>
+	</detail>
+</jasperReport>

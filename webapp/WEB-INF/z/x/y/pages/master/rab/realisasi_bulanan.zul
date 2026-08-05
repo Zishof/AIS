@@ -1,0 +1,122 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.rab.RealisasiBulananAction" width="100%"
+		height="100%">
+
+		<tabbox width="100%" height="100%">
+
+			<tabs>
+		        <tab use="ais.ui.util.MyTabConfig" selected="true" id="tabDasborHeader" forward="onClick=onDasborRealisasi">
+		            Dasbor Realisasi Anggaran
+		        </tab>
+		        <tab use="ais.ui.util.MyTabConfig">
+		            Realisasi Anggaran
+		        </tab>
+		        <tab use="ais.ui.util.MyTabConfig" forward="onClick=onRealisasiAnggaran">
+		            Rincian Realisasi Anggaran
+		        </tab>
+		    </tabs>
+
+			<tabpanels>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="tabDasborRealisasi"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+	
+
+					<div sclass="ais-crud-portal">
+							<div sclass="ais-crud-filter-card">
+								<div sclass="ais-crud-filter-head">
+									<span sclass="ais-crud-filter-title">Pencarian &amp; Filter</span>
+									<div sclass="ais-crud-filter-actions">
+										<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="find" label="Cari" image="/img/search.gif" tooltiptext="Cari data" forward="onClick=onSearchDefault"/>
+										<toolbarbutton
+												use="ais.ui.util.MyToolbarbuttonConfig" tooltiptext="Cetak"
+												id="cetak" forward="onClick=onCetak" label="Cetak"
+												image="/img/print.png">
+											</toolbarbutton>
+										<toolbarbutton
+												use="ais.ui.util.MyToolbarbuttonConfig"
+												tooltiptext="Refresh Realisasi"
+												forward="onClick=onRefreshRealisasi"
+												label="Refresh Realisasi" image="/img/reply.png">
+											</toolbarbutton>
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;realisasi_bulanan&quot;, &quot;Bantuan&quot;);"/></div>
+								</div>
+								<div sclass="ais-crud-filter-body">
+									<grid use="ais.ui.util.MyGrid" fixedLayout="true" sclass="ais-crud-filter-grid">
+										<columns>
+									<column
+										use="ais.ui.util.MyColumnConfig" width="150px">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig" width="150px">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig" width="150px">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig">
+									</column>
+
+								</columns>
+										<rows>
+											<row>
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Tahun Anggaran" />
+										<combobox
+											forward="onChange=onSearchDefault" readonly="true"
+											id="tahunWorkspace" cols="30" />
+
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Satuan Kerja" />
+										<bandbox
+											use="ais.action.master.rab.helper.AmbilDataSatuanKerjaBanbox"
+											readonly="true" id="satuanKerja" width="95%" />
+
+										<label
+											use="ais.ui.util.MyLabelConfig" visible="false"
+											id="sumberDanaLabel" value="Sumber Dana" />
+										<combobox id="sumberDana"
+											width="95%" visible="false" />
+
+
+									</row>
+										</rows>
+									</grid>
+								</div>
+							</div>
+							<div sclass="ais-crud-data-card">
+								<tree width="100%" zclass="z-dottree"
+								height="100%" id="tree">
+
+							</tree>
+							</div>
+						</div>
+
+
+</tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="realisasiAnggaranTab"></tabpanel>
+			</tabpanels>
+		</tabbox>
+
+
+	</window>
+
+
+</zk>

@@ -1,0 +1,100 @@
+<?page title="new page title" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<window use="ais.ui.util.MyWindow" border="none" height="100%" width="100%">
+
+		<tabbox height="100%" width="100%">
+			<tabs>
+				<tab use="ais.ui.util.MyTabConfig" id="t1">PROGRAM</tab>
+				<tab use="ais.ui.util.MyTabConfig" id="t2">KEUANGAN</tab>
+			</tabs>
+			<tabpanels>
+
+				<tabpanel use="ais.ui.util.MyTabpanel">
+
+					<tabbox height="100%" width="100%">
+						<tabs>
+							<tab use="ais.ui.util.MyTabConfig">Beban Kerja Pegawai</tab>
+							<tab use="ais.ui.util.MyTabConfig" id="t12">Manajemen Resiko</tab>
+						</tabs>
+						<tabpanels>
+							<tabpanel use="ais.ui.util.MyTabpanel">
+								<window height="100%" width="100%"
+									border="none"
+									use="ais.action.report.format1.rab.LaporanBebanKerjaPegawai">
+								</window>
+							</tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" fulfill="t12.onSelect">
+								<window height="100%" width="100%"
+									border="none"
+									use="ais.action.report.format1.rab.LaporanManagemenResiko">
+								</window>
+							</tabpanel>
+						</tabpanels>
+
+					</tabbox>
+
+				</tabpanel>
+
+
+				<tabpanel use="ais.ui.util.MyTabpanel">
+
+					<tabbox height="100%" width="100%">
+						<tabs>
+							<tab use="ais.ui.util.MyTabConfig">Neraca Saldo</tab>
+							<tab use="ais.ui.util.MyTabConfig" id="t22">Neraca 2 Bulan</tab>
+							<tab use="ais.ui.util.MyTabConfig" id="t23">Neraca 12 Bulan</tab>
+							<tab use="ais.ui.util.MyTabConfig" id="t24">Arus Kas 1 Bulan</tab>
+							<tab use="ais.ui.util.MyTabConfig" id="t25">Arus Kas 12 Bulan</tab>
+							<tab use="ais.ui.util.MyTabConfig" id="t26">Buku Besar</tab>
+							<tab use="ais.ui.util.MyTabConfig" id="t27">Jurnal Harian</tab>
+						</tabs>
+						<tabpanels>
+							<tabpanel use="ais.ui.util.MyTabpanel">
+								<window height="100%" width="100%"
+									border="none"
+									use="ais.action.report.format1.akunting.LaporanAkuntingSaldoBulan">
+								</window>
+							</tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" fulfill="t22.onSelect">
+								<window height="100%" width="100%"
+									border="none"
+									use="ais.action.report.format1.akunting.LaporanAkunting2Bulan">
+								</window>
+							</tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" fulfill="t24.onSelect">
+								<window height="100%" width="100%"
+									border="none"
+									use="ais.action.report.format1.akunting.LaporanArus31Hari">
+								</window>
+							</tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" fulfill="t25.onSelect">
+								<window height="100%" width="100%"
+									border="none"
+									use="ais.action.report.format1.akunting.LaporanArus12Bulan">
+								</window>
+							</tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" fulfill="t26.onSelect">
+								<window height="100%" width="100%"
+									border="none"
+									use="ais.action.report.format1.akunting.LaporanBukuBesar">
+								</window>
+							</tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" fulfill="t27.onSelect">
+								<window height="100%" width="100%"
+									border="none"
+									use="ais.action.report.format1.akunting.LaporanJurnalHarian">
+								</window>
+							</tabpanel>
+						</tabpanels>
+
+					</tabbox>
+
+				</tabpanel>
+
+			</tabpanels>
+		</tabbox>
+
+
+
+	</window>
+</zk>

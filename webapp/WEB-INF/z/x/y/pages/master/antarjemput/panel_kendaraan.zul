@@ -1,0 +1,49 @@
+<zk xmlns="http://www.zkoss.org/2005/zul">
+	<borderlayout>
+		<north border="none" size="110px">
+			<div>
+				<html><![CDATA[<div class="aj-panel-info">
+					<strong>Daftar Armada Kendaraan</strong> &mdash;
+					Halaman ini mencatat semua kendaraan yang beroperasi dalam layanan antar jemput,
+					lengkap dengan sopir dan kapasitas penumpang.
+					Pastikan semua kendaraan yang aktif beroperasi sudah terdaftar agar penjemputan berjalan tertib.
+				</div>]]></html>
+				<toolbar sclass="aj-filter">
+					<label use="ais.ui.util.MyLabelConfig" value="Cari:" style="font-size:12px;color:#475569;font-weight:600;" />
+					<textbox id="searchKendaraan" width="220px"
+						forward="onOK=onSearchKendaraan"
+						tooltiptext="Tekan Enter atau klik Cari" />
+					<checkbox use="ais.ui.util.MyCheckboxConfig" id="aktifKendaraan" label="Aktif saja" checked="true"
+						forward="onCheck=onSearchKendaraan"
+						tooltiptext="Tampilkan hanya kendaraan yang aktif" />
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+						label="Cari" image="/img/search.gif"
+						forward="onClick=onSearchKendaraan"
+						tooltiptext="Cari kendaraan" />
+					<separator />
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+						label="Tambah Kendaraan" image="/img/new.gif"
+						forward="onClick=onAddKendaraan"
+						tooltiptext="Tambah data kendaraan baru" />
+				</toolbar>
+			</div>
+		</north>
+		<center border="none">
+			<grid use="ais.ui.util.MyGrid" id="gridKendaraan" sclass="dgrid" fixedLayout="true">
+				<columns>
+					<column use="ais.ui.util.MyColumnConfig" label="Kode"       width="90px" />
+					<column use="ais.ui.util.MyColumnConfig" label="Kendaraan" />
+					<column use="ais.ui.util.MyColumnConfig" label="No. Polisi" width="110px" />
+					<column use="ais.ui.util.MyColumnConfig" label="Kapasitas"  width="88px"  align="center" />
+					<column use="ais.ui.util.MyColumnConfig" label="Sopir" />
+					<column use="ais.ui.util.MyColumnConfig" label="Kenek" />
+					<column use="ais.ui.util.MyColumnConfig" label="Aktif"      width="70px"  align="center" />
+					<column use="ais.ui.util.MyColumnConfig" label="Aksi"       width="140px" />
+				</columns>
+			</grid>
+		</center>
+		<south border="none" size="32px">
+			<paging id="pagingKendaraan" detailed="true" />
+		</south>
+	</borderlayout>
+</zk>

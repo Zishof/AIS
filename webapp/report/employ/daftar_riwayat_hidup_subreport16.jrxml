@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="daftar_riwayat_hidup_subreport5" language="groovy" pageWidth="555" pageHeight="802" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="4c6211c3-0c00-4dc5-b493-a3584da5e926">
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="SUBREPORT_DIR" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["D:\\Documents\\My Project\\Academic Information System\\AIS\\ais\\web\\report\\employ\\"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="id" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[9L]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select nama as nama_pegawai, mycode from pegawai where id = $P{id}]]>
+	</queryString>
+	<field name="nama_pegawai" class="java.lang.String"/>
+	<field name="mycode" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="47" splitType="Stretch">
+			<staticText>
+				<reportElement x="1" y="0" width="554" height="47" uuid="3c0db790-f46c-425d-b338-e8e31aae93c9"/>
+				<box leftPadding="3" rightPadding="3"/>
+				<textElement textAlignment="Justified"/>
+				<text><![CDATA[		Demikian daftar riwayat hidup ini saya buat dengan sesungguhnya dan apabila dikemudian hari terdapat keterangan yang tidak benar saya bersedia dituntut dimuka pengadilan serta bersedia menerima segala tindakan yang diambil oleh pemerintah.]]></text>
+			</staticText>
+		</band>
+	</title>
+	<columnHeader>
+		<band height="102">
+			<textField>
+				<reportElement x="345" y="62" width="209" height="20" uuid="19533104-b0d2-4b89-96ca-cbd373c6707e"/>
+				<textElement verticalAlignment="Bottom">
+					<font size="10" isBold="true" isUnderline="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nama_pegawai}.toUpperCase()]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="345" y="0" width="209" height="20" uuid="c06fbdae-daa8-48eb-a81c-afb877fd6ab6"/>
+				<textFieldExpression><![CDATA[new java.text.SimpleDateFormat("dd MMMMM yyyy").format(new Date())]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="345" y="82" width="209" height="20" uuid="fa6368e9-b7d6-4d8e-9670-b0ec2939ecba"/>
+				<textElement>
+					<font size="10" isBold="true" isUnderline="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{mycode}.toUpperCase()]]></textFieldExpression>
+			</textField>
+		</band>
+	</columnHeader>
+	<summary>
+		<band height="63">
+			<staticText>
+				<reportElement x="0" y="0" width="554" height="63" uuid="e484c842-c876-4a70-8fe4-b406ae7cbaa4"/>
+				<box leftPadding="3" rightPadding="3"/>
+				<textElement textAlignment="Justified"/>
+				<text><![CDATA[PERHATIAN
+1. Harus ditulis dengan tangan sendiri, menggunakan capital/balok dan tinta hitam.
+2. Jika ada yang salah dicoret, yang dicoret tersebut tetap terbaca kemudian yang benar
+    dituliskan di atas atau di bawahnya dan diparaf.
+3. kolom yang kosong diberi tanda.
+]]></text>
+			</staticText>
+		</band>
+	</summary>
+</jasperReport>

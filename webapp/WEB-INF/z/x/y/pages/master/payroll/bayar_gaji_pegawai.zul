@@ -1,0 +1,94 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window border="none" id="window" width="100%" height="100%">
+
+
+		<tabbox width="100%" height="100%">
+
+			<tabs>
+				<tab use="ais.ui.util.MyTabConfig" selected="true">
+					Dasbor
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig">
+					Pembayaran Gaji
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig">
+					Gaji Per Pegawai
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig">
+					Rekap Gaji Pegawai
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig">Rekap Gaji Unit</tab>
+				<tab use="ais.ui.util.MyTabConfig">
+					Rekap Gaji Per Unit
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig">
+					Jenis Format Rekap Gaji
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig">
+					Laporan Rekap Gaji
+				</tab>
+			</tabs>
+
+			<tabpanels>
+
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<div use="ais.action.master.payroll.helper.DasborGajiPegawai"
+						width="100%" height="100%" />
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<include use="ais.ui.util.MyInclude" width="100%"
+						height="100%"
+						src="/WEB-INF/z/x/y/pages/master/payroll/pembayaran_gaji.zul">
+					</include>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<include use="ais.ui.util.MyInclude" width="100%"
+						height="100%"
+						src="/WEB-INF/z/x/y/pages/master/payroll/bayar_gaji_pegawai_data.zul">
+					</include>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<window width="100%" height="100%"
+						use="ais.action.report.format1.payroll.LaporanRekapPembayaranGaji">
+					</window>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<window width="100%" height="100%"
+						use="ais.action.report.format1.payroll.LaporanRekapPembayaranGajiSatuanKerja">
+					</window>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<window width="100%" height="100%"
+						use="ais.action.report.format1.payroll.LaporanRekapPembayaranGajiPerSatuanKerja">
+					</window>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<include use="ais.ui.util.MyInclude" width="100%"
+						height="100%"
+						src="/WEB-INF/z/x/y/pages/master/payroll/jenis_format_nilai.zul">
+					</include>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<window width="100%" height="100%"
+						use="ais.action.report.format1.payroll.LaporanRekapPembayaranBerdasarkanFormatNilai">
+					</window>
+				</tabpanel>
+			</tabpanels>
+		</tabbox>
+
+
+
+	</window>
+
+
+</zk>

@@ -1,0 +1,307 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="peminjaman" language="groovy" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="20f449be-3417-4ba5-b689-471e82e92f46">
+	<property name="ireport.zoom" value="1.4641000000000006"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="label_kota" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Ciputat"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_fakultas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Fakultas"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_jurusan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Prodi"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="barcode" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["../logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="item" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="kode_barcode" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="mulai" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2012-01-01"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="sampai" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2018-10-01"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="perpustakaan" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="anggota" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select a.item,
+max(c.isbn) as isbn,
+max(c.nama) as nama,
+max(a.tanggal) as tanggal_terakhir_pengadaan,
+max(ee.stok) as stok_awal,
+max(ff.stok-ee.stok) as stok_selisih,
+max(ff.stok) as stok_akhir,
+max(d.nama) as perpustakaan,
+max(c.pengarangs) as pengarang
+from library.detail_transaksi a
+inner join library.kode_transaksi b on (a.kode_transaksi = b.id)
+left join library.item c on (a.item = c.id)
+left join library.perpustakaan d on (a.perpustakaan = d.id)
+left join (
+	select
+	sum((aa.qty+aa.qtybonus)*bb.jenis) as stok,
+	aa.perpustakaan,aa.item
+	from library.detail_transaksi aa
+	inner join library.kode_transaksi bb on (aa.kode_transaksi = bb.id)
+	where 1=1
+	and aa.perpustakaan = $P{perpustakaan}
+	and case when $P{item}=-1 then true else aa.item=$P{item} end
+	and date(aa.tanggal) < date($P{mulai})
+	group by aa.perpustakaan,aa.item
+) ee on (ee.perpustakaan=a.perpustakaan and ee.item=a.item)
+left join (
+	select
+	sum((aa.qty+aa.qtybonus)*bb.jenis) as stok,
+	aa.perpustakaan,aa.item
+	from library.detail_transaksi aa
+	inner join library.kode_transaksi bb on (aa.kode_transaksi = bb.id)
+	where 1=1
+	and aa.perpustakaan = $P{perpustakaan}
+	and case when $P{item}=-1 then true else aa.item=$P{item} end
+	and date(aa.tanggal) <= date($P{sampai})
+	group by aa.perpustakaan,aa.item
+) ff on (ff.perpustakaan=a.perpustakaan and ff.item=a.item)
+where 1=1
+and a.perpustakaan = $P{perpustakaan}
+and case when $P{item}=-1 then true else a.item=$P{item} end
+and date(a.tanggal) between date($P{mulai}) and date($P{sampai})
+group by a.perpustakaan,a.item order by max(ff.stok) asc]]>
+	</queryString>
+	<field name="item" class="java.lang.Long"/>
+	<field name="isbn" class="java.lang.String"/>
+	<field name="nama" class="java.lang.String"/>
+	<field name="tanggal_terakhir_pengadaan" class="java.sql.Date"/>
+	<field name="stok_awal" class="java.lang.Double"/>
+	<field name="stok_selisih" class="java.lang.Double"/>
+	<field name="stok_akhir" class="java.lang.Double"/>
+	<field name="perpustakaan" class="java.lang.String"/>
+	<field name="pengarang" class="java.lang.String"/>
+	<group name="perpustakaan">
+		<groupExpression><![CDATA[$F{perpustakaan}]]></groupExpression>
+		<groupHeader>
+			<band height="33">
+				<textField>
+					<reportElement x="31" y="0" width="86" height="33" uuid="063e8dcb-3af3-488c-a467-7fd61fcd28c6"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle"/>
+					<textFieldExpression><![CDATA["ISBN"]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement x="117" y="0" width="177" height="33" uuid="feb7ebe0-ded1-49ad-97d4-6a5bdd4aa2a3"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle"/>
+					<textFieldExpression><![CDATA["Judul"]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement x="513" y="0" width="42" height="33" uuid="c5c0c9bf-c570-4cb9-a3cb-f5f73276b37e"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle"/>
+					<textFieldExpression><![CDATA["Stok Akhir"]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement x="0" y="0" width="31" height="33" uuid="20f7ccef-e801-4cb7-a025-a905077061b5"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle"/>
+					<textFieldExpression><![CDATA["No."]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement x="294" y="0" width="142" height="33" uuid="174a3142-c4c8-4ac6-89fa-a4214d395f0b"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle"/>
+					<textFieldExpression><![CDATA["Pengarang"]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement x="436" y="0" width="35" height="33" uuid="08d6183d-84e5-4eeb-9ab5-deffc11feb7d"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle"/>
+					<textFieldExpression><![CDATA["Stok Awal"]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement x="471" y="0" width="42" height="33" uuid="8e0c7a7a-af2c-4eae-bf8e-2dff2d5e3f82"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle"/>
+					<textFieldExpression><![CDATA["Stok Selisih"]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupHeader>
+	</group>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="58" splitType="Stretch">
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="0" y="-16" width="87" height="71" uuid="533d58d1-8d38-45da-9338-9b0494fb5b8a"/>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-14" x="87" y="0" width="468" height="55" uuid="b1a0ce52-836c-47eb-aebb-85625b2de846"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{perpustakaan}.toUpperCase()+"\n"+
+"STOK ITEM PER "+
+(new java.text.SimpleDateFormat("dd MMMMM yyyy",$P{REPORT_LOCALE}).format(new java.text.SimpleDateFormat("yyyy-MM-dd").parse($P{mulai}))+
+" s.d "+
+new java.text.SimpleDateFormat("dd MMMMM yyyy",$P{REPORT_LOCALE}).format(new java.text.SimpleDateFormat("yyyy-MM-dd").parse($P{sampai}))).toUpperCase()]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<detail>
+		<band height="26">
+			<textField>
+				<reportElement x="31" y="0" width="86" height="26" uuid="ea5bbabd-7539-4729-ba82-ce68379217a3"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{isbn}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="117" y="0" width="177" height="26" uuid="c6123b75-46cc-40ca-96fb-03a14a0e417d"/>
+				<box leftPadding="2">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement>
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nama}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0;-#,##0" isBlankWhenNull="true">
+				<reportElement x="513" y="0" width="42" height="26" uuid="398240d0-d49a-46ee-89e0-92d1091114bd"/>
+				<box rightPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{stok_akhir}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="0" width="31" height="26" uuid="c4f88fc5-835a-4773-868d-7c2a7e9c3305"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="294" y="0" width="142" height="26" uuid="ff086e89-bebe-4141-8971-48761230ec9d"/>
+				<box leftPadding="2">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement>
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{pengarang}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0;-#,##0" isBlankWhenNull="true">
+				<reportElement x="436" y="0" width="35" height="26" uuid="b7028ed8-d5f9-43b3-a65d-b564c80bad64"/>
+				<box rightPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{stok_awal}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0;-#,##0" isBlankWhenNull="true">
+				<reportElement x="471" y="0" width="42" height="26" uuid="c49ac3af-767d-4552-97db-3eb5c020e1b3"/>
+				<box rightPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{stok_selisih}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<summary>
+		<band height="41">
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-16" x="339" y="4" width="216" height="37" uuid="f3ee48e1-82a7-418b-9e19-f4eee1d63e1f"/>
+				<textElement textAlignment="Right">
+					<font isUnderline="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{label_kota}+", "+new java.text.SimpleDateFormat("dd MMMMM yyyy",$P{REPORT_LOCALE}).format(new Date())]]></textFieldExpression>
+			</textField>
+			<image scaleImage="RetainShape" hAlign="Left" vAlign="Middle">
+				<reportElement x="0" y="4" width="193" height="37" uuid="e6ccfe08-5812-4c91-a286-4c2a0375bd6c"/>
+				<imageExpression><![CDATA[$P{kode_barcode}]]></imageExpression>
+			</image>
+		</band>
+	</summary>
+</jasperReport>

@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Created with Jaspersoft Studio version 6.4.0.final using JasperReports Library version 6.4.1  -->
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Undangan_Wisuda" pageWidth="368" pageHeight="350" orientation="Landscape" whenNoDataType="AllSectionsNoDetail" columnWidth="308" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20" uuid="94970e43-55f2-4f98-92ee-fac2682d5653">
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mahasiswa" class="java.lang.Long">
+		<defaultValueExpression><![CDATA[new Long(3)]]></defaultValueExpression>
+	</parameter>
+	<parameter name="nama_ayah" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="barcode" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select m.nim, m.nama, bm.nama_ayah,
+	j.nama as jurusan, f.nama as fakultas, pw.no_registrasi_wisuda,pw.no_kursi
+from pendaftaran_wisuda pw
+inner join mahasiswa m on (pw.mahasiswa = m.id)
+inner join jurusan j on (m.jurusan = j.id)
+inner join fakultas f on (j.fakultas = f.id),
+biodata_mahasiswa bm
+where pw.mahasiswa=$P{mahasiswa}]]>
+	</queryString>
+	<field name="nim" class="java.lang.String"/>
+	<field name="nama" class="java.lang.String"/>
+	<field name="nama_ayah" class="java.lang.String"/>
+	<field name="jurusan" class="java.lang.String"/>
+	<field name="fakultas" class="java.lang.String"/>
+	<field name="no_registrasi_wisuda" class="java.lang.String"/>
+	<field name="no_kursi" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="271" splitType="Stretch">
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-1" x="69" y="9" width="239" height="50" uuid="201e21de-d0eb-4528-8869-c37cfe368a4d"/>
+				<textElement textAlignment="Left">
+					<font size="12" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{label_universitas}]]></textFieldExpression>
+			</textField>
+			<image>
+				<reportElement key="image-1" x="16" y="9" width="46" height="50" uuid="e12c1d76-0d29-4804-b01e-1d9a4791baa9"/>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-2" x="0" y="91" width="308" height="22" uuid="397c6ce4-7963-4d38-8a39-171cf78d9b85"/>
+				<textElement textAlignment="Left">
+					<font size="12" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA["UNDANGAN WISUDA"]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-1" x="0" y="132" width="113" height="18" uuid="93fd8a86-2eb3-4230-b942-4e5ab101f803"/>
+				<text><![CDATA[Nim]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-2" x="0" y="150" width="113" height="18" uuid="f08164ce-8411-4b88-836c-ee48432d9861"/>
+				<text><![CDATA[Nama]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-3" x="0" y="168" width="113" height="18" uuid="490e88c6-dfc2-4bd5-a2a1-7631a0d9e486"/>
+				<text><![CDATA[Fakultas]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-5" x="113" y="132" width="10" height="18" uuid="308c3770-0331-4cdf-97ba-dd860f593ee9"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-6" x="113" y="150" width="10" height="18" uuid="26dd8458-9943-42d3-ade4-b9c3290cc726"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-7" x="113" y="168" width="10" height="18" uuid="1de3f8a6-db71-4999-bcd9-a62b069d5c4c"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="123" y="168" width="185" height="18" uuid="7c417434-85de-4970-97f6-8ce909a1de6f"/>
+				<textFieldExpression><![CDATA[$F{fakultas}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="123" y="150" width="185" height="18" uuid="37b21e0e-55f3-49a1-8185-8556cdfa8134"/>
+				<textFieldExpression><![CDATA[$F{nama}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="123" y="132" width="185" height="18" uuid="3695c644-0a57-435e-a42c-92e27cb8b170"/>
+				<textFieldExpression><![CDATA[$F{nim}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-8" x="0" y="186" width="113" height="18" uuid="1a2321da-37e9-4a31-b07d-d5c837e02532"/>
+				<text><![CDATA[Jurusan]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-9" x="0" y="204" width="113" height="18" uuid="3ca02602-fff7-42d1-80aa-41b31fe3094c"/>
+				<text><![CDATA[No. Registrasi Wisuda]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-10" x="113" y="186" width="10" height="18" uuid="54122a51-511a-4322-9604-ae3edb9abf40"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-11" x="113" y="204" width="10" height="18" uuid="92391e02-c3d5-421b-831c-25a7ffbf6896"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-3" x="123" y="186" width="185" height="18" uuid="7cae1d2d-e109-4740-93c0-9bf8b15ce459"/>
+				<textFieldExpression><![CDATA[$F{jurusan}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-4" x="123" y="204" width="185" height="18" uuid="0482f0c4-d244-497b-9f91-5a23245c6a90"/>
+				<textFieldExpression><![CDATA[$F{no_registrasi_wisuda}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-12" x="0" y="240" width="113" height="18" uuid="61618504-80ad-4f58-9405-9f3b44f10625"/>
+				<text><![CDATA[Nama Ayah]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-13" x="113" y="240" width="10" height="18" uuid="21b8df60-e099-4d92-b281-d8ef096f0205"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-14" x="0" y="222" width="113" height="18" uuid="d67a3514-f52f-4c04-98b0-3efed1c71d8b"/>
+				<text><![CDATA[No. Kursi]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-15" x="113" y="222" width="10" height="18" uuid="9eb694d9-ea0d-4f59-bf97-5c855c7e04ab"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="123" y="222" width="185" height="18" uuid="fcc1e908-bd45-4139-8bb2-a2f6eeb09928"/>
+				<textFieldExpression><![CDATA[$F{no_kursi}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="123" y="240" width="185" height="20" uuid="e3411ad9-7af8-4853-85ec-98ebf71b13e1"/>
+				<textFieldExpression><![CDATA[$P{nama_ayah}]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<columnHeader>
+		<band splitType="Stretch"/>
+	</columnHeader>
+	<detail>
+		<band splitType="Stretch"/>
+	</detail>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band height="20" splitType="Stretch">
+			<image scaleImage="FillFrame" vAlign="Middle">
+				<reportElement key="image-2" x="1" y="0" width="300" height="20" uuid="4314a46f-92f5-4430-bec0-ddd243986a82"/>
+				<imageExpression><![CDATA[$P{barcode}]]></imageExpression>
+			</image>
+		</band>
+	</pageFooter>
+	<summary>
+		<band splitType="Stretch"/>
+	</summary>
+</jasperReport>

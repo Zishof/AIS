@@ -1,0 +1,295 @@
+<?link rel="shortcut icon" href="/img/logo.png" type="image/x-icon"?>
+<?page title="Sistem Informasi Akademik" contentType="text/html;charset=UTF-8"?>
+<?meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" ?>
+<?meta name="description" content="Sistem Informasi Akademik Ecampus" ?>
+<?meta name="author" content="Mohammad Fauzi Murtadho" ?>
+<zk>
+
+
+	<window apply="ais.action.maintenance.MainAction" width="100%"
+		height="100%" border="none">
+
+		<popup id="popupmenu" width="300px" height="100%"></popup>
+
+
+
+		<zscript>
+		<![CDATA[
+	ais.database.model.PerguruanTinggi perguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil
+			.getPerguruanTinggi((javax.servlet.http.HttpServletRequest) execution.getNativeRequest());
+	String background_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruanTinggiMedia(
+			(javax.servlet.http.HttpServletRequest) execution.getNativeRequest(), "banner_perguruanTinggi_");
+	if (background_PerguruanTinggi == null || background_PerguruanTinggi.trim().isEmpty()) {
+		background_PerguruanTinggi = ais.common.Common.getRequestHostWithProtocol() + "/img/header.jpg";
+	}
+	boolean mobile = ais.common.Common.isMobile((javax.servlet.http.HttpServletRequest) execution.getNativeRequest());
+	String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruanTinggiMedia(
+			(javax.servlet.http.HttpServletRequest) execution.getNativeRequest(), "logo_perguruanTinggi_");
+	if (logo_PerguruanTinggi == null || logo_PerguruanTinggi.trim().isEmpty()) {
+		logo_PerguruanTinggi = "/img/logo.png";
+	}
+]]>
+		</zscript>
+
+
+		<borderlayout height="100%" width="100%" id="myborder">
+
+			<center border="none" flex="true">
+				<grid>
+					<rows>
+						<row id="headerHbox" sclass="headerHbox">
+
+							<grid fixedLayout="true" id="gridHeader" sclass="gridHeader">
+								<columns>
+									<column></column>
+									<column></column>
+								</columns>
+
+								<rows>
+									<row id="rowHeader" valign="middle"
+										height="60px">
+
+										<hbox>
+											<space></space>
+											<image id="idLogo"
+												src="/img/logo.png" height="50px">
+											</image>
+											<space></space>
+											<vbox>
+												<label id="title">
+												</label>
+												<label id="motto">
+												</label>
+
+											</vbox>
+										</hbox>
+
+										<vbox
+											pack="end" align="right" width="100%">
+
+
+											<hbox
+												pack="end" id="headerHboxButton" align="right"
+												width="100%">
+
+											</hbox>
+
+											<toolbarbutton
+												use="ais.ui.util.MyToolbarbuttonConfig"
+												forward="onClick=onLihatOnline"
+												 id="usersOnline" label="Online user(s): 0" />
+
+
+										</vbox>
+
+									</row>
+
+								</rows>
+							</grid>
+
+
+						</row>
+						<row>
+
+							<borderlayout height="20000px"
+								width="100%">
+
+								<west border="none" collapsible="true"
+									width="250px" title="Menu" id="navigasi" sclass="navigasi" splittable="false">
+
+								</west>
+
+
+
+								<center>
+
+									<tabbox id="iframe" width="100%"
+										height="20000px">
+
+
+
+										<tabs id="tabs">
+											<tab label="Home"
+												use="ais.ui.util.MyTabConfig"
+												image="/img/blue-home-icon.png" closable="false" />
+											<tab
+												use="ais.ui.util.MyTabConfig" id="tabpengumuman"
+												visible="false" closable="false"
+												image="/img/svg/comment-2-text-line.svg" label="Pengumuman"
+												forward="onClick=onPengumuman">
+											</tab>
+											<tab
+												use="ais.ui.util.MyTabConfig" label="e-Learning"
+												closable="false" image="/img/options-icon.png"
+												forward="onClick=onPengumumanPerkuliahan">
+											</tab>
+											<tab
+												use="ais.ui.util.MyTabConfig" label="Prestasi"
+												closable="false" image="/img/Scheduled-Tasks-icon.png"
+												forward="onClick=onKegiatanDanPrestasi">
+											</tab>
+											<tab
+												use="ais.ui.util.MyTabConfig" label="Pustaka"
+												closable="false" image="/img/Books-icon1.png"
+												forward="onClick=onPustaka">
+											</tab>
+											<tab
+												use="ais.ui.util.MyTabConfig" label="Dashboard"
+												closable="false" image="/img/Dashboard-icon.png"
+												forward="onClick=onDashboard">
+											</tab>
+											<tab
+												use="ais.ui.util.MyTabConfig" label="Workflow"
+												closable="false" image="/img/svg/journal-arrow-up.svg"
+												forward="onClick=onWorkflow">
+											</tab>
+											<tab
+												label="Info Kalender Akademik" use="ais.ui.util.MyTabConfig"
+												forward="onClick=onInformasiKalenderAkademik"
+												image="/img/Apps-Calendar-Metro-icon.png" closable="true" />
+
+											<tab label="Info Kegiatan"
+												use="ais.ui.util.MyTabConfig"
+												forward="onClick=onInformasiKegiatan"
+												image="/img/Status-dialog-information-icon.png"
+												closable="true" />
+
+										</tabs>
+										<tabpanels id="tabpanels">
+											<tabpanel use="ais.ui.util.MyTabpanel" id="panel_home">
+
+											</tabpanel>
+											<tabpanel use="ais.ui.util.MyTabpanel"
+												id="panel_pengumuman" visible="false">
+
+											</tabpanel>
+											<tabpanel use="ais.ui.util.MyTabpanel"
+												id="pengumumanPerkuliahan">
+											</tabpanel>
+											<tabpanel use="ais.ui.util.MyTabpanel"
+												id="kegiatanDanPrestasi">
+											</tabpanel>
+											<tabpanel use="ais.ui.util.MyTabpanel"
+												id="tampilanDashboardPustaka">
+											</tabpanel>
+											<tabpanel use="ais.ui.util.MyTabpanel"
+												id="tampilanDashboard">
+											</tabpanel>
+											<tabpanel use="ais.ui.util.MyTabpanel"
+												id="tampilanWorkflow">
+											</tabpanel>
+											<tabpanel use="ais.ui.util.MyTabpanel"
+												id="kalender_akademik_mahasiswa">
+											</tabpanel>
+											<tabpanel use="ais.ui.util.MyTabpanel"
+												id="infoKegiatan">
+											</tabpanel>
+										</tabpanels>
+									</tabbox>
+
+								</center>
+
+							</borderlayout>
+						</row>
+					</rows>
+				</grid>
+			</center>
+
+			<south>
+
+				<vbox width="100%">
+
+
+
+					<toolbarbutton
+						use="ais.ui.util.MyToolbarbuttonConfig" id="customerService"
+						sclass="customerService" image="/img/whatapp-icon_1.png"
+						forward="onClick=onCustomerService"
+						hoverImage="/img/whatapp-2-icon.png">
+					</toolbarbutton>
+
+					<toolbarbutton
+						use="ais.ui.util.MyToolbarbuttonConfig" id="back_to_top"
+						sclass="back_to_top" image="/img/back_to_top.png"
+						hoverImage="/img/back_to_top_2.png">
+						<attribute name='onClick'><![CDATA[
+	Clients.scrollIntoView(headerHbox);
+]]></attribute>
+					</toolbarbutton>
+
+					<hbox id="footerHbox" align="center" width="100%"
+						visible="false" pack="center">
+						<label id="copyright"></label>
+					</hbox>
+
+					<zscript>
+								<![CDATA[
+	idLogo.setSrc(logo_PerguruanTinggi);
+	// AIS_RESET_DEFAULT_ZKOSS_STYLE navigasi.setStyle(null);
+	// AIS_RESET_DEFAULT_ZKOSS_STYLE rowHeader.setStyle(null);
+	// AIS_RESET_DEFAULT_ZKOSS_STYLE gridHeader.setStyle(null);
+	title.setValue(perguruanTinggi == null ? "" : perguruanTinggi.getNama());
+	motto.setValue(
+			perguruanTinggi == null || perguruanTinggi.getMotto() == null || perguruanTinggi.getMotto().trim().isEmpty()
+					? "eCampus Information System"
+					: perguruanTinggi.getMotto());
+]]>
+								</zscript>
+
+					<zscript>
+								<![CDATA[
+	if (ais.common.Common.isMobile((javax.servlet.http.HttpServletRequest) execution.getNativeRequest())) {
+		rowHeader.setVisible(false);
+		back_to_top.setHoverImage("");
+		String styleTop = "position:fixed;bottom:15px;right:20px;";
+		String customerServiceTop = "position:fixed;bottom:15px;right:75px;";
+		String styleCopyright = ais.common.Common
+				.getKonfigurasi("copyright_style_mobile",
+						"font-family: 'Open Sans', sans-serif;font-size: 8px;color:black;font-weight: bold;")
+				.getNilai();
+		String styleFooter = ais.common.Common
+				.getKonfigurasi("footer_style_mobile", "border-top: 1px dotted;position:fixed;bottom:0px;left:0px;")
+				.getNilai();
+
+		// AIS_RESET_DEFAULT_ZKOSS_STYLE back_to_top.setStyle(null);
+		// AIS_RESET_DEFAULT_ZKOSS_STYLE customerService.setStyle(null);
+		// AIS_RESET_DEFAULT_ZKOSS_STYLE copyright.setStyle(null);
+		footerHbox.setStyle(null);
+	} else {
+
+		String styleTop = "position:fixed;bottom:15px;right:20px;";
+		String customerServiceTop = "position:fixed;bottom:15px;right:75px;";
+		String styleCopyright = ais.common.Common
+				.getKonfigurasi("copyright_style_dekstop",
+						"font-family: 'Open Sans', sans-serif;font-size: 11px;color:black;font-weight: bold;")
+				.getNilai();
+		String styleFooter = ais.common.Common
+				.getKonfigurasi("footer_style_dekstop", "border-top: 1px dotted;position:fixed;bottom:0px;left:0px;")
+				.getNilai();
+
+		// AIS_RESET_DEFAULT_ZKOSS_STYLE back_to_top.setStyle(null);
+		// AIS_RESET_DEFAULT_ZKOSS_STYLE customerService.setStyle(null);
+		// AIS_RESET_DEFAULT_ZKOSS_STYLE copyright.setStyle(null);
+		footerHbox.setStyle(null);
+	}
+	copyright.setValue(perguruanTinggi == null ? ""
+			: ("Copyright © " + java.util.Calendar.getInstance().get(java.util.Calendar.YEAR) + " "
+					+ perguruanTinggi.getNama()));
+]]>
+</zscript>
+
+				</vbox>
+
+
+			</south>
+
+		</borderlayout>
+
+
+
+
+	</window>
+
+
+
+</zk>

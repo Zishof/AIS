@@ -1,0 +1,12 @@
+<?page title="Pilihan Paket dan Biaya" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<borderlayout height="100%">
+
+		<center autoscroll="true">
+			<iframe height="100%" width="100%"
+				src="/WEB-INF/z/x/y/pages/psb/alur.jsp">
+
+			</iframe>
+		</center>
+	</borderlayout>
+</zk>

@@ -1,0 +1,225 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.KegiatanAction" width="100%" height="100%">
+
+		<borderlayout>
+
+			<center border="none" flex="true">
+				<borderlayout>
+					<north border="none" open="true" flex="true">
+						<grid use="ais.ui.util.MyGrid"  fixedLayout="true">
+							<columns>
+								<column use="ais.ui.util.MyColumnConfig"
+									width="90px">
+								</column>
+								<column
+									use="ais.ui.util.MyColumnConfig">
+								</column>
+								<column use="ais.ui.util.MyColumnConfig"
+									width="90px">
+								</column>
+								<column
+									use="ais.ui.util.MyColumnConfig">
+								</column>
+
+								<column use="ais.ui.util.MyColumnConfig"
+									width="90px">
+								</column>
+								<column
+									use="ais.ui.util.MyColumnConfig">
+								</column>
+								<column use="ais.ui.util.MyColumnConfig"
+									width="90px">
+								</column>
+								<column
+									use="ais.ui.util.MyColumnConfig">
+								</column>
+								<column use="ais.ui.util.MyColumnConfig"
+									width="90px">
+								</column>
+								<column
+									use="ais.ui.util.MyColumnConfig">
+								</column>
+							</columns>
+							<rows>
+
+
+
+								<row>
+									<label
+										use="ais.ui.util.MyLabelConfig"
+										value="NIM/No. Reg./No. Ujian" />
+									<textbox
+										forward="onOK=onSearchDefault" id="searchnama" width="95%" />
+									<label
+										use="ais.ui.util.MyLabelConfig" value="Fakultas" />
+									<combobox
+										forward="onChange=onSearchDefault" id="searchfakultas"
+										width="95%" />
+
+									<label
+										use="ais.ui.util.MyLabelConfig" value="Prodi" />
+									<combobox id="searchjurusan"
+										forward="onChange=onSearchDefault" width="95%" />
+									<label
+										use="ais.ui.util.MyLabelConfig" value="Jenis Semester" />
+									<combobox
+										forward="onChange=onSearchDefault" id="jenissemester"
+										width="95%" />
+
+									<label
+										use="ais.ui.util.MyLabelConfig" value="Jenis Pembayaran" />
+									<combobox id="searchJenisPembayaran"
+										forward="onChange=onSearchDefault" width="95%" />
+
+								</row>
+								<row spans="1,1,1,1,1,1,1,1,3">
+									<label
+										use="ais.ui.util.MyLabelConfig" value="Tahun Angkatan" />
+									<decimalbox id="searchtahun"
+										forward="onOK=onSearchDefault" width="95%" />
+									<label
+										use="ais.ui.util.MyLabelConfig" value="Jenjang" />
+									<combobox id="searchjenjang"
+										forward="onChange=onSearchDefault" width="95%" />
+
+									<label
+										use="ais.ui.util.MyLabelConfig" value="Tanggal" />
+
+
+									<hbox>
+										<datebox
+											use="ais.ui.util.MyDatebox" id="start"
+											forward="onChange=onSearchDefault" cols="5" />
+										<label use="ais.ui.util.MyLabelConfig" value="s.d"></label>
+										<datebox
+											use="ais.ui.util.MyDatebox" id="end"
+											forward="onChange=onSearchDefault" cols="5" />
+									</hbox>
+
+
+									<label
+										use="ais.ui.util.MyLabelConfig" value="Mahasiswa" />
+									<hbox>
+										<textbox
+											forward="onOK=onSearchDefault" id="searchnamamhs"
+											width="80px" />
+										<label use="ais.ui.util.MyLabelConfig" value="PA"/>
+										<bandbox id="searchdosen"
+											use="ais.action.master.helper.AmbilDataDosenBanbox"
+											width="80px" />
+										<textbox visible="false"
+											forward="onOK=onSearchDefault" id="searchrekon" width="60px" />
+									</hbox>
+
+									<hbox>
+										<checkbox use="ais.ui.util.MyCheckboxConfig" id="searchlunas"
+											label="Lunas" forward="onClick=onSearchDefault" width="95%" />
+										<checkbox use="ais.ui.util.MyCheckboxConfig" id="searchaktif"
+											label="Belum lunas" forward="onClick=onSearchDefault"
+											width="95%" />
+										<checkbox use="ais.ui.util.MyCheckboxConfig" checked="true"
+											id="searchTelahMembayar" label="Telah Membayar"
+											forward="onClick=onSearchDefault" width="95%" />
+									</hbox>
+								</row>
+
+
+								<row spans="10">
+
+									<toolbar>
+
+										<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+											
+											tooltiptext="Cari data" forward="onClick=onSearchDefault"
+											id="find" label="Cari" image="/img/search.gif">
+										</toolbarbutton>
+
+										<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+											 upload="true"
+											tooltiptext="Upload Data Pembayaran"
+											forward="onUpload=onUploadData" id="uploadData"
+											label="Upload Pembayaran" image="/img/edit.gif">
+										</toolbarbutton>
+
+										<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+											
+											tooltiptext="Download Format Pembayaran"
+											forward="onClick=onDownloadFormat"
+											id="downloadFormatPembayaran" label="Download Format"
+											image="/img/edit.gif">
+										</toolbarbutton>
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;kegiatan&quot;, &quot;Bantuan&quot;);"/>
+			</toolbar>
+								</row>
+							</rows>
+						</grid>
+
+					</north>
+					<center border="none"
+						flex="true">
+
+						<grid use="ais.ui.util.MyGrid"  fixedLayout="true" id="grid" mold="paging"
+							pageSize="25">
+							<columns>
+								<column use="ais.ui.util.MyColumnConfig"
+									label="" width="50px" visible="false" />
+								<column use="ais.ui.util.MyColumnConfig"
+									width="8%" label="Ref" />
+								<column use="ais.ui.util.MyColumnConfig"
+									width="8%" label="Kode#" />
+								<column use="ais.ui.util.MyColumnConfig"
+									width="10%" label="Nama" />
+								<column use="ais.ui.util.MyColumnConfig"
+									width="7%" align="right" label="Jumlah" />
+								<column use="ais.ui.util.MyColumnConfig"
+									width="7%" align="right" label="Terhutang" />
+								<column use="ais.ui.util.MyColumnConfig"
+									width="5%" align="right" label="Denda" />
+								<column use="ais.ui.util.MyColumnConfig"
+									label="Prodi" />
+								<column use="ais.ui.util.MyColumnConfig"
+									label="Fakultas" />
+								<column use="ais.ui.util.MyColumnConfig"
+									width="5%" label="Smt" />
+								<column use="ais.ui.util.MyColumnConfig"
+									width="0%" label="Bulan" />
+								<column use="ais.ui.util.MyColumnConfig"
+									label="Tanggal" />
+								<column use="ais.ui.util.MyColumnConfig"
+									label="Jns. Trs" />
+								<column use="ais.ui.util.MyColumnConfig"
+									width="5%" label="Lunas" />
+
+								<column use="ais.ui.util.MyColumnConfig"
+									width="12%" label="" />
+							</columns>
+
+						</grid>
+
+
+					</center>
+					<south border="none">
+						<paging visible="false" id="paging" detailed="true" />
+					</south>
+				</borderlayout>
+			</center>
+		</borderlayout>
+
+
+
+
+	</window>
+
+
+</zk>

@@ -1,0 +1,229 @@
+<?link rel="shortcut icon" href="/img/favicon.ico" type="image/x-icon"?>
+<?page title="Selamat Datang di Sistem Informasi Kampus" contentType="text/html;charset=UTF-8"?>
+<zk>
+
+
+	<window use="ais.ui.util.MyWindow" apply="ais.action.maintenance.MainAction" width="100%"
+		height="100%" border="none">
+
+
+
+
+		<popup id="popupmenu" width="350px" height="90%">
+
+			<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"   forward="onClick=onTutupPopup"
+				image="/img/delete.gif">
+			</toolbarbutton>
+
+
+			<borderlayout width="95%" height="100%">
+
+				<north height="100px">
+
+					<grid fixedLayout="true" use="ais.ui.util.MyGrid"  width="100%">
+
+						<columns>
+
+
+							<column use="ais.ui.util.MyColumnConfig" align="left" valign="bottom"></column>
+
+						</columns>
+
+						<rows>
+
+							<row>
+
+
+
+								<vbox pack="end" align="start">
+
+									<a 
+										forward="onClick=onUbahBiodata">
+										<hbox align="end" pack="end">
+
+
+											<image width="80px"
+												id="foto" height="90px" src="/img/administrator-icon.png">
+											</image>
+											<label use="ais.ui.util.MyLabelConfig"
+												id="loginInformation" />
+
+
+										</hbox>
+									</a>
+								</vbox>
+
+
+
+
+							</row>
+
+
+
+
+						</rows>
+
+					</grid>
+
+				</north>
+
+
+				<center flex="true">
+
+					<tree id="menubar" fixedLayout="true" rows="20"
+						height="100%" width="100%" zclass="z-dottree">
+					</tree>
+
+				</center>
+			</borderlayout>
+
+
+
+
+		</popup>
+
+
+
+
+
+
+
+		<borderlayout height="100%" width="100%">
+			<north border="none" height="50px" id="mycenter">
+
+
+				<div>
+					<image align="right" id="header" width="100%"
+						height="50px" src="/img/header__pasca.jpg" />
+
+
+
+
+
+				</div>
+			</north>
+			<zscript>
+	// AIS_RESET_DEFAULT_ZKOSS_STYLE mycenter.setStyle(null);
+</zscript>
+
+
+
+
+			<center border="none" flex="true"
+				id="center">
+				<tabbox id="include" width="100%" height="100%">
+					<tabs>
+						<tab use="ais.ui.util.MyTabConfig" label="Home" image="/img/home_20.png"
+							closable="false" />
+						<tab use="ais.ui.util.MyTabConfig" label="Informasi Kalender Akademik"
+							forward="onClick=onInformasiKalenderAkademik"
+							image="/img/Actions-view-calendar-month-icon-small.png"
+							closable="true" />
+						<tab use="ais.ui.util.MyTabConfig" label="Pengumuman"
+							image="/img/tests-icon_20.png" closable="true" />
+
+
+
+					</tabs>
+					<tabpanels>
+						<tabpanel use="ais.ui.util.MyTabpanel">
+							<include use="ais.ui.util.MyIframe"
+								src="blank.zul" width="100%" height="100%" />
+
+						</tabpanel>
+
+						<tabpanel use="ais.ui.util.MyTabpanel" id="kalender_akademik_mahasiswa">
+
+						</tabpanel>
+
+
+						<tabpanel use="ais.ui.util.MyTabpanel">
+							<include use="ais.ui.util.MyIframe"
+								src="tampilan_pengumuman_akademis.zul" width="100%"
+								height="100%" />
+						</tabpanel>
+
+
+					</tabpanels>
+				</tabbox>
+			</center>
+
+
+			<south
+				id="mysouth" border="none">
+
+				<vbox pack="center" width="100%"
+					align="center">
+					<hbox pack="center"
+						align="center" width="100%">
+
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"   forward="onClick=onLihatOnline"  id="usersOnline"
+							label="Online user(s): 0" />
+						<timer id="timer" delay="100000" repeats="true"
+							forward="onTimer=onUpdateUserOnline" />
+
+					</hbox>
+
+
+					<hbox pack="center"
+						align="center" width="100%">
+
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"   forward="onClick=onPopup"
+							image="/img/glossy.png" hoverImage="/img/glossy-hover.png">
+						</toolbarbutton>
+
+
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"   orient="vertical" id="message"
+							visible="false" forward="onClick=onPesan"
+							label="Pesan" image="/img/received.png">
+
+						</toolbarbutton>
+
+
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"   orient="vertical" id="chat"
+							visible="false" forward="onClick=onChatRoom"
+							label="Chat" image="/img/group.gif">
+
+						</toolbarbutton>
+
+
+
+						<a href="http://uinjkt.ac.id" target="new"
+							id="footer">
+							Universitas Islam Negeri Syarif Hidayatullah
+							Jakarta
+						</a>
+
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"   orient="vertical"
+							forward="onClick=onKeluar"
+							label="Keluar" image="/img/shutdown.PNG">
+
+						</toolbarbutton>
+
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"   orient="vertical"
+							forward="onClick=onBantuan"
+							label="Bantuan" image="/img/help.gif">
+
+						</toolbarbutton>
+
+
+
+
+					</hbox>
+
+				</vbox>
+
+			</south>
+
+			<zscript>
+	// AIS_RESET_DEFAULT_ZKOSS_STYLE mysouth.setStyle(null);
+</zscript>
+
+		</borderlayout>
+
+
+
+
+	</window>
+
+</zk>

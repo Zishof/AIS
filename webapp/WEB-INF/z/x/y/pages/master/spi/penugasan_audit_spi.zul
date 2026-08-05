@@ -1,0 +1,116 @@
+<?page title="Penugasan Audit SPI" cacheable="false"
+    language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+    <window use="ais.ui.util.MyWindow" border="none" id="window"
+        apply="ais.action.master.spi.PenugasanAuditSPIAction"
+        width="100%" height="100%">
+
+        <tabbox width="100%" height="100%">
+            <tabs>
+                <tab use="ais.ui.util.MyTabConfig" label="Dasbor SPI" selected="true"
+                     forward="onSelect=onDasbor"
+                     tooltiptext="Ringkasan dan analitik pelaksanaan audit internal" />
+                <tab use="ais.ui.util.MyTabConfig" label="Daftar Penugasan Audit"
+                     tooltiptext="Tambah, cari, dan kelola penugasan audit SPI" />
+            </tabs>
+            <tabpanels>
+
+                <!-- Tab 0: Dashboard -->
+                <tabpanel use="ais.ui.util.MyTabpanel" id="dasborTab"
+                    style="overflow:auto; height:100%; padding:0;" />
+
+                <!-- Tab 1: Daftar Penugasan -->
+                <tabpanel use="ais.ui.util.MyTabpanel" style="height:100%; padding:0;">
+                    <div sclass="ais-crud-portal">
+
+                        <div sclass="ais-crud-page-desc">Di sini Anda mengajukan penugasan audit baru, mengelola tim auditor, mengisi checklist dan temuan di lapangan, lalu mengikuti proses persetujuan sampai penugasan disahkan.</div>
+
+						<div sclass="ais-crud-filter-card">
+							<div sclass="ais-crud-filter-head">
+								<span sclass="ais-crud-filter-title">Pencarian &amp; Filter</span>
+								<div sclass="ais-crud-filter-actions">
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="add" label="Tambah" image="/img/new.gif" tooltiptext="Tambah data baru" forward="onClick=onAdd"/>
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="find" label="Cari" image="/img/search.gif" tooltiptext="Cari data" forward="onClick=onSearchDefault"/>
+<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;penugasan_audit_spi&quot;, &quot;Bantuan&quot;);"/></div>
+							</div>
+							<div sclass="ais-crud-filter-body">
+								<grid use="ais.ui.util.MyGrid" fixedLayout="true" sclass="ais-crud-filter-grid">
+									<columns>
+                        <column use="ais.ui.util.MyColumnConfig" width="150px" />
+                        <column use="ais.ui.util.MyColumnConfig" />
+                        <column use="ais.ui.util.MyColumnConfig" width="150px" />
+                        <column use="ais.ui.util.MyColumnConfig" />
+                        <column use="ais.ui.util.MyColumnConfig" width="150px" />
+                        <column use="ais.ui.util.MyColumnConfig" />
+                    </columns>
+									<rows>
+										<row>
+                            <label use="ais.ui.util.MyLabelConfig" value="Judul Penugasan" />
+                            <textbox forward="onOK=onSearchDefault" id="searchnama" width="95%" />
+                            <label use="ais.ui.util.MyLabelConfig" value="Jenis Audit" />
+                            <combobox forward="onChange=onSearchDefault" id="searchjenis" width="95%" />
+                            <label use="ais.ui.util.MyLabelConfig" value="Status" />
+                            <combobox forward="onChange=onSearchDefault" id="searchstatus" width="95%" />
+                        </row>
+										<row>
+                            <label use="ais.ui.util.MyLabelConfig" value="Unit Kerja" />
+                            <bandbox use="ais.action.master.rab.helper.AmbilDataSatuanKerjaBanbox" id="searchsatuanKerja" width="95%" />
+                            <label use="ais.ui.util.MyLabelConfig" value="" />
+                            <checkbox use="ais.ui.util.MyCheckboxConfig" id="searchaktif"
+                                label="Tampilkan hanya yang aktif" checked="true"
+                                forward="onClick=onSearchDefault" />
+                            <label use="ais.ui.util.MyLabelConfig" value="" />
+                            <label use="ais.ui.util.MyLabelConfig" value="" />
+                        </row>
+									</rows>
+								</grid>
+							</div>
+						</div>
+						<div sclass="ais-crud-data-card">
+							<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true"/>
+							<grid use="ais.ui.util.MyGrid" id="grid"
+                                            sclass="dgrid" fixedLayout="true">
+                                            <columns>
+                                                <column use="ais.ui.util.MyColumnConfig" width="20%"
+                                                    label="Judul Penugasan" />
+                                                <column use="ais.ui.util.MyColumnConfig" width="14%"
+                                                    label="Jenis Audit/Unit Kerja" />
+                                                <column use="ais.ui.util.MyColumnConfig" width="10%"
+                                                    label="Tanggal Pelaksanaan" />
+                                                <column use="ais.ui.util.MyColumnConfig" width="10%"
+                                                    label="Pengajuan" />
+                                                <column use="ais.ui.util.MyColumnConfig" width="12%"
+                                                    label="Status Persetujuan" />
+                                                <column use="ais.ui.util.MyColumnConfig"
+                                                    label="Keterangan" />
+                                                <column use="ais.ui.util.MyColumnConfig" width="6%"
+                                                    label="Aktif" />
+                                                <column use="ais.ui.util.MyColumnConfig" width="10%"
+                                                    label="" />
+                                            </columns>
+                                        </grid>
+							<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>
+						</div>
+					</div>
+                </tabpanel>
+
+            </tabpanels>
+        </tabbox>
+
+
+<window use="ais.ui.util.MyWindow" id="addWindow"
+            title="Penugasan Audit SPI" visible="false" mode="popup"
+            position="center,center" border="normal"
+            width="95%" height="95%" />
+
+        <zscript><![CDATA[
+addWindow.setVisible(false);
+        ]]></zscript>
+
+    </window>
+
+</zk>

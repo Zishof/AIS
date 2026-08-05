@@ -1,0 +1,5 @@
+<window visible="false">
+    <zscript>
+     ais.common.Common.tampilErrorJikaAdmin((Exception)requestScope.get("javax.servlet.error.exception"));
+    </zscript>
+</window>

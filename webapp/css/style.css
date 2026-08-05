@@ -1,0 +1,12 @@
+@CHARSET
+"ISO-8859-1"
+; /*SEC:WINDOW-MODAL:*/ /*RULE:HEADER-FONT*/
+.z-window-modal-header .z-caption .z-caption-l,.z-window-modal-header .z-caption .z-caption-r
+	{
+	color: #FFFFFF; /*PRO*/
+	font-family: arial; /*PRO*/
+	font-size: 14px; /*PRO*/
+	font-style: italic; /*PRO*/
+	font-weight: bold; /*PRO*/
+}
+/*RULE_E*/ /*SEC_E*/

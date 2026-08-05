@@ -1,0 +1,13 @@
+<?page title="new page title" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<window use="ais.ui.util.MyWindow" width="100%" height="100%" border="none">
+		
+		<html>
+			&lt;h1&gt;
+&lt;img src=&#39;../../img/payment-icon.png&#39;/&gt;
+Pembayaran Berhasil&lt;/h1&gt;
+&lt;hr&gt;
+Terima kasih telah melakukan pembayaran, transaksi Anda telah berhasil, untuk kembali, klik tombol tutup.
+		</html>
+	</window>
+</zk>

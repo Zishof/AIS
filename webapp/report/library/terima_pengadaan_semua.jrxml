@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="peminjaman" language="groovy" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="784c9842-b9ff-4c80-969d-5e7b3c942a5c">
+	<property name="ireport.zoom" value="1.771561000000001"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="label_kota" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Ciputat"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_fakultas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Fakultas"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_jurusan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Prodi"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="barcode" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["../logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="id" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[2L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="kode_barcode" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="mulai" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2012-01-01"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="sampai" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2012-10-01"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="perpustakaan" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[2L]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select
+barcode,
+max(b.isbn) as isbn,
+max(b.nama) as nama,
+max(a.diterima) as jumlah,
+max(d.nama) as perpustakaan,
+max(f.nama) as perpustakaan_asal,
+date(c.tanggal_persetujuan) as tanggal
+
+from library.terima_pengadaan_item_detail a
+inner join library.item b on (a.item = b.id)
+left join library.item_punya_barcode b1 on (a.item_punya_barcode=b1.id)
+inner join library.terima_pengadaan_item c on (c.id = a.terima_pengadaan_item)
+inner join library.perpustakaan d on (d.id = c.perpustakaan)
+inner join library.transfer_pengadaan_item h on (h.id = c.transfer_pengadaan_item)
+inner join library.perpustakaan f on (f.id = h.perpustakaan)
+left join tbmuser e on (e.userid = c.disetujui_oleh)
+where date(c.tanggal_persetujuan) between date($P{mulai}) and date($P{sampai})
+and c.tanggal_persetujuan is not null
+and d.id = $P{perpustakaan}
+group by b.id, d.id, f.id, date(c.tanggal_persetujuan), barcode
+order by perpustakaan_asal, nama, tanggal, barcode]]>
+	</queryString>
+	<field name="barcode" class="java.lang.String"/>
+	<field name="isbn" class="java.lang.String"/>
+	<field name="nama" class="java.lang.String"/>
+	<field name="jumlah" class="java.lang.Double"/>
+	<field name="perpustakaan" class="java.lang.String"/>
+	<field name="perpustakaan_asal" class="java.lang.String"/>
+	<field name="tanggal" class="java.sql.Date"/>
+	<group name="perpustakaan_asal">
+		<groupExpression><![CDATA[$F{perpustakaan_asal}]]></groupExpression>
+		<groupHeader>
+			<band height="40">
+				<textField>
+					<reportElement x="124" y="21" width="110" height="18" uuid="b6df52cd-2954-4ff9-8514-fe25567f0760"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center"/>
+					<textFieldExpression><![CDATA["ISBN"]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement x="234" y="21" width="233" height="18" uuid="2a3b900b-4cb9-4dc3-aa4e-04ecc2981fa2"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center"/>
+					<textFieldExpression><![CDATA["Judul"]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement x="0" y="0" width="555" height="21" uuid="6f57f0cc-fdd8-436e-9ee5-709ee015111d"/>
+					<textFieldExpression><![CDATA["Dari\t: "+$F{perpustakaan_asal}]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement x="467" y="21" width="88" height="18" uuid="becd1740-be49-4af1-80ef-50a07e86e12d"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center"/>
+					<textFieldExpression><![CDATA["Tanggal"]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement x="18" y="21" width="106" height="18" uuid="5be57d22-e5ce-41a7-a7bc-6770b501950a"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center"/>
+					<textFieldExpression><![CDATA["Barcode"]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement x="1" y="21" width="17" height="18" uuid="c85dc916-aa49-4ee3-b3fd-c640c590b200"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center"/>
+					<textFieldExpression><![CDATA["No"]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupHeader>
+	</group>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="95" splitType="Stretch">
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="0" y="-16" width="555" height="71" uuid="fdbf667f-c41d-4db5-9635-795c3bcf1a45"/>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-14" x="0" y="55" width="555" height="35" uuid="783454d4-4df8-4b8c-b112-ebf0dd254dde"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{perpustakaan}.toUpperCase()+"\n"+
+"TERIMA "+
+(new java.text.SimpleDateFormat("dd MMMMM yyyy",$P{REPORT_LOCALE}).format(new java.text.SimpleDateFormat("yyyy-MM-dd").parse($P{mulai}))+
+" s.d "+
+new java.text.SimpleDateFormat("dd MMMMM yyyy",$P{REPORT_LOCALE}).format(new java.text.SimpleDateFormat("yyyy-MM-dd").parse($P{sampai}))).toUpperCase()]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<detail>
+		<band height="26">
+			<textField pattern="dd MMMMM yyyy">
+				<reportElement x="467" y="0" width="88" height="26" uuid="d2aed3ba-1a30-4a63-8ac2-7708fbb59605"/>
+				<box rightPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{tanggal}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="124" y="0" width="110" height="26" uuid="f3411222-42cc-4f92-9477-424e3fe118d0"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{isbn}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="234" y="0" width="233" height="26" uuid="5e8e7933-d161-4287-86f0-4ecdeda20292"/>
+				<box leftPadding="2">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement>
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nama}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="1" y="0" width="17" height="26" uuid="ead3fc12-0272-4cd0-9f57-89208060f90f"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="18" y="0" width="106" height="26" uuid="d599695f-9369-48fa-ae0c-6dd5296fcff3"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{barcode}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<summary>
+		<band height="41">
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-16" x="339" y="4" width="216" height="37" uuid="3eea7267-898a-439c-babb-fe70d8e3e611"/>
+				<textElement textAlignment="Right">
+					<font isUnderline="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{label_kota}+", "+new java.text.SimpleDateFormat("dd MMMMM yyyy",$P{REPORT_LOCALE}).format(new Date())]]></textFieldExpression>
+			</textField>
+			<image scaleImage="RetainShape" hAlign="Left" vAlign="Middle">
+				<reportElement x="0" y="4" width="193" height="37" uuid="6d42cb6c-0eea-4a91-bebf-45da5a196911"/>
+				<imageExpression><![CDATA[$P{kode_barcode}]]></imageExpression>
+			</image>
+		</band>
+	</summary>
+</jasperReport>

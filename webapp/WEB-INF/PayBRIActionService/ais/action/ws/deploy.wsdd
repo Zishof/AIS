@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- Use this file to deploy some handlers/chains and services      --><!-- Two ways to do this:                                           --><!--   java org.apache.axis.client.AdminClient deploy.wsdd          --><!--      after the axis server is running                          --><!-- or                                                             --><!--   java org.apache.axis.utils.Admin client|server deploy.wsdd   --><!--      from the same directory that the Axis engine runs         --><deployment xmlns="http://xml.apache.org/axis/wsdd/" xmlns:java="http://xml.apache.org/axis/wsdd/providers/java">
+
+  <!-- Services from PayBRIActionService WSDL service -->
+
+  <service name="PayBRIAction" provider="java:RPC" style="wrapped" use="literal">
+      <parameter name="wsdlTargetNamespace" value="http://ws.action.ais"/>
+      <parameter name="wsdlServiceElement" value="PayBRIActionService"/>
+      <parameter name="schemaQualified" value="http://model.ws.action.ais,http://ws.action.ais"/>
+      <parameter name="wsdlServicePort" value="PayBRIAction"/>
+      <parameter name="className" value="ais.action.ws.PayBRIAction"/>
+      <parameter name="wsdlPortType" value="PayBRIAction"/>
+      <parameter name="typeMappingVersion" value="1.2"/>
+      <operation xmlns:operNS="http://ws.action.ais" xmlns:retNS="http://ws.action.ais" xmlns:rtns="http://www.w3.org/2001/XMLSchema" name="hello" qname="operNS:hello" returnQName="retNS:helloReturn" returnType="rtns:string" soapAction="">
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:name" type="tns:string"/>
+      </operation>
+      <operation xmlns:operNS="http://ws.action.ais" xmlns:retNS="http://ws.action.ais" xmlns:rtns="http://model.ws.action.ais" name="reversal" qname="operNS:reversal" returnQName="retNS:reversalReturn" returnType="rtns:Response" soapAction="">
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:nim" type="tns:string"/>
+      </operation>
+      <operation xmlns:operNS="http://ws.action.ais" xmlns:retNS="http://ws.action.ais" xmlns:rtns="http://model.ws.action.ais" name="inquery" qname="operNS:inquery" returnQName="retNS:inqueryReturn" returnType="rtns:Response" soapAction="">
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:nim" type="tns:string"/>
+      </operation>
+      <operation xmlns:operNS="http://ws.action.ais" xmlns:retNS="http://ws.action.ais" xmlns:rtns="http://model.ws.action.ais" name="pay" qname="operNS:pay" returnQName="retNS:payReturn" returnType="rtns:Response" soapAction="">
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:nim" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:reffNumber" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:tanggalBayar" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:jamBayar" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:userID" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:namaCabang" type="tns:string"/>
+        <parameter xmlns:pns="http://ws.action.ais" xmlns:tns="http://www.w3.org/2001/XMLSchema" qname="pns:nominalTagihan" type="tns:string"/>
+      </operation>
+      <parameter name="allowedMethods" value="hello pay inquery reversal"/>
+
+      <typeMapping xmlns:ns="http://model.ws.action.ais" qname="ns:Response" type="java:ais.action.ws.model.Response" serializer="org.apache.axis.encoding.ser.BeanSerializerFactory" deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory" encodingStyle=""/>
+  </service>
+</deployment>

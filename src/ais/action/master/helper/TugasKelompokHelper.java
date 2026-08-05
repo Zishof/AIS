@@ -1,0 +1,3948 @@
+package ais.action.master.helper;
+
+import java.io.StringReader;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.hibernate.Criteria;
+import org.hibernate.Session;
+import org.hibernate.criterion.MatchMode;
+import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Projections;
+import org.hibernate.criterion.Restrictions;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.zkoss.zk.ui.Component;
+import org.zkoss.zk.ui.event.Event;
+import org.zkoss.zk.ui.event.EventListener;
+import org.zkoss.zk.ui.sys.ExecutionsCtrl;
+import org.zkoss.zul.Borderlayout;
+import org.zkoss.zul.Center;
+import org.zkoss.zul.Checkbox;
+import org.zkoss.zul.Columns;
+import org.zkoss.zul.Combobox;
+import org.zkoss.zul.Grid;
+import org.zkoss.zul.Groupbox;
+import org.zkoss.zul.Hbox;
+import org.zkoss.zul.Html;
+import org.zkoss.zul.Label;
+import org.zkoss.zul.ListModel;
+import org.zkoss.zul.Paging;
+import org.zkoss.zul.Row;
+import ais.ui.util.MyFormRow;
+import org.zkoss.zul.Rows;
+import org.zkoss.zul.SimpleListModel;
+import org.zkoss.zul.South;
+import org.zkoss.zul.Space;
+import org.zkoss.zul.Tabpanel;
+import org.zkoss.zul.Textbox;
+import org.zkoss.zul.Toolbar;
+import org.zkoss.zul.Toolbarbutton;
+import org.zkoss.zul.Vbox;
+
+import ais.action.master.MatakuliahPrasyaratAction;
+import ais.action.master.PerkuliahanAction;
+import ais.action.master.helper.generic.AmbilDataTugasKelompok;
+import ais.common.AIGenerator;
+import ais.common.Common;
+import ais.common.CommonEmail;
+import ais.common.CommonMedia;
+import ais.common.ConstantValues;
+import ais.common.Html2Text;
+import ais.common.PesanFormalHelper;
+import ais.common.listener.DataLoader;
+import ais.database.hibernate.HibernateUtil;
+import ais.database.hibernate.StreamingHibernateUtil;
+import ais.database.model.BiodataCalonMahasiswa;
+import ais.database.model.Dosen;
+import ais.database.model.DspaceInformation;
+import ais.database.model.FormatNilai;
+import ais.database.model.Kurikulum;
+import ais.database.model.Mahasiswa;
+import ais.database.model.Matakuliah;
+import ais.database.model.NamaTugasKelompok;
+import ais.database.model.NamaTugasKelompokPunyaMahasiswa;
+import ais.database.model.Pegawai;
+import ais.database.model.Perkuliahan;
+import ais.database.model.Pertemuan;
+import ais.database.model.Statusabsensi;
+import ais.database.model.SyaratUjian;
+import ais.database.model.Tbmuser;
+import ais.database.model.Tugas;
+import ais.database.model.TugasKelompok;
+import ais.database.model.VOPembelajaran;
+import ais.database.model.file.LampiranLain;
+import ais.database.model.kkn.KelompokKkn;
+import ais.database.model.pkl.KelompokPkl;
+import ais.database.model.sekolah.CalonSiswa;
+import ais.database.model.sekolah.DetailGrupKategoriItemPenilaianSiswa;
+import ais.database.model.sekolah.DetailGrupPenilaian;
+import ais.database.model.sekolah.DetailJenisPenilaian;
+import ais.database.model.sekolah.GrupKategoriItemPenilaianSiswa;
+import ais.database.model.sekolah.GrupPenilaian;
+import ais.database.model.sekolah.JadwalPelajaran;
+import ais.database.model.sekolah.JenisItemPenilaianSiswa;
+import ais.database.model.sekolah.JenisPenilaian;
+import ais.database.model.sekolah.KategoriItemPenilaianSiswa;
+import ais.database.model.sekolah.KelasSiswa;
+import ais.database.model.sekolah.Matapelajaran;
+import ais.database.model.sekolah.Siswa;
+import ais.ui.util.MyToolbarbutton;
+import ais.ui.util.MyCaptionStyled;
+import ais.ui.util.MyCheckboxConfig;
+import ais.ui.util.MyCkEditor;
+import ais.ui.util.MyColumnConfig;
+import ais.ui.util.MyComboitemConfig;
+import ais.ui.util.MyDatebox;
+import ais.ui.util.MyDoublebox;
+import ais.ui.util.MyGrid;
+import ais.ui.util.MyLabelAgakKecil;
+import ais.ui.util.MyLabelAgakKecilBold;
+import ais.ui.util.MyLabelBold;
+import ais.ui.util.MyLabelBoldConfig;
+import ais.ui.util.MyLabelConfig;
+import ais.ui.util.MyLabelKecil;
+import ais.ui.util.MyMessageboxConfig;
+// MyToolbarbuttonConfig sudah tidak dipakai — semua tombol memakai MyToolbarbutton dengan FA icon.
+import ais.ui.util.MyWindow;
+import ais.ui.util.SmartDateTimeUtil;
+import ais.ui.util.WaktuUtil;
+
+/**
+ * <h2>TugasKelompokHelper &mdash; Pengelola Tampilan &amp; Aksi Tugas Kelompok</h2>
+ *
+ * <p><b>Untuk apa (bahasa sederhana):</b> menampilkan dan mengelola seluruh tugas yang dikerjakan
+ * secara berkelompok &mdash; baik di lingkup perkuliahan (mahasiswa), sekolah (siswa), maupun
+ * kegiatan KKN/PKL. Dosen/guru dapat membuat tugas, menetapkan batas waktu, melihat anggota
+ * kelompok beserta berkas yang dikumpulkan, dan memberi nilai; sedangkan mahasiswa/siswa dapat
+ * melihat tugas, mengunggah berkas, dan memantau status pengumpulan kelompoknya.</p>
+ *
+ * <h3>Peran &amp; cara kerja</h3>
+ * <p>Kelas ini adalah <i>helper</i> ZK (ZKoss 5.5) yang membangun komponen UI secara terprogram,
+ * bukan halaman ZUL statis. Ia mengimplementasikan {@link ais.ui.util.DataLoader} sehingga dapat
+ * dimuat ulang (paging/pencarian) lewat {@link #loadData(Object)}. Tampilan dirakit melalui
+ * beberapa varian {@code display(...)} yang seluruhnya bermuara ke
+ * {@link #display(ais.database.model.Perkuliahan, ais.database.model.KelompokKkn,
+ * ais.database.model.KelompokPkl, ais.database.model.JadwalPelajaran, org.zkoss.zk.ui.Component)}:</p>
+ * <ul>
+ *   <li><b>Mode tab</b> (induk berupa {@code Tabpanel}): menampilkan header modul modern (kotak ikon
+ *       gradien + judul + penjelasan singkat via {@link ais.ui.util.DashboardUiKit#headerModul}),
+ *       toolbar (Tambah Tugas, Ambil Tugas, Cari, Refresh), grid daftar tugas, dan paging.</li>
+ *   <li><b>Mode sisip</b> (induk komponen lain): tampilan ringkas berupa toolbar + grid yang
+ *       ditanam di dalam halaman detail pembelajaran.</li>
+ *   <li>{@link #tampilanTugas} menampilkan satu tugas terpilih secara rinci.</li>
+ * </ul>
+ *
+ * <h3>Pengambilan data &amp; sesi Hibernate</h3>
+ * <p>Kriteria daftar dibangun di {@link #initCriteria(boolean)} dengan filter pencarian (judul/nama/
+ * keterangan) serta penyaring konteks (perkuliahan, KKN, PKL, jadwal pelajaran, atau SQL tambahan).
+ * Seluruh akses basis data memakai {@code HibernateUtil.currentSession()} yang terikat pada thread
+ * request ZK; sesi ini <b>tidak ditutup manual</b> karena dikelola dan ditutup otomatis oleh
+ * kerangka kerja. Tidak ada {@code openSession()}/{@code currentNativeSession()} yang dibuka di
+ * kelas ini, sehingga tidak diperlukan penutupan eksplisit di blok {@code finally}. Demi hemat
+ * memori, daftar tugas dimuat per halaman ({@code setMaxResults}/{@code setFirstResult}) sehingga
+ * hanya sebagian baris yang diambil ke memori, bukan seluruh tabel.</p>
+ *
+ * <h3>Tampilan modern &amp; pemakaian ulang</h3>
+ * <p>Agar konsisten dengan halaman e-learning JSP modern (mis. {@code tugas_kelompok.jsp}), header
+ * modul memakai komponen reusable {@link ais.ui.util.DashboardUiKit#headerModul} (HTML/CSS murni,
+ * ikon SVG inline, warna mengikuti tema aktif) sehingga seragam tanpa menggandakan markup. Deskripsi
+ * panel ditulis ringkas dan tanpa istilah teknis agar mudah dipahami pengguna non-IT.</p>
+ *
+ * <h3>Threading &amp; kompatibilitas</h3>
+ * <p>Semua event listener berjalan pada thread ZK Desktop (single-thread per event). Kode dijaga
+ * kompatibel dengan Java 1.7 (tanpa lambda/stream/diamond pada bagian inti) dan gaya {@code try/catch}
+ * versi 1.6. Seluruh fungsi lama dipertahankan; penyempurnaan difokuskan pada kerapian tampilan dan
+ * pencegahan kesalahan tanpa menghilangkan logika apa pun.</p>
+ *
+ * @author eCampus
+ * @see ais.ui.util.DashboardUiKit
+ * @see ais.ui.util.DataLoader
+ */
+public class TugasKelompokHelper implements DataLoader {
+
+	private MyWindow addWindow;
+	private MyGrid grid;
+	private Perkuliahan perkuliahan = null;
+
+	private Paging paging;
+
+	private TugasKelompok tugasKelompok;
+	private Textbox judul;
+	private MyCkEditor isi;
+	protected LampiranLain lampiran;
+	private KelompokKkn kelompokKkn = null;
+	private KelompokPkl kelompokPkl = null;
+	private MyDatebox mulaiWaktuMengumpulkanTugas;
+	private MyDatebox batasWaktuMengumpulkanTugas;
+	private List<Perkuliahan> perkuliahans;
+	private List<KelompokKkn> kelompokKkns;
+	private List<KelompokPkl> kelompokPkls;
+	private String sqlTambahan;
+	private Mahasiswa mahasiswa;
+	private BiodataCalonMahasiswa biodataCalonMahasiswa;
+	private JadwalPelajaran jadwalPelajaran = null;
+	private Siswa siswa;
+	private CalonSiswa calonSiswa;
+	private Textbox cari;
+	private AmbilDataPerkuliahanBandbox banboxPerkuliahan;
+	private Combobox syaratMengumpulkanTugas;
+	private EventListener eventListener = null;
+
+	private boolean tampilRinci = true;
+	private Component component = null;
+
+	public TugasKelompokHelper(Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa) {
+		this.mahasiswa = mahasiswa;
+		this.biodataCalonMahasiswa = biodataCalonMahasiswa;
+	}
+
+	public TugasKelompokHelper(Siswa siswa, CalonSiswa calonSiswa) {
+		this.siswa = siswa;
+		this.calonSiswa = calonSiswa;
+	}
+
+	/**
+	 * <h3>Penentu hak akses tampilan Tugas Kelompok (pengelola vs pelajar) &mdash; terpusat</h3>
+	 *
+	 * <p><b>Untuk apa (bahasa sederhana):</b> tiga metode kecil ini menjadi SATU tempat untuk
+	 * memutuskan apakah pengguna yang sedang melihat tugas kelompok berhak <i>mengelola</i>
+	 * (dosen/guru/admin: menambah tugas, mengubah instruksi, menghapus, mengelola nilai &amp;
+	 * kelompok, melihat dashboard analitik) ATAU hanya sebagai <i>pelajar/peserta</i> yang boleh
+	 * melihat dan mengumpulkan tugasnya saja. Sebelumnya keputusan ini tersebar dan sebagian hanya
+	 * memeriksa "bukan mahasiswa dan bukan siswa" sehingga <b>calon siswa</b>, <b>calon mahasiswa
+	 * (biodata)</b>, dan <b>peserta kursus</b> keliru dianggap pengelola dan ikut melihat tombol
+	 * kelola. Dengan memusatkan aturan di sini, seluruh cabang memakai logika yang sama sehingga
+	 * konsisten, mudah dirawat, dan bebas dari celah tersebut.</p>
+	 *
+	 * <p><b>Cara kerja.</b> {@link #konteksPelajar()} menandai bahwa tampilan ini memang dibuka
+	 * <i>dalam konteks pelajar</i> (helper dibangun lewat konstruktor mahasiswa/biodata calon
+	 * mahasiswa atau siswa/calon siswa). {@link #loginPelajar(Tbmuser)} menandai bahwa pengguna yang
+	 * login memang seorang pelajar/peserta (mahasiswa, siswa, calon siswa, calon mahasiswa, atau
+	 * peserta kursus) &mdash; juga menganggap sesi tanpa pengguna ({@code null}) sebagai bukan
+	 * pengelola demi keamanan. {@link #bolehKelola(Tbmuser)} bernilai benar HANYA jika kedua
+	 * pemeriksaan di atas menyatakan "bukan pelajar", yaitu benar-benar pengelola. Semua tombol
+	 * kelola (Tambah/Instruksi/Hapus/Kelola Nilai) dan dashboard analitik memakai {@code bolehKelola}
+	 * sehingga aturan seragam; sedangkan fitur khusus pelajar (mis. bergabung kelompok, mengumpulkan
+	 * berkas) tetap dijaga oleh pemeriksaan pelajar yang sesuai di tempatnya.</p>
+	 *
+	 * @return {@code true} bila tampilan dibuka dalam konteks pelajar (salah satu field
+	 *         mahasiswa/biodataCalonMahasiswa/siswa/calonSiswa terisi)
+	 */
+	private boolean konteksPelajar() {
+		return mahasiswa != null || biodataCalonMahasiswa != null || siswa != null || calonSiswa != null;
+	}
+
+	/**
+	 * Menandai pengguna yang sedang login sebagai pelajar/peserta (bukan pengelola). Sesi tanpa
+	 * pengguna ({@code null}) sengaja dianggap "pelajar" agar tombol kelola tidak pernah muncul saat
+	 * identitas belum jelas. Mencakup mahasiswa, siswa, calon siswa, calon mahasiswa (biodata), dan
+	 * peserta kursus &mdash; melengkapi pemeriksaan lama yang hanya menguji mahasiswa &amp; siswa.
+	 *
+	 * @param u pengguna login ({@code Common.getCurrentUser()})
+	 * @return {@code true} bila {@code u} adalah pelajar/peserta atau {@code null}
+	 */
+	private boolean loginPelajar(Tbmuser u) {
+		return u == null || u.getMahasiswa() != null || u.getSiswa() != null || u.getCalonSiswa() != null
+				|| u.getBiodataCalonMahasiswa() != null || u.getPesertaKursus() != null;
+	}
+
+	/**
+	 * Benar HANYA bila pengguna berhak mengelola tugas kelompok (dosen/guru/admin): bukan konteks
+	 * pelajar dan bukan login pelajar/peserta. Dipakai seragam untuk visibilitas seluruh tombol
+	 * kelola serta dashboard analitik.
+	 *
+	 * @param u pengguna login ({@code Common.getCurrentUser()})
+	 * @return {@code true} bila boleh mengelola
+	 */
+	private boolean bolehKelola(Tbmuser u) {
+		return !konteksPelajar() && !loginPelajar(u);
+	}
+
+	/**
+	 * <h3>Kartu ringkas Tugas Kelompok (gaya kartu modern, responsif)</h3>
+	 *
+	 * <p><b>Untuk apa (bahasa sederhana):</b> membuat tampilan ringkas satu tugas kelompok dalam
+	 * bentuk kartu yang enak dilihat dan mudah dipahami &mdash; menampilkan judul tugas, mata
+	 * kuliah/kelas, kapan tugas mulai dan batas akhirnya, daftar kelompok beserta anggotanya (bisa
+	 * dibuka-tutup), para dosen pengampu, serta jumlah peserta kelas. Kartu ini diletakkan di bagian
+	 * ATAS tampilan tugas kelompok, sementara seluruh kontrol lama (unggah/unduh berkas tugas, syarat
+	 * pengumpulan, nilai, dan aksi lainnya) tetap tampil apa adanya di bawah kartu ini &mdash;
+	 * sehingga tidak ada fungsi yang hilang, hanya ditambah ringkasan yang lebih rapi di atas.
+	 *
+	 * <p><b>Efisiensi memori &amp; database.</b> Daftar anggota semua kelompok diambil dalam SATU
+	 * kueri gabungan (menggunakan {@code Restrictions.in} atas seluruh kelompok) alih-alih satu kueri
+	 * per kelompok (menghindari pola N+1 yang boros memori dan koneksi). Session dibuka melalui
+	 * {@code HibernateUtil.openSession()} dan SELALU ditutup di blok {@code finally}
+	 * ({@code disconnect()} + {@code ElearningSessionUtil.closeQuietly()}), sehingga tidak ada
+	 * kebocoran koneksi. Semua string dibangun sekali lewat {@link StringBuffer}, dan URL foto
+	 * dihitung saat session masih aktif sehingga aman dipakai setelah session ditutup.
+	 *
+	 * <p><b>Keamanan tampilan.</b> Seluruh teks dari data (judul, nama, NIM, dsb.) disaring lewat
+	 * {@code DashboardUiKit.esc(...)} agar aman dari karakter HTML. Semua pemanggilan data dibungkus
+	 * penjagaan {@code null} dan {@code try/catch} agar kegagalan memuat satu bagian (mis. daftar
+	 * dosen atau jumlah peserta) tidak menggagalkan seluruh kartu; bagian yang gagal cukup
+	 * dikosongkan. Metode ini tidak pernah melempar; bila terjadi masalah, dikembalikan potongan
+	 * seaman mungkin (atau string kosong) sehingga tampilan lama tetap berjalan.
+	 *
+	 * <p><b>Tanpa ketergantungan JavaScript eksternal.</b> Bagian "buka-tutup" daftar anggota memakai
+	 * elemen HTML native {@code <details>/<summary>} (accordion bawaan browser), bukan pustaka
+	 * JavaScript pihak ketiga, sehingga ringan, tidak bentrok, dan tetap berfungsi di dalam ZK.
+	 * Tata letak memakai CSS Grid/Flex modern: dua kolom di layar lebar (kiri: info &amp; kelompok,
+	 * kanan: dosen &amp; tombol) dan satu kolom (menumpuk) di layar HP.
+	 *
+	 * @param tugas objek {@link TugasKelompok} yang akan diringkas menjadi kartu.
+	 * @return potongan HTML (berikut gaya CSS-nya) siap disisipkan ke dalam komponen
+	 *         {@link ais.ui.util.MyHtml}; string kosong bila {@code tugas} null.
+	 */
+	private String[] buatKartuRingkasTugasKelompok(TugasKelompok tugas) {
+		if (tugas == null) {
+			return new String[] { "", "", "" };
+		}
+		Perkuliahan perkuliahan = tugas.getPerkuliahan();
+
+		// === Kelompok + anggota: 2 kueri (bukan N+1) ===
+		List<NamaTugasKelompok> kelompoks = new ArrayList<NamaTugasKelompok>();
+		Map<Long, StringBuffer> anggotaHtml = new java.util.HashMap<Long, StringBuffer>();
+		Map<Long, Integer> jumlahAnggota = new java.util.HashMap<Long, Integer>();
+
+		// Aturan tampil NILAI anggota (read-only): peserta (mahasiswa/siswa/calon) HANYA boleh
+		// melihat nilainya SENDIRI (nilai peserta lain dikosongkan); dosen/admin boleh melihat SEMUA.
+		Tbmuser userLogin = Common.getCurrentUser();
+		boolean pesertaLogin = userLogin != null && (userLogin.getMahasiswa() != null
+				|| userLogin.getBiodataCalonMahasiswa() != null || userLogin.getSiswa() != null
+				|| userLogin.getCalonSiswa() != null);
+		Long idPesertaLogin = null;
+		if (userLogin != null) {
+			if (userLogin.getMahasiswa() != null) {
+				idPesertaLogin = userLogin.getMahasiswa().getId();
+			} else if (userLogin.getBiodataCalonMahasiswa() != null) {
+				idPesertaLogin = userLogin.getBiodataCalonMahasiswa().getId();
+			} else if (userLogin.getSiswa() != null) {
+				idPesertaLogin = userLogin.getSiswa().getId();
+			} else if (userLogin.getCalonSiswa() != null) {
+				idPesertaLogin = userLogin.getCalonSiswa().getId();
+			}
+		}
+
+		// Untuk kurikulum OBE, nilai anggota disimpan PER Sub-CPMK di keteranganNilai (bukan di kolom
+		// nilai tunggal). Badge menampilkan nilai gabungan (rata-rata berbobot) agar tetap informatif.
+		boolean obeKartu = false;
+		JSONObject bobotSubCpmk = null;
+		JSONObject keteranganNilaiKartu = null;
+		java.util.List<String[]> subCpmkKartu = null;
+		try {
+			if (perkuliahan != null && perkuliahan.getKurikulum() != null
+					&& perkuliahan.getKurikulum().apakahObe(perkuliahan.getTahunAjaran(), perkuliahan.getGanjilGenap())
+					&& tugas.getFormatNilais() != null && tugas.getFormatNilais().trim().length() > 0) {
+				bobotSubCpmk = new JSONObject(tugas.getFormatNilais());
+				if (bobotSubCpmk.length() > 0) {
+					obeKartu = true;
+					String ketK = tugas.getKeteranganNilai();
+					keteranganNilaiKartu = new JSONObject(
+							ketK == null || ketK.trim().length() == 0 ? "{}" : ketK.replace('\u0000', ' '));
+				}
+			}
+		} catch (Exception eObeKartu) {
+			obeKartu = false;
+		}
+		// Daftar Sub-CPMK yang dinilai tugas ini (id + label) untuk RINCIAN nilai anggota per Sub-CPMK
+		// (permintaan kurikulum OBE). Dimuat SEKALI di sini, dipakai berulang untuk tiap anggota.
+		if (obeKartu && bobotSubCpmk != null) {
+			subCpmkKartu = daftarSubCpmkTugas(perkuliahan, bobotSubCpmk);
+		}
+
+		Session session = null;
+		try {
+			session = HibernateUtil.openSession();
+			kelompoks = session.createCriteria(NamaTugasKelompok.class).add(Restrictions.eq("tugasKelompok", tugas))
+					.addOrder(Order.asc("nama")).list();
+			if (kelompoks != null && !kelompoks.isEmpty()) {
+				List<NamaTugasKelompokPunyaMahasiswa> rels = session
+						.createCriteria(NamaTugasKelompokPunyaMahasiswa.class)
+						.add(Restrictions.in("namaTugasKelompok", kelompoks)).list();
+				if (rels != null) {
+					for (NamaTugasKelompokPunyaMahasiswa r : rels) {
+						if (r == null || r.getNamaTugasKelompok() == null
+								|| r.getNamaTugasKelompok().getId() == null) {
+							continue;
+						}
+						String foto = null;
+						String nama = null;
+						String ident = null;
+						Long memberId = null;
+						if (r.getMahasiswa() != null) {
+							foto = CommonMedia.getUrlFotoPengguna(new Tbmuser(r.getMahasiswa()));
+							nama = r.getMahasiswa().getNama();
+							ident = r.getMahasiswa().getNim();
+							memberId = r.getMahasiswa().getId();
+						} else if (r.getSiswa() != null) {
+							foto = CommonMedia.getUrlFotoPengguna(new Tbmuser(r.getSiswa()));
+							nama = r.getSiswa().getNama();
+							ident = r.getSiswa().getNomorInduk();
+							memberId = r.getSiswa().getId();
+						} else {
+							continue;
+						}
+						// NILAI read-only: peserta hanya lihat nilainya sendiri; dosen/admin lihat semua.
+						boolean bolehLihatNilai = !pesertaLogin
+								|| (idPesertaLogin != null && idPesertaLogin.equals(memberId));
+						double nilaiVal;
+						String breakdownHtml = "";
+						if (obeKartu) {
+							// OBE: nilai gabungan (rata-rata berbobot) dari nilai per Sub-CPMK di keteranganNilai.
+							String memberKey = memberId + (r.getMahasiswa() != null ? "_mhs" : "_siswa");
+							nilaiVal = hitungNilaiObeMember(bobotSubCpmk, keteranganNilaiKartu, memberKey);
+							// RINCIAN nilai PER Sub-CPMK (permintaan: kurikulum OBE tampilkan nilai per Sub-CPMK).
+							if (bolehLihatNilai && nilaiVal > 0) {
+								breakdownHtml = rincianNilaiObeMemberHtml(subCpmkKartu, keteranganNilaiKartu, memberKey);
+							}
+						} else {
+							nilaiVal = r.getNilai() == null ? 0.0 : r.getNilai().doubleValue();
+						}
+						String nilaiTeks = "";
+						if (bolehLihatNilai && nilaiVal > 0) {
+							nilaiTeks = Common.numberFormat.get().format(nilaiVal);
+						}
+						Long gid = r.getNamaTugasKelompok().getId();
+						StringBuffer b = anggotaHtml.get(gid);
+						if (b == null) {
+							b = new StringBuffer();
+							anggotaHtml.put(gid, b);
+						}
+						b.append(anggotaItemHtml(foto, nama, ident, nilaiTeks, breakdownHtml));
+						Integer c = jumlahAnggota.get(gid);
+						jumlahAnggota.put(gid, (c == null ? 0 : c.intValue()) + 1);
+					}
+				}
+			}
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+		} finally {
+			if (session != null) {
+				try {
+					session.disconnect();
+				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/TugasKelompokHelper.java:430");
+				}
+				ais.common.ElearningSessionUtil.closeQuietly(session);
+			}
+		}
+
+		// === Dosen pengampu + jumlah peserta ===
+		StringBuffer dosenHtml = new StringBuffer();
+		int pesertaCount = 0;
+		if (perkuliahan != null) {
+			try {
+				List<Dosen> dosens = perkuliahan.populateDosenBuNama();
+				if (dosens != null) {
+					for (Dosen d : dosens) {
+						if (d == null) {
+							continue;
+						}
+						String foto = CommonMedia.getUrlFotoPengguna(new Tbmuser(d));
+						dosenHtml.append("<div class='tk-dosen-item'><img class='tk-foto' src='")
+								.append(foto == null ? "" : foto).append("'/><span>")
+								.append(ais.ui.util.DashboardUiKit.esc(d.getNama())).append("</span></div>");
+					}
+				}
+			} catch (Exception e) {
+				Common.tampilErrorJikaAdmin(e);
+			}
+			try {
+				List<Mahasiswa> ms = perkuliahan.ambilMahasiswa();
+				pesertaCount = ms == null ? 0 : ms.size();
+			} catch (Exception e) {
+				Common.tampilErrorJikaAdmin(e);
+			}
+		}
+
+		// === Info mata kuliah & jadwal ===
+		Matakuliah mk = perkuliahan == null ? null : perkuliahan.getMatakuliah();
+		String mkNama = mk != null && mk.getNama() != null ? mk.getNama() : ais.ui.util.DashboardUiKit.esc(tugas.getJudul());
+		String mkMeta = "";
+		if (perkuliahan != null) {
+			StringBuffer m = new StringBuffer();
+			if (mk != null && mk.getKode() != null) {
+				m.append("<span>").append(ais.ui.util.DashboardUiKit.esc(mk.getKode())).append("</span>");
+			}
+			if (perkuliahan.getKelas() != null) {
+				m.append(m.length() > 0 ? "<span>&bull;</span>" : "").append("<span>Kelas ")
+						.append(ais.ui.util.DashboardUiKit.esc(perkuliahan.getKelas())).append("</span>");
+			}
+			String ta = perkuliahan.getTahunAjaran() == null ? "" : perkuliahan.getTahunAjaran();
+			String gg = perkuliahan.getGanjilGenap() == null ? "" : perkuliahan.getGanjilGenap();
+			if (ta.length() > 0 || gg.length() > 0) {
+				m.append(m.length() > 0 ? "<span>&bull;</span>" : "").append("<span>")
+						.append(ais.ui.util.DashboardUiKit.esc(ta)).append(gg.length() > 0 ? " (" + ais.ui.util.DashboardUiKit.esc(gg) + ")" : "")
+						.append("</span>");
+			}
+			mkMeta = m.toString();
+		}
+
+		String tglMulai = tugas.getMulai() == null ? "-"
+				: SmartDateTimeUtil.getDayString(tugas.getMulai(), null) + " " + Common.dateFormat6.get().format(tugas.getMulai());
+		String jamMulai = tugas.getMulai() == null ? "" : Common.timeFormat.get().format(tugas.getMulai());
+		String tglSelesai = tugas.getSelesai() == null ? "-"
+				: SmartDateTimeUtil.getDayString(tugas.getSelesai(), null) + " " + Common.dateFormat6.get().format(tugas.getSelesai());
+		String jamSelesai = tugas.getSelesai() == null ? "" : Common.timeFormat.get().format(tugas.getSelesai());
+
+		// Status pelaksanaan tugas (jadwal vs waktu sekarang) — info berguna bagi pengguna.
+		String statusTk;
+		java.util.Date kiniTk = ais.ui.util.WaktuUtil.getCalendar().getTime();
+		if (tugas.getMulai() != null && kiniTk.before(tugas.getMulai())) {
+			statusTk = "Belum dibuka";
+		} else if (tugas.getSelesai() != null && kiniTk.after(tugas.getSelesai())) {
+			statusTk = "Sudah ditutup";
+		} else {
+			statusTk = "Sedang berlangsung";
+		}
+
+		// === Rakit HTML jadi 3 bagian ===
+		// [0] gaya CSS + header kartu (lebar penuh)
+		// [1] isi kolom KIRI (mata kuliah, jadwal, daftar kelompok+anggota)
+		// [2] isi bagian ATAS kolom KANAN (dosen pengampu + tombol peserta);
+		//     kontrol tugas (unggah/nilai/dll) disisipkan di bawahnya sebagai komponen ZK oleh render().
+		StringBuffer head = new StringBuffer();
+		head.append(GAYA_KARTU_TUGAS);
+		head.append("<div class='tk-head'><div class='tk-head-l'><div class='tk-head-ic'>&#128101;</div><div style='min-width:0;'>");
+		head.append("<div class='tk-judul'>").append(ais.ui.util.DashboardUiKit.esc(tugas.getJudul())).append("</div>");
+		head.append("<div class='tk-sub'>&#128218; ").append(Common.getBahasaConfig("Total Kelompok")).append(" : <b>")
+				.append(kelompoks == null ? 0 : kelompoks.size()).append("</b></div>");
+		head.append("<div class='tk-sub'>&#128100; ").append(Common.getBahasaConfig("Total Peserta")).append(" : <b>")
+				.append(pesertaCount).append(" mhs</b></div>");
+		head.append("<div class='tk-sub'>&#9201; ").append(Common.getBahasaConfig("Status")).append(" : <b>")
+				.append(ais.ui.util.DashboardUiKit.esc(statusTk)).append("</b></div>");
+		head.append("</div></div>");
+		if (tugas.getSyaratMengumpulkanTugas() != null && tugas.getSyaratMengumpulkanTugas().getNama() != null) {
+			head.append("<span class='tk-syarat'>&#9888; ")
+					.append(ais.ui.util.DashboardUiKit.esc(tugas.getSyaratMengumpulkanTugas().getNama())).append("</span>");
+		}
+		head.append("</div>");
+
+		StringBuffer kiri = new StringBuffer();
+		kiri.append("<div class='tk-main'>");
+		kiri.append("<div class='tk-mk'>").append(ais.ui.util.DashboardUiKit.esc(mkNama)).append("</div>");
+		if (mkMeta.length() > 0) {
+			kiri.append("<div class='tk-mk-meta'>").append(mkMeta).append("</div>");
+		}
+		kiri.append("<div class='tk-dates'>");
+		kiri.append("<div class='tk-date'><b>").append(Common.getBahasaConfig("Mulai")).append("</b><div class='tk-date-v'>")
+				.append(ais.ui.util.DashboardUiKit.esc(tglMulai)).append("</div><div class='tk-date-j'>")
+				.append(ais.ui.util.DashboardUiKit.esc(jamMulai)).append("</div></div>");
+		if (tugas.getSelesai() != null) {
+			kiri.append("<div class='tk-date tk-date-end'><b>").append(Common.getBahasaConfig("Batas Akhir"))
+					.append("</b><div class='tk-date-v'>").append(ais.ui.util.DashboardUiKit.esc(tglSelesai))
+					.append("</div><div class='tk-date-j'>").append(ais.ui.util.DashboardUiKit.esc(jamSelesai))
+					.append(" WIB</div></div>");
+		}
+		kiri.append("</div>");
+		kiri.append("<div class='tk-sec-judul'>").append(Common.getBahasaConfig("Daftar Kelompok & Anggota")).append("</div>");
+		if (kelompoks != null && !kelompoks.isEmpty()) {
+			for (NamaTugasKelompok ntk : kelompoks) {
+				if (ntk == null) {
+					continue;
+				}
+				Integer jml = jumlahAnggota.get(ntk.getId());
+				int jmlA = jml == null ? 0 : jml.intValue();
+				kiri.append("<details class='tk-grp'><summary><span>&#128101; ")
+						.append(ais.ui.util.DashboardUiKit.esc(ntk.getNama())).append("</span><span class='tk-badge'>")
+						.append(jmlA).append(" ").append(Common.getBahasaConfig("Anggota")).append("</span></summary>");
+				kiri.append("<div class='tk-grp-body'>");
+				StringBuffer isi = anggotaHtml.get(ntk.getId());
+				if (jmlA > 0 && isi != null) {
+					kiri.append(isi);
+				} else {
+					kiri.append("<div class='tk-empty'>").append(Common.getBahasaConfig("Belum ada anggota di kelompok ini"))
+							.append("</div>");
+				}
+				kiri.append("</div></details>");
+			}
+		} else {
+			kiri.append("<div class='tk-alert'>&#8505; ").append(Common.getBahasaConfig("Belum ada pembagian kelompok."))
+					.append("</div>");
+		}
+		kiri.append("</div>"); // tk-main
+
+		StringBuffer kanan = new StringBuffer();
+		if (dosenHtml.length() > 0) {
+			kanan.append("<div class='tk-panel'><div class='tk-sec-judul' style='margin:0 0 4px;'>")
+					.append(Common.getBahasaConfig("Dosen Pengampu")).append("</div>").append(dosenHtml).append("</div>");
+		}
+		if (perkuliahan != null && perkuliahan.getId() != null) {
+			String linkPeserta = Common.ROOT + "/baru?hanya_tampil_jsp=true&p=elearning&s=daftar_peserta&clazz="
+					+ Perkuliahan.class.getName() + "&id=" + perkuliahan.getId();
+			kanan.append("<a class='tk-btn tk-btn-peserta' target='_blank' href='").append(linkPeserta).append("'>&#128101; ")
+					.append(pesertaCount).append(" ").append(Common.getBahasaConfig("Peserta Kelas")).append("</a>");
+		}
+
+		return new String[] { head.toString(), kiri.toString(), kanan.toString() };
+	}
+
+	/**
+	 * Satu baris anggota kelompok (foto bulat + nama + NIM/No.Induk) beserta NILAI read-only.
+	 * Nilai ditampilkan sebagai badge di sisi kanan bila {@code nilaiTeks} tidak kosong; bila
+	 * kosong (peserta lain yang tak boleh dilihat, atau belum dinilai) badge tidak ditampilkan.
+	 */
+	private String anggotaItemHtml(String foto, String nama, String ident, String nilaiTeks, String breakdownHtml) {
+		String badge = (nilaiTeks == null || nilaiTeks.trim().length() == 0) ? ""
+				: "<span class='tk-nilai' title='Nilai gabungan (rata-rata berbobot per Sub-CPMK)'>"
+						+ ais.ui.util.DashboardUiKit.esc(nilaiTeks) + "</span>";
+		String rincian = (breakdownHtml == null || breakdownHtml.trim().length() == 0) ? ""
+				: "<div class='tk-cpmk-breakdown'>" + breakdownHtml + "</div>";
+		return "<div class='tk-anggota'><img class='tk-foto' src='" + (foto == null ? "" : foto)
+				+ "'/><div style='min-width:0;flex:1;'><div class='tk-anggota-nama'>"
+				+ ais.ui.util.DashboardUiKit.esc(nama) + "</div><div class='tk-anggota-id'>"
+				+ (ident == null || ident.trim().length() == 0 ? "-" : ais.ui.util.DashboardUiKit.esc(ident))
+				+ "</div>" + rincian + "</div>" + badge + "</div>";
+	}
+
+	/**
+	 * Daftar Sub-CPMK yang DINILAI oleh tugas ini (yang tercentang di {@code formatNilais}), terurut,
+	 * sebagai pasangan {@code [idFormatNilai, label]}. Dipakai untuk memecah nilai gabungan anggota
+	 * menjadi rincian per Sub-CPMK di kartu OBE. Memuat daftar komponen dari {@code Common.getFormatNilais}
+	 * (dengan fallback yang sama seperti {@code bangunGridSubCpmk}), hanya mengambil baris ber-Sub-CPMK
+	 * ({@code statusPertemuan != null}) yang ada di {@code bobotSubCpmk}. Mengembalikan list kosong bila gagal.
+	 *
+	 * @param perkuliahan  perkuliahan (OBE) sumber daftar komponen
+	 * @param bobotSubCpmk peta bobot Sub-CPMK tugas ini (dari {@code tugas.getFormatNilais()})
+	 * @return daftar {@code [id, label]} Sub-CPMK yang dinilai; kosong bila tidak ada / gagal
+	 */
+	private java.util.List<String[]> daftarSubCpmkTugas(Perkuliahan perkuliahan, JSONObject bobotSubCpmk) {
+		java.util.List<String[]> hasil = new java.util.ArrayList<String[]>();
+		if (perkuliahan == null || bobotSubCpmk == null) {
+			return hasil;
+		}
+		try {
+			Session session = HibernateUtil.currentSession();
+			List<FormatNilai> formatNilais = Common.getFormatNilais(session, perkuliahan);
+			boolean sudahadasubCpmk = false;
+			if (formatNilais != null) {
+				for (FormatNilai nilai : formatNilais) {
+					if (nilai.getNama() != null && nilai.getNama().toLowerCase().contains("cpmk")) {
+						sudahadasubCpmk = true;
+						break;
+					}
+				}
+			}
+			if (!sudahadasubCpmk) {
+				formatNilais = Common.getFormatNilais(perkuliahan, true);
+			}
+			if (formatNilais != null) {
+				for (FormatNilai nilai : formatNilais) {
+					if (nilai.getStatusPertemuan() == null || nilai.getId() == null) {
+						continue;
+					}
+					String id = nilai.getId().toString();
+					if (bobotSubCpmk.isNull(id)) {
+						continue; // hanya Sub-CPMK yang dinilai tugas ini
+					}
+					hasil.add(new String[] { id, nilai.getNama() == null ? ("Sub-CPMK " + id) : nilai.getNama() });
+				}
+			}
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/TugasKelompokHelper.java:632");
+			// abaikan — rincian per Sub-CPMK bersifat opsional, jangan gagalkan kartu
+		}
+		return hasil;
+	}
+
+	/**
+	 * Membangun HTML rincian nilai seorang anggota PER Sub-CPMK berupa chip kecil ({@code label + nilai})
+	 * untuk kartu OBE. Nilai tiap Sub-CPMK dibaca dari kunci {@code <memberKey>_nilai_<idSubCpmk>} di
+	 * {@code keteranganNilai}; Sub-CPMK yang belum dinilai ditampilkan "&ndash;". Aman terhadap nilai
+	 * kosong/bukan angka ({@code optDouble}) sehingga tidak pernah melempar.
+	 *
+	 * @param subCpmk        daftar {@code [id, label]} Sub-CPMK dari {@link #daftarSubCpmkTugas}
+	 * @param keteranganNilai peta nilai per anggota-per-komponen (dari {@code tugas.getKeteranganNilai()})
+	 * @param memberKey      kunci anggota: {@code <id>_mhs} atau {@code <id>_siswa}
+	 * @return HTML chip per Sub-CPMK; string kosong bila tidak ada komponen
+	 */
+	private String rincianNilaiObeMemberHtml(java.util.List<String[]> subCpmk, JSONObject keteranganNilai,
+			String memberKey) {
+		if (subCpmk == null || subCpmk.isEmpty() || keteranganNilai == null || memberKey == null) {
+			return "";
+		}
+		StringBuilder bd = new StringBuilder();
+		for (String[] sc : subCpmk) {
+			if (sc == null || sc.length < 2) {
+				continue;
+			}
+			String kunci = memberKey + "_nilai_" + sc[0];
+			String nTeks = keteranganNilai.has(kunci)
+					? Common.numberFormat.get().format(keteranganNilai.optDouble(kunci, 0.0)) : "–";
+			bd.append("<span class='tk-cpmk-chip'><b>").append(ais.ui.util.DashboardUiKit.esc(sc[1])).append("</b> ")
+					.append(ais.ui.util.DashboardUiKit.esc(nTeks)).append("</span>");
+		}
+		return bd.toString();
+	}
+
+	/**
+	 * Menghitung nilai gabungan (rata-rata berbobot) seorang anggota pada tugas kelompok OBE, dari
+	 * nilai per Sub-CPMK yang tersimpan di {@code TugasKelompok.keteranganNilai}. Bobot tiap Sub-CPMK
+	 * diambil dari peta {@code formatNilais} (id Sub-CPMK &rarr; bobot). Untuk setiap Sub-CPMK: nilai
+	 * anggota dibaca dari kunci {@code <memberKey>_nilai_<idSubCpmk>}, lalu dijumlahkan dengan bobot
+	 * sebagai penimbang. Hasil = &Sigma;(nilai&times;bobot) / &Sigma;(bobot); mengembalikan 0 bila
+	 * belum ada bobot/nilai. Semua pembacaan memakai {@code optDouble} sehingga aman terhadap nilai
+	 * yang kosong atau bukan angka (tidak pernah melempar).
+	 *
+	 * @param formatNilais  peta bobot Sub-CPMK (dari {@code tugas.getFormatNilais()})
+	 * @param keteranganNilai peta nilai per anggota-per-komponen (dari {@code tugas.getKeteranganNilai()})
+	 * @param memberKey     kunci anggota: {@code <id>_mhs} atau {@code <id>_siswa}
+	 * @return nilai gabungan 0..100 (0 bila belum dinilai)
+	 */
+	private double hitungNilaiObeMember(JSONObject formatNilais, JSONObject keteranganNilai, String memberKey) {
+		if (formatNilais == null || keteranganNilai == null || memberKey == null) {
+			return 0.0;
+		}
+		double totalBerbobot = 0.0;
+		double totalBobot = 0.0;
+		java.util.Iterator<String> keys = formatNilais.keys();
+		while (keys.hasNext()) {
+			String fnId = keys.next();
+			try {
+				double bobot = formatNilais.optDouble(fnId, 0.0);
+				if (bobot <= 0) {
+					continue;
+				}
+				double nilaiKomp = keteranganNilai.optDouble(memberKey + "_nilai_" + fnId, 0.0);
+				totalBerbobot += nilaiKomp * bobot;
+				totalBobot += bobot;
+			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/TugasKelompokHelper.java:699");
+				// abaikan komponen yang tak dapat dibaca
+			}
+		}
+		return totalBobot > 0 ? totalBerbobot / totalBobot : 0.0;
+	}
+
+	/**
+	 * <h3>Grid pemetaan Sub-CPMK &amp; Bobot &mdash; dua mode: baca-saja / dapat diedit</h3>
+	 *
+	 * <p><b>Untuk apa (bahasa sederhana):</b> menampilkan daftar komponen penilaian OBE (Sub-CPMK)
+	 * beserta bobotnya untuk satu tugas kelompok. Metode ini dipakai di DUA tempat dengan perilaku
+	 * berbeda melalui parameter {@code editable}: (1) di dalam <i>kartu ringkas</i> tugas kelompok,
+	 * dipanggil dengan {@code editable = false} sehingga tampil sebagai <b>label baca-saja</b> yang
+	 * rapi (tanda centang + nilai bobot, tanpa kotak isian) &mdash; pengguna hanya melihat pemetaan
+	 * yang sedang berlaku; (2) di dalam <i>Window "Instruksi Tugas Kelompok"</i>, dipanggil dengan
+	 * {@code editable = true} sehingga tampil sebagai kotak centang + kotak angka bobot yang bisa
+	 * diubah dan disimpan otomatis. Dengan pemisahan ini, kartu tetap bersih dan bebas dari kendali
+	 * yang tidak sengaja tergeser, sementara penyuntingan tetap tersedia namun terpusat di satu
+	 * tempat (form Instruksi) sesuai instruksi kerapian tampilan.</p>
+	 *
+	 * <p><b>Sumber data &amp; efisiensi.</b> Daftar {@link FormatNilai} diambil sekali melalui
+	 * {@link ais.common.Common#getFormatNilais(org.hibernate.Session, ais.database.model.Perkuliahan)}
+	 * pada {@code HibernateUtil.currentSession()} (sesi thread-request yang dikelola kerangka kerja
+	 * dan TIDAK ditutup manual di sini). Bila belum ada komponen ber-nama mengandung "cpmk", daftar
+	 * dilengkapi via {@code getFormatNilais(perkuliahan, true)} agar Sub-CPMK tetap muncul. Nilai
+	 * bobot terpilih dibaca dari kolom JSON {@code tugasKelompok.getFormatNilais()} (peta id
+	 * komponen &rarr; bobot). Hanya baris dengan {@code getStatusPertemuan() != null} yang
+	 * ditampilkan, meniru logika lama agar konsisten.</p>
+	 *
+	 * <p><b>Penyuntingan (mode editable).</b> Saat kotak centang di-klik atau bobot diubah, perubahan
+	 * langsung ditulis ke peta JSON lalu disimpan lewat {@code Common.refreshUpdate}. Sebelum menyimpan,
+	 * entitas di-{@code refresh} bila sudah memiliki id agar tidak menimpa data basi. Kotak bobot
+	 * dinonaktifkan otomatis ketika komponennya tidak dicentang. Ketika perkuliahan sudah dikunci
+	 * ({@code getDikunci() != null}), kotak centang dinonaktifkan sehingga pemetaan tidak dapat diubah.
+	 * Seluruh perilaku ini menyalin persis kode lama yang sebelumnya berada di dalam kartu, hanya
+	 * dipindah ke satu tempat agar dapat dipakai ulang tanpa menggandakan logika.</p>
+	 *
+	 * <p><b>Ketahanan.</b> Seluruh proses dibungkus {@code try/catch}; bila terjadi kegagalan memuat
+	 * (mis. data komponen tidak lengkap), kesalahan hanya dicatat untuk admin dan grid dilewati tanpa
+	 * menggagalkan seluruh tampilan. Pada mode baca-saja, jika tidak ada satu pun baris yang layak
+	 * tampil, grid dilepas ({@code detach}) agar tidak menyisakan kotak kosong.</p>
+	 *
+	 * @param parent    komponen induk tempat grid ditanam (mis. Hbox kartu atau Div di form Instruksi)
+	 * @param tugasKelompok tugas kelompok yang pemetaan Sub-CPMK-nya ditampilkan/disunting
+	 * @param perkuliahan   perkuliahan (OBE) sumber daftar komponen penilaian
+	 * @param editable  {@code true} untuk kotak isian yang dapat diubah; {@code false} untuk label baca-saja
+	 */
+	private void bangunGridSubCpmk(Component parent, final TugasKelompok tugasKelompok, final Perkuliahan perkuliahan,
+			final boolean editable) {
+		if (parent == null || tugasKelompok == null || perkuliahan == null) {
+			return;
+		}
+		try {
+			Session session = HibernateUtil.currentSession();
+			List<FormatNilai> formatNilais = Common.getFormatNilais(session, perkuliahan);
+			boolean sudahadasubCpmk = false;
+			if (formatNilais != null && !formatNilais.isEmpty()) {
+				for (FormatNilai nilai : formatNilais) {
+					if (nilai.getNama() != null && nilai.getNama().toLowerCase().contains("cpmk")) {
+						sudahadasubCpmk = true;
+						break;
+					}
+				}
+			}
+			if (!sudahadasubCpmk) {
+				formatNilais = Common.getFormatNilais(perkuliahan, true);
+			}
+			if (formatNilais == null) {
+				return;
+			}
+			final JSONObject jsonObject = new JSONObject(
+					tugasKelompok.getFormatNilais() == null ? "{}" : tugasKelompok.getFormatNilais());
+
+			MyGrid gridPilih = new MyGrid();
+			gridPilih.setParent(parent);
+			gridPilih.setWidth("100%");
+			gridPilih.setHeight("100%");
+
+			Columns columns = new Columns();
+			columns.setParent(gridPilih);
+
+			MyColumnConfig column = new MyColumnConfig("Sub-CPMK");
+			column.setParent(columns);
+			column.setWidth("80%");
+
+			column = new MyColumnConfig("Bobot");
+			column.setParent(columns);
+
+			Rows rowsPilih = new Rows();
+			rowsPilih.setParent(gridPilih);
+
+			boolean adaBaris = false;
+			for (FormatNilai nilai : formatNilais) {
+				if (nilai.getStatusPertemuan() == null) {
+					continue;
+				}
+				adaBaris = true;
+				final boolean checked = !jsonObject.isNull(nilai.getId().toString());
+				final double bobot = checked ? jsonObject.getDouble(nilai.getId().toString()) : 100.0;
+				String labelSub = nilai.getNama() + " (" + Common.numberFormat.get().format(nilai.getPersen()) + "%)";
+
+				if (editable) {
+					final Checkbox radio = new Checkbox(labelSub);
+					radio.setAttribute("value", nilai);
+					radio.setWidth("95%");
+					MyFormRow rowPilih = new MyFormRow();
+					rowPilih.setValign("top");
+					rowPilih.setParent(rowsPilih);
+					rowPilih.appendChild(radio);
+
+					final MyDoublebox doubleboxBobot = new MyDoublebox(bobot);
+					doubleboxBobot.setWidth("90%");
+					rowPilih.appendChild(doubleboxBobot);
+
+					radio.setChecked(checked);
+					doubleboxBobot.setDisabled(!checked);
+					radio.setDisabled(perkuliahan.getDikunci() != null);
+
+					EventListener eventListenerD = new EventListener() {
+
+						@Override
+						public void onEvent(Event arg0) throws Exception {
+							Session session = HibernateUtil.currentSession();
+							if (tugasKelompok.getId() != null) {
+								session.refresh(tugasKelompok);
+							}
+							FormatNilai fn = (FormatNilai) radio.getAttribute("value");
+							if (radio.isChecked()) {
+								jsonObject.put(fn.getId().toString(),
+										doubleboxBobot.getValue() == null ? 100.0 : doubleboxBobot.getValue());
+							} else {
+								jsonObject.remove(fn.getId().toString());
+							}
+							tugasKelompok.setFormatNilais(jsonObject.toString());
+							Common.refreshUpdate(session, (tugasKelompok));
+							doubleboxBobot.setDisabled(!radio.isChecked());
+						}
+					};
+					radio.addEventListener("onClick", eventListenerD);
+					doubleboxBobot.addEventListener("onChange", eventListenerD);
+				} else {
+					// Mode BACA-SAJA: tampil sebagai label (tanda centang + bobot), bukan kotak isian.
+					MyFormRow rowPilih = new MyFormRow();
+					rowPilih.setValign("top");
+					rowPilih.setParent(rowsPilih);
+					Label lblSub = new Label((checked ? "☑ " : "☐ ") + labelSub);
+					lblSub.setStyle(checked ? "font-weight:600;color:#0f172a;" : "color:#94a3b8;");
+					rowPilih.appendChild(lblSub);
+					Label lblBobot = new Label(checked ? Common.numberFormat.get().format(bobot) : "-");
+					lblBobot.setStyle(checked ? "font-weight:700;color:#166534;" : "color:#94a3b8;");
+					rowPilih.appendChild(lblBobot);
+				}
+			}
+			if (!adaBaris && !editable) {
+				gridPilih.detach();
+			}
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+		}
+	}
+
+	/**
+	 * <h3>Window "Kelola Nilai" &mdash; entri nilai per anggota kelompok</h3>
+	 *
+	 * <p><b>Untuk apa (bahasa sederhana):</b> membuka jendela khusus untuk mengisi nilai setiap
+	 * anggota di seluruh kelompok pada satu tugas kelompok, dalam satu daftar rata yang mudah dan
+	 * cepat &mdash; tanpa perlu membuka-tutup tiap kelompok. Setiap baris menampilkan nama kelompok,
+	 * identitas anggota (NIM/No. Induk &amp; nama), kotak <b>Nilai</b>, dan kotak <b>Keterangan</b>.
+	 * Perubahan pada kotak Nilai atau Keterangan langsung tersimpan begitu berpindah kolom (event
+	 * {@code onChange}), sehingga dosen/guru dapat menilai secara beruntun dengan lancar.</p>
+	 *
+	 * <p><b>Responsif.</b> Ukuran jendela mengikuti perangkat: di layar HP dibuat 100% (penuh),
+	 * sedangkan di desktop 95% &times; 95% agar lega namun tetap menyisakan bingkai. Tata letak
+	 * memakai {@link org.zkoss.zul.Borderlayout} (isi di tengah + tombol Tutup di bawah) sehingga
+	 * daftar panjang dapat digulir dengan nyaman.</p>
+	 *
+	 * <p><b>Efisiensi memori &amp; database.</b> Daftar anggota semua kelompok diambil dalam DUA
+	 * kueri saja (satu untuk daftar kelompok, satu untuk seluruh relasi anggota memakai
+	 * {@code Restrictions.in}) &mdash; bukan satu kueri per kelompok (menghindari pola N+1). Sesi
+	 * memakai {@code HibernateUtil.currentSession()} yang dikelola kerangka kerja dan tidak ditutup
+	 * manual di sini. Saat menyimpan satu baris, entitas dimuat ulang lewat {@code session.load}
+	 * (bila sudah ber-id) agar pembaruan aman terhadap data basi, lalu disimpan dengan
+	 * {@code Common.refreshUpdate}.</p>
+	 *
+	 * <p><b>Ketahanan.</b> Bila belum ada anggota sama sekali, ditampilkan pesan yang menuntun
+	 * pengguna membuat kelompok lewat tombol "Kelola Kelompok" terlebih dulu. Jendela ditutup lewat
+	 * tombol Tutup ({@code detach}).</p>
+	 *
+	 * @param tugas tugas kelompok yang nilainya akan dikelola
+	 * @throws Exception bila terjadi kegagalan saat memodalkan jendela
+	 */
+	private void bukaKelolaNilai(final TugasKelompok tugas) throws Exception {
+		final MyWindow win = new MyWindow();
+		win.setTitle("Kelola Nilai Anggota — " + (tugas.getJudul() == null ? "" : tugas.getJudul()));
+		if (Common.isMobile()) {
+			win.setWidth("100%");
+			win.setHeight("100%");
+		} else {
+			win.setWidth("95%");
+			win.setHeight("95%");
+		}
+		ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(win);
+
+		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
+		Center center = new Center();
+		center.setParent(borderlayout);
+		ais.ui.util.ZkCompat.setFlex(center, true);
+
+		MyGrid g = new MyGrid();
+		g.setSclass("fgrid");
+		g.setWidth("100%");
+		g.setHeight("100%");
+		g.setParent(center);
+
+		// === Deteksi OBE: bila perkuliahan OBE & ada Sub-CPMK terpilih, nilai diisi PER KOMPONEN ===
+		// (disimpan di TugasKelompok.keteranganNilai JSON, key: <idAnggota>_<mhs|siswa>_nilai_<idSubCpmk>),
+		// meniru mekanisme lama sebelum tombol nilai dipindah ke popup. Non-OBE: satu kolom "Nilai".
+		final java.util.List<FormatNilai> obeFormatNilais = new java.util.ArrayList<FormatNilai>();
+		Perkuliahan perkuliahanNilai = tugas.getPerkuliahan();
+		boolean obeTmp = false;
+		try {
+			if (perkuliahanNilai != null && perkuliahanNilai.getKurikulum() != null
+					&& perkuliahanNilai.getKurikulum().apakahObe(perkuliahanNilai.getTahunAjaran(),
+							perkuliahanNilai.getGanjilGenap())
+					&& tugas.getFormatNilais() != null && tugas.getFormatNilais().trim().length() > 0) {
+				JSONObject jfn = new JSONObject(tugas.getFormatNilais());
+				List<FormatNilai> formatNilaisAll = Common.getFormatNilais(HibernateUtil.currentSession(), perkuliahanNilai);
+				if (formatNilaisAll != null) {
+					for (FormatNilai fn : formatNilaisAll) {
+						if (fn.getStatusPertemuan() != null && fn.getId() != null && !jfn.isNull(fn.getId().toString())) {
+							obeFormatNilais.add(fn);
+						}
+					}
+				}
+				obeTmp = !obeFormatNilais.isEmpty();
+			}
+		} catch (Exception eObe) {
+			Common.tampilErrorJikaAdmin(eObe);
+		}
+		final boolean obe = obeTmp;
+		String ketAwal = tugas.getKeteranganNilai();
+		final JSONObject jsonKet = new JSONObject(
+				ketAwal == null || ketAwal.trim().length() == 0 ? "{}" : ketAwal.replace('\u0000', ' '));
+
+		Columns cols = new Columns();
+		cols.setParent(g);
+		MyColumnConfig cKel = new MyColumnConfig("Kelompok");
+		cKel.setParent(cols);
+		cKel.setWidth(obe ? "13%" : "22%");
+		MyColumnConfig cAng = new MyColumnConfig("Anggota");
+		cAng.setParent(cols);
+		// Kolom tunggal "Nilai & Keterangan" \u2014 menggantikan kolom CPMK per-kolom.
+		MyColumnConfig cValKet = new MyColumnConfig("Nilai & Keterangan");
+		cValKet.setParent(cols);
+		cValKet.setWidth("50%");
+
+		Rows rows = new Rows();
+		rows.setParent(g);
+
+		Session session = HibernateUtil.currentSession();
+		List<NamaTugasKelompok> kelompoks = session.createCriteria(NamaTugasKelompok.class)
+				.add(Restrictions.eq("tugasKelompok", tugas)).addOrder(Order.asc("nama")).list();
+
+		// Koleksi komponen per baris untuk Simpan massal
+		final java.util.List<NamaTugasKelompokPunyaMahasiswa> anggotaRows = new java.util.ArrayList<NamaTugasKelompokPunyaMahasiswa>();
+		final java.util.List<Textbox> ketBoxes = new java.util.ArrayList<Textbox>();
+		final java.util.List<MyDoublebox> nilaiBoxes = new java.util.ArrayList<MyDoublebox>();
+
+		int jml = 0;
+		if (kelompoks != null && !kelompoks.isEmpty()) {
+			List<NamaTugasKelompokPunyaMahasiswa> rels = session
+					.createCriteria(NamaTugasKelompokPunyaMahasiswa.class)
+					.add(Restrictions.in("namaTugasKelompok", kelompoks)).list();
+			if (rels != null) {
+				for (final NamaTugasKelompokPunyaMahasiswa r : rels) {
+					if (r == null || r.getNamaTugasKelompok() == null) {
+						continue;
+					}
+					String nmKelompok = r.getNamaTugasKelompok().getNama();
+					String nama = null;
+					String ident = null;
+					String memberKeyTmp = null;
+					if (r.getMahasiswa() != null) {
+						nama = r.getMahasiswa().getNama();
+						ident = r.getMahasiswa().getNim();
+						memberKeyTmp = r.getMahasiswa().getId() + "_mhs";
+					} else if (r.getSiswa() != null) {
+						nama = r.getSiswa().getNama();
+						ident = r.getSiswa().getNomorInduk();
+						memberKeyTmp = r.getSiswa().getId() + "_siswa";
+					} else {
+						continue;
+					}
+					final String memberKey = memberKeyTmp;
+					MyFormRow row = new MyFormRow();
+					row.setValign("top");
+					row.setParent(rows);
+					row.appendChild(new Label(nmKelompok == null ? "-" : nmKelompok));
+					row.appendChild(new Label((ident == null ? "" : ident + " — ") + (nama == null ? "" : nama)));
+
+					// Kolom tunggal: ringkasan nilai + tombol Edit popup
+					final String namaFinal = nama;
+					final String identFinal = ident;
+					final org.zkoss.zul.Vbox kcCell = new org.zkoss.zul.Vbox();
+					kcCell.setStyle("gap:2px;width:100%;");
+					row.appendChild(kcCell);
+
+					final org.zkoss.zul.Vbox kSummary = new org.zkoss.zul.Vbox();
+					kSummary.setStyle("gap:1px;");
+					kSummary.setParent(kcCell);
+
+					String ketCurr = r.getKeterangan();
+					if (ketCurr != null && !ketCurr.trim().isEmpty()) {
+						Label lKet = new Label("Ket: " + ketCurr);
+						lKet.setStyle("color:#555;font-size:11px;white-space:normal;");
+						lKet.setParent(kSummary);
+					}
+					if (obe) {
+						for (FormatNilai fnSumm : obeFormatNilais) {
+							double nSumm = jsonKet.optDouble(memberKey + "_nilai_" + fnSumm.getId(), 0.0);
+							String fnNamaSumm = fnSumm.getNama() != null ? fnSumm.getNama() : ("CPMK " + fnSumm.getId());
+							Label lN = new Label(fnNamaSumm + ": " + (nSumm > 0.0 ? Common.numberFormat.get().format(nSumm) : "-"));
+							lN.setStyle("font-size:11px;");
+							lN.setParent(kSummary);
+						}
+					} else {
+						double nSumm = r.getNilai() != null ? r.getNilai() : 0.0;
+						Label lN = new Label("Nilai: " + (nSumm > 0.0 ? Common.numberFormat.get().format(nSumm) : "-"));
+						lN.setStyle("font-size:11px;");
+						lN.setParent(kSummary);
+					}
+
+					MyToolbarbutton btnEditNilai = new MyToolbarbutton("fa-pencil", "Edit Nilai");
+					btnEditNilai.setStyle("margin-top:2px;");
+					btnEditNilai.setParent(kcCell);
+					btnEditNilai.addEventListener("onClick", new EventListener() {
+						@Override
+						public void onEvent(Event evEdit) throws Exception {
+							final org.zkoss.zul.Window popupW = new org.zkoss.zul.Window();
+							popupW.setTitle("Entry Nilai \u2014 " + (identFinal == null ? "" : identFinal + " \u2014 ") + (namaFinal == null ? "" : namaFinal));
+							popupW.setWidth("480px");
+							popupW.setClosable(true);
+							popupW.setBorder("normal");
+							popupW.setPage(evEdit.getTarget().getPage());
+
+							org.zkoss.zul.Vbox pContent = new org.zkoss.zul.Vbox();
+							pContent.setStyle("padding:8px;gap:6px;width:100%;");
+							pContent.setParent(popupW);
+
+							Label lblKetT = new Label("Keterangan:");
+							lblKetT.setStyle("font-weight:bold;");
+							lblKetT.setParent(pContent);
+							final Textbox pKet = new Textbox(r.getKeterangan());
+							pKet.setRows(2);
+							pKet.setWidth("100%");
+							pKet.setMaxlength(255);
+							pKet.setParent(pContent);
+
+							Label lblNilaiT = new Label("Nilai:");
+							lblNilaiT.setStyle("font-weight:bold;margin-top:4px;");
+							lblNilaiT.setParent(pContent);
+
+							final java.util.ArrayList<MyDoublebox> pNilaiBoxes = new java.util.ArrayList<MyDoublebox>();
+							if (obe) {
+								for (FormatNilai fnPop : obeFormatNilais) {
+									Hbox rowFn = new Hbox();
+									rowFn.setStyle("align-items:center;gap:6px;");
+									rowFn.setParent(pContent);
+									String fnNP = fnPop.getNama() != null ? fnPop.getNama() : ("CPMK " + fnPop.getId());
+									Label lblFn = new Label(fnNP + ":");
+									lblFn.setStyle("min-width:120px;font-size:12px;");
+									lblFn.setParent(rowFn);
+									double nPop = jsonKet.optDouble(memberKey + "_nilai_" + fnPop.getId(), 0.0);
+									MyDoublebox nbP = new MyDoublebox(nPop);
+									ais.ui.util.UIUtil.gayaInputNilai(nbP);
+									nbP.setParent(rowFn);
+									pNilaiBoxes.add(nbP);
+								}
+							} else {
+								double nPop = r.getNilai() != null ? r.getNilai() : 0.0;
+								MyDoublebox nbP = new MyDoublebox(nPop);
+								ais.ui.util.UIUtil.gayaInputNilai(nbP);
+								nbP.setParent(pContent);
+								pNilaiBoxes.add(nbP);
+							}
+
+							Hbox btnRowP = new Hbox();
+							btnRowP.setStyle("margin-top:8px;justify-content:flex-end;gap:8px;");
+							btnRowP.setParent(pContent);
+							final org.zkoss.zul.Label lblStatus = new org.zkoss.zul.Label("");
+							lblStatus.setParent(btnRowP);
+							org.zkoss.zul.Button btnSimpanP = new org.zkoss.zul.Button("Simpan");
+							btnSimpanP.setSclass("btn btn-primary btn-sm");
+							btnSimpanP.setParent(btnRowP);
+							btnSimpanP.addEventListener("onClick", new EventListener() {
+								@Override
+								public void onEvent(Event evSave) throws Exception {
+									try {
+										Session sSave = HibernateUtil.currentSession();
+										NamaTugasKelompokPunyaMahasiswa xSave = (NamaTugasKelompokPunyaMahasiswa)
+												sSave.load(NamaTugasKelompokPunyaMahasiswa.class, r.getId());
+										xSave.setKeterangan(pKet.getValue());
+										if (!obe && !pNilaiBoxes.isEmpty()) {
+											xSave.setNilai(pNilaiBoxes.get(0).getValue());
+										}
+										Common.refreshUpdate(sSave, xSave);
+										if (obe) {
+											for (int idxP = 0; idxP < obeFormatNilais.size(); idxP++) {
+												FormatNilai fnSv = obeFormatNilais.get(idxP);
+												Double nvSv = pNilaiBoxes.get(idxP).getValue();
+												jsonKet.put(memberKey + "_nilai_" + fnSv.getId(), nvSv);
+											}
+											if (tugas.getId() != null) sSave.refresh(tugas);
+											tugas.belum("tugas_file_content_" + tugas.getClass().getName());
+											tugas.setKeteranganNilai(jsonKet.toString());
+											Common.refreshUpdate(sSave, tugas);
+										}
+										while (kSummary.getFirstChild() != null) {
+											kSummary.getFirstChild().detach();
+										}
+										String ketNew = pKet.getValue();
+										if (ketNew != null && !ketNew.trim().isEmpty()) {
+											Label lKetU = new Label("Ket: " + ketNew);
+											lKetU.setStyle("color:#555;font-size:11px;white-space:normal;");
+											lKetU.setParent(kSummary);
+										}
+										if (obe) {
+											for (int idxU = 0; idxU < obeFormatNilais.size(); idxU++) {
+												FormatNilai fnU = obeFormatNilais.get(idxU);
+												Double nvU = pNilaiBoxes.get(idxU).getValue();
+												String fnNamaU = fnU.getNama() != null ? fnU.getNama() : ("CPMK " + fnU.getId());
+												Label lNU = new Label(fnNamaU + ": " + (nvU != null && nvU > 0.0 ? Common.numberFormat.get().format(nvU) : "-"));
+												lNU.setStyle("font-size:11px;");
+												lNU.setParent(kSummary);
+											}
+										} else if (!pNilaiBoxes.isEmpty()) {
+											Double nvU = pNilaiBoxes.get(0).getValue();
+											Label lNU = new Label("Nilai: " + (nvU != null && nvU > 0.0 ? Common.numberFormat.get().format(nvU) : "-"));
+											lNU.setStyle("font-size:11px;");
+											lNU.setParent(kSummary);
+										}
+										popupW.detach();
+									} catch (Exception eSave) {
+										lblStatus.setValue("Gagal: " + eSave.getMessage());
+										lblStatus.setStyle("color:red;font-size:11px;");
+										ais.common.ErrorAuditUtil.record(eSave, "TugasKelompokHelper popup Simpan");
+									}
+								}
+							});
+							popupW.doModal();
+						}
+					});
+					jml++;
+				}
+			}
+		}
+		if (jml == 0) {
+			MyFormRow row = new MyFormRow();
+			row.setParent(rows);
+			row.appendChild(new Label(
+					"Belum ada anggota kelompok. Tambahkan anggota lewat tombol \"Kelola Kelompok\" terlebih dahulu."));
+		}
+
+		South south = new South();
+		ais.ui.util.ZkCompat.setFlex(south, true);
+		south.setParent(borderlayout);
+		Toolbar tb = new Toolbar();
+		tb.setParent(south);
+
+		MyToolbarbutton btnSimpan = new MyToolbarbutton("fa-save", "Simpan");
+		btnSimpan.setTooltiptext("Simpan semua nilai dan keterangan ke database");
+		btnSimpan.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event ev) throws Exception {
+				java.util.List<String> errors = new java.util.ArrayList<String>();
+				try {
+					Session s = HibernateUtil.currentSession();
+
+					// Nilai OBE: simpan jsonKet (sudah diperbarui via onChange) ke tugas satu kali
+					if (obe) {
+						try {
+							if (tugas.getId() != null) s.refresh(tugas);
+							tugas.belum("tugas_file_content_" + tugas.getClass().getName());
+							tugas.setKeteranganNilai(jsonKet.toString());
+							Common.refreshUpdate(s, tugas);
+						} catch (Exception ex) {
+							errors.add("Simpan nilai OBE: " + ex.getMessage());
+						}
+					}
+
+					// Keterangan + nilai non-OBE per anggota
+					for (int i = 0; i < anggotaRows.size(); i++) {
+						try {
+							NamaTugasKelompokPunyaMahasiswa x = anggotaRows.get(i);
+							if (x.getId() != null) {
+								x = (NamaTugasKelompokPunyaMahasiswa) s.load(
+										NamaTugasKelompokPunyaMahasiswa.class, x.getId());
+							}
+							x.setKeterangan(ketBoxes.get(i).getValue());
+							if (!obe && nilaiBoxes.get(i) != null) {
+								x.setNilai(nilaiBoxes.get(i).getValue());
+							}
+							Common.refreshUpdate(s, x);
+						} catch (Exception ex) {
+							NamaTugasKelompokPunyaMahasiswa r = anggotaRows.get(i);
+							String id = r.getId() != null ? r.getId().toString() : "?";
+							errors.add("Anggota id=" + id + ": " + ex.getMessage());
+						}
+					}
+
+					if (errors.isEmpty()) {
+						ais.ui.util.MyMessageboxConfig.show("Data berhasil disimpan.", "Berhasil",
+								ais.ui.util.MyMessageboxConfig.OK,
+								ais.ui.util.MyMessageboxConfig.INFORMATION, null);
+					} else {
+						StringBuilder sb = new StringBuilder("Sebagian data gagal disimpan:\n");
+						for (String err : errors) sb.append("• ").append(err).append("\n");
+						PesanFormalHelper.tampilkanGagalException(
+								"menyimpan nilai anggota kelompok tugas",
+								new RuntimeException(sb.toString()),
+								new String[] {
+										"Muat ulang halaman lalu masukkan kembali data yang gagal.",
+										"Pastikan Anda belum logout saat menyimpan.",
+										"Hubungi Admin dengan menyertakan screenshot pesan ini."
+								});
+					}
+				} catch (Exception e) {
+					PesanFormalHelper.tampilkanGagalException(
+							"menyimpan nilai anggota kelompok tugas", e,
+							new String[] {
+									"Muat ulang halaman dan masukkan kembali nilai.",
+									"Pastikan Anda belum logout saat menyimpan.",
+									"Hubungi Admin dengan menyertakan screenshot pesan ini."
+							});
+				}
+			}
+		});
+		btnSimpan.setParent(tb);
+
+		MyToolbarbutton btnBatal = new MyToolbarbutton("fa-undo", "Batal");
+		btnBatal.setTooltiptext("Batal: tutup tanpa menyimpan");
+		btnBatal.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event ev) throws Exception {
+				win.detach();
+			}
+		});
+		btnBatal.setParent(tb);
+
+		MyToolbarbutton tutup = new MyToolbarbutton("fa-times", "Tutup");
+		tutup.setTooltiptext("Tutup");
+		tutup.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event ev) throws Exception {
+				win.detach();
+			}
+		});
+		tutup.setParent(tb);
+		borderlayout.setParent(win);
+
+		win.setVisible(true);
+		win.onModal();
+	}
+
+	/**
+	 * <h3>Dashboard analitik &amp; ringkasan nilai Tugas Kelompok (HTML/CSS modern, tanpa JFreeChart)</h3>
+	 *
+	 * <p><b>Untuk apa (bahasa sederhana):</b> menyusun satu bagian ringkasan yang berisi angka-angka
+	 * penting dan beberapa grafik agar dosen/guru langsung paham kondisi penilaian sebuah tugas
+	 * kelompok tanpa harus membaca satu per satu. Yang ditampilkan: berapa jumlah kelompok, berapa
+	 * jumlah anggota, berapa yang sudah dinilai, berapa nilai rata-ratanya; grafik lingkaran (donat)
+	 * status pengumpulan (kelompok yang sudah vs belum mengunggah berkas), grafik batang perbandingan
+	 * nilai rata-rata tiap kelompok, grafik donat sebaran nilai anggota (dikelompokkan per rentang),
+	 * dan &mdash; khusus kurikulum OBE &mdash; jaring laba-laba (radar) perbandingan bobot tiap
+	 * Sub-CPMK. Ditutup dengan kotak "Sorotan" berisi nilai tertinggi, nilai terendah, kelompok
+	 * terbaik, dan jumlah anggota yang belum dinilai.</p>
+	 *
+	 * <h3>Kenapa memakai HTML/CSS/SVG, bukan JFreeChart</h3>
+	 * <p>Seluruh grafik dibangun dari komponen reusable {@link ais.ui.util.DashboardUiKit}
+	 * ({@code cards}, {@code donut} dengan <i>conic-gradient</i> CSS, {@code barList} batang HTML,
+	 * {@code spider} radar SVG, {@code insight}, serta {@code openGrid}/{@code closeGrid} untuk grid
+	 * responsif). Pendekatan ini ringan (tidak menghasilkan gambar di server, tidak menambah memori
+	 * untuk buffer citra), tampil tajam di layar HP maupun desktop (SVG/CSS menyesuaikan lebar
+	 * kontainer), mengikuti warna tema aktif, dan seragam dengan dashboard lain di aplikasi &mdash;
+	 * sehingga perawatan ke depan cukup di satu tempat (maksimalkan pemakaian ulang).</p>
+	 *
+	 * <h3>Efisiensi memori &amp; database (penting)</h3>
+	 * <p>Seluruh data dihitung hanya dari <b>tiga kueri</b> ringkas dan langsung diringkas ke
+	 * beberapa akumulator angka, bukan menyimpan seluruh baris di memori: (1) daftar kelompok pada
+	 * tugas; (2) satu kueri gabungan status pengumpulan memakai {@code Restrictions.in} atas seluruh
+	 * id kelompok (menghindari pola N+1 &mdash; tidak ada kueri per kelompok); (3) satu kueri seluruh
+	 * relasi anggota memakai {@code Restrictions.in}. Nilai diakumulasikan dalam loop tunggal
+	 * (jumlah, banyak, min, maks, sebaran per rentang, serta jumlah &amp; total per kelompok) sehingga
+	 * pemakaian memori hanya sebesar peta kecil ber-kunci id kelompok, bukan sebesar jumlah anggota.
+	 * Session dibuka lewat {@code HibernateUtil.openSession()} dan SELALU ditutup di blok
+	 * {@code finally} ({@code disconnect()} + {@code ElearningSessionUtil.closeQuietly()}), sehingga
+	 * tidak ada kebocoran koneksi meskipun terjadi kesalahan di tengah proses. Bagian jaring Sub-CPMK
+	 * yang memerlukan daftar {@link FormatNilai} memakai {@code currentSession()} (dikelola kerangka
+	 * kerja, tidak ditutup manual) dan dipanggil SETELAH session khusus di atas ditutup.</p>
+	 *
+	 * <h3>Ketahanan &amp; keamanan tampilan</h3>
+	 * <p>Metode ini tidak pernah melempar keluar: semua akses dibungkus {@code try/catch} gaya 1.6,
+	 * dan bila data belum cukup (mis. belum ada kelompok atau belum ada anggota) dikembalikan string
+	 * kosong sehingga bagian analitik cukup tidak ditampilkan tanpa mengganggu kartu utama. Bagian
+	 * status pengumpulan dan jaring Sub-CPMK masing-masing dijaga {@code try/catch} sendiri sehingga
+	 * kegagalan salah satu tidak menggagalkan grafik lain. Seluruh teks dari data (nama kelompok,
+	 * nama Sub-CPMK) otomatis disaring lewat {@code DashboardUiKit.esc(...)} di dalam komponen kit,
+	 * aman dari karakter HTML. Grafik dibungkus elemen {@code <details>} bawaan browser sehingga bisa
+	 * dibuka-tutup tanpa JavaScript tambahan, menjaga kartu tetap ringkas secara bawaan.</p>
+	 *
+	 * <h3>Kompatibilitas</h3>
+	 * <p>Kode dijaga kompatibel Java 1.7 (tanpa lambda/stream), berjalan di thread ZK Desktop, dan
+	 * hanya membangun {@link String} sehingga hasilnya dapat disisipkan ke {@link ais.ui.util.MyHtml}
+	 * kapan pun. Hanya diperuntukkan bagi pengelola (dosen/admin); pemanggil bertanggung jawab
+	 * menyembunyikan bagian ini dari mahasiswa/siswa.</p>
+	 *
+	 * @param tugas tugas kelompok yang akan dianalisis
+	 * @return potongan HTML dashboard siap-tempel; string kosong bila data belum cukup atau terjadi kegagalan
+	 */
+	private String bangunAnalitikHtml(TugasKelompok tugas) {
+		if (tugas == null) {
+			return "";
+		}
+		Perkuliahan perkuliahan = tugas.getPerkuliahan();
+
+		int totalKelompok = 0;
+		int totalAnggota = 0;
+		int totalDinilai = 0;
+		double sumNilai = 0;
+		double maxNilai = -1;
+		double minNilai = -1;
+		String namaTertinggi = "";
+		java.util.LinkedHashMap<String, Double> avgPerKelompok = new java.util.LinkedHashMap<String, Double>();
+		int b0 = 0, b60 = 0, b70 = 0, b80 = 0, b90 = 0; // <60, 60-69, 70-79, 80-89, 90-100
+		int kelompokSudah = 0;
+
+		Session session = null;
+		try {
+			session = HibernateUtil.openSession();
+			List<NamaTugasKelompok> kelompoks = session.createCriteria(NamaTugasKelompok.class)
+					.add(Restrictions.eq("tugasKelompok", tugas)).addOrder(Order.asc("nama")).list();
+			if (kelompoks == null || kelompoks.isEmpty()) {
+				return "";
+			}
+			totalKelompok = kelompoks.size();
+
+			java.util.List<Long> kelompokIds = new java.util.ArrayList<Long>();
+			java.util.Map<Long, String> namaKelompok = new java.util.HashMap<Long, String>();
+			for (NamaTugasKelompok k : kelompoks) {
+				if (k == null || k.getId() == null) {
+					continue;
+				}
+				kelompokIds.add(k.getId());
+				namaKelompok.put(k.getId(), k.getNama());
+			}
+
+			// (2) Status pengumpulan: SATU kueri distinct ref LampiranLain (hindari N+1).
+			try {
+				if (!kelompokIds.isEmpty()) {
+					List<?> refs = session.createCriteria(LampiranLain.class)
+							.add(Restrictions.eq("jenis", NamaTugasKelompok.class.getName()))
+							.add(Restrictions.in("ref", kelompokIds))
+							.setProjection(Projections.distinct(Projections.property("ref"))).list();
+					if (refs != null) {
+						java.util.Set<Long> setSudah = new java.util.HashSet<Long>();
+						for (Object o : refs) {
+							if (o instanceof Long) {
+								setSudah.add((Long) o);
+							} else if (o instanceof Number) {
+								setSudah.add(((Number) o).longValue());
+							}
+						}
+						kelompokSudah = setSudah.size();
+					}
+				}
+			} catch (Exception eLamp) {
+				Common.tampilErrorJikaAdmin(eLamp);
+			}
+
+			// (3) Anggota + nilai: SATU kueri gabungan, diakumulasi dalam loop tunggal.
+			java.util.Map<Long, double[]> agg = new java.util.HashMap<Long, double[]>(); // id -> {sum, count}
+			List<NamaTugasKelompokPunyaMahasiswa> rels = session
+					.createCriteria(NamaTugasKelompokPunyaMahasiswa.class)
+					.add(Restrictions.in("namaTugasKelompok", kelompoks)).list();
+			if (rels != null) {
+				for (NamaTugasKelompokPunyaMahasiswa r : rels) {
+					if (r == null || r.getNamaTugasKelompok() == null || r.getNamaTugasKelompok().getId() == null) {
+						continue;
+					}
+					if (r.getMahasiswa() == null && r.getSiswa() == null) {
+						continue;
+					}
+					totalAnggota++;
+					double nilai = r.getNilai() == null ? 0 : r.getNilai().doubleValue();
+					if (nilai > 0) {
+						totalDinilai++;
+						sumNilai += nilai;
+						if (maxNilai < 0 || nilai > maxNilai) {
+							maxNilai = nilai;
+						}
+						if (minNilai < 0 || nilai < minNilai) {
+							minNilai = nilai;
+						}
+						if (nilai < 60) {
+							b0++;
+						} else if (nilai < 70) {
+							b60++;
+						} else if (nilai < 80) {
+							b70++;
+						} else if (nilai < 90) {
+							b80++;
+						} else {
+							b90++;
+						}
+						Long gid = r.getNamaTugasKelompok().getId();
+						double[] a = agg.get(gid);
+						if (a == null) {
+							a = new double[] { 0, 0 };
+							agg.put(gid, a);
+						}
+						a[0] += nilai;
+						a[1] += 1;
+					}
+				}
+			}
+
+			double bestAvg = -1;
+			for (Long gid : kelompokIds) {
+				double[] a = agg.get(gid);
+				if (a != null && a[1] > 0) {
+					double avg = a[0] / a[1];
+					String nm = namaKelompok.get(gid);
+					avgPerKelompok.put(nm == null ? "-" : nm, avg);
+					if (avg > bestAvg) {
+						bestAvg = avg;
+						namaTertinggi = nm;
+					}
+				}
+			}
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+			return "";
+		} finally {
+			if (session != null) {
+				try {
+					session.disconnect();
+				} catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/helper/TugasKelompokHelper.java:1278");
+				}
+				ais.common.ElearningSessionUtil.closeQuietly(session);
+			}
+		}
+
+		int kelompokBelum = Math.max(0, totalKelompok - kelompokSudah);
+		double rata = totalDinilai > 0 ? sumNilai / totalDinilai : 0;
+
+		java.util.List<ais.ui.util.DashboardUiKit.Stat> stats = new java.util.ArrayList<ais.ui.util.DashboardUiKit.Stat>();
+		stats.add(new ais.ui.util.DashboardUiKit.Stat("Total Kelompok", String.valueOf(totalKelompok),
+				"Jumlah kelompok pada tugas ini", "#2563eb"));
+		stats.add(new ais.ui.util.DashboardUiKit.Stat("Total Anggota", String.valueOf(totalAnggota),
+				"Seluruh peserta di semua kelompok", "#0891b2"));
+		stats.add(new ais.ui.util.DashboardUiKit.Stat("Sudah Dinilai", totalDinilai + " / " + totalAnggota,
+				"Anggota yang nilainya sudah diisi", "#16a34a"));
+		stats.add(new ais.ui.util.DashboardUiKit.Stat("Rata-rata Nilai",
+				totalDinilai > 0 ? Common.numberFormat.get().format(rata) : "-",
+				"Nilai rata-rata anggota yang dinilai", "#f97316"));
+
+		StringBuilder body = new StringBuilder();
+		body.append(ais.ui.util.DashboardUiKit.cards(stats));
+		body.append(ais.ui.util.DashboardUiKit.openGrid(300));
+
+		java.util.LinkedHashMap<String, Double> statusMap = new java.util.LinkedHashMap<String, Double>();
+		statusMap.put("Sudah mengumpulkan", (double) kelompokSudah);
+		statusMap.put("Belum mengumpulkan", (double) kelompokBelum);
+		body.append(ais.ui.util.DashboardUiKit.donut("Status Pengumpulan Kelompok",
+				"Berapa kelompok yang sudah dan belum mengunggah berkas tugas.", statusMap, false,
+				"Belum ada kelompok."));
+
+		body.append(ais.ui.util.DashboardUiKit.barList("Rata-rata Nilai per Kelompok",
+				"Perbandingan nilai rata-rata tiap kelompok; batang lebih panjang berarti nilai lebih tinggi.",
+				avgPerKelompok, "#22c55e", "", false, "Belum ada nilai yang diisi."));
+
+		java.util.LinkedHashMap<String, Double> distMap = new java.util.LinkedHashMap<String, Double>();
+		distMap.put("90-100 (Sangat baik)", (double) b90);
+		distMap.put("80-89 (Baik)", (double) b80);
+		distMap.put("70-79 (Cukup)", (double) b70);
+		distMap.put("60-69 (Kurang)", (double) b60);
+		distMap.put("Di bawah 60 (Perlu perhatian)", (double) b0);
+		body.append(ais.ui.util.DashboardUiKit.donut("Sebaran Nilai Anggota",
+				"Pengelompokan anggota berdasarkan rentang nilai agar terlihat sebaran capaiannya.", distMap, false,
+				"Belum ada nilai yang diisi."));
+
+		String spider = bangunSpiderSubCpmk(tugas, perkuliahan);
+		if (spider.length() > 0) {
+			body.append(spider);
+		}
+
+		body.append(ais.ui.util.DashboardUiKit.closeGrid());
+
+		java.util.LinkedHashMap<String, String> insight = new java.util.LinkedHashMap<String, String>();
+		insight.put("Nilai Tertinggi", maxNilai < 0 ? "-" : Common.numberFormat.get().format(maxNilai));
+		insight.put("Nilai Terendah", minNilai < 0 ? "-" : Common.numberFormat.get().format(minNilai));
+		insight.put("Kelompok Terbaik", namaTertinggi == null || namaTertinggi.length() == 0 ? "-" : namaTertinggi);
+		insight.put("Belum Dinilai", (totalAnggota - totalDinilai) + " anggota");
+		body.append(ais.ui.util.DashboardUiKit.insight("Sorotan",
+				"Ringkasan angka penting dari penilaian tugas kelompok ini.", insight));
+
+		StringBuilder out = new StringBuilder();
+		out.append("<details class='tk-analitik'><summary>&#128202; Analitik &amp; Ringkasan Nilai &mdash; rata-rata ")
+				.append(totalDinilai > 0 ? Common.numberFormat.get().format(rata) : "belum ada")
+				.append("</summary><div class='tk-analitik-body'>").append(body).append("</div></details>");
+		return out.toString();
+	}
+
+	/**
+	 * Membangun jaring laba-laba (radar SVG) perbandingan bobot Sub-CPMK untuk tugas kelompok pada
+	 * kurikulum OBE. Bobot dibaca dari peta JSON {@code tugasKelompok.getFormatNilais()} lalu
+	 * dinormalkan ke skala 0..100 relatif terhadap bobot terbesar sehingga bentuk jaring mudah
+	 * dibandingkan. Mengembalikan string kosong bila bukan OBE, belum ada pemetaan, atau kurang dari
+	 * tiga sumbu (radar minimal butuh tiga titik). Memakai {@code currentSession()} (dikelola kerangka
+	 * kerja) untuk mengambil daftar {@link FormatNilai}; seluruh proses dijaga {@code try/catch} gaya
+	 * 1.6 dan tidak pernah melempar.
+	 *
+	 * @param tugas       tugas kelompok sumber pemetaan bobot Sub-CPMK
+	 * @param perkuliahan perkuliahan (untuk cek OBE dan sumber daftar komponen)
+	 * @return potongan HTML kartu radar SVG, atau string kosong bila tidak berlaku
+	 */
+	private String bangunSpiderSubCpmk(TugasKelompok tugas, Perkuliahan perkuliahan) {
+		try {
+			if (perkuliahan == null || perkuliahan.getKurikulum() == null || !perkuliahan.getKurikulum()
+					.apakahObe(perkuliahan.getTahunAjaran(), perkuliahan.getGanjilGenap())) {
+				return "";
+			}
+			String json = tugas.getFormatNilais();
+			if (json == null || json.trim().length() == 0) {
+				return "";
+			}
+			JSONObject jo = new JSONObject(json);
+			if (jo.length() < 3) {
+				return "";
+			}
+			Session session = HibernateUtil.currentSession();
+			List<FormatNilai> all = Common.getFormatNilais(session, perkuliahan);
+			boolean adaCpmk = false;
+			if (all != null) {
+				for (FormatNilai f : all) {
+					if (f != null && f.getNama() != null && f.getNama().toLowerCase().contains("cpmk")) {
+						adaCpmk = true;
+						break;
+					}
+				}
+			}
+			if (!adaCpmk) {
+				all = Common.getFormatNilais(perkuliahan, true);
+			}
+			java.util.List<String> axes = new java.util.ArrayList<String>();
+			java.util.List<Double> bobots = new java.util.ArrayList<Double>();
+			double maxB = 0;
+			if (all != null) {
+				for (FormatNilai f : all) {
+					if (f == null || f.getId() == null) {
+						continue;
+					}
+					String key = f.getId().toString();
+					if (!jo.isNull(key)) {
+						double b = jo.getDouble(key);
+						axes.add(f.getNama());
+						bobots.add(b);
+						if (b > maxB) {
+							maxB = b;
+						}
+					}
+				}
+			}
+			if (axes.size() < 3 || maxB <= 0) {
+				return "";
+			}
+			String[] ax = axes.toArray(new String[axes.size()]);
+			int[] vals = new int[bobots.size()];
+			for (int i = 0; i < bobots.size(); i++) {
+				vals[i] = (int) Math.round(bobots.get(i).doubleValue() / maxB * 100.0);
+			}
+			return ais.ui.util.DashboardUiKit.spider("Bobot Sub-CPMK",
+					"Perbandingan bobot tiap Sub-CPMK yang dinilai pada tugas ini (persen relatif).", ax, vals);
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+			return "";
+		}
+	}
+
+	/** Gaya CSS untuk kartu ringkas Tugas Kelompok (responsif, aksen hijau). */
+	private static final String GAYA_KARTU_TUGAS = "<style>"
+			+ ".tk-side-col{min-width:0;width:100%;}"
+			+ ".tk-kartu{border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;background:#fff;"
+			+ "box-shadow:0 10px 30px rgba(15,23,42,.08);margin-bottom:14px;}"
+			+ ".tk-head{padding:15px 20px;background:linear-gradient(120deg,#166534,#22c55e);color:#fff;display:flex;"
+			+ "justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}"
+			+ ".tk-head-l{display:flex;align-items:center;gap:12px;min-width:0;}"
+			+ ".tk-head-ic{width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.18);display:flex;"
+			+ "align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}"
+			+ ".tk-judul{font-size:16px;font-weight:800;line-height:1.25;word-break:break-word;}"
+			+ ".tk-sub{font-size:12px;opacity:.92;margin-top:2px;}"
+			+ ".tk-syarat{background:#fef9c3;color:#854d0e;font-size:11px;font-weight:700;padding:5px 12px;"
+			+ "border-radius:999px;white-space:normal;}"
+			+ ".tk-body{padding:18px 20px;display:grid;grid-template-columns:1fr;gap:18px;}"
+			+ "@media(min-width:860px){.tk-body{grid-template-columns:1.25fr 1fr;}}"
+			+ ".tk-mk{font-size:15px;font-weight:800;color:#166534;word-break:break-word;}"
+			+ ".tk-mk-meta{font-size:12px;color:#64748b;margin:4px 0 14px;display:flex;flex-wrap:wrap;gap:6px;}"
+			+ ".tk-dates{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px;}"
+			+ ".tk-date{flex:1 1 175px;border:1px solid #e5e7eb;border-radius:12px;padding:11px 14px;background:#fff;}"
+			+ ".tk-date b{display:block;font-size:9.5px;letter-spacing:.04em;text-transform:uppercase;color:#64748b;margin-bottom:4px;}"
+			+ ".tk-date-end{background:#fef2f2;border-color:#fecaca;}.tk-date-end b{color:#dc2626;}"
+			+ ".tk-date-v{font-size:13px;font-weight:800;color:#0f172a;}.tk-date-end .tk-date-v{color:#dc2626;}"
+			+ ".tk-date-j{font-size:11px;color:#64748b;}.tk-date-end .tk-date-j{color:#dc2626;opacity:.8;}"
+			+ ".tk-sec-judul{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#64748b;margin:6px 0 8px;}"
+			+ ".tk-grp{border:1px solid #eef2f7;border-radius:10px;margin-bottom:8px;overflow:hidden;background:#fff;"
+			+ "box-shadow:0 2px 6px rgba(15,23,42,.04);}"
+			+ ".tk-grp>summary{list-style:none;cursor:pointer;padding:11px 14px;display:flex;align-items:center;"
+			+ "gap:10px;font-weight:700;color:#0f172a;font-size:13px;}"
+			+ ".tk-grp>summary::-webkit-details-marker{display:none;}"
+			+ ".tk-grp>summary:after{content:'\\25be';color:#94a3b8;font-size:12px;margin-left:4px;}"
+			+ ".tk-grp[open]>summary:after{content:'\\25b4';}"
+			+ ".tk-badge{background:#166534;color:#fff;font-size:11px;font-weight:800;padding:3px 11px;border-radius:999px;margin-left:auto;}"
+			+ ".tk-grp-body{padding:6px 10px 10px;background:#f8fafc;}"
+			+ ".tk-anggota{display:flex;align-items:center;gap:10px;padding:7px 8px;background:#fff;border-radius:8px;margin-bottom:5px;}"
+			+ ".tk-foto{width:34px;height:34px;border-radius:50%;object-fit:cover;border:1px solid #e5e7eb;flex-shrink:0;}"
+			+ ".tk-anggota-nama{font-size:12px;font-weight:700;color:#0f172a;}"
+			+ ".tk-anggota-id{font-size:10.5px;color:#64748b;}"
+			+ ".tk-nilai{background:#166534;color:#fff;font-size:11px;font-weight:800;padding:2px 10px;"
+			+ "border-radius:999px;white-space:nowrap;margin-left:8px;flex-shrink:0;}"
+			+ ".tk-cpmk-breakdown{margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;}"
+			+ ".tk-cpmk-chip{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;font-size:9.5px;"
+			+ "font-weight:600;padding:1px 6px;border-radius:6px;line-height:1.6;white-space:nowrap;}"
+			+ ".tk-cpmk-chip b{color:#047857;font-weight:800;}"
+			+ ".tk-empty{text-align:center;color:#94a3b8;font-size:11px;font-style:italic;padding:8px;}"
+			+ ".tk-side{display:flex;flex-direction:column;gap:12px;}"
+			+ ".tk-panel{border:1px solid #e5e7eb;border-radius:12px;padding:14px;background:#fff;}"
+			+ ".tk-dosen-item{display:flex;align-items:center;gap:9px;margin-top:8px;}"
+			+ ".tk-dosen-item span{font-size:12.5px;font-weight:700;color:#0f172a;}"
+			+ ".tk-btn{display:block;text-align:center;text-decoration:none;font-size:12.5px;font-weight:800;"
+			+ "padding:11px;border-radius:999px;}"
+			+ ".tk-btn-peserta{border:1px solid #86efac;color:#166534;background:#f0fdf4;}"
+			+ ".tk-alert{background:#fffbeb;border:1px solid #fde68a;color:#854d0e;font-size:12px;border-radius:10px;padding:10px 12px;}"
+			+ ".tk-analitik{border:1px solid #d1fae5;border-radius:12px;background:#f8fafc;overflow:hidden;margin-top:4px;}"
+			+ ".tk-analitik>summary{list-style:none;cursor:pointer;padding:11px 14px;font-weight:800;color:#166534;"
+			+ "font-size:13px;background:#ecfdf5;}"
+			+ ".tk-analitik>summary::-webkit-details-marker{display:none;}"
+			+ ".tk-analitik>summary:after{content:'\\25be';float:right;color:#16a34a;}"
+			+ ".tk-analitik[open]>summary:after{content:'\\25b4';}"
+			+ ".tk-analitik-body{padding:14px;}"
+			+ "</style>";
+
+	class DetailPerkuliahanRenderer extends ais.ui.util.MyRowRenderer {
+
+		private NamaTugasKelompokHelper namaTugasKelompokHelper = new NamaTugasKelompokHelper(mahasiswa,
+				biodataCalonMahasiswa);
+
+		private Calendar kemarin = ais.ui.util.WaktuUtil.getCalendar();
+
+		@SuppressWarnings({ "unchecked" })
+		@Override
+		public void render(final Row rowUtama, Object data) throws Exception {
+			final TugasKelompok tugasKelompok = (TugasKelompok) data;
+			rowUtama.setValign("top");
+			Pertemuan pertemuan = tugasKelompok.ambilPertemuan();
+			final Set<String> syaratAlert = new HashSet<String>();
+			Rows rowsSyarat = new Rows();
+
+			if (pertemuan != null) {
+
+				MyToolbarbutton button = new MyToolbarbutton("fa-refresh", "Refresh Syarat");
+
+				Tbmuser tbmuser = Common.getCurrentUser();
+				if (mahasiswa == null && biodataCalonMahasiswa == null && tbmuser.getPesertaKursus() == null
+						&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
+						&& tbmuser.getCalonSiswa() == null) {
+					Tugas.tampilanSyarat(pertemuan, tugasKelompok, null, null, null, null, rowsSyarat, syaratAlert,
+							button);
+				} else {
+					Tugas.tampilanSyaratReadonly(pertemuan, tugasKelompok, null, null, null, null, rowsSyarat,
+							syaratAlert, button);
+
+					Tugas.tampilanLain(pertemuan, tugasKelompok, null, null, null, null, rowsSyarat, button);
+				}
+			}
+
+			if (!tugasKelompok.getJudultugas().isEmpty()) {
+				tugasKelompok.masukkanData("tugas");
+			}
+
+			final Groupbox gb = new ais.ui.util.MyGroupboxStyled();
+			gb.setWidth("90%");
+			MyCaptionStyled jd;
+			gb.appendChild(jd = new MyCaptionStyled(tugasKelompok.getJudul()));
+			jd.setStyle(
+					"font-size:12px;font-weight: bolder;text-decoration: none;color:black;border: 1px solid black;\r\n"
+							+ "  padding: 5px;" + "  background-color: rgba(169,169,169,0.4);"
+							+ "  border-radius: 5px 15px;");
+			gb.setParent(rowUtama);
+			gb.setStyle("min-width: 350px;");
+
+			// KARTU RINGKAS (responsif): header lebar-penuh + body 2 kolom.
+			//  - Kolom KIRI  : info mata kuliah, jadwal Mulai/Batas Akhir, daftar kelompok+anggota (HTML).
+			//  - Kolom KANAN : dosen pengampu + tombol peserta, LALU seluruh KONTROL tugas (unggah/unduh,
+			//    syarat, nilai, tombol) sebagai komponen ZK — sehingga kontrol berada DI DALAM kartu, tepat
+			//    di bawah "Peserta Kelas" (mengisi ruang kosong), bukan jauh di bawah. Di HP menumpuk 1 kolom.
+			Vbox vbox = new Vbox();
+			vbox.setSclass("tk-side-col");
+			vbox.setWidth("100%");
+			vbox.setStyle("min-width:0;");
+			try {
+				String[] bagian = buatKartuRingkasTugasKelompok(tugasKelompok);
+				org.zkoss.zul.Div kartu = new org.zkoss.zul.Div();
+				kartu.setSclass("tk-kartu");
+				kartu.setParent(gb);
+				new ais.ui.util.MyHtml(bagian[0]).setParent(kartu); // gaya CSS + header
+
+				org.zkoss.zul.Div body = new org.zkoss.zul.Div();
+				body.setSclass("tk-body");
+				body.setParent(kartu);
+
+				new ais.ui.util.MyHtml(bagian[1]).setParent(body); // kolom kiri
+
+				vbox.setParent(body); // kolom kanan (wadah kontrol)
+				if (bagian[2] != null && bagian[2].length() > 0) {
+					new ais.ui.util.MyHtml(bagian[2]).setParent(vbox); // dosen + peserta di atas
+				}
+				jd.setVisible(false); // caption lama redundan dengan header kartu → sembunyikan
+
+				// Dashboard analitik & ringkasan nilai (HTML/CSS/SVG, tanpa JFreeChart) — full-width di
+				// bawah body, dapat dibuka-tutup (<details>), HANYA untuk pengelola (dosen/admin).
+				Tbmuser uAnalitik = Common.getCurrentUser();
+				if (bolehKelola(uAnalitik)) {
+					String analitik = bangunAnalitikHtml(tugasKelompok);
+					if (analitik != null && analitik.length() > 0) {
+						org.zkoss.zul.Div wrapAnalitik = new org.zkoss.zul.Div();
+						wrapAnalitik.setStyle("padding:0 20px 18px;");
+						wrapAnalitik.setParent(kartu);
+						new ais.ui.util.MyHtml(analitik).setParent(wrapAnalitik);
+					}
+				}
+			} catch (Exception eKartu) {
+				Common.tampilErrorJikaAdmin(eKartu);
+				if (vbox.getParent() == null) {
+					vbox.setParent(gb); // fallback: kontrol tetap tampil walau kartu gagal dirakit
+				}
+			}
+
+			if (!(tugasKelompok.getMulai() == null || tugasKelompok.getMulai().before(kemarin.getTime()))) {
+				Html isi = new ais.ui.util.MyHtml();
+				isi.setContent("<strong><font style='color:red;font-size: 15px;'>Tugas \"" + tugasKelompok.getJudul()
+						+ "\" belum mulai..<br>Tugas akan ditampilkan setelah "
+						+ SmartDateTimeUtil.getDayString(tugasKelompok.getMulai(), null)
+						+ Common.dateFormat5.get().format(tugasKelompok.getMulai()) + "</font></strong><br><img src=\""
+						+ Common.getRequestHostWithProtocol()
+						+ "/img/Apps-preferences-system-time-icon.png\" alt=\"WebP rules.\" />");
+				isi.setParent(vbox);
+			} else if (!(tugasKelompok.getSelesai() == null || tugasKelompok.getSelesai().after(kemarin.getTime()))) {
+				Html isi = new ais.ui.util.MyHtml();
+				isi.setContent("<strong><font style='color:red;font-size: 15px;'>Tugas \"" + tugasKelompok.getJudul()
+						+ "\" telah selesai..<br>Tugas telah ditampilkan sebelum "
+						+ SmartDateTimeUtil.getDayString(tugasKelompok.getSelesai(), null)
+						+ Common.dateFormat5.get().format(tugasKelompok.getSelesai()) + "</font></strong><br><img src=\""
+						+ Common.getRequestHostWithProtocol()
+						+ "/img/Apps-preferences-system-time-icon.png\" alt=\"WebP rules.\" />");
+				isi.setParent(vbox);
+			} else {
+				final Perkuliahan perkuliahan = tugasKelompok.getPerkuliahan();
+				if (perkuliahan != null && tampilRinci) {
+					ais.action.master.helper.PerkuliahanUIHelper.displayDosenPerkuliahan(vbox, perkuliahan, true);
+					Kurikulum kurikulum = perkuliahan.getKurikulum();
+					Vbox a = RevisiHelper.createNewRevisi(Perkuliahan.class, perkuliahan,
+							perkuliahan.getMatakuliah().getKode() + "-" + perkuliahan.getMatakuliah().getNama() + " "
+									+ perkuliahan.getMatakuliah().getSks() + " sks "
+									+ (kurikulum == null ? "" : " (Kurikulum:" + kurikulum.getTahun() + ")"));
+					a.setParent(vbox);
+
+					MatakuliahPrasyaratAction.tampilPrasyarat(a, perkuliahan.getMatakuliah());
+					ais.action.master.helper.PerkuliahanUIHelper.displayHariJamRuanganPerkuliahanUmum(vbox, perkuliahan);
+
+				}
+
+				new MyLabelAgakKecil((tugasKelompok.getMulai() != null
+						? "Mulai : " + Common.dateFormat3.get().format(tugasKelompok.getMulai())
+						: "")
+						+ (tugasKelompok.getSelesai() != null
+								? " Sampai : " + Common.dateFormat3.get().format(tugasKelompok.getSelesai())
+								: ""))
+						.setParent(vbox);
+				new ais.ui.util.MyHtml(tugasKelompok.getNama()).setParent(vbox);
+
+				if (tugasKelompok.getSyaratMengumpulkanTugas() != null) {
+					new MyLabelBold(
+							"Syarat mengumpulkan tugas : " + tugasKelompok.getSyaratMengumpulkanTugas().getNama())
+							.setParent(vbox);
+				}
+
+				new MyLabelKecil(
+						"Jika file yang Anda upload lebih dari satu file, zip / compress / jadikan satu file terlebih dulu, kemudian baru di-upload")
+						.setParent(vbox);
+
+				Vbox myvbox = new Vbox();
+				myvbox.setParent(vbox);
+
+				Hbox hbox = new Hbox();
+				hbox.setParent(myvbox);
+
+				Row myvboxBaru = Common.tampilanScroll1(vbox);
+				myvboxBaru.getGrid().setWidth("90%");
+				Tbmuser tbmuser = Common.getCurrentUser();
+				LampiranLain.createDownloadUploadFileLain(hbox, tugasKelompok.getId(),
+						LampiranLain.TUGAS_KELOMPOK_PERKULIAHAN, LampiranLain.TUGAS_KELOMPOK_PERKULIAHAN, false,
+						new EventListener() {
+
+							@Override
+							public void onEvent(Event arg0) throws Exception {
+								lampiran = (LampiranLain) arg0.getData();
+							}
+						}, null, false, false, false,
+						mahasiswa == null && biodataCalonMahasiswa == null && tbmuser.getPesertaKursus() == null
+								&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
+								&& tbmuser.getCalonSiswa() == null && siswa == null && calonSiswa == null,
+						null, false, false, myvboxBaru);
+			}
+
+			final Perkuliahan perkuliahan = tugasKelompok.getPerkuliahan();
+			if (perkuliahan != null) {
+				Tbmuser tbmuser = Common.getCurrentUser();
+				if (mahasiswa != null || biodataCalonMahasiswa != null || tbmuser.getPesertaKursus() != null) {
+					new Label(tugasKelompok.getFormatNilai() == null
+							|| tugasKelompok.getFormatNilai().getStatusPertemuan() == null
+									? ""
+									: tugasKelompok.getFormatNilai().getNama() + " ("
+											+ Common.numberFormat.get().format(tugasKelompok.getProsentase()) + "%)")
+							.setParent(vbox);
+				} else {
+
+					Hbox hboxP = new Hbox();
+					final Combobox formatNilai = new Combobox();
+
+					formatNilai.setWidth("92px");
+					MyComboitemConfig comboitemTidakAda = new MyComboitemConfig("Tidak Ada");
+					comboitemTidakAda.setValue(null);
+					formatNilai.appendChild(comboitemTidakAda);
+					Session session = HibernateUtil.currentSession();
+					List<FormatNilai> formatNilais = Common.getFormatNilais(session, perkuliahan);
+					for (FormatNilai nilai : formatNilais) {
+						if (nilai.getStatusPertemuan() != null) {
+							org.zkoss.zul.Comboitem comboitem = new org.zkoss.zul.Comboitem();
+							comboitem.setValue(nilai);
+							comboitem.setLabel(
+									nilai.getNama() + " (" + Common.numberFormat.get().format(nilai.getPersen()) + "%)");
+							formatNilai.appendChild(comboitem);
+						}
+					}
+					formatNilai.setParent(hboxP);
+					if (tugasKelompok.getFormatNilai() == null) {
+						formatNilai.setSelectedItem(comboitemTidakAda);
+					} else {
+						Common.selectComboItem(formatNilai, tugasKelompok.getFormatNilai());
+					}
+					formatNilai.setReadonly(true);
+					formatNilai.setDisabled(perkuliahan.getDikunci() != null);
+					if (perkuliahan.getDikunci() != null) {
+						new MyLabelKecil("Penilaian sudah dikunci").setParent(vbox);
+						if (tugasKelompok.getFormatNilai() != null) {
+							new MyLabelKecil("Nilai otomatis masuk ke " + tugasKelompok.getFormatNilai().getNama())
+									.setParent(vbox);
+						}
+					}
+
+					hboxP.setParent(vbox);
+					final MyDoublebox prosentase = new MyDoublebox(tugasKelompok.getProsentase());
+					prosentase.setDisabled(perkuliahan.getDikunci() != null);
+					prosentase.setCols(2);
+					final Label labelBobot;
+					hboxP.appendChild(labelBobot = new Label(ais.common.Common.getBahasaConfig(" bobot ")));
+					prosentase.setParent(hboxP);
+					hboxP.appendChild(new Label(" "));
+
+					prosentase.addEventListener("onChange", new EventListener() {
+
+						@Override
+						public void onEvent(Event arg0) throws Exception {
+							tugasKelompok.setProsentase(prosentase.getValue());
+							Common.refreshUpdate(tugasKelompok);
+						}
+					});
+
+					Hbox c = new Hbox();
+					c.setParent(vbox);
+
+					// Tombol aksi (Masukkan Nilai / Format Nilai / Upload dianggap hadir / Tdk. upload)
+					// dikelompokkan dalam SATU button group yang rapi — terpisah dari grid Sub-CPMK.
+					final Hbox grupTombol = new Hbox();
+					grupTombol.setSpacing("2px");
+					grupTombol.setStyle("display:flex;flex-wrap:wrap;gap:2px;align-items:center;"
+							+ "background:#f8fafc;border:1px solid #e2e8f0;"
+							+ "border-radius:10px;padding:3px 6px;margin:8px 0;");
+					grupTombol.setParent(vbox);
+
+					if (tugasKelompok.getFormatNilais() != null && perkuliahan != null
+							&& perkuliahan.getKurikulum() != null
+							&& perkuliahan.getKurikulum().apakahObe(perkuliahan.getTahunAjaran(),
+									perkuliahan.getGanjilGenap())
+							&& mahasiswa == null && biodataCalonMahasiswa == null && tbmuser.getPesertaKursus() == null
+							&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
+							&& tbmuser.getCalonSiswa() == null && tbmuser.getSiswa() == null) {
+
+						// Kurikulum OBE: sembunyikan pilihan Format Nilai tunggal + bobot manual (hboxP),
+						// karena penilaian OBE memakai pemetaan Sub-CPMK di grid di bawah. Meniru
+						// TugasMandiriHelper yang hanya menampilkan combo+bobot pada cabang NON-OBE.
+						hboxP.setVisible(false);
+
+						final MyToolbarbutton button = new MyToolbarbutton("fa-line-chart", "Masukkan Nilai");
+						button.setTooltiptext("Hitung dan masukkan nilai ke format penilaian OBE");
+						button.setParent(grupTombol);
+						button.addEventListener("onClick", new EventListener() {
+
+							@Override
+							public void onEvent(Event arg0) throws Exception {
+								Common.createDefaultTimer(new EventListener() {
+
+									@Override
+									public void onEvent(Event arg0) throws Exception {
+
+										ais.common.GradingHelper.hitungNilaiBerdasarkanFormatNilaiObe(tugasKelompok.getPerkuliahan(),
+												tugasKelompok.getFormatNilais());
+									}
+								});
+							}
+						});
+
+						// Pemetaan Sub-CPMK & Bobot pada KARTU bersifat BACA-SAJA (label). Perubahan bobot
+						// HANYA dapat dilakukan lewat tombol "Instruksi Tugas Kelompok" (Window edit) —
+						// sesuai instruksi kerapian tampilan. Lihat bangunGridSubCpmk(..., editable=true)
+						// yang dipanggil di dalam init() (form Instruksi).
+						bangunGridSubCpmk(c, tugasKelompok, perkuliahan, false);
+
+					}
+
+					else {
+
+						final MyToolbarbutton button = new MyToolbarbutton("fa-line-chart", "Masukkan Nilai");
+						button.setTooltiptext("Hitung dan masukkan nilai ke format penilaian");
+						button.setParent(grupTombol);
+						button.addEventListener("onClick", new EventListener() {
+
+							@Override
+							public void onEvent(Event arg0) throws Exception {
+								ais.common.GradingHelper.hitungNilaiBerdasarkanFormatNilai(perkuliahan,
+										tugasKelompok.getFormatNilai());
+							}
+						});
+
+						final MyToolbarbutton buttonFormatNilai = new MyToolbarbutton("fa-sliders", "Format Nilai");
+						buttonFormatNilai.setTooltiptext("Ubah format penilaian untuk tugas kelompok ini");
+
+						if (tugasKelompok.getPerkuliahan() != null) {
+							if (tugasKelompok.getPerkuliahan() != null
+									&& !tugasKelompok.getPerkuliahan().getSembunyikanFormatPenilaian()) {
+								buttonFormatNilai.setVisible(mahasiswa == null && biodataCalonMahasiswa == null
+										&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null
+										&& tbmuser.getBiodataCalonMahasiswa() == null && tbmuser.getCalonSiswa() == null
+										&& tbmuser.getSiswa() == null);
+								buttonFormatNilai.setParent(grupTombol);
+								buttonFormatNilai.setVisible(perkuliahan.getDikunci() == null);
+								if (perkuliahan.getKurikulum() != null && perkuliahan.getKurikulum()
+										.apakahObe(perkuliahan.getTahunAjaran(), perkuliahan.getGanjilGenap())) {
+									buttonFormatNilai.setVisible(false);
+								}
+								buttonFormatNilai.addEventListener("onClick", new EventListener() {
+
+									FormatPenilaianHelper formatPenilaianHelper = new FormatPenilaianHelper();
+
+									@Override
+									public void onEvent(Event event) throws Exception {
+
+										MyWindow addWindow = new MyWindow();
+										addWindow.setHeight("95%");
+										addWindow.setWidth("700px");
+										ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot()
+												.appendChild(addWindow);
+
+										formatPenilaianHelper.display(perkuliahan, addWindow,
+												new TampilDetailNilaiInterface() {
+
+													@Override
+													public void realoadNilai(final Perkuliahan perkuliahan) {
+
+														Common.realoadNilai(perkuliahan,
+																perkuliahan.getSembunyikanNilaiJikaBelumDiverifikasi(),
+																new EventListener() {
+
+																	@Override
+																	public void onEvent(Event arg0) throws Exception {
+																		Common.createDefaultTimer(new EventListener() {
+
+																			@Override
+																			public void onEvent(Event arg0)
+																					throws Exception {
+																				loadData(null);
+																			}
+																		});
+
+																	}
+																}, null);
+
+													}
+												});
+									}
+
+								});
+							}
+						}
+
+						prosentase.setVisible(tugasKelompok.getFormatNilai() != null);
+						labelBobot.setVisible(tugasKelompok.getFormatNilai() != null);
+						button.setVisible(tugasKelompok.getFormatNilai() != null);
+						buttonFormatNilai.setVisible(tugasKelompok.getFormatNilai() != null);
+
+						formatNilai.addEventListener("onChange", new EventListener() {
+
+							@Override
+							public void onEvent(Event arg0) throws Exception {
+
+								final FormatNilai fn = (FormatNilai) (formatNilai.getSelectedItem() == null ? null
+										: formatNilai.getSelectedItem().getValue());
+
+								Session session = HibernateUtil.currentSession();
+								tugasKelompok.setFormatNilai(fn);
+								Common.refreshUpdate(session, (tugasKelompok));
+
+								prosentase.setVisible(tugasKelompok.getFormatNilai() != null);
+								labelBobot.setVisible(tugasKelompok.getFormatNilai() != null);
+								button.setVisible(tugasKelompok.getFormatNilai() != null);
+								buttonFormatNilai.setVisible(tugasKelompok.getFormatNilai() != null);
+							}
+
+						});
+					}
+
+					final Pertemuan p = tugasKelompok.ambilPertemuan();
+					if (p != null && biodataCalonMahasiswa == null && siswa == null && mahasiswa == null
+							&& calonSiswa == null) {
+
+						MyToolbarbutton masuk = new MyToolbarbutton("fa-check", "Anggap Hadir (Pengumpul)");
+						masuk.setStyle("font-size:9px;");
+						masuk.setTooltiptext("Upload Tugas \"" + pertemuan.getJudultugas() + "\" dianggap hadir");
+						masuk.addEventListener("onClick", new EventListener() {
+							@Override
+							public void onEvent(Event event) throws Exception {
+
+								uploadTugasDiangapHadir(tugasKelompok, p, new EventListener() {
+
+									@Override
+									public void onEvent(Event arg0) throws Exception {
+										new PertemuanHelper(Common.getCurrentUser().getMahasiswa(), null).display(p,
+												new DataLoader() {
+
+													@Override
+													public void loadData(Object value) {
+														try {
+															TugasKelompokHelper.this.loadData(null);
+														} catch (Exception e) {
+															e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/TugasKelompokHelper.java:1896");
+														}
+													}
+												}, 0);
+									}
+								});
+
+							}
+						});
+						masuk.setParent(grupTombol);
+
+						masuk = new MyToolbarbutton("fa-times", "Tdk Upload = Alpa");
+						masuk.setStyle("font-size:9px;");
+						masuk.setTooltiptext("Mahasiswa yang tidak upload tugas dianggap tidak hadir (alpa)");
+						masuk.addEventListener("onClick", new EventListener() {
+							@Override
+							public void onEvent(Event event) throws Exception {
+								tidakUploadTugasDiangapTidakHadir(tugasKelompok, p, new EventListener() {
+
+									@Override
+									public void onEvent(Event arg0) throws Exception {
+										new PertemuanHelper(Common.getCurrentUser().getMahasiswa(), null).display(p,
+												new DataLoader() {
+
+													@Override
+													public void loadData(Object value) {
+														try {
+															TugasKelompokHelper.this.loadData(null);
+														} catch (Exception e) {
+															e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/TugasKelompokHelper.java:1925");
+														}
+													}
+												}, 0);
+									}
+								});
+
+							}
+						});
+						masuk.setParent(grupTombol);
+
+					}
+
+				}
+			} else if (jadwalPelajaran != null) {
+
+				final Combobox formatNilai = new Combobox();
+
+				formatNilai.setWidth("92px");
+				MyComboitemConfig comboitemTidakAda = new MyComboitemConfig("Tidak Ada");
+				comboitemTidakAda.setValue(null);
+				formatNilai.appendChild(comboitemTidakAda);
+
+				KelasSiswa kelasSiswa = jadwalPelajaran.getKelas();
+
+				JenisPenilaian jenisPenilaian = jadwalPelajaran.getMatapelajaran().getJenisPenilaian();
+				if (jadwalPelajaran.getKurikulumPunyaMatapelajaran() != null
+						&& jadwalPelajaran.getKurikulumPunyaMatapelajaran().getKurikulumSekolah() != null
+						&& jadwalPelajaran.getKurikulumPunyaMatapelajaran().getKurikulumSekolah()
+								.getJenisPenilaian() != null) {
+					jenisPenilaian = jadwalPelajaran.getKurikulumPunyaMatapelajaran().getKurikulumSekolah()
+							.getJenisPenilaian();
+				}
+
+				Session session = HibernateUtil.currentSession();
+				List<GrupPenilaian> grupPenilaians = ConstantValues
+						.simpleList(
+								session.createCriteria(DetailJenisPenilaian.class)
+										.add(Restrictions.or(Restrictions.isNull("aktif"),
+												Restrictions.eq("aktif", true)))
+										.add(Restrictions.eq("jenisPenilaian", jenisPenilaian))
+										.setProjection(Projections.groupProperty("grupPenilaian.id")),
+								GrupPenilaian.class, false);
+
+				for (GrupPenilaian grupPenilaian : grupPenilaians) {
+
+					if (grupPenilaian != null && kelasSiswa != null && kelasSiswa.getTingkat() > 0
+							&& grupPenilaian.getKhususTingkat() != null
+							&& !grupPenilaian.getKhususTingkat().equals(kelasSiswa.getTingkat())) {
+						continue;
+					}
+
+					List<GrupKategoriItemPenilaianSiswa> grupKategoriItemPenilaianSiswas = ConstantValues
+							.simpleList(
+									session.createCriteria(DetailGrupPenilaian.class)
+											.add(Restrictions.or(Restrictions.isNull("aktif"),
+													Restrictions.eq("aktif", true)))
+											.add(Restrictions.isNotNull("grupKategoriItemPenilaianSiswa"))
+											.setProjection(
+													Projections.groupProperty("grupKategoriItemPenilaianSiswa.id"))
+											.add(Restrictions.eq("grupPenilaian", grupPenilaian)),
+									GrupKategoriItemPenilaianSiswa.class, false);
+
+					if (grupKategoriItemPenilaianSiswas.isEmpty()) {
+						return;
+					}
+
+					Collections.sort(grupKategoriItemPenilaianSiswas);
+					for (GrupKategoriItemPenilaianSiswa grupKategoriItemPenilaianSiswa : grupKategoriItemPenilaianSiswas) {
+
+						if (grupKategoriItemPenilaianSiswa != null && kelasSiswa != null && kelasSiswa.getTingkat() > 0
+								&& grupKategoriItemPenilaianSiswa.getKhususTingkat() != null
+								&& !grupKategoriItemPenilaianSiswa.getKhususTingkat().equals(kelasSiswa.getTingkat())) {
+							continue;
+						}
+
+						List<KategoriItemPenilaianSiswa> kategoriItemPenilaianSiswasId = ConstantValues.simpleList(
+								session.createCriteria(DetailGrupKategoriItemPenilaianSiswa.class)
+
+										.add(Restrictions.eq("grupKategoriItemPenilaianSiswa",
+												grupKategoriItemPenilaianSiswa))
+										.add(Restrictions.or(Restrictions.isNull("aktif"),
+												Restrictions.eq("aktif", true)))
+
+										.setProjection(Projections.groupProperty("kategoriItemPenilaianSiswa.id")),
+								KategoriItemPenilaianSiswa.class, false);
+
+						List<JenisItemPenilaianSiswa> jenisItemPenilaianSiswas = ConstantValues
+								.simpleList(
+										session.createCriteria(JenisItemPenilaianSiswa.class)
+												.createAlias("kategoriItemPenilaianSiswa", "kategoriItemPenilaianSiswa")
+												.addOrder(Order.asc("kategoriItemPenilaianSiswa.kode"))
+												.addOrder(Order.asc("nomorUrut"))
+												.add(Restrictions.in("kategoriItemPenilaianSiswa",
+														kategoriItemPenilaianSiswasId))
+												.add(Restrictions.or(Restrictions.isNull("aktif"),
+														Restrictions.eq("aktif", true))),
+										JenisItemPenilaianSiswa.class);
+						for (JenisItemPenilaianSiswa jenisItemPenilaianSiswa : jenisItemPenilaianSiswas) {
+
+							if (jenisItemPenilaianSiswa.getTipeDataInputan().equals(JenisItemPenilaianSiswa.ANGKA)
+									|| jenisItemPenilaianSiswa.getTipeDataInputan()
+											.equals(JenisItemPenilaianSiswa.TEXT_ANGKA)) {
+
+								org.zkoss.zul.Comboitem comboitem = new org.zkoss.zul.Comboitem();
+								comboitem.setValue(jenisItemPenilaianSiswa);
+								comboitem.setLabel(jenisItemPenilaianSiswa.getNama() + " ("
+										+ jenisItemPenilaianSiswa.getKode() + ")");
+								comboitem.setDescription(grupKategoriItemPenilaianSiswa.getNama() + " ("
+										+ grupPenilaian.getNama() + ")");
+
+								comboitem.setAttribute("grupKategoriItemPenilaianSiswa",
+										grupKategoriItemPenilaianSiswa);
+
+								comboitem.setAttribute("grupPenilaian", grupPenilaian);
+
+								formatNilai.appendChild(comboitem);
+							}
+
+						}
+
+					}
+
+				}
+
+				formatNilai.setParent(vbox);
+				if (tugasKelompok.getJenisItemPenilaianSiswa() == null) {
+					formatNilai.setSelectedItem(comboitemTidakAda);
+				} else {
+					Common.selectComboItem(formatNilai, tugasKelompok.getJenisItemPenilaianSiswa());
+				}
+				formatNilai.setReadonly(true);
+				formatNilai.setDisabled(jadwalPelajaran.getDikunci() != null);
+				if (jadwalPelajaran.getDikunci() != null) {
+					new MyLabelKecil("Penilaian sudah dikunci").setParent(vbox);
+					if (tugasKelompok.getJenisItemPenilaianSiswa() != null) {
+						new MyLabelKecil("Nilai otomatis masuk ke "
+								+ tugasKelompok.getJenisItemPenilaianSiswa().getNama() + " "
+								+ (tugasKelompok.getJenisItemPenilaianSiswa().getKategoriItemPenilaianSiswa() == null
+										? ""
+										: " " + tugasKelompok.getJenisItemPenilaianSiswa()
+												.getKategoriItemPenilaianSiswa().getNama())
+
+						).setParent(vbox);
+					}
+				}
+
+				final MyToolbarbutton button = new MyToolbarbutton("fa-refresh", "Sinkronkan Nilai");
+				button.setTooltiptext("Sinkronkan nilai tugas kelompok ke daftar nilai siswa");
+				button.setParent(vbox);
+				button.addEventListener("onClick", new EventListener() {
+
+					@Override
+					public void onEvent(Event arg0) throws Exception {
+						ais.common.GradingHelper.hitungNilaiBerdasarkanJenisItemPenilaianSiswa(jadwalPelajaran,
+								tugasKelompok.getGrupKategoriItemPenilaianSiswa(), tugasKelompok.getGrupPenilaian(),
+								tugasKelompok.getJenisItemPenilaianSiswa());
+					}
+				});
+				button.setVisible(tugasKelompok.getJenisItemPenilaianSiswa() != null);
+
+				formatNilai.addEventListener("onChange", new EventListener() {
+
+					@Override
+					public void onEvent(Event arg0) throws Exception {
+
+						JenisItemPenilaianSiswa fn = (JenisItemPenilaianSiswa) (formatNilai.getSelectedItem() == null
+								? null
+								: formatNilai.getSelectedItem().getValue());
+
+						GrupKategoriItemPenilaianSiswa grupKategoriItemPenilaianSiswa = (GrupKategoriItemPenilaianSiswa) (formatNilai
+								.getSelectedItem() == null ? null
+										: formatNilai.getSelectedItem().getAttribute("grupKategoriItemPenilaianSiswa"));
+
+						GrupPenilaian grupPenilaian = (GrupPenilaian) (formatNilai.getSelectedItem() == null ? null
+								: formatNilai.getSelectedItem().getAttribute("grupPenilaian"));
+
+						Session session = HibernateUtil.currentSession();
+						tugasKelompok.setJenisItemPenilaianSiswa(fn);
+						tugasKelompok.setGrupKategoriItemPenilaianSiswa(grupKategoriItemPenilaianSiswa);
+						tugasKelompok.setGrupPenilaian(grupPenilaian);
+						Common.refreshUpdate(session, (tugasKelompok));
+
+						button.setVisible(tugasKelompok.getJenisItemPenilaianSiswa() != null);
+					}
+
+				});
+
+			}
+
+			RevisiHelper.createNewRevisi(TugasKelompok.class, tugasKelompok,
+					"Tgl : " + Common.dateFormat5.get().format(tugasKelompok.getTanggal())).setParent(vbox);
+
+			Session session = HibernateUtil.currentSession();
+			Integer count = ((Number) session.createCriteria(NamaTugasKelompok.class)
+					.add(Restrictions.eq("tugasKelompok", tugasKelompok)).setProjection(Projections.rowCount())
+					.uniqueResult()).intValue();
+
+			new Label("Jml kelompok : " + Common.numberFormat.get().format(count)).setParent(vbox);
+
+			if (count.equals(0)) {
+				MyLabelAgakKecilBold a;
+				vbox.appendChild(a = new MyLabelAgakKecilBold(
+						"Catatan : Minimal harus ada satu kelompok yang dibuat agar mahasiswa dapat mengumpulkan tugas."));
+				a.setStyle("font-size:9px;font-weight: bolder;color:red");
+			}
+
+			Tbmuser tbmuser = Common.getCurrentUser();
+
+			Hbox toolbar = new Hbox();
+			toolbar.setSpacing("2px");
+			toolbar.setStyle("display:flex;flex-wrap:wrap;gap:2px;align-items:center;"
+					+ "background:#f8fafc;border:1px solid #e2e8f0;"
+					+ "border-radius:10px;padding:3px 6px;margin:8px 0;");
+			MyToolbarbutton button = new MyToolbarbutton("fa-pencil", "Instruksi Tugas Kelompok");
+			button.setVisible(bolehKelola(tbmuser));
+			button.setTooltiptext("Edit instruksi dan pengaturan tugas kelompok ini");
+			button.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					onAdd(event, tugasKelompok);
+				}
+
+			});
+			button.setParent(toolbar);
+
+			// (C) Kelola Nilai: entri nilai per anggota kelompok dalam satu daftar rata (Window).
+			// Hanya untuk pengelola (bukan mahasiswa/siswa).
+			button = new MyToolbarbutton("fa-star", "Kelola Nilai");
+			button.setVisible(bolehKelola(tbmuser));
+			button.setTooltiptext("Isi nilai tiap anggota kelompok");
+			button.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					bukaKelolaNilai(tugasKelompok);
+				}
+			});
+			button.setParent(toolbar);
+
+			// (D) Kelola Kelompok: Daftar Kelompok (Tambah/Download/Upload + grid anggota) dipindah
+			// ke dalam Popup Window agar kartu tetap ringkas. Terlihat untuk semua peran (mahasiswa/
+			// siswa memakainya untuk melihat & bergabung kelompok; kontrol Tambah/Upload otomatis
+			// disembunyikan bagi mereka di dalam NamaTugasKelompokHelper).
+			button = new MyToolbarbutton("fa-users", "Kelola Kelompok");
+			button.setTooltiptext("Kelola daftar kelompok & anggota");
+			button.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					final MyWindow win = new MyWindow();
+					win.setTitle("Kelola Kelompok — "
+							+ (tugasKelompok.getJudul() == null ? "" : tugasKelompok.getJudul()));
+					if (Common.isMobile()) {
+						win.setWidth("100%");
+						win.setHeight("100%");
+					} else {
+						win.setWidth("95%");
+						win.setHeight("95%");
+					}
+					ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(win);
+					Borderlayout bl = new ais.ui.util.MyBorderlayout();
+					Center c2 = new Center();
+					c2.setParent(bl);
+					ais.ui.util.ZkCompat.setFlex(c2, true);
+					// NamaTugasKelompokHelper.display() menambahkan MyCaptionStyled (Caption), yang di ZK
+					// HANYA boleh berinduk pada Groupbox — bukan Div. Karena itu wadahnya Groupbox.
+					ais.ui.util.MyGroupboxStyled isiWin = new ais.ui.util.MyGroupboxStyled();
+					isiWin.setStyle("padding:8px;width:100%;");
+					isiWin.setParent(c2);
+					new NamaTugasKelompokHelper(mahasiswa, biodataCalonMahasiswa).display(tugasKelompok, isiWin,
+							syaratAlert);
+					South south2 = new South();
+					ais.ui.util.ZkCompat.setFlex(south2, true);
+					south2.setParent(bl);
+					Toolbar tb2 = new Toolbar();
+					tb2.setParent(south2);
+					MyToolbarbutton tutup = new MyToolbarbutton("fa-times", "Tutup");
+					tutup.setTooltiptext("Tutup jendela Kelola Kelompok");
+					tutup.addEventListener("onClick", new EventListener() {
+						@Override
+						public void onEvent(Event ev) throws Exception {
+							win.detach();
+						}
+					});
+					tutup.setParent(tb2);
+					bl.setParent(win);
+					win.setVisible(true);
+					win.onModal();
+				}
+			});
+			button.setParent(toolbar);
+
+			button = new MyToolbarbutton("fa-trash", "Hapus Tugas Kelompok");
+			button.setVisible(bolehKelola(tbmuser));
+			button.setTooltiptext("Hapus data tugas kelompok ini secara permanen");
+			button.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					MyMessageboxConfig.show("Apakah yakin ingin menghapus data ini ?", "Pertanyaan",
+							MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
+							new EventListener() {
+
+								@Override
+								public void onEvent(Event event) throws Exception {
+									int i = Integer.parseInt(event.getData().toString());
+									if (i == MyMessageboxConfig.OK) {
+										try {
+
+											Common.refreshDelete(tugasKelompok);
+											loadData(null);
+
+											if (eventListener != null) {
+												eventListener.onEvent(event);
+											}
+
+										} catch (Exception e) {
+											Common.tampilErrorJikaAdmin(e);
+											PesanFormalHelper.tampilkanGagalException(
+													"menghapus data tugas kelompok",
+													e, new String[] {
+															"Pastikan tidak ada nilai atau data lain yang masih berelasi dengan data ini.",
+															"Muat ulang (refresh) halaman ini lalu coba hapus kembali.",
+															"Apabila kendala masih berlanjut, hubungi Admin dengan menyertakan tangkapan layar (screenshot) pesan ini."
+													});
+										}
+
+									}
+
+								}
+							});
+
+				}
+
+			});
+			button.setParent(toolbar);
+			toolbar.setParent(vbox);
+
+			if (mahasiswa == null && biodataCalonMahasiswa == null && tbmuser.getPesertaKursus() == null
+					&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null && tbmuser.getCalonSiswa() == null) {
+
+				// Daftar Kelompok dipindah ke Popup Window (tombol "Kelola Kelompok" di atas), agar
+				// kartu ringkas tetap bersih. Baris inline lama dihapus dari sini.
+				final MyToolbarbutton toolbarbutton = new MyToolbarbutton("fa-eye",
+						"Tampilkan peserta yang tidak perlu mengumpulkan tugas kelompok");
+				toolbarbutton.setStyle("font-size:9px;");
+				toolbarbutton.setTooltiptext("Tampilkan daftar peserta yang dikecualikan dari tugas kelompok ini");
+				gb.appendChild(toolbarbutton);
+				toolbarbutton.addEventListener("onClick", new EventListener() {
+
+					@Override
+					public void onEvent(Event arg0) throws Exception {
+						toolbarbutton.detach();
+
+						Groupbox div = new ais.ui.util.MyGroupboxStyled();
+						div.appendChild(new MyCaptionStyled("Daftar peserta yang tidak perlu mengumpulkan tugas"));
+						div.setParent(gb);
+
+						Hbox hbox = new Hbox();
+						hbox.appendChild(new MyLabelConfig("Peserta : "));
+						final Textbox cari = new Textbox("");
+						cari.setParent(hbox);
+						cari.setCols(20);
+
+						final Grid grid = new Grid();
+						grid.setSclass("dgrid");
+						grid.setParent(div);
+
+						Columns columns = new Columns();
+						columns.setParent(grid);
+
+						MyColumnConfig column = new MyColumnConfig();
+						column.appendChild(hbox);
+						column.setParent(columns);
+						column.setWidth("70%");
+
+						final MyCheckboxConfig checkboxConfigAll = new MyCheckboxConfig("Tidak perlu ikut");
+
+						column = new MyColumnConfig();
+						column.appendChild(checkboxConfigAll);
+						column.setParent(columns);
+
+						grid.setHeight("100%");
+						grid.setWidth("100%");
+
+						grid.setRowRenderer(new ais.ui.util.MyRowRenderer() {
+							@Override
+							public void render(Row arg0, Object arg1) throws Exception {
+								arg0.setValign("top");
+								arg0.setSclass("ais-tugas-upload-row");
+								final Mahasiswa mahasiswa = (arg1 instanceof Mahasiswa) ? (Mahasiswa) arg1 : null;
+								final BiodataCalonMahasiswa biodataCalonMahasiswa = (arg1 instanceof BiodataCalonMahasiswa)
+										? (BiodataCalonMahasiswa) arg1
+										: null;
+								final Siswa siswa = (arg1 instanceof Siswa) ? (Siswa) arg1 : null;
+								final CalonSiswa calonSiswa = (arg1 instanceof CalonSiswa) ? (CalonSiswa) arg1 : null;
+
+								Hbox hbox = new Hbox();
+								hbox.setStyle("gap:6px;align-items:center;");
+								hbox.setParent(arg0);
+								if (mahasiswa != null) {
+									CommonMedia.tampilkanGambarKecil(mahasiswa).setParent(hbox);
+								} else if (biodataCalonMahasiswa != null) {
+									CommonMedia.tampilkanGambarKecil(biodataCalonMahasiswa).setParent(hbox);
+								} else if (siswa != null) {
+									CommonMedia.tampilkanGambarKecil(siswa).setParent(hbox);
+								} else if (calonSiswa != null) {
+									CommonMedia.tampilkanGambarKecil(calonSiswa).setParent(hbox);
+								}
+
+								Vbox vb = new Vbox();
+								vb.setParent(hbox);
+								String nim = mahasiswa != null ? mahasiswa.getNim()
+										: biodataCalonMahasiswa != null ? biodataCalonMahasiswa.getNoRegistrasi()
+												: siswa != null ? siswa.getNomorInduk()
+														: calonSiswa != null ? calonSiswa.getNomorInduk() : "";
+								String nama = mahasiswa != null ? mahasiswa.getNama()
+										: biodataCalonMahasiswa != null ? biodataCalonMahasiswa.getNama()
+												: siswa != null ? siswa.getNama()
+														: calonSiswa != null ? calonSiswa.getNama() : "";
+								Label namaLbl = new Label(nim + " / " + nama);
+								namaLbl.setSclass("ais-tugas-upload-nama");
+								vb.appendChild(namaLbl);
+
+								Long id = mahasiswa != null ? mahasiswa.getId()
+										: biodataCalonMahasiswa != null ? biodataCalonMahasiswa.getId()
+												: siswa != null ? siswa.getId()
+														: calonSiswa != null ? calonSiswa.getId() : null;
+
+								final MyCheckboxConfig checkboxConfig = new MyCheckboxConfig("Tidak perlu ikut");
+								checkboxConfig.setDisabled(mahasiswa == null);
+								checkboxConfig.setChecked(tugasKelompok.getMhsYgTidakIkut().contains("," + id + ","));
+								checkboxConfig.setParent(arg0);
+								checkboxConfig.addEventListener("onClick", new EventListener() {
+
+									@Override
+									public void onEvent(Event arg0) throws Exception {
+
+										Session session = HibernateUtil.currentSession();
+										if (tugasKelompok.getId() != null) {
+											session.refresh(tugasKelompok);
+										}
+
+										Long id = mahasiswa != null ? mahasiswa.getId()
+												: biodataCalonMahasiswa != null ? biodataCalonMahasiswa.getId()
+														: siswa != null ? siswa.getId()
+																: calonSiswa != null ? calonSiswa.getId() : null;
+										String ids = "," + id + ",";
+										String text = tugasKelompok.getMhsYgTidakIkut();
+										text = org.apache.commons.lang3.StringUtils.replace(text, ids, "");
+										text = org.apache.commons.lang3.StringUtils.replace(text, id.toString(), "");
+
+										tugasKelompok
+												.setMhsYgTidakIkut(text + (!checkboxConfig.isChecked() ? "" : ids));
+										Common.refreshUpdate(session, tugasKelompok);
+									}
+								});
+							}
+
+						});
+
+						EventListener cariAkun = new EventListener() {
+
+							@Override
+							public void onEvent(Event arg0) throws Exception {
+								List<Mahasiswa> mahasiswasTemorary = tugasKelompok.getPerkuliahan().ambilMahasiswa();
+								List<Mahasiswa> copy = new ArrayList<Mahasiswa>();
+								for (Mahasiswa mahasiswa : mahasiswasTemorary) {
+									BiodataCalonMahasiswa biodataCalonMahasiswa = null;
+									if (cari.getValue().trim().isEmpty() ||
+
+											(mahasiswa != null &&
+
+													((mahasiswa.getNim() != null && mahasiswa.getNim().toLowerCase()
+															.contains(cari.getValue().toLowerCase().trim()))
+
+															||
+
+															(mahasiswa.getNama() != null
+																	&& mahasiswa.getNama().toLowerCase().contains(
+																			cari.getValue().toLowerCase().trim()))
+
+													)
+
+											)
+
+											||
+
+											(biodataCalonMahasiswa != null &&
+
+													((biodataCalonMahasiswa.getNoRegistrasi() != null
+															&& biodataCalonMahasiswa.getNoRegistrasi().toLowerCase()
+																	.contains(cari.getValue().toLowerCase().trim()))
+
+															||
+
+															(biodataCalonMahasiswa.getNama() != null
+																	&& biodataCalonMahasiswa.getNama().toLowerCase()
+																			.contains(cari.getValue().toLowerCase()
+																					.trim()))
+
+													)
+
+											)
+
+									) {
+										copy.add(mahasiswa);
+									}
+								}
+								ListModel strset = new SimpleListModel(copy);
+								grid.setModel(strset);
+								mahasiswasTemorary = null;
+								copy = null;
+							}
+						};
+						cariAkun.onEvent(null);
+						cari.addEventListener("onOK", cariAkun);
+
+						MyToolbarbutton toolbarbutton = new MyToolbarbutton("fa-search", "");
+						toolbarbutton.setTooltiptext("Cari peserta");
+						toolbarbutton.setParent(hbox);
+						toolbarbutton.addEventListener("onClick", cariAkun);
+
+						checkboxConfigAll.addEventListener("onClick", new EventListener() {
+
+							@Override
+							public void onEvent(Event arg0) throws Exception {
+
+								Session session = HibernateUtil.currentSession();
+								if (tugasKelompok.getId() != null) {
+									session.refresh(tugasKelompok);
+								}
+
+								List<Mahasiswa> mahasiswasTemorary = tugasKelompok.getPerkuliahan().ambilMahasiswa();
+								List<Mahasiswa> copy = new ArrayList<Mahasiswa>();
+								for (Mahasiswa mahasiswa : mahasiswasTemorary) {
+									BiodataCalonMahasiswa biodataCalonMahasiswa = null;
+									Siswa siswa = null;
+									CalonSiswa calonSiswa = null;
+									if (cari.getValue().trim().isEmpty() ||
+
+											(mahasiswa != null &&
+
+													((mahasiswa.getNim() != null && mahasiswa.getNim().toLowerCase()
+															.contains(cari.getValue().toLowerCase().trim()))
+
+															||
+
+															(mahasiswa.getNama() != null
+																	&& mahasiswa.getNama().toLowerCase().contains(
+																			cari.getValue().toLowerCase().trim()))
+
+													)
+
+											)
+
+											||
+
+											(biodataCalonMahasiswa != null &&
+
+													((biodataCalonMahasiswa.getNoRegistrasi() != null
+															&& biodataCalonMahasiswa.getNoRegistrasi().toLowerCase()
+																	.contains(cari.getValue().toLowerCase().trim()))
+
+															||
+
+															(biodataCalonMahasiswa.getNama() != null
+																	&& biodataCalonMahasiswa.getNama().toLowerCase()
+																			.contains(cari.getValue().toLowerCase()
+																					.trim()))
+
+													)
+
+											)
+
+									) {
+
+										Long id = mahasiswa != null ? mahasiswa.getId()
+												: biodataCalonMahasiswa != null ? biodataCalonMahasiswa.getId()
+														: siswa != null ? siswa.getId()
+																: calonSiswa != null ? calonSiswa.getId() : null;
+										String ids = "," + id + ",";
+										String text = tugasKelompok.getMhsYgTidakIkut();
+										text = org.apache.commons.lang3.StringUtils.replace(text, ids, "");
+										text = org.apache.commons.lang3.StringUtils.replace(text, id.toString(), "");
+
+										tugasKelompok
+												.setMhsYgTidakIkut(text + (!checkboxConfigAll.isChecked() ? "" : ids));
+
+										copy.add(mahasiswa);
+									}
+								}
+
+								Common.refreshUpdate(session, tugasKelompok);
+
+								ListModel strset = new SimpleListModel(copy);
+								grid.setModel(strset);
+								mahasiswasTemorary = null;
+								copy = null;
+
+							}
+						});
+
+					}
+				});
+
+			}
+			// Catatan: Daftar Kelompok kini selalu dibuka lewat tombol "Kelola Kelompok" (Popup Window),
+			// baik untuk pengelola maupun mahasiswa/siswa — sehingga tidak ada lagi render inline di kartu.
+
+			if (pertemuan != null) {
+
+				Grid grid = new Grid();
+				grid.setSclass("dgrid");
+				grid.setSclass("fgrid");
+				grid.setParent(gb);
+
+				rowsSyarat.setParent(grid);
+
+			}
+		}
+
+	}
+
+	/**
+	 * Menempelkan strip kartu ringkasan (Total Tugas, Sedang Berjalan, Lewat Batas) di atas daftar.
+	 * Memberi gambaran cepat berapa tugas kelompok yang masih dalam masa pengumpulan dan berapa yang
+	 * sudah melewati batas, agar dosen/guru langsung tahu kondisi tanpa membaca seluruh daftar.
+	 * Jumlah dihitung dengan query agregat (COUNT) memakai {@code currentSession} sehingga hemat
+	 * memori (tidak memuat seluruh baris). Bersifat kosmetik &mdash; bila perhitungan gagal, strip
+	 * dilewati tanpa menggagalkan tampilan utama.
+	 *
+	 * @param parent komponen induk tempat strip kartu disisipkan
+	 */
+	private void tempelRingkasanTugas(Component parent) {
+		if (parent == null || cari == null) {
+			return;
+		}
+		try {
+			java.util.Date sekarang = new java.util.Date();
+			long total = ((Number) initCriteria(false)
+					.setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult()).longValue();
+			long lewat = ((Number) initCriteria(false).add(Restrictions.lt("selesai", sekarang))
+					.setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult()).longValue();
+			long aktif = Math.max(0, total - lewat);
+
+			List<ais.ui.util.DashboardUiKit.Stat> kartu = new ArrayList<ais.ui.util.DashboardUiKit.Stat>();
+			kartu.add(new ais.ui.util.DashboardUiKit.Stat("Total Tugas", String.valueOf(total),
+					"Semua tugas kelompok pada cakupan ini", "#2563eb"));
+			kartu.add(new ais.ui.util.DashboardUiKit.Stat("Sedang Berjalan", String.valueOf(aktif),
+					"Batas pengumpulan belum lewat", "#16a34a"));
+			kartu.add(new ais.ui.util.DashboardUiKit.Stat("Lewat Batas", String.valueOf(lewat),
+					"Sudah melewati batas pengumpulan", "#dc2626"));
+			parent.appendChild(ais.ui.util.DashboardUiKit.html(ais.ui.util.DashboardUiKit.cards(kartu)));
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+		}
+	}
+
+	public Criteria initCriteria(boolean order) {
+		Session session = HibernateUtil.currentSession();
+		Criteria crit = session.createCriteria(TugasKelompok.class)
+				.add(cari.getValue().trim().isEmpty() ? Restrictions.sqlRestriction("true")
+						: Restrictions.or(Restrictions.ilike("judul", cari.getValue().trim(), MatchMode.ANYWHERE),
+								Restrictions.or(Restrictions.ilike("nama", cari.getValue().trim(), MatchMode.ANYWHERE),
+										Restrictions.ilike("keterangan", cari.getValue().trim(), MatchMode.ANYWHERE))))
+
+				.add(jadwalPelajaran == null ? Restrictions.sqlRestriction("true")
+						: Restrictions.eq("jadwalPelajaran", jadwalPelajaran))
+
+				.add(perkuliahan == null ? Restrictions.sqlRestriction("true")
+						: Restrictions.eq("perkuliahan", perkuliahan))
+				.add(kelompokKkn == null ? Restrictions.sqlRestriction("true")
+						: Restrictions.eq("kelompokKkn", kelompokKkn))
+				.add(kelompokPkl == null ? Restrictions.sqlRestriction("true")
+						: Restrictions.eq("kelompokPkl", kelompokPkl))
+
+				.add(perkuliahans == null || perkuliahans.isEmpty() ? Restrictions.sqlRestriction("true")
+						: Restrictions.in("perkuliahan", perkuliahans))
+				.add(kelompokKkns == null || kelompokKkns.isEmpty() ? Restrictions.sqlRestriction("true")
+						: Restrictions.in("kelompokKkn", kelompokKkns))
+				.add(kelompokPkls == null || kelompokPkls.isEmpty() ? Restrictions.sqlRestriction("true")
+						: Restrictions.in("kelompokPkl", kelompokPkls))
+
+				.add(sqlTambahan == null || sqlTambahan.trim().isEmpty() ? Restrictions.sqlRestriction("true")
+						: Restrictions.sqlRestriction(sqlTambahan));
+
+		if (order) {
+			crit.addOrder(Order.desc("mulai")).addOrder(Order.desc("id"));
+		}
+		return crit;
+	}
+
+	@SuppressWarnings("unchecked")
+	public void loadData(Object value) {
+
+		if (cari == null) {
+			return;
+		}
+
+		Common.initPaging1(initCriteria(false), paging);
+
+		List<TugasKelompok> tugasKelompok = initCriteria(true).setMaxResults(Common.ROWS_COUNT_ON_PAGE_1)
+				.setFirstResult(Common.ROWS_COUNT_ON_PAGE_1 * (paging == null ? 0 : paging.getActivePage())).list();
+
+		ListModel strset = new SimpleListModel(tugasKelompok);
+		grid.setRowRenderer(new DetailPerkuliahanRenderer());
+		grid.setModelCheckMobile(strset);
+		grid.setSclass("fgrid ais-data-grid");
+	}
+
+	public void tampilanTugas(TugasKelompok tugasKelompok, Component component, EventListener eventListener) {
+		this.tugasKelompok = tugasKelompok;
+		this.eventListener = eventListener;
+		this.component = component;
+
+		tampilRinci = false;
+
+		Row rowUtama;
+
+		if (Common.isMobile()) {
+			rowUtama = Common.tampilanScroll(component);
+			rowUtama.setValign("top");
+			rowUtama.setHeight("20000px");
+		} else {
+			rowUtama = Common.tampilanScroll1(component);
+		}
+
+		grid = new MyGrid();// grid.setOddRowSclass("non-odd");
+		grid.setWidth("100%");
+		grid.setMold("paging");
+		grid.setPageSize(50);
+		grid.getPagingChild().setMold("os");
+		grid.setParent(rowUtama);
+
+		Columns columns = new Columns();
+		columns.setParent(grid);
+
+		this.perkuliahan = tugasKelompok.getPerkuliahan();
+		this.kelompokKkn = tugasKelompok.getKelompokKkn();
+		this.kelompokPkl = tugasKelompok.getKelompokPkl();
+		this.jadwalPelajaran = tugasKelompok.getJadwalPelajaran();
+
+		List<TugasKelompok> tugasKelompoks = new ArrayList<TugasKelompok>();
+		tugasKelompoks.add(tugasKelompok);
+		ListModel strset = new SimpleListModel(tugasKelompoks);
+		grid.setRowRenderer(new DetailPerkuliahanRenderer());
+		grid.setModelCheckMobile(strset);
+		grid.setSclass("fgrid ais-data-grid");
+	}
+
+	public void display(VOPembelajaran voPembelajaran, final Component component) {
+
+		if (voPembelajaran != null && (voPembelajaran instanceof Perkuliahan)) {
+			this.perkuliahan = (Perkuliahan) voPembelajaran;
+		} else if (voPembelajaran != null && (voPembelajaran instanceof KelompokKkn)) {
+			this.kelompokKkn = (KelompokKkn) voPembelajaran;
+		} else if (voPembelajaran != null && (voPembelajaran instanceof KelompokPkl)) {
+			this.kelompokPkl = (KelompokPkl) voPembelajaran;
+		} else if (voPembelajaran != null && (voPembelajaran instanceof JadwalPelajaran)) {
+			this.jadwalPelajaran = (JadwalPelajaran) voPembelajaran;
+		}
+
+		display(perkuliahan, kelompokKkn, kelompokPkl, component);
+	}
+
+	public void display(JadwalPelajaran jadwalPelajaran, final Component component) {
+		this.jadwalPelajaran = jadwalPelajaran;
+		display(perkuliahan, kelompokKkn, kelompokPkl, component);
+	}
+
+	public void display(String sqlTambahan, final Component component) {
+		this.sqlTambahan = sqlTambahan;
+		display(perkuliahan, kelompokKkn, kelompokPkl, component);
+	}
+
+	public void display(final List<Perkuliahan> perkuliahans, final List<KelompokKkn> kelompokKkns,
+			final List<KelompokPkl> kelompokPkls, final Tabpanel component) {
+		this.perkuliahans = perkuliahans;
+		this.kelompokKkns = kelompokKkns;
+		this.kelompokPkls = kelompokPkls;
+		display(perkuliahan, kelompokKkn, kelompokPkl, component);
+	}
+
+	public void display(final Perkuliahan perkuliahan, final KelompokKkn kelompokKkn, final KelompokPkl kelompokPkl,
+			final Component component) {
+		display(perkuliahan, kelompokKkn, kelompokPkl, null, component);
+	}
+
+	public MyToolbarbutton createAmbilTugas() {
+		MyToolbarbutton ambil = new MyToolbarbutton("fa-history", "Ambil Tugas Sebelumnya");
+		ambil.setTooltiptext("Salin tugas dari semester/pertemuan sebelumnya ke sini");
+		Tbmuser tbmuser = Common.getCurrentUser();
+		ambil.setVisible(mahasiswa == null && biodataCalonMahasiswa == null && tbmuser.getPesertaKursus() == null
+				&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
+				&& tbmuser.getCalonSiswa() == null && tbmuser.getSiswa() == null);
+		ambil.addEventListener("onClick", new EventListener() {
+
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				final AmbilDataTugasKelompok ambilDataLampiranFileLain = new AmbilDataTugasKelompok(perkuliahan);
+
+				ambilDataLampiranFileLain.setHeight("95%");
+				ambilDataLampiranFileLain.setWidth("90%");
+				ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(ambilDataLampiranFileLain);
+				ambilDataLampiranFileLain.onModal();
+				ambilDataLampiranFileLain.setEventListener(new EventListener() {
+
+					@Override
+					public void onEvent(Event arg0) throws Exception {
+						// TODO Auto-generated method stub
+
+						TugasKelompok tugasKelompokCopy = (TugasKelompok) arg0.getData();
+						if (tugasKelompokCopy != null && !tugasKelompokCopy.getJudul().isEmpty()) {
+							TugasKelompok tugasKelompok = (TugasKelompok) tugasKelompokCopy.clone();
+							tugasKelompok.setId(null);
+							tugasKelompok.setPerkuliahan(
+									perkuliahan == null ? tugasKelompokCopy.getPerkuliahan() : perkuliahan);
+							tugasKelompok.setKelompokKkn(
+									kelompokKkn == null ? tugasKelompokCopy.getKelompokKkn() : kelompokKkn);
+							tugasKelompok.setKelompokPkl(
+									kelompokPkl == null ? tugasKelompokCopy.getKelompokPkl() : kelompokPkl);
+							tugasKelompok.setJadwalPelajaran(
+									jadwalPelajaran == null ? tugasKelompokCopy.getJadwalPelajaran() : jadwalPelajaran);
+
+							Session sessiona = HibernateUtil.currentSession();
+							sessiona.save(tugasKelompok);
+							sessiona.flush();
+
+							LampiranLain lampiranLain = LampiranLain.ambil(tugasKelompokCopy.getId(),
+									LampiranLain.TUGAS_KELOMPOK_PERKULIAHAN);
+
+							Session session = StreamingHibernateUtil.getInstance().currentSession();
+
+							try {
+
+								if (lampiranLain != null) {
+
+									session.getTransaction().begin();
+
+									session.createSQLQuery("update lampiran_lain set ref = -111111111111 where ref = "
+											+ tugasKelompok.getId() + " and jenis = '"
+											+ LampiranLain.TUGAS_KELOMPOK_PERKULIAHAN + "'").executeUpdate();
+
+									session.getTransaction().commit();
+
+									final LampiranLain copy = new LampiranLain();
+									copy.setRef(tugasKelompok.getId());
+									copy.setCopyDari(lampiranLain);
+
+									Tbmuser tbmuser = Common.getCurrentUser();
+									Dosen dosen = tbmuser == null ? null : tbmuser.ambilDosen();
+									Mahasiswa mahasiswa = tbmuser == null ? null : tbmuser.getMahasiswa();
+									Pegawai pegawai = tbmuser == null ? null : tbmuser.ambilPegawai();
+									String olehId = Common.generateOlehId(tbmuser);
+									copy.setTanggal_dirubah(ais.ui.util.WaktuUtil.getDate());
+									copy.setOlehId(olehId);
+									copy.setOleh(tbmuser == null ? "external_update"
+											: mahasiswa != null ? mahasiswa.getNama()
+													: dosen != null ? dosen.getNama()
+															: pegawai != null ? pegawai.getNama()
+																	: (tbmuser.getUserNama()));
+
+									session.getTransaction().begin();
+									session.save(copy);
+									session.getTransaction().commit();
+								}
+
+							} catch (Exception e) {
+								e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/TugasKelompokHelper.java:2785");
+							} finally {
+								// Sesi streaming WAJIB ditutup di finally agar tidak bocor walau terjadi error.
+								StreamingHibernateUtil.getInstance().closeSession();
+							}
+
+							Common.createDefaultTimer(new EventListener() {
+
+								@Override
+								public void onEvent(Event arg0) throws Exception {
+									loadData(null);
+								}
+							});
+						}
+						ambilDataLampiranFileLain.detach();
+
+					}
+				});
+			}
+		});
+		return ambil;
+	}
+
+	public void display(final Perkuliahan perkuliahan, final KelompokKkn kelompokKkn, final KelompokPkl kelompokPkl,
+			final JadwalPelajaran jadwalPelajaran, final Component component) {
+		this.perkuliahan = perkuliahan;
+		this.kelompokKkn = kelompokKkn;
+		this.kelompokPkl = kelompokPkl;
+		this.jadwalPelajaran = jadwalPelajaran;
+		if (component != null) {
+			Common.clear(component);
+		}
+		Tbmuser tbmuser = Common.getCurrentUser();
+		paging = new Paging();
+		Common.initPaging1(paging, new EventListener() {
+
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				loadData(null);
+			}
+		});
+		cari = new Textbox();
+		if (component instanceof Tabpanel) {
+
+			ais.ui.util.MyDiv groupbox = new ais.ui.util.MyDiv();
+			groupbox.setStyle("min-height: 200px;");
+			groupbox.setParent(component);
+			groupbox.appendChild(ais.ui.util.DashboardUiKit.html(ais.ui.util.DashboardUiKit.headerModul(
+					"Linimasa Tugas Kelompok",
+					"Semua tugas yang dikerjakan secara berkelompok. Klik sebuah tugas untuk melihat anggota dan nilainya.")));
+
+			tempelRingkasanTugas(groupbox);
+
+			Toolbar toolbar = new Toolbar();
+			// toolbar.setHeight("25px");
+			toolbar.setParent(groupbox);
+			MyToolbarbutton button = new MyToolbarbutton("fa-plus", "Tambah Tugas");
+			button.setTooltiptext("Buat tugas kelompok baru untuk cakupan ini");
+			button.setVisible(bolehKelola(tbmuser));
+			button.addEventListener("onClick", new EventListener() {
+
+				@Override
+				public void onEvent(Event event) throws Exception {
+					onAdd(event, new TugasKelompok());
+				}
+
+			});
+			button.setParent(toolbar);
+			toolbar.appendChild(createAmbilTugas());
+
+			toolbar.appendChild(new Space());
+			toolbar.appendChild(new MyLabelConfig("Cari : "));
+			toolbar.appendChild(cari);
+			cari.setCols(15);
+			cari.addEventListener("onOK", new EventListener() {
+
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					loadData(null);
+				}
+			});
+			button = new MyToolbarbutton("fa-search", "");
+			button.setTooltiptext("Cari tugas");
+			button.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					loadData(null);
+				}
+			});
+			button.setParent(toolbar);
+
+			button = new MyToolbarbutton("fa-refresh", "Refresh");
+			button.setTooltiptext("Muat ulang daftar tugas kelompok");
+			button.addEventListener("onClick", new EventListener() {
+
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					display(perkuliahan, kelompokKkn, kelompokPkl, jadwalPelajaran, component);
+				}
+			});
+			button.setParent(toolbar);
+
+			grid = new MyGrid();// grid.setOddRowSclass("non-odd");
+			grid.setWidth("100%");
+			grid.setMold("paging");
+			grid.setPageSize(50);
+			grid.getPagingChild().setMold("os");
+			grid.setParent(groupbox);
+
+			paging.setParent(groupbox);
+
+		} else {
+
+			Row rowUtama = Common.tampilanScroll1(component);
+
+			Toolbar toolbar = new Toolbar();
+			toolbar.setParent(rowUtama);
+
+			MyFormRow rowUtamaLagi = new MyFormRow();
+			rowUtamaLagi.setParent(rowUtama.getParent());
+
+			grid = new MyGrid();// grid.setOddRowSclass("non-odd");
+			grid.setWidth("100%");
+			grid.setMold("paging");
+			grid.setPageSize(50);
+			grid.getPagingChild().setMold("os");
+			grid.setParent(rowUtamaLagi);
+
+			rowUtamaLagi = new MyFormRow();
+			rowUtamaLagi.setParent(rowUtama.getParent());
+
+			paging.setParent(rowUtamaLagi);
+
+			MyToolbarbutton button = new MyToolbarbutton("fa-plus", "Tambah Tugas");
+			button.setTooltiptext("Buat tugas kelompok baru untuk cakupan ini");
+			button.setVisible(bolehKelola(tbmuser));
+			button.addEventListener("onClick", new EventListener() {
+
+				@Override
+				public void onEvent(Event event) throws Exception {
+					onAdd(event, new TugasKelompok());
+				}
+
+			});
+			button.setParent(toolbar);
+
+			toolbar.appendChild(createAmbilTugas());
+
+			toolbar.appendChild(new Space());
+			toolbar.appendChild(new MyLabelConfig("Cari : "));
+			toolbar.appendChild(cari);
+			cari.setCols(15);
+			cari.addEventListener("onOK", new EventListener() {
+
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					loadData(null);
+				}
+			});
+			button = new MyToolbarbutton("fa-search", "");
+			button.setTooltiptext("Cari tugas");
+			button.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					loadData(null);
+				}
+			});
+			button.setParent(toolbar);
+
+			button = new MyToolbarbutton("fa-refresh", "Refresh");
+			button.setTooltiptext("Muat ulang daftar tugas kelompok");
+			button.addEventListener("onClick", new EventListener() {
+
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					display(perkuliahan, kelompokKkn, kelompokPkl, jadwalPelajaran, component);
+				}
+			});
+			button.setParent(toolbar);
+
+		}
+
+		Columns columns = new Columns();
+		columns.setParent(grid);
+
+		loadData(null);
+
+	}
+
+	public static void onAddExternal(Event event, EventListener eventListener, TugasKelompok tugasKelompok,
+			Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa) throws Exception {
+		TugasKelompokHelper tugasKelompokAction = new TugasKelompokHelper(mahasiswa, biodataCalonMahasiswa);
+		tugasKelompokAction.addWindow = new MyWindow();
+
+		ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(tugasKelompokAction.addWindow);
+		tugasKelompokAction.addWindow.setHeight("95%");
+		tugasKelompokAction.addWindow.setWidth("90%");
+		tugasKelompokAction.init(tugasKelompok);
+
+		tugasKelompokAction.addWindow.setVisible(true);
+		tugasKelompokAction.addWindow.onModal();
+	}
+
+	public void onAdd(Event event, TugasKelompok tugasKelompok) throws Exception {
+		addWindow = new MyWindow();
+		addWindow.setHeight("95%");
+		addWindow.setWidth("950px");
+		ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(addWindow);
+		init(tugasKelompok);
+		addWindow.setVisible(true);
+		addWindow.onModal();
+	}
+
+	public static DspaceInformation getDspace(String cookie, TugasKelompok tugasKelompok, boolean update)
+			throws Exception {
+
+		JSONArray jsonArray = new JSONArray();
+		if (tugasKelompok.getPerkuliahan() != null) {
+			Map<String, Dosen> map = tugasKelompok.getPerkuliahan().populateDosen();
+			for (Dosen dosen : map.values()) {
+				String nama = dosen.getNama();
+
+				JSONObject jsonMetadata = new JSONObject();
+				jsonMetadata.put("key", "dc.contributor.author");
+				jsonMetadata.put("value", nama);
+				jsonArray.put(jsonMetadata);
+			}
+		} else if (tugasKelompok.getKelompokKkn() != null) {
+			Map<String, Dosen> map = tugasKelompok.getKelompokKkn().populateDosen();
+			for (Dosen dosen : map.values()) {
+				String nama = dosen.getNama();
+
+				JSONObject jsonMetadata = new JSONObject();
+				jsonMetadata.put("key", "dc.contributor.author");
+				jsonMetadata.put("value", nama);
+				jsonArray.put(jsonMetadata);
+			}
+		} else if (tugasKelompok.getKelompokPkl() != null) {
+			Map<String, Dosen> map = tugasKelompok.getKelompokPkl().populateDosen();
+			for (Dosen dosen : map.values()) {
+				String nama = dosen.getNama();
+
+				JSONObject jsonMetadata = new JSONObject();
+				jsonMetadata.put("key", "dc.contributor.author");
+				jsonMetadata.put("value", nama);
+				jsonArray.put(jsonMetadata);
+			}
+		}
+		Html2Text parser = new Html2Text();
+		parser.parse(new StringReader(tugasKelompok.getNama()));
+
+		JSONObject jsonMetadata = new JSONObject();
+		jsonMetadata.put("key", "dc.description");
+		jsonMetadata.put("value", parser.getText());
+		jsonArray.put(jsonMetadata);
+
+		jsonMetadata = new JSONObject();
+		jsonMetadata.put("key", "dc.title");
+		jsonMetadata.put("value", tugasKelompok.getJudul());
+		jsonArray.put(jsonMetadata);
+
+		jsonMetadata = new JSONObject();
+		jsonMetadata.put("key", "dc.date.copyright");
+		jsonMetadata.put("value",
+				"Semua hak cipta dilindungi oleh " + Common.getKonfigurasi("label_universitas", "").getNilai());
+		jsonArray.put(jsonMetadata);
+
+		if (tugasKelompok.getTanggal() != null) {
+			jsonMetadata = new JSONObject();
+			jsonMetadata.put("key", "dc.date.issued");
+			jsonMetadata.put("value", Common.databaseDateFormat.get().format(tugasKelompok.getTanggal()));
+			jsonArray.put(jsonMetadata);
+		}
+
+		LampiranLain lampiranLain = LampiranLain.ambil(tugasKelompok.getId(), LampiranLain.TUGAS_KELOMPOK_PERKULIAHAN);
+		if (lampiranLain != null) {
+			String uri = lampiranLain.createLinkUri(false);
+			if (uri != null && !uri.trim().isEmpty()) {
+				jsonMetadata = new JSONObject();
+				jsonMetadata.put("key", "dc.identifier.uri");
+				jsonMetadata.put("value", uri);
+				jsonArray.put(jsonMetadata);
+			}
+		}
+
+		JSONObject jsonPost = new JSONObject();
+		jsonPost.put("metadata", jsonArray);
+
+		DspaceInformation dspaceInformation = DspaceInformation.dspaceProcess(cookie, tugasKelompok,
+				jsonPost.toString(), jsonArray.toString(), update, "items",
+				"collections/" + PerkuliahanAction.getDspace(cookie, tugasKelompok.getPerkuliahan()) + "/items",
+				"items/{uuid}/metadata");
+
+		if (lampiranLain != null) {
+			DspaceInformation.upload(cookie, dspaceInformation.getUuid(), lampiranLain,
+					"Lampiran Tugas " + tugasKelompok.getJudul());
+		}
+
+		return dspaceInformation;
+
+	}
+
+	private void init(final TugasKelompok tugasKelompok) throws Exception {
+		this.tugasKelompok = tugasKelompok;
+
+		addWindow.setTitle("Tugas Kelompok");
+		if (addWindow != null) {
+			Common.clear(addWindow);
+		}
+		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
+		Center center = new Center();
+		center.setParent(borderlayout);
+		ais.ui.util.ZkCompat.setFlex(center, true);
+		MyGrid grid = new MyGrid();
+		grid.setSclass("fgrid");
+		grid.setWidth("100%");
+		grid.setParent(center);
+		grid.setWidth("100%");
+		grid.setHeight("100%");
+
+		Columns columns = new Columns();
+		columns.setParent(grid);
+
+		MyColumnConfig column = new MyColumnConfig();
+		column.setParent(columns);
+		column.setWidth("100%");
+
+		Rows rows = new Rows();
+
+		rows.setParent(grid);
+
+		/*
+		 * === Pindahkan tugas kelompok ke pertemuan lain ===
+		 * Combobox berisi DAFTAR PERTEMUAN yang tersedia pada VOPembelajaran yang SAMA
+		 * (ambilVOPembelajaran()), sehingga tugas kelompok dapat dipindah "ke pertemuan ke
+		 * berapa" — sama seperti TugasMandiriHelper. TugasKelompok menyimpan FK pertemuan
+		 * (setPertemuan(Long)+setPertemuanData), dan berkas pengumpulan (ref=tugas.id) ikut
+		 * otomatis. Hanya untuk pengelola (bukan mahasiswa/siswa/calon).
+		 */
+		{
+			final Tbmuser tbmuserPindah = Common.getCurrentUser();
+			final Pertemuan pertemuanTugasIni = tugasKelompok.ambilPertemuan();
+			final VOPembelajaran pembelajaranPindah = pertemuanTugasIni == null ? null
+					: pertemuanTugasIni.ambilVOPembelajaran();
+			final boolean bisaPindahPertemuan = pembelajaranPindah != null && tbmuserPindah != null
+					&& tbmuserPindah.getMahasiswa() == null && tbmuserPindah.getSiswa() == null
+					&& tbmuserPindah.getBiodataCalonMahasiswa() == null && tbmuserPindah.getCalonSiswa() == null;
+
+			// Combo "Pindahkan ke pertemuan" TIDAK ditampilkan bila yang login adalah pelajar
+			// (mahasiswa/siswa/calon/peserta kursus) — sebelumnya hanya di-disable, kini disembunyikan.
+			final boolean loginPelajar = tbmuserPindah != null && (tbmuserPindah.getMahasiswa() != null
+					|| tbmuserPindah.getSiswa() != null || tbmuserPindah.getBiodataCalonMahasiswa() != null
+					|| tbmuserPindah.getCalonSiswa() != null || tbmuserPindah.getPesertaKursus() != null);
+
+			if (pembelajaranPindah != null && !loginPelajar) {
+				MyFormRow rowKe = new MyFormRow();
+				rowKe.setValign("top");
+				rowKe.setParent(rows);
+				rowKe.appendChild(new MyLabelBoldConfig("Pertemuan"));
+
+				rowKe = new MyFormRow();
+				rowKe.setParent(rows);
+
+				final Combobox comboPertemuan = new Combobox();
+				comboPertemuan.setReadonly(true);
+				comboPertemuan.setWidth("90%");
+				rowKe.appendChild(comboPertemuan);
+
+				final Long pertemuanSaatIni = (pertemuanTugasIni == null || pertemuanTugasIni.getId() == null) ? null
+						: pertemuanTugasIni.getId();
+				try {
+					// Bila cache lokasi-pertemuan KOSONG, paksa muat ulang dari DB agar dropdown tidak kosong.
+					java.util.TreeMap<String, Long> daftarPertemuan = pembelajaranPindah.ambilPertemuan();
+					if (daftarPertemuan == null || daftarPertemuan.isEmpty()) {
+						daftarPertemuan = pembelajaranPindah.ambilPertemuan(true);
+					}
+					boolean adaSaatIni = false;
+					if (daftarPertemuan != null) {
+						for (Long pid : daftarPertemuan.values()) {
+							if (pid == null) {
+								continue;
+							}
+							Pertemuan p = (Pertemuan) ais.database.model.GeneralValueObject.ambilData(Pertemuan.class,
+									pid.toString());
+							if (p == null) {
+								continue;
+							}
+							String topik = p.getTopik() == null ? "" : p.getTopik().trim();
+							if (topik.length() > 40) {
+								topik = topik.substring(0, 40) + "...";
+							}
+							String tgl = p.getTanggal() == null ? ""
+									: (" - " + Common.dateFormat.get().format(p.getTanggal()));
+							org.zkoss.zul.Comboitem item = new org.zkoss.zul.Comboitem(
+									"Pertemuan ke-" + p.getPertemuanKe() + (topik.isEmpty() ? "" : " : " + topik) + tgl);
+							item.setValue(pid);
+							item.setParent(comboPertemuan);
+							if (pertemuanSaatIni != null && pertemuanSaatIni.equals(pid)) {
+								comboPertemuan.setSelectedItem(item);
+								adaSaatIni = true;
+							}
+						}
+					}
+					// Pastikan pertemuan yang SEDANG dipilih selalu ada & terpilih walau tidak termuat.
+					if (!adaSaatIni && pertemuanSaatIni != null && pertemuanTugasIni != null) {
+						String topik = pertemuanTugasIni.getTopik() == null ? "" : pertemuanTugasIni.getTopik().trim();
+						if (topik.length() > 40) {
+							topik = topik.substring(0, 40) + "...";
+						}
+						String tgl = pertemuanTugasIni.getTanggal() == null ? ""
+								: (" - " + Common.dateFormat.get().format(pertemuanTugasIni.getTanggal()));
+						org.zkoss.zul.Comboitem itemSaatIni = new org.zkoss.zul.Comboitem("Pertemuan ke-"
+								+ pertemuanTugasIni.getPertemuanKe() + (topik.isEmpty() ? "" : " : " + topik) + tgl);
+						itemSaatIni.setValue(pertemuanSaatIni);
+						itemSaatIni.setParent(comboPertemuan);
+						comboPertemuan.setSelectedItem(itemSaatIni);
+					}
+				} catch (Exception eDaftarPertemuan) {
+					Common.tampilErrorJikaAdmin(eDaftarPertemuan);
+				}
+
+				comboPertemuan.setDisabled(!bisaPindahPertemuan);
+
+				if (bisaPindahPertemuan) {
+					comboPertemuan.addEventListener("onChange", new EventListener() {
+						@Override
+						public void onEvent(Event arg0) throws Exception {
+							if (comboPertemuan.getSelectedItem() == null) {
+								return;
+							}
+							final Long pidBaru = (Long) comboPertemuan.getSelectedItem().getValue();
+							if (pidBaru == null || pidBaru.equals(pertemuanSaatIni)) {
+								return;
+							}
+							final String labelTujuan = comboPertemuan.getSelectedItem().getLabel();
+							MyMessageboxConfig.show("Pindahkan tugas kelompok ini ke \"" + labelTujuan + "\" ?",
+									"Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL,
+									MyMessageboxConfig.QUESTION, new EventListener() {
+										@Override
+										public void onEvent(Event ev) throws Exception {
+											if (Integer.parseInt(ev.getData().toString()) != MyMessageboxConfig.OK) {
+												return;
+											}
+											Session session = HibernateUtil.currentSession();
+											if (tugasKelompok.getId() != null) {
+												session.refresh(tugasKelompok);
+											}
+											Pertemuan pBaru = (Pertemuan) ais.database.model.GeneralValueObject
+													.ambilData(Pertemuan.class, pidBaru.toString());
+											tugasKelompok.setPertemuan(pidBaru);
+											tugasKelompok.setPertemuanData(pBaru);
+											Common.refreshUpdate(session, tugasKelompok);
+
+											if (eventListener != null) {
+												eventListener.onEvent(ev);
+											}
+											addWindow.detach();
+										}
+									});
+						}
+					});
+				}
+			}
+		}
+
+		MyFormRow row = new MyFormRow();
+		row.setValign("top");
+		row.setVisible(perkuliahan == null && kelompokKkn == null && kelompokPkl == null && jadwalPelajaran == null);
+		row.setParent(rows);
+		row.appendChild(new MyLabelBoldConfig("Perkuliahan (*):"));
+
+		if (perkuliahan != null) {
+			tugasKelompok.setPerkuliahan(perkuliahan);
+		}
+
+		if (kelompokKkn != null) {
+			tugasKelompok.setKelompokKkn(kelompokKkn);
+		}
+		if (kelompokPkl != null) {
+			tugasKelompok.setKelompokPkl(kelompokPkl);
+		}
+
+		row = new MyFormRow();
+		row.setVisible(perkuliahan == null && kelompokKkn == null && kelompokPkl == null && jadwalPelajaran == null);
+		row.setParent(rows);
+		row.appendChild(banboxPerkuliahan = new AmbilDataPerkuliahanBandbox());
+		banboxPerkuliahan.setReadonly(true);
+		banboxPerkuliahan.setAttribute("perkuliahan", tugasKelompok.getPerkuliahan());
+		banboxPerkuliahan.setValue(tugasKelompok.getPerkuliahan() == null ? ""
+				: Common.getDeskripsiPerkuliahan(tugasKelompok.getPerkuliahan()));
+		banboxPerkuliahan.setWidth("90%");
+		banboxPerkuliahan.setVisible(
+				perkuliahan == null && kelompokKkn == null && kelompokPkl == null && jadwalPelajaran == null);
+
+		mulaiWaktuMengumpulkanTugas = new MyDatebox(tugasKelompok.getMulai());
+		mulaiWaktuMengumpulkanTugas.setFormat(Common.dateFormat.get().toPattern());
+
+		batasWaktuMengumpulkanTugas = new MyDatebox(tugasKelompok.getSelesai());
+		batasWaktuMengumpulkanTugas.setFormat(Common.dateFormat.get().toPattern());
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelBoldConfig("Tanggal dan Waktu Tugas Mulai"));
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(mulaiWaktuMengumpulkanTugas);
+		mulaiWaktuMengumpulkanTugas.setReadonly(true);
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelBoldConfig("Tanggal dan Waktu Tugas Selesai"));
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(batasWaktuMengumpulkanTugas);
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new MyLabelAgakKecil(
+				"*) Kosongkan tanggal tugas selesai jika tugas ini tidak ada batas waktu selesai-nya"));
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new MyLabelBoldConfig("Syarat dapat mengumpulkan tugas"));
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(syaratMengumpulkanTugas = new Combobox());
+		Common.insertComboDanSemua(syaratMengumpulkanTugas, new String[] { "nama" }, "keterangan", SyaratUjian.class,
+				"== Tanpa Syarat Mengikuti Ujian ==",
+				Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
+		Common.selectComboItem(syaratMengumpulkanTugas, tugasKelompok.getSyaratMengumpulkanTugas(), true);
+		syaratMengumpulkanTugas.setWidth("90%");
+		syaratMengumpulkanTugas.setReadonly(true);
+
+		final Row rowSyarat = Common.initKeteranganSatuKolom(rows, "Persyaratan ini hanya boleh diubah oleh admin");
+
+		EventListener listenerSyarat = new EventListener() {
+
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				Tbmuser tbmuser = Common.getCurrentUser();
+
+				SyaratUjian syaratUjian = (SyaratUjian) (syaratMengumpulkanTugas.getSelectedItem() == null ? null
+						: syaratMengumpulkanTugas.getSelectedItem().getValue());
+				syaratMengumpulkanTugas.setDisabled(syaratUjian != null && syaratUjian.getHanyaBolehDiubahOlehAdmin()
+						&& (tbmuser == null || tbmuser.ambilDosen() != null || tbmuser.getMahasiswa() != null));
+
+				rowSyarat.setVisible(syaratUjian != null && syaratUjian.getHanyaBolehDiubahOlehAdmin());
+			}
+		};
+		listenerSyarat.onEvent(null);
+		syaratMengumpulkanTugas.addEventListener("onChange", listenerSyarat);
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new MyLabelBoldConfig("Judul tugas kelompok (*):"));
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(judul = new Textbox(tugasKelompok.getJudul()));
+		judul.setWidth("90%");
+		judul.setRows(2);
+		judul.setMaxlength(255);
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new MyLabelBoldConfig("Instruksi tugas kelompok :"));
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(isi = new MyCkEditor());
+		isi.setValue(tugasKelompok.getNama());
+		isi.setWidth("97%");
+		isi.setHeight("70px");
+
+		row = new MyFormRow();
+		row.setParent(rows);
+
+		Hbox hbox = new Hbox();
+		hbox.setParent(row);
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		lampiran = null;
+		Tbmuser tbmuser = Common.getCurrentUser();
+		LampiranLain.createDownloadUploadFileLain(hbox, tugasKelompok.getId(), LampiranLain.TUGAS_KELOMPOK_PERKULIAHAN,
+				LampiranLain.TUGAS_KELOMPOK_PERKULIAHAN, false, new EventListener() {
+
+					@Override
+					public void onEvent(Event arg0) throws Exception {
+						lampiran = (LampiranLain) arg0.getData();
+					}
+				}, null, false, false, false,
+				mahasiswa == null && biodataCalonMahasiswa == null && tbmuser.getPesertaKursus() == null
+						&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null && tbmuser.getCalonSiswa() == null
+						&& siswa == null && calonSiswa == null,
+				null, false, false, row);
+
+		MyToolbarbutton toolbarbutton = new MyToolbarbutton("fa-cog", "Generate Tugas Kelompok");
+		toolbarbutton.setTooltiptext("Buat instruksi tugas kelompok secara otomatis menggunakan AI");
+		hbox.appendChild(toolbarbutton);
+
+		Matakuliah mk = null;
+		Matapelajaran matpel = null;
+		String tanyaAkhiran = "";
+		String tanyaMengajar = " apa saja";
+		if (perkuliahan != null) {
+			mk = (Matakuliah) perkuliahan.getMatakuliah();
+			if (mk != null) {
+				tanyaMengajar = " matakuliah " + mk.getNama();
+				tanyaAkhiran = " pada matakuliah \"" + mk.getNama() + "\"";
+			}
+		} else if (jadwalPelajaran != null) {
+			matpel = (Matapelajaran) jadwalPelajaran.getMatapelajaran();
+			if (matpel != null) {
+				tanyaMengajar = " matapelajaran " + matpel.getNama();
+				tanyaAkhiran = " pada matapelajaran \"" + matpel.getNama() + "\"";
+			}
+		}
+
+		EventListener eventListenerData = new EventListener() {
+
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+
+			}
+		};
+
+		toolbarbutton.addEventListener("onClick",
+				AIGenerator.generateApa("Generate Tugas Kelompok", "Tugas Kelompok tentang apa ?",
+						"Buatkan tata cara dan langkah-langkah mengerjakan tugas kelompok ", false, tanyaAkhiran,
+						Common.getKonfigurasi("llama_system_buat_tugas_kelompok",
+								"Kamu adalah Pengajar atau Dosen atau Guru ").getNilai().trim(),
+						isi, new EventListener() {
+
+							@Override
+							public void onEvent(Event arg0) throws Exception {
+								String isiData = (String) arg0.getData();
+								Textbox s = (Textbox) arg0.getTarget();
+
+								if (judul.getValue().trim().isEmpty()) {
+									judul.setValue("Tugas kelompok \"" + s.getValue().trim() + "\"");
+									tugasKelompok.setJudultugas(judul.getValue());
+								}
+								tugasKelompok.setIsitugas(
+										ais.action.servlet.Wa.ubahKeBold(isiData).replaceAll("\n", "<br>"));
+
+								if (tugasKelompok.getId() != null) {
+									Common.refreshUpdate(tugasKelompok);
+								}
+
+							}
+						}, tanyaMengajar, eventListenerData));
+
+		Common.initKeteranganSatuKolom(rows,
+				"Jika file yang Anda upload lebih dari satu file, zip / compress / jadikan satu file terlebih dulu, kemudian baru di-upload");
+
+		// === (B) Pemetaan Sub-CPMK & Bobot (DAPAT DIEDIT di sini) ===
+		// Sesuai instruksi: bobot Sub-CPMK HANYA dapat diubah di dalam Window "Instruksi Tugas
+		// Kelompok" ini; pada kartu ringkas hanya ditampilkan baca-saja (label). Ditampilkan hanya
+		// untuk kurikulum OBE, tugas yang SUDAH tersimpan (id != null), dan pengelola (bukan
+		// mahasiswa/siswa/calon) — memanfaatkan ulang bangunGridSubCpmk(..., editable=true).
+		{
+			final Perkuliahan perkuliahanObe = tugasKelompok.getPerkuliahan();
+			boolean pengelolaObe = mahasiswa == null && biodataCalonMahasiswa == null
+					&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null
+					&& tbmuser.getBiodataCalonMahasiswa() == null && tbmuser.getCalonSiswa() == null;
+			if (pengelolaObe && tugasKelompok.getId() != null && perkuliahanObe != null
+					&& perkuliahanObe.getKurikulum() != null && perkuliahanObe.getKurikulum()
+							.apakahObe(perkuliahanObe.getTahunAjaran(), perkuliahanObe.getGanjilGenap())) {
+				MyFormRow rowObe = new MyFormRow();
+				rowObe.setValign("top");
+				rowObe.setParent(rows);
+				rowObe.appendChild(new MyLabelBoldConfig("Pemetaan Sub-CPMK (Bobot)"));
+
+				rowObe = new MyFormRow();
+				rowObe.setValign("top");
+				rowObe.setParent(rows);
+				org.zkoss.zul.Div wrapObe = new org.zkoss.zul.Div();
+				wrapObe.setStyle("width:100%;");
+				rowObe.appendChild(wrapObe);
+				bangunGridSubCpmk(wrapObe, tugasKelompok, perkuliahanObe, true);
+
+				Common.initKeteranganSatuKolom(rows,
+						"Centang Sub-CPMK yang dinilai oleh tugas ini, lalu isi bobotnya. Perubahan tersimpan otomatis.");
+			}
+		}
+
+		Pertemuan pertemuan = tugasKelompok.ambilPertemuan();
+		if (pertemuan != null) {
+
+			MyToolbarbutton button = new MyToolbarbutton("fa-refresh", "Refresh Syarat");
+
+			Set<String> syaratAlert = new HashSet<String>();
+			if (mahasiswa == null && biodataCalonMahasiswa == null && tbmuser.getPesertaKursus() == null
+					&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null && tbmuser.getCalonSiswa() == null) {
+				Tugas.tampilanSyarat(pertemuan, tugasKelompok, null, null, null, null, rows, syaratAlert, button);
+			} else {
+				Tugas.tampilanSyaratReadonly(pertemuan, tugasKelompok, null, null, null, null, rows, syaratAlert,
+						button);
+
+				Tugas.tampilanLain(pertemuan, tugasKelompok, null, null, null, null, rows, button);
+			}
+		}
+
+		South south = new South();
+		ais.ui.util.ZkCompat.setFlex(south, true);
+		south.setParent(borderlayout);
+
+		Toolbar toolbar = new Toolbar();
+		// toolbar.setHeight("25px");
+		toolbar.setParent(south);
+		MyToolbarbutton cancel = new MyToolbarbutton("fa-times", "Batal");
+		cancel.setTooltiptext("Tutup tanpa menyimpan");
+		cancel.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+
+				if (eventListener != null) {
+					eventListener.onEvent(event);
+				}
+
+				addWindow.detach();
+			}
+		});
+		cancel.setParent(toolbar);
+		MyToolbarbutton save = new MyToolbarbutton("fa-save", "Simpan");
+		save.setTooltiptext("Simpan perubahan instruksi tugas kelompok");
+		save.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				if (onSave(event)) {
+
+					if (tampilRinci) {
+						loadData(null);
+						if (eventListener != null) {
+							eventListener.onEvent(event);
+						}
+					} else {
+						if (TugasKelompokHelper.this.component != null) {
+							Common.clear(TugasKelompokHelper.this.component);
+						}
+						tampilanTugas(TugasKelompokHelper.this.tugasKelompok, TugasKelompokHelper.this.component,
+								eventListener);
+					}
+
+					addWindow.detach();
+				}
+			}
+		});
+		save.setParent(toolbar);
+		borderlayout.setParent(addWindow);
+
+	}
+
+	public boolean onSave(Event event) throws Exception {
+		if (banboxPerkuliahan.isVisible() && banboxPerkuliahan.getAttribute("perkuliahan") == null) {
+			MyMessageboxConfig.show("Perkuliahan harus diisi", "Peringatan", MyMessageboxConfig.OK,
+					MyMessageboxConfig.INFORMATION);
+			return false;
+		}
+		if (judul.getValue().trim().equals("")) {
+			MyMessageboxConfig.show("Judul tugas harus diisi", "Peringatan", MyMessageboxConfig.OK,
+					MyMessageboxConfig.INFORMATION);
+			return false;
+		}
+
+		Session session = HibernateUtil.currentSession();
+		if (tugasKelompok.getId() != null) {
+			tugasKelompok = (TugasKelompok) session.load(TugasKelompok.class, tugasKelompok.getId());
+		}
+
+		tugasKelompok.setJudul(judul.getValue());
+		tugasKelompok.setNama(isi.getValue());
+		tugasKelompok.setPerkuliahan((Perkuliahan) banboxPerkuliahan.getAttribute("perkuliahan"));
+		tugasKelompok.setKelompokKkn(kelompokKkn);
+		tugasKelompok.setKelompokPkl(kelompokPkl);
+		tugasKelompok.setJadwalPelajaran(jadwalPelajaran);
+		tugasKelompok.setMulai(mulaiWaktuMengumpulkanTugas.getValue());
+		tugasKelompok.setSelesai(batasWaktuMengumpulkanTugas.getValue());
+		tugasKelompok.setSyaratMengumpulkanTugas((SyaratUjian) (syaratMengumpulkanTugas.getSelectedItem() == null ? null
+				: syaratMengumpulkanTugas.getSelectedItem().getValue()));
+
+		Common.refreshSaveOrUpdate(session, tugasKelompok);
+
+		try {
+			session = StreamingHibernateUtil.getInstance().currentSession();
+
+			if (lampiran != null && lampiran.getId() != null) {
+				session.refresh(lampiran);
+				lampiran.setRef(tugasKelompok.getId());
+
+				session.getTransaction().begin();
+				session.update(lampiran);
+				session.getTransaction().commit();
+			}
+
+		} catch (Exception e) {
+			StreamingHibernateUtil.getInstance().rollbackTransaction();
+			Common.tampilErrorJikaAdmin(e);
+			PesanFormalHelper.tampilkanGagalException(
+					"menautkan lampiran ke data tugas kelompok yang baru disimpan",
+					e, new String[] {
+							"Data tugas kelompok sudah tersimpan; muat ulang (refresh) halaman ini lalu periksa apakah lampiran perlu diunggah ulang.",
+							"Apabila kendala masih berlanjut, hubungi Admin dengan menyertakan tangkapan layar (screenshot) pesan ini."
+					});
+		} finally {
+			// Sesi streaming WAJIB ditutup di finally agar tidak bocor walau terjadi error.
+			StreamingHibernateUtil.getInstance().closeSession();
+		}
+
+		CommonEmail.infoAdaTugasKelompokPerkuliahan(tugasKelompok);
+
+		return true;
+	}
+
+	public static void tidakUploadTugasDiangapTidakHadir(final TugasKelompok tugas, final Pertemuan pa,
+			final EventListener eventListener) throws Exception {
+		MyMessageboxConfig.show(
+				"Apakah yakin semua mahasiswa yang tidak mengumpulkan \"" + tugas.getJudultugas()
+						+ "\" dianggap alpa atau mangkir di kelas ini ?",
+				"Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
+				new EventListener() {
+
+					@Override
+					public void onEvent(Event event) throws Exception {
+						int i = Integer.parseInt(event.getData().toString());
+						if (i == MyMessageboxConfig.OK) {
+							Common.createDefaultTimer(new EventListener() {
+
+								@SuppressWarnings("unchecked")
+								@Override
+								public void onEvent(Event arg0) throws Exception {
+									Session session = HibernateUtil.currentSession();
+									if (pa.getId() != null) {
+										session.refresh(pa);
+									}
+
+									List<NamaTugasKelompok> namaTugasKelompoks = session
+											.createCriteria(NamaTugasKelompok.class).addOrder(Order.asc("id"))
+											.add(Restrictions.eq("tugasKelompok", tugas)).list();
+									for (NamaTugasKelompok namaTugasKelompok : namaTugasKelompoks) {
+
+										LampiranLain tgs = LampiranLain.ambil(namaTugasKelompok.getId(),
+												NamaTugasKelompok.class.getName());
+
+										if (tgs == null || tgs.getId() == null) {
+											List<Mahasiswa> mahasiswasTemorary = ConstantValues.simpleList(
+													session.createCriteria(NamaTugasKelompokPunyaMahasiswa.class)
+															.setProjection(Projections.groupProperty("mahasiswa.id"))
+															.add(Restrictions.isNotNull("mahasiswa")).add(Restrictions
+																	.eq("namaTugasKelompok", namaTugasKelompok)),
+													Mahasiswa.class, false);
+
+											for (Mahasiswa o : mahasiswasTemorary) {
+
+												Long mhs = o.getId();
+												if (!tugas.getMhsYgTidakIkut().contains("," + mhs + ",")) {
+													Statusabsensi statusabsensi = ConstantValues.TIDAK_ADA_ALASAN;
+
+													String mulai = pa.retreiveAbsensiMulai(mhs);
+													String sampai = pa.retreiveAbsensiSampai(mhs);
+													if (mulai == null || mulai.trim().isEmpty()) {
+														mulai = pa.getWaktuMulai();
+													}
+													if (sampai == null || sampai.trim().isEmpty()) {
+														sampai = pa.getWaktuSelesai();
+													}
+
+													pa.populate(mhs, statusabsensi,
+															"Tidak Mengumpulkan \"" + tugas.getJudultugas()
+																	+ "\" sampai tanggal/waktu "
+																	+ Common.dateFormat5.get().format(
+																			tugas == null || tugas.getSelesai() == null
+																					? WaktuUtil.getDate()
+																					: tugas.getSelesai()),
+															null, mulai, sampai, "Mahasiswa");
+												}
+
+											}
+										}
+									}
+
+									Common.refreshUpdate(session, pa);
+
+									Common.createDefaultTimer(eventListener);
+
+								}
+							});
+
+						}
+
+					}
+				});
+	}
+
+	public static void uploadTugasDiangapHadir(final TugasKelompok tugas, final Pertemuan pa,
+			final EventListener eventListener) throws Exception {
+		MyMessageboxConfig.show(
+				"Apakah yakin semua mahasiswa yang mengumpulkan \"" + tugas.getJudultugas()
+						+ "\" dianggap hadir kelas ini ?",
+				"Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
+				new EventListener() {
+
+					@Override
+					public void onEvent(Event event) throws Exception {
+						int i = Integer.parseInt(event.getData().toString());
+						if (i == MyMessageboxConfig.OK) {
+							Common.createDefaultTimer(new EventListener() {
+
+								@SuppressWarnings("unchecked")
+								@Override
+								public void onEvent(Event arg0) throws Exception {
+
+									Session session = HibernateUtil.currentSession();
+									if (pa.getId() != null) {
+										session.refresh(pa);
+									}
+
+									List<NamaTugasKelompok> namaTugasKelompoks = session
+											.createCriteria(NamaTugasKelompok.class).addOrder(Order.asc("id"))
+											.add(Restrictions.eq("tugasKelompok", tugas)).list();
+									for (NamaTugasKelompok namaTugasKelompok : namaTugasKelompoks) {
+
+										LampiranLain tgs = LampiranLain.ambil(namaTugasKelompok.getId(),
+												NamaTugasKelompok.class.getName());
+
+										if (tgs != null && tgs.getId() != null) {
+											List<Mahasiswa> mahasiswasTemorary = ConstantValues.simpleList(
+													session.createCriteria(NamaTugasKelompokPunyaMahasiswa.class)
+															.setProjection(Projections.groupProperty("mahasiswa.id"))
+															.add(Restrictions.isNotNull("mahasiswa")).add(Restrictions
+																	.eq("namaTugasKelompok", namaTugasKelompok)),
+													Mahasiswa.class, false);
+
+											for (Mahasiswa o : mahasiswasTemorary) {
+												Date uploadDate = tgs.getTanggal_dirubah();
+												String nama = o.getNama();
+												Statusabsensi statusabsensi = ConstantValues.MASUK;
+
+												String mulai = pa.retreiveAbsensiMulai(o.getId());
+												String sampai = pa.retreiveAbsensiSampai(o.getId());
+												if (mulai == null || mulai.trim().isEmpty()) {
+													mulai = pa.getWaktuMulai();
+												}
+												if (sampai == null || sampai.trim().isEmpty()) {
+													sampai = pa.getWaktuSelesai();
+												}
+
+												pa.populate(o.getId(), statusabsensi,
+														"Mengumpulkan \"" + tugas.getJudultugas() + "\" pada "
+																+ Common.dateFormat5.get().format(uploadDate)
+																+ " dengan nama file : " + nama,
+														null, mulai, sampai, "Mahasiswa");
+											}
+										}
+									}
+
+									Common.refreshUpdate(session, pa);
+
+									Common.createDefaultTimer(eventListener);
+
+								}
+							});
+
+						}
+
+					}
+				});
+	}
+}

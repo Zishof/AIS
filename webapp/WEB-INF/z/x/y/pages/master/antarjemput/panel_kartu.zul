@@ -1,0 +1,49 @@
+<zk xmlns="http://www.zkoss.org/2005/zul">
+	<borderlayout>
+		<north border="none" size="110px">
+			<div>
+				<html><![CDATA[<div class="aj-panel-info">
+					<strong>Kartu Penjemput</strong> &mdash;
+					Kartu penjemput adalah identitas fisik (kartu atau barcode) yang dibawa orang tua atau
+					wali saat menjemput. Sistem akan memverifikasi kartu ini di gerbang dan secara otomatis
+					memanggil nama siswa yang bersangkutan ke kelas melalui soundbox.
+				</div>]]></html>
+				<toolbar sclass="aj-filter">
+					<label use="ais.ui.util.MyLabelConfig" value="Cari:" style="font-size:12px;color:#475569;font-weight:600;" />
+					<textbox id="searchKartu" width="220px"
+						forward="onOK=onSearchKartu"
+						tooltiptext="Tekan Enter atau klik Cari" />
+					<checkbox use="ais.ui.util.MyCheckboxConfig" id="aktifKartu" label="Aktif saja" checked="true"
+						forward="onCheck=onSearchKartu"
+						tooltiptext="Tampilkan hanya kartu yang masih aktif" />
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+						label="Cari" image="/img/search.gif"
+						forward="onClick=onSearchKartu"
+						tooltiptext="Cari kartu penjemput" />
+					<separator />
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+						label="Tambah Kartu" image="/img/new.gif"
+						forward="onClick=onAddKartu"
+						tooltiptext="Tambah kartu penjemput baru" />
+				</toolbar>
+			</div>
+		</north>
+		<center border="none">
+			<grid use="ais.ui.util.MyGrid" id="gridKartu" sclass="dgrid" fixedLayout="true">
+				<columns>
+					<column use="ais.ui.util.MyColumnConfig" label="No. Kartu"      width="130px" />
+					<column use="ais.ui.util.MyColumnConfig" label="Penjemput" />
+					<column use="ais.ui.util.MyColumnConfig" label="Hubungan"        width="110px" />
+					<column use="ais.ui.util.MyColumnConfig" label="No. HP"          width="120px" />
+					<column use="ais.ui.util.MyColumnConfig" label="Untuk"           width="140px" />
+					<column use="ais.ui.util.MyColumnConfig" label="Berlaku Sampai"  width="120px" />
+					<column use="ais.ui.util.MyColumnConfig" label="Aktif"           width="70px"  align="center" />
+					<column use="ais.ui.util.MyColumnConfig" label="Aksi"            width="140px" />
+				</columns>
+			</grid>
+		</center>
+		<south border="none" size="32px">
+			<paging id="pagingKartu" detailed="true" />
+		</south>
+	</borderlayout>
+</zk>

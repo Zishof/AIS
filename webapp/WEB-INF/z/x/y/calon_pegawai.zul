@@ -1,0 +1,113 @@
+<?page id="testZul" title="Calon Pegawai" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.recruitment.CalonPegawaiAction" width="100%"
+		height="100%">
+
+		<tabbox width="100%" height="100%">
+			<tabs>
+				<tab use="ais.ui.util.MyTabConfig" selected="true">Calon Pegawai</tab>
+				<tab use="ais.ui.util.MyTabConfig" forward="onClick=onDokumen">Dokumen</tab>
+				<tab use="ais.ui.util.MyTabConfig" forward="onClick=onDokumenPenyedia">Verifikasi Dokumen</tab>
+			</tabs>
+			<tabpanels>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<borderlayout>
+						<north border="none" open="true" flex="true">
+							<grid use="ais.ui.util.MyGrid" fixedLayout="true">
+								<columns>
+									<column use="ais.ui.util.MyColumnConfig" width="140px" />
+									<column use="ais.ui.util.MyColumnConfig" />
+									<column use="ais.ui.util.MyColumnConfig" width="140px" />
+									<column use="ais.ui.util.MyColumnConfig" />
+									<column use="ais.ui.util.MyColumnConfig" width="140px" />
+									<column use="ais.ui.util.MyColumnConfig" />
+								</columns>
+								<rows>
+									<row>
+										<label use="ais.ui.util.MyLabelConfig" value="Nama Calon Pegawai" />
+										<textbox forward="onOK=onSearchDefault" id="searchnama" width="95%" />
+
+										<label use="ais.ui.util.MyLabelConfig" value="Status Seleksi" />
+										<combobox forward="onChange=onSearchDefault" id="searchstatus" width="95%" />
+
+										<label use="ais.ui.util.MyLabelConfig" value="Data Aktif" />
+										<checkbox use="ais.ui.util.MyCheckboxConfig" id="searchaktif" label="Tampilkan hanya yang aktif" checked="true"
+											forward="onClick=onSearchDefault" width="95%" />
+									</row>
+
+									<row spans="6">
+										<hbox width="100%" spacing="10px">
+											<checkbox checked="true" use="ais.ui.util.MyCheckboxConfig"
+												label="Diterima" forward="onCheck=onSearchDefault" id="diterima" />
+											<checkbox checked="true" use="ais.ui.util.MyCheckboxConfig"
+												label="Terverifikasi" forward="onCheck=onSearchDefault" id="terverifikasi" />
+											<checkbox checked="true" use="ais.ui.util.MyCheckboxConfig"
+												label="Ditolak" forward="onCheck=onSearchDefault" id="ditolak" />
+											<checkbox checked="true" use="ais.ui.util.MyCheckboxConfig"
+												label="Mundur" forward="onCheck=onSearchDefault" id="mundur" />
+											<checkbox checked="true" use="ais.ui.util.MyCheckboxConfig"
+												label="Belum Ditentukan" forward="onCheck=onSearchDefault" id="belum" />
+										</hbox>
+									</row>
+
+									<row spans="6">
+										<toolbar>
+											<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" tooltiptext="Tambah data"
+												forward="onClick=onAdd" id="add" label="Tambah Data" image="/img/new.gif" /><toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;calon_pegawai&quot;, &quot;Bantuan&quot;);"/>
+											<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" tooltiptext="Cari data"
+												forward="onClick=onSearchDefault" id="find" label="Cari" image="/img/search.gif" />
+										</toolbar>
+									</row>
+								</rows>
+							</grid>
+						</north>
+
+						<center border="none" flex="true">
+							<grid use="ais.ui.util.MyGrid" sclass="fgrid">
+								<rows>
+									<row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-atas" height="64px" /></row>
+									<row>
+										<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true" />
+									</row>
+									<row>
+										<grid use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true" id="grid">
+											<columns>
+												<column use="ais.ui.util.MyColumnConfig" width="8%" label="No Reg." sort="auto(kode)" />
+												<column use="ais.ui.util.MyColumnConfig" width="13%" label="Nama Calon Pegawai" sort="auto(nama)" />
+												<column use="ais.ui.util.MyColumnConfig" width="12%" label="Lowongan" />
+												<column use="ais.ui.util.MyColumnConfig" label="Alamat / Kontak" width="28%" sort="auto(alamat)" />
+												<column use="ais.ui.util.MyColumnConfig" label="Keterangan" width="10%" />
+												<column use="ais.ui.util.MyColumnConfig" label="Status Seleksi" width="12%" />
+												<column use="ais.ui.util.MyColumnConfig" label="Aktif" width="7%" />
+												<column use="ais.ui.util.MyColumnConfig" width="10%" label="" />
+											</columns>
+										</grid>
+									</row>
+									<row><paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar" /></row>
+									<row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-bawah" height="128px" /></row>
+								</rows>
+							</grid>
+						</center>
+					</borderlayout>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="dokumenTab"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="dokumenPenyedia"></tabpanel>
+			</tabpanels>
+		</tabbox>
+
+		<window use="ais.ui.util.MyWindow" id="addWindow" title="Pendataan Calon Pegawai"
+			visible="false" mode="popup" position="center,center" border="normal" width="95%" height="95%">
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+	</window>
+</zk>

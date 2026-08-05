@@ -1,0 +1,28 @@
+<?page title="new page title" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<window use="ais.ui.util.MyWindow" height="100%" width="100%" border="none">
+
+
+		<tabbox height="100%" width="100%">
+
+			<tabs>
+				<tab use="ais.ui.util.MyTabConfig">Jenis Item List</tab>
+				<tab use="ais.ui.util.MyTabConfig">Jenis Item Tree</tab>
+			</tabs>
+			<tabpanels>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<include use="ais.ui.util.MyInclude" height="100%" width="100%"
+						src="/WEB-INF/z/x/y/pages/master/rab/jenis_tugas_list.zul">
+					</include>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<include use="ais.ui.util.MyInclude" height="100%" width="100%"
+						src="/WEB-INF/z/x/y/pages/master/rab/jenis_tugas_tree.zul">
+					</include>
+				</tabpanel>
+			</tabpanels>
+
+		</tabbox>
+
+	</window>
+</zk>

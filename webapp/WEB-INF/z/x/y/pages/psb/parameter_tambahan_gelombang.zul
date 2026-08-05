@@ -1,0 +1,176 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.sekolah.ParameterTambahanGelombangPendaftaranPsbAction"
+		width="100%" height="100%">
+
+		<tabbox width="100%" height="100%">
+
+			<tabs>
+
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onResetParameter" selected="true">
+					Manajemen Form
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onManajemenKelompok">
+					Manajemen Kelompok
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onManajemenParameter">
+					Manajemen Parameter
+				</tab>
+
+			</tabs>
+
+			<tabpanels>
+
+				<tabpanel use="ais.ui.util.MyTabpanel">
+
+
+					<panel use="ais.ui.util.MyPanel" width="100%" height="100%"
+						id="panel" title="Persyaratan Kkn">
+						<panelchildren>
+
+
+
+							<borderlayout>
+
+								<center border="none" flex="true">
+									<borderlayout>
+										<north border="none" open="true">
+											<grid use="ais.ui.util.MyGrid" fixedLayout="true">
+												<columns>
+													<column use="ais.ui.util.MyColumnConfig"
+														width="100px">
+													</column>
+													<column use="ais.ui.util.MyColumnConfig"></column>
+													<column use="ais.ui.util.MyColumnConfig"
+														width="100px">
+													</column>
+													<column use="ais.ui.util.MyColumnConfig"></column>
+													<column use="ais.ui.util.MyColumnConfig"
+														width="100px">
+													</column>
+													<column use="ais.ui.util.MyColumnConfig"></column>
+												</columns>
+												<rows>
+
+													<row>
+														<label use="ais.ui.util.MyLabelConfig"
+															value="Kelompok" />
+														<combobox readonly="true"
+															id="searchkelompokParameterTambahanCalonSiswa"
+															forward="onChange=onSearchDefault" width="95%" />
+
+
+														<label use="ais.ui.util.MyLabelConfig"
+															value="Parameter" />
+														<textbox forward="onOK=onSearchDefault"
+															id="searchnama" width="95%" />
+														<label use="ais.ui.util.MyLabelConfig"
+															id="labelsearchgelombangPendaftaranPsb" value="Gelombang" />
+														<combobox id="searchgelombangPendaftaranPsb"
+															forward="onChange=onSearchDefault" width="95%" />
+
+													</row>
+
+
+													<row spans="6">
+
+														<toolbar>
+															<toolbarbutton
+																use="ais.ui.util.MyToolbarbuttonConfig"
+																tooltiptext="Tambah data" forward="onClick=onAdd"
+																id="add" label="Tambah Data" image="/img/new.gif">
+															</toolbarbutton>
+															<toolbarbutton
+																use="ais.ui.util.MyToolbarbuttonConfig"
+																tooltiptext="Cari data"
+																forward="onClick=onSearchDefault" id="find" label="Cari"
+																image="/img/search.gif">
+															</toolbarbutton>
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;parameter_tambahan_gelombang&quot;, &quot;Bantuan&quot;);"/>
+			</toolbar>
+													</row>
+												</rows>
+											</grid>
+
+										</north>
+										<center border="none" flex="true">
+
+											<grid use="ais.ui.util.MyGrid" fixedLayout="true"
+												id="grid" mold="paging" pageSize="25">
+												<columns>
+													<column use="ais.ui.util.MyColumnConfig"
+														label="Kelompok" />
+													<column use="ais.ui.util.MyColumnConfig"
+														label="Parameter" sort="auto(nama)" />
+													<column use="ais.ui.util.MyColumnConfig"
+														label="Lampiran" />
+													<column use="ais.ui.util.MyColumnConfig"
+														label="Tipe Data" />
+													<column use="ais.ui.util.MyColumnConfig"
+														label="Nilai Data" />
+													<column use="ais.ui.util.MyColumnConfig" width="10%"
+														label="" />
+
+													<column use="ais.ui.util.MyColumnConfig" width="10%"
+														label="" />
+
+													<column use="ais.ui.util.MyColumnConfig" width="10%"
+														label="" />
+												</columns>
+
+											</grid>
+
+
+										</center>
+										<south border="none">
+											<paging visible="false" id="paging" />
+										</south>
+									</borderlayout>
+								</center>
+							</borderlayout>
+						</panelchildren>
+					</panel>
+
+				</tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="manajemenKelompok">
+
+
+
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="manajemenParameter">
+
+
+
+				</tabpanel>
+
+			</tabpanels>
+		</tabbox>
+
+		<window use="ais.ui.util.MyWindow" id="addWindow"
+			title="Tambah Parameter" visible="false" mode="popup"
+			position="center,center" border="normal" width="650px" height="85%">
+
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+	</window>
+
+
+</zk>

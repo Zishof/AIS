@@ -1,0 +1,88 @@
+<?page id="aktiftasSiswaPage" title="Aktivitas Harian Siswa" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul">
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.sekolah.AktiftasHarianSiswaAction" width="100%" height="100%">
+
+		<tabbox width="100%" height="100%">
+			<tabs>
+				<tab use="ais.ui.util.MyTabConfig" label="Daftar Per Siswa (Entry)" selected="true" forward="onClick=onDaftarAktifitasSiswa" />
+				<tab use="ais.ui.util.MyTabConfig" label="Dashboard" forward="onClick=onDashboardAktifitasHarianSiswa" />
+				<tab use="ais.ui.util.MyTabConfig" label="Buku Penghubung" forward="onClick=onBukuPenghubung" />
+				<tab use="ais.ui.util.MyTabConfig" label="Log Aktifitas Harian" />
+				
+				<tab use="ais.ui.util.MyTabConfig" label="Aktivitas Default" forward="onClick=onJenisAktiftasHarianDefault" />
+				<tab use="ais.ui.util.MyTabConfig" label="Materi Default" forward="onClick=onJenisMateriHarianDefault" />
+			</tabs>
+
+			<tabpanels>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="panelDaftarSiswa"></tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="panelDashboard"></tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="panelBukuPenghubung"></tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<div sclass="ais-crud-portal">
+							<div sclass="ais-crud-filter-card">
+								<div sclass="ais-crud-filter-head">
+									<span sclass="ais-crud-filter-title">Pencarian &amp; Filter</span>
+									<div sclass="ais-crud-filter-actions">
+										<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="add" label="Tambah" image="/img/new.gif" tooltiptext="Tambah data baru" forward="onClick=onAdd"/>
+										<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="find" label="Cari" image="/img/search.gif" tooltiptext="Cari data" forward="onClick=onSearchDefault"/>
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;aktiftas_harian_siswa&quot;, &quot;Bantuan&quot;);"/></div>
+								</div>
+								<div sclass="ais-crud-filter-body">
+									<grid use="ais.ui.util.MyGrid" fixedLayout="true" sclass="ais-crud-filter-grid">
+										<columns>
+									<column use="ais.ui.util.MyColumnConfig" width="100px" />
+									<column />
+									<column use="ais.ui.util.MyColumnConfig" width="100px" />
+									<column />
+								</columns>
+										<rows>
+											<row>
+										<label use="ais.ui.util.MyLabelConfig" value="Nama Siswa" />
+										<textbox forward="onOK=onSearchDefault" id="searchnama" width="95%" />
+										<label use="ais.ui.util.MyLabelConfig" value="Tanggal" />
+										<datebox id="searchtanggal" format="dd-MM-yyyy" width="95%" forward="onChange=onSearchDefault" />
+									</row>
+										</rows>
+									</grid>
+								</div>
+							</div>
+							<div sclass="ais-crud-data-card">
+								<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true"/>
+								<grid use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true" id="grid">
+											<columns>
+												<column use="ais.ui.util.MyColumnConfig" label="Tanggal" width="120px" sort="auto(tanggal)" />
+												<column use="ais.ui.util.MyColumnConfig" label="Nama Siswa" sort="auto(siswa.namaSiswa)" />
+												<column use="ais.ui.util.MyColumnConfig" label="Rincian" />
+												<column use="ais.ui.util.MyColumnConfig" label="Aktif" width="80px" align="center" />
+												<column use="ais.ui.util.MyColumnConfig" width="100px" label="Aksi" align="center" />
+											</columns>
+										</grid>
+								<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>
+							</div>
+						</div>
+
+		
+
+		
+				</tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="panelJenisAktiftasHarianDefault"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="panelJenisMateriHarianDefault"></tabpanel>
+			</tabpanels>
+		</tabbox>
+
+		<window use="ais.ui.util.MyWindow" id="addWindow" visible="false" mode="popup" 
+			position="center,top" border="normal" width="950px" height="95%">
+		</window>
+
+		<zscript><![CDATA[
+			addWindow.setVisible(false);
+		]]></zscript>
+	</window>
+</zk>

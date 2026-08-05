@@ -1,0 +1,71 @@
+<?page title="new page title" contentType="text/html;charset=UTF-8"?>
+<zk>
+
+	<tabbox width="100%" height="100%">
+
+		<tabs>
+
+
+			<tab use="ais.ui.util.MyTabConfig">
+				Penerimaan Tagihan Vendor
+			</tab>
+
+			<tab use="ais.ui.util.MyTabConfig">Pekerjaan Vendor</tab>
+			<tab use="ais.ui.util.MyTabConfig">Termin Vendor</tab>
+			<tab use="ais.ui.util.MyTabConfig">DP Vendor</tab>
+
+			<tab use="ais.ui.util.MyTabConfig" visible="false">
+				DP Pekerjaan Vendor
+			</tab>
+			<tab use="ais.ui.util.MyTabConfig">
+				Jurnal Balik DP Pekerjaan
+			</tab>
+
+		</tabs>
+		<tabpanels>
+
+			<tabpanel use="ais.ui.util.MyTabpanel">
+				<include
+					src="/WEB-INF/z/x/y/pages/master/asset/posting_pengadaan.zul">
+				</include>
+			</tabpanel>
+
+			<tabpanel use="ais.ui.util.MyTabpanel">
+				<include
+					src="/WEB-INF/z/x/y/pages/master/asset/posting_pesanan_pekerjaan.zul">
+				</include>
+			</tabpanel>
+
+			<tabpanel use="ais.ui.util.MyTabpanel">
+				<include
+					src="/WEB-INF/z/x/y/pages/master/asset/posting_pembayaran_termin.zul">
+				</include>
+			</tabpanel>
+
+			<tabpanel use="ais.ui.util.MyTabpanel">
+				<include
+					src="/WEB-INF/z/x/y/pages/master/asset/posting_dp.zul">
+				</include>
+			</tabpanel>
+
+			<tabpanel use="ais.ui.util.MyTabpanel" visible="false">
+				<include
+					src="/WEB-INF/z/x/y/pages/master/asset/posting_dp_pesanan_pekerjaan.zul">
+				</include>
+			</tabpanel>
+
+
+
+
+			<tabpanel use="ais.ui.util.MyTabpanel">
+				<include
+					src="/WEB-INF/z/x/y/pages/master/asset/posting_dp_balik_pesanan_pekerjaan.zul">
+				</include>
+			</tabpanel>
+
+
+		</tabpanels>
+	</tabbox>
+
+
+</zk>

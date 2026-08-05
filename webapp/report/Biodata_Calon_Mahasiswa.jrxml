@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Biodata" pageWidth="595" pageHeight="648" whenNoDataType="AllSectionsNoDetail" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20" uuid="4f224a15-04d8-4e84-bb5a-b9e879ac52e4">
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<property name="ireport.zoom" value="2.139837529582506"/>
+	<property name="ireport.x" value="75"/>
+	<property name="ireport.y" value="0"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="logo1" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="biodata_id" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[181L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="foto" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_kota" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Ciputat"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="nomorUjian" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["---"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="SUBREPORT_DIR" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["C:\\Users\\M Fauzi M\\Documents\\My Project\\Academic Information System\\AIS\\ais\\web\\report\\"]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[]]>
+	</queryString>
+	<field name="grup" class="java.lang.String"/>
+	<field name="label" class="java.lang.String"/>
+	<field name="nilai" class="java.lang.String"/>
+	<field name="url" class="java.lang.String"/>
+	<variable name="Tanggal" class="java.util.Date">
+		<variableExpression><![CDATA[new java.util.Date()]]></variableExpression>
+	</variable>
+	<group name="grup">
+		<groupExpression><![CDATA[$F{grup}]]></groupExpression>
+		<groupHeader>
+			<band height="19">
+				<textField>
+					<reportElement x="0" y="0" width="535" height="19" uuid="2c713671-f959-462c-9ac6-650c45c85b44"/>
+					<box leftPadding="0"/>
+					<textElement verticalAlignment="Middle">
+						<font size="12" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{grup}]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupHeader>
+	</group>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="102" splitType="Stretch">
+			<line>
+				<reportElement key="line-1" x="-2" y="100" width="535" height="1" uuid="9aed61d5-031f-4c41-a402-8ea999b752ba"/>
+				<graphicElement>
+					<pen lineWidth="1.0" lineStyle="Double"/>
+				</graphicElement>
+			</line>
+			<textField>
+				<reportElement x="-1" y="58" width="535" height="19" uuid="56d446b9-584a-4343-b4d0-f2b60bc335ef"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[($P{REPORT_PARAMETERS_MAP}.get( "label_universitas" )+"").toUpperCase()]]></textFieldExpression>
+			</textField>
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="0" y="-17" width="535" height="77" uuid="79dcdf09-6f73-4f74-b648-b78c42ed7b66"/>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<textField isStretchWithOverflow="true">
+				<reportElement x="-1" y="77" width="535" height="23" uuid="05609c24-4eb3-4a0d-ad3b-f7a869b211b7"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["BIODATA LENGKAP CALON MAHASISWA"]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<columnHeader>
+		<band splitType="Stretch"/>
+	</columnHeader>
+	<detail>
+		<band height="22">
+			<textField>
+				<reportElement x="3" y="0" width="161" height="22" uuid="837d5799-cde1-4f25-a594-549fb3de1765"/>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{label}+
+""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="164" y="0" width="16" height="22" uuid="cc1e9dca-8c05-4b29-bc05-edeaba169cf7"/>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[":"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="180" y="0" width="354" height="22" uuid="3d0ff332-e00f-48b0-9fd3-21f85be3b272"/>
+				<textElement verticalAlignment="Middle" markup="html">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nilai}==null || $F{nilai}.equals("null") ? "" : $F{url}!=null&&!$F{url}.trim().isEmpty()?
+$F{nilai}+"  <a target='_blank' style='color:blue;text-decoration: underline;' href='"+$F{url}+"'>Unduh Lampiran</a>" :  $F{nilai}.startsWith("http")?"<a target='_blank' style='color:blue;text-decoration: underline;' href='"+$F{nilai}+"'>Untuk mengunduh "+$F{label}+", klik disini</a>":$F{nilai}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band splitType="Stretch"/>
+	</pageFooter>
+	<summary>
+		<band height="153" splitType="Stretch">
+			<textField pattern="dd MMMMM yyyy" isBlankWhenNull="false">
+				<reportElement key="textField" x="439" y="19" width="95" height="16" uuid="66f023a7-d18d-47c3-90b4-c1b05c6340f6"/>
+				<textFieldExpression><![CDATA[new java.util.Date()]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement key="line-2" x="3" y="149" width="535" height="1" uuid="26033d89-a630-4327-81cf-6ab6fec76cc9"/>
+				<graphicElement>
+					<pen lineWidth="1.0" lineStyle="Double"/>
+				</graphicElement>
+			</line>
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="210" y="13" width="105" height="131" uuid="7e979f33-1e88-4104-8006-d7fd5d11db96"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<imageExpression><![CDATA[$P{foto}]]></imageExpression>
+			</image>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="16" y="128" width="164" height="16" uuid="eb940936-f298-4ea1-a2e1-049590a57cb2"/>
+				<textElement textAlignment="Center">
+					<font isUnderline="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "nama" )]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-23" x="19" y="35" width="161" height="26" uuid="99845e90-39b3-4d06-a135-55cf1e6db5ee"/>
+				<textElement textAlignment="Center"/>
+				<text><![CDATA[Tanda Tangan Peserta]]></text>
+			</staticText>
+			<textField pattern="dd/MM/yyyy" isBlankWhenNull="false">
+				<reportElement key="textField" x="356" y="19" width="83" height="16" uuid="78e2866f-625e-4548-bb19-87f6163ce356"/>
+				<textElement textAlignment="Right"/>
+				<textFieldExpression><![CDATA[$P{label_kota}+", "]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="356" y="35" width="167" height="26" uuid="fd49e2c2-9545-4209-ae86-92ecdc155a88"/>
+				<textElement textAlignment="Center">
+					<font isUnderline="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "label_ttd_petugas_pmb" ) == null ? "Petugas" : $P{REPORT_PARAMETERS_MAP}.get( "label_ttd_petugas_pmb" )]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="356" y="128" width="167" height="16" uuid="68c4c643-7d7b-4fb0-918c-18a75b3ff9d2"/>
+				<textElement textAlignment="Center">
+					<font isUnderline="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "label_nama_petugas_pmb" ) == null ? "(..............................)" : $P{REPORT_PARAMETERS_MAP}.get( "label_nama_petugas_pmb" )]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
+</jasperReport>

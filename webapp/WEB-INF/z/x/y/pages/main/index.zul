@@ -1,0 +1,290 @@
+<?init class="ais.ui.util.MyInit"?>
+<?link rel="shortcut icon" type="image/x-icon" href="${myFavicon}"?>
+<?link rel="icon" type="image/x-icon" href="${myFavicon}"?>
+<?page title="Sistem Informasi Akademik" contentType="text/html;charset=UTF-8"?>
+<?meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" ?>
+<?meta name="description" content="Sistem Informasi Akademik Ecampus" ?>
+<?meta name="author" content="Mohammad Fauzi Murtadho" ?>
+<zk>
+	<window apply="ais.action.maintenance.MainAction"
+		forward="onClientInfo=onInfo" width="100%" height="100%" border="none"
+		sclass="main-responsive-root zk55-responsive-shell">
+
+		<popup id="popupmenu" width="360px" height="85%" sclass="main-responsive-menu-popup" />
+
+		<zscript><![CDATA[
+	javax.servlet.http.HttpServletRequest request = (javax.servlet.http.HttpServletRequest) execution.getNativeRequest();
+
+	ais.database.model.PerguruanTinggi perguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil
+			.getPerguruanTinggi(request);
+	ais.database.model.sekolah.Sekolah sekolah = ais.action.master.sekolah.util.SekolahUtil.getSekolah(request);
+	ais.database.model.sekolah.Yayasan yayasan = ais.action.master.sekolah.util.SekolahUtil.getYayasan(request);
+
+	String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruanTinggiMedia(request,
+			"logo_perguruanTinggi_");
+	if (logo_PerguruanTinggi == null || logo_PerguruanTinggi.trim().length() == 0) {
+		logo_PerguruanTinggi = "/img/logo.png";
+	}
+
+	String judul = "";
+	String Motto = "eCampus Information System";
+
+	if (perguruanTinggi != null) {
+		if (perguruanTinggi.getNama() != null) {
+			judul = perguruanTinggi.getNama();
+		}
+		if (perguruanTinggi.getMotto() != null && perguruanTinggi.getMotto().trim().length() > 0) {
+			Motto = perguruanTinggi.getMotto();
+		}
+	}
+
+	boolean[] ptYa = ais.common.Common.chekPtAtauSekolah();
+	boolean ya = ptYa != null && ptYa.length > 1 && ptYa[1];
+
+	if (ya && sekolah != null && sekolah.getId() != null) {
+		if (sekolah.getNama() != null && sekolah.getNama().trim().length() > 0) {
+			judul = sekolah.getNama();
+		}
+		if (sekolah.getMotto() != null && sekolah.getMotto().trim().length() > 0) {
+			Motto = sekolah.getMotto();
+		}
+
+		String logoSekolah = ais.action.master.sekolah.util.SekolahUtil.getSekolahMedia(request, "logo_sekolah_");
+		if (logoSekolah != null && logoSekolah.trim().length() > 0 && !logoSekolah.endsWith("logo.png")) {
+			logo_PerguruanTinggi = logoSekolah;
+		}
+	} else if (ya && yayasan != null && yayasan.getId() != null) {
+		if (yayasan.getNama() != null && yayasan.getNama().trim().length() > 0) {
+			judul = yayasan.getNama();
+		}
+		if (yayasan.getMotto() != null && yayasan.getMotto().trim().length() > 0) {
+			Motto = yayasan.getMotto();
+		}
+
+		String logoYayasan = ais.action.master.sekolah.util.SekolahUtil.getYayasanMedia(request, "logo_yayasan_");
+		if (logoYayasan != null && logoYayasan.trim().length() > 0 && !logoYayasan.endsWith("logo.png")) {
+			logo_PerguruanTinggi = logoYayasan;
+		}
+	}
+]]></zscript>
+
+		<borderlayout id="myborder" width="100%" height="100%">
+			<center border="none" flex="true" sclass="main-scroll-center">
+				<grid fixedLayout="true" width="100%" sclass="main-responsive-main-grid">
+					<columns>
+						<column width="100%" />
+					</columns>
+					<rows>
+						<row id="headerHbox" sclass="headerHbox main-responsive-header">
+							<grid fixedLayout="true" id="gridHeader" width="100%" sclass="gridHeader main-responsive-header-grid">
+								<columns>
+									<column width="50%" />
+									<column width="50%" />
+								</columns>
+								<rows>
+									<row id="rowHeader" height="60px" valign="middle" sclass="main-responsive-brand-row">
+										<hbox width="100%" sclass="main-responsive-brand-box" spacing="4px">
+											<image id="idLogo" src="/img/logo.png" height="72px" sclass="main-brand-logo" />
+											<vbox sclass="main-responsive-brand-text" spacing="0">
+												<label id="title" sclass="title1" />
+												<label id="motto" sclass="motto" />
+											</vbox>
+										</hbox>
+
+										<vbox width="100%" pack="end" align="end" sclass="main-responsive-header-right">
+											<hbox id="headerHboxButton" width="100%" pack="end" align="right" />
+											<toolbarbutton id="usersOnline"
+												use="ais.ui.util.MyToolbarbuttonConfig"
+												forward="onClick=onLihatOnline"
+												sclass="users_online_button"
+												label="Online user(s): 0" />
+										</vbox>
+									</row>
+
+									<row id="rowHeader2" spans="2" sclass="headerHbox main-responsive-module-row">
+										<hbox width="100%" pack="start" align="end" sclass="main-responsive-module-strip">
+											<toolbarbutton id="eMenuButton" visible="true"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												forward="onClick=onPopup"
+												sclass="main-responsive-header-menu-button main-responsive-header-menu-primary"
+												image="/img/svg/list-task-white.svg" label="Menu" />
+											<toolbarbutton id="eMedicButton" visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												forward="onClick=onEmedic"
+												image="/img/svg/hospital-white.svg" label="eMedic" />
+											<toolbarbutton id="eLearningButton" visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												forward="onClick=onPengumumanPerkuliahan"
+												image="/img/svg/book-white.svg" label="e-Learning" />
+											<toolbarbutton id="ePrestasiButton" visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												forward="onClick=onKegiatanDanPrestasi"
+												image="/img/svg/trophy-white.svg" label="Prestasi" />
+											<toolbarbutton id="ePustakaButton" visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												forward="onClick=onPustaka"
+												image="/img/svg/books-thin-white.svg" label="Pustaka" />
+											<toolbarbutton id="eWorkflowButton" visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												forward="onClick=onWorkflow"
+												image="/img/svg/journal-arrow-up-white.svg" label="Workflow" />
+											<toolbarbutton id="eRepositoryButton" visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												forward="onClick=onRepository"
+												image="/img/svg/folder2.svg" label="Repository" />
+											<toolbarbutton id="eAntarJemputButton" visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												forward="onClick=onAntarJemput"
+												image="/img/svg/calendar2.svg" label="Antar Jemput" />
+											<toolbarbutton id="eSpmiButton" visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												forward="onClick=onSpmi"
+												image="/img/svg/card-checklist-white.svg" label="SPMI" />
+											<toolbarbutton id="eKantinButton" visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												forward="onClick=onKantin"
+												image="/img/svg/basket3-white.svg" label="Toko" />
+											<toolbarbutton id="eKoperasiButton" visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												forward="onClick=onKoperasi"
+												image="/img/svg/money-bills-white.svg" label="Koperasi" />
+											<toolbarbutton id="eAkademikButton" visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												forward="onClick=onDashboard"
+												image="/img/svg/dashboard-speed-white.svg" label="Akademik" />
+											<toolbarbutton id="eAdministrasiButton" visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												forward="onClick=onAdministrasi"
+												image="/img/svg/journal-bookmark-white.svg" label="Administrasi" />
+											<toolbarbutton id="ePengadaanButton" visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												forward="onClick=onPengadaan"
+												image="/img/svg/boxes-white.svg" label="Pengadaan" />
+											<toolbarbutton id="ePembayaranButton" visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												forward="onClick=onPembayaran"
+												image="/img/svg/payments-white.svg" label="Pembayaran" />
+											<toolbarbutton id="eKeuanganButton" visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												forward="onClick=onKeuangan"
+												image="/img/svg/money-bills-white.svg" label="Keuangan" />
+											<toolbarbutton id="eAkuntingButton" visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												forward="onClick=onAkunting"
+												image="/img/svg/file-earmark-text-white.svg" label="Akuntansi" />
+											<toolbarbutton id="eKepegawaianButton" visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												forward="onClick=onKepegawaian"
+												image="/img/svg/user-tie-white.svg" label="Kepegawaian" />
+											<toolbarbutton id="eGajiButton" visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												forward="onClick=onGaji"
+												image="/img/svg/money-bills-white.svg" label="Gaji" />
+											<toolbarbutton id="eKinerjaButton" visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												forward="onClick=onKinerja"
+												image="/img/svg/card-checklist-white.svg" label="Kinerja" />
+											<toolbarbutton id="ePresensiButton" visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												forward="onClick=onPresensi"
+												image="/img/svg/check-circled-outline-white.svg" label="Presensi" />
+											<toolbarbutton id="eKalenderAkademikButton" visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												forward="onClick=onInformasiKalenderAkademik"
+												image="/img/svg/list-task-white.svg" label="Kalender Akademik" />
+											<toolbarbutton id="eInfoKegiatanButton" visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												forward="onClick=onInformasiKegiatan"
+												image="/img/svg/information-circle-outline-white.svg" label="Info Kegiatan" />
+											<toolbarbutton id="eFeederButton" visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												forward="onClick=onSinkronisasiFeeder"
+												image="/img/svg/journal-arrow-up-white.svg" label="Neo Feeder" />
+											<toolbarbutton id="eSisterButton" visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												forward="onClick=onSinkronisasiSister"
+												image="/img/svg/journal-arrow-up-white.svg" label="Sister" />
+										</hbox>
+									</row>
+								</rows>
+							</grid>
+						</row>
+
+						<row sclass="main-responsive-content-row">
+							<borderlayout id="tinggiFrame" width="100%" sclass="main-responsive-frame main-responsive-frame-dropdown">
+								<west id="navigasi" title="Menu" width="0px" border="none"
+									flex="false" collapsible="false" open="false" visible="false" splittable="false"
+									forward="onOpen=onNavigasiOpen"
+									sclass="navigasi main-responsive-sidebar main-responsive-sidebar-dropdown-hidden" />
+
+								<center id="centerTinggiFrame" sclass="main-responsive-center">
+									<tabbox id="iframe" width="100%" height="200%" sclass="main-responsive-tabbox">
+										<tabs id="tabs" sclass="main-responsive-tabs">
+											<tab label="Home" use="ais.ui.util.MyTabConfig"
+												image="/img/blue-home-icon.png" closable="false" />
+										</tabs>
+										<tabpanels id="tabpanels" height="200%" sclass="main-responsive-tabpanels">
+											<tabpanel use="ais.ui.util.MyTabpanel" id="panel_home" height="200%" sclass="main-responsive-home-panel" />
+										</tabpanels>
+									</tabbox>
+								</center>
+							</borderlayout>
+						</row>
+
+						<row>
+							<div id="footer" width="100%" sclass="headerHbox main-responsive-footer" />
+						</row>
+					</rows>
+				</grid>
+			</center>
+
+			<south height="0px">
+				<vbox width="100%" height="0px">
+					<toolbarbutton id="menuService"
+						use="ais.ui.util.MyToolbarbuttonConfig"
+						sclass="customerService"
+						image="/img/icons8-menu-48.png"
+						hoverImage="/img/icons8-menu.png"
+						forward="onClick=onOpenMenu" />
+
+					<toolbarbutton id="customerService"
+						use="ais.ui.util.MyToolbarbuttonConfig"
+						sclass="customerService"
+						image="/img/whatapp-icon_1.png"
+						hoverImage="/img/whatapp-2-icon.png"
+						forward="onClick=onCustomerService" />
+
+					<toolbarbutton id="back_to_top"
+						use="ais.ui.util.MyToolbarbuttonConfig"
+						sclass="back_to_top"
+						image="/img/back_to_top.png"
+						hoverImage="/img/back_to_top_2.png">
+						<attribute name="onClick"><![CDATA[
+	Clients.scrollIntoView(headerHbox);
+]]></attribute>
+					</toolbarbutton>
+
+					<zscript><![CDATA[
+	idLogo.setSrc(logo_PerguruanTinggi);
+	title.setValue(judul);
+	motto.setValue(Motto);
+
+	menuService.setVisible(false);
+
+	javax.servlet.http.HttpServletRequest requestFooter = (javax.servlet.http.HttpServletRequest) execution.getNativeRequest();
+	if (ais.common.Common.isMobile(requestFooter)) {
+		rowHeader.setVisible(false);
+		rowHeader2.setVisible(false);
+		back_to_top.setHoverImage("");
+	}
+
+	tinggiFrame.setWidth("100%");
+	iframe.setWidth("100%");
+	tinggiFrame.setHeight("200%");
+	iframe.setHeight("200%");
+]]></zscript>
+				</vbox>
+			</south>
+		</borderlayout>
+	</window>
+</zk>

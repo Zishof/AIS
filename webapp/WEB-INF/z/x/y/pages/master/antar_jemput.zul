@@ -1,0 +1,5 @@
+<?page id="antarJemputMasterZul" title="Antar Jemput" cacheable="false"
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+<zk xmlns="http://www.zkoss.org/2005/zul">
+	<include src="/WEB-INF/z/x/y/pages/master/antarjemput/antar_jemput.zul" />
+</zk>

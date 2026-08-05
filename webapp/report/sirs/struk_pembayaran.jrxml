@@ -1,0 +1,672 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="informasi_tagihan" language="groovy" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="579" leftMargin="8" rightMargin="8" topMargin="20" bottomMargin="20" uuid="1bfd4e58-3fce-49f2-a2e3-70cca0641efd">
+	<property name="ireport.zoom" value="1.2396694214876032"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<style name="Title" fontSize="50" isBold="true" pdfFontName="Times-Bold"/>
+	<style name="SubTitle" forecolor="#736343" fontSize="18"/>
+	<style name="Column header" forecolor="#666666" fontSize="12" isBold="true"/>
+	<style name="Detail" fontSize="12"/>
+	<style name="Row" mode="Transparent">
+		<conditionalStyle>
+			<conditionExpression><![CDATA[$V{REPORT_COUNT}%2 == 0]]></conditionExpression>
+			<style backcolor="#E6DAC3"/>
+		</conditionalStyle>
+	</style>
+	<parameter name="pasien" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[16573L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="pendaftaran" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="transaksi" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="nama_pasien" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Abdullah"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mr" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["4634347"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="id" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[34L]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select
+b.*,
+a.*
+from sirs.pembayaran a
+inner join
+(
+	(
+		select
+		(case when d.kode is null then d2.kode else d.kode end) as nota,
+		max(b.kode) as kode_trx,
+		max(b.nama) as nama_barang,
+		(sum(a.qty*(-a1.jenis))) as qty,
+		max(b2.nama) as satuan,
+		sum(a.amount*(a.qty*(-a1.jenis))) as harga,
+		sum(a.qty * a.diskon) as diskon,
+sum(a.qty * a.pajak) as pajak,
+		max(a.tanggal) as tanggal,
+		max(b1.nama) as jenis,
+		a.pembayaran
+		from sirs.detail_transaksi_pasien a
+		inner join sirs.kode_transaksi_medis a1 on (a.kode_transaksi = a1.id)
+		left join sirs.item_medis b on (a.item = b.id)
+		left join sirs.satuan_item b2 on (b.satuan_item = b2.id)
+		left join sirs.jenis_barang_medis b1 on (b.jenis_item = b1.id)
+		left join sirs.transaksi_medis_detail c on (a.transaksi_detail = c.id)
+		left join sirs.transaksi_medis d on (c.transaksi = d.id)
+		left join sirs.transaksi_retur_detail c1 on (a.transaksi_retur_detail = c1.id)
+		left join sirs.transaksi_retur d1 on (c1.transaksi_retur = d1.id)
+		left join sirs.transaksi_medis d2 on (d1.transaksi = d2.id)
+		where (a.lunas = true and a.pembayaran = $P{id})
+		group by a.pembayaran,(case when d.kode is null then d2.kode else d.kode end),a.item
+		having sum(a.qty*(-a1.jenis)) > 0.0
+		order by tanggal
+	)
+	union all
+	(
+		select
+		e.kode as nota,
+	max(case when d.kode is null then b.kode else d.kode end) as kode,
+	max(case when d.nama is null then b.nama else d.nama end) as nama_barang,
+	sum(a.qty) as qty,
+	max(d2.nama) as satuan,
+	sum(a.qty * a.amount) as harga,
+sum(a.qty * a.diskon) as diskon,
+sum(a.qty * a.pajak) as pajak,
+	max(a.tanggal) as tanggal,
+	max(case when d1.nama is null then '-' else d1.nama end) as jenis,
+	a.pembayaran
+	from sirs.detail_transaksi_layanan a
+	left join sirs.alat_medis b on (b.id = a.alat_medis)
+	left join sirs.tindakan d on (d.id = a.tindakan)
+	left join sirs.jenis_tindakan d1 on (d.jenis_tindakan = d1.id)
+	left join sirs.satuan_item d2 on (d.satuan = d2.id)
+	left join sirs.pendaftaran e on (e.id = a.pendaftaran)
+		where (a.lunas = true and a.pembayaran = $P{id})
+		group by a.pembayaran,e.kode,a.tindakan,a.alat_medis
+	having sum(a.qty) > 0.0
+	order by tanggal
+	)
+) b on (a.id = b.pembayaran)
+where a.id = $P{id}]]>
+	</queryString>
+	<field name="nota" class="java.lang.String"/>
+	<field name="kode_trx" class="java.lang.String"/>
+	<field name="nama_barang" class="java.lang.String"/>
+	<field name="qty" class="java.lang.Double"/>
+	<field name="satuan" class="java.lang.String"/>
+	<field name="harga" class="java.lang.Double"/>
+	<field name="diskon" class="java.lang.Double"/>
+	<field name="pajak" class="java.lang.Double"/>
+	<field name="tanggal" class="java.sql.Timestamp"/>
+	<field name="jenis" class="java.lang.String"/>
+	<field name="pembayaran" class="java.lang.Long"/>
+	<field name="id" class="java.lang.Long"/>
+	<field name="keterangan" class="java.lang.String"/>
+	<field name="kode" class="java.lang.String"/>
+	<field name="oleh" class="java.lang.String"/>
+	<field name="tanggal_dirubah" class="java.sql.Timestamp"/>
+	<field name="pasien" class="java.lang.Long"/>
+	<field name="index" class="java.lang.Long"/>
+	<field name="alamat_penanggung" class="java.lang.String"/>
+	<field name="bayar_non_tunai" class="java.lang.Double"/>
+	<field name="bayar_tunai" class="java.lang.Double"/>
+	<field name="biaya" class="java.lang.Double"/>
+	<field name="diskon_dalam_persen" class="java.lang.Boolean"/>
+	<field name="nama_penanggung" class="java.lang.String"/>
+	<field name="ppn" class="java.lang.Double"/>
+	<field name="total_diskon" class="java.lang.Double"/>
+	<field name="lokasi" class="java.lang.Long"/>
+	<field name="tanggal_pembayaran" class="java.sql.Timestamp"/>
+	<field name="pendaftaran" class="java.lang.Long"/>
+	<field name="umur" class="java.lang.Integer"/>
+	<field name="bagian" class="java.lang.Long"/>
+	<field name="jenis_pasien" class="java.lang.Long"/>
+	<field name="kelas_perawatan" class="java.lang.Long"/>
+	<field name="status_pembayaran" class="java.lang.Long"/>
+	<field name="tbmuser" class="java.lang.String"/>
+	<field name="transaksi" class="java.lang.Long"/>
+	<field name="retur" class="java.lang.Double"/>
+	<field name="total_biaya" class="java.lang.Double"/>
+	<field name="kembalian" class="java.lang.Double"/>
+	<field name="data_pasien_keluar" class="java.lang.Long"/>
+	<field name="harga_ppn" class="java.lang.Double"/>
+	<field name="shift" class="java.lang.Long"/>
+	<field name="total_deposit" class="java.lang.Double"/>
+	<variable name="harga_total" class="java.lang.Double" calculation="Sum">
+		<variableExpression><![CDATA[$F{harga}]]></variableExpression>
+	</variable>
+	<variable name="harga_ppn" class="java.lang.String"/>
+	<variable name="diskon_total" class="java.lang.Double" calculation="Sum">
+		<variableExpression><![CDATA[$F{diskon}]]></variableExpression>
+	</variable>
+	<variable name="pajak_total" class="java.lang.Double" calculation="Sum">
+		<variableExpression><![CDATA[$F{pajak}]]></variableExpression>
+	</variable>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="144" splitType="Stretch">
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement x="0" y="-18" width="579" height="104" uuid="29120872-f4ee-47c4-8cdf-49ffcd6f03ba"/>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "kop_surat" )]]></imageExpression>
+			</image>
+			<textField>
+				<reportElement x="0" y="86" width="579" height="15" uuid="2cd1c5ab-375b-42da-b4c5-e97c6f8c42f1"/>
+				<textFieldExpression><![CDATA["BUKTI PEMBAYARAN"]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="282" y="101" width="44" height="18" uuid="7b9b4e99-1427-4852-8aab-91eba6460d75"/>
+				<text><![CDATA[MR]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="283" y="119" width="43" height="18" uuid="68f6e00c-defd-4fef-b81c-21022fc1a173"/>
+				<text><![CDATA[Nama]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="326" y="119" width="253" height="18" uuid="4bf3a4e6-b558-4b4d-87c5-59de0130ed4b"/>
+				<textFieldExpression><![CDATA[": "+$P{nama_pasien}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="326" y="101" width="253" height="18" uuid="81c933ba-d10c-4bc3-9f17-0313d86f28ec"/>
+				<textFieldExpression><![CDATA[": "+$P{mr}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="45" y="119" width="238" height="18" uuid="0f17f0b8-86af-423d-8610-56f08751d25b"/>
+				<textFieldExpression><![CDATA[": "+ (new java.text.SimpleDateFormat("dd-MM-yyyy HH:mm:ss").format($F{tanggal_pembayaran}))]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="2" y="119" width="43" height="18" uuid="4a7741a5-65c4-44fa-832b-44fe2b31f800"/>
+				<text><![CDATA[Wkt]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="45" y="101" width="238" height="18" uuid="06217031-f0c6-447b-be2d-79f15f839cba"/>
+				<textFieldExpression><![CDATA[": "+$F{kode}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="1" y="101" width="44" height="18" uuid="af3ae9b1-ff46-4658-b55c-2b1c85eb62f1"/>
+				<text><![CDATA[Kode]]></text>
+			</staticText>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<columnHeader>
+		<band height="22" splitType="Stretch">
+			<staticText>
+				<reportElement style="Column header" x="25" y="0" width="88" height="22" forecolor="#010101" uuid="41924348-b510-493f-b362-421a6c269c7e"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[No Nota]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="Column header" x="113" y="0" width="54" height="22" forecolor="#010101" uuid="c0272e52-9200-457a-b8b1-51a3750e4bd7"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[Kode Item]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="Column header" x="228" y="0" width="180" height="22" forecolor="#010101" uuid="246e882f-59cc-4e58-bea2-37edb5d92dee"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[Nama Item / Perawatan]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="Column header" x="408" y="0" width="35" height="22" forecolor="#010101" uuid="68d8da60-7fd0-4a23-a0b0-20f90f256b83"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[QTY]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="Column header" x="520" y="0" width="59" height="22" forecolor="#010101" uuid="ae3a33be-bd14-4d9b-9b8e-52a2e5327933"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[Harga]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="Column header" x="0" y="0" width="25" height="22" forecolor="#010101" uuid="cb0731d9-c202-4aa7-bbda-c0de95c251c8"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[No.]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="Column header" x="167" y="0" width="61" height="22" forecolor="#010101" uuid="69e38a99-6197-4ad8-9b39-40fe8244e352"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[Wkt]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="Column header" x="443" y="0" width="39" height="22" forecolor="#010101" uuid="0f5819a3-7340-413d-a95d-e52926961048"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[Diskon]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="Column header" x="482" y="0" width="38" height="22" forecolor="#010101" uuid="6040df8f-7700-4ed5-8b76-db7a1eef9ca2"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[Pajak]]></text>
+			</staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="27" splitType="Stretch">
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement style="Detail" x="25" y="0" width="88" height="27" uuid="a7f1949d-1390-465d-85ef-11e8932666a1"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nota}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement style="Detail" x="113" y="0" width="54" height="27" uuid="f4d7a55f-03a1-42ab-ade8-737facd6bfdd"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{kode_trx}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement style="Detail" x="228" y="0" width="180" height="27" uuid="7eea5560-64d1-4954-a7b1-2a40df67185d"/>
+				<box leftPadding="5" rightPadding="6">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nama_barang}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" pattern="#,##0;-#,##0" isBlankWhenNull="true">
+				<reportElement style="Detail" x="408" y="0" width="35" height="27" uuid="60771d13-72c7-48bc-8086-a3ee8e85e690"/>
+				<box leftPadding="0" rightPadding="6">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{qty}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" pattern="#,##0;-#,##0" isBlankWhenNull="true">
+				<reportElement style="Detail" x="520" y="0" width="59" height="27" uuid="e37cc74e-6b8b-49e4-bd7c-7f1652ca9d23"/>
+				<box leftPadding="0" rightPadding="6">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{harga}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" pattern="#,##0;-#,##0" isBlankWhenNull="true">
+				<reportElement style="Detail" x="0" y="0" width="25" height="27" uuid="f55e1c48-f594-4450-9da6-cbfd34d9eff6"/>
+				<box leftPadding="0" rightPadding="6">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" pattern="dd-MM-yyyy HH.mm.ss" isBlankWhenNull="true">
+				<reportElement style="Detail" x="167" y="0" width="61" height="27" uuid="541e17a8-fe1d-4b05-bb61-0c969578ef9a"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{tanggal}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" pattern="#,##0" isBlankWhenNull="true">
+				<reportElement style="Detail" x="443" y="0" width="39" height="27" uuid="67a6f17e-819f-477b-a694-bc124a654606"/>
+				<box rightPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{diskon}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" pattern="#,##0" isBlankWhenNull="true">
+				<reportElement style="Detail" x="482" y="0" width="38" height="27" uuid="b9318ce1-f8f7-4c27-b4ab-03490e0d166a"/>
+				<box rightPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{pajak}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<columnFooter>
+		<band height="6" splitType="Stretch">
+			<line>
+				<reportElement positionType="FixRelativeToBottom" x="0" y="3" width="555" height="1" uuid="2a3fbe44-cf1f-48ca-8a20-80ea046917ca"/>
+				<graphicElement>
+					<pen lineWidth="0.5" lineColor="#999999"/>
+				</graphicElement>
+			</line>
+		</band>
+	</columnFooter>
+	<pageFooter>
+		<band height="25" splitType="Stretch">
+			<frame>
+				<reportElement mode="Opaque" x="-21" y="1" width="597" height="24" forecolor="#D0B48E" backcolor="#F2EBDF" uuid="5562e119-cb2a-42b6-9e77-0b7e6da9590f"/>
+				<textField evaluationTime="Report">
+					<reportElement style="Column header" x="533" y="0" width="40" height="20" forecolor="#736343" uuid="c06eb046-6324-40fb-8d5d-2b7e9e87965f"/>
+					<textElement verticalAlignment="Middle">
+						<font size="10" isBold="false"/>
+					</textElement>
+					<textFieldExpression><![CDATA[" " + $V{PAGE_NUMBER}]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement style="Column header" x="453" y="0" width="80" height="20" forecolor="#736343" uuid="2d0bd6af-99bb-4424-8226-5e8d1a3c04b9"/>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="10" isBold="false"/>
+					</textElement>
+					<textFieldExpression><![CDATA["Page "+$V{PAGE_NUMBER}+" of"]]></textFieldExpression>
+				</textField>
+				<textField pattern="EEEEE dd MMMMM yyyy">
+					<reportElement style="Column header" x="22" y="1" width="197" height="20" forecolor="#736343" uuid="3ff3e6b7-f786-4ab5-ac67-5347dde0dc0b"/>
+					<textElement verticalAlignment="Middle">
+						<font size="10" isBold="false"/>
+					</textElement>
+					<textFieldExpression><![CDATA[new java.util.Date()]]></textFieldExpression>
+				</textField>
+			</frame>
+		</band>
+	</pageFooter>
+	<summary>
+		<band height="135" splitType="Stretch">
+			<textField isStretchWithOverflow="true" pattern="#,##0;-#,##0" isBlankWhenNull="true">
+				<reportElement style="Detail" x="520" y="0" width="59" height="17" uuid="3dd9eb87-8d2a-45c9-bdb7-5bc5b7a4300c"/>
+				<box rightPadding="4">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{harga_total}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement style="Column header" x="0" y="0" width="520" height="17" forecolor="#010101" uuid="83520578-7c88-425f-a2b3-b7607bb8f928"/>
+				<box rightPadding="6">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<text><![CDATA[JUMLAH]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="Column header" x="0" y="17" width="520" height="17" forecolor="#010101" uuid="d2a5f6ec-b45d-457a-946a-930a8bce987f"/>
+				<box rightPadding="6">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<text><![CDATA[TOTAL DISKON]]></text>
+			</staticText>
+			<textField isStretchWithOverflow="true" pattern="#,##0;-#,##0" isBlankWhenNull="true">
+				<reportElement style="Detail" x="520" y="17" width="59" height="17" uuid="719970c6-23f9-484d-bfbc-f422fa6939c0"/>
+				<box rightPadding="4">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{diskon_total}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="33" width="520" height="17" uuid="5aab85a8-5e5d-4043-8754-085d39d36674"/>
+				<box rightPadding="6">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["TOTAL PAJAK"]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" pattern="#,##0;-#,##0" isBlankWhenNull="true">
+				<reportElement style="Detail" x="520" y="33" width="59" height="17" uuid="6cb08d94-dbd5-4387-9c3c-56f14e642b13"/>
+				<box rightPadding="4">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{pajak_total}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement style="Column header" x="0" y="50" width="520" height="17" forecolor="#010101" uuid="687600b5-1742-4f04-9f12-f8b138794669"/>
+				<box rightPadding="6">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<text><![CDATA[TOTAL TAGIHAN]]></text>
+			</staticText>
+			<textField isStretchWithOverflow="true" pattern="#,##0;-#,##0" isBlankWhenNull="true">
+				<reportElement style="Detail" x="520" y="50" width="59" height="17" uuid="ff183382-39ef-49c4-b9b1-d70051a0107e"/>
+				<box rightPadding="4">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8" isBold="true" isUnderline="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[($V{harga_total}-$V{diskon_total})+$V{pajak_total}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement style="Column header" x="0" y="96" width="520" height="17" forecolor="#010101" uuid="5c701a22-0d86-42d4-9f1e-54c849e34f71"/>
+				<box rightPadding="6">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<text><![CDATA[PEMBAYARAN]]></text>
+			</staticText>
+			<textField isStretchWithOverflow="true" pattern="#,##0;-#,##0" isBlankWhenNull="true">
+				<reportElement style="Detail" x="520" y="96" width="59" height="17" uuid="89cff66a-2a1c-4210-aedb-ddc252fb766b"/>
+				<box rightPadding="4">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{bayar_non_tunai}+$F{bayar_tunai}]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="0" y="89" width="579" height="1" uuid="ccbae182-e2de-44a2-a255-227ab917a2d3"/>
+				<graphicElement>
+					<pen lineWidth="0.5"/>
+				</graphicElement>
+			</line>
+			<staticText>
+				<reportElement style="Column header" x="0" y="112" width="520" height="17" forecolor="#010101" uuid="cb959936-4b4d-4ab9-b8ab-27187d492c17"/>
+				<box rightPadding="6">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<text><![CDATA[KEMBALIAN]]></text>
+			</staticText>
+			<textField isStretchWithOverflow="true" pattern="#,##0;-#,##0" isBlankWhenNull="true">
+				<reportElement style="Detail" x="520" y="112" width="59" height="17" uuid="ffe5a92a-4f9b-486b-a7e7-27be01abad09"/>
+				<box rightPadding="4">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{kembalian}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement style="Column header" x="0" y="72" width="520" height="17" forecolor="#010101" uuid="d480d998-f36d-4b35-873a-1cab23b542d1"/>
+				<box rightPadding="6">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<text><![CDATA[TOTAL DEPOSIT (DP)]]></text>
+			</staticText>
+			<textField isStretchWithOverflow="true" pattern="#,##0;-#,##0" isBlankWhenNull="true">
+				<reportElement style="Detail" x="520" y="72" width="59" height="17" uuid="855a33db-64a2-416f-af63-44085bd83417"/>
+				<box rightPadding="4">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8" isBold="true" isUnderline="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{total_deposit}]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
+</jasperReport>

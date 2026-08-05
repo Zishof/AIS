@@ -1,0 +1,660 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="spp" language="groovy" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="571" leftMargin="12" rightMargin="12" topMargin="20" bottomMargin="20" uuid="77822d36-2932-4b16-8044-a84f6e4533f0">
+	<property name="ireport.zoom" value="1.3310000000000013"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="tanggal" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["16/01/2012"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="nomor" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["01/SPP-LS/BLSDM.6/2012"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="sifat" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["LS"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jenis" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Pengeluaran Anggaran"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="lembaga" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Kementerian Komunikasi dan Informatika"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="unit_organisasi" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Badan Penelitian dan Pengembangan SDM"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="satuan_kerja" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["664297"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="lokasi" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["D.K.I.  Jakarta"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tempat" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["J a k a r t a"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="alamat" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Jl. Merdeka Barat No. 9 Jakarta 10110"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="kegiatan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["3043.003.002"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="kode_kegiatan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["3043.003.002"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="kode_fungsi" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["04.90.04"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="kewenangan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["KP"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jumlah" class="java.lang.Double" isForPrompting="false">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="keperluan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Belanja Langganan Daya dan Jasa PLN Tagihan Bulan Januari 2012 No. ID Pelanggan : 543700295802"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jenis_belanja" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["522111"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="sumber_dana" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["DIPA 2012"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="nomor_sumber_dana" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["0119/059-06.1.01/00/2012"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tanggal_sumber_dana" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["9 Desember 2011"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="atas_nama" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["PT.  PLN (Persero) Distribusi Jakarta Raya & Tangerang Area Pelayanan Ciputat"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="alamat_nama" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Jl. RE. Martadinata KM 27 Ciputat Tangerang"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="rekening" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Pada Bank DKI Cabang Utama Juanda\nRek. Nomor : 101.04.08027.5"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="no_tag" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["01/SPP-LS/BLSDM.6/2012 Tgl. 16 Januari 2012"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="pejabat" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Fadhilah Mathar, M.Pd"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="nip_pejabat" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["19770327.200312.2.001"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="kode_sub_kegiatan" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["../logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="akun" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["0000 - Kas"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="disetujui_bukti_pengeluaran_kas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Wakil Ketua II"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mengetahui_bukti_pengeluaran_kas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Kabag Keuangan"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="grup_id" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="SUBREPORT_DIR" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["C:\\Users\\admin\\Documents\\My Project\\Academic Information System\\AIS\\ais\\web\\report\\akunting\\"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jumlahDebet" class="java.lang.Double" isForPrompting="false">
+		<defaultValueExpression><![CDATA[1.0]]></defaultValueExpression>
+	</parameter>
+	<parameter name="grup_ids" class="java.lang.Object" isForPrompting="false">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<field name="uraian" class="java.lang.String"/>
+	<field name="nominal" class="java.lang.Double"/>
+	<field name="akun" class="java.lang.String"/>
+	<variable name="jumlah" class="java.lang.Double" calculation="Sum">
+		<variableExpression><![CDATA[$F{nominal}]]></variableExpression>
+	</variable>
+	<title>
+		<band height="146" splitType="Stretch">
+			<textField>
+				<reportElement x="83" y="48" width="234" height="17" uuid="7948871f-fcad-4905-ab27-1ceffa08bc48"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Tanggal \t: "+$P{tanggal}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="-9" width="571" height="25" uuid="282bbe0f-54f6-4519-b0d0-78bde079b566"/>
+				<textElement textAlignment="Center" verticalAlignment="Bottom">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{label_universitas}]]></textFieldExpression>
+			</textField>
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="2" y="-19" width="81" height="54" uuid="49dd1720-cab4-412c-9c5e-96f07d059847"/>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<textField>
+				<reportElement x="317" y="48" width="254" height="17" uuid="d5559834-0e90-46fa-9933-cd90810acd7d"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Nomor \t: "+$P{nomor}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="65" width="571" height="17" uuid="77e6fdaa-dbe7-403c-bf1f-7103fcbe01a1"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["KWITANSI"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="103" y="82" width="468" height="17" uuid="52cf68eb-18f3-4678-87fe-c6e6ded4f03b"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "atas_nama" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="82" width="103" height="17" uuid="b5128ef1-29a9-4176-b9f8-91f9ef95b495"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Dari / ke"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="2" y="10" width="571" height="25" uuid="19d9e615-1fef-4ee5-9fc5-02c81b28b7a9"/>
+				<box>
+					<bottomPen lineWidth="1.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "alamat_kampus" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="99" width="103" height="17" uuid="4de5aaf6-fbab-457e-be93-41a5c2e8b175"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Jumlah rupiah"]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0" isBlankWhenNull="true">
+				<reportElement x="129" y="99" width="442" height="17" uuid="dc7e03c4-e049-48bf-afb1-43a64623ecef"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{jumlah}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="103" y="116" width="468" height="17" uuid="9bacf934-8bd4-449f-b4d0-8bb522890f2c"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "terbilang" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="116" width="103" height="17" uuid="daf7f452-3cf9-42cf-8d0c-3ebdd3a76ee3"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Terbilang"]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0" isBlankWhenNull="true">
+				<reportElement x="103" y="99" width="26" height="17" uuid="f64858e5-d37e-4d6c-8a56-84527f2b495f"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Rp."]]></textFieldExpression>
+			</textField>
+			<subreport>
+				<reportElement x="0" y="136" width="571" height="3" uuid="a8092110-24c2-4b85-8c3d-833915287f15"/>
+				<subreportParameter name="tempat">
+					<subreportParameterExpression><![CDATA[$P{tempat}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="atas_nama">
+					<subreportParameterExpression><![CDATA[$P{atas_nama}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="pejabat">
+					<subreportParameterExpression><![CDATA[$P{pejabat}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="akun">
+					<subreportParameterExpression><![CDATA[$P{akun}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="grup_id">
+					<subreportParameterExpression><![CDATA[$P{grup_id}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="jumlahDebet">
+					<subreportParameterExpression><![CDATA[$P{jumlahDebet}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="kode_kegiatan">
+					<subreportParameterExpression><![CDATA[$P{kode_kegiatan}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="jumlah">
+					<subreportParameterExpression><![CDATA[$P{jumlah}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="grup_transaksi">
+					<subreportParameterExpression><![CDATA[$P{grup_id}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="mengetahui_bukti_pengeluaran_kas">
+					<subreportParameterExpression><![CDATA[$P{mengetahui_bukti_pengeluaran_kas}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="no_tag">
+					<subreportParameterExpression><![CDATA[$P{no_tag}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="tanggal_sumber_dana">
+					<subreportParameterExpression><![CDATA[$P{tanggal_sumber_dana}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="sumber_dana">
+					<subreportParameterExpression><![CDATA[$P{sumber_dana}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="nomor">
+					<subreportParameterExpression><![CDATA[$P{nomor}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="kewenangan">
+					<subreportParameterExpression><![CDATA[$P{kewenangan}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="rekening">
+					<subreportParameterExpression><![CDATA[$P{rekening}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="grup_ids">
+					<subreportParameterExpression><![CDATA[$P{grup_ids}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="sifat">
+					<subreportParameterExpression><![CDATA[$P{sifat}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_universitas">
+					<subreportParameterExpression><![CDATA[$P{label_universitas}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="logo">
+					<subreportParameterExpression><![CDATA[$P{logo}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="lembaga">
+					<subreportParameterExpression><![CDATA[$P{lembaga}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="keperluan">
+					<subreportParameterExpression><![CDATA[$P{keperluan}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="satuan_kerja">
+					<subreportParameterExpression><![CDATA[$P{satuan_kerja}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="kode_fungsi">
+					<subreportParameterExpression><![CDATA[$P{kode_fungsi}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="alamat_nama">
+					<subreportParameterExpression><![CDATA[$P{alamat_nama}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="disetujui_bukti_pengeluaran_kas">
+					<subreportParameterExpression><![CDATA[$P{disetujui_bukti_pengeluaran_kas}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="tanggal">
+					<subreportParameterExpression><![CDATA[$P{tanggal}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="jenis_belanja">
+					<subreportParameterExpression><![CDATA[$P{jenis_belanja}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="nip_pejabat">
+					<subreportParameterExpression><![CDATA[$P{nip_pejabat}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="unit_organisasi">
+					<subreportParameterExpression><![CDATA[$P{unit_organisasi}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="SUBREPORT_DIR">
+					<subreportParameterExpression><![CDATA[$P{SUBREPORT_DIR}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="kode_sub_kegiatan">
+					<subreportParameterExpression><![CDATA[$P{kode_sub_kegiatan}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="jenis">
+					<subreportParameterExpression><![CDATA[$P{jenis}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="lokasi">
+					<subreportParameterExpression><![CDATA[$P{lokasi}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="kegiatan">
+					<subreportParameterExpression><![CDATA[$P{kegiatan}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="alamat">
+					<subreportParameterExpression><![CDATA[$P{alamat}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="nomor_sumber_dana">
+					<subreportParameterExpression><![CDATA[$P{nomor_sumber_dana}]]></subreportParameterExpression>
+				</subreportParameter>
+				<connectionExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "koneksi_db" )]]></connectionExpression>
+				<subreportExpression><![CDATA[$P{SUBREPORT_DIR} + "/akunting/jurnal.jasper"]]></subreportExpression>
+			</subreport>
+		</band>
+	</title>
+	<summary>
+		<band height="175">
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="2" y="5" width="81" height="54" uuid="2ef783c7-c7d4-43bc-8aab-b0bf6bf843fa"/>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<textField>
+				<reportElement x="0" y="123" width="103" height="17" uuid="cf115781-8524-4185-a684-47efd8448818"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Jumlah rupiah"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="2" y="34" width="571" height="25" uuid="df67408c-03e5-4a6a-b81a-f308519551a1"/>
+				<box>
+					<bottomPen lineWidth="1.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "alamat_kampus" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="83" y="72" width="234" height="17" uuid="31f9e165-3c98-4b1d-a78f-36dff3c373f3"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Tanggal \t: "+$P{tanggal}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0" isBlankWhenNull="true">
+				<reportElement x="129" y="123" width="442" height="17" uuid="3604ae0d-5975-4626-b596-43bea6978444"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{jumlah}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="15" width="571" height="25" uuid="30f41b21-d69c-4749-b864-d7d46979e219"/>
+				<textElement textAlignment="Center" verticalAlignment="Bottom">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{label_universitas}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="89" width="571" height="17" uuid="86ee8f42-b654-4757-8cf5-5e87230f518c"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["KWITANSI"]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0" isBlankWhenNull="true">
+				<reportElement x="103" y="123" width="26" height="17" uuid="80604c46-6c2d-48fc-afe3-9d770af12938"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Rp."]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="103" y="106" width="468" height="17" uuid="07e4a006-1224-4870-bbe6-294691fa879c"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "atas_nama" )]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="103" y="140" width="468" height="17" uuid="db9f37b6-d9c7-4256-b341-0042f068ef3e"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "terbilang" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="106" width="103" height="17" uuid="6608dbed-4002-4dba-a5b2-e67e33d96234"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Dari / ke"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="140" width="103" height="17" uuid="7bd5a25a-5687-4678-90f9-4d640023a650"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Terbilang"]]></textFieldExpression>
+			</textField>
+			<subreport>
+				<reportElement x="0" y="160" width="571" height="3" uuid="3b3ab91e-ad9e-434f-b19d-33c519301023"/>
+				<subreportParameter name="tempat">
+					<subreportParameterExpression><![CDATA[$P{tempat}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="atas_nama">
+					<subreportParameterExpression><![CDATA[$P{atas_nama}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="pejabat">
+					<subreportParameterExpression><![CDATA[$P{pejabat}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="akun">
+					<subreportParameterExpression><![CDATA[$P{akun}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="grup_id">
+					<subreportParameterExpression><![CDATA[$P{grup_id}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="jumlahDebet">
+					<subreportParameterExpression><![CDATA[$P{jumlahDebet}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="kode_kegiatan">
+					<subreportParameterExpression><![CDATA[$P{kode_kegiatan}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="jumlah">
+					<subreportParameterExpression><![CDATA[$P{jumlah}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="grup_transaksi">
+					<subreportParameterExpression><![CDATA[$P{grup_id}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="mengetahui_bukti_pengeluaran_kas">
+					<subreportParameterExpression><![CDATA[$P{mengetahui_bukti_pengeluaran_kas}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="no_tag">
+					<subreportParameterExpression><![CDATA[$P{no_tag}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="tanggal_sumber_dana">
+					<subreportParameterExpression><![CDATA[$P{tanggal_sumber_dana}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="sumber_dana">
+					<subreportParameterExpression><![CDATA[$P{sumber_dana}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="nomor">
+					<subreportParameterExpression><![CDATA[$P{nomor}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="kewenangan">
+					<subreportParameterExpression><![CDATA[$P{kewenangan}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="rekening">
+					<subreportParameterExpression><![CDATA[$P{rekening}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="grup_ids">
+					<subreportParameterExpression><![CDATA[$P{grup_ids}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="sifat">
+					<subreportParameterExpression><![CDATA[$P{sifat}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_universitas">
+					<subreportParameterExpression><![CDATA[$P{label_universitas}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="logo">
+					<subreportParameterExpression><![CDATA[$P{logo}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="lembaga">
+					<subreportParameterExpression><![CDATA[$P{lembaga}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="keperluan">
+					<subreportParameterExpression><![CDATA[$P{keperluan}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="satuan_kerja">
+					<subreportParameterExpression><![CDATA[$P{satuan_kerja}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="kode_fungsi">
+					<subreportParameterExpression><![CDATA[$P{kode_fungsi}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="alamat_nama">
+					<subreportParameterExpression><![CDATA[$P{alamat_nama}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="disetujui_bukti_pengeluaran_kas">
+					<subreportParameterExpression><![CDATA[$P{disetujui_bukti_pengeluaran_kas}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="tanggal">
+					<subreportParameterExpression><![CDATA[$P{tanggal}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="jenis_belanja">
+					<subreportParameterExpression><![CDATA[$P{jenis_belanja}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="nip_pejabat">
+					<subreportParameterExpression><![CDATA[$P{nip_pejabat}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="unit_organisasi">
+					<subreportParameterExpression><![CDATA[$P{unit_organisasi}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="SUBREPORT_DIR">
+					<subreportParameterExpression><![CDATA[$P{SUBREPORT_DIR}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="kode_sub_kegiatan">
+					<subreportParameterExpression><![CDATA[$P{kode_sub_kegiatan}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="jenis">
+					<subreportParameterExpression><![CDATA[$P{jenis}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="lokasi">
+					<subreportParameterExpression><![CDATA[$P{lokasi}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="kegiatan">
+					<subreportParameterExpression><![CDATA[$P{kegiatan}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="alamat">
+					<subreportParameterExpression><![CDATA[$P{alamat}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="nomor_sumber_dana">
+					<subreportParameterExpression><![CDATA[$P{nomor_sumber_dana}]]></subreportParameterExpression>
+				</subreportParameter>
+				<connectionExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "koneksi_db" )]]></connectionExpression>
+				<subreportExpression><![CDATA[$P{SUBREPORT_DIR} + "/akunting/jurnal.jasper"]]></subreportExpression>
+			</subreport>
+			<textField>
+				<reportElement x="317" y="72" width="254" height="17" uuid="6af4a313-9f1e-4315-9199-fb76f81c00c5"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Nomor \t: "+$P{nomor}]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
+</jasperReport>

@@ -1,0 +1,1684 @@
+/* =====================================================================
+ * ais_mobile.css — Lapisan tampilan MOBILE eCampus & eSchool (ZK 5.x)
+ * ---------------------------------------------------------------------
+ * Berkas ini adalah SATU SUMBER TERPUSAT (single source of truth) untuk
+ * seluruh gaya tampilan mobile baru yang dibangun oleh:
+ *   - mobile.zul
+ *   - ais.action.maintenance.MobileAction
+ *   - ais.action.mobile.MobileUiHelper
+ *
+ * Prinsip desain (best practice di lapangan):
+ *   1. Mobile-first, responsif: 1 kolom di HP, melebar otomatis di tablet.
+ *   2. Fokus konten: setiap menu dibuka FULL SCREEN (overlay) + tombol kembali.
+ *   3. Navigasi bawah (bottom-nav) tetap untuk akses cepat Beranda/Notifikasi/
+ *      Menu/Profil.
+ *   4. Ringan: animasi singkat, bayangan halus, tanpa gambar berat.
+ *   5. Aman dipakai ulang: semua kelas berawalan ".ais-m-" agar tidak bentrok
+ *      dengan css_utama.css.
+ *
+ * Catatan: variabel warna memakai fallback agar tetap jalan di browser lama
+ * (ZK 5.x umumnya dipakai di peramban yang mendukung CSS custom properties).
+ * ===================================================================== */
+
+:root {
+	--ais-m-primary: #16794a;        /* hijau utama eCampus/eSchool */
+	--ais-m-primary-strong: #0f5c38; /* hijau lebih gelap (gradien) */
+	--ais-m-primary-soft: #e7f4ee;   /* hijau sangat muda (latar lembut) */
+	--ais-m-accent: #2e9e6b;
+	--ais-m-bg: #eef1f4;             /* latar aplikasi */
+	--ais-m-surface: #ffffff;        /* kartu */
+	--ais-m-ink: #1c2a24;            /* teks utama */
+	--ais-m-muted: #6b7a73;          /* teks sekunder */
+	--ais-m-line: #e3e8e5;           /* garis pemisah */
+	--ais-m-danger: #e03b3b;         /* badge merah notifikasi */
+	--ais-m-shadow: 0 2px 10px rgba(17, 40, 30, .08);
+	--ais-m-shadow-lg: 0 8px 28px rgba(17, 40, 30, .16);
+	--ais-m-radius: 16px;
+	--ais-m-appbar-h: 58px;
+	--ais-m-bottomnav-h: 60px;
+}
+
+/* ----------------------------------------------------------------- *
+ * Cangkang (shell) utama                                            *
+ * ----------------------------------------------------------------- */
+.ais-m-shell,
+.ais-m-shell * {
+	box-sizing: border-box;
+	-webkit-tap-highlight-color: transparent;
+}
+.ais-m-shell {
+	font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+	background: var(--ais-m-bg);
+	color: var(--ais-m-ink);
+	-webkit-font-smoothing: antialiased;
+}
+
+/* Area konten yang bisa digulir; diberi ruang aman atas (app bar) &
+ * bawah (bottom-nav) supaya konten tidak tertutup. */
+.ais-m-scroll {
+	position: fixed;
+	left: 0; right: 0;
+	top: var(--ais-m-appbar-h);
+	bottom: var(--ais-m-bottomnav-h);
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
+	padding: 12px 12px 22px 12px;
+}
+
+/* ----------------------------------------------------------------- *
+ * App bar (kepala aplikasi)                                         *
+ * ----------------------------------------------------------------- */
+.ais-m-appbar {
+	position: fixed;
+	top: 0; left: 0; right: 0;
+	height: var(--ais-m-appbar-h);
+	z-index: 40;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 0 10px;
+	color: #fff;
+	background: linear-gradient(135deg, var(--ais-m-primary) 0%, var(--ais-m-primary-strong) 100%);
+	box-shadow: var(--ais-m-shadow);
+}
+.ais-m-appbar-brand {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex: 1 1 auto;
+	min-width: 0;
+}
+.ais-m-appbar-logo {
+	width: 30px; height: 30px;
+	border-radius: 8px;
+	background: rgba(255,255,255,.18);
+	object-fit: contain;
+	padding: 2px;
+}
+.ais-m-appbar-title {
+	font-size: 16px;
+	font-weight: 700;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.ais-m-appbar-sub {
+	font-size: 11px;
+	opacity: .85;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.ais-m-appbar-actions {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	flex: 0 0 auto;
+}
+
+/* Tombol ikon di app bar (cetakan bulat transparan) */
+.ais-m-iconbtn {
+	width: 40px; height: 40px;
+	border-radius: 50%;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: #fff !important;
+	cursor: pointer;
+	border: none;
+	background: transparent;
+	transition: background .15s ease;
+}
+.ais-m-iconbtn:hover { background: rgba(255,255,255,.16); }
+.ais-m-iconbtn .z-image,
+.ais-m-iconbtn img { width: 22px; height: 22px; }
+.ais-m-iconbtn.fa,
+.ais-m-iconbtn .z-toolbarbutton-cnt { font-size: 19px; }
+/* Paksa ikon (SVG/PNG gelap) menjadi putih di atas app bar hijau.
+ * Trik filter ini mewarnai ikon apa pun menjadi putih tanpa perlu aset
+ * khusus, dan didukung luas oleh peramban modern. Hanya berlaku pada
+ * tombol ikon — logo merek & foto profil TIDAK ikut difilter. */
+.ais-m-iconbtn img,
+.ais-m-overlay-bar .ais-m-iconbtn img { filter: brightness(0) invert(1); }
+
+/* Lonceng + badge merah */
+.ais-m-bell-wrap { position: relative; display: inline-flex; }
+.ais-m-badge {
+	position: absolute;
+	top: 2px; right: 2px;
+	min-width: 17px; height: 17px;
+	padding: 0 4px;
+	border-radius: 9px;
+	background: var(--ais-m-danger);
+	color: #fff;
+	font-size: 10px;
+	font-weight: 700;
+	line-height: 17px;
+	text-align: center;
+	box-shadow: 0 0 0 2px var(--ais-m-primary-strong);
+}
+
+/* Avatar profil di app bar */
+.ais-m-avatar {
+	width: 34px; height: 34px;
+	border-radius: 50%;
+	object-fit: cover;
+	border: 2px solid rgba(255,255,255,.7);
+	background: #fff;
+	cursor: pointer;
+}
+
+/* ----------------------------------------------------------------- *
+ * Kartu generik                                                     *
+ * ----------------------------------------------------------------- */
+.ais-m-card {
+	background: var(--ais-m-surface);
+	border-radius: var(--ais-m-radius);
+	box-shadow: var(--ais-m-shadow);
+	padding: 14px;
+	margin-bottom: 12px;
+}
+.ais-m-card-title {
+	font-size: 14px;
+	font-weight: 700;
+	color: var(--ais-m-ink);
+	margin: 0 0 2px 0;
+}
+/* Deskripsi panel: bahasa sederhana untuk orang awam */
+.ais-m-card-desc {
+	font-size: 12px;
+	color: var(--ais-m-muted);
+	line-height: 1.45;
+	margin: 0;
+}
+.ais-m-section-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin: 6px 2px 8px 2px;
+}
+.ais-m-section-title {
+	font-size: 13px;
+	font-weight: 700;
+	color: var(--ais-m-ink);
+	letter-spacing: .2px;
+}
+.ais-m-link {
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--ais-m-primary);
+	cursor: pointer;
+}
+
+/* Kartu sambutan (greeting) */
+.ais-m-hero {
+	background: linear-gradient(135deg, var(--ais-m-primary) 0%, var(--ais-m-primary-strong) 100%);
+	color: #fff;
+	border-radius: var(--ais-m-radius);
+	padding: 16px;
+	margin-bottom: 12px;
+	box-shadow: var(--ais-m-shadow);
+}
+.ais-m-hero-hi { font-size: 13px; opacity: .9; }
+.ais-m-hero-name { font-size: 19px; font-weight: 800; margin: 2px 0; }
+.ais-m-hero-role { font-size: 12px; opacity: .9; }
+
+/* Kartu "Informasi Hari Ini" */
+.ais-m-today {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	background: var(--ais-m-surface);
+	border-radius: var(--ais-m-radius);
+	padding: 12px 14px;
+	margin-bottom: 12px;
+	box-shadow: var(--ais-m-shadow);
+	cursor: pointer;
+}
+.ais-m-today-ic {
+	width: 38px; height: 38px;
+	border-radius: 10px;
+	background: var(--ais-m-primary-soft);
+	display: inline-flex; align-items: center; justify-content: center;
+}
+.ais-m-today-ic img { width: 20px; height: 20px; }
+.ais-m-today-txt { flex: 1; min-width: 0; }
+.ais-m-today-lbl { font-size: 11px; color: var(--ais-m-muted); }
+.ais-m-today-val { font-size: 13px; font-weight: 700; color: var(--ais-m-ink); }
+
+/* ----------------------------------------------------------------- *
+ * Aksi cepat (quick actions) — grid ubin di Beranda                 *
+ * ----------------------------------------------------------------- */
+.ais-m-quick {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 10px;
+}
+.ais-m-quick-tile {
+	background: var(--ais-m-surface);
+	border-radius: 14px;
+	padding: 12px 6px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 7px;
+	cursor: pointer;
+	box-shadow: var(--ais-m-shadow);
+	transition: transform .12s ease, box-shadow .12s ease;
+	text-align: center;
+}
+.ais-m-quick-tile:active { transform: scale(.96); }
+.ais-m-quick-ic {
+	width: 44px; height: 44px;
+	border-radius: 13px;
+	display: inline-flex; align-items: center; justify-content: center;
+	background: var(--ais-m-primary-soft);
+}
+.ais-m-quick-ic img { width: 23px; height: 23px; }
+.ais-m-quick-label,
+.ais-m-quick-lbl {
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--ais-m-ink);
+	line-height: 1.15;
+}
+
+/* Menu utama mengikuti toolbar desktop di index.zul. Bentuknya lebih rapat
+ * dari Akses Cepat agar puluhan modul tetap enak dipindai di layar kecil. */
+.ais-m-module-grid {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 9px;
+	margin-bottom: 12px;
+}
+.ais-m-module-tile {
+	min-height: 86px;
+	background: var(--ais-m-surface);
+	border: 1px solid var(--ais-m-line);
+	border-radius: 14px;
+	padding: 10px 5px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 7px;
+	cursor: pointer;
+	box-shadow: var(--ais-m-shadow);
+	text-align: center;
+}
+.ais-m-module-tile:active { transform: scale(.97); }
+.ais-m-module-tile .ais-m-quick-ic {
+	width: 38px;
+	height: 38px;
+	border-radius: 12px;
+	padding: 9px;
+	background: linear-gradient(135deg, var(--ais-m-primary) 0%, var(--ais-m-accent) 100%);
+	object-fit: contain;
+	box-sizing: border-box;
+	filter: brightness(0) invert(1);
+}
+.ais-m-module-tile .ais-m-quick-ic img {
+	width: 20px;
+	height: 20px;
+	filter: brightness(0) invert(1);
+}
+.ais-m-module-tile .ais-m-quick-label,
+.ais-m-module-tile .ais-m-quick-lbl {
+	font-size: 11px;
+	font-weight: 700;
+	color: var(--ais-m-ink);
+	line-height: 1.15;
+	max-width: 100%;
+	white-space: normal;
+}
+
+/* ----------------------------------------------------------------- *
+ * Daftar menu (full screen) — pencarian, favorit, akordion hirarki  *
+ * ----------------------------------------------------------------- */
+.ais-m-search {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	background: var(--ais-m-surface);
+	border: 1px solid var(--ais-m-line);
+	border-radius: 12px;
+	padding: 8px 12px;
+	margin-bottom: 12px;
+}
+.ais-m-search img { width: 18px; height: 18px; opacity: .6; }
+.ais-m-search .z-textbox,
+.ais-m-search input {
+	border: none !important;
+	outline: none !important;
+	background: transparent !important;
+	width: 100%;
+	font-size: 14px;
+	box-shadow: none !important;
+}
+
+/* Kelompok menu (root) sebagai akordion */
+.ais-m-acc {
+	background: var(--ais-m-surface);
+	border-radius: 14px;
+	box-shadow: var(--ais-m-shadow);
+	margin-bottom: 10px;
+	overflow: hidden;
+}
+.ais-m-acc-head {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 13px 14px;
+	cursor: pointer;
+}
+.ais-m-acc-ic {
+	width: 36px; height: 36px;
+	border-radius: 10px;
+	background: var(--ais-m-primary-soft);
+	display: inline-flex; align-items: center; justify-content: center;
+	flex: 0 0 auto;
+}
+.ais-m-acc-ic img { width: 19px; height: 19px; }
+.ais-m-acc-lbl { flex: 1; font-size: 14px; font-weight: 600; color: var(--ais-m-ink); min-width: 0; }
+.ais-m-acc-ct {
+	font-size: 11px;
+	color: var(--ais-m-muted);
+	background: var(--ais-m-bg);
+	border-radius: 10px;
+	padding: 1px 8px;
+}
+.ais-m-acc-chev {
+	width: 16px; height: 16px;
+	transition: transform .2s ease;
+	opacity: .55;
+}
+.ais-m-acc.is-open .ais-m-acc-chev { transform: rotate(90deg); }
+.ais-m-acc-body { display: none; border-top: 1px solid var(--ais-m-line); }
+.ais-m-acc.is-open .ais-m-acc-body { display: block; }
+
+/* Baris menu (leaf / daun) */
+.ais-m-mrow {
+	display: flex;
+	align-items: center;
+	gap: 11px;
+	padding: 11px 14px 11px 18px;
+	cursor: pointer;
+	border-bottom: 1px solid var(--ais-m-line);
+}
+.ais-m-mrow:last-child { border-bottom: none; }
+.ais-m-mrow:active { background: var(--ais-m-primary-soft); }
+.ais-m-mrow-dot {
+	width: 7px; height: 7px;
+	border-radius: 50%;
+	background: var(--ais-m-accent);
+	flex: 0 0 auto;
+}
+.ais-m-mrow-lbl { flex: 1; font-size: 13.5px; color: var(--ais-m-ink); min-width: 0; }
+.ais-m-mrow-go { width: 15px; height: 15px; opacity: .4; }
+/* Submenu bertingkat (indentasi) */
+.ais-m-sub { padding-left: 14px; }
+
+/* Bintang favorit */
+.ais-m-star { width: 18px; height: 18px; cursor: pointer; opacity: .85; flex: 0 0 auto; }
+
+/* Chip favorit / riwayat */
+.ais-m-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ais-m-chip {
+	display: inline-flex; align-items: center; gap: 6px;
+	background: var(--ais-m-surface);
+	border: 1px solid var(--ais-m-line);
+	border-radius: 999px;
+	padding: 7px 13px;
+	font-size: 12.5px;
+	color: var(--ais-m-ink);
+	cursor: pointer;
+	box-shadow: var(--ais-m-shadow);
+}
+.ais-m-chip img { width: 15px; height: 15px; }
+.ais-m-empty {
+	text-align: center;
+	color: var(--ais-m-muted);
+	font-size: 13px;
+	padding: 28px 14px;
+}
+.ais-m-empty img { width: 46px; height: 46px; opacity: .5; display: block; margin: 0 auto 8px; }
+
+/* ----------------------------------------------------------------- *
+ * Daftar notifikasi                                                 *
+ * ----------------------------------------------------------------- */
+.ais-m-notif {
+	display: flex;
+	align-items: flex-start;
+	gap: 11px;
+	background: var(--ais-m-surface);
+	border-radius: 13px;
+	padding: 12px 13px;
+	margin-bottom: 9px;
+	box-shadow: var(--ais-m-shadow);
+	cursor: pointer;
+}
+.ais-m-notif-ic {
+	width: 36px; height: 36px;
+	border-radius: 50%;
+	background: var(--ais-m-primary-soft);
+	display: inline-flex; align-items: center; justify-content: center;
+	flex: 0 0 auto;
+}
+.ais-m-notif-ic img { width: 18px; height: 18px; }
+.ais-m-notif-txt { flex: 1; min-width: 0; }
+.ais-m-notif-title { font-size: 13px; font-weight: 600; color: var(--ais-m-ink); }
+.ais-m-notif-sub { font-size: 11.5px; color: var(--ais-m-muted); margin-top: 2px; line-height: 1.4; }
+
+/* ----------------------------------------------------------------- *
+ * Profil                                                            *
+ * ----------------------------------------------------------------- */
+.ais-m-profile-head {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	background: linear-gradient(135deg, var(--ais-m-primary) 0%, var(--ais-m-primary-strong) 100%);
+	color: #fff;
+	border-radius: var(--ais-m-radius);
+	padding: 18px;
+	margin-bottom: 12px;
+	box-shadow: var(--ais-m-shadow);
+}
+.ais-m-profile-ava {
+	width: 64px; height: 64px;
+	border-radius: 50%;
+	border: 3px solid rgba(255,255,255,.8);
+	object-fit: cover;
+	background: #fff;
+}
+.ais-m-profile-nm { font-size: 17px; font-weight: 800; }
+.ais-m-profile-rl { font-size: 12.5px; opacity: .92; }
+.ais-m-profile-list { background: var(--ais-m-surface); border-radius: 14px; box-shadow: var(--ais-m-shadow); overflow: hidden; }
+.ais-m-prow {
+	display: flex; align-items: center; gap: 13px;
+	padding: 14px 15px;
+	border-bottom: 1px solid var(--ais-m-line);
+	cursor: pointer;
+}
+.ais-m-prow:last-child { border-bottom: none; }
+.ais-m-prow:active { background: var(--ais-m-primary-soft); }
+.ais-m-prow img.ais-m-prow-ic { width: 20px; height: 20px; }
+.ais-m-prow-lbl { flex: 1; font-size: 14px; color: var(--ais-m-ink); }
+.ais-m-prow-go { width: 15px; height: 15px; opacity: .4; }
+.ais-m-prow.is-danger .ais-m-prow-lbl { color: var(--ais-m-danger); font-weight: 600; }
+
+/* ----------------------------------------------------------------- *
+ * Overlay FULL SCREEN untuk konten menu yang dibuka                 *
+ * ----------------------------------------------------------------- */
+.ais-m-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 60;
+	background: var(--ais-m-bg);
+	display: flex;
+	flex-direction: column;
+}
+.ais-m-overlay-bar {
+	height: var(--ais-m-appbar-h);
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 0 8px;
+	color: #fff;
+	background: linear-gradient(135deg, var(--ais-m-primary) 0%, var(--ais-m-primary-strong) 100%);
+	box-shadow: var(--ais-m-shadow);
+}
+.ais-m-overlay-title {
+	flex: 1; min-width: 0;
+	font-size: 15px; font-weight: 700;
+	white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ais-m-overlay-body { flex: 1 1 auto; overflow: auto; -webkit-overflow-scrolling: touch; background: var(--ais-m-bg); }
+
+/* Tabbox yang dipakai launchMenu: sembunyikan strip tab bawaan ZK,
+ * tampilkan panel terpilih sebagai layar penuh. */
+.ais-m-iframe { width: 100%; height: 100%; }
+.ais-m-iframe .z-tabbox-tabs,
+.ais-m-iframe .z-tabs,
+.ais-m-iframe .z-tab { display: none !important; }
+.ais-m-iframe .z-tabbox-content,
+.ais-m-iframe .z-tabpanels,
+.ais-m-iframe .z-tabpanel { width: 100% !important; height: 100% !important; border: none !important; background: var(--ais-m-bg); }
+
+/* -----------------------------------------------------------------
+ * Penyesuaian PROPORSI konten menu/dasbor desktop di dalam overlay
+ * -----------------------------------------------------------------
+ * Dasbor & halaman menu dirancang untuk layar lebar: dibungkus frame
+ * "satu-scroll" ber-min-height sangat besar (≈20000px) sehingga di HP
+ * muncul area kosong raksasa, dan layout Borderlayout (strip menu kiri +
+ * konten) bisa lebih lebar dari layar. Aturan di bawah HANYA berlaku di
+ * dalam overlay mobile (tidak menyentuh tampilan desktop) untuk:
+ *   1) menghapus tinggi raksasa & memberi dasbor tinggi nyata selayar,
+ *   2) menahan lebar agar tidak melebihi layar (scroll horizontal hanya
+ *      terjadi di dalam tabel/area yang memang lebar, bukan seluruh layar).
+ */
+.ais-m-overlay-body { overflow-y: auto; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* (1) Hilangkan tinggi raksasa dari frame "satu-scroll". */
+.ais-m-overlay-body .main-dashboard-frame,
+.ais-m-overlay-body .main-dashboard-content {
+	min-height: 0 !important;
+	height: auto !important;
+	width: 100% !important;
+	max-width: 100% !important;
+	box-sizing: border-box;
+}
+
+/* (2) Beri komponen dasbor di dalamnya tinggi NYATA selayar (agar
+ *     Borderlayout/strip menu tidak kolaps), dengan fallback vh→dvh. */
+.ais-m-overlay-body .main-dashboard-content > *,
+.ais-m-overlay-body .z-include,
+.ais-m-overlay-body .z-borderlayout {
+	min-height: calc(100vh - 124px) !important;
+	min-height: calc(100dvh - 124px) !important;
+	width: 100% !important;
+	max-width: 100% !important;
+	box-sizing: border-box;
+}
+
+/* Borderlayout butuh tinggi DEFINITE (bukan sekadar min-height) agar
+ * region West/Center terisi penuh; samakan dengan tinggi selayar. */
+.ais-m-overlay-body .z-borderlayout {
+	height: calc(100vh - 124px) !important;
+	height: calc(100dvh - 124px) !important;
+}
+
+/* (3) Wadah tabbox standar dasbor (jika modul memakai tab dalam) ikut
+ *     mengisi tinggi & menahan lebar. */
+.ais-m-overlay-body .main-dashboard-tabbox,
+.ais-m-overlay-body .main-dashboard-tabbox .z-tabbox-content,
+.ais-m-overlay-body .main-dashboard-tabbox .z-tabpanels,
+.ais-m-overlay-body .main-dashboard-tabbox .z-tabpanel {
+	height: auto !important;
+	min-height: calc(100vh - 150px) !important;
+	min-height: calc(100dvh - 150px) !important;
+	max-height: none !important;
+	width: 100% !important;
+	max-width: 100% !important;
+	box-sizing: border-box;
+}
+
+/* (4) Pengaman umum: apa pun di dalam overlay tidak boleh memaksa lebar
+ *     melebihi layar; gambar & tabel menyesuaikan. */
+.ais-m-overlay-body img { max-width: 100%; height: auto; }
+.ais-m-overlay-body .main-dashboard-content,
+.ais-m-overlay-body .z-grid,
+.ais-m-overlay-body .z-listbox { max-width: 100% !important; }
+
+/* ----------------------------------------------------------------- *
+ * Navigasi bawah (bottom-nav)                                       *
+ * ----------------------------------------------------------------- */
+.ais-m-bottomnav {
+	position: fixed;
+	left: 0; right: 0; bottom: 0;
+	height: var(--ais-m-bottomnav-h);
+	z-index: 45;
+	display: flex;
+	background: var(--ais-m-surface);
+	border-top: 1px solid var(--ais-m-line);
+	box-shadow: 0 -2px 10px rgba(17,40,30,.06);
+}
+.ais-m-nav-item {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 3px;
+	cursor: pointer;
+	color: var(--ais-m-muted);
+	position: relative;
+}
+.ais-m-nav-item img { width: 22px; height: 22px; opacity: .65; }
+.ais-m-nav-lbl { font-size: 10.5px; font-weight: 600; }
+.ais-m-nav-item.is-active { color: var(--ais-m-primary); }
+.ais-m-nav-item.is-active img { opacity: 1; }
+.ais-m-nav-item.is-active::before {
+	content: "";
+	position: absolute;
+	top: 0; width: 28px; height: 3px;
+	border-radius: 0 0 3px 3px;
+	background: var(--ais-m-primary);
+}
+.ais-m-nav-badge {
+	position: absolute;
+	top: 7px;
+	margin-left: 18px;
+	min-width: 16px; height: 16px;
+	padding: 0 4px;
+	border-radius: 8px;
+	background: var(--ais-m-danger);
+	color: #fff;
+	font-size: 9.5px; font-weight: 700; line-height: 16px;
+	text-align: center;
+}
+
+/* ----------------------------------------------------------------- *
+ * Grafik HTML/CSS ringkas khusus mobile (sparkline tren)            *
+ * (donut/bar/radar tetap dari HtmlChartHelper / css_utama.css)      *
+ * ----------------------------------------------------------------- */
+.ais-m-trend {
+	display: flex;
+	align-items: flex-end;
+	gap: 6px;
+	height: 64px;
+	padding-top: 6px;
+}
+.ais-m-trend-bar {
+	flex: 1;
+	background: linear-gradient(180deg, var(--ais-m-accent), var(--ais-m-primary));
+	border-radius: 6px 6px 3px 3px;
+	min-height: 6px;
+	position: relative;
+}
+.ais-m-trend-bar span {
+	position: absolute;
+	top: -15px; left: 0; right: 0;
+	text-align: center;
+	font-size: 9px;
+	color: var(--ais-m-muted);
+}
+.ais-m-trend-x {
+	display: flex;
+	gap: 6px;
+	margin-top: 4px;
+}
+.ais-m-trend-x span { flex: 1; text-align: center; font-size: 9.5px; color: var(--ais-m-muted); }
+
+/* Statistik ringkas (kartu angka) */
+.ais-m-stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.ais-m-stat {
+	background: var(--ais-m-surface);
+	border-radius: 13px;
+	padding: 12px 8px;
+	text-align: center;
+	box-shadow: var(--ais-m-shadow);
+}
+.ais-m-stat-num { font-size: 19px; font-weight: 800; color: var(--ais-m-primary); }
+.ais-m-stat-lbl { font-size: 10.5px; color: var(--ais-m-muted); margin-top: 2px; line-height: 1.2; }
+
+/* ----------------------------------------------------------------- *
+ * e-Learning mobile (bilah-chip pemilih bagian + area konten)        *
+ * ----------------------------------------------------------------- */
+.ais-m-elearning-tabs {
+	display: flex;
+	gap: 8px;
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
+	padding: 2px 2px 10px 2px;
+}
+.ais-m-elearning-chip {
+	flex: 0 0 auto;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 8px 14px;
+	border-radius: 999px;
+	background: var(--ais-m-surface);
+	border: 1px solid var(--ais-m-line);
+	font-size: 12.5px;
+	font-weight: 600;
+	color: var(--ais-m-ink);
+	white-space: nowrap;
+	cursor: pointer;
+	box-shadow: var(--ais-m-shadow);
+}
+.ais-m-elearning-chip img { width: 16px; height: 16px; }
+.ais-m-elearning-chip.is-active {
+	background: var(--ais-m-primary);
+	border-color: var(--ais-m-primary);
+	color: #fff;
+}
+.ais-m-elearning-chip.is-active img { filter: brightness(0) invert(1); }
+
+/* Area konten ber-tinggi PASTI (di-set inline oleh action) agar Tabbox
+ * ber-height:100% dari helper rekapitulasi terisi penuh & terlihat. */
+.ais-m-elearning-content {
+	background: var(--ais-m-surface);
+	border-radius: 14px;
+	box-shadow: var(--ais-m-shadow);
+	overflow: auto;
+	-webkit-overflow-scrolling: touch;
+	box-sizing: border-box;
+}
+.ais-m-elearning-content .z-tabbox,
+.ais-m-elearning-content .z-tabbox-content,
+.ais-m-elearning-content .z-tabpanels,
+.ais-m-elearning-content .z-tabpanel { height: 100% !important; max-width: 100% !important; }
+.ais-m-elearning-content .z-grid,
+.ais-m-elearning-content .z-listbox { max-width: 100% !important; }
+
+/* Tombol "Tampilan Desktop" di bawah */
+.ais-m-elearning-desktopbtn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	margin: 14px 2px 6px 2px;
+	padding: 12px;
+	border-radius: 12px;
+	background: var(--ais-m-surface);
+	border: 1px solid var(--ais-m-line);
+	color: var(--ais-m-primary);
+	font-weight: 600;
+	font-size: 13px;
+	cursor: pointer;
+	box-shadow: var(--ais-m-shadow);
+}
+.ais-m-elearning-desktopbtn img { width: 18px; height: 18px; }
+.ais-m-elearning-desktopbtn:active { background: var(--ais-m-primary-soft); }
+
+/* ----------------------------------------------------------------- *
+ * Pola DRILL-DOWN mobile: daftar bagian -> konten layar penuh        *
+ * (dipakai-ulang oleh MobileTabHelper untuk halaman berbasis tab)    *
+ * ----------------------------------------------------------------- */
+.ais-m-drill-list { display: block; }
+.ais-m-drill-row {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	background: var(--ais-m-surface);
+	border-radius: 13px;
+	padding: 13px 14px;
+	margin-bottom: 10px;
+	box-shadow: var(--ais-m-shadow);
+	cursor: pointer;
+}
+.ais-m-drill-row:active { background: var(--ais-m-primary-soft); }
+.ais-m-drill-ic {
+	width: 38px; height: 38px;
+	border-radius: 11px;
+	background: var(--ais-m-primary-soft);
+	display: inline-flex; align-items: center; justify-content: center;
+	flex: 0 0 auto;
+}
+.ais-m-drill-ic img { width: 20px; height: 20px; }
+.ais-m-drill-lbl { flex: 1; font-size: 14px; font-weight: 600; color: var(--ais-m-ink); min-width: 0; }
+.ais-m-drill-go { width: 16px; height: 16px; opacity: .4; }
+
+.ais-m-drill-content { display: block; }
+.ais-m-drill-bar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 10px;
+}
+.ais-m-drill-back {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 7px 12px 7px 8px;
+	border-radius: 999px;
+	background: var(--ais-m-surface);
+	border: 1px solid var(--ais-m-line);
+	font-size: 12.5px;
+	font-weight: 600;
+	color: var(--ais-m-primary);
+	cursor: pointer;
+	box-shadow: var(--ais-m-shadow);
+	flex: 0 0 auto;
+}
+.ais-m-drill-back img { width: 16px; height: 16px; }
+.ais-m-drill-title {
+	font-size: 14px;
+	font-weight: 700;
+	color: var(--ais-m-ink);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+/* Area konten ber-tinggi PASTI (di-set inline) agar Tabbox/komponen
+ * ber-height:100% dari logika lama terisi penuh & terlihat. */
+.ais-m-drill-area {
+	background: var(--ais-m-surface);
+	border-radius: 14px;
+	box-shadow: var(--ais-m-shadow);
+	overflow: auto;
+	-webkit-overflow-scrolling: touch;
+	box-sizing: border-box;
+}
+.ais-m-drill-area .z-tabbox,
+.ais-m-drill-area .z-tabbox-content,
+.ais-m-drill-area .z-tabpanels,
+.ais-m-drill-area .z-tabpanel { height: 100% !important; max-width: 100% !important; }
+/* Borderlayout/Center di dalam konten (mis. Agenda) ikut mengisi tinggi area
+ * agar daftar kelas tampil penuh, bukan menyusut/kolaps. */
+.ais-m-drill-area .z-borderlayout,
+.ais-m-drill-area .z-center,
+.ais-m-drill-area .z-center-body { height: 100% !important; }
+.ais-m-drill-area .z-grid,
+.ais-m-drill-area .z-listbox { max-width: 100% !important; }
+
+/* Sub-bagian bertumpuk (mis. di "Tugas, Ujian, Materi"): judul + kotak konten. */
+.ais-m-drill-subhead {
+	display: block;
+	font-size: 13px;
+	font-weight: 700;
+	color: var(--ais-m-primary);
+	margin: 6px 2px 6px 2px;
+}
+.ais-m-drill-subbox {
+	background: var(--ais-m-bg);
+	border-radius: 12px;
+	overflow: auto;
+	-webkit-overflow-scrolling: touch;
+	margin-bottom: 12px;
+	box-sizing: border-box;
+}
+.ais-m-drill-subbox .z-tabbox,
+.ais-m-drill-subbox .z-tabbox-content,
+.ais-m-drill-subbox .z-tabpanels,
+.ais-m-drill-subbox .z-tabpanel { height: 100% !important; max-width: 100% !important; }
+
+/* ----------------------------------------------------------------- *
+ * Utilitas tampil/sembunyi view (server-side toggle via setVisible) *
+ * ----------------------------------------------------------------- */
+.ais-m-hide { display: none !important; }
+
+/* ----------------------------------------------------------------- *
+ * Responsif: melebar di tablet / desktop sempit                     *
+ * ----------------------------------------------------------------- */
+@media (min-width: 600px) {
+	.ais-m-scroll { padding-left: 18px; padding-right: 18px; }
+	.ais-m-quick { grid-template-columns: repeat(6, 1fr); }
+}
+@media (min-width: 900px) {
+	/* Pusatkan dan batasi lebar agar nyaman dibaca di layar lebar */
+	.ais-m-scroll,
+	.ais-m-appbar,
+	.ais-m-bottomnav,
+	.ais-m-overlay-bar { max-width: 760px; margin-left: auto; margin-right: auto; }
+	.ais-m-appbar,
+	.ais-m-overlay-bar { left: 0; right: 0; }
+	.ais-m-quick { grid-template-columns: repeat(8, 1fr); }
+}
+
+/* Alias komponen dari MobileAction baru. Diletakkan paling akhir agar
+ * tidak mengubah perilaku class lama yang sudah dipakai mobile.zul. */
+.ais-m-bottom-item {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 2px;
+	color: var(--ais-m-muted) !important;
+	text-align: center;
+	border: none !important;
+	background: transparent !important;
+	box-shadow: none !important;
+}
+.ais-m-bottom-item img { width: 22px; height: 22px; opacity: .68; }
+.ais-m-bottom-item .z-toolbarbutton-cnt { font-size: 10.5px; font-weight: 700; }
+.ais-m-bottom-active { color: var(--ais-m-primary) !important; }
+.ais-m-bottom-active img { opacity: 1; filter: none; }
+
+.ais-m-quick-label {
+	font-size: 11px;
+	font-weight: 700;
+	color: var(--ais-m-ink);
+	line-height: 1.15;
+}
+.ais-m-quick-tile > img.ais-m-quick-ic,
+.ais-m-list-ic {
+	width: 38px;
+	height: 38px;
+	border-radius: 11px;
+	padding: 8px;
+	background: var(--ais-m-primary-soft);
+	object-fit: contain;
+	box-sizing: border-box;
+}
+.ais-m-today > img.ais-m-today-ic {
+	width: 38px;
+	height: 38px;
+	border-radius: 10px;
+	padding: 9px;
+	background: var(--ais-m-primary-soft);
+	object-fit: contain;
+	box-sizing: border-box;
+}
+
+.ais-m-list {
+	background: var(--ais-m-surface);
+	border-radius: 14px;
+	box-shadow: var(--ais-m-shadow);
+	overflow: hidden;
+	margin-bottom: 12px;
+}
+.ais-m-list-item {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 13px 14px;
+	border-bottom: 1px solid var(--ais-m-line);
+	cursor: pointer;
+}
+.ais-m-list-item:last-child { border-bottom: none; }
+.ais-m-list-item:active { background: var(--ais-m-primary-soft); }
+.ais-m-list-body { flex: 1; min-width: 0; }
+.ais-m-list-title {
+	display: block;
+	font-size: 14px;
+	font-weight: 800;
+	color: var(--ais-m-ink);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.ais-m-list-sub {
+	display: block;
+	font-size: 12px;
+	color: var(--ais-m-muted);
+	margin-top: 2px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.ais-m-chevron {
+	color: var(--ais-m-muted);
+	font-size: 18px;
+	font-weight: 700;
+	padding-left: 8px;
+}
+
+.ais-m-metrics {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 10px;
+	margin-bottom: 12px;
+}
+.ais-m-metric {
+	background: var(--ais-m-surface);
+	border-radius: 14px;
+	box-shadow: var(--ais-m-shadow);
+	padding: 12px 8px;
+	text-align: center;
+}
+.ais-m-metric-value {
+	display: block;
+	font-size: 20px;
+	font-weight: 800;
+	color: var(--ais-m-primary);
+	line-height: 1.1;
+}
+.ais-m-metric-label {
+	display: block;
+	font-size: 11px;
+	color: var(--ais-m-muted);
+	margin-top: 3px;
+}
+
+.ais-m-meter {
+	background: var(--ais-m-surface);
+	border-radius: var(--ais-m-radius);
+	box-shadow: var(--ais-m-shadow);
+	padding: 14px;
+	margin-bottom: 12px;
+}
+.ais-m-meter-head {
+	width: 100%;
+	display: flex;
+	justify-content: space-between;
+	margin-bottom: 8px;
+}
+.ais-m-meter-title { font-size: 13px; font-weight: 800; color: var(--ais-m-ink); }
+.ais-m-meter-value { font-size: 13px; font-weight: 800; color: var(--ais-m-primary); }
+.ais-m-meter-track {
+	height: 10px;
+	background: var(--ais-m-primary-soft);
+	border-radius: 999px;
+	overflow: hidden;
+	margin-bottom: 8px;
+}
+.ais-m-meter-fill {
+	height: 100%;
+	border-radius: 999px;
+	background: linear-gradient(90deg, var(--ais-m-primary), var(--ais-m-accent));
+}
+
+.ais-m-bars {
+	height: 96px;
+	display: flex;
+	align-items: flex-end;
+	gap: 9px;
+	padding: 12px 2px 2px 2px;
+}
+.ais-m-bar {
+	flex: 1;
+	min-height: 8px;
+	border-radius: 8px 8px 3px 3px;
+	background: linear-gradient(180deg, var(--ais-m-accent), var(--ais-m-primary));
+}
+
+.ais-m-spider {
+	width: 138px;
+	height: 138px;
+	margin: 14px auto 10px auto;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-shadow: inset 0 0 0 10px rgba(255,255,255,.75), var(--ais-m-shadow);
+}
+.ais-m-spider-core {
+	width: 72px;
+	height: 72px;
+	border-radius: 50%;
+	background: #fff;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	font-size: 12px;
+	font-weight: 800;
+	color: var(--ais-m-primary);
+	box-shadow: var(--ais-m-shadow);
+}
+.ais-m-legend { text-align: center; }
+.ais-m-profile-card .ais-m-card-title { font-size: 18px; }
+
+@media (max-width: 360px) {
+	.ais-m-quick { grid-template-columns: repeat(3, 1fr); }
+	.ais-m-metrics { grid-template-columns: 1fr; }
+	.ais-m-bottom-item .z-toolbarbutton-cnt { font-size: 10px; }
+}
+
+/* ----------------------------------------------------------------- *
+ * eLearning mobile/responsif baru                                   *
+ * ----------------------------------------------------------------- */
+.ais-el-shell {
+	width: 100%;
+	max-width: 1040px;
+	margin: 0 auto;
+	padding: 10px 10px 28px 10px;
+	box-sizing: border-box;
+	color: var(--ais-m-ink);
+}
+.ais-el-hero {
+	border-radius: 18px;
+	padding: 18px;
+	margin-bottom: 12px;
+	color: #fff;
+	background: linear-gradient(135deg, var(--ais-m-primary), #236fa8);
+	box-shadow: var(--ais-m-shadow);
+}
+.ais-el-hero-title {
+	display: block;
+	font-size: 24px;
+	font-weight: 900;
+	line-height: 1.1;
+}
+.ais-el-hero-desc {
+	display: block;
+	max-width: 760px;
+	margin-top: 7px;
+	font-size: 13px;
+	line-height: 1.45;
+	opacity: .95;
+}
+.ais-el-hero-user {
+	display: inline-block;
+	margin-top: 12px;
+	padding: 6px 10px;
+	border-radius: 999px;
+	background: rgba(255,255,255,.16);
+	font-size: 12px;
+	font-weight: 700;
+}
+.ais-el-section {
+	background: var(--ais-m-surface);
+	border-radius: 16px;
+	box-shadow: var(--ais-m-shadow);
+	padding: 14px;
+	margin-bottom: 12px;
+	box-sizing: border-box;
+}
+.ais-el-section-title,
+.ais-el-card-title {
+	display: block;
+	font-size: 15px;
+	font-weight: 900;
+	color: var(--ais-m-ink);
+}
+.ais-el-section-desc,
+.ais-el-card-desc {
+	display: block;
+	font-size: 12px;
+	line-height: 1.45;
+	color: var(--ais-m-muted);
+	margin-top: 3px;
+}
+.ais-el-metric-grid,
+.ais-el-action-grid,
+.ais-el-chart-grid {
+	display: grid;
+	gap: 10px;
+	margin-bottom: 12px;
+}
+.ais-el-metric-grid { grid-template-columns: repeat(3, 1fr); }
+.ais-el-action-grid { grid-template-columns: repeat(2, 1fr); margin-top: 12px; margin-bottom: 0; }
+.ais-el-chart-grid { grid-template-columns: 1fr; }
+.ais-el-metric,
+.ais-el-card,
+.ais-el-action {
+	background: var(--ais-m-surface);
+	border-radius: 16px;
+	box-shadow: var(--ais-m-shadow);
+	box-sizing: border-box;
+}
+.ais-el-metric {
+	padding: 14px 12px;
+	min-height: 102px;
+}
+.ais-el-metric-value {
+	display: block;
+	font-size: 23px;
+	font-weight: 900;
+	line-height: 1.05;
+}
+.ais-el-metric-label {
+	display: block;
+	margin-top: 4px;
+	font-size: 12px;
+	font-weight: 800;
+	color: var(--ais-m-ink);
+}
+.ais-el-metric-hint {
+	display: block;
+	margin-top: 4px;
+	font-size: 11px;
+	line-height: 1.35;
+	color: var(--ais-m-muted);
+}
+.ais-el-metric.tone-green .ais-el-metric-value { color: var(--ais-m-primary); }
+.ais-el-metric.tone-blue .ais-el-metric-value { color: #236fa8; }
+.ais-el-metric.tone-gold .ais-el-metric-value { color: #a87000; }
+.ais-el-action {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 12px;
+	cursor: pointer;
+	border: 1px solid transparent;
+}
+.ais-el-action:active {
+	transform: scale(.985);
+	background: var(--ais-m-primary-soft);
+}
+.ais-el-action-icon {
+	width: 42px;
+	height: 42px;
+	border-radius: 12px;
+	padding: 9px;
+	background: var(--ais-m-primary-soft);
+	object-fit: contain;
+	box-sizing: border-box;
+}
+.ais-el-action-body { flex: 1; min-width: 0; }
+.ais-el-action-title {
+	display: block;
+	font-size: 13px;
+	font-weight: 900;
+	color: var(--ais-m-ink);
+}
+.ais-el-action-desc {
+	display: block;
+	margin-top: 2px;
+	font-size: 11px;
+	line-height: 1.35;
+	color: var(--ais-m-muted);
+}
+.ais-el-action-go {
+	color: var(--ais-m-muted);
+	font-size: 18px;
+	font-weight: 900;
+}
+.ais-el-card {
+	padding: 14px;
+	margin-bottom: 12px;
+}
+.ais-el-progress-head {
+	width: 100%;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+.ais-el-progress-number {
+	font-size: 14px;
+	font-weight: 900;
+	color: var(--ais-m-primary);
+}
+.ais-el-progress-track {
+	height: 11px;
+	border-radius: 999px;
+	background: var(--ais-m-primary-soft);
+	overflow: hidden;
+	margin-top: 12px;
+}
+.ais-el-progress-fill {
+	height: 100%;
+	border-radius: 999px;
+	background: linear-gradient(90deg, var(--ais-m-primary), #236fa8);
+}
+.ais-el-trend {
+	height: 130px;
+	display: flex;
+	align-items: flex-end;
+	gap: 10px;
+	padding: 14px 2px 2px 2px;
+}
+.ais-el-trend-bar {
+	flex: 1;
+	min-height: 8px;
+	border-radius: 10px 10px 4px 4px;
+	background: linear-gradient(180deg, #2f7fc1, var(--ais-m-primary));
+}
+.ais-el-radar {
+	width: 156px;
+	height: 156px;
+	margin: 16px auto 10px auto;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-shadow: inset 0 0 0 12px rgba(255,255,255,.78), var(--ais-m-shadow);
+}
+.ais-el-radar-core {
+	width: 78px;
+	height: 78px;
+	border-radius: 50%;
+	background: #fff;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	font-size: 12px;
+	font-weight: 900;
+	color: var(--ais-m-primary);
+	box-shadow: var(--ais-m-shadow);
+}
+.ais-el-grid {
+	margin-top: 12px;
+	border: 1px solid var(--ais-m-line);
+	border-radius: 12px;
+	overflow: hidden;
+	background: #fff;
+}
+.ais-el-grid .z-column,
+.ais-el-grid .z-row {
+	font-size: 12px;
+}
+.ais-el-cell-title {
+	font-weight: 900;
+	color: var(--ais-m-ink);
+}
+.ais-el-cell-status {
+	display: inline-block;
+	padding: 4px 8px;
+	border-radius: 999px;
+	background: var(--ais-m-primary-soft);
+	color: var(--ais-m-primary);
+	font-size: 11px;
+	font-weight: 800;
+}
+.ais-el-cell {
+	font-size: 12px;
+	color: var(--ais-m-muted);
+}
+.ais-el-button-primary {
+	width: 100%;
+	margin-top: 12px;
+	border: none !important;
+	border-radius: 12px !important;
+	background: linear-gradient(135deg, var(--ais-m-primary), var(--ais-m-accent)) !important;
+	color: #fff !important;
+	font-weight: 900 !important;
+	padding: 10px 12px !important;
+}
+.ais-el-link-button {
+	margin-bottom: 10px;
+	color: var(--ais-m-primary) !important;
+	font-weight: 900;
+}
+.ais-el-detail {
+	background: var(--ais-m-bg);
+	min-height: 100%;
+}
+.ais-el-native-detail {
+	background: var(--ais-m-bg);
+	min-height: 100%;
+	padding-bottom: 20px;
+}
+.ais-el-native-metrics {
+	margin-top: 12px;
+}
+.ais-el-native-grid {
+	margin-top: 12px;
+	margin-bottom: 12px;
+}
+.ais-el-detail-tabbox {
+	background: #fff;
+	border-radius: 14px;
+	box-shadow: var(--ais-m-shadow);
+	overflow: auto;
+}
+.ais-el-legacy-detail {
+	height: calc(100vh - 96px);
+	height: calc(100dvh - 96px);
+	overflow: auto;
+	-webkit-overflow-scrolling: touch;
+}
+.ais-el-legacy-tabbox,
+.ais-el-legacy-tabbox .z-tabbox-content,
+.ais-el-legacy-tabbox .z-tabpanels,
+.ais-el-legacy-tabbox .z-tabpanel {
+	min-height: calc(100vh - 160px) !important;
+	min-height: calc(100dvh - 160px) !important;
+	height: calc(100vh - 160px) !important;
+	height: calc(100dvh - 160px) !important;
+	width: 100% !important;
+	box-sizing: border-box;
+}
+.ais-el-legacy-tabbox .z-borderlayout,
+.ais-el-legacy-tabbox .z-center,
+.ais-el-legacy-tabbox .z-center-body {
+	min-height: calc(100vh - 190px) !important;
+	min-height: calc(100dvh - 190px) !important;
+	height: calc(100vh - 190px) !important;
+	height: calc(100dvh - 190px) !important;
+}
+.ais-el-legacy-tabbox .z-west,
+.ais-el-legacy-tabbox .z-west-body {
+	max-width: 78px !important;
+	overflow-x: hidden !important;
+}
+.ais-el-legacy-tabbox .z-grid,
+.ais-el-legacy-tabbox .z-listbox {
+	max-width: 100% !important;
+}
+.ais-el-legacy-tabbox table {
+	max-width: 100%;
+}
+.ais-el-hidden-launcher {
+	display: none !important;
+}
+
+@media (min-width: 720px) {
+	.ais-el-chart-grid { grid-template-columns: 1fr 1fr; }
+	.ais-el-action-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 520px) {
+	.ais-el-metric-grid { grid-template-columns: 1fr; }
+	.ais-el-action-grid { grid-template-columns: 1fr; }
+	.ais-el-grid {
+		display: block;
+		overflow-x: auto;
+		-webkit-overflow-scrolling: touch;
+	}
+}
+
+/* =================================================================
+ * Komponen tambahan MobileUiHelper (tambahan dari enhancement)
+ * ================================================================= */
+
+/* ----------------------------------------------------------------
+ * Grafik batang berlabel (trendChart dengan sumbu-X)
+ * ---------------------------------------------------------------- */
+.ais-m-bars-labeled {
+	height: 108px;
+	padding-bottom: 18px; /* ruang untuk label sumbu-X */
+	position: relative;
+}
+.ais-m-bar {
+	position: relative;
+}
+.ais-m-bar .z-label,
+.ais-m-bar-lbl {
+	position: absolute;
+	bottom: -17px;
+	left: 0; right: 0;
+	text-align: center;
+	font-size: 9.5px;
+	color: var(--ais-m-muted);
+	white-space: nowrap;
+}
+
+/* ----------------------------------------------------------------
+ * Notifikasi — status belum/sudah dibaca
+ * ---------------------------------------------------------------- */
+.ais-m-notif-unread {
+	background: var(--ais-m-primary-soft);
+}
+.ais-m-notif-bold {
+	font-weight: 800;
+}
+.ais-m-notif-dot {
+	width: 9px;
+	height: 9px;
+	border-radius: 50%;
+	background: var(--ais-m-primary);
+	flex: 0 0 auto;
+	align-self: center;
+}
+
+/* ----------------------------------------------------------------
+ * Profil — header bergradien dengan inisial avatar
+ * ---------------------------------------------------------------- */
+.ais-m-profile-head {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	background: linear-gradient(135deg, var(--ais-m-primary) 0%, var(--ais-m-primary-strong) 100%);
+	color: #fff;
+	border-radius: var(--ais-m-radius);
+	padding: 20px 18px;
+	margin-bottom: 12px;
+	box-shadow: var(--ais-m-shadow-lg);
+}
+.ais-m-profile-ava-wrap {
+	width: 62px;
+	height: 62px;
+	border-radius: 50%;
+	background: rgba(255,255,255,.22);
+	border: 3px solid rgba(255,255,255,.65);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+}
+.ais-m-profile-ava-lbl {
+	font-size: 26px;
+	font-weight: 900;
+	color: #fff;
+	line-height: 1;
+}
+.ais-m-profile-info { flex: 1; min-width: 0; }
+.ais-m-profile-nm {
+	display: block;
+	font-size: 18px;
+	font-weight: 800;
+	color: #fff;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.ais-m-profile-rl {
+	display: block;
+	font-size: 12.5px;
+	color: rgba(255,255,255,.88);
+	margin-top: 2px;
+}
+.ais-m-profile-inst {
+	display: block;
+	font-size: 11px;
+	color: rgba(255,255,255,.75);
+	margin-top: 3px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* Daftar baris menu profil */
+.ais-m-profile-list {
+	background: var(--ais-m-surface);
+	border-radius: 14px;
+	box-shadow: var(--ais-m-shadow);
+	overflow: hidden;
+	margin-bottom: 12px;
+}
+.ais-m-prow {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	padding: 14px 16px;
+	border-bottom: 1px solid var(--ais-m-line);
+	cursor: pointer;
+	transition: background .1s ease;
+}
+.ais-m-prow:last-child { border-bottom: none; }
+.ais-m-prow:active { background: var(--ais-m-primary-soft); }
+.ais-m-prow-ic {
+	width: 22px;
+	height: 22px;
+	opacity: .65;
+	flex: 0 0 auto;
+}
+.ais-m-prow-lbl {
+	flex: 1;
+	font-size: 14px;
+	color: var(--ais-m-ink);
+	font-weight: 500;
+}
+.ais-m-prow-go {
+	color: var(--ais-m-muted);
+	font-size: 18px;
+	font-weight: 700;
+}
+.ais-m-prow.is-danger .ais-m-prow-lbl {
+	color: var(--ais-m-danger);
+	font-weight: 700;
+}
+.ais-m-prow.is-danger .ais-m-prow-ic { opacity: 1; }
+
+/* ----------------------------------------------------------------
+ * Tombol Buka Versi Desktop
+ * ---------------------------------------------------------------- */
+.ais-m-desktop-link {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+	margin: 4px 0 12px 0;
+	padding: 13px 16px;
+	background: var(--ais-m-surface);
+	border: 1.5px solid var(--ais-m-primary);
+	border-radius: 14px;
+	cursor: pointer;
+	box-shadow: var(--ais-m-shadow);
+	transition: background .12s ease;
+}
+.ais-m-desktop-link:active {
+	background: var(--ais-m-primary-soft);
+}
+.ais-m-desktop-link-ic {
+	width: 20px;
+	height: 20px;
+	opacity: .75;
+}
+.ais-m-desktop-link-lbl {
+	font-size: 13.5px;
+	font-weight: 700;
+	color: var(--ais-m-primary);
+}
+
+/* ----------------------------------------------------------------
+ * Legenda donut (spider)
+ * ---------------------------------------------------------------- */
+.ais-m-legend {
+	margin-top: 10px;
+}
+.ais-m-legend-row {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	margin: 3px 8px 3px 0;
+}
+.ais-m-legend-dot {
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	flex: 0 0 auto;
+}
+
+/* ----------------------------------------------------------------
+ * Empty state (kosong)
+ * ---------------------------------------------------------------- */
+.ais-m-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	padding: 28px 16px;
+	text-align: center;
+	color: var(--ais-m-muted);
+}
+.ais-m-empty-ic {
+	width: 50px;
+	height: 50px;
+	opacity: .45;
+	margin-bottom: 10px;
+}
+.ais-m-empty-text {
+	font-size: 13px;
+	line-height: 1.45;
+	color: var(--ais-m-muted);
+}
+
+/* ----------------------------------------------------------------
+ * Chip (label oval kecil)
+ * ---------------------------------------------------------------- */
+.ais-m-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	background: var(--ais-m-surface);
+	border: 1px solid var(--ais-m-line);
+	border-radius: 999px;
+	padding: 7px 14px;
+	font-size: 12.5px;
+	color: var(--ais-m-ink);
+	cursor: pointer;
+	box-shadow: var(--ais-m-shadow);
+	transition: border-color .12s ease, background .12s ease;
+}
+.ais-m-chip:active {
+	background: var(--ais-m-primary-soft);
+	border-color: var(--ais-m-primary);
+}
+
+/* ----------------------------------------------------------------
+ * Modul tile: ikon bergradien di dalam grid Menu Utama
+ * ---------------------------------------------------------------- */
+.ais-m-module-tile .ais-m-quick-ic {
+	background: linear-gradient(135deg, var(--ais-m-primary) 0%, var(--ais-m-accent) 100%) !important;
+}
+.ais-m-module-tile .ais-m-quick-ic img,
+.ais-m-module-tile .ais-m-quick-ic .z-image {
+	filter: brightness(0) invert(1);
+}
+
+/* ----------------------------------------------------------------
+ * Responsif tambahan: ubin modul
+ * ---------------------------------------------------------------- */
+@media (min-width: 600px) {
+	.ais-m-module-grid { grid-template-columns: repeat(4, 1fr); }
+}
+@media (min-width: 900px) {
+	.ais-m-module-grid { grid-template-columns: repeat(5, 1fr); }
+}

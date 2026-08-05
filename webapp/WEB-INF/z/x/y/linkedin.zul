@@ -1,0 +1,11 @@
+<?page title="Login Via Linkedin" contentType="text/html;charset=UTF-8"?>
+<?link rel="shortcut icon" href="/img/logo.png" type="image/x-icon"?>
+<?meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" ?>
+<?meta name="description" content="Sistem Informasi Akademik Ecampus" ?>
+<?meta name="author" content="Mohammad Fauzi Murtadho" ?>
+<zk>
+<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.maintenance.LinkedinAction" width="100%" height="100%">
+
+</window>
+</zk>

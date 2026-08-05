@@ -1,0 +1,634 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Realisasi_Anggaran" pageWidth="1020" pageHeight="595" orientation="Landscape" whenNoDataType="AllSectionsNoDetail" columnWidth="988" leftMargin="16" rightMargin="16" topMargin="20" bottomMargin="20">
+	<property name="ireport.scriptlethandling" value="2"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="tahun" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[2012]]></defaultValueExpression>
+	</parameter>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["../logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_jurusan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Prodi"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_fakultas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Fakultas"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="satuan_kerja" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["FST"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tanggal_per" class="java.util.Date" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new Date()]]></defaultValueExpression>
+	</parameter>
+	<parameter name="bulan" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[2]]></defaultValueExpression>
+	</parameter>
+	<parameter name="satuan_kerja_id" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[1000002L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tanggal_mulai" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2012-2-01"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tanggal_selesai" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2012-3-01"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jenis_workspace" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[7L]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select
+max(b.kode) as kode,
+max(b.nama) as nama,
+(select nama from rab.jenis_workspace where id = $P{jenis_workspace}) as jenis_workspace,
+sum(a.harga_total) as harga_total,
+sum(c.total_realisasi_bulan_lalu) as total_realisasi_bulan_lalu,
+(sum(c.total_realisasi_bulan_lalu)*100.0/sum(a.harga_total)) as persen_realisasi_bulan_lalu,
+sum(d.total_realisasi_bulan_ini) as total_realisasi_bulan_ini,
+(sum(d.total_realisasi_bulan_ini)*100.0/sum(a.harga_total)) as persen_realisasi_bulan_ini,
+sum(e.total_realisasi_sampai_bulan_ini) as total_realisasi_sampai_bulan_ini,
+(sum(e.total_realisasi_sampai_bulan_ini)*100.0/sum(a.harga_total)) as persen_realisasi_sampai_bulan_ini,
+sum(a.harga_total) - sum(e.total_realisasi_sampai_bulan_ini) as total_sisa_dipa_bulan_ini,
+((sum(a.harga_total) - sum(e.total_realisasi_sampai_bulan_ini))*100.0/sum(a.harga_total)) as persen_sisa_dipa_bulan_ini
+from (select id,kode,nama from rab.jenis_workspace where parent = $P{jenis_workspace} and defaultitem) b
+left join (select * from rab.workspace where aktif) a on (a.jenis_workspace = b.id)
+left join (
+	select
+	sum(bb.kredit) as total_realisasi_bulan_lalu,
+	aa.workspace, max(aa.parent0) parent0, max(aa.parent1) parent1, max(aa.parent2) parent2, max(aa.parent3) parent3, max(aa.parent4) parent4, max(aa.parent5) parent5, max(aa.parent6) parent6, max(aa.parent7) parent7, max(aa.parent8) parent8, max(aa.parent9) parent9,
+	max(aa.parent10) parent10, max(aa.parent11) parent11, max(aa.parent12) parent12, max(aa.parent13) parent13, max(aa.parent14) parent14, max(aa.parent15) parent15, max(aa.parent16) parent16, max(aa.parent17) parent17, max(aa.parent18) parent18, max(aa.parent19) parent19, max(aa.parent20) parent20
+	from akunting.workspace_has_transaksi aa
+	inner join akunting.transaksi bb on (aa.transaksi = bb.id)
+	inner join rab.workspace cc on (cc.id = aa.workspace)
+	where date(bb.tanggal_transaksi) < date($P{tanggal_mulai})
+	and cc.aktif
+	group by aa.workspace
+) c on (c.workspace = a.id or c.parent0 = a.id or c.parent1 = a.id or c.parent2 = a.id or c.parent3 = a.id or c.parent4 = a.id or c.parent5 = a.id or c.parent6 = a.id or c.parent7 = a.id or c.parent8 = a.id or c.parent9 = a.id
+  or c.parent10 = a.id or c.parent11 = a.id or c.parent12 = a.id or c.parent13 = a.id or c.parent14 = a.id or c.parent15 = a.id or c.parent16 = a.id or c.parent17 = a.id or c.parent18 = a.id or c.parent19 = a.id or c.parent20 = a.id)
+
+left join (
+	select
+	sum(bb.kredit) as total_realisasi_bulan_ini,
+	aa.workspace, max(aa.parent0) parent0, max(aa.parent1) parent1, max(aa.parent2) parent2, max(aa.parent3) parent3, max(aa.parent4) parent4, max(aa.parent5) parent5, max(aa.parent6) parent6, max(aa.parent7) parent7, max(aa.parent8) parent8, max(aa.parent9) parent9,
+	max(aa.parent10) parent10, max(aa.parent11) parent11, max(aa.parent12) parent12, max(aa.parent13) parent13, max(aa.parent14) parent14, max(aa.parent15) parent15, max(aa.parent16) parent16, max(aa.parent17) parent17, max(aa.parent18) parent18, max(aa.parent19) parent19, max(aa.parent20) parent20
+	from akunting.workspace_has_transaksi aa
+	inner join akunting.transaksi bb on (aa.transaksi = bb.id)
+	inner join rab.workspace cc on (cc.id = aa.workspace)
+	where date(bb.tanggal_transaksi) < date($P{tanggal_selesai}) and date(bb.tanggal_transaksi) >= date($P{tanggal_mulai})
+	and cc.aktif
+	group by aa.workspace
+) d on (d.workspace = a.id or d.parent0 = a.id or d.parent1 = a.id or d.parent2 = a.id or d.parent3 = a.id or d.parent4 = a.id or d.parent5 = a.id or d.parent6 = a.id or d.parent7 = a.id or d.parent8 = a.id or d.parent9 = a.id
+  or d.parent10 = a.id or d.parent11 = a.id or d.parent12 = a.id or d.parent13 = a.id or d.parent14 = a.id or d.parent15 = a.id or d.parent16 = a.id or d.parent17 = a.id or d.parent18 = a.id or d.parent19 = a.id or d.parent20 = a.id)
+
+left join (
+	select
+	sum(bb.kredit) as total_realisasi_sampai_bulan_ini,
+	aa.workspace, max(aa.parent0) parent0, max(aa.parent1) parent1, max(aa.parent2) parent2, max(aa.parent3) parent3, max(aa.parent4) parent4, max(aa.parent5) parent5, max(aa.parent6) parent6, max(aa.parent7) parent7, max(aa.parent8) parent8, max(aa.parent9) parent9,
+	max(aa.parent10) parent10, max(aa.parent11) parent11, max(aa.parent12) parent12, max(aa.parent13) parent13, max(aa.parent14) parent14, max(aa.parent15) parent15, max(aa.parent16) parent16, max(aa.parent17) parent17, max(aa.parent18) parent18, max(aa.parent19) parent19, max(aa.parent20) parent20
+	from akunting.workspace_has_transaksi aa
+	inner join akunting.transaksi bb on (aa.transaksi = bb.id)
+	inner join rab.workspace cc on (cc.id = aa.workspace)
+	where date(bb.tanggal_transaksi) < date($P{tanggal_selesai})
+	and cc.aktif
+	group by aa.workspace
+) e on (e.workspace = a.id or e.parent0 = a.id or e.parent1 = a.id or e.parent2 = a.id or e.parent3 = a.id or e.parent4 = a.id or e.parent5 = a.id or e.parent6 = a.id or e.parent7 = a.id or e.parent8 = a.id or e.parent9 = a.id
+  or e.parent10 = a.id or e.parent11 = a.id or e.parent12 = a.id or e.parent13 = a.id or e.parent14 = a.id or e.parent15 = a.id or e.parent16 = a.id or e.parent17 = a.id or e.parent18 = a.id or e.parent19 = a.id or e.parent20 = a.id)
+
+where (a.satuan_kerja is null or a.satuan_kerja in (select id from rab.satuan_kerja where id = $P{satuan_kerja_id} union all select id from rab.satuan_kerja where parent = $P{satuan_kerja_id} union all select id from rab.satuan_kerja where parent in (select id from rab.satuan_kerja where parent = $P{satuan_kerja_id}) union all select id from rab.satuan_kerja where parent in (select id from rab.satuan_kerja where parent in (select id from rab.satuan_kerja where parent = $P{satuan_kerja_id}))))
+
+group by b.id
+order by kode, nama ]]>
+	</queryString>
+	<field name="kode" class="java.lang.String"/>
+	<field name="nama" class="java.lang.String"/>
+	<field name="jenis_workspace" class="java.lang.String"/>
+	<field name="harga_total" class="java.lang.Double"/>
+	<field name="total_realisasi_bulan_lalu" class="java.lang.Double"/>
+	<field name="persen_realisasi_bulan_lalu" class="java.lang.Double"/>
+	<field name="total_realisasi_bulan_ini" class="java.lang.Double"/>
+	<field name="persen_realisasi_bulan_ini" class="java.lang.Double"/>
+	<field name="total_realisasi_sampai_bulan_ini" class="java.lang.Double"/>
+	<field name="persen_realisasi_sampai_bulan_ini" class="java.lang.Double"/>
+	<field name="total_sisa_dipa_bulan_ini" class="java.lang.Double"/>
+	<field name="persen_sisa_dipa_bulan_ini" class="java.lang.Double"/>
+	<variable name="harga_total" class="java.lang.Double" calculation="Sum">
+		<variableExpression><![CDATA[$F{harga_total} == null ? 0.0 : $F{harga_total}]]></variableExpression>
+	</variable>
+	<variable name="total_realisasi_bulan_lalu" class="java.lang.Double" calculation="Sum">
+		<variableExpression><![CDATA[$F{total_realisasi_bulan_lalu} == null ? 0.0 : $F{total_realisasi_bulan_lalu}]]></variableExpression>
+	</variable>
+	<variable name="persen_realisasi_bulan_lalu" class="java.lang.Double" calculation="Average">
+		<variableExpression><![CDATA[$F{persen_realisasi_bulan_lalu} == null ? 0.0 : $F{persen_realisasi_bulan_lalu}]]></variableExpression>
+	</variable>
+	<variable name="total_realisasi_bulan_ini" class="java.lang.Double" calculation="Sum">
+		<variableExpression><![CDATA[$F{total_realisasi_bulan_ini} == null ? 0.0 : $F{total_realisasi_bulan_ini}]]></variableExpression>
+	</variable>
+	<variable name="persen_realisasi_bulan_ini" class="java.lang.Double" calculation="Average">
+		<variableExpression><![CDATA[$F{persen_realisasi_bulan_ini} == null ? 0.0 : $F{persen_realisasi_bulan_ini}]]></variableExpression>
+	</variable>
+	<variable name="total_realisasi_sampai_bulan_ini" class="java.lang.Double" calculation="Sum">
+		<variableExpression><![CDATA[$F{total_realisasi_sampai_bulan_ini} == null ? 0.0 : $F{total_realisasi_sampai_bulan_ini}]]></variableExpression>
+	</variable>
+	<variable name="persen_realisasi_sampai_bulan_ini" class="java.lang.Double" calculation="Average">
+		<variableExpression><![CDATA[$F{persen_realisasi_sampai_bulan_ini} == null ? 0.0 : $F{persen_realisasi_sampai_bulan_ini}]]></variableExpression>
+	</variable>
+	<variable name="total_sisa_dipa_bulan_ini" class="java.lang.Double" calculation="Sum">
+		<variableExpression><![CDATA[$F{total_sisa_dipa_bulan_ini} == null ? 0.0 : $F{total_sisa_dipa_bulan_ini}]]></variableExpression>
+	</variable>
+	<variable name="persen_sisa_dipa_bulan_ini" class="java.lang.Double" calculation="Average">
+		<variableExpression><![CDATA[$F{persen_sisa_dipa_bulan_ini} == null ? 0.0 : $F{persen_sisa_dipa_bulan_ini}]]></variableExpression>
+	</variable>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="185" splitType="Stretch">
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-1" x="0" y="78" width="988" height="51"/>
+				<textElement/>
+				<textFieldExpression><![CDATA["REALISASI ANGGARAN TAHUN "+$P{tahun}+ " BULAN "+$P{bulan}
++"\nPER "+($F{jenis_workspace} == null ? "" : $F{jenis_workspace}.toUpperCase())
++"\n"+$P{satuan_kerja}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-1" mode="Opaque" x="51" y="129" width="404" height="56" backcolor="#CCCCCC"/>
+				<box leftPadding="4">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<text><![CDATA[KEGIATAN/SUB KEGIATAN/JENIS BELANJA]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-7" mode="Opaque" x="455" y="129" width="85" height="56" backcolor="#CCCCCC"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<text><![CDATA[DIPA]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-8" mode="Opaque" x="0" y="129" width="51" height="56" backcolor="#CCCCCC"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<text><![CDATA[Kode]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-9" mode="Opaque" x="764" y="129" width="85" height="56" backcolor="#CCCCCC"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<text><![CDATA[REALISASI
+S/D
+BULAN INI]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-10" mode="Opaque" x="849" y="129" width="27" height="56" backcolor="#CCCCCC"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<text><![CDATA[%]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="0" y="46" width="988" height="29"/>
+				<textElement textAlignment="Center" verticalAlignment="Bottom">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{label_universitas}]]></textFieldExpression>
+			</textField>
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="0" y="-10" width="988" height="56"/>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<staticText>
+				<reportElement key="staticText-9" mode="Opaque" x="876" y="129" width="85" height="56" backcolor="#CCCCCC"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<text><![CDATA[SISA DIPA
+S/D BULAN INI]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-9" mode="Opaque" x="540" y="129" width="85" height="56" backcolor="#CCCCCC"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<text><![CDATA[REALISASI
+S/D
+BULAN LALU]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-10" mode="Opaque" x="625" y="129" width="27" height="56" backcolor="#CCCCCC"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<text><![CDATA[%]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-9" mode="Opaque" x="652" y="129" width="85" height="56" backcolor="#CCCCCC"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<text><![CDATA[REALISASI
+BULAN INI]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-10" mode="Opaque" x="737" y="129" width="27" height="56" backcolor="#CCCCCC"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<text><![CDATA[%]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-10" mode="Opaque" x="961" y="129" width="27" height="56" backcolor="#CCCCCC"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<text><![CDATA[%]]></text>
+			</staticText>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<columnHeader>
+		<band splitType="Stretch"/>
+	</columnHeader>
+	<detail>
+		<band height="18" splitType="Stretch">
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="51" y="0" width="404" height="18"/>
+				<box leftPadding="4">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nama}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0" isBlankWhenNull="true">
+				<reportElement key="textField" x="455" y="0" width="85" height="18"/>
+				<box rightPadding="3">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="7" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{harga_total}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="0" y="0" width="51" height="18"/>
+				<box leftPadding="0">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{kode}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0" isBlankWhenNull="true">
+				<reportElement key="textField-5" x="764" y="0" width="85" height="18"/>
+				<box rightPadding="3">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="7" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{total_realisasi_sampai_bulan_ini}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0.00" isBlankWhenNull="true">
+				<reportElement key="textField-6" x="849" y="0" width="27" height="18"/>
+				<box rightPadding="3">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="7" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{persen_realisasi_sampai_bulan_ini}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0" isBlankWhenNull="true">
+				<reportElement key="textField-5" x="876" y="0" width="85" height="18"/>
+				<box rightPadding="3">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="7" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{total_sisa_dipa_bulan_ini}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0" isBlankWhenNull="true">
+				<reportElement key="textField-5" x="540" y="0" width="85" height="18"/>
+				<box rightPadding="3">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="7" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{total_realisasi_bulan_lalu}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0.00" isBlankWhenNull="true">
+				<reportElement key="textField-6" x="625" y="0" width="27" height="18"/>
+				<box rightPadding="3">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="7" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{persen_realisasi_bulan_lalu}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0.00" isBlankWhenNull="true">
+				<reportElement key="textField-6" x="737" y="0" width="27" height="18"/>
+				<box rightPadding="3">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="7" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{persen_realisasi_bulan_ini}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0" isBlankWhenNull="true">
+				<reportElement key="textField-5" x="652" y="0" width="85" height="18"/>
+				<box rightPadding="3">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="7" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{total_realisasi_bulan_ini}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0.00" isBlankWhenNull="true">
+				<reportElement key="textField-6" x="961" y="0" width="27" height="18"/>
+				<box rightPadding="3">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="7" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{persen_sisa_dipa_bulan_ini}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band splitType="Stretch"/>
+	</pageFooter>
+	<summary>
+		<band height="20" splitType="Stretch">
+			<textField pattern="#,##0.00" isBlankWhenNull="true">
+				<reportElement key="textField-6" x="625" y="0" width="27" height="18"/>
+				<box rightPadding="3">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="7" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{persen_realisasi_bulan_lalu}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0.00" isBlankWhenNull="true">
+				<reportElement key="textField-6" x="961" y="0" width="27" height="18"/>
+				<box rightPadding="3">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="7" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{persen_sisa_dipa_bulan_ini}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0.00" isBlankWhenNull="true">
+				<reportElement key="textField-6" x="849" y="0" width="27" height="18"/>
+				<box rightPadding="3">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="7" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{persen_realisasi_sampai_bulan_ini}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0" isBlankWhenNull="true">
+				<reportElement key="textField-5" x="540" y="0" width="85" height="18"/>
+				<box rightPadding="3">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="7" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{total_realisasi_bulan_lalu}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0" isBlankWhenNull="true">
+				<reportElement key="textField" x="455" y="0" width="85" height="18"/>
+				<box rightPadding="3">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="7" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{harga_total}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0" isBlankWhenNull="true">
+				<reportElement key="textField-5" x="652" y="0" width="85" height="18"/>
+				<box rightPadding="3">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="7" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{total_realisasi_bulan_ini}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0" isBlankWhenNull="true">
+				<reportElement key="textField-5" x="876" y="0" width="85" height="18"/>
+				<box rightPadding="3">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="7" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{total_sisa_dipa_bulan_ini}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0" isBlankWhenNull="true">
+				<reportElement key="textField-5" x="764" y="0" width="85" height="18"/>
+				<box rightPadding="3">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="7" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{total_realisasi_sampai_bulan_ini}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0.00" isBlankWhenNull="true">
+				<reportElement key="textField-6" x="737" y="0" width="27" height="18"/>
+				<box rightPadding="3">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="7" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{persen_realisasi_bulan_ini}]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
+</jasperReport>

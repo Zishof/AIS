@@ -1,0 +1,29 @@
+<?page title="new page title" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<window height="100%" width="100%" border="none">
+
+
+		<tabbox height="100%" width="100%">
+
+			<tabs>
+				<tab>Item Gaji dalam bentuk tree</tab>
+				<tab>Item dalam bentuk daftar</tab>
+			</tabs>
+			<tabpanels>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<include use="ais.ui.util.MyInclude" height="100%" width="100%"
+						src="/WEB-INF/z/x/y/pages/master/payroll/item_gaji_tree.zul">
+					</include>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<include use="ais.ui.util.MyInclude" height="100%" width="100%"
+						src="/WEB-INF/z/x/y/pages/master/payroll/item_gaji_list.zul">
+					</include>
+				</tabpanel>
+
+			</tabpanels>
+
+		</tabbox>
+
+	</window>
+</zk>

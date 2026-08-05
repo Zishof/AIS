@@ -1,0 +1,22 @@
+# Metadata SVN lama (bukan bagian dari source, murni bloat internal SVN)
+.svn/
+**/.svn/
+
+# Build/compile artifacts
+*.class
+build/
+target/
+
+# IDE
+.idea/
+*.iml
+.settings/
+.classpath
+.project
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Claude Code local config
+.claude/

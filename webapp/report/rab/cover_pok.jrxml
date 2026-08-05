@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="cover_pok" language="groovy" pageWidth="842" pageHeight="595" orientation="Landscape" columnWidth="802" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20">
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="id" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[1015516L]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select
+(case when d.kode is null then '' else d.kode end)||(case when c.kode is null then '' else '.' || c.kode end)||(case when b.kode is null then '' else '.' || b.kode end) as kode_satuan_kerja,
+b.nama as nama_satuan_kerja,
+e.kode as kode_lokasi,
+e.nama as nama_lokasi,
+a.kode as kode_program,
+a.nama as nama_program,
+a.tahun_workspace,
+d.nama as kementrian
+
+from rab.workspace a
+left join rab.satuan_kerja b on (a.satuan_kerja = b.id)
+left join rab.satuan_kerja c on (b.parent = c.id)
+left join rab.satuan_kerja d on (c.parent = d.id)
+left join rab.satuan_lokasi e on (e.id = b.satuan_lokasi)
+where a.id=$P{id}]]>
+	</queryString>
+	<field name="kode_satuan_kerja" class="java.lang.String"/>
+	<field name="nama_satuan_kerja" class="java.lang.String"/>
+	<field name="kode_lokasi" class="java.lang.String"/>
+	<field name="nama_lokasi" class="java.lang.String"/>
+	<field name="kode_program" class="java.lang.String"/>
+	<field name="nama_program" class="java.lang.String"/>
+	<field name="tahun_workspace" class="java.lang.Integer"/>
+	<field name="kementrian" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="555" splitType="Stretch">
+			<rectangle>
+				<reportElement x="19" y="204" width="765" height="190"/>
+			</rectangle>
+			<textField>
+				<reportElement x="0" y="28" width="802" height="35"/>
+				<textElement textAlignment="Center">
+					<font size="18" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["PETUNJUK OPERASIONAL KEGIATAN"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="80" width="802" height="33"/>
+				<textElement textAlignment="Center">
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA["BALAI PELATIHAN DAN RISET TIK BADAN LITBANG SDM KEMENTERIAN KOMINFO"+
+"\nTAHUN ANGGARAN "+$F{tahun_workspace}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="90" y="238" width="661" height="33"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{kementrian}.toUpperCase()+"\n"+
+"RINCIAN ANGGARAN BIAYA (RAB) NICT-HRD PER KEGIATAN TAHUN ANGGARAN "+$F{tahun_workspace}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="135" y="300" width="110" height="20"/>
+				<textElement>
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["SATUAN KERJA"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="245" y="300" width="15" height="20"/>
+				<textElement>
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[":"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="260" y="300" width="121" height="20"/>
+				<textElement textAlignment="Center">
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["("+$F{kode_satuan_kerja}+")"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="381" y="300" width="370" height="20"/>
+				<textElement>
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nama_satuan_kerja}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="245" y="320" width="15" height="20"/>
+				<textElement>
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[":"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="381" y="320" width="370" height="20"/>
+				<textElement>
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nama_lokasi}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="135" y="320" width="110" height="20"/>
+				<textElement>
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["LOKASI"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="260" y="320" width="121" height="20"/>
+				<textElement textAlignment="Center">
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["("+$F{kode_lokasi}+")"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="260" y="340" width="121" height="20"/>
+				<textElement textAlignment="Center">
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["("+$F{kode_program}+")"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="381" y="340" width="370" height="20"/>
+				<textElement>
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nama_program}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="135" y="340" width="110" height="20"/>
+				<textElement>
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["PROGRAM"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="245" y="340" width="15" height="20"/>
+				<textElement>
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[":"]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+</jasperReport>

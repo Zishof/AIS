@@ -1,0 +1,74 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false"
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.koperasi.PembagianShuAction" width="100%" height="100%">
+
+		<div sclass="ais-crud-portal">
+
+			<!-- ═══ KARTU INPUT SHU ═══ -->
+			<div sclass="ais-crud-filter-card">
+				<div sclass="ais-crud-filter-head">
+					<span sclass="ais-crud-filter-title">Data Pembagian SHU (Sesuai Keputusan RAT)</span>
+					<div sclass="ais-crud-filter-actions">
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+							id="hitung" label="Hitung &amp; Bagikan" image="/img/save.gif"
+							tooltiptext="Hitung bagian SHU tiap anggota dan simpan" forward="onClick=onHitung"/>
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+							id="refresh" label="Segarkan" image="/img/refresh.gif"
+							tooltiptext="Muat ulang hasil" forward="onClick=onRefresh"/>
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;pembagian_shu&quot;, &quot;Bantuan&quot;);"/></div>
+				</div>
+				<div sclass="ais-crud-filter-body">
+					<grid use="ais.ui.util.MyGrid" fixedLayout="true" sclass="ais-crud-filter-grid">
+						<columns>
+							<column use="ais.ui.util.MyColumnConfig" width="130px"/>
+							<column use="ais.ui.util.MyColumnConfig"/>
+							<column use="ais.ui.util.MyColumnConfig" width="150px"/>
+							<column use="ais.ui.util.MyColumnConfig"/>
+						</columns>
+						<rows>
+							<row>
+								<label use="ais.ui.util.MyLabelConfig" value="Tahun Buku"/>
+								<intbox id="tahun" width="90%" forward="onOK=onRefresh"/>
+								<label use="ais.ui.util.MyLabelConfig" value="Total SHU (Rp) *"/>
+								<doublebox id="totalShu" width="90%" format="#,##0.##"/>
+							</row>
+							<row>
+								<label use="ais.ui.util.MyLabelConfig" value="% Dana Cadangan"/>
+								<doublebox id="persenCadangan" width="90%" format="#,##0.##"/>
+								<label use="ais.ui.util.MyLabelConfig" value="% Jasa Modal"/>
+								<doublebox id="persenJasaModal" width="90%" format="#,##0.##"/>
+							</row>
+							<row>
+								<label use="ais.ui.util.MyLabelConfig" value="% Jasa Usaha"/>
+								<doublebox id="persenJasaUsaha" width="90%" format="#,##0.##"/>
+								<label use="ais.ui.util.MyLabelConfig" value="% Pendidikan"/>
+								<doublebox id="persenPendidikan" width="90%" format="#,##0.##"/>
+							</row>
+							<row>
+								<label use="ais.ui.util.MyLabelConfig" value="% Insentif Pengurus"/>
+								<doublebox id="persenPengurus" width="90%" format="#,##0.##"/>
+								<label use="ais.ui.util.MyLabelConfig" value="% Dana Sosial"/>
+								<doublebox id="persenSosial" width="90%" format="#,##0.##"/>
+							</row>
+						</rows>
+					</grid>
+				</div>
+			</div>
+
+			<!-- ═══ KARTU HASIL ═══ -->
+			<div sclass="ais-crud-data-card">
+				<div id="dashHost" width="100%"/>
+			</div>
+
+		</div>
+
+	</window>
+
+</zk>

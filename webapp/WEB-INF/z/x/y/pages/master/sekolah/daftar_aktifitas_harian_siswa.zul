@@ -1,0 +1,82 @@
+<?page id="daftarAktifitasSiswaZul" title="Daftar Aktivitas Harian Per Siswa" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul">
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.sekolah.DaftarAktifitasHarianSiswaAction" width="100%" height="100%">
+
+		<borderlayout>
+			<west title="Filter Pencarian" size="250px" splittable="true" collapsible="true" border="none">
+				<grid fixedLayout="true" use="ais.ui.util.MyGrid" sclass="fgrid">
+					<columns>
+						<column width="100%" />
+					</columns>
+					<rows>
+						<row>
+							<vbox width="100%">
+								<label use="ais.ui.util.MyLabelConfig" value="Yayasan" />
+								<combobox id="yayasan" width="98%" readonly="true" />
+							</vbox>
+						</row>
+						<row>
+							<vbox width="100%">
+								<label use="ais.ui.util.MyLabelConfig" value="Sekolah" />
+								<combobox id="sekolah" width="98%" readonly="true" />
+							</vbox>
+						</row>
+						<row>
+							<vbox width="100%">
+								<label use="ais.ui.util.MyLabelConfig" value="Kelas" />
+								<div id="divKelas" width="98%" />
+							</vbox>
+						</row>
+						<row>
+							<vbox width="100%">
+								<label use="ais.ui.util.MyLabelConfig" value="Nama / NIS" />
+								<textbox id="searchnama" width="98%" forward="onOK=onSearchDefault" />
+							</vbox>
+						</row>
+						<row>
+							<toolbar align="center">
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Cari Siswa" 
+									image="/img/search.gif" forward="onClick=onSearchDefault" />
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;daftar_aktifitas_harian_siswa&quot;, &quot;Bantuan&quot;);"/>
+			</toolbar>
+						</row>
+					</rows>
+				</grid>
+			</west>
+
+			<center border="none" flex="true">
+				<grid use="ais.ui.util.MyGrid" sclass="fgrid" height="100%">
+					<rows>
+						<row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-atas" height="64px" /></row>
+						<row>
+							<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true" />
+						</row>
+						<row>
+							<grid use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true" id="grid">
+								<columns>
+									<column use="ais.ui.util.MyColumnConfig" label="NIS" width="100px" sort="auto(nomorInduk)" />
+									<column use="ais.ui.util.MyColumnConfig" label="Nama Siswa" sort="auto(namaSiswa)" />
+									<column use="ais.ui.util.MyColumnConfig" label="Kelas" width="150px" />
+									<column use="ais.ui.util.MyColumnConfig" label="Aksi" width="120px" align="center" />
+								</columns>
+							</grid>
+						</row>
+						<row><paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar" /></row>
+						<row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-bawah" height="128px" /></row>
+					</rows>
+				</grid>
+			</center>
+		</borderlayout>
+
+		<window use="ais.ui.util.MyWindow" id="calendarWindow" title="Kalender Aktivitas Siswa" 
+			visible="false" mode="popup" border="normal" width="600px" height="500px">
+		</window>
+		
+		<zscript><![CDATA[
+			calendarWindow.setVisible(false);
+		]]></zscript>
+	</window>
+</zk>

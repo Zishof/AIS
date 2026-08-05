@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="KartuBayarSPMB" pageWidth="595" pageHeight="300" orientation="Landscape" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20">
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="biodata_id" class="java.lang.Long"/>
+	<parameter name="foto" class="java.io.InputStream" isForPrompting="false"/>
+	<queryString>
+		<![CDATA[select a.nama,a.jenis_kartu_identitas_mahasiswa_baru,
+a.no_identitas,a.jenis_kelamin,a.tempat_lahir,a.tanggal_lahir,
+a.alamat,a.asal_sma,a.prodi_1,a.prodi_2,a.no_registrasi,a.foto,
+b.nama as p1,c.nama as p2, d.nama as kartu
+
+from biodata_calon_mahasiswa a
+
+left join jurusan b on a.prodi_1=b.id
+left join jurusan c on a.prodi_1=c.id
+
+left join jenis_kartu_identitas_mahasiswa_baru d on a.jenis_kartu_identitas_mahasiswa_baru=d.id
+
+where a.id=$P{biodata_id}]]>
+	</queryString>
+	<field name="nama" class="java.lang.String"/>
+	<field name="jenis_kartu_identitas_mahasiswa_baru" class="java.lang.Long"/>
+	<field name="no_identitas" class="java.lang.String"/>
+	<field name="jenis_kelamin" class="java.lang.String"/>
+	<field name="tempat_lahir" class="java.lang.String"/>
+	<field name="tanggal_lahir" class="java.sql.Date"/>
+	<field name="alamat" class="java.lang.String"/>
+	<field name="asal_sma" class="java.lang.String"/>
+	<field name="prodi_1" class="java.lang.Long"/>
+	<field name="prodi_2" class="java.lang.Long"/>
+	<field name="no_registrasi" class="java.lang.String"/>
+	<field name="foto" class="java.lang.Integer"/>
+	<field name="p1" class="java.lang.String"/>
+	<field name="p2" class="java.lang.String"/>
+	<field name="kartu" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="24" splitType="Stretch">
+			<staticText>
+				<reportElement key="staticText-1" x="0" y="0" width="535" height="24"/>
+				<textElement textAlignment="Center">
+					<font size="18" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[UIN SYARIF HIDAYATULLAH JAKARTA]]></text>
+			</staticText>
+			<line>
+				<reportElement key="line-1" x="0" y="-23" width="535" height="1"/>
+				<graphicElement>
+					<pen lineWidth="1.0" lineStyle="Double"/>
+				</graphicElement>
+			</line>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<columnHeader>
+		<band splitType="Stretch"/>
+	</columnHeader>
+	<detail>
+		<band height="260" splitType="Stretch">
+			<staticText>
+				<reportElement key="staticText-2" x="140" y="36" width="259" height="24"/>
+				<textElement textAlignment="Center">
+					<font size="14"/>
+				</textElement>
+				<text><![CDATA[KARTU PENDAFTAR SPMB MANDIRI]]></text>
+			</staticText>
+			<image>
+				<reportElement key="image-1" x="92" y="9" width="46" height="50"/>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<staticText>
+				<reportElement key="staticText-13" x="0" y="75" width="535" height="29"/>
+				<textElement>
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[Selamat, anda terdaftar sebagai peserta SPMB Mandiri UIN Syarif Hidayatullah Jakarta, tahun 2012]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-14" x="0" y="104" width="535" height="15"/>
+				<textElement/>
+				<text><![CDATA[Pastikan bahwa data dibawah ini adalah benar data diri anda.]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-15" x="0" y="119" width="535" height="27"/>
+				<textElement/>
+				<text><![CDATA[Segera lakukan pembayaran biaya SPMB Mandiri di Bank BNI, Mandiri ataupun BNI terdekat, dengan memasukkan nomor registrasi anda di menu pembayaran UIN Jakarta]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-16" x="0" y="146" width="535" height="33"/>
+				<textElement/>
+				<text><![CDATA[Setelah melakukan pembayaran, anda dapat melakukan login dengan PIN yang didapatkan dari Bank, dan melengkapi biodata diri anda dan mencetak kartu ujian SPMB Mandiri  melalui aplikasi AIS UIN Jakarta]]></text>
+			</staticText>
+			<line>
+				<reportElement key="line-3" x="0" y="185" width="535" height="1"/>
+			</line>
+			<staticText>
+				<reportElement key="staticText-20" x="0" y="60" width="535" height="15"/>
+				<textElement textAlignment="Center"/>
+				<text><![CDATA[Panitia Penerimaan Mahasiswa Baru UIN Syarif Hidayatullah Jalur SPMB Mandiri]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-3" x="23" y="220" width="128" height="16"/>
+				<textElement/>
+				<text><![CDATA[Nama]]></text>
+			</staticText>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="167" y="220" width="278" height="16"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{nama}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-12" x="23" y="205" width="128" height="16"/>
+				<textElement>
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[No pendaftaran]]></text>
+			</staticText>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="167" y="205" width="278" height="15"/>
+				<textElement>
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{no_registrasi}]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement key="line-2" x="0" y="250" width="535" height="1"/>
+				<graphicElement>
+					<pen lineWidth="1.0" lineStyle="Double"/>
+				</graphicElement>
+			</line>
+			<staticText>
+				<reportElement key="staticText-17" x="151" y="205" width="16" height="16"/>
+				<textElement>
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-18" x="151" y="220" width="16" height="16"/>
+				<textElement>
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+		</band>
+	</detail>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band splitType="Stretch"/>
+	</pageFooter>
+	<summary>
+		<band splitType="Stretch"/>
+	</summary>
+</jasperReport>

@@ -1,0 +1,95 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.beasiswa.BeasiswaUntukMahasiswaAction"
+		width="100%" height="100%">
+
+
+		<borderlayout>
+
+			<north height="30px">
+				<toolbar height="30px" id="toolbarData">
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;beasiswa_utk_mhs&quot;, &quot;Bantuan&quot;);"/>
+			</toolbar>
+			</north>
+
+			<center border="none" flex="true">
+
+				<grid use="ais.ui.util.MyGrid" sclass="fgrid">
+					<rows>
+						<row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-atas" height="64px" /></row>
+						<row>
+							<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging"
+								detailed="true" />
+						</row>
+						<row>
+							<grid use="ais.ui.util.MyGrid" 
+								sclass="dgrid" fixedLayout="true" id="grid">
+								<columns>
+									<column
+										use="ais.ui.util.MyColumnConfig" label="Tahun" width="10%" />
+									<column
+										use="ais.ui.util.MyColumnConfig" label="Beasiswa"
+										 />
+									<column
+										use="ais.ui.util.MyColumnConfig" label="Tanggal dibuka"
+										sort="tanggalBuka" />
+									<column
+										use="ais.ui.util.MyColumnConfig" label="Tanggal tutup"
+										sort="tanggalTutup" />
+									<column
+										use="ais.ui.util.MyColumnConfig" label="Instansi"
+										sort="instansi" />
+
+									<column
+										use="ais.ui.util.MyColumnConfig" label="Status" width="10%" />
+									<column
+										use="ais.ui.util.MyColumnConfig" width="15%" label="" />
+								</columns>
+
+							</grid>
+
+
+						</row>
+						<row><paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar" /></row>
+						<row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-bawah" height="128px" /></row>
+					</rows>
+				</grid>
+			</center>
+		</borderlayout>
+
+
+
+		<window use="ais.ui.util.MyWindow" id="addWindow" title="Daftar"
+			visible="false" mode="popup" position="center,center" border="normal"
+			width="550px" height="200px">
+
+		</window>
+
+
+		<window use="ais.ui.util.MyWindow" id="daftar_beasiswa_window"
+			title="Konfirmasi Data Pendaftaran Beasiswa" visible="false"
+			mode="popup" position="center,center" border="normal" width="95%"
+			height="97%">
+
+
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+	daftar_beasiswa_window.setVisible(false);
+]]></zscript>
+
+	</window>
+
+
+</zk>

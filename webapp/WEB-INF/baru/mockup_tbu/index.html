@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Peta Modul Sistem — Taruna Bakti University (TBU)</title>
+<link rel="stylesheet" href="assets/tbu.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar"></aside>
+  <div class="main">
+    <header class="topbar"></header>
+    <main class="content">
+      <div class="crumb"><i class="fa-solid fa-house"></i> Beranda <span class="sep">/</span> Peta Modul Sistem</div>
+      <div class="head-row">
+        <div>
+          <h1 class="page-title">Ekosistem Sistem Informasi Terpadu TBU</h1>
+          <div class="page-sub">53 modul terintegrasi untuk Taruna Bakti University di bawah Yayasan Taruna Bakti &mdash; klik modul mana pun untuk membuka pratinjau UI/UX.</div>
+        </div>
+        <div style="display:flex;gap:9px"><a class="btn" href="mobile.html"><i class="fa-solid fa-mobile-screen-button"></i> Tampilan Mobile</a><a class="btn btn-primary" href="dashboard.html"><i class="fa-solid fa-gauge-high"></i> Dasbor Pimpinan</a></div>
+      </div>
+
+      <div class="grid g-4" style="margin-bottom:22px">
+        <div class="stat"><div class="top"><div class="ic" style="background:linear-gradient(135deg,#4f46e5,#6d28d9)"><i class="fa-solid fa-layer-group"></i></div></div><div class="val">53</div><div class="lbl">Modul Terintegrasi</div></div>
+        <div class="stat"><div class="top"><div class="ic" style="background:linear-gradient(135deg,#10b981,#059669)"><i class="fa-solid fa-plug"></i></div></div><div class="val">2</div><div class="lbl">Integrasi Nasional (Neofeeder &amp; Sister)</div></div>
+        <div class="stat"><div class="top"><div class="ic" style="background:linear-gradient(135deg,#0ea5e9,#2563eb)"><i class="fa-solid fa-mobile-screen-button"></i></div></div><div class="val">3</div><div class="lbl">Kanal Akses (Web, Android &amp; iOS)</div></div>
+        <div class="stat"><div class="top"><div class="ic" style="background:linear-gradient(135deg,#7c3aed,#6d28d9)"><i class="fa-solid fa-calendar-check"></i></div></div><div class="val">2 Thn</div><div class="lbl">Roadmap Implementasi</div></div>
+      </div>
+
+      <div id="mods"></div>
+    </main>
+  </div>
+</div>
+
+<script>window.TBU_PAGE='index';</script>
+<script src="assets/tbu.js"></script>
+<script>
+var GROUPS = [
+ {g:'Penerimaan, Setup & Kepemimpinan', c:'#4f46e5', m:[
+   {t:'PMB / PPDB & RPL', d:'Pendaftaran mahasiswa baru, jalur RPL, parameter & form custom, pembayaran calon multi-channel.', i:'fa-user-plus', l:'pmb.html'},
+   {t:'Setup & Utility', d:'Konfigurasi institusi, parameter sistem, hak akses & utilitas.', i:'fa-sliders', l:'setup.html'},
+   {t:'Multi-Portal & Kurikulum Ganda', d:'6 portal peran (pimpinan, dosen, mahasiswa, tendik, ortu, alumni) & dua kurikulum paralel.', i:'fa-users-viewfinder', l:'portal.html'},
+   {t:'Dasbor Pimpinan', d:'Dasbor eksekutif seluruh aktivitas & modul kampus real-time.', i:'fa-gauge-high', l:'dashboard.html'},
+   {t:'Pendataan (Master Data)', d:'Seluruh data master perguruan tinggi: mahasiswa, dosen, prodi, kelas, dsb.', i:'fa-database', l:'masterdata.html'}
+ ]},
+ {g:'Akademik & Pembelajaran', c:'#0ea5e9', m:[
+   {t:'Penjadwalan / Timetable', d:'Penjadwalan drag-and-drop, pencegahan jam bentrok otomatis.', i:'fa-calendar-days', l:'jadwal.html'},
+   {t:'Akademik Terpadu', d:'KRS, penilaian, kurikulum (OBE & non-OBE), KKN, PKL, magang, beasiswa, kerjasama.', i:'fa-graduation-cap', l:'akademik.html'},
+   {t:'Kurikulum OBE', d:'CPL, CPMK, Sub-CPMK, pemetaan, RPS & asesmen capaian.', i:'fa-diagram-project', l:'obe.html'},
+   {t:'LMS (e-Learning)', d:'Tugas, ujian, anti-curang, materi, video/audio, absensi online.', i:'fa-laptop-code', l:'lms.html'},
+   {t:'Manajemen Kehadiran', d:'Kehadiran dosen/mahasiswa/tendik + dasbor & statistik.', i:'fa-fingerprint', l:'kehadiran.html'},
+   {t:'Bimbingan', d:'TA/Skripsi, KKN, PKL, akademik, magang — jadwal, nilai, statistik.', i:'fa-user-graduate', l:'bimbingan.html'},
+   {t:'PKL, KKN & Magang MBKM', d:'Pendaftaran, penempatan mitra, logbook harian, penilaian & konversi SKS.', i:'fa-briefcase', l:'pkl.html'},
+   {t:'Pengujian & Sidang', d:'Sidang TA/Skripsi: jadwal, penguji, nilai, dasbor.', i:'fa-gavel', l:'sidang.html'},
+   {t:'Penilaian Terintegrasi', d:'Penilaian otomatis terhubung LMS & feeder.', i:'fa-square-poll-vertical', l:'penilaian.html'},
+   {t:'Sertifikat & Pelatihan', d:'Sertifikat digital ber-QR, terintegrasi penilaian & LMS.', i:'fa-certificate', l:'sertifikat.html'}
+ ]},
+ {g:'Integrasi Pelaporan Nasional', c:'#0d9488', m:[
+   {t:'Integrasi Neo Feeder', d:'Sinkronisasi dua arah PDDikti — perbandingan & samakan data.', i:'fa-cloud-arrow-up', l:'neofeeder.html'},
+   {t:'Integrasi Sister', d:'Sinkronisasi data SDM dosen ke SISTER Kemdikbud.', i:'fa-cloud-arrow-down', l:'sister.html'}
+ ]},
+ {g:'Keuangan, Usaha & Akuntansi', c:'#10b981', m:[
+   {t:'Finance & e-Wallet Mahasiswa', d:'Tagihan bulanan/insidentil, diskon, tabungan (Top-up), multi-channel.', i:'fa-credit-card', l:'keuangan.html'},
+   {t:'e-Wallet, POS & Koperasi', d:'e-Wallet kampus, POS kantin/unit usaha, penjualan & koperasi.', i:'fa-wallet', l:'ewallet.html'},
+   {t:'POS & Perangkat Keras Kasir', d:'Printer thermal, scanner, cash drawer, EDC/QRIS, RFID & mode offline.', i:'fa-cash-register', l:'pos.html'},
+   {t:'Beasiswa', d:'KIP-K, Yayasan, prestasi & CSR — seleksi berjenjang hingga penyaluran dana.', i:'fa-hand-holding-heart', l:'beasiswa.html'},
+   {t:'Akuntansi Yayasan (Pusat)', d:'Finance kampus terintegrasi akuntansi Yayasan.', i:'fa-calculator', l:'akuntansi.html'},
+   {t:'Anggaran & Realisasi', d:'Kas besar/kecil, uang muka, LPJ, PR/PO/BAST, termin — terhubung Yayasan.', i:'fa-money-bill-trend-up', l:'anggaran.html'},
+   {t:'Pengadaan & Logistik', d:'Aset & inventaris, peminjaman, vendor & seleksi — via Yayasan.', i:'fa-boxes-stacked', l:'pengadaan.html'},
+   {t:'Pembayaran Vendor (DPC)', d:'Pengajuan transfer & pembayaran vendor terintegrasi Yayasan.', i:'fa-file-invoice-dollar', l:'dpc.html'}
+ ]},
+ {g:'SDM, Kinerja & Pengembangan', c:'#7c3aed', m:[
+   {t:'SDM & Kepegawaian', d:'Registrasi dosen/tendik, data kepegawaian — terhubung Yayasan.', i:'fa-users-gear', l:'sdm.html'},
+   {t:'Payroll', d:'Penggajian terintegrasi SDM & pembayaran Yayasan (Standing Instruction).', i:'fa-money-check-dollar', l:'payroll.html'},
+   {t:'Kinerja Pegawai (SKP & KPI)', d:'Sasaran kinerja dosen/pegawai terhubung KPI.', i:'fa-chart-line', l:'kinerja.html'},
+   {t:'Angket & Survey (EDOM)', d:'Evaluasi dosen (EDOM), survey sarpras, layanan & fasilitas.', i:'fa-square-poll-horizontal', l:'edom.html'},
+   {t:'Kursus & Pelatihan Internal', d:'Platform kursus subscribe internal kampus (referensi: Udemy).', i:'fa-chalkboard-user', l:'kursus.html'},
+   {t:'Prestasi', d:'Prestasi dosen/mahasiswa/tendik, hak cipta, organisasi, sertifikat.', i:'fa-trophy', l:'prestasi.html'},
+   {t:'Kedisiplinan', d:'Kedisiplinan dosen/mahasiswa/tendik termasuk punishment.', i:'fa-scale-balanced', l:'kedisiplinan.html'}
+ ]},
+ {g:'Penelitian, Mutu & Dokumen', c:'#e11d48', m:[
+   {t:'Penelitian & PPM', d:'Penelitian, pengabdian, jurnal, karya ilmiah, termasuk BKD.', i:'fa-flask', l:'ppm.html'},
+   {t:'Repository Institusi', d:'Repository mandiri (referensi DSpace/EPrints), sinkron otomatis.', i:'fa-server', l:'repository.html'},
+   {t:'Perpustakaan & eLibrary', d:'Sirkulasi, katalog, barcoding, baca online — terhubung repository.', i:'fa-book-open', l:'perpustakaan.html'},
+   {t:'Manajemen Dokumen (DMS)', d:'Dokumen penting kampus termasuk dokumen akreditasi.', i:'fa-folder-tree', l:'dms.html'},
+   {t:'Akreditasi (Multi-LAM)', d:'BAN-PT, LAMEMBA, LAM-INFOKOM, LAMDIK, LAM Teknik, LAMSAMA, LAMKes.', i:'fa-award', l:'akreditasi.html'},
+   {t:'SPMI & AMI', d:'Penjaminan Mutu Internal + Dasbor Audit Mutu Internal & pengajuan audit.', i:'fa-clipboard-check', l:'spmi.html'},
+   {t:'Satuan Pengawasan Internal', d:'SPI terintegrasi dengan Yayasan.', i:'fa-user-shield', l:'spi.html'}
+ ]},
+ {g:'Layanan, Persuratan & Workflow', c:'#f59e0b', m:[
+   {t:'Persuratan Mahasiswa/Dosen', d:'Surat izin penelitian, keterangan lulus, dll — via anjungan.', i:'fa-envelope-open-text', l:'persuratan.html'},
+   {t:'Pengajuan (Cuti/Izin/dll)', d:'Cuti, izin, penundaan bayar, perpanjangan studi.', i:'fa-file-signature', l:'persuratan.html'},
+   {t:'SOP & Workflow Fleksibel', d:'Alur proses custom mendukung seluruh modul pengajuan.', i:'fa-sitemap', l:'persuratan.html'},
+   {t:'Kelulusan & Wisuda', d:'Seleksi & pengajuan daftar wisuda mahasiswa.', i:'fa-user-graduate', l:'wisuda.html'},
+   {t:'Alumni & Tracer Study', d:'Tracer study + kuesioner alumni & atasan alumni.', i:'fa-people-roof', l:'alumni.html'},
+   {t:'Pengaduan Terpadu', d:'E-ticketing pengaduan + tindak lanjut, progress & dasbor.', i:'fa-headset', l:'pengaduan.html'}
+ ]},
+ {g:'Kecerdasan Buatan & Otomasi', c:'#7c3aed', m:[
+   {t:'Asisten AI Terintegrasi', d:'Generate kurikulum OBE (CPL/CPMK/RPS), buat & koreksi soal ujian, generate catatan, serta analisis & rekomendasi lintas modul.', i:'fa-wand-magic-sparkles', l:'ai.html'},
+   {t:'Notifikasi WhatsApp & Multi-Kanal', d:'Broadcast WhatsApp resmi, template pesan, otomasi pemicu & log kirim.', i:'fa-comment-dots', l:'notifikasi.html'}
+ ]},
+ {g:'Fasilitas Kampus', c:'#0891b2', m:[
+   {t:'Anjungan Informasi', d:'Kios/anjungan layanan informasi mandiri kampus.', i:'fa-desktop', l:'anjungan.html'},
+   {t:'Kunjungan Perpustakaan', d:'Pencatatan & statistik kunjungan perpustakaan.', i:'fa-door-open', l:'anjungan.html'},
+   {t:'Kunjungan Tamu', d:'Manajemen buku tamu & kunjungan.', i:'fa-user-clock', l:'anjungan.html'},
+   {t:'Antar Jemput', d:'Layanan antar jemput mahasiswa, dosen & tendik.', i:'fa-bus', l:'anjungan.html'},
+   {t:'SIM Klinik / Rumah Sakit', d:'Siap SIM-RS/klinik bila kampus memiliki Fakultas Kedokteran.', i:'fa-hospital', l:'klinik.html'},
+   {t:'eMedic & SIRS (BPJS/SATUSEHAT)', d:'RME, klaim JKN via VClaim, SATUSEHAT FHIR & pelaporan SIRS RL 1–5.', i:'fa-notes-medical', l:'sirs.html'}
+ ]}
+];
+var host = document.getElementById('mods');
+GROUPS.forEach(function(G){
+  var sec = document.createElement('div'); sec.style.marginBottom='26px';
+  sec.innerHTML = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:13px"><span style="width:7px;height:22px;border-radius:5px;background:'+G.c+'"></span><h3 style="margin:0;font-size:16px;font-weight:800">'+G.g+'</h3><span class="badge b-gray">'+G.m.length+' modul</span></div>';
+  var grid = document.createElement('div'); grid.className='mod-grid';
+  G.m.forEach(function(M){
+    var a = document.createElement('a'); a.className='mod'; a.href = M.l||'#';
+    a.innerHTML = '<div class="mi" style="background:linear-gradient(135deg,'+G.c+','+G.c+'cc)"><i class="fa-solid '+M.i+'"></i></div>'+
+      '<div><h4>'+M.t+'</h4><p>'+M.d+'</p><span class="tag"><i class="fa-solid fa-eye"></i> Buka Pratinjau</span></div>';
+    grid.appendChild(a);
+  });
+  sec.appendChild(grid); host.appendChild(sec);
+});
+</script>
+</body>
+</html>

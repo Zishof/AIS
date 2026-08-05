@@ -1,0 +1,188 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window border="none" id="window"
+		apply="ais.action.master.payroll.CutiDanIzinAction" width="100%"
+		height="100%">
+
+
+		<tabbox width="100%" height="100%">
+
+			<tabs>
+
+				<tab use="ais.ui.util.MyTabConfig" selected="true">
+					Dasbor
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig">
+					Cuti Pegawai
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onCutiBersama">
+					Pengaturan Cuti Bersama
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onLaporanCuti">
+					Laporan Cuti
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig" forward="onClick=onJenisCuti">
+					Jenis Kehadiran
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig">
+					Parameter Jenis Pengajuan
+				</tab>
+			</tabs>
+
+			<tabpanels>
+
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<div use="ais.action.master.payroll.helper.DasborCutiDanIzin"
+						width="100%" height="100%" />
+				</tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel">
+
+
+					<div sclass="ais-crud-portal">
+							<div sclass="ais-crud-filter-card">
+								<div sclass="ais-crud-filter-head">
+									<span sclass="ais-crud-filter-title">Pencarian &amp; Filter</span>
+									<div sclass="ais-crud-filter-actions">
+										<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="add" label="Tambah" image="/img/new.gif" tooltiptext="Tambah data baru" forward="onClick=onAdd"/>
+										<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="find" label="Cari" image="/img/search.gif" tooltiptext="Cari data" forward="onClick=onSearchDefault"/>
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;cuti_dan_izin&quot;, &quot;Bantuan&quot;);"/></div>
+								</div>
+								<div sclass="ais-crud-filter-body">
+									<grid use="ais.ui.util.MyGrid" fixedLayout="true" sclass="ais-crud-filter-grid">
+										<columns>
+									<column width="150px"></column>
+									<column></column>
+									<column width="150px"></column>
+									<column></column>
+									<column width="150px"></column>
+									<column></column>
+									<column></column>
+								</columns>
+										<rows>
+											<row>
+										<label use="ais.ui.util.MyLabelConfig" value="Pegawai/karyawan" />
+										<textbox id="searchpegawai"
+											forward="onOK=onSearchDefault" width="95%" />
+										<label use="ais.ui.util.MyLabelConfig" value="Tanggal" />
+
+										<hbox>
+											<datebox use="ais.ui.util.MyDatebox" id="start"
+												forward="onChange=onSearchDefault" cols="6" />
+											<label use="ais.ui.util.MyLabelConfig" value="s.d"></label>
+											<datebox use="ais.ui.util.MyDatebox" id="end"
+												forward="onChange=onSearchDefault" cols="6" />
+										</hbox>
+
+										<label id="labelSatker" use="ais.ui.util.MyLabelConfig"
+											value="Satuan Kerja" />
+										<bandbox
+											use="ais.action.master.rab.helper.AmbilDataSatuanKerjaBanbox"
+											id="searchparent" width="95%">
+										</bandbox>
+										<checkbox use="ais.ui.util.MyCheckboxConfig" id="searchaktif"
+											label="Tampilkan hanya belum disetujui"
+											forward="onClick=onSearchDefault" width="95%" />
+									</row>
+										</rows>
+									</grid>
+								</div>
+							</div>
+							<div sclass="ais-crud-data-card">
+								<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true"/>
+								<grid use="ais.ui.util.MyGrid" sclass="dgrid"
+											fixedLayout="true" id="grid">
+											<columns menupopup="auto">
+												<column use="ais.ui.util.MyColumnConfig" width="70px" />
+												<column use="ais.ui.util.MyColumnConfig" label="Pegawai/Karyawan" />
+												<column use="ais.ui.util.MyColumnConfig" label="Status izin" />
+												<column use="ais.ui.util.MyColumnConfig" label="Mulai" />
+												<column use="ais.ui.util.MyColumnConfig" label="Sampai" />
+												<column use="ais.ui.util.MyColumnConfig" width="8%" label="Jml Hari" />
+												<column use="ais.ui.util.MyColumnConfig" width="0px" label="Jatah Cuti" />
+												<column use="ais.ui.util.MyColumnConfig" width="0px" label="Cuti Bersama" />
+												<column use="ais.ui.util.MyColumnConfig" width="0px" label="Sisa Cuti" />
+												<column use="ais.ui.util.MyColumnConfig" label="Keterangan"  />
+												<column use="ais.ui.util.MyColumnConfig" width="8%" label="Persetujuan" />
+												<column use="ais.ui.util.MyColumnConfig" width="8%" label="Jatah Cuti" />
+												<column width="10%" label="" />
+											</columns>
+
+										</grid>
+								<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>
+							</div>
+						</div>
+
+		
+
+		
+
+				</tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="cutiTab"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="laporanCutiTab"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="jenisKehadiran"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="pengajuan">
+					<tabbox width="100%" height="100%">
+
+						<tabs>
+							<tab use="ais.ui.util.MyTabConfig">
+								Form Pengajuan Cuti/Izin
+							</tab>
+							<tab use="ais.ui.util.MyTabConfig">
+								Manajemen Parameter
+							</tab>
+							<tab use="ais.ui.util.MyTabConfig">
+								Laporan Form Pengajuan Cuti/Izin
+							</tab>
+						</tabs>
+
+						<tabpanels>
+
+							<tabpanel use="ais.ui.util.MyTabpanel">
+								<include width="100%" height="100%"
+									src="/WEB-INF/z/x/y/pages/master/employ/jenis_pengajuan_cuti_dan_izin.zul">
+								</include>
+							</tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel">
+								<include width="100%" height="100%"
+									src="/WEB-INF/z/x/y/pages/master/employ/parameter_tambahan_pengajuan_cuti_dan_izin.zul">
+								</include>
+							</tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel">
+								<window width="100%" height="100%"
+									use="ais.action.report.format1.akademik.LaporanCutiDanIzin">
+								</window>
+							</tabpanel>
+
+						</tabpanels>
+					</tabbox>
+
+
+				</tabpanel>
+			</tabpanels>
+		</tabbox>
+
+
+		<window use="ais.ui.util.MyWindowJudul" id="addWindow" title="Tambah Gaji Tabahan"
+			visible="false" mode="popup" position="center,center" border="normal"
+			width="550px" height="95%">
+
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+	</window>
+
+
+</zk>

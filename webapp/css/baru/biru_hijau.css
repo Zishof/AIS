@@ -1,0 +1,10 @@
+:root {
+    --theme-primary: #007131;
+    --theme-primary-dark: #004d21;
+    --theme-light: rgba(0, 113, 49, 0.1);
+    --theme-hover: #b30000;
+    --theme-gradient: linear-gradient(90deg, rgba(0,113,49,1) 0%, rgba(92,76,148,1) 100%);
+    --theme-scrollbar-thumb: #096a85;
+    --theme-text-on-primary: white;
+    --theme-text-shadow: none;
+}

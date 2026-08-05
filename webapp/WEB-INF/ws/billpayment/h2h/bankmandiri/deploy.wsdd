@@ -1,0 +1,104 @@
+<!-- Use this file to deploy some handlers/chains and services      -->
+<!-- Two ways to do this:                                           -->
+<!--   java org.apache.axis.client.AdminClient deploy.wsdd          -->
+<!--      after the axis server is running                          -->
+<!-- or                                                             -->
+<!--   java org.apache.axis.utils.Admin client|server deploy.wsdd   -->
+<!--      from the same directory that the Axis engine runs         -->
+
+<deployment
+    xmlns="http://xml.apache.org/axis/wsdd/"
+    xmlns:java="http://xml.apache.org/axis/wsdd/providers/java">
+
+  <!-- Services from BillPaymentService WSDL service -->
+
+  <service name="BillPaymentServiceSoap" provider="java:RPC" style="wrapped" use="literal">
+      <parameter name="wsdlTargetNamespace" value="bankmandiri.h2h.billpayment.ws"/>
+      <parameter name="wsdlServiceElement" value="BillPaymentService"/>
+      <parameter name="schemaQualified" value="bankmandiri.h2h.billpayment.ws"/>
+      <parameter name="wsdlServicePort" value="BillPaymentServiceSoap"/>
+      <parameter name="className" value="ws.billpayment.h2h.bankmandiri.BillPaymentServiceSoapSkeleton"/>
+      <parameter name="wsdlPortType" value="BillPaymentServiceSoap"/>
+      <parameter name="typeMappingVersion" value="1.2"/>
+      <parameter name="allowedMethods" value="*"/>
+
+      <typeMapping
+        xmlns:ns="bankmandiri.h2h.billpayment.ws"
+        qname="ns:PaymentRequest"
+        type="java:ws.billpayment.h2h.bankmandiri.PaymentRequest"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle=""
+      />
+      <typeMapping
+        xmlns:ns="bankmandiri.h2h.billpayment.ws"
+        qname="ns:Status"
+        type="java:ws.billpayment.h2h.bankmandiri.Status"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle=""
+      />
+      <typeMapping
+        xmlns:ns="bankmandiri.h2h.billpayment.ws"
+        qname="ns:PaymentResponse"
+        type="java:ws.billpayment.h2h.bankmandiri.PaymentResponse"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle=""
+      />
+      <arrayMapping
+        xmlns:ns="bankmandiri.h2h.billpayment.ws"
+        qname="ns:ArrayOfBillDetail"
+        type="java:ws.billpayment.h2h.bankmandiri.BillDetail[]"
+        innerType="cmp-ns:BillDetail" xmlns:cmp-ns="bankmandiri.h2h.billpayment.ws"
+        encodingStyle=""
+      />
+      <typeMapping
+        xmlns:ns="bankmandiri.h2h.billpayment.ws"
+        qname="ns:InquiryRequest"
+        type="java:ws.billpayment.h2h.bankmandiri.InquiryRequest"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle=""
+      />
+      <typeMapping
+        xmlns:ns="bankmandiri.h2h.billpayment.ws"
+        qname="ns:ReversalResponse"
+        type="java:ws.billpayment.h2h.bankmandiri.ReversalResponse"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle=""
+      />
+      <arrayMapping
+        xmlns:ns="bankmandiri.h2h.billpayment.ws"
+        qname="ns:ArrayOfString"
+        type="java:java.lang.String[]"
+        innerType="cmp-ns:string" xmlns:cmp-ns="http://www.w3.org/2001/XMLSchema"
+        encodingStyle=""
+      />
+      <typeMapping
+        xmlns:ns="bankmandiri.h2h.billpayment.ws"
+        qname="ns:BillDetail"
+        type="java:ws.billpayment.h2h.bankmandiri.BillDetail"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle=""
+      />
+      <typeMapping
+        xmlns:ns="bankmandiri.h2h.billpayment.ws"
+        qname="ns:ReversalRequest"
+        type="java:ws.billpayment.h2h.bankmandiri.ReversalRequest"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle=""
+      />
+      <typeMapping
+        xmlns:ns="bankmandiri.h2h.billpayment.ws"
+        qname="ns:InquiryResponse"
+        type="java:ws.billpayment.h2h.bankmandiri.InquiryResponse"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle=""
+      />
+  </service>
+</deployment>

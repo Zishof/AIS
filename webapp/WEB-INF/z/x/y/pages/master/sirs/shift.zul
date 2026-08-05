@@ -1,0 +1,108 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+
+	<borderlayout>
+		<north border="none">
+			<grid fixedLayout="true">
+				<columns>
+					<column use="ais.ui.util.MyColumnConfig" width="150px"></column>
+					<column></column>
+					<column use="ais.ui.util.MyColumnConfig" width="150px"></column>
+					<column></column>
+					<column use="ais.ui.util.MyColumnConfig" width="150px"></column>
+					<column></column>
+				</columns>
+				<rows>
+
+					<row>
+						<label use="ais.ui.util.MyLabelConfig" value="Nama Shift" />
+						<textbox use="ais.ui.util.MyTextbox"
+							forward="onOK=onSearchDefault" id="searchnama" width="95%" />
+
+						<label use="ais.ui.util.MyLabelConfig" value="Lokasi" />
+						<combobox forward="onChange=onSearchDefault"
+							id="searchLokasi" width="95%" />
+
+						<label use="ais.ui.util.MyLabelConfig" value="Jenis" />
+						<combobox forward="onChange=onSearchDefault"
+							id="searchJenis" width="95%" />
+
+
+					</row>
+
+					<row spans="6">
+
+						<toolbar>
+							<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"  tooltiptext="Tambah data"
+								forward="onClick=onAdd" id="add" label="Tambah Data"
+								image="/img/new.gif">
+							</toolbarbutton>
+							<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"  tooltiptext="Cari data"
+								forward="onClick=onSearchDefault" id="find" label="Cari"
+								image="/img/search.gif">
+							</toolbarbutton>
+
+						</toolbar>
+					</row>
+				</rows>
+			</grid>
+
+		</north>
+		<center border="none" flex="true">
+			<grid use="ais.ui.util.MyGrid" sclass="fgrid">
+				<rows>
+					<row>
+
+						<grid use="ais.ui.util.MyGrid" fixedLayout="true" id="grid" mold="paging"
+							pageSize="25">
+							<columns menupopup="auto">
+								<column use="ais.ui.util.MyColumnConfig" label="Nama Shift"
+									sort="auto(nama)" />
+								<column use="ais.ui.util.MyColumnConfig" label="Mulai"
+									sort="auto(mulai)" />
+								<column use="ais.ui.util.MyColumnConfig" label="Sampai"
+									sort="auto(sampai)" />
+								<column use="ais.ui.util.MyColumnConfig" label="Lokasi"
+									sort="auto(lokasi)" />
+								<column use="ais.ui.util.MyColumnConfig" label="Jenis" />
+								<column use="ais.ui.util.MyColumnConfig" label="Keterangan"
+									sort="keterangan" />
+								<column use="ais.ui.util.MyColumnConfig" width="10%" label="" />
+							</columns>
+
+						</grid>
+
+
+					</row>
+					<row>
+						<paging visible="false" id="paging"
+							detailed="true" />
+					</row>
+				</rows>
+			</grid>
+		</center>
+	</borderlayout>
+
+
+	<window use="ais.ui.util.MyWindow" id="addWindow" title="Tambah Shift" visible="false"
+		mode="popup" position="center,center" border="normal" width="550px"
+		height="340px">
+
+	</window>
+
+	<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+
+
+</zk>

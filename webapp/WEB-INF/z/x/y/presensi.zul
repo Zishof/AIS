@@ -1,0 +1,250 @@
+<?init class="ais.ui.util.MyInit"?>
+<?link rel="shortcut icon" type="image/x-icon" href="${myFavicon}"?>
+<?link rel="icon" type="image/x-icon" href="${myFavicon}"?>
+<?page title="Sistem Informasi Akademik" contentType="text/html;charset=UTF-8"?>
+<?meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" ?>
+<?meta name="description" content="Sistem Informasi Eschool" ?>
+<?meta name="author" content="Mohammad Fauzi Murtadho" ?>
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.payroll.KehadiranPegawaiAction" width="100%"
+		height="100%">
+
+ 
+
+		<tabbox width="100%" height="100%">
+
+			<tabs>
+				<tab use="ais.ui.util.MyTabConfig" selected="true" id="tabDashboardKehadiran">
+					Dasbor
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig">Presensi</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onLaporanAbsensiPegawai">
+					Rekap Presensi
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onLaporanAbsensiPerPegawai">
+					Presensi Per Pegawai
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onLaporanRekapPerPegawai">
+					Rekap Per Pegawai
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onLaporanAbsensiPerTanggal">
+					Per Tanggal
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onLaporanAbsensiPerUnit">
+					Per Unit
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onLaporanAbsensiPerRinci">
+					Rinci
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onLaporanTidakHadir">
+					Ketidakhadiran
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onLaporanLembur">
+					Lembur
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onCuti">
+					Cuti
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onSiswa">
+					Siswa
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onGuru">
+					Guru
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onMahasiswa">
+					Mahasiswa
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onDosen">
+					Dosen
+				</tab>
+			</tabs>
+			<tabpanels>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="tabDashboardPanel"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+
+					<borderlayout>
+
+						<west width="50%" id="absenLangsung">
+							<vbox
+								align="center" height="100%" width="100%">
+								<image width="100%"
+									src="/img/scan_welpus.jpg">
+								</image>
+
+								<label use="ais.ui.util.MyLabelConfig" value="Scan Kartu Anda disini" />
+								<textbox id="kodePegawai"
+									type="password"
+									height="50px" width="600px" forward="onOK=onKodePegawai">
+								</textbox>
+
+							</vbox>
+						</west>
+
+
+
+						<center border="none" flex="true">
+							<borderlayout>
+								<north border="none" open="true"
+									flex="true">
+									<grid use="ais.ui.util.MyGrid"
+										fixedLayout="true">
+										<columns>
+											<column
+												use="ais.ui.util.MyColumnConfig" width="150px">
+											</column>
+											<column
+												use="ais.ui.util.MyColumnConfig">
+											</column>
+
+										</columns>
+										<rows>
+
+
+
+											<row spans="2">
+
+												<toolbar>
+													<label
+														id="labelCariPegawai" use="ais.ui.util.MyLabelConfig"
+														value="Pegawai">
+													</label>
+													<textbox
+														forward="onOK=onSearchDefault" id="cariPegawai"
+														cols="5">
+													</textbox>
+													<label
+														use="ais.ui.util.MyLabelConfig" value="Tgl">
+													</label>
+													<datebox
+														use="ais.ui.util.MyDatebox"
+														forward="onChange=onSearchDefault" id="mulai" cols="7">
+													</datebox>
+													<label
+														use="ais.ui.util.MyLabelConfig" value="sd">
+													</label>
+													<datebox
+														use="ais.ui.util.MyDatebox"
+														forward="onChange=onSearchDefault" id="sampai" cols="7">
+													</datebox>
+
+													<label
+														use="ais.ui.util.MyLabelConfig" value="Satuan Kerja" />
+													<bandbox
+														use="ais.action.master.rab.helper.AmbilDataSatuanKerjaBanbox"
+														id="searchparent" cols="7">
+													</bandbox>
+
+													<toolbarbutton
+														use="ais.ui.util.MyToolbarbuttonConfig"
+														tooltiptext="Cari data" forward="onClick=onSearchDefault"
+														id="find" label="Refresh" image="/img/search.gif">
+													</toolbarbutton>
+
+
+												</toolbar>
+											</row>
+										</rows>
+									</grid>
+
+								</north>
+								<center border="none" flex="true">
+
+									<grid use="ais.ui.util.MyGrid"
+										sclass="fgrid">
+										<rows>
+											<row>
+												<grid
+													use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true"
+													id="grid">
+													<columns>
+														<column
+															use="ais.ui.util.MyColumnConfig" width="65px" />
+
+														<column
+															use="ais.ui.util.MyColumnConfig" label="Pegawai" />
+														<column
+															use="ais.ui.util.MyColumnConfig" label="Satuan Kerja" />
+														<column
+															use="ais.ui.util.MyColumnConfig" label="Tanggal" />
+														<column
+															use="ais.ui.util.MyColumnConfig" label="Hadir"
+															width="18%" />
+														<column
+															use="ais.ui.util.MyColumnConfig" label="Pulang"
+															width="18%" />
+
+														<column
+															use="ais.ui.util.MyColumnConfig" width="15%"
+															label="Keterangan" />
+
+													</columns>
+
+												</grid>
+
+
+											</row>
+											<row>
+												<paging visible="false"
+													id="paging" detailed="true" />
+											</row>
+										</rows>
+									</grid>
+								</center>
+							</borderlayout>
+
+						</center>
+					</borderlayout>
+
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="laporanAbsensiPegawai"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="laporanAbsensiPerPegawai"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="laporanRekapPerPegawai"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="laporanAbsensiPerTanggal"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="laporanAbsensiPerUnit"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="laporanAbsensiPerRinci"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="laporanTidakHadir"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="laporanLembur"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="laporanCuti"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="laporanSiswa"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="laporanGuru"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="laporanMahasiswa"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="laporanDosen"></tabpanel>
+			</tabpanels>
+		</tabbox>
+
+
+		<window use="ais.ui.util.MyWindow" id="addWindow"
+			title="Tambah Kunjungan Pegawai" visible="false" mode="popup"
+			position="center,center" border="normal" width="550px"
+			height="470px">
+
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+	</window>
+
+
+</zk>

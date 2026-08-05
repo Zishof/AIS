@@ -1,0 +1,37 @@
+<?page title="Dasbor Penjaminan Mutu — Analisis Butir Soal"
+    cacheable="false" language="xul/html" zscriptLanguage="Java"
+    contentType="text/html;charset=UTF-8"?>
+
+<!--
+    Dasbor terpusat bagi Bagian Penjaminan Mutu untuk memantau hasil Analisis Butir Soal
+    dari semua mata kuliah dan dosen. Staf Penjaminan Mutu dapat memberi catatan (feedback),
+    menandai analisis sebagai "Disetujui" atau "Perlu Revisi", dan notifikasi otomatis
+    dikirimkan ke dosen yang bersangkutan.
+
+    Kelas utama: ais.action.master.helper.PenjaminanMutuAnalisisHelper
+    Data status  : kolom analisis_catatan_json di tabel pertemuan_punya_ujian (JSON)
+-->
+<zk xmlns="http://www.zkoss.org/2005/zul"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+    <window use="ais.ui.util.MyWindow" border="none" id="mainWindow"
+            width="100%" height="100%"
+            style="overflow:auto;">
+
+        <!-- Div utama diisi oleh PenjaminanMutuAnalisisHelper via zscript di bawah -->
+        <div id="dashboardContainer" width="100%" style="min-height:100%;"/>
+
+        <zscript><![CDATA[
+            ais.action.master.helper.PenjaminanMutuAnalisisHelper dasbor =
+                new ais.action.master.helper.PenjaminanMutuAnalisisHelper();
+            dasbor.setParent(dashboardContainer);
+            try {
+                dasbor.render();
+            } catch (Exception ex) {
+                ais.common.ErrorAuditUtil.record(ex, "PenjaminanMutuAnalisisHelper.zul.render");
+            }
+        ]]></zscript>
+
+    </window>
+</zk>

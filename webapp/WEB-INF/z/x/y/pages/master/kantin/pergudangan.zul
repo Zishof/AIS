@@ -1,0 +1,33 @@
+<?page id="pergudanganKantin" title="Pergudangan Kantin" cacheable="false"
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+<!--
+  Peluncur (ZK) modul Pergudangan e-Kantin — versi ZKoss dari master & laporan gudang.
+  Tanpa ?hal  -> menu tombol pemilih. Dengan ?hal -> memuat kelas ZK terkait (native ZK 5.5,
+  reuse LokasiKantinUtil & StokLokasiUtil, tanpa duplikasi logika dengan versi JSP).
+-->
+<zk xmlns="http://www.zkoss.org/2005/zul" xmlns:h="http://www.w3.org/1999/xhtml">
+	<window use="ais.ui.util.MyWindow" border="none" width="100%" id="mainWindow" height="100%">
+		<zscript><![CDATA[
+			String hal = execution.getParameter("hal");
+			ais.ui.util.MyWindow w = null;
+			if ("lokasi".equals(hal)) w = new ais.action.master.koperasi.gudang.LokasiZkAction();
+			else if ("jenislokasi".equals(hal)) w = new ais.action.master.koperasi.gudang.JenisLokasiZkAction();
+			else if ("mutasi".equals(hal)) w = new ais.action.master.koperasi.gudang.MutasiGudangZkAction();
+			else if ("pengiriman".equals(hal)) w = new ais.action.master.koperasi.gudang.PengirimanGudangZkAction();
+			else if ("laporan".equals(hal)) w = new ais.action.master.koperasi.gudang.LaporanPergudanganZkAction();
+			if (w != null) { w.setWidth("100%"); w.setHeight("100%"); w.setBorder("none"); mainWindow.appendChild(w); }
+		]]></zscript>
+
+		<vbox if="${empty param.hal}" width="100%" spacing="8px" style="padding:18px">
+			<label use="ais.ui.util.MyLabelConfig" value="Pergudangan e-Kantin (versi ZKoss)" style="font-weight:bold;font-size:16px"/>
+			<label use="ais.ui.util.MyLabelConfig" value="Kelola tempat/gudang, catat mutasi stok antar lokasi, dan lihat laporan Outlet/Gudang." style="color:#666"/>
+			<hbox spacing="8px" style="flex-wrap:wrap;margin-top:6px">
+				<button use="ais.ui.util.MyButtonConfig" label="Lokasi (Gudang)" onClick='org.zkoss.zk.ui.Executions.sendRedirect("pergudangan.zul?hal=lokasi")'/>
+				<button use="ais.ui.util.MyButtonConfig" label="Jenis Lokasi" onClick='org.zkoss.zk.ui.Executions.sendRedirect("pergudangan.zul?hal=jenislokasi")'/>
+				<button use="ais.ui.util.MyButtonConfig" label="Mutasi Gudang" onClick='org.zkoss.zk.ui.Executions.sendRedirect("pergudangan.zul?hal=mutasi")'/>
+				<button use="ais.ui.util.MyButtonConfig" label="Pengiriman Antar Gudang" onClick='org.zkoss.zk.ui.Executions.sendRedirect("pergudangan.zul?hal=pengiriman")'/>
+				<button use="ais.ui.util.MyButtonConfig" label="Laporan Outlet &amp; Gudang" onClick='org.zkoss.zk.ui.Executions.sendRedirect("pergudangan.zul?hal=laporan")'/>
+			</hbox>
+		</vbox>
+	</window>
+</zk>

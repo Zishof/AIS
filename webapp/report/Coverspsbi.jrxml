@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Coverspmb" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20" uuid="2f375f9e-0816-4e0c-b357-7553a694ac4d">
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="19"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="ruang" class="java.lang.Long"/>
+	<parameter name="SUBREPORT_DIR" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["D:\\nih ye\\report\\"]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select  MIN(c.noujian) min_no_ujian,MAX(c.noujian) as no_ujian,b.nama as ruang,
+e.nama as gedung,b.kapasitas_ruangan as kapasitas,
+b.tahunakademik,
+bbb.nama as gelombang_pendaftaran
+from sekolah.ruang_gelombang_psb a
+left join sekolah.ruang_psb b on a.ruang_psb = b.id
+left join sekolah.ujian_psb aa on (b.ujian_psb = aa.id)
+left join sekolah.gelombang_pendaftaran_psb bbb on (aa.gelombang_pendaftaran_psb = bbb.id)
+left join sekolah.calon_siswa c on a.calon_siswa = c.id
+left join gedung e on b.gedung = e.id
+left join sekolah.jadwal_ujian_psb f on (f.ujian_psb = aa.id)
+where a.ruang_psb=$P{ruang}
+group by b.nama,  e.nama, b.kapasitas_ruangan,
+b.tahunakademik, bbb.nama]]>
+	</queryString>
+	<field name="min_no_ujian" class="java.lang.String"/>
+	<field name="no_ujian" class="java.lang.String"/>
+	<field name="ruang" class="java.lang.String"/>
+	<field name="gedung" class="java.lang.String"/>
+	<field name="kapasitas" class="java.lang.Integer"/>
+	<field name="tahunakademik" class="java.lang.String"/>
+	<field name="gelombang_pendaftaran" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="770" splitType="Stretch">
+			<ellipse>
+				<reportElement key="ellipse-1" x="168" y="545" width="0" height="0" uuid="c61694cf-9546-4bc9-9e7f-5bb09603ccb7"/>
+			</ellipse>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-1" x="2" y="227" width="533" height="119" uuid="848cd193-a9b6-4afe-be05-afff33e7e277"/>
+				<textElement textAlignment="Center">
+					<font size="14" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA["ALBUM BUKTI HADIR PESERTA UJIAN PENERIMAAN SISWA BARU\n"+
+"TAHUN AJARAN "+$F{tahunakademik}+"\n"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="160" y="346" width="375" height="37" uuid="2f24b169-c196-44c7-87e6-58931a828f1b"/>
+				<textElement>
+					<font size="24" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[($F{gelombang_pendaftaran} == null ? "" : $F{gelombang_pendaftaran}.toUpperCase())]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement key="line-1" x="0" y="408" width="535" height="1" uuid="7c158940-e05a-4c34-b387-ccb6741c0892"/>
+				<graphicElement>
+					<pen lineWidth="1.0" lineStyle="Double"/>
+				</graphicElement>
+			</line>
+			<line>
+				<reportElement key="line-1" x="2" y="486" width="535" height="1" uuid="aea39ed9-d28d-43af-8bc5-c3a7ed61007f"/>
+				<graphicElement>
+					<pen lineWidth="1.0" lineStyle="Double"/>
+				</graphicElement>
+			</line>
+			<staticText>
+				<reportElement x="46" y="431" width="91" height="37" uuid="f0206369-28a1-4a7d-9a19-e53110b432c7"/>
+				<textElement>
+					<font size="24"/>
+				</textElement>
+				<text><![CDATA[RUANG]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="137" y="431" width="23" height="37" uuid="fd13f6fe-a970-4220-8867-ae8720fd8511"/>
+				<textElement>
+					<font size="24"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="46" y="346" width="91" height="37" uuid="cb04536a-0c80-4760-9d24-8022cf3180a1"/>
+				<textElement>
+					<font size="24"/>
+				</textElement>
+				<text><![CDATA[GEL]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="137" y="346" width="23" height="37" uuid="f1d8ebac-dd37-4d69-8dbd-269a38ce64ad"/>
+				<textElement>
+					<font size="24"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<line>
+				<reportElement key="line-1" x="0" y="563" width="535" height="1" uuid="c2a1a74f-bfa0-48b6-a640-58f7106b7d73"/>
+				<graphicElement>
+					<pen lineWidth="1.0" lineStyle="Double"/>
+				</graphicElement>
+			</line>
+			<line>
+				<reportElement key="line-1" x="0" y="674" width="535" height="1" uuid="65ede556-1d01-43a4-9ad5-1695659aa610"/>
+				<graphicElement>
+					<pen lineWidth="1.0" lineStyle="Double"/>
+				</graphicElement>
+			</line>
+			<staticText>
+				<reportElement x="0" y="590" width="137" height="27" uuid="b7987d79-bbe9-46da-a3d1-927e0300ed4c"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Ruang]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="0" y="644" width="137" height="27" uuid="2938f9f2-7fd2-48bc-aab4-830e7491e708"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Nomor]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="0" y="617" width="137" height="27" uuid="e24fd9ea-3f13-4dee-8284-cd63bc28dabf"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Kapasitas]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="137" y="590" width="21" height="27" uuid="55ff1735-b019-4c6f-afd4-7e31358bb927"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="137" y="644" width="21" height="27" uuid="72e79fd0-1c25-4856-b34c-60f19d97f537"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="137" y="617" width="21" height="27" uuid="ac1d53c4-b350-45c0-a880-8de1b3834287"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="158" y="591" width="113" height="28" uuid="ceb5d053-e45f-48d1-9196-07ca4244f6bb"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{ruang}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="0" y="563" width="137" height="27" uuid="c1b8fa3b-9ddc-476b-89cf-b6ca8448ee8e"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Gedung]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="137" y="564" width="21" height="27" uuid="72abc67d-980a-4be2-847f-29ad44da124d"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="158" y="564" width="113" height="25" uuid="f7912de9-2955-44f5-9e82-38a64ae62c83"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{gedung}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="158" y="617" width="113" height="27" uuid="366fc389-34a2-4358-b070-428b62193ef7"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{kapasitas}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="158" y="648" width="113" height="23" uuid="a74989ce-7911-4af7-b148-e14abf28bdc9"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{min_no_ujian}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="271" y="648" width="29" height="23" uuid="d6e5ed5c-9099-4389-a7a2-964f56bf958a"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[S/D]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="300" y="647" width="162" height="27" uuid="23946263-69c8-4f41-b3f3-3056ed7047f7"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{no_ujian}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="160" y="431" width="375" height="37" uuid="02fc4925-a8fa-4987-ba27-5f21d6d9dd45"/>
+				<textElement>
+					<font size="24" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{ruang}]]></textFieldExpression>
+			</textField>
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="0" y="0" width="535" height="98" uuid="e6344942-f920-43cd-a451-acbfea3ed511"/>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "CURRENT_URL" )+"/AmbilLampiran?ref="+($P{REPORT_PARAMETERS_MAP}.get( "sekolah_id" ))+"&jenis=KOP+Sekolah&usingId=false"]]></imageExpression>
+			</image>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<columnHeader>
+		<band splitType="Stretch"/>
+	</columnHeader>
+	<detail>
+		<band splitType="Stretch"/>
+	</detail>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band height="20" splitType="Stretch"/>
+	</pageFooter>
+	<summary>
+		<band splitType="Stretch"/>
+	</summary>
+</jasperReport>

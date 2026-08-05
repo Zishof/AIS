@@ -1,0 +1,144 @@
+<?page title="Biaya Pendaftaran" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<borderlayout height="100%">
+		<west width="5%">
+
+		</west>
+		<center autoscroll="true">
+			<box>
+				<separator height="30px"></separator>
+				<box width="90%" align="center">
+					<label use="ais.ui.util.MyLabelConfig">
+						JADUAL PENDAFTARAN  						
+					</label>
+											
+				</box>
+				<separator height="10px"></separator>
+				<html>
+					
+					<![CDATA[
+<pre class="style2">JADWAL KEGIATAN UJIAN MASUK SEMESTER GASAL 2011/2012</pre>
+<table border="1" cellspacing="0" cellpadding="0">
+  <tr>
+    <td width="48" valign="top" bgcolor="#99FF66">
+      <div align="center">
+        <pre><strong>NO</strong></pre>
+    </div></td>
+    <td width="235" valign="top" bgcolor="#99FF66"><div align="center">
+      <pre><strong>KEGIATAN</strong></pre>
+    </div></td>
+    <td width="145" valign="top" bgcolor="#99FF66"><div align="center">
+      <pre><strong>TANGGAL</strong></pre>
+    </div></td>
+    <td width="145" valign="top" bgcolor="#99FF66"><div align="center">
+      <pre><strong>JAM</strong></pre>
+    </div></td>
+  </tr>
+  <tr>
+    <td width="48" valign="top"><div align="center">
+      <pre>01</pre>
+    </div></td>
+    <td width="235" valign="top"><pre>Pendaftaran</pre></td>
+    <td width="145" valign="top"><pre>Setiap hari kerja</pre></td>
+    <td width="145" valign="top"><pre>09:00 - 16:00</pre></td>
+  </tr>
+  <tr bgcolor="#FFFFCC">
+    <td width="48" valign="top"><div align="center">
+      <pre>02</pre>
+    </div></td>
+    <td width="235" valign="top"><pre>Tes Masuk</pre></td>
+    <td width="145" valign="top"><pre>2 - 4 Agustus 2011</pre></td>
+    <td width="145" valign="top"><pre>09:00 - 16:00</pre></td>
+  </tr>
+  <tr>
+    <td width="48" valign="top"><div align="center">
+      <pre>03</pre>
+    </div></td>
+    <td width="235" valign="top"><pre>Pengumuman Hasil Tes</pre></td>
+    <td width="145" valign="top"><pre>18 Agustus 2011</pre></td>
+    <td width="145" valign="top"><pre>09:00</pre></td>
+  </tr>
+  <tr bgcolor="#FFFFCC">
+    <td width="48" valign="top"><div align="center">
+      <pre>04</pre>
+    </div></td>
+    <td width="235" valign="top"><pre>Pendaftaran Ulang bagi yang lulus dan Pengisian KRS online</pre></td>
+    <td width="145" valign="top"><pre>19 - 27 Agustus 2011</pre></td>
+    <td width="145" valign="top"><pre>09:00 - 16:00</pre></td>
+  </tr>
+  <tr>
+    <td width="48" valign="top"><div align="center">
+      <pre>05</pre>
+    </div></td>
+    <td width="235" valign="top"><pre>Awal Perkuliahan</pre></td>
+    <td width="145" valign="top"><pre>Awal September 2011</pre></td>
+    <td width="145" valign="top"><pre>08:00</pre></td>
+  </tr>
+</table>
+<pre class="style1"><strong>
+
+JADWAL KEGIATAN UJIAN MASUK SEMESTER GENAP 2011/2012</strong></pre>
+<table border="1" cellspacing="0" cellpadding="0">
+  <tr bgcolor="#CCCC66">
+    <td width="48" valign="top">
+      <div align="center">
+        <pre><strong>NO</strong></pre>
+    </div></td>
+    <td width="235" valign="top"><div align="center">
+      <pre><strong>KEGIATAN</strong></pre>
+    </div></td>
+    <td width="145" valign="top"><div align="center">
+      <pre><strong>TANGGAL</strong></pre>
+    </div></td>
+    <td width="145" valign="top"><div align="center">
+      <pre><strong>JAM</strong></pre>
+    </div></td>
+  </tr>
+  <tr>
+    <td width="48" valign="top"><div align="center">
+      <pre>01</pre>
+    </div></td>
+    <td width="235" valign="top"><pre>Pendaftaran</pre></td>
+    <td width="145" valign="top"><pre>Setiap hari kerja</pre></td>
+    <td width="145" valign="top"><pre>09:00 - 16:00</pre></td>
+  </tr>
+  <tr bgcolor="#C1FFA4">
+    <td width="48" valign="top"><div align="center">
+      <pre>02</pre>
+    </div></td>
+    <td width="235" valign="top"><pre>Tes Masuk</pre></td>
+    <td width="145" valign="top"><pre>1- 3 Februari 2012</pre></td>
+    <td width="145" valign="top"><pre>09:00 - 16:00</pre></td>
+  </tr>
+  <tr>
+    <td width="48" valign="top"><div align="center">
+      <pre>03</pre>
+    </div></td>
+    <td width="235" valign="top"><pre>Pengumuman Hasil Tes</pre></td>
+    <td width="145" valign="top"><pre>15 Februari 2012</pre></td>
+    <td width="145" valign="top"><pre>09:00</pre></td>
+  </tr>
+  <tr bgcolor="#C1FFA4">
+    <td width="48" valign="top"><div align="center">
+      <pre>04</pre>
+    </div></td>
+    <td width="235" valign="top"><pre>Pendaftaran Ulang bagi yang lulus dan Pengisian KRS online</pre></td>
+    <td width="145" valign="top"><pre>16 - 25 Februari 2012</pre></td>
+    <td width="145" valign="top"><pre>09:00 - 16:00</pre></td>
+  </tr>
+  <tr>
+    <td width="48" valign="top"><div align="center">
+      <pre>05</pre>
+    </div></td>
+    <td width="235" valign="top"><pre>Awal Perkuliahan</pre></td>
+    <td width="145" valign="top"><pre>Awal Maret 2012 </pre></td>
+    <td width="145" valign="top"><pre>08:00</pre></td>
+  </tr>
+</table>
+					 ]]>
+					
+                    		</html>
+			</box>
+		</center>
+	</borderlayout>
+</zk>

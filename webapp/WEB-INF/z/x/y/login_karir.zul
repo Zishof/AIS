@@ -1,0 +1,12 @@
+<?page title="Login Portal KARIR" contentType="text/html;charset=UTF-8"?>
+<zk>
+    <window use="ais.ui.util.MyWindow" border="none" id="window" width="100%" height="100%">
+        <html><![CDATA[
+            <div>
+                <h3>Login Portal KARIR</h3>
+                <p>Login modern tersedia pada halaman <b>/karir</b> melalui tombol Login Calon Pegawai.</p>
+                <a href="karir">Buka Portal KARIR</a>
+            </div>
+        ]]></html>
+    </window>
+</zk>

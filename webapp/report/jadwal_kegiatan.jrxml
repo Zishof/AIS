@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="jadwal_kegiatan" language="groovy" pageWidth="842" pageHeight="595" orientation="Landscape" whenNoDataType="AllSectionsNoDetail" columnWidth="802" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="36ac6072-f578-42d8-856a-f5cac376e14a">
+	<property name="ireport.zoom" value="1.7715610000000022"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<field name="hari_tanggal" class="java.lang.String"/>
+	<field name="nama_kegiatan" class="java.lang.String"/>
+	<field name="waktu" class="java.lang.String"/>
+	<field name="pelaksana" class="java.lang.String"/>
+	<field name="peserta" class="java.lang.String"/>
+	<field name="narasumber" class="java.lang.String"/>
+	<field name="tempat" class="java.lang.String"/>
+	<field name="keterangan" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="61" splitType="Stretch">
+			<textField>
+				<reportElement x="0" y="0" width="802" height="50" uuid="0c17c4a4-6741-4339-ba2a-9caba3ebe2ed"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="14" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["JADWAL KEGIATAN \n" + $P{REPORT_PARAMETERS_MAP}.get("nama_universitas")]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<columnHeader>
+		<band height="61" splitType="Stretch">
+			<textField>
+				<reportElement mode="Opaque" x="0" y="0" width="39" height="61" backcolor="#CCCCCC" uuid="a5b4e062-4a23-4227-9f89-3ba3531be0f0"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["No."]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="39" y="0" width="100" height="61" backcolor="#CCCCCC" uuid="d590fc42-67fb-499f-be18-57ae060c550e"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Hari/Tanggal"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="139" y="0" width="150" height="61" backcolor="#CCCCCC" uuid="5bb2081c-cb9f-40de-af05-8e4252950b69"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Nama Kegiatan"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="289" y="0" width="50" height="61" backcolor="#CCCCCC" uuid="d0e2ef9c-96ab-4b3c-9e5f-54767d1d24d6"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Pukul"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="339" y="0" width="100" height="61" backcolor="#CCCCCC" uuid="3d556942-3186-40ad-97ac-3e7f368499e1"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Pelaksana"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="439" y="0" width="100" height="61" backcolor="#CCCCCC" uuid="9be23d25-5f57-4a62-9af7-b47d4c50e981"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Peserta"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="539" y="0" width="100" height="61" backcolor="#CCCCCC" uuid="e298a218-0532-4bfc-8c8b-06c5e2fd0f11"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Wellcoming Speech/Keynote Speeker/Narasumber"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="639" y="0" width="100" height="61" backcolor="#CCCCCC" uuid="b14cb469-026a-48e0-8305-169b38d86d18"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Tempat"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="739" y="0" width="63" height="61" backcolor="#CCCCCC" uuid="43d48686-0ef0-4a62-8867-9f2f04d93cdc"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Ket."]]></textFieldExpression>
+			</textField>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="60" splitType="Stretch">
+			<textField>
+				<reportElement x="39" y="0" width="100" height="60" uuid="2e409eca-88ed-4b32-a56a-959169de670d"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{hari_tanggal}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="139" y="0" width="150" height="60" uuid="8af2fde2-2fab-4a6c-9f90-7279d72ca1ca"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle" markup="html"/>
+				<textFieldExpression><![CDATA[$F{nama_kegiatan}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="289" y="0" width="50" height="60" uuid="fa66e92c-ad8a-492e-a95f-4ed4f74ae7ac"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{waktu}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="339" y="0" width="100" height="60" uuid="fa9e3588-d0a5-40c8-9ab8-9475b8f800fd"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{pelaksana}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="439" y="0" width="100" height="60" uuid="fdec25b7-53da-4d3e-9f34-ba2880f6048e"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{peserta}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="539" y="0" width="100" height="60" uuid="36e722ac-a9e5-4676-a51c-7f87c88c8c9a"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{narasumber}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="639" y="0" width="100" height="60" uuid="deea91da-1bef-4ac6-876b-e61dd7e09ae0"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{tempat}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="739" y="0" width="63" height="60" uuid="7d29bba0-0118-44a1-a7fd-1c7590f8d3d2"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{keterangan}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="0" width="39" height="60" uuid="b55a489f-963c-4eab-bc19-18d249bd5037"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center"/>
+				<textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+</jasperReport>

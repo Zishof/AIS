@@ -1,0 +1,11 @@
+<?page title="QR-Code" contentType="text/html;charset=UTF-8"?>
+<?meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" ?>
+<?meta name="description" content="QR-Code" ?>
+<?meta name="author" content="Mohammad Fauzi Murtadho" ?>
+<zk>
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.ScanBerhasilAction" width="100%"
+		height="90%">
+	</window>
+</zk>

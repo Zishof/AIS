@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Rekap_jumlah_mahasiswa_fakultas" pageWidth="842" pageHeight="595" orientation="Landscape" whenNoDataType="AllSectionsNoDetail" columnWidth="782" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20" uuid="64ccb033-2b33-4cd9-9331-83337759be11">
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<property name="ireport.zoom" value="1.1000000000000005"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_kota" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Ciputat"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_fakultas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Fakultas"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_jurusan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Prodi"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="barcode" class="java.lang.String"/>
+	<parameter name="SUBREPORT_DIR" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+	</parameter>
+	<parameter name="dosen" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[302L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tahun_akademik" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2014/2015"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="genapGanjil" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Genap"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="nama_dosen" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Andri"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="fakultas" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jurusan" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="diperuntukkan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Semua"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jumlah_pilihan_checklist_penilaian_dosen_oleh_mahasiswa" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["5"]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select b.id as checklist,b.isi, b.diperuntukkan
+from jadwal_checklist_penilaian_umum a
+inner join grup_checklist_penilaian_umum b on (a.grup_penilaian_umum=b.id)
+where (b.aktif or b.aktif is null) and a.tahunakademik=$P{tahun_akademik} and a.semester=$P{genapGanjil}
+and a.grup_kuesioner_umum is null
+and case when $P{diperuntukkan}='Semua' then true else b.diperuntukkan=$P{diperuntukkan} end]]>
+	</queryString>
+	<field name="checklist" class="java.lang.Long"/>
+	<field name="isi" class="java.lang.String"/>
+	<field name="diperuntukkan" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="110" splitType="Stretch">
+			<staticText>
+				<reportElement key="staticText-6" x="1" y="89" width="97" height="18" uuid="b1306b6b-8836-4a57-8e4e-566ac515f078"/>
+				<text><![CDATA[Tanggal ]]></text>
+			</staticText>
+			<textField evaluationTime="Report" pattern="dd/MM/yyyy" isBlankWhenNull="false">
+				<reportElement key="textField" x="98" y="89" width="684" height="18" uuid="732dbbc0-cf7b-4f7e-a1ad-b1d22184610d"/>
+				<textFieldExpression><![CDATA[new java.util.Date()]]></textFieldExpression>
+			</textField>
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="0" y="0" width="98" height="49" uuid="a16694a7-f75f-4be1-8095-a7101260dbae"/>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<textField>
+				<reportElement x="0" y="0" width="782" height="29" uuid="41f519b7-cb53-41b6-a812-7a5f2c0921fd"/>
+				<textElement textAlignment="Center" verticalAlignment="Bottom">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{label_universitas}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-36" x="0" y="29" width="782" height="20" uuid="f2ed62a4-2085-42a7-876b-52775ae12440"/>
+				<box>
+					<bottomPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[HASIL SURVEY PENILAIAN]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="98" y="49" width="684" height="20" uuid="4fcb9841-c2ff-4ac3-a94e-40de42d02060"/>
+				<textFieldExpression><![CDATA[$P{tahun_akademik}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="0" y="49" width="98" height="20" uuid="d3630a98-8a2f-406b-abe8-ba6cc27fc005"/>
+				<text><![CDATA[Tahun Akademik]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="98" y="69" width="684" height="20" uuid="0cde0a68-9953-457c-a796-2bf009611595"/>
+				<textFieldExpression><![CDATA[$P{genapGanjil}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="0" y="69" width="98" height="20" uuid="7b3711c7-6056-4102-89ef-245938d43fbf"/>
+				<text><![CDATA[Semester]]></text>
+			</staticText>
+		</band>
+	</title>
+	<detail>
+		<band height="41" splitType="Stretch">
+			<subreport isUsingCache="false">
+				<reportElement x="-26" y="24" width="200" height="14" uuid="44165220-96f5-4864-8b15-e4425ce86a1e"/>
+				<subreportParameter name="label_universitas">
+					<subreportParameterExpression><![CDATA[$P{label_universitas}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="logo">
+					<subreportParameterExpression><![CDATA[$P{logo}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="jurusan">
+					<subreportParameterExpression><![CDATA[$P{jurusan}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_kota">
+					<subreportParameterExpression><![CDATA[$P{label_kota}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="tahun_akademik">
+					<subreportParameterExpression><![CDATA[$P{tahun_akademik}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="genapGanjil">
+					<subreportParameterExpression><![CDATA[$P{genapGanjil}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="barcode">
+					<subreportParameterExpression><![CDATA[$P{barcode}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="nama_dosen">
+					<subreportParameterExpression><![CDATA[$P{nama_dosen}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="checklist">
+					<subreportParameterExpression><![CDATA[$F{checklist}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="SUBREPORT_DIR">
+					<subreportParameterExpression><![CDATA[$P{SUBREPORT_DIR}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="jumlah_pilihan_checklist_penilaian_dosen_oleh_mahasiswa">
+					<subreportParameterExpression><![CDATA[$P{jumlah_pilihan_checklist_penilaian_dosen_oleh_mahasiswa}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="diperuntukkan">
+					<subreportParameterExpression><![CDATA[$P{diperuntukkan}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_fakultas">
+					<subreportParameterExpression><![CDATA[$P{label_fakultas}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="fakultas">
+					<subreportParameterExpression><![CDATA[$P{fakultas}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="dosen">
+					<subreportParameterExpression><![CDATA[$P{dosen}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_jurusan">
+					<subreportParameterExpression><![CDATA[$P{label_jurusan}]]></subreportParameterExpression>
+				</subreportParameter>
+				<connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
+				<subreportExpression><![CDATA[$P{SUBREPORT_DIR} + "rekap_angket_umum_survey_subreport.jasper"]]></subreportExpression>
+			</subreport>
+			<rectangle>
+				<reportElement x="1" y="3" width="781" height="20" backcolor="#FFFFFF" uuid="5e6d544b-147c-46cf-ad1b-4573d66a10ef"/>
+				<graphicElement>
+					<pen lineWidth="0.0"/>
+				</graphicElement>
+			</rectangle>
+			<textField>
+				<reportElement mode="Opaque" x="1" y="4" width="781" height="20" forecolor="#000000" backcolor="#C0C0C0" uuid="8744bf71-90a3-46e8-9d43-77bee0c486ef"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Survey "+$F{isi}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band height="20" splitType="Stretch">
+			<image scaleImage="FillFrame" vAlign="Middle">
+				<reportElement key="image-2" x="1" y="0" width="300" height="20" uuid="c32410ab-d62c-4b9a-8546-acbffb92d94e"/>
+				<imageExpression><![CDATA[$P{barcode}]]></imageExpression>
+			</image>
+		</band>
+	</pageFooter>
+	<summary>
+		<band splitType="Stretch"/>
+	</summary>
+</jasperReport>

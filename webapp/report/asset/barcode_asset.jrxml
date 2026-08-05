@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="barcode_saldo_awal" language="groovy" columnCount="2" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="277" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="e5cfc589-77fb-49d8-9bcc-fd5c00eb33ae">
+	<property name="ireport.zoom" value="2.1435888100000016"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<field name="status" class="java.lang.String"/>
+	<field name="judul" class="java.lang.String"/>
+	<field name="barcode" class="java.lang.String"/>
+	<field name="barcode_data" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<detail>
+		<band height="72" splitType="Stretch">
+			<textField>
+				<reportElement x="0" y="54" width="238" height="18" uuid="9b99cd98-ceeb-4d86-ab05-633590f7a6ee"/>
+				<box>
+					<topPen lineWidth="0.0" lineStyle="Dotted"/>
+					<leftPen lineWidth="1.0" lineStyle="Dotted"/>
+					<bottomPen lineWidth="1.0" lineStyle="Dotted"/>
+					<rightPen lineWidth="1.0" lineStyle="Dotted"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{barcode_data}+"\n"+
+$F{judul}]]></textFieldExpression>
+			</textField>
+			<image scaleImage="Clip" hAlign="Center" vAlign="Middle">
+				<reportElement x="0" y="0" width="238" height="54" uuid="e39e4a2f-23fe-4ef0-a045-4ebb95403155"/>
+				<box>
+					<topPen lineWidth="1.0" lineStyle="Dotted"/>
+					<leftPen lineWidth="1.0" lineStyle="Dotted"/>
+					<bottomPen lineWidth="0.0" lineStyle="Dotted"/>
+					<rightPen lineWidth="1.0" lineStyle="Dotted"/>
+				</box>
+				<imageExpression><![CDATA[$F{barcode}]]></imageExpression>
+			</image>
+		</band>
+	</detail>
+</jasperReport>

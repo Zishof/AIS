@@ -1,0 +1,200 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.RekonsiliasiHostToHostAction" width="100%"
+		height="100%">
+
+
+		<tabbox width="100%" height="100%">
+
+			<tabs>
+
+				<tab use="ais.ui.util.MyTabConfig" selected="true">Hasil Reconsile</tab>
+
+				<tab use="ais.ui.util.MyTabConfig" forward="onClick=onBelumRekonsiliasi">
+					Data host to host yang belum ter-reconsile
+				</tab>
+
+			</tabs>
+
+			<tabpanels>
+
+				<tabpanel use="ais.ui.util.MyTabpanel">
+
+
+
+					<panel use="ais.ui.util.MyPanel" width="100%"
+						height="100%" id="panel" title="Data RekonsiliasiHostToHost">
+						<panelchildren>
+
+
+
+							<borderlayout>
+
+								<center border="none" flex="true">
+									<borderlayout>
+										<north border="none"
+											open="true">
+											<grid use="ais.ui.util.MyGrid"  fixedLayout="true">
+												<columns>
+													<column use="ais.ui.util.MyColumnConfig"
+														width="100px">
+													</column>
+													<column use="ais.ui.util.MyColumnConfig"></column>
+													<column use="ais.ui.util.MyColumnConfig"
+														width="100px">
+													</column>
+													<column use="ais.ui.util.MyColumnConfig"></column>
+													<column use="ais.ui.util.MyColumnConfig"
+														width="100px">
+													</column>
+													<column use="ais.ui.util.MyColumnConfig"></column>
+													<column use="ais.ui.util.MyColumnConfig"
+														width="100px">
+													</column>
+													<column use="ais.ui.util.MyColumnConfig"></column>
+													<column use="ais.ui.util.MyColumnConfig"
+														width="100px">
+													</column>
+													<column use="ais.ui.util.MyColumnConfig"></column>
+													<column use="ais.ui.util.MyColumnConfig"
+														width="100px">
+													</column>
+													<column use="ais.ui.util.MyColumnConfig"></column>
+												</columns>
+												<rows>
+
+													<row>
+
+														<label use="ais.ui.util.MyLabelConfig"
+															value="Kode" />
+														<textbox
+															forward="onOK=onSearchDefault" id="searchkode"
+															width="95%" />
+
+
+														<label use="ais.ui.util.MyLabelConfig"
+															value="Nama" />
+														<textbox
+															forward="onOK=onSearchDefault" id="searchnama"
+															width="95%" />
+
+
+														<label use="ais.ui.util.MyLabelConfig"
+															value="Data" />
+														<textbox
+															forward="onOK=onSearchDefault" id="searchketerangan"
+															width="95%" />
+
+														<label use="ais.ui.util.MyLabelConfig"
+															value="Status" />
+														<combobox
+															forward="onChange=onSearchDefault" id="searchstatus"
+															width="95%" />
+
+														<label use="ais.ui.util.MyLabelConfig"
+															value="Mulai" />
+														<datebox
+															use="ais.ui.util.MyDatebox"
+															forward="onChange=onSearchDefault" id="searchmulai"
+															width="95%" />
+
+														<label use="ais.ui.util.MyLabelConfig"
+															value="Sampai" />
+														<datebox
+															use="ais.ui.util.MyDatebox"
+															forward="onChange=onSearchDefault" id="searchsampai"
+															width="95%" />
+
+													</row>
+
+													<row spans="12">
+
+														<toolbar>
+															<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"  
+																tooltiptext="Tambah data" forward="onClick=onAdd"
+																id="add" label="Upload Data Rekonsiliasi"
+																image="/img/new.gif">
+															</toolbarbutton>
+															<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"  
+																tooltiptext="Cari data"
+																forward="onClick=onSearchDefault" id="find" label="Cari"
+																image="/img/search.gif">
+															</toolbarbutton>
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;rekonsiliasi_host_to_host&quot;, &quot;Bantuan&quot;);"/>
+			</toolbar>
+													</row>
+												</rows>
+											</grid>
+
+										</north>
+										<center border="none" flex="true">
+
+											<grid use="ais.ui.util.MyGrid"  fixedLayout="true"
+												id="grid" mold="paging" pageSize="25">
+												<columns>
+													<column use="ais.ui.util.MyColumnConfig" label="Kode"
+														sort="auto(kode)" />
+													<column use="ais.ui.util.MyColumnConfig" label="Nama"
+														sort="auto(nama)" />
+													<column use="ais.ui.util.MyColumnConfig"
+														label="Jenis" />
+													<column use="ais.ui.util.MyColumnConfig"
+														label="Waktu" />
+													<column use="ais.ui.util.MyColumnConfig"
+														label="Nilai" />
+													<column use="ais.ui.util.MyColumnConfig" width="20%"
+														label="Data Pembayaran" />
+													<column use="ais.ui.util.MyColumnConfig" label="Data"
+														width="30%" />
+													<column use="ais.ui.util.MyColumnConfig"
+														label="Status" />
+												</columns>
+
+											</grid>
+
+
+										</center>
+										<south border="none">
+											<paging visible="false"
+												id="paging" />
+										</south>
+									</borderlayout>
+								</center>
+							</borderlayout>
+						</panelchildren>
+					</panel>
+
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="belumRekonsiliasi">
+
+				</tabpanel>
+
+			</tabpanels>
+		</tabbox>
+
+
+		<window use="ais.ui.util.MyWindow" id="addWindow" title="Tambah Dosen" visible="false"
+			mode="popup" position="center,center" border="normal" width="550px"
+			height="240px">
+
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+
+	</window>
+
+
+</zk>

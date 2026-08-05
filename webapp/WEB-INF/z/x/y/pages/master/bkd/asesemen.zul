@@ -1,0 +1,61 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.bkd.AsesementAction" width="100%"
+		height="100%">
+
+		<borderlayout>
+			<center border="none">
+				<tabbox width="100%" height="100%">
+
+					<tabs>
+						<tab use="ais.ui.util.MyTabConfig" selected="true">Asesemen</tab>
+						<tab use="ais.ui.util.MyTabConfig" forward="onClick=onBidangPendidikan">
+							Bidang Pendidikan
+						</tab>
+						<tab use="ais.ui.util.MyTabConfig" forward="onClick=onBidangPenelitian">
+							Bidang Penelitian
+						</tab>
+						<tab use="ais.ui.util.MyTabConfig" forward="onClick=onBidangPengabdian">
+							Bidang Pengabdian
+						</tab>
+						<tab use="ais.ui.util.MyTabConfig" forward="onClick=onBidangPenunjang">
+							Bidang Penunjang Lain-nya
+						</tab>
+					</tabs>
+
+					<tabpanels>
+						<tabpanel use="ais.ui.util.MyTabpanel" id="ringkasan"></tabpanel>
+						<tabpanel use="ais.ui.util.MyTabpanel" id="bidangPendidikan"></tabpanel>
+						<tabpanel use="ais.ui.util.MyTabpanel" id="bidangPenelitian"></tabpanel>
+						<tabpanel use="ais.ui.util.MyTabpanel" id="bidangPengabdian"></tabpanel>
+						<tabpanel use="ais.ui.util.MyTabpanel" id="bidangPenunjang"></tabpanel>
+					</tabpanels>
+				</tabbox>
+			</center>
+		</borderlayout>
+
+
+		<window use="ais.ui.util.MyWindow" id="addWindow" title="Tambah Kelas" visible="false"
+			mode="popup" position="center,center" border="normal" width="550px"
+			height="370px">
+
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+	</window>
+
+
+</zk>

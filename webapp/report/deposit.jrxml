@@ -1,0 +1,448 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="jurnal_buku_besar" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20" uuid="4dee1cba-deeb-4502-a8a4-1dcacdb7021e">
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<property name="ireport.zoom" value="1.610510000000001"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="bulan" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new Integer(1)]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tahun" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new Integer(2011)]]></defaultValueExpression>
+	</parameter>
+	<parameter name="namabulan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Januari"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tahun1" class="java.lang.Integer" isForPrompting="false"/>
+	<parameter name="bulan1" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new Integer(12)]]></defaultValueExpression>
+	</parameter>
+	<parameter name="namabulan1" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Januari"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["../logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="keterangan" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="workspace" class="java.lang.Object" isForPrompting="false">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="satuanKerjas" class="java.lang.Object" isForPrompting="false">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="sumberDana" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mulai" class="java.lang.String">
+		<defaultValueExpression><![CDATA["2008-01-01"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="sampai_1" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2019-01-01"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mulai_1" class="java.lang.String">
+		<defaultValueExpression><![CDATA["2008-01-01"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="sampai" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2019-01-01"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="akuns" class="java.lang.Object" isForPrompting="false">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mahasiswa" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="angkatan_mulai" class="java.lang.Integer">
+		<defaultValueExpression><![CDATA[0]]></defaultValueExpression>
+	</parameter>
+	<parameter name="angkatan_sampai" class="java.lang.Integer">
+		<defaultValueExpression><![CDATA[2100]]></defaultValueExpression>
+	</parameter>
+	<parameter name="calon_mahasiswa" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="siswa" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="calon_siswa" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="sekolah" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="yayasan" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jurusan" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="fakultas" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select
+(case when d.id is not null then d.id when e.id is not null then e.id when a.mahasiswa is not null then a.mahasiswa else a.biodata_calon_mahasiswa end) as  mahasiswa,
+(case when d.nomor_induk is not null then d.nomor_induk when e.nomor_induk is not null then e.nomor_induk when b.nim is not null then b.nim else c.no_registrasi end) as nim,
+(case when d.nama_siswa is not null then d.nama_siswa when e.nama_siswa is not null then e.nama_siswa when b.nama is not null then b.nama else c.nama end) as nama,
+a.tanggal,
+a.deposit,
+a.keterangan
+from(
+	select
+	a.waktu as tanggal,
+	a.mahasiswa,a.biodata_calon_mahasiswa,a.siswa,a.calon_siswa,
+	a.nominal as deposit,
+	a.keterangan
+	from deposit a
+
+	union all
+
+	select
+	a.tanggal,
+	b.mahasiswa,b.calon_mahasiswa as biodata_calon_mahasiswa,null as siswa,null as calon_siswa,
+	-(a.deposit) as deposit,
+	a.keterangan
+	from cicilan_pembayaran a
+	inner join kegiatan b on (a.kegiatan=b.id)
+	where a.deposit > 0.1
+
+	union all
+
+	select
+	a.waktu as tanggal,
+	a.mahasiswa,a.calon_mahasiswa as biodata_calon_mahasiswa,a.siswa,a.calon_siswa,
+	-(a.nominal) as deposit,
+	a.keterangan
+	from pengeluaran_mahasiswa a
+
+	union all
+
+	select
+	a.tanggal as tanggal,
+	null as mahasiswa,null as biodata_calon_mahasiswa,a.siswa_id as siswa,a.calon_siswa_id as calon_siswa,
+	-(a.daritabungan) as deposit,
+	a.keterangan
+	from sekolah.pembayaran_siswa a
+	where a.daritabungan > 0.1
+
+) a
+left join mahasiswa b on (a.mahasiswa=b.id)
+left join biodata_calon_mahasiswa c on (a.biodata_calon_mahasiswa=c.id)
+left join sekolah.siswa d on (a.siswa=d.id)
+left join sekolah.calon_siswa e on (a.calon_siswa=e.id)
+
+where case when $P{mahasiswa}=-1 then true else b.id=$P{mahasiswa} end
+and case when $P{calon_mahasiswa}=-1 then true else c.id=$P{calon_mahasiswa} end
+
+and case when $P{jurusan}=-1 then true else (b.jurusan=$P{jurusan} or c.prodi_lulus=$P{jurusan}) end
+
+and case when $P{sekolah}=-1 then true else (d.sekolah_id=$P{sekolah} or e.sekolah_id=$P{sekolah}) end
+and case when $P{yayasan}=-1 then true else (d.yayasan_id=$P{yayasan} or e.yayasan_id=$P{yayasan}) end
+
+and case when $P{siswa}=-1 then true else d.id=$P{siswa} end
+and case when $P{calon_siswa}=-1 then true else e.id=$P{calon_siswa} end
+
+and case when $P{mulai}='' then true else date(a.tanggal)>=date($P{mulai}) end
+and case when $P{sampai}='' then true else date(a.tanggal)<=date($P{sampai}) end
+and (b.tahunangkatan between $P{angkatan_mulai} and $P{angkatan_sampai} or c.tahun between $P{angkatan_mulai} and $P{angkatan_sampai} or d.tahun_masuk between $P{angkatan_mulai} and $P{angkatan_sampai}  or e.tahun_masuk between $P{angkatan_mulai} and $P{angkatan_sampai})
+order by (case when a.mahasiswa is null then a.biodata_calon_mahasiswa end),a.tanggal]]>
+	</queryString>
+	<field name="mahasiswa" class="java.lang.Long"/>
+	<field name="nim" class="java.lang.String"/>
+	<field name="nama" class="java.lang.String"/>
+	<field name="tanggal" class="java.sql.Timestamp"/>
+	<field name="deposit" class="java.lang.Double"/>
+	<field name="keterangan" class="java.lang.String"/>
+	<variable name="total_debet" class="java.lang.Double" resetType="Group" resetGroup="kode_transaksi" calculation="Sum">
+		<variableExpression><![CDATA[$F{deposit}>0?Math.abs($F{deposit}):0]]></variableExpression>
+	</variable>
+	<variable name="total_kredit" class="java.lang.Double" resetType="Group" resetGroup="kode_transaksi" calculation="Sum">
+		<variableExpression><![CDATA[$F{deposit}<0?Math.abs($F{deposit}):0]]></variableExpression>
+	</variable>
+	<variable name="saldoAkhir" class="java.lang.Double" resetType="Group" resetGroup="kode_transaksi" calculation="Sum">
+		<variableExpression><![CDATA[$F{deposit}]]></variableExpression>
+	</variable>
+	<group name="kode_transaksi">
+		<groupExpression><![CDATA[$F{mahasiswa}]]></groupExpression>
+		<groupHeader>
+			<band height="57" splitType="Stretch">
+				<textField pattern="" isBlankWhenNull="false">
+					<reportElement key="textField" x="0" y="0" width="533" height="18" forecolor="#000000" uuid="d9781978-1735-443f-8380-f1974353fd8e"/>
+					<box>
+						<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+						<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+						<bottomPen lineWidth="0.0" lineColor="#000000"/>
+						<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					</box>
+					<textElement verticalAlignment="Top">
+						<font size="12" isBold="true" isItalic="false" isUnderline="false" isStrikeThrough="false" pdfFontName="Helvetica-Bold" isPdfEmbedded="false"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{nim}+" - "+$F{nama}]]></textFieldExpression>
+				</textField>
+				<line direction="BottomUp">
+					<reportElement key="line" x="0" y="20" width="535" height="1" forecolor="#000000" uuid="2c8f193b-0998-4582-a2e6-66eebc5d3a32"/>
+					<graphicElement>
+						<pen lineWidth="0.25" lineStyle="Solid"/>
+					</graphicElement>
+				</line>
+				<staticText>
+					<reportElement key="staticText" x="2" y="20" width="119" height="35" forecolor="#000000" uuid="390dd14c-6623-41c4-93d1-29eeb8f6eb95"/>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="12" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" isPdfEmbedded="false"/>
+					</textElement>
+					<text><![CDATA[Hari/Tanggal/Waktu]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText" x="121" y="18" width="207" height="39" forecolor="#000000" uuid="62d389e6-70a8-4927-a0b3-2c279cd3719f"/>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="12" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" isPdfEmbedded="false"/>
+					</textElement>
+					<text><![CDATA[Keterangan]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText" x="328" y="37" width="60" height="20" forecolor="#000000" uuid="15c8cae2-3f8a-4185-a98f-847493146c65"/>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="12" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" isPdfEmbedded="false"/>
+					</textElement>
+					<text><![CDATA[Debet]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText" x="388" y="37" width="60" height="20" forecolor="#000000" uuid="c220dfa8-b30f-4311-9c8b-f63fc46a1613"/>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="12" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" isPdfEmbedded="false"/>
+					</textElement>
+					<text><![CDATA[Kredit]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-2" x="328" y="20" width="120" height="18" forecolor="#000000" uuid="bc7b5646-8833-4d2d-a798-7945be71e282"/>
+					<textElement textAlignment="Center" verticalAlignment="Top">
+						<font size="12" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" isPdfEmbedded="false"/>
+					</textElement>
+					<text><![CDATA[Mutasi Deposit]]></text>
+				</staticText>
+				<line>
+					<reportElement key="line-2" x="2" y="19" width="532" height="1" uuid="3603a113-dc25-4ef4-8d05-3074395c54ff"/>
+				</line>
+				<line>
+					<reportElement key="line-3" x="2" y="56" width="532" height="1" uuid="30a54f70-4b1b-4ae6-b055-aa2d08e8835c"/>
+				</line>
+				<staticText>
+					<reportElement key="staticText-5" x="448" y="20" width="84" height="35" forecolor="#000000" uuid="0b3816c2-35ed-4dcd-a512-4335f953472f"/>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="12" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" isPdfEmbedded="false"/>
+					</textElement>
+					<text><![CDATA[Saldo Akhir]]></text>
+				</staticText>
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band height="25" splitType="Stretch">
+				<textField pattern="#,##0" isBlankWhenNull="false">
+					<reportElement key="textField-1" x="388" y="4" width="60" height="21" uuid="cd4503e2-761f-4d99-bcc1-d8528f43e73c"/>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{total_kredit}]]></textFieldExpression>
+				</textField>
+				<textField pattern="" isBlankWhenNull="false">
+					<reportElement key="textField-3" x="163" y="4" width="42" height="21" forecolor="#000000" uuid="f4bfe1ba-881e-44f4-8f99-e38298d9d242"/>
+					<box>
+						<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+						<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+						<bottomPen lineWidth="0.0" lineColor="#000000"/>
+						<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					</box>
+					<textElement verticalAlignment="Middle">
+						<font size="10" isBold="true" isItalic="false" isUnderline="false" isStrikeThrough="false" pdfFontName="Helvetica-Bold" isPdfEmbedded="false"/>
+					</textElement>
+					<textFieldExpression><![CDATA["TOTAL"]]></textFieldExpression>
+				</textField>
+				<line>
+					<reportElement key="line-5" x="0" y="4" width="534" height="1" uuid="7f012a5d-525b-4d7e-9348-69ed49368d44"/>
+				</line>
+				<line>
+					<reportElement key="line-6" x="-1" y="23" width="534" height="1" uuid="8a3f12a3-2433-417c-beb9-6624e57af22b"/>
+				</line>
+				<textField pattern="#,##0" isBlankWhenNull="false">
+					<reportElement key="textField-4" x="328" y="4" width="60" height="21" uuid="ba60beed-ae7d-444c-8bff-738a4c498cb5"/>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{total_debet}]]></textFieldExpression>
+				</textField>
+				<textField pattern="#,##0" isBlankWhenNull="false">
+					<reportElement key="textField-6" x="448" y="4" width="87" height="21" forecolor="#000000" uuid="51ea076a-470e-4184-8555-0630f1bc41f1"/>
+					<box>
+						<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+						<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+						<bottomPen lineWidth="0.0" lineColor="#000000"/>
+						<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					</box>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="8" isBold="true" isItalic="false" isUnderline="false" isStrikeThrough="false" pdfFontName="Helvetica-Bold" isPdfEmbedded="false"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{saldoAkhir}]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupFooter>
+	</group>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="108" splitType="Stretch">
+			<staticText>
+				<reportElement key="staticText-3" x="0" y="68" width="536" height="24" forecolor="#000000" uuid="caea13b1-2d40-4b58-bfea-685d798c96a7"/>
+				<box>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<bottomPen lineWidth="0.0" lineColor="#000000"/>
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				</box>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font size="14" isBold="true"/>
+				</textElement>
+				<text><![CDATA[LAPORAN TABUNGAN DAN PENGELUARAN]]></text>
+			</staticText>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-2" x="1" y="92" width="535" height="16" uuid="85090a7d-95a0-4e3b-a420-6b4666c2678d"/>
+				<textElement textAlignment="Left"/>
+				<textFieldExpression><![CDATA["Periode: "+$P{mulai_1}+" s/d "+$P{sampai_1}]]></textFieldExpression>
+			</textField>
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement key="image-1" x="-1" y="-19" width="536" height="87" uuid="ba9842e8-e3ea-4f1f-bd6a-65ffe91469ce"/>
+				<box>
+					<bottomPen lineWidth="1.0"/>
+				</box>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "kop_surat" )]]></imageExpression>
+			</image>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<detail>
+		<band height="21" splitType="Stretch">
+			<textField pattern="" isBlankWhenNull="true">
+				<reportElement key="textField" x="121" y="0" width="207" height="21" forecolor="#000000" uuid="69ab51b6-902c-4abb-9b5e-aaf7d087f5f2"/>
+				<box>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<bottomPen lineWidth="0.0" lineColor="#000000"/>
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" isPdfEmbedded="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{keterangan}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0" isBlankWhenNull="true">
+				<reportElement key="textField" x="328" y="0" width="60" height="21" forecolor="#000000" uuid="f37348a3-26ae-454b-9302-eb225094e08c"/>
+				<box>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<bottomPen lineWidth="0.0" lineColor="#000000"/>
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" isPdfEmbedded="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{deposit}>0?Math.abs($F{deposit}):0]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0" isBlankWhenNull="true">
+				<reportElement key="textField" x="388" y="0" width="60" height="21" forecolor="#000000" uuid="c2d1c4ee-ca5a-4807-844c-dca75f707cfc"/>
+				<box>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<bottomPen lineWidth="0.0" lineColor="#000000"/>
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" isPdfEmbedded="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{deposit}<0?Math.abs($F{deposit}):0]]></textFieldExpression>
+			</textField>
+			<textField pattern="EEEEE, dd MMMMM yyyy HH:mm" isBlankWhenNull="true">
+				<reportElement key="textField" x="2" y="0" width="119" height="21" uuid="6f291e39-e868-483c-95ba-c6f4566c99e3"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{tanggal}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0" isBlankWhenNull="true">
+				<reportElement key="textField-5" x="448" y="0" width="87" height="21" forecolor="#000000" uuid="1e6b32e9-8046-4804-995a-31494213ddc0"/>
+				<box>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<bottomPen lineWidth="0.0" lineColor="#000000"/>
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" isPdfEmbedded="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{saldoAkhir}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band height="27" splitType="Stretch">
+			<textField pattern="" isBlankWhenNull="false">
+				<reportElement key="textField" x="325" y="4" width="174" height="19" forecolor="#000000" uuid="2a21b364-2f5d-4b5f-a8ed-f70db91caa70"/>
+				<box>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<bottomPen lineWidth="0.0" lineColor="#000000"/>
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Top">
+					<font size="10" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" isPdfEmbedded="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Halaman " + $V{PAGE_NUMBER} + " of "]]></textFieldExpression>
+			</textField>
+			<textField evaluationTime="Report" pattern="" isBlankWhenNull="false">
+				<reportElement key="textField" x="499" y="4" width="36" height="19" forecolor="#000000" uuid="75a09d7b-823f-431e-9a44-a98e28fece52"/>
+				<box>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<bottomPen lineWidth="0.0" lineColor="#000000"/>
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				</box>
+				<textElement verticalAlignment="Top">
+					<font size="10" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" isPdfEmbedded="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["" + $V{PAGE_NUMBER}]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement key="line" x="0" y="3" width="535" height="1" forecolor="#000000" uuid="dfafc5cb-c8e4-4277-a68c-c0396e0477d0"/>
+				<graphicElement>
+					<pen lineWidth="2.0" lineStyle="Solid"/>
+				</graphicElement>
+			</line>
+			<textField pattern="" isBlankWhenNull="false">
+				<reportElement key="textField" x="1" y="6" width="209" height="19" forecolor="#000000" uuid="c8bbcb23-a21d-4547-9369-92bd96a849af"/>
+				<box>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<bottomPen lineWidth="0.0" lineColor="#000000"/>
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				</box>
+				<textElement verticalAlignment="Top">
+					<font size="10" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" isPdfEmbedded="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new Date()]]></textFieldExpression>
+			</textField>
+		</band>
+	</pageFooter>
+	<summary>
+		<band splitType="Stretch"/>
+	</summary>
+</jasperReport>

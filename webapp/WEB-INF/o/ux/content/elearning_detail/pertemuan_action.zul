@@ -1,0 +1,6 @@
+<?page title="new page title" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<window apply="ais.action.master.ux.UxPertemuanAction" border="none"
+		use="ais.ui.util.MyWindow" width="100%" id="window" height="100%">
+	</window>
+</zk>

@@ -1,0 +1,7 @@
+<?page title="Pembayaran Online Mahasiswa" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<window apply="ais.action.master.helper.PembayaranOnlineMahasiswa"
+		use="ais.ui.util.MyWindow" border="none" id="window" width="100%"
+		height="100%" contentStyle="overflow:hidden; height:100%; width:100%; padding:0; margin:0; box-sizing:border-box;">
+	</window>
+</zk>

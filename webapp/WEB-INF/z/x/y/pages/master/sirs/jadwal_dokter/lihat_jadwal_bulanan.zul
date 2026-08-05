@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?page title="ZK Calendars Demo"?>
+<?link rel="stylesheet" type="text/css" href="/calendar.css.dsp?v=${desktop.webApp.build}"?>
+<?component name="divtab" macro-uri="/pages/master/jadwal_dokter/divtab.zul" inline="true"?>
+<?component name="divarrow" macro-uri="/pages/master/jadwal_dokter/divarrow.zul" inline="true"?>
+
+<zk xmlns:w="client">
+	<window
+		apply="ais.action.master.sirs.jadwal_dokter.CalendarLihatJadwalBulananComposer"
+		height="100%">
+		<borderlayout id="main" vflex="1">
+			<center border="none">
+				<calendars id="calendars" firstDayOfWeek="Sunday"
+					timeZone="Jakarta=GMT+7" model="${cm}" mold="month">
+					<toolbar sclass="calendar-toolbar">
+						<div class="float-left">
+							<hbox>
+								<divarrow type="arrow-left" />
+								<divarrow type="arrow-right" />
+								<div>
+									<label use="ais.ui.util.MyLabelConfig" value="Lokasi" />
+									<bandbox
+										use="ais.action.master.sirs.helper.AmbilDataLokasiBanbox"
+										id="lokasi" width="200px" />
+
+									<label use="ais.ui.util.MyLabelConfig" value="Tenaga Medis" />
+									<bandbox
+										use="ais.action.master.sirs.helper.AmbilDataDokterBanbox"
+										id="dokter" width="200px" />
+
+									<label use="ais.ui.util.MyLabelConfig" value="Poli" />
+									<combobox id="poly"
+										forward="onChange=onRefresh" width="200px" />
+
+									<space></space>
+									<space></space>
+									<space></space>
+									<button forward="onClick=onBack"
+										label="Back">
+									</button>
+									<button forward="onClick=onNext"
+										label="Next">
+									</button>
+
+									<space></space>
+									<button forward="onClick=onRefresh"
+										label="Refresh">
+									</button>
+								</div>
+							</hbox>
+						</div>
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;lihat_jadwal_bulanan&quot;, &quot;Bantuan&quot;);"/>
+			</toolbar>
+				</calendars>
+			</center>
+
+		</borderlayout>
+
+
+	</window>
+</zk>

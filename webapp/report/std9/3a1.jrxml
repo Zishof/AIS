@@ -1,0 +1,341 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="3a1" language="groovy" pageWidth="842" pageHeight="595" orientation="Landscape" whenNoDataType="AllSectionsNoDetail" columnWidth="802" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="23eb48d0-9271-4eeb-84b4-f7dfc3d6ba72">
+	<property name="ireport.zoom" value="0.8264462809917354"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<field name="unitPengelola" class="java.lang.String"/>
+	<field name="jmlPendidikanDoktor" class="java.lang.Double"/>
+	<field name="jmlPendidikanMagister" class="java.lang.Double"/>
+	<field name="jmlPendidikanProfesi" class="java.lang.Double"/>
+	<variable name="jumlah" class="java.lang.Double">
+		<variableExpression><![CDATA[$F{jmlPendidikanDoktor} + $F{jmlPendidikanMagister}+$F{jmlPendidikanProfesi}]]></variableExpression>
+		<initialValueExpression><![CDATA[0]]></initialValueExpression>
+	</variable>
+	<variable name="jumlahPendidikanDoktor" class="java.lang.Double" calculation="Sum">
+		<variableExpression><![CDATA[$F{jmlPendidikanDoktor}]]></variableExpression>
+		<initialValueExpression><![CDATA[0]]></initialValueExpression>
+	</variable>
+	<variable name="jumlahPendidikanMagister" class="java.lang.Double" calculation="Sum">
+		<variableExpression><![CDATA[$F{jmlPendidikanMagister}]]></variableExpression>
+		<initialValueExpression><![CDATA[0]]></initialValueExpression>
+	</variable>
+	<variable name="jumlahPendidikanProfesi" class="java.lang.Double" calculation="Sum">
+		<variableExpression><![CDATA[$F{jmlPendidikanProfesi}]]></variableExpression>
+		<initialValueExpression><![CDATA[0]]></initialValueExpression>
+	</variable>
+	<variable name="jumlahTotal" class="java.lang.Double" calculation="Sum">
+		<variableExpression><![CDATA[$V{jumlah}]]></variableExpression>
+		<initialValueExpression><![CDATA[0]]></initialValueExpression>
+	</variable>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="40" splitType="Stretch">
+			<staticText>
+				<reportElement x="0" y="0" width="802" height="20" uuid="6ae3cfdd-cee9-48b1-a9df-44f74292c324"/>
+				<text><![CDATA[Tabel 3.a.1) Kecukupan Dosen Perguruan Tinggi]]></text>
+			</staticText>
+		</band>
+	</title>
+	<columnHeader>
+		<band height="96" splitType="Stretch">
+			<textField>
+				<reportElement mode="Opaque" x="53" y="0" width="408" height="76" backcolor="#6699FF" uuid="e4f3e3f2-222d-4e24-a0b2-1aeb4b0e716d"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle" markup="none">
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Unit Pengelola \n(Fakultas/Departemen/Jurusan)"]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement mode="Opaque" x="461" y="20" width="80" height="56" backcolor="#6699FF" uuid="4a8a54bb-eb78-4ad1-98c1-de1a8c8493c1"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Doktor / Doktor Terapan / Subspesialis]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="541" y="20" width="78" height="56" backcolor="#6699FF" uuid="d1c2bddf-3c8d-4178-a5a6-7baf1b57d193"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Magister / Magister Terapan / Spesialis]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="619" y="20" width="86" height="56" backcolor="#6699FF" uuid="2a21de82-0a1a-4580-9907-8c4257c4a013"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Profesi]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="461" y="0" width="244" height="20" backcolor="#6699FF" uuid="c12debf6-ed52-4202-b62f-7db6601af1d5"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Pendidikan Tertinggi]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="705" y="0" width="97" height="76" backcolor="#6699FF" uuid="6077da75-e8d7-4661-88e8-5801c8459094"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Jumlah]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="0" y="0" width="53" height="76" backcolor="#6699FF" uuid="6e17c3c8-e6c5-44f1-8e58-d0f03617c177"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[No.]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="0" y="76" width="53" height="20" backcolor="#CCCCCC" uuid="a760913c-0a81-47b8-86de-e17c667ae5f0"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[1]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="53" y="76" width="408" height="20" backcolor="#CCCCCC" uuid="5d155c35-97bb-45b1-a8ca-5f83c8c728de"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[2]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="461" y="76" width="80" height="20" backcolor="#CCCCCC" uuid="a6dc2925-7cd2-4d64-b747-115d35af543d"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[3]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="541" y="76" width="78" height="20" backcolor="#CCCCCC" uuid="bbab2f7e-3aba-49ad-b55d-82521653d368"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[4]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="619" y="76" width="86" height="20" backcolor="#CCCCCC" uuid="a1e28a8d-422e-44ee-bfc1-d774ea224217"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[5]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="705" y="76" width="97" height="20" backcolor="#CCCCCC" uuid="1c91ec5f-36c2-411d-8438-33a1bd792d97"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[6]]></text>
+			</staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="20" splitType="Stretch">
+			<textField>
+				<reportElement x="53" y="0" width="408" height="20" uuid="e7f025ea-f0a6-4431-baa9-b4eca6f83305"/>
+				<box leftPadding="5">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{unitPengelola}]]></textFieldExpression>
+			</textField>
+			<textField pattern="###0">
+				<reportElement x="461" y="0" width="80" height="20" uuid="26d7e4a2-8dd0-4cd6-95f4-8ec0b63dcd3b"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{jmlPendidikanDoktor}]]></textFieldExpression>
+			</textField>
+			<textField pattern="###0">
+				<reportElement x="541" y="0" width="78" height="20" uuid="88d81a20-a3e4-4c6a-ba77-aff73ca20c15"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{jmlPendidikanMagister}]]></textFieldExpression>
+			</textField>
+			<textField pattern="###0">
+				<reportElement x="619" y="0" width="86" height="20" uuid="d9cffeba-f76c-46b3-b9c7-ea873991931e"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{jmlPendidikanProfesi}]]></textFieldExpression>
+			</textField>
+			<textField pattern="###0">
+				<reportElement x="705" y="0" width="97" height="20" uuid="cbe81adf-7aa7-4038-9115-0bf62a9d45f7"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$V{jumlah}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="0" width="53" height="20" uuid="c43d933c-70ab-49ac-9032-20f15f049270"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<summary>
+		<band height="20" splitType="Stretch">
+			<staticText>
+				<reportElement x="0" y="0" width="461" height="20" uuid="9cb3ae1c-ee12-42c2-aa80-f1dadecb72af"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Jumlah]]></text>
+			</staticText>
+			<textField pattern="###0">
+				<reportElement x="461" y="0" width="80" height="20" uuid="dffb5a16-4054-4147-a48a-d11763db7059"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{jumlahPendidikanDoktor}]]></textFieldExpression>
+			</textField>
+			<textField pattern="###0">
+				<reportElement x="541" y="0" width="78" height="20" uuid="a9c8a586-8059-4a6a-a849-376d706ad006"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{jumlahPendidikanMagister}]]></textFieldExpression>
+			</textField>
+			<textField pattern="###0">
+				<reportElement x="619" y="0" width="86" height="20" uuid="57637065-412a-4fd0-9b67-799eb075736e"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{jumlahPendidikanProfesi}]]></textFieldExpression>
+			</textField>
+			<textField pattern="###0">
+				<reportElement x="705" y="0" width="97" height="20" uuid="9d8a4671-69d4-4896-adba-eb528e965dcd"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{jumlahTotal}]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
+</jasperReport>

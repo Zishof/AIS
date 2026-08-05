@@ -1,0 +1,148 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.pmb.RekapRekapAction" width="100%"
+		height="100%">
+
+		<tabbox width="100%" height="100%">
+
+			<tabs>
+
+				
+				<tab use="ais.ui.util.MyTabConfig" selected="true"
+					forward="onClick=onRekapitulasiCalonJenisSeleksi">
+					Jenis Seleksi
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onRekapitulasiGelombang">
+					Gelombang PMB
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onRekapitulasiProgram">
+					Program
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onRekapitulasiStatusAwalMahasiswa">
+					Kelompok
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onRekapitulasi">
+					Jenis Sekolah
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onRekapitulasiJurusan">
+					Jurusan Sekolah
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onRekapitulasiJenisSeleksi">
+					Seleksi PMB
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onRekapitulasiAsalSma">
+					Nama Pendidikan Asal
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onRekapitulasiTahunKelulusan">
+					Tahun Kelulusan
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onRekapitulasiKota">
+					Kota
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onRekapitulasiKecamatan">
+					Kecamatan
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onRekapitulasiSkor">
+					Skor
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onRekapitulasiInfoKampusDariMana">
+					Info Kampus
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onRekapitulasiAgama">
+					Agama
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onRekapitulasiPekerjaan">
+					Pekerjaan Ortu
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onRekapitulasiPendidikan">
+					Pendidikan Ortu
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onRekapitulasiPendapatan">
+					Pendapatan Ortu
+				</tab>
+			</tabs>
+
+			<tabpanels>
+
+
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="rekapitulasiCalonJenisSeleksi"></tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="rekapitulasiGelombang"></tabpanel>
+				
+				<tabpanel use="ais.ui.util.MyTabpanel" id="rekapitulasiProgram"></tabpanel>
+				
+				<tabpanel use="ais.ui.util.MyTabpanel" id="rekapitulasiStatusAwalMahasiswa"></tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="rekapitulasi"></tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="rekapitulasiJurusan"></tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="rekapitulasiJenisSeleksi"></tabpanel>
+				
+				<tabpanel use="ais.ui.util.MyTabpanel" id="rekapitulasiAsalSma"></tabpanel>
+				
+				<tabpanel use="ais.ui.util.MyTabpanel" id="rekapitulasiTahunKelulusan"></tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="rekapitulasiKota"></tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="rekapitulasiKecamatan"></tabpanel>
+				
+				<tabpanel use="ais.ui.util.MyTabpanel" id="rekapitulasiSkor"></tabpanel>
+				
+				<tabpanel use="ais.ui.util.MyTabpanel" id="rekapitulasiInfoKampusDariMana"></tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="rekapitulasiAgama"></tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="rekapitulasiPekerjaan"></tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="rekapitulasiPendidikan"></tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="rekapitulasiPendapatan"></tabpanel>
+
+
+			</tabpanels>
+		</tabbox>
+
+
+		<window use="ais.ui.util.MyWindow" id="addWindow"
+			visible="false" mode="popup" position="center,center" border="normal"
+			width="550px" height="500px">
+
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+
+	</window>
+
+
+</zk>

@@ -1,0 +1,51 @@
+<?page title="Pilihan Paket dan Biaya" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<borderlayout height="100%">
+		<west width="30%">
+
+		</west>
+		<center autoscroll="true">
+			<box>
+				<separator height="30px"></separator>
+				<box width="90%" align="center">
+					<label use="ais.ui.util.MyLabelConfig">
+						Waktu Pendaftaran
+					</label>
+				</box>
+				<separator height="10px"></separator>
+				<!-- <html>
+					
+					<![CDATA[ <table border=""> <tr> <td
+					bgcolor="#000066"><div align="center"><font
+					color="white">NO</font></div></td> <td
+					bgcolor="#000066"><div align="center" ><font
+					color="white">Kegiatan</font></div></td> <td
+					bgcolor="#000066"><div align="center"><font
+					color="white">Jalur Mandiri</font></div></td> </tr>
+					<tr> <td bgcolor="#B9D3F1"><div
+					align="center">1</div></td> <td
+					bgcolor="#B9D3F1">PENDAFTARAN</td> <td
+					bgcolor="#B9D3F1">24 Mei - 29 Juni 2011</td> </tr>
+					<tr> <td bgcolor="#B9D3F1"><div
+					align="center">2</div></td> <td
+					bgcolor="#B9D3F1">UJIAN TULIS</td> <td
+					bgcolor="#B9D3F1">5 - 6 Juli 2011</td> </tr> <tr>
+					<td><div align="center">3</div></td> <td>PENGUMUMAN
+					KELULUSAN</td> <td>4 Agustus 2011</td> </tr> <tr> <td
+					bgcolor="#B9D3F1"><div align="center">4</div></td>
+					<td bgcolor="#B9D3F1">DAFTAR ULANG</td> <td
+					bgcolor="#B9D3F1">9 - 22 Agustus 2011</td> </tr>
+					<tr> <td><div align="center">5</div></td>
+					<td>PROPESA</td> <td>9 - 10 September 2011</td> </tr>
+					<tr> <td bgcolor="#B9D3F1"><div
+					align="center">6</div></td> <td
+					bgcolor="#B9D3F1">AWAL PERKULIAHAN</td> <td
+					bgcolor="#B9D3F1">12 September 2011</td> </tr>
+					</table> ]]>
+					
+                    		</html> -->
+                    		<image src="/img/agenda_spmb_2012.jpg" height="100%"></image>
+			</box>
+		</center>
+	</borderlayout>
+</zk>

@@ -1,0 +1,338 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="sks_dosen" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20" uuid="6ab3d647-4c59-4e55-9e0d-721e8c28ec6d">
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="tahun_akademik" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2010/2011"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="semester" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Ganjil"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="fakultas" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new Long(1L)]]></defaultValueExpression>
+	</parameter>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_kota" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Ciputat"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_jurusan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Prodi"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_fakultas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Fakultas"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jurusan" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new Long(1L)]]></defaultValueExpression>
+	</parameter>
+	<parameter name="barcode" class="java.lang.String"/>
+	<queryString>
+		<![CDATA[select
+a.dosen1,
+max(trim(b.nama)) as nama_dosen,
+a.semester,
+max(d.nama) as jurusan,
+max(e.nama) as fakultas,
+sum((c.sks*1.0)/(a.jumlahdosen*1.0)) as jumlah_sks,
+max(c.nama) as matakuliah,
+max(j.nama) as jabatan,
+max(j.eq_sks) as eq_sks,
+max(f.nama) as fakultas_dosen
+
+
+from perkuliahan a
+left join dosen b on (a.dosen1 = b.id)
+left join jabatan j on (j.id = b.spesifikasi_jabatan)
+left join matakuliah c on (a.matakuliah = c.id)
+left join jurusan d on (a.jurusan = d.id)
+left join fakultas e on (e.id = d.fakultas)
+left join fakultas f on (f.id = b.fakultas)
+where b.nama is not null
+and case when $P{tahun_akademik} = 'Semua' then true else a.tahun_ajaran = $P{tahun_akademik} end
+and case when $P{semester} = 'Semua' then true else a.ganjil_genap = $P{semester} end
+and case when $P{fakultas} = -1 then true else d.fakultas = $P{fakultas} end
+and case when $P{jurusan} = -1 then true else a.jurusan = $P{jurusan} end
+group by a.dosen1, d.fakultas, a.jurusan, a.semester, a.matakuliah
+order by max(trim(b.nama)) asc, d.fakultas, a.jurusan, a.semester asc]]>
+	</queryString>
+	<field name="dosen1" class="java.lang.Long"/>
+	<field name="nama_dosen" class="java.lang.String"/>
+	<field name="semester" class="java.lang.Integer"/>
+	<field name="jurusan" class="java.lang.String"/>
+	<field name="fakultas" class="java.lang.String"/>
+	<field name="jumlah_sks" class="java.math.BigDecimal"/>
+	<field name="matakuliah" class="java.lang.String"/>
+	<field name="jabatan" class="java.lang.String"/>
+	<field name="eq_sks" class="java.lang.Integer"/>
+	<field name="fakultas_dosen" class="java.lang.String"/>
+	<variable name="sum_sks" class="java.lang.Double" resetType="Group" resetGroup="dosen1" calculation="Sum">
+		<variableExpression><![CDATA[$F{jumlah_sks}]]></variableExpression>
+	</variable>
+	<group name="dosen1">
+		<groupExpression><![CDATA[$F{dosen1}]]></groupExpression>
+		<groupHeader>
+			<band height="58" splitType="Stretch">
+				<textField pattern="" isBlankWhenNull="true">
+					<reportElement key="textField" x="0" y="0" width="535" height="25" forecolor="#000000" uuid="39809cce-03a5-4af4-9e5e-534246fc1701"/>
+					<box>
+						<topPen lineWidth="0.25" lineStyle="Solid" lineColor="#000000"/>
+						<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+						<bottomPen lineWidth="0.0" lineColor="#000000"/>
+						<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					</box>
+					<textElement verticalAlignment="Middle">
+						<font size="12" isBold="true" isItalic="false" isUnderline="false" isStrikeThrough="false" pdfFontName="Helvetica-Bold" isPdfEmbedded="false"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{nama_dosen}]]></textFieldExpression>
+				</textField>
+				<line direction="BottomUp">
+					<reportElement key="line" x="0" y="39" width="535" height="1" forecolor="#000000" uuid="16909be3-ca1b-4c60-8c8a-03dabae9dc5b"/>
+					<graphicElement>
+						<pen lineWidth="0.25" lineStyle="Solid"/>
+					</graphicElement>
+				</line>
+				<line direction="BottomUp">
+					<reportElement key="line" x="0" y="57" width="535" height="1" forecolor="#000000" uuid="110b14d7-cbd7-4ad9-b103-1e500a9d3bfb"/>
+					<graphicElement>
+						<pen lineWidth="0.25" lineStyle="Solid"/>
+					</graphicElement>
+				</line>
+				<staticText>
+					<reportElement key="staticText" x="319" y="38" width="107" height="20" forecolor="#000000" uuid="57d0c785-a792-4112-9983-144d4d1dc67c"/>
+					<box leftPadding="10">
+						<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+						<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+						<bottomPen lineWidth="0.0" lineColor="#000000"/>
+						<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="10" isBold="true" isItalic="false" isUnderline="false" isStrikeThrough="false" isPdfEmbedded="false"/>
+					</textElement>
+					<text><![CDATA[Semester]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText" x="426" y="38" width="107" height="20" forecolor="#000000" uuid="c891268f-4fee-468f-b193-4f215a46d723"/>
+					<box leftPadding="10">
+						<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+						<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+						<bottomPen lineWidth="0.0" lineColor="#000000"/>
+						<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="10" isBold="true" isItalic="false" isUnderline="false" isStrikeThrough="false" isPdfEmbedded="false"/>
+					</textElement>
+					<text><![CDATA[Jumlah SKS]]></text>
+				</staticText>
+				<textField isBlankWhenNull="false">
+					<reportElement key="textField-1" x="1" y="38" width="141" height="20" uuid="25e3bec5-5138-42b3-8832-8f5deee89b21"/>
+					<box leftPadding="6"/>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="10" isBold="true" pdfFontName="Helvetica"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$P{label_fakultas}]]></textFieldExpression>
+				</textField>
+				<textField isBlankWhenNull="false">
+					<reportElement key="textField-1" x="142" y="38" width="177" height="20" uuid="a2205a0e-971d-4c90-90ee-5c419d335d55"/>
+					<box leftPadding="6"/>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="10" isBold="true" pdfFontName="Helvetica"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$P{label_jurusan}]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band height="59" splitType="Stretch">
+				<line direction="BottomUp">
+					<reportElement key="line" x="1" y="4" width="534" height="1" forecolor="#000000" uuid="452bc719-c995-42ff-b76f-10843703d068"/>
+					<graphicElement>
+						<pen lineWidth="0.25" lineStyle="Solid"/>
+					</graphicElement>
+				</line>
+				<textField isBlankWhenNull="false">
+					<reportElement key="textField-1" x="0" y="5" width="426" height="17" uuid="c5d458dd-8f99-4d14-967b-c846a4943453"/>
+					<textElement textAlignment="Right">
+						<font size="10"/>
+					</textElement>
+					<textFieldExpression><![CDATA["Jumlah SKS yang diemban oleh "+$F{nama_dosen}]]></textFieldExpression>
+				</textField>
+				<textField pattern="#,##0.00" isBlankWhenNull="true">
+					<reportElement key="textField-2" x="426" y="4" width="107" height="16" forecolor="#000000" uuid="f0b9d351-39ff-4a8a-84f5-7fcc4488967f"/>
+					<box leftPadding="10">
+						<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+						<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+						<bottomPen lineWidth="0.0" lineColor="#000000"/>
+						<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Top">
+						<font size="10" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" isPdfEmbedded="false"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{sum_sks}]]></textFieldExpression>
+				</textField>
+				<textField isBlankWhenNull="false">
+					<reportElement key="textField-3" x="1" y="22" width="426" height="17" uuid="542e77c8-e25f-467a-8af2-652c64886965"/>
+					<textElement textAlignment="Right">
+						<font size="10"/>
+					</textElement>
+					<textFieldExpression><![CDATA["Ekivalensi sks jabatan ("+($F{jabatan} == null ? "N/A" : $F{jabatan})+")"]]></textFieldExpression>
+				</textField>
+				<textField pattern="" isBlankWhenNull="true">
+					<reportElement key="textField-4" x="426" y="22" width="107" height="16" forecolor="#000000" uuid="26e1c9d8-72aa-458e-ab89-05f16ece19e9"/>
+					<box leftPadding="10">
+						<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+						<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+						<bottomPen lineWidth="0.0" lineColor="#000000"/>
+						<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Top">
+						<font size="10" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" isPdfEmbedded="false"/>
+					</textElement>
+					<textFieldExpression><![CDATA[new Integer($F{eq_sks} == null ? 0 : $F{eq_sks}.intValue())]]></textFieldExpression>
+				</textField>
+				<textField pattern="" isBlankWhenNull="true">
+					<reportElement key="textField-7" x="426" y="38" width="107" height="18" forecolor="#000000" uuid="56008d52-230b-4088-8ae5-66c2d7000269"/>
+					<box leftPadding="10">
+						<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+						<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+						<bottomPen lineWidth="0.0" lineColor="#000000"/>
+						<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Top">
+						<font size="10" isBold="true" isItalic="false" isUnderline="true" isStrikeThrough="false" pdfFontName="Helvetica-Bold" isPdfEmbedded="false"/>
+					</textElement>
+					<textFieldExpression><![CDATA[new Double($V{sum_sks}.doubleValue() + new Double($F{eq_sks} == null ? 0L : $F{eq_sks}.doubleValue()).doubleValue())]]></textFieldExpression>
+				</textField>
+				<textField isBlankWhenNull="false">
+					<reportElement key="textField-5" x="1" y="38" width="426" height="17" uuid="bbc9812b-326d-4798-a2b6-f646d82bdea3"/>
+					<textElement textAlignment="Right">
+						<font size="10" isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<textFieldExpression><![CDATA["Total SKS"]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupFooter>
+	</group>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="151" splitType="Stretch">
+			<staticText>
+				<reportElement key="staticText-2" x="0" y="105" width="86" height="14" uuid="5ec92547-f7ab-407c-bdcf-a70b5c71dfd9"/>
+				<text><![CDATA[Tahun Akademik]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-3" x="0" y="119" width="86" height="14" uuid="7e0d277f-78c8-4dfe-832f-5b97b64f80a0"/>
+				<text><![CDATA[Semester]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="85" y="105" width="450" height="14" uuid="99c86b65-bc57-4083-9ba9-2c8e436587ab"/>
+				<box leftPadding="10"/>
+				<textFieldExpression><![CDATA[": "+$P{tahun_akademik}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="85" y="119" width="450" height="14" uuid="7b66a834-b316-4db7-abad-9523398dfa1a"/>
+				<box leftPadding="10"/>
+				<textFieldExpression><![CDATA[": "+$P{semester}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-36" x="0" y="80" width="535" height="20" uuid="bda5c6c4-277c-4b72-8efd-3772be81baa1"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[LAPORAN JUMLAH SKS DOSEN MENGAJAR PER MATA PELAJARAN]]></text>
+			</staticText>
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="0" y="-12" width="535" height="67" uuid="b547121b-83ec-476a-9371-97306a837e47"/>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<textField>
+				<reportElement x="1" y="51" width="535" height="29" uuid="9d2c48aa-e4b9-4999-a000-39204e1c5ac0"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{label_universitas}]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<detail>
+		<band height="18" splitType="Stretch">
+			<textField pattern="" isBlankWhenNull="true">
+				<reportElement key="textField" x="319" y="0" width="107" height="18" forecolor="#000000" uuid="d3d7267f-4415-498e-97f1-9b7e25b9dca1"/>
+				<box leftPadding="10">
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<bottomPen lineWidth="0.0" lineColor="#000000"/>
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Top">
+					<font size="10" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" isPdfEmbedded="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{semester}]]></textFieldExpression>
+			</textField>
+			<textField pattern="" isBlankWhenNull="true">
+				<reportElement key="textField" x="142" y="0" width="177" height="18" forecolor="#000000" uuid="f37eb975-d784-4036-a170-dce932e28b91"/>
+				<box leftPadding="10">
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<bottomPen lineWidth="0.0" lineColor="#000000"/>
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				</box>
+				<textElement verticalAlignment="Top">
+					<font size="10" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" isPdfEmbedded="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{jurusan}]]></textFieldExpression>
+			</textField>
+			<textField pattern="" isBlankWhenNull="true">
+				<reportElement key="textField" x="0" y="0" width="142" height="18" forecolor="#000000" uuid="a0434088-7b4c-41e5-95d3-879929827e5c"/>
+				<box leftPadding="10">
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<bottomPen lineWidth="0.0" lineColor="#000000"/>
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				</box>
+				<textElement verticalAlignment="Top">
+					<font size="10" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" isPdfEmbedded="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{fakultas}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0.00" isBlankWhenNull="true">
+				<reportElement key="textField" x="426" y="0" width="107" height="18" forecolor="#000000" uuid="6b5fdae8-3745-4837-9cf3-e031c8e1463e"/>
+				<box leftPadding="10">
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+					<bottomPen lineWidth="0.0" lineColor="#000000"/>
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Top">
+					<font size="10" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" isPdfEmbedded="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{jumlah_sks}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band height="22">
+			<image scaleImage="FillFrame" vAlign="Middle">
+				<reportElement key="image-2" x="1" y="0" width="300" height="20" uuid="6b66e704-82a0-46b2-94a7-28f9be881c03"/>
+				<imageExpression><![CDATA[$P{barcode}]]></imageExpression>
+			</image>
+		</band>
+	</pageFooter>
+	<summary>
+		<band splitType="Stretch"/>
+	</summary>
+</jasperReport>

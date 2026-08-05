@@ -1,0 +1,68 @@
+<?page title="Persyaratan Pendaftaran" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<borderlayout height="100%">
+		<west width="5%">
+
+		</west>
+		<center autoscroll="true">
+			<box>
+				<separator height="30px"></separator>
+				<box width="90%" align="center">
+					<label use="ais.ui.util.MyLabelConfig">
+						PERSYARATAN PENDAFTARAN
+					</label>
+				</box>
+				<separator height="10px"></separator>
+				<html>
+
+					
+					<![CDATA[ <p><strong>A.</strong> <strong>PERSYARATAN UMUM PENDAFTARAN</strong></p>
+	<ol>
+   <li>Berijazah sarjana (S1) yang diperoleh dari: </li>
+   <ol>
+     <li>Perguruan  Tinggi Negeri atau Perguruan Tinggi Swasta yang program studinya telah  terakreditasi oleh BAN-PT. </li>
+     <li>Perguruan  Tinggi Luar Negeri dengan ijazah yang telah disahkan oleh Direktorat Jenderal  Pendidikan Tinggi Kementerian Pendidikan dan Kebudayaan.</li>
+   </ol>
+ 
+   <li>Lulus seleksi masuk yang diselenggarakan oleh   masing-masing fakultas/program studi.</li>
+    <p><strong>B.</strong> <strong> PERSYARATAN KHUSUS</strong></p>
+     <ol>
+    <li> Program Studi PBI, PAI, dan PBA  (FITK):<br />
+      a.  IPK S1 minimal 3,0<br />
+      b.  Menyerahkan  rencana penelitian untuk tesis (tiga halaman, jarak dua spasi, font 12 Times  New Roman,  di kertas ukuran A4).<br />
+    </li>
+    <li>Program Studi Psikologi (Fpsi):
+      <ol>
+        <li>IPK S1 minimal  2,75 </li>
+        <li>Khusus  peminatan Psikometri telah memiliki dasar-dasar statistika </li>
+      </ol>
+    </li>
+    <li>Program Studi Agribisnis (FST): 
+      <ol>
+        <li>IPK S1  minimal 2,75 (lulusan sebelum tahun 2000) dan minimal 3,0 (lulusan setelah  tahun 2000) </li>
+        <li>Sinopsis  tesis (minimal lima halaman Ã4) sebanyak tiga rangkap </li>
+      </ol>
+    </li>
+    <li>Program Studi Dirasat Islamiyah (FDI):
+      <ol>
+        <li>Memiliki kemampuan berbahasa Arab dalam membaca, menulis, mendengar,  berbicara, memahami, dan mengarang</li>
+        <li>Bersedia menghafal Al-Qur’an empat juz selama studi</li>
+        <li>Mengajukan proposal tesis (minimal 15 halaman kuarto) sebanyak tiga rangkap</li>
+      </ol>
+    </li>
+    <li>Program Studi Ekonomi Syariah (FSH):
+      <ol>
+        <li>IPK S1 minimal 3,0</li>
+        <li>Proposal  tesis minimal 15 halaman kuarto </li>
+      </ol>
+    </li>
+  </ol>
+
+					]]>
+					
+					
+                    		</html>
+			</box>
+		</center>
+	</borderlayout>
+</zk>

@@ -1,0 +1,349 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:security="http://www.springframework.org/schema/security"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+http://www.springframework.org/schema/security http://www.springframework.org/schema/security/spring-security-3.0.xsd">
+
+
+
+	<bean id="logCleanerProcessor" class="ais.action.master.helper.util.LogCleanerProcessor">
+	</bean>
+
+	<bean id="logCleanerProcessorScheduledTask" class="org.springframework.scheduling.timer.ScheduledTimerTask">
+		<!-- wait 10 day before starting repeated execution -->
+		<property name="delay" value="864000000" />
+		<!-- run every 10 day -->
+		<property name="period" value="864000000" />
+		<property name="timerTask" ref="logCleanerProcessor" />
+
+	</bean>
+
+	<bean id="autoNotActivatingMahasiswaS1Processor"
+		class="ais.action.master.helper.util.AutoNotActivatingMahasiswaS1Processor">
+	</bean>
+
+	<bean id="autoNotActivatingMahasiswaS1ProcessorScheduledTask"
+		class="org.springframework.scheduling.timer.ScheduledTimerTask">
+		<!-- wait 10 seconds before starting repeated execution -->
+		<property name="delay" value="100000" />
+		<!-- run every 1 hour -->
+		<property name="period" value="3600000" />
+		<property name="timerTask" ref="autoNotActivatingMahasiswaS1Processor" />
+
+	</bean>
+	
+	<!-- TAMBAHKAN BEAN INI UNTUK EVALUASI BELANJA -->
+	<bean id="evaluasiBelanjaProcessor" class="ais.action.master.helper.util.EvaluasiBelanjaProcessor">
+	</bean>
+	<bean id="evaluasiBelanjaProcessorScheduledTask" class="org.springframework.scheduling.timer.ScheduledTimerTask">
+		<!-- Mulai setelah 5 menit server jalan -->
+		<property name="delay" value="300000" />
+		<!-- Berjalan setiap 3 Jam (10800000 ms) -->
+		<property name="period" value="10800000" />
+		<property name="timerTask" ref="evaluasiBelanjaProcessor" />
+	</bean>
+
+
+
+	<bean id="autoNotActivatingMahasiswaS2Processor"
+		class="ais.action.master.helper.util.AutoNotActivatingMahasiswaS2Processor">
+	</bean>
+
+	<bean id="autoNotActivatingMahasiswaS2ProcessorScheduledTask"
+		class="org.springframework.scheduling.timer.ScheduledTimerTask">
+		<!-- wait 10 seconds before starting repeated execution -->
+		<property name="delay" value="100000" />
+		<!-- run every 1 hour -->
+		<property name="period" value="3600000" />
+		<property name="timerTask" ref="autoNotActivatingMahasiswaS2Processor" />
+
+	</bean>
+
+
+	<bean id="autoNotActivatingMahasiswaS3Processor"
+		class="ais.action.master.helper.util.AutoNotActivatingMahasiswaS3Processor">
+	</bean>
+
+	<bean id="autoNotActivatingMahasiswaS3ProcessorScheduledTask"
+		class="org.springframework.scheduling.timer.ScheduledTimerTask">
+		<!-- wait 10 seconds before starting repeated execution -->
+		<property name="delay" value="100000" />
+		<!-- run every 1 hour -->
+		<property name="period" value="3600000" />
+		<property name="timerTask" ref="autoNotActivatingMahasiswaS3Processor" />
+
+	</bean>
+
+
+	<bean id="autoNotActivatingMahasiswaSemuaJenjangProcessor"
+		class="ais.action.master.helper.util.AutoNotActivatingMahasiswaSemuaJenjangProcessor">
+	</bean>
+
+	<bean id="autoNotActivatingMahasiswaSemuaJenjangProcessorScheduledTask"
+		class="org.springframework.scheduling.timer.ScheduledTimerTask">
+		<!-- wait 10 seconds before starting repeated execution -->
+		<property name="delay" value="100000" />
+		<!-- run every 1 hour -->
+		<property name="period" value="3600000" />
+		<property name="timerTask"
+			ref="autoNotActivatingMahasiswaSemuaJenjangProcessor" />
+
+	</bean>
+
+
+	<bean id="tunggakanMahasiswaDaftarUlangProcessor"
+		class="ais.action.master.helper.util.TunggakanMahasiswaDaftarUlangProcessor">
+	</bean>
+
+	<bean id="tunggakanMahasiswaDaftarUlangProcessorScheduledTask"
+		class="org.springframework.scheduling.timer.ScheduledTimerTask">
+		<!-- wait 10 seconds before starting repeated execution -->
+		<property name="delay" value="1200000" />
+		<!-- run every 1 day -->
+		<property name="period" value="86400000" />
+		<property name="timerTask" ref="tunggakanMahasiswaDaftarUlangProcessor" />
+
+	</bean>
+
+
+	<bean id="jamPerkuliahanSyncrhonizerProcessor"
+		class="ais.action.master.helper.util.JamPerkuliahanSyncrhonizerProcessor">
+	</bean>
+
+	<bean id="jamPerkuliahanSyncrhonizerProcessorScheduledTask" class="org.springframework.scheduling.timer.ScheduledTimerTask">
+		<!-- wait 10 seconds before starting repeated execution -->
+		<property name="delay" value="60000" />
+		<!-- run every 1 day -->
+		<property name="period" value="86400000" />
+		<property name="timerTask" ref="jamPerkuliahanSyncrhonizerProcessor" />
+
+	</bean>
+
+
+	<bean id="masaPerkuliahanSyncrhonizerProcessor"
+		class="ais.action.master.helper.util.MasaPerkuliahanSyncrhonizerProcessor">
+	</bean>
+
+	<bean id="masaPerkuliahanSyncrhonizerProcessorScheduledTask"
+		class="org.springframework.scheduling.timer.ScheduledTimerTask">
+		<!-- wait 10 seconds before starting repeated execution -->
+		<property name="delay" value="80000" />
+		<!-- run every 1 day -->
+		<property name="period" value="86400000" />
+		<property name="timerTask" ref="masaPerkuliahanSyncrhonizerProcessor" />
+
+	</bean>
+
+
+	<bean id="reconsilePembayaranHostToHostSyncrhonizerProcessor"
+		class="ais.action.master.helper.util.ReconsilePembayaranHostToHostSyncrhonizerProcessor">
+	</bean>
+
+	<bean
+		id="reconsilePembayaranHostToHostSyncrhonizerProcessorProcessorScheduledTask"
+		class="org.springframework.scheduling.timer.ScheduledTimerTask">
+		<!-- wait 10 seconds before starting repeated execution -->
+		<property name="delay" value="240000" />
+		<!-- run every 1 day -->
+		<property name="period" value="21600000" />
+		<property name="timerTask"
+			ref="reconsilePembayaranHostToHostSyncrhonizerProcessor" />
+
+	</bean>
+
+
+	<bean id="fotoMahasiswaSyncrhonizerProcessor"
+		class="ais.action.master.helper.util.FotoMahasiswaSyncrhonizerProcessor">
+	</bean>
+
+	<bean id="fotoMahasiswaSyncrhonizerProcessorScheduledTask" class="org.springframework.scheduling.timer.ScheduledTimerTask">
+		<!-- wait 10 seconds before starting repeated execution -->
+		<property name="delay" value="100000" />
+		<!-- run every 1 day -->
+		<property name="period" value="86400000" />
+		<property name="timerTask" ref="fotoMahasiswaSyncrhonizerProcessor" />
+
+	</bean>
+
+
+	<bean id="konfigurasiKalenderAkademikProcessor"
+		class="ais.action.master.helper.util.KonfigurasiKalenderAkademikProcessor">
+	</bean>
+
+	<bean id="konfigurasiKalenderAkademikProcessorScheduledTask"
+		class="org.springframework.scheduling.timer.ScheduledTimerTask">
+		<!-- wait 10 seconds before starting repeated execution -->
+		<property name="delay" value="360000" />
+		<!-- run every 1 hour -->
+		<property name="period" value="3600000" />
+		<property name="timerTask" ref="konfigurasiKalenderAkademikProcessor" />
+
+	</bean>
+
+
+	<bean id="radiusProcessor" class="ais.action.master.helper.util.RadiusProcessor">
+	</bean>
+
+	<bean id="radiusProcessorScheduledTask" class="org.springframework.scheduling.timer.ScheduledTimerTask">
+		<!-- wait 10 seconds before starting repeated execution -->
+		<property name="delay" value="360000" />
+		<!-- run every 1 day -->
+		<property name="period" value="86400000" />
+		<property name="timerTask" ref="radiusProcessor" />
+
+	</bean>
+
+
+
+	<bean id="loginCleanerProcessor" class="ais.action.master.helper.util.LoginCleanerProcessor">
+	</bean>
+
+	<bean id="loginCleanerProcessorScheduledTask" class="org.springframework.scheduling.timer.ScheduledTimerTask">
+		<!-- wait 10 seconds before starting repeated execution -->
+		<property name="delay" value="360000" />
+		<!-- run every 1 day -->
+		<property name="period" value="86400000" />
+		<property name="timerTask" ref="loginCleanerProcessor" />
+
+	</bean>
+
+	<bean id="googleBookSynchronized" class="ais.action.master.helper.util.GoogleBookSynchronized">
+	</bean>
+
+	<bean id="googleBookSynchronizedScheduledTask" class="org.springframework.scheduling.timer.ScheduledTimerTask">
+		<!-- wait 10 seconds before starting repeated execution -->
+		<property name="delay" value="10000" />
+		<!-- run every 1 day -->
+		<property name="period" value="86400000" />
+		<property name="timerTask" ref="googleBookSynchronized" />
+
+	</bean>
+
+	<bean id="authorImporterProcessor" class="ais.action.master.helper.util.AuthorImporterProcessor">
+	</bean>
+
+	<bean id="authorImporterProcessorScheduledTask" class="org.springframework.scheduling.timer.ScheduledTimerTask">
+		<!-- wait 10 seconds before starting repeated execution -->
+		<property name="delay" value="60000" />
+		<!-- run every 1 day -->
+		<property name="period" value="86400000" />
+		<property name="timerTask" ref="authorImporterProcessor" />
+
+	</bean>
+
+	<bean id="itemImporterProcessor" class="ais.action.master.helper.util.ItemImporterProcessor">
+	</bean>
+
+	<bean id="itemImporterProcessorScheduledTask" class="org.springframework.scheduling.timer.ScheduledTimerTask">
+		<!-- wait 10 seconds before starting repeated execution -->
+		<property name="delay" value="50000" />
+		<!-- run every 1 day -->
+		<property name="period" value="86400000" />
+		<property name="timerTask" ref="itemImporterProcessor" />
+
+	</bean>
+
+	<bean id="ipaymuBackandProsess" class="ais.action.master.ipaymu.IpaymuBackandProsess">
+	</bean>
+	<bean id="ipaymuBackandProsessScheduledTask" class="org.springframework.scheduling.timer.ScheduledTimerTask">
+		<!-- wait 10 seconds before starting repeated execution -->
+		<property name="delay" value="100000" />
+		<!-- run every 10 minute -->
+		<property name="period" value="60000" />
+		<property name="timerTask" ref="ipaymuBackandProsess" />
+
+	</bean>
+	
+	
+	<bean id="briBackandProsess" class="ais.action.master.bri.BriBackandProsess">
+	</bean>
+	<bean id="briBackandProsessScheduledTask" class="org.springframework.scheduling.timer.ScheduledTimerTask">
+		<!-- wait 10 seconds before starting repeated execution -->
+		<property name="delay" value="100000" />
+		<!-- run every 10 minute -->
+		<property name="period" value="30000" />
+		<property name="timerTask" ref="briBackandProsess" />
+
+	</bean>
+	
+	
+	<bean id="faspayBackandProsess" class="ais.action.master.faspay.FaspayBackandProsess">
+	</bean>
+	<bean id="faspayBackandProsessScheduledTask" class="org.springframework.scheduling.timer.ScheduledTimerTask">
+		<!-- wait 10 seconds before starting repeated execution -->
+		<property name="delay" value="300000" />
+		<!-- run every 10 minute -->
+		<property name="period" value="900000" />
+		<property name="timerTask" ref="faspayBackandProsess" />
+
+	</bean>
+	
+	<bean id="userOnlineProsess" class="ais.action.master.helper.UserOnlineCounter">
+	</bean>
+	<bean id="userOnlineScheduledTask" class="org.springframework.scheduling.timer.ScheduledTimerTask">
+		<!-- wait 1 seconds before starting repeated execution -->
+		<property name="delay" value="60000" />
+		<!-- run every 1 minute -->
+		<property name="period" value="60000" />
+		<property name="timerTask" ref="userOnlineProsess" />
+
+	</bean>
+	
+	<bean id="pembersihProsess" class="ais.action.master.helper.PembersihDataScheduller">
+	</bean>
+	<bean id="pembersihScheduledTask" class="org.springframework.scheduling.timer.ScheduledTimerTask">
+		<!-- wait 1 seconds before starting repeated execution -->
+		<property name="delay" value="60000" />
+		<!-- run every 3 minute -->
+		<property name="period" value="600000" />
+		<property name="timerTask" ref="pembersihProsess" />
+
+	</bean>
+	
+	<bean id="userhapusmedia" class="ais.action.master.helper.HapusMediaSheduler">
+	</bean>
+	<bean id="userhapusmediaScheduledTask" class="org.springframework.scheduling.timer.ScheduledTimerTask">
+		<!-- wait 1 seconds before starting repeated execution -->
+		<property name="delay" value="60000" />
+		<!-- run every 1 day -->
+		<property name="period" value="86400000" />
+		<property name="timerTask" ref="userhapusmedia" />
+
+	</bean>
+
+	<bean id="timerFactory" class="org.springframework.scheduling.timer.TimerFactoryBean">
+		<property name="scheduledTimerTasks">
+			<list>
+				<!-- see the example above -->
+				<ref bean="userhapusmediaScheduledTask" />
+				<ref bean="evaluasiBelanjaProcessorScheduledTask" />
+				<ref bean="faspayBackandProsessScheduledTask" />
+				<ref bean="ipaymuBackandProsessScheduledTask" />
+				<ref bean="briBackandProsessScheduledTask" />
+				<ref bean="logCleanerProcessorScheduledTask" />
+				<ref bean="autoNotActivatingMahasiswaS1ProcessorScheduledTask" />
+				<ref bean="autoNotActivatingMahasiswaS2ProcessorScheduledTask" />
+				<ref bean="autoNotActivatingMahasiswaS3ProcessorScheduledTask" />
+				<ref bean="autoNotActivatingMahasiswaSemuaJenjangProcessorScheduledTask" />
+				<ref bean="tunggakanMahasiswaDaftarUlangProcessorScheduledTask" />
+				<ref bean="jamPerkuliahanSyncrhonizerProcessorScheduledTask" />
+				<ref bean="masaPerkuliahanSyncrhonizerProcessorScheduledTask" />
+				<ref bean="fotoMahasiswaSyncrhonizerProcessorScheduledTask" />
+				<ref bean="konfigurasiKalenderAkademikProcessorScheduledTask" />
+				<ref bean="radiusProcessorScheduledTask" />
+				<ref bean="loginCleanerProcessorScheduledTask" />
+				<ref bean="googleBookSynchronizedScheduledTask" />
+				<ref bean="authorImporterProcessorScheduledTask" />
+				<ref bean="itemImporterProcessorScheduledTask" />
+				<ref bean="userOnlineScheduledTask" />
+				<ref bean="pembersihScheduledTask" />
+				<ref
+					bean="reconsilePembayaranHostToHostSyncrhonizerProcessorProcessorScheduledTask" />
+			</list>
+		</property>
+	</bean>
+
+
+</beans>

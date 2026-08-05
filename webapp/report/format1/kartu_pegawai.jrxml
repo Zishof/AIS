@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="kartu_pasien" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="595" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="3cdcdef8-d3ee-4018-a450-9b9451f42cd2">
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<property name="ireport.zoom" value="2.3579476910000143"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="nama" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Abdullah"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="alamat" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Kp. Pabuaran"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="wkt_reg" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2010-01-01 00:00:00"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="kode_barcode" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="nip" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["123"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="id" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[148194L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="foto_lulus" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["../logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_kota" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["../logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="fileStempel" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["stempel.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="fileTtd" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["ttd.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="fileBg1" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["card1.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="fileBg2" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["card2.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tanggal_kartu" class="java.util.Date" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new Date()]]></defaultValueExpression>
+	</parameter>
+	<parameter name="masa_berlaku_kartu" class="java.util.Date" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new Date()]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select b.nim, b.nama,
+b.alamat,
+b.telp,
+(case when b.tanggal_masuk is not null then b.tanggal_masuk else CURRENT_DATE end) + interval '5 year' as tanggal_kadaluarsa
+
+from mahasiswa b
+where b.id = $P{id}]]>
+	</queryString>
+	<field name="nim" class="java.lang.String"/>
+	<field name="nama" class="java.lang.String"/>
+	<field name="alamat" class="java.lang.String"/>
+	<field name="telp" class="java.lang.String"/>
+	<field name="tanggal_kadaluarsa" class="java.util.Date"/>
+	<field name="kode" class="java.lang.String"/>
+	<field name="kode_barcode" class="java.lang.String"/>
+	<field name="foto_lulus" class="java.lang.String"/>
+	<field name="warna" class="java.lang.String"/>
+	<field name="cr_code" class="java.lang.String"/>
+	<field name="ttl" class="java.lang.String"/>
+	<field name="jurusan" class="java.lang.String"/>
+	<field name="jenjang" class="java.lang.String"/>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<columnHeader>
+		<band splitType="Stretch"/>
+	</columnHeader>
+	<detail>
+		<band height="167" splitType="Stretch">
+			<image scaleImage="FillFrame" hAlign="Center" vAlign="Top">
+				<reportElement key="image-1" x="0" y="0" width="255" height="167" uuid="e6c53b46-0c76-42ad-afd6-709364de7af6"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<imageExpression><![CDATA[$P{fileBg1}]]></imageExpression>
+			</image>
+			<image scaleImage="FillFrame" hAlign="Center" vAlign="Top">
+				<reportElement key="image-1" x="255" y="0" width="255" height="167" uuid="19e1ff5c-70f9-420d-9e9f-2e378bd00798"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<imageExpression><![CDATA[$P{fileBg2}]]></imageExpression>
+			</image>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="2" y="47" width="253" height="55" uuid="42f88e60-413b-4e94-bcad-6c50345442a9"/>
+				<box leftPadding="5"/>
+				<textElement verticalAlignment="Middle">
+					<font size="6" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Nama \t: "+($F{nama}==null ? "" : $F{nama})+"\n"+
+"NIK \t: "+($F{kode} == null ? "" : $F{kode})+"\n"+
+"TTL \t: "+($F{ttl}==null ? "" : $F{ttl})+"\n"+
+"Alamat \t: "+($F{alamat}==null ? "" : $F{alamat})+"\n"+
+"Telp. \t: "+($F{telp}==null ? "" : $F{telp})]]></textFieldExpression>
+			</textField>
+			<image scaleImage="FillFrame" hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="155" y="113" width="90" height="32" uuid="c03614cd-e87c-4c6a-a573-df9af64c3c10"/>
+				<imageExpression><![CDATA[$F{kode_barcode}]]></imageExpression>
+			</image>
+			<image hAlign="Center" vAlign="Top">
+				<reportElement key="image-1" x="7" y="102" width="47" height="54" uuid="22833735-a16e-4e4d-837b-7dc223bec1ae"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<imageExpression><![CDATA[$F{foto_lulus}]]></imageExpression>
+			</image>
+			<textField isBlankWhenNull="true">
+				<reportElement x="58" y="102" width="96" height="54" uuid="94f31bcb-8c2d-4327-b59b-532f11f7a8c7"/>
+				<textElement>
+					<font size="6"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{label_kota}+", "+(new java.text.SimpleDateFormat("dd MMMMM yyyy",$P{REPORT_LOCALE}).format($P{tanggal_kartu}))+"\n"+
+($P{REPORT_PARAMETERS_MAP}.get( "label_jabatan_kartu_mahasiswa" ))+",\n\n\n\n"+
+    $P{REPORT_PARAMETERS_MAP}.get( "label_ttd_kartu_mahasiswa" )+"\n"+
+    $P{REPORT_PARAMETERS_MAP}.get( "nip_ttd_kartu_mahasiswa" )]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="155" y="102" width="90" height="11" uuid="59f7e691-8c25-408b-aab4-6548c31b1da3"/>
+				<textElement>
+					<font size="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Berlaku Hingga : "+(new java.text.SimpleDateFormat("dd MMMMM yyyy",$P{REPORT_LOCALE}).format($P{masa_berlaku_kartu}))]]></textFieldExpression>
+			</textField>
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="7" y="1" width="42" height="46" uuid="cba7a896-f3fb-4b43-8e5a-35382559ac4b"/>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-14" x="59" y="2" width="186" height="13" forecolor="#0000FF" uuid="d1e00fc0-9dad-4a6b-8b1d-ea0b3441c04e"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA["KARTU PEGAWAI"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-14" x="59" y="15" width="186" height="32" forecolor="#0000FF" uuid="c5a6880f-53f7-4f16-9892-68238b7d0ade"/>
+				<textElement textAlignment="Center">
+					<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{label_universitas}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="255" y="31" width="255" height="126" uuid="9cfea47c-ed88-4615-a527-3ea58e5b643d"/>
+				<box topPadding="5" leftPadding="20" bottomPadding="5" rightPadding="10">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement>
+					<font size="6"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "tataTertib" )]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-14" x="255" y="15" width="255" height="15" forecolor="#0000FF" uuid="8c58fa45-aeaf-4065-af1e-17e873650dd0"/>
+				<textElement textAlignment="Center">
+					<font size="11" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA["TATA TERTIB"]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="268" y="30" width="242" height="1" forecolor="#0000FF" uuid="ab5ee824-5ed2-4e38-b4ba-3304c18a799d"/>
+			</line>
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="54" y="106" width="37" height="39" uuid="d9bb940b-58f3-4425-a92a-aafd5a42cade"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<imageExpression><![CDATA[$P{fileStempel}]]></imageExpression>
+			</image>
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="58" y="113" width="75" height="32" uuid="cd40cdc3-b198-4215-b579-7196afd58e5a"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<imageExpression><![CDATA[$P{fileTtd}]]></imageExpression>
+			</image>
+			<textField isBlankWhenNull="true">
+				<reportElement x="155" y="145" width="90" height="12" forecolor="#000000" uuid="4528f59e-b5df-4111-b3b4-ffa1cadb0f0c"/>
+				<textElement textAlignment="Center" verticalAlignment="Top">
+					<font size="6" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{kode}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="233" y="47" width="22" height="55" uuid="5822150c-16d8-4cb0-9dff-a84aadc49333">
+					<propertyExpression name="net.sf.jasperreports.style.backcolor"><![CDATA[$F{warna}]]></propertyExpression>
+				</reportElement>
+				<textFieldExpression><![CDATA[""]]></textFieldExpression>
+			</textField>
+			<image scaleImage="FillFrame" hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="446" y="102" width="60" height="60" uuid="b278584e-2002-4722-bd4a-28981210150c">
+					<printWhenExpression><![CDATA[$F{cr_code} != null && !$F{cr_code}.trim().isEmpty()]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA[$F{cr_code}]]></imageExpression>
+			</image>
+		</band>
+	</detail>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band splitType="Stretch"/>
+	</pageFooter>
+	<summary>
+		<band splitType="Stretch"/>
+	</summary>
+</jasperReport>

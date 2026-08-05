@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="transaksi_item" language="groovy" pageWidth="198" pageHeight="425" columnWidth="198" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0">
+	<property name="ireport.zoom" value="3.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="id" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[12L]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select
+b1.kode,
+a.tanggal,
+f.nama as lokasi,
+(case when c.nama is null then c1.nama else c.nama end) as item,
+(a.qty || ' ' || (case when d.nama is null then 'Racikan' else d.nama end)) as qty,
+b.nama as nama_pasien,
+b.alamat as alamat_pasien,
+e.kode as kode_pasien
+from transaksi_retur_detail a
+inner join transaksi_detail a1 on (a.transaksi_detail = a1.id)
+inner join transaksi_retur b1 on (a.transaksi_retur = b1.id)
+inner join transaksi b on (b1.transaksi = b.id)
+left join item c on (a.item = c.id)
+left join racikan c1 on (a1.racikan = c1.id)
+left join satuan_item d on (c.satuan_item = d.id)
+left join pasien e on (b.pasien = e.id)
+left join lokasi f on (b1.lokasi = f.id)
+where b1.id = $P{id}]]>
+	</queryString>
+	<field name="kode" class="java.lang.String"/>
+	<field name="tanggal" class="java.sql.Timestamp"/>
+	<field name="lokasi" class="java.lang.String"/>
+	<field name="item" class="java.lang.String"/>
+	<field name="qty" class="java.lang.String"/>
+	<field name="nama_pasien" class="java.lang.String"/>
+	<field name="alamat_pasien" class="java.lang.String"/>
+	<field name="kode_pasien" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="165" splitType="Stretch">
+			<staticText>
+				<reportElement x="7" y="95" width="32" height="20"/>
+				<textElement>
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[Nama]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="39" y="95" width="155" height="20"/>
+				<textElement>
+					<font size="9"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{nama_pasien}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="7" y="79" width="32" height="16"/>
+				<textElement>
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[MR]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="39" y="79" width="155" height="16"/>
+				<textElement>
+					<font size="9"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{kode_pasien}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="7" y="115" width="32" height="20"/>
+				<textElement>
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[Almt]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="39" y="115" width="155" height="50"/>
+				<textElement>
+					<font size="9"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{alamat_pasien}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="7" y="31" width="31" height="16"/>
+				<textElement>
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[Trx]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="38" y="31" width="155" height="16"/>
+				<textElement>
+					<font size="9"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{kode}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="7" y="47" width="32" height="16"/>
+				<textElement>
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[Wkt]]></text>
+			</staticText>
+			<textField pattern="dd/MM/yyyy HH.mm.ss">
+				<reportElement x="39" y="47" width="154" height="16"/>
+				<textElement>
+					<font size="9"/>
+				</textElement>
+				<textFieldExpression class="java.sql.Timestamp"><![CDATA[$F{tanggal}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="7" y="63" width="32" height="16"/>
+				<textElement>
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[Lokasi]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="39" y="63" width="154" height="16"/>
+				<textElement>
+					<font size="9"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{lokasi}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="7" y="0" width="186" height="31"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[TRANSAKSI RETUR OBAT DAN RACIKAN]]></text>
+			</staticText>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<columnHeader>
+		<band splitType="Stretch"/>
+	</columnHeader>
+	<detail>
+		<band height="25" splitType="Stretch">
+			<textField>
+				<reportElement x="11" y="0" width="103" height="25"/>
+				<box leftPadding="3" rightPadding="0">
+					<topPen lineWidth="0.25"/>
+					<leftPen lineWidth="0.25"/>
+					<bottomPen lineWidth="0.25"/>
+					<rightPen lineWidth="0.25"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{item}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="114" y="0" width="80" height="25"/>
+				<box leftPadding="3" rightPadding="0">
+					<topPen lineWidth="0.25"/>
+					<leftPen lineWidth="0.25"/>
+					<bottomPen lineWidth="0.25"/>
+					<rightPen lineWidth="0.25"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{qty}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band splitType="Stretch"/>
+	</pageFooter>
+	<summary>
+		<band splitType="Stretch"/>
+	</summary>
+</jasperReport>

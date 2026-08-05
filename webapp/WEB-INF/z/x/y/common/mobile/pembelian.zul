@@ -1,0 +1,221 @@
+<?page title="Pembelian" contentType="text/html;charset=UTF-8"?>
+<?meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" ?>
+<?meta name="description" content="E-Pembayaran" ?>
+<?meta name="author" content="Mohammad Fauzi Murtadho" ?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.inventory.PembelianAction" width="100%"
+		height="100%">
+
+
+
+		<borderlayout>
+			<north border="none" open="true" flex="true">
+				<hbox
+					width="100%">
+
+					<grid use="ais.ui.util.MyGrid"  fixedLayout="true"
+						visible="true">
+						<columns>
+							<column use="ais.ui.util.MyColumnConfig"
+								width="100%">
+							</column>
+						</columns>
+						<rows>
+
+							<row width="100%">
+								<label use="ais.ui.util.MyLabelConfig"
+									id="siswatampil" />
+							</row>
+							<row>
+								<label use="ais.ui.util.MyLabelConfig"
+									id="nimsiswatampil" />
+
+							</row>
+							<row>
+								<label use="ais.ui.util.MyLabelConfig"
+									id="kelassiswatampil" />
+
+							</row>
+
+						</rows>
+
+
+					</grid>
+
+					<grid use="ais.ui.util.MyGrid"  fixedLayout="true"
+						visible="false">
+						<columns>
+							<column use="ais.ui.util.MyColumnConfig"
+								width="100px">
+							</column>
+							<column use="ais.ui.util.MyColumnConfig">
+							</column>
+							<column use="ais.ui.util.MyColumnConfig"
+								width="100px">
+							</column>
+							<column use="ais.ui.util.MyColumnConfig">
+							</column>
+							<column use="ais.ui.util.MyColumnConfig"
+								width="100px">
+							</column>
+							<column use="ais.ui.util.MyColumnConfig">
+							</column>
+							<column use="ais.ui.util.MyColumnConfig"
+								width="100px">
+							</column>
+							<column use="ais.ui.util.MyColumnConfig">
+							</column>
+						</columns>
+						<rows>
+
+							<row>
+								<label use="ais.ui.util.MyLabelConfig"
+									value="Pembelian" />
+								<textbox forward="onOK=onSearchDefault"
+									id="searchnama" width="95%" />
+								<label use="ais.ui.util.MyLabelConfig"
+									value="Toko" />
+								<combobox
+									forward="onChange=onSearchDefault" id="searchtoko" width="95%" />
+								<label use="ais.ui.util.MyLabelConfig"
+									value="Siswa" />
+								<textbox forward="onOK=onSearchDefault"
+									id="searchsiswa" width="95%" />
+								<label use="ais.ui.util.MyLabelConfig"
+									value="Tanggal" />
+								<hbox>
+									<datebox use="ais.ui.util.MyDatebox"
+										id="start" forward="onChange=onSearchDefault" cols="5" />
+									<label use="ais.ui.util.MyLabelConfig" value="s.d"></label>
+									<datebox use="ais.ui.util.MyDatebox"
+										id="end" forward="onChange=onSearchDefault" cols="5" />
+								</hbox>
+							</row>
+
+							<row spans="8">
+
+								<toolbar>
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+										
+										tooltiptext="Tambah data" forward="onClick=onAdd" id="add"
+										label="Tambah Data" image="/img/new.gif">
+									</toolbarbutton>
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+										
+										tooltiptext="Cari data" forward="onClick=onSearchDefault"
+										id="find" label="Cari" image="/img/search.gif">
+									</toolbarbutton>
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;pembelian&quot;, &quot;Bantuan&quot;);"/>
+			</toolbar>
+							</row>
+						</rows>
+					</grid>
+				</hbox>
+			</north>
+			<center border="none" flex="true">
+
+				<grid use="ais.ui.util.MyGrid" sclass="fgrid">
+					<rows>
+						<row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-atas" height="64px" /></row>
+						<row>
+							<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging"
+								detailed="true" />
+						</row>
+						<row>
+							<grid use="ais.ui.util.MyGrid" 
+								sclass="dgrid" fixedLayout="true" id="grid">
+								<columns>
+									<column
+										use="ais.ui.util.MyColumnConfig" label="Informasi Pembelian" />
+									<column
+										use="ais.ui.util.MyColumnConfig" label="Kode Produk"
+										width="0%" />
+									<column
+										use="ais.ui.util.MyColumnConfig" label="Nama Produk"
+										width="0%" />
+									<column
+										use="ais.ui.util.MyColumnConfig" label="Qty" width="0%"
+										align="right" />
+									<column
+										use="ais.ui.util.MyColumnConfig" label="Harga Satuan"
+										width="0%" align="right" />
+									<column
+										use="ais.ui.util.MyColumnConfig" label="Harga Total"
+										width="0%" align="right" />
+									<column
+										use="ais.ui.util.MyColumnConfig" label="Waktu" width="0%" />
+									<column
+										use="ais.ui.util.MyColumnConfig" label="Member" width="0%" />
+									<column
+										use="ais.ui.util.MyColumnConfig" label="Kios" width="0%" />
+									<column
+										use="ais.ui.util.MyColumnConfig" label="Keterangan"
+										 width="0%" />
+									<column
+										use="ais.ui.util.MyColumnConfig" width="0%" label="" />
+								</columns>
+
+								<foot>
+									<footer>
+										<label
+											use="ais.ui.util.MyLabelBolder" value="" id="infobeli">
+										</label>
+									</footer>
+									<footer>
+
+									</footer>
+									<footer>
+										<label
+											use="ais.ui.util.MyLabelBolder" value="Total">
+										</label>
+									</footer>
+									<footer></footer>
+									<footer align="right">
+										<label
+											use="ais.ui.util.MyLabelBolder" id="hargaSatuan">
+										</label>
+									</footer>
+									<footer align="right">
+										<label
+											use="ais.ui.util.MyLabelBolder" id="hargaTotal">
+										</label>
+									</footer>
+									<footer></footer>
+									<footer></footer>
+									<footer></footer>
+									<footer></footer>
+									<footer></footer>
+								</foot>
+
+							</grid>
+
+
+						</row>
+						<row><paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar" /></row>
+						<row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-bawah" height="128px" /></row>
+					</rows>
+				</grid>
+			</center>
+		</borderlayout>
+
+
+		<window use="ais.ui.util.MyWindow" id="addWindow"
+			title="Tambah Jenis Produk" visible="false" mode="popup"
+			position="center,center" border="normal" width="95%" height="95%">
+
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+	</window>
+
+
+</zk>

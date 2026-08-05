@@ -1,0 +1,13 @@
+@charset "ISO-8859-1";
+
+.sidebar-brand {
+	display: flex;
+	flex-direction: row;
+	color: red;
+}
+
+.text-custom {
+	color: white;
+	font-size: 21px;
+	font-style: 700px;
+	}

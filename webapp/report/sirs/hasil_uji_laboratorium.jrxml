@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="transaksi_item" language="groovy" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="539" leftMargin="28" rightMargin="28" topMargin="28" bottomMargin="28">
+	<property name="ireport.zoom" value="1.128947860107555"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="id" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[47L]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select
+aa.nilai,
+cc.nama as tindakan,
+bb.nama as jenis_uji,
+bb.normal,
+bb.satuan,
+dd.tanggaltindakan,
+b.kode,
+dd.tanggal,
+f.nama as lokasi,
+cc.nama as item,
+b.nama as nama_pasien,
+b.alamat as alamat_pasien,
+e.kode as kode_pasien
+
+from transaksi_tindakan_lab_detail aa
+inner join tindakan_lab_detail bb on (aa.tindakan_lab_detail = bb.id)
+inner join tindakan cc on (cc.id = bb.tindakan)
+inner join transaksi_detail dd on (aa.transaksi_detail = dd.id)
+inner join transaksi b on (dd.transaksi = b.id)
+left join satuan_item d on (cc.satuan = d.id)
+left join pasien e on (b.pasien = e.id)
+left join lokasi f on (b.lokasi = f.id)
+where dd.transaksi = $P{id}
+order by cc.nama, bb.nama]]>
+	</queryString>
+	<field name="kode" class="java.lang.String"/>
+	<field name="tanggal" class="java.sql.Timestamp"/>
+	<field name="lokasi" class="java.lang.String"/>
+	<field name="item" class="java.lang.String"/>
+	<field name="nama_pasien" class="java.lang.String"/>
+	<field name="alamat_pasien" class="java.lang.String"/>
+	<field name="kode_pasien" class="java.lang.String"/>
+	<field name="nilai" class="java.lang.String"/>
+	<field name="tindakan" class="java.lang.String"/>
+	<field name="jenis_uji" class="java.lang.String"/>
+	<field name="normal" class="java.lang.String"/>
+	<field name="satuan" class="java.lang.String"/>
+	<field name="tanggaltindakan" class="java.sql.Timestamp"/>
+	<group name="tindakan">
+		<groupExpression><![CDATA[$F{tindakan}]]></groupExpression>
+		<groupHeader>
+			<band height="57">
+				<staticText>
+					<reportElement x="0" y="40" width="200" height="17"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font isBold="true"/>
+					</textElement>
+					<text><![CDATA[Jenis Detail Tindakan]]></text>
+				</staticText>
+				<staticText>
+					<reportElement x="200" y="40" width="107" height="17"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font isBold="true"/>
+					</textElement>
+					<text><![CDATA[Nilai Uji]]></text>
+				</staticText>
+				<staticText>
+					<reportElement x="307" y="40" width="129" height="17"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font isBold="true"/>
+					</textElement>
+					<text><![CDATA[Nilai Normal]]></text>
+				</staticText>
+				<staticText>
+					<reportElement x="436" y="40" width="104" height="17"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font isBold="true"/>
+					</textElement>
+					<text><![CDATA[Satuan]]></text>
+				</staticText>
+				<textField>
+					<reportElement x="0" y="0" width="539" height="40"/>
+					<textElement>
+						<font size="12" isBold="false"/>
+					</textElement>
+					<textFieldExpression><![CDATA["Hasil  : "+$F{tindakan}+"\nWaktu Uji : "+(new java.text.SimpleDateFormat("dd-MM-yyyy HH:mm:ss", new java.util.Locale("ID","id")).format($F{tanggaltindakan}))]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupHeader>
+	</group>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="178" splitType="Stretch">
+			<staticText>
+				<reportElement x="0" y="125" width="40" height="20"/>
+				<textElement>
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[Nama]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="40" y="125" width="218" height="20"/>
+				<textElement>
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[": "+$F{nama_pasien}.trim()]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="307" y="141" width="32" height="16"/>
+				<textElement>
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[MR]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="339" y="141" width="201" height="16"/>
+				<textElement>
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[": "+($F{kode_pasien} == null ? "" : $F{kode_pasien}.trim())]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="0" y="145" width="40" height="20"/>
+				<textElement>
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[Almt]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="40" y="145" width="218" height="32"/>
+				<textElement>
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[": "+$F{alamat_pasien}.trim()]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="0" y="109" width="40" height="16"/>
+				<textElement>
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[Trx]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="41" y="109" width="217" height="16"/>
+				<textElement>
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[": "+$F{kode}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="307" y="109" width="32" height="16"/>
+				<textElement>
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[Wkt]]></text>
+			</staticText>
+			<textField pattern="dd/MM/yyyy HH.mm.ss">
+				<reportElement x="339" y="109" width="200" height="16"/>
+				<textElement>
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[": "+(new java.text.SimpleDateFormat("dd-MM-yyyy HH:mm:ss", new java.util.Locale("ID","id")).format($F{tanggal}))]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="307" y="125" width="32" height="16"/>
+				<textElement>
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[Lokasi]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="339" y="125" width="200" height="16"/>
+				<textElement>
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[": "+($F{lokasi} == null ? "" : $F{lokasi})]]></textFieldExpression>
+			</textField>
+			<image scaleImage="RetainShape" hAlign="Center" vAlign="Middle">
+				<reportElement x="0" y="-16" width="109" height="96"/>
+				<imageExpression><![CDATA["logo.jpg"]]></imageExpression>
+			</image>
+			<textField>
+				<reportElement x="109" y="38" width="430" height="42"/>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "alamat_instansi" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="109" y="15" width="430" height="23"/>
+				<textElement>
+					<font size="18" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "nama_instansi" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="109" y="-18" width="430" height="33"/>
+				<textElement>
+					<font size="24" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "dinas_instansi" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="80" width="540" height="29"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="16" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["HASIL TINDAKAN "+$P{REPORT_PARAMETERS_MAP}.get( "sumber" )]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<detail>
+		<band height="20" splitType="Stretch">
+			<textField>
+				<reportElement x="0" y="0" width="200" height="20"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{jenis_uji}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="200" y="0" width="107" height="20"/>
+				<box rightPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{nilai}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="307" y="0" width="129" height="20"/>
+				<box rightPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{normal}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="436" y="0" width="104" height="20"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{satuan}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+</jasperReport>

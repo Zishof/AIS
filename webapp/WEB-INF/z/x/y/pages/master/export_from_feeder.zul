@@ -1,0 +1,510 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.EksporFromFeederAction" width="100%"
+		height="400px">
+
+		<borderlayout width="100%" height="100%">
+
+			<north visible="false">
+				<label id="onlineFeeder" use="ais.ui.util.MyLabelBolder"
+					value="--------------------------------------">
+				</label>
+			</north>
+
+			<east title="Export Data Online via web service"
+				width="0%">
+
+
+
+
+				<borderlayout width="100%"
+					height="100%">
+
+					<center>
+
+						<grid use="ais.ui.util.MyGrid"  width="100%"
+							height="100%" sclass="fgrid">
+							<rows>
+
+								<row>
+									<vbox>
+
+
+
+										<label
+											use="ais.ui.util.MyLabelConfig"
+											value="--------------------------------------">
+										</label>
+										<checkbox
+											use="ais.ui.util.MyCheckboxConfig" id="bobot_nilai"
+											label="Tabel bobot_nilai">
+										</checkbox>
+										<label
+											use="ais.ui.util.MyLabelConfig"
+											value="--------------------------------------">
+										</label>
+										<hbox>
+											<checkbox
+												use="ais.ui.util.MyCheckboxConfig" id="mata_kuliah"
+												label="Tabel mata_kuliah">
+											</checkbox>
+											<textbox id="matkul"></textbox>
+											<combobox
+												id="fakultas_matkul">
+											</combobox>
+											<combobox
+												id="jurusan_matkul">
+											</combobox>
+										</hbox>
+										<hbox>
+											<checkbox
+												use="ais.ui.util.MyCheckboxConfig" id="kurikulum"
+												label="Tabel kurikulum, Tahun">
+											</checkbox>
+											<intbox id="ta_kurikulum"></intbox>
+											<combobox
+												id="fakultas_kurikulum">
+											</combobox>
+											<combobox
+												id="jurusan_kurikulum">
+											</combobox>
+										</hbox>
+										<hbox>
+											<checkbox
+												use="ais.ui.util.MyCheckboxConfig" id="mahasiswa"
+												label="Tabel mahasiswa,  Tahun Angkatan">
+											</checkbox>
+
+											<intbox id="ta_mahasiswa"></intbox>
+											<combobox
+												id="fakultas_mahasiswa">
+											</combobox>
+											<combobox
+												id="jurusan_mahasiswa">
+											</combobox>
+										</hbox>
+										<label
+											use="ais.ui.util.MyLabelConfig"
+											value="--------------------------------------">
+										</label>
+										<hbox>
+											<checkbox
+												use="ais.ui.util.MyCheckboxConfig" id="mahasiswa_pt"
+												label="Tabel mahasiswa_pt,  Tahun Angkatan">
+											</checkbox>
+
+											<intbox
+												id="ta_mahasiswa_pt">
+											</intbox>
+											<combobox
+												id="fakultas_mahasiswa_pt">
+											</combobox>
+											<combobox
+												id="jurusan_mahasiswa_pt">
+											</combobox>
+										</hbox>
+										<hbox>
+											<checkbox
+												use="ais.ui.util.MyCheckboxConfig" id="dosen_pt"
+												label="Tabel dosen_pt, Semester (contoh: 20141 untuk tahun akademik 2014 semester ganjil)">
+											</checkbox>
+
+											<intbox id="ta_dosen_pt">
+											</intbox>
+											<combobox
+												id="fakultas_dosen_pt">
+											</combobox>
+											<combobox
+												id="jurusan_dosen_pt">
+											</combobox>
+										</hbox>
+										<hbox>
+											<checkbox
+												use="ais.ui.util.MyCheckboxConfig"
+												id="mata_kuliah_kurikulum"
+												label="Tabel mata_kuliah_kurikulum">
+											</checkbox>
+											<combobox
+												id="fakultas_mata_kuliah_kurikulum">
+											</combobox>
+											<combobox
+												id="jurusan_mata_kuliah_kurikulum">
+											</combobox>
+										</hbox>
+										<label
+											use="ais.ui.util.MyLabelConfig"
+											value="--------------------------------------">
+										</label>
+										<hbox>
+											<checkbox
+												use="ais.ui.util.MyCheckboxConfig" id="kelas_kuliah"
+												label="Tabel kelas_kuliah, Semester (contoh: 20141 untuk tahun akademik 2014 semester ganjil) : ">
+											</checkbox>
+											<intbox
+												id="ta_kelas_kuliah">
+											</intbox>
+											<combobox
+												id="fakultas_kelas_kuliah">
+											</combobox>
+											<combobox
+												id="jurusan_kelas_kuliah">
+											</combobox>
+										</hbox>
+										<hbox>
+											<checkbox
+												use="ais.ui.util.MyCheckboxConfig" id="ajar_dosen"
+												label="Tabel ajar_dosen, Semester (contoh: 20141 untuk tahun akademik 2014 semester ganjil) : ">
+											</checkbox>
+											<intbox
+												id="ta_ajar_dosen">
+											</intbox>
+											<combobox
+												id="fakultas_ajar_dosen">
+											</combobox>
+											<combobox
+												id="jurusan_ajar_dosen">
+											</combobox>
+										</hbox>
+										<label
+											use="ais.ui.util.MyLabelConfig"
+											value="--------------------------------------">
+										</label>
+										<hbox>
+											<checkbox
+												use="ais.ui.util.MyCheckboxConfig" id="krs"
+												label="Tabel krs, Semester (contoh: 20141 untuk tahun akademik 2014 semester ganjil) : ">
+											</checkbox>
+											<intbox id="ta_krs">
+											</intbox>
+											<combobox
+												id="fakultas_krs">
+											</combobox>
+											<combobox
+												id="jurusan_krs">
+											</combobox>
+											<textbox id="nama_krs">
+											</textbox>
+										</hbox>
+										<hbox>
+											<checkbox
+												use="ais.ui.util.MyCheckboxConfig" id="nilai"
+												label="Tabel nilai, Semester (contoh: 20141 untuk tahun akademik 2014 semester ganjil) : ">
+											</checkbox>
+											<intbox id="ta_nilai">
+											</intbox>
+											<combobox
+												id="fakultas_nilai">
+											</combobox>
+											<combobox
+												id="jurusan_nilai">
+											</combobox>
+											<textbox id="nama_nilai">
+											</textbox>
+										</hbox>
+										<hbox>
+											<checkbox
+												use="ais.ui.util.MyCheckboxConfig" id="nilai_transfer"
+												label="Tabel nilai_transfer, Semester (contoh: 20141 untuk tahun akademik 2014 semester ganjil) : ">
+											</checkbox>
+											<intbox
+												id="ta_nilai_transfer">
+											</intbox>
+											<combobox
+												id="fakultas_nilai_transfer">
+											</combobox>
+											<combobox
+												id="jurusan_nilai_transfer">
+											</combobox>
+											<textbox
+												id="nama_nilai_transfer">
+											</textbox>
+										</hbox>
+										<label
+											use="ais.ui.util.MyLabelConfig"
+											value="--------------------------------------">
+										</label>
+										<hbox>
+											<checkbox
+												use="ais.ui.util.MyCheckboxConfig" id="kuliah_mahasiswa"
+												label="Tabel kuliah_mahasiswa,  Semester (contoh: 20141 untuk tahun akademik 2014 semester ganjil) : ">
+											</checkbox>
+											<intbox
+												id="semester_kuliah_mahasiswa">
+											</intbox>
+											<label
+												use="ais.ui.util.MyLabelConfig">
+												Tahun Angkatan
+											</label>
+											<intbox
+												id="ta_kuliah_mahasiswa">
+											</intbox>
+											<combobox
+												id="fakultas_kuliah_mahasiswa">
+											</combobox>
+											<combobox
+												id="jurusan_kuliah_mahasiswa">
+											</combobox>
+										</hbox>
+									</vbox>
+								</row>
+
+								<row>
+									<label
+										use="ais.ui.util.MyLabelConfig" id="labelProsesFile"
+										value="Proses : ">
+									</label>
+								</row>
+								<row>
+									<progressmeter
+										id="progressmeterChildFile" value="0" width="100%">
+									</progressmeter>
+								</row>
+								<row>
+									<progressmeter
+										id="progressmeterFile" value="0" width="100%">
+									</progressmeter>
+
+
+								</row>
+							</rows>
+						</grid>
+
+
+
+					</center>
+
+					<south border="none">
+						<toolbar height="40px">
+
+							<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+								
+								tooltiptext="Download Data Feeder"
+								forward="onClick=onDownloadData" id="downloadData"
+								label="Download Data Feeder" image="/img/upload.gif">
+							</toolbarbutton>
+
+							<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+								
+								tooltiptext="Download Aplikasi Feeder Client"
+								forward="onClick=onDownloadAplikasi32"
+								label="Download Feeder Client 32 Bit" image="/img/upload.gif">
+							</toolbarbutton>
+
+							<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+								
+								tooltiptext="Download Aplikasi Feeder Client"
+								forward="onClick=onDownloadAplikasi"
+								label="Download Feeder Client 64 Bit" image="/img/upload.gif">
+							</toolbarbutton>
+
+							<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+								
+								tooltiptext="Lihat Tutorial" forward="onClick=onLihatBantuan"
+								label="Lihat Bantuan / Tutorial" image="/img/help.gif">
+							</toolbarbutton>
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;export_from_feeder&quot;, &quot;Bantuan&quot;);"/>
+			</toolbar>
+					</south>
+
+				</borderlayout>
+
+			</east>
+
+			<center title="Export data">
+
+				<borderlayout width="100%"
+					height="100%">
+
+					<center border="none" flex="true">
+						<borderlayout width="100%"
+							height="100%">
+
+							<north border="none"
+								height="100%" flex="true">
+								<vbox align="center" pack="center"
+									width="100%" height="100%">
+
+									<hbox align="center" pack="center"
+										width="100%" height="100%">
+										<label
+											use="ais.ui.util.MyLabelConfig"
+											value="Aktifkan koneksi langsung ke feeder">
+										</label>
+										<checkbox
+											forward="onClick=onAktifkan"
+											id="aktifkan_koneksi_langsung_ke_feeder"
+											label="Aktif Koneksi ke feeder">
+										</checkbox>
+
+									</hbox>
+
+									<hbox align="center" pack="center"
+										width="100%" height="100%">
+										<label
+											use="ais.ui.util.MyLabelConfig"
+											value="Alamat IP Aplikasi Feeder">
+										</label>
+										<textbox id="ip" cols="20"
+											forward="onChange=onAktifkan">
+										</textbox>
+
+									</hbox>
+									
+									<hbox align="center" pack="center"
+										width="100%" height="100%">
+										<label
+											use="ais.ui.util.MyLabelConfig"
+											value="Menggunakan secure (https)">
+										</label>
+										<checkbox
+											forward="onClick=onAktifkan"
+											id="aktifkan_https_ke_feeder"
+											label="Aktif koneksi ke feeder menggunakan secure">
+										</checkbox>
+
+									</hbox>
+									
+									<hbox align="center" pack="center"
+										width="100%" height="100%">
+										<label
+											use="ais.ui.util.MyLabelConfig"
+											value="Port Aplikasi Feeder">
+										</label>
+										<intbox id="port" value="8082"
+											forward="onChange=onAktifkan" cols="5">
+										</intbox>
+
+									</hbox>
+									<hbox align="center" pack="center"
+										width="100%" height="100%">
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Username Feeder">
+										</label>
+										<textbox id="username"
+											forward="onChange=onAktifkan" cols="20">
+										</textbox>
+
+									</hbox>
+									<hbox align="center" pack="center"
+										width="100%" height="100%">
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Password Feeder">
+										</label>
+										<textbox id="password"
+											forward="onChange=onAktifkan" type="password" cols="20">
+										</textbox>
+
+									</hbox>
+									
+									<hbox align="center" pack="center"
+										width="100%" height="100%">
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Kode role Admin lain yg boleh akses (Tidak dipakai lagi)">
+										</label>
+										<textbox id="adminLain"
+											forward="onChange=onAktifkan" cols="20">
+										</textbox>
+
+									</hbox>
+
+									<hbox align="center" pack="center"
+										width="100%" height="100%">
+										<label
+											use="ais.ui.util.MyLabelConfig"
+											style="color:#b45309;font-style:italic;font-size:11px;"
+											value="Catatan: kolom di atas sudah TIDAK dipakai lagi untuk mengatur hak akses Feeder. Atur hak akses per-Role melalui menu Kelola Role/Grup Pengguna, centang opsi &quot;Akses Feeder&quot; pada role yang bersangkutan.">
+										</label>
+									</hbox>
+
+									<hbox align="center" pack="center"
+										width="100%" height="100%">
+
+										<button
+											forward="onClick=onLogin" use="ais.ui.util.MyButtonConfig"
+											label="Coba Login Feeder">
+										</button>
+
+									</hbox>
+								</vbox>
+							</north>
+
+							<center border="none"
+								flex="true">
+
+								<vbox align="center" pack="center"
+									width="700px" height="100%">
+
+									<div width="100%" height="100%">
+										<label
+											use="ais.ui.util.MyLabelConfig" id="labelProses"
+											value="Proses : ">
+										</label>
+									</div>
+
+
+
+
+									<div width="100%" height="100%">
+
+
+										<progressmeter
+											id="progressmeterChild" value="0" width="100%">
+										</progressmeter>
+
+										<progressmeter
+											id="progressmeter" value="0" width="100%">
+										</progressmeter>
+
+									</div>
+
+									<div width="100%" height="100%">
+
+
+										<label
+											use="ais.ui.util.MyLabelConfig" id="labelProsesDetail"
+											multiline="true" value="Proses Detail : ">
+
+										</label>
+
+
+
+									</div>
+
+								</vbox>
+
+							</center>
+
+
+
+							<south border="none" visible="false">
+								<toolbar height="40px">
+
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+										 id="button"
+										forward="onClick=onImport" label="Ekspor Data Ke Feeder"
+										image="/img/dashboard.png">
+									</toolbarbutton>
+
+								</toolbar>
+							</south>
+						</borderlayout>
+					</center>
+				</borderlayout>
+
+
+
+			</center>
+		</borderlayout>
+
+	</window>
+
+
+</zk>

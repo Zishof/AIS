@@ -1,0 +1,163 @@
+﻿<?page id="testZul" title=" New ZUL Title" cacheable="false"
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.akunting.PertangungjawabanPajakAction" width="100%" height="100%">
+
+		<tabbox width="100%" height="100%" sclass="ais-pajak-tabbox">
+			<tabs>
+				<tab use="ais.ui.util.MyTabConfig" label="Dasbor" />
+				<tab use="ais.ui.util.MyTabConfig" label="Data Pajak" />
+			</tabs>
+			<tabpanels>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<vbox id="dasborPajakBox" width="100%" />
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+		<div sclass="ais-crud-portal">
+
+			<!-- ═══ KARTU FILTER ═══ -->
+			<div sclass="ais-crud-filter-card">
+				<div sclass="ais-crud-filter-head">
+					<span sclass="ais-crud-filter-title">Pencarian &amp; Filter</span>
+					<div sclass="ais-crud-filter-actions">
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+							id="singkron" label="Singkronkan"
+							style="color:#dc2626;font-weight:bold;"
+							tooltiptext="Buat pengajuan transfer untuk semua pajak yang belum punya (tidak membuat Proses Transfer otomatis)"
+							forward="onClick=onSingkronkan"/>
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+							id="find" label="Cari" image="/img/search.gif"
+							tooltiptext="Cari data" forward="onClick=onSearchDefault"/>
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;pertangungjawaban_pajak&quot;, &quot;Bantuan&quot;);"/></div>
+				</div>
+				<div sclass="ais-crud-filter-body">
+					<grid use="ais.ui.util.MyGrid" fixedLayout="true" sclass="ais-crud-filter-grid">
+						<columns>
+
+						<column use="ais.ui.util.MyColumnConfig"
+						width="100px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig"
+						width="100px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig"
+						width="100px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig"
+						width="100px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig">
+						</column>
+
+						</columns>
+						<rows>
+						<row>
+						<label use="ais.ui.util.MyLabelConfig"
+						value="Judul Pengajuan" />
+						<textbox forward="onOK=onSearchDefault"
+						id="serachnama" width="95%" />
+						<label use="ais.ui.util.MyLabelConfig"
+						value="Kode Pengajuan" />
+						<textbox forward="onOK=onSearchDefault"
+						id="serachkode" width="95%" />
+						<label use="ais.ui.util.MyLabelConfig"
+						value="Status" />
+						<combobox forward="onChange=onSearchDefault"
+						id="searchstatus" width="95%" />
+						<label use="ais.ui.util.MyLabelConfig"
+						value="Satuan Kerja" />
+						<bandbox
+						use="ais.action.master.rab.helper.AmbilDataSatuanKerjaBanbox"
+						id="searchparent" width="95%">
+						</bandbox>
+						</row>
+												<row>
+							<label use="ais.ui.util.MyLabelConfig" value="Dari Tanggal" />
+							<datebox use="ais.ui.util.MyDatebox" id="start" format="dd/MM/yyyy" forward="onChange=onSearchDefault" width="95%" />
+							<label use="ais.ui.util.MyLabelConfig" value="Sampai Tanggal" />
+							<datebox use="ais.ui.util.MyDatebox" id="end" format="dd/MM/yyyy" forward="onChange=onSearchDefault" width="95%" />
+						</row>
+
+					<!-- ais-auto-filter: field pencarian dari initCriteria yang belum ada di .zul -->
+					<row>
+						<label use="ais.ui.util.MyLabelConfig" value="" />
+						<checkbox use="ais.ui.util.MyCheckboxConfig" id="searchtidakaktif" label="Tidakaktif" forward="onClick=onSearchDefault" />
+						<label use="ais.ui.util.MyLabelConfig" value="" />
+						<checkbox use="ais.ui.util.MyCheckboxConfig" id="searchaktif" label="Tampilkan hanya yang aktif" checked="true" forward="onClick=onSearchDefault" width="95%" />
+					</row>
+					</rows>
+					</grid>
+				</div>
+			</div>
+
+			<!-- ═══ KARTU DATA ═══ -->
+			<div sclass="ais-crud-data-card">
+				<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true"/>
+				<grid use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true" id="grid">
+					<columns>
+
+						<column width="17%"
+						use="ais.ui.util.MyColumnConfig" label="Kode/Nama" />
+
+						<column width="9%"
+						use="ais.ui.util.MyColumnConfig" label="Jenis Pajak" />
+
+						<column width="9%"
+						use="ais.ui.util.MyColumnConfig" align="right" label="DPP" />
+
+						<column width="9%"
+						use="ais.ui.util.MyColumnConfig" align="right" label="Nilai" />
+
+
+						<column width="7%"
+						use="ais.ui.util.MyColumnConfig" label="Npwp" />
+						<column width="7%"
+						use="ais.ui.util.MyColumnConfig" label="Nama Wp" />
+						<column width="7%"
+						use="ais.ui.util.MyColumnConfig" label="Tgl.Stor" />
+						<column width="7%"
+						use="ais.ui.util.MyColumnConfig" label="Tgl.Trx" />
+						<column width="13%"
+						use="ais.ui.util.MyColumnConfig" label="Keterangan" />
+						<column width="4%"
+						use="ais.ui.util.MyColumnConfig" label="Bayar" />
+						<column width="7%"
+						use="ais.ui.util.MyColumnConfig" label="Tanggal Bayar" />
+						<column
+						use="ais.ui.util.MyColumnConfig" width="4%" label="" />
+
+					</columns>
+				</grid>
+				<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>
+			</div>
+
+		</div>
+				</tabpanel>
+			</tabpanels>
+		</tabbox>
+
+		<window use="ais.ui.util.MyWindow" id="addWindow" title="Tambah Uang Muka" visible="false" mode="popup" position="center,center" border="normal" width="950px" height="95%">
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+	</window>
+
+
+</zk>

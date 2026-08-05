@@ -1,0 +1,220 @@
+<ns1:deployment xmlns="http://xml.apache.org/axis/wsdd/" xmlns:java="http://xml.apache.org/axis/wsdd/providers/java" xmlns:ns1="http://xml.apache.org/axis/wsdd/">
+ <ns1:globalConfiguration>
+  <ns1:parameter name="sendMultiRefs" value="true"/>
+  <ns1:parameter name="disablePrettyXML" value="true"/>
+  <ns1:parameter name="adminPassword" value="admin"/>
+  <ns1:parameter name="attachments.Directory" value="/opt/"/>
+  <ns1:parameter name="dotNetSoapEncFix" value="true"/>
+  <ns1:parameter name="enableNamespacePrefixOptimization" value="false"/>
+  <ns1:parameter name="sendXMLDeclaration" value="true"/>
+  <ns1:parameter name="sendXsiTypes" value="true"/>
+  <ns1:parameter name="attachments.implementation" value="org.apache.axis.attachments.AttachmentsImpl"/>
+  <ns1:requestFlow>
+   <ns1:handler type="java:org.apache.axis.handlers.JWSHandler">
+    <ns1:parameter name="scope" value="session"/>
+   </ns1:handler>
+   <ns1:handler type="java:org.apache.axis.handlers.JWSHandler">
+    <ns1:parameter name="scope" value="request"/>
+    <ns1:parameter name="extension" value=".jwr"/>
+   </ns1:handler>
+  </ns1:requestFlow>
+ </ns1:globalConfiguration>
+ <ns1:handler name="URLMapper" type="java:org.apache.axis.handlers.http.URLMapper"/>
+ <ns1:handler name="LocalResponder" type="java:org.apache.axis.transport.local.LocalResponder"/>
+ <ns1:handler name="Authenticate" type="java:org.apache.axis.handlers.SimpleAuthenticationHandler"/>
+ <ns1:service name="PayBRIAction" provider="java:RPC" style="wrapped" use="literal">
+  <ns2:operation name="hello" qname="ns1:hello" returnQName="ns1:helloReturn" returnType="xsd:string" soapAction="" xmlns:ns1="http://ws.action.ais" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:ns2="http://xml.apache.org/axis/wsdd/">
+   <ns2:parameter qname="ns1:name" type="xsd:string"/>
+  </ns2:operation>
+  <ns1:operation name="reversal" qname="ns2:reversal" returnQName="ns2:reversalReturn" returnType="ns3:Response" soapAction="" xmlns:ns2="http://ws.action.ais" xmlns:ns3="http://model.ws.action.ais">
+   <ns1:parameter qname="ns2:nim" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+  </ns1:operation>
+  <ns1:operation name="inquery" qname="ns4:inquery" returnQName="ns4:inqueryReturn" returnType="ns5:Response" soapAction="" xmlns:ns4="http://ws.action.ais" xmlns:ns5="http://model.ws.action.ais">
+   <ns1:parameter qname="ns4:nim" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+  </ns1:operation>
+  <ns1:operation name="pay" qname="ns6:pay" returnQName="ns6:payReturn" returnType="ns7:Response" soapAction="" xmlns:ns6="http://ws.action.ais" xmlns:ns7="http://model.ws.action.ais">
+   <ns1:parameter qname="ns6:nim" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns6:reffNumber" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns6:tanggalBayar" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns6:jamBayar" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns6:userID" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns6:namaCabang" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns6:nominalTagihan" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+  </ns1:operation>
+  <ns1:parameter name="sendMultiRefs" value="false"/>
+  <ns1:parameter name="wsdlServicePort" value="PayBRIAction"/>
+  <ns1:parameter name="schemaQualified" value="http://model.ws.action.ais,http://ws.action.ais"/>
+  <ns1:parameter name="className" value="ais.action.ws.PayBRIAction"/>
+  <ns1:parameter name="typeMappingVersion" value="1.2"/>
+  <ns1:parameter name="allowedMethods" value="hello pay inquery reversal"/>
+  <ns1:parameter name="wsdlPortType" value="PayBRIAction"/>
+  <ns1:parameter name="wsdlServiceElement" value="PayBRIActionService"/>
+  <ns1:parameter name="wsdlTargetNamespace" value="http://ws.action.ais"/>
+  <ns1:parameter name="sendXsiTypes" value="false"/>
+  <ns1:typeMapping deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory" encodingStyle="" qname="ns8:Response" serializer="org.apache.axis.encoding.ser.BeanSerializerFactory" type="java:ais.action.ws.model.Response" xmlns:ns8="http://model.ws.action.ais"/>
+ </ns1:service>
+ <ns1:service name="PayAction" provider="java:RPC" style="wrapped" use="literal">
+  <ns1:operation name="hello" qname="ns9:hello" returnQName="ns9:helloReturn" returnType="xsd:string" soapAction="" xmlns:ns9="http://ws.action.ais" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+   <ns1:parameter qname="ns9:name" type="xsd:string"/>
+  </ns1:operation>
+  <ns1:operation name="reversal" qname="ns10:reversal" returnQName="ns10:reversalReturn" returnType="ns11:Response" soapAction="" xmlns:ns10="http://ws.action.ais" xmlns:ns11="http://model.ws.action.ais">
+   <ns1:parameter qname="ns10:nim" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+  </ns1:operation>
+  <ns1:operation name="inquery" qname="ns12:inquery" returnQName="ns12:inqueryReturn" returnType="ns13:Response" soapAction="" xmlns:ns12="http://ws.action.ais" xmlns:ns13="http://model.ws.action.ais">
+   <ns1:parameter qname="ns12:nim" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+  </ns1:operation>
+  <ns1:operation name="pay" qname="ns14:pay" returnQName="ns14:payReturn" returnType="ns15:Response" soapAction="" xmlns:ns14="http://ws.action.ais" xmlns:ns15="http://model.ws.action.ais">
+   <ns1:parameter qname="ns14:nim" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns14:reffNumber" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns14:tanggalBayar" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns14:jamBayar" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns14:userID" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns14:namaCabang" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns14:nominalTagihan" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+  </ns1:operation>
+  <ns1:parameter name="sendMultiRefs" value="false"/>
+  <ns1:parameter name="wsdlServicePort" value="PayAction"/>
+  <ns1:parameter name="schemaQualified" value="http://model.ws.action.ais,http://ws.action.ais"/>
+  <ns1:parameter name="className" value="ais.action.ws.PayAction"/>
+  <ns1:parameter name="typeMappingVersion" value="1.2"/>
+  <ns1:parameter name="allowedMethods" value="hello pay inquery reversal"/>
+  <ns1:parameter name="wsdlPortType" value="PayAction"/>
+  <ns1:parameter name="wsdlServiceElement" value="PayActionService"/>
+  <ns1:parameter name="wsdlTargetNamespace" value="http://ws.action.ais"/>
+  <ns1:parameter name="sendXsiTypes" value="false"/>
+  <ns1:typeMapping deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory" encodingStyle="" qname="ns16:Response" serializer="org.apache.axis.encoding.ser.BeanSerializerFactory" type="java:ais.action.ws.model.Response" xmlns:ns16="http://model.ws.action.ais"/>
+ </ns1:service>
+ <ns1:service name="PayWithJenisBayarAction" provider="java:RPC" style="wrapped" use="literal">
+  <ns1:operation name="hello" qname="ns17:hello" returnQName="ns17:helloReturn" returnType="xsd:string" soapAction="" xmlns:ns17="http://ws.action.ais" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+   <ns1:parameter qname="ns17:name" type="xsd:string"/>
+  </ns1:operation>
+  <ns1:operation name="reversal" qname="ns18:reversal" returnQName="ns18:reversalReturn" returnType="ns19:Response" soapAction="" xmlns:ns18="http://ws.action.ais" xmlns:ns19="http://model.ws.action.ais">
+   <ns1:parameter qname="ns18:nim" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns18:kode" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+  </ns1:operation>
+  <ns1:operation name="inquery" qname="ns20:inquery" returnQName="ns20:inqueryReturn" returnType="ns21:Response" soapAction="" xmlns:ns20="http://ws.action.ais" xmlns:ns21="http://model.ws.action.ais">
+   <ns1:parameter qname="ns20:nim" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns20:kode" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+  </ns1:operation>
+  <ns1:operation name="pay" qname="ns22:pay" returnQName="ns22:payReturn" returnType="ns23:Response" soapAction="" xmlns:ns22="http://ws.action.ais" xmlns:ns23="http://model.ws.action.ais">
+   <ns1:parameter qname="ns22:nim" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns22:reffNumber" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns22:tanggalBayar" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns22:jamBayar" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns22:userID" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns22:namaCabang" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns22:nominalTagihan" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns22:kode" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+  </ns1:operation>
+  <ns1:parameter name="allowedMethods" value="hello pay inquery reversal"/>
+  <ns1:parameter name="wsdlPortType" value="PayWithJenisBayarAction"/>
+  <ns1:parameter name="typeMappingVersion" value="1.2"/>
+  <ns1:parameter name="schemaQualified" value="http://model.ws.action.ais,http://ws.action.ais"/>
+  <ns1:parameter name="wsdlServicePort" value="PayWithJenisBayarAction"/>
+  <ns1:parameter name="className" value="ais.action.ws.PayWithJenisBayarAction"/>
+  <ns1:parameter name="wsdlTargetNamespace" value="http://ws.action.ais"/>
+  <ns1:parameter name="wsdlServiceElement" value="PayWithJenisBayarActionService"/>
+  <ns1:typeMapping deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory" encodingStyle="" qname="ns24:Response" serializer="org.apache.axis.encoding.ser.BeanSerializerFactory" type="java:ais.action.ws.model.Response" xmlns:ns24="http://model.ws.action.ais"/>
+ </ns1:service>
+ <ns1:service name="AdminService" provider="java:MSG">
+  <ns1:parameter name="allowedMethods" value="AdminService"/>
+  <ns1:parameter name="enableRemoteAdmin" value="false"/>
+  <ns1:parameter name="className" value="org.apache.axis.utils.Admin"/>
+  <ns1:namespace>http://xml.apache.org/axis/wsdd/</ns1:namespace>
+ </ns1:service>
+ <ns1:service name="Version" provider="java:RPC">
+  <ns1:parameter name="allowedMethods" value="getVersion"/>
+  <ns1:parameter name="className" value="org.apache.axis.Version"/>
+ </ns1:service>
+ <ns1:service name="PembayaranBNIAction" provider="java:RPC" style="wrapped" use="literal">
+  <ns1:operation name="inquiry" qname="ns25:inquiry" returnQName="ns25:inquiryReturn" returnType="ns26:Response" soapAction="" xmlns:ns25="http://ws.action.ais" xmlns:ns26="http://model.ws.action.ais">
+   <ns1:parameter qname="ns25:language" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns25:trxDateTime" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns25:transmissionDateTime" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns25:companyCode" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns25:channelID" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns25:billKey" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+  </ns1:operation>
+  <ns1:operation name="hello" qname="ns27:hello" returnQName="ns27:helloReturn" returnType="xsd:string" soapAction="" xmlns:ns27="http://ws.action.ais" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+   <ns1:parameter qname="ns27:name" type="xsd:string"/>
+  </ns1:operation>
+  <ns1:operation name="reversal" qname="ns28:reversal" returnQName="ns28:reversalReturn" returnType="ns29:Response" soapAction="" xmlns:ns28="http://ws.action.ais" xmlns:ns29="http://model.ws.action.ais">
+   <ns1:parameter qname="ns28:language" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns28:trxDateTime" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns28:originalTrxDateTime" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns28:transmissionDateTime" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns28:originalTransmissionDateTime" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns28:companyCode" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns28:channelID" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns28:billKey" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns28:nominalPayment" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns28:trxID" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns28:currency" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns28:financialReffNum" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+  </ns1:operation>
+  <ns1:operation name="pay" qname="ns30:pay" returnQName="ns30:payReturn" returnType="ns31:Response" soapAction="" xmlns:ns30="http://ws.action.ais" xmlns:ns31="http://model.ws.action.ais">
+   <ns1:parameter qname="ns30:language" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns30:trxDateTime" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns30:transmissionDateTime" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns30:companyCode" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns30:channelID" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns30:billKey" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns30:paymentDetail" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns30:nominalPayment" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns30:currency" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns30:trxID" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+   <ns1:parameter qname="ns30:financialReffNum" type="xsd:string" xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>
+  </ns1:operation>
+  <ns1:parameter name="sendMultiRefs" value="false"/>
+  <ns1:parameter name="wsdlServicePort" value="PembayaranBNIAction"/>
+  <ns1:parameter name="schemaQualified" value="http://model.ws.action.ais,http://ws.action.ais"/>
+  <ns1:parameter name="className" value="ais.action.ws.PembayaranBNIAction"/>
+  <ns1:parameter name="typeMappingVersion" value="1.2"/>
+  <ns1:parameter name="allowedMethods" value="hello inquiry pay reversal"/>
+  <ns1:parameter name="wsdlPortType" value="PembayaranBNIAction"/>
+  <ns1:parameter name="wsdlServiceElement" value="PembayaranBNIActionService"/>
+  <ns1:parameter name="wsdlTargetNamespace" value="http://ws.action.ais"/>
+  <ns1:parameter name="sendXsiTypes" value="false"/>
+  <ns1:typeMapping deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory" encodingStyle="" qname="ns32:Response" serializer="org.apache.axis.encoding.ser.BeanSerializerFactory" type="java:ais.action.ws.model.Response" xmlns:ns32="http://model.ws.action.ais"/>
+ </ns1:service>
+ <ns1:service name="BillPaymentServiceSoap" provider="java:RPC" style="document" use="literal">
+  <ns1:parameter name="allowedMethods" value="*"/>
+  <ns1:parameter name="typeMappingVersion" value="1.2"/>
+  <ns1:parameter name="wsdlPortType" value="BillPaymentServiceSoap"/>
+  <ns1:parameter name="className" value="CIMB3rdParty.BillPaymentWS.BillPaymentServiceSoapSkeleton"/>
+  <ns1:parameter name="wsdlServicePort" value="BillPaymentServiceSoap"/>
+  <ns1:parameter name="wsdlTargetNamespace" value="http://CIMB3rdParty/BillPaymentWS"/>
+  <ns1:parameter name="wsdlServiceElement" value="BillPaymentService"/>
+  <ns1:parameter name="schemaUnqualified" value="http://CIMB3rdParty/BillPaymentWS"/>
+  <ns1:typeMapping deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory" encodingStyle="" qname="ns33:InquiryRs" serializer="org.apache.axis.encoding.ser.BeanSerializerFactory" type="java:CIMB3rdParty.BillPaymentWS.InquiryRs" xmlns:ns33="http://CIMB3rdParty/BillPaymentWS"/>
+  <ns1:typeMapping deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory" encodingStyle="" qname="ns34:&gt;CIMB3rdParty_EchoRq" serializer="org.apache.axis.encoding.ser.BeanSerializerFactory" type="java:CIMB3rdParty.BillPaymentWS.CIMB3RdParty_EchoRq" xmlns:ns34="http://CIMB3rdParty/BillPaymentWS"/>
+  <ns1:typeMapping deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory" encodingStyle="" qname="ns35:&gt;CIMB3rdParty_EchoRs" serializer="org.apache.axis.encoding.ser.BeanSerializerFactory" type="java:CIMB3rdParty.BillPaymentWS.CIMB3RdParty_EchoRs" xmlns:ns35="http://CIMB3rdParty/BillPaymentWS"/>
+  <ns1:typeMapping deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory" encodingStyle="" qname="ns36:PaymentRq" serializer="org.apache.axis.encoding.ser.BeanSerializerFactory" type="java:CIMB3rdParty.BillPaymentWS.PaymentRq" xmlns:ns36="http://CIMB3rdParty/BillPaymentWS"/>
+  <ns1:typeMapping deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory" encodingStyle="" qname="ns37:PaymentRs" serializer="org.apache.axis.encoding.ser.BeanSerializerFactory" type="java:CIMB3rdParty.BillPaymentWS.PaymentRs" xmlns:ns37="http://CIMB3rdParty/BillPaymentWS"/>
+  <ns1:typeMapping deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory" encodingStyle="" qname="ns38:InquiryRq" serializer="org.apache.axis.encoding.ser.BeanSerializerFactory" type="java:CIMB3rdParty.BillPaymentWS.InquiryRq" xmlns:ns38="http://CIMB3rdParty/BillPaymentWS"/>
+  <ns1:typeMapping deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory" encodingStyle="" qname="ns39:BillDetail" serializer="org.apache.axis.encoding.ser.BeanSerializerFactory" type="java:CIMB3rdParty.BillPaymentWS.BillDetail" xmlns:ns39="http://CIMB3rdParty/BillPaymentWS"/>
+  <ns1:typeMapping deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory" encodingStyle="" qname="ns40:CIMB3rdParty_InquiryRs" serializer="org.apache.axis.encoding.ser.BeanSerializerFactory" type="java:CIMB3rdParty.BillPaymentWS.CIMB3RdParty_InquiryRs" xmlns:ns40="http://CIMB3rdParty/BillPaymentWS"/>
+  <ns1:typeMapping deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory" encodingStyle="" qname="ns41:CIMB3rdParty_PaymentRs" serializer="org.apache.axis.encoding.ser.BeanSerializerFactory" type="java:CIMB3rdParty.BillPaymentWS.CIMB3RdParty_PaymentRs" xmlns:ns41="http://CIMB3rdParty/BillPaymentWS"/>
+  <ns1:typeMapping deserializer="org.apache.axis.encoding.ser.SimpleDeserializerFactory" encodingStyle="" qname="ns42:EchoMessage" serializer="org.apache.axis.encoding.ser.SimpleSerializerFactory" type="java:java.lang.String" xmlns:ns42="http://CIMB3rdParty/BillPaymentWS"/>
+  <ns1:typeMapping deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory" encodingStyle="" qname="ns43:CIMB3rdParty_InquiryRq" serializer="org.apache.axis.encoding.ser.BeanSerializerFactory" type="java:CIMB3rdParty.BillPaymentWS.CIMB3RdParty_InquiryRq" xmlns:ns43="http://CIMB3rdParty/BillPaymentWS"/>
+  <ns1:typeMapping deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory" encodingStyle="" qname="ns44:CIMB3rdParty_PaymentRq" serializer="org.apache.axis.encoding.ser.BeanSerializerFactory" type="java:CIMB3rdParty.BillPaymentWS.CIMB3RdParty_PaymentRq" xmlns:ns44="http://CIMB3rdParty/BillPaymentWS"/>
+  <ns1:arrayMapping innerType="ns45:BillDetail" languageSpecificType="java:CIMB3rdParty.BillPaymentWS.BillDetail[]" qname="ns45:ArrayOfBillDetail" xmlns:ns45="http://CIMB3rdParty/BillPaymentWS"/>
+ </ns1:service>
+ <ns1:transport name="http">
+  <ns1:requestFlow>
+   <ns1:handler type="URLMapper"/>
+   <ns1:handler type="java:org.apache.axis.handlers.http.HTTPAuthHandler"/>
+  </ns1:requestFlow>
+  <ns1:parameter name="qs:list" value="org.apache.axis.transport.http.QSListHandler"/>
+  <ns1:parameter name="qs:wsdl" value="org.apache.axis.transport.http.QSWSDLHandler"/>
+  <ns1:parameter name="qs.list" value="org.apache.axis.transport.http.QSListHandler"/>
+  <ns1:parameter name="qs.method" value="org.apache.axis.transport.http.QSMethodHandler"/>
+  <ns1:parameter name="qs:method" value="org.apache.axis.transport.http.QSMethodHandler"/>
+  <ns1:parameter name="qs.wsdl" value="org.apache.axis.transport.http.QSWSDLHandler"/>
+ </ns1:transport>
+ <ns1:transport name="local">
+  <ns1:responseFlow>
+   <ns1:handler type="LocalResponder"/>
+  </ns1:responseFlow>
+ </ns1:transport>
+</ns1:deployment>

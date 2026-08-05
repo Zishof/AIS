@@ -1,0 +1,32 @@
+<?page id="dashboardRawatJalanMingguan" title="Dasbor Kunjungan Rawat Jalan (Mingguan)"
+	cacheable="false" language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<!--
+	Dasbor "Kunjungan Pasien Rawat Jalan per Minggu".
+	Menampilkan berapa banyak pasien rawat jalan yang datang tiap minggu pada bulan terpilih,
+	beserta poli yang paling sibuk. Seluruh grafik digambar dengan HTML + CSS modern (tanpa
+	JFreeChart) oleh RawatJalanDashboardBuilder — lihat class action + builder untuk detail.
+-->
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window" width="100%" height="100%"
+		apply="ais.action.master.sirs.chart.RawatJalanMingguanDashboardAction">
+
+		<div sclass="ais-crud-portal" style="padding:12px;">
+
+			<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px;">
+				<label use="ais.ui.util.MyLabelConfig" value="Tahun" style="font-weight:600;color:#334155;" />
+				<combobox id="tahun" readonly="true" width="120px" />
+				<label use="ais.ui.util.MyLabelConfig" value="Bulan" style="font-weight:600;color:#334155;" />
+				<combobox id="bulan" readonly="true" width="100px" />
+			</div>
+
+			<!-- Wadah grafik HTML/CSS; diisi oleh builder. Responsif mengikuti lebar layar. -->
+			<div id="pasienRawatJalan" use="ais.ui.util.MyChart" width="100%" />
+
+		</div>
+	</window>
+</zk>

@@ -1,0 +1,130 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" width="100%"
+		id="mainWindow" height="100%">
+		<zscript>
+		<![CDATA[
+	String p = execution.getParameter("p");
+	if (p != null && p.equalsIgnoreCase("pustaka")) {
+		ais.action.master.dashboard.utama.DashboardPustaka a = new ais.action.master.dashboard.utama.DashboardPustaka();
+		a.setHeight("100%");
+		a.setWidth("100%");
+		a.setBorder("none");
+		mainWindow.appendChild(a);
+	} else if (p != null && p.equalsIgnoreCase("akademik")) {
+		ais.action.master.dashboard.utama.DashboardData a = new ais.action.master.dashboard.utama.DashboardData();
+		a.setHeight("100%");
+		a.setWidth("100%");
+		a.setBorder("none");
+		mainWindow.appendChild(a);
+	} else if (p != null && p.equalsIgnoreCase("suratmenyurat")) {
+		ais.action.master.dashboard.surat.DasboardSurat a = new ais.action.master.dashboard.surat.DasboardSurat();
+		a.setHeight("100%");
+		a.setWidth("100%");
+		a.setBorder("none");
+		mainWindow.appendChild(a);
+	} else if (p != null && p.equalsIgnoreCase("pengadaan")) {
+		ais.action.master.asset.helper.DasboardPengadaan a = new ais.action.master.asset.helper.DasboardPengadaan();
+		a.setHeight("100%");
+		a.setWidth("100%");
+		mainWindow.appendChild(a);
+	} else if (p != null && p.equalsIgnoreCase("kepegawaian")) {
+		ais.action.master.dashboard.admin.DasboardKepegawaian a = new ais.action.master.dashboard.admin.DasboardKepegawaian();
+		a.setHeight("100%");
+		a.setWidth("100%");
+		a.setBorder("none");
+		mainWindow.appendChild(a);
+	} else if (p != null && p.equalsIgnoreCase("keuangan")) {
+		ais.action.master.akunting.helper.DasboardKeuangan a = new ais.action.master.akunting.helper.DasboardKeuangan();
+		a.setHeight("100%");
+		a.setWidth("100%");
+		mainWindow.appendChild(a);
+	} else if (p != null && p.equalsIgnoreCase("keuangan")) {
+		ais.action.master.akunting.helper.DasboardPembayaranPerguruanTinggi a = new ais.action.master.akunting.helper.DasboardPembayaranPerguruanTinggi();
+		a.setHeight("100%");
+		a.setWidth("100%");
+		mainWindow.appendChild(a);
+	} else if (p != null && p.equalsIgnoreCase("akuntansi")) {
+		ais.action.master.akunting.helper.DasboardAkunting a = new ais.action.master.akunting.helper.DasboardAkunting();
+		a.setHeight("100%");
+		a.setWidth("100%");
+		mainWindow.appendChild(a);
+	} else if (p != null && p.equalsIgnoreCase("kinerja")) {
+		ais.action.master.dashboard.employ.DasboardKinerja a = new ais.action.master.dashboard.employ.DasboardKinerja();
+		a.setHeight("100%");
+		a.setWidth("100%");
+		mainWindow.appendChild(a);
+	} else if (p != null && p.equalsIgnoreCase("kinerja")) {
+		ais.action.master.dashboard.employ.DasboardKinerja a = new ais.action.master.dashboard.employ.DasboardKinerja();
+		a.setHeight("100%");
+		a.setWidth("100%");
+		mainWindow.appendChild(a);
+	} else if (p != null && p.equalsIgnoreCase("prestasi")) {
+		
+		ais.database.model.Tbmuser tbmuser = ais.common.Common.getCurrentUser();
+		if(tbmuser != null && tbmuser.ambilDosen() != null){
+			ais.action.master.dashboard.admin.DashboardKegiatanKedosenan window = new ais.action.master.dashboard.admin.DashboardKegiatanKedosenan(tbmuser.ambilDosen());
+			window.setHeight("100%");
+			window.setWidth("100%");
+			window.setBorder("none");
+			mainWindow.appendChild(window);
+		} else if(tbmuser != null && tbmuser.getMahasiswa() != null){
+			ais.action.master.dashboard.admin.DashboardKegiatanKemahasiswaan window = new ais.action.master.dashboard.admin.DashboardKegiatanKemahasiswaan(tbmuser.getMahasiswa());
+			window.setHeight("100%");
+			window.setWidth("100%");
+			window.setBorder("none");
+			mainWindow.appendChild(window);
+		} else if(tbmuser != null && tbmuser.getGuru() != null){
+			
+		} else if(tbmuser != null && tbmuser.getSiswa() != null){
+			
+		} else {
+			ais.action.master.dashboard.admin.DashboardKegiatanKemahasiswaanAdmin window = new ais.action.master.dashboard.admin.DashboardKegiatanKemahasiswaanAdmin("", "none",
+					false);
+			window.setHeight("100%");
+			window.setWidth("100%");
+			window.setBorder("none");
+			mainWindow.appendChild(window);
+		}
+		
+	
+	} else if (p != null && p.equalsIgnoreCase("pengajuananda")) {
+		
+		Tabbox tabbox = new Tabbox();
+		tabbox.setHeight("750px");
+		tabbox.setWidth("100%");
+		
+		Tabs tabs = new Tabs();
+		tabs.setParent(tabbox);
+		
+		Tabpanels tabpanels = new Tabpanels();
+		tabpanels.setParent(tabbox);
+		
+		ais.ui.util.MyWindow window = new ais.ui.util.MyWindow();
+		ais.action.master.sop.helper.DasboardSop dasboardSop = new ais.action.master.sop.helper.DasboardSop(tabs, tabpanels, window);
+		window.setHeight("100%");
+		window.setWidth("100%");
+		window.setBorder("none");
+		mainWindow.appendChild(tabbox);
+	} else {
+		ais.database.model.Menu menu = (ais.database.model.Menu) ais.database.model.GeneralValueObject
+				.ambilData(ais.database.model.Menu.class, execution.getParameter("menu").trim(), true);
+
+		if (menu != null) {
+			ais.ui.util.MyWindow window = (ais.ui.util.MyWindow) Class.forName(menu.getUrl().trim()).newInstance();
+			window.setHeight("100%");
+			window.setWidth("100%");
+			window.setBorder("none");
+			mainWindow.appendChild(window);
+		}
+	}
+]]>
+		</zscript>
+	</window>
+</zk>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?page title="ZK Calendars Demo"?>
+<?link rel="stylesheet" type="text/css" href="/calendar.css.dsp?v=${desktop.webApp.build}"?>
+<?component name="divtab" macro-uri="/WEB-INF/z/x/y/pages/master/kalender/perkuliahan/divtab.zul" inline="true"?>
+<?component name="divarrow" macro-uri="/WEB-INF/z/x/y/pages/master/kalender/perkuliahan/divarrow.zul" inline="true"?>
+<zk>
+<window use="ais.ui.util.MyWindow" title="Home" border="normal">
+<calendars id="calendars" firstDayOfWeek="Sunday"
+					 model="${cm}" mold="default">
+					<toolbar sclass="calendar-toolbar">
+						<div class="float-left">
+							<hbox>
+								<divarrow type="arrow-left" />
+								<divarrow type="arrow-right" />
+								<div>
+
+									<label use="ais.ui.util.MyLabelConfig" value="Nama Mahasiswa:" />
+									<label use="ais.ui.util.MyLabelConfig" id="namaMahasiswa" value="" />
+									<space width="50px"></space>
+									<label use="ais.ui.util.MyLabelConfig" value="Tahun Akademik:" />
+									<combobox id="tahunAjaran"
+										forward="onChange=onRefresh">
+									</combobox>
+									<label use="ais.ui.util.MyLabelConfig" value="Jenis Semester:" />
+									<combobox id="jenisSemester"
+										forward="onChange=onRefresh">
+									</combobox>
+
+								</div>
+							</hbox>
+						</div>
+
+					</toolbar>
+				</calendars>
+</window>
+</zk>

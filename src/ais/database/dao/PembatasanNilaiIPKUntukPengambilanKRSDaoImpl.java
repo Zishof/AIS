@@ -1,0 +1,8 @@
+package ais.database.dao;
+
+import ais.database.model.PembatasanNilaiIPKUntukPengambilanKRS;
+
+
+public class PembatasanNilaiIPKUntukPengambilanKRSDaoImpl extends GenericHibernateDao<PembatasanNilaiIPKUntukPengambilanKRS, Long, PembatasanNilaiIPKUntukPengambilanKRSDao> implements PembatasanNilaiIPKUntukPengambilanKRSDao{
+
+}

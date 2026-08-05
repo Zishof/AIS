@@ -1,0 +1,657 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="laporan_10_jenis_penyakit_terbesar" language="groovy" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="535" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20">
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="385"/>
+	<style name="Title" fontSize="50" isBold="true" pdfFontName="Times-Bold"/>
+	<style name="SubTitle" forecolor="#736343" fontSize="18"/>
+	<style name="Column header" forecolor="#666666" fontSize="12" isBold="true"/>
+	<style name="Detail" fontSize="12"/>
+	<style name="Row" mode="Transparent">
+		<conditionalStyle>
+			<conditionExpression><![CDATA[$V{REPORT_COUNT}%2 == 0]]></conditionExpression>
+			<style backcolor="#E6DAC3"/>
+		</conditionalStyle>
+	</style>
+	<parameter name="jenis_pasien" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="bulan" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[1]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tahun" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[2011]]></defaultValueExpression>
+	</parameter>
+	<parameter name="nama_jenis_pasien" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["PASIEN UMUM"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mg1" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2010-12-27"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mg2" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2011-01-03"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mg3" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2011-01-10"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mg4" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2011-01-17"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mg5" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2011-01-24"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mg6" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2011-01-31"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="menular" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Menular"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jenis" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+	</parameter>
+	<parameter name="nama_instalasi" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Rawat Jalan"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mg1_1" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2010-12-27"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mg2_1" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2011-01-03"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mg3_1" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2011-01-10"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mg4_1" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2011-01-17"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mg5_1" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2011-01-24"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mg6_1" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2011-01-31"]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select
+jenis_penyakit, sum(minggu1) as minggu1, sum(minggu2) as minggu2, sum(minggu3) as minggu3, sum(minggu4) minggu4, sum(minggu5) minggu5, sum(jumlah) as jumlah
+from
+(
+	(
+		SELECT
+		MAX(c.kode) || ' - ' || MAX(c.nama_english) as jenis_penyakit,
+		sum(case when date(a.tanggal) between date($P{mg1}) and date($P{mg1_1}) then 1 else 0 end) as minggu1,
+		sum(case when date(a.tanggal) between date($P{mg2}) and date($P{mg2_1}) then 1 else 0 end) as minggu2,
+		sum(case when date(a.tanggal) between date($P{mg3}) and date($P{mg3_1}) then 1 else 0 end) as minggu3,
+		sum(case when date(a.tanggal) between date($P{mg4}) and date($P{mg4_1}) then 1 else 0 end) as minggu4,
+		sum(case when date(a.tanggal) between date($P{mg5}) and date($P{mg5_1}) then 1 else 0 end) as minggu5,
+		count(a.id) as jumlah
+
+
+		from diagnosa_penyakit a
+		inner join pendaftaran a1 on (a.pendaftaran = a1.id)
+		inner join pasien cc on (a.pasien = cc.id)
+		inner join icd c on (c.id = a.diagnosa_awal1)
+		where date(a.tanggal) between date($P{mg1}) and  date($P{mg5_1})
+		and case when $P{menular} = '' then true else a.apakah_menular = $P{menular} end
+		and case when $P{jenis} = '' then true else a1.jenis = $P{jenis} end
+		and case when $P{jenis_pasien} = -1 then true else cc.jenis_pasien = $P{jenis_pasien} end
+		and c.id is not null
+		group by c.id
+	)
+	union all
+	(
+		SELECT
+		MAX(c.kode) || ' - ' || MAX(c.nama_english) as jenis_penyakit,
+		sum(case when date(a.tanggal) between date($P{mg1}) and date($P{mg1_1}) then 1 else 0 end) as minggu1,
+		sum(case when date(a.tanggal) between date($P{mg2}) and date($P{mg2_1}) then 1 else 0 end) as minggu2,
+		sum(case when date(a.tanggal) between date($P{mg3}) and date($P{mg3_1}) then 1 else 0 end) as minggu3,
+		sum(case when date(a.tanggal) between date($P{mg4}) and date($P{mg4_1}) then 1 else 0 end) as minggu4,
+		sum(case when date(a.tanggal) between date($P{mg5}) and date($P{mg5_1}) then 1 else 0 end) as minggu5,
+		count(a.id) as jumlah
+
+
+		from diagnosa_penyakit a
+		inner join pendaftaran a1 on (a.pendaftaran = a1.id)
+		inner join pasien cc on (a.pasien = cc.id)
+		inner join icd c on (c.id = a.diagnosa_awal2)
+		where date(a.tanggal) between date($P{mg1}) and  date($P{mg5_1})
+		and case when $P{menular} = '' then true else a.apakah_menular = $P{menular} end
+		and case when $P{jenis} = '' then true else a1.jenis = $P{jenis} end
+		and case when $P{jenis_pasien} = -1 then true else cc.jenis_pasien = $P{jenis_pasien} end
+		and c.id is not null
+		group by c.id
+	)
+	union all
+	(
+		SELECT
+		MAX(c.kode) || ' - ' || MAX(c.nama_english) as jenis_penyakit,
+		sum(case when date(a.tanggal) between date($P{mg1}) and date($P{mg1_1}) then 1 else 0 end) as minggu1,
+		sum(case when date(a.tanggal) between date($P{mg2}) and date($P{mg2_1}) then 1 else 0 end) as minggu2,
+		sum(case when date(a.tanggal) between date($P{mg3}) and date($P{mg3_1}) then 1 else 0 end) as minggu3,
+		sum(case when date(a.tanggal) between date($P{mg4}) and date($P{mg4_1}) then 1 else 0 end) as minggu4,
+		sum(case when date(a.tanggal) between date($P{mg5}) and date($P{mg5_1}) then 1 else 0 end) as minggu5,
+		count(a.id) as jumlah
+
+
+		from diagnosa_penyakit a
+		inner join pendaftaran a1 on (a.pendaftaran = a1.id)
+		inner join pasien cc on (a.pasien = cc.id)
+		inner join icd c on (c.id = a.diagnosa_awal3)
+		where date(a.tanggal) between date($P{mg1}) and  date($P{mg5_1})
+		and case when $P{menular} = '' then true else a.apakah_menular = $P{menular} end
+		and case when $P{jenis} = '' then true else a1.jenis = $P{jenis} end
+		and case when $P{jenis_pasien} = -1 then true else cc.jenis_pasien = $P{jenis_pasien} end
+		and c.id is not null
+		group by c.id
+	)
+	union all
+		(
+		SELECT
+		MAX(c.kode) || ' - ' || MAX(c.nama_english) as jenis_penyakit,
+		sum(case when date(a.tanggal) between date($P{mg1}) and date($P{mg1_1}) then 1 else 0 end) as minggu1,
+		sum(case when date(a.tanggal) between date($P{mg2}) and date($P{mg2_1}) then 1 else 0 end) as minggu2,
+		sum(case when date(a.tanggal) between date($P{mg3}) and date($P{mg3_1}) then 1 else 0 end) as minggu3,
+		sum(case when date(a.tanggal) between date($P{mg4}) and date($P{mg4_1}) then 1 else 0 end) as minggu4,
+		sum(case when date(a.tanggal) between date($P{mg5}) and date($P{mg5_1}) then 1 else 0 end) as minggu5,
+		count(a.id) as jumlah
+
+
+		from diagnosa_penyakit a
+		inner join pendaftaran a1 on (a.pendaftaran = a1.id)
+		inner join pasien cc on (a.pasien = cc.id)
+		inner join icd c on (c.id = a.diagnosa_akhir1)
+		where date(a.tanggal) between date($P{mg1}) and  date($P{mg5_1})
+		and case when $P{menular} = '' then true else a.apakah_menular = $P{menular} end
+		and case when $P{jenis} = '' then true else a1.jenis = $P{jenis} end
+		and case when $P{jenis_pasien} = -1 then true else cc.jenis_pasien = $P{jenis_pasien} end
+		and c.id is not null
+		group by c.id
+	)
+	union all
+	(
+		SELECT
+		MAX(c.kode) || ' - ' || MAX(c.nama_english) as jenis_penyakit,
+		sum(case when date(a.tanggal) between date($P{mg1}) and date($P{mg1_1}) then 1 else 0 end) as minggu1,
+		sum(case when date(a.tanggal) between date($P{mg2}) and date($P{mg2_1}) then 1 else 0 end) as minggu2,
+		sum(case when date(a.tanggal) between date($P{mg3}) and date($P{mg3_1}) then 1 else 0 end) as minggu3,
+		sum(case when date(a.tanggal) between date($P{mg4}) and date($P{mg4_1}) then 1 else 0 end) as minggu4,
+		sum(case when date(a.tanggal) between date($P{mg5}) and date($P{mg5_1}) then 1 else 0 end) as minggu5,
+		count(a.id) as jumlah
+
+
+		from diagnosa_penyakit a
+		inner join pendaftaran a1 on (a.pendaftaran = a1.id)
+		inner join pasien cc on (a.pasien = cc.id)
+		inner join icd c on (c.id = a.diagnosa_akhir2)
+		where date(a.tanggal) between date($P{mg1}) and  date($P{mg5_1})
+		and case when $P{menular} = '' then true else a.apakah_menular = $P{menular} end
+		and case when $P{jenis} = '' then true else a1.jenis = $P{jenis} end
+		and case when $P{jenis_pasien} = -1 then true else cc.jenis_pasien = $P{jenis_pasien} end
+		and c.id is not null
+		group by c.id
+	)
+	union all
+	(
+		SELECT
+		MAX(c.kode) || ' - ' || MAX(c.nama_english) as jenis_penyakit,
+		sum(case when date(a.tanggal) between date($P{mg1}) and date($P{mg1_1}) then 1 else 0 end) as minggu1,
+		sum(case when date(a.tanggal) between date($P{mg2}) and date($P{mg2_1}) then 1 else 0 end) as minggu2,
+		sum(case when date(a.tanggal) between date($P{mg3}) and date($P{mg3_1}) then 1 else 0 end) as minggu3,
+		sum(case when date(a.tanggal) between date($P{mg4}) and date($P{mg4_1}) then 1 else 0 end) as minggu4,
+		sum(case when date(a.tanggal) between date($P{mg5}) and date($P{mg5_1}) then 1 else 0 end) as minggu5,
+		count(a.id) as jumlah
+
+
+		from diagnosa_penyakit a
+		inner join pendaftaran a1 on (a.pendaftaran = a1.id)
+		inner join pasien cc on (a.pasien = cc.id)
+		inner join icd c on (c.id = a.diagnosa_akhir3)
+		where date(a.tanggal) between date($P{mg1}) and  date($P{mg5_1})
+		and case when $P{menular} = '' then true else a.apakah_menular = $P{menular} end
+		and case when $P{jenis} = '' then true else a1.jenis = $P{jenis} end
+		and case when $P{jenis_pasien} = -1 then true else cc.jenis_pasien = $P{jenis_pasien} end
+		and c.id is not null
+		group by c.id
+	)
+) a
+group by jenis_penyakit
+order by jumlah desc
+limit 10]]>
+	</queryString>
+	<field name="jenis_penyakit" class="java.lang.String"/>
+	<field name="minggu1" class="java.math.BigDecimal"/>
+	<field name="minggu2" class="java.math.BigDecimal"/>
+	<field name="minggu3" class="java.math.BigDecimal"/>
+	<field name="minggu4" class="java.math.BigDecimal"/>
+	<field name="minggu5" class="java.math.BigDecimal"/>
+	<field name="jumlah" class="java.math.BigDecimal"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="119" splitType="Stretch">
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement x="-1" y="-18" width="89" height="105"/>
+				<imageExpression><![CDATA["logo.jpg"]]></imageExpression>
+			</image>
+			<textField>
+				<reportElement x="0" y="87" width="555" height="31"/>
+				<textElement/>
+				<textFieldExpression><![CDATA["LAPORAN 10 ICD "+$P{menular}.toUpperCase()+" "+$P{nama_jenis_pasien}.toUpperCase()+" "+$P{jenis}.toUpperCase()+" \nBulan : "+$P{bulan}+" - "+$P{tahun}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="88" y="21" width="467" height="23"/>
+				<textElement>
+					<font size="18" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "nama_instansi" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="88" y="44" width="467" height="42"/>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "alamat_instansi" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="88" y="-12" width="467" height="33"/>
+				<textElement>
+					<font size="24" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "dinas_instansi" )]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<columnHeader>
+		<band height="16" splitType="Stretch">
+			<line>
+				<reportElement positionType="FixRelativeToBottom" x="0" y="15" width="555" height="1"/>
+				<graphicElement>
+					<pen lineWidth="0.5" lineColor="#999999"/>
+				</graphicElement>
+			</line>
+			<staticText>
+				<reportElement style="Column header" x="28" y="0" width="302" height="15" forecolor="#736343"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[Jenis Penyakit]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="Column header" x="330" y="0" width="37" height="15" forecolor="#736343"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[MG1]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="Column header" x="367" y="0" width="37" height="15" forecolor="#736343"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[MG2]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="Column header" x="404" y="0" width="37" height="15" forecolor="#736343"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[MG3]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="Column header" x="441" y="0" width="37" height="15" forecolor="#736343"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[MG4]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="Column header" x="478" y="0" width="37" height="15" forecolor="#736343"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[MG5]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="Column header" x="515" y="0" width="37" height="15" forecolor="#736343"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[Jumlah]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="Column header" x="1" y="0" width="27" height="15" forecolor="#736343"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[No.]]></text>
+			</staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="15" splitType="Stretch">
+			<frame>
+				<reportElement style="Row" mode="Opaque" x="0" y="0" width="555" height="15"/>
+				<textField isStretchWithOverflow="true">
+					<reportElement style="Detail" x="0" y="0" width="28" height="15"/>
+					<box leftPadding="3" rightPadding="3">
+						<topPen lineWidth="0.0"/>
+						<leftPen lineWidth="0.0"/>
+						<bottomPen lineWidth="0.0"/>
+						<rightPen lineWidth="0.0"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="10"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
+				</textField>
+				<textField isStretchWithOverflow="true">
+					<reportElement style="Detail" x="28" y="0" width="302" height="15"/>
+					<box leftPadding="3" rightPadding="3">
+						<topPen lineWidth="0.0"/>
+						<leftPen lineWidth="0.0"/>
+						<bottomPen lineWidth="0.0"/>
+						<rightPen lineWidth="0.0"/>
+					</box>
+					<textElement verticalAlignment="Middle">
+						<font size="10"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{jenis_penyakit}]]></textFieldExpression>
+				</textField>
+				<textField isStretchWithOverflow="true">
+					<reportElement style="Detail" x="330" y="0" width="37" height="15"/>
+					<box leftPadding="3" rightPadding="3">
+						<topPen lineWidth="0.0"/>
+						<leftPen lineWidth="0.0"/>
+						<bottomPen lineWidth="0.0"/>
+						<rightPen lineWidth="0.0"/>
+					</box>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="10"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{minggu1}]]></textFieldExpression>
+				</textField>
+				<textField isStretchWithOverflow="true">
+					<reportElement style="Detail" x="367" y="0" width="37" height="15"/>
+					<box leftPadding="3" rightPadding="3">
+						<topPen lineWidth="0.0"/>
+						<leftPen lineWidth="0.0"/>
+						<bottomPen lineWidth="0.0"/>
+						<rightPen lineWidth="0.0"/>
+					</box>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="10"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{minggu2}]]></textFieldExpression>
+				</textField>
+				<textField isStretchWithOverflow="true">
+					<reportElement style="Detail" x="404" y="0" width="37" height="15"/>
+					<box leftPadding="3" rightPadding="3">
+						<topPen lineWidth="0.0"/>
+						<leftPen lineWidth="0.0"/>
+						<bottomPen lineWidth="0.0"/>
+						<rightPen lineWidth="0.0"/>
+					</box>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="10"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{minggu3}]]></textFieldExpression>
+				</textField>
+				<textField isStretchWithOverflow="true">
+					<reportElement style="Detail" x="441" y="0" width="37" height="15"/>
+					<box leftPadding="3" rightPadding="3">
+						<topPen lineWidth="0.0"/>
+						<leftPen lineWidth="0.0"/>
+						<bottomPen lineWidth="0.0"/>
+						<rightPen lineWidth="0.0"/>
+					</box>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="10"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{minggu4}]]></textFieldExpression>
+				</textField>
+				<textField isStretchWithOverflow="true">
+					<reportElement style="Detail" x="478" y="0" width="37" height="15"/>
+					<box leftPadding="3" rightPadding="3">
+						<topPen lineWidth="0.0"/>
+						<leftPen lineWidth="0.0"/>
+						<bottomPen lineWidth="0.0"/>
+						<rightPen lineWidth="0.0"/>
+					</box>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="10"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{minggu5}]]></textFieldExpression>
+				</textField>
+				<textField isStretchWithOverflow="true">
+					<reportElement style="Detail" x="515" y="0" width="37" height="15"/>
+					<box leftPadding="3" rightPadding="3">
+						<topPen lineWidth="0.0"/>
+						<leftPen lineWidth="0.0"/>
+						<bottomPen lineWidth="0.0"/>
+						<rightPen lineWidth="0.0"/>
+					</box>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="10"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{jumlah}]]></textFieldExpression>
+				</textField>
+			</frame>
+		</band>
+	</detail>
+	<columnFooter>
+		<band height="79" splitType="Stretch">
+			<line>
+				<reportElement positionType="FixRelativeToBottom" x="0" y="3" width="555" height="1"/>
+				<graphicElement>
+					<pen lineWidth="0.5" lineColor="#999999"/>
+				</graphicElement>
+			</line>
+			<textField>
+				<reportElement x="69" y="4" width="224" height="15"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[": "+$P{mg1}+" - "+$P{mg1_1}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="1" y="4" width="68" height="15"/>
+				<textElement/>
+				<text><![CDATA[Minggu I]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="69" y="19" width="224" height="15"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[": "+$P{mg2}+" - "+$P{mg2_1}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="1" y="19" width="68" height="15"/>
+				<textElement/>
+				<text><![CDATA[Minggu II]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="69" y="34" width="224" height="15"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[": "+$P{mg3}+" - "+$P{mg3_1}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="1" y="34" width="68" height="15"/>
+				<textElement/>
+				<text><![CDATA[Minggu III]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="69" y="49" width="224" height="15"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[": "+$P{mg4}+" - "+$P{mg4_1}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="1" y="49" width="68" height="15"/>
+				<textElement/>
+				<text><![CDATA[Minggu IV]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="69" y="64" width="224" height="15"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[": "+$P{mg5}+" - "+$P{mg5_1}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="1" y="64" width="68" height="15"/>
+				<textElement/>
+				<text><![CDATA[Minggu V]]></text>
+			</staticText>
+		</band>
+	</columnFooter>
+	<pageFooter>
+		<band height="25" splitType="Stretch">
+			<frame>
+				<reportElement mode="Opaque" x="-19" y="0" width="597" height="24" forecolor="#D0B48E" backcolor="#F2EBDF"/>
+				<textField pattern="EEEEE, dd MMMMM yyyy">
+					<reportElement style="Column header" x="107" y="0" width="216" height="20" forecolor="#736343"/>
+					<textElement verticalAlignment="Middle">
+						<font size="10" isBold="false"/>
+					</textElement>
+					<textFieldExpression><![CDATA[new java.util.Date()]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement x="19" y="0" width="88" height="20"/>
+					<textElement verticalAlignment="Middle"/>
+					<textFieldExpression><![CDATA["Tanggal Dicetak"]]></textFieldExpression>
+				</textField>
+			</frame>
+		</band>
+	</pageFooter>
+	<summary>
+		<band height="350" splitType="Stretch">
+			<bar3DChart>
+				<chart theme="aegean">
+					<reportElement style="Detail" x="0" y="10" width="555" height="229"/>
+					<chartTitle/>
+					<chartSubtitle/>
+					<chartLegend position="Top"/>
+				</chart>
+				<categoryDataset>
+					<categorySeries>
+						<seriesExpression><![CDATA["Minggu 1"]]></seriesExpression>
+						<categoryExpression><![CDATA[$F{jenis_penyakit}]]></categoryExpression>
+						<valueExpression><![CDATA[$F{minggu1} == null ? "" : $F{minggu1}]]></valueExpression>
+					</categorySeries>
+					<categorySeries>
+						<seriesExpression><![CDATA["Minggu 2"]]></seriesExpression>
+						<categoryExpression><![CDATA[$F{jenis_penyakit}]]></categoryExpression>
+						<valueExpression><![CDATA[$F{minggu2} == null ? "" : $F{minggu2}]]></valueExpression>
+					</categorySeries>
+					<categorySeries>
+						<seriesExpression><![CDATA["Minggu 3"]]></seriesExpression>
+						<categoryExpression><![CDATA[$F{jenis_penyakit}]]></categoryExpression>
+						<valueExpression><![CDATA[$F{minggu1} == null ? "" : $F{minggu1}]]></valueExpression>
+					</categorySeries>
+					<categorySeries>
+						<seriesExpression><![CDATA["Minggu 4"]]></seriesExpression>
+						<categoryExpression><![CDATA[$F{jenis_penyakit}]]></categoryExpression>
+						<valueExpression><![CDATA[$F{minggu4} == null ? "" : $F{minggu4}]]></valueExpression>
+					</categorySeries>
+					<categorySeries>
+						<seriesExpression><![CDATA["Minggu 5"]]></seriesExpression>
+						<categoryExpression><![CDATA[$F{jenis_penyakit}]]></categoryExpression>
+						<valueExpression><![CDATA[$F{minggu5} == null ? "" : $F{minggu5}]]></valueExpression>
+					</categorySeries>
+				</categoryDataset>
+				<bar3DPlot>
+					<plot/>
+					<itemLabel color="#000000" backgroundColor="#FFFFFF">
+						<font size="10"/>
+					</itemLabel>
+					<categoryAxisLabelExpression><![CDATA["Penyakit"]]></categoryAxisLabelExpression>
+					<categoryAxisFormat>
+						<axisFormat>
+							<labelFont>
+								<font size="10"/>
+							</labelFont>
+							<tickLabelFont>
+								<font size="10"/>
+							</tickLabelFont>
+						</axisFormat>
+					</categoryAxisFormat>
+					<valueAxisLabelExpression><![CDATA["Jumlah Pasien"]]></valueAxisLabelExpression>
+					<valueAxisFormat>
+						<axisFormat>
+							<tickLabelFont>
+								<font size="10"/>
+							</tickLabelFont>
+						</axisFormat>
+					</valueAxisFormat>
+				</bar3DPlot>
+			</bar3DChart>
+			<staticText>
+				<reportElement x="404" y="328" width="143" height="20"/>
+				<textElement textAlignment="Center"/>
+				<text><![CDATA[( ...................................)]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="23" y="328" width="146" height="20"/>
+				<textElement textAlignment="Center"/>
+				<text><![CDATA[( ...................................)]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="404" y="251" width="143" height="35"/>
+				<textElement textAlignment="Center"/>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "kota" )+", "+(new java.text.SimpleDateFormat("dd MMMMM yyyy", new java.util.Locale("in", "ID")).format(new java.util.Date()))+"\n"+$P{REPORT_PARAMETERS_MAP}.get( "ttd_atas_nama_laporan" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="23" y="251" width="146" height="35"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Mengetahui,\n"+$P{REPORT_PARAMETERS_MAP}.get( "ttd_mengetahui_laporan" )]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
+</jasperReport>

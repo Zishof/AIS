@@ -1,0 +1,62 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false"
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.koperasi.LaporanKeuanganKoperasiAction" width="100%" height="100%">
+
+		<div sclass="ais-crud-portal">
+
+			<div sclass="ais-crud-filter-card">
+				<div sclass="ais-crud-filter-head">
+					<span sclass="ais-crud-filter-title">Tindakan</span>
+					<div sclass="ais-crud-filter-actions">
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+							id="refresh" label="Ringkas" image="/img/refresh.gif"
+							tooltiptext="Laporan keuangan ringkas dari data simpan pinjam" forward="onClick=onRefresh"/>
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+							id="tampilkanCoa" label="Tampilkan Laporan" image="/img/Book-icon.png"
+							tooltiptext="Laporan keuangan resmi dari buku besar (Neraca/Laba Rugi/Arus Kas)"
+							forward="onClick=onTampilkanCoa"/>
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+							id="calk" label="CALK" image="/img/Books-1-icon.png"
+							tooltiptext="Catatan atas Laporan Keuangan" forward="onClick=onCalk"/>
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;laporan_keuangan_koperasi&quot;, &quot;Bantuan&quot;);"/></div>
+				</div>
+				<div sclass="ais-crud-filter-body">
+					<grid use="ais.ui.util.MyGrid" fixedLayout="true" sclass="ais-crud-filter-grid">
+						<columns>
+							<column use="ais.ui.util.MyColumnConfig" width="110px"/>
+							<column use="ais.ui.util.MyColumnConfig"/>
+							<column use="ais.ui.util.MyColumnConfig" width="110px"/>
+							<column use="ais.ui.util.MyColumnConfig"/>
+							<column use="ais.ui.util.MyColumnConfig" width="110px"/>
+							<column use="ais.ui.util.MyColumnConfig"/>
+						</columns>
+						<rows>
+							<row>
+								<label use="ais.ui.util.MyLabelConfig" value="Jenis Laporan"/>
+								<combobox id="jenisLaporan" width="95%"/>
+								<label use="ais.ui.util.MyLabelConfig" value="Tanggal Awal"/>
+								<datebox use="ais.ui.util.MyDatebox" id="tglAwal" width="95%"/>
+								<label use="ais.ui.util.MyLabelConfig" value="Tanggal Sampai"/>
+								<datebox use="ais.ui.util.MyDatebox" id="tglSampai" width="95%"/>
+							</row>
+						</rows>
+					</grid>
+				</div>
+			</div>
+
+			<div sclass="ais-crud-data-card">
+				<div id="dashHost" width="100%"/>
+			</div>
+
+		</div>
+
+	</window>
+
+</zk>

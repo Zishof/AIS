@@ -1,0 +1,107 @@
+<window use="ais.ui.util.MyWindowJudul" width="600px" title="Buat Jadwal Perkuliahan" border="normal"
+	id="createEvent" mode="popup" visible="false" closable="true">
+	<grid fixedLayout="true">
+		<columns>
+			<column use="ais.ui.util.MyColumnConfig" width="100px" />
+			<column use="ais.ui.util.MyColumnConfig" />
+		</columns>
+		<rows>
+			<row>
+				Jam Mulai:
+				<div>
+					<datebox use="ais.ui.util.MyDatebox" id="ppbegin" />
+					<listbox mold="select" id="ppbt"
+						onCreate="self.setSelectedIndex(0)">
+						<listitem forEach="${dateTime}" label="${each}" />
+					</listbox>
+				</div>
+			</row>
+			<row>
+				Jam Selesai:
+				<div>
+					<datebox use="ais.ui.util.MyDatebox" id="ppend" />
+					<listbox mold="select" id="ppet"
+						onCreate="self.setSelectedIndex(0)">
+						<listitem forEach="${dateTime}" label="${each}" />
+					</listbox>
+					Semua Hari:
+					<checkbox id="ppallDay"
+						onCheck='ppbt.visible = !self.checked;ppet.visible = !self.checked' />
+				</div>
+			</row>
+			<row>
+				Warna:
+				<combobox id="ppcolor" readonly="true"
+					onCreate="self.selectedIndex = 0">
+					<attribute name="onSelect">
+	switch (self.getSelectedIndex()) {
+	case 0:
+		self.style = "color:#D96666;font-weight: bold;";
+		break;
+	case 1:
+		self.style = "color:#668CD9;font-weight: bold;";
+		break;
+	case 2:
+		self.style = "color:#4CB052;font-weight: bold;";
+		break;
+	case 3:
+		self.style = "color:#BFBF4D;font-weight: bold;";
+		break;
+	case 4:
+		self.style = "color:#B373B3;font-weight: bold;";
+		break;
+	}
+</attribute>
+					<comboitem sclass="red" label="Merah"
+						value="#A32929,#D96666" />
+					<comboitem sclass="blue" label="Biru"
+						value="#3467CE,#668CD9" />
+					<comboitem sclass="green" label="Hijau"
+						value="#0D7813,#4CB052" />
+					<comboitem sclass="khaki" label="Khaki"
+						value="#88880E,#BFBF4D" />
+					<comboitem sclass="purple" label="Ungu"
+						value="#7A367A,#B373B3" />
+				</combobox>
+			</row>
+			<row>
+				Tahun Akademik:
+				<combobox width="200px" id="tahunAjaran" />
+				<zscript>
+ais.common.Common.generateTahunAjaran(tahunAjaran)
+</zscript>
+			</row>
+			<row>
+				Program:
+				<combobox width="200px" id="program" />
+				<zscript>
+for (String strProgram : ais.common.Common.programs.keySet()) {
+			Comboitem comboitem = new Comboitem();
+			comboitem.setLabel(strProgram);
+			comboitem.setValue(strProgram);
+			program.appendChild(comboitem);
+			if (strProgram.equals("Reguler")) {
+				program.setSelectedItem(comboitem);
+			}
+		}
+</zscript>
+			</row>
+			<row>
+				Deskrispi:
+				<textbox multiline="true" rows="3" width="200px"
+					id="ppcnt" />
+			</row>
+			<row>
+				Terkunci:
+				<checkbox id="pplocked" />
+			</row>
+			<row>
+				Simpan:
+				<div>
+					<button use="ais.ui.util.MyButtonConfig" mold="os" id="okBtn" label="OK" />
+					<button use="ais.ui.util.MyButtonConfig" mold="os" id="cancelBtn" label="Cancel" />
+				</div>
+			</row>
+		</rows>
+	</grid>
+</window>

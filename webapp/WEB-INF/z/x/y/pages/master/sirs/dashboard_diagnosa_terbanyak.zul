@@ -1,0 +1,25 @@
+<?page id="dashboardDiagnosaTerbanyak" title="Dasbor 10 Diagnosa Terbanyak"
+	cacheable="false" language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<!--
+	Dasbor "10 Diagnosa Penyakit Terbanyak" — penyakit yang paling sering ditangani dalam setahun,
+	berdasarkan diagnosa akhir utama (kode ICD). Grafik HTML+CSS modern (tanpa JFreeChart) oleh
+	DiagnosaTerbanyakDashboardBuilder.
+-->
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window" width="100%" height="100%"
+		apply="ais.action.master.sirs.chart.DiagnosaTerbanyakDashboardAction">
+
+		<div sclass="ais-crud-portal" style="padding:12px;">
+			<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px;">
+				<label use="ais.ui.util.MyLabelConfig" value="Tahun" style="font-weight:600;color:#334155;" />
+				<combobox id="tahun" readonly="true" width="120px" />
+			</div>
+			<div id="chartDiagnosa" use="ais.ui.util.MyChart" width="100%" />
+		</div>
+	</window>
+</zk>

@@ -1,0 +1,104 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window" sclass="pmb-zk-window ecampus-login-window"
+		apply="ais.action.master.pmb.LoginCalonAction" width="100%"
+		height="100%">
+
+
+
+		<borderlayout>
+			<north id="kop" sclass="headerHbox" height="60px" border="none"></north>  
+
+			<center id="loginCenter" border="none" flex="true">
+
+
+				<grid use="ais.ui.util.MyGrid"
+					fixedLayout="true" sclass="ecampus-login-card">
+					<columns>
+						<column use="ais.ui.util.MyColumnConfig" width="30%">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig" width="70%">
+						</column>
+
+					</columns>
+					<rows>
+
+						<row id="tampilanNoRegistrasi">
+							<label use="ais.ui.util.MyLabelConfig"
+								value="No. Pendaftaran / Nama Lengkap" />
+							<textbox id="noRegistrasi" width="90%">
+							</textbox>
+						</row>
+
+
+
+						<row>
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Tanggal Lahir" />
+							<grid use="ais.ui.util.MyGrid" width="100%" sclass="ecampus-login-tgl">
+								<rows>
+									<row>
+										<vbox width="33%">
+											<label use="ais.ui.util.MyLabelConfig" value="Tahun">
+											</label>
+											<combobox id="tahun" width="96px" readonly="true">
+											</combobox>
+										</vbox>
+
+										<vbox width="33%">
+											<label use="ais.ui.util.MyLabelConfig" value="Bulan">
+											</label>
+											<combobox id="bulan" width="120px" readonly="true">
+											</combobox>
+										</vbox>
+
+										<vbox width="33%">
+											<label use="ais.ui.util.MyLabelConfig" value="Tanggal">
+											</label>
+											<combobox id="tanggal" width="96px" readonly="true">
+											</combobox>
+										</vbox>
+									</row>
+								</rows>
+
+							</grid>
+
+						</row>
+
+						<row>
+							<box width="100%" align="end">
+								<button use="ais.ui.util.MyButtonConfig"
+									label="L O G I N" forward="onClick=onLogin" id="cari">
+								</button>
+							</box>
+
+						</row>
+						<row spans="2" id="labelInformasi">
+							<label use="ais.ui.util.MyLabelConfig" id="infoLogin" sclass="ecampus-login-info"
+								value="Untuk dapat melakukan login, silahkan masukkan Nomor Registrasi yang anda dapatkan pada saat melakukan pendaftaran dan masukkan TANGGAL LAHIR.">
+							</label>
+						</row>
+
+
+
+					</rows>
+				</grid>
+
+			</center>
+
+
+		</borderlayout>
+
+
+
+
+	</window>
+</zk>

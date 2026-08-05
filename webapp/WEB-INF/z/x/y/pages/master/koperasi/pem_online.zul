@@ -1,0 +1,35 @@
+<?page title="POS Pembayaran Koperasi Online" contentType="text/html;charset=UTF-8"?>
+<zk>
+    <window apply="ais.action.master.koperasi.helper.PembayaranKoperasiOnline"
+        use="ais.ui.util.MyWindow" border="none" id="window" width="100%"
+        height="100%" sclass="pos-koperasi-root">
+    </window>
+
+    <!-- STYLE CSS DILETAKKAN DI BAGIAN PALING BAWAH FILE.
+         Window tetap menjadi root pertama agar Common.createDefaultTimer(...)
+         tidak menempelkan Timer ke org.zkoss.zul.Html pada ZKoss 5.5. -->
+    <html><![CDATA[
+        <style>
+            body { background: #eef3fb; }
+            .pos-koperasi-root { background: #eef3fb; }
+            .pos-koperasi-root .z-window-embedded-cnt,
+            .pos-koperasi-root .z-window-content { background: #eef3fb; padding: 0; }
+            .pos-koperasi-root .z-tabs,
+            .pos-koperasi-root .z-tabbox { border: 0; background: #eef3fb; }
+            .pos-koperasi-root .z-tab { border-radius: 999px; margin: 8px 4px 6px 4px; font-weight: 700; }
+            .pos-koperasi-root .z-tab-seld { background: var(--ais-theme-primary, #2563eb); color: #ffffff; }
+            .pos-koperasi-root .z-grid,
+            .pos-koperasi-root .z-grid-body,
+            .pos-koperasi-root .z-grid-header { border-radius: 14px; }
+            .pos-koperasi-root .z-row:hover { background: #f8fafc; }
+            .pos-koperasi-root input,
+            .pos-koperasi-root select,
+            .pos-koperasi-root textarea { border-radius: 10px; }
+            .pos-koperasi-root .ais-ce-portallayout { gap: 0; }
+            .pos-koperasi-root .ais-ce-portaldrop { overflow-y: auto; overflow-x: hidden; }
+            @media (max-width: 900px) {
+                .pos-koperasi-root .ais-ce-portaldrop { width: 100% !important; }
+            }
+        </style>
+    ]]></html>
+</zk>

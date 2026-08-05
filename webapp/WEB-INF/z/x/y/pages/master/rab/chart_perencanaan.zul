@@ -1,0 +1,118 @@
+<?page title="Perencanaan" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.rab.ChartPerencanaanAction" width="100%"
+		height="100%">
+
+
+		<panel width="100%" height="100%" id="panel" framable="true"
+			use="ais.ui.util.MyPanel" title="Grafik Perencanaan">
+
+
+			<toolbar>
+				Tahun Anggaran:
+				<combobox id="tahunWorkspace"
+					forward="onChange=onRefresh" cols="4" />
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" 
+					image="/img/upload.png" visible="false"
+					tooltiptext="Tampil kembali ke grafik paling atas"
+					forward="onClick=onRefresh">
+				</toolbarbutton>
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" 
+					image="/img/up-sign.gif" visible="false"
+					tooltiptext="Tampil kembali ke grafik sebelumnya"
+					forward="onClick=onKembali">
+				</toolbarbutton>
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" 
+					image="/img/print.png" tooltiptext="Buat Laporan"
+					forward="onClick=onReport">
+				</toolbarbutton>
+				Jenis Chart:
+				<combobox id="jenisChart" forward="onChange=onTampil"
+					cols="4" />
+
+				<label use="ais.ui.util.MyLabelConfig"
+					value="Satuan Kerja" />
+				<bandbox
+					use="ais.action.master.rab.helper.AmbilDataSatuanKerjaBanbox"
+					id="satuanKerja" />
+
+				<label use="ais.ui.util.MyLabelConfig" visible="false"
+					value="Sumber Dana" />
+				<bandbox
+					use="ais.action.master.rab.helper.AmbilDataSumberDanaBanbox"
+					id="sumberDana" />
+
+			</toolbar>
+
+			<panelchildren>
+				<borderlayout>
+					<north border="none" flex="true">
+
+					</north>
+					<center border="none" flex="true">
+						<vbox pack="start" width="100%" align="start">
+							<hbox
+								id="hirarchy" width="100%" />
+							<vbox width="100%" context="editPopup"
+								pack="center" align="center">
+								<div use="ais.ui.util.MyChart" paneColor="#ffffff"
+									bgColor="#ffffff" align="center" id="mychart" showLegend="true"
+									title="Grafik Perencanaan" showTooltiptext="true" width="950"
+									height="400" type="bar" threeD="true" fgAlpha="128">
+
+								</div>
+								<menupopup id="editPopup">
+									<menuitem image="/img/refresh.png"
+										label="Kembali ke awal"
+										tooltiptext="Tampil kembali grafik awal"
+										forward="onClick=onRefresh" />
+									<menuitem image="/img/up-sign.gif"
+										label="Ke atas"
+										tooltiptext="Tampil kembali ke grafik sebelumnya"
+										forward="onClick=onKembali" />
+									<menuseparator />
+									<menuitem
+										image="/img/pilih_kegiatan.png" tooltiptext="Pilih Kegiatan"
+										label="Pilih Kegiatan" forward="onClick=onPilihKegiatan">
+									</menuitem>
+									<menuseparator />
+									<menuitem image="/img/print.png"
+										label="Cetak" tooltiptext="Buat Laporan"
+										forward="onClick=onReport">
+									</menuitem>
+								</menupopup>
+							</vbox>
+						</vbox>
+					</center>
+				</borderlayout>
+			</panelchildren>
+
+		</panel>
+
+
+		<window use="ais.ui.util.MyWindow" id="addWindow"
+			title="Tambah Dosen" visible="false" mode="popup"
+			position="center,center" border="normal" width="400px"
+			height="350px">
+
+		</window>
+
+		<window use="ais.ui.util.MyWindow" id="pilihKegiatan"
+			title="Pilih Kegiatan" visible="false" mode="popup"
+			position="center,center" border="normal" width="700px"
+			height="540px">
+
+		</window>
+
+		<zscript><![CDATA[
+	pilihKegiatan.setVisible(false);
+]]></zscript>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+
+	</window>
+</zk>

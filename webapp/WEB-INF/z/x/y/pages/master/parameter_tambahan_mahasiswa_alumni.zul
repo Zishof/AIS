@@ -1,0 +1,59 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.ParameterTambahanMahasiswaAlumniAction"
+		width="100%" height="100%">
+
+		<tabbox width="100%" height="100%">
+
+			<tabs>
+				<tab use="ais.ui.util.MyTabConfig" selected="true"
+					forward="onClick=onAlumni">
+					Manajemen Form Alumni
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onManajemenKelompokAlumni">
+					Manajemen Kelompok Alumni
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onManajemenParameter">
+					Manajemen Parameter
+				</tab>
+			</tabs>
+
+			<tabpanels>
+
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="manajemenAlumni"></tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="manajemenKelompokAlumni"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="manajemenParameter"></tabpanel>
+
+			</tabpanels>
+		</tabbox>
+
+		<window use="ais.ui.util.MyWindow" id="addWindow"
+			title="Tambah Parameter" visible="false" mode="popup"
+			position="center,center" border="normal" width="650px"
+			height="300px">
+
+		</window>
+
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+	</window>
+
+
+</zk>

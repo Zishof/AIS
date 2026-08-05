@@ -1,0 +1,32 @@
+<?page title="Biaya Pendaftaran" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<borderlayout height="100%">
+		<west width="5%">
+
+		</west>
+		<center autoscroll="true">
+			<box>
+				<separator height="30px"></separator>
+				<box width="90%" align="center">
+					<label use="ais.ui.util.MyLabelConfig">
+						BIAYA PENDAFTARAN DAN SELEKSI MASUK
+					</label>
+				</box>
+				<separator height="10px"></separator>
+				<image src="/img/biaya-s2.jpg"></image>
+				<!-- <html>
+					
+					<![CDATA[
+						
+					<ul>
+					<li>Biaya pendaftaran Rp. 250.000,- (dua ratus  lima puluh ribu rupiah).</li>
+					<li>Biaya seleksi masuk Rp. 500.000,- (lima ratus  ribu rupiah).</li>
+					</ul>
+					
+					 ]]>
+					
+                    		</html> -->
+			</box>
+		</center>
+	</borderlayout>
+</zk>

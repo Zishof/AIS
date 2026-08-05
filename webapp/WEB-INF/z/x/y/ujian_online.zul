@@ -1,0 +1,88 @@
+<?link rel="shortcut icon" href="/img/favicon.ico" type="image/x-icon"?>
+<?page title="Selamat Datang di Ujian Online" contentType="text/html;charset=UTF-8"?>
+<zk>
+
+	<window use="ais.ui.util.MyWindow" width="100%" height="100%" border="none"
+		apply="ais.action.maintenance.PMBAction">
+
+		<borderlayout>
+
+
+
+			<center>
+
+
+				<borderlayout>
+
+					<west width="85%" id="papanPengumuman">
+
+					</west>
+
+					<center title="Proses Ujian Online">
+
+
+						<grid use="ais.ui.util.MyGrid"  height="100%" width="100%">
+
+							<rows>
+
+
+								<row>
+
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"  
+										image="/img/Actions-contact-new-icon.png" orient="vertical"
+										forward="onClick=onClickPMB"
+										label="Formulir Pendaftaran Ujian">
+									</toolbarbutton>
+
+
+
+								</row>
+
+								<row>
+
+
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"  
+										image="/img/Apps-Computer-Login-icon.png" orient="vertical"
+										forward="onClick=onClickLoginUjian" label="kut Ujian">
+									</toolbarbutton>
+
+								</row>
+
+
+
+							</rows>
+
+						</grid>
+
+
+
+					</center>
+
+				</borderlayout>
+
+
+
+
+
+			</center>
+
+			<south visible="false" height="5%">
+				<label use="ais.ui.util.MyLabelConfig">
+					Copyright 2017
+				</label>
+			</south>
+
+		</borderlayout>
+
+		<window use="ais.ui.util.MyWindow" id="addWindow" title="Email" visible="false"
+			mode="popup" position="center,center" border="normal" width="550px"
+			height="100px">
+
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+	</window>
+</zk>

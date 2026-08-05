@@ -1,0 +1,349 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="5b1" language="groovy" pageWidth="842" pageHeight="595" orientation="Landscape" whenNoDataType="AllSectionsNoDetail" columnWidth="802" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="10f9ef1c-84e9-43c1-90de-fbb55e8c16b5">
+	<property name="ireport.zoom" value="0.9090909090909095"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<field name="namaKegiatan" class="java.lang.String"/>
+	<field name="waktuPenyelenggaraan" class="java.lang.String"/>
+	<field name="tingkat" class="java.lang.String"/>
+	<field name="prestasi" class="java.lang.String"/>
+	<variable name="jmlInternasional" class="java.lang.Double" calculation="Count">
+		<variableExpression><![CDATA[$F{tingkat}.equalsnIgnoreCase("internasional")]]></variableExpression>
+		<initialValueExpression><![CDATA[0]]></initialValueExpression>
+	</variable>
+	<variable name="jmlNasional" class="java.lang.Double" calculation="Count">
+		<variableExpression><![CDATA[$F{tingkat}.equalsnIgnoreCase("nasional")]]></variableExpression>
+		<initialValueExpression><![CDATA[0]]></initialValueExpression>
+	</variable>
+	<variable name="jmlWilayah" class="java.lang.Double" calculation="Count">
+		<variableExpression><![CDATA[!$F{tingkat}.equalsnIgnoreCase("nasional") && !$F{tingkat}.equalsnIgnoreCase("internasional")]]></variableExpression>
+		<initialValueExpression><![CDATA[0]]></initialValueExpression>
+	</variable>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="39" splitType="Stretch">
+			<staticText>
+				<reportElement x="0" y="0" width="802" height="20" uuid="8e98d3bf-325f-4269-b080-b75ec0b7e602"/>
+				<text><![CDATA[Tabel 5.b.2) Prestasi Non-akademik Mahasiswa]]></text>
+			</staticText>
+		</band>
+	</title>
+	<columnHeader>
+		<band height="67" splitType="Stretch">
+			<staticText>
+				<reportElement mode="Opaque" x="38" y="0" width="228" height="47" backcolor="#6699FF" uuid="b7e42624-aa95-4c3b-b079-3df193d43746"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[Nama Kegiatan]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="266" y="0" width="89" height="47" backcolor="#6699FF" uuid="8a39589c-ee8b-45d7-9a9d-9e1d0130653d"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[Waktu Penyelenggaraan (yyyy)]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="355" y="0" width="303" height="26" backcolor="#6699FF" uuid="f2fd4b1d-96a1-4873-9fb8-629a8062ba96"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[Tingkat]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="658" y="0" width="144" height="47" backcolor="#6699FF" uuid="a406c979-71e6-4bbb-a352-a134bb6e704a"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[Prestasi yang dicapai]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="0" y="0" width="38" height="47" backcolor="#6699FF" uuid="bb9806f4-8080-4702-a7ec-de1bfd390907"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[No.]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="0" y="47" width="38" height="20" backcolor="#CCCCCC" uuid="32a8d0eb-3ae6-4e44-9ad5-53cf582a3d2c"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[1]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="38" y="47" width="228" height="20" backcolor="#CCCCCC" uuid="81bccd7e-2670-4df4-a44b-d111481a9e16"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[2]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="266" y="47" width="89" height="20" backcolor="#CCCCCC" uuid="dbf21cd9-abc4-4bd8-81e3-10d857cda2a0"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[3]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="355" y="47" width="97" height="20" backcolor="#CCCCCC" uuid="b9ff0da9-2db9-4ed4-bf0b-a808a39afc80"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[4]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="452" y="47" width="103" height="20" backcolor="#CCCCCC" uuid="9aeb0717-7c85-4297-912e-d686c384dd72"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[5]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="555" y="26" width="103" height="20" backcolor="#6699FF" uuid="f8f14a05-319b-4c35-8be2-ebc443933de4"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[Internasional]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="452" y="26" width="103" height="20" backcolor="#6699FF" uuid="fec58770-ab46-4758-b266-6e09e52f70b6"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[Nasional]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="355" y="26" width="97" height="20" backcolor="#6699FF" uuid="5023d294-f592-4370-9f43-ece8d9284779"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[Provinsi / Wilayah]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="555" y="47" width="103" height="20" backcolor="#CCCCCC" uuid="de381c0b-245d-4cf1-b8b1-7aea249ffa43"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[6]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="658" y="47" width="144" height="20" backcolor="#CCCCCC" uuid="25bb499b-751b-4547-a8e8-1d6586d3285c"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<text><![CDATA[7]]></text>
+			</staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="69" splitType="Stretch">
+			<textField>
+				<reportElement x="38" y="0" width="228" height="69" uuid="13c58cbb-b9f6-40c8-9464-65593d133766"/>
+				<box leftPadding="5">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{namaKegiatan}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="266" y="0" width="89" height="69" uuid="c3383a77-a043-476c-b590-a5c88bc65c16"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{waktuPenyelenggaraan}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="555" y="0" width="103" height="69" uuid="438eb9d7-200e-4992-879d-b8deee40653d"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{tingkat}.equalsIgnoreCase("internasional") ? "v" : ""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="658" y="0" width="144" height="69" uuid="5d807631-d41d-42f4-9ad3-c8b89573f00b"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{prestasi}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="0" width="38" height="69" uuid="bfc7c4eb-e74f-4430-afed-f6f1eb7d43be"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="452" y="0" width="103" height="69" uuid="88127b89-dba1-4334-ba53-f44b59ea49fd"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{tingkat}.equalsIgnoreCase("nasional") ? "v" : ""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="355" y="0" width="97" height="69" uuid="9bbe28a7-f835-441d-889f-9b2f7abca27a"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[($F{tingkat}.equalsIgnoreCase("internasional") || $F{tingkat}.equalsIgnoreCase("nasional")) ? "" : "v"]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<summary>
+		<band height="20" splitType="Stretch">
+			<textField pattern="###0">
+				<reportElement x="555" y="0" width="103" height="20" uuid="fae9ec55-e1b7-4801-a003-6c506eb9ce2f"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{jmlInternasional}]]></textFieldExpression>
+			</textField>
+			<textField pattern="###0">
+				<reportElement x="452" y="0" width="103" height="20" uuid="99712217-7251-4d7d-b55c-d7fca78605c3"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{jmlNasional}]]></textFieldExpression>
+			</textField>
+			<textField pattern="###0">
+				<reportElement x="355" y="0" width="97" height="20" uuid="09faca47-5384-4cd7-8e52-219a89ac3179"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{jmlWilayah}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="0" y="0" width="355" height="20" uuid="6c3cab88-3170-4b5b-9f7b-fed7c541402a"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Total]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="658" y="0" width="144" height="20" backcolor="#CCCCCC" uuid="2ae462b6-3d90-4995-9eda-43811bb396d6"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<text><![CDATA[]]></text>
+			</staticText>
+		</band>
+	</summary>
+</jasperReport>

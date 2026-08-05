@@ -1,0 +1,28 @@
+<?page title="new page title" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<window use="ais.ui.util.MyWindow" height="100%" width="100%" border="none">
+
+
+		<tabbox height="100%" width="100%">
+
+			<tabs>
+				<tab use="ais.ui.util.MyTabConfig">Domain Penelitian List</tab>
+				<tab use="ais.ui.util.MyTabConfig">Domain Penelitian Tree</tab>
+			</tabs>
+			<tabpanels>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<include height="100%" width="100%"
+						src="/WEB-INF/z/x/y/pages/master/library/domain_penelitian_list.zul">
+					</include>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<include height="100%" width="100%"
+						src="/WEB-INF/z/x/y/pages/master/library/domain_penelitian_tree.zul">
+					</include>
+				</tabpanel>
+			</tabpanels>
+
+		</tabbox>
+
+	</window>
+</zk>

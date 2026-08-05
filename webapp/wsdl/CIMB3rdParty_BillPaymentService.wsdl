@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- edited with XMLSpy v2013 (http://www.altova.com) by  () -->
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" xmlns:s="http://www.w3.org/2001/XMLSchema" xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:mime="http://schemas.xmlsoap.org/wsdl/mime/" xmlns:tns="http://CIMB3rdParty/BillPaymentWS" targetNamespace="http://CIMB3rdParty/BillPaymentWS">
+	<types>
+		<s:schema targetNamespace="http://CIMB3rdParty/BillPaymentWS">
+			<!-- ============================= -->
+			<!-- Simple Element -->
+			<!-- ============================= -->
+			<s:element name="TransactionID" type="s:string"/>
+			<s:element name="ChannelID" type="s:string"/>
+			<s:element name="TerminalID" type="s:string"/>
+			<s:element name="TransactionDate" type="s:string"/>
+			<s:element name="CompanyCode" type="s:string"/>
+			<s:element name="CustomerKey1" type="s:string"/>
+			<s:element name="CustomerKey2" type="s:string"/>
+			<s:element name="CustomerKey3" type="s:string"/>
+			<s:element name="AdditionalData1" type="s:string"/>
+			<s:element name="AdditionalData2" type="s:string"/>
+			<s:element name="AdditionalData3" type="s:string"/>
+			<s:element name="AdditionalData4" type="s:string"/>
+			<s:element name="BillCurrency" type="s:string"/>
+			<s:element name="BillCode" type="s:string"/>
+			<s:element name="BillAmount" type="s:int"/>
+			<s:element name="BillReference" type="s:string"/>
+			<s:element name="Currency" type="s:string"/>
+			<s:element name="Amount" type="s:int"/>
+			<s:element name="Fee" type="s:int"/>
+			<s:element name="PaidAmount" type="s:int"/>
+			<s:element name="CustomerName" type="s:string"/>
+			<s:element name="FlagPayment" type="s:string"/>
+			<s:element name="ResponseCode" type="s:string"/>
+			<s:element name="ResponseDescription" type="s:string"/>
+			<s:element name="Language" type="s:string"/>
+			<s:element name="ReferenceNumberTransaction" type="s:string"/>
+			<s:element name="FlagPaymentList" type="s:string"/>
+			<s:element name="PaymentFlag" type="s:string"/>
+			<s:element name="EchoRequest" type="tns:EchoMessage"/>
+			<s:element name="EchoResponse" type="tns:EchoMessage"/>
+			<!-- ============================= -->
+			<!-- Complex Element -->
+			<!-- ============================= -->
+			<s:element name="CIMB3rdParty_InquiryRq" type="tns:CIMB3rdParty_InquiryRq"/>
+			<s:element name="CIMB3rdParty_InquiryRs" type="tns:CIMB3rdParty_InquiryRs"/>
+			<s:element name="CIMB3rdParty_PaymentRq" type="tns:CIMB3rdParty_PaymentRq"/>
+			<s:element name="CIMB3rdParty_PaymentRs" type="tns:CIMB3rdParty_PaymentRs"/>
+			<s:element name="InquiryRq" type="tns:InquiryRq"/>
+			<s:element name="InquiryRs" type="tns:InquiryRs"/>
+			<s:element name="PaymentRq" type="tns:PaymentRq"/>
+			<s:element name="PaymentRs" type="tns:PaymentRs"/>
+			<s:element name="BillDetail" nillable="true" type="tns:BillDetail"/>
+			<s:element name="BillDetailList" type="tns:ArrayOfBillDetail"/>
+			<s:element name="CIMB3rdParty_EchoRq">
+				<s:complexType>
+					<s:sequence>
+						<s:element ref="tns:EchoRequest" minOccurs="0" maxOccurs="1"/>
+					</s:sequence>
+				</s:complexType>
+			</s:element>
+			<s:element name="CIMB3rdParty_EchoRs">
+				<s:complexType>
+					<s:sequence>
+						<s:element ref="tns:EchoResponse" minOccurs="0" maxOccurs="1"/>
+					</s:sequence>
+				</s:complexType>
+			</s:element>
+			<!-- ============================= -->
+			<!-- Type Definition -->
+			<!-- ============================= -->
+			<s:complexType name="BillDetail">
+				<s:sequence>
+					<s:element ref="tns:BillCurrency" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:BillCode" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:BillAmount" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:BillReference" minOccurs="0" maxOccurs="1"/>
+				</s:sequence>
+			</s:complexType>
+			<s:complexType name="CIMB3rdParty_InquiryRq">
+				<s:sequence>
+					<s:element ref="tns:InquiryRq" minOccurs="0" maxOccurs="1"/>
+				</s:sequence>
+			</s:complexType>
+			<s:complexType name="CIMB3rdParty_InquiryRs">
+				<s:sequence>
+					<s:element ref="tns:InquiryRs" minOccurs="0" maxOccurs="1"/>
+				</s:sequence>
+			</s:complexType>
+			<s:complexType name="InquiryRq">
+				<s:sequence>
+					<s:element ref="tns:TransactionID" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:ChannelID" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:TerminalID" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:TransactionDate" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:CompanyCode" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:CustomerKey1" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:CustomerKey2" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:CustomerKey3" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:AdditionalData1" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:AdditionalData2" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:AdditionalData3" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:AdditionalData4" minOccurs="0" maxOccurs="1"/>
+				</s:sequence>
+			</s:complexType>
+			<s:complexType name="ArrayOfBillDetail">
+				<s:sequence>
+					<s:element ref="tns:BillDetail" minOccurs="0" maxOccurs="unbounded"/>
+				</s:sequence>
+			</s:complexType>
+			<s:complexType name="InquiryRs">
+				<s:sequence>
+					<s:element ref="tns:TransactionID" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:ChannelID" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:TerminalID" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:TransactionDate" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:CompanyCode" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:CustomerKey1" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:CustomerKey2" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:CustomerKey3" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:BillDetailList" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:Currency" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:Amount" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:Fee" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:PaidAmount" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:CustomerName" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:AdditionalData1" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:AdditionalData2" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:AdditionalData3" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:AdditionalData4" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:FlagPayment" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:ResponseCode" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:ResponseDescription" minOccurs="0" maxOccurs="1"/>
+				</s:sequence>
+			</s:complexType>
+			<s:complexType name="CIMB3rdParty_PaymentRq">
+				<s:sequence>
+					<s:element ref="tns:PaymentRq" minOccurs="0" maxOccurs="1"/>
+				</s:sequence>
+			</s:complexType>
+			<s:complexType name="CIMB3rdParty_PaymentRs">
+				<s:sequence>
+					<s:element ref="tns:PaymentRs" minOccurs="0" maxOccurs="1"/>
+				</s:sequence>
+			</s:complexType>
+			<s:complexType name="PaymentRq">
+				<s:sequence>
+					<s:element ref="tns:TransactionID" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:ChannelID" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:TerminalID" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:TransactionDate" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:CompanyCode" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:CustomerKey1" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:CustomerKey2" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:CustomerKey3" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:Language" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:Currency" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:Amount" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:Fee" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:PaidAmount" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:ReferenceNumberTransaction" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:FlagPaymentList" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:CustomerName" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:AdditionalData1" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:AdditionalData2" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:AdditionalData3" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:AdditionalData4" minOccurs="0" maxOccurs="1"/>
+				</s:sequence>
+			</s:complexType>
+			<s:complexType name="PaymentRs">
+				<s:sequence>
+					<s:element ref="tns:TransactionID" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:ChannelID" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:TerminalID" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:TransactionDate" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:CompanyCode" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:CustomerKey1" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:CustomerKey2" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:CustomerKey3" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:PaymentFlag" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:CustomerName" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:Currency" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:Amount" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:Fee" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:PaidAmount" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:ReferenceNumberTransaction" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:AdditionalData1" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:AdditionalData2" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:AdditionalData3" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:AdditionalData4" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:ResponseCode" minOccurs="0" maxOccurs="1"/>
+					<s:element ref="tns:ResponseDescription" minOccurs="0" maxOccurs="1"/>
+				</s:sequence>
+			</s:complexType>
+			<s:simpleType name="EchoMessage">
+				<s:restriction base="s:string"/>
+			</s:simpleType>
+		</s:schema>
+	</types>
+	<message name="inquirySoapIn">
+		<part name="parameters" element="tns:CIMB3rdParty_InquiryRq"/>
+	</message>
+	<message name="inquirySoapOut">
+		<part name="parameters" element="tns:CIMB3rdParty_InquiryRs"/>
+	</message>
+	<message name="paymentSoapIn">
+		<part name="parameters" element="tns:CIMB3rdParty_PaymentRq"/>
+	</message>
+	<message name="paymentSoapOut">
+		<part name="parameters" element="tns:CIMB3rdParty_PaymentRs"/>
+	</message>
+	<message name="echoTestSoapIn">
+		<part name="parameters" element="tns:CIMB3rdParty_EchoRq"/>
+	</message>
+	<message name="echoTestSoapOut">
+		<part name="parameters" element="tns:CIMB3rdParty_EchoRs"/>
+	</message>
+	<portType name="BillPaymentServiceSoap">
+		<operation name="inquiry">
+			<input message="tns:inquirySoapIn"/>
+			<output message="tns:inquirySoapOut"/>
+		</operation>
+		<operation name="payment">
+			<input message="tns:paymentSoapIn"/>
+			<output message="tns:paymentSoapOut"/>
+		</operation>
+		<operation name="echoTest">
+			<input message="tns:echoTestSoapIn"/>
+			<output message="tns:echoTestSoapOut"/>
+		</operation>
+	</portType>
+	<binding name="BillPaymentServiceSoap" type="tns:BillPaymentServiceSoap">
+		<soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+		<operation name="inquiry">
+			<soap:operation soapAction="" style="document"/>
+			<input>
+				<soap:body use="literal"/>
+			</input>
+			<output>
+				<soap:body use="literal"/>
+			</output>
+		</operation>
+		<operation name="payment">
+			<soap:operation soapAction="" style="document"/>
+			<input>
+				<soap:body use="literal"/>
+			</input>
+			<output>
+				<soap:body use="literal"/>
+			</output>
+		</operation>
+		<operation name="echoTest">
+			<soap:operation soapAction="" style="document"/>
+			<input>
+				<soap:body use="literal"/>
+			</input>
+			<output>
+				<soap:body use="literal"/>
+			</output>
+		</operation>
+	</binding>
+	<service name="BillPaymentService">
+		<port name="BillPaymentServiceSoap" binding="tns:BillPaymentServiceSoap">
+			<soap:address location="http://CIMB3rdParty/BillPaymentWS/BillPaymentService"/>
+		</port>
+	</service>
+</definitions>

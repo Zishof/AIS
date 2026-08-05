@@ -1,0 +1,727 @@
+package ais.action.master;
+
+import java.io.File;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
+
+import org.hibernate.Criteria;
+import org.hibernate.Session;
+import org.hibernate.criterion.Criterion;
+import org.hibernate.criterion.MatchMode;
+import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Restrictions;
+import org.zkoss.zk.ui.Component;
+import org.zkoss.zk.ui.event.Event;
+import org.zkoss.zk.ui.event.EventListener;
+import org.zkoss.zk.ui.util.GenericAutowireComposer;
+import org.zkoss.zul.A;
+import org.zkoss.zul.Borderlayout;
+import org.zkoss.zul.Center;
+import org.zkoss.zul.Checkbox;
+import org.zkoss.zul.Columns;
+import org.zkoss.zul.Combobox;
+import org.zkoss.zul.Hbox;
+import org.zkoss.zul.Label;
+import org.zkoss.zul.ListModel;
+import org.zkoss.zul.Messagebox;
+import org.zkoss.zul.Paging;
+import org.zkoss.zul.Row;
+import ais.ui.util.MyFormRow;
+import org.zkoss.zul.Rows;
+import org.zkoss.zul.SimpleListModel;
+import org.zkoss.zul.South;
+import org.zkoss.zul.Textbox;
+import org.zkoss.zul.Toolbar;
+
+import ais.action.master.helper.AmbilDataDosenBanbox;
+import ais.action.master.helper.RevisiHelper;
+import ais.action.master.sop.TampilanAlurSopAction;
+import ais.action.report.CommonReportHelper;
+import ais.common.Common;
+import ais.common.CommonPrivilages;
+import ais.common.UIClassHelper;
+import ais.database.hibernate.HibernateUtil;
+import ais.database.model.Dosen;
+import ais.database.model.GeneralValueObject;
+import ais.database.model.PengecualianJadwalPenilaianDosen;
+import ais.database.model.Perkuliahan;
+import ais.database.model.Tbmuser;
+import ais.database.model.sop.DataSop;
+import ais.database.model.sop.DisposisiSop;
+import ais.ui.util.DataCriteria;
+import ais.ui.util.DataInitDefault;
+import ais.ui.util.DataSearchDefault;
+import ais.ui.util.FormSop;
+import ais.ui.util.MyColumnConfig;
+import ais.ui.util.MyComboitemConfig;
+import ais.ui.util.MyDatebox;
+import ais.ui.util.MyGrid;
+import ais.ui.util.MyMessageboxConfig;
+import ais.ui.util.MyToolbarbuttonConfig;
+import ais.ui.util.MyWindow;
+import ais.ui.util.WaktuUtil;
+
+public class PengecualianJadwalPenilaianDosenAction extends GenericAutowireComposer
+		implements DataCriteria, DataSearchDefault, DataInitDefault, FormSop {
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -5779730267402400328L;
+	private MyWindow addWindow;
+	private Paging paging;
+	private MyGrid grid;
+
+	private Textbox searchnama;
+	private Textbox searchdosen;
+
+	private boolean edit = false;
+	private boolean delete = false;
+
+	private PengecualianJadwalPenilaianDosen pengecualianJadwalPenilaianDosen;
+	private MyToolbarbuttonConfig add;
+	private MyDatebox waktu;
+
+	private Textbox keterangan;
+	private DisposisiSop disposisiSop;
+	private AmbilDataDosenBanbox dosen;
+	private Tbmuser tbmuser;
+
+	private Checkbox searchaktif;
+	private Checkbox searchbelum;
+	private Checkbox searchtolak;
+
+	private MyDatebox waktuSampai;
+	private boolean persetujuan = false;
+	private Combobox tahunAkademik;
+	private Combobox semester;
+	private boolean approve = false;
+	private boolean reject = false;
+
+	public PengecualianJadwalPenilaianDosenAction() {
+		super();
+	}
+
+	public PengecualianJadwalPenilaianDosenAction(boolean persetujuan) {
+		super();
+		this.persetujuan = persetujuan;
+	}
+
+	@Override
+	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
+			org.zkoss.zk.ui.Component parent, org.zkoss.zk.ui.metainfo.ComponentInfo compInfo) {
+		Common.doCheckSecurity();
+		return super.doBeforeCompose(page, parent, compInfo);
+	}
+
+	public void doAfterCompose(Component comp) throws Exception {
+		// TODO Auto-generated method stub
+		super.doAfterCompose(comp);
+		Common.initLaguage();
+
+		tbmuser = Common.getCurrentUser();
+
+		if (add != null) {
+		add.setVisible(CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE));
+		add.setTooltiptext("Tambah");
+		}
+
+		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
+		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
+
+		approve = CommonPrivilages.checkPrevilages(CommonPrivilages.APPROVE);
+		reject = CommonPrivilages.checkPrevilages(CommonPrivilages.REJECT);
+
+		Common.initPaging(paging, new EventListener() {
+
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				onSearchDefault(null);
+			}
+		});
+
+		String[] contents = new String[] { "id", "dosen", "tbmuser", "tahunAkademik", "jenisSemester", "tanggalMulai",
+				"tanggalSampai", "keterangan", "status", "disposisiSop", "dibuatOleh", "disetujuiOleh",
+				"tanggalPersetujuanManual", "tanggalPersetujuan", "tanggalPembuatan" };
+		MyToolbarbuttonConfig cetakToolbarbutton = Common.cetakData(PengecualianJadwalPenilaianDosen.class, this,
+				contents);
+		Common.appendKeToolbar(cetakToolbarbutton, add, comp);
+
+		MyToolbarbuttonConfig upload = Common.uploadData(this, PengecualianJadwalPenilaianDosen.class, contents);
+		if (upload != null) { upload.setVisible((add != null && add.isVisible()) && edit && delete); }
+		Common.appendKeToolbar(upload, add, comp);
+
+		Common.createDefaultTimer(new EventListener() {
+
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				onSearchDefault(null);
+			}
+		});
+	}
+
+	class PengecualianJadwalPenilaianDosenRenderer extends ais.ui.util.MyRowRenderer {
+
+		@Override
+		public void render(final Row arg0, Object arg1) throws Exception {
+			arg0.setValign("top");
+			// TODO Auto-generated method stub
+			final PengecualianJadwalPenilaianDosen pengecualianJadwalPenilaianDosen = (PengecualianJadwalPenilaianDosen) arg1;
+
+			Tbmuser tbmuser = pengecualianJadwalPenilaianDosen.getTbmuser();
+			Dosen dosen = pengecualianJadwalPenilaianDosen.getDosen();
+			if (tbmuser != null) {
+				RevisiHelper.createNewRevisi(PengecualianJadwalPenilaianDosen.class, pengecualianJadwalPenilaianDosen,
+						tbmuser.getUserId()).setParent(arg0);
+
+				new Label(tbmuser.getNama()).setParent(arg0);
+				new Label(tbmuser == null || tbmuser.ambilJurusan() == null ? "" : tbmuser.ambilJurusan().getNama())
+						.setParent(arg0);
+				new Label(tbmuser == null || tbmuser.ambilFakultas() == null ? "" : tbmuser.ambilFakultas().getNama())
+						.setParent(arg0);
+			} else if (dosen != null) {
+				RevisiHelper.createNewRevisi(PengecualianJadwalPenilaianDosen.class, pengecualianJadwalPenilaianDosen,
+						dosen.getNidn()).setParent(arg0);
+
+				new Label(dosen.getNama()).setParent(arg0);
+				new Label(dosen == null || dosen.getJurusan() == null ? "" : dosen.getJurusan().getNama())
+						.setParent(arg0);
+				new Label(dosen == null || dosen.getFakultas() == null ? "" : dosen.getFakultas().getNama())
+						.setParent(arg0);
+			} else {
+				new Label("").setParent(arg0);
+				new Label("").setParent(arg0);
+				new Label("").setParent(arg0);
+				new Label("").setParent(arg0);
+			}
+
+			final Combobox tahunAkademik = Common.generateTahunAjaran(null);
+			Common.selectComboItem(true, tahunAkademik, pengecualianJadwalPenilaianDosen.getTahunAkademik());
+			tahunAkademik.setParent(arg0);
+			tahunAkademik.setWidth("90%");
+			tahunAkademik.addEventListener("onChange", new EventListener() {
+
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					String tahun = (String) (tahunAkademik.getSelectedItem() == null
+							|| tahunAkademik.getSelectedItem().getValue() == null ? ""
+									: tahunAkademik.getSelectedItem().getValue());
+					pengecualianJadwalPenilaianDosen.setTahunAkademik(tahun);
+					Common.refreshUpdate(pengecualianJadwalPenilaianDosen);
+				}
+			});
+
+			final Combobox semester = new Combobox();
+			MyComboitemConfig comboitem = new MyComboitemConfig(Perkuliahan.GANJIL);
+			comboitem.setValue(Perkuliahan.GANJIL);
+			semester.appendChild(comboitem);
+			comboitem = new MyComboitemConfig(Perkuliahan.GENAP);
+			comboitem.setValue(Perkuliahan.GENAP);
+			semester.appendChild(comboitem);
+			comboitem = new MyComboitemConfig(Perkuliahan.SP);
+			comboitem.setValue(Perkuliahan.SP);
+			semester.appendChild(comboitem);
+			semester.setReadonly(true);
+
+			semester.setWidth("90%");
+			Common.selectComboItem(semester, pengecualianJadwalPenilaianDosen.getJenisSemester());
+			semester.setParent(arg0);
+			semester.addEventListener("onChange", new EventListener() {
+
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					String mysemester = (String) (semester.getSelectedItem() == null ? ""
+							: semester.getSelectedItem().getValue());
+
+					pengecualianJadwalPenilaianDosen.setJenisSemester(mysemester);
+					Common.refreshUpdate(pengecualianJadwalPenilaianDosen);
+				}
+			});
+
+			final MyDatebox mulai = new MyDatebox(pengecualianJadwalPenilaianDosen.getTanggalMulai());
+			mulai.setWidth("90%");
+			mulai.setParent(arg0);
+			mulai.addEventListener("onChange", new EventListener() {
+
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					Date mymulai = mulai.getValue();
+
+					Session session = HibernateUtil.currentSession();
+					session.refresh(pengecualianJadwalPenilaianDosen);
+					pengecualianJadwalPenilaianDosen.setTanggalMulai(mymulai);
+					Common.refreshSaveOrUpdate(session, pengecualianJadwalPenilaianDosen);
+				}
+			});
+
+			final MyDatebox sampai = new MyDatebox(pengecualianJadwalPenilaianDosen.getTanggalSampai());
+			sampai.setWidth("90%");
+			sampai.setParent(arg0);
+			sampai.addEventListener("onChange", new EventListener() {
+
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					Date mysampai = sampai.getValue();
+
+					Session session = HibernateUtil.currentSession();
+					session.refresh(pengecualianJadwalPenilaianDosen);
+					pengecualianJadwalPenilaianDosen.setTanggalSampai(mysampai);
+					Common.refreshSaveOrUpdate(session, pengecualianJadwalPenilaianDosen);
+				}
+			});
+			final Combobox status = new Combobox();
+
+			final EventListener semesterEventListener = new EventListener() {
+
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					String mystatus = (String) (status.getSelectedItem() == null
+							|| status.getSelectedItem().getValue() == null ? "" : status.getSelectedItem().getValue());
+
+					tahunAkademik.setDisabled(!mystatus.equals(PengecualianJadwalPenilaianDosen.PENGAJUAN));
+					semester.setDisabled(!mystatus.equals(PengecualianJadwalPenilaianDosen.PENGAJUAN));
+					mulai.setDisabled(!mystatus.equals(PengecualianJadwalPenilaianDosen.PENGAJUAN));
+					sampai.setDisabled(!mystatus.equals(PengecualianJadwalPenilaianDosen.PENGAJUAN));
+
+				}
+			};
+
+			comboitem = new MyComboitemConfig(PengecualianJadwalPenilaianDosen.PENGAJUAN);
+			comboitem.setValue(PengecualianJadwalPenilaianDosen.PENGAJUAN);
+			status.appendChild(comboitem);
+			comboitem = new MyComboitemConfig(PengecualianJadwalPenilaianDosen.DISETUJU);
+			comboitem.setValue(PengecualianJadwalPenilaianDosen.DISETUJU);
+			status.appendChild(comboitem);
+			comboitem = new MyComboitemConfig(PengecualianJadwalPenilaianDosen.DITOLAK);
+			comboitem.setValue(PengecualianJadwalPenilaianDosen.DITOLAK);
+			status.appendChild(comboitem);
+			status.setReadonly(true);
+
+			if (pengecualianJadwalPenilaianDosen.getDisposisiSop() != null) {
+				status.setDisabled(true);
+			}
+
+			status.setWidth("90%");
+			Common.selectComboItem(status, pengecualianJadwalPenilaianDosen.getStatus());
+
+			if (approve && reject) {
+				status.setParent(arg0);
+			} else {
+				new Label(pengecualianJadwalPenilaianDosen.getStatus()).setParent(arg0);
+			}
+			status.addEventListener("onChange", new EventListener() {
+
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					String mystatus = (String) (status.getSelectedItem() == null
+							|| status.getSelectedItem().getValue() == null ? "" : status.getSelectedItem().getValue());
+
+					if (mystatus.equals(PengecualianJadwalPenilaianDosen.DISETUJU)) {
+						pengecualianJadwalPenilaianDosen.setDisetujuiOleh(Common.getCurrentUser());
+						pengecualianJadwalPenilaianDosen.setTanggalPersetujuanManual(WaktuUtil.getDate());
+					}
+
+					pengecualianJadwalPenilaianDosen.setStatus(mystatus);
+					Common.refreshUpdate(pengecualianJadwalPenilaianDosen);
+					semesterEventListener.onEvent(null);
+				}
+			});
+
+			semesterEventListener.onEvent(null);
+
+			Hbox hbox = new Hbox();
+			hbox.setParent(arg0);
+			hbox.appendChild(new Label(pengecualianJadwalPenilaianDosen.getKeterangan()));
+
+			if (pengecualianJadwalPenilaianDosen.getDisposisiSop() != null) {
+				A aa;
+				(aa = new A()).setParent(hbox);
+				aa.setStyle("font-size:9px;");
+				UIClassHelper.applyReadMore(aa, "SOP " + pengecualianJadwalPenilaianDosen.getDisposisiSop().getKeterangan() + " ("
+						+ pengecualianJadwalPenilaianDosen.getDisposisiSop().getSop().getNama() + ")");
+				aa.addEventListener("onClick", new EventListener() {
+
+					@Override
+					public void onEvent(Event arg0) throws Exception {
+						TampilanAlurSopAction.prosess(pengecualianJadwalPenilaianDosen.getDisposisiSop().getId(), null,
+								null, true, arg0.getTarget());
+					}
+				});
+			}
+			Hbox hbx;
+			(hbx = Common.copyEditDeleteButtons(edit, delete, pengecualianJadwalPenilaianDosen,
+					PengecualianJadwalPenilaianDosenAction.this)).setParent(arg0);
+
+			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/svg/printer.svg");
+			button.setOrient("vertical");
+			button.setStyle("font-size:9px;");
+			button.addEventListener("onClick", new EventListener() {
+
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					CommonReportHelper.onCetakPengecualianJadwalPenilaianDosen(pengecualianJadwalPenilaianDosen);
+				}
+			});
+			button.setParent(hbx);
+
+		}
+
+	}
+
+	public void onAdd(Event event) throws Exception {
+		init(new PengecualianJadwalPenilaianDosen());
+		addWindow.setVisible(true);
+		addWindow.onModal();
+	}
+
+	@Override
+	public void init(GeneralValueObject obj) throws Exception {
+		pengecualianJadwalPenilaianDosen = (PengecualianJadwalPenilaianDosen) obj;
+		init(pengecualianJadwalPenilaianDosen);
+		addWindow.setVisible(true);
+		addWindow.onModal();
+	}
+
+	@Override
+	public MyGrid form(GeneralValueObject generalValueObject, DisposisiSop disposisiSop,
+			final MyToolbarbuttonConfig save, EventListener setujui) throws Exception {
+		this.pengecualianJadwalPenilaianDosen = (PengecualianJadwalPenilaianDosen) generalValueObject;
+		this.disposisiSop = (this.disposisiSop != null && (disposisiSop == null || disposisiSop.getId() == null)) ? this.disposisiSop : disposisiSop;
+
+		MyGrid grid = new MyGrid();
+		grid.setWidth("100%");
+		grid.setWidth("100%");
+		grid.setHeight("100%");
+
+		Columns columns = new Columns();
+		columns.setParent(grid);
+
+		MyColumnConfig column = new MyColumnConfig();
+		column.setParent(columns);
+		column.setWidth("30%");
+
+		column = new MyColumnConfig();
+		column.setParent(columns);
+
+		Rows rows = new Rows();
+		rows.setParent(grid);
+
+		if (pengecualianJadwalPenilaianDosen.getDosen() == null && tbmuser != null && tbmuser.getDosen() != null) {
+			pengecualianJadwalPenilaianDosen.setDosen(tbmuser.getDosen());
+		}
+
+		tahunAkademik = new Combobox();
+		org.zkoss.zul.Comboitem comboitem = new org.zkoss.zul.Comboitem();
+		comboitem.setLabel("Semua");
+		comboitem.setValue(null);
+		tahunAkademik.appendChild(comboitem);
+		tahunAkademik = Common.generateTahunAjaranDanSemua(tahunAkademik);
+
+		semester = new Combobox();
+		comboitem = new MyComboitemConfig();
+		comboitem.setLabel("Semua");
+		comboitem.setValue(null);
+		semester.appendChild(comboitem);
+		comboitem = new MyComboitemConfig();
+		comboitem.setLabel(Perkuliahan.GENAP);
+		comboitem.setValue(Perkuliahan.GENAP);
+		semester.appendChild(comboitem);
+		comboitem = new MyComboitemConfig();
+		comboitem.setLabel(Perkuliahan.GANJIL);
+		comboitem.setValue(Perkuliahan.GANJIL);
+		semester.appendChild(comboitem);
+		comboitem = new MyComboitemConfig(Perkuliahan.SP);
+		comboitem.setValue(Perkuliahan.SP);
+		semester.appendChild(comboitem);
+
+		MyFormRow row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Tahun Akademik (*)"));
+		row.appendChild(tahunAkademik);
+		tahunAkademik.setWidth("90%");
+		Common.selectComboItem(tahunAkademik, pengecualianJadwalPenilaianDosen.getTahunAkademik());
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Semester (*)"));
+		row.appendChild(semester);
+		semester.setWidth("90%");
+		Common.selectComboItem(semester, pengecualianJadwalPenilaianDosen.getJenisSemester());
+		semester.setReadonly(true);
+
+		row = new MyFormRow();
+		row.setValign("top");
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Dosen (*)"));
+		dosen = new AmbilDataDosenBanbox();
+
+		Tbmuser tbmuser = Common.getCurrentUser();
+
+		Dosen dosenTerpilih = tbmuser == null ? null : tbmuser.ambilDosen();
+		if (dosenTerpilih != null && pengecualianJadwalPenilaianDosen.getDosen() == null) {
+			dosen.setAttribute("myValue", dosenTerpilih);
+			dosen.setAttribute("dosen", dosenTerpilih);
+			dosen.setValue(dosenTerpilih.getNama());
+			dosen.setDisabled(true);
+			pengecualianJadwalPenilaianDosen.setDosen(dosenTerpilih);
+		}
+
+		if (persetujuan) {
+			row.appendChild(new Label(pengecualianJadwalPenilaianDosen.getDosen() == null ? ""
+					: pengecualianJadwalPenilaianDosen.getDosen().getNama()));
+		} else {
+			row.appendChild(dosen);
+		}
+
+		dosen.setAttribute("myValue", pengecualianJadwalPenilaianDosen.getDosen());
+		dosen.setAttribute("dosen", pengecualianJadwalPenilaianDosen.getDosen());
+		dosen.setValue(pengecualianJadwalPenilaianDosen.getDosen() == null ? ""
+				: pengecualianJadwalPenilaianDosen.getDosen().getNama());
+		dosen.setWidth("90%");
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Tanggal Pembukaan Izin Penilaian *"));
+
+		if (pengecualianJadwalPenilaianDosen.getId() == null) {
+			Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
+			calendar.set(Calendar.HOUR_OF_DAY, 8);
+			calendar.set(Calendar.MINUTE, 0);
+			calendar.set(Calendar.SECOND, 0);
+			pengecualianJadwalPenilaianDosen.setTanggalMulai(calendar.getTime());
+		}
+
+		Hbox hbox = new Hbox();
+		row.appendChild(hbox);
+
+		waktu = new MyDatebox(pengecualianJadwalPenilaianDosen.getTanggalMulai());
+		if (persetujuan) {
+			hbox.appendChild(new Label(Common.dateFormat6.get().format(pengecualianJadwalPenilaianDosen.getTanggalMulai())));
+		} else {
+			hbox.appendChild(waktu);
+		}
+		waktu.setFormat(Common.dateFormat3.get().toPattern());
+		waktu.setCols(6);
+		waktu.setReadonly(true);
+
+		hbox.appendChild(new Label(ais.common.Common.getBahasaConfig(" sd ")));
+
+		waktuSampai = new MyDatebox(pengecualianJadwalPenilaianDosen.getTanggalSampai());
+		if (persetujuan) {
+			hbox.appendChild(new Label(Common.dateFormat6.get().format(pengecualianJadwalPenilaianDosen.getTanggalSampai())));
+		} else {
+			hbox.appendChild(waktuSampai);
+		}
+		waktuSampai.setFormat(Common.dateFormat3.get().toPattern());
+		waktuSampai.setCols(6);
+		waktuSampai.setReadonly(true);
+
+		final MyFormRow rowUsernameDisposisi = new MyFormRow();
+		rowUsernameDisposisi.setParent(rows);
+		rowUsernameDisposisi.appendChild(new ais.ui.util.MyLabelConfig("Keterangan *"));
+
+		keterangan = new Textbox(pengecualianJadwalPenilaianDosen.getKeterangan());
+		if (persetujuan) {
+			row.appendChild(new Label(pengecualianJadwalPenilaianDosen.getKeterangan()));
+		} else {
+			rowUsernameDisposisi.appendChild(keterangan);
+		}
+		keterangan.setWidth("90%");
+		keterangan.setRows(2);
+
+		return grid;
+	}
+
+	private void init(final PengecualianJadwalPenilaianDosen pengecualianJadwalPenilaianDosen) throws Exception {
+		this.pengecualianJadwalPenilaianDosen = pengecualianJadwalPenilaianDosen;
+		addWindow.setTitle(pengecualianJadwalPenilaianDosen.getId() == null ? "Tambah Pengajuan Izin Pembukaan Penilaian" : "Ubah Pengajuan Izin Pembukaan Penilaian");
+		Common.clear(addWindow);
+		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
+		Center center = new Center();
+		center.setParent(borderlayout);
+		ais.ui.util.ZkCompat.setFlex(center, true);
+
+		MyToolbarbuttonConfig save = new MyToolbarbuttonConfig("Simpan", "/img/save.gif");
+		disposisiSop=null;center.appendChild(form(pengecualianJadwalPenilaianDosen, disposisiSop, save, null));
+
+		South south = new South();
+		ais.ui.util.ZkCompat.setFlex(south, true);
+		south.setParent(borderlayout);
+
+		Toolbar toolbar = new Toolbar();
+		toolbar.setParent(south);
+		MyToolbarbuttonConfig cancel = new MyToolbarbuttonConfig("Batal", "/img/cancel.gif");
+		cancel.setTooltiptext("Tutup");
+		cancel.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				addWindow.setVisible(false);
+			}
+		});
+		cancel.setParent(toolbar);
+
+		save.setTooltiptext("Simpan");
+		save.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				if (onSave(event)) {
+					onSearchDefault(null);
+					addWindow.setVisible(false);
+				}
+			}
+		});
+		save.setParent(toolbar);
+
+		borderlayout.setParent(addWindow);
+
+	}
+
+	public boolean onSave(Event event) throws Exception {
+
+		if (dosen.getAttribute("dosen") == null) {
+			MyMessageboxConfig.show(
+					"Mohon maaf, kolom Dosen belum diisi. Nama dosen wajib dipilih terlebih dahulu sebelum pengajuan dapat disimpan. Langkah yang dapat dilakukan: (1) klik pada kolom Dosen; (2) pilih nama dosen yang sesuai dari daftar yang tersedia; (3) tekan kembali tombol Simpan.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return false;
+		}
+
+		Dosen peg = (Dosen) dosen.getAttribute("dosen");
+		if (!peg.getAktif()) {
+			MyMessageboxConfig.show(
+					"Mohon maaf, data dosen yang Bapak/Ibu pilih berstatus tidak aktif sehingga tidak dapat digunakan pada pengajuan ini. Langkah yang dapat dilakukan: (1) pilih dosen lain yang berstatus aktif; (2) atau hubungi administrator untuk mengaktifkan kembali data dosen tersebut; (3) kemudian ulangi proses penyimpanan.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return false;
+		}
+
+		Session session = HibernateUtil.currentSession();
+		if (pengecualianJadwalPenilaianDosen.getId() != null) {
+			pengecualianJadwalPenilaianDosen = (PengecualianJadwalPenilaianDosen) session
+					.load(PengecualianJadwalPenilaianDosen.class, pengecualianJadwalPenilaianDosen.getId());
+
+		}
+		pengecualianJadwalPenilaianDosen.setDosen((Dosen) dosen.getAttribute("dosen"));
+		pengecualianJadwalPenilaianDosen.setTanggalMulai(waktu.getValue());
+		pengecualianJadwalPenilaianDosen.setTanggalSampai(waktuSampai.getValue());
+		pengecualianJadwalPenilaianDosen.setTahunAkademik(
+				tahunAkademik.getSelectedItem() == null || tahunAkademik.getSelectedItem().getValue() == null ? null
+						: tahunAkademik.getSelectedItem().getValue().toString());
+		pengecualianJadwalPenilaianDosen.setJenisSemester(
+				semester.getSelectedItem() == null || semester.getSelectedItem().getValue() == null ? null
+						: semester.getSelectedItem().getValue().toString());
+		pengecualianJadwalPenilaianDosen.setKeterangan(keterangan.getValue());
+
+		if (disposisiSop != null && disposisiSop.getId() != null) {
+			pengecualianJadwalPenilaianDosen.setDisposisiSop(disposisiSop);
+		}
+
+		if (pengecualianJadwalPenilaianDosen.getId() != null) {
+			Common.refreshUpdate(session, pengecualianJadwalPenilaianDosen);
+		} else {
+			pengecualianJadwalPenilaianDosen.setDisetujuiOleh(null);
+			pengecualianJadwalPenilaianDosen.setTanggalPersetujuan(null);
+			pengecualianJadwalPenilaianDosen.setStatus(PengecualianJadwalPenilaianDosen.PENGAJUAN);
+			session.save(pengecualianJadwalPenilaianDosen);
+		}
+
+		return true;
+	}
+
+	public Criteria initCriteria(boolean order) {
+
+		Tbmuser tbmuser = Common.getCurrentUser();
+		Dosen existing = null;
+		if (tbmuser != null && tbmuser.ambilDosen() != null) {
+			existing = tbmuser.ambilDosen();
+		}
+
+		Criterion criterion = Restrictions.sqlRestriction("false");
+		if (searchaktif.isChecked() && searchbelum.isChecked() && searchtolak.isChecked()) {
+			criterion = Restrictions.sqlRestriction("true");
+		} else {
+			if (searchaktif != null && searchaktif.isChecked()) {
+				criterion = Restrictions.or(criterion, Restrictions.or(Restrictions.isNull("status"),
+						Restrictions.eq("status", PengecualianJadwalPenilaianDosen.DISETUJU)));
+			}
+			if (searchbelum.isChecked()) {
+				criterion = Restrictions.or(criterion,
+						Restrictions.eq("status", PengecualianJadwalPenilaianDosen.PENGAJUAN));
+			}
+			if (searchtolak.isChecked()) {
+				criterion = Restrictions.or(criterion,
+						Restrictions.eq("status", PengecualianJadwalPenilaianDosen.DITOLAK));
+			}
+		}
+
+		Session session = HibernateUtil.currentSession();
+		Criteria criteria = session.createCriteria(PengecualianJadwalPenilaianDosen.class)
+				.createAlias("dosen", "dosen", Criteria.INNER_JOIN)
+				.createAlias("tbmuser", "tbmuser", Criteria.LEFT_JOIN)
+				.add(existing == null ? Restrictions.sqlRestriction("true") : Restrictions.eq("dosen", existing))
+
+				.add(criterion)
+
+				.add(searchdosen.getValue().trim().isEmpty() ? Restrictions.sqlRestriction("true")
+						: Restrictions.or(
+								Restrictions.ilike("tbmuser.userNama", searchdosen.getValue().trim(),
+										MatchMode.ANYWHERE),
+								Restrictions.ilike("dosen.nama", searchdosen.getValue().trim(), MatchMode.ANYWHERE)))
+
+		;
+
+		if (order)
+			criteria.addOrder(Order.desc("id"));
+		criteria
+
+				.add(searchnama.getValue().trim().isEmpty() ? Restrictions.sqlRestriction("true")
+						: Restrictions.ilike("keterangan", searchnama.getValue().trim(), MatchMode.ANYWHERE))
+
+		;
+
+		return criteria;
+	}
+
+	@SuppressWarnings("unchecked")
+	public void onSearchDefault(Event event) {
+		Common.initPaging(initCriteria(false), paging);
+
+		List<PengecualianJadwalPenilaianDosen> pengecualianJadwalPenilaianDosen = initCriteria(true)
+				.setMaxResults(Common.ROWS_COUNT_ON_PAGE)
+				.setFirstResult(Common.ROWS_COUNT_ON_PAGE * (paging == null ? 0 : paging.getActivePage())).list();
+		ListModel strset = new SimpleListModel(pengecualianJadwalPenilaianDosen);
+		grid.setRowRenderer(new PengecualianJadwalPenilaianDosenRenderer());
+		grid.setModelCheckMobile(strset);
+
+	}
+
+	@Override
+	public String istilah() throws Exception {
+		// TODO Auto-generated method stub
+		return "Pengajuan Izin Buka Penilaian Dosen";
+	}
+
+	@Override
+	public DataSop ambil() throws Exception {
+		// TODO Auto-generated method stub
+		return pengecualianJadwalPenilaianDosen;
+	}
+
+	@SuppressWarnings("rawtypes")
+	@Override
+	public Class ambilClass() throws Exception {
+		// TODO Auto-generated method stub
+		return PengecualianJadwalPenilaianDosen.class;
+	}
+
+	@SuppressWarnings({})
+	@Override
+	public File cetakData(GeneralValueObject generalValueObject) throws Exception {
+
+		return null;
+	}
+
+	@Override
+	public void setPersetujuan(boolean persetujuan) {
+		this.persetujuan = persetujuan;
+	}
+}

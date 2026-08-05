@@ -1,0 +1,50 @@
+<zk xmlns="http://www.zkoss.org/2005/zul">
+	<borderlayout>
+		<north border="none" size="110px">
+			<div>
+				<html><![CDATA[<div class="aj-panel-info">
+					<strong>Jadwal Antar Jemput</strong> &mdash;
+					Jadwal menghubungkan kendaraan, sopir, dan rute pada tanggal dan jam tertentu.
+					Setiap jadwal aktif akan menjadi acuan sistem saat memverifikasi kartu penjemput di gerbang,
+					sehingga siswa yang tepat dapat dipanggil ke kelas yang benar.
+				</div>]]></html>
+				<toolbar sclass="aj-filter">
+					<label use="ais.ui.util.MyLabelConfig" value="Cari:" style="font-size:12px;color:#475569;font-weight:600;" />
+					<textbox id="searchJadwal" width="220px"
+						forward="onOK=onSearchJadwal"
+						tooltiptext="Tekan Enter atau klik Cari" />
+					<checkbox use="ais.ui.util.MyCheckboxConfig" id="aktifJadwal" label="Aktif saja" checked="true"
+						forward="onCheck=onSearchJadwal"
+						tooltiptext="Tampilkan hanya jadwal yang aktif" />
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+						label="Cari" image="/img/search.gif"
+						forward="onClick=onSearchJadwal"
+						tooltiptext="Cari jadwal" />
+					<separator />
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+						label="Tambah Jadwal" image="/img/new.gif"
+						forward="onClick=onAddJadwal"
+						tooltiptext="Tambah jadwal antar jemput baru" />
+				</toolbar>
+			</div>
+		</north>
+		<center border="none">
+			<grid use="ais.ui.util.MyGrid" id="gridJadwal" sclass="dgrid" fixedLayout="true">
+				<columns>
+					<column use="ais.ui.util.MyColumnConfig" label="Kode"      width="90px" />
+					<column use="ais.ui.util.MyColumnConfig" label="Jadwal" />
+					<column use="ais.ui.util.MyColumnConfig" label="Tanggal"   width="110px" />
+					<column use="ais.ui.util.MyColumnConfig" label="Jam"       width="130px" />
+					<column use="ais.ui.util.MyColumnConfig" label="Kendaraan" />
+					<column use="ais.ui.util.MyColumnConfig" label="Sopir" />
+					<column use="ais.ui.util.MyColumnConfig" label="Status"    width="130px" />
+					<column use="ais.ui.util.MyColumnConfig" label="Aktif"     width="70px"  align="center" />
+					<column use="ais.ui.util.MyColumnConfig" label="Aksi"      width="140px" />
+				</columns>
+			</grid>
+		</center>
+		<south border="none" size="32px">
+			<paging id="pagingJadwal" detailed="true" />
+		</south>
+	</borderlayout>
+</zk>

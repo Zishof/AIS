@@ -1,0 +1,102 @@
+<?page title="Kalender" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<window use="ais.ui.util.MyWindow" height="100%" width="100%" id="DemoWin" border="none"
+		apply="ais.action.master.rab.KalenderHariLiburAction">
+
+
+
+
+
+
+		<!-- Main Calendar Component -->
+		<calendars id="calendars" firstDayOfWeek="Sunday"
+			 mold="month" height="100%" width="100%">
+			<toolbar width="100%">
+				<!-- Module - Control Menu -->
+				<hlayout>
+					<button use="ais.ui.util.MyButtonConfig" height="30px" label="Hari ini"
+						onClick='calendars.setCurrentDate(java.util.Calendar.getInstance(calendars.getDefaultTimeZone()).getTime());'>
+					</button>
+					<button use="ais.ui.util.MyButtonConfig" height="30px" id="prevPage"
+						image="/img/left-sign.gif" />
+					<button use="ais.ui.util.MyButtonConfig" height="30px" id="nextPage"
+						image="/img/right-sign.gif" />
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"   id="currentDate"
+						popup="dateChooserPopup" />
+					<separator width="85px"></separator>
+					<button use="ais.ui.util.MyButtonConfig" height="30px" id="view_d" width="55px"
+						label="Day" visible="false"
+						onClick='calendars.mold="default";calendars.days=1;clearFocus(self);' />
+					<button use="ais.ui.util.MyButtonConfig" height="30px" id="view_w" width="55px"
+						label="Week" visible="false"
+						onClick='calendars.mold="default";calendars.days=7;clearFocus(self);' />
+					<button use="ais.ui.util.MyButtonConfig" height="30px" id="view_m" width="55px"
+						label="Month" sclass="selectedButton" visible="false"
+						onClick='calendars.mold="month";clearFocus(self);' />
+
+				</hlayout>
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;kalender_hari_libur&quot;, &quot;Bantuan&quot;);"/>
+			</toolbar>
+		</calendars>
+
+		<!-- Module - Event Popup -->
+		<!-- Create Event Popup -->
+		<window use="ais.ui.util.MyWindow" width="500px" title="Buat Hari Libur" border="normal"
+			id="EventPop" mode="popup" visible="false">
+			<grid fixedLayout="true" use="ais.ui.util.MyGrid"  hflex='1'>
+				<columns>
+					<column use="ais.ui.util.MyColumnConfig" width="100px" />
+					<column use="ais.ui.util.MyColumnConfig" />
+				</columns>
+				<rows>
+					<row>
+						Tanggal:
+						<div>
+							<datebox id="ppbegin" disabled="true"
+								use="ais.ui.util.MyDatebox"
+								timeZone="${calendars.defaultTimeZone}" />
+						</div>
+					</row>
+					<row>
+						Merupakan Hari Libur:
+						<checkbox use="ais.ui.util.MyCheckboxConfig" id="libur"></checkbox>
+					</row>
+					<row>
+						Keterangan:
+						<textbox multiline="true" rows="5" width="97%"
+							id="ppcnt" />
+					</row>
+
+
+
+
+					<row>
+						<cell colspan="2">
+							<button use="ais.ui.util.MyButtonConfig" id="okBtn" width="80px" label="OK" />
+							<button use="ais.ui.util.MyButtonConfig" id="cancelBtn" width="80px"
+								label="Cancel" />
+						</cell>
+					</row>
+				</rows>
+			</grid>
+		</window>
+
+
+		<!-- Choose Date Popup -->
+		<popup id="dateChooserPopup" sclass="chooser-popup"
+			onOpen='dateChooser.value=calendars.currentDate;dateChooser.timeZone=calendars.defaultTimeZone'>
+			<groupbox mold="3d">
+				<caption use="ais.ui.util.MyCaptionConfig" label="Data Chooser">
+					<button use="ais.ui.util.MyButtonConfig" id="dateConfirm" label="Close" />
+				</caption>
+				<calendar id="dateChooser" />
+			</groupbox>
+		</popup>
+
+
+
+
+
+
+	</window>
+</zk>

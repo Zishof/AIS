@@ -1,0 +1,91 @@
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.pmb.statistik.RekapPendaftarSpmbPerPaket"
+		width="100%" height="100%">
+
+
+
+		<div sclass="ais-crud-portal">
+							<div sclass="ais-crud-filter-card">
+								<div sclass="ais-crud-filter-head">
+									<span sclass="ais-crud-filter-title">Pencarian &amp; Filter</span>
+									<div sclass="ais-crud-filter-actions">
+										<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="find" label="Cari" image="/img/search.gif" tooltiptext="Cari data" forward="onClick=onSearchDefault"/>
+<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;rekap_pendaftar_spmb_per_paket&quot;, &quot;Bantuan&quot;);"/></div>
+								</div>
+								<div sclass="ais-crud-filter-body">
+									<grid use="ais.ui.util.MyGrid" fixedLayout="true" sclass="ais-crud-filter-grid">
+										<columns>
+						<column use="ais.ui.util.MyColumnConfig"
+							width="100px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig"></column>
+						<column use="ais.ui.util.MyColumnConfig"
+							width="100px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig"></column>
+						<column use="ais.ui.util.MyColumnConfig"
+							width="100px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig"></column>
+					</columns>
+										<rows>
+											<row>
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Jenis Seleksi" />
+							<combobox forward="onChange=onSearchDefault"
+								id="jenisseleksisearch" width="95%" />
+
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Tahun Akademik" />
+							<combobox forward="onChange=onSearchDefault"
+								id="searchTahunAjaran" width="95%" />
+
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Gelombang" />
+							<combobox forward="onChange=onSearchDefault"
+								id="searchGelombang" width="95%" />
+
+						</row>
+										</rows>
+									</grid>
+								</div>
+							</div>
+							<div sclass="ais-crud-data-card">
+								<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true"/>
+								<grid use="ais.ui.util.MyGrid" 
+								sclass="dgrid" fixedLayout="true" id="grid">
+								<columns>
+									<column
+										use="ais.ui.util.MyColumnConfig" label="Paket" width="10%" />
+									<column
+										use="ais.ui.util.MyColumnConfig" label="Jumlah Pendaftar"
+										width="10%" />
+
+									<column
+										use="ais.ui.util.MyColumnConfig" label="Jumlah Pembayar"
+										width="10%" />
+									<column
+										use="ais.ui.util.MyColumnConfig" label="Jumlah Peserta"
+										width="10%" />
+
+									<column
+										use="ais.ui.util.MyColumnConfig" label="Ruangan" />
+
+
+								</columns>
+
+							</grid>
+								<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>
+							</div>
+						</div>
+
+
+</window>
+
+
+</zk>

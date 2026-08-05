@@ -1,0 +1,95 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window border="none" id="window"
+		apply="ais.action.master.payroll.ItemGajiPegawaiAction" width="100%"
+		height="100%">
+
+
+		<borderlayout>
+									<north border="none" size="150px" autoscroll="true" flex="false" splittable="false">
+				<div style="padding:12px;box-sizing:border-box;">
+					<div sclass="ais-crud-filter-card">
+						<div sclass="ais-crud-filter-head">
+							<span sclass="ais-crud-filter-title">Pencarian &amp; Filter</span>
+						<div sclass="ais-crud-filter-actions">
+							<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;item_gaji_pegawai&quot;, &quot;Bantuan&quot;);"/>
+						</div>
+						</div>
+						<div sclass="ais-crud-filter-body">
+
+				<toolbar>
+					<toolbarbutton
+						use="ais.ui.util.MyToolbarbuttonConfig" id="addNew"
+						tooltiptext="Item Gaji Baru" forward="onClick=onAdd"
+						label="Item Gaji Baru" image="/img/new.gif">
+					</toolbarbutton>
+
+					
+
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" forward="onClick=onCetak"
+						label="Cetak" image="/img/svg/printer.svg">
+					</toolbarbutton>
+
+					<toolbarbutton
+						use="ais.ui.util.MyToolbarbuttonConfig" tooltiptext="Reset"
+						forward="onClick=onResetTree" label="Reset"
+						image="/img/cancel.gif">
+					</toolbarbutton>
+
+					<space></space>
+					<space></space>
+					<space></space>
+					<label use="ais.ui.util.MyLabelConfig" value="Pegawai" />
+					<bandbox
+						use="ais.action.master.akunting.helper.AmbilDataPegawaiBanbox"
+						id="searchPegawai" width="100px" />
+
+					<label use="ais.ui.util.MyLabelConfig" value="Format" />
+					<bandbox
+						use="ais.action.master.payroll.helper.AmbilDataFormatItemGajiBanbox"
+						id="searchFormatItemGaji" width="100px" />
+
+
+					<checkbox use="ais.ui.util.MyCheckboxConfig"
+						id="tampilkanRumus" label="Tampilkan Formula"
+						forward="onClick=onReloadTree"></checkbox>
+				</toolbar>
+						</div>
+					</div>
+				</div>
+			</north>
+			<center border="none" flex="true">
+
+				<tree width="100%" zclass="z-dottree" height="100%" id="tree">
+
+				</tree>
+
+
+
+			</center>
+
+		</borderlayout>
+
+		<window use="ais.ui.util.MyWindowJudul" id="addWindow" title="Tambah Item Gaji" visible="false"
+			mode="popup" position="center,center" border="normal" width="650px"
+			height="95%">
+
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+	</window>
+
+
+</zk>

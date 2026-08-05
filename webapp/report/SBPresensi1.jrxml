@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="SBPresensi1" language="groovy" columnCount="10" printOrder="Horizontal" pageWidth="792" pageHeight="612" orientation="Landscape" whenNoDataType="AllSectionsNoDetail" columnWidth="57" leftMargin="0" rightMargin="214" topMargin="0" bottomMargin="20" uuid="e09cf3c9-bdec-40ba-8e1d-a2c1b6b71f51">
+	<property name="ireport.zoom" value="1.7524694974069617"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<style name="presensi">
+		<conditionalStyle>
+			<conditionExpression><![CDATA[$F{jam_kerja}.equals(" - ")]]></conditionExpression>
+			<style mode="Opaque" forecolor="#000000" backcolor="#FF3333"/>
+		</conditionalStyle>
+	</style>
+	<field name="tanggal" class="java.lang.String"/>
+	<field name="jam_kerja" class="java.lang.String"/>
+	<field name="hari" class="java.lang.String"/>
+	<field name="masuk" class="java.lang.String"/>
+	<field name="pulang" class="java.lang.String"/>
+	<field name="tanggal_2" class="java.lang.String"/>
+	<field name="warna" class="java.lang.String"/>
+	<field name="status" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<detail>
+		<band height="30">
+			<textField isBlankWhenNull="true">
+				<reportElement mode="Opaque" x="0" y="0" width="57" height="12" backcolor="#CCCCCC" uuid="ab73dfde-c64f-4fb5-bc28-0460070d1936"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="6"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{hari}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" style="presensi" mode="Opaque" x="0" y="12" width="57" height="18" uuid="7eeab85f-d375-4852-a912-6c406a8dc41b">
+					<propertyExpression name="net.sf.jasperreports.style.backcolor"><![CDATA[$F{warna}]]></propertyExpression>
+				</reportElement>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{masuk}+"-"+$F{pulang}+"\n"+$F{status}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+</jasperReport>

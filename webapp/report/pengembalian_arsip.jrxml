@@ -1,0 +1,467 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="report5" language="groovy" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="76bee52d-a7e7-4b95-912a-68bf3dea7433">
+	<property name="ireport.zoom" value="2.0490403660952117"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<property name="ireport.background.image" value="D:\jaspersoft\MX-M315NV_20230110_145352.jpg"/>
+	<property name="ireport.background.image.properties" value="false,true,0.25,0,0,0,0,0,0"/>
+	<style name="Title"/>
+	<style name="Page Header"/>
+	<style name="Column Header"/>
+	<style name="Row">
+		<conditionalStyle>
+			<conditionExpression><![CDATA[$V{REPORT_COUNT}%2 == 0]]></conditionExpression>
+			<style/>
+		</conditionalStyle>
+	</style>
+	<style name="table">
+		<box>
+			<pen lineWidth="1.0" lineColor="#000000"/>
+		</box>
+	</style>
+	<style name="table_TH" mode="Opaque" backcolor="#F0F8FF">
+		<box>
+			<pen lineWidth="0.5" lineColor="#000000"/>
+		</box>
+	</style>
+	<style name="table_CH" mode="Opaque" backcolor="#BFE1FF">
+		<box>
+			<pen lineWidth="0.5" lineColor="#000000"/>
+		</box>
+	</style>
+	<style name="table_TD" mode="Opaque" backcolor="#FFFFFF">
+		<box>
+			<pen lineWidth="0.5" lineColor="#000000"/>
+		</box>
+	</style>
+	<subDataset name="Table Dataset 1" uuid="47ec0905-2e5c-499d-97cb-5ba5c827ced7">
+		<parameter name="jenis_dokumen" class="java.lang.String" isForPrompting="false">
+			<defaultValueExpression><![CDATA["1;2;3"]]></defaultValueExpression>
+		</parameter>
+		<parameter name="no_dok" class="java.lang.String" isForPrompting="false">
+			<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+		</parameter>
+		<parameter name="kelengkapan" class="java.lang.String" isForPrompting="false"/>
+		<parameter name="status" class="java.lang.String" isForPrompting="false"/>
+		<parameter name="keterangan" class="java.lang.String" isForPrompting="false"/>
+		<queryString>
+			<![CDATA[]]>
+		</queryString>
+		<field name="Dokumen" class="java.util.List"/>
+		<variable name="Dokumen" class="java.util.List">
+			<variableExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("no_dokumen").split(";")]]></variableExpression>
+		</variable>
+	</subDataset>
+	<parameter name="kop" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="nomor.surat" class="java.lang.String"/>
+	<parameter name="jenis_dokumen" class="java.lang.String"/>
+	<parameter name="no_dokumen" class="java.lang.String"/>
+	<parameter name="kelengkapan" class="java.lang.String"/>
+	<parameter name="status" class="java.lang.String"/>
+	<parameter name="keterangan" class="java.lang.String"/>
+	<parameter name="golongan" class="java.lang.String"/>
+	<parameter name="jabatan" class="java.lang.String"/>
+	<parameter name="kop1" class="java.lang.String"/>
+	<parameter name="judul_tugas" class="java.lang.String"/>
+	<field name="suratMasuk.kode" class="java.lang.String"/>
+	<field name="suratMasuk.perihal" class="java.lang.String"/>
+	<field name="suratMasuk.klasifikasiSuratMasuk.nama" class="java.lang.String"/>
+	<field name="kelengkapan" class="java.lang.Boolean"/>
+	<field name="status" class="java.lang.Boolean"/>
+	<field name="keterangan" class="java.lang.String"/>
+	<title>
+		<band height="180" splitType="Stretch">
+			<image scaleImage="RetainShape" hAlign="Center">
+				<reportElement x="0" y="0" width="555" height="110" uuid="441c2c1b-f9ef-4085-b798-bb0c7119d603"/>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "kop_surat" )]]></imageExpression>
+			</image>
+			<textField>
+				<reportElement x="160" y="122" width="217" height="12" uuid="4d3e95c9-f2fc-48e5-a207-bddefadcf8ef"/>
+				<box leftPadding="4"/>
+				<textElement>
+					<font fontName="DejaVu Serif" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "kembali.tanggalPembuatan" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="5" y="110" width="142" height="12" uuid="96d4044d-002b-462e-9fd7-0df7339a1c21"/>
+				<box leftPadding="4"/>
+				<textElement>
+					<font fontName="DejaVu Serif" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["No. Peminjaman"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="147" y="110" width="13" height="12" uuid="d7b8bdfc-b474-4cf4-a123-f25ae2acbdd8"/>
+				<box leftPadding="4"/>
+				<textElement>
+					<font fontName="DejaVu Serif" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[":"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="5" y="122" width="142" height="12" uuid="08ee230e-cfa6-4199-9fac-983089b13ec7"/>
+				<box leftPadding="4"/>
+				<textElement>
+					<font fontName="DejaVu Serif" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Tanggal Pengembalian"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="147" y="122" width="13" height="12" uuid="0eb75c73-a6e1-404a-8280-944274f24e4f"/>
+				<box leftPadding="4"/>
+				<textElement>
+					<font fontName="DejaVu Serif" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[":"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="160" y="110" width="217" height="12" uuid="0584ee40-ba65-4a23-9215-b6c689bc4336"/>
+				<box leftPadding="4"/>
+				<textElement>
+					<font fontName="DejaVu Serif" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "kode" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="134" width="559" height="23" forecolor="#000000" uuid="1d9c9bd1-1854-4c85-897d-5776538565da"/>
+				<box leftPadding="4">
+					<pen lineColor="#666666"/>
+					<topPen lineWidth="0.5" lineColor="#666666"/>
+					<leftPen lineWidth="0.5" lineColor="#666666"/>
+					<bottomPen lineWidth="0.5" lineColor="#666666"/>
+					<rightPen lineWidth="0.5" lineColor="#666666"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["INFORMASI PENGEMBALIAN DOKUMEN"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="0" y="157" width="95" height="23" forecolor="#000000" backcolor="#CCCCCC" uuid="29523722-206e-45b9-a2a4-a143b554e6e2"/>
+				<box leftPadding="4">
+					<pen lineColor="#666666"/>
+					<topPen lineWidth="0.5" lineColor="#666666"/>
+					<leftPen lineWidth="0.5" lineColor="#666666"/>
+					<bottomPen lineWidth="0.5" lineColor="#666666"/>
+					<rightPen lineWidth="0.5" lineColor="#666666"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["JENIS DOKUMEN"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="95" y="157" width="95" height="23" forecolor="#000000" backcolor="#CCCCCC" uuid="57b47888-b928-4a3b-a5ff-a0ec193a4479"/>
+				<box leftPadding="4">
+					<pen lineColor="#666666"/>
+					<topPen lineWidth="0.5" lineColor="#666666"/>
+					<leftPen lineWidth="0.5" lineColor="#666666"/>
+					<bottomPen lineWidth="0.5" lineColor="#666666"/>
+					<rightPen lineWidth="0.5" lineColor="#666666"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["NO DOKUMEN"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="190" y="157" width="84" height="23" forecolor="#000000" backcolor="#CCCCCC" uuid="fd7e30ef-b55b-4c35-8ab4-a3fac0f41795"/>
+				<box leftPadding="4">
+					<pen lineColor="#666666"/>
+					<topPen lineWidth="0.5" lineColor="#666666"/>
+					<leftPen lineWidth="0.5" lineColor="#666666"/>
+					<bottomPen lineWidth="0.5" lineColor="#666666"/>
+					<rightPen lineWidth="0.5" lineColor="#666666"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["KELENGKAPAN"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="274" y="157" width="57" height="23" forecolor="#000000" backcolor="#CCCCCC" uuid="2b35551a-d6c4-40fa-a38f-2492911f4168"/>
+				<box leftPadding="4">
+					<pen lineColor="#666666"/>
+					<topPen lineWidth="0.5" lineColor="#666666"/>
+					<leftPen lineWidth="0.5" lineColor="#666666"/>
+					<bottomPen lineWidth="0.5" lineColor="#666666"/>
+					<rightPen lineWidth="0.5" lineColor="#666666"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["STATUS"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="331" y="157" width="228" height="23" forecolor="#000000" backcolor="#CCCCCC" uuid="83b99007-cddc-4be3-b302-b8485a6704ed"/>
+				<box leftPadding="4">
+					<pen lineColor="#666666"/>
+					<topPen lineWidth="0.5" lineColor="#666666"/>
+					<leftPen lineWidth="0.5" lineColor="#666666"/>
+					<bottomPen lineWidth="0.5" lineColor="#666666"/>
+					<rightPen lineWidth="0.5" lineColor="#666666"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["KETERANGAN"]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<detail>
+		<band height="50">
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="95" y="0" width="95" height="50" uuid="e0105fed-d2b1-47cc-a187-fac1ea63d1ce"/>
+				<box leftPadding="2">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{suratMasuk.kode}+"\n"+$F{suratMasuk.perihal}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="0" y="0" width="95" height="50" uuid="c4fe60a4-56fd-4bad-ba65-bad2d0d1ee1c"/>
+				<box leftPadding="2">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{suratMasuk.klasifikasiSuratMasuk.nama}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="190" y="0" width="84" height="50" uuid="73a992c0-b596-459c-bc0a-52c260ee41c2"/>
+				<box leftPadding="2">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{kelengkapan}!=null&&$F{kelengkapan} ? "Lengkap" : "Belum"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="274" y="0" width="57" height="50" uuid="ce243712-104b-47ee-8c71-3d1dcc88b7ff"/>
+				<box leftPadding="2">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{status}!=null&&$F{status} ? "OK" : "Tidak OK"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="331" y="0" width="228" height="50" uuid="025f723b-d05e-4481-aa3d-7905c6eaa120"/>
+				<box leftPadding="2">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font fontName="DejaVu Serif" size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{keterangan}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<summary>
+		<band height="145">
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="0" y="100" width="160" height="15" uuid="b70bb807-e8ef-473d-be25-5349274ed248"/>
+				<box leftPadding="4">
+					<topPen lineWidth="0.5" lineStyle="Solid" lineColor="#666666"/>
+					<leftPen lineWidth="0.5" lineStyle="Solid" lineColor="#666666"/>
+					<bottomPen lineWidth="0.5" lineStyle="Solid" lineColor="#666666"/>
+					<rightPen lineWidth="0.5" lineStyle="Solid" lineColor="#666666"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Dikembalikan Oleh"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="160" y="100" width="160" height="15" uuid="b3b2f87c-f1d2-4d4f-accf-0e1031a8c52a"/>
+				<box leftPadding="4">
+					<topPen lineWidth="0.5" lineStyle="Solid" lineColor="#666666"/>
+					<leftPen lineWidth="0.5" lineStyle="Solid" lineColor="#666666"/>
+					<bottomPen lineWidth="0.5" lineStyle="Solid" lineColor="#666666"/>
+					<rightPen lineWidth="0.5" lineStyle="Solid" lineColor="#666666"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Petugas / Penerima Arsip"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" mode="Opaque" x="0" y="18" width="320" height="15" backcolor="#CCCCCC" uuid="78a2ce57-9be0-46be-8bc5-600706a8d064"/>
+				<box leftPadding="4">
+					<topPen lineWidth="0.5" lineColor="#666666"/>
+					<leftPen lineWidth="0.5" lineColor="#666666"/>
+					<bottomPen lineWidth="0.5" lineColor="#666666"/>
+					<rightPen lineWidth="0.5" lineColor="#666666"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["PERSETUJUAN PENGEMBALIAN ARSIP"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" mode="Opaque" x="0" y="115" width="44" height="15" backcolor="#CCCCCC" uuid="e476302c-02e7-4864-89e7-e8f134368156"/>
+				<box leftPadding="4">
+					<topPen lineWidth="0.0" lineColor="#666666"/>
+					<leftPen lineWidth="0.5" lineColor="#666666"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Nama"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" mode="Opaque" x="0" y="127" width="44" height="15" backcolor="#CCCCCC" uuid="8015d63b-f85f-4ede-81a4-e50928dbe17f"/>
+				<box leftPadding="4">
+					<leftPen lineWidth="0.5" lineColor="#666666"/>
+					<bottomPen lineWidth="0.5" lineColor="#666666"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Jabatan"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" mode="Opaque" x="44" y="115" width="13" height="15" backcolor="#CCCCCC" uuid="f4ab8e61-935b-4b2e-9d5b-0de76ad537b3"/>
+				<box leftPadding="4"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[":"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" mode="Opaque" x="44" y="127" width="13" height="15" backcolor="#CCCCCC" uuid="63960061-e49f-4144-993b-ee7cf7077db8"/>
+				<box leftPadding="4">
+					<bottomPen lineWidth="0.5" lineColor="#666666"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[":"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" mode="Opaque" x="57" y="115" width="103" height="15" backcolor="#CCCCCC" uuid="8f9c76e5-c19d-4f48-8515-9b9cfc3cfe30"/>
+				<box leftPadding="4"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "kembali.disetujuiOleh.userNama" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" mode="Opaque" x="57" y="127" width="103" height="15" backcolor="#CCCCCC" uuid="4ccd5dc3-581a-4337-bee0-7a283cb5b832"/>
+				<box leftPadding="4">
+					<bottomPen lineWidth="0.5" lineColor="#666666"/>
+					<rightPen lineColor="#666666"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "kembali.disetujuiOleh.pegawai.mycode" )]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" mode="Opaque" x="160" y="115" width="44" height="15" backcolor="#CCCCCC" uuid="458b7f71-71e5-42fc-b950-c6ed4d4e73fd"/>
+				<box leftPadding="4">
+					<leftPen lineWidth="0.5" lineColor="#666666"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Nama"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" mode="Opaque" x="160" y="127" width="44" height="15" backcolor="#CCCCCC" uuid="0c658891-c7d1-411d-b176-4e1b94a1d120"/>
+				<box leftPadding="4">
+					<leftPen lineWidth="0.5" lineColor="#666666"/>
+					<bottomPen lineWidth="0.5" lineColor="#666666"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Jabatan"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" mode="Opaque" x="204" y="115" width="13" height="15" backcolor="#CCCCCC" uuid="2327833f-ac9b-4f77-b3a6-e5ccda49e5fa"/>
+				<box leftPadding="4"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[":"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" mode="Opaque" x="204" y="127" width="13" height="15" backcolor="#CCCCCC" uuid="cd265368-66e7-4bfb-be06-90f05ac14801"/>
+				<box leftPadding="4">
+					<bottomPen lineWidth="0.5" lineColor="#666666"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[":"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" mode="Opaque" x="217" y="115" width="103" height="15" backcolor="#CCCCCC" uuid="a97a2051-f6e7-477c-8b71-5a6e5449087f"/>
+				<box leftPadding="4">
+					<rightPen lineWidth="0.5" lineColor="#666666"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "peminjamSurat.nama" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" mode="Opaque" x="217" y="127" width="103" height="15" backcolor="#CCCCCC" uuid="04ae41ff-45da-4118-9e11-9c308ab63d87"/>
+				<box leftPadding="4">
+					<bottomPen lineWidth="0.5" lineColor="#666666"/>
+					<rightPen lineWidth="0.5" lineColor="#666666"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "peminjamSurat.pegawai.mycode" )]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="0" y="33" width="160" height="67" uuid="55dd5e02-fe61-4a87-a00d-18d39be1b1cb"/>
+				<box leftPadding="4">
+					<topPen lineWidth="0.5" lineColor="#666666"/>
+					<leftPen lineWidth="0.5" lineColor="#666666"/>
+					<bottomPen lineWidth="0.5" lineColor="#666666"/>
+					<rightPen lineWidth="0.5" lineColor="#666666"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="8" isBold="false"/>
+				</textElement>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="160" y="33" width="160" height="67" uuid="283b1d1e-f78c-46cc-90bf-d2665640bc55"/>
+				<box leftPadding="4">
+					<topPen lineWidth="0.5" lineColor="#666666"/>
+					<leftPen lineWidth="0.5" lineColor="#666666"/>
+					<bottomPen lineWidth="0.5" lineColor="#666666"/>
+					<rightPen lineWidth="0.5" lineColor="#666666"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Serif" size="8" isBold="false"/>
+				</textElement>
+			</textField>
+		</band>
+	</summary>
+</jasperReport>

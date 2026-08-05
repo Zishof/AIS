@@ -1,0 +1,2306 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE hibernate-configuration PUBLIC
+    "-//Hibernate/Hibernate Configuration DTD 3.0//EN"
+    "http://www.hibernate.org/dtd/hibernate-configuration-3.0.dtd">
+<hibernate-configuration>
+	<session-factory name="HibernateSessionFactory">
+
+		<!-- <property name="hibernate.connection.driver_class">com.mysql.jdbc.Driver</property> 
+			<property name="hibernate.connection.url">jdbc:mysql://localhost:3306/ais?autoReconnect=true&amp;useOldAliasMetadataBehavior=true</property> 
+			<property name="hibernate.connection.username">root</property> <property 
+			name="hibernate.connection.password">your_password</property> <property name="hibernate.dialect">org.hibernate.dialect.MySQLInnoDBDialect</property> -->
+		<!-- <property name="hibernate.connection.driver_class">org.postgresql.Driver</property> 
+			<property name="hibernate.connection.url">jdbc:postgresql://your_db_host:5432/ais</property> 
+			<property name="hibernate.connection.username">root</property> <property 
+			name="hibernate.connection.password">your_password</property> -->
+		<!--
+			CATATAN: property "hibernate.session_factory.interceptor" di bawah ini TIDAK
+			dikenal Hibernate 3.6 dan tidak pernah dibaca kode mana pun — interceptor
+			tidak aktif lewat property ini. Registrasi interceptor yang benar dilakukan
+			programatik di ais.database.hibernate.HibernateUtil (openSession dengan
+			AuditTimestampInterceptor.instance). Property dibiarkan sebagai dokumentasi.
+		-->
+		<property name="hibernate.session_factory.interceptor">ais.database.hibernate.AuditTimestampInterceptor</property>
+		<property name="hibernate.connection.driver_class">org.postgresql.Driver</property>
+		<property name="hibernate.connection.url">${url}</property>
+		<property name="hibernate.connection.username">${username}</property>
+		<property name="hibernate.connection.password">${password}</property>
+
+		<!-- <property name="connection.datasource">java:comp/env/jdbc/aisDB</property> -->
+		<property name="hibernate.dialect">org.hibernate.dialect.PostgreSQLDialect</property>
+
+		<property name="hibernate.format_sql">false</property>
+		<property name="hibernate.show_sql">false</property>
+		<!--
+			hbm2ddl.auto=update : Hibernate otomatis MENAMBAH tabel/kolom yang belum ada
+			(mis. kolom baru tbmrole.tampilkan_gaji) saat startup. Mode "update" TIDAK pernah
+			menghapus kolom/tabel/data — hanya menambah/menyelaraskan. Kembalikan ke "none"
+			bila ingin mengelola skema sepenuhnya manual.
+			CATATAN ENVERS: Envers aktif (default_schema=new_audit). Schema new_audit sudah
+			dibuat manual di DB dan dipakai semua entitas @Audited lain.
+			PENTING: hbm2ddl=update menambah kolom baru ke tabel utama di "public", TETAPI
+			TIDAK selalu menambah kolom yang sama ke tabel audit di schema lain (new_audit).
+			Akibatnya, saat kolom baru ditambah ke entitas @Audited (mis. Tbmrole:
+			tampilkan_gaji, dasbor_repository, dll), tabel new_audit.<tabel>__audit jadi
+			ketinggalan kolom → INSERT audit gagal → flush rollback → data tidak tersimpan.
+			Bila menambah kolom ke entitas @Audited, sinkronkan juga tabel *__audit di new_audit
+			(ALTER TABLE ... ADD COLUMN, atau DROP tabel audit-nya agar dibuat ulang saat startup).
+			Disarankan backup database sebelum start pertama dengan mode "update".
+		-->
+		<property name="hbm2ddl.auto">update</property>
+		<!-- PERCEPAT STARTUP: dialect sudah eksplisit (PostgreSQLDialect) di atas, jadi Hibernate
+		     TIDAK perlu membuka koneksi untuk membaca metadata JDBC saat membangun SessionFactory.
+		     Mematikan round-trip metadata ini memangkas waktu inisialisasi (fitur DB diambil dari
+		     dialect). Kembalikan ke "true" hanya bila ada masalah tipe/keyword yang spesifik DB. -->
+		<property name="hibernate.temp.use_jdbc_metadata_defaults">false</property>
+		<property name="hibernate.connection.autocommit">false</property>
+		<property name="connection.pool_size">80</property>
+		<property name="current_session_context_class">thread</property>
+		<!-- <property name="hibernate.cache.provider_class">org.hibernate.cache.OSCacheProvider</property> -->
+		<!-- CATATAN KOMPATIBILITAS: hibernate.use_identifier_rollback tetap dipertahankan true agar tidak mengubah perilaku kode lama. -->
+		<property name="hibernate.use_identifier_rollback">true</property>
+		<property name="hibernate.transaction.auto_close_session">false</property>
+		<property name="hibernate.max_fetch_depth">0</property>
+
+		<!-- OPTIMASI PERFORMA AIS - AMAN UNTUK HIBERNATE LAMA / POSTGRESQL -->
+		<!-- Pool bawaan Hibernate jangan terlalu besar. Untuk production lebih baik pindah ke JNDI DataSource/Tomcat Pool. -->
+		<!-- connection.pool_size sudah diturunkan dari 1000 menjadi 80. -->
+
+		<!-- Kurangi kedalaman fetch agar Hibernate tidak menarik object graph terlalu besar. -->
+		<!-- hibernate.max_fetch_depth sudah diturunkan dari 50 menjadi 2. -->
+
+		<!-- Batch/fetch tuning untuk mengurangi round-trip DB dan membantu list relasi kecil-menengah. -->
+		<property name="hibernate.default_batch_fetch_size">32</property>
+		<property name="hibernate.jdbc.batch_size">30</property>
+		<property name="hibernate.jdbc.fetch_size">100</property>
+		<property name="hibernate.order_inserts">true</property>
+		<property name="hibernate.order_updates">true</property>
+		<!-- Izinkan batching UPDATE untuk entity ber-@Version (pgjdbc mengembalikan update-count yang
+		     benar), melengkapi order_updates + jdbc.batch_size di atas. -->
+		<property name="hibernate.jdbc.batch_versioned_data">true</property>
+
+		<!-- ============================================================
+		     CONNECTION POOL c3p0 (Hibernate 3.6 C3P0ConnectionProvider, sudah ada di
+		     hibernate3.jar). Adanya hibernate.c3p0.max_size membuat Hibernate memakai
+		     c3p0, MENGGANTI pool bawaan (connection.pool_size di atas diabaikan).
+		     Tujuan: REBUT KEMBALI koneksi yang bocor (session tak ter-close) + CETAK
+		     stack trace pembocornya, agar tidak ada lagi sesi "idle in transaction"
+		     yang menahan row lock berjam-jam. c3p0 tetap memakai connection.url=${url}
+		     di atas (kompatibel dgn pengisian dinamis AppStartupListener) -> DB sama.
+
+		     WAJIB tambahkan jar ke WEB-INF/lib: c3p0-0.9.1.2.jar
+		     (alternatif: c3p0-0.9.2.1.jar + mchange-commons-java-0.2.3.4.jar).
+		     Tanpa jar ini startup GAGAL (ClassNotFound C3P0ConnectionProvider deps).
+		     ============================================================ -->
+		<property name="hibernate.c3p0.min_size">10</property>
+		<property name="hibernate.c3p0.max_size">80</property>
+		<property name="hibernate.c3p0.acquire_increment">5</property>
+		<property name="hibernate.c3p0.timeout">300</property>
+		<!-- max_statements=0 → STATEMENT CACHE c3p0 DIMATIKAN.
+		     Sejarah: r75387 pernah men-nol-kan; insiden 10-07 mengembalikannya ke 50 karena mengira
+		     statement cache bukan penyebab pool-exhaustion (itu BENAR — statement cache != pemegangan
+		     koneksi, jadi menonaktifkannya TIDAK menyebabkan pool-exhaustion). NAMUN kini ada BUKTI
+		     produksi bahwa statement cache c3p0 punya BUG SENDIRI yang menggagalkan query:
+		       "Inconsistency!!! Statement culled from deathmarch failed to be removed by removeStatement"
+		       (com.mchange.v2.c3p0.stmt.GooGooStatementCache$Deathmarch.cullNext) — race condition c3p0,
+		     dan "This connection has been closed" dari GooGooStatementCache$1StmtAcquireTask (async prep).
+		     Kedua bug HANYA aktif saat cache statement hidup (max_statements>0). Set 0 → jalur
+		     GooGooStatementCache tidak dipakai sama sekali → bug hilang. Dampak performa minim: driver
+		     PostgreSQL punya server-side prepared statement sendiri. WAJIB restart agar berlaku. -->
+		<property name="hibernate.c3p0.max_statements">0</property>
+		<property name="hibernate.c3p0.idle_test_period">60</property>
+		<property name="hibernate.c3p0.preferredTestQuery">SELECT 1</property>
+		<property name="hibernate.c3p0.testConnectionOnCheckin">true</property>
+		<!-- REBUT koneksi ter-checkout > 30 menit (kebocoran nyata 6-10 JAM pasti
+		     terjaring; operasi sah < 30 mnt aman). Jaring pengaman TETAP menyala. -->
+		<property name="hibernate.c3p0.unreturnedConnectionTimeout">1800</property>
+		<!-- DINYALAKAN SEMENTARA (insiden pool-exhaustion 10-07) untuk MENANGKAP kode pembocor:
+		     saat unreturnedConnectionTimeout (1800 dtk) merebut koneksi yang tertahan, c3p0 akan
+		     MENCETAK stack trace tempat koneksi itu di-checkout ke log -> langsung ketahuan apakah
+		     ada leak & di kelas/baris mana (di antara ~377 lokasi openSession + perubahan terbaru).
+		     Ada overhead capture stack per-checkout; MATIKAN LAGI (false) setelah diagnosa selesai.
+		     Tip: untuk hasil lebih cepat, bisa turunkan unreturnedConnectionTimeout sementara (mis. 600). -->
+		<property name="hibernate.c3p0.debugUnreturnedConnectionStackTraces">true</property>
+
+		<!-- ============================================================
+		     KETAHANAN SAAT DATABASE TURUN / NGADAT SESAAT
+		     Insiden 21-06: c3p0 "A ResourcePool cannot acquire a new resource,
+		     the factory or source appears to be down" + "APPARENT DEADLOCK"
+		     + NullPointerException saat acquire. Itu artinya DATABASE TIDAK
+		     TERJANGKAU (down/restart/penuh) — bukan bug kode. Tanpa setelan di
+		     bawah, dampaknya parah & berlarut: thread request MENGGANTUNG selamanya
+		     menunggu koneksi, dan helper-thread c3p0 macet (deadlock). Setelan ini
+		     membuat aplikasi GAGAL-CEPAT lalu PULIH SENDIRI begitu DB kembali.
+		     (Semua di-pass-through ke c3p0 lewat prefix hibernate.c3p0.*) -->
+
+		<!-- Maks tunggu mengambil koneksi dari pool (ms). Bila pool tak bisa memberi
+		     koneksi dalam waktu ini, checkout GAGAL (lempar) — TIDAK menggantung tak
+		     terbatas seperti default 0. Ini hanya batas TUNGGU pool, BUKAN durasi query
+		     (query panjang/laporan tetap aman). -->
+		<property name="hibernate.c3p0.checkoutTimeout">30000</property>
+
+		<!-- Interupsi tugas administratif c3p0 (mis. acquire koneksi) yang menggantung
+		     lebih lama dari ini (detik) → membebaskan helper-thread dan MEMULIHKAN dari
+		     "APPARENT DEADLOCK". Nilai longgar agar tak mengganggu operasi normal. -->
+		<property name="hibernate.c3p0.maxAdministrativeTaskTime">120</property>
+
+		<!-- Jumlah helper-thread c3p0 (default 3 — pada insiden ketiganya macet).
+		     Lebih banyak thread = pemrosesan tugas pool lebih lancar. -->
+		<property name="hibernate.c3p0.numHelperThreads">6</property>
+
+		<!-- Saat DB down: coba acquire 5x jeda 2 dtk lalu menyerah untuk permintaan itu
+		     (bukan 30x). breakAfterAcquireFailures DIBIARKAN false (default) → pool TIDAK
+		     rusak permanen; otomatis mencoba lagi saat DB kembali. -->
+		<property name="hibernate.c3p0.acquireRetryAttempts">5</property>
+		<property name="hibernate.c3p0.acquireRetryDelay">2000</property>
+
+		<property name="org.hibernate.envers.store_data_at_delete">true</property>
+		<property name="org.hibernate.envers.audit_table_suffix">__audit</property>
+		<property name="org.hibernate.envers.default_schema">new_audit</property>
+
+
+		<!-- Connection auto reconnect after long inactivity -->
+		<!-- CATATAN: autoReconnect berikut adalah properti legacy/driver lama. Untuk PostgreSQL lebih ideal memakai JNDI DataSource + validationQuery SELECT 1. -->
+		<property name="connection.autoReconnect">true</property>
+		<property name="connection.autoReconnectForPools">true</property>
+		<property name="connection.is-connection-validation-required">true</property>
+
+
+		<!-- Hibernate L2 cache via EhCache (ehcache-core-2.6.11.jar + hibernate-ehcache-3.6.10.Final.jar tersedia) -->
+		<property name="hibernate.cache.region.factory_class">net.sf.ehcache.hibernate.SingletonEhCacheRegionFactory</property>
+		<property name="hibernate.cache.use_second_level_cache">true</property>
+		<!-- Query cache DIMATIKAN (22-06-2026): pada sistem write-heavy ini, setiap COMMIT
+		     memanggil org.hibernate.cache.UpdateTimestampsCache.invalidate() yang merebut
+		     SATU write-lock global (ReentrantReadWriteLock). Snapshot performa menunjukkan
+		     2-12 thread antri di lock ini (dashboard e-Learning + BacaTulis delete + Kalender
+		     Akademik commit). Mematikan query cache menghilangkan kontensi tsb; L2 entity
+		     cache tetap aktif. Set ke true lagi bila ingin query cache (siapkan mitigasi commit). -->
+		<property name="hibernate.cache.use_query_cache">false</property>
+		<property name="net.sf.ehcache.configurationResourceName">/myehcache.xml</property>
+
+		<!-- <property name="hibernate.cache.provider_class">org.hibernate.cache.OSCacheProvider</property>
+			<property name="hibernate.cache.use_second_level_cache">true</property> -->
+
+
+
+
+
+
+
+
+		<mapping class="ais.database.model.repository.RepoCollection" />
+		<mapping class="ais.database.model.repository.RepoItem" />
+		<mapping class="ais.database.model.repository.RepoItemMetadata" />
+		<mapping class="ais.database.model.ticket.TicketKategori" />
+		<mapping class="ais.database.model.ticket.Ticket" />
+		<mapping class="ais.database.model.ticket.TicketKomentar" />
+		<mapping class="ais.database.model.repository.RepoBitstream" />
+
+
+
+		<mapping class="ais.database.model.spmi.ButirMutuSPMI" />
+		<mapping class="ais.database.model.spmi.HasilTemuanSPMI" />
+		<mapping class="ais.database.model.spmi.TindakLanjutTemuanSPMI" />
+		<mapping class="ais.database.model.spmi.IndikatorSPMI" />
+		<mapping class="ais.database.model.spmi.SkenarioSPMI" />
+		<mapping class="ais.database.model.spmi.StandarSPMI" />
+		<mapping class="ais.database.model.spmi.HasilSPMI" />
+		<mapping class="ais.database.model.spmi.JenisSPMI" />
+
+		<!-- Modul Satuan Pengawasan Internal (SPI) — Bagian A: data master checklist audit -->
+		<mapping class="ais.database.model.spi.JenisAuditSPI" />
+		<mapping class="ais.database.model.spi.KriteriaAuditSPI" />
+		<mapping class="ais.database.model.spi.ChecklistAuditSPI" />
+		<!-- Modul Satuan Pengawasan Internal (SPI) — Bagian B: perencanaan berbasis risiko -->
+		<mapping class="ais.database.model.spi.ProfilRisikoSPI" />
+		<mapping class="ais.database.model.spi.RencanaAuditTahunanSPI" />
+		<!-- Modul Satuan Pengawasan Internal (SPI) — Bagian C: pelaksanaan audit -->
+		<mapping class="ais.database.model.spi.PenugasanAuditSPI" />
+		<mapping class="ais.database.model.spi.TimAuditSPI" />
+		<mapping class="ais.database.model.spi.TemuanAuditSPI" />
+		<mapping class="ais.database.model.spi.TindakLanjutAuditSPI" />
+
+		<mapping class="ais.database.model.obe.ProfilLulusan" />
+		<mapping class="ais.database.model.obe.ProfesiLulusan" />
+		<mapping class="ais.database.model.obe.CapaianLulusan" />
+		<mapping class="ais.database.model.obe.ReferensiLulusan" />
+		<mapping class="ais.database.model.obe.BahanKajian" />
+		<mapping class="ais.database.model.obe.CapaianPembelajaranLulusan" />
+		<mapping class="ais.database.model.obe.IndikatorKinerja" />
+		
+
+
+		<!-- <mapping class="ais.database.model.temp.DetailperkuliahanTemp" /> 
+			<mapping class="ais.database.model.temp.NilaiTemp" /> -->
+		<mapping class="ais.database.model.temp.AisFlagsData" />
+		<mapping
+			class="ais.database.model.kursus.KomponenProdukKursus" />
+		<mapping
+			class="ais.database.model.kursus.TingkatKelasProdukKursus" />
+		<mapping class="ais.database.model.kursus.ProdukKursus" />
+		<mapping
+			class="ais.database.model.kursus.KomponenDataProdukKursus" />
+		<mapping class="ais.database.model.kursus.PesertaKursus" />
+		<mapping class="ais.database.model.kursus.ProdukPeserta" />
+		<mapping class="ais.database.model.kursus.JenisPeserta" />
+		<mapping
+			class="ais.database.model.kursus.JenisIdentitasPeserta" />
+		<mapping class="ais.database.model.kursus.TipePeserta" />
+		<mapping
+			class="ais.database.model.kursus.KategoriProdukKursus" />
+		<mapping class="ais.database.model.kursus.BeritaKursus" />
+		<mapping
+			class="ais.database.model.kursus.PesertaPunyaProdukKursus" />
+		<mapping
+			class="ais.database.model.kursus.PesertaInginProdukKursus" />
+		<mapping class="ais.database.model.kursus.SeksiKursus" />
+		<mapping class="ais.database.model.kursus.MateriKursus" />
+		<mapping
+			class="ais.database.model.kursus.ProgressMateriKursus" />
+		<mapping class="ais.database.model.kursus.UlasanKursus" />
+		<mapping class="ais.database.model.kursus.KuponKursus" />
+		<mapping
+			class="ais.database.model.kursus.PengumpulanTugasKursus" />
+		<mapping class="ais.database.model.kursus.PercobaanKuisKursus" />
+		<mapping
+			class="ais.database.model.kursus.JawabanPercobaanKuisKursus" />
+		<mapping class="ais.database.model.kursus.SertifikatKursus" />
+
+		<mapping
+			class="ais.database.model.recruitment.JadwalUjianPegawai" />
+		<mapping
+			class="ais.database.model.recruitment.CalonPegawaiPunyaVerifikasiBerkas" />
+		<mapping
+			class="ais.database.model.recruitment.RuangGelombangPendaftaranPegawaiPegawai" />
+		<mapping class="ais.database.model.recruitment.RuangPegawai" />
+		<mapping class="ais.database.model.recruitment.UjianPegawai" />
+		<mapping
+			class="ais.database.model.recruitment.VerifikasiKelengkapanCalonPegawai" />
+		<mapping
+			class="ais.database.model.recruitment.ParameterVerifikasiCalonPegawai" />
+		<mapping
+			class="ais.database.model.recruitment.KelompokPendaftaranPegawai" />
+		<mapping
+			class="ais.database.model.recruitment.KelompokParameterTambahanCalonPegawai" />
+		<mapping
+			class="ais.database.model.recruitment.GelombangPendaftaranPegawaiPunyaParameterVerifikasiCalonPegawai" />
+		<mapping
+			class="ais.database.model.recruitment.GelombangPendaftaranPegawai" />
+		<mapping
+			class="ais.database.model.recruitment.KelompokParameterTambahanCalonPegawai" />
+		<mapping class="ais.database.model.recruitment.CalonPegawai" />
+		<mapping
+			class="ais.database.model.recruitment.CalonPegawaiPunyaDokumen" />
+		<mapping class="ais.database.model.sisdes.Penduduk" />
+
+
+		<mapping class="ais.database.model.kpi.NilaiDefaultKpi" />
+		<mapping class="ais.database.model.kpi.MasaKpi" />
+		<mapping class="ais.database.model.kpi.PengajuanKpi" />
+		<mapping class="ais.database.model.kpi.SkorKpi" />
+		<mapping class="ais.database.model.kpi.KategoriKpi" />
+		<mapping class="ais.database.model.kpi.SatuanKpi" />
+		<mapping class="ais.database.model.kpi.Kpi" />
+		<mapping class="ais.database.model.kpi.FormatKpi" />
+		<mapping class="ais.database.model.kpi.FormatKpiDetail" />
+		<mapping class="ais.database.model.kpi.ItemKpi" />
+		<mapping class="ais.database.model.kpi.PenilaianKpi" />
+		<mapping class="ais.database.model.kpi.NilaiKpi" />
+
+		<mapping class="ais.database.model.sop.AktorSop" />
+		<mapping class="ais.database.model.sop.KomentarDisposisi" />
+		<mapping class="ais.database.model.sop.DisposisiAlurSop" />
+		<mapping class="ais.database.model.sop.DisposisiSop" />
+		<mapping class="ais.database.model.sop.JenisSop" />
+		<mapping class="ais.database.model.sop.Sop" />
+		<mapping class="ais.database.model.sop.AlurSop" />
+		<mapping class="ais.database.model.sop.DokumenAlurSop" />
+		<mapping class="ais.database.model.sop.PembatasanAlurSop" />
+		<mapping
+			class="ais.database.model.sop.KelompokParameterTambahanAlurSop" />
+		<mapping
+			class="ais.database.model.sop.ParameterTambahanAlurSop" />
+
+
+		<mapping
+			class="ais.database.model.lkp.KegiatanTugasJabatanPunyaIndikator" />
+		<mapping
+			class="ais.database.model.lkp.KegiatanTugasJabatanPunyaPredecessor" />
+		<mapping
+			class="ais.database.model.lkp.KegiatanTugasJabatanPunyaSasaran" />
+		<mapping class="ais.database.model.lkp.KegiatanTugasJabatan" />
+		<mapping
+			class="ais.database.model.lkp.SatuanKegiatanTugasJabatan" />
+		<mapping class="ais.database.model.lkp.TargetKerjaPegawai" />
+		<mapping class="ais.database.model.lkp.RealisasiKerjaPegawai" />
+		<mapping
+			class="ais.database.model.lkp.KelompokParameterTambahanKegiatan" />
+		<mapping
+			class="ais.database.model.lkp.ParameterTambahanKegiatan" />
+
+
+		<mapping class="ais.database.model.kkn.KomponenPenilaianKkn" />
+		<mapping
+			class="ais.database.model.kkn.KknPunyaKomponenPenilaianKkn" />
+		<mapping class="ais.database.model.pkl.KomponenPenilaianPkl" />
+		<mapping
+			class="ais.database.model.pkl.PklPunyaKomponenPenilaianPkl" />
+
+		<mapping
+			class="ais.database.model.sapto.PrasaranaPerguruanTinggiSapto" />
+		<mapping
+			class="ais.database.model.sapto.LahanPerguruanTinggiSapto" />
+		<mapping
+			class="ais.database.model.sapto.JenisDanaPenerimaanSapto" />
+		<mapping class="ais.database.model.sapto.DanaPenerimaanSapto" />
+		<mapping
+			class="ais.database.model.sapto.JenisDanaPenggunaanSapto" />
+		<mapping class="ais.database.model.sapto.DanaPenggunaanSapto" />
+		<mapping
+			class="ais.database.model.sapto.InvestasiPrasaranaPerguruanTinggiSapto" />
+
+
+		<mapping class="ais.database.model.JenisNilaiHurufMatakuliah" />
+		<mapping class="ais.database.model.GrupFormulirKegiatan" />
+		<mapping class="ais.database.model.Va" />
+		<mapping class="ais.database.model.DynamicReport" />
+		<mapping class="ais.database.model.WaProfile" />
+		<mapping class="ais.database.model.Pendaftar" />
+		<mapping class="ais.database.model.Brand" />
+		<mapping class="ais.database.model.Investor" />
+		<mapping class="ais.database.model.AkunManajemen" />
+		<mapping class="ais.database.model.KategoriPrestasiPegawai" />
+		<mapping class="ais.database.model.CabangPrestasiPegawai" />
+		<mapping class="ais.database.model.PrestasiPegawai" />
+		<mapping class="ais.database.model.SatuanKerjaPegawai" />
+		<mapping class="ais.database.model.JenisFormulirKegiatan" />
+		<mapping class="ais.database.model.JenisPengaduan" />
+		<mapping class="ais.database.model.Pengaduan" />
+		<mapping
+			class="ais.database.model.KelompokParameterTambahanPengaduan" />
+		<mapping class="ais.database.model.ParameterTambahanPengaduan" />
+		<mapping
+			class="ais.database.model.KelompokParameterTambahanPengajuan" />
+		<mapping class="ais.database.model.ParameterTambahanPengajuan" />
+		<mapping
+			class="ais.database.model.JenisKelompokStatusMahasiswa" />
+		<mapping class="ais.database.model.KelompokStatusMahasiswa" />
+		<mapping class="ais.database.model.AbsenPiketMahasiswa" />
+		<mapping class="ais.database.model.PelanggaranMahasiswa" />
+		<mapping class="ais.database.model.DataSister" />
+		<mapping class="ais.database.model.sister.BkdAjarSister" />
+		<mapping class="ais.database.model.sister.BkdLaporanAkhirBkdSister" />
+		<mapping class="ais.database.model.sister.BkdPendidikanSister" />
+		<mapping class="ais.database.model.sister.BkdPenelitianSister" />
+		<mapping class="ais.database.model.sister.BkdPengmasSister" />
+		<mapping class="ais.database.model.sister.BkdTunjangSister" />
+		<mapping class="ais.database.model.sister.DpAlamatSister" />
+		<mapping class="ais.database.model.sister.DpBidangIlmuSister" />
+		<mapping class="ais.database.model.sister.DpKeluargaSister" />
+		<mapping class="ais.database.model.sister.DpKepegawaianSister" />
+		<mapping class="ais.database.model.sister.DpKependudukanSister" />
+		<mapping class="ais.database.model.sister.DpLainSister" />
+		<mapping class="ais.database.model.sister.DpProfilSister" />
+		<mapping class="ais.database.model.sister.LembagaSertifikasiSister" />
+		<mapping class="ais.database.model.sister.RefAgamaSister" />
+		<mapping class="ais.database.model.sister.RefBidangStudiSister" />
+		<mapping class="ais.database.model.sister.RefBidangUsahaSister" />
+		<mapping class="ais.database.model.sister.RefDudiSister" />
+		<mapping class="ais.database.model.sister.RefGelarAkademikSister" />
+		<mapping class="ais.database.model.sister.RefGolonganPangkatSister" />
+		<mapping class="ais.database.model.sister.RefIkatanKerjaSister" />
+		<mapping class="ais.database.model.sister.RefJabatanFungsionalSister" />
+		<mapping class="ais.database.model.sister.RefJabatanNegaraSister" />
+		<mapping class="ais.database.model.sister.RefJabatanTugasTambahanSister" />
+		<mapping class="ais.database.model.sister.RefJenisBahanAjarSister" />
+		<mapping class="ais.database.model.sister.RefJenisBeasiswaSister" />
+		<mapping class="ais.database.model.sister.RefJenisDiklatSister" />
+		<mapping class="ais.database.model.sister.RefJenisDokumenSister" />
+		<mapping class="ais.database.model.sister.RefJenisKeluarSister" />
+		<mapping class="ais.database.model.sister.RefJenisKepanitiaanSister" />
+		<mapping class="ais.database.model.sister.RefJenisKesejahteraanSister" />
+		<mapping class="ais.database.model.sister.RefJenisPekerjaanSister" />
+		<mapping class="ais.database.model.sister.RefJenisPenghargaanSister" />
+		<mapping class="ais.database.model.sister.RefJenisPublikasiSister" />
+		<mapping class="ais.database.model.sister.RefJenisTesSister" />
+		<mapping class="ais.database.model.sister.RefJenisTunjanganSister" />
+		<mapping class="ais.database.model.sister.RefJenjangPendidikanSister" />
+		<mapping class="ais.database.model.sister.RefKategoriCapaianLuaranSister" />
+		<mapping class="ais.database.model.sister.RefKelompokBidangSister" />
+		<mapping class="ais.database.model.sister.RefMahasiswaPddiktiSister" />
+		<mapping class="ais.database.model.sister.RefMediaPublikasiSister" />
+		<mapping class="ais.database.model.sister.RefNegaraSister" />
+		<mapping class="ais.database.model.sister.RefPerguruanTinggiSister" />
+		<mapping class="ais.database.model.sister.RefProfilPtSister" />
+		<mapping class="ais.database.model.sister.RefSdmSister" />
+		<mapping class="ais.database.model.sister.RefSemesterSister" />
+		<mapping class="ais.database.model.sister.RefSkimKegiatanSister" />
+		<mapping class="ais.database.model.sister.RefStatusKepegawaianSister" />
+		<mapping class="ais.database.model.sister.RefSumberGajiSister" />
+		<mapping class="ais.database.model.sister.RefTingkatPenghargaanSister" />
+		<mapping class="ais.database.model.sister.RefUnitKerjaSister" />
+		<mapping class="ais.database.model.sister.RefWilayahSister" />
+		<mapping class="ais.database.model.sister.SertifikasiDosenSister" />
+		<mapping class="ais.database.model.sister.SertifikasiGuruSister" />
+		<mapping class="ais.database.model.sister.TridAnggotaProfesiSister" />
+		<mapping class="ais.database.model.sister.TridBahanAjarSister" />
+		<mapping class="ais.database.model.sister.TridBeasiswaSister" />
+		<mapping class="ais.database.model.sister.TridBimbingDosenSister" />
+		<mapping class="ais.database.model.sister.TridBimbinganMahasiswaSister" />
+		<mapping class="ais.database.model.sister.TridDetaseringSister" />
+		<mapping class="ais.database.model.sister.TridDiklatSister" />
+		<mapping class="ais.database.model.sister.TridDokumenSister" />
+		<mapping class="ais.database.model.sister.TridInpassingSister" />
+		<mapping class="ais.database.model.sister.TridJabatanFungsionalSister" />
+		<mapping class="ais.database.model.sister.TridJabatanStrukturalSister" />
+		<mapping class="ais.database.model.sister.TridKekayaanIntelektualSister" />
+		<mapping class="ais.database.model.sister.TridKepangkatanSister" />
+		<mapping class="ais.database.model.sister.TridKesejahteraanSister" />
+		<mapping class="ais.database.model.sister.TridKolaboratorEksternalSister" />
+		<mapping class="ais.database.model.sister.TridNilaiTesSister" />
+		<mapping class="ais.database.model.sister.TridOrasiIlmiahSister" />
+		<mapping class="ais.database.model.sister.TridPembicaraSister" />
+		<mapping class="ais.database.model.sister.TridPendidikanFormalSister" />
+		<mapping class="ais.database.model.sister.TridPenelitianSister" />
+		<mapping class="ais.database.model.sister.TridPengabdianSister" />
+		<mapping class="ais.database.model.sister.TridPengajaranSister" />
+		<mapping class="ais.database.model.sister.TridPengelolaJurnalSister" />
+		<mapping class="ais.database.model.sister.TridPenghargaanSister" />
+		<mapping class="ais.database.model.sister.TridPengujianMahasiswaSister" />
+		<mapping class="ais.database.model.sister.TridPenugasanSister" />
+		<mapping class="ais.database.model.sister.TridPenunjangLainSister" />
+		<mapping class="ais.database.model.sister.TridPublikasiSister" />
+		<mapping class="ais.database.model.sister.TridRiwayatPekerjaanSister" />
+		<mapping class="ais.database.model.sister.TridSertifikasiProfesiSister" />
+		<mapping class="ais.database.model.sister.TridTugasTambahanSister" />
+		<mapping class="ais.database.model.sister.TridTunjanganSister" />
+		<mapping class="ais.database.model.sister.TridVisitingScientistSister" />
+		<mapping class="ais.database.model.PendukungReport" />
+		<mapping class="ais.database.model.SubReport" />
+		<mapping class="ais.database.model.JenisCatatanPegawai" />
+		<mapping class="ais.database.model.JenisKegiatanMahasiswa" />
+		
+		<mapping
+			class="ais.database.model.KelompokParameterTambahanCatatanPegawai" />
+		<mapping
+			class="ais.database.model.ParameterTambahanCatatanPegawai" />
+		<mapping class="ais.database.model.CatatanPegawai" />
+		<mapping class="ais.database.model.PenjelasanBankSoal" />
+		<mapping class="ais.database.model.KehadiranDosenBulanan" />
+		<mapping class="ais.database.model.KehadiranPegawaiBulanan" />
+		<mapping class="ais.database.model.KategoriBankSoal" />
+		<mapping class="ais.database.model.Notifikasi" />
+		<mapping class="ais.database.model.NotifikasiDibaca" />
+		<mapping class="ais.database.model.NotifikasiWa" />
+
+		<mapping class="ais.database.model.TanyaJawab" />
+		<mapping class="ais.database.model.OrangTua" />
+		<mapping class="ais.database.model.PengajuanPegawai" />
+		<mapping class="ais.database.model.JenisPengajuanPegawai" />
+		<mapping
+			class="ais.database.model.ParameterTambahanPengajuanPegawai" />
+		<mapping
+			class="ais.database.model.KelompokParameterTambahanPengajuanPegawai" />
+		<mapping class="ais.database.model.GrupKuesionerUmum" />
+		<mapping class="ais.database.model.JenisDiskonMahasiswa" />
+		<mapping class="ais.database.model.DiskonMahasiswa" />
+		<mapping class="ais.database.model.CatatanAdministrasi" />
+		<mapping class="ais.database.model.JenisCatatanAdministrasi" />
+		<mapping
+			class="ais.database.model.KelompokParameterTambahanCatatanAdministrasi" />
+		<mapping
+			class="ais.database.model.ParameterTambahanCatatanAdministrasi" />
+		<mapping class="ais.database.model.GolonganPns" />
+		<mapping class="ais.database.model.JadwalKegiatanKampus" />
+		<mapping class="ais.database.model.CekPsikotest" />
+		<mapping
+			class="ais.database.model.KelompokParameterTambahanPertemuan" />
+		<mapping class="ais.database.model.ParameterTambahanPertemuan" />
+		<mapping class="ais.database.model.GrupKuosionerUmumDetail" />
+		<mapping class="ais.database.model.AfiliasiCalonMahasiswa" />
+		<mapping
+			class="ais.database.model.KelompokStatusKeluarMahasiswa" />
+		<mapping class="ais.database.model.KelompokMahasiswa" />
+		<mapping class="ais.database.model.JenisTabungan" />
+		<mapping class="ais.database.model.Konstanta" />
+		<mapping class="ais.database.model.MemoryInfo" />
+		<mapping class="ais.database.model.BlokirMahasiswa" />
+		<mapping class="ais.database.model.ItemBiayaPunyaPiutang" />
+		<mapping class="ais.database.model.ItemBiayaPunyaDiskon" />
+		<mapping
+			class="ais.database.model.ItemBiayaPunyaDibayarDimuka" />
+		<mapping
+			class="ais.database.model.ItemBiayaPunyaPendapatanDenda" />
+		<mapping class="ais.database.model.CustomerService" />
+		<mapping class="ais.database.model.JenisAktfitasMahasiswa" />
+		<mapping class="ais.database.model.PerguruanTinggiLain" />
+		<mapping class="ais.database.model.OperatorSeluler" />
+		<mapping class="ais.database.model.BlacklistIp" />
+		<mapping class="ais.database.model.RestartLog" />
+		<mapping class="ais.database.model.TextBerjalan" />
+		<mapping class="ais.database.model.CutiBersama" />
+		<mapping class="ais.database.model.PengajuanMahasiswa" />
+		<mapping class="ais.database.model.JenisPengajuan" />
+		<mapping class="ais.database.model.DokumenAkreditasi" />
+		<mapping class="ais.database.model.IsiAngketParameterUmum" />
+		<mapping class="ais.database.model.InterviewCalonMahasiswa" />
+		<mapping
+			class="ais.database.model.InterviewPunyaCalonMahasiswa" />
+
+
+		<mapping class="ais.database.model.RekapUjianDosenBulanan" />
+		<mapping class="ais.database.model.KelompokJenisSeleksi" />
+
+		<mapping
+			class="ais.database.model.ParameterTambahanAngketUmum" />
+		<mapping class="ais.database.model.ScholarAuthor" />
+		<mapping class="ais.database.model.ScholarArticle" />
+		<mapping class="ais.database.model.SintaArticle" />
+		<mapping class="ais.database.model.TemplateFormatBimbingan" />
+		<mapping class="ais.database.model.GCalendarCode" />
+		<mapping class="ais.database.model.GDriveCode" />
+		<mapping class="ais.database.model.GDriveCredential" />
+		<mapping class="ais.database.model.SharepointCode" />
+		<mapping class="ais.database.model.TugasPertemuan" />
+		<mapping class="ais.database.model.SyaratUjian" />
+		<mapping class="ais.database.model.RekapAngketUntukDosen" />
+		<mapping class="ais.database.model.Akreditasi" />
+		<mapping class="ais.database.model.PenghargaanMahasiswa" />
+		<mapping class="ais.database.model.JenisCapaianJurusan" />
+		<mapping class="ais.database.model.JenisKegiatanPrasyarat" />
+		<mapping class="ais.database.model.JenisToefl" />
+		<mapping class="ais.database.model.ErrorLog" />
+		<mapping class="ais.database.model.PerformaLog" />
+		<mapping class="ais.database.model.UploadLogInfo" />
+		<mapping
+			class="ais.database.model.GelombangPendaftaranSidangTugasAkhir" />
+		<mapping class="ais.database.model.RangkingIpd" />
+		<mapping class="ais.database.model.StatusSetelahLulus" />
+		<mapping
+			class="ais.database.model.StatusPekerjaanSetelahLulus" />
+		<mapping class="ais.database.model.StatusDomisiliSetelahLulus" />
+		<mapping class="ais.database.model.KategoriPengumuman" />
+		<mapping class="ais.database.model.TahapanPenyusunanBuku" />
+		<mapping class="ais.database.model.ParameterUmum" />
+		<mapping class="ais.database.model.JenisKerjasama" />
+		<mapping class="ais.database.model.KerjasamaAntarInstansi" />
+		<mapping class="ais.database.model.KategoriPenghargaan" />
+		<mapping class="ais.database.model.PenghargaanDosen" />
+		<mapping class="ais.database.model.GaleriFoto" />
+		<mapping class="ais.database.model.JenisTenagaKependidikan" />
+		<mapping class="ais.database.model.LevelOrganisasiDosen" />
+		<mapping class="ais.database.model.TugasBelajarDosen" />
+		<mapping
+			class="ais.database.model.MengajarDiPerguruanTinggiLain" />
+		<mapping class="ais.database.model.JenisPembiayaanMahasiswa" />
+		<mapping class="ais.database.model.Deposit" />
+		<mapping class="ais.database.model.PengeluaranMahasiswa" />
+		<mapping class="ais.database.model.JenisPengeluaranMahasiswa" />
+		<mapping class="ais.database.model.NamaSekolahAsal" />
+		<mapping class="ais.database.model.GrupParameterTambahan" />
+		<mapping
+			class="ais.database.model.JenisLayananKepadaMahasiswa" />
+		<mapping
+			class="ais.database.model.PertemuanPunyaGrupPertemuan" />
+		<mapping class="ais.database.model.GrupPertemuan" />
+		<mapping
+			class="ais.database.model.ProposalSkripsiPunyaKomponenPenilaianProposalSkripsi" />
+		<mapping class="ais.database.model.FormatNilaiProposalSkripsi" />
+		<mapping
+			class="ais.database.model.KomponenPenilaianProposalSkripsi" />
+		<mapping class="ais.database.model.PengecualianKknMahasiswa" />
+
+		<mapping
+			class="ais.database.model.TahapanAtauCapaianPembelajaran" />
+		<mapping class="ais.database.model.RoleAccess" />
+		<mapping class="ais.database.model.UserRole" />
+		<mapping class="ais.database.model.MenuMobile" />
+		<mapping
+			class="ais.database.model.KurikulumPunyaMatakuliahPunyaItem" />
+		<mapping class="ais.database.model.PengecualianPklMahasiswa" />
+		<mapping class="ais.database.model.KomponenPenilaianSkripsi" />
+		<mapping
+			class="ais.database.model.SkripsiPunyaKomponenPenilaianSkripsi" />
+		<mapping class="ais.database.model.Berkas" />
+		<mapping class="ais.database.model.CabangPrestasiMahasiswa" />
+		<mapping class="ais.database.model.KategoriPrestasiMahasiswa" />
+		<mapping class="ais.database.model.RekapAngketDosen" />
+		<mapping class="ais.database.model.KegiatanTemporary" />
+		<mapping class="ais.database.model.LogPembayaran" />
+		<mapping class="ais.database.model.CatatanMahasiswa" />
+		<mapping class="ais.database.model.JenisCatatanMahasiswa" />
+		<mapping class="ais.database.model.KelompokParameterTambahanCatatanMahasiswa" />
+		<mapping class="ais.database.model.ParameterTambahanCatatanMahasiswa" />
+		<mapping class="ais.database.model.KelasPertemuan" />
+		<mapping class="ais.database.model.DetailKelasPertemuan" />
+		<mapping
+			class="ais.database.model.BiodataCalonMahasiswaPunyaVerifikasiParameter" />
+		<mapping
+			class="ais.database.model.PaketPunyaParameterVerifikasiCalonMahasiswa" />
+		<mapping
+			class="ais.database.model.ParameterVerifikasiCalonMahasiswa" />
+		<mapping
+			class="ais.database.model.BiodataCalonMahasiswaPunyaVerifikasiMatapelajaran" />
+		<mapping class="ais.database.model.PaketPunyaMatapelajaran" />
+		<mapping class="ais.database.model.MatapelajaranSekolah" />
+		<mapping
+			class="ais.database.model.BiodataCalonMahasiswaPunyaVerifikasiBerkas" />
+		<mapping
+			class="ais.database.model.VerifikasiKelengkapanCalonMahasiswa" />
+		<mapping class="ais.database.model.FasilitasRuangan" />
+		<mapping class="ais.database.model.CapaianJurusan" />
+		<mapping class="ais.database.model.PrestasiMahasiswa" />
+		<mapping class="ais.database.model.NilaiKegiatanKemahasiswaan" />
+		<mapping
+			class="ais.database.model.DetailKelompokKegiatanKemahasiswaan" />
+		<mapping
+			class="ais.database.model.JenisKelompokKegiatanKemahasiswaan" />
+		<mapping
+			class="ais.database.model.KelompokKegiatanKemahasiswaan" />
+		<mapping class="ais.database.model.SkalaKegiatanKemahasiswaan" />
+		<mapping
+			class="ais.database.model.JabatanKegiatanKemahasiswaan" />
+		<mapping class="ais.database.model.KegiatanKemahasiswaan" />
+		<mapping
+			class="ais.database.model.KegiatanKemahasiswaanPunyaMahasiswa" />
+
+		<mapping class="ais.database.model.CabangPrestasiDosen" />
+		<mapping class="ais.database.model.KategoriPrestasiDosen" />
+		<mapping class="ais.database.model.PrestasiDosen" />
+		<mapping
+			class="ais.database.model.DetailKelompokKegiatanKedosenan" />
+		<mapping
+			class="ais.database.model.JenisKelompokKegiatanKedosenan" />
+		<mapping class="ais.database.model.KelompokKegiatanKedosenan" />
+		<mapping class="ais.database.model.SkalaKegiatanKedosenan" />
+		<mapping class="ais.database.model.JabatanKegiatanKedosenan" />
+		<mapping class="ais.database.model.KegiatanKedosenan" />
+		<mapping
+			class="ais.database.model.KegiatanKedosenanPunyaDosen" />
+		<mapping class="ais.database.model.KunjunganTamu" />
+		<mapping class="ais.database.model.BuktiPembayaran" />
+		<mapping
+			class="ais.database.model.SubGrupChecklistPenilaianUmum" />
+		<mapping class="ais.database.model.Asrama" />
+		<mapping class="ais.database.model.AsramaPunyaMahasiswa" />
+		<mapping
+			class="ais.database.model.BerkasHasilAkreditasiPunyaNama" />
+		<mapping class="ais.database.model.BerkasHasilAkreditasi" />
+		<mapping class="ais.database.model.BackupLog" />
+		<mapping
+			class="ais.database.model.JabatanOrganisasiIntraKampus" />
+		<mapping class="ais.database.model.OrganisasiIntraKampus" />
+		<mapping
+			class="ais.database.model.OrganisasiIntraKampusPunyaMahasiswa" />
+
+		<mapping class="ais.database.model.JenisPeredaranBuku" />
+		<mapping class="ais.database.model.JabatanOrganisasiDosen" />
+		<mapping class="ais.database.model.OrganisasiDosen" />
+		<mapping class="ais.database.model.OrganisasiDosenPunyaDosen" />
+
+		<mapping class="ais.database.model.MahasiswaJadiAsisten" />
+		<mapping class="ais.database.model.ItemBiayaPunyaAkun" />
+		<mapping class="ais.database.model.DataPunyaArtikel" />
+		<mapping class="ais.database.model.DspaceLog" />
+		<mapping class="ais.database.model.DataPunyaBukuBahanAjar" />
+		<mapping
+			class="ais.database.model.PengajuanIzinTidakMasukPerkuliahan" />
+		<mapping class="ais.database.model.PesertaUjian" />
+		<mapping class="ais.database.model.DspaceInformation" />
+		<mapping class="ais.database.model.AsesemenPenilaian" />
+		<mapping class="ais.database.model.StatusKewajibanBebanDosen" />
+		<mapping class="ais.database.model.KewajibanBebanDosen" />
+		<mapping class="ais.database.model.AsesorPegawai" />
+		<mapping class="ais.database.model.LabelBahasa" />
+		<mapping class="ais.database.model.Sertifikat" />
+		<mapping class="ais.database.model.AsesorNilai" />
+		<mapping class="ais.database.model.VirtualAccountBank" />
+		<mapping class="ais.database.model.Asesor" />
+		<mapping class="ais.database.model.PenilaianAsesor" />
+		<mapping
+			class="ais.database.model.AsesorPenunjangKinerjaDosen" />
+		<mapping class="ais.database.model.PenunjangKinerjaDosen" />
+		<mapping class="ais.database.model.DataPunyaItem" />
+		<mapping class="ais.database.model.PerkuliahanPunyaItem" />
+		<mapping
+			class="ais.database.model.KelompokParameterTambahanAlumni" />
+		<mapping class="ais.database.model.ParameterTambahanAlumni" />
+		<mapping
+			class="ais.database.model.PengecualianJadwalPengisianKRSMahasiswa" />
+		<mapping
+			class="ais.database.model.JadwalChecklistPenilaianUmum" />
+		<mapping
+			class="ais.database.model.ChecklistHasilPenilaianUmum" />
+		<mapping class="ais.database.model.ChecklistPenilaianUmum" />
+		<mapping class="ais.database.model.GrupChecklistPenilaianUmum" />
+		<mapping class="ais.database.model.ParameterTambahan" />
+		<mapping class="ais.database.model.ParameterTambahanPaket" />
+		<mapping class="ais.database.model.ParameterTambahanMahasiswa" />
+		<mapping
+			class="ais.database.model.KelompokParameterTambahanCalonMahasiswa" />
+		<mapping
+			class="ais.database.model.KelompokParameterTambahanMahasiswa" />
+		<mapping class="ais.database.model.KelompokCalonMahasiswa" />
+		<mapping class="ais.database.model.MasaPerkuliahan" />
+		<mapping class="ais.database.model.JadwalSeminarTugasAkhir" />
+		<mapping class="ais.database.model.JadwalSidangTugasAkhir" />
+		<mapping class="ais.database.model.KomentarPerkuliahan" />
+		<mapping class="ais.database.model.CicilanPembayaranGagal" />
+		<mapping class="ais.database.model.RekonsiliasiHostToHost" />
+		<mapping
+			class="ais.database.model.JenisRekonsiliasiHostToHost" />
+		<mapping class="ais.database.model.NilaiHurufExport" />
+		<mapping class="ais.database.model.JenisEvaluasi" />
+		<mapping class="ais.database.model.FeederLog" />
+		<mapping class="ais.database.model.NeoFeederSync" />
+		<mapping class="ais.database.model.FormulirKegiatan" />
+		<mapping class="ais.database.model.FormulirKegiatanPeserta" />
+		<mapping class="ais.database.model.KonfigurasiPoinKegiatan" />
+		<mapping class="ais.database.model.KrsMahasiswa" />
+		<mapping class="ais.database.model.JabatanFungsionalDosen" />
+		<mapping class="ais.database.model.PaketPunyaProgram" />
+		<mapping
+			class="ais.database.model.PaketPunyaGelombangPendaftaran" />
+		<mapping class="ais.database.model.GrupJurusan" />
+		<mapping class="ais.database.model.SumberGaji" />
+		<mapping class="ais.database.model.KebutuhanKhusus" />
+		<mapping class="ais.database.model.LembagaPengangkat" />
+		<mapping
+			class="ais.database.model.JenisPendidikDanTenagaKependidikan" />
+		<mapping class="ais.database.model.StatusKepegawaian" />
+		<mapping class="ais.database.model.IkatanKerjaDosen" />
+		<mapping
+			class="ais.database.model.PembagianKuotaPerkuliahanBerdasarkantahunAngkatan" />
+		<mapping class="ais.database.model.JadwalUjianPMB" />
+		<mapping class="ais.database.model.StatusKeluar" />
+		<mapping class="ais.database.model.Penghasilan" />
+		<mapping class="ais.database.model.Pekerjaan" />
+		<mapping class="ais.database.model.AlatTransportasiMahasiswa" />
+		<mapping class="ais.database.model.JenisTinggalMahasiswa" />
+		<mapping class="ais.database.model.Wilayah" />
+		<mapping class="ais.database.model.PenugasanDosenMengajar" />
+		<mapping class="ais.database.model.PersyaratanPilihanPaket" />
+		<mapping class="ais.database.model.ChatConvertation" />
+		<mapping class="ais.database.model.ChatMessage" />
+		<mapping class="ais.database.model.JenisPenerimaBeasiswa" />
+		<mapping class="ais.database.model.UploadVirtualAccount" />
+		<mapping
+			class="ais.database.model.UploadBiodataCalonMahasiswa" />
+		<mapping class="ais.database.model.UserAccess" />
+		<mapping class="ais.database.model.RencanaTahunAkademik" />
+		<mapping
+			class="ais.database.model.PengaturanPembayaranBulanan" />
+		<mapping class="ais.database.model.UserDevices" />
+		<mapping class="ais.database.model.Menu" />
+		<mapping class="ais.database.model.Tbmuser" />
+		<mapping class="ais.database.model.Tbmrole" />
+		<mapping class="ais.database.model.Dashboard" />
+		<mapping class="ais.database.model.GelombangPendaftaran" />
+		<mapping class="ais.database.model.PengajuanBeasiswa" />
+		<mapping
+			class="ais.database.model.KeadaanKeluargaPengajuanBeasiswa" />
+
+		<mapping class="ais.database.model.KelompokMatakuliah" />
+		<mapping
+			class="ais.database.model.KelompokMatakuliahPunyaMatakuliah" />
+		<mapping class="ais.database.model.ReportLog" />
+		<mapping class="ais.database.model.Pesan" />
+		<mapping class="ais.database.model.Kelas" />
+		<mapping class="ais.database.model.KelasPmb" />
+		<mapping
+			class="ais.database.model.KelasPunyaMahasiswaTemporary" />
+		<mapping class="ais.database.model.PenjadwalanMahasiswa" />
+		<mapping class="ais.database.model.Message" />
+		<mapping class="ais.database.model.Judisium" />
+		<mapping class="ais.database.model.Matakuliah" />
+		<mapping class="ais.database.model.Statuskehadiran_old" />
+		<mapping class="ais.database.model.Fakultas" />
+		<mapping class="ais.database.model.Jurusan" />
+		<mapping class="ais.database.model.Mahasiswa" />
+		<mapping class="ais.database.model.Statusabsensi" />
+		<mapping class="ais.database.model.Dosen" />
+		<!-- <mapping class="ais.database.model.Nilai" /> -->
+		<mapping class="ais.database.model.NilaiTemporary" />
+		<mapping class="ais.database.model.Detailperkuliahan" />
+		<mapping class="ais.database.model.Perkuliahan" />
+		<mapping class="ais.database.model.FormatNilai" />
+		<mapping class="ais.database.model.FormatNilaiTambahan" />
+
+		<mapping class="ais.database.model.NilaiHuruf" />
+		<mapping class="ais.database.model.Pertemuan" />
+		<mapping class="ais.database.model.MatakuliahPrasyarat" />
+		<mapping class="ais.database.model.Jenjang" />
+		<mapping class="ais.database.model.StatusMahasiswa" />
+		<mapping class="ais.database.model.Staff" />
+		<mapping class="ais.database.model.StatusPertemuan" />
+		<mapping class="ais.database.model.StatusMatakuliah" />
+		<mapping class="ais.database.model.Skripsi" />
+		<mapping class="ais.database.model.FormatNilaiSkripsi" />
+		<mapping class="ais.database.model.Konsentrasi" />
+		<mapping class="ais.database.model.Gedung" />
+		<mapping class="ais.database.model.Ruang" />
+		<mapping class="ais.database.model.RolePrivilage" />
+		<mapping class="ais.database.model.Komentar" />
+
+		<mapping class="ais.database.model.JenjangProgramStudi" />
+		<mapping class="ais.database.model.BaypassPembayaranMahasiswa" />
+
+		<mapping class="ais.database.model.BadanHukum" />
+		<mapping class="ais.database.model.JenisKegiatan" />
+		<mapping class="ais.database.model.JamPerkuliahan" />
+		<mapping class="ais.database.model.KalenderAkademik" />
+		<mapping class="ais.database.model.MatakuliahBerbayar" />
+		<mapping
+			class="ais.database.model.DosenPembimbingAkademikTemporary" />
+		<mapping class="ais.database.model.PembombotanNilai" />
+		<mapping class="ais.database.model.Bank" />
+		<mapping class="ais.database.model.PerguruanTinggi" />
+		<mapping class="ais.database.model.ItemBiaya" />
+		<mapping class="ais.database.model.JenisSeleksi" />
+		<mapping class="ais.database.model.DetailBiaya" />
+		<mapping class="ais.database.model.BiodataMahasiswa" />
+		<mapping class="ais.database.model.BiodataDosen" />
+		<mapping class="ais.database.model.RekeningDosen" />
+		<mapping class="ais.database.model.BiodataCalonMahasiswa" />
+		<mapping class="ais.database.model.Negara" />
+
+		<mapping class="ais.database.model.PendaftaranWisuda" />
+		<mapping class="ais.database.model.Wisuda" />
+		<mapping class="ais.database.model.PengumumanAkademis" />
+		<mapping class="ais.database.model.PenumumanWebsite" />
+		<mapping class="ais.database.model.PengumumanPerkuliahan" />
+		<mapping class="ais.database.model.DiskusiPengumumanAkademis" />
+		<mapping
+			class="ais.database.model.DiskusiPengumumanPerkuliahan" />
+		<mapping
+			class="ais.database.model.DiskusiPengumumanPenelitian" />
+		<mapping
+			class="ais.database.model.DiskusiPenelitianDanPengabdian" />
+		<mapping class="ais.database.model.QuotaWisudaUntukFakultas" />
+
+
+		<mapping class="ais.database.model.ProgramMahasiswa" />
+		<mapping class="ais.database.model.Propinsi" />
+		<mapping class="ais.database.model.Kota" />
+		<mapping class="ais.database.model.PaketRegistrasiMahasiswa" />
+		<mapping class="ais.database.model.PendaftaranSidang" />
+		<mapping class="ais.database.model.UjianPMB" />
+		<mapping class="ais.database.model.StatusPegawai" />
+		<mapping class="ais.database.model.Agama" />
+		<mapping class="ais.database.model.Bantuan" />
+		<mapping class="ais.database.model.KamusTerjemah" />
+		<mapping class="ais.database.model.PaketPerkuliahan" />
+		<mapping
+			class="ais.database.model.JenisKartuIdentitasMahasiswaBaru" />
+		<mapping class="ais.database.model.JenisSekolahMahasiswaBaru" />
+		<mapping
+			class="ais.database.model.JurusanSekolahMahasiswaBaru" />
+		<mapping class="ais.database.model.PekerjaanOrangTua" />
+		<mapping class="ais.database.model.PendidikanOrangTua" />
+		<mapping class="ais.database.model.PendapatanOrangTua" />
+		<mapping class="ais.database.model.StatusLulusCalonMahasiswa" />
+		<mapping class="ais.database.model.Kurikulum" />
+		<mapping class="ais.database.model.AngkatanKurikulum" />
+		<mapping class="ais.database.model.Beasiswa" />
+		<mapping class="ais.database.model.MahasiswaDapatBeasiswa" />
+		<mapping class="ais.database.model.JenisKegiatanDetail" />
+
+		<mapping class="ais.database.model.Kegiatan" />
+		<mapping class="ais.database.model.DetailKegiatan" />
+		<mapping class="ais.database.model.KurikulumPunyaMatakuliah" />
+		<mapping class="ais.database.model.SettingBiaya" />
+		<mapping class="ais.database.model.SettingBiayaDetail" />
+		<mapping class="ais.database.model.StatusAwalMahasiswa" />
+		<mapping
+			class="ais.database.model.PembatasanNilaiIPKUntukPengambilanKRS" />
+		<mapping class="ais.database.model.TimDosen" />
+		<mapping class="ais.database.model.DetailSettingBiaya" />
+
+		<mapping class="ais.database.model.MatakuliahAwalKonversi" />
+		<mapping class="ais.database.model.Konversi" />
+
+
+		<mapping class="ais.database.model.StatusKerjasamaMahasiswa" />
+		<mapping
+			class="ais.database.model.MahasiswaDapatStatusKerjasamaMahasiswa" />
+
+		<mapping class="ais.database.model.Kkn" />
+		<mapping class="ais.database.model.MahasiswaDapatKkn" />
+		<mapping class="ais.database.model.MahasiswaDapatKelompokKkn" />
+		<mapping class="ais.database.model.Pkl" />
+		<mapping class="ais.database.model.MahasiswaDapatPkl" />
+		<mapping class="ais.database.model.MahasiswaDapatKelompokPkl" />
+		<mapping class="ais.database.model.SiswaDapatKelompokPkl" />
+
+
+		<mapping class="ais.database.model.BankHost" />
+		<mapping class="ais.database.model.LogHostToHost" />
+		<mapping class="ais.database.model.Jabatan" />
+		<mapping class="ais.database.model.JadwalPembayaran" />
+		<mapping class="ais.database.model.Prefix" />
+		<mapping class="ais.database.model.TingkatKesulitanMatakuliah" />
+		<mapping class="ais.database.model.Konfigurasi" />
+		<mapping class="ais.database.model.Paket" />
+		<mapping class="ais.database.model.LogLogin" />
+		<mapping class="ais.database.model.LogMobile" />
+		<mapping class="ais.database.model.DetailLogLogin" />
+		<mapping class="ais.database.model.Diskusi" />
+		<mapping class="ais.database.model.DiskusiKomentar" />
+		<mapping class="ais.database.model.OnlineUsers" />
+		<mapping class="ais.database.model.AccessedUsers" />
+		<mapping
+			class="ais.database.model.PilihanPaketPerJurusanMhsBaru" />
+		<mapping class="ais.database.model.PaketJurusanPmb" />
+		<mapping class="ais.database.model.LogUserActifity" />
+		<mapping class="ais.database.model.Program" />
+		<mapping class="ais.database.model.DendaPembayaran" />
+		<mapping class="ais.database.model.DendaPembayaranNominal" />
+		<mapping
+			class="ais.database.model.BeasiswaPunyaItemBiayaTambahan" />
+		<mapping class="ais.database.model.RoleHasDashboard" />
+		<mapping class="ais.database.model.CekKesehatan" />
+		<mapping class="ais.database.model.RuangPaketPMB"></mapping>
+		<mapping class="ais.database.model.RuangPMB"></mapping>
+		<mapping class="ais.database.model.HistoryStatusMahasiswa"></mapping>
+
+		<mapping class="ais.database.model.PendaftaranCutiMahasiswa"></mapping>
+		<mapping class="ais.database.model.PembayaranMahasiswa"></mapping>
+		<mapping
+			class="ais.database.model.PengecualianJadwalPenilaianDosen"></mapping>
+		<mapping class="ais.database.model.BankSoal"></mapping>
+		<mapping class="ais.database.model.BankSoalDetail"></mapping>
+
+
+		<mapping class="ais.database.model.Ujian"></mapping>
+		<mapping class="ais.database.model.UjianPunyaSoal"></mapping>
+		<mapping class="ais.database.model.PertemuanPunyaUjian"></mapping>
+		<mapping class="ais.database.model.BukuBahanAjar"></mapping>
+		<mapping
+			class="ais.database.model.MatakuliahPunyaBukuBahanAjar"></mapping>
+		<mapping class="ais.database.model.HasilUjianMahasiswa"></mapping>
+		<mapping class="ais.database.model.HasilUjianMahasiswaDetail"></mapping>
+		<mapping class="ais.database.model.PertemuanPunyaDiskusi"></mapping>
+		<mapping class="ais.database.model.TugasKelompok"></mapping>
+		<mapping class="ais.database.model.NamaTugasKelompok"></mapping>
+		<mapping
+			class="ais.database.model.NamaTugasKelompokPunyaMahasiswa"></mapping>
+
+		<mapping class="ais.database.model.TemplatePerkuliahan"></mapping>
+		<mapping class="ais.database.model.TemplatePerkuliahanDetail"></mapping>
+		<mapping class="ais.database.model.MatakuliahEkivalen"></mapping>
+		<mapping class="ais.database.model.TunggakanMahasiswa"></mapping>
+		<mapping class="ais.database.model.TunggakanMahasiswaDetail"></mapping>
+		<mapping class="ais.database.model.CicilanPembayaran"></mapping>
+		<mapping
+			class="ais.database.model.KurikulumPunyaMatakuliahDetail"></mapping>
+		<mapping class="ais.database.model.Pegawai"></mapping>
+		<mapping class="ais.database.model.BiodataPegawai"></mapping>
+		<mapping class="ais.database.model.NilaiToeflToaflMahasiswa"></mapping>
+
+		<mapping
+			class="ais.database.model.epsbed.EpsbedFrekuensiKurikulum"></mapping>
+		<mapping class="ais.database.model.epsbed.EpsbedStatus"></mapping>
+		<mapping
+			class="ais.database.model.epsbed.EpsbedStatusAkreditasi"></mapping>
+		<mapping
+			class="ais.database.model.epsbed.EpsbedPelaksanaanKurikulum"></mapping>
+		<mapping class="ais.database.model.epsbed.EpsbedStatusPs"></mapping>
+		<mapping
+			class="ais.database.model.epsbed.KapasitasMahasiswaBaru"></mapping>
+		<mapping
+			class="ais.database.model.epsbed.EpsbedJabatanAkademik"></mapping>
+		<mapping class="ais.database.model.temporary.IPKMahasiswa"></mapping>
+		<mapping
+			class="ais.database.model.epsbed.FasilitasAkademikJurusan"></mapping>
+		<mapping
+			class="ais.database.model.epsbed.EpsbedStatusAktivitasDosen"></mapping>
+		<mapping
+			class="ais.database.model.epsbed.EpsbedPublikasiDosen"></mapping>
+		<mapping
+			class="ais.database.model.epsbed.EpsbedPublikasiIlmiahDosen"></mapping>
+		<mapping
+			class="ais.database.model.epsbed.EpsbedMediaPublikasi"></mapping>
+		<mapping
+			class="ais.database.model.epsbed.EpsbedPeranPenulisan"></mapping>
+		<mapping
+			class="ais.database.model.epsbed.EpsbedPembiayaanPenelitian"></mapping>
+		<mapping
+			class="ais.database.model.epsbed.EpsbedJenisKaryaIlmiah"></mapping>
+		<mapping class="ais.database.model.RiwayatPendidikanDosen"></mapping>
+
+		<mapping class="ais.database.model.TemplateSurat"></mapping>
+		<mapping class="ais.database.model.TemplateSuratParameter"></mapping>
+		<mapping class="ais.database.model.FormatTemplateSurat"></mapping>
+		<mapping
+			class="ais.database.model.KonfigurasiKalenderAkademik"></mapping>
+		<mapping
+			class="ais.database.model.StatuskehadiranKaryawanHarian"></mapping>
+		<mapping class="ais.database.model.PesanRuangan"></mapping>
+		<mapping class="ais.database.model.InputPembayaranPunyaAkun"></mapping>
+		<mapping class="ais.database.model.TemplateQuery"></mapping>
+
+
+		<mapping class="ais.database.model.AngketPenilaianDosen"></mapping>
+		<mapping class="ais.database.model.AngketPenilaianUmum"></mapping>
+		<mapping
+			class="ais.database.model.GrupChecklistPenilaianDosen"></mapping>
+		<mapping class="ais.database.model.ChecklistPenilaianDosen"></mapping>
+		<mapping
+			class="ais.database.model.ChecklistPenilaianDosenOlehMahasiswa"></mapping>
+		<mapping
+			class="ais.database.model.ChecklistBaruPenilaianDosenOlehMahasiswa"></mapping>
+		<mapping
+			class="ais.database.model.ChecklistBaruPenilaianOlehDosen"></mapping>
+		<mapping class="ais.database.model.MahasiswaRequestTugasAkhir"></mapping>
+		<mapping
+			class="ais.database.model.MahasiswaRequestTugasAkhirMintaPembimbing"></mapping>
+		<mapping class="ais.database.model.MetaReport"></mapping>
+		<mapping class="ais.database.model.JenisPembayaran" />
+
+		<!-- TABEL YANG TERDAPAT TYPE BLOB -->
+		<!-- <mapping class="ais.database.model.file.FotoBiodataCalonMahasiswa" 
+			/> -->
+		<!-- <mapping class="ais.database.model.file.FotoBiodataMahasiswa" /> -->
+		<!-- <mapping class="ais.database.model.file.FotoDosen" /> -->
+		<!-- <mapping class="ais.database.model.file.FotoMahasiswa" /> -->
+		<!-- <mapping class="ais.database.model.file.FotoAdmin" /> -->
+		<!-- <mapping class="ais.database.model.file.FotoPegawai" /> -->
+		<mapping class="ais.database.model.file.GambarFakultas" />
+		<mapping
+			class="ais.database.model.file.LampiranPengumumanAkademis" />
+		<mapping
+			class="ais.database.model.file.LampiranPengumumanPerkuliahan" />
+		<mapping
+			class="ais.database.model.file.LampiranPengumumanPenelitian" />
+		<mapping
+			class="ais.database.model.file.LampiranPenelitianDanPengabdian" />
+		<mapping class="ais.database.model.file.LogCsvFileUpload" />
+
+
+		<!--// TABEL YANG TERDAPAT TYPE BLOB -->
+
+
+
+		<!-- CONFIG -->
+		<mapping class="ais.database.model.config.SchemaConfig" />
+
+		<!-- FINPAY -->
+		<mapping class="ais.database.model.finpay.FinpayResponse" />
+		<mapping class="ais.database.model.finpay.FinpayRequest" />
+		<mapping class="ais.database.model.finpay.FinpayRequestDetail" />
+		<mapping
+			class="ais.database.model.finpay.FinpayRequestDetailBiaya" />
+		<!-- FINPAY -->
+
+		<!-- IPAYMU -->
+		<mapping class="ais.database.model.ipaymu.IpaymuResponse" />
+		<mapping class="ais.database.model.ipaymu.IpaymuRequest" />
+		<mapping class="ais.database.model.ipaymu.IpaymuRequestDetail" />
+		<mapping
+			class="ais.database.model.ipaymu.IpaymuRequestDetailBiaya" />
+		<!-- IPAYMU -->
+
+		<!-- FASPAY -->
+		<mapping class="ais.database.model.faspay.FaspayResponse" />
+		<mapping class="ais.database.model.faspay.FaspayRequest" />
+		<mapping class="ais.database.model.faspay.FaspayRequestDetail" />
+		<mapping
+			class="ais.database.model.faspay.FaspayRequestDetailBiaya" />
+		<!-- FASPAY -->
+
+		<!-- Jatelindo -->
+		<mapping
+			class="ais.database.model.jatelindo.JatelindoResponse" />
+		<mapping class="ais.database.model.jatelindo.JatelindoRequest" />
+		<mapping
+			class="ais.database.model.jatelindo.JatelindoRequestDetail" />
+		<mapping
+			class="ais.database.model.jatelindo.JatelindoRequestDetailBiaya" />
+		<!-- Jatelindo -->
+
+		<!-- CIMB NIAGA -->
+		<mapping class="ais.database.model.cimb.CimbResponse" />
+		<mapping class="ais.database.model.cimb.CimbRequest" />
+		<mapping class="ais.database.model.cimb.CimbRequestDetail" />
+		<mapping
+			class="ais.database.model.cimb.CimbRequestDetailBiaya" />
+		<!-- CIMB NIAGA -->
+
+		<!-- BNI -->
+		<mapping class="ais.database.model.bni.BniResponse" />
+		<mapping class="ais.database.model.bni.BniRequest" />
+		<mapping class="ais.database.model.bni.BniRequestDetail" />
+		<mapping class="ais.database.model.bni.BniRequestDetailBiaya" />
+		<!-- BNI -->
+
+		<!-- BSI -->
+		<mapping class="ais.database.model.bsi.BsiResponse" />
+		<mapping class="ais.database.model.bsi.BsiRequest" />
+		<mapping class="ais.database.model.bsi.BsiRequestDetail" />
+		<mapping class="ais.database.model.bsi.BsiRequestDetailBiaya" />
+		<!-- BSI -->
+
+		<!-- BRI -->
+		<mapping class="ais.database.model.bri.BriResponse" />
+		<mapping class="ais.database.model.bri.BriRequest" />
+		<mapping class="ais.database.model.bri.BriRequestDetail" />
+		<mapping class="ais.database.model.bri.BriRequestDetailBiaya" />
+		<!-- BRI -->
+
+		<!-- DOKU -->
+		<mapping class="ais.database.model.doku.DokuResponse" />
+		<mapping class="ais.database.model.doku.DokuRequest" />
+		<mapping class="ais.database.model.doku.DokuRequestDetail" />
+		<mapping
+			class="ais.database.model.doku.DokuRequestDetailBiaya" />
+		<!-- DOKU -->
+
+		<!-- TABEL YANG TERDAPAT PADA SCHEMA AKUNTING -->
+		<mapping
+			class="ais.database.model.akunting.CaraPembayaranTransfer" />
+		<mapping class="ais.database.model.akunting.Pajak" />
+		<mapping class="ais.database.model.akunting.Transitori" />
+		<mapping class="ais.database.model.akunting.ProsesTransfer" />
+		<mapping class="ais.database.model.akunting.ProsesTransferStandingInstruction" />
+		<mapping class="ais.database.model.akunting.ProsesTransitori" />
+		<mapping class="ais.database.model.akunting.Closing" />
+		<mapping
+			class="ais.database.model.akunting.DaftarPengajuanTransfer" />
+		<mapping
+			class="ais.database.model.akunting.StandingInstruction" />
+			
+		<mapping
+			class="ais.database.model.akunting.NomorSuratAlurKeuangan" />
+		<mapping class="ais.database.model.akunting.DanaTalangan" />
+		<mapping
+			class="ais.database.model.akunting.PenggantianKasKecil" />
+		<mapping class="ais.database.model.akunting.KasKecil" />
+		<mapping class="ais.database.model.akunting.JenisKasKecil" />
+		<mapping class="ais.database.model.akunting.KasBesar" />
+		<mapping class="ais.database.model.akunting.JenisKasBesar" />
+		<mapping class="ais.database.model.akunting.JenisUangMuka" />
+		<mapping class="ais.database.model.akunting.UangMuka" />
+		<mapping class="ais.database.model.akunting.AcaraHasTransaksi"></mapping>
+		<mapping class="ais.database.model.akunting.Akun"></mapping>
+		<mapping class="ais.database.model.akunting.Devisi"></mapping>
+		<mapping class="ais.database.model.akunting.GrupAkun"></mapping>
+		<mapping class="ais.database.model.akunting.GrupTransaksi"></mapping>
+		<mapping class="ais.database.model.akunting.JenisLaporan"></mapping>
+		<mapping class="ais.database.model.akunting.KelompokLaporan"></mapping>
+		<mapping
+			class="ais.database.model.akunting.KelompokLaporanPunyaAkun"></mapping>
+		<mapping class="ais.database.model.akunting.MasterGrupLaporan"></mapping>
+		<mapping class="ais.database.model.akunting.Matauang"></mapping>
+		<mapping class="ais.database.model.akunting.Transaksi"></mapping>
+		<mapping
+			class="ais.database.model.akunting.DetailLaporanPertahun"></mapping>
+		<mapping class="ais.database.model.akunting.JenisTransaksi"></mapping>
+		<mapping class="ais.database.model.akunting.AkunPajak"></mapping>
+		<mapping class="ais.database.model.akunting.AkunArusKas"></mapping>
+		<mapping class="ais.database.model.akunting.PostingHistory"></mapping>
+		<mapping class="ais.database.model.akunting.Pertangungjawaban" />
+		<mapping
+			class="ais.database.model.akunting.PertangungjawabanKasBesar" />
+		<!--// TABEL YANG TERDAPAT PADA SCHEMA AKUNTING -->
+
+
+		<!-- TABEL YANG TERDAPAT PADA SCHEMA RAB -->
+		<mapping class="ais.database.model.rab.PenggunaanAnggaran"></mapping>
+		<mapping class="ais.database.model.rab.MetodePengadaan"></mapping>
+		<mapping class="ais.database.model.rab.Pejabat"></mapping>
+		<mapping class="ais.database.model.rab.Kppn"></mapping>
+		<mapping class="ais.database.model.rab.SatuanLokasi"></mapping>
+		<mapping class="ais.database.model.rab.Sasaran"></mapping>
+		<mapping class="ais.database.model.rab.Indikator"></mapping>
+		<mapping class="ais.database.model.rab.HariLibur"></mapping>
+		<mapping class="ais.database.model.rab.Acara"></mapping>
+		<mapping class="ais.database.model.rab.Satuan"></mapping>
+		<mapping class="ais.database.model.rab.Workspace"></mapping>
+		<mapping class="ais.database.model.rab.WorkspacePunyaSasaran"></mapping>
+		<mapping
+			class="ais.database.model.rab.WorkspacePunyaIndikator"></mapping>
+		<mapping class="ais.database.model.rab.Proyek"></mapping>
+		<mapping class="ais.database.model.rab.HasilSatuan"></mapping>
+		<mapping class="ais.database.model.rab.SatuanKerja"></mapping>
+		<mapping class="ais.database.model.rab.SumberDana"></mapping>
+		<mapping class="ais.database.model.rab.JenisWorkspace"></mapping>
+		<mapping class="ais.database.model.rab.Tugas"></mapping>
+		<mapping class="ais.database.model.rab.UnitOrganisasi"></mapping>
+		<mapping class="ais.database.model.rab.Kalender"></mapping>
+		<mapping class="ais.database.model.rab.TugasPunyaPegawai"></mapping>
+		<mapping class="ais.database.model.rab.WorkspacePunyaPegawai"></mapping>
+		<mapping class="ais.database.model.rab.JenisTugas"></mapping>
+		<mapping class="ais.database.model.rab.JenisParameter"></mapping>
+		<mapping
+			class="ais.database.model.rab.WorkspacePunyaJenisParameter"></mapping>
+		<mapping
+			class="ais.database.model.rab.TugasPunyaJenisParameter"></mapping>
+		<mapping
+			class="ais.database.model.rab.WorkspacePunyaJenisParameter"></mapping>
+		<mapping
+			class="ais.database.model.rab.AcaraPunyaJenisParameter"></mapping>
+		<mapping class="ais.database.model.rab.AcaraPunyaIndikator"></mapping>
+		<mapping class="ais.database.model.rab.Mitra"></mapping>
+		<mapping class="ais.database.model.rab.AcaraPunyaKendala"></mapping>
+		<mapping class="ais.database.model.rab.ChecklistLaporan"></mapping>
+		<mapping class="ais.database.model.rab.ChecklistLaporanDetail"></mapping>
+		<mapping
+			class="ais.database.model.rab.ChecklistLaporanDetailDefault"></mapping>
+		<mapping
+			class="ais.database.model.rab.WorkspacePunyaPredecessor"></mapping>
+		<mapping class="ais.database.model.rab.TugasPunyaPredecessor"></mapping>
+		<mapping class="ais.database.model.rab.InformasiRab"></mapping>
+		<mapping class="ais.database.model.rab.JenisInformasiRab"></mapping>
+		<mapping class="ais.database.model.rab.InformasiRabKomentar"></mapping>
+		<mapping class="ais.database.model.rab.RenstraProgram"></mapping>
+		<mapping
+			class="ais.database.model.rab.RenstraProgramPunyaIndikator"></mapping>
+		<mapping class="ais.database.model.rab.KegiatanSatker"></mapping>
+		<mapping class="ais.database.model.rab.OutputKegiatan"></mapping>
+		<mapping
+			class="ais.database.model.rab.RencanaDanRealisasiOutputKegiatan"></mapping>
+		<!--// TABEL YANG TERDAPAT PADA SCHEMA RAB -->
+
+
+		<!-- TABEL YANG TERDAPAT PADA SCHEMA LIBRARY -->
+		<mapping
+			class="ais.database.model.library.HariLiburPerpustakaan" />
+		<mapping
+			class="ais.database.model.library.AnggotaYangDiblokir"></mapping>
+		<mapping class="ais.database.model.library.StatusItem"></mapping>
+		<mapping class="ais.database.model.library.Item"></mapping>
+		<mapping class="ais.database.model.library.ItemTemporary"></mapping>
+		<!-- <mapping class="ais.database.model.library.LampiranItem"></mapping> -->
+		<mapping class="ais.database.model.library.ItemRevisi"></mapping>
+		<mapping class="ais.database.model.library.Pengarang"></mapping>
+		<mapping class="ais.database.model.library.Perpustakaan"></mapping>
+		<mapping class="ais.database.model.library.DetailTransaksi"></mapping>
+		<mapping class="ais.database.model.library.Rak"></mapping>
+		<mapping class="ais.database.model.library.RakDetail"></mapping>
+		<mapping class="ais.database.model.library.Penerbit"></mapping>
+		<mapping class="ais.database.model.library.JenisItem"></mapping>
+		<mapping class="ais.database.model.library.KodeTransaksi"></mapping>
+		<mapping class="ais.database.model.library.SaldoAwal"></mapping>
+		<mapping class="ais.database.model.library.SaldoAwalDetail"></mapping>
+		<mapping
+			class="ais.database.model.library.SaldoAwalDetailDetail"></mapping>
+		<mapping class="ais.database.model.library.TopikItem"></mapping>
+		<mapping class="ais.database.model.library.LabelItem"></mapping>
+		<mapping class="ais.database.model.library.Labelling"></mapping>
+		<mapping class="ais.database.model.library.ItemHasStatus"></mapping>
+		<mapping class="ais.database.model.library.JenisAnggota"></mapping>
+		<mapping class="ais.database.model.library.Anggota"></mapping>
+		<mapping class="ais.database.model.library.Penyedia"></mapping>
+		<mapping class="ais.database.model.library.PesananAnggota"></mapping>
+		<mapping class="ais.database.model.library.ItemFavoritAnggota"></mapping>
+		<mapping class="ais.database.model.library.KunjunganAnggota"></mapping>
+		<mapping class="ais.database.model.library.ItemHasTopik"></mapping>
+		<mapping class="ais.database.model.library.TipeItem"></mapping>
+		<mapping class="ais.database.model.library.Serial"></mapping>
+		<mapping class="ais.database.model.library.Pustakawan"></mapping>
+		<mapping
+			class="ais.database.model.library.PermintaanPengadaanItem"></mapping>
+		<mapping
+			class="ais.database.model.library.PermintaanPengadaanItemDetail"></mapping>
+		<mapping
+			class="ais.database.model.library.PemesananPengadaanItem"></mapping>
+		<mapping
+			class="ais.database.model.library.PemesananPengadaanItemDetail"></mapping>
+		<mapping
+			class="ais.database.model.library.PenerimaanPengadaanItem"></mapping>
+		<mapping
+			class="ais.database.model.library.PenerimaanPengadaanItemDetail"></mapping>
+		<mapping class="ais.database.model.library.ReturPengadaanItem"></mapping>
+		<mapping
+			class="ais.database.model.library.ReturPengadaanItemDetail"></mapping>
+		<mapping
+			class="ais.database.model.library.TransferPengadaanItem"></mapping>
+		<mapping
+			class="ais.database.model.library.TransferPengadaanItemDetail"></mapping>
+		<mapping
+			class="ais.database.model.library.TerimaPengadaanItem"></mapping>
+		<mapping
+			class="ais.database.model.library.TerimaPengadaanItemDetail"></mapping>
+		<mapping
+			class="ais.database.model.library.PeminjamanPengadaanItem"></mapping>
+		<mapping
+			class="ais.database.model.library.PeminjamanPengadaanItemDetail"></mapping>
+		<mapping
+			class="ais.database.model.library.KembaliPengadaanItem"></mapping>
+		<mapping
+			class="ais.database.model.library.KembaliPengadaanItemDetail"></mapping>
+		<mapping class="ais.database.model.library.ItemPunyaPengarang"></mapping>
+		<mapping class="ais.database.model.library.TipeAnggota"></mapping>
+		<mapping
+			class="ais.database.model.library.JenisIdentitasAnggota"></mapping>
+		<mapping
+			class="ais.database.model.library.BatchItemPunyaBarcode"></mapping>
+		<mapping class="ais.database.model.library.ItemPunyaBarcode"></mapping>
+		<mapping class="ais.database.model.library.StatusTerbitItem"></mapping>
+		<mapping class="ais.database.model.library.ItemKomentar"></mapping>
+		<mapping class="ais.database.model.library.ItemPunyaPemeriksa"></mapping>
+		<mapping class="ais.database.model.library.ItemPunyaTerbit"></mapping>
+		<mapping
+			class="ais.database.model.library.ItemPunyaTerbitKomentar"></mapping>
+		<mapping
+			class="ais.database.model.library.InformasiPerpustakaan"></mapping>
+		<mapping
+			class="ais.database.model.library.InformasiPerpustakaanKomentar"></mapping>
+		<mapping class="ais.database.model.library.KategoriItem"></mapping>
+		<mapping
+			class="ais.database.model.library.JenisInformasiPerpustakaan"></mapping>
+		<mapping
+			class="ais.database.model.library.ItemPunyaKategoriItem"></mapping>
+		<mapping
+			class="ais.database.model.library.PenerbitPunyaPemeriksa"></mapping>
+		<mapping
+			class="ais.database.model.library.BatasWaktuPeminjamanItem"></mapping>
+		<mapping
+			class="ais.database.model.library.DendaKeterlambatanItem"></mapping>
+		<mapping
+			class="ais.database.model.library.BiayaPendaftaranAnggota"></mapping>
+		<mapping class="ais.database.model.library.DdcItem"></mapping>
+		<mapping class="ais.database.model.library.UdcItem"></mapping>
+		<mapping class="ais.database.model.library.DataDdcItem"></mapping>
+		<mapping class="ais.database.model.library.DataDdcItemDetail"></mapping>
+		<mapping class="ais.database.model.library.DataUdcItem"></mapping>
+		<mapping class="ais.database.model.library.DataUdcItemDetail"></mapping>
+		<mapping class="ais.database.model.library.DomainPenelitian"></mapping>
+		<mapping class="ais.database.model.library.KoreksiItem"></mapping>
+		<mapping class="ais.database.model.library.KoreksiItemDetail"></mapping>
+		<mapping class="ais.database.model.library.VersiDdcItem"></mapping>
+		<mapping class="ais.database.model.library.SearchHistory"></mapping>
+		<!--// TABEL YANG TERDAPAT PADA SCHEMA LIBRARY -->
+
+		<!-- TABEL YANG TERDAPAT PADA SCHEMA SURAT -->
+		<mapping
+			class="ais.database.model.sirkulasisurat.KembaliSuratItem"></mapping>
+		<mapping
+			class="ais.database.model.sirkulasisurat.KembaliSuratItemDetail"></mapping>
+		<mapping
+			class="ais.database.model.sirkulasisurat.PeminjamanSuratItem"></mapping>
+		<mapping
+			class="ais.database.model.sirkulasisurat.PeminjamanSuratItemDetail"></mapping>
+		<mapping
+			class="ais.database.model.sirkulasisurat.PeminjamSurat"></mapping>
+		<mapping class="ais.database.model.surat.StatusDipertahankan"></mapping>
+		<mapping class="ais.database.model.surat.MasaBerlakuSurat"></mapping>
+		<mapping class="ais.database.model.surat.VariableSuratKeluar"></mapping>
+		<mapping class="ais.database.model.surat.KelompokNomorSurat"></mapping>
+		<mapping
+			class="ais.database.model.surat.KlasifikasiSuratKeluar"></mapping>
+		<mapping
+			class="ais.database.model.surat.KlasifikasiSuratMasuk"></mapping>
+		<mapping class="ais.database.model.surat.LokerSurat"></mapping>
+		<mapping class="ais.database.model.surat.PenyampaianSurat"></mapping>
+		<mapping class="ais.database.model.surat.SifatSurat"></mapping>
+		<mapping class="ais.database.model.surat.SuratKeluar"></mapping>
+		<mapping class="ais.database.model.surat.SuratMasuk"></mapping>
+		<mapping
+			class="ais.database.model.surat.KlasifikasiSuratKeluarUntuk"></mapping>
+		<mapping class="ais.database.model.surat.KopSurat"></mapping>
+		<mapping class="ais.database.model.surat.NomorSurat"></mapping>
+		<mapping
+			class="ais.database.model.surat.KlasifikasiSuratKeluarParemeter"></mapping>
+		<mapping
+			class="ais.database.model.surat.KlasifikasiSuratKeluarParemeterValue"></mapping>
+		<mapping
+			class="ais.database.model.surat.AlurPersetujuanSuratKeluar"></mapping>
+		<mapping
+			class="ais.database.model.surat.AlurPersetujuanSuratKeluarStatus"></mapping>
+		<mapping
+			class="ais.database.model.surat.KlasifikasiSuratKeluarPunyaJenisJabatan"></mapping>
+		<mapping
+			class="ais.database.model.surat.KlasifikasiSuratKeluarPunyaTembusan"></mapping>
+		<mapping
+			class="ais.database.model.surat.AlurPersetujuanSuratMasuk"></mapping>
+		<mapping
+			class="ais.database.model.surat.AlurPersetujuanSuratMasukStatus"></mapping>
+		<mapping
+			class="ais.database.model.surat.KlasifikasiSuratMasukParemeter"></mapping>
+		<mapping
+			class="ais.database.model.surat.KlasifikasiSuratMasukParemeterValue"></mapping>
+		<mapping class="ais.database.model.surat.OpsiSuratMasuk"></mapping>
+		<mapping class="ais.database.model.surat.OpsiSuratMasukValue"></mapping>
+		<mapping class="ais.database.model.surat.OpsiSuratKeluar"></mapping>
+		<mapping class="ais.database.model.surat.OpsiSuratKeluarValue"></mapping>
+		<!--// TABEL YANG TERDAPAT PADA SCHEMA SURAT -->
+
+		<!-- TABEL YANG TERDAPAT PADA SCHEMA ASSET -->
+		<mapping class="ais.database.model.asset.StokAwal"></mapping>
+		<mapping
+			class="ais.database.model.asset.JenisPekerjaanPenyedia"></mapping>
+		<mapping
+			class="ais.database.model.asset.JenisPengapusanBarang"></mapping>
+		<mapping
+			class="ais.database.model.asset.PenghapusanMasterAsset"></mapping>
+		<mapping
+			class="ais.database.model.asset.PenghapusanMasterAssetDetail"></mapping>
+
+		<mapping class="ais.database.model.asset.PerbaikanAsset"></mapping>
+		<mapping class="ais.database.model.asset.JenisPerbaikanAsset"></mapping>
+		<mapping
+			class="ais.database.model.asset.KelompokParameterTambahanPerbaikanAsset"></mapping>
+		<mapping
+			class="ais.database.model.asset.ParameterTambahanPerbaikanAsset"></mapping>
+
+		<mapping
+			class="ais.database.model.asset.PembayaranDpMasterAsset"></mapping>
+		<mapping
+			class="ais.database.model.asset.PembayaranDpMasterAssetDetail"></mapping>
+		<mapping
+			class="ais.database.model.asset.PengembalianMasterAsset"></mapping>
+		<mapping
+			class="ais.database.model.asset.PeminjamanMasterAsset"></mapping>
+		<mapping
+			class="ais.database.model.asset.PeminjamanMasterAssetDetail"></mapping>
+		<mapping class="ais.database.model.asset.KategoriAsset"></mapping>
+		<mapping
+			class="ais.database.model.asset.NomorSuratAlurPengadaan"></mapping>
+		<mapping
+			class="ais.database.model.asset.JenisPembayaranBarang"></mapping>
+		<mapping class="ais.database.model.asset.JenisPajakBarang"></mapping>
+		<mapping class="ais.database.model.asset.JenisPajakPpn"></mapping>
+		<mapping
+			class="ais.database.model.asset.JenisPenerimaanBarang"></mapping>
+		<mapping
+			class="ais.database.model.asset.PembayaranPengadaanMasterAsset"></mapping>
+		<mapping
+			class="ais.database.model.asset.PembayaranPengadaanMasterAssetDetail"></mapping>
+		<mapping
+			class="ais.database.model.asset.JenisPemesananPengadaanAsset"></mapping>
+		<mapping
+			class="ais.database.model.asset.PenyediaAssetPunyaDokumen"></mapping>
+		<mapping class="ais.database.model.asset.DokumenPenyediaAsset"></mapping>
+		<mapping class="ais.database.model.asset.StatusPenyediaAsset"></mapping>
+		<mapping
+			class="ais.database.model.asset.KategoriPenyediaAsset"></mapping>
+		<mapping class="ais.database.model.asset.JenisPenyediaAsset"></mapping>
+		<mapping class="ais.database.model.asset.PenyusutanAsset"></mapping>
+		<mapping class="ais.database.model.asset.CaraPengadaanAsset"></mapping>
+		<mapping class="ais.database.model.asset.StatusAsset"></mapping>
+		<mapping class="ais.database.model.asset.PemilikAsset"></mapping>
+		<mapping class="ais.database.model.asset.Lokasi"></mapping>
+		<mapping class="ais.database.model.asset.JenisAsset"></mapping>
+		<mapping class="ais.database.model.asset.JenisLokasi"></mapping>
+		<mapping class="ais.database.model.asset.MutasiLokasi"></mapping>
+		<mapping class="ais.database.model.asset.PengirimanGudang"></mapping>
+		<mapping class="ais.database.model.asset.PengirimanGudangDetail"></mapping>
+		<mapping class="ais.database.model.asset.KelompokAsset"></mapping>
+		<mapping class="ais.database.model.asset.Asset"></mapping>
+		<mapping class="ais.database.model.asset.MasterAsset"></mapping>
+		<mapping class="ais.database.model.asset.AssetDetail"></mapping>
+
+		<mapping class="ais.database.model.antarjemput.KendaraanAntarJemput"></mapping>
+		<mapping class="ais.database.model.antarjemput.RuteAntarJemput"></mapping>
+		<mapping class="ais.database.model.antarjemput.JadwalAntarJemput"></mapping>
+		<mapping class="ais.database.model.antarjemput.PesertaJadwalAntarJemput"></mapping>
+		<mapping class="ais.database.model.antarjemput.KartuPenjemputAntarJemput"></mapping>
+		<mapping class="ais.database.model.antarjemput.TransaksiPenjemputanAntarJemput"></mapping>
+		<mapping class="ais.database.model.antarjemput.DetailPenjemputanAntarJemput"></mapping>
+		<mapping class="ais.database.model.antarjemput.LogNotifikasiAntarJemput"></mapping>
+
+		<mapping
+			class="ais.database.model.asset.JenisPerjanjianKerjasamaAsset"></mapping>
+		<mapping
+			class="ais.database.model.asset.PerjanjianKerjasamaMasterAsset"></mapping>
+		<mapping
+			class="ais.database.model.asset.PerjanjianKerjasamaMasterAssetDetail"></mapping>
+
+		<mapping
+			class="ais.database.model.asset.PembayaranTerminMasterAsset"></mapping>
+		<mapping
+			class="ais.database.model.asset.PembayaranTerminMasterAssetDetail"></mapping>
+
+		<mapping class="ais.database.model.asset.PenyediaAsset"></mapping>
+		<mapping
+			class="ais.database.model.asset.PemesananPengadaanMasterAsset"></mapping>
+		<mapping
+			class="ais.database.model.asset.PemesananPengadaanMasterAssetDetail"></mapping>
+		<mapping
+			class="ais.database.model.asset.PenerimaanPengadaanMasterAsset"></mapping>
+		<mapping
+			class="ais.database.model.asset.PenerimaanPengadaanMasterAssetDetail"></mapping>
+		<mapping
+			class="ais.database.model.asset.PermintaanPengadaanMasterAsset"></mapping>
+		<mapping
+			class="ais.database.model.asset.PermintaanPengadaanMasterAssetDetail"></mapping>
+		<mapping
+			class="ais.database.model.asset.ReturPengadaanMasterAsset"></mapping>
+		<mapping
+			class="ais.database.model.asset.ReturPengadaanMasterAssetDetail"></mapping>
+		<mapping class="ais.database.model.asset.SaldoAwalMasterAsset"></mapping>
+		<mapping
+			class="ais.database.model.asset.SaldoAwalMasterAssetDetail"></mapping>
+		<mapping
+			class="ais.database.model.asset.BreakdownItemTagihanVendor"></mapping>
+		<mapping class="ais.database.model.asset.DetailTransaksiAsset"></mapping>
+		<mapping class="ais.database.model.asset.PemakaianMasterAsset"></mapping>
+		<mapping
+			class="ais.database.model.asset.PemakaianMasterAssetDetail"></mapping>
+		<mapping class="ais.database.model.asset.SatuanMasterAsset"></mapping>
+
+		<!--// TABEL YANG TERDAPAT PADA SCHEMA ASSET -->
+
+
+		<!-- TABEL YANG TERDAPAT PADA SCHEMA EMPLOY -->
+		<mapping class="ais.database.model.employ.JenisCutiDanIzin"></mapping>
+		<mapping
+			class="ais.database.model.employ.KelompokParameterTambahanCutiDanIzin"></mapping>
+		<mapping
+			class="ais.database.model.employ.ParameterTambahanCutiDanIzin"></mapping>
+		<mapping
+			class="ais.database.model.employ.PendataanPelanggaranPegawai"></mapping>
+		<mapping
+			class="ais.database.model.employ.PelanggaranDanHukumanPegawai"></mapping>
+		<mapping class="ais.database.model.employ.PelanggaranPegawai"></mapping>
+		<mapping class="ais.database.model.employ.HukumanPegawai"></mapping>
+
+		<mapping class="ais.database.model.employ.TipePegawai"></mapping>
+		<mapping class="ais.database.model.employ.TipeMasaKerja"></mapping>
+		<mapping
+			class="ais.database.model.employ.JenisKenaikanPangkat"></mapping>
+		<mapping class="ais.database.model.employ.MasaKerja"></mapping>
+		<mapping class="ais.database.model.employ.Pendidikan"></mapping>
+		<mapping class="ais.database.model.employ.JabatanStruktural"></mapping>
+		<mapping class="ais.database.model.employ.JabatanFungsional"></mapping>
+		<mapping class="ais.database.model.employ.JenisJabatan"></mapping>
+		<mapping class="ais.database.model.employ.Peraturan"></mapping>
+		<mapping class="ais.database.model.employ.Golongan"></mapping>
+		<mapping class="ais.database.model.employ.SkorGolongan"></mapping>
+		<mapping class="ais.database.model.employ.UnitGolongan"></mapping>
+		<mapping class="ais.database.model.employ.GajiPokok"></mapping>
+		<mapping class="ais.database.model.employ.Insentif"></mapping>
+		<mapping class="ais.database.model.employ.Makan"></mapping>
+		<mapping class="ais.database.model.employ.Transport"></mapping>
+
+		<mapping
+			class="ais.database.model.employ.GradeTunjanganKinerja"></mapping>
+		<mapping class="ais.database.model.employ.UnitKerja"></mapping>
+		<mapping class="ais.database.model.employ.JenisPimpinan"></mapping>
+		<mapping
+			class="ais.database.model.employ.RiwayatStatusKepegawaian"></mapping>
+		<mapping class="ais.database.model.employ.RiwayatKerjaPegawai"></mapping>
+		<mapping class="ais.database.model.employ.JenisDiklat"></mapping>
+		<mapping class="ais.database.model.employ.Diklat"></mapping>
+		<mapping
+			class="ais.database.model.employ.RiwayatPendidikanPegawai"></mapping>
+		<mapping class="ais.database.model.employ.JenisKegiatanEmploy"></mapping>
+		<mapping class="ais.database.model.employ.JenisPensiun"></mapping>
+		<mapping class="ais.database.model.employ.KenaikanPangkat"></mapping>
+		<mapping class="ais.database.model.employ.KenaikanGajiBerkala"></mapping>
+		<mapping class="ais.database.model.employ.Keluarga"></mapping>
+		<mapping class="ais.database.model.employ.Pensiun"></mapping>
+		<mapping class="ais.database.model.employ.KonfigurasiSK"></mapping>
+		<mapping
+			class="ais.database.model.employ.RiwayatPelatihanPegawai"></mapping>
+		<mapping
+			class="ais.database.model.employ.RiwayatTandaJasaPegawai"></mapping>
+		<mapping
+			class="ais.database.model.employ.RiwayatKeluarNegeriPegawai"></mapping>
+		<mapping
+			class="ais.database.model.employ.RiwayatOrganisasiSekolahPegawai"></mapping>
+		<mapping
+			class="ais.database.model.employ.RiwayatOrganisasiKampusPegawai"></mapping>
+		<mapping
+			class="ais.database.model.employ.RiwayatOrganisasiLainPegawai"></mapping>
+		<mapping
+			class="ais.database.model.employ.RiwayatKeteranganLainPegawai"></mapping>
+		<mapping
+			class="ais.database.model.employ.RiwayatKartuIdentitasPegawai"></mapping>
+		<mapping class="ais.database.model.employ.KomunikasiPegawai"></mapping>
+		<mapping class="ais.database.model.employ.JamKerjaPegawai"></mapping>
+		<mapping
+			class="ais.database.model.employ.DaftarNilaiPelaksanaanPekerjaan"></mapping>
+		<mapping class="ais.database.model.employ.JenisPelatihan"></mapping>
+		<mapping class="ais.database.model.employ.JenisTandaJasa"></mapping>
+		<mapping class="ais.database.model.employ.JenisPeraturan"></mapping>
+		<mapping
+			class="ais.database.model.employ.JabatanFungsionalTambahan"></mapping>
+		<mapping class="ais.database.model.employ.Seminar"></mapping>
+		<mapping class="ais.database.model.employ.MutasiPindah"></mapping>
+		<mapping class="ais.database.model.employ.SatuanKerjaEmploy"></mapping>
+		<!--// TABEL YANG TERDAPAT PADA SCHEMA EMPLOY -->
+
+		<!-- TABEL YANG TERDAPAT PADA SCHEMA koperasi -->
+		<mapping class="ais.database.model.inventory.Toko"></mapping>
+		<mapping class="ais.database.model.inventory.Pedagang"></mapping>
+		<mapping class="ais.database.model.koperasi.KodePembayaranOnline"></mapping>
+		<mapping class="ais.database.model.koperasi.AturanDiskon"></mapping>
+		<mapping class="ais.database.model.koperasi.PencairanDiskon"></mapping>
+		<mapping class="ais.database.model.koperasi.PembatalanTransaksiKantin"></mapping>
+		<mapping class="ais.database.model.koperasi.CalonAnggotaKoperasi"></mapping>
+		<mapping class="ais.database.model.koperasi.MejaKantin"></mapping>
+		<mapping class="ais.database.model.koperasi.PosDeviceToken"></mapping>
+		<mapping
+			class="ais.database.model.inventory.DraftPembelian"></mapping>
+		<mapping
+			class="ais.database.model.koperasi.DraftPembelianAnggotaKoperasi"></mapping>
+		<mapping
+			class="ais.database.model.koperasi.PembelianAnggotaKoperasi"></mapping>
+
+		<mapping
+			class="ais.database.model.koperasi.JenisTransaksiKoperasi"></mapping>
+		<mapping
+			class="ais.database.model.koperasi.CaraPembayaranKoperasi"></mapping>
+		<mapping
+			class="ais.database.model.koperasi.JenisAnggotaKoperasi"></mapping>
+		<mapping
+			class="ais.database.model.koperasi.TipeAnggotaKoperasi"></mapping>
+		<mapping class="ais.database.model.koperasi.Koperasi"></mapping>
+		<mapping class="ais.database.model.koperasi.AnggotaKoperasi"></mapping>
+		<mapping
+			class="ais.database.model.koperasi.JenisIdentitasAnggotaKoperasi"></mapping>
+		<mapping class="ais.database.model.koperasi.PengurusKoperasi"></mapping>
+		<mapping class="ais.database.model.koperasi.ProdukKoperasi"></mapping>
+		<mapping
+			class="ais.database.model.koperasi.TipeProdukKoperasi"></mapping>
+		<mapping
+			class="ais.database.model.koperasi.ParameterTambahanProdukKoperasi"></mapping>
+		<mapping
+			class="ais.database.model.koperasi.KelompokParameterTambahanProdukKoperasi"></mapping>
+		<mapping
+			class="ais.database.model.koperasi.SyaratProdukKoperasi"></mapping>
+		<mapping class="ais.database.model.koperasi.TransaksiKoperasi"></mapping>
+		<mapping
+			class="ais.database.model.koperasi.TransaksiKoperasiDetail"></mapping>
+		<mapping
+			class="ais.database.model.koperasi.PembayaranAnggotaKoperasi"></mapping>
+		<mapping
+			class="ais.database.model.koperasi.PembayaranAnggotaKoperasiDetail"></mapping>
+
+		<!-- ═══ FITUR SHU (Sisa Hasil Usaha) — pembagian per tahun & per anggota ═══ -->
+		<mapping class="ais.database.model.koperasi.PembagianShu"></mapping>
+		<mapping class="ais.database.model.koperasi.ShuAnggota"></mapping>
+
+		<!-- ═══ FITUR ANGGARAN/PERENCANAAN KAS (RAPB) — rencana kas per tahun ═══ -->
+		<mapping class="ais.database.model.koperasi.AnggaranKasKoperasi"></mapping>
+
+		<!-- ═══ FITUR MODAL PENYERTAAN — penguatan modal koperasi ═══ -->
+		<mapping class="ais.database.model.koperasi.ModalPenyertaanKoperasi"></mapping>
+
+		<!-- ═══ FITUR ARO DEPOSITO — perpanjangan otomatis simpanan berjangka ═══ -->
+		<mapping class="ais.database.model.koperasi.DepositoRolloverKoperasi"></mapping>
+
+
+		<!-- TABEL YANG TERDAPAT PADA SCHEMA koperasi -->
+
+		<!-- TABEL YANG TERDAPAT PADA SCHEMA beasiswa -->
+		<mapping
+			class="ais.database.model.beasiswa.PersyaratanBeasiswa"></mapping>
+		<mapping
+			class="ais.database.model.beasiswa.BeasiswaPunyaPersyaratan"></mapping>
+		<mapping
+			class="ais.database.model.beasiswa.MahasiswaDaftarBeasiswa"></mapping>
+		<mapping
+			class="ais.database.model.beasiswa.MahasiswaBeasiswaPersyaratan"></mapping>
+		<!-- TABEL YANG TERDAPAT PADA SCHEMA beasiswa -->
+
+		<!-- TABEL YANG TERDAPAT PADA SCHEMA sosial -->
+		<mapping class="ais.database.model.sosial.Donatur"></mapping>
+		<mapping class="ais.database.model.sosial.GelombangDonatur"></mapping>
+		<mapping
+			class="ais.database.model.sosial.KategoriProgramDonatur"></mapping>
+		<mapping class="ais.database.model.sosial.PenyaluranDonasi"></mapping>
+		<mapping class="ais.database.model.sosial.ProgramDonatur"></mapping>
+		<!-- TABEL YANG TERDAPAT PADA SCHEMA sosial -->
+
+
+		<!-- TABEL YANG TERDAPAT PADA SCHEMA kkn -->
+		<mapping class="ais.database.model.kkn.PersyaratanKkn"></mapping>
+		<mapping class="ais.database.model.kkn.KknPunyaPersyaratan"></mapping>
+		<mapping class="ais.database.model.kkn.MahasiswaDaftarKkn"></mapping>
+		<mapping
+			class="ais.database.model.kkn.MahasiswaKknPersyaratan"></mapping>
+		<mapping class="ais.database.model.kkn.KelompokKkn"></mapping>
+		<!-- TABEL YANG TERDAPAT PADA SCHEMA kkn -->
+
+
+		<!-- TABEL YANG TERDAPAT PADA SCHEMA pkl -->
+		<mapping class="ais.database.model.pkl.PersyaratanPkl"></mapping>
+		<mapping class="ais.database.model.pkl.PklPunyaPersyaratan"></mapping>
+		<mapping class="ais.database.model.pkl.MahasiswaDaftarPkl"></mapping>
+		<mapping
+			class="ais.database.model.pkl.MahasiswaPklPersyaratan"></mapping>
+		<mapping class="ais.database.model.pkl.KelompokPkl"></mapping>
+		<!-- TABEL YANG TERDAPAT PADA SCHEMA pkl -->
+
+		<!--// TABEL YANG TERDAPAT PADA SCHEMA kedokteran -->
+		<mapping class="ais.database.model.kedokteran.JenisPertemuan"></mapping>
+		<mapping
+			class="ais.database.model.kedokteran.PertemuanKedokteran"></mapping>
+		<mapping
+			class="ais.database.model.kedokteran.PertemuanHasDosen"></mapping>
+		<mapping class="ais.database.model.kedokteran.PHDHasMahasiswa"></mapping>
+		<!--// TABEL YANG TERDAPAT PADA SCHEMA kedokteran -->
+
+
+		<!--// TABEL YANG TERDAPAT PADA SCHEMA sirs -->
+
+		<mapping class="ais.database.model.sirs.JenisBiayaLain" />
+
+		<mapping
+			class="ais.database.model.sirs.PaketPerawatanDetailPasien" />
+		<mapping class="ais.database.model.sirs.PaketPerawatanDetail" />
+		<mapping class="ais.database.model.sirs.JenisAlatMedis" />
+
+		<mapping class="ais.database.model.sirs.JadwalDokter" />
+		<mapping class="ais.database.model.sirs.TarifKhusus" />
+
+		<mapping class="ais.database.model.sirs.JenisBiaya" />
+		<mapping class="ais.database.model.sirs.Biaya" />
+		<mapping
+			class="ais.database.model.sirs.TarifKhususPunyaTindakan" />
+		<mapping
+			class="ais.database.model.sirs.TarifKhususPunyaAlatMedis" />
+		<mapping class="ais.database.model.sirs.TarifKhususPunyaItem" />
+		<mapping class="ais.database.model.sirs.BookingRegistrasi" />
+
+		<mapping class="ais.database.model.sirs.AlatMedis" />
+		<mapping
+			class="ais.database.model.sirs.BiayaAlatMedisPerKelas" />
+		<mapping
+			class="ais.database.model.sirs.AlatMedisDiagnosaPenyakit" />
+
+		<mapping class="ais.database.model.sirs.Komunitas" />
+		<mapping class="ais.database.model.sirs.KomunitasPunyaPasien" />
+		<mapping
+			class="ais.database.model.sirs.DepositPunyaPembayaran" />
+		<mapping class="ais.database.model.sirs.Diskon" />
+		<mapping class="ais.database.model.sirs.DiskonDetail" />
+		<mapping class="ais.database.model.sirs.PajakMedis" />
+		<mapping class="ais.database.model.sirs.PajakDetail" />
+
+		<mapping class="ais.database.model.sirs.Kecamatan" />
+		<mapping class="ais.database.model.sirs.Kelurahan" />
+		<mapping class="ais.database.model.sirs.Dusun" />
+
+		<mapping
+			class="ais.database.model.sirs.DiagnosaPenyakitPunyaPemeriksaan" />
+
+		<mapping class="ais.database.model.sirs.Pemeriksaan" />
+
+
+		<mapping class="ais.database.model.sirs.JenisItemMedis" />
+		<mapping class="ais.database.model.sirs.SatuanItem" />
+		<mapping class="ais.database.model.sirs.ItemMedis" />
+
+		<mapping class="ais.database.model.sirs.JenisPasien" />
+		<mapping class="ais.database.model.sirs.Pasien" />
+		<mapping class="ais.database.model.sirs.PrioritasPasien" />
+
+
+		<mapping class="ais.database.model.sirs.Gudang" />
+		<mapping class="ais.database.model.sirs.Bagian" />
+		<mapping class="ais.database.model.sirs.Pendaftaran" />
+		<mapping class="ais.database.model.sirs.PermintaanPembelian" />
+		<mapping
+			class="ais.database.model.sirs.PermintaanPembelianDetail" />
+		<mapping class="ais.database.model.sirs.PesananPembelian" />
+		<mapping
+			class="ais.database.model.sirs.PesananPembelianDetail" />
+
+		<mapping class="ais.database.model.sirs.PenerimaanOrder" />
+		<mapping class="ais.database.model.sirs.PenerimaanOrderDetail" />
+		<mapping class="ais.database.model.sirs.KelasPerawatan" />
+		<mapping class="ais.database.model.sirs.HargaJualItem" />
+		<mapping class="ais.database.model.sirs.HargaBeliItem" />
+
+		<mapping class="ais.database.model.sirs.Dokter" />
+		<mapping class="ais.database.model.sirs.Poly" />
+		<mapping class="ais.database.model.sirs.Icd" />
+		<mapping class="ais.database.model.sirs.Asuransi" />
+		<mapping class="ais.database.model.sirs.Kamar" />
+		<mapping class="ais.database.model.sirs.TempatTidur" />
+
+		<mapping class="ais.database.model.sirs.JenisPenyakit" />
+		<mapping class="ais.database.model.sirs.JenisTindakan" />
+		<mapping class="ais.database.model.sirs.Tindakan" />
+		<mapping
+			class="ais.database.model.sirs.TindakanDiagnosaPenyakit" />
+		<mapping class="ais.database.model.sirs.DiagnosaPenyakit" />
+		<mapping class="ais.database.model.sirs.StatusPulang" />
+		<mapping class="ais.database.model.sirs.Satker" />
+
+		<mapping class="ais.database.model.sirs.BiayaTindakanPerKelas" />
+		<mapping class="ais.database.model.sirs.Instalasi" />
+		<mapping class="ais.database.model.sirs.SaldoAwalMedis" />
+		<mapping class="ais.database.model.sirs.SaldoAwalMedisDetail" />
+		<mapping class="ais.database.model.sirs.TransferItem" />
+		<mapping class="ais.database.model.sirs.TransferItemDetail" />
+		<mapping class="ais.database.model.sirs.BahanBakuItem" />
+		<mapping class="ais.database.model.sirs.Kadaluarsa" />
+		<mapping class="ais.database.model.sirs.TindakanLabDetail" />
+
+
+		<mapping class="ais.database.model.sirs.Tahun" />
+		<mapping class="ais.database.model.sirs.DataPasienKeluar" />
+		<mapping class="ais.database.model.sirs.KodeTransaksiMedis" />
+		<mapping class="ais.database.model.sirs.DetailTransaksiPasien" />
+		<mapping class="ais.database.model.sirs.TransaksiMedis" />
+		<mapping class="ais.database.model.sirs.TransaksiMedisDetail" />
+		<mapping
+			class="ais.database.model.sirs.TransaksiTindakanLabDetail" />
+		<mapping
+			class="ais.database.model.sirs.PenerimaanOrderKembali" />
+		<mapping
+			class="ais.database.model.sirs.PenerimaanOrderKembaliDetail" />
+		<mapping class="ais.database.model.sirs.Minggu" />
+		<mapping class="ais.database.model.sirs.Resep" />
+		<mapping class="ais.database.model.sirs.ResepDetail" />
+		<mapping class="ais.database.model.sirs.JenisRacikan" />
+		<mapping class="ais.database.model.sirs.Racikan" />
+		<mapping class="ais.database.model.sirs.RacikanDetail" />
+		<mapping class="ais.database.model.sirs.TransaksiRetur" />
+		<mapping class="ais.database.model.sirs.TransaksiReturDetail" />
+		<mapping class="ais.database.model.sirs.KelompokItem" />
+		<mapping class="ais.database.model.sirs.KelasItem" />
+		<mapping class="ais.database.model.sirs.GenerikItem" />
+		<mapping class="ais.database.model.sirs.KoreksiItemMedis" />
+		<mapping
+			class="ais.database.model.sirs.KoreksiItemMedisDetail" />
+		<mapping class="ais.database.model.sirs.PemakaianItem" />
+		<mapping class="ais.database.model.sirs.PemakaianItemDetail" />
+		<mapping class="ais.database.model.sirs.PemakaianReturItem" />
+		<mapping
+			class="ais.database.model.sirs.PemakaianReturItemDetail" />
+		<mapping class="ais.database.model.sirs.Produksi" />
+		<mapping class="ais.database.model.sirs.ProduksiDetail" />
+		<mapping
+			class="ais.database.model.sirs.DetailTransaksiLayanan" />
+		<mapping class="ais.database.model.sirs.Pembayaran" />
+		<mapping class="ais.database.model.sirs.CetakKartuPasien" />
+		<mapping class="ais.database.model.sirs.JenisPembayaranMedis" />
+		<mapping class="ais.database.model.sirs.PembayaranNonTunai" />
+		<mapping class="ais.database.model.sirs.StatusPembayaran" />
+		<mapping class="ais.database.model.sirs.Shift" />
+		<mapping class="ais.database.model.sirs.KunjunganDokter" />
+		<mapping class="ais.database.model.sirs.KonversiSatuanItem" />
+		<mapping class="ais.database.model.sirs.StatusTempatTidur" />
+		<mapping
+			class="ais.database.model.sirs.PindahTempatTidurRawatInap" />
+		<mapping class="ais.database.model.sirs.ItemDiagnosaPenyakit" />
+
+		<mapping class="ais.database.model.sirs.DepositPasien" />
+
+		<!-- Blueprint Integrasi SIRS — Fase 2 (fondasi data), entitas aditif -->
+		<mapping class="ais.database.model.sirs.KepesertaanPasien" />
+		<mapping class="ais.database.model.sirs.AlergiPasien" />
+
+
+		<!--// TABEL YANG TERDAPAT PADA SCHEMA sirs -->
+
+
+		<!--// TABEL YANG TERDAPAT PADA SCHEMA payroll -->
+		<mapping
+			class="ais.database.model.payroll.PengajuanTransaksiPegawai"></mapping>
+		<mapping
+			class="ais.database.model.payroll.JenisPengajuanTransaksiPegawai"></mapping>
+		<mapping
+			class="ais.database.model.payroll.KelompokParameterTambahanPengajuanTransaksiPegawai"></mapping>
+		<mapping
+			class="ais.database.model.payroll.ParameterTambahanPengajuanTransaksiPegawai"></mapping>
+
+		<mapping
+			class="ais.database.model.payroll.AdjusVariablePenggajian"></mapping>
+		
+		<mapping
+			class="ais.database.model.payroll.RencanaItemGajiPegawai"></mapping>
+		<mapping class="ais.database.model.payroll.RencanaGaji"></mapping>
+		<mapping class="ais.database.model.payroll.KodeTunjangan"></mapping>
+		<mapping class="ais.database.model.payroll.KelompokItemGaji"></mapping>
+		
+		<mapping
+			class="ais.database.model.payroll.RencanaGajiPunyaPegawai"></mapping>
+		<mapping class="ais.database.model.payroll.JatahCuti"></mapping>
+		<mapping class="ais.database.model.payroll.WaktuShift"></mapping>
+		<mapping class="ais.database.model.payroll.CaraPembayaranGaji"></mapping>
+		<mapping class="ais.database.model.payroll.AsuransiPegawai"></mapping>
+		<mapping class="ais.database.model.payroll.PtkpPegawai"></mapping>
+		<mapping class="ais.database.model.payroll.FormatItemGaji"></mapping>
+		<mapping class="ais.database.model.payroll.ItemGaji"></mapping>
+		<mapping class="ais.database.model.payroll.Departemen"></mapping>
+		<mapping class="ais.database.model.payroll.LevelJabatan"></mapping>
+		<mapping class="ais.database.model.payroll.Cabang"></mapping>
+		<mapping class="ais.database.model.payroll.ItemGajiPegawai"></mapping>
+		<mapping class="ais.database.model.payroll.JenisFormatGaji"></mapping>
+		<mapping
+			class="ais.database.model.payroll.PengajuanPeminjaman"></mapping>
+		<mapping class="ais.database.model.payroll.JenisGajiPegawai"></mapping>
+		<mapping
+			class="ais.database.model.payroll.ParameterTambahanGajiPegawai"></mapping>
+		<mapping
+			class="ais.database.model.payroll.KelompokParameterTambahanGajiPegawai"></mapping>
+		<mapping class="ais.database.model.payroll.AbsenPegawaiDetail"></mapping>
+		<mapping class="ais.database.model.payroll.JenisShiftPegawai"></mapping>
+		<mapping
+			class="ais.database.model.payroll.DetailJenisShiftPegawai"></mapping>
+		<mapping
+			class="ais.database.model.payroll.JenisShiftPunyaPegawai"></mapping>
+		<mapping class="ais.database.model.payroll.GajiTabahan"></mapping>
+		<mapping
+			class="ais.database.model.payroll.JenisTransaksiPegawai"></mapping>
+		<mapping class="ais.database.model.payroll.TransaksiPegawai"></mapping>
+		<mapping class="ais.database.model.payroll.PembayaranGaji"></mapping>
+		<mapping
+			class="ais.database.model.payroll.PembayaranGajiPunyaPegawai"></mapping>
+		<mapping
+			class="ais.database.model.payroll.PembayaranItemGajiPegawai"></mapping>
+		<mapping class="ais.database.model.payroll.LiburNasional"></mapping>
+		<mapping class="ais.database.model.payroll.CutiDanIzin"></mapping>
+		<mapping class="ais.database.model.payroll.LiburRutin"></mapping>
+		<mapping class="ais.database.model.payroll.UploadLog"></mapping>
+		<!--// TABEL YANG TERDAPAT PADA SCHEMA payroll -->
+
+		<!--// TABEL YANG TERDAPAT PADA SCHEMA sekolah -->
+		<mapping class="ais.database.model.sekolah.JenisMateriHarianDefault" />
+		<mapping class="ais.database.model.sekolah.JenisAktiftasHarianDefault" />
+		<mapping class="ais.database.model.sekolah.AktiftasHarianSiswa" />
+		<mapping class="ais.database.model.sekolah.PengajuanSiswa" />
+		<mapping class="ais.database.model.sekolah.KelompokGelombang" />
+		<mapping
+			class="ais.database.model.sekolah.PaketPsbPunyaGelombangPendaftaranPsb" />
+		<mapping class="ais.database.model.sekolah.PaketPsb" />
+		<mapping class="ais.database.model.sekolah.KanalPembayaran" />
+		<mapping class="ais.database.model.sekolah.FormatNis" />
+		<mapping
+			class="ais.database.model.sekolah.KelasLesSiswaPunyaSiswa" />
+		<mapping class="ais.database.model.sekolah.KelasLesSiswa" />
+		<mapping class="ais.database.model.sekolah.KelasSiswaPSB" />
+		<mapping class="ais.database.model.sekolah.GuruMengajar" />
+		<mapping class="ais.database.model.sekolah.JenisNilaiSiswa" />
+		<mapping
+			class="ais.database.model.sekolah.PengaturanBiayaPunyaSiswa" />
+		<mapping
+			class="ais.database.model.sekolah.PenugasanGuruMengajar" />
+		<mapping class="ais.database.model.sekolah.BlokirSiswa" />
+		<mapping class="ais.database.model.sekolah.KunjunganSiswa" />
+		<mapping
+			class="ais.database.model.sekolah.GelombangPendaftaranPsbPunyaMatapelajaran" />
+		<mapping
+			class="ais.database.model.sekolah.ChecklistPenilaianGuruOlehSiswa" />
+		<mapping
+			class="ais.database.model.sekolah.ChecklistBaruPenilaianGuruOlehSiswa" />
+		<mapping
+			class="ais.database.model.sekolah.GrupChecklistPenilaianGuru" />
+		<mapping
+			class="ais.database.model.sekolah.ChecklistPenilaianGuru" />
+		<mapping
+			class="ais.database.model.sekolah.AngketPenilaianGuru" />
+		<mapping
+			class="ais.database.model.sekolah.KelompokJamPelajaran" />
+		<mapping class="ais.database.model.sekolah.JenisNilaiHuruf" />
+		<mapping class="ais.database.model.sekolah.DiskonSiswa" />
+		<mapping
+			class="ais.database.model.sekolah.DiskonSiswaItemBiaya" />
+		<mapping
+			class="ais.database.model.sekolah.DiskonSiswaPunyaSiswa" />
+		<mapping
+			class="ais.database.model.sekolah.JenisLaporanJadwalSekolah" />
+		<mapping class="ais.database.model.sekolah.JenisRaporSiswa" />
+		<mapping class="ais.database.model.sekolah.JenisCatatanSiswa" />
+		<mapping class="ais.database.model.sekolah.JenisSKGuru" />
+		<mapping
+			class="ais.database.model.sekolah.KelompokParameterTambahanCatatanSiswa" />
+		<mapping
+			class="ais.database.model.sekolah.ParameterTambahanCatatanSiswa" />
+		<mapping class="ais.database.model.sekolah.CatatanSiswa" />
+
+		<mapping class="ais.database.model.sekolah.JenisCatatanGuru" />
+		<mapping
+			class="ais.database.model.sekolah.KelompokParameterTambahanCatatanGuru" />
+		<mapping
+			class="ais.database.model.sekolah.ParameterTambahanCatatanGuru" />
+		<mapping class="ais.database.model.sekolah.CatatanGuru" />
+		<mapping
+			class="ais.database.model.sekolah.KebutuhanKhususSiswa" />
+
+
+		<mapping
+			class="ais.database.model.sekolah.JenisCatatanKelasSiswa" />
+		<mapping
+			class="ais.database.model.sekolah.KelompokParameterTambahanCatatanKelasSiswa" />
+		<mapping
+			class="ais.database.model.sekolah.ParameterTambahanCatatanKelasSiswa" />
+		<mapping class="ais.database.model.sekolah.CatatanKelasSiswa" />
+
+		<mapping class="ais.database.model.sekolah.AbsenGuruPiket" />
+		<mapping class="ais.database.model.sekolah.AbsenPiket" />
+		<mapping class="ais.database.model.sekolah.AbsenPiketPeserta" />
+		<mapping class="ais.database.model.sekolah.AbsenPiketDetail" />
+		<mapping
+			class="ais.database.model.sekolah.PendidikanOrangTuaSiswa"></mapping>
+		<mapping class="ais.database.model.sekolah.StatusKeluarSiswa"></mapping>
+		<mapping class="ais.database.model.sekolah.KelompokStatusKeluarSiswa"></mapping>
+		<mapping class="ais.database.model.sekolah.PekerjaanOrtuSiswa"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.AlatTransportasiSiswa"></mapping>
+		<mapping class="ais.database.model.sekolah.JenisTinggalSiswa"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.PenghasilanOrangTuaSiswa"></mapping>
+		<mapping class="ais.database.model.sekolah.PenghargaanSiswa"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.NilaiKegiatanKesiswaan"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.KategoriItemPenilaianSiswa"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.OrganisasiSiswaPunyaSiswa"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.JabatanOrganisasiSiswa"></mapping>
+		<mapping class="ais.database.model.sekolah.OrganisasiSiswa"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.KegiatanKesiswaanPunyaSiswa"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.JabatanKegiatanKesiswaan"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.SkalaKegiatanKesiswaan"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.CabangPrestasiSiswa"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.KategoriPrestasiSiswa"></mapping>
+		<mapping class="ais.database.model.sekolah.PrestasiSiswa"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.JenisKelompokKegiatanKesiswaan"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.KelompokKegiatanKesiswaan"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.DetailKelompokKegiatanKesiswaan"></mapping>
+		<mapping class="ais.database.model.sekolah.KegiatanKesiswaan"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.GrupKategoriItemPenilaianSiswa"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.DetailGrupKategoriItemPenilaianSiswa"></mapping>
+
+		<mapping class="ais.database.model.sekolah.PembinaSiswa"></mapping>
+		<mapping class="ais.database.model.sekolah.KegiatanSiswa"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.KelompokKegiatanSiswa"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.ParameterTambahanKegiatanSiswa"></mapping>
+		<mapping class="ais.database.model.sekolah.CekKesehatanSiswa"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.KelompokMatapelajaran"></mapping>
+		<mapping class="ais.database.model.sekolah.Yayasan"></mapping>
+		<mapping class="ais.database.model.sekolah.KelasSiswa"></mapping>
+		<mapping class="ais.database.model.sekolah.AsramaSiswa"></mapping>
+		<mapping class="ais.database.model.sekolah.JenisSekolah"></mapping>
+		<mapping class="ais.database.model.sekolah.Sekolah"></mapping>
+		<mapping class="ais.database.model.sekolah.PenjurusanSekolah"></mapping>
+		<mapping class="ais.database.model.sekolah.Siswa"></mapping>
+		<mapping class="ais.database.model.sekolah.Matapelajaran"></mapping>
+		<mapping class="ais.database.model.sekolah.SubMatapelajaran"></mapping>
+		<mapping class="ais.database.model.sekolah.JenisPenilaian"></mapping>
+		<mapping class="ais.database.model.sekolah.GrupPenilaian"></mapping>
+		
+		<mapping class="ais.database.model.sekolah.PrestasiGuru"></mapping>
+		<mapping class="ais.database.model.sekolah.KategoriPrestasiGuru"></mapping>
+		<mapping class="ais.database.model.sekolah.CabangPrestasiGuru"></mapping>
+		
+		<mapping
+			class="ais.database.model.sekolah.DetailGrupPenilaian"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.KategoriItemPenilaianSiswa"></mapping>
+		<mapping class="ais.database.model.sekolah.Guru"></mapping>
+		<mapping class="ais.database.model.sekolah.JenisGuru"></mapping>
+
+		<mapping class="ais.database.model.sekolah.Apresiasi"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.ApresiasiDanPenghargaan"></mapping>
+		<mapping class="ais.database.model.sekolah.Penghargaan"></mapping>
+		<mapping class="ais.database.model.sekolah.ApresiasiSiswa"></mapping>
+
+		<mapping class="ais.database.model.sekolah.Pelanggaran"></mapping>
+		<mapping class="ais.database.model.sekolah.PelanggaranSiswa"></mapping>
+		<mapping class="ais.database.model.sekolah.Hukuman"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.PelanggaranDanHukuman"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.KurikulumPunyaMatapelajaran"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.KurikulumPunyaJenisNilai"></mapping>
+		<mapping class="ais.database.model.sekolah.KurikulumSekolah"></mapping>
+		<mapping class="ais.database.model.sekolah.JamPelajaran"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.JenisJadwalPelajaran"></mapping>
+		<mapping class="ais.database.model.sekolah.JadwalPelajaran"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.KelasSiswaPunyaSiswa"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.AsramaSiswaPunyaSiswa"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.JenisItemPenilaianSiswa"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.DetailJenisPenilaian"></mapping>
+		<mapping class="ais.database.model.sekolah.StatusAwalSiswa"></mapping>
+		<mapping class="ais.database.model.sekolah.DepositSiswa"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.GelombangPendaftaranPsb"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.VerifikasiKelengkapanCalonSiswa"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.KelompokPendaftaranPsb"></mapping>
+		<mapping class="ais.database.model.sekolah.CalonSiswa"></mapping>
+		<mapping class="ais.database.model.sekolah.ItemBiayaSekolah"></mapping>
+		<mapping class="ais.database.model.sekolah.JenisBiayaSekolah"></mapping>
+		<mapping class="ais.database.model.sekolah.PengaturanBiaya"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.PengaturanBiayaItemBiaya"></mapping>
+		<mapping class="ais.database.model.sekolah.NominalBiaya"></mapping>
+		<mapping class="ais.database.model.sekolah.Tagihan"></mapping>
+		<mapping class="ais.database.model.sekolah.PembayaranSiswa"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.PembayaranSiswaDetail"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.AkunPembayaranSiswa"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.CalonSiswaPunyaVerifikasiMatapelajaran"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.CalonSiswaPunyaVerifikasiBerkas"></mapping>
+		<mapping class="ais.database.model.sekolah.PembelianSiswa"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.UploadTransaksiPembelianSiswa"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.PembayaranSiswaDetail"></mapping>
+		<mapping class="ais.database.model.sekolah.Kantin"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.GelombangPendaftaranPsbPunyaParameterVerifikasiCalonSiswa"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.ParameterVerifikasiCalonSiswa"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.CalonSiswaPunyaVerifikasiParameter"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.KelompokParameterTambahanCalonSiswa"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.ParameterTambahanGelombangPendaftaranPsb"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.MatapelajaranPunyaBukuBahanAjar"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.PengumumanJadwalPelajaran"></mapping>
+		<mapping class="ais.database.model.sekolah.RuangPSB"></mapping>
+		<mapping class="ais.database.model.sekolah.UjianPSB"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.RuangGelombangPendaftaranPsbPSB"></mapping>
+		<mapping class="ais.database.model.sekolah.JadwalUjianPSB"></mapping>
+		<mapping class="ais.database.model.sekolah.JadwalPertemuanPSB"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.JadwalPelajaranPunyaItem"></mapping>
+		<mapping
+			class="ais.database.model.sekolah.MasaJadwalPelajaran"></mapping>
+		<mapping class="ais.database.model.sekolah.NilaiHurufSekolah"></mapping>
+		<!--// TABEL YANG TERDAPAT PADA SCHEMA sekolah -->
+
+
+		<!--// TABEL YANG TERDAPAT PADA SCHEMA inventory -->
+		<mapping class="ais.database.model.inventory.JenisProduk"></mapping>
+		<mapping class="ais.database.model.inventory.PemasokProduk"></mapping>
+		<mapping class="ais.database.model.inventory.SatuanProduk"></mapping>
+		<mapping class="ais.database.model.inventory.Produk"></mapping>
+		<mapping class="ais.database.model.inventory.PengajuanPerubahanHargaProduk"></mapping>
+		<mapping class="ais.database.model.inventory.AmbangStokGudang"></mapping>
+		<mapping class="ais.database.model.inventory.PengajuanPembelianGudang"></mapping>
+
+		<mapping class="ais.database.model.inventory.Pembelian"></mapping>
+		<mapping class="ais.database.model.inventory.ProdukKomentar"></mapping>
+		
+		<mapping class="ais.database.model.inventory.StokOpname"></mapping>
+		<mapping class="ais.database.model.inventory.PengadaanProduk"></mapping>
+		<mapping class="ais.database.model.inventory.PemakaianBahanBaku"></mapping>
+		<mapping class="ais.database.model.inventory.ReturBarang"></mapping>
+		<mapping class="ais.database.model.inventory.ReturPenjualan"></mapping>
+		<mapping class="ais.database.model.inventory.SesiKasKasir"></mapping>
+		<mapping class="ais.database.model.inventory.SetoranTenant"></mapping>
+		<mapping class="ais.database.model.inventory.SesiStokOpname"></mapping>
+		<mapping class="ais.database.model.inventory.ProduksiKantin"></mapping>
+		<mapping class="ais.database.model.inventory.MutasiRekeningKoran"></mapping>
+		<mapping class="ais.database.model.inventory.SurveyKepuasanPos"></mapping>
+
+		<!--// TABEL YANG TERDAPAT PADA SCHEMA inventory -->
+
+		<!-- TABEL YANG TERDAPAT PADA SCHEMA penelitiandanpengabdian -->
+		<mapping
+			class="ais.database.model.penelitiandanpengabdian.JenisJabatanPenelitianDanPengabdian"></mapping>
+		<mapping
+			class="ais.database.model.penelitiandanpengabdian.ArtikelTerindeks"></mapping>
+		<mapping
+			class="ais.database.model.penelitiandanpengabdian.TahapanPenyusunanArtikel"></mapping>
+
+		<mapping
+			class="ais.database.model.penelitiandanpengabdian.PengumumanPenelitian"></mapping>
+		<mapping
+			class="ais.database.model.penelitiandanpengabdian.JenisPenelitianDanPengabdian"></mapping>
+		<mapping
+			class="ais.database.model.penelitiandanpengabdian.TipePenelitianDanPengabdian"></mapping>
+		<mapping
+			class="ais.database.model.penelitiandanpengabdian.PenelitianDanPengabdian"></mapping>
+		<mapping
+			class="ais.database.model.penelitiandanpengabdian.JurnalPenelitian"></mapping>
+		<mapping
+			class="ais.database.model.penelitiandanpengabdian.PengajuanPenelitianDanPengabdian"></mapping>
+		<mapping
+			class="ais.database.model.penelitiandanpengabdian.FilePengajuanPenelitianDanPengabdian"></mapping>
+		<mapping
+			class="ais.database.model.penelitiandanpengabdian.FileArtikel"></mapping>
+
+		<mapping
+			class="ais.database.model.penelitiandanpengabdian.AnggotaPengajuanPenelitianDanPengabdian"></mapping>
+		<mapping
+			class="ais.database.model.penelitiandanpengabdian.SumberDanaPenelitianDanPengabdian"></mapping>
+		<mapping
+			class="ais.database.model.penelitiandanpengabdian.Artikel"></mapping>
+		<mapping
+			class="ais.database.model.penelitiandanpengabdian.AnggotaArtikel"></mapping>
+		<mapping
+			class="ais.database.model.penelitiandanpengabdian.TingkatArtikel"></mapping>
+		<mapping
+			class="ais.database.model.penelitiandanpengabdian.TahapanPelaporanPenelitianDanPengabdian"></mapping>
+		<mapping
+			class="ais.database.model.penelitiandanpengabdian.PengajuanTahapanPelaporanPenelitianDanPengabdian"></mapping>
+		<mapping
+			class="ais.database.model.penelitiandanpengabdian.FilePengajuanTahapanPelaporanPenelitianDanPengabdian"></mapping>
+		<!-- TABEL YANG TERDAPAT PADA SCHEMA penelitiandanpengabdian -->
+
+
+
+		<!-- </event> -->
+
+
+		<event type="load">
+			<listener class="ais.database.hibernate.LoadEventListener" />
+		</event>
+
+		<event type="delete">
+			<listener class="ais.database.hibernate.DeleteEventListener" />
+		</event>
+		<event type="update">
+			<listener class="ais.database.hibernate.UpdateEventListener" />
+		</event>
+		<event type="save">
+			<listener class="ais.database.hibernate.SaveEventListener" />
+		</event>
+		<!--
+			PENTING: session.saveOrUpdate() memicu event "save-update", BUKAN "update".
+			Tanpa listener ini, entity detached yang disimpan tanpa perubahan tetap
+			menghasilkan SQL UPDATE + baris audit Envers (oldState=null, fail-open).
+		-->
+		<event type="save-update">
+			<listener class="ais.database.hibernate.SaveOrUpdateAuditEventListener" />
+		</event>
+
+
+
+
+		<event type="post-insert">
+			<listener class="ais.database.hibernate.AuditListener" />
+		</event>
+		<event type="post-update">
+			<listener class="ais.database.hibernate.AuditListener" />
+		</event>
+		<event type="post-delete">
+			<listener class="ais.database.hibernate.AuditListener" />
+		</event>
+
+
+
+	</session-factory>
+
+</hibernate-configuration>

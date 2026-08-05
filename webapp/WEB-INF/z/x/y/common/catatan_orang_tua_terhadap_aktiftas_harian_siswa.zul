@@ -1,0 +1,20 @@
+<?page title="Catatan Harian Siswa" cacheable="false"
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul">
+
+	<!--
+		Halaman publik (tanpa login) untuk orang tua melihat catatan harian
+		dan memberikan tanggapan/komentar.
+		Diakses via servlet: /AktiftasHarianSiswa?siswa={ID}
+		Composer: ais.action.master.sekolah.CatatanOrangTuaAktiftasHarianAction
+	-->
+
+	<window border="none" width="100%" height="100%"
+		apply="ais.action.master.sekolah.CatatanOrangTuaAktiftasHarianAction"
+		style="margin:0;padding:0;overflow-y:auto;background:#f0f4f8;">
+		<div id="mainDiv" width="100%"
+			style="min-height:100vh;padding-bottom:80px;box-sizing:border-box;" />
+	</window>
+
+</zk>

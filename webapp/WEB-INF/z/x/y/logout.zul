@@ -1,0 +1,28 @@
+<?page title="AIS Pascasarjana UIN Jakarta" contentType="text/html;charset=UTF-8"?>
+<zk>
+
+	<borderlayout>
+
+		<north size="80px" border="0" id="mycenter">
+
+			<image id="header" height="80px"
+				width="100%" src="/img/header__pasca.jpg" align="left" />
+		</north>
+		<zscript>
+	// AIS_RESET_DEFAULT_ZKOSS_STYLE mycenter.setStyle(null);
+</zscript>
+
+		<center>
+			<vbox>
+			<a href="index.jsp">
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"   id="back" label="back" ></toolbarbutton></a>
+			</vbox>
+
+		</center>
+
+
+
+	</borderlayout>
+
+
+</zk>

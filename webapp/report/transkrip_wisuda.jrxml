@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="transkrip_wisuda" language="groovy" pageWidth="842" pageHeight="604" orientation="Landscape" columnWidth="842" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0">
+	<property name="ireport.zoom" value="0.75"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mahasiswa" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[13929L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tanggal" class="java.util.Date" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new java.util.Date()]]></defaultValueExpression>
+	</parameter>
+	<parameter name="dekan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+	</parameter>
+	<parameter name="rektor" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+	</parameter>
+	<parameter name="SUBREPORT_DIR" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+	</parameter>
+	<parameter name="barcode" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="foto" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI (UIN)"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_jurusan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Program Studi"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_fakultas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Fakultas"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_kota_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Ciputat"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_kota" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Jakarta"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_an_rektor" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["A.n. REKTOR"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_an_dekan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["A.n Dekan"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="semester" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[10]]></defaultValueExpression>
+	</parameter>
+	<parameter name="alamat_instansi" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Jln. Ir. H. Juanda No. 95 Ciputat 15412 Telp. (021) 7401925 Fax. :(021) 7402982"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_nama" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Nama"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_ttl" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Tempat/Tgl.lahir"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_tgl_lulus" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Tanggal Lulus"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_nim" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["NIM"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_no_seri" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["No. Seri"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_jumlah_kredit" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Beban Studi"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_ipk_titik" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Indek Prestasi"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_yudisium" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Yudisium"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_judul_skripsi" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Judul Skripsi"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="parameter6" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="label_instansi" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["KEMENTRIAN AGAMA"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_universitas_1" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_nama_dokumen" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["TRANSKRIP AKADEMIK"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="foto_lulus" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="judisium" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Kumlaude"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="pembantu_rektor" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Moh. Matsna HS, Prof. Dr. M.A"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="nip" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["NIP. 195108071980031006"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="ambilDariKurikulum" class="java.lang.Boolean" isForPrompting="false">
+		<defaultValueExpression><![CDATA[true]]></defaultValueExpression>
+	</parameter>
+	<parameter name="wisuda" class="java.lang.Long"/>
+	<parameter name="fakultas" class="java.lang.Long"/>
+	<parameter name="jurusan" class="java.lang.Long"/>
+	<parameter name="tampilkanHanyaYangSudahDisetujui" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[0L]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select
+c.id,
+a.wisuda_ke,
+c.nim,
+c.nama,
+b.no_registrasi_wisuda,
+b.no_kursi,
+d.nama as jurusan,
+e.nama as fakultas
+
+from wisuda a
+left join pendaftaran_wisuda b on (a.id = b.wisuda)
+left join mahasiswa c on (b.mahasiswa = c.id)
+left join jurusan d on (c.jurusan = d.id)
+left join fakultas e on (d.fakultas = e.id)
+
+
+where a.id = $P{wisuda}
+and case when $P{fakultas} = -1 then true else d.fakultas = $P{fakultas} end
+and case when $P{jurusan} = -1 then true else c.jurusan = $P{jurusan} end
+and case when $P{tampilkanHanyaYangSudahDisetujui} = 0 then true else b.persetujuan_wisuda end
+order by e.nama,d.nama,c.nim]]>
+	</queryString>
+	<field name="id" class="java.lang.Long"/>
+	<field name="wisuda_ke" class="java.lang.Integer"/>
+	<field name="nim" class="java.lang.String"/>
+	<field name="nama" class="java.lang.String"/>
+	<field name="no_registrasi_wisuda" class="java.lang.String"/>
+	<field name="no_kursi" class="java.lang.String"/>
+	<field name="jurusan" class="java.lang.String"/>
+	<field name="fakultas" class="java.lang.String"/>
+	<detail>
+		<band height="586" splitType="Stretch">
+			<subreport>
+				<reportElement x="0" y="0" width="822" height="586"/>
+				<subreportParameter name="label_no_seri">
+					<subreportParameterExpression><![CDATA[$P{label_no_seri}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_judul_skripsi">
+					<subreportParameterExpression><![CDATA[$P{label_judul_skripsi}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_kota">
+					<subreportParameterExpression><![CDATA[$P{label_kota}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_an_rektor">
+					<subreportParameterExpression><![CDATA[$P{label_an_rektor}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="alamat_instansi">
+					<subreportParameterExpression><![CDATA[$P{alamat_instansi}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="mahasiswa">
+					<subreportParameterExpression><![CDATA[$F{id}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_universitas_1">
+					<subreportParameterExpression><![CDATA[$P{label_universitas_1}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_nama">
+					<subreportParameterExpression><![CDATA[$P{label_nama}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_nama_dokumen">
+					<subreportParameterExpression><![CDATA[$P{label_nama_dokumen}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_yudisium">
+					<subreportParameterExpression><![CDATA[$P{label_yudisium}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_tgl_lulus">
+					<subreportParameterExpression><![CDATA[$P{label_tgl_lulus}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_fakultas">
+					<subreportParameterExpression><![CDATA[$P{label_fakultas}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="rektor">
+					<subreportParameterExpression><![CDATA[$P{rektor}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="dekan">
+					<subreportParameterExpression><![CDATA[$P{dekan}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="parameter6">
+					<subreportParameterExpression><![CDATA[$P{parameter6}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="foto_lulus">
+					<subreportParameterExpression><![CDATA[$P{foto_lulus}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_ttl">
+					<subreportParameterExpression><![CDATA[$P{label_ttl}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_universitas">
+					<subreportParameterExpression><![CDATA[$P{label_universitas}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="logo">
+					<subreportParameterExpression><![CDATA[$P{logo}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_an_dekan">
+					<subreportParameterExpression><![CDATA[$P{label_an_dekan}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="judisium">
+					<subreportParameterExpression><![CDATA[$P{judisium}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="barcode">
+					<subreportParameterExpression><![CDATA[$P{barcode}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="ambilDariKurikulum">
+					<subreportParameterExpression><![CDATA[$P{ambilDariKurikulum}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_nim">
+					<subreportParameterExpression><![CDATA[$P{label_nim}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="tanggal">
+					<subreportParameterExpression><![CDATA[$P{tanggal}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_instansi">
+					<subreportParameterExpression><![CDATA[$P{label_instansi}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="SUBREPORT_DIR">
+					<subreportParameterExpression><![CDATA[$P{SUBREPORT_DIR}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="pembantu_rektor">
+					<subreportParameterExpression><![CDATA[$P{pembantu_rektor}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_ipk_titik">
+					<subreportParameterExpression><![CDATA[$P{label_ipk_titik}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_jumlah_kredit">
+					<subreportParameterExpression><![CDATA[$P{label_jumlah_kredit}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_kota_universitas">
+					<subreportParameterExpression><![CDATA[$P{label_kota_universitas}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="nip">
+					<subreportParameterExpression><![CDATA[$P{nip}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_jurusan">
+					<subreportParameterExpression><![CDATA[$P{label_jurusan}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="foto">
+					<subreportParameterExpression><![CDATA[$P{foto}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="semester">
+					<subreportParameterExpression><![CDATA[$P{semester}]]></subreportParameterExpression>
+				</subreportParameter>
+				<connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
+				<subreportExpression><![CDATA[$P{SUBREPORT_DIR} + "Transkrip_Akademik.jasper"]]></subreportExpression>
+			</subreport>
+		</band>
+	</detail>
+</jasperReport>

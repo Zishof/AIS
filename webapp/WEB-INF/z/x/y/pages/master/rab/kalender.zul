@@ -1,0 +1,192 @@
+<?page title="Kalender" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<window use="ais.ui.util.MyWindow" height="100%" width="100%" id="DemoWin" border="none"
+		apply="ais.action.master.rab.KalenderAction">
+
+
+
+
+
+
+		<!-- Main Calendar Component -->
+		<calendars id="calendars" firstDayOfWeek="Sunday"
+			 mold="month" height="100%" width="100%">
+			<toolbar width="100%">
+				<!-- Module - Control Menu -->
+				<hlayout>
+					<button use="ais.ui.util.MyButtonConfig" height="30px" label="Hari ini"
+						onClick='calendars.setCurrentDate(java.util.Calendar.getInstance(calendars.getDefaultTimeZone()).getTime());'>
+					</button>
+					<button use="ais.ui.util.MyButtonConfig" height="30px" id="prevPage"
+						image="/img/left-sign.gif" />
+					<button use="ais.ui.util.MyButtonConfig" height="30px" id="nextPage"
+						image="/img/right-sign.gif" />
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"   id="currentDate"
+						popup="dateChooserPopup" />
+					<separator width="85px"></separator>
+					<button use="ais.ui.util.MyButtonConfig" height="30px" id="view_d" width="55px"
+						label="Day"
+						onClick='calendars.mold="default";calendars.days=1;clearFocus(self);' />
+					<button use="ais.ui.util.MyButtonConfig" height="30px" id="view_w" width="55px"
+						label="Week"
+						onClick='calendars.mold="default";calendars.days=7;clearFocus(self);' />
+					<button use="ais.ui.util.MyButtonConfig" height="30px" id="view_m" width="55px"
+						label="Month" sclass="selectedButton"
+						onClick='calendars.mold="month";clearFocus(self);' />
+					<separator width="90px"></separator>
+					Filter :
+					<textbox id="filter_text"
+						forward="onOK=onEventFilter" value="" />
+					<button use="ais.ui.util.MyButtonConfig" height="30px" label="Apply"
+						forward="onClick=onEventFilter" />
+					<button use="ais.ui.util.MyButtonConfig" height="30px" label="Clear"
+						onClick='filter_text.value=""' forward="onClick=onEventFilter" />
+				</hlayout>
+				<separator bar="true" width="100%" height="20px"></separator>
+				<zscript><![CDATA[
+	void clearFocus(Button btn) {
+		view_d.setSclass(btn == view_d ? "selectedButton" : "");
+		view_w.setSclass(btn == view_w ? "selectedButton" : "");
+		view_m.setSclass(btn == view_m ? "selectedButton" : "");
+	}
+]]></zscript>
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;kalender&quot;, &quot;Bantuan&quot;);"/>
+			</toolbar>
+		</calendars>
+
+		<!-- Module - Event Popup -->
+		<!-- Create Event Popup -->
+		<window use="ais.ui.util.MyWindow" width="850px" title="Buat Event" border="normal"
+			id="EventPop" mode="modal" visible="false">
+			<caption>
+				Lock :
+				<checkbox use="ais.ui.util.MyCheckboxConfig" id="pplocked" />
+			</caption>
+			<grid fixedLayout="true" use="ais.ui.util.MyGrid"  hflex='1'>
+				<columns>
+					<column use="ais.ui.util.MyColumnConfig" width="100px" />
+					<column use="ais.ui.util.MyColumnConfig" />
+				</columns>
+				<rows>
+					<row>
+						Tanggal Mulai:
+						<div>
+							<datebox id="ppbegin"
+								use="ais.ui.util.MyDatebox"
+								timeZone="${calendars.defaultTimeZone}" />
+							<listbox mold="select" id="ppbt" />
+						</div>
+					</row>
+					<row>
+						Tanggal Selesai:
+						<div>
+							<datebox id="ppend"
+								use="ais.ui.util.MyDatebox"
+								timeZone="${calendars.defaultTimeZone}" />
+							<listbox mold="select" id="ppet" />
+							All Day:
+							<checkbox use="ais.ui.util.MyCheckboxConfig" id="ppallDay"
+								onCheck='ppbt.visible = !self.checked;ppet.visible = !self.checked' />
+						</div>
+					</row>
+					<row>
+						Warna:
+						<hlayout>
+							Header -
+							<bandbox use="ais.ui.util.MyColorbox" id="headColor" color="#007FA5"
+								height="20px" />
+							Isi -
+							<bandbox use="ais.ui.util.MyColorbox" id="cntColor" color="#398CA3"
+								height="20px" />
+						</hlayout>
+
+					</row>
+					<row>
+						Anggaran:
+						<bandbox width="97%" id="anggaran" readonly="true"
+							use="ais.action.master.rab.helper.AmbilDataWorkspaceBanbox" />
+					</row>
+					<row>
+						Keterangan Acara:
+						<textbox multiline="true" rows="2" width="97%"
+							id="ppcnt" />
+					</row>
+
+					<row
+						spans="2">
+						<groupbox>
+
+							<tabbox height="250px" width="100%">
+								<tabs>
+									<tab use="ais.ui.util.MyTabConfig" id="tabIndikator"
+										label="Realisasi Acara">
+									</tab>
+									<tab use="ais.ui.util.MyTabConfig" id="tabJurnalPengeluaran"
+										label="Jurnal Pengeluaran">
+									</tab>
+									<tab use="ais.ui.util.MyTabConfig" id="tabJurnalUmum"
+										label="Jurnal Umum">
+									</tab>
+									<tab use="ais.ui.util.MyTabConfig" id="tabParameter"
+										label="Parameter">
+									</tab>
+
+								</tabs>
+								<tabpanels>
+
+									<tabpanel use="ais.ui.util.MyTabpanel" id="indikator"></tabpanel>
+
+									<tabpanel use="ais.ui.util.MyTabpanel" id="jurnalPengeluaran">
+									</tabpanel>
+
+									<tabpanel use="ais.ui.util.MyTabpanel" id="jurnalUmum">
+									</tabpanel>
+
+									<tabpanel use="ais.ui.util.MyTabpanel" id="parameter">
+										<grid use="ais.ui.util.MyGrid"
+											id="gridParameter" width="100%">
+
+										</grid>
+									</tabpanel>
+
+								</tabpanels>
+
+							</tabbox>
+
+
+						</groupbox>
+					</row>
+
+
+					<row>
+						<cell colspan="2">
+							<button use="ais.ui.util.MyButtonConfig" id="okBtn" width="80px" label="OK" />
+							<button use="ais.ui.util.MyButtonConfig" id="cancelBtn" width="80px"
+								label="Cancel" />
+							<button use="ais.ui.util.MyButtonConfig" id="deleteBtn" width="80px"
+								label="Delete" />
+						</cell>
+					</row>
+				</rows>
+			</grid>
+		</window>
+
+
+		<!-- Choose Date Popup -->
+		<popup id="dateChooserPopup" sclass="chooser-popup"
+			onOpen='dateChooser.value=calendars.currentDate;dateChooser.timeZone=calendars.defaultTimeZone'>
+			<groupbox mold="3d">
+				<caption use="ais.ui.util.MyCaptionConfig" label="Data Chooser">
+					<button use="ais.ui.util.MyButtonConfig" id="dateConfirm" label="Close" />
+				</caption>
+				<calendar id="dateChooser" />
+			</groupbox>
+		</popup>
+
+
+
+
+
+
+	</window>
+</zk>

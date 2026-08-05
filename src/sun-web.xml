@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--<!DOCTYPE sun-web-app PUBLIC "-//Sun Microsystems, Inc.//DTD Application 
+	Server 8.1 Servlet 2.4//EN" "http://www.sun.com/software/ap pserver/dtds/sun-web-app_2_4-1.dtd"> 
+	<sun-web-app error-url=""> <context-root>/coresdp</context-root> <resource-ref> 
+	<res-ref-name>jdbc/coresdpDB</res-ref-name> <jndi-name>jdbc/coresdpDB</jndi-name> 
+	</resource-ref> </sun-web-app> -->
+
+<!DOCTYPE sun-web-app PUBLIC "-//Sun Microsystems, Inc.//DTD Application Server 8.1 Servlet 2.4//EN" "http://www.sun.com/software/ap
+pserver/dtds/sun-web-app_2_4-1.dtd">
+<sun-web-app>
+	<context-root>/ecampus</context-root>
+</sun-web-app>

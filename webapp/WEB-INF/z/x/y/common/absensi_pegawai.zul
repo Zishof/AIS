@@ -1,0 +1,6 @@
+<?page title="new page title" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<window use="ais.ui.util.MyWindow" border="none" height="100%" width="100%"
+		apply="ais.action.master.employ.AbsensiPegawaiAction">
+	</window>
+</zk>

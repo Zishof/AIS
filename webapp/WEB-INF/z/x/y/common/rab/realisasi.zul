@@ -1,0 +1,109 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.rab.RealisasiAction" width="100%"
+		height="100%">
+
+
+
+
+		<panel use="ais.ui.util.MyPanel" width="100%" height="100%"
+			framable="true" title="Data Workspace">
+			<panelchildren>
+
+
+
+				<borderlayout>
+
+					<center border="none" flex="true">
+						<borderlayout>
+							<north border="none" open="true" flex="true">
+								<grid use="ais.ui.util.MyGrid"  fixedLayout="true">
+
+									<columns>
+										<column use="ais.ui.util.MyColumnConfig" width="150px"></column>
+										<column use="ais.ui.util.MyColumnConfig"></column>
+										<column use="ais.ui.util.MyColumnConfig" width="150px"></column>
+										<column use="ais.ui.util.MyColumnConfig"></column>
+										<column use="ais.ui.util.MyColumnConfig" width="150px"></column>
+										<column use="ais.ui.util.MyColumnConfig"></column>
+
+									</columns>
+									<rows>
+
+										<row>
+											<label use="ais.ui.util.MyLabelConfig"
+												value="Tahun Anggaran" />
+											<combobox
+												forward="onChange=onSearchDefault" id="tahunWorkspace"
+												cols="30" />
+
+											<label use="ais.ui.util.MyLabelConfig" value="Satuan Kerja" />
+											<bandbox
+												use="ais.action.master.rab.helper.AmbilDataSatuanKerjaBanbox"
+												id="satuanKerja" width="95%" />
+
+											<label use="ais.ui.util.MyLabelConfig" value="Sumber Dana"
+												id="sumberDanaLabel" visible="false" />
+											<bandbox visible="false"
+												use="ais.action.master.rab.helper.AmbilDataSumberDanaBanbox"
+												id="sumberDana" width="95%" />
+
+
+										</row>
+
+										<row spans="6">
+
+											<toolbar>
+
+												<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"  
+													tooltiptext="Cari data" forward="onClick=onReloadTree"
+													label="Refresh" image="/img/search.gif">
+												</toolbarbutton>
+												<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"  
+													tooltiptext="Cetak" id="cetak" forward="onClick=onCetak"
+													label="Cetak" image="/img/print.png">
+												</toolbarbutton>
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;realisasi&quot;, &quot;Bantuan&quot;);"/>
+			</toolbar>
+										</row>
+									</rows>
+								</grid>
+
+							</north>
+							<center border="none"
+								flex="true">
+
+								<tree width="100%" zclass="z-dottree"
+									height="100%" id="tree">
+
+								</tree>
+
+
+
+							</center>
+
+						</borderlayout>
+					</center>
+				</borderlayout>
+			</panelchildren>
+		</panel>
+
+
+
+
+
+
+	</window>
+
+
+</zk>

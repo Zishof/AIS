@@ -1,0 +1,123 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.kkn.KknUntukMahasiswaAction" width="100%"
+		height="100%">
+
+		<tabbox width="100%" height="100%">
+
+			<tabs>
+				<tab use="ais.ui.util.MyTabConfig" selected="true">
+					Pendaftaran KKN
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onKKN">
+					Kelompok
+				</tab>
+			</tabs>
+			<tabpanels>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+
+
+
+					<borderlayout>
+
+						<center border="none"
+							flex="true">
+
+							<grid use="ais.ui.util.MyGrid" sclass="fgrid">
+								<rows>
+									<row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-atas" height="64px" /></row>
+									<row>
+										<paging use="ais.ui.util.MyPagingKembar" visible="false"
+											id="paging" detailed="true" />
+									</row>
+									<row>
+										<grid use="ais.ui.util.MyGrid" 
+											sclass="dgrid" fixedLayout="true" id="grid">
+											<columns>
+												<column
+													use="ais.ui.util.MyColumnConfig" label="Nama KKN"
+													width="9%" />
+
+												<column width="7%"
+													use="ais.ui.util.MyColumnConfig" label="Tanggal mulai" />
+												<column width="7%"
+													use="ais.ui.util.MyColumnConfig" label="Tanggal sampai" />
+
+
+												<column
+													use="ais.ui.util.MyColumnConfig" width="7%"
+													label="Fakultas" />
+												<column
+													use="ais.ui.util.MyColumnConfig" width="7%" label="Prodi" />
+												<column
+													use="ais.ui.util.MyColumnConfig" width="7%"
+													label="Program" />
+												<column
+													use="ais.ui.util.MyColumnConfig" width="7%"
+													label="SKS dan IPK" />
+												<column
+													use="ais.ui.util.MyColumnConfig" width="7%"
+													label="Atau SKS dan IPK" />
+												<column
+													use="ais.ui.util.MyColumnConfig" width="7%"
+													label="Item Biaya" />
+												<column
+													use="ais.ui.util.MyColumnConfig" label="Status Pengajuan"
+													width="7%" />
+												<column
+													use="ais.ui.util.MyColumnConfig" label="Kelompok"
+													width="19%" />
+												<column
+													use="ais.ui.util.MyColumnConfig" width="9%" label="" />
+											</columns>
+
+										</grid>
+
+
+									</row>
+									<row><paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar" /></row>
+									<row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-bawah" height="128px" /></row>
+								</rows>
+							</grid>
+						</center>
+					</borderlayout>
+
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="kkn"></tabpanel>
+			</tabpanels>
+		</tabbox>
+
+		<window use="ais.ui.util.MyWindow" id="addWindow" title="Daftar"
+			visible="false" mode="popup" position="center,center" border="normal"
+			width="550px" height="200px">
+
+		</window>
+
+
+		<window use="ais.ui.util.MyWindow" id="daftar_kkn_window"
+			title="Konfirmasi Data Pendaftaran Kkn" visible="false" mode="popup"
+			position="center,center" border="normal" width="95%" height="97%">
+
+
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+	daftar_kkn_window.setVisible(false);
+]]></zscript>
+
+	</window>
+
+
+</zk>

@@ -1,0 +1,87 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.ExecuteTemplateQueryAction" width="100%"
+		height="100%">
+
+
+
+		<borderlayout>
+									<north border="none" size="204px" autoscroll="true" flex="false" splittable="false">
+				<div style="padding:12px;box-sizing:border-box;">
+					<div sclass="ais-crud-filter-card">
+						<div sclass="ais-crud-filter-head">
+							<span sclass="ais-crud-filter-title">Pencarian &amp; Filter</span>
+						<div sclass="ais-crud-filter-actions">
+							<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;execute_template_query&quot;, &quot;Bantuan&quot;);"/>
+						</div>
+						</div>
+						<div sclass="ais-crud-filter-body">
+
+				<grid use="ais.ui.util.MyGrid"  fixedLayout="true" sclass="ais-crud-filter-grid">
+					<columns>
+						<column use="ais.ui.util.MyColumnConfig"
+							width="100px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig"></column>
+						<column use="ais.ui.util.MyColumnConfig"
+							width="100px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig"></column>
+					</columns>
+					<rows>
+
+						<row>
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Tempate Query" />
+							<bandbox id="templateQuery"
+								use="ais.action.master.helper.AmbilDataTemplateQueryBanbox"
+								width="95%" />
+
+						</row>
+						<row spans="4">
+							<toolbar>
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+									 tooltiptext="Execute"
+									forward="onClick=onExecute" id="execute" label="Execute"
+									image="/img/new.gif">
+								</toolbarbutton>
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+									 tooltiptext="Download"
+									forward="onClick=onDownloadData" id="print" label="Download"
+									image="/img/excel.png">
+								</toolbarbutton>
+							</toolbar>
+						</row>
+					</rows>
+				</grid>
+						</div>
+					</div>
+				</div>
+			</north>
+			<west width="40%">
+
+				<textbox id="query"
+					width="95%" rows="10">
+				</textbox>
+
+			</west>
+			<center border="none" id="center"
+				flex="true">
+
+
+
+			</center>
+
+		</borderlayout>
+
+		</window>
+
+
+</zk>

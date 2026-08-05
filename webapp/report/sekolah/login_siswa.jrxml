@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="barcode_saldo_awal" language="groovy" pageWidth="595" pageHeight="216" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="3ff84039-b446-4655-984b-0d3c99512e83">
+	<property name="ireport.zoom" value="1.771561000000001"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<field name="status" class="java.lang.String"/>
+	<field name="judul" class="java.lang.String"/>
+	<field name="barcode" class="java.lang.String"/>
+	<field name="cr_code" class="java.lang.String"/>
+	<field name="barcode_data" class="java.lang.String"/>
+	<field name="ruang" class="java.lang.String"/>
+	<field name="tanggal_format" class="java.lang.String"/>
+	<field name="gambar" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="176">
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement key="image-1" x="0" y="0" width="152" height="157" uuid="59cb5993-830b-40e5-8ba3-c63584b8b03b"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "code" )]]></imageExpression>
+			</image>
+			<textField>
+				<reportElement x="0" y="157" width="555" height="19" uuid="45b66bb2-1bc3-44b9-8db3-96098fa17ced"/>
+				<box>
+					<topPen lineWidth="0.5" lineStyle="Solid"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "sekolah.nama" )]]></textFieldExpression>
+			</textField>
+			<rectangle>
+				<reportElement mode="Transparent" x="0" y="0" width="555" height="157" uuid="e8a98557-93e4-4af3-bdc5-f83a4f249e63"/>
+			</rectangle>
+			<textField>
+				<reportElement x="165" y="15" width="100" height="20" uuid="0a16ee16-5873-485d-97d0-9919cc0df9a0"/>
+				<textFieldExpression><![CDATA["Nama"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="165" y="35" width="100" height="20" uuid="8e0291f7-eca7-40b5-ac6f-12835c3437ad"/>
+				<textFieldExpression><![CDATA["NISN"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="165" y="55" width="100" height="20" uuid="45a09174-0caf-4cab-8593-46b4998b8e94"/>
+				<textFieldExpression><![CDATA["NIS"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="165" y="75" width="100" height="20" uuid="ce9cff5d-8ac7-49e4-95b4-b553c6c2353e"/>
+				<textFieldExpression><![CDATA["Ayah"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="165" y="95" width="100" height="20" uuid="6b1bab03-9b2a-4bd5-b008-768121bfbb04"/>
+				<textFieldExpression><![CDATA["Ibu"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="265" y="15" width="290" height="20" uuid="f9ab6680-8d3e-4a2f-969a-c28d09cf09ec"/>
+				<textFieldExpression><![CDATA[": "+$P{REPORT_PARAMETERS_MAP}.get( "namaSiswa" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="265" y="35" width="290" height="20" uuid="5fb11b43-749d-48b0-8aca-71ea0bbddc1e"/>
+				<textFieldExpression><![CDATA[": "+$P{REPORT_PARAMETERS_MAP}.get( "nomorIndukNasional" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="265" y="55" width="290" height="20" uuid="5ee8797c-e452-416b-b902-91460050a780"/>
+				<textFieldExpression><![CDATA[": "+$P{REPORT_PARAMETERS_MAP}.get( "nomorInduk" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="265" y="75" width="290" height="20" uuid="9189caac-2d2c-430a-83c2-cb87df69432a"/>
+				<textFieldExpression><![CDATA[": "+$P{REPORT_PARAMETERS_MAP}.get( "namaAyah" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="265" y="95" width="290" height="20" uuid="bd3c1a8c-faf7-4b3f-a512-5be50d8cf35c"/>
+				<textFieldExpression><![CDATA[": "+$P{REPORT_PARAMETERS_MAP}.get( "namaIbu" )]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+</jasperReport>

@@ -1,0 +1,208 @@
+<?page id="testZul" title="Angket Penilaian Umum" cacheable="false"
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.ChecklistPenilaianUmumOlehPesertaAction"
+		width="100%" height="100%" sclass="angket-page-window">
+
+		<borderlayout id="pustakaLayout" width="100%" height="100%"
+			sclass="angket-main-shell">
+
+			<center border="none" flex="true"
+				sclass="angket-center-body">
+
+				<div sclass="angket-scroll-content" width="100%" height="100%">
+
+					<div sclass="angket-card" width="100%">
+						<hbox width="100%" align="center" pack="stretch">
+							<vbox width="78%">
+								<label use="ais.ui.util.MyLabelConfig" value="Daftar Angket Penilaian Umum" sclass="angket-title" />
+								<separator height="4px" />
+								<label use="ais.ui.util.MyLabelConfig" value="Pilih periode tahun akademik dan semester, lalu klik Lakukan Penilaian untuk mengisi kuesioner."
+									sclass="angket-subtitle" />
+							</vbox>
+							<toolbar align="end" width="22%">
+								<button use="ais.ui.util.MyButtonConfig"
+									label="Selesai"
+									image="/img/save.gif"
+									sclass="angket-top-finish-button"
+									forward="onClick=onIsiAngketDosenSelesai" />
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;checklist_penilaian_umum&quot;, &quot;Bantuan&quot;);"/>
+			</toolbar>
+						</hbox>
+					</div>
+
+					<div sclass="angket-grid-box" width="100%">
+						<grid use="ais.ui.util.MyGrid"
+							sclass="dgrid angket-grid"
+							fixedLayout="true"
+							id="grid"
+							width="100%">
+							<columns>
+								<column use="ais.ui.util.MyColumnConfig"
+									label="Tahun Akademik" width="18%" />
+								<column use="ais.ui.util.MyColumnConfig"
+									label="Semester" width="18%" />
+								<column use="ais.ui.util.MyColumnConfig"
+									label="Informasi" width="46%" />
+								<column use="ais.ui.util.MyColumnConfig"
+									label="Aksi" width="18%" />
+							</columns>
+						</grid>
+					</div>
+
+					<paging visible="false" id="paging" detailed="true" />
+				</div>
+			</center>
+
+			<!-- Dipertahankan untuk kompatibilitas autowire lama, tetapi tombol Selesai sudah dipindah ke atas. -->
+			<south id="southTutup" border="none" height="0px" visible="false" />
+
+		</borderlayout>
+
+		<window use="ais.ui.util.MyWindow"
+			id="addWindow"
+			title="Angket Penilaian"
+			visible="false"
+			mode="popup"
+			position="center,center"
+			border="normal"
+			width="92%"
+			height="95%"
+			sclass="angket-modal-window">
+		</window>
+
+		<zscript>
+			<![CDATA[
+	addWindow.setVisible(false);
+			]]>
+		</zscript>
+	</window>
+
+	<!-- CSS ditempatkan di paling bawah file agar komponen utama pertama tetap <window>, bukan <style>. -->
+	<style>
+		<![CDATA[
+		html, body {
+			overflow:hidden !important;
+			overflow-x:hidden !important;
+		}
+		.angket-page-window,
+		.angket-page-window .z-window-embedded-cnt,
+		.angket-page-window .z-window-highlighted-cnt,
+		.angket-page-window .z-window-modal-cnt {
+			overflow:hidden !important;
+			max-width:100% !important;
+			box-sizing:border-box;
+		}
+		.angket-main-shell {
+			background:#f5f7fb;
+			border:0;
+			overflow:hidden !important;
+			box-sizing:border-box;
+		}
+		.angket-center-body,
+		.angket-center-body .z-center-body {
+			background:#f5f7fb;
+			border:0;
+			overflow:hidden !important;
+			padding:0 !important;
+			box-sizing:border-box;
+		}
+		.angket-scroll-content {
+			height:100% !important;
+			max-height:100% !important;
+			overflow-y:auto !important;
+			overflow-x:hidden !important;
+			box-sizing:border-box;
+		}
+		.angket-card {
+			background:#ffffff;
+			border:1px solid #e5e7eb;
+			border-radius:12px;
+			box-shadow:0 8px 22px rgba(15,23,42,0.08);
+			box-sizing:border-box;
+			padding:14px;
+			margin-bottom:12px;
+			max-width:100%;
+			overflow:hidden;
+		}
+		.angket-title {
+			font-size:16px;
+			font-weight:bold;
+			color:#0f172a;
+			line-height:22px;
+		}
+		.angket-subtitle {
+			font-size:11px;
+			color:#64748b;
+			line-height:18px;
+		}
+		.angket-top-finish-button {
+			font-weight:bold;
+			white-space:nowrap;
+		}
+		.angket-grid-box {
+			background:#ffffff;
+			border:1px solid #e5e7eb;
+			border-radius:12px;
+			overflow:hidden;
+			box-shadow:0 8px 22px rgba(15,23,42,0.08);
+			box-sizing:border-box;
+			max-width:100%;
+		}
+		.angket-grid-box .z-grid,
+		.angket-grid-box .z-grid-body,
+		.angket-grid-box .z-grid-header {
+			border:0 !important;
+			background:#ffffff !important;
+			overflow-x:hidden !important;
+			max-width:100% !important;
+			box-sizing:border-box;
+		}
+		.angket-grid-box .z-column-cnt {
+			font-size:11px;
+			font-weight:bold;
+			color:#334155;
+		}
+		.angket-grid-box .z-row-cnt {
+			font-size:11px;
+			color:#334155;
+			vertical-align:top;
+		}
+		.angket-modal-window,
+		.angket-modal-window .z-window-highlighted-cnt,
+		.angket-modal-window .z-window-modal-cnt,
+		.angket-modal-window .z-window-embedded-cnt {
+			border-radius:12px;
+			overflow:hidden !important;
+			box-sizing:border-box;
+		}
+		.angket-form-scroll {
+			height:100% !important;
+			max-height:100% !important;
+			overflow-y:auto !important;
+			overflow-x:hidden !important;
+			box-sizing:border-box;
+			padding:12px;
+			background:#f8fafc;
+		}
+		@media (max-width: 768px) {
+			.angket-scroll-content {
+				padding:8px !important;
+			}
+			.angket-card {
+				padding:10px;
+			}
+			.angket-card .z-hbox,
+			.angket-card .z-toolbar {
+				width:100% !important;
+			}
+		}
+		]]>
+	</style>
+</zk>

@@ -1,0 +1,57 @@
+<?page title="new page title" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<window use="ais.ui.util.MyWindow"
+		title="Kode Pembayaran atau Virtual Account (VA)" border="none"
+		height="100%" width="100%">
+		<borderlayout>
+			<center flex="true">
+				<grid fixedLayout="true" use="ais.ui.util.MyGrid" height="100%" width="100%">
+					<columns>
+						<column width="15%"></column>
+						<column></column>
+					</columns>
+					<rows>
+						<row>
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Kode Pembayaran">
+							</label>
+							<label use="ais.ui.util.MyLabelConfig" id="kodePembayaran">
+							</label>
+							<zscript>
+							kodePembayaran.setValue(execution.getParameter("va"));
+							</zscript>
+						</row>
+						<row>
+							<label use="ais.ui.util.MyLabelConfig" value="Nominal Pembayaran"></label>
+							<label use="ais.ui.util.MyLabelConfig"
+								id="nominalPembayaran">
+							</label>
+							<zscript>
+							nominalPembayaran.setValue(execution.getParameter("nominal"));
+							</zscript>
+						</row>
+						<row spans="2">
+							<label use="ais.ui.util.MyLabelConfig" value="*) Catatlah kode pembayaran di atas, Anda bisa melakukan pembayaran via ATM, Teller atau Mobile Banking."></label>
+						</row>
+						<row spans="2">
+							<label use="ais.ui.util.MyLabelConfig" id="keteranganNominal"></label>
+							<zscript>
+							keteranganNominal.setValue("*) Pada saat Anda melakukan pembayaran, pastikan nominal atau nilai pembayaran yang Anda masukkan sama dengan tagihan, yaitu "+execution.getParameter("nominal"));
+							</zscript>
+						</row>
+						<row>
+							<label use="ais.ui.util.MyLabelConfig" value="Cara bayar via ATM"></label>
+							<a target="_blank" href="/help/Cara pembayaran di Ipaymu via ATM.pdf">Download cara bayar via ATM</a>
+						</row>
+						
+						<row>
+							<label use="ais.ui.util.MyLabelConfig" value="Cara bayar via Mobile"></label>
+							<a target="_blank" href="/help/Cara pembayaran di Ipaymu via Mobile Banking.pdf">Download cara bayar via Mobile</a>
+						</row>
+						 
+					</rows>
+				</grid>
+			</center>
+		</borderlayout>
+	</window>
+</zk>

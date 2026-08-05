@@ -1,0 +1,71 @@
+<?link rel="shortcut icon" href="/img/logo.png" type="image/x-icon"?>
+<?page title="Sistem Informasi Akademik" contentType="text/html;charset=UTF-8"?>
+<?meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" ?>
+<?meta name="description" content="Sistem Informasi Akademik Ecampus" ?>
+<?meta name="author" content="Mohammad Fauzi Murtadho" ?>
+<zk>
+
+
+	<zscript>
+		<![CDATA[
+	ais.database.model.Tbmuser tbmuser = ais.common.Common.getCurrentFromSpringUser();
+	if (tbmuser == null || tbmuser.getUserId() == null) {
+		ais.common.Common.goLogoff();
+		return;
+	}
+	javax.servlet.http.HttpServletRequest request = (javax.servlet.http.HttpServletRequest) execution
+			.getNativeRequest();
+	ais.common.SessionCounter.initSessionTimeout(request.getSession(), tbmuser, false);
+	
+	if (ais.common.ConstantValues.AKTIF == null) {
+		ais.common.ConstantValues.hasbeeninit = false;
+		ais.common.ConstantValues.init();
+	}
+	
+	ais.common.Common.getCurrentPerpustakaan(true);
+	ais.common.Common.getCurrentPejabat(true);
+
+	ais.common.Common.encripSemua();
+	ais.common.Common.setting();
+
+	if (tbmuser.getMahasiswa() != null || tbmuser.getDosen() != null || tbmuser.getSiswa() != null
+			|| tbmuser.getGuru() != null) {
+		if (ais.common.Common
+				.getKonfigurasi("aktifkan_tampilan_baru_untuk_pengguna", ais.database.model.Konfigurasi.TIDAK_AKTIF)
+				.getNilai().equals(ais.database.model.Konfigurasi.AKTIF)) {
+			execution.sendRedirect("/WEB-INF/z/x/y/pages/ux");
+			return;
+		} else {
+			if (ais.common.Common
+					.getKonfigurasi("aktifkan_menu_baru_untuk_pengguna", ais.database.model.Konfigurasi.TIDAK_AKTIF)
+					.getNilai().equals(ais.database.model.Konfigurasi.AKTIF)) {
+				execution.sendRedirect("../main");
+			} else {
+				execution.sendRedirect("indexl.zul");
+			}
+			
+		}
+	} else {
+		/*
+		if (ais.common.Common
+				.getKonfigurasi("aktifkan_tampilan_baru_untuk_pengguna", ais.database.model.Konfigurasi.TIDAK_AKTIF)
+				.getNilai().equals(ais.database.model.Konfigurasi.AKTIF)) {
+			execution.sendRedirect("/WEB-INF/z/x/y/pages/ux/index.zul");
+			return;
+		} else {
+			execution.sendRedirect("indexl.zul");
+		}
+		*/
+//		execution.sendRedirect("indexl.zul");
+		if (ais.common.Common
+				.getKonfigurasi("aktifkan_menu_baru_untuk_pengguna", ais.database.model.Konfigurasi.TIDAK_AKTIF)
+				.getNilai().equals(ais.database.model.Konfigurasi.AKTIF)) {
+			execution.sendRedirect("../main");
+		} else {
+			execution.sendRedirect("indexl.zul");
+		}
+	}
+]]>
+		</zscript>
+
+</zk>

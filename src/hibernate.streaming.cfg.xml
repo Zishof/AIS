@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE hibernate-configuration PUBLIC
+"-//Hibernate/Hibernate Configuration DTD 3.0//EN"
+"http://hibernate.sourceforge.net/hibernate-configuration-3.0.dtd">
+<hibernate-configuration>
+	<session-factory name="HibernateSessionFactory"> 
+
+
+
+		<property name="hibernate.connection.driver_class">org.postgresql.Driver</property>
+		<property name="hibernate.connection.url">${url_streaming}</property>
+		<property name="hibernate.connection.username">${username_streaming}</property>
+		<property name="hibernate.connection.password">${password_streaming}</property>
+
+		<!-- <property name="connection.datasource">java:comp/env/jdbc/aisDB</property> -->
+		<property name="hibernate.dialect">org.hibernate.dialect.PostgreSQLDialect</property>
+
+		<property name="hibernate.format_sql">false</property>
+		<property name="hibernate.show_sql">false</property>
+		<property name="hbm2ddl.auto">none</property>
+		<property name="hibernate.connection.autocommit">false</property>
+		<property name="connection.pool_size">20</property>
+		<property name="current_session_context_class">thread</property>
+		<!-- <property name="hibernate.cache.provider_class">org.hibernate.cache.OSCacheProvider</property> -->
+		<!-- CATATAN KOMPATIBILITAS: hibernate.use_identifier_rollback tetap dipertahankan true agar tidak mengubah perilaku kode lama. -->
+		<property name="hibernate.use_identifier_rollback">true</property>
+		<property name="hibernate.transaction.auto_close_session">false</property>
+
+		<!-- OPTIMASI PERFORMA AIS STREAMING/BLOB -->
+		<!-- Pool streaming diturunkan dari 2000 menjadi 20 agar upload/download BLOB tidak menghabiskan koneksi PostgreSQL. -->
+		<!-- Untuk production lebih baik pindah ke JNDI DataSource/Tomcat Pool khusus file/streaming. -->
+
+		<!-- BLOB/file sebaiknya fetch dangkal agar tidak menarik relasi yang tidak diperlukan. -->
+		<property name="hibernate.max_fetch_depth">1</property>
+
+		<!-- Batch/fetch tuning ringan untuk session factory streaming. -->
+		<property name="hibernate.default_batch_fetch_size">8</property>
+		<property name="hibernate.jdbc.batch_size">10</property>
+		<property name="hibernate.jdbc.fetch_size">50</property>
+		<property name="hibernate.jdbc.use_streams_for_binary">true</property>
+
+
+
+
+
+		<!-- Connection auto reconnect after long inactivity -->
+		<!-- CATATAN: autoReconnect berikut adalah properti legacy/driver lama. Untuk PostgreSQL lebih ideal memakai JNDI DataSource + validationQuery SELECT 1. -->
+		<property name="connection.autoReconnect">true</property>
+		<property name="connection.autoReconnectForPools">true</property>
+		<property name="connection.is-connection-validation-required">true</property>
+
+		<!-- ============================================================
+		     CONNECTION POOL c3p0 untuk session factory STREAMING/BLOB
+		     (sama seperti hibernate.cfg.xml). Keberadaan hibernate.c3p0.max_size
+		     membuat Hibernate 3.6 memakai C3P0ConnectionProvider (jar c3p0 sudah
+		     ada di WEB-INF/lib: c3p0-0.9.1.2.jar), MENGGANTI pool bawaan -> baris
+		     connection.pool_size di atas diabaikan. Pool sengaja KECIL (khusus
+		     blob) agar tidak menghabiskan koneksi PostgreSQL.
+		     unreturnedConnectionTimeout dibuat longgar (3600 dtk) supaya transfer
+		     file besar yang sah tidak ikut direbut, namun kebocoran sesi tetap
+		     terjaring + stack trace pembocornya dicetak ke log.
+		     ============================================================ -->
+		<property name="hibernate.c3p0.min_size">3</property>
+		<property name="hibernate.c3p0.max_size">20</property>
+		<property name="hibernate.c3p0.acquire_increment">2</property>
+		<property name="hibernate.c3p0.timeout">300</property>
+		<!-- STATEMENT CACHE c3p0 DIMATIKAN (0): hindari bug GooGooStatementCache$Deathmarch
+		     "Inconsistency!!! Statement culled from deathmarch failed to be removed" &
+		     "This connection has been closed" (StmtAcquireTask). Lihat catatan di hibernate.cfg.xml. -->
+		<property name="hibernate.c3p0.max_statements">0</property>
+		<property name="hibernate.c3p0.idle_test_period">60</property>
+		<property name="hibernate.c3p0.preferredTestQuery">SELECT 1</property>
+		<property name="hibernate.c3p0.testConnectionOnCheckin">true</property>
+		<property name="hibernate.c3p0.unreturnedConnectionTimeout">3600</property>
+		<property name="hibernate.c3p0.debugUnreturnedConnectionStackTraces">true</property>
+
+		<!-- ============================================================
+		     CACHE (mengikuti gaya hibernate.cfg.xml):
+		     - L1 (session cache): bawaan Hibernate, SELALU aktif per-session,
+		       tidak perlu properti.
+		     - L2 (second-level + query cache) via EhCache. Memakai
+		       SingletonEhCacheRegionFactory + /myehcache.xml sehingga BERBAGI
+		       CacheManager singleton dengan hibernate.cfg.xml (tidak membuat
+		       CacheManager kedua). Entitas BLOB/file yang dipetakan di sini TIDAK
+		       ber-@Cache, jadi isi blob TIDAK ikut di-cache (aman, hemat memori);
+		       L2 hanya benar-benar menyimpan bila ada entitas yang menandai dirinya
+		       cacheable.
+		     - L3 = cache tingkat-aplikasi (DashboardCache), bukan properti
+		       Hibernate, jadi tidak diset di file ini.
+		     ============================================================ -->
+		<!-- L2/second-level cache DIMATIKAN untuk factory STREAMING (02-07-2026):
+		     Entitas BLOB/file yang dipetakan di sini TIDAK ber-@Cache, jadi L2 tak memberi
+		     manfaat. Sebaliknya SingletonEhCacheRegionFactory + /myehcache.xml bisa GAGAL
+		     inisialisasi bila resource ehcache belum tersedia pada urutan classloading
+		     tertentu (mis. saat StreamingHibernateUtil di-<clinit> dari thread background
+		     DataProcessor sebelum factory utama membangun CacheManager singleton). Gejalanya:
+		     "net.sf.ehcache.CacheException: Error configuring from null" → ExceptionInInitializerError.
+		     Dengan L2 dimatikan, factory streaming tidak lagi bergantung pada ehcache. -->
+		<property name="hibernate.cache.use_second_level_cache">false</property>
+		<property name="hibernate.cache.use_query_cache">false</property>
+
+		<mapping class="ais.database.model.file.GaleriFotoImage" />
+		<mapping class="ais.database.model.file.LampiranLain" />
+		<mapping class="ais.database.model.file.LampiranBeasiswaMahasiswa" />
+		<mapping class="ais.database.model.file.LampiranKknMahasiswa" />
+		<mapping class="ais.database.model.file.LampiranPklMahasiswa" />
+		<mapping class="ais.database.model.file.LampiranLainMahasiswa" />
+		<mapping class="ais.database.model.file.LampiranLainBiodataCalonMahasiswa" />
+		<mapping
+			class="ais.database.model.file.UploadBiodataCalonMahasiswaFileContent" />
+		<mapping class="ais.database.model.file.UploadVirtualAccountFileContent" />
+		<mapping class="ais.database.model.streaming.AudioPertemuan" />
+		<mapping class="ais.database.model.streaming.VideoPertemuan" />
+		<mapping class="ais.database.model.file.FileBukuBahanAjar" />
+		<mapping class="ais.database.model.file.FotoMahasiswa" />
+		<mapping class="ais.database.model.file.FotoSiswa" />
+		<mapping class="ais.database.model.file.FotoCalonSiswa" />
+		<mapping class="ais.database.model.file.FotoCalonPegawai" />
+		<mapping class="ais.database.model.file.FotoMahasiswaLulus" />
+		<mapping class="ais.database.model.file.FotoDosen" />
+		<mapping class="ais.database.model.file.FotoGuru" />
+		<mapping class="ais.database.model.file.FotoAdmin" />
+		<mapping class="ais.database.model.file.FotoBiodataMahasiswa" />
+		<mapping class="ais.database.model.file.FotoBiodataCalonMahasiswa" />
+		<mapping class="ais.database.model.file.FotoPegawai" />
+		<mapping class="ais.database.model.file.TugasFileContent" />
+		<mapping class="ais.database.model.file.PertemuanFileContent" />
+		<mapping class="ais.database.model.file.ReportHistory" />
+		<mapping class="ais.database.model.file.SuratJrxmlFile" />
+		<mapping class="ais.database.model.file.FileBukuBahanAjarText" />
+		<mapping class="ais.database.model.file.FotoBuku" />
+		<mapping class="ais.database.model.file.FotoBuktiChecklistLaporan" />
+		<mapping class="ais.database.model.file.FotoItem" />
+		<mapping class="ais.database.model.file.FotoGambarItem" />
+		<mapping class="ais.database.model.file.FotoGambarProduk" />
+		<mapping class="ais.database.model.file.FotoInformasiPerpustakaan" />
+		<mapping class="ais.database.model.file.FotoGambarKopSurat" />
+		<mapping class="ais.database.model.file.FotoGambarTandaTanganPejabat" />
+		<mapping class="ais.database.model.file.FotoGambarTandaTanganSuratKeluar" />
+		<mapping class="ais.database.model.file.FotoGambarSuratMasuk" />
+		<mapping class="ais.database.model.file.FotoGambarSuratKeluar" />
+		<mapping class="ais.database.model.file.FotoInformasiRab" />
+		<mapping class="ais.database.model.file.FotoLampiranPegawai" />
+		<mapping class="ais.database.model.file.FotoImagePerHalamanItem" />
+		
+		
+		
+		<!-- CATATAN AUDIT STREAMING: AuditListener tetap dipertahankan agar logic lama tidak berubah. Jika upload/download/save file masih berat, evaluasi listener ini agar tidak membaca isi BLOB. -->
+		<event type="post-insert">
+			<listener class="ais.database.hibernate.AuditListener" />
+		</event>
+		<event type="post-update">
+			<listener class="ais.database.hibernate.AuditListener" />
+		</event>
+		<event type="post-delete">
+			<listener class="ais.database.hibernate.AuditListener" />
+		</event>
+
+
+		<!-- <mapping class="ais.database.model.file.FotoBiodataCalonMahasiswa" 
+			/> <mapping class="ais.database.model.file.FotoBiodataMahasiswa" /> <mapping 
+			class="ais.database.model.file.FotoDosen" /> <mapping class="ais.database.model.file.FotoMahasiswa" 
+			/> <mapping class="ais.database.model.file.FotoPegawai" /> <mapping class="ais.database.model.file.GambarFakultas" 
+			/> <mapping class="ais.database.model.file.LampiranPengumumanAkademis" /> 
+			<mapping class="ais.database.model.file.LogCsvFileUpload" /> <mapping class="ais.database.model.file.PertemuanFileContent" 
+			/> <mapping class="ais.database.model.file.ReportHistory" /> <mapping class="ais.database.model.file.TugasFileContent" 
+			/> -->
+
+	</session-factory>
+
+</hibernate-configuration>

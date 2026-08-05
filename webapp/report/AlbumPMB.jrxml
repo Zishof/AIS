@@ -1,0 +1,284 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="AlbumPMB" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20">
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<import value="net.sf.jasperreports.engine.util.JRImageLoader"/>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="ruang" class="java.lang.Long" isForPrompting="false"/>
+	<parameter name="ket_ruang" class="java.lang.String"/>
+	<parameter name="paket" class="java.lang.String"/>
+	<queryString>
+		<![CDATA[]]>
+	</queryString>
+	<field name="nama" class="java.lang.String"/>
+	<field name="foto" class="java.lang.String"/>
+	<field name="no_ujian" class="java.lang.String"/>
+	<field name="alamat" class="java.lang.String"/>
+	<field name="ttl" class="java.lang.String"/>
+	<field name="kelamin" class="java.lang.String"/>
+	<field name="prodi_1" class="java.lang.String"/>
+	<field name="prodi_2" class="java.lang.String"/>
+	<field name="kota" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="117" splitType="Stretch">
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-1" x="69" y="9" width="466" height="50"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA["BUKTI HADIR PESERTA UJIAN SPMB MANDIRI\nUNIVERSITAS ISLAM NEGERI\nSYARIF HIDAYATULLAH\nJAKARTA"]]></textFieldExpression>
+			</textField>
+			<image>
+				<reportElement key="image-1" x="16" y="9" width="46" height="50"/>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<textField>
+				<reportElement x="75" y="71" width="460" height="20"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$P{ket_ruang}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="0" y="71" width="62" height="20"/>
+				<textElement/>
+				<text><![CDATA[RUANG]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="62" y="71" width="13" height="20"/>
+				<textElement/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="75" y="91" width="460" height="20"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$P{paket}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="62" y="90" width="13" height="20"/>
+				<textElement/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="0" y="90" width="62" height="20"/>
+				<textElement/>
+				<text><![CDATA[PAKET]]></text>
+			</staticText>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<columnHeader>
+		<band splitType="Stretch"/>
+	</columnHeader>
+	<detail>
+		<band height="187" splitType="Stretch">
+			<rectangle radius="10">
+				<reportElement x="0" y="0" width="535" height="187"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="412" y="150" width="46" height="27"/>
+				<textElement textAlignment="Center"/>
+				<text><![CDATA[Tanda Tangan]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="87" y="25" width="87" height="20"/>
+				<textElement/>
+				<text><![CDATA[Nama]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="195" y="25" width="115" height="20"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{nama}]]></textFieldExpression>
+			</textField>
+			<image scaleImage="FillFrame">
+				<reportElement x="7" y="36" width="68" height="85"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<imageExpression><![CDATA[$F{foto}]]></imageExpression>
+			</image>
+			<staticText>
+				<reportElement x="177" y="25" width="13" height="20"/>
+				<textElement/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="87" y="45" width="87" height="20"/>
+				<textElement/>
+				<text><![CDATA[No. Ujian]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="195" y="45" width="115" height="20"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{no_ujian}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="177" y="45" width="13" height="20"/>
+				<textElement/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="87" y="106" width="87" height="20"/>
+				<textElement/>
+				<text><![CDATA[Tempat/Tgl Lahir]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="195" y="106" width="115" height="20"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{ttl}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="177" y="106" width="13" height="20"/>
+				<textElement/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="87" y="126" width="87" height="20"/>
+				<textElement/>
+				<text><![CDATA[Jenis Kelamin]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="195" y="126" width="115" height="20"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{kelamin}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="177" y="126" width="13" height="20"/>
+				<textElement/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="87" y="65" width="87" height="20"/>
+				<textElement/>
+				<text><![CDATA[Pilihan I]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="195" y="65" width="115" height="20"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{prodi_1}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="177" y="65" width="13" height="20"/>
+				<textElement/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="87" y="85" width="87" height="20"/>
+				<textElement/>
+				<text><![CDATA[Pilihan II]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="195" y="85" width="115" height="20"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{prodi_2}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="177" y="85" width="13" height="20"/>
+				<textElement/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="318" y="26" width="21" height="20"/>
+				<textElement textAlignment="Center"/>
+				<text><![CDATA[Hari ]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="318" y="115" width="21" height="20"/>
+				<textElement textAlignment="Center"/>
+				<text><![CDATA[Hari ]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="318" y="46" width="21" height="20"/>
+				<textElement textAlignment="Center"/>
+				<text><![CDATA[1]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="318" y="135" width="21" height="20"/>
+				<textElement textAlignment="Center"/>
+				<text><![CDATA[2]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="363" y="10" width="46" height="20"/>
+				<textElement textAlignment="Center"/>
+				<text><![CDATA[Waktu 1]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="409" y="10" width="47" height="20"/>
+				<textElement textAlignment="Center"/>
+				<text><![CDATA[Waktu 2]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="456" y="10" width="47" height="20"/>
+				<textElement textAlignment="Center"/>
+				<text><![CDATA[Waktu 3]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="411" y="96" width="47" height="20"/>
+				<textElement textAlignment="Center"/>
+				<text><![CDATA[Waktu 2]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="458" y="96" width="43" height="20"/>
+				<textElement textAlignment="Center"/>
+				<text><![CDATA[Waktu 3]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="365" y="96" width="46" height="20"/>
+				<textElement textAlignment="Center"/>
+				<text><![CDATA[Waktu 1]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="409" y="61" width="47" height="29"/>
+				<textElement textAlignment="Center">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[Tanda Tangan]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="456" y="61" width="47" height="29"/>
+				<textElement textAlignment="Center">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[Tanda Tangan]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="363" y="61" width="46" height="29"/>
+				<textElement textAlignment="Center">
+					<font size="10"/>
+				</textElement>
+				<text><![CDATA[Tanda Tangan]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="365" y="150" width="46" height="27"/>
+				<textElement textAlignment="Center"/>
+				<text><![CDATA[Tanda Tangan]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="455" y="150" width="46" height="27"/>
+				<textElement textAlignment="Center"/>
+				<text><![CDATA[Tanda Tangan]]></text>
+			</staticText>
+		</band>
+	</detail>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<summary>
+		<band splitType="Stretch"/>
+	</summary>
+</jasperReport>

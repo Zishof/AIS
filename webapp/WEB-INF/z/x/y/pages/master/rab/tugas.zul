@@ -1,0 +1,75 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.rab.TugasAction" width="100%"
+		height="100%">
+
+
+
+		<borderlayout>
+			<north border="none" open="true" flex="true">
+				<grid use="ais.ui.util.MyGrid"  fixedLayout="true">
+
+					<columns>
+						<column use="ais.ui.util.MyColumnConfig"
+							width="100px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig"></column>
+						<column use="ais.ui.util.MyColumnConfig"></column>
+					</columns>
+					<rows>
+
+						<row>
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Kegiatan" />
+							<bandbox
+								use="ais.action.master.rab.helper.AmbilDataProyekBanbox"
+								id="proyek" width="95%" />
+
+
+
+							<hbox>
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+									
+									tooltiptext="Buat Revisi Baru" id="addNewRevisi"
+									forward="onClick=onCreateNewRevisi" label="Buat Revisi Baru"
+									image="/img/new.gif">
+								</toolbarbutton>
+							</hbox>
+						</row>
+
+
+					</rows>
+				</grid>
+
+			</north>
+			<center border="none" flex="true">
+
+				<tabbox height="100%" width="100%" id="tabbox">
+					<tabs id="tabs"></tabs>
+					<tabpanels id="tabpanels"></tabpanels>
+
+				</tabbox>
+
+
+
+			</center>
+
+		</borderlayout>
+
+
+
+
+	</window>
+
+
+</zk>

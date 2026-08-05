@@ -1,0 +1,54 @@
+<?page id="testZul" title=" Penyerapan Anggaran" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" apply="ais.action.maintenance.BlankAction" mode="embedded"
+		title="" border="none" width="100%" height="100%">
+
+		<tabbox width="100%" height="100%">
+
+			<tabs id="mytabs">
+				<tab use="ais.ui.util.MyTabConfig" id="defaultHome" selected="true" label="Welcome"></tab>
+			</tabs>
+
+			<tabpanels id="mytabpanels">
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<borderlayout width="100%" height="100%">
+
+						<north visible="false" id="north">
+							<hbox height="50px" width="100%" align="center"
+								pack="center">
+
+								<label use="ais.ui.util.MyLabelConfig" value="Cari"></label>
+								<textbox id="cari" cols="40"
+									forward="onOK=onCari">
+								</textbox>
+								<button use="ais.ui.util.MyButtonConfig" label="Cari"
+									image="/img/search.gif" forward="onClick=onCari">
+								</button>
+							</hbox>
+
+						</north>
+
+						<center id="center" flex="true">
+							<image id="utama_image" align="right" src="/img/background-white.jpg"
+								width="100%" height="100%" />
+						</center>
+					</borderlayout>
+				</tabpanel>
+			</tabpanels>
+
+		</tabbox>
+
+
+
+	</window>
+
+</zk>

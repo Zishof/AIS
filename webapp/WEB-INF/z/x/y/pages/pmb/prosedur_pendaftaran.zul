@@ -1,0 +1,90 @@
+<?page title="Pilihan Paket dan Biaya" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<borderlayout height="100%">
+		<west width="5%">
+
+		</west>
+		<center autoscroll="true">
+			<box>
+				<separator height="30px"></separator>
+				<box width="90%" align="center">
+					<label use="ais.ui.util.MyLabelConfig">
+						Prosedur dan Tata Cara Pendaftaran
+					</label>
+				</box>
+				<separator height="10px"></separator>
+				<box width="90%" align="center">
+					<html>
+
+
+
+
+						
+						<![CDATA[ <p align="justify">Pendaftaran SPMB
+						Jalur Mandiri dilaksanakan secara online melalui
+						<a href="pmb.zul">Website SPMB <em>Online</em>
+						Jalur Mandiri UIN Jakarta</a>. Bagi calon yang
+						ingin melakukan pendaftaran online di Kampus UIN
+						Syarif Hidayatullah Jakarta, panitia akan
+						membimbing dan menyediakan ruang pendaftaran
+						online. Adapun prosedur/tata cara pendaftaran
+						sebagai berikut:</p> <p
+						align="justify"><strong>A.&nbsp;&nbsp; PENGISIAN
+						<em>FORM</em> PENDAFTARAN MAHASISWA BARU</strong></p> <div
+						align="justify"> <ul type="disc"> <li
+						type="disc">Klik "<b>Form Pendaftaran Mahasiswa Baru</b>" yang terdapat pada menu bagian atas, kemudian pilih "<b>Jenjang Strata 1</b>".</li>
+						<li type="disc">Isi seluruh <em>field</em> yang
+						disediakan secara berurutan, dan lanjutkan dengan mengklik tombol
+						"<strong>DAFTAR</strong>"</li> <li
+						type="disc">Setelah mengklik tombol "<b>DAFTAR</b>" pada
+						"<b>Form Pendaftaran Mahasiswa Baru</b>", selanjutnya akan muncul No
+						Registrasi. Silahkan <em>print out</em> No Pendaftaran tersebut.</li> <li type="disc">Lakukan
+						pembayaran biaya pendaftaran melalui ATM/Teller di Bank Mandiri / BNI / BRI dengan menggunakan No Registrasi untuk mendapatkan Nomor Referensi (Nomor ini akan menjadi No PIN). Keterangan mengenai prosedur pembayaran dapat dilihat pada Menu "<b>Prosedur Pembayaran</b>" </li> </ul> </div> <p
+						align="justify"><strong>B. CETAK KARTU
+						UJIAN</strong></p> <div align="justify"> <ul
+						type="disc"> <li type="disc">Pencetakan Kartu
+						Ujian dapat dilakukan dimana saja setelah melakukan
+						pembayaran.</li>
+						<li type="disc">Batas pencetakan Kartu
+						Ujian paling lambat tanggal 29 Juni 2012</li>
+						<li type="disc">No. Ref
+						didapatkan setelah melakukan pembayaran di bank.
+						No ini digunakan untuk login. </li>
+						<li	type="disc">Klik menu "<b>Login Calon Mahasiswa Baru</b>" yang terdapat pada menu bagian atas, kemudian pilih "<b>Jenjang Strata 1</b>".</li>
+						<li type="disc">Masukkan No Registrasi dan PIN NUMBER yang telah didapatkan dari bank, atau tanggal lahir pendaftar (jika tidak mendapatkan PIN NUMBER) kemudian klik tombol "<b>Login</b>"</li>
+						<li	type="disc">Setelah berhasil <em>login</em>,
+						bisa dilakukan <em>editing</em> biodata,
+						<em>upload</em> foto dan cetak kartu ujian.</li>
+						<li type="disc">Siapkan <em>file</em> foto warna
+						format JPEG (*.jpg), dengan ukuran 400 x 600
+						<em>pixel, </em>besar file maksimal 1 Mb, <font
+						color="#FF0000"><strong>foto resmi (pas foto)
+						dengan latar belakang foto berwarna
+						merah</strong></font>.</li> <li
+						type="disc">Setelah selesai <em>edit</em>
+						biodata dan <em>upload</em> foto, cetak
+						(<em>print out</em>) kartu ujian tersebut dan
+						dibawa beserta kartu identitas pada saat ujian
+						tulis dan wawancara.</li> <li type="disc">Pada
+						kartu ujian akan tertera nomor ujian. Nomor
+						Ujian tersebut berbeda dengan nomor
+						pendaftaran.</li> </ul>
+						
+						<br>
+						<p align='left'>Catatan:
+							<li><font color='red'>Setelah melakukan pendaftaran, paket yang sudah dipilih tidak dapat diubah kembali</font></li>
+							<li><font color='red'>Setelah cetak kartu ujian, data tidak dapat diubah kembali</font></li>
+						
+							
+						
+						
+						]]>
+						
+						
+						
+                    		</html>
+				</box>
+			</box>
+		</center>
+	</borderlayout>
+</zk>

@@ -1,0 +1,191 @@
+/* ==============================================================
+   BASE VENDOR CSS - Portal Vendor / e-Procurement
+   Semua tampilan khusus modul vendor dipusatkan di file ini.
+   Tetap mengandalkan variable warna dari base-theme.css dan theme aktif.
+   ============================================================== */
+
+:root {
+    --vendor-radius: 22px;
+    --vendor-shadow-soft: 0 18px 45px rgba(15, 23, 42, .08);
+    --vendor-shadow-strong: 0 25px 70px rgba(15, 23, 42, .18);
+    --vendor-border: rgba(148, 163, 184, .22);
+    --vendor-muted: #64748b;
+    --vendor-dark: #0f172a;
+    --vendor-page: #f7f9fc;
+}
+
+body[class*="vendor-body-"] {
+    font-family: "Open Sans", Poppins, Arial, sans-serif;
+    background: var(--vendor-page);
+    color: #1f2937;
+}
+
+[class*="vendor-bg-"] {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,.94), rgba(248,250,252,.96)), var(--vendor-bg-image, none) center/cover no-repeat;
+    z-index: -2;
+}
+
+[class*="vendor-navbar-"] {
+    backdrop-filter: blur(16px);
+    background: rgba(255,255,255,.93);
+    border-bottom: 1px solid rgba(148,163,184,.24);
+    box-shadow: 0 10px 30px rgba(15,23,42,.05);
+}
+
+[class*="vendor-brand-logo-"] {
+    width: 46px;
+    height: 46px;
+    object-fit: contain;
+    filter: drop-shadow(0 8px 18px rgba(0,0,0,.15));
+}
+
+[class*="vendor-gradient-text-"] {
+    background: var(--theme-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+[class*="vendor-card-"], [class*="vendor-soft-card-"] {
+    background: #fff;
+    border: 1px solid var(--vendor-border);
+    border-radius: var(--vendor-radius);
+    box-shadow: var(--vendor-shadow-soft);
+    overflow: hidden;
+}
+
+[class*="vendor-card-"] { border: 0; }
+
+[class*="vendor-btn-gradient-"] {
+    background: var(--theme-gradient) !important;
+    color: var(--theme-text-on-primary) !important;
+    border: 0 !important;
+    box-shadow: 0 12px 28px rgba(15,23,42,.18);
+    transition: transform .18s ease, filter .18s ease, box-shadow .18s ease;
+}
+[class*="vendor-btn-gradient-"]:hover { transform: translateY(-1px); filter: brightness(.98); box-shadow: 0 16px 34px rgba(15,23,42,.22); }
+
+[class*="vendor-icon-box-"] {
+    width: 48px;
+    height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    background: var(--theme-light);
+    color: var(--theme-primary);
+}
+
+[class*="vendor-section-title-"] {
+    font-weight: 800;
+    color: var(--vendor-dark);
+    letter-spacing: -.035em;
+}
+
+[class*="vendor-stat-"] {
+    border-left: 4px solid var(--theme-primary);
+    min-height: 126px;
+}
+.vendor-stat-description {
+    color: var(--vendor-muted);
+    font-size: .78rem;
+    line-height: 1.45;
+    margin-top: .35rem;
+}
+.vendor-required::after { content:" *"; color:#dc3545; font-weight:700; }
+.vendor-badge-soft { background: var(--theme-light); color: var(--theme-primary); border:1px solid rgba(148,163,184,.24); }
+.vendor-table thead th { font-size:.76rem; text-transform:uppercase; letter-spacing:.04em; color:#64748b; background:#f8fafc; }
+.vendor-table td, .vendor-table th { vertical-align: top; }
+.nav-pills .nav-link { color:#334155; font-weight:700; border-radius:999px; }
+.nav-pills .nav-link.active { background:var(--theme-gradient)!important; color:var(--theme-text-on-primary)!important; }
+
+[class*="vendor-loader-"] {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15,23,42,.70);
+    backdrop-filter: blur(8px);
+    z-index: 9999;
+}
+[class*="vendor-loader-"].show { display:flex; }
+
+.vendor-hero { position: relative; overflow: hidden; }
+.vendor-hero::after {
+    content:"";
+    position:absolute;
+    right:-90px;
+    top:-90px;
+    width:280px;
+    height:280px;
+    border-radius:50%;
+    background:rgba(255,255,255,.12);
+    filter:blur(2px);
+}
+.vendor-mini-card { background:rgba(255,255,255,.13); border:1px solid rgba(255,255,255,.18); border-radius:18px; }
+.vendor-info-tile { background:#f8fafc; border:1px solid #eef2f7; border-radius:18px; height:100%; }
+
+/* Dashboard visual: chart HTML/CSS, tanpa JFreeChart */
+.vendor-visual-card { min-height: 248px; }
+.vendor-ring {
+    --pct: 0;
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: conic-gradient(var(--theme-primary) calc(var(--pct) * 1%), #e5e7eb 0);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin:auto;
+    box-shadow: inset 0 0 0 1px rgba(15,23,42,.05);
+}
+.vendor-ring::after {
+    content: attr(data-label);
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:800;
+    color: var(--vendor-dark);
+    box-shadow: inset 0 0 0 1px rgba(148,163,184,.22);
+}
+.vendor-trend-row { display:grid; grid-template-columns: 120px 1fr 46px; gap:.75rem; align-items:center; margin:.75rem 0; }
+.vendor-trend-track { height:12px; border-radius:999px; background:#e5e7eb; overflow:hidden; }
+.vendor-trend-fill { height:100%; width:0%; border-radius:999px; background: var(--theme-gradient); transition: width .35s ease; }
+.vendor-radar {
+    position:relative;
+    width: 220px;
+    height: 220px;
+    margin:auto;
+    border-radius:50%;
+    background:
+      radial-gradient(circle at center, transparent 0 27%, rgba(148,163,184,.16) 28% 29%, transparent 30% 55%, rgba(148,163,184,.18) 56% 57%, transparent 58% 100%),
+      conic-gradient(from 0deg, rgba(148,163,184,.25) 0 1deg, transparent 1deg 72deg, rgba(148,163,184,.25) 72deg 73deg, transparent 73deg 144deg, rgba(148,163,184,.25) 144deg 145deg, transparent 145deg 216deg, rgba(148,163,184,.25) 216deg 217deg, transparent 217deg 288deg, rgba(148,163,184,.25) 288deg 289deg, transparent 289deg 360deg);
+    border:1px solid rgba(148,163,184,.25);
+}
+.vendor-radar-shape {
+    position:absolute;
+    inset:30px;
+    background: linear-gradient(135deg, rgba(26,64,135,.42), rgba(177,147,38,.38));
+    clip-path: polygon(50% 0%, 95% 38%, 78% 96%, 22% 96%, 5% 38%);
+    filter: drop-shadow(0 12px 20px rgba(15,23,42,.18));
+    transition: clip-path .35s ease;
+}
+.vendor-radar-label { position:absolute; font-size:.72rem; color:#475569; font-weight:700; background:#fff; padding:.18rem .45rem; border-radius:999px; box-shadow:0 4px 10px rgba(15,23,42,.08); }
+.vendor-radar-label.l1 { left:50%; top:2px; transform:translateX(-50%); }
+.vendor-radar-label.l2 { right:-12px; top:72px; }
+.vendor-radar-label.l3 { right:18px; bottom:10px; }
+.vendor-radar-label.l4 { left:18px; bottom:10px; }
+.vendor-radar-label.l5 { left:-12px; top:72px; }
+.vendor-panel-note { font-size:.86rem; color:var(--vendor-muted); line-height:1.55; }
+
+@media (max-width: 768px) {
+    .vendor-trend-row { grid-template-columns: 1fr; gap:.35rem; }
+    .vendor-radar { width:190px; height:190px; }
+}

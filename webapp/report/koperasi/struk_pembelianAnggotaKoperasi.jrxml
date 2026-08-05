@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="struk_pembayaran" language="groovy" pageWidth="360" pageHeight="822" whenNoDataType="AllSectionsNoDetail" columnWidth="320" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="da1a1e13-e601-45e6-91b6-e0eb9a15c402">
+	<property name="ireport.zoom" value="1.9487171000000014"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="id_pembayaran" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[219L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="id_bri" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="id_bni" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_kota" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+	</parameter>
+	<parameter name="id_va" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="id_bsi" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="terbilang" class="java.lang.String"/>
+	<queryString>
+		<![CDATA[select
+p.jenis_biaya_sekolah_id as jenis_biaya_id,
+c.nama as jenis_biaya,
+(case when b.nomor_induk is null then cs.nomor_induk else b.nomor_induk end) as nomor_induk,
+(case when b.nama_siswa is null then cs.nama_siswa else b.nama_siswa end) as nama_siswa,
+a.tanggal,
+f.bulan,
+f.tahun,
+a.sekolah_id,
+a.id as id_transaksi,
+e.nama as item_biaya,
+d.nominal,
+b1.nama as kelas,
+case when b4.nama is null then '-' else b4.nama end as asrama,
+(case when b2.nama is null then b3.nama_pembayaran else b2.nama end) as cara,
+a.tambahan_deposit AS tambahan_deposit,
+a.tanggal,
+a.validator,
+f.bayarke,
+h.dibayarsebayak,
+bni.deposit as bni_deposit,
+f.denda
+
+from sekolah.pembayaran_siswa a
+left join sekolah.siswa b on (a.siswa_id = b.id)
+left join sekolah.calon_siswa cs on (a.calon_siswa_id = cs.id)
+left join sekolah.asrama b4 on (b4.id = b.asrama_id)
+left join bank_host b2 on (b2.id = a.bank_host_id)
+left join sekolah.akun_pembayaran_siswa b3 on (b3.id = a.akun_pembayaran_siswa_id)
+
+inner join sekolah.pembayaran_siswa_detail d on (a.id = d.pembayaran_siswa_id)
+inner join sekolah.item_biaya_sekolah e on (e.id = d.item_biaya_id)
+inner join sekolah.tagihan f on (f.pembayaran_siswa_detail_id=d.id)
+left join sekolah.kelas b1 on (b1.id=f.kelas_siswa_id)
+inner join sekolah.nominal_biaya h on (f.nominal_biaya_id=h.id)
+inner join sekolah.pengaturan_biaya p on (p.id=pengaturan_biaya_id)
+left join sekolah.jenis_biaya_sekolah c on (c.id = p.jenis_biaya_sekolah_id)
+left join bni_request bni on (bni.id=a.bni_request_id)
+
+where case when $P{id_pembayaran}=-1 then true else a.id=$P{id_pembayaran} end
+and case when $P{id_bri}=-1 then true else a.bri_request_id=$P{id_bri} end
+and case when $P{id_bni}=-1 then true else a.bni_request_id=$P{id_bni} end
+and case when $P{id_va}=-1 then true else a.virtual_account_bank=$P{id_va} end
+order by p.jenis_biaya_sekolah_id, f.tahunbulan]]>
+	</queryString>
+	<field name="jenis_biaya_id" class="java.lang.Long"/>
+	<field name="jenis_biaya" class="java.lang.String"/>
+	<field name="nomor_induk" class="java.lang.String"/>
+	<field name="nama_siswa" class="java.lang.String"/>
+	<field name="tanggal" class="java.util.Date"/>
+	<field name="bulan" class="java.lang.Integer"/>
+	<field name="tahun" class="java.lang.Integer"/>
+	<field name="sekolah_id" class="java.lang.Long"/>
+	<field name="id_transaksi" class="java.lang.Long"/>
+	<field name="item_biaya" class="java.lang.String"/>
+	<field name="nominal" class="java.lang.Double"/>
+	<field name="kelas" class="java.lang.String"/>
+	<field name="asrama" class="java.lang.String"/>
+	<field name="cara" class="java.lang.String"/>
+	<field name="tambahan_deposit" class="java.lang.Double"/>
+	<field name="validator" class="java.lang.String"/>
+	<field name="bayarke" class="java.lang.Integer"/>
+	<field name="dibayarsebayak" class="java.lang.Integer"/>
+	<field name="denda" class="java.lang.Double"/>
+	<variable name="total" class="java.lang.Double" calculation="Sum">
+		<variableExpression><![CDATA[$F{nominal}]]></variableExpression>
+	</variable>
+	<group name="jenis_pembayaran">
+		<groupExpression><![CDATA[$F{jenis_biaya_id}]]></groupExpression>
+		<groupHeader>
+			<band height="32">
+				<textField>
+					<reportElement x="0" y="18" width="26" height="14" uuid="313c349d-e89e-4df9-951c-5dfe6afafa40"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center"/>
+					<textFieldExpression><![CDATA["No."]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement x="26" y="18" width="209" height="14" uuid="29e75ed6-dfc0-4b38-b3c5-e7f8f6aa6d51"/>
+					<box leftPadding="3">
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textFieldExpression><![CDATA["Item Pembayaran"]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement x="235" y="18" width="85" height="14" uuid="5a9378ff-f215-4f2e-910b-7b735efe129a"/>
+					<box rightPadding="3">
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Right"/>
+					<textFieldExpression><![CDATA["Nominal"]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement x="0" y="0" width="319" height="18" uuid="331739d1-53f4-4eb5-abd7-a11f10295fe4"/>
+					<box leftPadding="3">
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement verticalAlignment="Middle">
+						<font size="12" isUnderline="false"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{jenis_biaya}]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band/>
+		</groupFooter>
+	</group>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="112" splitType="Stretch">
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement key="image-1" x="0" y="-14" width="320" height="79" uuid="09384e2b-5dd2-4d7d-bc17-7ec958ea34b1"/>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "kop_surat" )]]></imageExpression>
+			</image>
+			<textField>
+				<reportElement x="0" y="65" width="320" height="17" uuid="af323377-93c0-4895-a8c9-7d4953b5a2dd"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["BUKTI PEMBELIAN"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="48" y="82" width="271" height="11" uuid="aa4b778b-e512-4a21-b1d6-0f13213a3549"/>
+				<textElement>
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[": "+ $F{nomor_induk}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="-1" y="82" width="49" height="11" uuid="b156a847-d0fc-4869-b789-f90056a89f11"/>
+				<textElement>
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Kode"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="48" y="97" width="271" height="11" uuid="9c211e6b-f933-4ad6-8c3d-744497984e9d"/>
+				<textElement>
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[": "+ $F{nama_siswa}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="-1" y="97" width="49" height="11" uuid="a164753d-06da-441c-817e-068fb6cf8e1b"/>
+				<textElement>
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Nama"]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<detail>
+		<band height="16" splitType="Stretch">
+			<textField>
+				<reportElement x="0" y="0" width="26" height="16" uuid="2520c097-b039-4b94-a582-9e50b546f90e"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center"/>
+				<textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="26" y="0" width="209" height="16" uuid="5237fa61-2e19-4d17-ae51-4953b6933455"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement>
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{item_biaya}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0;-#,##0">
+				<reportElement x="235" y="0" width="85" height="16" uuid="143098e9-b7c1-4ee4-988d-2fa7d9df90a2"/>
+				<box rightPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right"/>
+				<textFieldExpression><![CDATA[$F{nominal}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<summary>
+		<band height="105" splitType="Stretch">
+			<textField>
+				<reportElement x="0" y="0" width="235" height="14" uuid="bba3e91b-2422-46e1-a378-f2c4ca8e6c27"/>
+				<box rightPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right"/>
+				<textFieldExpression><![CDATA["Total Pembayaran"]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0;-#,##0">
+				<reportElement x="235" y="0" width="85" height="14" uuid="766d3aa3-c65b-4a93-af1d-b2af5814ba26"/>
+				<box rightPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right"/>
+				<textFieldExpression><![CDATA[$V{total}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-2" x="119" y="35" width="201" height="49" uuid="4b50d96b-4847-4ceb-af50-236a155634b5"/>
+				<textElement textAlignment="Center"/>
+				<textFieldExpression><![CDATA[$P{label_kota}+", "+(new java.text.SimpleDateFormat("dd-MM-yyyy").format($F{tanggal}))+"\nValidator"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-4" x="119" y="84" width="201" height="21" uuid="d3ec4f23-c50a-40f2-9ad3-41d33f23fd7d"/>
+				<textElement textAlignment="Center">
+					<font isUnderline="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{validator}.toUpperCase()]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="66" y="14" width="254" height="16" uuid="85a1940e-4f4f-47eb-bd55-0810a5ab6a95"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[":  "+$P{terbilang}+"rupiah"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="14" width="66" height="16" uuid="4e0f346c-6bc9-435d-847c-1d2c2937c8bf"/>
+				<box leftPadding="5">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Total Terbilang"]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
+</jasperReport>

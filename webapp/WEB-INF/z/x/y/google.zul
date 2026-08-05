@@ -1,0 +1,12 @@
+<?init class="ais.ui.util.MyInit"?>
+<?link rel="shortcut icon" type="image/x-icon" href="${myFavicon}"?>
+<?link rel="icon" type="image/x-icon" href="${myFavicon}"?>
+<?page title="Login Via Google" contentType="text/html;charset=UTF-8"?>
+<?meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" ?>
+<?meta name="description" content="Sistem Informasi Akademik Ecampus" ?>
+<?meta name="author" content="Mohammad Fauzi Murtadho" ?>
+<zk>
+<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.maintenance.GoogleAction" width="100%" height="100%">
+</window>
+</zk>

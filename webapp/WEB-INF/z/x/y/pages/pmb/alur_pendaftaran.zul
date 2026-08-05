@@ -1,0 +1,14 @@
+<?page title="Pilihan Paket dan Biaya" contentType="text/html;charset=UTF-8"?>
+<zk>
+<borderlayout height="100%">
+		<center autoscroll="true">
+				<box width="100%" align="center">
+				
+				<separator height="10px"></separator>
+				<box width="100%" align="start">
+				<image src="/img/Alur_SPMB_Mandiri.jpg" width="100%"></image>
+				</box>
+			</box>
+		</center>
+	</borderlayout>
+</zk>

@@ -1,0 +1,110 @@
+body {
+    font-family: sans-serif;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden; /* Mencegah scroll horizontal */
+}
+
+.background {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    background: linear-gradient(45deg, #a78cd4, #67b5e0, #a78cd4, #67b5e0);
+    background-size: 400% 400%;
+    animation: gradientAnimation 15s ease infinite;
+}
+
+@keyframes gradientAnimation {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+.logo-space {
+    margin-bottom: 15px;
+}
+
+.header-bg {
+    background-color: #f8f9fa; /* Warna background header */
+    padding: 20px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.header-banner {
+    margin-top: 20px;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.nav-tabs .nav-link {
+    color: black; /* Warna teks tab */
+    font-weight: bold;
+}
+
+.nav-tabs .nav-link.active {
+    color: #fff; /* Warna teks tab aktif */
+    background-color: #007bff; /* Warna background tab aktif */
+    border-color: #007bff #007bff #fff;
+}
+
+.list-item {
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    padding: 15px;
+    display: flex;
+    align-items: center;
+}
+
+.list-item .item-cover {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-right: 15px;
+}
+
+.list-item .item-details {
+    flex-grow: 1;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #007bff;
+    border-color: #007bff;
+    color: #fff;
+}
+
+.modal-body {
+    overflow-y: auto; /* Tambahkan scroll jika konten modal panjang */
+    max-height: 80vh; /* Contoh batas tinggi modal */
+}
+
+#forumPengumuman {
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 10px;
+    border: 1px solid #eee;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+}
+
+.footer-bg {
+    background-color: #343a40; /* Warna background footer */
+    color: white;
+    padding: 20px 0;
+}
+
+.footer-bg a {
+    color: white;
+    text-decoration: none;
+}

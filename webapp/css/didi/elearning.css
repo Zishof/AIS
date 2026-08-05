@@ -1,0 +1,8 @@
+@charset "ISO-8859-1";
+
+.jml-siswa {
+	display: block;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}

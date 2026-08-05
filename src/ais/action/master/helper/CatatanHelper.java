@@ -1,0 +1,281 @@
+package ais.action.master.helper;
+
+import java.io.File;
+import java.util.List;
+
+import org.hibernate.criterion.Projections;
+import org.hibernate.criterion.Restrictions;
+import org.json.JSONArray;
+import org.zkoss.zk.ui.Component;
+import org.zkoss.zk.ui.event.Event;
+import org.zkoss.zk.ui.event.EventListener;
+import org.zkoss.zk.ui.sys.ExecutionsCtrl;
+import org.zkoss.zul.Borderlayout;
+import org.zkoss.zul.Center;
+import org.zkoss.zul.Columns;
+import org.zkoss.zul.Hbox;
+import org.zkoss.zul.Row;
+import ais.ui.util.MyFormRow;
+import org.zkoss.zul.Rows;
+import org.zkoss.zul.South;
+import org.zkoss.zul.Textbox;
+import org.zkoss.zul.Toolbar;
+import org.zkoss.zul.Vbox;
+
+import ais.action.report.CommonReportHelper;
+import ais.action.report.Report;
+import ais.common.Common;
+import ais.database.hibernate.HibernateUtil;
+import ais.database.model.Dosen;
+import ais.database.model.KrsMahasiswa;
+import ais.database.model.Mahasiswa;
+import ais.database.model.Tbmuser;
+import ais.database.model.file.LampiranLain;
+import ais.delivery.email.sender.MailSender;
+import ais.ui.util.MyColumnConfig;
+import ais.ui.util.MyGrid;
+import ais.ui.util.MyMessageboxConfig;
+import ais.ui.util.MyToolbarbuttonConfig;
+import ais.ui.util.MyWindow;
+
+public class CatatanHelper {
+
+	private Mahasiswa mahasiswa;
+	private Textbox catatan;
+	private Textbox catatanKhs;
+	private Integer semester;
+	private Dosen dosenpa;
+	private String tahunAkademik;
+
+	private Integer tahapan;
+	private Integer semesterPendek;
+	private boolean remedial;
+	private int minimalCatatanKrs = 0;
+	private int minimalCatatanKhs = 0;
+
+	public CatatanHelper(Mahasiswa mahasiswa, Integer semester, final Integer tahapan, Dosen dosenpa,
+			String tahunAkademik, Integer semesterPendek, boolean remedial) {
+		this.mahasiswa = mahasiswa;
+		this.semester = semester;
+		this.semesterPendek = semesterPendek;
+
+		this.tahapan = tahapan;
+		this.dosenpa = dosenpa;
+		this.tahunAkademik = tahunAkademik;
+		this.remedial = remedial;
+	}
+
+	public void display(final EventListener eventListener) throws Exception {
+		KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa, semester, tahapan, semesterPendek);
+		final MyWindow window = new MyWindow("Masukkan catatan mahasiswa untuk semester " + semester, "normal", true);
+		window.setHeight("300px");
+		window.setWidth("850px");
+
+		minimalCatatanKrs = Integer.parseInt(Common.getKonfigurasi("minimal_catatan_krs", "0").getNilai());
+		minimalCatatanKhs = Integer.parseInt(Common.getKonfigurasi("minimal_catatan_khs", "0").getNilai());
+
+		Component component = ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot();
+		window.setParent(component);
+
+		window.setPosition("center");
+
+		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
+		borderlayout.setParent(window);
+		Center center = new Center();
+		center.setParent(borderlayout);
+		ais.ui.util.ZkCompat.setFlex(center, true);
+
+		MyGrid grid = new MyGrid();
+		grid.setWidth("100%");
+		grid.setParent(center);
+		grid.setWidth("100%");
+		grid.setHeight("100%");
+
+		Columns columns = new Columns();
+		columns.setParent(grid);
+
+		MyColumnConfig column = new MyColumnConfig();
+		column.setParent(columns);
+		column.setWidth("30%");
+
+		column = new MyColumnConfig();
+		column.setParent(columns);
+
+		Rows rows = new Rows();
+		rows.setParent(grid);
+
+		MyFormRow row = new MyFormRow();row.setValign("top");
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Catatan Rencana Studi (KRS)"));
+		catatan = new Textbox(krsMahasiswa.getCatatan());
+		row.appendChild(catatan);
+		catatan.setRows(2);
+		row.setValign("top");
+		catatan.setWidth("90%");
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Catatan Penilaian (KHS)"));
+		catatanKhs = new Textbox(krsMahasiswa.getCatatanKhs());
+		row.appendChild(catatanKhs);
+		catatanKhs.setRows(2);
+		row.setValign("top");
+		catatanKhs.setWidth("90%");
+
+		Common.initKeterangan(rows,
+				"Berisi catatan atau saran untuk mahasiswa untuk semester dan tahun akademik berjalan."
+						+ (minimalCatatanKrs > 0
+								? " Untuk catatan KRS minimal harus terdapat " + minimalCatatanKrs + " karakter."
+								: "")
+						+ (minimalCatatanKhs > 0
+								? " Untuk catatan KHS minimal harus terdapat " + minimalCatatanKhs + " karakter."
+								: ""));
+
+		Common.initKeterangan(rows,
+				"Catatan ini akan tampil di halaman KRS dan KHS Mahasiswa, baik di halaman mahasiswa yang bersangkutan maupun dosen pembimbing akademik");
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig(""));
+		Vbox vbox1 = new Vbox();
+		vbox1.setParent(row);
+		Hbox hbox1 = new Hbox();
+
+		LampiranLain.createDownloadUploadFileLain(hbox1, krsMahasiswa.getId(), "KRS_DISETUJUI", "Catatan", false,
+				new EventListener() {
+
+					@Override
+					public void onEvent(Event arg0) throws Exception {
+
+					}
+				}, null, false, false, false, true);
+
+		hbox1.setParent(vbox1);
+
+		South south = new South();
+		south.setParent(borderlayout);
+		ais.ui.util.ZkCompat.setFlex(south, true);
+
+		Toolbar toolbar = new Toolbar();
+		// toolbar.setHeight("25px");
+		toolbar.setParent(south);
+		MyToolbarbuttonConfig cancel = new MyToolbarbuttonConfig("Batal", "/img/cancel.gif");
+		cancel.setTooltiptext("Tutup");
+		cancel.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				window.detach();
+			}
+		});
+		cancel.setParent(toolbar);
+		MyToolbarbuttonConfig save = new MyToolbarbuttonConfig("Simpan", "/img/save.gif");
+		save.setTooltiptext("Simpan");
+		save.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+
+				if (catatan.getValue().trim().isEmpty()) {
+					MyMessageboxConfig.show("Masukkan catatan", "Peringatan", MyMessageboxConfig.OK,
+							MyMessageboxConfig.EXCLAMATION);
+					return;
+				}
+
+				if (!catatan.getValue().trim().isEmpty() && catatan.getValue().trim().length() < minimalCatatanKrs) {
+					MyMessageboxConfig.show("Catatan KRS minimal harus terdapat " + minimalCatatanKrs + " karakter",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+					return;
+				}
+
+				if (!catatanKhs.getValue().trim().isEmpty()
+						&& catatanKhs.getValue().trim().length() < minimalCatatanKhs) {
+					MyMessageboxConfig.show("Catatan KHS minimal harus terdapat " + minimalCatatanKhs + " karakter",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+					return;
+				}
+
+				final KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa, semester, tahapan,
+						semesterPendek);
+				krsMahasiswa.setCatatan(catatan.getValue());
+				krsMahasiswa.setCatatanKhs(catatanKhs.getValue());
+				Common.refreshUpdate(krsMahasiswa);
+
+				window.detach();
+				eventListener.onEvent(new Event("", window, krsMahasiswa));
+
+				if (!catatan.getValue().trim().isEmpty()) {
+					Common.createDefaultTimer(new EventListener() {
+
+						@SuppressWarnings("unchecked")
+						@Override
+						public void onEvent(Event arg0) throws Exception {
+							Tbmuser tbmuser = Common.getCurrentUser();
+							String emailUser = "";
+
+							JSONArray userIds = new JSONArray();
+							userIds.put(tbmuser.getUserId());
+
+							if (dosenpa != null && dosenpa.getEmail() != null
+									&& Common.isValidEmailAddress(dosenpa.getEmail())) {
+								emailUser += emailUser.trim().isEmpty() ? dosenpa.getEmail().trim()
+										: "," + dosenpa.getEmail().trim();
+							}
+
+							List<String> emails = HibernateUtil.currentSession().createCriteria(Tbmuser.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+									.add(Restrictions.eq("dosen", dosenpa))
+									.setProjection(Projections.groupProperty("userId")).list();
+							for (String email : emails) {
+								userIds.put(email);
+							}
+
+							if (mahasiswa != null && mahasiswa.getEmail() != null
+									&& Common.isValidEmailAddress(mahasiswa.getEmail())) {
+								emailUser += emailUser.trim().isEmpty() ? mahasiswa.getEmail().trim()
+										: "," + mahasiswa.getEmail().trim();
+							}
+
+							userIds.put(mahasiswa.getNim());
+
+							if (tbmuser != null && tbmuser.getEmail() != null
+									&& Common.isValidEmailAddress(tbmuser.getEmail())) {
+								emailUser += emailUser.trim().isEmpty() ? tbmuser.getEmail().trim()
+										: "," + tbmuser.getEmail().trim();
+							}
+
+							// System.out.println("emailUser = " + emailUser);
+
+							if (!emailUser.trim().isEmpty() || userIds.length() > 0) {
+								String info = "Mahasiswa: " + mahasiswa.getNim() + " " + mahasiswa.getNama()
+										+ ", semester: " + semester + ", Tahun Akademik: " + tahunAkademik;
+								String subject = "Informasi KRS => " + info;
+
+								File file = Report.generateFileReport(Report.PDF,
+										CommonReportHelper.generateParameterKrs(mahasiswa, semester, tahapan,
+												semesterPendek, remedial, false, false),
+										"Cetak_KRS_Mahasiswa", ais.ui.util.WaktuUtil.getDate(), Common.locale);
+
+								String body = "Anda mendapatkan informasi dari catatan dari " + tbmuser.getUserNama()
+										+ " (" + tbmuser.getUserId() + ")" + "<br>Isi catatan KRS adalah : "
+										+ catatan.getValue() + "<br>Isi catatan KHS adalah : " + catatanKhs.getValue()
+										+ "<br>Terlampir KRS yang Anda ambil.<br>Untuk informasi lebih lanjut bisa dilihat pada link "
+										+ Common.getRequestHostWithProtocol()
+										+ ", kemudian click menu KRS, cari catatan sbb : " + info
+										+ "<br><br>Terima Kasih";
+								String sender = Common.getKonfigurasi("default_email", "info@zishof.com").getNilai();
+								MailSender.sendMailLampiran(userIds, subject, body, sender, emailUser, krsMahasiswa,
+										file);
+							}
+
+							window.detach();
+							eventListener.onEvent(new Event("", window, krsMahasiswa));
+						}
+					});
+				}
+			}
+		});
+		save.setParent(toolbar);
+
+		window.setVisible(true);
+		window.onModal();
+	}
+
+}

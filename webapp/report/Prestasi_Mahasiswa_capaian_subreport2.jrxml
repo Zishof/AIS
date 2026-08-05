@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Prestasi_Mahasiswa_capaian_subreport2" pageWidth="555" pageHeight="802" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="78ba4f31-7108-4288-a684-b69e4907a419">
+	<property name="ireport.zoom" value="1.1000000000000005"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="lama_sudi" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[123]]></defaultValueExpression>
+	</parameter>
+	<parameter name="nomorUjian" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["---"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="logo1" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="foto" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_kota" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Ciputat"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="nama" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="skema" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["skema.jpg"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tanggal" class="java.util.Date" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new java.util.Date()]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mahasiswa_id" class="java.lang.Long">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="SUBREPORT_DIR" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select
+a.nama,
+a.tempatlahir,
+a.tanggallahir,
+a.nim,
+a.tanggal_masuk,
+a.tanggal_lulus,
+b.gelar,
+b.nama as jurusan,
+a.no_ijazah1,
+c.juara,c.nama as prestasi,c.tempat,c.penyelenggara,c.tanggal,c.nomorsertifikat,
+a.jurusan as jurusan_id,
+a.tahunlulus
+from mahasiswa a
+inner join jurusan b on (a.jurusan=b.id)
+inner join prestasi_mahasiswa c on (c.mahasiswa=a.id)
+where a.id=$P{mahasiswa_id}
+and c.status='Disetujui']]>
+	</queryString>
+	<field name="nama" class="java.lang.String"/>
+	<field name="tempatlahir" class="java.lang.String"/>
+	<field name="tanggallahir" class="java.sql.Date"/>
+	<field name="nim" class="java.lang.String"/>
+	<field name="tanggal_masuk" class="java.sql.Timestamp"/>
+	<field name="tanggal_lulus" class="java.sql.Date"/>
+	<field name="gelar" class="java.lang.String"/>
+	<field name="jurusan" class="java.lang.String"/>
+	<field name="no_ijazah1" class="java.lang.String"/>
+	<field name="juara" class="java.lang.String"/>
+	<field name="prestasi" class="java.lang.String"/>
+	<field name="tempat" class="java.lang.String"/>
+	<field name="penyelenggara" class="java.lang.String"/>
+	<field name="tanggal" class="java.sql.Date"/>
+	<field name="nomorsertifikat" class="java.lang.String"/>
+	<field name="jurusan_id" class="java.lang.Long"/>
+	<field name="tahunlulus" class="java.lang.Integer"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<columnHeader>
+		<band height="37" splitType="Stretch">
+			<textField>
+				<reportElement x="150" y="24" width="68" height="13" uuid="04e16217-dadd-496b-a935-87a2cfcc210d"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Tempat"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="82" y="24" width="68" height="13" uuid="3cc4260b-54d5-43e0-b3a4-93ffaafec104"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Pada kejuaraan"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="218" y="24" width="68" height="13" uuid="2cc47f45-67a3-4fd1-a944-cbc335814008"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Penyelenggara"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="286" y="24" width="262" height="13" uuid="28a2dcad-44ca-4b63-a732-ca592026949b"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["SKPI"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="14" y="24" width="68" height="13" uuid="ba7f127f-a983-48c5-8e5f-0dfc138d6eb0"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Juara ke"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="14" y="4" width="272" height="14" uuid="6b2d9d2e-2167-41e2-945c-31a8c53d2cc4"/>
+				<box leftPadding="0"/>
+				<textElement verticalAlignment="Top" markup="html">
+					<font size="10" isBold="true" isItalic="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Prestasi / <i>Achievement</i>"]]></textFieldExpression>
+			</textField>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="20" splitType="Stretch">
+			<textField>
+				<reportElement x="218" y="0" width="68" height="20" uuid="b9741db5-bb75-4ae4-9fd3-61d95fcfcc70"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center">
+					<font size="6"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{penyelenggara}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="150" y="0" width="68" height="20" uuid="a955befc-56bd-4440-b380-01668e72cb21"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center">
+					<font size="6"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{tempat}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="14" y="0" width="68" height="20" uuid="153dc988-4c67-4697-a5e7-87ef8e1157fe"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center">
+					<font size="6"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{juara}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="82" y="0" width="68" height="20" uuid="22356a72-2ac5-4b7a-8a76-c37fb9867a87"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center">
+					<font size="6"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{prestasi}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="286" y="0" width="262" height="20" uuid="fe5ccc9b-ff8d-4667-9d18-a84b8cfc483b"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement>
+					<font size="6"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Juara "+$F{juara}+" pada kejuaraan "+$F{nama}+" di "+$F{tempat}+" tanggal "+(new java.text.SimpleDateFormat("dd MMMMM yyyy",$P{REPORT_LOCALE}).format($F{tanggal}) )+" sertifikat kejuaraan nomor "+$F{nomorsertifikat}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<summary>
+		<band height="58" splitType="Immediate">
+			<subreport>
+				<reportElement x="0" y="10" width="555" height="34" uuid="5f86133d-20ca-4188-9c8d-4d11c8595f32"/>
+				<subreportParameter name="SUBREPORT_DIR">
+					<subreportParameterExpression><![CDATA[$P{SUBREPORT_DIR}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="logo">
+					<subreportParameterExpression><![CDATA[$P{logo}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="skema">
+					<subreportParameterExpression><![CDATA[$P{skema}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_kota">
+					<subreportParameterExpression><![CDATA[$P{label_kota}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="nomorUjian">
+					<subreportParameterExpression><![CDATA[$P{nomorUjian}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="nama">
+					<subreportParameterExpression><![CDATA[$P{nama}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="foto">
+					<subreportParameterExpression><![CDATA[$P{foto}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="tanggal">
+					<subreportParameterExpression><![CDATA[$P{tanggal}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="logo1">
+					<subreportParameterExpression><![CDATA[$P{logo1}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="lama_sudi">
+					<subreportParameterExpression><![CDATA[$P{lama_sudi}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="mahasiswa_id">
+					<subreportParameterExpression><![CDATA[$P{mahasiswa_id}]]></subreportParameterExpression>
+				</subreportParameter>
+				<connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
+				<subreportExpression><![CDATA[$P{SUBREPORT_DIR} + "Prestasi_Mahasiswa_capaian_keikutsertaan_organisasi.jasper"]]></subreportExpression>
+			</subreport>
+		</band>
+	</summary>
+</jasperReport>

@@ -1,0 +1,29 @@
+<?page title="new page title" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<window height="100%" width="100%" border="none">
+
+
+		<tabbox height="100%" width="100%">
+
+			<tabs>
+				<tab>Keluhan, Riwayat, atau Pemeriksaan dalam bentuk tree</tab>
+				<tab>Keluhan, Riwayat, atau Pemeriksaan dalam bentuk daftar</tab>
+			</tabs>
+			<tabpanels>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<iframe height="100%" width="100%"
+						src="/pages/master/pemeriksaan_tree.zul">
+					</iframe>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<iframe height="100%" width="100%"
+						src="/pages/master/pemeriksaan_list.zul">
+					</iframe>
+				</tabpanel>
+
+			</tabpanels>
+
+		</tabbox>
+
+	</window>
+</zk>

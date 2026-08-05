@@ -1,0 +1,791 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Rekap_jumlah_mahasiswa_fakultas" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20" uuid="d5d98a7e-3483-42a9-8681-55dca3f0b4da">
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<property name="ireport.zoom" value="1.464100000000001"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_kota" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Ciputat"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_fakultas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Fakultas"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_jurusan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Prodi"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="barcode" class="java.lang.String"/>
+	<parameter name="SUBREPORT_DIR" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+	</parameter>
+	<parameter name="dosen" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[302L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tahun_akademik" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2014/2015"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="genapGanjil" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Genap"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="nama_dosen" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Andri"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="fakultas" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jurusan" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="program" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["-1"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="masa_perkuliahan" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="semester_pendek" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select a.grup_checklist_penilaian_dosen as grup_id,
+b.isi as grup,
+a.isi as isi,
+a.bobot as bobot,
+sum(x.nilai1) as "nilai 1",
+sum(x.nilai2) as "nilai 2",
+sum(x.nilai3) as "nilai 3",
+sum(x.nilai4) as "nilai 4",
+sum(x.nilai5) as "nilai 5",
+sum(x.nilai1+x.nilai2+x.nilai3+x.nilai4+x.nilai5) as "total",
+c1.id as id_matakuliah,
+c1.nama as matakuliah
+from rekap_angket_dosen x
+inner join checklist_penilaian_dosen a on (a.id=x.checklist_penilaian_dosen)
+inner join grup_checklist_penilaian_dosen b on (a.grup_checklist_penilaian_dosen=b.id)
+inner join perkuliahan c on (x.perkuliahan=c.id)
+inner join matakuliah c1 on (c.matakuliah=c1.id)
+inner join jurusan d on (c.jurusan=d.id)
+where c.tahun_ajaran=$P{tahun_akademik}
+and c.semester%2 = (case $P{genapGanjil} when 'Semua' then c.semester%2 when 'Ganjil' then 1 else 0 end)
+and case when $P{jurusan}=-1 then true else c.jurusan=$P{jurusan} end
+and case when $P{fakultas}=-1 then true else d.fakultas=$P{fakultas} end
+and case when $P{program}='-1' then true else c.program=$P{program} end
+and (a.aktif or a.aktif is null) and (b.aktif or b.aktif is null)
+and (a.aktif=true or a.aktif is null)
+and (b.aktif=true or b.aktif is null)
+
+and case $P{masa_perkuliahan} when -1 then true else c.masa_perkuliahan = $P{masa_perkuliahan} end
+and case $P{semester_pendek} when -1 then c.status_semesterpendek is null else c.status_semesterpendek = $P{semester_pendek} end
+
+GROUP BY c1.id,b.id,a.id
+order by c1.id,b.id,max(a.isi),a.id]]>
+	</queryString>
+	<field name="grup_id" class="java.lang.Long"/>
+	<field name="grup" class="java.lang.String"/>
+	<field name="isi" class="java.lang.String"/>
+	<field name="bobot" class="java.lang.Double"/>
+	<field name="nilai 1" class="java.lang.Long"/>
+	<field name="nilai 2" class="java.lang.Long"/>
+	<field name="nilai 3" class="java.lang.Long"/>
+	<field name="nilai 4" class="java.lang.Long"/>
+	<field name="nilai 5" class="java.lang.Long"/>
+	<field name="total" class="java.lang.Long"/>
+	<field name="id_matakuliah" class="java.lang.Long"/>
+	<field name="matakuliah" class="java.lang.String"/>
+	<variable name="nilai 1" class="java.lang.Long" resetType="Group" resetGroup="grup" calculation="Sum">
+		<variableExpression><![CDATA[$F{nilai 1}]]></variableExpression>
+	</variable>
+	<variable name="nilai 2" class="java.lang.Long" resetType="Group" resetGroup="grup" calculation="Sum">
+		<variableExpression><![CDATA[$F{nilai 2}]]></variableExpression>
+	</variable>
+	<variable name="nilai 3" class="java.lang.Long" resetType="Group" resetGroup="grup" calculation="Sum">
+		<variableExpression><![CDATA[$F{nilai 3}]]></variableExpression>
+	</variable>
+	<variable name="nilai 4" class="java.lang.Long" resetType="Group" resetGroup="grup" calculation="Sum">
+		<variableExpression><![CDATA[$F{nilai 4}]]></variableExpression>
+	</variable>
+	<variable name="nilai 5" class="java.lang.Long" resetType="Group" resetGroup="grup" calculation="Sum">
+		<variableExpression><![CDATA[$F{nilai 5}]]></variableExpression>
+	</variable>
+	<variable name="nilai 1_1" class="java.lang.Long" resetType="Group" resetGroup="matakuliah" calculation="Sum">
+		<variableExpression><![CDATA[$F{nilai 1}]]></variableExpression>
+	</variable>
+	<variable name="nilai 2_1" class="java.lang.Long" resetType="Group" resetGroup="matakuliah" calculation="Sum">
+		<variableExpression><![CDATA[$F{nilai 2}]]></variableExpression>
+	</variable>
+	<variable name="nilai 3_1" class="java.lang.Long" resetType="Group" resetGroup="matakuliah" calculation="Sum">
+		<variableExpression><![CDATA[$F{nilai 3}]]></variableExpression>
+	</variable>
+	<variable name="nilai 4_1" class="java.lang.Long" resetType="Group" resetGroup="matakuliah" calculation="Sum">
+		<variableExpression><![CDATA[$F{nilai 4}]]></variableExpression>
+	</variable>
+	<variable name="nilai 5_1" class="java.lang.Long" resetType="Group" resetGroup="matakuliah" calculation="Sum">
+		<variableExpression><![CDATA[$F{nilai 5}]]></variableExpression>
+	</variable>
+	<variable name="total" class="java.lang.Long" resetType="Group" resetGroup="grup" calculation="Sum">
+		<variableExpression><![CDATA[$F{total}]]></variableExpression>
+	</variable>
+	<variable name="total_1" class="java.lang.Long" resetType="Group" resetGroup="matakuliah" calculation="Sum">
+		<variableExpression><![CDATA[$F{total}]]></variableExpression>
+	</variable>
+	<group name="matakuliah">
+		<groupExpression><![CDATA[$F{id_matakuliah}]]></groupExpression>
+		<groupHeader>
+			<band height="82">
+				<staticText>
+					<reportElement key="staticText-6" x="3" y="60" width="97" height="18" uuid="dd345ed9-34cb-4354-b91a-bedec48148b4"/>
+					<text><![CDATA[Tanggal ]]></text>
+				</staticText>
+				<textField evaluationTime="Report" pattern="dd/MM/yyyy" isBlankWhenNull="false">
+					<reportElement key="textField" x="98" y="60" width="436" height="18" uuid="c79f4849-7b69-4a9d-bfac-d36b8fdf7a95"/>
+					<textFieldExpression><![CDATA[new java.util.Date()]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement x="98" y="0" width="436" height="20" uuid="fe34d2af-e787-459c-be1d-6e1ded0598ec"/>
+					<textFieldExpression><![CDATA[$F{matakuliah}]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement x="98" y="20" width="436" height="20" uuid="0b5c488b-aa42-4819-8432-018954adb3a3"/>
+					<textFieldExpression><![CDATA[$P{tahun_akademik}]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement x="98" y="40" width="436" height="20" uuid="17328b4e-e56e-4848-bcac-ade57cab735c"/>
+					<textFieldExpression><![CDATA[$P{genapGanjil}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement x="2" y="0" width="98" height="20" uuid="3887f22e-810a-4e84-a01b-653a2e87c650"/>
+					<text><![CDATA[Mata kuliah]]></text>
+				</staticText>
+				<staticText>
+					<reportElement x="2" y="20" width="98" height="20" uuid="d3008674-9a17-4232-913c-279fe56ef1ed"/>
+					<text><![CDATA[Tahun Akademik]]></text>
+				</staticText>
+				<staticText>
+					<reportElement x="2" y="40" width="98" height="20" uuid="abc947b0-1016-4e72-bf17-748074ad9da2"/>
+					<text><![CDATA[Semester]]></text>
+				</staticText>
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band height="31">
+				<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+					<reportElement stretchType="RelativeToTallestObject" x="0" y="0" width="256" height="30" uuid="2571468c-99ca-42aa-a02d-8e59294ef595"/>
+					<box topPadding="1" leftPadding="3" bottomPadding="1" rightPadding="1">
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement verticalAlignment="Top">
+						<font size="9" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA["Total skor untuk "+$F{matakuliah}]]></textFieldExpression>
+				</textField>
+				<textField isBlankWhenNull="true">
+					<reportElement stretchType="RelativeToTallestObject" x="480" y="0" width="27" height="30" uuid="a0b67fe0-9baf-43ca-bc9c-2181877ebe6c"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="8" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{nilai 5_1}]]></textFieldExpression>
+				</textField>
+				<textField isBlankWhenNull="true">
+					<reportElement stretchType="RelativeToTallestObject" x="373" y="0" width="26" height="30" uuid="9dd6f920-828c-4320-b274-98e202494650"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="8" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{nilai 3_1}]]></textFieldExpression>
+				</textField>
+				<textField isBlankWhenNull="true">
+					<reportElement stretchType="RelativeToTallestObject" x="256" y="0" width="28" height="30" uuid="cd5d11f1-7fa8-435b-9858-2639ab3eefce"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="8" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{nilai 1_1}]]></textFieldExpression>
+				</textField>
+				<textField isBlankWhenNull="true">
+					<reportElement stretchType="RelativeToTallestObject" x="427" y="0" width="25" height="30" uuid="f5b468b4-3435-4791-b2a0-abf7fc636c13"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="8" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{nilai 4_1}]]></textFieldExpression>
+				</textField>
+				<textField isBlankWhenNull="true">
+					<reportElement stretchType="RelativeToTallestObject" x="317" y="0" width="28" height="30" uuid="e288e482-046a-4f24-bb36-c0f683feebe4"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="8" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{nilai 2_1}]]></textFieldExpression>
+				</textField>
+				<textField pattern="###0.00" isBlankWhenNull="true">
+					<reportElement stretchType="RelativeToTallestObject" x="345" y="0" width="28" height="30" uuid="6943b369-6d8c-43cd-b53d-aea130aa02df"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="7" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[($V{nilai 2_1}*100.0)/$V{total_1}]]></textFieldExpression>
+				</textField>
+				<textField pattern="###0.00" isBlankWhenNull="true">
+					<reportElement stretchType="RelativeToTallestObject" x="507" y="0" width="28" height="30" uuid="39744011-99f7-47ca-b01c-63ce2cec2a47"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="7" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[($V{nilai 5_1}*100.0)/$V{total_1}]]></textFieldExpression>
+				</textField>
+				<textField pattern="###0.00" isBlankWhenNull="true">
+					<reportElement stretchType="RelativeToTallestObject" x="452" y="0" width="28" height="30" uuid="069c39e1-5e55-48f5-b12b-76da8e11b054"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="7" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[($V{nilai 4_1}*100.0)/$V{total_1}]]></textFieldExpression>
+				</textField>
+				<textField pattern="###0.00" isBlankWhenNull="true">
+					<reportElement stretchType="RelativeToTallestObject" x="399" y="0" width="28" height="30" uuid="f7607af5-5a83-42dd-8919-c1b7a1007b25"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="7" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[($V{nilai 3_1}*100.0)/$V{total_1}]]></textFieldExpression>
+				</textField>
+				<textField pattern="###0.00" isBlankWhenNull="true">
+					<reportElement stretchType="RelativeToTallestObject" x="284" y="0" width="33" height="30" uuid="d011c9da-2288-440b-b75c-5aedd8ae6c2e"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="7" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[($V{nilai 1_1}*100.0)/$V{total_1}]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupFooter>
+	</group>
+	<group name="grup">
+		<groupExpression><![CDATA[$F{grup_id}]]></groupExpression>
+		<groupHeader>
+			<band height="41">
+				<textField>
+					<reportElement x="0" y="0" width="534" height="23" forecolor="#000000" backcolor="#E3E3E3" uuid="c98ac55f-1d6d-4958-8ac1-d0b6a18a42e2"/>
+					<textElement verticalAlignment="Bottom">
+						<font size="12" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{grup}]]></textFieldExpression>
+				</textField>
+				<rectangle>
+					<reportElement x="0" y="23" width="535" height="17" backcolor="#C6E6FD" uuid="f6567b8e-c4f9-45c9-a291-2935168643ec"/>
+				</rectangle>
+				<staticText>
+					<reportElement x="23" y="23" width="205" height="17" uuid="026d8f26-11ab-4c88-bf2a-364e6b681fb3"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle"/>
+					<text><![CDATA[Indikator]]></text>
+				</staticText>
+				<staticText>
+					<reportElement x="256" y="23" width="61" height="17" uuid="eb190b3d-904d-49b7-b269-3db3f70f1a0d"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle"/>
+					<text><![CDATA[Skor 1]]></text>
+				</staticText>
+				<staticText>
+					<reportElement x="317" y="23" width="56" height="17" uuid="e1de0b43-3de5-4d6d-980f-b9760abe8a93"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle"/>
+					<text><![CDATA[Skor 2]]></text>
+				</staticText>
+				<staticText>
+					<reportElement x="373" y="23" width="54" height="17" uuid="e252eb0f-c992-4b2b-99a9-606e84ff8e8e"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle"/>
+					<text><![CDATA[Skor 3]]></text>
+				</staticText>
+				<staticText>
+					<reportElement x="427" y="23" width="53" height="17" uuid="aa4e0647-2bdd-496c-a256-efa679912850"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle"/>
+					<text><![CDATA[Skor 4]]></text>
+				</staticText>
+				<staticText>
+					<reportElement x="480" y="23" width="56" height="17" uuid="ad5907d4-07fd-460e-a5e7-50ac5348ae47"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle"/>
+					<text><![CDATA[Skor 5]]></text>
+				</staticText>
+				<staticText>
+					<reportElement x="0" y="23" width="23" height="17" uuid="711aa2f3-73ee-429e-9846-b92f4aa0fef7"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle"/>
+					<text><![CDATA[No.]]></text>
+				</staticText>
+				<staticText>
+					<reportElement x="228" y="23" width="28" height="17" uuid="a643d126-c681-4bc1-839b-b98f34e8566c"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle"/>
+					<text><![CDATA[Bobot]]></text>
+				</staticText>
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band height="30">
+				<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+					<reportElement stretchType="RelativeToTallestObject" x="0" y="0" width="256" height="30" uuid="23c95d1a-d4ab-444a-bd93-eff8d8986212"/>
+					<box topPadding="1" leftPadding="3" bottomPadding="1" rightPadding="1">
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement verticalAlignment="Top">
+						<font size="9" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA["Total skor untuk "+$F{grup}]]></textFieldExpression>
+				</textField>
+				<textField isBlankWhenNull="true">
+					<reportElement stretchType="RelativeToTallestObject" x="480" y="0" width="27" height="30" uuid="db8f2760-02d0-43cb-abe5-6334332d6f96"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="8" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{nilai 5}]]></textFieldExpression>
+				</textField>
+				<textField isBlankWhenNull="true">
+					<reportElement stretchType="RelativeToTallestObject" x="427" y="0" width="25" height="30" uuid="cec0e54b-7a9d-4f50-ad49-2be1488ded26"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="8" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{nilai 4}]]></textFieldExpression>
+				</textField>
+				<textField isBlankWhenNull="true">
+					<reportElement stretchType="RelativeToTallestObject" x="373" y="0" width="26" height="30" uuid="840797aa-88a0-4249-8cd1-7618872dd517"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="8" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{nilai 3}]]></textFieldExpression>
+				</textField>
+				<textField isBlankWhenNull="true">
+					<reportElement stretchType="RelativeToTallestObject" x="256" y="0" width="28" height="30" uuid="d568d759-eb5c-4397-a616-2183d74554f4"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="8" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{nilai 1}]]></textFieldExpression>
+				</textField>
+				<textField isBlankWhenNull="true">
+					<reportElement stretchType="RelativeToTallestObject" x="317" y="0" width="28" height="30" uuid="13c2ddd0-27f3-4cd9-9839-26f488c47473"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="8" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{nilai 2}]]></textFieldExpression>
+				</textField>
+				<textField pattern="###0.00" isBlankWhenNull="true">
+					<reportElement stretchType="RelativeToTallestObject" x="507" y="0" width="28" height="30" uuid="610f4f11-7591-42f9-9b8f-bfea06f559d4"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="7" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[($V{nilai 5}*100.0)/$V{total}]]></textFieldExpression>
+				</textField>
+				<textField pattern="###0.00" isBlankWhenNull="true">
+					<reportElement stretchType="RelativeToTallestObject" x="345" y="0" width="28" height="30" uuid="93110a26-a9d4-47b0-9a21-74eed2382949"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="7" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[($V{nilai 2}*100.0)/$V{total}]]></textFieldExpression>
+				</textField>
+				<textField pattern="###0.00" isBlankWhenNull="true">
+					<reportElement stretchType="RelativeToTallestObject" x="452" y="0" width="28" height="30" uuid="a2c7d2d4-6bd0-42d4-8a85-9ca14cc46cf7"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="7" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[($V{nilai 4}*100.0)/$V{total}]]></textFieldExpression>
+				</textField>
+				<textField pattern="###0.00" isBlankWhenNull="true">
+					<reportElement stretchType="RelativeToTallestObject" x="399" y="0" width="28" height="30" uuid="cb8932ff-1e04-4e0d-a265-7331c5f3d1b9"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="7" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[($V{nilai 3}*100.0)/$V{total}]]></textFieldExpression>
+				</textField>
+				<textField pattern="###0.00" isBlankWhenNull="true">
+					<reportElement stretchType="RelativeToTallestObject" x="284" y="0" width="33" height="30" uuid="e45f7816-2b8d-4391-9b68-f5a428e398a2"/>
+					<box>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="7" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[($V{nilai 1}*100.0)/$V{total}]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupFooter>
+	</group>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="68" splitType="Stretch">
+			<staticText>
+				<reportElement key="staticText-36" x="100" y="46" width="434" height="20" uuid="7ef40dcb-bee8-40d5-a2f0-94e03f77f71a"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[HASIL ANGKET PENILAIAN MAHASISWA ATAS KINERJA DOSEN]]></text>
+			</staticText>
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="0" y="0" width="98" height="66" uuid="5703c06e-2b1b-4a64-8e6e-20471b5f4beb"/>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<textField>
+				<reportElement x="100" y="0" width="434" height="46" uuid="95b18bec-5c24-4809-800f-00b43f554445"/>
+				<textElement textAlignment="Center" verticalAlignment="Bottom">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{label_universitas}+"\n"+
+$P{REPORT_PARAMETERS_MAP}.get( "fakultas_nama" )+"\n"+
+$P{REPORT_PARAMETERS_MAP}.get( "jurusan_nama" )]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<detail>
+		<band height="20" splitType="Stretch">
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement stretchType="RelativeToTallestObject" x="23" y="0" width="205" height="20" uuid="52beb656-db9e-431e-b7fe-eababf677569"/>
+				<box topPadding="1" leftPadding="3" bottomPadding="1" rightPadding="1">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{isi}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement stretchType="RelativeToTallestObject" x="0" y="0" width="23" height="20" uuid="cf9a19f8-4cf5-4c1e-a64a-536a2ece7c38"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{grup_COUNT}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement stretchType="RelativeToTallestObject" x="427" y="0" width="25" height="20" uuid="2fe4cf5b-2f02-4d04-a7f1-633c19dbf1b4"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nilai 4}]]></textFieldExpression>
+			</textField>
+			<textField pattern="###0.00" isBlankWhenNull="true">
+				<reportElement stretchType="RelativeToTallestObject" x="452" y="0" width="28" height="20" uuid="b92cb6c4-3e43-4f6f-b963-59a29af1c22f"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[($F{nilai 4}*100.0)/$F{total}]]></textFieldExpression>
+			</textField>
+			<textField pattern="###0.00" isBlankWhenNull="true">
+				<reportElement stretchType="RelativeToTallestObject" x="399" y="0" width="28" height="20" uuid="c489b8ae-538f-4c27-808c-6ca75dc314e2"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[($F{nilai 3}*100.0)/$F{total}]]></textFieldExpression>
+			</textField>
+			<textField pattern="###0.00" isBlankWhenNull="true">
+				<reportElement stretchType="RelativeToTallestObject" x="507" y="0" width="28" height="20" uuid="df45c67d-c71f-4c8e-8f71-09f2baf8c315"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[($F{nilai 5}*100.0)/$F{total}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement stretchType="RelativeToTallestObject" x="317" y="0" width="28" height="20" uuid="6522c722-24c3-434e-a0fd-9b7d9f307908"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nilai 2}]]></textFieldExpression>
+			</textField>
+			<textField pattern="###0.00" isBlankWhenNull="true">
+				<reportElement stretchType="RelativeToTallestObject" x="284" y="0" width="33" height="20" uuid="3576fe50-b22e-4542-b9e7-1df3f4518da9"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[($F{nilai 1}*100.0)/$F{total}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement stretchType="RelativeToTallestObject" x="256" y="0" width="28" height="20" uuid="f551e84f-0203-44cc-902f-8c81dce66f86"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nilai 1}]]></textFieldExpression>
+			</textField>
+			<textField pattern="###0.00" isBlankWhenNull="true">
+				<reportElement stretchType="RelativeToTallestObject" x="345" y="0" width="28" height="20" uuid="07f8d8b1-06a0-4001-b20d-248ffd02bd7d"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[($F{nilai 2}*100.0)/$F{total}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement stretchType="RelativeToTallestObject" x="480" y="0" width="27" height="20" uuid="6d51bb55-b077-4004-b9f9-ee7078e4750b"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nilai 5}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement stretchType="RelativeToTallestObject" x="373" y="0" width="26" height="20" uuid="b5b47f1d-fbec-4aba-a79e-68f85dc68aea"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nilai 3}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement stretchType="RelativeToTallestObject" x="228" y="0" width="28" height="20" uuid="e946abf7-7b49-462b-94b1-c267c5e07f46"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{bobot}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band height="26" splitType="Stretch">
+			<image scaleImage="FillFrame" vAlign="Middle">
+				<reportElement key="image-2" x="2" y="6" width="300" height="20" uuid="50eb5342-189f-481e-b184-33218440bd42"/>
+				<imageExpression><![CDATA[$P{barcode}]]></imageExpression>
+			</image>
+		</band>
+	</pageFooter>
+	<summary>
+		<band splitType="Stretch"/>
+	</summary>
+</jasperReport>

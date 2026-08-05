@@ -1,0 +1,145 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false"
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.BuktiPembayaranAction" width="100%" height="100%">
+
+		<div sclass="ais-crud-portal">
+
+			<!-- ═══ KARTU FILTER ═══ -->
+			<div sclass="ais-crud-filter-card">
+				<div sclass="ais-crud-filter-head">
+					<span sclass="ais-crud-filter-title">Pencarian &amp; Filter</span>
+					<div sclass="ais-crud-filter-actions">
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="add" label="Tambah" image="/img/new.gif" tooltiptext="Tambah data baru" forward="onClick=onAdd"/>
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="find" label="Cari" image="/img/search.gif" tooltiptext="Cari data" forward="onClick=onSearchDefault"/>
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;bukti_pembayaran&quot;, &quot;Bantuan&quot;);"/></div>
+				</div>
+				<div sclass="ais-crud-filter-body">
+					<grid use="ais.ui.util.MyGrid" fixedLayout="true" sclass="ais-crud-filter-grid">
+						<columns>
+
+						<column use="ais.ui.util.MyColumnConfig"
+						width="150px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig"
+						width="150px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig"
+						width="150px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig">
+						</column>
+
+
+						</columns>
+						<rows>
+						<row>
+						<label use="ais.ui.util.MyLabelConfig"
+						value="Nama Bukti Pembayaran" />
+						<textbox forward="onOK=onSearchDefault"
+						id="searchnama" width="95%" />
+
+						<label use="ais.ui.util.MyLabelConfig"
+						value="Tgl. Mulai" />
+						<datebox use="ais.ui.util.MyDatebox"
+						forward="onChange=onSearchDefault" id="searchmulai" width="95%" />
+						<label use="ais.ui.util.MyLabelConfig"
+						value="Tgl. Sampai" />
+						<datebox use="ais.ui.util.MyDatebox"
+						forward="onChange=onSearchDefault" id="searchsampai"
+						width="95%" />
+						</row>
+
+						<row>
+
+						<label use="ais.ui.util.MyLabelConfig"
+						value="Jenis Pembayaran" />
+						<combobox readonly="true"
+						forward="onChange=onSearchDefault" id="searchJenisKegiatan"
+						width="95%" />
+
+
+						<label use="ais.ui.util.MyLabelConfig"
+						value="Prodi" />
+						<combobox id="searchjurusan"
+						forward="onChange=onSearchDefault" width="95%" />
+						<label use="ais.ui.util.MyLabelConfig"
+						value="Mahasiswa" />
+						<bandbox
+						use="ais.action.master.helper.AmbilDataMahasiswaBanbox"
+						forward="onChange=onSearchDefault" id="searchmahasiswa"
+						width="95%" />
+
+						</row>
+						
+					<!-- ais-auto-filter: field pencarian dari initCriteria yang belum ada di .zul -->
+					<row>
+						<label use="ais.ui.util.MyLabelConfig" value="" />
+						<checkbox use="ais.ui.util.MyCheckboxConfig" id="sudah" label="Sudah" forward="onClick=onSearchDefault" />
+					</row>
+					</rows>
+					</grid>
+				</div>
+			</div>
+
+			<!-- ═══ KARTU DATA ═══ -->
+			<div sclass="ais-crud-data-card">
+				<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true"/>
+				<grid use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true" id="grid">
+					<columns>
+
+						<column
+						use="ais.ui.util.MyColumnConfig" label="Mahasiswa" />
+						<column
+						use="ais.ui.util.MyColumnConfig" width="20%"
+						label="Nama Bukti" sort="auto(nama)" />
+						<column
+						use="ais.ui.util.MyColumnConfig" width="12%" label="Tanggal" />
+						<column
+						use="ais.ui.util.MyColumnConfig" width="8%"
+						label="Jenis Pembayaran" />
+						<column
+						use="ais.ui.util.MyColumnConfig" width="8%"
+						label="Item Biaya" />
+						<column
+						use="ais.ui.util.MyColumnConfig" width="8%"
+						label="Cara Bayar" />
+						<column
+						use="ais.ui.util.MyColumnConfig" width="4%" label="Smt" />
+						<column
+						use="ais.ui.util.MyColumnConfig" align="right" width="6%"
+						label="Nilai" />
+						<column
+						use="ais.ui.util.MyColumnConfig" label="Keterangan"
+						/>
+						<column
+						use="ais.ui.util.MyColumnConfig" width="10%" label="" />
+
+					</columns>
+				</grid>
+				<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>
+			</div>
+
+		</div>
+
+		<window use="ais.ui.util.MyWindow" id="addWindow" title="Tambah BuktiPembayaran" visible="false" mode="popup" position="center,center" border="normal" width="850px" height="400px">
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+	</window>
+
+
+</zk>

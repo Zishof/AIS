@@ -1,0 +1,73 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false"
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.inventory.PengajuanPembelianGudangAction" width="100%" height="100%">
+
+		<div sclass="ais-crud-portal">
+
+			<!-- ═══ KARTU KETERANGAN ═══ -->
+			<div sclass="ais-crud-filter-card">
+				<div sclass="ais-crud-filter-head">
+					<span sclass="ais-crud-filter-title">Ambang Stok Gudang &amp; Pengajuan Pembelian</span>
+					<div sclass="ais-crud-filter-actions">
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;pengajuan_pembelian_gudang&quot;, &quot;Bantuan&quot;);"/>
+					</div>
+				</div>
+				<div sclass="ais-crud-filter-body">
+					<label value="Atur ambang batas stok minimum per produk (biasanya bahan baku) di tiap gudang. Sistem otomatis mengecek berkala (tiap 4 jam) -- bila stok menyentuh ambang, pengajuan pembelian diterbitkan otomatis: gudang cabang diajukan ke gudang induknya, gudang pusat (tanpa induk) diajukan ke vendor eksternal." />
+				</div>
+			</div>
+
+			<!-- ═══ KARTU 1: AMBANG STOK GUDANG ═══ -->
+			<div sclass="ais-crud-data-card">
+				<div sclass="ais-crud-filter-head">
+					<span sclass="ais-crud-filter-title">Ambang Stok per Produk &amp; Gudang</span>
+					<div sclass="ais-crud-filter-actions">
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="btnTambahAmbang" label="Tambah" image="/img/add_item.png"/>
+					</div>
+				</div>
+				<grid use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true" id="gridAmbang">
+					<columns>
+						<column use="ais.ui.util.MyColumnConfig" label="Produk" width="25%" />
+						<column use="ais.ui.util.MyColumnConfig" label="Gudang" width="25%" />
+						<column use="ais.ui.util.MyColumnConfig" label="Ambang Minimum" width="15%" />
+						<column use="ais.ui.util.MyColumnConfig" label="Aktif" width="10%" />
+						<column use="ais.ui.util.MyColumnConfig" label="" width="15%" />
+					</columns>
+				</grid>
+			</div>
+
+			<!-- ═══ KARTU 2: PENGAJUAN PEMBELIAN ═══ -->
+			<div sclass="ais-crud-data-card">
+				<div sclass="ais-crud-filter-head">
+					<span sclass="ais-crud-filter-title">Pengajuan Pembelian</span>
+					<div sclass="ais-crud-filter-actions">
+						<label id="infoPengajuan" value="" style="margin-right:10px;color:#64748b;font-size:11px;"/>
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="btnJalankanSekarang" label="Jalankan Sekarang" image="/img/svg/refresh.svg" tooltiptext="Picu pengecekan ambang stok sekarang juga (tanpa menunggu jadwal 4 jam)"/>
+					</div>
+				</div>
+				<grid use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true" mold="paging" id="gridPengajuan">
+					<columns>
+						<column use="ais.ui.util.MyColumnConfig" label="Produk" />
+						<column use="ais.ui.util.MyColumnConfig" label="Gudang Asal" />
+						<column use="ais.ui.util.MyColumnConfig" label="Tujuan" />
+						<column use="ais.ui.util.MyColumnConfig" label="Qty Diminta" width="10%" />
+						<column use="ais.ui.util.MyColumnConfig" label="Waktu Dibuat" width="12%" />
+						<column use="ais.ui.util.MyColumnConfig" label="Sumber" width="8%" />
+						<column use="ais.ui.util.MyColumnConfig" label="Status" width="12%" />
+						<column use="ais.ui.util.MyColumnConfig" label="Keterangan" width="18%" />
+					</columns>
+				</grid>
+			</div>
+
+		</div>
+
+	</window>
+
+</zk>

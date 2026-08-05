@@ -1,0 +1,163 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false"
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.sirs.ItemMedisAction" width="100%" height="100%">
+
+		<tabbox width="100%" height="100%">
+
+<tabs>
+				<tab id="tab1" image="/img/excel.png"
+					label="Daftar Item">
+				</tab>
+				<tab id="tab3" image="/img/US-dollar-icon.png"
+					label="Daftar Harga Jual">
+				</tab>
+				<tab id="tab2" image="/img/US-dollar-icon.png"
+					label="Daftar Harga Beli">
+				</tab>
+			</tabs>
+
+			<tabpanels>
+
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<div sclass="ais-crud-portal">
+
+						<!-- ═══ KARTU FILTER ═══ -->
+						<div sclass="ais-crud-filter-card">
+							<div sclass="ais-crud-filter-head">
+								<span sclass="ais-crud-filter-title">Pencarian &amp; Filter</span>
+								<div sclass="ais-crud-filter-actions">
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="add" label="Tambah" image="/img/new.gif" tooltiptext="Tambah data baru" forward="onClick=onAdd"/>
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="find" label="Cari" image="/img/search.gif" tooltiptext="Cari data" forward="onClick=onSearchDefault"/>
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;item&quot;, &quot;Bantuan&quot;);"/></div>
+							</div>
+							<div sclass="ais-crud-filter-body">
+								<grid use="ais.ui.util.MyGrid" fixedLayout="true" sclass="ais-crud-filter-grid">
+									<columns>
+
+									<column use="ais.ui.util.MyColumnConfig" width="150px"></column>
+									<column></column>
+									<column use="ais.ui.util.MyColumnConfig" width="150px"></column>
+									<column></column>
+									<column use="ais.ui.util.MyColumnConfig" width="150px"></column>
+									<column></column>
+									<column use="ais.ui.util.MyColumnConfig" width="150px"></column>
+									<column></column>
+
+									</columns>
+									<rows>
+									<row>
+									<label use="ais.ui.util.MyLabelConfig" value="Kode" />
+									<textbox
+									use="ais.ui.util.MyTextbox" id="searchkode"
+									forward="onOK=onSearchDefault" width="90%" />
+									<label use="ais.ui.util.MyLabelConfig" value="Kandungan" />
+									<textbox
+									use="ais.ui.util.MyTextbox" id="searchkandungan"
+									forward="onOK=onSearchDefault" width="90%" />
+									<label use="ais.ui.util.MyLabelConfig" value="Jenis Item" />
+									<combobox id="searchjenisItem"
+									forward="onChange=onSearchDefault" width="90%" />
+									<label use="ais.ui.util.MyLabelConfig" value="Satuan Item" />
+									<combobox id="searchsatuanItem"
+									forward="onChange=onSearchDefault" width="90%" />
+									</row>
+									<row>
+									<label use="ais.ui.util.MyLabelConfig" value="Nama" />
+									<textbox
+									use="ais.ui.util.MyTextbox" id="searchnama"
+									forward="onOK=onSearchDefault" width="90%" />
+									<label use="ais.ui.util.MyLabelConfig" value="Barcode" />
+									<textbox
+									use="ais.ui.util.MyTextbox" id="searchbarcode"
+									forward="onOK=onSearchDefault" width="90%" />
+
+
+									<label use="ais.ui.util.MyLabelConfig" value="Kelas" />
+									<bandbox
+									use="ais.action.master.sirs.helper.AmbilDataKelasItemBanbox"
+									id="searchKelasItem" forward="onOK=onSearchDefault"
+									width="90%" />
+
+									<label use="ais.ui.util.MyLabelConfig" value="Generik" />
+									<bandbox
+									use="ais.action.master.sirs.helper.AmbilDataGenerikItemBanbox"
+									id="searchGenerikItem" forward="onOK=onSearchDefault"
+									width="90%" />
+									</row>
+									</rows>
+								</grid>
+							</div>
+						</div>
+
+						<!-- ═══ KARTU DATA ═══ -->
+						<div sclass="ais-crud-data-card">
+							<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true"/>
+							<grid use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true" id="grid">
+								<columns>
+
+									<column use="ais.ui.util.MyColumnConfig" label="Kode"
+									width="8%" sort="auto(kode)" />
+									<column use="ais.ui.util.MyColumnConfig" label="Nama"
+									sort="auto(nama)" />
+									<column
+									label="Kandungan" sort="auto(kandungan)" />
+									<column use="ais.ui.util.MyColumnConfig" label="Barcode"
+									sort="auto(barcode)" />
+									<column use="ais.ui.util.MyColumnConfig" label="Satuan" />
+									<column use="ais.ui.util.MyColumnConfig" label="Jenis" />
+									<column
+									label="Kelompok" />
+									<column use="ais.ui.util.MyColumnConfig" label="Kelas" />
+									<column use="ais.ui.util.MyColumnConfig" label="Generik" />
+									<column use="ais.ui.util.MyColumnConfig" width="5%"
+									label="Min." />
+									<column use="ais.ui.util.MyColumnConfig" width="5%"
+									label="Retur" />
+									<column use="ais.ui.util.MyColumnConfig" width="8%"
+									label="" />
+
+								</columns>
+							</grid>
+							<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>
+						</div>
+
+					</div>
+
+				</tabpanel>
+
+
+
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<window height="100%" width="100%"
+						use="ais.action.master.sirs.helper.HargaJualItemAction">
+					</window>
+				</tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<window height="100%" width="100%"
+						use="ais.action.master.sirs.helper.HargaBeliItemAction">
+					</window>
+				</tabpanel>
+
+			
+			</tabpanels>
+		</tabbox>
+
+		<window use="ais.ui.util.MyWindowJudul" id="addWindow" title="Tambah Negara" visible="false" mode="popup" position="center,center" border="normal" width="850px" height="95%">
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+	</window>
+
+
+</zk>

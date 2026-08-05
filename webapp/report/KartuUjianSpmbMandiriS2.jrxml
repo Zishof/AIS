@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="KartuUjianSpmbMandiriS2" pageWidth="595" pageHeight="400" orientation="Landscape" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20">
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="logo1" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="biodata_id" class="java.lang.Long"/>
+	<parameter name="foto" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select a.nama,a.jenis_kartu_identitas_mahasiswa_baru,
+a.no_identitas,a.jenis_kelamin,a.tempat_lahir,a.tanggal_lahir,
+a.alamat,a.asal_sma,a.no_registrasi,a.no_ujian,
+b.nama as p1, d.nama as kartu,e.nama as paket
+,f.nama as fakultas
+
+from biodata_calon_mahasiswa a
+
+left join jurusan b on a.prodi_1=b.id
+left join fakultas f on b.fakultas = f.id
+
+left join paket e on a.paket_registrasi_mahasiswa = e.id
+
+left join jenis_kartu_identitas_mahasiswa_baru d on a.jenis_kartu_identitas_mahasiswa_baru=d.id
+
+where a.id=$P{biodata_id}]]>
+	</queryString>
+	<field name="nama" class="java.lang.String"/>
+	<field name="jenis_kartu_identitas_mahasiswa_baru" class="java.lang.Long"/>
+	<field name="no_identitas" class="java.lang.String"/>
+	<field name="jenis_kelamin" class="java.lang.String"/>
+	<field name="tempat_lahir" class="java.lang.String"/>
+	<field name="tanggal_lahir" class="java.sql.Date"/>
+	<field name="alamat" class="java.lang.String"/>
+	<field name="asal_sma" class="java.lang.String"/>
+	<field name="no_registrasi" class="java.lang.String"/>
+	<field name="no_ujian" class="java.lang.String"/>
+	<field name="p1" class="java.lang.String"/>
+	<field name="kartu" class="java.lang.String"/>
+	<field name="paket" class="java.lang.String"/>
+	<field name="fakultas" class="java.lang.String"/>
+	<variable name="Tanggal" class="java.util.Date">
+		<variableExpression><![CDATA[new java.util.Date()]]></variableExpression>
+	</variable>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="65" splitType="Stretch">
+			<staticText>
+				<reportElement key="staticText-1" x="0" y="0" width="535" height="42"/>
+				<textElement textAlignment="Center">
+					<font size="18" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[UIN SYARIF HIDAYATULLAH JAKARTA]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-2" x="139" y="21" width="259" height="21"/>
+				<textElement textAlignment="Center">
+					<font size="14"/>
+				</textElement>
+				<text><![CDATA[KARTU UJIAN SPMB MANDIRI S2]]></text>
+			</staticText>
+			<image>
+				<reportElement key="image-1" x="29" y="0" width="46" height="50"/>
+				<imageExpression><![CDATA[$P{logo1}]]></imageExpression>
+			</image>
+			<line>
+				<reportElement key="line-1" x="0" y="57" width="535" height="1"/>
+				<graphicElement>
+					<pen lineWidth="1.0" lineStyle="Double"/>
+				</graphicElement>
+			</line>
+			<staticText>
+				<reportElement key="staticText-13" x="139" y="42" width="259" height="15"/>
+				<textElement textAlignment="Center">
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[Tahun Akademik 2012 / 2013]]></text>
+			</staticText>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="472" y="6" width="62" height="36"/>
+				<box>
+					<pen lineWidth="1.0" lineStyle="Solid"/>
+					<topPen lineWidth="1.0" lineStyle="Solid"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid"/>
+				</box>
+				<textElement textAlignment="Center">
+					<font size="24" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{paket}]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<columnHeader>
+		<band splitType="Stretch"/>
+	</columnHeader>
+	<detail>
+		<band height="251" splitType="Stretch">
+			<staticText>
+				<reportElement key="staticText-3" x="0" y="57" width="128" height="16"/>
+				<textElement/>
+				<text><![CDATA[Nama]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-5" x="0" y="124" width="128" height="16"/>
+				<textElement/>
+				<text><![CDATA[Tempat / Tanggal Lahir]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-7" x="0" y="108" width="128" height="16"/>
+				<textElement/>
+				<text><![CDATA[Jenis Kelamin]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-10" x="0" y="73" width="128" height="16"/>
+				<textElement/>
+				<text><![CDATA[Kartu Identitas]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-11" x="0" y="89" width="128" height="16"/>
+				<textElement/>
+				<text><![CDATA[No. Kartu Identitas]]></text>
+			</staticText>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="144" y="57" width="278" height="16"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{nama}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="144" y="89" width="278" height="16"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{no_identitas}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="144" y="108" width="278" height="16"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{jenis_kelamin}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="144" y="124" width="278" height="16"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{tempat_lahir}+", "+$F{tanggal_lahir}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-12" x="0" y="16" width="128" height="16"/>
+				<textElement>
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[No Ujian]]></text>
+			</staticText>
+			<image onErrorType="Blank">
+				<reportElement key="image-2" x="422" y="62" width="103" height="130"/>
+				<box>
+					<pen lineWidth="0.0" lineStyle="Solid"/>
+					<topPen lineWidth="0.0" lineStyle="Solid"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="0.0" lineStyle="Solid"/>
+					<rightPen lineWidth="0.0" lineStyle="Solid"/>
+				</box>
+				<imageExpression><![CDATA[$P{foto}]]></imageExpression>
+			</image>
+			<staticText>
+				<reportElement key="staticText-4" x="0" y="178" width="128" height="16"/>
+				<textElement/>
+				<text><![CDATA[Asal Perguruan Tinggi]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-6" x="0" y="140" width="128" height="16"/>
+				<textElement/>
+				<text><![CDATA[Alamat]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-8" x="0" y="194" width="128" height="16"/>
+				<textElement/>
+				<text><![CDATA[Pilihan Prodi]]></text>
+			</staticText>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="144" y="140" width="278" height="38"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{alamat}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="144" y="178" width="278" height="16"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{asal_sma}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="144" y="194" width="278" height="16"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{p1}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="144" y="73" width="278" height="18"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{kartu}]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement key="line-2" x="0" y="242" width="535" height="1"/>
+				<graphicElement>
+					<pen lineWidth="1.0" lineStyle="Double"/>
+				</graphicElement>
+			</line>
+			<textField pattern="dd/MM/yyyy" isBlankWhenNull="false">
+				<reportElement key="textField" x="467" y="16" width="66" height="16"/>
+				<textElement textAlignment="Right"/>
+				<textFieldExpression><![CDATA[$V{Tanggal}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-14" x="485" y="0" width="47" height="15"/>
+				<textElement textAlignment="Right"/>
+				<text><![CDATA[Jakarta]]></text>
+			</staticText>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="144" y="16" width="278" height="15"/>
+				<textElement>
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{no_ujian}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-16" x="0" y="32" width="128" height="16"/>
+				<textElement>
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[Lokal Ujian]]></text>
+			</staticText>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="144" y="32" width="391" height="18"/>
+				<textElement/>
+				<textFieldExpression><![CDATA["Fakultas "+$F{fakultas}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band splitType="Stretch"/>
+	</pageFooter>
+	<summary>
+		<band splitType="Stretch"/>
+	</summary>
+</jasperReport>

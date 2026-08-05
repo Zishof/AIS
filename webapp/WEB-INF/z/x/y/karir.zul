@@ -1,0 +1,22 @@
+<?init class="ais.ui.util.MyInit"?>
+<?link rel="shortcut icon" type="image/x-icon" href="${myFavicon}"?>
+<?link rel="icon" type="image/x-icon" href="${myFavicon}"?>
+<?page title="Portal KARIR - Seleksi Penerimaan Pegawai" contentType="text/html;charset=UTF-8"?>
+<?meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" ?>
+<?meta name="description" content="Portal seleksi penerimaan pegawai/karyawan baru" ?>
+<?meta name="author" content="Mohammad Fauzi Murtadho" ?>
+<zk>
+    <!--
+        File legacy ZUL tetap disediakan sebagai fallback.
+        Route utama sekarang menggunakan /WEB-INF/baru/modul/karir/landing_page.jsp melalui servlet ais.action.servlet.Karir.
+    -->
+    <window use="ais.ui.util.MyWindow" width="100%" height="100%" id="main" border="none">
+        <html><![CDATA[
+            <div>
+                <h2>Portal KARIR Modern</h2>
+                <p>Modul KARIR sekarang menggunakan halaman JSP modern. Silakan akses melalui URL <b>/karir</b>.</p>
+                <script>window.location.href = window.location.pathname.replace(/\/WEB-INF.*/, '') || 'karir';</script>
+            </div>
+        ]]></html>
+    </window>
+</zk>

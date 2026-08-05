@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="1c" language="groovy" pageWidth="842" pageHeight="595" orientation="Landscape" whenNoDataType="AllSectionsNoDetail" columnWidth="802" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="8922a447-8dbf-4d29-943d-05970b53c5df">
+	<property name="ireport.zoom" value="0.9090909090909091"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<field name="jumlahKerjasamaTridharmaInternasional" class="java.lang.Integer"/>
+	<field name="jumlahkerjasamaTridharmaNasional" class="java.lang.Integer"/>
+	<field name="jumlahKerjasamaTridharmaLokal" class="java.lang.String"/>
+	<field name="kerjasamPendidikan" class="java.lang.Integer"/>
+	<field name="kerjasamaPeneitian" class="java.lang.Integer"/>
+	<field name="kerjasamaPengabdianMasyarakat" class="java.lang.Integer"/>
+	<field name="lembaga" class="java.lang.String"/>
+	<field name="tingkat" class="java.lang.String"/>
+	<field name="bentukKegiatan" class="java.lang.String"/>
+	<field name="bukti" class="java.lang.String"/>
+	<field name="masaBerlaku" class="java.lang.String"/>
+	<field name="jenisKerjasama" class="java.lang.String"/>
+	<group name="jenisKerjasama">
+		<groupExpression><![CDATA[$F{jenisKerjasama}]]></groupExpression>
+		<groupHeader>
+			<band height="21">
+				<textField>
+					<reportElement mode="Opaque" x="0" y="0" width="802" height="20" backcolor="#FFFF99" uuid="36b5bcb7-c6b0-498f-a66f-4bad4237f1ac"/>
+					<box leftPadding="5">
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement verticalAlignment="Middle"/>
+					<textFieldExpression><![CDATA[$F{jenisKerjasama}]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupHeader>
+	</group>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="108" splitType="Stretch">
+			<textField>
+				<reportElement x="0" y="0" width="802" height="20" uuid="084baedc-cb92-4c76-93c0-75c9d2021036"/>
+				<textFieldExpression><![CDATA["Tabel 1.c Kerjasama Perguruan Tinggi"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="28" width="312" height="20" uuid="531403c6-b3f0-40be-824b-092041754d7a"/>
+				<textFieldExpression><![CDATA["Jumlah kerjasama tridharma tingkat internasional = " + ($F{jumlahKerjasamaTridharmaInternasional}== null ? "0" : $F{jumlahKerjasamaTridharmaInternasional})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="48" width="312" height="20" uuid="12ec1880-756b-4039-9f69-41e78c925cae"/>
+				<textFieldExpression><![CDATA["Jumlah kerjasama tridharma tingkat nasional = " +($F{jumlahkerjasamaTridharmaNasional} == null ? "0" : $F{jumlahkerjasamaTridharmaNasional})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="68" width="312" height="20" uuid="563e57d6-5f30-460b-ae1b-3592eea73d0a"/>
+				<textFieldExpression><![CDATA["Jumlah kerjasama tridharma tingkat wilayah/lokal = " + ( $F{jumlahKerjasamaTridharmaLokal} == null ? "0" :  $F{jumlahKerjasamaTridharmaLokal})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="437" y="28" width="365" height="20" uuid="49f2ed56-8423-4012-b2e4-8dd8c18e424f"/>
+				<textFieldExpression><![CDATA["Kerjasama Pendidikan = " + ($F{kerjasamPendidikan} == null ? "0" : $F{kerjasamPendidikan})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="437" y="48" width="365" height="20" uuid="9855cf64-f43f-4cc6-9a62-e67387f1f681"/>
+				<textFieldExpression><![CDATA["Kerjasama Penelitian = " + ($F{kerjasamaPeneitian} == null ? "0" : $F{kerjasamaPeneitian})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="437" y="68" width="365" height="20" uuid="d8a0d43c-7e40-4035-b13a-4e432951c5b6"/>
+				<textFieldExpression><![CDATA["Kerjasama Pengabdian Kepada Masyarakat = " + ($F{kerjasamaPengabdianMasyarakat} == null ? "0" : $F{kerjasamaPengabdianMasyarakat})]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<columnHeader>
+		<band height="72" splitType="Stretch">
+			<staticText>
+				<reportElement mode="Opaque" x="62" y="1" width="150" height="51" backcolor="#6699FF" uuid="33021c10-1c7a-4efb-80db-6277f742dd9a"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Lembaga Mitra Kerjasama]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="212" y="1" width="124" height="51" backcolor="#6699FF" uuid="3e7d0fbe-e93f-4a3e-8e68-13d0c94a197c"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Tingkat]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="337" y="1" width="234" height="51" backcolor="#6699FF" uuid="b965e219-171b-41d2-8c86-e746ed7417c5"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Bentuk Kegiatan/ Manfaat]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="571" y="1" width="144" height="51" backcolor="#6699FF" uuid="aa8b2e18-5bda-4e3b-b462-07591be72995"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Bukti Kerjasama]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="715" y="1" width="87" height="51" backcolor="#6699FF" uuid="7e28101c-6b85-48a6-adab-02fc7ea81d10"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Masa Berlaku (Tahun Berakhir, YYYY)]]></text>
+			</staticText>
+			<textField>
+				<reportElement mode="Opaque" x="0" y="1" width="62" height="51" backcolor="#6699FF" uuid="fc89f625-ff0a-4a24-a54c-7a2e364ef86d"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["No"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="0" y="52" width="62" height="20" backcolor="#CCCCCC" uuid="1ee6fb29-4e98-401b-a9c1-7c4eeb7d5834"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA["1"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="62" y="52" width="150" height="20" backcolor="#CCCCCC" uuid="a890953a-fb9c-422e-b9e9-8b20b49b62e1"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA["2"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="212" y="52" width="124" height="20" backcolor="#CCCCCC" uuid="a4977578-a5bc-4c6b-a7f8-773553bf0487"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA["3"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="337" y="52" width="234" height="20" backcolor="#CCCCCC" uuid="6aa99a61-d65e-4a74-b706-121464b6ace7"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA["4"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="571" y="52" width="144" height="20" backcolor="#CCCCCC" uuid="859d766f-2797-4177-8bad-0c4efa1a2be9"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA["5"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="715" y="52" width="87" height="20" backcolor="#CCCCCC" uuid="8669ca44-8422-414e-860c-4d9af0d1d67e"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA["6"]]></textFieldExpression>
+			</textField>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="92" splitType="Stretch">
+			<textField>
+				<reportElement x="62" y="0" width="150" height="92" uuid="0979a787-9288-4ca8-b395-84680c79139d"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{lembaga}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="212" y="0" width="124" height="92" uuid="883d7c18-94c1-4183-b2d1-03d0bd50da94"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{tingkat}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="336" y="0" width="235" height="92" uuid="158bc78b-0d61-4b6a-be48-ad489ccb352a"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{bentukKegiatan}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="571" y="0" width="144" height="92" uuid="9e38e4f7-cadd-4760-87a4-53c5fc78e7e0"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{bukti}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="715" y="0" width="87" height="92" uuid="27923b5b-f3c6-4440-a3a4-d7ced1fd25dc"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{masaBerlaku}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="0" width="62" height="92" uuid="e5c3b0c5-6c50-4cee-93cc-c304ed72ecfe"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+</jasperReport>

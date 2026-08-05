@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="statistik" language="groovy" pageWidth="327" pageHeight="432" columnWidth="327" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0">
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<queryString>
+		<![CDATA[
+select
+sum(case when kelamin = 'Laki-laki' then 1 else 0 end) as laki,
+sum(case when kelamin = 'Laki-laki' then 0 else 1 end) as perempuan,
+'<= 25' as umur
+from pegawai
+where status_pegawai = 1 and tanggallahir is not null
+and (date_part('year',current_timestamp) - date_part('year',tanggallahir)) between 0 and 25
+union all
+select
+sum(case when kelamin = 'Laki-laki' then 1 else 0 end) as laki,
+sum(case when kelamin = 'Laki-laki' then 0 else 1 end) as perempuan,
+'26-30' as umur
+from pegawai
+where status_pegawai = 1 and tanggallahir is not null
+and (date_part('year',current_timestamp) - date_part('year',tanggallahir)) between 26 and 30
+union all
+select
+sum(case when kelamin = 'Laki-laki' then 1 else 0 end) as laki,
+sum(case when kelamin = 'Laki-laki' then 0 else 1 end) as perempuan,
+'31-35' as umur
+from pegawai
+where status_pegawai = 1 and tanggallahir is not null
+and (date_part('year',current_timestamp) - date_part('year',tanggallahir)) between 31 and 35
+union all
+select
+sum(case when kelamin = 'Laki-laki' then 1 else 0 end) as laki,
+sum(case when kelamin = 'Laki-laki' then 0 else 1 end) as perempuan,
+'36-40' as umur
+from pegawai
+where status_pegawai = 1 and tanggallahir is not null
+and (date_part('year',current_timestamp) - date_part('year',tanggallahir)) between 36 and 40
+union all
+select
+sum(case when kelamin = 'Laki-laki' then 1 else 0 end) as laki,
+sum(case when kelamin = 'Laki-laki' then 0 else 1 end) as perempuan,
+'41-45' as umur
+from pegawai
+where status_pegawai = 1 and tanggallahir is not null
+and (date_part('year',current_timestamp) - date_part('year',tanggallahir)) between 41 and 45
+union all
+select
+sum(case when kelamin = 'Laki-laki' then 1 else 0 end) as laki,
+sum(case when kelamin = 'Laki-laki' then 0 else 1 end) as perempuan,
+'46-50' as umur
+from pegawai
+where status_pegawai = 1 and tanggallahir is not null
+and (date_part('year',current_timestamp) - date_part('year',tanggallahir)) between 46 and 50
+union all
+select
+sum(case when kelamin = 'Laki-laki' then 1 else 0 end) as laki,
+sum(case when kelamin = 'Laki-laki' then 0 else 1 end) as perempuan,
+'51-55' as umur
+from pegawai
+where status_pegawai = 1 and tanggallahir is not null
+and (date_part('year',current_timestamp) - date_part('year',tanggallahir)) between 51 and 55
+union all
+select
+sum(case when kelamin = 'Laki-laki' then 1 else 0 end) as laki,
+sum(case when kelamin = 'Laki-laki' then 0 else 1 end) as perempuan,
+'>=56' as umur
+from pegawai
+where status_pegawai = 1 and tanggallahir is not null
+and (date_part('year',current_timestamp) - date_part('year',tanggallahir)) between 56 and 100]]>
+	</queryString>
+	<field name="laki" class="java.lang.Long"/>
+	<field name="perempuan" class="java.lang.Long"/>
+	<field name="umur" class="java.lang.String"/>
+	<title>
+		<band height="432">
+			<staticText>
+				<reportElement x="0" y="0" width="327" height="39"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Statistik Berdasarkan Umur]]></text>
+			</staticText>
+			<bar3DChart>
+				<chart evaluationTime="Report" theme="aegean">
+					<reportElement x="0" y="39" width="327" height="393"/>
+					<chartTitle/>
+					<chartSubtitle/>
+					<chartLegend/>
+				</chart>
+				<categoryDataset>
+					<categorySeries>
+						<seriesExpression><![CDATA["Laki-laki"]]></seriesExpression>
+						<categoryExpression><![CDATA[$F{umur}+" th, L="+$F{laki}+", P = "+$F{perempuan}]]></categoryExpression>
+						<valueExpression><![CDATA[$F{laki}]]></valueExpression>
+					</categorySeries>
+					<categorySeries>
+						<seriesExpression><![CDATA["Perempuan"]]></seriesExpression>
+						<categoryExpression><![CDATA[$F{umur}+" th, L="+$F{laki}+", P = "+$F{perempuan}]]></categoryExpression>
+						<valueExpression><![CDATA[$F{perempuan}]]></valueExpression>
+					</categorySeries>
+				</categoryDataset>
+				<bar3DPlot>
+					<plot/>
+					<itemLabel/>
+				</bar3DPlot>
+			</bar3DChart>
+		</band>
+	</title>
+</jasperReport>

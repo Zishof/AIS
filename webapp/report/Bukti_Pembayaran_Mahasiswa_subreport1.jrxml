@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Bukti_Pembayaran_Mahasiswa_subreport1" language="groovy" pageWidth="555" pageHeight="802" whenNoDataType="BlankPage" columnWidth="555" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="467aec9e-bc69-4e76-99a2-eb785370633e">
+	<property name="ireport.zoom" value="2.8531167061100033"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="kegiatan" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[38L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="SUBREPORT_DIR" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["C:\\Users\\Fauzi\\Documents\\My Project\\Academic Information System\\AIS\\ais\\web\\report\\"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="lampirans" class="net.sf.jasperreports.engine.JRDataSource" isForPrompting="false"/>
+	<queryString>
+		<![CDATA[select
+('Bayar ke-' || a.ke)  as ke,
+a.tanggal,
+a.nilai,
+a.keterangan,
+c.nama as item_biaya,
+b.pengurangan,
+a.denda,
+((b.amount+b.amount_terhutang)-abs(b.pengurangan)-b.denda) as total,
+((b.amount+b.amount_terhutang)-b.denda) as tagihan
+from cicilan_pembayaran a
+inner join kegiatan b on (a.kegiatan = b.id)
+left join item_biaya c on (a.item_biaya = c.id)
+where (a.nilai != 0.0) and a.kegiatan = $P{kegiatan}
+order by a.tanggal,a.ke]]>
+	</queryString>
+	<field name="ke" class="java.lang.String"/>
+	<field name="tanggal" class="java.sql.Timestamp"/>
+	<field name="nilai" class="java.lang.Double"/>
+	<field name="keterangan" class="java.lang.String"/>
+	<field name="item_biaya" class="java.lang.String"/>
+	<field name="pengurangan" class="java.lang.Double"/>
+	<field name="denda" class="java.lang.Double"/>
+	<field name="total" class="java.lang.Double"/>
+	<field name="tagihan" class="java.lang.Double"/>
+	<variable name="totalNilai" class="java.lang.Double" calculation="Sum">
+		<variableExpression><![CDATA[$F{nilai}]]></variableExpression>
+	</variable>
+	<variable name="totalDenda" class="java.lang.Double" calculation="Sum">
+		<variableExpression><![CDATA[$F{denda}==null?0.0:$F{denda}]]></variableExpression>
+	</variable>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="22" splitType="Stretch">
+			<textField>
+				<reportElement x="0" y="0" width="555" height="22" uuid="0a374bb2-1480-4513-a6b3-304122aeb78c"/>
+				<textElement verticalAlignment="Middle">
+					<font size="12" isUnderline="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Riwayat Pembayaran"]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<columnHeader>
+		<band height="34" splitType="Stretch">
+			<staticText>
+				<reportElement x="0" y="0" width="133" height="34" uuid="be4e46e2-a8cf-4946-ab00-77b894ce630b"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Hari / Tanggal / Waktu Bayar]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="133" y="0" width="67" height="34" uuid="6e995a6d-b1a1-4cf7-9004-6767c5f93eb2"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Nilai yang dibayarkan]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="307" y="0" width="245" height="34" uuid="e380a9c7-0fa3-4ad9-82b5-8131fc2d09dc"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Keterangan]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="200" y="0" width="107" height="34" uuid="d39a8f91-be7d-422f-8eae-f638d7f9fcd0"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Item Biaya]]></text>
+			</staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="21" splitType="Stretch">
+			<textField pattern="EEEEE, dd MMMMM yyyy HH:mm">
+				<reportElement x="0" y="0" width="133" height="21" uuid="8fcfac54-479a-4875-9aa3-62f4e8c7b950"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nilai}>0.0?$F{tanggal}: ""]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0;-#,##0">
+				<reportElement x="133" y="0" width="67" height="21" uuid="99c31dee-79f1-4c1b-8131-55c003685612"/>
+				<box rightPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nilai}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="307" y="0" width="245" height="21" uuid="a740a04f-97f3-4d00-b714-773943628044"/>
+				<box leftPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{keterangan}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="200" y="0" width="107" height="21" uuid="d015a569-cd0b-4cd3-bd9e-4226348ab59a"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{item_biaya}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<summary>
+		<band height="65">
+			<textField>
+				<reportElement x="0" y="0" width="133" height="15" uuid="4cb49f0f-0f0a-494e-ab47-011b7e1a15ae"/>
+				<box rightPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA["TOTAL DIBAYAR"]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0;-#,##0" isBlankWhenNull="true">
+				<reportElement x="133" y="0" width="67" height="15" uuid="3917fb32-613c-4474-932f-080c30719ccd"/>
+				<box rightPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{totalNilai}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0;-#,##0" isBlankWhenNull="true">
+				<reportElement x="133" y="15" width="67" height="15" uuid="ae5b089c-abd1-4ea2-aa83-03c3e715aa2f"/>
+				<box rightPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{tagihan}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="15" width="133" height="15" uuid="34ee6a62-09b2-4d18-8545-f252be28fcfe"/>
+				<box rightPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA["JUMLAH TAGIHAN"]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0;-#,##0" isBlankWhenNull="true">
+				<reportElement x="133" y="30" width="67" height="15" uuid="bf262e9f-7f5c-434a-a3bf-726cefc5edaf"/>
+				<box rightPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{tagihan}-($V{totalNilai}-$V{totalDenda})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="30" width="133" height="15" uuid="3b540fb0-4e80-49fa-b8e3-c5b08f51f65b"/>
+				<box rightPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA["JUMLAH YG BELUM DIBAYAR"]]></textFieldExpression>
+			</textField>
+			<subreport>
+				<reportElement x="0" y="59" width="552" height="6" uuid="b8625b8e-d6eb-4ef4-a576-b0080b07a6c0"/>
+				<subreportParameter name="SUBREPORT_DIR">
+					<subreportParameterExpression><![CDATA[$P{SUBREPORT_DIR}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="lampirans">
+					<subreportParameterExpression><![CDATA[$P{lampirans}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="kegiatan">
+					<subreportParameterExpression><![CDATA[$P{kegiatan}]]></subreportParameterExpression>
+				</subreportParameter>
+				<dataSourceExpression><![CDATA[$P{lampirans}]]></dataSourceExpression>
+				<subreportExpression><![CDATA[$P{SUBREPORT_DIR} + "Bukti_Pembayaran_Mahasiswa_subreport1_subreport1.jasper"]]></subreportExpression>
+			</subreport>
+			<textField>
+				<reportElement x="0" y="45" width="133" height="15" uuid="a155046a-d8e7-4937-b4e6-12c70ac5b9fe">
+					<printWhenExpression><![CDATA[$V{totalDenda} > 0.01]]></printWhenExpression>
+				</reportElement>
+				<box rightPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA["JUMLAH DENDA"]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0;-#,##0" isBlankWhenNull="true">
+				<reportElement x="133" y="45" width="67" height="15" uuid="ccd374c2-1aaf-4199-8c22-e664ac56afe7">
+					<printWhenExpression><![CDATA[$V{totalDenda} > 0.01]]></printWhenExpression>
+				</reportElement>
+				<box rightPadding="3">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{totalDenda}]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
+</jasperReport>

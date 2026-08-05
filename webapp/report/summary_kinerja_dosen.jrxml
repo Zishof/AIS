@@ -1,0 +1,364 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="kinerja_dosen" language="groovy" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="ed4b1448-c94b-4b28-a15b-ecd0c69419d7">
+	<property name="ireport.zoom" value="1.7715610000000015"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="ta" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2016/2017"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="semester" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Genap"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="dosen" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select
+aaa.id_dosen,
+max(aaa.dosen) as dosen,
+aaa.bidang_kinerja,
+max(aaa.judul||' ('||aaa.bidang||')') as judul,
+avg(aaa.sks_beban) as sks_beban,
+avg(aaa.sks_nilai) as sks
+from (
+	select
+	a.bidang as bidang_kinerja,
+ 	a.spesifikasi as bidang,
+ 	a1.dosen id_dosen,
+	a1.nama as dosen,
+ 	a2.nama as asesor,
+ 	a2.id as asesor_id,
+	a3.sks_kinerja sks_nilai,
+	a.sks_beban,
+
+ 	a.keterangan as judul
+
+ 	from asesemen_penilaian a
+	inner join pegawai a1 on (a.pegawai=a1.id)
+	left join penilaian_asesor a3 on (a3.asesemen_penilaian = a.id)
+	left join asesor a4 on (a3.asesor = a4.id)
+	left join asesor_penunjang_kinerja_dosen a2 on (a4.asesor_penunjang_kinerja_dosen=a2.id)
+
+	where a2.aktif  and a.aktif
+	and a.tahunakademik=$P{ta}
+	and a.semester=$P{semester}
+	and case when $P{dosen}=-1 then true else a.pegawai=$P{dosen} end
+	and (a3.sks_kinerja > 0.1 or a.sks_beban > 0.1)
+) aaa
+group by aaa.id_dosen,aaa.bidang_kinerja,aaa.judul
+order by aaa.id_dosen,aaa.bidang_kinerja,aaa.judul]]>
+	</queryString>
+	<field name="id_dosen" class="java.lang.Long"/>
+	<field name="dosen" class="java.lang.String"/>
+	<field name="bidang_kinerja" class="java.lang.String"/>
+	<field name="judul" class="java.lang.String"/>
+	<field name="sks_beban" class="java.lang.Double"/>
+	<field name="sks" class="java.lang.Double"/>
+	<variable name="sks_pendidikan" class="java.lang.Double" resetType="Group" resetGroup="bidang_kerja" calculation="Sum">
+		<variableExpression><![CDATA[$F{sks}]]></variableExpression>
+	</variable>
+	<variable name="sks_dosen" class="java.lang.Double" resetType="Group" resetGroup="dosen" calculation="Sum">
+		<variableExpression><![CDATA[$F{sks}]]></variableExpression>
+	</variable>
+	<variable name="sks_dosen_1" class="java.lang.Double" resetType="Group" resetGroup="dosen" calculation="Sum">
+		<variableExpression><![CDATA[$F{sks_beban}]]></variableExpression>
+	</variable>
+	<variable name="sks_pendidikan_1" class="java.lang.Double" resetType="Group" resetGroup="bidang_kerja" calculation="Sum">
+		<variableExpression><![CDATA[$F{sks_beban}]]></variableExpression>
+	</variable>
+	<group name="dosen">
+		<groupExpression><![CDATA[$F{id_dosen}]]></groupExpression>
+		<groupHeader>
+			<band height="51">
+				<textField isBlankWhenNull="true">
+					<reportElement x="67" y="0" width="410" height="51" uuid="e90e9c96-32f8-485e-9148-4ea64c18c825"/>
+					<textElement verticalAlignment="Bottom">
+						<font size="14" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{dosen}]]></textFieldExpression>
+				</textField>
+				<image hAlign="Center" vAlign="Bottom" onErrorType="Icon">
+					<reportElement x="0" y="0" width="67" height="51" uuid="c51478ec-c1d6-4139-84bd-74e7fcf608fa"/>
+					<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "current_url" )+"/AmbilMedia?id="+$F{id_dosen}+"&name=nama&foto=foto&clazz=ais.database.model.file.FotoDosen&property=dosen&var=3"]]></imageExpression>
+				</image>
+				<textField>
+					<reportElement x="503" y="27" width="32" height="24" uuid="7a5e643a-b41f-4351-8c95-d7ef648fae29"/>
+					<textElement textAlignment="Right" verticalAlignment="Bottom">
+						<font size="6" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA["Kinerja"]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement x="477" y="27" width="26" height="24" uuid="483e40ee-e653-4edc-a2a2-b5e1b16983fc"/>
+					<textElement textAlignment="Right" verticalAlignment="Bottom">
+						<font size="6" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA["Beban"]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement x="535" y="0" width="20" height="51" uuid="b5eafbc4-d11a-48a9-87a1-09b63797ed3a"/>
+					<textElement textAlignment="Right" verticalAlignment="Bottom">
+						<font size="6" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA["%"]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement x="477" y="0" width="58" height="27" uuid="8a77c41c-bb2c-4019-bfe4-0a62d2bb5659"/>
+					<textElement textAlignment="Center" verticalAlignment="Bottom">
+						<font size="6" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA["SKS"]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band height="16">
+				<textField pattern="#,##0.00;-#,##0.00" isBlankWhenNull="true">
+					<reportElement key="textField" stretchType="RelativeToTallestObject" x="503" y="0" width="32" height="16" uuid="25870e62-eaf3-4c40-8384-4ad5ef454007"/>
+					<box>
+						<bottomPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="8" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{sks_dosen}]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement x="0" y="0" width="477" height="16" uuid="83c83017-5305-441b-be5e-2d34c6a28834"/>
+					<box rightPadding="4"/>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="8" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA["Total Kinerja "+$F{dosen}]]></textFieldExpression>
+				</textField>
+				<textField pattern="#,##0.00;-#,##0.00" isBlankWhenNull="true">
+					<reportElement key="textField" stretchType="RelativeToTallestObject" x="477" y="0" width="26" height="16" uuid="3dcfbea9-0d1f-42d5-8a4a-60caed1db9f4"/>
+					<box>
+						<bottomPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="8" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{sks_dosen_1}]]></textFieldExpression>
+				</textField>
+				<textField pattern="#,##0.00;-#,##0.00" isBlankWhenNull="true">
+					<reportElement key="textField" stretchType="RelativeToTallestObject" x="535" y="0" width="20" height="16" uuid="be690f15-0e93-4aec-8db5-fa0913c271f7"/>
+					<box>
+						<bottomPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="8" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{sks_dosen}*100.0/$V{sks_dosen_1}]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupFooter>
+	</group>
+	<group name="bidang_kerja">
+		<groupExpression><![CDATA[$F{bidang_kinerja}]]></groupExpression>
+		<groupHeader>
+			<band height="16">
+				<textField isBlankWhenNull="true">
+					<reportElement x="0" y="0" width="555" height="16" uuid="9adb6db1-3234-49d8-afb0-6e661b82fa62"/>
+					<textElement>
+						<font size="12" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{bidang_kinerja}]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band height="16">
+				<textField>
+					<reportElement x="0" y="0" width="477" height="16" uuid="b3469a92-d55c-4fc6-b22e-9cb6348d3a86"/>
+					<box rightPadding="4"/>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="8" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA["Total SKS "+$F{bidang_kinerja}]]></textFieldExpression>
+				</textField>
+				<textField pattern="#,##0.00;-#,##0.00" isBlankWhenNull="true">
+					<reportElement key="textField" stretchType="RelativeToTallestObject" x="503" y="0" width="32" height="16" uuid="b27ae365-5cc8-4ae3-b68d-c67645ab089c"/>
+					<box>
+						<pen lineWidth="1.0" lineStyle="Solid"/>
+						<topPen lineWidth="0.0" lineStyle="Solid"/>
+						<leftPen lineWidth="0.0" lineStyle="Solid"/>
+						<bottomPen lineWidth="0.0" lineStyle="Solid"/>
+						<rightPen lineWidth="0.0" lineStyle="Solid"/>
+					</box>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="8" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{sks_pendidikan}]]></textFieldExpression>
+				</textField>
+				<textField pattern="#,##0.00;-#,##0.00" isBlankWhenNull="true">
+					<reportElement key="textField" stretchType="RelativeToTallestObject" x="477" y="0" width="26" height="16" uuid="0123e6ae-c589-4573-99ef-1d0ff3da4d35"/>
+					<box>
+						<pen lineWidth="1.0" lineStyle="Solid"/>
+						<topPen lineWidth="0.0" lineStyle="Solid"/>
+						<leftPen lineWidth="0.0" lineStyle="Solid"/>
+						<bottomPen lineWidth="0.0" lineStyle="Solid"/>
+						<rightPen lineWidth="0.0" lineStyle="Solid"/>
+					</box>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="8" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{sks_pendidikan_1}]]></textFieldExpression>
+				</textField>
+				<textField pattern="#,##0.00;-#,##0.00" isBlankWhenNull="true">
+					<reportElement key="textField" stretchType="RelativeToTallestObject" x="535" y="0" width="20" height="16" uuid="2d47b8e0-ee5f-4921-a078-967a7ce22e1c"/>
+					<box>
+						<pen lineWidth="1.0" lineStyle="Solid"/>
+						<topPen lineWidth="0.0" lineStyle="Solid"/>
+						<leftPen lineWidth="0.0" lineStyle="Solid"/>
+						<bottomPen lineWidth="0.0" lineStyle="Solid"/>
+						<rightPen lineWidth="0.0" lineStyle="Solid"/>
+					</box>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="8" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{sks_pendidikan}*100.0/$V{sks_pendidikan_1}]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupFooter>
+	</group>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="120" splitType="Stretch">
+			<rectangle>
+				<reportElement x="0" y="0" width="555" height="79" uuid="cdf1f480-5f36-4fac-892a-8dd8e6e8ee60"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="0" y="16" width="555" height="27" uuid="65e66fcc-cac4-4739-acf2-d923c3e759e5"/>
+				<textElement textAlignment="Center">
+					<font size="16" isBold="true"/>
+				</textElement>
+				<text><![CDATA[KINERJA DOSEN]]></text>
+			</staticText>
+			<image>
+				<reportElement x="49" y="6" width="91" height="63" uuid="8771fb8e-8223-4791-8cb7-7345de425506"/>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<textField>
+				<reportElement x="0" y="43" width="555" height="20" uuid="86faabde-8b96-42a9-b7bc-961ddd8ef985"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{label_universitas}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" stretchType="RelativeToTallestObject" x="0" y="79" width="555" height="18" uuid="b5004152-8b1f-4f27-bcea-d031d8698d4b"/>
+				<box leftPadding="0">
+					<pen lineWidth="0.0" lineStyle="Solid"/>
+					<topPen lineWidth="0.0" lineStyle="Solid"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="0.0" lineStyle="Solid"/>
+					<rightPen lineWidth="0.0" lineStyle="Solid"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Tahun Akademik "+$P{ta}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" stretchType="RelativeToTallestObject" x="0" y="96" width="555" height="23" uuid="7dc3bdd2-922f-4d7d-9e7e-61100ead23c0"/>
+				<box leftPadding="0">
+					<pen lineWidth="0.0" lineStyle="Solid"/>
+					<topPen lineWidth="0.0" lineStyle="Solid"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="0.0" lineStyle="Solid"/>
+					<rightPen lineWidth="0.0" lineStyle="Solid"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Semester "+$P{semester}]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<detail>
+		<band height="18" splitType="Stretch">
+			<textField pattern="#,##0.00;-#,##0.00" isBlankWhenNull="true">
+				<reportElement key="textField" stretchType="RelativeToTallestObject" x="503" y="0" width="32" height="18" uuid="cd5ee5e3-b0af-44a1-acad-ba710b6f2f0d"/>
+				<box>
+					<pen lineWidth="1.0" lineStyle="Solid"/>
+					<topPen lineWidth="0.0" lineStyle="Solid"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="0.0" lineStyle="Solid"/>
+					<rightPen lineWidth="0.0" lineStyle="Solid"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Top">
+					<font size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{sks}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" stretchType="RelativeToTallestObject" x="8" y="0" width="469" height="18" uuid="2bfb1822-8233-466c-9db1-40b682c6305a"/>
+				<box>
+					<pen lineWidth="1.0" lineStyle="Solid"/>
+					<topPen lineWidth="0.0" lineStyle="Solid"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="0.0" lineStyle="Solid"/>
+					<rightPen lineWidth="0.0" lineStyle="Solid"/>
+				</box>
+				<textElement verticalAlignment="Top">
+					<font size="7" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{judul}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" stretchType="RelativeToTallestObject" x="0" y="0" width="8" height="18" uuid="39d0e88d-fbdf-4059-99df-817fa92e49bd"/>
+				<box>
+					<pen lineWidth="1.0" lineStyle="Solid"/>
+					<topPen lineWidth="0.0" lineStyle="Solid"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="0.0" lineStyle="Solid"/>
+					<rightPen lineWidth="0.0" lineStyle="Solid"/>
+				</box>
+				<textElement verticalAlignment="Top">
+					<font size="7" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{bidang_kerja_COUNT}+"."]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0.00;-#,##0.00" isBlankWhenNull="true">
+				<reportElement key="textField" stretchType="RelativeToTallestObject" x="477" y="0" width="26" height="18" uuid="0dbd447f-cb3e-4f40-84ed-90d9b89056bc"/>
+				<box>
+					<pen lineWidth="1.0" lineStyle="Solid"/>
+					<topPen lineWidth="0.0" lineStyle="Solid"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="0.0" lineStyle="Solid"/>
+					<rightPen lineWidth="0.0" lineStyle="Solid"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Top">
+					<font size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{sks_beban}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0.00;-#,##0.00" isBlankWhenNull="true">
+				<reportElement key="textField" stretchType="RelativeToTallestObject" x="535" y="0" width="20" height="18" uuid="9192d06b-f061-41fa-818c-0de4dd841cfc"/>
+				<box>
+					<pen lineWidth="1.0" lineStyle="Solid"/>
+					<topPen lineWidth="0.0" lineStyle="Solid"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="0.0" lineStyle="Solid"/>
+					<rightPen lineWidth="0.0" lineStyle="Solid"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Top">
+					<font size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{sks}*100.0/$F{sks_beban}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<summary>
+		<band height="6"/>
+	</summary>
+</jasperReport>

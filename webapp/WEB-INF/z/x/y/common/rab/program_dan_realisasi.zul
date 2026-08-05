@@ -1,0 +1,86 @@
+<?page title="new page title" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<window use="ais.ui.util.MyWindow" border="none" height="100%" width="100%">
+
+		<tabbox height="100%" width="100%">
+			<tabs>
+				<tab use="ais.ui.util.MyTabConfig" id="t1">PROGRAM</tab>
+				<tab use="ais.ui.util.MyTabConfig" id="t2">KEUANGAN</tab>
+			</tabs>
+			<tabpanels>
+
+				<tabpanel use="ais.ui.util.MyTabpanel">
+
+					<tabbox height="100%" width="100%">
+						<tabs>
+							<tab use="ais.ui.util.MyTabConfig">REALISASI PROGRAM</tab>
+							<tab use="ais.ui.util.MyTabConfig" id="t13">
+								REALISASI PROGRAM BULANAN
+							</tab>
+							<tab use="ais.ui.util.MyTabConfig" id="t14">
+								REALISASI PROGRAM TRI WULAN
+							</tab>
+						</tabs>
+
+						<tabpanels>
+							<tabpanel use="ais.ui.util.MyTabpanel">
+								<include height="100%" width="100%"
+									src="acara.zul">
+								</include>
+							</tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" fulfill="t13.onSelect">
+								<window height="100%" width="100%"
+									border="none"
+									use="ais.action.report.format1.rab.LaporanRealisasiProgramBulananWorkspace">
+								</window>
+							</tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel">
+
+							</tabpanel>
+						</tabpanels>
+
+					</tabbox>
+
+				</tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" fulfill="t2.onSelect">
+
+					<tabbox height="100%" width="100%">
+						<tabs>
+							<tab use="ais.ui.util.MyTabConfig">REALISASI ANGGARAN</tab>
+							<tab use="ais.ui.util.MyTabConfig" id="t22">
+								REALISASI ANGGARAN BULANAN
+							</tab>
+							<tab use="ais.ui.util.MyTabConfig" id="t23">
+								REALISASI ANGGARAN TRI WULAN
+							</tab>
+						</tabs>
+						<tabpanels>
+							<tabpanel use="ais.ui.util.MyTabpanel">
+								<include height="100%" width="100%"
+									src="realisasi.zul">
+								</include>
+							</tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" fulfill="t22.onSelect">
+								<window height="100%" width="100%"
+									border="none"
+									use="ais.action.report.format1.rab.LaporanRealisasiTiapBulan">
+								</window>
+							</tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" fulfill="t23.onSelect">
+								<window height="100%" width="100%"
+									border="none"
+									use="ais.action.report.format1.rab.LaporanRealisasiTriWulan">
+								</window>
+							</tabpanel>
+						</tabpanels>
+
+					</tabbox>
+
+				</tabpanel>
+
+			</tabpanels>
+		</tabbox>
+
+	</window>
+</zk>

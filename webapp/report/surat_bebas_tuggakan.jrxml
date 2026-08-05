@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="aktif_kuliah" language="groovy" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="e3a5df30-a866-4e2b-9955-a76e7df3b06f">
+	<property name="ireport.zoom" value="1.2100000000000022"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="101"/>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_kota" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Ciputat"]]></defaultValueExpression>
+	</parameter>
+	<title>
+		<band height="473" splitType="Stretch">
+			<textField>
+				<reportElement x="0" y="71" width="555" height="17" uuid="fdcc7739-53f7-40c8-9397-a760c0a702cc"/>
+				<textElement textAlignment="Center" verticalAlignment="Bottom">
+					<font size="12" isBold="true" isUnderline="true"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA["SURAT KETERANGAN "]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="90" width="555" height="20" uuid="58b92986-a902-4c1f-9c4a-5ee55d46198e"/>
+				<textElement textAlignment="Center">
+					<font size="10" isBold="false" isUnderline="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Nomor : " + $P{REPORT_PARAMETERS_MAP}.get( "nomor.surat" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="262" y="360" width="253" height="51" uuid="90829e65-6744-4775-8554-1c128382ffe5"/>
+				<textElement>
+					<font size="10"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{label_kota}+", "+ $P{REPORT_PARAMETERS_MAP}.get("tanggal")+"\n"+
+"Bagian keuangan,"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="31" y="127" width="488" height="34" isPrintWhenDetailOverflows="true" uuid="779c36c1-b638-4dd4-b15f-c88d610caa93"/>
+				<textElement verticalAlignment="Top" markup="html">
+					<font size="10"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Bagian Keuangan "+$P{label_universitas}+" menerangkan bahwa saudara :"]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="131" y="172" width="13" height="15" uuid="de0c2e61-5d51-43d3-a9f8-ca5db79fdf2b"/>
+				<textElement textAlignment="Center" verticalAlignment="Top">
+					<font size="10"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="131" y="187" width="13" height="15" uuid="73f7161b-e25a-46a4-811b-836f3f1f69d4"/>
+				<textElement textAlignment="Center" verticalAlignment="Top">
+					<font size="10"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="43" y="172" width="87" height="15" uuid="ac8dd56d-45b9-4f3e-bdaa-bd72aa00b810"/>
+				<textElement verticalAlignment="Top">
+					<font size="10"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<text><![CDATA[Nama]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="43" y="187" width="87" height="15" uuid="89485d71-9ea7-4f9a-985a-b6b78294c48f"/>
+				<textElement verticalAlignment="Top">
+					<font size="10"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<text><![CDATA[NIM]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="144" y="172" width="303" height="15" uuid="82b38340-3650-4a50-a1d1-6080f0518181"/>
+				<textElement verticalAlignment="Top">
+					<font size="10"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "mahasiswa.nama" )]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="144" y="187" width="303" height="15" uuid="f6535e26-d205-4563-bcbc-a5d85a305290"/>
+				<textElement verticalAlignment="Top">
+					<font size="10"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "mahasiswa.nim" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="262" y="446" width="253" height="21" uuid="60ebc3d1-d40b-4650-b9c6-54cd324f51d0"/>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isBold="true" isUnderline="true"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("bagian_keuangan")]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="144" y="202" width="303" height="15" uuid="dc6a1273-be19-4edc-b5b2-d9e2e1825969"/>
+				<textElement verticalAlignment="Top">
+					<font size="10"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "mahasiswa.jurusan.nama" )]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="131" y="202" width="13" height="15" uuid="07fb4d44-d857-4753-811d-b6f45fc210e4"/>
+				<textElement textAlignment="Center" verticalAlignment="Top">
+					<font size="10"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="43" y="202" width="87" height="15" uuid="c7735528-8fb4-4901-a296-377873703560"/>
+				<textElement verticalAlignment="Top">
+					<font size="10"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<text><![CDATA[Jurusan]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="29" y="235" width="488" height="48" isPrintWhenDetailOverflows="true" uuid="e916d9d8-8b6c-407a-b45f-ad14ad8cb8a5"/>
+				<textElement verticalAlignment="Top" markup="html">
+					<font size="10"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Adalah benar nama tersebut diatas setelah diperiksa pembayarannya, tidak mempunyai tunggakan biaya perkuliahan sampai dengan semester "+$P{REPORT_PARAMETERS_MAP}.get("semester")+" tahun akademik "+$P{REPORT_PARAMETERS_MAP}.get("tahun_akademik")+"."]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="29" y="294" width="488" height="23" isPrintWhenDetailOverflows="true" uuid="73828eed-5c43-4dab-9ded-f2bfb1440310"/>
+				<textElement verticalAlignment="Top" markup="html">
+					<font size="10"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Demikian surat keterangan ini dikeluarkan untuk dapat dipergunakan sebagaimana mestinya."]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-36" x="0" y="29" width="555" height="20" uuid="5d147dff-93e7-4aaa-87d7-a393d789fd83"/>
+				<box>
+					<bottomPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[SURAT BEBAS TUNGGAKAN]]></text>
+			</staticText>
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="0" y="0" width="98" height="49" uuid="f051a439-5f51-4401-8d08-42408b28afea"/>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<textField>
+				<reportElement x="0" y="0" width="555" height="29" uuid="e447e95d-6dff-4801-a2f0-73219284a059"/>
+				<textElement textAlignment="Center" verticalAlignment="Bottom">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{label_universitas}]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+</jasperReport>

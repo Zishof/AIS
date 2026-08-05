@@ -1,0 +1,562 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Kartu_Hasil_Studi" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20" uuid="f7384808-ab98-453d-a640-4b9f6a13ea26">
+	<property name="ireport.zoom" value="1.6105100000000014"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="142"/>
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="logo" class="java.lang.String">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="fakultas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Hukum"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jenis_semester" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Genap"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tahun_ajaran" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2009/2010"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="semester" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new Integer(1)]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tanggal" class="java.util.Date" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new java.util.Date()]]></defaultValueExpression>
+	</parameter>
+	<parameter name="pembantu_dekan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Nursva. A. SH. MH."]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mahasiswa" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[13636L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="barcode" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="nip" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="kaprodi" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_jurusan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Prodi"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_fakultas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Fakultas"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_kota" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Ciputat"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="kegiatan" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="SUBREPORT_DIR" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["C:\\Users\\Mohammad Fauzi\\Documents\\My Project\\Academic Information System\\AIS\\ais\\web\\report\\"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="lampirans" class="net.sf.jasperreports.engine.JRDataSource" isForPrompting="false"/>
+	<queryString>
+		<![CDATA[]]>
+	</queryString>
+	<field name="kode" class="java.lang.String"/>
+	<field name="item_biaya" class="java.lang.String"/>
+	<field name="biaya" class="java.lang.Double"/>
+	<field name="no_registrasi" class="java.lang.String"/>
+	<field name="nama_mahasiswa" class="java.lang.String"/>
+	<field name="nama_jurusan" class="java.lang.String"/>
+	<field name="nama_fakultas" class="java.lang.String"/>
+	<field name="semester" class="java.lang.Integer"/>
+	<field name="tahun_ajaran" class="java.lang.String"/>
+	<field name="nama_kegiatan" class="java.lang.String"/>
+	<field name="ref_number" class="java.lang.String"/>
+	<field name="program" class="java.lang.String"/>
+	<field name="validator" class="java.lang.String"/>
+	<field name="dibayar" class="java.lang.Double"/>
+	<field name="sisa" class="java.lang.Double"/>
+	<field name="nama_kegiatan_semester" class="java.lang.String"/>
+	<variable name="sum_total" class="java.lang.Double" resetType="Group" resetGroup="nama_kegiatan_semester" calculation="Sum">
+		<variableExpression><![CDATA[$F{biaya}]]></variableExpression>
+	</variable>
+	<variable name="sum_total_1" class="java.lang.Double" resetType="Group" resetGroup="nama_kegiatan_semester" calculation="Sum">
+		<variableExpression><![CDATA[$F{dibayar}]]></variableExpression>
+	</variable>
+	<variable name="sum_total_1_2" class="java.lang.Double" resetType="Group" resetGroup="nama_kegiatan_semester" calculation="Sum">
+		<variableExpression><![CDATA[$F{sisa}]]></variableExpression>
+	</variable>
+	<variable name="sum_total_1_2_3" class="java.lang.Double" calculation="Sum">
+		<variableExpression><![CDATA[$F{biaya}]]></variableExpression>
+	</variable>
+	<variable name="sum_total_1_1" class="java.lang.Double" calculation="Sum">
+		<variableExpression><![CDATA[$F{dibayar}]]></variableExpression>
+	</variable>
+	<variable name="sum_total_1_2_1" class="java.lang.Double" calculation="Sum">
+		<variableExpression><![CDATA[$F{sisa}]]></variableExpression>
+	</variable>
+	<group name="nama_kegiatan_semester">
+		<groupExpression><![CDATA[$F{nama_kegiatan_semester}]]></groupExpression>
+		<groupHeader>
+			<band height="82">
+				<staticText>
+					<reportElement key="staticText-15" x="0" y="56" width="25" height="26" uuid="d2ca0903-1a46-4fb8-a11a-01a4c0c536fc"/>
+					<box leftPadding="3">
+						<pen lineWidth="0.5"/>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.0"/>
+						<bottomPen lineWidth="1.25"/>
+						<rightPen lineWidth="0.0"/>
+					</box>
+					<textElement verticalAlignment="Middle"/>
+					<text><![CDATA[No.]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-16" x="25" y="56" width="69" height="26" uuid="7cb1163a-1d9a-4f24-b85d-da0c6e528fcd"/>
+					<box leftPadding="3">
+						<pen lineWidth="0.5"/>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.0"/>
+						<bottomPen lineWidth="1.25"/>
+						<rightPen lineWidth="0.0"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle"/>
+					<text><![CDATA[Kode]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-17" x="94" y="56" width="168" height="26" uuid="8a9195a4-46c9-489f-be2a-36e544302acf"/>
+					<box leftPadding="3">
+						<pen lineWidth="0.5"/>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.0"/>
+						<bottomPen lineWidth="1.25"/>
+						<rightPen lineWidth="0.0"/>
+					</box>
+					<textElement verticalAlignment="Middle"/>
+					<text><![CDATA[Item Biaya]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-19" x="262" y="56" width="90" height="26" uuid="72c642d6-c993-4f38-a025-7b46488d73ce"/>
+					<box leftPadding="0" rightPadding="5">
+						<pen lineWidth="0.5"/>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.0"/>
+						<bottomPen lineWidth="1.25"/>
+						<rightPen lineWidth="0.0"/>
+					</box>
+					<textElement textAlignment="Right" verticalAlignment="Middle"/>
+					<text><![CDATA[Tagihan]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-19" x="352" y="56" width="90" height="26" uuid="d46a9478-4a95-449f-a1af-00a65a786d60"/>
+					<box leftPadding="0" rightPadding="5">
+						<pen lineWidth="0.5"/>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.0"/>
+						<bottomPen lineWidth="1.25"/>
+						<rightPen lineWidth="0.0"/>
+					</box>
+					<textElement textAlignment="Right" verticalAlignment="Middle"/>
+					<text><![CDATA[Dibayar]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-19" x="442" y="56" width="92" height="26" uuid="90ce2eca-9588-4420-ad06-d0d2f9b98d89"/>
+					<box leftPadding="0" rightPadding="5">
+						<pen lineWidth="0.5"/>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.0"/>
+						<bottomPen lineWidth="1.25"/>
+						<rightPen lineWidth="0.0"/>
+					</box>
+					<textElement textAlignment="Right" verticalAlignment="Middle"/>
+					<text><![CDATA[Sisa]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-36" x="118" y="18" width="10" height="18" uuid="51984d92-afca-4320-9075-72e8655803ac"/>
+					<textElement verticalAlignment="Middle"/>
+					<text><![CDATA[:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-34" x="-1" y="18" width="119" height="18" uuid="20525414-a917-4968-835a-74542d04b808"/>
+					<textElement verticalAlignment="Middle"/>
+					<text><![CDATA[SEMESTER]]></text>
+				</staticText>
+				<textField isBlankWhenNull="false">
+					<reportElement key="textField" x="128" y="18" width="404" height="18" uuid="6161f6bb-2243-4ceb-985c-ea1d5b584804"/>
+					<textElement verticalAlignment="Middle"/>
+					<textFieldExpression><![CDATA[$F{semester}]]></textFieldExpression>
+				</textField>
+				<textField isBlankWhenNull="true">
+					<reportElement key="textField" x="128" y="36" width="404" height="18" uuid="1469162f-d28d-4dbd-bf64-5f9568b0dda0"/>
+					<textElement verticalAlignment="Middle"/>
+					<textFieldExpression><![CDATA[$F{tahun_ajaran}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement key="staticText-37" x="118" y="36" width="10" height="18" uuid="c35d5a7b-bfef-4819-8bfa-a62dd4f5de73"/>
+					<textElement verticalAlignment="Middle"/>
+					<text><![CDATA[:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-35" x="-1" y="36" width="119" height="18" uuid="c2972d98-7d18-4528-b5b3-055e18b49e30"/>
+					<textElement verticalAlignment="Middle"/>
+					<text><![CDATA[TAHUN AKADEMIK]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-34" x="-1" y="0" width="119" height="18" uuid="ff57a736-fb53-413b-940e-ad0f213e143f"/>
+					<textElement verticalAlignment="Middle"/>
+					<text><![CDATA[JENIS PEMBAYARAN]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-36" x="118" y="0" width="10" height="18" uuid="bff4b08a-bd79-40c3-b669-d0512f0a12ea"/>
+					<textElement verticalAlignment="Middle"/>
+					<text><![CDATA[:]]></text>
+				</staticText>
+				<textField isBlankWhenNull="false">
+					<reportElement key="textField" x="128" y="0" width="404" height="18" uuid="9d91f067-6be6-49de-917d-6f7deb5910c7"/>
+					<textElement verticalAlignment="Middle"/>
+					<textFieldExpression><![CDATA[$F{nama_kegiatan}.toUpperCase()]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band height="18">
+				<textField pattern="#,##0.00;-#,##0.00" isBlankWhenNull="true">
+					<reportElement key="textField" x="262" y="0" width="90" height="18" uuid="211a1949-de85-4736-84d6-65994d4ea0b8"/>
+					<box rightPadding="5">
+						<pen lineWidth="0.5" lineStyle="Solid"/>
+						<topPen lineWidth="0.5" lineStyle="Solid"/>
+						<leftPen lineWidth="0.0" lineStyle="Solid"/>
+						<bottomPen lineWidth="0.5" lineStyle="Solid"/>
+						<rightPen lineWidth="0.0" lineStyle="Solid"/>
+					</box>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{sum_total}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement key="staticText-24" x="1" y="0" width="261" height="18" uuid="333a6d73-a03e-400e-8e8d-d7fa8d0c687a"/>
+					<box leftPadding="3">
+						<pen lineWidth="0.5" lineStyle="Solid"/>
+						<topPen lineWidth="0.5" lineStyle="Solid"/>
+						<leftPen lineWidth="0.0" lineStyle="Solid"/>
+						<bottomPen lineWidth="0.5" lineStyle="Solid"/>
+						<rightPen lineWidth="0.0" lineStyle="Solid"/>
+					</box>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font isBold="true"/>
+					</textElement>
+					<text><![CDATA[Total]]></text>
+				</staticText>
+				<textField pattern="#,##0.00;-#,##0.00" isBlankWhenNull="true">
+					<reportElement key="textField" x="353" y="0" width="90" height="18" uuid="840cbf6d-f81a-4cff-aa4f-4b12bc8ac6ec"/>
+					<box rightPadding="5">
+						<pen lineWidth="0.5" lineStyle="Solid"/>
+						<topPen lineWidth="0.5" lineStyle="Solid"/>
+						<leftPen lineWidth="0.0" lineStyle="Solid"/>
+						<bottomPen lineWidth="0.5" lineStyle="Solid"/>
+						<rightPen lineWidth="0.0" lineStyle="Solid"/>
+					</box>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{sum_total_1}]]></textFieldExpression>
+				</textField>
+				<textField pattern="#,##0.00;-#,##0.00" isBlankWhenNull="true">
+					<reportElement key="textField" x="443" y="0" width="90" height="18" uuid="8300c7b7-004b-4807-9394-6814e2d52619"/>
+					<box rightPadding="5">
+						<pen lineWidth="0.5" lineStyle="Solid"/>
+						<topPen lineWidth="0.5" lineStyle="Solid"/>
+						<leftPen lineWidth="0.0" lineStyle="Solid"/>
+						<bottomPen lineWidth="0.5" lineStyle="Solid"/>
+						<rightPen lineWidth="0.0" lineStyle="Solid"/>
+					</box>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{sum_total_1_2}]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupFooter>
+	</group>
+	<background>
+		<band height="802" splitType="Stretch">
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement key="image-1" x="1" y="745" width="535" height="57" uuid="110ccfbb-ebaa-4961-8061-5837a3534871"/>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "kop_bawah_surat" )]]></imageExpression>
+			</image>
+		</band>
+	</background>
+	<title>
+		<band height="162" splitType="Stretch">
+			<staticText>
+				<reportElement key="staticText-1" x="-1" y="82" width="532" height="18" uuid="dad4abb6-2674-4ed9-9b04-5e5fc3ccde23"/>
+				<box>
+					<bottomPen lineWidth="1.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="12" isBold="true" isUnderline="false" pdfFontName="Helvetica"/>
+				</textElement>
+				<text><![CDATA[TAGIHAN PEMBAYARAN MAHASISWA]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-2" x="3" y="100" width="66" height="18" uuid="4579ad88-1036-44a1-adde-7e3f5d03231b"/>
+				<textElement verticalAlignment="Middle"/>
+				<text><![CDATA[NAMA]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-6" x="69" y="100" width="10" height="18" uuid="04cd767e-22c0-4538-a22e-fe58ec5f88f9"/>
+				<textElement verticalAlignment="Middle"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-7" x="69" y="118" width="10" height="18" uuid="ee8ac8e2-24a9-4547-87f4-4d5d91ffa3b3"/>
+				<textElement verticalAlignment="Middle"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-9" x="3" y="118" width="66" height="18" uuid="0791b95c-3424-4b92-abae-d940c99dcbce"/>
+				<textElement verticalAlignment="Middle"/>
+				<text><![CDATA[NIM]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-10" x="351" y="100" width="10" height="18" uuid="6f77c88c-e1b6-4346-a6d3-688ed26dcbd0"/>
+				<textElement verticalAlignment="Middle"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="79" y="100" width="183" height="18" uuid="4930c0a4-fa89-4cbe-aef4-bf0999b4efee"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "nama_mahasiswa" )]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="362" y="100" width="166" height="18" uuid="26454ee9-90cd-485f-af64-ddb3c6dbbd18"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "fakultas" )]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="79" y="118" width="183" height="18" uuid="c2993b32-da87-4f5d-9573-eb43af7d04dc"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "no_registrasi" )]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-1" x="262" y="100" width="88" height="19" uuid="7aa98f83-4e98-443e-9d3f-9f7867d61ea4"/>
+				<textElement verticalAlignment="Middle">
+					<font size="9" isBold="false" pdfFontName="Helvetica"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{label_fakultas}.toUpperCase()]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="362" y="118" width="166" height="18" uuid="b94a33f3-adaf-40ff-8683-166eaf67c01e"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "jurusan" )]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-1" x="262" y="118" width="89" height="19" uuid="48e63f75-2b40-4739-834a-d75c1a59e105"/>
+				<textElement verticalAlignment="Middle">
+					<font size="9" isBold="false" pdfFontName="Helvetica"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{label_jurusan}.toUpperCase()]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-12" x="351" y="118" width="10" height="18" uuid="8722d89c-3961-4a22-9bc7-6bc72625b88f"/>
+				<textElement verticalAlignment="Middle"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="362" y="136" width="169" height="18" uuid="b6702591-a158-4fd5-a9ca-d8eb21ac1d58"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "program" )]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-35" x="262" y="136" width="90" height="18" uuid="fa7fa5c2-aa46-4414-9ea8-46f91958c9a2"/>
+				<textElement verticalAlignment="Middle"/>
+				<text><![CDATA[PROGRAM]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-37" x="352" y="136" width="10" height="18" uuid="13a197c5-37a5-4a61-8cc8-5d6d83dcb4c2"/>
+				<textElement verticalAlignment="Middle"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="79" y="136" width="183" height="18" uuid="2e1848f9-e32b-495c-b390-e4570b92417d"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "tahunangkatan" )]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-9" x="3" y="136" width="66" height="18" uuid="71ca0bf5-60ac-4961-ab21-2d52b7f85ec5"/>
+				<textElement verticalAlignment="Middle"/>
+				<text><![CDATA[ANGKATAN]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-7" x="69" y="136" width="10" height="18" uuid="9610e401-ec2c-46d8-b2ca-ba497da75bf9"/>
+				<textElement verticalAlignment="Middle"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement key="image-1" x="1" y="-18" width="535" height="100" uuid="2bfcd84d-a4f0-46f0-bb8f-4d3a8d101c90"/>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "kop_surat" )]]></imageExpression>
+			</image>
+			<staticText>
+				<reportElement key="staticText-1" x="-1" y="154" width="532" height="8" uuid="f824f664-f3ea-418e-9795-f0692b63213c"/>
+				<box>
+					<bottomPen lineWidth="1.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="12" isBold="true" isUnderline="false" pdfFontName="Helvetica"/>
+				</textElement>
+				<text><![CDATA[]]></text>
+			</staticText>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<detail>
+		<band height="18" splitType="Stretch">
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="0" y="0" width="25" height="18" uuid="46b9d59c-b0f1-4ce2-b9e7-4098fdc3c8ba"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$V{nama_kegiatan_semester_COUNT}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="25" y="0" width="69" height="18" uuid="cf4a9969-7609-4003-8d54-41085ca3290b"/>
+				<box leftPadding="4">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{kode}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="94" y="0" width="168" height="18" uuid="9d4b2001-f8cd-4748-a643-0952f7236ad8"/>
+				<box leftPadding="4">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{item_biaya}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0.00;-#,##0.00" isBlankWhenNull="true">
+				<reportElement key="textField" x="262" y="0" width="90" height="18" uuid="d1be5281-4346-4dd7-a06b-ac768348ac60"/>
+				<box leftPadding="0" rightPadding="5">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{biaya}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0.00;-#,##0.00" isBlankWhenNull="true">
+				<reportElement key="textField" x="352" y="0" width="90" height="18" uuid="cb99d166-1201-4326-aa19-b2e18e0fe25a"/>
+				<box leftPadding="0" rightPadding="5">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{dibayar}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0.00;-#,##0.00" isBlankWhenNull="true">
+				<reportElement key="textField" x="443" y="0" width="90" height="18" uuid="a0f491b0-b656-4a16-afda-70333846a410"/>
+				<box leftPadding="0" rightPadding="5">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{sisa}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<summary>
+		<band height="123" splitType="Stretch">
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-2" x="332" y="23" width="201" height="76" uuid="511dd163-ada0-4d23-acd7-4b81af149e20"/>
+				<textElement textAlignment="Center"/>
+				<textFieldExpression><![CDATA[$P{label_kota}+", "+(new java.text.SimpleDateFormat("dd-MM-yyyy").format($P{tanggal}))+"\nBendahara\n\n\n\n"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-4" x="332" y="99" width="201" height="23" uuid="2b8cfc90-443f-4664-81ec-0b107d56dba8"/>
+				<textElement textAlignment="Center">
+					<font isUnderline="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["..........................."]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="0" y="0" width="259" height="18" uuid="1e0e1462-66c3-4ab8-8eef-dbb953d57398"/>
+				<box>
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["TOTAL SEMUA"]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0.00;-#,##0.00" isBlankWhenNull="true">
+				<reportElement key="textField" x="351" y="0" width="91" height="18" uuid="039692b1-2063-4fc8-bdb2-28fec49e6601"/>
+				<box rightPadding="4">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{sum_total_1_1}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0.00;-#,##0.00" isBlankWhenNull="true">
+				<reportElement key="textField" x="442" y="0" width="90" height="18" uuid="4b129b5b-a704-437b-a379-34c5c84f53b4"/>
+				<box rightPadding="4">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{sum_total_1_2_1}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0.00;-#,##0.00" isBlankWhenNull="true">
+				<reportElement key="textField" x="259" y="0" width="92" height="18" uuid="177bad12-9adf-4929-bcc7-f580cafe9658"/>
+				<box rightPadding="4">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{sum_total_1_2_3}]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
+</jasperReport>

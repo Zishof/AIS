@@ -1,0 +1,25 @@
+<?page id="dashboardOkupansiTempatTidur" title="Dasbor Okupansi Tempat Tidur"
+	cacheable="false" language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<!--
+	Dasbor "Okupansi Tempat Tidur (Rawat Inap)" — kondisi terkini: berapa terisi/kosong dan
+	sebaran per kelas perawatan. Grafik HTML+CSS modern (tanpa JFreeChart) oleh
+	OkupansiTempatTidurDashboardBuilder. Snapshot (tanpa filter tahun); tombol Segarkan memuat ulang.
+-->
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window" width="100%" height="100%"
+		apply="ais.action.master.sirs.chart.OkupansiTempatTidurDashboardAction">
+
+		<div sclass="ais-crud-portal" style="padding:12px;">
+			<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="refresh" label="Segarkan"
+					image="/img/refresh.png" tooltiptext="Muat ulang kondisi terkini" />
+			</div>
+			<div id="chartOkupansi" use="ais.ui.util.MyChart" width="100%" />
+		</div>
+	</window>
+</zk>

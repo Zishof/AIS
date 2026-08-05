@@ -1,0 +1,70 @@
+<!--
+Letakkan definisi filter ini sebelum filter-mapping pertama.
+Lalu atur urutan filter-mapping seperti contoh di bawah.
+-->
+<filter>
+    <filter-name>Trace01BeforeErrorAudit</filter-name>
+    <filter-class>ais.common.ChainStepTraceFilter</filter-class>
+    <init-param>
+        <param-name>label</param-name>
+        <param-value>01-BEFORE-ERROR-AUDIT</param-value>
+    </init-param>
+</filter>
+<filter>
+    <filter-name>Trace02BeforeSpringSecurity</filter-name>
+    <filter-class>ais.common.ChainStepTraceFilter</filter-class>
+    <init-param>
+        <param-name>label</param-name>
+        <param-value>02-BEFORE-SPRING-SECURITY</param-value>
+    </init-param>
+</filter>
+<filter>
+    <filter-name>Trace03BeforeFilterJSP</filter-name>
+    <filter-class>ais.common.ChainStepTraceFilter</filter-class>
+    <init-param>
+        <param-name>label</param-name>
+        <param-value>03-BEFORE-FILTER-JSP</param-value>
+    </init-param>
+</filter>
+<filter>
+    <filter-name>Trace04BeforeServlet</filter-name>
+    <filter-class>ais.common.ChainStepTraceFilter</filter-class>
+    <init-param>
+        <param-name>label</param-name>
+        <param-value>04-BEFORE-SERVLET</param-value>
+    </init-param>
+</filter>
+
+<!-- Urutan filter-mapping yang disarankan untuk diagnosis -->
+<filter-mapping>
+    <filter-name>Trace01BeforeErrorAudit</filter-name>
+    <url-pattern>/*</url-pattern>
+</filter-mapping>
+<filter-mapping>
+    <filter-name>ErrorAuditFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+    <dispatcher>REQUEST</dispatcher>
+    <dispatcher>FORWARD</dispatcher>
+    <dispatcher>INCLUDE</dispatcher>
+    <dispatcher>ERROR</dispatcher>
+</filter-mapping>
+<filter-mapping>
+    <filter-name>Trace02BeforeSpringSecurity</filter-name>
+    <url-pattern>/*</url-pattern>
+</filter-mapping>
+<filter-mapping>
+    <filter-name>springSecurityFilterChain</filter-name>
+    <url-pattern>/*</url-pattern>
+</filter-mapping>
+<filter-mapping>
+    <filter-name>Trace03BeforeFilterJSP</filter-name>
+    <url-pattern>/*</url-pattern>
+</filter-mapping>
+<filter-mapping>
+    <filter-name>FilterJSP</filter-name>
+    <url-pattern>/*</url-pattern>
+</filter-mapping>
+<filter-mapping>
+    <filter-name>Trace04BeforeServlet</filter-name>
+    <url-pattern>/*</url-pattern>
+</filter-mapping>

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="hasil_karya" language="groovy" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="d133c609-b1e7-4dd5-8b71-1cdb848bf39f">
+	<property name="ireport.zoom" value="0.6209213230591556"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<field name="3_1990" class="java.lang.String"/>
+	<field name="3_1991" class="java.lang.String"/>
+	<field name="3_1992" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<detail>
+		<band height="802">
+			<textField>
+				<reportElement x="385" y="57" width="170" height="20" uuid="87e72f1c-24c4-4f38-85a5-886fc3e4af67"/>
+				<textFieldExpression><![CDATA["Kelas : "+$P{REPORT_PARAMETERS_MAP}.get( "kelas" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="312" y="691" width="243" height="44" uuid="0d6ae1af-0e89-447c-b86a-545b6f624fbc"/>
+				<textFieldExpression><![CDATA["Bandung,\n"+
+"Orang Tua/ Wali,\n\n\n"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="312" y="766" width="243" height="30" uuid="210d53f7-92c9-4819-99a3-49f577e0f364"/>
+				<textElement verticalAlignment="Bottom"/>
+				<textFieldExpression><![CDATA["..............................................."]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="57" width="298" height="20" uuid="9e815b1f-4ae2-43dc-9c8d-306f2f2291b0"/>
+				<textFieldExpression><![CDATA["Nama : "+$P{REPORT_PARAMETERS_MAP}.get( "nama" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="1" y="4" width="555" height="53" uuid="9f1335d2-17c0-4f0b-a999-71d475f6ae8b"/>
+				<box>
+					<bottomPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center">
+					<font size="14" isBold="true" isUnderline="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["LAPORAN PERKEMBANGAN PESERTA DIDIK\n"+
+"PERIODE "+$F{3_1991}+" SD "+$F{3_1992}+"\n"+
+"KB & TK TARUNA BAKTI"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="94" width="565" height="597" uuid="a4ef2382-b365-403d-bf99-b965e26a6b07"/>
+				<textElement>
+					<paragraph lineSpacing="1_1_2"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{3_1990}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="14" y="691" width="298" height="44" uuid="29e9b71a-3ed3-41be-ac35-e0df6d9535dc"/>
+				<textFieldExpression><![CDATA["\n"+
+"Guru Kelas"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="13" y="766" width="298" height="30" uuid="52de340b-2eb3-4f5e-9d5d-9129263b474b"/>
+				<textElement verticalAlignment="Bottom"/>
+				<textFieldExpression><![CDATA["Indriyana Wahyuni, SS"]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+</jasperReport>

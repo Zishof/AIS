@@ -1,0 +1,93 @@
+<zk xmlns:n="native" xmlns:w="client">
+	<style>
+		.clock {
+			border-radius: 3px;
+			border: 1px solid #ccc;
+			background-color: #7986c1;
+			margin: 3px;
+		}
+
+		.clock .clock-box {
+			border-radius: 5px;
+			background-color: #fff;
+			margin: auto;
+			padding: 7px;
+			width: 90%;
+			max-width: 500px; 
+			height: 90px;
+			margin-top: -45px;
+			position: relative;
+			top: 50%;
+		}
+		
+		.clock .clock-field {
+			border-radius: 5px;
+			background-color: #424242;
+			color: #fff;
+			display: inline-block;
+			position: relative;
+			width: 31.5%;
+			height: 100%;
+			text-align: center;
+			padding-top: 12px;
+			margin-left: 2.5%;
+		}
+		.clock .clock-field:first-child {
+			margin-left: 0;
+		}
+
+		.clock .clock-field:before {
+			content: " ";
+			position: absolute;
+			top: 0px;
+			left: 0px;
+			display: block;
+			width: 100%;
+			height: 50%;
+			border-bottom: 1px solid #383838; 
+		}
+
+		.clock .clock-field-value {
+			font-size: 54px;
+			position: relative;
+		}
+		.clock .clock-field-label {
+			border-radius: 4px;
+			background-color: #424242;
+			color: #fff;
+			font-size: 9px;
+			top: 7px;
+			left: 7px;
+			position: absolute;
+		}
+	</style>
+	<div sclass="clock" hflex="1" vflex="1">
+		<div sclass="clock-box" w:onBind="startClock(this);" w:onUnbind="stopClock(this);">
+			<div sclass="clock-field">
+				<label sclass="clock-field-label" value="Jam"/>
+				<span id="hour" sclass="clock-field-value"/>
+			</div><div sclass="clock-field">
+				<label sclass="clock-field-label" value="Menit"/>
+				<span id="min" sclass="clock-field-value"/>
+			</div><div sclass="clock-field">
+				<label sclass="clock-field-label" value="Detik"/>
+				<span id="sec" sclass="clock-field-value"/>
+			</div>
+		</div>
+	</div>
+	<script>
+		function startClock(wgt) {
+			var updateClock = function() {
+				var now = new Date();
+				wgt.$f('hour').$n().textContent = now.getHours();
+				wgt.$f('min').$n().textContent = ('0' + now.getMinutes()).slice(-2);
+				wgt.$f('sec').$n().textContent = ('0' + now.getSeconds()).slice(-2);
+			}
+			wgt.clockId=setInterval(updateClock, 1000);
+			updateClock();
+		}
+		function stopClock(wgt) {
+			clearInterval(wgt.clockId);
+		}
+	</script>
+</zk>

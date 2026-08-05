@@ -1,0 +1,462 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="AbsensiPMB" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="0" uuid="fa9721bb-4111-4349-8a0f-b657a546044d">
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<property name="ireport.zoom" value="1.4641000000000008"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="ruang" class="java.lang.Long"/>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tanggalKe" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[1]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_kota" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Ungaran"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tanggal" class="java.util.Date" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new java.util.Date()]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select
+b.id as jadwal_id,b.nama as jadwal_ujian_pmb,b.waktumulai,b.waktusampai,ruang,no_ujian,pendaftar,a.paket,gedung,tahunakademik,tanggalujian,gelombang_pendaftaran,
+pilihan,program,calon_mahasiswa
+from
+(
+select a.calon_mahasiswa,aa.id as ujian_pmb, b.nama as ruang,c.no_ujian, c.nama as pendaftar,d.nama as paket,
+e.nama as gedung,
+aa.tahunakademik,
+(
+case
+when $P{tanggalKe} = 1 then aa.tanggalujian1
+when $P{tanggalKe} = 2 then aa.tanggalujian2
+when $P{tanggalKe} = 3 then aa.tanggalujian3
+when $P{tanggalKe} = 4 then aa.tanggalujian4
+when $P{tanggalKe} = 5 then aa.tanggalujian5
+when $P{tanggalKe} = 6 then aa.tanggalujian6
+when $P{tanggalKe} = 7 then aa.tanggalujian7
+when $P{tanggalKe} = 8 then aa.tanggalujian8
+when $P{tanggalKe} = 9 then aa.tanggalujian9
+when $P{tanggalKe} = 10 then aa.tanggalujian10
+else aa.tanggalujian1 end
+) as tanggalujian,
+bbb.nama as gelombang_pendaftaran,
+b.paket as paket_id,
+((case when j1.nama is null then '' else j1.nama end) || (case when j2.nama is null then '' else ', '||j2.nama end)) as pilihan,
+c.program, b.id as id_ruang_pmb
+from ruang_paket_pmb a
+left join ruang_pmb b on a.ruang_pmb = b.id
+left join ujian_pmb aa on (b.ujian_pmb = aa.id)
+left join gelombang_pendaftaran bbb on (aa.gelombang_pendaftaran = bbb.id)
+left join biodata_calon_mahasiswa c on a.calon_mahasiswa = c.id
+left join paket d on b.paket = d.id
+left join gedung e on b.gedung = e.id
+left join jurusan j1 on (c.prodi_1=j1.id)
+left join jurusan j2 on (c.prodi_2=j2.id)
+where a.ruang_pmb=$P{ruang}
+order by c.no_ujian
+) a
+left join jadwal_ujian_pmb b on (date(a.tanggalujian) = date(b.waktumulai) and a.ujian_pmb = b.ujian_pmb and (b.paket=a.paket_id or b.paket is null))
+where ruanganYgIkut='' or ruanganYgIkut ilike '%'||id_ruang_pmb||'%'
+order by b.waktumulai,a.no_ujian]]>
+	</queryString>
+	<field name="jadwal_id" class="java.lang.Long"/>
+	<field name="jadwal_ujian_pmb" class="java.lang.String"/>
+	<field name="waktumulai" class="java.sql.Timestamp"/>
+	<field name="waktusampai" class="java.sql.Timestamp"/>
+	<field name="ruang" class="java.lang.String"/>
+	<field name="no_ujian" class="java.lang.String"/>
+	<field name="pendaftar" class="java.lang.String"/>
+	<field name="paket" class="java.lang.String"/>
+	<field name="gedung" class="java.lang.String"/>
+	<field name="tahunakademik" class="java.lang.String"/>
+	<field name="tanggalujian" class="java.sql.Timestamp"/>
+	<field name="gelombang_pendaftaran" class="java.lang.String"/>
+	<field name="pilihan" class="java.lang.String"/>
+	<field name="program" class="java.lang.String"/>
+	<field name="calon_mahasiswa" class="java.lang.Long"/>
+	<group name="jadwal" isStartNewPage="true">
+		<groupExpression><![CDATA[$F{jadwal_id}]]></groupExpression>
+		<groupHeader>
+			<band height="219">
+				<image>
+					<reportElement key="image-1" x="24" y="0" width="46" height="50" uuid="2cd81a36-cb34-4e93-b1ab-05b261f138aa"/>
+					<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+				</image>
+				<textField>
+					<reportElement x="3" y="0" width="532" height="63" uuid="9d9e55a9-7f2c-4639-91b5-ec95b8c8a281"/>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="12" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA["ABSENSI UJIAN PENERIMAAN MAHASISWA BARU\n"+
+((String)($P{REPORT_PARAMETERS_MAP}.get( "label_universitas" ) == null ? "" : $P{REPORT_PARAMETERS_MAP}.get( "label_universitas" ))).toUpperCase()+"\n"+
+"TAHUN AKADEMIK "+$F{tahunakademik}+"\n"+
+($F{gelombang_pendaftaran} == null ? "" : $F{gelombang_pendaftaran}.toUpperCase())]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement x="3" y="63" width="532" height="16" uuid="0ee9dc21-9012-407d-9fda-985a869a12ed"/>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="8"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "alamat_kampus" )]]></textFieldExpression>
+				</textField>
+				<line>
+					<reportElement key="line-1" x="0" y="62" width="535" height="1" uuid="7e6ff436-f2e6-4aac-bd62-0b3ed77950e1"/>
+				</line>
+				<line>
+					<reportElement key="line-2" x="0" y="79" width="535" height="1" uuid="30c9b104-6c68-4c6e-bb8b-c8de605acbcf"/>
+				</line>
+				<textField isBlankWhenNull="false">
+					<reportElement key="textField" x="98" y="134" width="437" height="16" uuid="642654e5-f196-4f62-9a80-09c85fd58ccd"/>
+					<box leftPadding="2"/>
+					<textElement>
+						<font isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{ruang}+($F{gedung}!=null?" ( Gedung : "+$F{gedung}+" )":"")]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement key="staticText-2" x="3" y="134" width="81" height="16" uuid="bfbbba08-ed87-41c9-9906-f308414299d8"/>
+					<box leftPadding="2"/>
+					<textElement>
+						<font isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[Ruang ]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-3" x="3" y="117" width="81" height="16" uuid="07f09e87-3d93-420b-8a47-a0af63472cd7"/>
+					<box leftPadding="2"/>
+					<textElement>
+						<font isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[Paket ]]></text>
+				</staticText>
+				<textField isBlankWhenNull="false">
+					<reportElement key="textField" x="98" y="117" width="437" height="16" uuid="fbf146f1-b265-405e-a746-e7cb0b00c6d7"/>
+					<box leftPadding="2"/>
+					<textElement>
+						<font isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{paket}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement key="staticText-4" x="84" y="134" width="14" height="16" uuid="4e3413b2-ec9d-4c50-968a-0e416d91c5db"/>
+					<box leftPadding="2"/>
+					<textElement>
+						<font isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-5" x="84" y="117" width="14" height="16" uuid="ea069ae9-c335-44a6-8e00-087d246df0fe"/>
+					<box leftPadding="2"/>
+					<textElement>
+						<font isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-7" x="0" y="177" width="23" height="42" uuid="e9426387-ac5e-420e-9443-d050d0db553a"/>
+					<box>
+						<pen lineWidth="0.5"/>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[No.]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-8" x="23" y="177" width="75" height="42" uuid="1bc72165-ae88-437c-be25-e57e24c855d5"/>
+					<box>
+						<pen lineWidth="0.5"/>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[No. Ujian]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-9" x="98" y="177" width="188" height="42" uuid="ccb3861e-7402-490b-a7e2-2d38b71db24e"/>
+					<box>
+						<pen lineWidth="0.5"/>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[Nama]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-13" x="434" y="177" width="47" height="42" uuid="55159eaa-d16f-4658-8f9e-6c287115cdea"/>
+					<box>
+						<pen lineWidth="0.5"/>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[Tanda Tangan Peserta]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-5" x="84" y="87" width="14" height="16" uuid="2fb26c42-2d77-4755-bc24-625248d1f508"/>
+					<box leftPadding="2"/>
+					<textElement>
+						<font isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-3" x="3" y="87" width="81" height="16" uuid="2f74bd24-a399-4c7f-a89d-68c64d0aa561"/>
+					<box leftPadding="2"/>
+					<textElement>
+						<font isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[Hari / Tgl]]></text>
+				</staticText>
+				<textField pattern="EEEEE, dd MMMMM yyyy" isBlankWhenNull="false">
+					<reportElement key="textField" x="98" y="87" width="437" height="16" uuid="da0eac75-e6ba-4369-9831-7419570b3db1"/>
+					<box leftPadding="2"/>
+					<textElement>
+						<font isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{tanggalujian}]]></textFieldExpression>
+				</textField>
+				<textField pattern="EEEEE, dd MMMMM yyyy" isBlankWhenNull="false">
+					<reportElement key="textField" x="98" y="101" width="437" height="16" uuid="b91cf7d0-b3fb-4608-af79-c05b2cb50fad"/>
+					<box leftPadding="2"/>
+					<textElement>
+						<font isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<textFieldExpression><![CDATA[(($F{waktumulai}==null?"":new java.text.SimpleDateFormat("HH:mm").format($F{waktumulai})))+" s.d "+($F{waktusampai}==null?"":new java.text.SimpleDateFormat("HH:mm").format($F{waktusampai}))]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement key="staticText-3" x="3" y="101" width="81" height="16" uuid="5fa27739-9273-41b5-9c54-7e815c9dd5a1"/>
+					<box leftPadding="2"/>
+					<textElement>
+						<font isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[Pukul]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-5" x="84" y="101" width="14" height="16" uuid="173ee2b8-f157-43fb-91dd-695b7ee32866"/>
+					<box leftPadding="2"/>
+					<textElement>
+						<font isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-2" x="3" y="150" width="81" height="16" uuid="15a5a512-1d4a-4bcc-8cc5-95aca4708cd7"/>
+					<box leftPadding="2"/>
+					<textElement>
+						<font isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[Jenis Ujian					]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-4" x="84" y="150" width="14" height="16" uuid="89c66e93-5b7f-47ab-9659-e7b776a51a4d"/>
+					<box leftPadding="2"/>
+					<textElement>
+						<font isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[:]]></text>
+				</staticText>
+				<textField isBlankWhenNull="false">
+					<reportElement key="textField" x="98" y="150" width="437" height="16" uuid="17905d1b-ead9-4150-8c77-255cc48cbf89"/>
+					<box leftPadding="2"/>
+					<textElement>
+						<font isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{jadwal_ujian_pmb}==null?"":$F{jadwal_ujian_pmb}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement key="staticText-13" x="481" y="177" width="54" height="42" uuid="6c85fdb1-c3c5-40fc-92c5-ed9b1411373a"/>
+					<box>
+						<pen lineWidth="0.5"/>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[Catatan]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-13" x="385" y="177" width="49" height="42" uuid="2bb2d069-1493-49dd-a2a9-f3382e895aa9"/>
+					<box>
+						<pen lineWidth="0.5"/>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[Program]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-13" x="286" y="177" width="99" height="42" uuid="cf6845b7-57da-4be1-b544-0ce139e4cc84"/>
+					<box>
+						<pen lineWidth="0.5"/>
+						<topPen lineWidth="0.5"/>
+						<leftPen lineWidth="0.5"/>
+						<bottomPen lineWidth="0.5"/>
+						<rightPen lineWidth="0.5"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[Prodi]]></text>
+				</staticText>
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band height="105">
+				<staticText>
+					<reportElement key="staticText-19" x="45" y="15" width="126" height="15" uuid="b34c2e11-fc49-433b-8d43-4811c3d70be3"/>
+					<textElement verticalAlignment="Middle"/>
+					<text><![CDATA[Pengawas]]></text>
+				</staticText>
+				<line>
+					<reportElement key="line-4" x="45" y="104" width="126" height="1" uuid="c8f5e5cc-db51-4cfd-9320-efe0e8e88cb9"/>
+				</line>
+				<textField isBlankWhenNull="false">
+					<reportElement key="textField-2" x="45" y="0" width="490" height="15" uuid="629f894e-58d6-4d04-b70e-64544df4bbdb"/>
+					<textFieldExpression><![CDATA[$P{label_kota}+", "+($F{tanggalujian}==null?"":(new java.text.SimpleDateFormat("dd-MM-yyyy").format($F{tanggalujian})))]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement key="staticText-19" x="45" y="30" width="126" height="15" uuid="a5d0b554-85f7-454c-93c7-bd740ab1ed79"/>
+					<textElement verticalAlignment="Middle"/>
+					<text><![CDATA[I.]]></text>
+				</staticText>
+				<line>
+					<reportElement key="line-4" x="244" y="104" width="126" height="1" uuid="78bf76f4-6f6b-4cce-b91d-6d55c28f55bb"/>
+				</line>
+				<staticText>
+					<reportElement key="staticText-19" x="244" y="30" width="126" height="15" uuid="bd64932c-3742-4b07-b247-682ec5570ba3"/>
+					<textElement verticalAlignment="Middle"/>
+					<text><![CDATA[II.]]></text>
+				</staticText>
+			</band>
+		</groupFooter>
+	</group>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<detail>
+		<band height="25" splitType="Stretch">
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="98" y="0" width="188" height="25" uuid="8dd4e3bc-1e44-40a9-9409-f543db72be89"/>
+				<box leftPadding="2">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{pendaftar}.toUpperCase()]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-16" x="434" y="0" width="47" height="25" uuid="321bd290-2e8e-44f1-b5cf-23ef8617cb57"/>
+				<box leftPadding="2">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<text><![CDATA[]]></text>
+			</staticText>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-1" x="0" y="0" width="23" height="25" uuid="c379be86-de5c-4d21-8f7f-c30d148ef275"/>
+				<box leftPadding="2">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{jadwal_COUNT}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="286" y="0" width="99" height="25" uuid="cb0184e6-235b-4ba7-9055-f85beba6b3b6"/>
+				<box leftPadding="2">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{pilihan}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="385" y="0" width="49" height="25" uuid="c28977fe-43b1-41af-9b54-b58f69c14df5"/>
+				<box leftPadding="2">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{program}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="23" y="0" width="75" height="25" uuid="833c7464-3c87-47c1-87b4-1d9a2d201236"/>
+				<box leftPadding="2">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{no_ujian}==null?"":$F{no_ujian}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-16" x="481" y="0" width="54" height="25" uuid="2798ef3e-77d4-4927-a4d3-d9a1c5a73242"/>
+				<box leftPadding="2">
+					<pen lineWidth="0.5"/>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<text><![CDATA[]]></text>
+			</staticText>
+		</band>
+	</detail>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band splitType="Stretch"/>
+	</pageFooter>
+</jasperReport>

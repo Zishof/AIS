@@ -1,0 +1,71 @@
+<?page title="new page title" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		width="100%" height="100%">
+
+		<borderlayout>
+			<center border="none" flex="true">
+				<h:form name="f"
+					action="j_spring_security_check" method="POST"
+					xmlns:h="http://www.w3.org/1999/xhtml">
+
+
+
+
+					<grid use="ais.ui.util.MyGrid" width="100%" fixedLayout="true">
+						<columns>
+							<column use="ais.ui.util.MyColumnConfig"
+								width="35%">
+							</column>
+							<column use="ais.ui.util.MyColumnConfig"
+								width="65%">
+							</column>
+						</columns>
+						<rows>
+							<row spans="2">
+								<html
+									if="${not empty param.login_error}">
+
+
+
+
+
+									
+									<![CDATA[${param.login_error}]]>
+									
+								
+							
+							
+			
+														
+													</html>
+							</row>
+							<row id="rowPengguna">
+								<label use="ais.ui.util.MyLabelConfig"
+									value="Pengguna">
+								</label>
+								<textbox id="u" width="85%"
+									name="j_username" />
+							</row>
+							<row id="rowPassword">
+								<label use="ais.ui.util.MyLabelConfig"
+									value="Sandi">
+								</label>
+								<textbox id="p" width="85%"
+									type="password" name="j_password" />
+							</row>
+
+							<row id="rowSubmit" spans="2">
+								<hbox>
+									<h:input type="submit"
+										value="Login" />
+								</hbox>
+							</row>
+						</rows>
+					</grid>
+				</h:form>
+			</center>
+		</borderlayout>
+
+	</window>
+</zk>

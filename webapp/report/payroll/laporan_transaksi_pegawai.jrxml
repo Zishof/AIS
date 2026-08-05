@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="jadwal_pelajaran_guru" language="groovy" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="535" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="0b89f332-0514-496c-9bb2-abc6cbf142f4">
+	<property name="ireport.zoom" value="1.6500000000000017"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<style name="Title" forecolor="#FFFFFF" fontSize="26" isBold="true" pdfFontName="Helvetica-Bold"/>
+	<style name="SubTitle" forecolor="#666666" fontSize="18"/>
+	<style name="Column header" forecolor="#666666" fontSize="12" isBold="true"/>
+	<style name="Detail" fontSize="12"/>
+	<parameter name="header" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["wood.jpg"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tahunPelajaran" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2015/2016"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="semester" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[1]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mulai" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2005-01-01"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="sampai" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2017-01-01"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="sekolah" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="yayasan" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="nis" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+	</parameter>
+	<parameter name="maksimal" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="kelas" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="asrama" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="semua" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Tidak"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="siswa" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+	</parameter>
+	<parameter name="angkatan" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select
+	a.satuan_kerja sekolah_id,
+	b.tanggal as tanggal,
+	a.id,
+	a.mycode as nomor_induk,
+	a.nama as nama_siswa,
+	b31.nama || ' senilai '||b.nilai as deskripsi,
+
+	case when b31.jenistransaksi=1 then b.nilai else 0 end as pemasukan,
+	case when b31.jenistransaksi=1 then 0 else b.nilai end as pengeluaran
+
+	from pegawai a
+	inner join  payroll.transaksi_pegawai b on (a.id = b.pegawai)
+	left join payroll.jenis_transaksi_pegawai b31 on (b31.id = b.jenis_transaksi_pegawai)
+	where date(b.tanggal) between date($P{mulai}) and date( $P{sampai})
+	and case when $P{siswa} = '' then true else (a.mycode ilike '%'||$P{siswa}||'%' or a.nama ilike '%'||$P{siswa}||'%') end]]>
+	</queryString>
+	<field name="sekolah_id" class="java.lang.Long"/>
+	<field name="tanggal" class="java.sql.Timestamp"/>
+	<field name="id" class="java.lang.Long"/>
+	<field name="nomor_induk" class="java.lang.String"/>
+	<field name="nama_siswa" class="java.lang.String"/>
+	<field name="deskripsi" class="java.lang.String"/>
+	<field name="pemasukan" class="java.lang.Double"/>
+	<field name="pengeluaran" class="java.lang.Double"/>
+	<variable name="saldo" class="java.lang.Double" resetType="Group" resetGroup="siswa" calculation="Sum">
+		<variableExpression><![CDATA[$F{pemasukan}-$F{pengeluaran}]]></variableExpression>
+	</variable>
+	<variable name="pemasukan" class="java.lang.Double" resetType="Group" resetGroup="siswa" calculation="Sum">
+		<variableExpression><![CDATA[$F{pemasukan}]]></variableExpression>
+	</variable>
+	<variable name="pengeluaran" class="java.lang.Double" resetType="Group" resetGroup="siswa" calculation="Sum">
+		<variableExpression><![CDATA[$F{pengeluaran}]]></variableExpression>
+	</variable>
+	<group name="siswa">
+		<groupExpression><![CDATA[$F{id}]]></groupExpression>
+		<groupHeader>
+			<band height="39">
+				<textField>
+					<reportElement style="Detail" x="0" y="24" width="22" height="15" uuid="fe3b06ee-1d28-4674-82a8-4b989b427611"/>
+					<textElement>
+						<font size="11"/>
+					</textElement>
+					<textFieldExpression><![CDATA["No."]]></textFieldExpression>
+				</textField>
+				<textField pattern="HH:mm">
+					<reportElement style="Detail" x="408" y="24" width="70" height="15" uuid="23b5104e-b9e3-4f67-b490-699715b913ef"/>
+					<textElement textAlignment="Right">
+						<font size="11"/>
+					</textElement>
+					<textFieldExpression><![CDATA["Pengeluaran"]]></textFieldExpression>
+				</textField>
+				<textField pattern="HH:mm">
+					<reportElement style="Detail" x="101" y="24" width="237" height="15" uuid="46a3171f-a916-4ef8-8159-df8669bb9244"/>
+					<textElement>
+						<font size="11"/>
+					</textElement>
+					<textFieldExpression><![CDATA["Deskripsi"]]></textFieldExpression>
+				</textField>
+				<textField pattern="HH:mm">
+					<reportElement style="Detail" x="338" y="24" width="70" height="15" uuid="3d1ccb13-3c4a-4884-b9c7-acc13393878a"/>
+					<textElement textAlignment="Right">
+						<font size="11"/>
+					</textElement>
+					<textFieldExpression><![CDATA["Pemasukan"]]></textFieldExpression>
+				</textField>
+				<textField pattern="HH:mm">
+					<reportElement style="Detail" x="478" y="24" width="75" height="15" uuid="f96aac94-8c9a-4ee1-8a65-d66cd1d69064"/>
+					<textElement textAlignment="Right">
+						<font size="11"/>
+					</textElement>
+					<textFieldExpression><![CDATA["Saldo"]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement style="SubTitle" x="0" y="0" width="555" height="24" forecolor="#333333" uuid="2a53e54d-4f60-4b3a-94e8-f3723b32f841"/>
+					<textElement verticalAlignment="Middle">
+						<font size="11" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{nomor_induk}+" - "+$F{nama_siswa}]]></textFieldExpression>
+				</textField>
+				<textField pattern="HH:mm">
+					<reportElement style="Detail" x="22" y="24" width="79" height="15" uuid="16ab2487-a9c2-463b-8281-17b7de3cb73e"/>
+					<textElement>
+						<font size="11"/>
+					</textElement>
+					<textFieldExpression><![CDATA["Tanggal/Waktu"]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band height="20">
+				<textField pattern="HH:mm">
+					<reportElement style="Detail" x="111" y="0" width="227" height="19" uuid="aec1fcab-ca79-4fed-a1e8-10c80914dba3"/>
+					<textElement verticalAlignment="Middle">
+						<font size="8" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA["Saldo Akhir "+$F{nomor_induk}+" - "+$F{nama_siswa}]]></textFieldExpression>
+				</textField>
+				<textField pattern="#,##0">
+					<reportElement style="Detail" x="408" y="0" width="70" height="19" uuid="aff5daa9-92f0-42c7-8298-8b9ef86952e8"/>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="10" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{pengeluaran}]]></textFieldExpression>
+				</textField>
+				<textField pattern="#,##0">
+					<reportElement style="Detail" x="338" y="0" width="70" height="19" uuid="8f0c3553-156a-437e-b3ba-fa7eb5f87e80"/>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="10" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{pemasukan}]]></textFieldExpression>
+				</textField>
+				<textField pattern="#,##0">
+					<reportElement style="Detail" x="478" y="0" width="75" height="19" uuid="cdada198-011d-4f77-a0ea-4f881ae44a46"/>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="10" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{pemasukan}-$V{pengeluaran}]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupFooter>
+	</group>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="77" splitType="Stretch">
+			<image scaleImage="FillFrame" hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="2" y="-14" width="553" height="91" uuid="75113a41-bb70-4613-8430-8060cb87d4c3"/>
+				<imageExpression><![CDATA[$P{header}]]></imageExpression>
+			</image>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<columnHeader>
+		<band height="38" splitType="Stretch">
+			<line>
+				<reportElement positionType="FixRelativeToBottom" x="0" y="35" width="555" height="1" uuid="afe9a8ca-1d8f-415b-b595-fa0260b1e624"/>
+				<graphicElement>
+					<pen lineWidth="0.5" lineColor="#999999"/>
+				</graphicElement>
+			</line>
+			<textField>
+				<reportElement style="SubTitle" x="0" y="15" width="553" height="20" uuid="7846cff7-5777-4595-aeab-f623d7b416ad"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Laporan Koperasi Periode "+$P{REPORT_PARAMETERS_MAP}.get( "label_mulai" )+" s.d "+$P{REPORT_PARAMETERS_MAP}.get( "label_sampai" )]]></textFieldExpression>
+			</textField>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="19" splitType="Stretch">
+			<line>
+				<reportElement positionType="FixRelativeToBottom" x="0" y="18" width="555" height="1" uuid="d5a05fca-175e-44fe-a31d-b9b3a80ccb2f"/>
+				<graphicElement>
+					<pen lineWidth="0.5" lineColor="#999999"/>
+				</graphicElement>
+			</line>
+			<textField>
+				<reportElement style="Detail" x="0" y="0" width="22" height="19" uuid="1a2899eb-c3e8-49cc-b971-4e7fda83fc11"/>
+				<textElement verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{siswa_COUNT}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0">
+				<reportElement style="Detail" x="338" y="0" width="70" height="19" uuid="1def8bda-3220-421a-b645-e900c09beb1a"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{pemasukan}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0">
+				<reportElement style="Detail" x="408" y="0" width="70" height="19" uuid="3967034f-0fae-486b-b4b9-a156ce3a5276"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{pengeluaran}]]></textFieldExpression>
+			</textField>
+			<textField pattern="HH:mm">
+				<reportElement style="Detail" x="101" y="0" width="237" height="19" uuid="e68f38df-7c27-42f5-b0dc-1af33c5d2935"/>
+				<textElement verticalAlignment="Middle">
+					<font size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{deskripsi}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0">
+				<reportElement style="Detail" x="478" y="0" width="75" height="19" uuid="4acf1795-1524-4c93-a05d-b8a7d6d149e2"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{saldo}]]></textFieldExpression>
+			</textField>
+			<textField pattern="dd/MM/yyyy HH:mm">
+				<reportElement style="Detail" x="22" y="0" width="79" height="19" uuid="7f55a6fe-eb65-4061-80f7-49f4a6580ba9"/>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{tanggal}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<columnFooter>
+		<band height="7" splitType="Stretch">
+			<line>
+				<reportElement positionType="FixRelativeToBottom" x="0" y="3" width="555" height="1" uuid="e60fe85b-8443-4075-a995-ba925a8fccd6"/>
+				<graphicElement>
+					<pen lineWidth="0.5" lineColor="#999999"/>
+				</graphicElement>
+			</line>
+		</band>
+	</columnFooter>
+	<pageFooter>
+		<band height="20" splitType="Stretch">
+			<textField>
+				<reportElement style="Column header" x="433" y="0" width="80" height="20" uuid="2e3e3032-52bd-4c4b-a85e-693ffe0b6cc5"/>
+				<textElement textAlignment="Right">
+					<font size="10" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Page "+$V{PAGE_NUMBER}+" of"]]></textFieldExpression>
+			</textField>
+			<textField evaluationTime="Report">
+				<reportElement style="Column header" x="513" y="0" width="40" height="20" uuid="47d97f5b-1ea2-4ff3-bc98-92df726c7631"/>
+				<textElement>
+					<font size="10" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[" " + $V{PAGE_NUMBER}]]></textFieldExpression>
+			</textField>
+			<textField pattern="EEEEE dd MMMMM yyyy">
+				<reportElement style="Column header" x="0" y="0" width="197" height="20" uuid="08f13105-5be9-4b9b-a38d-39135bb4c7bb"/>
+				<textElement>
+					<font size="10" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.util.Date()]]></textFieldExpression>
+			</textField>
+		</band>
+	</pageFooter>
+</jasperReport>

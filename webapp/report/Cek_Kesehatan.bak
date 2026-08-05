@@ -1,0 +1,1093 @@
+<?xml version="1.0" encoding="UTF-8"  ?>
+<!-- Created with iReport - A designer for JasperReports -->
+<!DOCTYPE jasperReport PUBLIC "//JasperReports//DTD Report Design//EN" "http://jasperreports.sourceforge.net/dtds/jasperreport.dtd">
+<jasperReport
+		 name="Cek_Kesehatan"
+		 columnCount="1"
+		 printOrder="Vertical"
+		 orientation="Portrait"
+		 pageWidth="595"
+		 pageHeight="842"
+		 columnWidth="535"
+		 columnSpacing="0"
+		 leftMargin="30"
+		 rightMargin="30"
+		 topMargin="20"
+		 bottomMargin="20"
+		 whenNoDataType="NoPages"
+		 isTitleNewPage="false"
+		 isSummaryNewPage="false"
+		 whenResourceMissingType="Empty">
+	<property name="ireport.scriptlethandling" value="0" />
+	<property name="ireport.encoding" value="UTF-8" />
+	<import value="java.util.*" />
+	<import value="net.sf.jasperreports.engine.*" />
+	<import value="net.sf.jasperreports.engine.data.*" />
+
+	<parameter name="logo" isForPrompting="false" class="java.lang.String">
+		<defaultValueExpression ><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="no_ujian" isForPrompting="false" class="java.lang.String"/>
+	<parameter name="cek_kesehatan" isForPrompting="true" class="java.lang.Long"/>
+	<queryString><![CDATA[select b.nama as nama_lengkap,b.jenis_kelamin,b.tempat_lahir,b.tanggal_lahir,
+b.alamat,b.kecamatan_calon,b.keluarahan_calon,d.nama as kota,b.kode_pos,c.nama as jenis_seleksi,
+
+a.status_sehat,a.penyakit_1,a.penyakit_2,a.penyakit_3,a.penyakit_4,a.penyakit_5,
+a.tekanan_darah,a.buta_warna,a.narkoba,
+a.rontgen_1,a.rontgen_2,a.rontgen_3,
+a.sehat_terbatas_1,a.sehat_terbatas_2,a.sehat_terbatas_3,a.sehat_terbatas_4,b.no_ujian,
+e.nama as jurusan, f.nama as fakultas
+
+from cek_kesehatan a
+left join biodata_calon_mahasiswa b on a.calon_mahasiswa=b.id
+left join jenis_seleksi c on b.jenis_seleksi=c.id
+left join kota d on b.kota_calon=d.id
+left join jurusan e on b.prodi_lulus = e.id
+left join fakultas f on e.fakultas = f.id
+where a.id=$P{cek_kesehatan}
+]]></queryString>
+
+	<field name="nama_lengkap" class="java.lang.String"/>
+	<field name="jenis_kelamin" class="java.lang.String"/>
+	<field name="tempat_lahir" class="java.lang.String"/>
+	<field name="tanggal_lahir" class="java.sql.Date"/>
+	<field name="alamat" class="java.lang.String"/>
+	<field name="kecamatan_calon" class="java.lang.String"/>
+	<field name="keluarahan_calon" class="java.lang.String"/>
+	<field name="kota" class="java.lang.String"/>
+	<field name="kode_pos" class="java.lang.String"/>
+	<field name="jenis_seleksi" class="java.lang.String"/>
+	<field name="status_sehat" class="java.lang.String"/>
+	<field name="penyakit_1" class="java.lang.String"/>
+	<field name="penyakit_2" class="java.lang.String"/>
+	<field name="penyakit_3" class="java.lang.String"/>
+	<field name="penyakit_4" class="java.lang.String"/>
+	<field name="penyakit_5" class="java.lang.String"/>
+	<field name="tekanan_darah" class="java.lang.String"/>
+	<field name="buta_warna" class="java.lang.String"/>
+	<field name="narkoba" class="java.lang.String"/>
+	<field name="rontgen_1" class="java.lang.String"/>
+	<field name="rontgen_2" class="java.lang.String"/>
+	<field name="rontgen_3" class="java.lang.String"/>
+	<field name="sehat_terbatas_1" class="java.lang.String"/>
+	<field name="sehat_terbatas_2" class="java.lang.String"/>
+	<field name="sehat_terbatas_3" class="java.lang.String"/>
+	<field name="sehat_terbatas_4" class="java.lang.String"/>
+	<field name="no_ujian" class="java.lang.String"/>
+	<field name="jurusan" class="java.lang.String"/>
+	<field name="fakultas" class="java.lang.String"/>
+
+	<variable name="Tanggal" class="java.util.Date" resetType="Report" calculation="Nothing">
+		<variableExpression><![CDATA[new java.util.Date()]]></variableExpression>
+	</variable>
+		<background>
+			<band height="0"  isSplitAllowed="true" >
+			</band>
+		</background>
+		<title>
+			<band height="58"  isSplitAllowed="true" >
+				<line direction="TopDown">
+					<reportElement
+						x="0"
+						y="48"
+						width="535"
+						height="2"
+						key="line-1"/>
+					<graphicElement stretchType="NoStretch">
+					<pen lineWidth="1.0" lineStyle="Double"/>
+</graphicElement>
+				</line>
+				<image  evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="0"
+						y="0"
+						width="61"
+						height="57"
+						key="image-1"/>
+					<box></box>
+					<graphicElement stretchType="NoStretch"/>
+					<imageExpression class="java.lang.String"><![CDATA[$P{logo}]]></imageExpression>
+				</image>
+				<staticText>
+					<reportElement
+						x="126"
+						y="0"
+						width="409"
+						height="48"
+						key="staticText-48"/>
+					<box></box>
+					<textElement textAlignment="Right">
+						<font/>
+					</textElement>
+				<text><![CDATA[Jalan Ir. H. Juanda No. 95, Ciputat, Tangerang
+Telp. (021) 740 2718 (Hunting), Fax. (021) 749 3532
+email, rs_syahid@cbn.net.id]]></text>
+				</staticText>
+			</band>
+		</title>
+		<pageHeader>
+			<band height="0"  isSplitAllowed="true" >
+			</band>
+		</pageHeader>
+		<columnHeader>
+			<band height="0"  isSplitAllowed="true" >
+			</band>
+		</columnHeader>
+		<detail>
+			<band height="679"  isSplitAllowed="true" >
+				<textField isStretchWithOverflow="false" pattern="dd/MM/yyyy" isBlankWhenNull="false" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="468"
+						y="7"
+						width="66"
+						height="16"
+						key="textField-1"/>
+					<box></box>
+					<textElement textAlignment="Right">
+						<font pdfFontName="Helvetica-Bold" isBold="true"/>
+					</textElement>
+				<textFieldExpression   class="java.util.Date"><![CDATA[$V{Tanggal}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement
+						x="339"
+						y="559"
+						width="196"
+						height="17"
+						key="staticText-45"/>
+					<box></box>
+					<textElement textAlignment="Center">
+						<font/>
+					</textElement>
+				<text><![CDATA[Mengetahui,]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="339"
+						y="576"
+						width="196"
+						height="17"
+						key="staticText-46"/>
+					<box></box>
+					<textElement textAlignment="Center">
+						<font/>
+					</textElement>
+				<text><![CDATA[Dokter yang memeriksa]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="-1"
+						y="643"
+						width="536"
+						height="20"
+						key="staticText-47"/>
+					<box></box>
+					<textElement textAlignment="Right">
+						<font/>
+					</textElement>
+				<text><![CDATA[( Tanda Tangan dan Cap Rumah Sakit )]]></text>
+				</staticText>
+				<line direction="TopDown">
+					<reportElement
+						x="363"
+						y="643"
+						width="149"
+						height="0"
+						key="line-19"/>
+					<graphicElement stretchType="NoStretch"/>
+				</line>
+				<textField isStretchWithOverflow="false" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="-1"
+						y="23"
+						width="535"
+						height="18"
+						key="textField"/>
+					<box></box>
+					<textElement textAlignment="Right">
+						<font/>
+					</textElement>
+				<textFieldExpression   class="java.lang.String"><![CDATA["Jenis Seleksi : "+$F{jenis_seleksi}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement
+						x="0"
+						y="1"
+						width="535"
+						height="22"
+						key="staticText-49"/>
+					<box></box>
+					<textElement textAlignment="Center">
+						<font pdfFontName="Helvetica-Bold" isBold="true"/>
+					</textElement>
+				<text><![CDATA[SURAT KETERANGAN SEHAT]]></text>
+				</staticText>
+				<rectangle>
+					<reportElement
+						x="462"
+						y="41"
+						width="71"
+						height="77"
+						key="rectangle-1"/>
+					<graphicElement stretchType="NoStretch"/>
+				</rectangle>
+				<staticText>
+					<reportElement
+						x="0"
+						y="58"
+						width="461"
+						height="20"
+						key="staticText-50"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[Bertanda tangan di bawah ini menyatakan bahwa :]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="0"
+						y="78"
+						width="126"
+						height="18"
+						key="staticText-51"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[Nama]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="0"
+						y="96"
+						width="126"
+						height="18"
+						key="staticText-52"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[Jenis Kelamin]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="0"
+						y="114"
+						width="126"
+						height="18"
+						key="staticText-53"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[Tempat / Tanggal Lahir]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="0"
+						y="132"
+						width="126"
+						height="18"
+						key="staticText-54"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[Alamat]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="0"
+						y="185"
+						width="126"
+						height="18"
+						key="staticText-55"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[Fakultas]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="0"
+						y="203"
+						width="126"
+						height="18"
+						key="staticText-56"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[Program Studi]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="0"
+						y="221"
+						width="126"
+						height="18"
+						key="staticText-57"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[No Ujian]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="0"
+						y="239"
+						width="535"
+						height="27"
+						key="staticText-58"/>
+					<box></box>
+					<textElement textAlignment="Center">
+						<font/>
+					</textElement>
+				<text><![CDATA[Setelah dilakukan pemeriksaan oleh dokter UIN Syarif Hidayatullah Jakarta, maka yang tersebut diatas dinyatakan :]]></text>
+				</staticText>
+				<textField isStretchWithOverflow="false" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="0"
+						y="266"
+						width="535"
+						height="18"
+						key="textField"/>
+					<box></box>
+					<textElement textAlignment="Center">
+						<font pdfFontName="Helvetica-Bold" isBold="true"/>
+					</textElement>
+				<textFieldExpression   class="java.lang.String"><![CDATA[$F{status_sehat}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement
+						x="0"
+						y="330"
+						width="78"
+						height="18"
+						key="staticText-59"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[Penyakit ]]></text>
+				</staticText>
+				<textField isStretchWithOverflow="false" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="114"
+						y="330"
+						width="421"
+						height="18"
+						key="textField"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<textFieldExpression   class="java.lang.String"><![CDATA[$F{penyakit_1}]]></textFieldExpression>
+				</textField>
+				<textField isStretchWithOverflow="false" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="114"
+						y="348"
+						width="421"
+						height="18"
+						key="textField"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<textFieldExpression   class="java.lang.String"><![CDATA[$F{penyakit_2}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement
+						x="0"
+						y="289"
+						width="78"
+						height="18"
+						key="staticText-60"/>
+					<box></box>
+					<textElement textAlignment="Left">
+						<font/>
+					</textElement>
+				<text><![CDATA[Sehat terbatas]]></text>
+				</staticText>
+				<textField isStretchWithOverflow="false" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="114"
+						y="289"
+						width="421"
+						height="18"
+						key="textField"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<textFieldExpression   class="java.lang.String"><![CDATA[$F{sehat_terbatas_1}]]></textFieldExpression>
+				</textField>
+				<textField isStretchWithOverflow="false" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="114"
+						y="307"
+						width="421"
+						height="18"
+						key="textField"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<textFieldExpression   class="java.lang.String"><![CDATA[$F{sehat_terbatas_2}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement
+						x="78"
+						y="330"
+						width="13"
+						height="18"
+						key="staticText-61"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="78"
+						y="289"
+						width="13"
+						height="18"
+						key="staticText-62"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="91"
+						y="289"
+						width="23"
+						height="18"
+						key="staticText-63"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[1)]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="91"
+						y="330"
+						width="23"
+						height="18"
+						key="staticText-64"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[1)]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="91"
+						y="307"
+						width="23"
+						height="18"
+						key="staticText-65"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[2)]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="91"
+						y="348"
+						width="23"
+						height="18"
+						key="staticText-66"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[2)]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="0"
+						y="376"
+						width="535"
+						height="25"
+						key="staticText-67"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[Surat keterangan ini dibuat sebagai prasyarat untuk pendaftaran ulang mahasiswa baru UIN Syarif Hidayatullah Jakarta]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="0"
+						y="401"
+						width="78"
+						height="18"
+						key="staticText-68"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[Tekanan Darah]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="0"
+						y="419"
+						width="78"
+						height="18"
+						key="staticText-69"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[Buta Warna]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="145"
+						y="419"
+						width="390"
+						height="18"
+						key="staticText-70"/>
+					<box></box>
+					<textElement textAlignment="Left">
+						<font/>
+					</textElement>
+				<text><![CDATA[Total / Parsial / Normal]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="145"
+						y="401"
+						width="117"
+						height="18"
+						key="staticText-71"/>
+					<box></box>
+					<textElement textAlignment="Left">
+						<font/>
+					</textElement>
+				<text><![CDATA[mm/Hg]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="78"
+						y="401"
+						width="13"
+						height="18"
+						key="staticText-72"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="78"
+						y="419"
+						width="13"
+						height="18"
+						key="staticText-73"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="0"
+						y="450"
+						width="132"
+						height="18"
+						key="staticText-74"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[Pemeriksaan Rontgen]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="0"
+						y="471"
+						width="132"
+						height="18"
+						key="staticText-75"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[Pemeriksaan Narkoba]]></text>
+				</staticText>
+				<textField isStretchWithOverflow="false" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="132"
+						y="450"
+						width="231"
+						height="18"
+						key="textField"/>
+					<box leftPadding="5">					<pen lineWidth="1.0" lineStyle="Solid"/>
+					<topPen lineWidth="1.0" lineStyle="Solid"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid"/>
+</box>
+					<textElement>
+						<font/>
+					</textElement>
+				<textFieldExpression   class="java.lang.String"><![CDATA[$F{rontgen_1}]]></textFieldExpression>
+				</textField>
+				<textField isStretchWithOverflow="false" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="132"
+						y="471"
+						width="231"
+						height="18"
+						key="textField"/>
+					<box leftPadding="5">					<pen lineWidth="1.0" lineStyle="Solid"/>
+					<topPen lineWidth="1.0" lineStyle="Solid"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid"/>
+</box>
+					<textElement>
+						<font/>
+					</textElement>
+				<textFieldExpression   class="java.lang.String"><![CDATA[$F{narkoba}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement
+						x="119"
+						y="450"
+						width="13"
+						height="18"
+						key="staticText-76"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="119"
+						y="471"
+						width="13"
+						height="18"
+						key="staticText-77"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[:]]></text>
+				</staticText>
+				<textField isStretchWithOverflow="false" pattern="dd/MM/yyyy" isBlankWhenNull="false" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="428"
+						y="544"
+						width="107"
+						height="16"
+						key="textField-2"/>
+					<box></box>
+					<textElement textAlignment="Left">
+						<font pdfFontName="Helvetica-Bold" isBold="true"/>
+					</textElement>
+				<textFieldExpression   class="java.util.Date"><![CDATA[$V{Tanggal}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement
+						x="380"
+						y="544"
+						width="48"
+						height="15"
+						key="staticText-78"/>
+					<box></box>
+					<textElement textAlignment="Right">
+						<font/>
+					</textElement>
+				<text><![CDATA[Ciputat, ]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="126"
+						y="203"
+						width="13"
+						height="18"
+						key="staticText-79"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="126"
+						y="221"
+						width="13"
+						height="18"
+						key="staticText-80"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="126"
+						y="185"
+						width="13"
+						height="18"
+						key="staticText-81"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="126"
+						y="96"
+						width="13"
+						height="18"
+						key="staticText-82"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="126"
+						y="114"
+						width="13"
+						height="18"
+						key="staticText-83"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="126"
+						y="78"
+						width="13"
+						height="18"
+						key="staticText-84"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="126"
+						y="132"
+						width="13"
+						height="18"
+						key="staticText-85"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[:]]></text>
+				</staticText>
+				<textField isStretchWithOverflow="false" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="139"
+						y="78"
+						width="323"
+						height="18"
+						key="textField"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<textFieldExpression   class="java.lang.String"><![CDATA[$F{nama_lengkap}]]></textFieldExpression>
+				</textField>
+				<textField isStretchWithOverflow="false" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="139"
+						y="96"
+						width="323"
+						height="18"
+						key="textField"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<textFieldExpression   class="java.lang.String"><![CDATA[$F{jenis_kelamin}]]></textFieldExpression>
+				</textField>
+				<textField isStretchWithOverflow="false" isBlankWhenNull="false" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="139"
+						y="114"
+						width="323"
+						height="18"
+						key="textField"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<textFieldExpression   class="java.lang.String"><![CDATA[$F{tempat_lahir}+" / "+$F{tanggal_lahir}]]></textFieldExpression>
+				</textField>
+				<textField isStretchWithOverflow="false" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="139"
+						y="132"
+						width="396"
+						height="18"
+						key="textField"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<textFieldExpression   class="java.lang.String"><![CDATA[$F{alamat}]]></textFieldExpression>
+				</textField>
+				<textField isStretchWithOverflow="false" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="209"
+						y="150"
+						width="123"
+						height="18"
+						key="textField"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<textFieldExpression   class="java.lang.String"><![CDATA[$F{keluarahan_calon}]]></textFieldExpression>
+				</textField>
+				<textField isStretchWithOverflow="false" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="209"
+						y="168"
+						width="123"
+						height="18"
+						key="textField"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<textFieldExpression   class="java.lang.String"><![CDATA[$F{kecamatan_calon}]]></textFieldExpression>
+				</textField>
+				<textField isStretchWithOverflow="false" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="390"
+						y="150"
+						width="145"
+						height="18"
+						key="textField"/>
+					<box>					<pen lineWidth="1.0" lineStyle="Solid"/>
+					<topPen lineWidth="1.0" lineStyle="Solid"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid"/>
+</box>
+					<textElement>
+						<font/>
+					</textElement>
+				<textFieldExpression   class="java.lang.String"><![CDATA[$F{kode_pos}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement
+						x="332"
+						y="150"
+						width="58"
+						height="18"
+						key="staticText-86"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[Kode Pos : ]]></text>
+				</staticText>
+				<textField isStretchWithOverflow="false" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="139"
+						y="203"
+						width="396"
+						height="18"
+						key="textField"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<textFieldExpression   class="java.lang.String"><![CDATA[$F{jurusan}]]></textFieldExpression>
+				</textField>
+				<textField isStretchWithOverflow="false" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="139"
+						y="185"
+						width="396"
+						height="18"
+						key="textField"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<textFieldExpression   class="java.lang.String"><![CDATA[$F{fakultas}]]></textFieldExpression>
+				</textField>
+				<textField isStretchWithOverflow="false" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="139"
+						y="221"
+						width="396"
+						height="18"
+						key="textField"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<textFieldExpression   class="java.lang.String"><![CDATA[$F{no_ujian}]]></textFieldExpression>
+				</textField>
+				<textField isStretchWithOverflow="false" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="91"
+						y="401"
+						width="54"
+						height="18"
+						key="textField"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<textFieldExpression   class="java.lang.String"><![CDATA[$F{tekanan_darah}]]></textFieldExpression>
+				</textField>
+				<textField isStretchWithOverflow="false" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="91"
+						y="419"
+						width="54"
+						height="18"
+						key="textField"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<textFieldExpression   class="java.lang.String"><![CDATA[$F{buta_warna}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement
+						x="139"
+						y="150"
+						width="62"
+						height="18"
+						key="staticText-87"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[Kelurahan ]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="139"
+						y="168"
+						width="62"
+						height="18"
+						key="staticText-88"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[Kecamatan ]]></text>
+				</staticText>
+				<line direction="TopDown">
+					<reportElement
+						x="0"
+						y="285"
+						width="535"
+						height="0"
+						key="line-20"/>
+					<graphicElement stretchType="NoStretch">
+					<pen lineWidth="1.0" lineStyle="Dotted"/>
+</graphicElement>
+				</line>
+				<staticText>
+					<reportElement
+						x="332"
+						y="168"
+						width="58"
+						height="18"
+						key="staticText-89"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[Kota :]]></text>
+				</staticText>
+				<textField isStretchWithOverflow="false" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
+					<reportElement
+						x="390"
+						y="168"
+						width="145"
+						height="18"
+						key="textField"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<textFieldExpression   class="java.lang.String"><![CDATA[$F{kota}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement
+						x="201"
+						y="168"
+						width="8"
+						height="18"
+						key="staticText-90"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement
+						x="201"
+						y="150"
+						width="8"
+						height="18"
+						key="staticText-91"/>
+					<box></box>
+					<textElement>
+						<font/>
+					</textElement>
+				<text><![CDATA[:]]></text>
+				</staticText>
+			</band>
+		</detail>
+		<columnFooter>
+			<band height="0"  isSplitAllowed="true" >
+			</band>
+		</columnFooter>
+		<pageFooter>
+			<band height="0"  isSplitAllowed="true" >
+			</band>
+		</pageFooter>
+		<summary>
+			<band height="0"  isSplitAllowed="true" >
+			</band>
+		</summary>
+</jasperReport>

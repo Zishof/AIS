@@ -1,0 +1,52 @@
+<!-- Use this file to deploy some handlers/chains and services      -->
+<!-- Two ways to do this:                                           -->
+<!--   java org.apache.axis.client.AdminClient deploy.wsdd          -->
+<!--      after the axis server is running                          -->
+<!-- or                                                             -->
+<!--   java org.apache.axis.utils.Admin client|server deploy.wsdd   -->
+<!--      from the same directory that the Axis engine runs         -->
+
+<deployment
+    xmlns="http://xml.apache.org/axis/wsdd/"
+    xmlns:java="http://xml.apache.org/axis/wsdd/providers/java">
+
+  <!-- Services from PayBRIActionService WSDL service -->
+
+  <service name="PayBRIAction" provider="java:RPC" style="wrapped" use="literal">
+      <parameter name="wsdlTargetNamespace" value="http://ws.action.ais"/>
+      <parameter name="wsdlServiceElement" value="PayBRIActionService"/>
+      <parameter name="schemaQualified" value="http://model.ws.action.ais,http://ws.action.ais"/>
+      <parameter name="wsdlServicePort" value="PayBRIAction"/>
+      <parameter name="className" value="ais.action.ws.PayBRIActionSoapBindingImpl"/>
+      <parameter name="wsdlPortType" value="PayBRIAction"/>
+      <parameter name="typeMappingVersion" value="1.2"/>
+      <operation name="hello" qname="operNS:hello" xmlns:operNS="http://ws.action.ais" returnQName="retNS:helloReturn" xmlns:retNS="http://ws.action.ais" returnType="rtns:string" xmlns:rtns="http://www.w3.org/2001/XMLSchema" soapAction="" >
+        <parameter qname="pns:name" xmlns:pns="http://ws.action.ais" type="tns:string" xmlns:tns="http://www.w3.org/2001/XMLSchema"/>
+      </operation>
+      <operation name="reversal" qname="operNS:reversal" xmlns:operNS="http://ws.action.ais" returnQName="retNS:reversalReturn" xmlns:retNS="http://ws.action.ais" returnType="rtns:Response" xmlns:rtns="http://model.ws.action.ais" soapAction="" >
+        <parameter qname="pns:nim" xmlns:pns="http://ws.action.ais" type="tns:string" xmlns:tns="http://www.w3.org/2001/XMLSchema"/>
+      </operation>
+      <operation name="inquery" qname="operNS:inquery" xmlns:operNS="http://ws.action.ais" returnQName="retNS:inqueryReturn" xmlns:retNS="http://ws.action.ais" returnType="rtns:Response" xmlns:rtns="http://model.ws.action.ais" soapAction="" >
+        <parameter qname="pns:nim" xmlns:pns="http://ws.action.ais" type="tns:string" xmlns:tns="http://www.w3.org/2001/XMLSchema"/>
+      </operation>
+      <operation name="pay" qname="operNS:pay" xmlns:operNS="http://ws.action.ais" returnQName="retNS:payReturn" xmlns:retNS="http://ws.action.ais" returnType="rtns:Response" xmlns:rtns="http://model.ws.action.ais" soapAction="" >
+        <parameter qname="pns:nim" xmlns:pns="http://ws.action.ais" type="tns:string" xmlns:tns="http://www.w3.org/2001/XMLSchema"/>
+        <parameter qname="pns:reffNumber" xmlns:pns="http://ws.action.ais" type="tns:string" xmlns:tns="http://www.w3.org/2001/XMLSchema"/>
+        <parameter qname="pns:tanggalBayar" xmlns:pns="http://ws.action.ais" type="tns:string" xmlns:tns="http://www.w3.org/2001/XMLSchema"/>
+        <parameter qname="pns:jamBayar" xmlns:pns="http://ws.action.ais" type="tns:string" xmlns:tns="http://www.w3.org/2001/XMLSchema"/>
+        <parameter qname="pns:userID" xmlns:pns="http://ws.action.ais" type="tns:string" xmlns:tns="http://www.w3.org/2001/XMLSchema"/>
+        <parameter qname="pns:namaCabang" xmlns:pns="http://ws.action.ais" type="tns:string" xmlns:tns="http://www.w3.org/2001/XMLSchema"/>
+        <parameter qname="pns:nominalTagihan" xmlns:pns="http://ws.action.ais" type="tns:string" xmlns:tns="http://www.w3.org/2001/XMLSchema"/>
+      </operation>
+      <parameter name="allowedMethods" value="hello pay inquery reversal"/>
+
+      <typeMapping
+        xmlns:ns="http://model.ws.action.ais"
+        qname="ns:Response"
+        type="java:ais.action.ws.model.Response"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle=""
+      />
+  </service>
+</deployment>

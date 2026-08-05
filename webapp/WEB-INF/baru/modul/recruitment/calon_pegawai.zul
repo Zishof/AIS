@@ -1,0 +1,91 @@
+<?page id="testZul" title="Calon Pegawai" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+<zk xmlns="http://www.zkoss.org/2005/zul" xmlns:h="http://www.w3.org/1999/xhtml" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+  <window use="ais.ui.util.MyWindow" border="none" id="window" apply="ais.action.master.recruitment.CalonPegawaiAction" width="100%" height="100%">
+    <tabbox width="100%" height="100%">
+      <tabs>
+        <tab use="ais.ui.util.MyTabConfig" selected="true">Calon Pegawai</tab>
+        <tab use="ais.ui.util.MyTabConfig" forward="onClick=onDokumen">Dokumen</tab>
+        <tab use="ais.ui.util.MyTabConfig" forward="onClick=onDokumenPenyedia">Verifikasi Dokumen</tab>
+      </tabs>
+      <tabpanels>
+        <tabpanel use="ais.ui.util.MyTabpanel" sclass="ecampus-zul-data-tabpanel">
+          <borderlayout style="border:0px;" height="100%" width="100%" sclass="ecampus-zul-filter-borderlayout">
+            <north border="none" open="true" flex="false" splittable="false" sclass="ecampus-zul-filter-launcher-north ecampus-zul-filter-inline-north" size="96px">
+              <div sclass="ecampus-zul-filter-launcher" width="100%">
+                <div sclass="ecampus-zul-filter-fields ecampus-zul-filter-fields-inline" width="100%">
+                  <div sclass="ecampus-zul-filter-field">
+                    <label use="ais.ui.util.MyLabelConfig" value="Nama Calon Pegawai" sclass="ecampus-zul-filter-field-label"/>
+                    <textbox forward="onOK=onSearchDefault" id="searchnama" width="100%" sclass="ecampus-zul-filter-field-control"/>
+                  </div>
+                  <div sclass="ecampus-zul-filter-field">
+                    <label use="ais.ui.util.MyLabelConfig" value="Status Seleksi" sclass="ecampus-zul-filter-field-label"/>
+                    <combobox forward="onChange=onSearchDefault" id="searchstatus" width="100%" autodrop="true" sclass="ecampus-searchable-combobox ecampus-zul-filter-field-control"/>
+                  </div>
+                  <div sclass="ecampus-zul-filter-field">
+                    <label use="ais.ui.util.MyLabelConfig" value="Data Aktif" sclass="ecampus-zul-filter-field-label"/>
+                    <checkbox use="ais.ui.util.MyCheckboxConfig" id="searchaktif" label="Tampilkan hanya yang aktif" checked="true" forward="onClick=onSearchDefault" width="95%" sclass="ecampus-zul-filter-field-control"/>
+                  </div>
+                  <div sclass="ecampus-zul-filter-field">
+                    <label use="ais.ui.util.MyLabelConfig" value="Diterima" sclass="ecampus-zul-filter-field-label"/>
+                    <checkbox style="font-size:9px" checked="true" use="ais.ui.util.MyCheckboxConfig" label="Diterima" forward="onCheck=onSearchDefault" id="diterima" sclass="ecampus-zul-filter-field-control"/>
+                  </div>
+                  <div sclass="ecampus-zul-filter-field">
+                    <label use="ais.ui.util.MyLabelConfig" value="Terverifikasi" sclass="ecampus-zul-filter-field-label"/>
+                    <checkbox style="font-size:9px" checked="true" use="ais.ui.util.MyCheckboxConfig" label="Terverifikasi" forward="onCheck=onSearchDefault" id="terverifikasi" sclass="ecampus-zul-filter-field-control"/>
+                  </div>
+                  <div sclass="ecampus-zul-filter-field">
+                    <label use="ais.ui.util.MyLabelConfig" value="Ditolak" sclass="ecampus-zul-filter-field-label"/>
+                    <checkbox style="font-size:9px" checked="true" use="ais.ui.util.MyCheckboxConfig" label="Ditolak" forward="onCheck=onSearchDefault" id="ditolak" sclass="ecampus-zul-filter-field-control"/>
+                  </div>
+                  <div sclass="ecampus-zul-filter-field">
+                    <label use="ais.ui.util.MyLabelConfig" value="Mundur" sclass="ecampus-zul-filter-field-label"/>
+                    <checkbox style="font-size:9px" checked="true" use="ais.ui.util.MyCheckboxConfig" label="Mundur" forward="onCheck=onSearchDefault" id="mundur" sclass="ecampus-zul-filter-field-control"/>
+                  </div>
+                  <div sclass="ecampus-zul-filter-field">
+                    <label use="ais.ui.util.MyLabelConfig" value="Belum" sclass="ecampus-zul-filter-field-label"/>
+                    <checkbox style="font-size:9px" checked="true" use="ais.ui.util.MyCheckboxConfig" label="Belum Ditentukan" forward="onCheck=onSearchDefault" id="belum" sclass="ecampus-zul-filter-field-control"/>
+                  </div>
+                </div>
+                <div sclass="ecampus-zul-filter-primary-actions" width="100%">
+                  <toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" tooltiptext="Tambah data" forward="onClick=onAdd" id="add" label="Tambah Data" image="/img/new.gif" sclass="ecampus-zul-filter-action-button ecampus-zul-filter-action-item ecampus-zul-filter-primary-action-item"/><toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;calon_pegawai&quot;, &quot;Bantuan&quot;);"/>
+                  <toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" tooltiptext="Cari data" forward="onClick=onSearchDefault" id="find" label="Cari" image="/img/search.gif" sclass="ecampus-zul-filter-action-button ecampus-zul-filter-action-item ecampus-zul-filter-primary-action-item"/>
+                </div>
+              </div>
+            </north>
+            <center border="none" style="border:0px;" flex="true" sclass="ecampus-zul-data-center">
+              <grid use="ais.ui.util.MyGrid" sclass="fgrid ecampus-zul-data-wrapper">
+                <rows>
+                  <row>
+                    <paging visible="false" id="paging" detailed="true" sclass="ecampus-zul-paging-top"/>
+                  </row>
+                  <row>
+                    <grid use="ais.ui.util.MyGrid" sclass="dgrid ecampus-zul-data-grid" fixedLayout="true" id="grid">
+                      <columns>
+                        <column use="ais.ui.util.MyColumnConfig" width="8%" label="No Reg." sort="auto(kode)"/>
+                        <column use="ais.ui.util.MyColumnConfig" width="13%" label="Nama Calon Pegawai" sort="auto(nama)"/>
+                        <column use="ais.ui.util.MyColumnConfig" width="12%" label="Lowongan"/>
+                        <column use="ais.ui.util.MyColumnConfig" label="Alamat / Kontak" width="28%" sort="auto(alamat)"/>
+                        <column use="ais.ui.util.MyColumnConfig" label="Keterangan" width="10%"/>
+                        <column use="ais.ui.util.MyColumnConfig" label="Status Seleksi" width="12%"/>
+                        <column use="ais.ui.util.MyColumnConfig" label="Aktif" width="7%"/>
+                        <column use="ais.ui.util.MyColumnConfig" width="10%" label=""/>
+                      </columns>
+                    </grid>
+                  </row>
+                </rows>
+              </grid>
+            </center>
+          </borderlayout>
+        </tabpanel>
+        <tabpanel use="ais.ui.util.MyTabpanel" id="dokumenTab"/>
+        <tabpanel use="ais.ui.util.MyTabpanel" id="dokumenPenyedia"/>
+      </tabpanels>
+    </tabbox>
+    <window use="ais.ui.util.MyWindow" id="addWindow" title="Pendataan Calon Pegawai" visible="false" mode="popup" position="center,center" border="normal" width="95%" height="95%">
+		</window>
+    <zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+  </window>
+</zk>

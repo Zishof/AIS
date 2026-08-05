@@ -1,0 +1,308 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions targetNamespace="http://ws.action.ais" xmlns:apachesoap="http://xml.apache.org/xml-soap" xmlns:impl="http://ws.action.ais" xmlns:intf="http://ws.action.ais" xmlns:tns1="http://model.ws.action.ais" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:wsdlsoap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<!--WSDL created by Apache Axis version: 1.4
+Built on Apr 22, 2006 (06:55:48 PDT)-->
+ <wsdl:types>
+  <schema elementFormDefault="qualified" targetNamespace="http://ws.action.ais" xmlns="http://www.w3.org/2001/XMLSchema">
+   <import namespace="http://model.ws.action.ais"/>
+   <element name="pay">
+    <complexType>
+     <sequence>
+      <element name="nim" type="xsd:string"/>
+      <element name="reffNumber" type="xsd:string"/>
+      <element name="tanggalBayar" type="xsd:string"/>
+      <element name="jamBayar" type="xsd:string"/>
+      <element name="userID" type="xsd:string"/>
+      <element name="namaCabang" type="xsd:string"/>
+      <element name="nominalTagihan" type="xsd:string"/>
+     </sequence>
+    </complexType>
+   </element>
+   <element name="payResponse">
+    <complexType>
+     <sequence>
+      <element name="payReturn" type="tns1:Response"/>
+     </sequence>
+    </complexType>
+   </element>
+   <element name="reversal">
+    <complexType>
+     <sequence>
+      <element name="nim" type="xsd:string"/>
+     </sequence>
+    </complexType>
+   </element>
+   <element name="reversalResponse">
+    <complexType>
+     <sequence>
+      <element name="reversalReturn" type="tns1:Response"/>
+     </sequence>
+    </complexType>
+   </element>
+   <element name="inquery">
+    <complexType>
+     <sequence>
+      <element name="nim" type="xsd:string"/>
+     </sequence>
+    </complexType>
+   </element>
+   <element name="inqueryResponse">
+    <complexType>
+     <sequence>
+      <element name="inqueryReturn" type="tns1:Response"/>
+     </sequence>
+    </complexType>
+   </element>
+   <element name="hello">
+    <complexType>
+     <sequence>
+      <element name="name" type="xsd:string"/>
+     </sequence>
+    </complexType>
+   </element>
+   <element name="helloResponse">
+    <complexType>
+     <sequence>
+      <element name="helloReturn" type="xsd:string"/>
+     </sequence>
+    </complexType>
+   </element>
+  </schema>
+  <schema elementFormDefault="qualified" targetNamespace="http://model.ws.action.ais" xmlns="http://www.w3.org/2001/XMLSchema">
+   <complexType name="Response">
+    <sequence>
+     <element name="amount" nillable="true" type="xsd:string"/>
+     <element name="angkatan" nillable="true" type="xsd:string"/>
+     <element name="fakultas" nillable="true" type="xsd:string"/>
+     <element name="info1" nillable="true" type="xsd:string"/>
+     <element name="info10" nillable="true" type="xsd:string"/>
+     <element name="info2" nillable="true" type="xsd:string"/>
+     <element name="info3" nillable="true" type="xsd:string"/>
+     <element name="info4" nillable="true" type="xsd:string"/>
+     <element name="info6" nillable="true" type="xsd:string"/>
+     <element name="info7" nillable="true" type="xsd:string"/>
+     <element name="info8" nillable="true" type="xsd:string"/>
+     <element name="info9" nillable="true" type="xsd:string"/>
+     <element name="keterangan_status_pembayaran" nillable="true" type="xsd:string"/>
+     <element name="kode_status_pembayaran" nillable="true" type="xsd:string"/>
+     <element name="kurs" nillable="true" type="xsd:string"/>
+     <element name="nama" nillable="true" type="xsd:string"/>
+     <element name="nim" nillable="true" type="xsd:string"/>
+     <element name="prodi" nillable="true" type="xsd:string"/>
+     <element name="program" nillable="true" type="xsd:string"/>
+     <element name="reference_number" nillable="true" type="xsd:string"/>
+     <element name="response_code" nillable="true" type="xsd:string"/>
+     <element name="response_description" nillable="true" type="xsd:string"/>
+     <element name="semester" nillable="true" type="xsd:string"/>
+     <element name="semester_ke" nillable="true" type="xsd:string"/>
+     <element name="total_amount" nillable="true" type="xsd:string"/>
+    </sequence>
+   </complexType>
+  </schema>
+ </wsdl:types>
+
+   <wsdl:message name="reversalResponse">
+
+      <wsdl:part element="impl:reversalResponse" name="parameters">
+
+      </wsdl:part>
+
+   </wsdl:message>
+
+   <wsdl:message name="reversalRequest">
+
+      <wsdl:part element="impl:reversal" name="parameters">
+
+      </wsdl:part>
+
+   </wsdl:message>
+
+   <wsdl:message name="payRequest">
+
+      <wsdl:part element="impl:pay" name="parameters">
+
+      </wsdl:part>
+
+   </wsdl:message>
+
+   <wsdl:message name="helloResponse">
+
+      <wsdl:part element="impl:helloResponse" name="parameters">
+
+      </wsdl:part>
+
+   </wsdl:message>
+
+   <wsdl:message name="helloRequest">
+
+      <wsdl:part element="impl:hello" name="parameters">
+
+      </wsdl:part>
+
+   </wsdl:message>
+
+   <wsdl:message name="payResponse">
+
+      <wsdl:part element="impl:payResponse" name="parameters">
+
+      </wsdl:part>
+
+   </wsdl:message>
+
+   <wsdl:message name="inqueryRequest">
+
+      <wsdl:part element="impl:inquery" name="parameters">
+
+      </wsdl:part>
+
+   </wsdl:message>
+
+   <wsdl:message name="inqueryResponse">
+
+      <wsdl:part element="impl:inqueryResponse" name="parameters">
+
+      </wsdl:part>
+
+   </wsdl:message>
+
+   <wsdl:portType name="PayAction">
+
+      <wsdl:operation name="pay">
+
+         <wsdl:input message="impl:payRequest" name="payRequest">
+
+       </wsdl:input>
+
+         <wsdl:output message="impl:payResponse" name="payResponse">
+
+       </wsdl:output>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="reversal">
+
+         <wsdl:input message="impl:reversalRequest" name="reversalRequest">
+
+       </wsdl:input>
+
+         <wsdl:output message="impl:reversalResponse" name="reversalResponse">
+
+       </wsdl:output>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="inquery">
+
+         <wsdl:input message="impl:inqueryRequest" name="inqueryRequest">
+
+       </wsdl:input>
+
+         <wsdl:output message="impl:inqueryResponse" name="inqueryResponse">
+
+       </wsdl:output>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="hello">
+
+         <wsdl:input message="impl:helloRequest" name="helloRequest">
+
+       </wsdl:input>
+
+         <wsdl:output message="impl:helloResponse" name="helloResponse">
+
+       </wsdl:output>
+
+      </wsdl:operation>
+
+   </wsdl:portType>
+
+   <wsdl:binding name="PayActionSoapBinding" type="impl:PayAction">
+
+      <wsdlsoap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+
+      <wsdl:operation name="pay">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="payRequest">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="payResponse">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="reversal">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="reversalRequest">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="reversalResponse">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="inquery">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="inqueryRequest">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="inqueryResponse">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+      <wsdl:operation name="hello">
+
+         <wsdlsoap:operation soapAction=""/>
+
+         <wsdl:input name="helloRequest">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:input>
+
+         <wsdl:output name="helloResponse">
+
+            <wsdlsoap:body use="literal"/>
+
+         </wsdl:output>
+
+      </wsdl:operation>
+
+   </wsdl:binding>
+
+   <wsdl:service name="PayActionService">
+
+      <wsdl:port binding="impl:PayActionSoapBinding" name="PayAction">
+
+         <wsdlsoap:address location="http://localhost:8080/ais/services/PayAction"/>
+
+      </wsdl:port>
+
+   </wsdl:service>
+
+</wsdl:definitions>

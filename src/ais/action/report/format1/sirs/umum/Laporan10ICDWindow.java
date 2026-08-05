@@ -1,0 +1,274 @@
+package ais.action.report.format1.sirs.umum;
+import ais.common.PesanFormalHelper;
+
+import java.io.File;
+import java.io.Serializable;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.zkoss.zk.ui.event.Event;
+import org.zkoss.zk.ui.event.EventListener;
+import org.zkoss.zul.Borderlayout;
+import org.zkoss.zul.Center;
+import org.zkoss.zul.Column;
+import org.zkoss.zul.Columns;
+import org.zkoss.zul.Combobox;
+import org.zkoss.zul.Comboitem;
+import org.zkoss.zul.Div;
+import org.zkoss.zul.Grid;
+import org.zkoss.zul.Label;
+import org.zkoss.zul.North;
+import org.zkoss.zul.Row;
+import org.zkoss.zul.Rows;
+import org.zkoss.zul.South;
+import org.zkoss.zul.Window;
+
+import ais.action.report.Report;
+import ais.action.report.helper.CommonReport;
+import ais.action.report.helper.ParameterListener;
+import ais.common.Common;
+import ais.database.model.sirs.DiagnosaPenyakit;
+import ais.database.model.sirs.JenisPasien;
+import ais.database.model.sirs.Pendaftaran;
+import ais.ui.util.MyMessageboxConfig;
+
+public class Laporan10ICDWindow extends Window {
+
+	private Center center;
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 3331244819198611604L;
+	private Combobox tahun;
+	private Combobox bulan;
+	private Combobox jenisPasien;
+	private Combobox apakahMenular;
+	private Combobox jenis;
+
+	public Laporan10ICDWindow() {
+		super();
+		try {
+
+			init();
+		} catch (Exception e) {
+			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/report/format1/sirs/umum/Laporan10ICDWindow.java:55");
+			PesanFormalHelper.tampilkanGagalException("pemuatan data awal layar Laporan10 ICD Window", "Sistem mengalami kendala teknis saat memuat data awal untuk layar laporan ini, kemungkinan karena data referensi (mis. periode, unit/ruangan, atau parameter filter terkait) belum lengkap, atau terjadi gangguan sementara pada koneksi ke basis data.", e,
+				new String[] {
+					"Muat ulang (refresh) halaman ini dan coba akses kembali layar laporan.",
+					"Periksa kembali parameter/filter yang Bapak/Ibu pilih sebelum membuka layar ini.",
+					"Jika kendala terus berulang, silakan hubungi Administrator atau laporkan ke Pengembang Sistem disertai tangkapan layar (screenshot) pesan ini."
+				});
+		}
+	}
+
+	public Laporan10ICDWindow(String title, String border, boolean closable) throws Exception {
+		super(title, border, closable);
+
+		init();
+	}
+
+	private void init() {
+
+		Borderlayout borderlayout = new Borderlayout();
+		borderlayout.setParent(this);
+
+		North north = new North();
+		north.setParent(borderlayout);
+
+		Div div = new Div();
+		div.setParent(north);
+
+		center = new Center();
+		center.setParent(borderlayout);
+		ais.ui.util.ZkCompat.setFlex(center, true);
+
+		Grid grid = new Grid();
+		grid.setParent(div);
+		grid.setWidth("100%");
+		grid.setHeight("100%");
+
+		Columns columns = new Columns();
+		columns.setParent(grid);
+
+		Column column = new Column();
+		column.setWidth("100px");
+		column.setParent(columns);
+		column = new Column();
+		column.setParent(columns);
+
+		column = new Column();
+		column.setWidth("100px");
+		column.setParent(columns);
+		column = new Column();
+		column.setParent(columns);
+
+		column = new Column();
+		column.setWidth("100px");
+		column.setParent(columns);
+		column = new Column();
+		column.setParent(columns);
+
+		// column = new Column();
+		// column.setWidth("70px");
+		// column.setParent(columns);
+		// column = new Column();
+		//
+		// column = new Column();
+		// column.setWidth("70px");
+		// column.setParent(columns);
+		// column = new Column();
+
+		EventListener eventListener = new EventListener() {
+
+			@Override
+			public void onEvent(Event event) throws Exception {
+				onCetak(event);
+
+			}
+		};
+
+		Rows rows = new Rows();
+		rows.setParent(grid);
+
+		Row row = new Row();
+		row.setStyle("border:0px;background: transparent;");
+		row.setParent(rows);
+		row.appendChild(new Label(ais.common.Common.getBahasaConfig("Tahun")));
+		row.appendChild(tahun = new Combobox());
+		tahun = Common.generateTahun(tahun);
+		tahun.setWidth("90%");
+		tahun.addEventListener("onChange", eventListener);
+
+		row.setStyle("border:0px;background: transparent;");
+		row.setParent(rows);
+		row.appendChild(new Label(ais.common.Common.getBahasaConfig("Bulan")));
+		row.appendChild(bulan = new Combobox());
+		bulan = Common.generateBulan(bulan);
+		bulan.setWidth("90%");
+		bulan.addEventListener("onChange", eventListener);
+
+		row.setStyle("border:0px;background: transparent;");
+		row.setParent(rows);
+		row.appendChild(new Label(ais.common.Common.getBahasaConfig("Jenis Pasien")));
+		row.appendChild(jenisPasien = new Combobox());
+		Common.insertCombo(jenisPasien, "nama", JenisPasien.class);
+		jenisPasien.setWidth("90%");
+		jenisPasien.addEventListener("onChange", eventListener);
+
+		row = new Row();
+		row.setStyle("border:0px;background: transparent;");
+		row.setParent(rows);
+		row.appendChild(new Label(ais.common.Common.getBahasaConfig("Menular")));
+		row.appendChild(apakahMenular = new Combobox());
+		Comboitem comboitem = new Comboitem(DiagnosaPenyakit.TIDAK_MENULAR);
+		comboitem.setValue(DiagnosaPenyakit.TIDAK_MENULAR);
+		apakahMenular.appendChild(comboitem);
+		comboitem = new Comboitem(DiagnosaPenyakit.MENULAR);
+		comboitem.setValue(DiagnosaPenyakit.MENULAR);
+		apakahMenular.appendChild(comboitem);
+		apakahMenular.setWidth("90%");
+		apakahMenular.addEventListener("onChange", eventListener);
+
+		row.setStyle("border:0px;background: transparent;");
+		row.setParent(rows);
+		row.appendChild(new Label(ais.common.Common.getBahasaConfig("Instalasi")));
+		row.appendChild(jenis = new Combobox());
+		comboitem = new Comboitem(Pendaftaran.RAWAT_JALAN);
+		comboitem.setValue(Pendaftaran.RAWAT_JALAN);
+		jenis.appendChild(comboitem);
+		comboitem = new Comboitem(Pendaftaran.RAWAT_INAP);
+		comboitem.setValue(Pendaftaran.RAWAT_INAP);
+		jenis.appendChild(comboitem);
+		jenis.setWidth("90%");
+		jenis.addEventListener("onChange", eventListener);
+
+		South south = new South();
+		south.setParent(borderlayout);
+		south.appendChild(CommonReport.exportReport(new ParameterListener() {
+
+			@SuppressWarnings({ "unchecked", "rawtypes" })
+			@Override
+			public Map<String, Serializable> generateParameters() throws Exception {
+				Map parameters = generateParameter();
+				return parameters;
+			}
+		}, "sirs/laporan_10_jenis_penyakit_terbesar"));
+
+		onCetak(null);
+	}
+
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	private Map generateParameter() throws Exception {
+		if (tahun.getSelectedItem() == null) {
+			MyMessageboxConfig.show("Mohon maaf Bapak/Ibu, tahun laporan belum dipilih. Langkah yang dapat dilakukan: (1) buka pilihan Tahun; (2) pilih salah satu tahun yang tersedia; (3) lanjutkan kembali proses cetak laporan.", "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return null;
+		}
+		if (bulan.getSelectedItem() == null) {
+			MyMessageboxConfig.show("Mohon maaf Bapak/Ibu, bulan laporan belum dipilih. Langkah yang dapat dilakukan: (1) buka pilihan Bulan; (2) pilih salah satu bulan yang tersedia; (3) lanjutkan kembali proses cetak laporan.", "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return null;
+		}
+		// if (jenisPasien.getSelectedItem() == null) {
+		// Messagebox.show("Pilih salah satu Jenis Pasien", "Peringatan",
+		// 1, Messagebox.INFORMATION);
+		// return;
+		// }
+		// if (apakahMenular.getSelectedItem() == null) {
+		// Messagebox.show("Pilih salah satu Apakah Menular",
+		// "Peringatan", 1, Messagebox.INFORMATION);
+		// return;
+		// }
+		// if (instalasi.getSelectedItem() == null) {
+		// Messagebox.show("Pilih salah satu instalasi", "Peringatan", 1,
+		// Messagebox.INFORMATION);
+		// return;
+		// }
+
+		Integer mytahun = (Integer) tahun.getSelectedItem().getValue();
+		Integer mybulan = (Integer) bulan.getSelectedItem().getValue();
+		JenisPasien myJenisPasien = (JenisPasien) (jenisPasien.getSelectedItem() == null ? null
+				: jenisPasien.getSelectedItem().getValue());
+		String menular = (String) (apakahMenular.getSelectedItem() == null ? ""
+				: apakahMenular.getSelectedItem().getValue());
+
+		String jenis = (String) (this.jenis.getSelectedItem() == null ? "" : this.jenis.getSelectedItem().getValue());
+
+		Map parameters = new HashMap();
+		parameters.put("jenis", jenis);
+		parameters.put("menular", menular);
+		parameters.put("tahun", mytahun);
+		parameters.put("bulan", mybulan);
+		parameters.put("nama_jenis_pasien", myJenisPasien == null ? "" : myJenisPasien.getNama());
+		parameters.put("jenis_pasien", myJenisPasien == null || myJenisPasien.getId() == null ? -1L : myJenisPasien.getId());
+
+		CommonReport.inputParameterTanggal(parameters, mybulan, mytahun);
+
+		return parameters;
+	}
+
+	@SuppressWarnings({ "rawtypes" })
+	public void onCetak(Event event) {
+
+		try {
+
+			Map parameters = generateParameter();
+			if (parameters == null) {
+				return;
+			}
+
+			File file = Report.generateFileReportWithProgress("sirs/laporan_10_jenis_penyakit_terbesar", Report.PDF, parameters,
+					"sirs/laporan_10_jenis_penyakit_terbesar", new Date());
+			CommonReport.tampilkanReportPDF(center, file);
+
+		} catch (Exception e) {
+			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/report/format1/sirs/umum/Laporan10ICDWindow.java:258");
+			PesanFormalHelper.tampilkanGagalException("pembuatan berkas PDF Laporan10 ICD Window", "Sistem mengalami kendala teknis saat menyusun berkas PDF laporan ini, kemungkinan karena salah satu data sumber laporan tidak lengkap, format datanya tidak sesuai dengan yang diharapkan oleh template laporan, atau terjadi gangguan sementara pada proses pembuatan berkas.", e,
+				new String[] {
+					"Periksa kembali filter/kriteria/periode yang Bapak/Ibu pilih sebelum mencetak laporan ini.",
+					"Pastikan data yang menjadi sumber laporan ini sudah lengkap dan benar, kemudian coba cetak ulang.",
+					"Jika kendala terus berulang, silakan hubungi Administrator atau laporkan ke Pengembang Sistem disertai tangkapan layar (screenshot) pesan ini."
+				});
+		}
+	}
+}

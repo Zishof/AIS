@@ -1,0 +1,92 @@
+<?page id="errorLogZul" title="Error Log" cacheable="false" language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+<zk xmlns="http://www.zkoss.org/2005/zul"
+    xmlns:h="http://www.w3.org/1999/xhtml"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+    <window use="ais.ui.util.MyWindow" border="none" id="window"
+        apply="ais.action.master.ErrorLogAction" width="100%" height="100%">
+
+        <borderlayout>
+            <center border="none" flex="true">
+                <vbox width="100%" height="100%">
+                    <html id="progressHtml" visible="false" />
+                    <tabbox width="100%" vflex="1">
+                    <tabs>
+                        <tab use="ais.ui.util.MyTabConfig" label="Dasbor Error" image="/img/svg/chart-line.svg" />
+                        <tab use="ais.ui.util.MyTabConfig" label="Daftar Error" image="/img/svg/list.svg" />
+                    </tabs>
+                    <tabpanels>
+                        <tabpanel use="ais.ui.util.MyTabpanel">
+                            <html id="dashboardHtml" />
+                        </tabpanel>
+                        <tabpanel use="ais.ui.util.MyTabpanel">
+                            <borderlayout>
+                                <north border="none" open="true" flex="true">
+                                    <groupbox mold="3d">
+                                        <caption use="ais.ui.util.MyCaptionConfig" label="Pencarian Error" />
+                                        <vbox width="100%">
+                                            <label use="ais.ui.util.MyLabelConfig" value="Cari kata yang ingin ditampilkan atau dikecualikan. Contoh: Mahasiswa, Hibernate, NullPointerException, /login." />
+                                            <grid use="ais.ui.util.MyGrid" fixedLayout="true">
+                                                <columns>
+                                                    <column use="ais.ui.util.MyColumnConfig" width="140px" />
+                                                    <column use="ais.ui.util.MyColumnConfig" />
+                                                    <column use="ais.ui.util.MyColumnConfig" width="140px" />
+                                                    <column use="ais.ui.util.MyColumnConfig" />
+                                                </columns>
+                                                <rows>
+                                                    <row>
+                                                        <label use="ais.ui.util.MyLabelConfig" value="Tampilkan Jika Ada" />
+                                                        <textbox forward="onOK=onSearchDefault" id="searchnama" width="95%" />
+                                                        <label use="ais.ui.util.MyLabelConfig" value="Sembunyikan Jika Ada" />
+                                                        <textbox forward="onOK=onSearchDefault" id="searchnamaTidak" width="95%" />
+                                                    </row>
+                                                    <row>
+                                                        <label use="ais.ui.util.MyLabelConfig" value="Tanggal Mulai" />
+                                                        <datebox use="ais.ui.util.MyDatebox"
+                                                            id="start" forward="onChange=onSearchDefault" cols="12" />
+                                                        <label use="ais.ui.util.MyLabelConfig" value="Tanggal Sampai" />
+                                                        <datebox use="ais.ui.util.MyDatebox"
+                                                            id="end" forward="onChange=onSearchDefault" cols="12" />
+                                                    </row>
+                                                    <row spans="4">
+                                                        <toolbar>
+                                                            <toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+                                                                tooltiptext="Cari data" forward="onClick=onSearchDefault"
+                                                                id="find" label="Cari" image="/img/search.gif" /><toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;error_log&quot;, &quot;Bantuan&quot;);"/>
+                                                        </toolbar>
+                                                    </row>
+                                                </rows>
+                                            </grid>
+                                        </vbox>
+                                    </groupbox>
+                                </north>
+                                <center border="none" flex="true">
+                                    <grid use="ais.ui.util.MyGrid" sclass="fgrid">
+                                        <rows>
+                                            <row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-atas" height="64px" /></row>
+                                            <row>
+                                                <paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true" pageSize="10" />
+                                            </row>
+                                            <row>
+                                                <grid use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true" id="grid">
+                                                    <columns>
+                                                        <column use="ais.ui.util.MyColumnConfig" width="230px" label="Waktu dan Jenis" />
+                                                        <column use="ais.ui.util.MyColumnConfig" label="Informasi Error" />
+                                                    </columns>
+                                                </grid>
+                                            </row>
+                                            <row><paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar" /></row>
+                                            <row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-bawah" height="128px" /></row>
+                                        </rows>
+                                    </grid>
+                                </center>
+                            </borderlayout>
+                        </tabpanel>
+                    </tabpanels>
+                    </tabbox>
+                </vbox>
+            </center>
+        </borderlayout>
+    </window>
+</zk>

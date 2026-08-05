@@ -1,0 +1,89 @@
+<?page title="new page title" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<window use="ais.ui.util.MyWindow" height="100%" width="100%"
+		border="none">
+
+
+		<tabbox height="100%" width="100%">
+
+			<tabs>
+				<tab use="ais.ui.util.MyTabConfig">Januari</tab>
+				<tab use="ais.ui.util.MyTabConfig">Pebruari</tab>
+				<tab use="ais.ui.util.MyTabConfig">Maret</tab>
+				<tab use="ais.ui.util.MyTabConfig">April</tab>
+				<tab use="ais.ui.util.MyTabConfig">Mei</tab>
+				<tab use="ais.ui.util.MyTabConfig">Juni</tab>
+				<tab use="ais.ui.util.MyTabConfig">Juli</tab>
+				<tab use="ais.ui.util.MyTabConfig">Agustus</tab>
+				<tab use="ais.ui.util.MyTabConfig">September</tab>
+				<tab use="ais.ui.util.MyTabConfig">Oktober</tab>
+				<tab use="ais.ui.util.MyTabConfig">Nopember</tab>
+				<tab use="ais.ui.util.MyTabConfig">Desember</tab>
+			</tabs>
+			<tabpanels>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<include use="ais.ui.util.MyInclude" height="100%" width="100%"
+						src="/WEB-INF/z/x/y/pages/master/rab/chart_realisasi.zul?bulan=1">
+					</include>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<include use="ais.ui.util.MyInclude" height="100%" width="100%"
+						src="/WEB-INF/z/x/y/pages/master/rab/chart_realisasi.zul?bulan=2">
+					</include>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<include use="ais.ui.util.MyInclude" height="100%" width="100%"
+						src="/WEB-INF/z/x/y/pages/master/rab/chart_realisasi.zul?bulan=3">
+					</include>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<include use="ais.ui.util.MyInclude" height="100%" width="100%"
+						src="/WEB-INF/z/x/y/pages/master/rab/chart_realisasi.zul?bulan=4">
+					</include>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<include use="ais.ui.util.MyInclude" height="100%" width="100%"
+						src="/WEB-INF/z/x/y/pages/master/rab/chart_realisasi.zul?bulan=5">
+					</include>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<include use="ais.ui.util.MyInclude" height="100%" width="100%"
+						src="/WEB-INF/z/x/y/pages/master/rab/chart_realisasi.zul?bulan=6">
+					</include>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<include use="ais.ui.util.MyInclude" height="100%" width="100%"
+						src="/WEB-INF/z/x/y/pages/master/rab/chart_realisasi.zul?bulan=7">
+					</include>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<include use="ais.ui.util.MyInclude" height="100%" width="100%"
+						src="/WEB-INF/z/x/y/pages/master/rab/chart_realisasi.zul?bulan=8">
+					</include>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<include use="ais.ui.util.MyInclude" height="100%" width="100%"
+						src="/WEB-INF/z/x/y/pages/master/rab/chart_realisasi.zul?bulan=9">
+					</include>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<include use="ais.ui.util.MyInclude" height="100%" width="100%"
+						src="/WEB-INF/z/x/y/pages/master/rab/chart_realisasi.zul?bulan=10">
+					</include>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<include use="ais.ui.util.MyInclude" height="100%" width="100%"
+						src="/WEB-INF/z/x/y/pages/master/rab/chart_realisasi.zul?bulan=11">
+					</include>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<include use="ais.ui.util.MyInclude" height="100%" width="100%"
+						src="/WEB-INF/z/x/y/pages/master/rab/chart_realisasi.zul?bulan=12">
+					</include>
+				</tabpanel>
+			</tabpanels>
+
+		</tabbox>
+
+	</window>
+</zk>

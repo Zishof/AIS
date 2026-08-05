@@ -1,0 +1,234 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false"
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.KurikulumAction" width="100%" height="100%">
+
+		<!-- forward onSelect: memuat konten tab saat tab DIPILIH. Pada ZK 5.5 klik tab memicu onSelect
+		     pada TABBOX (onClick pada Tab tidak selalu terkirim), sehingga konten tab seperti PIKOBE /
+		     Kurikulum OBE bisa tak pernah terbangun = tab kosong. Handler idempoten, aman terpanggil 2x. -->
+		<tabbox id="tabboxKurikulum" width="100%" height="100%"
+			forward="onSelect=onPilihTabKurikulum">
+
+<tabs>
+
+				<tab use="ais.ui.util.MyTabConfig" selected="true">
+					Kurikulum
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onRps">
+					RPS OBE
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onKurikulum">
+					Matakuliah
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onTampilKurikulum">
+					Laporan Kurikulum
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onTampilKurikulumMahasiswa">
+					Laporan Kurikulum Mahasiswa
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onTampilRekapKurikulum">
+					Rekap Kurikulum
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onRekapPertemuanPerkuliahan">
+					Rekap Silabus
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onStatistik">
+					Statistik
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onPikobe">
+					PIKOBE
+				</tab>
+			</tabs>
+
+			<tabpanels>
+
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<div sclass="ais-crud-portal">
+
+						<!-- ═══ KARTU FILTER ═══ -->
+						<div sclass="ais-crud-filter-card">
+							<div sclass="ais-crud-filter-head">
+								<span sclass="ais-crud-filter-title">Pencarian &amp; Filter</span>
+								<div sclass="ais-crud-filter-actions">
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="add" label="Tambah" image="/img/new.gif" tooltiptext="Tambah data baru" forward="onClick=onAdd"/>
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="find" label="Cari" image="/img/search.gif" tooltiptext="Cari data" forward="onClick=onSearchDefault"/>
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;kurikulum&quot;, &quot;Bantuan&quot;);"/></div>
+							</div>
+							<div sclass="ais-crud-filter-body">
+								<grid use="ais.ui.util.MyGrid" fixedLayout="true" sclass="ais-crud-filter-grid">
+									<columns>
+
+									<column
+									use="ais.ui.util.MyColumnConfig" width="150px">
+									</column>
+									<column
+									use="ais.ui.util.MyColumnConfig">
+									</column>
+									<column
+									use="ais.ui.util.MyColumnConfig" width="150px">
+									</column>
+									<column
+									use="ais.ui.util.MyColumnConfig">
+									</column>
+									<column
+									use="ais.ui.util.MyColumnConfig" width="150px">
+									</column>
+									<column
+									use="ais.ui.util.MyColumnConfig">
+									</column>
+									<column
+									use="ais.ui.util.MyColumnConfig" width="150px">
+									</column>
+									<column
+									use="ais.ui.util.MyColumnConfig">
+									</column>
+
+
+									</columns>
+									<rows>
+									<row>
+									<label
+									use="ais.ui.util.MyLabelConfig" value="Nama" />
+									<textbox id="searchnama"
+									forward="onOK=onSearchDefault" width="95%" />
+									<label
+									use="ais.ui.util.MyLabelConfig" value="Matakuliah" />
+									<textbox id="searchmk"
+									forward="onOK=onSearchDefault" width="95%" />
+									<label
+									use="ais.ui.util.MyLabelConfig" value="Fakultas" />
+									<combobox
+									forward="onChange=onSearchDefault" id="searchfakultas"
+									width="95%" />
+
+									<label
+									use="ais.ui.util.MyLabelConfig" value="Prodi" />
+									<combobox
+									forward="onChange=onSearchDefault" id="searchjurusan"
+									width="95%" />
+									</row>
+
+
+									<row>
+
+									<label
+									use="ais.ui.util.MyLabelConfig" value="Program" />
+									<combobox id="searchprogram"
+									forward="onChange=onSearchDefault" width="95%" />
+
+									<label
+									use="ais.ui.util.MyLabelConfig" value="Jenjang" />
+									<combobox id="searchjenjang"
+									forward="onChange=onSearchDefault" width="95%" />
+
+									<label
+									use="ais.ui.util.MyLabelConfig" value="Tahun" />
+									<intbox width="95%"
+									forward="onChange=onSearchDefault" id="searchtahun">
+									</intbox>
+									<label
+									use="ais.ui.util.MyLabelConfig" />
+									<checkbox id="searchaktif"
+									label="Yg aktif" checked="true"
+									forward="onClick=onSearchDefault" width="95%" />
+									</row>
+									</rows>
+								</grid>
+							</div>
+						</div>
+
+						<!-- ═══ KARTU DATA ═══ -->
+						<div sclass="ais-crud-data-card">
+							<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true"/>
+							<grid use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true" id="grid">
+								<columns>
+
+									<column
+									use="ais.ui.util.MyColumnConfig" width="50px" />
+
+									<column
+									use="ais.ui.util.MyColumnConfig" width="5%" label="Tahun"
+									sort="auto(tahun)" />
+									<column
+									use="ais.ui.util.MyColumnConfig" width="9%" label="Nama" />
+									<column
+									use="ais.ui.util.MyColumnConfig" width="9%" label="Prodi" />
+									<column
+									use="ais.ui.util.MyColumnConfig" width="7%"
+									label="Jenjang" />
+									<column
+									use="ais.ui.util.MyColumnConfig" width="7%"
+									label="Program" />
+									<column
+									use="ais.ui.util.MyColumnConfig" width="14%"
+									label="Aturan" />
+									<column
+									use="ais.ui.util.MyColumnConfig" width="14%"
+									label="Realisasi" />
+									<column
+									use="ais.ui.util.MyColumnConfig" label="OBE" width="5%" />
+									<column
+									use="ais.ui.util.MyColumnConfig" label="Aktif" width="5%" />
+
+									<column
+									use="ais.ui.util.MyColumnConfig" width="9%"
+									label="Mulai Berlaku" />
+
+									<column
+									use="ais.ui.util.MyColumnConfig" width="7%"
+									label="Angkatan" />
+
+
+									<column
+									use="ais.ui.util.MyColumnConfig" width="9%" label="" />
+
+								</columns>
+							</grid>
+							<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>
+						</div>
+
+					</div>
+
+				</tabpanel>
+
+
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="manajemenRps"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="manajemenKurikulum"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="laporanKurikulum"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="laporanKurikulumMahasiswa"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="rekapKurikulum"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="rekapitulasiPertemuanPerkuliahan"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="statistik">
+
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="pikobe"></tabpanel>
+
+			</tabpanels>
+		</tabbox>
+
+		<window use="ais.ui.util.MyWindow" id="addWindow" title="Tambah Kurikulum" visible="false" mode="popup" position="center,center" border="normal" width="550px" height="95%">
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+	</window>
+
+
+</zk>

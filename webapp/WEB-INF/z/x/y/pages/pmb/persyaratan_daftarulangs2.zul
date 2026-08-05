@@ -1,0 +1,35 @@
+<?page title="Persyaratan Daftar Ulang" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<borderlayout height="100%">
+		<west width="5%">
+
+		</west>
+		<center autoscroll="true">
+			<box>
+				<separator height="30px"></separator>
+				<box width="90%" align="center">
+					<label use="ais.ui.util.MyLabelConfig">
+						PERSYARATAN DAFTAR ULANG/HERREGISTRASI
+					</label>
+				</box>
+				<separator height="10px"></separator>
+				<html>
+					
+					<![CDATA[
+Peserta yang dinyatakan <strong>LULUS </strong>melakukan  pendaftaran ulang mulai tanggal <strong>16  s.d. 23  Agustus 2011 </strong>dengan melengkapi persyaratan sebagai berikut :<br />
+a.  Kartu  Peserta Ujian Masuk tahun 2011/2012 (asli)           <br />
+b.  Satu  lembar foto copy ijazah S1 yang sudah dilegalisasir<br />
+c.  Fotokopi  bukti pembayaran biaya kuliah <br />
+d.  Surat  kesehatan dari Rumah Sakit Syahid UIN Jakarta (asli).         <br />
+e.  Satu  lembar fotokopi Tanda Pengenal (KTP atau SIM)<br />
+f.   Pasfoto  berwarna ukuran 3x4 Cm sebanyak 4 (empat) lembar<br />
+g.  Surat  Pernyataan kesediaan sanggup mematuhi peraturan yang ditetapkan UIN  Jakarta bermaterai Rp. 6.000,00  (enam ribu rupiah).</p>
+Apabila tidak memenuhi  persyaratan kelengkapan di atas dan tidak sesuai dengan yang ditetapkan, <strong><u>dinyatakan  mengundurkan diri</u></strong>.
+					
+					 ]]>
+					
+                    		</html>
+			</box>
+		</center>
+	</borderlayout>
+</zk>

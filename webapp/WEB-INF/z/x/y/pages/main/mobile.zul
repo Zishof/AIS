@@ -1,0 +1,64 @@
+<?init class="ais.ui.util.MyInit"?>
+<?link rel="shortcut icon" type="image/x-icon" href="${myFavicon}"?>
+<?link rel="icon" type="image/x-icon" href="${myFavicon}"?>
+<?link rel="stylesheet" type="text/css" href="/css/ais_mobile.css?v=20260628d"?>
+<?page title="Sistem Informasi Akademik" contentType="text/html;charset=UTF-8"?>
+<?meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no"?>
+<?meta name="description" content="Sistem Informasi Akademik eCampus & eSchool — versi mobile"?>
+<?meta name="theme-color" content="#16794a"?>
+<zk>
+	<!--
+	  ============================================================
+	  mobile.zul — Cangkang aplikasi MOBILE eCampus & eSchool (ZK 5.x)
+	  ============================================================
+	  Halaman ini sengaja dibuat "tipis": ia hanya menyediakan
+	  kerangka kosong (placeholder) yang akan diisi sepenuhnya oleh
+	  pengendali ais.action.maintenance.MobileAction. Pendekatan ini
+	  membuat tampilan mudah dipelihara (semua logika di satu kelas
+	  Java ber-JavaDoc) dan ringan saat dimuat.
+
+	  Struktur:
+	   - appbarHost  : kepala aplikasi (logo, judul, pencarian,
+	                   lonceng notifikasi, foto profil).
+	   - homeView    : Beranda (sapaan, aksi cepat, pemberitahuan,
+	                   grafik sebaran menu, ringkasan akun).
+	   - menuView    : daftar SELURUH menu (pencarian + akordion
+	                   hirarki + riwayat) untuk menampung ratusan menu.
+	   - notifView   : daftar notifikasi.
+	   - profileView : profil & pengaturan akun.
+	   - bottomnavHost : navigasi bawah (Beranda/Notifikasi/Menu/Profil).
+	   - overlay     : lapisan LAYAR PENUH untuk konten menu yang
+	                   dibuka, lengkap dengan tombol kembali. Tabbox di
+	                   dalamnya dipakai-ulang oleh Common.launchMenu
+	                   (sama dengan desktop) sehingga semua jenis menu
+	                   berfungsi tanpa penulisan ulang.
+	  ============================================================
+	-->
+	<window id="mShell" apply="ais.action.maintenance.MobileAction"
+		width="100%" height="100%" border="none" sclass="ais-m-shell">
+
+		<!-- Kepala aplikasi (fixed di atas) -->
+		<div id="appbarHost" sclass="ais-m-appbar" />
+
+		<!-- Tampilan-tampilan utama (hanya satu terlihat dalam satu waktu) -->
+		<div id="homeView" sclass="ais-m-scroll" />
+		<div id="menuView" sclass="ais-m-scroll" visible="false" />
+		<div id="notifView" sclass="ais-m-scroll" visible="false" />
+		<div id="profileView" sclass="ais-m-scroll" visible="false" />
+
+		<!-- Navigasi bawah (fixed di bawah) -->
+		<div id="bottomnavHost" sclass="ais-m-bottomnav" />
+
+		<!-- Overlay LAYAR PENUH untuk konten menu yang dibuka -->
+		<div id="overlay" sclass="ais-m-overlay" visible="false">
+			<div id="overlayBar" sclass="ais-m-overlay-bar" />
+			<div id="overlayBody" sclass="ais-m-overlay-body">
+				<tabbox id="iframe" sclass="ais-m-iframe" width="100%" height="100%">
+					<tabs id="iframeTabs" />
+					<tabpanels id="iframePanels" />
+				</tabbox>
+			</div>
+		</div>
+
+	</window>
+</zk>

@@ -1,0 +1,246 @@
+<?page title="Pilihan Paket dan Biaya" contentType="text/html;charset=UTF-8"?>
+<zk>
+<borderlayout height="100%">
+		
+		<center autoscroll="true">
+				<box>
+				<separator height="20px"></separator>
+				<box width="100%" align="center">
+					<label use="ais.ui.util.MyLabelConfig">
+						Pilihan Program Studi
+					</label>
+				</box>
+				<separator height="10px"></separator>
+				<html>
+				<![CDATA[
+				
+<table border="1" bordercolor='#ACACAC'>
+<tr>
+	<td rowspan="2" align="center" valign="middle" bgcolor="#000066">
+	<font color="white">FAKULTAS</font>                              	
+	</td>
+	<td colspan="3" align="center" bgcolor="#000066">
+	<font color="white">PROGRAM STUDI</font>                           	  
+	</td>
+</tr>
+<tr>
+	<td align="center" bgcolor="#000066"><font color="white">PAKET A</font> </td>
+	<td align="center" bgcolor="#000066"><font color="white">PAKET B</font></td>
+	<td align="center" bgcolor="#000066"><font color="white">PAKET C</font></td>
+</tr>
+<tr>
+	<td align="left" bgcolor="#B9D3F1">
+		<span class="style9">ILMU TARBIYAH DAN KEGURUAN</span>
+	</td>
+	<td align="left" valign="top" bgcolor="#B9D3F1">
+		<ul type="disc";>
+			<li>Pendidikan Agama  Islam</li>
+			<li>Pendidikan Bahasa  Arab</li>
+			<li>Pendidikan Guru  <br />Madrasah Ibtidaiyah/SD</li>
+		</ul>                               	
+	</td>
+	<td align="left" valign="top" bgcolor="#B9D3F1">
+		<ul type="disc";>
+			<li>Pendidikan Bahasa dan Sastra Indonesia</li>
+			<li>Pendidikan Bahasa  Inggris</li>
+			<li>Pendidikan Ilmu  Pengetahuan Sosial</li>
+			<li>Manajemen Pendidikan</li>
+		</ul>                                
+	</td>
+	<td align="left" valign="top" bgcolor="#B9D3F1">
+		<ul type="disc";>
+			<li>Pendidikan Biologi </li>
+			<li>Pendidikan Kimia </li>
+			<li>Pendidikan Fisika </li>
+			<li>Pendidikan Matematika  </li>
+		</ul>                                
+	</td>
+</tr>
+<tr>
+	<td align="left">
+		<span class="style9">ADAB DAN HUMANIORA</span>
+	</td>
+	<td align="left" valign="top">
+		<ul type="disc";>
+			<li>Bahasa dan Sastra  Arab</li>
+			<li>Sejarah dan Peradaban  Islam</li>
+			<li>Tarjamah (Bahasa  Arab)</li>
+		</ul>                           	 
+	</td>
+	<td align="left" valign="top">
+		<ul type="disc";>
+			<li>Ilmu Perpustakaan &nbsp;</li>
+			<li>Bahasa dan Satra  Inggris</li>
+		</ul>                              
+	</td>
+	<td align="left" valign="top" bgcolor="#CCCCCC"><span class="style10"></span></td>
+</tr>
+<tr>
+	<td align="left" bgcolor="#B9D3F1">
+		<span class="style9">USHULUDDIN</span>
+	</td>
+	<td align="left" valign="top" bgcolor="#B9D3F1">
+		<ul type="disc";>
+			<li>Perbandingan Agama</li>
+			<li>Aqidah dan Filsafat&nbsp;</li>
+			<li>Tafsir Hadits</li>
+		</ul>
+	</td>
+	<td align="left" valign="top" bgcolor="#B9D3F1">
+		<ul type="disc";>
+			<li>Sosiologi Agama</li>
+			<li>Pemikiran Politik  Islam</li>
+		</ul>
+	</td>
+	<td align="left" valign="top" bgcolor="#CCCCCC"><span class="style10"></span></td>
+</tr>
+<tr>
+	<td align="left">
+		<span class="style9">SYARIAH DAN HUKUM</span></td>
+	<td align="left" valign="top">
+		<ul type="disc";>
+			<li>Perbandingan Mazhab  Fiqih</li>
+			<li>Perbandingan Hukum</li>
+			<li>Perbandingan Mazhab  Fiqih Khusus (Internasional)</li>
+			<li>Peradilan Agama</li>
+			<li>Administrasi  Keperdataan Islam</li>
+			<li>Kepidanaan Islam</li>
+			<li>Ketatanegaraan Islam</li>
+		</ul>                           	  	
+	</td>
+	<td align="left" valign="top">
+		<ul type="disc";>
+			<li>Perbankan Syariah</li>
+			<li>Takaful / Asuransi Syariah </li>
+			<li>Manajemen Zakat dan Wakaf</li>
+			<li>Ilmu Hukum</li>
+		</ul>                              	
+	</td>
+	<td align="left" valign="top" bgcolor="#CCCCCC"><span class="style10"></span></td>
+</tr>
+<tr>
+	<td align="left" bgcolor="#B9D3F1">
+		<span class="style9">DAKWAH DAN KOMUNIKASI</span>
+	</td>
+	<td align="left" valign="top" bgcolor="#B9D3F1">
+		<ul type="disc";>
+			<li>Bimbingan Penyuluhan  Islam&nbsp;</li>
+			<li>Manajemen Dakwah</li>
+			<li>Manajemen Haji dan Umroh  &nbsp;&nbsp;&nbsp;&nbsp;</li>
+		</ul>
+	</td>
+	<td align="left" valign="top" bgcolor="#B9D3F1">
+		<ul type="disc";>
+			<li>Komunikasi dan  Penyiaran Islam</li>
+			<li>Jurnalistik</li>
+			<li>Pengembangan  Masyarakat Islam</li>
+			<li>Kesejahteraan Sosial</li>
+		</ul>
+	</td>
+	<td align="left" valign="top" bgcolor="#CCCCCC"><span class="style10"></span></td>
+</tr>                            
+<tr>
+	<td align="left">
+		<span class="style9">DIRASAT ISLAMIYAH</span>
+	</td>
+	<td align="left" valign="top">
+		<ul type="disc";>
+			<li>Dirasat Islamiyah</li>
+		</ul>                           	  	
+	</td>
+	<td align="left" valign="top">
+		<ul type="disc";>
+		</ul>                              	
+	</td>
+	<td align="left" valign="top" bgcolor="#CCCCCC">
+		<ul type="disc";>
+			<span class="style10"></span>
+		</ul>                                
+	</td>
+</tr>                            
+<tr>
+	<td align="left" bgcolor="#B9D3F1">
+		<span class="style9">PSIKOLOGI</span>
+	</td>
+	<td align="left" valign="top" bgcolor="#CCCCCC"></td>
+	<td align="left" valign="top" bgcolor="#B9D3F1">
+		<ul type="disc";>
+			<li>Psikologi</li>
+		</ul>                              	
+	</td>
+	<td align="left" valign="top" bgcolor="#CCCCCC"></td>
+</tr>                            
+<tr>
+	<td align="left">
+		<span class="style9">EKONOMI DAN BISNIS</span>
+	</td>
+	<td align="left" valign="top" bgcolor="#CCCCCC"></td>
+	<td align="left" valign="top">
+		<ul type="disc";>
+			<li>Manajemen</li>
+			<li>Manajemen Kelas Internasional</li>
+			<li>Akuntansi</li>
+			<li>Akuntansi Kelas Internasional</li>
+			<li>Ilmu Ekonomi dan  Studi Pembangunan</li>
+		</ul>                              
+	</td>
+	<td align="left" valign="top" bgcolor="#CCCCCC"></td>
+</tr>
+<tr>
+	<td align="left" bgcolor="#B9D3F1">
+		<span class="style9">SAINS DAN TEKNOLOGI</span>
+	</td>
+	<td align="left" valign="top" bgcolor="#CCCCCC"></td>
+	<td align="left" valign="top" bgcolor="#B9D3F1">
+		<ul type="disc";>
+			<li>Sosial Ekonomi  Pertanian/Agribisnis</li>
+			<li>Sistem Informasi</li>
+			<li>Sistem Informasi (Kelas  Internasional)</li>
+		</ul>                              	</td>
+	<td align="left" valign="top" bgcolor="#B9D3F1">
+		<ul type="disc";>
+			<li>Teknik Informatika</li>
+			<li>Teknik Informatika (Kelas Internasional)</li>
+			<li>Matematika</li>
+			<li>Biologi</li>
+			<li>Kimia</li>
+			<li>Fisika</li>
+		</ul>                                
+	</td>
+</tr>
+<tr>
+	<td align="left">
+		<span class="style9">KEDOKTERAN DAN ILMU KESEHATAN</span>
+	</td>
+	<td align="left" valign="top" bgcolor="#CCCCCC"></td>
+	<td align="left" valign="top" bgcolor="#CCCCCC"></td>
+	<td align="left" valign="top">
+		<ul type="disc";>
+			<li>Kesehatan Masyarakat</li>
+			<li>Farmasi </li>
+			<li>Pendidikan Dokter </li>
+			<li>Ilmu Keperawatan</li>
+		</ul>
+	</td>
+</tr>
+<tr>
+	<td align="left" bgcolor="#B9D3F1">
+		<span class="style9">ILMU SOSIAL DAN ILMU POLITIK</span></td>
+	<td align="left" valign="top" bgcolor="#CCCCCC"></td>
+	<td align="left" valign="top" bgcolor="#B9D3F1">
+		<ul type="disc";>
+			<li>Sosiologi</li>
+			<li>Ilmu Politik</li>
+			<li>Ilmu Hubungan Internasional</li>
+			<li>Ilmu Hubungan Internasional Kelas Internasional</li>
+		</ul>                           	  
+	</td>
+	<td align="left" valign="top" bgcolor="#CCCCCC"></td>
+</tr>
+</table>
+                    		]]>
+                    		</html>
+			</box>
+		</center>
+	</borderlayout>
+</zk>

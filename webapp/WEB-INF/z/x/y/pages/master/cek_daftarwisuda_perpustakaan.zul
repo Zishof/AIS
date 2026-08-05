@@ -1,0 +1,112 @@
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" id="cekDaftarWisuda"
+		apply="ais.action.master.PengecekanPendaftaranWisudaPerpustakaanAction"
+		border="none" width="100%" height="100%">
+
+		<borderlayout>
+
+			<north border="none" height="100%" flex="true">
+
+
+				<grid use="ais.ui.util.MyGrid"
+					fixedLayout="true">
+					<rows>
+
+						<row>
+
+							<grid use="ais.ui.util.MyGrid" fixedLayout="true" id="grid">
+								<columns>
+									<column
+										use="ais.ui.util.MyColumnConfig" width="500px">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig">
+									</column>
+								</columns>
+								<rows>
+									<row>
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Mahasiswa"
+											id="label_mahasiswa" />
+										<bandbox cols="50"
+											use="ais.action.master.helper.AmbilDataMahasiswaBanbox"
+											id="bandboxMahasiswa" readonly="true" />
+									</row>
+									<row>
+										<label
+											use="ais.ui.util.MyLabelConfig" value="" />
+										<button
+											use="ais.ui.util.MyButtonConfig" label="C H E C K"
+											forward="onClick=onPilihMahasiswa">
+										</button>
+									</row>
+								</rows>
+							</grid>
+
+						</row>
+
+						<row>
+
+
+							<grid use="ais.ui.util.MyGrid" fixedLayout="true">
+								<columns>
+									<column
+										use="ais.ui.util.MyColumnConfig" width="500px">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig">
+									</column>
+								</columns>
+								<rows width="500px" id="rowsdata">
+
+
+
+								</rows>
+							</grid>
+
+
+
+						</row>
+
+
+						<row>
+
+							<grid use="ais.ui.util.MyGrid" fixedLayout="true" id="grid1">
+
+								<rows>
+
+									<row id="rowSimpan">
+
+										<toolbar>
+											<button
+												use="ais.ui.util.MyButtonConfig" id="btnSetuju"
+												label="Setujui" forward="onClick=onSetuju" disabled="true">
+											</button>
+											<button
+												use="ais.ui.util.MyButtonConfig" id="btnTolak" label="Tolak"
+												forward="onClick=onTolak" disabled="true">
+											</button>
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;cek_daftarwisuda_perpustakaan&quot;, &quot;Bantuan&quot;);"/>
+			</toolbar>
+									</row>
+
+								</rows>
+							</grid>
+						</row>
+
+
+					</rows>
+
+				</grid>
+
+			</north>
+
+
+		</borderlayout>
+
+	</window>
+</zk>

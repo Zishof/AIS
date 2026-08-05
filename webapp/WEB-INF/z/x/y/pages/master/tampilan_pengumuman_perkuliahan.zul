@@ -1,0 +1,32 @@
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.TampilanPengumumanPerkuliahanAction"
+		width="100%" height="100%" contentStyle="overflow:auto">
+
+		<borderlayout id="utama">
+			<center border="none" flex="true">
+				<tabbox width="100%" height="100%">
+
+					<tabs id="tabspeng"></tabs>
+
+					<tabpanels id="tabpanelspeng"></tabpanels>
+				</tabbox>
+			</center>
+			<south border="none">
+				<paging visible="false" id="paging" detailed="true" />
+			</south>
+
+
+		</borderlayout>
+
+
+	</window>
+
+	
+</zk>

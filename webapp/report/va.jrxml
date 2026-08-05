@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="KartuBayarSpmbMandiri" pageWidth="595" pageHeight="374" orientation="Landscape" whenNoDataType="AllSectionsNoDetail" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20" uuid="96db634a-7ce2-453f-b0a6-a721a170757b">
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<property name="ireport.zoom" value="1.6105100000000008"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="logo1" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="biodata_id" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[313L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="foto" class="java.io.InputStream" isForPrompting="false"/>
+	<parameter name="tahun_akademik" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2011/2012"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="barcode" class="java.lang.String" isForPrompting="false"/>
+	<queryString>
+		<![CDATA[]]>
+	</queryString>
+	<field name="nama" class="java.lang.String"/>
+	<field name="no_identitas" class="java.lang.String"/>
+	<field name="jenis_kelamin" class="java.lang.String"/>
+	<field name="tempat_lahir" class="java.lang.String"/>
+	<field name="tanggal_lahir" class="java.sql.Date"/>
+	<field name="alamat" class="java.lang.String"/>
+	<field name="asal_sma" class="java.lang.String"/>
+	<field name="prodi_1" class="java.lang.Long"/>
+	<field name="prodi_2" class="java.lang.Long"/>
+	<field name="no_registrasi" class="java.lang.String"/>
+	<field name="p1" class="java.lang.String"/>
+	<field name="p2" class="java.lang.String"/>
+	<field name="jenjang" class="java.lang.String"/>
+	<field name="prodi_pilihan" class="java.lang.String"/>
+	<field name="info" class="java.lang.String"/>
+	<field name="tanggalujian1" class="java.sql.Timestamp"/>
+	<field name="tanggalujian2" class="java.sql.Timestamp"/>
+	<field name="tanggalujian3" class="java.sql.Timestamp"/>
+	<field name="tanggalujian4" class="java.sql.Timestamp"/>
+	<field name="tanggalujian5" class="java.sql.Timestamp"/>
+	<field name="tanggalujian6" class="java.sql.Timestamp"/>
+	<field name="tanggalujian7" class="java.sql.Timestamp"/>
+	<field name="tanggalujian8" class="java.sql.Timestamp"/>
+	<field name="tanggalujian9" class="java.sql.Timestamp"/>
+	<field name="tanggalujian10" class="java.sql.Timestamp"/>
+	<field name="lokasi" class="java.lang.String"/>
+	<field name="tampilkanjadwalujiandikartuujian" class="java.lang.Boolean"/>
+	<field name="tahunakademik" class="java.lang.String"/>
+	<field name="gelombang" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="322" splitType="Stretch">
+			<staticText>
+				<reportElement key="staticText-3" x="23" y="89" width="128" height="16" uuid="d306342f-3196-4b30-b73c-e9a948d40532"/>
+				<text><![CDATA[Nama]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="167" y="89" width="368" height="16" uuid="7b0e962b-fff6-4975-b3b6-1f461fb56e08"/>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "nama" )]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-12" x="23" y="74" width="128" height="16" uuid="c7042890-220f-4d71-b3a8-e1e08743a00e"/>
+				<textElement>
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[Nomor Pembayaran]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="167" y="74" width="368" height="15" uuid="b86cbe73-8b33-449e-8353-29a87c6cab97"/>
+				<textElement>
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "va" )]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement key="line-2" x="1" y="321" width="535" height="1" uuid="d27d5d30-93ef-4795-b215-da4f8e2f01ec"/>
+				<graphicElement>
+					<pen lineWidth="1.0" lineStyle="Double"/>
+				</graphicElement>
+			</line>
+			<staticText>
+				<reportElement key="staticText-17" x="151" y="74" width="16" height="16" uuid="07a49343-b2fa-4d69-9966-173e3bbb3a9d"/>
+				<textElement>
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-18" x="151" y="89" width="16" height="16" uuid="91d1f4a6-b16e-4ced-b43f-02eaa71afc5f"/>
+				<textElement>
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-21" x="23" y="105" width="128" height="16" uuid="d945d972-e833-494a-9956-aa2ea35fcc8a"/>
+				<text><![CDATA[Nominal]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-22" x="151" y="105" width="16" height="16" uuid="818bb24c-d9e1-4d45-927c-83b31c362a7d"/>
+				<textElement>
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<textField pattern="dd MMMMM yyyy" isBlankWhenNull="true">
+				<reportElement key="textField" x="167" y="105" width="368" height="16" uuid="b7ce1302-b47d-4cc8-91ee-859e22134063"/>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "nominal" )]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-23" x="23" y="121" width="128" height="16" uuid="b8831042-2de6-47b8-a560-a53464f1d400"/>
+				<text><![CDATA[Biaya Administrasi]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-24" x="151" y="121" width="16" height="16" uuid="a3d2ef78-e155-49a7-9984-2cf24b0df8dc"/>
+				<textElement>
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="167" y="121" width="368" height="16" uuid="6c845faa-16e9-4601-b308-d0c28aa2958a"/>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "biayaAdministrasi" )]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-23" x="23" y="153" width="128" height="16" uuid="18b4eeee-6a0b-4044-81bb-2540a1cbdb3b"/>
+				<text><![CDATA[Kadalurasa]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-24" x="151" y="153" width="16" height="16" uuid="ea3e1f6e-f497-4254-86bf-712846d9ce4c"/>
+				<textElement>
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="167" y="153" width="368" height="16" uuid="ad3cbd6c-419f-4204-bc4a-e80fe595f5a2"/>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "kadalurasa" )]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-24" x="151" y="137" width="16" height="16" uuid="f29f1458-69db-413e-9ef9-2158daf2314c"/>
+				<textElement>
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-23" x="23" y="137" width="128" height="16" uuid="dcad40fb-3cfa-445c-97fb-4e13ad6f2f46"/>
+				<text><![CDATA[Biaya Total]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="168" y="137" width="368" height="16" uuid="80705fab-5bfa-4ec9-9a44-3f8133ad3717"/>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "biayaTotal" )]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-23" x="23" y="169" width="128" height="16" uuid="593f71ef-a3c6-45ea-b374-317cb1d2eb67"/>
+				<text><![CDATA[Terbilang]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="168" y="169" width="368" height="39" uuid="a787fe6f-0c86-416d-ba25-5a542ab63f1f"/>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "terbilang" )]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-24" x="151" y="169" width="16" height="16" uuid="b87cbd44-b4f6-4721-9dbb-391c31261e32"/>
+				<textElement>
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<image hAlign="Center" vAlign="Middle" onErrorType="Icon">
+				<reportElement x="23" y="185" width="145" height="136" uuid="15e3bd69-acc6-47f6-8e30-2137d1c25535"/>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "qr" )]]></imageExpression>
+			</image>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="186" y="208" width="349" height="113" uuid="ed8ec3b8-91b3-409d-8cee-42f49ecaac16"/>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "keteranganNominal1" )==null?"":$P{REPORT_PARAMETERS_MAP}.get( "keteranganNominal1" )]]></textFieldExpression>
+			</textField>
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement x="0" y="-15" width="536" height="89" uuid="b27adec4-a9ff-4eff-a363-c328a6b4444d"/>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "kop_surat" )]]></imageExpression>
+			</image>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<columnHeader>
+		<band splitType="Stretch"/>
+	</columnHeader>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band/>
+	</pageFooter>
+	<summary>
+		<band splitType="Stretch"/>
+	</summary>
+</jasperReport>

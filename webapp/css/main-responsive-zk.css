@@ -1,0 +1,1838 @@
+/* ======================================================================
+   main-responsive-zk.css
+   Shell responsif untuk MainAction / index.zul pada ZKoss 5.5.
+   Fokus: lebar 100%, mencegah scroll horizontal halaman, dan menjaga
+   scroll horizontal hanya pada komponen data yang memang lebar.
+   ====================================================================== */
+
+html,
+body {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 100% !important;
+    margin: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    background: #f6f8fb !important;
+}
+
+.main-responsive-root,
+.main-responsive-root .z-window-embedded-cnt,
+.main-responsive-root .z-window-embedded-cnt-noborder,
+.main-responsive-frame,
+.main-responsive-tabbox,
+.main-responsive-tabs,
+.main-responsive-tabpanels,
+.main-responsive-home-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+.main-responsive-root {
+    overflow-x: hidden !important;
+    background: #f6f8fb !important;
+}
+
+/*
+   ZK 5.5 membuat Messagebox, Window modal, popup, dan notification sebagai div
+   langsung di bawah body. Jangan pernah paksa body > div menjadi width:100%,
+   karena semua dialog akan melebar penuh seperti halaman utama.
+ */
+body > .z-window-modal,
+body > .z-window-highlighted,
+body > .z-window-overlapped,
+body > .z-window-popup {
+    max-width: calc(100vw - 32px) !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+body > .z-messagebox,
+body > .z-notification {
+    width: auto !important;
+    max-width: calc(100vw - 32px) !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+body > .z-window-modal .z-window-modal-cnt,
+body > .z-window-modal .z-window-modal-cnt-noborder,
+body > .z-window-highlighted .z-window-highlighted-cnt,
+body > .z-window-highlighted .z-window-highlighted-cnt-noborder,
+body > .z-window-overlapped .z-window-overlapped-cnt,
+body > .z-window-overlapped .z-window-overlapped-cnt-noborder,
+body > .z-window-popup .z-window-popup-cnt,
+body > .z-window-popup .z-window-popup-cnt-noborder {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+}
+
+body > .z-window-modal .z-borderlayout,
+body > .z-window-modal .z-tabbox,
+body > .z-window-modal .z-tabs,
+body > .z-window-modal .z-tabpanels,
+body > .z-window-overlapped .z-borderlayout,
+body > .z-window-overlapped .z-tabbox,
+body > .z-window-overlapped .z-tabs,
+body > .z-window-overlapped .z-tabpanels,
+body > .z-window-highlighted .z-borderlayout,
+body > .z-window-highlighted .z-tabbox,
+body > .z-window-highlighted .z-tabs,
+body > .z-window-highlighted .z-tabpanels,
+body > .z-window-popup .z-borderlayout,
+body > .z-window-popup .z-tabbox,
+body > .z-window-popup .z-tabs,
+body > .z-window-popup .z-tabpanels {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+body > .z-window-modal .z-grid,
+body > .z-window-modal .z-grid-body,
+body > .z-window-overlapped .z-grid,
+body > .z-window-overlapped .z-grid-body,
+body > .z-window-highlighted .z-grid,
+body > .z-window-highlighted .z-grid-body,
+body > .z-window-popup .z-grid,
+body > .z-window-popup .z-grid-body {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+body > .z-messagebox,
+.z-messagebox {
+    width: auto !important;
+    max-width: 720px !important;
+    min-width: 320px !important;
+    box-sizing: border-box !important;
+}
+
+.z-window-modal .z-messagebox,
+.z-window-highlighted .z-messagebox,
+.z-messagebox .z-label {
+    max-width: 100% !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    box-sizing: border-box !important;
+}
+
+body > .z-notification,
+.z-notification,
+.z-notification-content {
+    width: auto !important;
+    max-width: 420px !important;
+    min-width: 260px !important;
+    box-sizing: border-box !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+}
+
+.main-responsive-root .z-grid,
+.main-responsive-root .z-grid-body,
+.main-responsive-root .z-rows,
+.main-responsive-root .z-row,
+.main-responsive-root .z-row-inner,
+.main-responsive-root .z-cell,
+.main-responsive-root .z-grid-odd,
+.main-responsive-root .z-grid-odd .z-row-inner {
+    box-sizing: border-box !important;
+}
+
+.main-responsive-header,
+.main-responsive-header-grid,
+.main-responsive-module-row {
+    background: #0c71c3 !important;
+    color: #fff !important;
+    border: 0 !important;
+}
+
+.main-responsive-header {
+    position: relative !important;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, .16) !important;
+    z-index: 5 !important;
+}
+
+.main-responsive-header-grid,
+.main-responsive-header-grid .z-grid-body,
+.main-responsive-header-grid .z-row-inner,
+.main-responsive-header-grid .z-cell {
+    background: transparent !important;
+    border: 0 !important;
+}
+
+.main-responsive-header .title1 {
+    display: block !important;
+    max-width: 68vw !important;
+    color: #fff !important;
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    line-height: 1.18 !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    text-shadow: 0 1px 4px rgba(0,0,0,.25) !important;
+}
+
+.main-responsive-header .motto {
+    display: block !important;
+    max-width: 72vw !important;
+    color: rgba(255,255,255,.88) !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    line-height: 1.25 !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+}
+
+.main-responsive-header-actions {
+    max-width: 460px !important;
+    overflow: hidden !important;
+}
+
+.main-responsive-online-button,
+.users_online_button {
+    max-width: 420px !important;
+    white-space: normal !important;
+    line-height: 1.15 !important;
+    padding: 4px 10px !important;
+    border-radius: 999px !important;
+    background: rgba(255,255,255,.15) !important;
+    border: 1px solid rgba(255,255,255,.24) !important;
+    color: #fff !important;
+}
+
+.main-responsive-module-row .z-hbox {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    white-space: nowrap !important;
+    box-sizing: border-box !important;
+    padding: 5px 10px !important;
+}
+
+.main-responsive-module-row .z-toolbarbutton {
+    margin: 0 1px !important;
+    max-width: 150px !important;
+}
+
+.main-responsive-frame,
+.main-responsive-frame.z-borderlayout {
+    background: #f6f8fb !important;
+    overflow: hidden !important;
+}
+
+/*
+   Jangan paksa region center menjadi width:100%.
+   ZK Borderlayout menghitung sendiri lebar center berdasarkan kondisi West/menu kiri.
+   Jika center dipaksa 100%, dashboard akan tertutup/terpotong selebar sidebar.
+ */
+.main-responsive-center,
+.main-responsive-center.z-center,
+.main-responsive-center .z-center-body {
+    background: #f6f8fb !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+}
+
+.main-responsive-center.z-center {
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+.main-responsive-center .z-center-body {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+.main-responsive-sidebar,
+.main-responsive-sidebar .z-west-body {
+    max-width: 88vw !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+}
+
+.main-responsive-tabbox {
+    border: 0 !important;
+    background: transparent !important;
+    overflow: hidden !important;
+}
+
+.main-responsive-tabs {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    white-space: nowrap !important;
+}
+
+.main-responsive-tabpanels {
+    background: #f6f8fb !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+}
+
+.main-responsive-tabpanels .z-tabpanel,
+.main-responsive-home-panel,
+.main-responsive-home-panel .z-tabpanel-cnt {
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+    box-sizing: border-box !important;
+}
+
+.main-responsive-home-panel,
+.main-responsive-tabpanels .z-tabpanel {
+    padding: 8px !important;
+}
+
+.main-dashboard-frame,
+.main-dashboard-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+}
+
+.main-dashboard-frame {
+    height: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
+}
+
+.main-dashboard-content {
+    min-height: 0 !important;
+    max-height: 100% !important;
+}
+
+.main-dashboard-content > .z-portallayout {
+    height: auto !important;
+    min-height: 100% !important;
+    overflow: visible !important;
+}
+
+.main-dashboard-tabbox,
+.main-dashboard-tabpanels,
+.main-dashboard-tabpanel,
+.main-dashboard-frame .z-tabbox,
+.main-dashboard-frame .z-tabpanels,
+.main-dashboard-frame .z-tabpanel,
+.main-dashboard-content .z-tabbox,
+.main-dashboard-content .z-tabpanels,
+.main-dashboard-content .z-tabpanel {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+}
+
+.main-dashboard-tabpanels,
+.main-dashboard-tabpanel,
+.main-dashboard-frame .z-tabpanels,
+.main-dashboard-frame .z-tabpanel,
+.main-dashboard-content .z-tabpanels,
+.main-dashboard-content .z-tabpanel,
+.main-dashboard-frame .z-tabpanel-cnt,
+.main-dashboard-content .z-tabpanel-cnt {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
+.main-responsive-home-panel .z-grid,
+.main-responsive-home-panel .z-borderlayout,
+.main-responsive-home-panel .z-window-embedded,
+.main-responsive-tabpanels .z-grid,
+.main-responsive-tabpanels .z-borderlayout,
+.main-responsive-tabpanels .z-window-embedded {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.main-responsive-home-panel .z-grid-body,
+.main-responsive-tabpanels .z-grid-body {
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+}
+
+.main-home-stack {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+.main-announcement-panel,
+.main-profile-bottom-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    border: 1px solid rgba(148, 163, 184, .28) !important;
+    border-radius: 14px !important;
+    background: #ffffff !important;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, .08) !important;
+    overflow: hidden !important;
+}
+
+.main-announcement-header,
+.main-profile-bottom-header {
+    width: 100% !important;
+    padding: 14px 16px !important;
+    box-sizing: border-box !important;
+    background: linear-gradient(135deg, #f8fafc 0%, #eef6ff 100%) !important;
+    border-bottom: 1px solid rgba(148, 163, 184, .22) !important;
+}
+
+.main-announcement-title,
+.main-profile-bottom-title {
+    display: block !important;
+    font-size: 17px !important;
+    line-height: 1.25 !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    letter-spacing: 0 !important;
+}
+
+.main-announcement-subtitle,
+.main-profile-bottom-subtitle {
+    display: block !important;
+    margin-top: 3px !important;
+    font-size: 12px !important;
+    line-height: 1.35 !important;
+    font-weight: 600 !important;
+    color: #64748b !important;
+    white-space: normal !important;
+}
+
+.main-announcement-count {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 64px !important;
+    padding: 6px 10px !important;
+    border-radius: 999px !important;
+    background: #0f766e !important;
+    color: #fff !important;
+    font-size: 11px !important;
+    font-weight: 800 !important;
+}
+
+.main-announcement-grid {
+    padding: 10px 12px 14px 12px !important;
+    box-sizing: border-box !important;
+}
+
+.main-announcement-grid .z-grid-body,
+.main-announcement-grid .z-row,
+.main-announcement-grid .z-row-inner,
+.main-announcement-grid .z-cell,
+.main-announcement-grid .z-grid-odd,
+.main-announcement-grid .z-grid-odd .z-row-inner {
+    background: transparent !important;
+    border: 0 !important;
+}
+
+.main-announcement-group {
+    margin-top: 8px !important;
+    color: #334155 !important;
+    font-size: 12px !important;
+    text-transform: uppercase !important;
+    letter-spacing: .04em !important;
+}
+
+.main-announcement-group-primary {
+    color: #075985 !important;
+}
+
+.main-announcement-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    margin: 6px 0 !important;
+    padding: 12px 14px !important;
+    border: 1px solid rgba(148, 163, 184, .25) !important;
+    border-radius: 12px !important;
+    background: #ffffff !important;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, .05) !important;
+}
+
+.main-announcement-card-primary {
+    border-color: rgba(14, 165, 233, .34) !important;
+    background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 72%) !important;
+}
+
+.main-announcement-meta {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    margin-bottom: 7px !important;
+}
+
+.main-announcement-chip {
+    display: inline-flex !important;
+    align-items: center !important;
+    max-width: 100% !important;
+    padding: 4px 8px !important;
+    border-radius: 999px !important;
+    background: #f1f5f9 !important;
+    color: #475569 !important;
+    border: 1px solid rgba(148, 163, 184, .22) !important;
+    font-size: 10px !important;
+    line-height: 1.2 !important;
+    font-weight: 800 !important;
+    white-space: normal !important;
+}
+
+.main-announcement-chip-primary {
+    background: #e0f2fe !important;
+    color: #075985 !important;
+    border-color: rgba(14, 165, 233, .28) !important;
+}
+
+.main-announcement-link,
+.main-announcement-link .z-toolbarbutton-cnt {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    color: #0f172a !important;
+    background: transparent !important;
+    border: 0 !important;
+    padding: 0 !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    text-decoration: none !important;
+}
+
+.main-announcement-link:hover,
+.main-announcement-link:hover .z-toolbarbutton-cnt {
+    color: #0369a1 !important;
+    text-decoration: underline !important;
+}
+
+.main-announcement-desc {
+    display: block !important;
+    margin-top: 6px !important;
+    max-width: 100% !important;
+    color: #475569 !important;
+    font-size: 12px !important;
+    line-height: 1.45 !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+}
+
+.main-profile-bottom-panel {
+    margin-top: 14px !important;
+}
+
+.main-profile-bottom-body {
+    padding: 12px !important;
+    background: #ffffff !important;
+}
+
+.main-profile-bottom-body .z-grid,
+.main-profile-bottom-body .z-grid-body,
+.main-profile-bottom-body .z-row,
+.main-profile-bottom-body .z-row-inner,
+.main-profile-bottom-body .z-cell,
+.main-profile-bottom-body .z-borderlayout,
+.main-profile-bottom-body .z-window-embedded,
+.main-profile-bottom-body .z-window-embedded-cnt-noborder {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.main-profile-bottom-body .z-grid-body {
+    overflow-x: auto !important;
+}
+
+.main-profile-bottom-body .z-east,
+.main-profile-bottom-body .z-east-body {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+}
+
+.main-responsive-floating-button,
+.main-responsive-floating-menu,
+.customerService,
+.back_to_top {
+    z-index: 9999 !important;
+}
+
+@media (max-width: 768px) {
+    body > .z-window-modal,
+    body > .z-window-highlighted,
+    body > .z-window-overlapped,
+    body > .z-window-popup,
+    body > .z-messagebox,
+    body > .z-notification,
+    .z-messagebox,
+    .z-notification,
+    .z-notification-content {
+        max-width: calc(100vw - 16px) !important;
+        min-width: 0 !important;
+    }
+
+    .main-responsive-header .title1 {
+        max-width: 92vw !important;
+        font-size: 14px !important;
+        text-align: center !important;
+    }
+
+    .main-responsive-header .motto {
+        max-width: 92vw !important;
+        font-size: 11px !important;
+        text-align: center !important;
+    }
+
+    .main-responsive-home-panel,
+    .main-responsive-tabpanels .z-tabpanel {
+        padding: 6px !important;
+    }
+
+    .main-home-stack {
+        padding: 7px !important;
+    }
+
+    .main-announcement-header,
+    .main-profile-bottom-header {
+        padding: 12px !important;
+        display: block !important;
+    }
+
+    .main-announcement-title,
+    .main-profile-bottom-title {
+        font-size: 15px !important;
+    }
+
+    .main-announcement-count {
+        margin-top: 8px !important;
+    }
+
+    .main-announcement-grid {
+        padding: 8px !important;
+    }
+
+    .main-announcement-card {
+        padding: 11px !important;
+    }
+
+    .main-announcement-chip {
+        font-size: 9px !important;
+        padding: 4px 7px !important;
+    }
+
+    .main-profile-bottom-body {
+        padding: 8px !important;
+    }
+
+    .main-responsive-sidebar,
+    .main-responsive-sidebar .z-west-body {
+        width: 88vw !important;
+    }
+}
+
+
+/* ======================================================================
+   Modern announcement board + ZK Borderlayout side-header guard.
+   Patch 2026-06-09: mencegah z-east-header/z-west-header ikut diberi
+   tinggi penuh saat Borderlayout berada di dalam MyWindow/modal.
+   ====================================================================== */
+
+.main-announcement-board-panel {
+    border-radius: 18px !important;
+    border: 1px solid rgba(180, 83, 9, .18) !important;
+    background: linear-gradient(180deg, #fffaf0 0%, #ffffff 54%) !important;
+    box-shadow: 0 18px 44px rgba(120, 53, 15, .12) !important;
+}
+
+.main-announcement-board-header {
+    background: linear-gradient(135deg, #78350f 0%, #b45309 48%, #f59e0b 100%) !important;
+    color: #ffffff !important;
+    border-bottom: 0 !important;
+}
+
+.main-announcement-board-title,
+.main-announcement-board-subtitle {
+    color: #ffffff !important;
+}
+
+.main-announcement-board-count {
+    background: rgba(255,255,255,.18) !important;
+    border: 1px solid rgba(255,255,255,.34) !important;
+    color: #ffffff !important;
+    white-space: nowrap !important;
+}
+
+.main-announcement-search-panel {
+    gap: 6px !important;
+    flex-wrap: wrap !important;
+}
+
+.main-announcement-search-input {
+    min-width: 240px !important;
+    background: #ffffff !important;
+}
+
+.main-announcement-search-button,
+.main-announcement-page-button {
+    cursor: pointer !important;
+    text-decoration: none !important;
+}
+
+.main-announcement-board-grid {
+    background: linear-gradient(135deg, rgba(253, 230, 138, .36) 0%, rgba(255,255,255,.9) 42%, rgba(254, 243, 199, .28) 100%) !important;
+}
+
+.main-announcement-board-grid .z-grid-body {
+    background: transparent !important;
+}
+
+.main-announcement-board-grid .main-announcement-card {
+    border-radius: 14px !important;
+    border-left: 5px solid #f59e0b !important;
+    box-shadow: 0 10px 22px rgba(120, 53, 15, .08) !important;
+}
+
+.main-announcement-board-grid .main-announcement-card-primary {
+    border-left-color: #0284c7 !important;
+}
+
+.main-announcement-pager {
+    padding: 10px 8px 4px 8px !important;
+    gap: 6px !important;
+    flex-wrap: wrap !important;
+}
+
+.main-announcement-page-button,
+.main-announcement-page-button .z-toolbarbutton-cnt {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 30px !important;
+    min-height: 26px !important;
+    padding: 4px 9px !important;
+    border-radius: 999px !important;
+    border: 1px solid #cbd5e1 !important;
+    background: #ffffff !important;
+    color: #334155 !important;
+    font-weight: 800 !important;
+    font-size: 11px !important;
+}
+
+.main-announcement-page-active,
+.main-announcement-page-active .z-toolbarbutton-cnt {
+    background: #0f766e !important;
+    border-color: #0d9488 !important;
+    color: #ffffff !important;
+}
+
+body > .z-window-modal .z-east-header,
+body > .z-window-modal .z-west-header,
+body > .z-window-modal .z-north-header,
+body > .z-window-modal .z-south-header,
+body > .z-window-overlapped .z-east-header,
+body > .z-window-overlapped .z-west-header,
+body > .z-window-overlapped .z-north-header,
+body > .z-window-overlapped .z-south-header,
+body > .z-window-highlighted .z-east-header,
+body > .z-window-highlighted .z-west-header,
+body > .z-window-highlighted .z-north-header,
+body > .z-window-highlighted .z-south-header,
+body > .z-window-popup .z-east-header,
+body > .z-window-popup .z-west-header,
+body > .z-window-popup .z-north-header,
+body > .z-window-popup .z-south-header,
+.ais-mywindow .z-east-header,
+.ais-mywindow .z-west-header,
+.ais-mywindow .z-north-header,
+.ais-mywindow .z-south-header {
+    height: auto !important;
+    min-height: 24px !important;
+    max-height: 32px !important;
+    line-height: 18px !important;
+    padding: 4px 8px !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+}
+
+.ais-mywindow .z-east-body,
+.ais-mywindow .z-west-body,
+.ais-mywindow .z-center-body,
+body > .z-window-modal .z-east-body,
+body > .z-window-modal .z-west-body,
+body > .z-window-overlapped .z-east-body,
+body > .z-window-overlapped .z-west-body,
+body > .z-window-highlighted .z-east-body,
+body > .z-window-highlighted .z-west-body {
+    box-sizing: border-box !important;
+}
+
+@media (max-width: 768px) {
+    .main-announcement-search-input {
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    .main-announcement-search-panel .z-toolbarbutton {
+        margin-top: 6px !important;
+    }
+}
+
+/* ======================================================================
+   Theme-aware announcement board.
+   Patch 2026-06-09j: warna papan pengumuman mengikuti CSS tenant/sekolah
+   yang dipilih MyThemeProvider melalui CSS variable --ais-theme-*.
+   ====================================================================== */
+
+.main-announcement-board-panel,
+.main-announcement-panel {
+    border-color: rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .22) !important;
+    background: linear-gradient(180deg, rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .08) 0%, #ffffff 56%) !important;
+    box-shadow: 0 18px 44px rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .14) !important;
+}
+
+.main-announcement-board-header,
+.main-announcement-header {
+    background: var(--ais-theme-primary-bg, linear-gradient(135deg, #0c71c3 0%, #0f766e 100%)) !important;
+    color: var(--ais-theme-contrast, #ffffff) !important;
+    border-bottom: 0 !important;
+}
+
+.main-announcement-board-title,
+.main-announcement-board-subtitle,
+.main-announcement-title,
+.main-announcement-subtitle {
+    color: var(--ais-theme-contrast, #ffffff) !important;
+}
+
+.main-announcement-board-count,
+.main-announcement-count {
+    background: rgba(255, 255, 255, .18) !important;
+    border: 1px solid rgba(255, 255, 255, .34) !important;
+    color: var(--ais-theme-contrast, #ffffff) !important;
+}
+
+.main-announcement-search-panel {
+    background: linear-gradient(90deg, rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .08) 0%, rgba(255, 255, 255, .92) 100%) !important;
+    border-bottom: 1px solid rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .20) !important;
+}
+
+.main-announcement-search-input,
+.main-announcement-search-input input {
+    background: #ffffff !important;
+    border: 1px solid rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .32) !important;
+    color: #0f172a !important;
+}
+
+.main-announcement-search-input:focus,
+.main-announcement-search-input input:focus {
+    border-color: var(--ais-theme-primary, #0c71c3) !important;
+    box-shadow: 0 0 0 3px rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .15) !important;
+}
+
+.main-announcement-search-primary,
+.main-announcement-search-primary .z-toolbarbutton-cnt {
+    background: var(--ais-theme-primary-bg, var(--ais-theme-primary, #0c71c3)) !important;
+    border-color: var(--ais-theme-primary, #0c71c3) !important;
+    color: var(--ais-theme-contrast, #ffffff) !important;
+}
+
+.main-announcement-search-button:not(.main-announcement-search-primary),
+.main-announcement-search-button:not(.main-announcement-search-primary) .z-toolbarbutton-cnt {
+    background: #ffffff !important;
+    border-color: rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .30) !important;
+    color: var(--ais-theme-primary, #0c71c3) !important;
+}
+
+.main-announcement-board-grid {
+    background: linear-gradient(135deg, rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .08) 0%, rgba(255,255,255,.96) 42%, rgba(var(--ais-theme-accent-rgb, 15, 118, 110), .06) 100%) !important;
+}
+
+.main-announcement-group,
+.main-announcement-group .z-label {
+    color: #334155 !important;
+}
+
+.main-announcement-group-primary,
+.main-announcement-group-primary .z-label {
+    color: var(--ais-theme-primary, #0c71c3) !important;
+}
+
+.main-announcement-card,
+.main-announcement-board-card {
+    border-color: rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .18) !important;
+    border-left: 5px solid rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .70) !important;
+    background: #ffffff !important;
+    box-shadow: 0 10px 22px rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .08) !important;
+}
+
+.main-announcement-card-primary,
+.main-announcement-board-card.main-announcement-card-primary,
+.main-announcement-board-grid .main-announcement-card-primary {
+    border-color: rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .34) !important;
+    border-left-color: var(--ais-theme-primary, #0c71c3) !important;
+    background: linear-gradient(135deg, rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .12) 0%, #ffffff 76%) !important;
+}
+
+.main-announcement-chip {
+    background: rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .08) !important;
+    color: #475569 !important;
+    border-color: rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .18) !important;
+}
+
+.main-announcement-chip-primary {
+    background: rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .16) !important;
+    color: var(--ais-theme-primary, #0c71c3) !important;
+    border-color: rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .30) !important;
+}
+
+.main-announcement-link,
+.main-announcement-link .z-toolbarbutton-cnt {
+    color: #0f172a !important;
+}
+
+.main-announcement-link:hover,
+.main-announcement-link:hover .z-toolbarbutton-cnt {
+    color: var(--ais-theme-primary, #0c71c3) !important;
+}
+
+.main-announcement-desc,
+.main-announcement-board-desc {
+    color: #475569 !important;
+}
+
+.main-announcement-page-button,
+.main-announcement-page-button .z-toolbarbutton-cnt {
+    background: #ffffff !important;
+    border-color: rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .26) !important;
+    color: var(--ais-theme-primary, #0c71c3) !important;
+}
+
+.main-announcement-page-active,
+.main-announcement-page-active .z-toolbarbutton-cnt {
+    background: var(--ais-theme-primary-bg, var(--ais-theme-primary, #0c71c3)) !important;
+    border-color: var(--ais-theme-primary, #0c71c3) !important;
+    color: var(--ais-theme-contrast, #ffffff) !important;
+}
+
+.main-announcement-empty {
+    color: #64748b !important;
+    border: 1px dashed rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .28) !important;
+    background: rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .06) !important;
+}
+
+/* ======================================================================
+   Theme-aware header + daily attendance board.
+   Patch 2026-06-09k.
+   ====================================================================== */
+.main-responsive-header,
+.headerHbox.main-responsive-header,
+.main-responsive-header-grid,
+.main-responsive-module-row {
+    background: var(--ais-theme-primary-bg, var(--ais-theme-primary, #0c71c3)) !important;
+    color: var(--ais-theme-contrast, #ffffff) !important;
+}
+
+.main-responsive-header .title1,
+.main-responsive-header .motto,
+.main-responsive-header .z-label,
+.main-responsive-header .z-a,
+.main-responsive-header .z-toolbarbutton-cnt,
+.main-responsive-module-row .z-toolbarbutton-cnt {
+    color: var(--ais-theme-contrast, #ffffff) !important;
+}
+
+.main-responsive-header .user_button_profile,
+.main-responsive-header .user_button_profile .z-label,
+.main-responsive-header .user_button_profile i {
+    color: var(--ais-theme-contrast, #ffffff) !important;
+}
+
+.main-responsive-header .user_button_profile,
+.main-responsive-online-button,
+.users_online_button {
+    background: rgba(255,255,255,.14) !important;
+    border: 1px solid rgba(255,255,255,.22) !important;
+    border-radius: 999px !important;
+}
+
+.main-responsive-module-row {
+    border-top: 1px solid rgba(255,255,255,.12) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.10) !important;
+}
+
+.main-daily-attendance-panel,
+.main-daily-attendance-html,
+.daily-attendance-board {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+.daily-attendance-board {
+    overflow: hidden !important;
+    border: 1px solid rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .22) !important;
+    border-radius: 16px !important;
+    background: #ffffff !important;
+    box-shadow: 0 16px 38px rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .12) !important;
+}
+
+.daily-attendance-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    padding: 14px 16px !important;
+    background: var(--ais-theme-primary-bg, var(--ais-theme-primary, #0c71c3)) !important;
+    color: var(--ais-theme-contrast, #ffffff) !important;
+}
+
+.daily-attendance-title {
+    font-size: 16px !important;
+    line-height: 1.25 !important;
+    font-weight: 900 !important;
+    color: var(--ais-theme-contrast, #ffffff) !important;
+}
+
+.daily-attendance-subtitle {
+    margin-top: 3px !important;
+    font-size: 12px !important;
+    line-height: 1.3 !important;
+    font-weight: 700 !important;
+    color: rgba(255,255,255,.88) !important;
+}
+
+.daily-attendance-badge {
+    flex: 0 0 auto !important;
+    padding: 6px 10px !important;
+    border-radius: 999px !important;
+    background: rgba(255,255,255,.18) !important;
+    border: 1px solid rgba(255,255,255,.30) !important;
+    color: var(--ais-theme-contrast, #ffffff) !important;
+    font-size: 10px !important;
+    font-weight: 900 !important;
+    letter-spacing: .05em !important;
+}
+
+.daily-attendance-content {
+    padding: 12px !important;
+    background: linear-gradient(135deg, rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .07) 0%, #ffffff 48%, rgba(var(--ais-theme-accent-rgb, 15,118,110), .05) 100%) !important;
+    overflow-x: auto !important;
+}
+
+.daily-attendance-content .sdosenhow-container,
+.daily-attendance-content .sguruhow-container {
+    background: transparent !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.daily-attendance-content table {
+    max-width: 100% !important;
+    border-collapse: separate !important;
+}
+
+.daily-attendance-content td[style] {
+    border: 1px solid rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .18) !important;
+    border-left: 5px solid rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .70) !important;
+    border-radius: 14px !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: 0 10px 24px rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .10) !important;
+    padding: 12px !important;
+    vertical-align: top !important;
+}
+
+.daily-attendance-content img {
+    max-width: 92px !important;
+    max-height: 92px !important;
+    border-radius: 999px !important;
+    object-fit: cover !important;
+    border: 3px solid rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .18) !important;
+    box-shadow: 0 8px 18px rgba(15,23,42,.12) !important;
+}
+
+.daily-attendance-content strong {
+    color: var(--ais-theme-primary, #0c71c3) !important;
+    font-weight: 900 !important;
+}
+
+.daily-attendance-content .dot,
+.daily-attendance-content [name^="dot"] {
+    background-color: rgba(var(--ais-theme-primary-rgb, 12, 113, 195), .30) !important;
+}
+
+.daily-attendance-content .active,
+.daily-attendance-content [name^="dot"].active {
+    background-color: var(--ais-theme-primary, #0c71c3) !important;
+}
+
+@media (max-width: 768px) {
+    .daily-attendance-header {
+        display: block !important;
+        padding: 12px !important;
+    }
+    .daily-attendance-badge {
+        display: inline-block !important;
+        margin-top: 8px !important;
+    }
+    .daily-attendance-content {
+        padding: 8px !important;
+    }
+    .daily-attendance-content td[style] {
+        display: block !important;
+        width: auto !important;
+        margin-bottom: 10px !important;
+    }
+}
+
+/* Update V8: text berjalan modern di bawah jadwal kehadiran */
+.main-running-text-panel {
+    border: 1px solid rgba(var(--ais-theme-primary-rgb, 37, 99, 235), .18) !important;
+    border-radius: 14px !important;
+    background: linear-gradient(135deg, rgba(var(--ais-theme-primary-rgb, 37, 99, 235), .08), rgba(255,255,255,.92)) !important;
+    box-shadow: 0 10px 22px rgba(15, 23, 42, .08) !important;
+    overflow: hidden !important;
+}
+.main-running-text-html {
+    display: block !important;
+    padding: 8px 12px !important;
+    color: var(--ais-theme-primary, #2563eb) !important;
+    font-weight: 700 !important;
+    letter-spacing: .01em !important;
+}
+.main-running-text-html marquee {
+    line-height: 22px !important;
+}
+
+
+/* Patch 2026-06-11: collapse menu kiri ZK 5.5 harus benar-benar melepas ruang lama. */
+.main-responsive-frame .main-responsive-sidebar.ais-sidebar-collapsed,
+.main-responsive-frame .main-responsive-sidebar.z-west-collapsed,
+.main-responsive-frame .main-responsive-sidebar.z-west-colpsd {
+    width: 24px !important;
+    min-width: 24px !important;
+    max-width: 24px !important;
+    overflow: visible !important;
+}
+.main-responsive-frame .main-responsive-sidebar.ais-sidebar-collapsed .z-west-body,
+.main-responsive-frame .main-responsive-sidebar.z-west-collapsed .z-west-body,
+.main-responsive-frame .main-responsive-sidebar.z-west-colpsd .z-west-body {
+    display: none !important;
+}
+.main-responsive-frame .main-responsive-center,
+.main-responsive-frame .main-responsive-center .z-center-body {
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* Patch 2026-06-11: daftar pengajuan transfer diberi ruang vertikal lebih lega. */
+.dpt-window,
+.dpt-tabbox,
+.dpt-tabpanels,
+.dpt-list-panel,
+.dpt-list-layout,
+.dpt-list-wrapper,
+.dpt-data-grid {
+    box-sizing: border-box !important;
+    max-width: 100% !important;
+}
+.dpt-tabbox,
+.dpt-window {
+    min-height: 2200px !important;
+    overflow: visible !important;
+}
+.dpt-tabpanels,
+.dpt-list-panel {
+    min-height: 2150px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+.dpt-list-layout {
+    min-height: 2100px !important;
+    overflow: visible !important;
+}
+/* Mobile: hapus min-height besar agar tidak overflow layar kecil */
+@media (max-width: 768px) {
+    .dpt-tabbox,
+    .dpt-window {
+        min-height: 0 !important;
+        height: auto !important;
+        overflow-y: auto !important;
+    }
+    .dpt-tabpanels,
+    .dpt-list-panel {
+        min-height: 0 !important;
+        height: auto !important;
+    }
+    .dpt-list-layout {
+        min-height: 0 !important;
+        height: auto !important;
+    }
+}
+.dpt-list-center,
+.dpt-list-center .z-center-body,
+.dpt-list-wrapper,
+.dpt-data-grid,
+.dpt-data-grid .z-grid-body {
+    overflow-y: auto !important;
+    overflow-x: auto !important;
+}
+.dpt-data-grid .z-row,
+.dpt-data-grid .z-row-inner,
+.dpt-data-grid .z-cell,
+.dpt-list-wrapper .z-row,
+.dpt-list-wrapper .z-row-inner,
+.dpt-list-wrapper .z-cell {
+    overflow: visible !important;
+}
+
+/* Header dropdown menu: sidebar kiri dinonaktifkan, menu muncul dari tombol Menu. */
+.main-responsive-header-menu-button {
+    margin-left: 4px !important;
+}
+
+.main-responsive-menu-popup,
+.z-popup.main-responsive-menu-popup,
+.main-responsive-menu-popup .z-popup-cnt {
+    width: 340px !important;
+    max-width: 92vw !important;
+    height: 85vh !important;
+    max-height: 85vh !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+}
+
+.main-responsive-menu-popup .z-grid-body {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
+.main-responsive-sidebar-dropdown-hidden,
+.main-responsive-sidebar-dropdown-hidden.z-west,
+.main-responsive-sidebar-dropdown-hidden .z-west-body {
+    display: none !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    overflow: hidden !important;
+}
+
+/* Patch 2026-06-11: dropdown menu header - tombol Menu paling kiri, kontras,
+   popup rapi, dan hilangkan ruang kosong bekas West/sidebar. */
+.main-responsive-module-row .main-responsive-header-menu-primary,
+.main-responsive-module-strip .main-responsive-header-menu-primary,
+.main-responsive-module-row .main-responsive-header-menu-primary .z-toolbarbutton-body,
+.main-responsive-module-strip .main-responsive-header-menu-primary .z-toolbarbutton-body,
+.main-responsive-module-row .main-responsive-header-menu-primary .z-toolbarbutton-cnt,
+.main-responsive-module-strip .main-responsive-header-menu-primary .z-toolbarbutton-cnt {
+    background: linear-gradient(135deg, #f59e0b, #f97316) !important;
+    border-color: rgba(255, 255, 255, 0.72) !important;
+    color: #ffffff !important;
+    font-weight: 900 !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.38) !important;
+    box-shadow: 0 7px 18px rgba(249, 115, 22, 0.32) !important;
+}
+.main-responsive-module-row .main-responsive-header-menu-primary,
+.main-responsive-module-strip .main-responsive-header-menu-primary {
+    margin-left: 0 !important;
+    margin-right: 8px !important;
+}
+.main-responsive-module-row .main-responsive-header-menu-primary:hover,
+.main-responsive-module-strip .main-responsive-header-menu-primary:hover,
+.main-responsive-module-row .main-responsive-header-menu-primary.z-toolbarbutton-over,
+.main-responsive-module-strip .main-responsive-header-menu-primary.z-toolbarbutton-over {
+    background: linear-gradient(135deg, #fb923c, #ea580c) !important;
+    border-color: #ffffff !important;
+    box-shadow: 0 9px 24px rgba(249, 115, 22, 0.42) !important;
+}
+
+.main-responsive-menu-popup .z-menubar-ver,
+.main-responsive-menu-popup .z-menubar-ver table,
+.main-responsive-menu-popup .z-menubar-ver tbody,
+.main-responsive-menu-popup .z-menubar-ver tr,
+.main-responsive-menu-popup .z-menubar-ver td {
+    background-image: none !important;
+}
+.main-responsive-menu-popup .z-menubar-ver .z-menu-btn,
+.main-responsive-menu-popup .z-menubar-ver .z-menu-item-btn,
+.main-responsive-menu-popup .z-menu-popup .z-menu-btn,
+.main-responsive-menu-popup .z-menu-popup .z-menu-item-btn {
+    background-repeat: no-repeat !important;
+    background-position: 9px center !important;
+    background-size: 13px 13px !important;
+    padding-left: 29px !important;
+    padding-right: 8px !important;
+    box-sizing: border-box !important;
+    text-align: left !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+.main-responsive-menu-popup .z-menu-img,
+.main-responsive-menu-popup .z-menu-item-img,
+.main-responsive-menu-popup .z-menu-cnt-img .z-menu-img,
+.main-responsive-menu-popup .z-menu-item-cnt .z-menu-item-img {
+    display: inline-block !important;
+    width: 14px !important;
+    min-width: 14px !important;
+    max-width: 14px !important;
+    height: 14px !important;
+    min-height: 14px !important;
+    max-height: 14px !important;
+    margin-right: 6px !important;
+    background-repeat: no-repeat !important;
+    background-position: center center !important;
+    background-size: 12px 12px !important;
+    vertical-align: -2px !important;
+}
+.main-responsive-menu-popup .z-menu-popup-cnt,
+.main-responsive-menu-popup .z-menu-popup-cnt li,
+.main-responsive-menu-popup .z-menu-popup-cnt .z-menu-item-cnt,
+.main-responsive-menu-popup .z-menu-popup-cnt .z-menu-cnt {
+    background-repeat: no-repeat !important;
+    background-image: none !important;
+}
+
+.main-responsive-frame .main-responsive-sidebar-dropdown-hidden,
+.main-responsive-frame .main-responsive-sidebar-dropdown-hidden.z-west,
+.main-responsive-frame .main-responsive-sidebar-dropdown-hidden.z-west-noborder,
+.main-responsive-frame .main-responsive-sidebar-dropdown-hidden .z-west-body {
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    left: -9999px !important;
+    overflow: hidden !important;
+}
+.main-responsive-frame > .main-responsive-center,
+.main-responsive-frame > .z-center,
+.main-responsive-frame > .z-center-noborder,
+.main-responsive-frame > div[class*="z-center"],
+.main-responsive-frame .main-responsive-center {
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+.main-responsive-frame > .main-responsive-center .z-center-body,
+.main-responsive-frame > .z-center .z-center-body,
+.main-responsive-frame > .z-center-noborder .z-center-body,
+.main-responsive-frame > div[class*="z-center"] > .z-center-body,
+.main-responsive-frame .main-responsive-center .z-center-body {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+
+/* Patch 2026-06-11: hilangkan total ruang kosong bekas West saat menu utama dipindahkan ke dropdown header.
+   Catatan: <popup id="popupmenu"> tidak mengambil ruang layout. Ruang kosong berasal dari region West/Borderlayout
+   dan aturan lama yang memberi left:250px pada Center. Selector berikut dibuat lebih spesifik daripada aturan lama. */
+.ecampus-dropdown-menu-active .main-responsive-frame .z-west.navigasi.main-responsive-sidebar,
+.ecampus-dropdown-menu-active .main-responsive-frame .z-west-noborder.navigasi.main-responsive-sidebar,
+.ecampus-dropdown-menu-active .main-responsive-frame .z-west.main-responsive-sidebar-dropdown-hidden,
+.ecampus-dropdown-menu-active .main-responsive-frame .z-west-noborder.main-responsive-sidebar-dropdown-hidden,
+.main-responsive-frame.main-responsive-frame-dropdown .z-west.navigasi.main-responsive-sidebar,
+.main-responsive-frame.main-responsive-frame-dropdown .z-west-noborder.navigasi.main-responsive-sidebar,
+.main-responsive-frame.main-responsive-frame-dropdown .z-west.main-responsive-sidebar-dropdown-hidden,
+.main-responsive-frame.main-responsive-frame-dropdown .z-west-noborder.main-responsive-sidebar-dropdown-hidden,
+.main-responsive-frame.main-responsive-frame-dropdown .main-responsive-sidebar,
+.main-responsive-frame.main-responsive-frame-dropdown .main-responsive-sidebar-dropdown-hidden,
+.main-responsive-frame.main-responsive-frame-dropdown .navigasi {
+    display: none !important;
+    visibility: hidden !important;
+    left: -9999px !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    overflow: hidden !important;
+}
+.ecampus-dropdown-menu-active .main-responsive-frame .z-west.navigasi.main-responsive-sidebar .z-west-body,
+.ecampus-dropdown-menu-active .main-responsive-frame .z-west-noborder.navigasi.main-responsive-sidebar .z-west-body,
+.main-responsive-frame.main-responsive-frame-dropdown .z-west.navigasi.main-responsive-sidebar .z-west-body,
+.main-responsive-frame.main-responsive-frame-dropdown .z-west-noborder.navigasi.main-responsive-sidebar .z-west-body,
+.main-responsive-frame.main-responsive-frame-dropdown .main-responsive-sidebar .z-west-body,
+.main-responsive-frame.main-responsive-frame-dropdown .main-responsive-sidebar-dropdown-hidden .z-west-body {
+    display: none !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    overflow: hidden !important;
+}
+.ecampus-dropdown-menu-active .main-responsive-frame .z-center.main-responsive-center,
+.ecampus-dropdown-menu-active .main-responsive-frame .z-center-noborder.main-responsive-center,
+.ecampus-dropdown-menu-active .main-responsive-frame .main-responsive-center,
+.main-responsive-frame.main-responsive-frame-dropdown .z-center.main-responsive-center,
+.main-responsive-frame.main-responsive-frame-dropdown .z-center-noborder.main-responsive-center,
+.main-responsive-frame.main-responsive-frame-dropdown .main-responsive-center,
+.main-responsive-frame.main-responsive-frame-dropdown > .z-center,
+.main-responsive-frame.main-responsive-frame-dropdown > .z-center-noborder,
+.main-responsive-frame.main-responsive-frame-dropdown > div[class*="z-center"] {
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin-left: 0 !important;
+    box-sizing: border-box !important;
+}
+.ecampus-dropdown-menu-active .main-responsive-frame .z-center.main-responsive-center .z-center-body,
+.ecampus-dropdown-menu-active .main-responsive-frame .z-center-noborder.main-responsive-center .z-center-body,
+.main-responsive-frame.main-responsive-frame-dropdown .z-center.main-responsive-center .z-center-body,
+.main-responsive-frame.main-responsive-frame-dropdown .z-center-noborder.main-responsive-center .z-center-body,
+.main-responsive-frame.main-responsive-frame-dropdown .main-responsive-center .z-center-body,
+.main-responsive-frame.main-responsive-frame-dropdown .main-responsive-center .z-center-body-noborder {
+    left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin-left: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* Patch 2026-06-11: stabilkan dropdown header pada mobile, jangan kembali ke header mobile legacy. */
+@media (max-width: 768px) {
+    body.ecampus-dropdown-menu-active .main-responsive-header,
+    .main-responsive-header.main-responsive-header-mobile-dropdown,
+    .headerHbox.main-responsive-header-mobile-dropdown {
+        min-height: 88px !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+    body.ecampus-dropdown-menu-active .headerHbox_mobile.main-responsive-header,
+    .headerHbox_mobile.main-responsive-header-mobile-dropdown {
+        min-height: 88px !important;
+        height: auto !important;
+        background: var(--ais-theme-primary-bg) !important;
+    }
+    .main-responsive-module-row,
+    .main-responsive-module-row-mobile-dropdown,
+    .main-responsive-module-strip {
+        max-height: 42px !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        white-space: nowrap !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+    .main-responsive-module-strip { display: block !important; }
+    .main-responsive-frame.main-responsive-frame-dropdown .main-responsive-sidebar,
+    .main-responsive-frame.main-responsive-frame-dropdown .navigasi,
+    .ecampus-dropdown-menu-active .main-responsive-frame .main-responsive-sidebar,
+    .ecampus-dropdown-menu-active .main-responsive-frame .navigasi {
+        display: none !important;
+        visibility: hidden !important;
+        width: 0 !important;
+        left: -9999px !important;
+    }
+    .main-responsive-frame.main-responsive-frame-dropdown .main-responsive-center,
+    .ecampus-dropdown-menu-active .main-responsive-frame .main-responsive-center {
+        left: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin-left: 0 !important;
+    }
+    .main-responsive-menu-popup {
+        width: 92vw !important;
+        max-width: 360px !important;
+        max-height: 82vh !important;
+        overflow: auto !important;
+    }
+}
+
+/* Patch 2026-06-11: dukungan filter collapsible dan tone pengumuman. */
+.ecampus-filter-togglebar{display:flex!important;align-items:center!important;width:100%!important;padding:7px 10px!important;margin:2px 0 6px 0!important;box-sizing:border-box!important;background:linear-gradient(135deg,rgba(239,246,255,.95),rgba(255,247,237,.78))!important;border:1px solid #d8e5f6!important;border-radius:12px!important;box-shadow:0 5px 14px rgba(15,23,42,.055)!important;}
+.ecampus-filter-toggle-button{border:0!important;outline:none!important;cursor:pointer!important;border-radius:999px!important;padding:8px 15px!important;font-size:12px!important;font-weight:800!important;color:#fff!important;background:linear-gradient(135deg,#1d4ed8,#0ea5e9)!important;box-shadow:0 7px 16px rgba(37,99,235,.24)!important;line-height:1.1!important;}
+.ecampus-smart-filter-collapsed{display:none!important;}.ecampus-smart-filter-expanded{border-radius:12px!important;box-shadow:0 8px 20px rgba(15,23,42,.06)!important;}
+.main-announcement-board-card:before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:#2563eb;opacity:.92;}.main-announcement-board-card{position:relative!important;overflow:hidden!important;}
+.main-announcement-tone-primary.main-announcement-board-card:before{background:#1d4ed8!important;}.main-announcement-tone-1.main-announcement-board-card:before{background:#0284c7!important;}.main-announcement-tone-2.main-announcement-board-card:before{background:#059669!important;}.main-announcement-tone-3.main-announcement-board-card:before{background:#d97706!important;}.main-announcement-tone-4.main-announcement-board-card:before{background:#7c3aed!important;}.main-announcement-tone-5.main-announcement-board-card:before{background:#e11d48!important;}
+
+/* Patch 2026-06-11: dropdown menu close button + informasi perubahan tampilan */
+.main-responsive-menu-searchbar {
+    padding: 10px 10px 8px 10px !important;
+    gap: 7px !important;
+    background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.04)) !important;
+    border-bottom: 1px solid rgba(255,255,255,.18) !important;
+    box-sizing: border-box !important;
+}
+.main-responsive-menu-searchbar .z-hbox-sep { width: 7px !important; }
+.main-responsive-menu-search-input,
+.main-responsive-menu-searchbar .z-textbox {
+    height: 32px !important;
+    border-radius: 9px !important;
+    border: 1px solid rgba(191,219,254,.9) !important;
+    background: rgba(255,255,255,.96) !important;
+    color: #0f172a !important;
+    padding: 5px 10px !important;
+}
+.main-responsive-menu-search-button,
+.main-responsive-menu-search-button .z-toolbarbutton-body,
+.main-responsive-menu-search-button .z-toolbarbutton-cnt {
+    width: 34px !important;
+    min-width: 34px !important;
+    height: 32px !important;
+    border-radius: 9px !important;
+    background: #173b73 !important;
+    border: 1px solid rgba(191,219,254,.55) !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+}
+.main-responsive-menu-popup-close-button,
+.main-responsive-menu-popup-close-button .z-toolbarbutton-body,
+.main-responsive-menu-popup-close-button .z-toolbarbutton-cnt {
+    height: 32px !important;
+    line-height: 30px !important;
+    border-radius: 9px !important;
+    background: linear-gradient(135deg, #ef4444, #b91c1c) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255,255,255,.75) !important;
+    font-weight: 800 !important;
+    padding: 0 10px !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+}
+.ecampus-menu-update-callout {
+    position: fixed !important;
+    z-index: 999999 !important;
+    width: 280px !important;
+    max-width: calc(100vw - 24px) !important;
+    padding: 12px 14px !important;
+    border-radius: 14px !important;
+    background: linear-gradient(135deg, #fff7ed, #ffffff) !important;
+    border: 1px solid rgba(249,115,22,.35) !important;
+    color: #7c2d12 !important;
+    box-shadow: 0 18px 44px rgba(15,23,42,.24) !important;
+    opacity: 0 !important;
+    transform: translateY(-6px) !important;
+    transition: all .18s ease !important;
+}
+.ecampus-menu-update-callout:before {
+    content: "" !important;
+    position: absolute !important;
+    top: -8px !important;
+    left: 24px !important;
+    width: 14px !important;
+    height: 14px !important;
+    background: #fff7ed !important;
+    border-left: 1px solid rgba(249,115,22,.35) !important;
+    border-top: 1px solid rgba(249,115,22,.35) !important;
+    transform: rotate(45deg) !important;
+}
+.ecampus-menu-update-callout-show { opacity: 1 !important; transform: translateY(0) !important; }
+.ecampus-menu-update-callout b { display:block !important; margin-bottom:4px !important; font-size:13px !important; font-weight:900 !important; color:#9a3412 !important; }
+.ecampus-menu-update-callout span { display:block !important; font-size:12px !important; line-height:1.45 !important; color:#7c2d12 !important; }
+.main-responsive-menu-popup,
+.z-popup.main-responsive-menu-popup,
+.main-responsive-menu-popup .z-popup-cnt {
+    width: 360px !important;
+}
+
+/* Patch 2026-06-11 V2: stronger announcement colors + popup filter. */
+.main-announcement-board-panel{background:radial-gradient(circle at 2% 0%,rgba(37,99,235,.18),transparent 29%),radial-gradient(circle at 98% 0%,rgba(14,165,233,.16),transparent 28%),linear-gradient(180deg,#fff 0%,#f5f9ff 100%)!important;border:1px solid rgba(59,130,246,.28)!important;box-shadow:0 18px 42px rgba(15,23,42,.09)!important;}
+.main-announcement-board-panel .main-announcement-hero{background:linear-gradient(135deg,rgba(30,64,175,.13),rgba(14,165,233,.09) 52%,rgba(16,185,129,.08))!important;border-bottom:1px solid rgba(96,165,250,.28)!important;}
+.main-announcement-board-panel .main-announcement-title{color:#081b45!important}.main-announcement-board-panel .main-announcement-subtitle,.main-announcement-board-desc{color:#334155!important}.main-announcement-board-panel .main-announcement-count{background:linear-gradient(135deg,#dbeafe,#eef2ff)!important;border-color:rgba(37,99,235,.34)!important;color:#1d4ed8!important;box-shadow:0 6px 14px rgba(37,99,235,.12)!important;}
+.main-announcement-board-card{border:1px solid rgba(148,163,184,.50)!important;box-shadow:0 10px 24px rgba(15,23,42,.065)!important;position:relative!important;overflow:hidden!important;}.main-announcement-board-card:before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px!important;opacity:1!important;}.main-announcement-board-card:after{content:"";position:absolute;right:-38px;top:-38px;width:86px;height:86px;border-radius:999px;background:rgba(37,99,235,.055);pointer-events:none;}
+.main-announcement-tone-primary.main-announcement-board-card,.main-announcement-card-primary.main-announcement-board-card{background:linear-gradient(90deg,rgba(29,78,216,.14),rgba(255,255,255,.98) 36%)!important;border-color:rgba(37,99,235,.32)!important;}.main-announcement-tone-1.main-announcement-board-card{background:linear-gradient(90deg,rgba(2,132,199,.14),rgba(255,255,255,.98) 36%)!important;border-color:rgba(2,132,199,.24)!important;}.main-announcement-tone-2.main-announcement-board-card{background:linear-gradient(90deg,rgba(5,150,105,.14),rgba(255,255,255,.98) 36%)!important;border-color:rgba(5,150,105,.24)!important;}.main-announcement-tone-3.main-announcement-board-card{background:linear-gradient(90deg,rgba(217,119,6,.16),rgba(255,255,255,.98) 36%)!important;border-color:rgba(217,119,6,.25)!important;}.main-announcement-tone-4.main-announcement-board-card{background:linear-gradient(90deg,rgba(124,58,237,.14),rgba(255,255,255,.98) 36%)!important;border-color:rgba(124,58,237,.24)!important;}.main-announcement-tone-5.main-announcement-board-card{background:linear-gradient(90deg,rgba(225,29,72,.13),rgba(255,255,255,.98) 36%)!important;border-color:rgba(225,29,72,.23)!important;}
+.main-announcement-board-card .main-announcement-chip{background:rgba(255,255,255,.78)!important;color:#1f2937!important;border:1px solid rgba(148,163,184,.38)!important;box-shadow:0 4px 10px rgba(15,23,42,.045)!important;}.main-announcement-board-card .main-announcement-chip-primary{background:linear-gradient(135deg,#1d4ed8,#0ea5e9)!important;color:#fff!important;border-color:rgba(255,255,255,.70)!important;text-shadow:0 1px 1px rgba(15,23,42,.25)!important;}
+.ecampus-filter-popup-togglebar{width:100%!important;min-height:42px!important;display:flex!important;align-items:center!important;padding:6px 10px!important;box-sizing:border-box!important;background:linear-gradient(135deg,#f8fafc,#eff6ff)!important;border:1px solid rgba(147,197,253,.65)!important;border-radius:12px!important;box-shadow:0 6px 14px rgba(15,23,42,.055)!important;}.ecampus-filter-popup-toggle-button{border:0!important;outline:none!important;cursor:pointer!important;border-radius:999px!important;padding:8px 16px!important;font-size:12px!important;font-weight:900!important;color:#fff!important;background:linear-gradient(135deg,#1d4ed8,#0891b2)!important;box-shadow:0 8px 18px rgba(37,99,235,.25)!important;line-height:1.1!important;}.ecampus-filter-popup-toggle-button:hover{filter:brightness(1.06)!important;transform:translateY(-1px)!important;}
+.ecampus-filter-popup-mask{position:fixed!important;z-index:99999!important;left:0!important;top:0!important;right:0!important;bottom:0!important;align-items:flex-start!important;justify-content:center!important;padding:72px 18px 18px 18px!important;box-sizing:border-box!important;background:rgba(15,23,42,.38)!important;backdrop-filter:blur(3px)!important;}.ecampus-filter-popup-window{width:min(980px,calc(100vw - 36px))!important;max-height:calc(100vh - 110px)!important;background:#fff!important;border:1px solid rgba(37,99,235,.22)!important;border-radius:18px!important;box-shadow:0 24px 70px rgba(15,23,42,.26)!important;overflow:hidden!important;box-sizing:border-box!important;}.ecampus-filter-popup-head{display:flex!important;align-items:center!important;justify-content:space-between!important;padding:13px 16px!important;background:linear-gradient(135deg,#1e3a8a,#0f766e)!important;color:#fff!important;}.ecampus-filter-popup-title{font-weight:900!important;font-size:15px!important;letter-spacing:.02em!important;}.ecampus-filter-popup-x,.ecampus-filter-popup-close{border:0!important;cursor:pointer!important;border-radius:999px!important;font-weight:900!important;}.ecampus-filter-popup-x{width:30px!important;height:30px!important;line-height:28px!important;color:#fff!important;background:rgba(255,255,255,.18)!important;border:1px solid rgba(255,255,255,.35)!important;font-size:20px!important;}.ecampus-filter-popup-x:hover{background:rgba(239,68,68,.92)!important;}.ecampus-filter-popup-info{padding:10px 16px!important;font-size:12px!important;line-height:1.45!important;color:#334155!important;background:linear-gradient(135deg,#eff6ff,#f8fafc)!important;border-bottom:1px solid rgba(226,232,240,.95)!important;}.ecampus-filter-popup-body{padding:14px 16px 8px 16px!important;max-height:calc(100vh - 250px)!important;overflow:auto!important;box-sizing:border-box!important;background:#fff!important;}.ecampus-filter-popup-body .z-grid,.ecampus-filter-popup-body .z-grid-body,.ecampus-filter-popup-body table{width:100%!important;max-width:100%!important;}.ecampus-filter-popup-body .z-toolbar{width:100%!important;display:flex!important;flex-wrap:wrap!important;gap:8px!important;align-items:center!important;}.ecampus-filter-popup-foot{display:flex!important;justify-content:flex-end!important;padding:10px 16px 14px 16px!important;background:#f8fafc!important;border-top:1px solid rgba(226,232,240,.95)!important;}.ecampus-filter-popup-close{padding:8px 18px!important;color:#fff!important;background:linear-gradient(135deg,#0f172a,#334155)!important;box-shadow:0 8px 18px rgba(15,23,42,.18)!important;}
+@media(max-width:768px){.ecampus-filter-popup-mask{padding:56px 10px 10px 10px!important}.ecampus-filter-popup-window{width:calc(100vw - 20px)!important;max-height:calc(100vh - 74px)!important;border-radius:15px!important}.ecampus-filter-popup-body{max-height:calc(100vh - 210px)!important;padding:12px!important}.ecampus-filter-popup-togglebar{padding:6px 8px!important}.ecampus-filter-popup-toggle-button{width:100%!important;padding:9px 12px!important}}
+
+/* Patch 2026-06-11 V3: override tombol popup/dropdown supaya tidak double-layer pada ZK toolbarbutton. */
+.ais-ui-update-info-ok,
+.ais-ui-update-info-ok.z-toolbarbutton,
+.main-responsive-menu-popup-close-button,
+.main-responsive-menu-popup-close-button.z-toolbarbutton {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    text-shadow: none !important;
+}
+.ais-ui-update-info-ok .z-toolbarbutton-body,
+.main-responsive-menu-popup-close-button .z-toolbarbutton-body {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+}
+.ais-ui-update-info-ok .z-toolbarbutton-cnt,
+.main-responsive-menu-popup-close-button .z-toolbarbutton-cnt {
+    display: inline-block !important;
+    box-sizing: border-box !important;
+    color: #ffffff !important;
+    border-radius: 999px !important;
+    border: 1px solid rgba(255,255,255,.70) !important;
+    font-weight: 900 !important;
+    text-align: center !important;
+    text-shadow: none !important;
+}
+.ais-ui-update-info-ok .z-toolbarbutton-cnt {
+    padding: 10px 28px !important;
+    min-width: 142px !important;
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 50%, #15803d 100%) !important;
+    box-shadow: 0 12px 24px rgba(21,128,61,.28) !important;
+}
+.main-responsive-menu-popup-close-button .z-toolbarbutton-cnt {
+    height: 32px !important;
+    line-height: 30px !important;
+    padding: 0 16px !important;
+    min-width: 72px !important;
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 52%, #991b1b 100%) !important;
+    box-shadow: none !important;
+}
+.ecampus-menu-update-callout button {
+    display: inline-block !important;
+    margin-top: 10px !important;
+    padding: 7px 14px !important;
+    border: 1px solid rgba(249,115,22,.28) !important;
+    border-radius: 999px !important;
+    background: linear-gradient(135deg, #f97316, #ea580c) !important;
+    color: #ffffff !important;
+    font-size: 12px !important;
+    font-weight: 900 !important;
+    cursor: pointer !important;
+    box-shadow: 0 8px 18px rgba(234,88,12,.25) !important;
+}
+
+/* Patch 2026-06-11: dukungan filter popup statis di file ZUL. */
+.ecampus-zul-filter-launcher-north,
+.ecampus-zul-filter-launcher-north .z-north-body,
+.ecampus-zul-filter-launcher-north .z-north-cnt {
+    background: linear-gradient(135deg, #f8fbff, #eef6ff 56%, #fff7ed) !important;
+    border: 0 !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+}
+.ecampus-zul-filter-launcher {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    width: 100% !important;
+    padding: 9px 14px !important;
+    border-bottom: 1px solid rgba(148,163,184,.22) !important;
+    box-sizing: border-box !important;
+}
+.ecampus-zul-filter-open-button,
+.ecampus-zul-filter-open-button .z-toolbarbutton-body {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+.ecampus-zul-filter-open-button .z-toolbarbutton-cnt,
+.ecampus-zul-filter-open-button.z-toolbarbutton-over .z-toolbarbutton-cnt {
+    display: inline-block !important;
+    color: #ffffff !important;
+    font-weight: 900 !important;
+    font-size: 12px !important;
+    line-height: 18px !important;
+    padding: 8px 15px !important;
+    border-radius: 999px !important;
+    background: linear-gradient(135deg, #1d4ed8, #0ea5e9) !important;
+    border: 1px solid rgba(255,255,255,.62) !important;
+    box-shadow: 0 9px 18px rgba(37,99,235,.24) !important;
+}
+.ecampus-zul-filter-launcher-hint {
+    color: #52627a !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+}
+.ecampus-zul-filter-window-body {
+    padding: 14px !important;
+    background: linear-gradient(180deg, #ffffff, #f8fbff) !important;
+    box-sizing: border-box !important;
+    overflow: auto !important;
+}
+.ecampus-zul-filter-window-info {
+    color: #475569 !important;
+    background: #eff6ff !important;
+    border: 1px solid #dbeafe !important;
+    border-radius: 12px !important;
+    padding: 10px 12px !important;
+    margin-bottom: 8px !important;
+    display: block !important;
+    font-weight: 700 !important;
+}
+@media (max-width: 768px) {
+    .ecampus-zul-filter-launcher { flex-direction: column !important; align-items: stretch !important; gap: 6px !important; padding: 8px !important; }
+    .ecampus-zul-filter-launcher-hint { display: none !important; }
+}
+/* =========================================================================
+   Panah geser strip modul header (muncul saat item menu terlalu banyak).
+   Tombol panah = anak <hbox> strip biasa (tanpa wrapper, agar menu tetap
+   ter-render). PEMBAGIAN PERAN tiga lapis sel baris:
+     - td.z-row-inner  : position:relative = KONTEKS POSISI panah (tak gulir)
+     - .z-row-cnt       : overflow-x:auto   = AREA GULIR (override z-overflow-hidden);
+                          dibuat STATIC agar panah (absolute) mengacu ke td di
+                          atasnya, jadi panah TIDAK ikut menggulir & tak terpotong.
+     - .main-responsive-module-strip : dibiarkan tumbuh (overflow:visible) supaya
+                          melebihi .z-row-cnt → memunculkan gulir.
+   Penggeseran dijalankan MainAction (forward → Clients.evalJavaScript) pada
+   elemen yang benar-benar overflow.
+   ========================================================================= */
+.main-responsive-module-row td.z-row-inner {
+    position: relative !important;
+}
+.main-responsive-module-row .z-row-cnt {
+    position: static !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scroll-behavior: smooth !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+}
+.main-responsive-module-row .z-row-cnt::-webkit-scrollbar {
+    height: 0 !important;
+    width: 0 !important;
+    background: transparent !important;
+}
+.main-responsive-module-row .main-responsive-module-strip {
+    overflow: visible !important;
+    white-space: nowrap !important;
+}
+.main-responsive-module-row .main-module-arrow.z-toolbarbutton,
+.main-module-arrow.z-toolbarbutton {
+    position: absolute !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    width: 30px !important;
+    min-width: 30px !important;
+    max-width: 30px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    z-index: 8 !important;
+    display: none !important;
+    align-items: center !important;
+    cursor: pointer !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+/* Panah HANYA muncul saat strip benar-benar overflow — kelas .ais-has-overflow
+   dipasang skrip klien (MainAction.injectMenuArrowScript). Bila semua modul
+   muat, panah disembunyikan supaya tak membingungkan (tak ada yang digeser). */
+.main-responsive-module-row.ais-has-overflow .main-module-arrow.z-toolbarbutton {
+    display: flex !important;
+}
+.main-module-arrow .z-toolbarbutton-body,
+.main-module-arrow .z-toolbarbutton-cnt {
+    color: #ffffff !important;
+    font-size: 17px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+}
+.main-module-arrow-left.z-toolbarbutton {
+    left: 0 !important;
+    justify-content: flex-start !important;
+    padding-left: 5px !important;
+    background: linear-gradient(to right,
+        var(--ais-theme-primary-bg, var(--ais-theme-primary, #0c71c3)) 62%,
+        rgba(12, 113, 195, 0) 100%) !important;
+}
+.main-module-arrow-right.z-toolbarbutton {
+    right: 0 !important;
+    justify-content: flex-end !important;
+    padding-right: 5px !important;
+    background: linear-gradient(to left,
+        var(--ais-theme-primary-bg, var(--ais-theme-primary, #0c71c3)) 62%,
+        rgba(12, 113, 195, 0) 100%) !important;
+}
+.main-module-arrow.z-toolbarbutton:hover,
+.main-module-arrow.z-toolbarbutton.z-toolbarbutton-over {
+    filter: brightness(1.18) !important;
+}
+
+/* =========================================================================
+   MODE WRAP (final) — strip modul header MEMBUNGKUS ke baris berikutnya saat
+   layar sempit, BUKAN menggulir/menyembunyikan tombol. ZK Hbox (tabel 1 baris)
+   diratakan jadi flex-wrap; tinggi baris menyesuaikan. Aturan ini sengaja
+   ditaruh paling akhir agar menimpa mode gulir + panah di atas.
+   ========================================================================= */
+.main-responsive-module-row .z-row-inner,
+.main-responsive-module-row .z-row-cnt,
+.main-responsive-module-row .z-hbox,
+.main-responsive-module-row .main-responsive-module-strip {
+    overflow: visible !important;
+    overflow-x: visible !important;
+    white-space: normal !important;
+    height: auto !important;
+    max-height: none !important;
+}
+.main-responsive-module-strip,
+.main-responsive-module-strip table,
+.main-responsive-module-strip tbody {
+    display: block !important;
+    width: 100% !important;
+}
+.main-responsive-module-strip tr {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    width: 100% !important;
+    align-items: stretch !important;
+    white-space: normal !important;
+}
+.main-responsive-module-strip td {
+    display: block !important;
+    flex: 0 0 auto !important;
+    height: auto !important;
+}
+.main-responsive-module-strip td[id$="-frame"] {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+}
+.main-responsive-module-strip td.z-hbox-sep {
+    display: none !important;
+}
+.main-responsive-module-strip .z-toolbarbutton {
+    margin: 0 !important;
+    white-space: nowrap !important;
+}
+/* panah geser tidak dipakai lagi pada mode wrap */
+.main-module-arrow,
+.main-module-arrow.z-toolbarbutton {
+    display: none !important;
+}

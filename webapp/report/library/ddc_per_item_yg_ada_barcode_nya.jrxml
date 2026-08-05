@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="peminjaman" language="groovy" columnCount="3" printOrder="Horizontal" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="185" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="5e25a90c-4b8f-41cd-8e57-b3257892b676">
+	<property name="ireport.zoom" value="2.3579476910000023"/>
+	<property name="ireport.x" value="64"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="label_kota" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Ciputat"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_fakultas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Fakultas"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_jurusan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Prodi"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="barcode" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["../logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="id" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[5L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="kode_barcode" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="perpustakaan" class="java.lang.String"/>
+	<queryString>
+		<![CDATA[select
+b.isbn,
+b.nama,
+e.kode as kode,
+e.nama as nama_,
+f.kode as kode_parent,
+c.tanggal_dirubah,
+b.pengarangs,
+cs.barcode
+
+from library.data_ddc_item_detail a
+inner join library.item b on (a.item = b.id)
+inner join library.data_ddc_item c on (c.id = a.data_ddc_item)
+inner join library.ddc_item e on (e.id = c.ddc_item)
+left join library.ddc_item f on (f.id = e.parent)
+inner join library.item_punya_barcode cs on (a.item=cs.item)
+where a.id = $P{id}]]>
+	</queryString>
+	<field name="isbn" class="java.lang.String"/>
+	<field name="nama" class="java.lang.String"/>
+	<field name="kode" class="java.lang.String"/>
+	<field name="nama_" class="java.lang.String"/>
+	<field name="kode_parent" class="java.lang.String"/>
+	<field name="tanggal_dirubah" class="java.sql.Timestamp"/>
+	<field name="pengarangs" class="java.lang.String"/>
+	<field name="barcode" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<detail>
+		<band height="98">
+			<rectangle>
+				<reportElement x="0" y="6" width="183" height="89" uuid="793dbafa-bf83-4d94-82f8-0c480ca9edf2"/>
+			</rectangle>
+			<textField>
+				<reportElement x="30" y="6" width="110" height="32" backcolor="#C0C0C0" uuid="beebda96-185b-41fd-b4dc-e8b58fbedb3a"/>
+				<box>
+					<topPen lineWidth="1.0"/>
+					<bottomPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{perpustakaan}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="38" width="140" height="45" uuid="ac7629a2-7423-45ef-952c-17f63bc9e9ce"/>
+				<box>
+					<topPen lineWidth="1.0"/>
+					<bottomPen lineWidth="1.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="5" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{kode}+
+"\n"+
+($F{pengarangs}.split(",")[0].split(" ")[$F{pengarangs}.split(",")[0].split(" ").length -1].length() > 3 ? $F{pengarangs}.split(",")[0].split(" ")[$F{pengarangs}.split(",")[0].split(" ").length -1].substring( 0, 3 ).toUpperCase() : $F{pengarangs}.toUpperCase())+
+"\n"+
+($F{nama}.length() > 1 ? $F{nama}.substring( 0, 1 ).toUpperCase() : $F{nama}.toUpperCase())]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="83" width="140" height="12" uuid="421b0bd6-065b-4474-8f2e-206efcebd11d"/>
+				<box rightPadding="3">
+					<bottomPen lineWidth="1.0"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="3" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{kode}+" - "+$F{nama_}+" - "+$F{isbn}+" - "+$F{nama}+" - "+$F{pengarangs}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="140" y="6" width="15" height="88" uuid="3b6a3e25-9495-4d14-8011-cd4c36f67126">
+					<property name="com.jaspersoft.studio.unit.width" value="pixel"/>
+				</reportElement>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle" rotation="Right">
+					<font size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{barcode}]]></textFieldExpression>
+			</textField>
+			<componentElement>
+				<reportElement mode="Transparent" x="155" y="7" width="25" height="87" uuid="c7bd9db8-2219-4901-b7a8-93fec1e7b163"/>
+				<jr:barbecue xmlns:jr="http://jasperreports.sourceforge.net/jasperreports/components" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports/components http://jasperreports.sourceforge.net/xsd/components.xsd" type="Code128" drawText="false" checksumRequired="false" barHeight="40" rotation="Right">
+					<jr:codeExpression><![CDATA[$F{barcode}]]></jr:codeExpression>
+				</jr:barbecue>
+			</componentElement>
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="2" y="7" width="30" height="32" uuid="87470822-5dc4-49eb-b2ad-c7d3f26922a4"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+				</box>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+		</band>
+	</detail>
+</jasperReport>

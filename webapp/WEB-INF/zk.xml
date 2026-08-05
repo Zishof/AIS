@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    zk.xml - Clean ZK 5.5 configuration for AIS/eCampus
+    Patch: 2026-06-09
+
+    Tujuan:
+    1. Mengembalikan konfigurasi ZK ke bentuk bersih dan valid.
+    2. Menggunakan default ZKoss Breeze sebagai baseline tampilan.
+    3. Menghindari struktur invalid seperti <zk> di dalam <zk>.
+    4. Mempertahankan listener Hibernate/ZK dan theme provider utama.
+-->
+<zk>
+
+    <!-- ========================================================== -->
+    <!-- System configuration                                      -->
+    <!-- ========================================================== -->
+    <system-config>
+        <ui-factory-class>org.zkoss.zk.ui.http.SerializableUiFactory</ui-factory-class>
+        <max-upload-size>907200</max-upload-size>
+    </system-config>
+
+    <!-- ========================================================== -->
+    <!-- Hibernate/ZK listeners                                    -->
+    <!-- ========================================================== -->
+    <listener>
+        <description>Hibernate SessionFactory lifecycle</description>
+        <listener-class>org.zkoss.zkplus.hibernate.HibernateSessionFactoryListener</listener-class>
+    </listener>
+
+    <listener>
+        <description>Hibernate Open Session In View life-cycle</description>
+        <listener-class>org.zkoss.zkplus.hibernate.OpenSessionInViewListener</listener-class>
+    </listener>
+
+    <listener>
+        <description>Hibernate thread session context handler</description>
+        <listener-class>org.zkoss.zkplus.hibernate.HibernateSessionContextListener</listener-class>
+    </listener>
+
+    <listener>
+        <description>ThreadLocal Variables Synchronizer</description>
+        <listener-class>ais.common.ZkossListener</listener-class>
+    </listener>
+
+    <!-- Tombol Bantuan mengambang global untuk halaman konten tanpa tombol bawaan.
+         Aman (try/catch penuh); dapat dimatikan admin via konfigurasi "bantuan_tombol_global". -->
+    <listener>
+        <description>Bantuan floating button untuk halaman tanpa tombol bawaan</description>
+        <listener-class>ais.action.master.helper.BantuanGlobalHook</listener-class>
+    </listener>
+
+    <!-- Tombol "Ajukan Tiket" mengambang di shell utama (kanan-bawah, di atas tombol Bantuan).
+         Aman (try/catch penuh); hanya muncul bila modul Ticketing aktif (konfigurasi "ticketing_aktif"). -->
+    <listener>
+        <description>Ajukan Tiket floating button pada shell utama</description>
+        <listener-class>ais.action.master.ticket.TicketFabHook</listener-class>
+    </listener>
+
+    <!-- ========================================================== -->
+    <!-- Theme/font defaults                                       -->
+    <!-- ========================================================== -->
+    <library-property>
+        <name>org.zkoss.zul.theme.fontSizeM</name>
+        <value>12px</value>
+    </library-property>
+
+    <library-property>
+        <name>org.zkoss.zul.theme.fontSizeS</name>
+        <value>12px</value>
+    </library-property>
+
+    <library-property>
+        <name>org.zkoss.zul.theme.fontSizeXS</name>
+        <value>12px</value>
+    </library-property>
+
+    <library-property>
+        <name>org.zkoss.zul.theme.fontSizeT</name>
+        <value>Verdana</value>
+    </library-property>
+
+    <library-property>
+        <name>org.zkoss.zul.theme.fontSizeC</name>
+        <value>Verdana</value>
+    </library-property>
+
+    <library-property>
+        <name>org.zkoss.zul.Button.mold</name>
+        <value>trendy</value>
+    </library-property>
+
+    <library-property>
+        <name>org.zkoss.theme.preferred</name>
+        <value>breeze</value>
+    </library-property>
+
+    <!-- ========================================================== -->
+    <!-- Explicit ZUL language mapping for old ZK 5.x runtime       -->
+    <!-- ========================================================== -->
+    <!--
+        Mapping ini sengaja dipertahankan di zk.xml sebagai fallback.
+        Bootstrap utama juga dilakukan dari Java listener/servlet karena
+        pada beberapa deploy lama mapping *.zul tidak terbaca saat forward
+        langsung ke file di WEB-INF.
+    -->
+    <language-mapping>
+        <language-name>xul/html</language-name>
+        <extension>zul</extension>
+    </language-mapping>
+
+    <language-mapping>
+        <language-name>xul/html</language-name>
+        <extension>xul</extension>
+    </language-mapping>
+
+    <!-- ========================================================== -->
+    <!-- AJAX device                                               -->
+    <!-- ========================================================== -->
+    <device-config>
+        <device-type>ajax</device-type>
+        <timeout-uri>/main</timeout-uri>
+    </device-config>
+
+    <!-- ========================================================== -->
+    <!-- Logging                                                   -->
+    <!-- ========================================================== -->
+    <log>
+        <log-base>org.zkoss</log-base>
+    </log>
+
+    <!-- ========================================================== -->
+    <!-- Session/Desktop limits                                    -->
+    <!-- ========================================================== -->
+    <session-config>
+        <max-desktops-per-session>15</max-desktops-per-session>
+        <max-requests-per-session>10</max-requests-per-session>
+        <max-pushes-per-session>-1</max-pushes-per-session>
+    </session-config>
+
+    <!-- ========================================================== -->
+    <!-- Global theme resources                                    -->
+    <!-- ========================================================== -->
+    <desktop-config>
+        <theme-uri>https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css</theme-uri>
+        <theme-provider-class>ais.ui.util.MyThemeProvider</theme-provider-class>
+    </desktop-config>
+
+    <!-- ========================================================== -->
+    <!-- Client error reload                                       -->
+    <!-- ========================================================== -->
+    <client-config>
+        <error-reload>
+            <device-type>ajax</device-type>
+            <error-code>403</error-code>
+            <reload-uri>/main</reload-uri>
+        </error-reload>
+        <error-reload>
+            <device-type>ajax</device-type>
+            <error-code>410</error-code>
+            <reload-uri>/main</reload-uri>
+        </error-reload>
+    </client-config>
+
+    <!-- ========================================================== -->
+    <!-- Error page                                                -->
+    <!-- ========================================================== -->
+    <error-page>
+        <exception-type>java.lang.Throwable</exception-type>
+        <location>/WEB-INF/sys/error.zul</location>
+    </error-page>
+
+</zk>

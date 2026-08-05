@@ -1,0 +1,1 @@
+<jsp:include page="/WEB-INF/baru/modul/kepegawaian/monitor_kepegawaian.jsp" />

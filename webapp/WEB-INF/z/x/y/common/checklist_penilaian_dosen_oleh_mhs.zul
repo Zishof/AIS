@@ -1,0 +1,83 @@
+<?page id="testZul" title=" Angket Penilaian Dosen " cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.ChecklistPenilaianDosenOlehMhsAction"
+		width="100%" height="100%">
+
+
+
+		<borderlayout>
+
+			<center border="none" flex="true">
+				<grid use="ais.ui.util.MyGrid" sclass="fgrid">
+					<rows>
+						<row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-atas" height="64px" /></row>
+						<row>
+							<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging"
+								detailed="true" />
+						</row>
+						<row>
+							<grid use="ais.ui.util.MyGrid" 
+								sclass="dgrid" fixedLayout="true" id="grid">
+								<columns>
+									<column
+										use="ais.ui.util.MyColumnConfig" width="50px" />
+									<column
+										use="ais.ui.util.MyColumnConfig" width="85%"
+										label="Tahun Akademik" />
+									<column
+										use="ais.ui.util.MyColumnConfig" width="15%" label="Semester" />
+								</columns>
+
+							</grid>
+
+
+						</row>
+						<row><paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar" /></row>
+						<row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-bawah" height="128px" /></row>
+					</rows>
+				</grid>
+			</center>
+
+			<south id="south">
+				<toolbar>
+					<button use="ais.ui.util.MyButtonConfig"
+						label="Selesai" image="/img/save.gif"
+						forward="onClick=onIsiAngketDosenSelesai">
+					</button>
+					<button use="ais.ui.util.MyButtonConfig"
+						label="Refresh" image="/img/Button-Refresh-icon.png"
+						forward="onClick=onRefresh">
+					</button>
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;checklist_penilaian_dosen_oleh_mhs&quot;, &quot;Bantuan&quot;);"/>
+			</toolbar>
+			</south>
+
+		</borderlayout>
+
+
+
+		<window use="ais.ui.util.MyWindow" id="addWindow"
+			title="Tambah Data" visible="false" mode="popup"
+			position="center,center" border="normal" width="1000px"
+			height="97%">
+
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+	</window>
+
+
+</zk>

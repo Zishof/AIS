@@ -1,0 +1,128 @@
+<?page title="Statistik mahasiswa Baru" contentType="text/html;charset=UTF-8"?>
+<?meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" ?>
+<?meta name="description" content="Statistik mahasiswa Baru" ?>
+<?meta name="author" content="Mohammad Fauzi Murtadho" ?>
+<?link rel="shortcut icon" href="/img/logo.png" type="image/x-icon"?>
+<zk>
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.pmb.statistik.RekapPendaftarSpmb"
+		width="100%" height="100%">
+
+
+		<borderlayout>
+			<north border="none" open="true" flex="true">
+				<grid use="ais.ui.util.MyGrid"  fixedLayout="true">
+					<columns>
+						<column use="ais.ui.util.MyColumnConfig"
+							width="100px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig"
+							width="100px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig"
+							width="100px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig"
+							width="100px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig"
+							width="100px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig">
+						</column>
+					</columns>
+					<rows>
+
+						<row>
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Jenis Seleksi" />
+							<combobox forward="onChange=onSearchDefault"
+								id="jenisseleksisearch" width="95%" />
+
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Tahun Akademik" />
+							<combobox forward="onChange=onSearchDefault"
+								id="searchTahunAjaran" width="95%" />
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Semester" />
+							<combobox width="95%"
+								forward="onChange=onSearchDefault" id="searchJenisSemester" />
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Gelombang" />
+							<combobox forward="onChange=onSearchDefault"
+								id="searchGelombang" width="95%" />
+
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Pilihan Peminat" />
+							<combobox forward="onChange=onSearchDefault"
+								id="pilihan" width="95%" />
+
+						</row>
+
+
+
+						<row spans="10">
+
+							<toolbar>
+
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+									 tooltiptext="Cari data"
+									forward="onClick=onSearchDefault" id="find" label="Cari"
+									image="/img/search.gif">
+								</toolbarbutton>
+
+							</toolbar>
+						</row>
+					</rows>
+				</grid>
+
+			</north>
+			<center border="none" flex="true">
+
+				<grid use="ais.ui.util.MyGrid"  fixedLayout="true"
+					id="grid" mold="paging" pageSize="25">
+					<columns>
+						<column width="0px"
+							use="ais.ui.util.MyColumnConfig" label="Fakultas" />
+						<column use="ais.ui.util.MyColumnConfig"
+							label="Peminat" />
+
+						<column use="ais.ui.util.MyColumnConfig"
+							id="colPesertaUjian" label="Peserta Ujian" />
+
+						<column use="ais.ui.util.MyColumnConfig"
+							label="Lulus" />
+
+						<column use="ais.ui.util.MyColumnConfig"
+							label="Dapat NIM" />
+
+						<column use="ais.ui.util.MyColumnConfig"
+							label="Jml Data Mhs" />
+					</columns>
+
+				</grid>
+
+
+			</center>
+			<south border="none">
+				<paging visible="false" id="paging" detailed="true" />
+			</south>
+		</borderlayout>
+
+
+		<timer repeats="true" delay="60000"
+			forward="onTimer=onSearchDefault">
+		</timer>
+	</window>
+
+
+</zk>

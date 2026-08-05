@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Prestasi_Mahasiswa_capaian" pageWidth="555" pageHeight="802" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="f7f3e586-fc4a-4704-bf8c-8e9bc5004e9b">
+	<property name="ireport.zoom" value="2.3579476910000032"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="logo1" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mahasiswa_id" class="java.lang.Long">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="foto" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_kota" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Ciputat"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="nomorUjian" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["---"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="SUBREPORT_DIR" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["C:\\Users\\asrofiridho\\Documents\\UMJ\\AmbilLampiran\\report\\"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="nama" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="lama_sudi" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[123]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tanggal" class="java.util.Date" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new java.util.Date()]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jurusan_id" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tahunlulus" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[2018]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select a.nama, a.nama_en, a.nomorurut, b.nama as nama_jenis, b.keterangan keterangan_jenis, b.nomorurut as no_urut_jenis from capaian_jurusan a
+left join jenis_capaian_jurusan b on a.jenis_capaian_jurusan_id = b.id
+where jurusan=(select jurusan from mahasiswa where id=$P{mahasiswa_id})
+and (a.tahunlulus=$P{tahunlulus} or a.tahunlulus is null) and a.aktif
+order by no_urut_jenis, nomorurut, nama]]>
+	</queryString>
+	<field name="nama" class="java.lang.String"/>
+	<field name="nama_en" class="java.lang.String"/>
+	<field name="nomorurut" class="java.lang.Integer"/>
+	<field name="nama_jenis" class="java.lang.String"/>
+	<field name="keterangan_jenis" class="java.lang.String"/>
+	<field name="no_urut_jenis" class="java.lang.Integer"/>
+	<group name="jenis_capaian" isReprintHeaderOnEachPage="true" keepTogether="true">
+		<groupExpression><![CDATA[$F{nama_jenis}]]></groupExpression>
+		<groupHeader>
+			<band height="20">
+				<printWhenExpression><![CDATA[$F{nama_jenis} != null && $F{no_urut_jenis} > 0]]></printWhenExpression>
+				<textField>
+					<reportElement mode="Opaque" x="8" y="2" width="276" height="16" backcolor="#CCCCCC" uuid="2d8dcc1f-5d52-43e5-bd71-c699e5806260"/>
+					<box topPadding="1" bottomPadding="1"/>
+					<textElement verticalAlignment="Middle">
+						<font isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{nama_jenis}]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement mode="Opaque" x="287" y="2" width="260" height="16" backcolor="#CCCCCC" uuid="f9869394-4765-4ec1-bf6e-14b96e5e9ea4"/>
+					<box topPadding="1" bottomPadding="1"/>
+					<textElement verticalAlignment="Middle">
+						<font isBold="true" isItalic="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{keterangan_jenis}]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupHeader>
+	</group>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="65" splitType="Stretch">
+			<textField>
+				<reportElement x="0" y="0" width="555" height="19" uuid="8434fd16-9b37-4d8e-9029-741c52b4c986"/>
+				<box leftPadding="0"/>
+				<textElement verticalAlignment="Middle">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["KUALIFIKASI DAN HASIL YANG DICAPAI"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="19" width="555" height="13" uuid="52dd7b6d-f0d3-4656-84d5-47b18525ff4f"/>
+				<box leftPadding="1" rightPadding="3">
+					<topPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+				</box>
+				<textElement>
+					<font size="10" isItalic="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["The Qualification And Outcomes Obtained"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="8" y="45" width="276" height="20" backcolor="#CCCCCC" uuid="68416567-f852-48d2-b331-7038d34218d5"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["CAPAIAN PEMBELAJARAN"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="287" y="45" width="260" height="20" backcolor="#CCCCCC" uuid="bd1033df-3820-434b-9259-22c339998e53"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true" isItalic="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["LEARNING OUTCOMES"]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<detail>
+		<band height="37">
+			<printWhenExpression><![CDATA[$F{nama_jenis} != null && $F{no_urut_jenis} > 0]]></printWhenExpression>
+			<textField isStretchWithOverflow="true" pattern="">
+				<reportElement mode="Opaque" x="28" y="0" width="256" height="31" isPrintInFirstWholeBand="true" printWhenGroupChanges="jenis_capaian" backcolor="#F0F0F0" uuid="47125be3-7125-48ec-8153-593f2e1923ba">
+					<printWhenExpression><![CDATA[$F{nomorurut}>0]]></printWhenExpression>
+				</reportElement>
+				<box topPadding="2">
+					<topPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Justified">
+					<font size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nama}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" pattern="">
+				<reportElement mode="Opaque" x="307" y="0" width="240" height="31" isPrintInFirstWholeBand="true" printWhenGroupChanges="jenis_capaian" backcolor="#F0F0F0" uuid="d226fa4e-f0e8-43f7-9964-4d76a278f12d">
+					<printWhenExpression><![CDATA[$F{nomorurut}>0]]></printWhenExpression>
+				</reportElement>
+				<box topPadding="2">
+					<topPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Justified">
+					<font size="10" isItalic="true" isUnderline="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nama_en}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" pattern="">
+				<reportElement mode="Opaque" x="8" y="0" width="20" height="31" isPrintInFirstWholeBand="true" printWhenGroupChanges="jenis_capaian" backcolor="#F0F0F0" uuid="b3ba077a-4eb5-4c9a-bd3e-f76a8cc88f13">
+					<printWhenExpression><![CDATA[$F{nomorurut}>0]]></printWhenExpression>
+				</reportElement>
+				<box topPadding="2">
+					<topPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Center"/>
+				<textFieldExpression><![CDATA[$F{nomorurut}+". "]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" pattern="">
+				<reportElement mode="Opaque" x="287" y="0" width="20" height="31" isPrintInFirstWholeBand="true" printWhenGroupChanges="jenis_capaian" backcolor="#F0F0F0" uuid="e2a30488-0f1a-49e1-86e3-6397eec9a217">
+					<printWhenExpression><![CDATA[$F{nomorurut}>0]]></printWhenExpression>
+				</reportElement>
+				<box topPadding="2">
+					<topPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Center">
+					<font isItalic="true" isUnderline="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nomorurut}+". "]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<summary>
+		<band height="53">
+			<subreport>
+				<reportElement stretchType="RelativeToTallestObject" x="0" y="8" width="555" height="32" uuid="b080bea9-2836-450e-89f7-aa23953d8e46"/>
+				<subreportParameter name="SUBREPORT_DIR">
+					<subreportParameterExpression><![CDATA[$P{SUBREPORT_DIR}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="logo">
+					<subreportParameterExpression><![CDATA[$P{logo}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="tahunlulus">
+					<subreportParameterExpression><![CDATA[$P{tahunlulus}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="nomorUjian">
+					<subreportParameterExpression><![CDATA[$P{nomorUjian}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="label_kota">
+					<subreportParameterExpression><![CDATA[$P{label_kota}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="jurusan_id">
+					<subreportParameterExpression><![CDATA[$P{jurusan_id}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="nama">
+					<subreportParameterExpression><![CDATA[$P{nama}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="foto">
+					<subreportParameterExpression><![CDATA[$P{foto}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="tanggal">
+					<subreportParameterExpression><![CDATA[$P{tanggal}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="lama_sudi">
+					<subreportParameterExpression><![CDATA[$P{lama_sudi}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="logo1">
+					<subreportParameterExpression><![CDATA[$P{logo1}]]></subreportParameterExpression>
+				</subreportParameter>
+				<subreportParameter name="mahasiswa_id">
+					<subreportParameterExpression><![CDATA[$P{mahasiswa_id}]]></subreportParameterExpression>
+				</subreportParameter>
+				<connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
+				<subreportExpression><![CDATA[$P{SUBREPORT_DIR} + "Prestasi_Mahasiswa_capaian_subreport2.jasper"]]></subreportExpression>
+			</subreport>
+		</band>
+	</summary>
+</jasperReport>

@@ -1,0 +1,72 @@
+<?page title="new page title" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.epsbed.UpdateDataKapasitasProdi" width="100%"
+		height="100%">
+		<borderlayout>
+									<north border="none" size="360px" autoscroll="true" flex="false" splittable="false">
+				<div style="padding:12px;box-sizing:border-box;">
+					<div sclass="ais-crud-filter-card">
+						<div sclass="ais-crud-filter-head">
+							<span sclass="ais-crud-filter-title">Pencarian &amp; Filter</span>
+						<div sclass="ais-crud-filter-actions">
+							<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;update_data_kapasitas_prodi&quot;, &quot;Bantuan&quot;);"/>
+						</div>
+						</div>
+						<div sclass="ais-crud-filter-body">
+
+				<grid fixedLayout="true" use="ais.ui.util.MyGrid" sclass="ais-crud-filter-grid">
+				<columns>
+				<column use="ais.ui.util.MyColumnConfig"></column>
+				<column use="ais.ui.util.MyColumnConfig"></column>
+				<column use="ais.ui.util.MyColumnConfig"></column>
+				<column use="ais.ui.util.MyColumnConfig"></column>
+				</columns>
+					<rows>
+						<row>
+							<label use="ais.ui.util.MyLabelConfig" value="Tahun Akademik"></label>
+							<combobox id="tahunAkademik"></combobox>
+							
+							<label use="ais.ui.util.MyLabelConfig" value="Fakultas"></label>
+							<combobox id="searchfakultas"></combobox>
+						</row>
+						<row>
+							<label use="ais.ui.util.MyLabelConfig" value="Jenis Semester"></label>
+							<combobox id="jenisSemester"></combobox>
+							<label use="ais.ui.util.MyLabelConfig" value="Program Studi"></label>
+							<combobox id="searchjurusan"></combobox>
+						</row>
+						<row spans="4">
+							<toolbar id="toolbar">
+								
+								
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"   tooltiptext="Process"
+									forward="onClick=onProcess" id="processButton" label="Proses"
+									image="/img/settings_16x16.png">
+								</toolbarbutton>
+							</toolbar>
+						</row>
+
+						<row spans="4">
+							<progressmeter id="progressmeter"></progressmeter>
+						</row>
+						<row spans="4" height="30px">
+							<label use="ais.ui.util.MyLabelConfig" id="proses" value=""></label>
+						</row>
+					</rows>
+				</grid>
+			
+			<toolbar>
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"   tooltiptext="Cari data"
+									forward="onClick=onSearchDefault" id="find" label="Cari"
+									image="/img/search.gif">
+								</toolbarbutton>
+							</toolbar>
+						</div>
+					</div>
+				</div>
+			</north>
+		</borderlayout>
+
+		</window>
+</zk>

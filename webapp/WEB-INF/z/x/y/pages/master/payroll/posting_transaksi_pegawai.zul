@@ -1,0 +1,109 @@
+﻿<?page id="testZul" title=" New ZUL Title" cacheable="false"
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.payroll.PostingTransaksiPegawaiAction" width="100%" height="100%">
+
+		<div sclass="ais-crud-portal">
+
+			<!-- ═══ KARTU FILTER ═══ -->
+			<div sclass="ais-crud-filter-card">
+				<div sclass="ais-crud-filter-head">
+					<span sclass="ais-crud-filter-title">Pencarian &amp; Filter</span>
+					<div sclass="ais-crud-filter-actions">
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+							id="find" label="Cari" image="/img/search.gif"
+							tooltiptext="Cari data" forward="onClick=onSearchDefault"/>
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;posting_transaksi_pegawai&quot;, &quot;Bantuan&quot;);"/></div>
+				</div>
+				<div sclass="ais-crud-filter-body">
+					<grid use="ais.ui.util.MyGrid" fixedLayout="true" sclass="ais-crud-filter-grid">
+						<columns>
+
+						<column width="150px"></column>
+						<column></column>
+						<column width="150px"></column>
+						<column></column>
+						<column width="150px"></column>
+						<column></column>
+
+						</columns>
+						<rows>
+						<row>
+
+						<label use="ais.ui.util.MyLabelConfig" value="Pegawai" />
+						<bandbox
+						use="ais.action.master.akunting.helper.AmbilDataPegawaiNotDefaultBanbox"
+						forward="onOK=onSearchDefault" id="searchpegawai" width="95%" />
+
+						<label use="ais.ui.util.MyLabelConfig" value="Jenis Transaksi" />
+						<combobox forward="onChange=onSearchDefault"
+						id="searchJenisTransaksi" width="95%" />
+
+						<label use="ais.ui.util.MyLabelConfig" value="Keterangan" />
+						<textbox use="ais.ui.util.MyTextbox"
+						forward="onOK=onSearchDefault" id="searchnama" width="95%" />
+
+						</row>
+						
+					<!-- ais-auto-filter: field pencarian dari initCriteria yang belum ada di .zul -->
+					<row>
+						<label use="ais.ui.util.MyLabelConfig" value="Mulai" />
+						<datebox use="ais.ui.util.MyDatebox" forward="onChange=onSearchDefault" id="searchMulai" width="80px" />
+						<label use="ais.ui.util.MyLabelConfig" value="Sampai" />
+						<textbox id="searchSampai" width="95%" />
+					</row>
+					</rows>
+					</grid>
+				</div>
+			</div>
+
+			<!-- ═══ KARTU DATA ═══ -->
+			<div sclass="ais-crud-data-card">
+				<!-- Aksi massal: Posting / Batalkan Posting seluruh transaksi yang tampil di daftar -->
+				<div sclass="ais-bulk-posting-actions" style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; align-items:center; padding:8px 6px 2px 6px;">
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Posting Semua" image="/img/svg/check2-circle.svg" style="font-weight:700; color:#15803d;" tooltiptext="Sahkan ke jurnal/buku besar semua transaksi yang belum diposting" forward="onClick=onPostingSemua"/>
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Batalkan Posting Semua" image="/img/svg/warning-outline.svg" style="font-weight:700; color:#b45309;" tooltiptext="Tarik kembali dari jurnal/buku besar semua transaksi yang sudah diposting" forward="onClick=onBatalkanPostingSemua"/>
+				</div>
+				<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true"/>
+				<grid use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true" id="grid">
+					<columns>
+
+						<column use="ais.ui.util.MyColumnConfig" label="Pegawai" />
+						<column use="ais.ui.util.MyColumnConfig" label="Jenis Transaksi" />
+						<column use="ais.ui.util.MyColumnConfig" label="Nilai" align="right" />
+						<column use="ais.ui.util.MyColumnConfig" label="Waktu dan tanggal" />
+						<column use="ais.ui.util.MyColumnConfig" label="Transaksi"
+						width="30%" />
+
+						<column use="ais.ui.util.MyColumnConfig" label="Keterangan"
+						/>
+						<column use="ais.ui.util.MyColumnConfig" width="12%"
+						label="Status Posting" />
+
+						<column
+						use="ais.ui.util.MyColumnConfig" width="5%" label="Posting" />
+
+					</columns>
+				</grid>
+				<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>
+			</div>
+
+		</div>
+
+		<window use="ais.ui.util.MyWindowJudul" id="addWindow" title="Tambah Transaksi" visible="false" mode="popup" position="center,center" border="normal" width="450px" height="240px">
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+	</window>
+
+
+</zk>

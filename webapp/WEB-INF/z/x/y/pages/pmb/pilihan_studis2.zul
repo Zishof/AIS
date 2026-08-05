@@ -1,0 +1,102 @@
+<?page title="Fakultas dan Program Studi" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<borderlayout height="100%">
+		<west width="5%">
+
+		</west>
+		<center autoscroll="true">
+			<box>
+				<separator height="30px"></separator>
+				<box width="90%" align="center">
+					<label use="ais.ui.util.MyLabelConfig">
+						FAKULTAS DAN PROGRAM STUDI
+					</label>
+				</box>
+				<separator height="10px"></separator>
+				<box width="90%">
+					<html>
+
+
+
+
+						
+						<![CDATA[ <ol> <li><b>FAKULTAS ILMU TARBIYAH DAN
+						KEGURUAN</b></li> <p align='justify'> Fakultas
+						Ilmu Tarbiyah dan Keguruan (FITK) merupakan
+						fakultas tertua di UIN Syarif Hidayatullah
+						Jakarta. Pada tahun 2010 fakultas ini mulai
+						menyelenggarakan Program Magister Pendidikan
+						Bahasa Inggris. Pada tahun akademik 2013/2014
+						FITK membuka Program Studi Magister berikut:
+						</p> <ol> <li>Program Studi Pendidikan Bahasa
+						Inggris (PBI)</li> <li>Program Studi Pendidikan
+						Agama Islam (PAI)</li> <li>Program Studi
+						Pendidikan Bahasa Arab (PBA)</li> 
+
+						</ol><br />
+
+
+						<li><b>FAKULTAS PSIKOLOGI</b></li> <p
+						align='justify'> Fakultas Psikologi adalah
+						fakultas umum pertama di UIN Syarif Hidayatullah
+						Jakarta yang berdiri pada tahun 2002, dan
+						program studinya telah diakreditasi oleh BAN-PT.
+						Mulai tahun 2010 Fakultas Psikologi UIN Jakarta
+						membuka Program Magister Sains Psikologi dengan
+						tiga peminatan, yaitu: Psikologi Pendidikan,
+						Psikologi Industri dan Organisasi (PIO), dan
+						Psikometri. </p> <li><b>FAKULTAS SAINS DAN
+						TEKNOLOGI</b></li> <p align='justify'> Fakultas
+						Sains dan Teknologi (FST) berdiri setelah
+						perubahan status IAIN menjadi UIN Syarif
+						Hidayatullah Jakarta pada tahun 2002. Saat ini
+						FST memiliki tujuh program studi, salah satunya
+						adalah Program Studi Sosial Ekonomi
+						Pertanian/Agribisnis. Tahun akademik 2011/2012
+						ini FST baru hanya membuka Program Magister
+						Agribisnis. </p> <li><b>FAKULTAS DIRASAT
+						ISLAMIYAH</b></strong><br /> Fakultas Dirasat
+						Islamiyah (FDI) berfokus pada pengkajian Islam
+						(tafaqquh fi al-din) berbasis penguasaan bahasa
+						Arab yang prima dan penghafalan (tahfidz)
+						Al-Quran. <br /> <br /> </li> <li><b>FAKULTAS SYARIAH DAN
+						HUKUM</b></strong><br /> <p> Fakultas Syariah
+						dan Hukum (FSH) mulai menerima mahasiswa tahun
+						1968. Ia menjadi fakultas keempat di UIN Syarif
+						Hidayatullah Jakarta. Mulai tahun akademik
+						2012/2013 FSH membuka Program Magister untuk
+						bidang studi Ekonomi Syariah. </p></li>
+						<li><b>FAKULTAS ADAB DAN HUMANIORA</b><br />
+						<p>Fakultas Adab dan Humaniora (FAH), bersama
+						Fakultas Ilmu Tarbiyah dan Keguruan, adalah
+						fakultas tertua di UIN Syarif Hidayatullah
+						Jakarta. Mulai tahun akademik 2012/2013 FAH
+						membuka Program Magister untuk bidang studi:</p>
+						<ol> <li>Bahasa dan Sastra Arab</li> <li>Sejarah
+						dan Kebudayaan Islam</li> </ol><br />
+
+						<li><b>FAKULTAS FAKULTAS USHULUDDIN</b><br />
+						<p>Fakultas Ushuluddin terbuka bagi sarjana dari
+						semua bidang yang berminat di bidang Studi
+						Agama-agama, Aqidah Filsafat, dan Tafsir Hadist.
+						Berikut program Magister yang ditawarkan :</p>
+						<ol> <li>Perbandingan Agama, dengan konsentrasi
+						: Kerukunan Umat Beragama, Studi Agama-Agama
+						(Katholik, Kristen, Hindu, Budha dan
+						Khonghucu)</li> <li>Aqidah Filsafat (AF), dengan
+						konsentrasi: Kalam, Filsafat Islam, Tasawuf</li>
+						<li>Tafsir Hadis (TH), dengan konsentrasi:
+						Tafsir, Hadis</li> </ol>
+
+						]]>
+						
+						
+						
+					
+					
+                    		</html>
+				</box>
+			</box>
+		</center>
+	</borderlayout>
+</zk>

@@ -1,0 +1,43 @@
+<?page title="Pilihan Paket dan Biaya" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<borderlayout height="100%">
+		<west width="5%">
+
+		</west>
+		<center autoscroll="true">
+			<box>
+				<separator height="30px"></separator>
+				<box width="90%" align="center">
+					<label use="ais.ui.util.MyLabelConfig">
+						Persyaratan Pendaftaran
+					</label>
+				</box>
+				<separator height="10px"></separator>
+				<html>
+					
+					<![CDATA[
+
+					<ol> <li>Lulusan Madrasah Aliyah, Pesantren, SMA dan
+					yang sederajat tahun 2010, 2011 dan 2012</li> <li>Calon
+					peserta ujian dapat memilih maksimal 2 (dua) program
+					studi. </li> <li>Bagi yang memilih Paket Sains
+					(Paket C), Paket CA (Sains dan Agama), Paket CB
+					(Sains dan Sosial) harus dari Jurusan IPA.</li>
+					<li>Bagi yang memilih <b>Program Studi Sosial
+					Ekonomi Pertanian (Agribisnis) dan Sistem Informasi
+					boleh dari Jurusan IPA dan IPS</b>.</li> <li>Khusus
+					untuk yang memilih <b>Program Studi Dirasat
+					Islamiyah</b> harus lancar membaca Al Qur&rsquo;an,
+					memiliki hafalan Al Qur&rsquo;an, dapat menulis,
+					membaca dan memahami bahasa Arab tingkat dasar serta
+					bersedia tinggal di Asrama UIN Jakarta. </li>
+					
+					<li>Tidak buta warna untuk Fakultas Kedokteran dan
+					Ilmu Kesehatan; dan tinggi badan minimal 160 cm khusus untuk Program Studi
+					Ilmu Keperawatan.</li></ol> ]]>
+					
+                    		</html>
+			</box>
+		</center>
+	</borderlayout>
+</zk>

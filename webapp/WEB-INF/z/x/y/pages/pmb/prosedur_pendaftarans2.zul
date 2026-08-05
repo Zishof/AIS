@@ -1,0 +1,53 @@
+<?page title="Persyaratan Pendaftaran" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<borderlayout height="100%">
+		<west width="5%">
+
+		</west>
+		<center autoscroll="true">
+			<box>
+				<separator height="30px"></separator>
+				<box width="90%" align="center">
+					<label use="ais.ui.util.MyLabelConfig">
+						PROSEDUR PENDAFTARAN
+					</label>
+				</box>
+				<separator height="10px"></separator>
+				<!-- <image src="/img/informasi-pendaftaran.jpg"></image> -->
+				<html>
+
+
+
+					
+					<![CDATA[ <p>Prosedur pendaftaran PMB Program
+					Magister sebagai berikut:</p> <ol> <li>Klik
+					informasi pendaftaran di <a
+					href="http://spmb.uinjkt.ac.id">http://spmb.uinjkt.ac.id</a>
+					</li> <li>Membayar biaya pendaftaran dan seleksi
+					masuk ke Bank BNI dengan Nomor Rekening
+					0017378280</li> <li>Validasi ke Bagian Keuangan
+					Pusat via telepon (021) 7401925 Ext.1822 atau bisa
+					datang langsung ke Bagian Keuangan Pusat UIN Syarif
+					Hidayatullah Jakarta</li> <li>Klik <a
+					href="http://spmb.uinjkt.ac.id">http://spmb.uinjkt.ac.id</a>
+					untuk mengisi biodata pendaftaran dengan menggunakan
+					No. Registrasi dan Tanggal Lahir.</li> <li>Cetak Kartu Ujian: </li>
+					<ul> <li>Pencetakan kartu ujian setelah melakukan
+					pembayaran, mengisi biodata, serta upload foto.</li>
+					<li>Gunakan No. Registrasi dan Tanggal Lahir untuk login ke
+					<a
+					href="http://spmb.uinjkt.ac.id">http://spmb.uinjkt.ac.id</a>.</li>
+					<li>Lengkapi Biodata, Upload Foto, dan cetak kartu ujian.</li> </ul> </ol>
+					
+
+					]]>
+					
+					
+					
+					
+                    		</html>
+                    		
+			</box>
+		</center>
+	</borderlayout>
+</zk>

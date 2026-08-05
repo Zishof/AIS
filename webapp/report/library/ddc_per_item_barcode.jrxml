@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="peminjaman" language="groovy" columnCount="3" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="185" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="4372017a-0ee3-4f96-a9a2-6a77b05fa88b">
+	<property name="ireport.zoom" value="2.357947691000002"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="label_kota" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Ciputat"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_fakultas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Fakultas"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_jurusan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Prodi"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="barcode" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["../logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="id" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[5L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="kode_barcode" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="perpustakaan" class="java.lang.String"/>
+	<queryString>
+		<![CDATA[select
+b.isbn,
+b.nama,
+b.deweydecimalclass,
+b.pengarangs,
+cs.barcode
+
+from library.item b
+inner join library.item_punya_barcode cs on (b.id=cs.item)
+where case when $P{id} != -1 then b.id = $P{id} else true end
+
+order by b.nama, b.id
+limit 500]]>
+	</queryString>
+	<field name="isbn" class="java.lang.String"/>
+	<field name="nama" class="java.lang.String"/>
+	<field name="deweydecimalclass" class="java.lang.String"/>
+	<field name="pengarangs" class="java.lang.String"/>
+	<field name="barcode" class="java.lang.String"/>
+	<field name="punggungklasifikasi" class="java.lang.String"/>
+	<field name="punggungpengarang" class="java.lang.String"/>
+	<field name="punggungjudul" class="java.lang.String"/>
+	<field name="punggungedisi" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<detail>
+		<band height="101">
+			<componentElement>
+				<reportElement mode="Transparent" x="135" y="7" width="45" height="79" uuid="230182ef-af2f-466d-a568-9da289864198"/>
+				<jr:barbecue xmlns:jr="http://jasperreports.sourceforge.net/jasperreports/components" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports/components http://jasperreports.sourceforge.net/xsd/components.xsd" type="Code128" drawText="false" checksumRequired="false" barHeight="120" rotation="Right">
+					<jr:codeExpression><![CDATA[$F{barcode}]]></jr:codeExpression>
+				</jr:barbecue>
+			</componentElement>
+			<rectangle>
+				<reportElement mode="Transparent" x="0" y="6" width="180" height="92" uuid="dc79eed1-53d6-4bac-ab73-c9b1c2d4c283"/>
+			</rectangle>
+			<textField>
+				<reportElement x="40" y="6" width="87" height="44" uuid="dabe4977-dc5c-48b5-a449-d2f3cf4f77a8"/>
+				<box>
+					<topPen lineWidth="1.0"/>
+					<bottomPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{perpustakaan}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true">
+				<reportElement x="0" y="50" width="127" height="36" uuid="0b853b95-0f4f-4a92-bf9a-81ddf71a8102"/>
+				<box>
+					<topPen lineWidth="1.0"/>
+					<bottomPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="7" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{punggungklasifikasi}+"\n"+
+$F{punggungpengarang}+"\n"+
+$F{punggungjudul}+
+($F{punggungedisi} == null || $F{punggungedisi}.trim().isEmpty() ? "" : "\n"+$F{punggungedisi})]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="86" width="127" height="12" uuid="f1f70bea-d5d5-4bfd-9f7a-e6b4e49b7c5b"/>
+				<box rightPadding="3">
+					<bottomPen lineWidth="1.0"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="3" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{isbn}+" - "+$F{nama}+" - "+$F{pengarangs}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="127" y="6" width="8" height="92" uuid="0a63dce8-f3b5-46fb-8f3a-212634d9f3a7">
+					<property name="com.jaspersoft.studio.unit.width" value="pixel"/>
+				</reportElement>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle" rotation="Right">
+					<font size="6" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{barcode}]]></textFieldExpression>
+			</textField>
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="2" y="8" width="40" height="40" uuid="ff5a8e2b-0806-4c09-a374-323f4b49537d"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+				</box>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+		</band>
+	</detail>
+</jasperReport>

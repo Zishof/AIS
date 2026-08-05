@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#1e3a8a">
+<title>TBU Mobile — Taruna Bakti University</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<style>
+  :root{--grad:linear-gradient(135deg,#1e3a8a,#4f46e5 55%,#6d28d9);--gold:#d4a017;--ink:#1e293b;--ink2:#64748b;--line:#eceff5;--bg:#eef1f7;--card:#fff;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Plus Jakarta Sans","Segoe UI",system-ui,Arial,sans-serif;background:#dfe4ee;color:var(--ink);display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:22px 10px}
+  .intro{max-width:430px;text-align:center;margin-bottom:16px}
+  .intro h1{font-size:19px;font-weight:800;color:#1e3a8a}
+  .intro p{font-size:13px;color:var(--ink2);margin-top:4px}
+  .stores{display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap}
+  .store{display:inline-flex;align-items:center;gap:8px;background:#111827;color:#fff;border-radius:12px;padding:7px 14px;font-size:12px;text-decoration:none}
+  .store i{font-size:20px}
+  .store b{font-weight:700;font-size:13px;display:block;line-height:1.1}
+  .store span{font-size:9px;opacity:.8}
+  /* phone frame */
+  .phone{width:400px;max-width:100%;background:#0b1020;border-radius:44px;padding:12px;box-shadow:0 30px 70px rgba(15,23,42,.4)}
+  .screen{background:var(--bg);border-radius:34px;overflow:hidden;position:relative;height:812px;display:flex;flex-direction:column}
+  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:150px;height:26px;background:#0b1020;border-radius:0 0 18px 18px;z-index:5}
+  .scr-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .top{background:var(--grad);color:#fff;padding:34px 18px 16px;display:flex;align-items:center;gap:11px}
+  .logo{width:38px;height:38px;border-radius:11px;background:#fff;display:flex;align-items:center;justify-content:center;padding:4px;box-shadow:0 3px 8px rgba(0,0,0,.16)}
+  .logo img{width:100%;height:100%;object-fit:contain;display:block}
+  .intro img.lg{width:230px;max-width:78%;height:auto;display:block;margin:0 auto 10px}
+  .top .t{flex:1;min-width:0}
+  .top .t b{font-size:15px;font-weight:800;display:block;line-height:1.1}
+  .top .t span{font-size:10.5px;opacity:.85}
+  .top .ic{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;position:relative}
+  .top .ic .b{position:absolute;top:-3px;right:-3px;background:var(--gold);color:#3a2a00;font-size:9px;font-weight:800;border-radius:9px;min-width:16px;height:16px;display:flex;align-items:center;justify-content:center}
+  .hero{background:var(--grad);color:#fff;padding:0 18px 34px}
+  .hero .ava{display:flex;align-items:center;gap:12px}
+  .hero .ava .c{width:48px;height:48px;border-radius:50%;background:var(--gold);color:#3a2a00;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px}
+  .hero .salam{font-size:12px;opacity:.9}
+  .hero .nm{font-size:19px;font-weight:800}
+  .hero .rl{font-size:11px;opacity:.85}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:-26px 16px 0;position:relative;z-index:2}
+  .st{background:#fff;border-radius:16px;padding:13px 8px;text-align:center;box-shadow:0 8px 20px rgba(15,23,42,.08)}
+  .st b{font-size:21px;font-weight:800;display:block}
+  .st.n b{color:#4f46e5}.st.m b{color:#0ea5e9}.st.t b{color:var(--gold)}
+  .st span{font-size:10.5px;color:var(--ink2)}
+  .sec{padding:18px 16px 4px}
+  .sec-t{font-size:11px;font-weight:800;letter-spacing:.8px;color:var(--ink2);text-transform:uppercase;margin-bottom:12px}
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .tile{text-decoration:none;color:var(--ink);display:flex;flex-direction:column;align-items:center;gap:7px}
+  .tile .ci{width:54px;height:54px;border-radius:17px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;box-shadow:0 8px 16px rgba(15,23,42,.14)}
+  .tile span{font-size:10.5px;font-weight:600;text-align:center;line-height:1.15}
+  .list{padding:6px 16px 20px}
+  .row{display:flex;align-items:center;gap:12px;background:#fff;border-radius:14px;padding:14px;margin-bottom:10px;text-decoration:none;color:var(--ink);box-shadow:0 4px 12px rgba(15,23,42,.05)}
+  .row i.l{width:20px;text-align:center}.row .tx{flex:1;font-size:13.5px;font-weight:600}.row i.r{color:#c0c8d8;font-size:12px}
+  .bottom{display:flex;background:#fff;border-top:1px solid var(--line);padding:9px 0 12px}
+  .nav{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;color:var(--ink2);text-decoration:none}
+  .nav i{font-size:17px}.nav.on{color:#4f46e5;font-weight:700}
+  .spacer{height:10px}
+</style>
+</head>
+<body>
+  <div class="intro">
+    <img class="lg" src="assets/logo-tbu.png" alt="Taruna Bakti University">
+    <h1><i class="fa-solid fa-mobile-screen-button" style="color:#4f46e5"></i> TBU Mobile</h1>
+    <p>Aplikasi mobile Taruna Bakti University — akses akademik, keuangan, & layanan dari genggaman. Tampilan otomatis menyesuaikan (responsif) saat sistem dibuka via browser ponsel.</p>
+    <div class="stores">
+      <a class="store" href="#"><i class="fa-brands fa-google-play"></i><span>Tersedia di<b>Google Play</b></span></a>
+      <a class="store" href="#"><i class="fa-brands fa-apple"></i><span>Unduh di<b>App Store</b></span></a>
+    </div>
+  </div>
+
+  <div class="phone">
+    <div class="screen">
+      <div class="notch"></div>
+      <div class="scr-body">
+        <div class="top">
+          <div class="logo"><img src="assets/logo-mark.png" alt="TBU"></div>
+          <div class="t"><b>Taruna Bakti</b><span>University · TBU</span></div>
+          <div class="ic"><i class="fa-regular fa-bell"></i><span class="b">8</span></div>
+          <div class="ic"><i class="fa-solid fa-user"></i></div>
+        </div>
+        <div class="hero">
+          <div class="ava"><div class="c">RS</div><div><div class="salam">Selamat Siang,</div><div class="nm">Prof. Dr. Rahmat S.</div><div class="rl">Rektor TBU</div></div></div>
+        </div>
+        <div class="stats">
+          <div class="st n"><b>8</b><span>Notifikasi</span></div>
+          <div class="st m"><b>53</b><span>Modul Aktif</span></div>
+          <div class="st t"><b>802</b><span>Total Menu</span></div>
+        </div>
+
+        <div class="sec">
+          <div class="sec-t">Akses Cepat</div>
+          <div class="tiles">
+            <a class="tile" href="kehadiran.html"><div class="ci" style="background:linear-gradient(135deg,#14b8a6,#0d9488)"><i class="fa-solid fa-fingerprint"></i></div><span>Presensi</span></a>
+            <a class="tile" href="lms.html"><div class="ci" style="background:linear-gradient(135deg,#0ea5e9,#2563eb)"><i class="fa-solid fa-laptop-code"></i></div><span>e-Learning</span></a>
+            <a class="tile" href="akademik.html"><div class="ci" style="background:linear-gradient(135deg,#4f46e5,#6d28d9)"><i class="fa-solid fa-graduation-cap"></i></div><span>Akademik</span></a>
+            <a class="tile" href="keuangan.html"><div class="ci" style="background:linear-gradient(135deg,#10b981,#059669)"><i class="fa-solid fa-credit-card"></i></div><span>Pembayaran</span></a>
+            <a class="tile" href="persuratan.html"><div class="ci" style="background:linear-gradient(135deg,#f59e0b,#d97706)"><i class="fa-solid fa-envelope-open-text"></i></div><span>Surat</span></a>
+            <a class="tile" href="perpustakaan.html"><div class="ci" style="background:linear-gradient(135deg,#ec4899,#db2777)"><i class="fa-solid fa-book-open"></i></div><span>Pustaka</span></a>
+            <a class="tile" href="persuratan.html"><div class="ci" style="background:linear-gradient(135deg,#7c3aed,#6d28d9)"><i class="fa-solid fa-file-signature"></i></div><span>Pengajuan</span></a>
+            <a class="tile" href="sdm.html"><div class="ci" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)"><i class="fa-solid fa-user-tie"></i></div><span>Kepegawaian</span></a>
+            <a class="tile" href="pmb.html"><div class="ci" style="background:linear-gradient(135deg,#4f46e5,#6d28d9)"><i class="fa-solid fa-user-plus"></i></div><span>PMB / RPL</span></a>
+            <a class="tile" href="obe.html"><div class="ci" style="background:linear-gradient(135deg,#0ea5e9,#2563eb)"><i class="fa-solid fa-diagram-project"></i></div><span>Kurikulum</span></a>
+            <a class="tile" href="wisuda.html"><div class="ci" style="background:linear-gradient(135deg,#7c3aed,#6d28d9)"><i class="fa-solid fa-user-graduate"></i></div><span>Wisuda</span></a>
+            <a class="tile" href="index.html"><div class="ci" style="background:linear-gradient(135deg,#64748b,#475569)"><i class="fa-solid fa-table-cells-large"></i></div><span>Semua Menu</span></a>
+          </div>
+        </div>
+
+        <div class="sec"><div class="sec-t">Dashboard</div></div>
+        <div class="list">
+          <a class="row" href="dashboard.html"><i class="fa-solid fa-chart-pie l" style="color:#4f46e5"></i><div class="tx">Buka Dashboard Lengkap</div><i class="fa-solid fa-chevron-right r"></i></a>
+          <a class="row" href="dashboard.html"><i class="fa-solid fa-desktop l" style="color:#0ea5e9"></i><div class="tx">Buka Tampilan Desktop</div><i class="fa-solid fa-up-right-from-square r"></i></a>
+        </div>
+        <div class="spacer"></div>
+      </div>
+      <div class="bottom">
+        <a class="nav on" href="mobile.html"><i class="fa-solid fa-house"></i>Beranda</a>
+        <a class="nav" href="index.html"><i class="fa-solid fa-table-cells-large"></i>Menu</a>
+        <a class="nav" href="#"><i class="fa-regular fa-bell"></i>Notifikasi</a>
+        <a class="nav" href="#"><i class="fa-regular fa-user"></i>Profil</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

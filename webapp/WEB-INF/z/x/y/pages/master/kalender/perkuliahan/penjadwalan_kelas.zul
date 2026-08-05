@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?page title="ZK Calendars Demo"?>
+<?link rel="stylesheet" type="text/css" href="/calendar.css.dsp?v=${desktop.webApp.build}"?>
+<?component name="divtab" macro-uri="/WEB-INF/z/x/y/pages/master/kalender/perkuliahan/divtab.zul" inline="true"?>
+<?component name="divarrow" macro-uri="/WEB-INF/z/x/y/pages/master/kalender/perkuliahan/divarrow.zul" inline="true"?>
+
+
+<zk xmlns:w="client">
+	<window use="ais.ui.util.MyWindow"
+		apply="ais.action.master.helper.CalendarPerkuliahanSemesterComposer"
+		height="100%">
+
+		<tabbox width="100%" height="100%">
+
+			<tabs>
+
+				<tab use="ais.ui.util.MyTabConfig" selected="true">Jadwal</tab>
+
+
+			</tabs>
+
+			<tabpanels>
+
+				<tabpanel use="ais.ui.util.MyTabpanel">
+
+					<borderlayout id="main" vflex="1">
+						<center border="none">
+							<calendars id="calendars" 
+								firstDayOfWeek="Sunday"  model="${cm}"
+								mold="default">
+								<toolbar sclass="calendar-toolbar">
+									<div class="float-left">
+										<hbox>
+
+											<div>
+												<label use="ais.ui.util.MyLabelConfig"
+													value="Tahun Akademik" />
+												<combobox
+													id="tahunAjaran" cols="10" forward="onChange=onRefresh">
+												</combobox>
+
+												<label use="ais.ui.util.MyLabelConfig" value="Fakultas"
+													 />
+												<combobox
+													forward="onChange=onRefresh" id="fakultas" cols="15" />
+												<label use="ais.ui.util.MyLabelConfig" value="Prodi"
+													 />
+												<combobox id="jurusan"
+													forward="onChange=onRefresh" cols="15" />
+												<label use="ais.ui.util.MyLabelConfig" value="Program" />
+												<combobox id="program"
+													forward="onChange=onRefresh" cols="8" />
+												<label use="ais.ui.util.MyLabelConfig" value="Semester" />
+												<combobox id="semester"
+													cols="3" forward="onChange=onRefresh">
+												</combobox>
+												<label use="ais.ui.util.MyLabelConfig" value="Kelas" />
+												<bandbox
+													use="ais.action.master.helper.AmbilDataKelasBanbox"
+													id="kelas" value="A" cols="3"
+													forward="onChange=onRefresh">
+												</bandbox>
+												<checkbox use="ais.ui.util.MyCheckboxConfig"
+													id="cariSemesterPendek" label="Semester Pendek" />
+												<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+													tooltiptext="Lihat Jadwal" forward="onClick=onRefresh"
+													id="find" label="Cari" image="/img/search.gif">
+												</toolbarbutton>
+
+											</div>
+										</hbox>
+									</div>
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;penjadwalan_kelas&quot;, &quot;Bantuan&quot;);"/>
+			</toolbar>
+							</calendars>
+						</center>
+
+					</borderlayout>
+
+				</tabpanel>
+
+			</tabpanels>
+		</tabbox>
+
+
+		<window use="ais.ui.util.MyWindow" id="addWindow" title="Tambah Jadwal Perkuliahan"
+			visible="false" mode="popup" border="normal" width="550px">
+
+		</window>
+		<window use="ais.ui.util.MyWindow" id="editWindow" title="Ubah Jadwal Perkuliahan"
+			visible="false" mode="popup" border="normal" width="550px">
+
+		</window>
+
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+	editWindow.setVisible(false);
+]]></zscript>
+	</window>
+</zk>

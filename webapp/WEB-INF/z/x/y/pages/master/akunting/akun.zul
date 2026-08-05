@@ -1,0 +1,124 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false"
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.akunting.AkunAction" width="100%" height="100%">
+
+		<tabbox width="100%" height="100%">
+
+			<tabs>
+				<tab use="ais.ui.util.MyTabConfig" selected="true">Akun</tab>
+				<tab use="ais.ui.util.MyTabConfig">Daftar Akun</tab>
+				<tab use="ais.ui.util.MyTabConfig" forward="onClick=onBank">Bank</tab>
+				<tab use="ais.ui.util.MyTabConfig" forward="onClick=onJenisTransaksi">Jenis Transaksi</tab>
+			</tabs>
+
+			<tabpanels>
+
+				<!-- ═══════════ TAB AKUN (pohon) ═══════════ -->
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<div sclass="ais-crud-portal">
+						<div sclass="ais-crud-filter-card">
+							<div sclass="ais-crud-filter-head">
+								<span sclass="ais-crud-filter-title">Akun</span>
+								<div sclass="ais-crud-filter-actions">
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="addAkun" label="Tambah Akun" image="/img/new.gif" tooltiptext="Tambah Akun" forward="onClick=onAddAkun"/>
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;akun&quot;, &quot;Bantuan&quot;);"/></div>
+							</div>
+						</div>
+						<div sclass="ais-crud-data-card">
+							<tree width="100%" zclass="z-dottree" height="100%" id="tree">
+								<treecols>
+									<treecol width="40%" label="Akun"></treecol>
+									<treecol label="Debet/Credit"></treecol>
+									<treecol label="Keterangan"></treecol>
+									<treecol label="Grup Akun"></treecol>
+									<treecol label="Aktifitas"></treecol>
+									<treecol width="15%"></treecol>
+								</treecols>
+							</tree>
+						</div>
+					</div>
+				</tabpanel>
+
+				<!-- ═══════════ TAB DAFTAR AKUN (grid) ═══════════ -->
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<div sclass="ais-crud-portal">
+						<div sclass="ais-crud-filter-card">
+							<div sclass="ais-crud-filter-head">
+								<span sclass="ais-crud-filter-title">Pencarian &amp; Filter</span>
+								<div sclass="ais-crud-filter-actions">
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="add" label="Tambah" image="/img/new.gif" tooltiptext="Tambah data baru" forward="onClick=onAdd"/>
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="find" label="Cari" image="/img/search.gif" tooltiptext="Cari data" forward="onClick=onSearchDefault"/>
+								</div>
+							</div>
+							<div sclass="ais-crud-filter-body">
+								<grid use="ais.ui.util.MyGrid" fixedLayout="true" sclass="ais-crud-filter-grid">
+									<columns>
+										<column use="ais.ui.util.MyColumnConfig" width="120px"/>
+										<column use="ais.ui.util.MyColumnConfig"/>
+										<column use="ais.ui.util.MyColumnConfig" width="120px"/>
+										<column use="ais.ui.util.MyColumnConfig"/>
+										<column use="ais.ui.util.MyColumnConfig" width="120px"/>
+										<column use="ais.ui.util.MyColumnConfig"/>
+										<column use="ais.ui.util.MyColumnConfig" width="120px"/>
+										<column use="ais.ui.util.MyColumnConfig"/>
+									</columns>
+									<rows>
+										<row>
+											<label use="ais.ui.util.MyLabelConfig" value="Nama Akun"/>
+											<textbox forward="onOK=onSearchDefault" id="searchnama" width="95%"/>
+											<label use="ais.ui.util.MyLabelConfig" value="Kode Akun"/>
+											<textbox forward="onOK=onSearchDefault" id="searchkode" width="95%"/>
+											<label use="ais.ui.util.MyLabelConfig" value="Aktifitas"/>
+											<textbox forward="onOK=onSearchDefault" id="searchaktifitas" width="95%"/>
+											<label use="ais.ui.util.MyLabelConfig" value="Satuan Kerja"/>
+											<bandbox use="ais.action.master.rab.helper.AmbilDataSatuanKerjaBanbox" id="searchparent" width="95%"/>
+										</row>
+									</rows>
+								</grid>
+							</div>
+						</div>
+						<div sclass="ais-crud-data-card">
+							<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true"/>
+							<grid use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true" id="grid">
+								<columns menupopup="auto">
+									<column use="ais.ui.util.MyColumnConfig" label="Kode Akun" sort="auto(kode)"/>
+									<column use="ais.ui.util.MyColumnConfig" label="Nama Akun" sort="auto(nama)"/>
+									<column use="ais.ui.util.MyColumnConfig" label="Debit/Credit"/>
+									<column use="ais.ui.util.MyColumnConfig" label="Induk"/>
+									<column use="ais.ui.util.MyColumnConfig" label="Keterangan"/>
+									<column use="ais.ui.util.MyColumnConfig" label="Grup Akun"/>
+									<column use="ais.ui.util.MyColumnConfig" label="Aktifitas"/>
+									<column use="ais.ui.util.MyColumnConfig" label="Bank"/>
+									<column use="ais.ui.util.MyColumnConfig" width="10%" label=""/>
+								</columns>
+							</grid>
+							<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>
+						</div>
+					</div>
+				</tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="banktab"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="jenisTransaksi"></tabpanel>
+
+			</tabpanels>
+		</tabbox>
+
+		<window use="ais.ui.util.MyWindow" id="addWindow"
+			title="Tambah Akun" visible="false" mode="popup"
+			position="center,center" border="normal" width="450px" height="90%">
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+	</window>
+
+</zk>

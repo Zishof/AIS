@@ -1,0 +1,7 @@
+<?link rel="shortcut icon" href="/img/favicon.ico" type="image/x-icon"?>
+<?page title="Aplikasi ecampus" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<zscript><![CDATA[
+	execution.sendRedirect("common/tampilan_dashboard.zul");
+]]></zscript>
+</zk>

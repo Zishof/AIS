@@ -1,0 +1,91 @@
+<?page id="akreditasiDmsZul" title="Manajemen Dokumen" cacheable="false" language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+<zk xmlns="http://www.zkoss.org/2005/zul" xmlns:h="http://www.w3.org/1999/xhtml" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+    <window use="ais.ui.util.MyWindow" border="none" id="window" apply="ais.action.master.AkreditasiAction" width="100%" height="100%" sclass="dms-window">
+        <borderlayout sclass="dms-layout">
+            <north border="none" open="true" flex="true" sclass="dms-north">
+                <grid use="ais.ui.util.MyGrid" fixedLayout="true" sclass="dms-filter-grid">
+                    <columns>
+                        <column use="ais.ui.util.MyColumnConfig" width="95px" />
+                        <column use="ais.ui.util.MyColumnConfig" />
+                        <column use="ais.ui.util.MyColumnConfig" width="105px" />
+                        <column use="ais.ui.util.MyColumnConfig" />
+                        <column use="ais.ui.util.MyColumnConfig" width="80px" />
+                        <column use="ais.ui.util.MyColumnConfig" />
+                    </columns>
+                    <rows>
+                        <row spans="6">
+                            <html><![CDATA[
+                                <div class="dms-hero-zul">
+                                    <div class="dms-hero-icon"><i class="fa fa-archive"></i></div>
+                                    <div>
+                                        <div class="dms-hero-title">Document Management System</div>
+                                        <div class="dms-hero-subtitle">Kelola ruang arsip, sub ruang, dan lampiran dokumen institusi dalam tampilan seperti DMS modern yang mudah dipahami pengguna.</div>
+                                    </div>
+                                </div>
+                            ]]></html>
+                        </row>
+                        <row spans="6">
+                            <html><![CDATA[
+                                <div class="dms-info-panel">
+                                    <div><i class="fa fa-info-circle"></i> <strong></strong> halaman ini digunakan untuk menyusun dokumen institusi ke dalam ruang arsip yang rapi. Pengguna dapat mencari dokumen berdasarkan nama, unit, atau program studi tanpa harus memahami struktur teknis penyimpanan file.</div>
+                                </div>
+                            ]]></html>
+                        </row>
+                        <row sclass="dms-filter-row">
+                            <label use="ais.ui.util.MyLabelConfig" value="Cari" />
+                            <textbox forward="onOK=onSearchDefault" id="searchnama" width="95%" />
+                            <label use="ais.ui.util.MyLabelConfig" value="Satuan Kerja" />
+                            <bandbox use="ais.action.master.rab.helper.AmbilDataSatuanKerjaBanbox" id="searchparent" width="95%" />
+                            <label use="ais.ui.util.MyLabelConfig" value="Prodi" />
+                            <combobox id="searchjurusan" forward="onChange=onSearchDefault" width="95%" />
+                        </row>
+                        <row spans="6">
+                            <toolbar sclass="dms-toolbar-zul">
+                                <toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" tooltiptext="Buat ruang arsip dokumen utama" forward="onClick=onAdd" id="add" label="Buat Ruang Arsip" image="/img/svg/addthis.svg" /><toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;akreditasi&quot;, &quot;Bantuan&quot;);"/>
+                                <toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" tooltiptext="Cari data" forward="onClick=onSearchDefault" id="find" label="Cari" image="/img/search.gif" />
+                            </toolbar>
+                        </row>
+                    </rows>
+                </grid>
+            </north>
+            <center border="none" flex="true" sclass="dms-center">
+                <grid fixedLayout="true" use="ais.ui.util.MyGrid" sclass="fgrid dms-main-grid" id="grid">
+                    <columns>
+                        <column use="ais.ui.util.MyColumnConfig" width="42px" />
+                        <column use="ais.ui.util.MyColumnConfig" label="Ruang Arsip Dokumen" />
+                        <column use="ais.ui.util.MyColumnConfig" label="Jenis" width="14%" />
+                        <column use="ais.ui.util.MyColumnConfig" label="Lembaga" width="14%" />
+                        <column use="ais.ui.util.MyColumnConfig" label="Lingkup" width="8%" />
+                        <column use="ais.ui.util.MyColumnConfig" label="Tingkat" width="9%" />
+                        <column use="ais.ui.util.MyColumnConfig" label="Periode" width="12%" />
+                        <column use="ais.ui.util.MyColumnConfig" label="Prodi" width="13%" />
+                        <column use="ais.ui.util.MyColumnConfig" label="Jumlah Isi" width="9%" />
+                        <column use="ais.ui.util.MyColumnConfig" label="Aktif" width="75px" />
+                        <column use="ais.ui.util.MyColumnConfig" label="" width="115px" />
+                    </columns>
+                </grid>
+            </center>
+            <south border="none" flex="true" sclass="dms-south">
+                <paging id="paging" detailed="true" />
+            </south>
+        </borderlayout>
+        <window use="ais.ui.util.MyWindow" id="addWindow" title="Folder Dokumen" visible="false" mode="popup" position="center,center" border="normal" width="620px" height="95%" />
+        <zscript><![CDATA[addWindow.setVisible(false);]]></zscript>
+    </window>
+    <style><![CDATA[
+        .dms-window, .dms-layout { background:#eef3f8; border:0; }
+        .dms-north { background:#eef3f8; border:0; }
+        .dms-filter-grid { border:0; background:#eef3f8; padding:8px; }
+        .dms-hero-zul { display:flex; align-items:center; gap:12px; padding:14px 16px; border-radius:18px; color:#fff; background:linear-gradient(135deg,#1d4ed8,#0f766e); box-shadow:0 10px 24px rgba(15,23,42,.14); }
+        .dms-hero-icon { width:42px; height:42px; border-radius:14px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.18); font-size:24px; }
+        .dms-hero-title { font-size:18px; font-weight:800; letter-spacing:.2px; }
+        .dms-hero-subtitle { font-size:12px; opacity:.92; margin-top:3px; }
+        .dms-info-panel { padding:10px 14px; border:1px solid #dbeafe; border-radius:14px; background:#eff6ff; color:#1e3a8a; font-size:12px; line-height:1.55; }
+        .dms-info-panel i { margin-right:6px; }
+        .dms-filter-row, .dms-toolbar-zul { background:#fff; border-radius:12px; }
+        .dms-toolbar-zul { padding:6px 8px; border:1px solid #e5e7eb; }
+        .dms-center { background:#f8fafc; border:0; padding:8px; overflow:auto; }
+        .dms-main-grid { border:1px solid #e5e7eb; border-radius:14px; overflow:hidden; background:#fff; }
+        .dms-south { background:#fff; border-top:1px solid #e5e7eb; padding:3px 8px; }
+    ]]></style>
+</zk>

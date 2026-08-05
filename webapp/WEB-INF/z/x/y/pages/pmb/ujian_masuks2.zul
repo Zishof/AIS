@@ -1,0 +1,85 @@
+<?page title="Prosedur Pendaftaran" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<borderlayout height="100%">
+		<west width="5%">
+
+		</west>
+		<center autoscroll="true">
+			<box>
+				<separator height="30px"></separator>
+				<box width="90%" align="center">
+					<label use="ais.ui.util.MyLabelConfig">
+						UJIAN MASUK S2
+					</label>
+				</box>
+				<separator height="10px"></separator>
+				<html>
+
+
+					
+					<![CDATA[ <p><strong>A. PILIHAN PROGRAM
+					STUDI</strong><br /> &nbsp; &nbsp; &nbsp;Peserta
+					seleksi ujian masuk hanya dapat memilih 1 (satu)
+					program studi.</p><p><strong>B. MATERI SELEKSI UJIAN
+					MASUK</strong> 
+					
+					<ol> <li><strong>Prodi PBI, PAI, dan
+					PBA:</strong><br /> a. Tes Potensi Akademik<br /> b.
+					TOEFL dan TOAFL<br /> d. Proposal tesis dan wawasan
+					bidang ilmu </li> 
+					
+					<li><strong>Prodi Psikologi:</strong>
+					
+					<ol> <li>Tes Bakat
+					Skolastik</li> <li>Bahasa Inggris</li>
+					<li>Statistika Dasar (khusus Psikometri)</li> </ol>
+					</li> 
+					
+					<li><strong> Prodi Agribisnis: </strong></li>
+
+					<ol> <li>Tes Potensi Akademik dari Bappenas</li>
+					</ol> 
+					
+					<li><strong>Prodi Ekonomi Syariah:</strong><br
+					/> a. Fiqh Muamalah/Ekonomi Syariah<br /> b. Toefl
+					dan Toafl<br /> d. Wawancara Proposal Tesis</li>
+					
+					
+					<li><strong>Prodi Dirasat Islamiyah </strong></li>
+					Tes seleksi lisan / wawancara dengan materi : 
+					<ul>
+
+					<ol> <li>Kompetensi bahasa Arab dalam membaca,
+					menulis, mendengar, berbicara, memahami, mengarang
+					</li> <li>Kompetensi wawasan keislaman</li> <li>Tes
+					proposal bidang keilmuan yang akan diteliti</li>
+					</ol></ul>
+					
+					<li><strong> Fakultas Ushuluddin: </strong></li>
+
+					<ol> <li>Seleksi Administrasi</li></ol></ol>
+					
+					 <p><strong>C. TEMPAT
+					SELEKSI UJIAN MASUK</strong> </p> <p>Seleksi Ujian
+					Masuk diselenggarakan di Fakultas/Program Studi
+					masing-masing 
+					
+					<p><strong>D. PENGUMUMAN HASIL UJIAN
+					</strong><br /> a.  Hasil Ujian akan diumumkan
+					melalui : <ul> <li> Website <a
+					href="http://spmb.uinjkt.ac.id">http://spmb.uinjkt.ac.id</a>.</li>
+					<li>Di kampus UIN Syarif Hidayatullah Jakarta.</li>
+					</ul> <p> b. Apabila terjadi perubahan tanggal
+					pengumuman, akan diberitahukan melalui website <a
+					href="http://www.uinjkt.ac.id">http://www.uinjkt.ac.id</a>
+					</li> </ol> </p>
+
+					]]>
+					
+					
+					
+                    		</html>
+			</box>
+		</center>
+	</borderlayout>
+</zk>

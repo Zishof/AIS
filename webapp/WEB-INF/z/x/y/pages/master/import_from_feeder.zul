@@ -1,0 +1,240 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.ImportFromFeederAction" width="100%"
+		height="100%">
+
+		<borderlayout width="100%" height="100%">
+
+			<east>
+
+				<borderlayout width="100%"
+					height="100%">
+
+
+
+					<north border="none"
+						flex="true">
+
+						<grid use="ais.ui.util.MyGrid">
+							<rows>
+
+								<row>
+									<label
+										use="ais.ui.util.MyLabelConfig"
+										value="Alamat IP Aplikasi Feeder yang bisa diakses oleh server (Contoh : 192.168.0.1)">
+									</label>
+									<textbox id="ip" cols="80"
+										value="192.168.0.2">
+									</textbox>
+								</row>
+								<row>
+									<label
+										use="ais.ui.util.MyLabelConfig"
+										value="Port Aplikasi Feeder (Contoh : 8082)">
+									</label>
+									<intbox id="port" value="8082"
+										cols="80">
+									</intbox>
+								</row>
+								<row>
+
+									<label
+										use="ais.ui.util.MyLabelConfig" value="Username Feeder">
+									</label>
+									<textbox id="username" cols="80"></textbox>
+
+								</row>
+
+								<row>
+
+									<label
+										use="ais.ui.util.MyLabelConfig" value="Password Feeder">
+									</label>
+									<textbox id="password"
+										type="password" cols="80">
+									</textbox>
+
+								</row>
+
+							</rows>
+
+						</grid>
+
+
+					</north>
+
+					<center border="none"
+						flex="true">
+
+						<vbox align="center" pack="center" width="100%"
+							height="100%">
+
+
+							<label use="ais.ui.util.MyLabelConfig"
+								id="labelProses" value="Proses : ">
+							</label>
+
+
+
+
+
+							<progressmeter id="progressmeterChild"
+								value="0" width="100%">
+							</progressmeter>
+
+							<progressmeter id="progressmeter" value="0"
+								width="100%">
+							</progressmeter>
+
+
+
+
+							<label use="ais.ui.util.MyLabelConfig"
+								id="labelProsesDetail" multiline="true"
+								value="Proses Detail : ">
+
+							</label>
+
+
+
+						</vbox>
+
+					</center>
+
+
+
+					<south border="none">
+						<toolbar height="40px">
+
+							<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+								 id="button"
+								forward="onClick=onImport" label="Impor Data Dari Feeder"
+								image="/img/dashboard.png">
+							</toolbarbutton>
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;import_from_feeder&quot;, &quot;Bantuan&quot;);"/>
+			</toolbar>
+					</south>
+
+				</borderlayout>
+
+			</east>
+
+			<center title="Import Data via File">
+
+				<grid use="ais.ui.util.MyGrid" sclass="fgrid">
+					<rows>
+						<row>
+							<grid use="ais.ui.util.MyGrid" 
+								sclass="dgrid" fixedLayout="true" id="grid">
+								<rows>
+									<row>
+										<hbox>
+											<label
+												use="ais.ui.util.MyLabelConfig"
+												value="Masukkan username feeder dengan benar disini :">
+											</label>
+											<textbox id="usernameFeeder"
+												width="100%">
+											</textbox>
+										</hbox>
+									</row>
+									<row>
+										<label
+											use="ais.ui.util.MyLabelConfig" id="labelProsesFile"
+											value="Proses : ">
+										</label>
+									</row>
+									<row>
+										<progressmeter
+											id="progressmeterChildFile" value="0" width="100%">
+										</progressmeter>
+									</row>
+									<row>
+										<progressmeter
+											id="progressmeterFile" value="0" width="100%">
+										</progressmeter>
+
+
+									</row>
+									<row>
+										<hbox id="pilihan"
+											width="100%">
+										</hbox>
+									</row>
+								</rows>
+							</grid>
+
+
+
+
+						</row>
+						<row>
+
+
+							<toolbar height="40px">
+
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+									
+									upload="true,maxsize=100000000"
+									tooltiptext="Upload Data Feeder"
+									forward="onUpload=onUploadData" id="uploadData"
+									label="Upload Data Feeder (*.json  atau *.zip)"
+									image="/img/upload.gif">
+								</toolbarbutton>
+
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+									
+									tooltiptext="Proses Ulang Data Feeder yg telah diupload sebelumnya"
+									forward="onClick=onUploadDataUlang"
+									label="Proses Ulang Data Feeder yg telah diupload sebelumnya"
+									id="uploadDataUlang" visible="false" image="/img/upload.gif">
+								</toolbarbutton>
+
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+									
+									tooltiptext="Download Aplikasi Feeder Client"
+									forward="onClick=onDownloadAplikasi32"
+									label="Download Feeder Client 32 Bit"
+									image="/img/upload.gif">
+								</toolbarbutton>
+
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+									
+									tooltiptext="Download Aplikasi Feeder Client"
+									forward="onClick=onDownloadAplikasi"
+									label="Download Feeder Client 64 Bit"
+									image="/img/upload.gif">
+								</toolbarbutton>
+
+							</toolbar>
+
+
+						</row>
+					</rows>
+				</grid>
+
+
+			</center>
+		</borderlayout>
+
+
+
+
+
+
+
+
+	</window>
+
+
+</zk>

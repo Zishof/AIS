@@ -1,0 +1,64 @@
+<?page title="new page title" contentType="text/html;charset=UTF-8"?>
+<zk>
+
+	<tabbox width="100%" height="100%">
+
+		<tabs>
+			<tab use="ais.ui.util.MyTabConfig" id="jurnalSiswa"
+				selected="true">
+				Jurnal Pembayaran Siswa
+			</tab>
+			<tab use="ais.ui.util.MyTabConfig" id="jurnalMahasiswa">
+				Jurnal Pembayaran Mahasiswa
+			</tab>
+
+		</tabs>
+		<tabpanels>
+			<tabpanel use="ais.ui.util.MyTabpanel" id="tab0">
+				
+			</tabpanel>
+
+			<tabpanel use="ais.ui.util.MyTabpanel" id="tab1">
+
+			</tabpanel>
+
+		</tabpanels>
+	</tabbox>
+	<zscript>
+		<![CDATA[
+	boolean[] ptYa = ais.common.Common.chekPtAtauSekolah();
+	boolean pt = ptYa[0];
+	boolean ya = ptYa[1];
+jurnalSiswa.setVisible(ya);
+jurnalMahasiswa.setVisible(pt);
+
+jurnalSiswa.getLinkedPanel().setVisible(ya);
+jurnalMahasiswa.getLinkedPanel().setVisible(pt);
+
+
+if(pt && ya){
+	jurnalSiswa.setSelected(true);
+	Include include = new Include("/WEB-INF/z/x/y/pages/master/sekolah/posting_piutang.zul");
+	tab0.appendChild(include);
+} else if(pt){
+	jurnalMahasiswa.setSelected(true);
+	Include include = new Include("/WEB-INF/z/x/y/pages/master/posting_cicilan_mahasiswa.zul");
+	tab1.appendChild(include);
+} else if(ya){
+	jurnalSiswa.setSelected(true);
+	Include include = new Include("/WEB-INF/z/x/y/pages/master/sekolah/posting_piutang.zul");
+	tab0.appendChild(include);
+}
+
+jurnalMahasiswa.addEventListener("onClick", new org.zkoss.zk.ui.event.EventListener(){
+	public void onEvent(org.zkoss.zk.ui.event.Event arg0) throws Exception {
+		if (tab1.getChildren().isEmpty()) {
+			Include include = new Include("/WEB-INF/z/x/y/pages/master/posting_cicilan_mahasiswa.zul");
+			tab1.appendChild(include);
+		}
+	}
+});
+]]>
+		</zscript>
+
+</zk>

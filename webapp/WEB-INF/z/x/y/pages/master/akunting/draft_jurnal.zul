@@ -1,0 +1,70 @@
+<?page id="testZul" title="Draft Jurnal" cacheable="false" language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+<zk xmlns="http://www.zkoss.org/2005/zul" xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.dashboard.akunting.DrafJurnalAction" width="100%" height="100%">
+
+		<borderlayout>
+									<north border="none" size="204px" autoscroll="true" flex="false" splittable="false">
+				<div style="padding:12px;box-sizing:border-box;">
+					<div sclass="ais-crud-filter-card">
+						<div sclass="ais-crud-filter-head">
+							<span sclass="ais-crud-filter-title">Pencarian &amp; Filter</span>
+						</div>
+						<div sclass="ais-crud-filter-body">
+
+				<vbox width="100%">
+					<div width="100%">
+						<grid use="ais.ui.util.MyGrid" fixedLayout="true" width="100%" sclass="ais-crud-filter-grid">
+							<columns>
+								<column use="ais.ui.util.MyColumnConfig" width="100px" />
+								<column use="ais.ui.util.MyColumnConfig" />
+								<column use="ais.ui.util.MyColumnConfig" width="40px" />
+								<column use="ais.ui.util.MyColumnConfig" />
+								<column use="ais.ui.util.MyColumnConfig" width="260px" />
+							</columns>
+							<rows>
+								<row>
+									<label use="ais.ui.util.MyLabelConfig" value="Tanggal" />
+									<datebox use="ais.ui.util.MyDatebox" forward="onChange=onSearchDefault" id="searchmulai" width="95%" />
+									<label use="ais.ui.util.MyLabelConfig" value="sd" />
+									<datebox use="ais.ui.util.MyDatebox" forward="onChange=onSearchDefault" id="searchsampai" width="95%" />
+									<toolbar>
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" tooltiptext="Cari data" forward="onClick=onSearchDefault" id="find" label="Tampilkan" image="/img/search.gif" /><toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;draft_jurnal&quot;, &quot;Bantuan&quot;);"/>
+										
+									</toolbar>
+								</row>
+								<row spans="5">
+									<label id="processInfo" value="Menyiapkan ringkasan draft jurnal." />
+								</row>
+							</rows>
+						</grid>
+					</div>
+				</vbox>
+						</div>
+					</div>
+				</div>
+			</north>
+
+			<center border="none" flex="true" autoscroll="true">
+				<vbox width="100%">
+					<html id="summaryHtml" width="100%" />
+					<grid use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true" id="grid" width="100%" mold="paging" pageSize="10">
+						<columns>
+							<column use="ais.ui.util.MyColumnConfig" label="Nama Jurnal" width="30%" sort="auto" />
+							<column use="ais.ui.util.MyColumnConfig" align="right" label="Draft" width="110px" />
+							<column use="ais.ui.util.MyColumnConfig" align="right" label="Terposting" width="120px" />
+							<column use="ais.ui.util.MyColumnConfig" align="right" label="Closing" width="110px" />
+							<column use="ais.ui.util.MyColumnConfig" label="Uraian" />
+							<column use="ais.ui.util.MyColumnConfig" align="center" label="Posting" width="110px" />
+							<column use="ais.ui.util.MyColumnConfig" align="center" label="Batalkan Posting" width="140px" />
+						</columns>
+					</grid>
+				</vbox>
+			</center>
+		</borderlayout>
+
+		</window>
+</zk>

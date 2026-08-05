@@ -1,0 +1,14 @@
+<?page title="new page title" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<window apply="ais.action.maintenance.ProfileAction" title=""
+		border="none" width="100%" height="100%">
+
+		<borderlayout>
+			<center id="center" border="none" flex="true">
+				
+			</center>
+		</borderlayout>
+
+	</window>
+
+</zk>

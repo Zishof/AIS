@@ -1,0 +1,127 @@
+<?page title="new page title" contentType="text/html;charset=UTF-8"?>
+<zk>
+	
+		<borderlayout>
+			<center flex="true">
+				<grid fixedLayout="true" use="ais.ui.util.MyGrid" height="100%" width="100%">
+					<columns>
+						<column width="15%"></column>
+						<column></column>
+					</columns>
+					<rows>
+						<row>
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Kode Pembayaran">
+							</label>
+							<label use="ais.ui.util.MyLabelConfig" id="kodePembayaran">
+							</label>
+							<zscript>
+							kodePembayaran.setValue(execution.getParameter("va"));
+							</zscript>
+						</row>
+						<row>
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Atas Nama">
+							</label>
+							<label use="ais.ui.util.MyLabelConfig" id="nama">
+							</label>
+							<zscript>
+							nama.setValue(execution.getParameter("nama"));
+							</zscript>
+						</row>
+						<row>
+							<label use="ais.ui.util.MyLabelConfig" value="Nominal Pembayaran"></label>
+							<label use="ais.ui.util.MyLabelConfig"
+								id="nominalPembayaran">
+							</label>
+							<zscript>
+							nominalPembayaran.setValue(execution.getParameter("nominal"));
+							</zscript>
+						</row>
+						<row id="rowBiayaAdministrasi">
+							<label use="ais.ui.util.MyLabelConfig" value="Biaya Administrasi"></label>
+							<label use="ais.ui.util.MyLabelConfig"
+								id="biayaAdministrasi">
+							</label>
+							<zscript>
+							biayaAdministrasi.setValue(execution.getParameter("biayaAdministrasi"));
+							rowBiayaAdministrasi.setVisible(execution.getParameter("tampilBiayaAdministrasi").equals("true"));
+							</zscript>
+						</row>
+						<row id="rowBiayaTotal">
+							<label use="ais.ui.util.MyLabelConfig" value="Total Pembayaran"></label>
+							<label use="ais.ui.util.MyLabelConfig"
+								id="biayaTotal">
+							</label>
+							<zscript>
+							biayaTotal.setValue(execution.getParameter("biayaTotal"));
+							rowBiayaTotal.setVisible(execution.getParameter("tampilBiayaAdministrasi").equals("true"));
+							</zscript>
+						</row>
+						<row>
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Terbilang">
+							</label>
+							<label use="ais.ui.util.MyLabelConfig" id="terbilang">
+							</label>
+							<zscript>
+							terbilang.setValue(execution.getParameter("terbilang"));
+							</zscript>
+						</row>
+						<row>
+							<label use="ais.ui.util.MyLabelConfig" value="Tanggal Kadaluarsa"></label>
+							<label use="ais.ui.util.MyLabelConfig"
+								id="kadalurasa">
+							</label>
+							<zscript>
+							kadalurasa.setValue(execution.getParameter("kadalurasa"));
+							</zscript>
+						</row>
+						<row spans="2">
+							<label use="ais.ui.util.MyLabelConfig" value="* Catatlah kode pembayaran di atas, Anda bisa melakukan pembayaran via ATM, Teller atau Mobile Banking."></label>
+						</row>
+						<row spans="2">
+							<label use="ais.ui.util.MyLabelConfig" id="keteranganNominal"></label>
+							<zscript>
+							keteranganNominal.setValue("* Pada saat Anda melakukan pembayaran, pastikan nominal atau nilai pembayaran yang Anda masukkan sama dengan total tagihan, yaitu "+execution.getParameter("biayaTotal"));
+							</zscript>
+						</row>
+						<row id="qrCode">
+							<label use="ais.ui.util.MyLabelConfig" value="QR-Code"></label>
+							<image width="128px"
+								id="qr">
+							</image>
+							<zscript>
+							
+							qrCode.setVisible(ais.common.Common.getKonfigurasi("tampilkan_qr_code_bayar", ais.database.model.Konfigurasi.AKTIF).getNilai().equalsIgnoreCase(ais.database.model.Konfigurasi.AKTIF) );
+							
+							final String p = "/LaporanVa?"+ (ais.common.Common.convertToQueryString(execution.getParameterMap()));
+							qr.setSrc(execution.getParameter("qr"));
+							</zscript>
+						</row>
+						<row id="qrCetak">
+							<label use="ais.ui.util.MyLabelConfig" value="Cetak Nomor Pembayaran"></label>
+							<zscript deferred="true">
+							
+							
+						     void cetakData() {
+						     	execution.sendRedirect(p,"_blank");
+						     }
+						    </zscript>
+							<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Cetak" image="/img/print.png"  onClick="cetakData()">
+							</toolbarbutton>
+							<zscript>
+							qrCetak.setVisible(ais.common.Common.getKonfigurasi("tampilkan_cetak_bayar", ais.database.model.Konfigurasi.AKTIF).getNilai().equalsIgnoreCase(ais.database.model.Konfigurasi.AKTIF) );
+							</zscript>
+						</row>
+						<row>
+							<label use="ais.ui.util.MyLabelConfig" value="Lihat Cara Pembayaran"></label>
+							<a target="_blank" href="/help/tata_cara_ntt.pdf">Download Cara Pembayaran</a>
+						</row>
+					</rows>
+				</grid>
+			</center>   
+			
+		</borderlayout>
+	
+</zk>

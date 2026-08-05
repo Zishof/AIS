@@ -1,0 +1,129 @@
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" id="generateNim"
+		apply="ais.action.master.GenerateNimCalonMahasiswaAkademikAction"
+		border="none" width="100%" height="100%">
+
+
+		<borderlayout>
+
+			<north border="none" open="true"><div sclass="ecampus-bantuan-north-wrap" style="width:100%; height:100%; display:flex; align-items:center; gap:8px;">
+				<toolbar style="background:transparent;border:0;padding:0;"><toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;generate_nim_akademik&quot;, &quot;Bantuan&quot;);"/></toolbar>
+				<grid use="ais.ui.util.MyGrid"
+					fixedLayout="true" id="grid">
+					<columns>
+						<column use="ais.ui.util.MyColumnConfig"
+							width="200px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig"></column>
+					</columns>
+					<rows>
+						<row>
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Calon Mahasiswa" />
+							<bandbox cols="50"
+								use="ais.action.master.helper.AmbilDataCalonMahasiswaGenerateNimBanbox"
+								id="bandboxCalonMahasiswa" readonly="true" />
+						</row>
+						<row>
+							<label use="ais.ui.util.MyLabelConfig"
+								value="" />
+							<button use="ais.ui.util.MyButtonConfig"
+								label="C H E C K" forward="onClick=onPilihCalonMahasiswa">
+							</button>
+						</row>
+
+					</rows>
+				</grid>
+
+			</div></north>
+			<center border="none" flex="true" id="center"
+				title="Data Mahasiswa Baru">
+				<grid use="ais.ui.util.MyGrid"
+					fixedLayout="true" id="grids">
+					<columns>
+						<column use="ais.ui.util.MyColumnConfig"
+							width="10%">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig"
+							width="90%">
+						</column>
+					</columns>
+					<rows>
+
+						<row id="rowNoRegistrasi" visible="false">
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Nomor Pendaftaran" />
+							<label use="ais.ui.util.MyLabelConfig"
+								id="labelNoRegistrasi" />
+						</row>
+						<row id="rowNoUjian" visible="false">
+							<label use="ais.ui.util.MyLabelConfig"
+								value="No Ujian" />
+							<label use="ais.ui.util.MyLabelConfig"
+								id="labelNoUjian" />
+						</row>
+						<row id="rowNim" visible="false">
+							<label use="ais.ui.util.MyLabelConfig"
+								value="NIM" />
+							<label use="ais.ui.util.MyLabelConfig"
+								id="labelNim" />
+						</row>
+						<row id="rowNama" visible="false">
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Nama Calon Mahasiswa" />
+							<label use="ais.ui.util.MyLabelConfig"
+								id="labelNamaMahasiswa" />
+						</row>
+						<row id="rowProdi" visible="false">
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Program Studi Lulus" />
+							<label use="ais.ui.util.MyLabelConfig"
+								id="prodi" />
+						</row>
+						<row id="rowTahunMasuk" visible="false">
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Tahun Masuk" />
+							<label use="ais.ui.util.MyLabelConfig"
+								id="labelTahunMasuk" />
+						</row>
+						<row id="rowTahunAkademik" visible="false">
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Tahun Akademik" />
+							<label use="ais.ui.util.MyLabelConfig"
+								id="labelTahunAkademik" />
+						</row>
+						<row spans="2">
+							<button use="ais.ui.util.MyButtonConfig"
+								label="Generate NIM" tooltiptext="Generate NIM — Buat NIM baru (hanya jika belum ada NIM)"
+								forward="onClick=onGenerateNim" id="buttonGenerateNim">
+							</button>
+							<button use="ais.ui.util.MyButtonConfig"
+								label="Regenerate NIM"
+								tooltiptext="Regenerate NIM — Ganti NIM lama dengan format konfigurasi terbaru, nomor urut mengikuti urutan yang sudah ada"
+								forward="onClick=onRegenerateNim" id="buttonRegenerateNim"
+								visible="false"
+								style="color:#dc3545;border-color:#dc3545;font-weight:bold;">
+							</button>
+							<button use="ais.ui.util.MyButtonConfig"
+								label="CETAK" tooltiptext="CETAK" forward="onClick=onCetak"
+								id="buttonCetak">
+							</button>
+							<button use="ais.ui.util.MyButtonConfig"
+								label="CETAK KESEHATAN" tooltiptext="CETAK KESEHATAN"
+								forward="onClick=onCetakKesehatan" id="buttonCetakKesehatan">
+							</button>
+						</row>
+
+					</rows>
+				</grid>
+			</center>
+
+		</borderlayout>
+
+
+	</window>
+</zk>

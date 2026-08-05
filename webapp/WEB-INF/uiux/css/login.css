@@ -1,0 +1,55 @@
+@charset "ISO-8859-1";
+
+
+
+.login-logo {
+	display: flex;
+	flex-direction: row;
+	justify-content: center;
+	font-size:50px;
+	font-weight: bold;
+}
+
+.text-eschool {
+font-size:50px;
+font-weight:bold;
+margin-left: 3px;
+color: white;	
+}
+
+.login-box {
+	border-radius:10px;
+}
+
+body {
+	border-radius: 30px;
+}
+
+form {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	 background: rgba(54, 94, 171, 1);
+}
+
+.input-group-text {
+	border-radius:30px;
+}
+
+.btn-coba {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: #ff0080;
+  --bs-btn-border-color: #6c757d;
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: #5c636a;
+  --bs-btn-hover-border-color: #800080;
+  --bs-btn-focus-shadow-rgb: 130, 138, 145;
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: #565e64;
+  --bs-btn-active-border-color: #408080;
+  --bs-btn-active-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
+  --bs-btn-disabled-color: #fff;
+  --bs-btn-disabled-bg: #ff8000;
+  --bs-btn-disabled-border-color: #00ff00;
+}

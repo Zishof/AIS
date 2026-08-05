@@ -1,0 +1,12 @@
+<?page id="kasKasirKantin" title="Kas Kasir" cacheable="false"
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+<!-- Peluncur (ZK) Buka/Tutup Kas Kasir — memuat KasKasirZkAction (reuse SesiKasUtil, sama dgn versi JSP). -->
+<zk xmlns="http://www.zkoss.org/2005/zul" xmlns:h="http://www.w3.org/1999/xhtml">
+	<window use="ais.ui.util.MyWindow" border="none" width="100%" id="mainWindow" height="100%">
+		<zscript><![CDATA[
+			ais.action.master.koperasi.kas.KasKasirZkAction w = new ais.action.master.koperasi.kas.KasKasirZkAction();
+			w.setWidth("100%"); w.setHeight("100%"); w.setBorder("none");
+			mainWindow.appendChild(w);
+		]]></zscript>
+	</window>
+</zk>

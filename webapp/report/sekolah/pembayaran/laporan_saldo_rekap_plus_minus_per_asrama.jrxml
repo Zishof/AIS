@@ -1,0 +1,367 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="jadwal_pelajaran_guru" language="groovy" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="535" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="0b89f332-0514-496c-9bb2-abc6cbf142f4">
+	<property name="ireport.zoom" value="1.6500000000000017"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<style name="Title" forecolor="#FFFFFF" fontSize="26" isBold="true" pdfFontName="Helvetica-Bold"/>
+	<style name="SubTitle" forecolor="#666666" fontSize="18"/>
+	<style name="Column header" forecolor="#666666" fontSize="12" isBold="true"/>
+	<style name="Detail" fontSize="12"/>
+	<parameter name="header" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["wood.jpg"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tahunPelajaran" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2015/2016"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="semester" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[1]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mulai" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2005-01-01"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="sampai" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2017-01-01"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="sekolah" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="yayasan" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="nis" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+	</parameter>
+	<parameter name="maksimal" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="kelas" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="asrama" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="semua" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Tidak"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="anaks" class="java.lang.Object" isForPrompting="false">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select *, (case when (aa.pemasukan-aa.pengeluaran) > 0 then 'plus' else 'minus' end) as plus_minus
+from
+(
+	select
+	date($P{mulai})- interval '1 minute' as tanggal,
+	a.id,
+	a.nomor_induk,
+	a.nama_siswa,
+	(case when a1.nama is null then 'Tanpa Asrama' else a1.nama end) as kelas,
+	'Saldo Awal' as deskripsi,
+	case when b.nominal is null then 0 else b.nominal end as pemasukan,
+	(case when c.nominal is null then 0 else c.nominal end)+(case when d.nominal is null then 0 else d.nominal end) as pengeluaran
+
+	from siswa a
+	left join (select max(bbb.id) as id,max(bbb.nama_asrama) as nama,aaa.siswa_id from asrama_siswa aaa inner join asrama bbb
+	on (aaa.asrama_daftar_siswa_id=bbb.id) group by aaa.siswa_id) b211 on (b211.siswa_id = a.id)
+	left join (select bbb.nama_asrama as nama,aaa.siswa_id from asrama_siswa aaa inner join asrama bbb on (aaa.asrama_daftar_siswa_id=bbb.id) group by bbb.id,aaa.siswa_id) a1 on (a.id = a1.siswa_id)
+
+	left join (
+		select siswa_id,sum(nominal) as nominal from deposit_siswa aa
+		inner join siswa bb on (aa.siswa_id = bb.id)
+		where date(aa.waktu) <= date($P{sampai})
+		and case when $P{nis} = '' then true else bb.nomor_induk ilike '%'||$P{nis}||'%' end
+		and case when $P{sekolah} = -1 then true else bb.sekolah_id = $P{sekolah} end
+		and bb.yayasan_id = $P{yayasan}
+		group by siswa_id
+	)  b on (a.id = b.siswa_id)
+	left join (
+		select siswa_id,sum(nominal) as nominal from pembayaran_siswa aa
+		inner join siswa bb on (aa.siswa_id = bb.id)
+		where date(aa.tanggal) <= date($P{sampai})
+		and case when $P{nis} = '' then true else bb.nomor_induk ilike '%'||$P{nis}||'%' end
+		and case when $P{sekolah} = -1 then true else bb.sekolah_id = $P{sekolah} end
+		and bb.yayasan_id = $P{yayasan}
+		group by siswa_id
+	)  c on (a.id = c.siswa_id)
+	left join (
+		select siswa_id,sum(nominal) as nominal from pembelian_siswa aa
+		inner join siswa bb on (aa.siswa_id = bb.id)
+		where date(aa.tanggal) <= date($P{sampai})
+		and case when $P{nis} = '' then true else bb.nomor_induk ilike '%'||$P{nis}||'%' end
+		and case when $P{sekolah} = -1 then true else bb.sekolah_id = $P{sekolah} end
+		and bb.yayasan_id = $P{yayasan}
+		group by siswa_id
+	)  d on (a.id = d.siswa_id)
+	where case when $P{semua} = 'Tidak' then true else (a.aktif is null or a.aktif) end
+	and case when $P{kelas} = -1 then true else a.current_kelas_id = $P{kelas} end
+	and case when $P{asrama} = -1 then true else b211.id = $P{asrama} end
+	and case when $X{IN,-1,anaks} then true else $X{IN,a.id,anaks} end
+) aa
+where (aa.pengeluaran+aa.pemasukan) != 0
+and case when $P{maksimal} = -1 then true else aa.pemasukan<=$P{maksimal} end
+order by (case when (aa.pemasukan-aa.pengeluaran) > 0 then 'plus' else 'minus' end),aa.kelas,aa.nomor_induk,aa.tanggal]]>
+	</queryString>
+	<field name="tanggal" class="java.sql.Timestamp"/>
+	<field name="id" class="java.lang.Long"/>
+	<field name="nomor_induk" class="java.lang.String"/>
+	<field name="nama_siswa" class="java.lang.String"/>
+	<field name="kelas" class="java.lang.String"/>
+	<field name="deskripsi" class="java.lang.String"/>
+	<field name="pemasukan" class="java.lang.Double"/>
+	<field name="pengeluaran" class="java.lang.Double"/>
+	<field name="plus_minus" class="java.lang.String"/>
+	<variable name="saldo" class="java.lang.Double" resetType="Group" resetGroup="tingkat" calculation="Sum">
+		<variableExpression><![CDATA[$F{pemasukan}-$F{pengeluaran}]]></variableExpression>
+	</variable>
+	<variable name="saldo_1" class="java.lang.Double" calculation="Sum">
+		<variableExpression><![CDATA[$F{pemasukan}-$F{pengeluaran}]]></variableExpression>
+	</variable>
+	<variable name="saldo_1_1" class="java.lang.Double" resetType="Group" resetGroup="plus_minus" calculation="Sum">
+		<variableExpression><![CDATA[$F{pemasukan}-$F{pengeluaran}]]></variableExpression>
+	</variable>
+	<variable name="plus" class="java.lang.String">
+		<variableExpression><![CDATA[($F{pemasukan}+$F{pengeluaran})>0.0?"Daftar Siswa dengan saldo plus" : "Daftar Siswa dengan saldo minus"]]></variableExpression>
+	</variable>
+	<group name="plus_minus">
+		<groupExpression><![CDATA[$F{plus_minus}]]></groupExpression>
+		<groupHeader>
+			<band height="26">
+				<textField pattern="HH:mm">
+					<reportElement style="Detail" x="0" y="0" width="555" height="26" uuid="d2dfeb2d-877d-40ed-b261-50f93ddad1e1"/>
+					<textElement>
+						<font size="15" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA["Daftar siswa dengan saldo "+$F{plus_minus}]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band height="21">
+				<textField pattern="HH:mm">
+					<reportElement style="Detail" x="22" y="0" width="456" height="21" uuid="5065e408-8783-477c-ba04-9745b53e04eb"/>
+					<textElement>
+						<font size="13" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA["Total saldo siswa dengan saldo "+$F{plus_minus}]]></textFieldExpression>
+				</textField>
+				<textField pattern="#,##0">
+					<reportElement style="Detail" x="478" y="0" width="75" height="21" uuid="a52623de-9df5-43cf-8673-5759382c9725"/>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="10" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{saldo_1_1}]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupFooter>
+	</group>
+	<group name="tingkat">
+		<groupExpression><![CDATA[$F{kelas}]]></groupExpression>
+		<groupHeader>
+			<band height="46">
+				<textField>
+					<reportElement style="SubTitle" x="0" y="5" width="555" height="25" forecolor="#333333" uuid="2be9f8e1-5630-4035-9c33-0e49b6b2584c"/>
+					<textElement>
+						<font size="18" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA["Asrama "+$F{kelas}]]></textFieldExpression>
+				</textField>
+				<textField>
+					<reportElement style="Detail" x="0" y="30" width="22" height="15" uuid="fe3b06ee-1d28-4674-82a8-4b989b427611"/>
+					<textElement>
+						<font size="11"/>
+					</textElement>
+					<textFieldExpression><![CDATA["No."]]></textFieldExpression>
+				</textField>
+				<textField pattern="HH:mm">
+					<reportElement style="Detail" x="408" y="30" width="70" height="15" uuid="23b5104e-b9e3-4f67-b490-699715b913ef"/>
+					<textElement textAlignment="Right">
+						<font size="11"/>
+					</textElement>
+					<textFieldExpression><![CDATA["Pengeluaran"]]></textFieldExpression>
+				</textField>
+				<textField pattern="HH:mm">
+					<reportElement style="Detail" x="22" y="30" width="316" height="15" uuid="46a3171f-a916-4ef8-8159-df8669bb9244"/>
+					<textElement>
+						<font size="11"/>
+					</textElement>
+					<textFieldExpression><![CDATA["Siswa"]]></textFieldExpression>
+				</textField>
+				<textField pattern="HH:mm">
+					<reportElement style="Detail" x="338" y="30" width="70" height="15" uuid="3d1ccb13-3c4a-4884-b9c7-acc13393878a"/>
+					<textElement textAlignment="Right">
+						<font size="11"/>
+					</textElement>
+					<textFieldExpression><![CDATA["Pemasukan"]]></textFieldExpression>
+				</textField>
+				<textField pattern="HH:mm">
+					<reportElement style="Detail" x="478" y="30" width="75" height="15" uuid="f96aac94-8c9a-4ee1-8a65-d66cd1d69064"/>
+					<textElement textAlignment="Right">
+						<font size="11"/>
+					</textElement>
+					<textFieldExpression><![CDATA["Saldo"]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band height="23">
+				<textField pattern="HH:mm">
+					<reportElement style="Detail" x="22" y="0" width="456" height="21" uuid="37fe844f-bdcd-4373-8612-f0ebc954277c"/>
+					<textElement>
+						<font size="13" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA["Total saldo "+$F{plus_minus}+" asrama "+$F{kelas}]]></textFieldExpression>
+				</textField>
+				<textField pattern="#,##0">
+					<reportElement style="Detail" x="478" y="0" width="75" height="21" uuid="a80a566c-31a3-432b-9f03-8d3ccd4e07d9"/>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="10" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{saldo}]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupFooter>
+	</group>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="70" splitType="Stretch">
+			<image>
+				<reportElement x="-20" y="0" width="595" height="64" uuid="06e82940-90ac-4f28-a5c3-677de0644257"/>
+				<imageExpression><![CDATA[$P{header}]]></imageExpression>
+			</image>
+			<textField>
+				<reportElement style="SubTitle" x="0" y="5" width="555" height="33" forecolor="#FFFFFF" uuid="012e496a-8a32-4fb0-b84a-32f8f7b2c255"/>
+				<textElement>
+					<font size="26" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "label_sekolah" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement style="SubTitle" x="0" y="38" width="555" height="13" forecolor="#FFFFFF" uuid="d103d8c2-8520-4fb4-aa3a-28cbdec16de7"/>
+				<textElement>
+					<font size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "alamat_sekolah" )]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<columnHeader>
+		<band height="36" splitType="Stretch">
+			<line>
+				<reportElement positionType="FixRelativeToBottom" x="0" y="35" width="555" height="1" uuid="afe9a8ca-1d8f-415b-b595-fa0260b1e624"/>
+				<graphicElement>
+					<pen lineWidth="0.5" lineColor="#999999"/>
+				</graphicElement>
+			</line>
+			<textField>
+				<reportElement style="SubTitle" x="0" y="15" width="553" height="20" uuid="7846cff7-5777-4595-aeab-f623d7b416ad"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Rekap Saldo Per Asrama Sampai Tanggal "+$P{REPORT_PARAMETERS_MAP}.get( "label_sampai" )]]></textFieldExpression>
+			</textField>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="19" splitType="Stretch">
+			<line>
+				<reportElement positionType="FixRelativeToBottom" x="0" y="18" width="555" height="1" uuid="d5a05fca-175e-44fe-a31d-b9b3a80ccb2f"/>
+				<graphicElement>
+					<pen lineWidth="0.5" lineColor="#999999"/>
+				</graphicElement>
+			</line>
+			<textField>
+				<reportElement style="Detail" x="0" y="0" width="22" height="19" uuid="1a2899eb-c3e8-49cc-b971-4e7fda83fc11"/>
+				<textElement verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{tingkat_COUNT}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0">
+				<reportElement style="Detail" x="338" y="0" width="70" height="19" uuid="1def8bda-3220-421a-b645-e900c09beb1a"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{pemasukan}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0">
+				<reportElement style="Detail" x="408" y="0" width="70" height="19" uuid="3967034f-0fae-486b-b4b9-a156ce3a5276"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{pengeluaran}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0">
+				<reportElement style="Detail" x="478" y="0" width="75" height="19" uuid="4acf1795-1524-4c93-a05d-b8a7d6d149e2"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{pemasukan}-$F{pengeluaran}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement style="Detail" x="22" y="0" width="316" height="19" uuid="b2f9e98b-e0ad-427f-92db-1fd3473d08b3"/>
+				<textElement verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nomor_induk}+" - "+$F{nama_siswa}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<columnFooter>
+		<band height="7" splitType="Stretch">
+			<line>
+				<reportElement positionType="FixRelativeToBottom" x="0" y="3" width="555" height="1" uuid="e60fe85b-8443-4075-a995-ba925a8fccd6"/>
+				<graphicElement>
+					<pen lineWidth="0.5" lineColor="#999999"/>
+				</graphicElement>
+			</line>
+		</band>
+	</columnFooter>
+	<pageFooter>
+		<band height="20" splitType="Stretch">
+			<textField>
+				<reportElement style="Column header" x="433" y="0" width="80" height="20" uuid="2e3e3032-52bd-4c4b-a85e-693ffe0b6cc5"/>
+				<textElement textAlignment="Right">
+					<font size="10" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Page "+$V{PAGE_NUMBER}+" of"]]></textFieldExpression>
+			</textField>
+			<textField evaluationTime="Report">
+				<reportElement style="Column header" x="513" y="0" width="40" height="20" uuid="47d97f5b-1ea2-4ff3-bc98-92df726c7631"/>
+				<textElement>
+					<font size="10" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[" " + $V{PAGE_NUMBER}]]></textFieldExpression>
+			</textField>
+			<textField pattern="EEEEE dd MMMMM yyyy">
+				<reportElement style="Column header" x="0" y="0" width="197" height="20" uuid="08f13105-5be9-4b9b-a38d-39135bb4c7bb"/>
+				<textElement>
+					<font size="10" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.util.Date()]]></textFieldExpression>
+			</textField>
+		</band>
+	</pageFooter>
+	<summary>
+		<band height="22">
+			<textField pattern="#,##0">
+				<reportElement style="Detail" x="480" y="0" width="75" height="21" uuid="e268cc07-b234-4575-9b53-0af694dccc79"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{saldo_1}]]></textFieldExpression>
+			</textField>
+			<textField pattern="HH:mm">
+				<reportElement style="Detail" x="22" y="0" width="456" height="21" uuid="e1ad61ae-9573-4934-b30a-ab57bf9d9d83"/>
+				<textElement>
+					<font size="13" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Total saldo"]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
+</jasperReport>

@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="surat_persetujuan_ujian_skripsi" language="groovy" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="483" leftMargin="56" rightMargin="56" topMargin="20" bottomMargin="20">
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="540"/>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["../logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="id" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[11184L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tahun" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[(Calendar.getInstance().get(Calendar.YEAR))]]></defaultValueExpression>
+	</parameter>
+	<parameter name="cr_code" class="java.lang.String" isForPrompting="false"/>
+	<queryString>
+		<![CDATA[select
+a.*,
+b.nama as nama_jurusan,
+c.nama as nama_fakultas,
+(select count(*)+1 from report_log where tahun = $P{tahun}) as nomor,
+d.kode as kode_jenjang,
+d.nama as nama_jenjang,
+e.nama as status_mahasiswa,
+(select max(nama) from staff where staff = 'Kepala Biro Administrasi Akademik dan Kemahasiswaan') as nama_staff,
+(select max(nip) from staff where staff = 'Kepala Biro Administrasi Akademik dan Kemahasiswaan') as nip_staff
+
+from mahasiswa a
+left join jurusan b on (a.jurusan = b.id)
+left join fakultas c on (c.id = b.fakultas)
+left join jenjang d on (d.id = b.jenjang)
+left join status_mahasiswa e on (e.id = a.status)
+where a.id  = $P{id}]]>
+	</queryString>
+	<field name="id" class="java.lang.Long"/>
+	<field name="alamat" class="java.lang.String"/>
+	<field name="berat_badan" class="java.lang.Integer"/>
+	<field name="email" class="java.lang.String"/>
+	<field name="golongan_darah" class="java.lang.String"/>
+	<field name="is_encripted" class="java.lang.Boolean"/>
+	<field name="kelamin" class="java.lang.String"/>
+	<field name="keterangan" class="java.lang.String"/>
+	<field name="keterangan_tambahan_pengambilan_krs1" class="java.lang.String"/>
+	<field name="keterangan_tambahan_pengambilan_krs10" class="java.lang.String"/>
+	<field name="keterangan_tambahan_pengambilan_krs11" class="java.lang.String"/>
+	<field name="keterangan_tambahan_pengambilan_krs12" class="java.lang.String"/>
+	<field name="keterangan_tambahan_pengambilan_krs13" class="java.lang.String"/>
+	<field name="keterangan_tambahan_pengambilan_krs14" class="java.lang.String"/>
+	<field name="keterangan_tambahan_pengambilan_krs15" class="java.lang.String"/>
+	<field name="keterangan_tambahan_pengambilan_krs16" class="java.lang.String"/>
+	<field name="keterangan_tambahan_pengambilan_krs17" class="java.lang.String"/>
+	<field name="keterangan_tambahan_pengambilan_krs18" class="java.lang.String"/>
+	<field name="keterangan_tambahan_pengambilan_krs19" class="java.lang.String"/>
+	<field name="keterangan_tambahan_pengambilan_krs2" class="java.lang.String"/>
+	<field name="keterangan_tambahan_pengambilan_krs20" class="java.lang.String"/>
+	<field name="keterangan_tambahan_pengambilan_krs21" class="java.lang.String"/>
+	<field name="keterangan_tambahan_pengambilan_krs22" class="java.lang.String"/>
+	<field name="keterangan_tambahan_pengambilan_krs23" class="java.lang.String"/>
+	<field name="keterangan_tambahan_pengambilan_krs24" class="java.lang.String"/>
+	<field name="keterangan_tambahan_pengambilan_krs25" class="java.lang.String"/>
+	<field name="keterangan_tambahan_pengambilan_krs3" class="java.lang.String"/>
+	<field name="keterangan_tambahan_pengambilan_krs4" class="java.lang.String"/>
+	<field name="keterangan_tambahan_pengambilan_krs5" class="java.lang.String"/>
+	<field name="keterangan_tambahan_pengambilan_krs6" class="java.lang.String"/>
+	<field name="keterangan_tambahan_pengambilan_krs7" class="java.lang.String"/>
+	<field name="keterangan_tambahan_pengambilan_krs8" class="java.lang.String"/>
+	<field name="keterangan_tambahan_pengambilan_krs9" class="java.lang.String"/>
+	<field name="nama" class="java.lang.String"/>
+	<field name="nim" class="java.lang.String"/>
+	<field name="oleh" class="java.lang.String"/>
+	<field name="pass" class="java.lang.String"/>
+	<field name="program" class="java.lang.String"/>
+	<field name="semester_mulai" class="java.lang.String"/>
+	<field name="status_konversi" class="java.lang.Integer"/>
+	<field name="tahunangkatan" class="java.lang.Integer"/>
+	<field name="tanggal_lulus" class="java.sql.Date"/>
+	<field name="tanggal_dirubah" class="java.sql.Timestamp"/>
+	<field name="tanggallahir" class="java.sql.Date"/>
+	<field name="telp" class="java.lang.String"/>
+	<field name="tempatlahir" class="java.lang.String"/>
+	<field name="tinggi_badan" class="java.lang.Integer"/>
+	<field name="waktu_kuliah" class="java.lang.String"/>
+	<field name="warganegara" class="java.lang.String"/>
+	<field name="agama" class="java.lang.Long"/>
+	<field name="jenis_seleksi" class="java.lang.Long"/>
+	<field name="jenjang" class="java.lang.Long"/>
+	<field name="jurusan" class="java.lang.Long"/>
+	<field name="konsentrasi" class="java.lang.Long"/>
+	<field name="status" class="java.lang.Long"/>
+	<field name="status_awal_mahasiswa" class="java.lang.Long"/>
+	<field name="judul_skripsi" class="java.lang.String"/>
+	<field name="no_akta1" class="java.lang.String"/>
+	<field name="no_akta2" class="java.lang.String"/>
+	<field name="no_ijazah1" class="java.lang.String"/>
+	<field name="no_ijazah2" class="java.lang.String"/>
+	<field name="tahun_wisuda" class="java.lang.Integer"/>
+	<field name="tanggal_yudisium" class="java.sql.Date"/>
+	<field name="pass_ortu" class="java.lang.String"/>
+	<field name="user_ortu" class="java.lang.String"/>
+	<field name="warganegara_asli" class="java.lang.String"/>
+	<field name="negara" class="java.lang.Long"/>
+	<field name="batas_studi" class="java.lang.String"/>
+	<field name="jumlah_sks_penyetaraan" class="java.lang.Integer"/>
+	<field name="pindahan_nim" class="java.lang.String"/>
+	<field name="pindahan_perguruan_tinggi" class="java.lang.String"/>
+	<field name="status_krs" class="java.lang.String"/>
+	<field name="tanggal_masuk" class="java.sql.Timestamp"/>
+	<field name="pindahan_jenjang" class="java.lang.Long"/>
+	<field name="pindahan_program_studi" class="java.lang.Long"/>
+	<field name="ktp" class="java.lang.String"/>
+	<field name="semesterlulus" class="java.lang.Integer"/>
+	<field name="tahunlulus" class="java.lang.Integer"/>
+	<field name="pin" class="java.lang.Long"/>
+	<field name="nama_jurusan" class="java.lang.String"/>
+	<field name="nama_fakultas" class="java.lang.String"/>
+	<field name="nomor" class="java.lang.Long"/>
+	<field name="kode_jenjang" class="java.lang.String"/>
+	<field name="nama_jenjang" class="java.lang.String"/>
+	<field name="status_mahasiswa" class="java.lang.String"/>
+	<field name="nama_staff" class="java.lang.String"/>
+	<field name="nip_staff" class="java.lang.String"/>
+	<background>
+		<band height="802">
+			<printWhenExpression><![CDATA[$F{status_mahasiswa} == null || !$F{status_mahasiswa}.trim().toLowerCase().contains("lulus")]]></printWhenExpression>
+			<textField>
+				<reportElement x="0" y="39" width="483" height="104" forecolor="#FF0000"/>
+				<textElement textAlignment="Center">
+					<font size="18" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Anda tidak bisa mencetak surat ini, karena anda belum lulus"]]></textFieldExpression>
+			</textField>
+		</band>
+	</background>
+	<title>
+		<band height="802" splitType="Stretch">
+			<printWhenExpression><![CDATA[$F{status_mahasiswa} != null && $F{status_mahasiswa}.trim().toLowerCase().contains("lulus")]]></printWhenExpression>
+			<textField>
+				<reportElement x="0" y="131" width="483" height="50"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="14" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["SURAT KETERANGAN \n"+
+"Nomor : Un.01/CMV-B.1/PP.01.5/"+$F{nomor}+"/"+$P{tahun}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="66" y="199" width="417" height="50"/>
+				<textElement textAlignment="Justified">
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA["\tRektor Universitas Islam Negeri (UIN) Syarif Hidayatullah Jakarta, dengan ini menerangkan bahwa :"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="66" y="376" width="417" height="105"/>
+				<textElement textAlignment="Justified">
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA["benar yang bersangkutan mahasiswa Fakultas "+$F{nama_fakultas}+" Program Studi "+$F{nama_jurusan}+", terdaftar sebagai mahasiswa Program "+$F{nama_jenjang}+", telah dinyatakan lulus pada tanggal dan ijazah sedang dalam proses."+
+"\n\n\tDemikian, surat keterangan ini dibuat sebagaimana mestinya"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="106" y="266" width="118" height="20"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Nama"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="106" y="286" width="118" height="20"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA["NIM"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="106" y="306" width="118" height="20"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Fakultas"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="106" y="326" width="118" height="20"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Program Studi"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="224" y="266" width="13" height="20"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[":"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="224" y="286" width="13" height="20"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[":"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="224" y="306" width="13" height="20"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[":"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="224" y="326" width="13" height="20"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[":"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="237" y="266" width="246" height="20"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nama}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="237" y="286" width="246" height="20"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nim}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="237" y="306" width="246" height="20"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nama_fakultas}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="237" y="326" width="246" height="20"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nama_jurusan}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="271" y="525" width="212" height="20"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Jakarta, "+(new java.text.SimpleDateFormat("dd MMMMM yyyy",$P{REPORT_LOCALE}).format(new Date()))]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="224" y="558" width="47" height="20"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA["A.n. "]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="271" y="558" width="212" height="55"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Rektor\nKepala Biro Administrasi Akademik\ndan Kemahasiswaan"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="271" y="669" width="212" height="112"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[($F{nama_staff} == null ? "{NAMA}" : $F{nama_staff})+"\nNIP. "+($F{nip_staff} == null ? "{NIP}" : $F{nip_staff})]]></textFieldExpression>
+			</textField>
+			<image scaleImage="FillFrame" hAlign="Center" vAlign="Middle">
+				<reportElement x="66" y="669" width="112" height="112"/>
+				<box>
+					<topPen lineWidth="0.25" lineStyle="Dotted"/>
+					<leftPen lineWidth="0.25" lineStyle="Dotted"/>
+					<bottomPen lineWidth="0.25" lineStyle="Dotted"/>
+					<rightPen lineWidth="0.25" lineStyle="Dotted"/>
+				</box>
+				<imageExpression><![CDATA[$P{cr_code}]]></imageExpression>
+			</image>
+		</band>
+	</title>
+</jasperReport>

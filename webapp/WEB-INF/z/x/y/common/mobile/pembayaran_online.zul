@@ -1,0 +1,12 @@
+<?page title="Pembayaran Siswa Online" contentType="text/html;charset=UTF-8"?>
+<?meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" ?>
+<?meta name="description" content="Pembayaran Siswa Online" ?>
+<?meta name="author" content="Mohammad Fauzi Murtadho" ?>
+<zk>
+
+	<include use="ais.ui.util.MyInclude" height="100%" width="100%"
+		src="/WEB-INF/z/x/y/pages/master/sekolah/pem_online.zul">
+	</include>
+
+
+</zk>

@@ -1,0 +1,48 @@
+<?page title="new page title" contentType="text/html;charset=UTF-8"?>
+<zk>
+
+	<tabbox width="100%" height="100%">
+
+		<tabs>
+			<tab use="ais.ui.util.MyTabConfig" selected="true">
+				Pertanggungjawaban Uang Muka
+			</tab>
+			<tab use="ais.ui.util.MyTabConfig">
+				Saldo Awal Kas Kecil
+			</tab>
+			<tab use="ais.ui.util.MyTabConfig">Kas Kecil</tab>
+			<tab use="ais.ui.util.MyTabConfig">Kas Besar</tab>
+			<tab use="ais.ui.util.MyTabConfig" visible="false">Pertanggungjawaban Kas Besar</tab>
+		</tabs>
+		<tabpanels>
+
+			<tabpanel use="ais.ui.util.MyTabpanel">
+				<include
+					src="/WEB-INF/z/x/y/pages/master/akunting/posting_pertanggunjawaban.zul">
+				</include>
+			</tabpanel>
+			<tabpanel use="ais.ui.util.MyTabpanel">
+				<include
+					src="/WEB-INF/z/x/y/pages/master/akunting/posting_jenis_kas_kecil.zul">
+				</include>
+			</tabpanel>
+			<tabpanel use="ais.ui.util.MyTabpanel">
+				<include
+					src="/WEB-INF/z/x/y/pages/master/akunting/posting_kas_kecil.zul">
+				</include>
+			</tabpanel>
+			<tabpanel use="ais.ui.util.MyTabpanel">
+				<include
+					src="/WEB-INF/z/x/y/pages/master/akunting/posting_kas_besar.zul">
+				</include>
+			</tabpanel>
+			<tabpanel use="ais.ui.util.MyTabpanel" visible="false">
+				<include
+					src="/WEB-INF/z/x/y/pages/master/akunting/posting_pertanggunjawaban_kas_besar.zul">
+				</include>
+			</tabpanel>
+		</tabpanels>
+	</tabbox>
+
+
+</zk>

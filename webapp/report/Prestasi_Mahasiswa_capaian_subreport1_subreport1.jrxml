@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Prestasi_Mahasiswa_capaian_subreport1_subreport1" pageWidth="555" pageHeight="802" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="e64cfd18-8737-4452-b84f-abbfeaa6b4e7">
+	<property name="ireport.zoom" value="1.6105100000000008"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="skema" class="java.lang.String">
+		<defaultValueExpression><![CDATA["skema.jpg"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="tanggal" class="java.util.Date" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new java.util.Date()]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_kota" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Ciputat"]]></defaultValueExpression>
+	</parameter>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="110" splitType="Stretch">
+			<textField pattern="dd/MM/yyyy" isBlankWhenNull="false">
+				<reportElement key="textField" x="285" y="4" width="260" height="16" uuid="668d982b-7bae-4fb6-a4fc-b1044bac5287"/>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "label_kota" )+", "+($P{tanggal}==null?"":new SimpleDateFormat("dd MMMM yyyy",$P{REPORT_LOCALE}).format($P{tanggal}))]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="285" y="90" width="260" height="20" uuid="edd755d0-c7f7-400c-a9a1-51789b693713"/>
+				<textElement>
+					<font size="12" isBold="true" isUnderline="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "rektor" )==null?"..............":$P{REPORT_PARAMETERS_MAP}.get( "rektor" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="285" y="20" width="260" height="31" uuid="e0380b6d-5550-4e95-a5e6-77957b7e3676"/>
+				<textFieldExpression><![CDATA["Rektor"]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+</jasperReport>

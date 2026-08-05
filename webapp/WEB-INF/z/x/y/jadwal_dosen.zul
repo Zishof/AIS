@@ -1,0 +1,12 @@
+<?link rel="shortcut icon" href="/img/logo.png" type="image/x-icon"?>
+<?page title="Jadwal Dosen Harian" contentType="text/html;charset=UTF-8"?>
+<?meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" ?>
+<?meta name="description" content="Sistem Informasi Akademik Ecampus" ?>
+<?meta name="author" content="Mohammad Fauzi Murtadho" ?>
+<?link rel="stylesheet" type="text/css"	href="css/kuning_biru_tua.css" ?>
+<zk>
+	<window apply="ais.action.maintenance.JadwalDosenAction" id="main"
+		border="none" height="100%" width="100%">
+
+	</window>
+</zk>

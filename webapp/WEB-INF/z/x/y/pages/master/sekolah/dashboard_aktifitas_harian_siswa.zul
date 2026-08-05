@@ -1,0 +1,61 @@
+<?page id="dashboardAktifitasPage" title="Dashboard Monitoring Aktivitas Siswa" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul">
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.sekolah.DashboardAktifitasHarianSiswaAction" width="100%" height="100%">
+
+		<borderlayout>
+									<north border="none" size="256px" autoscroll="true" flex="false" splittable="false">
+				<div style="padding:12px;box-sizing:border-box;">
+					<div sclass="ais-crud-filter-card">
+						<div sclass="ais-crud-filter-head">
+							<span sclass="ais-crud-filter-title">Pencarian &amp; Filter</span>
+						<div sclass="ais-crud-filter-actions">
+							<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;dashboard_aktifitas_harian_siswa&quot;, &quot;Bantuan&quot;);"/>
+						</div>
+						</div>
+						<div sclass="ais-crud-filter-body">
+
+				<grid use="ais.ui.util.MyGrid" fixedLayout="true" sclass="ais-crud-filter-grid">
+					<columns>
+						<column width="120px" />
+						<column />
+						<column width="120px" />
+						<column />
+					</columns>
+					<rows>
+						<row>
+							<label use="ais.ui.util.MyLabelConfig" value="Yayasan" />
+							<combobox id="searchyayasan" width="95%" readonly="true" forward="onChange=onRefreshDashboard" />
+							<label use="ais.ui.util.MyLabelConfig" value="Sekolah" />
+							<combobox id="searchsekolah" width="95%" readonly="true" forward="onChange=onRefreshDashboard" />
+						</row>
+						<row>
+							<label use="ais.ui.util.MyLabelConfig" value="Mulai Tanggal" />
+							<datebox id="mulai" format="dd-MM-yyyy" width="95%" forward="onChange=onRefreshDashboard" />
+							<label use="ais.ui.util.MyLabelConfig" value="Sampai Tanggal" />
+							<datebox id="sampai" format="dd-MM-yyyy" width="95%" forward="onChange=onRefreshDashboard" />
+						</row>
+						<row spans="4">
+							<toolbar align="end">
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Refresh Dashboard" image="/img/refresh.gif" forward="onClick=onRefreshDashboard" />
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Download Excel" image="/img/excel.gif" forward="onClick=onDownloadExcel" />
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Cetak PDF" image="/img/pdf.gif" forward="onClick=onPrintPDF" />
+							</toolbar>
+						</row>
+					</rows>
+				</grid>
+						</div>
+					</div>
+				</div>
+			</north>
+
+			<center border="none" autoscroll="true">
+				<div id="dashDiv" width="100%"
+					style="padding:12px 14px 40px;overflow-y:auto;height:100%;box-sizing:border-box;" />
+			</center>
+		</borderlayout>
+
+		</window>
+</zk>

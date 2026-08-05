@@ -1,0 +1,3638 @@
+/* ==============================================================
+   BASE THEME CSS (Struktur & Layout General eCampus ZKoss)
+   ============================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500;1,600&display=swap');
+
+:root {
+    /* DEFAULT FALLBACK - Jika CSS tema gagal dimuat */
+    --theme-primary: #1a4087; 
+    --theme-primary-dark: #102855;
+    --theme-light: rgba(26, 64, 135, 0.1);
+    --theme-hover: #b30000;
+    --theme-gradient: linear-gradient(90deg, #1a4087 0%, #355c9e 100%);
+    --theme-scrollbar-thumb: #096a85;
+    --theme-text-on-primary: #ffffff;
+    --theme-text-shadow: none; 
+}
+
+/* ---------------------------------------------------
+   1. TYPOGRAPHY & SCROLLBAR
+-----------------------------------------------------*/
+body, .z-label, .z-radio-cnt, .z-checkbox-cnt, input.button, input.file, 
+.z-loading, .z-a, .z-toolbarbutton-cnt, .z-treerow, .z-column-cnt, .z-row-cnt {
+    font-family: Poppins, Helvetica, "sans-serif" !important;
+}
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+::-webkit-scrollbar-thumb { background: var(--theme-scrollbar-thumb); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--theme-primary-dark); }
+
+/* ---------------------------------------------------
+   2. BACKGROUNDS & HEADERS (Komponen Utama)
+-----------------------------------------------------*/
+.z-west-header, .z-center-header, .z-east-header, .z-north-header, .z-south-header,
+.z-window-header, .z-panel-header, .z-fieldset legend, h2, h4,
+.gridHeader, .headerHbox, .rowHeader, .navigasi, .headerHbox_mobile,
+.z-group-inner .z-group-cnt, .bg-custom-dark, .bg-primary {
+    border-color: var(--theme-primary) !important;
+}
+
+/* ---------------------------------------------------
+   3. GRID / TABEL (Data Tabel ZKoss)
+-----------------------------------------------------*/
+/* Header Tabel */
+div.z-grid-header tr.z-columns th.z-column,
+div.z-listbox-header tr.z-listhead th.z-listheader {
+    background: var(--theme-gradient) !important;
+    border-bottom: 2px solid var(--theme-primary-dark) !important;
+}
+div.z-grid-header tr.z-columns th.z-column .z-column-cnt,
+div.z-listbox-header tr.z-listhead th.z-listheader .z-listheader-cnt {
+    color: var(--theme-text-on-primary) !important;
+    font-weight: bold !important;
+}
+/* Hover Baris Tabel */
+tr.z-row-over > td.z-row-inner, tr.z-row-over > .z-cell,
+tr.z-listitem-over > td.z-listcell {
+    background-color: var(--theme-light) !important;
+}
+tr.z-row td.z-row-inner, tr.z-row .z-cell { border-bottom: 1px solid #e9ecef; }
+
+/* ---------------------------------------------------
+   4. TAB BOX (Navigasi Menu)
+-----------------------------------------------------*/
+.z-tab-seld .z-tab-text {
+    color: var(--theme-primary) !important;
+    font-weight: bold !important;
+}
+.z-tab-seld {
+    border-bottom: 3px solid var(--theme-primary) !important;
+}
+.z-tab-ver-hl .z-tab-ver-hr, .z-tab-ver-seld {
+    border-right: 3px solid var(--theme-primary) !important;
+    border-bottom: none !important;
+}
+
+/* ---------------------------------------------------
+   5. TREE & MENU (Sidebar Navigation)
+-----------------------------------------------------*/
+tr.z-treerow:hover, tr.z-treerow-seld {
+    background-color: var(--theme-light) !important;
+}
+.z-treerow-seld .z-treecell-text, .z-treerow-seld .z-a {
+    color: var(--theme-primary) !important;
+    font-weight: 600 !important;
+}
+.z-menubar-hor .z-menu, .z-menubar-hor .z-menu-item {
+    border-bottom: 2px solid var(--theme-primary) !important;
+}
+
+/* ---------------------------------------------------
+   6. BUTTONS & BOOTSTRAP OVERRIDES
+-----------------------------------------------------*/
+.z-paging-os .z-paging-os-seld {
+    background-color: var(--theme-primary) !important;
+    color: var(--theme-text-on-primary) !important;
+    border-color: var(--theme-primary-dark) !important;
+}
+/* Menimpa tombol bawaan Bootstrap & ZKoss */
+.btn-primary, .z-button {
+    background: var(--theme-gradient) !important;
+    color: var(--theme-text-on-primary) !important;
+    border: 1px solid var(--theme-primary-dark) !important;
+}
+.btn-primary:hover, .btn-primary:focus, .z-button:hover {
+    background: var(--theme-primary-dark) !important;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important;
+}
+.text-primary, .text-teal, .blue-link { color: var(--theme-primary) !important; }
+.border-primary, .border-left-accent, .exam-card { border-color: var(--theme-primary) !important; }
+
+/* ---------------------------------------------------
+   7. INPUT FIELDS (Fokus Textbox)
+-----------------------------------------------------*/
+.z-textbox:focus, .z-intbox:focus, .z-longbox:focus, .z-doublebox:focus, 
+.z-decimalbox:focus, .z-combobox-inp:focus, .form-control:focus {
+    border-color: var(--theme-primary) !important;
+    box-shadow: 0 0 5px var(--theme-primary) !important;
+    outline: none !important;
+}
+
+/* ---------------------------------------------------
+   8. POPUPS & MISC
+-----------------------------------------------------*/
+.z-menu-popup .z-menu-popup-cnt, .z-popup .z-popup-cl {
+    background: var(--theme-gradient) !important;
+    color: var(--theme-text-on-primary) !important;
+}
+.z-menu-popup-cnt .z-menu-over, .z-menu-popup-cnt .z-menu-item-over {
+    background-color: var(--theme-primary-dark) !important;
+    color: var(--theme-text-on-primary) !important;
+}
+.title1, .title1pmb, .motto, .mottopmb, .alamat { 
+    text-shadow: var(--theme-text-shadow, 2px 2px 6px gray); color: white !important; 
+}
+.user_button_profile { color: white !important; text-shadow: 0px 0px 4px black; }
+
+/* ---------------------------------------------------
+   8. SIDEBAR KIRI (Menu Navigasi Vertikal)
+-----------------------------------------------------*/
+/* 1. Pengaturan Z-Index Induk */
+nav.navbar-vertical.navbar-vibrant {
+    z-index: 1040 !important; 
+}
+
+/* ==========================================================
+   A. TAMPILAN DESKTOP (Di atas 1200px)
+   ========================================================== */
+@media (min-width: 1200px) {
+    /* Background diterapkan pada pembungkus utama agar memanjang penuh ke bawah */
+    nav.navbar-vertical.navbar-vibrant {
+        background: var(--theme-gradient) !important;
+        background-color: var(--theme-primary) !important;
+        border-right: 1px solid rgba(0, 0, 0, 0.1) !important;
+    }
+    
+    /* Anak elemen dibuat transparan agar tidak menutupi watermark */
+    .navbar-vertical .navbar-collapse,
+    .navbar-vertical.navbar-vibrant .navbar-collapse,
+    .navbar-vertical-content {
+        background: transparent !important;
+        background-color: transparent !important;
+    }
+    
+    /* Watermark Gedung menyatu dengan gradien */
+    nav.navbar-vertical.navbar-vibrant::before {
+        content: "";
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: url('../../img/bg1.png') center/cover no-repeat !important;
+        opacity: 0.15; 
+        mix-blend-mode: overlay; 
+        pointer-events: none; 
+    }
+}
+
+/* ==========================================================
+   B. TAMPILAN MOBILE (Di bawah 1200px) - FIX GARIS KOTOR
+   ========================================================== */
+@media (max-width: 1199.98px) {
+    /* 1. Hilangkan background di tag <nav> utama agar tidak jadi garis saat ditutup */
+    nav.navbar-vertical.navbar-vibrant {
+        background: transparent !important;
+        border: none !important;
+    }
+    
+    /* 2. Pindahkan background gradien ke dalam panel menu (.navbar-collapse).
+          Warnanya hanya akan muncul ketika tombol hamburger diklik! */
+    .navbar-vertical.navbar-vibrant .navbar-collapse {
+        background: var(--theme-gradient) !important;
+        background-color: var(--theme-primary) !important;
+        border-radius: 0 0 1rem 1rem !important; /* Membuat ujung bawah melengkung elegan di HP */
+        box-shadow: 0 15px 30px rgba(0,0,0,0.2) !important;
+        padding-bottom: 1rem !important;
+    }
+    
+    .navbar-vertical-content {
+        background: transparent !important;
+    }
+}
+
+/* ==========================================================
+   C. PEWARNAAN TEKS DAN EFEK HOVER (Berlaku Global)
+   ========================================================== */
+/* Pewarnaan Teks & Ikon Menu (Kontras dengan background gelap) */
+.navbar-vertical .navbar-nav .nav-link,
+.navbar-vertical .nav-link-text,
+.navbar-vertical .navbar-nav .nav-link .nav-icon,
+.navbar-vertical .navbar-nav .nav-link svg,
+.navbar-vertical .navbar-nav .nav-link i {
+    color: rgba(255, 255, 255, 0.85) !important;
+    fill: rgba(255, 255, 255, 0.85) !important;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Efek Hover & Menu Aktif (Bentuk Kapsul Modern) */
+.navbar-vertical .navbar-nav .nav-link:hover,
+.navbar-vertical .navbar-nav .nav-link.active {
+    background-color: rgba(255, 255, 255, 0.15) !important; 
+    color: #ffffff !important;
+    border-radius: 8px !important; 
+    margin: 0 10px; 
+}
+
+.navbar-vertical .navbar-nav .nav-link.active {
+    border-left: 4px solid #ffffff !important;
+    font-weight: 700 !important;
+}
+
+/* Memastikan teks sub-menu (anak menu) juga terang dan terbaca */
+.navbar-vertical .nav.collapse .nav-link {
+    color: rgba(255, 255, 255, 0.75) !important;
+}
+.navbar-vertical .nav.collapse .nav-link:hover,
+.navbar-vertical .nav.collapse .nav-link.active {
+    color: #ffffff !important;
+}
+
+/* Label Kategori (Modul Aplikasi, dll) */
+.navbar-vertical-label {
+    color: #ffffff !important;
+    opacity: 0.9;
+    letter-spacing: 1px;
+}
+.navbar-vertical-divider {
+    border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* ==============================================================
+   10. FIX TOGGLE NAVIGASI (Hamburger Menu)
+   ============================================================== */
+/* Menjaga area wrapper agar tombol tidak gepeng */
+.toggle-icon-wrapper {
+    min-width: 35px;
+    display: flex;
+    align-items: center;
+}
+
+/* Mereset background tombol agar transparan dan ukurannya pas */
+button.navbar-toggler-humburger-icon {
+    width: 35px !important;
+    height: 35px !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Mengubah Garis Tiga menjadi PUTIH / TERANG agar kontras dengan background menu */
+.navbar-toggler-humburger-icon .toggle-line,
+.navbar-toggler-humburger-icon .toggle-line::before,
+.navbar-toggler-humburger-icon .toggle-line::after {
+    background-color: var(--theme-text-on-primary) !important;
+    height: 2px !important; /* Menjaga ketebalan garis */
+    border-radius: 2px !important;
+}
+
+/* Efek menyala (Glow) saat tombol garis tiga di-hover */
+button.navbar-toggler-humburger-icon:hover .toggle-line,
+button.navbar-toggler-humburger-icon:hover .toggle-line::before,
+button.navbar-toggler-humburger-icon:hover .toggle-line::after {
+    background-color: #ffffff !important;
+    box-shadow: 0 0 5px rgba(255, 255, 255, 0.8);
+}
+
+
+/* ==============================================================
+   11. POPUP / MODAL (Bootstrap Modal)
+   ============================================================== */
+/* Memberikan lekukan (border-radius) dan bayangan (shadow) elegan pada kotak popup */
+.modal-content {
+    border: none !important;
+    border-radius: 12px !important;
+    overflow: hidden;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* Memaksa Header Modal mengikuti gradien tema (Mengabaikan warna hardcode biru) */
+.modal-header {
+    background: var(--theme-gradient) !important;
+    color: var(--theme-text-on-primary) !important;
+    border-bottom: 4px solid var(--theme-primary-dark) !important;
+    padding: 1rem 1.5rem !important;
+}
+
+/* Menyesuaikan teks judul modal */
+.modal-header .modal-title, 
+.modal-header label, 
+.modal-header svg {
+    color: var(--theme-text-on-primary) !important;
+    text-shadow: var(--theme-text-shadow) !important;
+    font-weight: 700 !important;
+}
+
+/* Mengubah icon silang (X) bawaan Bootstrap menjadi putih agar kontras dengan warna tema */
+.modal-header .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%) !important;
+    opacity: 0.8;
+}
+.modal-header .btn-close:hover {
+    opacity: 1;
+}
+
+/* ==============================================================
+   12. CARD DI DALAM MODAL BODY (Tabel Daftar Peserta)
+   ============================================================== */
+/* Menyelaraskan header kartu di dalam body modal dengan tema utama */
+.modal-body .card-header.bg-primary {
+    background: var(--theme-gradient) !important;
+    color: var(--theme-text-on-primary) !important;
+    border-bottom: 2px solid var(--theme-primary-dark) !important;
+}
+
+/* Mengubah warna teks khusus (.text-primary) seperti pada NIM agar sesuai warna primer tema */
+.modal-body .text-primary {
+    color: var(--theme-primary) !important;
+}
+
+/* Memberikan efek hover pada tabel peserta */
+.modal-body .table-hover tbody tr:hover {
+    background-color: var(--theme-light) !important;
+    transition: background-color 0.2s ease;
+}
+
+/* ==============================================================
+   13. MODAL FOOTER
+   ============================================================== */
+.modal-footer {
+    background-color: #f8f9fa !important;
+    border-top: 1px solid #dee2e6 !important;
+    border-radius: 0 0 12px 12px !important;
+}
+
+
+/* ==============================================================
+   14. BOOTSTRAP CARDS (Perbaikan Kontras "Perintah Tugas" dll)
+   ============================================================== */
+/* Menimpa .bg-white bawaan template menjadi gradien tema yang solid */
+.card-header {
+    background: var(--theme-gradient) !important;
+    border-bottom: 3px solid var(--theme-primary-dark) !important;
+    color: var(--theme-text-on-primary) !important;
+}
+
+/* Memaksa text dan icon di dalam card-header agar kontras dan membatalkan background blok di h4 */
+.card-header h1, .card-header h2, .card-header h3, .card-header h4, .card-header h5, .card-header h6,
+.card-header .text-primary, .card-header svg, .card-header i {
+    background: transparent !important; /* Menghilangkan background blok kotak pada text */
+    color: var(--theme-text-on-primary) !important; /* Memaksa text menjadi putih/terang */
+    text-shadow: var(--theme-text-shadow) !important;
+}
+
+/* Jika ada subtitle atau teks pudar di header, sesuaikan agar tetap terbaca */
+.card-header .text-muted, .card-header small {
+    color: var(--theme-text-on-primary) !important;
+    opacity: 0.8;
+}
+
+
+/* ==============================================================
+   FIX: KONTRAS OTOMATIS TAB DI ATAS BACKGROUND GRADIENT (.card-header)
+   ============================================================== */
+/* Jika tab berada di dalam header yang gelap/gradient, JANGAN gunakan warna gelap yang dipudarkan.
+   Gunakan warna terang (--theme-text-on-primary) yang dipudarkan 35% agar sangat kontras dan elegan */
+.card-header ul.nav-tabs li.nav-item button.nav-link:not(.active),
+.card-header ul.nav-tabs li.nav-item .nav-link:not(.active),
+.bg-primary ul.nav-tabs li.nav-item button.nav-link:not(.active),
+.bg-custom-dark ul.nav-tabs li.nav-item button.nav-link:not(.active) {
+    color: color-mix(in srgb, var(--theme-text-on-primary), transparent 35%) !important;
+}
+
+/* Saat disorot mouse (hover), nyalakan teks menjadi putih 100% dengan sedikit highlight di kotaknya */
+.card-header ul.nav-tabs li.nav-item button.nav-link:not(.active):hover,
+.bg-primary ul.nav-tabs li.nav-item button.nav-link:not(.active):hover,
+.bg-custom-dark ul.nav-tabs li.nav-item button.nav-link:not(.active):hover {
+    color: var(--theme-text-on-primary) !important;
+    background-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Pastikan Ikon FontAwesome & SVG patuh meniru warna terang tersebut */
+.card-header ul.nav-tabs li.nav-item button.nav-link svg,
+.card-header ul.nav-tabs li.nav-item button.nav-link i,
+.bg-primary ul.nav-tabs li.nav-item button.nav-link svg,
+.bg-primary ul.nav-tabs li.nav-item button.nav-link i,
+.bg-custom-dark ul.nav-tabs li.nav-item button.nav-link svg,
+.bg-custom-dark ul.nav-tabs li.nav-item button.nav-link i {
+    fill: currentColor !important;
+    color: inherit !important;
+}
+
+
+
+
+
+/* ==============================================================
+   15. BUTTON OUTLINE (btn-outline-primary)
+   ============================================================== */
+/* Tampilan Normal: Teks & Garis mengikuti warna Primary Tema */
+.btn-outline-primary {
+    color: var(--theme-primary) !important;
+    border: 2px solid var(--theme-primary) !important; /* Membuat garis lebih tegas */
+    background-color: white !important; /* Menimpa class .bg-white bawaan HTML */
+    background-image: none !important;
+    transition: all 0.3s ease-in-out !important;
+}
+
+/* Memastikan warna Icon selaras dengan teks */
+.btn-outline-primary svg, .btn-outline-primary i {
+    color: inherit !important;
+}
+
+/* Tampilan Hover & Aktif: Tombol terisi penuh oleh gradien tema */
+.btn-outline-primary:hover, 
+.btn-outline-primary:focus, 
+.btn-outline-primary:active {
+    background: var(--theme-gradient) !important;
+    color: var(--theme-text-on-primary) !important;
+    border-color: var(--theme-primary-dark) !important;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Membatalkan class .text-primary di dalam tombol jika ada agar saat di hover text tetap putih */
+.btn-outline-primary:hover .text-primary {
+    color: var(--theme-text-on-primary) !important;
+}
+
+
+/* ==============================================================
+   16. FIX TOTAL: ICON WRAPPER & BADGE TRANSPARAN (Revisi)
+   ============================================================== */
+/* 1. Memaksa SEMUA teks dan icon berkelas text-primary berubah warna */
+.text-primary,
+.text-primary svg,
+.text-primary i {
+    color: var(--theme-primary) !important;
+    fill: var(--theme-primary) !important; /* Memaksa FontAwesome SVG */
+}
+
+/* 2. Menargetkan spesifik kotak icon (seperti di Instruksi Tugas) */
+div.bg-primary.bg-opacity-10.text-primary,
+span.bg-primary.bg-opacity-10.text-primary {
+    background-color: var(--theme-light) !important;
+    color: var(--theme-primary) !important;
+    
+}
+
+/* 3. Memaksa icon di dalam kotak tersebut wajib ikut warna tema */
+div.bg-primary.bg-opacity-10.text-primary svg,
+div.bg-primary.bg-opacity-10.text-primary i {
+    color: var(--theme-primary) !important;
+    fill: var(--theme-primary) !important;
+}
+
+/* ==============================================================
+   PENGECUALIAN KHUSUS DI DALAM HEADER (Area Gradien)
+   ============================================================== */
+.card-header .bg-primary.bg-opacity-10,
+.modal-header .bg-primary.bg-opacity-10 {
+    background-color: rgba(255, 255, 255, 0.25) !important;
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+}
+
+.card-header .bg-primary.bg-opacity-10 svg,
+.modal-header .bg-primary.bg-opacity-10 svg,
+.card-header .bg-primary.bg-opacity-10 i,
+.modal-header .bg-primary.bg-opacity-10 i,
+.card-header .bg-primary.bg-opacity-10.text-primary,
+.modal-header .bg-primary.bg-opacity-10.text-primary {
+    color: var(--theme-text-on-primary) !important;
+    fill: var(--theme-text-on-primary) !important;
+    text-shadow: 0 0 5px rgba(255, 255, 255, 0.5) !important;
+}
+
+
+/* ==============================================================
+   17. ALERT & NOTIFIKASI (alert-info)
+   ============================================================== */
+/* Mengubah background dan garis pinggir kotak informasi */
+div.alert.alert-info {
+    background: var(--theme-light) !important; /* Warna tema transparan 10% */
+    border: 1px solid var(--theme-primary) !important; /* Garis pinggir setebal 1px dengan warna tema */
+    color: var(--theme-primary-dark) !important; /* Teks menggunakan warna tema versi gelap agar mudah dibaca */
+    border-radius: 8px !important; /* Opsional: Membuat ujungnya sedikit membulat */
+}
+
+/* Memaksa icon FontAwesome (SVG) di dalam alert agar warnanya sangat tegas */
+div.alert.alert-info svg, 
+div.alert.alert-info i {
+    color: var(--theme-primary) !important;
+    fill: var(--theme-primary) !important;
+}
+
+/* Jika ada link atau teks tebal di dalam alert, sesuaikan juga */
+div.alert.alert-info strong,
+div.alert.alert-info a {
+    color: var(--theme-primary) !important;
+}
+
+/* ==============================================================
+   18. FIX TOTAL: BUTTON GROUP & SECONDARY BUTTONS (Revisi)
+   ============================================================== */
+/* 1. Tampilan Normal (Tidak disorot) */
+.btn-outline-secondary {
+    background-color: #ffffff !important;
+    color: var(--theme-primary-dark) !important;
+    border: 1px solid rgba(0, 0, 0, 0.15) !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
+    transition: all 0.2s ease-in-out !important;
+    background-image: none !important;
+}
+
+/* Memastikan icon selaras dengan tema di keadaan normal */
+.btn-outline-secondary svg, 
+.btn-outline-secondary i {
+    color: var(--theme-primary) !important;
+    fill: var(--theme-primary) !important;
+    transition: all 0.2s ease-in-out !important;
+}
+
+/* 2. Tampilan Saat Disorot (Hover) & Di-klik (Active/Focus) */
+/* Kita tembak semua state Bootstrap agar tidak ada yang lolos */
+.btn-outline-secondary:hover, 
+.btn-outline-secondary:focus,
+.btn-outline-secondary:active,
+.btn-outline-secondary.active,
+.show > .btn-outline-secondary.dropdown-toggle {
+    background: var(--theme-gradient) !important;
+    background-color: var(--theme-primary) !important;
+    color: var(--theme-text-on-primary) !important;
+    border-color: var(--theme-primary-dark) !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2) !important;
+    z-index: 2 !important;
+}
+
+/* 3. Memaksa Icon berubah menjadi Putih saat di-hover/di-klik */
+.btn-outline-secondary:hover svg, 
+.btn-outline-secondary:focus svg,
+.btn-outline-secondary:active svg,
+.btn-outline-secondary.active svg,
+.btn-outline-secondary:hover i, 
+.btn-outline-secondary:focus i,
+.btn-outline-secondary:active i,
+.btn-outline-secondary.active i {
+    color: var(--theme-text-on-primary) !important;
+    fill: var(--theme-text-on-primary) !important;
+}
+
+/* 4. Fix border tumpuk di dalam grup tombol */
+.btn-group > .btn-outline-secondary:not(:first-child) {
+    border-left: none !important;
+}
+.btn-group > .btn-outline-secondary:hover,
+.btn-group > .btn-outline-secondary:active,
+.btn-group > .btn-outline-secondary:focus {
+    border-left: 1px solid var(--theme-primary-dark) !important;
+}
+
+
+/* ==============================================================
+   19. DASHBOARD SUMMARY CARDS (Kotak Ringkasan Atas)
+   ============================================================== */
+/* Menimpa warna-warni bawaan (Success, Info, Warning) agar seragam menjadi 1 kesatuan tema */
+.card.bg-primary.bg-gradient,
+.card.bg-success.bg-gradient,
+.card.bg-info.bg-gradient,
+.card.bg-warning.bg-gradient,
+.card.bg-danger.bg-gradient {
+    background: var(--theme-gradient) !important;
+    background-color: var(--theme-primary) !important;
+    border: none !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.08) !important;
+    transition: all 0.3s ease-in-out !important;
+}
+
+/* Memaksa semua teks di dalamnya (termasuk yang text-white) menjadi kontras sesuai tema */
+.card.bg-gradient h2, 
+.card.bg-gradient h6,
+.card.bg-gradient .text-white {
+    color: var(--theme-text-on-primary) !important;
+    text-shadow: var(--theme-text-shadow) !important;
+}
+
+/* Mempercantik Icon SVG / FontAwesome di dalam Card agar menyatu dengan teks */
+.card.bg-gradient svg.opacity-50,
+.card.bg-gradient i.opacity-50 {
+    color: var(--theme-text-on-primary) !important;
+    opacity: 0.35 !important; /* Dibuat sedikit lebih transparan agar elegan */
+    transition: all 0.3s ease-in-out !important;
+}
+
+/* Efek Animasi Melayang (Hover) agar terlihat modern dan interaktif */
+.card.bg-gradient:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 20px rgba(0,0,0,0.15) !important;
+}
+
+/* Efek Icon sedikit membesar dan miring saat kotak disorot mouse */
+.card.bg-gradient:hover svg.opacity-50,
+.card.bg-gradient:hover i.opacity-50 {
+    opacity: 0.6 !important;
+    transform: scale(1.15) rotate(5deg);
+}
+
+
+/* ==============================================================
+   FIX: TRANSPARANSI ANGKA DASHBOARD
+   ============================================================== */
+/* Menghapus background pada h2 dan h6 khusus di dalam card dashboard */
+.card.bg-gradient h2, 
+.card.bg-gradient h6,
+.card.bg-gradient .fw-bold {
+    background: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Jika Anda ingin menembak langsung ID-nya agar lebih aman */
+#dashTotal49D50C, 
+#dashDisetujui49D50C, 
+#dashProses49D50C, 
+#dashBelum49D50C,
+[id^="dashTotal"], [id^="dashDisetujui"] {
+    background: transparent !important;
+    display: inline-block;
+}
+
+
+/* ==============================================================
+   20. FIX TOTAL: NAV TABS (Solid Active Tab / Maximum Specificity)
+   ============================================================== */
+/* 1. Menyiapkan garis lintasan dan jarak antar tab */
+body ul.nav-tabs {
+    border-bottom: 2px solid #e9ecef !important;
+    gap: 4px;
+}
+
+/* ==============================================================
+   5. TAB NAVIGASI (FIX FINAL: KONTRAS LATAR TERANG VS GELAP)
+   ============================================================== */
+
+/* --- A. DEFAULT: LATAR BELAKANG TERANG (PUTIH/ABU) --- */
+/* Berlaku untuk semua tab secara standar di halaman putih */
+body ul.nav-tabs {
+    border-bottom: 2px solid rgba(0, 0, 0, 0.1) !important;
+    gap: 4px;
+}
+
+/* 1. Tab Tidak Aktif (Abu-abu Tua agar terbaca jelas) */
+body .nav-tabs .nav-item .nav-link:not(.active),
+body .nav-tabs .nav-item button.nav-link:not(.active) {
+    color: #6c757d !important;
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 3px solid transparent !important;
+    padding: 10px 20px !important;
+    font-weight: 600 !important;
+    opacity: 1 !important;
+    transition: all 0.3s ease-in-out !important;
+    border-radius: 8px 8px 0 0 !important;
+}
+body .nav-tabs .nav-item .nav-link:not(.active):hover {
+    color: var(--theme-primary-dark) !important;
+    background-color: rgba(0, 0, 0, 0.03) !important;
+}
+
+/* 2. Tab Aktif (Warna Tema Gelap) */
+body .nav-tabs .nav-item .nav-link.active,
+body .nav-tabs .nav-item button.nav-link.active {
+    color: var(--theme-primary-dark) !important;
+    background: transparent !important;
+    font-weight: 800 !important;
+    border: none !important;
+    border-bottom: 3px solid var(--theme-primary-dark) !important;
+    opacity: 1 !important;
+    border-radius: 8px 8px 0 0 !important;
+}
+
+
+/* --- B. PENGECUALIAN: LATAR BELAKANG GELAP --- */
+/* Berlaku khusus jika tab berada di dalam kotak dengan background warna gelap / header */
+.bg-primary .nav-tabs,
+.bg-custom-dark .nav-tabs,
+.student-header .nav-tabs,
+.card-header .nav-tabs,
+div[class*="hero-section"] .nav-tabs,
+div[class*="header-ujian"] .nav-tabs {
+    border-bottom: 2px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+/* 1. Tab Tidak Aktif di area Gelap (Putih Pudar 75% agar sangat ketara) */
+.bg-primary .nav-tabs .nav-link:not(.active),
+.bg-custom-dark .nav-tabs .nav-link:not(.active),
+.student-header .nav-tabs .nav-link:not(.active),
+.card-header .nav-tabs .nav-link:not(.active),
+div[class*="hero-section"] .nav-tabs .nav-link:not(.active),
+div[class*="header-ujian"] .nav-tabs .nav-link:not(.active) {
+    color: rgba(255, 255, 255, 0.75) !important;
+}
+.bg-primary .nav-tabs .nav-link:not(.active):hover,
+.bg-custom-dark .nav-tabs .nav-link:not(.active):hover,
+.student-header .nav-tabs .nav-link:not(.active):hover,
+.card-header .nav-tabs .nav-link:not(.active):hover,
+div[class*="hero-section"] .nav-tabs .nav-link:not(.active):hover,
+div[class*="header-ujian"] .nav-tabs .nav-link:not(.active):hover {
+    color: #ffffff !important;
+    background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* 2. Tab Aktif di area Gelap (Putih Solid 100%) */
+.bg-primary .nav-tabs .nav-link.active,
+.bg-custom-dark .nav-tabs .nav-link.active,
+.student-header .nav-tabs .nav-link.active,
+.card-header .nav-tabs .nav-link.active,
+div[class*="hero-section"] .nav-tabs .nav-link.active,
+div[class*="header-ujian"] .nav-tabs .nav-link.active {
+    color: #ffffff !important;
+    background: transparent !important;
+    border-bottom: 3px solid #ffffff !important;
+}
+
+
+/* --- C. SINKRONISASI IKON OTOMATIS --- */
+/* FontAwesome SVG / I akan langsung meng-copy warna teks elemen induknya */
+body .nav-tabs .nav-link svg,
+body .nav-tabs .nav-link i {
+    fill: currentColor !important;
+    color: inherit !important;
+    transition: all 0.3s ease-in-out !important;
+}
+/* ==============================================================
+   21. FIX KONTRAS: BADGE / PILL TRANSPARAN (Area Header & Semester)
+   ============================================================== */
+/* Menargetkan semua elemen pill, badge, atau kotak transparan yang memiliki teks primer */
+.rounded-pill.text-primary,
+.badge.text-primary,
+.bg-opacity-10.text-primary {
+    color: var(--theme-primary-dark) !important; /* KUNCI: Memaksa teks menggunakan versi GELAP dari tema */
+    font-weight: 700 !important; /* Ditebalkan agar makin jelas */
+}
+
+/* Jika ada icon di dalamnya, ikut disamakan warnanya */
+.rounded-pill.text-primary svg,
+.badge.text-primary svg,
+.bg-opacity-10.text-primary svg,
+.rounded-pill.text-primary i,
+.badge.text-primary i,
+.bg-opacity-10.text-primary i {
+    color: var(--theme-primary-dark) !important;
+    fill: var(--theme-primary-dark) !important;
+}
+
+
+/* ==============================================================
+   FIX: JUDUL SELEKSI MANDIRI (SHADOW TAJAM & EYE-CATCHING)
+   ============================================================== */
+.card h4.fw-bold.text-dark, 
+.card-body h4.fw-bold.text-dark, 
+h4.fw-bold.text-dark {
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: var(--theme-primary-dark) !important;
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
+    line-height: 1.4 !important;
+
+    /* --- PERBAIKAN SHADOW --- */
+    /* Menggunakan shadow yang tipis (1px) dengan blur sangat rendah (2px) 
+       agar teks terlihat 'keluar' tanpa terlihat kotor/blur */
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.15) !important;
+    
+    /* Tambahan agar lebih eye-catching: sedikit jarak antar huruf */
+    letter-spacing: 0.3px !important;
+}
+
+/* Memberikan efek transisi jika kartu disorot (Opsional tapi membuat mewah) */
+.card:hover h4.fw-bold.text-dark {
+    color: var(--theme-primary) !important;
+}
+
+/* 2. Mempercantik Badge "TA 2025/2026" agar terlihat lebih tajam dan premium */
+span.badge.bg-primary.bg-opacity-10.text-primary {
+    background-color: var(--theme-light) !important; /* Warna transparan dari tema */
+    color: var(--theme-primary-dark) !important; /* Teks menggunakan tema versi gelap */
+    border: 1px solid var(--theme-primary) !important; /* Garis tepi warna tema */
+    font-weight: 700 !important;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05) !important; /* Sedikit bayangan */
+    padding: 6px 12px !important;
+}
+
+/* Memastikan ikon (Topi Toga) di dalam badge senada dengan warna tema */
+span.badge.bg-primary.bg-opacity-10.text-primary svg,
+span.badge.bg-primary.bg-opacity-10.text-primary i {
+    color: var(--theme-primary) !important;
+    fill: var(--theme-primary) !important;
+    margin-right: 6px !important;
+}
+
+
+/* ==============================================================
+   FIX: BADGE / LABEL TRANSPARAN (Mematikan Gradien bg-primary)
+   ============================================================== */
+/* Menargetkan spesifik badge yang menggunakan kombinasi bg-primary & bg-opacity-10 */
+span.badge.bg-primary.bg-opacity-10.text-primary.rounded-pill {
+    /* 1. Bunuh background solid & gradien yang bocor */
+    background: transparent !important;
+    background-image: none !important; 
+    
+    /* 2. Berikan warna latar transparan 10% dari tema */
+    background-color: var(--theme-light) !important; 
+    
+    /* 3. Teks menggunakan warna tema versi GELAP agar selalu terbaca */
+    color: var(--theme-primary-dark) !important; 
+    
+    /* 4. Garis batas menggunakan warna tema normal */
+    border: 1px solid var(--theme-primary) !important; 
+    
+    font-weight: 700 !important;
+    padding: 6px 12px !important;
+    opacity: 1 !important;
+}
+
+/* Memastikan ikon (Topi Toga) juga ikut berwarna gelap */
+span.badge.bg-primary.bg-opacity-10.text-primary.rounded-pill svg,
+span.badge.bg-primary.bg-opacity-10.text-primary.rounded-pill i {
+    color: var(--theme-primary-dark) !important;
+    fill: var(--theme-primary-dark) !important;
+}
+
+
+
+
+/* ==============================================================
+   GLOBAL FIX: EFEK HOVER TUKAR WARNA (INVERT) DENGAN BORDER TEGAS
+   ============================================================== */
+
+/* ---------------------------------------------------
+   1. TOMBOL SOLID (Primary/Success) 
+   Normal : Background Tema, Teks Putih
+   Hover  : Background Putih, Teks Tema, BORDER TEMA TEGAS
+--------------------------------------------------- */
+.btn-primary, .btn-success, .btn-primary-pmb {
+    background: var(--theme-gradient) !important;
+    color: var(--theme-text-on-primary) !important;
+    /* Disetel 2px transparan dari awal agar ukuran tombol tidak melompat saat di-hover */
+    border: 2px solid transparent !important; 
+    transition: all 0.3s ease-in-out !important;
+}
+.btn-primary svg, .btn-primary i, 
+.btn-success svg, .btn-success i,
+.btn-primary-pmb svg, .btn-primary-pmb i {
+    color: var(--theme-text-on-primary) !important;
+    fill: var(--theme-text-on-primary) !important;
+    transition: all 0.3s ease-in-out !important;
+}
+
+/* EKSEKUSI TUKAR WARNA SAAT HOVER (Border Diperjelas) */
+.btn-primary:hover, .btn-success:hover, .btn-primary-pmb:hover {
+    background: var(--theme-text-on-primary) !important; 
+    color: var(--theme-primary-dark) !important; 
+    /* BORDER 2PX WARNA TEMA AGAR SANGAT JELAS PEMISAHNYA */
+    border: 2px solid var(--theme-primary) !important; 
+    box-shadow: 0 6px 15px rgba(0,0,0,0.15) !important; /* Bayangan diperbesar sedikit */
+    transform: translateY(-2px);
+}
+.btn-primary:hover svg, .btn-primary:hover i, 
+.btn-success:hover svg, .btn-success:hover i,
+.btn-primary-pmb:hover svg, .btn-primary-pmb:hover i {
+    color: var(--theme-primary-dark) !important;
+    fill: var(--theme-primary-dark) !important;
+}
+
+
+/* ---------------------------------------------------
+   2. TOMBOL OUTLINE & LIGHT (Batal, Kembali, dll)
+   Normal : Background Putih, Teks Gelap, Border Abu-abu
+   Hover  : Background Tema, Teks Putih, BORDER TEMA GELAP
+--------------------------------------------------- */
+.btn-outline-primary, .btn-light, .btn-secondary, .btn-outline-dark {
+    background: #ffffff !important;
+    color: var(--theme-primary-dark) !important;
+    /* Border awal ditebalkan jadi 2px dengan warna abu-abu tegas */
+    border: 2px solid rgba(0,0,0,0.2) !important; 
+    transition: all 0.3s ease-in-out !important;
+}
+.btn-outline-primary svg, .btn-outline-primary i,
+.btn-light svg, .btn-light i, 
+.btn-secondary svg, .btn-secondary i,
+.btn-outline-dark svg, .btn-outline-dark i {
+    color: var(--theme-primary-dark) !important;
+    fill: var(--theme-primary-dark) !important;
+    transition: all 0.3s ease-in-out !important;
+}
+
+/* EKSEKUSI TUKAR WARNA SAAT HOVER */
+.btn-outline-primary:hover, .btn-light:hover, 
+.btn-secondary:hover, .btn-outline-dark:hover {
+    background: var(--theme-gradient) !important; 
+    color: var(--theme-text-on-primary) !important; 
+    /* BORDER WARNA TEMA GELAP AGAR MAKIN SOLID */
+    border: 2px solid var(--theme-primary-dark) !important; 
+    box-shadow: 0 6px 15px rgba(0,0,0,0.15) !important;
+    transform: translateY(-2px);
+}
+.btn-outline-primary:hover svg, .btn-outline-primary:hover i,
+.btn-light:hover svg, .btn-light:hover i, 
+.btn-secondary:hover svg, .btn-secondary:hover i,
+.btn-outline-dark:hover svg, .btn-outline-dark:hover i {
+    color: var(--theme-text-on-primary) !important;
+    fill: var(--theme-text-on-primary) !important;
+}
+
+/* ==============================================================
+   GLOBAL FIX: IKON FONT-AWESOME 100% MENGIKUTI WARNA TEKS TOMBOL
+   ============================================================== */
+/* Memaksa semua ikon (SVG/FontAwesome) di dalam tombol membuang warna aslinya 
+   dan secara otomatis meniru warna teks dari tombol tempat ia berada */
+button.btn svg,
+button.btn i,
+a.btn svg,
+a.btn i,
+.btn svg[class*="text-"],
+.btn i[class*="text-"] {
+    color: inherit !important;
+    fill: currentColor !important;
+    transition: all 0.3s ease-in-out !important;
+}
+
+
+/* ==============================================================
+   FIX: HEADER UJIAN ONLINE / EVALUASI SELEKSI
+   ============================================================== */
+/* 1. Menyelaraskan Background Header dengan Tema Aktif */
+div[class*="header-ujian-"] {
+    background: var(--theme-gradient) !important; /* Memaksa background mengikuti gradien tema */
+    color: var(--theme-text-on-primary) !important; /* Teks putih/gelap menyesuaikan tema */
+    padding: 1.5rem 2rem !important; /* Memberikan ruang napas yang cukup */
+    border-radius: 0.5rem 0.5rem 0 0 !important; /* Ujung atas membulat */
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
+}
+
+/* 2. Membersihkan "Blok Warna" Bocor pada Judul (h4) */
+div[class*="header-ujian-"] h4 {
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: var(--theme-text-on-primary) !important;
+    padding: 0 !important;
+    margin-bottom: 0.5rem !important;
+    text-shadow: 1px 2px 4px rgba(0,0,0,0.2) !important; /* Efek agar tulisan lebih "pop-out" */
+}
+
+/* 3. Memastikan Ikon (FontAwesome/SVG) Ikut Selaras */
+div[class*="header-ujian-"] svg.opacity-25,
+div[class*="header-ujian-"] i.opacity-25 {
+    color: var(--theme-text-on-primary) !important;
+    fill: var(--theme-text-on-primary) !important;
+    opacity: 0.15 !important; /* Membuat ikon besar di kanan sebagai watermark transparan */
+}
+
+
+
+
+
+/* ==============================================================
+   HALAMAN UTAMA (home.jsp) - TERPUSAT & RESPONSIP TEMA
+   ============================================================== */
+body.home-page {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background-color: #f8f9fa;
+    color: #1e293b;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    margin: 0;
+    overflow-x: hidden;
+}
+
+/* 1. Hero Section dengan Tema dan Gambar Watermark */
+.home-page .hero-section-home { 
+    background: var(--theme-gradient) !important;
+    color: var(--theme-text-on-primary) !important; 
+    border-radius: 0 0 2.5rem 2.5rem; 
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
+    padding: 3.5rem 1rem 6.5rem 1rem; 
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+}
+
+/* Memastikan gambar background dari JSP menyatu dengan gradien tema */
+.home-page .hero-section-home::before {
+    content: "";
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    opacity: 0.15; z-index: -1;
+    mix-blend-mode: overlay;
+}
+
+/* 2. Logo dan Menu Card */
+.home-page .logo-container-home {
+    background: rgba(255, 255, 255, 0.95); display: inline-block;
+    padding: 12px 24px; border-radius: 16px; margin-bottom: 1.5rem;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+}
+.home-page .logo-img-home { height: 90px; object-fit: contain; }
+
+.home-page .menu-card-home {
+    background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(10px);
+    border-radius: 1.5rem; padding: 2.5rem 2rem; box-shadow: 0 15px 35px rgba(0,0,0,0.08);
+    border: 1px solid rgba(255, 255, 255, 0.5); margin-top: -4.5rem; margin-bottom: 3rem;
+    position: relative; z-index: 10;
+}
+
+/* Tombol Menu (Otomatis mewarisi efek tukar warna dari .btn-primary global kita) */
+.home-page .btn-menu-home { 
+    border-radius: 0.75rem; font-weight: 600; padding: 12px 24px; 
+    text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.5px;
+    display: inline-flex; align-items: center; justify-content: center; min-width: 200px;
+}
+
+/* 3. Judul Section dengan Garis Bawah Gradien Tema */
+.home-page .section-title-home { 
+    font-size: 1.2rem; font-weight: 800; color: #1e293b; text-transform: uppercase; 
+    letter-spacing: 1px; position: relative; display: inline-block; margin-bottom: 2rem;
+}
+.home-page .section-title-home::after { 
+    content: ""; position: absolute; width: 40%; height: 4px; 
+    background: var(--theme-gradient) !important; /* Mengikuti tema terpilih */
+    bottom: -10px; left: 30%; border-radius: 4px;
+}
+
+/* 4. Footer & Ikon Kontak */
+.home-page .footer-home { background-color: #0f172a; color: #94a3b8; padding: 4rem 0 2rem 0; margin-top: auto; }
+.home-page .footer-home h5 { color: #f8fafc; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 1.5rem; }
+.home-page .contact-icon-home { 
+    color: var(--theme-primary) !important; /* Ikon footer menyala dengan warna tema */
+    width: 25px; text-align: center; font-size: 1.2rem;
+}
+
+/* Tombol App Store */
+.home-page .store-btn-home {
+    background-color: #1e293b; color: #f8fafc; text-decoration: none; border: 1px solid #334155;
+    padding: 12px 20px; border-radius: 12px; display: flex; align-items: center;
+    transition: all 0.3s ease; width: 100%; max-width: 220px;
+}
+.home-page .store-btn-home:hover {
+    background-color: var(--theme-primary) !important; border-color: var(--theme-primary) !important;
+    color: var(--theme-text-on-primary) !important; transform: translateY(-2px);
+}
+.home-page .store-icon-home { height: 28px; width: 28px; object-fit: contain; }
+
+/* ==============================================================
+   FIX: JUDUL "PORTAL LAYANAN TERPADU" DI HALAMAN UTAMA
+   ============================================================== */
+/* 1. Membersihkan blok warna yang bocor dari global CSS dan merapikan teks */
+.home-page h4.section-title-home,
+.home-page .section-title-home {
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    box-shadow: none !important;
+
+    /* Membuat warna teks mengikuti versi gelap dari tema agar elegan di atas latar terang */
+    color: var(--theme-primary-dark) !important; 
+    padding: 0 !important;
+    
+    font-size: 1.5rem !important; /* Sedikit diperbesar agar lebih berwibawa */
+    font-weight: 800 !important;
+    letter-spacing: 1.5px !important; /* Jarak antar huruf diperlebar */
+    text-transform: uppercase !important;
+}
+
+/* 2. Mempercantik garis bawah (underline) dinamis */
+.home-page h4.section-title-home::after,
+.home-page .section-title-home::after {
+    content: ""; 
+    position: absolute; 
+    width: 60%; /* Lebar garis */
+    height: 4px; /* Ketebalan garis */
+    background: var(--theme-gradient) !important; /* Warnanya menyala mengikuti tema */
+    bottom: -12px; 
+    left: 20%; /* Memastikan posisinya pas di tengah */
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15); /* Sedikit bayangan pada garis agar terlihat 3D */
+}
+
+
+
+/* ==============================================================
+   HEADER PERPUSTAKAAN (_header_perpustakaan.jsp)
+   ============================================================== */
+/* 1. Latar Belakang Statis (Watermark Halaman) */
+.page-bg-perpus { 
+    position: fixed; 
+    top: 0; left: 0; width: 100vw; height: 100vh; 
+    background: url('../../img/buku.jpeg') center/cover no-repeat;
+    opacity: 0.15; 
+    z-index: -999; 
+    pointer-events: none; 
+}
+
+/* 2. Navbar Kustom */
+.navbar-custom-perpus { 
+    background-color: rgba(255, 255, 255, 0.95) !important; 
+    backdrop-filter: blur(10px); 
+    box-shadow: 0 2px 15px rgba(0,0,0,0.08); 
+}
+
+/* 3. Hero Section Perpustakaan (Responsif Tema) */
+.hero-section-perpus { 
+    background: var(--theme-gradient) !important;
+    color: var(--theme-text-on-primary) !important; 
+    border-radius: 0 0 2.5rem 2.5rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15); 
+    position: relative; 
+    z-index: 2; 
+    padding-top: 8rem !important; /* Memberi ruang untuk fixed navbar */
+    overflow: hidden;
+}
+
+/* Mengembalikan gambar buku.jpeg dengan efek menyatu (overlay) ke warna tema */
+.hero-section-perpus::before {
+    content: "";
+    position: absolute; 
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: url('../../img/buku.jpeg') center/cover no-repeat !important;
+    opacity: 0.25; 
+    z-index: -1;
+    mix-blend-mode: overlay;
+}
+
+/* 4. Menghilangkan "bocoran" blok warna dari CSS Global pada judul */
+.hero-section-perpus h2,
+.hero-section-perpus h3 {
+    background: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    color: var(--theme-text-on-primary) !important;
+}
+
+/* 5. Utility Classes Perpustakaan */
+.logo-shadow-perpus { filter: drop-shadow(0px 6px 8px rgba(0,0,0,0.5)); }
+.text-shadow-perpus { text-shadow: 2px 2px 6px rgba(0,0,0,0.4); }
+.tracking-wide-perpus { letter-spacing: 1.5px; }
+
+/* 6. Badge Perpustakaan Transparan */
+.badge-perpus { 
+    background: rgba(255, 255, 255, 0.15) !important; 
+    backdrop-filter: blur(8px); 
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Memastikan warna ikon peringatan di dalam hero tetap kontras */
+.hero-section-perpus .badge-perpus i.text-warning {
+    color: #ffc107 !important; /* Tetap kuning agar eye-catching */
+}
+
+
+
+/* ==============================================================
+   HALAMAN UTAMA REPOSITORI (Pencarian & Daftar)
+   ============================================================== */
+/* 1. Hero Section Repositori */
+.hero-onesearch-repo {
+    background: var(--theme-gradient) !important;
+    padding: 70px 20px 50px 20px;
+    color: var(--theme-text-on-primary) !important;
+    border-radius: 8px 8px 0 0;
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+}
+
+/* Watermark Gambar Menyatu dengan Tema */
+.hero-onesearch-repo::before {
+    content: "";
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: url('https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?q=80&w=1920&auto=format&fit=crop') no-repeat center center;
+    background-size: cover;
+    opacity: 0.2; z-index: -1;
+    mix-blend-mode: overlay;
+}
+
+/* 2. Kotak Pencarian */
+.search-group-repo {
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    border-radius: 50px;
+    overflow: hidden;
+    background: white;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+}
+.search-group-repo .form-control, 
+.search-group-repo .form-select {
+    border: none; padding: 15px 20px; box-shadow: none;
+}
+.search-group-repo .form-select {
+    background-color: #f8f9fa; border-left: 1px solid #dee2e6; max-width: 250px; cursor: pointer;
+}
+.search-group-repo .btn {
+    border-radius: 0 50px 50px 0; padding: 10px 30px; font-size: 1.1rem;
+}
+
+/* 3. Bar Submenu di Bawah Hero */
+.submenu-bar-repo {
+    background: var(--theme-primary-dark) !important; /* Memakai warna tema versi lebih gelap */
+    border-radius: 0 0 8px 8px; padding: 12px 0;
+}
+.submenu-bar-repo .nav-link {
+    color: var(--theme-text-on-primary) !important; font-weight: 500; padding: 5px 15px; transition: opacity 0.2s;
+}
+.submenu-bar-repo .nav-link:hover { opacity: 0.8; }
+
+
+/* ==============================================================
+   FIX: JUDUL TRANSPARAN DI HERO REPOSITORI
+   ============================================================== */
+/* 1. Membersihkan efek blok warna yang bocor dari global CSS */
+.hero-onesearch-repo h1,
+.hero-onesearch-repo h2,
+.hero-onesearch-repo h3,
+.hero-onesearch-repo h4,
+.hero-onesearch-repo h5,
+.hero-onesearch-repo h6 {
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    
+    /* Memastikan warna teks menjadi putih/terang karena background hero-nya gelap */
+    color: var(--theme-text-on-primary) !important; 
+    display: block !important;
+    padding: 0 !important;
+}
+
+/* 2. Memastikan Ikon (Tumpukan Buku/Layer) selaras warnanya dengan teks */
+.hero-onesearch-repo h2 svg,
+.hero-onesearch-repo h2 i {
+    color: var(--theme-text-on-primary) !important;
+    fill: var(--theme-text-on-primary) !important;
+}
+
+
+
+/* ==============================================================
+   MODUL DASHBOARD STATISTIK (_dashboard.jsp)
+   ============================================================== */
+/* 1. Latar Belakang Statis (Watermark Halaman) */
+.page-bg-dashboard { 
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
+    background: url('../../img/pmb_bg.jpg') center/cover no-repeat; 
+    opacity: 0.1; z-index: -999; pointer-events: none; 
+}
+
+/* 2. Hero Section Dashboard (Responsif Tema) */
+.hero-section-dashboard { 
+    background: var(--theme-gradient) !important; 
+    color: var(--theme-text-on-primary) !important; 
+    border-radius: 0 0 2rem 2rem; 
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
+    position: relative; 
+    z-index: 2; 
+    overflow: hidden;
+}
+
+/* Gambar watermark yang menyatu dengan tema */
+.hero-section-dashboard::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: url('../../img/pmb_bg.jpg') center/cover no-repeat !important;
+    opacity: 0.15; z-index: -1; mix-blend-mode: overlay;
+}
+
+/* Mencegah heading mendapatkan blok warna dari CSS global */
+.hero-section-dashboard h1, .hero-section-dashboard h2, 
+.hero-section-dashboard h3, .hero-section-dashboard h4 {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: var(--theme-text-on-primary) !important;
+}
+
+/* 3. Utility Classes Dashboard */
+.logo-shadow-dashboard { filter: drop-shadow(0px 6px 8px rgba(0,0,0,0.5)); }
+.text-shadow-dashboard { text-shadow: 2px 2px 6px rgba(0,0,0,0.4); }
+.tracking-wide-dashboard { letter-spacing: 1.5px; }
+
+/* 4. Badge Label Transparan */
+.badge-dashboard { 
+    background: rgba(255, 255, 255, 0.15) !important; 
+    backdrop-filter: blur(8px); 
+    border: 1px solid rgba(255, 255, 255, 0.3) !important; 
+}
+.badge-dashboard i.text-warning { color: #ffc107 !important; }
+
+/* 5. Footer Dashboard (Mengikuti Tema Gelap) */
+.footer-dashboard { 
+    background: var(--theme-primary-dark) !important; /* Memakai tema warna versi gelap */
+    color: var(--theme-text-on-primary) !important; 
+    border-top: 5px solid var(--theme-primary) !important; 
+    position: relative; z-index: 10; margin-top: 5rem; 
+}
+
+/* Memaksa semua teks di footer menjadi warna kontras/terang */
+.footer-dashboard h5, 
+.footer-dashboard p, 
+.footer-dashboard a, 
+.footer-dashboard i:not(.social-icon i) { 
+    color: var(--theme-text-on-primary) !important; 
+    opacity: 0.9;
+}
+.footer-dashboard h5 { letter-spacing: 1px; font-weight: 700; opacity: 1; }
+
+/* Ikon Sosial Media di Footer */
+.footer-dashboard .social-icon { 
+    width: 35px; height: 35px; display: inline-flex; align-items: center; justify-content: center; 
+    border-radius: 50%; background: rgba(255,255,255,0.1); 
+    color: var(--theme-text-on-primary) !important; 
+    transition: all 0.3s ease; margin-right: 0.5rem; text-decoration: none; 
+}
+.footer-dashboard .social-icon:hover { 
+    background: var(--theme-primary) !important; 
+    transform: translateY(-3px); 
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+
+/* ==============================================================
+   FIX AGRESIF: JUDUL H4 (MANAJEMEN ANGGOTA / MONITOR NOTIFIKASI)
+   ============================================================== */
+/* Menggunakan selector yang lebih spesifik untuk memaksa transparansi */
+body h4.fw-bolder.text-primary,
+div h4.fw-bolder.text-primary,
+.card h4.fw-bolder.text-primary {
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    
+    /* Warna teks mengikuti variabel tema versi gelap agar kontras */
+    color: var(--theme-primary-dark) !important;
+    
+    /* Merapikan posisi */
+    padding: 0 !important;
+    margin-top: 10px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+}
+
+/* Memastikan ikon (Users/Bell) tetap menyala dengan warna primer tema */
+h4.fw-bolder.text-primary svg,
+h4.fw-bolder.text-primary i {
+    color: var(--theme-primary) !important;
+    fill: var(--theme-primary) !important;
+    margin-right: 12px !important;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+}
+
+/* Tambahan: Menghilangkan border atau bayangan sisa jika ada */
+h4.fw-bolder.text-primary::before,
+h4.fw-bolder.text-primary::after {
+    display: none !important;
+}
+
+
+/* ==============================================================
+   FIX FINAL: TAB NAVIGASI (OVERRIDE UTILITY CLASS TEXT-SECONDARY)
+   ============================================================== */
+
+/* 1. Pastikan parent memiliki definisi warna acuan (Active Color) */
+.nav-tabs {
+    /* Gunakan warna tema gelap sebagai acuan utama */
+    --tab-active-color: var(--theme-primary-dark, #0d6efd);
+}
+
+/* 2. Target Khusus untuk mengalahkan .text-secondary pada tab TIDAK AKTIF */
+/* Kita memanggil selector berantai agar skor spesifisitasnya paling tinggi */
+body .nav-tabs .nav-item .nav-link.text-secondary:not(.active),
+body .nav-tabs .nav-item button.nav-link:not(.active) {
+    /* Menggunakan color-mix untuk mengambil 50% warna dari warna tab aktif */
+     color: color-mix(in srgb, var(--tab-active-color), transparent 50%) !important;
+    
+    background-color: transparent !important;
+    border: none !important;
+    border-bottom: 3px solid transparent !important;
+    padding: 10px 20px !important;
+    font-weight: 600 !important;
+    opacity: 1 !important; /* Memaksa opacity penuh agar warna color-mix yang terlihat murni */
+    transition: all 0.3s ease-in-out !important;
+}
+
+/* 3. Pastikan Tab AKTIF tetap terang (100%) dan mengabaikan .text-secondary */
+body .nav-tabs .nav-item .nav-link.active,
+body .nav-tabs .nav-item .nav-link.text-secondary.active {
+    color: var(--tab-active-color) !important;
+    font-weight: 800 !important;
+    border-bottom: 3px solid var(--tab-active-color) !important;
+}
+
+/* 4. Ikon harus selalu mengikuti warna teksnya */
+.nav-tabs .nav-link svg, 
+.nav-tabs .nav-link i {
+    fill: currentColor !important;
+    color: inherit !important;
+}
+
+/* ==============================================================
+   FIX: KONTRAS TAB AKTIF DI ATAS BACKGROUND GELAP
+   ============================================================== */
+/* Mencegat tab .active jika berada di dalam container gelap (.card-header, .bg-custom-dark, dll) 
+   dan memaksanya menjadi putih terang (--theme-text-on-primary) */
+
+.card-header ul.nav-tabs li.nav-item button.nav-link.active,
+.card-header ul.nav-tabs li.nav-item .nav-link.active,
+.bg-primary ul.nav-tabs li.nav-item button.nav-link.active,
+.bg-primary ul.nav-tabs li.nav-item .nav-link.active,
+.bg-custom-dark ul.nav-tabs li.nav-item button.nav-link.active,
+.bg-custom-dark ul.nav-tabs li.nav-item .nav-link.active,
+.student-header ul.nav-tabs li.nav-item button.nav-link.active,
+.student-header ul.nav-tabs li.nav-item .nav-link.active {
+    color: var(--theme-text-on-primary, #ffffff) !important;
+    border-bottom: 3px solid var(--theme-text-on-primary, #ffffff) !important;
+    
+    /* Opsional: Memberikan sedikit sorotan latar agar lebih menonjol */
+    background-color: rgba(255, 255, 255, 0.1) !important; 
+    border-radius: 8px 8px 0 0 !important;
+}
+
+/* Pastikan Ikon FontAwesome & SVG pada tab aktif patuh meniru warna terang tersebut */
+.card-header ul.nav-tabs li.nav-item button.nav-link.active svg,
+.card-header ul.nav-tabs li.nav-item button.nav-link.active i,
+.bg-primary ul.nav-tabs li.nav-item button.nav-link.active svg,
+.bg-primary ul.nav-tabs li.nav-item button.nav-link.active i,
+.bg-custom-dark ul.nav-tabs li.nav-item button.nav-link.active svg,
+.bg-custom-dark ul.nav-tabs li.nav-item button.nav-link.active i,
+.student-header ul.nav-tabs li.nav-item button.nav-link.active svg,
+.student-header ul.nav-tabs li.nav-item button.nav-link.active i {
+    fill: currentColor !important;
+    color: inherit !important;
+}
+
+
+/* ==============================================================
+   23. MINI HERO NAVBAR (navbar.jsp)
+   ============================================================== */
+/* 1. Base Navbar Styling - Mengubah Navbar menjadi Mini Hero */
+.navbar-mini-hero {
+    background: var(--theme-gradient) !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15) !important;
+    border-bottom: 3px solid var(--theme-primary-dark) !important;
+    transition: all 0.3s ease;
+    
+    /* Wajib disetel 1030 (lebih rendah dari Sidebar 1040) agar potongannya lurus */
+    z-index: 1030 !important; 
+    position: relative; 
+}
+
+.navbar-mini-hero::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: url('../../img/buku.jpeg') center/cover no-repeat !important;
+    opacity: 0.15; 
+    z-index: -1; 
+    mix-blend-mode: overlay; 
+    pointer-events: none; 
+}
+
+/* --- Lanjutkan dengan CSS bagian 2 (Brand / Logo Area) yang sebelumnya sudah ada... --- */
+
+/* 2. Brand / Logo Area */
+.navbar-mini-hero .navbar-brand { padding: 5px 0; }
+.navbar-mini-hero .brand-title {
+    color: var(--theme-text-on-primary) !important;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.2) !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.5px;
+}
+.navbar-mini-hero .brand-motto {
+    color: rgba(255, 255, 255, 0.85) !important;
+    font-weight: 500 !important;
+}
+/* Kotak putih untuk logo agar logo selalu jelas apapun warna temanya */
+.navbar-mini-hero .logo-wrapper {
+    background-color: #ffffff !important;
+    border-radius: 12px;
+    padding: 6px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+
+/* 3. Ikon Hamburger & Action Icons (Bulan, Lonceng, Panah) */
+.navbar-mini-hero .navbar-toggler-humburger-icon .toggle-line,
+.navbar-mini-hero .navbar-toggler-humburger-icon .toggle-line::before,
+.navbar-mini-hero .navbar-toggler-humburger-icon .toggle-line::after {
+    background-color: var(--theme-text-on-primary) !important;
+}
+.navbar-mini-hero .nav-item .nav-link .fas,
+.navbar-mini-hero .nav-item .nav-link .far {
+    color: var(--theme-text-on-primary) !important;
+    opacity: 0.9;
+    transition: all 0.2s ease;
+}
+.navbar-mini-hero .nav-item .nav-link:hover .fas,
+.navbar-mini-hero .nav-item .nav-link:hover .far {
+    opacity: 1;
+    transform: scale(1.15);
+}
+
+/* 4. User Profile Area (Pill Transparan) */
+.navbar-mini-hero .user-profile-name {
+    color: var(--theme-text-on-primary) !important;
+    font-weight: 700 !important;
+}
+.navbar-mini-hero .user-profile-role {
+    color: rgba(255, 255, 255, 0.8) !important;
+    font-weight: 500 !important;
+}
+.navbar-mini-hero .user-profile-wrapper {
+    background-color: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: all 0.3s ease;
+}
+.navbar-mini-hero .user-profile-wrapper:hover {
+    background-color: rgba(255, 255, 255, 0.25);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+/* 5. Mencegah Dropdown Menu rusak warnanya */
+.navbar-mini-hero .dropdown-menu { background-color: #ffffff !important; }
+.navbar-mini-hero .dropdown-menu .fas,
+.navbar-mini-hero .dropdown-menu .far {
+    color: var(--theme-primary) !important; /* Kembali ke warna tema di dalam popup */
+}
+.navbar-mini-hero .dropdown-menu .text-primary { color: var(--theme-primary) !important; }
+
+/* 6. Mobile Responsiveness (Merapikan tampilan di HP) */
+@media (max-width: 575.98px) {
+    .navbar-nav-icons { gap: 0.25rem !important; }
+    #navbarDropdownUser { padding-left: 0 !important; padding-right: 0 !important; }
+    .navbar-mini-hero .user-profile-wrapper {
+        padding: 2px !important;
+        border-radius: 50% !important;
+        border: none !important;
+        background: transparent !important;
+    }
+    #navbarDropdownUser .avatar-xl { width: 2.2rem !important; height: 2.2rem !important; }
+    #navbarDropdownUser .d-none.d-xl-block { display: none !important; }
+    .navbar-brand { margin-right: 0 !important; gap: 0.5rem !important; }
+    .navbar-mini-hero .logo-wrapper { width: 38px !important; height: 38px !important; padding: 4px !important; }
+    .navbar-mini-hero .brand-title { font-size: 13px !important; }
+    .navbar-mini-hero .brand-motto { font-size: 10px !important; }
+}
+
+
+
+
+
+/* ==============================================================
+   FIX: LAYOUT DESKTOP (LOGO LEBIH BESAR & HEADER FULL WIDTH)
+   ============================================================== */
+@media (min-width: 1200px) {
+    /* 1. Menyesuaikan Tinggi Header Utama untuk Logo yang Lebih Besar */
+    .navbar-mini-hero {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        max-width: 100% !important;
+        /* Tinggi ditingkatkan menjadi 95px untuk menampung logo besar */
+        height: 95px !important; 
+        z-index: 1050 !important;
+        padding-left: 2rem !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+
+    /* 2. EKSTRA BESAR: Ukuran Logo & Teks */
+    .navbar-mini-hero .navbar-brand {
+        margin-right: 2.5rem !important;
+    }
+    .navbar-mini-hero .logo-wrapper {
+        /* Ukuran diperbesar menjadi 75px */
+        width: 75px !important; 
+        height: 75px !important;
+        padding: 8px !important;
+        border-radius: 16px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+    .navbar-mini-hero .logo-wrapper img {
+        /* Gambar logo diperbesar maksimal di dalam wadahnya */
+        max-height: 60px !important; 
+        width: auto !important;
+    }
+    .navbar-mini-hero .brand-title {
+        font-size: 1.4rem !important; /* Judul sedikit lebih besar */
+        font-weight: 800 !important;
+    }
+    .navbar-mini-hero .brand-motto {
+        font-size: 0.85rem !important;
+        opacity: 0.9;
+    }
+
+    /* 3. Sidebar Menu (Kiri) Menyesuaikan Tinggi Header Baru */
+    nav.navbar-vertical.navbar-vibrant {
+        /* Dimulai tepat di bawah header (95px) */
+        top: 95px !important; 
+        height: calc(100vh - 95px) !important;
+        z-index: 1040 !important;
+    }
+
+    /* 4. Area Konten Utama (Memberikan Jarak Pemisah 25px) */
+    .content {
+        /* 95px (header) + 25px (space) = 120px */
+        margin-top: 120px !important; 
+    }
+}
+
+
+/* ==============================================================
+   FIX: MENETRALKAN GUTTER TEMPLATE BAWAAN (FALCON) DI UJUNG LAYAR
+   (KHUSUS TAMPILAN DESKTOP)
+   ============================================================== */
+@media (min-width: 1200px) {
+    /* 1. Menghilangkan padding/gap kiri dari container pembungkus sidebar */
+    /* Memaksa elemen yang menjadi induk Sidebar untuk mengabaikan padding kiri */
+    .container:has(.navbar-vertical),
+    .container-fluid:has(.navbar-vertical),
+    .container-xxl:has(.navbar-vertical),
+    .container-xl:has(.navbar-vertical),
+    .container-lg:has(.navbar-vertical),
+    .container-md:has(.navbar-vertical),
+    .container-sm:has(.navbar-vertical) {
+        padding-left: 0 !important;
+    }
+
+    /* 2. Reset variabel gutter spesifik pada elemen Navigasi agar menempel sempurna */
+    nav.navbar-vertical,
+    nav.navbar-mini-hero,
+    .navbar-vertical-content {
+        --falcon-gutter-x: 0 !important;
+        padding-left: 0 !important;
+        margin-left: 0 !important;
+    }
+
+    /* 3. Mengembalikan sedikit ruang aman (padding) khusus untuk area Konten Utama 
+          agar isi halaman (tabel, teks, form) tidak ikut-ikutan menabrak tembok kiri */
+    .content {
+        padding-left: 1.5rem !important;
+        padding-right: 1.5rem !important;
+    }
+
+    .navbar-vertical.navbar-expand-xl.navbar-vibrant + .content,
+    body > .navbar-vertical.navbar-expand-xl.navbar-vibrant ~ .main .content {
+        margin-left: 15.625rem !important;
+    }
+
+    .navbar-vertical-collapsed .navbar-vertical.navbar-expand-xl.navbar-vibrant + .content,
+    .navbar-vertical-collapsed body > .navbar-vertical.navbar-expand-xl.navbar-vibrant ~ .main .content {
+        margin-left: 5.125rem !important;
+    }
+}
+
+/* ==============================================================
+   FIX FINAL: PROPORSI HEADER DAN KONTEN LEBAR (DESKTOP & MOBILE)
+   ============================================================== */
+
+/* --- A. TAMPILAN DESKTOP (Di atas 1200px) --- */
+@media (min-width: 1200px) {
+    /* 1. Mengembalikan jarak kiri dan kanan header */
+    nav.navbar.navbar-mini-hero {
+        padding-left: 1.5rem !important; /* Ruang napas di ujung kiri */
+        padding-right: 1.5rem !important; /* Keseimbangan di ujung kanan */
+    }
+
+    /* 2. Melebarkan jarak antara kotak logo dengan teks judul */
+    .navbar-mini-hero .logo-wrapper {
+        margin-right: 0.5rem !important;
+    }
+}
+
+/* --- B. TAMPILAN MOBILE (Di bawah 1200px) --- */
+@media (max-width: 1199.98px) {
+    /* 1. Reset Gutter Global (Membuat konten utama mepet ke pinggir layar) */
+    .container, 
+    .container-fluid, 
+    .container-xxl, 
+    .container-xl, 
+    .container-lg, 
+    .container-md, 
+    .container-sm {
+        --falcon-gutter-x: 0.25rem !important; 
+        padding-right: 2px !important;
+        padding-left: 2px !important;
+    }
+
+    /* 2. PENGECUALIAN HEADER (Menggunakan racikan pas dari uji coba browser Anda) */
+    nav.navbar.navbar-mini-hero {
+        padding-left: 1.5rem !important; /* Jarak aman logo dari tepi kiri */
+        padding-right: 18px !important;  /* Jarak pas ikon profil/menu dari tepi kanan */
+    }
+
+    /* 3. Menyesuaikan area Konten Utama agar lebarnya maksimal */
+    .content {
+        padding-left: 4px !important;
+        padding-right: 4px !important;
+    }
+
+    /* 4. Memastikan wrapper di dalam Header tidak ikut melebar ke pinggir */
+    nav.navbar-mini-hero .container-fluid {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+}
+
+
+/* ==============================================================
+   FIX FINAL: KONTRAS & ALIGNMENT IKON NAVBAR KANAN (FLEXBOX)
+   ============================================================== */
+
+/* 1. SEMBUNYIKAN TOMBOL TEMA (GELAP/TERANG) */
+.navbar-mini-hero .nav-item:has(.theme-control-toggle),
+.navbar-mini-hero .theme-control-toggle {
+    display: none !important;
+}
+
+/* 2. TOMBOL NOTIFIKASI (Diperjelas & Diperbesar) */
+.navbar-mini-hero .nav-link.notification-indicator {
+    position: relative !important; 
+    background-color: rgba(255, 255, 255, 0.25) !important; /* Latar lebih putih agar lebih jelas */
+    border: 2px solid rgba(255, 255, 255, 0.6) !important;  /* Garis batas lebih tebal dan tegas */
+    border-radius: 50% !important;
+    width: 45px !important;  /* Ukuran diperbesar */
+    height: 45px !important; /* Ukuran diperbesar */
+    
+    /* Flexbox Center */
+    display: flex !important; 
+    align-items: center !important;
+    justify-content: center !important;
+    
+    padding: 0 !important;
+    margin: 0 8px !important; /* Jarak proporsional dengan profil */
+    transition: all 0.3s ease !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important; /* Bayangan lebih kuat */
+}
+
+/* 3. Memperbesar Ikon Lonceng SVG di dalamnya */
+.navbar-mini-hero .nav-link.notification-indicator svg,
+.navbar-mini-hero .nav-link.notification-indicator i {
+    position: static !important; 
+    transform: none !important;  
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 1.3rem !important; /* Ikon membesar */
+    height: 1.3rem !important;    /* Tinggi dikunci */
+    width: auto !important;
+    color: #ffffff !important;
+    fill: #ffffff !important;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4)) !important;
+}
+
+/* 4. Posisi Titik Merah (Badge Notifikasi Baru) */
+.navbar-mini-hero .nav-link.notification-indicator .indicator-badge {
+    position: absolute !important;
+    top: 0px !important;
+    right: 0px !important;
+    margin: 0 !important;
+    transform: translate(10%, -10%) !important; /* Posisi pas di lekukan lingkaran */
+    border: 2px solid var(--theme-primary) !important;
+    z-index: 10 !important;
+    width: 12px !important; /* Titik merah lebih besar agar mudah dilirik */
+    height: 12px !important;
+}
+
+/* 5. Kapsul Profil Pengguna (User Wrapper) */
+.navbar-mini-hero .user-profile-wrapper {
+    background-color: rgba(255, 255, 255, 0.15) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    padding: 4px 16px 4px 4px !important;
+    border-radius: 50px !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
+    margin-left: 4px !important; 
+    height: 45px !important; /* Disamakan tingginya dengan tombol lonceng baru */
+}
+
+/* Memastikan Ikon Panah (Chevron) di Profil juga putih menyala */
+.navbar-mini-hero .user-profile-wrapper svg,
+.navbar-mini-hero .user-profile-wrapper i {
+    position: static !important;
+    transform: none !important;
+    color: #ffffff !important;
+    fill: #ffffff !important;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)) !important;
+    margin-top: 0 !important;
+}
+
+/* 6. Teks Profil Pengguna */
+.navbar-mini-hero .user-profile-name {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.5px;
+    text-shadow: 1px 1px 4px rgba(0,0,0,0.4) !important;
+}
+.navbar-mini-hero .user-profile-role {
+    color: rgba(255, 255, 255, 0.9) !important;
+    font-weight: 500 !important;
+}
+
+/* 7. Efek Hover (Melayang) untuk Notif & Profil */
+.navbar-mini-hero .nav-link.notification-indicator:hover,
+.navbar-mini-hero .user-profile-wrapper:hover {
+    background-color: rgba(255, 255, 255, 0.35) !important; /* Makin terang saat disorot mouse */
+    border-color: rgba(255, 255, 255, 0.8) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 15px rgba(0,0,0,0.2) !important;
+}
+
+
+/* ==============================================================
+   FIX FINAL: NAVBAR KANAN (TOMBOL RAPAT & GLASSMORPHISM)
+   ============================================================== */
+
+/* 1. MENGAMANKAN JARAK ANTAR ITEM DALAM LIST (<ul>) */
+/* Menetralkan class gap-2/gap-3 bawaan Bootstrap agar kita bisa atur margin manual */
+.navbar-mini-hero .navbar-nav-icons.gap-2,
+.navbar-mini-hero .navbar-nav-icons.gap-sm-3 {
+    gap: 0 !important; 
+}
+
+/* 2. SEMBUNYIKAN TOMBOL TEMA (GELAP/TERANG) */
+.navbar-mini-hero .nav-item:has(.theme-control-toggle),
+.navbar-mini-hero .theme-control-toggle {
+    display: none !important;
+}
+
+/* 3. TOMBOL NOTIFIKASI (Diperjelas & Jarak Dirapatkan) */
+.navbar-mini-hero .nav-link.notification-indicator {
+    position: relative !important; 
+    background-color: rgba(255, 255, 255, 0.25) !important; 
+    border: 2px solid rgba(255, 255, 255, 0.6) !important;  
+    border-radius: 50% !important;
+    width: 45px !important;  
+    height: 45px !important; 
+    display: flex !important; 
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    
+    /* JURUS MERAPATKAN: Margin kanan disetel hampir nol agar menempel ke Profil */
+    margin-right: 4px !important; 
+    margin-left: 0 !important;
+    
+    transition: all 0.3s ease !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important; 
+}
+
+/* Memperbesar Ikon Lonceng SVG */
+.navbar-mini-hero .nav-link.notification-indicator svg,
+.navbar-mini-hero .nav-link.notification-indicator i {
+    position: static !important; 
+    transform: none !important;  
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 1.3rem !important; 
+    height: 1.3rem !important;    
+    width: auto !important;
+    color: #ffffff !important;
+    fill: #ffffff !important;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4)) !important;
+}
+
+/* Posisi Titik Merah (Badge Notifikasi) */
+.navbar-mini-hero .nav-link.notification-indicator .indicator-badge {
+    position: absolute !important;
+    top: 0px !important;
+    right: 0px !important;
+    margin: 0 !important;
+    transform: translate(10%, -10%) !important; 
+    border: 2px solid var(--theme-primary) !important;
+    z-index: 10 !important;
+    width: 12px !important; 
+    height: 12px !important;
+}
+
+/* 4. KAPSUL PROFIL PENGGUNA */
+.navbar-mini-hero .user-profile-wrapper {
+    background-color: rgba(255, 255, 255, 0.15) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    padding: 4px 16px 4px 4px !important;
+    border-radius: 50px !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
+    
+    /* Margin kiri disetel sangat kecil untuk menyambut tombol lonceng */
+    margin-left: 2px !important; 
+    
+    height: 45px !important; 
+}
+
+/* Memastikan tag <a> pembungkus profil tidak menambah ruang kosong */
+.navbar-mini-hero #navbarDropdownUser {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+/* Ikon Panah Profil */
+.navbar-mini-hero .user-profile-wrapper svg,
+.navbar-mini-hero .user-profile-wrapper i {
+    position: static !important;
+    transform: none !important;
+    color: #ffffff !important;
+    fill: #ffffff !important;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)) !important;
+    margin-top: 0 !important;
+}
+
+/* Teks Profil Pengguna */
+.navbar-mini-hero .user-profile-name {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.5px;
+    text-shadow: 1px 1px 4px rgba(0,0,0,0.4) !important;
+}
+.navbar-mini-hero .user-profile-role {
+    color: rgba(255, 255, 255, 0.9) !important;
+    font-weight: 500 !important;
+}
+
+/* 5. EFEK HOVER */
+.navbar-mini-hero .nav-link.notification-indicator:hover,
+.navbar-mini-hero .user-profile-wrapper:hover {
+    background-color: rgba(255, 255, 255, 0.35) !important; 
+    border-color: rgba(255, 255, 255, 0.8) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 15px rgba(0,0,0,0.2) !important;
+}
+
+/* ==============================================================
+   FIX KONTRAST: HEADER POPUP NOTIFIKASI (ANTI-GAGAL)
+   ============================================================== */
+
+/* 2. Memaksa Latar Belakang Header Menjadi Putih Bersih */
+/* Selector diperpanjang agar spesifisitasnya menang mutlak dari class .bg-light template */
+ul.navbar-nav .dropdown-menu.dropdown-menu-notification .card.card-notification .card-header,
+ul.navbar-nav .dropdown-menu.dropdown-menu-notification .card.card-notification .card-header.bg-light {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    background-image: none !important; /* Membunuh efek gradien hijau */
+    border-bottom: 1px solid #edf2f9 !important; /* Garis bawah pemisah yang lembut */
+    padding: 12px 16px !important;
+}
+
+/* 3. Teks Judul ("Pemberitahuan Sistem") */
+ul.navbar-nav .dropdown-menu.dropdown-menu-notification .card-header .card-header-title {
+    color: #344050 !important; /* Warna abu-abu kehitaman solid */
+    font-weight: 800 !important; /* Lebih ditebalkan */
+    text-shadow: none !important; /* Membuang bayangan teks */
+}
+
+/* 4. Link Aksi ("Tandai Semua Telah Dibaca") */
+ul.navbar-nav .dropdown-menu.dropdown-menu-notification .card-header .card-link {
+    color: #2c7be5 !important; /* Warna biru terang/Clickable yang jelas */
+    font-weight: 600 !important;
+    font-size: 0.85rem !important;
+    text-shadow: none !important;
+    transition: all 0.2s ease !important;
+}
+
+ul.navbar-nav .dropdown-menu.dropdown-menu-notification .card-header .card-link:hover {
+    color: #1a4c8e !important; /* Biru gelap saat kursor mendekat */
+    text-decoration: underline !important;
+}
+
+
+/* ==============================================================
+   FOOTER ENTERPRISE STYLING (FIX KONTRAS & WARNA)
+   ============================================================== */
+.theme-footer {
+    background-color: var(--falcon-body-bg) !important; 
+    border-top: 1px solid var(--falcon-border-color) !important;
+    position: relative;
+    z-index: 10;
+}
+
+/* 1. WARNA TEKS UMUM (Dibuat lebih gelap dan tajam) */
+.theme-footer,
+.theme-footer p,
+.theme-footer .list-inline-item {
+    color: #344050 !important; /* Abu-abu kehitaman solid (Dark Slate) */
+    font-weight: 500 !important; /* Sedikit ditebalkan agar tidak tipis */
+}
+
+/* 2. WARNA IKON (Mengikuti warna tema aplikasi) */
+.theme-footer .footer-icon,
+.theme-footer .fa-quote-left {
+    color: var(--theme-primary) !important;
+    opacity: 0.9 !important; /* Tidak boleh terlalu transparan */
+}
+
+/* 3. TAUTAN UTAMA (Nama Institusi: Tebal & Jelas) */
+.theme-footer .footer-link {
+    color: var(--theme-primary) !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.3px;
+}
+.theme-footer .footer-link:hover {
+    color: var(--theme-primary-dark) !important;
+    text-decoration: underline !important;
+}
+
+/* 4. TAUTAN SEKUNDER (Email: Jelas & Interaktif) */
+.theme-footer a.footer-link-hover {
+    color: #344050 !important; /* Sama dengan teks biasa */
+    font-weight: 600 !important;
+}
+.theme-footer a.footer-link-hover:hover {
+    color: var(--theme-primary) !important; /* Menyala saat disorot */
+    text-decoration: underline !important;
+}
+
+/* 5. TEKS MOTTO (Ditegaskan sedikit) */
+.theme-footer .fst-italic {
+    color: #495057 !important; /* Sedikit lebih muda dari teks utama, tapi tetap jelas */
+    font-weight: 400 !important;
+}
+
+/* Penyesuaian jarak di layar HP */
+@media (max-width: 767.98px) {
+    .theme-footer {
+        padding-bottom: 2rem !important; 
+    }
+}
+
+/* ==============================================================
+   HIJACK TOMBOL AKSI TABEL (ADAPTIF UNTUK TEKS & IKON)
+   ============================================================== */
+
+/* 1. Mengatur ukuran dinamis: Kotak untuk ikon, memanjang untuk teks */
+table td .btn.btn-sm {
+    min-width: 32px !important; /* Menjaga tombol ikon tetap punya lebar minimal */
+    width: auto !important;     /* Membiarkan tombol melar otomatis jika ada teks */
+    height: auto !important;
+    padding: 0 10px !important; /* Memberikan ruang napas di kiri-kanan teks */
+    
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;        /* JURUS RAHASIA: Memberi jarak rapi antara ikon dan teks */
+    
+    border-radius: 8px !important;
+    transition: all 0.2s ease-in-out !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    background-color: #ffffff !important;
+}
+
+/* (Sisa kode CSS Anda untuk svg, btn-outline-warning, dan btn-outline-danger biarkan tetap sama seperti sebelumnya) */
+
+/* 2. Menjinakkan ukuran ikon SVG yang panjang agar tidak merusak kotak tombol */
+table td .btn.btn-sm svg {
+    width: 14px !important;
+    height: 14px !important;
+    margin: 0 !important;
+    transition: all 0.2s ease-in-out !important;
+}
+
+/* 3. OVERRIDE EDIT: Mengubah Tombol Warning & Text-Dark menjadi Tema Enterprise */
+table td .btn-outline-warning {
+    color: var(--theme-primary) !important; /* Membunuh class text-dark */
+    border-color: rgba(0, 0, 0, 0.1) !important;
+}
+table td .btn-outline-warning svg {
+    fill: var(--theme-primary) !important;
+}
+
+/* Efek Hover Edit */
+table td .btn-outline-warning:hover {
+    background-color: var(--theme-primary) !important;
+    color: #ffffff !important;
+    border-color: var(--theme-primary) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
+}
+table td .btn-outline-warning:hover svg {
+    fill: #ffffff !important;
+}
+
+/* 4. OVERRIDE DELETE: Memperhalus Tombol Danger bawaan Bootstrap */
+table td .btn-outline-danger {
+    color: #e63757 !important;
+    border-color: rgba(0, 0, 0, 0.1) !important;
+}
+table td .btn-outline-danger svg {
+    fill: #e63757 !important;
+}
+
+/* Efek Hover Delete */
+table td .btn-outline-danger:hover {
+    background-color: #e63757 !important;
+    color: #ffffff !important;
+    border-color: #e63757 !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 8px rgba(230, 55, 87, 0.25) !important;
+}
+table td .btn-outline-danger:hover svg {
+    fill: #ffffff !important;
+}
+
+
+/* ==============================================================
+   FORM REQUIRED ASTERISK (Tanda Bintang Wajib Isi)
+   ============================================================== */
+.form-label.required::after,
+label.required::after {
+    content: " *";
+    color: #dc3545; /* Kode warna merah bawaan Bootstrap (text-danger) */
+    font-weight: bold;
+    margin-left: 2px;
+}
+
+
+/* ==============================================================
+   24. MODUL DASHBOARD SOP (monitor_sop.jsp)
+   ============================================================== */
+/* Kotak Rekap KPI SOP - Otomatis Mengikuti Warna Tema Aktif */
+.kpi-card-sop {
+    background: var(--theme-gradient) !important;
+    background-color: var(--theme-primary) !important;
+    color: var(--theme-text-on-primary) !important;
+    border-radius: 12px;
+    border: none !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+    padding: 20px;
+    text-align: center;
+    height: 100%;
+    transition: all 0.3s ease-in-out;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Efek Melayang Khas Tema eCampus */
+.kpi-card-sop:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 20px rgba(0,0,0,0.15) !important;
+}
+
+/* Judul Kotak */
+.kpi-title-sop {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 0.5rem;
+    opacity: 0.9;
+    position: relative;
+    z-index: 2;
+}
+
+/* Angka Total */
+.kpi-value-sop {
+    font-size: 2.5rem;
+    font-weight: 800;
+    text-shadow: var(--theme-text-shadow, 2px 2px 4px rgba(0,0,0,0.2));
+    margin: 0;
+    position: relative;
+    z-index: 2;
+}
+
+/* Ikon Watermark Transparan di dalam Kotak */
+.kpi-icon-watermark {
+    position: absolute;
+    right: -10px;
+    bottom: -15px;
+    font-size: 5.5rem;
+    opacity: 0.15;
+    color: var(--theme-text-on-primary);
+    transform: rotate(-15deg);
+    transition: all 0.4s ease;
+    z-index: 1;
+}
+
+.kpi-card-sop:hover .kpi-icon-watermark {
+    transform: rotate(0deg) scale(1.15);
+    opacity: 0.25;
+}
+
+/* Penyesuaian Header Tabel DataTables agar Mengikuti Tema ZKoss */
+table.dataTable thead th,
+table.dataTable thead td {
+    background: var(--theme-gradient) !important;
+    color: var(--theme-text-on-primary) !important;
+    border-bottom: 3px solid var(--theme-primary-dark) !important;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+    letter-spacing: 0.5px;
+}
+
+/* Menjinakkan kotak Search DataTables agar fokusnya mengikuti tema */
+.dataTables_filter input.form-control:focus {
+    border-color: var(--theme-primary) !important;
+    box-shadow: 0 0 5px var(--theme-primary) !important;
+}
+
+
+/* ==============================================================
+   CUSTOM THEME: PAPAN PENGUMUMAN (JADWAL KEGIATAN KAMPUS)
+   ============================================================== */
+
+/* Event Card General */
+.agenda-event-card {
+    border: none !important;
+    border-radius: 15px !important;
+    transition: transform 0.3s ease, box-shadow 0.3s ease !important;
+    background: var(--theme-text-on-primary) !important; /* Gunakan variabel tema Anda jika ada */
+    height: 100% !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05) !important;
+}
+
+.agenda-event-card:hover {
+    transform: translateY(-8px) !important;
+    box-shadow: 0 12px 25px rgba(0,0,0,0.12) !important;
+}
+
+/* Status Badge System */
+.agenda-status-badge {
+    position: absolute !important;
+    top: 15px !important;
+    right: 15px !important;
+    padding: 8px 15px !important;
+    border-radius: 20px !important;
+    font-size: 0.8rem !important;
+    font-weight: bold !important;
+    z-index: 2 !important;
+}
+
+.agenda-status-berlangsung { 
+    background-color: #e8f5e9 !important; 
+    color: #2e7d32 !important; 
+    border: 1px solid #c8e6c9 !important; 
+}
+.agenda-status-selesai { 
+    background-color: #ffebee !important; 
+    color: #c62828 !important; 
+    border: 1px solid #ffcdd2 !important; 
+}
+.agenda-status-mendatang { 
+    background-color: #e3f2fd !important; 
+    color: #1565c0 !important; 
+    border: 1px solid #bbdefb !important; 
+}
+
+/* Typography & Layout di dalam Card */
+.agenda-event-title {
+    font-weight: 700 !important;
+    margin-bottom: 15px !important;
+    font-size: 1.2rem !important;
+    line-height: 1.4 !important;
+}
+
+.agenda-meta-info {
+    font-size: 0.9rem !important;
+    color: #555 !important;
+    margin-bottom: 8px !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+.agenda-meta-info i { 
+    width: 22px !important; 
+    color: var(--theme-primary, #2a5298) !important; 
+    text-align: center !important;
+    margin-right: 8px !important;
+}
+
+/* Tombol Aksi */
+.agenda-btn-detail {
+    border-radius: 8px !important;
+    padding: 8px 16px !important;
+    font-weight: 600 !important;
+    transition: all 0.2s !important;
+}
+
+
+/* ==============================================================
+   MODUL PERPUSTAKAAN & PORTAL ANGGOTA (CENTRALIZED)
+   ============================================================== */
+
+/* Container Utama & Latar Belakang */
+.page-bg-perpus { 
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
+    background: url('/imds/img/buku.jpeg') center/cover no-repeat;
+    opacity: 0.15; z-index: -999; pointer-events: none; 
+}
+
+/* Kartu Metrik Dashboard */
+.card-metric { 
+    border: 1px solid rgba(0,0,0,0.05) !important; 
+    border-radius: 1.25rem !important; 
+    transition: all 0.3s ease; 
+    color: white; 
+    overflow: hidden; 
+    position: relative; 
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
+}
+.card-metric:hover { 
+    transform: translateY(-8px); 
+    box-shadow: 0 12px 25px rgba(0,0,0,0.18) !important; 
+}
+.metric-icon { 
+    position: absolute; right: -15px; bottom: -20px; 
+    font-size: 6rem; opacity: 0.15; transform: rotate(-10deg); 
+}
+
+/* Warna Gradasi Kartu Berdasarkan Tema */
+.bg-gradient-theme-primary { 
+    background: var(--theme-gradient, linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%)) !important; 
+    color: var(--theme-text-on-primary, #fff) !important; 
+}
+.bg-gradient-theme-success { background: linear-gradient(135deg, #198754 0%, #146c43 100%) !important; }
+.bg-gradient-theme-warning { background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%) !important; }
+.bg-gradient-theme-info    { background: linear-gradient(135deg, #0dcaf0 0%, #0bacce 100%) !important; }
+
+/* Tab Navigasi (Pills) Berbasis Tema */
+.nav-pills-theme {
+    background-color: #f1f3f5 !important;
+    padding: 5px !important;
+    border-radius: 50rem !important;
+    border: 1px solid #e9ecef !important;
+}
+.nav-pills-theme .nav-link {
+    color: #495057 !important;
+    font-weight: 600 !important;
+    border-radius: 50rem !important;
+    padding: 0.6rem 1.5rem !important;
+    transition: all 0.2s ease;
+}
+.nav-pills-theme .nav-link.active {
+    background-color: var(--theme-primary) !important;
+    color: var(--theme-text-on-primary) !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15) !important;
+}
+
+/* Tabel Kustom */
+.table-custom th { 
+    background-color: #f8f9fa !important; 
+    color: var(--theme-primary-dark, #495057) !important; 
+    font-weight: 700 !important; 
+    border-bottom: 2px solid var(--theme-primary) !important; 
+    text-transform: uppercase;
+    font-size: 0.85rem;
+}
+
+/* ==============================================================
+   FOOTER PERPUSTAKAAN (MENDUKUNG THEME DINAMIS)
+   ============================================================== */
+.footer-perpus {
+    /* Background mengikuti variabel Gradien tema (misal: Kuning ke Hijau) */
+    background: var(--theme-gradient) !important;
+    background-color: var(--theme-primary-dark) !important;
+    color: var(--theme-text-on-primary) !important;
+    
+    /* Garis pemisah atas menggunakan warna kontras tema */
+    border-top: 5px solid var(--theme-primary-dark) !important;
+    margin-top: 5rem;
+    position: relative;
+    z-index: 10;
+    
+    /* Memastikan teks terbaca jika gradien terang */
+    text-shadow: var(--theme-text-shadow) !important;
+}
+
+/* Judul setiap kolom di Footer */
+.footer-perpus .footer-title {
+    color: var(--theme-text-on-primary) !important;
+    font-weight: 800;
+    letter-spacing: 1px;
+}
+
+/* Teks dan ikon informasi */
+.footer-perpus .footer-text,
+.footer-perpus .footer-text i {
+    color: var(--theme-text-on-primary) !important;
+    opacity: 0.95;
+    line-height: 1.6;
+}
+
+/* Tautan Navigasi (Dengan efek panah bergeser) */
+.footer-perpus .footer-link {
+    color: var(--theme-text-on-primary) !important;
+    opacity: 0.85;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    display: inline-block;
+}
+.footer-perpus .footer-link:hover {
+    opacity: 1;
+    transform: translateX(8px); /* Menggeser teks & panah ke kanan saat dihover */
+    font-weight: 600;
+}
+
+/* Kotak Khusus Motto */
+.footer-perpus .footer-motto-box {
+    background: rgba(0, 0, 0, 0.15) !important;
+    border-left: 4px solid var(--theme-text-on-primary) !important;
+}
+.footer-perpus .footer-motto {
+    color: var(--theme-text-on-primary) !important;
+    opacity: 0.95;
+}
+
+/* Lingkaran Ikon Media Sosial */
+.footer-perpus .social-icon {
+    width: 38px; height: 38px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    
+    /* Warna latar lingkaran sedikit gelap transparan untuk kontras */
+    background: rgba(0, 0, 0, 0.25) !important;
+    color: var(--theme-text-on-primary) !important;
+    transition: all 0.3s ease;
+    text-decoration: none;
+}
+.footer-perpus .social-icon:hover {
+    /* Saat dihover, lingkaran berubah menjadi putih terang dan ikon menjadi warna tema gelap */
+    background: var(--theme-text-on-primary) !important;
+    color: var(--theme-primary-dark) !important;
+    transform: translateY(-4px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+/* Garis Pemisah Copyright (HR) */
+.footer-perpus hr {
+    border-color: var(--theme-text-on-primary) !important;
+    opacity: 0.25;
+}
+
+/* Iframe & Modal */
+.iframe-doc-pustaka { width: 100%; height: 80vh; border: none; border-radius: 8px; }
+.text-theme-primary { color: var(--theme-primary) !important; }
+
+
+/* ==============================================================
+   2. MEGA MENU STYLING (Responsive & Theme-Ready)
+   ============================================================== */
+/* Navbar Container dengan Background Vibrant */
+.navbar-mega-container {
+    padding: 0.8rem 1.5rem;
+    
+    /* Mengikuti tema gradient / background dari database */
+    background: var(--theme-gradient) !important;
+    background-color: var(--theme-primary) !important;
+    
+    border-bottom: none !important;
+    z-index: 1040;
+    
+    /* Position ini penting agar gambar overlay (::before) menempel di sini */
+    position: relative; 
+}
+
+/* Menyematkan gambar bg1.png transparan di belakang nav-bar atas */
+.navbar-mega-container::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url(../../img/bg1.png) center / cover no-repeat !important;
+    opacity: 0.15;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+    z-index: -1;
+}
+
+/* Memastikan teks top-level link berwarna putih agar terbaca di atas background gelap */
+.navbar-mega-container .navbar-nav .nav-link {
+    color: rgba(255, 255, 255, 0.85) !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+.navbar-mega-container .navbar-nav .nav-link:hover,
+.navbar-mega-container .navbar-nav .nav-link:focus,
+.navbar-mega-container .navbar-nav .nav-link.active {
+    color: #ffffff !important;
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+}
+
+
+/* Memaksa Dropdown agar merentang Full Width (Mega Menu) */
+.navbar-mega-container .mega-dropdown {
+    position: static !important;
+}
+
+/* Kotak Panel Mega Menu - KOTAK INI TETAP BERWARNA PUTIH */
+.navbar-mega-container .mega-dropdown .dropdown-menu.mega-menu {
+    width: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 0;
+    border-radius: 0 0 12px 12px;
+    border: none;
+    
+    /* Garis atas akan mengikuti warna dominan tema Anda (Biru/Emas dll) */
+    border-top: 4px solid var(--theme-primary) !important;
+    padding: 25px 30px;
+    
+    /* Panel dropdown tetap putih agar link di dalamnya mudah dibaca */
+    background-color: #ffffff !important; 
+    
+    max-height: calc(100vh - 160px); 
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* Efek Hover untuk membuka menu di Desktop (>= 992px) */
+@media all and (min-width: 992px) {
+    .navbar-mega-container .nav-item.mega-dropdown:hover .dropdown-menu.mega-menu {
+        display: block;
+        animation: fadeInMegaMenu 0.3s ease;
+    }
+}
+
+@keyframes fadeInMegaMenu {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Judul Kolom (Kategori di dalam Mega Menu) */
+.mega-menu-header {
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--theme-primary-dark) !important;
+    border-bottom: 2px solid var(--theme-light);
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+}
+
+/* Item Link di dalam Menu */
+.mega-menu-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px; 
+    color: #495057; /* Teks dark gray agar kontras dengan kotak putih */
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 6px;
+    transition: all 0.3s ease-in-out;
+    margin-bottom: 4px;
+    background-color: transparent;
+}
+
+/* Efek Hover Link (Ganti warna & Bergeser) */
+.mega-menu-item:hover, .mega-menu-item:focus {
+    color: var(--theme-primary-dark) !important;
+    background-color: var(--theme-light);
+    padding-left: 18px; 
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+/* Ikon di sebelah kiri Teks Link */
+.mega-menu-item i {
+    width: 24px; 
+    font-size: 14px;
+    color: var(--theme-primary);
+    transition: all 0.3s ease;
+    text-align: center;
+    margin-right: 8px;
+}
+
+/* Animasi Ikon saat di-hover */
+.mega-menu-item:hover i {
+    color: var(--theme-primary-dark);
+    transform: scale(1.15);
+}
+
+/* Teks Label Menu (Mencegah teks kepanjangan keluar area) */
+.mega-menu-item span {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* State Aktif (Menu yang sedang dibuka) */
+.mega-menu-item.active {
+    background-color: var(--theme-primary) !important;
+    color: var(--theme-text-on-primary) !important;
+    font-weight: bold;
+}
+.mega-menu-item.active i {
+    color: var(--theme-text-on-primary) !important;
+}
+
+
+/* ==============================================================
+   FIX: POSISI MEGA MENU DI BAWAH HEADER UTAMA (DESKTOP)
+   ============================================================== */
+@media (min-width: 992px) {
+    /* 1. Mendorong Mega Menu turun persis di bawah Header Hijau */
+    .navbar-mega-container {
+        position: fixed !important;
+        top: 95px !important; 
+        left: 0 !important;
+        width: 100% !important; 
+        z-index: 1040 !important; 
+    }
+
+    /* 2. Mendorong konten halaman lebih ke bawah agar tidak tertutup Menu */
+    .content {
+        margin-top: 155px !important; 
+    }
+}
+
+/* Penyesuaian jarak di Mobile/HP */
+@media (max-width: 991.98px) {
+    .navbar-mega-container {
+        position: relative !important;
+        z-index: 1040 !important;
+        margin-bottom: 10px !important;
+        top: 0 !important;
+    }
+    .content {
+        margin-top: 0 !important;
+    }
+}
+
+
+/* ==============================================================
+   11. DASHBOARD & TAB NAVIGASI KHUSUS APLIKASI
+   ============================================================== */
+/* DASHBOARD KPI (Finance / Pengadaan) */
+.kpi-card-clickable { 
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease; 
+}
+.kpi-card-clickable:hover { 
+    transform: translateY(-5px); 
+    box-shadow: 0 12px 20px rgba(0,0,0,0.12) !important;
+}
+.kpi-card-finance, .kpi-card-sop { 
+    padding: 1.5rem; 
+    border-radius: 1rem; 
+    background: #ffffff; 
+    border: 1px solid rgba(0,0,0,0.08);
+    position: relative; 
+    overflow: hidden; 
+}
+.kpi-icon-watermark { 
+    position: absolute; 
+    right: -15px; 
+    bottom: -20px; 
+    font-size: 6rem; 
+    opacity: 0.05;
+    color: var(--theme-primary); 
+    transform: rotate(-10deg);
+}
+.kpi-title-finance, .kpi-title-sop {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.kpi-value-finance, .kpi-value-sop {
+    font-size: 2rem;
+    font-weight: 800;
+}
+
+/* NAV-TABS SCROLLABLE (Untuk Filter Dasbor) */
+.nav-tabs-scrollable { 
+    flex-wrap: nowrap;
+    overflow-x: auto; 
+    overflow-y: hidden; 
+    white-space: nowrap; 
+    border-bottom: 2px solid #dee2e6; 
+    padding-bottom: 5px;
+    gap: 0.5rem;
+}
+.nav-tabs-scrollable::-webkit-scrollbar { height: 6px; }
+.nav-tabs-scrollable::-webkit-scrollbar-thumb { background: #ced4da; border-radius: 3px; }
+
+.nav-tabs-scrollable .nav-link { 
+    color: #6c757d !important; 
+    font-weight: 500;
+    border: none !important;
+    border-radius: 8px !important;
+    padding: 0.6rem 1.2rem !important;
+    transition: all 0.3s ease; 
+    background-color: transparent !important;
+}
+.nav-tabs-scrollable .nav-link:hover {
+    background-color: rgba(0,0,0,0.03) !important;
+    color: var(--theme-primary) !important;
+}
+.nav-tabs-scrollable .nav-link.active { 
+    color: var(--theme-text-on-primary) !important; 
+    background: var(--theme-gradient) !important;
+    font-weight: 700 !important; 
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1) !important;
+}
+
+/* ==============================================================
+   DASHBOARD KPI & PENGADAAN (CSS Terpusat)
+   ============================================================== */
+.kpi-card-clickable { 
+    cursor: pointer; 
+    transition: transform 0.2s ease, box-shadow 0.2s ease; 
+}
+.kpi-card-clickable:hover { 
+    transform: translateY(-5px); 
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important; 
+}
+.kpi-card-sop { 
+    padding: 20px; 
+    border-radius: 10px; 
+    background: #fff; 
+    border: 1px solid #e0e0e0; 
+    position: relative; 
+    overflow: hidden; 
+}
+.kpi-title-sop { 
+    font-size: 14px; 
+    font-weight: 600; 
+}
+.kpi-value-sop { 
+    font-size: 28px; 
+    font-weight: 700; 
+    margin-top: 10px; 
+}
+.kpi-icon-watermark { 
+    position: absolute; 
+    right: -10px; 
+    bottom: -10px; 
+    font-size: 80px; 
+    opacity: 0.05; 
+    color: var(--theme-primary); /* Otomatis mengikuti tema */
+}
+
+/* Navigasi Tab DataTables yang Scrollable */
+.nav-tabs-scrollable { 
+    flex-wrap: nowrap; 
+    overflow-x: auto; 
+    overflow-y: hidden; 
+    white-space: nowrap; 
+    border-bottom: 2px solid #dee2e6; 
+}
+.nav-tabs-scrollable::-webkit-scrollbar { height: 6px; }
+.nav-tabs-scrollable::-webkit-scrollbar-thumb { background: #ced4da; border-radius: 3px; }
+
+
+/* CSS Khusus Kertas Laporan */
+    .report-paper { background: #fff; padding: 40px; box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15); border-radius: 8px; margin: 0 auto; color: #000; font-family: 'Arial', sans-serif; }
+    .report-paper table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .report-paper th, .report-paper td { border: 1px solid #000; padding: 4px 6px; vertical-align: middle; }
+    .report-paper th { text-align: center; font-weight: bold; background-color: #f8f9fa; }
+    .report-table-header th { font-size: 10px; }
+    .biodata-label { width: 150px; font-weight: bold; font-size: 12px;}
+    .biodata-value { font-size: 12px; font-weight: bold;}
+    
+    
+    
+    /* ==============================================================
+   PORTAL ALUMNI (Header & Footer Terpusat & Theme-Ready)
+   ============================================================== */
+
+/* 1. Latar Belakang Statis (Watermark Halaman Alumni) */
+.bg-polos-alumni {
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    width: 100vw; 
+    height: 100vh; 
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    opacity: 0.05; 
+    z-index: -999; 
+    pointer-events: none; 
+}
+
+/* 2. Header Alumni (Menyatu dengan Gradient Tema Utama) */
+.header-alumni-bg {
+    /* Mengambil efek gradien aktif dari tema (Contoh: Hijau ke Kuning) */
+    background: var(--theme-gradient) !important;
+    background-color: var(--theme-primary) !important;
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+}
+.header-alumni-bg::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    /* Variabel bg-image-url dikirim dari file JSP */
+    background: var(--bg-image-url) center/cover no-repeat;
+    opacity: 0.15;
+    mix-blend-mode: overlay;
+    z-index: -1;
+}
+
+.header-alumni-title {
+    letter-spacing: 1px; 
+    text-shadow: var(--theme-text-shadow) !important;
+    color: var(--theme-text-on-primary) !important;
+}
+
+.header-alumni-subtitle-box {
+    background: rgba(255, 255, 255, 0.15); 
+    backdrop-filter: blur(8px); 
+    border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.header-alumni-subtitle,
+.header-alumni-desc {
+    text-shadow: var(--theme-text-shadow) !important;
+    color: var(--theme-text-on-primary) !important;
+}
+.header-alumni-desc { max-width: 850px; font-size: 1.15rem; }
+
+.logo-institusi-alumni {
+    max-height: 140px; 
+    object-fit: contain; 
+    filter: drop-shadow(0px 6px 10px rgba(0,0,0,0.5));
+}
+
+/* Ikon Aksent di Header (Mengambil warna Primer Terang/Gelap sesuai kontras) */
+.icon-accent-alumni {
+    color: #ffc107 !important; /* Warna kuning emas bawaan stabil */
+    text-shadow: 0 0 5px rgba(0,0,0,0.3);
+}
+
+/* 3. Footer Alumni (Mengikuti Warna Tema Versi Gelap) */
+.footer-alumni-bg {
+    /* Gradien untuk footer dari warna primer pekat ke arah hitam */
+    background: linear-gradient(135deg, var(--theme-primary-dark) 0%, #050a10 100%) !important;
+    border-top: 5px solid var(--theme-primary) !important;
+    position: relative; 
+    z-index: 10;
+}
+
+/* Warna penanda judul di Footer agar selaras dengan Tema */
+.footer-alumni-highlight {
+    color: var(--theme-primary) !important; 
+    filter: brightness(1.4); /* Diterangkan sedikit agar terbaca jelas di background gelap */
+}
+
+.footer-alumni-motto {
+    color: var(--theme-text-on-primary) !important;
+    border-color: var(--theme-primary) !important;
+    opacity: 0.8;
+}
+
+.footer-alumni-link {
+    color: rgba(255, 255, 255, 0.6);
+    text-decoration: none; 
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+}
+.footer-alumni-link:hover {
+    color: var(--theme-text-on-primary);
+    transform: translateX(6px);
+}
+
+/* 4. Ikon Media Sosial Footer */
+.icon-medsos-alumni {
+    width: 38px; 
+    height: 38px; 
+    display: inline-flex; 
+    align-items: center; 
+    justify-content: center; 
+    border-radius: 50%; 
+    background: rgba(255, 255, 255, 0.1); 
+    color: var(--theme-text-on-primary); 
+    transition: all 0.3s ease; 
+    text-decoration: none; 
+}
+.icon-medsos-alumni:hover { 
+    background: var(--theme-primary); 
+    transform: translateY(-4px); 
+    color: var(--theme-text-on-primary); 
+    box-shadow: 0 5px 12px rgba(0,0,0,0.4);
+}
+
+
+
+/* ==============================================================
+   25. MODUL DOCUMENT MANAGEMENT SYSTEM (DMS)
+   ============================================================== */
+.main-body-bg-dms {
+    background-color: var(--falcon-body-bg, #f8f9fa);
+    position: relative;
+}
+
+/* Hero Section DMS (Responsif Tema) */
+.hero-section-dms { 
+    background: var(--theme-gradient) !important;
+    padding: 4rem 0 3rem 0;
+    position: relative; 
+    border-radius: 0 0 2.5rem 2.5rem;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    z-index: 1;
+    overflow: hidden;
+}
+
+.hero-section-dms::before { 
+    content: ''; 
+    position: absolute; 
+    top: 0; left: 0; right: 0; bottom: 0; 
+    background: url('../../img/office-bg.jpeg') center/cover no-repeat !important; 
+    opacity: 0.15; 
+    z-index: -1; 
+    mix-blend-mode: overlay;
+}
+
+/* Memastikan teks Hero menyesuaikan tema */
+.hero-section-dms h1, 
+.hero-section-dms p,
+.hero-section-dms i {
+    background: transparent !important;
+    color: var(--theme-text-on-primary) !important;
+    text-shadow: var(--theme-text-shadow, 1px 1px 4px rgba(0, 0, 0, 0.5)) !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Card Dokumen DMS */
+.doc-card-dms { 
+    transition: transform 0.3s ease, box-shadow 0.3s ease; 
+    border-left: 4px solid var(--theme-primary) !important; 
+    border-radius: 12px !important;
+}
+.doc-card-dms:hover { 
+    transform: translateY(-5px); 
+    box-shadow: 0 12px 20px rgba(0,0,0,0.15) !important; 
+}
+
+/* Explorer Tree View DMS */
+.tree-view-dms { 
+    list-style-type: none; 
+    padding-left: 20px; 
+    margin-bottom: 0;
+}
+.tree-view-dms li { 
+    margin: 8px 0; 
+    position: relative; 
+}
+.tree-view-dms li::before {
+    content: ""; 
+    position: absolute; 
+    top: -10px; left: -15px; 
+    border-left: 1px solid rgba(0,0,0,0.2); 
+    bottom: 5px; width: 1px;
+}
+.tree-view-dms li::after {
+    content: ""; 
+    position: absolute; 
+    top: 15px; left: -15px; 
+    border-top: 1px solid rgba(0,0,0,0.2); 
+    width: 12px;
+}
+.tree-view-dms li:last-child::before { 
+    height: 26px; 
+}
+
+.tree-node-dms {
+    cursor: pointer; 
+    padding: 6px 12px; 
+    border-radius: 6px; 
+    display: inline-block; 
+    transition: all 0.2s ease;
+    color: var(--theme-primary-dark) !important;
+    font-weight: 500;
+}
+.tree-node-dms:hover { 
+    background-color: var(--theme-light) !important; 
+    color: var(--theme-primary) !important;
+}
+.tree-icon-dms { 
+    margin-right: 8px; 
+    color: var(--theme-primary) !important; 
+}
+
+
+/* ==============================================================
+   OVERRIDE: MEMPERBAIKI WARNA TOMBOL DI DALAM TABEL PMB
+   Mencegah konflik dengan CSS global 'table td .btn.btn-sm'
+   ============================================================== */
+
+/* 1. TOMBOL OUTLINE INFO (Unduh Format Dokumen) */
+table td .btn.btn-sm.btn-outline-info {
+    color: #17a2b8 !important;
+    border-color: #17a2b8 !important;
+}
+table td .btn.btn-sm.btn-outline-info i,
+table td .btn.btn-sm.btn-outline-info svg {
+    color: #17a2b8 !important;
+    fill: #17a2b8 !important;
+}
+table td .btn.btn-sm.btn-outline-info:hover,
+table td .btn.btn-sm.btn-outline-info:focus {
+    background-color: #17a2b8 !important;
+    color: #ffffff !important;
+}
+table td .btn.btn-sm.btn-outline-info:hover i,
+table td .btn.btn-sm.btn-outline-info:hover svg,
+table td .btn.btn-sm.btn-outline-info:focus i,
+table td .btn.btn-sm.btn-outline-info:focus svg {
+    color: #ffffff !important;
+    fill: #ffffff !important;
+}
+
+/* 2. TOMBOL PRIMARY SOLID (Unggah Berkas) */
+table td .btn.btn-sm.btn-primary {
+    background-color: #0d6efd !important;
+    border-color: #0d6efd !important;
+    color: #ffffff !important;
+}
+table td .btn.btn-sm.btn-primary i,
+table td .btn.btn-sm.btn-primary svg {
+    color: #ffffff !important;
+    fill: #ffffff !important;
+}
+table td .btn.btn-sm.btn-primary:hover,
+table td .btn.btn-sm.btn-primary:focus {
+    background-color: #0b5ed7 !important;
+    border-color: #0a58ca !important;
+}
+
+/* 3. TOMBOL OUTLINE PRIMARY (Lihat Berkas / Kelola) */
+table td .btn.btn-sm.btn-outline-primary {
+    color: #0d6efd !important;
+    border-color: #0d6efd !important;
+}
+table td .btn.btn-sm.btn-outline-primary i,
+table td .btn.btn-sm.btn-outline-primary svg {
+    color: #0d6efd !important;
+    fill: #0d6efd !important;
+}
+table td .btn.btn-sm.btn-outline-primary:hover,
+table td .btn.btn-sm.btn-outline-primary:focus {
+    background-color: #0d6efd !important;
+    color: #ffffff !important;
+}
+table td .btn.btn-sm.btn-outline-primary:hover i,
+table td .btn.btn-sm.btn-outline-primary:hover svg,
+table td .btn.btn-sm.btn-outline-primary:focus i,
+table td .btn.btn-sm.btn-outline-primary:focus svg {
+    color: #ffffff !important;
+    fill: #ffffff !important;
+}
+
+/* ==============================================================
+   HOME PORTAL TERPADU - RESPONSIF TEMA (home.jsp)
+   Catatan: seluruh style home dipusatkan di base-theme.css.
+   Warna otomatis mengikuti variabel theme yang dimuat setelah file ini,
+   misalnya hijau_kuning.css melalui --theme-primary, --theme-gradient, dll.
+   ============================================================== */
+html { scroll-behavior: smooth; }
+
+body.home-page-modern {
+    --home-primary: var(--theme-primary, #1a4087);
+    --home-primary-dark: var(--theme-primary-dark, #102855);
+    --home-primary-soft: var(--theme-light, rgba(26, 64, 135, 0.10));
+    --home-gradient: var(--theme-gradient, linear-gradient(90deg, #1a4087 0%, #355c9e 100%));
+    --home-text-on-primary: var(--theme-text-on-primary, #ffffff);
+    --home-shadow-color: rgba(15, 23, 42, 0.14);
+    --home-ink: #0f172a;
+    --home-muted: #64748b;
+    --home-border: rgba(15, 23, 42, 0.10);
+    --home-card: rgba(255, 255, 255, 0.94);
+    --home-radius: 24px;
+    min-height: 100vh;
+    margin: 0;
+    color: var(--home-ink);
+    background:
+        radial-gradient(circle at top right, color-mix(in srgb, var(--home-primary), transparent 84%), transparent 34rem),
+        linear-gradient(180deg, #f8fafc 0%, #ffffff 44%, #f8fafc 100%);
+    font-family: Poppins, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+    overflow-x: hidden;
+}
+
+.home-page-modern .bg-pattern-home {
+    position: fixed;
+    inset: 0;
+    background-image: var(--home-bg-image);
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    opacity: 0.04;
+    z-index: -3;
+    pointer-events: none;
+}
+
+.home-page-modern .aurora-home {
+    position: fixed;
+    width: 420px;
+    height: 420px;
+    border-radius: 999px;
+    filter: blur(22px);
+    opacity: 0.20;
+    pointer-events: none;
+    z-index: -2;
+    background: var(--home-primary);
+}
+.home-page-modern .aurora-one { top: -150px; right: -140px; }
+.home-page-modern .aurora-two { bottom: 7%; left: -190px; }
+
+.home-page-modern .topbar-home {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(255, 255, 255, 0.90);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid rgba(226, 232, 240, 0.92);
+    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.04);
+}
+.home-page-modern .brand-chip-home {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--home-primary-dark) !important;
+    text-decoration: none;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+.home-page-modern .brand-chip-home img {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    border-radius: 12px;
+    background: #ffffff;
+    padding: 5px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+.home-page-modern .topbar-link-home {
+    color: #334155 !important;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.86rem;
+    padding: 9px 13px;
+    border-radius: 999px;
+    transition: all 0.2s ease;
+}
+.home-page-modern .topbar-link-home:hover,
+.home-page-modern .topbar-link-home:focus {
+    color: var(--home-text-on-primary) !important;
+    background: var(--home-gradient) !important;
+    box-shadow: 0 12px 26px color-mix(in srgb, var(--home-primary), transparent 74%);
+}
+
+.home-page-modern .hero-section-home {
+    position: relative;
+    overflow: hidden;
+    padding: 70px 0 50px;
+    color: var(--home-text-on-primary) !important;
+    background: var(--home-gradient) !important;
+    box-shadow: 0 16px 42px rgba(15, 23, 42, 0.10);
+}
+.home-page-modern .hero-section-home::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: var(--home-bg-image);
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    opacity: 0.16;
+    mix-blend-mode: overlay;
+}
+.home-page-modern .hero-section-home::after {
+    content: "";
+    position: absolute;
+    inset: auto -10% -116px -10%;
+    height: 205px;
+    background: #ffffff;
+    transform: rotate(-1.6deg);
+    border-radius: 50% 50% 0 0;
+}
+.home-page-modern .hero-content-home { position: relative; z-index: 2; }
+.home-page-modern .logo-container-home {
+    width: 96px;
+    height: 96px;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 28px;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 20px 56px rgba(0, 0, 0, 0.24);
+    border: 1px solid rgba(255,255,255,0.72);
+}
+.home-page-modern .logo-img-home { max-width: 72px; max-height: 72px; object-fit: contain; }
+.home-page-modern .hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 15px;
+    border: 1px solid rgba(255,255,255,0.32);
+    background: rgba(255,255,255,0.13);
+    border-radius: 999px;
+    font-weight: 800;
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    color: var(--home-text-on-primary) !important;
+    text-shadow: var(--theme-text-shadow, none);
+}
+.home-page-modern .hero-title-home,
+.home-page-modern .hero-section-home h1,
+.home-page-modern .hero-section-home h2,
+.home-page-modern .hero-section-home h3,
+.home-page-modern .hero-section-home h4 {
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: var(--home-text-on-primary) !important;
+    text-shadow: var(--theme-text-shadow, 0 2px 12px rgba(0,0,0,0.25)) !important;
+}
+.home-page-modern .hero-title-home {
+    font-size: clamp(2rem, 3.5vw, 4rem);
+    line-height: 1.08;
+    letter-spacing: -0.055em;
+    font-weight: 900;
+    margin-bottom: 16px;
+}
+.home-page-modern .hero-subtitle-home {
+    max-width: 850px;
+    margin: 0 auto;
+    color: color-mix(in srgb, var(--home-text-on-primary), transparent 12%) !important;
+    font-size: clamp(0.98rem, 1.25vw, 1.15rem);
+    line-height: 1.75;
+    font-weight: 500;
+    text-shadow: var(--theme-text-shadow, none);
+}
+.home-page-modern .hero-actions-home {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 11px;
+    align-items: center;
+    justify-content: center;
+    margin-top: 26px;
+}
+.home-page-modern .hero-btn-home {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 46px;
+    padding: 11px 19px;
+    border-radius: 999px;
+    font-weight: 850;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+.home-page-modern .hero-btn-primary-home {
+    background: #ffffff !important;
+    color: var(--home-primary-dark) !important;
+    box-shadow: 0 16px 42px rgba(0,0,0,0.16);
+}
+.home-page-modern .hero-btn-primary-home:hover {
+    color: var(--home-primary-dark) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 22px 56px rgba(0,0,0,0.22);
+}
+.home-page-modern .hero-btn-outline-home {
+    color: var(--theme-primary) !important;
+    border: 1px solid rgba(255,255,255,0.38);
+    background: rgba(255,255,255,0.11);
+    text-shadow: var(--theme-text-shadow, none);
+}
+.home-page-modern .hero-btn-outline-home:hover {
+    color: var(--home-primary-dark) !important;
+    background: #ffffff !important;
+    transform: translateY(-2px);
+    text-shadow: none;
+}
+
+.home-page-modern .main-home-wrap { position: relative; z-index: 5; margin-top: -22px; padding-bottom: 48px; }
+.home-page-modern .menu-card-home {
+    background: var(--home-card);
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(255,255,255,0.78);
+    border-radius: var(--home-radius);
+    box-shadow: 0 20px 62px var(--home-shadow-color);
+    padding: clamp(22px, 3vw, 36px);
+}
+.home-page-modern .section-eyebrow-home {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 13px;
+    border-radius: 999px;
+    background: var(--home-primary-soft) !important;
+    color: var(--home-primary-dark) !important;
+    border: 1px solid color-mix(in srgb, var(--home-primary), transparent 80%);
+    font-weight: 850;
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 11px;
+}
+.home-page-modern .section-title-home {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: var(--home-primary-dark) !important;
+    font-weight: 900 !important;
+    letter-spacing: -0.035em;
+    font-size: clamp(1.42rem, 2.15vw, 2.15rem) !important;
+    margin-bottom: 9px;
+    text-shadow: none !important;
+}
+.home-page-modern .section-desc-home {
+    color: var(--home-muted);
+    line-height: 1.75;
+    max-width: 850px;
+    margin: 0 auto;
+    font-weight: 500;
+}
+
+.home-page-modern .benefit-grid-home {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin: 24px 0 10px;
+}
+.home-page-modern .benefit-card-home {
+    padding: 15px;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #ffffff, #fbfdff);
+    border: 1px solid var(--home-border);
+    text-align: left;
+    transition: all 0.2s ease;
+}
+.home-page-modern .benefit-card-home:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 26px rgba(15,23,42,0.08);
+    border-color: color-mix(in srgb, var(--home-primary), transparent 74%);
+}
+.home-page-modern .benefit-card-home i {
+    width: 36px;
+    height: 36px;
+    border-radius: 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--home-text-on-primary) !important;
+    background: var(--home-gradient) !important;
+    margin-bottom: 11px;
+    text-shadow: var(--theme-text-shadow, none);
+}
+.home-page-modern .benefit-card-home strong { display: block; font-size: 0.92rem; margin-bottom: 5px; color: var(--home-ink); }
+.home-page-modern .benefit-card-home span { display: block; color: var(--home-muted); font-size: 0.82rem; line-height: 1.52; }
+
+.home-page-modern .portal-group-section {
+    position: relative;
+    padding: 19px;
+    border: 1px solid var(--home-border);
+    border-radius: 23px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.94));
+    box-shadow: 0 14px 42px rgba(15,23,42,0.07);
+    overflow: hidden;
+}
+.home-page-modern .portal-group-section::before {
+    content: "";
+    position: absolute;
+    width: 170px;
+    height: 170px;
+    border-radius: 999px;
+    top: -96px;
+    right: -72px;
+    opacity: 0.15;
+    background: var(--home-primary);
+}
+.home-page-modern .portal-group-title {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    font-weight: 900;
+    font-size: 1.12rem;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+    color: var(--home-primary-dark);
+}
+.home-page-modern .portal-group-title i {
+    width: 40px;
+    height: 40px;
+    border-radius: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--home-text-on-primary) !important;
+    background: var(--home-gradient) !important;
+    box-shadow: 0 12px 28px color-mix(in srgb, var(--home-primary), transparent 76%);
+    text-shadow: var(--theme-text-shadow, none);
+}
+.home-page-modern .portal-support-copy {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 13px;
+    padding: 14px;
+    border-radius: 18px;
+    background: var(--home-primary-soft) !important;
+    border: 1px solid color-mix(in srgb, var(--home-primary), transparent 82%);
+    color: #334155;
+    text-align: left;
+    margin-bottom: 14px;
+}
+.home-page-modern .portal-support-copy > i {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    border-radius: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--home-primary-dark) !important;
+    background: #ffffff;
+    box-shadow: 0 8px 22px rgba(15,23,42,0.08);
+}
+.home-page-modern .portal-support-copy strong { display: block; color: var(--home-ink); margin-bottom: 4px; font-weight: 850; }
+.home-page-modern .portal-support-copy span { color: var(--home-muted); line-height: 1.65; font-size: 0.91rem; }
+.home-page-modern .portal-mini-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #475569;
+    background: #f8fafc;
+    border: 1px solid var(--home-border);
+    border-radius: 999px;
+    padding: 7px 12px;
+    font-weight: 850;
+    font-size: 0.78rem;
+    margin: 6px 0 11px;
+}
+.home-page-modern .portal-action-grid {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(172px, 1fr));
+    gap: 10px;
+    margin-bottom: 13px;
+}
+.home-page-modern .portal-card-home {
+    position: relative;
+    display: flex;
+    min-height: 99px;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 7px;
+    padding: 13px;
+    border-radius: 18px;
+    text-decoration: none !important;
+    color: var(--home-text-on-primary) !important;
+    background: var(--home-gradient) !important;
+    box-shadow: 0 12px 26px color-mix(in srgb, var(--home-primary), transparent 80%);
+    overflow: hidden;
+    transition: all 0.2s ease;
+    border: 1px solid color-mix(in srgb, var(--home-primary-dark), transparent 70%);
+    text-shadow: var(--theme-text-shadow, none);
+}
+.home-page-modern .portal-card-home::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at top right, rgba(255,255,255,0.25), transparent 42%);
+    pointer-events: none;
+}
+.home-page-modern .portal-card-home:hover,
+.home-page-modern .portal-card-home:focus {
+    color: var(--home-text-on-primary) !important;
+    transform: translateY(-3px);
+    box-shadow: 0 18px 42px color-mix(in srgb, var(--home-primary), transparent 68%);
+}
+.home-page-modern .portal-card-home.outline {
+    color: var(--home-primary-dark) !important;
+    background: linear-gradient(180deg, #ffffff, #f8fafc) !important;
+    border: 1px solid color-mix(in srgb, var(--home-primary), transparent 75%);
+    box-shadow: 0 10px 24px rgba(15,23,42,0.07);
+    text-shadow: none !important;
+}
+.home-page-modern .portal-card-home.outline:hover { color: var(--home-primary-dark) !important; background: #ffffff !important; }
+.home-page-modern .portal-card-home.success,
+.home-page-modern .portal-card-home.dark,
+.home-page-modern .portal-card-home.accent,
+.home-page-modern .portal-card-home.featured,
+.home-page-modern .portal-card-home.custom { background: var(--home-gradient) !important; }
+.home-page-modern .portal-custom-divider {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 4px 0 0;
+    color: #475569;
+    font-weight: 850;
+    font-size: 0.8rem;
+}
+.home-page-modern .portal-custom-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--home-primary), transparent 70%), transparent);
+}
+.home-page-modern .portal-icon-home {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.20);
+    color: inherit !important;
+    z-index: 1;
+    flex: 0 0 auto;
+}
+.home-page-modern .portal-icon-home i { color: inherit !important; }
+.home-page-modern .portal-card-home.outline .portal-icon-home { background: var(--home-primary-soft) !important; color: var(--home-primary-dark) !important; }
+.home-page-modern .portal-title-home { font-weight: 900; line-height: 1.18; z-index: 1; font-size: 0.93rem; }
+.home-page-modern .portal-desc-small { font-size: 0.76rem; line-height: 1.42; opacity: 0.90; z-index: 1; }
+.home-page-modern .portal-card-home.outline .portal-desc-small { color: var(--home-muted); opacity: 1; }
+.home-page-modern .portal-support-note {
+    padding: 11px 14px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.84);
+    border: 1px dashed color-mix(in srgb, var(--home-primary), transparent 74%);
+    color: #475569;
+    text-align: left;
+    font-size: 0.87rem;
+    line-height: 1.62;
+}
+.home-page-modern .empty-state-home {
+    border-radius: 20px;
+    border: 1px dashed rgba(148,163,184,0.65);
+    padding: 22px;
+    color: #64748b;
+    background: #f8fafc;
+}
+
+.home-page-modern .footer-home {
+    background: var(--home-gradient) !important;
+    color: color-mix(in srgb, var(--home-text-on-primary), transparent 12%) !important;
+    padding: 50px 0 26px;
+    margin-top: 24px;
+    text-shadow: var(--theme-text-shadow, none);
+}
+.home-page-modern .footer-home h5 { color: var(--home-text-on-primary) !important; font-weight: 900; letter-spacing: -0.01em; background: transparent !important; }
+.home-page-modern .footer-home p,
+.home-page-modern .footer-home span,
+.home-page-modern .footer-home small { color: color-mix(in srgb, var(--home-text-on-primary), transparent 12%) !important; }
+.home-page-modern .contact-icon-home { color: var(--home-text-on-primary) !important; opacity: 0.95; }
+.home-page-modern .store-btn-home {
+    display: inline-flex;
+    align-items: center;
+    min-width: 174px;
+    padding: 10px 14px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.13) !important;
+    border: 1px solid rgba(255,255,255,0.22) !important;
+    color: var(--home-text-on-primary) !important;
+    text-decoration: none !important;
+    transition: all 0.2s ease;
+}
+.home-page-modern .store-btn-home:hover { background: rgba(255,255,255,0.22) !important; color: var(--home-text-on-primary) !important; transform: translateY(-2px); }
+.home-page-modern .store-icon-home { width: 28px; height: 28px; object-fit: contain; }
+.home-page-modern .floating-login-home {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 60;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 13px 18px;
+    border-radius: 999px;
+    color: var(--home-text-on-primary) !important;
+    text-decoration: none !important;
+    background: var(--home-gradient) !important;
+    box-shadow: 0 18px 44px color-mix(in srgb, var(--home-primary), transparent 66%);
+    font-weight: 900;
+    text-shadow: var(--theme-text-shadow, none);
+}
+.home-page-modern .floating-login-home:hover { color: var(--home-text-on-primary) !important; transform: translateY(-2px); }
+
+@media (max-width: 991.98px) {
+    .home-page-modern .topbar-link-home { display: none; }
+    .home-page-modern .hero-section-home { padding-top: 58px; }
+    .home-page-modern .benefit-grid-home { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 575.98px) {
+    .home-page-modern .main-home-wrap { margin-top: -10px; }
+    .home-page-modern .menu-card-home { border-radius: 20px; padding: 18px; }
+    .home-page-modern .benefit-grid-home { grid-template-columns: 1fr; }
+    .home-page-modern .portal-group-section { padding: 15px; border-radius: 20px; }
+    .home-page-modern .portal-support-copy { flex-direction: column; }
+    .home-page-modern .portal-action-grid { grid-template-columns: 1fr; }
+    .home-page-modern .portal-card-home { min-height: 92px; }
+    .home-page-modern .hero-actions-home { align-items: stretch; }
+    .home-page-modern .hero-btn-home { width: 100%; }
+    .home-page-modern .floating-login-home span { display: none; }
+    .home-page-modern .floating-login-home { width: 52px; height: 52px; justify-content: center; padding: 0; }
+}

@@ -1,0 +1,86 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.TutorialAction" width="100%" height="100%">
+
+
+
+
+		<borderlayout>
+			<north border="none" open="true" flex="true">
+				<grid use="ais.ui.util.MyGrid" fixedLayout="true">
+					<columns>
+						<column use="ais.ui.util.MyColumnConfig"
+							width="150px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig"
+							width="150px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig">
+						</column>
+					</columns>
+					<rows>
+
+						<row>
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Nama File Tutorial" />
+							<textbox forward="onOK=onSearchDefault"
+								id="searchnama" width="95%" />
+
+						</row>
+
+						<row spans="4">
+
+							<toolbar>
+
+								<toolbarbutton
+									use="ais.ui.util.MyToolbarbuttonConfig" tooltiptext="Cari data"
+									forward="onClick=onSearchDefault" id="find" label="Cari"
+									image="/img/search.gif">
+								</toolbarbutton>
+
+							</toolbar>
+						</row>
+					</rows>
+				</grid>
+
+			</north>
+			<center border="none" flex="true">
+
+				<grid use="ais.ui.util.MyGrid" sclass="fgrid">
+					<rows>
+						<row>
+							<grid use="ais.ui.util.MyGrid"
+								sclass="dgrid" fixedLayout="true" id="grid">
+								<columns>
+									<column
+										use="ais.ui.util.MyColumnConfig" label="File Tutorial" />
+									<column
+										use="ais.ui.util.MyColumnConfig" width="10%" />
+								</columns>
+
+							</grid>
+
+						</row>
+					</rows>
+				</grid>
+			</center>
+
+		</borderlayout>
+
+
+	</window>
+
+
+</zk>

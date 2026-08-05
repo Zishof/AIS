@@ -1,0 +1,74 @@
+<?page id="penumumanWebsiteZul" title="Penumuman Website" cacheable="false"
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+<zk xmlns="http://www.zkoss.org/2005/zul">
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.PenumumanWebsiteAction" width="100%" height="100%">
+		<div sclass="ais-crud-portal">
+			<div sclass="ais-crud-filter-card">
+				<div sclass="ais-crud-filter-head">
+					<span sclass="ais-crud-filter-title">Pencarian &amp; Filter Berita Website</span>
+					<div sclass="ais-crud-filter-actions">
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="add" label="Tambah" image="/img/new.gif" forward="onClick=onAdd"/>
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Cari" image="/img/search.gif" forward="onClick=onSearchDefault"/>
+					</div>
+				</div>
+				<div sclass="ais-crud-filter-body">
+					<grid use="ais.ui.util.MyGrid" fixedLayout="true" sclass="ais-crud-filter-grid">
+						<columns>
+							<column use="ais.ui.util.MyColumnConfig" width="150px"/>
+							<column use="ais.ui.util.MyColumnConfig"/>
+							<column use="ais.ui.util.MyColumnConfig" width="150px"/>
+							<column use="ais.ui.util.MyColumnConfig"/>
+						</columns>
+						<rows>
+							<row>
+								<label use="ais.ui.util.MyLabelConfig" value="Judul"/>
+								<textbox id="searchjudul" width="95%" forward="onOK=onSearchDefault"/>
+								<label use="ais.ui.util.MyLabelConfig" value="Isi"/>
+								<textbox id="searchisi" width="95%" forward="onOK=onSearchDefault"/>
+							</row>
+						</rows>
+					</grid>
+				</div>
+			</div>
+			<div sclass="ais-crud-data-card">
+				<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true"/>
+				<grid use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true" id="grid">
+					<columns>
+						<column use="ais.ui.util.MyColumnConfig" width="12%" label="Tanggal"/>
+						<column use="ais.ui.util.MyColumnConfig" width="14%" label="Kategori"/>
+						<column use="ais.ui.util.MyColumnConfig" width="25%" label="Judul"/>
+						<column use="ais.ui.util.MyColumnConfig" width="34%" label="Ringkasan"/>
+						<column use="ais.ui.util.MyColumnConfig" width="8%" label="Aktif"/>
+						<column use="ais.ui.util.MyColumnConfig" width="7%" label=""/>
+					</columns>
+					<rows/>
+				</grid>
+			</div>
+		</div>
+		<window use="ais.ui.util.MyWindow" id="addWindow" title="Berita Website Kampus" visible="false"
+			mode="popup" position="center,center" border="normal" width="90%" height="90%">
+			<grid use="ais.ui.util.MyGrid" fixedLayout="true">
+				<columns>
+					<column use="ais.ui.util.MyColumnConfig" width="160px"/>
+					<column use="ais.ui.util.MyColumnConfig"/>
+				</columns>
+				<rows>
+					<row><label use="ais.ui.util.MyLabelConfig" value="Tanggal"/><datebox use="ais.ui.util.MyDatebox" id="tanggal" width="220px"/></row>
+					<row><label use="ais.ui.util.MyLabelConfig" value="Kategori"/><textbox id="kategori" width="95%"/></row>
+					<row><label use="ais.ui.util.MyLabelConfig" value="Judul"/><textbox id="judul" width="95%"/></row>
+					<row><label use="ais.ui.util.MyLabelConfig" value="Ringkasan"/><textbox id="ringkasan" rows="3" multiline="true" width="95%"/></row>
+					<row><label use="ais.ui.util.MyLabelConfig" value="Isi Berita"/><textbox id="isi" rows="12" multiline="true" width="95%"/></row>
+					<row><label use="ais.ui.util.MyLabelConfig" value="Aktif"/><checkbox id="aktif" checked="true"/></row>
+					<row>
+						<label/>
+						<hbox>
+							<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Simpan" image="/img/save.gif" forward="onClick=onSave"/>
+							<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Tutup" image="/img/cancel.gif" onClick="addWindow.setVisible(false)"/>
+						</hbox>
+					</row>
+				</rows>
+			</grid>
+		</window>
+	</window>
+</zk>

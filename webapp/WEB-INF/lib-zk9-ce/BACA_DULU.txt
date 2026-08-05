@@ -1,0 +1,38 @@
+FOLDER INI = STAGING JAR ZK CE 9.6.0.2 (JANGAN DICAMPUR KE lib/)
+=================================================================
+
+Kenapa tidak langsung di WEB-INF/lib?
+  build.xml ant memakai fileset includes="**/*.jar" pada WEB-INF/lib.
+  Bila jar ZK 9 dicampur dengan jar ZK 5 (zk.jar, zul.jar, dst.), akan
+  ada DUA versi class org.zkoss.* di classpath: hasil compile menjadi
+  tidak deterministik dan runtime ZK rusak. Folder ini sengaja menjadi
+  saudara lib/ supaya ikut tersalin ke server tetapi TIDAK terbaca ant.
+
+Isi:
+  - 8 jar inti ZK CE 9.6.0.2 (varian javax: Tomcat 9, Java 8+)
+  - calendar-3.2.1.jar  : addon calendar utk ZK 9 (API berubah, lihat
+                          MIGRASI_ZK_CE.md - 23 file perlu migrasi)
+  - zk5-api-compile-stub.jar : stub compile-only XulElement; HANYA untuk
+                          membantu javac me-link binari addon ZK 5 saat
+                          klasspath sudah ZK 9. JANGAN dipakai runtime
+                          kecuali memang dibutuhkan javac.
+
+Cara pindah ke ZK 9 (di server, SETELAH checklist MIGRASI_ZK_CE.md no.8):
+  sh tukar_zk_ce.sh        (ada di root project)
+Cara kembali ke ZK 5:
+  sh balik_zk5.sh
+
+Kompilasi seluruh source sudah diverifikasi 0 error terhadap kedua set
+(13-06-2026). Pemblokir tersisa adalah RUNTIME: zul flex=/spans=
+(jalankan transform_zul_zk9_cutover.ps1), listener zkplus.hibernate di
+zk.xml, zss/ckez/gmapsz/timelinez, dan pass CSS.
+
+PEMBARUAN (13-06-2026): build.xml kini punya saklar mode, jadi TIDAK
+perlu memindah-mindahkan jar secara fisik:
+  ant                 -> build ZK 5 (perilaku lama, default)
+  ant -Dzk.mode=zk9   -> build ZK CE 9.6.0.2 (jar inti ZK 5 otomatis
+                         dikecualikan dari classpath & war; set CE 9.6
+                         dipakai dari folder ini; stub hanya untuk
+                         kompilasi, tidak masuk war)
+Skrip tukar_zk_ce.sh/balik_zk5.sh tetap ada sebagai alternatif tukar
+fisik, tetapi cara di atas lebih aman.

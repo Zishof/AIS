@@ -1,0 +1,125 @@
+/* ==============================================================
+   DEFAULT THEME VARIABLES (BIRU MUDA)
+   Digunakan jika institusi belum memilih tema CSS kustom.
+   ============================================================== */
+:root {
+    /* Warna Biru Muda Default */
+    --theme-primary: #0098f0;
+    --theme-primary-dark: #0d6efd;
+    --theme-gradient: linear-gradient(135deg, #0d6efd 0%, #0098f0 100%);
+    --theme-text-on-primary: #ffffff;
+    --theme-light: rgba(13, 110, 253, 0.1);
+}
+
+/* ==============================================================
+   BASE LOGIN MANDIRI (base-login.css)
+   Fungsi: Menangani seluruh layout login tanpa base-theme.css
+   ============================================================== */
+
+/* --- Dasar & Reset --- */
+body.login-page {
+    background-color: #f8f9fa;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0; padding: 0; 
+    -webkit-font-smoothing: antialiased;
+    display: block !important;
+}
+
+.login-page .login-wrapper {
+    display: flex; flex-direction: column; min-height: 100vh;
+    background: var(--theme-gradient) !important; 
+}
+
+/* --- Panel Header (Mobile/Desktop) --- */
+.login-page .header-section {
+    padding: 1.8rem 1.2rem 1.2rem 1.2rem; 
+    color: var(--theme-text-on-primary, #ffffff); 
+    text-align: center; flex-shrink: 0;
+}
+
+.login-page .logo-box {
+    background: #ffffff; border-radius: 14px; padding: 10px; display: inline-flex;
+    justify-content: center; align-items: center; margin-bottom: 0.8rem;
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15); width: 75px; height: 75px;
+}
+.login-page .logo-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+.login-page .contact-box {
+    background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px; padding: 1rem; text-align: left; margin-top: 1.2rem; backdrop-filter: blur(5px);
+}
+
+/* --- Panel Form (Putih) --- */
+.login-page .form-section {
+    background: #ffffff; border-radius: 24px 24px 0 0; padding: 2rem 1.5rem 1.5rem 1.5rem;
+    flex-grow: 1; box-shadow: 0 -10px 20px rgba(0,0,0,0.05); display: flex; flex-direction: column;
+}
+
+/* FIX: Judul "Masuk" agar Transparan & Kontras */
+.login-page .form-section h4 {
+    background: transparent !important; background-color: transparent !important;
+    background-image: none !important; border: none !important; box-shadow: none !important;
+    color: var(--theme-primary-dark) !important; padding: 0 !important;
+}
+
+/* FIX: Badge Keamanan di Footer agar Pastel & Kontras */
+.login-page .form-section .rounded-pill.bg-primary.bg-opacity-10 {
+    background: transparent !important; background-image: none !important;
+    background-color: var(--theme-light) !important; border: 1px solid var(--theme-primary) !important;
+}
+.login-page .form-section .rounded-pill.bg-primary.bg-opacity-10 .text-primary {
+    color: var(--theme-primary-dark) !important; font-weight: 700 !important;
+}
+
+/* --- Utilitas Font --- */
+.login-page .fs-7 { font-size: 0.85rem; }
+.login-page .fs-8 { font-size: 0.75rem; }
+.login-page .indicator-progress { display: none !important; }
+
+/* --- LOGIKA TOMBOL (Hover Invert & Border Tegas) --- */
+.login-page .btn-primary {
+    background: var(--theme-gradient) !important; color: var(--theme-text-on-primary) !important;
+    border: 2px solid transparent !important; transition: all 0.3s ease !important;
+}
+.login-page .btn-primary:hover {
+    background: #ffffff !important; color: var(--theme-primary-dark) !important;
+    border: 2px solid var(--theme-primary) !important; transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+}
+.login-page .btn-light {
+    background: #ffffff !important; color: var(--theme-primary-dark) !important;
+    border: 2px solid rgba(0,0,0,0.1) !important; transition: all 0.3s ease !important;
+}
+.login-page .btn-light:hover {
+    background: var(--theme-gradient) !important; color: var(--theme-text-on-primary) !important;
+    border-color: transparent !important; transform: translateY(-2px);
+}
+
+/* FIX: Ikon Ikut Warna Teks */
+.login-page .btn svg, .login-page .btn i { color: inherit !important; fill: currentColor !important; }
+
+/* --- Layout Desktop --- */
+@media (min-width: 768px) {
+    .login-page .login-wrapper {
+        background: rgba(0, 0, 0, 0.6) !important; align-items: center; justify-content: center; padding: 2rem;
+    }
+    .login-page .desktop-container {
+        display: flex; flex-direction: row; width: 100%; max-width: 900px;
+        background: #ffffff; border-radius: 20px; overflow: hidden;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.3); min-height: 500px;
+    }
+    .login-page .header-section {
+        width: 45%; background: var(--theme-gradient) !important;
+        padding: 3rem 2.5rem; display: flex; flex-direction: column;
+        justify-content: center; border-radius: 20px 0 0 20px;
+    }
+    .login-page .logo-box { width: 90px; height: 90px; }
+    .login-page .form-section {
+        width: 55%; border-radius: 0; box-shadow: none; justify-content: center; padding: 3rem 3.5rem;
+    }
+}
+
+.login-page .separator-content { display: flex; align-items: center; text-align: center; }
+.login-page .separator-content::before, .login-page .separator-content::after { content: ''; flex: 1; border-bottom: 1px solid #e2e8f0; }
+.login-page .separator-content:not(:empty)::before { margin-right: .5em; }
+.login-page .separator-content:not(:empty)::after { margin-left: .5em; }

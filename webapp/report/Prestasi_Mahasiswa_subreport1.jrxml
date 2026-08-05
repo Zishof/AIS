@@ -1,0 +1,435 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Prestasi_Mahasiswa_subreport1" language="groovy" pageWidth="576" pageHeight="324" whenNoDataType="AllSectionsNoDetail" columnWidth="576" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="b9c33093-162d-41d8-a549-a467b549b57a">
+	<property name="ireport.zoom" value="1.7715610000000017"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="mahasiswa_id" class="java.lang.Long"/>
+	<queryString>
+		<![CDATA[select a.nama,
+	a.id,
+	b.nama as jenjang from mahasiswa a left join jenjang b on a.jenjang = b.id where a.id=$P{mahasiswa_id}]]>
+	</queryString>
+	<field name="nama" class="java.lang.String"/>
+	<field name="id" class="java.lang.Long"/>
+	<field name="jenjang" class="java.lang.String"/>
+	<title>
+		<band height="324">
+			<textField>
+				<reportElement x="0" y="0" width="555" height="19" uuid="3e6d6203-c886-4d8f-808c-9daf325ea53a"/>
+				<box leftPadding="0"/>
+				<textElement verticalAlignment="Middle">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["2. INFORMASI TENTANG IDENTITAS PENYELENGGARAAN PROGRAM "]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="12" y="19" width="543" height="14" uuid="ac963666-8640-4b1a-b9d6-bb057c3523ac"/>
+				<box leftPadding="0"/>
+				<textElement verticalAlignment="Top">
+					<font size="10" isBold="false" isItalic="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Information Identifying the Awarding Institution"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="51" width="281" height="13" uuid="1723e07f-2adc-4c8f-ad49-1f2aa2671471"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isItalic="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Awarding Institutions License"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="38" width="281" height="13" uuid="01c5b14a-3363-46c3-8e56-f2f115c3143e"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["SK Pendirian Perguruan Tinggi"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="287" y="38" width="278" height="13" uuid="15599175-a94b-437b-a17f-f57374aa1286"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Persyaratan Penerimaan"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="287" y="51" width="278" height="13" uuid="dd3a778b-f504-4a72-9a71-c9325e0f9135"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isItalic="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Admission Requirements"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="0" y="64" width="281" height="30" backcolor="#CCCCCC" uuid="339328f7-de75-4e92-b4db-a3a009028787"/>
+				<box topPadding="2" leftPadding="2" bottomPadding="2">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "akreditasi_institusi" ) == null ? "-" : $P{REPORT_PARAMETERS_MAP}.get( "akreditasi_institusi" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="0" y="121" width="281" height="30" backcolor="#CCCCCC" uuid="03452166-4bc6-4e27-961e-462e9d5df0d5"/>
+				<box topPadding="2" leftPadding="2" bottomPadding="2">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Top">
+					<font size="10" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[($P{REPORT_PARAMETERS_MAP}.get( "label_universitas" ) == null ? "-" : $P{REPORT_PARAMETERS_MAP}.get( "label_universitas" )) + "\n" +($P{REPORT_PARAMETERS_MAP}.get( "akreditasi_institusi" ) == null ? "" : $P{REPORT_PARAMETERS_MAP}.get( "akreditasi_institusi" ))]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="109" width="281" height="13" uuid="a4d76d15-6481-48ed-ae55-3f29cc965a65"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isItalic="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Awarding Institution"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="96" width="281" height="13" uuid="7b5ff635-d5be-49ae-a66e-1f72f40e3470"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Nama Perguruan Tinggi"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="287" y="96" width="278" height="13" uuid="327f4595-0fdb-4bd3-8e40-e1018ced10c5"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Bahasa Pengantar Kuliah"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="167" width="281" height="13" uuid="c0c14536-a8be-418c-94ea-57f9cd97f389"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isItalic="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Study Program"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="287" y="109" width="278" height="13" uuid="9df54822-fbd7-43bc-991a-9b0181abdc5e"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isItalic="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Lingua Franca/Spoken Language	"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="0" y="179" width="281" height="42" backcolor="#CCCCCC" uuid="db8c3acb-b197-4eba-baf8-39ab1431cf62"/>
+				<box topPadding="2" leftPadding="2" bottomPadding="2">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["1.	Program Studi S1 Manajemen \n"+
+"2.	Program Studi S1 Ekonomi Pembangunan \n"+
+"3.	Program Studi D3 Manajemen Pemasaran"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="154" width="281" height="13" uuid="4f22515d-9fda-44e9-91ce-f2e0407d0589"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Program Studi"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="223" width="281" height="13" uuid="af7a7d12-90c8-4fa5-b0c3-f467f44ae1b0"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Jenis dan Jenjang Pendidikan"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="236" width="281" height="13" uuid="1cb1aa61-d980-48f5-acd4-c43a7e679e59"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isItalic="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Type and Level of Education"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="294" width="281" height="13" uuid="c6794482-f9d9-4ee1-b993-e672ed6812f1"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isItalic="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Level of Qualification in the National Qualification Framework"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="281" width="281" height="13" uuid="f70f5869-da65-44f1-b98b-f271e92e5ad4"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Jenjang Kualifikasi KKNI"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="287" y="64" width="278" height="30" backcolor="#CCCCCC" uuid="88608387-db7f-4185-ae78-5d8fea3dd3c9"/>
+				<box topPadding="2" leftPadding="2" bottomPadding="2">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Top" markup="html">
+					<font size="10" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Lulus SLTA dan Lulus Seleksi Mahasiswa Baru<br>"+
+"<i>Graduate from High School and passed the student admission selection</i>"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="287" y="154" width="278" height="13" uuid="5c7fc9a8-aaa2-4f4d-a36b-354e9c12cff8"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Sistem Penilaian Skala"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="287" y="167" width="278" height="13" uuid="efb7249f-a35f-49f1-bebb-8588a062f40e"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isItalic="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Grading System"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="287" y="223" width="278" height="13" uuid="a52efa72-c969-44d9-8ae5-c8d23bfdf11e"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Pendidikan Lanjut "]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="287" y="236" width="278" height="13" uuid="c2c70352-f8ec-4713-9683-cd7c0a4a452f"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isItalic="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Further Study Master & Doctoral Program"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="287" y="122" width="278" height="30" backcolor="#CCCCCC" uuid="08248dac-0358-4bdc-acc0-f2cf4bee4f5d"/>
+				<box topPadding="2" leftPadding="2" bottomPadding="2">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Top" markup="html">
+					<font size="10" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Bahasa Indonesia<br>"+
+"<i>Indonesian Language</i>"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="287" y="179" width="278" height="42" backcolor="#CCCCCC" uuid="79ac6d8a-5d56-44fd-b07e-300d23699e64"/>
+				<box topPadding="2" leftPadding="2" bottomPadding="2">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Top" markup="html">
+					<font size="10" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Skala Nilai : 1- 4; A=4, B=3, C=2, D=1<br>"+
+"<i>Scale: 1- 4; A=4, B=3, C=2, D=1</i>"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="0" y="250" width="281" height="30" backcolor="#CCCCCC" uuid="9b00794d-f944-45cc-88ee-55e2ead59222"/>
+				<box topPadding="2" leftPadding="2" bottomPadding="2">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Top" markup="html">
+					<font size="10" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Akademik dan Sarjana<br>"+
+"<i>Academic and Bachelor Degree</i>"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="287" y="250" width="278" height="30" backcolor="#CCCCCC" uuid="5ee967ac-5d47-4f23-a96c-3738a5204a9f"/>
+				<box topPadding="2" leftPadding="2" bottomPadding="2">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Top" markup="html">
+					<font size="10" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Program Magister & Doktoral<br>"+
+"<i>Master and Doctoral Program</i>"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="0" y="306" width="281" height="17" backcolor="#CCCCCC" uuid="5def235a-dcda-42c5-bd33-a287b3e3ce40"/>
+				<box topPadding="2" leftPadding="2" bottomPadding="2">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Top" markup="html">
+					<font size="10" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Level 6"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement mode="Opaque" x="287" y="306" width="278" height="17" backcolor="#CCCCCC" uuid="7e9420d6-9166-49df-9a1c-9e25050950df"/>
+				<box topPadding="2" leftPadding="2" bottomPadding="2">
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Top" markup="html">
+					<font size="10" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["-"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="287" y="294" width="278" height="13" uuid="21ad81f1-648f-40c5-bff8-e1ab5fc4c6ff"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isItalic="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Professional Status (If Applicable)"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="287" y="281" width="278" height="13" uuid="c76df95d-e236-49e4-8c9f-4bf9386f15d1"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Status Profesi (Bila Ada)"]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+</jasperReport>

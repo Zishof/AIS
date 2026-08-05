@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Daftar_Nilai_subreport1" language="groovy" columnCount="3" printOrder="Horizontal" pageWidth="555" pageHeight="802" whenNoDataType="AllSectionsNoDetail" columnWidth="185" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="28c82d61-402d-4381-b901-f52cc02977ed">
+	<property name="ireport.zoom" value="2.8531167061100033"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="label_kota" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Ciputat"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="perkuliahan" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_ttd_kaprodi" class="java.lang.String">
+		<defaultValueExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "label_ttd_kaprodi" )==null?"Ketua Prodi":$P{REPORT_PARAMETERS_MAP}.get( "label_ttd_kaprodi" ).toString()]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select
+b.id,
+'Dosen Utama' as label,
+b.nama as dosen,
+b.code as nip_dosen,
+b.nidn
+from perkuliahan a
+inner join dosen b on (a.dosen1=b.id)
+where a.id=$P{perkuliahan}
+
+union all
+
+select
+b.id,
+'Dosen ke-2' as label,
+b.nama as dosen,
+b.code as nip_dosen,
+b.nidn
+from perkuliahan a
+inner join dosen b on (a.dosen2=b.id)
+where a.id=$P{perkuliahan}
+
+union all
+
+select
+b.id,
+'Dosen ke-3' as label,
+b.nama as dosen,
+b.code as nip_dosen,
+b.nidn
+from perkuliahan a
+inner join dosen b on (a.dosen3=b.id)
+where a.id=$P{perkuliahan}
+
+union all
+
+select
+b.id,
+'Dosen ke-4' as label,
+b.nama as dosen,
+b.code as nip_dosen,
+b.nidn
+from perkuliahan a
+inner join dosen b on (a.dosen4=b.id)
+where a.id=$P{perkuliahan}
+
+union all
+
+select
+b.id,
+'Dosen ke-5' as label,
+b.nama as dosen,
+b.code as nip_dosen,
+b.nidn
+from perkuliahan a
+inner join dosen b on (a.dosen5=b.id)
+where a.id=$P{perkuliahan}
+
+union all
+
+select
+b.id,
+'Dosen ke-6' as label,
+b.nama as dosen,
+b.code as nip_dosen,
+b.nidn
+from perkuliahan a
+inner join dosen b on (a.dosen6=b.id)
+where a.id=$P{perkuliahan}
+
+union all
+
+select
+b.id,
+'Dosen ke-7' as label,
+b.nama as dosen,
+b.code as nip_dosen,
+b.nidn
+from perkuliahan a
+inner join dosen b on (a.dosen7=b.id)
+where a.id=$P{perkuliahan}
+
+union all
+
+select
+b.id,
+'Dosen ke-8' as label,
+b.nama as dosen,
+b.code as nip_dosen,
+b.nidn
+from perkuliahan a
+inner join dosen b on (a.dosen8=b.id)
+where a.id=$P{perkuliahan}
+
+union all
+
+select
+b.id,
+'Dosen ke-9' as label,
+b.nama as dosen,
+b.code as nip_dosen,
+b.nidn
+from perkuliahan a
+inner join dosen b on (a.dosen9=b.id)
+where a.id=$P{perkuliahan}
+
+union all
+
+select
+b.id,
+'Dosen ke-10' as label,
+b.nama as dosen,
+b.code as nip_dosen,
+b.nidn
+from perkuliahan a
+inner join dosen b on (a.dosen10=b.id)
+where a.id=$P{perkuliahan}
+
+
+union all
+
+select
+b.id,
+$P{label_ttd_kaprodi} as label,
+b.nama as dosen,
+b.code as nip_dosen,
+b.nidn
+from perkuliahan a
+inner join jurusan j on (j.id= a.jurusan)
+inner join dosen b on (j.kaprodi=b.id)
+where a.id=$P{perkuliahan}]]>
+	</queryString>
+	<field name="label" class="java.lang.String"/>
+	<field name="dosen" class="java.lang.String"/>
+	<field name="nip_dosen" class="java.lang.String"/>
+	<field name="nidn" class="java.lang.String"/>
+	<field name="id" class="java.lang.Long"/>
+	<detail>
+		<band height="122" splitType="Stretch">
+			<image hAlign="Left" vAlign="Middle" onErrorType="Blank">
+				<reportElement key="image-1" x="0" y="27" width="182" height="60" uuid="6c838a08-f402-48cc-a6d4-202ebac287b1"/>
+				<box>
+					<bottomPen lineWidth="0.0"/>
+				</box>
+				<imageExpression><![CDATA[$F{label}.equals($P{label_ttd_kaprodi}) ? $P{REPORT_PARAMETERS_MAP}.get("ttd_kaprodi") : $P{REPORT_PARAMETERS_MAP}.get("ttd_dosen_"+$V{REPORT_COUNT})]]></imageExpression>
+			</image>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-16" x="2" y="8" width="180" height="55" uuid="69b03a74-437e-44af-9c3c-b341b7342e63"/>
+				<textElement textAlignment="Left">
+					<font isUnderline="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{REPORT_COUNT}.equals( 1 ) ? (($P{label_kota}+", "+(new SimpleDateFormat( "dd MMMMM yyyy", $P{REPORT_LOCALE}).format(new Date())) +"\n")  + $F{label}) : $F{label}+""]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-19" x="2" y="97" width="180" height="25" uuid="c2c19ddb-cc41-45b7-b93b-64fa4fd62f02"/>
+				<textElement>
+					<font size="8" isUnderline="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[($F{nip_dosen} == null || $F{nip_dosen}.trim().isEmpty() ? "NIDN : "+$F{nidn} : "NIP : "+$F{nip_dosen})]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-18" x="2" y="85" width="180" height="12" uuid="17c721d7-1eed-46d3-89f2-a1932cb4335c"/>
+				<textElement verticalAlignment="Bottom">
+					<font size="8" isUnderline="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{dosen}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+</jasperReport>

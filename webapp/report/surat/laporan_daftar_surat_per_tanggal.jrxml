@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="laporan_daftar_surat_per_jenis" language="groovy" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="e98a6908-dcdb-4c99-98b7-a42f1fb6d5b0">
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["../logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mulai" class="java.util.Date" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new Date()]]></defaultValueExpression>
+	</parameter>
+	<parameter name="sampai" class="java.util.Date" isForPrompting="false">
+		<defaultValueExpression><![CDATA[new Date()]]></defaultValueExpression>
+	</parameter>
+	<parameter name="loker" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jenis" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[SELECT
+     loker."nama" AS loker_nama,
+     surat."asal" AS surat_asal,
+     c."nama" AS surat_jenis,
+     surat."kode" AS surat_nomor,
+     surat."tanggal" AS surat_tanggal_surat,
+     surat."perihal" AS perihal,
+     surat."loker" AS surat_loker_id
+FROM
+     surat.loker_surat loker
+     INNER JOIN surat.surat_masuk surat ON loker."id" = surat."loker"
+     inner join surat.klasifikasi_surat_masuk c on (surat.klasifikasi_surat_masuk = c.id)
+where 1=1
+and case $P{loker} when -1 then true else surat."loker" = $P{loker} end
+and case $P{jenis} when -1 then true else surat.klasifikasi_surat_masuk = $P{jenis} end
+and date(surat."tanggal") >= date($P{mulai}) and date(surat."tanggal") <= (date($P{sampai})+integer '1')
+order by surat."tanggal",surat.id ]]>
+	</queryString>
+	<field name="loker_nama" class="java.lang.String"/>
+	<field name="surat_asal" class="java.lang.String"/>
+	<field name="surat_jenis" class="java.lang.String"/>
+	<field name="surat_nomor" class="java.lang.String"/>
+	<field name="surat_tanggal_surat" class="java.sql.Date"/>
+	<field name="perihal" class="java.lang.String"/>
+	<field name="surat_loker_id" class="java.lang.Long"/>
+	<group name="surat_tanggal_surat">
+		<groupExpression><![CDATA[$F{surat_tanggal_surat}]]></groupExpression>
+		<groupHeader>
+			<band height="61">
+				<textField pattern="EEEEE, dd MMMMM yyyy" isBlankWhenNull="true">
+					<reportElement x="0" y="7" width="555" height="20" uuid="dd3160ab-b503-4503-9185-66fc2cd8bbfe"/>
+					<textElement>
+						<font size="12" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{surat_tanggal_surat}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement x="0" y="30" width="111" height="31" uuid="ed36fb12-7998-4560-b352-a447cd20f94e"/>
+					<box leftPadding="3">
+						<pen lineWidth="1.0"/>
+						<topPen lineWidth="1.0"/>
+						<leftPen lineWidth="1.0"/>
+						<bottomPen lineWidth="1.0"/>
+						<rightPen lineWidth="1.0"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font isBold="true"/>
+					</textElement>
+					<text><![CDATA[Nomor]]></text>
+				</staticText>
+				<staticText>
+					<reportElement x="255" y="30" width="100" height="31" uuid="6a412a08-6821-4631-84e6-122e6644489d"/>
+					<box leftPadding="3">
+						<pen lineWidth="1.0"/>
+						<topPen lineWidth="1.0"/>
+						<leftPen lineWidth="1.0"/>
+						<bottomPen lineWidth="1.0"/>
+						<rightPen lineWidth="1.0"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font isBold="true"/>
+					</textElement>
+					<text><![CDATA[Jenis]]></text>
+				</staticText>
+				<staticText>
+					<reportElement x="355" y="30" width="100" height="31" uuid="dc248cf9-8f8e-454e-b568-f4404f9e9ea6"/>
+					<box leftPadding="3">
+						<pen lineWidth="1.0"/>
+						<topPen lineWidth="1.0"/>
+						<leftPen lineWidth="1.0"/>
+						<bottomPen lineWidth="1.0"/>
+						<rightPen lineWidth="1.0"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font isBold="true"/>
+					</textElement>
+					<text><![CDATA[Loker]]></text>
+				</staticText>
+				<staticText>
+					<reportElement x="455" y="30" width="100" height="31" uuid="7d9a1bf9-c58a-4fa4-96b1-3d396c39d4d6"/>
+					<box leftPadding="3">
+						<pen lineWidth="1.0"/>
+						<topPen lineWidth="1.0"/>
+						<leftPen lineWidth="1.0"/>
+						<bottomPen lineWidth="1.0"/>
+						<rightPen lineWidth="1.0"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font isBold="true"/>
+					</textElement>
+					<text><![CDATA[Asal]]></text>
+				</staticText>
+				<staticText>
+					<reportElement x="111" y="30" width="144" height="31" uuid="8b57cce0-8be1-4d26-9ade-540a68042750"/>
+					<box leftPadding="3">
+						<pen lineWidth="1.0"/>
+						<topPen lineWidth="1.0"/>
+						<leftPen lineWidth="1.0"/>
+						<bottomPen lineWidth="1.0"/>
+						<rightPen lineWidth="1.0"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font isBold="true"/>
+					</textElement>
+					<text><![CDATA[Perihal]]></text>
+				</staticText>
+			</band>
+		</groupHeader>
+	</group>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="125" splitType="Stretch">
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement x="0" y="0" width="555" height="78" uuid="fb152e1b-3991-4e6e-b315-c1063dcd3cae"/>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-14" x="0" y="73" width="555" height="52" uuid="831577f7-0dfc-4436-92e4-f3a57a7920a9"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Laporan Surat Masuk Per Jenis\n"+
+"Mulai tanggal "+(new java.text.SimpleDateFormat("dd-MM-yyyy").format($P{mulai}))+" s.d "+(new java.text.SimpleDateFormat("dd-MM-yyyy").format($P{sampai}))+"\n"]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<detail>
+		<band height="22" splitType="Stretch">
+			<textField isBlankWhenNull="true">
+				<reportElement x="0" y="0" width="111" height="22" uuid="bcbf0daf-a1d5-4b8b-89e1-67d7a76ec7f1"/>
+				<box leftPadding="3">
+					<pen lineWidth="1.0"/>
+					<topPen lineWidth="1.0"/>
+					<leftPen lineWidth="1.0"/>
+					<bottomPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{surat_nomor}]]></textFieldExpression>
+			</textField>
+			<textField pattern="" isBlankWhenNull="true">
+				<reportElement x="255" y="0" width="100" height="22" uuid="e8ba6618-417a-4604-ab1a-17d33da21c35"/>
+				<box leftPadding="3">
+					<pen lineWidth="1.0"/>
+					<topPen lineWidth="1.0"/>
+					<leftPen lineWidth="1.0"/>
+					<bottomPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{surat_jenis}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="355" y="0" width="100" height="22" uuid="196d7d75-d957-47ba-a630-7707f0ec84c8"/>
+				<box leftPadding="3">
+					<pen lineWidth="1.0"/>
+					<topPen lineWidth="1.0"/>
+					<leftPen lineWidth="1.0"/>
+					<bottomPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{loker_nama}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="455" y="0" width="100" height="22" uuid="129cf271-deeb-4078-8073-48c47089e78c"/>
+				<box leftPadding="3">
+					<pen lineWidth="1.0"/>
+					<topPen lineWidth="1.0"/>
+					<leftPen lineWidth="1.0"/>
+					<bottomPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{surat_asal}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="111" y="0" width="144" height="22" uuid="840eb275-14c7-4524-94e7-64bb698befa1"/>
+				<box leftPadding="3">
+					<pen lineWidth="1.0"/>
+					<topPen lineWidth="1.0"/>
+					<leftPen lineWidth="1.0"/>
+					<bottomPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{perihal}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+</jasperReport>

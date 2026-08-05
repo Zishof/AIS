@@ -1,0 +1,347 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false"
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.MahasiswaAction" width="100%" height="100%">
+
+		<tabbox width="100%" height="100%">
+
+			<tabs>
+				<tab use="ais.ui.util.MyTabConfig" selected="true">Mahasiswa</tab>
+				<tab use="ais.ui.util.MyTabConfig" forward="onClick=onManajemenKelas">Pendukung</tab>
+				<tab use="ais.ui.util.MyTabConfig" forward="onClick=onTampilKHS">Prestasi</tab>
+				<tab use="ais.ui.util.MyTabConfig" forward="onClick=onRekapJumlahMahasiswa">Data</tab>
+				<tab use="ais.ui.util.MyTabConfig" forward="onClick=onStatistik">Statistik</tab>
+			</tabs>
+
+			<tabpanels>
+
+				<!-- ═══════════════════ TAB MAHASISWA ═══════════════════ -->
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<div sclass="ais-crud-portal">
+
+						<!-- ═══ KARTU FILTER ═══ -->
+						<div sclass="ais-crud-filter-card">
+							<div sclass="ais-crud-filter-head">
+								<span sclass="ais-crud-filter-title">Pencarian &amp; Filter</span>
+								<div sclass="ais-crud-filter-actions">
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="add" label="Tambah" image="/img/new.gif" tooltiptext="Tambah data baru" forward="onClick=onAdd"/>
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="find" label="Cari" image="/img/search.gif" tooltiptext="Cari data mahasiswa" forward="onClick=onSearchDefault"/>
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="uploadFotoMassal" label="Upload Foto (NIM)" image="/img/new.gif" tooltiptext="Upload banyak foto sekaligus (nama berkas = NIM, mis. 12345.jpg, 45666.png) ATAU satu berkas ZIP berisi foto-foto ber-nama NIM. Semua langsung terpasang ke mahasiswa yang NIM-nya cocok." upload="true,maxsize=-1" forward="onUpload=onUploadFotoMassal"/>
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="downloadFotoMassal" label="Download Foto Massal" image="/img/download.png" tooltiptext="Unduh SEMUA foto mahasiswa sebagai satu berkas ZIP (nama tiap foto = NIM). Pembacaan paralel maks 50 thread agar cepat." forward="onClick=onDownloadFotoMassal"/>
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;mahasiswa&quot;, &quot;Bantuan&quot;);"/></div>
+							</div>
+							<div sclass="ais-crud-filter-body">
+								<grid use="ais.ui.util.MyGrid" fixedLayout="true"
+									sclass="ais-crud-filter-grid">
+									<columns>
+										<column use="ais.ui.util.MyColumnConfig" width="90px"/>
+										<column use="ais.ui.util.MyColumnConfig"/>
+										<column use="ais.ui.util.MyColumnConfig" width="90px"/>
+										<column use="ais.ui.util.MyColumnConfig"/>
+										<column use="ais.ui.util.MyColumnConfig" width="90px"/>
+										<column use="ais.ui.util.MyColumnConfig"/>
+										<column use="ais.ui.util.MyColumnConfig" width="90px"/>
+										<column use="ais.ui.util.MyColumnConfig"/>
+									</columns>
+									<rows>
+
+										<!-- Baris 1: Identitas & Angkatan -->
+										<row>
+											<label use="ais.ui.util.MyLabelConfig" value="NIM"/>
+											<textbox id="searchnim"
+												forward="onOK=onSearchDefault" width="95%"
+												tooltiptext="Cari berdasarkan NIM"/>
+											<label use="ais.ui.util.MyLabelConfig" value="Nama"/>
+											<textbox id="searchnama"
+												forward="onOK=onSearchDefault" width="95%"
+												tooltiptext="Cari berdasarkan nama mahasiswa"/>
+											<label use="ais.ui.util.MyLabelConfig" value="Angkatan"/>
+											<decimalbox id="searchtahun"
+												forward="onOK=onSearchDefault" width="95%"
+												tooltiptext="Tahun angkatan"/>
+											<label use="ais.ui.util.MyLabelConfig" value="Thn. Lulus"/>
+											<decimalbox id="searchtahunLulus"
+												forward="onOK=onSearchDefault" width="95%"
+												tooltiptext="Tahun lulus"/>
+										</row>
+
+										<!-- Baris 2: Status & Semester (masuk popup "+ Lanjutan") -->
+										<row>
+											<label use="ais.ui.util.MyLabelConfig" value="Status"/>
+											<combobox id="searchstatus"
+												forward="onChange=onSearchDefault" width="95%"
+												tooltiptext="Status aktif/tidak"/>
+											<label use="ais.ui.util.MyLabelConfig" value="Thn. Ajaran"/>
+											<combobox id="searchTahunAjaran"
+												forward="onChange=onSearchDefault" width="95%"
+												tooltiptext="Tahun ajaran"/>
+											<label use="ais.ui.util.MyLabelConfig" value="Masa"/>
+											<decimalbox id="searchMasa"
+												forward="onOK=onSearchDefault" width="95%"
+												tooltiptext="Masa studi (tahun)"/>
+											<label use="ais.ui.util.MyLabelConfig" value="Semester"/>
+											<combobox id="searchJenisSemester"
+												forward="onChange=onSearchDefault" width="95%"
+												tooltiptext="Jenis semester"/>
+										</row>
+
+										<!-- Baris 3: Akademik -->
+										<row>
+											<label use="ais.ui.util.MyLabelConfig" value="Fakultas"/>
+											<combobox id="searchfakultas"
+												forward="onChange=onSearchDefault" width="95%"
+												tooltiptext="Fakultas"/>
+											<label use="ais.ui.util.MyLabelConfig" value="Prodi"/>
+											<combobox id="searchjurusan"
+												forward="onChange=onSearchDefault" width="95%"
+												tooltiptext="Program studi"/>
+											<label use="ais.ui.util.MyLabelConfig" value="Jenjang"/>
+											<combobox id="searchjenjang"
+												forward="onChange=onSearchDefault" width="95%"
+												tooltiptext="Jenjang (S1/S2/D3...)"/>
+											<label use="ais.ui.util.MyLabelConfig" value="Program"/>
+											<combobox id="searchprogram"
+												forward="onChange=onSearchDefault" width="95%"
+												tooltiptext="Program khusus"/>
+										</row>
+
+										<!-- Baris 4: Status lulus & Status awal -->
+										<row>
+											<label use="ais.ui.util.MyLabelConfig" value="Sts. Lulus"/>
+											<combobox id="searchstatusSetelahLulus"
+												forward="onChange=onSearchDefault" width="95%"
+												tooltiptext="Status setelah lulus"/>
+											<label use="ais.ui.util.MyLabelConfig" value="Pkj. Lulus"/>
+											<combobox id="searchstatusPekerjaanSetelahLulus"
+												forward="onChange=onSearchDefault" width="95%"
+												tooltiptext="Pekerjaan setelah lulus"/>
+											<label use="ais.ui.util.MyLabelConfig" value="Dom. Lulus"/>
+											<combobox id="searchstatusDomisiliSetelahLulus"
+												forward="onChange=onSearchDefault" width="95%"
+												tooltiptext="Domisili setelah lulus"/>
+											<label use="ais.ui.util.MyLabelConfig" value="Status Awal"/>
+											<combobox id="searchStatusAwalMahasiswa"
+												forward="onChange=onSearchDefault" width="95%"
+												tooltiptext="Status awal mahasiswa"/>
+										</row>
+
+										<!-- Baris 5: Seleksi & Keluar -->
+										<row>
+											<label use="ais.ui.util.MyLabelConfig" value="Seleksi"/>
+											<combobox id="searchJenisSeleksi"
+												forward="onChange=onSearchDefault" width="95%"
+												tooltiptext="Jenis seleksi masuk"/>
+											<label use="ais.ui.util.MyLabelConfig" value="Sts. Keluar"/>
+											<combobox id="searchstatusKeluar"
+												forward="onChange=onSearchDefault" width="95%"
+												tooltiptext="Status keluar"/>
+											<label use="ais.ui.util.MyLabelConfig" value="Predikat"/>
+											<combobox id="searchpredikatKelulusan"
+												forward="onChange=onSearchDefault" width="95%"
+												tooltiptext="Predikat kelulusan"/>
+											<label use="ais.ui.util.MyLabelConfig" value="Smt. Lulus"/>
+											<decimalbox id="searchsemesterLulus"
+												forward="onOK=onSearchDefault" width="95%"
+												tooltiptext="Semester ke-berapa lulus"/>
+										</row>
+
+										<!-- Baris 6: Kelas & PA -->
+										<row>
+											<label use="ais.ui.util.MyLabelConfig" value="Kelas"/>
+											<bandbox use="ais.action.master.helper.AmbilDataKelasBanbox"
+												forward="onChange=onSearchDefault" id="searchkelas"
+												width="95%" tooltiptext="Pilih kelas"/>
+											<label use="ais.ui.util.MyLabelConfig" value="Kewarganegaraan"/>
+											<combobox id="searchkewarganegaraan"
+												forward="onChange=onSearchDefault" width="95%"
+												tooltiptext="Kewarganegaraan"/>
+											<label use="ais.ui.util.MyLabelConfig" value="Mulai Belajar"/>
+											<combobox id="searchsemesterawal"
+												forward="onChange=onSearchDefault" width="95%"
+												tooltiptext="Semester pertama masuk"/>
+											<label use="ais.ui.util.MyLabelConfig" value="Dosen PA"/>
+											<bandbox id="searchdosen"
+												use="ais.action.master.helper.AmbilDataDosenBanbox"
+												width="95%" tooltiptext="Dosen pembimbing akademik"/>
+										</row>
+
+										<!-- Baris 7: Checkbox opsi tambahan -->
+										<row spans="8">
+											<hbox style="flex-wrap:wrap;gap:4px 16px;padding:4px 2px">
+												<checkbox use="ais.ui.util.MyCheckboxConfig"
+													id="searchaktif" label="Aktif"
+													checked="true" forward="onClick=onSearchDefault"/>
+												<checkbox use="ais.ui.util.MyCheckboxConfig"
+													id="searchdosenPA" label="Tanpa PA"
+													forward="onCheck=onSearchDefault"/>
+												<checkbox use="ais.ui.util.MyCheckboxConfig"
+													id="searchAdadosenPA" label="Ada PA"
+													forward="onCheck=onSearchDefault"/>
+												<checkbox use="ais.ui.util.MyCheckboxConfig"
+													id="searchTidakKelas" label="Tanpa Kelas"
+													forward="onCheck=onSearchDefault"/>
+												<checkbox use="ais.ui.util.MyCheckboxConfig"
+													id="searchAdaKelas" label="Ada Kelas"
+													forward="onCheck=onSearchDefault"/>
+												<checkbox use="ais.ui.util.MyCheckboxConfig"
+													id="searchBelumMasukFeeder" label="Belum Feeder"
+													forward="onCheck=onSearchDefault"/>
+												<checkbox use="ais.ui.util.MyCheckboxConfig"
+													id="searchMasukFeeder" label="Msk Feeder"
+													forward="onCheck=onSearchDefault"/>
+												<checkbox use="ais.ui.util.MyCheckboxConfig"
+													id="searchTidakjenisKelamin" label="Tanpa Jenis Kelamin"
+													forward="onCheck=onSearchDefault"/>
+												<checkbox use="ais.ui.util.MyCheckboxConfig"
+													id="dataCalonNggakValid" label="Tidak valid dgn cln mhs"
+													forward="onCheck=onSearchDefault"/>
+												<checkbox use="ais.ui.util.MyCheckboxConfig"
+													id="searchFacebook" label="Facebook"
+													forward="onClick=onSearchDefault"/>
+												<checkbox use="ais.ui.util.MyCheckboxConfig"
+													id="searchGoogle" label="Google"
+													forward="onClick=onSearchDefault"/>
+												<checkbox use="ais.ui.util.MyCheckboxConfig"
+													id="searchTwitter" label="Twitter"
+													forward="onClick=onSearchDefault"/>
+												<checkbox use="ais.ui.util.MyCheckboxConfig"
+													id="searchLinkedin" label="LinkedIn"
+													forward="onClick=onSearchDefault"/>
+											</hbox>
+										</row>
+
+									</rows>
+								</grid>
+							</div>
+						</div>
+
+						<!-- ═══ KARTU DATA ═══ -->
+						<div sclass="ais-crud-data-card">
+							<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true"/>
+							<grid use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true" id="grid">
+								<columns>
+									<column use="ais.ui.util.MyColumnConfig" width="40px"/>
+									<column use="ais.ui.util.MyColumnConfig" width="70px"/>
+									<column use="ais.ui.util.MyColumnConfig" width="8%" label="NIM" sort="auto(nim)"/>
+									<column use="ais.ui.util.MyColumnConfig" width="10%" label="Nama" sort="auto(nama)"/>
+									<column use="ais.ui.util.MyColumnConfig" width="5%" label="Angkatan" sort="auto(tahunangkatan)"/>
+									<column use="ais.ui.util.MyColumnConfig" width="6%" label="Kelas"/>
+									<column use="ais.ui.util.MyColumnConfig" width="0%" label="WNI/WNA"/>
+									<column use="ais.ui.util.MyColumnConfig" width="0%" label="Asl. Ngr"/>
+									<column use="ais.ui.util.MyColumnConfig" width="8%" label="Dosen PA"/>
+									<column use="ais.ui.util.MyColumnConfig" width="0%" label="Fakultas"/>
+									<column use="ais.ui.util.MyColumnConfig" width="8%" label="Prodi"/>
+									<column use="ais.ui.util.MyColumnConfig" width="11%" label="Status/Awal/Smt"/>
+									<column use="ais.ui.util.MyColumnConfig" label="Keterangan"/>
+									<column use="ais.ui.util.MyColumnConfig" width="10%" label=""/>
+								</columns>
+							</grid>
+							<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>
+						</div>
+
+					</div>
+				</tabpanel>
+
+				<!-- ═══════════════════ TAB PENDUKUNG ═══════════════════ -->
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<tabbox width="100%" height="100%">
+						<tabs>
+							<tab use="ais.ui.util.MyTabConfig" forward="onClick=onManajemenKelas">Kelas</tab>
+							<tab use="ais.ui.util.MyTabConfig" forward="onClick=onPerkuliahanMahasiswa">Perkuliahan</tab>
+							<tab use="ais.ui.util.MyTabConfig" forward="onClick=onManajemenAsrama">Asrama</tab>
+							<tab use="ais.ui.util.MyTabConfig" forward="onClick=onManajemenKelompok">Kelompok</tab>
+							<tab use="ais.ui.util.MyTabConfig" forward="onClick=onManajemenKelompokStatus">Status</tab>
+							<tab use="ais.ui.util.MyTabConfig" forward="onClick=onManajemenProgram">Program</tab>
+							<tab use="ais.ui.util.MyTabConfig" forward="onClick=onManajemenKelompokStatusKeluar">Status Keluar</tab>
+							<tab use="ais.ui.util.MyTabConfig" forward="onClick=onManajemenDosenPA">Dosen PA</tab>
+							<tab use="ais.ui.util.MyTabConfig" forward="onClick=onFormTambahan">Form</tab>
+							<tab use="ais.ui.util.MyTabConfig" forward="onClick=onKartuMahasiswa">Kartu</tab>
+							<tab use="ais.ui.util.MyTabConfig" forward="onClick=onOperatorSeluler">Operator Seluler</tab>
+							<tab use="ais.ui.util.MyTabConfig" forward="onClick=onAlatTransport">Alat Transport</tab>
+							<tab use="ais.ui.util.MyTabConfig" forward="onClick=onJenisTinggal">Jenis Tinggal</tab>
+							<tab use="ais.ui.util.MyTabConfig" forward="onClick=onPekerjaanOrtu">Pekerjaan Ortu</tab>
+							<tab use="ais.ui.util.MyTabConfig" forward="onClick=onPenghasilanOrtu">Penghasilan Ortu</tab>
+							<tab use="ais.ui.util.MyTabConfig" forward="onClick=onPendidikanOrtu">Pendidikan Ortu</tab>
+						</tabs>
+						<tabpanels>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="manajemenKelas"></tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="manajemenPerkuliahanMahasiswa"></tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="manajemenAsrama"></tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="manajemenKelompok"></tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="manajemenKelompokStatus"></tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="manajemenProgram"></tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="manajemenKelompokStatusKeluar"></tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="manajemenDosenPA"></tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="manajemenFormTambahan"></tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="manajemenKartuMahasiswa"></tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="operatorSeluler"></tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="alatTransport"></tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="jenisTinggal"></tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="pekerjaanOrtu"></tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="penghasilanOrtu"></tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="pendidikanOrtu"></tabpanel>
+						</tabpanels>
+					</tabbox>
+				</tabpanel>
+
+				<!-- ═══════════════════ TAB PRESTASI ═══════════════════ -->
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<tabbox width="100%" height="100%">
+						<tabs>
+							<tab use="ais.ui.util.MyTabConfig" forward="onClick=onTampilKHS">KHS</tab>
+							<tab use="ais.ui.util.MyTabConfig" forward="onClick=onTampilTranskripAkademik">Transkrip</tab>
+							<tab use="ais.ui.util.MyTabConfig" forward="onClick=onTampilPrestasi">Prestasi Belajar</tab>
+							<tab use="ais.ui.util.MyTabConfig" forward="onClick=onKegiatanKemahasiswaan">Kegiatan Kemahasiswaan</tab>
+						</tabs>
+						<tabpanels>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="kartuHasilStudi"></tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="transkripAkademik"></tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="prestasiBelajar"></tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="kegiatanMahasiswaan"></tabpanel>
+						</tabpanels>
+					</tabbox>
+				</tabpanel>
+
+				<!-- ═══════════════════ TAB DATA ═══════════════════ -->
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<tabbox width="100%" height="100%">
+						<tabs>
+							<tab use="ais.ui.util.MyTabConfig" forward="onClick=onRekapJumlahMahasiswa">Rekap Mahasiswa</tab>
+							<tab use="ais.ui.util.MyTabConfig" forward="onClick=onKegiatanMahasiswa">Formulir Mahasiswa</tab>
+							<tab use="ais.ui.util.MyTabConfig" visible="false" forward="onClick=onSuratMahasiswa">Surat Mahasiswa</tab>
+							<tab use="ais.ui.util.MyTabConfig" forward="onClick=onAlbumMahasiswa">Album Mahasiswa</tab>
+							<tab use="ais.ui.util.MyTabConfig" forward="onClick=onDataMahasiswa">Ekspor Data</tab>
+						</tabs>
+						<tabpanels>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="rekapJumlahMahasiswa"></tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="kegiatanMahasiswa"></tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" visible="false" id="suratMahasiswa"></tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="albumMahasiswa"></tabpanel>
+							<tabpanel use="ais.ui.util.MyTabpanel" id="dataMahasiswa"></tabpanel>
+						</tabpanels>
+					</tabbox>
+				</tabpanel>
+
+				<!-- ═══════════════════ TAB STATISTIK ═══════════════════ -->
+				<tabpanel use="ais.ui.util.MyTabpanel" id="statistik"></tabpanel>
+
+			</tabpanels>
+		</tabbox>
+
+		<window use="ais.ui.util.MyWindow" id="addWindow" title="Mahasiswa" visible="false"
+			mode="popup" position="center,center" border="normal" width="90%" height="99%">
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+	</window>
+
+</zk>

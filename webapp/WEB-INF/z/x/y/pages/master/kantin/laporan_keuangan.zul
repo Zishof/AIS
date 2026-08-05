@@ -1,0 +1,87 @@
+<?page id="lapKeuKantin" title="Laporan Keuangan Kantin" cacheable="false"
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+<!--
+  Peluncur (ZK) laporan keuangan untuk sisi Kantin — MEMAKAI KEMBALI modul Akunting yang sudah ada.
+  Tanpa ?lap  -> tampil menu tombol pemilih laporan (versi ZKoss).
+  Dengan ?lap -> memuat kelas laporan Akunting terkait ke dalam window.
+
+  CATATAN PENTING: kelas LaporanAkunting2Bulan/12Bulan/2Tahun TIDAK menanam jrxml; jenis laporan
+  (Posisi Keuangan/Neraca, Laba Rugi, Arus Kas) dipilih lewat combo "Jenis Laporan" di dalam form,
+  dan layout jrxml-nya di-upload per JenisLaporan (LampiranLain). Jadi satu tombol "Laporan Keuangan"
+  bisa menghasilkan Neraca / Laba Rugi / Arus Kas sesuai pilihan combo.
+-->
+<zk xmlns="http://www.zkoss.org/2005/zul" xmlns:h="http://www.w3.org/1999/xhtml">
+	<window use="ais.ui.util.MyWindow" border="none" width="100%" id="mainWindow" height="100%">
+		<zscript><![CDATA[
+			String lap = execution.getParameter("lap");
+			ais.ui.util.MyWindow rep = null;
+			// Laporan keuangan pokok (Posisi Keuangan/Neraca, Laba Rugi, Arus Kas) — pilih jenis di combo "Jenis Laporan"
+			if ("keu2".equals(lap)) rep = new ais.action.report.format1.akunting.LaporanAkunting2Bulan();       // 2 periode (spt contoh)
+			else if ("keu12".equals(lap)) rep = new ais.action.report.format1.akunting.LaporanAkunting12Bulan(); // 12 bulan
+			else if ("keu2th".equals(lap)) rep = new ais.action.report.format1.akunting.LaporanAkunting2Tahun();  // 2 tahun
+			// Neraca lajur, buku besar & jurnal
+			else if ("neracalajur".equals(lap)) rep = new ais.action.report.format1.akunting.LaporanNeracaLajur();
+			else if ("trial".equals(lap)) rep = new ais.action.report.format1.akunting.LaporanTrialBalance();
+			else if ("bukubesar".equals(lap)) rep = new ais.action.report.format1.akunting.LaporanBukuBesar();
+			else if ("bukubesartgl".equals(lap)) rep = new ais.action.report.format1.akunting.LaporanBukuBesarPerTanggal();
+			else if ("jurnal".equals(lap)) rep = new ais.action.report.format1.akunting.LaporanJurnalHarian();
+			// Arus kas format kolom (bawaan)
+			else if ("aruskas12".equals(lap)) rep = new ais.action.report.format1.akunting.LaporanArus12Bulan();
+			else if ("aruskas31".equals(lap)) rep = new ais.action.report.format1.akunting.LaporanArus31Hari();
+			if (rep != null) {
+				rep.setWidth("100%"); rep.setHeight("100%"); rep.setBorder("none");
+				mainWindow.appendChild(rep);
+				// (a) PRA-PILIH Satuan Kerja kantin (konfigurasi 'satuan_kerja_kantin', sama dgn dipakai posting kantin)
+				//     pada filter AmbilDataSatuanKerjaBanbox di dalam form laporan — tanpa mengubah kelas laporan.
+				try {
+					String skId = ais.common.Common.getKonfigurasi("satuan_kerja_kantin", "").getNilai();
+					if (skId != null && skId.trim().length() > 0) {
+						ais.database.model.rab.SatuanKerja skKantin = (ais.database.model.rab.SatuanKerja)
+							ais.common.ConstantValues.ambil(ais.database.model.rab.SatuanKerja.class.getName(), Long.valueOf(Long.parseLong(skId.trim())));
+						if (skKantin != null) {
+							java.util.List antri = new java.util.ArrayList();
+							antri.add(rep);
+							while (!antri.isEmpty()) {
+								org.zkoss.zk.ui.Component c = (org.zkoss.zk.ui.Component) antri.remove(0);
+								if (c instanceof ais.action.master.rab.helper.AmbilDataSatuanKerjaBanbox) {
+									ais.action.master.rab.helper.AmbilDataSatuanKerjaBanbox bb = (ais.action.master.rab.helper.AmbilDataSatuanKerjaBanbox) c;
+									bb.setValue(skKantin.getNama());
+									bb.setAttribute("satuanKerja", skKantin);
+									break;
+								}
+								antri.addAll(c.getChildren());
+							}
+						}
+					}
+				} catch (Throwable t) { /* abaikan: bila gagal, laporan tetap tampil tanpa pra-filter */ }
+			}
+		]]></zscript>
+
+		<vbox if="${empty param.lap}" width="100%" spacing="6px" style="padding:18px">
+			<label use="ais.ui.util.MyLabelConfig" value="Laporan Keuangan (data Akuntansi)" style="font-weight:bold;font-size:16px"/>
+			<label use="ais.ui.util.MyLabelConfig" value="Satuan Kerja kantin OTOMATIS terpilih (konfigurasi 'satuan_kerja_kantin', sama dgn posting kantin). Di form tinggal pilih JENIS LAPORAN (Posisi Keuangan/Neraca, Laba Rugi, Arus Kas) &amp; periode. Angka muncul setelah transaksi kantin DIPOSTING ke jurnal &amp; masuk Closing." style="color:#666"/>
+
+			<label use="ais.ui.util.MyLabelConfig" value="Laporan Keuangan Pokok (Neraca / Laba Rugi / Arus Kas)" style="font-weight:bold;margin-top:10px"/>
+			<hbox spacing="8px" style="flex-wrap:wrap">
+				<button use="ais.ui.util.MyButtonConfig" label="Laporan Keuangan — 2 Periode" onClick='org.zkoss.zk.ui.Executions.sendRedirect("laporan_keuangan.zul?lap=keu2")'/>
+				<button use="ais.ui.util.MyButtonConfig" label="Laporan Keuangan — 12 Bulan" onClick='org.zkoss.zk.ui.Executions.sendRedirect("laporan_keuangan.zul?lap=keu12")'/>
+				<button use="ais.ui.util.MyButtonConfig" label="Laporan Keuangan — 2 Tahun" onClick='org.zkoss.zk.ui.Executions.sendRedirect("laporan_keuangan.zul?lap=keu2th")'/>
+			</hbox>
+
+			<label use="ais.ui.util.MyLabelConfig" value="Neraca Lajur, Buku Besar &amp; Jurnal" style="font-weight:bold;margin-top:10px"/>
+			<hbox spacing="8px" style="flex-wrap:wrap">
+				<button use="ais.ui.util.MyButtonConfig" label="Neraca Lajur" onClick='org.zkoss.zk.ui.Executions.sendRedirect("laporan_keuangan.zul?lap=neracalajur")'/>
+				<button use="ais.ui.util.MyButtonConfig" label="Trial Balance (Neraca Saldo)" onClick='org.zkoss.zk.ui.Executions.sendRedirect("laporan_keuangan.zul?lap=trial")'/>
+				<button use="ais.ui.util.MyButtonConfig" label="Buku Besar" onClick='org.zkoss.zk.ui.Executions.sendRedirect("laporan_keuangan.zul?lap=bukubesar")'/>
+				<button use="ais.ui.util.MyButtonConfig" label="Buku Besar per Tanggal" onClick='org.zkoss.zk.ui.Executions.sendRedirect("laporan_keuangan.zul?lap=bukubesartgl")'/>
+				<button use="ais.ui.util.MyButtonConfig" label="Jurnal Harian" onClick='org.zkoss.zk.ui.Executions.sendRedirect("laporan_keuangan.zul?lap=jurnal")'/>
+			</hbox>
+
+			<label use="ais.ui.util.MyLabelConfig" value="Arus Kas (format kolom)" style="font-weight:bold;margin-top:10px"/>
+			<hbox spacing="8px" style="flex-wrap:wrap">
+				<button use="ais.ui.util.MyButtonConfig" label="Arus Kas — 12 Bulan" onClick='org.zkoss.zk.ui.Executions.sendRedirect("laporan_keuangan.zul?lap=aruskas12")'/>
+				<button use="ais.ui.util.MyButtonConfig" label="Arus Kas — 31 Hari" onClick='org.zkoss.zk.ui.Executions.sendRedirect("laporan_keuangan.zul?lap=aruskas31")'/>
+			</hbox>
+		</vbox>
+	</window>
+</zk>

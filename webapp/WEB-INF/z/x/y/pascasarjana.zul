@@ -1,0 +1,343 @@
+<?page title="AIS Pascasarjana UIN Jakarta" contentType="text/html;charset=UTF-8"?>
+<zk>
+
+	<borderlayout
+		apply="ais.action.maintenance.PascasarjanaAction">
+
+		<north size="80px" border="0" id="mycenter">
+
+			<image id="header" height="80px"
+				width="100%" src="/img/header__pasca.jpg" align="left" />
+		</north>
+		<zscript>
+	// AIS_RESET_DEFAULT_ZKOSS_STYLE mycenter.setStyle(null);
+</zscript>
+		<west width="220px" border="0" flex="true" splittable="true" margins="0,5,0,0">
+			<vlayout spacing="0">
+				<panel width="100%" border="normal"
+					title="Navigation">
+					<panelchildren>
+						<vbox>
+							<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"   label="Home" />
+							<a href="http://www.uinjkt.ac.id" target="blank">
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"   label="UIN Jakarta" />
+							</a>
+							<a href="http://graduate.uinjkt.ac.id" target="blank">
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"  
+									label="Pascasarjana UIN Jakarta" />
+							</a>
+							<a href="http://kemenag.go.id" target="blank">
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"  
+									label="Kementerian Agama RI" />
+							</a>
+
+							<!-- <toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"   label="Login" id="initBtn"
+								forward="onClick=onClickPMB" /> -->
+							<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"   label="Forgot Password" />
+						</vbox>
+					</panelchildren>
+				</panel>
+
+
+				<panel width="100%" border="normal" title="Calendar">
+					<panelchildren>
+						<calendar></calendar>
+					</panelchildren>
+				</panel>
+
+				<panel width="100%" border="normal"
+					title="Contact Information">
+					<panelchildren>
+						<grid use="ais.ui.util.MyGrid">
+
+
+							<rows>
+								<row spans="2">
+									<vbox>
+										<html>
+
+
+
+
+
+											
+											<![CDATA[ <p><b> Kampus
+											Sekolah Pascasarjana UIN
+											Syarif Hidayatullah
+											Jakarta</b> </br> </br>
+											JL.Kertamukti No.5 Pisangan
+											Barat, Cireundeu Ciputat
+											15419 </br> </br> Phone:
+											(+62-21) 740 1472,
+											74709260</br> Fax: (+62-21)
+											74700919 </br>Mail:
+											spsuinjkt@gmail.com </p>
+
+											]]>
+											
+											
+											
+											
+																				
+														
+														
+													</html>
+
+									</vbox>
+								</row>
+							</rows>
+						</grid>
+					</panelchildren>
+				</panel>
+
+			</vlayout>
+		</west>
+		<center>
+			<vbox pack="center" align="center" width="100%"
+				height="100%">
+				<!-- <image 
+					width="100%" src="/img/bg-pasca.png" align="left" /> -->
+				<panel use="ais.ui.util.MyPanel" height="100%"
+					width="100%" border="none" title="">
+					<panelchildren
+						id="mycenterr">
+						<vbox>
+							<html
+								if="${not empty param.login_error}">
+
+
+
+
+
+
+
+
+								
+								<![CDATA[ Your login attempt was not
+								successful, try again.<br/><br/> Reason:
+								${SPRING_SECURITY_LAST_EXCEPTION.message}
+								]]>
+								
+								
+								
+								
+								
+								
+								
+																
+								</html>
+							<!-- <groupbox width="400px" left="500px">
+								
+								<h:form id="f" name="f"
+								action="j_spring_security_check" method="POST"
+								xmlns:h="http://www.w3.org/1999/xhtml">
+								<grid use="ais.ui.util.MyGrid"  width="100%"
+								fixedLayout="true">
+								<columns>
+								<column use="ais.ui.util.MyColumnConfig" width="35%"></column>
+								<column use="ais.ui.util.MyColumnConfig" width="65%"></column>
+								</columns>
+								<rows>
+								<row>
+								<label use="ais.ui.util.MyLabelConfig"
+								value="Username">
+								</label>
+								<textbox id="u"
+								width="85%" name="j_username" />
+								</row>
+								<row>
+								<label use="ais.ui.util.MyLabelConfig" value="Password">
+								</label>
+								<textbox id="p"
+								width="85%" type="password" name="j_password" />
+								</row>
+								<row spans="2">
+								<hbox>
+								<h:input
+								type="submit" value="Login" />
+								<h:input
+								type="reset" value="Reset" />
+								</hbox>
+								</row>
+								<row spans="2">
+								<vbox>
+								<html
+								id="pemberitahuan">
+								
+								
+								
+								
+								<![CDATA[
+								
+								
+								<ol> <li>Gunakan
+								browser Mozilla
+								Firefox untuk
+								hasil
+								terbaik</li>
+								<li>Khusus
+								mahasiswa, demi
+								alasan kemanan,
+								segera ganti
+								password lama
+								anda</li>
+								<li>Pada saat
+								memasukkan
+								biodata,
+								masukkan alamat
+								email secara
+								lengkap, alamat
+								email ini
+								digunakan untuk
+								melakukan
+								verifikasi
+								(misalnya lupa
+								password)</li>
+								<li>Jika terjadi
+								masalah, harap
+								segera hubungi
+								puskom@uinjkt.ac.id</li>
+								</ol>
+								
+								]]>
+								
+								
+								
+								
+								</html>
+								
+								</vbox>
+								</row>
+								<row spans="5">
+								<a
+								forward="onClick=onForgotPassword">
+								Apakah Anda Lupa
+								Password ?
+								</a>
+								</row>
+								</rows>
+								</grid>
+								</h:form>
+								
+								<caption>
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"  
+								forward="onClick=onLihatOnline"
+								id="usersOnline" label="Online user(s): 0" />
+								<timer id="timer" delay="100000"
+								repeats="true" forward="onTimer=onUpdateUserOnline" />
+								</caption>
+								
+								</groupbox> -->
+
+							<groupbox width="400px" left="500px">
+
+
+								<grid use="ais.ui.util.MyGrid"  width="100%"
+									fixedLayout="true">
+									<columns>
+										<column use="ais.ui.util.MyColumnConfig" width="35%"></column>
+										<column use="ais.ui.util.MyColumnConfig" width="65%"></column>
+									</columns>
+									<rows>
+										<row>
+											<label use="ais.ui.util.MyLabelConfig" value="Username">
+											</label>
+											<textbox id="username"
+												width="85%" />
+										</row>
+										<row>
+											<label use="ais.ui.util.MyLabelConfig" value="Password">
+											</label>
+											<textbox id="password"
+												width="85%" type="password" />
+										</row>
+										<row spans="2">
+											<hbox>
+												<button use="ais.ui.util.MyButtonConfig" label="Login"
+													id="login" forward="onClick=onLogin">
+												</button>
+												<button use="ais.ui.util.MyButtonConfig" label="Reset"
+													id="reset" forward="onClick=onReset">
+												</button>
+											</hbox>
+										</row>
+
+										<row spans="2">
+											<label use="ais.ui.util.MyLabelConfig" id="information"></label>
+										</row>
+										<row spans="2">
+											<vbox>
+												<html id="pemberitahuan">
+
+
+
+													
+													<![CDATA[
+
+
+													<ol> <li>Gunakan
+													browser Mozilla
+													Firefox untuk hasil
+													terbaik</li>
+													<li>Khusus
+													mahasiswa, demi
+													alasan kemanan,
+													segera ganti
+													password lama
+													anda</li> <li>Pada
+													saat memasukkan
+													biodata, masukkan
+													alamat email secara
+													lengkap, alamat
+													email ini digunakan
+													untuk melakukan
+													verifikasi (misalnya
+													lupa password)</li>
+													<li>Jika terjadi
+													masalah, harap
+													segera hubungi
+													puskom@uinjkt.ac.id</li>
+													</ol>
+
+													]]>
+													
+													
+													
+														
+													</html>
+
+											</vbox>
+										</row>
+										<row spans="5">
+											<a
+												forward="onClick=onForgotPassword">
+												Apakah Anda Lupa
+												Password ?
+											</a>
+										</row>
+									</rows>
+								</grid>
+
+
+								<caption>
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"  
+										forward="onClick=onLihatOnline"
+										id="usersOnline" label="Online user(s): 0" />
+									<timer id="timer" delay="100000"
+										repeats="true" forward="onTimer=onUpdateUserOnline" />
+								</caption>
+
+							</groupbox>
+						</vbox>
+					</panelchildren>
+				</panel>
+			</vbox>
+
+		</center>
+
+
+
+	</borderlayout>
+
+
+</zk>

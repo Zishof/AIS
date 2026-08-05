@@ -1,0 +1,230 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.NewDetailBiayaExcelAction" width="100%"
+		height="100%">
+
+		<!-- RAPIKAN: Borderlayout North/Center diganti alur vertikal biasa. Borderlayout
+		     tanpa tinggi eksplisit membuat area Center memesan ruang kosong besar di
+		     antara toolbar dan grid data (grid data tampak "terlempar" jauh ke bawah). -->
+		<div width="100%" height="100%" style="overflow:auto;">
+				<grid use="ais.ui.util.MyGrid" fixedLayout="true">
+					<columns>
+						<column use="ais.ui.util.MyColumnConfig"
+							width="100px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig"
+							width="100px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig"
+							width="100px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig"
+							width="100px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig"
+							id="colTambahanLabel" width="0px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig"
+							id="colTambahanNilai" width="0px">
+						</column>
+					</columns>
+
+
+					<rows>
+
+
+						<row
+							style="border:0px;background: transparent;">
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Semester" />
+							<combobox readonly="true"
+								id="searchSemester" width="95%" />
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Tahun Akademik" />
+							<combobox readonly="true"
+								id="searchTahunAjaran" width="95%" />
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Angkatan" />
+							<intbox id="labelAngkatan" width="95%" />
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Semester Mulai" />
+							<combobox readonly="true"
+								forward="onChange=onSearchDefault"
+								id="searchMulaiBelajarDiSemester" width="95%" />
+
+							<label use="ais.ui.util.MyLabelConfig"
+								id="labelTambahan1">
+							</label>
+							<combobox readonly="true"
+								forward="onChange=onSearchDefault" id="searchTambahan1"
+								width="95%" />
+						</row>
+						<row
+							style="border:0px;background: transparent;">
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Program" />
+							<combobox readonly="true"
+								forward="onChange=onSearchDefault" id="searchProgram"
+								width="95%" />
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Jenjang" />
+
+							<hbox>
+								<combobox id="searchJenjang"
+									readonly="true" forward="onChange=onSearchDefault" cols="4" />
+								<label use="ais.ui.util.MyLabelConfig" value="Prodi"/>
+								<combobox readonly="true"
+									forward="onChange=onSearchDefault" id="searchJurusan" cols="4" />
+							</hbox>
+
+
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Warga Negara" />
+							<combobox readonly="true"
+								id="searchWargaNegara" forward="onChange=onSearchDefault"
+								width="95%" />
+
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Status" />
+							<hbox>
+								<combobox readonly="true"
+									forward="onChange=onSearchDefault" id="searchStatusMahasiswa"
+									cols="4" />
+								<label use="ais.ui.util.MyLabelConfig" value="Sts Awal"/>
+								<combobox readonly="true"
+									forward="onChange=onSearchDefault"
+									id="searchStatusAwalMahasiswa" cols="4" />
+							</hbox>
+
+							<label use="ais.ui.util.MyLabelConfig"
+								id="labelTambahan2">
+							</label>
+							<combobox readonly="true"
+								forward="onChange=onSearchDefault" id="searchTambahan2"
+								width="95%" />
+						</row>
+						<row
+							style="border:0px;background: transparent;" spans="1,9">
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Pembayaran" />
+							<combobox readonly="true"
+								id="searchJenisKegiatan" width="95%" />
+						</row>
+						<row id="rowFilterPmb"
+							style="border:0px;background: transparent;">
+							<label use="ais.ui.util.MyLabelConfig"
+								id="lblsearchJenisSeleksi" value="Jenis Seleksi" />
+							<combobox readonly="true"
+								forward="onChange=onSearchDefault" id="searchJenisSeleksi"
+								width="95%" />
+
+							<label use="ais.ui.util.MyLabelConfig"
+								id="lblsearchPaket" value="Paket PMB" />
+							<combobox readonly="true"
+								forward="onChange=onSearchDefault" id="searchPaket" width="95%" />
+
+							<label id="lblsearchGelombangPendaftaran"
+								use="ais.ui.util.MyLabelConfig" value="Gelombang" />
+							<combobox readonly="true"
+								forward="onChange=onSearchDefault"
+								id="searchGelombangPendaftaran" width="95%" />
+
+							<label use="ais.ui.util.MyLabelConfig"
+								id="labelTambahan3">
+							</label>
+							<combobox readonly="true"
+								forward="onChange=onSearchDefault" id="searchTambahan3"
+								width="95%" />
+
+						</row>
+						<row id="rowToolbar"
+							style="border:0px;background: transparent;" spans="10">
+
+							<toolbar>
+								<toolbarbutton
+									use="ais.ui.util.MyToolbarbuttonConfig" label="Simpan Biaya"
+									tooltiptext="Save data" forward="onClick=onAdd" id="add"
+									image="/img/save.gif">
+								</toolbarbutton>
+								<toolbarbutton
+									use="ais.ui.util.MyToolbarbuttonConfig" label="Refresh Biaya"
+									tooltiptext="Save data" forward="onClick=onSearchDefault"
+									id="refresh" image="/img/search.gif">
+								</toolbarbutton>
+								<toolbarbutton
+									use="ais.ui.util.MyToolbarbuttonConfig"
+									label="Refresh Semua Smt" tooltiptext="Refresh Semua Smt"
+									forward="onClick=onSearchSemuaSmt" id="refreshSemuaSmt"
+									image="/img/search.gif">
+								</toolbarbutton>
+								<toolbarbutton
+									use="ais.ui.util.MyToolbarbuttonConfig" label="Cetak Biaya"
+									tooltiptext="Generate Excel" forward="onClick=onCetak"
+									id="generate" image="/img/print.png">
+								</toolbarbutton>
+								<toolbarbutton
+									use="ais.ui.util.MyToolbarbuttonConfig"
+									tooltiptext="Ubah menjadi aktif atau tidak aktif"
+									forward="onClick=onUbahActive" id="aktif"
+									image="/img/edit.gif">
+								</toolbarbutton>
+								<toolbarbutton
+									use="ais.ui.util.MyToolbarbuttonConfig" label="Reset Biaya"
+									tooltiptext="Cleansing" forward="onClick=onCleansing"
+									id="cleansing" image="/img/save.gif">
+								</toolbarbutton>
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;detail_biaya_excel&quot;, &quot;Bantuan&quot;);"/>
+			</toolbar>
+						</row>
+						<row id="rowInfoTagihan" visible="false"
+							style="border:0px;background: transparent;" spans="10">
+							<vbox width="100%"
+								style="margin:8px 0 2px 0;padding:12px 14px;border:1px solid #f59e0b;border-left:5px solid #f59e0b;border-radius:6px;background:#fff7ed;color:#7c2d12;box-sizing:border-box;">
+								<label value="Data tagihan tidak ditemukan"
+									style="font-weight:bold;font-size:13px;color:#7c2d12;margin-bottom:4px;" />
+								<label id="infoTagihanLabel" multiline="true"
+									style="white-space:normal;line-height:18px;color:#7c2d12;" />
+							</vbox>
+						</row>
+					</rows>
+				</grid>
+				<div id="content" width="100%" />
+		</div>
+
+
+
+
+		<window use="ais.ui.util.MyWindow" id="addWindow"
+			title="Simpan Detail Biaya" visible="false" mode="popup"
+			position="center,center" border="normal" width="550px"
+			height="110px">
+
+		</window>
+
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+	</window>
+
+
+</zk>

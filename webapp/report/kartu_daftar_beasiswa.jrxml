@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="kartu_daftar_beasiswa" language="groovy" pageWidth="550" pageHeight="300" orientation="Landscape" whenNoDataType="AllSectionsNoDetail" columnWidth="510" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="704dba9f-f3ae-4664-a054-6cbb81a96a5e">
+	<property name="ireport.zoom" value="1.4641000000000035"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="id_mahasiswa" class="java.lang.Long"/>
+	<parameter name="id_beasiswa" class="java.lang.Long"/>
+	<parameter name="logo1" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[SELECT b.nim as nim, b.nama as nama,c.nama as beasiswa,a.tanggal_daftar,c.tahun as tahun
+
+FROM mahasiswa_daftar_beasiswa a
+left JOIN mahasiswa b on a.mahasiswa=b."id"
+left join beasiswa c on a.beasiswa = c."id"
+
+where b.id = $P{id_mahasiswa}
+and c.id = $P{id_beasiswa}]]>
+	</queryString>
+	<field name="nim" class="java.lang.String"/>
+	<field name="nama" class="java.lang.String"/>
+	<field name="beasiswa" class="java.lang.String"/>
+	<field name="tanggal_daftar" class="java.sql.Timestamp"/>
+	<field name="tahun" class="java.lang.Integer"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="57" splitType="Stretch">
+			<rectangle>
+				<reportElement x="0" y="2" width="510" height="55" uuid="0546630a-fb8e-43e3-973b-62c27bad005b"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="0" y="7" width="510" height="27" uuid="754d366d-02be-45cf-b437-e01803a6be70"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="14" isBold="true"/>
+				</textElement>
+				<text><![CDATA[BUKTI PENDAFTARAN BEASISWA MAHASISWA]]></text>
+			</staticText>
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="9" y="6" width="46" height="45" uuid="240aee28-c685-4e77-894a-d94506a4b9c4"/>
+				<imageExpression><![CDATA[$P{logo1}]]></imageExpression>
+			</image>
+			<textField>
+				<reportElement x="0" y="31" width="510" height="20" uuid="65dc2b8f-9e8f-429f-b4e1-e2db6da709e9"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{label_universitas}]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<detail>
+		<band height="169" splitType="Stretch">
+			<rectangle>
+				<reportElement x="0" y="11" width="510" height="158" uuid="f392bb2c-f345-4387-bbcc-45e0434de672"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="36" y="32" width="100" height="20" uuid="87f842c7-407d-42ca-b732-b9ec823aebe7"/>
+				<text><![CDATA[NIM]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="150" y="32" width="238" height="20" uuid="49adf662-4997-4cad-b614-b32acb5ee100"/>
+				<textFieldExpression><![CDATA[$F{nim}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="36" y="52" width="100" height="20" uuid="f161a802-b040-4c89-80dd-67089e7713af"/>
+				<text><![CDATA[Nama]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="150" y="52" width="238" height="20" uuid="9015501d-d646-4606-9b53-7cba1fddda72"/>
+				<textFieldExpression><![CDATA[$F{nama}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="36" y="99" width="100" height="20" uuid="0faa2714-3225-411b-b890-7c745b54ae16"/>
+				<text><![CDATA[Beasiswa]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="150" y="99" width="238" height="20" uuid="cdad5343-7eab-40a8-a4e8-a30e14ef5970"/>
+				<textFieldExpression><![CDATA[$F{beasiswa}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="36" y="119" width="100" height="20" uuid="f0fb8b05-eaf5-4367-b2c0-cae07062907e"/>
+				<text><![CDATA[Tahun]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="150" y="119" width="238" height="20" uuid="d8d71b30-efc0-4566-b2a1-a67a57c90d94"/>
+				<textFieldExpression><![CDATA[$F{tahun}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="9" y="11" width="501" height="20" uuid="ec0daa83-c95f-48fb-ab84-fa2457e466fd"/>
+				<text><![CDATA[Data Mahasiswa :]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="9" y="79" width="379" height="20" uuid="e42b83a1-46a9-4950-a4df-aecf4e663bd2"/>
+				<text><![CDATA[Telah terdaftar pada program]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="36" y="139" width="100" height="20" uuid="30e9a8a0-b70c-404d-b8f3-c4b1f4f1bef3"/>
+				<text><![CDATA[Tanggal Daftar]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="150" y="139" width="238" height="20" uuid="1eb5ef3f-46f3-4b2f-920a-191f7b25b245"/>
+				<textFieldExpression><![CDATA[$F{tanggal_daftar}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="136" y="32" width="15" height="20" uuid="54379a13-89a3-488f-b153-c6963cbd97d7"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="136" y="52" width="15" height="20" uuid="ee4367af-5e86-4998-a3a8-321f5430ccc1"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="136" y="99" width="15" height="20" uuid="2cab6f7a-e569-46ae-a124-a93285c39887"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="136" y="119" width="15" height="20" uuid="2a83ff6b-25fb-4728-93db-9b6da2c41b76"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="135" y="139" width="15" height="20" uuid="632ba3c9-5be4-4c8f-8566-3413156809f5"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement x="402" y="31" width="102" height="127" uuid="b5807212-3284-4d00-bd8b-d08bb2e8fd3e"/>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "foto" )]]></imageExpression>
+			</image>
+		</band>
+	</detail>
+</jasperReport>

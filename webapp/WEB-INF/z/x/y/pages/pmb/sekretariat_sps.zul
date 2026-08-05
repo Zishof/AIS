@@ -1,0 +1,30 @@
+<?page title="Biaya Pendaftaran" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<borderlayout height="100%">
+		<west width="5%">
+
+		</west>
+		<center autoscroll="true">
+			<box>
+				<separator height="30px"></separator>
+				<box width="90%" align="center">
+					<label use="ais.ui.util.MyLabelConfig">
+						SEKRETARIAT
+					</label>
+				</box>
+				<separator height="10px"></separator>
+				<html>
+					
+					<![CDATA[
+<p>Gedung Sekolah Pascasarjana </p>
+<p>Kampus 2 UIN  Syarif Hidayatullah Jakarta</p>
+<p>Jalan Kertamukti No. 5 Pisangan Barat, Cireundeu  Ciputat 15419, Indonesia. </p>
+<p>Telp. (+62-21) 7401472, 74709260. Faks. (+62-21)  74700919</p>
+
+					         ]]>
+					
+                    		</html>
+			</box>
+		</center>
+	</borderlayout>
+</zk>

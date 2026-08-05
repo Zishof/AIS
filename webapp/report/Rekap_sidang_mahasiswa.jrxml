@@ -1,0 +1,780 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Rekap_dosen_pa" pageWidth="842" pageHeight="595" orientation="Landscape" whenNoDataType="AllSectionsNoDetail" columnWidth="782" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20" uuid="4382e03d-717b-4c1f-ad94-96753c52a5a0">
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<property name="ireport.zoom" value="1.771561000000001"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="tahunakademik" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_fakultas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Fakultas"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_jurusan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Prodi"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="fakultas" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jurusan" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="angkatan" class="java.lang.Integer" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1]]></defaultValueExpression>
+	</parameter>
+	<parameter name="current_ta" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["2016/2017"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="current_semester" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Ganjil"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="barcode" class="java.lang.String"/>
+	<parameter name="status" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="dosen" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="mahasiswa" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jadwal" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="program" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["-1"]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[(select
+'Pembimbing I' as pembimbing,
+a.pembimbing as dosen_id,
+b.id id_jadwal,
+b.nama,
+b.mulai,
+b.sampai,
+m.nim,
+m.nama as nama_mhs,
+d.nama as dosen,
+j.nama as jur,
+f.nama as fak,
+m.tahunangkatan,
+a.nilai_ketua_sidang status,
+a.judul,
+m.kelamin,
+a.total_nilai as totalnilai,
+a.nilai_huruf as nilaihuruf
+
+from skripsi a
+left join jadwal_sidang_tugas_akhir b on (b.id=a.jadwal_sidang_tugas_akhir)
+inner join dosen d on a.pembimbing = d.id
+left join (
+	select mahasiswa,max(status_mahasiswa) as status_mahasiswa from history_status_mahasiswa
+	where tahunakademik=$P{current_ta}
+	and semester%2=(case when $P{current_semester}='Ganjil' then 1 else 0 end)
+	group by mahasiswa
+) b1 on (a.mahasiswa=b1.mahasiswa)
+left join status_mahasiswa b2 on (b2.id = b1.status_mahasiswa)
+left join mahasiswa m on a.mahasiswa = m.id
+left join jurusan j on m.jurusan = j.id
+left join fakultas f on j.fakultas = f.id
+where case when $P{fakultas} = -1 then true else f.id = $P{fakultas} end
+and case when $P{dosen} = -1 then true else a.pembimbing = $P{dosen} end
+and case when $P{mahasiswa} = -1 then true else a.mahasiswa = $P{mahasiswa} end
+and case when $P{jadwal} = -1 then true else a.jadwal_sidang_tugas_akhir = $P{jadwal} end
+and case when $P{jurusan} = -1 then true else j.id = $P{jurusan} end
+and case when $P{status} = -1 then true else b1.status_mahasiswa = $P{status} end
+and case when $P{angkatan} = -1 then true else m.tahunangkatan = $P{angkatan} end
+
+order by a.pembimbing,j.nama,m.nim
+)
+
+union all
+
+(
+select
+'Pembimbing II' as pembimbing,
+a.ketua_sidang as dosen_id,
+b.id id_jadwal,
+b.nama,
+b.mulai,
+b.sampai,
+m.nim,
+m.nama as nama_mhs,
+d.nama as dosen,
+j.nama as jur,
+f.nama as fak,
+m.tahunangkatan,
+a.nilai_pembimbing status,
+a.judul,
+m.kelamin,
+a.total_nilai as totalnilai,
+a.nilai_huruf as nilaihuruf
+
+from skripsi a
+left join jadwal_sidang_tugas_akhir b on (b.id=a.jadwal_sidang_tugas_akhir)
+inner join dosen d on a.ketua_sidang = d.id
+left join (
+	select mahasiswa,max(status_mahasiswa) as status_mahasiswa from history_status_mahasiswa
+	where tahunakademik=$P{current_ta}
+	and semester%2=(case when $P{current_semester}='Ganjil' then 1 else 0 end)
+	group by mahasiswa
+) b1 on (a.mahasiswa=b1.mahasiswa)
+left join status_mahasiswa b2 on (b2.id = b1.status_mahasiswa)
+left join mahasiswa m on a.mahasiswa = m.id
+left join jurusan j on m.jurusan = j.id
+left join fakultas f on j.fakultas = f.id
+where case when $P{fakultas} = -1 then true else f.id = $P{fakultas} end
+and case when $P{dosen} = -1 then true else a.ketua_sidang = $P{dosen} end
+and case when $P{mahasiswa} = -1 then true else a.mahasiswa = $P{mahasiswa} end
+and case when $P{jadwal} = -1 then true else a.jadwal_sidang_tugas_akhir = $P{jadwal} end
+and case when $P{jurusan} = -1 then true else j.id = $P{jurusan} end
+and case when $P{status} = -1 then true else b1.status_mahasiswa = $P{status} end
+and case when $P{angkatan} = -1 then true else m.tahunangkatan = $P{angkatan} end
+
+order by a.ketua_sidang,j.nama,m.nim
+)
+
+union all
+
+(
+select
+'Penguji I' as pembimbing,
+a.penguji1 as dosen_id,
+b.id id_jadwal,
+b.nama,
+b.mulai,
+b.sampai,
+m.nim,
+m.nama as nama_mhs,
+d.nama as dosen,
+j.nama as jur,
+f.nama as fak,
+m.tahunangkatan,
+a.nilai_penguji1 status,
+a.judul,
+m.kelamin,
+a.total_nilai as totalnilai,
+a.nilai_huruf as nilaihuruf
+
+from skripsi a
+left join jadwal_sidang_tugas_akhir b on (b.id=a.jadwal_sidang_tugas_akhir)
+inner join dosen d on a.penguji1 = d.id
+left join (
+	select mahasiswa,max(status_mahasiswa) as status_mahasiswa from history_status_mahasiswa
+	where tahunakademik=$P{current_ta}
+	and semester%2=(case when $P{current_semester}='Ganjil' then 1 else 0 end)
+	group by mahasiswa
+) b1 on (a.mahasiswa=b1.mahasiswa)
+left join status_mahasiswa b2 on (b2.id = b1.status_mahasiswa)
+left join mahasiswa m on a.mahasiswa = m.id
+left join jurusan j on m.jurusan = j.id
+left join fakultas f on j.fakultas = f.id
+where case when $P{fakultas} = -1 then true else f.id = $P{fakultas} end
+and case when $P{dosen} = -1 then true else a.penguji1 = $P{dosen} end
+and case when $P{mahasiswa} = -1 then true else a.mahasiswa = $P{mahasiswa} end
+and case when $P{jadwal} = -1 then true else a.jadwal_sidang_tugas_akhir = $P{jadwal} end
+and case when $P{jurusan} = -1 then true else j.id = $P{jurusan} end
+and case when $P{status} = -1 then true else b1.status_mahasiswa = $P{status} end
+and case when $P{angkatan} = -1 then true else m.tahunangkatan = $P{angkatan} end
+
+order by a.penguji1,j.nama,m.nim
+)
+
+union all
+
+(
+select
+'Penguji II' as pembimbing,
+a.penguji2 as dosen_id,
+b.id id_jadwal,
+b.nama,
+b.mulai,
+b.sampai,
+m.nim,
+m.nama as nama_mhs,
+d.nama as dosen,
+j.nama as jur,
+f.nama as fak,
+m.tahunangkatan,
+a.nilai_penguji2 status,
+a.judul,
+m.kelamin,
+a.total_nilai as totalnilai,
+a.nilai_huruf as nilaihuruf
+
+from skripsi a
+left join jadwal_sidang_tugas_akhir b on (b.id=a.jadwal_sidang_tugas_akhir)
+inner join dosen d on a.penguji2 = d.id
+left join (
+	select mahasiswa,max(status_mahasiswa) as status_mahasiswa from history_status_mahasiswa
+	where tahunakademik=$P{current_ta}
+	and semester%2=(case when $P{current_semester}='Ganjil' then 1 else 0 end)
+	group by mahasiswa
+) b1 on (a.mahasiswa=b1.mahasiswa)
+left join status_mahasiswa b2 on (b2.id = b1.status_mahasiswa)
+left join mahasiswa m on a.mahasiswa = m.id
+left join jurusan j on m.jurusan = j.id
+left join fakultas f on j.fakultas = f.id
+where case when $P{fakultas} = -1 then true else f.id = $P{fakultas} end
+and case when $P{dosen} = -1 then true else a.penguji2 = $P{dosen} end
+and case when $P{mahasiswa} = -1 then true else a.mahasiswa = $P{mahasiswa} end
+and case when $P{jadwal} = -1 then true else a.jadwal_sidang_tugas_akhir = $P{jadwal} end
+and case when $P{jurusan} = -1 then true else j.id = $P{jurusan} end
+and case when $P{status} = -1 then true else b1.status_mahasiswa = $P{status} end
+and case when $P{angkatan} = -1 then true else m.tahunangkatan = $P{angkatan} end
+
+order by a.penguji2,j.nama,m.nim
+)
+
+union all
+
+(
+select
+'Penguji III' as pembimbing,
+a.penguji3 as dosen_id,
+b.id id_jadwal,
+b.nama,
+b.mulai,
+b.sampai,
+m.nim,
+m.nama as nama_mhs,
+d.nama as dosen,
+j.nama as jur,
+f.nama as fak,
+m.tahunangkatan,
+a.nilai_penguji_3 status,
+a.judul,
+m.kelamin,
+a.total_nilai as totalnilai,
+a.nilai_huruf as nilaihuruf
+
+from skripsi a
+left join jadwal_sidang_tugas_akhir b on (b.id=a.jadwal_sidang_tugas_akhir)
+inner join dosen d on a.penguji3 = d.id
+left join (
+	select mahasiswa,max(status_mahasiswa) as status_mahasiswa from history_status_mahasiswa
+	where tahunakademik=$P{current_ta}
+	and semester%2=(case when $P{current_semester}='Ganjil' then 1 else 0 end)
+	group by mahasiswa
+) b1 on (a.mahasiswa=b1.mahasiswa)
+left join status_mahasiswa b2 on (b2.id = b1.status_mahasiswa)
+left join mahasiswa m on a.mahasiswa = m.id
+left join jurusan j on m.jurusan = j.id
+left join fakultas f on j.fakultas = f.id
+where case when $P{fakultas} = -1 then true else f.id = $P{fakultas} end
+and case when $P{dosen} = -1 then true else a.penguji3 = $P{dosen} end
+and case when $P{mahasiswa} = -1 then true else a.mahasiswa = $P{mahasiswa} end
+and case when $P{jadwal} = -1 then true else a.jadwal_sidang_tugas_akhir = $P{jadwal} end
+and case when $P{jurusan} = -1 then true else j.id = $P{jurusan} end
+and case when $P{status} = -1 then true else b1.status_mahasiswa = $P{status} end
+and case when $P{angkatan} = -1 then true else m.tahunangkatan = $P{angkatan} end
+
+order by a.penguji3,j.nama,m.nim
+)
+
+
+union all
+
+(
+select
+'Penguji IV' as pembimbing,
+a.penguji4 as dosen_id,
+b.id id_jadwal,
+b.nama,
+b.mulai,
+b.sampai,
+m.nim,
+m.nama as nama_mhs,
+d.nama as dosen,
+j.nama as jur,
+f.nama as fak,
+m.tahunangkatan,
+a.nilai_penguji_4 status,
+a.judul,
+m.kelamin,
+a.total_nilai as totalnilai,
+a.nilai_huruf as nilaihuruf
+
+from skripsi a
+left join jadwal_sidang_tugas_akhir b on (b.id=a.jadwal_sidang_tugas_akhir)
+inner join dosen d on a.penguji4 = d.id
+left join (
+	select mahasiswa,max(status_mahasiswa) as status_mahasiswa from history_status_mahasiswa
+	where tahunakademik=$P{current_ta}
+	and semester%2=(case when $P{current_semester}='Ganjil' then 1 else 0 end)
+	group by mahasiswa
+) b1 on (a.mahasiswa=b1.mahasiswa)
+left join status_mahasiswa b2 on (b2.id = b1.status_mahasiswa)
+left join mahasiswa m on a.mahasiswa = m.id
+left join jurusan j on m.jurusan = j.id
+left join fakultas f on j.fakultas = f.id
+where case when $P{fakultas} = -1 then true else f.id = $P{fakultas} end
+and case when $P{dosen} = -1 then true else a.penguji4 = $P{dosen} end
+and case when $P{mahasiswa} = -1 then true else a.mahasiswa = $P{mahasiswa} end
+and case when $P{jadwal} = -1 then true else a.jadwal_sidang_tugas_akhir = $P{jadwal} end
+and case when $P{jurusan} = -1 then true else j.id = $P{jurusan} end
+and case when $P{status} = -1 then true else b1.status_mahasiswa = $P{status} end
+and case when $P{angkatan} = -1 then true else m.tahunangkatan = $P{angkatan} end
+
+order by a.penguji4,j.nama,m.nim
+)
+
+
+
+union all
+
+(
+select
+'Tidak ada dosen pembimbing dan penguji' as pembimbing,
+-1 as dosen_id,
+b.id id_jadwal,
+b.nama,
+b.mulai,
+b.sampai,
+m.nim,
+m.nama as nama_mhs,
+null as dosen,
+j.nama as jur,
+f.nama as fak,
+m.tahunangkatan,
+a.nilai_penguji_3 status,
+a.judul,
+m.kelamin,
+a.total_nilai as totalnilai,
+a.nilai_huruf as nilaihuruf
+
+from skripsi a
+left join jadwal_sidang_tugas_akhir b on (b.id=a.jadwal_sidang_tugas_akhir)
+left join (
+	select mahasiswa,max(status_mahasiswa) as status_mahasiswa from history_status_mahasiswa
+	where tahunakademik=$P{current_ta}
+	and semester%2=(case when $P{current_semester}='Ganjil' then 1 else 0 end)
+	group by mahasiswa
+) b1 on (a.mahasiswa=b1.mahasiswa)
+left join status_mahasiswa b2 on (b2.id = b1.status_mahasiswa)
+left join mahasiswa m on a.mahasiswa = m.id
+left join jurusan j on m.jurusan = j.id
+left join fakultas f on j.fakultas = f.id
+where case when $P{fakultas} = -1 then true else f.id = $P{fakultas} end
+and a.penguji1 is null
+and a.penguji2 is null
+and a.penguji3 is null
+and a.penguji4 is null
+and a.ketua_sidang is null
+and a.pembimbing is null
+and case when $P{mahasiswa} = -1 then true else a.mahasiswa = $P{mahasiswa} end
+and case when $P{jadwal} = -1 then true else a.jadwal_sidang_tugas_akhir = $P{jadwal} end
+and case when $P{jurusan} = -1 then true else j.id = $P{jurusan} end
+and case when $P{status} = -1 then true else b1.status_mahasiswa = $P{status} end
+and case when $P{angkatan} = -1 then true else m.tahunangkatan = $P{angkatan} end
+and case when $P{program} = '-1' then true else b.program = $P{program} end
+order by j.nama,m.nim
+)]]>
+	</queryString>
+	<field name="pembimbing" class="java.lang.String"/>
+	<field name="dosen_id" class="java.lang.Long"/>
+	<field name="id_jadwal" class="java.lang.Long"/>
+	<field name="nama" class="java.lang.String"/>
+	<field name="mulai" class="java.sql.Date"/>
+	<field name="sampai" class="java.sql.Date"/>
+	<field name="nim" class="java.lang.String"/>
+	<field name="nama_mhs" class="java.lang.String"/>
+	<field name="dosen" class="java.lang.String"/>
+	<field name="jur" class="java.lang.String"/>
+	<field name="fak" class="java.lang.String"/>
+	<field name="tahunangkatan" class="java.lang.Integer"/>
+	<field name="status" class="java.lang.Double"/>
+	<field name="judul" class="java.lang.String"/>
+	<field name="kelamin" class="java.lang.String"/>
+	<field name="totalnilai" class="java.lang.Double"/>
+	<field name="nilaihuruf" class="java.lang.String"/>
+	<field name="status_sidang" class="java.lang.String"/>
+	<field name="tanggal_sidang" class="java.util.Date"/>
+	<field name="awal_bimbingan" class="java.util.Date"/>
+	<field name="akhir_bimbingan" class="java.util.Date"/>
+	<group name="pembimbing">
+		<groupExpression><![CDATA[$F{pembimbing}]]></groupExpression>
+		<groupHeader>
+			<band height="27">
+				<textField isBlankWhenNull="true">
+					<reportElement key="textField" x="0" y="0" width="782" height="26" uuid="4a673e2f-acf9-404c-8326-5ef5a4a45c0c"/>
+					<box leftPadding="3">
+						<pen lineWidth="1.0" lineStyle="Solid"/>
+						<topPen lineWidth="0.0" lineStyle="Solid"/>
+						<leftPen lineWidth="0.0" lineStyle="Solid"/>
+						<bottomPen lineWidth="0.0" lineStyle="Solid"/>
+						<rightPen lineWidth="0.0" lineStyle="Solid"/>
+					</box>
+					<textElement verticalAlignment="Bottom">
+						<font size="14" isBold="true" isUnderline="false"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{pembimbing}]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupHeader>
+	</group>
+	<group name="dosen_id">
+		<groupExpression><![CDATA[$F{dosen_id}]]></groupExpression>
+		<groupHeader>
+			<band height="17">
+				<textField isBlankWhenNull="true">
+					<reportElement key="textField" x="0" y="0" width="782" height="17" uuid="8ed18402-8f0a-4268-93f6-01f35958ed05"/>
+					<box leftPadding="3">
+						<pen lineWidth="1.0" lineStyle="Solid"/>
+						<topPen lineWidth="0.0" lineStyle="Solid"/>
+						<leftPen lineWidth="0.0" lineStyle="Solid"/>
+						<bottomPen lineWidth="0.0" lineStyle="Solid"/>
+						<rightPen lineWidth="0.0" lineStyle="Solid"/>
+					</box>
+					<textElement verticalAlignment="Middle">
+						<font size="12" isBold="true" isUnderline="false"/>
+					</textElement>
+					<textFieldExpression><![CDATA["Dosen  : "+($F{dosen}==null?"-":$F{dosen})]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupHeader>
+	</group>
+	<group name="jadwal">
+		<groupExpression><![CDATA[$F{id_jadwal}]]></groupExpression>
+		<groupHeader>
+			<band height="52">
+				<staticText>
+					<reportElement key="staticText-3" x="0" y="21" width="21" height="31" uuid="5014fd3e-ed0f-4bc3-bbac-30fbc5f18082"/>
+					<box>
+						<pen lineWidth="1.0" lineStyle="Solid"/>
+						<topPen lineWidth="1.0" lineStyle="Solid"/>
+						<leftPen lineWidth="1.0" lineStyle="Solid"/>
+						<bottomPen lineWidth="1.0" lineStyle="Solid"/>
+						<rightPen lineWidth="1.0" lineStyle="Solid"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[NO]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-4" x="21" y="21" width="81" height="31" uuid="00059a7d-5c0b-4adc-af44-4e86af187a3d"/>
+					<box>
+						<pen lineWidth="1.0" lineStyle="Solid"/>
+						<topPen lineWidth="1.0" lineStyle="Solid"/>
+						<leftPen lineWidth="1.0" lineStyle="Solid"/>
+						<bottomPen lineWidth="1.0" lineStyle="Solid"/>
+						<rightPen lineWidth="1.0" lineStyle="Solid"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[NIM]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-5" x="102" y="21" width="125" height="31" uuid="0e6087d5-2351-4b41-b86a-cb422b57bfc9"/>
+					<box>
+						<pen lineWidth="1.0" lineStyle="Solid"/>
+						<topPen lineWidth="1.0" lineStyle="Solid"/>
+						<leftPen lineWidth="1.0" lineStyle="Solid"/>
+						<bottomPen lineWidth="1.0" lineStyle="Solid"/>
+						<rightPen lineWidth="1.0" lineStyle="Solid"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[NAMA]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-7" x="227" y="21" width="315" height="31" uuid="9a0743ba-d316-4f8c-b8f9-bbf3a7d330c9"/>
+					<box leftPadding="3">
+						<pen lineWidth="1.0" lineStyle="Solid"/>
+						<topPen lineWidth="1.0" lineStyle="Solid"/>
+						<leftPen lineWidth="1.0" lineStyle="Solid"/>
+						<bottomPen lineWidth="1.0" lineStyle="Solid"/>
+						<rightPen lineWidth="1.0" lineStyle="Solid"/>
+					</box>
+					<textElement verticalAlignment="Middle">
+						<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[JUDUL ]]></text>
+				</staticText>
+				<textField isBlankWhenNull="true">
+					<reportElement key="textField" x="0" y="0" width="782" height="21" uuid="e7e4c0be-0789-405f-b982-feaa02de0fe0"/>
+					<box leftPadding="3">
+						<pen lineWidth="1.0" lineStyle="Solid"/>
+						<topPen lineWidth="0.0" lineStyle="Solid"/>
+						<leftPen lineWidth="0.0" lineStyle="Solid"/>
+						<bottomPen lineWidth="0.0" lineStyle="Solid"/>
+						<rightPen lineWidth="0.0" lineStyle="Solid"/>
+					</box>
+					<textElement verticalAlignment="Middle">
+						<font size="12" isBold="true" isUnderline="false"/>
+					</textElement>
+					<textFieldExpression><![CDATA[($F{id_jadwal}==null?"Tanpa Jadwal Sidang":$F{nama}+" "+($F{mulai}==null?"":new java.text.SimpleDateFormat("dd-MM-yyyy").format($F{mulai}))+" s.d "+($F{sampai}==null?"":new java.text.SimpleDateFormat("dd-MM-yyyy").format($F{sampai})))]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement key="staticText-7" x="750" y="21" width="32" height="31" uuid="ebb078d7-3f6f-45f7-940b-3d3ad878882f"/>
+					<box>
+						<pen lineWidth="1.0" lineStyle="Solid"/>
+						<topPen lineWidth="1.0" lineStyle="Solid"/>
+						<leftPen lineWidth="1.0" lineStyle="Solid"/>
+						<bottomPen lineWidth="1.0" lineStyle="Solid"/>
+						<rightPen lineWidth="1.0" lineStyle="Solid"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="7" isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[NILAI]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-7" x="723" y="21" width="27" height="31" uuid="e62cbead-1ab6-4db4-86d6-18b2c27375b2"/>
+					<box>
+						<pen lineWidth="1.0" lineStyle="Solid"/>
+						<topPen lineWidth="1.0" lineStyle="Solid"/>
+						<leftPen lineWidth="1.0" lineStyle="Solid"/>
+						<bottomPen lineWidth="1.0" lineStyle="Solid"/>
+						<rightPen lineWidth="1.0" lineStyle="Solid"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="7" isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[HURUF]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-7" x="542" y="21" width="43" height="31" uuid="5b4a3b79-93ff-4204-a90e-1edd8c664a68"/>
+					<box leftPadding="3">
+						<pen lineWidth="1.0" lineStyle="Solid"/>
+						<topPen lineWidth="1.0" lineStyle="Solid"/>
+						<leftPen lineWidth="1.0" lineStyle="Solid"/>
+						<bottomPen lineWidth="1.0" lineStyle="Solid"/>
+						<rightPen lineWidth="1.0" lineStyle="Solid"/>
+					</box>
+					<textElement verticalAlignment="Middle">
+						<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[STATUS SIDANG]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-7" x="585" y="21" width="58" height="31" uuid="2a32cbec-d7e5-49d5-a4b9-50c42a589ae9"/>
+					<box leftPadding="3">
+						<pen lineWidth="1.0" lineStyle="Solid"/>
+						<topPen lineWidth="1.0" lineStyle="Solid"/>
+						<leftPen lineWidth="1.0" lineStyle="Solid"/>
+						<bottomPen lineWidth="1.0" lineStyle="Solid"/>
+						<rightPen lineWidth="1.0" lineStyle="Solid"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[TANGGAL SIDANG]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText-7" x="643" y="21" width="80" height="31" uuid="67720a51-6135-4392-b171-ab075188c8a8"/>
+					<box leftPadding="3">
+						<pen lineWidth="1.0" lineStyle="Solid"/>
+						<topPen lineWidth="1.0" lineStyle="Solid"/>
+						<leftPen lineWidth="1.0" lineStyle="Solid"/>
+						<bottomPen lineWidth="1.0" lineStyle="Solid"/>
+						<rightPen lineWidth="1.0" lineStyle="Solid"/>
+					</box>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+					</textElement>
+					<text><![CDATA[TANGGAL BIMBINGAN]]></text>
+				</staticText>
+			</band>
+		</groupHeader>
+	</group>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="68" splitType="Stretch">
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-1" x="102" y="-10" width="680" height="43" uuid="6eca8680-79e3-4afe-838d-b9c1b923e2f1"/>
+				<textElement textAlignment="Center" verticalAlignment="Bottom">
+					<font size="12" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[($F{fak} == null || $F{fak}.equals("-") ? "" : "\n"+$P{label_fakultas}.toUpperCase()+" " + ($P{fakultas}.equals(-1L) ? "Semua".toUpperCase() : $F{fak}.toUpperCase()))
++"\n"+$P{label_jurusan}.toUpperCase()+" "+($P{jurusan}.equals(-1L) ? "Semua".toUpperCase() : $F{jur}.toUpperCase())
++"\nTahun Angkatan ".toUpperCase()+($P{angkatan}.equals(-1) ? "Semua".toUpperCase() : $P{angkatan})]]></textFieldExpression>
+			</textField>
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="0" y="-10" width="102" height="78" uuid="3e54533d-f3f7-4ce6-83df-622b1ccb6e40"/>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<staticText>
+				<reportElement key="staticText-2" x="102" y="50" width="680" height="18" uuid="f24ad10a-0cea-48c7-bdcd-90d1ea96b349"/>
+				<box>
+					<topPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[REKAPITULASI SIDANG MAHASISWA]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="102" y="30" width="680" height="20" uuid="60a06407-5bcf-486f-8242-537040e04497"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{label_universitas}]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="0" y="67" width="782" height="1" uuid="0ed5f1ae-1e8e-4bcd-a07d-5a0556cb1cdd"/>
+			</line>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<detail>
+		<band height="27" splitType="Stretch">
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="21" y="0" width="81" height="27" uuid="4f6131e0-6f57-4ded-bd27-95d79217e159"/>
+				<box leftPadding="3">
+					<pen lineWidth="1.0" lineStyle="Solid"/>
+					<topPen lineWidth="1.0" lineStyle="Solid"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Top">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nim}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="102" y="0" width="125" height="27" uuid="ab173a9f-62b4-49b5-b4ff-d5b56c35a20a"/>
+				<box leftPadding="3">
+					<pen lineWidth="1.0" lineStyle="Solid"/>
+					<topPen lineWidth="1.0" lineStyle="Solid"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid"/>
+				</box>
+				<textElement verticalAlignment="Top">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nama_mhs}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-2" x="0" y="0" width="21" height="27" uuid="46b4ed25-9953-46c7-bf63-27c6c2ba5dd8"/>
+				<box leftPadding="3">
+					<pen lineWidth="1.0" lineStyle="Solid"/>
+					<topPen lineWidth="1.0" lineStyle="Solid"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Top">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{jadwal_COUNT}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="227" y="0" width="315" height="27" uuid="75895acb-0fcc-41a0-8838-a47fc5161b03"/>
+				<box leftPadding="3">
+					<pen lineWidth="1.0" lineStyle="Solid"/>
+					<topPen lineWidth="1.0" lineStyle="Solid"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid"/>
+				</box>
+				<textElement verticalAlignment="Top">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{judul}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0" isBlankWhenNull="true">
+				<reportElement key="textField" x="750" y="0" width="32" height="27" uuid="f5af30e5-f7a8-414d-a314-a8988b8fcab5"/>
+				<box leftPadding="0">
+					<pen lineWidth="1.0" lineStyle="Solid"/>
+					<topPen lineWidth="1.0" lineStyle="Solid"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Top">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{totalnilai}]]></textFieldExpression>
+			</textField>
+			<textField pattern="" isBlankWhenNull="true">
+				<reportElement key="textField" x="723" y="0" width="27" height="27" uuid="91c39bd3-6ea4-42d8-b317-bdddcaa58fd8"/>
+				<box leftPadding="0">
+					<pen lineWidth="1.0" lineStyle="Solid"/>
+					<topPen lineWidth="1.0" lineStyle="Solid"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Top">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nilaihuruf}]]></textFieldExpression>
+			</textField>
+			<textField pattern="" isBlankWhenNull="true">
+				<reportElement key="textField" x="542" y="0" width="43" height="27" uuid="f76a88f5-9746-4efa-b696-d883a43ffc9b"/>
+				<box leftPadding="0">
+					<pen lineWidth="1.0" lineStyle="Solid"/>
+					<topPen lineWidth="1.0" lineStyle="Solid"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Top">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{status_sidang}]]></textFieldExpression>
+			</textField>
+			<textField pattern="dd-MM-yy" isBlankWhenNull="true">
+				<reportElement key="textField" x="585" y="0" width="58" height="27" uuid="66b95e1a-87c8-4939-a696-466d7e064eec"/>
+				<box leftPadding="0">
+					<pen lineWidth="1.0" lineStyle="Solid"/>
+					<topPen lineWidth="1.0" lineStyle="Solid"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Top">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{tanggal_sidang}]]></textFieldExpression>
+			</textField>
+			<textField pattern="" isBlankWhenNull="true">
+				<reportElement key="textField" x="643" y="0" width="80" height="27" uuid="653681db-bbcb-456f-9125-43da22e766c6"/>
+				<box leftPadding="0">
+					<pen lineWidth="1.0" lineStyle="Solid"/>
+					<topPen lineWidth="1.0" lineStyle="Solid"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Top">
+					<font size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[($F{awal_bimbingan}==null?"": new SimpleDateFormat("dd-MM-yy").format($F{awal_bimbingan}))+"\nsd\n"+
+($F{akhir_bimbingan}==null?"": new SimpleDateFormat("dd-MM-yy").format($F{akhir_bimbingan}))]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band height="20" splitType="Stretch">
+			<image scaleImage="FillFrame" vAlign="Middle">
+				<reportElement key="image-2" x="0" y="0" width="300" height="20" uuid="ba421017-f4b1-4df3-a7ba-a60708bcc80c"/>
+				<imageExpression><![CDATA[$P{barcode}]]></imageExpression>
+			</image>
+		</band>
+	</pageFooter>
+	<summary>
+		<band splitType="Stretch"/>
+	</summary>
+</jasperReport>

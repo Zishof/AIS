@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="KartuUjianSpmbMandiri" pageWidth="595" pageHeight="680" whenNoDataType="AllSectionsNoDetail" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20" uuid="78fe0c02-9ea3-4150-a778-cd5a257c4e9c">
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<property name="ireport.zoom" value="1.100000000000002"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="logo1" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="biodata_id" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[181L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="foto" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_kota" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Ciputat"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="nomorUjian" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["---"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="SUBREPORT_DIR" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["C:\\Users\\M Fauzi M\\Documents\\My Project\\Academic Information System\\AIS\\ais\\web\\report\\"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="info" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="label_jurusan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Prodi"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_fakultas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Fakultas"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="id" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[4L]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select b.nama,b.nim,a.semester,a.tahun_akademik,b.tempatlahir,b.alamat,b.tanggallahir,a.keterangan as alasan, c.nama as nama_jurusan, d.nama as nama_fakultas, f.nama as nama_dosen, b.nama as nama_mahasiswa, i.nama as nama_kaprodi, i.mycode as nip_kaprodi, ba.nama as jenis_pengajuan,a.tanggal, ba.keterangan as ketentuan
+from pengajuan_mahasiswa a
+inner join jenis_pengajuan ba on (a.jenis_pengajuan = ba.id)
+inner join mahasiswa b on (a.mahasiswa = b.id)
+inner join jurusan c on (b.jurusan = c.id)
+inner join fakultas d on (c.fakultas = d.id)
+left join dosen f on (f.id = b.dosen)
+left join dosen i on (c.kaprodi = i.id)
+where a.id = $P{id}]]>
+	</queryString>
+	<field name="nama" class="java.lang.String"/>
+	<field name="nim" class="java.lang.String"/>
+	<field name="semester" class="java.lang.Integer"/>
+	<field name="tahun_akademik" class="java.lang.String"/>
+	<field name="tempatlahir" class="java.lang.String"/>
+	<field name="alamat" class="java.lang.String"/>
+	<field name="tanggallahir" class="java.sql.Date"/>
+	<field name="alasan" class="java.lang.String"/>
+	<field name="nama_jurusan" class="java.lang.String"/>
+	<field name="nama_fakultas" class="java.lang.String"/>
+	<field name="nama_dosen" class="java.lang.String"/>
+	<field name="nama_mahasiswa" class="java.lang.String"/>
+	<field name="nama_kaprodi" class="java.lang.String"/>
+	<field name="nip_kaprodi" class="java.lang.String"/>
+	<field name="jenis_pengajuan" class="java.lang.String"/>
+	<field name="tanggal" class="java.sql.Date"/>
+	<field name="ketentuan" class="java.lang.String"/>
+	<variable name="Tanggal" class="java.util.Date">
+		<variableExpression><![CDATA[new java.util.Date()]]></variableExpression>
+	</variable>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="640" splitType="Stretch">
+			<line>
+				<reportElement key="line-1" x="1" y="77" width="535" height="1" uuid="0f5b016a-2287-4ee4-bd07-82be457a3561"/>
+				<graphicElement>
+					<pen lineWidth="1.0" lineStyle="Double"/>
+				</graphicElement>
+			</line>
+			<textField>
+				<reportElement x="-1" y="58" width="535" height="19" uuid="39486e35-73cb-461a-b845-e10aad14de0c"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[($P{REPORT_PARAMETERS_MAP}.get( "label_universitas" )+"").toUpperCase()]]></textFieldExpression>
+			</textField>
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="0" y="-17" width="535" height="77" uuid="675ff97b-b8a8-4b02-96d0-8467425ccad0"/>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<staticText>
+				<reportElement key="staticText-3" x="51" y="149" width="119" height="16" uuid="465aa220-29d5-4dbf-b640-1f7dfa391e11"/>
+				<text><![CDATA[Nama]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-5" x="51" y="228" width="119" height="16" uuid="83837091-0be8-4a46-9456-e442b8b458a2"/>
+				<text><![CDATA[Tempat / Tanggal Lahir]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-10" x="51" y="165" width="119" height="16" uuid="4682a39e-5df1-4682-92e4-0427013a241f"/>
+				<text><![CDATA[NIM]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-11" x="51" y="181" width="119" height="16" uuid="cdf8471f-135f-4d97-84e9-d0f101f9606e"/>
+				<text><![CDATA[Semester]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="186" y="149" width="345" height="16" uuid="25ef3e5d-ed6b-4a4e-84fb-22e5f5f76fe8"/>
+				<textFieldExpression><![CDATA[$F{nama}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="186" y="181" width="345" height="16" uuid="f4db9217-6147-4ffe-ac2b-0b08894398a9"/>
+				<textFieldExpression><![CDATA[$F{semester}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="186" y="213" width="345" height="16" uuid="5cae74fb-1288-4086-9f03-25520347f25d"/>
+				<textFieldExpression><![CDATA[$F{nama_fakultas}==null ? "" : $F{nama_fakultas}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="186" y="228" width="345" height="16" uuid="58491ec5-db54-479b-b32a-712e8239cf1e"/>
+				<textFieldExpression><![CDATA[($F{tempatlahir} == null ? "" : $F{tempatlahir})+", "+($F{tanggallahir} == null ? "" : new SimpleDateFormat("dd MMMMM yyyy",$P{REPORT_LOCALE}).format($F{tanggallahir}))]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-6" x="51" y="244" width="119" height="16" uuid="47201a00-7269-4127-8cf0-e90189a363d5"/>
+				<text><![CDATA[Alamat]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="186" y="244" width="345" height="38" uuid="5b8d2970-af5f-42b8-b26d-0ab9ab1104d4"/>
+				<textFieldExpression><![CDATA[$F{alamat}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="186" y="165" width="345" height="18" uuid="d06c8302-2d44-4790-92e5-ef0f293a14ae"/>
+				<textFieldExpression><![CDATA[$F{nim}]]></textFieldExpression>
+			</textField>
+			<textField pattern="dd/MM/yyyy" isBlankWhenNull="false">
+				<reportElement key="textField" x="437" y="440" width="98" height="16" uuid="c619ab77-4c24-4885-aaa6-a6e9a3eaf580"/>
+				<textFieldExpression><![CDATA[new java.util.Date()]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-24" x="170" y="149" width="16" height="16" uuid="af8eb34b-bdd1-4b30-94db-2a04f7c61fbb"/>
+				<textElement>
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-24" x="170" y="213" width="16" height="16" uuid="aec8a53d-adde-43d1-8786-9dbafcbad002"/>
+				<textElement>
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-24" x="170" y="181" width="16" height="16" uuid="afb12c19-0685-4a70-906a-283e1785089f"/>
+				<textElement>
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-24" x="170" y="165" width="16" height="16" uuid="7290bb9f-9baa-44da-b50d-6d2e03e51cd6"/>
+				<textElement>
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-24" x="170" y="228" width="16" height="16" uuid="73841bed-2fdf-424b-8250-b95c79fb467f"/>
+				<textElement>
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-24" x="170" y="244" width="16" height="16" uuid="b96b886f-4947-4fd5-9b13-afdf6854c63c"/>
+				<textElement>
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<line>
+				<reportElement key="line-2" x="1" y="639" width="535" height="1" uuid="8c5b25c9-43da-4a1d-af35-7d1683e61b85"/>
+				<graphicElement>
+					<pen lineWidth="1.0" lineStyle="Double"/>
+				</graphicElement>
+			</line>
+			<textField pattern="dd/MM/yyyy" isBlankWhenNull="false">
+				<reportElement key="textField" x="354" y="440" width="83" height="16" uuid="f799368c-92d3-46e5-866b-886c7e0d542c"/>
+				<textElement textAlignment="Right"/>
+				<textFieldExpression><![CDATA[$P{label_kota}+", "]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="354" y="456" width="177" height="26" uuid="14134528-9da0-4250-81ae-6f262ceedd03"/>
+				<textElement textAlignment="Center">
+					<font isUnderline="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "label_an_rektor" )]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="354" y="552" width="177" height="16" uuid="91915a28-c871-4573-a79d-c560ce017037"/>
+				<textElement textAlignment="Center">
+					<font isUnderline="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[".............................................................."]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="51" y="213" width="119" height="16" uuid="658a6448-0231-4294-88ac-cfa8e8fd648a"/>
+				<textFieldExpression><![CDATA[($P{REPORT_PARAMETERS_MAP}.get( "label_fakultas" )+"")]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="186" y="197" width="345" height="16" uuid="0ada0679-284a-45dd-b461-6acbf86503f3"/>
+				<textFieldExpression><![CDATA[$F{nama_jurusan}==null ? "" : $F{nama_jurusan}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="51" y="197" width="119" height="16" uuid="9fcd3833-8e3c-42b3-a69b-becd5738b57a"/>
+				<textFieldExpression><![CDATA[($P{REPORT_PARAMETERS_MAP}.get( "label_jurusan" )+"")]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-24" x="170" y="197" width="16" height="16" uuid="85b733cb-97bb-4e58-9fd7-80714c5c1ce2"/>
+				<textElement>
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="51" y="282" width="480" height="53" uuid="8c53e8c7-add3-4176-a19f-b4a5b49a5286"/>
+				<textFieldExpression><![CDATA["Berdasarkan surat permohonan dari yang bersangkutan tanggal "+(new SimpleDateFormat("dd MMMMM yyyy",$P{REPORT_LOCALE}).format($F{tanggal}))+" perihal \""+$F{jenis_pengajuan}+"\", maka "+($P{REPORT_PARAMETERS_MAP}.get( "label_rektor" )==null||$P{REPORT_PARAMETERS_MAP}.get( "label_rektor" ).toString().isEmpty()?"Rektor":$P{REPORT_PARAMETERS_MAP}.get( "label_rektor" ))+" "+$P{REPORT_PARAMETERS_MAP}.get( "label_universitas" )+" memberi izin \""+$F{jenis_pengajuan}+"\" tahun akademik "+$F{tahun_akademik}+" dengan ketentuan:"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="51" y="120" width="485" height="29" uuid="aab6bdd1-d88d-4fb7-a7f0-deff6904621f"/>
+				<textFieldExpression><![CDATA["Yang bertanda tangan di bawah ini "+($P{REPORT_PARAMETERS_MAP}.get( "label_rektor" )==null||$P{REPORT_PARAMETERS_MAP}.get( "label_rektor" ).toString().isEmpty()?"Rektor":$P{REPORT_PARAMETERS_MAP}.get( "label_rektor" ))+" "+$P{REPORT_PARAMETERS_MAP}.get( "label_universitas" )+
+" menerangkan bahwa :"]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-3" x="3" y="104" width="35" height="16" uuid="3923b4f4-bfe4-4ab9-abe6-945e888e1f2d"/>
+				<text><![CDATA[Perihal]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="51" y="104" width="485" height="16" uuid="9efaf331-1b74-4803-9ecf-94ca22e546f7"/>
+				<textElement>
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["SURAT KETERANGAN "+$F{jenis_pengajuan}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-24" x="38" y="104" width="13" height="16" uuid="8f998593-a9de-49f0-90e9-ab203c04461a"/>
+				<textElement>
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="354" y="568" width="177" height="16" uuid="b4f33816-954f-4698-8682-0c75752d4492"/>
+				<textElement textAlignment="Center">
+					<font isUnderline="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[".............................................................."]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="74" y="335" width="457" height="53" uuid="f4fdb822-0959-4677-b356-4e160ca75960"/>
+				<textElement markup="html"/>
+				<textFieldExpression><![CDATA[$F{ketentuan}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="51" y="399" width="480" height="34" uuid="bd29a5ec-84e7-47ad-9cf3-ab5fa319682c"/>
+				<textFieldExpression><![CDATA["Demikian surat keterangan ini dibuat untuk dipergunakan sebagaimana mestinya."]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<columnHeader>
+		<band splitType="Stretch"/>
+	</columnHeader>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band splitType="Stretch"/>
+	</pageFooter>
+	<summary>
+		<band splitType="Stretch"/>
+	</summary>
+</jasperReport>

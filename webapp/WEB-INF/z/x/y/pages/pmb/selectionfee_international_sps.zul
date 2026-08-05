@@ -1,0 +1,55 @@
+<?page title="Biaya Pendaftaran" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<borderlayout height="100%">
+		<west width="5%">
+
+		</west>
+		<center autoscroll="true">
+			<box>
+				<separator height="30px"></separator>
+				<box width="90%" align="center">
+					<label use="ais.ui.util.MyLabelConfig">
+						SELECTION FEE FOR INTERNATIONAL STUDENT  						
+					</label>
+										<label use="ais.ui.util.MyLabelConfig">
+						GRADUATE SCHOOL
+						
+					</label>
+					
+				</box>
+				<separator height="10px"></separator>
+				<html>
+					
+					<![CDATA[
+
+
+<table border="1" cellspacing="0" cellpadding="0">
+  <tr bgcolor="#FFFFCC">
+    <td width="45" valign="top">      <div align="center" class="style1">NO</div></td>
+    <td width="204" valign="top"><p align="center" class="style1">DESCRIPTION</p></td>
+    <td width="116" valign="top"><p align="center" class="style1">MA</p></td>
+    <td width="109" valign="top"><p align="center" class="style1">PHD</p></td>
+    <td width="109" valign="top"><p align="center" class="style1">FREQ.</p></td>
+  </tr>
+  <tr>
+    <td width="45" valign="top"><p align="center">1</p></td>
+    <td width="204" valign="top"><p>Registration Form</p></td>
+    <td width="116" valign="top"><p align="right">  USD 50</p></td>
+    <td width="109" valign="top"><p align="right">USD 50</p></td>
+    <td width="109" valign="top"><p align="center">&nbsp;</p></td>
+  </tr>
+  <tr bgcolor="#FFCCFF">
+    <td width="45" valign="top"><p align="center">2</p></td>
+    <td width="204" valign="top"><p>Admission Exam</p></td>
+    <td width="116" valign="top"><p align="right">USD 150</p></td>
+    <td width="109" valign="top"><p align="right">USD 200</p></td>
+    <td width="109" valign="top"><p align="center">per exam</p></td>
+  </tr>
+</table>					
+					 ]]>
+					
+                    		</html>
+			</box>
+		</center>
+	</borderlayout>
+</zk>

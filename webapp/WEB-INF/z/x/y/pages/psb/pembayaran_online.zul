@@ -1,0 +1,159 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.psb.PembayaranOnlineAction" width="100%"
+		height="100%">
+
+
+
+
+		<borderlayout>
+						<north border="none" size="56px" flex="false" splittable="false"
+				sclass="ecampus-zul-filter-launcher-north">
+				<div sclass="ecampus-zul-filter-launcher" width="100%">
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+						label="Login Pembayaran PMB" image="/img/search.gif"
+						tooltiptext="Masukkan nomor pendaftaran dan tanggal lahir untuk login"
+						onClick="addWindowPencarian.open(self);"
+						sclass="ecampus-zul-filter-open-button" />
+					<label use="ais.ui.util.MyLabelConfig" value="Kode/Nama:" sclass="ecampus-zul-quick-label" /><textbox id="pencarianCepatUmum" width="170px"
+						sclass="ecampus-zul-quick-search"
+						tooltiptext="Cari kode / nama - tekan Enter">
+						<attribute name="onOK"><![CDATA[
+	String nilaiCari = self.getValue() == null ? "" : self.getValue().trim();
+	String[] idKandidat = { "searchnama", "searchNama", "searchnamaSiswa", "searchkode", "searchKode", "searchjudul", "searchnama1", "searchuser", "searchketerangan" };
+	org.zkoss.zk.ui.Component tujuanCari = null;
+	for (int i = 0; i < idKandidat.length; i++) {
+		tujuanCari = self.getFellowIfAny(idKandidat[i]);
+		if (tujuanCari != null) break;
+	}
+	if (tujuanCari != null) {
+		try {
+			tujuanCari.getClass().getMethod("setValue", new Class[] { String.class })
+					.invoke(tujuanCari, new Object[] { nilaiCari });
+		} catch (Exception e) {
+		}
+		org.zkoss.zk.ui.event.Events.postEvent("onOK", tujuanCari, null);
+	}
+]]></attribute>
+					</textbox>
+					<label value="."
+						sclass="ecampus-zul-filter-launcher-hint" />
+				</div>
+			</north>
+			<center border="none" id="center"
+				flex="true">
+
+
+
+
+			</center>
+
+		</borderlayout>
+
+		<popup id="addWindowPencarian" width="90%" sclass="ecampus-zul-filter-window">
+			<vbox width="100%" height="100%" sclass="ecampus-zul-filter-window-body">
+				<label use="ais.ui.util.MyLabelConfig" value="Gunakan filter di bawah ini, lalu klik Cari untuk menampilkan data yang sesuai."
+					sclass="ecampus-zul-filter-window-info" />
+				<separator />
+				<grid use="ais.ui.util.MyGrid" fixedLayout="true">
+					<columns>
+						<column use="ais.ui.util.MyColumnConfig"
+							width="30%">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig"
+							width="70%">
+						</column>
+
+					</columns>
+					<rows>
+
+
+						<row id="tampilanNoRegistrasi">
+							<label use="ais.ui.util.MyLabelConfig"
+								value="No. Pendaftaran / Ujian" />
+							<textbox id="noRegistrasi" width="90%">
+							</textbox>
+						</row>
+
+
+
+						<row>
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Tanggal Lahir" />
+							<grid use="ais.ui.util.MyGrid" width="100%">
+								<rows>
+									<row>
+										<vbox width="33%">
+											<label
+												use="ais.ui.util.MyLabelConfig" value="Tahun">
+											</label>
+											<combobox id="tahun"
+												width="60px" readonly="true">
+											</combobox>
+										</vbox>
+
+										<vbox width="33%">
+											<label
+												use="ais.ui.util.MyLabelConfig" value="Bulan">
+											</label>
+											<combobox id="bulan"
+												width="80px" readonly="true">
+											</combobox>
+										</vbox>
+
+										<vbox width="33%">
+											<label
+												use="ais.ui.util.MyLabelConfig" value="Tanggal">
+											</label>
+											<combobox id="tanggal"
+												width="60px" readonly="true">
+											</combobox>
+										</vbox>
+									</row>
+								</rows>
+
+							</grid>
+
+						</row>
+
+
+						<row>
+							<box width="100%" align="end">
+								<button use="ais.ui.util.MyButtonConfig"
+									label="L O G I N" forward="onClick=onLogin" id="cari">
+								</button>
+							</box>
+
+						</row>
+						<row spans="2" id="labelInformasi">
+							<label use="ais.ui.util.MyLabelConfig"
+								id="infoLogin"
+								value="Untuk dapat melakukan login, silahkan masukkan Nomor Registrasi yang anda dapatkan pada saat melakukan pendaftaran dan masukkan TANGGAL LAHIR.">
+							</label>
+						</row>
+
+
+
+					</rows>
+				</grid>
+
+			
+			</vbox>
+		</popup>
+
+		
+
+
+
+
+	</window>
+</zk>

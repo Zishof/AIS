@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Ijazah" language="groovy" pageWidth="842" pageHeight="595" orientation="Landscape" whenNoDataType="AllSectionsNoDetail" columnWidth="802" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="fc97a6d4-0bae-4f94-b589-de2b61202462">
+	<property name="ireport.zoom" value="1.2100000000000006"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="555" splitType="Stretch">
+			<textField>
+				<reportElement x="0" y="80" width="802" height="39" uuid="6db16961-62e6-476f-8e0b-f15d234cd84f"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="24" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "nama" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="48" width="802" height="20" uuid="2e46d562-4322-4d7f-8af0-ba86ba7c805e"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Dengan ini menyatakan bahwa :"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="133" width="802" height="20" uuid="2c8d1e51-52ff-4e68-bf1d-d2192bef1ab2"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="14"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Lahir di "+$P{REPORT_PARAMETERS_MAP}.get( "tempat" )+" tanggal "+$P{REPORT_PARAMETERS_MAP}.get( "tanggal_lahir" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="166" width="802" height="214" uuid="8934a363-5f99-4bd4-96d4-b7cd933541b7"/>
+				<textElement textAlignment="Center" verticalAlignment="Top" markup="html">
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA["telah menyelesaikan dengan baik dan memenuhi segala syarat Pendidikan "+$P{REPORT_PARAMETERS_MAP}.get( "jenjang" )+"<br>"+
+"serta dinyatakan lulus pada tanggal <b>"+$P{REPORT_PARAMETERS_MAP}.get( "tanggal_lulus" )+"</b><br>"+
+"pada Program Studi <b>"+$P{REPORT_PARAMETERS_MAP}.get( "jurusan" )+"</b>, Fakultas <b>"+$P{REPORT_PARAMETERS_MAP}.get( "fakultas" )+"</b><br>"+
+"sebab itu kepadanya diberikan ijazah dan gelar<br><br><b>"+
+
+$P{REPORT_PARAMETERS_MAP}.get( "gelar" )+"</b><br><br>"+
+
+"beserta segala hak dan kewajiban yang melekat pada gelar tersebut<br>"+
+"diberikan di <b>"+$P{REPORT_PARAMETERS_MAP}.get( "label_kota" )+"</b> pada tanggal <b>"+$P{REPORT_PARAMETERS_MAP}.get( "tanggal_wisuda" )+"</b>."]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="10" y="394" width="258" height="161" uuid="a62346aa-e032-429d-942c-5b60287b8ab6"/>
+				<textElement textAlignment="Center" verticalAlignment="Top">
+					<font size="14" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["DEKAN\n\n\n\n\n\n"+$P{REPORT_PARAMETERS_MAP}.get( "dekan" )+
+"\nNIP: "+$P{REPORT_PARAMETERS_MAP}.get( "nip_dekan" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="508" y="394" width="258" height="161" uuid="61d19a9d-b352-4c0e-874a-78e2ee26d352"/>
+				<textElement textAlignment="Center" verticalAlignment="Top">
+					<font size="14" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["REKTOR\n\n\n\n\n\n"+$P{REPORT_PARAMETERS_MAP}.get( "label_nama_rektor" )+
+"\nNIP: "+$P{REPORT_PARAMETERS_MAP}.get( "label_nip_rektor" )]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+</jasperReport>

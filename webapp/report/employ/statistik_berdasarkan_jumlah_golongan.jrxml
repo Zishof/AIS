@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="statistik" language="groovy" pageWidth="611" pageHeight="234" columnWidth="611" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0">
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<queryString>
+		<![CDATA[select
+count(a.id) as jumlah,
+max(b.nama) as nama_golongan
+from pegawai a
+inner join employ.golongan b on (a.golongan_pegawai = b.id)
+where status_pegawai = 1
+group by b.id
+order by nama_golongan]]>
+	</queryString>
+	<field name="jumlah" class="java.lang.Long"/>
+	<field name="nama_golongan" class="java.lang.String"/>
+	<title>
+		<band height="234">
+			<staticText>
+				<reportElement x="0" y="0" width="611" height="39"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Statistik Berdasarkan Golongan]]></text>
+			</staticText>
+			<bar3DChart>
+				<chart evaluationTime="Report" theme="aegean">
+					<reportElement x="0" y="39" width="611" height="195"/>
+					<chartTitle/>
+					<chartSubtitle/>
+					<chartLegend/>
+				</chart>
+				<categoryDataset>
+					<categorySeries>
+						<seriesExpression><![CDATA["Golongan"]]></seriesExpression>
+						<categoryExpression><![CDATA[$F{nama_golongan} +" - "+$F{jumlah}]]></categoryExpression>
+						<valueExpression><![CDATA[$F{jumlah}]]></valueExpression>
+					</categorySeries>
+				</categoryDataset>
+				<bar3DPlot>
+					<plot/>
+					<itemLabel/>
+					<categoryAxisFormat>
+						<axisFormat>
+							<labelFont>
+								<font size="5"/>
+							</labelFont>
+						</axisFormat>
+					</categoryAxisFormat>
+				</bar3DPlot>
+			</bar3DChart>
+		</band>
+	</title>
+</jasperReport>

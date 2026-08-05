@@ -1,0 +1,14 @@
+:root {
+    --theme-primary: #b19326;
+    --theme-primary-dark: #8c731d;
+    --theme-light: rgba(177, 147, 38, 0.1);
+    --theme-hover: #b30000;
+    --theme-gradient: linear-gradient(90deg, rgb(65 73 50) 0%, rgba(179, 189, 5, 1) 100%);
+    --theme-scrollbar-thumb: #6ba400;
+    --theme-text-on-primary: white;
+    --theme-text-shadow: 0px 0px 4px black;
+    --theme-warning: #facc15;
+    --theme-success: #16a34a;
+    --theme-info: #0284c7;
+}
+

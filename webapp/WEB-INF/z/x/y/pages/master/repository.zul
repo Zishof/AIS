@@ -1,0 +1,285 @@
+<?page id="repositoryZul" title="Repository" cacheable="false"
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<style><![CDATA[
+	/* ========================================================
+	   Repository – Global Styles
+	   Kombinasi best-practice: Material Design 3, Tailwind-
+	   inspired spacing, a11y contrast, & mobile-first layout.
+	   ======================================================== */
+
+	/* --- Layout Shell --- */
+	.repo-shell { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; }
+
+	/* --- Toolbar North --- */
+	.repo-north {
+		background: #ffffff;
+		border-bottom: 1px solid #e2e8f0;
+		padding: 6px 10px;
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 6px;
+		box-sizing: border-box;
+	}
+	.repo-north .z-toolbarbutton {
+		border-radius: 6px !important;
+		font-size: 12px !important;
+	}
+	.repo-quick-label {
+		font-size: 12px;
+		color: #64748b;
+		margin-right: 2px;
+	}
+	.repo-quick-search input {
+		border: 1px solid #cbd5e1 !important;
+		border-radius: 6px !important;
+		padding: 3px 8px !important;
+		font-size: 12px !important;
+		transition: border-color .2s;
+	}
+	.repo-quick-search input:focus { border-color: #3b82f6 !important; outline: none !important; }
+
+	/* --- Filter Popup --- */
+	.repo-filter-popup {
+		border-radius: 12px !important;
+		box-shadow: 0 8px 32px rgba(15,23,42,.14) !important;
+		border: 1px solid #e2e8f0 !important;
+		padding: 0 !important;
+		overflow: hidden !important;
+	}
+	.repo-filter-body { padding: 14px 16px 10px 16px; background: #f8fafc; }
+	.repo-filter-hint {
+		font-size: 12px;
+		color: #64748b;
+		margin-bottom: 10px;
+		display: block;
+	}
+	.repo-filter-row { margin-bottom: 6px; }
+
+	/* --- Tabs --- */
+	.repo-tabs .z-tab {
+		font-size: 13px !important;
+		font-weight: 500 !important;
+		padding: 8px 16px !important;
+		border-radius: 8px 8px 0 0 !important;
+		color: #64748b !important;
+		transition: color .2s, background .2s !important;
+	}
+	.repo-tabs .z-tab-selected {
+		color: #1d4ed8 !important;
+		border-bottom: 3px solid #1d4ed8 !important;
+		background: #eff6ff !important;
+	}
+	.repo-tabs .z-tabbox { border: 0 !important; }
+	.repo-tabs .z-tabpanel { padding: 0 !important; }
+
+	/* --- Grid --- */
+	.repo-grid .z-grid-header th {
+		background: #f1f5f9 !important;
+		color: #475569 !important;
+		font-size: 11px !important;
+		font-weight: 600 !important;
+		text-transform: uppercase;
+		letter-spacing: .04em;
+		padding: 8px 10px !important;
+		border-bottom: 2px solid #e2e8f0 !important;
+	}
+	.repo-grid .z-row td {
+		font-size: 12px !important;
+		padding: 8px 10px !important;
+		vertical-align: middle !important;
+		border-bottom: 1px solid #f1f5f9 !important;
+	}
+	.repo-grid .z-row:hover td { background: #f8fafc !important; }
+
+	/* --- Status Badge --- */
+	.repo-badge {
+		display: inline-block;
+		padding: 2px 8px;
+		border-radius: 999px;
+		font-size: 11px;
+		font-weight: 600;
+		letter-spacing: .03em;
+	}
+	.repo-badge-synced  { background: #dcfce7; color: #166534; }
+	.repo-badge-failed  { background: #fee2e2; color: #991b1b; }
+	.repo-badge-draft   { background: #f1f5f9; color: #475569; }
+	.repo-badge-true    { background: #ede9fe; color: #5b21b6; }
+	.repo-badge-false   { background: #f1f5f9; color: #94a3b8; }
+
+	/* --- Paging --- */
+	.repo-paging { padding: 6px 8px; border-top: 1px solid #e2e8f0; background: #f8fafc; }
+
+	/* --- Responsive collapse --- */
+	@media (max-width: 640px) {
+		.repo-col-hide { display: none !important; }
+		.repo-north   { padding: 4px 6px; }
+	}
+	]]></style>
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.repository.RepositoryAction"
+		width="100%" height="100%" sclass="repo-shell">
+
+		<borderlayout>
+
+			<!-- ====== NORTH : Quick Search ====== -->
+						<north border="none" size="170px" autoscroll="true" flex="false" splittable="false">
+				<div style="padding:12px;box-sizing:border-box;">
+					<div sclass="ais-crud-filter-card">
+						<div sclass="ais-crud-filter-head">
+							<span sclass="ais-crud-filter-title">Pencarian &amp; Filter</span>
+						</div>
+						<div sclass="ais-crud-filter-body">
+<grid use="ais.ui.util.MyGrid" fixedLayout="true" width="100%"
+					sclass="ais-crud-filter-grid repo-filter-row">
+					<columns>
+						<column use="ais.ui.util.MyColumnConfig" width="110px" />
+						<column use="ais.ui.util.MyColumnConfig" />
+						<column use="ais.ui.util.MyColumnConfig" width="200px" />
+					</columns>
+					<rows>
+						<row>
+							<label use="ais.ui.util.MyLabelConfig" value="Kata Kunci" />
+							<textbox id="searchText" width="98%"
+								tooltiptext="Cari berdasarkan judul, author, atau subject"
+								forward="onOK=onSearchDefault" />
+							<checkbox use="ais.ui.util.MyCheckboxConfig" id="searchAktif" label="Hanya data aktif"
+								checked="true" forward="onClick=onSearchDefault" />
+						</row>
+						<row spans="3">
+							<toolbar orient="horizontal" style="padding:0;border:0;background:transparent;">
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+									id="find"
+									label="Cari" image="/img/search.gif"
+									tooltiptext="Cari data repository"
+									forward="onClick=onSearchDefault" /><toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;repository&quot;, &quot;Bantuan&quot;);"/>
+								<space width="6px" />
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+									id="syncLocal"
+									label="Sinkron Lokal" image="/img/refresh.gif"
+									tooltiptext="Sinkron semua sumber ke tabel repository (tanpa push DSpace)"
+									forward="onClick=onSyncLocal" />
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+									id="syncDspace"
+									label="Sinkron + DSpace" image="/img/upload.gif"
+									tooltiptext="Sinkron repository lokal lalu push ke server DSpace"
+									forward="onClick=onSyncDspace" />
+							</toolbar>
+						</row>
+					</rows>
+				</grid>
+						</div>
+					</div>
+				</div>
+			</north>
+
+			<!-- ====== CENTER : Tabbox Utama ====== -->
+			<center border="none" flex="true">
+				<tabbox id="repoTabbox" width="100%" height="100%" sclass="repo-tabs">
+					<tabs>
+						<tab use="ais.ui.util.MyTabConfig" label="Dashboard"         tooltiptext="Ringkasan analitik repository" />
+						<tab use="ais.ui.util.MyTabConfig" label="Item Repository"   tooltiptext="Daftar semua item yang tersinkronisasi" />
+						<tab use="ais.ui.util.MyTabConfig" label="Collection"        tooltiptext="Daftar koleksi DSpace" />
+						<tab use="ais.ui.util.MyTabConfig" label="Monitoring"        tooltiptext="Panduan pemantauan operasional" />
+					</tabs>
+
+					<tabpanels>
+
+						<!-- TAB 1 : Dashboard -->
+						<tabpanel use="ais.ui.util.MyTabpanel">
+							<div id="dashboardContainer" width="100%" height="100%"
+								style="overflow-y:auto;box-sizing:border-box;" />
+						</tabpanel>
+
+						<!-- TAB 2 : Item Repository -->
+						<tabpanel use="ais.ui.util.MyTabpanel">
+							<vlayout width="100%" spacing="0px">
+								<grid use="ais.ui.util.MyGrid" sclass="dgrid repo-grid"
+									fixedLayout="true" id="gridItem" width="100%">
+									<columns>
+										<column use="ais.ui.util.MyColumnConfig"
+											label="Judul" />
+										<column use="ais.ui.util.MyColumnConfig"
+											label="Sumber" width="130px"
+											sclass="repo-col-hide" />
+										<column use="ais.ui.util.MyColumnConfig"
+											label="Tipe" width="90px" />
+										<column use="ais.ui.util.MyColumnConfig"
+											label="Status Sync" width="110px" />
+										<column use="ais.ui.util.MyColumnConfig"
+											label="Turnitin" width="90px"
+											sclass="repo-col-hide" />
+										<column use="ais.ui.util.MyColumnConfig"
+											label="Handle DSpace" width="160px"
+											sclass="repo-col-hide" />
+										<column use="ais.ui.util.MyColumnConfig"
+											label="Pesan" width="210px"
+											sclass="repo-col-hide" />
+									</columns>
+								</grid>
+								<paging id="pagingItem" detailed="true"
+									visible="false"
+									sclass="repo-paging" />
+							</vlayout>
+						</tabpanel>
+
+						<!-- TAB 3 : Collection -->
+						<tabpanel use="ais.ui.util.MyTabpanel">
+							<grid use="ais.ui.util.MyGrid" sclass="dgrid repo-grid"
+								fixedLayout="true" id="gridCollection" width="100%">
+								<columns>
+									<column use="ais.ui.util.MyColumnConfig"
+										label="Kode" width="120px" />
+									<column use="ais.ui.util.MyColumnConfig"
+										label="Nama Collection" />
+									<column use="ais.ui.util.MyColumnConfig"
+										label="Tipe" width="110px"
+										sclass="repo-col-hide" />
+									<column use="ais.ui.util.MyColumnConfig"
+										label="Handle DSpace" width="170px"
+										sclass="repo-col-hide" />
+									<column use="ais.ui.util.MyColumnConfig"
+										label="Aktif" width="80px" />
+								</columns>
+							</grid>
+						</tabpanel>
+
+						<!-- TAB 4 : Monitoring -->
+						<tabpanel use="ais.ui.util.MyTabpanel">
+							<html><![CDATA[
+							<div style="padding:20px;font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;max-width:720px;">
+								<h2 style="font-size:18px;margin:0 0 8px;color:#1d4ed8;">Monitoring Repository</h2>
+								<p style="font-size:13px;color:#64748b;margin:0 0 16px;">
+									Gunakan dashboard ini untuk memantau kesiapan metadata, status DSpace,
+									coverage indeks Turnitin, dokumen gagal sinkron, dan koleksi dengan
+									pertumbuhan tertinggi.
+								</p>
+								<ul style="font-size:13px;line-height:1.8;padding-left:20px;color:#334155;">
+									<li><b>Trend bulanan</b> — jumlah submit, publish, withdraw, dan gagal sinkron.</li>
+									<li><b>Radar kesiapan</b> — kelengkapan metadata: title, author, abstract, subject, file, license, dan Turnitin.</li>
+									<li><b>Top collection</b> — Skripsi, Library Item, Buku Bahan Ajar, Artikel.</li>
+									<li><b>Audit operasional</b> — error sync, item tanpa file, item embargo, dan duplikasi identifier.</li>
+									<li><b>Coverage Turnitin</b> — persentase dokumen yang sudah masuk indeks Turnitin.</li>
+								</ul>
+								<p style="font-size:12px;color:#94a3b8;margin-top:16px;">
+									Semua angka di dasbor diperbarui setiap kali tombol <b>Cari</b> atau <b>Sinkron</b> ditekan.
+								</p>
+							</div>
+							]]></html>
+						</tabpanel>
+
+					</tabpanels>
+				</tabbox>
+			</center>
+
+		</borderlayout>
+
+	</window>
+</zk>

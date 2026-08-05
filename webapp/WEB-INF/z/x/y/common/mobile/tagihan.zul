@@ -1,0 +1,126 @@
+<?page title="tagihan" contentType="text/html;charset=UTF-8"?>
+<?meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" ?>
+<?meta name="description" content="E-Learning" ?>
+<?meta name="author" content="Mohammad Fauzi Murtadho" ?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.sekolah.TagihanAction" width="100%"
+		height="100%">
+
+
+		<borderlayout>
+			<center border="none">
+				<grid use="ais.ui.util.MyGrid" fixedLayout="true">
+					<columns>
+						<column use="ais.ui.util.MyColumnConfig" width="150px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig" width="150px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig">
+						</column>
+					</columns>
+					<rows>
+
+						<row>
+							<label use="ais.ui.util.MyLabelConfig" value="Siswa" />
+							<textbox forward="onOK=onSearchDefault" id="searchnama"
+								width="95%" />
+
+							<label use="ais.ui.util.MyLabelConfig" value="Bulan/Tahun" />
+							<hbox width="95%">
+								<textbox forward="onOK=onSearchDefault" id="searchbulan"
+									cols="3" />
+								<label value="/"></label>
+								<textbox forward="onOK=onSearchDefault" id="searchtahun"
+									cols="4" />
+							</hbox>
+							<label use="ais.ui.util.MyLabelConfig" value="Item Biaya" />
+							<textbox forward="onOK=onSearchDefault"
+								id="searchitembiaya" width="95%" />
+
+							<hbox width="95%">
+								<label use="ais.ui.util.MyLabelConfig" value="Yayasan" />
+								<label value="/"></label>
+								<label use="ais.ui.util.MyLabelConfig" value="Sekolah" />
+							</hbox>
+							<hbox width="95%">
+								<combobox forward="onChange=onSearchDefault"
+									id="searchyayasan" cols="4" />
+								<combobox id="searchsekolah"
+									forward="onChange=onSearchDefault" cols="4" />
+							</hbox>
+							<checkbox use="ais.ui.util.MyCheckboxConfig" id="searchaktif"
+								label="Tampilkan hanya yang aktif" checked="true"
+								forward="onClick=onSearchDefault" width="95%" />
+							<checkbox use="ais.ui.util.MyCheckboxConfig" id="searchbelumlunas"
+								label="Tampilkan hanya yang belum lunas" checked="true"
+								forward="onClick=onSearchDefault" width="95%" />
+						</row>
+
+						<row spans="10">
+
+							<toolbar><toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;tagihan&quot;, &quot;Bantuan&quot;);"/></toolbar>
+</row>
+						<row>
+							<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true" />
+						</row>
+						<row>
+							<grid use="ais.ui.util.MyGrid" sclass="dgrid"
+								fixedLayout="true" id="grid">
+								<columns>
+									<column use="ais.ui.util.MyColumnConfig" label="Siswa" />
+									<column use="ais.ui.util.MyColumnConfig"
+										label="Item Biaya" />
+									<column use="ais.ui.util.MyColumnConfig" label="Bulan"
+										width="10%" />
+									<column use="ais.ui.util.MyColumnConfig" label="Tahun"
+										width="10%" />
+									<column use="ais.ui.util.MyColumnConfig" label="T/A"
+										width="10%" />
+									<column use="ais.ui.util.MyColumnConfig" label="Lunas"
+										width="5%" />
+									<column use="ais.ui.util.MyColumnConfig" align="right"
+										label="Nominal" width="10%" />
+									<column use="ais.ui.util.MyColumnConfig" label="Info"
+										 />
+									<column use="ais.ui.util.MyColumnConfig" label="Aktif"
+										width="5%" />
+									<column use="ais.ui.util.MyColumnConfig" width="5%" />
+								</columns>
+
+							</grid>
+
+
+						</row>
+						<row><paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar" /></row>
+						<row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-bawah" height="128px" /></row>
+					</rows>
+				</grid>
+			</center>
+		</borderlayout>
+
+		<window use="ais.ui.util.MyWindow" id="addWindow"
+			title="Tambah Jenis Guru" visible="false" mode="popup"
+			position="center,center" border="normal" width="550px" height="350px">
+
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+	</window>
+
+
+</zk>

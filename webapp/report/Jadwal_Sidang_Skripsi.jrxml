@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Jadwal_Sidang_Skripsi" language="groovy" pageWidth="612" pageHeight="432" columnWidth="572" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20">
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="fakultas" class="java.lang.String"/>
+	<parameter name="mahasiswa" class="java.lang.Long"/>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="waktu_sidang" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="ruang_sidang" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="tanggal_sidang" class="java.lang.String" isForPrompting="false"/>
+	<queryString>
+		<![CDATA[select b.nim as nim,
+b.nama as nama,
+e.nama as prodi,
+a.judul,
+c.nama as pembimbing1,
+d.nama as pembimbing2,
+a.tanggal_sidang
+
+from skripsi a
+
+left join mahasiswa b on a.mahasiswa = b.id
+left join dosen c on a.pembimbing = c.id
+left join dosen d on a.ketua_sidang = d.id
+left join jurusan e on b.jurusan = e.id
+
+where mahasiswa = $P{mahasiswa}]]>
+	</queryString>
+	<field name="nim" class="java.lang.String"/>
+	<field name="nama" class="java.lang.String"/>
+	<field name="prodi" class="java.lang.String"/>
+	<field name="judul" class="java.lang.String"/>
+	<field name="pembimbing1" class="java.lang.String"/>
+	<field name="pembimbing2" class="java.lang.String"/>
+	<field name="tanggal_sidang" class="java.sql.Date"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="79" splitType="Stretch">
+			<image>
+				<reportElement key="image-1" x="10" y="10" width="46" height="50"/>
+				<imageExpression class="java.lang.String"><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-1" x="63" y="10" width="232" height="46"/>
+				<textElement textAlignment="Left">
+					<font size="12" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA["FAKULTAS "+$P{fakultas}.toUpperCase()+"\nUNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH\nJAKARTA"]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<pageHeader>
+		<band height="58" splitType="Stretch">
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-2" x="0" y="2" width="567" height="56"/>
+				<textElement textAlignment="Center">
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA["JADWAL UJIAN SKRIPSI\n"+"FAKULTAS "+$P{fakultas}.toUpperCase()+" \n UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="0" y="46" width="567" height="1"/>
+				<graphicElement>
+					<pen lineStyle="Double"/>
+				</graphicElement>
+			</line>
+		</band>
+	</pageHeader>
+	<detail>
+		<band height="226" splitType="Stretch">
+			<staticText>
+				<reportElement x="0" y="0" width="100" height="20"/>
+				<box leftPadding="4"/>
+				<textElement/>
+				<text><![CDATA[Nama]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="0" y="20" width="100" height="20"/>
+				<box leftPadding="4"/>
+				<textElement/>
+				<text><![CDATA[NIM]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="0" y="40" width="100" height="20"/>
+				<box leftPadding="4"/>
+				<textElement/>
+				<text><![CDATA[Program Studi]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="0" y="144" width="100" height="20"/>
+				<box leftPadding="4"/>
+				<textElement/>
+				<text><![CDATA[Tanggal Ujian]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="0" y="164" width="100" height="20"/>
+				<box leftPadding="4"/>
+				<textElement/>
+				<text><![CDATA[Waktu Ujian]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="0" y="184" width="100" height="20"/>
+				<box leftPadding="4"/>
+				<textElement/>
+				<text><![CDATA[Ruang Ujian]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="0" y="60" width="100" height="20"/>
+				<box leftPadding="4"/>
+				<textElement/>
+				<text><![CDATA[Judul Skripsi]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="0" y="104" width="100" height="20"/>
+				<box leftPadding="4"/>
+				<textElement/>
+				<text><![CDATA[Pembimbing 1]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="0" y="124" width="100" height="20"/>
+				<box leftPadding="4"/>
+				<textElement/>
+				<text><![CDATA[Pembimbing 2]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="100" y="0" width="16" height="20"/>
+				<box leftPadding="4"/>
+				<textElement/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="100" y="164" width="16" height="20"/>
+				<box leftPadding="4"/>
+				<textElement/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="100" y="184" width="16" height="20"/>
+				<box leftPadding="4"/>
+				<textElement/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="100" y="144" width="16" height="20"/>
+				<box leftPadding="4"/>
+				<textElement/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="100" y="124" width="16" height="20"/>
+				<box leftPadding="4"/>
+				<textElement/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="100" y="104" width="16" height="20"/>
+				<box leftPadding="4"/>
+				<textElement/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="100" y="60" width="16" height="20"/>
+				<box leftPadding="4"/>
+				<textElement/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="100" y="40" width="16" height="20"/>
+				<box leftPadding="4"/>
+				<textElement/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="100" y="20" width="16" height="20"/>
+				<box leftPadding="4"/>
+				<textElement/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="116" y="20" width="451" height="20"/>
+				<textElement/>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{nim}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="116" y="0" width="451" height="20"/>
+				<textElement/>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{nama}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="116" y="60" width="451" height="44"/>
+				<textElement/>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{judul}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="116" y="104" width="451" height="20"/>
+				<textElement/>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{pembimbing1}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="116" y="124" width="451" height="20"/>
+				<textElement/>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{pembimbing2}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="116" y="144" width="451" height="20"/>
+				<textElement/>
+				<textFieldExpression class="java.util.Date"><![CDATA[$F{tanggal_sidang}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="116" y="164" width="451" height="20"/>
+				<textElement/>
+				<textFieldExpression class="java.lang.String"><![CDATA[$P{waktu_sidang}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="116" y="184" width="451" height="20"/>
+				<textElement/>
+				<textFieldExpression class="java.lang.String"><![CDATA[$P{ruang_sidang}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="116" y="40" width="451" height="20"/>
+				<textElement/>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{prodi}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+</jasperReport>

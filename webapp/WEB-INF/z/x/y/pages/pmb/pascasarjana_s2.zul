@@ -1,0 +1,37 @@
+<?page title="Program Pascasarjana" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<borderlayout height="100%">
+		<west width="30%">
+
+		</west>
+		<center autoscroll="true">
+			<box>
+				<separator height="30px"></separator>
+				<box width="90%" align="center">
+					<label use="ais.ui.util.MyLabelConfig">
+						PROGRAM PASCASARJANA 
+					</label>
+					<label use="ais.ui.util.MyLabelConfig">
+						UIN SYARIF HIDAYATULLAH JAKARTA
+					</label>
+				</box>
+				<separator height="10px"></separator>
+				<html>
+					
+					<![CDATA[
+					<p align='justify'>
+					Penyelenggaraan program pascasarjana di Universitas Islam Negeri (UIN) Syarif Hidayatullah telah dimulai sejak tahun 1982. Sampai tahun 2009, program tersebut hanya menyelenggarakan Program Studi Pengkajian Islam, baik untuk tingkat magister (S2) maupun tingkat doktor (S3). Telah banyak alumni yang dihasilkan oleh program ini, dan mereka banyak berkiprah tidak hanya di dalam negeri, tetapi juga di luar negeri.
+					</p>
+					<p align='justify'>
+					Sejalan dengan perubahan status dari IAIN menjadi UIN pada tahun 2002, pada tingkat sarjana (S1) UIN Syarif Hidayatullah Jakarta telah membuka program studi-program studi baru, yang biasa disebut masyarakat sebagai program studi umum, seperti psikologi, ekonomi, sains dan teknologi, dan kedokteran. Banyak pula lulusan yang telah dihasilkan oleh program studi-program studi tersebut.
+					</p>
+					<p align='justify'>
+					Pembukaan program pascasarjana yang linear dengan program sarjana di fakultas-fakultas di UIN Syarif Hidayatullah Jakarta dimaksudkan untuk memberi kesempatan kepada para alumni dan masyarakat luas yang ingin melanjutkan studi pada tingkat magister. Program ini telah dibuka mulai tahun akademik 2010/2011.
+					</p>					
+					]]>
+					
+                    		</html>
+			</box>
+		</center>
+	</borderlayout>
+</zk>

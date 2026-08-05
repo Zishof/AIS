@@ -1,0 +1,45 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false"
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.koperasi.KonfigurasiPoinKegiatanAction" width="100%" height="100%">
+
+		<div sclass="ais-crud-portal">
+
+			<!-- ═══ KARTU KETERANGAN ═══ -->
+			<div sclass="ais-crud-filter-card">
+				<div sclass="ais-crud-filter-head">
+					<span sclass="ais-crud-filter-title">Konfigurasi Poin Kegiatan (Voucher Pegawai)</span>
+					<div sclass="ais-crud-filter-actions">
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;konfigurasi_poin_kegiatan&quot;, &quot;Bantuan&quot;);"/>
+					</div>
+				</div>
+				<div sclass="ais-crud-filter-body">
+					<label value="Atur nilai poin (Rupiah) untuk kehadiran Kajian (offline/online) dan syarat Disiplin Kehadiran, beserta masa berlaku voucher sebelum kedaluwarsa. Poin diberikan sebagai voucher saldo koperasi (bisa dibelanjakan di toko), TIDAK masuk perhitungan gaji. Kategori kegiatan (jadwal/lokasi) dikelola lewat menu Kegiatan -- layar ini hanya mengatur angkanya." />
+				</div>
+			</div>
+
+			<!-- ═══ KARTU DATA ═══ -->
+			<div sclass="ais-crud-data-card">
+				<grid use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true" id="grid">
+					<columns>
+						<column use="ais.ui.util.MyColumnConfig" label="Kegiatan" />
+						<column use="ais.ui.util.MyColumnConfig" label="Poin Offline (Rp)" width="15%" />
+						<column use="ais.ui.util.MyColumnConfig" label="Poin Online (Rp)" width="15%" />
+						<column use="ais.ui.util.MyColumnConfig" label="Masa Berlaku (hari)" width="15%" />
+						<column use="ais.ui.util.MyColumnConfig" label="Aktif" width="8%" />
+						<column use="ais.ui.util.MyColumnConfig" width="10%" label="" />
+					</columns>
+				</grid>
+			</div>
+
+		</div>
+
+	</window>
+
+</zk>

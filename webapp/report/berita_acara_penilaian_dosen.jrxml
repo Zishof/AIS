@@ -1,0 +1,338 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="aktif_kuliah" language="groovy" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="523" leftMargin="36" rightMargin="36" topMargin="20" bottomMargin="20" uuid="e3a5df30-a866-4e2b-9955-a76e7df3b06f">
+	<property name="ireport.zoom" value="1.5"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<field name="kelas" class="java.lang.String"/>
+	<field name="jurusan.fakultas.nama" class="java.lang.String"/>
+	<field name="jurusan.nama" class="java.lang.String"/>
+	<field name="matakuliah.nama" class="java.lang.String"/>
+	<field name="ganjilGenap" class="java.lang.String"/>
+	<field name="tahunAjaran" class="java.lang.String"/>
+	<title>
+		<band height="203">
+			<textField>
+				<reportElement x="0" y="97" width="523" height="18" uuid="158a1e2f-cc8e-4985-8d7c-a47f5fc82349"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="12" isBold="true" isUnderline="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA["BERITA ACARA"]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement x="0" y="115" width="523" height="54" isPrintWhenDetailOverflows="true" uuid="0b42c3cd-d29c-4029-9459-72a3b27e7c6b"/>
+				<box leftPadding="0"/>
+				<textElement textAlignment="Justified" verticalAlignment="Middle" markup="html">
+					<font size="10"/>
+					<paragraph lineSpacing="1_1_2"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Pada hari "+$P{REPORT_PARAMETERS_MAP}.get( "hari" )+", tanggal "+$P{REPORT_PARAMETERS_MAP}.get( "tanggalText" )+", bulan "+$P{REPORT_PARAMETERS_MAP}.get( "bulan" )+", tahun "+$P{REPORT_PARAMETERS_MAP}.get( "tahun" )+", telah dibukakan kembali akses penilaian di Sistem E-Campus dengan keterangan sebagai berikut :"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="169" width="108" height="33" uuid="d5858319-8817-47ab-aa29-1c228afcaa0c"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true" isUnderline="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Nama"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="108" y="169" width="55" height="33" uuid="6890528d-d057-4072-853b-5131877419d3"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true" isUnderline="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Kelas"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="163" y="169" width="157" height="33" uuid="79790cba-d676-4df9-bb60-1e4bd81b917b"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true" isUnderline="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Program Studi"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="320" y="169" width="90" height="33" uuid="723c987f-e0ac-4114-8002-d837277031f6"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true" isUnderline="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Mata Kuliah"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="410" y="169" width="55" height="33" uuid="86eb028a-6ade-4c56-8369-8c2a9add886c"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true" isUnderline="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Semester"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="465" y="169" width="58" height="33" uuid="529143ba-6145-4d5c-ac6f-0f4ef5f09b50"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true" isUnderline="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA["TA"]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement positionType="Float" x="0" y="159" width="523" height="10" isPrintWhenDetailOverflows="true" uuid="f2165ab8-190d-444a-a123-bba360e2fc86"/>
+				<box leftPadding="0"/>
+				<textElement textAlignment="Justified" verticalAlignment="Middle" markup="html">
+					<font size="10"/>
+					<paragraph lineSpacing="1_1_2"/>
+				</textElement>
+			</textField>
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement x="-24" y="-18" width="573" height="115" uuid="f0bd0896-6276-4083-8ef2-efbe482aab22"/>
+				<box>
+					<bottomPen lineWidth="0.0"/>
+				</box>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "kop_surat" )]]></imageExpression>
+			</image>
+		</band>
+	</title>
+	<detail>
+		<band height="34">
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement x="465" y="0" width="58" height="34" uuid="257b1d80-7adf-4fe7-bd38-f5bc6a747bbf"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="false" isUnderline="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{tahunAjaran}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement x="410" y="0" width="55" height="34" uuid="c66e9ffb-8647-4fdd-8349-44d02741342a"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="false" isUnderline="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{ganjilGenap}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement x="320" y="0" width="90" height="34" uuid="83cc321a-f658-4761-b3df-9f89ab511741"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="false" isUnderline="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{matakuliah.nama}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement x="163" y="0" width="157" height="34" uuid="c207f857-e74d-43cf-859d-57e94b12d8d6"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="false" isUnderline="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{jurusan.nama}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement x="108" y="0" width="55" height="34" uuid="45a0007f-e3a2-4ea2-a977-2c334060bfab"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="false" isUnderline="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{kelas}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement x="0" y="0" width="108" height="34" uuid="9681ad0b-eb9c-409d-8da7-891e3a14a813"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="false" isUnderline="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "dosen.nama" )!=null?$P{REPORT_PARAMETERS_MAP}.get( "dosen.nama" ) : $P{REPORT_PARAMETERS_MAP}.get( "tbmuser.userNama" )]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<summary>
+		<band height="253">
+			<textField>
+				<reportElement positionType="Float" x="0" y="54" width="523" height="15" uuid="487858f6-c0b6-463a-b110-08f8e1551ed1"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "label_kota" )+", "+$P{REPORT_PARAMETERS_MAP}.get( "tanggalMulai.formated1" )]]></textFieldExpression>
+			</textField>
+			<image onErrorType="Blank">
+				<reportElement positionType="Float" x="261" y="119" width="262" height="78" uuid="bdfac9b8-aee9-4c9d-a7cc-733ef3cb42d4"/>
+				<box leftPadding="10"/>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "setujui.pejabat.ttd.peg" )]]></imageExpression>
+			</image>
+			<textField>
+				<reportElement positionType="Float" x="261" y="89" width="262" height="15" uuid="90829e65-6744-4775-8554-1c128382ffe5"/>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isBold="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Mengetahui,"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" x="261" y="197" width="262" height="20" uuid="60ebc3d1-d40b-4650-b9c6-54cd324f51d0"/>
+				<textElement verticalAlignment="Bottom">
+					<font size="10" isBold="true" isUnderline="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA[".................................................."]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" x="262" y="217" width="261" height="20" uuid="5157c926-6b81-4af7-8aa5-4bfc32bf1262"/>
+				<textElement verticalAlignment="Top">
+					<font size="10" isBold="true"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA["NIK. ........................................"]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement positionType="Float" x="0" y="14" width="523" height="20" isPrintWhenDetailOverflows="true" uuid="8b62ad43-d904-4fd5-81bf-db4bceee10ea"/>
+				<box leftPadding="0"/>
+				<textElement textAlignment="Justified" verticalAlignment="Middle" markup="html">
+					<font size="10"/>
+					<paragraph lineSpacing="1_1_2"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Demikian berita acara ini dibuat untuk dapat diketahui sebagaimana mestinya."]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement positionType="Float" x="0" y="4" width="523" height="10" isPrintWhenDetailOverflows="true" uuid="f384ee35-e6e7-4309-ade9-b5b338bb047d"/>
+				<box leftPadding="0"/>
+				<textElement textAlignment="Justified" verticalAlignment="Middle" markup="html">
+					<font size="10"/>
+					<paragraph lineSpacing="1_1_2"/>
+				</textElement>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement positionType="Float" x="0" y="34" width="523" height="20" isPrintWhenDetailOverflows="true" uuid="08be40af-f739-445a-973a-72075d46f949"/>
+				<box leftPadding="0"/>
+				<textElement textAlignment="Justified" verticalAlignment="Middle" markup="html">
+					<font size="10"/>
+					<paragraph lineSpacing="1_1_2"/>
+				</textElement>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement positionType="Float" x="0" y="89" width="262" height="15" uuid="16fd4055-6b30-4de6-9ed0-35afbd979a08"/>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isBold="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement positionType="Float" x="0" y="69" width="523" height="20" isPrintWhenDetailOverflows="true" uuid="5d949a38-32a4-4c9a-94d8-b2bd812c06b7"/>
+				<box leftPadding="0"/>
+				<textElement textAlignment="Justified" verticalAlignment="Middle" markup="html">
+					<font size="10"/>
+					<paragraph lineSpacing="1_1_2"/>
+				</textElement>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" x="0" y="104" width="262" height="15" uuid="03b9f0ba-df77-4708-b6dd-1ddbd62b6218"/>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isBold="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Staf Rektorat,"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" x="262" y="104" width="262" height="15" uuid="01706e77-1514-47ce-8208-4e210457d2e8"/>
+				<textElement verticalAlignment="Middle">
+					<font size="10" isBold="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Wakil Rektor I,"]]></textFieldExpression>
+			</textField>
+			<image onErrorType="Blank">
+				<reportElement positionType="Float" x="0" y="119" width="262" height="78" uuid="9a024adf-c4c2-4d82-810c-571d541c8e26"/>
+				<box leftPadding="10"/>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "setujui.pejabat.ttd.peg" )]]></imageExpression>
+			</image>
+			<textField>
+				<reportElement positionType="Float" x="0" y="197" width="262" height="20" uuid="bed6a6c6-2059-495e-9d12-743ef302fa76"/>
+				<textElement verticalAlignment="Bottom">
+					<font size="10" isBold="true" isUnderline="false"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "disetujuiOleh.userNama" )]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" x="1" y="217" width="261" height="20" uuid="f4c7bb18-918f-440e-b06b-14a2c42f5b1f"/>
+				<textElement verticalAlignment="Top">
+					<font size="10" isBold="true"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<textFieldExpression><![CDATA["NIK. "+$P{REPORT_PARAMETERS_MAP}.get( "disetujuiOleh.pegawai.code" )]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
+</jasperReport>

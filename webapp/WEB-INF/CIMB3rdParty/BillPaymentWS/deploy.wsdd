@@ -1,0 +1,129 @@
+<!-- Use this file to deploy some handlers/chains and services      -->
+<!-- Two ways to do this:                                           -->
+<!--   java org.apache.axis.client.AdminClient deploy.wsdd          -->
+<!--      after the axis server is running                          -->
+<!-- or                                                             -->
+<!--   java org.apache.axis.utils.Admin client|server deploy.wsdd   -->
+<!--      from the same directory that the Axis engine runs         -->
+
+<deployment
+    xmlns="http://xml.apache.org/axis/wsdd/"
+    xmlns:java="http://xml.apache.org/axis/wsdd/providers/java">
+
+  <!-- Services from BillPaymentService WSDL service -->
+
+  <service name="BillPaymentServiceSoap" provider="java:RPC" style="document" use="literal">
+      <parameter name="wsdlTargetNamespace" value="http://CIMB3rdParty/BillPaymentWS"/>
+      <parameter name="wsdlServiceElement" value="BillPaymentService"/>
+      <parameter name="schemaUnqualified" value="http://CIMB3rdParty/BillPaymentWS"/>
+      <parameter name="wsdlServicePort" value="BillPaymentServiceSoap"/>
+      <parameter name="className" value="CIMB3rdParty.BillPaymentWS.BillPaymentServiceSoapSkeleton"/>
+      <parameter name="wsdlPortType" value="BillPaymentServiceSoap"/>
+      <parameter name="typeMappingVersion" value="1.2"/>
+      <parameter name="allowedMethods" value="*"/>
+
+      <typeMapping
+        xmlns:ns="http://CIMB3rdParty/BillPaymentWS"
+        qname="ns:InquiryRs"
+        type="java:CIMB3rdParty.BillPaymentWS.InquiryRs"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle=""
+      />
+      <typeMapping
+        xmlns:ns="http://CIMB3rdParty/BillPaymentWS"
+        qname="ns:>CIMB3rdParty_EchoRq"
+        type="java:CIMB3rdParty.BillPaymentWS.CIMB3RdParty_EchoRq"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle=""
+      />
+      <typeMapping
+        xmlns:ns="http://CIMB3rdParty/BillPaymentWS"
+        qname="ns:>CIMB3rdParty_EchoRs"
+        type="java:CIMB3rdParty.BillPaymentWS.CIMB3RdParty_EchoRs"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle=""
+      />
+      <arrayMapping
+        xmlns:ns="http://CIMB3rdParty/BillPaymentWS"
+        qname="ns:ArrayOfBillDetail"
+        type="java:CIMB3rdParty.BillPaymentWS.BillDetail[]"
+        innerType="cmp-ns:BillDetail" xmlns:cmp-ns="http://CIMB3rdParty/BillPaymentWS"
+        encodingStyle=""
+      />
+      <typeMapping
+        xmlns:ns="http://CIMB3rdParty/BillPaymentWS"
+        qname="ns:PaymentRq"
+        type="java:CIMB3rdParty.BillPaymentWS.PaymentRq"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle=""
+      />
+      <typeMapping
+        xmlns:ns="http://CIMB3rdParty/BillPaymentWS"
+        qname="ns:PaymentRs"
+        type="java:CIMB3rdParty.BillPaymentWS.PaymentRs"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle=""
+      />
+      <typeMapping
+        xmlns:ns="http://CIMB3rdParty/BillPaymentWS"
+        qname="ns:InquiryRq"
+        type="java:CIMB3rdParty.BillPaymentWS.InquiryRq"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle=""
+      />
+      <typeMapping
+        xmlns:ns="http://CIMB3rdParty/BillPaymentWS"
+        qname="ns:BillDetail"
+        type="java:CIMB3rdParty.BillPaymentWS.BillDetail"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle=""
+      />
+      <typeMapping
+        xmlns:ns="http://CIMB3rdParty/BillPaymentWS"
+        qname="ns:CIMB3rdParty_InquiryRs"
+        type="java:CIMB3rdParty.BillPaymentWS.CIMB3RdParty_InquiryRs"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle=""
+      />
+      <typeMapping
+        xmlns:ns="http://CIMB3rdParty/BillPaymentWS"
+        qname="ns:CIMB3rdParty_PaymentRs"
+        type="java:CIMB3rdParty.BillPaymentWS.CIMB3RdParty_PaymentRs"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle=""
+      />
+      <typeMapping
+        xmlns:ns="http://CIMB3rdParty/BillPaymentWS"
+        qname="ns:EchoMessage"
+        type="java:java.lang.String"
+        serializer="org.apache.axis.encoding.ser.SimpleSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.SimpleDeserializerFactory"
+        encodingStyle=""
+      />
+      <typeMapping
+        xmlns:ns="http://CIMB3rdParty/BillPaymentWS"
+        qname="ns:CIMB3rdParty_InquiryRq"
+        type="java:CIMB3rdParty.BillPaymentWS.CIMB3RdParty_InquiryRq"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle=""
+      />
+      <typeMapping
+        xmlns:ns="http://CIMB3rdParty/BillPaymentWS"
+        qname="ns:CIMB3rdParty_PaymentRq"
+        type="java:CIMB3rdParty.BillPaymentWS.CIMB3RdParty_PaymentRq"
+        serializer="org.apache.axis.encoding.ser.BeanSerializerFactory"
+        deserializer="org.apache.axis.encoding.ser.BeanDeserializerFactory"
+        encodingStyle=""
+      />
+  </service>
+</deployment>

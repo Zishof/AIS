@@ -1,0 +1,516 @@
+<?page id="antarJemputZul" title="Antar Jemput" cacheable="false"
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<style>
+		/* =============================================
+		   DESIGN TOKENS
+		   ============================================= */
+		:root {
+			--aj-bg:          #f1f5f9;
+			--aj-surface:     #ffffff;
+			--aj-border:      #e2e8f0;
+			--aj-border-soft: #f1f5f9;
+			--aj-text-1:      #0f172a;
+			--aj-text-2:      #475569;
+			--aj-text-3:      #94a3b8;
+			--aj-brand:       #2563eb;
+			--aj-brand-soft:  #eff6ff;
+			--aj-tab-bg:      #1e293b;
+			--aj-radius:      10px;
+			--aj-shadow-sm:   0 1px 2px rgba(0,0,0,.06);
+			--aj-shadow:      0 2px 6px rgba(0,0,0,.09);
+		}
+
+		/* =============================================
+		   PAGE BASE
+		   ============================================= */
+		.aj-page { background: var(--aj-bg); }
+
+		/* =============================================
+		   TOP BAR
+		   ============================================= */
+		.aj-topbar {
+			display: flex; align-items: center; gap: 12px;
+			padding: 10px 16px;
+			background: var(--aj-surface);
+			border-bottom: 2px solid var(--aj-brand);
+			box-shadow: var(--aj-shadow-sm);
+		}
+		.aj-topbar-icon {
+			width: 38px; height: 38px; border-radius: 9px; flex-shrink: 0;
+			background: linear-gradient(135deg, #2563eb, #0ea5e9);
+			display: flex; align-items: center; justify-content: center;
+			font-size: 16px; font-weight: 900; color: #fff;
+			box-shadow: 0 2px 8px rgba(37,99,235,.3);
+		}
+		.aj-title    { font-size: 15px; font-weight: 700; color: var(--aj-text-1); line-height: 1.2; }
+		.aj-subtitle { font-size: 11px; color: var(--aj-text-3); margin-top: 1px; }
+
+		/* =============================================
+		   TAB BAR
+		   ============================================= */
+		.aj-tabbox .z-tabs {
+			background: var(--aj-tab-bg) !important;
+			padding: 0 8px; border-bottom: none !important;
+		}
+		.aj-tabbox .z-tab {
+			color: var(--aj-text-3) !important; border: none !important;
+			border-radius: 6px 6px 0 0 !important;
+			margin: 5px 2px 0 2px !important; padding: 7px 13px !important;
+			font-size: 12px !important; font-weight: 500 !important;
+			transition: color .15s, background .15s;
+		}
+		.aj-tabbox .z-tab:hover  { color: #e2e8f0 !important; background: rgba(255,255,255,.1) !important; }
+		.aj-tabbox .z-tab-selected { background: var(--aj-brand) !important; color: #fff !important; font-weight: 600 !important; }
+		.aj-tabbox .z-tabpanels  { background: var(--aj-bg); }
+		.aj-tabbox .z-tabpanel   { padding: 0 !important; height: 100%; }
+
+		/* =============================================
+		   FILTER / TOOLBAR BAR
+		   ============================================= */
+		.aj-filter {
+			display: flex !important; align-items: center !important; gap: 6px !important;
+			padding: 7px 12px !important; background: var(--aj-surface) !important;
+			border-bottom: 1px solid var(--aj-border) !important;
+		}
+
+		/* =============================================
+		   GATE VERIFICATION PANEL
+		   ============================================= */
+		.aj-gate-wrap  { padding: 16px; background: var(--aj-bg); }
+		.aj-gate-card  {
+			background: var(--aj-surface); border: 1px solid var(--aj-border);
+			border-radius: var(--aj-radius); padding: 20px 24px;
+			box-shadow: var(--aj-shadow); max-width: 860px;
+		}
+		.aj-gate-heading {
+			font-size: 14px; font-weight: 700; color: var(--aj-text-1);
+			margin-bottom: 16px; padding-bottom: 12px;
+			border-bottom: 1px solid var(--aj-border-soft);
+			display: flex; align-items: center; gap: 8px;
+		}
+		.aj-gate-grid         { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+		.aj-gate-field-label  {
+			display: block; font-size: 11px; font-weight: 600; color: var(--aj-text-2);
+			text-transform: uppercase; letter-spacing: .4px; margin-bottom: 5px;
+		}
+		.aj-gate-actions  { display: flex; align-items: center; gap: 8px; padding-top: 10px; }
+		.aj-scan-status   {
+			margin-top: 14px; padding: 10px 14px; border-radius: 8px;
+			font-size: 12px; font-weight: 600;
+			background: #f0f9ff; color: #0369a1; border: 1px solid #bae6fd;
+		}
+		.aj-queue-section-title {
+			font-size: 11px; font-weight: 700; color: var(--aj-text-2);
+			text-transform: uppercase; letter-spacing: .5px;
+			padding: 10px 14px 4px; border-top: 1px solid var(--aj-border);
+		}
+
+		/* =============================================
+		   DASHBOARD - wrapper + section header
+		   ============================================= */
+		.aj-dashboard-wrap { padding: 16px; }
+
+		.aj-section-header {
+			margin: 20px 0 10px; padding: 14px 16px;
+			background: var(--aj-surface); border: 1px solid var(--aj-border);
+			border-left: 4px solid var(--aj-brand);
+			border-radius: var(--aj-radius); box-shadow: var(--aj-shadow-sm);
+		}
+		.aj-section-header:first-child { margin-top: 0; }
+		.aj-section-title {
+			font-size: 13px; font-weight: 700; color: var(--aj-text-1); margin-bottom: 3px;
+		}
+		.aj-section-desc {
+			font-size: 12px; color: var(--aj-text-2); line-height: 1.5;
+		}
+
+		/* =============================================
+		   KPI CARDS
+		   ============================================= */
+		.aj-kpi-grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+			gap: 12px; margin-bottom: 4px;
+		}
+		.aj-kpi-card {
+			background: var(--aj-surface); border: 1px solid var(--aj-border);
+			border-left: 4px solid var(--aj-border);
+			border-radius: var(--aj-radius); padding: 14px 16px;
+			box-shadow: var(--aj-shadow-sm);
+		}
+		.aj-kpi-top   { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+		.aj-kpi-icon  {
+			width: 34px; height: 34px; border-radius: 8px;
+			display: flex; align-items: center; justify-content: center;
+			font-size: 13px; font-weight: 800; color: #fff;
+		}
+		.aj-kpi-val   { font-size: 36px; font-weight: 800; line-height: 1; }
+		.aj-kpi-title { font-size: 11px; font-weight: 700; color: var(--aj-text-2); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+		.aj-kpi-desc  { font-size: 11px; color: var(--aj-text-3); line-height: 1.4; }
+
+		/* =============================================
+		   CHARTS ROW - 2 columns, each card
+		   ============================================= */
+		.aj-charts-row {
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+			gap: 12px; margin-bottom: 4px;
+		}
+		.aj-chart-card {
+			background: var(--aj-surface); border: 1px solid var(--aj-border);
+			border-radius: var(--aj-radius); padding: 16px;
+			box-shadow: var(--aj-shadow-sm);
+		}
+		.aj-chart-title {
+			font-size: 12px; font-weight: 700; color: var(--aj-text-1);
+			margin-bottom: 4px;
+		}
+		.aj-chart-desc {
+			font-size: 11px; color: var(--aj-text-3); margin-bottom: 12px; line-height: 1.4;
+		}
+
+		/* =============================================
+		   FUNNEL CHART (HTML/CSS)
+		   ============================================= */
+		.aj-funnel {
+			display: flex; flex-direction: column; align-items: center; gap: 6px;
+			padding: 8px 0;
+		}
+		.aj-funnel-stage {
+			display: flex; align-items: center; justify-content: space-between;
+			padding: 10px 20px; border-radius: 6px; color: #fff;
+			min-width: 30%; max-width: 100%;
+			transition: width .4s ease;
+		}
+		.aj-funnel-label { font-size: 12px; font-weight: 600; }
+		.aj-funnel-count { font-size: 20px; font-weight: 800; }
+		.aj-funnel-pct   { font-size: 11px; opacity: .85; }
+
+		/* =============================================
+		   DONUT CHART LAYOUT
+		   ============================================= */
+		.aj-donut-wrap {
+			display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+		}
+		.aj-legend       { display: flex; flex-direction: column; gap: 6px; }
+		.aj-legend-item  { display: flex; align-items: center; gap: 8px; }
+		.aj-legend-dot   { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+		.aj-legend-lbl   { font-size: 12px; color: var(--aj-text-2); min-width: 80px; }
+		.aj-legend-pct   { font-size: 11px; font-weight: 600; color: var(--aj-text-1); }
+
+		/* =============================================
+		   READINESS BARS
+		   ============================================= */
+		.aj-readiness-grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+			gap: 10px; margin-bottom: 4px;
+		}
+		.aj-readiness-item {
+			background: var(--aj-surface); border: 1px solid var(--aj-border);
+			border-radius: var(--aj-radius); padding: 12px 14px;
+			box-shadow: var(--aj-shadow-sm);
+		}
+		.aj-readiness-top   { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+		.aj-readiness-label { font-size: 12px; font-weight: 600; color: var(--aj-text-2); }
+		.aj-readiness-value { font-size: 22px; font-weight: 800; }
+		.aj-readiness-bar-track {
+			height: 8px; background: var(--aj-border-soft);
+			border-radius: 999px; overflow: hidden; margin-bottom: 6px;
+		}
+		.aj-readiness-bar { height: 8px; border-radius: 999px; min-width: 4px; transition: width .5s ease; }
+		.aj-readiness-desc { font-size: 11px; color: var(--aj-text-3); line-height: 1.4; }
+
+		/* =============================================
+		   ACTIVITY FEED
+		   ============================================= */
+		.aj-feed {
+			background: var(--aj-surface); border: 1px solid var(--aj-border);
+			border-radius: var(--aj-radius); overflow: hidden; box-shadow: var(--aj-shadow-sm);
+		}
+		.aj-feed-empty {
+			padding: 28px 20px; text-align: center;
+			font-size: 13px; color: var(--aj-text-3);
+		}
+		.aj-feed-item {
+			display: flex; align-items: center; gap: 12px;
+			padding: 10px 14px; border-bottom: 1px solid var(--aj-border-soft);
+		}
+		.aj-feed-item:last-child { border-bottom: none; }
+		.aj-feed-num  {
+			min-width: 38px; height: 38px; border-radius: 8px; flex-shrink: 0;
+			background: var(--aj-brand-soft); color: var(--aj-brand);
+			font-size: 12px; font-weight: 700;
+			display: flex; align-items: center; justify-content: center; text-align: center;
+		}
+		.aj-feed-body { flex: 1; min-width: 0; }
+		.aj-feed-name { font-size: 13px; font-weight: 600; color: var(--aj-text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		.aj-feed-meta { font-size: 11px; color: var(--aj-text-3); margin-top: 1px; }
+
+		/* =============================================
+		   MONITOR BOARD (dark theme)
+		   ============================================= */
+		.aj-monitor-outer { padding: 12px; background: #0f172a; min-height: 100%; }
+		.aj-monitor-grid  { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+		.aj-monitor-card  {
+			display: flex; align-items: center; gap: 12px;
+			background: #1e293b; border: 1px solid #334155;
+			border-radius: var(--aj-radius); padding: 14px;
+		}
+		.aj-monitor-number {
+			width: 46px; height: 46px; border-radius: 8px; flex-shrink: 0;
+			background: var(--aj-brand); color: #fff;
+			font-size: 22px; font-weight: 800;
+			display: flex; align-items: center; justify-content: center;
+		}
+		.aj-monitor-name  { font-size: 17px; font-weight: 700; color: #f8fafc; line-height: 1.2; }
+		.aj-monitor-sub   { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+		.aj-monitor-empty { color: #475569; padding: 60px 20px; font-size: 16px; text-align: center; }
+
+		/* =============================================
+		   BADGE / CHIP
+		   ============================================= */
+		.aj-badge {
+			display: inline-block; padding: 3px 9px;
+			border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap;
+		}
+		.aj-chip {
+			display: inline-block; padding: 2px 8px;
+			border-radius: 999px; font-size: 11px; font-weight: 600;
+			background: #dbeafe; color: #1e40af; margin-top: 4px;
+		}
+
+		/* =============================================
+		   PANEL INFO BANNER (muncul di panel-panel yg di-include)
+		   ============================================= */
+		.aj-panel-info {
+			padding: 8px 14px;
+			background: #eff6ff;
+			border-bottom: 1px solid #bfdbfe;
+			font-size: 12px; color: #1e40af; line-height: 1.5;
+		}
+
+		/* =============================================
+		   ROW ACTION BUTTONS
+		   ============================================= */
+		.aj-row-actions { margin: 0 !important; padding: 0 !important; }
+		.aj-row-actions .z-toolbarbutton { margin-right: 3px !important; }
+
+		/* =============================================
+		   RESPONSIVE - mobile-first breakpoints
+		   ============================================= */
+		@media (max-width: 900px) {
+			.aj-kpi-grid      { grid-template-columns: repeat(3, 1fr) !important; }
+			.aj-charts-row    { grid-template-columns: 1fr !important; }
+			.aj-readiness-grid{ grid-template-columns: 1fr 1fr !important; }
+		}
+		@media (max-width: 640px) {
+			.aj-kpi-grid      { grid-template-columns: repeat(2, 1fr) !important; }
+			.aj-gate-grid     { grid-template-columns: 1fr !important; }
+			.aj-monitor-grid  { grid-template-columns: repeat(2, 1fr) !important; }
+			.aj-readiness-grid{ grid-template-columns: 1fr !important; }
+			.aj-title         { font-size: 13px !important; }
+			.aj-subtitle      { display: none; }
+			.aj-donut-wrap    { flex-direction: column; }
+		}
+		@media (max-width: 420px) {
+			.aj-kpi-grid      { grid-template-columns: 1fr !important; }
+			.aj-monitor-grid  { grid-template-columns: 1fr !important; }
+			.aj-funnel-stage  { padding: 8px 10px !important; }
+			.aj-tabbox .z-tab { padding: 5px 8px !important; font-size: 11px !important; }
+		}
+	</style>
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.antarjemput.AntarJemputAction"
+		width="100%" height="100%" sclass="aj-page">
+
+		<borderlayout>
+
+			<!-- ======================== TOP BAR ======================== -->
+			<north border="none" size="56px">
+				<div sclass="aj-topbar">
+					<div sclass="aj-topbar-icon">AJ</div>
+					<div>
+						<div sclass="aj-title">Antar Jemput</div>
+						<div sclass="aj-subtitle">Gerbang | Monitor | Kendaraan | Rute | Jadwal | Peserta | Kartu | Transaksi</div>
+					</div>
+				</div>
+			</north>
+
+			<!-- ======================== MAIN CONTENT ======================== -->
+			<center border="none" flex="true">
+				<tabbox width="100%" height="100%" sclass="aj-tabbox">
+					<tabs>
+						<tab use="ais.ui.util.MyTabConfig" label="Dasbor"     tooltiptext="Ringkasan operasional hari ini" />
+						<tab use="ais.ui.util.MyTabConfig" label="Gerbang"    tooltiptext="Verifikasi kartu penjemput di gerbang" />
+						<tab use="ais.ui.util.MyTabConfig" label="Monitor"    tooltiptext="Monitor kelas dan antrian panggilan aktif" />
+						<tab use="ais.ui.util.MyTabConfig" label="Kendaraan"  tooltiptext="Manajemen armada kendaraan" />
+						<tab use="ais.ui.util.MyTabConfig" label="Rute"       tooltiptext="Manajemen rute perjalanan" />
+						<tab use="ais.ui.util.MyTabConfig" label="Jadwal"     tooltiptext="Manajemen jadwal antar jemput" />
+						<tab use="ais.ui.util.MyTabConfig" label="Peserta"    tooltiptext="Daftar peserta per jadwal" />
+						<tab use="ais.ui.util.MyTabConfig" label="Kartu"      tooltiptext="Kartu penjemput dan akses gerbang" />
+						<tab use="ais.ui.util.MyTabConfig" label="Transaksi"  tooltiptext="Riwayat scan gerbang" />
+						<tab use="ais.ui.util.MyTabConfig" label="Panggilan"  tooltiptext="Detail dan status panggilan kelas" />
+						<tab use="ais.ui.util.MyTabConfig" label="Log"        tooltiptext="Log notifikasi soundbox dan perangkat" />
+					</tabs>
+					<tabpanels>
+
+						<!-- ===== TAB: DASBOR ===== -->
+						<tabpanel use="ais.ui.util.MyTabpanel">
+							<borderlayout>
+								<north border="none" size="44px">
+									<toolbar sclass="aj-filter">
+										<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+											label="Refresh Dasbor" image="/img/refresh.gif"
+											forward="onClick=onReloadDashboard"
+											tooltiptext="Muat ulang semua data dashboard" />
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;antar_jemput&quot;, &quot;Bantuan&quot;);"/>
+			</toolbar>
+								</north>
+								<center border="none" autoscroll="true">
+									<div id="dashboardPanel" />
+								</center>
+							</borderlayout>
+						</tabpanel>
+
+						<!-- ===== TAB: GERBANG ===== -->
+						<tabpanel use="ais.ui.util.MyTabpanel">
+							<borderlayout>
+								<north border="none" size="196px">
+									<div sclass="aj-gate-wrap">
+										<div sclass="aj-gate-card">
+											<div sclass="aj-gate-heading">Verifikasi Penjemput di Gerbang</div>
+											<div sclass="aj-gate-grid">
+												<div>
+													<label use="ais.ui.util.MyLabelConfig" sclass="aj-gate-field-label" value="Nomor Kartu / Barcode *" />
+													<textbox id="scanNomor" width="100%"
+														forward="onOK=onVerifikasiGerbang"
+														tooltiptext="Tekan Enter atau klik Verifikasi setelah scan barcode / masukkan nomor kartu" />
+												</div>
+												<div>
+													<label use="ais.ui.util.MyLabelConfig" sclass="aj-gate-field-label" value="Pintu Gerbang" />
+													<textbox id="scanPintu" width="100%" value="Gerbang Utama"
+														tooltiptext="Nama pintu gerbang tempat scan dilakukan" />
+												</div>
+												<div>
+													<label use="ais.ui.util.MyLabelConfig" sclass="aj-gate-field-label" value="ID Jadwal (opsional)" />
+													<longbox id="scanJadwalId" width="100%"
+														tooltiptext="ID jadwal yang sedang aktif. Kosongkan untuk mencocokkan semua jadwal." />
+												</div>
+												<div sclass="aj-gate-actions">
+													<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+														label="Verifikasi" image="/img/ok.gif"
+														forward="onClick=onVerifikasiGerbang"
+														tooltiptext="Proses verifikasi kartu penjemput" />
+													<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+														label="Refresh" image="/img/refresh.gif"
+														forward="onClick=onRefresh"
+														tooltiptext="Refresh antrian gerbang" />
+												</div>
+											</div>
+											<div sclass="aj-scan-status">
+												<label id="scanStatus" value="Menunggu scan penjemput." />
+											</div>
+										</div>
+									</div>
+								</north>
+								<center border="none">
+									<borderlayout>
+										<north border="none" size="28px">
+											<div sclass="aj-queue-section-title">Antrian Gerbang Aktif (10 Terbaru)</div>
+										</north>
+										<center border="none">
+											<grid use="ais.ui.util.MyGrid" sclass="dgrid" id="gridAntrianGerbang" fixedLayout="true">
+												<columns>
+													<column use="ais.ui.util.MyColumnConfig" label="Antrian"  width="90px" />
+													<column use="ais.ui.util.MyColumnConfig" label="Waktu"    width="150px" />
+													<column use="ais.ui.util.MyColumnConfig" label="Scan"    width="90px" />
+													<column use="ais.ui.util.MyColumnConfig" label="Nomor" />
+													<column use="ais.ui.util.MyColumnConfig" label="Gerbang" />
+													<column use="ais.ui.util.MyColumnConfig" label="Penjemput" />
+													<column use="ais.ui.util.MyColumnConfig" label="Status"  width="140px" />
+													<column use="ais.ui.util.MyColumnConfig" label="Aksi"    width="240px" />
+												</columns>
+											</grid>
+										</center>
+									</borderlayout>
+								</center>
+							</borderlayout>
+						</tabpanel>
+
+						<!-- ===== TAB: MONITOR ===== -->
+						<tabpanel use="ais.ui.util.MyTabpanel">
+							<borderlayout>
+								<north border="none" size="44px">
+									<toolbar sclass="aj-filter">
+										<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+											label="Refresh Monitor" image="/img/refresh.gif"
+											forward="onClick=onReloadDashboard"
+											tooltiptext="Muat ulang daftar panggilan kelas aktif" />
+									</toolbar>
+								</north>
+								<center border="none" autoscroll="true">
+									<div id="monitorPanel" />
+								</center>
+							</borderlayout>
+						</tabpanel>
+
+						<!-- ===== TAB: KENDARAAN ===== -->
+						<tabpanel use="ais.ui.util.MyTabpanel">
+							<include src="/pages/master/antarjemput/panel_kendaraan.zul" />
+						</tabpanel>
+
+						<!-- ===== TAB: RUTE ===== -->
+						<tabpanel use="ais.ui.util.MyTabpanel">
+							<include src="/pages/master/antarjemput/panel_rute.zul" />
+						</tabpanel>
+
+						<!-- ===== TAB: JADWAL ===== -->
+						<tabpanel use="ais.ui.util.MyTabpanel">
+							<include src="/pages/master/antarjemput/panel_jadwal.zul" />
+						</tabpanel>
+
+						<!-- ===== TAB: PESERTA ===== -->
+						<tabpanel use="ais.ui.util.MyTabpanel">
+							<include src="/pages/master/antarjemput/panel_peserta.zul" />
+						</tabpanel>
+
+						<!-- ===== TAB: KARTU ===== -->
+						<tabpanel use="ais.ui.util.MyTabpanel">
+							<include src="/pages/master/antarjemput/panel_kartu.zul" />
+						</tabpanel>
+
+						<!-- ===== TAB: TRANSAKSI ===== -->
+						<tabpanel use="ais.ui.util.MyTabpanel">
+							<include src="/pages/master/antarjemput/panel_transaksi.zul" />
+						</tabpanel>
+
+						<!-- ===== TAB: PANGGILAN ===== -->
+						<tabpanel use="ais.ui.util.MyTabpanel">
+							<include src="/pages/master/antarjemput/panel_detail.zul" />
+						</tabpanel>
+
+						<!-- ===== TAB: LOG ===== -->
+						<tabpanel use="ais.ui.util.MyTabpanel">
+							<include src="/pages/master/antarjemput/panel_log.zul" />
+						</tabpanel>
+
+					</tabpanels>
+				</tabbox>
+			</center>
+		</borderlayout>
+
+		<!-- Form popup - in-page overlay, tidak pernah keluar dari frame -->
+		<window use="ais.ui.util.MyWindow" id="formWindow" title="Antar Jemput"
+			visible="false" mode="popup" position="center,center"
+			border="normal" width="760px" height="560px" />
+
+	</window>
+</zk>

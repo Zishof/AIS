@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="peminjaman" language="groovy" columnCount="3" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="185" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="e6aa4f77-8211-4194-b511-dc794c813406">
+	<property name="ireport.zoom" value="1.771561000000001"/>
+	<property name="ireport.x" value="33"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="label_kota" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Ciputat"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_fakultas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Fakultas"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_jurusan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Prodi"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="barcode" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["../logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="id" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[5L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="kode_barcode" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="perpustakaan" class="java.lang.String"/>
+	<queryString>
+		<![CDATA[select
+b.isbn,
+b.nama,
+e.kode as kode,
+e.nama as nama_,
+f.kode as kode_parent,
+c.tanggal_dirubah,
+b.pengarangs
+
+from library.data_ddc_item_detail a
+inner join library.item b on (a.item = b.id)
+inner join library.data_ddc_item c on (c.id = a.data_ddc_item)
+inner join library.ddc_item e on (e.id = c.ddc_item)
+left join library.ddc_item f on (f.id = e.parent)
+where c.id = $P{id}]]>
+	</queryString>
+	<field name="isbn" class="java.lang.String"/>
+	<field name="nama" class="java.lang.String"/>
+	<field name="kode" class="java.lang.String"/>
+	<field name="nama_" class="java.lang.String"/>
+	<field name="kode_parent" class="java.lang.String"/>
+	<field name="tanggal_dirubah" class="java.sql.Timestamp"/>
+	<field name="pengarangs" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<detail>
+		<band height="98">
+			<rectangle>
+				<reportElement x="0" y="5" width="183" height="89" uuid="76285a56-f267-4d80-ab38-ec2105c63d91"/>
+			</rectangle>
+			<textField>
+				<reportElement x="0" y="82" width="183" height="12" uuid="4a46b03a-aff4-41f6-b924-d3192358b0d2"/>
+				<box rightPadding="3">
+					<bottomPen lineWidth="1.0"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="3" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{kode}+" - "+$F{nama_}+" - "+$F{isbn}+" - "+$F{nama}+" - "+$F{pengarangs}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="5" width="183" height="35" backcolor="#C0C0C0" uuid="502e616c-a184-4871-846a-2e78f9e9679d"/>
+				<box>
+					<bottomPen lineWidth="1.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["PERPUSTAKAAN"+
+"\n"+$P{perpustakaan}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="40" width="183" height="42" uuid="5bfd38c4-cd15-444c-b122-1d70e3b0f4a3"/>
+				<box>
+					<bottomPen lineWidth="0.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="9" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{kode}+
+"\n"+
+($F{pengarangs}.split(",")[0].split(" ")[$F{pengarangs}.split(",")[0].split(" ").length -1].length() > 3 ? $F{pengarangs}.split(",")[0].split(" ")[$F{pengarangs}.split(",")[0].split(" ").length -1].substring( 0, 3 ).toUpperCase() : $F{pengarangs}.toUpperCase())+
+"\n"+
+($F{nama}.length() > 1 ? $F{nama}.substring( 0, 1 ).toUpperCase() : $F{nama}.toUpperCase())]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+</jasperReport>

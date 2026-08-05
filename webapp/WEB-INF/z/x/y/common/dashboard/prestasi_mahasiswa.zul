@@ -1,0 +1,273 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.PrestasiMahasiswaAction" width="100%"
+		height="100%">
+
+		<tabbox width="100%" height="100%">
+
+			<tabs>
+
+				<tab use="ais.ui.util.MyTabConfig" selected="true">
+					Prestasi Mahasiswa
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onCabangPrestasiMahasiswa">
+					Cabang Prestasi Mahasiswa
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onKategoriPrestasiMahasiswa">
+					Kategori Prestasi Mahasiswa
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onRekapCabang">
+					Rekap Berdasar Cabang
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onRekapKategori">
+					Rekap Berdasar Kategori
+				</tab>
+
+			</tabs>
+
+			<tabpanels>
+
+				<tabpanel use="ais.ui.util.MyTabpanel">
+
+
+
+					<borderlayout>
+						<north border="none" open="true" flex="true" visible="false">
+							<grid use="ais.ui.util.MyGrid"
+								fixedLayout="true">
+								<columns>
+									<column
+										use="ais.ui.util.MyColumnConfig" width="150px">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig" width="150px">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig" width="150px">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig" width="150px">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig" width="150px">
+									</column>
+									<column
+										use="ais.ui.util.MyColumnConfig">
+									</column>
+								</columns>
+								<rows>
+
+									<row>
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Nama Kejuaraan" />
+										<textbox
+											forward="onOK=onSearchDefault" id="searchnama" width="95%" />
+
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Mahasiswa" />
+										<bandbox
+											use="ais.action.master.helper.AmbilDataMahasiswaBanbox"
+											forward="onChange=onSearchDefault" id="searchmahasiswa"
+											width="95%" />
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Tanggal Prestasi" />
+										<hbox>
+											<datebox
+												use="ais.ui.util.MyDatebox"
+												forward="onChange=onSearchDefault" id="searchmulai"
+												width="70px" />
+											<label use="ais.ui.util.MyLabelConfig" value="s.d"></label>
+											<datebox
+												use="ais.ui.util.MyDatebox"
+												forward="onChange=onSearchDefault" id="searchsampai"
+												width="70px" />
+										</hbox>
+
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Dosen PA" />
+										<bandbox
+											use="ais.action.master.helper.AmbilDataDosenBanbox"
+											id="searchdosen" width="95%" />
+
+
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Status" />
+										<combobox id="searchstatus"
+											forward="onChange=onSearchDefault" width="95%" />
+
+									</row>
+
+									<row>
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Penyelenggara" />
+										<textbox
+											forward="onOK=onSearchDefault" id="searchpenyelenggara"
+											width="95%" />
+
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Fakultas" />
+
+										<hbox>
+											<combobox
+												forward="onChange=onSearchDefault" id="searchfakultas"
+												width="95%" />
+											<label use="ais.ui.util.MyLabelConfig" value="Prodi"/>
+											<combobox id="searchjurusan"
+												forward="onChange=onSearchDefault" width="95%" />
+
+										</hbox>
+
+
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Tahun Akademik" />
+										<combobox id="searchta"
+											forward="onChange=onSearchDefault" width="95%" />
+
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Cabang" />
+										<combobox
+											id="searchcabangPrestasiMahasiswa"
+											forward="onChange=onSearchDefault" width="95%" />
+										<label
+											use="ais.ui.util.MyLabelConfig" value="Kategori" />
+										<combobox
+											id="searchkategoriPrestasiMahasiswa"
+											forward="onChange=onSearchDefault" width="95%" />
+
+									</row>
+
+									<row spans="10">
+
+										<toolbar>
+											<toolbarbutton
+												use="ais.ui.util.MyToolbarbuttonConfig"
+												tooltiptext="Tambah data" forward="onClick=onAdd" id="add"
+												label="Tambah Kejuaraan" image="/img/new.gif">
+											</toolbarbutton>
+											<toolbarbutton
+												use="ais.ui.util.MyToolbarbuttonConfig"
+												tooltiptext="Cari data" forward="onClick=onSearchDefault"
+												id="find" label="Cari" image="/img/search.gif">
+											</toolbarbutton>
+
+											<toolbarbutton
+												use="ais.ui.util.MyToolbarbuttonConfig" upload="true"
+												tooltiptext="Upload Mahasiswa"
+												forward="onUpload=onUploadData" id="uploadData"
+												label="Upload Data Mahasiswa" image="/img/edit.gif">
+											</toolbarbutton>
+
+										</toolbar>
+									</row>
+								</rows>
+							</grid>
+
+						</north>
+						<center border="none"
+							flex="true">
+
+							<grid use="ais.ui.util.MyGrid"
+								sclass="fgrid">
+								<rows>
+									<row>
+
+										<grid use="ais.ui.util.MyGrid"
+											fixedLayout="true" id="grid" mold="paging" pageSize="25">
+											<columns>
+												<column
+													use="ais.ui.util.MyColumnConfig" label="" width="0%" />
+												<column id="colNama"
+													use="ais.ui.util.MyColumnConfig" label="Mahasiswa"
+													width="10%" />
+												<column
+													use="ais.ui.util.MyColumnConfig" label="Nama Kejuaraan"
+													sort="auto(nama)" />
+												<column width="15%"
+													use="ais.ui.util.MyColumnConfig"
+													label="Tempat/Penyelenggara/Smt" />
+												<column width="15%"
+													use="ais.ui.util.MyColumnConfig" label="Cabang/Kategori" />
+												<column width="15%"
+													use="ais.ui.util.MyColumnConfig" label="Capaian" />
+												<column width="8%"
+													use="ais.ui.util.MyColumnConfig" label="No. Sertifikat" />
+												<column width="8%"
+													use="ais.ui.util.MyColumnConfig" label="Status" />
+												<column width="8%"
+													use="ais.ui.util.MyColumnConfig" label="Keberadaan" />
+												<column width="0px"
+													use="ais.ui.util.MyColumnConfig" label="Keterangan"
+													 />
+												<column
+													use="ais.ui.util.MyColumnConfig" width="10%" label="" />
+											</columns>
+
+										</grid>
+
+									</row>
+										<row>
+											<paging visible="false"
+												id="paging" detailed="true" />
+										</row>
+								</rows>
+							</grid>
+
+
+						</center>
+
+					</borderlayout>
+
+				</tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="cabangPrestasiMahasiswaTab"></tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="kategoriPrestasiMahasiswaTab"></tabpanel>
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="cabangRekapTab"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="kategoriRekapTab"></tabpanel>
+
+			</tabpanels>
+		</tabbox>
+
+
+		<window use="ais.ui.util.MyWindow" id="addWindow"
+			title="Tambah Kejuaraan" visible="false" mode="popup"
+			position="center,center" border="normal" width="550px"
+			height="95%">
+
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+	</window>
+
+
+</zk>

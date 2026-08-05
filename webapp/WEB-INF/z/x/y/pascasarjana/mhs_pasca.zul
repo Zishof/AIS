@@ -1,0 +1,136 @@
+<?page title="AIS Pascasarjana UIN Jakarta" contentType="text/html;charset=UTF-8"?>
+<zk>
+
+	<borderlayout
+		apply="ais.action.maintenance.MhsPascasarjanaAction">
+
+		<north size="80px" border="0" id="mycenter">
+
+			<image id="header" height="80px"
+				width="100%" src="/img/header__pasca.jpg" align="left" />
+		</north>
+		<zscript>
+	// AIS_RESET_DEFAULT_ZKOSS_STYLE mycenter.setStyle(null);
+</zscript>
+		<west width="220px" border="0" flex="true" splittable="true" margins="0,5,0,0" id="west">
+
+			<tree>
+				<treecols>
+					<treecol label="Menu">
+
+					</treecol>
+				</treecols>
+
+				<treechildren>
+
+					<treeitem use="ais.ui.util.MyTreeitemConfig">
+						<treerow>
+							<treecell label="Data Mahasiswa" />
+
+						</treerow>
+						<treechildren>
+							<treeitem use="ais.ui.util.MyTreeitemConfig">
+								<treerow>
+									<treecell label="Ganti Password" />
+
+								</treerow>
+
+							</treeitem>
+							<treeitem use="ais.ui.util.MyTreeitemConfig">
+								<treerow>
+									<treecell
+										label="Update Biodata Mahasiswa" />
+
+								</treerow>
+
+							</treeitem>
+						</treechildren>
+
+
+					</treeitem>
+					<treeitem use="ais.ui.util.MyTreeitemConfig">
+						<treerow>
+							<treecell label="Perkuliahan" />
+
+						</treerow>
+
+						<treechildren>
+							<treeitem use="ais.ui.util.MyTreeitemConfig">
+								<treerow>
+									<treecell label="Pengisian KRS"
+										id="pengisian_krs" forward="onClick=onKRS"/>
+
+								</treerow>
+
+							</treeitem>
+							<treeitem use="ais.ui.util.MyTreeitemConfig">
+								<treerow>
+									<treecell label="Nilai Mahasiswa" />
+
+								</treerow>
+
+							</treeitem>
+
+							<treeitem use="ais.ui.util.MyTreeitemConfig">
+								<treerow>
+									<treecell
+										label="Absensi dan Materi Kuliah" />
+
+								</treerow>
+
+							</treeitem>
+						</treechildren>
+
+
+
+					</treeitem>
+
+					<treeitem use="ais.ui.util.MyTreeitemConfig">
+						<treerow>
+							<treecell label="Laporan" />
+
+						</treerow>
+
+						<treechildren>
+							<treeitem use="ais.ui.util.MyTreeitemConfig">
+								<treerow>
+									<treecell
+										label="Cetak Nilai Mahasiswa" />
+
+								</treerow>
+
+							</treeitem>
+							<treeitem use="ais.ui.util.MyTreeitemConfig">
+								<treerow>
+									<treecell
+										label="Cetak KRS Mahasiswa" />
+
+								</treerow>
+
+							</treeitem>
+						</treechildren>
+
+
+
+					</treeitem>
+
+					<treeitem use="ais.ui.util.MyTreeitemConfig" id="menuitem">
+						<treerow>
+							<treecell label="Logout"></treecell>
+						</treerow>
+					</treeitem>
+				</treechildren>
+
+			</tree>
+		</west>
+		<center>
+
+			<include use="ais.ui.util.MyInclude" id="iframe" src="/pascasarjana/blank_pasca.zul" />
+		</center>
+
+
+
+	</borderlayout>
+
+
+</zk>

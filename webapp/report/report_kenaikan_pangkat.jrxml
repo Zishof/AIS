@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="report name" pageWidth="595" pageHeight="900" columnWidth="535" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20">
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="589"/>
+	<subDataset name="dataset1"/>
+	<parameter name="menimbang" class="java.lang.String"/>
+	<parameter name="mengingat" class="java.lang.String"/>
+	<parameter name="memperhatikan" class="java.lang.String"/>
+	<parameter name="idkenaikan" class="java.lang.Long"/>
+	<queryString>
+		<![CDATA[SELECT
+     pegawai."id" AS pegawai_id,
+     pegawai."alamat" AS pegawai_alamat,
+     pegawai."code" AS pegawai_code,
+     pegawai."email" AS pegawai_email,
+     pegawai."golongan" AS pegawai_golongan,
+     pegawai."jabatan" AS pegawai_jabatan,
+     pegawai."kelamin" AS pegawai_kelamin,
+     pegawai."mycode" AS pegawai_mycode,
+     pegawai."nama" AS pegawai_nama,
+     pegawai."pangkat" AS pegawai_pangkat,
+     pegawai."spesialisasi1" AS pegawai_spesialisasi1,
+     pegawai."spesialisasi2" AS pegawai_spesialisasi2,
+     pegawai."spesialisasi3" AS pegawai_spesialisasi3,
+     pegawai."tanggal_dirubah" AS pegawai_tanggal_dirubah,
+     pegawai."tanggallahir" AS pegawai_tanggallahir,
+     pegawai."telp" AS pegawai_telp,
+     pegawai."tempatlahir" AS pegawai_tempatlahir,
+     pegawai."tetap" AS pegawai_tetap,
+     pegawai."fakultas" AS pegawai_fakultas,
+     pegawai."jurusan" AS pegawai_jurusan,
+     pegawai."spesifikasi_jabatan" AS pegawai_spesifikasi_jabatan,
+     pegawai."ktp" AS pegawai_ktp,
+     pegawai."status_pegawai" AS pegawai_status_pegawai,
+     pegawai."unit_kerja" AS pegawai_unit_kerja,
+     pegawai."satuan_kerja" AS pegawai_satuan_kerja,
+     kenaikan_pangkat."masa_kerja_bulan" AS kenaikan_pangkat_masa_kerja_bulan,
+     kenaikan_pangkat."masa_kerja_tahun" AS kenaikan_pangkat_masa_kerja_tahun,
+     kenaikan_pangkat."no_surat_usul" AS kenaikan_pangkat_no_surat_usul,
+     kenaikan_pangkat."tanggal_surat_usul" AS kenaikan_pangkat_tanggal_surat_usul,
+     kenaikan_pangkat."tanggal_dirubah" AS kenaikan_pangkat_tanggal_dirubah,
+     golongan."nama" AS golongan_nama,
+     gaji_pokok."gaji" AS gaji_pokok_gaji,
+     gaji_pokok."masakerja" AS gaji_pokok_masakerja
+FROM
+     "public"."pegawai" pegawai INNER JOIN "employ"."kenaikan_pangkat" kenaikan_pangkat ON pegawai."id" = kenaikan_pangkat."pegawai"
+     INNER JOIN "employ"."golongan" golongan ON pegawai."golongan_pegawai" = golongan."id"
+     INNER JOIN "employ"."gaji_pokok" gaji_pokok ON golongan."id" = gaji_pokok."golongan"
+WHERE kenaikan_pangkat.Id = $P{idkenaikan};]]>
+	</queryString>
+	<field name="pegawai_id" class="java.lang.Long"/>
+	<field name="pegawai_alamat" class="java.lang.String"/>
+	<field name="pegawai_code" class="java.lang.String"/>
+	<field name="pegawai_email" class="java.lang.String"/>
+	<field name="pegawai_golongan" class="java.lang.String"/>
+	<field name="pegawai_jabatan" class="java.lang.String"/>
+	<field name="pegawai_kelamin" class="java.lang.String"/>
+	<field name="pegawai_mycode" class="java.lang.String"/>
+	<field name="pegawai_nama" class="java.lang.String"/>
+	<field name="pegawai_pangkat" class="java.lang.String"/>
+	<field name="pegawai_spesialisasi1" class="java.lang.String"/>
+	<field name="pegawai_spesialisasi2" class="java.lang.String"/>
+	<field name="pegawai_spesialisasi3" class="java.lang.String"/>
+	<field name="pegawai_tanggal_dirubah" class="java.sql.Timestamp"/>
+	<field name="pegawai_tanggallahir" class="java.sql.Date"/>
+	<field name="pegawai_telp" class="java.lang.String"/>
+	<field name="pegawai_tempatlahir" class="java.lang.String"/>
+	<field name="pegawai_tetap" class="java.lang.Integer"/>
+	<field name="pegawai_fakultas" class="java.lang.Long"/>
+	<field name="pegawai_jurusan" class="java.lang.Long"/>
+	<field name="pegawai_spesifikasi_jabatan" class="java.lang.Long"/>
+	<field name="pegawai_ktp" class="java.lang.String"/>
+	<field name="pegawai_status_pegawai" class="java.lang.Long"/>
+	<field name="pegawai_unit_kerja" class="java.lang.Long"/>
+	<field name="pegawai_satuan_kerja" class="java.lang.Long"/>
+	<field name="kenaikan_pangkat_masa_kerja_bulan" class="java.lang.Integer"/>
+	<field name="kenaikan_pangkat_masa_kerja_tahun" class="java.lang.Integer"/>
+	<field name="kenaikan_pangkat_no_surat_usul" class="java.lang.String"/>
+	<field name="kenaikan_pangkat_tanggal_surat_usul" class="java.sql.Timestamp"/>
+	<field name="kenaikan_pangkat_tanggal_dirubah" class="java.sql.Timestamp"/>
+	<field name="golongan_nama" class="java.lang.String"/>
+	<field name="gaji_pokok_gaji" class="java.lang.Double"/>
+	<field name="gaji_pokok_masakerja" class="java.lang.Double"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="43" splitType="Stretch">
+			<staticText>
+				<reportElement x="0" y="0" width="555" height="26"/>
+				<textElement textAlignment="Center"/>
+				<text><![CDATA[KEMENTRIAN AGAMA REPUBLIK INDONESIA
+KEPUTUSAN MENTERI AGAMA]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="214" y="26" width="42" height="15"/>
+				<textElement/>
+				<text><![CDATA[Nomor :]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="256" y="26" width="100" height="15"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{kenaikan_pangkat_no_surat_usul}]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<pageHeader>
+		<band height="230" splitType="Stretch">
+			<staticText>
+				<reportElement x="0" y="0" width="75" height="20"/>
+				<textElement/>
+				<text><![CDATA[Menimbang :]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="75" y="0" width="480" height="70"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$P{menimbang}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="0" y="71" width="75" height="20"/>
+				<textElement/>
+				<text><![CDATA[Mengingat :]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="75" y="71" width="480" height="77"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$P{mengingat}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="0" y="148" width="75" height="20"/>
+				<textElement/>
+				<text><![CDATA[Memperhatikan :]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="75" y="148" width="480" height="77"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$P{memperhatikan}]]></textFieldExpression>
+			</textField>
+		</band>
+	</pageHeader>
+	<columnHeader>
+		<band height="45" splitType="Stretch">
+			<staticText>
+				<reportElement x="231" y="0" width="75" height="20"/>
+				<textElement textAlignment="Justified"/>
+				<text><![CDATA[MEMUTUSKAN]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="0" y="25" width="75" height="20"/>
+				<textElement/>
+				<text><![CDATA[Menetapkan :]]></text>
+			</staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="506" splitType="Stretch">
+			<staticText>
+				<reportElement x="0" y="0" width="75" height="20"/>
+				<textElement/>
+				<text><![CDATA[PERTAMA :]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="75" y="0" width="169" height="20"/>
+				<textElement/>
+				<text><![CDATA[Pegawai negeri sipil di bawah ini :]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="75" y="20" width="169" height="20"/>
+				<textElement/>
+				<text><![CDATA[1. Nama :]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="75" y="40" width="169" height="20"/>
+				<textElement/>
+				<text><![CDATA[2. Tempat/tanggal lahir :]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="75" y="60" width="169" height="20"/>
+				<textElement/>
+				<text><![CDATA[3. NIP/Karpeg :]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="75" y="80" width="169" height="20"/>
+				<textElement/>
+				<text><![CDATA[4. Pangkat/Gol.ruang lama (TMT) :]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="75" y="100" width="169" height="20"/>
+				<textElement/>
+				<text><![CDATA[5. Jabatan :]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="75" y="120" width="169" height="20"/>
+				<textElement/>
+				<text><![CDATA[6. Unit kerja :]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="75" y="140" width="169" height="20"/>
+				<textElement/>
+				<text><![CDATA[7. Jumlah Angka Kredit :]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="244" y="160" width="125" height="20"/>
+				<textElement textAlignment="Justified"/>
+				<text><![CDATA[Terhitung mulai tanggal :]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="244" y="21" width="100" height="20"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{pegawai_nama}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="344" y="40" width="100" height="20"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{pegawai_tanggallahir}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="244" y="40" width="100" height="20"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{pegawai_tempatlahir}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="244" y="60" width="100" height="20"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{pegawai_code}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="244" y="80" width="100" height="20"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{pegawai_pangkat}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="244" y="100" width="100" height="20"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{pegawai_jabatan}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="244" y="120" width="100" height="20"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{pegawai_unit_kerja}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="444" y="80" width="100" height="20"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{kenaikan_pangkat_tanggal_surat_usul}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="0" y="200" width="544" height="26"/>
+				<textElement/>
+				<text><![CDATA[diangkat dalam pangkat/golongan $F{pegawai_pangkat} / $F{pegawai_golongan} dengan masa kerja golongan $F{gaji_pokok_masakerja}
+gaji pokok sebesar Rp $F{gaji_pokok_gaji} setiap bulan.]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="344" y="80" width="100" height="20"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{pegawai_golongan}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="256" y="180" width="100" height="20"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{kenaikan_pangkat_tanggal_dirubah}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="0" y="226" width="46" height="20"/>
+				<textElement/>
+				<text><![CDATA[KEDUA :]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="46" y="226" width="509" height="55"/>
+				<textElement/>
+				<text><![CDATA[Kepada yang bersangkutan diberikan tunjangan jabatan fungsional dosen berdasarkan Peraturan Presiden
+Nomor: 65 Tahun 2007 sebesar Rp $F{gaji_pokok_gaji} setiap bulan ditambah dengan penghasilan lain yang sah berdasarkan peraturan
+perundang-undangan yang berlaku.]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="0" y="281" width="46" height="20"/>
+				<textElement/>
+				<text><![CDATA[KETIGA :]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="46" y="281" width="509" height="47"/>
+				<textElement/>
+				<text><![CDATA[Apabila dikemudian hari ternyata terdapat kekeliruan dalam Keputusan ini, akan diadakan perbaikan dan
+perhitungan kembali sebagaimana mestinya.
+ASLI Keputusan ini disampaikan kepada yang berkepentingan untuk diketahui dan dipergunakan sebagaimana
+mestinya. ]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="356" y="328" width="147" height="43"/>
+				<textElement textAlignment="Center"/>
+				<text><![CDATA[Ditetapkan di  : JAKARTA
+Pada Tanggal  : $F{kenaikan_pangkat_tanggal_dirubah}
+]]></text>
+			</staticText>
+			<line>
+				<reportElement x="344" y="371" width="173" height="1"/>
+			</line>
+			<staticText>
+				<reportElement x="344" y="372" width="183" height="30"/>
+				<textElement textAlignment="Center"/>
+				<text><![CDATA[a.n. MENTERI AGAMA
+KEPALA BAGIAN MUTASI PEGAWAI]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="344" y="434" width="181" height="29"/>
+				<textElement textAlignment="Center"/>
+				<text><![CDATA[Drs. ABD. KOHAR TANJUNG, M.Si
+NIP.  19660119 198711 1001]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="0" y="434" width="182" height="72"/>
+				<textElement>
+					<font size="8"/>
+				</textElement>
+				<text><![CDATA[Tembusan :
+1. Mentri Agama
+2. Kepala Badan Kepegawaian Negara;
+Up Deputi Bidang Informasi Kepegawaian
+3. Rektor UIN Syarif Hidayatullah Jakarta
+4. Kepala KPPN Jakarta IV Jakarta
+5. Kepala Kantor Regional V Badan Kepegawaian Negara
+6. Direktur PT Taspen di Jakarta]]></text>
+			</staticText>
+		</band>
+	</detail>
+	<summary>
+		<band height="156" splitType="Stretch"/>
+	</summary>
+</jasperReport>

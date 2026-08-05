@@ -1,0 +1,188 @@
+<?init class="ais.ui.util.MyInit"?>
+<?xel-method prefix="sys" name="currentTimeMillis" class="java.lang.System" signature="long currentTimeMillis()"?>
+<?link rel="shortcut icon" type="image/x-icon" href="${myFavicon}"?>
+<?link rel="icon" type="image/x-icon" href="${myFavicon}"?>
+<?link rel="stylesheet" type="text/css" href="/component/uiux/vendors/simplebar/simplebar.min.css"?>
+<?link rel="stylesheet" type="text/css" href="/component/uiux/assets/css/theme.css"?>
+<?link rel="stylesheet" type="text/css" href="/component/uiux/assets/css/user.css"?>
+<?link rel="stylesheet" type="text/css" href="/css/baru/base-theme.css"?>
+<?link rel="stylesheet" type="text/css" href="/css/baru/main-modern-zk.css?v=${sys:currentTimeMillis()}"?>
+<?script src="/component/uiux/vendors/popper/popper.min.js"?>
+<?script src="/component/uiux/vendors/bootstrap/bootstrap.min.js"?>
+<?script src="/component/uiux/vendors/fontawesome/all.min.js"?>
+<?script src="/component/uiux/assets/js/theme.js"?>
+<?page title="Sistem Informasi Akademik" contentType="text/html;charset=UTF-8"?>
+<?meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" ?>
+<?meta name="description" content="Sistem Informasi Akademik Enterprise Education" ?>
+<?meta name="author" content="Mohammad Fauzi Murtadho" ?>
+<zk>
+
+	<window apply="ais.action.maintenance.MainAction2" forward="onClientInfo=onInfo" width="100%" height="100%" border="none" sclass="main2-root main2-zk55">
+
+		<popup id="popupmenu" width="320px" height="90%" sclass="main2-popup-menu"></popup>
+		<image id="foto" visible="false" />
+
+		<borderlayout height="100%" width="100%" id="myborder" sclass="main2-shell">
+			<center border="none" flex="true">
+				<grid fixedLayout="true" sclass="main2-main-grid" width="100%" height="100%">
+					<columns>
+						<column width="100%"></column>
+					</columns>
+					<rows>
+
+						<row id="headerHbox" sclass="headerHbox main2-header navbar-mini-hero" height="96px">
+							<grid fixedLayout="true" id="gridHeader" width="100%" height="96px" sclass="gridHeader main2-header-grid">
+								<columns>
+									<column width="100%"></column>
+								</columns>
+								<rows>
+									<row id="rowHeader" valign="middle" height="96px" sclass="main2-top-navbar">
+										<hbox sclass="main2-navbar-inner" width="100%" pack="start" align="center">
+											<hbox sclass="main2-brand-area navbar-brand" align="center" hflex="1">
+												<space width="14px"></space>
+												<div sclass="main2-logo-box logo-wrapper">
+													<image id="idLogo" src="/img/logo.png" height="46px" />
+												</div>
+												<vbox sclass="main2-title-box">
+													<label id="title" sclass="title1 main2-title brand-title" value="Enterprise Education" />
+													<label id="motto" sclass="motto main2-motto brand-motto" value="Sistem Informasi Terpadu" />
+													<label id="loginInformation" sclass="main2-login-info" value="" />
+												</vbox>
+											</hbox>
+
+											<vbox sclass="main2-user-area" pack="center" align="end" width="auto">
+												<hbox id="headerHboxButton" sclass="main2-header-actions navbar-nav-icons" pack="end" align="center" width="100%"></hbox>
+												<toolbarbutton visible="true" use="ais.ui.util.MyToolbarbuttonConfig" forward="onClick=onLihatOnline" sclass="users_online_button main2-online-button" id="usersOnline" label="Online user(s): 0" />
+											</vbox>
+										</hbox>
+									</row>
+
+									<row id="rowHeader2" height="0px" visible="false" spans="1" sclass="headerHbox main2-module-row">
+										<hbox id="main2ModuleMenu" pack="end" align="center" width="100%" sclass="main2-module-menu">
+											<toolbarbutton visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												id="eLearningButton"
+												forward="onClick=onPengumumanPerkuliahan"
+												image="/img/svg/book-white.svg" label="e-Learning" />
+											<toolbarbutton visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												id="ePrestasiButton" forward="onClick=onKegiatanDanPrestasi"
+												image="/img/svg/trophy-white.svg" label="Prestasi" />
+											<toolbarbutton visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												id="ePustakaButton" forward="onClick=onPustaka"
+												image="/img/svg/books-thin-white.svg" label="Pustaka" />
+											<toolbarbutton visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												id="eWorkflowButton" forward="onClick=onWorkflow"
+												image="/img/svg/journal-arrow-up-white.svg" label="Workflow" />
+											<toolbarbutton visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												id="eRepositoryButton" forward="onClick=onRepository"
+												image="/img/svg/folder2.svg" label="Repository" />
+											<toolbarbutton visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												id="eAntarJemputButton" forward="onClick=onAntarJemput"
+												image="/img/svg/calendar2.svg" label="Antar Jemput" />
+											<toolbarbutton visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												id="eAkademikButton" forward="onClick=onDashboard"
+												image="/img/svg/dashboard-speed-white.svg" label="Akademik" />
+											<toolbarbutton visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												id="eAdministrasiButton"
+												image="/img/svg/journal-bookmark-white.svg"
+												forward="onClick=onAdministrasi" label="Administrasi" />
+											<toolbarbutton visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												id="ePengadaanButton" image="/img/svg/boxes-white.svg"
+												forward="onClick=onPengadaan" label="Pengadaan" />
+											<toolbarbutton visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												id="ePembayaranButton" image="/img/svg/payments-white.svg"
+												forward="onClick=onPembayaran" label="Pembayaran" />
+											<toolbarbutton visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												id="eKeuanganButton" image="/img/svg/money-bills-white.svg"
+												forward="onClick=onKeuangan" label="Keuangan" />
+											<toolbarbutton visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												id="eAkuntingButton"
+												image="/img/svg/file-earmark-text-white.svg"
+												forward="onClick=onAkunting" label="Akuntansi" />
+											<toolbarbutton visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												id="eKepegawaianButton" image="/img/svg/user-tie-white.svg"
+												forward="onClick=onKepegawaian" label="Kepegawaian" />
+											<toolbarbutton visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												id="eKinerjaButton"
+												image="/img/svg/card-checklist-white.svg"
+												forward="onClick=onKinerja" label="Kinerja" />
+											<toolbarbutton visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												id="ePresensiButton" forward="onClick=onPresensi"
+												image="/img/svg/check-circled-outline-white.svg"
+												label="Presensi" />
+											<toolbarbutton visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												id="eKalenderAkademikButton"
+												image="/img/svg/list-task-white.svg"
+												forward="onClick=onInformasiKalenderAkademik"
+												label="Kalender Akademik" />
+											<toolbarbutton visible="false"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												id="eInfoKegiatanButton"
+												image="/img/svg/information-circle-outline-white.svg"
+												forward="onClick=onInformasiKegiatan" label="Info Kegiatan" />
+											<toolbarbutton id="IdTampilanLama"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												href="/main?versilama=true"
+												image="/img/svg/desktop-light.svg"
+												label="Versi Lama" />
+											<toolbarbutton id="IdTampilanBaru"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												href="/baru"
+												image="/img/svg/boxes-white.svg"
+												label="Tampilan Full" />
+										</hbox>
+									</row>
+								</rows>
+							</grid>
+						</row>
+
+						<row sclass="main2-content-row">
+							<borderlayout id="tinggiFrame" width="100%" sclass="main2-layout-frame">
+								<west border="none" collapsible="true" width="248px" flex="true" title="Menu" id="navigasi" sclass="navigasi main2-sidebar navbar-vertical navbar-vibrant" open="true" splittable="false"></west>
+								<center id="centerTinggiFrame" flex="true" sclass="main2-center">
+									<tabbox id="iframe" width="100%" sclass="main2-tabbox main2-tabless">
+										<tabs id="tabs" width="100%" sclass="main2-tabs main2-tabs-hidden nav nav-tabs">
+											<tab id="tabHome" label="Home" use="ais.ui.util.MyTabConfig" image="/img/blue-home-icon.png" closable="false" />
+										</tabs>
+										<tabpanels id="tabpanels" width="100%" sclass="main2-tabpanels">
+											<tabpanel use="ais.ui.util.MyTabpanel" id="panel_home" width="100%" sclass="main2-home-panel"></tabpanel>
+										</tabpanels>
+									</tabbox>
+								</center>
+							</borderlayout>
+						</row>
+
+						<row sclass="main2-footer-row">
+							<div id="footer" sclass="headerHbox main2-footer theme-footer" width="100%"></div>
+						</row>
+					</rows>
+				</grid>
+			</center>
+
+			<south height="0px" border="none">
+				<vbox width="100%" height="0px">
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="menuService" sclass="customerService main2-floating-menu" image="/img/icons8-menu-48.png" forward="onClick=onOpenMenu" hoverImage="/img/icons8-menu.png" />
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="customerService" sclass="customerService main2-floating-wa" image="/img/whatapp-icon_1.png" forward="onClick=onCustomerService" hoverImage="/img/whatapp-2-icon.png" />
+					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="back_to_top" sclass="back_to_top main2-back-top" image="/img/back_to_top.png" hoverImage="/img/back_to_top_2.png">
+						<attribute name='onClick'><![CDATA[Clients.scrollIntoView(headerHbox);]]></attribute>
+					</toolbarbutton>
+				</vbox>
+			</south>
+		</borderlayout>
+	</window>
+</zk>

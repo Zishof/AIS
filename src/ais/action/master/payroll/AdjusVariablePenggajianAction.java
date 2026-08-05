@@ -1,0 +1,333 @@
+package ais.action.master.payroll;
+
+import java.util.List;
+
+import org.hibernate.Criteria;
+import org.hibernate.Session;
+import org.hibernate.criterion.MatchMode;
+import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Restrictions;
+import org.zkoss.zk.ui.Component;
+import org.zkoss.zk.ui.event.Event;
+import org.zkoss.zk.ui.event.EventListener;
+import org.zkoss.zk.ui.util.GenericAutowireComposer;
+import org.zkoss.zul.Borderlayout;
+import org.zkoss.zul.Center;
+import org.zkoss.zul.Columns;
+import ais.ui.util.MyDetail;
+import org.zkoss.zul.Label;
+import org.zkoss.zul.ListModel;
+import org.zkoss.zul.Paging;
+import org.zkoss.zul.Row;
+import ais.ui.util.MyFormRow;
+import org.zkoss.zul.Rows;
+import org.zkoss.zul.SimpleListModel;
+import org.zkoss.zul.South;
+import org.zkoss.zul.Textbox;
+import org.zkoss.zul.Toolbar;
+
+import ais.action.master.helper.RevisiHelper;
+import ais.common.Common;
+import ais.common.CommonPrivilages;
+import ais.database.hibernate.HibernateUtil;
+import ais.database.model.GeneralValueObject;
+import ais.database.model.payroll.AdjusVariablePenggajian;
+import ais.ui.util.DataCriteria;
+import ais.ui.util.DataInitDefault;
+import ais.ui.util.DataSearchDefault;
+import ais.ui.util.MyColumnConfig;
+import ais.ui.util.MyDatebox;
+import ais.ui.util.MyGrid;
+import ais.ui.util.MyIframe;
+import ais.ui.util.MyLabelBold;
+import ais.ui.util.MyMessageboxConfig;
+import ais.ui.util.MyToolbarbuttonConfig;
+import ais.ui.util.MyWindow;
+
+public class AdjusVariablePenggajianAction extends GenericAutowireComposer
+		implements DataCriteria, DataSearchDefault, DataInitDefault {
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -5779730267402400328L;
+	private MyWindow addWindow;
+	private Paging paging;
+	private MyGrid grid;
+
+	private Textbox searchnama;
+
+	private Textbox nama;
+	private Textbox keterangan;
+
+	private boolean edit = false;
+	private boolean delete = false;
+
+	private AdjusVariablePenggajian adjusVariablePenggajian;
+	private MyToolbarbuttonConfig add;
+	private Textbox kode;
+	private MyDatebox mulai;
+	private MyDatebox sampai;
+
+	private String kodeParameter = null;
+
+	@Override
+	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
+			org.zkoss.zk.ui.Component parent, org.zkoss.zk.ui.metainfo.ComponentInfo compInfo) {
+		Common.doCheckSecurity();
+		return super.doBeforeCompose(page, parent, compInfo);
+	}
+
+	public void doAfterCompose(Component comp) throws Exception {
+		// TODO Auto-generated method stub
+		super.doAfterCompose(comp);
+		Common.initLaguage();
+
+		if (execution.getParameter("kode") != null && !execution.getParameter("kode").trim().isEmpty()) {
+			kodeParameter = execution.getParameter("kode").trim();
+		}
+
+		if (add != null) {
+		add.setVisible(CommonPrivilages.checkPrevilages(CommonPrivilages.CREATE));
+		add.setTooltiptext("Tambah");
+		}
+
+		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
+		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
+		onSearchDefault(null);
+		Common.initPaging(paging, new EventListener() {
+
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				onSearchDefault(null);
+
+			}
+		});
+
+		String[] contents = new String[] { "id", "kode", "nama", "mulai", "sampai", "keterangan", "aktif" };
+		MyToolbarbuttonConfig cetakToolbarbutton = Common.cetakData(AdjusVariablePenggajian.class, this, contents);
+		Common.appendKeToolbar(cetakToolbarbutton, add, comp);
+
+		MyToolbarbuttonConfig upload = Common.uploadData(this, AdjusVariablePenggajian.class, contents);
+		if (upload != null) { upload.setVisible((add != null && add.isVisible()) && edit && delete); }
+		Common.appendKeToolbar(upload, add, comp);
+	}
+
+	class AdjusVariablePenggajianRenderer extends ais.ui.util.MyRowRenderer {
+
+		@Override
+		public void render(final Row arg0, Object arg1) throws Exception {
+			arg0.setValign("top");
+			// TODO Auto-generated method stub
+			final AdjusVariablePenggajian adjusVariablePenggajian = (AdjusVariablePenggajian) arg1;
+
+			final MyDetail detail = new MyDetail();
+			detail.setParent(arg0);
+			detail.addEventListener("onOpen", new EventListener() {
+
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					Common.clear(detail);
+					if (detail.isOpen()) {
+						MyIframe include = new MyIframe(
+								"/pages/master/payroll/gaji_tambahan.zul?adjusVariablePenggajian="
+										+ adjusVariablePenggajian.getId());
+						include.setHeight("500px");
+						include.setWidth("100%");
+						detail.appendChild(include);
+					}
+				}
+			});
+
+			new Label(adjusVariablePenggajian.getKode()).setParent(arg0);
+			RevisiHelper.createNewRevisi(AdjusVariablePenggajian.class, adjusVariablePenggajian,
+					adjusVariablePenggajian.getNama()).setParent(arg0);
+
+			new Label(adjusVariablePenggajian.getMulai() == null ? ""
+					: Common.dateFormat6.get().format(adjusVariablePenggajian.getMulai())).setParent(arg0);
+			new Label(adjusVariablePenggajian.getSampai() == null ? ""
+					: Common.dateFormat6.get().format(adjusVariablePenggajian.getSampai())).setParent(arg0);
+
+			new Label(adjusVariablePenggajian.getKeterangan()).setParent(arg0);
+
+			Common.copyEditDeleteButtons(edit, delete, adjusVariablePenggajian, AdjusVariablePenggajianAction.this)
+					.setParent(arg0);
+
+		}
+
+	}
+
+	public void onAdd(Event event) throws Exception {
+		init(new AdjusVariablePenggajian());
+		addWindow.setVisible(true);
+		addWindow.onModal();
+	}
+
+	@Override
+	public void init(GeneralValueObject obj) throws Exception {
+		adjusVariablePenggajian = (AdjusVariablePenggajian) obj;
+		init(adjusVariablePenggajian);
+		addWindow.setVisible(true);
+		addWindow.onModal();
+	}
+
+	private void init(AdjusVariablePenggajian adjusVariablePenggajian) {
+		this.adjusVariablePenggajian = adjusVariablePenggajian;
+		addWindow.setTitle(adjusVariablePenggajian.getId() == null ? "Tambah Adjus Variable Penggajian" : "Ubah Adjus Variable Penggajian");
+		Common.clear(addWindow);
+		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
+		Center center = new Center();
+		center.setParent(borderlayout);
+		ais.ui.util.ZkCompat.setFlex(center, true);
+		MyGrid grid = new MyGrid();
+		grid.setWidth("100%");
+		grid.setParent(center);
+		grid.setWidth("100%");
+		grid.setHeight("100%");
+
+		Columns columns = new Columns();
+		columns.setParent(grid);
+
+		MyColumnConfig column = new MyColumnConfig();
+		column.setParent(columns);
+		column.setWidth("30%");
+
+		column = new MyColumnConfig();
+		column.setParent(columns);
+
+		Rows rows = new Rows();
+		rows.setParent(grid);
+
+		MyFormRow row = new MyFormRow();
+		row.setValign("top");
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Kode Variable *"));
+		kode = new Textbox(adjusVariablePenggajian.getKode());
+
+		if (kodeParameter != null && !kodeParameter.isEmpty()) {
+			kode.setValue(kodeParameter);
+			row.appendChild(new MyLabelBold(kodeParameter));
+		} else {
+			row.appendChild(kode);
+		}
+
+		kode.setWidth("90%");
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Formula Variable Default"));
+		row.appendChild(nama = new Textbox(adjusVariablePenggajian.getNama()));
+		nama.setWidth("90%");
+		nama.setRows(3);
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Variable berlaku mulai *"));
+		row.appendChild(mulai = new MyDatebox(adjusVariablePenggajian.getMulai()));
+		mulai.setReadonly(false);
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Variable berlaku sampai"));
+		row.appendChild(sampai = new MyDatebox(adjusVariablePenggajian.getSampai()));
+		sampai.setReadonly(false);
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Keterangan"));
+		row.appendChild(keterangan = new Textbox(adjusVariablePenggajian.getKeterangan()));
+		keterangan.setWidth("90%");
+		keterangan.setRows(3);
+
+		South south = new South();
+		ais.ui.util.ZkCompat.setFlex(south, true);
+		south.setParent(borderlayout);
+
+		Toolbar toolbar = new Toolbar();
+		toolbar.setParent(south);
+		MyToolbarbuttonConfig cancel = new MyToolbarbuttonConfig("Batal", "/img/cancel.gif");
+		cancel.setTooltiptext("Tutup");
+		cancel.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				addWindow.setVisible(false);
+			}
+		});
+		cancel.setParent(toolbar);
+		MyToolbarbuttonConfig save = new MyToolbarbuttonConfig("Simpan", "/img/save.gif");
+		save.setTooltiptext("Simpan");
+		save.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				if (onSave(event)) {
+					onSearchDefault(null);
+					addWindow.setVisible(false);
+				}
+			}
+		});
+		save.setParent(toolbar);
+		borderlayout.setParent(addWindow);
+
+	}
+
+	public boolean onSave(Event event) throws Exception {
+		if (kode.getValue().trim().equals("")) {
+			MyMessageboxConfig.show("Mohon maaf, nama variabel belum diisi. Langkah yang dapat dilakukan: (1) isi kolom Nama Variabel; (2) ulangi penyimpanan.", "Peringatan", MyMessageboxConfig.OK,
+					MyMessageboxConfig.INFORMATION);
+			return false;
+		}
+		if (mulai.getValue() == null) {
+			MyMessageboxConfig.show("Mohon maaf, tanggal mulai berlaku belum diisi. Langkah yang dapat dilakukan: (1) isi kolom Mulai Berlaku; (2) ulangi penyimpanan.", "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return false;
+		}
+		Session session = HibernateUtil.currentSession();
+		if (adjusVariablePenggajian.getId() != null) {
+			adjusVariablePenggajian = (AdjusVariablePenggajian) session.load(AdjusVariablePenggajian.class,
+					adjusVariablePenggajian.getId());
+
+		}
+
+		adjusVariablePenggajian.setMulai(mulai.getValue());
+		adjusVariablePenggajian.setSampai(sampai.getValue());
+		adjusVariablePenggajian.setKode(kode.getValue());
+		adjusVariablePenggajian.setNama(nama.getValue());
+		adjusVariablePenggajian.setKeterangan(keterangan.getValue());
+
+		if (kodeParameter != null && !kodeParameter.isEmpty()) {
+			adjusVariablePenggajian.setKode(kodeParameter);
+		}
+
+		Common.refreshSaveOrUpdate(session, adjusVariablePenggajian);
+
+		return true;
+	}
+
+	public Criteria initCriteria(boolean order) {
+		Session session = HibernateUtil.currentSession();
+		Criteria criteria = session.createCriteria(AdjusVariablePenggajian.class);
+
+		if (kodeParameter != null && !kodeParameter.isEmpty()) {
+			criteria.add(Restrictions.eq("kode", kodeParameter));
+		}
+
+		if (order)
+			criteria.addOrder(Order.desc("id"));
+		criteria.add(searchnama.getValue().trim().isEmpty() ? Restrictions.sqlRestriction("true")
+				: Restrictions.ilike("nama", searchnama.getValue().trim(), MatchMode.ANYWHERE));
+		return criteria;
+	}
+
+	@SuppressWarnings("unchecked")
+	public void onSearchDefault(Event event) {
+		Common.initPaging(initCriteria(false), paging);
+
+		List<AdjusVariablePenggajian> adjusVariablePenggajian = initCriteria(true)
+				.setMaxResults(Common.ROWS_COUNT_ON_PAGE)
+				.setFirstResult(Common.ROWS_COUNT_ON_PAGE * (paging == null ? 0 : paging.getActivePage())).list();
+		ListModel strset = new SimpleListModel(adjusVariablePenggajian);
+		grid.setRowRenderer(new AdjusVariablePenggajianRenderer());
+		grid.setModelCheckMobile(strset);
+
+	}
+
+}

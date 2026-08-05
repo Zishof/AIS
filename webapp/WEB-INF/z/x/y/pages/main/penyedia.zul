@@ -1,0 +1,122 @@
+<?link rel="shortcut icon" href="/img/logo.png" type="image/x-icon"?>
+<?page title="Data Perusahaan" contentType="text/html;charset=UTF-8"?>
+<?meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" ?>
+<?meta name="description" content="Sistem Informasi Akademik Ecampus" ?>
+<?meta name="author" content="Mohammad Fauzi Murtadho" ?>
+<zk>
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.maintenance.PenyediaAction" width="100%"
+		height="100%">
+
+		<zscript>
+		<![CDATA[
+	ais.database.model.PerguruanTinggi perguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil
+			.getPerguruanTinggi((javax.servlet.http.HttpServletRequest) execution.getNativeRequest());
+	String background_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruanTinggiMedia(
+			(javax.servlet.http.HttpServletRequest) execution.getNativeRequest(), "banner_perguruanTinggi_");
+	if (background_PerguruanTinggi == null || background_PerguruanTinggi.trim().isEmpty()) {
+		background_PerguruanTinggi = ais.common.Common.getRequestHostWithProtocol() + "/img/header.jpg";
+	}
+	boolean mobile = ais.common.Common.isMobile((javax.servlet.http.HttpServletRequest) execution.getNativeRequest());
+	String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.getPerguruanTinggiMedia(
+			(javax.servlet.http.HttpServletRequest) execution.getNativeRequest(), "logo_perguruanTinggi_");
+	if (logo_PerguruanTinggi == null || logo_PerguruanTinggi.trim().isEmpty()) {
+		logo_PerguruanTinggi = "/img/logo.png";
+	}
+]]>
+		</zscript>
+
+
+		<borderlayout height="100%" width="100%" id="myborder">
+		
+			<south border="none" id="mysouth"></south>
+
+			<center border="none" flex="true">
+				<grid>
+					<rows>
+						<row id="headerHbox" sclass="headerHbox">
+
+							<grid fixedLayout="true" id="gridHeader" sclass="gridHeader">
+								<columns>
+									<column></column>
+									<column></column>
+								</columns>
+
+								<rows>
+									<row id="rowHeader" valign="middle"
+										height="60px">
+
+										<hbox>
+											<space></space>
+											<image id="idLogo"
+												src="/img/logo.png" height="50px">
+											</image>
+											<space></space>
+											<vbox>
+												<label id="title"
+													sclass="title1">
+												</label>
+												<label id="motto"
+													sclass="motto">
+												</label>
+
+											</vbox>
+										</hbox>
+
+										<vbox
+											pack="end" align="right" width="100%">
+
+
+
+
+										</vbox>
+
+									</row>
+
+								</rows>
+							</grid>
+
+
+						</row>
+						<row>
+
+							<borderlayout height="2600px"
+								width="100%">
+
+								<center id="centerUtama"
+									title="Data Identitas Perusahaan">
+
+
+
+								</center>
+
+							</borderlayout>
+						</row>
+					</rows>
+				</grid>
+			</center>
+
+
+			<zscript>
+								<![CDATA[
+	idLogo.setSrc(logo_PerguruanTinggi);
+	// AIS_RESET_DEFAULT_ZKOSS_STYLE rowHeader.setStyle(null);
+	// AIS_RESET_DEFAULT_ZKOSS_STYLE gridHeader.setStyle(null);
+	title.setValue(perguruanTinggi == null ? "" : perguruanTinggi.getNama());
+	motto.setValue(
+			perguruanTinggi == null || perguruanTinggi.getMotto() == null || perguruanTinggi.getMotto().trim().isEmpty()
+					? "eCampus Information System"
+					: perguruanTinggi.getMotto());
+]]>
+								</zscript>
+
+
+
+		</borderlayout>
+
+
+
+
+	</window>
+
+</zk>

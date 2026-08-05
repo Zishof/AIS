@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Biodata_Nim" pageWidth="595" pageHeight="550" orientation="Landscape" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20" uuid="2cfd83d4-9fb1-4320-a3ab-ed9cb4cf9f8e">
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<property name="ireport.zoom" value="1.771561000000001"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="nim" class="java.lang.String"/>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="barcode" class="java.lang.String"/>
+	<parameter name="foto" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="biodata_id" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[313L]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select
+a.sekolah_id,
+a.nama_siswa as nama,
+a.jenis_kelamin,a.tempat_lahir,a.tanggal_lahir,
+a.alamat_siswa as alamat,a.sekolah_asal as asal_sma,b.nama as prodi_1,c.nama as prodi_2,a.nomor_induk as no_registrasi,a.tanggal_lahir,
+b.nama as p1,c.nama as p2, d.nama as jenjang,
+f.keterangan as info,
+
+f.tanggalujian1,
+f.tanggalujian2,
+f.tanggalujian3,
+f.tanggalujian4,
+f.tanggalujian5,
+f.tanggalujian6,
+f.tanggalujian7,
+f.tanggalujian8,
+f.tanggalujian9,
+f.tanggalujian10,
+f.lokasi,
+f.tampilkanjadwalujiandikartuujian,
+e.tahun_ajaran as tahunakademik
+
+from sekolah.calon_siswa a
+
+left join sekolah.sekolah b on a.sekolah_id=b.id
+left join sekolah.yayasan c on a.yayasan_id=c.id
+left join sekolah.jenis_sekolah d on b.jenis_sekolah_id=d.id
+left join sekolah.gelombang_pendaftaran_psb e on (a.current_gelombang_pendaftaran_psb_id=e.id)
+
+left join (select aaa.tahunakademik,aaa.gelombang_pendaftaran_psb,
+	max(aaa.keterangan) as keterangan,
+	max(aaa.tanggalujian1) as tanggalujian1,
+	max(aaa.tanggalujian2) as tanggalujian2,
+	max(aaa.tanggalujian3) as tanggalujian3,
+	max(aaa.tanggalujian4) as tanggalujian4,
+	max(aaa.tanggalujian5) as tanggalujian5,
+	max(aaa.tanggalujian6) as tanggalujian6,
+	max(aaa.tanggalujian7) as tanggalujian7,
+	max(aaa.tanggalujian8) as tanggalujian8,
+	max(aaa.tanggalujian9) as tanggalujian9,
+	max(aaa.tanggalujian10) as tanggalujian10,
+	aaa.tampilkanjadwalujiandikartuujian,
+	max(aaa.lokasi) as lokasi
+from sekolah.ujian_psb aaa
+inner join sekolah.ruang_psb bbb on (aaa.id=bbb.ujian_psb)
+group by aaa.tahunakademik,aaa.gelombang_pendaftaran_psb,aaa.tampilkanjadwalujiandikartuujian) f on (f.gelombang_pendaftaran_psb = a.current_gelombang_pendaftaran_psb_id)
+
+where a.id=$P{biodata_id}
+limit 1]]>
+	</queryString>
+	<field name="sekolah_id" class="java.lang.Long"/>
+	<field name="nama" class="java.lang.String"/>
+	<field name="jenis_kelamin" class="java.lang.String"/>
+	<field name="tempat_lahir" class="java.lang.String"/>
+	<field name="tanggal_lahir" class="java.sql.Date"/>
+	<field name="alamat" class="java.lang.String"/>
+	<field name="asal_sma" class="java.lang.String"/>
+	<field name="prodi_1" class="java.lang.String"/>
+	<field name="prodi_2" class="java.lang.String"/>
+	<field name="no_registrasi" class="java.lang.String"/>
+	<field name="p1" class="java.lang.String"/>
+	<field name="p2" class="java.lang.String"/>
+	<field name="jenjang" class="java.lang.String"/>
+	<field name="info" class="java.lang.String"/>
+	<field name="tanggalujian1" class="java.sql.Timestamp"/>
+	<field name="tanggalujian2" class="java.sql.Timestamp"/>
+	<field name="tanggalujian3" class="java.sql.Timestamp"/>
+	<field name="tanggalujian4" class="java.sql.Timestamp"/>
+	<field name="tanggalujian5" class="java.sql.Timestamp"/>
+	<field name="tanggalujian6" class="java.sql.Timestamp"/>
+	<field name="tanggalujian7" class="java.sql.Timestamp"/>
+	<field name="tanggalujian8" class="java.sql.Timestamp"/>
+	<field name="tanggalujian9" class="java.sql.Timestamp"/>
+	<field name="tanggalujian10" class="java.sql.Timestamp"/>
+	<field name="lokasi" class="java.lang.String"/>
+	<field name="tampilkanjadwalujiandikartuujian" class="java.lang.Boolean"/>
+	<field name="tahunakademik" class="java.lang.String"/>
+	<variable name="Tanggal" class="java.util.Date">
+		<variableExpression><![CDATA[new java.util.Date()]]></variableExpression>
+	</variable>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="92" splitType="Stretch">
+			<line>
+				<reportElement key="line-1" x="1" y="87" width="534" height="1" uuid="05b65a0e-5929-4170-af26-eaa6901d4ea9"/>
+			</line>
+			<line>
+				<reportElement key="line-2" x="1" y="90" width="534" height="1" uuid="e368d8c9-901c-4046-9385-958cdb426e59"/>
+				<graphicElement>
+					<pen lineWidth="2.0"/>
+				</graphicElement>
+			</line>
+			<staticText>
+				<reportElement key="staticText-2" x="1" y="71" width="535" height="19" uuid="01b686fc-cc0a-433e-9727-2fd8b9884696"/>
+				<textElement textAlignment="Center">
+					<font size="14"/>
+				</textElement>
+				<text><![CDATA[NOMOR INDUK SISWA]]></text>
+			</staticText>
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement key="image-1" x="1" y="-8" width="535" height="79" uuid="e9aef66a-cefd-437e-8f63-31d5167db1bb"/>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "kop_surat" )]]></imageExpression>
+			</image>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<columnHeader>
+		<band splitType="Stretch"/>
+	</columnHeader>
+	<detail>
+		<band height="274" splitType="Stretch">
+			<textField pattern="dd/MM/yyyy" isBlankWhenNull="false">
+				<reportElement key="textField-1" x="469" y="4" width="66" height="16" uuid="5b9f5a7f-b031-44ae-94ae-8a97b255447d"/>
+				<textElement textAlignment="Right">
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{Tanggal}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-6" x="25" y="65" width="121" height="19" uuid="c0cedace-d875-4b05-92df-580f53c88c7f"/>
+				<text><![CDATA[Nama]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-7" x="25" y="84" width="121" height="19" uuid="12773ed5-7292-4213-b9c4-ccfb935ae23b"/>
+				<text><![CDATA[Tempat / Tanggal Lahir]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-8" x="25" y="103" width="121" height="19" uuid="873b00d7-71c0-4cbc-a9f8-88d1511e35e4"/>
+				<text><![CDATA[Jenis Kelamin]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-9" x="25" y="122" width="121" height="19" uuid="5984acf2-de61-41bd-be0b-c886cf96a230"/>
+				<text><![CDATA[Jenjang]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-11" x="25" y="142" width="121" height="19" uuid="024c6128-53cd-4778-9ef7-a6409240a9e6"/>
+				<text><![CDATA[Yayasan]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-12" x="25" y="161" width="121" height="19" uuid="fafe377a-bd9d-4b03-ab9e-67d1e33ac43c"/>
+				<text><![CDATA[Sekolah]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-14" x="353" y="199" width="182" height="19" uuid="c0bb4e9e-08c3-4e6e-8358-2e355b436e54"/>
+				<textElement textAlignment="Center"/>
+				<text><![CDATA[TTD]]></text>
+			</staticText>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="353" y="253" width="182" height="18" uuid="68e241cf-e8dc-4674-a569-82afd23fa249"/>
+				<textElement textAlignment="Center"/>
+				<textFieldExpression><![CDATA["( ............................................. )"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="25" y="181" width="510" height="18" uuid="a83826aa-05d0-4358-8525-3fe7b5f1c96b"/>
+				<textElement>
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Telah terdaftar sebagai siswa dengan NIS "+$P{nim}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-15" x="146" y="65" width="11" height="20" uuid="d0ea7120-7315-447e-8276-565088b3efd9"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-16" x="146" y="103" width="11" height="20" uuid="65f1bd6e-397a-4057-a0b6-9a0f6e5fde3e"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-17" x="146" y="122" width="11" height="20" uuid="0de471b4-52d2-48d8-9f5e-cdc0a9e3be5c"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-19" x="146" y="84" width="11" height="20" uuid="d146b083-348e-44c7-be24-44eb9395cb55"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-20" x="146" y="142" width="11" height="20" uuid="d10beb43-e250-4dd3-8a1c-42a2a8804a80"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-21" x="146" y="161" width="11" height="19" uuid="3040f08b-2a60-490f-b998-9c1c2a03f91a"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="157" y="65" width="256" height="18" uuid="facc7da8-1836-4c6d-9eb9-ac503cfe6f7b"/>
+				<textFieldExpression><![CDATA[$F{nama}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="157" y="84" width="256" height="18" uuid="81624beb-3353-4cc6-8bf3-c35f7d373a3f"/>
+				<textFieldExpression><![CDATA[$F{tempat_lahir}+" / "+($F{tanggal_lahir} == null ? "" : new SimpleDateFormat("dd MMMMM yyyy",$P{REPORT_LOCALE}).format($F{tanggal_lahir}))]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="157" y="103" width="256" height="18" uuid="bef60e0e-d4ba-4c43-8d78-e18d3db9936f"/>
+				<textFieldExpression><![CDATA[$F{jenis_kelamin}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="157" y="122" width="256" height="18" uuid="ae14dca8-3378-414f-95aa-040f4938fbde"/>
+				<textFieldExpression><![CDATA[$F{jenjang}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="157" y="142" width="256" height="18" uuid="e86d5142-87b9-470a-8679-11d01a6d6ed3"/>
+				<textFieldExpression><![CDATA[$F{prodi_2}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="157" y="161" width="256" height="18" uuid="dcadb795-73a0-4541-a194-931f80c405fd"/>
+				<textFieldExpression><![CDATA[$F{prodi_1}]]></textFieldExpression>
+			</textField>
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement key="image-1" x="420" y="38" width="105" height="131" uuid="6847bd00-169e-436d-8790-5072fbdfcb11"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<imageExpression><![CDATA[$P{foto}]]></imageExpression>
+			</image>
+		</band>
+	</detail>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band height="20" splitType="Stretch">
+			<image scaleImage="FillFrame" vAlign="Middle">
+				<reportElement key="image-2" x="1" y="0" width="300" height="20" uuid="6be4e990-091d-4d98-a680-1c6cd7aaedf9"/>
+				<imageExpression><![CDATA[$P{barcode}]]></imageExpression>
+			</image>
+		</band>
+	</pageFooter>
+	<summary>
+		<band splitType="Stretch"/>
+	</summary>
+</jasperReport>

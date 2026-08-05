@@ -1,0 +1,168 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+
+
+
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.library.KatalogOnlineAction" width="100%"
+		height="100%">
+
+
+
+
+
+		<borderlayout width="100%" height="100%">
+
+
+			<west title="Cari Katalog" width="400px" border="none"
+				open="true" collapsible="true" splittable="true">
+				<grid use="ais.ui.util.MyGrid"
+					fixedLayout="true">
+					<columns>
+						<column use="ais.ui.util.MyColumnConfig"
+							width="140px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig"></column>
+					</columns>
+					<rows>
+
+						<row>
+							<label use="ais.ui.util.MyLabelConfig"
+								value="ISBN" />
+							<textbox forward="onChange=onSearchDefault"
+								id="searchisbn" width="95%" />
+						</row>
+						<row>
+
+							<label use="ais.ui.util.MyLabelConfig"
+								value="ISSN" />
+							<textbox forward="onChange=onSearchDefault"
+								id="searchissn" width="95%" />
+						</row>
+						<row>
+
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Judul" />
+							<textbox forward="onChange=onSearchDefault"
+								id="searchnama" width="95%" />
+						</row>
+						<row>
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Bahasa" />
+							<textbox forward="onChange=onSearchDefault"
+								id="searchbahasa" width="95%" />
+						</row>
+
+						<row>
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Edisi" />
+							<textbox forward="onChange=onSearchDefault"
+								id="searchedisi" width="95%" />
+						</row>
+						<row>
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Pengarang" />
+							<textbox forward="onChange=onSearchDefault"
+								id="searchpengarang" width="95%" />
+
+						</row>
+						<row>
+
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Ringkasan" />
+							<textbox forward="onChange=onSearchDefault"
+								id="searchcatatan" width="95%" />
+
+						</row>
+						<row>
+
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Penerbit" />
+
+							<textbox forward="onChange=onSearchDefault"
+								id="searchpenerbit" width="95%" />
+						</row>
+						<row>
+
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Jenis" />
+							<combobox forward="onChange=onSearchDefault"
+								id="searchjenisItem" width="95%" />
+						</row>
+						<row>
+
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Tipe" />
+							<combobox forward="onChange=onSearchDefault"
+								id="searchtipeItem" width="95%" />
+						</row>
+
+						<row
+							spans="2">
+
+
+
+							<button use="ais.ui.util.MyButtonConfig"
+								tooltiptext="Cari data" width="99%"
+								forward="onClick=onSearchDefault" id="find" label="Cari"
+								image="/img/search.png">
+							</button>
+
+
+						</row>
+					</rows>
+				</grid>
+
+			</west>
+
+
+			<center border="none" flex="true">
+
+				<grid use="ais.ui.util.MyGrid" sclass="fgrid">
+					<rows>
+						<row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-atas" height="64px" /></row>
+						<row>
+							<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging"
+								detailed="true" />
+						</row>
+						<row>
+							<grid use="ais.ui.util.MyGrid" 
+								sclass="dgrid" fixedLayout="true" id="grid">
+								<columns>
+
+									<column
+										use="ais.ui.util.MyColumnConfig" width="168px" />
+									<column
+										use="ais.ui.util.MyColumnConfig" width="40%" />
+									<column
+										use="ais.ui.util.MyColumnConfig" />
+									<column
+										use="ais.ui.util.MyColumnConfig" width="20%" label="" />
+								</columns>
+
+							</grid>
+
+
+						</row>
+						<row><paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar" /></row>
+						<row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-bawah" height="128px" /></row>
+					</rows>
+				</grid>
+			</center>
+		</borderlayout>
+
+
+	</window>
+
+
+</zk>

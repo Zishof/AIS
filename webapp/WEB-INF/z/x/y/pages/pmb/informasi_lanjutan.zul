@@ -1,0 +1,84 @@
+<?page title="Informasi Lanjutan" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<borderlayout height="100%">
+		<west width="5%">
+
+		</west>
+		<center autoscroll="true">
+			<box>
+				<separator height="30px"></separator>
+				<box width="90%" align="center">
+					<label use="ais.ui.util.MyLabelConfig">
+						INFORMASI LANJUTAN
+					</label>
+				</box>
+
+				<separator height="10px"></separator>
+				<html>
+
+
+
+
+					
+					<![CDATA[ <table border='0'> <tr> <td colspan='2'>
+					Apabila masih ada informasi yang belum jelas, dapat
+					menghubungi: </td> </tr> <tr> <td>1.</td>
+					<td>Sekretariat Program Magister FITK</td> </tr>
+					<tr> <td>&nbsp;</td> <td>Jl. Ir. H. Djuanda No. 95
+					Ciputat, Jakarta 15412</td> </tr> <tr>
+					<td>&nbsp;</td> <td>Telp. (62-21) 7443328, 7401925
+					Fax. (62-21) 7443328</td> </tr> <tr> <td>&nbsp;</td>
+					<td>Email: magister@fitk-uinjkt.ac.id</td> </tr>
+					<tr> <td>&nbsp;</td> <td>Website:
+					www.fitk-uinjkt.ac.id</td> </tr>
+
+					<tr> <td>2.</td> <td>Sekretariat Program Magister
+					Sains Psikologi</td> </tr> <tr> <td>&nbsp;</td>
+					<td>Fakultas Psikologi UIN Syarif Hidayatullah
+					Jakarta</td> </tr> <tr> <td>&nbsp;</td> <td>Jl.
+					Kertamukti No. 5 Pisangan Ciputat, Jakarta
+					15419</td> </tr> <tr> <td>&nbsp;</td> <td>Telp.
+					(62-21) 7433060 Fax. (62-21) 74714714</td> </tr>
+					<tr> <td>&nbsp;</td> <td>Email:
+					fakpsi_uinjkt@yahoo.com</td> </tr> <tr>
+					<td>&nbsp;</td> <td>Website:
+					http://fpsi-uinjkt.ac.id </td> </tr>
+
+					<tr> <td>3.</td> <td>Sekretariat Program Magister
+					Fakultas Ushuluddin</td> </tr> <tr> <td>&nbsp;</td>
+					<td>Lt. 4 Fakultas Ushuluddin</td> </tr> <tr>
+					<td>&nbsp;</td> <td>Jl. Ir. H. Djuanda No. 95
+					Ciputat, Jakarta 15412</td> </tr> <tr>
+					<td>&nbsp;</td> <td>Telepon: (021) 7401925, (021)
+					7493677</td> </tr> <tr> <td>&nbsp;</td> <td>Fax:
+					(021) 7493579 - 7402982</td> </tr> <tr>
+					<td>&nbsp;</td> <td>Email: fuf-uinjkt@yahoo.com
+					</td> </tr> <tr> <td>&nbsp;</td> <td>Contact
+					person:</td> </tr> <tr> <td>&nbsp;</td> </tr> <tr>
+					<td>&nbsp;</td> <td> * Dr. M. Suryadinata, MA :
+					08159380060</td> </tr> <tr> <td>&nbsp;</td> </tr>
+
+					<tr> <td>&nbsp;</td> <td> * Drs. Raslin, M.Ag :
+					08161637305</td> </tr> <tr> <td>&nbsp;</td> </tr>
+
+
+
+					</table>
+
+					]]>
+					
+					
+					
+					
+					
+                    		</html>
+			<!-- 	<a href="/help/PMB_S2_2012_01.pdf" target="self">
+					<label use="ais.ui.util.MyLabelConfig">
+						informasi lebih lengkap silakan download PDF ini
+					</label>
+				</a> -->
+
+			</box>
+		</center>
+	</borderlayout>
+</zk>

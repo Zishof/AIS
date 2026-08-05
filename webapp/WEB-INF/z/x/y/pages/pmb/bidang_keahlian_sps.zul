@@ -1,0 +1,32 @@
+<?page title="Biaya Pendaftaran" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<borderlayout height="100%">
+		<west width="5%">
+
+		</west>
+		<center autoscroll="true">
+			<box>
+				<separator height="30px"></separator>
+				<box width="90%" align="center">
+					<label use="ais.ui.util.MyLabelConfig">
+						KONSENTRASI/ PEMINATAN KEAHLIAN
+					</label>
+				</box>
+				<separator height="10px"></separator>
+				<html>
+					
+					<![CDATA[
+						
+
+					
+					<p><br />
+					  Pemikiran Islam (Teologi, Filsafat dan Tasawuf); Pendidikan Islam;  Syari’ah-Fiqh; Sejarah-Peradaban; Bahasa-Sasatra Islam; Tafsir Interdisiplin;  Hadis dan Tradisi Kenabian; Dakwah Islamiyah; Ekonomi Syariah; Manajemen  Perbankan dan Keuangan Syari’ah; Psikologi Islam; Studi Agama-Agama; Kajian  Islam-Jender; Islam-Studi Perdamaian; Studi kawasan Islam; Arsitektur-tata  Ruang Islam; Studi Manuskrip Islam; Filologi Islam Indonesia; Ekologi Islam;  Islam Minoritas; Sosiologi-Antropologi Masyarakat Islam; Kajian Hubungan Intra  dan Antar Agama; Interdisciplinary Islamic Studies; Agama dan Politik; Agama  dan Sains; Islam dan Kependudukan; Agama dan Media; Analisis Produk Halal;  Agama dan Kesehatan; Agama dan Kedokteran; Islam dan Hak Asasi Manusia (HAM); Seni Budaya Islam; Islam dan Diplomasi;  Agama dan Kewirausahaan, Agama dan Sumber Daya Lingkungan.</p>
+
+					
+					 ]]>
+					
+                    		</html>
+			</box>
+		</center>
+	</borderlayout>
+</zk>

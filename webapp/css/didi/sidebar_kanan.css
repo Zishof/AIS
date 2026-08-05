@@ -1,0 +1,7 @@
+@charset "ISO-8859-1";
+
+.sidebar-kanan {
+	display: flex;
+	flex-direction: column;
+	margin-left: 300px;
+}

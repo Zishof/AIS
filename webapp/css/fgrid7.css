@@ -1,0 +1,136 @@
+.fgrid tr.z-row td.z-row-inner, tr.z-row, div.z-grid-body
+		div.z-cell, div.z-grid {
+	border: none;
+	overflow: hidden;
+	zoom: 1;
+	background: transparent;
+	border-top: none;
+	border-left: none;
+	border-right: none;
+	border-bottom: none;
+}
+
+.fgrid .z-grid-odd .fgrid .z-row-inner, .fgrid .z-grid-odd
+		.z-cell {
+	background-color: rgba(192, 192, 192, 0.1);
+	border-bottom: 1px solid transparent;
+	border-left: 1px solid transparent;
+	border-top: 1px solid transparent;
+}
+
+.fgrid .z-grid-odd .fgrid.z-row-inner, .fgrid.z-grid-odd
+		.z-cell, .fgrid.z-grid-odd {
+	background-color: rgba(192, 192, 192, 0.1);
+	border-radius: 10px;
+}
+
+.fgrid tr.z-grid-odd td.z-row-inner, .fgrid tr.z-grid-odd
+		.z-cell, .fgrid tr.z-grid-odd {
+	background-color: rgba(192, 192, 192, 0.1);
+}
+
+.fgrid tr.z-row td.z-row-inner, .fgrid tr.z-row .z-cell {
+	background: transparent;
+	border-top: none;
+	padding-right: 5px;
+}
+
+.xgrid tr.z-row td.z-row-inner, tr.z-row, div.z-grid-body
+		div.z-cell, div.z-grid {
+	border: none;
+	overflow: hidden;
+	zoom: 1;
+	background: transparent;
+	border-top: none;
+	border-left: none;
+	border-right: none;
+	border-bottom: none;
+}
+
+.xgrid .z-grid-odd .fgrid .z-row-inner, .fgrid .z-grid-odd
+		.z-cell tr.z-listbox-odd {
+	background-color: rgba(192, 192, 192, 0.1);
+	border-bottom: 1px solid transparent;
+	border-left: 1px solid transparent;
+	border-top: 1px solid transparent;
+}
+
+tr.z-listitem-seld {
+	background-color: rgba(192, 192, 192, 0.1);
+    border: 1px solid transparent;
+}
+
+.xgrid .z-grid-odd .fgrid.z-row-inner, .fgrid.z-grid-odd
+		.z-cell, .fgrid.z-grid-odd {
+	background-color: rgba(192, 192, 192, 0.1);
+}
+
+.xgrid tr.z-grid-odd td.z-row-inner, .fgrid tr.z-grid-odd
+		.z-cell, .fgrid tr.z-grid-odd {
+	background-color: rgba(192, 192, 192, 0.1);
+}
+
+.xgrid tr.z-row td.z-row-inner, .fgrid tr.z-row .z-cell {
+	background: transparent;
+	border-top: none;
+}
+
+.dgrid tr.z-row td.z-row-inner, tr.z-row, div.z-grid-body
+		div.z-cell, div.z-grid {
+	border: none;
+	overflow: hidden;
+	zoom: 1;
+	background: transparent;
+	border-top: none;
+	border-left: none;
+	border-right: none;
+	border-bottom: none;
+	padding-left: 3px;
+	padding-right: 0px;
+}
+
+.dgrid .z-grid-odd .dgrid .z-row-inner, .dgrid .z-grid-odd
+		.z-cell {
+	background-color: rgba(192, 192, 192, 0.1);
+	border-bottom: 1px solid transparent;
+	border-left: 1px solid transparent;
+	border-top: 1px solid transparent;
+}
+
+.dgrid .z-grid-odd .dgrid.z-row-inner, .dgrid.z-grid-odd
+		.z-cell, .dgrid.z-grid-odd {
+	background-color: rgba(192, 192, 192, 0.1);
+}
+
+.dgrid tr.z-grid-odd td.z-row-inner, .dgrid tr.z-grid-odd
+		.z-cell, .dgrid tr.z-grid-odd {
+	background-color: rgba(192, 192, 192, 0.1);
+}
+
+.dgrid tr.z-row td.z-row-inner, .dgrid tr.z-row .z-cell {
+	border-bottom: 0px solid;
+	border-bottom-color: #d9d9d9;
+}
+
+div.z-grid-footer {
+	border: none;
+	overflow: hidden;
+	zoom: 1;
+	background: rgb(217, 217, 217);
+	background: linear-gradient(90deg, rgba(217, 217, 217, 1) 0%,
+		rgba(244, 244, 244, 1) 100%, rgba(12, 53, 75, 1) 100%);
+	border-top: none;
+	border-left: none;
+	border-right: none;
+	border-bottom: none;
+	padding-left: 0px;
+	padding-right: 6px;
+	background: linear-gradient(90deg, rgba(217, 217, 217, 1) 0%,
+		rgba(244, 244, 244, 1) 100%, rgba(12, 53, 75, 1) 100%);
+	font-weight: bolder;
+}
+
+div.z-footer-cnt, div.z-row-cnt, div.z-group-cnt, div.z-groupfoot-cnt,
+	div.z-column-cnt {
+	padding-right: 5px;
+}

@@ -1,0 +1,15 @@
+<?page title="e-Learning" contentType="text/html;charset=UTF-8"?>
+<?link rel="stylesheet" type="text/css" href="/css/ais_mobile.css?v=20260628d"?>
+<?meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"?>
+<?meta name="description" content="e-Learning (mobile)"?>
+<zk>
+	<!--
+	  e_learning_mobile.zul — Tampilan e-Learning versi MOBILE (pilot Tier-1).
+	  Tipis: seluruh isi dibangun oleh ais.action.master.TampilanELearningActionMobile
+	  yang MEMAKAI-ULANG helper data lama (RekapitulasiPerkuliahanHelper, dst.) tanpa
+	  mengubah TampilanELearningAction desktop. Dibuka oleh cangkang mobile (MobileAction)
+	  di dalam overlay layar penuh; gaya .ais-m-* berasal dari ais_mobile.css halaman induk.
+	-->
+	<div apply="ais.action.master.TampilanELearningActionMobile"
+		width="100%" sclass="ais-m-elearning" style="padding:10px 10px 24px 10px;box-sizing:border-box;" />
+</zk>

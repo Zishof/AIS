@@ -1,0 +1,90 @@
+<?page title="Program Studi UIN Syarif Hidayatullah Jakarta" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<borderlayout height="100%">
+		<west width="5%">
+
+		</west>
+		<center autoscroll="true">
+			<box>
+				<separator height="20px"></separator>
+				<box width="100%" align="center">
+					<label use="ais.ui.util.MyLabelConfig">
+						Sekolah Pasca Sarjana
+					</label>
+				</box>
+				<separator height="10px"></separator>
+				<box width="90%">
+					<html>
+
+
+						
+						<![CDATA[
+
+
+						<p align="justify">Sekolah Pascasarjana UIN
+						Syarif Hidayatullah Jakarta merupakan pusat
+						pengkajian, penelitian dan pengembangan ilmu
+						agama Islam, yang bertujuan menghasilkan alumni
+						yang memiliki pemahaman dan wawasan keislaman
+						yang komprehensif, mempunyai keahlian dalam
+						pengembangan ilmu agama Islam sesuai dengan
+						bidang yang ditekuni, memiliki akhlak yang mulia
+						dan kesadaran ilmiah yang tinggi, terbuka, dan
+						responsif terhadap perubahan sosial. </p> <p
+						align="justify">Sekolah Pascasarjana UIN Syarif
+						Hidayatullah Jakarta menyelenggarakan Program
+						Magister dan Program Doktor.</p> <p
+						align="justify"><strong>Program
+						Studi</strong></p> <p align="justify">Sekolah
+						Pascasarjana memiliki Program Studi Pengkajian
+						Islam (Dirasat Islamiyyah/Islamic Studies)
+						dengan berbagai peminatan/konsentrasi antara
+						lain: Pemikiran Islam (Teologi, Filsafat dan
+						Tasawuf), Pendidikan Islam, Syari&rsquo;ah,
+						Sejarah dan Peradaban Islam, Tafsir-Hadis,
+						Bahasa dan Sastra Arab, Pendidikan Bahasa Arab,
+						Pendidikan Agama Islam, Ulum al-Qur&rsquo;an,
+						Dakwah dan Komunikasi, Ekonomi Islam, Psikologi
+						Islam, Manajemen Perbankan Syari&rsquo;ah, Studi
+						Agama-agama,&nbsp; Pemikiran Politik Islam,
+						Jender dan Kajian Islam, Sosiologi dan
+						Antropologi Agama, Islam dan Studi Perdamaian,
+						Islam di Asia Tenggara, Islam di Timur Tengah,
+						Arsitektur Islam, Studi Manuskrip Islam, dan
+						Islam Minoritas.</p> <p align="justify">Pada
+						tahun akademik 2008/2009 Sekolah Pascarjana
+						selanjutnya juga membuka berbagai Program Studi
+						lain di bidang ilmu Sosial dan Eksakta, mencakup
+						Psikologi, Manajemen, Akuntansi, Teknik
+						Informatika, Sistem Informasi dll.</p> <p
+						align="justify">Informasi selengkapnya tentang
+						Program Magister dan Doktor Studi Islam dapat
+						dibaca pada Pedoman Sekolah Pascasarjana UIN
+						Syarif Hidayatullah Jakarta atau diakses melalui
+						situs website: <a
+						href="http://www.graduate-uinjkt.net"
+						target="_blank">www.graduate-uinjkt.net</a>,
+						atau kontak (+62-21) 7401472,&nbsp; 74709260,
+						Faks. (+62-21) 74700919, Email: <a
+						href="mailto:spsuin@centrin.net.id">spsuin@centrin.net.id</a></p>
+						<p align="justify"><strong>Kelas
+						Khusus</strong></p> <p align="justify"> Sekolah
+						Pascasarjana bekerjasama dengan Direktorat
+						Pendidikan Madrasah Departemen Agama RI
+						menyelenggarakan kelas khusus Program Magister
+						di bidang Pendidikan Bahasa Arab dan Pendidikan
+						Agama Islam bagi para guru Madrasah Aliyah dari
+						berbagai daerah di Indonesia. Program tersebut
+						dimulai tahun 2006/2007. Selain itu pada tahun
+						yang sama, Sekolah Pascasarjana juga
+						menyelenggarakan Program Magister di bidang Ulum
+						al-Quran atas kerjasama dengan Direktorat
+						Perguruan Tinggi Islam Direktorat Jenderal
+						Pendidikan Islam Departemen Agama RI.</p> ]]>
+						
+					</html>
+				</box>
+			</box>
+		</center>
+	</borderlayout>
+</zk>

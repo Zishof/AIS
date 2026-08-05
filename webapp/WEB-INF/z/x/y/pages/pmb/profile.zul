@@ -1,0 +1,131 @@
+<?page title="Selamat Datang di Sistem Informasi Kampus" contentType="text/html;charset=UTF-8"?>
+<zk>
+
+	<borderlayout height="100%">
+		<west width="5%">
+
+		</west>
+		<center autoscroll="true">
+			<box>
+				<box width="90%" align="center">
+					<label use="ais.ui.util.MyLabelConfig">
+						SEKILAS UIN SYARIF HIDAYATULLAH JAKARTA
+					</label>
+				</box>
+				<separator height="10px"></separator>
+
+				<box width="90%" align="start">
+
+					<html>
+					<![CDATA[
+						<p align="justify">Universitas Islam Negeri (UIN) Syarif
+						Hidayatullah Jakarta bertujuan untuk mendorong
+						usaha reintegrasi ilmu, menghilangkan dikotomi
+						antara ilmu-ilmu umum dan ilmu-ilmu agama. Hal
+						ini penting dalam rangka memberikan landasan
+						moral Islam terhadap perkembangan iptek dan
+						sekaligus meng-artikulasikan ajaran Islam secara
+						profesional di dalam kehidupan masyarakat.</p>
+						]]>
+					</html>
+
+				</box>
+				<!--<separator height="10px"></separator>-->
+				<box width="90%" align="start">
+					<html>
+					<![CDATA[
+						<p align="justify">Berdirinya UIN sebagai universitas adalah buah
+						dari perjuangan yang panjang dari umat Islam
+						Indonesia sejak lembaga ini berbentuk akademi
+						dinas dengan nama ADIA ( Akademi Dinas Ilmu
+						Agama ) tahun 1957-1960, sebagai fakultas IAIN
+						Al-Jami`ah Al-Islamiyyah Al-Hukumiyyah yang
+						berpusat di Yogyakarta (1960-1963), sebagai IAIN
+						Syarif Hidayatullah Jakarta sejak tahun 1963,
+						sampai resmi menjadi UIN Syarif Hidayatullah
+						Jakarta sesuai dengan Keputusan Presiden
+						Republik Indonesia Nomor 31 Tahun 2002 tanggal
+						20 Mei 2002.</p>
+						]]>
+					</html>
+				</box>
+
+				<!--<separator height="10px"></separator>-->
+				<box width="90%" align="start">
+					<html>
+						<![CDATA[
+						<p align="justify">Visi UIN Syarif Hidayatullah Jakarta adalah
+						menjadi lembaga pendidikan tinggi terkemuka
+						dalam mengembangkan dan mengintegrasikan aspek
+						keislaman, keilmuan, kemanusiaan, dan
+						keindonesiaan.</p>
+						]]>
+					</html>
+				</box>
+				<box width="90%" align="start">
+					<html>
+
+
+
+
+						
+						<![CDATA[
+
+						Misi UIN Syarif Hidayatullah Jakarta adalah:
+						<ul> <li>Melakukan reintegrasi keilmuan pada
+						tingkat ontologi, epistemologi, dan aksiologi,
+						sehingga tidak ada lagi dikotomi antara
+						ilmu-ilmu umum dan ilmu-ilmu agama.</li>
+						<li>Memberikan landasan moral terhadap
+						pengembangan ilmu pengetahuan dan teknologi
+						(iptek) dan melakukan pencerahan dalam pembinaan
+						iman dan taqwa (imtak) sehingga iptek dan imtak
+						dapat sejalan.</li> <li>Mengartikulasikan ajaran
+						Islam secara ilmiah-akademis ke dalam konteks
+						kehidupan masyarakat, sehingga tidak ada lagi
+						jarak antara nilai dan perspektif agama dan
+						sofistifikasi masyarakat.</li>
+						<li>Mempertahankan nilai-nilai lama yang positif
+						dan mengambil dan/atau mengembangkan nilai-nilai
+						baru yang lebih positif.</li> <li>Memberikan
+						konstribusi kepada peningkatan kualitas hidup
+						masyarakat dengan pola pengabdian masyarakat
+						yang lebih profesional.</li> <li>Memberikan
+						landasan moral dan spiritual terhadap
+						pembangunan nasional, sehingga konsep
+						pembangunan manusia seutuhnya dapat
+						tercapai.</li> <li>Menjadi faktor yang
+						menentukan dalam memelihara hubungan harmonis
+						antara agama, negara, dan masyarakat.</li>
+						<li>Memberikan kontribusi dalam mewujudkan
+						perdamaian dan kesejahteraan umat manusia.</li>
+
+						</ul> <p> Fakultas-fakultas di UIN Syarif
+						Hidayatullah Jakarta meliputi : </p> <ol>
+						<li>Fakultas Ilmu Tarbiyah dan Keguruan;</li>
+						<li>Fakultas Adab dan Humaniora;</li>
+						<li>Fakultas Ushuluddin;</li>
+						<li>Fakultas Syariah dan Hukum; </li>
+						<li>Fakultas Ilmu Dakwah dan Ilmu Komunikasi;</li>
+						<li>Fakultas Dirasat Islamiyah;</li>
+						<li>Fakultas Psikologi;</li>
+						<li>Fakultas Ekonomi dan Bisnis;</li>
+						<li>Fakultas Sains dan Teknologi;</li>
+						<li>Fakultas Kedokteran dan Ilmu Kesehatan;</li>
+						<li>Fakultas Ilmu Sosial dan Ilmu Politik; dan</li> 
+						<li>Sekolah Pascasarjana.</li>
+						</ol>
+
+						]]>
+						
+						
+						
+						
+					
+				</html>
+				</box>
+			</box>
+		</center>
+	</borderlayout>
+
+</zk>

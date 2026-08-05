@@ -1,0 +1,210 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false"
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.AbsenPiketMahasiswaAction" width="100%" height="100%">
+
+		<tabbox width="100%" height="100%">
+
+<tabs>
+
+				<tab use="ais.ui.util.MyTabConfig" selected="true">
+					Absen Kehadiran
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig" visible="false"
+					forward="onClick=onAbsen">
+					Scan Kartu
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig">Rekap Kehadiran</tab>
+				<tab use="ais.ui.util.MyTabConfig">
+					Rekap Tiap Tanggal
+				</tab>
+			</tabs>
+
+			<tabpanels>
+
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<div sclass="ais-crud-portal">
+
+						<!-- ═══ KARTU FILTER ═══ -->
+						<div sclass="ais-crud-filter-card">
+							<div sclass="ais-crud-filter-head">
+								<span sclass="ais-crud-filter-title">Pencarian &amp; Filter</span>
+								<div sclass="ais-crud-filter-actions">
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="add" label="Tambah" image="/img/new.gif" tooltiptext="Tambah data baru" forward="onClick=onAdd"/>
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="find" label="Cari" image="/img/search.gif" tooltiptext="Cari data" forward="onClick=onSearchDefault"/>
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;absen_piket_mahasiswa&quot;, &quot;Bantuan&quot;);"/></div>
+							</div>
+							<div sclass="ais-crud-filter-body">
+								<grid use="ais.ui.util.MyGrid" fixedLayout="true" sclass="ais-crud-filter-grid">
+									<columns>
+
+									<column
+									use="ais.ui.util.MyColumnConfig" width="150px">
+									</column>
+									<column
+									use="ais.ui.util.MyColumnConfig">
+									</column>
+									<column
+									use="ais.ui.util.MyColumnConfig" width="150px">
+									</column>
+									<column
+									use="ais.ui.util.MyColumnConfig">
+									</column>
+									<column
+									use="ais.ui.util.MyColumnConfig" width="150px">
+									</column>
+									<column
+									use="ais.ui.util.MyColumnConfig">
+									</column>
+									<column
+									use="ais.ui.util.MyColumnConfig" width="150px">
+									</column>
+									<column
+									use="ais.ui.util.MyColumnConfig">
+									</column>
+
+
+									</columns>
+									<rows>
+									<row>
+									
+									<label use="ais.ui.util.MyLabelConfig" value="Ta"/>
+									<combobox
+									forward="onChange=onSearchDefault" id="searchta"  width="95%"/>
+									<label use="ais.ui.util.MyLabelConfig" value="Smt"/>
+									<combobox id="searchsmt"
+									forward="onChange=onSearchDefault"  width="95%"/>
+
+									<label
+									use="ais.ui.util.MyLabelConfig" value="Petugas" />
+
+									<bandbox id="searchpegawai"
+									width="95%"
+									use="ais.action.master.akunting.helper.AmbilDataPegawaiBanbox">
+									</bandbox>
+
+									
+									<label use="ais.ui.util.MyLabelConfig" value="Fakultas"/>
+									<combobox
+									forward="onChange=onSearchDefault" id="searchfakultas"  width="95%"/>
+									<label use="ais.ui.util.MyLabelConfig" value="Prodi"/>
+									<combobox id="searchjurusan"
+									forward="onChange=onSearchDefault"  width="95%"/>
+
+									</row>
+								<row spans="8">
+									<hbox width="95%">
+									<label
+									use="ais.ui.util.MyLabelConfig" value="TA" />
+									<label value="/"></label>
+									<label
+									use="ais.ui.util.MyLabelConfig" value="Smt" />
+									</hbox>
+									<hbox width="95%"
+									id="labelFakultasJurusan">
+									<label
+									use="ais.ui.util.MyLabelConfig" value="Fakultas" />
+									<label value="/"></label>
+									<label
+									use="ais.ui.util.MyLabelConfig" value="Jurusan" />
+									</hbox>
+								</row>
+
+									<row>
+
+									<label
+									use="ais.ui.util.MyLabelConfig" value="Peserta" />
+									<textbox
+									forward="onOK=onSearchDefault" id="searchsiswa" width="95%" />
+									<label
+									use="ais.ui.util.MyLabelConfig" value="Keterangan" />
+									<textbox
+									forward="onOK=onSearchDefault" id="searchketerangan"
+									width="95%" />
+
+									<label use="ais.ui.util.MyLabelConfig" value="Start"/>
+									<datebox
+									use="ais.ui.util.MyDatebox" id="start"
+									forward="onChange=onSearchDefault"  width="95%"/>
+									<label use="ais.ui.util.MyLabelConfig" value="End"/>
+									<datebox
+									use="ais.ui.util.MyDatebox" id="end"
+									forward="onChange=onSearchDefault"  width="95%"/>
+
+									</row>
+									</rows>
+								</grid>
+							</div>
+						</div>
+
+						<!-- ═══ KARTU DATA ═══ -->
+						<div sclass="ais-crud-data-card">
+							<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true"/>
+							<grid use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true" id="grid">
+								<columns>
+
+									<column
+									use="ais.ui.util.MyColumnConfig" width="40px" />
+									<column
+									use="ais.ui.util.MyColumnConfig" label="Tahun Ajaran"
+									width="8%" />
+									<column
+									use="ais.ui.util.MyColumnConfig" label="Tanggal dan Waktu"
+									width="15%" />
+									<column id="colJurusan"
+									use="ais.ui.util.MyColumnConfig" label="Jurusan" />
+									<column id="colKelas"
+									use="ais.ui.util.MyColumnConfig" label="Kelas" width="5%" />
+									<column
+									use="ais.ui.util.MyColumnConfig" label="Petugas"
+									width="15%" />
+
+									<column
+									use="ais.ui.util.MyColumnConfig" label="Keterangan"
+									/>
+									<column
+									use="ais.ui.util.MyColumnConfig" width="14%" label="" />
+
+								</columns>
+							</grid>
+							<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>
+						</div>
+
+					</div>
+
+				</tabpanel>
+
+
+
+				<tabpanel use="ais.ui.util.MyTabpanel" visible="false" id="absenPanel"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<window width="100%" height="100%"
+						use="ais.action.report.format1.sekolah.LaporanRekapAbsenPiket">
+					</window>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<window width="100%" height="100%"
+						use="ais.action.report.format1.sekolah.LaporanRekapAbsenPiketPerTgl">
+					</window>
+				</tabpanel>
+			
+			</tabpanels>
+		</tabbox>
+
+		<window use="ais.ui.util.MyWindow" id="addWindow" title="Tambah Jenis Guru" visible="false" mode="popup" position="center,center" border="normal" width="550px" height="95%">
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+	</window>
+
+
+</zk>

@@ -1,0 +1,220 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.alumni.MahasiswaAction" width="97%"
+		height="100%">
+
+
+		<borderlayout>
+			<center border="none">
+				<grid use="ais.ui.util.MyGrid" fixedLayout="true"
+					sclass="fgrid">
+					<columns>
+						<column use="ais.ui.util.MyColumnConfig" width="150px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig" width="150px">
+						</column>
+						<column use="ais.ui.util.MyColumnConfig">
+						</column>
+
+						<column use="ais.ui.util.MyColumnConfig">
+						</column>
+
+					</columns>
+					<rows>
+
+
+						<row>
+
+							<label use="ais.ui.util.MyLabelConfig" value="Alumni" />
+							<textbox id="searchnama" forward="onOK=onSearchDefault"
+								width="95%" />
+
+							<label use="ais.ui.util.MyLabelConfig"
+								value="Judul TA/Skripsi" />
+							<textbox id="searchta" forward="onOK=onSearchDefault"
+								width="95%" />
+
+
+							<label use="ais.ui.util.MyLabelConfig" value="" />
+
+						</row>
+
+
+						<row
+							visible="false" spans="5">
+							<hbox visible="false">
+
+								<label use="ais.ui.util.MyLabelConfig" value="Program" />
+								<combobox id="searchprogram"
+									forward="onChange=onSearchDefault" width="95%" />
+
+
+								<label use="ais.ui.util.MyLabelConfig"
+									value="Mulai Belajar/Kewarganegaraan" />
+								<hbox>
+									<combobox width="70px"
+										forward="onChange=onSearchDefault" id="searchsemesterawal" />
+									<combobox width="70px"
+										forward="onChange=onSearchDefault" id="searchkewarganegaraan" />
+								</hbox>
+
+
+								<label use="ais.ui.util.MyLabelConfig" value="" />
+								<checkbox use="ais.ui.util.MyCheckboxConfig"
+									label="Urutkan yg baru mengisi form alumni"
+									id="searchUrutkanTelahMengisi"
+									forward="onCheck=onSearchDefault" />
+
+
+
+
+								<label use="ais.ui.util.MyLabelConfig"
+									value="Status Awal / Seleksi" />
+								<hbox>
+									<combobox width="70px" id="searchStatusAwalMahasiswa"
+										forward="onChange=onSearchDefault" />
+									<combobox width="70px" id="searchJenisSeleksi"
+										forward="onChange=onSearchDefault" />
+								</hbox>
+
+								<label use="ais.ui.util.MyLabelConfig"
+									value="Status / Smt lulus" />
+
+								<hbox width="95%">
+
+									<combobox id="searchpredikatKelulusan"
+										forward="onChange=onSearchDefault" width="70px" />
+
+									<decimalbox id="searchsemesterLulus"
+										forward="onOK=onSearchDefault" width="40px" />
+
+								</hbox>
+
+								<label use="ais.ui.util.MyLabelConfig" value="" />
+
+								<checkbox use="ais.ui.util.MyCheckboxConfig"
+									label="Telah mengisi form alumni" id="searchTelahMengisi"
+									forward="onCheck=onSearchDefault" />
+
+
+
+								<label use="ais.ui.util.MyLabelConfig"
+									value="Thn. Angkatan / Lulus / Masa" />
+
+								<hbox width="95%">
+									<decimalbox id="searchtahun"
+										forward="onOK=onSearchDefault" width="40px" />
+									<label value=" / "></label>
+									<decimalbox id="searchtahunLulus"
+										forward="onOK=onSearchDefault" width="40px" />
+									<label value=" / "></label>
+									<decimalbox id="searchMasa"
+										forward="onOK=onSearchDefault" width="40px" />
+								</hbox>
+
+								<label use="ais.ui.util.MyLabelConfig" value="Status" />
+								<hbox width="95%">
+									<combobox width="50px" id="searchstatus"
+										forward="onChange=onSearchDefault" />
+									<textbox width="70px" id="searchketerangan"
+										forward="onOK=onSearchDefault">
+									</textbox>
+								</hbox>
+
+
+								<label use="ais.ui.util.MyLabelConfig"
+									value="Fakultas / Prodi / Jenjang" />
+								<hbox width="95%">
+									<combobox forward="onChange=onSearchDefault"
+										id="searchfakultas" width="50px" />
+									<combobox id="searchjurusan"
+										forward="onChange=onSearchDefault" width="50px" />
+									<combobox id="searchjenjang"
+										forward="onChange=onSearchDefault" width="30px" />
+								</hbox>
+								<label use="ais.ui.util.MyLabelConfig"
+									value="Status Lulus" />
+
+								<hbox width="95%">
+									<combobox id="searchstatusSetelahLulus"
+										forward="onChange=onSearchDefault" width="40px" />
+									<combobox id="searchstatusPekerjaanSetelahLulus"
+										forward="onChange=onSearchDefault" width="40px" />
+									<combobox id="searchstatusDomisiliSetelahLulus"
+										forward="onChange=onSearchDefault" width="40px" />
+								</hbox>
+
+
+
+							</hbox>
+						</row>
+
+						<row spans="5">
+
+							<toolbar/>
+</row>
+						<row>
+							<paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true" />
+						</row>
+						<row>
+							<grid use="ais.ui.util.MyGrid" sclass="dgrid"
+								fixedLayout="true" id="grid">
+								<columns>
+									<column use="ais.ui.util.MyColumnConfig" width="0px" />
+									<column use="ais.ui.util.MyColumnConfig" width="70px" />
+									<column use="ais.ui.util.MyColumnConfig" width="15%"
+										label="NIM" sort="auto(nim)" />
+									<column use="ais.ui.util.MyColumnConfig" width="20%"
+										label="Nama" sort="auto(nama)" />
+									<column use="ais.ui.util.MyColumnConfig" width="6%"
+										label="Angkatan" sort="auto(tahunangkatan)" />
+									<column use="ais.ui.util.MyColumnConfig" width="6%"
+										label="Thn.Lulus" />
+
+									<column use="ais.ui.util.MyColumnConfig" width="0%"
+										label="WNI/WNA" />
+									<column use="ais.ui.util.MyColumnConfig" width="0%"
+										label="Asl. Ngr" />
+									<column use="ais.ui.util.MyColumnConfig" width="12%"
+										label="Fakultas / Prodi" />
+
+									<column use="ais.ui.util.MyColumnConfig" width="10%"
+										label="Status/Awal" />
+									<column use="ais.ui.util.MyColumnConfig"
+										label="Keterangan" />
+									<column use="ais.ui.util.MyColumnConfig" width="0%"
+										label="" />
+								</columns>
+
+							</grid>
+
+
+
+						</row>
+						<row><paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar" /></row>
+						<row sclass="ecampus-grid-gap-row"><div sclass="ecampus-grid-gap-bawah" height="128px" /></row>
+					</rows>
+				</grid>
+
+
+
+			</center>
+		</borderlayout>
+
+
+	</window>
+
+
+</zk>

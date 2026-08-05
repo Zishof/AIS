@@ -1,0 +1,399 @@
+<%@page import="ais.database.model.GeneralValueObject"%>
+<%@page import="ais.common.Common"%>
+<%@page import="ais.database.model.library.Item"%>
+<%@page import="ais.database.model.file.LampiranLain"%>
+<%@page import="ais.database.model.library.ItemPunyaBarcode"%>
+<%@page import="java.util.List"%>
+<%@page import="java.util.ArrayList"%>
+<%@page import="org.hibernate.Session"%>
+<%@page import="org.hibernate.criterion.Restrictions"%>
+<%@page import="ais.database.hibernate.HibernateUtil"%>
+
+<%
+    // Mengambil dan memvalidasi parameter dari HTTP Request
+    String idStr = request.getParameter("id");
+    String modalId = request.getParameter("modalId");
+    
+    if (modalId == null || modalId.trim().isEmpty()) {
+        modalId = "modalDetail";
+    }
+
+    Item item = null;
+    try {
+        // Mencegah error NullPointer atau Format Exception jika ID tidak valid
+        if (idStr != null && !idStr.trim().isEmpty()) {
+            item = (Item) GeneralValueObject.ambilData(Item.class, idStr, true);
+        }
+    } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) webapp/WEB-INF/baru/modul/pustaka/_item_rinci.jsp:27");
+        // Kesalahan parsing diabaikan agar sistem tidak crash, objek item tetap null
+    }
+
+    // Penanganan jika data pustaka tidak ditemukan atau telah dihapus
+    if (item == null) {
+        out.print("<div class='modal fade' id='" + modalId + "' tabindex='-1' aria-hidden='true'><div class='modal-dialog modal-dialog-centered'><div class='modal-content border-0 shadow rounded-4 p-4 text-center'><h5 class='text-danger mb-0'><i class='fas fa-exclamation-triangle me-2'></i>" + Common.getBahasaConfig("Data Pustaka tidak ditemukan.") + "</h5></div></div></div>");
+        return;
+    }
+
+    // Persiapan variabel data dengan validasi Null (Fallback ke strip "-")
+    String coverImg = (item.getImageUrl() != null && item.getImageUrl().trim().startsWith("http")) 
+        ? item.getImageUrl() 
+        : Common.getRequestHostWithProtocol() + "/AmbilMedia?id=" + item.getId() + "&name=nama&foto=foto&clazz=ais.database.model.file.FotoGambarItem&property=item&height=400&width=300";
+    
+    String judul = item.getNama() != null && !item.getNama().trim().isEmpty() ? item.getNama() : Common.getBahasaConfig("Tanpa Judul");
+    String pengarang = item.getPengarangs() != null && !item.getPengarangs().trim().isEmpty() ? item.getPengarangs() : "-";
+    String penerbit = (item.getPenerbit() != null && item.getPenerbit().getNama() != null) ? item.getPenerbit().getNama() : "-";
+    String kategori = item.getKategories() != null && !item.getKategories().trim().isEmpty() ? item.getKategories() : "-";
+    String klasifikasi = item.getDeweyDecimalClass() != null && !item.getDeweyDecimalClass().trim().isEmpty() ? item.getDeweyDecimalClass() : "-";
+    String tema = item.getTema() != null && !item.getTema().trim().isEmpty() ? item.getTema() : "-";
+    String isbn = item.getIsbn() != null && !item.getIsbn().trim().isEmpty() ? item.getIsbn() : "-";
+    String issn = item.getIssn() != null && !item.getIssn().trim().isEmpty() ? item.getIssn() : "-";
+    String edisi = item.getEdisi() != null && !item.getEdisi().trim().isEmpty() ? item.getEdisi() : "-";
+    String tahun = item.getTahun() != null ? item.getTahun().toString() : "-";
+    String bahasa = item.getBahasa() != null && !item.getBahasa().trim().isEmpty() ? item.getBahasa() : "-";
+    String callNumber = item.getCallnumber() != null && !item.getCallnumber().trim().isEmpty() ? item.getCallnumber() : "-";
+    String deskripsi = item.getAbstrak() != null && !item.getAbstrak().trim().isEmpty() ? item.getAbstrak() : Common.getBahasaConfig("Tidak ada deskripsi yang tersedia.");
+
+    // Sanitasi data teks untuk menghindari error pada format JSON-LD (Kutip ganda & Baris baru)
+    String jsonJudul = judul.replace("\"", "\\\"").replace("\n", " ").replace("\r", "");
+    String jsonDeskripsi = deskripsi.replace("\"", "\\\"").replace("\n", " ").replace("\r", "");
+    String jsonPengarang = pengarang.replace("\"", "\\\"").replace("\n", " ").replace("\r", "");
+    String jsonPenerbit = penerbit.replace("\"", "\\\"").replace("\n", " ").replace("\r", "");
+
+    // Evaluasi Hak Akses Dokumen Digital (Unduhan Lampiran / Ebook)
+    LampiranLain l = (item.getBolehDiDownload() == null || !item.getBolehDiDownload()) ? null : LampiranLain.ambil(item.getId(), LampiranLain.ITEM);
+    String urlLampiran = l == null ? "" : l.createLinkUri();
+
+    // Mengambil Data Ketersediaan Fisik (Barcode dan Lokasi)
+    List<ItemPunyaBarcode> listKetersediaan = new ArrayList<ItemPunyaBarcode>();
+    Session dbSession = null;
+    try {
+        dbSession = HibernateUtil.openSession();
+        // PERBAIKAN SQL ERROR: Menggunakan Restrictions.eq("item", item) alih-alih ("item.id", item.getId())
+        listKetersediaan = dbSession.createCriteria(ItemPunyaBarcode.class)
+            .add(Restrictions.eq("item", item))
+            .list();
+    } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) webapp/WEB-INF/baru/modul/pustaka/_item_rinci.jsp:75");
+        // Abaikan Exception agar modal tetap terbuka meskipun query ketersediaan gagal
+    } finally {
+        if (dbSession != null && dbSession.isOpen()) {
+            HibernateUtil.closeSessionQuietly(dbSession);
+        }
+    }
+%>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Book",
+  "name": "<%=jsonJudul%>",
+  "author": {
+    "@type": "Person",
+    "name": "<%=jsonPengarang%>"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "<%=jsonPenerbit%>"
+  },
+  "isbn": "<%=isbn%>",
+  "datePublished": "<%=tahun%>",
+  "image": "<%=coverImg%>",
+  "description": "<%=jsonDeskripsi%>",
+  "inLanguage": "<%=bahasa%>"
+}
+</script>
+
+<style>
+    /* Penataan latar belakang modal agar bersih dan tidak tumpang tindih */
+    .modal-bg-custom-<%=modalId%> {
+        position: relative;
+        background-color: #f8f9fa; 
+    }
+    .modal-bg-custom-<%=modalId%>::before {
+        content: "";
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-image: url('<%=Common.ROOT%>/img/buku.jpeg');
+        background-size: cover;
+        background-position: center;
+        opacity: 0.10;
+        z-index: 0;
+        pointer-events: none; 
+    }
+    .modal-bg-custom-<%=modalId%> .modal-header,
+    .modal-bg-custom-<%=modalId%> .modal-body {
+        position: relative;
+        z-index: 1;
+    }
+</style>
+
+<article class="modal fade" id="<%=modalId%>" tabindex="-1" aria-labelledby="<%=modalId%>Label" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden modal-bg-custom-<%=modalId%>">
+            
+            <header class="modal-header border-0 pb-0 pt-4 px-4 px-md-5 d-flex align-items-center">
+                <div class="modal-title fw-bold text-primary mb-0 fs-5" id="<%=modalId%>Label">
+                    <i class="fas fa-book-open me-2"></i><%=Common.getBahasaConfig("Informasi Lengkap Pustaka")%>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<%=Common.getBahasaConfig("Tutup")%>"></button>
+            </header>
+            
+            <div class="modal-body p-4 p-md-5 pt-4">
+                <div class="row g-4 g-lg-5">
+                    
+                    <div class="col-md-5 col-lg-4 text-center">
+                        <div class="p-3 rounded-4 shadow-sm mb-4 border" style="background-color: #ffffff;">
+                            <img src="<%=coverImg%>" class="img-fluid rounded-3" style="max-height: 380px; object-fit: contain; width: 100%;" alt="<%=Common.getBahasaConfig("Sampul Buku")%>: <%=judul%>" onerror="this.src='https://via.placeholder.com/300x420?text=No+Cover'">
+                        </div>
+                        
+                        <% if (urlLampiran != null && !urlLampiran.trim().isEmpty()) { %>
+                            <a href="<%=urlLampiran%>" target="_blank" class="btn btn-primary w-100 rounded-pill fw-bold shadow-sm py-2 py-lg-3 mb-2">
+                                <i class="fas fa-file-download me-2"></i><%=Common.getBahasaConfig("Unduh / Baca Lampiran Buku")%>
+                            </a>
+                        <% } else if (item.getEbooksLink() != null && !item.getEbooksLink().trim().isEmpty()) { %>
+                            <a href="<%=item.getEbooksLink()%>" target="_blank" class="btn btn-primary w-100 rounded-pill fw-bold shadow-sm py-2 py-lg-3 mb-2">
+                                <i class="fas fa-external-link-alt me-2"></i><%=Common.getBahasaConfig("Buka Tautan E-Book Eksternal")%>
+                            </a>
+                        <% } else { %>
+                            <div class="alert border-0 rounded-4 p-3 d-flex align-items-center justify-content-center mb-0" style="background-color: #e9ecef; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);">
+                                <i class="fas fa-lock me-3 text-dark"></i>
+                                <span class="small fw-medium text-dark"><%=Common.getBahasaConfig("Hak akses dokumen digital dibatasi.")%></span>
+                            </div>
+                        <% } %>
+                    </div>
+                    
+                    <div class="col-md-7 col-lg-8">
+                        <h1 class="h3 fw-bold text-dark mb-4 lh-base"><%=judul%></h1>
+
+                        <div class="p-4 rounded-4 mb-4 shadow-sm border border-light" style="background-color: rgba(248, 249, 252, 0.9);">
+                            <table class="table table-borderless table-sm mb-0 align-middle" style="background-color: transparent; font-size: 0.95rem;">
+                                <tbody>
+                                    <tr>
+                                        <td class="text-secondary pb-3" style="width: 140px; vertical-align: top;">
+                                            <div class="d-flex flex-column align-items-start">
+                                                <i class="fas fa-user-edit text-primary mb-1" style="font-size: 1.1rem;"></i>
+                                                <span class="small fw-medium"><%=Common.getBahasaConfig("Pengarang")%></span>
+                                            </div>
+                                        </td>
+                                        <td class="fw-bold text-dark pb-3" style="vertical-align: top;">
+                                            <div class="d-flex">
+                                                <span class="me-2">:</span> 
+                                                <span><%=pengarang%></span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-secondary pb-3" style="vertical-align: top;">
+                                            <div class="d-flex flex-column align-items-start">
+                                                <i class="far fa-building text-primary mb-1" style="font-size: 1.1rem;"></i>
+                                                <span class="small fw-medium"><%=Common.getBahasaConfig("Penerbit")%></span>
+                                            </div>
+                                        </td>
+                                        <td class="fw-bold text-dark pb-3" style="vertical-align: top;">
+                                            <div class="d-flex">
+                                                <span class="me-2">:</span> 
+                                                <span><%=penerbit%></span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-secondary pb-3" style="vertical-align: top;">
+                                            <div class="d-flex flex-column align-items-start">
+                                                <i class="fas fa-tag text-primary mb-1" style="font-size: 1.1rem;"></i>
+                                                <span class="small fw-medium"><%=Common.getBahasaConfig("Tema")%></span>
+                                            </div>
+                                        </td>
+                                        <td class="fw-bold text-dark pb-3" style="vertical-align: top;">
+                                            <div class="d-flex">
+                                                <span class="me-2">:</span> 
+                                                <span><%=tema%></span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-secondary pb-3" style="vertical-align: top;">
+                                            <div class="d-flex flex-column align-items-start">
+                                                <i class="fas fa-layer-group text-primary mb-1" style="font-size: 1.1rem;"></i>
+                                                <span class="small fw-medium"><%=Common.getBahasaConfig("Kategori")%></span>
+                                            </div>
+                                        </td>
+                                        <td class="fw-bold text-dark pb-3" style="vertical-align: top;">
+                                            <div class="d-flex">
+                                                <span class="me-2">:</span> 
+                                                <span><%=kategori%></span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-secondary pb-3" style="vertical-align: top;">
+                                            <div class="d-flex flex-column align-items-start">
+                                                <i class="fas fa-sitemap text-primary mb-1" style="font-size: 1.1rem;"></i>
+                                                <span class="small fw-medium"><%=Common.getBahasaConfig("Klasifikasi")%></span>
+                                            </div>
+                                        </td>
+                                        <td class="fw-bold text-dark pb-3" style="vertical-align: top;">
+                                            <div class="d-flex">
+                                                <span class="me-2">:</span> 
+                                                <span><%=klasifikasi%></span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-secondary pb-3" style="vertical-align: top;">
+                                            <div class="d-flex flex-column align-items-start">
+                                                <i class="fas fa-phone-alt text-primary mb-1" style="font-size: 1.1rem;"></i>
+                                                <span class="small fw-medium"><%=Common.getBahasaConfig("Call Number")%></span>
+                                            </div>
+                                        </td>
+                                        <td class="fw-bold text-dark pb-3" style="vertical-align: top;">
+                                            <div class="d-flex">
+                                                <span class="me-2">:</span> 
+                                                <span><%=callNumber%></span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-secondary pb-3" style="vertical-align: top;">
+                                            <div class="d-flex flex-column align-items-start">
+                                                <i class="fas fa-language text-primary mb-1" style="font-size: 1.1rem;"></i>
+                                                <span class="small fw-medium"><%=Common.getBahasaConfig("Bahasa")%></span>
+                                            </div>
+                                        </td>
+                                        <td class="fw-bold text-dark pb-3" style="vertical-align: top;">
+                                            <div class="d-flex">
+                                                <span class="me-2">:</span> 
+                                                <span><%=bahasa%></span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-secondary pb-3" style="vertical-align: top;">
+                                            <div class="d-flex flex-column align-items-start">
+                                                <i class="fas fa-copy text-primary mb-1" style="font-size: 1.1rem;"></i>
+                                                <span class="small fw-medium"><%=Common.getBahasaConfig("Edisi")%></span>
+                                            </div>
+                                        </td>
+                                        <td class="fw-bold text-dark pb-3" style="vertical-align: top;">
+                                            <div class="d-flex">
+                                                <span class="me-2">:</span> 
+                                                <span><%=edisi%></span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-secondary pb-3" style="vertical-align: top;">
+                                            <div class="d-flex flex-column align-items-start">
+                                                <i class="far fa-calendar-alt text-primary mb-1" style="font-size: 1.1rem;"></i>
+                                                <span class="small fw-medium"><%=Common.getBahasaConfig("Tahun")%></span>
+                                            </div>
+                                        </td>
+                                        <td class="fw-bold text-dark pb-3" style="vertical-align: top;">
+                                            <div class="d-flex">
+                                                <span class="me-2">:</span> 
+                                                <span><%=tahun%></span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-secondary pb-3" style="vertical-align: top;">
+                                            <div class="d-flex flex-column align-items-start">
+                                                <i class="fas fa-barcode text-primary mb-1" style="font-size: 1.1rem;"></i>
+                                                <span class="small fw-medium"><%=Common.getBahasaConfig("ISBN / ISSN")%></span>
+                                            </div>
+                                        </td>
+                                        <td class="fw-bold text-dark pb-3" style="vertical-align: top;">
+                                            <div class="d-flex align-items-center">
+                                                <span class="me-2">:</span> 
+                                                <span class="badge bg-white text-dark border px-2 py-1 shadow-sm"><%=isbn%></span> 
+                                                <%=!issn.equals("-") ? "<span class='mx-2 text-muted'>|</span> <span class='badge bg-white text-dark border px-2 py-1 shadow-sm'>" + issn + "</span>" : ""%>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    
+                                    <tr>
+                                        <td class="text-secondary pb-1" style="vertical-align: top;">
+                                            <div class="d-flex flex-column align-items-start mt-2">
+                                                <i class="fas fa-boxes text-primary mb-1" style="font-size: 1.1rem;"></i>
+                                                <span class="small fw-medium"><%=Common.getBahasaConfig("Ketersediaan")%></span>
+                                            </div>
+                                        </td>
+                                        <td class="pb-1" style="vertical-align: top;">
+                                            <div class="d-flex flex-column gap-2 mt-2">
+                                                <span class="me-2 text-dark fw-bold position-absolute" style="margin-top: 1px;">:</span> 
+                                                <div style="margin-left: 15px;">
+                                                    <% if (listKetersediaan.isEmpty()) { %>
+                                                        <span class="text-muted fw-bold"><%=Common.getBahasaConfig("Belum ada data ketersediaan fisik perpustakaan.")%></span>
+                                                    <% } else { %>
+                                                        <% for (ItemPunyaBarcode ipb : listKetersediaan) {
+                                                            String barcodeStr = ipb.getBarcode() != null ? ipb.getBarcode() : "-";
+                                                            String perpusName = ipb.getPerpustakaan() != null ? ipb.getPerpustakaan().getNama() : Common.getBahasaConfig("Lokasi Tidak Diketahui");
+                                                        %>
+                                                        <div class="d-flex align-items-center mb-2">
+                                                            <span class="me-3 text-dark fw-bold text-center" style="min-width: 65px;"><%=barcodeStr%></span>
+                                                            <div class="px-3 py-1 shadow-sm rounded-1" style="background-color: #000080; color: #00ff00; font-family: monospace; font-size: 0.9rem; font-weight: bold;">
+                                                                <%=Common.getBahasaConfig("Tersedia di")%> <%=perpusName.toUpperCase()%>
+                                                            </div>
+                                                        </div>
+                                                        <% } %>
+                                                    <% } %>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="mt-4 pt-2 rounded-4" style="background-color: rgba(248, 249, 252, 0.9);">
+                            <h6 class="fw-bold text-dark border-bottom pb-3 mb-3">
+                                <i class="fas fa-info-circle text-primary me-2"></i><%=Common.getBahasaConfig("Deskripsi Singkat / Abstrak")%>
+                            </h6>
+                            <div class="text-secondary fw-medium lh-lg text-justify" style=" overflow-y: auto; padding-right: 15px; font-size: 0.95rem;">
+                                <%=deskripsi%>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</article>
+
+<script>
+    var currentUrl = window.location.href;
+    if (currentUrl.indexOf('pustaka?id=') > -1 || currentUrl.indexOf('/main/item/') > -1) {
+        setTimeout(function() {
+            var modalElement = document.getElementById('<%=modalId%>');
+            if (modalElement) {
+                modalElement.classList.remove('fade'); 
+                modalElement.style.display = 'block'; 
+                modalElement.style.backgroundColor = 'rgba(0, 0, 0, 0.7)'; 
+                modalElement.style.overflowY = 'auto'; 
+                
+                document.body.style.backgroundColor = '#f8f9fa';
+                
+                // 1. Temukan tombol close, biarkan TETAP TAMPIL, tapi ubah fungsinya
+                var btnClose = modalElement.querySelector('.btn-close');
+                if (btnClose) {
+                    // btnClose.style.display = 'none'; // (BARIS INI KITA HAPUS)
+                    
+                    btnClose.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        // Arahkan kembali ke halaman katalog utama
+                        window.location.href = '<%=Common.ROOT%>/pustaka'; 
+                    });
+                }
+
+                // 2. Jika pengunjung mengeklik area luar popup (background gelap), arahkan juga ke katalog
+                modalElement.addEventListener('click', function(e) {
+                    if (e.target === modalElement) {
+                        e.preventDefault();
+                        window.location.href = '<%=Common.ROOT%>/pustaka';
+                    }
+                });
+            }
+        }, 100);
+    }
+</script>

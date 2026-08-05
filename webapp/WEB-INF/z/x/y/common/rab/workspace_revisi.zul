@@ -1,0 +1,101 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.rab.WorkspaceRevisiAction" width="100%"
+		height="100%">
+
+
+
+
+
+		<borderlayout>
+
+			<center border="none" flex="true">
+				<borderlayout>
+					<north border="none" open="true" flex="true">
+
+
+						<toolbar>
+							<toolbarbutton
+								use="ais.ui.util.MyToolbarbuttonConfig" id="addNew"
+								tooltiptext="Perencanaan Baru" forward="onClick=onAdd"
+								label="Baru" image="/img/new.gif">
+							</toolbarbutton>
+
+							<toolbarbutton
+								use="ais.ui.util.MyToolbarbuttonConfig" tooltiptext="Refresh"
+								forward="onClick=onReloadTree" label="Refresh"
+								image="/img/search.gif">
+							</toolbarbutton>
+
+							<toolbarbutton
+								use="ais.ui.util.MyToolbarbuttonConfig" id="copyWorkspace"
+								image="/img/copy.png" label="Copy"
+								forward="onClick=onCopyWorkspace">
+							</toolbarbutton>
+							<toolbarbutton
+								use="ais.ui.util.MyToolbarbuttonConfig" id="pasteWorkspace"
+								image="/img/paste.png" label="Paste"
+								forward="onClick=onPasteWorkspace">
+							</toolbarbutton>
+							<toolbarbutton
+								use="ais.ui.util.MyToolbarbuttonConfig" id="uploadWorkspace"
+								upload="true" image="/img/album.png" label="Upload"
+								forward="onUpload=onUploadWorkspace">
+							</toolbarbutton>
+							<toolbarbutton
+								use="ais.ui.util.MyToolbarbuttonConfig" id="deleteWorkspace"
+								image="/img/delete.gif" label="Hapus"
+								forward="onClick=onDeleteWorkspace">
+							</toolbarbutton>
+							<toolbarbutton
+								use="ais.ui.util.MyToolbarbuttonConfig" tooltiptext="Cetak"
+								id="cetak" forward="onClick=onCetak" label="Cetak"
+								image="/img/print.png">
+							</toolbarbutton>
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;workspace_revisi&quot;, &quot;Bantuan&quot;);"/>
+			</toolbar>
+
+					</north>
+					<center border="none"
+						flex="true">
+
+						<tree width="100%" zclass="z-dottree"
+							height="100%" id="tree">
+
+						</tree>
+
+
+
+					</center>
+
+				</borderlayout>
+			</center>
+		</borderlayout>
+
+
+
+
+		<window use="ais.ui.util.MyWindow" id="addWindow"
+			title="Tambah Workspace" visible="false" mode="popup"
+			position="center,center" border="normal" width="95%" height="95%">
+
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+	</window>
+
+
+</zk>

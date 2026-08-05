@@ -1,0 +1,46 @@
+<?page title="new page title" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<window use="ais.ui.util.MyWindow" border="none" height="100%" width="100%">
+
+
+		<tabbox height="100%" width="100%">
+			<tabs>
+				<tab use="ais.ui.util.MyTabConfig" id="t1">RPJM</tab>
+				<tab use="ais.ui.util.MyTabConfig" id="t2">RENCANA ANGGARAN BELANJA</tab>
+				<tab use="ais.ui.util.MyTabConfig" id="t3">JADWAL ANGGARAN BELANJA</tab>
+				<tab use="ais.ui.util.MyTabConfig" id="t4">PROGNOSA BULANAN</tab>
+				<tab use="ais.ui.util.MyTabConfig" id="t5">PROGNOSA TRI WULAN</tab>
+			</tabs>
+			<tabpanels>
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<include
+						src="/WEB-INF/z/x/y/pages/master/rab/renstra_program.zul">
+					</include>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" fulfill="t2.onSelect">
+					<iframe height="100%" width="100%"
+						src="workspace.zul">
+					</iframe>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel"  fulfill="t3.onSelect">
+					<iframe height="100%" width="100%"
+						src="workspace_project.zul">
+					</iframe>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel"  fulfill="t4.onSelect">
+					<window height="100%" width="100%" border="none"
+						use="ais.action.report.format1.rab.LaporanPerencanaanTiapBulan">
+					</window>
+				</tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel"  fulfill="t5.onSelect">
+					<window height="100%" width="100%" border="none"
+						use="ais.action.report.format1.rab.LaporanPerencanaanTriWulan">
+					</window>
+				</tabpanel>
+			</tabpanels>
+
+		</tabbox>
+
+
+	</window>
+</zk>

@@ -1,0 +1,60 @@
+<?page title="Biaya Pendaftaran" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<borderlayout height="100%">
+		<west width="5%">
+
+		</west>
+		<center autoscroll="true">
+			<box>
+				<separator height="30px"></separator>
+				<box width="90%" align="center">
+					<label use="ais.ui.util.MyLabelConfig">
+						PERSYARATAN PENDAFTARAN  						
+					</label>
+											
+				</box>
+				<separator height="10px"></separator>
+				<html>
+					
+					<![CDATA[
+
+</p>
+<pre>1. Mengisi formulir pendaftaran melalui www.spmb.uinjkt.ac.id, dan menyerahkan dokumen sebagai berikut:
+   a)  Salinan Ijazah Strata Satu (untuk masuk Program Magister) atau  Magister (untuk masuk Program Doktor) 
+       dari Program Studi terakreditasi yang  telah dilegalisasi dari pejabat yang berwenang dan diakui oleh 
+       Sekolah  Pascasarjana UIN Syarif Hidayatullah Jakarta.
+   b)  Salinan transkrip nilai dengan IPK minimal 3,00.
+   c)  Pas photo ukuran 3x4 dan 2x3 masing-masing 2 lembar.
+   d)  Daftar Riwayat Hidup (blanko disediakan).
+   e)  Surat Rekomendasi dari dua instansi dan/atau orang yang memiliki  kualifikasi untuk menilai 
+    	kompetensi akademik calon mahasiswa yang  bersangkutan.
+   f)  Surat Pernyataan sanggup membiayai kuliah selama studi (jika  ditanggung sendiri).
+   g)  Surat Pernyataan dari instansi/atau perorangan tentang kesanggupan  membiayai kuliah selama studi 
+		(jika ditanggung sponsor).
+   h)  Surat ijin dari instansi tempat bekerja (bagi yang bekerja).
+   i)  Surat Pernyataan sanggup mentaati ketentuan yang ditetapkan oleh  Sekolah Pascasarjana UIN Jakarta (dibuat sendiri).
+   j)  Surat Keterangan Kesehatan dari dokter yang berwenang.
+   k)  Proposal tesis (minimal 15 halaman kuarto) sebanyak 3 rangkap dan  proposal disertasi (minimal 20 halaman kuarto)
+		sebanyak 3 rangkap.
+	(dokumen diatas diserahkan ke sekretariat Sekolah Pascasarjana secara langsung maupun melalui pos)
+2. Membayar biaya formulir Rp. 150.000,- bagi calon mahasiswa  Indonesia, dan USD 50 bagi calon mahasiswa 
+	Asing <em>(International student)</em>
+3. Membayar biaya ujian masuk Rp. 600.000,- untuk program Magister dan  Rp. 750.000,- untuk program Doktor 
+	bagi calon mahasiswa Indonesia, dan USD 150  bagi calon mahasiswa Asing <em>(International student)</em> baik Magister 
+	maupun  Doktor.
+4. Magister Sekolah Pascasarjana UIN Syarif Hidayatullah Jakarta  mulai angkatan tahun 2004 dengan Jalur Tesis IPK 3,00 
+	dapat diterima langsung  (tanpa melalui Ujian Masuk) untuk melanjutkan studi Program Doktor di Sekolah  Pascasarjana 
+	UIN Syarif Hidayatullah Jakarta. Yang bersangkutan hanya dikenakan  biaya formulir pendaftaran Rp. 150.000,- 
+	bagi mahasiswa Indonesia, dan USD 50  bagi mahasiswa Asing <em>(International student)</em>.
+5. Magister Jalur Non Tesis dapat diterima melanjutkan studi Program  Doktor apabila telah memenuhi persyaratan Jalur Tesis,
+	meliputi: Lulus Ujian  Proposal, Lulus Ujian Komprehensif, Lulus TOEFL dan TOAFL sesuai skor yang  dipersyaratkan, 
+	Lulus Work in Progress, dan Lulus Ujian Tesis. Masa perolehan  ini dilakukan setelah mendaftar sebagai mahasiswa 
+	kualifikasi Program Doktor  paling lama 2 tahun. Mahasiswa program ini wajib membayar uang kuliah  sebagaimana 
+	Program Magister minus Dana Pengembangan dan Perpustakaan.</pre>
+					 ]]>
+					
+                    		</html>
+			</box>
+		</center>
+	</borderlayout>
+</zk>

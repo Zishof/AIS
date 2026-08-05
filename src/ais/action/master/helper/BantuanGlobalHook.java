@@ -1,0 +1,312 @@
+package ais.action.master.helper;
+
+import java.io.File;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
+import org.zkoss.zk.ui.Component;
+import org.zkoss.zk.ui.Desktop;
+import org.zkoss.zk.ui.Page;
+import org.zkoss.zk.ui.event.Event;
+import org.zkoss.zk.ui.event.EventListener;
+import org.zkoss.zk.ui.util.UiLifeCycle;
+import org.zkoss.zul.Div;
+import org.zkoss.zul.Html;
+
+import ais.common.Common;
+import ais.database.model.Konfigurasi;
+import ais.ui.util.MyInclude;
+
+/**
+ * Hook global penambah tombol "Bantuan" mengambang (floating) pada halaman konten
+ * yang TIDAK memiliki tombol Bantuan bawaan.
+ *
+ * <p><b>Mengapa perlu.</b> Sebagian besar halaman menampilkan bantuan lewat tombol
+ * inline di ZUL ({@code BantuanHelper.tampilkanDariResource}). Namun sejumlah halaman
+ * formulir/laporan/konfigurasi tidak memiliki toolbar sehingga tak dapat disisipi
+ * tombol inline. Hook ini menambahkan satu tombol mengambang di sudut kanan-bawah
+ * untuk halaman-halaman tersebut, dikenali dari nama berkas ZUL (key).</p>
+ *
+ * <p><b>Mengapa hanya daftar tertentu ({@link #KEYS}).</b> {@code afterPageAttached}
+ * dipanggil SEBELUM komponen ZUL dibuat, sehingga tidak mungkin memindai apakah
+ * halaman sudah punya tombol Bantuan. Untuk mencegah tombol ganda pada ~1150 halaman
+ * yang sudah punya tombol inline, hook hanya bekerja untuk daftar key halaman-tanpa-tombol
+ * yang telah dipastikan. Ditambah pengaman: tombol hanya muncul bila berkas
+ * {@code WEB-INF/bantuan/<key>.html} ada.</p>
+ *
+ * <p><b>Keamanan.</b> Seluruh proses dibungkus try/catch agar kegagalan apa pun TIDAK
+ * pernah mengganggu render halaman. Dapat dimatikan administrator melalui konfigurasi
+ * {@code bantuan_tombol_global} (default aktif) tanpa perlu deploy ulang; untuk menonaktifkan
+ * permanen, hapus pendaftaran listener di {@code WEB-INF/zk.xml}.</p>
+ */
+public class BantuanGlobalHook implements UiLifeCycle {
+
+	/** Key halaman (nama berkas zul tanpa ekstensi) yang mendapat tombol Bantuan mengambang. */
+	private static final Set<String> KEYS;
+	static {
+		Set<String> s = new HashSet<String>();
+		String[] a = {
+				"absen", "absensi_pegawai", "akreditasi_lkps_s1", "alumni", "alur_pendaftaran",
+				"alur_persetujuan_surat_keluar", "alur_persetujuan_surat_masuk", "artikel", "asesemen", "badan_hukum",
+				"bayar_gaji_pegawai", "biaya_pendaftaran_s2", "biaya_pendaftaran_sps", "bidang_keahlian_sps",
+				"biodata_calon_mahasiswa", "biodata_calon_mahasiswa_s2", "biodata_calon_mahasiswa_s3", "biodata_dosen",
+				"biodata_mahasiswa", "biodata_pegawai", "biodata_siswa", "catatan_orang_tua_terhadap_aktiftas_harian_siswa",
+				"cek_calonmahasiswa", "daftar_pegawai", "ddc_item", "detil_tampilan_pengumuman_akademis", "domain_penelitian",
+				"draft_pesanan_member_kantin", "fakultas_jurusan_prodi", "forecast_penjualan", "informasi_kunjungan_mahasiswa",
+				"informasi_pembayaran_mahasiswa", "item_gaji", "jadual_spmb_sps", "jadwal_dosen", "jenis_pelatihan",
+				"jenis_tugas", "jenis_workspace", "karir", "kas_kasir", "katalog_online", "kategori_item", "keluarga",
+				"kkn_utk_mhs", "konfigurasi", "konfigurasi_absen_piket", "konfigurasi_absen_piket_guru",
+				"konfigurasi_biodata_calon_mahasiswa", "konfigurasi_biodata_calon_siswa", "konfigurasi_biodata_dosen",
+				"konfigurasi_biodata_mahasiswa", "konfigurasi_bkd", "konfigurasi_dashboard", "konfigurasi_guru",
+				"konfigurasi_lkp", "konfigurasi_login_calon_mahasiswa", "konfigurasi_logo", "konfigurasi_master_mahasiswa",
+				"konfigurasi_pegawai", "konfigurasi_perpustakaan", "konfigurasi_sekolah", "konfigurasi_siswa",
+				"laporan_deposit_siswa", "laporan_keuangan", "laporan_pembayaran", "laporan_pembelian", "laporan_rinci",
+				"laporan_saldo", "laporan_tunggakan", "master_badan_hukum", "master_dosen", "master_fakultas",
+				"master_mahasiswa", "master_perguruan_tinggi", "master_program_studi", "master_riwayat_pendidikan_dosen",
+				"materi_ujian", "materi_ujian_sps", "mhs_pasca", "online_book", "parameter_tambahan_mahasiswa_alumni", "pasca",
+				"pascasarjana", "pascasarjana_s2", "pem_online", "pembayaran_online", "pemeriksaan",
+				"pendaftaran_sidang_mahasiswa", "pendaftaran_wisuda_mahasiswa", "pengajuan_penelitian_dan_pengabdian",
+				"pengaturan_kantin", "pergudangan", "persyaratan_daftarulangs2", "persyaratan_pendaftaran",
+				"persyaratan_pendaftaran_s2", "persyaratan_pendaftaran_sps", "persyaratan_pendaftarans2", "pertemuan_action",
+				"pilihan_paket_dan_biaya", "pilihan_program_studi", "pilihan_studis2", "pkl_siswa", "pkl_utk_mhs", "pmb",
+				"pos_kantin", "posting_hpp_kantin", "posting_jurnal", "presensi", "pricetag_kantin", "program_dan_realisasi",
+				"prosedur_pembayaran", "prosedur_pendaftaran", "prosedur_pendaftarans2", "psb", "pustaka",
+				"rekap_pendaftar_spmb_simple", "riwayat_kartu_identitas_pegawai", "riwayat_keluar_negeri_pegawai",
+				"riwayat_kerja_pegawai", "riwayat_keterangan_lain_pegawai", "riwayat_organisasi_kampus_pegawai",
+				"riwayat_organisasi_lain_pegawai", "riwayat_organisasi_sekolah_pegawai", "riwayat_pelatihan_pegawai",
+				"riwayat_pendidikan_pegawai", "riwayat_tanda_jasa_pegawai", "sekretariat_sps",
+				"selectionfee_international_sps", "setoran_tenant", "standar_biaya_dan_akun", "statistik_mhs_baru",
+				"stok_opname", "tampilan_alur_sop", "tampilan_dashboard", "tampilan_pengumuman_alumni",
+				"tampilan_pengumuman_perkuliahan", "tampilan_satu_pertemuan", "tamu", "timeline_anggaran",
+				"transaksi_aktivitas_kuliah_mahasiswa", "transaksi_fasilitas_penunjang_akademik",
+				"transaksi_kapasitas_mahasiswa_baru", "transaksi_kurikulum_matakuliah", "transaksi_mengajar_dosen",
+				"transaksi_nilai_semester_mahasiswa", "transaksi_publikasi_dosen", "transaksi_siswa_dan_mahasiswa",
+				"transaksi_status_dosen", "transaksi_status_mahasiswa", "transaksi_tabel_bobot_nilai", "transaksi_vendor",
+				"tugas", "uang_muka_dan_kas_kecil", "udc_item", "ujian_masuks2", "ujian_online", "upload_item", "vendor",
+				"waktu_pendaftaran", "waktu_pendaftarans2",
+				// Tambahan (audit 2026-07-08): halaman konten yang sebelumnya tanpa jalur bantuan.
+				"welpus", "rekap_rekap", "statistik", "laporan", "pmb_temp",
+				"dasbor_keuangan_siswa", "beranda_anggota_kantin",
+				"login_calon_siswa", "login_lama",
+		};
+		for (String k : a) {
+			s.add(k);
+		}
+		KEYS = Collections.unmodifiableSet(s);
+	}
+
+	// Cache flag konfigurasi (refresh tiap 60 dtk) agar tidak membebani tiap page-attach.
+	private static volatile long lastCheck = 0L;
+	private static volatile boolean enabled = true;
+
+	/**
+	 * Apakah gaya "Bantuan mengambang" aktif. Dipakai bersama oleh hook ini (untuk
+	 * halaman tanpa toolbar) dan oleh {@code MyToolbarbuttonConfig}/{@code GenericCrudAction}
+	 * (untuk memindahkan tombol Bantuan inline dari toolbar ke pojok kanan-bawah).
+	 * Satu sakelar: konfigurasi {@code bantuan_tombol_global} (default AKTIF).
+	 */
+	public static boolean gayaMengambangAktif() {
+		return aktif();
+	}
+
+	private static boolean aktif() {
+		long now = System.currentTimeMillis();
+		if (now - lastCheck > 60000L) {
+			try {
+				enabled = Common.bolehKonfigurasi("bantuan_tombol_global", Konfigurasi.AKTIF);
+			} catch (Throwable t) { ais.common.ErrorAuditUtil.record(t, "auto-audit(empty-catch) src/ais/action/master/helper/BantuanGlobalHook.java:118");
+				// pertahankan nilai sebelumnya
+			}
+			lastCheck = now;
+		}
+		return enabled;
+	}
+
+	/** Penanda pada komponen include agar tombol tidak disisipkan dua kali. */
+	private static final String ATTR_DONE = "_kbFabInjected";
+
+	/**
+	 * Halaman yang dibuka sebagai <b>Page tersendiri</b> (full-page / defer-include).
+	 * Untuk mayoritas halaman yang dibuka via tab, ZK memakai include mode "instant"
+	 * (default "auto" + .zul) sehingga TIDAK membuat Page baru dan method ini tidak
+	 * terpicu — jalur itu ditangani {@link #afterComponentAttached}.
+	 */
+	@Override
+	public void afterPageAttached(Page page, Desktop desktop) {
+		try {
+			if (!aktif()) {
+				return;
+			}
+			final String key = keyDariPage(page);
+			if (key == null || !KEYS.contains(key)) {
+				return;
+			}
+			if (!fileBantuanAda(desktop, key)) {
+				return;
+			}
+			buatFab(key).setPage(page);
+		} catch (Throwable ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/helper/BantuanGlobalHook.java:149");
+			// JANGAN pernah mengganggu render halaman
+		}
+	}
+
+	/**
+	 * Jalur utama untuk halaman yang dibuka via tab. Setiap konten tab dimuat lewat
+	 * {@link ais.ui.util.MyInclude} dalam mode "instant" (komponen digabung ke halaman
+	 * induk, tanpa Page baru), sehingga {@link #afterPageAttached} tidak terpicu — namun
+	 * {@code afterComponentAttached} tetap dipanggil saat komponen include menempel.
+	 * Di sini tombol Bantuan mengambang disisipkan untuk halaman-tanpa-tombol ({@link #KEYS}).
+	 * Halaman yang sudah punya tombol Bantuan inline TIDAK ada di {@link #KEYS}, jadi tak dobel.
+	 */
+	@Override
+	public void afterComponentAttached(Component comp, Page page) {
+		try {
+			if (!(comp instanceof MyInclude)) {
+				return;
+			}
+			if (!aktif()) {
+				return;
+			}
+			if (comp.getAttribute(ATTR_DONE) != null) {
+				return;
+			}
+			final String key = keyDariSrc(((MyInclude) comp).getSrc());
+			if (key == null || !KEYS.contains(key)) {
+				return;
+			}
+			Desktop desktop = page != null ? page.getDesktop() : comp.getDesktop();
+			if (desktop == null || !fileBantuanAda(desktop, key)) {
+				return;
+			}
+			comp.setAttribute(ATTR_DONE, Boolean.TRUE);
+
+			Component induk = comp.getParent();
+			// Guard tombol ganda: jika wadah yang sama sudah punya FAB (mis. dua include
+			// halaman-whitelist tampil bersamaan dalam satu container), jangan tambah lagi.
+			if (induk != null && sudahAdaFab(induk)) {
+				return;
+			}
+			Div fab = buatFab(key);
+			if (induk != null) {
+				fab.setParent(induk);
+			} else {
+				fab.setPage(page);
+			}
+		} catch (Throwable ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/helper/BantuanGlobalHook.java:196");
+			// JANGAN pernah mengganggu render halaman
+		}
+	}
+
+	/** Apakah wadah sudah memuat tombol Bantuan mengambang (langsung sebagai anak). */
+	private static boolean sudahAdaFab(Component induk) {
+		try {
+			for (Object o : induk.getChildren()) {
+				if (o instanceof Div && "kb-fab-global".equals(((Div) o).getSclass())) {
+					return true;
+				}
+			}
+		} catch (Throwable ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/helper/BantuanGlobalHook.java:209");
+			// abaikan; anggap belum ada
+		}
+		return false;
+	}
+
+	/** Bangun tombol Bantuan mengambang (belum dipasang ke parent/page). */
+	private static Div buatFab(final String key) {
+		final Div fab = new Div();
+		fab.setSclass("kb-fab-global");
+		fab.setStyle("position:fixed;right:16px;bottom:78px;z-index:99990;cursor:pointer;"
+				+ "background:#1d4ed8;color:#ffffff;border-radius:22px;padding:9px 15px;"
+				+ "box-shadow:0 4px 14px rgba(29,78,216,.35);font-size:13px;font-weight:600;"
+				+ "display:inline-flex;align-items:center;gap:6px;"
+				+ "font-family:'Segoe UI',Arial,sans-serif;");
+		fab.setTooltiptext("Panduan penggunaan halaman ini");
+		new Html("<span style='font-size:15px;line-height:1;'>&#63;</span><span>Bantuan</span>").setParent(fab);
+		fab.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				BantuanHelper.tampilkanDariResource(fab, key, "Bantuan");
+			}
+		});
+		return fab;
+	}
+
+	/** Turunkan key dari src include (mis. "/WEB-INF/z/x/y/mahasiswa.zul" -> "mahasiswa"). */
+	private static String keyDariSrc(String src) {
+		if (src == null || src.trim().length() == 0) {
+			return null;
+		}
+		String p = src.trim();
+		int q = p.indexOf('?');
+		if (q >= 0) {
+			p = p.substring(0, q);
+		}
+		int slash = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'));
+		if (slash >= 0) {
+			p = p.substring(slash + 1);
+		}
+		if (p.toLowerCase().endsWith(".zul")) {
+			p = p.substring(0, p.length() - 4);
+		}
+		return p.toLowerCase();
+	}
+
+	/** Turunkan key (nama berkas zul tanpa path/ekstensi) dari request path halaman. */
+	private static String keyDariPage(Page page) {
+		if (page == null) {
+			return null;
+		}
+		String p = null;
+		try {
+			p = page.getRequestPath();
+		} catch (Throwable t) {
+			p = null;
+		}
+		if (p == null || p.trim().length() == 0) {
+			return null;
+		}
+		p = p.trim();
+		int q = p.indexOf('?');
+		if (q >= 0) {
+			p = p.substring(0, q);
+		}
+		int h = p.indexOf('#');
+		if (h >= 0) {
+			p = p.substring(0, h);
+		}
+		int slash = p.lastIndexOf('/');
+		if (slash >= 0) {
+			p = p.substring(slash + 1);
+		}
+		int bslash = p.lastIndexOf('\\');
+		if (bslash >= 0) {
+			p = p.substring(bslash + 1);
+		}
+		if (p.toLowerCase().endsWith(".zul")) {
+			p = p.substring(0, p.length() - 4);
+		}
+		return p.toLowerCase();
+	}
+
+	private static boolean fileBantuanAda(Desktop desktop, String key) {
+		try {
+			String path = desktop.getWebApp().getRealPath("/WEB-INF/bantuan/" + key + ".html");
+			return path != null && new File(path).isFile();
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
+	@Override
+	public void afterComponentDetached(Component comp, Page prevpage) {
+	}
+
+	@Override
+	public void afterComponentMoved(Component parent, Component child, Component prevparent) {
+	}
+
+	@Override
+	public void afterPageDetached(Page page, Desktop prevdesktop) {
+	}
+}

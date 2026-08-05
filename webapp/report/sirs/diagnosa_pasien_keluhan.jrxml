@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="diagnosa_pasien_keluhan" language="groovy" pageWidth="555" pageHeight="802" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0">
+	<property name="ireport.zoom" value="1.100000000000001"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<field name="nama" class="java.lang.String"/>
+	<field name="nilai" class="java.lang.String"/>
+	<field name="satuan" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<detail>
+		<band height="24" splitType="Stretch">
+			<textField isBlankWhenNull="true">
+				<reportElement x="1" y="0" width="536" height="24"/>
+				<box leftPadding="20">
+					<topPen lineWidth="0.0" lineStyle="Solid"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid"/>
+					<bottomPen lineWidth="0.0" lineStyle="Solid"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid"/>
+				</box>
+				<textElement verticalAlignment="Middle" markup="none">
+					<font size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nama} == null ? "" : $F{nama}+" "+(($F{nilai} == null ? "" : $F{nilai})+" "+($F{satuan} == null ? "" : $F{satuan}))]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<summary>
+		<band height="495">
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="237" y="53" width="284" height="19"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "d2" )]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-21" x="219" y="53" width="15" height="19"/>
+				<textElement verticalAlignment="Top">
+					<font size="12"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-20" x="17" y="53" width="202" height="19"/>
+				<box leftPadding="10"/>
+				<textElement verticalAlignment="Top">
+					<font size="12"/>
+				</textElement>
+				<text><![CDATA[Hasil Diagnosa Akhir]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="237" y="15" width="284" height="19"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "menular" )]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-20" x="17" y="15" width="202" height="19"/>
+				<box leftPadding="10"/>
+				<textElement verticalAlignment="Top">
+					<font size="12"/>
+				</textElement>
+				<text><![CDATA[Menular/Tidak Menular]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-20" x="17" y="34" width="202" height="19"/>
+				<box leftPadding="10"/>
+				<textElement verticalAlignment="Top">
+					<font size="12"/>
+				</textElement>
+				<text><![CDATA[Hasil Diagnosa Awal]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="237" y="34" width="284" height="19"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "d1" )]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-21" x="219" y="34" width="15" height="19"/>
+				<textElement verticalAlignment="Top">
+					<font size="12"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-21" x="219" y="15" width="15" height="19"/>
+				<textElement verticalAlignment="Top">
+					<font size="12"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<line>
+				<reportElement x="3" y="160" width="535" height="1"/>
+			</line>
+			<line>
+				<reportElement x="2" y="0" width="1" height="446"/>
+			</line>
+			<line>
+				<reportElement x="537" y="0" width="1" height="446"/>
+			</line>
+			<line>
+				<reportElement x="3" y="5" width="535" height="1"/>
+			</line>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="237" y="110" width="284" height="19"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "d5" )]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-20" x="17" y="91" width="202" height="19"/>
+				<box leftPadding="10"/>
+				<textElement verticalAlignment="Top">
+					<font size="12"/>
+				</textElement>
+				<text><![CDATA[Komplikasi 2]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-21" x="219" y="91" width="15" height="19"/>
+				<textElement verticalAlignment="Top">
+					<font size="12"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-21" x="219" y="72" width="15" height="19"/>
+				<textElement verticalAlignment="Top">
+					<font size="12"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="237" y="91" width="284" height="19"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "d4" )]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-20" x="17" y="72" width="202" height="19"/>
+				<box leftPadding="10"/>
+				<textElement verticalAlignment="Top">
+					<font size="12"/>
+				</textElement>
+				<text><![CDATA[Komplikasi 1]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-21" x="219" y="110" width="15" height="19"/>
+				<textElement verticalAlignment="Top">
+					<font size="12"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-20" x="17" y="110" width="202" height="19"/>
+				<box leftPadding="10"/>
+				<textElement verticalAlignment="Top">
+					<font size="12"/>
+				</textElement>
+				<text><![CDATA[Komplikasi 3]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="237" y="72" width="284" height="19"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "d3" )]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="237" y="129" width="284" height="19"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "d6" )]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-20" x="17" y="129" width="202" height="19"/>
+				<box leftPadding="10"/>
+				<textElement verticalAlignment="Top">
+					<font size="12"/>
+				</textElement>
+				<text><![CDATA[Komplikasi 4]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-21" x="219" y="129" width="15" height="19"/>
+				<textElement verticalAlignment="Top">
+					<font size="12"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<line>
+				<reportElement x="3" y="229" width="535" height="1"/>
+			</line>
+			<staticText>
+				<reportElement key="staticText-20" x="17" y="161" width="504" height="19"/>
+				<box leftPadding="10"/>
+				<textElement verticalAlignment="Top">
+					<font size="12"/>
+				</textElement>
+				<text><![CDATA[Resep yang diberikan:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="17" y="180" width="504" height="49"/>
+				<box leftPadding="10"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "resep" ).replaceAll( "\\[", "").replaceAll( "\\]", "")]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="17" y="251" width="504" height="49"/>
+				<box leftPadding="10"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "tindakan" ).replaceAll( "\\[", "").replaceAll( "\\]", "")]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-20" x="17" y="232" width="504" height="19"/>
+				<box leftPadding="10"/>
+				<textElement verticalAlignment="Top">
+					<font size="12"/>
+				</textElement>
+				<text><![CDATA[Tindakan atau perawatan yang diberikan:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText-20" x="17" y="304" width="504" height="19"/>
+				<box leftPadding="10"/>
+				<textElement verticalAlignment="Top">
+					<font size="12"/>
+				</textElement>
+				<text><![CDATA[Alat kesehatan atau medis yang digunakan:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="17" y="323" width="504" height="49"/>
+				<box leftPadding="10"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "alatMedis" ).replaceAll( "\\[", "").replaceAll( "\\]", "")]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText-20" x="17" y="378" width="504" height="19"/>
+				<box leftPadding="10"/>
+				<textElement verticalAlignment="Top">
+					<font size="12"/>
+				</textElement>
+				<text><![CDATA[Catatan Dokter:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="17" y="397" width="504" height="49"/>
+				<box leftPadding="10"/>
+				<textElement>
+					<font size="12"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "catatan" ).replaceAll( "\\[", "").replaceAll( "\\]", "")]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="3" y="299" width="535" height="1"/>
+			</line>
+			<line>
+				<reportElement x="3" y="372" width="535" height="1"/>
+			</line>
+			<line>
+				<reportElement x="2" y="445" width="535" height="1"/>
+			</line>
+		</band>
+	</summary>
+</jasperReport>

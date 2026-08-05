@@ -1,0 +1,88 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.employ.UnitSatkerTreeAction" width="100%"
+		height="100%">
+
+
+
+
+		<panel use="ais.ui.util.MyPanel" width="100%" height="100%"
+			framable="true" title="Data Unit Kerja">
+			<panelchildren>
+
+
+
+
+						<borderlayout>
+																	<north border="none" size="150px" autoscroll="true" flex="false" splittable="false">
+				<div style="padding:12px;box-sizing:border-box;">
+					<div sclass="ais-crud-filter-card">
+						<div sclass="ais-crud-filter-head">
+							<span sclass="ais-crud-filter-title">Pencarian &amp; Filter</span>
+						<div sclass="ais-crud-filter-actions">
+							<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;unit_kerja_tree&quot;, &quot;Bantuan&quot;);"/>
+						</div>
+						</div>
+						<div sclass="ais-crud-filter-body">
+
+								<toolbar>
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"   id="addNew"
+										tooltiptext="Unit Kerja Baru" forward="onClick=onAdd"
+										label="Unit Kerja Baru" image="/img/new.gif">
+									</toolbarbutton>
+
+									
+
+
+
+
+
+								</toolbar>
+						</div>
+					</div>
+				</div>
+			</north>
+							<center border="none"
+								flex="true">
+
+								<tree width="100%" zclass="z-dottree"
+									height="100%" id="tree">
+
+								</tree>
+
+
+
+							</center>
+
+						</borderlayout>
+
+		</panelchildren>
+		</panel>
+
+
+
+
+		<window use="ais.ui.util.MyWindow" id="addWindow" title="Unit Kerja" visible="false"
+			mode="popup" position="center,center" border="normal" width="500px"
+			height="450px">
+
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+	</window>
+
+
+</zk>

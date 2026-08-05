@@ -1,0 +1,496 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="BeritaAcaraUjian" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="557" leftMargin="30" rightMargin="8" topMargin="12" bottomMargin="20">
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<property name="ireport.zoom" value="1.210000000000003"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="ruang" class="java.lang.Long"/>
+	<parameter name="SUBREPORT_DIR" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["D:\\nih ye\\report\\"]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select  MIN(c.no_ujian),MAX(c.no_ujian),b.nama as ruang,d.nama as paket,
+e.nama as gedung,b.kapasitas_ruangan as kapasitas,
+b.tahunakademik,
+bb.lokasi,
+bbb.nama as gelombang_pendaftaran,
+f.nama as jadwal_ujian
+from ruang_paket_pmb a
+left join ruang_pmb b on a.ruang_pmb = b.id
+left join ujian_pmb bb on (b.ujian_pmb = bb.id)
+left join gelombang_pendaftaran bbb on (bb.gelombang_pendaftaran = bbb.id)
+left join biodata_calon_mahasiswa c on a.calon_mahasiswa = c.id
+left join paket d on b.paket = d.id
+left join gedung e on b.gedung = e.id
+left join jadwal_ujian_pmb f on f.ujian_pmb = bb.id
+where a.ruang_pmb=$P{ruang}
+group by b.nama,d.nama, e.nama, b.kapasitas_ruangan, b.tahunakademik, bb.lokasi, bbb.nama, f.nama
+order by max(f.waktumulai)]]>
+	</queryString>
+	<field name="min" class="java.lang.String"/>
+	<field name="max" class="java.lang.String"/>
+	<field name="ruang" class="java.lang.String"/>
+	<field name="paket" class="java.lang.String"/>
+	<field name="gedung" class="java.lang.String"/>
+	<field name="kapasitas" class="java.lang.Integer"/>
+	<field name="tahunakademik" class="java.lang.String"/>
+	<field name="lokasi" class="java.lang.String"/>
+	<field name="gelombang_pendaftaran" class="java.lang.String"/>
+	<field name="jadwal_ujian" class="java.lang.String"/>
+	<title>
+		<band height="209" splitType="Stretch">
+			<rectangle>
+				<reportElement x="0" y="150" width="181" height="37"/>
+			</rectangle>
+			<rectangle>
+				<reportElement x="181" y="150" width="179" height="37"/>
+			</rectangle>
+			<rectangle>
+				<reportElement x="360" y="122" width="175" height="28"/>
+			</rectangle>
+			<rectangle>
+				<reportElement x="181" y="122" width="179" height="28"/>
+			</rectangle>
+			<rectangle>
+				<reportElement x="0" y="123" width="181" height="27"/>
+			</rectangle>
+			<rectangle>
+				<reportElement x="0" y="122" width="181" height="28"/>
+			</rectangle>
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="2" y="0" width="94" height="75"/>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-1" x="96" y="0" width="439" height="75"/>
+				<textElement textAlignment="Center">
+					<font size="14" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA["SELEKSI PENERIMAAN MAHASISWA BARU\n"+
+((String)($P{REPORT_PARAMETERS_MAP}.get( "label_universitas" ) == null ? "" : $P{REPORT_PARAMETERS_MAP}.get( "label_universitas" ))).toUpperCase()+"\n"+
+"TAHUN AKADEMIK "+$F{tahunakademik}+"\n"+
+($F{gelombang_pendaftaran} == null ? "" : $F{gelombang_pendaftaran}.toUpperCase())]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="15" y="123" width="137" height="27"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="16" isBold="true"/>
+				</textElement>
+				<text><![CDATA[LOKASI UJIAN]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="226" y="123" width="97" height="27"/>
+				<textElement textAlignment="Center">
+					<font size="16" isBold="true"/>
+				</textElement>
+				<text><![CDATA[GEDUNG]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="374" y="123" width="137" height="27"/>
+				<textElement textAlignment="Center">
+					<font size="14" isBold="true"/>
+				</textElement>
+				<text><![CDATA[RUANG]]></text>
+			</staticText>
+			<rectangle>
+				<reportElement x="323" y="79" width="212" height="37"/>
+			</rectangle>
+			<line>
+				<reportElement x="2" y="75" width="533" height="1"/>
+			</line>
+			<rectangle>
+				<reportElement x="0" y="79" width="309" height="37"/>
+			</rectangle>
+			<textField>
+				<reportElement x="360" y="79" width="132" height="37"/>
+				<textElement textAlignment="Center">
+					<font size="24" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{paket}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="13" y="79" width="284" height="37"/>
+				<textElement textAlignment="Center">
+					<font size="24" isBold="false"/>
+				</textElement>
+				<text><![CDATA[BERITA ACARA]]></text>
+			</staticText>
+			<rectangle>
+				<reportElement x="360" y="150" width="175" height="37"/>
+			</rectangle>
+			<textField>
+				<reportElement x="360" y="150" width="173" height="37"/>
+				<textElement textAlignment="Center">
+					<font size="14" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{ruang}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="181" y="150" width="179" height="37"/>
+				<textElement textAlignment="Center">
+					<font size="14" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{gedung}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="150" width="181" height="37"/>
+				<textElement textAlignment="Center">
+					<font size="14" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{lokasi}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="140" y="191" width="8" height="18" isPrintInFirstWholeBand="true"/>
+				<textElement>
+					<font size="14" isBold="true"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="3" y="191" width="137" height="18" isPrintInFirstWholeBand="true"/>
+				<textElement>
+					<font size="14" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Jenis Tes]]></text>
+			</staticText>
+		</band>
+	</title>
+	<pageHeader>
+		<band splitType="Stretch"/>
+	</pageHeader>
+	<columnHeader>
+		<band splitType="Stretch"/>
+	</columnHeader>
+	<detail>
+		<band height="18" splitType="Stretch">
+			<textField>
+				<reportElement x="176" y="0" width="359" height="18"/>
+				<textElement>
+					<font size="14" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{jadwal_ujian}]]></textFieldExpression>
+			</textField>
+			<rectangle>
+				<reportElement x="148" y="1" width="19" height="17"/>
+			</rectangle>
+		</band>
+	</detail>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<summary>
+		<band height="403" splitType="Stretch">
+			<staticText>
+				<reportElement x="3" y="69" width="136" height="27"/>
+				<textElement>
+					<font size="14" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Peserta Nomor]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="139" y="11" width="9" height="27"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="148" y="42" width="250" height="27"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{kapasitas}+" Lembar"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="148" y="69" width="250" height="27"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{min} +" s.d "+$F{max}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="2" y="11" width="137" height="27"/>
+				<textElement>
+					<font size="14" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Waktu Ujian]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="148" y="11" width="250" height="27"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[....................  s.d  ....................]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="2" y="42" width="137" height="27"/>
+				<textElement>
+					<font size="14" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Jumlah]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="137" y="96" width="253" height="27"/>
+				<textElement textAlignment="Center">
+					<font size="14" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Peserta Yang Tidak Hadir]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="0" y="123" width="84" height="27"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[No.Peserta]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="223" y="123" width="85" height="27"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[No.Peserta]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="114" y="123" width="82" height="27"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[No.Peserta]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="450" y="123" width="85" height="27"/>
+				<textElement textAlignment="Center">
+					<font size="14" isBold="true"/>
+				</textElement>
+				<text><![CDATA[No.Peserta]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="340" y="123" width="85" height="27"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[No.Peserta]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="0" y="150" width="84" height="27"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[.......................]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="0" y="176" width="84" height="27"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[.......................]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="113" y="150" width="84" height="27"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[.......................]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="113" y="176" width="84" height="27"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[.......................]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="223" y="150" width="84" height="27"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[.......................]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="223" y="177" width="84" height="27"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[.......................]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="341" y="178" width="84" height="27"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[.......................]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="341" y="151" width="84" height="27"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[.......................]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="449" y="176" width="84" height="27"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[.......................]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="449" y="149" width="84" height="27"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[.......................]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="140" y="205" width="253" height="27"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[LAPORAN KHUSUS]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="5" y="232" width="530" height="27"/>
+				<textElement>
+					<font size="14" isBold="true"/>
+				</textElement>
+				<text><![CDATA[.......................................................................................................................................]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="3" y="259" width="530" height="27"/>
+				<textElement>
+					<font size="14" isBold="true"/>
+				</textElement>
+				<text><![CDATA[.......................................................................................................................................]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="-1" y="286" width="111" height="27"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[PENGAWAS 1 :]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="0" y="313" width="101" height="16"/>
+				<textElement>
+					<font size="10" isBold="false"/>
+				</textElement>
+				<text><![CDATA[Nama]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="101" y="313" width="169" height="27"/>
+				<textElement>
+					<font size="10" isBold="true"/>
+				</textElement>
+				<text><![CDATA[.....................................................]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="0" y="356" width="98" height="27"/>
+				<textElement>
+					<font size="10" isBold="false"/>
+				</textElement>
+				<text><![CDATA[Tanda Tangan]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="101" y="356" width="169" height="27"/>
+				<textElement>
+					<font size="10" isBold="false"/>
+				</textElement>
+				<text><![CDATA[....................................................]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="28" y="383" width="504" height="17"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Beri tanda (x) yang sesuai dengan pilihan]]></text>
+			</staticText>
+			<rectangle>
+				<reportElement x="3" y="383" width="19" height="17"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="381" y="313" width="151" height="27"/>
+				<textElement>
+					<font size="10" isBold="true"/>
+				</textElement>
+				<text><![CDATA[.....................................................]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="381" y="356" width="151" height="27"/>
+				<textElement>
+					<font size="10" isBold="false"/>
+				</textElement>
+				<text><![CDATA[....................................................]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="281" y="356" width="93" height="27"/>
+				<textElement>
+					<font size="10" isBold="false"/>
+				</textElement>
+				<text><![CDATA[Tanda Tangan]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="280" y="286" width="93" height="27"/>
+				<textElement textAlignment="Center">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[PENGAWAS 2 :]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="281" y="313" width="92" height="27"/>
+				<textElement>
+					<font size="10" isBold="false"/>
+				</textElement>
+				<text><![CDATA[Nama]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="102" y="335" width="168" height="16"/>
+				<textElement>
+					<font size="10" isBold="true"/>
+				</textElement>
+				<text><![CDATA[.....................................................]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="382" y="335" width="151" height="16"/>
+				<textElement>
+					<font size="10" isBold="true"/>
+				</textElement>
+				<text><![CDATA[.....................................................]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="282" y="334" width="92" height="17"/>
+				<textElement>
+					<font size="10" isBold="false"/>
+				</textElement>
+				<text><![CDATA[No Telp]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="0" y="334" width="101" height="17"/>
+				<textElement>
+					<font size="10" isBold="false"/>
+				</textElement>
+				<text><![CDATA[No Telp]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="139" y="42" width="9" height="27"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="139" y="69" width="9" height="27"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[:]]></text>
+			</staticText>
+		</band>
+	</summary>
+</jasperReport>

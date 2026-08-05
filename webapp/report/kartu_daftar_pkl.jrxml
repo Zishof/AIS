@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="kartu_daftar_beasiswa" language="groovy" pageWidth="550" pageHeight="300" orientation="Landscape" whenNoDataType="AllSectionsNoDetail" columnWidth="510" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="e4f71ccf-8b58-44a4-9db4-0b3f76db9bb6">
+	<property name="ireport.zoom" value="1.4641000000000035"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="id_mahasiswa" class="java.lang.Long"/>
+	<parameter name="id_pkl" class="java.lang.Long"/>
+	<parameter name="logo1" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["logo.png"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["UNIVERSITAS ISLAM NEGERI SYARIF HIDAYATULLAH JAKARTA"]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[SELECT a.mahasiswa,b.nim as nim, b.nama as nama,c.nama as pkl,
+a.tanggal_daftar,e.nama as nama_kelompok,case when d.diterima then 'Disetujui' else 'Belum Disetujui' end as status_pendaftaran
+
+FROM mahasiswa_daftar_pkl a
+left JOIN mahasiswa b on a.mahasiswa=b."id"
+left join pkl c on a.pkl = c."id"
+left join mahasiswa_dapat_kelompok_kelompok_pkl d on (d.mahasiswa=a.mahasiswa)
+left join kelompok_pkl e on (e.id=d.kelompok_pkl and e.pkl=a.pkl)
+
+where b.id = $P{id_mahasiswa}
+and c.id = $P{id_pkl}]]>
+	</queryString>
+	<field name="mahasiswa" class="java.lang.Long"/>
+	<field name="nim" class="java.lang.String"/>
+	<field name="nama" class="java.lang.String"/>
+	<field name="pkl" class="java.lang.String"/>
+	<field name="tanggal_daftar" class="java.sql.Timestamp"/>
+	<field name="nama_kelompok" class="java.lang.String"/>
+	<field name="status_pendaftaran" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="57" splitType="Stretch">
+			<rectangle>
+				<reportElement x="0" y="2" width="510" height="55" uuid="c9cd515c-96c1-4aa2-947d-1bfee085f8e7"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="0" y="7" width="510" height="27" uuid="fb25058f-20a8-45c3-ad43-27f3fe364d84"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="14" isBold="true"/>
+				</textElement>
+				<text><![CDATA[BUKTI PENDAFTARAN PKL MAHASISWA]]></text>
+			</staticText>
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement key="image-1" x="9" y="6" width="46" height="45" uuid="c343fa68-952f-4e3f-9413-251146f1d71c"/>
+				<imageExpression><![CDATA[$P{logo1}]]></imageExpression>
+			</image>
+			<textField>
+				<reportElement x="0" y="31" width="510" height="20" uuid="59a4a359-11ab-414b-a215-231b2ebf0b96"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{label_universitas}]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<detail>
+		<band height="172" splitType="Stretch">
+			<rectangle>
+				<reportElement x="0" y="11" width="510" height="161" uuid="189c100e-20de-47df-8b21-314fdddbb54b"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="36" y="32" width="100" height="20" uuid="4491686a-38bd-4122-a8ae-a4a76159e740"/>
+				<text><![CDATA[NIM]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="150" y="32" width="242" height="20" uuid="8ee86824-29d2-4171-bbbc-03aa37057463"/>
+				<textFieldExpression><![CDATA[$F{nim}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="36" y="52" width="100" height="20" uuid="59e53ab8-8abf-487b-89b0-085060819faa"/>
+				<text><![CDATA[Nama]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="150" y="52" width="242" height="20" uuid="101c9142-9791-4688-9695-70cbb99ef188"/>
+				<textFieldExpression><![CDATA[$F{nama}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="36" y="92" width="100" height="20" uuid="ec3276f9-4dea-465e-9df8-3e3c0a260c31"/>
+				<text><![CDATA[PKL]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="150" y="92" width="242" height="20" uuid="5aca5047-82b8-4b64-b0cc-375e42797e8b"/>
+				<textFieldExpression><![CDATA[$F{pkl}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="9" y="11" width="501" height="20" uuid="6d91e0a1-589f-41d1-b4cb-bd38694fa5fe"/>
+				<text><![CDATA[Data Mahasiswa :]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="9" y="72" width="383" height="20" uuid="579dda6f-d2c0-4160-87b0-856db4f6c613"/>
+				<text><![CDATA[Telah terdaftar pada program]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="36" y="132" width="100" height="20" uuid="9e3aef35-9b60-4a21-abfc-22fa32946c0c"/>
+				<text><![CDATA[Tanggal Daftar]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="150" y="132" width="242" height="20" uuid="d27041c1-0a4d-43e2-84b0-cdd6f4d4c7be"/>
+				<textFieldExpression><![CDATA[$F{tanggal_daftar}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="136" y="32" width="15" height="20" uuid="ecb0bae5-9a78-4120-ab6f-ba1470525999"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="136" y="52" width="15" height="20" uuid="1e8695c4-0922-4e03-8816-de280c37faea"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="136" y="92" width="15" height="20" uuid="bd714b31-a65d-44e7-b755-f459f91a7de8"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="135" y="132" width="15" height="20" uuid="b61330b2-94f5-471d-9e4a-c7c15323731a"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="135" y="112" width="15" height="20" uuid="500e7d82-9361-4397-9a03-854d320901a1"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="150" y="112" width="242" height="20" uuid="dc10d4ee-6760-4e74-b9a1-fa652a467a17"/>
+				<textFieldExpression><![CDATA[$F{nama_kelompok}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="36" y="112" width="100" height="20" uuid="43149c25-4a64-450c-980d-23ebb4e10ce2"/>
+				<text><![CDATA[Kelompok]]></text>
+			</staticText>
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement x="408" y="32" width="102" height="127" uuid="71b609b4-c9f2-4075-ad4e-720b519f549a"/>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "foto" )]]></imageExpression>
+			</image>
+			<staticText>
+				<reportElement x="134" y="152" width="15" height="20" uuid="7e95d3d5-3a22-44c8-afc1-9e607565c93e"/>
+				<text><![CDATA[:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="149" y="152" width="242" height="20" uuid="7c7e6d35-92d9-4912-8ed6-db0f4d4b913d"/>
+				<textFieldExpression><![CDATA[$F{status_pendaftaran}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="35" y="152" width="100" height="20" uuid="d8a4d148-ee15-4e2d-a17b-50caecf4c041"/>
+				<text><![CDATA[Status Pendaftaran]]></text>
+			</staticText>
+		</band>
+	</detail>
+</jasperReport>

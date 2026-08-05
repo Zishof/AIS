@@ -1,0 +1,193 @@
+<?page title="Pilihan Paket dan Biaya" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<borderlayout height="100%">
+		<west width="20%">
+
+		</west>
+		<center autoscroll="true">
+			<box>
+				<separator height="10px"></separator>
+				<box width="90%" align="center">
+					<label use="ais.ui.util.MyLabelConfig">
+						Materi dan Jadwal Ujian
+					</label>
+				</box>
+				<separator height="10px"></separator>
+				<box width="90%" align="center">
+					<html>
+
+
+
+						
+						<![CDATA[ 
+						   <p align='justify'><b>A. MATERI UJIAN</b>
+						   <table border='1' bordercolor='#ACACAC'>
+						   <tr><td>
+						   <table width='600' border='1' bordercolor='#ACACAC'>
+						   <tr bgcolor='#0287EA'>
+						   		<td><b><font color='white'>NO</font></b></td>
+						   		<td><b><font color='white'>PILIHAN</font></b></td>
+						   		<td colspan='8' ><b><font color='white'>MATA PELAJARAN DIUJIKAN</font></b></td>
+						   	</tr>
+						    <tr >
+						    	<td bgcolor=''>1</td>
+						    	<td>PAKET A</td>
+						    	<td >TBS</td>
+						    	<td>PA</td>
+						    	<td >BI</td>
+						    	<td>BE</td>
+						    	<td >BA</td>
+						    	<td>IPS T</td>
+						    	<td >&nbsp;</td>
+						    	<td>&nbsp;</td>
+						    </tr>
+						    <tr bgcolor='#FEEBDA'>
+						    	<td >2</td>
+						    	<td>PAKET B</td>
+						    	<td >TBS</td>
+						    	<td>PA</td>
+						    	<td >BI</td>
+						    	<td>BE</td>
+						    	<td >IPS T</td>
+						    	<td>MAT IPS</td>
+						    	<td>&nbsp;</td>
+						    	<td>&nbsp;</td>
+						    </tr>
+						    <tr>
+						    	<td >3</td>
+						    	<td>PAKET C</td>
+						    	<td >TBS</td>
+						    	<td>PA</td>
+						    	<td >BI</td>
+						    	<td>BE</td>
+						    	<td >IPA T</td>
+						    	<td>MAT IPA</td>
+						    	<td >&nbsp;</td>
+						    	<td>&nbsp;</td>
+						    </tr>
+						    <tr bgcolor='#FEEBDA'>
+						    	<td >4</td>
+						    	<td>PAKET BA</td>
+						    	<td >TBS</td>
+						    	<td>PA</td>
+						    	<td >BI</td>
+						    	<td>BE</td>
+						    	<td >BA</td>
+						    	<td>IPS T</td>
+						    	<td >MAT IPS</td>
+						    	<td>&nbsp;</td>
+						    </tr>
+						    <tr>
+						    	<td >5</td>
+						    	<td>PAKET CB</td>
+						    	<td >TBS</td>
+						    	<td>PA</td>
+						    	<td >BI</td>
+						    	<td>BE</td>
+						    	<td>IPS T</td>
+						    	<td>IPA T</td>
+						    	<td>MAT IPA</td>
+						    	<td>&nbsp;</td>
+						    </tr>
+						    <tr bgcolor='#FEEBDA'>
+						    	<td >6</td>
+						    	<td>PAKET CA</td>
+						    	<td >TBS</td>
+						    	<td>PA</td>
+						    	<td >BI</td>
+						    	<td>BE</td>
+						    	<td >BA</td>
+						    	<td>IPS T</td>
+						    	<td>IPA T</td>
+						    	<td>MAT IPA T</td>
+						    </tr>  						     
+						   </table>     
+						   </td>
+						   </tr>
+						   </table>
+						   
+						   Keterangan:
+						   <table width='450' border='0' bordercolor='#ACACAC'>
+						   <tr>
+						   		<td valign='middle'><b>-</b></td>
+						   		<td>TBS</td>
+						   		<td>Tes Bakat Skolastik</td>
+						   </tr>
+						   <tr>
+						   		<td valign='middle'><b>-</b></td>
+						   		<td>PA</td>
+						   		<td>Pengetahuan Agama Islam</td>
+						   </tr>
+						   <tr>
+						   		<td valign='middle'><b>-</b></td>
+						   		<td>BI</td>
+						   		<td>Bahasa Indonesia</td>
+						   </tr>
+						   <tr>
+						   		<td valign='middle'><b>-</b></td>
+						   		<td>BE</td>
+						   		<td>Bahasa Inggris</td>
+						   </tr>
+						   <tr>
+						   		<td valign='middle'><b>-</b></td>
+						   		<td>BA</td>
+						   		<td>Bahasa Arab</td>
+						   </tr>
+						   <tr>
+						   		<td valign='middle'><b>-</b></td>
+						   		<td>IPS T</td>
+						   		<td>Ilmu Pengetahuan Sosial Terpadu</td>
+						   </tr>
+						   <tr>
+						  		<td valign='middle'><b>-</b></td>
+						  		<td>IPA T</td>
+						  		<td>Ilmu Pengetahuan Alam Terpadu</td>
+						  </tr>
+						  <tr>
+							   <td valign='middle'><b>-</b></td>
+							   <td>MAT IPS</td>
+							   <td>Matematika IPS</td>
+							</tr>
+							<tr>
+								<td valign='middle'><b>-</b></td>
+								<td>MAT IPA</td>
+								<td>Matematika IPA</td>
+							</tr>
+						   </table>
+						   
+						   <p align='justify'><b>B. JADWAL UJIAN</b>
+						   <table border='1' bordercolor='#ACACAC'>
+						   <tr><td>
+						   <table width='600' border='1' bordercolor='#ACACAC'>
+						   <tr bgcolor='#0287EA'>
+						   		<td><b><font color='white'>Hari / Tanggal</font></b></td>
+						   		<td><b><font color='white'>Waktu</font></b></td>
+						   		<td><b><font color='white'>Materi</font></b></td>
+						   		<td><b><font color='white'>Paket</font></b></td>
+						   	</tr>
+						    <tr >
+						    	<td bgcolor='' valign='top'>Rabu, 4 Juli 2012</td>
+						    	<td>08.30 - 10.00<br>10.15 - 12.45 <br> 13.00 - 14.00</td>
+						    	<td >TBS <br> PA / BI / BE <br> Bahasa Arab</td>
+						    	<td>A, B, C, BA, CA, CB <br> A, B, C, BA, CA, CB <br> A, BA, CA</td>						    	
+						    </tr>
+						    <tr bgcolor='#FEEBDA'>
+						    	<td valign='top'>Kamis, 5 Juli 2012</td>
+						    	<td>08.30 - 09.30 <br><br> 09.45 - 10.45 <br> 11.00 - 12.00</td>
+						    	<td >Matematika IPS <br> Matematika IPA <br> IPA Terpadu <br> IPS Terpadu</td>
+						    	<td>B, BA <br>C, CA, CB <br> C, CA, CB<br> A, B, BA, CA, CB</td>						    							    	
+						    </tr>						     						     
+						   </table>     
+						   </td>
+						   </tr>
+						   </table>
+						         ]]>
+						
+						
+						
+							</html>
+				</box>
+			</box>
+		</center>
+	</borderlayout>
+</zk>

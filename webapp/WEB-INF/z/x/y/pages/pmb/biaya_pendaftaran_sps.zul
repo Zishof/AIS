@@ -1,0 +1,56 @@
+<?page title="Biaya Pendaftaran" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<borderlayout height="100%">
+		<west width="5%">
+
+		</west>
+		<center autoscroll="true">
+			<box>
+				<separator height="30px"></separator>
+				<box width="90%" align="center">
+					<label use="ais.ui.util.MyLabelConfig">
+						BIAYA PENDAFTARAN PROGRAM MAGISTER DAN DOKTOR 						
+					</label>
+										<label use="ais.ui.util.MyLabelConfig">
+						SEKOLAH PASCASARJANA 
+						
+					</label>
+					
+				</box>
+				<separator height="10px"></separator>
+				<html>
+					
+					<![CDATA[
+
+<table border="1" cellspacing="0" cellpadding="0">
+<tr bgcolor="#CCFFCC">
+  <td width="45" valign="top"><p align="center"><strong>NO</strong></p></td>
+  <td width="201" valign="top"><p align="center"><strong>JENIS BIAYA</strong></p></td>
+  <td width="123" valign="top"><p align="center"><strong>MAGISTER</strong></p></td>
+  <td width="123" valign="top"><p align="center"><strong>DOKTOR</strong></p></td>
+  <td width="165" valign="top"><p align="center"><strong>CATATAN</strong></p></td>
+</tr>
+<tr>
+  <td width="45" valign="top"><p align="center">1</p></td>
+  <td width="201" valign="top"><p>FORMULIR PENDAFTARAN</p></td>
+  <td width="123" valign="top"><p align="right">Rp.    150.000,-</p></td>
+  <td width="123" valign="top"><p align="right">Rp.    150.000,-</p></td>
+  <td width="165" valign="top"><p>&nbsp;</p></td>
+</tr>
+<tr bgcolor="#FFFFCC">
+  <td width="45" valign="top"><p align="center">2</p></td>
+  <td width="201" valign="top"><p>BIAYA TES MASUK</p></td>
+  <td width="123" valign="top"><p align="right">Rp.    600.000,-</p></td>
+  <td width="123" valign="top"><p align="right">Rp.    750.000,-</p></td>
+  <td width="165" valign="top"><p>Dibayar untuk sekali ujian</p></td>
+</tr>
+</table>
+
+					
+					 ]]>
+					
+                    		</html>
+			</box>
+		</center>
+	</borderlayout>
+</zk>

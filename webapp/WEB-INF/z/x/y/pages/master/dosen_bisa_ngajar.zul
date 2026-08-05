@@ -1,0 +1,159 @@
+<?page id="testZul" title=" New ZUL Title" cacheable="false" 
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+
+
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.DosenActionBisaNgajar" width="100%" height="100%">
+
+
+		<tabbox width="100%" height="100%">
+
+			<tabs>
+
+				<tab use="ais.ui.util.MyTabConfig" selected="true">Manajemen Dosen Mengajar Prodi Lain</tab>
+
+			</tabs>
+
+			<tabpanels>
+
+				<tabpanel use="ais.ui.util.MyTabpanel">
+
+
+					<panel use="ais.ui.util.MyPanel" width="100%"
+						height="100%" id="panel" title="Data Dosen">
+						<panelchildren>
+
+
+
+							<borderlayout>
+
+								<center border="none" flex="true">
+									<borderlayout>
+										<north border="none"
+											open="true">
+											<grid use="ais.ui.util.MyGrid"  fixedLayout="true">
+												<columns>
+													<column use="ais.ui.util.MyColumnConfig"
+														width="100px">
+													</column>
+													<column use="ais.ui.util.MyColumnConfig"></column>
+													<column use="ais.ui.util.MyColumnConfig"
+														width="100px">
+													</column>
+													<column use="ais.ui.util.MyColumnConfig"></column>
+												</columns>
+												<rows>
+
+													<row>
+														<label use="ais.ui.util.MyLabelConfig"
+															value="Nama" />
+														<textbox
+															id="searchnama" forward="onOK=onSearchDefault"
+															width="95%" />
+														<label use="ais.ui.util.MyLabelConfig"
+															value="Fakultas"  />
+														<combobox
+															width="95%" forward="onChange=onSearchDefault"
+															id="searchfakultas">
+														</combobox>
+													</row>
+													<row>
+														<label use="ais.ui.util.MyLabelConfig"
+															value="Kode/NIP" />
+														<textbox
+															id="searchcode" forward="onOK=onSearchDefault"
+															width="95%" />
+														<label use="ais.ui.util.MyLabelConfig"
+															value="Prodi"  />
+														<combobox
+															width="95%" forward="onChange=onSearchDefault"
+															id="searchjurusan">
+														</combobox>
+													</row>
+
+
+													<row spans="4">
+
+														<toolbar>
+															<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"  
+																tooltiptext="Cari data"
+																forward="onClick=onSearchDefault" id="find" label="Cari"
+																image="/img/search.gif">
+															</toolbarbutton>
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;dosen_bisa_ngajar&quot;, &quot;Bantuan&quot;);"/>
+			</toolbar>
+													</row>
+												</rows>
+											</grid>
+
+										</north>
+										<center border="none" flex="true">
+
+											<grid use="ais.ui.util.MyGrid"  fixedLayout="true"
+												id="grid" mold="paging" pageSize="25">
+												<columns>
+													<column use="ais.ui.util.MyColumnConfig"
+														width="40px" />
+													<column use="ais.ui.util.MyColumnConfig"
+														width="70px" />
+													<column use="ais.ui.util.MyColumnConfig" width="8%"
+														label="NIP" sort="auto(code)" />
+													
+													<column use="ais.ui.util.MyColumnConfig" width="8%"
+														label="NIDN/NUPN" sort="auto(code)" />
+													<column use="ais.ui.util.MyColumnConfig" label="Nama"
+														sort="auto(nama)" />
+													<column use="ais.ui.util.MyColumnConfig" width="5%"
+														label="Status" sort="auto(statusPegawai)" />
+													<column use="ais.ui.util.MyColumnConfig" width="5%"
+														label="Golongan" sort="auto(golongan)" />
+													<column use="ais.ui.util.MyColumnConfig" width="5%"
+														label="Tetap" sort="auto(tetap)" />
+													<column use="ais.ui.util.MyColumnConfig" width="5%"
+														label="Email" sort="auto(email)" />
+													<column use="ais.ui.util.MyColumnConfig" width="8%"
+														label="Telp." sort="auto(telp)" />
+													<column use="ais.ui.util.MyColumnConfig" width="5%"
+														label="Pangkat" sort="auto(pangkat)" />
+													<column use="ais.ui.util.MyColumnConfig" width="5%"
+														label="Jabatan" sort="auto(jabatan)" />
+													<column use="ais.ui.util.MyColumnConfig" width="8%"
+														label="Fakultas"  />
+													<column use="ais.ui.util.MyColumnConfig" width="8%"
+														label="Prodi"  />
+													<column use="ais.ui.util.MyColumnConfig" width="8%"
+														label="" />
+												</columns>
+
+											</grid>
+
+
+										</center>
+										<south border="none">
+											<paging visible="false"
+												id="paging" />
+										</south>
+									</borderlayout>
+								</center>
+							</borderlayout>
+						</panelchildren>
+					</panel>
+
+
+				</tabpanel>
+
+			</tabpanels>
+
+		</tabbox>
+
+	</window>
+
+
+</zk>

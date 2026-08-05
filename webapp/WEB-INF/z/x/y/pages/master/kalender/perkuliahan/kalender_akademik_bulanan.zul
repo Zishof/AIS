@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<zk xmlns:w="client">
+	<window use="ais.ui.util.MyWindow"
+		apply="ais.action.master.CalendarAkademikBulananComposer"
+		height="100%">
+		<borderlayout id="main" vflex="1">
+			<center border="none">
+				<calendars id="calendars" firstDayOfWeek="Sunday"
+					model="${cm}" mold="month">
+					<toolbar sclass="calendar-toolbar">
+						<div class="float-left">
+							<hbox>
+
+								<div>
+
+									<label
+										use="ais.ui.util.MyLabelConfig" value="Tahun Akademik" />
+									<combobox width="90px"
+										forward="onChange=onSearchDefault" id="searchTahunAjaran" />
+
+									<label
+										use="ais.ui.util.MyLabelConfig" value="Semester" />
+									<combobox width="70px"
+										forward="onChange=onSearchDefault" id="searchGanjilGenap" />
+
+									<label
+										use="ais.ui.util.MyLabelConfig" value="Fakultas" />
+									<combobox width="100px"
+										forward="onChange=onSearchDefault" id="searchFakultas" />
+
+									<label
+										use="ais.ui.util.MyLabelConfig" value="Prodi" />
+									<combobox id="searchJurusan"
+										width="100px" forward="onChange=onSearchDefault" />
+
+									<space></space>
+									<space></space>
+									<space></space>
+									<button
+										use="ais.ui.util.MyButtonConfig" forward="onClick=onBack"
+										label="Back">
+									</button>
+									<button
+										use="ais.ui.util.MyButtonConfig" forward="onClick=onNext"
+										label="Next">
+									</button>
+
+									<space></space>
+									<button
+										use="ais.ui.util.MyButtonConfig" forward="onClick=onRefresh"
+										label="Refresh">
+									</button>
+								</div>
+							</hbox>
+						</div>
+				<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;kalender_akademik_bulanan&quot;, &quot;Bantuan&quot;);"/>
+			</toolbar>
+				</calendars>
+			</center>
+
+		</borderlayout>
+
+
+	</window>
+</zk>

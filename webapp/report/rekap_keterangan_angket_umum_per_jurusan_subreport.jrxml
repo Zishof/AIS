@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="rekap_angket_dosen_per_dosen_subreport" language="groovy" pageWidth="802" pageHeight="555" orientation="Landscape" whenNoDataType="AllSectionsNoDetail" columnWidth="802" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="6503a762-338a-42bb-8f61-069f6d16c743">
+	<property name="ireport.zoom" value="1.3310000000000028"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="checklist" class="java.lang.Long" isForPrompting="false"/>
+	<parameter name="dosen" class="java.lang.Long" isForPrompting="false"/>
+	<parameter name="tahun_akademik" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="genapGanjil" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Genap"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="fakultas" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jurusan" class="java.lang.Long" isForPrompting="false">
+		<defaultValueExpression><![CDATA[-1L]]></defaultValueExpression>
+	</parameter>
+	<parameter name="diperuntukkan" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["Semua"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="jumlah_pilihan_checklist_penilaian_dosen_oleh_mahasiswa" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["5"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="SUBREPORT_DIR" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[select b.isi,
+x.keterangan
+
+from checklist_hasil_penilaian_umum x
+inner JOIN checklist_penilaian_umum b on x.checklist_penilaian_umum=b.id
+inner JOIN grup_checklist_penilaian_umum bb on b.grup_checklist_penilaian_umum=bb.id
+left join mahasiswa m on (m.id=x.mahasiswa)
+left join dosen m1 on (m1.id=x.dosen)
+left join tbmuser m2 on (m2.userid=x.tbmuser)
+left join jurusan j on (j.id = m.jurusan or j.id = m1.jurusan or j.id = m2.jurusan)
+left join fakultas f on (f.id=j.fakultas)
+where 1=1
+and b.grup_checklist_penilaian_umum=$P{checklist}
+and x.tahun_akademik=$P{tahun_akademik}
+and x.semesterstr = $P{genapGanjil}
+and (b.aktif or b.aktif is null) and (bb.aktif or bb.aktif is null)
+and case when $P{jurusan}=-1 then true else m.jurusan=$P{jurusan} end
+and case when $P{fakultas}=-1 then true else j.fakultas=$P{fakultas} end
+and (b.aktif or b.aktif is null)
+and (bb.aktif or bb.aktif is null)
+and x.tbmuser_dinilai is null
+and case when $P{diperuntukkan}='Semua' then true else bb.diperuntukkan=$P{diperuntukkan} end
+and x.keterangan is not null
+and x.keterangan != ''
+order by b.isi,b.keterangan]]>
+	</queryString>
+	<field name="isi" class="java.lang.String"/>
+	<field name="keterangan" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<detail>
+		<band height="20" splitType="Stretch">
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement stretchType="RelativeToTallestObject" x="21" y="0" width="394" height="20" uuid="dca91fb1-8168-45ac-89a1-0e1648c6be88"/>
+				<box topPadding="1" leftPadding="3" bottomPadding="1" rightPadding="1">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{isi}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement stretchType="RelativeToTallestObject" x="0" y="0" width="21" height="20" uuid="349a2520-2517-485f-b235-343f145fc980"/>
+				<box>
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement stretchType="RelativeToTallestObject" x="415" y="0" width="387" height="20" uuid="6543ef4d-0dd9-4ddc-adb7-4b782e9d69fc"/>
+				<box topPadding="1" leftPadding="3" bottomPadding="1" rightPadding="1">
+					<topPen lineWidth="0.5"/>
+					<leftPen lineWidth="0.5"/>
+					<bottomPen lineWidth="0.5"/>
+					<rightPen lineWidth="0.5"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{keterangan}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+</jasperReport>

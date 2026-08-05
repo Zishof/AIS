@@ -1,0 +1,186 @@
+<?page title="Pilihan Paket dan Biaya" contentType="text/html;charset=UTF-8"?>
+<zk>
+	<borderlayout height="100%">
+		<west width="5%">
+
+		</west>
+		<center autoscroll="true">
+			<box>
+				<separator height="30px"></separator>
+				<box width="90%" align="center">
+					<label use="ais.ui.util.MyLabelConfig">
+						Prosedur Pembayaran
+					</label>
+				</box>
+				<separator height="10px"></separator>
+				<box width="90%" align="center">
+				<html>
+
+						
+						<![CDATA[ 
+						         <p align='justify'>&nbsp;Prosedur pembayaran biaya pendaftaran calon peserta SPMB Mandiri sebagai berikut:
+						         <table border='0' width=''>
+						         <tr>
+						         	<td align='left'><b>TUNAI</b></td>
+						         </tr>
+						         <tr>
+						         	<td align='left' >
+						         	<table border='0'>
+						         	<tr>
+						         		<td valign='top'>1.</td>
+						         		<td align='left'>Calon peserta datang ke Bank Mandiri, BNI atau BRI</td>
+						         	</tr>
+						         	<tr>
+						         		<td valign='top'>2.</td>
+						         		<td align='left'>Mengisi slip setoran dengan mencantumkan nama calon di kolom reference</td>
+						         	</tr>
+						         	<tr>
+							         	<td valign='top'>3.</td>
+						         		<td align='left'>Calon peserta datang ke teller membawa slip setoran yang telah diisi</td>
+						         	</tr>
+						         	<tr>
+						         		<td valign='top'>4.</td>
+						         		<td align='left'>Membayar uang pendaftaran SPMB Mandiri</td>
+						         	</tr>						      
+						         	</table>	
+						         	</td>						      
+						         </tr>
+						         <tr>
+						         	<td align='left'><b>Melalui ATM</b></td>						         	
+						         </tr>
+						         <tr>
+						         	<td align='left'>
+						         	<table border='' width='100%' bordercolor='#ACACAC'>
+						         	<tr bgcolor='#006595'>
+						         		<td align='center' height='25'><font color='ffffff'><b>BANK MANDIRI</b></font></td>
+						         		<td align='center'><font color='ffffff'><b>BANK BNI</b></font></td>
+						         		<td align='center'><font color='ffffff'><b>BANK BRI</b></font></td>
+						         	</tr>
+						         	<tr>
+						         		<td align='left' valign='top'>
+						         			<table border='0'>
+						         			<tr>
+						         				<td valign='top'>1.</td>
+						         				<td align='left'>Masukkan kartu ATM Bank Mandiri ke mesin ATM</td>
+						         			</tr>
+						         			<tr>
+						         				<td valign='top'>2.</td>
+						         				<td align='left'>Pilih Menu <b>Pembayaran/Pembelian</b></td>
+						         			</tr>
+						         			<tr>
+						         				<td valign='top'>3.</td>
+						         				<td align='left'>Pilih Sub Menu Multi Payment</td>
+						         			</tr>
+						         			<tr>
+						         				<td valign='top'>4.</td>
+						         				<td align='left'>Masukkan Kode Universitas (untuk UIN Jakarta <b>Kode</b>-nya: <b>10012</b>)</td>
+						         			</tr>
+						         			<tr>
+						         				<td valign='top'>5.</td>
+						         				<td align='left'>Masukkan / Tulis Nomor Pendaftaran</td>
+						         			</tr>
+						         			<tr>
+						         				<td valign='top'>6.</td>
+						         				<td align='left'>Periksa nama yang keluar pada tampilan</td>
+						         			</tr>
+						         			<tr>
+						         				<td valign='top'>7.</td>
+						         				<td align='left'>Bila benar pilih "<b>Ya</b>", dan bila salah pilih "<b>Tidak</b>"</td>
+						         			</tr>
+						         			<tr>
+						         				<td valign='top'>8.</td>
+						         				<td align='left'>Pendaftar mendapat <b>Struk ATM</b> sebagai bukti pembayaran</td>
+						         			</tr>
+						         			</table>
+						         		</td>
+						         		<td align='left' valign='top'>
+						         		<table border='0'>
+					         			<tr>
+					         				<td valign='top'>1.</td>
+					         				<td align='left'>Masukkan kartu ATM BNI ke mesin ATM</td>
+					         			</tr>
+					         			<tr>
+					         				<td valign='top'>2.</td>
+					         				<td align='left'>Pilih menu <b>Pembayaran/Pembelian</b></td>
+					         			</tr>
+					         			<tr>
+					         				<td valign='top'>3.</td>
+					         				<td align='left'>Pilih menu <b>Pembayaran Student Payment Centre (SPC)</b></td>
+					         			</tr>
+					         			<tr>
+					         				<td valign='top'>4.</td>
+					         				<td align='left'>Masukkan Kode Universitas (untuk UIN Jakarta <b>Kode</b>-nya: <b>8004</b>)</td>
+					         			</tr>
+					         			<tr>
+					         				<td valign='top'>5.</td>
+					         				<td align='left'>Masukkan / Tulis Nomor Pendaftaran</td>
+					         			</tr>
+					         			<tr>
+					         				<td valign='top'>6.</td>
+					         				<td align='left'>Masukkan rekening yang akan digunakan (dalam hal ini pilih <b>Tabungan</b>)</td>
+					         			</tr>
+					         			<tr>
+					         				<td valign='top'>7.</td>
+					         				<td align='left'>Periksa nama yang keluar pada tampilan</td>
+					         			</tr>
+					         			<tr>
+					         				<td valign='top'>8.</td>
+					         				<td align='left'>Bila benar pilih "<b>Ya</b>", dan bila salah pilih "<b>Tidak</b>"</td>
+					         			</tr>
+					         			<tr>
+					         				<td valign='top'>9.</td>
+					         				<td align='left'>Pendaftar mendapat <b>Struk ATM</b> sebagai bukti pembayaran</td>
+					         			</tr>
+					         			</table>
+						         		</td>
+						         		<td align='left' valign='top'>
+						         		<table border='0'>
+					         			<tr>
+					         				<td valign='top'>1.</td>
+					         				<td align='left'>Masukkan kartu dan PIN</td>
+					         			</tr>
+					         			<tr>
+					         				<td valign='top'>2.</td>
+					         				<td align='left'>Menu Paket Tunai, pilih <b>Transaksi Lain</b></td>
+					         			</tr>
+					         			<tr>
+					         				<td valign='top'>3.</td>
+					         				<td align='left'>Menu Jenis Transaksi, pilih <b>Pembayaran</b></td>
+					         			</tr>
+					         			<tr>
+					         				<td valign='top'>4.</td>
+					         				<td align='left'>Menu Jenis Pembayaran, pilih <b>Biaya Pendidikan</b>)</td>
+					         			</tr>
+					         			<tr>
+					         				<td valign='top'>5.</td>
+					         				<td align='left'>Menu Biaya Pendidikan, pilih <b>UIN Jakarta</b> dengan kode <b>004</b></td>
+					         			</tr>
+					         			<tr>
+					         				<td valign='top'>6.</td>
+					         				<td align='left'>Masukkan / Tulis Nomor Pendaftaran</td>
+					         			</tr>
+					         			<tr>
+					         				<td valign='top'>7.</td>
+					         				<td align='left'>Muncul Informasi Pembayaran, apabila info pembayaran benar, tekan "<b>YA</b>"</td>
+					         			</tr>
+					         			<tr>
+					         				<td valign='top'>8.</td>
+					         				<td align='left'>Setelah transaksi, pendaftar mendapat <b>Struk ATM</b> sebagai bukti pembayaran</td>
+					         			</tr>					     				
+					         			</table>
+						         		</td>
+					         		</tr>
+						         	</table>
+						         	</td>						         	
+						         </tr>
+						         </table>
+						         <br>
+						         &nbsp;Uang yang sudah disetor ke Bank, tidak dapat diminta kembali 
+						         ]]>
+						
+							</html>
+				</box>
+			</box>
+		</center>
+	</borderlayout>
+</zk>
