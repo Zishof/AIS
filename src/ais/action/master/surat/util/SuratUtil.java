@@ -436,7 +436,7 @@ public class SuratUtil {
 		if (id != null) {
 			try {
 				LampiranLain lampiran = LampiranLain.ambil(id, typeLampiran);
-				if (lampiran != null && lampiran.ambilFile() != null) {
+				if (lampiran != null && Common.isGambarLaporanValid(lampiran.ambilFile())) {
 					path = lampiran.ambilFile().getAbsolutePath();
 				}
 			} catch (Exception e) {
@@ -621,7 +621,7 @@ public class SuratUtil {
 
 						if (foto != null) {
 							File file = foto.ambilFile();
-							if (file != null && file.exists()) {
+							if (Common.isGambarLaporanValid(file)) {
 								parameters.put("ttd." + pejabat.getJenisJabatan().getKey(), file.getAbsolutePath());
 							}
 						}

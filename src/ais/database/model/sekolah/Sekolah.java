@@ -1168,14 +1168,14 @@ public class Sekolah extends VoKunci {
 		Sekolah sekolah = this;
 
 		File file = FileFoto.fileAdaDiFolder(LampiranLain.KOP_SEKOLAH, sekolah.getId());
-		if (file != null && file.exists()) {
+		if (Common.isGambarLaporanValid(file)) {
 			parameters.put("KOP_SEKOLAH_" + sekolah.getId(), file.getAbsolutePath());
 			parameters.put("KOP_SEKOLAH_" + sekolah.getNama(), file.getAbsolutePath());
 		} else {
 			LampiranLain kop = LampiranLain.ambil(false, sekolah.getId(), LampiranLain.KOP_SEKOLAH);
 			if (kop != null) {
 				File fileKop = kop.ambilFile();
-				if (fileKop != null && fileKop.exists()) {
+				if (Common.isGambarLaporanValid(fileKop)) {
 					parameters.put("KOP_SEKOLAH_" + sekolah.getId(), fileKop.getAbsolutePath());
 					parameters.put("KOP_SEKOLAH_" + sekolah.getNama(), fileKop.getAbsolutePath());
 				}
@@ -1183,14 +1183,14 @@ public class Sekolah extends VoKunci {
 		}
 
 		file = FileFoto.fileAdaDiFolder(LampiranLain.KOP_BAWAH_SEKOLAH, sekolah.getId());
-		if (file != null && file.exists()) {
+		if (Common.isGambarLaporanValid(file)) {
 			parameters.put("KOP_BAWAH_SEKOLAH_" + sekolah.getId(), file.getAbsolutePath());
 			parameters.put("KOP_BAWAH_SEKOLAH_" + sekolah.getNama(), file.getAbsolutePath());
 		} else {
 			LampiranLain kop = LampiranLain.ambil(false, sekolah.getId(), LampiranLain.KOP_BAWAH_SEKOLAH);
 			if (kop != null) {
 				File fileKop = kop.ambilFile();
-				if (fileKop != null && fileKop.exists()) {
+				if (Common.isGambarLaporanValid(fileKop)) {
 					parameters.put("KOP_BAWAH_SEKOLAH_" + sekolah.getId(), fileKop.getAbsolutePath());
 					parameters.put("KOP_BAWAH_SEKOLAH_" + sekolah.getNama(), fileKop.getAbsolutePath());
 				}
@@ -1198,7 +1198,7 @@ public class Sekolah extends VoKunci {
 		}
 
 		file = FileFoto.fileAdaDiFolder(LampiranLain.STEMPEL_SEKOLAH, sekolah.getId());
-		if (file != null && file.exists()) {
+		if (Common.isGambarLaporanValid(file)) {
 			parameters.put("STEMPEL_SEKOLAH", file.getAbsolutePath());
 			parameters.put("STEMPEL_SEKOLAH_" + sekolah.getId(), file.getAbsolutePath());
 			parameters.put("STEMPEL_SEKOLAH_" + sekolah.getNama(), file.getAbsolutePath());
@@ -1206,7 +1206,7 @@ public class Sekolah extends VoKunci {
 			LampiranLain kop = LampiranLain.ambil(false, sekolah.getId(), LampiranLain.STEMPEL_SEKOLAH);
 			if (kop != null) {
 				File fileKop = kop.ambilFile();
-				if (fileKop != null && fileKop.exists()) {
+				if (Common.isGambarLaporanValid(fileKop)) {
 					parameters.put("STEMPEL_SEKOLAH", fileKop.getAbsolutePath());
 					parameters.put("STEMPEL_SEKOLAH_" + sekolah.getId(), fileKop.getAbsolutePath());
 					parameters.put("STEMPEL_SEKOLAH_" + sekolah.getNama(), fileKop.getAbsolutePath());
@@ -1215,14 +1215,14 @@ public class Sekolah extends VoKunci {
 		}
 
 		file = FileFoto.fileAdaDiFolder(LampiranLain.LOGO_SEKOLAH, sekolah.getId());
-		if (file != null && file.exists()) {
+		if (Common.isGambarLaporanValid(file)) {
 			parameters.put("LOGO_SEKOLAH_" + sekolah.getId(), file.getAbsolutePath());
 			parameters.put("LOGO_SEKOLAH_" + sekolah.getNama(), file.getAbsolutePath());
 		} else {
 			LampiranLain kop = LampiranLain.ambil(false, sekolah.getId(), LampiranLain.LOGO_SEKOLAH);
 			if (kop != null) {
 				File fileKop = kop.ambilFile();
-				if (fileKop != null && fileKop.exists()) {
+				if (Common.isGambarLaporanValid(fileKop)) {
 					parameters.put("LOGO_SEKOLAH_" + sekolah.getId(), fileKop.getAbsolutePath());
 					parameters.put("LOGO_SEKOLAH_" + sekolah.getNama(), fileKop.getAbsolutePath());
 				}
@@ -1230,40 +1230,40 @@ public class Sekolah extends VoKunci {
 		}
 
 		file = FileFoto.fileAdaDiFolder(LampiranLain.KOP_SEKOLAH, sekolah.getId());
-		if (file != null && file.exists()) {
+		if (Common.isGambarLaporanValid(file)) {
 			parameters.put("KOP_SEKOLAH", file.getAbsolutePath());
 		} else {
 
 			LampiranLain kop = LampiranLain.ambil(false, sekolah.getId(), LampiranLain.KOP_SEKOLAH);
 			if (kop != null) {
 				File fileKop = kop.ambilFile();
-				if (fileKop != null && fileKop.exists()) {
+				if (Common.isGambarLaporanValid(fileKop)) {
 					parameters.put("KOP_SEKOLAH", fileKop.getAbsolutePath());
 				}
 			}
 		}
 
 		file = FileFoto.fileAdaDiFolder(LampiranLain.KOP_BAWAH_SEKOLAH, sekolah.getId());
-		if (file != null && file.exists()) {
+		if (Common.isGambarLaporanValid(file)) {
 			parameters.put("KOP_BAWAH_SEKOLAH", file.getAbsolutePath());
 		} else {
 			LampiranLain kop = LampiranLain.ambil(false, sekolah.getId(), LampiranLain.KOP_BAWAH_SEKOLAH);
 			if (kop != null) {
 				File fileKop = kop.ambilFile();
-				if (fileKop != null && fileKop.exists()) {
+				if (Common.isGambarLaporanValid(fileKop)) {
 					parameters.put("KOP_BAWAH_SEKOLAH", fileKop.getAbsolutePath());
 				}
 			}
 		}
 
 		file = FileFoto.fileAdaDiFolder(LampiranLain.LOGO_SEKOLAH, sekolah.getId());
-		if (file != null && file.exists()) {
+		if (Common.isGambarLaporanValid(file)) {
 			parameters.put("LOGO_SEKOLAH", file.getAbsolutePath());
 		} else {
 			LampiranLain kop = LampiranLain.ambil(false, sekolah.getId(), LampiranLain.LOGO_SEKOLAH);
 			if (kop != null) {
 				File fileKop = kop.ambilFile();
-				if (fileKop != null && fileKop.exists()) {
+				if (Common.isGambarLaporanValid(fileKop)) {
 					parameters.put("LOGO_SEKOLAH", fileKop.getAbsolutePath());
 				}
 			}

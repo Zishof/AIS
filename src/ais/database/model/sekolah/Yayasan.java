@@ -7,6 +7,8 @@ import java.io.File;
 import java.util.Date;
 import java.util.Map;
 
+import ais.common.Common;
+
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -382,7 +384,7 @@ public class Yayasan extends VoKunci {
 	public void putFile(Map parameters) {
 		Yayasan yayasan = this;
 		File file = FileFoto.fileAdaDiFolder(LampiranLain.KOP_YAYASAN, yayasan.getId());
-		if (file != null && file.exists()) {
+		if (Common.isGambarLaporanValid(file)) {
 			parameters.put("KOP_YAYASAN", file.getAbsolutePath());
 			parameters.put("KOP_YAYASAN_" + yayasan.getId(), file.getAbsolutePath());
 			parameters.put("KOP_YAYASAN_" + yayasan.getNama(), file.getAbsolutePath());
@@ -390,7 +392,7 @@ public class Yayasan extends VoKunci {
 			LampiranLain kop = LampiranLain.ambil(false, yayasan.getId(), LampiranLain.KOP_YAYASAN);
 			if (kop != null) {
 				File fileKop = kop.ambilFile();
-				if (fileKop != null && fileKop.exists()) {
+				if (Common.isGambarLaporanValid(fileKop)) {
 					parameters.put("KOP_YAYASAN", fileKop.getAbsolutePath());
 					parameters.put("KOP_YAYASAN_" + yayasan.getId(), fileKop.getAbsolutePath());
 					parameters.put("KOP_YAYASAN_" + yayasan.getNama(), fileKop.getAbsolutePath());
@@ -399,7 +401,7 @@ public class Yayasan extends VoKunci {
 		}
 
 		file = FileFoto.fileAdaDiFolder(LampiranLain.STEMPEL_YAYASAN, yayasan.getId());
-		if (file != null && file.exists()) {
+		if (Common.isGambarLaporanValid(file)) {
 			parameters.put("STEMPEL_YAYASAN", file.getAbsolutePath());
 			parameters.put("STEMPEL_YAYASAN_" + yayasan.getId(), file.getAbsolutePath());
 			parameters.put("STEMPEL_YAYASAN_" + yayasan.getNama(), file.getAbsolutePath());
@@ -407,7 +409,7 @@ public class Yayasan extends VoKunci {
 			LampiranLain kop = LampiranLain.ambil(false, yayasan.getId(), LampiranLain.STEMPEL_YAYASAN);
 			if (kop != null) {
 				File fileKop = kop.ambilFile();
-				if (fileKop != null && fileKop.exists()) {
+				if (Common.isGambarLaporanValid(fileKop)) {
 					parameters.put("STEMPEL_YAYASAN", fileKop.getAbsolutePath());
 					parameters.put("STEMPEL_YAYASAN_" + yayasan.getId(), fileKop.getAbsolutePath());
 					parameters.put("STEMPEL_YAYASAN_" + yayasan.getNama(), fileKop.getAbsolutePath());

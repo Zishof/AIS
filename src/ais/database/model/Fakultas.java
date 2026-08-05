@@ -358,7 +358,7 @@ public class Fakultas extends GeneralValueObject {
 	public void putFile(Map parameters) {
 		Fakultas fakultas = this;
 		File file = FileFoto.fileAdaDiFolder(LampiranLain.KOP_FAKULTAS, fakultas.getId());
-		if (file != null && file.exists()) {
+		if (Common.isGambarLaporanValid(file)) {
 			parameters.put("KOP_FAKULTAS", file.getAbsolutePath());
 			parameters.put("KOP_FAKULTAS_" + fakultas.getId(), file.getAbsolutePath());
 			parameters.put("KOP_FAKULTAS_" + fakultas.getNama(), file.getAbsolutePath());
@@ -366,7 +366,7 @@ public class Fakultas extends GeneralValueObject {
 			LampiranLain kop = LampiranLain.ambil(false, fakultas.getId(), LampiranLain.KOP_FAKULTAS);
 			if (kop != null) {
 				File fileKop = kop.ambilFile();
-				if (fileKop != null && fileKop.exists()) {
+				if (Common.isGambarLaporanValid(fileKop)) {
 					parameters.put("KOP_FAKULTAS", fileKop.getAbsolutePath());
 					parameters.put("KOP_FAKULTAS_" + fakultas.getId(), fileKop.getAbsolutePath());
 					parameters.put("KOP_FAKULTAS_" + fakultas.getNama(), fileKop.getAbsolutePath());
@@ -375,7 +375,7 @@ public class Fakultas extends GeneralValueObject {
 		}
 
 		file = FileFoto.fileAdaDiFolder(LampiranLain.STEMPEL_FAKULTAS, fakultas.getId());
-		if (file != null && file.exists()) {
+		if (Common.isGambarLaporanValid(file)) {
 			parameters.put("STEMPEL_FAKULTAS", file.getAbsolutePath());
 			parameters.put("STEMPEL_FAKULTAS_" + fakultas.getId(), file.getAbsolutePath());
 			parameters.put("STEMPEL_FAKULTAS_" + fakultas.getNama(), file.getAbsolutePath());
@@ -383,7 +383,7 @@ public class Fakultas extends GeneralValueObject {
 			LampiranLain kop = LampiranLain.ambil(false, fakultas.getId(), LampiranLain.STEMPEL_FAKULTAS);
 			if (kop != null) {
 				File fileKop = kop.ambilFile();
-				if (fileKop != null && fileKop.exists()) {
+				if (Common.isGambarLaporanValid(fileKop)) {
 					parameters.put("STEMPEL_FAKULTAS", fileKop.getAbsolutePath());
 					parameters.put("STEMPEL_FAKULTAS_" + fakultas.getId(), fileKop.getAbsolutePath());
 					parameters.put("STEMPEL_FAKULTAS_" + fakultas.getNama(), fileKop.getAbsolutePath());

@@ -13183,6 +13183,32 @@ public class Common {
 	}
 
 	/**
+	 * Gerbang aman sebelum path berkas gambar dikirim sebagai parameter
+	 * {@code <image>} ke JasperReports (ttd pejabat, kop/stempel/logo sekolah,
+	 * yayasan, fakultas, jurusan, perguruan tinggi, dst). Berkas yang ADA tapi
+	 * isinya bukan gambar valid (kosong/rusak/upload terpotong) membuat iText
+	 * {@code Image.getInstance} melempar "byte array is not a recognized
+	 * imageformat" saat export PDF dan membatalkan SELURUH laporan. Dengan
+	 * gerbang ini berkas tak valid diperlakukan sama seperti "tidak ada"
+	 * (parameter tak diisi) sehingga elemen gambar di jrxml kosong/di-skip,
+	 * bukan meledakkan seluruh export.
+	 *
+	 * <p>Tidak pernah melempar; termasuk {@code catch(Throwable)} agar
+	 * gambar bom (dimensi raksasa) yang bisa memicu {@code OutOfMemoryError}
+	 * saat dekode header tetap aman ditangkap.</p>
+	 */
+	public static boolean isGambarLaporanValid(File file) {
+		if (file == null || !file.exists() || file.length() == 0) {
+			return false;
+		}
+		try {
+			return isImage(file);
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
+	/**
 	 * Memuat daftar {@code Komentar} (catatan dosen PA atau supervisor) milik seorang mahasiswa
 	 * berdasarkan semester, tahapan, dan tahun akademik.
 	 *

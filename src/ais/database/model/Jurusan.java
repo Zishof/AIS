@@ -10,6 +10,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
+import ais.common.Common;
+
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -581,7 +583,7 @@ public class Jurusan extends GeneralValueObject {
 	public void putFile(Map parameters) {
 		Jurusan jurusan = this;
 		File file = FileFoto.fileAdaDiFolder(LampiranLain.KOP_JURUSAN, jurusan.getId());
-		if (file != null && file.exists()) {
+		if (Common.isGambarLaporanValid(file)) {
 			parameters.put("KOP_JURUSAN", file.getAbsolutePath());
 			parameters.put("KOP_JURUSAN_" + jurusan.getId(), file.getAbsolutePath());
 			parameters.put("KOP_JURUSAN_" + jurusan.getNama(), file.getAbsolutePath());
@@ -589,7 +591,7 @@ public class Jurusan extends GeneralValueObject {
 			LampiranLain kop = LampiranLain.ambil(false, jurusan.getId(), LampiranLain.KOP_JURUSAN);
 			if (kop != null) {
 				File fileKop = kop.ambilFile();
-				if (fileKop != null && fileKop.exists()) {
+				if (Common.isGambarLaporanValid(fileKop)) {
 					parameters.put("KOP_JURUSAN", fileKop.getAbsolutePath());
 					parameters.put("KOP_JURUSAN_" + jurusan.getId(), fileKop.getAbsolutePath());
 					parameters.put("KOP_JURUSAN_" + jurusan.getNama(), fileKop.getAbsolutePath());
@@ -598,7 +600,7 @@ public class Jurusan extends GeneralValueObject {
 		}
 
 		file = FileFoto.fileAdaDiFolder(LampiranLain.STEMPEL_JURUSAN, jurusan.getId());
-		if (file != null && file.exists()) {
+		if (Common.isGambarLaporanValid(file)) {
 			parameters.put("STEMPEL_JURUSAN", file.getAbsolutePath());
 			parameters.put("STEMPEL_JURUSAN_" + jurusan.getId(), file.getAbsolutePath());
 			parameters.put("STEMPEL_JURUSAN_" + jurusan.getNama(), file.getAbsolutePath());
@@ -606,7 +608,7 @@ public class Jurusan extends GeneralValueObject {
 			LampiranLain kop = LampiranLain.ambil(false, jurusan.getId(), LampiranLain.STEMPEL_JURUSAN);
 			if (kop != null) {
 				File fileKop = kop.ambilFile();
-				if (fileKop != null && fileKop.exists()) {
+				if (Common.isGambarLaporanValid(fileKop)) {
 					parameters.put("STEMPEL_JURUSAN", fileKop.getAbsolutePath());
 					parameters.put("STEMPEL_JURUSAN_" + jurusan.getId(), fileKop.getAbsolutePath());
 					parameters.put("STEMPEL_JURUSAN_" + jurusan.getNama(), fileKop.getAbsolutePath());
