@@ -329,12 +329,12 @@ public class DashboardRekapAbsensiPerSiswaDanMapel extends MyWindow {
 
 				// Hitung kehadiran per (siswa x jadwal), lalu agregasi PER (SISWA x MATA
 				// PELAJARAN) di query luar (kode_siswa=a.id, kode_mapel=d.matapelajaran).
-				String sql = "select\n(a.nim||' '||a.nama) as siswa,\n a.id as kode_siswa,\n"
+				String sql = "select\n(a.nomor_induk_nasional||' '||a.nama) as siswa,\n a.id as kode_siswa,\n"
 						+ " max(e.kode||' '||e.nama) as matapelajaran,\n d.matapelajaran_id as kode_mapel,\n"
-						+ "sum(case when absensi ilike '%'||a.id||',1%' then 1 else 0 end) as hadir,\n"
-						+ "sum(case when absensi ilike '%'||a.id||',2%' then 1 else 0 end) as alpa,\n"
-						+ "sum(case when absensi ilike '%'||a.id||',3%' then 1 else 0 end) as sakit,\n"
-						+ "sum(case when absensi ilike '%'||a.id||',4%' then 1 else 0 end) as izin\n\n"
+						+ "sum(case when c.absensi ilike '%'||a.id||',1%' then 1 else 0 end) as hadir,\n"
+						+ "sum(case when c.absensi ilike '%'||a.id||',2%' then 1 else 0 end) as alpa,\n"
+						+ "sum(case when c.absensi ilike '%'||a.id||',3%' then 1 else 0 end) as sakit,\n"
+						+ "sum(case when c.absensi ilike '%'||a.id||',4%' then 1 else 0 end) as izin\n\n"
 						+ DashboardRekapAbsensiSiswa.generateWhere(tahunAjaran, semesterKe, semester, guru, angkatan,
 								program, sekolah, yayasan, selectedjadwalPelajaran, siswa.getValue().trim(),
 								matapelajaran.getValue().trim())

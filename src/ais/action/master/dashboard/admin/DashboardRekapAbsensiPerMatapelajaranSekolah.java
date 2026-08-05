@@ -275,6 +275,12 @@ public class DashboardRekapAbsensiPerMatapelajaranSekolah extends MyWindow {
 		print.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
+				if (spreadsheet == null || spreadsheet.getBook() == null) {
+					ais.ui.util.MyMessageboxConfig.show(
+							"Belum ada data untuk diunduh. Klik tombol \"Proses\" terlebih dahulu.", "Pemberitahuan",
+							ais.ui.util.MyMessageboxConfig.OK, ais.ui.util.MyMessageboxConfig.INFORMATION);
+					return;
+				}
 				ByteArrayOutputStream bout = new ByteArrayOutputStream();
 				spreadsheet.getBook().write(bout);
 				bout.close();
@@ -330,10 +336,10 @@ public class DashboardRekapAbsensiPerMatapelajaranSekolah extends MyWindow {
 				// Hitung kehadiran per JADWAL (d.id), lalu agregasi PER MATA PELAJARAN
 				// (kode_mapel = d.matapelajaran) di query luar → satu baris per mata pelajaran.
 				String sql = "select\n max(e.kode||' '||e.nama) as matapelajaran,\n d.matapelajaran_id as kode_mapel,\n"
-						+ "sum(case when absensi ilike '%'||a.id||',1%' then 1 else 0 end) as hadir,\n"
-						+ "sum(case when absensi ilike '%'||a.id||',2%' then 1 else 0 end) as alpa,\n"
-						+ "sum(case when absensi ilike '%'||a.id||',3%' then 1 else 0 end) as sakit,\n"
-						+ "sum(case when absensi ilike '%'||a.id||',4%' then 1 else 0 end) as izin\n\n"
+						+ "sum(case when c.absensi ilike '%'||a.id||',1%' then 1 else 0 end) as hadir,\n"
+						+ "sum(case when c.absensi ilike '%'||a.id||',2%' then 1 else 0 end) as alpa,\n"
+						+ "sum(case when c.absensi ilike '%'||a.id||',3%' then 1 else 0 end) as sakit,\n"
+						+ "sum(case when c.absensi ilike '%'||a.id||',4%' then 1 else 0 end) as izin\n\n"
 						+ DashboardRekapAbsensiSiswa.generateWhere(tahunAjaran, semesterKe, semester, guru, angkatan,
 								program, sekolah, yayasan, selectedjadwalPelajaran, siswa.getValue().trim(),
 								matapelajaran.getValue().trim())

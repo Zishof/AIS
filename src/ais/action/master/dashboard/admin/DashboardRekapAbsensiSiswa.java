@@ -351,7 +351,7 @@ public class DashboardRekapAbsensiSiswa extends MyWindow {
 					+ (sekolah == null ? "" : " and a.sekolah_id = " + sekolah.getId())
 					+ (yayasan == null ? "" : " and x.yayasan_id = " + yayasan.getId())
 					+ (mhs == null || mhs.trim().isEmpty() ? ""
-							: " and (a.nama ilike '%" + mhs + "%' or a.nim ilike '%" + mhs + "%')")
+							: " and (a.nama ilike '%" + mhs + "%' or a.nomor_induk_nasional ilike '%" + mhs + "%')")
 					+ (mk == null || mk.trim().isEmpty() ? ""
 							: " and (e.nama ilike '%" + mk + "%' or e.kode ilike '%" + mk + "%')")
 					+ (program == null ? "" : " and a.program = '" + program + "'");
@@ -401,18 +401,18 @@ public class DashboardRekapAbsensiSiswa extends MyWindow {
 				Session session = HibernateUtil.currentSession();
 				List<Object[]> sekolahs = new ArrayList<Object[]>();
 
-				String sql = "select\n(a.nim||' '||a.nama) as siswa,\n max(e.kode||' '||e.nama) as matapelajaran,\n"
-						+ " max(trim((case when d.hari is null then '' else d.hari end)||' '||(case when d.waktu_mulai is null then '' else d.waktu_mulai end)||(case when d.waktu_selesai is null then ' ' else ' - '||d.waktu_selesai||', ' end)||(case when dp.id is null then '' else dp.nama end) ||(case when dp2.id is null then '' else dp2.nama end)||(case when dp3.id is null then '' else dp3.nama end)||(case when dp4.id is null then '' else dp4.nama end)||(case when dp5.id is null then '' else dp5.nama end)  )) as jadwalPelajaran,\n"
-						+ "sum(case when absensi ilike '%'||a.id||',1%' then 1 else 0 end) as hadir,\n"
-						+ "sum(case when absensi ilike '%'||a.id||',2%' then 1 else 0 end) as alpa,\n"
-						+ "sum(case when absensi ilike '%'||a.id||',3%' then 1 else 0 end) as sakit,\n"
-						+ "sum(case when absensi ilike '%'||a.id||',4%' then 1 else 0 end) as izin,\n"
+				String sql = "select\n(a.nomor_induk_nasional||' '||a.nama) as siswa,\n max(e.kode||' '||e.nama) as matapelajaran,\n"
+						+ " max(trim((case when d.hari is null then '' else d.hari end)||' '||(case when d.waktumulai is null then '' else d.waktumulai end)||(case when d.waktuselesai is null then ' ' else ' - '||d.waktuselesai||', ' end)||(case when dp.id is null then '' else dp.nama end) ||(case when dp2.id is null then '' else dp2.nama end)||(case when dp3.id is null then '' else dp3.nama end)||(case when dp4.id is null then '' else dp4.nama end)||(case when dp5.id is null then '' else dp5.nama end)  )) as jadwalPelajaran,\n"
+						+ "sum(case when c.absensi ilike '%'||a.id||',1%' then 1 else 0 end) as hadir,\n"
+						+ "sum(case when c.absensi ilike '%'||a.id||',2%' then 1 else 0 end) as alpa,\n"
+						+ "sum(case when c.absensi ilike '%'||a.id||',3%' then 1 else 0 end) as sakit,\n"
+						+ "sum(case when c.absensi ilike '%'||a.id||',4%' then 1 else 0 end) as izin,\n"
 						+ "(a.id||'-'||d.id) as kode_jadwalPelajaran  \n\n"
 						+ DashboardRekapAbsensiSiswa.generateWhere(tahunAjaran, semesterKe, semester, guru, angkatan,
 								program, sekolah, yayasan, selectedjadwalPelajaran, siswa.getValue().trim(),
 								matapelajaran.getValue().trim())
 						+ (selectedsiswa == null ? "" : " and a.id = " + selectedsiswa.getId())
-						+ " \ngroup by d.id,a.id\norder by (a.nim||' '||a.nama)";
+						+ " \ngroup by d.id,a.id\norder by (a.nomor_induk_nasional||' '||a.nama)";
 
 				sql = "select max(siswa) siswa, max(matapelajaran) matapelajaran, max(jadwalPelajaran) jadwalPelajaran,\n"
 						+ "sum(hadir) hadir, sum(alpa) alpa, sum(sakit) sakit, sum(izin) izin, kode_jadwalPelajaran\n"

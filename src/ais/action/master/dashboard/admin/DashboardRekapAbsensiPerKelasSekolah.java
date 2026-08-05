@@ -329,10 +329,10 @@ public class DashboardRekapAbsensiPerKelasSekolah extends MyWindow {
 				// Hitung kehadiran per JADWAL (d.id), lalu agregasi PER KELAS (kode_kelas =
 				// d.kelas_id) di query luar → satu baris per kelas (gabungan semua mapel).
 				String sql = "select\n(select k.nama from sekolah.kelas k where k.id = d.kelas_id) as kelas,\n d.kelas_id as kode_kelas,\n"
-						+ "sum(case when absensi ilike '%'||a.id||',1%' then 1 else 0 end) as hadir,\n"
-						+ "sum(case when absensi ilike '%'||a.id||',2%' then 1 else 0 end) as alpa,\n"
-						+ "sum(case when absensi ilike '%'||a.id||',3%' then 1 else 0 end) as sakit,\n"
-						+ "sum(case when absensi ilike '%'||a.id||',4%' then 1 else 0 end) as izin\n\n"
+						+ "sum(case when c.absensi ilike '%'||a.id||',1%' then 1 else 0 end) as hadir,\n"
+						+ "sum(case when c.absensi ilike '%'||a.id||',2%' then 1 else 0 end) as alpa,\n"
+						+ "sum(case when c.absensi ilike '%'||a.id||',3%' then 1 else 0 end) as sakit,\n"
+						+ "sum(case when c.absensi ilike '%'||a.id||',4%' then 1 else 0 end) as izin\n\n"
 						+ DashboardRekapAbsensiSiswa.generateWhere(tahunAjaran, semesterKe, semester, guru, angkatan,
 								program, sekolah, yayasan, selectedjadwalPelajaran, siswa.getValue().trim(),
 								matapelajaran.getValue().trim())

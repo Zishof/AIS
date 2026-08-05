@@ -346,11 +346,11 @@ public class DashboardRekapAbsensiPerKelasDanMapel extends MyWindow {
 				// Kolom kelas diambil dari sekolah.kelas (d.kelas_id). Dikelompokkan PER JADWAL
 				// (d.id) sehingga setiap baris = satu kombinasi kelas x mata pelajaran x guru.
 				String sql = "select\n(select k.nama from sekolah.kelas k where k.id = d.kelas_id) as kelas,\n max(e.kode||' '||e.nama) as matapelajaran,\n"
-						+ " max(trim((case when d.hari is null then '' else d.hari end)||' '||(case when d.waktu_mulai is null then '' else d.waktu_mulai end)||(case when d.waktu_selesai is null then ' ' else ' - '||d.waktu_selesai||', ' end)||(case when dp.id is null then '' else dp.nama end) ||(case when dp2.id is null then '' else dp2.nama end)||(case when dp3.id is null then '' else dp3.nama end)||(case when dp4.id is null then '' else dp4.nama end)||(case when dp5.id is null then '' else dp5.nama end)  )) as jadwalPelajaran,\n"
-						+ "sum(case when absensi ilike '%'||a.id||',1%' then 1 else 0 end) as hadir,\n"
-						+ "sum(case when absensi ilike '%'||a.id||',2%' then 1 else 0 end) as alpa,\n"
-						+ "sum(case when absensi ilike '%'||a.id||',3%' then 1 else 0 end) as sakit,\n"
-						+ "sum(case when absensi ilike '%'||a.id||',4%' then 1 else 0 end) as izin,\n"
+						+ " max(trim((case when d.hari is null then '' else d.hari end)||' '||(case when d.waktumulai is null then '' else d.waktumulai end)||(case when d.waktuselesai is null then ' ' else ' - '||d.waktuselesai||', ' end)||(case when dp.id is null then '' else dp.nama end) ||(case when dp2.id is null then '' else dp2.nama end)||(case when dp3.id is null then '' else dp3.nama end)||(case when dp4.id is null then '' else dp4.nama end)||(case when dp5.id is null then '' else dp5.nama end)  )) as jadwalPelajaran,\n"
+						+ "sum(case when c.absensi ilike '%'||a.id||',1%' then 1 else 0 end) as hadir,\n"
+						+ "sum(case when c.absensi ilike '%'||a.id||',2%' then 1 else 0 end) as alpa,\n"
+						+ "sum(case when c.absensi ilike '%'||a.id||',3%' then 1 else 0 end) as sakit,\n"
+						+ "sum(case when c.absensi ilike '%'||a.id||',4%' then 1 else 0 end) as izin,\n"
 						+ "(d.id) as kode_jadwalPelajaran  \n\n"
 						+ DashboardRekapAbsensiSiswa.generateWhere(tahunAjaran, semesterKe, semester, guru, angkatan,
 								program, sekolah, yayasan, selectedjadwalPelajaran, siswa.getValue().trim(),

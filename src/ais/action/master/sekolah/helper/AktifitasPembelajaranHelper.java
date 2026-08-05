@@ -942,7 +942,16 @@ public class AktifitasPembelajaranHelper {
 			}
 			paging.setMold("os");
 			paging.setTotalSize(jumlahParentNull);
-			paging.setActivePage(mulai / banyak);
+			// PERBAIKAN: mulai/banyak bisa merujuk halaman yang sudah tak ada lagi (mis.
+			// offset lama tersimpan di komponen induk, sementara jumlah data berkurang
+			// akibat filter/hapus di antara render) -> WrongValueException "since only N
+			// pages". Clamp ke halaman terakhir yang valid alih-alih meledak.
+			int totalHalaman = (jumlahParentNull + banyak - 1) / banyak;
+			int halamanAktif = Math.max(0, Math.min(mulai / banyak, totalHalaman - 1));
+			try {
+				paging.setActivePage(halamanAktif);
+			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/sekolah/helper/AktifitasPembelajaranHelper.java:setActivePage");
+			}
 			paging.addEventListener("onPaging", new EventListener() {
 
 				@Override

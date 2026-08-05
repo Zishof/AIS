@@ -1496,23 +1496,32 @@ public class Siswa extends VOSiswa implements SocialMediaCommonModel, VOMahasisw
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "penjurusan_sekolah_id", nullable = true)
 	public PenjurusanSekolah getPenjurusanSekolah() {
-		penjurusanSekolah = check(penjurusanSekolah);
+		// Getter dibungkus try-catch penuh: sempat NPE tak tertangkap (mis. proxy
+		// Sekolah/CalonSiswa detached saat resolusi lazy) yang menjatuhkan seluruh
+		// form/halaman pemanggil (mis. SiswaAction) hanya gara-gara membaca jurusan.
+		// Root cause pastinya tak bisa dipastikan tanpa reproduksi live, jadi getter
+		// digagalkan dengan aman (kembalikan field mentah) alih-alih meledak.
+		try {
+			penjurusanSekolah = check(penjurusanSekolah);
 
-		// Gunakan penjurusan CalonSiswa sebagai FALLBACK (bukan override) — hanya jika
-		// Siswa belum punya penjurusan sendiri. Ini memungkinkan admin mengubah jurusan
-		// siswa (pindah jurusan) tanpa dikembalikan ke nilai PPDB setiap kali dibaca.
-		Sekolah sekolahData = getSekolah();
-		Boolean penjurusanWajibDipilih = sekolahData == null ? null : sekolahData.getPenjurusanWajibDipilih();
-		if (penjurusanSekolah == null && Boolean.TRUE.equals(penjurusanWajibDipilih) && getCalonSiswa() != null) {
+			// Gunakan penjurusan CalonSiswa sebagai FALLBACK (bukan override) — hanya jika
+			// Siswa belum punya penjurusan sendiri. Ini memungkinkan admin mengubah jurusan
+			// siswa (pindah jurusan) tanpa dikembalikan ke nilai PPDB setiap kali dibaca.
+			Sekolah sekolahData = getSekolah();
+			Boolean penjurusanWajibDipilih = sekolahData == null ? null : sekolahData.getPenjurusanWajibDipilih();
+			if (penjurusanSekolah == null && Boolean.TRUE.equals(penjurusanWajibDipilih) && getCalonSiswa() != null) {
 
-			try {
-				CalonSiswa calonSiswa = (CalonSiswa) ConstantValues.ambil(CalonSiswa.class.getName(), getCalonSiswa());
-				if (calonSiswa != null && calonSiswa.ambilPenjurusanSekolah() != null) {
-					penjurusanSekolah = calonSiswa.ambilPenjurusanSekolah();
+				try {
+					CalonSiswa calonSiswa = (CalonSiswa) ConstantValues.ambil(CalonSiswa.class.getName(), getCalonSiswa());
+					if (calonSiswa != null && calonSiswa.ambilPenjurusanSekolah() != null) {
+						penjurusanSekolah = calonSiswa.ambilPenjurusanSekolah();
+					}
+				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/sekolah/Siswa.java:1504");
 				}
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/sekolah/Siswa.java:1504");
-			}
 
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/sekolah/Siswa.java:getPenjurusanSekolah");
 		}
 
 		return penjurusanSekolah;

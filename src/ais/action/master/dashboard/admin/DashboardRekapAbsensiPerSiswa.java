@@ -345,18 +345,18 @@ public class DashboardRekapAbsensiPerSiswa extends MyWindow {
 				Session session = HibernateUtil.currentSession();
 				List<Object[]> sekolahs = new ArrayList<Object[]>();
 
-				String sql = "select\n(a.nim||' '||a.nama) as siswa,"
-						+ "sum(case when absensi ilike '%'||a.id||',1%' then 1 else 0 end) as hadir,\n"
-						+ "sum(case when absensi ilike '%'||a.id||',2%' then 1 else 0 end) as alpa,\n"
-						+ "sum(case when absensi ilike '%'||a.id||',3%' then 1 else 0 end) as sakit,\n"
-						+ "sum(case when absensi ilike '%'||a.id||',4%' then 1 else 0 end) as izin,\n"
+				String sql = "select\n(a.nomor_induk_nasional||' '||a.nama) as siswa,"
+						+ "sum(case when c.absensi ilike '%'||a.id||',1%' then 1 else 0 end) as hadir,\n"
+						+ "sum(case when c.absensi ilike '%'||a.id||',2%' then 1 else 0 end) as alpa,\n"
+						+ "sum(case when c.absensi ilike '%'||a.id||',3%' then 1 else 0 end) as sakit,\n"
+						+ "sum(case when c.absensi ilike '%'||a.id||',4%' then 1 else 0 end) as izin,\n"
 						+ "(a.id) as kode_jadwalPelajaran  \n\n"
 
 						+ DashboardRekapAbsensiSiswa.generateWhere(tahunAjaran, semesterKe, semester, guru, angkatan,
 								program, sekolah, yayasan, selectedjadwalPelajaran, siswa.getValue().trim(),
 								matakuliah.getValue().trim())
 						+ (selectedsiswa == null ? "" : " and a.id = " + selectedsiswa.getId())
-						+ " \ngroup by d.id,a.id\norder by (a.nim||' '||a.nama)";
+						+ " \ngroup by d.id,a.id\norder by (a.nomor_induk_nasional||' '||a.nama)";
 
 				sql = "select max(siswa) siswa, \n"
 						+ "sum(hadir) hadir, sum(alpa) alpa, sum(sakit) sakit, sum(izin) izin, kode_jadwalPelajaran\n"

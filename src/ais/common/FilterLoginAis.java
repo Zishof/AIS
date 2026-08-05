@@ -330,12 +330,12 @@ public class FilterLoginAis { // Sesuaikan nama class dengan implementasi Anda
 				String rawValidator = RandomStringUtils.randomAlphanumeric(64);
 				String hashedValidator = DigestUtils.sha256Hex(rawValidator);
 
-				Cookie cookieUsername = new Cookie("userinfo", java.net.URLEncoder.encode(Common.desEncrypter.get().encrypt(
-						username + ";" + password + ";" + selector + ";" + rawValidator + ";" + hashedValidator), "UTF-8"));
+				Cookie cookieUsername = new Cookie("userinfo", sanitizeCookieValue(java.net.URLEncoder.encode(Common.desEncrypter.get().encrypt(
+						username + ";" + password + ";" + selector + ";" + rawValidator + ";" + hashedValidator), "UTF-8")));
 				cookieUsername.setMaxAge(15552000);
 				res.addCookie(cookieUsername);
-				
-				cookieUsername = new Cookie("userid", java.net.URLEncoder.encode(username == null ? "" : username, "UTF-8"));
+
+				cookieUsername = new Cookie("userid", sanitizeCookieValue(java.net.URLEncoder.encode(username == null ? "" : username, "UTF-8")));
 				cookieUsername.setMaxAge(15552000);
 
 				res.addCookie(cookieUsername);
@@ -347,6 +347,33 @@ public class FilterLoginAis { // Sesuaikan nama class dengan implementasi Anda
 		System.out.println("[SOCIAL-LOGIN] doingFilter(" + username + "): SELESAI, return login.getSuccess_status()="
 				+ login.getSuccess_status());
 		return login.getSuccess_status();
+	}
+
+	/**
+	 * Gerbang pengaman terakhir sebelum sebuah String dipakai sebagai value
+	 * {@link Cookie}. Nilai yang dikirim ke sini SEHARUSNYA sudah aman (sudah
+	 * melalui {@code URLEncoder.encode}), tapi Tomcat pernah melempar
+	 * {@code IllegalArgumentException: An invalid character [44] was present in
+	 * the Cookie value} (koma, char 44) di jalur remember-me ini -- buang
+	 * SEMUA karakter di luar cookie-octet RFC 6265 (huruf/angka & simbol aman)
+	 * sebagai jaring pengaman kedua, agar cookie remember-me tak pernah gagal
+	 * diset walau ada karakter tak terduga lolos dari lapisan encode di atas.
+	 */
+	private static String sanitizeCookieValue(String value) {
+		if (value == null) {
+			return "";
+		}
+		StringBuilder sb = new StringBuilder(value.length());
+		for (int i = 0; i < value.length(); i++) {
+			char c = value.charAt(i);
+			// cookie-octet RFC6265: %x21, %x23-2B, %x2D-3A, %x3C-5B, %x5D-7E
+			// (kecuali DQUOTE, koma, titik-koma, backslash, spasi, kontrol).
+			if (c == ',' || c == ';' || c == '\\' || c == '"' || c <= 0x20 || c == 0x7F) {
+				continue;
+			}
+			sb.append(c);
+		}
+		return sb.toString();
 	}
 
 	// =========================================================================
