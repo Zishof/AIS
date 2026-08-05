@@ -2870,6 +2870,12 @@ hhh.nama as perguruan_tinggi
 				</box>
 				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("ttd_kaprodi")]]></imageExpression>
 			</image>
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement key="image-cap-kaprodi" x="640" y="30" width="76" height="56" uuid="ed7f6d91-0ed8-4dd5-801e-3e15035e4f2b">
+					<printWhenExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "cap_kaprodi" ) != null]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "cap_kaprodi" )]]></imageExpression>
+			</image>
 			<textField isBlankWhenNull="true">
 				<reportElement key="textField-kaprodi-label" x="586" y="4" width="196" height="50" uuid="e5b8a220-11c3-4f02-8d3c-3b9f0d234567"/>
 				<textElement textAlignment="Center"/>

@@ -76,6 +76,8 @@ public class AmbilDataSatuanKerjaBanbox extends Bandbox implements GetEventListe
 
 	private SatuanKerja satuanKerja = null;
 	private Tbmuser tbmuser;
+	/** true bila terkunci ke Satuan Kerja tertentu karena domain-nya cocok dgn host/URL request. */
+	private boolean kunciDomain = false;
 	private Yayasan yayasan = null;
 
 	public AmbilDataSatuanKerjaBanbox() throws Exception {
@@ -126,7 +128,17 @@ public class AmbilDataSatuanKerjaBanbox extends Bandbox implements GetEventListe
 			satuanKerja = sekolah == null ? null : sekolah.getSatuanKerja();
 		}
 
-		if (satuanKerja != null && kepilih && tbmuser != null && !tbmuser.hakAkses().getMelihatDataSatkerLain()) {
+		// DOMAIN LOCK per-request: bila host/URL request MENGANDUNG domain suatu Satuan Kerja, KUNCI ke unit
+		// itu beserta seluruh child-nya — mirip domain PerguruanTinggi/Sekolah. Menang bahkan atas hak
+		// "melihat data satker lain" (domain lebih spesifik ke satu tenant).
+		SatuanKerja satuanKerjaDomain = cariSatuanKerjaByDomain();
+		if (satuanKerjaDomain != null) {
+			satuanKerja = satuanKerjaDomain;
+			kunciDomain = true;
+		}
+
+		if (satuanKerja != null && (kunciDomain
+				|| (kepilih && tbmuser != null && !tbmuser.hakAkses().getMelihatDataSatkerLain()))) {
 
 			setReadonly(true);
 			if (AmbilDataSatuanKerjaBanbox.this.getAttribute("satuanKerja") == null) {
@@ -151,11 +163,12 @@ public class AmbilDataSatuanKerjaBanbox extends Bandbox implements GetEventListe
 		}
 
 		satuanKerjaTreeModel = new SatuanKerjaTreeModel(
-				satuanKerja == null || tbmuser == null || tbmuser.hakAkses().getMelihatDataSatkerLain() ? null
-						: satuanKerja,
+				kunciDomain ? satuanKerja
+						: (satuanKerja == null || tbmuser == null || tbmuser.hakAkses().getMelihatDataSatkerLain() ? null
+								: satuanKerja),
 				tbmuser == null || tbmuser.hakAkses() == null ? "" : tbmuser.hakAkses().getSatuanKerjas(), false);
 
-		if ((sekolah != null && sekolah.getSatuanKerja() != null)
+		if (kunciDomain || (sekolah != null && sekolah.getSatuanKerja() != null)
 				|| (tbmuser != null && tbmuser.hakAkses() != null && !tbmuser.hakAkses().getMelihatDataSatkerLain())) {
 
 			if (satuanKerja != null) {
@@ -166,6 +179,47 @@ public class AmbilDataSatuanKerjaBanbox extends Bandbox implements GetEventListe
 			}
 		}
 
+	}
+
+	/**
+	 * Cari Satuan Kerja yang salah satu domain-nya (multi, dipisah koma) TERKANDUNG di server name/host
+	 * request saat ini — mirip {@code PerguruanTinggiUtil.getPerguruanTinggiData} (host {@code contains}
+	 * domain). Mengembalikan node tenant yang cocok, atau {@code null}. Query ringan (baris ber-domain
+	 * sedikit); {@code FlushMode.MANUAL} agar lookup read-only tak memicu auto-flush.
+	 */
+	private SatuanKerja cariSatuanKerjaByDomain() {
+		try {
+			String sn = null;
+			try {
+				Object nr = org.zkoss.zk.ui.Executions.getCurrent() == null ? null
+						: org.zkoss.zk.ui.Executions.getCurrent().getNativeRequest();
+				if (nr instanceof javax.servlet.http.HttpServletRequest) {
+					sn = ((javax.servlet.http.HttpServletRequest) nr).getServerName();
+				}
+			} catch (Exception ig) {
+			}
+			if (sn == null || sn.trim().isEmpty()) {
+				return null;
+			}
+			String host = sn.toLowerCase().trim();
+			@SuppressWarnings("unchecked")
+			java.util.List<SatuanKerja> list = HibernateUtil.currentSession().createCriteria(SatuanKerja.class)
+					.add(Restrictions.isNotNull("domain")).add(Restrictions.ne("domain", ""))
+					.setFlushMode(org.hibernate.FlushMode.MANUAL).list();
+			for (SatuanKerja sk : list) {
+				if (sk == null || sk.getDomain() == null) {
+					continue;
+				}
+				for (String d : Common.pisahDomain(sk.getDomain())) {
+					if (d != null && !d.trim().isEmpty() && host.contains(d.trim().toLowerCase())) {
+						return sk;
+					}
+				}
+			}
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+		}
+		return null;
 	}
 
 	public void setChooseAll(Boolean chooseAll) throws Exception {
@@ -233,7 +287,8 @@ public class AmbilDataSatuanKerjaBanbox extends Bandbox implements GetEventListe
 		Panelchildren panelchildren = new Panelchildren();
 		panelchildren.setParent(panel);
 
-		if (satuanKerja == null || satuanKerja.getId() == null || tbmuser.hakAkses().getMelihatDataSatkerLain()) {
+		if (!kunciDomain
+				&& (satuanKerja == null || satuanKerja.getId() == null || tbmuser.hakAkses().getMelihatDataSatkerLain())) {
 
 			Tabbox tabbox = new Tabbox();
 			tabbox.setParent(panelchildren);
@@ -477,7 +532,7 @@ public class AmbilDataSatuanKerjaBanbox extends Bandbox implements GetEventListe
 					.add(yayasan == null || yayasan.getId() == null ? Restrictions.isNull("yayasan")
 							: Restrictions.eq("yayasan", yayasan))
 
-					.add(tbmuser.hakAkses().getMelihatDataSatkerLain() || ids.isEmpty() || chooseAll
+					.add(!kunciDomain && (tbmuser.hakAkses().getMelihatDataSatkerLain() || ids.isEmpty() || chooseAll)
 							? Restrictions.sqlRestriction("true")
 							: Restrictions.in("id", ids))
 					.add(kodeSatuanKerjaan.getValue().trim().equals("") ? Restrictions.sqlRestriction("1=1")

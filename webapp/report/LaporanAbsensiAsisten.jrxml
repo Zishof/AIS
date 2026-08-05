@@ -1443,6 +1443,18 @@ union all
 				<textElement textAlignment="Center"/>
 				<textFieldExpression><![CDATA[$P{label_kota}+", "+$P{tanggal}+"\n Ka. Prodi\n\n\n\n"]]></textFieldExpression>
 			</textField>
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement key="image-kaprodi" x="586" y="16" width="196" height="71" uuid="8b2f2896-3682-4e0c-85ec-31d8cccedf2d">
+					<printWhenExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "ttd_kaprodi" ) != null]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "ttd_kaprodi" )]]></imageExpression>
+			</image>
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement key="image-cap-kaprodi" x="640" y="27" width="76" height="56" uuid="e5183d29-8c2d-4895-bf47-773d0b9c3520">
+					<printWhenExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "cap_kaprodi" ) != null]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "cap_kaprodi" )]]></imageExpression>
+			</image>
 			<textField isBlankWhenNull="true">
 				<reportElement key="textField-4" x="586" y="74" width="196" height="17" uuid="fd2a155f-a91a-4ddd-984f-c665dba434be"/>
 				<textElement textAlignment="Center">

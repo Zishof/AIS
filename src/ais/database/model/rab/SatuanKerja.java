@@ -87,6 +87,7 @@ public class SatuanKerja extends GeneralValueObject {
 	private String kode;
 	private String nama;
 	private String keterangan;
+	private String domain;
 	private Boolean defaultItem = true;
 
 	private SatuanKerja parent;
@@ -139,6 +140,24 @@ public class SatuanKerja extends GeneralValueObject {
 
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
+	}
+
+	/**
+	 * Domain (boleh multi-nilai dipisah koma) untuk KUNCI TENANT per-request — mirip domain di
+	 * {@code PerguruanTinggi}/{@code Sekolah}. Bila host/URL request MENGANDUNG salah satu domain ini,
+	 * pemilih {@code AmbilDataSatuanKerja} langsung terkunci ke Satuan Kerja ini beserta SELURUH child-nya.
+	 * {@code @NotAudited} agar penambahan kolom TIDAK memerlukan sinkronisasi tabel audit
+	 * {@code new_audit.satuan_kerja__audit} (kolom lock per-request tak perlu histori audit). Kolom
+	 * {@code domain} aditif &amp; nullable (dibuat otomatis oleh {@code hbm2ddl.auto=update}).
+	 */
+	@org.hibernate.envers.NotAudited
+	@Column(columnDefinition = "text", name = "domain")
+	public String getDomain() {
+		return domain == null || domain.trim().isEmpty() ? null : domain.trim();
+	}
+
+	public void setDomain(String domain) {
+		this.domain = domain;
 	}
 
 	public String getKode() {

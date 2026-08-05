@@ -1860,6 +1860,12 @@ union all
 				</box>
 				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "ttd_kaprodi" )]]></imageExpression>
 			</image>
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement key="image-cap-kaprodi" x="393" y="27" width="76" height="56" uuid="7a66fc7a-8946-46b6-9831-acd756462e4f">
+					<printWhenExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "cap_kaprodi" ) != null]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "cap_kaprodi" )]]></imageExpression>
+			</image>
 		</band>
 	</summary>
 </jasperReport>

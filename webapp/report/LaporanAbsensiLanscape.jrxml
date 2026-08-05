@@ -1800,6 +1800,12 @@ union all
 				</box>
 				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "ttd_kaprodi" )]]></imageExpression>
 			</image>
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement key="image-cap-kaprodi" x="640" y="30" width="76" height="56" uuid="45de8bcf-b3ff-47b6-999d-3044daeed226">
+					<printWhenExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "cap_kaprodi" ) != null]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "cap_kaprodi" )]]></imageExpression>
+			</image>
 			<textField isBlankWhenNull="true">
 				<reportElement key="textField-44" x="586" y="0" width="196" height="50" uuid="8d82b6d0-5af4-43dc-8ad1-8a830985dcb9"/>
 				<textElement textAlignment="Center"/>

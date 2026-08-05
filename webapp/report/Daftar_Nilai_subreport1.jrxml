@@ -157,7 +157,13 @@ where a.id=$P{perkuliahan}]]>
 				<box>
 					<bottomPen lineWidth="0.0"/>
 				</box>
-				<imageExpression><![CDATA[$F{label}.equals($P{label_ttd_kaprodi}) ? $P{REPORT_PARAMETERS_MAP}.get("ttd_kaprodi") : $P{REPORT_PARAMETERS_MAP}.get("ttd_dosen_"+$V{REPORT_COUNT})]]></imageExpression>
+				<imageExpression><![CDATA[$F{label}.equals($P{label_ttd_kaprodi}) ? $P{REPORT_PARAMETERS_MAP}.get("ttd_kaprodi") : ($P{REPORT_PARAMETERS_MAP}.get("ttd_dosen_id_"+$F{id}) == null ? $P{REPORT_PARAMETERS_MAP}.get("ttd_dosen_"+$V{REPORT_COUNT}) : $P{REPORT_PARAMETERS_MAP}.get("ttd_dosen_id_"+$F{id}))]]></imageExpression>
+			</image>
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement key="image-cap-kaprodi" x="60" y="32" width="76" height="52" uuid="8dbb0ce5-50c0-4270-a8f8-8a86240c43a1">
+					<printWhenExpression><![CDATA[$F{label}.equals($P{label_ttd_kaprodi}) && $P{REPORT_PARAMETERS_MAP}.get("cap_kaprodi") != null]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("cap_kaprodi")]]></imageExpression>
 			</image>
 			<textField isBlankWhenNull="false">
 				<reportElement key="textField-16" x="2" y="8" width="180" height="55" uuid="69b03a74-437e-44af-9c3c-b341b7342e63"/>

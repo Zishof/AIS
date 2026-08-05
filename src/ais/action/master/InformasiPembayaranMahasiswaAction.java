@@ -2170,7 +2170,11 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 					}
 
 					if (kegiatan.getAmount().intValue() != 0 || kegiatan.getAmountTerhutang().intValue() != 0) {
-						kegiatans.put(smt + "-" + kegiatan.getId(), kegiatan);
+						// Kunci TreeMap dibuat String -- "10-x"/"11-x" tersortir SEBELUM "2-x"/"3-x"
+						// secara leksikografis (bukan numerik), sehingga baris grid "Daftar Pembayaran
+						// Keseluruhan" tampil TIDAK berurutan semester (mis. smt 1,10,11,2,3,...).
+						// Padding 3-digit (smt maks realistis <1000) menjaga urutan String = urutan angka.
+						kegiatans.put(String.format("%03d", smt) + "-" + kegiatan.getId(), kegiatan);
 					}
 				}
 			}

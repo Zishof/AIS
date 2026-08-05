@@ -84,6 +84,7 @@ public class SatuanKerjaAction extends GenericAutowireComposer implements DataCr
 	private AmbilDataSatuanLokasiBanbox satuanLokasi;
 	private AmbilDataSatuanKerjaBanbox parent;
 	private Textbox keterangan;
+	private Textbox domain;
 	private MyCheckboxConfig defaultItem;
 	private Textbox alamat;
 	private MyCheckboxConfig searchaktif;
@@ -280,6 +281,7 @@ public class SatuanKerjaAction extends GenericAutowireComposer implements DataCr
 	private void init(SatuanKerja satuanKerja) throws Exception {
 		this.satuanKerja = satuanKerja;
 		addWindow.setTitle(satuanKerja.getId() == null ? "Tambah Satuan Kerja" : "Ubah Satuan Kerja");
+		addWindow.setHeight("95%");
 		Common.clear(addWindow);
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 		Center center = new Center();
@@ -362,6 +364,15 @@ public class SatuanKerjaAction extends GenericAutowireComposer implements DataCr
 				keterangan = new Textbox(satuanKerja.getKeterangan() == null ? "" : satuanKerja.getKeterangan()));
 		keterangan.setWidth("90%");
 		keterangan.setRows(3);
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Domain"));
+		row.appendChild(domain = new Textbox(satuanKerja.getDomain() == null ? "" : satuanKerja.getDomain()));
+		domain.setWidth("90%");
+		ais.common.Common.initKeterangan(rows,
+				"Jika diisi & host/URL mengandung domain ini, tampilan Satuan Kerja langsung terkunci ke "
+						+ "unit ini beserta seluruh child-nya. Boleh lebih dari satu domain, dipisah koma.");
 
 		kop = null;
 		row = new MyFormRow();
@@ -464,6 +475,7 @@ public class SatuanKerjaAction extends GenericAutowireComposer implements DataCr
 		satuanKerja.setKode(kode.getValue());
 		satuanKerja.setNama(nama.getValue());
 		satuanKerja.setKeterangan(keterangan.getValue());
+		satuanKerja.setDomain(domain.getValue());
 		satuanKerja.setKppn((Kppn) kppn.getAttribute("kppn"));
 		satuanKerja.setSatuanLokasi((SatuanLokasi) satuanLokasi.getAttribute("satuanLokasi"));
 		satuanKerja.setYayasan(yayasan);
