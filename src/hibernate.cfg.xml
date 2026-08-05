@@ -9,9 +9,9 @@
 			<property name="hibernate.connection.url">jdbc:mysql://localhost:3306/ais?autoReconnect=true&amp;useOldAliasMetadataBehavior=true</property> 
 			<property name="hibernate.connection.username">root</property> <property 
 			name="hibernate.connection.password">your_password</property> <property name="hibernate.dialect">org.hibernate.dialect.MySQLInnoDBDialect</property> -->
-		<!-- <property name="hibernate.connection.driver_class">org.postgresql.Driver</property> 
-			<property name="hibernate.connection.url">jdbc:postgresql://your_db_host:5432/ais</property> 
-			<property name="hibernate.connection.username">root</property> <property 
+		<!-- <property name="hibernate.connection.driver_class">org.postgresql.Driver</property>
+			<property name="hibernate.connection.url">jdbc:postgresql://your_db_host:5432/ais</property>
+			<property name="hibernate.connection.username">your_user</property> <property
 			name="hibernate.connection.password">your_password</property> -->
 		<!--
 			CATATAN: property "hibernate.session_factory.interceptor" di bawah ini TIDAK
