@@ -1270,3 +1270,38 @@ union all
 			</textField>
 			<textField isBlankWhenNull="false">
 				<reportElement key="textField-dosen-nidn" x="3" y="91" width="196" height="23" uuid="6e9561bb-2345-5567-38900-b2c3d4e5f611"/>
+				<textElement>
+					<font isUnderline="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA["NIDN : "+($P{REPORT_PARAMETERS_MAP}.get("nidn_dosen1") == null ? "" : $P{REPORT_PARAMETERS_MAP}.get("nidn_dosen1").toString())]]></textFieldExpression>
+			</textField>
+			<!-- Sisi Kaprodi -->
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement key="image-kaprodi" x="339" y="16" width="196" height="71" uuid="7f0672cc-3456-6678-49011-c3d4e5f60722"/>
+				<box>
+					<bottomPen lineWidth="1.0"/>
+				</box>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("ttd_kaprodi")]]></imageExpression>
+			</image>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-44" x="339" y="0" width="196" height="50" uuid="4e6cce35-8abf-4de4-8ede-8fc3ffbc8109"/>
+				<textElement textAlignment="Center"/>
+				<textFieldExpression><![CDATA[$P{label_kota}+", "+$P{tanggal}+"\n Ka. Prodi\n\n\n\n"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField-4" x="339" y="74" width="196" height="17" uuid="fd2a155f-a91a-4ddd-984f-c665dba434be"/>
+				<textElement textAlignment="Center">
+					<font isBold="true" isUnderline="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{nama_kaprodi}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField-5" x="339" y="91" width="196" height="23" uuid="13c46687-bea2-48ed-966d-57fc14528b98"/>
+				<textElement textAlignment="Center">
+					<font isUnderline="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[($P{REPORT_PARAMETERS_MAP}.get( "tulisan_nip" ) == null || $P{REPORT_PARAMETERS_MAP}.get( "tulisan_nip" ).toString().trim().isEmpty() ? "NIP. " : $P{REPORT_PARAMETERS_MAP}.get( "tulisan_nip" ).toString().trim())  + ($F{nip_kaprodi} == null ? "" : $F{nip_kaprodi})]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
+</jasperReport>

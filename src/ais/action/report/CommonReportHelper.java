@@ -5498,7 +5498,7 @@ public class CommonReportHelper {
 		if (dosen == null) return;
 		parameters.put("nama_dosen" + index, dosen.getNama() != null ? dosen.getNama() : "");
 		parameters.put("nidn_dosen" + index, dosen.getNidn() != null ? dosen.getNidn() : "");
-		ais.database.model.LampiranLain lam = ais.database.model.LampiranLain.ambil(dosen.getId(), ais.database.model.LampiranLain.TTD_DOSEN);
+		ais.database.model.file.LampiranLain lam = ais.database.model.file.LampiranLain.ambil(dosen.getId(), ais.database.model.file.LampiranLain.TTD_DOSEN);
 		String namaFile = lam == null ? null : lam.getNama();
 		if (namaFile == null) return;
 		String lower = namaFile.toLowerCase();

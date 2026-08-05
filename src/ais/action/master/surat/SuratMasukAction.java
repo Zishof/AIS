@@ -2576,8 +2576,10 @@ public class SuratMasukAction extends GenericAutowireComposer implements DataCri
 			sb.append("<span style='position:absolute;top:-10px;left:12px;background:#1f4b99;color:#fff;"
 					+ "border-radius:4px;padding:4px 12px;font-size:10px;font-weight:800;line-height:1;'>")
 					.append(ais.ui.util.DashboardUiKit.esc(labelGrupDisposisi(grup))).append("</span>");
-			sb.append("<div style='display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));"
-					+ "gap:10px 28px;align-items:center;'>");
+			// auto-fill + minmax responsif: kolom mengikuti lebar panel "Informasi Disposisi" (sempit di
+			// modal Ubah) agar kartu chip TIDAK melebihi border. Sebelumnya dipaksa 3 kolom min 180px.
+			sb.append("<div style='display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));"
+					+ "gap:10px 14px;align-items:center;box-sizing:border-box;width:100%;'>");
 			for (DisposisiMasukChip chip : chips) {
 				sb.append("<span title='").append(ais.ui.util.DashboardUiKit.esc(chip.tooltip))
 						.append("' style='display:inline-flex;align-items:center;gap:7px;max-width:100%;"

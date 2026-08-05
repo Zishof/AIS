@@ -1207,8 +1207,11 @@ public class SuratKeluarAction extends GenericAutowireComposer implements DataCr
 			sb.append("<span style='position:absolute;top:-10px;left:12px;background:#1f4b99;color:#fff;"
 					+ "border-radius:4px;padding:4px 12px;font-size:10px;font-weight:800;line-height:1;'>")
 					.append(ais.ui.util.DashboardUiKit.esc(labelGrupDisposisi(grup))).append("</span>");
-			sb.append("<div style='display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));"
-					+ "gap:10px 28px;align-items:center;'>");
+			// auto-fill + minmax responsif: jumlah kolom mengikuti lebar panel "Informasi Disposisi"
+			// (di modal Ubah panelnya sempit) sehingga kartu chip TIDAK melebihi border. Sebelumnya
+			// dipaksa 3 kolom min 180px + gap 28px (≈596px) sehingga meluber keluar border.
+			sb.append("<div style='display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));"
+					+ "gap:10px 14px;align-items:center;box-sizing:border-box;width:100%;'>");
 			for (DisposisiKeluarChip chip : chips) {
 				sb.append("<span title='").append(ais.ui.util.DashboardUiKit.esc(chip.tooltip))
 						.append("' style='display:inline-flex;align-items:center;gap:7px;max-width:100%;"
