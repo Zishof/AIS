@@ -1,0 +1,5338 @@
+package ais.action.master.helper;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+
+import org.apache.commons.io.FileUtils;
+import org.hibernate.Session;
+import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Projections;
+import org.hibernate.criterion.Restrictions;
+import org.json.JSONObject;
+import org.zkoss.poi.xssf.usermodel.XSSFRow;
+import org.zkoss.poi.xssf.usermodel.XSSFSheet;
+import org.zkoss.poi.xssf.usermodel.XSSFWorkbook;
+import org.zkoss.util.media.Media;
+import org.zkoss.zk.ui.Component;
+import org.zkoss.zk.ui.Sessions;
+import org.zkoss.zk.ui.event.Event;
+import org.zkoss.zk.ui.event.EventListener;
+import org.zkoss.zk.ui.event.Events;
+import org.zkoss.zk.ui.event.UploadEvent;
+import org.zkoss.zk.ui.sys.ExecutionsCtrl;
+import org.zkoss.zul.Borderlayout;
+import org.zkoss.zul.Center;
+import org.zkoss.zul.Checkbox;
+import org.zkoss.zul.Columns;
+import org.zkoss.zul.Combobox;
+import org.zkoss.zul.Div;
+import org.zkoss.zul.Filedownload;
+import org.zkoss.zul.Grid;
+import org.zkoss.zul.Groupbox;
+import org.zkoss.zul.Hbox;
+import org.zkoss.zul.Html;
+import org.zkoss.zul.Label;
+import org.zkoss.zul.ListModel;
+import org.zkoss.zul.Messagebox;
+import org.zkoss.zul.North;
+import org.zkoss.zul.Paging;
+import org.zkoss.zul.Row;
+import ais.ui.util.MyFormRow;
+import org.zkoss.zul.Rows;
+import org.zkoss.zul.SimpleListModel;
+import org.zkoss.zul.South;
+import org.zkoss.zul.Tabbox;
+import org.zkoss.zul.Tabpanel;
+import org.zkoss.zul.Tabpanels;
+import org.zkoss.zul.Tabs;
+import org.zkoss.zul.Textbox;
+import org.zkoss.zul.Toolbarbutton;
+import org.zkoss.zul.Vbox;
+import org.zkoss.zul.West;
+
+import ais.action.master.SyaratUjianAction;
+import ais.action.master.TampilanELearningAction;
+import ais.action.master.dashboard.admin.DashboardTimelinePertemuan;
+import ais.action.master.dashboard.admin.RekapHasilTugasMahasiswa;
+import ais.action.master.dashboard.admin.RekapHasilTugasPerVoPertemuan;
+import ais.action.master.helper.generic.AmbilDataTugasMandiri;
+import ais.action.master.helper.util.PerguruanTinggiUtil;
+import ais.common.AIGenerator;
+import ais.common.Common;
+import ais.common.CommonEmail;
+import ais.common.CommonMedia;
+import ais.common.ConstantValues;
+import ais.common.gdrive.GDriveUtilPerPengguna;
+import ais.common.PesanFormalHelper;
+import ais.common.listener.DataLoader;
+import ais.database.hibernate.HibernateUtil;
+import ais.database.hibernate.StreamingHibernateUtil;
+import ais.database.model.BiodataCalonMahasiswa;
+import ais.database.model.Detailperkuliahan;
+import ais.database.model.Dosen;
+import ais.database.model.FormatNilai;
+import ais.database.model.Mahasiswa;
+import ais.database.model.Matakuliah;
+import ais.database.model.Pegawai;
+import ais.database.model.PerguruanTinggi;
+import ais.database.model.Perkuliahan;
+import ais.database.model.Pertemuan;
+import ais.database.model.Statusabsensi;
+import ais.database.model.SyaratUjian;
+import ais.database.model.Tbmuser;
+import ais.database.model.Tugas;
+import ais.database.model.TugasPertemuan;
+import ais.database.model.file.FileFoto;
+import ais.database.model.file.LampiranLain;
+import ais.database.model.file.TugasFileContent;
+import ais.database.model.sekolah.CalonSiswa;
+import ais.database.model.sekolah.DetailGrupKategoriItemPenilaianSiswa;
+import ais.database.model.sekolah.DetailGrupPenilaian;
+import ais.database.model.sekolah.DetailJenisPenilaian;
+import ais.database.model.sekolah.GrupKategoriItemPenilaianSiswa;
+import ais.database.model.sekolah.GrupPenilaian;
+import ais.database.model.sekolah.JadwalPelajaran;
+import ais.database.model.sekolah.JenisItemPenilaianSiswa;
+import ais.database.model.sekolah.JenisPenilaian;
+import ais.database.model.sekolah.KategoriItemPenilaianSiswa;
+import ais.database.model.sekolah.KelasSiswa;
+import ais.database.model.sekolah.Matapelajaran;
+import ais.database.model.sekolah.Siswa;
+import ais.ui.util.DataCriteriaWithColumn;
+import ais.ui.util.MyToolbarbutton;
+import ais.ui.util.MyCaptionStyled;
+import ais.ui.util.MyCheckboxConfig;
+import ais.ui.util.MyCkEditor;
+import ais.ui.util.MyColumnConfig;
+import ais.ui.util.MyComboitemConfig;
+import ais.ui.util.MyDatebox;
+import ais.ui.util.MyDoublebox;
+import ais.ui.util.MyGrid;
+import ais.ui.util.MyGroupboxStyled;
+import ais.ui.util.MyHboxToolbar;
+import ais.ui.util.MyLabelAgakKecilBold;
+import ais.ui.util.MyLabelBold;
+import ais.ui.util.MyLabelBoldConfig;
+import ais.ui.util.MyLabelConfig;
+import ais.ui.util.MyLabelKecil;
+import ais.ui.util.MyMenuitem;
+import ais.ui.util.MyMessageboxConfig;
+import ais.ui.util.MyTabConfig;
+import ais.ui.util.MyToolbarbuttonConfig;
+import ais.ui.util.MyWindow;
+import ais.ui.util.SmartDateTimeUtil;
+import ais.ui.util.WaktuUtil;
+
+/**
+ * TugasMandiriHelper — Helper UI utama untuk manajemen Tugas Mandiri pada modul e-Learning.
+ *
+ * <p>Kelas ini bertanggung jawab penuh atas pembangunan antarmuka pengguna (UI) yang berkaitan
+ * dengan Tugas Mandiri (tugas individu) dalam sistem e-Learning berbasis ZK Framework 5.0.13.
+ * Helper ini dipanggil dari modul pembelajaran setiap kali sebuah tab "Tugas" pada pertemuan
+ * dibuka, sehingga seluruh interaksi peserta (upload berkas) dan pengelola (penilaian, rekap,
+ * kehadiran) diproses di sini secara terpusat.</p>
+ *
+ * <p><strong>Konteks Penggunaan dalam e-Learning:</strong><br>
+ * Sistem e-Learning AIS mendukung dua jenis entitas pembelajaran utama: {@link Perkuliahan}
+ * (kuliah tingkat perguruan tinggi) dan {@link JadwalPelajaran} (pelajaran tingkat sekolah).
+ * TugasMandiriHelper bekerja untuk keduanya — ia memeriksa tipe entitas dari parameter
+ * {@link Tugas} yang diterima dan menyesuaikan tampilan serta logika penilaian secara otomatis.
+ * Untuk konteks perguruan tinggi dengan kurikulum OBE (Outcome Based Education), helper ini
+ * juga menangani penilaian berbasis Sub-CPMK (Capaian Pembelajaran Mata Kuliah) yang memiliki
+ * bobot berbeda-beda per tugas dan disimpan dalam format JSON.</p>
+ *
+ * <p><strong>Arsitektur dan Pola yang Digunakan:</strong><br>
+ * Helper ini mengikuti pola <em>procedural UI builder</em> yang lazim di ZK Framework 5:
+ * komponen-komponen UI (Grid, Tabbox, Borderlayout, Toolbar) dibuat dan dirangkai secara
+ * programatik di dalam metode {@code createTugas}. Tidak ada ZUML/ZUL file yang digunakan;
+ * seluruh layout dibangun dari Java. Setiap komponen interaktif mendaftarkan
+ * {@link EventListener} anonim sesuai gaya pemrograman Java 1.6 (tanpa lambda maupun
+ * try-with-resources).</p>
+ *
+ * <p>State antarmuka disimpan sebagai field instance: {@code tugas}, {@code perkuliahan},
+ * {@code jadwalPelajaran}, {@code pa}, {@code tbmuser}, {@code treemapData}, dan
+ * {@code uploadTugasGrid}. Satu instance TugasMandiriHelper berkorespondensi dengan satu
+ * sesi interaksi untuk satu tugas tertentu.</p>
+ *
+ * <p><strong>Fitur Utama:</strong></p>
+ * <ul>
+ *   <li><em>Portal Layout dua kolom</em>: kiri menampilkan instruksi/perintah tugas (40%),
+ *       kanan menampilkan toolbar aksi dan daftar pengumpulan (60%).</li>
+ *   <li><em>Toolbar terstruktur dengan pengelompokan visual lewat separator</em>:
+ *       Grup Berkas (Upload, Download Semua, Drive, Akses),
+ *       Grup Nilai (Masukkan Nilai, Download Nilai, Upload Nilai),
+ *       Grup Kelola (Refresh, Recovery),
+ *       Grup Kehadiran (Anggap Hadir Pengumpul, Anggap Hadir Pengakses, Anggap Sudah Upload).</li>
+ *   <li><em>Tab Telah Upload</em>: daftar peserta yang sudah mengumpulkan, lengkap dengan
+ *       kolom nilai dan keterangan yang dapat diedit langsung (inline edit). Indikator warna
+ *       pada baris menunjukkan status penilaian: hijau = sudah dinilai, merah = belum dinilai.</li>
+ *   <li><em>Tab Belum Upload</em>: daftar peserta yang belum mengumpulkan, dilengkapi tombol
+ *       "Anggap Alpa" untuk keperluan presensi otomatis.</li>
+ *   <li><em>Tab Statistik</em>: dasbor HTML/CSS responsif menggunakan DashboardUiKit berisi
+ *       kartu ringkasan, donut chart pengumpulan, progress bar capaian, bar chart tren per
+ *       tanggal, histogram distribusi nilai (5 rentang), dan radar chart Sub-CPMK (OBE).</li>
+ *   <li><em>Tab Peserta yg tidak perlu ikut</em>: pengelola dapat menandai mahasiswa yang
+ *       dikecualikan dari tugas ini tanpa menghapus data pengumpulan mereka.</li>
+ *   <li><em>Tab Rekap Tugas</em>: rekap lintas pertemuan via RekapHasilTugasPerVoPertemuan.</li>
+ *   <li><em>Penilaian OBE</em>: mendukung bobot nilai per Sub-CPMK yang disimpan dalam JSON
+ *       dan dapat diedit per peserta secara langsung di grid.</li>
+ *   <li><em>Upload Nilai Massal</em>: dosen/admin dapat mengunggah file Excel berisi nilai
+ *       seluruh peserta sekaligus (format xlsx).</li>
+ *   <li><em>Integrasi Google Drive</em>: berkas tugas peserta dapat dikirim otomatis ke
+ *       Google Drive pengajar via GDriveUtilPerPengguna.</li>
+ *   <li><em>Recovery/Riwayat Tugas</em>: tombol Recovery membuka riwayat perubahan tugas
+ *       (Hibernate Envers) sehingga tugas yang terhapus dapat dipulihkan.</li>
+ *   <li><em>Anggap Sudah Upload</em>: menandai seluruh peserta sebagai telah mengumpulkan
+ *       dengan berkas kosong — berguna untuk kebutuhan administrasi absensi.</li>
+ * </ul>
+ *
+ * <p><strong>Cara Penggunaan:</strong><br>
+ * Instansiasi dengan mahasiswa/biodataCalonMahasiswa yang sedang login (null untuk dosen/admin),
+ * kemudian panggil {@code createTugas(tugas, tabpanel, hapusEvent, tampilInfo)} untuk
+ * membangun seluruh UI di dalam {@code tabpanel} yang diberikan. Metode ini membersihkan
+ * konten tabpanel terlebih dahulu sebelum membangun ulang seluruh komponen.</p>
+ *
+ * <p><strong>Ketergantungan Penting:</strong></p>
+ * <ul>
+ *   <li>{@link HibernateUtil} — sesi Hibernate untuk operasi baca/tulis DB biasa.</li>
+ *   <li>{@link StreamingHibernateUtil} — sesi khusus untuk operasi berkas biner (BLOB).</li>
+ *   <li>{@code ais.ui.util.DashboardUiKit} — generator HTML/CSS untuk kartu, chart, dasbor.</li>
+ *   <li>{@link Tugas} — antarmuka tugas yang diimplementasikan oleh {@link Pertemuan} dan
+ *       {@link TugasPertemuan}.</li>
+ *   <li>{@link Common} — utilitas umum: format tanggal, current user, upload, dll.</li>
+ * </ul>
+ *
+ * <p><strong>Catatan Kompatibilitas:</strong><br>
+ * Kelas ini ditulis dengan gaya Java 1.6: tidak menggunakan lambda, diamond operator {@code <>},
+ * Stream API, try-with-resources, atau multi-catch. Semua EventListener ditulis sebagai
+ * anonymous inner class. Dikompilasi bersama ZK Framework 5.0.13 dan Hibernate 3.x.
+ * Penggunaan {@code @SuppressWarnings("deprecation")} diperlukan karena beberapa API ZK 5
+ * telah ditandai deprecated di versi yang lebih baru.</p>
+ *
+ * @author AIS System
+ * @version 2.0
+ * @since 2010
+ * @see ais.database.model.Tugas
+ * @see ais.database.model.file.TugasFileContent
+ */
+public class TugasMandiriHelper {
+
+	private MyGrid uploadTugasGrid;
+	private Mahasiswa mahasiswa;
+	private BiodataCalonMahasiswa biodataCalonMahasiswa;
+	private Tugas tugas;
+
+	public TugasMandiriHelper(Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa) {
+		this.mahasiswa = mahasiswa;
+		this.biodataCalonMahasiswa = biodataCalonMahasiswa;
+	}
+
+	private MyToolbarbutton buttonMasukkanNilai;
+	private MyToolbarbutton upload;
+	private Combobox syaratMengumpulkanTugas;
+	private MyToolbarbutton hapus;
+
+	private Perkuliahan perkuliahan = null;
+	private JadwalPelajaran jadwalPelajaran = null;
+	private Pertemuan pa = null;
+	private Paging paging;
+	private Tbmuser tbmuser;
+	private Borderlayout myborderlayoutlagi;
+
+	private Set<String> syaratAlert = new HashSet<String>();
+
+	/**
+	 * Membuka dialog modal untuk mengubah perintah dan instruksi tugas mandiri.
+	 *
+	 * <p>Dialog ini memungkinkan pengelola (dosen/admin) untuk mengubah judul tugas, isi
+	 * instruksi (via CKEditor rich text), tanggal mulai dan selesai, format penilaian
+	 * (FormatNilai/OBE Sub-CPMK), serta syarat mengumpulkan tugas. Mahasiswa/siswa hanya
+	 * dapat melihat informasi tanggal dalam format read-only. Dialog juga mendukung
+	 * pemindahan TugasPertemuan ke pertemuan lain dalam pembelajaran yang sama (VOPembelajaran),
+	 * selama yang login bukan pelajar. Setelah disimpan, eventListener dipanggil untuk
+	 * me-refresh tampilan tugas pada tab yang memanggilnya.</p>
+	 *
+	 * @param eventListener listener yang dipanggil setelah simpan atau pindah pertemuan,
+	 *                      dengan data {@link Tugas} yang baru sebagai payload event.
+	 * @throws Exception jika terjadi kesalahan akses DB atau ZK rendering.
+	 */
+	public void onUbahPerintahTugas(final EventListener eventListener) throws Exception {
+		final MyWindow addWindow = new MyWindow();
+		addWindow.setHeight("95%");
+		addWindow.setWidth("950px");
+		ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(addWindow);
+
+		addWindow.setTitle("Perintah Tugas");
+		if (addWindow != null) {
+			Common.clear(addWindow);
+		}
+		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
+		Center center = new Center();
+		center.setParent(borderlayout);
+		ais.ui.util.ZkCompat.setFlex(center, true);
+
+		MyGrid grid = new MyGrid();
+		grid.setWidth("100%");
+		grid.setParent(center);
+		grid.setWidth("100%");
+		grid.setHeight("100%");
+		grid.setSclass("fgrid");
+
+		Rows rows = new Rows();
+
+		rows.setParent(grid);
+
+		/*
+		 * === Pindahkan tugas ke pertemuan lain ===
+		 * Combobox berisi DAFTAR PERTEMUAN yang tersedia pada VOPembelajaran yang SAMA
+		 * (ambilVOPembelajaran()), sehingga sebuah tugas dapat dipindah "ke pertemuan ke berapa".
+		 * Berlaku untuk TugasPertemuan (sub-tugas) — datanya cukup diarahkan ke pertemuan tujuan
+		 * via setPertemuan(Long); berkas pengumpulan (TugasFileContent ref=tugas.id) ikut otomatis.
+		 * Untuk tugas yang melekat langsung pada sebuah Pertemuan, pemindahan tidak relevan
+		 * sehingga combobox ditampilkan TER-NONAKTIF (informatif).
+		 */
+		{
+			Pertemuan pertemuanTugasIni = null;
+			if (tugas instanceof Pertemuan) {
+				pertemuanTugasIni = (Pertemuan) tugas;
+			} else if (tugas instanceof TugasPertemuan) {
+				pertemuanTugasIni = ((TugasPertemuan) tugas).ambilPertemuan();
+			}
+			final ais.database.model.VOPembelajaran pembelajaran = pertemuanTugasIni == null ? null
+					: pertemuanTugasIni.ambilVOPembelajaran();
+
+			final boolean bisaPindahPertemuan = (tugas instanceof TugasPertemuan) && tbmuser != null
+					&& tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
+					&& tbmuser.getBiodataCalonMahasiswa() == null && tbmuser.getCalonSiswa() == null;
+
+			// Combo "Pindahkan ke pertemuan" TIDAK ditampilkan bila yang login adalah pelajar
+			// (mahasiswa/siswa/calon/peserta kursus) — sebelumnya hanya di-disable, kini disembunyikan.
+			final boolean loginPelajar = tbmuser != null && (tbmuser.getMahasiswa() != null
+					|| tbmuser.getSiswa() != null || tbmuser.getBiodataCalonMahasiswa() != null
+					|| tbmuser.getCalonSiswa() != null || tbmuser.getPesertaKursus() != null);
+
+			if (pembelajaran != null && !loginPelajar) {
+				MyFormRow rowKe = new MyFormRow();
+				rowKe.setValign("top");
+				rowKe.setParent(rows);
+				rowKe.appendChild(new MyLabelBoldConfig("Pertemuan"));
+
+				rowKe = new MyFormRow();
+				rowKe.setParent(rows);
+
+				final Combobox comboPertemuan = new Combobox();
+				comboPertemuan.setReadonly(true);
+				comboPertemuan.setWidth("95%");
+				rowKe.appendChild(comboPertemuan);
+
+				final Long pertemuanSaatIni = (pertemuanTugasIni == null || pertemuanTugasIni.getId() == null) ? null
+						: pertemuanTugasIni.getId();
+				try {
+					// Bila cache lokasi-pertemuan KOSONG, paksa muat ulang dari DB agar dropdown tidak kosong.
+					TreeMap<String, Long> daftarPertemuan = pembelajaran.ambilPertemuan();
+					if (daftarPertemuan == null || daftarPertemuan.isEmpty()) {
+						daftarPertemuan = pembelajaran.ambilPertemuan(true);
+					}
+					boolean adaSaatIni = false;
+					if (daftarPertemuan != null) {
+						for (Long pid : daftarPertemuan.values()) {
+							if (pid == null) {
+								continue;
+							}
+							Pertemuan p = (Pertemuan) ais.database.model.GeneralValueObject.ambilData(Pertemuan.class,
+									pid.toString());
+							if (p == null) {
+								continue;
+							}
+							String topik = p.getTopik() == null ? "" : p.getTopik().trim();
+							if (topik.length() > 40) {
+								topik = topik.substring(0, 40) + "...";
+							}
+							String tgl = p.getTanggal() == null ? ""
+									: (" - " + Common.dateFormat.get().format(p.getTanggal()));
+							org.zkoss.zul.Comboitem item = new org.zkoss.zul.Comboitem(
+									"Pertemuan ke-" + p.getPertemuanKe() + (topik.isEmpty() ? "" : " : " + topik) + tgl);
+							item.setValue(pid);
+							item.setParent(comboPertemuan);
+							if (pertemuanSaatIni != null && pertemuanSaatIni.equals(pid)) {
+								comboPertemuan.setSelectedItem(item);
+								adaSaatIni = true;
+							}
+						}
+					}
+					// Pastikan pertemuan yang SEDANG dipilih selalu ada & terpilih walau tidak termuat.
+					if (!adaSaatIni && pertemuanSaatIni != null && pertemuanTugasIni != null) {
+						String topik = pertemuanTugasIni.getTopik() == null ? "" : pertemuanTugasIni.getTopik().trim();
+						if (topik.length() > 40) {
+							topik = topik.substring(0, 40) + "...";
+						}
+						String tgl = pertemuanTugasIni.getTanggal() == null ? ""
+								: (" - " + Common.dateFormat.get().format(pertemuanTugasIni.getTanggal()));
+						org.zkoss.zul.Comboitem itemSaatIni = new org.zkoss.zul.Comboitem("Pertemuan ke-"
+								+ pertemuanTugasIni.getPertemuanKe() + (topik.isEmpty() ? "" : " : " + topik) + tgl);
+						itemSaatIni.setValue(pertemuanSaatIni);
+						itemSaatIni.setParent(comboPertemuan);
+						comboPertemuan.setSelectedItem(itemSaatIni);
+					}
+				} catch (Exception eDaftarPertemuan) {
+					Common.tampilErrorJikaAdmin(eDaftarPertemuan);
+				}
+
+				comboPertemuan.setDisabled(!bisaPindahPertemuan);
+
+				if (bisaPindahPertemuan) {
+					comboPertemuan.addEventListener("onChange", new EventListener() {
+						@Override
+						public void onEvent(Event arg0) throws Exception {
+							if (comboPertemuan.getSelectedItem() == null) {
+								return;
+							}
+							final Long pidBaru = (Long) comboPertemuan.getSelectedItem().getValue();
+							if (pidBaru == null || pidBaru.equals(pertemuanSaatIni)) {
+								return;
+							}
+							final String labelTujuan = comboPertemuan.getSelectedItem().getLabel();
+							MyMessageboxConfig.showFormatCb("Apakah Bapak/Ibu yakin ingin memindahkan tugas ini ke \"{V1}\"? Tugas akan dipindahkan ke pertemuan yang dipilih.", "Pertanyaan",
+									MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
+									new EventListener() {
+										@Override
+										public void onEvent(Event ev) throws Exception {
+											if (Integer.parseInt(ev.getData().toString()) != MyMessageboxConfig.OK) {
+												return;
+											}
+											Session session = HibernateUtil.currentSession();
+											if (tugas.getId() != null) {
+												session.refresh(tugas);
+											}
+											Pertemuan pBaru = (Pertemuan) ais.database.model.GeneralValueObject
+													.ambilData(Pertemuan.class, pidBaru.toString());
+											((TugasPertemuan) tugas).setPertemuan(pidBaru);
+											((TugasPertemuan) tugas).setPertemuanData(pBaru);
+											Common.refreshUpdate(session, tugas);
+
+											/* Tutup dialog & muat ulang tampilan agar tugas tampil di pertemuan tujuan. */
+											if (eventListener != null) {
+												eventListener.onEvent(new Event("", addWindow, tugas));
+											}
+											addWindow.detach();
+										}
+									}, labelTujuan);
+						}
+					});
+				} else if (tugas instanceof Pertemuan) {
+					Common.initKeteranganSatuKolom(rows,
+							"Tugas ini melekat pada pertemuannya sendiri sehingga tidak dapat dipindah ke pertemuan lain.");
+				}
+			}
+		}
+
+		final MyDatebox mulaiWaktuMengumpulkanTugas = new MyDatebox(tugas.getMulai());
+		mulaiWaktuMengumpulkanTugas.setFormat(Common.dateFormat.get().toPattern());
+
+		final MyDatebox batasWaktuMengumpulkanTugas = new MyDatebox(tugas.getSelesai());
+		batasWaktuMengumpulkanTugas.setFormat(Common.dateFormat.get().toPattern());
+
+		final Combobox[] formatNilaiPerkuliahanRef = new Combobox[1];
+		final MyDoublebox[] prosentaseFormatNilaiRef = new MyDoublebox[1];
+		final Combobox[] formatNilaiSekolahRef = new Combobox[1];
+
+		MyFormRow row = new MyFormRow();
+		row.setValign("top");
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelBoldConfig("Tugas Mulai"));
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		if (tbmuser.getMahasiswa() == null) {
+			row.appendChild(mulaiWaktuMengumpulkanTugas);
+		} else {
+			Html html = new ais.ui.util.MyHtml(
+					"<strong><font style='color:red'>" + (tugas.getMulai() == null ? "Tidak Ada"
+							: (SmartDateTimeUtil.getDayString(tugas.getMulai(), null)
+									+ Common.dateFormat5.get().format(tugas.getMulai())))
+							+ "</font></strong>");
+			row.appendChild(html);
+		}
+
+		Common.initKeteranganSatuKolom(rows,
+				"Kosongkan tanggal tugas mulai jika tugas ini tidak ada batas waktu mulai-nya");
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelBoldConfig("Tugas Selesai"));
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		if (tbmuser.getMahasiswa() == null) {
+			row.appendChild(batasWaktuMengumpulkanTugas);
+		} else {
+			Html html = new ais.ui.util.MyHtml(
+					"<strong><font style='color:red'>" + (tugas.getSelesai() == null ? "Tidak Ada"
+							: (SmartDateTimeUtil.getDayString(tugas.getSelesai(), null)
+									+ Common.dateFormat5.get().format(tugas.getSelesai())))
+							+ "</font></strong>");
+			row.appendChild(html);
+		}
+
+		Common.initKeteranganSatuKolom(rows,
+				"Kosongkan tanggal tugas selesai jika tugas ini tidak ada batas waktu selesai-nya");
+
+		if (perkuliahan != null) {
+
+			row = new MyFormRow();
+			row.setParent(rows);
+			row.appendChild(new MyLabelBoldConfig("Nilai masuk ke format penilaian :"));
+
+			row = new MyFormRow();
+			row.setParent(rows);
+
+			Session session = HibernateUtil.currentSession();
+			List<FormatNilai> formatNilais = Common.getFormatNilais(session, perkuliahan);
+
+			if (perkuliahan.getKurikulum() != null && perkuliahan.getKurikulum().apakahObe(perkuliahan.getTahunAjaran(),
+					perkuliahan.getGanjilGenap())) {
+
+				if (!formatNilais.isEmpty()) {
+					boolean sudahadasubCpmk = false;
+					for (FormatNilai nilai : formatNilais) {
+						if (nilai.getNama().toLowerCase().contains("cpmk")) {
+							sudahadasubCpmk = true;
+							break;
+						}
+					}
+
+					if (!sudahadasubCpmk) {
+						formatNilais = Common.getFormatNilais(perkuliahan, true);
+					}
+				}
+
+				final JSONObject jsonObject = new JSONObject(tugas.getFormatNilais());
+
+				MyGrid gridPilih = new MyGrid();
+				gridPilih.setParent(row);
+				gridPilih.setWidth("100%");
+				gridPilih.setHeight("100%");
+
+				Columns columns = new Columns();
+				columns.setParent(gridPilih);
+
+				MyColumnConfig column = new MyColumnConfig("Sub-CPMK");
+				column.setParent(columns);
+				column.setWidth("80%");
+
+				column = new MyColumnConfig("Bobot");
+				column.setParent(columns);
+
+				Rows rowsPilih = new Rows();
+
+				rowsPilih.setParent(gridPilih);
+
+				for (FormatNilai nilai : formatNilais) {
+					if (nilai.getStatusPertemuan() != null) {
+						final Checkbox radio = new Checkbox(
+								nilai.getNama() + " (" + Common.numberFormat.get().format(nilai.getPersen()) + "%)");
+						radio.setAttribute("value", nilai);
+						radio.setWidth("95%");
+						MyFormRow rowPilih = new MyFormRow();
+						rowPilih.setValign("top");
+						rowPilih.setParent(rowsPilih);
+						rowPilih.appendChild(radio);
+
+						final MyDoublebox doubleboxBobot = new MyDoublebox(
+								jsonObject.isNull(nilai.getId().toString()) ? 100.0
+										: jsonObject.getDouble(nilai.getId().toString()));
+						doubleboxBobot.setWidth("90%");
+						rowPilih.appendChild(doubleboxBobot);
+
+						if (!jsonObject.isNull(nilai.getId().toString())) {
+							radio.setChecked(true);
+						}
+						doubleboxBobot.setDisabled(!radio.isChecked());
+						radio.setDisabled(perkuliahan.getDikunci() != null);
+
+						EventListener eventListenerD = new EventListener() {
+
+							@Override
+							public void onEvent(Event arg0) throws Exception {
+								Session session = HibernateUtil.currentSession();
+								if (tugas.getId() != null) {
+									session.refresh(tugas);
+								}
+								FormatNilai fn = (FormatNilai) radio.getAttribute("value");
+								if (radio.isChecked()) {
+									jsonObject.put(fn.getId().toString(),
+											doubleboxBobot.getValue() == null ? 100.0 : doubleboxBobot.getValue());
+								} else {
+									jsonObject.remove(fn.getId().toString());
+								}
+
+								tugas.setFormatNilais(jsonObject.toString());
+								Common.refreshUpdate(session, (tugas));
+								doubleboxBobot.setDisabled(!radio.isChecked());
+							}
+
+						};
+
+						radio.addEventListener("onClick", eventListenerD);
+						doubleboxBobot.addEventListener("onChange", eventListenerD);
+					}
+				}
+
+			} else {
+				Vbox vbox = new Vbox();
+				vbox.setParent(row);
+				final Combobox formatNilai = new Combobox();
+				formatNilaiPerkuliahanRef[0] = formatNilai;
+
+				formatNilai.setWidth("92px");
+				MyComboitemConfig comboitemTidakAda = new MyComboitemConfig("Tidak Ada");
+				comboitemTidakAda.setValue(null);
+				formatNilai.appendChild(comboitemTidakAda);
+
+				for (FormatNilai nilai : formatNilais) {
+					if (nilai.getStatusPertemuan() != null) {
+						org.zkoss.zul.Comboitem comboitem = new org.zkoss.zul.Comboitem();
+						comboitem.setValue(nilai);
+						comboitem.setLabel(
+								nilai.getNama() + " (" + Common.numberFormat.get().format(nilai.getPersen()) + "%)");
+						formatNilai.appendChild(comboitem);
+					}
+				}
+				Hbox hboxP = new Hbox();
+				formatNilai.setParent(hboxP);
+
+				if (tugas.getFormatNilai() == null) {
+					formatNilai.setSelectedItem(comboitemTidakAda);
+				} else {
+					Common.selectComboItem(formatNilai, tugas.getFormatNilai());
+				}
+				formatNilai.setReadonly(true);
+				formatNilai.setDisabled(perkuliahan.getDikunci() != null);
+				if (perkuliahan.getDikunci() != null) {
+					new MyLabelKecil("Penilaian sudah dikunci").setParent(vbox);
+					if (tugas.getFormatNilai() != null) {
+						new MyLabelKecil("Nilai otomatis masuk ke " + tugas.getFormatNilai().getNama()).setParent(vbox);
+					}
+				}
+
+				hboxP.setParent(vbox);
+				final Label bobotLabel;
+				hboxP.appendChild(bobotLabel = new Label(ais.common.Common.getBahasaConfig(" dengan bobot sebesar ")));
+				final MyDoublebox prosentase = new MyDoublebox(tugas.getProsentase());
+				prosentaseFormatNilaiRef[0] = prosentase;
+				prosentase.setDisabled(perkuliahan.getDikunci() != null);
+				prosentase.setCols(2);
+				prosentase.setParent(hboxP);
+				hboxP.appendChild(new Label(" "));
+
+				prosentase.addEventListener("onChange", new EventListener() {
+
+					@Override
+					public void onEvent(Event arg0) throws Exception {
+						Session session = HibernateUtil.currentSession();
+						if (tugas.getId() != null) {
+							session.refresh(tugas);
+						}
+						tugas.setProsentase(prosentase.getValue());
+						Common.refreshUpdate(session, tugas);
+					}
+				});
+
+				prosentase.setVisible(tugas.getFormatNilai() != null);
+				bobotLabel.setVisible(tugas.getFormatNilai() != null);
+
+				formatNilai.addEventListener("onChange", new EventListener() {
+
+					@Override
+					public void onEvent(Event arg0) throws Exception {
+						Session session = HibernateUtil.currentSession();
+						if (tugas.getId() != null) {
+							session.refresh(tugas);
+						}
+						final FormatNilai fn = (FormatNilai) (formatNilai.getSelectedItem() == null ? null
+								: formatNilai.getSelectedItem().getValue());
+
+						tugas.setFormatNilai(fn);
+						Common.refreshUpdate(session, (tugas));
+						prosentase.setVisible(tugas.getFormatNilai() != null);
+						bobotLabel.setVisible(tugas.getFormatNilai() != null);
+					}
+
+				});
+			}
+
+		} else if (jadwalPelajaran != null) {
+
+			row = new MyFormRow();
+			row.setParent(rows);
+			row.appendChild(new MyLabelBoldConfig("Nilai masuk ke format penilaian :"));
+
+			row = new MyFormRow();
+			row.setParent(rows);
+			Vbox vbox = new Vbox();
+			vbox.setParent(row);
+
+			final Combobox formatNilai = new Combobox();
+			formatNilaiSekolahRef[0] = formatNilai;
+
+			formatNilai.setWidth("92px");
+			MyComboitemConfig comboitemTidakAda = new MyComboitemConfig("Tidak Ada");
+			comboitemTidakAda.setValue(null);
+			formatNilai.appendChild(comboitemTidakAda);
+
+			KelasSiswa kelasSiswa = jadwalPelajaran.getKelas();
+
+			JenisPenilaian jenisPenilaian = jadwalPelajaran.getMatapelajaran().getJenisPenilaian();
+			if (jadwalPelajaran.getKurikulumPunyaMatapelajaran() != null
+					&& jadwalPelajaran.getKurikulumPunyaMatapelajaran().getKurikulumSekolah() != null && jadwalPelajaran
+							.getKurikulumPunyaMatapelajaran().getKurikulumSekolah().getJenisPenilaian() != null) {
+				jenisPenilaian = jadwalPelajaran.getKurikulumPunyaMatapelajaran().getKurikulumSekolah()
+						.getJenisPenilaian();
+			}
+
+			Session session = HibernateUtil.currentSession();
+			List<GrupPenilaian> grupPenilaians = ConstantValues
+					.simpleList(session.createCriteria(DetailJenisPenilaian.class)
+							.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+							.add(Restrictions.eq("jenisPenilaian", jenisPenilaian))
+							.setProjection(Projections.groupProperty("grupPenilaian.id")), GrupPenilaian.class, false);
+
+			for (GrupPenilaian grupPenilaian : grupPenilaians) {
+
+				if (grupPenilaian != null && kelasSiswa != null && kelasSiswa.getTingkat() > 0
+						&& grupPenilaian.getKhususTingkat() != null
+						&& !grupPenilaian.getKhususTingkat().equals(kelasSiswa.getTingkat())) {
+					continue;
+				}
+
+				List<GrupKategoriItemPenilaianSiswa> grupKategoriItemPenilaianSiswas = ConstantValues
+						.simpleList(
+								session.createCriteria(DetailGrupPenilaian.class)
+										.add(Restrictions.or(Restrictions.isNull("aktif"),
+												Restrictions.eq("aktif", true)))
+										.add(Restrictions.isNotNull("grupKategoriItemPenilaianSiswa"))
+										.setProjection(Projections.groupProperty("grupKategoriItemPenilaianSiswa.id"))
+										.add(Restrictions.eq("grupPenilaian", grupPenilaian)),
+								GrupKategoriItemPenilaianSiswa.class, false);
+
+				if (grupKategoriItemPenilaianSiswas.isEmpty()) {
+					return;
+				}
+
+				Collections.sort(grupKategoriItemPenilaianSiswas);
+				for (GrupKategoriItemPenilaianSiswa grupKategoriItemPenilaianSiswa : grupKategoriItemPenilaianSiswas) {
+
+					if (grupKategoriItemPenilaianSiswa != null && kelasSiswa != null && kelasSiswa.getTingkat() > 0
+							&& grupKategoriItemPenilaianSiswa.getKhususTingkat() != null
+							&& !grupKategoriItemPenilaianSiswa.getKhususTingkat().equals(kelasSiswa.getTingkat())) {
+						continue;
+					}
+
+					List<KategoriItemPenilaianSiswa> kategoriItemPenilaianSiswasId = ConstantValues.simpleList(
+							session.createCriteria(DetailGrupKategoriItemPenilaianSiswa.class)
+
+									.add(Restrictions.eq("grupKategoriItemPenilaianSiswa",
+											grupKategoriItemPenilaianSiswa))
+									.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+
+									.setProjection(Projections.groupProperty("kategoriItemPenilaianSiswa.id")),
+							KategoriItemPenilaianSiswa.class, false);
+
+					List<JenisItemPenilaianSiswa> jenisItemPenilaianSiswas = ConstantValues.simpleList(
+							session.createCriteria(JenisItemPenilaianSiswa.class)
+									.createAlias("kategoriItemPenilaianSiswa", "kategoriItemPenilaianSiswa")
+									.addOrder(Order.asc("kategoriItemPenilaianSiswa.kode"))
+									.addOrder(Order.asc("nomorUrut"))
+									.add(Restrictions.in("kategoriItemPenilaianSiswa", kategoriItemPenilaianSiswasId))
+									.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))),
+							JenisItemPenilaianSiswa.class);
+					for (JenisItemPenilaianSiswa jenisItemPenilaianSiswa : jenisItemPenilaianSiswas) {
+
+						if (jenisItemPenilaianSiswa.getTipeDataInputan().equals(JenisItemPenilaianSiswa.ANGKA)
+								|| jenisItemPenilaianSiswa.getTipeDataInputan()
+										.equals(JenisItemPenilaianSiswa.TEXT_ANGKA)) {
+
+							org.zkoss.zul.Comboitem comboitem = new org.zkoss.zul.Comboitem();
+							comboitem.setValue(jenisItemPenilaianSiswa);
+							comboitem.setLabel(
+									jenisItemPenilaianSiswa.getNama() + " (" + jenisItemPenilaianSiswa.getKode() + ")");
+							comboitem.setDescription(
+									grupKategoriItemPenilaianSiswa.getNama() + " (" + grupPenilaian.getNama() + ")");
+
+							comboitem.setAttribute("grupKategoriItemPenilaianSiswa", grupKategoriItemPenilaianSiswa);
+
+							comboitem.setAttribute("grupPenilaian", grupPenilaian);
+
+							formatNilai.appendChild(comboitem);
+						}
+
+					}
+
+				}
+
+			}
+
+			formatNilai.setParent(vbox);
+			if (tugas.getJenisItemPenilaianSiswa() == null) {
+				formatNilai.setSelectedItem(comboitemTidakAda);
+			} else {
+				Common.selectComboItem(formatNilai, tugas.getJenisItemPenilaianSiswa());
+			}
+			formatNilai.setReadonly(true);
+			formatNilai.setDisabled(jadwalPelajaran.getDikunci() != null);
+			if (jadwalPelajaran.getDikunci() != null) {
+				new MyLabelKecil("Penilaian sudah dikunci").setParent(vbox);
+				if (tugas.getJenisItemPenilaianSiswa() != null) {
+					new MyLabelKecil("Nilai otomatis masuk ke " + tugas.getJenisItemPenilaianSiswa().getNama() + " "
+							+ (tugas.getJenisItemPenilaianSiswa().getKategoriItemPenilaianSiswa() == null ? ""
+									: " " + tugas.getJenisItemPenilaianSiswa().getKategoriItemPenilaianSiswa()
+											.getNama())
+
+					).setParent(vbox);
+				}
+			}
+
+			final MyToolbarbutton button = new MyToolbarbutton("fa-refresh", "Sinkronkan Nilai");
+			button.setParent(vbox);
+			button.addEventListener("onClick", new EventListener() {
+
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					ais.common.GradingHelper.hitungNilaiBerdasarkanJenisItemPenilaianSiswa(jadwalPelajaran,
+							tugas.getGrupKategoriItemPenilaianSiswa(), tugas.getGrupPenilaian(),
+							tugas.getJenisItemPenilaianSiswa());
+				}
+			});
+			button.setVisible(tugas.getJenisItemPenilaianSiswa() != null);
+
+			formatNilai.addEventListener("onChange", new EventListener() {
+
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+
+					JenisItemPenilaianSiswa fn = (JenisItemPenilaianSiswa) (formatNilai.getSelectedItem() == null ? null
+							: formatNilai.getSelectedItem().getValue());
+
+					GrupKategoriItemPenilaianSiswa grupKategoriItemPenilaianSiswa = (GrupKategoriItemPenilaianSiswa) (formatNilai
+							.getSelectedItem() == null ? null
+									: formatNilai.getSelectedItem().getAttribute("grupKategoriItemPenilaianSiswa"));
+
+					GrupPenilaian grupPenilaian = (GrupPenilaian) (formatNilai.getSelectedItem() == null ? null
+							: formatNilai.getSelectedItem().getAttribute("grupPenilaian"));
+
+					Session session = HibernateUtil.currentSession();
+					tugas.setJenisItemPenilaianSiswa(fn);
+					tugas.setGrupKategoriItemPenilaianSiswa(grupKategoriItemPenilaianSiswa);
+					tugas.setGrupPenilaian(grupPenilaian);
+					Common.refreshUpdate(session, (tugas));
+
+					button.setVisible(tugas.getJenisItemPenilaianSiswa() != null);
+				}
+
+			});
+
+		}
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new MyLabelBoldConfig("Syarat peserta dapat mengumpulkan tugas"));
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(syaratMengumpulkanTugas = new Combobox());
+		Common.insertComboDanSemua(syaratMengumpulkanTugas, new String[] { "nama" }, "keterangan", SyaratUjian.class,
+				"== Tanpa Syarat Mengikuti Ujian ==",
+				Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
+		Common.selectComboItem(syaratMengumpulkanTugas, tugas.getSyaratMengumpulkanTugas(), true);
+		syaratMengumpulkanTugas.setWidth("90%");
+		syaratMengumpulkanTugas.setReadonly(true);
+
+		final Row rowSyarat = Common.initKeteranganSatuKolom(rows, "Persyaratan ini hanya boleh diubah oleh admin");
+
+		EventListener listenerSyarat = new EventListener() {
+
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				Tbmuser tbmuser = Common.getCurrentUser();
+
+				SyaratUjian syaratUjian = (SyaratUjian) (syaratMengumpulkanTugas.getSelectedItem() == null ? null
+						: syaratMengumpulkanTugas.getSelectedItem().getValue());
+				syaratMengumpulkanTugas.setDisabled(syaratUjian != null && syaratUjian.getHanyaBolehDiubahOlehAdmin()
+						&& (tbmuser == null || tbmuser.ambilDosen() != null || tbmuser.getMahasiswa() != null));
+
+				rowSyarat.setVisible(syaratUjian != null && syaratUjian.getHanyaBolehDiubahOlehAdmin());
+			}
+		};
+		listenerSyarat.onEvent(null);
+		syaratMengumpulkanTugas.addEventListener("onChange", listenerSyarat);
+
+		final MyCkEditor isiTugas = new MyCkEditor();
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new MyLabelBoldConfig("Judul tugas individu (*):"));
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		final Textbox judul;
+		row.appendChild(judul = new Textbox(tugas.getJudultugas()));
+		judul.setWidth("90%");
+		judul.setRows(2);
+		judul.setMaxlength(255);
+		judul.addEventListener("onChange", new EventListener() {
+
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+
+				Session session = HibernateUtil.currentSession();
+				if (tugas.getId() != null) {
+					session.refresh(tugas);
+				}
+
+				tugas.setJudultugas(judul.getValue());
+
+				if (tugas.getId() != null) {
+					Common.refreshUpdate(session, tugas);
+				}
+			}
+		});
+
+		Common.initKeteranganSatuKolom(rows,
+				"Judul tugas harus diisi, karena sebagai penanda terdapat tugas atau tidak.. Jika judul tidak diisi, maka mahasiswa tidak bisa mengupload tugas..");
+
+		row = new MyFormRow();
+		row.setParent(rows);
+
+		Hbox hbox = new Hbox();
+		hbox.setParent(row);
+
+		row = new MyFormRow();
+		row.setParent(rows);
+
+		LampiranLain.createDownloadUploadFileLain(hbox, tugas.getId(), LampiranLain.TUGAS_MANDIRI_PERKULIAHAN,
+				"Tugas Individu", false, new EventListener() {
+
+					@Override
+					public void onEvent(Event arg0) throws Exception {
+						LampiranLain lampiranLain = (LampiranLain) arg0.getData();
+						if (lampiranLain != null && tugas.getJudultugas().isEmpty()) {
+							Session session = HibernateUtil.currentSession();
+							if (tugas.getId() != null) {
+								session.refresh(tugas);
+							}
+
+							Integer ke = 1;
+							if (tugas instanceof Pertemuan) {
+								ke = ((Pertemuan) tugas).getPertemuanKe();
+							} else if (tugas instanceof TugasPertemuan) {
+								Pertemuan pp = ((TugasPertemuan) tugas).ambilPertemuan();
+								ke = pp == null ? 1 : pp.getPertemuanKe();
+							}
+							tugas.setJudultugas("Tugas pertemuan ke " + ke);
+							judul.setValue(tugas.getJudultugas());
+							Common.refreshUpdate(session, tugas);
+
+							tabpanelFileTugasPertemuan.getLinkedTab().setLabel(tugas.getJudultugas());
+						}
+					}
+				}, null, false, false, false,
+				tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
+						&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
+						&& tbmuser.getCalonSiswa() == null && tbmuser.getSiswa() == null,
+				null, false, false, row);
+
+		MyToolbarbutton toolbarbutton = new MyToolbarbutton("fa-cog", "Generate Tugas Individu");
+		hbox.appendChild(toolbarbutton);
+
+		Matakuliah mk = null;
+		Matapelajaran matpel = null;
+		String tanyaAkhiran = "";
+		String tanyaMengajar = " apa saja";
+		if (perkuliahan != null) {
+			mk = (Matakuliah) perkuliahan.getMatakuliah();
+			if (mk != null) {
+				tanyaMengajar = " matakuliah " + mk.getNama();
+				tanyaAkhiran = " pada matakuliah \"" + mk.getNama() + "\"";
+			}
+		} else if (jadwalPelajaran != null) {
+			matpel = (Matapelajaran) jadwalPelajaran.getMatapelajaran();
+			if (matpel != null) {
+				tanyaMengajar = " matapelajaran " + matpel.getNama();
+				tanyaAkhiran = " pada matapelajaran \"" + matpel.getNama() + "\"";
+			}
+		}
+
+		EventListener eventListenerData = new EventListener() {
+
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+
+			}
+		};
+
+		toolbarbutton.addEventListener("onClick",
+				AIGenerator.generateApa("Generate Tugas Individu", "Tugas individu tentang apa ?",
+						"Buatkan tata cara dan langkah-langkah mengerjakan tugas ", false, tanyaAkhiran,
+						Common.getKonfigurasi("llama_system_buat_tugas", "Kamu adalah Pengajar atau Dosen atau Guru ")
+								.getNilai().trim(),
+						isiTugas, new EventListener() {
+
+							@Override
+							public void onEvent(Event arg0) throws Exception {
+								String isi = (String) arg0.getData();
+								Textbox s = (Textbox) arg0.getTarget();
+								if (judul.getValue().trim().isEmpty()) {
+									judul.setValue("Tugas \"" + s.getValue().trim() + "\"");
+									tugas.setJudultugas(judul.getValue());
+								}
+								isiTugas.setValue(ais.action.servlet.Wa.ubahKeBold(isi).replaceAll("\n", "<br>"));
+								tugas.setIsitugas(isiTugas.getValue());
+
+								if (tugas.getId() != null) {
+									Common.refreshUpdate(tugas);
+								}
+							}
+						}, tanyaMengajar, eventListenerData));
+
+		Common.initKeteranganSatuKolom(rows,
+				"Jika file yang Anda upload lebih dari satu file, zip / compress / jadikan satu file terlebih dulu, kemudian baru di-upload");
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new MyLabelBoldConfig(
+				"Masukkan tata cara dan langkah-langkah mengerjakan tugas individu dibawah ini :"));
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(isiTugas);
+		isiTugas.setValue(tugas.getIsitugas());
+		isiTugas.setWidth("97%");
+		isiTugas.setHeight("120px");
+
+		South south = new South();
+		ais.ui.util.ZkCompat.setFlex(south, true);
+		south.setParent(borderlayout);
+
+		MyHboxToolbar toolbar = new MyHboxToolbar();
+		toolbar.setParent(south);
+		MyToolbarbutton cancel = new MyToolbarbutton("fa-ban", "Batal");
+		cancel.setTooltiptext("Tutup");
+		cancel.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				addWindow.detach();
+			}
+		});
+		cancel.setParent(toolbar);
+		MyToolbarbutton save = new MyToolbarbutton("fa-floppy-o", "Simpan Tugas");
+		save.setTooltiptext("Simpan");
+		save.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+
+				if (judul.getValue().trim().equals("")) {
+					MyMessageboxConfig.show("Judul tugas wajib diisi. Mohon Bapak/Ibu mengisi judul tugas terlebih dahulu.", "Peringatan", MyMessageboxConfig.OK,
+							MyMessageboxConfig.INFORMATION);
+					return;
+				}
+
+				Session session = HibernateUtil.currentSession();
+				if (tugas.getId() != null) {
+					// FIX akar masalah HibernateException "refresh is not valid without active
+					// transaction" (KE-6): currentSession() bisa saja tidak sedang berada di
+					// dalam transaksi aktif pada titik ini (mis. request sebelumnya sudah
+					// commit, ambient transaction ZK belum/tak lagi terbuka). refresh() TANPA
+					// syarat sebelumnya meledak mentah. `tugas` sudah entity yang sama yang
+					// akan diisi ulang field-nya di bawah, jadi kalau refresh gagal, lanjut
+					// pakai state yang ada saja (bukan kehilangan fungsi apa pun).
+					try {
+						session.refresh(tugas);
+					} catch (Exception eRefresh) { ais.common.ErrorAuditUtil.record(eRefresh, "auto-audit(empty-catch) src/ais/action/master/helper/TugasMandiriHelper.java:1049");
+					}
+				}
+				tugas.setJudultugas(judul.getValue());
+				tugas.setIsitugas(isiTugas.getValue());
+				tugas.setMulai(mulaiWaktuMengumpulkanTugas.getValue());
+				tugas.setSelesai(batasWaktuMengumpulkanTugas.getValue());
+				tugas.setSyaratMengumpulkanTugas((SyaratUjian) (syaratMengumpulkanTugas.getSelectedItem() == null ? null
+						: syaratMengumpulkanTugas.getSelectedItem().getValue()));
+				if (formatNilaiPerkuliahanRef[0] != null) {
+					FormatNilai fn = (FormatNilai) (formatNilaiPerkuliahanRef[0].getSelectedItem() == null ? null
+							: formatNilaiPerkuliahanRef[0].getSelectedItem().getValue());
+					tugas.setFormatNilai(fn);
+					tugas.setProsentase(prosentaseFormatNilaiRef[0] == null ? tugas.getProsentase()
+							: prosentaseFormatNilaiRef[0].getValue());
+				}
+				if (formatNilaiSekolahRef[0] != null) {
+					JenisItemPenilaianSiswa fn = (JenisItemPenilaianSiswa) (formatNilaiSekolahRef[0].getSelectedItem() == null
+							? null : formatNilaiSekolahRef[0].getSelectedItem().getValue());
+					GrupKategoriItemPenilaianSiswa grupKategoriItemPenilaianSiswa = (GrupKategoriItemPenilaianSiswa) (formatNilaiSekolahRef[0]
+							.getSelectedItem() == null ? null
+									: formatNilaiSekolahRef[0].getSelectedItem()
+											.getAttribute("grupKategoriItemPenilaianSiswa"));
+					GrupPenilaian grupPenilaian = (GrupPenilaian) (formatNilaiSekolahRef[0].getSelectedItem() == null ? null
+							: formatNilaiSekolahRef[0].getSelectedItem().getAttribute("grupPenilaian"));
+					tugas.setJenisItemPenilaianSiswa(fn);
+					tugas.setGrupKategoriItemPenilaianSiswa(grupKategoriItemPenilaianSiswa);
+					tugas.setGrupPenilaian(grupPenilaian);
+				}
+				try {
+					Common.refreshUpdate(session, (tugas));
+				} catch (Exception eSimpan) {
+					// FIX akar masalah ConstraintViolationException (KE-2): flush ini bisa
+					// men-cascade update entity LAIN yang terkait (mis. Pertemuan yang
+					// referensi format_nilai-nya sudah tidak ada di tabel formatnilai --
+					// data yatim/stale FK), meledak mentah tanpa pesan yang bisa dipahami
+					// user. Tangkap, catat, dan beri tahu user apa adanya, jangan biarkan
+					// stack trace mentah tampil.
+					try {
+						if (session.getTransaction() != null && session.getTransaction().isActive()) {
+							session.getTransaction().rollback();
+						}
+					} catch (Exception eRollback) { ais.common.ErrorAuditUtil.record(eRollback,
+							"auto-audit(rollback-gagal) src/ais/action/master/helper/TugasMandiriHelper.java onSave-simpan");
+					}
+					ais.common.ErrorAuditUtil.record(eSimpan,
+							"TugasMandiriHelper: gagal simpan Tugas judul=" + judul.getValue());
+					MyMessageboxConfig.show(
+							"Mohon maaf, gagal menyimpan tugas karena ada data terkait yang tidak konsisten. "
+									+ "Silakan muat ulang (refresh) halaman ini dan coba lagi. Jika masih gagal, hubungi Administrator.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+					return;
+				}
+
+				Calendar kemarin = ais.ui.util.WaktuUtil.getCalendar();
+				upload.setVisible(!tugas.getJudultugas().isEmpty()
+						&& ((tugas.getSelesai() == null || tugas.getSelesai().after(kemarin.getTime()))
+								&& (tugas.getMulai() == null || tugas.getMulai().before(kemarin.getTime()))));
+				if (!tugas.getJudultugas().isEmpty() && mahasiswa != null
+						&& tugas.getMhsBolehUploadUlang().contains("," + mahasiswa.getId() + ",")) {
+					upload.setVisible(true);
+				} else if (!tugas.getJudultugas().isEmpty() && biodataCalonMahasiswa != null
+						&& tugas.getMhsBolehUploadUlang().contains("," + biodataCalonMahasiswa.getId() + ",")) {
+					upload.setVisible(true);
+				}
+				hapus.setVisible(tbmuser != null && mahasiswa == null && biodataCalonMahasiswa == null
+						&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null
+						&& tbmuser.getSiswa() == null && tbmuser.getCalonSiswa() == null
+						&& !tugas.getJudultugas().isEmpty());
+				eventListener.onEvent(new Event("", addWindow, tugas));
+
+				CommonEmail.infoAdaTugasPerkuliahan(tugas);
+				ais.common.CommonNotifikasi.infoTugasBaru(tugas);
+
+				addWindow.detach();
+				tabpanelFileTugasPertemuan.getLinkedTab().setLabel(tugas.getJudultugas());
+			}
+		});
+		save.setParent(toolbar);
+
+		borderlayout.setParent(addWindow);
+
+		addWindow.setVisible(true);
+		addWindow.onModal();
+	}
+
+	private boolean mobile = false;
+	private boolean peserta = false;
+	private Tabpanel tabpanelFileTugasPertemuan;
+	private TreeMap<Long, TugasFileContent> treemapData = null;
+	private Textbox cari;
+
+	/**
+	 * Membangun seluruh antarmuka pengguna untuk satu Tugas Mandiri di dalam {@code tabpanelFileTugasPertemuan}.
+	 *
+	 * <p>Metode utama helper ini. Membersihkan konten tabpanel sebelumnya, lalu membangun
+	 * ulang layout portal dua kolom (kiri = instruksi tugas, kanan = toolbar + daftar
+	 * pengumpulan). Toolbar dikelompokkan ke dalam empat grup visual: Berkas Tugas, Nilai,
+	 * Kelola, dan Kehadiran, dipisahkan oleh separator tipis. Bagian kanan berisi Borderlayout
+	 * dengan North (toolbar) dan Center (Tabbox: Telah Upload / Belum Upload / Statistik /
+	 * Peserta yg tdk perlu ikut / Rekap Tugas). Tampilan dan aksi tombol disesuaikan
+	 * otomatis berdasarkan peran pengguna (mahasiswa/siswa vs dosen/admin).</p>
+	 *
+	 * @param tugas                    entitas tugas (dapat berupa {@link Pertemuan} atau
+	 *                                 {@link TugasPertemuan}) yang akan ditampilkan.
+	 * @param tabpanelFileTugasPertemuan panel ZK tempat seluruh UI dibangun.
+	 * @param hapusEvent               listener yang dipanggil setelah tugas berhasil dihapus.
+	 * @param tampilInfo               bila {@code true}, tampilkan info ringkasan pertemuan
+	 *                                 di bagian atas grid perintah tugas.
+	 * @throws Exception jika terjadi kesalahan akses DB atau ZK rendering.
+	 */
+	@SuppressWarnings("deprecation")
+	public void createTugas(final Tugas tugas, final Tabpanel tabpanelFileTugasPertemuan,
+			final EventListener hapusEvent, final boolean tampilInfo) throws Exception {
+		this.tabpanelFileTugasPertemuan = tabpanelFileTugasPertemuan;
+		if (tabpanelFileTugasPertemuan != null) {
+			Common.clear(tabpanelFileTugasPertemuan);
+		}
+		tbmuser = Common.getCurrentUser();
+		mobile = Common.isMobile();
+		peserta = tbmuser != null && (tbmuser.getMahasiswa() != null || tbmuser.getBiodataCalonMahasiswa() != null
+				|| tbmuser.getSiswa() != null || tbmuser.getCalonSiswa() != null);
+		this.tugas = tugas;
+		if (tugas instanceof Pertemuan) {
+			perkuliahan = ((Pertemuan) tugas).getPerkuliahan();
+			jadwalPelajaran = ((Pertemuan) tugas).getJadwalPelajaran();
+		} else if (tugas instanceof TugasPertemuan) {
+			Pertemuan pp = ((TugasPertemuan) tugas).ambilPertemuan();
+			perkuliahan = pp == null ? null : pp.getPerkuliahan();
+			jadwalPelajaran = pp == null ? null : pp.getJadwalPelajaran();
+		} else {
+			perkuliahan = null;
+			jadwalPelajaran = null;
+		}
+
+		if (tugas instanceof Pertemuan) {
+			pa = (Pertemuan) tugas;
+		} else if (tugas instanceof TugasPertemuan) {
+			pa = ((TugasPertemuan) tugas).ambilPertemuan();
+		}
+		upload = new MyToolbarbutton("fa-upload", "Upload Tugas");
+		upload.setTooltiptext("Kirim berkas tugas Anda ke sistem");
+		hapus = new MyToolbarbutton("fa-trash", "Hapus Tugas");
+		hapus.setTooltiptext("Hapus perintah dan instruksi tugas ini (judul, isi, dan berkas lampiran)");
+
+		/* Portal 2 kolom responsif (menumpuk di HP) menggantikan Borderlayout West+Center.
+		 * Kiri = detail/instruksi tugas (40%), kanan = pengumpulan & rekap (60%). */
+		ais.ui.util.MyPortallayout borderlayout = new ais.ui.util.MyPortallayout();
+		borderlayout.setWidth("100%");
+		borderlayout.setParent(tabpanelFileTugasPertemuan);
+
+		ais.ui.util.MyPortalchildren west = new ais.ui.util.MyPortalchildren();
+		west.setWidth("40%");
+		west.setParent(borderlayout);
+
+		ais.ui.util.MyPortalchildren center = new ais.ui.util.MyPortalchildren();
+		center.setWidth("60%");
+		center.setParent(borderlayout);
+
+		Grid gridPerintah = new Grid();
+		gridPerintah.setSclass("fgrid");
+		gridPerintah.setParent(west);
+		gridPerintah.setWidth("100%");
+
+		// gridPerintah.setHeight("200px");
+
+		Columns columns = new Columns();
+
+		columns.setParent(gridPerintah);
+		MyColumnConfig column = new MyColumnConfig();
+		column.setParent(columns);
+		column.setLabel("");
+		column.setWidth("20%");
+
+		column = new MyColumnConfig();
+		column.setParent(columns);
+		column.setLabel("");
+
+		Rows rows = new Rows();
+
+		rows.setParent(gridPerintah);
+
+		if (tampilInfo) {
+			MyFormRow row = new MyFormRow();
+			row.setValign("top");
+			row.setValign("top");
+			row.setParent(rows);
+			ais.ui.util.ZkCompat.setSpans(row, "2");
+			row.appendChild(DashboardTimelinePertemuan.displayInfoPertemuan(pa));
+
+		}
+
+		MyFormRow row = new MyFormRow();
+		row.setValign("top");
+		row.setParent(rows);
+		row.appendChild(RevisiHelper.createNewRevisi(tugas.getClass(), tugas, "Tugas Mulai"));
+
+		final Html htmlMulai = new ais.ui.util.MyHtml(
+				"<strong><font style='color:red'>" + (tugas.getMulai() == null ? "Tidak Ada"
+						: (SmartDateTimeUtil.getDayString(tugas.getMulai(), null)
+								+ Common.dateFormat5.get().format(tugas.getMulai())))
+						+ "</font></strong>");
+		row.appendChild(htmlMulai);
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Tugas Selesai"));
+
+		final Html htmlSampai = new ais.ui.util.MyHtml(
+				"<strong><font style='color:red'>" + (tugas.getSelesai() == null ? "Tidak Ada"
+						: (SmartDateTimeUtil.getDayString(tugas.getSelesai(), null)
+								+ Common.dateFormat5.get().format(tugas.getSelesai())))
+						+ "</font></strong>");
+		row.appendChild(htmlSampai);
+
+		// Info tambahan bermanfaat (HANYA untuk pengelola/dosen, bukan mahasiswa — privasi):
+		// status waktu tugas + rekap pengumpulan (total peserta, sudah upload, belum upload).
+		if (!peserta) {
+			try {
+				int totalPesertaTgs = 0;
+				if (perkuliahan != null) {
+					java.util.List<?> msTgs = perkuliahan.ambilMahasiswa();
+					totalPesertaTgs = msTgs == null ? 0 : msTgs.size();
+				}
+				java.util.TreeMap<Long, ais.database.model.file.TugasFileContent> dTgs = tugas.ambilTugasFileContentTotal();
+				int sudahUpload = dTgs == null ? 0 : dTgs.size();
+				int belumUpload = totalPesertaTgs - sudahUpload;
+				if (belumUpload < 0) {
+					belumUpload = 0;
+				}
+				java.util.Date kiniTgs = ais.ui.util.WaktuUtil.getCalendar().getTime();
+				String statusTugas;
+				if (tugas.getMulai() != null && kiniTgs.before(tugas.getMulai())) {
+					statusTugas = "Belum dibuka";
+				} else if (tugas.getSelesai() != null && kiniTgs.after(tugas.getSelesai())) {
+					statusTugas = "Sudah ditutup";
+				} else {
+					statusTugas = "Sedang berlangsung";
+				}
+				// Statistik nilai dari berkas yang sudah dikumpulkan (TugasFileContent.getNilai).
+				java.text.DecimalFormat dfNilaiTgs = new java.text.DecimalFormat("#0.##");
+				double sumN = 0, maxN = Double.NEGATIVE_INFINITY, minN = Double.POSITIVE_INFINITY;
+				int cntN = 0, sudahDinilai = 0;
+				if (dTgs != null) {
+					for (ais.database.model.file.TugasFileContent tc : dTgs.values()) {
+						if (tc == null) {
+							continue;
+						}
+						double n = tc.getNilai() == null ? 0.0 : tc.getNilai().doubleValue();
+						sumN += n;
+						if (n > maxN) {
+							maxN = n;
+						}
+						if (n < minN) {
+							minN = n;
+						}
+						cntN++;
+						if (n > 0) {
+							sudahDinilai++;
+						}
+					}
+				}
+				String rataNilaiTgs = cntN > 0 ? dfNilaiTgs.format(sumN / cntN) : "-";
+				String tinggiNilaiTgs = cntN > 0 ? dfNilaiTgs.format(maxN) : "-";
+				String rendahNilaiTgs = cntN > 0 ? dfNilaiTgs.format(minN) : "-";
+				int belumDinilai = sudahUpload - sudahDinilai;
+				if (belumDinilai < 0) {
+					belumDinilai = 0;
+				}
+				String[][] infoTgs = new String[][] { { "Status", statusTugas },
+						{ "Total peserta", totalPesertaTgs + " mhs" }, { "Sudah upload", sudahUpload + " mhs" },
+						{ "Belum upload", belumUpload + " mhs" }, { "Sudah dinilai", sudahDinilai + " mhs" },
+						{ "Belum dinilai", belumDinilai + " mhs" }, { "Rata-rata nilai", rataNilaiTgs },
+						{ "Nilai tertinggi", tinggiNilaiTgs }, { "Nilai terendah", rendahNilaiTgs } };
+				for (int iInfo = 0; iInfo < infoTgs.length; iInfo++) {
+					MyFormRow rowInfoTgs = new MyFormRow();
+					rowInfoTgs.setParent(rows);
+					rowInfoTgs.appendChild(new ais.ui.util.MyLabelConfig(infoTgs[iInfo][0]));
+					rowInfoTgs.appendChild(new ais.ui.util.MyLabelBold(infoTgs[iInfo][1]));
+				}
+			} catch (Exception eInfoTgs) {
+				ais.common.ErrorAuditUtil.record(eInfoTgs, "auto-audit(empty-catch) TugasMandiriHelper.infoRekapTugas");
+			}
+		}
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig(""));
+
+		MyHboxToolbar hboxa = new MyHboxToolbar();
+		row.appendChild(hboxa);
+
+		MyToolbarbutton rubah = new MyToolbarbutton("fa-pencil-square", "Ubah Instruksi Tugas");
+		rubah.setVisible(tbmuser != null && mahasiswa == null && biodataCalonMahasiswa == null
+				&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null
+				&& tbmuser.getBiodataCalonMahasiswa() == null && tbmuser.getCalonSiswa() == null
+				&& tbmuser.getSiswa() == null);
+		hboxa.appendChild(rubah);
+
+		MyToolbarbutton ambil = new MyToolbarbutton("fa-list-alt", "Ambil Tugas");
+		ambil.setVisible(tbmuser != null && mahasiswa == null && biodataCalonMahasiswa == null
+				&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null
+				&& tbmuser.getBiodataCalonMahasiswa() == null && tbmuser.getCalonSiswa() == null
+				&& tbmuser.getSiswa() == null);
+		hboxa.appendChild(ambil);
+		ambil.addEventListener("onClick", new EventListener() {
+
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				final AmbilDataTugasMandiri ambilDataLampiranFileLain = new AmbilDataTugasMandiri();
+
+				ambilDataLampiranFileLain.setHeight("95%");
+				ambilDataLampiranFileLain.setWidth("90%");
+				ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(ambilDataLampiranFileLain);
+				ambilDataLampiranFileLain.onModal();
+				ambilDataLampiranFileLain.setEventListener(new EventListener() {
+
+					@Override
+					public void onEvent(Event arg0) throws Exception {
+						// TODO Auto-generated method stub
+
+						Pertemuan pertemuanCopy = (Pertemuan) arg0.getData();
+						if (pertemuanCopy != null && !pertemuanCopy.getJudultugas().isEmpty()) {
+							Session session = HibernateUtil.currentSession();
+							if (tugas.getId() != null) {
+								session.refresh(tugas);
+							}
+							tugas.setJudultugas(pertemuanCopy.getJudultugas());
+							tugas.setIsitugas(pertemuanCopy.getIsitugas());
+							tugas.setMulai(pertemuanCopy.getMulai());
+							tugas.setSelesai(pertemuanCopy.getSelesai());
+
+							Common.refreshUpdate(session, tugas);
+
+							LampiranLain lampiranLain = LampiranLain.ambil(pertemuanCopy.getId(),
+									LampiranLain.TUGAS_MANDIRI_PERKULIAHAN);
+
+							session = StreamingHibernateUtil.getInstance().currentSession();
+
+							try {
+
+								if (lampiranLain != null) {
+
+									session.getTransaction().begin();
+									session.createSQLQuery(
+											"update lampiran_lain set ref = -111111111111 where ref = " + tugas.getId()
+													+ " and jenis = '" + LampiranLain.TUGAS_MANDIRI_PERKULIAHAN + "'")
+											.executeUpdate();
+									session.getTransaction().commit();
+
+									final LampiranLain copy = new LampiranLain();
+									copy.setRef(tugas.getId());
+									copy.setCopyDari(lampiranLain);
+
+									Dosen dosen = tbmuser == null ? null : tbmuser.ambilDosen();
+									Mahasiswa mahasiswa = tbmuser == null ? null : tbmuser.getMahasiswa();
+									Pegawai pegawai = tbmuser == null ? null : tbmuser.ambilPegawai();
+									String olehId = Common.generateOlehId(tbmuser);
+									copy.setTanggal_dirubah(ais.ui.util.WaktuUtil.getDate());
+									copy.setOlehId(olehId);
+									copy.setOleh(tbmuser == null ? "external_update"
+											: mahasiswa != null ? mahasiswa.getNama()
+													: dosen != null ? dosen.getNama()
+															: pegawai != null ? pegawai.getNama()
+																	: (tbmuser.getUserNama()));
+
+									session.getTransaction().begin();
+									session.save(copy);
+									session.getTransaction().commit();
+								}
+
+							} catch (Exception e) {
+								e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/TugasMandiriHelper.java:1176");
+							}
+							StreamingHibernateUtil.getInstance().closeSession();
+
+							Common.createDefaultTimer(new EventListener() {
+
+								@Override
+								public void onEvent(Event arg0) throws Exception {
+									createTugas(tugas, tabpanelFileTugasPertemuan, hapusEvent, tampilInfo);
+								}
+							});
+						}
+						ambilDataLampiranFileLain.detach();
+						tabpanelFileTugasPertemuan.getLinkedTab().setLabel(tugas.getJudultugas());
+					}
+				});
+			}
+		});
+
+		// Tampilkan tombol aksi tugas untuk admin/dosen MESKI pertemuan belum punya tugas (judul
+		// kosong) — permintaan user. Gerbang "!judultugas.isEmpty()" dilepas agar pengelola tetap
+		// bisa mengelola. Aman: tugas di sini = Pertemuan yang sudah ada (id != null).
+		hapus.setVisible(tbmuser != null && mahasiswa == null && biodataCalonMahasiswa == null
+				&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null && tbmuser.getSiswa() == null
+				&& tbmuser.getCalonSiswa() == null);
+		hboxa.appendChild(hapus);
+
+		hapus.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				MyMessageboxConfig.show("Apakah Bapak/Ibu yakin ingin menghapus tugas ini? Data tugas yang telah dihapus tidak dapat dikembalikan.", "Question",
+						MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
+						new EventListener() {
+
+							@Override
+							public void onEvent(Event event) throws Exception {
+								int i = Integer.parseInt(event.getData().toString());
+								if (i == MyMessageboxConfig.OK) {
+									try {
+										Session session = HibernateUtil.currentSession();
+										if (tugas.getId() != null) {
+											session.refresh(tugas);
+										}
+										tugas.setJudultugas("");
+										tugas.setIsitugas("");
+										tugas.setFormatNilai(null);
+										tugas.setSyaratMengumpulkanTugas(null);
+										tugas.setSelesai(null);
+										tugas.setMulai(null);
+										Common.refreshUpdate(session, tugas);
+
+										session = StreamingHibernateUtil.getInstance().currentSession();
+										session.getTransaction().begin();
+										session.createSQLQuery(
+												"update lampiran_lain set ref = -111111111111 where ref = "
+														+ tugas.getId() + " and jenis = '"
+														+ LampiranLain.TUGAS_MANDIRI_PERKULIAHAN + "'")
+												.executeUpdate();
+										session.getTransaction().commit();
+										StreamingHibernateUtil.getInstance().closeSession();
+
+										Common.createDefaultTimer(new EventListener() {
+
+											@Override
+											public void onEvent(Event arg0) throws Exception {
+												hapusEvent.onEvent(arg0);
+											}
+										});
+										tabpanelFileTugasPertemuan.getLinkedTab().setLabel(tugas.getJudultugas());
+									} catch (Exception e) {
+										Common.tampilErrorJikaAdmin(e);
+										MyMessageboxConfig.showFormat(
+												"Mohon maaf, data ini tidak dapat dihapus karena masih berelasi dengan data lainnya. Rincian kesalahan: {V1}. Langkah yang dapat dilakukan: (1) periksa dan hapus terlebih dahulu data lain yang berelasi dengan data ini; (2) pastikan tidak ada transaksi yang masih menggunakan data ini; (3) apabila kendala berlanjut, mohon menghubungi Administrator sistem.",
+														"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.ERROR, e.getMessage());
+									}
+
+								}
+
+							}
+						});
+
+			}
+		});
+
+		if (perkuliahan != null && !perkuliahan.getSembunyikanFormatPenilaian()) {
+
+			final MyToolbarbutton buttonFormatNilai = new MyToolbarbutton("fa-th-list", "Format Nilai");
+			buttonFormatNilai.setVisible(tbmuser != null && perkuliahan.getDikunci() == null && mahasiswa == null
+					&& biodataCalonMahasiswa == null);
+			if (perkuliahan.getKurikulum() != null && perkuliahan.getKurikulum().apakahObe(perkuliahan.getTahunAjaran(),
+					perkuliahan.getGanjilGenap())) {
+				buttonFormatNilai.setVisible(false);
+			}
+			buttonFormatNilai.setParent(hboxa);
+			buttonFormatNilai.addEventListener("onClick", new EventListener() {
+
+				FormatPenilaianHelper formatPenilaianHelper = new FormatPenilaianHelper();
+
+				@Override
+				public void onEvent(Event event) throws Exception {
+
+					MyWindow addWindow = new MyWindow();
+					addWindow.setHeight("95%");
+					addWindow.setWidth("700px");
+					ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(addWindow);
+
+					formatPenilaianHelper.display(perkuliahan, addWindow, new TampilDetailNilaiInterface() {
+
+						@Override
+						public void realoadNilai(final Perkuliahan perkuliahan) {
+
+							Common.realoadNilai(perkuliahan, perkuliahan.getSembunyikanNilaiJikaBelumDiverifikasi(),
+									new EventListener() {
+
+										@Override
+										public void onEvent(Event arg0) throws Exception {
+											Common.createDefaultTimer(new EventListener() {
+
+												@Override
+												public void onEvent(Event arg0) throws Exception {
+													createTugas(tugas, tabpanelFileTugasPertemuan, hapusEvent,
+															tampilInfo);
+												}
+											});
+
+										}
+									}, null);
+
+						}
+					});
+				}
+
+			});
+		}
+
+		if (!tugas.getJudultugas().isEmpty()) {
+			tugas.masukkanData("tugas");
+		}
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		ais.ui.util.ZkCompat.setSpans(row, "2");
+		row.setStyle("background-color: rgba(255,255,255,0.4);");
+
+		MyGroupboxStyled myGroupboxStyled = new MyGroupboxStyled();
+		myGroupboxStyled.setWidth("90%");
+		final MyCaptionStyled judul = new MyCaptionStyled(tugas.getJudultugas());
+		judul.setStyle(
+				"font-size:12px;font-weight: bolder;text-decoration: none;color:black;border: 1px solid black;\r\n"
+						+ "  padding: 5px;" + "  background-color: rgba(169,169,169,0.4);"
+						+ "  border-radius: 5px 15px;");
+		myGroupboxStyled.appendChild(judul);
+
+		row.appendChild(myGroupboxStyled);
+		final Html isi = new ais.ui.util.MyHtml(tugas.getIsitugas());
+		myGroupboxStyled.appendChild(isi);
+
+		final Hbox hbox = new Hbox();
+		hbox.setParent(myGroupboxStyled);
+
+		// Gunakan Hbox biasa (bukan MyHboxToolbar) karena MyHboxToolbar.setStyle() adalah no-op —
+		// sehingga flex-wrap tidak pernah diterapkan. Hbox.setStyle() bekerja normal.
+		// flex-wrap agar tombol melipat ke baris berikutnya di layar sempit / mobile.
+		Hbox vbox = new Hbox();
+		vbox.setWidth("100%");
+		vbox.setStyle("display:flex;flex-wrap:wrap;gap:3px;align-items:center;"
+				+ "padding:4px 6px;min-height:36px;background:#f8fafc;"
+				+ "border-bottom:1px solid #e2e8f0;box-sizing:border-box;");
+		final Html nilaiMasuk = new ais.ui.util.MyHtml(tugas.getFormatNilai() == null ? ""
+				: "<strong><font style='color:blue'>" + ("Nilai akan masuk ke " + tugas.getFormatNilai().getNama())
+						+ " dengan bobot sebesar " + Common.numberFormat.get().format(tugas.getProsentase())
+						+ " </font></strong>");
+
+		final Row rowTugasMhs = Common.tampilanScroll1(myGroupboxStyled);
+		rowTugasMhs.getGrid().setWidth("90%");
+
+		final MyLabelBold syarat = new MyLabelBold(tugas.getSyaratMengumpulkanTugas() == null ? ""
+				: "Syarat mengumpulkan tugas : " + tugas.getSyaratMengumpulkanTugas().getNama());
+		row = new MyFormRow();
+		row.setStyle("background-color: rgba(255,255,255,0.4);");
+		row.setParent(rows);
+		ais.ui.util.ZkCompat.setSpans(row, "2");
+		syarat.setParent(row);
+
+		final EventListener visibleListener = new EventListener() {
+
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+
+				if (tugas == null || tugas.getJudultugas().trim().isEmpty()) {
+					hbox.setVisible(false);
+					nilaiMasuk.setVisible(false);
+					judul.setVisible(false);
+					rowTugasMhs.setVisible(false);
+					isi.setContent("<strong><font style='color:red;font-size: 15px;'>Untuk tugas \""
+							+ (tugas.getJudultugas() == null || tugas.getJudultugas().trim().isEmpty() ? pa.getTopik()
+									: tugas.getJudultugas())
+							+ "\", tidak ada tugas</font></strong>");
+					return;
+				}
+
+				if (mahasiswa != null || biodataCalonMahasiswa != null
+						|| (tbmuser != null && tbmuser.getPesertaKursus() != null) || tbmuser.getSiswa() != null
+						|| tbmuser.getCalonSiswa() != null) {
+					Long id = mahasiswa != null ? mahasiswa.getId()
+							: biodataCalonMahasiswa != null ? biodataCalonMahasiswa.getId()
+									: tbmuser.getSiswa() != null ? tbmuser.getSiswa().getId()
+											: tbmuser.getCalonSiswa() != null ? tbmuser.getCalonSiswa().getId() : null;
+
+					if (tugas.getMhsYgTidakIkut().contains("," + id + ",")) {
+
+						upload.setVisible(false);
+						hbox.setVisible(false);
+						nilaiMasuk.setVisible(false);
+						judul.setVisible(false);
+						rowTugasMhs.setVisible(false);
+						isi.setContent("<strong><font style='color:red;font-size: 15px;'>Untuk tugas \""
+								+ (tugas.getJudultugas() == null || tugas.getJudultugas().trim().isEmpty()
+										? pa.getTopik()
+										: tugas.getJudultugas())
+								+ "\", Anda tidak perlu mengumpulkan tugas ini.</font></strong><br><img style='width:90%' src=\""
+								+ Common.getRequestHostWithProtocol()
+								+ "</font></strong><br><img style='width:90%' src=\""
+								+ Common.getRequestHostWithProtocol() + "/img/oh.gif\" alt=\"WebP rules.\" />");
+						return;
+					}
+				}
+
+				Calendar kemarin = ais.ui.util.WaktuUtil.getCalendar();
+				List<String> warnings = new ArrayList<String>();
+				if (tbmuser != null && tugas != null && perkuliahan != null && tbmuser.getMahasiswa() != null
+						&& tugas.getSyaratMengumpulkanTugas() != null) {
+					Detailperkuliahan detailperkuliahan = tbmuser.getMahasiswa().ambilDetailperkuliahan(perkuliahan);
+
+					if (detailperkuliahan == null) {
+						tbmuser.getMahasiswa().reInitDetailperkuliahan(HibernateUtil.currentSession());
+						detailperkuliahan = tbmuser.getMahasiswa().ambilDetailperkuliahan(perkuliahan);
+					}
+
+					if (detailperkuliahan != null) {
+						SyaratUjianAction.checkSyaratSyaratUjian(tugas.getSyaratMengumpulkanTugas(),
+								pa.ambilVOPembelajaran(), tbmuser.getMahasiswa(), detailperkuliahan.getSemester(),
+								tugas.getJudultugas(), warnings);
+					}
+				}
+				if (!warnings.isEmpty()) {
+					hbox.setVisible(false);
+					nilaiMasuk.setVisible(false);
+					judul.setVisible(false);
+					rowTugasMhs.setVisible(false);
+					isi.setContent("<strong><font style='color:red;font-size: 15px;'>" + warnings.get(0)
+							+ "</font></strong><br><img style='width:90%' src=\"" + Common.getRequestHostWithProtocol()
+							+ "/img/oh.gif\" alt=\"WebP rules.\" />");
+				}
+
+				else if (!(tugas.getMulai() == null || tugas.getMulai().before(kemarin.getTime()))) {
+					hbox.setVisible(false);
+					nilaiMasuk.setVisible(false);
+					judul.setVisible(false);
+					rowTugasMhs.setVisible(false);
+					isi.setContent("<strong><font style='color:red;font-size: 15px;'>Untuk tugas \""
+							+ (tugas.getJudultugas() == null || tugas.getJudultugas().trim().isEmpty() ? pa.getTopik()
+									: tugas.getJudultugas())
+							+ "\", belum mulai..<br>Tugas akan ditampilkan setelah "
+							+ SmartDateTimeUtil.getDayString(tugas.getMulai(), null)
+							+ Common.dateFormat5.get().format(tugas.getMulai()) + "</font></strong><br><img src=\""
+							+ Common.getRequestHostWithProtocol()
+							+ "/img/Apps-preferences-system-time-icon.png\" alt=\"WebP rules.\" />");
+
+				} else if (!(tugas.getSelesai() == null || tugas.getSelesai().after(kemarin.getTime()))) {
+					hbox.setVisible(false);
+					nilaiMasuk.setVisible(false);
+					judul.setVisible(false);
+					rowTugasMhs.setVisible(false);
+					isi.setContent("<strong><font style='color:red;font-size: 15px;'>Untuk tugas \""
+							+ (tugas.getJudultugas() == null || tugas.getJudultugas().trim().isEmpty() ? pa.getTopik()
+									: tugas.getJudultugas())
+							+ "\", telah selesai..<br>Tugas telah ditampilkan sebelum "
+							+ SmartDateTimeUtil.getDayString(tugas.getSelesai(), null)
+							+ Common.dateFormat5.get().format(tugas.getSelesai()) + "</font></strong><br><img src=\""
+							+ Common.getRequestHostWithProtocol()
+							+ "/img/Apps-preferences-system-time-icon.png\" alt=\"WebP rules.\" />");
+
+				} else {
+					rowTugasMhs.setVisible(true);
+					judul.setVisible(true);
+					hbox.setVisible(true);
+					nilaiMasuk.setVisible(true);
+					isi.setContent(tugas.getIsitugas());
+				}
+			}
+		};
+
+		final EventListener ubahTugas = new EventListener() {
+
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				TugasMandiriHelper.this.tugas = tugas;
+				onUbahPerintahTugas(new EventListener() {
+
+					@Override
+					public void onEvent(Event arg0) throws Exception {
+						final Tugas tugas = (Tugas) arg0.getData();
+						TugasMandiriHelper.this.tugas = tugas;
+
+						Common.createDefaultTimer(new EventListener() {
+
+							@Override
+							public void onEvent(Event arg0) throws Exception {
+								createTugas(tugas, tabpanelFileTugasPertemuan, hapusEvent, tampilInfo);
+							}
+						});
+					}
+				});
+
+			}
+		};
+
+		LampiranLain.createDownloadUploadFileLain(hbox, tugas.getId(), LampiranLain.TUGAS_MANDIRI_PERKULIAHAN,
+				"Tugas Individu", false, new EventListener() {
+
+					@Override
+					public void onEvent(Event arg0) throws Exception {
+						LampiranLain lampiranLain = (LampiranLain) arg0.getData();
+						if (lampiranLain != null && tugas.getJudultugas().isEmpty()) {
+							Session session = HibernateUtil.currentSession();
+							if (tugas.getId() != null) {
+								session.refresh(tugas);
+							}
+							Integer ke = 1;
+							if (tugas instanceof Pertemuan) {
+								ke = ((Pertemuan) tugas).getPertemuanKe();
+							} else if (tugas instanceof TugasPertemuan) {
+								Pertemuan pp = ((TugasPertemuan) tugas).ambilPertemuan();
+								ke = pp == null ? 1 : pp.getPertemuanKe();
+							}
+							tugas.setJudultugas("Tugas pertemuan ke " + ke);
+							judul.setLabel(tugas.getJudultugas());
+							Common.refreshUpdate(session, tugas);
+							TugasMandiriHelper.this.tugas = tugas;
+
+							ubahTugas.onEvent(arg0);
+							tabpanelFileTugasPertemuan.getLinkedTab().setLabel(tugas.getJudultugas());
+						}
+
+					}
+				}, null, false, false, false,
+				tbmuser != null && mahasiswa == null && biodataCalonMahasiswa == null
+						&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null
+						&& tbmuser.getBiodataCalonMahasiswa() == null && tbmuser.getCalonSiswa() == null
+						&& tbmuser.getSiswa() == null,
+				null, false, false, rowTugasMhs);
+
+		row = new MyFormRow();
+		row.setStyle("background-color: rgba(255,255,255,0.4);");
+		row.setParent(rows);
+		ais.ui.util.ZkCompat.setSpans(row, "2");
+
+		MyLabelAgakKecilBold a;
+		row.appendChild(a = new MyLabelAgakKecilBold(
+				"Catatan : Masing-masing mahasiswa hanya bisa memiliki satu tugas yang di-upload, jika mahasiswa telah mengupload ulang tugas, maka tugas sebelumnya akan digantikan dengan file tugas yang baru saja di-upload. Tugas yang telah dinilai tidak bisa diubah atau di-upload ulang."));
+		a.setStyle("font-size:10px;font-weight: bolder;color:red");
+
+		row = new MyFormRow();
+		row.setStyle("background-color: rgba(255,255,255,0.4);");
+		row.setParent(rows);
+		ais.ui.util.ZkCompat.setSpans(row, "2");
+		row.setVisible(tugas.getFormatNilai() != null);
+
+		row.appendChild(nilaiMasuk);
+
+		rubah.addEventListener("onClick", ubahTugas);
+
+		MyToolbarbutton download = new MyToolbarbutton("fa-cloud-download", "Download Semua");
+		download.setTooltiptext("Unduh semua berkas tugas peserta dalam satu file ZIP");
+
+		MyToolbarbutton drive = new MyToolbarbutton("fa-hdd-o", "Drive");
+		drive.setTooltiptext("Kirim semua berkas tugas ke Google Drive akun Anda");
+
+		Calendar kemarin = ais.ui.util.WaktuUtil.getCalendar();
+		upload.setVisible(!tugas.getJudultugas().isEmpty()
+				&& ((tugas.getSelesai() == null || tugas.getSelesai().after(kemarin.getTime()))
+						&& (tugas.getMulai() == null || tugas.getMulai().before(kemarin.getTime()))));
+
+		if (!tugas.getJudultugas().isEmpty() && mahasiswa != null
+				&& tugas.getMhsBolehUploadUlang().contains("," + mahasiswa.getId() + ",")) {
+			upload.setVisible(true);
+		} else if (!tugas.getJudultugas().isEmpty() && biodataCalonMahasiswa != null
+				&& tugas.getMhsBolehUploadUlang().contains("," + biodataCalonMahasiswa.getId() + ",")) {
+			upload.setVisible(true);
+		}
+
+		hapus.setVisible(tbmuser != null && mahasiswa == null && biodataCalonMahasiswa == null
+				&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null && tbmuser.getSiswa() == null
+				&& tbmuser.getCalonSiswa() == null && !tugas.getJudultugas().isEmpty());
+		download.setVisible(tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
+				&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
+				&& tbmuser.getCalonSiswa() == null && tbmuser.getSiswa() == null);
+		drive.setVisible(tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
+				&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
+				&& tbmuser.getCalonSiswa() == null && tbmuser.getSiswa() == null);
+
+		visibleListener.onEvent(null);
+
+		upload.addEventListener(Events.ON_CLICK, new EventListener() {
+
+			@Override
+			public void onEvent(Event event) throws Exception {
+
+				if (!syaratAlert.isEmpty()) {
+					String s = "";
+					for (String dd : syaratAlert) {
+						s += s.isEmpty() ? dd : "\n\n" + dd;
+					}
+					MyMessageboxConfig.show(s, "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+					return;
+				}
+
+				if ((pa != null && jadwalPelajaran != null)
+						|| (tbmuser != null && (tbmuser.getSiswa() != null || tbmuser.getCalonSiswa() != null))) {
+					Common.uploadTugas(tugas, tbmuser.getSiswa(), tbmuser.getCalonSiswa(), new EventListener() {
+
+						@Override
+						public void onEvent(Event arg0) throws Exception {
+							if (tugas != null)
+								tugas.belum("tugas_file_content_" + tugas.getClass().getName());
+
+							reloadTugasFileContent();
+						}
+					});
+				}
+
+				else {
+
+					Common.uploadTugas(tugas, mahasiswa, biodataCalonMahasiswa, new EventListener() {
+
+						@Override
+						public void onEvent(Event arg0) throws Exception {
+							if (tugas != null)
+								tugas.belum("tugas_file_content_" + tugas.getClass().getName());
+
+							reloadTugasFileContent();
+						}
+					});
+				}
+			}
+		});
+
+		download.addEventListener("onClick", new EventListener() {
+
+			@Override
+			public void onEvent(Event event) throws Exception {
+
+				// Create a buffer for reading the files
+
+				final File fileOut = new File(
+						Common.REAL_PATH + "/media/Tugas_untuk_pertemuan_ke_" + pa.getPertemuanKe() + ".zip");
+				fileOut.getParentFile().mkdirs();
+
+				final Label label = Common.displayLoadBar(new EventListener() {
+
+					@Override
+					public void onEvent(Event arg0) throws Exception {
+						Filedownload.save(fileOut, "application/zip");
+					}
+				});
+
+				new Thread(new Runnable() {
+
+					@Override
+					public void run() {
+						try {
+							byte[] buf = new byte[1024];
+							ZipOutputStream out = new ZipOutputStream(new FileOutputStream(fileOut));
+							File folderOut = new File(Common.REAL_PATH + "/media/");
+							try {
+								folderOut.mkdirs();
+							} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/TugasMandiriHelper.java:1641");
+								// TODO: handle exception
+							}
+							// Compress the files
+							TreeMap<Long, TugasFileContent> d = tugas.ambilTugasFileContentTotal();
+							int size = d.size();
+							int index = 0;
+							for (TugasFileContent content : d.values()) {
+								index++;
+								label.setValue("Sedang memproses tugas " + content.getNama() + " ("
+										+ Common.numberFormat.get().format((index * 100.0) / size) + " %)");
+								try {
+									File file = null;
+
+									if (content.getGdrive() != null && !content.getGdrive().trim().isEmpty()) {
+										file = new File(folderOut.getAbsolutePath() + "/"
+												+ URLEncoder.encode(content.getNama(), "UTF-8") + ".txt");
+										FileUtils.writeStringToFile(file, content.forwardGDriveUrl());
+									} else if (content.getLink() != null && !content.getLink().trim().isEmpty()) {
+										file = new File(folderOut.getAbsolutePath() + "/"
+												+ URLEncoder.encode(content.getNama(), "UTF-8") + ".txt");
+										FileUtils.writeStringToFile(file, content.getLink().trim());
+									} else {
+										file = content.ambilFile();
+									}
+
+									FileInputStream in = new FileInputStream(file);
+									// Add ZIP entry to output stream.
+									out.putNextEntry(new ZipEntry((content.getGdrive() != null
+											|| (content.getLink() != null && !content.getLink().trim().isEmpty()))
+													? file.getName()
+													: URLEncoder.encode(content.getNama(), "UTF-8")));
+
+									// Transfer bytes from the file to the ZIP
+									// file
+									int len;
+									while ((len = in.read(buf)) > 0) {
+										out.write(buf, 0, len);
+									}
+
+									// Complete the entry
+									out.closeEntry();
+									in.close();
+								} catch (Exception e) {
+									Common.tampilErrorJikaAdmin(e);
+								}
+							}
+							d = null;
+							// Complete the ZIP file
+							out.close();
+
+						} catch (Exception e) {
+							Common.tampilErrorJikaAdmin(e);
+							PesanFormalHelper.tampilkanGagalException(
+									"mengunduh (ZIP) seluruh berkas tugas mandiri",
+									e, new String[] {
+											"Muat ulang (refresh) halaman ini lalu coba unduh kembali.",
+											"Periksa apakah ruang penyimpanan (disk) server masih mencukupi.",
+											"Apabila kendala masih berlanjut, hubungi Admin dengan menyertakan tangkapan layar (screenshot) pesan ini."
+									});
+						}
+						label.setValue("");
+					}
+				}).start();
+
+			}
+		});
+
+		drive.addEventListener("onClick", new EventListener() {
+
+			@Override
+			public void onEvent(Event event) throws Exception {
+
+				// Create a buffer for reading the files
+
+				final List<Long> tugasFileContents = new ArrayList<Long>();
+				TreeMap<Long, TugasFileContent> d = tugas.ambilTugasFileContentTotal();
+
+				for (TugasFileContent content : d.values()) {
+
+					try {
+						File file = null;
+
+						if (content.getGdrive() != null && !content.getGdrive().trim().isEmpty()) {
+							file = null;
+						} else if (content.getLink() != null && !content.getLink().trim().isEmpty()) {
+							file = null;
+						} else {
+							file = content.ambilFile();
+						}
+
+						if (file != null && file.exists()) {
+							tugasFileContents.add(content.getId());
+						}
+					} catch (Exception e) {
+						Common.tampilErrorJikaAdmin(e);
+					}
+				}
+				d = null;
+
+				if (tugasFileContents.isEmpty()) {
+					MyMessageboxConfig.show("Tidak ada berkas tugas yang dapat dikirim ke Google Drive. Langkah yang dapat dilakukan: (1) pastikan mahasiswa telah mengunggah berkas tugas; (2) periksa kembali daftar berkas tugas yang tersedia.", "Peringatan",
+							MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				} else {
+
+					final PerguruanTinggi perguruanTinggi = PerguruanTinggiUtil.getPerguruanTinggi();
+					final Label label = Common.displayLoadBarjanganBerhenti(new EventListener() {
+
+						@Override
+						public void onEvent(Event arg0) throws Exception {
+
+						}
+					});
+
+					final GDriveUtilPerPengguna driveUtilPerPengguna = new GDriveUtilPerPengguna(tbmuser);
+					File file = new File("/opt/ecampus/test.txt");
+					ais.common.BacaTulisUtil.tulis(file, "test send..");
+					driveUtilPerPengguna.prosesBackup(file, "test_files",
+
+							new EventListener() {
+
+								@Override
+								public void onEvent(Event arg0) throws Exception {
+									com.google.api.services.drive.model.File fileUpload = (com.google.api.services.drive.model.File) arg0
+											.getData();
+
+									if (fileUpload != null && fileUpload.getId() != null) {
+
+										new Thread(new Runnable() {
+
+											@SuppressWarnings("unchecked")
+											@Override
+											public void run() {
+												Session session = StreamingHibernateUtil.getInstance().currentSession();
+
+												String tableName = "tugas_file_content";
+												String colFotoName = "filecontent";
+
+												String ids = "";
+												for (Long id : tugasFileContents) {
+													ids += ids.isEmpty() ? id.toString() : "," + id.toString();
+												}
+
+												List<Object[]> inds = session.createSQLQuery("select id," + colFotoName
+														+ " from " + tableName + " where " + colFotoName
+														+ " is not null and id in (" + ids + ")  order by id desc;")
+														.list();
+												StreamingHibernateUtil.getInstance().closeSession();
+
+												int size = inds.size();
+												int index = 0;
+												for (Object[] o : inds) {
+													index++;
+
+													try {
+														Object id = o[0];
+														final Object fotoId = o[1];
+
+														session = StreamingHibernateUtil.getInstance().currentSession();
+														final FileFoto fileFoto = (FileFoto) session
+																.createCriteria(TugasFileContent.class)
+																.add(Restrictions.idEq(Long.parseLong(id.toString())))
+																.uniqueResult();
+														StreamingHibernateUtil.getInstance().closeSession();
+														if (fileFoto != null) {
+															File file = fileFoto.ambilFile();
+															if (file != null && file.exists()) {
+																String s = "Mengirim file " + file.getName() + " ("
+																		+ Common.numberFormat.get()
+																				.format((index * 100.0) / size)
+																		+ "%)";
+																System.out.println(s);
+																label.setValue(s);
+
+																com.google.api.services.drive.model.File fileKirim = driveUtilPerPengguna
+																		.kirimBackupLangsung(null, file,
+																				perguruanTinggi,
+																				fileFoto.getClass().getSimpleName(),
+																				new EventListener() {
+
+																					@Override
+																					public void onEvent(Event arg0)
+																							throws Exception {
+																						com.google.api.services.drive.model.File fileUpload = (com.google.api.services.drive.model.File) arg0
+																								.getData();
+
+																						if (fileUpload != null
+																								&& fileUpload
+																										.getId() != null) {
+
+																							Session session = StreamingHibernateUtil
+																									.getInstance()
+																									.currentSession();
+																							try {
+
+																								session.refresh(
+																										fileFoto);
+
+																								fileFoto.setFoto(null);
+																								fileFoto.setGdrive(
+																										fileUpload
+																												.getId());
+																								fileFoto.setGdriveUsername(
+																										tbmuser.getUserId());
+
+																								session.getTransaction()
+																										.begin();
+																								session.update(
+																										fileFoto);
+																								session.getTransaction()
+																										.commit();
+
+																								FileFoto.hapusTotal(
+																										fotoId.toString(),
+																										session);
+
+																							} catch (Exception e) {
+																								StreamingHibernateUtil
+																										.getInstance()
+																										.rollbackTransaction();
+																								e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/TugasMandiriHelper.java:1854");
+																							}
+
+																							StreamingHibernateUtil
+																									.getInstance()
+																									.closeSession();
+																						}
+
+																					}
+																				});
+
+																if (fileKirim == null) {
+																	System.out.println(
+																			"Gagal Terkirim " + file.getAbsolutePath());
+																	break;
+																} else {
+																	System.out.println(
+																			"Terkirim " + fileKirim.toPrettyString());
+
+																}
+															}
+														}
+													} catch (Exception e) {
+														Common.tampilErrorJikaAdmin(e);
+														break;
+													}
+
+												}
+												label.setValue("Selesai");
+											}
+										}).start();
+									}
+
+								}
+							});
+
+				}
+
+			}
+		});
+
+		Borderlayout myborderlayout = new Borderlayout();
+		myborderlayout.setParent(center);
+		/* Tinggi konkret awal (fallback): tabbox di dalamnya height:100% — di kolom portal (Div
+		 * natural-height) Borderlayout tanpa tinggi pasti kolaps. 74vh dipakai sebelum skrip "ikuti
+		 * parent" di bawah menyempurnakannya, dan sebagai cadangan bila skrip gagal. */
+		myborderlayout.setHeight("74vh");
+		myborderlayout.setStyle("min-height:480px;");
+		/*
+		 * SCROLL IKUTI PARENT (dinamis, bukan 74vh tetap): tinggi Borderlayout disetel mengikuti tinggi
+		 * WADAH INDUK-nya — dari sisi atas Borderlayout sampai bawah leluhur ber-scroll terdekat (kolom
+		 * portal / area e-Learning), atau viewport bila tak ada — DIKURANGI tinggi elemen setelahnya
+		 * (mis. footer "Selesai") agar tidak menimpanya. Karena ZK 5.0.13 Borderlayout tidak otomatis
+		 * mengikuti perubahan tinggi CSS, setelah menyetel tinggi kita PICU relayout ZK lewat event
+		 * 'resize' (dengan pengaman anti-loop __busy). Dijalankan saat bind, beberapa kali agar layout
+		 * stabil, dan setiap jendela di-resize -> region Center + grid di dalamnya selalu pas ke induk.
+		 */
+		myborderlayout.setWidgetListener("onBind", ""
+				+ "var el=this.$n?this.$n():null;if(!el){return;}"
+				+ "var atur=function(){try{"
+				+ "  if(el.__busy){return;}"
+				+ "  var p=el.parentNode,host=null;"
+				+ "  while(p&&p.nodeType===1&&p!==document.body){"
+				+ "    var cs=window.getComputedStyle(p);"
+				+ "    if(p.clientHeight>0&&(cs.overflowY==='auto'||cs.overflowY==='scroll'||cs.overflowY==='hidden')){host=p;break;}"
+				+ "    p=p.parentNode;"
+				+ "  }"
+				+ "  var er=el.getBoundingClientRect();"
+				+ "  var bottom=host?(host.getBoundingClientRect().top+host.clientHeight):(window.innerHeight||document.documentElement.clientHeight);"
+				+ "  var trailing=0,node=el;"
+				+ "  while(node&&node!==host&&node!==document.body){"
+				+ "    var s=node.nextElementSibling;"
+				+ "    while(s){trailing+=(s.offsetHeight||0);s=s.nextElementSibling;}"
+				+ "    node=node.parentNode;"
+				+ "  }"
+				+ "  var h=Math.floor(bottom-er.top-trailing-8);"
+				+ "  if(h>200&&el.__lastH!==h){"
+				+ "    el.__lastH=h;"
+				+ "    el.style.setProperty('height',h+'px','important');"
+				+ "    el.__busy=true;"
+				+ "    try{if(document.createEvent){var ev=document.createEvent('HTMLEvents');ev.initEvent('resize',true,false);window.dispatchEvent(ev);}else if(window.dispatchEvent){window.dispatchEvent(new Event('resize'));}}catch(e2){}"
+				+ "    el.__busy=false;"
+				+ "  }"
+				+ "}catch(e){}};"
+				+ "setTimeout(atur,90);setTimeout(atur,400);setTimeout(atur,900);"
+				+ "if(window.addEventListener){window.addEventListener('resize',function(){if(el.__busy){return;}el.__lastH=null;setTimeout(atur,50);});}");
+
+		vbox.appendChild(upload);
+		vbox.appendChild(download);
+		vbox.appendChild(drive);
+
+		TampilanELearningAction.dilihat(tugas, "tugas", "Akses").setParent(vbox);
+		// --- separator: Berkas Tugas | Nilai ---
+		createSeparator().setParent(vbox);
+
+		if (tugas.getFormatNilais() != null && perkuliahan != null && perkuliahan.getKurikulum() != null
+				&& perkuliahan.getKurikulum().apakahObe(perkuliahan.getTahunAjaran(), perkuliahan.getGanjilGenap())
+				&& mahasiswa == null && biodataCalonMahasiswa == null && tbmuser.getPesertaKursus() == null
+				&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
+				&& tbmuser.getCalonSiswa() == null && tbmuser.getSiswa() == null) {
+			if (buttonMasukkanNilai != null) {
+				buttonMasukkanNilai.setVisible(false);
+				buttonMasukkanNilai.detach();
+			}
+			buttonMasukkanNilai = new MyToolbarbutton("fa-refresh", "Masukkan nilai ke nilai akhir");
+			buttonMasukkanNilai.setParent(vbox);
+			buttonMasukkanNilai.addEventListener("onClick", new EventListener() {
+
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					TugasMandiriHelper.this.tugas = tugas;
+					Common.createDefaultTimer(new EventListener() {
+
+						@Override
+						public void onEvent(Event arg0) throws Exception {
+
+							ais.common.GradingHelper.hitungNilaiBerdasarkanFormatNilaiObe(perkuliahan, tugas.getFormatNilais());
+						}
+					});
+				}
+			});
+		}
+
+		else if (tugas.getFormatNilai() != null && mahasiswa == null && biodataCalonMahasiswa == null
+				&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null
+				&& tbmuser.getBiodataCalonMahasiswa() == null && tbmuser.getCalonSiswa() == null
+				&& tbmuser.getSiswa() == null) {
+			if (buttonMasukkanNilai != null) {
+				buttonMasukkanNilai.setVisible(false);
+				buttonMasukkanNilai.detach();
+			}
+			buttonMasukkanNilai = new MyToolbarbutton("fa-refresh",
+					"Masukkan Nilai ke " + tugas.getFormatNilai().getNama());
+			buttonMasukkanNilai.setParent(vbox);
+			buttonMasukkanNilai.addEventListener("onClick", new EventListener() {
+
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					TugasMandiriHelper.this.tugas = tugas;
+					// Auto-simpan nilai memori ke DB sebelum GradingHelper membaca keteranganNilai
+					try {
+						org.hibernate.Session sAutoSave = HibernateUtil.currentSession();
+						sAutoSave.refresh(tugas);
+						tugas.belum("tugas_file_content_" + tugas.getClass().getName());
+						tugas.setKeteranganNilai(jsonObjectTugas.toString());
+						Common.refreshUpdate(sAutoSave, tugas);
+					} catch (Exception eSave) {
+						ais.common.ErrorAuditUtil.record(eSave, "auto-audit(empty-catch) TugasMandiriHelper auto-simpan-sebelum-masukkan-nilai");
+					}
+					Common.createDefaultTimer(new EventListener() {
+
+						@Override
+						public void onEvent(Event arg0) throws Exception {
+							ais.common.GradingHelper.hitungNilaiBerdasarkanFormatNilai(perkuliahan, tugas.getFormatNilai());
+						}
+					});
+				}
+			});
+		}
+
+		if (tugas.getJenisItemPenilaianSiswa() != null && mahasiswa == null && biodataCalonMahasiswa == null
+				&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null
+				&& tbmuser.getBiodataCalonMahasiswa() == null && tbmuser.getCalonSiswa() == null
+				&& tbmuser.getSiswa() == null) {
+
+			buttonMasukkanNilai = new MyToolbarbutton("fa-refresh",
+					"Masukkan Nilai ke " + tugas.getJenisItemPenilaianSiswa().getNama());
+
+			buttonMasukkanNilai.setParent(vbox);
+			buttonMasukkanNilai.addEventListener("onClick", new EventListener() {
+
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					// Auto-simpan nilai memori ke DB sebelum GradingHelper membaca keteranganNilai
+					try {
+						org.hibernate.Session sAutoSave2 = HibernateUtil.currentSession();
+						sAutoSave2.refresh(tugas);
+						tugas.belum("tugas_file_content_" + tugas.getClass().getName());
+						tugas.setKeteranganNilai(jsonObjectTugas.toString());
+						Common.refreshUpdate(sAutoSave2, tugas);
+					} catch (Exception eSave2) {
+						ais.common.ErrorAuditUtil.record(eSave2, "auto-audit(empty-catch) TugasMandiriHelper auto-simpan-sebelum-masukkan-nilai-siswa");
+					}
+					ais.common.GradingHelper.hitungNilaiBerdasarkanJenisItemPenilaianSiswa(jadwalPelajaran,
+							tugas.getGrupKategoriItemPenilaianSiswa(), tugas.getGrupPenilaian(),
+							tugas.getJenisItemPenilaianSiswa());
+				}
+			});
+
+		}
+
+		if (mahasiswa != null || biodataCalonMahasiswa != null || tbmuser.getPesertaKursus() != null) {
+			MyToolbarbutton buttonRekap = new MyToolbarbutton("fa-table", "Rekap Semua Tugas");
+			buttonRekap.setTooltiptext("Lihat rekap semua tugas Anda dalam mata kuliah ini");
+			buttonRekap.addEventListener("onClick", new EventListener() {
+
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					try {
+
+						RekapHasilTugasMahasiswa addWindow = new RekapHasilTugasMahasiswa(false, mahasiswa,
+								biodataCalonMahasiswa, pa.ambilVOPembelajaran());
+						addWindow.setClosable(true);
+						addWindow.setTitle("Rekap Semua Tugas");
+						addWindow.setHeight("95%");
+						addWindow.setWidth("90%");
+						ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(addWindow);
+						addWindow.onModal();
+
+					} catch (Exception e) {
+						e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/TugasMandiriHelper.java:2042");
+					}
+				}
+			});
+			buttonRekap.setParent(vbox);
+		}
+
+		MyToolbarbutton masukDownloadNilai = new MyToolbarbutton("fa-download", "Download Nilai");
+		masukDownloadNilai.setTooltiptext("Unduh daftar nilai tugas dalam format Excel untuk diedit di komputer");
+		masukDownloadNilai.setVisible(tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
+				&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
+				&& tbmuser.getCalonSiswa() == null && tbmuser.getSiswa() == null && pa != null
+				&& pa.getJadwalUjianPMB() == null && pa.getJadwalUjianPSB() == null);
+
+		masukDownloadNilai.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				try {
+					TreeMap<Long, TugasFileContent> tfcs = TugasMandiriHelper.this.tugas
+							.ambilTugasFileContentTotal(treemapData,
+									cari == null ? "" : cari.getValue().trim(), null, 500);
+					List<TugasFileContent> tfcList = new ArrayList<TugasFileContent>(tfcs.values());
+					Collections.sort(tfcList);
+
+					JSONObject jsonKet = new JSONObject(TugasMandiriHelper.this.tugas.getKeteranganNilai());
+					boolean isObe = !TugasMandiriHelper.this.obeFormatNilais.isEmpty();
+
+					XSSFWorkbook wb = new XSSFWorkbook();
+					XSSFSheet sheet = wb.createSheet("Nilai");
+
+					XSSFRow headerRow = sheet.createRow(0);
+					headerRow.createCell(0).setCellValue("ID");
+					headerRow.createCell(1).setCellValue("NAMATEMP");
+					if (!isObe) {
+						headerRow.createCell(2).setCellValue("Nilai");
+						headerRow.createCell(3).setCellValue("Keterangan");
+					} else {
+						int col = 2;
+						for (FormatNilai fn : TugasMandiriHelper.this.obeFormatNilais) {
+							String nama = fn.getNama() != null ? fn.getNama() : ("CPMK_" + fn.getId());
+							headerRow.createCell(col++).setCellValue(nama);
+						}
+						headerRow.createCell(col).setCellValue("Keterangan");
+					}
+
+					int rowIdx = 1;
+					for (TugasFileContent tfc : tfcList) {
+						XSSFRow row = sheet.createRow(rowIdx++);
+						row.createCell(0).setCellValue(tfc.getId());
+						row.createCell(1).setCellValue(tfc.getNamaTemp() != null ? tfc.getNamaTemp() : "");
+
+						String key = "";
+						if (tfc.getMahasiswa() != null) key = tfc.getMahasiswa() + "_mhs";
+						else if (tfc.getSiswa() != null) key = tfc.getSiswa() + "_siswa";
+						else if (tfc.getBiodataCalonMahasiswa() != null) key = tfc.getBiodataCalonMahasiswa() + "_cal_mhs";
+						else if (tfc.getCalonSiswa() != null) key = tfc.getCalonSiswa() + "_cal_siswa";
+
+						String ket = (!key.isEmpty() && !jsonKet.isNull(key + "_ket"))
+								? jsonKet.getString(key + "_ket") : "";
+
+						if (!isObe) {
+							double nilaiVal = (!key.isEmpty() && !jsonKet.isNull(key + "_nilai"))
+									? jsonKet.getDouble(key + "_nilai") : 0.0;
+							row.createCell(2).setCellValue(nilaiVal);
+							row.createCell(3).setCellValue(ket);
+						} else {
+							int col = 2;
+							for (FormatNilai fn : TugasMandiriHelper.this.obeFormatNilais) {
+								String scoreKey = key + "_nilai_" + fn.getId();
+								double score = (!key.isEmpty() && !jsonKet.isNull(scoreKey))
+										? jsonKet.getDouble(scoreKey) : 0.0;
+								row.createCell(col++).setCellValue(score);
+							}
+							row.createCell(col).setCellValue(ket);
+						}
+					}
+
+					String fname = "Nilai_Tugas_" + TugasMandiriHelper.this.tugas.getId() + ".xlsx";
+					File outFile = new File(Common.REAL_PATH + "/temp/" + fname);
+					outFile.getParentFile().mkdirs();
+					java.io.FileOutputStream fos = new java.io.FileOutputStream(outFile);
+					wb.write(fos);
+					fos.close();
+					Filedownload.save(outFile,
+							"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+				} catch (Exception e) {
+					Common.tampilErrorJikaAdmin(e);
+					PesanFormalHelper.tampilkanGagalException(
+							"mengunduh nilai tugas mandiri", e, new String[] {
+									"Muat ulang (refresh) halaman ini lalu coba unduh kembali.",
+									"Apabila kendala masih berlanjut, hubungi Admin dengan menyertakan tangkapan layar (screenshot) pesan ini."
+							});
+				}
+			}
+		});
+		masukDownloadNilai.setParent(vbox);
+
+		final MyToolbarbutton buttonNilai = new MyToolbarbutton("fa-upload", "Upload Nilai");
+		buttonNilai.setTooltiptext("Unggah file Excel berisi nilai tugas untuk diproses sekaligus (format xlsx)");
+		buttonNilai.setParent(vbox);
+		buttonNilai.setVisible(tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
+				&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
+				&& tbmuser.getCalonSiswa() == null && tbmuser.getSiswa() == null && pa != null
+				&& pa.getJadwalUjianPMB() == null && pa.getJadwalUjianPSB() == null);
+		buttonNilai.setUpload(Common.ukuranFileUpload());
+		buttonNilai.addEventListener("onUpload", new EventListener() {
+
+			private void initSpreadsheet(final File fileUpload) throws Exception {
+
+				TreeMap<Long, TugasFileContent> tugasFileContentsa = TugasMandiriHelper.this.tugas
+						.ambilTugasFileContentTotal(treemapData, cari == null ? "" : cari.getValue().trim(), paging,
+								500);
+				List<TugasFileContent> pertemuanFileContents = new ArrayList<TugasFileContent>(
+						tugasFileContentsa.values());
+
+				XSSFWorkbook workbookUpload;
+				try {
+					workbookUpload = new XSSFWorkbook(fileUpload.getAbsolutePath());
+
+					XSSFSheet sheetUpload = workbookUpload.getSheetAt(0);
+					int size = sheetUpload.getLastRowNum() + 1;
+					boolean isObeUpload = !TugasMandiriHelper.this.obeFormatNilais.isEmpty();
+					// kolom keterangan: non-OBE=3, OBE=2+jumlah CPMK
+					int ketCol = isObeUpload ? 2 + TugasMandiriHelper.this.obeFormatNilais.size() : 3;
+
+					for (int i = 1; i < size; i++) {
+						Long id = Common.getSheetContentAsLong(sheetUpload, 0, i);
+
+						for (TugasFileContent tugasFileContent : pertemuanFileContents) {
+							if (tugasFileContent != null && id != null && tugasFileContent.getId().equals(id)) {
+								String keterangan = Common.getSheetContentAsString(sheetUpload, ketCol, i);
+
+								Session session = HibernateUtil.currentSession();
+								session.refresh(TugasMandiriHelper.this.tugas);
+
+								String key = "";
+								if (tugasFileContent.getMahasiswa() != null) {
+									key = tugasFileContent.getMahasiswa() + "_mhs";
+								} else if (tugasFileContent.getSiswa() != null) {
+									key = tugasFileContent.getSiswa() + "_siswa";
+								} else if (tugasFileContent.getBiodataCalonMahasiswa() != null) {
+									key = tugasFileContent.getBiodataCalonMahasiswa() + "_cal_mhs";
+								} else if (tugasFileContent.getCalonSiswa() != null) {
+									key = tugasFileContent.getCalonSiswa() + "_cal_siswa";
+								}
+
+								JSONObject jsonObject = new JSONObject(tugas.getKeteranganNilai());
+								jsonObject.put(key + "_ket", keterangan.trim());
+								if (!isObeUpload) {
+									// non-OBE: kolom 2 = Nilai
+									Double nilai = Common.getSheetContentAsDouble(sheetUpload, 2, i);
+									jsonObject.put(key + "_nilai", nilai);
+								} else {
+									// OBE: kolom 2,3,4,... untuk tiap CPMK sesuai urutan header
+									for (int c = 0; c < TugasMandiriHelper.this.obeFormatNilais.size(); c++) {
+										FormatNilai fn = TugasMandiriHelper.this.obeFormatNilais.get(c);
+										Double nilaiCpmk = Common.getSheetContentAsDouble(sheetUpload, 2 + c, i);
+										jsonObject.put(key + "_nilai_" + fn.getId(), nilaiCpmk);
+									}
+								}
+								TugasMandiriHelper.this.tugas.setKeteranganNilai(jsonObject.toString());
+								Common.refreshUpdate(session, TugasMandiriHelper.this.tugas);
+								break;
+							}
+						}
+					}
+				} catch (Exception e) {
+					e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit TugasMandiriHelper initSpreadsheet upload nilai OBE");
+				}
+
+			}
+
+			@Override
+			public void onEvent(Event event) throws Exception {
+				// TODO Auto-generated method stub
+
+				UploadEvent uploadEvent = (UploadEvent) event;
+				Media media = uploadEvent.getMedia();
+				if (!ais.action.master.helper.generic.AmbilDataTugasFileContent.checkFile(media))
+					return;
+				if (media.getName().toLowerCase().endsWith("xlsx")) {
+					InputStream inputStream = media.getStreamData();
+					File file = new File(Sessions.getCurrent().getWebApp().getRealPath("/temp/" + media.getName()));
+					file.getParentFile().mkdirs();
+					FileOutputStream fileOutputStream = new FileOutputStream(file);
+					int c;
+					while ((c = inputStream.read()) != -1) {
+						fileOutputStream.write(c);
+					}
+					fileOutputStream.close();
+					inputStream.close();
+					initSpreadsheet(file);
+
+					reloadTugasFileContent();
+				} else {
+					MyMessageboxConfig.showFormat(
+							"Berkas yang Bapak/Ibu unggah harus berformat Excel Open XML Spreadsheet (xlsx). Berkas: {V1}. Langkah yang dapat dilakukan: (1) buka berkas Excel tersebut; (2) pilih menu Save As dan simpan dalam format Excel Open XML Spreadsheet (xlsx); (3) unggah kembali berkas dengan format yang sesuai.",
+
+							"Error", MyMessageboxConfig.OK, MyMessageboxConfig.ERROR, media);
+				}
+			}
+		});
+
+		// --- separator: Nilai | Kelola ---
+		createSeparator().setParent(vbox);
+
+		MyToolbarbutton buttonRefresh = new MyToolbarbutton("fa-refresh", "Refresh");
+		buttonRefresh.setTooltiptext("Muat ulang daftar pengumpulan tugas — gunakan setelah ada perubahan data");
+		buttonRefresh.addEventListener("onClick", new EventListener() {
+
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				try {
+					if (tugas != null)
+						tugas.belum("tugas_file_content_" + tugas.getClass().getName());
+					tugas.reInitTugasFileContent();
+					reloadTugasFileContent(true);
+				} catch (Exception e) {
+					e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/TugasMandiriHelper.java:2204");
+				}
+			}
+		});
+		buttonRefresh.setParent(vbox);
+
+		// Tombol "Recovery" (permintaan user): buka riwayat SEMUA tugas (Envers) pada pembelajaran
+		// yang sama (VoPembelajaran) + tombol KEMBALIKAN untuk memulihkan tugas terhapus/berubah.
+		// Reuse GenericRevisiHelper (riwayat ADD/MOD/DEL + restore). Difilter ke perkuliahan /
+		// jadwalPelajaran bila tugas berupa Pertemuan; hanya untuk dosen/admin (bukan mahasiswa).
+		final MyToolbarbutton recovery = new MyToolbarbutton("fa-history", "Recovery");
+		recovery.setVisible(!peserta);
+		recovery.setTooltiptext(
+				"Riwayat semua tugas pada pembelajaran ini — kembalikan/pulihkan tugas yang terhapus atau berubah.");
+		recovery.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event evRec) throws Exception {
+				try {
+					String prop = null;
+					Object val = null;
+					if (tugas instanceof Pertemuan) {
+						if (perkuliahan != null && perkuliahan.getId() != null) {
+							prop = "perkuliahan";
+							val = perkuliahan;
+						} else if (jadwalPelajaran != null && jadwalPelajaran.getId() != null) {
+							prop = "jadwalPelajaran";
+							val = jadwalPelajaran;
+						}
+					}
+					RevisiTugasHelper rh = new RevisiTugasHelper(tugas.getClass(), prop, val, null);
+					ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(rh);
+					rh.setVisible(true);
+					rh.onModal();
+				} catch (Exception eRec) {
+					Common.tampilErrorJikaAdmin(eRec);
+				}
+			}
+		});
+		recovery.setParent(vbox);
+		// --- separator: Kelola | Kehadiran ---
+		createSeparator().setParent(vbox);
+
+		North myNorth = new North();
+		myNorth.setParent(myborderlayout);
+		ais.ui.util.ZkCompat.setFlex(myNorth, true);
+		myNorth.appendChild(vbox);
+
+		if (!tugas.getJudultugas().isEmpty()) {
+
+			Center mycenter = new Center();
+			mycenter.setParent(myborderlayout);
+			ais.ui.util.ZkCompat.setFlex(mycenter, true);
+
+			uploadTugasGrid = new MyGrid();
+			uploadTugasGrid.setWidth("100%");
+			uploadTugasGrid.setHeight("100%");
+			uploadTugasGrid.setSclass("ais-data-grid");
+
+			if (biodataCalonMahasiswa != null || mahasiswa != null) {
+
+				myborderlayoutlagi = new Borderlayout();
+				myborderlayoutlagi.setParent(mycenter);
+
+				Center mycenterlagi = new Center();
+				mycenterlagi.setParent(myborderlayoutlagi);
+				ais.ui.util.ZkCompat.setFlex(mycenterlagi, true);
+
+				uploadTugasGrid.setParent(mycenterlagi);
+
+			} else {
+				int[] tabAktif = new int[]{1};
+				final ais.ui.util.MyButtonTabbox mbt =
+						ais.ui.util.MyButtonTabbox.buat(mycenter, "100%", tabAktif);
+
+				// Tab 1 "Telah upload" - EAGER
+				final Div panelTab1 = mbt.tambahTab(1, "Telah upload");
+
+				myborderlayoutlagi = new Borderlayout();
+				myborderlayoutlagi.setParent(panelTab1);
+				myborderlayoutlagi.setHeight("100%");
+
+				Center mycenterlagi = new Center();
+				mycenterlagi.setParent(myborderlayoutlagi);
+				ais.ui.util.ZkCompat.setFlex(mycenterlagi, true);
+
+				uploadTugasGrid.setParent(mycenterlagi);
+
+				// Tombol Simpan dan Batal hanya untuk dosen/admin (bukan peserta)
+				if (!peserta) {
+					South southTugas = new South();
+					ais.ui.util.ZkCompat.setFlex(southTugas, true);
+					southTugas.setParent(myborderlayoutlagi);
+					// South hanya boleh punya SATU child langsung (LayoutRegion.beforeChildAdded).
+					// Toolbar Simpan/Batal dan Paging (ditambahkan belakangan) harus berbagi
+					// satu wadah Hbox ini, bukan di-parent-kan langsung ke South.
+					Hbox southBoxTugas = new Hbox();
+					southBoxTugas.setParent(southTugas);
+					ais.ui.util.ZkCompat.setFlex(southBoxTugas, true);
+					southBoxTugas.setAlign("center");
+					org.zkoss.zul.Toolbar tbTugas = new org.zkoss.zul.Toolbar();
+					tbTugas.setParent(southBoxTugas);
+
+					MyToolbarbutton btnSimpanTugas = new MyToolbarbutton("fa-save", "Simpan");
+					btnSimpanTugas.setTooltiptext("Simpan semua nilai dan keterangan ke database");
+					btnSimpanTugas.addEventListener("onClick", new EventListener() {
+						@Override
+						public void onEvent(Event ev) throws Exception {
+							try {
+								Session s = HibernateUtil.currentSession();
+								if (tugas != null) {
+									s.refresh(tugas);
+									tugas.belum("tugas_file_content_" + tugas.getClass().getName());
+									tugas.setKeteranganNilai(jsonObjectTugas.toString());
+									Common.refreshUpdate(s, tugas);
+								}
+								reloadTugasFileContent();
+								ais.ui.util.MyMessageboxConfig.show("Data berhasil disimpan.", "Berhasil",
+										ais.ui.util.MyMessageboxConfig.OK,
+										ais.ui.util.MyMessageboxConfig.INFORMATION, null);
+							} catch (Exception e) {
+								PesanFormalHelper.tampilkanGagalException(
+										"menyimpan nilai tugas", e,
+										new String[] {
+												"Muat ulang halaman dan masukkan kembali nilai.",
+												"Pastikan Anda belum logout saat menyimpan.",
+												"Detail teknis: " + e.getClass().getSimpleName() + " — " + e.getMessage(),
+												"Hubungi Admin dengan menyertakan screenshot pesan ini."
+										});
+							}
+						}
+					});
+					btnSimpanTugas.setParent(tbTugas);
+
+					MyToolbarbutton btnBatalTugas = new MyToolbarbutton("fa-undo", "Batal");
+					btnBatalTugas.setTooltiptext("Batal: muat ulang data dari database");
+					btnBatalTugas.addEventListener("onClick", new EventListener() {
+						@Override
+						public void onEvent(Event ev) throws Exception {
+							try {
+								// Reset jsonObjectTugas ke nilai DB supaya perubahan di memori dibatalkan
+								if (tugas != null) {
+									Session s = HibernateUtil.currentSession();
+									s.refresh(tugas);
+									String kn = tugas.getKeteranganNilai();
+									jsonObjectTugas = new JSONObject(
+											kn == null || kn.trim().isEmpty() ? "{}" : kn.replace('\0', ' '));
+								}
+								reloadTugasFileContent(true);
+							} catch (Exception e) {
+								Common.tampilErrorJikaAdmin(e);
+							}
+						}
+					});
+					btnBatalTugas.setParent(tbTugas);
+				}
+
+				// Tab 2 "Belum upload" - LAZY (hanya dimuat pertama kali)
+				mbt.tambahTabLazy(2, "Belum upload", new ais.ui.util.MyButtonTabbox.PemuatTab() {
+					@Override
+					public void muat(Div tabpanelPesertaBelum) throws Exception {
+						if (!tabpanelPesertaBelum.getChildren().isEmpty()) return;
+
+							Borderlayout myborderlayoutlagi = new Borderlayout();
+							myborderlayoutlagi.setParent(tabpanelPesertaBelum);
+							myborderlayoutlagi.setHeight("100%"); // tinggi pasti -> grid scroll di dalam
+
+							MyHboxToolbar hbox = new MyHboxToolbar();
+							hbox.appendChild(new MyLabelConfig("Peserta : "));
+							final Textbox cari = new Textbox("");
+							cari.setParent(hbox);
+							cari.setCols(10);
+
+							Center mycenterlagi = new Center();
+							mycenterlagi.setParent(myborderlayoutlagi);
+							ais.ui.util.ZkCompat.setFlex(mycenterlagi, true);
+
+							final Grid grid = new Grid();
+							grid.setSclass("dgrid");
+							grid.setParent(mycenterlagi);
+
+							Columns columns = new Columns();
+							columns.setParent(grid);
+
+							MyColumnConfig column = new MyColumnConfig();
+							column.appendChild(hbox);
+							column.setParent(columns);
+							column.setWidth("60%");
+
+							column = new MyColumnConfig("Terakhir akses tugas");
+							column.setParent(columns);
+
+							grid.setHeight("100%");
+							grid.setWidth("100%");
+
+							grid.setRowRenderer(new ais.ui.util.MyRowRenderer() {
+								@Override
+								public void render(Row arg0, Object arg1) throws Exception {
+									arg0.setValign("top");
+									arg0.setSclass("ais-tugas-upload-row");
+									Mahasiswa mahasiswa = (arg1 instanceof Mahasiswa) ? (Mahasiswa) arg1 : null;
+									BiodataCalonMahasiswa biodataCalonMahasiswa = (arg1 instanceof BiodataCalonMahasiswa)
+											? (BiodataCalonMahasiswa) arg1
+											: null;
+									Siswa siswa = (arg1 instanceof Siswa) ? (Siswa) arg1 : null;
+									CalonSiswa calonSiswa = (arg1 instanceof CalonSiswa) ? (CalonSiswa) arg1 : null;
+
+									Hbox hbox = new Hbox();
+									hbox.setStyle("gap:6px;align-items:center;");
+									hbox.setParent(arg0);
+									if (mahasiswa != null) {
+										CommonMedia.tampilkanGambarKecil(mahasiswa).setParent(hbox);
+									} else if (biodataCalonMahasiswa != null) {
+										CommonMedia.tampilkanGambarKecil(biodataCalonMahasiswa).setParent(hbox);
+									} else if (siswa != null) {
+										CommonMedia.tampilkanGambarKecil(siswa).setParent(hbox);
+									} else if (calonSiswa != null) {
+										CommonMedia.tampilkanGambarKecil(calonSiswa).setParent(hbox);
+									}
+
+									Vbox vb = new Vbox();
+									vb.setParent(hbox);
+									String nim2 = mahasiswa != null ? mahasiswa.getNim()
+											: biodataCalonMahasiswa != null ? biodataCalonMahasiswa.getNoRegistrasi()
+													: siswa != null ? siswa.getNomorInduk()
+															: calonSiswa != null ? calonSiswa.getNomorInduk() : "";
+									String nama2 = mahasiswa != null ? mahasiswa.getNama()
+											: biodataCalonMahasiswa != null ? biodataCalonMahasiswa.getNama()
+													: siswa != null ? siswa.getNama()
+															: calonSiswa != null ? calonSiswa.getNama() : "";
+									Label namaLbl2 = new Label(nim2 + " / " + nama2);
+									namaLbl2.setSclass("ais-tugas-upload-nama");
+									vb.appendChild(namaLbl2);
+
+									Long id = mahasiswa != null ? mahasiswa.getId()
+											: biodataCalonMahasiswa != null ? biodataCalonMahasiswa.getId()
+													: siswa != null ? siswa.getId()
+															: calonSiswa != null ? calonSiswa.getId() : null;
+
+									TreeMap<String, String> d = tugas.ambilData("tugas",
+											id == null ? "-1" : id.toString());
+									Label checkboxConfig = new Label(d.isEmpty() ? "Belum Akses Tugas"
+											: d.values().toString().replaceAll("\\[", "").replaceAll("\\]", ""));
+									checkboxConfig.setParent(arg0);
+
+								}
+							});
+
+							EventListener cariAkun = new EventListener() {
+
+								@Override
+								public void onEvent(Event arg0) throws Exception {
+									List<Mahasiswa> mahasiswasTemorary = pa.ambilMahasiswa();
+									List<Mahasiswa> copy = new ArrayList<Mahasiswa>();
+									for (Mahasiswa mahasiswa : mahasiswasTemorary) {
+										BiodataCalonMahasiswa biodataCalonMahasiswa = null;
+										Siswa siswa = null;
+										CalonSiswa calonSiswa = null;
+
+										Long id = mahasiswa != null ? mahasiswa.getId()
+												: biodataCalonMahasiswa != null ? biodataCalonMahasiswa.getId()
+														: siswa != null ? siswa.getId()
+																: calonSiswa != null ? calonSiswa.getId() : null;
+
+										if (id != null && (treemapData == null || !treemapData.containsKey(id))) {
+
+											if (!tugas.getMhsYgTidakIkut().contains("," + id + ",")) {
+
+												if (cari.getValue().trim().isEmpty() ||
+
+														(mahasiswa != null &&
+
+																((mahasiswa.getNim() != null
+																		&& mahasiswa.getNim().toLowerCase().contains(
+																				cari.getValue().toLowerCase().trim()))
+
+																		||
+
+																		(mahasiswa.getNama() != null
+																				&& mahasiswa.getNama().toLowerCase()
+																						.contains(cari.getValue()
+																								.toLowerCase().trim()))
+
+																)
+
+														)
+
+														||
+
+														(biodataCalonMahasiswa != null &&
+
+																((biodataCalonMahasiswa.getNoRegistrasi() != null
+																		&& biodataCalonMahasiswa.getNoRegistrasi()
+																				.toLowerCase()
+																				.contains(cari.getValue().toLowerCase()
+																						.trim()))
+
+																		||
+
+																		(biodataCalonMahasiswa.getNama() != null
+																				&& biodataCalonMahasiswa.getNama()
+																						.toLowerCase()
+																						.contains(cari.getValue()
+																								.toLowerCase().trim()))
+
+																)
+
+														)
+
+												) {
+													copy.add(mahasiswa);
+												}
+											}
+										}
+									}
+									ListModel strset = new SimpleListModel(copy);
+									grid.setModel(strset);
+									mahasiswasTemorary = null;
+									copy = null;
+								}
+							};
+
+							cariAkun.onEvent(null);
+							cari.addEventListener("onOK", cariAkun);
+
+							MyToolbarbutton toolbarbutton = new MyToolbarbutton("fa-search", "Cari");
+							toolbarbutton.setParent(hbox);
+							toolbarbutton.addEventListener("onClick", cariAkun);
+
+							MyToolbarbutton masuk = new MyToolbarbutton("fa-ban", "Tdk.upload tgs.dianggp.alpa");
+							masuk.setVisible(tbmuser != null && tbmuser.getMahasiswa() == null
+									&& tbmuser.getSiswa() == null && tbmuser.getSiswa() == null
+									&& tbmuser.getBiodataCalonMahasiswa() == null && tbmuser.getCalonSiswa() == null
+									&& pa.getJadwalUjianPMB() == null && pa.getJadwalUjianPSB() == null);
+							masuk.setTooltiptext("Tutup");
+							masuk.addEventListener("onClick", new EventListener() {
+								@Override
+								public void onEvent(Event event) throws Exception {
+									TugasMandiriHelper.tidakUploadTugasDiangapTidakHadir(tugas, pa,
+											new EventListener() {
+
+												@Override
+												public void onEvent(Event arg0) throws Exception {
+													new PertemuanHelper(Common.getCurrentUser().getMahasiswa(), null)
+															.display(pa, new DataLoader() {
+
+																@Override
+																public void loadData(Object value) {
+																	try {
+																		reloadTugasFileContent();
+																	} catch (Exception e) {
+																		e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/TugasMandiriHelper.java:2491");
+																	}
+																}
+															}, 0);
+												}
+											});
+
+								}
+							});
+							masuk.setParent(hbox);
+
+							masuk = new MyToolbarbutton("fa-ban", "Tdk.Akses tgs.dianggp.alpa");
+							masuk.setVisible(tbmuser != null && tbmuser.getMahasiswa() == null
+									&& tbmuser.getSiswa() == null && tbmuser.getSiswa() == null
+									&& tbmuser.getBiodataCalonMahasiswa() == null && tbmuser.getCalonSiswa() == null
+									&& pa.getJadwalUjianPMB() == null && pa.getJadwalUjianPSB() == null);
+							masuk.setTooltiptext("Tutup");
+							masuk.addEventListener("onClick", new EventListener() {
+								@Override
+								public void onEvent(Event event) throws Exception {
+
+									PertemuanPunyaDiskusiHelper.tidakAksesDianggapAlpa(tugas, "tugas",
+											"Tidak Akses / Baca Tugas \"" + tugas.getJudultugas() + "\"",
+											tugas.getMulai(), tugas.getSelesai(), new EventListener() {
+
+												@Override
+												public void onEvent(Event arg0) throws Exception {
+													new PertemuanHelper(Common.getCurrentUser().getMahasiswa(), null)
+															.display(pa, new DataLoader() {
+
+																@Override
+																public void loadData(Object value) {
+																	try {
+																		reloadTugasFileContent();
+																	} catch (Exception e) {
+																		e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/TugasMandiriHelper.java:2526");
+																	}
+																}
+															}, 0);
+												}
+											});
+
+								}
+							});
+							masuk.setParent(hbox);
+
+					}
+				});
+
+				// Tab 3 "Statistik" - selalu dimuat ulang setiap dipilih
+				final Div panelStatistik = mbt.tambahTab(3, "Statistik");
+				mbt.onSetiapPilih(3, new EventListener() {
+					@Override
+					public void onEvent(Event arg0) throws Exception {
+						Common.clear(panelStatistik);
+
+						Borderlayout myborderlayoutProsentase = new Borderlayout();
+						myborderlayoutProsentase.setParent(panelStatistik);
+
+						Center centerProsentase = new Center();
+						centerProsentase.setParent(myborderlayoutProsentase);
+						ais.ui.util.ZkCompat.setFlex(centerProsentase, true);
+
+						// Wadah dasbor: HTML/CSS murni (responsif HP & desktop), tanpa JFreeChart.
+						Vbox dasborWrap = new Vbox();
+						dasborWrap.setWidth("100%");
+						dasborWrap.setStyle("padding:12px;box-sizing:border-box;overflow:auto;");
+						dasborWrap.setParent(centerProsentase);
+
+						List<Mahasiswa> mahasiswasTemorary = pa.ambilMahasiswa();
+
+						int jumlah = 0;
+						for (Mahasiswa mahasiswa : mahasiswasTemorary) {
+							if (!tugas.getMhsYgTidakIkut().contains("," + mahasiswa.getId() + ",")) {
+								jumlah++;
+							}
+						}
+
+						TreeMap<String, String> d = tugas.ambilData("tugas", null);
+						List<Dosen> dsn = pa.ambilDosen();
+						int akses = treemapData == null ? 0 : treemapData.size();
+						int belumAkses = jumlah - akses;
+
+						int telahAkses1 = d.size();
+						int jumlahTotal = mahasiswasTemorary.size() + dsn.size();
+						int belumAkses1 = jumlahTotal - telahAkses1;
+
+						int persenKumpul = jumlah <= 0 ? 0 : (int) Math.round((akses * 100.0) / jumlah);
+						int persenBuka = jumlahTotal <= 0 ? 0 : (int) Math.round((telahAkses1 * 100.0) / jumlahTotal);
+
+						// --- Kartu ringkasan angka penting ---
+						List<ais.ui.util.DashboardUiKit.Stat> kartu = new ArrayList<ais.ui.util.DashboardUiKit.Stat>();
+						kartu.add(new ais.ui.util.DashboardUiKit.Stat("Jumlah Peserta",
+								Common.numberFormat.get().format(jumlah), "wajib mengumpulkan",
+								ais.ui.util.DashboardUiKit.PRIMARY));
+						kartu.add(new ais.ui.util.DashboardUiKit.Stat("Sudah Mengumpulkan",
+								Common.numberFormat.get().format(akses), persenKumpul + "% dari peserta",
+								ais.ui.util.DashboardUiKit.GOOD));
+						kartu.add(new ais.ui.util.DashboardUiKit.Stat("Belum Mengumpulkan",
+								Common.numberFormat.get().format(Math.max(0, belumAkses)),
+								Math.max(0, 100 - persenKumpul) + "% dari peserta", ais.ui.util.DashboardUiKit.WARN));
+						kartu.add(new ais.ui.util.DashboardUiKit.Stat("Sudah Membuka Tugas",
+								Common.numberFormat.get().format(telahAkses1), persenBuka + "% dari total akun",
+								ais.ui.util.DashboardUiKit.ACCENT));
+
+						StringBuilder dash = new StringBuilder();
+						dash.append(ais.ui.util.DashboardUiKit.descChip(
+								"Melihat sekilas siapa yang sudah mengirim tugas ini dan siapa yang belum, lengkap dengan grafik agar mudah dipahami."));
+						dash.append(ais.ui.util.DashboardUiKit.cards(kartu));
+
+						dash.append(ais.ui.util.DashboardUiKit.openGrid(260));
+
+						LinkedHashMap<String, Double> kumpulParts = new LinkedHashMap<String, Double>();
+						kumpulParts.put("Sudah mengumpulkan", (double) akses);
+						kumpulParts.put("Belum mengumpulkan", (double) Math.max(0, belumAkses));
+						dash.append(ais.ui.util.DashboardUiKit.donut("Perbandingan Pengumpulan",
+								"Bagian terisi adalah peserta yang sudah mengirim tugas; sisanya belum mengirim.",
+								kumpulParts, false, "Belum ada peserta."));
+
+						LinkedHashMap<String, Double> bukaParts = new LinkedHashMap<String, Double>();
+						bukaParts.put("Sudah membuka", (double) telahAkses1);
+						bukaParts.put("Belum membuka", (double) Math.max(0, belumAkses1));
+						dash.append(ais.ui.util.DashboardUiKit.donut("Perbandingan Membuka Tugas",
+								"Berapa banyak akun (mahasiswa & dosen) yang pernah membuka halaman tugas ini.",
+								bukaParts, false, "Belum ada yang membuka."));
+
+						dash.append(ais.ui.util.DashboardUiKit.closeGrid());
+
+						LinkedHashMap<String, Integer> prog = new LinkedHashMap<String, Integer>();
+						prog.put("Tingkat pengumpulan", persenKumpul);
+						prog.put("Tingkat keterbacaan tugas", persenBuka);
+						dash.append(ais.ui.util.DashboardUiKit.progressLines("Capaian Keseluruhan",
+								"Semakin penuh batangnya, semakin banyak peserta yang aktif mengerjakan tugas.", prog));
+
+						dasborWrap.appendChild(ais.ui.util.DashboardUiKit.html(dash.toString()));
+
+						// Tren: berapa banyak tugas masuk di tiap tanggal (HTML/CSS, dari seluruh data).
+						LinkedHashMap<String, Double> perHari = new LinkedHashMap<String, Double>();
+						try {
+							java.text.SimpleDateFormat hariFmt = new java.text.SimpleDateFormat("yyyy-MM-dd");
+							TreeMap<String, Integer> tmpHari = new TreeMap<String, Integer>();
+							for (TugasFileContent fc : tugas.ambilTugasFileContentTotal().values()) {
+								if (fc.getUploadDate() == null) {
+									continue;
+								}
+								String hari = hariFmt.format(fc.getUploadDate());
+								Integer c = tmpHari.get(hari);
+								tmpHari.put(hari, c == null ? 1 : c + 1);
+							}
+							for (Map.Entry<String, Integer> e : tmpHari.entrySet()) {
+								perHari.put(e.getKey(), (double) e.getValue());
+							}
+						} catch (Exception ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/helper/TugasMandiriHelper.java:2649");
+						}
+						if (!perHari.isEmpty()) {
+							dasborWrap.appendChild(ais.ui.util.DashboardUiKit.html(
+									ais.ui.util.DashboardUiKit.barList("Tugas Masuk per Tanggal",
+											"Menunjukkan pada tanggal berapa saja tugas paling banyak dikirim peserta.",
+											perHari, ais.ui.util.DashboardUiKit.PRIMARY, "tugas", false,
+											"Belum ada tugas yang masuk.")));
+						}
+
+						// --- Distribusi Nilai: histogram 5 rentang (0-20, 21-40, 41-60, 61-80, 81-100) ---
+						try {
+							LinkedHashMap<String, Double> distribusiNilai = new LinkedHashMap<String, Double>();
+							distribusiNilai.put("0 - 20", 0.0);
+							distribusiNilai.put("21 - 40", 0.0);
+							distribusiNilai.put("41 - 60", 0.0);
+							distribusiNilai.put("61 - 80", 0.0);
+							distribusiNilai.put("81 - 100", 0.0);
+							int totalDinilai = 0;
+							for (ais.database.model.file.TugasFileContent fcN : tugas.ambilTugasFileContentTotal().values()) {
+								if (fcN == null || fcN.getNilai() == null) {
+									continue;
+								}
+								double nv = fcN.getNilai();
+								if (nv <= 0) {
+									continue;
+								}
+								totalDinilai++;
+								if (nv <= 20) {
+									distribusiNilai.put("0 - 20", distribusiNilai.get("0 - 20") + 1);
+								} else if (nv <= 40) {
+									distribusiNilai.put("21 - 40", distribusiNilai.get("21 - 40") + 1);
+								} else if (nv <= 60) {
+									distribusiNilai.put("41 - 60", distribusiNilai.get("41 - 60") + 1);
+								} else if (nv <= 80) {
+									distribusiNilai.put("61 - 80", distribusiNilai.get("61 - 80") + 1);
+								} else {
+									distribusiNilai.put("81 - 100", distribusiNilai.get("81 - 100") + 1);
+								}
+							}
+							if (totalDinilai > 0) {
+								dasborWrap.appendChild(ais.ui.util.DashboardUiKit.html(
+										ais.ui.util.DashboardUiKit.barList("Distribusi Nilai",
+												"Sebaran nilai tugas dalam 5 rentang — berguna untuk melihat apakah sebagian besar peserta memahami materi dengan baik.",
+												distribusiNilai, ais.ui.util.DashboardUiKit.GOOD, "peserta", false,
+												"Belum ada nilai yang diinput.")));
+							}
+						} catch (Exception eDistrib) {
+							ais.common.ErrorAuditUtil.record(eDistrib, "auto-audit(empty-catch) TugasMandiriHelper.distribusiNilai");
+						}
+
+						// --- Radar/Spider Chart Sub-CPMK (hanya untuk OBE) ---
+						if (perkuliahan != null && perkuliahan.getKurikulum() != null
+								&& perkuliahan.getKurikulum().apakahObe(perkuliahan.getTahunAjaran(), perkuliahan.getGanjilGenap())) {
+							try {
+								Session sessionObe = HibernateUtil.currentSession();
+								List<FormatNilai> obeNilaisRadar = Common.getFormatNilais(sessionObe, perkuliahan);
+								JSONObject keteranganNilaiObj = new JSONObject(tugas.getKeteranganNilai());
+								JSONObject formatNilaisObj = new JSONObject(tugas.getFormatNilais());
+								TreeMap<Long, ais.database.model.file.TugasFileContent> allTfc = tugas.ambilTugasFileContentTotal();
+								LinkedHashMap<String, Double> cpmkAvg = new LinkedHashMap<String, Double>();
+								for (FormatNilai fn : obeNilaisRadar) {
+									if (fn.getStatusPertemuan() == null) {
+										continue;
+									}
+									if (formatNilaisObj.isNull(fn.getId().toString())) {
+										continue;
+									}
+									double sumFn = 0;
+									int countFn = 0;
+									for (ais.database.model.file.TugasFileContent tfc : allTfc.values()) {
+										String keyFn = "";
+										if (tfc.getMahasiswa() != null) {
+											keyFn = tfc.getMahasiswa() + "_mhs";
+										} else if (tfc.getSiswa() != null) {
+											keyFn = tfc.getSiswa() + "_siswa";
+										} else if (tfc.getBiodataCalonMahasiswa() != null) {
+											keyFn = tfc.getBiodataCalonMahasiswa() + "_cal_mhs";
+										} else if (tfc.getCalonSiswa() != null) {
+											keyFn = tfc.getCalonSiswa() + "_cal_siswa";
+										}
+										String scoreKey = keyFn + "_nilai_" + fn.getId();
+										if (!keteranganNilaiObj.isNull(scoreKey)) {
+											sumFn += keteranganNilaiObj.getDouble(scoreKey);
+											countFn++;
+										}
+									}
+									String lbl = fn.getNama() == null ? "CPMK" : fn.getNama();
+									if (lbl.length() > 14) {
+										lbl = lbl.substring(0, 14) + "..";
+									}
+									cpmkAvg.put(lbl, countFn > 0 ? sumFn / countFn : 0.0);
+								}
+								if (cpmkAvg.size() >= 3) {
+									dasborWrap.appendChild(ais.ui.util.DashboardUiKit.html(
+											buildRadarChartHtml("Rata-rata Nilai per Sub-CPMK",
+													"Radar menunjukkan rata-rata nilai mahasiswa untuk setiap Sub-CPMK yang dinilai pada tugas ini.",
+													cpmkAvg, 100.0)));
+								}
+							} catch (Exception eRadar) {
+								ais.common.ErrorAuditUtil.record(eRadar, "auto-audit(empty-catch) TugasMandiriHelper.radarCpmk");
+							}
+						}
+
+						d.clear();
+						d = null;
+						dsn.clear();
+						dsn = null;
+
+					}
+				});
+
+				// Tab 4 "Peserta yg tdk perlu ikt" - LAZY (hanya dimuat pertama kali)
+				mbt.tambahTabLazy(4, "Peserta yg tdk perlu ikt", new ais.ui.util.MyButtonTabbox.PemuatTab() {
+					@Override
+					public void muat(Div tabpanelPeserta) throws Exception {
+						if (!tabpanelPeserta.getChildren().isEmpty()) return;
+							final ais.database.model.TugasPertemuan tp =
+									(tugas instanceof ais.database.model.TugasPertemuan)
+									? (ais.database.model.TugasPertemuan) tugas : null;
+
+							// Deteksi OBE: apakah perkuliahan ini memakai kurikulum OBE dan
+							// apakah tugas ini punya Sub-CPMK yang terpilih?
+							final ais.database.model.Perkuliahan perkuliahan = pa.getPerkuliahan();
+							final boolean obe = perkuliahan != null
+									&& perkuliahan.getKurikulum() != null
+									&& perkuliahan.getKurikulum().apakahObe(
+											perkuliahan.getTahunAjaran(),
+											perkuliahan.getGanjilGenap());
+							final java.util.List<ais.database.model.FormatNilai> subCpmkTerpilih =
+									new java.util.ArrayList<ais.database.model.FormatNilai>();
+							if (obe) {
+								try {
+									org.json.JSONObject jfn = new org.json.JSONObject(
+											tugas.getFormatNilais());
+									for (ais.database.model.FormatNilai fn : Common.getFormatNilais(
+											HibernateUtil.currentSession(), perkuliahan)) {
+										if (fn != null && fn.getId() != null
+												&& fn.getStatusPertemuan() != null
+												&& !jfn.isNull(fn.getId().toString())) {
+											subCpmkTerpilih.add(fn);
+										}
+									}
+								} catch (Exception eFn) {
+									ais.common.ErrorAuditUtil.record(eFn, "auto-audit");
+								}
+							}
+							final boolean adaSubCpmk = tp != null && obe && !subCpmkTerpilih.isEmpty();
+
+							Borderlayout myborderlayoutlagi = new Borderlayout();
+							myborderlayoutlagi.setParent(tabpanelPeserta);
+							myborderlayoutlagi.setHeight("100%");
+
+							MyHboxToolbar hbox = new MyHboxToolbar();
+							hbox.appendChild(new MyLabelConfig("Peserta : "));
+							final Textbox cari = new Textbox("");
+							cari.setParent(hbox);
+							cari.setCols(20);
+
+							Center mycenterlagi = new Center();
+							mycenterlagi.setParent(myborderlayoutlagi);
+							ais.ui.util.ZkCompat.setFlex(mycenterlagi, true);
+
+							final Grid grid = new Grid();
+							grid.setSclass("dgrid");
+							grid.setParent(mycenterlagi);
+
+							Columns columns = new Columns();
+							columns.setParent(grid);
+
+							// Kolom 1: Nama Peserta + kotak pencarian
+							MyColumnConfig column = new MyColumnConfig();
+							column.appendChild(hbox);
+							column.setParent(columns);
+							column.setWidth(adaSubCpmk ? "25%" : "60%");
+							column.setAlign("left");
+
+							// Kolom 2: "Tidak perlu ikut tugas" + header checkbox massal
+							final MyCheckboxConfig checkboxConfigAll =
+									new MyCheckboxConfig("Tidak perlu ikut tugas");
+							column = new MyColumnConfig();
+							column.appendChild(checkboxConfigAll);
+							column.setParent(columns);
+							column.setWidth(adaSubCpmk ? "10%" : "20%");
+							column.setAlign("left");
+
+							// Kolom 3: "Boleh Upload Ulang" + header checkbox massal
+							final MyCheckboxConfig checkboxConfigAllUpload =
+									new MyCheckboxConfig("Boleh Upload Ulang");
+							column = new MyColumnConfig();
+							column.appendChild(checkboxConfigAllUpload);
+							column.setParent(columns);
+							column.setWidth(adaSubCpmk ? "10%" : "20%");
+							column.setAlign("left");
+
+							// Kolom 4 & 5 hanya tampil bila OBE ada Sub-CPMK
+							if (adaSubCpmk) {
+								MyColumnConfig columnNilai = new MyColumnConfig();
+								columnNilai.appendChild(
+										new MyLabelConfig("Nilai Manual (Nilai & Keterangan)"));
+								columnNilai.setParent(columns);
+								columnNilai.setWidth("25%");
+								columnNilai.setAlign("left");
+
+								MyColumnConfig columnCpmk = new MyColumnConfig();
+								columnCpmk.appendChild(
+										new MyLabelConfig("Sub-CPMK yang dikerjakan (OBE)"));
+								columnCpmk.setParent(columns);
+								columnCpmk.setWidth("30%");
+								columnCpmk.setAlign("left");
+							}
+
+							ais.ui.util.ZkCompat.setFixedLayout(grid, true);
+							grid.setHeight("100%");
+							grid.setWidth("100%");
+
+							grid.setRowRenderer(new ais.ui.util.MyRowRenderer() {
+								@Override
+								public void render(Row arg0, Object arg1) throws Exception {
+									arg0.setValign("top");
+									final Row rowPeserta = arg0;
+									final Mahasiswa mahasiswa =
+											(arg1 instanceof Mahasiswa) ? (Mahasiswa) arg1 : null;
+									final BiodataCalonMahasiswa biodataCalonMahasiswa =
+											(arg1 instanceof BiodataCalonMahasiswa)
+											? (BiodataCalonMahasiswa) arg1 : null;
+									final Siswa siswa =
+											(arg1 instanceof Siswa) ? (Siswa) arg1 : null;
+									final CalonSiswa calonSiswa =
+											(arg1 instanceof CalonSiswa) ? (CalonSiswa) arg1 : null;
+
+									// Sel 1: Foto + NIM/Nama (flex div agar rata-kiri dan sejajar)
+									org.zkoss.zul.Div selPeserta = new org.zkoss.zul.Div();
+									selPeserta.setParent(arg0);
+									selPeserta.setStyle(
+											"display:flex;align-items:center;gap:9px;width:100%;"
+											+ "text-align:left;box-sizing:border-box;");
+									if (mahasiswa != null)
+										CommonMedia.tampilkanGambarKecil(mahasiswa).setParent(selPeserta);
+									else if (biodataCalonMahasiswa != null)
+										CommonMedia.tampilkanGambarKecil(biodataCalonMahasiswa)
+												.setParent(selPeserta);
+									else if (siswa != null)
+										CommonMedia.tampilkanGambarKecil(siswa).setParent(selPeserta);
+									else if (calonSiswa != null)
+										CommonMedia.tampilkanGambarKecil(calonSiswa).setParent(selPeserta);
+
+									String nim3 = mahasiswa != null ? mahasiswa.getNim()
+											: biodataCalonMahasiswa != null
+													? biodataCalonMahasiswa.getNoRegistrasi()
+													: siswa != null ? siswa.getNomorInduk()
+															: calonSiswa != null
+																	? calonSiswa.getNomorInduk() : "";
+									String nama3 = mahasiswa != null ? mahasiswa.getNama()
+											: biodataCalonMahasiswa != null
+													? biodataCalonMahasiswa.getNama()
+													: siswa != null ? siswa.getNama()
+															: calonSiswa != null ? calonSiswa.getNama() : "";
+									new Html("<div style='text-align:left;line-height:1.45;'>"
+											+ "<div style='font-size:11px;color:#64748b;font-weight:600;'>"
+											+ ais.ui.util.DashboardUiKit.esc(nim3) + "</div>"
+											+ "<div style='font-size:13px;color:#0f172a;font-weight:700;'>"
+											+ ais.ui.util.DashboardUiKit.esc(nama3)
+											+ "</div></div>").setParent(selPeserta);
+
+									Long id = mahasiswa != null ? mahasiswa.getId()
+											: biodataCalonMahasiswa != null
+													? biodataCalonMahasiswa.getId()
+													: siswa != null ? siswa.getId()
+															: calonSiswa != null ? calonSiswa.getId() : null;
+
+									// Referensi bersama untuk kontrol visibilitas OBE secara dinamis
+									final org.zkoss.zul.Div[] wrapNilaiRef =
+											new org.zkoss.zul.Div[1];
+									final org.zkoss.zul.Div[] wrapCpmkRef =
+											new org.zkoss.zul.Div[1];
+									final org.zkoss.zul.Checkbox[] cbPaksaRef =
+											new org.zkoss.zul.Checkbox[1];
+									final java.util.LinkedHashMap<Long, org.zkoss.zul.Hbox> nilaiRowMap =
+											new java.util.LinkedHashMap<Long, org.zkoss.zul.Hbox>();
+									final java.util.LinkedHashMap<Long, org.zkoss.zul.Checkbox> obeCbMap =
+											new java.util.LinkedHashMap<Long, org.zkoss.zul.Checkbox>();
+
+									// Sel 2: Checkbox "Tidak perlu ikut tugas"
+									final MyCheckboxConfig checkboxConfig =
+											new MyCheckboxConfig("Tidak perlu ikut tugas");
+									checkboxConfig.setDisabled(mahasiswa == null);
+									checkboxConfig.setChecked(
+											tugas.getMhsYgTidakIkut().contains("," + id + ","));
+									checkboxConfig.setParent(arg0);
+
+									// perbaruiVisibilitasNilai: segarkan tampilan OBE setiap
+									// kali "Tidak perlu ikut", "Paksa", atau Sub-CPMK berubah.
+									// Nilai Manual & Sub-CPMK tampil HANYA bila peserta AKTIF
+									// (tidak perlu ikut = tidak dicentang). Baris nilai per
+									// Sub-CPMK tampil hanya bila Paksa dicentang DAN Sub-CPMK
+									// yang bersangkutan dicentang.
+									final EventListener perbaruiVisibilitasNilai =
+											new EventListener() {
+										@Override
+										public void onEvent(Event evVis) throws Exception {
+											boolean ikut  = !checkboxConfig.isChecked();
+											boolean paksa = cbPaksaRef[0] != null
+													&& cbPaksaRef[0].isChecked();
+											if (wrapNilaiRef[0] != null)
+												wrapNilaiRef[0].setVisible(ikut);
+											if (wrapCpmkRef[0] != null)
+												wrapCpmkRef[0].setVisible(ikut);
+											for (java.util.Map.Entry<Long, org.zkoss.zul.Hbox> en
+													: nilaiRowMap.entrySet()) {
+												org.zkoss.zul.Checkbox obeCheck =
+														obeCbMap.get(en.getKey());
+												boolean obeOn = obeCheck == null
+														|| obeCheck.isChecked();
+												en.getValue().setVisible(ikut && paksa && obeOn);
+											}
+											if (rowPeserta != null) rowPeserta.invalidate();
+										}
+									};
+
+									checkboxConfig.addEventListener("onClick", new EventListener() {
+										@Override
+										public void onEvent(Event arg0) throws Exception {
+											Session session = HibernateUtil.currentSession();
+											if (tugas.getId() != null) session.refresh(tugas);
+											Long id = mahasiswa != null ? mahasiswa.getId()
+													: biodataCalonMahasiswa != null
+															? biodataCalonMahasiswa.getId()
+															: siswa != null ? siswa.getId()
+																	: calonSiswa != null
+																			? calonSiswa.getId() : null;
+											String ids = "," + id + ",";
+											String text = tugas.getMhsYgTidakIkut();
+											text = org.apache.commons.lang3.StringUtils.replace(
+													text, ids, "");
+											text = org.apache.commons.lang3.StringUtils.replace(
+													text, id.toString(), "");
+											tugas.setMhsYgTidakIkut(
+													text + (!checkboxConfig.isChecked() ? "" : ids));
+											Common.refreshUpdate(session, tugas);
+											tabpanelFileTugasPertemuan.getLinkedTab()
+													.setLabel(tugas.getJudultugas());
+											perbaruiVisibilitasNilai.onEvent(null);
+										}
+									});
+
+									// Sel 3: Checkbox "Boleh Upload Ulang"
+									final MyCheckboxConfig uploadulang =
+											new MyCheckboxConfig("Boleh Upload Ulang");
+									uploadulang.setDisabled(mahasiswa == null);
+									uploadulang.setChecked(
+											tugas.getMhsBolehUploadUlang().contains("," + id + ","));
+									uploadulang.setParent(arg0);
+									uploadulang.addEventListener("onClick", new EventListener() {
+										@Override
+										public void onEvent(Event arg0) throws Exception {
+											Session session = HibernateUtil.currentSession();
+											if (tugas.getId() != null) session.refresh(tugas);
+											Long id = mahasiswa != null ? mahasiswa.getId()
+													: biodataCalonMahasiswa != null
+															? biodataCalonMahasiswa.getId()
+															: siswa != null ? siswa.getId()
+																	: calonSiswa != null
+																			? calonSiswa.getId() : null;
+											String ids = "," + id + ",";
+											String text = tugas.getMhsBolehUploadUlang();
+											text = org.apache.commons.lang3.StringUtils.replace(
+													text, ids, "");
+											text = org.apache.commons.lang3.StringUtils.replace(
+													text, id.toString(), "");
+											tugas.setMhsBolehUploadUlang(
+													text + (!uploadulang.isChecked() ? "" : ids));
+											Common.refreshUpdate(session, tugas);
+											tabpanelFileTugasPertemuan.getLinkedTab()
+													.setLabel(tugas.getJudultugas());
+										}
+									});
+
+									// Sel 4 (OBE): Nilai Manual per Sub-CPMK + tombol Paksa
+									if (adaSubCpmk) {
+										if (mahasiswa != null) {
+											org.zkoss.zul.Div wrapNilai = new org.zkoss.zul.Div();
+											wrapNilai.setStyle("padding:2px 0;");
+											wrapNilai.setParent(arg0);
+											wrapNilaiRef[0] = wrapNilai;
+											final String mhsKey = mahasiswa.getId().toString();
+
+											// Praisi Doublebox dari JSON nilai_manual_json
+											org.json.JSONObject mhsEntryTmp =
+													new org.json.JSONObject();
+											try {
+												String njStr = tp.getNilaiManualJson();
+												if (njStr != null && !njStr.isEmpty()
+														&& !njStr.equals("{}")) {
+													org.json.JSONObject jAll =
+															new org.json.JSONObject(njStr);
+													org.json.JSONObject ent =
+															jAll.optJSONObject(mhsKey);
+													if (ent != null) mhsEntryTmp = ent;
+												}
+											} catch (Exception eNilai) { /* abaikan */ }
+											final org.json.JSONObject mhsEntryFinal = mhsEntryTmp;
+
+											for (final ais.database.model.FormatNilai fn
+													: subCpmkTerpilih) {
+												if (fn == null || fn.getId() == null) continue;
+												final String fnKey    = "fn_" + fn.getId();
+												final String fnKeyKet = fnKey + "_ket";
+
+												// Baris per Sub-CPMK: Label + Doublebox + Textbox
+												org.zkoss.zul.Hbox rowN = new org.zkoss.zul.Hbox();
+												rowN.setStyle(
+														"align-items:center;gap:4px;margin-bottom:2px;");
+												rowN.setParent(wrapNilai);
+												nilaiRowMap.put(fn.getId(), rowN);
+												new org.zkoss.zul.Label(fn.getNama() + ": ")
+														.setParent(rowN);
+
+												final org.zkoss.zul.Doublebox db =
+														new org.zkoss.zul.Doublebox();
+												Double initVal = null;
+												if (!mhsEntryFinal.isNull(fnKey)) {
+													try {
+														initVal = mhsEntryFinal.getDouble(fnKey);
+													} catch (Exception ex) { /* skip */ }
+												}
+												db.setValue(initVal);
+												db.setWidth("90px");
+												db.setParent(rowN);
+												db.addEventListener("onChange", new EventListener() {
+													@Override
+													public void onEvent(Event ev) throws Exception {
+														Session s = HibernateUtil.currentSession();
+														if (tp.getId() != null) s.refresh(tp);
+														String nj = tp.getNilaiManualJson();
+														org.json.JSONObject jAll =
+																(nj != null && !nj.isEmpty()
+																		&& !nj.equals("{}"))
+																? new org.json.JSONObject(nj)
+																: new org.json.JSONObject();
+														org.json.JSONObject entry =
+																jAll.optJSONObject(mhsKey);
+														if (entry == null)
+															entry = new org.json.JSONObject();
+														if (db.getValue() != null)
+															entry.put(fnKey, db.getValue());
+														else
+															entry.remove(fnKey);
+														jAll.put(mhsKey, entry);
+														tp.setNilaiManualJson(jAll.toString());
+														Common.refreshUpdate(s, tp);
+													}
+												});
+
+												// Textbox keterangan — pakai setTooltiptext,
+												// BUKAN setPlaceholder (ZK5 batch-error)
+												final org.zkoss.zul.Textbox tbKet =
+														new org.zkoss.zul.Textbox();
+												tbKet.setValue(mhsEntryFinal.isNull(fnKeyKet) ? ""
+														: mhsEntryFinal.optString(fnKeyKet, ""));
+												tbKet.setWidth("180px");
+												tbKet.setTooltiptext(
+														"Keterangan nilai " + fn.getNama());
+												tbKet.setParent(rowN);
+												tbKet.addEventListener("onChange",
+														new EventListener() {
+													@Override
+													public void onEvent(Event ev) throws Exception {
+														Session s = HibernateUtil.currentSession();
+														if (tp.getId() != null) s.refresh(tp);
+														String nj = tp.getNilaiManualJson();
+														org.json.JSONObject jAll =
+																(nj != null && !nj.isEmpty()
+																		&& !nj.equals("{}"))
+																? new org.json.JSONObject(nj)
+																: new org.json.JSONObject();
+														org.json.JSONObject entry =
+																jAll.optJSONObject(mhsKey);
+														if (entry == null)
+															entry = new org.json.JSONObject();
+														String v = tbKet.getValue() == null ? ""
+																: tbKet.getValue().trim();
+														if (v.isEmpty()) entry.remove(fnKeyKet);
+														else             entry.put(fnKeyKet, v);
+														jAll.put(mhsKey, entry);
+														tp.setNilaiManualJson(jAll.toString());
+														Common.refreshUpdate(s, tp);
+													}
+												});
+											}
+
+											// Checkbox "Paksa pakai nilai ini jika tetap mengumpulkan tugas"
+											final org.zkoss.zul.Checkbox cbPaksa =
+													new org.zkoss.zul.Checkbox(
+													"Paksa pakai nilai ini jika tetap mengumpulkan tugas");
+											cbPaksa.setChecked(
+													mhsEntryFinal.optBoolean("paksa", false));
+											cbPaksa.setStyle("margin-top:4px;display:block;");
+											cbPaksa.setParent(wrapNilai);
+											cbPaksaRef[0] = cbPaksa;
+											cbPaksa.addEventListener("onCheck",
+													new EventListener() {
+												@Override
+												public void onEvent(Event ev) throws Exception {
+													Session s = HibernateUtil.currentSession();
+													if (tp.getId() != null) s.refresh(tp);
+													String nj = tp.getNilaiManualJson();
+													org.json.JSONObject jAll =
+															(nj != null && !nj.isEmpty()
+																	&& !nj.equals("{}"))
+															? new org.json.JSONObject(nj)
+															: new org.json.JSONObject();
+													org.json.JSONObject entry =
+															jAll.optJSONObject(mhsKey);
+													if (entry == null)
+														entry = new org.json.JSONObject();
+													entry.put("paksa", cbPaksa.isChecked());
+													jAll.put(mhsKey, entry);
+													tp.setNilaiManualJson(jAll.toString());
+													Common.refreshUpdate(s, tp);
+													perbaruiVisibilitasNilai.onEvent(null);
+												}
+											});
+										} else {
+											// Bukan mahasiswa: biarkan sel kosong agar kolom sejajar
+											new org.zkoss.zul.Label("").setParent(arg0);
+										}
+									}
+
+									// Sel 5 (OBE): Checklist Sub-CPMK per peserta
+									if (adaSubCpmk && mahasiswa != null) {
+										org.zkoss.zul.Div wrapCpmk = new org.zkoss.zul.Div();
+										wrapCpmk.setStyle(
+												"display:flex;flex-wrap:wrap;gap:4px 14px;");
+										wrapCpmk.setParent(arg0);
+										wrapCpmkRef[0] = wrapCpmk;
+										final Long mhsIdCpmk = mahasiswa.getId();
+										final java.util.Set<Long> terpilihPeserta =
+												tp.ambilSubCpmkPeserta(mhsIdCpmk);
+										final java.util.LinkedHashMap<Long, org.zkoss.zul.Checkbox>
+												cbMap = new java.util.LinkedHashMap<Long,
+														org.zkoss.zul.Checkbox>();
+
+										EventListener onCpmk = new EventListener() {
+											@Override
+											public void onEvent(Event ev) throws Exception {
+												Session s = HibernateUtil.currentSession();
+												if (tp.getId() != null) s.refresh(tp);
+												org.json.JSONObject j = new org.json.JSONObject(
+														tp.getSubCpmkPerPeserta());
+												org.json.JSONArray arr =
+														new org.json.JSONArray();
+												int dipilih = 0;
+												for (java.util.Map.Entry<Long,
+														org.zkoss.zul.Checkbox> en
+														: cbMap.entrySet()) {
+													if (en.getValue().isChecked()) {
+														arr.put(en.getKey().toString());
+														dipilih++;
+													}
+												}
+												// semua dicentang → hapus kunci (kembali ke default semua)
+												if (dipilih >= cbMap.size()) {
+													j.remove(mhsIdCpmk.toString());
+												} else {
+													j.put(mhsIdCpmk.toString(), arr);
+												}
+												tp.setSubCpmkPerPeserta(j.toString());
+												Common.refreshUpdate(s, tp);
+												perbaruiVisibilitasNilai.onEvent(null);
+											}
+										};
+
+										for (ais.database.model.FormatNilai fn : subCpmkTerpilih) {
+											if (fn == null || fn.getId() == null) continue;
+											org.zkoss.zul.Checkbox cb =
+													new org.zkoss.zul.Checkbox(fn.getNama());
+											cb.setChecked(terpilihPeserta == null
+													|| terpilihPeserta.contains(fn.getId()));
+											cb.addEventListener("onCheck", onCpmk);
+											cb.setParent(wrapCpmk);
+											cbMap.put(fn.getId(), cb);
+											obeCbMap.put(fn.getId(), cb);
+										}
+									} else if (adaSubCpmk) {
+										new org.zkoss.zul.Label("").setParent(arg0);
+									}
+
+									// Terapkan visibilitas awal sesuai data yang sudah tersimpan
+									perbaruiVisibilitasNilai.onEvent(null);
+								}
+							});
+
+							// Listener pencarian peserta
+							EventListener cariAkun = new EventListener() {
+
+								@Override
+								public void onEvent(Event arg0) throws Exception {
+									List<Mahasiswa> mahasiswasTemorary = pa.ambilMahasiswa();
+									List<Mahasiswa> copy = new ArrayList<Mahasiswa>();
+									for (Mahasiswa mahasiswa : mahasiswasTemorary) {
+										BiodataCalonMahasiswa biodataCalonMahasiswa = null;
+										if (cari.getValue().trim().isEmpty()
+												|| (mahasiswa != null && (
+														(mahasiswa.getNim() != null
+																&& mahasiswa.getNim().toLowerCase()
+																.contains(cari.getValue()
+																		.toLowerCase().trim()))
+														|| (mahasiswa.getNama() != null
+																&& mahasiswa.getNama().toLowerCase()
+																.contains(cari.getValue()
+																		.toLowerCase().trim()))
+												))
+												|| (biodataCalonMahasiswa != null && (
+														(biodataCalonMahasiswa.getNoRegistrasi() != null
+																&& biodataCalonMahasiswa
+																.getNoRegistrasi().toLowerCase()
+																.contains(cari.getValue()
+																		.toLowerCase().trim()))
+														|| (biodataCalonMahasiswa.getNama() != null
+																&& biodataCalonMahasiswa.getNama()
+																.toLowerCase()
+																.contains(cari.getValue()
+																		.toLowerCase().trim()))
+												))
+										) {
+											copy.add(mahasiswa);
+										}
+									}
+									ListModel strset = new SimpleListModel(copy);
+									grid.setModel(strset);
+									mahasiswasTemorary = null;
+									copy = null;
+								}
+							};
+
+							cariAkun.onEvent(null);
+							cari.addEventListener("onOK", cariAkun);
+
+							MyToolbarbutton toolbarbutton = new MyToolbarbutton("fa-search", "Cari");
+							toolbarbutton.setParent(hbox);
+							toolbarbutton.addEventListener("onClick", cariAkun);
+
+							// Tombol massal: centang/hapus semua "Tidak perlu ikut tugas"
+							checkboxConfigAll.addEventListener("onClick", new EventListener() {
+
+								@Override
+								public void onEvent(Event arg0) throws Exception {
+									Session session = HibernateUtil.currentSession();
+									if (tugas.getId() != null) session.refresh(tugas);
+									List<Mahasiswa> mahasiswasTemorary = pa.ambilMahasiswa();
+									List<Mahasiswa> copy = new ArrayList<Mahasiswa>();
+									for (Mahasiswa mahasiswa : mahasiswasTemorary) {
+										BiodataCalonMahasiswa biodataCalonMahasiswa = null;
+										Siswa siswa = null;
+										CalonSiswa calonSiswa = null;
+										if (cari.getValue().trim().isEmpty()
+												|| (mahasiswa != null && (
+														(mahasiswa.getNim() != null
+																&& mahasiswa.getNim().toLowerCase()
+																.contains(cari.getValue()
+																		.toLowerCase().trim()))
+														|| (mahasiswa.getNama() != null
+																&& mahasiswa.getNama().toLowerCase()
+																.contains(cari.getValue()
+																		.toLowerCase().trim()))
+												))
+												|| (biodataCalonMahasiswa != null && (
+														(biodataCalonMahasiswa.getNoRegistrasi() != null
+																&& biodataCalonMahasiswa
+																.getNoRegistrasi().toLowerCase()
+																.contains(cari.getValue()
+																		.toLowerCase().trim()))
+														|| (biodataCalonMahasiswa.getNama() != null
+																&& biodataCalonMahasiswa.getNama()
+																.toLowerCase()
+																.contains(cari.getValue()
+																		.toLowerCase().trim()))
+												))
+										) {
+											Long id = mahasiswa != null ? mahasiswa.getId()
+													: biodataCalonMahasiswa != null
+															? biodataCalonMahasiswa.getId()
+															: siswa != null ? siswa.getId()
+																	: calonSiswa != null
+																			? calonSiswa.getId() : null;
+											String ids = "," + id + ",";
+											String text = tugas.getMhsYgTidakIkut();
+											text = org.apache.commons.lang3.StringUtils.replace(
+													text, ids, "");
+											text = org.apache.commons.lang3.StringUtils.replace(
+													text, id.toString(), "");
+											tugas.setMhsYgTidakIkut(
+													text + (!checkboxConfigAll.isChecked() ? "" : ids));
+											copy.add(mahasiswa);
+										}
+									}
+									Common.refreshUpdate(session, tugas);
+									ListModel strset = new SimpleListModel(copy);
+									grid.setModel(strset);
+									mahasiswasTemorary = null;
+									copy = null;
+									tabpanelFileTugasPertemuan.getLinkedTab()
+											.setLabel(tugas.getJudultugas());
+								}
+							});
+
+							// Tombol massal: centang/hapus semua "Boleh Upload Ulang"
+							checkboxConfigAllUpload.addEventListener("onClick", new EventListener() {
+
+								@Override
+								public void onEvent(Event arg0) throws Exception {
+									Session session = HibernateUtil.currentSession();
+									if (tugas.getId() != null) session.refresh(tugas);
+									List<Mahasiswa> mahasiswasTemorary = pa.ambilMahasiswa();
+									List<Mahasiswa> copy = new ArrayList<Mahasiswa>();
+									for (Mahasiswa mahasiswa : mahasiswasTemorary) {
+										BiodataCalonMahasiswa biodataCalonMahasiswa = null;
+										Siswa siswa = null;
+										CalonSiswa calonSiswa = null;
+										if (cari.getValue().trim().isEmpty()
+												|| (mahasiswa != null && (
+														(mahasiswa.getNim() != null
+																&& mahasiswa.getNim().toLowerCase()
+																.contains(cari.getValue()
+																		.toLowerCase().trim()))
+														|| (mahasiswa.getNama() != null
+																&& mahasiswa.getNama().toLowerCase()
+																.contains(cari.getValue()
+																		.toLowerCase().trim()))
+												))
+												|| (biodataCalonMahasiswa != null && (
+														(biodataCalonMahasiswa.getNoRegistrasi() != null
+																&& biodataCalonMahasiswa
+																.getNoRegistrasi().toLowerCase()
+																.contains(cari.getValue()
+																		.toLowerCase().trim()))
+														|| (biodataCalonMahasiswa.getNama() != null
+																&& biodataCalonMahasiswa.getNama()
+																.toLowerCase()
+																.contains(cari.getValue()
+																		.toLowerCase().trim()))
+												))
+										) {
+											Long id = mahasiswa != null ? mahasiswa.getId()
+													: biodataCalonMahasiswa != null
+															? biodataCalonMahasiswa.getId()
+															: siswa != null ? siswa.getId()
+																	: calonSiswa != null
+																			? calonSiswa.getId() : null;
+											String ids = "," + id + ",";
+											String text = tugas.getMhsBolehUploadUlang();
+											text = org.apache.commons.lang3.StringUtils.replace(
+													text, ids, "");
+											text = org.apache.commons.lang3.StringUtils.replace(
+													text, id.toString(), "");
+											tugas.setMhsBolehUploadUlang(
+													text + (!checkboxConfigAllUpload.isChecked() ? "" : ids));
+											copy.add(mahasiswa);
+										}
+									}
+									Common.refreshUpdate(session, tugas);
+									ListModel strset = new SimpleListModel(copy);
+									grid.setModel(strset);
+									mahasiswasTemorary = null;
+									copy = null;
+									tabpanelFileTugasPertemuan.getLinkedTab()
+											.setLabel(tugas.getJudultugas());
+								}
+							});
+					}
+				});
+
+				// Tab 5 "Rekap Tugas" - selalu dimuat ulang setiap dipilih
+				final Div panelRekap = mbt.tambahTab(5, "Rekap Tugas");
+				mbt.onSetiapPilih(5, new EventListener() {
+					@Override
+					public void onEvent(Event arg0) throws Exception {
+						Common.clear(panelRekap);
+						RekapHasilTugasPerVoPertemuan addWindow = new RekapHasilTugasPerVoPertemuan(true,
+								pa.ambilVOPembelajaran());
+						addWindow.setClosable(false);
+						addWindow.setTitle("");
+						addWindow.setHeight("100%");
+						addWindow.setWidth("100%");
+						panelRekap.appendChild(addWindow);
+					}
+				});
+
+			}
+
+			// FIX "Only one south child is allowed": pada tampilan dosen/admin (!peserta),
+			// South "southTugas" (tombol Simpan/Batal) SUDAH dibuat & di-parent-kan ke
+			// myborderlayoutlagi lebih awal (blok if (!peserta) di atas). Borderlayout
+			// hanya boleh punya SATU South -- selaras pola getNorth() yang sudah dipakai
+			// di bawah (baris ~4087): pakai South yang sudah ada bila sudah dibuat,
+			// jangan buat instance South baru lagi.
+			South mysouthlagi = myborderlayoutlagi.getSouth() == null ? new South()
+					: (South) myborderlayoutlagi.getSouth();
+			mysouthlagi.setParent(myborderlayoutlagi);
+			ais.ui.util.ZkCompat.setFlex(mysouthlagi, true);
+
+			// South sendiri (LayoutRegion) juga hanya boleh punya SATU child langsung.
+			// Jika South ini adalah southTugas yang dipakai ulang (!peserta), child
+			// pertamanya sudah berupa Hbox "southBoxTugas" (berisi Toolbar Simpan/Batal).
+			// Pakai ulang Hbox tsb agar Paging bisa digabung di dalamnya, bukan
+			// di-parent-kan langsung ke South (yang akan memicu "Only one child is allowed").
+			Hbox southBoxLagi = (Hbox) mysouthlagi.getFirstChild();
+			if (southBoxLagi == null) {
+				southBoxLagi = new Hbox();
+				southBoxLagi.setParent(mysouthlagi);
+				ais.ui.util.ZkCompat.setFlex(southBoxLagi, true);
+				southBoxLagi.setAlign("center");
+			}
+
+			paging = new Paging();
+			paging.setParent(southBoxLagi);
+			paging.addEventListener("onPaging", new EventListener() {
+
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					reloadTugasFileContent();
+				}
+			});
+
+			columns = new Columns();
+
+			columns.setParent(uploadTugasGrid);
+			MyHboxToolbar hboxPencarian = new MyHboxToolbar();
+			hboxPencarian.appendChild(new MyLabelConfig((peserta ? "Peserta Lain" : "Peserta") + " : "));
+			cari = new Textbox("");
+			cari.setParent(hboxPencarian);
+			cari.setCols(10);
+			MyToolbarbutton toolbarbutton = new MyToolbarbutton("fa-search", "Cari");
+			toolbarbutton.setParent(hboxPencarian);
+
+			cari.addEventListener("onOK", new EventListener() {
+
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					reloadTugasFileContent();
+				}
+			});
+
+			toolbarbutton.addEventListener("onClick", new EventListener() {
+
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					reloadTugasFileContent();
+				}
+			});
+
+			MyToolbarbutton masukAnggapHadirPengumpul = new MyToolbarbutton("fa-check", "Anggap Hadir (Pengumpul Tugas)");
+			masukAnggapHadirPengumpul.setVisible(tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
+					&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
+					&& tbmuser.getCalonSiswa() == null && tbmuser.getSiswa() == null && pa != null
+					&& pa.getJadwalUjianPMB() == null && pa.getJadwalUjianPSB() == null);
+			masukAnggapHadirPengumpul.setTooltiptext("Tandai semua mahasiswa yang MENGUMPULKAN tugas ini sebagai HADIR di kelas");
+			masukAnggapHadirPengumpul.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					TugasMandiriHelper.uploadTugasDiangapHadir(tugas, pa, new EventListener() {
+
+						@Override
+						public void onEvent(Event arg0) throws Exception {
+							new PertemuanHelper(Common.getCurrentUser().getMahasiswa(), null).display(pa,
+									new DataLoader() {
+
+										@Override
+										public void loadData(Object value) {
+											try {
+												reloadTugasFileContent();
+											} catch (Exception e) {
+												e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/TugasMandiriHelper.java:3055");
+											}
+										}
+									}, 0);
+						}
+					});
+
+				}
+			});
+			masukAnggapHadirPengumpul.setParent(vbox);
+
+			MyToolbarbutton masukAnggapHadirPengakses = new MyToolbarbutton("fa-check", "Anggap Hadir (Pengakses Tugas)");
+			masukAnggapHadirPengakses.setVisible(tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
+					&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null
+					&& tbmuser.getCalonSiswa() == null && tbmuser.getSiswa() == null && pa != null
+					&& pa.getJadwalUjianPMB() == null && pa.getJadwalUjianPSB() == null);
+			masukAnggapHadirPengakses.setTooltiptext("Tandai semua mahasiswa yang MENGAKSES tugas ini sebagai HADIR di kelas");
+			masukAnggapHadirPengakses.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+
+					PertemuanPunyaDiskusiHelper.aksesDianggapHadir(tugas, "tugas",
+							"Akses Tugas \"" + tugas.getJudultugas() + "\"", tugas.getMulai(), tugas.getSelesai(),
+							new EventListener() {
+
+								@Override
+								public void onEvent(Event arg0) throws Exception {
+									new PertemuanHelper(Common.getCurrentUser().getMahasiswa(), null).display(pa,
+											new DataLoader() {
+
+												@Override
+												public void loadData(Object value) {
+													try {
+														reloadTugasFileContent();
+													} catch (Exception e) {
+														e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/TugasMandiriHelper.java:3090");
+													}
+												}
+											}, 0);
+								}
+							});
+
+				}
+			});
+			masukAnggapHadirPengakses.setParent(vbox);
+
+			MyToolbarbutton anggapUpload = new MyToolbarbutton("fa-check-square-o", "Anggap Sudah Upload (Semua)");
+			anggapUpload.setVisible(tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
+					&& tbmuser.getBiodataCalonMahasiswa() == null && tbmuser.getCalonSiswa() == null
+					&& tbmuser.getPesertaKursus() == null && pa != null
+					&& pa.getJadwalUjianPMB() == null && pa.getJadwalUjianPSB() == null);
+			anggapUpload.setTooltiptext(
+					"Tandai SEMUA mahasiswa/siswa telah mengumpulkan tugas dengan file KOSONG (hanya yang belum pernah upload)");
+			anggapUpload.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					TugasMandiriHelper.anggapSemuaSudahUpload(tugas, pa, new EventListener() {
+						@Override
+						public void onEvent(Event arg0) throws Exception {
+							reloadTugasFileContent();
+						}
+					});
+				}
+			});
+			anggapUpload.setParent(vbox);
+
+			column = new MyColumnConfig();
+			column.setParent(columns);
+			column.appendChild(hboxPencarian);
+
+			column = new MyColumnConfig();
+			column.setParent(columns);
+			column.setLabel("Tgl dan waktu");
+			column.setWidth(mobile ? "0%" : "15%");
+
+			// Kolom tunggal "Nilai & Keterangan" \u2014 menggantikan kolom CPMK per-kolom.
+			column = new MyColumnConfig();
+			column.setParent(columns);
+			column.setLabel("Nilai & Keterangan");
+			column.setWidth(mobile ? "40%" : "30%");
+
+			// Paksa reinit cache saat pertama buka: memastikan entry "Dianggap mengumpulkan"
+			// (ID lebih tinggi, dibuat belakangan) ikut termuat meski cold-start setelah restart.
+			tugas.belum("tugas_file_content_" + tugas.getClass().getName());
+			reloadTugasFileContent();
+
+			MyToolbarbutton buttonRefreshSyarat = new MyToolbarbutton("fa-refresh", "Refresh Syarat");
+
+			buttonRefreshSyarat.setParent(row);
+
+			if (tbmuser != null && mahasiswa == null && biodataCalonMahasiswa == null
+					&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null && tbmuser.getSiswa() == null
+					&& tbmuser.getCalonSiswa() == null) {
+				Tugas.tampilanSyarat(pa, tugas, null, null, null, null, rows, syaratAlert, buttonRefreshSyarat);
+			} else {
+				Tugas.tampilanSyaratReadonly(pa, tugas, null, null, null, null, rows, syaratAlert, buttonRefreshSyarat);
+
+				Tugas.tampilanLain(pa, tugas, null, null, null, null, rows, buttonRefreshSyarat);
+			}
+		}
+	}
+
+	/**
+	 * Memuat ulang konten grid daftar berkas tugas yang sudah dikumpulkan (tanpa paksa refresh cache).
+	 * Alias untuk {@link #reloadTugasFileContent(boolean)} dengan nilai {@code refresh = false}.
+	 *
+	 * @throws Exception jika terjadi kesalahan saat mengambil data dari Hibernate.
+	 */
+	private void reloadTugasFileContent() throws Exception {
+		boolean refresh = false;
+		reloadTugasFileContent(refresh);
+	}
+
+	/**
+	 * Memuat ulang konten {@link #uploadTugasGrid} dengan data terbaru dari
+	 * {@link Tugas#ambilTugasFileContentTotal}.
+	 *
+	 * <p>Metode ini menyetel {@link ListModel} pada grid, menentukan RowRenderer yang sesuai
+	 * (OBE vs non-OBE), dan bila pengguna adalah mahasiswa/siswa menampilkan kartu status
+	 * pengumpulan di North region. Bila tugas belum memiliki judul (judultugas kosong),
+	 * metode ini langsung return tanpa melakukan apapun.</p>
+	 *
+	 * @param refresh bila {@code true}, paksa invalidasi cache TugasFileContent sebelum reload.
+	 * @throws Exception jika terjadi kesalahan saat mengambil data dari Hibernate.
+	 */
+	private void reloadTugasFileContent(boolean refresh) throws Exception {
+
+		if (uploadTugasGrid == null || tugas.getJudultugas().isEmpty()) {
+			return;
+		}
+		tbmuser = Common.getCurrentUser();
+		tugas.currentTugasFileContent = null;
+		tugas.currentUser = tbmuser;
+		treemapData = new TreeMap<Long, TugasFileContent>();
+		TreeMap<Long, TugasFileContent> tugasFileContentsa;
+		try {
+			tugasFileContentsa = tugas.ambilTugasFileContentTotal(treemapData,
+					cari == null ? "" : cari.getValue().trim(), paging, 500, refresh);
+		} catch (Exception eLoad) {
+			// ISOLASI: 1 berkas tugas bermasalah (mis. fisik hilang/salah-baris, lihat
+			// FileFoto.ambilFile) jangan menggagalkan seluruh reload daftar file tugas
+			// mandiri; tampilkan daftar lain yang berhasil dimuat (bisa kosong).
+			eLoad.printStackTrace(); ais.common.ErrorAuditUtil.record(eLoad, "auto-audit src/ais/action/master/helper/TugasMandiriHelper.java:reloadTugasFileContent");
+			tugasFileContentsa = treemapData;
+		}
+		if (tugasFileContentsa == null) {
+			tugasFileContentsa = new TreeMap<Long, TugasFileContent>();
+		}
+		List<TugasFileContent> pertemuanFileContent = new ArrayList<TugasFileContent>(tugasFileContentsa.values());
+		Collections.sort(pertemuanFileContent);
+		if (tugas.currentTugasFileContent == null && tbmuser != null && tbmuser.getSiswa() != null) {
+			for (TugasFileContent tugasFileContent : pertemuanFileContent) {
+				if (tugasFileContent.getSiswa() != null
+						&& tbmuser.getSiswa().getId().equals(tugasFileContent.getSiswa())) {
+					tugas.currentTugasFileContent = tugasFileContent;
+					break;
+				}
+			}
+		} else if (tugas.currentTugasFileContent == null && tbmuser != null && tbmuser.getMahasiswa() != null) {
+			for (TugasFileContent tugasFileContent : pertemuanFileContent) {
+				if (tugasFileContent.getMahasiswa() != null
+						&& tbmuser.getMahasiswa().getId().equals(tugasFileContent.getMahasiswa())) {
+					tugas.currentTugasFileContent = tugasFileContent;
+					break;
+				}
+			}
+		} else if (tugas.currentTugasFileContent == null && tbmuser != null
+				&& tbmuser.getBiodataCalonMahasiswa() != null) {
+			for (TugasFileContent tugasFileContent : pertemuanFileContent) {
+				if (tugasFileContent.getBiodataCalonMahasiswa() != null && tbmuser.getBiodataCalonMahasiswa().getId()
+						.equals(tugasFileContent.getBiodataCalonMahasiswa())) {
+					tugas.currentTugasFileContent = tugasFileContent;
+					break;
+				}
+			}
+		}
+
+		obeFormatNilais = new ArrayList<FormatNilai>();
+		if (perkuliahan != null && perkuliahan.getKurikulum() != null
+				&& perkuliahan.getKurikulum().apakahObe(perkuliahan.getTahunAjaran(), perkuliahan.getGanjilGenap())) {
+			Session session = HibernateUtil.currentSession();
+			List<FormatNilai> formatNilais = Common.getFormatNilais(session, perkuliahan);
+			JSONObject jsonObject = new JSONObject(tugas.getFormatNilais());
+			for (FormatNilai nilai : formatNilais) {
+				if (nilai.getStatusPertemuan() != null) {
+					if (!jsonObject.isNull(nilai.getId().toString())) {
+						obeFormatNilais.add(nilai);
+					}
+				}
+			}
+		}
+		jsonObjectTugas = new JSONObject(tugas.getKeteranganNilai());
+
+		ListModel strset = new SimpleListModel(pertemuanFileContent);
+		uploadTugasGrid.setRowRenderer(new DetailTugasFileContentRenderer(obeFormatNilais));
+		uploadTugasGrid.setModel(strset);
+
+		if ((mahasiswa != null || biodataCalonMahasiswa != null
+				|| (tbmuser != null && tbmuser.getPesertaKursus() != null)
+				|| (tbmuser != null && tbmuser.getSiswa() != null)) && tugas.currentTugasFileContent != null) {
+			TugasFileContent tugasFileContent = tugas.currentTugasFileContent;
+			North north = myborderlayoutlagi.getNorth() == null ? new North() : myborderlayoutlagi.getNorth();
+			north.setParent(myborderlayoutlagi);
+			if (north != null) {
+				Common.clear(north);
+			}
+			Groupbox groupbox = new ais.ui.util.MyGroupboxStyled();
+			groupbox.setParent(north);
+			groupbox.appendChild(ais.ui.util.DashboardUiKit.html(ais.ui.util.DashboardUiKit.headerModul("tugas",
+					"Tugas yang Anda Upload", "Berkas tugas yang sudah Anda kirim beserta tanggal dan nilainya.")));
+			Hbox hbox = new Hbox();
+			hbox.setParent(groupbox);
+			try {
+				displayRow(tugasFileContent, obeFormatNilais, hbox);
+			} catch (Exception e) {
+				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/TugasMandiriHelper.java:3274");
+			}
+			north.setAutoscroll(true);
+			tempelTombolUploadUtama(groupbox);
+		} else if (!tugas.getJudultugas().isEmpty() && (mahasiswa != null || biodataCalonMahasiswa != null
+				|| tbmuser.getPesertaKursus() != null || (tbmuser != null && tbmuser.getSiswa() != null) || (tbmuser != null && tbmuser.getCalonSiswa() != null))) {
+			North north = myborderlayoutlagi.getNorth() == null ? new North() : myborderlayoutlagi.getNorth();
+			north.setParent(myborderlayoutlagi);
+			north.setHeight("220px");
+			north.setAutoscroll(true);
+			if (north != null) {
+				Common.clear(north);
+			}
+			Groupbox groupbox = new ais.ui.util.MyGroupboxStyled();
+			groupbox.setParent(north);
+			groupbox.appendChild(ais.ui.util.DashboardUiKit.html(ais.ui.util.DashboardUiKit.headerModul("tugas",
+					"Tugas yang Anda Upload",
+					"Status pengiriman tugas Anda. Tekan tombol Upload Tugas untuk mengirim berkas.")));
+			groupbox.appendChild(
+					new MyLabelBold("Anda belum mengumpulkan / meng-upload \"" + tugas.getJudultugas() + "\""));
+			tempelTombolUploadUtama(groupbox);
+		}
+		tugasFileContentsa.clear();
+		tugasFileContentsa = null;
+		pertemuanFileContent.clear();
+		pertemuanFileContent = null;
+
+	}
+
+	/**
+	 * Tombol utama "Upload Tugas" untuk siswa/mahasiswa: ditaruh langsung di kartu status
+	 * (tempat siswa membaca statusnya) supaya jelas, besar, mudah disentuh, dan tidak
+	 * pernah tertutup toolbar. Memakai ulang tombol {@code upload} yang sudah ada sehingga
+	 * aturan tampil (jadwal/boleh upload ulang) dan aksi klik tetap berlaku.
+	 */
+	private void tempelTombolUploadUtama(Groupbox groupbox) {
+		if (upload == null || groupbox == null) {
+			return;
+		}
+		org.zkoss.zul.Div aksi = new org.zkoss.zul.Div();
+		aksi.setSclass("ais-upload-cta-wrap");
+		aksi.setParent(groupbox);
+		upload.setParent(aksi);
+		upload.setOrient("horizontal");
+		String sc = upload.getSclass();
+		sc = (sc == null || sc.trim().length() == 0) ? "" : sc.trim() + " ";
+		if (sc.indexOf("ais-upload-tugas-cta") < 0) {
+			upload.setSclass(sc + "ais-upload-tugas-cta ais-tbar-icon-white");
+		}
+	}
+
+	private JSONObject jsonObjectTugas;
+	private List<FormatNilai> obeFormatNilais = new ArrayList<FormatNilai>();
+
+	// Foto profil dikunci min-height:70px (inline, di ProfileImageUtil) sehingga baris kartu
+	// "Telah upload" jadi tinggi & jaraknya tampak melebar. Untuk kartu ini foto dikecilkan
+	// ~46px supaya baris rapat (CSS tetap menjaga isi menumpuk di atas).
+	private static org.zkoss.zul.A fotoKartuUpload(ais.database.model.GeneralValueObject obj) throws Exception {
+		org.zkoss.zul.A a = CommonMedia.tampilkanGambarKecil(obj);
+		try {
+			if (a != null && a.getFirstChild() instanceof org.zkoss.zul.Image) {
+				org.zkoss.zul.Image img = (org.zkoss.zul.Image) a.getFirstChild();
+				img.setHeight("46px");
+				img.setSclass("ais-tugas-avatar-img");
+				img.setStyle("width:46px !important;height:46px !important;max-width:46px !important;"
+						+ "min-width:36px !important;min-height:0 !important;object-fit:cover !important;"
+						+ "border-radius:12px !important;box-shadow:0 1px 4px rgba(0,0,0,.18) !important;"
+						+ "border:2px solid #fff !important;");
+			}
+		} catch (Exception ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/helper/TugasMandiriHelper.java:3342");
+		}
+		return a;
+	}
+
+	/**
+	 * Rapikan baris kontak (HP/Email) hasil {@code tampilkanHp()}/{@code tampilkanEmail()}.
+	 *
+	 * <p>Metode {@code tampilkanHp}/{@code tampilkanEmail} pada entitas SELALU membuat sebuah tombol
+	 * meski nilai HP/Email kosong. Karena CSS {@code .ais-tugas-contact-row} menata setiap tombol
+	 * menjadi "pil", tombol kosong ikut tampil sebagai <b>pil abu-abu kosong</b> yang mengotori baris
+	 * kontak (lihat peserta tanpa email pada layar Tugas). Method ini membuang chip kosong
+	 * (Toolbarbutton/A/Label tanpa teks); bila SEMUA kontak kosong, barisnya disembunyikan agar tidak
+	 * menyisakan ruang kosong.</p>
+	 *
+	 * @param barisKontak kontainer chip kontak (Div) yang akan dirapikan.
+	 */
+	private static void rapikanBarisKontak(Component barisKontak) {
+		if (barisKontak == null) {
+			return;
+		}
+		try {
+			java.util.List<Component> anak = new java.util.ArrayList<Component>(barisKontak.getChildren());
+			for (Component c : anak) {
+				String teks = null;
+				if (c instanceof Toolbarbutton) {
+					teks = ((Toolbarbutton) c).getLabel();
+				} else if (c instanceof org.zkoss.zul.A) {
+					teks = ((org.zkoss.zul.A) c).getLabel();
+				} else if (c instanceof Label) {
+					teks = ((Label) c).getValue();
+				}
+				if (teks == null || teks.trim().isEmpty()) {
+					c.detach();
+				}
+			}
+			if (barisKontak.getChildren().isEmpty() && barisKontak instanceof org.zkoss.zk.ui.HtmlBasedComponent) {
+				((org.zkoss.zk.ui.HtmlBasedComponent) barisKontak).setVisible(false);
+			}
+		} catch (Exception e) {
+			ais.common.Common.tampilErrorJikaAdmin(e);
+		}
+	}
+
+	private void displayRow(final TugasFileContent tugasFileContent, List<FormatNilai> obeFormatNilais, Component arg0)
+			throws Exception {
+
+		Mahasiswa mahasiswa = (Mahasiswa) (tugasFileContent.getMahasiswa() == null ? null
+				: ConstantValues.ambil(Mahasiswa.class.getName(), tugasFileContent.getMahasiswa()));
+		Siswa siswa = (Siswa) (tugasFileContent.getSiswa() == null ? null
+				: ConstantValues.ambil(Siswa.class.getName(), tugasFileContent.getSiswa()));
+
+		String namaFile = tugasFileContent.getNama();
+		Vbox a = new Vbox();
+		if (siswa != null) {
+			Hbox ahbox = new Hbox();
+			ahbox.setStyle("gap:6px;align-items:flex-start;");
+			tugasFileContent.ubahRealNameSesuaiDenganNIM(siswa);
+
+			namaFile = tugasFileContent.ambilRealNameSesuaiDenganNIM(siswa);
+
+			ahbox.setParent(arg0);
+			fotoKartuUpload(siswa).setParent(ahbox);
+
+			a.setParent(ahbox);
+			Label namaLblS = new Label(siswa.getNomorInduk() + " / " + siswa.getNama());
+			namaLblS.setSclass("ais-tugas-upload-nama");
+			namaLblS.setParent(a);
+			org.zkoss.zul.Div contactRowS = new org.zkoss.zul.Div();
+			contactRowS.setSclass("ais-tugas-contact-row");
+			contactRowS.setParent(a);
+			siswa.tampilkanHp(contactRowS);
+			siswa.tampilkanEmail(contactRowS);
+			rapikanBarisKontak(contactRowS);
+
+		} else if (mahasiswa != null) {
+			Hbox ahbox = new Hbox();
+			ahbox.setStyle("gap:6px;align-items:flex-start;");
+			tugasFileContent.ubahRealNameSesuaiDenganNIM(mahasiswa);
+
+			namaFile = tugasFileContent.ambilRealNameSesuaiDenganNIM(mahasiswa);
+
+			ahbox.setParent(arg0);
+			fotoKartuUpload(mahasiswa).setParent(ahbox);
+
+			a.setParent(ahbox);
+			Label namaLblM = new Label(mahasiswa.getNim() + " / " + mahasiswa.getNama());
+			namaLblM.setSclass("ais-tugas-upload-nama");
+			namaLblM.setParent(a);
+
+			if (TugasMandiriHelper.this.mahasiswa == null) {
+				org.zkoss.zul.Div contactRowM = new org.zkoss.zul.Div();
+				contactRowM.setSclass("ais-tugas-contact-row");
+				contactRowM.setParent(a);
+				mahasiswa.tampilkanHp(contactRowM);
+				mahasiswa.tampilkanEmail(contactRowM);
+				rapikanBarisKontak(contactRowM);
+			}
+		} else {
+			BiodataCalonMahasiswa biodataCalonMahasiswa = (BiodataCalonMahasiswa) ConstantValues
+					.ambil(BiodataCalonMahasiswa.class.getName(), tugasFileContent.getBiodataCalonMahasiswa());
+
+			namaFile = tugasFileContent.ambilRealNameSesuaiDenganNIM(biodataCalonMahasiswa);
+			tugasFileContent.ubahRealNameSesuaiDenganNIM(biodataCalonMahasiswa);
+
+			Hbox ahbox = new Hbox();
+			ahbox.setStyle("gap:6px;align-items:flex-start;");
+			ahbox.setParent(arg0);
+			fotoKartuUpload(biodataCalonMahasiswa).setParent(ahbox);
+
+			a = new Vbox();
+			a.setParent(ahbox);
+			Label namaLblC = new Label((biodataCalonMahasiswa == null ? "" : biodataCalonMahasiswa.getNoRegistrasi())
+					+ (biodataCalonMahasiswa == null || biodataCalonMahasiswa.getNama() == null ? ""
+							: " / " + biodataCalonMahasiswa.getNama()));
+			namaLblC.setSclass("ais-tugas-upload-nama");
+			namaLblC.setParent(a);
+			if (biodataCalonMahasiswa != null) {
+				org.zkoss.zul.Div contactRowC = new org.zkoss.zul.Div();
+				contactRowC.setSclass("ais-tugas-contact-row");
+				contactRowC.setParent(a);
+				biodataCalonMahasiswa.tampilkanHp(contactRowC);
+				biodataCalonMahasiswa.tampilkanEmail(contactRowC);
+				rapikanBarisKontak(contactRowC);
+			}
+		}
+
+		new Label(tugasFileContent.getUploadDate() == null ? ""
+				: SmartDateTimeUtil.getDayString(tugasFileContent.getUploadDate(), null)
+						+ Common.dateFormat.get().format(tugasFileContent.getUploadDate()))
+				.setParent(arg0);
+		// "Tidak perlu ikut tugas": bila mahasiswa PEMILIK file ini ditandai tidak perlu ikut
+		// (tugas.mhsYgTidakIkut), JANGAN tampilkan isian keterangan & input nilai — cukup
+		// informasi bahwa ybs tidak perlu mengumpulkan/upload tugas ini (juga berlaku bila
+		// dicentang SETELAH mahasiswa terlanjur upload).
+		final Long idPemilikTfc = tugasFileContent.getMahasiswa() != null ? tugasFileContent.getMahasiswa()
+				: tugasFileContent.getSiswa() != null ? tugasFileContent.getSiswa()
+						: tugasFileContent.getBiodataCalonMahasiswa() != null ? tugasFileContent.getBiodataCalonMahasiswa()
+								: tugasFileContent.getCalonSiswa();
+		final boolean tidakPerluIkutTfc = idPemilikTfc != null && tugas != null && tugas.getMhsYgTidakIkut() != null
+				&& tugas.getMhsYgTidakIkut().contains("," + idPemilikTfc + ",");
+
+		// === Kolom tunggal: ringkasan nilai + tombol Edit popup ===
+		final String namaPopup = namaFile;
+		final String keyTfc;
+		if (tugasFileContent.getMahasiswa() != null) {
+			keyTfc = tugasFileContent.getMahasiswa() + "_mhs";
+		} else if (tugasFileContent.getSiswa() != null) {
+			keyTfc = tugasFileContent.getSiswa() + "_siswa";
+		} else if (tugasFileContent.getBiodataCalonMahasiswa() != null) {
+			keyTfc = tugasFileContent.getBiodataCalonMahasiswa() + "_cal_mhs";
+		} else if (tugasFileContent.getCalonSiswa() != null) {
+			keyTfc = tugasFileContent.getCalonSiswa() + "_cal_siswa";
+		} else {
+			keyTfc = "";
+		}
+
+		final org.zkoss.zul.Vbox nilaiKetCell = new org.zkoss.zul.Vbox();
+		nilaiKetCell.setStyle("width:100%;gap:2px;");
+		nilaiKetCell.setParent(arg0);
+
+		if (tidakPerluIkutTfc) {
+			Label infoTidakIkutTfc = new Label(
+					ais.common.Common.getBahasaConfig("Mahasiswa ini tidak perlu mengumpulkan tugas ini, sehingga tidak perlu dinilai."));
+			infoTidakIkutTfc.setStyle("color:#b91c1c;font-weight:bold;");
+			infoTidakIkutTfc.setParent(nilaiKetCell);
+		} else if (!peserta) {
+			// --- Ringkasan nilai (read-only, diperbarui setelah Simpan di popup) ---
+			final org.zkoss.zul.Vbox summaryVbox = new org.zkoss.zul.Vbox();
+			summaryVbox.setStyle("gap:1px;");
+			summaryVbox.setParent(nilaiKetCell);
+
+			String ketSummary = (!keyTfc.isEmpty() && !TugasMandiriHelper.this.jsonObjectTugas.isNull(keyTfc + "_ket"))
+					? TugasMandiriHelper.this.jsonObjectTugas.getString(keyTfc + "_ket")
+					: (tugasFileContent.getKeterangan() == null ? "" : tugasFileContent.getKeterangan());
+			if (ketSummary != null && !ketSummary.trim().isEmpty()) {
+				Label lblKetS = new Label("Ket: " + ketSummary);
+				lblKetS.setStyle("color:#555;font-size:11px;white-space:normal;");
+				lblKetS.setParent(summaryVbox);
+			}
+			if (!TugasMandiriHelper.this.obeFormatNilais.isEmpty()) {
+				for (FormatNilai fnS : TugasMandiriHelper.this.obeFormatNilais) {
+					double nS = (!keyTfc.isEmpty() && !TugasMandiriHelper.this.jsonObjectTugas.isNull(keyTfc + "_nilai_" + fnS.getId()))
+							? TugasMandiriHelper.this.jsonObjectTugas.getDouble(keyTfc + "_nilai_" + fnS.getId()) : 0.0;
+					String fnNamaS = fnS.getNama() != null ? fnS.getNama() : ("CPMK " + fnS.getId());
+					Label lblNS = new Label(fnNamaS + ": " + (nS > 0.0 ? Common.numberFormat.get().format(nS) : "-"));
+					lblNS.setStyle("font-size:11px;");
+					lblNS.setParent(summaryVbox);
+				}
+			} else {
+				double nS = (!keyTfc.isEmpty() && !TugasMandiriHelper.this.jsonObjectTugas.isNull(keyTfc + "_nilai"))
+						? TugasMandiriHelper.this.jsonObjectTugas.getDouble(keyTfc + "_nilai") : tugasFileContent.getNilai();
+				Label lblNS = new Label("Nilai: " + (nS > 0.0 ? Common.numberFormat.get().format(nS) : "-"));
+				lblNS.setStyle("font-size:11px;");
+				lblNS.setParent(summaryVbox);
+			}
+
+			// --- Tombol Edit: buka popup entry nilai ---
+			MyToolbarbutton btnEditNilai = new MyToolbarbutton("fa-pencil", "Edit Nilai");
+			btnEditNilai.setStyle("margin-top:2px;");
+			btnEditNilai.setParent(nilaiKetCell);
+			btnEditNilai.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event evEdit) throws Exception {
+					final org.zkoss.zul.Window popupW = new org.zkoss.zul.Window();
+					popupW.setTitle("Entry Nilai \u2014 " + namaPopup);
+					popupW.setWidth("480px");
+					popupW.setClosable(true);
+					popupW.setBorder("normal");
+					popupW.setPage(evEdit.getTarget().getPage());
+
+					org.zkoss.zul.Vbox popupContent = new org.zkoss.zul.Vbox();
+					popupContent.setStyle("padding:8px;gap:6px;width:100%;");
+					popupContent.setParent(popupW);
+
+					Label lblKetTitle = new Label("Keterangan:");
+					lblKetTitle.setStyle("font-weight:bold;");
+					lblKetTitle.setParent(popupContent);
+					String ketCurrent = (!keyTfc.isEmpty() && !TugasMandiriHelper.this.jsonObjectTugas.isNull(keyTfc + "_ket"))
+							? TugasMandiriHelper.this.jsonObjectTugas.getString(keyTfc + "_ket")
+							: (tugasFileContent.getKeterangan() == null ? "" : tugasFileContent.getKeterangan());
+					final Textbox popupKet = new Textbox(ketCurrent);
+					popupKet.setRows(2);
+					popupKet.setWidth("100%");
+					popupKet.setMaxlength(255);
+					popupKet.setParent(popupContent);
+
+					Label lblNilaiTitle = new Label("Nilai:");
+					lblNilaiTitle.setStyle("font-weight:bold;margin-top:4px;");
+					lblNilaiTitle.setParent(popupContent);
+
+					final java.util.ArrayList<MyDoublebox> popupNilaiBoxes = new java.util.ArrayList<MyDoublebox>();
+					if (!TugasMandiriHelper.this.obeFormatNilais.isEmpty()) {
+						for (FormatNilai fnP : TugasMandiriHelper.this.obeFormatNilais) {
+							Hbox rowFnP = new Hbox();
+							rowFnP.setStyle("align-items:center;gap:6px;");
+							rowFnP.setParent(popupContent);
+							String fnNamaP = fnP.getNama() != null ? fnP.getNama() : ("CPMK " + fnP.getId());
+							Label lblFnP = new Label(fnNamaP + ":");
+							lblFnP.setStyle("min-width:120px;font-size:12px;");
+							lblFnP.setParent(rowFnP);
+							double nP = (!keyTfc.isEmpty() && !TugasMandiriHelper.this.jsonObjectTugas.isNull(keyTfc + "_nilai_" + fnP.getId()))
+									? TugasMandiriHelper.this.jsonObjectTugas.getDouble(keyTfc + "_nilai_" + fnP.getId()) : 0.0;
+							MyDoublebox nilaiBoxP = new MyDoublebox(nP);
+							ais.ui.util.UIUtil.gayaInputNilai(nilaiBoxP);
+							nilaiBoxP.setParent(rowFnP);
+							popupNilaiBoxes.add(nilaiBoxP);
+						}
+					} else {
+						double nP = (!keyTfc.isEmpty() && !TugasMandiriHelper.this.jsonObjectTugas.isNull(keyTfc + "_nilai"))
+								? TugasMandiriHelper.this.jsonObjectTugas.getDouble(keyTfc + "_nilai") : tugasFileContent.getNilai();
+						MyDoublebox nilaiBoxP = new MyDoublebox(nP);
+						ais.ui.util.UIUtil.gayaInputNilai(nilaiBoxP);
+						nilaiBoxP.setParent(popupContent);
+						popupNilaiBoxes.add(nilaiBoxP);
+					}
+
+					Hbox btnRowP = new Hbox();
+					btnRowP.setStyle("margin-top:8px;justify-content:flex-end;gap:8px;");
+					btnRowP.setParent(popupContent);
+					final org.zkoss.zul.Label lblSimpanStatus = new org.zkoss.zul.Label("");
+					lblSimpanStatus.setParent(btnRowP);
+					org.zkoss.zul.Button btnSimpan = new org.zkoss.zul.Button("Simpan");
+					btnSimpan.setSclass("btn btn-primary btn-sm");
+					btnSimpan.setParent(btnRowP);
+					btnSimpan.addEventListener("onClick", new EventListener() {
+						@Override
+						public void onEvent(Event evSimpan) throws Exception {
+							String ketNew = popupKet.getValue() == null ? "" : popupKet.getValue().trim();
+							if (!keyTfc.isEmpty()) {
+								TugasMandiriHelper.this.jsonObjectTugas.put(keyTfc + "_ket", ketNew);
+							}
+							if (!TugasMandiriHelper.this.obeFormatNilais.isEmpty()) {
+								for (int idxP = 0; idxP < TugasMandiriHelper.this.obeFormatNilais.size(); idxP++) {
+									FormatNilai fnSv = TugasMandiriHelper.this.obeFormatNilais.get(idxP);
+									Double nvSv = popupNilaiBoxes.get(idxP).getValue();
+									if (!keyTfc.isEmpty()) {
+										TugasMandiriHelper.this.jsonObjectTugas.put(keyTfc + "_nilai_" + fnSv.getId(), nvSv);
+									}
+								}
+							} else if (!popupNilaiBoxes.isEmpty()) {
+								Double nvSv = popupNilaiBoxes.get(0).getValue();
+								if (!keyTfc.isEmpty()) {
+									TugasMandiriHelper.this.jsonObjectTugas.put(keyTfc + "_nilai", nvSv);
+								}
+							}
+							try {
+								org.hibernate.Session sSave = HibernateUtil.currentSession();
+								sSave.refresh(TugasMandiriHelper.this.tugas);
+								TugasMandiriHelper.this.tugas.belum("tugas_file_content_" + TugasMandiriHelper.this.tugas.getClass().getName());
+								TugasMandiriHelper.this.tugas.setKeteranganNilai(TugasMandiriHelper.this.jsonObjectTugas.toString());
+								Common.refreshUpdate(sSave, TugasMandiriHelper.this.tugas);
+								while (summaryVbox.getFirstChild() != null) {
+									summaryVbox.getFirstChild().detach();
+								}
+								if (ketNew != null && !ketNew.isEmpty()) {
+									Label lblKetUpd = new Label("Ket: " + ketNew);
+									lblKetUpd.setStyle("color:#555;font-size:11px;white-space:normal;");
+									lblKetUpd.setParent(summaryVbox);
+								}
+								if (!TugasMandiriHelper.this.obeFormatNilais.isEmpty()) {
+									for (int idxU = 0; idxU < TugasMandiriHelper.this.obeFormatNilais.size(); idxU++) {
+										FormatNilai fnU = TugasMandiriHelper.this.obeFormatNilais.get(idxU);
+										Double nvU = popupNilaiBoxes.get(idxU).getValue();
+										String fnNamaU = fnU.getNama() != null ? fnU.getNama() : ("CPMK " + fnU.getId());
+										Label lblNUpd = new Label(fnNamaU + ": " + (nvU != null && nvU > 0.0 ? Common.numberFormat.get().format(nvU) : "-"));
+										lblNUpd.setStyle("font-size:11px;");
+										lblNUpd.setParent(summaryVbox);
+									}
+								} else if (!popupNilaiBoxes.isEmpty()) {
+									Double nvU = popupNilaiBoxes.get(0).getValue();
+									Label lblNUpd = new Label("Nilai: " + (nvU != null && nvU > 0.0 ? Common.numberFormat.get().format(nvU) : "-"));
+									lblNUpd.setStyle("font-size:11px;");
+									lblNUpd.setParent(summaryVbox);
+								}
+								popupW.detach();
+							} catch (Exception eSave) {
+								lblSimpanStatus.setValue("Gagal: " + eSave.getMessage());
+								lblSimpanStatus.setStyle("color:red;font-size:11px;");
+								ais.common.ErrorAuditUtil.record(eSave, "TugasMandiriHelper popup Simpan");
+							}
+						}
+					});
+					popupW.doModal();
+				}
+			});
+		} else if (!tidakPerluIkutTfc) {
+			// Peserta: tampilkan nilai diri sendiri saja (read-only)
+			if (tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
+					&& tbmuser.getBiodataCalonMahasiswa() == null && tbmuser.getCalonSiswa() == null
+					|| (tbmuser != null && tbmuser.getMahasiswa() != null
+							&& tbmuser.getMahasiswa().getId().equals(tugasFileContent.getMahasiswa()))) {
+
+				if (!TugasMandiriHelper.this.obeFormatNilais.isEmpty()) {
+					for (FormatNilai formatNilaiR : TugasMandiriHelper.this.obeFormatNilais) {
+						double nR = (!keyTfc.isEmpty() && !TugasMandiriHelper.this.jsonObjectTugas.isNull(keyTfc + "_nilai_" + formatNilaiR.getId()))
+								? TugasMandiriHelper.this.jsonObjectTugas.getDouble(keyTfc + "_nilai_" + formatNilaiR.getId()) : 0.0;
+						String fnNamaR = formatNilaiR.getNama() != null ? formatNilaiR.getNama() : ("CPMK " + formatNilaiR.getId());
+						new MyLabelAgakKecilBold(nR > 0.1
+								? fnNamaR + " : " + Common.numberFormat.get().format(nR) + "; "
+								: fnNamaR + " belum di-input; ").setParent(nilaiKetCell);
+					}
+				} else {
+					double nilaiLabelR = (!keyTfc.isEmpty() && !TugasMandiriHelper.this.jsonObjectTugas.isNull(keyTfc + "_nilai"))
+							? TugasMandiriHelper.this.jsonObjectTugas.getDouble(keyTfc + "_nilai") : tugasFileContent.getNilai();
+					new MyLabelAgakKecilBold(nilaiLabelR > 0.1
+							? "Nilai : " + Common.numberFormat.get().format(nilaiLabelR)
+							: "Nilai belum di-input").setParent(nilaiKetCell);
+				}
+			}
+		}
+
+		MyHboxToolbar hbox = new MyHboxToolbar();
+		hbox.setSclass("ais-tugas-file-row");
+
+		hbox.setVisible(mahasiswa == null || mahasiswa.getId().equals(tugasFileContent.getMahasiswa()));
+
+		hbox.setParent(a);
+
+		Toolbarbutton downloadButton = new ais.ui.util.MyToolbarbuttonConfig(namaFile,
+				MyMenuitem.svgIcon(namaFile, FileFoto.icon(namaFile)));
+
+		downloadButton.setStyle("font-size:10px;");
+
+		downloadButton.setVisible(tbmuser != null && (
+
+		(tbmuser.getMahasiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null && tbmuser.getSiswa() == null
+				&& tbmuser.getCalonSiswa() == null) ||
+
+				(
+
+				(tbmuser.getMahasiswa() != null
+						&& tbmuser.getMahasiswa().getId().equals(tugasFileContent.getMahasiswa()))
+
+						|| (tbmuser.getSiswa() != null
+								&& tbmuser.getSiswa().getId().equals(tugasFileContent.getSiswa()))
+
+						|| (tbmuser.getBiodataCalonMahasiswa() != null && tbmuser.getBiodataCalonMahasiswa().getId()
+								.equals(tugasFileContent.getBiodataCalonMahasiswa()))
+
+						|| (tbmuser.getCalonSiswa() != null
+								&& tbmuser.getCalonSiswa().getId().equals(tugasFileContent.getCalonSiswa()))
+
+				)
+
+		));
+
+		downloadButton.setTooltiptext("Lihat / Download \"" + tugasFileContent.getNama() + "\"");
+		hbox.appendChild(downloadButton);
+		downloadButton.addEventListener("onClick", new EventListener() {
+
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+
+				if (tugasFileContent.getGdrive() != null) {
+					tugasFileContent.tampilGDrive(null);
+				} else {
+
+					String link = tugasFileContent == null ? null
+							: (tugasFileContent.getLink() == null || tugasFileContent.getLink().isEmpty() ? null
+									: tugasFileContent.getLink());
+
+					if (tugasFileContent != null
+							&& (link == null || link.trim().isEmpty() || !link.startsWith("http"))) {
+						link = tugasFileContent.createLinkUri();
+						if (link != null) {
+							// link = link.replaceAll("download=false", "download=true");
+						}
+					}
+
+					if (tugasFileContent != null && link != null && !link.trim().isEmpty()) {
+
+						if (tugasFileContent.bisaPreview()) {
+							Common.displayWindow(tugasFileContent.merupakanGambar(), link, true, "95%", "95%",
+									!tugasFileContent.getNama().toLowerCase().endsWith(".txt"), tugasFileContent);
+						} else {
+							ExecutionsCtrl.getCurrent().sendRedirect(link, "_blank");
+						}
+					} else {
+						MyMessageboxConfig.show("Mohon maaf, berkas yang Bapak/Ibu akses tidak ditemukan. Langkah yang dapat dilakukan: (1) muat ulang halaman dan coba kembali; (2) pastikan berkas masih tersedia dan belum dihapus; (3) apabila kendala berlanjut, mohon menghubungi Administrator sistem.", "Peringatan", MyMessageboxConfig.OK,
+								MyMessageboxConfig.EXCLAMATION);
+					}
+				}
+			}
+		});
+
+	}
+
+	class DetailTugasFileContentRenderer extends ais.ui.util.MyRowRenderer {
+
+		private List<FormatNilai> obeFormatNilais;
+
+		public DetailTugasFileContentRenderer(List<FormatNilai> obeFormatNilais) {
+			this.obeFormatNilais = obeFormatNilais;
+		}
+
+		@Override
+		public void render(final Row arg0, Object arg1) throws Exception {
+			arg0.setValign("top");
+			TugasFileContent tugasFileContent = (TugasFileContent) arg1;
+			// Indikator warna: hijau = sudah dinilai (nilai > 0), merah = belum dinilai.
+			// Ditampilkan hanya untuk pengelola (bukan peserta/mahasiswa).
+			if (!peserta) {
+				boolean sudahDinilai = tugasFileContent.getNilai() != null && tugasFileContent.getNilai() > 0.1;
+				arg0.setSclass("ais-tugas-upload-row");
+				arg0.setStyle(sudahDinilai
+						? "border-left:4px solid #16a34a;"
+						: "border-left:4px solid #dc2626;");
+			} else {
+				arg0.setSclass("ais-tugas-upload-row");
+			}
+			displayRow(tugasFileContent, obeFormatNilais, arg0);
+		}
+	}
+
+	/**
+	 * Menandai semua mahasiswa yang TIDAK ikut diskusi pada pertemuan tertentu sebagai alpa/mangkir.
+	 *
+	 * <p>Menampilkan dialog konfirmasi terlebih dahulu. Setelah dikonfirmasi, iterasi seluruh
+	 * mahasiswa peserta pertemuan; yang tidak ada di {@code diskusis} akan di-set absensi
+	 * {@code TIDAK_ADA_ALASAN} dengan keterangan "Tidak ikut diskusi di pertemuan". Setelah
+	 * selesai, memanggil {@code eventListener} untuk me-refresh tampilan.</p>
+	 *
+	 * @param diskusis      map id mahasiswa ke daftar id diskusi yang diikuti; mahasiswa yang
+	 *                      tidak ada di map ini dianggap tidak ikut diskusi.
+	 * @param pa            pertemuan yang menjadi konteks absensi.
+	 * @param eventListener callback dipanggil setelah proses selesai.
+	 * @throws Exception jika terjadi kesalahan DB atau ZK.
+	 */
+	public static void tidakIkutDiskusiDiangapTidakHadir(final java.util.Map<String, List<Long>> diskusis,
+			final Pertemuan pa, final EventListener eventListener) throws Exception {
+		MyMessageboxConfig.showFormatCb(
+				"Apakah Bapak/Ibu yakin semua mahasiswa yang tidak mengikuti diskusi pada pertemuan \"{V1}\" akan dianggap alpa atau mangkir pada kelas ini?",
+
+				"Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
+				new EventListener() {
+
+					@Override
+					public void onEvent(Event event) throws Exception {
+						int i = Integer.parseInt(event.getData().toString());
+						if (i == MyMessageboxConfig.OK) {
+							Common.createDefaultTimer(new EventListener() {
+
+								@Override
+								public void onEvent(Event arg0) throws Exception {
+									Session session = HibernateUtil.currentSession();
+									if (pa.getId() != null) {
+										session.refresh(pa);
+									}
+
+									List<Mahasiswa> mahasiswasTemorary = pa.ambilMahasiswa();
+
+									for (Mahasiswa o : mahasiswasTemorary) {
+
+										if (diskusis != null && !diskusis.containsKey(o.getId() + "_mhs")) {
+											Long mhs = o.getId();
+
+											Statusabsensi statusabsensi = ConstantValues.TIDAK_ADA_ALASAN;
+
+											String mulai = pa.retreiveAbsensiMulai(mhs);
+											String sampai = pa.retreiveAbsensiSampai(mhs);
+											if (mulai == null || mulai.trim().isEmpty()) {
+												mulai = pa.getWaktuMulai();
+											}
+											if (sampai == null || sampai.trim().isEmpty()) {
+												sampai = pa.getWaktuSelesai();
+											}
+
+											pa.populate(mhs, statusabsensi,
+													"Tidak ikut diskusi di pertemuan \"" + pa.info() + "\"", null,
+													mulai, sampai, "Mahasiswa");
+
+										}
+
+									}
+
+									Common.refreshUpdate(session, pa);
+
+									Common.createDefaultTimer(eventListener);
+
+								}
+							});
+
+						}
+
+					}
+				}, pa.info());
+	}
+
+	/**
+	 * Menandai semua mahasiswa yang TIDAK mengakses pertemuan sebagai alpa/mangkir.
+	 *
+	 * <p>Menampilkan dialog konfirmasi. Setelah dikonfirmasi, iterasi seluruh mahasiswa peserta;
+	 * yang belum pernah membuka halaman pertemuan (ambilData "akses" kosong) akan di-set
+	 * absensi {@code TIDAK_ADA_ALASAN} dengan keterangan sesuai. Setelah selesai memanggil
+	 * {@code eventListener} untuk me-refresh tampilan absensi.</p>
+	 *
+	 * @param pa            pertemuan yang menjadi konteks absensi.
+	 * @param eventListener callback dipanggil setelah proses selesai.
+	 * @throws Exception jika terjadi kesalahan DB atau ZK.
+	 */
+	public static void tidakAksesDiangapTidakHadir(final Pertemuan pa, final EventListener eventListener)
+			throws Exception {
+		MyMessageboxConfig.showFormatCb(
+				"Apakah Bapak/Ibu yakin semua mahasiswa yang tidak mengakses pertemuan \"{V1}\" akan dianggap alpa atau mangkir pada kelas ini?",
+
+				"Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
+				new EventListener() {
+
+					@Override
+					public void onEvent(Event event) throws Exception {
+						int i = Integer.parseInt(event.getData().toString());
+						if (i == MyMessageboxConfig.OK) {
+							Common.createDefaultTimer(new EventListener() {
+
+								@Override
+								public void onEvent(Event arg0) throws Exception {
+									Session session = HibernateUtil.currentSession();
+									if (pa.getId() != null) {
+										session.refresh(pa);
+									}
+
+									List<Mahasiswa> mahasiswasTemorary = pa.ambilMahasiswa();
+
+									for (Mahasiswa o : mahasiswasTemorary) {
+
+										TreeMap<String, String> d = pa.ambilData("akses", o.getId().toString());
+
+										if (d.isEmpty()) {
+											Long mhs = o.getId();
+
+											Statusabsensi statusabsensi = ConstantValues.TIDAK_ADA_ALASAN;
+
+											String mulai = pa.retreiveAbsensiMulai(mhs);
+											String sampai = pa.retreiveAbsensiSampai(mhs);
+											if (mulai == null || mulai.trim().isEmpty()) {
+												mulai = pa.getWaktuMulai();
+											}
+											if (sampai == null || sampai.trim().isEmpty()) {
+												sampai = pa.getWaktuSelesai();
+											}
+
+											pa.populate(mhs, statusabsensi,
+													"Tidak akses di pertemuan \"" + pa.info() + "\"", null, mulai,
+													sampai, "Mahasiswa");
+
+										}
+										d = null;
+									}
+
+									Common.refreshUpdate(session, pa);
+
+									Common.createDefaultTimer(eventListener);
+
+								}
+							});
+
+						}
+
+					}
+				}, pa.info());
+	}
+
+	/**
+	 * Menandai semua mahasiswa yang TIDAK mengumpulkan berkas tugas sebagai alpa/mangkir.
+	 *
+	 * <p>Menampilkan dialog konfirmasi terlebih dahulu. Setelah dikonfirmasi, iterasi seluruh
+	 * mahasiswa peserta perkuliahan; mahasiswa yang tidak memiliki catatan pengumpulan pada
+	 * {@code TugasFileContent} untuk tugas ini akan di-set absensi menjadi tidak hadir
+	 * (status {@code TIDAK_ADA_ALASAN}). Proses berjalan dalam transaksi Hibernate baru
+	 * yang dibuka via {@code HibernateUtil.openSession()} dan ditutup di blok {@code finally}.
+	 * Callback {@code eventListener} dipanggil setelah proses selesai untuk memperbarui
+	 * tampilan absensi di grid.</p>
+	 *
+	 * @param tugas         entitas tugas (dapat {@code Pertemuan} atau {@code TugasPertemuan}).
+	 * @param pa            pertemuan induk tempat absensi dicatat.
+	 * @param eventListener callback dipanggil setelah proses selesai.
+	 * @throws Exception jika terjadi kesalahan sesi Hibernate atau rendering ZK.
+	 */
+	public static void tidakUploadTugasDiangapTidakHadir(final Tugas tugas, final Pertemuan pa,
+			final EventListener eventListener) throws Exception {
+		MyMessageboxConfig.showFormatCb(
+				"Apakah Bapak/Ibu yakin semua mahasiswa yang tidak mengumpulkan \"{V1}\" akan dianggap alpa atau mangkir pada kelas ini?",
+
+				"Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
+				new EventListener() {
+
+					@Override
+					public void onEvent(Event event) throws Exception {
+						int i = Integer.parseInt(event.getData().toString());
+						if (i == MyMessageboxConfig.OK) {
+							Common.createDefaultTimer(new EventListener() {
+
+								@Override
+								public void onEvent(Event arg0) throws Exception {
+									Session session = HibernateUtil.currentSession();
+									if (pa.getId() != null) {
+										session.refresh(pa);
+									}
+
+									List<Mahasiswa> mahasiswasTemorary = pa.ambilMahasiswa();
+									TreeMap<Long, TugasFileContent> treemapData = tugas.ambilTugasFileContentTotal();
+									for (Mahasiswa o : mahasiswasTemorary) {
+
+										if (treemapData != null && !treemapData.containsKey(o.getId())) {
+											Long mhs = o.getId();
+											if (!tugas.getMhsYgTidakIkut().contains("," + mhs + ",")) {
+												Statusabsensi statusabsensi = ConstantValues.TIDAK_ADA_ALASAN;
+
+												String mulai = pa.retreiveAbsensiMulai(mhs);
+												String sampai = pa.retreiveAbsensiSampai(mhs);
+												if (mulai == null || mulai.trim().isEmpty()) {
+													mulai = pa.getWaktuMulai();
+												}
+												if (sampai == null || sampai.trim().isEmpty()) {
+													sampai = pa.getWaktuSelesai();
+												}
+
+												pa.populate(mhs, statusabsensi,
+														"Tidak Mengumpulkan \"" + tugas.getJudultugas()
+																+ "\" sampai tanggal/waktu "
+																+ Common.dateFormat5.get().format(
+																		tugas == null || tugas.getSelesai() == null
+																				? WaktuUtil.getDate()
+																				: tugas.getSelesai()),
+														null, mulai, sampai, "Mahasiswa");
+											}
+										}
+
+									}
+
+									Common.refreshUpdate(session, pa);
+
+									Common.createDefaultTimer(eventListener);
+
+								}
+							});
+
+						}
+
+					}
+				}, tugas.getJudultugas());
+	}
+
+	/**
+	 * Menandai semua mahasiswa yang TELAH mengumpulkan berkas tugas sebagai hadir.
+	 *
+	 * <p>Kebalikan dari {@link #tidakUploadTugasDiangapTidakHadir}: iterasi
+	 * {@code TugasFileContent} milik tugas ini; setiap entri yang memiliki pemilik mahasiswa
+	 * peserta akan di-set absensi pertemuan menjadi hadir (status {@code HADIR}). Dialog
+	 * konfirmasi muncul sebelum proses dimulai. Setelah selesai, callback {@code eventListener}
+	 * dipanggil agar tampilan absensi diperbarui. Sesi Hibernate baru dibuka via
+	 * {@code HibernateUtil.openSession()} dan selalu ditutup di blok {@code finally}.</p>
+	 *
+	 * @param tugas         entitas tugas yang menjadi referensi pengumpulan.
+	 * @param pa            pertemuan induk tempat absensi dicatat.
+	 * @param eventListener callback dipanggil setelah proses selesai.
+	 * @throws Exception jika terjadi kesalahan sesi Hibernate atau rendering ZK.
+	 */
+	public static void uploadTugasDiangapHadir(final Tugas tugas, final Pertemuan pa, final EventListener eventListener)
+			throws Exception {
+		MyMessageboxConfig.showFormatCb(
+				"Apakah Bapak/Ibu yakin semua mahasiswa yang mengumpulkan \"{V1}\" akan dianggap hadir pada kelas ini?",
+
+				"Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
+				new EventListener() {
+
+					@Override
+					public void onEvent(Event event) throws Exception {
+						int i = Integer.parseInt(event.getData().toString());
+						if (i == MyMessageboxConfig.OK) {
+							Common.createDefaultTimer(new EventListener() {
+
+								@Override
+								public void onEvent(Event arg0) throws Exception {
+									Session session = HibernateUtil.currentSession();
+									if (pa.getId() != null) {
+										session.refresh(pa);
+									}
+
+									for (TugasFileContent o : tugas.ambilTugasFileContentTotal().values()) {
+										Long mhs = o.getMahasiswa();
+										if (!tugas.getMhsYgTidakIkut().contains("," + mhs + ",")) {
+											Date uploadDate = o.getUploadDate();
+											String nama = o.getNama();
+											Statusabsensi statusabsensi = ConstantValues.MASUK;
+
+											String mulai = pa.retreiveAbsensiMulai(mhs);
+											String sampai = pa.retreiveAbsensiSampai(mhs);
+											if (mulai == null || mulai.trim().isEmpty()) {
+												mulai = pa.getWaktuMulai();
+											}
+											if (sampai == null || sampai.trim().isEmpty()) {
+												sampai = pa.getWaktuSelesai();
+											}
+
+											pa.populate(mhs, statusabsensi,
+													"Mengumpulkan \"" + tugas.getJudultugas() + "\" pada "
+															+ Common.dateFormat5.get().format(uploadDate)
+															+ " dengan nama file : " + nama,
+													null, mulai, sampai, "Mahasiswa");
+										}
+
+									}
+
+									Common.refreshUpdate(session, pa);
+
+									Common.createDefaultTimer(eventListener);
+
+								}
+							});
+
+						}
+
+					}
+				}, tugas.getJudultugas());
+	}
+
+	/**
+	 * Menandai SEMUA mahasiswa peserta telah mengumpulkan tugas dengan FILE KOSONG
+	 * (Blob foto = null) — HANYA untuk mahasiswa yang belum pernah upload. Yang sudah
+	 * upload tidak diubah; yang ditandai "tidak ikut" dilewati. Minta konfirmasi dahulu,
+	 * lalu jalankan proses di latar.
+	 */
+	public static void anggapSemuaSudahUpload(final Tugas tugas, final Pertemuan pa, final EventListener eventListener)
+			throws Exception {
+		MyMessageboxConfig.showFormatCb(
+				"Apakah Bapak/Ibu yakin ingin menandai SEMUA mahasiswa/siswa telah mengumpulkan \"{V1}\" dengan FILE KOSONG?\n\nHanya mahasiswa/siswa yang BELUM pernah mengunggah yang akan ditambahkan (dengan isi berkas kosong). Data yang sudah diunggah tidak akan diubah.",
+
+
+				"Konfirmasi", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
+				new EventListener() {
+
+					@Override
+					public void onEvent(Event event) throws Exception {
+						int i = Integer.parseInt(event.getData().toString());
+						if (i != MyMessageboxConfig.OK) {
+							return;
+						}
+						Common.createDefaultTimer(new EventListener() {
+
+							@Override
+							public void onEvent(Event arg0) throws Exception {
+								int dibuat = prosesAnggapSemuaSudahUpload(tugas, pa);
+								MyMessageboxConfig.showFormat(
+										"Sebanyak {V1} mahasiswa telah ditandai mengumpulkan tugas (dengan berkas kosong).", "Selesai",
+										MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, dibuat);
+								Common.createDefaultTimer(eventListener);
+							}
+						});
+					}
+				}, tugas.getJudultugas());
+	}
+
+	/**
+	 * Inti proses: untuk tiap mahasiswa peserta yang BELUM upload, buat
+	 * {@link TugasFileContent} dengan Blob foto = null (file kosong). Memakai sesi
+	 * streaming (sama dengan alur upload tugas biasa). Return jumlah baris yang dibuat.
+	 */
+	private static int prosesAnggapSemuaSudahUpload(Tugas tugas, Pertemuan pa) {
+		int dibuat = 0;
+		Tbmuser tbmuser = Common.getCurrentUser();
+
+		java.util.Set<Long> sudahMhs = new java.util.HashSet<Long>();
+		java.util.Set<Long> sudahSiswa = new java.util.HashSet<Long>();
+		try {
+			for (TugasFileContent o : tugas.ambilTugasFileContentTotal().values()) {
+				if (o == null) {
+					continue;
+				}
+				if (o.getMahasiswa() != null) {
+					sudahMhs.add(o.getMahasiswa());
+				}
+				if (o.getSiswa() != null) {
+					sudahSiswa.add(o.getSiswa());
+				}
+			}
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/TugasMandiriHelper.java:4072");
+		}
+
+		List<Mahasiswa> pesertaMhs = pa.ambilMahasiswa();
+		List<Siswa> pesertaSiswa = null;
+		try {
+			pesertaSiswa = pa.ambilSiswa();
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/TugasMandiriHelper.java:4079");
+		}
+
+		boolean adaMhs = pesertaMhs != null && !pesertaMhs.isEmpty();
+		boolean adaSiswa = pesertaSiswa != null && !pesertaSiswa.isEmpty();
+		if (!adaMhs && !adaSiswa) {
+			return 0;
+		}
+
+		String tidakIkut = tugas.getMhsYgTidakIkut();
+		Session session = null;
+		try {
+			session = StreamingHibernateUtil.getInstance().currentSession();
+			session.getTransaction().begin();
+
+			// --- Mahasiswa ---
+			if (adaMhs) {
+				for (Mahasiswa mhs : pesertaMhs) {
+					if (mhs == null || mhs.getId() == null) {
+						continue;
+					}
+					Long id = mhs.getId();
+					if (sudahMhs.contains(id)) {
+						continue; // sudah pernah upload -> tidak diubah
+					}
+					if (tidakIkut != null && tidakIkut.contains("," + id + ",")) {
+						continue; // ditandai tidak ikut -> dilewati
+					}
+
+					TugasFileContent c = new TugasFileContent(tugas.getClass().getName());
+					c.setFoto(null); // FILE KOSONG: Blob ditulis null
+					c.setNama((mhs.getNim() == null ? "" : mhs.getNim().trim()) + "_"
+							+ (mhs.getNama() == null ? "" : mhs.getNama()) + "_(kosong)");
+					c.setFileMimeType(null);
+					c.setMahasiswa(id);
+					c.setBiodataCalonMahasiswa(-Common.randLong());
+					c.setCalonSiswa(-Common.randLong());
+					c.setSiswa(-Common.randLong());
+					c.setPertemuan(tugas.getId());
+					c.setUploadDate(ais.ui.util.WaktuUtil.getDate());
+					c.setKeterangan("Dianggap mengumpulkan (file kosong)");
+					c.setOlehId(Common.generateOlehId(tbmuser));
+					c.setOleh(tbmuser == null ? "external_update" : tbmuser.getUserNama());
+					session.save(c);
+					dibuat++;
+				}
+			}
+
+			// --- Siswa ---
+			if (adaSiswa) {
+				for (Siswa sw : pesertaSiswa) {
+					if (sw == null || sw.getId() == null) {
+						continue;
+					}
+					Long id = sw.getId();
+					if (sudahSiswa.contains(id)) {
+						continue; // sudah pernah upload -> tidak diubah
+					}
+					if (tidakIkut != null && tidakIkut.contains("," + id + ",")) {
+						continue; // ditandai tidak ikut -> dilewati
+					}
+
+					TugasFileContent c = new TugasFileContent(tugas.getClass().getName());
+					c.setFoto(null); // FILE KOSONG: Blob ditulis null
+					c.setNama((sw.getNim() == null ? "" : sw.getNim().trim()) + "_"
+							+ (sw.getNama() == null ? "" : sw.getNama()) + "_(kosong)");
+					c.setFileMimeType(null);
+					c.setSiswa(id);
+					c.setMahasiswa(-Common.randLong());
+					c.setBiodataCalonMahasiswa(-Common.randLong());
+					c.setCalonSiswa(-Common.randLong());
+					c.setPertemuan(tugas.getId());
+					c.setUploadDate(ais.ui.util.WaktuUtil.getDate());
+					c.setKeterangan("Dianggap mengumpulkan (file kosong)");
+					c.setOlehId(Common.generateOlehId(tbmuser));
+					c.setOleh(tbmuser == null ? "external_update" : tbmuser.getUserNama());
+					session.save(c);
+					dibuat++;
+				}
+			}
+
+			session.getTransaction().commit();
+		} catch (Exception e) {
+			try {
+				StreamingHibernateUtil.getInstance().rollbackTransaction();
+			} catch (Exception ee) { ais.common.ErrorAuditUtil.record(ee, "auto-audit(empty-catch) src/ais/action/master/helper/TugasMandiriHelper.java:4164");
+			}
+			Common.tampilErrorJikaAdmin(e);
+			PesanFormalHelper.tampilkanGagalException(
+					"memproses penandaan siswa/mahasiswa yang dianggap mengumpulkan (berkas kosong)",
+					e, new String[] {
+							"Muat ulang (refresh) halaman ini lalu periksa data mana saja yang sudah sempat tersimpan.",
+							"Ulangi kembali proses ini bila belum semua peserta selesai diproses.",
+							"Apabila kendala masih berlanjut, hubungi Admin dengan menyertakan tangkapan layar (screenshot) pesan ini."
+					});
+		} finally {
+			try {
+				if (session != null && session.isOpen()) {
+					session.disconnect();
+					session.close();
+				}
+			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/TugasMandiriHelper.java:4173");
+			}
+			try {
+				StreamingHibernateUtil.getInstance().closeSession();
+			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/TugasMandiriHelper.java:4177");
+			}
+		}
+
+		// segarkan cache agar baris baru tampil saat reload
+		try {
+			tugas.belum("tugas_file_content_" + tugas.getClass().getName());
+			tugas.reInitTugasFileContent();
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/TugasMandiriHelper.java:4185");
+		}
+
+		return dibuat;
+	}
+
+	// =========================================================================
+	// HELPER METHODS REUSABLE
+	// =========================================================================
+
+	/**
+	 * Memeriksa apakah pengguna yang sedang login adalah pengelola (dosen/admin/pegawai),
+	 * bukan pelajar (mahasiswa/siswa/calon/peserta kursus). Digunakan untuk mengontrol
+	 * visibilitas tombol dan aksi yang hanya boleh dilakukan oleh pengelola, seperti
+	 * mengubah instruksi tugas, menghapus tugas, memasukkan nilai, dan mengunduh berkas.
+	 *
+	 * @param user entitas Tbmuser yang sedang login, boleh null.
+	 * @return {@code true} jika user bukan pelajar (boleh kelola tugas), {@code false} jika
+	 *         user adalah mahasiswa/siswa/calon/peserta kursus atau user null.
+	 */
+	private boolean bolehKelolaTugas(Tbmuser user) {
+		return user != null
+				&& user.getMahasiswa() == null
+				&& user.getSiswa() == null
+				&& user.getBiodataCalonMahasiswa() == null
+				&& user.getCalonSiswa() == null
+				&& user.getPesertaKursus() == null;
+	}
+
+	/**
+	 * Memeriksa apakah pengguna yang sedang login adalah pelajar yang berhak mengupload
+	 * berkas tugas (mahasiswa, siswa, calon mahasiswa, calon siswa, atau peserta kursus).
+	 * Digunakan untuk mengontrol visibilitas tombol Upload Tugas dan tampilan status upload.
+	 *
+	 * @param user entitas Tbmuser yang sedang login, boleh null.
+	 * @return {@code true} jika user adalah pelajar yang boleh upload, {@code false} jika
+	 *         user adalah pengelola atau user null.
+	 */
+	private boolean bolehUpload(Tbmuser user) {
+		return user != null
+				&& (user.getMahasiswa() != null
+						|| user.getSiswa() != null
+						|| user.getBiodataCalonMahasiswa() != null
+						|| user.getCalonSiswa() != null
+						|| user.getPesertaKursus() != null);
+	}
+
+	/**
+	 * Membuat komponen separator visual untuk toolbar.
+	 *
+	 * <p>Separator berupa garis vertikal tipis (1px) berwarna abu-abu muda yang dirender
+	 * sebagai HTML inline. Digunakan untuk memisahkan kelompok tombol dalam toolbar
+	 * ({@link MyHboxToolbar}) sehingga pengelompokan fungsional menjadi jelas secara visual:
+	 * Berkas Tugas | Nilai | Kelola | Kehadiran.</p>
+	 *
+	 * @return komponen {@link Html} berisi markup separator siap dipasang ke vbox toolbar.
+	 */
+	private static Html createSeparator() {
+		return new ais.ui.util.MyHtml(
+				"<span style='display:inline-block;width:1px;height:24px;"
+				+ "background:#cbd5e1;margin:0 6px;vertical-align:middle;opacity:0.7;'></span>");
+	}
+
+	/**
+	 * Membangun HTML untuk radar/spider chart distribusi rata-rata nilai per Sub-CPMK.
+	 *
+	 * <p>Menghasilkan string HTML yang berisi SVG polygon radar chart. Setiap sumbu mewakili
+	 * satu Sub-CPMK; panjang sumbu sebanding dengan rata-rata nilai peserta pada Sub-CPMK
+	 * tersebut relatif terhadap nilai maksimum. Dapat di-render melalui
+	 * {@code DashboardUiKit.html()}. Memerlukan minimal 3 data point agar chart bermakna.</p>
+	 *
+	 * @param judul     judul chart yang ditampilkan di atas SVG.
+	 * @param deskripsi deskripsi singkat yang muncul di bawah judul.
+	 * @param data      map nama-Sub-CPMK ke rata-rata nilai (urutan dipertahankan via LinkedHashMap).
+	 * @param maxValue  nilai maksimum yang mungkin (umumnya 100.0).
+	 * @return string HTML lengkap siap di-render, atau string kosong jika data kurang dari 3 item.
+	 */
+	private static String buildRadarChartHtml(String judul, String deskripsi,
+			LinkedHashMap<String, Double> data, double maxValue) {
+		if (data == null || data.size() < 3) {
+			return "";
+		}
+		int n = data.size();
+		String[] keys = data.keySet().toArray(new String[data.size()]);
+		Double[] vals = data.values().toArray(new Double[data.size()]);
+
+		int cx = 110, cy = 115;
+		double r = 80;
+
+		StringBuilder sb = new StringBuilder();
+		sb.append("<div style='background:var(--bs-body-bg,#fff);border-radius:12px;"
+				+ "box-shadow:0 2px 12px rgba(0,0,0,.07);padding:16px 8px 8px 8px;margin:8px 0;'>");
+		sb.append("<div style='font-size:13px;font-weight:700;color:var(--bs-heading-color,#1e293b);"
+				+ "margin-bottom:4px;padding-left:8px;'>").append(escapeXmlAttr(judul)).append("</div>");
+		sb.append("<div style='font-size:11px;color:var(--bs-secondary-color,#64748b);"
+				+ "margin-bottom:10px;padding-left:8px;'>").append(escapeXmlAttr(deskripsi)).append("</div>");
+		sb.append("<div style='display:flex;justify-content:center;'>");
+		sb.append("<svg viewBox='0 0 220 230' width='220' height='230' xmlns='http://www.w3.org/2000/svg'>");
+
+		// Background rings at 25%, 50%, 75%, 100%
+		for (int ring = 1; ring <= 4; ring++) {
+			double rr = r * ring / 4.0;
+			sb.append("<polygon points='");
+			for (int i = 0; i < n; i++) {
+				double angle = Math.PI * 2.0 * i / n - Math.PI / 2.0;
+				double px = cx + rr * Math.cos(angle);
+				double py = cy + rr * Math.sin(angle);
+				if (i > 0) { sb.append(" "); }
+				sb.append(String.format(java.util.Locale.US, "%.1f,%.1f", px, py));
+			}
+			sb.append("' fill='none' stroke='#e2e8f0' stroke-width='1'/>");
+		}
+
+		// Axis lines
+		for (int i = 0; i < n; i++) {
+			double angle = Math.PI * 2.0 * i / n - Math.PI / 2.0;
+			double px = cx + r * Math.cos(angle);
+			double py = cy + r * Math.sin(angle);
+			sb.append(String.format(java.util.Locale.US,
+					"<line x1='%d' y1='%d' x2='%.1f' y2='%.1f' stroke='#e2e8f0' stroke-width='1'/>",
+					cx, cy, px, py));
+		}
+
+		// Data polygon
+		sb.append("<polygon points='");
+		for (int i = 0; i < n; i++) {
+			double angle = Math.PI * 2.0 * i / n - Math.PI / 2.0;
+			double val = vals[i] == null ? 0.0 : vals[i];
+			double ratio = maxValue > 0 ? Math.min(1.0, val / maxValue) : 0.0;
+			double px = cx + r * ratio * Math.cos(angle);
+			double py = cy + r * ratio * Math.sin(angle);
+			if (i > 0) { sb.append(" "); }
+			sb.append(String.format(java.util.Locale.US, "%.1f,%.1f", px, py));
+		}
+		sb.append("' fill='rgba(59,130,246,.22)' stroke='#3b82f6' stroke-width='2'/>");
+
+		// Data points + labels
+		for (int i = 0; i < n; i++) {
+			double angle = Math.PI * 2.0 * i / n - Math.PI / 2.0;
+			double val = vals[i] == null ? 0.0 : vals[i];
+			double ratio = maxValue > 0 ? Math.min(1.0, val / maxValue) : 0.0;
+			double px = cx + r * ratio * Math.cos(angle);
+			double py = cy + r * ratio * Math.sin(angle);
+			sb.append(String.format(java.util.Locale.US,
+					"<circle cx='%.1f' cy='%.1f' r='3.5' fill='#3b82f6' stroke='#fff' stroke-width='1.5'/>",
+					px, py));
+			// Label axis
+			double lx = cx + (r + 16) * Math.cos(angle);
+			double ly = cy + (r + 16) * Math.sin(angle);
+			String anchor = "middle";
+			if (lx < cx - 5) { anchor = "end"; }
+			else if (lx > cx + 5) { anchor = "start"; }
+			sb.append(String.format(java.util.Locale.US,
+					"<text x='%.1f' y='%.1f' text-anchor='%s' dominant-baseline='middle'"
+					+ " font-size='7.5' fill='#64748b'>%s</text>",
+					lx, ly, anchor, escapeXmlAttr(keys[i])));
+		}
+
+		sb.append("</svg></div></div>");
+		return sb.toString();
+	}
+
+	/**
+	 * Melakukan escaping karakter XML/HTML untuk konten teks yang akan dimasukkan ke dalam
+	 * atribut atau konten elemen SVG/HTML yang dibuat secara programatik.
+	 *
+	 * @param s string input yang mungkin mengandung karakter khusus XML.
+	 * @return string hasil escaping, aman digunakan di dalam tag HTML/SVG.
+	 */
+	private static String escapeXmlAttr(String s) {
+		if (s == null) {
+			return "";
+		}
+		s = s.replace("&", "&amp;");
+		s = s.replace("<", "&lt;");
+		s = s.replace(">", "&gt;");
+		s = s.replace("\"", "&quot;");
+		return s;
+	}
+
+}
