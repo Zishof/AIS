@@ -199,6 +199,13 @@ public final class ApiRouteRegistry {
         register(routes, "psb_gelombang", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PsbApi.gelombang(req, json); } });
         register(routes, "psb_daftar", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PsbApi.daftar(req, json); } });
         register(routes, "psb_cek_status", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PsbApi.cekStatus(req, json); } });
+        // Portal PMB native mobile (publik, tanpa login) -- lihat PmbApi.
+        register(routes, "pmb_portal_info", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PmbApi.portalInfo(req, json); } });
+        register(routes, "pmb_pengumuman", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PmbApi.pengumuman(req, json); } });
+        register(routes, "pmb_prodi", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PmbApi.prodi(req, json); } });
+        register(routes, "pmb_gelombang", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PmbApi.gelombang(req, json); } });
+        register(routes, "pmb_daftar", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PmbApi.daftar(req, json); } });
+        register(routes, "pmb_cek_status", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PmbApi.cekStatus(req, json); } });
     }
 
     /**

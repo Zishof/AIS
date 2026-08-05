@@ -26,6 +26,7 @@ import ais.database.model.Tbmuser;
 import ais.database.model.asset.Lokasi;
 import ais.database.model.inventory.JenisProduk;
 import ais.database.model.inventory.PemasokProduk;
+import ais.database.model.inventory.Pembelian;
 import ais.database.model.inventory.PengadaanProduk;
 import ais.database.model.inventory.Produk;
 import ais.database.model.inventory.ReturPenjualan;
@@ -170,6 +171,35 @@ public class KantinHelper {
 			}
 		}
 		return new TotalHitung(total, totalDiskon, totalCashback);
+	}
+
+	private static boolean dimintaLangsungTerlayani(JSONObject jsonObject) {
+		return jsonObject.optBoolean("terlayani", false)
+				|| jsonObject.optBoolean("langsungTerlayani", false)
+				|| jsonObject.optBoolean("statusTerlayani", false)
+				|| jsonObject.optBoolean("langsungDilayani", false)
+				|| jsonObject.optBoolean("sudahTerlayani", false)
+				|| jsonObject.optBoolean("dilayani", false)
+				|| "TERLAYANI".equalsIgnoreCase(jsonObject.optString("statusPelayanan", ""));
+	}
+
+	@SuppressWarnings("unchecked")
+	private static void tandaiRincianTerlayani(Session session,
+			PembelianAnggotaKoperasi pembelianAnggotaKoperasi) {
+		if (pembelianAnggotaKoperasi == null || pembelianAnggotaKoperasi.getId() == null) {
+			return;
+		}
+		List<Pembelian> daftarPembelian = session.createCriteria(Pembelian.class)
+				.add(Restrictions.eq("pembelianAnggotaKoperasi", pembelianAnggotaKoperasi)).list();
+		if (daftarPembelian == null || daftarPembelian.isEmpty()) {
+			return;
+		}
+		session.getTransaction().begin();
+		for (Pembelian pembelian : daftarPembelian) {
+			pembelian.setTerlayani(Boolean.TRUE);
+			session.update(pembelian);
+		}
+		session.getTransaction().commit();
 	}
 
 	/**
@@ -438,8 +468,16 @@ public class KantinHelper {
 
 					}
 
-					session.createSQLQuery("delete from koperasi.pembelian where pembelian_anggota_koperasi="
-							+ pembelianAnggotaKoperasi.getId()).executeUpdate();
+					session.getTransaction().begin();
+					if (draftPembelianAnggotaKoperasi != null && draftPembelianAnggotaKoperasi.getId() != null) {
+						session.createSQLQuery(
+								"update koperasi.draft_pembelian set lunas = null where draft_pembelian_anggota_koperasi = :draftId")
+								.setParameter("draftId", draftPembelianAnggotaKoperasi.getId()).executeUpdate();
+					}
+					session.createSQLQuery(
+							"delete from koperasi.pembelian where pembelian_anggota_koperasi = :id")
+							.setParameter("id", pembelianAnggotaKoperasi.getId()).executeUpdate();
+					session.getTransaction().commit();
 
 					JSONArray arrayTransaksi = pembelianAnggotaKoperasi.simpanRinci(session, transaksi, kodeUnik,
 							currentWaktu, toko, kodePembayaranOnline, draftPembelianAnggotaKoperasi);
@@ -533,8 +571,14 @@ public class KantinHelper {
 						session.getTransaction().commit();
 					}
 
+					if (dimintaLangsungTerlayani(jsonObject)) {
+						tandaiRincianTerlayani(session, pembelianAnggotaKoperasi);
+					}
+
 					hasil.put("data", arrayTransaksi);
 					hasil.put("pembelianAnggotaKoperasi", pembelianAnggotaKoperasi.getId());
+					hasil.put("idTransaksi", pembelianAnggotaKoperasi.getId());
+					hasil.put("terlayani", dimintaLangsungTerlayani(jsonObject));
 					hasil.put("status", "00");
 
 				} catch (Exception e) {

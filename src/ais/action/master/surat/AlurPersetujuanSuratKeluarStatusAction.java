@@ -718,6 +718,9 @@ public class AlurPersetujuanSuratKeluarStatusAction extends GenericAutowireCompo
 				} catch (Throwable t) { ais.common.ErrorAuditUtil.record(t, "auto-audit(empty-catch) src/ais/action/master/surat/AlurPersetujuanSuratKeluarStatusAction.java:712");
 				}
 				CommonReport.tampilkanReportPDF(template, filePdfBaru);
+				// Simpan path berkas PDF surat pada iframe agar tombol "Cetak" (di footer preview) bisa
+				// mengunduh/mencetak berkas yang SAMA tanpa men-generate ulang.
+				template.setAttribute("previewPdfPath", filePdfBaru.getAbsolutePath());
 			} catch (Exception e) {
 				Common.tampilErrorJikaAdmin(e);
 			}
@@ -774,6 +777,35 @@ public class AlurPersetujuanSuratKeluarStatusAction extends GenericAutowireCompo
 			}
 		});
 		cancel.setParent(toolbar);
+
+		// Tombol CETAK di dekat "Selesai": unduh/cetak berkas PDF surat yang sedang dipratinjau.
+		MyToolbarbuttonConfig cetak = new MyToolbarbuttonConfig("Cetak", "/img/print.png");
+		cetak.setTooltiptext("Cetak / unduh berkas surat (PDF)");
+		cetak.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				try {
+					Object p = template == null ? null : template.getAttribute("previewPdfPath");
+					if (p == null) {
+						ais.ui.util.MyMessageboxConfig.show(
+								"Berkas surat belum siap. Tunggu pratinjau selesai dimuat lalu coba lagi.", "Informasi",
+								ais.ui.util.MyMessageboxConfig.OK, ais.ui.util.MyMessageboxConfig.INFORMATION);
+						return;
+					}
+					java.io.File file = new java.io.File(String.valueOf(p));
+					if (!file.exists()) {
+						ais.ui.util.MyMessageboxConfig.show("Berkas surat tidak ditemukan.", "Informasi",
+								ais.ui.util.MyMessageboxConfig.OK, ais.ui.util.MyMessageboxConfig.INFORMATION);
+						return;
+					}
+					org.zkoss.zul.Filedownload.save(file, "application/pdf");
+				} catch (Exception e) {
+					Common.tampilErrorJikaAdmin(e);
+				}
+			}
+		});
+		cetak.setParent(toolbar);
+
 		borderlayout.setParent(addWindow);
 	}
 

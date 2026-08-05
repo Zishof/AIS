@@ -1040,7 +1040,7 @@ public class CommonPMB {
 		}
 		try {
 			Common.refreshSaveOrUpdate(session, mahasiswa);
-		} catch (Exception eSimpanMahasiswa) {
+		} catch (RuntimeException eSimpanMahasiswa) {
 			// FIX ConstraintViolationException "biodata_calon_mahasiswa_long": bila mahasiswa BARU
 			// (belum punya id) gagal insert karena UNIQUE constraint pada kolom biodataCalonMahasiswa,
 			// itu artinya proses LAIN sudah lebih dulu berhasil membuat Mahasiswa untuk calonMahasiswa

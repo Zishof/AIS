@@ -5483,22 +5483,38 @@ public class CommonReportHelper {
 		}
 		System.out.println("ttd_kaprodi => " + ttd);
 
-		// Tambah data dosen1 & dosen2 ke top-level parameters agar semua tab JRXML bisa pakai
+		tambahStempelKaprodi(parameters, voPembelajaran);
+
+		// Tambah data semua dosen ke top-level parameters agar semua tab JRXML bisa pakai
 		if (voPembelajaran instanceof Perkuliahan) {
 			Perkuliahan perkuliahan = (Perkuliahan) voPembelajaran;
-			tambahTtdDosen(parameters, perkuliahan.getDosen1(), 1);
-			tambahTtdDosen(parameters, perkuliahan.getDosen2(), 2);
+			tambahTtdDosenPerkuliahan(parameters, perkuliahan);
 		}
 
 		return parameters;
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	private static void tambahTtdDosen(Map parameters, ais.database.model.Dosen dosen, int index) {
+	private static void tambahTtdDosenPerkuliahan(Map parameters, Perkuliahan perkuliahan) {
+		if (perkuliahan == null) {
+			return;
+		}
+		Dosen[] dosens = new Dosen[] { perkuliahan.getDosen1(), perkuliahan.getDosen2(), perkuliahan.getDosen3(),
+				perkuliahan.getDosen4(), perkuliahan.getDosen5(), perkuliahan.getDosen6(), perkuliahan.getDosen7(),
+				perkuliahan.getDosen8(), perkuliahan.getDosen9(), perkuliahan.getDosen10() };
+		for (int i = 0; i < dosens.length; i++) {
+			tambahTtdDosen(parameters, dosens[i], i + 1);
+		}
+	}
+
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	private static void tambahTtdDosen(Map parameters, Dosen dosen, int index) {
 		if (dosen == null) return;
 		parameters.put("nama_dosen" + index, dosen.getNama() != null ? dosen.getNama() : "");
+		parameters.put("nip_dosen" + index, dosen.getMycode() != null ? dosen.getMycode() : "");
+		parameters.put("nip1_dosen" + index, dosen.getCode() != null ? dosen.getCode() : "");
 		parameters.put("nidn_dosen" + index, dosen.getNidn() != null ? dosen.getNidn() : "");
-		ais.database.model.file.LampiranLain lam = ais.database.model.file.LampiranLain.ambil(dosen.getId(), ais.database.model.file.LampiranLain.TTD_DOSEN);
+		LampiranLain lam = LampiranLain.ambil(dosen.getId(), LampiranLain.TTD_DOSEN);
 		String namaFile = lam == null ? null : lam.getNama();
 		if (namaFile == null) return;
 		String lower = namaFile.toLowerCase();
@@ -5508,11 +5524,64 @@ public class CommonReportHelper {
 				String path = lam.ambilFile().getAbsolutePath();
 				parameters.put("ttd_dosen" + index, path);    // untuk Lanscape1, Lanscape, Portrait, Rinci
 				parameters.put("ttd_dosen_" + index, path);   // untuk subreport Rekap Masuk
+				parameters.put("ttd_dosen_id_" + dosen.getId(), path);
 			} catch (Exception e) {
 				e.printStackTrace();
 				ais.common.ErrorAuditUtil.record(e, "tambahTtdDosen CommonReportHelper");
 			}
 		}
+	}
+
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	private static void tambahStempelKaprodi(Map parameters, VOPembelajaran voPembelajaran) {
+		if (!(voPembelajaran instanceof Perkuliahan)) {
+			return;
+		}
+		Perkuliahan perkuliahan = (Perkuliahan) voPembelajaran;
+		Jurusan jurusan = perkuliahan.getJurusan();
+		if (jurusan != null && jurusan.getId() != null) {
+			tambahLampiranGambar(parameters, "stempel_jurusan", jurusan.getId(), LampiranLain.STEMPEL_JURUSAN);
+			if (parameters.get("stempel_jurusan") != null) {
+				parameters.put("cap_kaprodi", parameters.get("stempel_jurusan"));
+			}
+		}
+		if (jurusan != null && jurusan.getFakultas() != null && jurusan.getFakultas().getPerguruanTinggi() != null
+				&& jurusan.getFakultas().getPerguruanTinggi().getId() != null) {
+			tambahLampiranGambar(parameters, "stempel_pt", jurusan.getFakultas().getPerguruanTinggi().getId(),
+					LampiranLain.STEMPEL_PT);
+			if (parameters.get("cap_kaprodi") == null && parameters.get("stempel_pt") != null) {
+				parameters.put("cap_kaprodi", parameters.get("stempel_pt"));
+			}
+		}
+	}
+
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	private static void tambahLampiranGambar(Map parameters, String key, Long ownerId, String jenis) {
+		if (ownerId == null || jenis == null) {
+			return;
+		}
+		LampiranLain lam = LampiranLain.ambil(ownerId, jenis);
+		String namaFile = lam == null ? null : lam.getNama();
+		if (!isFileGambar(namaFile)) {
+			return;
+		}
+		try {
+			File file = lam.ambilFile();
+			if (file != null) {
+				parameters.put(key, file.getAbsolutePath());
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "tambahLampiranGambar CommonReportHelper " + key);
+		}
+	}
+
+	private static boolean isFileGambar(String namaFile) {
+		if (namaFile == null) {
+			return false;
+		}
+		String lower = namaFile.toLowerCase();
+		return lower.endsWith(".jpg") || lower.endsWith(".png") || lower.endsWith(".jpeg")
+				|| lower.endsWith(".gif") || lower.endsWith(".tif") || lower.endsWith(".bmp");
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
@@ -6582,6 +6651,8 @@ public class CommonReportHelper {
 									}
 
 									map.put("ttd_dosen" + index, ttd);
+									map.put("ttd_dosen_" + index, ttd);
+									map.put("ttd_dosen_id_" + dosen.getId(), ttd);
 								}
 							}
 
@@ -6613,6 +6684,8 @@ public class CommonReportHelper {
 									}
 
 									map.put("ttd_dosen1", ttd);
+									map.put("ttd_dosen_1", ttd);
+									map.put("ttd_dosen_id_" + perkuliahan.getDosen1().getId(), ttd);
 								}
 							}
 
@@ -6646,6 +6719,8 @@ public class CommonReportHelper {
 									}
 
 									map.put("ttd_dosen2", ttd);
+									map.put("ttd_dosen_2", ttd);
+									map.put("ttd_dosen_id_" + perkuliahan.getDosen2().getId(), ttd);
 								}
 							}
 						}

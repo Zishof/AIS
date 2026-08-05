@@ -44,6 +44,20 @@ public final class ApiHelperSupport {
         return action == null ? "" : action.trim().toLowerCase(java.util.Locale.ENGLISH);
     }
 
+    /**
+     * Jadikan URI relatif (media/lampiran/halaman) menjadi URL absolut untuk klien mobile,
+     * mengikuti pola link_bayar di SiswaBaruApi. Reusable untuk PsbApi/PmbApi dan API publik lain.
+     */
+    public static String absoluteUrl(HttpServletRequest request, String uri) {
+        if (!hasText(uri)) {
+            return null;
+        }
+        if (uri.startsWith("http://") || uri.startsWith("https://")) {
+            return uri;
+        }
+        return ais.common.Common.getRequestHostWithProtocol(request) + (uri.startsWith("/") ? uri : "/" + uri);
+    }
+
     public static String safeString(Object value) {
         return value == null ? "" : String.valueOf(value);
     }

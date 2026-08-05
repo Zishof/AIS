@@ -2581,20 +2581,28 @@ public class SuratMasukAction extends GenericAutowireComposer implements DataCri
 			sb.append("<div style='display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));"
 					+ "gap:10px 14px;align-items:center;box-sizing:border-box;width:100%;'>");
 			for (DisposisiMasukChip chip : chips) {
+				// Kartu chip 2 BARIS: baris-1 = nomor + NAMA PENGGUNA (lengkap), baris-2 = KETERANGAN/STATUS.
+				// Sebelumnya 1 baris (inline-flex nowrap) sehingga nama ter-ellipsis / tertutup label status.
 				sb.append("<span title='").append(ais.ui.util.DashboardUiKit.esc(chip.tooltip))
-						.append("' style='display:inline-flex;align-items:center;gap:7px;max-width:100%;"
-								+ "min-height:22px;padding:2px 9px 2px 3px;border-radius:999px;background:")
+						.append("' style='display:flex;flex-direction:column;gap:3px;max-width:100%;"
+								+ "padding:5px 10px;border-radius:12px;background:")
 						.append(chip.latar).append(";border:1px solid ").append(chip.warna)
-						.append("33;color:#0f172a;box-sizing:border-box;white-space:nowrap;overflow:hidden;'>");
+						.append("33;color:#0f172a;box-sizing:border-box;'>");
+				// baris 1: nomor + nama pengguna disposisi
+				sb.append("<span style='display:flex;align-items:center;gap:6px;'>");
 				sb.append("<span style='flex:0 0 auto;width:18px;height:18px;border-radius:999px;background:")
 						.append(chip.warna)
 						.append(";color:#fff;font-size:10px;font-weight:900;display:inline-flex;align-items:center;"
 								+ "justify-content:center;'>")
 						.append(chip.nomor).append("</span>");
-				sb.append("<span style='font-size:10px;font-weight:800;overflow:hidden;text-overflow:ellipsis;'>")
-						.append(ais.ui.util.DashboardUiKit.esc(chip.label)).append("</span>");
-				sb.append("<span style='font-size:9px;font-weight:800;color:").append(chip.warna)
-						.append(";background:#fff;border-radius:999px;padding:1px 6px;'>")
+				sb.append("<span style='font-size:10px;font-weight:800;color:#0f172a;line-height:1.25;"
+						+ "word-break:break-word;'>").append(ais.ui.util.DashboardUiKit.esc(chip.label))
+						.append("</span>");
+				sb.append("</span>");
+				// baris 2: keterangan/status disposisi
+				sb.append("<span style='align-self:flex-start;font-size:9px;font-weight:800;color:").append(chip.warna)
+						.append(";background:#fff;border:1px solid ").append(chip.warna)
+						.append("33;border-radius:999px;padding:1px 7px;'>")
 						.append(ais.ui.util.DashboardUiKit.esc(chip.status)).append("</span>");
 				sb.append("</span>");
 			}

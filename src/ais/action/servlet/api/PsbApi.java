@@ -54,17 +54,6 @@ public final class PsbApi {
 		return new SimpleDateFormat("dd-MM-yyyy");
 	}
 
-	/** Jadikan URI relatif (media/lampiran) menjadi absolut, mengikuti pola link_bayar di {@link SiswaBaruApi}. */
-	private static String absolutkan(HttpServletRequest request, String uri) {
-		if (!ApiHelperSupport.hasText(uri)) {
-			return null;
-		}
-		if (uri.startsWith("http://") || uri.startsWith("https://")) {
-			return uri;
-		}
-		return Common.getRequestHostWithProtocol(request) + (uri.startsWith("/") ? uri : "/" + uri);
-	}
-
 	/**
 	 * Action "psb_portal_info" -- identitas instansi + konfigurasi tampilan portal PSB.
 	 * Sumber data sama dengan {@code PSBAction.headerBox()} dan {@code PSBAction.footer()}:
@@ -159,7 +148,7 @@ public final class PsbApi {
 					alur = LampiranLain.ambil(LampiranLain.ID_ALUR_REGISTRASI_PSB, LampiranLain.ALUR_REGISTRASI_PSB);
 				}
 				if (alur != null && alur.getId() != null) {
-					alurUrl = absolutkan(request, alur.createLinkUri());
+					alurUrl = ApiHelperSupport.absoluteUrl(request, alur.createLinkUri());
 				}
 			} catch (Exception e) {
 				ais.common.ErrorAuditUtil.record(e, "auto-audit PsbApi.portalInfo(alur)");
@@ -172,10 +161,10 @@ public final class PsbApi {
 			ApiHelperSupport.put(data, "telp", telp);
 			ApiHelperSupport.put(data, "wa", wa);
 			ApiHelperSupport.put(data, "email", email);
-			ApiHelperSupport.put(data, "label_psb",
+			ApiHelperSupport.put(data, "label_portal",
 					Common.getKonfigurasi("label_psb_kampus", "Seleksi Penerimaan Siswa Baru").getNilai());
 			ApiHelperSupport.put(data, "header_html", headerHtml);
-			ApiHelperSupport.put(data, "logo_url", absolutkan(request, logo));
+			ApiHelperSupport.put(data, "logo_url", ApiHelperSupport.absoluteUrl(request, logo));
 			ApiHelperSupport.put(data, "alur_url", alurUrl);
 			ApiHelperSupport.put(data, "tampil_alur", Common.bolehKonfigurasi("tampilkan_alur_psb"));
 			ApiHelperSupport.put(data, "tampil_formulir", Common.bolehKonfigurasi("tampilkan_formulir_psb"));

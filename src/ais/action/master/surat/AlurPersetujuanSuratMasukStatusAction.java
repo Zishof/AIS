@@ -561,6 +561,45 @@ public class AlurPersetujuanSuratMasukStatusAction extends GenericAutowireCompos
 			}
 		});
 		cancel.setParent(toolbar);
+
+		// Tombol CETAK di dekat "Selesai": unduh/buka berkas lampiran surat masuk yang sedang dipratinjau.
+		final SuratMasuk suratMasukCetak = alurPersetujuanSuratMasukStatus.getSuratMasuk();
+		MyToolbarbuttonConfig cetak = new MyToolbarbuttonConfig("Cetak", "/img/print.png");
+		cetak.setTooltiptext("Cetak / unduh berkas surat masuk");
+		cetak.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				try {
+					if (suratMasukCetak == null || suratMasukCetak.getId() == null) {
+						ais.ui.util.MyMessageboxConfig.show("Data surat masuk tidak ditemukan.", "Informasi",
+								ais.ui.util.MyMessageboxConfig.OK, ais.ui.util.MyMessageboxConfig.INFORMATION);
+						return;
+					}
+					// FotoGambarSuratMasuk berisi BLOB → WAJIB pakai StreamingHibernateUtil (catatan streaming DB).
+					org.hibernate.Session sesiStream = ais.database.hibernate.StreamingHibernateUtil.getInstance()
+							.currentSession();
+					FotoGambarSuratMasuk foto = (FotoGambarSuratMasuk) sesiStream
+							.createCriteria(FotoGambarSuratMasuk.class)
+							.add(Restrictions.eq("suratMasuk", suratMasukCetak.getId())).addOrder(Order.desc("id"))
+							.setMaxResults(1).uniqueResult();
+					if (foto == null) {
+						ais.ui.util.MyMessageboxConfig.show(
+								"Surat masuk ini belum memiliki berkas lampiran untuk dicetak/diunduh.", "Informasi",
+								ais.ui.util.MyMessageboxConfig.OK, ais.ui.util.MyMessageboxConfig.INFORMATION);
+						return;
+					}
+					if (foto.getGdrive() != null && !foto.getGdrive().isEmpty()) {
+						org.zkoss.zk.ui.sys.ExecutionsCtrl.getCurrent().sendRedirect(foto.downloadGDriveUrl(), "_blank");
+					} else {
+						Common.display(foto);
+					}
+				} catch (Exception e) {
+					Common.tampilErrorJikaAdmin(e);
+				}
+			}
+		});
+		cetak.setParent(toolbar);
+
 		borderlayout.setParent(addWindow);
 	}
 
