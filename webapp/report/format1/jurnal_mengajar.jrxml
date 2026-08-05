@@ -20,11 +20,15 @@
 a.id as pertemuan_id,
 a.pertemuan_ke,
 a.tanggal,
-a.indikator,
+(case
+	when coalesce(trim(a.topik), '') = '' then coalesce(a.indikator, '')
+	when coalesce(trim(a.indikator), '') = '' then a.topik
+	else a.topik || chr(10) || chr(10) || a.indikator
+end) as indikator,
 b.capaianpembelajaranprodi,
 b.deskripsipembelajaran,
 COALESCE(a.waktu_mulai,'') || CASE WHEN a.waktu_mulai IS NOT NULL AND a.waktu_selesai IS NOT NULL THEN '-' ELSE '' END || COALESCE(a.waktu_selesai,'') as waktu,
-a.topik as materi,
+coalesce(nullif(trim(a.buku_rujukan1), ''), '') as materi,
 a.metode_pembelajaran as metode,
 a.waktupembelajaran,
 '' as paraf,

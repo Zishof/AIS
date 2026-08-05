@@ -4402,6 +4402,39 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 		}
 	}
 
+	private Object getSelectedComboValue(Combobox combo) {
+		try {
+			return combo == null || combo.getSelectedItem() == null ? null : combo.getSelectedItem().getValue();
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
+	private String getSelectedStringValue(Combobox combo, String fallback) {
+		Object value = getSelectedComboValue(combo);
+		return value == null ? fallback : value.toString();
+	}
+
+	private Paket getPaketDipilihDenganFallback(Paket fallback) {
+		Paket dipilih = getPaketDipilih();
+		return dipilih == null ? fallback : dipilih;
+	}
+
+	private Jurusan getJurusanDipilihDenganFallback(Combobox combo, Jurusan fallback) {
+		Object value = getSelectedComboValue(combo);
+		return value instanceof Jurusan ? (Jurusan) value : fallback;
+	}
+
+	private JenisSeleksi getJenisSeleksiDipilihDenganFallback(JenisSeleksi fallback) {
+		Object value = getSelectedComboValue(jenisSeleksi);
+		return value instanceof JenisSeleksi ? (JenisSeleksi) value : fallback;
+	}
+
+	private GelombangPendaftaran getGelombangDipilihDenganFallback(GelombangPendaftaran fallback) {
+		Object value = getSelectedComboValue(gelombangPendaftaran);
+		return value instanceof GelombangPendaftaran ? (GelombangPendaftaran) value : fallback;
+	}
+
 	private Jurusan getJurusanDipilih(Combobox combo) {
 		try {
 			return combo == null || combo.getSelectedItem() == null ? null : (Jurusan) combo.getSelectedItem().getValue();
@@ -4425,29 +4458,35 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 
 	private boolean validasiJenjangProdiSesuaiPaket() {
 		try {
-			Paket paketDipilih = getPaketDipilih();
+			Paket paketDipilih = getPaketDipilihDenganFallback(
+					biodataCalonMahasiswa == null ? null : biodataCalonMahasiswa.getPaket());
 			if (paketDipilih == null) {
 				return true;
 			}
 			Session session = HibernateUtil.currentSession();
 
-			if (!validasiPilihanTermasukPaket(session, paketDipilih, getJurusanDipilih(prodi1), prodi1,
+			if (!validasiPilihanTermasukPaket(session, paketDipilih,
+					getJurusanDipilihDenganFallback(prodi1, biodataCalonMahasiswa.getProdi1()), prodi1,
 					"Prodi pilihan pertama", true, false, false, false, false)) {
 				return false;
 			}
-			if (!validasiPilihanTermasukPaket(session, paketDipilih, getJurusanDipilih(prodi2), prodi2,
+			if (!validasiPilihanTermasukPaket(session, paketDipilih,
+					getJurusanDipilihDenganFallback(prodi2, biodataCalonMahasiswa.getProdi2()), prodi2,
 					"Prodi pilihan kedua", false, true, false, false, false)) {
 				return false;
 			}
-			if (!validasiPilihanTermasukPaket(session, paketDipilih, getJurusanDipilih(prodi3), prodi3,
+			if (!validasiPilihanTermasukPaket(session, paketDipilih,
+					getJurusanDipilihDenganFallback(prodi3, biodataCalonMahasiswa.getProdi3()), prodi3,
 					"Prodi pilihan ketiga", false, false, true, false, false)) {
 				return false;
 			}
-			if (!validasiPilihanTermasukPaket(session, paketDipilih, getJurusanDipilih(prodi4), prodi4,
+			if (!validasiPilihanTermasukPaket(session, paketDipilih,
+					getJurusanDipilihDenganFallback(prodi4, biodataCalonMahasiswa.getProdi4()), prodi4,
 					"Prodi pilihan keempat", false, false, false, true, false)) {
 				return false;
 			}
-			if (!validasiPilihanTermasukPaket(session, paketDipilih, getJurusanDipilih(prodi5), prodi5,
+			if (!validasiPilihanTermasukPaket(session, paketDipilih,
+					getJurusanDipilihDenganFallback(prodi5, biodataCalonMahasiswa.getProdi5()), prodi5,
 					"Prodi pilihan kelima", false, false, false, false, true)) {
 				return false;
 			}
@@ -4502,37 +4541,41 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 	private boolean validasiKuotaPaketJurusanPmb() {
 		Session session = null;
 		try {
-			Paket paketDipilih = getPaketDipilih();
+			Paket paketDipilih = getPaketDipilihDenganFallback(
+					biodataCalonMahasiswa == null ? null : biodataCalonMahasiswa.getPaket());
 			if (paketDipilih == null) {
 				return true;
 			}
-			String ta = tahunAkademik == null || tahunAkademik.getSelectedItem() == null
-					|| tahunAkademik.getSelectedItem().getValue() == null ? null
-							: tahunAkademik.getSelectedItem().getValue().toString();
-			GelombangPendaftaran gel = gelombangPendaftaran == null || gelombangPendaftaran.getSelectedItem() == null
-					? null
-					: (GelombangPendaftaran) gelombangPendaftaran.getSelectedItem().getValue();
+			String ta = getSelectedStringValue(tahunAkademik,
+					biodataCalonMahasiswa == null ? null : biodataCalonMahasiswa.getTahunAkademik());
+			GelombangPendaftaran gel = getGelombangDipilihDenganFallback(
+					biodataCalonMahasiswa == null ? null : biodataCalonMahasiswa.getGelombangPendaftaran());
 			Long currentId = biodataCalonMahasiswa == null ? null : biodataCalonMahasiswa.getId();
 			session = HibernateUtil.currentSession();
 
-			if (!validasiKuotaPerPilihan(session, paketDipilih, getJurusanDipilih(prodi1), gel, ta, currentId, prodi1,
-					"Prodi pilihan pertama")) {
+			if (!validasiKuotaPerPilihan(session, paketDipilih,
+					getJurusanDipilihDenganFallback(prodi1, biodataCalonMahasiswa.getProdi1()), gel, ta, currentId,
+					prodi1, "Prodi pilihan pertama")) {
 				return false;
 			}
-			if (!validasiKuotaPerPilihan(session, paketDipilih, getJurusanDipilih(prodi2), gel, ta, currentId, prodi2,
-					"Prodi pilihan kedua")) {
+			if (!validasiKuotaPerPilihan(session, paketDipilih,
+					getJurusanDipilihDenganFallback(prodi2, biodataCalonMahasiswa.getProdi2()), gel, ta, currentId,
+					prodi2, "Prodi pilihan kedua")) {
 				return false;
 			}
-			if (!validasiKuotaPerPilihan(session, paketDipilih, getJurusanDipilih(prodi3), gel, ta, currentId, prodi3,
-					"Prodi pilihan ketiga")) {
+			if (!validasiKuotaPerPilihan(session, paketDipilih,
+					getJurusanDipilihDenganFallback(prodi3, biodataCalonMahasiswa.getProdi3()), gel, ta, currentId,
+					prodi3, "Prodi pilihan ketiga")) {
 				return false;
 			}
-			if (!validasiKuotaPerPilihan(session, paketDipilih, getJurusanDipilih(prodi4), gel, ta, currentId, prodi4,
-					"Prodi pilihan keempat")) {
+			if (!validasiKuotaPerPilihan(session, paketDipilih,
+					getJurusanDipilihDenganFallback(prodi4, biodataCalonMahasiswa.getProdi4()), gel, ta, currentId,
+					prodi4, "Prodi pilihan keempat")) {
 				return false;
 			}
-			if (!validasiKuotaPerPilihan(session, paketDipilih, getJurusanDipilih(prodi5), gel, ta, currentId, prodi5,
-					"Prodi pilihan kelima")) {
+			if (!validasiKuotaPerPilihan(session, paketDipilih,
+					getJurusanDipilihDenganFallback(prodi5, biodataCalonMahasiswa.getProdi5()), gel, ta, currentId,
+					prodi5, "Prodi pilihan kelima")) {
 				return false;
 			}
 			return true;
@@ -4611,8 +4654,7 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 		try {
 
 			String info = BiodataCalonMahasiswaAction.infoMahasiswaBaru(infoKampusDariMana);
-			Paket pkt = (Paket) (myPaket != null ? myPaket
-					: this.paket.getSelectedItem() == null ? null : this.paket.getSelectedItem().getValue());
+			Paket pkt = getPaketDipilihDenganFallback(biodataCalonMahasiswa.getPaket());
 			if (tampilkanUsernameDanPasswordPadaFormPMB && username != null) {
 				biodataCalonMahasiswa.setUsername(username.getValue().trim());
 				biodataCalonMahasiswa.setPassword(Common.desEncrypter.get().encrypt(password.getValue().trim()));
@@ -4628,13 +4670,15 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 			biodataCalonMahasiswa.setAlamatSama(alamatSama.isChecked());
 			if (!isCalonMahasiswaLogin() || bolehCalonMahasiswaMengubahGelombangPendaftaran()
 					|| biodataCalonMahasiswa.getGelombangPendaftaran() == null) {
-				GelombangPendaftaran gelombangDipilih = refreshSelectedGelombangPendaftaranComboValue();
+				GelombangPendaftaran gelombangDipilih = getGelombangDipilihDenganFallback(
+						isCalonMahasiswaLogin() ? biodataCalonMahasiswa.getGelombangPendaftaran() : null);
 				if (gelombangDipilih != null || !isCalonMahasiswaLogin()
 						|| biodataCalonMahasiswa.getGelombangPendaftaran() == null) {
 					biodataCalonMahasiswa.setGelombangPendaftaran(gelombangDipilih);
 				}
 			}
-			biodataCalonMahasiswa.setTahunAkademik((String) tahunAkademik.getSelectedItem().getValue());
+			biodataCalonMahasiswa.setTahunAkademik(
+					getSelectedStringValue(tahunAkademik, biodataCalonMahasiswa.getTahunAkademik()));
 			try {
 				// FIX WrongValueException "You must specify a date": sama seperti tanggalLahir di
 				// bawah -- Datebox.getValue() melempar exception bila user mengetik teks tanggal
@@ -4728,7 +4772,9 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 			biodataCalonMahasiswa.setKecamatanSekolah((Wilayah) kecamatanSekolah.getAttribute("wilayah"));
 			biodataCalonMahasiswa.setPropinsiSekolah((Propinsi) (propinsiSekolah.getAttribute("wilayah")));
 			biodataCalonMahasiswa.setKotaSekolah((Kota) (kotaSekolah.getAttribute("wilayah")));
-			biodataCalonMahasiswa.setTahunKelulusan(tahunKelulusan.getValue().toString());
+			biodataCalonMahasiswa.setTahunKelulusan(
+					tahunKelulusan.getValue() == null ? biodataCalonMahasiswa.getTahunKelulusan()
+							: tahunKelulusan.getValue().toString());
 			biodataCalonMahasiswa.setJurusanSekolah(jurusanSekolah.getSelectedItem() == null ? null
 					: (JurusanSekolahMahasiswaBaru) jurusanSekolah.getSelectedItem().getValue());
 			biodataCalonMahasiswa.setAlamatOrtu(alamatOrtu.getValue());
@@ -4746,18 +4792,18 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 			biodataCalonMahasiswa.setPaket(pkt);
 
 			biodataCalonMahasiswa.setProdi1(
-					(Jurusan) (prodi1.getSelectedItem() == null ? null : prodi1.getSelectedItem().getValue()));
+					getJurusanDipilihDenganFallback(prodi1, biodataCalonMahasiswa.getProdi1()));
 			biodataCalonMahasiswa.setProdi2(
-					(Jurusan) (prodi2.getSelectedItem() == null ? null : prodi2.getSelectedItem().getValue()));
+					getJurusanDipilihDenganFallback(prodi2, biodataCalonMahasiswa.getProdi2()));
 
 			biodataCalonMahasiswa.setProdi3(
-					(Jurusan) (prodi3.getSelectedItem() == null ? null : prodi3.getSelectedItem().getValue()));
+					getJurusanDipilihDenganFallback(prodi3, biodataCalonMahasiswa.getProdi3()));
 
 			biodataCalonMahasiswa.setProdi4(
-					(Jurusan) (prodi4.getSelectedItem() == null ? null : prodi4.getSelectedItem().getValue()));
+					getJurusanDipilihDenganFallback(prodi4, biodataCalonMahasiswa.getProdi4()));
 
 			biodataCalonMahasiswa.setProdi5(
-					(Jurusan) (prodi5.getSelectedItem() == null ? null : prodi5.getSelectedItem().getValue()));
+					getJurusanDipilihDenganFallback(prodi5, biodataCalonMahasiswa.getProdi5()));
 
 			Jurusan prodiLulusUntukJenjang = biodataCalonMahasiswa.getProdiLulus();
 			if (prodiLulusUntukJenjang != null && prodiLulusUntukJenjang.getJenjang() != null) {
@@ -4769,9 +4815,7 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 				biodataCalonMahasiswa.setJenjang(ConstantValues.s1);
 			}
 
-			biodataCalonMahasiswa.setProgram(
-					(String) (program.getSelectedItem() == null || program.getSelectedItem().getValue() == null ? null
-							: program.getSelectedItem().getValue()));
+			biodataCalonMahasiswa.setProgram(getSelectedStringValue(program, biodataCalonMahasiswa.getProgram()));
 
 			biodataCalonMahasiswa.setJurusanSekolahLain(jurusanSekolahLain.getValue());
 
@@ -4821,8 +4865,8 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 			biodataCalonMahasiswa.setNimLamaSebelumPindah(nimPindahan.getValue());
 			biodataCalonMahasiswa.setPinPassword(pinPassword.getValue().trim());
 
-			biodataCalonMahasiswa.setJenisSeleksi((JenisSeleksi) (jenisSeleksi.getSelectedItem() == null ? null
-					: jenisSeleksi.getSelectedItem().getValue()));
+			biodataCalonMahasiswa
+					.setJenisSeleksi(getJenisSeleksiDipilihDenganFallback(biodataCalonMahasiswa.getJenisSeleksi()));
 
 			biodataCalonMahasiswa.setKeterangan(keterangan.getValue());
 
@@ -4882,22 +4926,23 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 
 		try {
 			Tbmuser tbmuser = Common.getCurrentUser();
-			if (tahunAkademik.getSelectedItem() == null || tahunAkademik.getSelectedItem().getValue() == null) {
+			String tahunAkademikDipilih = getSelectedStringValue(tahunAkademik,
+					biodataCalonMahasiswa.getTahunAkademik());
+			if (tahunAkademikDipilih == null || tahunAkademikDipilih.trim().isEmpty()) {
 				MyMessageboxConfig.show("Mohon maaf, Tahun Akademik belum dipilih. Langkah yang dapat dilakukan: (1) pilih Tahun Akademik dari daftar dropdown yang tersedia; (2) pastikan data tahun akademik sudah terdaftar di sistem; (3) ulangi proses pendaftaran. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan", MyMessageboxConfig.OK,
 						MyMessageboxConfig.INFORMATION);
 				tahunAkademik.focus();
 				return false;
 			}
 
-			if (gelombangPendaftaran.getSelectedItem() == null
-					|| gelombangPendaftaran.getSelectedItem().getValue() == null) {
+			if (getGelombangDipilihDenganFallback(biodataCalonMahasiswa.getGelombangPendaftaran()) == null) {
 				MyMessageboxConfig.show("Mohon maaf, Gelombang Pendaftaran belum dipilih. Langkah yang dapat dilakukan: (1) pilih Gelombang Pendaftaran dari daftar dropdown yang tersedia; (2) pastikan gelombang pendaftaran sudah aktif dan tersedia; (3) ulangi proses pendaftaran. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan", MyMessageboxConfig.OK,
 						MyMessageboxConfig.INFORMATION);
 				tahunAkademik.focus();
 				return false;
 			}
 
-			if (jenisSeleksi.getSelectedItem() == null || jenisSeleksi.getSelectedItem().getValue() == null) {
+			if (getJenisSeleksiDipilihDenganFallback(biodataCalonMahasiswa.getJenisSeleksi()) == null) {
 				MyMessageboxConfig.show("Mohon maaf, Jenis Seleksi belum dipilih. Langkah yang dapat dilakukan: (1) pilih Jenis Seleksi dari daftar dropdown yang tersedia; (2) pastikan jenis seleksi sudah dikonfigurasi di sistem; (3) ulangi proses pendaftaran. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan", MyMessageboxConfig.OK,
 						MyMessageboxConfig.INFORMATION);
 				jenisSeleksi.focus();
@@ -4944,8 +4989,8 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 				myTanggalLahirVal = tanggalLahir.getValue();
 			} catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/master/pmb/BiodataCalonMahasiswaAction.java:4822");}
 			if (myTanggalLahirVal != null) {
-				GelombangPendaftaran myGelombangPendaftaran = (GelombangPendaftaran) gelombangPendaftaran
-						.getSelectedItem().getValue();
+				GelombangPendaftaran myGelombangPendaftaran = getGelombangDipilihDenganFallback(
+						biodataCalonMahasiswa.getGelombangPendaftaran());
 				if (myGelombangPendaftaran == null || myGelombangPendaftaran.getDibatasiUmur() == null
 						|| myGelombangPendaftaran.getUmurmaksimal() == null) {
 					if (Common.bolehKonfigurasi("umur_calon_mahasiswa_dibatasi", Konfigurasi.TIDAK_AKTIF)) {
@@ -5063,10 +5108,7 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 
 			Paket pkt = null;
 			if (paket != null || (myPaket != null && myPaket.getId() != null)) {
-				pkt = (Paket) (this.paket.getSelectedItem() == null ? null : this.paket.getSelectedItem().getValue());
-				if (myPaket != null && myPaket.getId() != null) {
-					pkt = myPaket;
-				}
+				pkt = getPaketDipilihDenganFallback(biodataCalonMahasiswa.getPaket());
 				if (pkt == null) {
 					MyMessageboxConfig.show("Mohon maaf, Paket Pendaftaran belum dipilih. Langkah yang dapat dilakukan: (1) pilih Paket Pendaftaran yang sesuai dari daftar dropdown; (2) pastikan paket pendaftaran sudah tersedia dan aktif; (3) ulangi proses pendaftaran. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan", MyMessageboxConfig.OK,
 							MyMessageboxConfig.INFORMATION);
@@ -5076,21 +5118,21 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 
 				if (pkt != null && !tampilSederhana) {
 
-					if (prodi1.getSelectedItem() == null || prodi1.getSelectedItem().getValue() == null) {
+					if (getJurusanDipilihDenganFallback(prodi1, biodataCalonMahasiswa.getProdi1()) == null) {
 						MyMessageboxConfig.show("Mohon maaf, Program Studi pilihan pertama belum dipilih. Langkah yang dapat dilakukan: (1) pilih Program Studi pilihan pertama dari daftar dropdown; (2) pastikan prodi yang dipilih sesuai dengan paket pendaftaran; (3) ulangi proses pendaftaran. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan", MyMessageboxConfig.OK,
 								MyMessageboxConfig.INFORMATION);
 						prodi1.focus();
 						return false;
 					}
 
-					if ((prodi2.getSelectedItem() == null || prodi2.getSelectedItem().getValue() == null)
+					if (getJurusanDipilihDenganFallback(prodi2, biodataCalonMahasiswa.getProdi2()) == null
 							&& pkt.getJumlahProdiYgBolehDiambil() > 1) {
 						MyMessageboxConfig.show("Mohon maaf, Program Studi pilihan ke-2 belum dipilih. Langkah yang dapat dilakukan: (1) pilih Program Studi pilihan ke-2 dari daftar dropdown; (2) pilih prodi yang berbeda dari pilihan pertama; (3) ulangi proses pendaftaran. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan", MyMessageboxConfig.OK,
 								MyMessageboxConfig.INFORMATION);
 						prodi2.focus();
 						return false;
 					}
-					if ((prodi3.getSelectedItem() == null || prodi3.getSelectedItem().getValue() == null)
+					if (getJurusanDipilihDenganFallback(prodi3, biodataCalonMahasiswa.getProdi3()) == null
 							&& pkt.getJumlahProdiYgBolehDiambil() > 2) {
 						MyMessageboxConfig.show("Mohon maaf, Program Studi pilihan ke-3 belum dipilih. Langkah yang dapat dilakukan: (1) pilih Program Studi pilihan ke-3 dari daftar dropdown; (2) pilih prodi yang berbeda dari pilihan sebelumnya; (3) ulangi proses pendaftaran. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan", MyMessageboxConfig.OK,
 								MyMessageboxConfig.INFORMATION);
@@ -5098,7 +5140,7 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 						return false;
 					}
 
-					if ((prodi4.getSelectedItem() == null || prodi4.getSelectedItem().getValue() == null)
+					if (getJurusanDipilihDenganFallback(prodi4, biodataCalonMahasiswa.getProdi4()) == null
 							&& pkt.getJumlahProdiYgBolehDiambil() > 3) {
 						MyMessageboxConfig.show("Mohon maaf, Program Studi pilihan ke-4 belum dipilih. Langkah yang dapat dilakukan: (1) pilih Program Studi pilihan ke-4 dari daftar dropdown; (2) pilih prodi yang berbeda dari pilihan sebelumnya; (3) ulangi proses pendaftaran. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan", MyMessageboxConfig.OK,
 								MyMessageboxConfig.INFORMATION);
@@ -5106,7 +5148,7 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 						return false;
 					}
 
-					if ((prodi5.getSelectedItem() == null || prodi5.getSelectedItem().getValue() == null)
+					if (getJurusanDipilihDenganFallback(prodi5, biodataCalonMahasiswa.getProdi5()) == null
 							&& pkt.getJumlahProdiYgBolehDiambil() > 4) {
 						MyMessageboxConfig.show("Mohon maaf, Program Studi pilihan ke-5 belum dipilih. Langkah yang dapat dilakukan: (1) pilih Program Studi pilihan ke-5 dari daftar dropdown; (2) pilih prodi yang berbeda dari pilihan sebelumnya; (3) ulangi proses pendaftaran. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan", MyMessageboxConfig.OK,
 								MyMessageboxConfig.INFORMATION);
@@ -5114,15 +5156,16 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 						return false;
 					}
 
+					Jurusan jurusan = null;
 					if (pkt != null && !pkt.getBisaMemilihPilihanYangSama()) {
 
 						List<Long> indJur = new ArrayList<Long>();
-						if (prodi1.getSelectedItem() != null && prodi1.getSelectedItem().getValue() != null) {
-							Jurusan jurusan = (Jurusan) prodi1.getSelectedItem().getValue();
+						jurusan = getJurusanDipilihDenganFallback(prodi1, biodataCalonMahasiswa.getProdi1());
+						if (jurusan != null) {
 							indJur.add(jurusan.getId());
 						}
-						if (prodi2.getSelectedItem() != null && prodi2.getSelectedItem().getValue() != null) {
-							Jurusan jurusan = (Jurusan) prodi2.getSelectedItem().getValue();
+						jurusan = getJurusanDipilihDenganFallback(prodi2, biodataCalonMahasiswa.getProdi2());
+						if (jurusan != null) {
 							if (indJur.contains(jurusan.getId())) {
 								MyMessageboxConfig.show(
 										"Prodi pilihan " + jurusan.getNama()
@@ -5133,8 +5176,8 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 							}
 							indJur.add(jurusan.getId());
 						}
-						if (prodi3.getSelectedItem() != null && prodi3.getSelectedItem().getValue() != null) {
-							Jurusan jurusan = (Jurusan) prodi3.getSelectedItem().getValue();
+						jurusan = getJurusanDipilihDenganFallback(prodi3, biodataCalonMahasiswa.getProdi3());
+						if (jurusan != null) {
 							if (indJur.contains(jurusan.getId())) {
 								MyMessageboxConfig.show(
 										"Prodi pilihan " + jurusan.getNama()
@@ -5145,8 +5188,8 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 							}
 							indJur.add(jurusan.getId());
 						}
-						if (prodi4.getSelectedItem() != null && prodi4.getSelectedItem().getValue() != null) {
-							Jurusan jurusan = (Jurusan) prodi4.getSelectedItem().getValue();
+						jurusan = getJurusanDipilihDenganFallback(prodi4, biodataCalonMahasiswa.getProdi4());
+						if (jurusan != null) {
 							if (indJur.contains(jurusan.getId())) {
 								MyMessageboxConfig.show(
 										"Prodi pilihan " + jurusan.getNama()
@@ -5157,8 +5200,8 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 							}
 							indJur.add(jurusan.getId());
 						}
-						if (prodi5.getSelectedItem() != null && prodi5.getSelectedItem().getValue() != null) {
-							Jurusan jurusan = (Jurusan) prodi5.getSelectedItem().getValue();
+						jurusan = getJurusanDipilihDenganFallback(prodi5, biodataCalonMahasiswa.getProdi5());
+						if (jurusan != null) {
 							if (indJur.contains(jurusan.getId())) {
 								MyMessageboxConfig.show(
 										"Prodi pilihan " + jurusan.getNama()
@@ -5185,7 +5228,7 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 						return false;
 					}
 
-					if (program.getSelectedItem() == null || program.getSelectedItem().getValue() == null) {
+					if (getSelectedStringValue(program, biodataCalonMahasiswa.getProgram()) == null) {
 						MyMessageboxConfig.show("Mohon maaf, Program belum dipilih. Langkah yang dapat dilakukan: (1) pilih Program dari daftar dropdown yang tersedia; (2) pastikan program sudah terdaftar di sistem; (3) ulangi proses pendaftaran. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan", MyMessageboxConfig.OK,
 								MyMessageboxConfig.INFORMATION);
 						program.focus();
@@ -5193,20 +5236,25 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 					}
 
 					List<Jurusan> jurusans = new ArrayList<Jurusan>();
-					if (prodi1.getSelectedItem() != null && prodi1.getSelectedItem().getValue() != null) {
-						jurusans.add((Jurusan) prodi1.getSelectedItem().getValue());
+					jurusan = getJurusanDipilihDenganFallback(prodi1, biodataCalonMahasiswa.getProdi1());
+					if (jurusan != null) {
+						jurusans.add(jurusan);
 					}
-					if (prodi2.getSelectedItem() != null && prodi2.getSelectedItem().getValue() != null) {
-						jurusans.add((Jurusan) prodi2.getSelectedItem().getValue());
+					jurusan = getJurusanDipilihDenganFallback(prodi2, biodataCalonMahasiswa.getProdi2());
+					if (jurusan != null) {
+						jurusans.add(jurusan);
 					}
-					if (prodi3.getSelectedItem() != null && prodi3.getSelectedItem().getValue() != null) {
-						jurusans.add((Jurusan) prodi3.getSelectedItem().getValue());
+					jurusan = getJurusanDipilihDenganFallback(prodi3, biodataCalonMahasiswa.getProdi3());
+					if (jurusan != null) {
+						jurusans.add(jurusan);
 					}
-					if (prodi4.getSelectedItem() != null && prodi4.getSelectedItem().getValue() != null) {
-						jurusans.add((Jurusan) prodi4.getSelectedItem().getValue());
+					jurusan = getJurusanDipilihDenganFallback(prodi4, biodataCalonMahasiswa.getProdi4());
+					if (jurusan != null) {
+						jurusans.add(jurusan);
 					}
-					if (prodi5.getSelectedItem() != null && prodi5.getSelectedItem().getValue() != null) {
-						jurusans.add((Jurusan) prodi5.getSelectedItem().getValue());
+					jurusan = getJurusanDipilihDenganFallback(prodi5, biodataCalonMahasiswa.getProdi5());
+					if (jurusan != null) {
+						jurusans.add(jurusan);
 					}
 					if (pkt != null) {
 						if (jurusans.size() > 1 && !PersyaratanPilihanPaket.checkKombinasiPaket(pkt, jurusans)) {
@@ -5350,12 +5398,11 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 				}
 			}
 
-			String ta = (String) tahunAkademik.getSelectedItem().getValue();
-			JenisSeleksi js = (JenisSeleksi) (jenisSeleksi.getSelectedItem() == null ? null
-					: jenisSeleksi.getSelectedItem().getValue());
+			String ta = getSelectedStringValue(tahunAkademik, biodataCalonMahasiswa.getTahunAkademik());
+			JenisSeleksi js = getJenisSeleksiDipilihDenganFallback(biodataCalonMahasiswa.getJenisSeleksi());
 
-			GelombangPendaftaran gel = (GelombangPendaftaran) (gelombangPendaftaran.getSelectedItem() == null ? null
-					: gelombangPendaftaran.getSelectedItem().getValue());
+			GelombangPendaftaran gel = getGelombangDipilihDenganFallback(
+					biodataCalonMahasiswa.getGelombangPendaftaran());
 			// Baca tanggal lahir secara AMAN: Datebox.getValue() melempar WrongValueException
 			// bila isian kosong/format salah. Bila tidak valid, lewati kriteria tanggal pada
 			// pengecekan duplikat agar query tidak gagal (validasi wajib-isi ditangani terpisah).
