@@ -557,6 +557,32 @@ public class HibernateUtil {
     }
 
     /**
+     * Cek APAKAH thread saat ini sudah punya native session yang masih terbuka&usable di
+     * {@code MAP}, TANPA membuka session baru (read-only, tanpa efek samping).
+     *
+     * <p><b>Tujuan.</b> Mencegah helper bertingkat (mis. {@code ambilDataBanyak}) yang dipanggil
+     * dari TENGAH alur yang sudah membuka session lewat {@link #currentNativeSession()} salah
+     * menutup session ANCESTOR yang masih dipakai pemanggil di atasnya — {@code currentNativeSession()}
+     * bersifat thread-local (bukan call-scoped), jadi panggilan bersarang akan MENDAPATKAN kembali
+     * session ancestor yang sama, lalu {@code closeSession()} di finally-nya menutup paksa session
+     * itu meski ancestor belum selesai memakainya, memicu {@code SessionException: Session is closed!}
+     * di ancestor. Pola pakai: cek nilai ini SEBELUM memanggil {@code currentNativeSession()}; hanya
+     * tutup session di {@code finally} bila nilai ini {@code false} (berarti pemanggil ini sendiri
+     * yang membuka session barunya, bukan meminjam dari ancestor).</p>
+     *
+     * @return {@code true} bila thread ini sudah punya native session terbuka yang masih usable
+     */
+    public static boolean isNativeSessionOpenForCurrentThread() {
+        Session existing = null;
+        try {
+            existing = MAP.get();
+        } catch (Exception e) {
+            existing = null;
+        }
+        return isSessionUsable(existing);
+    }
+
+    /**
      * Membuka session Hibernate BARU yang wajib ditutup sendiri oleh pemanggil.
      *
      * <p><b>Tujuan.</b> Menyediakan session terisolasi untuk pekerjaan yang TIDAK boleh menumpang

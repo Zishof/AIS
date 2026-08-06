@@ -1232,6 +1232,14 @@ public class DataUtil {
 				// System.out.println("clazz " + clazzs + " idsNggakAda -> " + idsNggakAda);
 
 				Session session = null;
+				// PERBAIKAN (session closed): currentNativeSession() thread-local, bukan
+				// call-scoped -- bila pemanggil (mis. VOPembelajaran.reInitPertemuan yang
+				// dipanggil dari tengah alur Perkuliahan.singkronkan) SUDAH membuka native
+				// session lebih dulu di thread yang sama, panggilan di sini akan meminjam
+				// (bukan membuka baru) session ancestor tsb. Tutup paksa di finally seperti
+				// sebelumnya membuat ancestor melihat "Session is closed!" saat lanjut
+				// memakainya. Hanya tutup bila method INI yang benar-benar membuka baru.
+				boolean sessionSudahTerbukaSebelumnya = HibernateUtil.isNativeSessionOpenForCurrentThread();
 				try {
 					session = HibernateUtil.currentNativeSession();
 					List<GeneralValueObject> generalValueObjectsData = session.createCriteria(c)
@@ -1266,20 +1274,24 @@ public class DataUtil {
 				} catch (Exception e) {
 					e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/DataUtil.java:1251");
 				} finally {
-					// OPTIMASI: Rapi menutup hibernate session dalam finally
-					if (session != null) {
-						try {
-							session.disconnect();
-						} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/DataUtil.java:1257");
-							// Ignore disconnect error
+					// OPTIMASI: Rapi menutup hibernate session dalam finally -- KECUALI bila
+					// session ini dipinjam dari ancestor yang masih memakainya (lihat komentar
+					// di atas); ancestor tetap bertanggung jawab menutup session miliknya sendiri.
+					if (!sessionSudahTerbukaSebelumnya) {
+						if (session != null) {
+							try {
+								session.disconnect();
+							} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/DataUtil.java:1257");
+								// Ignore disconnect error
+							}
+							try {
+								session.close();
+							} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/DataUtil.java:1262");
+								// Ignore close error
+							}
 						}
-						try {
-							session.close();
-						} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/DataUtil.java:1262");
-							// Ignore close error
-						}
+						HibernateUtil.closeSession();
 					}
-					HibernateUtil.closeSession();
 				}
 			}
 		} catch (Exception e) {

@@ -172,7 +172,7 @@ order by x.id_dosen,x.grup_id,x.perkuliahan,mahasiswa,x.id ]]>
 					<reportElement x="95" y="51" width="98" height="20" uuid="26634922-3445-4f8e-bdec-9f7307c65a3a"/>
 					<text><![CDATA[Semester]]></text>
 				</staticText>
-				<image hAlign="Center" vAlign="Middle">
+				<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
 					<reportElement x="2" y="0" width="83" height="100" uuid="6669eb9f-6216-4773-af79-4fe401b872bc"/>
 					<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get( "current_local_url" )+"/AmbilMedia?id="+$F{id_dosen}+"&name=nama&foto=foto&clazz=ais.database.model.file.FotoDosen&property=dosen&var=3"]]></imageExpression>
 				</image>

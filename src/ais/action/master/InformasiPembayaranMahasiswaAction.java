@@ -820,6 +820,9 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 
 		btnTab.tambahTabLazy(1, "Proses Pembayaran", "/img/svg/coin.svg", new ais.ui.util.MyButtonTabbox.PemuatTab() {
 			@Override public void muat(org.zkoss.zul.Div panel) throws Exception {
+				if (mahasiswa == null) {
+					return;
+				}
 				String url = "/common/daftarulang_mahasiswa_lama.zul?mahasiswa=" + mahasiswa.getId();
 				MyWindow window = new MyWindow("", "none", false);
 				window.setHeight("100%"); window.setWidth("100%"); window.setParent(panel);
@@ -829,6 +832,9 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 		btnTab.setVisibleTombol(1, tabsVisible);
 		btnTab.tambahTabLazy(2, "Bukti Pembayaran", "/img/svg/check2-circle.svg", new ais.ui.util.MyButtonTabbox.PemuatTab() {
 			@Override public void muat(org.zkoss.zul.Div panel) throws Exception {
+				if (mahasiswa == null) {
+					return;
+				}
 				String url = "/pages/master/bukti_pembayaran.zul?mahasiswa=" + mahasiswa.getId();
 				MyWindow window = new MyWindow("", "none", false);
 				window.setHeight("100%"); window.setWidth("100%"); window.setParent(panel);
@@ -838,6 +844,9 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 		btnTab.setVisibleTombol(2, tabsVisible);
 		btnTab.tambahTabLazy(3, "Tabungan Mahasiswa", "/img/svg/money-bills.svg", new ais.ui.util.MyButtonTabbox.PemuatTab() {
 			@Override public void muat(org.zkoss.zul.Div panel) throws Exception {
+				if (mahasiswa == null) {
+					return;
+				}
 				String url = "/pages/master/deposit.zul?mahasiswa=" + mahasiswa.getId();
 				MyWindow window = new MyWindow("", "none", false);
 				window.setHeight("100%"); window.setWidth("100%"); window.setParent(panel);
@@ -847,6 +856,9 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 		btnTab.setVisibleTombol(3, tabsVisible);
 		btnTab.tambahTabLazy(4, "Sejarah Pembayaran", "/img/svg/chart-line.svg", new ais.ui.util.MyButtonTabbox.PemuatTab() {
 			@Override public void muat(org.zkoss.zul.Div panel) throws Exception {
+				if (mahasiswa == null) {
+					return;
+				}
 				String url = "/pages/master/log_pembayaran.zul?mahasiswa=" + mahasiswa.getId();
 				MyWindow window = new MyWindow("", "none", false);
 				window.setHeight("100%"); window.setWidth("100%"); window.setParent(panel);

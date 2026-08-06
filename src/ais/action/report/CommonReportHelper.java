@@ -12841,15 +12841,20 @@ public class CommonReportHelper {
 					: jenjangProgramStudi.getNmKaPS());
 			parameters.put("nip", jenjangProgramStudi == null ? "" : jenjangProgramStudi.getNidnKaPS());
 		} else {
+			// PERBAIKAN: mahasiswa.getJurusan() bisa null (mahasiswa belum punya prodi),
+			// sama seperti kondisi yang sudah diguard di jenjangProgramStudi di atas --
+			// cabang else ini sebelumnya langsung memanggil jurusan.getKaprodi() tanpa
+			// cek null sehingga tetap bisa NPE walau fix KE-4 di atas sudah ada.
 			Jurusan jurusan = mahasiswa.getJurusan();
-			Dosen dosen = jurusan.getKaprodi();
+			Dosen dosen = jurusan == null ? null : jurusan.getKaprodi();
 			parameters.put("kaprodi", dosen == null ? "(                                          )" : dosen.getNama());
 			parameters.put("nip", dosen == null ? "" : dosen.getCode());
 		}
 		parameters.put("nuptkosenpa", krsMahasiswa.getDosenPa() == null ? "" : krsMahasiswa.getDosenPa().getNuptk());
 		parameters.put("semester_pendek", semesterPendek);
 		parameters.put("namamahasiswa", mahasiswa.getNama());
-		parameters.put("namafakultas", mahasiswa.getJurusan().getFakultas().getNama());
+		parameters.put("namafakultas", mahasiswa.getJurusan() == null || mahasiswa.getJurusan().getFakultas() == null
+				? "" : mahasiswa.getJurusan().getFakultas().getNama());
 		parameters.put("dosenpa", krsMahasiswa == null ? ""
 				: krsMahasiswa.getDosenPa() == null ? "......................." : krsMahasiswa.getDosenPa().getNama());
 		parameters.put("nipdosenpa",
