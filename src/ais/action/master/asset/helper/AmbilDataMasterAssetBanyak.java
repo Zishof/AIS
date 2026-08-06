@@ -296,19 +296,20 @@ public class AmbilDataMasterAssetBanyak extends MyWindow {
 			@SuppressWarnings("unchecked")
 			@Override
 			public void onEvent(Event event) throws Exception {
-				if (eventListener != null && grid.getRows() != null && grid.getRows().getChildren() != null) {
+				if (eventListener != null) {
+					/*
+					 * PENTING: sumber seleksi adalah Set<Long> ids yang dikelola persisten lewat onCheck di
+					 * renderer — BUKAN grid.getRows().getChildren(). Grid ini memakai ListModel + renderer
+					 * dengan mold "paging" (pageSize 10), sehingga getChildren() HANYA mengembalikan baris
+					 * halaman AKTIF. Bila memakai getChildren(), centang di halaman lain hilang → user memilih
+					 * 20 item tetapi hanya 10 (satu halaman) yang tersimpan. Dari ids, seluruh item terpilih
+					 * di SEMUA halaman ikut terbawa.
+					 */
 					List<MasterAsset> masterAssets = new ArrayList<MasterAsset>();
-					List<Row> rows = grid.getRows().getChildren();
-					for (Row row : rows) {
-						try {
-							Checkbox checkbox = (Checkbox) row.getAttribute("checkbox");
-							if (checkbox != null && checkbox.isChecked() && !checkbox.isDisabled()) {
-								MasterAsset myMasterAsset = (MasterAsset) row.getAttribute("masterAsset");
-								masterAssets.add(myMasterAsset);
-							}
-						} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/asset/helper/AmbilDataMasterAssetBanyak.java:309");
-							// TODO: handle exception
-						}
+					if (ids != null && !ids.isEmpty()) {
+						Session session = HibernateUtil.currentSession();
+						masterAssets = session.createCriteria(MasterAsset.class)
+							.add(Restrictions.in("id", ids)).addOrder(Order.asc("nama")).list();
 					}
 					Event myEvent = new Event("myEvent", event.getTarget(), masterAssets);
 					eventListener.onEvent(myEvent);
