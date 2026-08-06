@@ -1,9 +1,11 @@
 package ais.common.gdrive;
 
 import java.io.BufferedInputStream;
+import java.io.EOFException;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.StreamCorruptedException;
 import java.io.StringReader;
 import java.net.URLEncoder;
 import java.util.Collections;
@@ -343,55 +345,15 @@ public class GDriveUtilPerPengguna {
 			// (2) Belum ada / refresh token tak berlaku: jalur otorisasi lama (FileDataStore + code dari
 			// gdrive_code). Perilaku lama dipertahankan penuh.
 			if (credential == null) {
-				GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(httpTransport,
-						JSON_FACTORY, clientSecrets, Collections.singleton(DriveScopes.DRIVE_FILE))
-						.setDataStoreFactory(dataStoreFactory).setAccessType("offline").build();
-
-				credential = new AuthorizationCodeInstalledApp(flow, new VerificationCodeReceiver() {
-
-					@Override
-					public String waitForCode() throws IOException {
-
-						Session session = HibernateUtil.currentNativeSession();
-						GDriveCode gdriveCode = (GDriveCode) session.createCriteria(GDriveCode.class)
-								.add(Restrictions.eq("nama", username)).setMaxResults(1).uniqueResult();
-						HibernateUtil.closeSession();
-
-						System.out.println("gdriveCode -> " + gdriveCode);
-
-						if (gdriveCode == null || gdriveCode.getKeterangan() == null
-								|| gdriveCode.getKeterangan().trim().length() == 0) {
-							// Tidak ada kode otorisasi BARU tersimpan untuk username ini (belum pernah / belum
-							// baru saja klik "Hubungkan ke Drive"). DULU di sini jatuh ke kode contoh yang
-							// di-hardcode ("4/N-D27v1qgeomdHvvJdmgcCq6NfugLlRfXhTY3LRf_tc") -> kode single-use
-							// itu SELALU ditolak Google dengan 400 invalid_grant (sudah lama kadaluarsa/dipakai),
-							// dan karena ini dipanggil dari Thread backup terjadwal (tanpa user interaktif),
-							// kegagalan itu terjadi lagi di SETIAP run -> sumber utama error invalid_grant yang
-							// berulang di log. Gagal cepat secara LOKAL (tanpa memanggil Google sama sekali) dan
-							// tandai user butuh otorisasi ulang, alih-alih memaksa exchange yang pasti gagal.
-							tandaiCredentialButuhOtorisasiUlang(username,
-									"tidak ada kode otorisasi Google Drive tersimpan (belum/belum ulang menghubungkan akun)");
-							throw new IOException("GDrive belum terhubung untuk user '" + username
-									+ "': tidak ada kode otorisasi Google yang valid tersimpan. User harus klik "
-									+ "'Hubungkan ke Drive' terlebih dahulu sebelum backup otomatis bisa berjalan.");
-						}
-
-						return gdriveCode.getKeterangan();
+				try {
+					credential = buatCredentialDariCode(clientSecrets);
+				} catch (IOException e) {
+					if (!merupakanDataStoreKorup(e)) {
+						throw e;
 					}
-
-					@Override
-					public void stop() throws IOException {
-
-					}
-
-					@Override
-					public String getRedirectUri() throws IOException {
-						// TODO Auto-generated method stub
-						return GoogleCommon.getRedirect_url_drive();
-					}
-				})
-
-						.authorize("user");
+					pulihkanDataStoreLokal(e);
+					credential = buatCredentialDariCode(clientSecrets);
+				}
 
 				// Persist refresh token ke DB agar SEMUA node bisa memakainya tanpa otorisasi ulang.
 				simpanRefreshToken(username, credential.getRefreshToken());
@@ -403,6 +365,87 @@ public class GDriveUtilPerPengguna {
 					.build();
 		}
 		return drive;
+	}
+
+	private Credential buatCredentialDariCode(final GoogleClientSecrets clientSecrets) throws Exception {
+		GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(httpTransport, JSON_FACTORY,
+				clientSecrets, Collections.singleton(DriveScopes.DRIVE_FILE)).setDataStoreFactory(dataStoreFactory)
+				.setAccessType("offline").build();
+
+		return new AuthorizationCodeInstalledApp(flow, new VerificationCodeReceiver() {
+
+			@Override
+			public String waitForCode() throws IOException {
+
+				Session session = HibernateUtil.currentNativeSession();
+				GDriveCode gdriveCode = (GDriveCode) session.createCriteria(GDriveCode.class)
+						.add(Restrictions.eq("nama", username)).setMaxResults(1).uniqueResult();
+				HibernateUtil.closeSession();
+
+				System.out.println("gdriveCode -> " + gdriveCode);
+
+				if (gdriveCode == null || gdriveCode.getKeterangan() == null
+						|| gdriveCode.getKeterangan().trim().length() == 0) {
+					// Tidak ada kode otorisasi BARU tersimpan untuk username ini (belum pernah / belum
+					// baru saja klik "Hubungkan ke Drive"). DULU di sini jatuh ke kode contoh yang
+					// di-hardcode ("4/N-D27v1qgeomdHvvJdmgcCq6NfugLlRfXhTY3LRf_tc") -> kode single-use
+					// itu SELALU ditolak Google dengan 400 invalid_grant (sudah lama kadaluarsa/dipakai),
+					// dan karena ini dipanggil dari Thread backup terjadwal (tanpa user interaktif),
+					// kegagalan itu terjadi lagi di SETIAP run -> sumber utama error invalid_grant yang
+					// berulang di log. Gagal cepat secara LOKAL (tanpa memanggil Google sama sekali) dan
+					// tandai user butuh otorisasi ulang, alih-alih memaksa exchange yang pasti gagal.
+					tandaiCredentialButuhOtorisasiUlang(username,
+							"tidak ada kode otorisasi Google Drive tersimpan (belum/belum ulang menghubungkan akun)");
+					throw new IOException("GDrive belum terhubung untuk user '" + username
+							+ "': tidak ada kode otorisasi Google yang valid tersimpan. User harus klik "
+							+ "'Hubungkan ke Drive' terlebih dahulu sebelum backup otomatis bisa berjalan.");
+				}
+
+				return gdriveCode.getKeterangan();
+			}
+
+			@Override
+			public void stop() throws IOException {
+
+			}
+
+			@Override
+			public String getRedirectUri() throws IOException {
+				// TODO Auto-generated method stub
+				return GoogleCommon.getRedirect_url_drive();
+			}
+		}).authorize("user");
+	}
+
+	private boolean merupakanDataStoreKorup(Throwable e) {
+		Throwable t = e;
+		while (t != null) {
+			if (t instanceof EOFException || t instanceof StreamCorruptedException) {
+				return true;
+			}
+			t = t.getCause();
+		}
+		return false;
+	}
+
+	private void pulihkanDataStoreLokal(Throwable penyebab) throws IOException {
+		System.err.println("GDrive: cache credential lokal user '" + username
+				+ "' korup/kosong, cache lokal akan dibuat ulang. Penyebab: " + penyebab.getClass().getName()
+				+ " - " + penyebab.getMessage());
+		ais.common.ErrorAuditUtil.record(penyebab,
+				"auto-audit src/ais/common/gdrive/GDriveUtilPerPengguna.java:getDrive - recovery FileDataStore korup");
+
+		drive = null;
+		if (file != null && file.exists()) {
+			FileUtils.deleteDirectory(file);
+		}
+		if (file != null && !file.exists()) {
+			file.mkdirs();
+		}
+		if (file == null || !file.isDirectory()) {
+			throw new IOException("Gagal membuat ulang folder cache Google Drive untuk user '" + username + "'");
+		}
+		dataStoreFactory = new FileDataStoreFactory(file);
 	}
 
 	private File fileFolder = null;
@@ -596,10 +639,76 @@ public class GDriveUtilPerPengguna {
 				return null;
 			}
 
+			if (isTokenStoreCorrupted(e)) {
+				// EOFException/StreamCorruptedException/ClassNotFoundException dari
+				// IOUtils.deserialize() saat FileDataStoreFactory membaca berkas StoredCredential lokal
+				// yang terpotong/rusak (mis. proses ke-stop di tengah write, disk penuh). Berbeda dari
+				// GoogleJsonResponseException(401)/TokenResponseException di atas: kegagalan ini
+				// PERMANEN pada berkas lokal itu sendiri, bukan pada token-nya -- tanpa dibersihkan,
+				// SETIAP run backup berikutnya (dijadwalkan/manual) akan gagal identik selamanya karena
+				// dataStoreFactory tetap menunjuk ke berkas yang sama. Sebelumnya jatuh ke cabang ini
+				// dan hanya dicatat/di-print, tanpa perbaikan apa pun -- persis pola tombol "Reset"
+				// manual di displayLink(), diterapkan otomatis di sini.
+				resetTokenStoreLocalQuietly();
+				tandaiCredentialButuhOtorisasiUlang(username,
+						"berkas kredensial Google Drive lokal rusak/terpotong (" + e.getClass().getSimpleName()
+								+ ") - sudah dibersihkan otomatis, user perlu klik 'Hubungkan ke Drive' lagi");
+				String pesan = "Backup GDrive gagal untuk user '" + username + "' (folder: " + folderName
+						+ ", file: " + file.getName()
+						+ "): berkas kredensial Google Drive lokal rusak/terpotong dan sudah dibersihkan otomatis - "
+						+ "user perlu klik 'Hubungkan ke Drive' lagi.";
+				System.err.println(pesan);
+				ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/gdrive/GDriveUtilPerPengguna.java:474 - " + pesan);
+				return null;
+			}
+
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/gdrive/GDriveUtilPerPengguna.java:474");
 		}
 
 		return fileUpload;
+	}
+
+	/**
+	 * Mendeteksi kegagalan deserialize berkas StoredCredential lokal (FileDataStoreFactory) yang
+	 * rusak/terpotong -- lihat catatan di kirimBackupLangsung(). Ditelusuri lewat rantai cause karena
+	 * Google API client kadang membungkusnya (mis. dalam RuntimeException).
+	 */
+	private boolean isTokenStoreCorrupted(Throwable e) {
+		Throwable t = e;
+		while (t != null) {
+			if (t instanceof java.io.EOFException || t instanceof java.io.StreamCorruptedException
+					|| t instanceof java.io.InvalidClassException || t instanceof ClassNotFoundException
+					|| t instanceof java.io.OptionalDataException) {
+				return true;
+			}
+			t = t.getCause();
+		}
+		return false;
+	}
+
+	/**
+	 * Menghapus & membuat ulang folder cache token Drive lokal punya user ini (persis logika tombol
+	 * "Reset" manual di displayLink(), tanpa dialog UI) supaya percobaan backup berikutnya tidak
+	 * mengulang deserialize berkas yang sama-sama rusak. Best-effort: kegagalan dicatat, tidak
+	 * dilempar, supaya alur pemanggil (thread backup terjadwal) tetap bisa lanjut ke file berikutnya.
+	 */
+	private void resetTokenStoreLocalQuietly() {
+		try {
+			drive = null;
+			if (file != null) {
+				if (file.exists()) {
+					FileUtils.deleteDirectory(file);
+				}
+				file.mkdirs();
+				if (file.isDirectory()) {
+					dataStoreFactory = new FileDataStoreFactory(file);
+				}
+			}
+		} catch (Exception ex) {
+			ais.common.ErrorAuditUtil.record(ex,
+					"GDriveUtilPerPengguna.resetTokenStoreLocalQuietly: gagal membersihkan folder cache token Drive lokal untuk user="
+							+ username);
+		}
 	}
 
 	/**

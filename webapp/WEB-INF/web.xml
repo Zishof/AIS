@@ -425,9 +425,9 @@
 	<servlet>
 		<description>
 		</description>
-		<display-name>baru2</display-name>
-		<servlet-name>baru2</servlet-name>
-		<servlet-class>ais.action.servlet.Baru2</servlet-class>
+		<display-name>new</display-name>
+		<servlet-name>new</servlet-name>
+		<servlet-class>ais.action.servlet.New</servlet-class>
 	</servlet>
 	<servlet>
 		<description>
@@ -1289,8 +1289,8 @@
 		<url-pattern>/baru</url-pattern>
 	</servlet-mapping>
 	<servlet-mapping>
-		<servlet-name>baru2</servlet-name>
-		<url-pattern>/baru2</url-pattern>
+		<servlet-name>new</servlet-name>
+		<url-pattern>/new</url-pattern>
 	</servlet-mapping>
 	<servlet-mapping>
 		<servlet-name>presentasi</servlet-name>

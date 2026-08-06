@@ -172,8 +172,8 @@ public class Main extends HttpServlet {
 			if (!versiLama && !zkBaru && !jspBaru) {
 				String piilhan = getPiilhanTampilanDomain(request);
 				if (PerguruanTinggi.TAMPILAN_BARU.equals(piilhan)) {
-					request.setAttribute("baru2_context", "main");
-					return "/WEB-INF/baru2/index.jsp";
+					request.setAttribute("new_context", "main");
+					return "/WEB-INF/new/index.jsp";
 				} else if (PerguruanTinggi.TAMPILAN_KLASIK.equals(piilhan)) {
 					return "/WEB-INF/z/x/y/pages/main/index.zul";
 				}

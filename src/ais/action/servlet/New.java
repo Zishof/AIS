@@ -9,11 +9,11 @@ import javax.servlet.http.HttpServletResponse;
 
 import ais.common.Common;
 
-public class Baru2 extends HttpServlet {
+public class New extends HttpServlet {
 
 	private static final long serialVersionUID = 1L;
 
-	public Baru2() {
+	public New() {
 		super();
 	}
 
@@ -48,10 +48,7 @@ public class Baru2 extends HttpServlet {
 
 		Main.checkAndSetUserSession(request, false);
 		if (!response.isCommitted()) {
-			if (request.getAttribute("baru2_context") == null) {
-				request.setAttribute("baru2_context", "main");
-			}
-			request.getRequestDispatcher("/WEB-INF/baru2/index.jsp").forward(request, response);
+			request.getRequestDispatcher("/WEB-INF/new/index.jsp").forward(request, response);
 		}
 	}
 }

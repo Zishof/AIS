@@ -2,7 +2,9 @@ package ais.action.master.asset.helper;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.hibernate.Criteria;
@@ -31,7 +33,6 @@ import org.zkoss.zul.South;
 import org.zkoss.zul.Toolbar;
 
 import ais.common.Common;
-import ais.common.ConstantValues;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.asset.MasterAsset;
 import ais.ui.util.MyColumnConfig;
@@ -53,13 +54,15 @@ public class AmbilDataMasterAssetBanyak extends MyWindow {
 	private List<MasterAsset> masterAssets;
 	private List<MasterAsset> masterAssetsHanyaDitampilkan;
 
-	private Set<Long> ids = new HashSet<Long>();
+	private Set<Long> idsSudahDipakai = new HashSet<Long>();
+	private Map<Long, MasterAsset> masterAssetsDipilih = new LinkedHashMap<Long, MasterAsset>();
 	private String tipe = null;
 
 	public AmbilDataMasterAssetBanyak(List<MasterAsset> masterAssets, String tipe) {
 		super();
 		this.tipe = tipe;
 		this.masterAssets = masterAssets;
+		initIdsSudahDipakai();
 
 		display();
 
@@ -78,6 +81,7 @@ public class AmbilDataMasterAssetBanyak extends MyWindow {
 		this.tipe = tipe;
 		this.masterAssets = masterAssets;
 		this.masterAssetsHanyaDitampilkan = masterAssetsHanyaDitampilkan;
+		initIdsSudahDipakai();
 
 		display();
 
@@ -94,6 +98,18 @@ public class AmbilDataMasterAssetBanyak extends MyWindow {
 	private MyTextbox nama;
 	private MyTextbox merk;
 
+	private void initIdsSudahDipakai() {
+		idsSudahDipakai.clear();
+		if (masterAssets == null) {
+			return;
+		}
+		for (MasterAsset masterAsset : masterAssets) {
+			if (masterAsset != null && masterAsset.getId() != null) {
+				idsSudahDipakai.add(masterAsset.getId());
+			}
+		}
+	}
+
 	class MasterAssetRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
@@ -106,24 +122,24 @@ public class AmbilDataMasterAssetBanyak extends MyWindow {
 			final Checkbox checkbox = new Checkbox(masterAsset.getKode());
 			checkbox.setParent(arg0);
 			arg0.setAttribute("checkbox", checkbox);
-			for (MasterAsset myMasterAsset : masterAssets) {
-				if (myMasterAsset.getId().equals(masterAsset.getId())) {
-					checkbox.setChecked(true);
-					checkbox.setDisabled(true);
-					break;
-				}
+			if (masterAsset.getId() != null && idsSudahDipakai.contains(masterAsset.getId())) {
+				checkbox.setChecked(true);
+				checkbox.setDisabled(true);
+			} else {
+				checkbox.setChecked(masterAsset.getId() != null && masterAssetsDipilih.containsKey(masterAsset.getId()));
 			}
-
-			checkbox.setChecked(ids.contains(masterAsset.getId()));
 
 			checkbox.addEventListener("onCheck", new EventListener() {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
+					if (masterAsset.getId() == null || idsSudahDipakai.contains(masterAsset.getId())) {
+						return;
+					}
 					if (checkbox.isChecked()) {
-						ids.add(masterAsset.getId());
+						masterAssetsDipilih.put(masterAsset.getId(), masterAsset);
 					} else {
-						ids.remove(masterAsset.getId());
+						masterAssetsDipilih.remove(masterAsset.getId());
 					}
 				}
 			});
@@ -305,12 +321,7 @@ public class AmbilDataMasterAssetBanyak extends MyWindow {
 					 * 20 item tetapi hanya 10 (satu halaman) yang tersimpan. Dari ids, seluruh item terpilih
 					 * di SEMUA halaman ikut terbawa.
 					 */
-					List<MasterAsset> masterAssets = new ArrayList<MasterAsset>();
-					if (ids != null && !ids.isEmpty()) {
-						Session session = HibernateUtil.currentSession();
-						masterAssets = session.createCriteria(MasterAsset.class)
-							.add(Restrictions.in("id", ids)).addOrder(Order.asc("nama")).list();
-					}
+					List<MasterAsset> masterAssets = new ArrayList<MasterAsset>(masterAssetsDipilih.values());
 					Event myEvent = new Event("myEvent", event.getTarget(), masterAssets);
 					eventListener.onEvent(myEvent);
 				}
@@ -335,8 +346,10 @@ public class AmbilDataMasterAssetBanyak extends MyWindow {
 
 				.add(tipe == null ? Restrictions.sqlRestriction("1=1") : Restrictions.eq("tipe", tipe))
 
-				.add(ids.size() == 0 ? Restrictions.sqlRestriction("1=1")
-						: Restrictions.not(Restrictions.in("id", ids)))
+				.add(idsSudahDipakai.size() == 0 ? Restrictions.sqlRestriction("1=1")
+						: Restrictions.not(Restrictions.in("id", idsSudahDipakai)))
+				.add(masterAssetsDipilih.size() == 0 ? Restrictions.sqlRestriction("1=1")
+						: Restrictions.not(Restrictions.in("id", masterAssetsDipilih.keySet())))
 				.add(masterAssetsHanyaDitampilkan == null || values.size() == 0 ? Restrictions.sqlRestriction("1=1")
 						: Restrictions.in("id", values))
 				.add(nama.getValue().trim().isEmpty() ? Restrictions.sqlRestriction("1=1")
@@ -362,12 +375,7 @@ public class AmbilDataMasterAssetBanyak extends MyWindow {
 
 		Session session = HibernateUtil.currentSession();
 
-		List<MasterAsset> masterAsset = ConstantValues.simpleList(
-				session.createCriteria(MasterAsset.class)
-						.add(tipe == null ? Restrictions.sqlRestriction("1=1") : Restrictions.eq("tipe", tipe))
-						.addOrder(Order.asc("nama"))
-						.add(ids.size() == 0 ? Restrictions.sqlRestriction("1!=1") : Restrictions.in("id", ids)),
-				MasterAsset.class);
+		List<MasterAsset> masterAsset = new ArrayList<MasterAsset>(masterAssetsDipilih.values());
 
 		// Paging server-side ditangani sepenuhnya oleh pagingHelper (hitung total, offset, dan
 		// komponen Paging tunggal). Tidak ada lagi paging legacy sehingga tak muncul pager ganda.

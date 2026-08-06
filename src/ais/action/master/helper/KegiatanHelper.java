@@ -161,11 +161,17 @@ public class KegiatanHelper {
 				if (tx != null && tx.isActive()) {
 					try { tx.rollback(); } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:160");}
 				}
-			} else if (isLockTimeout(e) || isTransactionAborted(e)) {
+			} else if (isLockTimeout(e) || isTransactionAborted(e) || isConstraintViolation(e)) {
 				// KE-19: insert gagal (mis. unique kegiatan_kodeunik_key / lock timeout) meng-ABORT
 				// transaksi milik pemanggil. Pemanggil (checkKegiatanCalonMahasiswa) langsung
 				// menjalankan createCriteria di sesi yang sama untuk mengambil baris yang sudah ada
 				// -- tanpa rollback, query itu pasti ditolak "current transaction is aborted".
+				// isConstraintViolation() ditambahkan: unique-constraint (kodeunik_key) JUGA meng-ABORT
+				// transaksi PostgreSQL persis seperti lock timeout -- sebelumnya hanya
+				// isLockTimeout/isTransactionAborted yang memicu pemulihan, jadi race double-klik yang
+				// gagal karena ConstraintViolationException murni (bukan timeout) meninggalkan transaksi
+				// pemanggil tetap ter-abort dan retry "ambil ulang" di checkKegiatanCalonMahasiswa gagal
+				// beruntun dengan "current transaction is aborted".
 				pulihkanTransaksiTerabort(session, tx);
 			}
 			try { if (isUsableSession(session)) session.clear(); } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:162");}
@@ -279,11 +285,17 @@ public class KegiatanHelper {
 			// pemanggil kembali bisa dipakai (data yang belum commit memang sudah hilang saat
 			// PostgreSQL meng-abort transaksi -- rollback tidak menambah kehilangan apa pun).
 			boolean transaksiMati = isLockTimeout(e) || isTransactionAborted(e);
+			// isConstraintViolation() (unique/FK, mis. Mahasiswa.nimkey) JUGA meng-ABORT transaksi
+			// PostgreSQL persis seperti lock timeout, jadi transaksi milik pemanggil tetap harus
+			// dipulihkan -- tapi TIDAK ikut transaksiMati (dipisah dari kondisi retry di bawah): retry
+			// merge 3x pada pelanggaran unique constraint yang genuinely permanen (bukan kontensi
+			// sesaat) hanya membuang waktu karena akan gagal identik setiap kali.
+			boolean transaksiPerluDipulihkan = transaksiMati || isConstraintViolation(e);
 			if (isNewTx) {
 				if (tx != null && tx.isActive()) {
 					try { tx.rollback(); } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:251");}
 				}
-			} else if (transaksiMati) {
+			} else if (transaksiPerluDipulihkan) {
 				pulihkanTransaksiTerabort(session, tx);
 			}
 			try { if (isUsableSession(session)) session.clear(); } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:253");}
@@ -446,6 +458,30 @@ public class KegiatanHelper {
 				if (low.indexOf("current transaction is aborted") >= 0
 						|| low.indexOf("commands ignored until end of transaction block") >= 0
 						|| low.indexOf("25p02") >= 0) {
+					return true;
+				}
+			}
+			t = t.getCause();
+		}
+		return false;
+	}
+
+	/**
+	 * Mendeteksi pelanggaran unique/FK constraint (mis. kegiatan_kodeunik_key saat dua request
+	 * hampir bersamaan lolos cek "belum ada" lalu sama-sama insert). Berbeda dari isLockTimeout()/
+	 * isTransactionAborted(), tapi efeknya di PostgreSQL SAMA: begitu satu statement gagal, seluruh
+	 * transaksi ikut ter-abort sampai di-rollback. Dipakai agar saveEntitySafe() juga memulihkan
+	 * transaksi pemanggil untuk kasus ini, bukan cuma untuk lock timeout.
+	 */
+	private static boolean isConstraintViolation(Throwable e) {
+		Throwable t = e;
+		while (t != null) {
+			if (t instanceof org.hibernate.exception.ConstraintViolationException) {
+				return true;
+			}
+			if (t instanceof java.sql.SQLException) {
+				String state = ((java.sql.SQLException) t).getSQLState();
+				if ("23505".equalsIgnoreCase(state) || "23503".equalsIgnoreCase(state)) {
 					return true;
 				}
 			}

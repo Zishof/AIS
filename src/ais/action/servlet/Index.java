@@ -67,8 +67,8 @@ public class Index extends HttpServlet {
         // Cek pilihan tampilan dari entitas domain (prioritas tertinggi)
         String piilhan = getPiilhanTampilanDomain(request);
         if (PerguruanTinggi.TAMPILAN_BARU.equals(piilhan)) {
-            request.setAttribute("baru2_context", "index");
-            forward(request, response, "/WEB-INF/baru2/index.jsp");
+            request.setAttribute("new_context", "index");
+            forward(request, response, "/WEB-INF/new/index.jsp");
             return;
         } else if (PerguruanTinggi.TAMPILAN_KLASIK.equals(piilhan)) {
             String filePath = request.getRealPath("/WEB-INF/j/index.jsp");
