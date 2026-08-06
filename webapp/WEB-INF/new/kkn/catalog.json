@@ -1,0 +1,72 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "kkn",
+  "label": "KKN",
+  "count": 5,
+  "pageTypeCounts": {
+    "academic": 5
+  },
+  "pages": [
+    {
+      "page": "kelompok_kkn",
+      "title": "Kelompok KKN",
+      "sourceClass": "KelompokKknAction",
+      "sourcePackage": "ais.action.master.kkn",
+      "sourcePath": "src/ais/action/master/kkn/KelompokKknAction.java",
+      "pageType": "academic",
+      "methodCount": 14,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Kelompok KKN KelompokKknAction ais.action.master.kkn academic Utama"
+    },
+    {
+      "page": "kkn_untuk_mahasiswa",
+      "title": "KKN Untuk Mahasiswa",
+      "sourceClass": "KknUntukMahasiswaAction",
+      "sourcePackage": "ais.action.master.kkn",
+      "sourcePath": "src/ais/action/master/kkn/KknUntukMahasiswaAction.java",
+      "pageType": "academic",
+      "methodCount": 10,
+      "legacyRefCount": 1,
+      "subpackage": "Utama",
+      "search": "KKN Untuk Mahasiswa KknUntukMahasiswaAction ais.action.master.kkn academic Utama"
+    },
+    {
+      "page": "komponen_penilaian_kkn",
+      "title": "Komponen Penilaian KKN",
+      "sourceClass": "KomponenPenilaianKknAction",
+      "sourcePackage": "ais.action.master.kkn",
+      "sourcePath": "src/ais/action/master/kkn/KomponenPenilaianKknAction.java",
+      "pageType": "academic",
+      "methodCount": 10,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Komponen Penilaian KKN KomponenPenilaianKknAction ais.action.master.kkn academic Utama"
+    },
+    {
+      "page": "persyaratan_kkn",
+      "title": "Persyaratan KKN",
+      "sourceClass": "PersyaratanKknAction",
+      "sourcePackage": "ais.action.master.kkn",
+      "sourcePath": "src/ais/action/master/kkn/PersyaratanKknAction.java",
+      "pageType": "academic",
+      "methodCount": 8,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Persyaratan KKN PersyaratanKknAction ais.action.master.kkn academic Utama"
+    },
+    {
+      "page": "seleksi_penerima_kkn",
+      "title": "Seleksi Penerima KKN",
+      "sourceClass": "SeleksiPenerimaKknAction",
+      "sourcePackage": "ais.action.master.kkn",
+      "sourcePath": "src/ais/action/master/kkn/SeleksiPenerimaKknAction.java",
+      "pageType": "academic",
+      "methodCount": 6,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Seleksi Penerima KKN SeleksiPenerimaKknAction ais.action.master.kkn academic Utama"
+    }
+  ]
+}

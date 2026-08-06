@@ -1,0 +1,72 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "chat",
+  "label": "Chat",
+  "count": 5,
+  "pageTypeCounts": {
+    "list": 5
+  },
+  "pages": [
+    {
+      "page": "chat_room",
+      "title": "Chat Room",
+      "sourceClass": "ChatRoom",
+      "sourcePackage": "ais.action.master.chat",
+      "sourcePath": "src/ais/action/master/chat/ChatRoom.java",
+      "pageType": "list",
+      "methodCount": 5,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Chat Room ChatRoom ais.action.master.chat list Utama"
+    },
+    {
+      "page": "chatter",
+      "title": "Chatter",
+      "sourceClass": "Chatter",
+      "sourcePackage": "ais.action.master.chat",
+      "sourcePath": "src/ais/action/master/chat/Chatter.java",
+      "pageType": "list",
+      "methodCount": 5,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Chatter Chatter ais.action.master.chat list Utama"
+    },
+    {
+      "page": "chat_users",
+      "title": "Chat Users",
+      "sourceClass": "ChatUsers",
+      "sourcePackage": "ais.action.master.chat",
+      "sourcePath": "src/ais/action/master/chat/ChatUsers.java",
+      "pageType": "list",
+      "methodCount": 7,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Chat Users ChatUsers ais.action.master.chat list Utama"
+    },
+    {
+      "page": "chat_util",
+      "title": "Chat Util",
+      "sourceClass": "ChatUtil",
+      "sourcePackage": "ais.action.master.chat",
+      "sourcePath": "src/ais/action/master/chat/ChatUtil.java",
+      "pageType": "list",
+      "methodCount": 1,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Chat Util ChatUtil ais.action.master.chat list Utama"
+    },
+    {
+      "page": "chat",
+      "title": "Chat",
+      "sourceClass": "ChatWindow",
+      "sourcePackage": "ais.action.master.chat",
+      "sourcePath": "src/ais/action/master/chat/ChatWindow.java",
+      "pageType": "list",
+      "methodCount": 9,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Chat ChatWindow ais.action.master.chat list Utama"
+    }
+  ]
+}

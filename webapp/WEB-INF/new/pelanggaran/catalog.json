@@ -1,0 +1,24 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "pelanggaran",
+  "label": "Pelanggaran",
+  "count": 1,
+  "pageTypeCounts": {
+    "academic": 1
+  },
+  "pages": [
+    {
+      "page": "dasbord_pelanggaran",
+      "title": "Dasbord Pelanggaran",
+      "sourceClass": "DasbordPelanggaran",
+      "sourcePackage": "ais.action.master.pelanggaran",
+      "sourcePath": "src/ais/action/master/pelanggaran/DasbordPelanggaran.java",
+      "pageType": "academic",
+      "methodCount": 4,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Dasbord Pelanggaran DasbordPelanggaran ais.action.master.pelanggaran academic Utama"
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "message",
+  "label": "Pesan & Notifikasi",
+  "count": 2,
+  "pageTypeCounts": {
+    "list": 2
+  },
+  "pages": [
+    {
+      "page": "message",
+      "title": "Message",
+      "sourceClass": "MessageAction",
+      "sourcePackage": "ais.action.master.message",
+      "sourcePath": "src/ais/action/master/message/MessageAction.java",
+      "pageType": "list",
+      "methodCount": 8,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Message MessageAction ais.action.master.message list Utama"
+    },
+    {
+      "page": "message_terkirim",
+      "title": "Message Terkirim",
+      "sourceClass": "MessageTerkirimAction",
+      "sourcePackage": "ais.action.master.message",
+      "sourcePath": "src/ais/action/master/message/MessageTerkirimAction.java",
+      "pageType": "list",
+      "methodCount": 6,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Message Terkirim MessageTerkirimAction ais.action.master.message list Utama"
+    }
+  ]
+}

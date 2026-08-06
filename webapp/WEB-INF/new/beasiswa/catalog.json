@@ -1,0 +1,48 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "beasiswa",
+  "label": "Beasiswa",
+  "count": 3,
+  "pageTypeCounts": {
+    "academic": 3
+  },
+  "pages": [
+    {
+      "page": "beasiswa_untuk_mahasiswa",
+      "title": "Beasiswa Untuk Mahasiswa",
+      "sourceClass": "BeasiswaUntukMahasiswaAction",
+      "sourcePackage": "ais.action.master.beasiswa",
+      "sourcePath": "src/ais/action/master/beasiswa/BeasiswaUntukMahasiswaAction.java",
+      "pageType": "academic",
+      "methodCount": 9,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Beasiswa Untuk Mahasiswa BeasiswaUntukMahasiswaAction ais.action.master.beasiswa academic Utama"
+    },
+    {
+      "page": "persyaratan_beasiswa",
+      "title": "Persyaratan Beasiswa",
+      "sourceClass": "PersyaratanBeasiswaAction",
+      "sourcePackage": "ais.action.master.beasiswa",
+      "sourcePath": "src/ais/action/master/beasiswa/PersyaratanBeasiswaAction.java",
+      "pageType": "academic",
+      "methodCount": 8,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Persyaratan Beasiswa PersyaratanBeasiswaAction ais.action.master.beasiswa academic Utama"
+    },
+    {
+      "page": "seleksi_penerima_beasiswa",
+      "title": "Seleksi Penerima Beasiswa",
+      "sourceClass": "SeleksiPenerimaBeasiswaAction",
+      "sourcePackage": "ais.action.master.beasiswa",
+      "sourcePath": "src/ais/action/master/beasiswa/SeleksiPenerimaBeasiswaAction.java",
+      "pageType": "academic",
+      "methodCount": 6,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Seleksi Penerima Beasiswa SeleksiPenerimaBeasiswaAction ais.action.master.beasiswa academic Utama"
+    }
+  ]
+}

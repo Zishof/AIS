@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "prestasi",
+  "label": "Prestasi",
+  "count": 2,
+  "pageTypeCounts": {
+    "academic": 2
+  },
+  "pages": [
+    {
+      "page": "dasbord_kegiatan_kedosenan",
+      "title": "Dasbord Kegiatan Kedosenan",
+      "sourceClass": "DasbordKegiatanKedosenan",
+      "sourcePackage": "ais.action.master.prestasi",
+      "sourcePath": "src/ais/action/master/prestasi/DasbordKegiatanKedosenan.java",
+      "pageType": "academic",
+      "methodCount": 3,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Dasbord Kegiatan Kedosenan DasbordKegiatanKedosenan ais.action.master.prestasi academic Utama"
+    },
+    {
+      "page": "dasbord_prestasi",
+      "title": "Dasbord Prestasi",
+      "sourceClass": "DasbordPrestasi",
+      "sourcePackage": "ais.action.master.prestasi",
+      "sourcePath": "src/ais/action/master/prestasi/DasbordPrestasi.java",
+      "pageType": "academic",
+      "methodCount": 5,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Dasbord Prestasi DasbordPrestasi ais.action.master.prestasi academic Utama"
+    }
+  ]
+}

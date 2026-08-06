@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "faspay",
+  "label": "Integrasi Faspay",
+  "count": 2,
+  "pageTypeCounts": {
+    "finance": 2
+  },
+  "pages": [
+    {
+      "page": "faspay_backand_prosess",
+      "title": "Faspay Backand Prosess",
+      "sourceClass": "FaspayBackandProsess",
+      "sourcePackage": "ais.action.master.faspay",
+      "sourcePath": "src/ais/action/master/faspay/FaspayBackandProsess.java",
+      "pageType": "finance",
+      "methodCount": 2,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Faspay Backand Prosess FaspayBackandProsess ais.action.master.faspay finance Utama"
+    },
+    {
+      "page": "faspay_request",
+      "title": "Faspay Request",
+      "sourceClass": "FaspayRequestAction",
+      "sourcePackage": "ais.action.master.faspay",
+      "sourcePath": "src/ais/action/master/faspay/FaspayRequestAction.java",
+      "pageType": "finance",
+      "methodCount": 7,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Faspay Request FaspayRequestAction ais.action.master.faspay finance Utama"
+    }
+  ]
+}

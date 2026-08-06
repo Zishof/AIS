@@ -1,0 +1,72 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "sosial",
+  "label": "Integrasi Sosial",
+  "count": 5,
+  "pageTypeCounts": {
+    "integration": 5
+  },
+  "pages": [
+    {
+      "page": "donatur",
+      "title": "Donatur",
+      "sourceClass": "DonaturAction",
+      "sourcePackage": "ais.action.master.sosial",
+      "sourcePath": "src/ais/action/master/sosial/DonaturAction.java",
+      "pageType": "integration",
+      "methodCount": 5,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Donatur DonaturAction ais.action.master.sosial integration Utama"
+    },
+    {
+      "page": "gelombang_donatur",
+      "title": "Gelombang Donatur",
+      "sourceClass": "GelombangDonaturAction",
+      "sourcePackage": "ais.action.master.sosial",
+      "sourcePath": "src/ais/action/master/sosial/GelombangDonaturAction.java",
+      "pageType": "integration",
+      "methodCount": 5,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Gelombang Donatur GelombangDonaturAction ais.action.master.sosial integration Utama"
+    },
+    {
+      "page": "kategori_program_donatur",
+      "title": "Kategori Program Donatur",
+      "sourceClass": "KategoriProgramDonaturAction",
+      "sourcePackage": "ais.action.master.sosial",
+      "sourcePath": "src/ais/action/master/sosial/KategoriProgramDonaturAction.java",
+      "pageType": "integration",
+      "methodCount": 5,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Kategori Program Donatur KategoriProgramDonaturAction ais.action.master.sosial integration Utama"
+    },
+    {
+      "page": "penyaluran_donasi",
+      "title": "Penyaluran Donasi",
+      "sourceClass": "PenyaluranDonasiAction",
+      "sourcePackage": "ais.action.master.sosial",
+      "sourcePath": "src/ais/action/master/sosial/PenyaluranDonasiAction.java",
+      "pageType": "integration",
+      "methodCount": 15,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Penyaluran Donasi PenyaluranDonasiAction ais.action.master.sosial integration Utama"
+    },
+    {
+      "page": "program_donatur",
+      "title": "Program Donatur",
+      "sourceClass": "ProgramDonaturAction",
+      "sourcePackage": "ais.action.master.sosial",
+      "sourcePath": "src/ais/action/master/sosial/ProgramDonaturAction.java",
+      "pageType": "integration",
+      "methodCount": 16,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Program Donatur ProgramDonaturAction ais.action.master.sosial integration Utama"
+    }
+  ]
+}

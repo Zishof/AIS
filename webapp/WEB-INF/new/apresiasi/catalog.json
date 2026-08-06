@@ -1,0 +1,24 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "apresiasi",
+  "label": "Apresiasi",
+  "count": 1,
+  "pageTypeCounts": {
+    "academic": 1
+  },
+  "pages": [
+    {
+      "page": "dasbord_apresiasi",
+      "title": "Dasbord Apresiasi",
+      "sourceClass": "DasbordApresiasi",
+      "sourcePackage": "ais.action.master.apresiasi",
+      "sourcePath": "src/ais/action/master/apresiasi/DasbordApresiasi.java",
+      "pageType": "academic",
+      "methodCount": 4,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Dasbord Apresiasi DasbordApresiasi ais.action.master.apresiasi academic Utama"
+    }
+  ]
+}

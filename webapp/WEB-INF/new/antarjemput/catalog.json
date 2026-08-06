@@ -1,0 +1,37 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "antarjemput",
+  "label": "Antar Jemput",
+  "count": 2,
+  "pageTypeCounts": {
+    "list": 1,
+    "dashboard": 1
+  },
+  "pages": [
+    {
+      "page": "antar_jemput",
+      "title": "Antar Jemput",
+      "sourceClass": "AntarJemputAction",
+      "sourcePackage": "ais.action.master.antarjemput",
+      "sourcePath": "src/ais/action/master/antarjemput/AntarJemputAction.java",
+      "pageType": "list",
+      "methodCount": 20,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Antar Jemput AntarJemputAction ais.action.master.antarjemput list Utama"
+    },
+    {
+      "page": "dasboard_antar_jemput",
+      "title": "Dasboard Antar Jemput",
+      "sourceClass": "DasboardAntarJemput",
+      "sourcePackage": "ais.action.master.antarjemput",
+      "sourcePath": "src/ais/action/master/antarjemput/DasboardAntarJemput.java",
+      "pageType": "dashboard",
+      "methodCount": 1,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Dasboard Antar Jemput DasboardAntarJemput ais.action.master.antarjemput dashboard Utama"
+    }
+  ]
+}

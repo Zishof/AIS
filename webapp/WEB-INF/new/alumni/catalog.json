@@ -1,0 +1,37 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "alumni",
+  "label": "Alumni & Tracer Study",
+  "count": 2,
+  "pageTypeCounts": {
+    "dashboard": 1,
+    "academic": 1
+  },
+  "pages": [
+    {
+      "page": "dashboard_statistik_jumlah_alumni",
+      "title": "Dashboard Statistik Jumlah Alumni",
+      "sourceClass": "DashboardStatistikJumlahAlumni",
+      "sourcePackage": "ais.action.master.alumni",
+      "sourcePath": "src/ais/action/master/alumni/DashboardStatistikJumlahAlumni.java",
+      "pageType": "dashboard",
+      "methodCount": 3,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Dashboard Statistik Jumlah Alumni DashboardStatistikJumlahAlumni ais.action.master.alumni dashboard Utama"
+    },
+    {
+      "page": "mahasiswa",
+      "title": "Mahasiswa",
+      "sourceClass": "MahasiswaAction",
+      "sourcePackage": "ais.action.master.alumni",
+      "sourcePath": "src/ais/action/master/alumni/MahasiswaAction.java",
+      "pageType": "academic",
+      "methodCount": 15,
+      "legacyRefCount": 2,
+      "subpackage": "Utama",
+      "search": "Mahasiswa MahasiswaAction ais.action.master.alumni academic Utama"
+    }
+  ]
+}

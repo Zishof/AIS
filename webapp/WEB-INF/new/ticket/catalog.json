@@ -1,0 +1,98 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "ticket",
+  "label": "Ticketing & Layanan",
+  "count": 7,
+  "pageTypeCounts": {
+    "dashboard": 1,
+    "workflow": 5,
+    "finance": 1
+  },
+  "pages": [
+    {
+      "page": "ticket_dashboard",
+      "title": "Ticket Dashboard",
+      "sourceClass": "TicketDashboardAction",
+      "sourcePackage": "ais.action.master.ticket",
+      "sourcePath": "src/ais/action/master/ticket/TicketDashboardAction.java",
+      "pageType": "dashboard",
+      "methodCount": 0,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Ticket Dashboard TicketDashboardAction ais.action.master.ticket dashboard Utama"
+    },
+    {
+      "page": "ticket_fab_hook",
+      "title": "Ticket Fab Hook",
+      "sourceClass": "TicketFabHook",
+      "sourcePackage": "ais.action.master.ticket",
+      "sourcePath": "src/ais/action/master/ticket/TicketFabHook.java",
+      "pageType": "workflow",
+      "methodCount": 6,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Ticket Fab Hook TicketFabHook ais.action.master.ticket workflow Utama"
+    },
+    {
+      "page": "ticket_form_sop",
+      "title": "Ticket Form SOP",
+      "sourceClass": "TicketFormSop",
+      "sourcePackage": "ais.action.master.ticket",
+      "sourcePath": "src/ais/action/master/ticket/TicketFormSop.java",
+      "pageType": "workflow",
+      "methodCount": 7,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Ticket Form SOP TicketFormSop ais.action.master.ticket workflow Utama"
+    },
+    {
+      "page": "ticketing",
+      "title": "Ticketing",
+      "sourceClass": "TicketingAction",
+      "sourcePackage": "ais.action.master.ticket",
+      "sourcePath": "src/ais/action/master/ticket/TicketingAction.java",
+      "pageType": "workflow",
+      "methodCount": 6,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Ticketing TicketingAction ais.action.master.ticket workflow Utama"
+    },
+    {
+      "page": "ticket_konfigurasi",
+      "title": "Ticket Konfigurasi",
+      "sourceClass": "TicketKonfigurasiAction",
+      "sourcePackage": "ais.action.master.ticket",
+      "sourcePath": "src/ais/action/master/ticket/TicketKonfigurasiAction.java",
+      "pageType": "workflow",
+      "methodCount": 5,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Ticket Konfigurasi TicketKonfigurasiAction ais.action.master.ticket workflow Utama"
+    },
+    {
+      "page": "ticket_notifikasi",
+      "title": "Ticket Notifikasi",
+      "sourceClass": "TicketNotifikasi",
+      "sourcePackage": "ais.action.master.ticket",
+      "sourcePath": "src/ais/action/master/ticket/TicketNotifikasi.java",
+      "pageType": "finance",
+      "methodCount": 3,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Ticket Notifikasi TicketNotifikasi ais.action.master.ticket finance Utama"
+    },
+    {
+      "page": "ticket_pdf",
+      "title": "Ticket PDF",
+      "sourceClass": "TicketPdf",
+      "sourcePackage": "ais.action.master.ticket",
+      "sourcePath": "src/ais/action/master/ticket/TicketPdf.java",
+      "pageType": "workflow",
+      "methodCount": 1,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Ticket PDF TicketPdf ais.action.master.ticket workflow Utama"
+    }
+  ]
+}

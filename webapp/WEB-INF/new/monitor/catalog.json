@@ -1,0 +1,48 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "monitor",
+  "label": "Monitoring",
+  "count": 3,
+  "pageTypeCounts": {
+    "dashboard": 3
+  },
+  "pages": [
+    {
+      "page": "monitor_mahasiswa_belum_ambil_krs",
+      "title": "Monitor Mahasiswa Belum Ambil KRS",
+      "sourceClass": "MonitorMahasiswaBelumAmbilKRSAction",
+      "sourcePackage": "ais.action.master.monitor",
+      "sourcePath": "src/ais/action/master/monitor/MonitorMahasiswaBelumAmbilKRSAction.java",
+      "pageType": "dashboard",
+      "methodCount": 7,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Monitor Mahasiswa Belum Ambil KRS MonitorMahasiswaBelumAmbilKRSAction ais.action.master.monitor dashboard Utama"
+    },
+    {
+      "page": "monitor_mahasiswa_belum_membayar",
+      "title": "Monitor Mahasiswa Belum Membayar",
+      "sourceClass": "MonitorMahasiswaBelumMembayarAction",
+      "sourcePackage": "ais.action.master.monitor",
+      "sourcePath": "src/ais/action/master/monitor/MonitorMahasiswaBelumMembayarAction.java",
+      "pageType": "dashboard",
+      "methodCount": 7,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Monitor Mahasiswa Belum Membayar MonitorMahasiswaBelumMembayarAction ais.action.master.monitor dashboard Utama"
+    },
+    {
+      "page": "monitor_mahasiswa_sudah_membayar",
+      "title": "Monitor Mahasiswa Sudah Membayar",
+      "sourceClass": "MonitorMahasiswaSudahMembayarAction",
+      "sourcePackage": "ais.action.master.monitor",
+      "sourcePath": "src/ais/action/master/monitor/MonitorMahasiswaSudahMembayarAction.java",
+      "pageType": "dashboard",
+      "methodCount": 7,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Monitor Mahasiswa Sudah Membayar MonitorMahasiswaSudahMembayarAction ais.action.master.monitor dashboard Utama"
+    }
+  ]
+}

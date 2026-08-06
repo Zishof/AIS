@@ -1,0 +1,193 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "root/ws",
+  "label": "Web Service",
+  "count": 15,
+  "pageTypeCounts": {
+    "integration": 10,
+    "finance": 5
+  },
+  "pages": [
+    {
+      "page": "pay",
+      "title": "Pay",
+      "sourceClass": "PayAction",
+      "sourcePackage": "ais.action.ws",
+      "sourcePath": "src/ais/action/ws/PayAction.java",
+      "pageType": "integration",
+      "methodCount": 4,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Pay PayAction ais.action.ws integration Utama"
+    },
+    {
+      "page": "pay_bri",
+      "title": "Pay BRI",
+      "sourceClass": "PayBRIAction",
+      "sourcePackage": "ais.action.ws",
+      "sourcePath": "src/ais/action/ws/PayBRIAction.java",
+      "pageType": "integration",
+      "methodCount": 4,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Pay BRI PayBRIAction ais.action.ws integration Utama"
+    },
+    {
+      "page": "pay_with_jenis_bayar",
+      "title": "Pay With Jenis Bayar",
+      "sourceClass": "PayWithJenisBayarAction",
+      "sourcePackage": "ais.action.ws",
+      "sourcePath": "src/ais/action/ws/PayWithJenisBayarAction.java",
+      "pageType": "integration",
+      "methodCount": 4,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Pay With Jenis Bayar PayWithJenisBayarAction ais.action.ws integration Utama"
+    },
+    {
+      "page": "pembayaran",
+      "title": "Pembayaran",
+      "sourceClass": "PembayaranAction",
+      "sourcePackage": "ais.action.ws",
+      "sourcePath": "src/ais/action/ws/PembayaranAction.java",
+      "pageType": "finance",
+      "methodCount": 6,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Pembayaran PembayaranAction ais.action.ws finance Utama"
+    },
+    {
+      "page": "pembayaran_bni",
+      "title": "Pembayaran BNI",
+      "sourceClass": "PembayaranBNIAction",
+      "sourcePackage": "ais.action.ws",
+      "sourcePath": "src/ais/action/ws/PembayaranBNIAction.java",
+      "pageType": "finance",
+      "methodCount": 4,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Pembayaran BNI PembayaranBNIAction ais.action.ws finance Utama"
+    },
+    {
+      "page": "pembayaran_with_jenis_bayar",
+      "title": "Pembayaran With Jenis Bayar",
+      "sourceClass": "PembayaranWithJenisBayarAction",
+      "sourcePackage": "ais.action.ws",
+      "sourcePath": "src/ais/action/ws/PembayaranWithJenisBayarAction.java",
+      "pageType": "finance",
+      "methodCount": 4,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Pembayaran With Jenis Bayar PembayaranWithJenisBayarAction ais.action.ws finance Utama"
+    },
+    {
+      "page": "logic/inquery_logic",
+      "title": "Inquery Logic",
+      "sourceClass": "InqueryLogic",
+      "sourcePackage": "ais.action.ws.logic",
+      "sourcePath": "src/ais/action/ws/logic/InqueryLogic.java",
+      "pageType": "integration",
+      "methodCount": 3,
+      "legacyRefCount": 0,
+      "subpackage": "logic",
+      "search": "Inquery Logic InqueryLogic ais.action.ws.logic integration logic"
+    },
+    {
+      "page": "logic/payment_logic",
+      "title": "Payment Logic",
+      "sourceClass": "PaymentLogic",
+      "sourcePackage": "ais.action.ws.logic",
+      "sourcePath": "src/ais/action/ws/logic/PaymentLogic.java",
+      "pageType": "integration",
+      "methodCount": 3,
+      "legacyRefCount": 0,
+      "subpackage": "logic",
+      "search": "Payment Logic PaymentLogic ais.action.ws.logic integration logic"
+    },
+    {
+      "page": "logic/reversal_logic",
+      "title": "Reversal Logic",
+      "sourceClass": "ReversalLogic",
+      "sourcePackage": "ais.action.ws.logic",
+      "sourcePath": "src/ais/action/ws/logic/ReversalLogic.java",
+      "pageType": "integration",
+      "methodCount": 3,
+      "legacyRefCount": 0,
+      "subpackage": "logic",
+      "search": "Reversal Logic ReversalLogic ais.action.ws.logic integration logic"
+    },
+    {
+      "page": "model/response",
+      "title": "Response",
+      "sourceClass": "Response",
+      "sourcePackage": "ais.action.ws.model",
+      "sourcePath": "src/ais/action/ws/model/Response.java",
+      "pageType": "integration",
+      "methodCount": 51,
+      "legacyRefCount": 0,
+      "subpackage": "model",
+      "search": "Response Response ais.action.ws.model integration model"
+    },
+    {
+      "page": "util/common_util",
+      "title": "Common Util",
+      "sourceClass": "CommonUtil",
+      "sourcePackage": "ais.action.ws.util",
+      "sourcePath": "src/ais/action/ws/util/CommonUtil.java",
+      "pageType": "integration",
+      "methodCount": 11,
+      "legacyRefCount": 0,
+      "subpackage": "util",
+      "search": "Common Util CommonUtil ais.action.ws.util integration util"
+    },
+    {
+      "page": "util/constant_util",
+      "title": "Constant Util",
+      "sourceClass": "ConstantUtil",
+      "sourcePackage": "ais.action.ws.util",
+      "sourcePath": "src/ais/action/ws/util/ConstantUtil.java",
+      "pageType": "integration",
+      "methodCount": 1,
+      "legacyRefCount": 0,
+      "subpackage": "util",
+      "search": "Constant Util ConstantUtil ais.action.ws.util integration util"
+    },
+    {
+      "page": "util/display_util",
+      "title": "Display Util",
+      "sourceClass": "DisplayUtil",
+      "sourcePackage": "ais.action.ws.util",
+      "sourcePath": "src/ais/action/ws/util/DisplayUtil.java",
+      "pageType": "integration",
+      "methodCount": 10,
+      "legacyRefCount": 0,
+      "subpackage": "util",
+      "search": "Display Util DisplayUtil ais.action.ws.util integration util"
+    },
+    {
+      "page": "util/pembayaran_gateway_helper",
+      "title": "Pembayaran Gateway Helper",
+      "sourceClass": "PembayaranGatewayHelper",
+      "sourcePackage": "ais.action.ws.util",
+      "sourcePath": "src/ais/action/ws/util/PembayaranGatewayHelper.java",
+      "pageType": "finance",
+      "methodCount": 11,
+      "legacyRefCount": 0,
+      "subpackage": "util",
+      "search": "Pembayaran Gateway Helper PembayaranGatewayHelper ais.action.ws.util finance util"
+    },
+    {
+      "page": "util/pembayaran_util",
+      "title": "Pembayaran Util",
+      "sourceClass": "PembayaranUtil",
+      "sourcePackage": "ais.action.ws.util",
+      "sourcePath": "src/ais/action/ws/util/PembayaranUtil.java",
+      "pageType": "finance",
+      "methodCount": 39,
+      "legacyRefCount": 0,
+      "subpackage": "util",
+      "search": "Pembayaran Util PembayaranUtil ais.action.ws.util finance util"
+    }
+  ]
+}

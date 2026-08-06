@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "kalender",
+  "label": "Kalender Akademik",
+  "count": 2,
+  "pageTypeCounts": {
+    "academic": 2
+  },
+  "pages": [
+    {
+      "page": "dasbord_info_kegiatan",
+      "title": "Dasbord Info Kegiatan",
+      "sourceClass": "DasbordInfoKegiatan",
+      "sourcePackage": "ais.action.master.kalender",
+      "sourcePath": "src/ais/action/master/kalender/DasbordInfoKegiatan.java",
+      "pageType": "academic",
+      "methodCount": 2,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Dasbord Info Kegiatan DasbordInfoKegiatan ais.action.master.kalender academic Utama"
+    },
+    {
+      "page": "dasbord_kalender_akademik",
+      "title": "Dasbord Kalender Akademik",
+      "sourceClass": "DasbordKalenderAkademik",
+      "sourcePackage": "ais.action.master.kalender",
+      "sourcePath": "src/ais/action/master/kalender/DasbordKalenderAkademik.java",
+      "pageType": "academic",
+      "methodCount": 3,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Dasbord Kalender Akademik DasbordKalenderAkademik ais.action.master.kalender academic Utama"
+    }
+  ]
+}

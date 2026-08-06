@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "bni",
+  "label": "Integrasi BNI",
+  "count": 2,
+  "pageTypeCounts": {
+    "finance": 2
+  },
+  "pages": [
+    {
+      "page": "bni_backand_prosess",
+      "title": "BNI Backand Prosess",
+      "sourceClass": "BniBackandProsess",
+      "sourcePackage": "ais.action.master.bni",
+      "sourcePath": "src/ais/action/master/bni/BniBackandProsess.java",
+      "pageType": "finance",
+      "methodCount": 2,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "BNI Backand Prosess BniBackandProsess ais.action.master.bni finance Utama"
+    },
+    {
+      "page": "bni_request",
+      "title": "BNI Request",
+      "sourceClass": "BniRequestAction",
+      "sourcePackage": "ais.action.master.bni",
+      "sourcePath": "src/ais/action/master/bni/BniRequestAction.java",
+      "pageType": "finance",
+      "methodCount": 7,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "BNI Request BniRequestAction ais.action.master.bni finance Utama"
+    }
+  ]
+}

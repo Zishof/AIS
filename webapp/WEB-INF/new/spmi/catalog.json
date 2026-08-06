@@ -1,0 +1,158 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "spmi",
+  "label": "SPMI",
+  "count": 12,
+  "pageTypeCounts": {
+    "list": 10,
+    "dashboard": 1,
+    "workflow": 1
+  },
+  "pages": [
+    {
+      "page": "base_spmi",
+      "title": "Base SPMI",
+      "sourceClass": "BaseSPMIAction",
+      "sourcePackage": "ais.action.master.spmi",
+      "sourcePath": "src/ais/action/master/spmi/BaseSPMIAction.java",
+      "pageType": "list",
+      "methodCount": 2,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Base SPMI BaseSPMIAction ais.action.master.spmi list Utama"
+    },
+    {
+      "page": "butir_mutu_spmi",
+      "title": "Butir Mutu SPMI",
+      "sourceClass": "ButirMutuSPMIAction",
+      "sourcePackage": "ais.action.master.spmi",
+      "sourcePath": "src/ais/action/master/spmi/ButirMutuSPMIAction.java",
+      "pageType": "list",
+      "methodCount": 8,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Butir Mutu SPMI ButirMutuSPMIAction ais.action.master.spmi list Utama"
+    },
+    {
+      "page": "dasboard_spmi",
+      "title": "Dasboard SPMI",
+      "sourceClass": "DasboardSPMI",
+      "sourcePackage": "ais.action.master.spmi",
+      "sourcePath": "src/ais/action/master/spmi/DasboardSPMI.java",
+      "pageType": "dashboard",
+      "methodCount": 2,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Dasboard SPMI DasboardSPMI ais.action.master.spmi dashboard Utama"
+    },
+    {
+      "page": "hasil_spmi",
+      "title": "Hasil SPMI",
+      "sourceClass": "HasilSPMIAction",
+      "sourcePackage": "ais.action.master.spmi",
+      "sourcePath": "src/ais/action/master/spmi/HasilSPMIAction.java",
+      "pageType": "list",
+      "methodCount": 17,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Hasil SPMI HasilSPMIAction ais.action.master.spmi list Utama"
+    },
+    {
+      "page": "indikator_spmi",
+      "title": "Indikator SPMI",
+      "sourceClass": "IndikatorSPMIAction",
+      "sourcePackage": "ais.action.master.spmi",
+      "sourcePath": "src/ais/action/master/spmi/IndikatorSPMIAction.java",
+      "pageType": "list",
+      "methodCount": 8,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Indikator SPMI IndikatorSPMIAction ais.action.master.spmi list Utama"
+    },
+    {
+      "page": "jenis_spmi",
+      "title": "Jenis SPMI",
+      "sourceClass": "JenisSPMIAction",
+      "sourcePackage": "ais.action.master.spmi",
+      "sourcePath": "src/ais/action/master/spmi/JenisSPMIAction.java",
+      "pageType": "list",
+      "methodCount": 12,
+      "legacyRefCount": 4,
+      "subpackage": "Utama",
+      "search": "Jenis SPMI JenisSPMIAction ais.action.master.spmi list Utama"
+    },
+    {
+      "page": "peningkatan_spmi",
+      "title": "Peningkatan SPMI",
+      "sourceClass": "PeningkatanSPMIAction",
+      "sourcePackage": "ais.action.master.spmi",
+      "sourcePath": "src/ais/action/master/spmi/PeningkatanSPMIAction.java",
+      "pageType": "list",
+      "methodCount": 3,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Peningkatan SPMI PeningkatanSPMIAction ais.action.master.spmi list Utama"
+    },
+    {
+      "page": "persetujuan_hasil_spmi",
+      "title": "Persetujuan Hasil SPMI",
+      "sourceClass": "PersetujuanHasilSPMIAction",
+      "sourcePackage": "ais.action.master.spmi",
+      "sourcePath": "src/ais/action/master/spmi/PersetujuanHasilSPMIAction.java",
+      "pageType": "workflow",
+      "methodCount": 1,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Persetujuan Hasil SPMI PersetujuanHasilSPMIAction ais.action.master.spmi workflow Utama"
+    },
+    {
+      "page": "sasaran_mutu_spmi",
+      "title": "Sasaran Mutu SPMI",
+      "sourceClass": "SasaranMutuSPMIAction",
+      "sourcePackage": "ais.action.master.spmi",
+      "sourcePath": "src/ais/action/master/spmi/SasaranMutuSPMIAction.java",
+      "pageType": "list",
+      "methodCount": 3,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Sasaran Mutu SPMI SasaranMutuSPMIAction ais.action.master.spmi list Utama"
+    },
+    {
+      "page": "skenario_spmi",
+      "title": "Skenario SPMI",
+      "sourceClass": "SkenarioSPMIAction",
+      "sourcePackage": "ais.action.master.spmi",
+      "sourcePath": "src/ais/action/master/spmi/SkenarioSPMIAction.java",
+      "pageType": "list",
+      "methodCount": 8,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Skenario SPMI SkenarioSPMIAction ais.action.master.spmi list Utama"
+    },
+    {
+      "page": "standar_spmi",
+      "title": "Standar SPMI",
+      "sourceClass": "StandarSPMIAction",
+      "sourcePackage": "ais.action.master.spmi",
+      "sourcePath": "src/ais/action/master/spmi/StandarSPMIAction.java",
+      "pageType": "list",
+      "methodCount": 8,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Standar SPMI StandarSPMIAction ais.action.master.spmi list Utama"
+    },
+    {
+      "page": "tindak_lanjut_spmi",
+      "title": "Tindak Lanjut SPMI",
+      "sourceClass": "TindakLanjutSPMIAction",
+      "sourcePackage": "ais.action.master.spmi",
+      "sourcePath": "src/ais/action/master/spmi/TindakLanjutSPMIAction.java",
+      "pageType": "list",
+      "methodCount": 8,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Tindak Lanjut SPMI TindakLanjutSPMIAction ais.action.master.spmi list Utama"
+    }
+  ]
+}

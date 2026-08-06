@@ -1,0 +1,24 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "catatan",
+  "label": "Catatan",
+  "count": 1,
+  "pageTypeCounts": {
+    "list": 1
+  },
+  "pages": [
+    {
+      "page": "dasbord_catatan",
+      "title": "Dasbord Catatan",
+      "sourceClass": "DasbordCatatan",
+      "sourcePackage": "ais.action.master.catatan",
+      "sourcePath": "src/ais/action/master/catatan/DasbordCatatan.java",
+      "pageType": "list",
+      "methodCount": 4,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Dasbord Catatan DasbordCatatan ais.action.master.catatan list Utama"
+    }
+  ]
+}

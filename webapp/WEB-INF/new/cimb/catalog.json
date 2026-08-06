@@ -1,0 +1,24 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "cimb",
+  "label": "Integrasi CIMB",
+  "count": 1,
+  "pageTypeCounts": {
+    "finance": 1
+  },
+  "pages": [
+    {
+      "page": "cimb_request",
+      "title": "CIMB Request",
+      "sourceClass": "CimbRequestAction",
+      "sourcePackage": "ais.action.master.cimb",
+      "sourcePath": "src/ais/action/master/cimb/CimbRequestAction.java",
+      "pageType": "finance",
+      "methodCount": 6,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "CIMB Request CimbRequestAction ais.action.master.cimb finance Utama"
+    }
+  ]
+}

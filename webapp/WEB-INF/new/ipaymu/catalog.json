@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "ipaymu",
+  "label": "Integrasi iPaymu",
+  "count": 2,
+  "pageTypeCounts": {
+    "finance": 2
+  },
+  "pages": [
+    {
+      "page": "ipaymu_backand_prosess",
+      "title": "Ipaymu Backand Prosess",
+      "sourceClass": "IpaymuBackandProsess",
+      "sourcePackage": "ais.action.master.ipaymu",
+      "sourcePath": "src/ais/action/master/ipaymu/IpaymuBackandProsess.java",
+      "pageType": "finance",
+      "methodCount": 1,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Ipaymu Backand Prosess IpaymuBackandProsess ais.action.master.ipaymu finance Utama"
+    },
+    {
+      "page": "ipaymu_request",
+      "title": "Ipaymu Request",
+      "sourceClass": "IpaymuRequestAction",
+      "sourcePackage": "ais.action.master.ipaymu",
+      "sourcePath": "src/ais/action/master/ipaymu/IpaymuRequestAction.java",
+      "pageType": "finance",
+      "methodCount": 6,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Ipaymu Request IpaymuRequestAction ais.action.master.ipaymu finance Utama"
+    }
+  ]
+}

@@ -1,0 +1,132 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "sirkulasisurat",
+  "label": "Sirkulasi Surat",
+  "count": 10,
+  "pageTypeCounts": {
+    "workflow": 10
+  },
+  "pages": [
+    {
+      "page": "kembali_arsip_item",
+      "title": "Kembali Arsip Item",
+      "sourceClass": "KembaliArsipItemAction",
+      "sourcePackage": "ais.action.master.sirkulasisurat",
+      "sourcePath": "src/ais/action/master/sirkulasisurat/KembaliArsipItemAction.java",
+      "pageType": "workflow",
+      "methodCount": 1,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Kembali Arsip Item KembaliArsipItemAction ais.action.master.sirkulasisurat workflow Utama"
+    },
+    {
+      "page": "kembali_surat_item",
+      "title": "Kembali Surat Item",
+      "sourceClass": "KembaliSuratItemAction",
+      "sourcePackage": "ais.action.master.sirkulasisurat",
+      "sourcePath": "src/ais/action/master/sirkulasisurat/KembaliSuratItemAction.java",
+      "pageType": "workflow",
+      "methodCount": 17,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Kembali Surat Item KembaliSuratItemAction ais.action.master.sirkulasisurat workflow Utama"
+    },
+    {
+      "page": "peminjaman_arsip_item",
+      "title": "Peminjaman Arsip Item",
+      "sourceClass": "PeminjamanArsipItemAction",
+      "sourcePackage": "ais.action.master.sirkulasisurat",
+      "sourcePath": "src/ais/action/master/sirkulasisurat/PeminjamanArsipItemAction.java",
+      "pageType": "workflow",
+      "methodCount": 1,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Peminjaman Arsip Item PeminjamanArsipItemAction ais.action.master.sirkulasisurat workflow Utama"
+    },
+    {
+      "page": "peminjaman_surat_item",
+      "title": "Peminjaman Surat Item",
+      "sourceClass": "PeminjamanSuratItemAction",
+      "sourcePackage": "ais.action.master.sirkulasisurat",
+      "sourcePath": "src/ais/action/master/sirkulasisurat/PeminjamanSuratItemAction.java",
+      "pageType": "workflow",
+      "methodCount": 18,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Peminjaman Surat Item PeminjamanSuratItemAction ais.action.master.sirkulasisurat workflow Utama"
+    },
+    {
+      "page": "peminjam_surat",
+      "title": "Peminjam Surat",
+      "sourceClass": "PeminjamSuratAction",
+      "sourcePackage": "ais.action.master.sirkulasisurat",
+      "sourcePath": "src/ais/action/master/sirkulasisurat/PeminjamSuratAction.java",
+      "pageType": "workflow",
+      "methodCount": 9,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Peminjam Surat PeminjamSuratAction ais.action.master.sirkulasisurat workflow Utama"
+    },
+    {
+      "page": "helper/ambil_data_peminjam_surat_banbox",
+      "title": "Ambil Data Peminjam Surat Banbox",
+      "sourceClass": "AmbilDataPeminjamSuratBanbox",
+      "sourcePackage": "ais.action.master.sirkulasisurat.helper",
+      "sourcePath": "src/ais/action/master/sirkulasisurat/helper/AmbilDataPeminjamSuratBanbox.java",
+      "pageType": "workflow",
+      "methodCount": 6,
+      "legacyRefCount": 0,
+      "subpackage": "helper",
+      "search": "Ambil Data Peminjam Surat Banbox AmbilDataPeminjamSuratBanbox ais.action.master.sirkulasisurat.helper workflow helper"
+    },
+    {
+      "page": "helper/kembali_surat_item_detail",
+      "title": "Kembali Surat Item Detail",
+      "sourceClass": "KembaliSuratItemDetailAction",
+      "sourcePackage": "ais.action.master.sirkulasisurat.helper",
+      "sourcePath": "src/ais/action/master/sirkulasisurat/helper/KembaliSuratItemDetailAction.java",
+      "pageType": "workflow",
+      "methodCount": 4,
+      "legacyRefCount": 0,
+      "subpackage": "helper",
+      "search": "Kembali Surat Item Detail KembaliSuratItemDetailAction ais.action.master.sirkulasisurat.helper workflow helper"
+    },
+    {
+      "page": "helper/kembali_surat_item_punya_item_helper",
+      "title": "Kembali Surat Item Punya Item Helper",
+      "sourceClass": "KembaliSuratItemPunyaItemHelper",
+      "sourcePackage": "ais.action.master.sirkulasisurat.helper",
+      "sourcePath": "src/ais/action/master/sirkulasisurat/helper/KembaliSuratItemPunyaItemHelper.java",
+      "pageType": "workflow",
+      "methodCount": 8,
+      "legacyRefCount": 0,
+      "subpackage": "helper",
+      "search": "Kembali Surat Item Punya Item Helper KembaliSuratItemPunyaItemHelper ais.action.master.sirkulasisurat.helper workflow helper"
+    },
+    {
+      "page": "helper/peminjaman_surat_item_detail",
+      "title": "Peminjaman Surat Item Detail",
+      "sourceClass": "PeminjamanSuratItemDetailAction",
+      "sourcePackage": "ais.action.master.sirkulasisurat.helper",
+      "sourcePath": "src/ais/action/master/sirkulasisurat/helper/PeminjamanSuratItemDetailAction.java",
+      "pageType": "workflow",
+      "methodCount": 5,
+      "legacyRefCount": 0,
+      "subpackage": "helper",
+      "search": "Peminjaman Surat Item Detail PeminjamanSuratItemDetailAction ais.action.master.sirkulasisurat.helper workflow helper"
+    },
+    {
+      "page": "helper/peminjaman_surat_item_punya_item_helper",
+      "title": "Peminjaman Surat Item Punya Item Helper",
+      "sourceClass": "PeminjamanSuratItemPunyaItemHelper",
+      "sourcePackage": "ais.action.master.sirkulasisurat.helper",
+      "sourcePath": "src/ais/action/master/sirkulasisurat/helper/PeminjamanSuratItemPunyaItemHelper.java",
+      "pageType": "workflow",
+      "methodCount": 3,
+      "legacyRefCount": 0,
+      "subpackage": "helper",
+      "search": "Peminjaman Surat Item Punya Item Helper PeminjamanSuratItemPunyaItemHelper ais.action.master.sirkulasisurat.helper workflow helper"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "sisdes",
+  "label": "Sistem Informasi Desa",
+  "count": 1,
+  "pageTypeCounts": {
+    "list": 1
+  },
+  "pages": [
+    {
+      "page": "penduduk",
+      "title": "Penduduk",
+      "sourceClass": "PendudukAction",
+      "sourcePackage": "ais.action.master.sisdes",
+      "sourcePath": "src/ais/action/master/sisdes/PendudukAction.java",
+      "pageType": "list",
+      "methodCount": 8,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Penduduk PendudukAction ais.action.master.sisdes list Utama"
+    }
+  ]
+}
