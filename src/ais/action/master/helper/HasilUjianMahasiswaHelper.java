@@ -5000,6 +5000,94 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 				lblLogLgr.setParent(vboxLgr);
 			}
 
+			// === Tombol Reset Ujian per peserta (admin/dosen saja) ===
+			final String namaPesertaReset = mahasiswa != null ? mahasiswa.getNama()
+					: biodataCalonMahasiswa != null ? biodataCalonMahasiswa.getNama()
+					: siswa != null ? siswa.getNama()
+					: calonSiswa != null ? calonSiswa.getNama() : "peserta";
+			Tbmuser tbmuserCurrent = Common.getCurrentUser();
+			if (tbmuserCurrent != null && tbmuserCurrent.getMahasiswa() == null
+					&& tbmuserCurrent.getSiswa() == null) {
+				Vbox vboxReset = new Vbox();
+				vboxReset.setParent(arg0);
+				MyToolbarbuttonConfig btnReset = new MyToolbarbuttonConfig("Reset Ujian", "/img/svg/trash.svg");
+				btnReset.setTooltiptext("Reset ujian " + namaPesertaReset + " — seolah belum pernah mengikuti ujian sama sekali");
+				btnReset.setStyle("color:#b91c1c;");
+				btnReset.addEventListener("onClick", new EventListener() {
+					@Override
+					public void onEvent(Event onClickEvent) throws Exception {
+						MyMessageboxConfig.show(
+							"Yakin mereset ujian " + namaPesertaReset + "?\n\nSemua jawaban dan riwayat pengerjaan akan dihapus.",
+							"Konfirmasi Reset Ujian",
+							MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL,
+							MyMessageboxConfig.QUESTION,
+							new EventListener() {
+								@Override
+								public void onEvent(Event okEvent) throws Exception {
+									int pilihan = Integer.parseInt(okEvent.getData().toString());
+									if (pilihan == MyMessageboxConfig.OK) {
+										Common.createDefaultTimer(new EventListener() {
+											@SuppressWarnings("unchecked")
+											@Override
+											public void onEvent(Event timerEvent) throws Exception {
+												Session sess = null;
+												Transaction tx = null;
+												try {
+													sess = HibernateUtil.getSessionFactory().openSession();
+													tx = sess.beginTransaction();
+													// 1. Hapus semua jawaban detail
+													java.util.List<HasilUjianMahasiswaDetail> details = sess
+															.createCriteria(HasilUjianMahasiswaDetail.class)
+															.add(Restrictions.eq("hasilUjianMahasiswa", tempHasilUjianMahasiswa))
+															.list();
+													for (HasilUjianMahasiswaDetail hmd : details) {
+														hmd.setBankSoalDetail(null);
+														hmd.setJawaban(null);
+														hmd.setWaktuJawab(null);
+														sess.update(hmd);
+													}
+													// 2. Reset entitas utama
+													HasilUjianMahasiswa humRefresh = (HasilUjianMahasiswa) sess.get(
+															HasilUjianMahasiswa.class, tempHasilUjianMahasiswa.getId());
+													if (humRefresh != null) {
+														humRefresh.reset();
+														humRefresh.setSisaWaktuPengerjaan(null);
+														humRefresh.setJumlahPelanggaran(null);
+														humRefresh.setLogPelanggaran(null);
+														sess.update(humRefresh);
+													}
+													tx.commit();
+													// 3. Reload baris
+													Common.createDefaultTimer(new EventListener() {
+														@Override
+														public void onEvent(Event reloadEvent) throws Exception {
+															Common.clear(arg0);
+															render(arg0, arg1);
+														}
+													});
+												} catch (Exception ex) {
+													if (tx != null) tx.rollback();
+													ais.common.ErrorAuditUtil.record(ex,
+															"auto-audit resetUjian HasilUjianMahasiswaHelper id=" + tempHasilUjianMahasiswa.getId());
+													MyMessageboxConfig.show("Gagal reset: " + ex.getMessage(),
+															"Error", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+												} finally {
+													if (sess != null && sess.isOpen()) {
+														try { sess.close(); } catch (Exception ex) {
+															ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/helper/HasilUjianMahasiswaHelper.java:resetUjian");
+														}
+													}
+												}
+											}
+										});
+									}
+								}
+							});
+					}
+				});
+				btnReset.setParent(vboxReset);
+			}
+
 			keterangan.addEventListener("onChange", new EventListener() {
 
 				@Override

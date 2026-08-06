@@ -306,6 +306,18 @@ public class KegiatanPersistenceHelper {
 			// refresh=true yang query by kegiatan TANPA filter aktif), simpan diskon TERBESAR per item
 			// + status bukanTagihan dari DK TERBARU (id tertinggi). Diskon benar selalu ketemu -> hasil
 			// KONSISTEN tiap render, tanpa menulis apa pun.
+			//
+			// FIX 2026-08-06 (kasus MARDI MARSON: item 500rb ganda ke-nol-kan, "Biaya Semester"
+			// nilaiBisaDiubah sudah diedit langsung jadi 500rb NET tapi header tampil 0): diskon
+			// TERBESAR di atas dulu SELALU dipasangkan ke `biaya` DK TERBARU walau keduanya berasal
+			// dari GENERASI DK BERBEDA -> kalau baris terbaru sudah net (biaya diedit langsung jadi
+			// lebih kecil, diskon di baris itu sendiri 0), diskon historis dari baris LAMA tetap
+			// tersubtraksi lagi (double-count) -> hasil 0/negatif. Sekarang diskon historis HANYA
+			// dipakai ulang bila baris tempat diskon terbesar itu ditemukan py `biaya` (gross) yang
+			// SAMA dengan `biaya` baris terbaru -- artinya base belum berubah, cuma metadata diskon
+			// hilang saat regenerasi (kasus asli yang dulu dilindungi fix ini). Bila base baris
+			// terbaru SUDAH beda (diedit langsung / generasi baru beda nominal), pakai diskon MILIK
+			// baris terbaru itu sendiri (bisa 0 -- base-nya memang sudah net), TIDAK subtraksi ulang.
 			Map<Long, double[]> diskonItemMap = new HashMap<Long, double[]>();
 			if (k.getId() != null) {
 				try {
@@ -316,21 +328,26 @@ public class KegiatanPersistenceHelper {
 								continue;
 							}
 							Long itemId = dkc.getItemBiaya().getId();
-							// [maxDiskon, bukanTagihanTerbaru?1:0, idTerbaru, biayaDkTerbaru, adaBiayaDk?1:0]
+							// [maxDiskon, bukanTagihanTerbaru?1:0, idTerbaru, biayaDkTerbaru, adaBiayaDk?1:0,
+							//  biayaPadaBarisMaxDiskon, diskonMilikBarisTerbaruSendiri]
 							double[] info = diskonItemMap.get(itemId);
 							if (info == null) {
-								info = new double[] { 0.0, 0.0, -1.0, 0.0, 0.0 };
+								info = new double[] { 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0 };
 								diskonItemMap.put(itemId, info);
 							}
-							if (dkc.getDiskon() != null && dkc.getDiskon().doubleValue() > info[0]) {
-								info[0] = dkc.getDiskon().doubleValue();
+							double diskonBarisIni = dkc.getDiskon() == null ? 0.0 : dkc.getDiskon().doubleValue();
+							double biayaBarisIni = dkc.getBiaya() == null ? 0.0 : dkc.getBiaya().doubleValue();
+							if (diskonBarisIni > info[0]) {
+								info[0] = diskonBarisIni;
+								info[5] = biayaBarisIni;
 							}
 							double idDk = dkc.getId() == null ? -1.0 : dkc.getId().doubleValue();
 							if (idDk >= info[2]) {
 								info[2] = idDk;
 								info[1] = (dkc.getBukanTagihan() != null && dkc.getBukanTagihan()) ? 1.0 : 0.0;
-								info[3] = dkc.getBiaya() == null ? 0.0 : dkc.getBiaya().doubleValue();
+								info[3] = biayaBarisIni;
 								info[4] = 1.0;
+								info[6] = diskonBarisIni;
 							}
 						}
 					}
@@ -372,10 +389,13 @@ public class KegiatanPersistenceHelper {
 							if (info != null) {
 								if (info[1] == 1.0) {
 									j = Double.valueOf(0.0);
-								} else if (info[0] > 0.0) {
-									j = Double.valueOf(j.doubleValue() - info[0]);
-									if (j.doubleValue() < 0.0) {
-										j = Double.valueOf(0.0);
+								} else {
+									double diskonDipakai = diskonEfektif(info);
+									if (diskonDipakai > 0.0) {
+										j = Double.valueOf(j.doubleValue() - diskonDipakai);
+										if (j.doubleValue() < 0.0) {
+											j = Double.valueOf(0.0);
+										}
 									}
 								}
 							}
@@ -395,7 +415,7 @@ public class KegiatanPersistenceHelper {
 											.getPenghitungan().equals(ItemBiaya.HITUNG_TUNGGAKAN_SMT_LALU))) {
 								double[] info = diskonItemMap.get(db.getItemBiaya().getId());
 								if (info != null && info.length >= 5 && info[4] == 1.0) {
-									double neto = info[1] == 1.0 ? 0.0 : info[3] - info[0];
+									double neto = info[1] == 1.0 ? 0.0 : info[3] - diskonEfektif(info);
 									if (neto < 0.0) {
 										neto = 0.0;
 									}
@@ -425,6 +445,36 @@ public class KegiatanPersistenceHelper {
 		} catch (Exception e) {
 			return null;
 		}
+	}
+
+	/**
+	 * Tentukan diskon yang BOLEH dipakai utk mengurangi {@code biaya} DK TERBARU (dipakai
+	 * {@link #hitungTagihanSegarKonsisten(Kegiatan)}), menghindari DOUBLE-COUNT saat base sudah
+	 * net.
+	 *
+	 * <p>{@code info} = {@code [maxDiskon, bukanTagihanTerbaru, idTerbaru, biayaDkTerbaru,
+	 * adaBiayaDk, biayaPadaBarisMaxDiskon, diskonMilikBarisTerbaruSendiri]} (lihat pemindaian di
+	 * {@link #hitungTagihanSegarKonsisten(Kegiatan)}).</p>
+	 *
+	 * <p><b>Aturan.</b> (1) Bila baris TERBARU sendiri sudah punya diskon tercatat (&gt;0),
+	 * pakai itu -- paling akurat, sudah dipasangkan dgn biaya di baris yg sama. (2) Bila baris
+	 * terbaru diskonnya 0/kosong TAPI biaya-nya SAMA dgn biaya baris tempat diskon terbesar
+	 * historis ditemukan, berarti base belum berubah sejak generasi yang py diskon benar --
+	 * metadata diskonnya saja yang hilang saat regenerasi -> pakai diskon historis itu (baru
+	 * "reapply"). (3) Selain itu (base baris terbaru SUDAH beda dari base baris diskon historis
+	 * -- mis. nilai diedit langsung jadi net) -> jangan subtraksi ulang, kembalikan 0.</p>
+	 */
+	private static double diskonEfektif(double[] info) {
+		if (info == null || info.length < 7) {
+			return 0.0;
+		}
+		if (info[6] > 0.0) {
+			return info[6];
+		}
+		if (info[0] > 0.0 && info[3] == info[5]) {
+			return info[0];
+		}
+		return 0.0;
 	}
 
 	@SuppressWarnings("unchecked")

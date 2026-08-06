@@ -142,6 +142,7 @@ public class AmbilDataMahasiswaKelompokPklHelper {
 						mahasiswaDapatKelompokPkl.setKelompokPkl(kelompokPkl);
 						mahasiswaDapatKelompokPkl.setKeterangan("");
 						mahasiswaDapatKelompokPkl.setMahasiswa(mahasiswa);
+						mahasiswaDapatKelompokPkl.setDiterima(true);
 						session.save(mahasiswaDapatKelompokPkl);
 					}
 				}

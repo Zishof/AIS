@@ -4134,8 +4134,16 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 				.getKonfigurasi("nilai_0_tidak_masuk_dalam_perhitungan_ipk", Konfigurasi.AKTIF).getNilai();
 		Double minimal = 0.1;
 		try {
-			minimal = Double.parseDouble(
-					Common.getKonfigurasi("nilai_minimal_tidak_masuk_dalam_perhitungan_ipk", "0.1").getNilai().trim());
+			// Toleransi admin mengetik koma sbg pemisah desimal (format Indonesia, mis. "0,1" untuk
+			// maksud 0.1): Double.parseDouble() SELALU mensyaratkan titik terlepas dari locale JVM,
+			// jadi nilai konfigurasi yang diketik dgn koma sebelumnya SELALU gagal parse di sini dan
+			// diam-diam jatuh ke default hardcoded 0.1 di atas tanpa admin sadar konfigurasinya
+			// (nilai_minimal_tidak_masuk_dalam_perhitungan_ipk) tidak pernah benar-benar terpakai.
+			String nilaiMinimalStr = Common
+					.getKonfigurasi("nilai_minimal_tidak_masuk_dalam_perhitungan_ipk", "0.1").getNilai();
+			if (nilaiMinimalStr != null) {
+				minimal = Double.parseDouble(nilaiMinimalStr.trim().replace(',', '.'));
+			}
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Mahasiswa.java:4123");
 
 		}

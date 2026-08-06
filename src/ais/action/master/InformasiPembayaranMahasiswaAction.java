@@ -613,7 +613,12 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 		// ("coba bayar via cara baru" — permintaan user). Tidak mengubah alur/tombol lain di layar ini.
 		Tbmuser userAksiPembayaran = Common.getCurrentUser();
 		boolean loginSebagaiMahasiswa = userAksiPembayaran != null && userAksiPembayaran.getMahasiswa() != null;
-		if (!loginSebagaiMahasiswa) {
+		// Disembunyikan sementara atas permintaan user (2026-08-06) — default MATI, tanpa
+		// perlu redeploy utk mengaktifkan lagi: set Konfigurasi
+		// "tampilkan_coba_cara_baru_pembayaran_mahasiswa" ke Aktif via menu Konfigurasi bila
+		// sudah siap dicoba lagi.
+		if (!loginSebagaiMahasiswa
+				&& Common.bolehKonfigurasi("tampilkan_coba_cara_baru_pembayaran_mahasiswa", Konfigurasi.TIDAK_AKTIF)) {
 			MyToolbarbuttonConfig btnCobaCaraBaru = new MyToolbarbuttonConfig("Coba Cara Baru (Eksperimental)",
 					"/img/svg/payments.svg");
 			hboxBawah.appendChild(btnCobaCaraBaru);
