@@ -625,6 +625,14 @@ public class CommonSqlHelper extends Common {
 			}
 
 			// tampilErrorJikaAdmin(e);
+			// Exception ASLINYA sebelumnya TIDAK PERNAH dicatat di sini (baris di atas sengaja
+			// dimatikan) -- log yang terlihat admin hanya pesan generik "Transaction di-rollback..."
+			// + teks SQL, TANPA pesan/kelas exception atau SQL state apa pun, sehingga penyebab
+			// sebenarnya (lock timeout, constraint, error sintaks, dst.) tidak pernah bisa
+			// ditelusuri dari log. Dicatat via ErrorAuditUtil (bukan tampilErrorJikaAdmin) supaya
+			// root cause tetap terlacak tanpa menampilkan popup baru ke user -- perilaku user-facing
+			// persis sama seperti sebelumnya.
+			ais.common.ErrorAuditUtil.record(e, "auto-audit CommonSqlHelper.updateSql: SQL gagal dieksekusi - " + sql);
 
 		} finally {
 			// 6. WAJIB Tutup Session dengan bersih (Kompatibel Java 1.6/1.7)

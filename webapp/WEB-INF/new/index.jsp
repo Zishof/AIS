@@ -22,7 +22,7 @@ if(!nuiSafePath(module)){
     else module="dashboard";
 }
 String pageName=request.getParameter("page");if(!nuiSafePath(pageName))pageName="index";
-boolean service="1".equals(request.getParameter("service"));String target="/WEB-INF/new/"+module+(service?"/services/":"/uiux/")+pageName+(service?"_service.jsp":".jsp");
+boolean service="1".equals(request.getParameter("service"));boolean frame="1".equals(request.getParameter("frame"));String target="/WEB-INF/new/"+module+(service?"/services/":"/uiux/")+pageName+(service?"_service.jsp":".jsp");
 if(!nuiExists(application,target)){if(service){response.setStatus(404);response.setContentType("application/json; charset=UTF-8");out.print("{\"ok\":false,\"code\":\"SERVICE_NOT_FOUND\"}");return;}target="/WEB-INF/new/_shared/ui/not_found.jsp";}
 if(service){response.setContentType("application/json; charset=UTF-8");request.getRequestDispatcher(target).include(request,response);return;}
 Tbmuser current=null;try{current=Common.getCurrentUser(request);}catch(Exception ignored){}String currentName=current==null?"Pengguna":current.getUserNama();if(currentName==null||currentName.trim().length()==0)currentName=current==null?"Pengguna":current.getUserId();if(currentName==null||currentName.trim().length()==0)currentName="Pengguna";
@@ -94,5 +94,65 @@ String[][] modules=new String[][]{
     new String[]{"sisdes","Sistem Informasi Desa","1","Sistem"},
     new String[]{"ux","UX","1","Sistem"}
 };
+String newUrl=request.getContextPath()+"/new";
+String frameSrc=newUrl+"?frame=1&module="+URLEncoder.encode(module,"UTF-8")+"&page="+URLEncoder.encode(pageName,"UTF-8");
+if(frame){
 %>
-<!doctype html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>eCampus & eSchool — Modern UI</title><style><%@ include file="/WEB-INF/new/_shared/assets/new-ui.css" %></style></head><body><div id="nuiLoading" class="nui-loading"></div><div class="nui-app"><aside id="nuiSidebar" class="nui-sidebar"><div class="nui-brand"><div class="nui-logo">◆</div><div><strong>eCampus & eSchool</strong><small>Enterprise Education</small></div></div><nav class="nui-nav"><%String lastGroup="";for(int i=0;i<modules.length;i++){String[] m=modules[i];if(!m[3].equals(lastGroup)){if(lastGroup.length()>0){%></div><%}lastGroup=m[3];%><div class="nui-nav-group"><div class="nui-nav-label"><%=nuiShellH(lastGroup)%></div><%}%><a class="<%=module.equals(m[0])?"active":""%>" href="<%=request.getContextPath()%>/new?module=<%=URLEncoder.encode(m[0],"UTF-8")%>&page=index"><span>◇</span><span><%=nuiShellH(m[1])%></span><span class="nui-nav-count"><%=m[2]%></span></a><%}if(lastGroup.length()>0){%></div><%}%></nav><div class="nui-sidebar-foot">● Online &nbsp; • &nbsp; UI Scaffold v1.0.0</div></aside><main class="nui-main"><header class="nui-topbar"><button id="nuiMenuToggle" class="nui-menu-toggle">☰</button><div class="nui-global-search"><input placeholder="Cari menu, halaman, mahasiswa, siswa, dokumen..." aria-label="Pencarian global"><span class="nui-kbd">Ctrl + K</span></div><div class="nui-top-actions"><button class="nui-icon-btn">♢<span class="nui-badge">0</span></button><button class="nui-icon-btn">✉</button><div class="nui-user"><div class="nui-avatar"><%=nuiShellH(currentName.substring(0,1).toUpperCase())%></div><div><strong><%=nuiShellH(currentName)%></strong><small>Pengguna aktif</small></div></div></div></header><div class="nui-content"><%request.getRequestDispatcher(target).include(request,response);%></div><footer class="nui-footer"><span>© 2026 eCampus & eSchool</span><span>Modern JSP UI • Java service adapter</span></footer></main></div><div id="nuiToast" class="nui-toast"></div><div id="nuiCommand" class="nui-command"><div class="nui-command-box"><input id="nuiCommandInput" class="nui-input" placeholder="Ketik nama modul..."><div class="nui-command-results"><%for(int i=0;i<modules.length;i++){%><a href="<%=request.getContextPath()%>/new?module=<%=URLEncoder.encode(modules[i][0],"UTF-8")%>&page=index"><%=nuiShellH(modules[i][1])%> <small>(<%=modules[i][2]%> halaman)</small></a><%}%></div></div></div><script><%@ include file="/WEB-INF/new/_shared/assets/new-ui.js" %></script></body></html>
+<!doctype html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="robots" content="noindex,nofollow">
+    <title>eCampus & eSchool — <%=nuiShellH(module)%></title>
+    <style><%@ include file="/WEB-INF/new/_shared/assets/new-ui.css" %></style>
+</head>
+<body class="nui-frame-body">
+    <div class="nui-frame-content"><%request.getRequestDispatcher(target).include(request,response);%></div>
+    <div id="nuiLoading" class="nui-loading"></div>
+    <div id="nuiToast" class="nui-toast"></div>
+    <script><%@ include file="/WEB-INF/new/_shared/assets/new-ui.js" %></script>
+</body>
+</html>
+<%
+    return;
+}
+%>
+<!doctype html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="robots" content="noindex,nofollow">
+    <title>eCampus & eSchool — Modern UI</title>
+    <style><%@ include file="/WEB-INF/new/_shared/assets/new-ui.css" %></style>
+</head>
+<body>
+<div id="nuiLoading" class="nui-loading"></div>
+<div class="nui-app">
+    <aside id="nuiSidebar" class="nui-sidebar">
+        <div class="nui-brand"><div class="nui-logo">◆</div><div><strong>eCampus & eSchool</strong><small>Enterprise Education</small></div></div>
+        <nav class="nui-nav">
+        <%String lastGroup="";for(int i=0;i<modules.length;i++){String[] m=modules[i];if(!m[3].equals(lastGroup)){if(lastGroup.length()>0){%></div><%}lastGroup=m[3];%>
+            <div class="nui-nav-group"><div class="nui-nav-label"><%=nuiShellH(lastGroup)%></div>
+        <%}%>
+            <a class="<%=module.equals(m[0])?"active":""%>" target="nuiMainFrame" data-shell-url="<%=nuiShellH(newUrl+"?module="+URLEncoder.encode(m[0],"UTF-8")+"&page=index")%>" href="<%=nuiShellH(newUrl+"?frame=1&module="+URLEncoder.encode(m[0],"UTF-8")+"&page=index")%>"><span>◇</span><span><%=nuiShellH(m[1])%></span><span class="nui-nav-count"><%=m[2]%></span></a>
+        <%}if(lastGroup.length()>0){%></div><%}%>
+        </nav>
+        <div class="nui-sidebar-foot">● Online &nbsp; • &nbsp; UI Scaffold v1.0.0</div>
+    </aside>
+    <main class="nui-main">
+        <header class="nui-topbar">
+            <button id="nuiMenuToggle" class="nui-menu-toggle">☰</button>
+            <div class="nui-global-search"><input placeholder="Cari menu, halaman, mahasiswa, siswa, dokumen..." aria-label="Pencarian global"><span class="nui-kbd">Ctrl + K</span></div>
+            <div class="nui-top-actions"><button class="nui-icon-btn">♢<span class="nui-badge">0</span></button><button class="nui-icon-btn">✉</button><div class="nui-user"><div class="nui-avatar"><%=nuiShellH(currentName.substring(0,1).toUpperCase())%></div><div><strong><%=nuiShellH(currentName)%></strong><small>Pengguna aktif</small></div></div></div>
+        </header>
+        <iframe id="nuiMainFrame" name="nuiMainFrame" class="nui-main-frame" src="<%=nuiShellH(frameSrc)%>" title="Konten utama eCampus"></iframe>
+        <footer class="nui-footer"><span>© 2026 eCampus & eSchool</span><span>Modern JSP UI • Java service adapter</span></footer>
+    </main>
+</div>
+<div id="nuiToast" class="nui-toast"></div>
+<div id="nuiCommand" class="nui-command"><div class="nui-command-box"><input id="nuiCommandInput" class="nui-input" placeholder="Ketik nama modul..."><div class="nui-command-results"><%for(int i=0;i<modules.length;i++){String commandModule=modules[i][0];%><a target="nuiMainFrame" data-shell-url="<%=nuiShellH(newUrl+"?module="+URLEncoder.encode(commandModule,"UTF-8")+"&page=index")%>" href="<%=nuiShellH(newUrl+"?frame=1&module="+URLEncoder.encode(commandModule,"UTF-8")+"&page=index")%>"><%=nuiShellH(modules[i][1])%> <small>(<%=modules[i][2]%> halaman)</small></a><%}%></div></div></div>
+<script><%@ include file="/WEB-INF/new/_shared/assets/new-ui.js" %></script>
+</body>
+</html>

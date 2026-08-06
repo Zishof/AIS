@@ -1635,15 +1635,30 @@ public class InitIndex {
 	}
 
 	private static void initIndexRevisiEnversGenerik() {
+		// PENTING: seluruh isi LOOP dan blok revinfo di bawah DIBUNGKUS "BEGIN ... EXCEPTION WHEN
+		// OTHERS THEN ... END;" (savepoint implisit PL/pgSQL) PER TABEL. Sebelumnya TIDAK ada
+		// penanganan exception di dalam LOOP: satu tabel _aud yang gagal (paling mungkin lock
+		// timeout/kontensi -- tabel _aud Envers ditulis TERUS-MENERUS oleh trafik hidup setiap kali
+		// entitas apa pun diubah, sedangkan CREATE INDEX butuh SHARE lock yang bentrok dengan
+		// penulisan) membuat SELURUH statement DO $$ ini di-ROLLBACK, sehingga index utk SEMUA tabel
+		// _aud LAIN yang sebenarnya sukses diproses lebih dulu di iterasi LOOP yang sama ikut hilang
+		// (gejala persis "Transaction di-rollback untuk mencegah status 'aborted' pada koneksi" yang
+		// dilaporkan). Dengan blok BEGIN/EXCEPTION per tabel, kegagalan pada satu tabel di-skip (via
+		// RAISE WARNING, tercatat di log server) tanpa membatalkan index tabel _aud lainnya dan tanpa
+		// mengubah hasil akhir untuk kasus normal (masih idempoten, CREATE INDEX IF NOT EXISTS).
 		final String sql = ""
 				+ "DO $$ "
 				+ "DECLARE r record; nama_rev text; nama_revtype text; nama_id_rev text; "
 				+ "BEGIN "
 				+ "FOR r IN SELECT table_schema, table_name FROM information_schema.tables "
 				+ "WHERE table_schema = 'public' AND table_name LIKE '%\\_aud' ESCAPE '\\' LOOP "
-				+ "nama_rev := 'idx_aud_rev_' || substr(md5(r.table_name || '_rev'), 1, 14); "
-				+ "nama_revtype := 'idx_aud_rvt_' || substr(md5(r.table_name || '_revtype'), 1, 14); "
-				+ "nama_id_rev := 'idx_aud_idr_' || substr(md5(r.table_name || '_id_rev'), 1, 14); "
+				+ "BEGIN "
+				// Hibernate 3 mem-parsing ':' sebagai awalan named parameter bahkan di blok
+				// PL/pgSQL. PostgreSQL menerima '=' sebagai operator assignment yang setara
+				// dengan ':=', jadi hindari ':' agar DO block lolos ParameterParser Hibernate.
+				+ "nama_rev = 'idx_aud_rev_' || substr(md5(r.table_name || '_rev'), 1, 14); "
+				+ "nama_revtype = 'idx_aud_rvt_' || substr(md5(r.table_name || '_revtype'), 1, 14); "
+				+ "nama_id_rev = 'idx_aud_idr_' || substr(md5(r.table_name || '_id_rev'), 1, 14); "
 				+ "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = r.table_schema AND table_name = r.table_name AND column_name = 'rev') THEN "
 				+ "EXECUTE format('CREATE INDEX IF NOT EXISTS %I ON %I.%I (rev)', nama_rev, r.table_schema, r.table_name); "
 				+ "END IF; "
@@ -1655,10 +1670,17 @@ public class InitIndex {
 				+ "AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = r.table_schema AND table_name = r.table_name AND column_name = 'rev') THEN "
 				+ "EXECUTE format('CREATE INDEX IF NOT EXISTS %I ON %I.%I (id, rev DESC)', nama_id_rev, r.table_schema, r.table_name); "
 				+ "END IF; "
+				+ "EXCEPTION WHEN OTHERS THEN "
+				+ "RAISE WARNING 'initIndexRevisiEnversGenerik - gagal membuat index audit utk %.% - %', r.table_schema, r.table_name, SQLERRM; "
+				+ "END; "
 				+ "END LOOP; "
+				+ "BEGIN "
 				+ "IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'revinfo') THEN "
 				+ "EXECUTE 'CREATE INDEX IF NOT EXISTS idx_revinfo_rev_revtstmp ON public.revinfo (rev, revtstmp)'; "
 				+ "END IF; "
+				+ "EXCEPTION WHEN OTHERS THEN "
+				+ "RAISE WARNING 'initIndexRevisiEnversGenerik - gagal membuat index revinfo - %', SQLERRM; "
+				+ "END; "
 				+ "END $$;";
 		submitDdl(new Runnable() {
 			@Override

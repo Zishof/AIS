@@ -150,6 +150,50 @@ public class StudiMahasiswaHelper implements DataLoader {
 		this.remedial = remedial;
 	}
 
+	private Label tambahBarisNilai(Vbox parent, String nama, String nilai, boolean utama) {
+		Hbox baris = new Hbox();
+		baris.setWidth("100%");
+		baris.setStyle("display:flex;align-items:center;justify-content:space-between;gap:6px;"
+				+ "line-height:1.45;padding:" + (utama ? "3px 5px" : "1px 2px") + ";"
+				+ (utama ? "margin-top:3px;border-top:1px solid #dbe5f1;background:#f8fafc;border-radius:4px;" : ""));
+		baris.setParent(parent);
+
+		Label labelNama = new Label(nama == null ? "" : nama);
+		labelNama.setStyle("font-size:10px;color:#64748b;width:auto;white-space:nowrap;");
+		labelNama.setParent(baris);
+
+		Label labelNilai = new Label(nilai == null ? "" : nilai);
+		labelNilai.setStyle("font-size:11px;font-weight:" + (utama ? "bold" : "normal")
+				+ ";color:#0f172a;text-align:right;width:auto;white-space:nowrap;");
+		labelNilai.setParent(baris);
+		return labelNilai;
+	}
+
+	private void tambahBarisNilaiHuruf(Vbox parent, Label labelNilaiHuruf) {
+		if (labelNilaiHuruf == null) {
+			return;
+		}
+		Hbox baris = new Hbox();
+		baris.setWidth("100%");
+		baris.setStyle("display:flex;align-items:center;justify-content:space-between;gap:6px;"
+				+ "line-height:1.45;padding:3px 5px;margin-top:3px;background:#eef6ff;border:1px solid #dbeafe;border-radius:4px;");
+		baris.setParent(parent);
+
+		Label labelNama = new Label("Huruf");
+		labelNama.setStyle("font-size:10px;color:#64748b;width:auto;white-space:nowrap;");
+		labelNama.setParent(baris);
+
+		rapikanLabelNilaiHuruf(labelNilaiHuruf);
+		labelNilaiHuruf.setParent(baris);
+	}
+
+	private void rapikanLabelNilaiHuruf(Label labelNilaiHuruf) {
+		if (labelNilaiHuruf == null) {
+			return;
+		}
+		labelNilaiHuruf.setStyle("font-size:11px;font-weight:bold;color:#1e3a8a;text-align:right;width:auto;white-space:nowrap;");
+	}
+
 	class DetailMahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		private KrsMahasiswa krsMahasiswa;
@@ -197,16 +241,20 @@ public class StudiMahasiswaHelper implements DataLoader {
 						Common.tampilErrorJikaAdmin(e);
 					}
 					Double n = nilai == null ? 0.0 : nilai.doubleValue();
-					totalNilai.appendChild(new MyLabelAgakKecil(formatNilai.getNama() + ":" + Common.numberFormat.get().format(n)));
+					tambahBarisNilai(totalNilai, formatNilai.getNama(), Common.numberFormat.get().format(n), false);
 				}
 			}
 
-			final MyLabelAgakKecil totalNilaiMhs = new MyLabelAgakKecil("Total:" + Common.numberFormat.get().format(detailperkuliahan.getTotalNilai()));
+			totalNilai.setStyle("width:100%;min-width:110px;max-width:150px;");
+			final Label totalNilaiMhs = tambahBarisNilai(totalNilai, "Total", Common.numberFormat.get().format(detailperkuliahan.getTotalNilai()), true);
 			if (formatNilais == null || formatNilais.isEmpty() || formatNilais.size() > 1) {
-				totalNilai.appendChild(totalNilaiMhs);
+				totalNilaiMhs.getParent().setVisible(true);
+			} else {
+				totalNilaiMhs.getParent().setVisible(false);
 			}
 
 			final Label labelNilaiHuruf = new Label(detailperkuliahan.getNilaiHuruf());
+			rapikanLabelNilaiHuruf(labelNilaiHuruf);
 			ais.action.master.helper.util.WarnaStatusLulusUtil.warnai(labelNilaiHuruf, detailperkuliahan);
 			final MyDoublebox totalNilaiLabel = new MyDoublebox(detailperkuliahan.getTotalNilai());
 			totalNilaiLabel.setDisabled(!update);
@@ -225,8 +273,9 @@ public class StudiMahasiswaHelper implements DataLoader {
 						Common.updateNilaiKonversi(detailperkuliahan, totalNilaiLabel.getValue(), session);
 
 						labelNilaiHuruf.setValue(detailperkuliahan.getNilaiHuruf());
+						rapikanLabelNilaiHuruf(labelNilaiHuruf);
 						ais.action.master.helper.util.WarnaStatusLulusUtil.warnai(labelNilaiHuruf, detailperkuliahan);
-						totalNilaiMhs.setValue("Total:" + Common.numberFormat.get().format(detailperkuliahan.getTotalNilai()));
+						totalNilaiMhs.setValue(Common.numberFormat.get().format(detailperkuliahan.getTotalNilai()));
 
 						checkbox.setDisabled(totalNilaiLabel.getValue() > 1.0);
 						if (!checkbox.isChecked()) {
@@ -413,7 +462,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 				totalNilaiLabel.setReadonly(!checkbox.isChecked());
 				totalNilaiKonversi.appendChild(labelNilaiHuruf);
 			} else {
-				totalNilai.appendChild(labelNilaiHuruf);
+				tambahBarisNilaiHuruf(totalNilai, labelNilaiHuruf);
 				totalNilai.setParent(row);
 			}
 
@@ -2025,7 +2074,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 		MyColumnConfig columnNilai = new MyColumnConfig();
 		columnNilai.setParent(columns);
 		columnNilai.setLabel("Nilai");
-		columnNilai.setWidth("8%");
+		columnNilai.setWidth("130px");
 
 		MyColumnConfig columnAction = new MyColumnConfig();
 		columnAction.setParent(columns);
