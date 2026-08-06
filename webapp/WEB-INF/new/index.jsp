@@ -108,7 +108,7 @@ if(frame){
     <style><%@ include file="/WEB-INF/new/_shared/assets/new-ui.css" %></style>
 </head>
 <body class="nui-frame-body">
-    <div class="nui-frame-content"><%request.getRequestDispatcher(target).include(request,response);%></div>
+    <div class="nui-frame-content"><%-- Flush JspWriter sebelum RequestDispatcher menulis langsung ke response agar output tidak tersisip di tengah markup shell. --%><%out.flush();request.getRequestDispatcher(target).include(request,response);%></div>
     <div id="nuiLoading" class="nui-loading"></div>
     <div id="nuiToast" class="nui-toast"></div>
     <script><%@ include file="/WEB-INF/new/_shared/assets/new-ui.js" %></script>
