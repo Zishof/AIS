@@ -63,43 +63,59 @@
 
 /* ── Variabel tema (override Bootstrap defaults) ─────────────────── */
 :root {
-  --ais2-pri: #1e40af;
-  --ais2-pri2: #4f46e5;
-  --ais2-acc: #6d28d9;
-  --ais2-grad: linear-gradient(120deg, #1e3a8a 0%, #4f46e5 55%, #6d28d9 100%);
+  --ais2-pri: #123d77;
+  --ais2-pri2: #2563eb;
+  --ais2-acc: #06b6d4;
+  --ais2-navy: #082f5f;
+  --ais2-navy-2: #0d447f;
+  --ais2-grad: linear-gradient(135deg, #0b3d75 0%, #12669a 58%, #0f8fa7 100%);
   --ais2-ok: #10b981;
   --ais2-warn: #f59e0b;
   --ais2-bad: #ef4444;
   --ais2-info: #0ea5e9;
-  --ais2-ink: #1e293b;
-  --ais2-ink2: #64748b;
-  --ais2-ink3: #94a3b8;
-  --ais2-line: #e2e8f0;
-  --ais2-bg: #f8fafc;
+  --ais2-ink: #10243e;
+  --ais2-ink2: #5b6b80;
+  --ais2-ink3: #91a0b3;
+  --ais2-line: #dfe7f1;
+  --ais2-bg: #f2f6fc;
   --ais2-card: #ffffff;
-  --ais2-radius: 12px;
-  --ais2-radius-sm: 8px;
-  --ais2-shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 12px rgba(0,0,0,.04);
-  --ais2-shadow-md: 0 4px 16px rgba(0,0,0,.08);
-  --ais2-shadow-lg: 0 8px 32px rgba(0,0,0,.12);
+  /* Alias kompatibilitas untuk JSP lama yang memakai nama token generasi awal. */
+  --ais2-card-bg: var(--ais2-card);
+  --ais2-border: var(--ais2-line);
+  --ais2-text: var(--ais2-ink);
+  --ais2-text-sec: var(--ais2-ink2);
+  --ais2-radius: 14px;
+  --ais2-radius-sm: 9px;
+  --ais2-shadow: 0 1px 2px rgba(15,39,71,.04), 0 8px 24px rgba(15,39,71,.055);
+  --ais2-shadow-md: 0 10px 28px rgba(15,39,71,.10);
+  --ais2-shadow-lg: 0 20px 50px rgba(15,39,71,.16);
   --ais2-font: "Plus Jakarta Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
   --ais2-transition: .18s cubic-bezier(.4,0,.2,1);
 }
 
 /* ── Reset ─────────────────────────────────────────────────────────── */
 .ais2-page * { box-sizing: border-box; }
-.ais2-page { font-family: var(--ais2-font); color: var(--ais2-ink); }
+.ais2-page {
+  font-family: var(--ais2-font); color: var(--ais2-ink);
+  background: var(--ais2-bg); min-height: 100vh; line-height: 1.55;
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+}
+.ais2-page :where(a,button,input,select,textarea,[tabindex]):focus-visible {
+  outline: 3px solid rgba(37,99,235,.32); outline-offset: 2px;
+}
+.ais2-page :where(button,.ais2-btn,.ais2-tab,.ais2-page-btn) { min-height: 40px; }
+.ais2-page ::selection { background: #bfdbfe; color: #0b2f5b; }
 
 /* ── Page Header ────────────────────────────────────────────────────── */
 .ais2-page-header {
   background: var(--ais2-card);
-  border-bottom: 1px solid var(--ais2-line);
-  padding: 14px 20px;
+  border: 1px solid var(--ais2-line);
+  padding: 16px 20px;
   display: flex;
   align-items: center;
   gap: 14px;
   flex-wrap: wrap;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
   border-radius: var(--ais2-radius);
   box-shadow: var(--ais2-shadow);
 }
@@ -110,7 +126,7 @@
   font-size: 19px; flex-shrink: 0;
 }
 .ais2-page-header .ais2-ph-title {
-  font-size: 17px; font-weight: 800; color: var(--ais2-ink); line-height: 1.2;
+  font-size: 18px; font-weight: 800; color: var(--ais2-ink); line-height: 1.2;
 }
 .ais2-page-header .ais2-ph-sub {
   font-size: 12px; color: var(--ais2-ink2); margin-top: 2px;
@@ -126,12 +142,12 @@
 /* ── Tombol Standar ─────────────────────────────────────────────────── */
 .ais2-btn {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 8px 16px; border-radius: var(--ais2-radius-sm);
+  padding: 9px 16px; border-radius: var(--ais2-radius-sm);
   font-size: 13px; font-weight: 700; font-family: var(--ais2-font);
   cursor: pointer; border: none; transition: var(--ais2-transition);
   white-space: nowrap; line-height: 1;
 }
-.ais2-btn-primary { background: var(--ais2-grad); color: #fff; }
+.ais2-btn-primary { background: #2563eb; color: #fff; box-shadow: 0 4px 12px rgba(37,99,235,.18); }
 .ais2-btn-primary:hover { opacity: .9; transform: translateY(-1px); box-shadow: var(--ais2-shadow-md); }
 .ais2-btn-outline { background: #fff; color: var(--ais2-pri2); border: 1.5px solid var(--ais2-pri2); }
 .ais2-btn-outline:hover { background: #f0f4ff; }
@@ -211,6 +227,20 @@
 /* Responsive: sembunyikan kolom opsional di mobile */
 @media (max-width: 767px) {
   .ais2-tbl .d-none-sm { display: none !important; }
+  .ais2-page { font-size: 15px; }
+  .ais2-page-header { align-items: flex-start; padding: 14px; }
+  .ais2-page-header .ais2-ph-actions { width: 100%; margin-left: 0; }
+  .ais2-page-header .ais2-ph-actions .ais2-btn { flex: 1; justify-content: center; }
+  .ais2-filter-card { padding: 13px; }
+  .ais2-filter-field { min-width: 100%; }
+  .ais2-table-wrap { border-radius: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ais2-page *, .ais2-page *::before, .ais2-page *::after {
+    scroll-behavior: auto !important; animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important; transition-duration: .01ms !important;
+  }
 }
 
 /* ── Paginasi ──────────────────────────────────────────────────────── */
@@ -646,9 +676,11 @@ AIS2.Confirm = (function() {
  * ─────────────────────────────────────────────────────────────────────────── */
 AIS2.Modal = (function() {
     var _aktif = null;
+    var _pemicu = null;
 
     function buka(opsi) {
         if (_aktif) tutup();
+        _pemicu = document.activeElement;
         var ukuran = opsi.ukuran ? ' ais2-modal-' + opsi.ukuran : '';
         var tombolHtml = '';
         if (opsi.tombol) {
@@ -659,10 +691,10 @@ AIS2.Modal = (function() {
         var backdrop = document.createElement('div');
         backdrop.className = 'ais2-modal-backdrop';
         backdrop.innerHTML =
-            '<div class="ais2-modal' + ukuran + '">'
+            '<div class="ais2-modal' + ukuran + '" role="dialog" aria-modal="true" aria-labelledby="ais2-modal-title">'
             + '<div class="ais2-modal-header">'
-            + '<h5><i class="fa-solid ' + (opsi.ikon || 'fa-pen-to-square') + '" style="margin-right:8px"></i>' + _escHtml(opsi.judul || '') + '</h5>'
-            + '<button class="ais2-modal-close" id="ais2-modal-x"><i class="fa-solid fa-xmark"></i></button>'
+            + '<h5 id="ais2-modal-title"><i class="fa-solid ' + (opsi.ikon || 'fa-pen-to-square') + '" style="margin-right:8px"></i>' + _escHtml(opsi.judul || '') + '</h5>'
+            + '<button class="ais2-modal-close" id="ais2-modal-x" aria-label="Tutup dialog"><i class="fa-solid fa-xmark"></i></button>'
             + '</div>'
             + '<div class="ais2-modal-body" id="ais2-modal-body">' + (opsi.konten || '') + '</div>'
             + (tombolHtml ? '<div class="ais2-modal-footer">' + tombolHtml + '</div>' : '')
@@ -680,6 +712,10 @@ AIS2.Modal = (function() {
         }
         document.addEventListener('keydown', _escListener);
         _aktif = backdrop;
+        setTimeout(function() {
+            var fokusAwal = backdrop.querySelector('input:not([disabled]),select:not([disabled]),textarea:not([disabled]),button:not([disabled]),[tabindex]:not([tabindex="-1"])');
+            if (fokusAwal) fokusAwal.focus();
+        }, 0);
         if (opsi.onBuka) setTimeout(opsi.onBuka, 50);
         return { tutup: tutup, body: function() { return backdrop.querySelector('#ais2-modal-body'); } };
     }
@@ -687,9 +723,19 @@ AIS2.Modal = (function() {
     function tutup() {
         if (_aktif) { document.body.removeChild(_aktif); _aktif = null; }
         document.removeEventListener('keydown', _escListener);
+        if (_pemicu && document.documentElement.contains(_pemicu) && _pemicu.focus) _pemicu.focus();
+        _pemicu = null;
     }
 
-    function _escListener(e) { if (e.key === 'Escape') tutup(); }
+    function _escListener(e) {
+        if (e.key === 'Escape') { tutup(); return; }
+        if (e.key !== 'Tab' || !_aktif) return;
+        var fokus = _aktif.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])');
+        if (!fokus.length) { e.preventDefault(); return; }
+        var pertama = fokus[0], terakhir = fokus[fokus.length - 1];
+        if (e.shiftKey && document.activeElement === pertama) { e.preventDefault(); terakhir.focus(); }
+        else if (!e.shiftKey && document.activeElement === terakhir) { e.preventDefault(); pertama.focus(); }
+    }
 
     return { buka: buka, tutup: tutup };
 })();
@@ -714,8 +760,11 @@ AIS2.Modal = (function() {
  *     });
  * ─────────────────────────────────────────────────────────────────────────── */
 AIS2.Api = (function() {
+    function _root() {
+        return window.ROOT !== undefined && window.ROOT !== null ? window.ROOT : (AIS2.ROOT || '');
+    }
     function _url(modul, svc, params) {
-        var u = AIS2.ROOT + '/baru2?modul=' + encodeURIComponent(modul) + '&svc=' + encodeURIComponent(svc);
+        var u = _root() + '/baru2?modul=' + encodeURIComponent(modul) + '&svc=' + encodeURIComponent(svc);
         if (params) {
             Object.keys(params).forEach(function(k) {
                 if (params[k] !== null && params[k] !== undefined && params[k] !== '') {
@@ -742,7 +791,7 @@ AIS2.Api = (function() {
                 if (dataObj[k] !== null && dataObj[k] !== undefined) form.append(k, dataObj[k]);
             });
         }
-        return fetch(AIS2.ROOT + '/baru2?modul=' + encodeURIComponent(modul) + '&svc=' + encodeURIComponent(svc), {
+        return fetch(_root() + '/baru2?modul=' + encodeURIComponent(modul) + '&svc=' + encodeURIComponent(svc), {
             method: 'POST', body: form, credentials: 'same-origin'
         })
             .then(function(r) { return r.json(); })

@@ -26,6 +26,7 @@ import ais.database.model.surat.SuratMasuk;
 import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyHtml;
+import ais.ui.util.MyToolbarbuttonConfig;
 
 /**
  * <h1>CatatanDisposisiPopupHelper — popup TABEL "Catatan Disposisi"</h1>
@@ -55,6 +56,31 @@ public final class CatatanDisposisiPopupHelper {
 		String cardHtml; // HTML kartu Alur Persetujuan
 		Long lampiranRef; // id status untuk kontrol tindak lanjut
 		String lampiranJenis; // nama class status (jenis LampiranLain)
+
+		// Versi teks-polos (untuk cetak/unduh PDF — tanpa markup HTML)
+		String pNomor; // nomor surat
+		String pTgl; // tanggal terformat
+		String pStatus; // Disetujui / Ditolak / Menunggu Persetujuan
+		String pCatatan; // isi catatan/keterangan disposisi
+		String pWaktu; // waktu status terformat
+	}
+
+	private static String statusLabel(Boolean disetujui, Boolean ditolak) {
+		if (Boolean.TRUE.equals(ditolak)) {
+			return "Ditolak";
+		}
+		if (Boolean.TRUE.equals(disetujui)) {
+			return "Disetujui";
+		}
+		return "Menunggu Persetujuan";
+	}
+
+	private static String fmtTgl(Date tgl) {
+		try {
+			return tgl == null ? "" : Common.dateFormat3.get().format(tgl);
+		} catch (Exception e) {
+			return "";
+		}
 	}
 
 	// ── SURAT KELUAR ────────────────────────────────────────────────────────────────────────
@@ -85,9 +111,14 @@ public final class CatatanDisposisiPopupHelper {
 				b.cardHtml = DasboardSurat.buildAlurKeluarStatusHtmlV20(s);
 				b.lampiranRef = s.getId();
 				b.lampiranJenis = AlurPersetujuanSuratKeluarStatus.class.getName();
+				b.pNomor = nz(nomor);
+				b.pTgl = fmtTgl(waktu != null ? waktu : surat.getTanggal());
+				b.pStatus = statusLabel(s.getDisetujui(), s.getDitolak());
+				b.pCatatan = nz(s.getKeterangan());
+				b.pWaktu = fmtTgl(waktu);
 				baris.add(b);
 			}
-			tampilTabel(owner, "Catatan Disposisi — " + nz(nomor), nz(surat.getKepada()), baris);
+			tampilTabel(owner, "Catatan Disposisi — " + nz(nomor), nz(surat.getKepada()), nz(nomor), baris);
 		} catch (Exception e) {
 			Common.tampilErrorJikaAdmin(e);
 		}
@@ -122,17 +153,22 @@ public final class CatatanDisposisiPopupHelper {
 				b.cardHtml = DasboardSurat.buildAlurMasukStatusHtmlV20(s);
 				b.lampiranRef = s.getId();
 				b.lampiranJenis = AlurPersetujuanSuratMasukStatus.class.getName();
+				b.pNomor = nz(nomor);
+				b.pTgl = fmtTgl(waktu != null ? waktu : surat.getTanggalSurat());
+				b.pStatus = statusLabel(s.getDisetujui(), s.getDitolak());
+				b.pCatatan = nz(s.getKeterangan());
+				b.pWaktu = fmtTgl(waktu);
 				baris.add(b);
 			}
-			tampilTabel(owner, "Catatan Disposisi — " + nz(nomor), nz(surat.getAsal()), baris);
+			tampilTabel(owner, "Catatan Disposisi — " + nz(nomor), nz(surat.getAsal()), nz(nomor), baris);
 		} catch (Exception e) {
 			Common.tampilErrorJikaAdmin(e);
 		}
 	}
 
 	// ── Render modal + tabel (generik) ──────────────────────────────────────────────────────
-	private static void tampilTabel(Component owner, String judul, String diperuntukkanHeader, List<Baris> baris)
-			throws Exception {
+	private static void tampilTabel(Component owner, final String judul, final String diperuntukkanHeader,
+			final String nomorFile, final List<Baris> baris) throws Exception {
 		boolean mobile = Common.isMobile();
 
 		final Window window = new Window();
@@ -157,6 +193,25 @@ public final class CatatanDisposisiPopupHelper {
 		root.setWidth("100%");
 		root.setStyle("padding:12px 14px; box-sizing:border-box; background:#f8fafc;");
 		root.setParent(window);
+
+		// Bilah aksi: tombol Cetak / Unduh PDF (rata kanan)
+		Hbox bar = new Hbox();
+		bar.setWidth("100%");
+		bar.setPack("end");
+		bar.setStyle("margin-bottom:6px;");
+		bar.setParent(root);
+		MyToolbarbuttonConfig btnPdf = new MyToolbarbuttonConfig("Cetak PDF", "/img/print.png");
+		btnPdf.setTooltiptext("Unduh catatan disposisi ke format PDF");
+		btnPdf.setParent(bar);
+		btnPdf.addEventListener(org.zkoss.zk.ui.event.Events.ON_CLICK, new org.zkoss.zk.ui.event.EventListener() {
+			public void onEvent(org.zkoss.zk.ui.event.Event event) throws Exception {
+				try {
+					cetakPdf(judul, diperuntukkanHeader, nomorFile, baris);
+				} catch (Exception ex) {
+					Common.tampilErrorJikaAdmin(ex);
+				}
+			}
+		});
 
 		new MyHtml("<div style='font-size:11px;color:#64748b;margin-bottom:8px;'>"
 				+ "Catatan disposisi per pejabat/pengguna. Diperuntukkan/Diajukan: <b>" + escHtml(diperuntukkanHeader)
@@ -216,6 +271,115 @@ public final class CatatanDisposisiPopupHelper {
 			window.doModal();
 		} catch (InterruptedException eModal) { ais.common.ErrorAuditUtil.record(eModal, "auto-audit(empty-catch) src/ais/action/master/surat/helper/CatatanDisposisiPopupHelper.java:214");
 		}
+	}
+
+	// ── Cetak / unduh PDF (iText 5) — mirror tabel popup, 4 kolom ─────────────────────────────
+	private static void cetakPdf(String judul, String diperuntukkanHeader, String nomorFile, List<Baris> baris)
+			throws Exception {
+		com.itextpdf.text.Document document = new com.itextpdf.text.Document(
+				com.itextpdf.text.PageSize.A4.rotate(), 28, 28, 28, 28);
+		java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+		com.itextpdf.text.pdf.PdfWriter.getInstance(document, baos);
+		document.open();
+
+		com.itextpdf.text.Font fJudul = com.itextpdf.text.FontFactory.getFont(
+				com.itextpdf.text.FontFactory.HELVETICA_BOLD, 13, new com.itextpdf.text.BaseColor(15, 58, 95));
+		com.itextpdf.text.Font fSub = com.itextpdf.text.FontFactory.getFont(
+				com.itextpdf.text.FontFactory.HELVETICA, 9, new com.itextpdf.text.BaseColor(80, 90, 105));
+		com.itextpdf.text.Font fHead = com.itextpdf.text.FontFactory.getFont(
+				com.itextpdf.text.FontFactory.HELVETICA_BOLD, 9, com.itextpdf.text.BaseColor.WHITE);
+		com.itextpdf.text.Font fSel = com.itextpdf.text.FontFactory.getFont(
+				com.itextpdf.text.FontFactory.HELVETICA, 9, new com.itextpdf.text.BaseColor(20, 30, 45));
+		com.itextpdf.text.Font fStatus = com.itextpdf.text.FontFactory.getFont(
+				com.itextpdf.text.FontFactory.HELVETICA_BOLD, 9, new com.itextpdf.text.BaseColor(20, 30, 45));
+		com.itextpdf.text.Font fWaktu = com.itextpdf.text.FontFactory.getFont(
+				com.itextpdf.text.FontFactory.HELVETICA, 8, new com.itextpdf.text.BaseColor(110, 120, 135));
+
+		com.itextpdf.text.Paragraph pJudul = new com.itextpdf.text.Paragraph(nz(judul), fJudul);
+		document.add(pJudul);
+		com.itextpdf.text.Paragraph pSub = new com.itextpdf.text.Paragraph(
+				"Catatan disposisi per pejabat/pengguna. Diperuntukkan/Diajukan: " + nz(diperuntukkanHeader), fSub);
+		pSub.setSpacingAfter(8f);
+		document.add(pSub);
+
+		com.itextpdf.text.pdf.PdfPTable table = new com.itextpdf.text.pdf.PdfPTable(4);
+		table.setWidthPercentage(100f);
+		table.setWidths(new float[] { 20f, 16f, 18f, 46f });
+		table.setHeaderRows(1);
+
+		com.itextpdf.text.BaseColor headerBg = new com.itextpdf.text.BaseColor(30, 58, 95);
+		String[] judulKolom = { "Nomor / Tgl.", "Klasifikasi", "Diperuntukkan / Diajukan", "Alur Persetujuan" };
+		for (int i = 0; i < judulKolom.length; i++) {
+			com.itextpdf.text.pdf.PdfPCell c = new com.itextpdf.text.pdf.PdfPCell(
+					new com.itextpdf.text.Phrase(judulKolom[i], fHead));
+			c.setBackgroundColor(headerBg);
+			c.setPadding(6f);
+			c.setHorizontalAlignment(com.itextpdf.text.Element.ALIGN_LEFT);
+			table.addCell(c);
+		}
+
+		com.itextpdf.text.BaseColor garis = new com.itextpdf.text.BaseColor(210, 218, 226);
+		if (baris == null || baris.isEmpty()) {
+			com.itextpdf.text.pdf.PdfPCell c = new com.itextpdf.text.pdf.PdfPCell(
+					new com.itextpdf.text.Phrase("Belum ada data disposisi.", fSel));
+			c.setColspan(4);
+			c.setPadding(10f);
+			table.addCell(c);
+		} else {
+			int idx = 0;
+			for (Baris b : baris) {
+				com.itextpdf.text.BaseColor selBg = (idx % 2 == 0) ? com.itextpdf.text.BaseColor.WHITE
+						: new com.itextpdf.text.BaseColor(246, 249, 252);
+				idx++;
+
+				// Kol 1: Nomor / Tgl
+				com.itextpdf.text.Phrase ph1 = new com.itextpdf.text.Phrase();
+				ph1.add(new com.itextpdf.text.Chunk(nz(b.pNomor) + "\n", fStatus));
+				if (!nz(b.pTgl).isEmpty()) {
+					ph1.add(new com.itextpdf.text.Chunk(nz(b.pTgl), fWaktu));
+				}
+				table.addCell(selCell(ph1, selBg, garis));
+
+				// Kol 2: Klasifikasi
+				table.addCell(selCell(new com.itextpdf.text.Phrase(nz(b.klasifikasi), fSel), selBg, garis));
+
+				// Kol 3: Diperuntukkan / Diajukan
+				table.addCell(selCell(new com.itextpdf.text.Phrase(nz(b.jabatan), fStatus), selBg, garis));
+
+				// Kol 4: Alur Persetujuan (jabatan + status + catatan + waktu)
+				com.itextpdf.text.Phrase ph4 = new com.itextpdf.text.Phrase();
+				if (!nz(b.jabatan).isEmpty()) {
+					ph4.add(new com.itextpdf.text.Chunk(nz(b.jabatan) + "\n", fStatus));
+				}
+				ph4.add(new com.itextpdf.text.Chunk(nz(b.pStatus), fStatus));
+				if (!nz(b.pCatatan).isEmpty()) {
+					ph4.add(new com.itextpdf.text.Chunk("\n" + nz(b.pCatatan), fSel));
+				}
+				if (!nz(b.pWaktu).isEmpty()) {
+					ph4.add(new com.itextpdf.text.Chunk("\n" + nz(b.pWaktu), fWaktu));
+				}
+				table.addCell(selCell(ph4, selBg, garis));
+			}
+		}
+
+		document.add(table);
+		document.close();
+
+		String namaFile = "Catatan_Disposisi_" + nz(nomorFile).replaceAll("[^A-Za-z0-9_-]+", "_");
+		if (namaFile.endsWith("_")) {
+			namaFile = namaFile.substring(0, namaFile.length() - 1);
+		}
+		org.zkoss.zul.Filedownload.save(baos.toByteArray(), "application/pdf", namaFile + ".pdf");
+	}
+
+	private static com.itextpdf.text.pdf.PdfPCell selCell(com.itextpdf.text.Phrase ph,
+			com.itextpdf.text.BaseColor bg, com.itextpdf.text.BaseColor garis) {
+		com.itextpdf.text.pdf.PdfPCell c = new com.itextpdf.text.pdf.PdfPCell(ph);
+		c.setPadding(6f);
+		c.setBackgroundColor(bg);
+		c.setBorderColor(garis);
+		c.setVerticalAlignment(com.itextpdf.text.Element.ALIGN_TOP);
+		return c;
 	}
 
 	private static void kolom(Columns columns, String label, String lebar) {

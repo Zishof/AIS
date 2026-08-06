@@ -12,10 +12,12 @@
 <link rel="shortcut icon" href="<%=rootCtx%>/img/favicon.ico" type="image/x-icon">
 <%@ include file="../_libs.jsp" %>
 <style>
-:root{--pri:#1e40af;--pri2:#4f46e5;--acc:#6d28d9;--grad:linear-gradient(120deg,#1e3a8a 0%,#4f46e5 55%,#6d28d9 100%);--ink:#1e293b;--ink2:#64748b;--line:#e2e8f0;--bg:#f8fafc;--card:#fff;--r:12px;--sh:0 1px 3px rgba(0,0,0,.06),0 4px 12px rgba(0,0,0,.04);--font:"Plus Jakarta Sans","Segoe UI",system-ui,sans-serif}
+:root{--pri:#123d77;--pri2:#2563eb;--acc:#06b6d4;--grad:linear-gradient(135deg,#0b3d75 0%,#12669a 58%,#0f8fa7 100%);--ink:#10243e;--ink2:#5b6b80;--line:#dfe7f1;--bg:#f2f6fc;--card:#fff;--r:14px;--sh:0 1px 2px rgba(15,39,71,.04),0 8px 24px rgba(15,39,71,.055);--font:"Plus Jakarta Sans","Segoe UI",system-ui,sans-serif}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:var(--font);background:var(--bg);color:var(--ink);padding:20px}
-.hub-header{background:var(--grad);border-radius:var(--r);padding:24px 28px;color:#fff;margin-bottom:24px;display:flex;align-items:center;gap:18px}
+body{font-family:var(--font);background:var(--bg);color:var(--ink);padding:clamp(14px,2vw,24px);-webkit-font-smoothing:antialiased}
+body :where(a,input,button):focus-visible{outline:3px solid rgba(37,99,235,.32);outline-offset:2px}
+.hub-header{background:var(--grad);border-radius:18px;padding:24px 28px;color:#fff;margin-bottom:18px;display:flex;align-items:center;gap:18px;box-shadow:0 14px 34px rgba(10,61,117,.18);position:relative;overflow:hidden}
+.hub-header::after{content:"";position:absolute;width:220px;height:220px;right:-50px;top:-90px;border-radius:50%;background:rgba(255,255,255,.07)}
 .hub-header i{font-size:36px;opacity:.9}
 .hub-header h1{font-size:20px;font-weight:900}
 .hub-header p{font-size:13.5px;opacity:.85;margin-top:4px}
@@ -27,14 +29,14 @@ body{font-family:var(--font);background:var(--bg);color:var(--ink);padding:20px}
 .group-title{font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--ink2);margin:0 0 10px;padding-left:2px}
 .modul-group{margin-bottom:28px}
 .modul-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
-.modul-card{background:var(--card);border:1.5px solid var(--line);border-radius:11px;padding:14px 16px;cursor:pointer;transition:.15s;display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit}
-.modul-card:hover{border-color:transparent;box-shadow:0 6px 20px rgba(79,70,229,.18);transform:translateY(-2px)}
+.modul-card{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:14px 16px;min-height:72px;cursor:pointer;transition:.15s;display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;box-shadow:var(--sh)}
+.modul-card:hover{border-color:#93c5fd;box-shadow:0 10px 28px rgba(15,39,71,.1);transform:translateY(-2px)}
 .modul-card:hover .mc-ic{background:var(--grad)}
 .mc-ic{width:40px;height:40px;border-radius:10px;background:#f0f4ff;color:var(--pri2);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;transition:.15s}
 .mc-label{font-size:13px;font-weight:700;line-height:1.3;color:var(--ink)}
 .mc-label small{display:block;font-size:11px;color:var(--ink2);font-weight:400;margin-top:2px}
 .modul-card.hidden{display:none}
-@media(max-width:640px){.modul-grid{grid-template-columns:1fr 1fr}.hub-header h1{font-size:16px}}
+@media(max-width:640px){.modul-grid{grid-template-columns:1fr}.hub-header{padding:19px}.hub-header h1{font-size:17px}}
 </style>
 </head>
 <body>

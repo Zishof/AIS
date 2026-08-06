@@ -365,6 +365,20 @@ public class JadwalPelajaranAction extends GenericAutowireComposer
 		if (upload != null) { upload.setVisible((add != null && add.isVisible()) && edit && delete); }
 		Common.appendKeToolbar(upload, add, comp);
 
+		MyToolbarbuttonConfig tambahBerdasarKurikulum = new MyToolbarbuttonConfig("Tambah Berdasarkan Kurikulum",
+				"/img/svg/book-open-line.svg");
+		if (tambahBerdasarKurikulum != null) {
+			tambahBerdasarKurikulum.setVisible(add != null && add.isVisible());
+			tambahBerdasarKurikulum.setTooltiptext("Buat jadwal pelajaran berdasarkan kurikulum kelas yang dipilih");
+		}
+		Common.appendKeToolbar(tambahBerdasarKurikulum, add, comp);
+		tambahBerdasarKurikulum.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				onAddBerdasarKurikulum(arg0);
+			}
+		});
+
 		MyToolbarbuttonConfig cetakSksGuru = new MyToolbarbuttonConfig("Generate jadwal dari kurikulum",
 				"/img/jadwal.png");
 		if (cetakSksGuru != null) { cetakSksGuru.setVisible(false); }

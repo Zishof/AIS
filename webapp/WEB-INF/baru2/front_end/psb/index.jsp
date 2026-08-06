@@ -54,17 +54,17 @@
 <link rel="shortcut icon" href="<%=rootCtx%>/img/favicon.ico" type="image/x-icon">
 <%@ include file="../_libs.jsp" %>
 <style>
-:root{--pri:#1e40af;--pri2:#4f46e5;--acc:#6d28d9;--grad:linear-gradient(120deg,#1e3a8a 0%,#4f46e5 55%,#6d28d9 100%);--ok:#10b981;--ink:#1e293b;--ink2:#64748b;--line:#e6e9f0;--bg:#f5f7fb;--card:#fff;--shadow:0 4px 16px rgba(30,41,59,.08);--r:14px;--font:"Segoe UI",system-ui,-apple-system,sans-serif}
+:root{--pri:#123d77;--pri2:#2563eb;--acc:#06b6d4;--grad:linear-gradient(135deg,#0b3d75 0%,#12669a 58%,#0f8fa7 100%);--ok:#10b981;--ink:#10243e;--ink2:#5b6b80;--line:#dfe7f1;--bg:#f2f6fc;--card:#fff;--shadow:0 1px 2px rgba(15,39,71,.04),0 8px 24px rgba(15,39,71,.055);--r:14px;--font:"Plus Jakarta Sans","Segoe UI",system-ui,-apple-system,sans-serif}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--font);background:var(--bg);color:var(--ink);min-height:100vh}
-.topbar{background:var(--grad);display:flex;align-items:center;gap:12px;padding:0 24px;height:58px}
+.topbar{background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;padding:0 24px;height:64px;box-shadow:0 1px 8px rgba(15,39,71,.05)}
 .topbar img{height:32px}
-.topbar-txt{color:#fff}
+.topbar-txt{color:var(--ink)}
 .topbar-txt b{display:block;font-size:14px;font-weight:800}
-.topbar-txt span{font-size:11px;opacity:.8}
+.topbar-txt span{font-size:11px;color:var(--ink2)}
 .topbar-right{margin-left:auto;display:flex;gap:10px}
-.topbar-right a{color:rgba(255,255,255,.85);font-size:12.5px;font-weight:600;padding:7px 14px;border-radius:9px;border:1px solid rgba(255,255,255,.3);text-decoration:none;transition:.15s}
-.topbar-right a:hover{background:rgba(255,255,255,.15);color:#fff}
+.topbar-right a{color:var(--ink2);font-size:12.5px;font-weight:650;padding:8px 14px;border-radius:9px;border:1px solid var(--line);text-decoration:none;transition:.15s}
+.topbar-right a:hover{background:#eff6ff;color:var(--pri2);border-color:#bfdbfe}
 .hero{background:var(--grad);padding:48px 24px 56px;text-align:center;position:relative;overflow:hidden}
 .hero::after{content:"";position:absolute;right:-80px;top:-100px;width:350px;height:350px;border-radius:50%;background:rgba(255,255,255,.06)}
 .hero h1{color:#fff;font-size:28px;font-weight:900;margin-bottom:10px;position:relative}
@@ -88,6 +88,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--ink);min-height:10
 .step-num{width:36px;height:36px;border-radius:50%;background:var(--grad);color:#fff;font-weight:900;font-size:15px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .step h4{font-size:14px;font-weight:700;margin-bottom:3px}
 .step p{font-size:12.5px;color:var(--ink2)}
+@media(max-width:640px){.topbar{padding:0 14px}.topbar-txt span{display:none}.topbar-right a{padding:8px 10px}.topbar-right a:first-child{display:none}.hero{padding:38px 18px 44px}.hero h1{font-size:23px}.content{padding:28px 16px}.cards-row{grid-template-columns:1fr}}
 </style>
 </head>
 <body>

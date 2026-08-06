@@ -980,7 +980,9 @@ public class PosApi extends HttpServlet {
 		// (menggantikan 26 kolom Boolean akses* terpisah yang sebelumnya dibaca satu-satu di sini).
 		org.json.JSONObject ebisnisMenuRole = ais.common.EbisnisMenuKatalog.urai(role.getEbisnisMenu());
 		org.json.JSONObject menu = ebisnisMenuRole.optJSONObject("menu");
-		if (ebisnisMenuRole.optBoolean("supervisor", false)) return true;
+		ais.database.model.inventory.Pedagang pedagang = tbmuser.getPedagang();
+		if (ebisnisMenuRole.optBoolean("supervisor", false)
+				|| (pedagang != null && Boolean.TRUE.equals(pedagang.getSupervisor()))) return true;
 		if ("konfigurasi".equals(action) || "daftar_toko_saya".equals(action)
 				|| "pilih_toko_aktif".equals(action)
 				|| "akun_ganti_password".equals(action)) return true;
@@ -1039,7 +1041,11 @@ public class PosApi extends HttpServlet {
 		// jadi kasir/pedagang yang punya akses "ringkasan" tapi bukan "laporan" bisa MELIHAT transaksi
 		// di dasbor Ringkasan tapi ditolak server begitu menekan "Cetak Struk" pada baris yang sama.
 		if ("detail_transaksi".equals(action)) {
-			return menu.optBoolean("laporan", true) || menu.optBoolean("ringkasan", true);
+			return menu.optBoolean("laporan", true) || menu.optBoolean("ringkasan", true)
+					|| menu.optBoolean("returpenjualan", true);
+		}
+		if ("laporan_order_list".equals(action)) {
+			return menu.optBoolean("laporan", true) || menu.optBoolean("returpenjualan", true);
 		}
 		if (action.startsWith("laporan_")) {
 			return menu.optBoolean("laporan", true);
@@ -1437,15 +1443,26 @@ public class PosApi extends HttpServlet {
 
 	/**
 	 * Mengikat satu parameter {@code PreparedStatement} sesuai tipe Java-nya (Long->BIGINT,
-	 * Integer->INT, selain itu->teks/tanggal via {@code setString}, aman utk literal tanggal
-	 * {@code "YYYY-MM-DD"} yg dibandingkan ke kolom {@code DATE}/{@code TIMESTAMP} krn PostgreSQL
-	 * meng-cast implisit) -- dipakai method dashboard di bawah yg membangun WHERE clause dinamis
-	 * (jumlah parameter berubah tergantung filter yg dikirim klien).
+	 * Integer->INT, string tanggal ISO {@code YYYY-MM-DD}->DATE, selain itu->teks). Binding tanggal
+	 * sebagai {@code setDate()} penting utk kondisi seperti {@code DATE(a.waktu) >= ?}; kalau dikirim
+	 * sebagai varchar, PostgreSQL bisa menolak dgn error operator {@code date >= character varying}.
+	 * Dipakai method dashboard/laporan di bawah yg membangun WHERE clause dinamis (jumlah parameter
+	 * berubah tergantung filter yg dikirim klien).
 	 */
 	private static void ikatParam(java.sql.PreparedStatement ps, int idx, Object v) throws Exception {
 		if (v instanceof Long) ps.setLong(idx, ((Long) v).longValue());
 		else if (v instanceof Integer) ps.setInt(idx, ((Integer) v).intValue());
-		else ps.setString(idx, String.valueOf(v));
+		else if (v instanceof java.util.Date) ps.setDate(idx, new java.sql.Date(((java.util.Date) v).getTime()));
+		else {
+			String s = String.valueOf(v);
+			if (s.matches("\\d{4}-\\d{2}-\\d{2}")) {
+				java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("yyyy-MM-dd");
+				fmt.setLenient(false);
+				ps.setDate(idx, new java.sql.Date(fmt.parse(s).getTime()));
+			} else {
+				ps.setString(idx, s);
+			}
+		}
 	}
 
 	/** @return fragmen kondisi waktu utk kolom {@code a.waktu} sesuai kode periode dropdown (dipakai rekap produk terlaris/pelanggan terloyal). */
@@ -1552,7 +1569,8 @@ public class PosApi extends HttpServlet {
 	 *
 	 * <p>Payload: {@code periodeTren} ("harian"/"mingguan"/"bulanan", default harian), {@code
 	 * tglMulai}/{@code tglSampai} (filter riwayat transaksi, opsional), {@code cariPembeli}
-	 * (opsional), {@code page}/{@code pageSize} (paginasi riwayat transaksi).</p>
+	 * (opsional), {@code kodeTransaksi}/{@code kode} (opsional, cari nomor transaksi/nota),
+	 * {@code page}/{@code pageSize} (paginasi riwayat transaksi).</p>
 	 */
 	private void prosesDashboardUmum(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
@@ -1572,6 +1590,8 @@ public class PosApi extends HttpServlet {
 		String tglMulai = payload.optString("tglMulai", "");
 		String tglSampai = payload.optString("tglSampai", "");
 		String cariPembeli = payload.optString("cariPembeli", "").trim();
+		String kodeTransaksi = payload.optString("kodeTransaksi", "").trim();
+		if (kodeTransaksi.length() == 0) kodeTransaksi = payload.optString("kode", "").trim();
 		int page = Math.max(1, payload.optInt("page", 1));
 		int pageSize = Math.min(100, Math.max(5, payload.optInt("pageSize", 10)));
 		int offset = (page - 1) * pageSize;
@@ -1630,6 +1650,16 @@ public class PosApi extends HttpServlet {
 			if (!semuaToko) paramsTrx.add(tokoId);
 			if (tglMulai.length() > 0) { whereTrx.append(" AND DATE(a.waktu) >= ?"); paramsTrx.add(tglMulai); }
 			if (tglSampai.length() > 0) { whereTrx.append(" AND DATE(a.waktu) <= ?"); paramsTrx.add(tglSampai); }
+			if (kodeTransaksi.length() > 0) {
+				whereTrx.append(" AND (CAST(COALESCE(a.pembelian_anggota_koperasi, a.id) AS varchar) ILIKE ? "
+						+ "OR COALESCE(a.kode,'') ILIKE ? "
+						+ "OR EXISTS (SELECT 1 FROM koperasi.pembelian_anggota_koperasi pak "
+						+ "WHERE pak.id = a.pembelian_anggota_koperasi AND COALESCE(pak.kode,'') ILIKE ?))");
+				String qKode = "%" + kodeTransaksi + "%";
+				paramsTrx.add(qKode);
+				paramsTrx.add(qKode);
+				paramsTrx.add(qKode);
+			}
 			String havingCari = cariPembeli.length() > 0 ? " HAVING MAX(a.member) ILIKE ?" : "";
 
 			java.sql.PreparedStatement psCount = conn.prepareStatement(
@@ -2017,7 +2047,7 @@ public class PosApi extends HttpServlet {
 	private JSONObject daftarOrderDenganSesi(Session session, Long tokoId, String tokoKode, JSONObject payload) throws Exception {
 		String tglMulai = payload.optString("tglMulai", "");
 		String tglSampai = payload.optString("tglSampai", "");
-		String cariPembeli = payload.optString("cariPembeli", "").trim();
+		String cariPembeli = payload.optString("cariPembeli", payload.optString("keyword", "")).trim();
 		int page = Math.max(1, payload.optInt("page", 1));
 		int pageSize = Math.min(100, Math.max(5, payload.optInt("pageSize", 10)));
 		int offset = (page - 1) * pageSize;
@@ -2029,15 +2059,20 @@ public class PosApi extends HttpServlet {
 		paramsTrx.add(tokoId);
 		if (tglMulai.length() > 0) { whereTrx.append(" AND DATE(a.waktu) >= ?"); paramsTrx.add(tglMulai); }
 		if (tglSampai.length() > 0) { whereTrx.append(" AND DATE(a.waktu) <= ?"); paramsTrx.add(tglSampai); }
-		String havingCari = cariPembeli.length() > 0 ? " HAVING MAX(a.member) ILIKE ?" : "";
+		String havingCari = cariPembeli.length() > 0 ? " HAVING MAX(a.member) ILIKE ? OR COALESCE(MAX(pak.kode),'') ILIKE ?" : "";
 
 		// ---- Total baris (utk paginasi) ----
 		java.sql.PreparedStatement psCount = conn.prepareStatement(
-				"SELECT COUNT(*) FROM (SELECT COALESCE(a.pembelian_anggota_koperasi, a.id) FROM koperasi.pembelian a WHERE "
+				"SELECT COUNT(*) FROM (SELECT COALESCE(a.pembelian_anggota_koperasi, a.id) FROM koperasi.pembelian a "
+						+ "LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON pak.id = a.pembelian_anggota_koperasi WHERE "
 						+ whereTrx + " GROUP BY 1" + havingCari + ") x");
 		int idx = 1;
 		for (Object p : paramsTrx) ikatParam(psCount, idx++, p);
-		if (cariPembeli.length() > 0) psCount.setString(idx++, "%" + cariPembeli + "%");
+		if (cariPembeli.length() > 0) {
+			String kw = "%" + cariPembeli + "%";
+			psCount.setString(idx++, kw);
+			psCount.setString(idx++, kw);
+		}
 		java.sql.ResultSet rsCount = psCount.executeQuery();
 		long total = rsCount.next() ? rsCount.getLong(1) : 0;
 		rsCount.close(); psCount.close();
@@ -2084,7 +2119,11 @@ public class PosApi extends HttpServlet {
 		idx = 1;
 		psData.setLong(idx++, tokoId.longValue()); // sesi_bertingkat.toko
 		for (Object p : paramsTrx) ikatParam(psData, idx++, p); // order_dasar WHERE (termasuk a.toko lagi)
-		if (cariPembeli.length() > 0) psData.setString(idx++, "%" + cariPembeli + "%");
+		if (cariPembeli.length() > 0) {
+			String kw = "%" + cariPembeli + "%";
+			psData.setString(idx++, kw);
+			psData.setString(idx++, kw);
+		}
 		psData.setInt(idx++, pageSize);
 		psData.setInt(idx++, offset);
 		java.sql.ResultSet rs = psData.executeQuery();

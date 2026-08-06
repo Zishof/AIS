@@ -90,20 +90,23 @@
 <%@ include file="../_libs.jsp" %>
 <style>
 :root{
-  --pri:#1e40af;--pri2:#4f46e5;--acc:#6d28d9;
-  --grad:linear-gradient(120deg,#1e3a8a 0%,#4f46e5 55%,#6d28d9 100%);
+  --pri:#123d77;--pri2:#2563eb;--acc:#06b6d4;
+  --grad:linear-gradient(135deg,#082f5f 0%,#0d5790 58%,#0f8fa7 100%);
   --ok:#10b981;--bad:#ef4444;
-  --ink:#1e293b;--ink2:#64748b;
-  --line:#e6e9f0;--bg:#f5f7fb;--card:#ffffff;
+  --ink:#10243e;--ink2:#5b6b80;
+  --line:#dfe7f1;--bg:#f2f6fc;--card:#ffffff;
   --shadow-lg:0 12px 40px rgba(30,41,59,.18);
-  --r:16px;--font:"Segoe UI",system-ui,-apple-system,sans-serif;
+  --r:18px;--font:"Plus Jakarta Sans","Segoe UI",system-ui,-apple-system,sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{min-height:100vh}
 body{font-family:var(--font);background:var(--grad);display:flex;align-items:center;
-     justify-content:center;padding:20px;min-height:100vh}
+     justify-content:center;padding:20px;min-height:100vh;position:relative;overflow-x:hidden}
+body::before,body::after{content:"";position:fixed;border-radius:50%;background:rgba(255,255,255,.055);pointer-events:none}
+body::before{width:520px;height:520px;left:-170px;bottom:-220px}
+body::after{width:380px;height:380px;right:-120px;top:-150px}
 .card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow-lg);
-      width:100%;max-width:440px;overflow:hidden}
+      width:100%;max-width:440px;overflow:hidden;border:1px solid rgba(255,255,255,.24);position:relative;z-index:1}
 .card-header{background:var(--grad);padding:28px 32px;text-align:center;
              position:relative;overflow:hidden}
 .card-header::after{content:"";position:absolute;right:-50px;top:-70px;
@@ -153,6 +156,7 @@ body{font-family:var(--font);background:var(--grad);display:flex;align-items:cen
         margin-top:20px;font-size:12px;color:var(--ink2)}
 .footer a{color:var(--pri2);font-weight:600;text-decoration:none}
 @media(max-width:480px){.card-body,.card-header{padding:22px 20px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>

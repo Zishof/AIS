@@ -175,6 +175,9 @@ public class AktifitasKrsMahasiswaHelper {
 			TreeMap<String, Long> pertemuans = krsMahasiswa.ambilPertemuan(refreshData);
 			System.out.println("pertemuans -> " + pertemuans);
 			refreshData = false;
+			if (pertemuans == null) {
+				pertemuans = new TreeMap<String, Long>();
+			}
 			groupbox.setStyle("height: " + (Math.max(pertemuans.size(), 1) * 6000) + "px;");
 			ais.ui.util.MyDiv myGroupbox = new ais.ui.util.MyDiv();
 			myGroupbox.setStyle("min-height: 500px;");
@@ -435,7 +438,9 @@ public class AktifitasKrsMahasiswaHelper {
 						Map parameters = ais.common.HashMapGenerator.getRand();
 						Common.insertProperty(KrsMahasiswa.class, krsMahasiswa, parameters, "krs", 2, "mahasiswa");
 						Common.insertProperty(Mahasiswa.class, krsMahasiswa.getMahasiswa(), parameters, "", 2);
-						Common.insertProperty(Fakultas.class, krsMahasiswa.getMahasiswa().getJurusan().getFakultas(),
+						Common.insertProperty(Fakultas.class,
+								krsMahasiswa.getMahasiswa().getJurusan() == null ? null
+										: krsMahasiswa.getMahasiswa().getJurusan().getFakultas(),
 								parameters, "fak");
 						parameters.put("perkuliahan", krsMahasiswa == null || krsMahasiswa.getId() == null ? -1L : krsMahasiswa.getId());
 
@@ -455,7 +460,9 @@ public class AktifitasKrsMahasiswaHelper {
 						Map parameters = ais.common.HashMapGenerator.getRand();
 						Common.insertProperty(KrsMahasiswa.class, krsMahasiswa, parameters, "krs", 2, "mahasiswa");
 						Common.insertProperty(Mahasiswa.class, krsMahasiswa.getMahasiswa(), parameters, "", 2);
-						Common.insertProperty(Fakultas.class, krsMahasiswa.getMahasiswa().getJurusan().getFakultas(),
+						Common.insertProperty(Fakultas.class,
+								krsMahasiswa.getMahasiswa().getJurusan() == null ? null
+										: krsMahasiswa.getMahasiswa().getJurusan().getFakultas(),
 								parameters, "fak");
 						parameters.put("perkuliahan", krsMahasiswa == null || krsMahasiswa.getId() == null ? -1L : krsMahasiswa.getId());
 						return parameters;

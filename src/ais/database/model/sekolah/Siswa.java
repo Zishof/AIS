@@ -605,8 +605,6 @@ public class Siswa extends VOSiswa implements SocialMediaCommonModel, VOMahasisw
 	private PaketPsb paketPsb;
 	private String karpeg;
 
-//	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
-//	@JoinColumn(name = "current_kelas_id")
 
 	public static KelasSiswa ambilKelas(Siswa siswa, String ta) {
 		KelasSiswa kelas = siswa.kelas;
@@ -637,7 +635,9 @@ public class Siswa extends VOSiswa implements SocialMediaCommonModel, VOMahasisw
 		return kelas;
 	}
 
-	@Transient
+	@NotAudited
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
+	@JoinColumn(name = "current_kelas_id")
 	public KelasSiswa getKelas() {
 		Tbmuser tbmuser = new Tbmuser();
 		tbmuser.setSiswa(this);
