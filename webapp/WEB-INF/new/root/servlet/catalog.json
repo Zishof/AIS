@@ -3,12 +3,12 @@
   "generatorVersion": "1.0.0",
   "module": "root/servlet",
   "label": "Servlet & Endpoint",
-  "count": 170,
+  "count": 180,
   "pageTypeCounts": {
-    "integration": 152,
+    "integration": 161,
     "report": 10,
-    "finance": 7,
-    "dashboard": 1
+    "dashboard": 2,
+    "finance": 7
   },
   "pages": [
     {
@@ -456,18 +456,6 @@
       "search": "Baru Baru ais.action.servlet integration Utama"
     },
     {
-      "page": "baru2",
-      "title": "Baru 2",
-      "sourceClass": "Baru2",
-      "sourcePackage": "ais.action.servlet",
-      "sourcePath": "src/ais/action/servlet/Baru2.java",
-      "pageType": "integration",
-      "methodCount": 0,
-      "legacyRefCount": 1,
-      "subpackage": "Utama",
-      "search": "Baru 2 Baru2 ais.action.servlet integration Utama"
-    },
-    {
       "page": "bca",
       "title": "BCA",
       "sourceClass": "BCA",
@@ -780,6 +768,18 @@
       "search": "Do Upload DoUpload ais.action.servlet integration Utama"
     },
     {
+      "page": "ebisnis_public",
+      "title": "Ebisnis Public",
+      "sourceClass": "EbisnisPublicServlet",
+      "sourcePackage": "ais.action.servlet",
+      "sourcePath": "src/ais/action/servlet/EbisnisPublicServlet.java",
+      "pageType": "integration",
+      "methodCount": 0,
+      "legacyRefCount": 2,
+      "subpackage": "Utama",
+      "search": "Ebisnis Public EbisnisPublicServlet ais.action.servlet integration Utama"
+    },
+    {
       "page": "error",
       "title": "Error",
       "sourceClass": "Error",
@@ -919,7 +919,7 @@
       "sourcePath": "src/ais/action/servlet/Index.java",
       "pageType": "integration",
       "methodCount": 0,
-      "legacyRefCount": 6,
+      "legacyRefCount": 7,
       "subpackage": "Utama",
       "search": "Index Index ais.action.servlet integration Utama"
     },
@@ -1234,6 +1234,18 @@
       "legacyRefCount": 0,
       "subpackage": "Utama",
       "search": "Nagari Nagari ais.action.servlet integration Utama"
+    },
+    {
+      "page": "new",
+      "title": "New",
+      "sourceClass": "New",
+      "sourcePackage": "ais.action.servlet",
+      "sourcePath": "src/ais/action/servlet/New.java",
+      "pageType": "integration",
+      "methodCount": 0,
+      "legacyRefCount": 1,
+      "subpackage": "Utama",
+      "search": "New New ais.action.servlet integration Utama"
     },
     {
       "page": "oai",
@@ -1596,6 +1608,18 @@
       "search": "Wa Wa ais.action.servlet integration Utama"
     },
     {
+      "page": "web",
+      "title": "Web",
+      "sourceClass": "Web",
+      "sourcePackage": "ais.action.servlet",
+      "sourcePath": "src/ais/action/servlet/Web.java",
+      "pageType": "integration",
+      "methodCount": 0,
+      "legacyRefCount": 1,
+      "subpackage": "Utama",
+      "search": "Web Web ais.action.servlet integration Utama"
+    },
+    {
       "page": "welpus",
       "title": "Welpus",
       "sourceClass": "Welpus",
@@ -1710,7 +1734,7 @@
       "sourcePackage": "ais.action.servlet.api",
       "sourcePath": "src/ais/action/servlet/api/ApiHelperSupport.java",
       "pageType": "integration",
-      "methodCount": 23,
+      "methodCount": 24,
       "legacyRefCount": 0,
       "subpackage": "api",
       "search": "API Helper Support ApiHelperSupport ais.action.servlet.api integration api"
@@ -1860,13 +1884,25 @@
       "search": "File Helper FileHelper ais.action.servlet.api integration api"
     },
     {
+      "page": "api/hak_akses_api",
+      "title": "Hak Akses API",
+      "sourceClass": "HakAksesApi",
+      "sourcePackage": "ais.action.servlet.api",
+      "sourcePath": "src/ais/action/servlet/api/HakAksesApi.java",
+      "pageType": "integration",
+      "methodCount": 1,
+      "legacyRefCount": 0,
+      "subpackage": "api",
+      "search": "Hak Akses API HakAksesApi ais.action.servlet.api integration api"
+    },
+    {
       "page": "api/kantin_helper",
       "title": "Kantin Helper",
       "sourceClass": "KantinHelper",
       "sourcePackage": "ais.action.servlet.api",
       "sourcePath": "src/ais/action/servlet/api/KantinHelper.java",
       "pageType": "integration",
-      "methodCount": 58,
+      "methodCount": 73,
       "legacyRefCount": 0,
       "subpackage": "api",
       "search": "Kantin Helper KantinHelper ais.action.servlet.api integration api"
@@ -1878,7 +1914,7 @@
       "sourcePackage": "ais.action.servlet.api",
       "sourcePath": "src/ais/action/servlet/api/KantinMemberApi.java",
       "pageType": "integration",
-      "methodCount": 15,
+      "methodCount": 24,
       "legacyRefCount": 0,
       "subpackage": "api",
       "search": "Kantin Member API KantinMemberApi ais.action.servlet.api integration api"
@@ -1932,6 +1968,54 @@
       "search": "Nilai Siswa API NilaiSiswaApi ais.action.servlet.api integration api"
     },
     {
+      "page": "api/pendaftar_dashboard_helper",
+      "title": "Pendaftar Dashboard Helper",
+      "sourceClass": "PendaftarDashboardHelper",
+      "sourcePackage": "ais.action.servlet.api",
+      "sourcePath": "src/ais/action/servlet/api/PendaftarDashboardHelper.java",
+      "pageType": "dashboard",
+      "methodCount": 11,
+      "legacyRefCount": 0,
+      "subpackage": "api",
+      "search": "Pendaftar Dashboard Helper PendaftarDashboardHelper ais.action.servlet.api dashboard api"
+    },
+    {
+      "page": "api/pendaftar_public_helper",
+      "title": "Pendaftar Public Helper",
+      "sourceClass": "PendaftarPublicHelper",
+      "sourcePackage": "ais.action.servlet.api",
+      "sourcePath": "src/ais/action/servlet/api/PendaftarPublicHelper.java",
+      "pageType": "integration",
+      "methodCount": 2,
+      "legacyRefCount": 0,
+      "subpackage": "api",
+      "search": "Pendaftar Public Helper PendaftarPublicHelper ais.action.servlet.api integration api"
+    },
+    {
+      "page": "api/pengguna_api",
+      "title": "Pengguna API",
+      "sourceClass": "PenggunaApi",
+      "sourcePackage": "ais.action.servlet.api",
+      "sourcePath": "src/ais/action/servlet/api/PenggunaApi.java",
+      "pageType": "integration",
+      "methodCount": 6,
+      "legacyRefCount": 0,
+      "subpackage": "api",
+      "search": "Pengguna API PenggunaApi ais.action.servlet.api integration api"
+    },
+    {
+      "page": "api/pmb_api",
+      "title": "PMB API",
+      "sourceClass": "PmbApi",
+      "sourcePackage": "ais.action.servlet.api",
+      "sourcePath": "src/ais/action/servlet/api/PmbApi.java",
+      "pageType": "integration",
+      "methodCount": 6,
+      "legacyRefCount": 0,
+      "subpackage": "api",
+      "search": "PMB API PmbApi ais.action.servlet.api integration api"
+    },
+    {
       "page": "api/pos_device_auth_api",
       "title": "Pos Device Auth API",
       "sourceClass": "PosDeviceAuthApi",
@@ -1942,6 +2026,30 @@
       "legacyRefCount": 0,
       "subpackage": "api",
       "search": "Pos Device Auth API PosDeviceAuthApi ais.action.servlet.api integration api"
+    },
+    {
+      "page": "api/psb_api",
+      "title": "PSB API",
+      "sourceClass": "PsbApi",
+      "sourcePackage": "ais.action.servlet.api",
+      "sourcePath": "src/ais/action/servlet/api/PsbApi.java",
+      "pageType": "integration",
+      "methodCount": 5,
+      "legacyRefCount": 1,
+      "subpackage": "api",
+      "search": "PSB API PsbApi ais.action.servlet.api integration api"
+    },
+    {
+      "page": "api/reset_password_api",
+      "title": "Reset Password API",
+      "sourceClass": "ResetPasswordApi",
+      "sourcePackage": "ais.action.servlet.api",
+      "sourcePath": "src/ais/action/servlet/api/ResetPasswordApi.java",
+      "pageType": "integration",
+      "methodCount": 2,
+      "legacyRefCount": 0,
+      "subpackage": "api",
+      "search": "Reset Password API ResetPasswordApi ais.action.servlet.api integration api"
     },
     {
       "page": "api/scroll_manager",
@@ -2026,6 +2134,18 @@
       "legacyRefCount": 1,
       "subpackage": "api",
       "search": "Tagihan Siswa TagihanSiswa ais.action.servlet.api finance api"
+    },
+    {
+      "page": "api/theme_api",
+      "title": "Theme API",
+      "sourceClass": "ThemeApi",
+      "sourcePackage": "ais.action.servlet.api",
+      "sourcePath": "src/ais/action/servlet/api/ThemeApi.java",
+      "pageType": "integration",
+      "methodCount": 1,
+      "legacyRefCount": 0,
+      "subpackage": "api",
+      "search": "Theme API ThemeApi ais.action.servlet.api integration api"
     },
     {
       "page": "api/topup_helper",

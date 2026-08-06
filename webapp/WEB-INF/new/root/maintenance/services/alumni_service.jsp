@@ -12,7 +12,7 @@ request.setAttribute("nuiServiceType", "list");
 request.setAttribute("nuiServiceSourceClass", "AlumniAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.maintenance");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/maintenance/AlumniAction.java");
-request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onInfo", "onLihatOnline", "onPengumuman", "onEvent"});
+request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onInfo", "onLihatOnline", "onPengumuman"});
 request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/alumni/informasi.zul", "/pages/tampilan_pengumuman_alumni.zul?desktopWidth=", "/pages/alumni/galeri_foto.zul?desktopWidth=", "/pages/master/login_alumni.zul?desktopWidth=", "/common/dashboard/alumni.zul?desktopWidth="});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>

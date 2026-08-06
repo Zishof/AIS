@@ -3,11 +3,11 @@
   "generatorVersion": "1.0.0",
   "module": "root/maintenance",
   "label": "Maintenance & Administrasi Sistem",
-  "count": 30,
+  "count": 31,
   "pageTypeCounts": {
     "list": 28,
     "academic": 1,
-    "dashboard": 1
+    "dashboard": 2
   },
   "pages": [
     {
@@ -17,7 +17,7 @@
       "sourcePackage": "ais.action.maintenance",
       "sourcePath": "src/ais/action/maintenance/AlumniAction.java",
       "pageType": "list",
-      "methodCount": 6,
+      "methodCount": 5,
       "legacyRefCount": 5,
       "subpackage": "Utama",
       "search": "Alumni AlumniAction ais.action.maintenance list Utama"
@@ -189,6 +189,18 @@
       "legacyRefCount": 9,
       "subpackage": "Utama",
       "search": "Main Action 2 MainAction2 ais.action.maintenance list Utama"
+    },
+    {
+      "page": "main_dashboard_default_helper",
+      "title": "Main Dashboard Default Helper",
+      "sourceClass": "MainDashboardDefaultHelper",
+      "sourcePackage": "ais.action.maintenance",
+      "sourcePath": "src/ais/action/maintenance/MainDashboardDefaultHelper.java",
+      "pageType": "dashboard",
+      "methodCount": 1,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Main Dashboard Default Helper MainDashboardDefaultHelper ais.action.maintenance dashboard Utama"
     },
     {
       "page": "main_dashboard_event_helper",

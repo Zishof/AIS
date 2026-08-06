@@ -3399,7 +3399,7 @@
       "sourcePackage": "ais.action.master.dashboard.surat",
       "sourcePath": "src/ais/action/master/dashboard/surat/DasboardSuratMasuk.java",
       "pageType": "dashboard",
-      "methodCount": 7,
+      "methodCount": 8,
       "legacyRefCount": 0,
       "subpackage": "surat",
       "search": "Dasboard Surat Masuk DasboardSuratMasuk ais.action.master.dashboard.surat dashboard surat"

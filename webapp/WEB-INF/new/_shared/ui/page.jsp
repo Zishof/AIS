@@ -15,7 +15,7 @@ private String nuiMetricLabel(String type,int index){
 %>
 <%
 String module=String.valueOf(request.getAttribute("nuiModule"));String moduleLabel=String.valueOf(request.getAttribute("nuiModuleLabel"));String pageName=String.valueOf(request.getAttribute("nuiPage"));String title=String.valueOf(request.getAttribute("nuiPageTitle"));String type=String.valueOf(request.getAttribute("nuiPageType"));String desc=String.valueOf(request.getAttribute("nuiPageDescription"));String sourceClass=String.valueOf(request.getAttribute("nuiSourceClass"));String sourcePackage=String.valueOf(request.getAttribute("nuiSourcePackage"));String sourcePath=String.valueOf(request.getAttribute("nuiSourcePath"));String sourceKind=String.valueOf(request.getAttribute("nuiSourceKind"));String sourceExtends=String.valueOf(request.getAttribute("nuiSourceExtends"));String sourceImplements=String.valueOf(request.getAttribute("nuiSourceImplements"));String[] methods=nuiArr(request.getAttribute("nuiSourceMethods"));String[] legacy=nuiArr(request.getAttribute("nuiLegacyRefs"));String[] entities=nuiArr(request.getAttribute("nuiEntityCandidates"));
-String endpoint=request.getContextPath()+"/newui.jsp?service=1&module="+URLEncoder.encode(module,"UTF-8")+"&page="+URLEncoder.encode(pageName,"UTF-8");
+String endpoint=request.getContextPath()+"/new?service=1&module="+URLEncoder.encode(module,"UTF-8")+"&page="+URLEncoder.encode(pageName,"UTF-8");
 %>
 <section class="nui-page" data-service-url="<%=nuiAttr(endpoint)%>">
   <header class="nui-page-head">

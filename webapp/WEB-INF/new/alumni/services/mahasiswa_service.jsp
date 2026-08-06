@@ -12,7 +12,7 @@ request.setAttribute("nuiServiceType", "academic");
 request.setAttribute("nuiServiceSourceClass", "MahasiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.alumni");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/alumni/MahasiswaAction.java");
-request.setAttribute("nuiServiceMethods", new String[]{"onDashboardAlumni", "onKartuMahasiswa", "onGaleriFoto", "onParameterAlumni", "onRekapJumlahAlumni", "onEvent", "onGrafikJumlahAlumni", "onTampilTranskripAkademik", "doBeforeCompose", "doAfterCompose", "run", "initCriteria", "render", "onSearchDefault", "loadData"});
+request.setAttribute("nuiServiceMethods", new String[]{"onDashboardAlumni", "onKartuMahasiswa", "onGaleriFoto", "onParameterAlumni", "onRekapJumlahAlumni", "onGrafikJumlahAlumni", "onTampilTranskripAkademik", "doBeforeCompose", "doAfterCompose", "onEvent", "run", "initCriteria", "render", "onSearchDefault", "loadData"});
 request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/galeri_foto.zul", "/pages/master/parameter_tambahan_mahasiswa_alumni.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"StatusAwalMahasiswa", "StatusMahasiswa", "JenisSeleksi", "Judisium", "StatusSetelahLulus", "StatusPekerjaanSetelahLulus", "StatusDomisiliSetelahLulus", "Jenjang", "Mahasiswa", "BiodataCalonMahasiswa", "BiodataMahasiswa"});
 %>

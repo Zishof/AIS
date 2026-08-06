@@ -3,15 +3,15 @@
   "generatorVersion": "1.0.0",
   "module": "sekolah",
   "label": "eSchool",
-  "count": 239,
+  "count": 240,
   "pageTypeCounts": {
     "academic": 152,
-    "finance": 39,
+    "finance": 40,
     "form": 17,
     "dashboard": 7,
     "inventory": 4,
-    "report": 5,
     "settings": 14,
+    "report": 5,
     "workflow": 1
   },
   "pages": [
@@ -646,8 +646,8 @@
       "sourcePackage": "ais.action.master.sekolah",
       "sourcePath": "src/ais/action/master/sekolah/JenisBiayaSekolahAction.java",
       "pageType": "finance",
-      "methodCount": 9,
-      "legacyRefCount": 0,
+      "methodCount": 10,
+      "legacyRefCount": 2,
       "subpackage": "Utama",
       "search": "Jenis Biaya Sekolah JenisBiayaSekolahAction ais.action.master.sekolah finance Utama"
     },
@@ -2426,6 +2426,18 @@
       "legacyRefCount": 0,
       "subpackage": "helper",
       "search": "Revisi Calon Siswa Helper RevisiCalonSiswaHelper ais.action.master.sekolah.helper academic helper"
+    },
+    {
+      "page": "helper/revisi_pembayaran_siswa_detail_helper",
+      "title": "Revisi Pembayaran Siswa Detail Helper",
+      "sourceClass": "RevisiPembayaranSiswaDetailHelper",
+      "sourcePackage": "ais.action.master.sekolah.helper",
+      "sourcePath": "src/ais/action/master/sekolah/helper/RevisiPembayaranSiswaDetailHelper.java",
+      "pageType": "finance",
+      "methodCount": 2,
+      "legacyRefCount": 0,
+      "subpackage": "helper",
+      "search": "Revisi Pembayaran Siswa Detail Helper RevisiPembayaranSiswaDetailHelper ais.action.master.sekolah.helper finance helper"
     },
     {
       "page": "helper/revisi_pembayaran_siswa_helper",

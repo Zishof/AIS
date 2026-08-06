@@ -17,7 +17,7 @@ request.setAttribute("nuiSourcePath", "src/ais/action/master/helper/PertemuanHel
 request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
-request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "init", "display"});
+request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "muat", "init", "display"});
 request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{});
 %>

@@ -6,8 +6,8 @@
   "count": 20,
   "pageTypeCounts": {
     "workflow": 17,
-    "finance": 2,
-    "report": 1
+    "report": 1,
+    "finance": 2
   },
   "pages": [
     {

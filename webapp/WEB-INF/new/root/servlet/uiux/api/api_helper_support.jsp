@@ -17,7 +17,7 @@ request.setAttribute("nuiSourcePath", "src/ais/action/servlet/api/ApiHelperSuppo
 request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
-request.setAttribute("nuiSourceMethods", new String[]{"hasText", "trimToEmpty", "lowerAction", "safeString", "truncate", "defaultResponse", "errorResponse", "status", "put", "putStatus", "putSuccess", "putEmpty", "putError", "optString", "isNullOrEmptyJsonValue", "withOpenedSession", "closeCurrentNativeSession", "closeOpenedSession", "rollbackQuietly", "commit", "readBody", "getClientIp", "hasGetter"});
+request.setAttribute("nuiSourceMethods", new String[]{"hasText", "trimToEmpty", "lowerAction", "absoluteUrl", "safeString", "truncate", "defaultResponse", "errorResponse", "status", "put", "putStatus", "putSuccess", "putEmpty", "putError", "optString", "isNullOrEmptyJsonValue", "withOpenedSession", "closeCurrentNativeSession", "closeOpenedSession", "rollbackQuietly", "commit", "readBody", "getClientIp", "hasGetter"});
 request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{});
 %>

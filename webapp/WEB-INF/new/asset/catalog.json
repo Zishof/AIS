@@ -6,8 +6,8 @@
   "count": 127,
   "pageTypeCounts": {
     "inventory": 81,
-    "finance": 26,
     "dashboard": 9,
+    "finance": 26,
     "workflow": 10,
     "integration": 1
   },

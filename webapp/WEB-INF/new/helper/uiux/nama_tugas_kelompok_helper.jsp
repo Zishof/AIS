@@ -19,6 +19,6 @@ request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "DataLoader");
 request.setAttribute("nuiSourceMethods", new String[]{"render", "onEvent", "loadData", "display", "initCriteria", "onAdd", "uploadDataNamaTugasKelompokPunyaMahasiswa", "run", "onSave"});
 request.setAttribute("nuiLegacyRefs", new String[]{});
-request.setAttribute("nuiEntityCandidates", new String[]{"NamaTugasKelompok", "NamaTugasKelompokPunyaMahasiswa", "Detailperkuliahan", "MahasiswaDapatKelompokKkn", "MahasiswaDapatKelompokPkl", "Mahasiswa"});
+request.setAttribute("nuiEntityCandidates", new String[]{"NamaTugasKelompok", "NamaTugasKelompokPunyaMahasiswa", "Detailperkuliahan", "MahasiswaDapatKelompokKkn", "MahasiswaDapatKelompokPkl", "Mahasiswa", "TugasKelompok"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

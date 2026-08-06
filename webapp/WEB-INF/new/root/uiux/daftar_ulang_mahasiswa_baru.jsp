@@ -18,7 +18,7 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "AbstractDaftarUlangMahasiswaAction");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onPembelianMahasiswa", "onDiskonMahasiswa", "onUploadDanDownloadCicilanMahasiswa", "doAfterCompose", "onEvent", "apakah0", "onCariMahasiswa", "listCicilan", "initCriteria", "inputSesuaiTagihan", "inputSesuaiTagihanBulanan", "listBiaya", "onSave", "hitungJumlahBiayaSeharusnya"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/koperasi/pem_online.zul?langsungBayar=true&sumberPembayaran=mahasiswa&modePelanggan=mahasiswa&jenisPelanggan=mahasiswa&hanyaMahasiswa=true&dariDaftarUlangMahasiswa=true", "/pages/master/diskon_calon_mahasiswa.zul", "/pages/master/informasi_pembayaran_mahasiswa.zul?calonMahasiswa=", "/common/btn/no_va.zul?va=", "/common/bankaltimtara/no_va.zul?pakaiva=", "/common/bri/no_va.zul?va=", "/common/ntt/no_va.zul?va=", "/common/bjb/no_va.zul?va=", "/no_va.zul"});
-request.setAttribute("nuiEntityCandidates", new String[]{"BuktiPembayaran", "BiodataCalonMahasiswa", "CicilanPembayaran", "JenisPembayaran", "Kegiatan"});
+request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/koperasi/pem_online.zul?langsungBayar=true&sumberPembayaran=mahasiswa&modePelanggan=mahasiswa&jenisPelanggan=mahasiswa&hanyaMahasiswa=true&dariDaftarUlangMahasiswa=true", "/pages/master/diskon_calon_mahasiswa.zul", "/common/btn/no_va.zul?va=", "/common/bankaltimtara/no_va.zul?pakaiva=", "/common/bri/no_va.zul?va=", "/common/ntt/no_va.zul?va=", "/common/bjb/no_va.zul?va=", "/no_va.zul"});
+request.setAttribute("nuiEntityCandidates", new String[]{"BuktiPembayaran", "BiodataCalonMahasiswa", "CicilanPembayaran", "JenisPembayaran", "Kegiatan", "DetailBiaya"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

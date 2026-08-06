@@ -12,7 +12,7 @@ request.setAttribute("nuiServiceType", "list");
 request.setAttribute("nuiServiceSourceClass", "PertemuanHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/PertemuanHelper.java");
-request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "init", "display"});
+request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "muat", "init", "display"});
 request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>

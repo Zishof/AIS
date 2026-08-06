@@ -17,7 +17,7 @@ request.setAttribute("nuiSourcePath", "src/ais/action/master/bkd/KinerjaAction.j
 request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
-request.setAttribute("nuiSourceMethods", new String[]{"onBidangPenunjang", "onBidangPendidikan", "onEvent", "onBidangPenelitian", "onBidangPengabdian", "tampilRingkasan", "doAfterCompose"});
+request.setAttribute("nuiSourceMethods", new String[]{"onBidangPenunjang", "onBidangPendidikan", "onBidangPenelitian", "onBidangPengabdian", "tampilRingkasan", "onEvent", "doAfterCompose"});
 request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/penunjang_kinerja_dosen.zul?1=1", "/pages/master/penunjang_kinerja_dosen.zul?jenis=", "/pages/master/bkd/bimbingan_skripsi.zul", "/pages/master/bkd/penguji_skripsi.zul", "/pages/master/kkn/kelompok_kkn.zul", "/pages/master/pkl/kelompok_pkl.zul", "/pages/master/buku_bahan_ajar.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"Tbmuser", "AsesorPegawai", "Pegawai", "KewajibanBebanDosen", "Dosen"});
 %>

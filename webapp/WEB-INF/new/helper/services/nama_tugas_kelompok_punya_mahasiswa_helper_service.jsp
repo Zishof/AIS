@@ -12,7 +12,7 @@ request.setAttribute("nuiServiceType", "academic");
 request.setAttribute("nuiServiceSourceClass", "NamaTugasKelompokPunyaMahasiswaHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/NamaTugasKelompokPunyaMahasiswaHelper.java");
-request.setAttribute("nuiServiceMethods", new String[]{"render", "onEvent", "loadData", "display"});
+request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "loadData", "display"});
 request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"NamaTugasKelompokPunyaMahasiswa", "Siswa", "Mahasiswa", "MahasiswaDapatKelompokKkn", "MahasiswaDapatKelompokPkl"});
 %>

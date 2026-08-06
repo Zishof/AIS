@@ -17,7 +17,7 @@ request.setAttribute("nuiSourcePath", "src/ais/action/master/surat/SuratMasukAct
 request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault, FormSop");
-request.setAttribute("nuiSourceMethods", new String[]{"onStatistik", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "initJenisJabatan", "getindexSurat", "generateCode", "getindex", "initParameter", "onSave", "cetakDisposisi", "infoDisposisi", "infoDisposisiBagan", "initCriteria", "onSearchDefault", "form", "istilah", "ambil", "ambilClass", "setPersetujuan", "cetakData"});
+request.setAttribute("nuiSourceMethods", new String[]{"onStatistik", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "initJenisJabatan", "getindexSurat", "generateCode", "getindex", "initParameter", "onSave", "cetakDisposisi", "infoDisposisi", "infoDisposisiBagan", "compare", "initCriteria", "onSearchDefault", "form", "istilah", "ambil", "ambilClass", "setPersetujuan", "cetakData"});
 request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"LokerSurat", "SuratMasuk", "OpsiSuratMasukValue", "KlasifikasiSuratMasukParemeterValue", "AlurPersetujuanSuratMasukStatus", "JenisJabatan", "Pejabat", "OpsiSuratMasuk", "KlasifikasiSuratMasukParemeter", "String", "Integer", "Double", "Date", "Tbmuser", "SuratKeluar", "SifatSurat", "Jurusan"});
 %>

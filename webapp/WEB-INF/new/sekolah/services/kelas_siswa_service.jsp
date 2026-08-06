@@ -14,6 +14,6 @@ request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/KelasSiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "run", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
 request.setAttribute("nuiServiceLegacyRefs", new String[]{});
-request.setAttribute("nuiServiceEntities", new String[]{"KelasSiswa", "KelasSiswaPunyaSiswa", "KurikulumPunyaMatapelajaran", "Matapelajaran", "KurikulumSekolah"});
+request.setAttribute("nuiServiceEntities", new String[]{"KelasSiswa", "KelasSiswaPunyaSiswa", "Siswa", "KurikulumPunyaMatapelajaran", "Matapelajaran", "KurikulumSekolah"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

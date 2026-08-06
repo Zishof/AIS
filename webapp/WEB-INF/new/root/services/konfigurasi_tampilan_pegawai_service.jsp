@@ -12,7 +12,7 @@ request.setAttribute("nuiServiceType", "settings");
 request.setAttribute("nuiServiceSourceClass", "KonfigurasiTampilanPegawaiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/KonfigurasiTampilanPegawaiAction.java");
-request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "keyDesc", "apakahAdaTidakAktif", "wajibIsi", "statusWajibIsi", "dataYangWajibDiisi", "onTampil", "onEvent"});
+request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "keyDesc", "apakahAdaTidakAktif", "wajibIsi", "statusWajibIsi", "dataYangWajibDiisi", "onTampil", "muat"});
 request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/payroll/jatah_cuti.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>

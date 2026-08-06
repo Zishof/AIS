@@ -12,7 +12,7 @@ request.setAttribute("nuiServiceType", "report");
 request.setAttribute("nuiServiceSourceClass", "LaporanAkreditasiLKPS_S1");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.akreditasi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/akreditasi/LaporanAkreditasiLKPS_S1.java");
-request.setAttribute("nuiServiceMethods", new String[]{"create", "onEvent"});
+request.setAttribute("nuiServiceMethods", new String[]{});
 request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>

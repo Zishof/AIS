@@ -14,6 +14,6 @@ request.setAttribute("nuiServiceSourcePackage", "ais.action.master.pmb.nim");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/pmb/nim/DefaultNimGenerator.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateNim"});
 request.setAttribute("nuiServiceLegacyRefs", new String[]{});
-request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa"});
+request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa", "BiodataCalonMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

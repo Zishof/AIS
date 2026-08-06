@@ -6,10 +6,10 @@
   "count": 22,
   "pageTypeCounts": {
     "list": 10,
-    "finance": 1,
+    "workflow": 7,
     "report": 3,
-    "academic": 1,
-    "workflow": 7
+    "finance": 1,
+    "academic": 1
   },
   "pages": [
     {

@@ -12,7 +12,7 @@ request.setAttribute("nuiServiceType", "finance");
 request.setAttribute("nuiServiceSourceClass", "RevisiCicilanPembayaranHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/RevisiCicilanPembayaranHelper.java");
-request.setAttribute("nuiServiceMethods", new String[]{});
+request.setAttribute("nuiServiceMethods", new String[]{"bukaTabSeluruhData"});
 request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"CicilanPembayaran", "PengaturanPembayaranBulanan"});
 %>

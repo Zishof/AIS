@@ -12,8 +12,8 @@ request.setAttribute("nuiServiceType", "finance");
 request.setAttribute("nuiServiceSourceClass", "StandingInstructionAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.akunting");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/akunting/StandingInstructionAction.java");
-request.setAttribute("nuiServiceMethods", new String[]{"onStatistik", "onEvent", "doBeforeCompose", "doAfterCompose", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
+request.setAttribute("nuiServiceMethods", new String[]{"onStatistik", "muat", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "initCriteria", "onSearchDefault"});
+request.setAttribute("nuiServiceLegacyRefs", new String[]{"/WEB-INF/z/x/y/pages/master/akunting/standing_instruction_tab_1.zul", "/WEB-INF/z/x/y/pages/master/akunting/proses_transfer_standing_instruction.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"StandingInstruction", "Bank", "ProsesTransferStandingInstruction"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

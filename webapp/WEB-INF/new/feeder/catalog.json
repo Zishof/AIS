@@ -28,7 +28,7 @@
       "sourcePackage": "ais.action.master.feeder.integrator",
       "sourcePath": "src/ais/action/master/feeder/integrator/AjarDosenIntegrator.java",
       "pageType": "integration",
-      "methodCount": 0,
+      "methodCount": 1,
       "legacyRefCount": 0,
       "subpackage": "integrator",
       "search": "Ajar Dosen Integrator AjarDosenIntegrator ais.action.master.feeder.integrator integration integrator"
@@ -52,7 +52,7 @@
       "sourcePackage": "ais.action.master.feeder.integrator",
       "sourcePath": "src/ais/action/master/feeder/integrator/AktifitasDosenPesertaDosenIntegrator.java",
       "pageType": "integration",
-      "methodCount": 0,
+      "methodCount": 1,
       "legacyRefCount": 0,
       "subpackage": "integrator",
       "search": "Aktifitas Dosen Peserta Dosen Integrator AktifitasDosenPesertaDosenIntegrator ais.action.master.feeder.integrator integration integrator"
@@ -76,7 +76,7 @@
       "sourcePackage": "ais.action.master.feeder.integrator",
       "sourcePath": "src/ais/action/master/feeder/integrator/AktifitasMahasiswaPesertaMahasiswaIntegrator.java",
       "pageType": "integration",
-      "methodCount": 0,
+      "methodCount": 1,
       "legacyRefCount": 0,
       "subpackage": "integrator",
       "search": "Aktifitas Mahasiswa Peserta Mahasiswa Integrator AktifitasMahasiswaPesertaMahasiswaIntegrator ais.action.master.feeder.integrator integration integrator"

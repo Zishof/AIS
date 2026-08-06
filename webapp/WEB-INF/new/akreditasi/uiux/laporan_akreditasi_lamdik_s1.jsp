@@ -17,7 +17,7 @@ request.setAttribute("nuiSourcePath", "src/ais/action/master/akreditasi/LaporanA
 request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyWindow");
 request.setAttribute("nuiSourceImplements", "");
-request.setAttribute("nuiSourceMethods", new String[]{"build", "onEvent"});
+request.setAttribute("nuiSourceMethods", new String[]{});
 request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{});
 %>

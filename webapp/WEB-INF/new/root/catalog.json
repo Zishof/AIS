@@ -3,10 +3,10 @@
   "generatorVersion": "1.0.0",
   "module": "root",
   "label": "Modul Inti",
-  "count": 449,
+  "count": 450,
   "pageTypeCounts": {
     "academic": 151,
-    "list": 147,
+    "list": 148,
     "finance": 44,
     "form": 33,
     "integration": 3,
@@ -313,8 +313,8 @@
       "sourcePackage": "ais.action.master",
       "sourcePath": "src/ais/action/master/BankSoalAction.java",
       "pageType": "finance",
-      "methodCount": 15,
-      "legacyRefCount": 1,
+      "methodCount": 16,
+      "legacyRefCount": 4,
       "subpackage": "Utama",
       "search": "Bank Soal BankSoalAction ais.action.master finance Utama"
     },
@@ -854,7 +854,7 @@
       "sourcePath": "src/ais/action/master/DaftarUlangMahasiswaBaruAction.java",
       "pageType": "academic",
       "methodCount": 14,
-      "legacyRefCount": 9,
+      "legacyRefCount": 8,
       "subpackage": "Utama",
       "search": "Daftar Ulang Mahasiswa Baru DaftarUlangMahasiswaBaruAction ais.action.master academic Utama"
     },
@@ -866,7 +866,7 @@
       "sourcePath": "src/ais/action/master/DaftarUlangMahasiswaLamaAction.java",
       "pageType": "academic",
       "methodCount": 29,
-      "legacyRefCount": 24,
+      "legacyRefCount": 23,
       "subpackage": "Utama",
       "search": "Daftar Ulang Mahasiswa Lama DaftarUlangMahasiswaLamaAction ais.action.master academic Utama"
     },
@@ -1045,7 +1045,7 @@
       "sourcePackage": "ais.action.master",
       "sourcePath": "src/ais/action/master/DosenPembimbingAkademikAction.java",
       "pageType": "academic",
-      "methodCount": 11,
+      "methodCount": 12,
       "legacyRefCount": 1,
       "subpackage": "Utama",
       "search": "Dosen Pembimbing Akademik DosenPembimbingAkademikAction ais.action.master academic Utama"
@@ -1201,7 +1201,7 @@
       "sourcePackage": "ais.action.master",
       "sourcePath": "src/ais/action/master/FormulirKegiatanAction.java",
       "pageType": "form",
-      "methodCount": 16,
+      "methodCount": 17,
       "legacyRefCount": 3,
       "subpackage": "Utama",
       "search": "Formulir Kegiatan FormulirKegiatanAction ais.action.master form Utama"
@@ -1465,7 +1465,7 @@
       "sourcePackage": "ais.action.master",
       "sourcePath": "src/ais/action/master/InformasiPembayaranMahasiswaAction.java",
       "pageType": "finance",
-      "methodCount": 17,
+      "methodCount": 18,
       "legacyRefCount": 5,
       "subpackage": "Utama",
       "search": "Informasi Pembayaran Mahasiswa InformasiPembayaranMahasiswaAction ais.action.master finance Utama"
@@ -1765,8 +1765,8 @@
       "sourcePackage": "ais.action.master",
       "sourcePath": "src/ais/action/master/JenisKegiatanAction.java",
       "pageType": "list",
-      "methodCount": 6,
-      "legacyRefCount": 1,
+      "methodCount": 8,
+      "legacyRefCount": 3,
       "subpackage": "Utama",
       "search": "Jenis Kegiatan JenisKegiatanAction ais.action.master list Utama"
     },
@@ -2077,7 +2077,7 @@
       "sourcePackage": "ais.action.master",
       "sourcePath": "src/ais/action/master/KalenderAkademikAction.java",
       "pageType": "academic",
-      "methodCount": 8,
+      "methodCount": 9,
       "legacyRefCount": 0,
       "subpackage": "Utama",
       "search": "Kalender Akademik KalenderAkademikAction ais.action.master academic Utama"
@@ -2174,7 +2174,7 @@
       "sourcePath": "src/ais/action/master/KegiatanAction.java",
       "pageType": "list",
       "methodCount": 15,
-      "legacyRefCount": 4,
+      "legacyRefCount": 2,
       "subpackage": "Utama",
       "search": "Kegiatan KegiatanAction ais.action.master list Utama"
     },
@@ -2761,8 +2761,8 @@
       "sourcePackage": "ais.action.master",
       "sourcePath": "src/ais/action/master/KonfigurasiTampilanSiswaAction.java",
       "pageType": "settings",
-      "methodCount": 9,
-      "legacyRefCount": 0,
+      "methodCount": 10,
+      "legacyRefCount": 7,
       "subpackage": "Utama",
       "search": "Konfigurasi Tampilan Siswa KonfigurasiTampilanSiswaAction ais.action.master settings Utama"
     },
@@ -3014,7 +3014,7 @@
       "sourcePath": "src/ais/action/master/LogLoginAction.java",
       "pageType": "audit",
       "methodCount": 26,
-      "legacyRefCount": 12,
+      "legacyRefCount": 15,
       "subpackage": "Utama",
       "search": "Log Login LogLoginAction ais.action.master audit Utama"
     },
@@ -4081,8 +4081,8 @@
       "sourcePackage": "ais.action.master",
       "sourcePath": "src/ais/action/master/PengumumanAkademisAction.java",
       "pageType": "list",
-      "methodCount": 21,
-      "legacyRefCount": 3,
+      "methodCount": 22,
+      "legacyRefCount": 4,
       "subpackage": "Utama",
       "search": "Pengumuman Akademis PengumumanAkademisAction ais.action.master list Utama"
     },
@@ -4183,6 +4183,18 @@
       "search": "Penugasan Dosen Mengajar PenugasanDosenMengajarAction ais.action.master academic Utama"
     },
     {
+      "page": "penumuman_website",
+      "title": "Penumuman Website",
+      "sourceClass": "PenumumanWebsiteAction",
+      "sourcePackage": "ais.action.master",
+      "sourcePath": "src/ais/action/master/PenumumanWebsiteAction.java",
+      "pageType": "list",
+      "methodCount": 6,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Penumuman Website PenumumanWebsiteAction ais.action.master list Utama"
+    },
+    {
       "page": "performa_log",
       "title": "Performa Log",
       "sourceClass": "PerformaLogAction",
@@ -4201,8 +4213,8 @@
       "sourcePackage": "ais.action.master",
       "sourcePath": "src/ais/action/master/PerguruanTinggiAction.java",
       "pageType": "academic",
-      "methodCount": 13,
-      "legacyRefCount": 1,
+      "methodCount": 14,
+      "legacyRefCount": 3,
       "subpackage": "Utama",
       "search": "Perguruan Tinggi PerguruanTinggiAction ais.action.master academic Utama"
     },
@@ -4225,7 +4237,7 @@
       "sourcePackage": "ais.action.master",
       "sourcePath": "src/ais/action/master/PerkuliahanAction.java",
       "pageType": "academic",
-      "methodCount": 47,
+      "methodCount": 48,
       "legacyRefCount": 8,
       "subpackage": "Utama",
       "search": "Perkuliahan PerkuliahanAction ais.action.master academic Utama"
@@ -5029,7 +5041,7 @@
       "sourcePackage": "ais.action.master",
       "sourcePath": "src/ais/action/master/TampilanELearningAction.java",
       "pageType": "list",
-      "methodCount": 22,
+      "methodCount": 23,
       "legacyRefCount": 9,
       "subpackage": "Utama",
       "search": "Tampilan E Learning TampilanELearningAction ais.action.master list Utama"

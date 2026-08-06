@@ -14,6 +14,6 @@ request.setAttribute("nuiServiceSourcePackage", "ais.action.maintenance");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/maintenance/TbmroleAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "createInstance", "createTreeMenu", "createTree", "initCriteria", "render", "onAdd", "onSave", "onSearchDefault", "checkKodeTbmrole", "checkNamaTbmrole"});
 request.setAttribute("nuiServiceLegacyRefs", new String[]{});
-request.setAttribute("nuiServiceEntities", new String[]{"Menu", "LabelBahasa", "RolePrivilage", "Tbmrole", "Mahasiswa", "Siswa", "Tbmuser", "JenisJabatan", "Program"});
+request.setAttribute("nuiServiceEntities", new String[]{"Menu", "LabelBahasa", "RolePrivilage", "Tbmrole", "Mahasiswa", "Siswa", "Tbmuser", "JenisJabatan", "Program", "Toko"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

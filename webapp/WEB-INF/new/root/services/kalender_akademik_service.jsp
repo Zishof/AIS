@@ -12,7 +12,7 @@ request.setAttribute("nuiServiceType", "academic");
 request.setAttribute("nuiServiceSourceClass", "KalenderAkademikAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/KalenderAkademikAction.java");
-request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
+request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "muat", "onSave", "initCriteria", "onSearchDefault"});
 request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Jenjang", "JenisKegiatan", "KalenderAkademik", "KonfigurasiKalenderAkademik", "Jurusan"});
 %>

@@ -17,7 +17,7 @@ request.setAttribute("nuiSourcePath", "src/ais/action/master/surat/helper/Dasboa
 request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyPortallayout");
 request.setAttribute("nuiSourceImplements", "");
-request.setAttribute("nuiSourceMethods", new String[]{"isDebug", "setDebug", "onEvent", "getThis", "initCriteria", "render", "count", "list", "build", "compare", "tolak", "buildAlurKeluarStatusHtmlV20", "buildAlurMasukStatusListHtmlV20", "buildOpsiChipsHtmlV20", "buildParamRowHtmlV20", "buildIsiWrapperHtmlV20", "buildAktifBadgeHtmlV20", "buildUnitInfoHtmlV20", "buildParentAlurHtmlV20", "buildKeteranganHtmlV20"});
+request.setAttribute("nuiSourceMethods", new String[]{"isDebug", "setDebug", "onEvent", "getThis", "initCriteria", "render", "count", "list", "build", "compare", "tolak", "buildAlurKeluarStatusHtmlV20", "buildAlurMasukStatusHtmlV20", "buildAlurMasukStatusListHtmlV20", "buildOpsiChipsHtmlV20", "buildParamRowHtmlV20", "buildIsiWrapperHtmlV20", "buildAktifBadgeHtmlV20", "buildUnitInfoHtmlV20", "buildParentAlurHtmlV20", "buildKeteranganHtmlV20"});
 request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"SuratKeluar", "AlurPersetujuanSuratKeluarStatus", "OpsiSuratKeluarValue", "FotoGambarSuratKeluar", "AlurPersetujuanSuratMasukStatus", "OpsiSuratMasukValue", "FotoGambarSuratMasuk", "KlasifikasiSuratKeluarParemeterValue", "SuratMasuk"});
 %>

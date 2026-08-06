@@ -19,6 +19,6 @@ request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault, FormSop");
 request.setAttribute("nuiSourceMethods", new String[]{"form", "onEvent", "onSave", "istilah", "ambil", "ambilClass", "setPersetujuan", "cetakData", "getDspacePengajuanPenelitianDanPengabdian", "getDspaceTipePengajuanPenelitianDanPengabdianTahun", "getDspaceTipePengajuanPenelitianDanPengabdian", "getDspace", "displayPengajuan", "run", "initCriteria", "initCriteriaSebagaiAnggota", "loadDataPengajuan", "loadDataPengajuanAnggota", "displayRow", "render", "setReadonly", "getReadonly", "onSearchDefault"});
 request.setAttribute("nuiLegacyRefs", new String[]{});
-request.setAttribute("nuiEntityCandidates", new String[]{"Tbmuser", "Mahasiswa", "PengajuanPenelitianDanPengabdian", "PenelitianDanPengabdian", "JenisPenelitianDanPengabdian", "SumberDanaPenelitianDanPengabdian", "AnggotaPengajuanPenelitianDanPengabdian", "TipePenelitianDanPengabdian", "PengajuanTahapanPelaporanPenelitianDanPengabdian", "FilePengajuanPenelitianDanPengabdian", "PenilaianAsesor"});
+request.setAttribute("nuiEntityCandidates", new String[]{"PenelitianDanPengabdian", "PengajuanPenelitianDanPengabdian", "SumberDanaPenelitianDanPengabdian", "Tbmuser", "Mahasiswa", "JenisPenelitianDanPengabdian", "AnggotaPengajuanPenelitianDanPengabdian", "TipePenelitianDanPengabdian", "PengajuanTahapanPelaporanPenelitianDanPengabdian", "FilePengajuanPenelitianDanPengabdian", "PenilaianAsesor"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

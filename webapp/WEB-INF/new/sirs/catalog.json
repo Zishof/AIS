@@ -7,8 +7,8 @@
   "pageTypeCounts": {
     "inventory": 160,
     "report": 1,
-    "finance": 14,
-    "dashboard": 16
+    "dashboard": 16,
+    "finance": 14
   },
   "pages": [
     {

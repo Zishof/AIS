@@ -12,8 +12,8 @@ request.setAttribute("nuiServiceType", "finance");
 request.setAttribute("nuiServiceSourceClass", "DaftarPengajuanTransferAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.akunting");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/akunting/DaftarPengajuanTransferAction.java");
-request.setAttribute("nuiServiceMethods", new String[]{"onStatistik", "onEvent", "doBeforeCompose", "doAfterCompose", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
+request.setAttribute("nuiServiceMethods", new String[]{"onStatistik", "onEvent", "doBeforeCompose", "doAfterCompose", "muat", "render", "initCriteria", "onSearchDefault"});
+request.setAttribute("nuiServiceLegacyRefs", new String[]{"/WEB-INF/z/x/y/pages/master/akunting/proses_transfer.zul", "/WEB-INF/z/x/y/pages/master/akunting/daftar_pengajuan_transfer_tab_2.zul", "/WEB-INF/z/x/y/pages/master/akunting/transitori.zul", "/WEB-INF/z/x/y/pages/master/akunting/cara_pembayaran_transfer.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"DaftarPengajuanTransfer", "PembayaranTerminMasterAssetDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

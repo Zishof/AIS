@@ -12,7 +12,7 @@ request.setAttribute("nuiServiceType", "integration");
 request.setAttribute("nuiServiceSourceClass", "KantinMemberApi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/KantinMemberApi.java");
-request.setAttribute("nuiServiceMethods", new String[]{"info", "saldo", "tokoList", "caraBayar", "produkList", "aturanDiskon", "bayar", "draftBayar", "pesananList", "batalPesanan", "transaksiList", "transaksiDetail", "barangList", "vaList", "dashboard"});
+request.setAttribute("nuiServiceMethods", new String[]{"info", "daftarMember", "saldo", "tokoList", "caraBayar", "produkList", "aturanDiskon", "bayar", "draftBayar", "pesananList", "batalPesanan", "transaksiList", "transaksiDetail", "barangList", "vaList", "dashboard", "pedagangInfo", "pedagangPesananList", "pedagangProsesPesanan", "pedagangProdukList", "pedagangCaraBayar", "pedagangKasirBayar", "pedagangRiwayat", "pedagangDashboard"});
 request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Tbmuser", "AnggotaKoperasi", "DraftPembelianAnggotaKoperasi"});
 %>

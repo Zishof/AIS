@@ -17,8 +17,8 @@ request.setAttribute("nuiSourcePath", "src/ais/action/master/InformasiPembayaran
 request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
-request.setAttribute("nuiSourceMethods", new String[]{"getLastSelectedJkLabel", "setLastSelectedJkLabel", "getLastSelectedJenisKegiatan", "setLastSelectedJenisKegiatan", "getLastSelectedSmtMulai", "setLastSelectedSmtMulai", "getLastSelectedSmtSampai", "setLastSelectedSmtSampai", "doBeforeCompose", "doAfterCompose", "doInBackground", "updateUI", "onEvent", "run", "compare", "loadKegiatan", "render"});
+request.setAttribute("nuiSourceMethods", new String[]{"getLastSelectedJkLabel", "setLastSelectedJkLabel", "getLastSelectedJenisKegiatan", "setLastSelectedJenisKegiatan", "getLastSelectedSmtMulai", "setLastSelectedSmtMulai", "getLastSelectedSmtSampai", "setLastSelectedSmtSampai", "doBeforeCompose", "doAfterCompose", "doInBackground", "updateUI", "onViewExternal", "onEvent", "run", "compare", "loadKegiatan", "render"});
 request.setAttribute("nuiLegacyRefs", new String[]{"/common/daftarulang_mahasiswa_lama.zul?mahasiswa=", "/pages/master/bukti_pembayaran.zul?mahasiswa=", "/pages/master/deposit.zul?mahasiswa=", "/pages/master/log_pembayaran.zul?mahasiswa=", "/pages/master/virtual_account_bank.zul"});
-request.setAttribute("nuiEntityCandidates", new String[]{"Mahasiswa", "BiodataCalonMahasiswa", "JenisKegiatan", "DetailKegiatan", "Kegiatan"});
+request.setAttribute("nuiEntityCandidates", new String[]{"Mahasiswa", "BiodataCalonMahasiswa", "JenisKegiatan", "HistoryStatusMahasiswa", "DetailKegiatan", "Kegiatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -17,7 +17,7 @@ request.setAttribute("nuiSourcePath", "src/ais/action/master/helper/RevisiCicila
 request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericRevisiHelper<CicilanPembayaran>");
 request.setAttribute("nuiSourceImplements", "");
-request.setAttribute("nuiSourceMethods", new String[]{});
+request.setAttribute("nuiSourceMethods", new String[]{"bukaTabSeluruhData"});
 request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"CicilanPembayaran", "PengaturanPembayaranBulanan"});
 %>

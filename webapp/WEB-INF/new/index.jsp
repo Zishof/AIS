@@ -14,15 +14,22 @@ private boolean nuiExists(ServletContext app,String path){try{String real=app.ge
 %>
 <%
 if(session.getAttribute("mytbmuser")==null){response.sendRedirect(request.getContextPath()+"/logoff");return;}
-String module=request.getParameter("module");if(!nuiSafePath(module))module="root";String pageName=request.getParameter("page");if(!nuiSafePath(pageName))pageName="index";
+String module=request.getParameter("module");
+if(!nuiSafePath(module)){
+    String context=String.valueOf(request.getAttribute("new_context"));
+    if("pmb".equals(context))module="root/pmb";
+    else if("psb".equals(context))module="root/psb";
+    else module="dashboard";
+}
+String pageName=request.getParameter("page");if(!nuiSafePath(pageName))pageName="index";
 boolean service="1".equals(request.getParameter("service"));String target="/WEB-INF/new/"+module+(service?"/services/":"/uiux/")+pageName+(service?"_service.jsp":".jsp");
 if(!nuiExists(application,target)){if(service){response.setStatus(404);response.setContentType("application/json; charset=UTF-8");out.print("{\"ok\":false,\"code\":\"SERVICE_NOT_FOUND\"}");return;}target="/WEB-INF/new/_shared/ui/not_found.jsp";}
 if(service){response.setContentType("application/json; charset=UTF-8");request.getRequestDispatcher(target).include(request,response);return;}
 Tbmuser current=null;try{current=Common.getCurrentUser(request);}catch(Exception ignored){}String currentName=current==null?"Pengguna":current.getUserNama();if(currentName==null||currentName.trim().length()==0)currentName=current==null?"Pengguna":current.getUserId();if(currentName==null||currentName.trim().length()==0)currentName="Pengguna";
 String[][] modules=new String[][]{
     new String[]{"dashboard","Dashboard & Analitik","290","Utama"},
-    new String[]{"sekolah","eSchool","239","Utama"},
-    new String[]{"root","Modul Inti","449","Utama"},
+    new String[]{"sekolah","eSchool","240","Utama"},
+    new String[]{"root","Modul Inti","450","Utama"},
     new String[]{"root/pmb","Penerimaan Mahasiswa Baru (PMB)","134","Utama"},
     new String[]{"root/psb","Penerimaan Siswa Baru (PSB)","10","Utama"},
     new String[]{"alumni","Alumni & Tracer Study","2","Akademik"},
@@ -64,22 +71,22 @@ String[][] modules=new String[][]{
     new String[]{"sop","SOP & Workflow","18","Mutu & Tata Kelola"},
     new String[]{"spi","SPI","12","Mutu & Tata Kelola"},
     new String[]{"spmi","SPMI","12","Mutu & Tata Kelola"},
-    new String[]{"surat","Surat Menyurat","46","Mutu & Tata Kelola"},
+    new String[]{"surat","Surat Menyurat","47","Mutu & Tata Kelola"},
     new String[]{"ticket","Ticketing & Layanan","7","Mutu & Tata Kelola"},
     new String[]{"epsbed","EPSBED","25","Integrasi & Pelaporan"},
     new String[]{"feeder","Feeder PDDikti","62","Integrasi & Pelaporan"},
     new String[]{"root/report","Pelaporan","526","Integrasi & Pelaporan"},
     new String[]{"penelitiandanpengabdian","Penelitian & Pengabdian","22","Integrasi & Pelaporan"},
     new String[]{"repository","Repository","4","Integrasi & Pelaporan"},
-    new String[]{"root/servlet","Servlet & Endpoint","170","Integrasi & Pelaporan"},
+    new String[]{"root/servlet","Servlet & Endpoint","180","Integrasi & Pelaporan"},
     new String[]{"sister","SISTER","3","Integrasi & Pelaporan"},
     new String[]{"root/ws","Web Service","15","Integrasi & Pelaporan"},
     new String[]{"catatan","Catatan","1","Sistem"},
     new String[]{"chat","Chat","5","Sistem"},
     new String[]{"generic","Generic","1","Sistem"},
-    new String[]{"helper","Helper & Komponen Pendukung","523","Sistem"},
+    new String[]{"helper","Helper & Komponen Pendukung","525","Sistem"},
     new String[]{"sosial","Integrasi Sosial","5","Sistem"},
-    new String[]{"root/maintenance","Maintenance & Administrasi Sistem","30","Sistem"},
+    new String[]{"root/maintenance","Maintenance & Administrasi Sistem","31","Sistem"},
     new String[]{"root/mobile","Mobile","4","Sistem"},
     new String[]{"monitor","Monitoring","3","Sistem"},
     new String[]{"message","Pesan & Notifikasi","2","Sistem"},
@@ -88,4 +95,4 @@ String[][] modules=new String[][]{
     new String[]{"ux","UX","1","Sistem"}
 };
 %>
-<!doctype html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>eCampus & eSchool — Modern UI</title><style><%@ include file="/WEB-INF/new/_shared/assets/new-ui.css" %></style></head><body><div id="nuiLoading" class="nui-loading"></div><div class="nui-app"><aside id="nuiSidebar" class="nui-sidebar"><div class="nui-brand"><div class="nui-logo">◆</div><div><strong>eCampus & eSchool</strong><small>Enterprise Education</small></div></div><nav class="nui-nav"><%String lastGroup="";for(int i=0;i<modules.length;i++){String[] m=modules[i];if(!m[3].equals(lastGroup)){if(lastGroup.length()>0){%></div><%}lastGroup=m[3];%><div class="nui-nav-group"><div class="nui-nav-label"><%=nuiShellH(lastGroup)%></div><%}%><a class="<%=module.equals(m[0])?"active":""%>" href="<%=request.getContextPath()%>/newui.jsp?module=<%=URLEncoder.encode(m[0],"UTF-8")%>&page=index"><span>◇</span><span><%=nuiShellH(m[1])%></span><span class="nui-nav-count"><%=m[2]%></span></a><%}if(lastGroup.length()>0){%></div><%}%></nav><div class="nui-sidebar-foot">● Online &nbsp; • &nbsp; UI Scaffold v1.0.0</div></aside><main class="nui-main"><header class="nui-topbar"><button id="nuiMenuToggle" class="nui-menu-toggle">☰</button><div class="nui-global-search"><input placeholder="Cari menu, halaman, mahasiswa, siswa, dokumen..." aria-label="Pencarian global"><span class="nui-kbd">Ctrl + K</span></div><div class="nui-top-actions"><button class="nui-icon-btn">♢<span class="nui-badge">0</span></button><button class="nui-icon-btn">✉</button><div class="nui-user"><div class="nui-avatar"><%=nuiShellH(currentName.substring(0,1).toUpperCase())%></div><div><strong><%=nuiShellH(currentName)%></strong><small>Pengguna aktif</small></div></div></div></header><div class="nui-content"><%request.getRequestDispatcher(target).include(request,response);%></div><footer class="nui-footer"><span>© 2026 eCampus & eSchool</span><span>Modern JSP UI • Java service adapter</span></footer></main></div><div id="nuiToast" class="nui-toast"></div><div id="nuiCommand" class="nui-command"><div class="nui-command-box"><input id="nuiCommandInput" class="nui-input" placeholder="Ketik nama modul..."><div class="nui-command-results"><%for(int i=0;i<modules.length;i++){%><a href="<%=request.getContextPath()%>/newui.jsp?module=<%=URLEncoder.encode(modules[i][0],"UTF-8")%>&page=index"><%=nuiShellH(modules[i][1])%> <small>(<%=modules[i][2]%> halaman)</small></a><%}%></div></div></div><script><%@ include file="/WEB-INF/new/_shared/assets/new-ui.js" %></script></body></html>
+<!doctype html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>eCampus & eSchool — Modern UI</title><style><%@ include file="/WEB-INF/new/_shared/assets/new-ui.css" %></style></head><body><div id="nuiLoading" class="nui-loading"></div><div class="nui-app"><aside id="nuiSidebar" class="nui-sidebar"><div class="nui-brand"><div class="nui-logo">◆</div><div><strong>eCampus & eSchool</strong><small>Enterprise Education</small></div></div><nav class="nui-nav"><%String lastGroup="";for(int i=0;i<modules.length;i++){String[] m=modules[i];if(!m[3].equals(lastGroup)){if(lastGroup.length()>0){%></div><%}lastGroup=m[3];%><div class="nui-nav-group"><div class="nui-nav-label"><%=nuiShellH(lastGroup)%></div><%}%><a class="<%=module.equals(m[0])?"active":""%>" href="<%=request.getContextPath()%>/new?module=<%=URLEncoder.encode(m[0],"UTF-8")%>&page=index"><span>◇</span><span><%=nuiShellH(m[1])%></span><span class="nui-nav-count"><%=m[2]%></span></a><%}if(lastGroup.length()>0){%></div><%}%></nav><div class="nui-sidebar-foot">● Online &nbsp; • &nbsp; UI Scaffold v1.0.0</div></aside><main class="nui-main"><header class="nui-topbar"><button id="nuiMenuToggle" class="nui-menu-toggle">☰</button><div class="nui-global-search"><input placeholder="Cari menu, halaman, mahasiswa, siswa, dokumen..." aria-label="Pencarian global"><span class="nui-kbd">Ctrl + K</span></div><div class="nui-top-actions"><button class="nui-icon-btn">♢<span class="nui-badge">0</span></button><button class="nui-icon-btn">✉</button><div class="nui-user"><div class="nui-avatar"><%=nuiShellH(currentName.substring(0,1).toUpperCase())%></div><div><strong><%=nuiShellH(currentName)%></strong><small>Pengguna aktif</small></div></div></div></header><div class="nui-content"><%request.getRequestDispatcher(target).include(request,response);%></div><footer class="nui-footer"><span>© 2026 eCampus & eSchool</span><span>Modern JSP UI • Java service adapter</span></footer></main></div><div id="nuiToast" class="nui-toast"></div><div id="nuiCommand" class="nui-command"><div class="nui-command-box"><input id="nuiCommandInput" class="nui-input" placeholder="Ketik nama modul..."><div class="nui-command-results"><%for(int i=0;i<modules.length;i++){%><a href="<%=request.getContextPath()%>/new?module=<%=URLEncoder.encode(modules[i][0],"UTF-8")%>&page=index"><%=nuiShellH(modules[i][1])%> <small>(<%=modules[i][2]%> halaman)</small></a><%}%></div></div></div><script><%@ include file="/WEB-INF/new/_shared/assets/new-ui.js" %></script></body></html>

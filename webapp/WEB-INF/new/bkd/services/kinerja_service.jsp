@@ -12,7 +12,7 @@ request.setAttribute("nuiServiceType", "academic");
 request.setAttribute("nuiServiceSourceClass", "KinerjaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.bkd");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/bkd/KinerjaAction.java");
-request.setAttribute("nuiServiceMethods", new String[]{"onBidangPenunjang", "onBidangPendidikan", "onEvent", "onBidangPenelitian", "onBidangPengabdian", "tampilRingkasan", "doAfterCompose"});
+request.setAttribute("nuiServiceMethods", new String[]{"onBidangPenunjang", "onBidangPendidikan", "onBidangPenelitian", "onBidangPengabdian", "tampilRingkasan", "onEvent", "doAfterCompose"});
 request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/penunjang_kinerja_dosen.zul?1=1", "/pages/master/penunjang_kinerja_dosen.zul?jenis=", "/pages/master/bkd/bimbingan_skripsi.zul", "/pages/master/bkd/penguji_skripsi.zul", "/pages/master/kkn/kelompok_kkn.zul", "/pages/master/pkl/kelompok_pkl.zul", "/pages/master/buku_bahan_ajar.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Tbmuser", "AsesorPegawai", "Pegawai", "KewajibanBebanDosen", "Dosen"});
 %>

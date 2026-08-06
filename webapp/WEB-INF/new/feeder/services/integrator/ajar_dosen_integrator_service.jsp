@@ -12,7 +12,7 @@ request.setAttribute("nuiServiceType", "integration");
 request.setAttribute("nuiServiceSourceClass", "AjarDosenIntegrator");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.feeder.integrator");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/feeder/integrator/AjarDosenIntegrator.java");
-request.setAttribute("nuiServiceMethods", new String[]{});
+request.setAttribute("nuiServiceMethods", new String[]{"muat"});
 request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>

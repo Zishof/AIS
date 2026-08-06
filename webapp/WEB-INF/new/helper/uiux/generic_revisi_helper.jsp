@@ -17,8 +17,8 @@ request.setAttribute("nuiSourcePath", "src/ais/action/master/helper/GenericRevis
 request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
-request.setAttribute("nuiSourceMethods", new String[]{"apply", "getId", "onEvent", "onSearchDefault", "onSearchAllData", "render", "compare", "restoreRevisionObject", "run", "restoreLatestFromDate"});
+request.setAttribute("nuiSourceMethods", new String[]{"apply", "toString", "getId", "onEvent", "onSearchDefault", "onSearchAllData", "render", "compare", "restoreRevisionObject", "run", "restoreLatestFromDate"});
 request.setAttribute("nuiLegacyRefs", new String[]{});
-request.setAttribute("nuiEntityCandidates", new String[]{"Date", "Boolean", "Number", "GeneralValueObject", "String", "Integer", "Long", "Double", "Float", "Short", "Byte", "BigDecimal", "BigInteger", "Character", "VirtualAccountBank"});
+request.setAttribute("nuiEntityCandidates", new String[]{"CharSequence", "Date", "String", "Boolean", "Number", "GeneralValueObject", "Integer", "Long", "Double", "Float", "Short", "Byte", "BigDecimal", "BigInteger", "Character", "VirtualAccountBank"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

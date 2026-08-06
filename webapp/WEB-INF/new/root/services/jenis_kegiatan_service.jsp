@@ -12,8 +12,8 @@ request.setAttribute("nuiServiceType", "list");
 request.setAttribute("nuiServiceSourceClass", "JenisKegiatanAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/JenisKegiatanAction.java");
-request.setAttribute("nuiServiceMethods", new String[]{"initCriteria", "onPrasyarat", "onEvent", "onSave", "checkNamaKegiatan", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/jenis_kegiatan_prasyarat.zul"});
+request.setAttribute("nuiServiceMethods", new String[]{"initCriteria", "doAfterCompose", "muat", "onPrasyarat", "onEvent", "onSave", "checkNamaKegiatan", "render"});
+request.setAttribute("nuiServiceLegacyRefs", new String[]{"/WEB-INF/z/x/y/pages/master/jenis_kegiatan_tab_0.zul", "/pages/master/jenis_kegiatan_prasyarat.zul", "/WEB-INF/z/x/y/pages/master/sekolah/kanal_pembayaran.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisKegiatan", "Jenjang", "Jurusan", "KanalPembayaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

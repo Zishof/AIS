@@ -14,6 +14,6 @@ request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.adm
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/admin/RekapHasilTugasPerTugasDanUjianObe.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "run", "call", "getId", "getKode", "getNama"});
 request.setAttribute("nuiServiceLegacyRefs", new String[]{});
-request.setAttribute("nuiServiceEntities", new String[]{"CapaianPembelajaranLulusan", "CapaianLulusan", "ProfilLulusan", "PertemuanPunyaUjian", "Pertemuan", "TugasPertemuan", "TugasKelompok", "HasilUjianMahasiswa"});
+request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa", "Detailperkuliahan", "CapaianPembelajaranLulusan", "CapaianLulusan", "ProfilLulusan", "PertemuanPunyaUjian", "Pertemuan", "TugasPertemuan", "TugasKelompok", "HasilUjianMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

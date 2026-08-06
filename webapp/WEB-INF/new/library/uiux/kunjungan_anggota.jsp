@@ -19,6 +19,6 @@ request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onKodeAnggota", "onSave", "initCriteria", "onSearchDefault"});
 request.setAttribute("nuiLegacyRefs", new String[]{});
-request.setAttribute("nuiEntityCandidates", new String[]{"KunjunganAnggota", "Anggota"});
+request.setAttribute("nuiEntityCandidates", new String[]{"KunjunganAnggota"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

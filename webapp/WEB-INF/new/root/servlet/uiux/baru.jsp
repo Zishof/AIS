@@ -18,7 +18,7 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "HttpServlet");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{});
-request.setAttribute("nuiLegacyRefs", new String[]{"/WEB-INF/baru/index.jsp", "/WEB-INF/baru/modul/common/hak_akses.jsp", "/WEB-INF/baru/modul/kantin/member/landing_page.jsp"});
+request.setAttribute("nuiLegacyRefs", new String[]{"/WEB-INF/baru/index.jsp", "/WEB-INF/baru/modul/common/hak_akses.jsp", "/WEB-INF/baru/modul/kantin/index.jsp"});
 request.setAttribute("nuiEntityCandidates", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

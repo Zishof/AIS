@@ -19,6 +19,6 @@ request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "createInstance", "createTreeMenu", "createTree", "initCriteria", "render", "onAdd", "onSave", "onSearchDefault", "checkKodeTbmrole", "checkNamaTbmrole"});
 request.setAttribute("nuiLegacyRefs", new String[]{});
-request.setAttribute("nuiEntityCandidates", new String[]{"Menu", "LabelBahasa", "RolePrivilage", "Tbmrole", "Mahasiswa", "Siswa", "Tbmuser", "JenisJabatan", "Program"});
+request.setAttribute("nuiEntityCandidates", new String[]{"Menu", "LabelBahasa", "RolePrivilage", "Tbmrole", "Mahasiswa", "Siswa", "Tbmuser", "JenisJabatan", "Program", "Toko"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

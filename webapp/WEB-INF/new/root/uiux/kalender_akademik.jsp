@@ -17,7 +17,7 @@ request.setAttribute("nuiSourcePath", "src/ais/action/master/KalenderAkademikAct
 request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault");
-request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
+request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "muat", "onSave", "initCriteria", "onSearchDefault"});
 request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Jenjang", "JenisKegiatan", "KalenderAkademik", "KonfigurasiKalenderAkademik", "Jurusan"});
 %>

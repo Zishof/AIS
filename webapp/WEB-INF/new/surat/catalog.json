@@ -3,12 +3,12 @@
   "generatorVersion": "1.0.0",
   "module": "surat",
   "label": "Surat Menyurat",
-  "count": 46,
+  "count": 47,
   "pageTypeCounts": {
-    "workflow": 34,
+    "workflow": 35,
     "finance": 9,
-    "integration": 1,
-    "dashboard": 2
+    "dashboard": 2,
+    "integration": 1
   },
   "pages": [
     {
@@ -270,7 +270,7 @@
       "sourcePackage": "ais.action.master.surat",
       "sourcePath": "src/ais/action/master/surat/SuratKeluarAction.java",
       "pageType": "workflow",
-      "methodCount": 25,
+      "methodCount": 26,
       "legacyRefCount": 0,
       "subpackage": "Utama",
       "search": "Surat Keluar SuratKeluarAction ais.action.master.surat workflow Utama"
@@ -282,7 +282,7 @@
       "sourcePackage": "ais.action.master.surat",
       "sourcePath": "src/ais/action/master/surat/SuratMasukAction.java",
       "pageType": "workflow",
-      "methodCount": 23,
+      "methodCount": 24,
       "legacyRefCount": 0,
       "subpackage": "Utama",
       "search": "Surat Masuk SuratMasukAction ais.action.master.surat workflow Utama"
@@ -408,6 +408,18 @@
       "search": "Ambil Data Surat Masuk Banyak AmbilDataSuratMasukBanyak ais.action.master.surat.helper workflow helper"
     },
     {
+      "page": "helper/catatan_disposisi_popup_helper",
+      "title": "Catatan Disposisi Popup Helper",
+      "sourceClass": "CatatanDisposisiPopupHelper",
+      "sourcePackage": "ais.action.master.surat.helper",
+      "sourcePath": "src/ais/action/master/surat/helper/CatatanDisposisiPopupHelper.java",
+      "pageType": "workflow",
+      "methodCount": 3,
+      "legacyRefCount": 0,
+      "subpackage": "helper",
+      "search": "Catatan Disposisi Popup Helper CatatanDisposisiPopupHelper ais.action.master.surat.helper workflow helper"
+    },
+    {
       "page": "helper/dasboard_alur_surat",
       "title": "Dasboard Alur Surat",
       "sourceClass": "DasboardAlurSurat",
@@ -426,7 +438,7 @@
       "sourcePackage": "ais.action.master.surat.helper",
       "sourcePath": "src/ais/action/master/surat/helper/DasboardSurat.java",
       "pageType": "dashboard",
-      "methodCount": 20,
+      "methodCount": 21,
       "legacyRefCount": 0,
       "subpackage": "helper",
       "search": "Dasboard Surat DasboardSurat ais.action.master.surat.helper dashboard helper"

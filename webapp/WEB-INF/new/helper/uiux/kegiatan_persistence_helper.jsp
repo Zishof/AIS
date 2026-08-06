@@ -17,7 +17,7 @@ request.setAttribute("nuiSourcePath", "src/ais/action/master/helper/KegiatanPers
 request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
-request.setAttribute("nuiSourceMethods", new String[]{"newThread", "hitungThreadPoolAman", "closeOpenedSession", "closeNativeSession", "ambilDetailKegiatanSaja", "ambilCicilan", "ambilDetailKegiatan", "updatePembayaran", "updateDetailKegiatan", "hapusCicilan", "hapusDetailKegiatan", "run", "kumpulkanItemBiayaBerlaku", "kumpulkanItemBiayaAdaPembayaran", "detailKegiatanAsingTakDihitung", "cariDetailKegiatanAsing", "segarkanTagihanLive", "ambilPetaCicilanPerKegiatan", "sinkronkanCicilanKegiatanLangsung", "ekstrakIdAktif", "murnikan"});
+request.setAttribute("nuiSourceMethods", new String[]{"newThread", "hitungThreadPoolAman", "closeOpenedSession", "closeNativeSession", "ambilDetailKegiatanSaja", "hitungTagihanSegarKonsisten", "ambilCicilan", "ambilDetailKegiatan", "updatePembayaran", "updateDetailKegiatan", "hapusCicilan", "hapusDetailKegiatan", "run", "kumpulkanItemBiayaBerlaku", "kumpulkanItemBiayaAdaPembayaran", "detailKegiatanAsingTakDihitung", "cariDetailKegiatanAsing", "bersihkanItemAsing", "segarkanTagihanLive", "ambilPetaCicilanPerKegiatan", "sinkronkanCicilanKegiatanLangsung", "ekstrakIdAktif", "murnikan"});
 request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"DetailKegiatan", "CicilanPembayaran", "Kegiatan"});
 %>

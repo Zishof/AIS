@@ -19,6 +19,6 @@ request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"getBulanMulai", "kerjakan", "doGenerateTagihanBulanan", "doGenerateTagihanTahunan", "doGenerateTagihanInsendentil", "doSinkronkanTagihanSiswa", "sinkronkanSatuSiswa", "resetNominalBiayaDanTagihan", "resetSemuaTagihanDalamPB", "ambilNominalBiaya", "getTagihan"});
 request.setAttribute("nuiLegacyRefs", new String[]{});
-request.setAttribute("nuiEntityCandidates", new String[]{"Tagihan", "PengaturanBiayaItemBiaya", "PembayaranSiswaDetail", "Siswa", "NominalBiaya", "PengaturanBiaya"});
+request.setAttribute("nuiEntityCandidates", new String[]{"Tagihan", "NominalBiaya", "PengaturanBiayaItemBiaya", "PembayaranSiswaDetail", "Siswa", "PengaturanBiaya"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

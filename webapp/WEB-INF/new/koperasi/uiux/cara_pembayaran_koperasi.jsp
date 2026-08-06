@@ -17,8 +17,8 @@ request.setAttribute("nuiSourcePath", "src/ais/action/master/koperasi/CaraPembay
 request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault, DataInitDefault");
-request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault", "checkNamaCaraPembayaranKoperasi"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
+request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "muat", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault", "checkNamaCaraPembayaranKoperasi"});
+request.setAttribute("nuiLegacyRefs", new String[]{"/WEB-INF/z/x/y/pages/master/koperasi/cara_pembayaran_koperasi_tab_0.zul", "/WEB-INF/z/x/y/pages/master/sekolah/kanal_pembayaran.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"CaraPembayaranKoperasi", "Koperasi", "KanalPembayaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

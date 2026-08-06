@@ -79,8 +79,8 @@
       "sourcePackage": "ais.action.master.koperasi",
       "sourcePath": "src/ais/action/master/koperasi/CaraPembayaranKoperasiAction.java",
       "pageType": "finance",
-      "methodCount": 10,
-      "legacyRefCount": 0,
+      "methodCount": 11,
+      "legacyRefCount": 2,
       "subpackage": "Utama",
       "search": "Cara Pembayaran Koperasi CaraPembayaranKoperasiAction ais.action.master.koperasi finance Utama"
     },

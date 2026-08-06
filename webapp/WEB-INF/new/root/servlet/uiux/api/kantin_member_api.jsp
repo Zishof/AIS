@@ -17,7 +17,7 @@ request.setAttribute("nuiSourcePath", "src/ais/action/servlet/api/KantinMemberAp
 request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
-request.setAttribute("nuiSourceMethods", new String[]{"info", "saldo", "tokoList", "caraBayar", "produkList", "aturanDiskon", "bayar", "draftBayar", "pesananList", "batalPesanan", "transaksiList", "transaksiDetail", "barangList", "vaList", "dashboard"});
+request.setAttribute("nuiSourceMethods", new String[]{"info", "daftarMember", "saldo", "tokoList", "caraBayar", "produkList", "aturanDiskon", "bayar", "draftBayar", "pesananList", "batalPesanan", "transaksiList", "transaksiDetail", "barangList", "vaList", "dashboard", "pedagangInfo", "pedagangPesananList", "pedagangProsesPesanan", "pedagangProdukList", "pedagangCaraBayar", "pedagangKasirBayar", "pedagangRiwayat", "pedagangDashboard"});
 request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Tbmuser", "AnggotaKoperasi", "DraftPembelianAnggotaKoperasi"});
 %>

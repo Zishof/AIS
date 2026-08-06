@@ -17,7 +17,7 @@ request.setAttribute("nuiSourcePath", "src/ais/action/master/sekolah/helper/Deta
 request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "DataLoader, DataCriteria");
-request.setAttribute("nuiSourceMethods", new String[]{"butTagihanBaru", "render", "onEvent", "onTagihanRinciBaru", "apakahAda", "initCriteria", "loadData", "display", "run", "onProgress", "reloadGrid", "uploadDataSiswa"});
+request.setAttribute("nuiSourceMethods", new String[]{"butTagihanBaru", "onEvent", "render", "onTagihanRinciBaru", "apakahAda", "initCriteria", "loadData", "display", "run", "onProgress", "reloadGrid", "uploadDataSiswa"});
 request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/sekolah/tagihan.zul?pengaturanBiaya="});
 request.setAttribute("nuiEntityCandidates", new String[]{"Siswa", "NominalBiaya", "Tagihan", "PembayaranSiswaDetail", "DiskonSiswa", "GelombangPendaftaranPsb", "PengaturanBiayaPunyaSiswa", "AsramaSiswaPunyaSiswa", "KelasSiswaPunyaSiswa", "KelasLesSiswaPunyaSiswa", "PengaturanBiayaItemBiaya"});
 %>

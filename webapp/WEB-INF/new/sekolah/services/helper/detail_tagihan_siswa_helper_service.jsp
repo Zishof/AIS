@@ -12,7 +12,7 @@ request.setAttribute("nuiServiceType", "finance");
 request.setAttribute("nuiServiceSourceClass", "DetailTagihanSiswaHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/helper/DetailTagihanSiswaHelper.java");
-request.setAttribute("nuiServiceMethods", new String[]{"butTagihanBaru", "render", "onEvent", "onTagihanRinciBaru", "apakahAda", "initCriteria", "loadData", "display", "run", "onProgress", "reloadGrid", "uploadDataSiswa"});
+request.setAttribute("nuiServiceMethods", new String[]{"butTagihanBaru", "onEvent", "render", "onTagihanRinciBaru", "apakahAda", "initCriteria", "loadData", "display", "run", "onProgress", "reloadGrid", "uploadDataSiswa"});
 request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/sekolah/tagihan.zul?pengaturanBiaya="});
 request.setAttribute("nuiServiceEntities", new String[]{"Siswa", "NominalBiaya", "Tagihan", "PembayaranSiswaDetail", "DiskonSiswa", "GelombangPendaftaranPsb", "PengaturanBiayaPunyaSiswa", "AsramaSiswaPunyaSiswa", "KelasSiswaPunyaSiswa", "KelasLesSiswaPunyaSiswa", "PengaturanBiayaItemBiaya"});
 %>

@@ -12,8 +12,8 @@ request.setAttribute("nuiServiceType", "finance");
 request.setAttribute("nuiServiceSourceClass", "BankSoalAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/BankSoalAction.java");
-request.setAttribute("nuiServiceMethods", new String[]{"onKategori", "doBeforeCompose", "doAfterCompose", "onEvent", "loadData", "render", "onAddExternal", "onAdd", "tampilkanLampiran", "onSave", "initCriteria", "onSearchDefault", "display", "reloadDataFormula", "reloadFormula"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/kategori_bank_soal.zul"});
+request.setAttribute("nuiServiceMethods", new String[]{"onKategori", "doBeforeCompose", "doAfterCompose", "muat", "onEvent", "loadData", "render", "onAddExternal", "onAdd", "tampilkanLampiran", "onSave", "initCriteria", "onSearchDefault", "display", "reloadDataFormula", "reloadFormula"});
+request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/kategori_bank_soal.zul", "/WEB-INF/z/x/y/pages/master/bank_soal_tab_0.zul", "penjelasan_bank_soal.zul", "/WEB-INF/z/x/y/pages/master/penjelasan_bank_soal.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"KategoriBankSoal", "BankSoal", "Fakultas", "Jurusan", "Matapelajaran", "BankSoalDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

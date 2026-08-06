@@ -19,6 +19,6 @@ request.setAttribute("nuiSourceExtends", "MyDetail");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "render", "loadData", "display"});
 request.setAttribute("nuiLegacyRefs", new String[]{});
-request.setAttribute("nuiEntityCandidates", new String[]{"Pedagang"});
+request.setAttribute("nuiEntityCandidates", new String[]{"Pedagang", "Toko"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

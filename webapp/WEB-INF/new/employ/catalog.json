@@ -7,9 +7,9 @@
   "pageTypeCounts": {
     "academic": 5,
     "list": 92,
-    "form": 2,
-    "settings": 4,
     "finance": 1,
+    "settings": 4,
+    "form": 2,
     "report": 1
   },
   "pages": [

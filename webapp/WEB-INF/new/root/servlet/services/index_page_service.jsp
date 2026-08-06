@@ -13,7 +13,7 @@ request.setAttribute("nuiServiceSourceClass", "Index");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/Index.java");
 request.setAttribute("nuiServiceMethods", new String[]{});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/WEB-INF/baru2/index.jsp", "/WEB-INF/j/index.jsp", "/WEB-INF/j/login.jsp", "/WEB-INF/baru/erp.jsp", "/WEB-INF/baru/home.jsp", "/WEB-INF/baru/login2.jsp"});
+request.setAttribute("nuiServiceLegacyRefs", new String[]{"/WEB-INF/new/index.jsp", "/WEB-INF/j/index.jsp", "/WEB-INF/j/login.jsp", "/WEB-INF/baru/ebisnis.jsp", "/WEB-INF/baru/erp.jsp", "/WEB-INF/baru/home.jsp", "/WEB-INF/baru/login2.jsp"});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

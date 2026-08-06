@@ -14,6 +14,6 @@ request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library.helpe
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/helper/ItemPunyaBarcodeHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"setAdd", "initDetail", "onEvent", "initRow"});
 request.setAttribute("nuiServiceLegacyRefs", new String[]{});
-request.setAttribute("nuiServiceEntities", new String[]{"SaldoAwal", "PenerimaanPengadaanItem", "SaldoAwalDetail", "PenerimaanPengadaanItemDetail", "ItemPunyaBarcode", "DetailTransaksi", "TipeItem"});
+request.setAttribute("nuiServiceEntities", new String[]{"SaldoAwal", "PenerimaanPengadaanItem", "SaldoAwalDetail", "PenerimaanPengadaanItemDetail", "ItemPunyaBarcode", "BatchItemPunyaBarcode", "Item", "Perpustakaan", "DetailTransaksi", "TipeItem"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

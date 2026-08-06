@@ -17,7 +17,7 @@ request.setAttribute("nuiSourcePath", "src/ais/action/master/helper/PenilaianSkr
 request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "DataLoader");
-request.setAttribute("nuiSourceMethods", new String[]{"render", "onEvent", "loadData", "display", "realoadNilai"});
+request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "render", "loadData", "display", "realoadNilai"});
 request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Skripsi", "SkripsiPunyaKomponenPenilaianSkripsi", "MahasiswaRequestTugasAkhir"});
 %>

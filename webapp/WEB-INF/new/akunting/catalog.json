@@ -6,8 +6,8 @@
   "count": 100,
   "pageTypeCounts": {
     "finance": 83,
-    "report": 5,
-    "dashboard": 12
+    "dashboard": 12,
+    "report": 5
   },
   "pages": [
     {
@@ -77,8 +77,8 @@
       "sourcePackage": "ais.action.master.akunting",
       "sourcePath": "src/ais/action/master/akunting/DaftarPengajuanTransferAction.java",
       "pageType": "finance",
-      "methodCount": 7,
-      "legacyRefCount": 0,
+      "methodCount": 8,
+      "legacyRefCount": 4,
       "subpackage": "Utama",
       "search": "Daftar Pengajuan Transfer DaftarPengajuanTransferAction ais.action.master.akunting finance Utama"
     },
@@ -486,7 +486,7 @@
       "sourcePath": "src/ais/action/master/akunting/PostingJurnalAction.java",
       "pageType": "finance",
       "methodCount": 13,
-      "legacyRefCount": 11,
+      "legacyRefCount": 23,
       "subpackage": "Utama",
       "search": "Posting Jurnal PostingJurnalAction ais.action.master.akunting finance Utama"
     },
@@ -689,8 +689,8 @@
       "sourcePackage": "ais.action.master.akunting",
       "sourcePath": "src/ais/action/master/akunting/StandingInstructionAction.java",
       "pageType": "finance",
-      "methodCount": 7,
-      "legacyRefCount": 0,
+      "methodCount": 8,
+      "legacyRefCount": 2,
       "subpackage": "Utama",
       "search": "Standing Instruction StandingInstructionAction ais.action.master.akunting finance Utama"
     },
@@ -725,8 +725,8 @@
       "sourcePackage": "ais.action.master.akunting",
       "sourcePath": "src/ais/action/master/akunting/TransitoriAction.java",
       "pageType": "finance",
-      "methodCount": 6,
-      "legacyRefCount": 0,
+      "methodCount": 7,
+      "legacyRefCount": 2,
       "subpackage": "Utama",
       "search": "Transitori TransitoriAction ais.action.master.akunting finance Utama"
     },

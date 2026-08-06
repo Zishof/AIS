@@ -28,7 +28,7 @@
       "sourcePackage": "ais.action.master.akreditasi",
       "sourcePath": "src/ais/action/master/akreditasi/LaporanAkreditasiLamdikS1.java",
       "pageType": "report",
-      "methodCount": 2,
+      "methodCount": 0,
       "legacyRefCount": 0,
       "subpackage": "Utama",
       "search": "Laporan Akreditasi Lamdik 1 LaporanAkreditasiLamdikS1 ais.action.master.akreditasi report Utama"
@@ -40,7 +40,7 @@
       "sourcePackage": "ais.action.master.akreditasi",
       "sourcePath": "src/ais/action/master/akreditasi/LaporanAkreditasiLKPS_S1.java",
       "pageType": "report",
-      "methodCount": 2,
+      "methodCount": 0,
       "legacyRefCount": 0,
       "subpackage": "Utama",
       "search": "Laporan Akreditasi 1 LaporanAkreditasiLKPS_S1 ais.action.master.akreditasi report Utama"

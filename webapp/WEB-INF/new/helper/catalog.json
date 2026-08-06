@@ -3,12 +3,12 @@
   "generatorVersion": "1.0.0",
   "module": "helper",
   "label": "Helper & Komponen Pendukung",
-  "count": 523,
+  "count": 525,
   "pageTypeCounts": {
     "academic": 214,
     "form": 16,
     "list": 184,
-    "finance": 56,
+    "finance": 58,
     "settings": 19,
     "report": 18,
     "dashboard": 7,
@@ -2484,7 +2484,7 @@
       "sourcePackage": "ais.action.master.helper",
       "sourcePath": "src/ais/action/master/helper/GenericRevisiHelper.java",
       "pageType": "list",
-      "methodCount": 10,
+      "methodCount": 11,
       "legacyRefCount": 0,
       "subpackage": "Utama",
       "search": "Generic Revisi Helper GenericRevisiHelper ais.action.master.helper list Utama"
@@ -2664,7 +2664,7 @@
       "sourcePackage": "ais.action.master.helper",
       "sourcePath": "src/ais/action/master/helper/KegiatanPersistenceHelper.java",
       "pageType": "list",
-      "methodCount": 21,
+      "methodCount": 23,
       "legacyRefCount": 0,
       "subpackage": "Utama",
       "search": "Kegiatan Persistence Helper KegiatanPersistenceHelper ais.action.master.helper list Utama"
@@ -2832,7 +2832,7 @@
       "sourcePackage": "ais.action.master.helper",
       "sourcePath": "src/ais/action/master/helper/KonfigurasiKalenderAkademikHelper.java",
       "pageType": "settings",
-      "methodCount": 5,
+      "methodCount": 8,
       "legacyRefCount": 0,
       "subpackage": "Utama",
       "search": "Konfigurasi Kalender Akademik Helper KonfigurasiKalenderAkademikHelper ais.action.master.helper settings Utama"
@@ -3378,6 +3378,18 @@
       "search": "Pembayaran Nominal Modifikasi Helper PembayaranNominalModifikasiHelper ais.action.master.helper finance Utama"
     },
     {
+      "page": "pembayaran_online_mahasiswa",
+      "title": "Pembayaran Online Mahasiswa",
+      "sourceClass": "PembayaranOnlineMahasiswa",
+      "sourcePackage": "ais.action.master.helper",
+      "sourcePath": "src/ais/action/master/helper/PembayaranOnlineMahasiswa.java",
+      "pageType": "finance",
+      "methodCount": 3,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Pembayaran Online Mahasiswa PembayaranOnlineMahasiswa ais.action.master.helper finance Utama"
+    },
+    {
       "page": "pembayaran_util_helper",
       "title": "Pembayaran Util Helper",
       "sourceClass": "PembayaranUtilHelper",
@@ -3744,7 +3756,7 @@
       "sourcePackage": "ais.action.master.helper",
       "sourcePath": "src/ais/action/master/helper/PertemuanHelper.java",
       "pageType": "list",
-      "methodCount": 3,
+      "methodCount": 4,
       "legacyRefCount": 0,
       "subpackage": "Utama",
       "search": "Pertemuan Helper PertemuanHelper ais.action.master.helper list Utama"
@@ -4116,7 +4128,7 @@
       "sourcePackage": "ais.action.master.helper",
       "sourcePath": "src/ais/action/master/helper/RevisiCicilanPembayaranHelper.java",
       "pageType": "finance",
-      "methodCount": 0,
+      "methodCount": 1,
       "legacyRefCount": 0,
       "subpackage": "Utama",
       "search": "Revisi Cicilan Pembayaran Helper RevisiCicilanPembayaranHelper ais.action.master.helper finance Utama"
@@ -4728,7 +4740,7 @@
       "sourcePackage": "ais.action.master.helper",
       "sourcePath": "src/ais/action/master/helper/TugasMandiriHelper.java",
       "pageType": "list",
-      "methodCount": 12,
+      "methodCount": 13,
       "legacyRefCount": 0,
       "subpackage": "Utama",
       "search": "Tugas Mandiri Helper TugasMandiriHelper ais.action.master.helper list Utama"
@@ -5605,7 +5617,7 @@
       "sourcePath": "src/ais/action/master/helper/profile/ProfileMahasiswa.java",
       "pageType": "academic",
       "methodCount": 4,
-      "legacyRefCount": 8,
+      "legacyRefCount": 7,
       "subpackage": "profile",
       "search": "Profile Mahasiswa ProfileMahasiswa ais.action.master.helper.profile academic profile"
     },
@@ -6040,6 +6052,18 @@
       "legacyRefCount": 0,
       "subpackage": "util",
       "search": "Warna Status Lulus Util WarnaStatusLulusUtil ais.action.master.helper.util list util"
+    },
+    {
+      "page": "virtualaccount/bankaltimtara_response_util",
+      "title": "Bankaltimtara Response Util",
+      "sourceClass": "BankaltimtaraResponseUtil",
+      "sourcePackage": "ais.action.master.helper.virtualaccount",
+      "sourcePath": "src/ais/action/master/helper/virtualaccount/BankaltimtaraResponseUtil.java",
+      "pageType": "finance",
+      "methodCount": 4,
+      "legacyRefCount": 0,
+      "subpackage": "virtualaccount",
+      "search": "Bankaltimtara Response Util BankaltimtaraResponseUtil ais.action.master.helper.virtualaccount finance virtualaccount"
     },
     {
       "page": "virtualaccount/download_no_registrasi_calon_mahasiswa",

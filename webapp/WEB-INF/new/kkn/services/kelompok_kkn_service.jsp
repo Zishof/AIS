@@ -14,6 +14,6 @@ request.setAttribute("nuiServiceSourcePackage", "ais.action.master.kkn");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/kkn/KelompokKknAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "initCriteria", "run", "tampilkanInfoDosen", "cetakDataCustomButton", "displayRow", "render", "onAdd", "onSave", "onSearchDefault", "getDspaceKkn", "getDspace"});
 request.setAttribute("nuiServiceLegacyRefs", new String[]{});
-request.setAttribute("nuiServiceEntities", new String[]{"Dosen", "Kkn", "KelompokKkn", "MahasiswaDapatKelompokKkn", "Detailperkuliahan", "KknPunyaPersyaratan", "MahasiswaKknPersyaratan", "LampiranKknMahasiswa", "MahasiswaDaftarKkn", "Lokasi", "Sertifikat"});
+request.setAttribute("nuiServiceEntities", new String[]{"Dosen", "Kkn", "KelompokKkn", "MahasiswaDapatKelompokKkn", "Detailperkuliahan", "KknPunyaPersyaratan", "MahasiswaKknPersyaratan", "LampiranKknMahasiswa", "Pertemuan", "MahasiswaDaftarKkn", "Lokasi", "Sertifikat"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

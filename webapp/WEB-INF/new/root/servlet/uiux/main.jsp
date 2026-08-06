@@ -18,7 +18,7 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "HttpServlet");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"checkAndSetUserSession"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/WEB-INF/z/x/y/pages/main/index.zul", "/WEB-INF/baru/modul/common/hak_akses.jsp", "/WEB-INF/baru/modul/kantin/member/form_registrasi_calon.jsp", "/WEB-INF/baru/modul/kantin/member/landing_page.jsp", "/WEB-INF/baru/index.jsp", "/WEB-INF/baru2/index.jsp", "/WEB-INF/z/x/y/pages/main/index2.zul"});
+request.setAttribute("nuiLegacyRefs", new String[]{"/WEB-INF/baru/modul/kantin/index.jsp", "/WEB-INF/z/x/y/pages/main/index.zul", "/WEB-INF/baru/modul/common/hak_akses.jsp", "/WEB-INF/baru/modul/kantin/member/form_registrasi_calon.jsp", "/WEB-INF/baru/index.jsp", "/WEB-INF/new/index.jsp", "/WEB-INF/z/x/y/pages/main/index2.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

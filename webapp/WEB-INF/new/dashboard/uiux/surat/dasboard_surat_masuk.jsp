@@ -17,8 +17,8 @@ request.setAttribute("nuiSourcePath", "src/ais/action/master/dashboard/surat/Das
 request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyWindow");
 request.setAttribute("nuiSourceImplements", "");
-request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "initCriteria", "clear", "setValue", "getValues", "getTotal", "getMaxRowTotal"});
+request.setAttribute("nuiSourceMethods", new String[]{"compare", "onEvent", "initCriteria", "clear", "setValue", "getValues", "getTotal", "getMaxRowTotal"});
 request.setAttribute("nuiLegacyRefs", new String[]{});
-request.setAttribute("nuiEntityCandidates", new String[]{"SuratMasuk", "AlurPersetujuanSuratMasukStatus", "OpsiSuratMasukValue", "FotoGambarSuratMasuk", "PeminjamSurat", "PeminjamanSuratItemDetail", "KembaliSuratItemDetail", "LokerSurat", "KlasifikasiSuratMasuk"});
+request.setAttribute("nuiEntityCandidates", new String[]{"JenisJabatan", "SuratMasuk", "AlurPersetujuanSuratMasukStatus", "OpsiSuratMasukValue", "FotoGambarSuratMasuk", "PeminjamSurat", "PeminjamanSuratItemDetail", "KembaliSuratItemDetail", "LokerSurat", "KlasifikasiSuratMasuk"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -12,8 +12,8 @@ request.setAttribute("nuiServiceType", "settings");
 request.setAttribute("nuiServiceSourceClass", "KonfigurasiTampilanSiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/KonfigurasiTampilanSiswaAction.java");
-request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "keyDesc", "apakahAdaTidakAktif", "apakahAdaTidakWajib", "wajibIsi", "statusWajibIsi", "dataYangWajibDiisi", "onTampil"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
+request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "muat", "keyDesc", "apakahAdaTidakAktif", "apakahAdaTidakWajib", "wajibIsi", "statusWajibIsi", "dataYangWajibDiisi", "onTampil"});
+request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/sekolah/jenis_tinggal_siswa.zul", "/pages/master/sekolah/alat_transportasi_siswa.zul", "/pages/master/sekolah/penghasilan_orang_tua_siswa.zul", "/pages/master/sekolah/pekerjaan_ortu_siswa.zul", "/pages/master/sekolah/pendidikan_orang_tua_siswa.zul", "/pages/master/sekolah/status_awal_siswa.zul", "/pages/master/sekolah/status_keluar_siswa.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

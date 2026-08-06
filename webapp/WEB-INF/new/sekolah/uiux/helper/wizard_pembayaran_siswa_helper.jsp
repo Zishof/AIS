@@ -19,6 +19,6 @@ request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"buka", "bukaCalon", "tampilkan"});
 request.setAttribute("nuiLegacyRefs", new String[]{});
-request.setAttribute("nuiEntityCandidates", new String[]{"PengaturanBiaya", "AkunPembayaranSiswa"});
+request.setAttribute("nuiEntityCandidates", new String[]{"PengaturanBiaya", "PembayaranSiswaDetail", "AkunPembayaranSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

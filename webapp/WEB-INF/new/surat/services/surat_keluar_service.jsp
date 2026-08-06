@@ -12,7 +12,7 @@ request.setAttribute("nuiServiceType", "workflow");
 request.setAttribute("nuiServiceSourceClass", "SuratKeluarAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.surat");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/surat/SuratKeluarAction.java");
-request.setAttribute("nuiServiceMethods", new String[]{"onStatistik", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "cetakDisposisi", "infoDisposisi", "infoDisposisiBagan", "onAdd", "onAddExternal", "generateCode", "kodeSudahDipakai", "generateCodeAgenda", "getindex", "initJenisJabatan", "initParameter", "onSave", "initCriteria", "onSearchDefault", "form", "istilah", "ambil", "ambilClass", "setPersetujuan", "cetakData"});
+request.setAttribute("nuiServiceMethods", new String[]{"onStatistik", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "cetakDisposisi", "infoDisposisi", "infoDisposisiBagan", "compare", "onAdd", "onAddExternal", "generateCode", "kodeSudahDipakai", "generateCodeAgenda", "getindex", "initJenisJabatan", "initParameter", "onSave", "initCriteria", "onSearchDefault", "form", "istilah", "ambil", "ambilClass", "setPersetujuan", "cetakData"});
 request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KlasifikasiSuratKeluar", "KelompokNomorSurat", "SuratKeluar", "OpsiSuratKeluarValue", "KlasifikasiSuratKeluarParemeterValue", "AlurPersetujuanSuratKeluarStatus", "JenisJabatan", "Pejabat", "Pegawai", "OpsiSuratKeluar", "KlasifikasiSuratKeluarParemeter", "String", "Integer", "Double", "Date", "AlurPersetujuanSuratKeluar", "ItemBiaya", "CicilanPembayaran", "Tbmuser", "Jurusan"});
 %>

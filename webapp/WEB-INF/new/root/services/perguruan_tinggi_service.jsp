@@ -12,8 +12,8 @@ request.setAttribute("nuiServiceType", "academic");
 request.setAttribute("nuiServiceSourceClass", "PerguruanTinggiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/PerguruanTinggiAction.java");
-request.setAttribute("nuiServiceMethods", new String[]{"reInitByDomain", "doBeforeCompose", "doAfterCompose", "onEvent", "run", "render", "getDspace", "init", "onAdd", "buatTema", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/berkas_hasil_akreditasi.zul?perguruanTinggi="});
+request.setAttribute("nuiServiceMethods", new String[]{"reInitByDomain", "doBeforeCompose", "doAfterCompose", "onEvent", "run", "muat", "render", "getDspace", "init", "onAdd", "buatTema", "onSave", "initCriteria", "onSearchDefault"});
+request.setAttribute("nuiServiceLegacyRefs", new String[]{"/WEB-INF/z/x/y/pages/master/perguruan_tinggi_tab_0_lembaga_ini.zul", "/WEB-INF/z/x/y/pages/master/perguruan_tinggi_lain.zul", "/pages/master/berkas_hasil_akreditasi.zul?perguruanTinggi="});
 request.setAttribute("nuiServiceEntities", new String[]{"PerguruanTinggi", "Pendaftar", "BerkasHasilAkreditasiPunyaNama"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

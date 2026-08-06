@@ -17,7 +17,7 @@ request.setAttribute("nuiSourcePath", "src/ais/action/master/helper/KonfigurasiK
 request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "DataLoader");
-request.setAttribute("nuiSourceMethods", new String[]{"render", "onEvent", "loadData", "display", "onSave"});
+request.setAttribute("nuiSourceMethods", new String[]{"render", "onEvent", "loadData", "display", "displayPilihanInline", "simpanInline", "refreshInline", "onSave"});
 request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Konfigurasi", "KonfigurasiKalenderAkademik"});
 %>

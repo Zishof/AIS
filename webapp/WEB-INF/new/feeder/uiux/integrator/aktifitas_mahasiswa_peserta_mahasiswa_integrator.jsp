@@ -17,7 +17,7 @@ request.setAttribute("nuiSourcePath", "src/ais/action/master/feeder/integrator/A
 request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyWindow");
 request.setAttribute("nuiSourceImplements", "");
-request.setAttribute("nuiSourceMethods", new String[]{});
+request.setAttribute("nuiSourceMethods", new String[]{"muat"});
 request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{});
 %>
