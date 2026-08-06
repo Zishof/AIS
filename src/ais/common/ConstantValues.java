@@ -648,6 +648,27 @@ public class ConstantValues {
 				}
 			}
 
+			// FALLBACK DB (insiden 2026-08-06, inquiry H2H BSI utk mahasiswa angkatan 2022
+			// semester 9 selalu "tidak ditemukan" walau tagihannya nyata & valid): cache
+			// in-memory di atas HANYA di-warm-start utk mahasiswa 3 tahun angkatan terakhir
+			// (lihat InitDataHelper -- Restrictions.gt("tahunangkatan", tahunSekarang-3)).
+			// Mahasiswa yg lebih lama TAK PERNAH masuk cache ini sehingga selalu null di
+			// sini, padahal datanya valid di DB (layar "Pilih Mahasiswa" staf query DB
+			// langsung, tanpa batasan ini, makanya staf selalu berhasil menemukannya).
+			Session session = null;
+			try {
+				session = HibernateUtil.openSession();
+				Mahasiswa mahasiswa = (Mahasiswa) session.createCriteria(Mahasiswa.class)
+						.add(Restrictions.eq("nim", nim).ignoreCase()).setMaxResults(1).uniqueResult();
+				if (mahasiswa != null) {
+					return mahasiswa;
+				}
+				return (Mahasiswa) session.createCriteria(Mahasiswa.class)
+						.add(Restrictions.eq("nama", nim.trim()).ignoreCase()).setMaxResults(1).uniqueResult();
+			} finally {
+				HibernateUtil.closeSessionQuietly(session);
+			}
+
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/ConstantValues.java:650");
 		}

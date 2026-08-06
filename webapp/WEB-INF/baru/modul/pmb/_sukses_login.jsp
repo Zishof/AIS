@@ -27,6 +27,26 @@
 <%@page import="ais.common.VerifikasiPMBHtmlHelper"%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 
+<%!
+private boolean containsIgnoreCasePmbPortal(String text, String pattern) {
+    return text != null && pattern != null && text.toLowerCase().indexOf(pattern.toLowerCase()) >= 0;
+}
+
+private boolean isPendaftaranGratisPmbPortal(BiodataCalonMahasiswa cama) {
+    if (cama == null) {
+        return false;
+    }
+    String namaPaket = cama.getPaket() == null ? "" : cama.getPaket().getNama();
+    String namaSeleksi = cama.getJenisSeleksi() == null ? "" : cama.getJenisSeleksi().getNama();
+    String namaGelombang = cama.getGelombangPendaftaran() == null ? "" : cama.getGelombangPendaftaran().getNama();
+    String gabungan = namaPaket + " " + namaSeleksi + " " + namaGelombang;
+    return containsIgnoreCasePmbPortal(gabungan, "kip")
+            || containsIgnoreCasePmbPortal(gabungan, "beasiswa")
+            || containsIgnoreCasePmbPortal(gabungan, "gratis")
+            || containsIgnoreCasePmbPortal(gabungan, "bebas");
+}
+%>
+
 <%
 String rnd = Common.getGeneratedBarCode(7);
 
@@ -140,7 +160,7 @@ try {
 		        
 		        if (harusBayarSblmLogin) {
 		            Kegiatan reg = cama.getPembayaranRegistrasi();
-		            if (reg == null || reg.getPersentaseLunas() < 0.01) {
+		            if (!isPendaftaranGratisPmbPortal(cama) && (reg == null || reg.getPersentaseLunas() < 0.01)) {
 		                allowEditBiodata = false;
 		                denyEditMessage = Common.getBahasaConfig("Calon mahasiswa harus melakukan pembayaran registrasi terlebih dahulu sebelum dapat melengkapi biodata dan berkas.");
 		            }
@@ -228,7 +248,9 @@ try {
             if (kegReg == null) {
                 kegReg = cama.chekPembayaranRegistrasi(hibSession);
             }
-            if (kegReg != null && (kegReg.getAmount() + kegReg.getAmountTerhutang()) < 0.01) {
+            if (kegReg == null && isPendaftaranGratisPmbPortal(cama)) {
+                teksBayarReg = "<span class='badge bg-success rounded-pill px-3 py-2 shadow-sm'><i class='fas fa-circle-check me-1'></i>" + Common.getBahasaConfig("Bebas Pembayaran (Gratis)") + "</span>";
+            } else if (kegReg != null && (kegReg.getAmount() + kegReg.getAmountTerhutang()) < 0.01) {
                 teksBayarReg = "<span class='badge bg-success rounded-pill px-3 py-2 shadow-sm'><i class='fas fa-circle-check me-1'></i>" + Common.getBahasaConfig("Bebas Pembayaran (Gratis)") + "</span>";
             } else if (kegReg == null || (kegReg.getAmount() < 0.01 && kegReg.getPersentaseLunas() < 0.01)) {
                 teksBayarReg = "<span class='badge bg-danger rounded-pill px-3 py-2 shadow-sm'><i class='fas fa-circle-exclamation me-1'></i>" + Common.getBahasaConfig("Belum Membayar") + " " + (kegReg == null ? "" : Common.numberFormat.get().format(kegReg.getAmount() + kegReg.getAmountTerhutang())) + "</span>";

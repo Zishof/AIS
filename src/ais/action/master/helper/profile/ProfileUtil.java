@@ -1322,6 +1322,7 @@ public class ProfileUtil {
 				final PertemuanFileContent pertemuanFileContent = (PertemuanFileContent) data[0];
 
 				if (janganTampilkanYgini != null && janganTampilkanYgini instanceof PertemuanFileContent
+						&& janganTampilkanYgini.getId() != null
 						&& janganTampilkanYgini.getId().equals(pertemuanFileContent.getId())) {
 					continue;
 				}
@@ -1550,6 +1551,7 @@ public class ProfileUtil {
 				final Tugas tugas = (Tugas) data[0];
 
 				if (janganTampilkanYgini != null && janganTampilkanYgini instanceof Tugas
+						&& janganTampilkanYgini.getId() != null
 						&& janganTampilkanYgini.getId().equals(tugas.getId())) {
 					continue;
 				}
@@ -1825,6 +1827,7 @@ public class ProfileUtil {
 				final PertemuanPunyaUjian pertemuanPunyaUjian = (PertemuanPunyaUjian) data[0];
 
 				if (janganTampilkanYgini != null && janganTampilkanYgini instanceof Ujian
+						&& janganTampilkanYgini.getId() != null
 						&& pertemuanPunyaUjian.getUjian() != null
 						&& janganTampilkanYgini.getId().equals(pertemuanPunyaUjian.getUjian().getId())) {
 					continue;
@@ -2034,6 +2037,7 @@ public class ProfileUtil {
 				final AudioPertemuan audioPertemuan = (AudioPertemuan) data[0];
 
 				if (janganTampilkanYgini != null && janganTampilkanYgini instanceof AudioPertemuan
+						&& janganTampilkanYgini.getId() != null
 						&& janganTampilkanYgini.getId().equals(audioPertemuan.getId())) {
 					continue;
 				}
@@ -2232,6 +2236,7 @@ public class ProfileUtil {
 				final VideoPertemuan videoPertemuan = (VideoPertemuan) data[0];
 
 				if (janganTampilkanYgini != null && janganTampilkanYgini instanceof VideoPertemuan
+						&& janganTampilkanYgini.getId() != null
 						&& janganTampilkanYgini.getId().equals(videoPertemuan.getId())) {
 					continue;
 				}
