@@ -619,42 +619,18 @@ public class ConstantValues {
 
 	@SuppressWarnings("unchecked")
 	public static Mahasiswa ambilByNim(String nim) {
+		// Query LANGSUNG ke DB (2026-08-06, insiden BSI): versi lama HANYA scan cache
+		// in-memory (MemoryCacheUtil), yang di-warm-start terbatas mahasiswa 3 tahun
+		// angkatan terakhir (lihat InitDataHelper -- Restrictions.gt("tahunangkatan",
+		// tahunSekarang-3)). Mahasiswa lebih lama (mis. angkatan 2022 semester 9) TAK
+		// PERNAH masuk cache ini sehingga selalu "tidak ditemukan" di inquiry H2H bank,
+		// padahal datanya valid di DB. Query langsung dibuat cepat via index fungsional
+		// idx_mhs_lower_nim/idx_mhs_lower_nama (InitIndex.initIndexAmbilByNimFallbackSuperFast).
 		try {
-
 			if (nim == null || nim.trim().isEmpty()) {
 				return null;
 			}
 
-			Map<String, GeneralValueObject> b = ais.common.MemoryCacheUtil.get(Mahasiswa.class.getName());
-			for (GeneralValueObject generalValueObject : b.values()) {
-				try {
-					Mahasiswa mahasiswa = (Mahasiswa) generalValueObject;
-					if (mahasiswa != null && mahasiswa.getNim().equalsIgnoreCase(nim)) {
-						return mahasiswa;
-					}
-				} catch (Exception e) {
-					e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/ConstantValues.java:634");
-				}
-			}
-
-			for (GeneralValueObject generalValueObject : b.values()) {
-				try {
-					Mahasiswa mahasiswa = (Mahasiswa) generalValueObject;
-					if (mahasiswa != null && mahasiswa.getNama().trim().equalsIgnoreCase(nim.trim())) {
-						return mahasiswa;
-					}
-				} catch (Exception e) {
-					e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/ConstantValues.java:645");
-				}
-			}
-
-			// FALLBACK DB (insiden 2026-08-06, inquiry H2H BSI utk mahasiswa angkatan 2022
-			// semester 9 selalu "tidak ditemukan" walau tagihannya nyata & valid): cache
-			// in-memory di atas HANYA di-warm-start utk mahasiswa 3 tahun angkatan terakhir
-			// (lihat InitDataHelper -- Restrictions.gt("tahunangkatan", tahunSekarang-3)).
-			// Mahasiswa yg lebih lama TAK PERNAH masuk cache ini sehingga selalu null di
-			// sini, padahal datanya valid di DB (layar "Pilih Mahasiswa" staf query DB
-			// langsung, tanpa batasan ini, makanya staf selalu berhasil menemukannya).
 			Session session = null;
 			try {
 				session = HibernateUtil.openSession();

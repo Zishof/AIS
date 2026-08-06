@@ -52,7 +52,7 @@ public class EksporFromFeederAction extends GenericAutowireComposer {
 	public static void display() {
 		MyWindow myWindow = new MyWindow("Terhubung ke Feeder", "none", true);
 		myWindow.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
-		myWindow.setHeight("400px");
+		myWindow.setHeight("80%");
 		myWindow.setWidth("500px");
 		myWindow.appendChild(new MyInclude("/pages/master/export_from_feeder.zul?hidden=true"));
 

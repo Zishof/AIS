@@ -1027,8 +1027,15 @@ public class InitIndex {
 				"CREATE INDEX IF NOT EXISTS idx_pembayaran_siswa_tabungan_tgl ON sekolah.pembayaran_siswa (tanggal DESC, id DESC) WHERE daritabungan > 0.1",
 
 				"CREATE INDEX IF NOT EXISTS idx_mhs_jurusan_nama_nim ON public.mahasiswa (jurusan, nama, nim, id)",
-				"CREATE INDEX IF NOT EXISTS idx_mhs_nama_trgm_deposit ON public.mahasiswa USING gin (nama gin_trgm_ops)",
-				"CREATE INDEX IF NOT EXISTS idx_mhs_nim_trgm_deposit ON public.mahasiswa USING gin (nim gin_trgm_ops)",
+
+				// REDUNDAN: definisi identik dgn idx_trgm_mhs_nama/idx_trgm_mhs_nim yang sudah
+				// ada di initEksekusiQueryIndex() (blok "INDEKS PENCARIAN TEKS GIN"), cuma beda
+				// nama & kualifikasi skema ("mahasiswa" vs "public.mahasiswa" -- tabel FISIK sama,
+				// jadi guard dedup nama+signature di file ini tidak menangkapnya) -> 2 index GIN
+				// kembar utk kolom sama memperlambat INSERT/UPDATE tanpa manfaat baca tambahan.
+				// Di-DROP di sini, dipertahankan yang sudah ada (idx_trgm_mhs_nama/idx_trgm_mhs_nim).
+				"DROP INDEX IF EXISTS idx_mhs_nama_trgm_deposit",
+				"DROP INDEX IF EXISTS idx_mhs_nim_trgm_deposit",
 				"CREATE INDEX IF NOT EXISTS idx_bcm_prodi1_lulus_nama ON public.biodata_calon_mahasiswa (prodi_1, prodi_lulus, nama, no_registrasi, id)",
 				"CREATE INDEX IF NOT EXISTS idx_bcm_nama_trgm_deposit ON public.biodata_calon_mahasiswa USING gin (nama gin_trgm_ops)",
 				"CREATE INDEX IF NOT EXISTS idx_bcm_noreg_trgm_deposit ON public.biodata_calon_mahasiswa USING gin (no_registrasi gin_trgm_ops)",
@@ -1511,6 +1518,47 @@ public class InitIndex {
 	}
 
 	/**
+	 * Index untuk fallback DB baru di {@code ConstantValues.ambilByNim} (2026-08-06).
+	 *
+	 * <p><b>Konteks.</b> {@code ambilByNim} sebelumnya HANYA scan cache in-memory
+	 * ({@code MemoryCacheUtil}), yang di-warm-start terbatas mahasiswa 3 tahun angkatan
+	 * terakhir ({@code InitDataHelper}) — mahasiswa lebih lama SELALU "tidak ditemukan" di
+	 * inquiry H2H bank (insiden BSI, mahasiswa angkatan 2022 semester 9) walau datanya valid.
+	 * Fix menambah fallback query DB langsung: {@code Restrictions.eq("nim", nim).ignoreCase()}
+	 * dan (fallback kedua) {@code Restrictions.eq("nama", nim).ignoreCase()} pada
+	 * {@code public.mahasiswa}.</p>
+	 *
+	 * <p><b>Kenapa index BARU diperlukan.</b> Hibernate {@code ignoreCase()} menghasilkan
+	 * {@code WHERE lower(nim) = ?} / {@code WHERE lower(nama) = ?} — index BIASA pada kolom
+	 * {@code nim}/{@code nama} TIDAK bisa dipakai planner untuk bentuk ekspresi {@code lower(...)}
+	 * ini; wajib index FUNGSIONAL {@code (lower(kolom))}. Index GIN trigram yang sudah ada
+	 * ({@code idx_trgm_mhs_nim}/{@code idx_trgm_mhs_nama}, utk {@code LIKE '%..%'}) juga TIDAK
+	 * membantu query kesetaraan (=) ini — beda bentuk operasi, beda tipe index.</p>
+	 *
+	 * <p><b>Anti-duplikat.</b> Dicek: tidak ada index {@code (lower(nim))}/{@code (lower(nama))}
+	 * di tempat lain pada file ini sebelum penambahan ini.</p>
+	 */
+	private static void initIndexAmbilByNimFallbackSuperFast() {
+		String[] indexes = new String[] {
+				"CREATE INDEX IF NOT EXISTS idx_mhs_lower_nim ON public.mahasiswa (lower(nim))",
+				"CREATE INDEX IF NOT EXISTS idx_mhs_lower_nama ON public.mahasiswa (lower(nama))" };
+		for (String sql : indexes) {
+			try {
+				eksekusiSql10Menit(sql);
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e,
+						"auto-audit(empty-catch) src/ais/common/InitIndex.java:initIndexAmbilByNimFallbackSuperFast");
+			}
+		}
+		try {
+			eksekusiSql10Menit("ANALYZE public.mahasiswa");
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit(empty-catch) src/ais/common/InitIndex.java:initIndexAmbilByNimFallbackSuperFast-analyze");
+		}
+	}
+
+	/**
 	 * Index untuk UPLOAD / DOWNLOAD / HAPUS perencanaan anggaran (RAB) di
 	 * {@code WorkspaceRevisiAction} / {@code WorkspaceRevisiBulananAction}.
 	 *
@@ -1663,6 +1711,7 @@ public class InitIndex {
 		initIndexAlurSopWorkflowSuperFast();
 		initIndexSekolahElearningSuperFast();
 		initIndexInformasiPembayaranMahasiswaSuperFast();
+		initIndexAmbilByNimFallbackSuperFast();
 		initIndexRevisiEnversGenerik();
 		initIndexRabWorkspaceUploadHapus();
 		initIndexProdukKunciUnik();
