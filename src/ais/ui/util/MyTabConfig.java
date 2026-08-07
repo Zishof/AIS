@@ -46,4 +46,22 @@ public class MyTabConfig extends Tab {
 		return this;
 	}
 
+	/**
+	 * Telan error tampilan "Exactly one selected tab is required: []" (race klien vs
+	 * tabbox server yang sudah kosong/dibangun ulang) -- sama seperti {@link MyTab#service}.
+	 * Lihat memori project: tab-exactly-one-selected-guard.
+	 */
+	@Override
+	public void service(AuRequest request, boolean everError) {
+		try {
+			super.service(request, everError);
+		} catch (UiException e) {
+			String msg = e.getMessage() == null ? "" : e.getMessage();
+			if (msg.indexOf("Exactly one selected tab is required") >= 0) {
+				return;
+			}
+			throw e;
+		}
+	}
+
 }
