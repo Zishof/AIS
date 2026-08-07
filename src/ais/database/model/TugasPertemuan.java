@@ -217,7 +217,7 @@ public class TugasPertemuan extends Tugas {
 				: (Pertemuan) GeneralValueObject.ambilData(Pertemuan.class, getPertemuan().toString());
 	}
 
-	@Column(name = "pertemuan")
+	@Column(name = "pertemuan", nullable = false)
 	public Long getPertemuan() {
 		return pertemuan;
 	}

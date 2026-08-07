@@ -145,10 +145,29 @@ public class GenericCrudQueryService {
             GenericCrudFieldDefinition field = (GenericCrudFieldDefinition) fields.next();
             if (field.isSensitive() || !field.isReadable() || definition.getIdentifierProperty().equals(field.getProperty())) { continue; }
             Object value = metadata.getPropertyValue(object, field.getProperty(), EntityMode.POJO);
-            if (value instanceof GeneralValueObject) { value = String.valueOf(value); }
-            row.put(field.getProperty(), value);
+            if (value instanceof GeneralValueObject && field.getRelationEntityKey() != null) {
+                ClassMetadata relationMetadata = HibernateUtil.getSessionFactory().getClassMetadata(value.getClass());
+                if (relationMetadata == null) relationMetadata = HibernateUtil.getSessionFactory().getClassMetadata(field.getRelationEntityKey());
+                Object relationId = relationMetadata == null ? null : relationMetadata.getIdentifier(value, EntityMode.POJO);
+                row.put(field.getProperty(), relationId);
+                row.put(field.getProperty() + "__label", relationLabel(value, relationMetadata,
+                        field.getRelationDisplayProperty(), relationId));
+            } else {
+                if (value instanceof GeneralValueObject) value = String.valueOf(value);
+                row.put(field.getProperty(), value);
+            }
         }
         return row;
+    }
+    private String relationLabel(Object value, ClassMetadata metadata, String display, Object id) {
+        if (metadata != null && display != null) {
+            try {
+                Object label = metadata.getIdentifierPropertyName().equals(display) ? id
+                        : metadata.getPropertyValue(value, display, EntityMode.POJO);
+                if (label != null && String.valueOf(label).trim().length() > 0) return String.valueOf(label);
+            } catch (Exception ignored) { }
+        }
+        return id == null ? "" : String.valueOf(id);
     }
     private void close(Session session) { try { if (session != null && session.isOpen()) session.close(); } catch (Exception ignored) { } }
 }

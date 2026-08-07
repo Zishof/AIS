@@ -100,6 +100,10 @@ public final class GenericCrudHttpController {
             } else if ("lookup".equals(action)) {
                 payload = new GenericCrudLookupService().lookup(context, request.getParameter("q"),
                         number(request.getParameter("page"), 1), number(request.getParameter("pageSize"), 20));
+            } else if ("relation_lookup".equals(action)) {
+                payload = new GenericCrudRelationLookupService().lookup(context, request.getParameter("field"),
+                        request.getParameter("q"), number(request.getParameter("page"), 1),
+                        number(request.getParameter("pageSize"), 30));
             } else if ("preference_load".equals(action)) {
                 payload = GenericCrudResult.ok("Preferensi dimuat.", new GenericCrudColumnPreferenceService().load(context));
             } else if ("preference_save".equals(action)) {

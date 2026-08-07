@@ -13,6 +13,7 @@ import org.hibernate.Transaction;
 import org.hibernate.metadata.ClassMetadata;
 
 import ais.common.CommonPrivilages;
+import ais.action.master.generic.v2.adapter.GenericCrudSessionValueAdapter;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.GeneralValueObject;
 
@@ -36,7 +37,11 @@ public class GenericCrudMutationService {
         try {
             tx = session.beginTransaction();
             GeneralValueObject target = definition.getAdapter().createNew(context);
-            definition.getAdapter().applyCreateValues(target, values, context);
+            if (definition.getAdapter() instanceof GenericCrudSessionValueAdapter) {
+                ((GenericCrudSessionValueAdapter) definition.getAdapter()).applyCreateValues(session, target, values, context);
+            } else {
+                definition.getAdapter().applyCreateValues(target, values, context);
+            }
             scope.validateObject(target, context);
             definition.getAdapter().beforeSave(session, target, context);
             session.save(target);
@@ -69,7 +74,11 @@ public class GenericCrudMutationService {
             verifyOptimisticToken(definition, metadata, target, optimisticToken);
             definition.getAdapter().validateUpdate(target, values, context, errors);
             if (!errors.isEmpty()) { rollback(tx); return validationError(errors); }
-            definition.getAdapter().applyUpdateValues(target, values, context);
+            if (definition.getAdapter() instanceof GenericCrudSessionValueAdapter) {
+                ((GenericCrudSessionValueAdapter) definition.getAdapter()).applyUpdateValues(session, target, values, context);
+            } else {
+                definition.getAdapter().applyUpdateValues(target, values, context);
+            }
             definition.getAdapter().beforeSave(session, target, context);
             session.saveOrUpdate(target);
             session.flush();

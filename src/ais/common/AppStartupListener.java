@@ -247,7 +247,8 @@ public class AppStartupListener implements ServletContextListener {
 				System.err.println("Penjadwal ambang stok gudang gagal dimulai (lanjut): " + e.getMessage());
 			}
 
-			// Agregasi otomatis sumber karya ilmiah yang sudah layak publik.
+			// Agregasi otomatis skripsi, pustaka, buku ajar, artikel, serta hasil
+			// penelitian/pengabdian yang sudah layak publik ke repository lokal.
 			try {
 				ais.action.master.repository.RepositorySyncScheduler.mulai();
 			} catch (Throwable e) {

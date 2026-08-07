@@ -188,7 +188,10 @@ public class TargetKerjaPegawai extends GeneralValueObject {
 
 	@Column(unique = true)
 	public String getKodeUnik() {
-		kodeUnik = pegawai.getId() + "-" + tahun + "-" + bulan + "-" + kegiatanTugasJabatan.getId();
+		if (pegawai != null && pegawai.getId() != null && kegiatanTugasJabatan != null
+				&& kegiatanTugasJabatan.getId() != null && tahun != null && bulan != null) {
+			kodeUnik = pegawai.getId() + "-" + tahun + "-" + bulan + "-" + kegiatanTugasJabatan.getId();
+		}
 		return kodeUnik;
 	}
 

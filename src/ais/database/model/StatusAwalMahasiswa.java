@@ -107,7 +107,7 @@ public class StatusAwalMahasiswa extends GeneralValueObject {
 		this.kode = kode;
 	}
 
-	@Column(name = "kode", length = 50)
+	@Column(name = "kode", nullable = false, length = 50)
 	public String getKode() {
 		return kode;
 	}

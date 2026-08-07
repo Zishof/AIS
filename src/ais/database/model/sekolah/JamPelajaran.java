@@ -116,7 +116,7 @@ public class JamPelajaran extends GeneralValueObject {
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
-	@JoinColumn(name = "sekolah_id")
+	@JoinColumn(name = "sekolah_id", nullable = false)
 	public Sekolah getSekolah() {
 		sekolah = check(sekolah);
 		return this.sekolah;

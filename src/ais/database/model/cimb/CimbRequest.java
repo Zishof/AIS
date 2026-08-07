@@ -129,7 +129,7 @@ public class CimbRequest extends GeneralValueObject {
 
 	@Column(unique = true)
 	public String getTrxId() {
-		if (id != null) {
+		if (id != null && jenisKegiatan != null && jenisKegiatan.getKode() != null) {
 			String digitKetiga = "000000000000" + (id + 1);
 			digitKetiga = digitKetiga.substring(digitKetiga.length() - 5);
 			trxId = org.apache.commons.lang3.StringUtils.replace(org.apache.commons.lang3.StringUtils.replace(jenisKegiatan.getKode(), ".", ""), ",", "") + digitKetiga;

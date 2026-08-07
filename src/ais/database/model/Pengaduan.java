@@ -169,7 +169,7 @@ public class Pengaduan extends DataSop {
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
-	@JoinColumn(name = "jenis_pengaduan")
+	@JoinColumn(name = "jenis_pengaduan", nullable = false)
 	public JenisPengaduan getJenisPengaduan() {
 		jenisPengaduan = check(jenisPengaduan);
 		return jenisPengaduan;

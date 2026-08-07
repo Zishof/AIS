@@ -100,7 +100,7 @@ public class DetailKelasPertemuan extends GeneralValueObject {
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
-	@JoinColumn(name = "mahasiswa", nullable = true)
+	@JoinColumn(name = "mahasiswa", nullable = false)
 	public Mahasiswa getMahasiswa() {
 		mahasiswa = check(mahasiswa);
 		return this.mahasiswa;

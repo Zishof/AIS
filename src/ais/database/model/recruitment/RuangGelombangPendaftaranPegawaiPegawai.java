@@ -121,7 +121,9 @@ public class RuangGelombangPendaftaranPegawaiPegawai extends GeneralValueObject 
 
 	@Column(name = "kode_unik", unique = true)
 	public String getKodeUnik() {
-		kodeUnik = calonPegawai.getId() + "_";
+		if (calonPegawai != null && calonPegawai.getId() != null) {
+			kodeUnik = calonPegawai.getId() + "_";
+		}
 		return kodeUnik;
 	}
 
