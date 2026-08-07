@@ -24,7 +24,7 @@ if(!nuiSafePath(module)){
 String pageName=request.getParameter("page");if(!nuiSafePath(pageName))pageName="index";
 boolean service="1".equals(request.getParameter("service"));boolean frame="1".equals(request.getParameter("frame"));String target="/WEB-INF/new/"+module+(service?"/services/":"/uiux/")+pageName+(service?"_service.jsp":".jsp");
 if(!nuiExists(application,target)){if(service){response.setStatus(404);response.setContentType("application/json; charset=UTF-8");out.print("{\"ok\":false,\"code\":\"SERVICE_NOT_FOUND\"}");return;}target="/WEB-INF/new/_shared/ui/not_found.jsp";}
-if(service){response.setContentType("application/json; charset=UTF-8");request.getRequestDispatcher(target).include(request,response);return;}
+if(service){response.setContentType("application/json; charset=UTF-8");request.getRequestDispatcher(target).forward(request,response);return;}
 Tbmuser current=null;try{current=Common.getCurrentUser(request);}catch(Exception ignored){}String currentName=current==null?"Pengguna":current.getUserNama();if(currentName==null||currentName.trim().length()==0)currentName=current==null?"Pengguna":current.getUserId();if(currentName==null||currentName.trim().length()==0)currentName="Pengguna";
 String[][] modules=new String[][]{
     new String[]{"dashboard","Dashboard & Analitik","290","Utama"},

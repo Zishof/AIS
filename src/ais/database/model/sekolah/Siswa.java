@@ -629,7 +629,18 @@ public class Siswa extends VOSiswa implements SocialMediaCommonModel, VOMahasisw
 				}
 			}
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/sekolah/Siswa.java:633");
-			// TODO: handle exception
+			// KE-1/2/3/4/5/7/8/9: kegagalan di atas (paling sering LazyInitializationException --
+			// proxy KelasSiswa milik sesi Hibernate request SEBELUMNYA yang sudah ditutup, mis. saat
+			// ZK memicu render Grid via onPagingInitRender/onInitRender di request AJAX terpisah)
+			// SEBELUMNYA ditangkap di sini tapi `kelas` TIDAK di-null-kan, sehingga method ini tetap
+			// mengembalikan proxy yang SAMA-SAMA rusak ke pemanggil. Semua pemanggil (DetailTagihan-
+			// SiswaHelper, TagihanUtil.doGenerateTagihanBulanan, Siswa.getGuruPembina) sudah melakukan
+			// cek "kelasSiswa != null" sebelum memanggil getter lain di atasnya (mis. getNama(),
+			// getGuruPembina()) -- tapi proxy rusak itu LOLOS cek null tsb (dia bukan null, cuma tak
+			// bisa di-lazy-load lagi), sehingga getter berikutnya di pemanggil crash dengan
+			// LazyInitializationException yang TIDAK tertangkap di sana. Null-kan di sini supaya cek
+			// null yang SUDAH ADA di semua pemanggil benar-benar efektif melindungi.
+			kelas = null;
 		}
 
 		return kelas;
