@@ -14,6 +14,13 @@ query_service = (java_root / "GenericCrudQueryService.java").read_text(encoding=
 auto_adapter = (java_root / "adapter" / "GenericCrudAutoEntityAdapter.java").read_text(encoding="utf-8")
 converter = (java_root / "GenericCrudValueConverter.java").read_text(encoding="utf-8")
 shared_js = (shared / "assets" / "generic-crud.js").read_text(encoding="utf-8")
+file_location_models = [
+    model_root / "kkn" / "KelompokKkn.java",
+    model_root / "pkl" / "KelompokPkl.java",
+    model_root / "MatakuliahEkivalen.java",
+    model_root / "PembagianKuotaPerkuliahanBerdasarkantahunAngkatan.java",
+]
+file_location_sources = [path.read_text(encoding="utf-8") for path in file_location_models]
 
 checks = {
     "java files >= 35": len(list(java_root.rglob("*.java"))) >= 35,
@@ -48,6 +55,12 @@ checks = {
     "extended scalar conversion": all(token in converter for token in ("BigDecimal", "BigInteger", "UUID.fromString", "target.isEnum()", "java.sql.Timestamp")),
     "native temporal inputs": all(token in shared_js for token in ("'datetime-local'", "'date'", "'time'")),
     "sensitive models read only": "GenericCrudDefinition.READ_ONLY" in auto_factory and 'row.put("restricted"' in auto_factory,
+    "file location excluded from generic forms": '"filelocation"' in auto_factory,
+    "persistent file location getters are side-effect free": all(
+        "public String getFileLocation() {\n\t\treturn fileLocation;\n\t}" in source
+        and "public String getOrCreateFileLocation()" in source
+        for source in file_location_sources
+    ),
     "scaffold UI bridge": "tryAutoRegister" in (web_inf / "new" / "_shared" / "ui" / "page.jsp").read_text(encoding="utf-8"),
     "scaffold service bridge": "GenericCrudHttpController.handle" in (web_inf / "new" / "_shared" / "services" / "dispatcher.jsp").read_text(encoding="utf-8"),
     "admin model catalog": all((web_inf / "new" / "generic" / kind / name).exists() for kind, name in (("uiux", "model_catalog.jsp"), ("uiux", "model_crud.jsp"), ("services", "model_catalog_service.jsp"), ("services", "model_crud_service.jsp"))),

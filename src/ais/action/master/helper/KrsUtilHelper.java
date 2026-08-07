@@ -55,7 +55,7 @@ public class KrsUtilHelper {
 		if (pembagianKuotaPerkuliahanBerdasarkantahunAngkatan != null) {
 			try {
 				List<String> filePaths = new ArrayList<String>();
-				filePaths.add(pembagianKuotaPerkuliahanBerdasarkantahunAngkatan.getFileLocation());
+				filePaths.add(pembagianKuotaPerkuliahanBerdasarkantahunAngkatan.getOrCreateFileLocation());
 				CommonUtil.simpanTemporary(key, filePaths);
 			} catch (Exception e) {
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/KrsUtilHelper.java:61");

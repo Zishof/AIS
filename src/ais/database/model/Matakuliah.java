@@ -681,7 +681,7 @@ public class Matakuliah extends GeneralValueObject {
 					MatakuliahEkivalen.class);
 			JSONObject c = new JSONObject();
 			for (MatakuliahEkivalen matakuliahEkivalen : matakuliahEkivalens) {
-				c.put(matakuliahEkivalen.getId().toString(), matakuliahEkivalen.getFileLocation());
+				c.put(matakuliahEkivalen.getId().toString(), matakuliahEkivalen.getOrCreateFileLocation());
 
 //				System.out.println("reInitEkivalen Mk " + matakuliahEkivalen.getMatakuliah() + " ekivalen dengan "
 //						+ matakuliahEkivalen.getMatakuliahEkivalen() + ", data => " + matakuliahEkivalens);
@@ -798,7 +798,7 @@ public class Matakuliah extends GeneralValueObject {
 	public void populateEkivalen(MatakuliahEkivalen matakuliahEkivalen) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiEkivalen());
-			c.put(matakuliahEkivalen.getId().toString(), matakuliahEkivalen.getFileLocation());
+			c.put(matakuliahEkivalen.getId().toString(), matakuliahEkivalen.getOrCreateFileLocation());
 			tulisLokasiEkivalen(c.toString());
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/Matakuliah.java:804");

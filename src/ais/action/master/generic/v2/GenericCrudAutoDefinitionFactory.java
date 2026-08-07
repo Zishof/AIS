@@ -29,7 +29,8 @@ public final class GenericCrudAutoDefinitionFactory {
     };
     private static final String[] BLOCKED_FIELD_TOKENS = new String[] {
         "password", "passwd", "token", "secret", "credential", "salt", "hash", "privatekey",
-        "apikey", "accesskey", "refresh", "binary", "content", "isi_file", "path", "filename"
+        "apikey", "accesskey", "refresh", "binary", "content", "isi_file", "path", "filename",
+        "filelocation"
     };
     private static final String[] INTERNAL_FIELDS = new String[] {
         "oleh", "olehid", "tanggal_dirubah", "created", "createdat", "updated", "updatedat",
