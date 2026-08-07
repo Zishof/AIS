@@ -1149,6 +1149,7 @@ public class DetailTagihanSiswaHelper implements DataLoader, DataCriteria {
 						vbox.setWidth("95%");
 						vbox.setPack("end");
 						vbox.setAlign("right");
+						vbox.setSpacing("2px"); // Rapikan: beri jarak antar baris nominal/Dibayar/Diskon/tanggal (kosmetik)
 						vbox.setParent(row);
 						RevisiHelper
 								.createNewRevisi(Tagihan.class, tagihan,

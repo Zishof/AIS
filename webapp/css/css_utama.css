@@ -12732,6 +12732,22 @@ span.z-upload {
 	text-align: center;
 	margin-top: 2px;
 }
+/* Rapikan: beri jarak antar baris cicilan (ke-1/ke-2/...) + garis pemisah tipis agar tidak terkesan menumpuk */
+.ais-tagihan-bln-rinci .z-row {
+	border-bottom: 1px solid #e2e8f0 !important;
+}
+.ais-tagihan-bln-rinci .z-row:last-child {
+	border-bottom: 0 !important;
+}
+.ais-tagihan-bln-rinci .z-row-inner,
+.ais-tagihan-bln-rinci td {
+	padding: 5px 6px !important;
+}
+/* Label "Dibayar :" / "Diskon :" sedikit dibesarkan agar lebih terbaca, warna dilembutkan */
+.ais-tagihan-bln-rinci .z-label {
+	font-size: 10px !important;
+	color: #64748b !important;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    SCAN STATION — "kios" peminjaman & pengembalian item/buku perpustakaan.
