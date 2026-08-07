@@ -319,37 +319,33 @@ public class Bankaltimtara extends HttpServlet {
 		validasiResponJsonBankaltimtara(hasil, dariNotifTersimpan ? "notifikasi tersimpan" : "cek status VA");
 		JSONObject jsonObject2 = new JSONObject(hasil);
 
-		JSONObject object = jsonObject2.isNull("data") ? null : jsonObject2.getJSONObject("data");
-		if (object == null && !jsonObject2.isNull("amount")) {
-			// Format notifikasi tersimpan: tidak ada wrapper "data", amount langsung di root.
-			object = jsonObject2;
+		JSONObject object = ambilDataPembayaranBankaltimtara(jsonObject2);
+		if (object == null) {
+			throw new Exception("Respons cek status Bankaltimtara tidak memuat transaksi dengan field amount: "
+					+ BankaltimtaraResponseUtil.ringkas(hasil) + ", VA id=" + virtualAccountBankReadOnly.getId());
 		}
-		try {
 
-			if (object != null) {
-				Double paid = Double.parseDouble((object.get("amount") + "").trim());
+		Double paid = parseNominalBankaltimtara(object.get("amount"));
 				// Sama seperti checkPakaiqris: bandingkan ke totalBiaya() (total+biaya admin), BUKAN
 				// getTotal() saja -- konsisten dgn pengecekan H2H masuk di file ini (baris ~502) yg
 				// SUDAH pakai totalBiaya(). Bug lama di sini: getTotal() saja membuat VA yg sudah lunas
 				// (dgn biaya admin > 0) tak pernah cocok -> "Cek Ulang" diam-diam gagal update status.
-				if (paid.intValue() == virtualAccountBankReadOnly.totalBiaya()) {
-					if (VirtualAccountBank.isSudahTerbayar(virtualAccountBankReadOnly)) {
-						return tandaiSumberData(jsonObject2, dariNotifTersimpan);
-					}
-					Session session = null;
-					try {
-						session = HibernateUtil.getSessionFactory().openSession();
-						VirtualAccountBank.bayarVa(virtualAccountBankReadOnly, WaktuUtil.getDate(), hasil, session);
-					} catch (Exception e) {
-						e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/Bankaltimtara.java:254");
-					} finally {
-						if (session != null) {
-							try { session.clear(); } catch (Exception e2) { ais.common.ErrorAuditUtil.record(e2, "auto-audit(empty-catch) src/ais/action/servlet/Bankaltimtara.java:257");}
-							try { session.disconnect(); } catch (Exception e2) { ais.common.ErrorAuditUtil.record(e2, "auto-audit(empty-catch) src/ais/action/servlet/Bankaltimtara.java:258");}
-							try { session.close(); } catch (Exception e2) { ais.common.ErrorAuditUtil.record(e2, "auto-audit(empty-catch) src/ais/action/servlet/Bankaltimtara.java:259");}
-						}
-					}
-				} else {
+		if (paid.intValue() == virtualAccountBankReadOnly.totalBiaya()) {
+			if (VirtualAccountBank.isSudahTerbayar(virtualAccountBankReadOnly)) {
+				return tandaiSumberData(jsonObject2, dariNotifTersimpan);
+			}
+			Session session = null;
+			try {
+				session = HibernateUtil.getSessionFactory().openSession();
+				VirtualAccountBank.bayarVa(virtualAccountBankReadOnly, WaktuUtil.getDate(), hasil, session);
+			} finally {
+				if (session != null) {
+					try { session.clear(); } catch (Exception e2) { ais.common.ErrorAuditUtil.record(e2, "auto-audit(empty-catch) src/ais/action/servlet/Bankaltimtara.java:257");}
+					try { session.disconnect(); } catch (Exception e2) { ais.common.ErrorAuditUtil.record(e2, "auto-audit(empty-catch) src/ais/action/servlet/Bankaltimtara.java:258");}
+					try { session.close(); } catch (Exception e2) { ais.common.ErrorAuditUtil.record(e2, "auto-audit(empty-catch) src/ais/action/servlet/Bankaltimtara.java:259");}
+				}
+			}
+		} else {
 					// Nominal dari bank TIDAK cocok totalBiaya() -- sebelumnya diam saja (VA tetap
 					// tampak belum lunas tanpa keterangan). Catat spy "sudah bayar tapi status tak
 					// berubah" bisa ditelusuri: idnya VA, nominal versi bank vs versi sistem.
@@ -357,21 +353,46 @@ public class Bankaltimtara extends HttpServlet {
 							new Exception("Nominal cek Bankaltimtara tidak cocok: dibayar=" + paid.intValue()
 									+ ", totalBiaya() sistem=" + virtualAccountBankReadOnly.totalBiaya()
 									+ ", VA id=" + virtualAccountBankReadOnly.getId()),
-							"Bankaltimtara.prosesHasilCekVaBankaltimtara: nominal tidak cocok, status VA tidak diperbarui");
-				}
-			} else {
-				// Respons cek status tak punya "data" maupun "amount" di root -- sebelumnya diam
-				// saja (VA tetap tampak belum lunas tanpa keterangan sama sekali).
-				ais.common.ErrorAuditUtil.record(
-						new Exception("Respons cek status Bankaltimtara tanpa field 'data'/'amount' yg dikenali: "
-								+ hasil + ", VA id=" + virtualAccountBankReadOnly.getId()),
-						"Bankaltimtara.prosesHasilCekVaBankaltimtara: format respons tak dikenali, status VA tidak diperbarui");
-			}
-		} catch (Exception e) {
-			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/Bankaltimtara.java:265");
+					"Bankaltimtara.prosesHasilCekVaBankaltimtara: nominal tidak cocok, status VA tidak diperbarui");
+			throw new Exception("Nominal pembayaran Bankaltimtara " + paid.intValue()
+					+ " tidak sama dengan tagihan sistem " + virtualAccountBankReadOnly.totalBiaya()
+					+ " untuk VA " + virtualAccountBankReadOnly.getKode() + ".");
 		}
 
 		return tandaiSumberData(jsonObject2, dariNotifTersimpan);
+	}
+
+	private static JSONObject ambilDataPembayaranBankaltimtara(JSONObject response) throws Exception {
+		if (!response.isNull("data")) {
+			Object data = response.get("data");
+			if (data instanceof JSONObject) {
+				JSONObject object = (JSONObject) data;
+				if (!object.isNull("amount")) {
+					return object;
+				}
+			} else if (data instanceof JSONArray) {
+				JSONArray daftar = (JSONArray) data;
+				for (int i = daftar.length() - 1; i >= 0; i--) {
+					Object item = daftar.get(i);
+					if (item instanceof JSONObject && !((JSONObject) item).isNull("amount")) {
+						return (JSONObject) item;
+					}
+				}
+			}
+		}
+		return response.isNull("amount") ? null : response;
+	}
+
+	private static Double parseNominalBankaltimtara(Object nominal) throws Exception {
+		String nilai = nominal == null ? "" : nominal.toString().trim().replace(",", "");
+		if (nilai.isEmpty()) {
+			throw new Exception("Nominal pembayaran Bankaltimtara kosong.");
+		}
+		try {
+			return Double.parseDouble(nilai);
+		} catch (NumberFormatException e) {
+			throw new Exception("Nominal pembayaran Bankaltimtara tidak dapat dibaca: " + nilai, e);
+		}
 	}
 
 	private static JSONObject tandaiSumberData(JSONObject jsonObject2, boolean dariNotifTersimpan) {

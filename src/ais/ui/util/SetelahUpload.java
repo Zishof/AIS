@@ -27,7 +27,6 @@ public class SetelahUpload implements EventListener {
 	@SuppressWarnings("unused")
 	private Serializable ref;
 	private String jenis;
-	@SuppressWarnings("unused")
 	private boolean usingId;
 	private Row vbPreview;
 	private MyToolbarbuttonConfig hapusButton;
@@ -124,7 +123,7 @@ public class SetelahUpload implements EventListener {
 						&& olehId.equalsIgnoreCase(fileFotoLain.getOlehId())));
 
 				String linkUtama = fileFotoLain.getLink() == null || fileFotoLain.getLink().isEmpty()
-						? LampiranLain.ambilLinkLampiranLain(fileFotoLain, true, false, clazz, true)
+						? buatLinkBerkasResmi(fileFotoLain)
 						: fileFotoLain.getLink();
 
 				if (nama.equalsIgnoreCase("Berupa link file") && !fileFotoLain.getLink().trim().isEmpty()) {
@@ -232,11 +231,24 @@ public class SetelahUpload implements EventListener {
 		try {
 			if (fileFotoLain != null && fileFotoLain.getGdrive() == null
 					&& (fileFotoLain.getLink() == null || fileFotoLain.getLink().trim().isEmpty())) {
-				return FileFotoLain.ambilLinkLampiranLain(fileFotoLain, usingId, false, clazz, false);
+				return buatLinkBerkasResmi(fileFotoLain);
 			}
 		} catch (Exception e) {
 			Common.tampilErrorJikaAdmin(e);
 		}
 		return fallback;
+	}
+
+	/**
+	 * Preview wajib membaca blob resmi melalui servlet yang sama dengan download. Link media langsung
+	 * ({@code ketemu=true}) dapat menunjuk file cache lama/bernama sama, sehingga gambar yang terlihat
+	 * berbeda dengan berkas yang sebenarnya terunduh.
+	 */
+	private String buatLinkBerkasResmi(FileFotoLain fileFotoLain) throws Exception {
+		String link = LampiranLain.ambilLinkLampiranLain(fileFotoLain, usingId, false, clazz, false);
+		long versi = fileFotoLain.getTanggal_dirubah() == null
+				? (fileFotoLain.getId() == null ? 0L : fileFotoLain.getId().longValue())
+				: fileFotoLain.getTanggal_dirubah().getTime();
+		return link + (link.indexOf('?') >= 0 ? "&" : "?") + "v=" + versi;
 	}
 }
