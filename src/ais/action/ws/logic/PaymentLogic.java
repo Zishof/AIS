@@ -302,6 +302,11 @@ public class PaymentLogic {
 			int smt = 1;
 			Kegiatan kegiatan = biodataCalonMahasiswa.getPembayaranDaftarUlang();
 			if (kegiatan == null) {
+				kegiatan = biodataCalonMahasiswa.ambilKegiatans(null, jenisKegiatan);
+			}
+			if (kegiatan != null) {
+				smt = kegiatan.getSemster();
+			} else {
 				kegiatan = biodataCalonMahasiswa.ambilKegiatans(smt, jenisKegiatan);
 			}
 			JadwalPembayaran jadwalPembayaran;
@@ -340,6 +345,21 @@ public class PaymentLogic {
 				java.util.Collection<DetailBiaya> detailBiayas1 = pembayaranUtil
 						.getDetailBiayaCalonMahasiswa(biodataCalonMahasiswa, jenisKegiatan, myjurusan1, smt, true);
 				detailBiayas.addAll(detailBiayas1);
+			}
+
+			if (detailBiayas.isEmpty()) {
+				int smtAlternatif = smt == 0 ? 1 : 0;
+				java.util.Collection<DetailBiaya> alternatif = pembayaranUtil
+						.getDetailBiayaCalonMahasiswa(biodataCalonMahasiswa, jenisKegiatan, myjurusan1,
+								smtAlternatif, true);
+				if (alternatif != null && !alternatif.isEmpty()) {
+					detailBiayas.addAll(alternatif);
+					smt = smtAlternatif;
+					Kegiatan kegiatanAlternatif = biodataCalonMahasiswa.ambilKegiatans(smt, jenisKegiatan);
+					if (kegiatanAlternatif != null) {
+						kegiatan = kegiatanAlternatif;
+					}
+				}
 			}
 
 			String pemb = "|";
@@ -395,7 +415,7 @@ public class PaymentLogic {
 				total += (nilai).longValue();
 			}
 
-			if (kegiatan.getAmountTerhutang() != null && kegiatan.getAmountTerhutang() > 0.1
+			if (kegiatan != null && kegiatan.getAmountTerhutang() != null && kegiatan.getAmountTerhutang() > 0.1
 					&& kegiatan.getAmountTerhutang() < total) {
 				pemb += "00\\Diskon\\Potongan\\" + (kegiatan.getAmountTerhutang().longValue() - total) + "|";
 				total = kegiatan.getAmountTerhutang().longValue();
@@ -451,7 +471,7 @@ public class PaymentLogic {
 				data.add(new String[] { "angkatan", biodataCalonMahasiswa.getTahun() + "" });
 
 				data.add(new String[] { "semester", Perkuliahan.GANJIL });
-				data.add(new String[] { "semester_ke", "0" });
+				data.add(new String[] { "semester_ke", smt + "" });
 				data.add(new String[] { "tanggal_max", Common.dateFormat2.get().format(jadwalPembayaran.getEndDate()) });
 				data.add(new String[] { "tanggal_min", Common.dateFormat2.get().format(jadwalPembayaran.getStartDate()) });
 				data.add(new String[] { "amount", pemb });
@@ -499,7 +519,7 @@ public class PaymentLogic {
 				data.add(new String[] { "angkatan", biodataCalonMahasiswa.getTahun() + "" });
 
 				data.add(new String[] { "semester", Perkuliahan.GANJIL });
-				data.add(new String[] { "semester_ke", "0" });
+				data.add(new String[] { "semester_ke", smt + "" });
 				data.add(new String[] { "tanggal_max", Common.dateFormat2.get().format(jadwalPembayaran.getEndDate()) });
 				data.add(new String[] { "tanggal_min", Common.dateFormat2.get().format(jadwalPembayaran.getStartDate()) });
 				data.add(new String[] { "amount", pemb });

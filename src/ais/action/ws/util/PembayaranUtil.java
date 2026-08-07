@@ -2692,7 +2692,20 @@ public class PembayaranUtil {
 
 			Integer semester = jenisKegiatan.getId().equals(ConstantValues.PENDAFTARAN_CALON_MAHASISWA.getId()) ? 0 : 1;
 
-			Kegiatan kegiatan = biodataCalonMahasiswa.ambilKegiatans(semester, jenisKegiatan);
+			// Gunakan semester kegiatan/tagihan yang sudah ada. Ini menjaga pembayaran
+			// H2H konsisten dengan layar ketika daftar ulang dikonfigurasi di semester 0.
+			Kegiatan kegiatan = biodataCalonMahasiswa.ambilKegiatans(null, jenisKegiatan);
+			if (kegiatan != null) {
+				semester = kegiatan.getSemster();
+			} else if (detailBiayas != null) {
+				for (DetailBiaya detailBiaya : detailBiayas) {
+					if (detailBiaya != null && detailBiaya.getSemester() != null) {
+						semester = detailBiaya.getSemester();
+						break;
+					}
+				}
+				kegiatan = biodataCalonMahasiswa.ambilKegiatans(semester, jenisKegiatan);
+			}
 
 			Session session = HibernateUtil.currentNativeSession();
 
