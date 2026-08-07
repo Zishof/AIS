@@ -7,7 +7,7 @@ String gcEndpoint = request.getContextPath() + "/new?service=1&module="
         + URLEncoder.encode(gcModule, "UTF-8") + "&page=" + URLEncoder.encode(gcPage, "UTF-8")
         + "&entity=" + URLEncoder.encode(String.valueOf(request.getAttribute("genericCrudEntityKey")), "UTF-8");
 %>
-<style><jsp:include page="/WEB-INF/new/_shared/generic-crud/assets/generic-crud.css" /></style>
+<style><%@ include file="/WEB-INF/new/_shared/generic-crud/assets/generic-crud.css" %></style>
 <section class="gc" data-gc-root data-endpoint="<%=gcEndpoint%>">
   <header class="gc-head">
     <div><div class="gc-breadcrumb">Beranda / Master Data</div><h1 data-gc-title>Memuat…</h1><p>CRUD berbasis metadata dengan audit, scope, dan hak akses role aktif.</p></div>
@@ -51,4 +51,4 @@ String gcEndpoint = request.getContextPath() + "/new?service=1&module="
   </aside>
   <aside class="gc-drawer" data-gc-import-drawer hidden aria-modal="true" role="dialog" aria-labelledby="gc-import-title"><header><div><small>Dry-run wajib</small><h2 id="gc-import-title">Preview Import</h2></div><button type="button" class="gc-icon-btn" data-gc-import-close aria-label="Tutup">×</button></header><div class="gc-audit-list" data-gc-import-summary></div><footer><button type="button" class="gc-btn" data-gc-import-cancel>Batal</button><button type="button" class="gc-btn gc-primary" data-gc-import-confirm>Konfirmasi Import</button></footer></aside>
 </section>
-<script><jsp:include page="/WEB-INF/new/_shared/generic-crud/assets/generic-crud.js" /></script>
+<script><%@ include file="/WEB-INF/new/_shared/generic-crud/assets/generic-crud.js" %></script>

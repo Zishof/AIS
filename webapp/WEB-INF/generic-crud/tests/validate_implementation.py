@@ -14,6 +14,7 @@ query_service = (java_root / "GenericCrudQueryService.java").read_text(encoding=
 auto_adapter = (java_root / "adapter" / "GenericCrudAutoEntityAdapter.java").read_text(encoding="utf-8")
 converter = (java_root / "GenericCrudValueConverter.java").read_text(encoding="utf-8")
 shared_js = (shared / "assets" / "generic-crud.js").read_text(encoding="utf-8")
+crud_page = (shared / "ui" / "crud_page.jsp").read_text(encoding="utf-8")
 file_location_models = [
     model_root / "kkn" / "KelompokKkn.java",
     model_root / "pkl" / "KelompokPkl.java",
@@ -33,7 +34,14 @@ checks = {
     "admin delete disabled": "setAdminDeleteEnabled(false)" in (java_root / "GenericCrudDefinitionRegistry.java").read_text(encoding="utf-8"),
     "shared dispatcher": (shared / "services" / "dispatcher.jsp").exists(),
     "responsive UI": "@media(max-width:720px)" in (shared / "assets" / "generic-crud.css").read_text(encoding="utf-8"),
-    "advanced filter UI": "data-gc-filter-panel" in (shared / "ui" / "crud_page.jsp").read_text(encoding="utf-8"),
+    "advanced filter UI": "data-gc-filter-panel" in crud_page,
+    "static asset includes avoid JSP writer conflict": all(
+        token in crud_page
+        for token in (
+            '<%@ include file="/WEB-INF/new/_shared/generic-crud/assets/generic-crud.css" %>',
+            '<%@ include file="/WEB-INF/new/_shared/generic-crud/assets/generic-crud.js" %>',
+        )
+    ) and '<jsp:include page="/WEB-INF/new/_shared/generic-crud/assets/' not in crud_page,
     "column preference UI": "preference_save" in shared_js,
     "import dry-run and confirm": all(token in (java_root / "GenericCrudImportService.java").read_text(encoding="utf-8") for token in ("PREVIEW_READY", "confirm(", "IMPORT_DUPLICATE_FILE")),
     "import requires CUD privileges": "isCanCreate() && context.isCanUpdate() && context.isCanDelete()" in (java_root / "GenericCrudImportService.java").read_text(encoding="utf-8"),
