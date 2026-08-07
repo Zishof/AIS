@@ -3418,44 +3418,34 @@ public class Report extends GenericAutowireComposer {
 	}
 
 	/**
-	 * Wadah baku pratinjau laporan: Center -> Grid -> Rows -> Row.
-	 * Struktur ini membuat ZK memberi ruang vertikal yang lebih stabil pada area report, sehingga
-	 * iframe PDF/HTML tidak terpotong saat dibuka langsung dalam tab/window laporan.
+	 * Wadah baku pratinjau laporan. Gunakan Div flex langsung dan jangan Grid/Row:
+	 * sel Grid ZK menghitung tinggi dari region induk lalu memotong iframe pada sekitar
+	 * 190-250px (terlihat pada KHS dan Surat Aktif Kuliah), walaupun iframe memiliki
+	 * tinggi sendiri. Div flex memberi area sisa viewport secara nyata dan scrollbar
+	 * tetap berada di dalam area pratinjau.
 	 */
 	private static void pasangGridPratinjau(Component center, Component bar, org.zkoss.zul.Div area) {
 		if (center == null || area == null) {
 			return;
 		}
 		Common.clear(center);
-		org.zkoss.zul.Grid grid = new org.zkoss.zul.Grid();
-		grid.setWidth("100%");
-		grid.setHeight("100%");
-		grid.setStyle("border:0; margin:0; padding:0; background:transparent; overflow:auto;");
-		grid.setParent(center);
-
-		org.zkoss.zul.Rows rows = new org.zkoss.zul.Rows();
-		rows.setParent(grid);
+		org.zkoss.zul.Div wrapper = new org.zkoss.zul.Div();
+		wrapper.setWidth("100%");
+		wrapper.setHeight("100%");
+		wrapper.setStyle("width:100%; height:calc(100vh - 180px); min-height:560px; "
+				+ "display:flex; flex-direction:column; overflow:hidden; box-sizing:border-box; "
+				+ "border:0; margin:0; padding:0; background:transparent;");
+		wrapper.setParent(center);
 
 		if (bar != null) {
-			org.zkoss.zul.Row barRow = new org.zkoss.zul.Row();
-			barRow.setSpans("1");
-			barRow.setValign("top");
-			barRow.setStyle("border:0; margin:0; padding:0; background:transparent;");
-			barRow.setParent(rows);
-			bar.setParent(barRow);
+			bar.setParent(wrapper);
 		}
 
-		org.zkoss.zul.Row previewRow = new org.zkoss.zul.Row();
-		previewRow.setSpans("1");
-		previewRow.setValign("top");
-		previewRow.setStyle("border:0; margin:0; padding:0; background:transparent;");
-		previewRow.setParent(rows);
-
 		area.setWidth("100%");
-		area.setHeight("100%");
-		area.setStyle("width:100%; height:calc(100vh - 230px); min-height:520px; overflow:auto; "
+		area.setVflex("1");
+		area.setStyle("width:100%; flex:1 1 auto; min-height:520px; overflow:auto; "
 				+ "box-sizing:border-box; background:#e9eef5;");
-		area.setParent(previewRow);
+		area.setParent(wrapper);
 	}
 
 	/** Mode pratinjau default: HTML bila konfigurasi aktif DAN pendamping HTML tersedia. */
