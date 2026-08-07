@@ -64,6 +64,11 @@ public final class NewUiRouteGuard {
         if (!isEnforced()) {
             return false;
         }
+        // Endpoint infrastruktur (dispatcher, role-switch, aset shell) mengautentikasi
+        // dirinya sendiri (login + CSRF) dan tidak digerbangi RBAC menu.
+        if (module != null && module.startsWith("_shared")) {
+            return false;
+        }
         int status = evaluate(request, module, page);
         return status == NewUiRouteRegistry.MAPPED_BUT_FORBIDDEN || status == NewUiRouteRegistry.UNMAPPED;
     }

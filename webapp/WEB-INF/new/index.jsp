@@ -98,6 +98,7 @@ String[][] modules=new String[][]{
 };
 String newUrl=request.getContextPath()+"/new";
 boolean nuiRbacSidebar=false;try{nuiRbacSidebar=Common.bolehKonfigurasi("nui_rbac_sidebar", Konfigurasi.TIDAK_AKTIF);}catch(Exception eFlag){}
+boolean nuiRoleSwitcher=false;try{nuiRoleSwitcher=Common.bolehKonfigurasi("nui_role_switcher", Konfigurasi.TIDAK_AKTIF);}catch(Exception eSw){}
 request.setAttribute("nui_current_module", module);
 String frameSrc=newUrl+"?frame=1&module="+URLEncoder.encode(module,"UTF-8")+"&page="+URLEncoder.encode(pageName,"UTF-8");
 if(frame){
@@ -153,7 +154,7 @@ if(frame){
         <header class="nui-topbar">
             <button id="nuiMenuToggle" class="nui-menu-toggle">☰</button>
             <div class="nui-global-search"><input placeholder="Cari menu, halaman, mahasiswa, siswa, dokumen..." aria-label="Pencarian global"><span class="nui-kbd">Ctrl + K</span></div>
-            <div class="nui-top-actions"><button class="nui-icon-btn">♢<span class="nui-badge">0</span></button><button class="nui-icon-btn">✉</button><div class="nui-user"><div class="nui-avatar"><%=nuiShellH(currentName.substring(0,1).toUpperCase())%></div><div><strong><%=nuiShellH(currentName)%></strong><small>Pengguna aktif</small></div></div></div>
+            <div class="nui-top-actions"><% if(nuiRoleSwitcher){ %><jsp:include page="/WEB-INF/new/_shared/ui/role_switcher.jsp" flush="false"/><% } %><button class="nui-icon-btn">♢<span class="nui-badge">0</span></button><button class="nui-icon-btn">✉</button><div class="nui-user"><div class="nui-avatar"><%=nuiShellH(currentName.substring(0,1).toUpperCase())%></div><div><strong><%=nuiShellH(currentName)%></strong><small>Pengguna aktif</small></div></div></div>
         </header>
         <iframe id="nuiMainFrame" name="nuiMainFrame" class="nui-main-frame" src="<%=nuiShellH(frameSrc)%>" title="Konten utama eCampus"></iframe>
         <footer class="nui-footer"><span>© 2026 eCampus & eSchool</span><span>Modern JSP UI • Java service adapter</span></footer>
