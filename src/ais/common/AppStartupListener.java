@@ -246,6 +246,13 @@ public class AppStartupListener implements ServletContextListener {
 			} catch (Throwable e) {
 				System.err.println("Penjadwal ambang stok gudang gagal dimulai (lanjut): " + e.getMessage());
 			}
+
+			// Agregasi otomatis sumber karya ilmiah yang sudah layak publik.
+			try {
+				ais.action.master.repository.RepositorySyncScheduler.mulai();
+			} catch (Throwable e) {
+				System.err.println("Penjadwal sinkron repository gagal dimulai (lanjut): " + e.getMessage());
+			}
 		} catch (Throwable e) {
 			// Tidak mematikan Tomcat: data yang gagal/menunggu akan dimuat on-demand.
 			System.err.println("Error saat init data aplikasi (lanjut, data dimuat on-demand): " + e.getMessage());
@@ -501,6 +508,10 @@ public class AppStartupListener implements ServletContextListener {
 		try {
 			DepositoAroScheduler.hentikan();
 		} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "auto-audit(empty-catch) src/ais/common/AppStartupListener.java:445");
+		}
+		try {
+			ais.action.master.repository.RepositorySyncScheduler.hentikan();
+		} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "auto-audit(empty-catch) src/ais/common/AppStartupListener.java:repository-sync-stop");
 		}
 	}
 
