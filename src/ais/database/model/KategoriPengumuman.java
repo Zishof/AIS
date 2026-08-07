@@ -128,7 +128,7 @@ public class KategoriPengumuman extends GeneralValueObject {
 		this.keterangan = keterangan;
 	}
 
-	@Column(unique = true)
+	@Column(nullable = false, unique = true)
 	public Integer getNomorUrut() {
 		if (getMerupakanPengumumanUtama()) {
 			nomorUrut = Integer.MIN_VALUE;

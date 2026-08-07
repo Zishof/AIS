@@ -237,7 +237,7 @@ public class CicilanPembayaranGagal extends GeneralValueObject {
 	}
 
 	public String getValidator() {
-		if (validator == null) {
+		if (validator == null && getKegiatan() != null) {
 			validator = getKegiatan().getValidator();
 		}
 		return validator;

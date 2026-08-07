@@ -121,7 +121,7 @@ public class JadwalPelajaranPunyaItem extends GeneralValueObject {
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
-	@JoinColumn(name = "item", nullable = true)
+	@JoinColumn(name = "item", nullable = false)
 	public Item getItem() {
 		item = check(item);
 		return item;

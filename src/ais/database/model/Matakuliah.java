@@ -245,7 +245,7 @@ public class Matakuliah extends GeneralValueObject {
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
-	@JoinColumn(name = "jurusan", nullable = true)
+	@JoinColumn(name = "jurusan", nullable = false)
 	public Jurusan getJurusan() {
 		jurusan = check(jurusan);
 		return jurusan;

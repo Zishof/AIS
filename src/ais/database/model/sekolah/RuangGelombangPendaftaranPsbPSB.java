@@ -113,7 +113,9 @@ public class RuangGelombangPendaftaranPsbPSB extends GeneralValueObject {
 
 	@Column(name = "kode_unik", unique = true)
 	public String getKodeUnik() {
-		kodeUnik = calonSiswa.getId() + "_";
+		if (calonSiswa != null && calonSiswa.getId() != null) {
+			kodeUnik = calonSiswa.getId() + "_";
+		}
 		return kodeUnik;
 	}
 

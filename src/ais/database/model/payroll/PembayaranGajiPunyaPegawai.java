@@ -223,7 +223,8 @@ public class PembayaranGajiPunyaPegawai extends GeneralValueObject {
 	@Temporal(TemporalType.DATE)
 	public Date getMulai() {
 
-		if (mulai == null) {
+		if (mulai == null && getPembayaranGaji() != null && getPembayaranGaji().getTahun() != null
+				&& getPembayaranGaji().getBulan() != null) {
 			pembayaranGaji = getPembayaranGaji();
 			mulai = PembayaranGajiPunyaPegawai.ambilMulai(pembayaranGaji.getTahun(),
 					pembayaranGaji.getBulan() - 1 + (Integer.parseInt(
@@ -240,7 +241,8 @@ public class PembayaranGajiPunyaPegawai extends GeneralValueObject {
 	@Temporal(TemporalType.DATE)
 	public Date getSampai() {
 
-		if (sampai == null) {
+		if (sampai == null && getPembayaranGaji() != null && getPembayaranGaji().getTahun() != null
+				&& getPembayaranGaji().getBulan() != null) {
 			pembayaranGaji = getPembayaranGaji();
 			sampai = PembayaranGajiPunyaPegawai.ambilSampai(pembayaranGaji.getTahun(),
 					pembayaranGaji.getBulan() - 0 + (Integer.parseInt(

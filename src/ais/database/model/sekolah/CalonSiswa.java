@@ -436,7 +436,7 @@ public class CalonSiswa extends VOSiswa {
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
-	@JoinColumn(name = "sekolah_id")
+	@JoinColumn(name = "sekolah_id", nullable = false)
 	public Sekolah getSekolah() {
 		gelombangPendaftaranPsb = getGelombangPendaftaranPsb();
 		if (gelombangPendaftaranPsb != null) {

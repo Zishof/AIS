@@ -19,6 +19,7 @@ import ais.action.master.generic.v2.GenericCrudValueConverter;
 import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.GeneralValueObject;
+import ais.database.model.Tbmuser;
 
 /**
  * Adapter generik untuk model scalar yang sudah terdaftar pada Hibernate.
@@ -49,6 +50,7 @@ public class GenericCrudAutoEntityAdapter extends AbstractGenericCrudEntityAdapt
 
     public void applyCreateValues(Session session, GeneralValueObject target, Map values,
             GenericCrudRequestContext context) throws Exception {
+        applyContextDefaults(target, values, context);
         applyWithSession(session, target, values);
     }
 
@@ -96,6 +98,39 @@ public class GenericCrudAutoEntityAdapter extends AbstractGenericCrudEntityAdapt
             ownerMetadata.setPropertyValue(target, property, relation, EntityMode.POJO);
         }
         super.applyCreateValues(target, scalarValues, null);
+    }
+
+    /**
+     * Mengisi kolom audit internal yang sengaja tidak ditampilkan pada form generik.
+     * Tanpa ini model inventori, aset, perpustakaan, dan SIRS akan gagal pada
+     * constraint {@code dibuat_oleh} walaupun request berasal dari user sah.
+     */
+    private void applyContextDefaults(GeneralValueObject target, Map values,
+            GenericCrudRequestContext context) {
+        if (context == null || context.getUser() == null) return;
+        Tbmuser user = context.getUser();
+        ClassMetadata metadata = HibernateUtil.getSessionFactory().getClassMetadata(entityClass);
+        setDefault(metadata, target, values, "dibuatOleh", user);
+        setDefault(metadata, target, values, "diubahOleh", user);
+        setDefault(metadata, target, values, "validatorUser", user);
+        setDefault(metadata, target, values, "oleh", user.getUserId());
+        setDefault(metadata, target, values, "olehId", user.getUserId());
+        setDefault(metadata, target, values, "ditetapkanOleh", user.getUserId());
+    }
+
+    private void setDefault(ClassMetadata metadata, GeneralValueObject target, Map values,
+            String property, Object value) {
+        if (value == null || values.containsKey(property)) return;
+        try {
+            Class expected = metadata.getPropertyType(property).getReturnedClass();
+            if (!expected.isAssignableFrom(value.getClass())) return;
+            Object current = metadata.getPropertyValue(target, property, EntityMode.POJO);
+            if (current == null || current instanceof String && String.valueOf(current).trim().length() == 0) {
+                metadata.setPropertyValue(target, property, value, EntityMode.POJO);
+            }
+        } catch (Exception missingOrDerivedProperty) {
+            // Model tidak memiliki property audit tersebut atau getternya merupakan nilai turunan.
+        }
     }
 
     public boolean canDelete(GeneralValueObject target, GenericCrudRequestContext context, List reasons) {

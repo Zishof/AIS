@@ -122,6 +122,7 @@ public class RuangPaketPMB extends GeneralValueObject {
 		ruangPMB = getRuangPMB();
 		biodataCalonMahasiswa = getBiodataCalonMahasiswa();
 
+		if (ruangPMB == null || biodataCalonMahasiswa == null) return kodeUnik;
 		kodeUnik = ruangPMB.getPaket() == null || biodataCalonMahasiswa.getPaket() == null
 				|| ruangPMB.getPaket().getId().equals(biodataCalonMahasiswa.getPaket().getId())
 						? biodataCalonMahasiswa.getId() + "_"

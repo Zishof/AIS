@@ -238,7 +238,9 @@ public class PeminjamanPengadaanItemDetail extends GeneralValueObject {
 	}
 
 	public void hitungBatasWaktupengembalian() {
-		hitungBatasWaktupengembalian(peminjamanPengadaanItem.getPerpustakaan());
+		if (peminjamanPengadaanItem != null) {
+			hitungBatasWaktupengembalian(peminjamanPengadaanItem.getPerpustakaan());
+		}
 	}
 
 	public void hitungBatasWaktupengembalian(Perpustakaan currentPerpustakaan) {
@@ -298,6 +300,9 @@ public class PeminjamanPengadaanItemDetail extends GeneralValueObject {
 		tanggalKembali = kembaliPengadaanItemDetail == null || kembaliPengadaanItemDetail.getTanggal() == null ? null
 				: kembaliPengadaanItemDetail.getTanggal();
 
+		if (peminjamanPengadaanItem == null || peminjamanPengadaanItem.getTanggalPembuatan() == null) {
+			return jumlahSelisihHari == null ? 0 : jumlahSelisihHari;
+		}
 		Date tanggalMulai = peminjamanPengadaanItem.getTanggalPembuatan();
 		Date tanggalSelesai = tanggalKembali == null ? ais.ui.util.WaktuUtil.getDate() : tanggalKembali;
 

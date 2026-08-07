@@ -25,7 +25,15 @@ public final class GenericCrudAutoDefinitionFactory {
         "password", "credential", "token", "secret", "oauth", "session", "login", "captcha",
         "user", "role", "privilege", "permission", "hakakses", "menu",
         "file", "lampiran", "dokumen", "blob", "audit", "revision", "log", "history",
-        "queue", "job", "notification", "notifikasi", "webhook", "bank", "rekening", "payment"
+        "queue", "job", "notification", "notifikasi", "webhook", "bank", "rekening", "payment",
+        "epsbed"
+    };
+    private static final String[] AUTO_CREATE_BLOCKED_CLASSES = new String[] {
+        "ais.database.model.PembayaranMahasiswa",
+        "ais.database.model.TugasPertemuan",
+        "ais.database.model.TingkatKesulitanMatakuliah",
+        "ais.database.model.akunting.Pajak",
+        "ais.database.model.rab.PenggunaanAnggaran"
     };
     private static final String[] BLOCKED_FIELD_TOKENS = new String[] {
         "password", "passwd", "token", "secret", "credential", "salt", "hash", "privatekey",
@@ -84,7 +92,7 @@ public final class GenericCrudAutoDefinitionFactory {
         boolean constructable = hasDefaultConstructor(entityClass);
         boolean assignedGenerator = isAssignedIdentifier(metadata);
         boolean assignedIdentifierSupported = isSupportedScalar(metadata.getIdentifierType().getReturnedClass());
-        boolean autoCreatePossible = !restrictedClass && constructable
+        boolean autoCreatePossible = !restrictedClass && !isAutoCreateBlocked(entityClass) && constructable
                 && (!assignedGenerator || assignedIdentifierSupported);
 
         GenericCrudDefinition definition = new GenericCrudDefinition();
@@ -131,17 +139,21 @@ public final class GenericCrudAutoDefinitionFactory {
             if (type.isCollectionType() || returned == byte[].class || java.sql.Blob.class.isAssignableFrom(returned)) continue;
             boolean sensitive = isBlockedField(name);
             boolean internal = isInternalField(name);
+            boolean nullable = isNullable(metadata, i);
             ClassMetadata relationMetadata = type.isAssociationType()
                     ? HibernateUtil.getSessionFactory().getClassMetadata(returned) : null;
             boolean relation = type.isAssociationType() && GeneralValueObject.class.isAssignableFrom(returned)
                     && relationMetadata != null;
             boolean supported = isSupportedScalar(returned) || returned.isEnum() || relation;
             if (!supported) {
-                if (!isInternalField(name) && !isNullable(metadata, i)) autoCreatePossible = false;
+                if (!isInternalField(name) && !nullable) autoCreatePossible = false;
                 continue;
             }
             boolean mutableRelation = !relation || isSupportedIdentifier(relationMetadata);
-            if (!mutableRelation && !isNullable(metadata, i)) autoCreatePossible = false;
+            if (!mutableRelation && !nullable) autoCreatePossible = false;
+            if (!nullable && (sensitive || internal) && !isAutoPopulatedInternal(name)) {
+                autoCreatePossible = false;
+            }
             GenericCrudFieldDefinition field = field(name, humanize(name), returned,
                     !restrictedClass && !sensitive && !internal && mutableRelation,
                     !restrictedClass && !sensitive && !internal && mutableRelation, i + 1);
@@ -152,7 +164,7 @@ public final class GenericCrudAutoDefinitionFactory {
             field.setSortable(!sensitive && !relation);
             field.setSearchable(!sensitive && returned == String.class);
             field.setQuickFilter(field.isSearchable() && i < 8);
-            field.setRequired(!restrictedClass && !sensitive && !internal && mutableRelation && !isNullable(metadata, i));
+            field.setRequired(!restrictedClass && !sensitive && !internal && mutableRelation && !nullable);
             if (relation) {
                 field.setEditorType("relation");
                 field.setRelationEntityKey(returned.getName());
@@ -284,8 +296,24 @@ public final class GenericCrudAutoDefinitionFactory {
         return metadata.getIdentifierPropertyName();
     }
     private static boolean isBlockedClass(Class type) { return containsToken(type.getName(), BLOCKED_CLASS_TOKENS); }
+    private static boolean isAutoCreateBlocked(Class type) {
+        String name = type == null ? "" : type.getName();
+        for (int i = 0; i < AUTO_CREATE_BLOCKED_CLASSES.length; i++) {
+            if (AUTO_CREATE_BLOCKED_CLASSES[i].equals(name)) return true;
+        }
+        return false;
+    }
     private static boolean isBlockedField(String value) { return containsToken(value, BLOCKED_FIELD_TOKENS); }
     private static boolean isInternalField(String value) { return containsToken(normalize(value), INTERNAL_FIELDS); }
+    private static boolean isAutoPopulatedInternal(String value) {
+        String normalized = normalize(value);
+        return "dibuatoleh".equals(normalized) || "diubaholeh".equals(normalized)
+                || "validatoruser".equals(normalized) || "oleh".equals(normalized)
+                || "olehid".equals(normalized) || "ditetapkanoleh".equals(normalized)
+                || "tanggaldirubah".equals(normalized) || "created".equals(normalized)
+                || "createdat".equals(normalized) || "updated".equals(normalized)
+                || "updatedat".equals(normalized);
+    }
     private static boolean containsToken(String value, String[] tokens) {
         String normalized = normalize(value);
         for (int i = 0; i < tokens.length; i++) if (normalized.indexOf(normalize(tokens[i])) >= 0) return true;

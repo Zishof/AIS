@@ -312,7 +312,9 @@ public class RealisasiKerjaPegawai extends GeneralValueObject {
 
 	public Date getTanggalWaktuSampai() {
 
-		if (tanggalWaktu != null && waktu != null && tanggalWaktuSampai == null) {
+		if (tanggalWaktu != null && waktu != null && tanggalWaktuSampai == null
+				&& targetKerjaPegawai != null && targetKerjaPegawai.getKegiatanTugasJabatan() != null
+				&& targetKerjaPegawai.getKegiatanTugasJabatan().getSatuanWaktu() != null) {
 			Date wkt = tanggalWaktu;
 			int w = waktu.intValue();
 			Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
