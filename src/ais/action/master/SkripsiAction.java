@@ -94,6 +94,7 @@ import ais.action.master.helper.AmbilDataDosenBanbox;
 import ais.action.master.helper.AmbilDataDosenSkripsiBanbox;
 import ais.action.master.helper.AmbilDataMahasiswaSkripsiBanbox;
 import ais.action.master.helper.AmbilJadwalSidangTugasAkhirBanbox;
+import ais.action.master.helper.KrsDanSkripsiHelper;
 import ais.action.master.helper.PenilaianSkripsiHelper;
 import ais.action.master.helper.RevisiHelper;
 import ais.action.master.helper.RevisiSkripsiHelper;
@@ -4986,12 +4987,14 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 			}
 		}
 
-		if (!formatNilaiSkripsi.getKodeMatakuliahDan().trim().isEmpty()) {
-			detailperkuliahan = Common.checkApakahSudahMengambilKrsSeminarSkripsiDan(mahasiswa,
-					formatNilaiSkripsi.getKodeMatakuliahDan().trim());
-			if (detailperkuliahan == null) {
+		String kodeMatakuliahDanEfektif = KrsDanSkripsiHelper.kodeMatakuliahDanEfektif(
+				formatNilaiSkripsi.getKodeMatakuliahDan(), formatNilaiSkripsi.getKodeMatakuliah());
+		if (!kodeMatakuliahDanEfektif.isEmpty()) {
+			Detailperkuliahan detailperkuliahanDan = Common.checkApakahSudahMengambilKrsSeminarSkripsiDan(mahasiswa,
+					kodeMatakuliahDanEfektif);
+			if (detailperkuliahanDan == null) {
 				String mk = "";
-				for (String kode : formatNilaiSkripsi.getKodeMatakuliahDan().split(",")) {
+				for (String kode : kodeMatakuliahDanEfektif.split(",")) {
 					if (!kode.trim().isEmpty()) {
 						Object[] nama = (Object[]) HibernateUtil.currentSession().createCriteria(Matakuliah.class)
 								.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
@@ -5010,6 +5013,11 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 						"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, mahasiswa.getNim(),
 						mahasiswa.getNama(), mk);
 				return false;
+			}
+			// Kelompok DAN hanya prasyarat tambahan dan tidak boleh menimpa MK utama
+			// yang sudah cocok dari kelompok ATAU (mis. MK-20826 menjadi MA-601).
+			if (detailperkuliahan == null) {
+				detailperkuliahan = detailperkuliahanDan;
 			}
 		}
 
