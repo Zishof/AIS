@@ -274,6 +274,7 @@ public class PengaturanBiayaAction extends GenericAutowireComposer
 					}
 
 					final int totalData = pengaturans.size();
+					final String namaSiswaFilter = searchnama == null ? "" : searchnama.getValue();
 
 					final ais.common.LaporanUpload laporan = new ais.common.LaporanUpload("Sinkronisasi Semua Tagihan Pengaturan Biaya");
 
@@ -324,7 +325,8 @@ public class PengaturanBiayaAction extends GenericAutowireComposer
 									if (pengaturanBiaya.getJenisBiayaSekolah().getGunakanCalonSiswa()) {
 										TagihanUtilCalonSiswa.doSinkronkanTagihanCalonSiswa(pengaturanBiaya, dummyLabel, searchnama, true);
 									} else {
-										TagihanUtil.doSinkronkanTagihanSiswa(pengaturanBiaya, null, null, dummyLabel, searchnama, true);
+										TagihanUtil.doSinkronkanTagihanSiswa(pengaturanBiaya, null, null, dummyLabel,
+												namaSiswaFilter, true);
 									}
 									laporan.catatBerhasil(barisLaporan.getAndIncrement(), kunci, "Sinkronisasi berhasil");
 								} catch (Exception e) {

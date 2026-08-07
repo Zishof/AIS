@@ -1725,6 +1725,14 @@ public class Tagihan extends GeneralValueObject {
 			pengaturanBiaya = getPengaturanBiaya();
 			if (siswa != null && siswa.getId() != null && pengaturanBiaya != null
 					&& pengaturanBiaya.getTahunAjaran() != null) {
+				// Utamakan snapshot kelas yang sudah disinkronkan pada Tagihan. Sebelumnya nilai
+				// ini selalu ditimpa oleh Siswa.ambilKelas(), padahal helper tersebut dapat membaca
+				// cache relasi lama setelah siswa pindah kelas.
+				if (kelasSiswa != null && kelasSiswa.getId() != null
+						&& pengaturanBiaya.getTahunAjaran().equals(kelasSiswa.getTahunAjaran())
+						&& kelasSiswaMasihAdaDiDb(kelasSiswa.getId())) {
+					return kelasSiswa;
+				}
 				KelasSiswa kandidat = Siswa.ambilKelas(siswa, pengaturanBiaya.getTahunAjaran());
 				// Root cause fix: siswa.kelas / cache KelasSiswaPunyaSiswa (dipakai oleh
 				// Siswa.ambilKelas) bisa BASI -- menyimpan referensi ke baris "kelas" yang

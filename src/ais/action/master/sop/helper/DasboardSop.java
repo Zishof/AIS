@@ -483,11 +483,8 @@ public class DasboardSop extends MyPortallayout {
 	}
 
 	private SopDashboardData loadSopDashboardDataWithCache() {
-		String fp = (dashboardFilterMulai  != null ? String.valueOf(dashboardFilterMulai.getTime())  : "0")
-				+ "_" + (dashboardFilterSampai != null ? String.valueOf(dashboardFilterSampai.getTime()) : "0")
-				+ "_" + (dashboardFilterSatker  != null ? String.valueOf(dashboardFilterSatker.getId())   : "all")
-				+ "_" + (dashboardFilterKeyword != null ? dashboardFilterKeyword : "");
-		String key = DashboardCacheUtil.keyWithFilter("DasboardSop", "ADMIN", null, fp);
+		String key = getSopDashboardCacheKey(dashboardFilterMulai, dashboardFilterSampai,
+				dashboardFilterSatker, dashboardFilterKeyword);
 		Object fromL2 = DashboardCacheUtil.getL2(key);
 		if (fromL2 instanceof SopDashboardData) return (SopDashboardData) fromL2;
 		Object fromL3 = DashboardCacheUtil.getL3(key);
@@ -499,6 +496,22 @@ public class DasboardSop extends MyPortallayout {
 		DashboardCacheUtil.putL2(key, d);
 		DashboardCacheUtil.putL3(key, d);
 		return d;
+	}
+
+	private String getSopDashboardCacheKey(Date mulai, Date sampai,
+			ais.database.model.rab.SatuanKerja satuanKerja, String keyword) {
+		String fp = (mulai != null ? String.valueOf(mulai.getTime()) : "0")
+				+ "_" + (sampai != null ? String.valueOf(sampai.getTime()) : "0")
+				+ "_" + (satuanKerja != null ? String.valueOf(satuanKerja.getId()) : "all")
+				+ "_" + (keyword != null ? keyword.trim() : "");
+		return DashboardCacheUtil.keyWithFilter("DasboardSop", "ADMIN", null, fp);
+	}
+
+	private void invalidateSopDashboardCache(Date mulai, Date sampai,
+			ais.database.model.rab.SatuanKerja satuanKerja, String keyword) {
+		String key = getSopDashboardCacheKey(mulai, sampai, satuanKerja, keyword);
+		DashboardCacheUtil.invalidateL2(key);
+		DashboardCacheUtil.invalidateL3(key);
 	}
 
 	private SopDashboardData loadSopDashboardData() {
@@ -854,6 +867,12 @@ public class DasboardSop extends MyPortallayout {
 				+ "padding:6px 14px; margin-left:4px;");
 		refresh.setParent(toolbar);
 
+		MyToolbarbuttonConfig sinkronisasi = new MyToolbarbuttonConfig("Sinkronisasi", "/img/svg/refresh.svg");
+		sinkronisasi.setTooltiptext("Ambil ulang data pengajuan SOP terbaru langsung dari database");
+		sinkronisasi.setStyle("font-weight:bold; color:#ffffff; background:#059669; border-radius:10px; "
+				+ "padding:6px 14px; margin-left:4px;");
+		sinkronisasi.setParent(toolbar);
+
 		EventListener refreshListener = new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
@@ -863,6 +882,19 @@ public class DasboardSop extends MyPortallayout {
 			}
 		};
 		refresh.addEventListener("onClick", refreshListener);
+		sinkronisasi.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				Date mulaiAktif = dbMulai.getValue();
+				Date sampaiAktif = dbSampai.getValue();
+				ais.database.model.rab.SatuanKerja satkerAktif =
+						(ais.database.model.rab.SatuanKerja) cbSatker.getAttribute("satuanKerja");
+				String keywordAktif = txtKeyword.getValue();
+				invalidateSopDashboardCache(mulaiAktif, sampaiAktif, satkerAktif, keywordAktif);
+				renderHomeDasborContentAsync(DasboardSop.this, mulaiAktif, sampaiAktif,
+						satkerAktif, keywordAktif);
+			}
+		});
 		txtKeyword.addEventListener("onOK", refreshListener);
 		dbMulai.addEventListener("onChange", refreshListener);
 		dbSampai.addEventListener("onChange", refreshListener);

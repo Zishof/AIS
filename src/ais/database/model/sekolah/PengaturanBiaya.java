@@ -235,6 +235,34 @@ public class PengaturanBiaya extends GeneralValueObject {
 		reloadTagihan(pengaturanBiaya, false);
 	}
 
+	/**
+	 * Hapus seluruh cache Tagihan milik satu pengaturan biaya. Cache harus dibuang
+	 * sebelum sinkronisasi agar entity lama yang sudah berubah/terhapus tidak dipakai
+	 * kembali oleh Tagihan.ambilAtauBuat().
+	 */
+	public static void invalidasiCacheTagihan(PengaturanBiaya pengaturanBiaya) {
+		if (pengaturanBiaya == null || pengaturanBiaya.getId() == null) {
+			return;
+		}
+		Long idPengaturan = pengaturanBiaya.getId();
+		Map<String, Tagihan> cache = MemoryDbUtil.getAllTagihan();
+		if (cache != null) {
+			for (Map.Entry<String, Tagihan> entry : cache.entrySet()) {
+				try {
+					Tagihan tagihan = entry.getValue();
+					PengaturanBiaya pbCache = tagihan == null ? null : tagihan.getPengaturanBiaya();
+					if (pbCache != null && idPengaturan.equals(pbCache.getId())) {
+						cache.remove(entry.getKey());
+					}
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e,
+							"auto-audit PengaturanBiaya.invalidasiCacheTagihan id=" + idPengaturan);
+				}
+			}
+		}
+		MemoryDbUtil.getAllTagihanSudah().remove(idPengaturan);
+	}
+
 	@SuppressWarnings("unchecked")
 	public static void reloadTagihan(PengaturanBiaya pengaturanBiaya, boolean reload) {
 
@@ -246,6 +274,9 @@ public class PengaturanBiaya extends GeneralValueObject {
 
 				// 2. Cek kedua (Double-Checked Locking) dengan logika yang sama
 				if (reload || !MemoryDbUtil.getAllTagihanSudah().containsKey(pengaturanBiaya.getId())) {
+					if (reload) {
+						invalidasiCacheTagihan(pengaturanBiaya);
+					}
 
 					Session session = null;
 					try {

@@ -24,12 +24,14 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Konfigurasi;
 import ais.database.model.akunting.DaftarPengajuanTransfer;
 import ais.database.model.sekolah.CalonSiswa;
+import ais.database.model.sekolah.AsramaSiswaPunyaSiswa;
 import ais.database.model.sekolah.DiskonSiswa;
 import ais.database.model.sekolah.DiskonSiswaItemBiaya;
 import ais.database.model.sekolah.DiskonSiswaPunyaSiswa;
 import ais.database.model.sekolah.ItemBiayaSekolah;
 import ais.database.model.sekolah.JenisBiayaSekolah;
 import ais.database.model.sekolah.KelasSiswa;
+import ais.database.model.sekolah.KelasSiswaPunyaSiswa;
 import ais.database.model.sekolah.NominalBiaya;
 import ais.database.model.sekolah.PembayaranSiswa;
 import ais.database.model.sekolah.PembayaranSiswaDetail;
@@ -166,6 +168,110 @@ public class TagihanUtil {
 				|| (kelasData != null && pb.getKelasBanyak().trim().contains(kelasData));
 
 		return syaratAsrama && syaratKelas && syaratKelasBanyak;
+	}
+
+	private static class DataKeanggotaanSiswa {
+		private final List<Long> kelasIds = new ArrayList<Long>();
+		private final List<Long> asramaIds = new ArrayList<Long>();
+		private String namaKelas;
+	}
+
+	/**
+	 * Ambil keanggotaan kelas/asrama langsung dari DB. Siswa.ambilkelas(), ambilasrama(),
+	 * dan ambilKelas() memakai ConstantValues sehingga dapat tertinggal setelah siswa
+	 * dipindah kelas. Sinkronisasi tagihan harus memakai relasi terbaru.
+	 */
+	@SuppressWarnings("unchecked")
+	private static DataKeanggotaanSiswa ambilKeanggotaanSiswaTerbaru(Siswa siswa, String tahunAjaran) {
+		DataKeanggotaanSiswa data = new DataKeanggotaanSiswa();
+		if (siswa == null || siswa.getId() == null) {
+			return data;
+		}
+		Session session = null;
+		try {
+			session = HibernateUtil.openSession();
+			List<KelasSiswaPunyaSiswa> daftarKelas = session.createCriteria(KelasSiswaPunyaSiswa.class)
+					.createAlias("kelasSiswa", "kelasTerbaru")
+					.add(Restrictions.eq("siswa", siswa))
+					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+					.add(Restrictions.or(Restrictions.isNull("kelasTerbaru.aktif"),
+							Restrictions.eq("kelasTerbaru.aktif", true))).list();
+			for (KelasSiswaPunyaSiswa relasi : daftarKelas) {
+				KelasSiswa kelas = relasi == null ? null : relasi.getKelasSiswa();
+				if (kelas == null || kelas.getId() == null) {
+					continue;
+				}
+				data.kelasIds.add(kelas.getId());
+				if (tahunAjaran != null && tahunAjaran.equals(kelas.getTahunAjaran())) {
+					data.namaKelas = kelas.getNama();
+				}
+			}
+
+			List<AsramaSiswaPunyaSiswa> daftarAsrama = session.createCriteria(AsramaSiswaPunyaSiswa.class)
+					.add(Restrictions.eq("siswa", siswa))
+					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).list();
+			for (AsramaSiswaPunyaSiswa relasi : daftarAsrama) {
+				if (relasi != null && relasi.getAsramaSiswa() != null && relasi.getAsramaSiswa().getId() != null) {
+					data.asramaIds.add(relasi.getAsramaSiswa().getId());
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"TagihanUtil.ambilKeanggotaanSiswaTerbaru siswa=" + siswa.getId());
+			// Fallback menjaga proses lama tetap berjalan saat query relasi gagal.
+			data.kelasIds.clear();
+			data.kelasIds.addAll(siswa.ambilkelas());
+			data.asramaIds.clear();
+			data.asramaIds.addAll(siswa.ambilasrama());
+			KelasSiswa kelas = Siswa.ambilKelas(siswa, tahunAjaran);
+			data.namaKelas = kelas == null ? null : kelas.getNama();
+		} finally {
+			closeSessionAndDisconnect(session);
+		}
+		return data;
+	}
+
+	/** Samakan snapshot kelas pada seluruh tagihan PB dengan kelas aktif siswa pada tahun ajaran PB. */
+	private static void sinkronkanKelasTagihan(Session session, Siswa siswa, PengaturanBiaya pengaturanBiaya) {
+		if (session == null || !session.isOpen() || siswa == null || pengaturanBiaya == null) {
+			return;
+		}
+		try {
+			Criteria kelasCriteria = session.createCriteria(KelasSiswaPunyaSiswa.class)
+					.createAlias("kelasSiswa", "kelasAktif")
+					.add(Restrictions.eq("siswa", siswa))
+					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+					.add(Restrictions.or(Restrictions.isNull("kelasAktif.aktif"),
+							Restrictions.eq("kelasAktif.aktif", true)))
+					.add(pengaturanBiaya.getTahunAjaran() == null ? Restrictions.sqlRestriction("1=1")
+							: Restrictions.eq("kelasAktif.tahunAjaran", pengaturanBiaya.getTahunAjaran()))
+					.addOrder(Order.desc("id")).setMaxResults(1);
+			KelasSiswa kelasTerbaru = null;
+			KelasSiswaPunyaSiswa relasi = (KelasSiswaPunyaSiswa) kelasCriteria.uniqueResult();
+			if (relasi != null) {
+				kelasTerbaru = relasi.getKelasSiswa();
+			}
+
+			Transaction tx = session.beginTransaction();
+			session.createQuery("update Tagihan set kelasSiswa = :kelas where siswa = :siswa "
+					+ "and pengaturanBiaya = :pengaturanBiaya")
+					.setParameter("kelas", kelasTerbaru)
+					.setParameter("siswa", siswa)
+					.setParameter("pengaturanBiaya", pengaturanBiaya)
+					.executeUpdate();
+			tx.commit();
+			session.clear();
+		} catch (Exception e) {
+			try {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception rollbackError) {
+				ais.common.ErrorAuditUtil.record(rollbackError,
+						"TagihanUtil.sinkronkanKelasTagihan rollback");
+			}
+			ais.common.ErrorAuditUtil.record(e, "TagihanUtil.sinkronkanKelasTagihan siswa=" + siswa.getId());
+		}
 	}
 
 	public static int getBulanMulai(JenisBiayaSekolah jenisBiaya) {
@@ -459,11 +565,10 @@ public class TagihanUtil {
 	public static List<Tagihan> doGenerateTagihanBulanan(Siswa siswa, PengaturanBiaya pengaturanBiaya,
 			Integer tahunSampai, Integer bulanSampai, int mulai) {
 
-		List<Long> kelases = siswa != null ? siswa.ambilkelas() : new ArrayList<Long>();
-		List<Long> asramas = siswa != null ? siswa.ambilasrama() : new ArrayList<Long>();
-
-		KelasSiswa kelasSiswa = siswa == null ? null : Siswa.ambilKelas(siswa, pengaturanBiaya.getTahunAjaran());
-		String kelasData = kelasSiswa != null ? kelasSiswa.getNama() : null;
+		DataKeanggotaanSiswa keanggotaan = ambilKeanggotaanSiswaTerbaru(siswa, pengaturanBiaya.getTahunAjaran());
+		List<Long> kelases = keanggotaan.kelasIds;
+		List<Long> asramas = keanggotaan.asramaIds;
+		String kelasData = keanggotaan.namaKelas;
 
 		List<Tagihan> tagihans = new ArrayList<Tagihan>();
 
@@ -654,11 +759,10 @@ public class TagihanUtil {
 
 	public static List<Tagihan> doGenerateTagihanTahunan(Siswa siswa, PengaturanBiaya pengaturanBiaya,
 			Integer tahunSampai) {
-		List<Long> kelases = siswa != null ? siswa.ambilkelas() : new ArrayList<Long>();
-		List<Long> asramas = siswa != null ? siswa.ambilasrama() : new ArrayList<Long>();
-
-		KelasSiswa kelasSiswa = siswa == null ? null : Siswa.ambilKelas(siswa, pengaturanBiaya.getTahunAjaran());
-		String kelasData = kelasSiswa != null ? kelasSiswa.getNama() : null;
+		DataKeanggotaanSiswa keanggotaan = ambilKeanggotaanSiswaTerbaru(siswa, pengaturanBiaya.getTahunAjaran());
+		List<Long> kelases = keanggotaan.kelasIds;
+		List<Long> asramas = keanggotaan.asramaIds;
+		String kelasData = keanggotaan.namaKelas;
 		List<Tagihan> tagihans = new ArrayList<Tagihan>();
 
 		if (isSiswaMemenuhiSyarat(siswa, pengaturanBiaya, kelases, asramas, kelasData)) {
@@ -793,11 +897,10 @@ public class TagihanUtil {
 
 	public static List<Tagihan> doGenerateTagihanInsendentil(Siswa siswa, PengaturanBiaya pengaturanBiaya,
 			boolean refresh) {
-		List<Long> kelases = siswa != null ? siswa.ambilkelas() : new ArrayList<Long>();
-		List<Long> asramas = siswa != null ? siswa.ambilasrama() : new ArrayList<Long>();
-
-		KelasSiswa kelasSiswa = siswa == null ? null : Siswa.ambilKelas(siswa, pengaturanBiaya.getTahunAjaran());
-		String kelasData = kelasSiswa != null ? kelasSiswa.getNama() : null;
+		DataKeanggotaanSiswa keanggotaan = ambilKeanggotaanSiswaTerbaru(siswa, pengaturanBiaya.getTahunAjaran());
+		List<Long> kelases = keanggotaan.kelasIds;
+		List<Long> asramas = keanggotaan.asramaIds;
+		String kelasData = keanggotaan.namaKelas;
 
 		List<Tagihan> tagihans = new ArrayList<Tagihan>();
 
@@ -865,13 +968,25 @@ public class TagihanUtil {
 	public static void doSinkronkanTagihanSiswa(final PengaturanBiaya pengaturanBiaya,
 			PengaturanBiayaItemBiaya pengaturanBiayaItemBiaya, Integer pembayaranTerakhir, Label label, Textbox nama,
 			boolean refresh) {
+		String nilaiNama = nama == null ? "" : nama.getValue();
+		doSinkronkanTagihanSiswa(pengaturanBiaya, pengaturanBiayaItemBiaya, pembayaranTerakhir, label,
+				nilaiNama, refresh);
+	}
+
+	@SuppressWarnings("unchecked")
+	public static void doSinkronkanTagihanSiswa(final PengaturanBiaya pengaturanBiaya,
+			PengaturanBiayaItemBiaya pengaturanBiayaItemBiaya, Integer pembayaranTerakhir, Label label, String nama,
+			boolean refresh) {
 		label.setValue("Singkronisasi data tagihan");
+		// Buang object Tagihan lama sebelum generate. Tanpa invalidasi ini, ambilAtauBuat()
+		// dapat menemukan entity yang sudah berubah/terhapus dari cache dan melewati query DB.
+		PengaturanBiaya.invalidasiCacheTagihan(pengaturanBiaya);
 		Session session = null;
 		List<Siswa> siswaInstanceList = new ArrayList<Siswa>();
 
 		try {
 			session = HibernateUtil.currentNativeSession();
-			Criteria criteria = DetailTagihanSiswaHelper.initCriteria(session, pengaturanBiaya, null, nama,
+			Criteria criteria = DetailTagihanSiswaHelper.initCriteriaDenganNama(session, pengaturanBiaya, null, nama,
 					pengaturanBiayaItemBiaya, false, true);
 			siswaInstanceList = ConstantValues.simpleList(criteria, Siswa.class);
 		} catch (Exception e) {
@@ -929,6 +1044,7 @@ public class TagihanUtil {
 					}
 					hapusTagihanTidakValid(innerSession, siswa, pengaturanBiaya, tags);
 					bersihkanTagihanNolDanNormalisasiAngsuran(innerSession, siswa, null, pengaturanBiaya, null);
+					sinkronkanKelasTagihan(innerSession, siswa, pengaturanBiaya);
 				} catch (Exception e) {
 					e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/sekolah/helper/TagihanUtil.java:799");
 				} finally {
@@ -953,6 +1069,7 @@ public class TagihanUtil {
 					}
 					hapusTagihanTidakValid(innerSession, siswa, pengaturanBiaya, tags);
 					bersihkanTagihanNolDanNormalisasiAngsuran(innerSession, siswa, null, pengaturanBiaya, null);
+					sinkronkanKelasTagihan(innerSession, siswa, pengaturanBiaya);
 				} catch (Exception e) {
 					e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/sekolah/helper/TagihanUtil.java:822");
 				} finally {
@@ -1049,6 +1166,7 @@ public class TagihanUtil {
 					}
 					hapusTagihanTidakValid(innerSession, siswa, pengaturanBiaya, tags);
 					bersihkanTagihanNolDanNormalisasiAngsuran(innerSession, siswa, null, pengaturanBiaya, null);
+					sinkronkanKelasTagihan(innerSession, siswa, pengaturanBiaya);
 				} catch (Exception e) {
 					e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/sekolah/helper/TagihanUtil.java:917");
 				} finally {
@@ -1056,6 +1174,9 @@ public class TagihanUtil {
 				}
 			}
 		}
+		// Bangun ulang cache dari kondisi DB final agar grid dan proses pembayaran membaca
+		// object yang sama dengan hasil sinkronisasi, termasuk penghapusan tagihan tidak valid.
+		PengaturanBiaya.reloadTagihan(pengaturanBiaya, true);
 		label.setValue("");
 	}
 
