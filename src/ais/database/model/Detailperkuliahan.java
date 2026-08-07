@@ -578,6 +578,13 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 			Boolean verify, Boolean sembunyikanNilaiJikaBelumDiverifikasi, Tbmuser tbmuser) {
 		jumlah = batasiNilaiMaksimal100(jumlah);
 
+		// Kunci harus ditegakkan di model, bukan hanya dengan men-disable komponen UI.
+		// Semua jalur penulisan (input manual, upload, feeder, dan e-learning) bermuara
+		// ke method ini, sehingga nilai kolom yang sudah dikunci tidak dapat ditimpa.
+		if (apakahNilaiDikunci(formatNilai)) {
+			return;
+		}
+
 		if (formatNilai != null) {
 			String formatBaru = "";
 			String[] nilais = detailNilai == null ? new String[] {} : detailNilai.split(";");
@@ -672,6 +679,87 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 			}
 
 			detailNilaiTambahan = formatBaru;
+		}
+	}
+
+	/**
+	 * Memeriksa kunci utama perkuliahan dan kunci khusus satu kolom nilai.
+	 * Method ini sengaja public agar endpoint integrasi dapat memberi respons yang
+	 * jelas, sementara pemeriksaan yang sama tetap dilakukan lagi saat menyimpan.
+	 */
+	public boolean apakahNilaiDikunci(FormatNilai formatNilai) {
+		Perkuliahan kuliah = getPerkuliahan();
+		return (kuliah != null && kuliah.getDikunci() != null)
+				|| (formatNilai != null && formatNilai.getKunci() != null);
+	}
+
+	private Long ambilKunciFormatNilai(FormatNilai formatNilai) {
+		if (formatNilai == null) {
+			return null;
+		}
+		return formatNilai.getStatusPertemuan() != null
+				? formatNilai.getStatusPertemuan().getId() : formatNilai.getId();
+	}
+
+	private String ambilEntriDetailNilai(String sumber, Long kunciFormat) {
+		if (sumber == null || sumber.trim().isEmpty() || kunciFormat == null) {
+			return null;
+		}
+		String[] entries = sumber.split(";");
+		for (String entry : entries) {
+			try {
+				String[] bagian = entry.split(",");
+				if (bagian.length > 0 && kunciFormat.equals(Long.parseLong(bagian[0].trim()))) {
+					return entry;
+				}
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e,
+						"Detailperkuliahan.ambilEntriDetailNilai id=" + getId());
+			}
+		}
+		return null;
+	}
+
+	private String gabungkanEntriDetailNilai(String tujuan, Long kunciFormat, String entriTerkunci) {
+		if (kunciFormat == null || entriTerkunci == null || entriTerkunci.trim().isEmpty()) {
+			return tujuan;
+		}
+		String hasil = "";
+		boolean diganti = false;
+		String[] entries = tujuan == null || tujuan.trim().isEmpty() ? new String[] {} : tujuan.split(";");
+		for (String entry : entries) {
+			String entryBaru = entry;
+			try {
+				String[] bagian = entry.split(",");
+				if (bagian.length > 0 && kunciFormat.equals(Long.parseLong(bagian[0].trim()))) {
+					entryBaru = entriTerkunci;
+					diganti = true;
+				}
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e,
+						"Detailperkuliahan.gabungkanEntriDetailNilai id=" + getId());
+			}
+			if (entryBaru != null && !entryBaru.trim().isEmpty()) {
+				hasil += hasil.isEmpty() ? entryBaru : ";" + entryBaru;
+			}
+		}
+		if (!diganti) {
+			hasil += hasil.isEmpty() ? entriTerkunci : ";" + entriTerkunci;
+		}
+		return hasil;
+	}
+
+	/**
+	 * Membekukan nilai satu kolom pada snapshot dan menegaskan nilai yang sama di
+	 * kolom utama. Tidak memerlukan perubahan skema karena memakai kolom snapshot
+	 * yang juga digunakan oleh kunci utama perkuliahan.
+	 */
+	public void bekukanDetailNilai(FormatNilai formatNilai) {
+		Long kunciFormat = ambilKunciFormatNilai(formatNilai);
+		String entriLive = ambilEntriDetailNilai(detailNilai, kunciFormat);
+		if (entriLive != null) {
+			detailNilaiKunci = gabungkanEntriDetailNilai(detailNilaiKunci, kunciFormat, entriLive);
+			detailNilai = gabungkanEntriDetailNilai(detailNilai, kunciFormat, entriLive);
 		}
 	}
 

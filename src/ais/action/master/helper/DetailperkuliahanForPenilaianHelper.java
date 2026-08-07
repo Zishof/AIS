@@ -2787,6 +2787,20 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 
 											}
 
+											// Bekukan nilai kolom ini untuk seluruh mahasiswa sebelum status
+											// kunci dipasang. Nilai disimpan di detail nilai utama sekaligus
+											// snapshot, sehingga sinkronisasi eksternal tidak dapat menimpanya.
+											Collection<Long> idsSnapshotKolom = perkuliahan.ambilDetailperkuliahan(
+													null, null, "", urutkanBerdasarkanNama.isChecked(), true);
+											for (Long idSnapshotKolom : idsSnapshotKolom) {
+												Detailperkuliahan dpkKolom = (Detailperkuliahan) GeneralValueObject
+														.ambilData(Detailperkuliahan.class, idSnapshotKolom.toString());
+												if (dpkKolom != null) {
+													dpkKolom.bekukanDetailNilai(formatNilai);
+													Common.refreshUpdate(dpkKolom);
+												}
+											}
+
 											formatNilai.setKunci(Common.getCurrentUser());
 											Common.refreshUpdate(formatNilai);
 
