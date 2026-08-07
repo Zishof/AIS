@@ -5,6 +5,10 @@ This JSP contains presentation metadata only. Keep business logic in Java servic
 --%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%
+if(ais.common.Common.getApakahAdmin()){
+    request.getRequestDispatcher("/WEB-INF/new/generic/uiux/model_catalog.jsp").include(request,response);
+    return;
+}
 request.setAttribute("nuiModule", "generic");
 request.setAttribute("nuiModuleLabel", "Generic");
 request.setAttribute("nuiPage", "generic_crud");

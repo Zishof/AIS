@@ -49,6 +49,44 @@ public final class GenericCrudDefinitionRegistry {
         return Collections.unmodifiableList(result);
     }
 
+    /**
+     * Bridge untuk JSP scaffold hasil generator. Kandidat berasal dari atribut
+     * JSP server-side, bukan parameter HTTP. Definisi hasil auto tetap dibatasi
+     * Super Admin oleh scope adapter dan class sensitif ditolak factory.
+     */
+    public static synchronized GenericCrudDefinition tryAutoRegister(String module, String page,
+            String[] serverCandidates) {
+        if (module == null || page == null || serverCandidates == null || serverCandidates.length == 0) return null;
+        GenericCrudDefinition existing = (GenericCrudDefinition) DEFINITIONS.get(routeKey(module, page));
+        if (existing != null) return existing.isEnabled() ? existing : null;
+        try {
+            GenericCrudDefinition generated = GenericCrudAutoDefinitionFactory.build(module, page, serverCandidates);
+            if (generated == null) return null;
+            register(generated);
+            return generated;
+        } catch (Exception rejected) {
+            try { ais.common.Common.tampilErrorJikaAdmin(rejected); } catch (Exception ignored) { }
+            return null;
+        }
+    }
+
+    public static synchronized GenericCrudDefinition tryAdministrativeRegister(String module, String page,
+            String mappedEntityKey) {
+        if (module == null || page == null || mappedEntityKey == null) return null;
+        String definitionKey = "admin:" + mappedEntityKey;
+        GenericCrudDefinition existing = (GenericCrudDefinition) DEFINITIONS.get(definitionKey);
+        if (existing != null) return existing;
+        try {
+            GenericCrudDefinition generated = GenericCrudAutoDefinitionFactory.buildAdministrative(module, page, mappedEntityKey);
+            if (generated == null) return null;
+            register(generated);
+            return generated;
+        } catch (Exception rejected) {
+            try { ais.common.Common.tampilErrorJikaAdmin(rejected); } catch (Exception ignored) { }
+            return null;
+        }
+    }
+
     private static void register(GenericCrudDefinition definition) {
         DEFINITIONS.put(definition.getEntityKey(), definition);
         DEFINITIONS.put(routeKey(definition.getModuleKey(), definition.getPageKey()), definition);

@@ -7,7 +7,7 @@
 
   var endpoint = root.getAttribute('data-endpoint');
   var meta = null;
-  var state = {page: 1, pageSize: 10, q: '', sort: '', direction: 'ASC', filters: [], columns: [], editing: null, dirty: false, importJob: null};
+  var state = {page: 1, pageSize: 10, q: '', sort: '', direction: 'ASC', filters: [], columns: [], editing: null, version: null, dirty: false, importJob: null};
 
   function node(name, attrs, text) {
     var result = document.createElement(name), key;
@@ -173,21 +173,25 @@
       var wrap = node('div', {'class': 'gc-field' + (field.editorType === 'textarea' ? ' gc-field-wide' : '')}), label = node('label', {'for': 'gc-' + field.property}, field.label + (field.required ? ' *' : '')), input;
       if (field.editorType === 'textarea') input = node('textarea', {rows: '4'}); else if (field.editorType === 'checkbox') input = node('input', {type: 'checkbox'}); else input = node('input', {type: field.editorType === 'number' ? 'number' : 'text'});
       input.id = 'gc-' + field.property; input.name = field.property;
-      if (rowData && rowData[field.property] !== null && rowData[field.property] !== undefined) { if (input.type === 'checkbox') input.checked = !!rowData[field.property]; else input.value = String(rowData[field.property]); }
+      if (rowData && rowData[field.property] !== null && rowData[field.property] !== undefined) {
+        if (input.type === 'checkbox') input.checked = !!rowData[field.property];
+        else if (input.type === 'date') { var date = new Date(rowData[field.property]); if (!isNaN(date.getTime())) input.value = date.getFullYear() + '-' + String(date.getMonth() + 1).replace(/^(\d)$/, '0$1') + '-' + String(date.getDate()).replace(/^(\d)$/, '0$1'); }
+        else input.value = String(rowData[field.property]);
+      }
       if (editing && !meta.canUpdate) input.disabled = true; input.addEventListener('input', function () { state.dirty = true; }); wrap.appendChild(label); wrap.appendChild(input); container.appendChild(wrap);
     });
     query('form-error').hidden = true; query('overlay').hidden = false; query('drawer').hidden = false; var first = container.querySelector('input,textarea,select'); if (first) first.focus();
   }
-  function openExisting(id) { api('get', {id: id}).then(function (rowData) { state.editing = id; openDrawer(rowData); }).catch(function (error) { notify(error.message); }); }
+  function openExisting(id) { api('get', {id: id}).then(function (rowData) { state.editing = id; state.version = meta.versionProperty ? rowData[meta.versionProperty] : null; openDrawer(rowData); }).catch(function (error) { notify(error.message); }); }
   function closeAll(force) {
     if (!force && state.dirty && !window.confirm('Perubahan belum disimpan. Tutup form?')) return;
-    query('drawer').hidden = true; query('audit').hidden = true; query('import-drawer').hidden = true; query('overlay').hidden = true; state.editing = null; state.dirty = false;
+    query('drawer').hidden = true; query('audit').hidden = true; query('import-drawer').hidden = true; query('overlay').hidden = true; state.editing = null; state.version = null; state.dirty = false;
   }
   function save(event) {
     event.preventDefault(); if (state.editing !== null && !meta.canUpdate) return;
     var params = {nui_csrf: meta.csrf}, form = query('form');
     formFields().forEach(function (field) { var input = form.elements[field.property]; if (!input || input.disabled) return; params[field.property] = input.type === 'checkbox' ? (input.checked ? 'true' : 'false') : input.value; });
-    var action = state.editing === null ? 'create' : 'update'; if (state.editing !== null) params.id = state.editing;
+    var action = state.editing === null ? 'create' : 'update'; if (state.editing !== null) { params.id = state.editing; if (meta.versionProperty) params.version = state.version; }
     api(action, params, 'POST').then(function () { closeAll(true); return loadList(); }).catch(function (error) {
       var box = query('form-error'), messages = []; box.textContent = error.message;
       if (error.payload && error.payload.fieldErrors) Object.keys(error.payload.fieldErrors).forEach(function (key) { messages.push(error.payload.fieldErrors[key]); });

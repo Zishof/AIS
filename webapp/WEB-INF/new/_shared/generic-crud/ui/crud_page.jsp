@@ -4,7 +4,8 @@
 String gcModule = String.valueOf(request.getAttribute("genericCrudModuleKey"));
 String gcPage = String.valueOf(request.getAttribute("genericCrudPageKey"));
 String gcEndpoint = request.getContextPath() + "/new?service=1&module="
-        + URLEncoder.encode(gcModule, "UTF-8") + "&page=" + URLEncoder.encode(gcPage, "UTF-8");
+        + URLEncoder.encode(gcModule, "UTF-8") + "&page=" + URLEncoder.encode(gcPage, "UTF-8")
+        + "&entity=" + URLEncoder.encode(String.valueOf(request.getAttribute("genericCrudEntityKey")), "UTF-8");
 %>
 <style><jsp:include page="/WEB-INF/new/_shared/generic-crud/assets/generic-crud.css" /></style>
 <section class="gc" data-gc-root data-endpoint="<%=gcEndpoint%>">

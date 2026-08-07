@@ -40,6 +40,24 @@ public class GenericCrudRequestContext implements Serializable {
                 context.canApprove = check(context.menu, CommonPrivilages.APPROVE, context.user);
                 context.canReject = check(context.menu, CommonPrivilages.REJECT, context.user);
             }
+            boolean[] routePermission = GenericCrudRoutePrivilegeResolver.resolve(context.user,
+                    definition.getModuleKey(), definition.getPageKey());
+            if (routePermission != null) {
+                context.canRead = routePermission[0];
+                context.canCreate = routePermission[1];
+                context.canUpdate = routePermission[2];
+                context.canDelete = routePermission[3];
+                context.canApprove = routePermission[4];
+                context.canReject = routePermission[5];
+            }
+            if (definition.isAdministrativeAutoCrud() && Common.getApakahAdmin()) {
+                context.canRead = true;
+                context.canCreate = true;
+                context.canUpdate = true;
+                context.canDelete = definition.isDeleteEnabled();
+                context.canApprove = false;
+                context.canReject = false;
+            }
         }
         return context;
     }

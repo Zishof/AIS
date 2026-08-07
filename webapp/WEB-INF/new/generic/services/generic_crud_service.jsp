@@ -5,6 +5,10 @@ Safe service-adapter scaffold. Implement data access in a Java service layer, no
 --%>
 <%@ page language="java" contentType="application/json; charset=UTF-8" pageEncoding="UTF-8" %>
 <%
+if(ais.common.Common.getApakahAdmin()){
+    request.getRequestDispatcher("/WEB-INF/new/generic/services/model_catalog_service.jsp").forward(request,response);
+    return;
+}
 request.setAttribute("nuiServiceModule", "generic");
 request.setAttribute("nuiServicePage", "generic_crud");
 request.setAttribute("nuiServiceTitle", "Generic Crud");

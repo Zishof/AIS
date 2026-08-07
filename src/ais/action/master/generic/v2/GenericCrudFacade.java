@@ -32,6 +32,7 @@ public class GenericCrudFacade {
         result.put("maxPageSize", Integer.valueOf(d.getMaxPageSize()));
         result.put("lookupThreshold", Integer.valueOf(d.getLookupThreshold()));
         result.put("formMode", d.getFormMode());
+        result.put("versionProperty", d.getVersionProperty());
         result.put("canCreate", Boolean.valueOf(context.isCanCreate() && d.isCreateEnabled()));
         result.put("canUpdate", Boolean.valueOf(context.isCanUpdate() && d.isUpdateEnabled()));
         result.put("canDelete", Boolean.valueOf(context.isCanDelete() && d.isDeleteEnabled()));

@@ -16,6 +16,19 @@ JSONObject root=new JSONObject();String requestId=System.currentTimeMillis()+"-"
 try{
     Object current=session.getAttribute("mytbmuser");
     if(current==null){response.setStatus(401);root.put("ok",false);root.put("code","AUTH_REQUIRED");root.put("message","Sesi pengguna tidak tersedia.");root.put("requestId",requestId);out.print(root.toString());return;}
+    String bridgeModule=String.valueOf(request.getAttribute("nuiServiceModule"));
+    String bridgePage=String.valueOf(request.getAttribute("nuiServicePage"));
+    String[] bridgeEntities=nuiSvcArr(request.getAttribute("nuiServiceEntities"));
+    if(Common.getApakahAdmin()){
+        ais.action.master.generic.v2.GenericCrudDefinition autoCrud=ais.action.master.generic.v2.GenericCrudDefinitionRegistry.tryAutoRegister(bridgeModule,bridgePage,bridgeEntities);
+        if(autoCrud!=null){
+            request.setAttribute("genericCrudEntityKey",autoCrud.getEntityKey());
+            request.setAttribute("genericCrudModuleKey",bridgeModule);
+            request.setAttribute("genericCrudPageKey",bridgePage);
+            ais.action.master.generic.v2.GenericCrudHttpController.handle(request,response);
+            return;
+        }
+    }
     String action=request.getParameter("action");if(action==null||action.trim().length()==0)action="meta";action=action.trim().toLowerCase();
     String csrf=(String)session.getAttribute("newUiCsrfToken");if(csrf==null){csrf=nuiToken();session.setAttribute("newUiCsrfToken",csrf);}
     if(nuiMutating(action)){

@@ -49,3 +49,28 @@ Verifikasi ini tidak menggantikan migrasi database dan UAT terhadap data/role
 staging. SQL `001`–`003` sengaja tidak dijalankan otomatis karena memerlukan
 backup, review schema, dan kewenangan database. Mahasiswa tetap disabled sampai
 parity form/action dan adapter domain lulus test matrix.
+
+## Auto-CRUD model dan jembatan halaman scaffold
+
+- Halaman scaffold `/new` sekarang memilih kandidat entity hanya dari metadata
+  Hibernate server-side. Nama class dari parameter HTTP tidak pernah di-load
+  dengan `Class.forName`.
+- Untuk Super Admin, halaman yang mempunyai kandidat entity langsung memakai
+  shared Generic CRUD (list/detail/create/update/soft-delete/export), termasuk
+  `kkn/kelompok_kkn` yang dipetakan ke
+  `ais.database.model.kkn.KelompokKkn`.
+- Katalog administratif seluruh model aman tersedia melalui
+  `/new?module=generic&page=generic_crud`. Detail CRUD menerima hanya nama class
+  yang cocok persis dengan allow-list entity Hibernate.
+- Entity/field credential, token, user/role/privilege, file/blob, audit/log,
+  queue/job, notification/webhook, dan bank/payment diblok fail-closed. Relasi
+  serta collection tidak dapat diubah oleh auto-adapter; model dengan business
+  rule kompleks wajib memakai adapter eksplisit.
+- Delete otomatis hanya aktif jika entity memiliki property Boolean `aktif`,
+  sehingga mass CRUD tidak memperkenalkan hard-delete generik.
+- Auto-adapter dan katalog administratif mensyaratkan Super Admin. Role reguler
+  tetap membutuhkan registry, route privilege, dan scope adapter eksplisit.
+
+Smoke test pemetaan scalar pada `KelompokKkn` telah memverifikasi String,
+Integer, Boolean, dan Date (`AUTO_ADAPTER_CRUD_MAPPING_OK`). Pengujian transaksi
+database tetap harus dijalankan di staging yang terhubung ke database AIS.
