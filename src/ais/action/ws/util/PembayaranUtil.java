@@ -31,6 +31,7 @@ import org.json.JSONObject;
 
 import ais.action.master.KegiatanAction;
 import ais.action.master.SetingBiayaAction;
+import ais.action.master.helper.PembayaranUtilHelper;
 import ais.action.report.CommonReportHelper;
 import ais.common.Common;
 import ais.common.CommonEmail;
@@ -1892,6 +1893,14 @@ public class PembayaranUtil {
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public Collection<DetailBiaya> getDetailBiayaCalonMahasiswa(BiodataCalonMahasiswa biodataCalonMahasiswa,
 			JenisKegiatan jenisKegiatan, Jurusan jurusan, Integer semester, boolean reload) {
+
+		// Satu sumber kebenaran dengan layar Pembayaran Daftar Ulang. Implementasi
+		// lama di kelas WS memiliki filter/cache yang berbeda sehingga UI dapat
+		// menampilkan tagihan sementara inquiry H2H menghasilkan total 0.
+		if (biodataCalonMahasiswa != null && jenisKegiatan != null) {
+			return PembayaranUtilHelper.getDetailBiayaCalonMahasiswa(biodataCalonMahasiswa,
+					jenisKegiatan, jurusan, semester, reload);
+		}
 
 		String key = "tagihan_cal_mhs_" + biodataCalonMahasiswa.getId() + "_" + jenisKegiatan.getId() + "_" + semester;
 
