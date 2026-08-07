@@ -3,6 +3,8 @@
 <%@ page import="java.util.*" %>
 <%@ page import="ais.common.Common" %>
 <%@ page import="ais.database.model.Tbmuser" %>
+<%@ page import="ais.action.master.generic.v2.GenericCrudDefinition" %>
+<%@ page import="ais.action.master.generic.v2.GenericCrudDefinitionRegistry" %>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%!
 private String nuiH(Object value){if(value==null)return "";String s=String.valueOf(value);return s.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&#39;");}
@@ -16,6 +18,16 @@ private String nuiMetricLabel(String type,int index){
 <%
 String module=String.valueOf(request.getAttribute("nuiModule"));String moduleLabel=String.valueOf(request.getAttribute("nuiModuleLabel"));String pageName=String.valueOf(request.getAttribute("nuiPage"));String title=String.valueOf(request.getAttribute("nuiPageTitle"));String type=String.valueOf(request.getAttribute("nuiPageType"));String desc=String.valueOf(request.getAttribute("nuiPageDescription"));String sourceClass=String.valueOf(request.getAttribute("nuiSourceClass"));String sourcePackage=String.valueOf(request.getAttribute("nuiSourcePackage"));String sourcePath=String.valueOf(request.getAttribute("nuiSourcePath"));String sourceKind=String.valueOf(request.getAttribute("nuiSourceKind"));String sourceExtends=String.valueOf(request.getAttribute("nuiSourceExtends"));String sourceImplements=String.valueOf(request.getAttribute("nuiSourceImplements"));String[] methods=nuiArr(request.getAttribute("nuiSourceMethods"));String[] legacy=nuiArr(request.getAttribute("nuiLegacyRefs"));String[] entities=nuiArr(request.getAttribute("nuiEntityCandidates"));
 String endpoint=request.getContextPath()+"/new?service=1&module="+URLEncoder.encode(module,"UTF-8")+"&page="+URLEncoder.encode(pageName,"UTF-8");
+if(Common.getApakahAdmin()){
+    GenericCrudDefinition autoCrud=GenericCrudDefinitionRegistry.tryAutoRegister(module,pageName,entities);
+    if(autoCrud!=null){
+        request.setAttribute("genericCrudEntityKey",autoCrud.getEntityKey());
+        request.setAttribute("genericCrudModuleKey",module);
+        request.setAttribute("genericCrudPageKey",pageName);
+        request.getRequestDispatcher("/WEB-INF/new/_shared/generic-crud/ui/crud_page.jsp").include(request,response);
+        return;
+    }
+}
 %>
 <section class="nui-page" data-service-url="<%=nuiAttr(endpoint)%>">
   <header class="nui-page-head">

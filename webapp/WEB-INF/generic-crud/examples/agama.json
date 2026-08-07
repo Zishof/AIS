@@ -1,0 +1,257 @@
+{
+  "entityKey": "ais.database.model.Agama",
+  "entityClass": "ais.database.model.Agama",
+  "moduleKey": "root",
+  "pageKey": "agama",
+  "title": "Pendataan Agama",
+  "description": "Mengelola referensi agama untuk biodata dan integrasi Feeder PDDikti.",
+  "lifecycleStatus": "FULL_CRUD",
+  "enabled": true,
+  "readOnly": false,
+  "operations": {
+    "create": true,
+    "update": true,
+    "delete": true,
+    "approve": false,
+    "reject": false,
+    "import": true,
+    "importDelete": true,
+    "exportXlsx": true,
+    "exportPdf": true,
+    "exportDocx": true,
+    "exportPptx": true,
+    "auditGlobal": true,
+    "auditRow": true,
+    "restoreField": true,
+    "restoreRevision": true,
+    "restoreLatestFromDate": true,
+    "adminDeleteActiveRow": false
+  },
+  "identifierProperty": "id",
+  "naturalKeyProperties": [
+    "nama"
+  ],
+  "defaultSort": [
+    {
+      "field": "nama",
+      "direction": "ASC"
+    },
+    {
+      "field": "id",
+      "direction": "ASC"
+    }
+  ],
+  "defaultPageSize": 10,
+  "allowedPageSizes": [
+    5,
+    10,
+    25,
+    50,
+    100,
+    500,
+    1000
+  ],
+  "lookupThreshold": 20,
+  "adapterClass": "ais.action.master.generic.v2.adapter.AgamaGenericCrudAdapter",
+  "fields": [
+    {
+      "fieldKey": "kode",
+      "propertyPath": "kode",
+      "label": "Kode Agama",
+      "section": "Informasi Utama",
+      "type": "STRING",
+      "visibleInTable": true,
+      "quickFilter": true,
+      "advancedFilter": true,
+      "visibleInForm": true,
+      "createable": true,
+      "updateable": true,
+      "sortable": true,
+      "searchable": true,
+      "importable": true,
+      "exportable": true,
+      "position": 10,
+      "width": 150,
+      "helpText": "Singkatan pendek, misalnya ISL, KRS, KTK, HTU, atau BUD."
+    },
+    {
+      "fieldKey": "nama",
+      "propertyPath": "nama",
+      "label": "Nama Agama",
+      "section": "Informasi Utama",
+      "type": "STRING",
+      "visibleInTable": true,
+      "quickFilter": true,
+      "advancedFilter": true,
+      "visibleInForm": true,
+      "createable": true,
+      "updateable": true,
+      "required": true,
+      "sortable": true,
+      "searchable": true,
+      "importable": true,
+      "exportable": true,
+      "position": 20,
+      "width": 260,
+      "validationRuleKey": "agama.nama.unique.case-policy-existing"
+    },
+    {
+      "fieldKey": "keterangan",
+      "propertyPath": "keterangan",
+      "label": "Keterangan",
+      "section": "Informasi Utama",
+      "type": "TEXT",
+      "visibleInTable": true,
+      "quickFilter": false,
+      "advancedFilter": true,
+      "visibleInForm": true,
+      "createable": true,
+      "updateable": true,
+      "sortable": true,
+      "searchable": true,
+      "importable": true,
+      "exportable": true,
+      "position": 30,
+      "width": 360
+    },
+    {
+      "fieldKey": "aktif",
+      "propertyPath": "aktif",
+      "label": "Aktif",
+      "section": "Status",
+      "type": "BOOLEAN",
+      "visibleInTable": true,
+      "quickFilter": true,
+      "advancedFilter": true,
+      "visibleInForm": true,
+      "createable": true,
+      "updateable": true,
+      "sortable": true,
+      "searchable": false,
+      "importable": true,
+      "exportable": true,
+      "position": 40,
+      "width": 110,
+      "defaultValue": true
+    },
+    {
+      "fieldKey": "feeder",
+      "propertyPath": "feeder",
+      "label": "Kode Feeder",
+      "section": "Integrasi Feeder PDDikti",
+      "type": "LONG",
+      "visibleInTable": true,
+      "quickFilter": false,
+      "advancedFilter": true,
+      "visibleInForm": true,
+      "createable": true,
+      "updateable": true,
+      "required": true,
+      "sortable": true,
+      "searchable": false,
+      "importable": true,
+      "exportable": true,
+      "position": 50,
+      "width": 140,
+      "validationRuleKey": "agama.feeder.allowed-existing",
+      "helpText": "Gunakan kode resmi Feeder sesuai aturan existing."
+    },
+    {
+      "fieldKey": "tanggal_dirubah",
+      "propertyPath": "tanggal_dirubah",
+      "label": "Terakhir Diubah",
+      "section": "Informasi Sistem",
+      "type": "DATETIME",
+      "visibleInTable": false,
+      "quickFilter": false,
+      "advancedFilter": true,
+      "visibleInDetail": true,
+      "visibleInForm": false,
+      "createable": false,
+      "updateable": false,
+      "sortable": true,
+      "importable": false,
+      "exportable": true,
+      "position": 90
+    }
+  ],
+  "import": {
+    "columns": [
+      "id",
+      "kode",
+      "nama",
+      "keterangan",
+      "aktif",
+      "feeder",
+      "delete"
+    ],
+    "requiresAllPrivileges": [
+      "CREATE",
+      "UPDATE",
+      "DELETE"
+    ],
+    "dryRunRequired": true,
+    "deleteConfirmationRequired": true,
+    "chunkSize": 200
+  },
+  "parityNotes": [
+    "Pertahankan filter aktif dan pencarian nama dari AgamaAction existing.",
+    "Pertahankan validasi nama wajib dan pemeriksaan nama duplikat.",
+    "Pertahankan semantics default aktif dan kode feeder.",
+    "Gunakan Revisi/Audit helper existing bila masih menjadi mekanisme standar.",
+    "Sediakan Audit Seluruh Data dan Riwayat ID Ini dengan filter revisi, compare, restore field, Ubah & Restore, serta restore revisi.",
+    "Hapus Data Ini hanya boleh aktif setelah Common.getApakahAdmin(), DELETE privilege, scope, policy entity, typed confirmation, alasan, dan FK preflight lulus.",
+    "Menghapus row aktif tidak boleh mem-purge riwayat Envers/audit."
+  ],
+  "auditPolicy": {
+    "enabled": true,
+    "globalHistory": true,
+    "rowHistory": true,
+    "compareBeforeAfter": true,
+    "fieldRestore": true,
+    "manualFieldCorrection": true,
+    "fullRevisionRestore": true,
+    "deepRestore": true,
+    "restoreLatestFromDate": true,
+    "auditAdapterClass": "ais.action.master.generic.v2.adapter.AgamaGenericCrudAdapter",
+    "restorePolicyClass": "ais.action.master.generic.v2.adapter.AgamaGenericCrudAdapter",
+    "viewPrivilege": [
+      "READ"
+    ],
+    "fieldAndRevisionRestorePrivilege": [
+      "READ",
+      "UPDATE"
+    ],
+    "restoreDeletedPrivilege": [
+      "READ",
+      "CREATE",
+      "UPDATE"
+    ],
+    "massRestoreRequiresSuperAdmin": true,
+    "adminDeleteActiveRow": {
+      "enabled": false,
+      "enableOnlyAfterForeignKeyAndParityReview": true,
+      "requires": [
+        "READ",
+        "DELETE",
+        "Common.getApakahAdmin()",
+        "ENTITY_POLICY"
+      ],
+      "reasonRequired": true,
+      "typedConfirmationTemplate": "HAPUS AGAMA:{id}",
+      "keepAuditHistory": true,
+      "purgeAuditHistory": false
+    }
+  },
+  "formOverride": {
+    "mode": "GENERIC_DRAWER",
+    "providerClass": null,
+    "fallbackToGeneric": true,
+    "sections": [
+      "Informasi Utama",
+      "Status",
+      "Integrasi Feeder PDDikti",
+      "Informasi Sistem"
+    ]
+  }
+}

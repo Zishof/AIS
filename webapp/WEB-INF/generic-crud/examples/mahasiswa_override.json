@@ -1,0 +1,269 @@
+{
+  "entityKey": "ais.database.model.Mahasiswa",
+  "moduleKey": "root",
+  "pageKey": "mahasiswa",
+  "lifecycleStatus": "REVIEW_REQUIRED",
+  "enabled": false,
+  "reason": "Entity berfoto, memiliki data sensitif, relasi kompleks, scope akademik, dan banyak custom action existing. Wajib parity-first.",
+  "adapterClass": "ais.action.master.generic.v2.adapter.MahasiswaGenericCrudAdapter",
+  "scopeAdapterClass": "ais.action.master.generic.v2.adapter.MahasiswaGenericCrudAdapter",
+  "photoAdapterClass": "ais.action.master.generic.v2.adapter.MahasiswaGenericCrudAdapter",
+  "approvalAdapterClass": null,
+  "fieldPolicies": {
+    "password": {
+      "readable": false,
+      "createable": false,
+      "updateable": false,
+      "importable": false,
+      "exportable": false
+    },
+    "foto": {
+      "editorType": "PHOTO",
+      "sortable": false,
+      "exportable": false
+    },
+    "nim": {
+      "visibleInTable": true,
+      "quickFilter": true,
+      "sortable": true,
+      "searchable": true
+    },
+    "nama": {
+      "visibleInTable": true,
+      "quickFilter": true,
+      "sortable": true,
+      "searchable": true
+    },
+    "jurusan": {
+      "visibleInTable": true,
+      "quickFilter": true,
+      "relationMode": "AUTO_THRESHOLD",
+      "lookupThreshold": 20,
+      "searchPropertiesMustBeRuntimeMapped": true
+    }
+  },
+  "customActions": [
+    {
+      "actionKey": "download_password",
+      "label": "Download Password",
+      "placement": "BULK",
+      "requiredPrivilege": "READ",
+      "selectionMode": "MULTIPLE",
+      "handler": "existing MahasiswaAction/helper mapping after source audit",
+      "sensitiveOutputPolicy": "REVIEW_REQUIRED"
+    },
+    {
+      "actionKey": "upload_password",
+      "label": "Upload Password",
+      "placement": "TOOLBAR",
+      "requiredPrivilege": "UPDATE",
+      "selectionMode": "NONE",
+      "confirmation": "TYPED_TEXT",
+      "asynchronous": true,
+      "handler": "existing MahasiswaAction/helper mapping after source audit"
+    },
+    {
+      "actionKey": "upload_rfid",
+      "label": "Upload RFID",
+      "placement": "TOOLBAR",
+      "requiredPrivilege": "UPDATE",
+      "selectionMode": "NONE",
+      "asynchronous": true,
+      "handler": "existing MahasiswaAction/helper mapping after source audit"
+    },
+    {
+      "actionKey": "download_rfid",
+      "label": "Download RFID",
+      "placement": "TOOLBAR",
+      "requiredPrivilege": "READ",
+      "selectionMode": "ALL_FILTERED",
+      "asynchronous": true,
+      "handler": "existing MahasiswaAction/helper mapping after source audit"
+    },
+    {
+      "actionKey": "sync_status",
+      "label": "Sinkronisasi Status",
+      "placement": "BULK",
+      "requiredPrivilege": "UPDATE",
+      "selectionMode": "MULTIPLE",
+      "confirmation": "SIMPLE",
+      "asynchronous": true,
+      "handler": "existing MahasiswaAction.onSynchronizeStatus/helper equivalent"
+    },
+    {
+      "actionKey": "feeder_send_or_sync",
+      "label": "Sinkronisasi Feeder",
+      "placement": "BULK",
+      "requiredPrivilege": "UPDATE",
+      "selectionMode": "MULTIPLE",
+      "confirmation": "REASON",
+      "asynchronous": true,
+      "handler": "Map exact existing Feeder actions after source audit; do not invent one generic operation"
+    },
+    {
+      "actionKey": "download_photo_massal",
+      "label": "Download Foto Massal",
+      "placement": "BULK",
+      "requiredPrivilege": "READ",
+      "selectionMode": "ALL_FILTERED",
+      "asynchronous": true,
+      "handler": "existing MahasiswaAction.onDownloadFotoMassal/helper equivalent"
+    },
+    {
+      "actionKey": "upload_photo_massal",
+      "label": "Upload Foto Massal",
+      "placement": "TOOLBAR",
+      "requiredPrivilege": "UPDATE",
+      "selectionMode": "NONE",
+      "asynchronous": true,
+      "handler": "existing MahasiswaAction.onUploadFotoMassal/helper equivalent"
+    },
+    {
+      "actionKey": "kartu_mahasiswa",
+      "label": "Kartu Mahasiswa",
+      "placement": "ROW",
+      "requiredPrivilege": "READ",
+      "selectionMode": "SINGLE",
+      "handler": "existing MahasiswaAction.onKartuMahasiswa/helper equivalent"
+    },
+    {
+      "actionKey": "lihat_khs",
+      "label": "KHS",
+      "placement": "ROW",
+      "requiredPrivilege": "READ",
+      "selectionMode": "SINGLE",
+      "handler": "existing MahasiswaAction.onTampilKHS/helper equivalent"
+    },
+    {
+      "actionKey": "lihat_transkrip",
+      "label": "Transkrip Akademik",
+      "placement": "ROW",
+      "requiredPrivilege": "READ",
+      "selectionMode": "SINGLE",
+      "handler": "existing MahasiswaAction.onTampilTranskripAkademik/helper equivalent"
+    }
+  ],
+  "mandatoryParityWork": [
+    "Create a complete method/button parity matrix from the current MahasiswaAction and its ZUL.",
+    "Classify each action as reusable helper, refactor-required, legacy-only, or obsolete with approval.",
+    "Do not expose password operations until masking, authorization, audit, and output policy are reviewed.",
+    "Validate all academic/tenant scopes and role behavior on every list/detail/mutation/export/custom action.",
+    "Keep the entity disabled until security, performance, photo, import/export, and parity tests pass.",
+    "Create a tab/section/field/save-strategy parity matrix from the current MahasiswaAction complex form.",
+    "Implement FULL_PAGE_TABS with conditional/lazy tabs and save-before-enter behavior before enabling the new form.",
+    "Do not enable Hapus Data Ini for Mahasiswa through generic policy; use a reviewed domain-specific lifecycle/cancellation policy."
+  ],
+  "auditPolicy": {
+    "enabled": true,
+    "globalHistory": true,
+    "rowHistory": true,
+    "compareBeforeAfter": true,
+    "fieldRestore": "REVIEW_REQUIRED_PER_FIELD",
+    "manualFieldCorrection": "SUPER_ADMIN_AND_POLICY_ONLY",
+    "fullRevisionRestore": "REVIEW_REQUIRED",
+    "deepRestore": "REVIEW_REQUIRED_WITH_DEPENDENCY_LIMIT",
+    "restoreLatestFromDate": false,
+    "adminDeleteActiveRow": false,
+    "reason": "Mahasiswa adalah aggregate sensitif dengan relasi akademik dan transaksi; admin delete tidak boleh diaktifkan generik."
+  },
+  "formOverride": {
+    "mode": "FULL_PAGE_TABS",
+    "providerClass": "ais.action.master.generic.v2.adapter.MahasiswaGenericCrudAdapter",
+    "saveStrategy": "ROOT_FIRST",
+    "unsavedChangeGuard": true,
+    "fallbackToGeneric": false,
+    "tabs": [
+      {
+        "key": "data_mahasiswa",
+        "label": "Data Mahasiswa",
+        "order": 10,
+        "lazyLoad": false,
+        "requiresPersistedEntity": false,
+        "requiredPrivilege": "UPDATE"
+      },
+      {
+        "key": "pindahan",
+        "label": "Keterangan Mahasiswa Pindahan",
+        "order": 20,
+        "lazyLoad": false,
+        "visibleWhen": "merupakanPindahan == true",
+        "requiredPrivilege": "UPDATE"
+      },
+      {
+        "key": "alih_prodi",
+        "label": "Keterangan Mahasiswa Alih Prodi",
+        "order": 30,
+        "lazyLoad": false,
+        "visibleWhen": "merupakanAlihProdi == true",
+        "requiredPrivilege": "UPDATE"
+      },
+      {
+        "key": "biodata",
+        "label": "Biodata Lengkap",
+        "order": 40,
+        "lazyLoad": true,
+        "requiresPersistedEntity": true,
+        "saveBeforeEnter": true,
+        "requiredPrivilege": "UPDATE"
+      },
+      {
+        "key": "beasiswa",
+        "label": "Beasiswa",
+        "order": 50,
+        "lazyLoad": true,
+        "requiresPersistedEntity": true,
+        "saveBeforeEnter": true,
+        "requiredPrivilege": "UPDATE"
+      },
+      {
+        "key": "cuti",
+        "label": "Cuti",
+        "order": 60,
+        "lazyLoad": true,
+        "requiresPersistedEntity": true,
+        "saveBeforeEnter": true,
+        "requiredPrivilege": "UPDATE"
+      },
+      {
+        "key": "kelulusan",
+        "label": "Informasi Kelulusan",
+        "order": 70,
+        "lazyLoad": false,
+        "requiresPersistedEntity": true,
+        "requiredPrivilege": "UPDATE"
+      },
+      {
+        "key": "alumni",
+        "label": "Informasi Alumni",
+        "order": 80,
+        "lazyLoad": true,
+        "requiresPersistedEntity": true,
+        "saveBeforeEnter": true,
+        "requiredPrivilege": "UPDATE"
+      },
+      {
+        "key": "login_orang_tua",
+        "label": "Login Orang Tua",
+        "order": 90,
+        "lazyLoad": false,
+        "requiresPersistedEntity": true,
+        "requiredPrivilege": "UPDATE"
+      },
+      {
+        "key": "audit",
+        "label": "Audit & Riwayat",
+        "order": 100,
+        "lazyLoad": true,
+        "requiresPersistedEntity": true,
+        "requiredPrivilege": "READ"
+      }
+    ],
+    "mandatoryBehavior": [
+      "Conditional visibility must match current MahasiswaAction.",
+      "Lazy tabs must not load before selected.",
+      "Tabs that require an ID must perform validated idempotent save-before-enter.",
+      "Cross-tab error summary must focus the failing field.",
+      "No field or custom action from current form may disappear without an approved parity decision."
+    ]
+  }
+}
