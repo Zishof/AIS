@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "bri",
+  "label": "Integrasi BRI",
+  "count": 2,
+  "pageTypeCounts": {
+    "finance": 2
+  },
+  "pages": [
+    {
+      "page": "bri_backand_prosess",
+      "title": "BRI Backand Prosess",
+      "sourceClass": "BriBackandProsess",
+      "sourcePackage": "ais.action.master.bri",
+      "sourcePath": "src/ais/action/master/bri/BriBackandProsess.java",
+      "pageType": "finance",
+      "methodCount": 2,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "BRI Backand Prosess BriBackandProsess ais.action.master.bri finance Utama"
+    },
+    {
+      "page": "bri_request",
+      "title": "BRI Request",
+      "sourceClass": "BriRequestAction",
+      "sourcePackage": "ais.action.master.bri",
+      "sourcePath": "src/ais/action/master/bri/BriRequestAction.java",
+      "pageType": "finance",
+      "methodCount": 6,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "BRI Request BriRequestAction ais.action.master.bri finance Utama"
+    }
+  ]
+}

@@ -59,8 +59,8 @@ public class Psb extends HttpServlet {
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 		String piilhan = getPiilhanTampilanDomain(request);
 		if (PerguruanTinggi.TAMPILAN_BARU.equals(piilhan)) {
-			request.setAttribute("baru2_context", "psb");
-			request.getRequestDispatcher("/WEB-INF/baru2/index.jsp").forward(request, response);
+			request.setAttribute("new_context", "psb");
+			request.getRequestDispatcher("/WEB-INF/new/index.jsp").forward(request, response);
 		} else {
 			request.getRequestDispatcher("/WEB-INF/z/x/y/psb.zul").forward(request, response);
 		}

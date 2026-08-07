@@ -1,0 +1,48 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "sister",
+  "label": "SISTER",
+  "count": 3,
+  "pageTypeCounts": {
+    "integration": 3
+  },
+  "pages": [
+    {
+      "page": "dasbord_sinkronisasi_sister",
+      "title": "Dasbord Sinkronisasi SISTER",
+      "sourceClass": "DasbordSinkronisasiSister",
+      "sourcePackage": "ais.action.master.sister",
+      "sourcePath": "src/ais/action/master/sister/DasbordSinkronisasiSister.java",
+      "pageType": "integration",
+      "methodCount": 1,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Dasbord Sinkronisasi SISTER DasbordSinkronisasiSister ais.action.master.sister integration Utama"
+    },
+    {
+      "page": "dasbor_sister_ui_helper",
+      "title": "Dasbor SISTER Ui Helper",
+      "sourceClass": "DasborSisterUiHelper",
+      "sourcePackage": "ais.action.master.sister",
+      "sourcePath": "src/ais/action/master/sister/DasborSisterUiHelper.java",
+      "pageType": "integration",
+      "methodCount": 5,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Dasbor SISTER Ui Helper DasborSisterUiHelper ais.action.master.sister integration Utama"
+    },
+    {
+      "page": "sister_aksi_helper",
+      "title": "SISTER Aksi Helper",
+      "sourceClass": "SisterAksiHelper",
+      "sourcePackage": "ais.action.master.sister",
+      "sourcePath": "src/ais/action/master/sister/SisterAksiHelper.java",
+      "pageType": "integration",
+      "methodCount": 3,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "SISTER Aksi Helper SisterAksiHelper ais.action.master.sister integration Utama"
+    }
+  ]
+}

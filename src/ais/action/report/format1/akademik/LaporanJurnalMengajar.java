@@ -223,7 +223,7 @@ public class LaporanJurnalMengajar extends MyWindow {
 		sb.append(".grid-tbl tr:nth-child(even) td{background:#f0f4f8;}");
 		sb.append("table.jurnal{width:100%;border-collapse:collapse;font-size:10px;margin-top:6px;}");
 		sb.append("table.jurnal th{background:#1e3a5f;color:#fff;border:1px solid #2c5282;padding:5px 6px;text-align:center;font-size:10px;font-weight:bold;}");
-		sb.append("table.jurnal td{border:1px solid #bbc;padding:4px 6px;vertical-align:top;}");
+		sb.append("table.jurnal td{border:1px solid #bbc;padding:4px 6px;vertical-align:top;white-space:pre-line;}");
 		sb.append("table.jurnal tr:nth-child(even) td{background:#f7f9fc;}");
 		sb.append(".sign-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px;}");
 		sb.append(".sign-box{border:1px solid #bbc;border-radius:4px;padding:12px 16px;text-align:center;}");
@@ -389,6 +389,7 @@ public class LaporanJurnalMengajar extends MyWindow {
 			else waktu = wm + " - " + ws;
 
 			String topik = p.getTopik() == null ? "" : p.getTopik();
+			String bahanKajian = p.getBukuRujukan1() == null ? "" : p.getBukuRujukan1();
 			String metode = p.getMetodePembelajaran() == null ? "" : p.getMetodePembelajaran();
 			String pertemuanKe = p.getPertemuanKe() == null ? "" : String.valueOf(p.getPertemuanKe());
 
@@ -399,9 +400,13 @@ public class LaporanJurnalMengajar extends MyWindow {
 			sb.append("<td>").append(escHtml(waktu)).append("</td>");
 			if (isObe) {
 				String indikator = p.getIndikator() == null ? "" : p.getIndikator();
-				sb.append("<td>").append(escHtml(indikator)).append("</td>");
+				String subCpmk = topik;
+				if (!indikator.trim().isEmpty()) {
+					subCpmk += subCpmk.trim().isEmpty() ? indikator : "\n\n" + indikator;
+				}
+				sb.append("<td>").append(escHtml(subCpmk)).append("</td>");
 			}
-			sb.append("<td>").append(escHtml(topik)).append("</td>");
+			sb.append("<td>").append(escHtml(bahanKajian)).append("</td>");
 			sb.append("<td>").append(escHtml(metode)).append("</td>");
 			if (isObe) {
 				String pb = p.getPengalamanBelajar() == null ? "" : p.getPengalamanBelajar();
@@ -489,35 +494,31 @@ public class LaporanJurnalMengajar extends MyWindow {
 			int d = 1;
 
 			List<Dosen> dosens = perkuliahan.populateDosenBuNama();
-
-			for (Dosen dosen : dosens) {
-				nama_dosen += nama_dosen.isEmpty() ? dosen.getNama() : ", " + dosen.getNama();
-				nidn_dosen += nidn_dosen.isEmpty() ? dosen.getNidn() : ", " + dosen.getNidn();
-				LampiranLain lam = LampiranLain.ambil(dosen.getId(), LampiranLain.TTD_DOSEN);
-				if (lam != null) {
-					File file = lam.ambilFile();
-					parameters.put("ttd_dosen_" + d, file == null ? "" : file.getAbsolutePath());
-					parameters.put("ttd_dosen_id_" + dosen.getId(), file == null ? "" : file.getAbsolutePath());
-
-					System.out.println("ttd_dosen_" + d + " => " + ttd);
-				}
-				d++;
-
+			if (dosens == null) {
+				dosens = new ArrayList<Dosen>();
 			}
 
-			if (kaprodi != null) {
-				LampiranLain lam = LampiranLain.ambil(kaprodi.getId(), LampiranLain.TTD_DOSEN);
-				String nama = lam == null ? null : lam.getNama();
-
-				if (nama != null) {
-					if (nama.toLowerCase().endsWith(".jpg") || nama.toLowerCase().endsWith(".png")
-							|| nama.toLowerCase().endsWith(".jpeg") || nama.toLowerCase().endsWith(".gif")
-							|| nama.toLowerCase().endsWith(".tif") || nama.toLowerCase().endsWith(".bmp")) {
-						ttd = lam.ambilFile().getAbsolutePath();
-
-						parameters.put("ttd_dosen_" + d, ttd);
-					}
+			for (Dosen dosen : dosens) {
+				if (dosen == null) {
+					continue;
 				}
+				String namaDosen = dosen == null || dosen.getNama() == null ? "" : dosen.getNama();
+				String nidnDosen = dosen == null || dosen.getNidn() == null ? "" : dosen.getNidn();
+				nama_dosen += nama_dosen.isEmpty() ? namaDosen : ", " + namaDosen;
+				nidn_dosen += nidn_dosen.isEmpty() ? nidnDosen : ", " + nidnDosen;
+				parameters.put("nama_dosen_" + d, namaDosen);
+				parameters.put("nidn_dosen_" + d, nidnDosen);
+				LampiranLain lam = dosen == null || dosen.getId() == null ? null
+						: LampiranLain.ambil(dosen.getId(), LampiranLain.TTD_DOSEN);
+				File file = lam == null ? null : lam.ambilFile();
+				parameters.put("ttd_dosen_" + d, file == null ? "" : file.getAbsolutePath());
+				if (dosen != null && dosen.getId() != null) {
+					parameters.put("ttd_dosen_id_" + dosen.getId(), file == null ? "" : file.getAbsolutePath());
+				}
+
+				System.out.println("ttd_dosen_" + d + " => " + (file == null ? "" : file.getAbsolutePath()));
+				d++;
+
 			}
 
 			parameters.put("nama_dosen", nama_dosen);
@@ -530,6 +531,9 @@ public class LaporanJurnalMengajar extends MyWindow {
 				nidn_dosen = "";
 				int size = 0;
 				for (Dosen dosen : dosens) {
+					if (dosen == null || dosen.getId() == null) {
+						continue;
+					}
 					Statusabsensi statusabsensi = null;
 					if (pertemuan.getId() != null) {
 

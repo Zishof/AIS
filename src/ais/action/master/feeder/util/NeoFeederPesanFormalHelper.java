@@ -180,22 +180,36 @@ public final class NeoFeederPesanFormalHelper {
           .append(username == null || username.trim().isEmpty() ? "" : "dengan nama pengguna \"" + username.trim() + "\" ")
           .append("TIDAK BERHASIL dilakukan.\n\n");
 
+        boolean kredensial = dt.indexOf("password") >= 0 || dt.indexOf("username") >= 0 || dt.indexOf("salah") >= 0
+                || dt.indexOf("invalid") >= 0;
+        boolean terkunci = dt.indexOf("kunci") >= 0 || dt.indexOf("locked") >= 0 || dt.indexOf("blokir") >= 0;
+        boolean kosong = dt.trim().length() == 0;
+        // FIX "tampilkan saja errornya apa, lebih dipersingkat": bila error_desc mentah dari server
+        // TIDAK cocok kategori kredensial/terkunci yang sudah dikenal (mis. "Periksa Koneksi Internet
+        // Anda" -- bukan soal username/password), jangan paksakan Tindak Lanjut 5-langkah yang
+        // berasumsi salah kredensial (menyesatkan). Tampilkan ringkas: pesan asli dari server + saran
+        // singkat yang netral.
+        if (!kredensial && !terkunci && !kosong) {
+            sb.append("Server Neo Feeder mengembalikan keterangan berikut: \"").append(detailTeknis.trim())
+              .append("\".\n\nSilakan periksa kembali Pengaturan Koneksi (IP/Port/Username/Password) dan "
+                    + "koneksi jaringan server eCampus ke Neo Feeder, lalu coba tekan tombol Coba Login "
+                    + "Feeder kembali.\n\n");
+            sb.append(ESKALASI);
+            return sb.toString();
+        }
+
         sb.append("Penyebab: ");
-        if (dt.indexOf("password") >= 0 || dt.indexOf("username") >= 0 || dt.indexOf("salah") >= 0
-                || dt.indexOf("invalid") >= 0) {
+        if (kredensial) {
             sb.append("Nama pengguna (username) dan/atau kata sandi (password) yang dimasukkan TIDAK "
                     + "SESUAI dengan data yang terdaftar pada server Neo Feeder (PDDikti).");
-        } else if (dt.indexOf("kunci") >= 0 || dt.indexOf("locked") >= 0 || dt.indexOf("blokir") >= 0) {
+        } else if (terkunci) {
             sb.append("Akun Neo Feeder yang digunakan kemungkinan sedang DITERKUNCI/DIBLOKIR oleh "
                     + "sistem PDDikti, umumnya akibat beberapa kali percobaan login yang gagal "
                     + "sebelumnya.");
-        } else if (dt.trim().length() == 0) {
+        } else {
             sb.append("Server Neo Feeder tidak mengembalikan kode akses (token) yang sah. Penyebab "
                     + "paling umum adalah nama pengguna dan/atau kata sandi yang tidak sesuai, namun "
                     + "dapat juga disebabkan oleh gangguan sementara pada layanan Neo Feeder.");
-        } else {
-            sb.append("Server Neo Feeder menolak permintaan masuk (login) dengan keterangan sebagai "
-                    + "berikut: \"" + detailTeknis.trim() + "\".");
         }
 
         sb.append("\n\nTindak Lanjut yang dapat Bapak/Ibu coba:\n");

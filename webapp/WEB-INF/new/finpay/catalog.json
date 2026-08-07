@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "finpay",
+  "label": "Integrasi Finpay",
+  "count": 2,
+  "pageTypeCounts": {
+    "finance": 2
+  },
+  "pages": [
+    {
+      "page": "finpay_backand_prosess",
+      "title": "Finpay Backand Prosess",
+      "sourceClass": "FinpayBackandProsess",
+      "sourcePackage": "ais.action.master.finpay",
+      "sourcePath": "src/ais/action/master/finpay/FinpayBackandProsess.java",
+      "pageType": "finance",
+      "methodCount": 2,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Finpay Backand Prosess FinpayBackandProsess ais.action.master.finpay finance Utama"
+    },
+    {
+      "page": "finpay_request",
+      "title": "Finpay Request",
+      "sourceClass": "FinpayRequestAction",
+      "sourcePackage": "ais.action.master.finpay",
+      "sourcePath": "src/ais/action/master/finpay/FinpayRequestAction.java",
+      "pageType": "finance",
+      "methodCount": 6,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Finpay Request FinpayRequestAction ais.action.master.finpay finance Utama"
+    }
+  ]
+}

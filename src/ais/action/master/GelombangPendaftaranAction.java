@@ -1937,6 +1937,18 @@ public class GelombangPendaftaranAction extends GenericAutowireComposer implemen
 			if (selectedPaketPunyaGelombangPendaftaran != null) {
 				for (PaketPunyaGelombangPendaftaran paketPunyaGelombangPendaftaran : selectedPaketPunyaGelombangPendaftaran
 						.values()) {
+					// PERBAIKAN: DELETE mentah di atas menghapus baris di DB tanpa sepengetahuan
+					// Hibernate. Instance yang sudah di-load sebelumnya (mis. paket yang sejak
+					// awal sudah tercentang, masih managed di sessionData sejak window edit
+					// dibuka) tetap dianggap Hibernate sebagai baris yang MASIH ADA -> save()
+					// diikuti flush() jadi UPDATE ke baris yang barusan dihapus -> StaleState-
+					// Exception "actual row count: 0". Evict + kosongkan id dulu supaya save()
+					// selalu INSERT baris baru, sesuai niat "hapus semua lalu simpan ulang yang
+					// dipilih" -- bukan UPDATE baris lama yang sudah tak ada.
+					if (paketPunyaGelombangPendaftaran.getId() != null) {
+						sessionData.evict(paketPunyaGelombangPendaftaran);
+						paketPunyaGelombangPendaftaran.setId(null);
+					}
 					paketPunyaGelombangPendaftaran.setGelombangPendaftaran(gelombangPendaftaran);
 					sessionData.save(paketPunyaGelombangPendaftaran);
 					sessionData.flush();

@@ -1928,27 +1928,13 @@ public class AktifitasPerkuliahanHelper {
 					tabRekapitulasKetidakhadiran.setVisible(
 							tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null);
 
-					// FIX konten sub-tab Laporan KOSONG (mis. "Kontrak Perkuliahan"): di ZK 5.5 klik tab
-					// hanya memicu onSelect Tabbox, sedangkan mount konten dipasang pada onClick MASING-
-					// MASING tab -> kadang tak ter-trigger sehingga panel kosong. Pasang onSelect di Tabbox
-					// yang me-RE-DISPATCH onClick ke tab terpilih (mount andal & idempoten karena tiap
-					// handler cek getChildren().isEmpty()). Tab pertama (Rencana Perkuliahan) DIKECUALIKAN
-					// karena panelnya sudah dibangun eager (tanpa onClick).
-					final org.zkoss.zul.Tab tabPertamaLaporan = tabMonitor;
-					tabbox.addEventListener(org.zkoss.zk.ui.event.Events.ON_SELECT, new EventListener() {
-						@Override
-						public void onEvent(Event evSel) throws Exception {
-							org.zkoss.zul.Tab terpilih = tabbox.getSelectedTab();
-							if (terpilih != null && terpilih != tabPertamaLaporan) {
-								org.zkoss.zk.ui.event.Events.sendEvent(new Event("onClick", terpilih));
-							}
-						}
-					});
+					// Pola sama seperti tab luar: setiap onClick wajib setSelected(true)+setVisible(true)
+					// agar panel tidak tetap display:none di ZK 5. Tab pertama ditangani di onClick-nya sendiri.
 
 					Tabpanels tabpanels = new Tabpanels();
 					tabpanels.setParent(tabbox);
 
-					Tabpanel tabpanelReferensi = new ais.ui.util.MyTabpanel();
+					final Tabpanel tabpanelReferensi = new ais.ui.util.MyTabpanel();
 					tabpanelReferensi.setHeight("2000px");
 					tabpanelReferensi.setParent(tabpanels);
 
@@ -1958,6 +1944,17 @@ public class AktifitasPerkuliahanHelper {
 					laporanMonitorPerkuliahan.setWidth("100%");
 					tabpanelReferensi.appendChild(laporanMonitorPerkuliahan);
 					tabpanelReferensi.setHeight("2000px");
+					// Konten dimuat eager; onClick hanya tampilkan panel (pola sama seperti tab lain).
+					tabMonitor.addEventListener("onClick", new EventListener() {
+						@Override
+						public void onEvent(Event arg0) throws Exception {
+							tabMonitor.setSelected(true);
+							tabpanelReferensi.setVisible(true);
+						}
+					});
+					// Default: tidak ada tab terpilih — panel semua tersembunyi sampai user klik.
+					tabpanelReferensi.setVisible(false);
+					tabbox.setSelectedIndex(-1);
 
 					final Tabpanel tabpanelJurnalParalel = new ais.ui.util.MyTabpanel();
 					tabpanelJurnalParalel.setParent(tabpanels);
@@ -1965,6 +1962,8 @@ public class AktifitasPerkuliahanHelper {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
+							tabJurnal.setSelected(true);
+							tabpanelJurnalParalel.setVisible(true);
 							if (tabpanelJurnalParalel.getChildren().isEmpty()) {
 
 								LaporanJurnalMengajar laporanJurnalMengajar = new LaporanJurnalMengajar(perkuliahan);
@@ -1985,6 +1984,8 @@ public class AktifitasPerkuliahanHelper {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
+							tabKontrak.setSelected(true);
+							tabpanelKontrak.setVisible(true);
 							if (tabpanelKontrak.getChildren().isEmpty()) {
 
 								LaporanKontrakPerkuliahan laporanKontrakPerkuliahan = new LaporanKontrakPerkuliahan(
@@ -2007,6 +2008,8 @@ public class AktifitasPerkuliahanHelper {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
+							tabMonitorParalel.setSelected(true);
+							tabpanelMonitorParalel.setVisible(true);
 							if (tabpanelMonitorParalel.getChildren().isEmpty()) {
 								LaporanMonitorPerkuliahanParalel laporanJurnalPerkuliahan = new LaporanMonitorPerkuliahanParalel(
 										perkuliahan);
@@ -2026,6 +2029,8 @@ public class AktifitasPerkuliahanHelper {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
+							tabMonitorKbm.setSelected(true);
+							tabpanelMonitorKbm.setVisible(true);
 							if (tabpanelMonitorKbm.getChildren().isEmpty()) {
 								LaporanMonitorPerkuliahanKbm laporanMonitorPerkuliahan = new LaporanMonitorPerkuliahanKbm(
 										perkuliahan);
@@ -2045,6 +2050,8 @@ public class AktifitasPerkuliahanHelper {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
+							tabRekapitulasTugasMandiri.setSelected(true);
+							tabpanelTugasMandiri.setVisible(true);
 							if (tabpanelTugasMandiri.getChildren().isEmpty()) {
 								LaporanRekapitulasiTugasMandiri laporanRekapitulasiTugasMandiri = new LaporanRekapitulasiTugasMandiri(
 										perkuliahan);
@@ -2066,6 +2073,8 @@ public class AktifitasPerkuliahanHelper {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
+							tabRekapitulasKehadiran.setSelected(true);
+							tabpanelRekapitulasKehadiran.setVisible(true);
 							if (tabpanelRekapitulasKehadiran.getChildren().isEmpty()) {
 
 								Dosen kaprodi = null;
@@ -2199,6 +2208,8 @@ public class AktifitasPerkuliahanHelper {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
+							tabRekapitulasNilai.setSelected(true);
+							tabpanelRekapitulasNilai.setVisible(true);
 							if (tabpanelRekapitulasNilai.getChildren().isEmpty()) {
 
 								DetailperkuliahanForPenilaianHelper.onLaporan(perkuliahan, tabpanelRekapitulasNilai);
@@ -2215,6 +2226,8 @@ public class AktifitasPerkuliahanHelper {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
+							tabRekapitulasKehadiranNilai.setSelected(true);
+							tabpanelRekapitulasKehadiranNilai.setVisible(true);
 							if (tabpanelRekapitulasKehadiranNilai.getChildren().isEmpty()) {
 								DashboardDataNilaiMahasiswa laporan = new DashboardDataNilaiMahasiswa(perkuliahan);
 								laporan.setHeight("100%");
@@ -2232,6 +2245,8 @@ public class AktifitasPerkuliahanHelper {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
+							tabRekapitulasKetidakhadiran.setSelected(true);
+							tabpanelRekapitulasKetidakhadiran.setVisible(true);
 							if (tabpanelRekapitulasKetidakhadiran.getChildren().isEmpty()) {
 
 								Dosen kaprodi = null;

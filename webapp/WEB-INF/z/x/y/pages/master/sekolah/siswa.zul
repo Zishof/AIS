@@ -118,8 +118,8 @@
 									<bandbox id="searchkelas"
 									use="ais.action.master.sekolah.helper.AmbilDataKelasSiswaBanbox"
 									width="95%" />
-									<label use="ais.ui.util.MyLabelConfig" value="Angkatan" />
-									<decimalbox id="searchtahun"
+									<label use="ais.ui.util.MyLabelConfig" value="Thn Masuk Mulai" />
+									<decimalbox id="searchtahunMulai"
 									forward="onOK=onSearchDefault" width="95%" />
 									
 									<label use="ais.ui.util.MyLabelConfig" value="Yayasan"/>
@@ -156,6 +156,9 @@
 									value="Penjurusan" />
 									<combobox forward="onChange=onSearchDefault"
 									id="searchPenjurusan" width="95%" />
+									<label use="ais.ui.util.MyLabelConfig" value="Thn Masuk Sampai" />
+									<decimalbox id="searchtahunSampai"
+									forward="onOK=onSearchDefault" width="95%" />
 									</row>
 
 
@@ -184,6 +187,14 @@
 
 									</row>
 									
+					<row>
+									<label use="ais.ui.util.MyLabelConfig" value="Sudah Keluar" />
+									<combobox forward="onChange=onSearchDefault"
+									id="searchSudahKeluar" width="95%" readonly="true" />
+									<label use="ais.ui.util.MyLabelConfig" value="Punya Kelas" />
+									<combobox forward="onChange=onSearchDefault"
+									id="searchPunyaKelas" width="95%" readonly="true" />
+					</row>
 					<!-- ais-auto-filter: field pencarian dari initCriteria yang belum ada di .zul -->
 					<row>
 						<label use="ais.ui.util.MyLabelConfig" value="" />

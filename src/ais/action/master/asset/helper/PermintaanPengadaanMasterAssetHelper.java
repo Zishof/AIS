@@ -260,10 +260,7 @@ public class PermintaanPengadaanMasterAssetHelper {
 		gridMasterAsset.setParent(myGroupboxStyled);
 		gridMasterAsset.setWidth("100%");
 		gridMasterAsset.setHeight("100%");
-		gridMasterAsset.setStyle("min-height:360px; border:1px solid #e5e7eb; border-radius:8px; overflow:hidden;");
-		gridMasterAsset.setMold("paging");
-		gridMasterAsset.setPageSize(10);
-		gridMasterAsset.getPagingChild().setMold("os");
+		gridMasterAsset.setStyle("min-height:360px; border:1px solid #e5e7eb; border-radius:8px; overflow:auto;");
 
 		Columns columns = new Columns();
 		columns.setParent(gridMasterAsset);

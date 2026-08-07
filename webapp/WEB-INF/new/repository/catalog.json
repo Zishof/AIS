@@ -1,0 +1,63 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "repository",
+  "label": "Repository",
+  "count": 4,
+  "pageTypeCounts": {
+    "dashboard": 1,
+    "list": 1,
+    "report": 1,
+    "integration": 1
+  },
+  "pages": [
+    {
+      "page": "dasboard_repository",
+      "title": "Dasboard Repository",
+      "sourceClass": "DasboardRepository",
+      "sourcePackage": "ais.action.master.repository",
+      "sourcePath": "src/ais/action/master/repository/DasboardRepository.java",
+      "pageType": "dashboard",
+      "methodCount": 2,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Dasboard Repository DasboardRepository ais.action.master.repository dashboard Utama"
+    },
+    {
+      "page": "repository",
+      "title": "Repository",
+      "sourceClass": "RepositoryAction",
+      "sourcePackage": "ais.action.master.repository",
+      "sourcePath": "src/ais/action/master/repository/RepositoryAction.java",
+      "pageType": "list",
+      "methodCount": 9,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Repository RepositoryAction ais.action.master.repository list Utama"
+    },
+    {
+      "page": "repository_sql_import_helper",
+      "title": "Repository Sql Import Helper",
+      "sourceClass": "RepositorySqlImportHelper",
+      "sourcePackage": "ais.action.master.repository",
+      "sourcePath": "src/ais/action/master/repository/RepositorySqlImportHelper.java",
+      "pageType": "report",
+      "methodCount": 1,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Repository Sql Import Helper RepositorySqlImportHelper ais.action.master.repository report Utama"
+    },
+    {
+      "page": "repository_sync_service",
+      "title": "Repository Sync Service",
+      "sourceClass": "RepositorySyncService",
+      "sourcePackage": "ais.action.master.repository",
+      "sourcePath": "src/ais/action/master/repository/RepositorySyncService.java",
+      "pageType": "integration",
+      "methodCount": 5,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Repository Sync Service RepositorySyncService ais.action.master.repository integration Utama"
+    }
+  ]
+}

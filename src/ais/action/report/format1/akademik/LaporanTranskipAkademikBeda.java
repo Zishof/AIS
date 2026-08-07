@@ -310,8 +310,21 @@ public class LaporanTranskipAkademikBeda extends MyWindow {
 		System.out.println("Cetak Semester IPK, semester < " + semester + "(" + mahasiswa.getNim() + ")");
 		parameters.put("semester", semester);
 
+		List<Long> sebelumDisaringBeda = mahasiswa.ambilDetailperkuliahan(semester);
+		// Saring di DB-level: buang ID yang perkuliahan atau matakuliahnya null.
+		if (!sebelumDisaringBeda.isEmpty()) {
+			List<Number> idsValidRawBeda = HibernateUtil.currentSession().createSQLQuery(
+					"SELECT a.id FROM detailperkuliahan a "
+					+ "LEFT JOIN perkuliahan b ON (a.perkuliahan = b.id) "
+					+ "LEFT JOIN matakuliah f ON (f.id = b.matakuliah OR a.matakuliah_konversi = f.id) "
+					+ "WHERE a.id IN (:ids) AND f.id IS NOT NULL AND coalesce(trim(f.nama), '') <> ''")
+					.setParameterList("ids", sebelumDisaringBeda).list();
+			List<Long> idsValidBeda = new ArrayList<Long>();
+			for (Number n : idsValidRawBeda) { idsValidBeda.add(n.longValue()); }
+			sebelumDisaringBeda.retainAll(idsValidBeda);
+		}
 		List<Long> detailsperkuliahans = new ArrayList<Long>();
-		for (Long detailperkuliahan : mahasiswa.saringBerdasarNilaiDan0(mahasiswa.ambilDetailperkuliahan(semester))) {
+		for (Long detailperkuliahan : mahasiswa.saringBerdasarNilaiDan0(sebelumDisaringBeda)) {
 			detailsperkuliahans.add(detailperkuliahan);
 		}
 		parameters.put("jumlah_mk", detailsperkuliahans.size());

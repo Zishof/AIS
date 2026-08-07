@@ -852,6 +852,37 @@ public class Tagihan extends GeneralValueObject {
 						tagihan.setDibayarManual(dibayarManual);
 					}
 
+					// KE-13/14/16: kolom "nominal_biaya_id" NOT NULL di tabel tagihan -- meski
+					// tagihan.setNominalBiaya(nominalBiaya) di atas sudah dipanggil, nominalBiaya yang
+					// dioper ke method ini bisa berasal dari sesi Hibernate LAIN yang sudah ditutup
+					// (mis. dari NominalBiaya.ambilTagihans/TagihanUtilCalonSiswa yang membuka
+					// beberapa sesi terisolasi berbeda). Bila referensi itu sudah tidak punya id valid
+					// (proxy rusak/entity belum tersimpan), INSERT baris ini SELALU gagal dengan
+					// ConstraintViolationException, dan sesi milik pemanggil (mis.
+					// CommonHibernateHelper.safeFlush) ikut ter-abort pada flush berikutnya. Deteksi
+					// & hentikan SEBELUM insert dicoba -- lebih baik gagal senyap/tercatat drpd crash
+					// & meracuni transaksi pemanggil.
+					Long idNominalBiaya = null;
+					try {
+						// getId() aman dipanggil pada proxy Hibernate TANPA memicu lazy-load penuh
+						// (id disimpan langsung di proxy) -- jadi ini tidak menyentuh sesi manapun.
+						if (tagihan.getNominalBiaya() != null) {
+							idNominalBiaya = tagihan.getNominalBiaya().getId();
+						}
+					} catch (Exception exId) {
+						ais.common.ErrorAuditUtil.record(exId,
+								"Tagihan.ambilAtauBuat: gagal membaca id NominalBiaya sebelum insert Tagihan baru");
+					}
+					if (idNominalBiaya == null) {
+						ais.common.ErrorAuditUtil.record(
+								new IllegalStateException(
+										"Tagihan.ambilAtauBuat: dibatalkan -- NominalBiaya referensi tidak punya id valid (kodeUnik="
+												+ kodeUnik + "), insert Tagihan baru DILEWATI utk mencegah "
+												+ "ConstraintViolationException nominal_biaya_id NOT NULL."),
+								"auto-audit src/ais/database/model/sekolah/Tagihan.java:855-guard");
+						return null;
+					}
+
 					tagihan = saveTagihanDenganKodeUnikAman(session, tagihan);
 
 					if (pembayaranSiswaDetail != null && pembayaranSiswaDetail.getId() != null) {

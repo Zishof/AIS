@@ -1,0 +1,24 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "jatelindo",
+  "label": "Integrasi Jatelindo",
+  "count": 1,
+  "pageTypeCounts": {
+    "finance": 1
+  },
+  "pages": [
+    {
+      "page": "jatelindo_request",
+      "title": "Jatelindo Request",
+      "sourceClass": "JatelindoRequestAction",
+      "sourcePackage": "ais.action.master.jatelindo",
+      "sourcePath": "src/ais/action/master/jatelindo/JatelindoRequestAction.java",
+      "pageType": "finance",
+      "methodCount": 6,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Jatelindo Request JatelindoRequestAction ais.action.master.jatelindo finance Utama"
+    }
+  ]
+}

@@ -93,8 +93,8 @@ public class Pmb extends HttpServlet {
         // Cek pilihan tampilan dari entitas domain
         String piilhan = getPiilhanTampilanDomain(request);
         if (PerguruanTinggi.TAMPILAN_BARU.equals(piilhan)) {
-            request.setAttribute("baru2_context", "pmb");
-            return "/WEB-INF/baru2/index.jsp";
+            request.setAttribute("new_context", "pmb");
+            return "/WEB-INF/new/index.jsp";
         } else if (PerguruanTinggi.TAMPILAN_KLASIK.equals(piilhan)) {
             return PATH_PMB_LAMA;
         }

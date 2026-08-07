@@ -1027,8 +1027,15 @@ public class InitIndex {
 				"CREATE INDEX IF NOT EXISTS idx_pembayaran_siswa_tabungan_tgl ON sekolah.pembayaran_siswa (tanggal DESC, id DESC) WHERE daritabungan > 0.1",
 
 				"CREATE INDEX IF NOT EXISTS idx_mhs_jurusan_nama_nim ON public.mahasiswa (jurusan, nama, nim, id)",
-				"CREATE INDEX IF NOT EXISTS idx_mhs_nama_trgm_deposit ON public.mahasiswa USING gin (nama gin_trgm_ops)",
-				"CREATE INDEX IF NOT EXISTS idx_mhs_nim_trgm_deposit ON public.mahasiswa USING gin (nim gin_trgm_ops)",
+
+				// REDUNDAN: definisi identik dgn idx_trgm_mhs_nama/idx_trgm_mhs_nim yang sudah
+				// ada di initEksekusiQueryIndex() (blok "INDEKS PENCARIAN TEKS GIN"), cuma beda
+				// nama & kualifikasi skema ("mahasiswa" vs "public.mahasiswa" -- tabel FISIK sama,
+				// jadi guard dedup nama+signature di file ini tidak menangkapnya) -> 2 index GIN
+				// kembar utk kolom sama memperlambat INSERT/UPDATE tanpa manfaat baca tambahan.
+				// Di-DROP di sini, dipertahankan yang sudah ada (idx_trgm_mhs_nama/idx_trgm_mhs_nim).
+				"DROP INDEX IF EXISTS idx_mhs_nama_trgm_deposit",
+				"DROP INDEX IF EXISTS idx_mhs_nim_trgm_deposit",
 				"CREATE INDEX IF NOT EXISTS idx_bcm_prodi1_lulus_nama ON public.biodata_calon_mahasiswa (prodi_1, prodi_lulus, nama, no_registrasi, id)",
 				"CREATE INDEX IF NOT EXISTS idx_bcm_nama_trgm_deposit ON public.biodata_calon_mahasiswa USING gin (nama gin_trgm_ops)",
 				"CREATE INDEX IF NOT EXISTS idx_bcm_noreg_trgm_deposit ON public.biodata_calon_mahasiswa USING gin (no_registrasi gin_trgm_ops)",
@@ -1511,6 +1518,47 @@ public class InitIndex {
 	}
 
 	/**
+	 * Index untuk fallback DB baru di {@code ConstantValues.ambilByNim} (2026-08-06).
+	 *
+	 * <p><b>Konteks.</b> {@code ambilByNim} sebelumnya HANYA scan cache in-memory
+	 * ({@code MemoryCacheUtil}), yang di-warm-start terbatas mahasiswa 3 tahun angkatan
+	 * terakhir ({@code InitDataHelper}) — mahasiswa lebih lama SELALU "tidak ditemukan" di
+	 * inquiry H2H bank (insiden BSI, mahasiswa angkatan 2022 semester 9) walau datanya valid.
+	 * Fix menambah fallback query DB langsung: {@code Restrictions.eq("nim", nim).ignoreCase()}
+	 * dan (fallback kedua) {@code Restrictions.eq("nama", nim).ignoreCase()} pada
+	 * {@code public.mahasiswa}.</p>
+	 *
+	 * <p><b>Kenapa index BARU diperlukan.</b> Hibernate {@code ignoreCase()} menghasilkan
+	 * {@code WHERE lower(nim) = ?} / {@code WHERE lower(nama) = ?} — index BIASA pada kolom
+	 * {@code nim}/{@code nama} TIDAK bisa dipakai planner untuk bentuk ekspresi {@code lower(...)}
+	 * ini; wajib index FUNGSIONAL {@code (lower(kolom))}. Index GIN trigram yang sudah ada
+	 * ({@code idx_trgm_mhs_nim}/{@code idx_trgm_mhs_nama}, utk {@code LIKE '%..%'}) juga TIDAK
+	 * membantu query kesetaraan (=) ini — beda bentuk operasi, beda tipe index.</p>
+	 *
+	 * <p><b>Anti-duplikat.</b> Dicek: tidak ada index {@code (lower(nim))}/{@code (lower(nama))}
+	 * di tempat lain pada file ini sebelum penambahan ini.</p>
+	 */
+	private static void initIndexAmbilByNimFallbackSuperFast() {
+		String[] indexes = new String[] {
+				"CREATE INDEX IF NOT EXISTS idx_mhs_lower_nim ON public.mahasiswa (lower(nim))",
+				"CREATE INDEX IF NOT EXISTS idx_mhs_lower_nama ON public.mahasiswa (lower(nama))" };
+		for (String sql : indexes) {
+			try {
+				eksekusiSql10Menit(sql);
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e,
+						"auto-audit(empty-catch) src/ais/common/InitIndex.java:initIndexAmbilByNimFallbackSuperFast");
+			}
+		}
+		try {
+			eksekusiSql10Menit("ANALYZE public.mahasiswa");
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit(empty-catch) src/ais/common/InitIndex.java:initIndexAmbilByNimFallbackSuperFast-analyze");
+		}
+	}
+
+	/**
 	 * Index untuk UPLOAD / DOWNLOAD / HAPUS perencanaan anggaran (RAB) di
 	 * {@code WorkspaceRevisiAction} / {@code WorkspaceRevisiBulananAction}.
 	 *
@@ -1587,15 +1635,30 @@ public class InitIndex {
 	}
 
 	private static void initIndexRevisiEnversGenerik() {
+		// PENTING: seluruh isi LOOP dan blok revinfo di bawah DIBUNGKUS "BEGIN ... EXCEPTION WHEN
+		// OTHERS THEN ... END;" (savepoint implisit PL/pgSQL) PER TABEL. Sebelumnya TIDAK ada
+		// penanganan exception di dalam LOOP: satu tabel _aud yang gagal (paling mungkin lock
+		// timeout/kontensi -- tabel _aud Envers ditulis TERUS-MENERUS oleh trafik hidup setiap kali
+		// entitas apa pun diubah, sedangkan CREATE INDEX butuh SHARE lock yang bentrok dengan
+		// penulisan) membuat SELURUH statement DO $$ ini di-ROLLBACK, sehingga index utk SEMUA tabel
+		// _aud LAIN yang sebenarnya sukses diproses lebih dulu di iterasi LOOP yang sama ikut hilang
+		// (gejala persis "Transaction di-rollback untuk mencegah status 'aborted' pada koneksi" yang
+		// dilaporkan). Dengan blok BEGIN/EXCEPTION per tabel, kegagalan pada satu tabel di-skip (via
+		// RAISE WARNING, tercatat di log server) tanpa membatalkan index tabel _aud lainnya dan tanpa
+		// mengubah hasil akhir untuk kasus normal (masih idempoten, CREATE INDEX IF NOT EXISTS).
 		final String sql = ""
 				+ "DO $$ "
 				+ "DECLARE r record; nama_rev text; nama_revtype text; nama_id_rev text; "
 				+ "BEGIN "
 				+ "FOR r IN SELECT table_schema, table_name FROM information_schema.tables "
 				+ "WHERE table_schema = 'public' AND table_name LIKE '%\\_aud' ESCAPE '\\' LOOP "
-				+ "nama_rev := 'idx_aud_rev_' || substr(md5(r.table_name || '_rev'), 1, 14); "
-				+ "nama_revtype := 'idx_aud_rvt_' || substr(md5(r.table_name || '_revtype'), 1, 14); "
-				+ "nama_id_rev := 'idx_aud_idr_' || substr(md5(r.table_name || '_id_rev'), 1, 14); "
+				+ "BEGIN "
+				// Hibernate 3 mem-parsing ':' sebagai awalan named parameter bahkan di blok
+				// PL/pgSQL. PostgreSQL menerima '=' sebagai operator assignment yang setara
+				// dengan ':=', jadi hindari ':' agar DO block lolos ParameterParser Hibernate.
+				+ "nama_rev = 'idx_aud_rev_' || substr(md5(r.table_name || '_rev'), 1, 14); "
+				+ "nama_revtype = 'idx_aud_rvt_' || substr(md5(r.table_name || '_revtype'), 1, 14); "
+				+ "nama_id_rev = 'idx_aud_idr_' || substr(md5(r.table_name || '_id_rev'), 1, 14); "
 				+ "IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = r.table_schema AND table_name = r.table_name AND column_name = 'rev') THEN "
 				+ "EXECUTE format('CREATE INDEX IF NOT EXISTS %I ON %I.%I (rev)', nama_rev, r.table_schema, r.table_name); "
 				+ "END IF; "
@@ -1607,10 +1670,17 @@ public class InitIndex {
 				+ "AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = r.table_schema AND table_name = r.table_name AND column_name = 'rev') THEN "
 				+ "EXECUTE format('CREATE INDEX IF NOT EXISTS %I ON %I.%I (id, rev DESC)', nama_id_rev, r.table_schema, r.table_name); "
 				+ "END IF; "
+				+ "EXCEPTION WHEN OTHERS THEN "
+				+ "RAISE WARNING 'initIndexRevisiEnversGenerik - gagal membuat index audit utk %.% - %', r.table_schema, r.table_name, SQLERRM; "
+				+ "END; "
 				+ "END LOOP; "
+				+ "BEGIN "
 				+ "IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'revinfo') THEN "
 				+ "EXECUTE 'CREATE INDEX IF NOT EXISTS idx_revinfo_rev_revtstmp ON public.revinfo (rev, revtstmp)'; "
 				+ "END IF; "
+				+ "EXCEPTION WHEN OTHERS THEN "
+				+ "RAISE WARNING 'initIndexRevisiEnversGenerik - gagal membuat index revinfo - %', SQLERRM; "
+				+ "END; "
 				+ "END $$;";
 		submitDdl(new Runnable() {
 			@Override
@@ -1663,6 +1733,7 @@ public class InitIndex {
 		initIndexAlurSopWorkflowSuperFast();
 		initIndexSekolahElearningSuperFast();
 		initIndexInformasiPembayaranMahasiswaSuperFast();
+		initIndexAmbilByNimFallbackSuperFast();
 		initIndexRevisiEnversGenerik();
 		initIndexRabWorkspaceUploadHapus();
 		initIndexProdukKunciUnik();

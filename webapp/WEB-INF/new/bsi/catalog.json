@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "bsi",
+  "label": "Integrasi BSI",
+  "count": 2,
+  "pageTypeCounts": {
+    "finance": 2
+  },
+  "pages": [
+    {
+      "page": "bsi_backand_prosess",
+      "title": "BSI Backand Prosess",
+      "sourceClass": "BsiBackandProsess",
+      "sourcePackage": "ais.action.master.bsi",
+      "sourcePath": "src/ais/action/master/bsi/BsiBackandProsess.java",
+      "pageType": "finance",
+      "methodCount": 2,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "BSI Backand Prosess BsiBackandProsess ais.action.master.bsi finance Utama"
+    },
+    {
+      "page": "bsi_request",
+      "title": "BSI Request",
+      "sourceClass": "BsiRequestAction",
+      "sourcePackage": "ais.action.master.bsi",
+      "sourcePath": "src/ais/action/master/bsi/BsiRequestAction.java",
+      "pageType": "finance",
+      "methodCount": 7,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "BSI Request BsiRequestAction ais.action.master.bsi finance Utama"
+    }
+  ]
+}

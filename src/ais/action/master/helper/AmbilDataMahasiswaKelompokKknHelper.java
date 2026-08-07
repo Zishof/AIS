@@ -134,6 +134,7 @@ public class AmbilDataMahasiswaKelompokKknHelper {
 						mahasiswaDapatKelompokKkn.setKelompokKkn(kelompokKkn);
 						mahasiswaDapatKelompokKkn.setKeterangan("");
 						mahasiswaDapatKelompokKkn.setMahasiswa(mahasiswa);
+						mahasiswaDapatKelompokKkn.setDiterima(true);
 						session.save(mahasiswaDapatKelompokKkn);
 					}
 				}

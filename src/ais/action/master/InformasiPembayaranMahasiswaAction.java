@@ -613,7 +613,12 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 		// ("coba bayar via cara baru" — permintaan user). Tidak mengubah alur/tombol lain di layar ini.
 		Tbmuser userAksiPembayaran = Common.getCurrentUser();
 		boolean loginSebagaiMahasiswa = userAksiPembayaran != null && userAksiPembayaran.getMahasiswa() != null;
-		if (!loginSebagaiMahasiswa) {
+		// Disembunyikan sementara atas permintaan user (2026-08-06) — default MATI, tanpa
+		// perlu redeploy utk mengaktifkan lagi: set Konfigurasi
+		// "tampilkan_coba_cara_baru_pembayaran_mahasiswa" ke Aktif via menu Konfigurasi bila
+		// sudah siap dicoba lagi.
+		if (!loginSebagaiMahasiswa
+				&& Common.bolehKonfigurasi("tampilkan_coba_cara_baru_pembayaran_mahasiswa", Konfigurasi.TIDAK_AKTIF)) {
 			MyToolbarbuttonConfig btnCobaCaraBaru = new MyToolbarbuttonConfig("Coba Cara Baru (Eksperimental)",
 					"/img/svg/payments.svg");
 			hboxBawah.appendChild(btnCobaCaraBaru);
@@ -820,6 +825,9 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 
 		btnTab.tambahTabLazy(1, "Proses Pembayaran", "/img/svg/coin.svg", new ais.ui.util.MyButtonTabbox.PemuatTab() {
 			@Override public void muat(org.zkoss.zul.Div panel) throws Exception {
+				if (mahasiswa == null) {
+					return;
+				}
 				String url = "/common/daftarulang_mahasiswa_lama.zul?mahasiswa=" + mahasiswa.getId();
 				MyWindow window = new MyWindow("", "none", false);
 				window.setHeight("100%"); window.setWidth("100%"); window.setParent(panel);
@@ -829,6 +837,9 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 		btnTab.setVisibleTombol(1, tabsVisible);
 		btnTab.tambahTabLazy(2, "Bukti Pembayaran", "/img/svg/check2-circle.svg", new ais.ui.util.MyButtonTabbox.PemuatTab() {
 			@Override public void muat(org.zkoss.zul.Div panel) throws Exception {
+				if (mahasiswa == null) {
+					return;
+				}
 				String url = "/pages/master/bukti_pembayaran.zul?mahasiswa=" + mahasiswa.getId();
 				MyWindow window = new MyWindow("", "none", false);
 				window.setHeight("100%"); window.setWidth("100%"); window.setParent(panel);
@@ -838,6 +849,9 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 		btnTab.setVisibleTombol(2, tabsVisible);
 		btnTab.tambahTabLazy(3, "Tabungan Mahasiswa", "/img/svg/money-bills.svg", new ais.ui.util.MyButtonTabbox.PemuatTab() {
 			@Override public void muat(org.zkoss.zul.Div panel) throws Exception {
+				if (mahasiswa == null) {
+					return;
+				}
 				String url = "/pages/master/deposit.zul?mahasiswa=" + mahasiswa.getId();
 				MyWindow window = new MyWindow("", "none", false);
 				window.setHeight("100%"); window.setWidth("100%"); window.setParent(panel);
@@ -847,6 +861,9 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 		btnTab.setVisibleTombol(3, tabsVisible);
 		btnTab.tambahTabLazy(4, "Sejarah Pembayaran", "/img/svg/chart-line.svg", new ais.ui.util.MyButtonTabbox.PemuatTab() {
 			@Override public void muat(org.zkoss.zul.Div panel) throws Exception {
+				if (mahasiswa == null) {
+					return;
+				}
 				String url = "/pages/master/log_pembayaran.zul?mahasiswa=" + mahasiswa.getId();
 				MyWindow window = new MyWindow("", "none", false);
 				window.setHeight("100%"); window.setWidth("100%"); window.setParent(panel);

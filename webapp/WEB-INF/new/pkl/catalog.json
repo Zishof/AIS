@@ -1,0 +1,72 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "pkl",
+  "label": "PKL",
+  "count": 5,
+  "pageTypeCounts": {
+    "academic": 5
+  },
+  "pages": [
+    {
+      "page": "kelompok_pkl",
+      "title": "Kelompok PKL",
+      "sourceClass": "KelompokPklAction",
+      "sourcePackage": "ais.action.master.pkl",
+      "sourcePath": "src/ais/action/master/pkl/KelompokPklAction.java",
+      "pageType": "academic",
+      "methodCount": 14,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Kelompok PKL KelompokPklAction ais.action.master.pkl academic Utama"
+    },
+    {
+      "page": "komponen_penilaian_pkl",
+      "title": "Komponen Penilaian PKL",
+      "sourceClass": "KomponenPenilaianPklAction",
+      "sourcePackage": "ais.action.master.pkl",
+      "sourcePath": "src/ais/action/master/pkl/KomponenPenilaianPklAction.java",
+      "pageType": "academic",
+      "methodCount": 9,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Komponen Penilaian PKL KomponenPenilaianPklAction ais.action.master.pkl academic Utama"
+    },
+    {
+      "page": "persyaratan_pkl",
+      "title": "Persyaratan PKL",
+      "sourceClass": "PersyaratanPklAction",
+      "sourcePackage": "ais.action.master.pkl",
+      "sourcePath": "src/ais/action/master/pkl/PersyaratanPklAction.java",
+      "pageType": "academic",
+      "methodCount": 8,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Persyaratan PKL PersyaratanPklAction ais.action.master.pkl academic Utama"
+    },
+    {
+      "page": "pkl_untuk_mahasiswa",
+      "title": "PKL Untuk Mahasiswa",
+      "sourceClass": "PklUntukMahasiswaAction",
+      "sourcePackage": "ais.action.master.pkl",
+      "sourcePath": "src/ais/action/master/pkl/PklUntukMahasiswaAction.java",
+      "pageType": "academic",
+      "methodCount": 10,
+      "legacyRefCount": 1,
+      "subpackage": "Utama",
+      "search": "PKL Untuk Mahasiswa PklUntukMahasiswaAction ais.action.master.pkl academic Utama"
+    },
+    {
+      "page": "seleksi_penerima_pkl",
+      "title": "Seleksi Penerima PKL",
+      "sourceClass": "SeleksiPenerimaPklAction",
+      "sourcePackage": "ais.action.master.pkl",
+      "sourcePath": "src/ais/action/master/pkl/SeleksiPenerimaPklAction.java",
+      "pageType": "academic",
+      "methodCount": 6,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Seleksi Penerima PKL SeleksiPenerimaPklAction ais.action.master.pkl academic Utama"
+    }
+  ]
+}

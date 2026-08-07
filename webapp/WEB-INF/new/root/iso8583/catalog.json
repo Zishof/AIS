@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "root/iso8583",
+  "label": "ISO 8583 & Switching Pembayaran",
+  "count": 2,
+  "pageTypeCounts": {
+    "finance": 2
+  },
+  "pages": [
+    {
+      "page": "bank_ntt_server_service",
+      "title": "Bank Ntt Server Service",
+      "sourceClass": "BankNttServerService",
+      "sourcePackage": "ais.action.iso8583",
+      "sourcePath": "src/ais/action/iso8583/BankNttServerService.java",
+      "pageType": "finance",
+      "methodCount": 1,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Bank Ntt Server Service BankNttServerService ais.action.iso8583 finance Utama"
+    },
+    {
+      "page": "constans_value_iso8583",
+      "title": "Constans Value Iso 8583",
+      "sourceClass": "ConstansValueIso8583",
+      "sourcePackage": "ais.action.iso8583",
+      "sourcePath": "src/ais/action/iso8583/ConstansValueIso8583.java",
+      "pageType": "finance",
+      "methodCount": 1,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Constans Value Iso 8583 ConstansValueIso8583 ais.action.iso8583 finance Utama"
+    }
+  ]
+}

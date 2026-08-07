@@ -1,0 +1,134 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "root/psb",
+  "label": "Penerimaan Siswa Baru (PSB)",
+  "count": 10,
+  "pageTypeCounts": {
+    "finance": 2,
+    "academic": 6,
+    "form": 2
+  },
+  "pages": [
+    {
+      "page": "cari_data_pembayaran",
+      "title": "Cari Data Pembayaran",
+      "sourceClass": "CariDataPembayaranAction",
+      "sourcePackage": "ais.action.master.psb",
+      "sourcePath": "src/ais/action/master/psb/CariDataPembayaranAction.java",
+      "pageType": "finance",
+      "methodCount": 7,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Cari Data Pembayaran CariDataPembayaranAction ais.action.master.psb finance Utama"
+    },
+    {
+      "page": "cari_data_peserta_ujian",
+      "title": "Cari Data Peserta Ujian",
+      "sourceClass": "CariDataPesertaUjianAction",
+      "sourcePackage": "ais.action.master.psb",
+      "sourcePath": "src/ais/action/master/psb/CariDataPesertaUjianAction.java",
+      "pageType": "academic",
+      "methodCount": 8,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Cari Data Peserta Ujian CariDataPesertaUjianAction ais.action.master.psb academic Utama"
+    },
+    {
+      "page": "cek_kesehatan_siswa",
+      "title": "Cek Kesehatan Siswa",
+      "sourceClass": "CekKesehatanSiswaAction",
+      "sourcePackage": "ais.action.master.psb",
+      "sourcePath": "src/ais/action/master/psb/CekKesehatanSiswaAction.java",
+      "pageType": "academic",
+      "methodCount": 7,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Cek Kesehatan Siswa CekKesehatanSiswaAction ais.action.master.psb academic Utama"
+    },
+    {
+      "page": "galeri_foto_psb",
+      "title": "Galeri Foto PSB",
+      "sourceClass": "GaleriFotoPsbAction",
+      "sourcePackage": "ais.action.master.psb",
+      "sourcePath": "src/ais/action/master/psb/GaleriFotoPsbAction.java",
+      "pageType": "academic",
+      "methodCount": 0,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Galeri Foto PSB GaleriFotoPsbAction ais.action.master.psb academic Utama"
+    },
+    {
+      "page": "galeri_foto_psb_editor",
+      "title": "Galeri Foto PSB Editor",
+      "sourceClass": "GaleriFotoPsbEditorAction",
+      "sourcePackage": "ais.action.master.psb",
+      "sourcePath": "src/ais/action/master/psb/GaleriFotoPsbEditorAction.java",
+      "pageType": "form",
+      "methodCount": 0,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Galeri Foto PSB Editor GaleriFotoPsbEditorAction ais.action.master.psb form Utama"
+    },
+    {
+      "page": "informasi_psb",
+      "title": "Informasi PSB",
+      "sourceClass": "InformasiPSB",
+      "sourcePackage": "ais.action.master.psb",
+      "sourcePath": "src/ais/action/master/psb/InformasiPSB.java",
+      "pageType": "form",
+      "methodCount": 4,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Informasi PSB InformasiPSB ais.action.master.psb form Utama"
+    },
+    {
+      "page": "login_calon_siswa",
+      "title": "Login Calon Siswa",
+      "sourceClass": "LoginCalonSiswaAction",
+      "sourcePackage": "ais.action.master.psb",
+      "sourcePath": "src/ais/action/master/psb/LoginCalonSiswaAction.java",
+      "pageType": "academic",
+      "methodCount": 5,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Login Calon Siswa LoginCalonSiswaAction ais.action.master.psb academic Utama"
+    },
+    {
+      "page": "pembayaran_online",
+      "title": "Pembayaran Online",
+      "sourceClass": "PembayaranOnlineAction",
+      "sourcePackage": "ais.action.master.psb",
+      "sourcePath": "src/ais/action/master/psb/PembayaranOnlineAction.java",
+      "pageType": "finance",
+      "methodCount": 4,
+      "legacyRefCount": 1,
+      "subpackage": "Utama",
+      "search": "Pembayaran Online PembayaranOnlineAction ais.action.master.psb finance Utama"
+    },
+    {
+      "page": "ruang_psb_calon_siswa_detail",
+      "title": "Ruang PSB Calon Siswa Detail",
+      "sourceClass": "RuangPsbCalonSiswaDetailAction",
+      "sourcePackage": "ais.action.master.psb",
+      "sourcePath": "src/ais/action/master/psb/RuangPsbCalonSiswaDetailAction.java",
+      "pageType": "academic",
+      "methodCount": 5,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Ruang PSB Calon Siswa Detail RuangPsbCalonSiswaDetailAction ais.action.master.psb academic Utama"
+    },
+    {
+      "page": "tampilan_pengumuman_psb",
+      "title": "Tampilan Pengumuman PSB",
+      "sourceClass": "TampilanPengumumanPSBAction",
+      "sourcePackage": "ais.action.master.psb",
+      "sourcePath": "src/ais/action/master/psb/TampilanPengumumanPSBAction.java",
+      "pageType": "academic",
+      "methodCount": 8,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Tampilan Pengumuman PSB TampilanPengumumanPSBAction ais.action.master.psb academic Utama"
+    }
+  ]
+}

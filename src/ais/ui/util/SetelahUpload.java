@@ -1,16 +1,17 @@
 package ais.ui.util;
 
 import java.io.Serializable;
-import java.net.URLEncoder;
 
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.HtmlBasedComponent;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zk.ui.util.Clients;
+import org.zkoss.zul.A;
 import org.zkoss.zul.Html;
 import org.zkoss.zul.Iframe;
 import org.zkoss.zul.Image;
+import org.zkoss.zul.Label;
 import org.zkoss.zul.Row;
 
 import ais.common.Common;
@@ -182,14 +183,14 @@ public class SetelahUpload implements EventListener {
 							if (vbPreview instanceof HtmlBasedComponent) {
 								((HtmlBasedComponent) vbPreview).setStyle("min-height: 410px;");
 							}
+							String previewLink = buatLinkPreviewInline(fileFotoLain, linkUtama);
 							Iframe iframe = new Iframe();
 							iframe.setHeight("400px");
 							iframe.setWidth(mobile ? "100%" : "90%");
 							iframe.setStyle("border:none");
 							iframe.setAttribute("lampiran_tambahan", true);
 							vbPreview.appendChild(iframe);
-							iframe.setSrc("https://docs.google.com/gview?embedded=true&url="
-									+ URLEncoder.encode(linkUtama, "UTF-8"));
+							iframe.setSrc(previewLink);
 
 						} else if (FileFoto.merupakanDokumen(nama)
 								&& (linkUtama.trim().contains("AmbilLampiran")
@@ -201,16 +202,18 @@ public class SetelahUpload implements EventListener {
 							// rusak — bukan pratinjau dokumen. Dengan match ini, dokumen dipratinjau via
 							// Google Docs viewer seperti halnya PDF.
 							if (vbPreview instanceof HtmlBasedComponent) {
-								((HtmlBasedComponent) vbPreview).setStyle("min-height: 410px;");
+								((HtmlBasedComponent) vbPreview).setStyle("min-height: 72px;");
 							}
-							Iframe iframe = new Iframe();
-							iframe.setHeight("400px");
-							iframe.setWidth(mobile ? "100%" : "90%");
-							iframe.setStyle("border:none");
-							iframe.setAttribute("lampiran_tambahan", true);
-							vbPreview.appendChild(iframe);
-							iframe.setSrc("https://docs.google.com/gview?embedded=true&url="
-									+ URLEncoder.encode(linkUtama, "UTF-8"));
+							Label info = new Label("Pratinjau dokumen Office dibuka melalui tautan.");
+							info.setStyle("display:block;margin:8px 0;color:#475569;font-size:12px;");
+							info.setAttribute("lampiran_tambahan", true);
+							vbPreview.appendChild(info);
+							A buka = new A("Buka / unduh dokumen");
+							buka.setHref(buatLinkPreviewInline(fileFotoLain, linkUtama));
+							buka.setTarget("_blank");
+							buka.setStyle("display:inline-block;margin:2px 0 10px 0;padding:6px 10px;border:1px solid #cbd5e1;border-radius:4px;background:#f8fafc;color:#0f172a;text-decoration:none;font-weight:600;");
+							buka.setAttribute("lampiran_tambahan", true);
+							vbPreview.appendChild(buka);
 						} else if (!linkUtama.trim().isEmpty() || linkUtama.toLowerCase().contains("yout")) {
 							if (linkUtama.toLowerCase().trim().contains("dropbox") || fileFotoLain.bisaPreview()
 									|| (fileFotoLain.getNama() != null
@@ -225,4 +228,15 @@ public class SetelahUpload implements EventListener {
 
 	}
 
+	private String buatLinkPreviewInline(FileFotoLain fileFotoLain, String fallback) {
+		try {
+			if (fileFotoLain != null && fileFotoLain.getGdrive() == null
+					&& (fileFotoLain.getLink() == null || fileFotoLain.getLink().trim().isEmpty())) {
+				return FileFotoLain.ambilLinkLampiranLain(fileFotoLain, usingId, false, clazz, false);
+			}
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+		}
+		return fallback;
+	}
 }

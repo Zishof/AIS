@@ -1,0 +1,158 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "spi",
+  "label": "SPI",
+  "count": 12,
+  "pageTypeCounts": {
+    "list": 3,
+    "audit": 8,
+    "dashboard": 1
+  },
+  "pages": [
+    {
+      "page": "base_spi",
+      "title": "Base SPI",
+      "sourceClass": "BaseSPIAction",
+      "sourcePackage": "ais.action.master.spi",
+      "sourcePath": "src/ais/action/master/spi/BaseSPIAction.java",
+      "pageType": "list",
+      "methodCount": 2,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Base SPI BaseSPIAction ais.action.master.spi list Utama"
+    },
+    {
+      "page": "checklist_audit_spi",
+      "title": "Checklist Audit SPI",
+      "sourceClass": "ChecklistAuditSPIAction",
+      "sourcePackage": "ais.action.master.spi",
+      "sourcePath": "src/ais/action/master/spi/ChecklistAuditSPIAction.java",
+      "pageType": "audit",
+      "methodCount": 8,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Checklist Audit SPI ChecklistAuditSPIAction ais.action.master.spi audit Utama"
+    },
+    {
+      "page": "dasboard_spi",
+      "title": "Dasboard SPI",
+      "sourceClass": "DasboardSPI",
+      "sourcePackage": "ais.action.master.spi",
+      "sourcePath": "src/ais/action/master/spi/DasboardSPI.java",
+      "pageType": "dashboard",
+      "methodCount": 2,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Dasboard SPI DasboardSPI ais.action.master.spi dashboard Utama"
+    },
+    {
+      "page": "jenis_audit_spi",
+      "title": "Jenis Audit SPI",
+      "sourceClass": "JenisAuditSPIAction",
+      "sourcePackage": "ais.action.master.spi",
+      "sourcePath": "src/ais/action/master/spi/JenisAuditSPIAction.java",
+      "pageType": "audit",
+      "methodCount": 10,
+      "legacyRefCount": 2,
+      "subpackage": "Utama",
+      "search": "Jenis Audit SPI JenisAuditSPIAction ais.action.master.spi audit Utama"
+    },
+    {
+      "page": "kriteria_audit_spi",
+      "title": "Kriteria Audit SPI",
+      "sourceClass": "KriteriaAuditSPIAction",
+      "sourcePackage": "ais.action.master.spi",
+      "sourcePath": "src/ais/action/master/spi/KriteriaAuditSPIAction.java",
+      "pageType": "audit",
+      "methodCount": 8,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Kriteria Audit SPI KriteriaAuditSPIAction ais.action.master.spi audit Utama"
+    },
+    {
+      "page": "penugasan_audit_spi",
+      "title": "Penugasan Audit SPI",
+      "sourceClass": "PenugasanAuditSPIAction",
+      "sourcePackage": "ais.action.master.spi",
+      "sourcePath": "src/ais/action/master/spi/PenugasanAuditSPIAction.java",
+      "pageType": "audit",
+      "methodCount": 17,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Penugasan Audit SPI PenugasanAuditSPIAction ais.action.master.spi audit Utama"
+    },
+    {
+      "page": "persetujuan_penugasan_audit_spi",
+      "title": "Persetujuan Penugasan Audit SPI",
+      "sourceClass": "PersetujuanPenugasanAuditSPIAction",
+      "sourcePackage": "ais.action.master.spi",
+      "sourcePath": "src/ais/action/master/spi/PersetujuanPenugasanAuditSPIAction.java",
+      "pageType": "audit",
+      "methodCount": 1,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Persetujuan Penugasan Audit SPI PersetujuanPenugasanAuditSPIAction ais.action.master.spi audit Utama"
+    },
+    {
+      "page": "profil_risiko_spi",
+      "title": "Profil Risiko SPI",
+      "sourceClass": "ProfilRisikoSPIAction",
+      "sourcePackage": "ais.action.master.spi",
+      "sourcePath": "src/ais/action/master/spi/ProfilRisikoSPIAction.java",
+      "pageType": "list",
+      "methodCount": 8,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Profil Risiko SPI ProfilRisikoSPIAction ais.action.master.spi list Utama"
+    },
+    {
+      "page": "rencana_audit_tahunan_spi",
+      "title": "Rencana Audit Tahunan SPI",
+      "sourceClass": "RencanaAuditTahunanSPIAction",
+      "sourcePackage": "ais.action.master.spi",
+      "sourcePath": "src/ais/action/master/spi/RencanaAuditTahunanSPIAction.java",
+      "pageType": "audit",
+      "methodCount": 8,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Rencana Audit Tahunan SPI RencanaAuditTahunanSPIAction ais.action.master.spi audit Utama"
+    },
+    {
+      "page": "spi_sample_data_helper",
+      "title": "SPI Sample Data Helper",
+      "sourceClass": "SpiSampleDataHelper",
+      "sourcePackage": "ais.action.master.spi",
+      "sourcePath": "src/ais/action/master/spi/SpiSampleDataHelper.java",
+      "pageType": "list",
+      "methodCount": 1,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "SPI Sample Data Helper SpiSampleDataHelper ais.action.master.spi list Utama"
+    },
+    {
+      "page": "temuan_audit_spi",
+      "title": "Temuan Audit SPI",
+      "sourceClass": "TemuanAuditSPIAction",
+      "sourcePackage": "ais.action.master.spi",
+      "sourcePath": "src/ais/action/master/spi/TemuanAuditSPIAction.java",
+      "pageType": "audit",
+      "methodCount": 7,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Temuan Audit SPI TemuanAuditSPIAction ais.action.master.spi audit Utama"
+    },
+    {
+      "page": "tindak_lanjut_audit_spi",
+      "title": "Tindak Lanjut Audit SPI",
+      "sourceClass": "TindakLanjutAuditSPIAction",
+      "sourcePackage": "ais.action.master.spi",
+      "sourcePath": "src/ais/action/master/spi/TindakLanjutAuditSPIAction.java",
+      "pageType": "audit",
+      "methodCount": 8,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Tindak Lanjut Audit SPI TindakLanjutAuditSPIAction ais.action.master.spi audit Utama"
+    }
+  ]
+}

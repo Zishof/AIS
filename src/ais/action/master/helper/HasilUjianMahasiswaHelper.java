@@ -1941,6 +1941,237 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 		}
 	}
 
+	private static MyToolbarbuttonConfig tombolBantuanNilaiNol(final HasilUjianMahasiswa hasilUjianMahasiswa,
+			final int totalSoal, final int terjawab) {
+		MyToolbarbuttonConfig bantuan = new MyToolbarbuttonConfig("Bantuan", "/img/Help-icon.png");
+		bantuan.setLabel("");
+		bantuan.setTooltiptext("Mengapa nilai masih 0?");
+		bantuan.setStyle("padding:0;margin-left:4px;min-width:18px;min-height:18px;");
+		bantuan.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				bukaPopupPenjelasanNilaiNol(hasilUjianMahasiswa, totalSoal, terjawab);
+			}
+		});
+		return bantuan;
+	}
+
+	private static void bukaPopupPenjelasanNilaiNol(final HasilUjianMahasiswa hasilUjianMahasiswa, final int totalSoal,
+			final int terjawab) {
+		MyWindow window = new MyWindow("Penjelasan Nilai 0", "normal", true);
+		window.setWidth("520px");
+		window.setHeight("430px");
+		window.setContentStyle("overflow:auto;padding:10px;");
+		window.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
+
+		Vbox vb = new Vbox();
+		vb.setWidth("100%");
+		vb.setParent(window);
+
+		Label info = new Label(buatPenjelasanNilaiNol(hasilUjianMahasiswa, totalSoal, terjawab));
+		info.setMultiline(true);
+		info.setPre(true);
+		info.setStyle("font-size:12px;line-height:1.45;color:#334155;white-space:pre-wrap;");
+		info.setParent(vb);
+
+		Hbox aksi = new Hbox();
+		aksi.setStyle("margin-top:10px;");
+		aksi.setParent(vb);
+
+		MyToolbarbuttonConfig hitungUlang = new MyToolbarbuttonConfig("Hitung Ulang Peserta Ini",
+				"/img/Button-Refresh-icon.png");
+		hitungUlang.setTooltiptext("Muat ulang detail jawaban dari database lalu hitung ulang nilai peserta ini saja");
+		hitungUlang.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				MyMessageboxConfig.show(hitungUlangNilaiPeserta(hasilUjianMahasiswa), "Informasi",
+						MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			}
+		});
+		hitungUlang.setParent(aksi);
+
+		try {
+			window.onModal();
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit(empty-catch) src/ais/action/master/helper/HasilUjianMahasiswaHelper.java:bukaPopupPenjelasanNilaiNol");
+		}
+	}
+
+	private static String hitungUlangNilaiPeserta(HasilUjianMahasiswa hasilUjianMahasiswaParam) {
+		if (hasilUjianMahasiswaParam == null || hasilUjianMahasiswaParam.getId() == null) {
+			return "Nilai belum dapat dihitung ulang karena data peserta ujian tidak ditemukan.";
+		}
+		Session session = null;
+		Transaction tx = null;
+		try {
+			session = HibernateUtil.getSessionFactory().openSession();
+			HasilUjianMahasiswa hasilUjianMahasiswa = (HasilUjianMahasiswa) session.get(HasilUjianMahasiswa.class,
+					hasilUjianMahasiswaParam.getId());
+			if (hasilUjianMahasiswa == null || hasilUjianMahasiswa.getPertemuanPunyaUjian() == null) {
+				return "Nilai belum dapat dihitung ulang karena data hasil ujian/pertemuan tidak ditemukan.";
+			}
+			PertemuanPunyaUjian ppu = hasilUjianMahasiswa.getPertemuanPunyaUjian();
+			MyArrayList<Long> ujianPunyaSoals = hasilUjianMahasiswa.ambilUjianPunyaSoals(ppu.getJmlDitampilkan(),
+					new Label(), true);
+			Map<Long, Set<Long>> details = hasilUjianMahasiswa.ambilHasilUjianMahasiswaDetail(true,
+					ppu.getJmlDitampilkan(), new Label(), ujianPunyaSoals);
+
+			tx = session.beginTransaction();
+			hasilUjianMahasiswa.setJumlahSoal(
+					ppu.getJmlDitampilkan() == null ? 0.0 : ppu.getJmlDitampilkan().doubleValue());
+			if (ppu.getUjian() != null && BankSoal.PILIHAN_GANDA.equals(ppu.getUjian().getJenis())) {
+				try {
+					if (ppu.getPertemuan() != null && ppu.getPertemuan().getPerkuliahan() != null
+							&& ppu.getPertemuan().getPerkuliahan().getKurikulum() != null
+							&& ppu.getPertemuan().getPerkuliahan().getKurikulum().apakahObe(
+									ppu.getPertemuan().getPerkuliahan().getTahunAjaran(),
+									ppu.getPertemuan().getPerkuliahan().getGanjilGenap())) {
+						List<FormatNilai> formatNilais = ppu.getPertemuan().getPerkuliahan()
+								.ambilFormatNilai(session, true);
+						ProsesUjianHelper.hitungObe(hasilUjianMahasiswa, details, formatNilais);
+					}
+				} catch (Exception eObe) {
+					ais.common.ErrorAuditUtil.record(eObe,
+							"HasilUjianMahasiswaHelper.hitungUlangNilaiPeserta-hitungObe");
+				}
+				ProsesUjianHelper.hitungPilihanGanda(hasilUjianMahasiswa, details);
+			} else {
+				ProsesUjianHelper.hitungWaktu(hasilUjianMahasiswa, details);
+			}
+			session.update(hasilUjianMahasiswa);
+			tx.commit();
+			tx = null;
+
+			try {
+				GeneralValueObject.masukkanDataLangsung(HasilUjianMahasiswa.class, hasilUjianMahasiswa,
+						hasilUjianMahasiswa.getKeyhasil());
+			} catch (Exception eCache) {
+				ais.common.ErrorAuditUtil.record(eCache,
+						"HasilUjianMahasiswaHelper.hitungUlangNilaiPeserta-refresh-cache");
+			}
+
+			return "Nilai peserta ini sudah dihitung ulang.\n\nSkor/Max sekarang: "
+					+ Common.numberFormat.get().format(hasilUjianMahasiswa.getJawabanBenar()) + " / "
+					+ Common.numberFormat.get().format(hasilUjianMahasiswa.getJawabanBenarMax())
+					+ "\nNilai sekarang: " + Common.numberFormat.get().format(hasilUjianMahasiswa.getNilai())
+					+ "\n\nJika angka pada grid belum berubah, klik Refresh pada daftar hasil ujian.";
+		} catch (Exception e) {
+			if (tx != null) {
+				try {
+					tx.rollback();
+				} catch (Exception ex) {
+					ais.common.ErrorAuditUtil.record(ex,
+							"auto-audit(empty-catch) src/ais/action/master/helper/HasilUjianMahasiswaHelper.java:hitungUlangNilaiPeserta-rollback");
+				}
+			}
+			ais.common.ErrorAuditUtil.record(e, "HasilUjianMahasiswaHelper.hitungUlangNilaiPeserta");
+			return "Nilai belum berhasil dihitung ulang: " + e.getMessage();
+		} finally {
+			if (session != null && session.isOpen()) {
+				try {
+					session.close();
+				} catch (Exception ex) {
+					ais.common.ErrorAuditUtil.record(ex,
+							"auto-audit(empty-catch) src/ais/action/master/helper/HasilUjianMahasiswaHelper.java:hitungUlangNilaiPeserta-close");
+				}
+			}
+		}
+	}
+
+	private static String buatPenjelasanNilaiNol(HasilUjianMahasiswa hasilUjianMahasiswa, int totalSoal, int terjawab) {
+		Session session = null;
+		int jumlahDetail = 0;
+		int detailSkorPositif = 0;
+		int detailSkorNol = 0;
+		int soalSkorNol = 0;
+		double totalDiperoleh = 0.0;
+		double totalMaks = 0.0;
+		boolean pilihanGanda = false;
+		try {
+			session = HibernateUtil.getSessionFactory().openSession();
+			HasilUjianMahasiswa him = hasilUjianMahasiswa;
+			if (hasilUjianMahasiswa != null && hasilUjianMahasiswa.getId() != null) {
+				HasilUjianMahasiswa db = (HasilUjianMahasiswa) session.get(HasilUjianMahasiswa.class,
+						hasilUjianMahasiswa.getId());
+				if (db != null) {
+					him = db;
+				}
+			}
+			if (him != null && him.getPertemuanPunyaUjian() != null && him.getPertemuanPunyaUjian().getUjian() != null) {
+				pilihanGanda = BankSoal.PILIHAN_GANDA.equals(him.getPertemuanPunyaUjian().getUjian().getJenis());
+			}
+			if (him != null) {
+				List<?> details = session.createCriteria(HasilUjianMahasiswaDetail.class)
+						.add(Restrictions.eq("hasilUjianMahasiswa", him)).list();
+				jumlahDetail = details == null ? 0 : details.size();
+				if (details != null) {
+					for (Object o : details) {
+						HasilUjianMahasiswaDetail d = (HasilUjianMahasiswaDetail) o;
+						double nilai = d.getNilai() == null ? 0.0 : d.getNilai().doubleValue();
+						BankSoal bankSoal = d.getBankSoal();
+						double skor = bankSoal == null || bankSoal.getSkor() == null ? 0.0
+								: bankSoal.getSkor().doubleValue();
+						totalDiperoleh += nilai;
+						if (skor > 0.0) {
+							totalMaks += skor;
+						} else {
+							soalSkorNol++;
+						}
+						if (nilai > 0.0) {
+							detailSkorPositif++;
+						} else {
+							detailSkorNol++;
+						}
+					}
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "HasilUjianMahasiswaHelper.buatPenjelasanNilaiNol");
+		} finally {
+			if (session != null && session.isOpen()) {
+				try {
+					session.close();
+				} catch (Exception ex) {
+					ais.common.ErrorAuditUtil.record(ex,
+							"auto-audit(empty-catch) src/ais/action/master/helper/HasilUjianMahasiswaHelper.java:buatPenjelasanNilaiNol-close");
+				}
+			}
+		}
+
+		StringBuffer sb = new StringBuffer();
+		sb.append("Nilai 0 tidak selalu berarti peserta belum mengerjakan. Kolom \"Soal Terjawab\" hanya menghitung jawaban yang dipilih/diisi, sedangkan nilai dihitung dari skor jawaban yang tersimpan.\n\n");
+		sb.append("Ringkasan data saat ini:\n");
+		sb.append("- Total soal ditampilkan: ").append(totalSoal).append("\n");
+		sb.append("- Soal terjawab: ").append(terjawab).append("\n");
+		sb.append("- Rincian jawaban tersimpan: ").append(jumlahDetail).append("\n");
+		sb.append("- Rincian dengan skor > 0: ").append(detailSkorPositif).append("\n");
+		sb.append("- Rincian dengan skor 0/kosong: ").append(detailSkorNol).append("\n");
+		sb.append("- Total skor diperoleh: ").append(Common.numberFormat.get().format(totalDiperoleh)).append("\n");
+		sb.append("- Total skor maksimal terdeteksi: ").append(Common.numberFormat.get().format(totalMaks)).append("\n\n");
+
+		sb.append("Kemungkinan penyebab:\n");
+		if (jumlahDetail == 0) {
+			sb.append("1. Rincian jawaban peserta belum tersimpan/terbaca, sehingga sistem belum punya dasar menghitung nilai.\n");
+		} else if (terjawab >= totalSoal && totalSoal > 0 && detailSkorPositif == 0) {
+			sb.append("1. Peserta sudah menjawab semua soal, tetapi semua rincian jawaban masih bernilai 0. Untuk pilihan ganda, kemungkinan jawaban peserta memang salah semua, kunci jawaban belum sesuai, atau nilai belum dihitung ulang setelah perubahan soal/kunci.\n");
+		} else if (detailSkorPositif == 0) {
+			sb.append("1. Belum ada rincian jawaban yang memiliki skor lebih dari 0.\n");
+		} else {
+			sb.append("1. Skor sebagian jawaban sudah ada, tetapi total nilai akhir masih 0. Coba klik Hitung Ulang Semua atau Sinkronkan Nilai.\n");
+		}
+		if (soalSkorNol > 0) {
+			sb.append("2. Ada ").append(soalSkorNol)
+					.append(" rincian yang soal/skor maksimalnya 0 atau kosong. Periksa skor soal di bank soal.\n");
+		}
+		if (pilihanGanda) {
+			sb.append("3. Klik angka nilai 0 untuk melihat perbandingan skor per soal, lalu periksa kunci jawaban dan klik Hitung Ulang Semua/Sinkronkan Nilai.\n");
+		} else {
+			sb.append("3. Untuk essay/manual, lakukan koreksi jawaban terlebih dahulu lalu klik Hitung Ulang.\n");
+		}
+		return sb.toString();
+	}
+
 	public static void bukaPopupRincianSubCpmk(final HasilUjianMahasiswa himParam, final FormatNilai formatNilai) {
 		Session session = null;
 		List<Object[]> rincian = new ArrayList<Object[]>();
@@ -4220,6 +4451,15 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 			final HasilUjianMahasiswa hasilUjianMahasiswa = (HasilUjianMahasiswa) s[0];
 
 			final HasilUjianMahasiswa tempHasilUjianMahasiswa = hasilUjianMahasiswa;
+			int totalSoal = pertemuanPunyaUjian.getJmlDitampilkan();
+			Set<Long> idsa = (Set<Long>) s[1];
+			int terjawab = idsa == null ? 0 : idsa.size();
+			int belum = totalSoal - terjawab;
+			if (belum < 0) {
+				belum = 0;
+			}
+			Double persen = totalSoal <= 0 ? 0.0 : (100.0 * terjawab) / totalSoal;
+			Double persenBelum = totalSoal <= 0 ? 0.0 : (100.0 * belum) / totalSoal;
 
 			final MyDetail detail = new MyDetail();
 			detail.setParent(arg0);
@@ -4406,9 +4646,14 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 							Double nilaiMax = jsonObjectHasil.isNull(nilai.getId().toString() + "_max") ? 0.0
 									: jsonObjectHasil.getDouble(nilai.getId().toString() + "_max");
 
+							Hbox hbSkorObe = new Hbox();
+							hbSkorObe.setParent(vboxDa);
 							new MyLabelKecil(nilai.getNama() + " : " + Common.numberFormat.get().format(nilaiDapat)
 									+ (nilaiMax.equals(0.0) ? "" : " / " + Common.numberFormat.get().format(nilaiMax)))
-									.setParent(vboxDa);
+									.setParent(hbSkorObe);
+							if (nilaiDapat.doubleValue() == 0.0 && nilaiMax.doubleValue() > 0.0) {
+								tombolBantuanNilaiNol(hasilUjianMahasiswa, totalSoal, terjawab).setParent(hbSkorObe);
+							}
 
 						}
 					}
@@ -4416,10 +4661,19 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 
 			} else {
 
+				Hbox hbSkorPg = new Hbox();
+				hbSkorPg.setParent(arg0);
 				new Label(Common.numberFormat.get().format(hasilUjianMahasiswa.getJawabanBenar())
 						+ (hasilUjianMahasiswa.getJawabanBenarMax() == null ? ""
 								: " / " + Common.numberFormat.get().format(hasilUjianMahasiswa.getJawabanBenarMax())))
-						.setParent(arg0);
+						.setParent(hbSkorPg);
+				double skorDapatPg = hasilUjianMahasiswa.getJawabanBenar() == null ? 0.0
+						: hasilUjianMahasiswa.getJawabanBenar().doubleValue();
+				double skorMaxPg = hasilUjianMahasiswa.getJawabanBenarMax() == null ? 0.0
+						: hasilUjianMahasiswa.getJawabanBenarMax().doubleValue();
+				if (skorDapatPg == 0.0 && skorMaxPg > 0.0) {
+					tombolBantuanNilaiNol(hasilUjianMahasiswa, totalSoal, terjawab).setParent(hbSkorPg);
+				}
 			}
 
 			hb = new Hbox();
@@ -4447,16 +4701,6 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 				}
 			});
 			startIndexInput.setParent(hb);
-
-			int totalSoal = pertemuanPunyaUjian.getJmlDitampilkan();
-
-			Set<Long> idsa = (Set<Long>) s[1];
-			int terjawab = idsa.size();
-
-			int belum = totalSoal - terjawab;
-
-			Double persen = (100.0 * terjawab) / totalSoal;
-			Double persenBelum = (100.0 * belum) / totalSoal;
 
 			vbox = new Vbox();
 			vbox.setParent(arg0);
@@ -4547,6 +4791,8 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 								Double nilaiMax = jsonObjectHasil.isNull(nilai.getId().toString() + "_max") ? 0.0
 										: jsonObjectHasil.getDouble(nilai.getId().toString() + "_max");
 
+								Hbox hbNilaiObe = new Hbox();
+								hbNilaiObe.setParent(vboxDa);
 								MyLabelKecil lblNilai = new MyLabelKecil(nilai.getNama() + (nilaiMax.equals(0.0) ? ""
 										: " : " + Common.numberFormat.get().format((nilaiDapat * 100.0) / nilaiMax)));
 								if (!nilaiMax.equals(0.0)) {
@@ -4562,7 +4808,10 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 										}
 									});
 								}
-								lblNilai.setParent(vboxDa);
+								lblNilai.setParent(hbNilaiObe);
+								if (nilaiDapat.doubleValue() == 0.0 && nilaiMax.doubleValue() > 0.0) {
+									tombolBantuanNilaiNol(hasilUjianMahasiswa, totalSoal, terjawab).setParent(hbNilaiObe);
+								}
 
 							}
 						}
@@ -4570,6 +4819,8 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 
 				} else {
 					final HasilUjianMahasiswa himNilaiKlik = hasilUjianMahasiswa;
+					Hbox hbNilaiPg = new Hbox();
+					hbNilaiPg.setParent(arg0);
 					MyLabelKecil lblNilaiPg = new MyLabelKecil(
 						Common.numberFormat.get().format(hasilUjianMahasiswa.getNilai()) + "");
 					// Nilai (pilihan ganda) dapat DIKLIK -> popup perbandingan Skor Jawaban vs Skor Diperoleh
@@ -4582,7 +4833,12 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 							bukaPopupPerbandinganSkor(himNilaiKlik);
 						}
 					});
-					lblNilaiPg.setParent(arg0);
+					lblNilaiPg.setParent(hbNilaiPg);
+					double nilaiPg = hasilUjianMahasiswa.getNilai() == null ? 0.0
+							: hasilUjianMahasiswa.getNilai().doubleValue();
+					if (nilaiPg == 0.0) {
+						tombolBantuanNilaiNol(hasilUjianMahasiswa, totalSoal, terjawab).setParent(hbNilaiPg);
+					}
 				}
 			} else {
 
@@ -4593,6 +4849,11 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 				doublebox.setCols(3);
 				doublebox.setValue(tempHasilUjianMahasiswa.getNilai());
 				doublebox.setParent(hbox);
+				double nilaiEssay = tempHasilUjianMahasiswa.getNilai() == null ? 0.0
+						: tempHasilUjianMahasiswa.getNilai().doubleValue();
+				if (nilaiEssay == 0.0) {
+					tombolBantuanNilaiNol(tempHasilUjianMahasiswa, totalSoal, terjawab).setParent(hbox);
+				}
 				final org.zkoss.zul.Label lblAutoNilai = new org.zkoss.zul.Label("");
 				lblAutoNilai.setStyle("color:green;font-size:13px;font-weight:bold;");
 				lblAutoNilai.setParent(hbox);
@@ -4737,6 +4998,94 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 				lblLogLgr.setStyle("font-size:10px;color:#64748b;white-space:pre-wrap;");
 				lblLogLgr.setTooltiptext(logLgr);
 				lblLogLgr.setParent(vboxLgr);
+			}
+
+			// === Tombol Reset Ujian per peserta (admin/dosen saja) ===
+			final String namaPesertaReset = mahasiswa != null ? mahasiswa.getNama()
+					: biodataCalonMahasiswa != null ? biodataCalonMahasiswa.getNama()
+					: siswa != null ? siswa.getNama()
+					: calonSiswa != null ? calonSiswa.getNama() : "peserta";
+			Tbmuser tbmuserCurrent = Common.getCurrentUser();
+			if (tbmuserCurrent != null && tbmuserCurrent.getMahasiswa() == null
+					&& tbmuserCurrent.getSiswa() == null) {
+				Vbox vboxReset = new Vbox();
+				vboxReset.setParent(arg0);
+				MyToolbarbuttonConfig btnReset = new MyToolbarbuttonConfig("Reset Ujian", "/img/svg/trash.svg");
+				btnReset.setTooltiptext("Reset ujian " + namaPesertaReset + " — seolah belum pernah mengikuti ujian sama sekali");
+				btnReset.setStyle("color:#b91c1c;");
+				btnReset.addEventListener("onClick", new EventListener() {
+					@Override
+					public void onEvent(Event onClickEvent) throws Exception {
+						MyMessageboxConfig.show(
+							"Yakin mereset ujian " + namaPesertaReset + "?\n\nSemua jawaban dan riwayat pengerjaan akan dihapus.",
+							"Konfirmasi Reset Ujian",
+							MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL,
+							MyMessageboxConfig.QUESTION,
+							new EventListener() {
+								@Override
+								public void onEvent(Event okEvent) throws Exception {
+									int pilihan = Integer.parseInt(okEvent.getData().toString());
+									if (pilihan == MyMessageboxConfig.OK) {
+										Common.createDefaultTimer(new EventListener() {
+											@SuppressWarnings("unchecked")
+											@Override
+											public void onEvent(Event timerEvent) throws Exception {
+												Session sess = null;
+												Transaction tx = null;
+												try {
+													sess = HibernateUtil.getSessionFactory().openSession();
+													tx = sess.beginTransaction();
+													// 1. Hapus semua jawaban detail
+													java.util.List<HasilUjianMahasiswaDetail> details = sess
+															.createCriteria(HasilUjianMahasiswaDetail.class)
+															.add(Restrictions.eq("hasilUjianMahasiswa", tempHasilUjianMahasiswa))
+															.list();
+													for (HasilUjianMahasiswaDetail hmd : details) {
+														hmd.setBankSoalDetail(null);
+														hmd.setJawaban(null);
+														hmd.setWaktuJawab(null);
+														sess.update(hmd);
+													}
+													// 2. Reset entitas utama
+													HasilUjianMahasiswa humRefresh = (HasilUjianMahasiswa) sess.get(
+															HasilUjianMahasiswa.class, tempHasilUjianMahasiswa.getId());
+													if (humRefresh != null) {
+														humRefresh.reset();
+														humRefresh.setSisaWaktuPengerjaan(null);
+														humRefresh.setJumlahPelanggaran(null);
+														humRefresh.setLogPelanggaran(null);
+														sess.update(humRefresh);
+													}
+													tx.commit();
+													// 3. Reload baris
+													Common.createDefaultTimer(new EventListener() {
+														@Override
+														public void onEvent(Event reloadEvent) throws Exception {
+															Common.clear(arg0);
+															render(arg0, arg1);
+														}
+													});
+												} catch (Exception ex) {
+													if (tx != null) tx.rollback();
+													ais.common.ErrorAuditUtil.record(ex,
+															"auto-audit resetUjian HasilUjianMahasiswaHelper id=" + tempHasilUjianMahasiswa.getId());
+													MyMessageboxConfig.show("Gagal reset: " + ex.getMessage(),
+															"Error", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+												} finally {
+													if (sess != null && sess.isOpen()) {
+														try { sess.close(); } catch (Exception ex) {
+															ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/helper/HasilUjianMahasiswaHelper.java:resetUjian");
+														}
+													}
+												}
+											}
+										});
+									}
+								}
+							});
+					}
+				});
+				btnReset.setParent(vboxReset);
 			}
 
 			keterangan.addEventListener("onChange", new EventListener() {

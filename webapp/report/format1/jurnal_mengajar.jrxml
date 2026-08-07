@@ -20,11 +20,15 @@
 a.id as pertemuan_id,
 a.pertemuan_ke,
 a.tanggal,
-a.indikator,
+(case
+	when coalesce(trim(a.topik), '') = '' then coalesce(a.indikator, '')
+	when coalesce(trim(a.indikator), '') = '' then a.topik
+	else a.topik || chr(10) || chr(10) || a.indikator
+end) as indikator,
 b.capaianpembelajaranprodi,
 b.deskripsipembelajaran,
 COALESCE(a.waktu_mulai,'') || CASE WHEN a.waktu_mulai IS NOT NULL AND a.waktu_selesai IS NOT NULL THEN '-' ELSE '' END || COALESCE(a.waktu_selesai,'') as waktu,
-a.topik as materi,
+coalesce(nullif(trim(a.buku_rujukan1), ''), '') as materi,
 a.metode_pembelajaran as metode,
 a.waktupembelajaran,
 '' as paraf,
@@ -327,7 +331,7 @@ order by a.tanggal,a.pertemuan_ke]]>
 		</band>
 	</detail>
 	<summary>
-		<band height="130" splitType="Stretch">
+		<band height="250" splitType="Stretch">
 			<!-- Info lokasi (kanan atas) -->
 			<staticText>
 				<reportElement x="494" y="8" width="120" height="16" uuid="dd100001-0000-0000-0000-000000000001"/>
@@ -393,6 +397,118 @@ order by a.tanggal,a.pertemuan_ke]]>
 				<reportElement x="260" y="106" width="230" height="20" uuid="dd100013-0000-0000-0000-000000000001"/>
 				<textElement><font size="9"/></textElement>
 				<textFieldExpression><![CDATA["NIDN : " + ($F{nidn} == null ? "" : $F{nidn})]]></textFieldExpression>
+			</textField>
+			<!-- Blok Dosen Pengampu tambahan -->
+			<staticText>
+				<reportElement x="494" y="44" width="150" height="14" uuid="dd100014-0000-0000-0000-000000000001">
+					<printWhenExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_2") != null && !$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_2").toString().trim().equals("")]]></printWhenExpression>
+				</reportElement>
+				<textElement><font size="9"/></textElement>
+				<text><![CDATA[Dosen Pengampu,]]></text>
+			</staticText>
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement x="515" y="62" width="82" height="42" uuid="dd100015-0000-0000-0000-000000000001">
+					<printWhenExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_2") != null && !$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_2").toString().trim().equals("")]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("ttd_dosen_2")]]></imageExpression>
+			</image>
+			<textField isBlankWhenNull="true">
+				<reportElement x="494" y="106" width="150" height="16" uuid="dd100016-0000-0000-0000-000000000001">
+					<printWhenExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_2") != null && !$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_2").toString().trim().equals("")]]></printWhenExpression>
+				</reportElement>
+				<textElement><font size="8" isUnderline="true"/></textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_2")]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="494" y="122" width="150" height="20" uuid="dd100017-0000-0000-0000-000000000001">
+					<printWhenExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_2") != null && !$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_2").toString().trim().equals("")]]></printWhenExpression>
+				</reportElement>
+				<textElement><font size="8"/></textElement>
+				<textFieldExpression><![CDATA["NIDN : " + ($P{REPORT_PARAMETERS_MAP}.get("nidn_dosen_2") == null ? "" : $P{REPORT_PARAMETERS_MAP}.get("nidn_dosen_2"))]]></textFieldExpression>
+			</textField>
+
+			<staticText>
+				<reportElement x="655" y="44" width="150" height="14" uuid="dd100018-0000-0000-0000-000000000001">
+					<printWhenExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_3") != null && !$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_3").toString().trim().equals("")]]></printWhenExpression>
+				</reportElement>
+				<textElement><font size="9"/></textElement>
+				<text><![CDATA[Dosen Pengampu,]]></text>
+			</staticText>
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement x="675" y="62" width="82" height="42" uuid="dd100019-0000-0000-0000-000000000001">
+					<printWhenExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_3") != null && !$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_3").toString().trim().equals("")]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("ttd_dosen_3")]]></imageExpression>
+			</image>
+			<textField isBlankWhenNull="true">
+				<reportElement x="655" y="106" width="150" height="16" uuid="dd100020-0000-0000-0000-000000000001">
+					<printWhenExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_3") != null && !$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_3").toString().trim().equals("")]]></printWhenExpression>
+				</reportElement>
+				<textElement><font size="8" isUnderline="true"/></textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_3")]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="655" y="122" width="150" height="20" uuid="dd100021-0000-0000-0000-000000000001">
+					<printWhenExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_3") != null && !$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_3").toString().trim().equals("")]]></printWhenExpression>
+				</reportElement>
+				<textElement><font size="8"/></textElement>
+				<textFieldExpression><![CDATA["NIDN : " + ($P{REPORT_PARAMETERS_MAP}.get("nidn_dosen_3") == null ? "" : $P{REPORT_PARAMETERS_MAP}.get("nidn_dosen_3"))]]></textFieldExpression>
+			</textField>
+
+			<staticText>
+				<reportElement x="494" y="146" width="150" height="14" uuid="dd100022-0000-0000-0000-000000000001">
+					<printWhenExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_4") != null && !$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_4").toString().trim().equals("")]]></printWhenExpression>
+				</reportElement>
+				<textElement><font size="9"/></textElement>
+				<text><![CDATA[Dosen Pengampu,]]></text>
+			</staticText>
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement x="515" y="164" width="82" height="42" uuid="dd100023-0000-0000-0000-000000000001">
+					<printWhenExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_4") != null && !$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_4").toString().trim().equals("")]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("ttd_dosen_4")]]></imageExpression>
+			</image>
+			<textField isBlankWhenNull="true">
+				<reportElement x="494" y="208" width="150" height="16" uuid="dd100024-0000-0000-0000-000000000001">
+					<printWhenExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_4") != null && !$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_4").toString().trim().equals("")]]></printWhenExpression>
+				</reportElement>
+				<textElement><font size="8" isUnderline="true"/></textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_4")]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="494" y="224" width="150" height="20" uuid="dd100025-0000-0000-0000-000000000001">
+					<printWhenExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_4") != null && !$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_4").toString().trim().equals("")]]></printWhenExpression>
+				</reportElement>
+				<textElement><font size="8"/></textElement>
+				<textFieldExpression><![CDATA["NIDN : " + ($P{REPORT_PARAMETERS_MAP}.get("nidn_dosen_4") == null ? "" : $P{REPORT_PARAMETERS_MAP}.get("nidn_dosen_4"))]]></textFieldExpression>
+			</textField>
+
+			<staticText>
+				<reportElement x="655" y="146" width="150" height="14" uuid="dd100026-0000-0000-0000-000000000001">
+					<printWhenExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_5") != null && !$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_5").toString().trim().equals("")]]></printWhenExpression>
+				</reportElement>
+				<textElement><font size="9"/></textElement>
+				<text><![CDATA[Dosen Pengampu,]]></text>
+			</staticText>
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement x="675" y="164" width="82" height="42" uuid="dd100027-0000-0000-0000-000000000001">
+					<printWhenExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_5") != null && !$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_5").toString().trim().equals("")]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("ttd_dosen_5")]]></imageExpression>
+			</image>
+			<textField isBlankWhenNull="true">
+				<reportElement x="655" y="208" width="150" height="16" uuid="dd100028-0000-0000-0000-000000000001">
+					<printWhenExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_5") != null && !$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_5").toString().trim().equals("")]]></printWhenExpression>
+				</reportElement>
+				<textElement><font size="8" isUnderline="true"/></textElement>
+				<textFieldExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_5")]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="655" y="224" width="150" height="20" uuid="dd100029-0000-0000-0000-000000000001">
+					<printWhenExpression><![CDATA[$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_5") != null && !$P{REPORT_PARAMETERS_MAP}.get("nama_dosen_5").toString().trim().equals("")]]></printWhenExpression>
+				</reportElement>
+				<textElement><font size="8"/></textElement>
+				<textFieldExpression><![CDATA["NIDN : " + ($P{REPORT_PARAMETERS_MAP}.get("nidn_dosen_5") == null ? "" : $P{REPORT_PARAMETERS_MAP}.get("nidn_dosen_5"))]]></textFieldExpression>
 			</textField>
 		</band>
 	</summary>

@@ -2304,7 +2304,7 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 						});
 						button.setParent(hbox);
 
-						button = new MyToolbarbuttonConfig("Singkronkan Nilai", "/img/Configure.gif");
+						button = new MyToolbarbuttonConfig("Sinkronkan Nilai", "/img/Configure.gif");
 						button.setParent(vbox);
 						button.addEventListener("onClick", new EventListener() {
 
@@ -2584,7 +2584,7 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 							}
 						});
 
-						final MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Singkronkan Nilai",
+						final MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Sinkronkan Nilai",
 								"/img/Configure.gif");
 						button.setParent(vbox);
 						button.addEventListener("onClick", new EventListener() {
@@ -3967,7 +3967,7 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 		});
 		btnHasil.setParent(grp);
 
-		// Aksi cepat pengelola langsung di kartu (dipindah dari dalam modal): Preview, Singkronkan
+		// Aksi cepat pengelola langsung di kartu (dipindah dari dalam modal): Preview, Sinkronkan
 		// Nilai, Ubah, Hapus — logikanya identik dengan tombol lama di DetailPertemuanRenderer.
 		String gayaAksi = "background:#f8fafc;color:#334155;border:1px solid #e2e8f0;border-radius:8px;"
 				+ "padding:7px 12px;font-weight:700;font-size:11px;";
@@ -3985,31 +3985,10 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 		});
 		btnPreview.setParent(grp);
 
-		// Singkronkan Nilai (hanya bila ada komponen nilai tujuan: OBE Sub-CPMK atau format nilai tunggal).
+		// Sinkronkan Nilai (hanya bila ada komponen nilai tujuan: OBE Sub-CPMK atau format nilai tunggal).
 		final Perkuliahan perkuliahanKartu = ppu.getPertemuan() == null ? null : ppu.getPertemuan().getPerkuliahan();
 		boolean obeKartu = perkuliahanKartu != null && perkuliahanKartu.getKurikulum() != null && perkuliahanKartu
 				.getKurikulum().apakahObe(perkuliahanKartu.getTahunAjaran(), perkuliahanKartu.getGanjilGenap());
-		boolean adaFormatNilaiKartu = ppu.getFormatNilai() != null && ppu.getFormatNilai().getStatusPertemuan() != null;
-		if (perkuliahanKartu != null && (obeKartu || adaFormatNilaiKartu)) {
-			final boolean obeSync = obeKartu;
-			MyToolbarbuttonConfig btnSinkron = new MyToolbarbuttonConfig("Singkronkan Nilai", "/img/Configure.gif");
-			btnSinkron.setStyle(gayaAksi);
-			btnSinkron.addEventListener("onClick", new EventListener() {
-				@Override
-				public void onEvent(Event event) throws Exception {
-					if (obeSync) {
-						ais.common.GradingHelper.hitungNilaiBerdasarkanFormatNilaiObe(perkuliahanKartu,
-								ppu.getFormatNilais());
-					} else {
-						ais.common.GradingHelper.hitungNilaiBerdasarkanFormatNilai(perkuliahanKartu,
-								ppu.getFormatNilai());
-					}
-					// Refresh setelah proses simpan/sinkron: muat ulang kartu agar ringkasan nilai terbarui.
-					Common.createDefaultTimer(refresh, "Loading..", false, 1500);
-				}
-			});
-			btnSinkron.setParent(grp);
-		}
 
 		MyToolbarbuttonConfig btnUbah = new MyToolbarbuttonConfig("Ubah", "/img/svg/edit-box-line.svg");
 		btnUbah.setStyle(gayaAksi);
@@ -4025,6 +4004,34 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 			}
 		});
 		btnUbah.setParent(grp);
+
+		if (perkuliahanKartu != null) {
+			final boolean obeSync = obeKartu;
+			MyToolbarbuttonConfig btnSinkron = new MyToolbarbuttonConfig("Sinkronkan Nilai", "/img/Configure.gif");
+			btnSinkron.setStyle(gayaAksi);
+			btnSinkron.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					if (obeSync) {
+						ais.common.GradingHelper.hitungNilaiBerdasarkanFormatNilaiObe(perkuliahanKartu,
+								ppu.getFormatNilais());
+					} else {
+						if (ppu.getFormatNilai() == null || ppu.getFormatNilai().getStatusPertemuan() == null) {
+							MyMessageboxConfig.show(
+									"Nilai ujian belum dapat disinkronkan karena belum ada komponen penilaian tujuan. "
+											+ "Klik tombol Pengaturan Data Ujian, pilih bagian 'Nilai masuk ke komponen penilaian', "
+											+ "simpan, lalu klik Sinkronkan Nilai kembali.");
+							return;
+						}
+						ais.common.GradingHelper.hitungNilaiBerdasarkanFormatNilai(perkuliahanKartu,
+								ppu.getFormatNilai());
+					}
+					// Refresh setelah proses simpan/sinkron: muat ulang kartu agar ringkasan nilai terbarui.
+					Common.createDefaultTimer(refresh, "Loading..", false, 1500);
+				}
+			});
+			btnSinkron.setParent(grp);
+		}
 
 		MyToolbarbuttonConfig btnHapus = new MyToolbarbuttonConfig("Hapus", "/img/svg/trash.svg");
 		btnHapus.setStyle("background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;"

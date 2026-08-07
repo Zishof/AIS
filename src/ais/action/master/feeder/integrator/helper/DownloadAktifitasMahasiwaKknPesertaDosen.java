@@ -121,7 +121,7 @@ public class DownloadAktifitasMahasiwaKknPesertaDosen extends MyWindow {
 		North north = new North();
 		north.setParent(borderlayout);
 		ais.ui.util.ZkCompat.setFlex(north, false);
-		north.setHeight("180px");
+		north.setHeight("260px");
 		north.setAutoscroll(true);
 
 		Div div = new Div();
@@ -143,17 +143,23 @@ public class DownloadAktifitasMahasiwaKknPesertaDosen extends MyWindow {
 		searchfakultas.setWidth("90%");
 		searchfakultas.setReadonly(true);
 
+		row = new MyFormRow();
+		row.setValign("top");
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Prodi"));
 		row.appendChild(searchjurusan);
 		searchjurusan.setWidth("90%");
 		searchjurusan.setReadonly(true);
 
+		row = new MyFormRow();
+		row.setValign("top");
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Nama Kelompok"));
 		row.appendChild(kelas);
 		kelas.setWidth("90%");
 
+		row = new MyFormRow();
+		row.setValign("top");
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Tahun Akademik"));
 		row.appendChild(searchtahunakademik);
@@ -161,6 +167,8 @@ public class DownloadAktifitasMahasiwaKknPesertaDosen extends MyWindow {
 		Common.generateTahunAjaran(searchtahunakademik);
 		searchtahunakademik.setReadonly(true);
 		
+		row = new MyFormRow();
+		row.setValign("top");
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Semester"));
 		row.appendChild(searchsemester);

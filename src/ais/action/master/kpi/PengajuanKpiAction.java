@@ -500,7 +500,7 @@ public class PengajuanKpiAction extends GenericAutowireComposer implements DataI
 		for (Row row : rowsMasterAsset) {
 			PenilaianKpi penilaianKpi = (PenilaianKpi) row.getAttribute("penilaianKpi");
 			if (penilaianKpi == null || penilaianKpi.getPegawai() == null) {
-				MyMessageboxConfig.show("Mohon maaf, data pegawai pada salah satu baris belum diisi. Langkah yang dapat dilakukan: (1) pilih pegawai pada setiap baris yang kosong; (2) pastikan semua baris memiliki data pegawai; (3) ulangi proses penyimpanan. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan", MyMessageboxConfig.OK,
+				MyMessageboxConfig.show("Data pegawai harus diisi", "Peringatan", MyMessageboxConfig.OK,
 						MyMessageboxConfig.EXCLAMATION);
 				return false;
 			}

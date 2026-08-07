@@ -358,10 +358,23 @@ public class LaporanTranskipAkademik4Kolom extends MyWindow {
 
 		parameters.put("semester", semester);
 
+		List<Long> sebelumDisaring4k = mahasiswa.ambilDetailperkuliahan(semester);
+		// Saring di DB-level: buang ID yang perkuliahan atau matakuliahnya null.
+		if (!sebelumDisaring4k.isEmpty()) {
+			List<Number> idsValidRaw4k = HibernateUtil.currentSession().createSQLQuery(
+					"SELECT a.id FROM detailperkuliahan a "
+					+ "LEFT JOIN perkuliahan b ON (a.perkuliahan = b.id) "
+					+ "LEFT JOIN matakuliah f ON (f.id = b.matakuliah OR a.matakuliah_konversi = f.id) "
+					+ "WHERE a.id IN (:ids) AND f.id IS NOT NULL AND coalesce(trim(f.nama), '') <> ''")
+					.setParameterList("ids", sebelumDisaring4k).list();
+			List<Long> idsValid4k = new ArrayList<Long>();
+			for (Number n : idsValidRaw4k) { idsValid4k.add(n.longValue()); }
+			sebelumDisaring4k.retainAll(idsValid4k);
+		}
 		List<Long> detailsperkuliahans = new ArrayList<Long>();
 		// Matakuliah yang saling ekivalen cukup tampil SATU kali (nilai tertinggi).
 		for (Long detailperkuliahan : ais.action.master.helper.EkivalenNilaiUtil.saringNilaiTertinggi(
-				mahasiswa.saringBerdasarNilaiDan0(mahasiswa.ambilDetailperkuliahan(semester)), mahasiswa.getNim())) {
+				mahasiswa.saringBerdasarNilaiDan0(sebelumDisaring4k), mahasiswa.getNim())) {
 			detailsperkuliahans.add(detailperkuliahan);
 		}
 		parameters.put("jumlah_mk", detailsperkuliahans.size());

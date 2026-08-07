@@ -708,6 +708,25 @@ public class LaporanTranskipAkademik extends MyWindow {
 
 		List<Long> sebelumDisaring = mahasiswa.ambilDetailperkuliahan(semester);
 
+		// Saring di DB-level: buang ID yang perkuliahan-nya null atau matakuliahnya null
+		// (bisa lolos dari Hibernate cache jika proxy non-null tapi FK di DB null).
+		// Tanpa filter ini muncul baris "null null" di transkrip.
+		if (!sebelumDisaring.isEmpty()) {
+			Session filterSesi = HibernateUtil.currentSession();
+			List<Number> idsValidRaw = filterSesi.createSQLQuery(
+					"SELECT a.id FROM detailperkuliahan a "
+					+ "LEFT JOIN perkuliahan b ON (a.perkuliahan = b.id) "
+					+ "LEFT JOIN matakuliah f ON (f.id = b.matakuliah OR a.matakuliah_konversi = f.id) "
+					+ "WHERE a.id IN (:ids) AND f.id IS NOT NULL AND coalesce(trim(f.nama), '') <> ''")
+					.setParameterList("ids", sebelumDisaring)
+					.list();
+			List<Long> idsValid = new ArrayList<Long>();
+			for (Number n : idsValidRaw) {
+				idsValid.add(n.longValue());
+			}
+			sebelumDisaring.retainAll(idsValid);
+		}
+
 		parameters.put("sebelumDisaring", sebelumDisaring.toArray());
 
 		parameters.put("jumlah_mk_sebelum", sebelumDisaring.size());

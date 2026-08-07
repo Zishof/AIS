@@ -1,0 +1,24 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "generic",
+  "label": "Generic",
+  "count": 1,
+  "pageTypeCounts": {
+    "list": 1
+  },
+  "pages": [
+    {
+      "page": "generic_crud",
+      "title": "Generic Crud",
+      "sourceClass": "GenericCrudAction",
+      "sourcePackage": "ais.action.master.generic",
+      "sourcePath": "src/ais/action/master/generic/GenericCrudAction.java",
+      "pageType": "list",
+      "methodCount": 8,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Generic Crud GenericCrudAction ais.action.master.generic list Utama"
+    }
+  ]
+}

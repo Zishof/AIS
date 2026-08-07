@@ -2345,6 +2345,237 @@ public class TugasKelompokHelper implements DataLoader {
 			});
 			button.setParent(toolbar);
 
+			// (D-pre) Download Nilai & Upload Nilai — bulk entry nilai seluruh anggota via Excel
+			final MyToolbarbutton downloadNilaiKel = new MyToolbarbutton("fa-download", "Download Nilai");
+			downloadNilaiKel.setVisible(bolehKelola(tbmuser));
+			downloadNilaiKel.setTooltiptext("Unduh daftar nilai anggota kelompok dalam format Excel");
+			downloadNilaiKel.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					try {
+						Session sessDl = HibernateUtil.currentSession();
+						final java.util.List<FormatNilai> obeListDl = new java.util.ArrayList<FormatNilai>();
+						try {
+							Perkuliahan pkDl = tugasKelompok.getPerkuliahan();
+							if (pkDl != null && pkDl.getKurikulum() != null
+									&& pkDl.getKurikulum().apakahObe(pkDl.getTahunAjaran(), pkDl.getGanjilGenap())
+									&& tugasKelompok.getFormatNilais() != null
+									&& tugasKelompok.getFormatNilais().trim().length() > 0) {
+								JSONObject jfnDl = new JSONObject(tugasKelompok.getFormatNilais());
+								List<FormatNilai> fnsAllDl = Common.getFormatNilais(sessDl, pkDl);
+								if (fnsAllDl != null) {
+									for (FormatNilai fn : fnsAllDl) {
+										if (fn.getStatusPertemuan() != null && fn.getId() != null
+												&& !jfnDl.isNull(fn.getId().toString()))
+											obeListDl.add(fn);
+									}
+								}
+							}
+						} catch (Exception eObe) { /* abaikan jika gagal deteksi OBE */ }
+						boolean isObeDl = !obeListDl.isEmpty();
+
+						String ketAwalDl = tugasKelompok.getKeteranganNilai();
+						JSONObject jsonKetDl = new JSONObject(
+								ketAwalDl == null || ketAwalDl.trim().isEmpty() ? "{}" : ketAwalDl.replace(' ', ' '));
+
+						List<NamaTugasKelompok> kelsDl = sessDl.createCriteria(NamaTugasKelompok.class)
+								.add(Restrictions.eq("tugasKelompok", tugasKelompok))
+								.addOrder(Order.asc("nama")).list();
+
+						org.zkoss.poi.xssf.usermodel.XSSFWorkbook wb = new org.zkoss.poi.xssf.usermodel.XSSFWorkbook();
+						org.zkoss.poi.xssf.usermodel.XSSFSheet sheet = wb.createSheet("Nilai");
+						org.zkoss.poi.xssf.usermodel.XSSFRow headerRow = sheet.createRow(0);
+						headerRow.createCell(0).setCellValue("ID");
+						headerRow.createCell(1).setCellValue("NAMATEMP");
+						headerRow.createCell(2).setCellValue("Kelompok");
+						if (!isObeDl) {
+							headerRow.createCell(3).setCellValue("Nilai");
+							headerRow.createCell(4).setCellValue("Keterangan");
+						} else {
+							int col = 3;
+							for (FormatNilai fn : obeListDl)
+								headerRow.createCell(col++).setCellValue(fn.getNama() != null ? fn.getNama() : ("CPMK_" + fn.getId()));
+							headerRow.createCell(col).setCellValue("Keterangan");
+						}
+
+						int rowIdx = 1;
+						if (kelsDl != null) {
+							for (NamaTugasKelompok kel : kelsDl) {
+								List<NamaTugasKelompokPunyaMahasiswa> relsDl = sessDl
+										.createCriteria(NamaTugasKelompokPunyaMahasiswa.class)
+										.add(Restrictions.eq("namaTugasKelompok", kel)).list();
+								if (relsDl == null) continue;
+								for (NamaTugasKelompokPunyaMahasiswa r : relsDl) {
+									if (r == null) continue;
+									String namaDl = "";
+									String memberKeyDl = "";
+									if (r.getMahasiswa() != null) {
+										namaDl = r.getMahasiswa().getNama() != null ? r.getMahasiswa().getNama() : "";
+										memberKeyDl = r.getMahasiswa().getId() + "_mhs";
+									} else if (r.getSiswa() != null) {
+										namaDl = r.getSiswa().getNama() != null ? r.getSiswa().getNama() : "";
+										memberKeyDl = r.getSiswa().getId() + "_siswa";
+									}
+									org.zkoss.poi.xssf.usermodel.XSSFRow rowDl = sheet.createRow(rowIdx++);
+									rowDl.createCell(0).setCellValue(r.getId());
+									rowDl.createCell(1).setCellValue(namaDl);
+									rowDl.createCell(2).setCellValue(kel.getNama() != null ? kel.getNama() : "");
+									String ketDl = r.getKeterangan() != null ? r.getKeterangan() : "";
+									if (!isObeDl) {
+										rowDl.createCell(3).setCellValue(r.getNilai() != null ? r.getNilai() : 0.0);
+										rowDl.createCell(4).setCellValue(ketDl);
+									} else {
+										int col = 3;
+										for (FormatNilai fn : obeListDl) {
+											String scoreKey = memberKeyDl + "_nilai_" + fn.getId();
+											double score = !memberKeyDl.isEmpty() && !jsonKetDl.isNull(scoreKey)
+													? jsonKetDl.optDouble(scoreKey, 0.0) : 0.0;
+											rowDl.createCell(col++).setCellValue(score);
+										}
+										rowDl.createCell(col).setCellValue(ketDl);
+									}
+								}
+							}
+						}
+
+						String fname = "Nilai_TugasKelompok_" + tugasKelompok.getId() + ".xlsx";
+						java.io.File outFile = new java.io.File(Common.REAL_PATH + "/temp/" + fname);
+						outFile.getParentFile().mkdirs();
+						java.io.FileOutputStream fos = new java.io.FileOutputStream(outFile);
+						wb.write(fos);
+						fos.close();
+						org.zkoss.zul.Filedownload.save(outFile,
+								"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+					} catch (Exception e) {
+						Common.tampilErrorJikaAdmin(e);
+						PesanFormalHelper.tampilkanGagalException("mengunduh nilai tugas kelompok", e,
+								new String[] {
+										"Muat ulang halaman lalu coba unduh kembali.",
+										"Apabila kendala masih berlanjut, hubungi Admin." });
+					}
+				}
+			});
+			downloadNilaiKel.setParent(toolbar);
+
+			final MyToolbarbutton uploadNilaiKel = new MyToolbarbutton("fa-upload", "Upload Nilai");
+			uploadNilaiKel.setVisible(bolehKelola(tbmuser));
+			uploadNilaiKel.setTooltiptext("Unggah file Excel hasil Download Nilai untuk update nilai massal");
+			uploadNilaiKel.setUpload(Common.ukuranFileUpload());
+			uploadNilaiKel.addEventListener("onUpload", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					org.zkoss.zk.ui.event.UploadEvent ue = (org.zkoss.zk.ui.event.UploadEvent) event;
+					org.zkoss.util.media.Media media = ue.getMedia();
+					if (!ais.action.master.helper.generic.AmbilDataTugasFileContent.checkFile(media)) return;
+					if (!media.getName().toLowerCase().endsWith("xlsx")) {
+						MyMessageboxConfig.showFormat(
+								"Berkas harus berformat xlsx. Berkas: {V1}.",
+								"Error", MyMessageboxConfig.OK, MyMessageboxConfig.ERROR, media);
+						return;
+					}
+					try {
+						java.io.InputStream is = media.getStreamData();
+						java.io.File f = new java.io.File(org.zkoss.zk.ui.Sessions.getCurrent()
+								.getWebApp().getRealPath("/temp/" + media.getName()));
+						f.getParentFile().mkdirs();
+						java.io.FileOutputStream fosUl = new java.io.FileOutputStream(f);
+						int c;
+						while ((c = is.read()) != -1) fosUl.write(c);
+						fosUl.close();
+						is.close();
+
+						Session sessUl = HibernateUtil.currentSession();
+						List<NamaTugasKelompok> kelsUl = sessUl.createCriteria(NamaTugasKelompok.class)
+								.add(Restrictions.eq("tugasKelompok", tugasKelompok)).list();
+						java.util.Map<Long, NamaTugasKelompokPunyaMahasiswa> byId =
+								new java.util.HashMap<Long, NamaTugasKelompokPunyaMahasiswa>();
+						if (kelsUl != null) {
+							for (NamaTugasKelompok kel : kelsUl) {
+								List<NamaTugasKelompokPunyaMahasiswa> relsUl = sessUl
+										.createCriteria(NamaTugasKelompokPunyaMahasiswa.class)
+										.add(Restrictions.eq("namaTugasKelompok", kel)).list();
+								if (relsUl != null) {
+									for (NamaTugasKelompokPunyaMahasiswa r : relsUl) {
+										if (r != null && r.getId() != null) byId.put(r.getId(), r);
+									}
+								}
+							}
+						}
+						final java.util.List<FormatNilai> obeListUl = new java.util.ArrayList<FormatNilai>();
+						try {
+							Perkuliahan pkUl = tugasKelompok.getPerkuliahan();
+							if (pkUl != null && pkUl.getKurikulum() != null
+									&& pkUl.getKurikulum().apakahObe(pkUl.getTahunAjaran(), pkUl.getGanjilGenap())
+									&& tugasKelompok.getFormatNilais() != null
+									&& tugasKelompok.getFormatNilais().trim().length() > 0) {
+								JSONObject jfnUl = new JSONObject(tugasKelompok.getFormatNilais());
+								List<FormatNilai> fnsAllUl = Common.getFormatNilais(sessUl, pkUl);
+								if (fnsAllUl != null) {
+									for (FormatNilai fn : fnsAllUl) {
+										if (fn.getStatusPertemuan() != null && fn.getId() != null
+												&& !jfnUl.isNull(fn.getId().toString()))
+											obeListUl.add(fn);
+									}
+								}
+							}
+						} catch (Exception eObeUl) { /* skip */ }
+						boolean isObeUl = !obeListUl.isEmpty();
+						int ketColUl = isObeUl ? 3 + obeListUl.size() : 4;
+
+						String ketAwalUl = tugasKelompok.getKeteranganNilai();
+						JSONObject jsonKetUl = new JSONObject(
+								ketAwalUl == null || ketAwalUl.trim().isEmpty() ? "{}" : ketAwalUl.replace(' ', ' '));
+						boolean jsonDirty = false;
+
+						org.zkoss.poi.xssf.usermodel.XSSFWorkbook wbUl = new org.zkoss.poi.xssf.usermodel.XSSFWorkbook(f.getAbsolutePath());
+						org.zkoss.poi.xssf.usermodel.XSSFSheet sheetUl = wbUl.getSheetAt(0);
+						int sizeUl = sheetUl.getLastRowNum() + 1;
+
+						for (int i = 1; i < sizeUl; i++) {
+							Long id = Common.getSheetContentAsLong(sheetUl, 0, i);
+							NamaTugasKelompokPunyaMahasiswa r = byId.get(id);
+							if (r == null) continue;
+							String keterangan = Common.getSheetContentAsString(sheetUl, ketColUl, i);
+							NamaTugasKelompokPunyaMahasiswa xSave = (NamaTugasKelompokPunyaMahasiswa)
+									sessUl.load(NamaTugasKelompokPunyaMahasiswa.class, r.getId());
+							xSave.setKeterangan(keterangan != null ? keterangan.trim() : "");
+							if (!isObeUl) {
+								Double nilaiUl = Common.getSheetContentAsDouble(sheetUl, 3, i);
+								xSave.setNilai(nilaiUl);
+								Common.refreshUpdate(sessUl, xSave);
+							} else {
+								Common.refreshUpdate(sessUl, xSave);
+								String memberKeyUl = "";
+								if (r.getMahasiswa() != null) memberKeyUl = r.getMahasiswa().getId() + "_mhs";
+								else if (r.getSiswa() != null) memberKeyUl = r.getSiswa().getId() + "_siswa";
+								for (int ci = 0; ci < obeListUl.size(); ci++) {
+									FormatNilai fn = obeListUl.get(ci);
+									Double nilaiCpmk = Common.getSheetContentAsDouble(sheetUl, 3 + ci, i);
+									jsonKetUl.put(memberKeyUl + "_nilai_" + fn.getId(),
+											nilaiCpmk != null ? nilaiCpmk : 0.0);
+								}
+								jsonDirty = true;
+							}
+						}
+						if (jsonDirty) {
+							sessUl.refresh(tugasKelompok);
+							tugasKelompok.belum("tugas_file_content_" + tugasKelompok.getClass().getName());
+							tugasKelompok.setKeteranganNilai(jsonKetUl.toString());
+							Common.refreshUpdate(sessUl, tugasKelompok);
+						}
+						MyMessageboxConfig.show("Nilai berhasil diupload.", "Berhasil",
+								MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, null);
+					} catch (Exception e) {
+						Common.tampilErrorJikaAdmin(e);
+						PesanFormalHelper.tampilkanGagalException("mengupload nilai tugas kelompok", e,
+								new String[] {
+										"Pastikan format file sesuai hasil Download Nilai.",
+										"Apabila kendala masih berlanjut, hubungi Admin." });
+					}
+				}
+			});
+			uploadNilaiKel.setParent(toolbar);
+
 			// (D) Kelola Kelompok: Daftar Kelompok (Tambah/Download/Upload + grid anggota) dipindah
 			// ke dalam Popup Window agar kartu tetap ringkas. Terlihat untuk semua peran (mahasiswa/
 			// siswa memakainya untuk melihat & bergabung kelompok; kontrol Tambah/Upload otomatis

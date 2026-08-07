@@ -492,10 +492,15 @@ public class PengajuanMahasiswaAction extends GenericAutowireComposer
 				@Override
 				public void onEvent(Event event) throws Exception {
 					Map parameters = ais.common.HashMapGenerator.getRandStringSerializable();
-					parameters.put("id", pengajuanMahasiswa.getId());
 
+					// PERBAIKAN: Common.insertProperty(..., "") menulis ulang key "id" sebagai
+					// String (lihat ManajemenProperty.java) -- taruh "id" bertipe Long SETELAH
+					// insertProperty (sama seperti pola aman di tombol "Permohonan" di atas),
+					// bukan sebelum, supaya tidak tertimpa String saat dipakai JasperReports
+					// sbg parameter SQL bertipe Long -> ClassCastException.
 					Common.insertProperty(PengajuanMahasiswa.class, pengajuanMahasiswa, parameters, "");
 					DisposisiAlurSop.parameterMap(pengajuanMahasiswa.getDisposisiSop(), parameters);
+					parameters.put("id", pengajuanMahasiswa.getId());
 
 					Report.generatePDFReport(Report.PDF, parameters, "Persetujuan_Pengajuan",
 							ais.ui.util.WaktuUtil.getDate());

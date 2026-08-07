@@ -1601,10 +1601,13 @@ public class SetingBiayaAction extends GenericAutowireComposer {
 						: Integer.valueOf(angkatan.getSelectedItem().getValue().toString()));
 		settingBiaya.setJenjang(
 				(Jenjang) (jenjang.getSelectedItem() == null ? null : jenjang.getSelectedItem().getValue()));
-		settingBiaya.setJenisKegiatan((JenisKegiatan) jenisKegiatan.getSelectedItem().getValue());
+		settingBiaya.setJenisKegiatan((JenisKegiatan) (jenisKegiatan.getSelectedItem() == null ? null
+				: jenisKegiatan.getSelectedItem().getValue()));
 		settingBiaya.setGunakanBiayaDefault(gunakanBiayaDefault.isChecked());
-		settingBiaya.setStatusAwalMahasiswa((StatusAwalMahasiswa) statusAwalMahasiswa.getSelectedItem().getValue());
-		settingBiaya.setProgram((String) program.getSelectedItem().getValue());
+		settingBiaya.setStatusAwalMahasiswa((StatusAwalMahasiswa) (statusAwalMahasiswa.getSelectedItem() == null ? null
+				: statusAwalMahasiswa.getSelectedItem().getValue()));
+		settingBiaya.setProgram(
+				(String) (program.getSelectedItem() == null ? null : program.getSelectedItem().getValue()));
 		settingBiaya.setJenisSeleksi((JenisSeleksi) (jenisSeleksi.getSelectedItem() == null ? null
 				: jenisSeleksi.getSelectedItem().getValue()));
 

@@ -1,0 +1,24 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "ux",
+  "label": "UX",
+  "count": 1,
+  "pageTypeCounts": {
+    "list": 1
+  },
+  "pages": [
+    {
+      "page": "ux_pertemuan",
+      "title": "Ux Pertemuan",
+      "sourceClass": "UxPertemuanAction",
+      "sourcePackage": "ais.action.master.ux",
+      "sourcePath": "src/ais/action/master/ux/UxPertemuanAction.java",
+      "pageType": "list",
+      "methodCount": 2,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Ux Pertemuan UxPertemuanAction ais.action.master.ux list Utama"
+    }
+  ]
+}

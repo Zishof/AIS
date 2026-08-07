@@ -159,10 +159,13 @@ public class SiswaAction extends GenericAutowireComposer implements DataCriteria
 	private Textbox searchkode;
 	private Textbox searchnama;
 	private AmbilDataKelasSiswaBanbox searchkelas;
-	private Decimalbox searchtahun;
+	private Decimalbox searchtahunMulai;
+	private Decimalbox searchtahunSampai;
 	private Combobox searchyayasan;
 	private Combobox searchsekolah;
 	private Combobox searchstatuskeluar;
+	private Combobox searchSudahKeluar;
+	private Combobox searchPunyaKelas;
 	private Combobox searchPenjurusan;
 	private Combobox searchstatusawal;
 	protected AmbilDataGuruBanbox searchguruPembina;
@@ -811,6 +814,26 @@ public class SiswaAction extends GenericAutowireComposer implements DataCriteria
 		Common.insertComboDanSemua(searchstatuskeluar, new String[] { "nama" }, "keterangan", StatusKeluarSiswa.class,
 				"Semua", Restrictions.eq("aktif", true));
 
+		MyComboitemConfig ciSemua = new MyComboitemConfig();
+		ciSemua.setLabel("Semua"); ciSemua.setValue(null);
+		if (searchSudahKeluar != null) { searchSudahKeluar.appendChild(ciSemua); searchSudahKeluar.setSelectedItem(ciSemua); }
+		MyComboitemConfig ciSudah = new MyComboitemConfig();
+		ciSudah.setLabel("Sudah lulus/keluar"); ciSudah.setValue("sudah");
+		if (searchSudahKeluar != null) { searchSudahKeluar.appendChild(ciSudah); }
+		MyComboitemConfig ciBelum = new MyComboitemConfig();
+		ciBelum.setLabel("Belum lulus/keluar"); ciBelum.setValue("belum");
+		if (searchSudahKeluar != null) { searchSudahKeluar.appendChild(ciBelum); }
+
+		MyComboitemConfig ckSemua = new MyComboitemConfig();
+		ckSemua.setLabel("Semua"); ckSemua.setValue(null);
+		if (searchPunyaKelas != null) { searchPunyaKelas.appendChild(ckSemua); searchPunyaKelas.setSelectedItem(ckSemua); }
+		MyComboitemConfig ckAda = new MyComboitemConfig();
+		ckAda.setLabel("Punya kelas"); ckAda.setValue("ada");
+		if (searchPunyaKelas != null) { searchPunyaKelas.appendChild(ckAda); }
+		MyComboitemConfig ckTidak = new MyComboitemConfig();
+		ckTidak.setLabel("Tidak punya kelas"); ckTidak.setValue("tidak");
+		if (searchPunyaKelas != null) { searchPunyaKelas.appendChild(ckTidak); }
+
 		// FIX NPE: StatusAwalSiswa TIDAK punya properti Hibernate-mapped
 		// "keterangan" (lihat perbaikan sama di CalonSiswaAction.java) --
 		// deskripsi "" aman (fallback ke toString() entity).
@@ -824,14 +847,14 @@ public class SiswaAction extends GenericAutowireComposer implements DataCriteria
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 
-				if (searchtahun.getValue() == null || searchtahun.getValue().intValue() < 1970) {
+				if (searchtahunMulai.getValue() == null || searchtahunMulai.getValue().intValue() < 1970) {
 					MyMessageboxConfig.show("Tahun Masuk harus diisi dengan benar", "Peringatan", MyMessageboxConfig.OK,
 							MyMessageboxConfig.INFORMATION, new EventListener() {
 
 								@Override
 								public void onEvent(Event arg0) throws Exception {
-									searchtahun.focus();
-									searchtahun.select();
+									searchtahunMulai.focus();
+									searchtahunMulai.select();
 								}
 							});
 					return;
@@ -1343,14 +1366,14 @@ public class SiswaAction extends GenericAutowireComposer implements DataCriteria
 			@Override
 			public void onEvent(Event event) throws Exception {
 
-				if (searchtahun.getValue() == null || searchtahun.getValue().intValue() < 1970) {
+				if (searchtahunMulai.getValue() == null || searchtahunMulai.getValue().intValue() < 1970) {
 					MyMessageboxConfig.show("Tahun Masuk harus diisi dengan benar", "Peringatan", MyMessageboxConfig.OK,
 							MyMessageboxConfig.INFORMATION, new EventListener() {
 
 								@Override
 								public void onEvent(Event arg0) throws Exception {
-									searchtahun.focus();
-									searchtahun.select();
+									searchtahunMulai.focus();
+									searchtahunMulai.select();
 								}
 							});
 					return;
@@ -4310,6 +4333,14 @@ public class SiswaAction extends GenericAutowireComposer implements DataCriteria
 
 		}
 
+		final String searchPunyaKelasVal = (searchPunyaKelas == null || searchPunyaKelas.getSelectedItem() == null)
+				? null : (String) searchPunyaKelas.getSelectedItem().getValue();
+		List<Long> longsKlsSemua = null;
+		if (searchPunyaKelasVal != null) {
+			longsKlsSemua = session.createCriteria(KelasSiswaPunyaSiswa.class)
+					.setProjection(Projections.property("siswa.id")).list();
+		}
+
 		PenjurusanSekolah penjurusanSekolah = (PenjurusanSekolah) (searchPenjurusan == null
 				|| searchPenjurusan.getSelectedItem() == null ? null : searchPenjurusan.getSelectedItem().getValue());
 
@@ -4394,8 +4425,17 @@ public class SiswaAction extends GenericAutowireComposer implements DataCriteria
 						|| searchagama.getSelectedItem().getValue() == null ? Restrictions.sqlRestriction("1=1")
 								: Restrictions.eq("agama", searchagama.getSelectedItem().getValue()))
 
-				.add(searchtahun.getValue() == null ? Restrictions.sqlRestriction("true")
-						: Restrictions.eq("tahunMasuk", searchtahun.getValue().intValue()))
+				.add(searchtahunMulai.getValue() == null ? Restrictions.sqlRestriction("true")
+						: Restrictions.ge("tahunMasuk", searchtahunMulai.getValue().intValue()))
+
+				.add(searchtahunSampai == null || searchtahunSampai.getValue() == null ? Restrictions.sqlRestriction("true")
+						: Restrictions.le("tahunMasuk", searchtahunSampai.getValue().intValue()))
+
+				.add(searchSudahKeluar == null || searchSudahKeluar.getSelectedItem() == null
+						|| searchSudahKeluar.getSelectedItem().getValue() == null ? Restrictions.sqlRestriction("1=1")
+						: "sudah".equals(searchSudahKeluar.getSelectedItem().getValue())
+								? Restrictions.isNotNull("statusKeluar")
+								: Restrictions.isNull("statusKeluar"))
 
 				.add(searchsekolah.getSelectedItem() == null || searchsekolah.getSelectedItem().getValue() == null
 						|| searchsekolah.getSelectedItem().getValue() == null ? Restrictions.sqlRestriction("1=1")
@@ -4412,7 +4452,16 @@ public class SiswaAction extends GenericAutowireComposer implements DataCriteria
 
 				.add(searchyayasan.getSelectedItem() == null || searchyayasan.getSelectedItem().getValue() == null
 						|| searchyayasan.getSelectedItem().getValue() == null ? Restrictions.sqlRestriction("1=1")
-								: CommonSearchFilterHelper.eqSelectedWithId("yayasan", searchyayasan, false));
+								: CommonSearchFilterHelper.eqSelectedWithId("yayasan", searchyayasan, false))
+
+				.add(searchPunyaKelasVal == null ? Restrictions.sqlRestriction("1=1")
+						: "ada".equals(searchPunyaKelasVal)
+								? (longsKlsSemua == null || longsKlsSemua.isEmpty()
+										? Restrictions.sqlRestriction("1=0")
+										: Restrictions.in("id", longsKlsSemua))
+								: (longsKlsSemua == null || longsKlsSemua.isEmpty()
+										? Restrictions.sqlRestriction("1=1")
+										: Restrictions.not(Restrictions.in("id", longsKlsSemua))));
 		return criteria;
 	}
 

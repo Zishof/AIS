@@ -1,4 +1,5 @@
 <%@page import="ais.action.master.pmb.VerifikasiPMBHelper"%>
+<%@page import="ais.action.master.helper.KegiatanHelper"%>
 <%@page import="ais.action.report.Report"%>
 <%@page import="java.util.*"%>
 <%@page import="java.io.File"%>
@@ -10,6 +11,7 @@
 <%@page import="ais.common.Common"%>
 <%@page import="ais.common.CommonPMB"%>
 <%@page import="ais.common.CommonEmail"%>
+<%@page import="ais.common.ConstantValues"%>
 <%@page import="ais.database.hibernate.HibernateUtil"%>
 <%@page import="ais.database.model.GeneralValueObject"%>
 <%@page import="ais.database.model.BiodataCalonMahasiswa"%>
@@ -19,6 +21,26 @@
 <%@page import="ais.database.model.Tbmuser"%>
 <%@page import="ais.action.master.KonfigurasiTampilanBiodataCalonMahasiswaAction"%>
 <%@ page language="java" contentType="application/json; charset=UTF-8" pageEncoding="UTF-8"%>
+
+<%!
+private boolean containsIgnoreCaseKartuUjianPmb(String text, String pattern) {
+    return text != null && pattern != null && text.toLowerCase().indexOf(pattern.toLowerCase()) >= 0;
+}
+
+private boolean isPendaftaranGratisKartuUjianPmb(BiodataCalonMahasiswa cama) {
+    if (cama == null) {
+        return false;
+    }
+    String namaPaket = cama.getPaket() == null ? "" : cama.getPaket().getNama();
+    String namaSeleksi = cama.getJenisSeleksi() == null ? "" : cama.getJenisSeleksi().getNama();
+    String namaGelombang = cama.getGelombangPendaftaran() == null ? "" : cama.getGelombangPendaftaran().getNama();
+    String gabungan = namaPaket + " " + namaSeleksi + " " + namaGelombang;
+    return containsIgnoreCaseKartuUjianPmb(gabungan, "kip")
+            || containsIgnoreCaseKartuUjianPmb(gabungan, "beasiswa")
+            || containsIgnoreCaseKartuUjianPmb(gabungan, "gratis")
+            || containsIgnoreCaseKartuUjianPmb(gabungan, "bebas");
+}
+%>
 
 <%
     // =========================================================================
@@ -87,7 +109,19 @@
         // 4. VALIDASI PEMBAYARAN REGISTRASI
         if (gelombang != null && gelombang.getHarusBayarSebelumBisaLogin() != null && gelombang.getHarusBayarSebelumBisaLogin()) {
             Kegiatan kegiatan = cama.getPembayaranRegistrasi();
-            if (kegiatan == null || kegiatan.getId() == null || kegiatan.getLunas() == null || !kegiatan.getLunas()) {
+            if (kegiatan == null || kegiatan.getId() == null) {
+                kegiatan = KegiatanHelper.checkKegiatanCalonMahasiswa(ConstantValues.PENDAFTARAN_CALON_MAHASISWA,
+                        cama, 0, cama.getTahunAkademik(), true, false, null, sessionLocal);
+                cama.setPembayaranRegistrasi(kegiatan);
+            }
+            boolean pendaftaranGratis = isPendaftaranGratisKartuUjianPmb(cama);
+            boolean tagihanNol = kegiatan != null && (kegiatan.getAmount() + kegiatan.getAmountTerhutang()) < 0.01;
+            Double persenLunas = kegiatan == null ? null : kegiatan.getPersentaseLunas();
+            boolean pembayaranLunas = kegiatan != null
+                    && (Boolean.TRUE.equals(kegiatan.getLunas())
+                            || (persenLunas != null && persenLunas >= 99.0)
+                            || tagihanNol);
+            if (!pendaftaranGratis && !pembayaranLunas) {
                 String infoBelumBayar = Common.getKonfigurasi("infoBelumbayarSaatProsescalonMahasiswa", "Calon Mahasiswa dengan nomor pendaftaran [noreg] belum dapat diproses karena belum melakukan pelunasan pembayaran.").getNilai();
                 infoBelumBayar = StringUtils.replace(infoBelumBayar, "[noreg]", cama.getNoRegistrasi());
                 out.print("{\"status\":\"error\", \"message\":\"" + infoBelumBayar + "\"}");

@@ -1,0 +1,60 @@
+{
+  "generatedAt": "2026-08-06T18:20:20Z",
+  "generatorVersion": "1.0.0",
+  "module": "root/mobile",
+  "label": "Mobile",
+  "count": 4,
+  "pageTypeCounts": {
+    "list": 4
+  },
+  "pages": [
+    {
+      "page": "elearning_mobile_ui_helper",
+      "title": "Elearning Mobile Ui Helper",
+      "sourceClass": "ElearningMobileUiHelper",
+      "sourcePackage": "ais.action.mobile",
+      "sourcePath": "src/ais/action/mobile/ElearningMobileUiHelper.java",
+      "pageType": "list",
+      "methodCount": 13,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Elearning Mobile Ui Helper ElearningMobileUiHelper ais.action.mobile list Utama"
+    },
+    {
+      "page": "mobile_notif_helper",
+      "title": "Mobile Notif Helper",
+      "sourceClass": "MobileNotifHelper",
+      "sourcePackage": "ais.action.mobile",
+      "sourcePath": "src/ais/action/mobile/MobileNotifHelper.java",
+      "pageType": "list",
+      "methodCount": 7,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Mobile Notif Helper MobileNotifHelper ais.action.mobile list Utama"
+    },
+    {
+      "page": "mobile_tab_helper",
+      "title": "Mobile Tab Helper",
+      "sourceClass": "MobileTabHelper",
+      "sourcePackage": "ais.action.mobile",
+      "sourcePath": "src/ais/action/mobile/MobileTabHelper.java",
+      "pageType": "list",
+      "methodCount": 2,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Mobile Tab Helper MobileTabHelper ais.action.mobile list Utama"
+    },
+    {
+      "page": "mobile_ui_helper",
+      "title": "Mobile Ui Helper",
+      "sourceClass": "MobileUiHelper",
+      "sourcePackage": "ais.action.mobile",
+      "sourcePath": "src/ais/action/mobile/MobileUiHelper.java",
+      "pageType": "list",
+      "methodCount": 25,
+      "legacyRefCount": 0,
+      "subpackage": "Utama",
+      "search": "Mobile Ui Helper MobileUiHelper ais.action.mobile list Utama"
+    }
+  ]
+}
