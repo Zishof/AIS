@@ -23,6 +23,7 @@ public class GenericCrudFieldDefinition implements Serializable {
     private String relationEntityKey;
     private String relationDisplayProperty;
     private String relationSearchProperties;
+    private String[] enumValues;
     private int position = 9999;
 
     public GenericCrudFieldDefinition() { }
@@ -69,6 +70,8 @@ public class GenericCrudFieldDefinition implements Serializable {
     public void setRelationDisplayProperty(String value) { relationDisplayProperty = value; }
     public String getRelationSearchProperties() { return relationSearchProperties; }
     public void setRelationSearchProperties(String value) { relationSearchProperties = value; }
+    public String[] getEnumValues() { return enumValues; }
+    public void setEnumValues(String[] value) { enumValues = value; }
     public int getPosition() { return position; }
     public void setPosition(int position) { this.position = position; }
 }

@@ -33,6 +33,7 @@ public class GenericCrudFacade {
         result.put("lookupThreshold", Integer.valueOf(d.getLookupThreshold()));
         result.put("formMode", d.getFormMode());
         result.put("versionProperty", d.getVersionProperty());
+        result.put("identifierProperty", d.getIdentifierProperty());
         result.put("canCreate", Boolean.valueOf(context.isCanCreate() && d.isCreateEnabled()));
         result.put("canUpdate", Boolean.valueOf(context.isCanUpdate() && d.isUpdateEnabled()));
         result.put("canDelete", Boolean.valueOf(context.isCanDelete() && d.isDeleteEnabled()));
