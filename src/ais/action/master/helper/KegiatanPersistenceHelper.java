@@ -318,7 +318,7 @@ public class KegiatanPersistenceHelper {
 			// hilang saat regenerasi (kasus asli yang dulu dilindungi fix ini). Bila base baris
 			// terbaru SUDAH beda (diedit langsung / generasi baru beda nominal), pakai diskon MILIK
 			// baris terbaru itu sendiri (bisa 0 -- base-nya memang sudah net), TIDAK subtraksi ulang.
-			Map<Long, double[]> diskonItemMap = new HashMap<Long, double[]>();
+			Map<String, double[]> diskonItemMap = new HashMap<String, double[]>();
 			if (k.getId() != null) {
 				try {
 					List<DetailKegiatan> semuaDk = ambilDetailKegiatanSaja(k, true);
@@ -327,13 +327,20 @@ public class KegiatanPersistenceHelper {
 							if (dkc == null || dkc.getItemBiaya() == null || dkc.getItemBiaya().getId() == null) {
 								continue;
 							}
-							Long itemId = dkc.getItemBiaya().getId();
+							// Samakan identitas dengan ambilSatuDetailKegiatan() yang dipakai panel rincian:
+							// item + bayarKe + kegiatan. Memetakan hanya per item membuat baris historis
+							// bayarKe lain dapat menimpa DPP/komponen aktif yang sedang ditampilkan.
+							String detailKey = DetailKegiatan.kodeUnik(null, dkc.getItemBiaya(),
+									dkc.getDetailBiaya() == null ? null : dkc.getDetailBiaya().getBayarKe(), k, null);
+							if (detailKey == null) {
+								continue;
+							}
 							// [maxDiskon, bukanTagihanTerbaru?1:0, idTerbaru, biayaDkTerbaru, adaBiayaDk?1:0,
 							//  biayaPadaBarisMaxDiskon, diskonMilikBarisTerbaruSendiri]
-							double[] info = diskonItemMap.get(itemId);
+							double[] info = diskonItemMap.get(detailKey);
 							if (info == null) {
 								info = new double[] { 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0 };
-								diskonItemMap.put(itemId, info);
+								diskonItemMap.put(detailKey, info);
 							}
 							double diskonBarisIni = dkc.getDiskon() == null ? 0.0 : dkc.getDiskon().doubleValue();
 							double biayaBarisIni = dkc.getBiaya() == null ? 0.0 : dkc.getBiaya().doubleValue();
@@ -342,7 +349,10 @@ public class KegiatanPersistenceHelper {
 								info[5] = biayaBarisIni;
 							}
 							double idDk = dkc.getId() == null ? -1.0 : dkc.getId().doubleValue();
-							if (idDk >= info[2]) {
+							// Kondisi/nominal terkini harus berasal dari baris AKTIF. Baris nonaktif tetap
+							// dipindai di atas hanya untuk fallback histori diskon, bukan untuk meniadakan
+							// tagihan aktif (kasus DPP hilang dari total panel kiri).
+							if (Boolean.TRUE.equals(dkc.getAktif()) && idDk >= info[2]) {
 								info[2] = idDk;
 								info[1] = (dkc.getBukanTagihan() != null && dkc.getBukanTagihan()) ? 1.0 : 0.0;
 								info[3] = biayaBarisIni;
@@ -385,7 +395,9 @@ public class KegiatanPersistenceHelper {
 						// Solusi: untuk item harga-tetap, kurangi diskon yang SUDAH TERSIMPAN (read-only).
 						if (j != null && db.getItemBiaya() != null && !db.getItemBiaya().getNilaiBisaDiubah()
 								&& db.getItemBiaya().getId() != null) {
-							double[] info = diskonItemMap.get(db.getItemBiaya().getId());
+							String detailKey = DetailKegiatan.kodeUnik(null, db.getItemBiaya(), db.getBayarKe(),
+									k, null);
+							double[] info = diskonItemMap.get(detailKey);
 							if (info != null) {
 								if (info[1] == 1.0) {
 									j = Double.valueOf(0.0);
@@ -413,7 +425,9 @@ public class KegiatanPersistenceHelper {
 									&& db.getItemBiaya().getParameterTambahan() == null
 									&& (db.getItemBiaya().getPenghitungan() == null || !db.getItemBiaya()
 											.getPenghitungan().equals(ItemBiaya.HITUNG_TUNGGAKAN_SMT_LALU))) {
-								double[] info = diskonItemMap.get(db.getItemBiaya().getId());
+								String detailKey = DetailKegiatan.kodeUnik(null, db.getItemBiaya(), db.getBayarKe(),
+										k, null);
+								double[] info = diskonItemMap.get(detailKey);
 								if (info != null && info.length >= 5 && info[4] == 1.0) {
 									double neto = info[1] == 1.0 ? 0.0 : info[3] - diskonEfektif(info);
 									if (neto < 0.0) {
