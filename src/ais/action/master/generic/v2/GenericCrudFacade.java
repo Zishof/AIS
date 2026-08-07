@@ -38,6 +38,14 @@ public class GenericCrudFacade {
         result.put("rowAudit", Boolean.valueOf(d.isRowAuditEnabled()));
         result.put("restore", Boolean.valueOf(d.isRestoreEnabled()));
         result.put("adminDelete", Boolean.valueOf(d.isAdminDeleteEnabled()));
+        result.put("importEnabled", Boolean.valueOf(d.isImportEnabled() && context.isCanCreate()
+                && context.isCanUpdate() && context.isCanDelete()));
+        result.put("importDeleteEnabled", Boolean.valueOf(d.isImportDeleteEnabled() && context.isCanDelete()));
+        result.put("exportXlsx", Boolean.valueOf(d.isExportXlsxEnabled()));
+        result.put("exportPdf", Boolean.valueOf(d.isExportPdfEnabled()));
+        result.put("exportDocx", Boolean.valueOf(d.isExportDocxEnabled()));
+        result.put("exportPptx", Boolean.valueOf(d.isExportPptxEnabled()));
+        result.put("savedViewEnabled", Boolean.valueOf(d.isSavedViewEnabled()));
         return result;
     }
 
@@ -48,4 +56,6 @@ public class GenericCrudFacade {
     public GenericCrudResult update(GenericCrudRequestContext context, Serializable id, Map values, Object token) throws Exception { return mutation.update(context, id, values, token); }
     public GenericCrudResult delete(GenericCrudRequestContext context, Serializable id) throws Exception { return mutation.softDelete(context, id); }
     public GenericCrudPage revisions(GenericCrudRequestContext context, Serializable id, int page, int size) throws Exception { return audit.listRowRevisions(context, id, page, size); }
+    public GenericCrudPage globalRevisions(GenericCrudRequestContext context, int page, int size) throws Exception { return audit.listGlobalRevisions(context, page, size); }
+    public Map compare(GenericCrudRequestContext context, Serializable id, Number left, Number right) throws Exception { return audit.compare(context, id, left, right); }
 }

@@ -18,9 +18,11 @@ public class GenericCrudExportService {
     private final GenericCrudPrivilegeGuard privilege = new GenericCrudPrivilegeGuard();
     private final GenericCrudQueryService query = new GenericCrudQueryService();
 
-    public void writeXlsx(GenericCrudRequestContext context, String search, HttpServletResponse response) throws Exception {
+    public void writeXlsx(GenericCrudRequestContext context, String search, List filters, GenericCrudSort sort, HttpServletResponse response) throws Exception {
         privilege.require(context, GenericCrudOperation.EXPORT);
+        if (!context.getDefinition().isExportXlsxEnabled()) throw new GenericCrudException(403, "XLSX_EXPORT_DISABLED", "Export XLSX belum diaktifkan.");
         List fields = exportFields(context.getDefinition());
+        List allRows = loadRows(context, search, filters, sort, context.getDefinition().getSynchronousExportLimit());
         XSSFWorkbook workbook = new XSSFWorkbook();
         try {
             XSSFSheet sheet = workbook.createSheet(safeSheet(context.getDefinition().getDisplayName()));
@@ -30,14 +32,9 @@ public class GenericCrudExportService {
                 header.createCell(i).setCellValue(field.getLabel());
             }
             int rowIndex = 1;
-            int page = 1;
-            int limit = 5000;
-            while (rowIndex <= limit) {
-                GenericCrudPage data = query.list(context, page, context.getDefinition().getMaxPageSize(), search, new ArrayList(), null);
-                List rows = data.getRows();
-                for (int i = 0; i < rows.size() && rowIndex <= limit; i++) {
+            for (int i = 0; i < allRows.size(); i++) {
                     Row output = sheet.createRow(rowIndex++);
-                    Map source = (Map) rows.get(i);
+                    Map source = (Map) allRows.get(i);
                     for (int c = 0; c < fields.size(); c++) {
                         GenericCrudFieldDefinition field = (GenericCrudFieldDefinition) fields.get(c);
                         Cell cell = output.createCell(c);
@@ -46,9 +43,6 @@ public class GenericCrudExportService {
                         else if (value instanceof Boolean) cell.setCellValue(((Boolean) value).booleanValue());
                         else cell.setCellValue(value == null ? "" : String.valueOf(value));
                     }
-                }
-                if (rows.isEmpty() || rowIndex > data.getTotal() || rows.size() < data.getPageSize()) break;
-                page++;
             }
             for (int i = 0; i < fields.size(); i++) sheet.autoSizeColumn(i);
             String file = URLEncoder.encode(context.getDefinition().getPageKey() + ".xlsx", "UTF-8").replace("+", "%20");
@@ -61,12 +55,25 @@ public class GenericCrudExportService {
         } finally { try { workbook.close(); } catch (Exception ignored) { } }
     }
 
-    private List exportFields(GenericCrudDefinition definition) {
+    List loadRows(GenericCrudRequestContext context, String search, List filters, GenericCrudSort sort, int limit) throws Exception {
+        List result = new ArrayList(); int page = 1;
+        while (result.size() <= limit) {
+            GenericCrudPage data = query.list(context, page, context.getDefinition().getMaxPageSize(), search, filters, sort);
+            if (page == 1 && data.getTotal() > context.getDefinition().getMaxExportRows()) throw new GenericCrudException(413, "EXPORT_ROW_LIMIT", "Jumlah data melewati batas export entity.");
+            if (page == 1 && data.getTotal() > limit) throw new GenericCrudException(409, "EXPORT_ASYNC_REQUIRED", "Jumlah data memerlukan export job asynchronous.");
+            result.addAll(data.getRows());
+            if (data.getRows().isEmpty() || result.size() >= data.getTotal()) break;
+            page++;
+        }
+        return result;
+    }
+
+    List exportFields(GenericCrudDefinition definition) {
         List result = new ArrayList();
         List fields = definition.getFields();
         for (int i = 0; i < fields.size(); i++) {
             GenericCrudFieldDefinition field = (GenericCrudFieldDefinition) fields.get(i);
-            if (field.isExportable() && !field.isSensitive()) result.add(field);
+            if (field.isExportable() && field.isReadable() && !field.isSensitive()) result.add(field);
         }
         return result;
     }

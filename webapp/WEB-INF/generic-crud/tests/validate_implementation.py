@@ -19,6 +19,16 @@ checks = {
     "admin delete disabled": "setAdminDeleteEnabled(false)" in (java_root / "GenericCrudDefinitionRegistry.java").read_text(encoding="utf-8"),
     "shared dispatcher": (shared / "services" / "dispatcher.jsp").exists(),
     "responsive UI": "@media(max-width:720px)" in (shared / "assets" / "generic-crud.css").read_text(encoding="utf-8"),
+    "advanced filter UI": "data-gc-filter-panel" in (shared / "ui" / "crud_page.jsp").read_text(encoding="utf-8"),
+    "column preference UI": "preference_save" in (shared / "assets" / "generic-crud.js").read_text(encoding="utf-8"),
+    "import dry-run and confirm": all(token in (java_root / "GenericCrudImportService.java").read_text(encoding="utf-8") for token in ("PREVIEW_READY", "confirm(", "IMPORT_DUPLICATE_FILE")),
+    "import requires CUD privileges": "isCanCreate() && context.isCanUpdate() && context.isCanDelete()" in (java_root / "GenericCrudImportService.java").read_text(encoding="utf-8"),
+    "import job owner role entity bound": all(token in (java_root / "GenericCrudImportService.java").read_text(encoding="utf-8") for token in ("ownerUserKey", "ownerRoleKey", "entityKey", "IMPORT_JOB_OWNER_DENIED", "IMPORT_JOB_EXPIRED")),
+    "document exports": all(token in (java_root / "GenericCrudDocumentExportService.java").read_text(encoding="utf-8") for token in ("writePdf", "writeDocx", "writePptx")),
+    "saved views owner scoped": all(token in (java_root / "GenericCrudSavedViewService.java").read_text(encoding="utf-8") for token in ("owner_user_key", "owner_role_key", "entity_key")),
+    "audit scope validation": "scope.validateObject" in (java_root / "GenericCrudAuditService.java").read_text(encoding="utf-8"),
+    "restore and admin delete routes": all(token in (java_root / "GenericCrudHttpController.java").read_text(encoding="utf-8") for token in ("restore_field", "restore_revision", "admin_delete_preflight", "admin_delete_confirm")),
+    "no request-selected class": "request.getParameter(\"class" not in (java_root / "GenericCrudHttpController.java").read_text(encoding="utf-8"),
 }
 
 failed = [name for name, passed in checks.items() if not passed]

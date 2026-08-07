@@ -18,6 +18,7 @@ import ais.database.hibernate.HibernateUtil;
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public class GenericCrudAuditService {
     private final GenericCrudPrivilegeGuard privilege = new GenericCrudPrivilegeGuard();
+    private final GenericCrudScopeGuard scope = new GenericCrudScopeGuard();
 
     public GenericCrudPage listRowRevisions(GenericCrudRequestContext context, Serializable id, int page, int pageSize) throws Exception {
         privilege.require(context, GenericCrudOperation.AUDIT);
@@ -29,6 +30,9 @@ public class GenericCrudAuditService {
         pageSize = Math.min(pageSize < 1 ? 10 : pageSize, 100);
         Session session = HibernateUtil.getSessionFactory().openSession();
         try {
+            Object active = session.get(definition.getEntityClass(), id);
+            if (!(active instanceof ais.database.model.GeneralValueObject)) throw new GenericCrudException(404, "ROW_NOT_FOUND", "Data aktif tidak ditemukan atau berada di luar scope.");
+            scope.validateObject((ais.database.model.GeneralValueObject) active, context);
             AuditReader reader = AuditReaderFactory.get(session);
             AuditQuery countQuery = reader.createQuery().forRevisionsOfEntity(definition.getEntityClass(), false, true)
                     .add(AuditEntity.id().eq(id)).addProjection(AuditEntity.revisionNumber().count());
@@ -53,6 +57,9 @@ public class GenericCrudAuditService {
         if (!context.getDefinition().isRowAuditEnabled()) { throw new GenericCrudException(403, "ROW_AUDIT_DISABLED", "Audit per data belum diaktifkan."); }
         Session session = HibernateUtil.getSessionFactory().openSession();
         try {
+            Object active = session.get(context.getDefinition().getEntityClass(), id);
+            if (!(active instanceof ais.database.model.GeneralValueObject)) throw new GenericCrudException(404, "ROW_NOT_FOUND", "Data aktif tidak ditemukan atau berada di luar scope.");
+            scope.validateObject((ais.database.model.GeneralValueObject) active, context);
             AuditReader reader = AuditReaderFactory.get(session);
             Object one = reader.find(context.getDefinition().getEntityClass(), id, left);
             Object two = reader.find(context.getDefinition().getEntityClass(), id, right);
@@ -75,6 +82,34 @@ public class GenericCrudAuditService {
                 }
             }
             return result;
+        } finally { close(session); }
+    }
+
+    public GenericCrudPage listGlobalRevisions(GenericCrudRequestContext context, int page, int pageSize) throws Exception {
+        privilege.require(context, GenericCrudOperation.AUDIT);
+        GenericCrudDefinition definition = context.getDefinition();
+        if (!definition.isGlobalAuditEnabled() || definition.getRestorePolicy() == null
+                || !definition.getRestorePolicy().canViewGlobalAudit(context)) {
+            throw new GenericCrudException(403, "GLOBAL_AUDIT_DISABLED", "Audit global belum diaktifkan atau ditolak policy.");
+        }
+        page = page < 1 ? 1 : page; pageSize = Math.min(pageSize < 1 ? 10 : pageSize, 100);
+        Session session = HibernateUtil.getSessionFactory().openSession();
+        try {
+            AuditReader reader = AuditReaderFactory.get(session);
+            AuditQuery query = reader.createQuery().forRevisionsOfEntity(definition.getEntityClass(), false, true)
+                    .addOrder(AuditEntity.revisionNumber().desc()).setFirstResult((page - 1) * pageSize).setMaxResults(pageSize);
+            List tuples = query.getResultList(); List rows = new ArrayList();
+            org.hibernate.metadata.ClassMetadata metadata = HibernateUtil.getSessionFactory().getClassMetadata(definition.getEntityClass());
+            for (int i = 0; i < tuples.size(); i++) {
+                Object[] tuple = (Object[]) tuples.get(i); Object audited = tuple[0];
+                Serializable id = metadata.getIdentifier(audited, org.hibernate.EntityMode.POJO);
+                Object active = session.get(definition.getEntityClass(), id);
+                if (!(active instanceof ais.database.model.GeneralValueObject)) continue;
+                try { scope.validateObject((ais.database.model.GeneralValueObject) active, context); }
+                catch (Exception outsideScope) { continue; }
+                Map row = toRevisionRow(tuple); row.put("id", id); rows.add(row);
+            }
+            GenericCrudPage result = new GenericCrudPage(); result.setRows(rows); result.setTotal(rows.size()); result.setPage(page); result.setPageSize(pageSize); return result;
         } finally { close(session); }
     }
 

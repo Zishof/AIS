@@ -33,6 +33,14 @@ public class GenericCrudDefinition implements Serializable {
     private boolean updateEnabled;
     private boolean deleteEnabled;
     private boolean importEnabled;
+    private boolean importDeleteEnabled;
+    private boolean exportXlsxEnabled = true;
+    private boolean exportPdfEnabled;
+    private boolean exportDocxEnabled;
+    private boolean exportPptxEnabled;
+    private boolean savedViewEnabled = true;
+    private boolean bulkEditEnabled;
+    private boolean photoEnabled;
     private boolean auditEnabled = true;
     private boolean globalAuditEnabled;
     private boolean rowAuditEnabled = true;
@@ -45,6 +53,9 @@ public class GenericCrudDefinition implements Serializable {
     private int defaultPageSize = 10;
     private int maxPageSize = 100;
     private int lookupThreshold = 20;
+    private int maxExportRows = 100000;
+    private int maxImportRows = 10000;
+    private int synchronousExportLimit = 5000;
     private String formMode = GenericCrudFormOverrideProvider.MODE_GENERIC_DRAWER;
     private Map fields = new LinkedHashMap();
     private GenericCrudEntityAdapter adapter;
@@ -79,6 +90,22 @@ public class GenericCrudDefinition implements Serializable {
     public void setDeleteEnabled(boolean value) { deleteEnabled = value; }
     public boolean isImportEnabled() { return importEnabled; }
     public void setImportEnabled(boolean value) { importEnabled = value; }
+    public boolean isImportDeleteEnabled() { return importDeleteEnabled; }
+    public void setImportDeleteEnabled(boolean value) { importDeleteEnabled = value; }
+    public boolean isExportXlsxEnabled() { return exportXlsxEnabled; }
+    public void setExportXlsxEnabled(boolean value) { exportXlsxEnabled = value; }
+    public boolean isExportPdfEnabled() { return exportPdfEnabled; }
+    public void setExportPdfEnabled(boolean value) { exportPdfEnabled = value; }
+    public boolean isExportDocxEnabled() { return exportDocxEnabled; }
+    public void setExportDocxEnabled(boolean value) { exportDocxEnabled = value; }
+    public boolean isExportPptxEnabled() { return exportPptxEnabled; }
+    public void setExportPptxEnabled(boolean value) { exportPptxEnabled = value; }
+    public boolean isSavedViewEnabled() { return savedViewEnabled; }
+    public void setSavedViewEnabled(boolean value) { savedViewEnabled = value; }
+    public boolean isBulkEditEnabled() { return bulkEditEnabled; }
+    public void setBulkEditEnabled(boolean value) { bulkEditEnabled = value; }
+    public boolean isPhotoEnabled() { return photoEnabled; }
+    public void setPhotoEnabled(boolean value) { photoEnabled = value; }
     public boolean isAuditEnabled() { return auditEnabled; }
     public void setAuditEnabled(boolean value) { auditEnabled = value; }
     public boolean isGlobalAuditEnabled() { return globalAuditEnabled; }
@@ -103,6 +130,12 @@ public class GenericCrudDefinition implements Serializable {
     public void setMaxPageSize(int value) { maxPageSize = value; }
     public int getLookupThreshold() { return lookupThreshold; }
     public void setLookupThreshold(int value) { lookupThreshold = value; }
+    public int getMaxExportRows() { return maxExportRows; }
+    public void setMaxExportRows(int value) { maxExportRows = value; }
+    public int getMaxImportRows() { return maxImportRows; }
+    public void setMaxImportRows(int value) { maxImportRows = value; }
+    public int getSynchronousExportLimit() { return synchronousExportLimit; }
+    public void setSynchronousExportLimit(int value) { synchronousExportLimit = value; }
     public String getFormMode() { return formMode; }
     public void setFormMode(String value) { formMode = value; }
     public GenericCrudEntityAdapter getAdapter() { return adapter; }

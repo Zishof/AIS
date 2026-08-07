@@ -1,6 +1,7 @@
 package ais.action.master.generic.v2;
 
 import org.hibernate.metadata.ClassMetadata;
+import org.hibernate.type.Type;
 
 import ais.database.hibernate.HibernateUtil;
 
@@ -24,6 +25,22 @@ public final class GenericCrudRuntimeMetadataVerifier {
         }
         if (!metadata.getIdentifierPropertyName().equals(definition.getIdentifierProperty())) {
             throw new GenericCrudException(409, "METADATA_DRIFT", "Konfigurasi identifier tidak sama dengan metadata runtime.");
+        }
+        java.util.List fields = definition.getFields();
+        for (int i = 0; i < fields.size(); i++) {
+            GenericCrudFieldDefinition field = (GenericCrudFieldDefinition) fields.get(i);
+            if (definition.getIdentifierProperty().equals(field.getProperty())) continue;
+            Type type;
+            try { type = metadata.getPropertyType(field.getProperty()); }
+            catch (Exception missing) {
+                throw new GenericCrudException(409, "FIELD_METADATA_DRIFT", "Field konfigurasi tidak ada pada metadata runtime: " + field.getProperty());
+            }
+            Class returned = type.getReturnedClass();
+            if (type.isCollectionType() || returned == byte[].class || java.sql.Blob.class.isAssignableFrom(returned)) {
+                if (field.isReadable() || field.isCreateable() || field.isUpdateable() || field.isExportable()) {
+                    throw new GenericCrudException(409, "UNSAFE_FIELD_CONFIG", "Collection/blob harus excluded: " + field.getProperty());
+                }
+            }
         }
         return metadata;
     }

@@ -67,7 +67,12 @@ public final class GenericCrudDefinitionRegistry {
         d.setCreateEnabled(true);
         d.setUpdateEnabled(true);
         d.setDeleteEnabled(true);
-        d.setImportEnabled(false);
+        d.setImportEnabled(true);
+        d.setImportDeleteEnabled(true);
+        d.setExportPdfEnabled(true);
+        d.setExportDocxEnabled(true);
+        d.setExportPptxEnabled(true);
+        d.setSavedViewEnabled(true);
         d.setAuditEnabled(true);
         d.setRowAuditEnabled(true);
         d.setGlobalAuditEnabled(false);
@@ -82,7 +87,7 @@ public final class GenericCrudDefinitionRegistry {
         d.addField(field("id", "ID", Long.class, "number", true, false, false, false, true, false, 10));
         d.addField(field("kode", "Kode", String.class, "text", true, true, true, false, true, true, 20));
         d.addField(field("nama", "Nama", String.class, "text", true, true, true, true, true, true, 30));
-        d.addField(field("keterangan", "Keterangan", String.class, "textarea", true, true, true, false, false, true, 40));
+        d.addField(field("keterangan", "Keterangan", String.class, "textarea", true, true, true, false, true, true, 40));
         d.addField(field("aktif", "Aktif", Boolean.class, "checkbox", true, true, true, false, true, false, 50));
         d.addField(field("feeder", "Feeder", Long.class, "number", true, true, true, false, true, false, 60));
         return d;
@@ -91,7 +96,7 @@ public final class GenericCrudDefinitionRegistry {
     private static GenericCrudDefinition buildMahasiswaParity() {
         GenericCrudDefinition d = new GenericCrudDefinition();
         d.setEntityClass(Mahasiswa.class);
-        d.setModuleKey("master");
+        d.setModuleKey("root");
         d.setPageKey("mahasiswa");
         d.setDisplayName("Mahasiswa");
         d.setLifecycleStatus(GenericCrudDefinition.REVIEW_REQUIRED);
@@ -107,6 +112,7 @@ public final class GenericCrudDefinitionRegistry {
         GenericCrudFieldDefinition f = new GenericCrudFieldDefinition(key, label, type.getName());
         f.setEditorType(editor);
         f.setTableVisible(table);
+        f.setQuickFilter(searchable);
         f.setCreateable(create);
         f.setUpdateable(update);
         f.setRequired(required);

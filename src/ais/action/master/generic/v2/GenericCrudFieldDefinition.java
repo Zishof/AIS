@@ -9,7 +9,9 @@ public class GenericCrudFieldDefinition implements Serializable {
     private String javaType;
     private String editorType = "text";
     private boolean tableVisible;
+    private boolean quickFilter;
     private boolean detailVisible = true;
+    private boolean readable = true;
     private boolean createable;
     private boolean updateable;
     private boolean required;
@@ -18,6 +20,9 @@ public class GenericCrudFieldDefinition implements Serializable {
     private boolean exportable = true;
     private boolean sensitive;
     private boolean restoreable;
+    private String relationEntityKey;
+    private String relationDisplayProperty;
+    private String relationSearchProperties;
     private int position = 9999;
 
     public GenericCrudFieldDefinition() { }
@@ -36,8 +41,12 @@ public class GenericCrudFieldDefinition implements Serializable {
     public void setEditorType(String editorType) { this.editorType = editorType; }
     public boolean isTableVisible() { return tableVisible; }
     public void setTableVisible(boolean value) { tableVisible = value; }
+    public boolean isQuickFilter() { return quickFilter; }
+    public void setQuickFilter(boolean value) { quickFilter = value; }
     public boolean isDetailVisible() { return detailVisible; }
     public void setDetailVisible(boolean value) { detailVisible = value; }
+    public boolean isReadable() { return readable; }
+    public void setReadable(boolean value) { readable = value; }
     public boolean isCreateable() { return createable; }
     public void setCreateable(boolean value) { createable = value; }
     public boolean isUpdateable() { return updateable; }
@@ -54,6 +63,12 @@ public class GenericCrudFieldDefinition implements Serializable {
     public void setSensitive(boolean value) { sensitive = value; }
     public boolean isRestoreable() { return restoreable; }
     public void setRestoreable(boolean value) { restoreable = value; }
+    public String getRelationEntityKey() { return relationEntityKey; }
+    public void setRelationEntityKey(String value) { relationEntityKey = value; }
+    public String getRelationDisplayProperty() { return relationDisplayProperty; }
+    public void setRelationDisplayProperty(String value) { relationDisplayProperty = value; }
+    public String getRelationSearchProperties() { return relationSearchProperties; }
+    public void setRelationSearchProperties(String value) { relationSearchProperties = value; }
     public int getPosition() { return position; }
     public void setPosition(int position) { this.position = position; }
 }
