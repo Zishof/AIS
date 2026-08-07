@@ -1,0 +1,15 @@
+{
+  "base_class": "ais.database.model.GeneralValueObject",
+  "total_subclasses": 1506,
+  "concrete_entities": 1495,
+  "abstract": 11,
+  "photo_candidates": 68,
+  "custom_action_candidates": 913,
+  "eligibility": {
+    "REVIEW_REQUIRED": 1132,
+    "ELIGIBLE_METADATA_FIRST": 350,
+    "EXCLUDED_ABSTRACT": 11,
+    "ELIGIBLE_PARITY_FIRST": 13
+  },
+  "warning": "Hasil source scanner harus diverifikasi ulang dengan Hibernate runtime metadata sebelum CRUD diaktifkan."
+}
