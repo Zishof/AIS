@@ -153,13 +153,15 @@
       fields.forEach(function (field) {
         var cell = node('td', {'data-label': field.label}), value = rowData[field.property];
         if (field.javaType === 'java.lang.Boolean' || field.javaType === 'boolean') cell.appendChild(node('span', {'class': 'gc-pill' + (value ? '' : ' off')}, value ? 'Aktif' : 'Tidak aktif'));
+        else if (field.relationEntityKey) cell.textContent = rowData[field.property + '__label'] || (value === null || value === undefined ? '—' : String(value));
         else cell.textContent = value === null || value === undefined ? '—' : String(value);
         row.appendChild(cell);
       });
       var actions = node('td', {'data-label': 'Aksi'}), buttons = node('div', {'class': 'gc-row-actions'});
-      var detail = node('button', {type: 'button', 'class': 'gc-btn'}, meta.canUpdate ? 'Edit' : 'Detail'); detail.addEventListener('click', function () { openExisting(rowData.id); }); buttons.appendChild(detail);
-      if (meta.rowAudit) { var audit = node('button', {type: 'button', 'class': 'gc-btn'}, 'Riwayat'); audit.addEventListener('click', function () { openAudit(rowData.id); }); buttons.appendChild(audit); }
-      if (meta.canDelete) { var remove = node('button', {type: 'button', 'class': 'gc-btn'}, 'Nonaktifkan'); remove.addEventListener('click', function () { removeRow(rowData.id); }); buttons.appendChild(remove); }
+      var rowId = rowData[meta.identifierProperty];
+      var detail = node('button', {type: 'button', 'class': 'gc-btn'}, meta.canUpdate ? 'Edit' : 'Detail'); detail.addEventListener('click', function () { openExisting(rowId); }); buttons.appendChild(detail);
+      if (meta.rowAudit) { var audit = node('button', {type: 'button', 'class': 'gc-btn'}, 'Riwayat'); audit.addEventListener('click', function () { openAudit(rowId); }); buttons.appendChild(audit); }
+      if (meta.canDelete) { var remove = node('button', {type: 'button', 'class': 'gc-btn'}, 'Nonaktifkan'); remove.addEventListener('click', function () { removeRow(rowId); }); buttons.appendChild(remove); }
       actions.appendChild(buttons); row.appendChild(actions); body.appendChild(row);
     });
     query('status').textContent = data.total + ' data'; query('page-info').textContent = 'Halaman ' + data.page + ' dari ' + Math.max(1, data.pageCount);
@@ -170,17 +172,46 @@
     state.dirty = false; var editing = state.editing !== null, container = query('fields'); container.textContent = '';
     query('form-title').textContent = (editing ? (meta.canUpdate ? 'Ubah ' : 'Detail ') : 'Tambah ') + meta.displayName; query('form-mode').textContent = meta.formMode;
     formFields().forEach(function (field) {
-      var wrap = node('div', {'class': 'gc-field' + (field.editorType === 'textarea' ? ' gc-field-wide' : '')}), label = node('label', {'for': 'gc-' + field.property}, field.label + (field.required ? ' *' : '')), input;
-      if (field.editorType === 'textarea') input = node('textarea', {rows: '4'}); else if (field.editorType === 'checkbox') input = node('input', {type: 'checkbox'}); else input = node('input', {type: field.editorType === 'number' ? 'number' : 'text'});
+      var wrap = node('div', {'class': 'gc-field' + (field.editorType === 'textarea' ? ' gc-field-wide' : '')}), label = node('label', {'for': 'gc-' + field.property}, field.label + (field.required ? ' *' : '')), input, dataList = null;
+      if (field.editorType === 'textarea') input = node('textarea', {rows: '4'});
+      else if (field.editorType === 'checkbox') input = node('input', {type: 'checkbox'});
+      else if (field.editorType === 'select') {
+        input = node('select'); input.appendChild(node('option', {value: ''}, '— Pilih —'));
+        (field.enumValues || []).forEach(function (value) { input.appendChild(node('option', {value: value}, value)); });
+      } else if (field.editorType === 'relation') {
+        dataList = node('datalist', {id: 'gc-list-' + field.property});
+        input = node('input', {type: 'search', list: dataList.id, autocomplete: 'off', placeholder: 'Ketik ID atau cari pilihan…'});
+      } else input = node('input', {type: ['number', 'date', 'time', 'datetime-local'].indexOf(field.editorType) >= 0 ? field.editorType : 'text'});
       input.id = 'gc-' + field.property; input.name = field.property;
+      input.required = !!field.required;
       if (rowData && rowData[field.property] !== null && rowData[field.property] !== undefined) {
         if (input.type === 'checkbox') input.checked = !!rowData[field.property];
         else if (input.type === 'date') { var date = new Date(rowData[field.property]); if (!isNaN(date.getTime())) input.value = date.getFullYear() + '-' + String(date.getMonth() + 1).replace(/^(\d)$/, '0$1') + '-' + String(date.getDate()).replace(/^(\d)$/, '0$1'); }
+        else if (input.type === 'datetime-local') { var timestamp = new Date(rowData[field.property]); if (!isNaN(timestamp.getTime())) input.value = timestamp.getFullYear() + '-' + String(timestamp.getMonth() + 1).replace(/^(\d)$/, '0$1') + '-' + String(timestamp.getDate()).replace(/^(\d)$/, '0$1') + 'T' + String(timestamp.getHours()).replace(/^(\d)$/, '0$1') + ':' + String(timestamp.getMinutes()).replace(/^(\d)$/, '0$1'); }
         else input.value = String(rowData[field.property]);
       }
-      if (editing && !meta.canUpdate) input.disabled = true; input.addEventListener('input', function () { state.dirty = true; }); wrap.appendChild(label); wrap.appendChild(input); container.appendChild(wrap);
+      if (editing && !meta.canUpdate) input.disabled = true; input.addEventListener('input', function () { state.dirty = true; }); wrap.appendChild(label); wrap.appendChild(input); if (dataList) wrap.appendChild(dataList); container.appendChild(wrap);
+      if (field.editorType === 'relation' && !input.disabled) bindRelationLookup(field, input, dataList, rowData);
     });
     query('form-error').hidden = true; query('overlay').hidden = false; query('drawer').hidden = false; var first = container.querySelector('input,textarea,select'); if (first) first.focus();
+  }
+  function bindRelationLookup(field, input, dataList, rowData) {
+    var relationTimer = null, currentId = rowData ? rowData[field.property] : null, currentLabel = rowData ? rowData[field.property + '__label'] : null;
+    function addOption(id, label) {
+      if (id === null || id === undefined) return;
+      var option = node('option', {value: String(id)}, label || String(id)); dataList.appendChild(option);
+    }
+    function loadOptions(search) {
+      api('relation_lookup', {field: field.property, q: search || '', page: 1, pageSize: 30}).then(function (data) {
+        dataList.textContent = ''; if (currentId !== null && currentId !== undefined) addOption(currentId, currentLabel);
+        (data.items || []).forEach(function (item) { addOption(item.id, item.label); });
+      }).catch(function (error) { notify(error.message); });
+    }
+    if (currentId !== null && currentId !== undefined) addOption(currentId, currentLabel);
+    input.addEventListener('input', function () {
+      window.clearTimeout(relationTimer); relationTimer = window.setTimeout(function () { loadOptions(input.value); }, 300);
+    });
+    loadOptions('');
   }
   function openExisting(id) { api('get', {id: id}).then(function (rowData) { state.editing = id; state.version = meta.versionProperty ? rowData[meta.versionProperty] : null; openDrawer(rowData); }).catch(function (error) { notify(error.message); }); }
   function closeAll(force) {

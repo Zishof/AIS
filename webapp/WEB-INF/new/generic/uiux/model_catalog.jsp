@@ -13,11 +13,11 @@ List models=GenericCrudAutoDefinitionFactory.listAdministrativeModels();
 String base=request.getContextPath()+"/new?frame=1&module=generic&page=model_crud&entity=";
 %>
 <section class="nui-page">
-  <header class="nui-page-head"><div><div class="nui-breadcrumb">Sistem / Generic CRUD</div><h1 class="nui-page-title">Model CRUD Catalog</h1><p class="nui-page-desc"><%=models.size()%> model Hibernate yang lolos allow-list. Model credential, token, file, audit, log, queue, dan pembayaran diblokir otomatis.</p></div></header>
+  <header class="nui-page-head"><div><div class="nui-breadcrumb">Sistem / Generic CRUD</div><h1 class="nui-page-title">Model CRUD Catalog</h1><p class="nui-page-desc"><%=models.size()%> model Hibernate terpetakan. Model operasional memakai CRUD scalar+relasi; kategori sensitif tersedia read-only dan field rahasia tetap disembunyikan.</p></div></header>
   <article class="nui-card"><div class="nui-toolbar"><input class="nui-input" type="search" data-model-search placeholder="Cari model, package, atau tabel…"><span class="nui-chip"><%=models.size()%> model</span></div>
-    <div class="nui-table-wrap"><table class="nui-table"><thead><tr><th>Model</th><th>Package</th><th>Entity Hibernate</th><th>Aksi</th></tr></thead><tbody data-model-rows>
-    <%for(int i=0;i<models.size();i++){Map model=(Map)models.get(i);String key=String.valueOf(model.get("entityKey"));String search=(String.valueOf(model.get("displayName"))+" "+key+" "+model.get("tableName")).toLowerCase();%>
-      <tr data-model-row data-search="<%=mcH(search)%>"><td><strong><%=mcH(model.get("displayName"))%></strong><br><small><%=mcH(key)%></small></td><td><%=mcH(model.get("packageName"))%></td><td><%=mcH(model.get("tableName"))%></td><td><a class="nui-btn nui-btn-primary" href="<%=mcH(base+URLEncoder.encode(key,"UTF-8"))%>">Buka CRUD</a></td></tr>
+    <div class="nui-table-wrap"><table class="nui-table"><thead><tr><th>Model</th><th>Package</th><th>Entity Hibernate</th><th>Mode</th><th>Aksi</th></tr></thead><tbody data-model-rows>
+    <%for(int i=0;i<models.size();i++){Map model=(Map)models.get(i);String key=String.valueOf(model.get("entityKey"));String search=(String.valueOf(model.get("displayName"))+" "+key+" "+model.get("tableName")+" "+model.get("mode")).toLowerCase();boolean restricted=Boolean.TRUE.equals(model.get("restricted"));%>
+      <tr data-model-row data-search="<%=mcH(search)%>"><td><strong><%=mcH(model.get("displayName"))%></strong><br><small><%=mcH(key)%></small></td><td><%=mcH(model.get("packageName"))%></td><td><%=mcH(model.get("tableName"))%></td><td><span class="nui-status <%=restricted?"warn":"ok"%>"><%=restricted?"READ ONLY":"CRUD"%></span></td><td><a class="nui-btn nui-btn-primary" href="<%=mcH(base+URLEncoder.encode(key,"UTF-8"))%>"><%=restricted?"Buka Data":"Buka CRUD"%></a></td></tr>
     <%}%></tbody></table></div>
   </article>
 </section>

@@ -63,9 +63,10 @@ parity form/action dan adapter domain lulus test matrix.
   `/new?module=generic&page=generic_crud`. Detail CRUD menerima hanya nama class
   yang cocok persis dengan allow-list entity Hibernate.
 - Entity/field credential, token, user/role/privilege, file/blob, audit/log,
-  queue/job, notification/webhook, dan bank/payment diblok fail-closed. Relasi
-  serta collection tidak dapat diubah oleh auto-adapter; model dengan business
-  rule kompleks wajib memakai adapter eksplisit.
+  queue/job, notification/webhook, dan bank/payment dibuka read-only; field
+  rahasia tetap diblok fail-closed. Relasi many-to-one dapat dipilih melalui
+  lookup server-side, sedangkan collection tidak dapat diubah oleh auto-adapter;
+  model dengan business rule kompleks tetap wajib memakai adapter eksplisit.
 - Delete otomatis hanya aktif jika entity memiliki property Boolean `aktif`,
   sehingga mass CRUD tidak memperkenalkan hard-delete generik.
 - Auto-adapter dan katalog administratif mensyaratkan Super Admin. Role reguler
@@ -74,3 +75,27 @@ parity form/action dan adapter domain lulus test matrix.
 Smoke test pemetaan scalar pada `KelompokKkn` telah memverifikasi String,
 Integer, Boolean, dan Date (`AUTO_ADAPTER_CRUD_MAPPING_OK`). Pengujian transaksi
 database tetap harus dijalankan di staging yang terhubung ke database AIS.
+
+## Perbaikan cakupan seluruh model
+
+- Identifier tidak lagi diasumsikan bernama `id`; UI memakai identifier Hibernate
+  aktual sehingga model seperti `Tbmuser.userId` dan `Tbmrole.roleId` dapat dibuka.
+- Field relasi many-to-one menghasilkan lookup paged dan divalidasi ulang dalam
+  Session transaksi sebelum disimpan.
+- Converter generik mendukung BigDecimal, BigInteger, Byte, Character, UUID,
+  enum, `java.sql.Date`, Timestamp, dan Time selain tipe scalar sebelumnya.
+- Katalog mencantumkan seluruh mapped concrete `GeneralValueObject`. Model kelas
+  sensitif berstatus READ_ONLY; model aman berstatus FULL_CRUD, dengan create
+  hanya bila constructor tanpa argumen tersedia dan delete hanya bila ada
+  Boolean `aktif` untuk soft-delete.
+
+Inventaris source saat verifikasi berisi 1.525 file model dan 1.506 turunan
+`GeneralValueObject` (1.495 concrete). Konfigurasi SessionFactory utama mempunyai
+1.437 mapping aktif; entity file/blob tertentu memakai SessionFactory streaming
+atau integrasi terpisah dan tidak dipaksa masuk transaksi database utama.
+
+Kompilasi package Generic CRUD, 35 pemeriksaan regresi, converter smoke, syntax
+JavaScript, dan JspC 11 halaman lulus. PostgreSQL lokal terdeteksi pada port 5432,
+tetapi autentikasi memakai konfigurasi lokal yang tersedia ditolak server;
+karena itu smoke transaksi create/update/delete dengan rollback belum dapat
+dijalankan sampai kredensial database pengujian yang valid tersedia.
