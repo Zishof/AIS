@@ -7,7 +7,7 @@ NewUiHybridMenuSnapshot nuiSideSnapshot=(NewUiHybridMenuSnapshot)request.getAttr
 List<NewUiHybridMenuNode> nuiSideBranches=nuiSideSnapshot==null?null:nuiSideSnapshot.getSidebarBranches();
 String nuiSideNewUrl=request.getContextPath()+"/new";
 %>
-<a class="nui-nav-home<%=request.getAttribute("nui_current_group_id")==null&&request.getAttribute("nui_current_menu_id")==null?" active":""%>" target="nuiMainFrame" data-shell-url="<%=nuiSideNewUrl%>" href="<%=nuiSideNewUrl%>?frame=1"><span class="nui-nav-icon">⌂</span><span>Beranda</span></a>
+<a class="nui-nav-home<%=request.getAttribute("nui_current_group_id")==null&&request.getAttribute("nui_current_menu_id")==null?" active":""%>" target="nuiMainFrame" data-shell-url="<%=nuiSideNewUrl%>" href="<%=nuiSideNewUrl%>?frame=1"><span class="nui-nav-icon"><i class="fa-solid fa-house nui-fa-icon" aria-hidden="true"></i></span><span>Beranda</span></a>
 <%if(nuiSideBranches==null||nuiSideBranches.isEmpty()){%>
 <div class="nui-nav-empty">Tidak ada branch atau leaf dengan izin READ untuk peran aktif.</div>
 <%}else{for(int nuiSideI=0;nuiSideI<nuiSideBranches.size();nuiSideI++){

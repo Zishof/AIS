@@ -1,6 +1,7 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ page import="java.util.List" %>
 <%@ page import="ais.common.newui.menu.NewUiHybridMenuNode" %>
+<%@ page import="ais.common.newui.menu.NewUiIconUtil" %>
 <%!
 private String nuiBranchH(Object v){if(v==null)return "";return String.valueOf(v).replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&#39;");}
 private boolean nuiBranchPathContains(List path,Long id){if(path==null||id==null)return false;for(int i=0;i<path.size();i++){Object o=path.get(i);if(o instanceof NewUiHybridMenuNode&&id.equals(((NewUiHybridMenuNode)o).getMenuId()))return true;}return false;}
@@ -16,8 +17,8 @@ String nuiBranchNewUrl=request.getContextPath()+"/new";String nuiBranchId="nuiHy
 %>
 <div class="nui-nav-node nui-nav-branch nui-nav-level-<%=Math.min(nuiDepth+1,6)%><%=nuiBranchOpen?" open":""%>" data-menu-id="<%=nuiBranch.getMenuId()%>">
   <div class="nui-nav-row">
-    <button type="button" class="nui-nav-toggle nui-nav-chevron" aria-expanded="<%=nuiBranchOpen%>" aria-controls="<%=nuiBranchId%>" title="Buka/tutup submenu">⌄</button>
-    <a class="nui-nav-link nui-nav-branch-button<%=nuiBranchActive?" active":""%>" target="nuiMainFrame" data-menu-id="<%=nuiBranch.getMenuId()%>" data-shell-url="<%=nuiBranchNewUrl%>?groupMenuId=<%=nuiBranch.getMenuId()%>" href="<%=nuiBranchNewUrl%>?frame=1&amp;groupMenuId=<%=nuiBranch.getMenuId()%>"><span class="nui-nav-icon"><%=nuiBranch.getIcon()==null||nuiBranch.getIcon().trim().length()==0?"◇":nuiBranchH(nuiBranch.getIcon())%></span><span><%=nuiBranchH(nuiBranch.getLabel())%></span><span class="nui-nav-count"><%=nuiBranch.getLeafCount()%></span></a>
+    <button type="button" class="nui-nav-toggle nui-nav-chevron" aria-expanded="<%=nuiBranchOpen%>" aria-controls="<%=nuiBranchId%>" title="Buka/tutup submenu"><i class="fa-solid fa-chevron-down nui-fa-icon" aria-hidden="true"></i></button>
+    <a class="nui-nav-link nui-nav-branch-button<%=nuiBranchActive?" active":""%>" target="nuiMainFrame" data-menu-id="<%=nuiBranch.getMenuId()%>" data-shell-url="<%=nuiBranchNewUrl%>?groupMenuId=<%=nuiBranch.getMenuId()%>" href="<%=nuiBranchNewUrl%>?frame=1&amp;groupMenuId=<%=nuiBranch.getMenuId()%>"><span class="nui-nav-icon"><i class="<%=nuiBranchH(NewUiIconUtil.classes(nuiBranch.getIcon(),true))%> nui-fa-icon" aria-hidden="true"></i></span><span><%=nuiBranchH(nuiBranch.getLabel())%></span><span class="nui-nav-count"><%=nuiBranch.getLeafCount()%></span></a>
   </div>
   <div id="<%=nuiBranchId%>" class="nui-nav-children nui-nav-branch-children">
   <%List<NewUiHybridMenuNode> nuiBranchChildren=nuiBranch.getBranchChildren();for(int nuiChildI=0;nuiChildI<nuiBranchChildren.size();nuiChildI++){
