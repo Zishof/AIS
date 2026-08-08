@@ -78,8 +78,16 @@ public class LaporanMonitorPerkuliahanKbm extends MyWindow {
 	}
 
 	private void init() {
+		// Borderlayout tidak memiliki ukuran bawaan. Ketika laporan dibuka dari
+		// tab Laporan KBM, parent baru diberi tinggi setelah constructor selesai,
+		// sehingga layout ini dapat ter-render dengan tinggi 0 dan seluruh toolbar
+		// serta pratinjau PDF tampak kosong.
+		setWidth("100%");
+		setHeight("100%");
 
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
+		borderlayout.setWidth("100%");
+		borderlayout.setHeight("100%");
 		borderlayout.setParent(this);
 
 		center = new Center();
