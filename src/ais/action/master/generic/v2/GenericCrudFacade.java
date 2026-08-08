@@ -56,6 +56,9 @@ public class GenericCrudFacade {
             GenericCrudFormDefinition form = formProvider.getDefinition(context, null, true);
             result.put("formDefinition", form);
             result.put("formActions", formProvider.getFormActions(context, null));
+        } else {
+            List parityActions = new GenericCrudZkossParityService().actions(context);
+            if (!parityActions.isEmpty()) result.put("formActions", parityActions);
         }
         return result;
     }
