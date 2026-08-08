@@ -37,8 +37,7 @@ if(groupMenuId!=null){
     else{
         target="/WEB-INF/new/_shared/menu/leaf_catalog.jsp";pageName="leaf_catalog";
         request.setAttribute("nui_catalog_group",group);
-        request.setAttribute("nui_catalog_direct_leaves",NewUiHybridMenuCatalogService.forGroup(snapshot,groupMenuId,false,NewUiHybridMenuCatalogService.SORT_ORDER));
-        request.setAttribute("nui_catalog_all_leaves",NewUiHybridMenuCatalogService.forGroup(snapshot,groupMenuId,true,NewUiHybridMenuCatalogService.SORT_ORDER));
+        request.setAttribute("nui_catalog_all_nodes",NewUiHybridMenuCatalogService.allDescendants(snapshot,groupMenuId,NewUiHybridMenuCatalogService.SORT_ORDER));
     }
 }else if(menuId!=null){
     if(NewUiHybridMenuRouteRegistry.FORBIDDEN.equals(menuStatus)||selected==null){httpStatus=403;target="/WEB-INF/new/_shared/ui/403.jsp";}

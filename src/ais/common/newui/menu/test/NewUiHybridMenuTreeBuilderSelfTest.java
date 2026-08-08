@@ -38,6 +38,8 @@ public final class NewUiHybridMenuTreeBuilderSelfTest {
         source.add(node(3, 10, 30, 2, false, true));
         source.add(node(4, 0, 40, 2, true, true));
         source.add(node(5, 999, 50, 3, true, true));
+        source.add(node(6, 10, 60, 3, false, false));
+        source.add(node(7, 60, 70, 1, true, true));
 
         NewUiHybridMenuTreeBuilder.Result built = NewUiHybridMenuTreeBuilder.build(source);
         NewUiHybridMenuSnapshot snapshot = new NewUiHybridMenuSnapshot("u", "r", "pt", built);
@@ -45,10 +47,19 @@ public final class NewUiHybridMenuTreeBuilderSelfTest {
         check(branch != null && branch.isBranch(), "parent with visible leaf must be branch");
         check(branch.isStructuralOnly(), "READ=0 parent must be structural-only");
         check(branch.getDirectLeaves().size() == 1, "forbidden child leaked or readable leaf missing");
+        check(branch.getBranchChildren().size() == 1, "visible sub-group missing");
+        check(branch.getDescendantLeaves().size() == 2, "sub-child leaf missing");
         check(snapshot.findVisible(Long.valueOf(3L)) == null, "READ=0 leaf leaked");
         check(snapshot.getSidebarBranches().size() == 2, "root/orphan leaves were not grouped virtually");
         check(NewUiHybridMenuCatalogService.forGroup(snapshot, Long.valueOf(1L), false, "order").size() == 1,
                 "direct catalog incorrect");
+        List<NewUiHybridMenuNode> hierarchy = NewUiHybridMenuCatalogService.allDescendants(
+                snapshot, Long.valueOf(1L), NewUiHybridMenuCatalogService.SORT_ORDER);
+        check(hierarchy.size() == 3, "catalog must contain every child and sub-child");
+        check(hierarchy.get(0).getMenuId().longValue() == 2L
+                && hierarchy.get(1).getMenuId().longValue() == 6L
+                && hierarchy.get(2).getMenuId().longValue() == 7L,
+                "catalog hierarchy order incorrect");
         check(NewUiHybridMenuRouteRegistry.FORBIDDEN.equals(
                 NewUiHybridMenuRouteGuard.evaluateMenu(snapshot, Long.valueOf(3L))), "direct READ=0 not forbidden");
         check(NewUiHybridMenuRouteRegistry.FORBIDDEN.equals(
