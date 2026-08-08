@@ -675,6 +675,10 @@ public class ElearningApiUtil {
 						jsonObject.put("status", "97");
 						jsonObject.put("description",
 								"Format nilai tidak ditemukan, harap menghubungi bagian admin atau puskom");
+					} else if (detailperkuliahan.apakahNilaiDikunci(formatNilaia)) {
+						jsonObject.put("status", "97");
+						jsonObject.put("description",
+								"Nilai tidak diubah karena kolom penilaian telah dikunci di AIS");
 					} else {
 
 						Session session = HibernateUtil.openSession();

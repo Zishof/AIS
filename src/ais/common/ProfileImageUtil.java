@@ -165,7 +165,7 @@ public class ProfileImageUtil {
 		if (targetId != null && targetJenis != null && targetClass != null) {
 			FileFotoLain fileFotoLain = FileFotoLain.ambil(targetId, targetJenis, targetClass);
 			if (fileFotoLain != null) {
-				return urlFotoProfil(fileFotoLain, targetClass);
+				return urlFotoProfil(fileFotoLain, targetClass, kecil);
 			}
 			// Fallback: jika foto Mahasiswa tidak ditemukan (fileFotoLain==null) dan object
 			// aslinya BiodataCalonMahasiswa, gunakan foto yang diupload saat pendaftaran
@@ -179,7 +179,7 @@ public class ProfileImageUtil {
 						FileFotoLain fotocalon = FileFotoLain.ambil(bcm.getId(),
 								FotoBiodataCalonMahasiswa.DEFAULT_JENIS, FotoBiodataCalonMahasiswa.class);
 						if (fotocalon != null) {
-							return urlFotoProfil(fotocalon, FotoBiodataCalonMahasiswa.class);
+							return urlFotoProfil(fotocalon, FotoBiodataCalonMahasiswa.class, kecil);
 						}
 					} catch (Exception _exFallback) { ais.common.ErrorAuditUtil.record(_exFallback, "auto-audit(empty-catch) src/ais/common/ProfileImageUtil.java:184"); /* abaikan, lanjut ke default */ }
 				}
@@ -187,7 +187,7 @@ public class ProfileImageUtil {
 			if (baseEntity instanceof Mahasiswa) {
 				FileFotoLain fotoCalonDariMahasiswa = cariFotoCalonDariMahasiswa((Mahasiswa) baseEntity);
 				if (fotoCalonDariMahasiswa != null) {
-					return urlFotoProfil(fotoCalonDariMahasiswa, FotoBiodataCalonMahasiswa.class);
+					return urlFotoProfil(fotoCalonDariMahasiswa, FotoBiodataCalonMahasiswa.class, kecil);
 				}
 			}
 			return FileFotoLain.ambilLinkLampiranLain(fileFotoLain, false, false, targetClass, true, false, false);
@@ -196,12 +196,15 @@ public class ProfileImageUtil {
 		return Common.ROOT + "/img/user_default.png";
 	}
 
-	private static String urlFotoProfil(FileFotoLain fileFotoLain, Class<?> targetClass) throws Exception {
+	private static String urlFotoProfil(FileFotoLain fileFotoLain, Class<?> targetClass, boolean kecil) throws Exception {
 		if (fileFotoLain == null) {
 			return Common.ROOT + "/img/user_default.png";
 		}
 		if (fileFotoLain.getGdrive() != null && !fileFotoLain.getGdrive().isEmpty()) {
-			return fileFotoLain.createLinkUri();
+			// URL export/download Google Drive sering menolak dirender langsung sebagai
+			// <img>, walaupun tetap berhasil ketika dibuka pada popup. Untuk kartu/list
+			// gunakan endpoint thumbnail; preview klik tetap memakai URL ukuran penuh.
+			return kecil ? fileFotoLain.thumbnailGDriveUrl() : fileFotoLain.createLinkUri();
 		}
 		return FileFotoLain.ambilLinkLampiranLain(fileFotoLain, false, false, targetClass, true, false, false);
 	}

@@ -39,6 +39,7 @@ import org.zkoss.zul.Toolbar;
 import org.zkoss.zul.Vbox;
 import org.zkoss.zul.West;
 
+import ais.action.master.helper.KrsDanSkripsiHelper;
 import ais.common.Common;
 import ais.common.PesanFormalHelper;
 import ais.common.CommonPrivilages;
@@ -326,7 +327,9 @@ public class FormatNilaiSkripsiAction extends GenericAutowireComposer {
 				}
 			}
 
-			for (String kode : formatNilaiSkripsi.getKodeMatakuliahDan().split(",")) {
+			String kodeDanEfektif = KrsDanSkripsiHelper.kodeMatakuliahDanEfektif(
+					formatNilaiSkripsi.getKodeMatakuliahDan(), formatNilaiSkripsi.getKodeMatakuliah());
+			for (String kode : kodeDanEfektif.split(",")) {
 				if (!kode.trim().isEmpty()) {
 					Object[] nama = (Object[]) HibernateUtil.currentSession().createCriteria(Matakuliah.class)
 							.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
@@ -1514,7 +1517,8 @@ public class FormatNilaiSkripsiAction extends GenericAutowireComposer {
 
 		formatNilaiSkripsi.setMinimalIpk(minimalIpk.getValue());
 		formatNilaiSkripsi.setMinimalSks(minimalSks.getValue());
-		formatNilaiSkripsi.setKodeMatakuliah(kodeMatakuliah.getValue().trim());
+		String kodeMatakuliahAtau = kodeMatakuliah.getValue().trim();
+		formatNilaiSkripsi.setKodeMatakuliah(kodeMatakuliahAtau);
 		formatNilaiSkripsi.setMinimalAngkaKredit(minimalAngkaKredit.getValue());
 		formatNilaiSkripsi.setMatkulPrasyaratLulus(
 				matkulPrasyaratLulus.getValue() == null ? null : matkulPrasyaratLulus.getValue().trim());
@@ -1559,7 +1563,8 @@ public class FormatNilaiSkripsiAction extends GenericAutowireComposer {
 		formatNilaiSkripsi.setUploadLampiran14Wajib(uploadLampiran14Wajib.isChecked());
 		formatNilaiSkripsi.setUploadLampiran15Wajib(uploadLampiran15Wajib.isChecked());
 
-		formatNilaiSkripsi.setKodeMatakuliahDan(kodeMatakuliahDan.getValue().trim());
+		formatNilaiSkripsi.setKodeMatakuliahDan(KrsDanSkripsiHelper.kodeMatakuliahDanEfektif(
+				kodeMatakuliahDan.getValue(), kodeMatakuliahAtau));
 
 		formatNilaiSkripsi.setTipeItem1(
 				tipeItem1.getSelectedItem() == null || tipeItem1.getSelectedItem().getValue() == null ? null

@@ -92,6 +92,28 @@ public class DetailPAHelper implements DataLoader, DataCriteria {
 		});
 	}
 
+	private boolean bolehKelolaDosenDalamLingkup(Dosen dosen) {
+		if (create || update) {
+			return true;
+		}
+		try {
+			ais.database.model.Tbmuser pengguna = Common.getCurrentUser();
+			ais.database.model.Tbmrole peran = pengguna == null ? null : pengguna.hakAkses();
+			if (pengguna == null || peran == null || dosen == null) {
+				return false;
+			}
+			if (peran.getJurusan() != null && dosen.getJurusan() != null
+					&& peran.getJurusan().getId().equals(dosen.getJurusan().getId())) {
+				return true;
+			}
+			return peran.getFakultas() != null && dosen.getFakultas() != null
+					&& peran.getFakultas().getId().equals(dosen.getFakultas().getId());
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "DetailPAHelper.bolehKelolaDosenDalamLingkup");
+			return false;
+		}
+	}
+
 	class DetailPARenderer extends ais.ui.util.MyRowRenderer {
 
 		public DetailPARenderer() {
@@ -288,13 +310,18 @@ public class DetailPAHelper implements DataLoader, DataCriteria {
 		button.setParent(toolbar);
 
 		button = new MyToolbarbuttonConfig("Ambil Mahasiswa", "/img/new.gif");
-		button.setVisible(create || update);
+		button.setVisible(bolehKelolaDosenDalamLingkup(dosen));
 		button.addEventListener("onClick", new EventListener() {
 
 			private AmbilDataMahasiswaForDosenPAHelper dataMahasiswaHelper = new AmbilDataMahasiswaForDosenPAHelper();
 
 			@Override
 			public void onEvent(Event event) throws Exception {
+				if (!bolehKelolaDosenDalamLingkup(dosen)) {
+					MyMessageboxConfig.show("Anda tidak memiliki hak untuk mengubah Dosen PA di luar lingkup fakultas/prodi.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+					return;
+				}
 				dataMahasiswaHelper.display(dosen, getDataloader(), window);
 			}
 

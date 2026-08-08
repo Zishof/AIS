@@ -39,6 +39,7 @@ import org.zkoss.zul.Toolbar;
 import org.zkoss.zul.Vbox;
 import org.zkoss.zul.West;
 
+import ais.action.master.helper.KrsDanSkripsiHelper;
 import ais.action.master.helper.RevisiHelper;
 import ais.common.Common;
 import ais.common.PesanFormalHelper;
@@ -281,7 +282,10 @@ public class FormatNilaiProposalSkripsiAction extends GenericAutowireComposer {
 				}
 			}
 
-			for (String kode : formatNilaiProposalSkripsi.getKodeMatakuliahDan().split(",")) {
+			String kodeDanEfektif = KrsDanSkripsiHelper.kodeMatakuliahDanEfektif(
+					formatNilaiProposalSkripsi.getKodeMatakuliahDan(),
+					formatNilaiProposalSkripsi.getKodeMatakuliah());
+			for (String kode : kodeDanEfektif.split(",")) {
 				if (!kode.trim().isEmpty()) {
 
 					Object[] nama = (Object[]) HibernateUtil.currentSession().createCriteria(Matakuliah.class)
@@ -1494,8 +1498,10 @@ public class FormatNilaiProposalSkripsiAction extends GenericAutowireComposer {
 		formatNilaiProposalSkripsi.setDosen4(dosen4.getValue());
 		formatNilaiProposalSkripsi.setDosen5(dosen5.getValue());
 		formatNilaiProposalSkripsi.setDosen6(dosen6.getValue());
-		formatNilaiProposalSkripsi.setKodeMatakuliah(kodeMatakuliah.getValue().trim());
-		formatNilaiProposalSkripsi.setKodeMatakuliahDan(kodeMatakuliahDan.getValue().trim());
+		String kodeMatakuliahAtau = kodeMatakuliah.getValue().trim();
+		formatNilaiProposalSkripsi.setKodeMatakuliah(kodeMatakuliahAtau);
+		formatNilaiProposalSkripsi.setKodeMatakuliahDan(KrsDanSkripsiHelper.kodeMatakuliahDanEfektif(
+				kodeMatakuliahDan.getValue(), kodeMatakuliahAtau));
 
 		formatNilaiProposalSkripsi.setAdaProposal(adaProposal.isChecked());
 		formatNilaiProposalSkripsi.setAdaPresentasi(adaPresentasi.isChecked());
@@ -1552,8 +1558,6 @@ public class FormatNilaiProposalSkripsiAction extends GenericAutowireComposer {
 		formatNilaiProposalSkripsi.setUploadLampiran13Wajib(uploadLampiran13Wajib.isChecked());
 		formatNilaiProposalSkripsi.setUploadLampiran14Wajib(uploadLampiran14Wajib.isChecked());
 		formatNilaiProposalSkripsi.setUploadLampiran15Wajib(uploadLampiran15Wajib.isChecked());
-
-		formatNilaiProposalSkripsi.setKodeMatakuliahDan(kodeMatakuliahDan.getValue().trim());
 
 		formatNilaiProposalSkripsi.setTipeItem1(
 				tipeItem1.getSelectedItem() == null || tipeItem1.getSelectedItem().getValue() == null ? null

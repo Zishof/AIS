@@ -269,6 +269,36 @@ public class KrsDanSkripsiHelper {
 	// 2. CEK MENGAMBIL KRS SEMINAR / SKRIPSI (DAN)
 	// =========================================================================
 
+	/**
+	 * Menghapus kode pada kelompok DAN yang sudah tercantum pada kelompok ATAU.
+	 * Kode ATAU adalah kandidat matakuliah utama skripsi, sedangkan kode DAN hanya
+	 * boleh berisi prasyarat tambahan. Tanpa normalisasi ini satu daftar kandidat
+	 * yang tersalin ke kedua kolom berubah menjadi kewajiban mengambil semua MK.
+	 */
+	public static String kodeMatakuliahDanEfektif(String kodeDan, String kodeAtau) {
+		Set<String> alternatif = new HashSet<String>();
+		for (String kode : (kodeAtau == null ? "" : kodeAtau).split(",")) {
+			if (kode != null && !kode.trim().isEmpty()) {
+				alternatif.add(kode.trim().toLowerCase(java.util.Locale.ENGLISH));
+			}
+		}
+
+		Set<String> sudahDitambahkan = new HashSet<String>();
+		StringBuilder hasil = new StringBuilder();
+		for (String kode : (kodeDan == null ? "" : kodeDan).split(",")) {
+			String bersih = kode == null ? "" : kode.trim();
+			String pembanding = bersih.toLowerCase(java.util.Locale.ENGLISH);
+			if (!bersih.isEmpty() && !alternatif.contains(pembanding)
+					&& sudahDitambahkan.add(pembanding)) {
+				if (hasil.length() > 0) {
+					hasil.append(",");
+				}
+				hasil.append(bersih);
+			}
+		}
+		return hasil.toString();
+	}
+
 	public static Detailperkuliahan checkApakahSudahMengambilKrsSeminarSkripsiDan(Mahasiswa mahasiswa,
 			String label_seminar_skripsi) {
 		if (mahasiswa == null || label_seminar_skripsi == null || label_seminar_skripsi.trim().isEmpty()) {

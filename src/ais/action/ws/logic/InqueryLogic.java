@@ -265,6 +265,13 @@ public class InqueryLogic {
 			int smt = 1;
 			Kegiatan kegiatan = biodataCalonMahasiswa.getPembayaranDaftarUlang();
 			if (kegiatan == null) {
+				// H2H tidak membawa parameter semester. Dahulukan kegiatan/tagihan yang
+				// benar-benar sudah dibuat dari layar pembayaran (bisa semester 0).
+				kegiatan = biodataCalonMahasiswa.ambilKegiatans(null, jenisKegiatan);
+			}
+			if (kegiatan != null) {
+				smt = kegiatan.getSemster();
+			} else {
 				kegiatan = biodataCalonMahasiswa.ambilKegiatans(smt, jenisKegiatan);
 			}
 			JadwalPembayaran jadwalPembayaran;
@@ -303,6 +310,24 @@ public class InqueryLogic {
 				java.util.Collection<DetailBiaya> detailBiayas1 = pembayaranUtil
 						.getDetailBiayaCalonMahasiswa(biodataCalonMahasiswa, jenisKegiatan, myjurusan1, smt, true);
 				detailBiayas.addAll(detailBiayas1);
+			}
+
+			// Konfigurasi lama sering menaruh tagihan daftar ulang pada semester 0,
+			// sedangkan kode H2H lama selalu meminta semester 1. Jika pilihan utama
+			// kosong, coba semester pasangannya agar hasil inquiry sama dengan layar.
+			if (detailBiayas.isEmpty()) {
+				int smtAlternatif = smt == 0 ? 1 : 0;
+				java.util.Collection<DetailBiaya> alternatif = pembayaranUtil
+						.getDetailBiayaCalonMahasiswa(biodataCalonMahasiswa, jenisKegiatan, myjurusan1,
+								smtAlternatif, true);
+				if (alternatif != null && !alternatif.isEmpty()) {
+					detailBiayas.addAll(alternatif);
+					smt = smtAlternatif;
+					Kegiatan kegiatanAlternatif = biodataCalonMahasiswa.ambilKegiatans(smt, jenisKegiatan);
+					if (kegiatanAlternatif != null) {
+						kegiatan = kegiatanAlternatif;
+					}
+				}
 			}
 
 			String pemb = "|";
@@ -402,7 +427,7 @@ public class InqueryLogic {
 				data.add(new String[] { "angkatan", biodataCalonMahasiswa.getTahun() + "" });
 
 				data.add(new String[] { "semester", Perkuliahan.GANJIL });
-				data.add(new String[] { "semester_ke", "0" });
+				data.add(new String[] { "semester_ke", smt + "" });
 				data.add(new String[] { "tanggal_max", Common.dateFormat2.get().format(jadwalPembayaran.getEndDate()) });
 				data.add(new String[] { "tanggal_min", Common.dateFormat2.get().format(jadwalPembayaran.getStartDate()) });
 				data.add(new String[] { "amount", pemb });
@@ -449,7 +474,7 @@ public class InqueryLogic {
 				data.add(new String[] { "angkatan", biodataCalonMahasiswa.getTahun() + "" });
 
 				data.add(new String[] { "semester", Perkuliahan.GANJIL });
-				data.add(new String[] { "semester_ke", "0" });
+				data.add(new String[] { "semester_ke", smt + "" });
 				data.add(new String[] { "tanggal_max", Common.dateFormat2.get().format(jadwalPembayaran.getEndDate()) });
 				data.add(new String[] { "tanggal_min", Common.dateFormat2.get().format(jadwalPembayaran.getStartDate()) });
 				data.add(new String[] { "amount", pemb });
