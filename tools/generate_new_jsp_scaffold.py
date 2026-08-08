@@ -17,6 +17,8 @@ ROOT = Path(__file__).resolve().parents[1]
 NEW_UI = ROOT / "webapp" / "WEB-INF" / "new"
 INDEX = NEW_UI / "index.jsp"
 SIDEBAR = NEW_UI / "_shared" / "ui" / "sidebar.jsp"
+HYBRID_MENU = NEW_UI / "_shared" / "menu"
+HYBRID_SIDEBAR = HYBRID_MENU / "sidebar_hybrid.jsp"
 COMMAND = NEW_UI / "_shared" / "ui" / "command_palette.jsp"
 MANIFEST = NEW_UI / "_shared" / "config" / "developer-catalog-manifest.json"
 
@@ -25,15 +27,27 @@ def validate_dynamic_navigation():
     errors = []
     index_text = INDEX.read_text(encoding="utf-8")
     sidebar_text = SIDEBAR.read_text(encoding="utf-8")
+    hybrid_sidebar_text = HYBRID_SIDEBAR.read_text(encoding="utf-8")
     command_text = COMMAND.read_text(encoding="utf-8")
     if "String[][] modules" in index_text:
         errors.append("index.jsp still contains a static module array")
     if "sidebar.jsp" not in index_text or "command_palette.jsp" not in index_text:
         errors.append("index.jsp does not include both dynamic navigation partials")
-    if "nui_menu_tree" not in sidebar_text or "nui_menu_tree" not in command_text:
-        errors.append("navigation partials do not consume the shared authorized DTO tree")
-    if "NewUiMenuAccessService.getAccessibleTree" in sidebar_text + command_text:
+    required_partials = (
+        "sidebar_hybrid.jsp", "sidebar_branch.jsp", "leaf_catalog.jsp", "leaf_card.jsp",
+        "breadcrumb.jsp", "empty_catalog.jsp", "menu_diagnostics.jsp",
+    )
+    for partial in required_partials:
+        if not (HYBRID_MENU / partial).is_file():
+            errors.append("missing hybrid partial: " + partial)
+    if "sidebar_hybrid.jsp" not in sidebar_text:
+        errors.append("sidebar facade does not delegate to the hybrid renderer")
+    if "newUiHybridMenuSnapshot" not in hybrid_sidebar_text or "newUiHybridMenuSnapshot" not in command_text:
+        errors.append("navigation partials do not consume the shared authorized hybrid snapshot")
+    if "NewUiMenuAccessService.getAccessibleTree" in sidebar_text + hybrid_sidebar_text + command_text:
         errors.append("renderer JSP must not query/build menu snapshots")
+    if "String[][] modules" in sidebar_text + hybrid_sidebar_text + command_text:
+        errors.append("operational navigation still contains a static module array")
     if errors:
         raise SystemExit("\n".join("ERROR: " + error for error in errors))
 

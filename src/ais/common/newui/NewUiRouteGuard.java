@@ -2,6 +2,11 @@ package ais.common.newui;
 
 import javax.servlet.http.HttpServletRequest;
 
+import ais.common.newui.menu.NewUiHybridMenuNode;
+import ais.common.newui.menu.NewUiHybridMenuRouteGuard;
+import ais.common.newui.menu.NewUiHybridMenuRouteRegistry;
+import ais.common.newui.menu.NewUiHybridMenuSnapshot;
+
 /** Fail-closed guard untuk route UI dan action service New UI. */
 public final class NewUiRouteGuard {
 
@@ -12,16 +17,24 @@ public final class NewUiRouteGuard {
         if (module != null && module.startsWith("_shared")) {
             return NewUiRouteRegistry.MAPPED_AND_AUTHORIZED;
         }
-        NewUiMenuNode node = NewUiMenuAccessService.findByRoute(request, module, page);
-        if (node != null && node.isReadable()) return NewUiRouteRegistry.MAPPED_AND_AUTHORIZED;
-        if (NewUiRouteRegistry.isKnownNewUiRoute(module, page)) {
-            return NewUiRouteRegistry.MAPPED_BUT_FORBIDDEN;
+        Long menuId = menuId(request);
+        NewUiHybridMenuSnapshot snapshot = NewUiMenuAccessService.getSnapshot(request);
+        String status = NewUiHybridMenuRouteGuard.evaluateMenu(snapshot, menuId);
+        NewUiHybridMenuNode node = menuId == null ? null : snapshot.findAssigned(menuId);
+        if ((NewUiHybridMenuRouteRegistry.NEW_UI.equals(status)
+                || NewUiHybridMenuRouteRegistry.LEGACY_EMBED.equals(status)
+                || NewUiHybridMenuRouteRegistry.LEGACY_REDIRECT.equals(status))
+                && node != null && module != null && module.equals(node.getNewUiModule())) {
+            String wanted = page == null || page.length() == 0 ? "index" : page;
+            String actual = node.getNewUiPage() == null ? "index" : node.getNewUiPage();
+            if (wanted.equals(actual)) return NewUiRouteRegistry.MAPPED_AND_AUTHORIZED;
         }
+        if (NewUiHybridMenuRouteRegistry.FORBIDDEN.equals(status)) return NewUiRouteRegistry.MAPPED_BUT_FORBIDDEN;
         return NewUiRouteRegistry.UNMAPPED;
     }
 
     public static NewUiPermission permissionFor(HttpServletRequest request, String module, String page) {
-        NewUiMenuNode node = NewUiMenuAccessService.findByRoute(request, module, page);
+        NewUiMenuNode node = NewUiMenuAccessService.findAssigned(request, menuId(request));
         return node == null ? NewUiPermission.none() : node.getPermission();
     }
 
@@ -60,4 +73,12 @@ public final class NewUiRouteGuard {
 
     /** Penegakan selalu aktif; method dipertahankan untuk kompatibilitas pemanggil lama. */
     public static boolean isEnforced() { return true; }
+
+    private static Long menuId(HttpServletRequest request) {
+        if (request == null) return null;
+        String value = request.getParameter("menuId");
+        if (value == null || value.trim().length() == 0) value = request.getParameter("menu");
+        try { return value == null ? null : Long.valueOf(value); }
+        catch (Exception e) { return null; }
+    }
 }

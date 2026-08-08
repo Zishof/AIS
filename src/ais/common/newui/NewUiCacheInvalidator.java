@@ -95,6 +95,11 @@ public final class NewUiCacheInvalidator {
             session.removeAttribute(SESSION_TREE_VERSION);
             session.removeAttribute(SESSION_CURRENT_MENUS);
             session.removeAttribute(SESSION_CURRENT_MENU);
+            session.removeAttribute("new_ui_hybrid_menu_snapshot");
+            session.removeAttribute("new_ui_hybrid_menu_marker");
+            session.removeAttribute("new_ui_hybrid_menu_role_id");
+            session.removeAttribute("new_ui_hybrid_permission_map");
+            session.removeAttribute("new_ui_hybrid_route_map");
         } catch (Exception e) {
             ais.common.ErrorAuditUtil.record(e, "NewUiCacheInvalidator.invalidateSession");
         }
