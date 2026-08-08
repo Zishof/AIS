@@ -13,9 +13,11 @@ import org.hibernate.Session;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
+import org.zkoss.util.media.Media;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
+import org.zkoss.zk.ui.event.UploadEvent;
 import org.zkoss.zk.ui.sys.ExecutionsCtrl;
 import org.zkoss.zul.A;
 import org.zkoss.zul.Borderlayout;
@@ -24,6 +26,7 @@ import org.zkoss.zul.Checkbox;
 import org.zkoss.zul.Columns;
 import org.zkoss.zul.Combobox;
 import org.zkoss.zul.Comboitem;
+import org.zkoss.zul.Filedownload;
 import org.zkoss.zul.Grid;
 import org.zkoss.zul.Hbox;
 import org.zkoss.zul.Html;
@@ -321,6 +324,64 @@ public class HasilSPMIAction extends BaseSPMIAction implements FormSop {
             boolean canDelete = delete && !persetujuan && !item.getStatus().equals(HasilSPMI.DISETUJU);
             Hbox actionHbox = Common.copyEditDeleteButtons(canEdit, canEdit, canDelete, item, HasilSPMIAction.this);
             actionHbox.setParent(row);
+
+            MyToolbarbuttonConfig downloadAmi = new MyToolbarbuttonConfig("Unduh AMI", "/img/excel.png");
+            downloadAmi.setTooltiptext("Unduh satu file format AMI lengkap untuk diisi secara offline");
+            downloadAmi.setOrient("vertical");
+            downloadAmi.addEventListener("onClick", new EventListener() {
+                @Override
+                public void onEvent(Event e) throws Exception {
+                    try {
+                        byte[] workbook = AmiExcelHelper.exportWorkbook(item);
+                        Filedownload.save(workbook, AmiExcelHelper.MIME_XLSX,
+                                AmiExcelHelper.fileName(item));
+                    } catch (Exception ex) {
+                        Common.tampilErrorJikaAdmin(ex);
+                        MyMessageboxConfig.show("Format AMI tidak dapat dibuat. " + ex.getMessage()
+                                + " Langkah yang dapat dilakukan: (1) pastikan Jenis SPMI sudah dipilih; "
+                                + "(2) pastikan master Standar, Indikator, dan Daftar Tilik sudah aktif; "
+                                + "(3) coba unduh kembali.", "Peringatan",
+                                MyMessageboxConfig.OK, MyMessageboxConfig.ERROR);
+                    }
+                }
+            });
+            downloadAmi.setParent(actionHbox);
+
+            MyToolbarbuttonConfig uploadAmi = new MyToolbarbuttonConfig("Upload AMI", "/img/upload.png");
+            uploadAmi.setTooltiptext("Upload kembali satu file XLSX yang diunduh dari pengajuan AMI ini");
+            uploadAmi.setOrient("vertical");
+            uploadAmi.setVisible(canEdit);
+            uploadAmi.setUpload(Common.ukuranFileUpload());
+            uploadAmi.addEventListener("onUpload", new EventListener() {
+                @Override
+                public void onEvent(Event e) throws Exception {
+                    UploadEvent uploadEvent = (UploadEvent) e;
+                    Media media = uploadEvent.getMedia();
+                    try {
+                        if (media == null || media.getName() == null
+                                || !media.getName().toLowerCase().endsWith(".xlsx")) {
+                            throw new IllegalArgumentException("File harus berformat Excel Open XML (.xlsx).");
+                        }
+                        if (!ais.action.master.helper.generic.AmbilDataTugasFileContent.checkFile(media)) return;
+                        AmiExcelHelper.ImportResult result = AmiExcelHelper.importWorkbook(item, media.getByteData());
+                        Common.refresh(item);
+                        MyMessageboxConfig.show(result.message(), "Pemberitahuan",
+                                MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION,
+                                new EventListener() {
+                                    @Override
+                                    public void onEvent(Event event) throws Exception {
+                                        onSearchDefault(null);
+                                    }
+                                });
+                    } catch (Exception ex) {
+                        Common.tampilErrorJikaAdmin(ex);
+                        MyMessageboxConfig.show("Upload format AMI gagal. " + ex.getMessage()
+                                + " Tidak ada data yang diproses bila validasi file gagal.", "Peringatan",
+                                MyMessageboxConfig.OK, MyMessageboxConfig.ERROR);
+                    }
+                }
+            });
+            uploadAmi.setParent(actionHbox);
 
             MyToolbarbuttonConfig printBtn = new MyToolbarbuttonConfig("", "/img/print.png");
             printBtn.setTooltiptext("Cetak");
