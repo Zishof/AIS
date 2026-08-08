@@ -18,9 +18,9 @@ Set<Long> nuiDirectIds=new HashSet<Long>();for(int nuiD=0;nuiD<nuiCatalogDirect.
     <%if(nuiCatalogGroup.isClickable()){%><a class="nui-btn nui-btn-hero" target="nuiMainFrame" data-shell-url="<%=request.getContextPath()%>/new?menuId=<%=nuiCatalogGroup.getMenuId()%>" href="<%=request.getContextPath()%>/new?frame=1&amp;menuId=<%=nuiCatalogGroup.getMenuId()%>">Buka Ringkasan</a><%}%></div>
   </header>
   <div class="nui-card nui-catalog-toolbar">
-    <input id="nuiLeafSearch" class="nui-input" placeholder="Cari menu dalam <%=nuiCatalogH(nuiCatalogGroup.getLabel())%>..." autocomplete="off">
+    <input id="nuiLeafSearch" class="nui-input" type="search" aria-controls="nuiLeafCatalog" placeholder="Cari seluruh root dan child dalam <%=nuiCatalogH(nuiCatalogGroup.getLabel())%>..." autocomplete="off">
     <select id="nuiLeafSort" class="nui-select" aria-label="Urutkan menu"><option value="order">Urutan Menu</option><option value="az">A–Z</option></select>
-    <label class="nui-descendant-toggle"><input id="nuiIncludeDescendants" type="checkbox"> Sertakan menu dari seluruh subkelompok</label>
+    <label class="nui-descendant-toggle"><input id="nuiIncludeDescendants" type="checkbox" checked="checked"> Tampilkan seluruh root dan child</label>
   </div>
   <%if(nuiCatalogAll.isEmpty()){%><jsp:include page="/WEB-INF/new/_shared/menu/empty_catalog.jsp" flush="false"/><%}else{%>
   <div id="nuiLeafCatalog" class="nui-page-catalog">
