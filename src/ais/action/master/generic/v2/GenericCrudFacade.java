@@ -80,6 +80,16 @@ public class GenericCrudFacade {
     }
 
     private Long selectedMenuId(HttpServletRequest request) {
+        String requested = request == null ? null : request.getParameter("selectionMenuId");
+        if (requested != null && requested.trim().length() > 0) {
+            try {
+                Long selection = Long.valueOf(requested);
+                Long authorization = request.getParameter("menuId") == null ? null
+                        : Long.valueOf(request.getParameter("menuId"));
+                if (authorization != null && authorization.equals(
+                        ais.common.newui.menu.NewUiMahasiswaMenu.authorizationMenuId(selection))) return selection;
+            } catch (Exception ignored) { }
+        }
         Object value = request == null ? null : request.getAttribute("nui_current_menu_id");
         if (value instanceof Long) return (Long) value;
         try { return value == null ? null : Long.valueOf(String.valueOf(value)); }

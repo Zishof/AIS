@@ -41,14 +41,14 @@
     } else target += (target.indexOf('?') < 0 ? '?' : '&') + pairs(params);
     return fetch(target, options).then(function (response) {
       return response.json().then(function (body) {
-        if (!response.ok || body.success === false) { var error = new Error(body.message || 'Permintaan gagal'); error.payload = body; throw error; }
+        if (!response.ok || body.success === false) { var error = new Error((body.code ? body.code + ': ' : '') + (body.message || 'Permintaan gagal')); error.payload = body; throw error; }
         return body.data;
       });
     });
   }
-  function notify(message) {
+  function notify(message, persistent) {
     var box = query('alert'); box.textContent = message || ''; box.hidden = !message;
-    if (message) window.setTimeout(function () { box.hidden = true; }, 7000);
+    if (message && !persistent) window.setTimeout(function () { box.hidden = true; }, 7000);
   }
   function filterParams() {
     var result = {q: state.q, sort: state.sort, direction: state.direction}, fields = [], operators = [], values = [];
@@ -361,5 +361,5 @@
   query('legacy-close').addEventListener('click', function () { closeAll(true); });
   query('parity-toggle').addEventListener('click', function () { var panel = query('parity-actions'), button = query('parity-toggle'), opened = panel.hidden; panel.hidden = !opened; button.setAttribute('aria-expanded', opened ? 'true' : 'false'); button.textContent = opened ? 'Sembunyikan fungsi' : 'Tampilkan semua fungsi'; });
   query('overlay').addEventListener('click', function () { closeAll(false); }); document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && !query('overlay').hidden) closeAll(false); });
-  window.addEventListener('beforeunload', function (event) { if (state.dirty) { event.preventDefault(); event.returnValue = ''; } }); loadMeta().catch(function (error) { notify(error.message); });
+  window.addEventListener('beforeunload', function (event) { if (state.dirty) { event.preventDefault(); event.returnValue = ''; } }); loadMeta().catch(function (error) { query('title').textContent = 'Gagal memuat data'; query('status').textContent = 'Gagal'; notify(error.message, true); });
 }());

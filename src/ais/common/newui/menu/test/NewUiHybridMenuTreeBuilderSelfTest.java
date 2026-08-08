@@ -78,6 +78,8 @@ public final class NewUiHybridMenuTreeBuilderSelfTest {
         check(mahasiswaBranch != null && mahasiswaBranch.isBranch(), "Mahasiswa must become a branch");
         check(mahasiswaBranch.getDirectLeaves().size() == 2, "Master/Statistik direct submenu missing");
         check(mahasiswaBranch.getBranchChildren().size() == 3, "Pendukung/Prestasi/Data submenu missing");
+        check(!mahasiswaBranch.getBranchChildren().get(0).isDirectLeavesInSidebar(),
+                "detail tab Pendukung must stay in content catalog, not sidebar");
         check(mahasiswaBranch.getLeafCount() == 27, "Mahasiswa nested leaf count incorrect: " + mahasiswaBranch.getLeafCount());
         check(mahasiswaSnapshot.findAssigned(Long.valueOf(-6101L)) != null,
                 "virtual Mahasiswa leaf must remain guarded and assigned");

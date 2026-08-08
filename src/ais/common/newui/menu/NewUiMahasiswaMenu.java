@@ -105,7 +105,7 @@ public final class NewUiMahasiswaMenu {
     private static NewUiHybridMenuNode group(Long id, NewUiHybridMenuNode parent, int order, long first, long last) {
         NewUiHybridMenuNode node = base(id, parent, order);
         node.setKind(NewUiHybridMenuNode.BRANCH); node.setStructuralOnly(true);
-        node.setClickable(false); node.setDirectLeavesInSidebar(true);
+        node.setClickable(false); node.setDirectLeavesInSidebar(false);
         List<NewUiHybridMenuNode> leaves = new ArrayList<NewUiHybridMenuNode>();
         long step = first <= last ? 1L : -1L; int position = 1;
         for (long value = first; ; value += step) {
