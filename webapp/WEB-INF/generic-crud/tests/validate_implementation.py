@@ -61,7 +61,7 @@ unmapped_model_entities = annotated_model_entities() - active_hibernate_mappings
 checks = {
     "java files >= 35": len(list(java_root.rglob("*.java"))) >= 35,
     "runtime metadata verifier": (java_root / "GenericCrudRuntimeMetadataVerifier.java").exists(),
-    "deny-by-default registry": "setEnabled(false)" in (java_root / "GenericCrudDefinitionRegistry.java").read_text(encoding="utf-8"),
+    "deny-by-default registry": "ENTITY_NOT_REGISTERED" in (java_root / "GenericCrudDefinitionRegistry.java").read_text(encoding="utf-8"),
     "pilot Agama": "Agama.class" in (java_root / "GenericCrudDefinitionRegistry.java").read_text(encoding="utf-8"),
     "CSRF mutation guard": "GenericCrudCsrf.requireMutation" in controller,
     "server paging": "setFirstResult" in query_service,
@@ -105,6 +105,7 @@ checks = {
     "relation session adapter": (java_root / "adapter" / "GenericCrudSessionValueAdapter.java").exists() and "session.get(returned" in auto_adapter,
     "relation lookup allow-list": (java_root / "GenericCrudRelationLookupService.java").exists() and "relation_lookup" in controller,
     "relation UI lookup": all(token in shared_js for token in ("bindRelationLookup", "field.relationEntityKey", "field.property + '__label'")),
+    "generic CRUD service retains menu binding": "nui_current_menu_id" in crud_page and "menuId=" in crud_page,
     "extended scalar conversion": all(token in converter for token in ("BigDecimal", "BigInteger", "UUID.fromString", "target.isEnum()", "java.sql.Timestamp")),
     "native temporal inputs": all(token in shared_js for token in ("'datetime-local'", "'date'", "'time'")),
     "sensitive models read only": "GenericCrudDefinition.READ_ONLY" in auto_factory and 'row.put("restricted"' in auto_factory,

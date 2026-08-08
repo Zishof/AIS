@@ -27,9 +27,7 @@ public final class NewUiHybridMenuRouteGuard {
         if (node == null || node.getPermission() == null || !node.getPermission().isCanRead()) return false;
         ais.common.newui.NewUiPermission permission = node.getPermission();
         String value = action == null ? "meta" : action.trim().toLowerCase();
-        if ("meta".equals(value) || "health".equals(value) || "read".equals(value)
-                || "list".equals(value) || "detail".equals(value) || "options".equals(value)
-                || "export".equals(value) || "search".equals(value)) return permission.isCanRead();
+        if (isReadAction(value)) return permission.isCanRead();
         if ("create".equals(value) || "new".equals(value) || "insert".equals(value)
                 || "add".equals(value) || "save-new".equals(value)) return permission.isCanCreate();
         if ("save".equals(value)) {
@@ -37,10 +35,23 @@ public final class NewUiHybridMenuRouteGuard {
             return id == null || id.trim().length() == 0 ? permission.isCanCreate() : permission.isCanUpdate();
         }
         if ("update".equals(value) || "edit".equals(value) || "photo".equals(value)
-                || "upload".equals(value) || "import".equals(value) || "save-existing".equals(value)) return permission.isCanUpdate();
-        if ("delete".equals(value) || "remove".equals(value) || "permanent-delete".equals(value)) return permission.isCanDelete();
+                || "upload".equals(value) || "save-existing".equals(value)
+                || "restore_field".equals(value) || "restore_revision".equals(value)) return permission.isCanUpdate();
+        if ("import".equals(value) || value.startsWith("import_")) return permission.isCanCreate() && permission.isCanUpdate();
+        if ("delete".equals(value) || "remove".equals(value) || "permanent-delete".equals(value)
+                || value.startsWith("admin_delete_")) return permission.isCanDelete();
         if ("approve".equals(value)) return permission.isCanApprove();
         if ("reject".equals(value)) return permission.isCanReject();
         return false;
+    }
+
+    private static boolean isReadAction(String value) {
+        return "meta".equals(value) || "health".equals(value) || "read".equals(value)
+                || "list".equals(value) || "detail".equals(value) || "get".equals(value)
+                || "options".equals(value) || "lookup".equals(value)
+                || "relation_lookup".equals(value) || "search".equals(value)
+                || "revisions".equals(value) || "global_revisions".equals(value)
+                || "compare".equals(value) || "export".equals(value) || value.startsWith("export_")
+                || value.startsWith("preference_") || value.startsWith("saved_view_");
     }
 }

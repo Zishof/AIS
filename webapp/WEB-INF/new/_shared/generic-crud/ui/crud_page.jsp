@@ -6,6 +6,8 @@ String gcPage = String.valueOf(request.getAttribute("genericCrudPageKey"));
 String gcEndpoint = request.getContextPath() + "/new?service=1&module="
         + URLEncoder.encode(gcModule, "UTF-8") + "&page=" + URLEncoder.encode(gcPage, "UTF-8")
         + "&entity=" + URLEncoder.encode(String.valueOf(request.getAttribute("genericCrudEntityKey")), "UTF-8");
+Object gcMenuId = request.getAttribute("nui_current_menu_id");
+if (gcMenuId != null) gcEndpoint += "&menuId=" + URLEncoder.encode(String.valueOf(gcMenuId), "UTF-8");
 %>
 <style><%@ include file="/WEB-INF/new/_shared/generic-crud/assets/generic-crud.css" %></style>
 <section class="gc" data-gc-root data-endpoint="<%=gcEndpoint%>">

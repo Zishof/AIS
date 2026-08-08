@@ -17,6 +17,7 @@ import org.hibernate.metadata.ClassMetadata;
 
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.GeneralValueObject;
+import ais.action.master.generic.v2.adapter.GenericCrudRelationScopeAdapter;
 
 /** Lookup paged untuk field many-to-one yang didefinisikan server-side. */
 @SuppressWarnings({ "rawtypes", "unchecked", "deprecation" })
@@ -41,10 +42,14 @@ public class GenericCrudRelationLookupService {
         Session session = HibernateUtil.getSessionFactory().openSession();
         try {
             Criteria count = session.createCriteria(relationClass);
+            applyActiveFilter(count, metadata);
+            applyScope(count, context, property, relationClass);
             applySearch(count, metadata, search);
             Number total = (Number) count.setProjection(Projections.rowCount()).uniqueResult();
 
             Criteria rows = session.createCriteria(relationClass);
+            applyActiveFilter(rows, metadata);
+            applyScope(rows, context, property, relationClass);
             applySearch(rows, metadata, search);
             String display = safeDisplayProperty(metadata, field.getRelationDisplayProperty());
             if (!metadata.getIdentifierPropertyName().equals(display)) rows.addOrder(Order.asc(display));
@@ -85,6 +90,25 @@ public class GenericCrudRelationLookupService {
             } catch (Exception ignored) { }
         }
         return null;
+    }
+
+    private void applyScope(Criteria criteria, GenericCrudRequestContext context,
+            String property, Class relationClass) throws Exception {
+        Object adapter = context.getDefinition().getScopeAdapter();
+        if (adapter instanceof GenericCrudRelationScopeAdapter) {
+            ((GenericCrudRelationScopeAdapter) adapter).applyRelationScope(
+                    criteria, property, relationClass, context);
+        }
+    }
+
+    private void applyActiveFilter(Criteria criteria, ClassMetadata metadata) {
+        try {
+            Class type = metadata.getPropertyType("aktif").getReturnedClass();
+            if (type == Boolean.class || type == Boolean.TYPE) {
+                criteria.add(Restrictions.or(Restrictions.isNull("aktif"),
+                        Restrictions.eq("aktif", Boolean.TRUE)));
+            }
+        } catch (Exception noActiveField) { }
     }
 
     private void applySearch(Criteria criteria, ClassMetadata metadata, String search) {

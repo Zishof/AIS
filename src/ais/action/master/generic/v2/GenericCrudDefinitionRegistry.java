@@ -8,9 +8,12 @@ import java.util.Map;
 
 import ais.action.master.generic.v2.adapter.AgamaGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.GenericCrudFormOverrideProvider;
-import ais.action.master.generic.v2.adapter.MahasiswaGenericCrudFormProvider;
+import ais.action.master.generic.v2.adapter.MahasiswaGenericCrudAdapter;
 import ais.database.model.Agama;
+import ais.database.model.Jenjang;
+import ais.database.model.Jurusan;
 import ais.database.model.Mahasiswa;
+import ais.database.model.StatusAwalMahasiswa;
 
 /**
  * Registry allow-list. Scanner menghasilkan kandidat disabled; hanya entity yang
@@ -21,7 +24,7 @@ public final class GenericCrudDefinitionRegistry {
     private static final Map DEFINITIONS = new LinkedHashMap();
     static {
         register(buildAgama());
-        register(buildMahasiswaParity());
+        register(buildMahasiswa());
     }
     private GenericCrudDefinitionRegistry() { }
 
@@ -131,17 +134,76 @@ public final class GenericCrudDefinitionRegistry {
         return d;
     }
 
-    private static GenericCrudDefinition buildMahasiswaParity() {
+    private static GenericCrudDefinition buildMahasiswa() {
         GenericCrudDefinition d = new GenericCrudDefinition();
         d.setEntityClass(Mahasiswa.class);
         d.setModuleKey("root");
         d.setPageKey("mahasiswa");
         d.setDisplayName("Mahasiswa");
-        d.setLifecycleStatus(GenericCrudDefinition.REVIEW_REQUIRED);
-        d.setEnabled(false);
-        d.setFormMode(GenericCrudFormOverrideProvider.MODE_FULL_PAGE_TABS);
-        d.setFormOverrideProvider(new MahasiswaGenericCrudFormProvider());
+        d.setLifecycleStatus(GenericCrudDefinition.FULL_CRUD);
+        d.setEnabled(true);
+        d.setCreateEnabled(true);
+        d.setUpdateEnabled(true);
+        d.setDeleteEnabled(true);
+        d.setImportEnabled(false);
+        d.setImportDeleteEnabled(false);
+        d.setExportPdfEnabled(true);
+        d.setExportDocxEnabled(true);
+        d.setExportPptxEnabled(true);
+        d.setSavedViewEnabled(true);
+        d.setAuditEnabled(true);
+        d.setRowAuditEnabled(true);
+        d.setGlobalAuditEnabled(false);
+        d.setRestoreEnabled(false);
+        d.setAdminDeleteEnabled(false);
+        d.setDefaultSortProperty("nama");
+        d.setDefaultPageSize(10);
+        d.setMaxPageSize(100);
+        d.setFormMode(GenericCrudFormOverrideProvider.MODE_GENERIC_DRAWER);
+        MahasiswaGenericCrudAdapter adapter = new MahasiswaGenericCrudAdapter();
+        d.setAdapter(adapter);
+        d.setScopeAdapter(adapter);
+
+        d.addField(field("id", "ID", Long.class, "number", true, false, false, false, true, false, 10));
+        d.addField(field("nim", "NIM", String.class, "text", true, true, true, true, true, true, 20));
+        d.addField(field("nama", "Nama", String.class, "text", true, true, true, true, true, true, 30));
+        d.addField(relationField("jurusan", "Program Studi", Jurusan.class, true, true, true, true, 40));
+        d.addField(relationField("jenjang", "Jenjang", Jenjang.class, true, false, false, false, 50));
+        d.addField(field("tahunangkatan", "Tahun Angkatan", Integer.class, "number", true, true, true, false, true, false, 60));
+        d.addField(field("program", "Program", String.class, "text", true, true, true, false, true, true, 70));
+        d.addField(choiceField("semesterMulai", "Semester Mulai", new String[]{"Ganjil", "Genap"}, true, true, true, 80));
+        d.addField(choiceField("kelamin", "Jenis Kelamin", new String[]{"Laki-laki", "Perempuan"}, true, true, true, 90));
+        d.addField(field("tanggalMasuk", "Tanggal Masuk", java.util.Date.class, "date", true, true, true, false, true, false, 100));
+        d.addField(field("tempatlahir", "Tempat Lahir", String.class, "text", false, true, true, false, true, true, 110));
+        d.addField(field("tanggallahir", "Tanggal Lahir", java.util.Date.class, "date", false, true, true, false, true, false, 120));
+        d.addField(field("email", "Email", String.class, "text", false, true, true, false, true, true, 130));
+        d.addField(field("telp", "Telepon", String.class, "text", false, true, true, false, true, true, 140));
+        d.addField(field("alamat", "Alamat", String.class, "textarea", false, true, true, false, false, true, 150));
+        d.addField(relationField("agama", "Agama", Agama.class, false, true, true, false, 160));
+        d.addField(relationField("statusAwalMahasiswa", "Status Awal", StatusAwalMahasiswa.class, false, true, true, false, 170));
+        d.addField(choiceField("warganegara", "Kewarganegaraan", new String[]{"WNI", "WNA"}, false, true, true, 180));
+        d.addField(field("waktuKuliah", "Waktu Kuliah", String.class, "text", false, true, true, false, true, true, 190));
+        d.addField(field("keterangan", "Keterangan", String.class, "textarea", false, true, true, false, false, true, 200));
+        d.addField(field("aktif", "Aktif", Boolean.class, "checkbox", true, true, true, false, true, false, 210));
         return d;
+    }
+
+    private static GenericCrudFieldDefinition relationField(String key, String label, Class type,
+            boolean table, boolean create, boolean update, boolean required, int position) {
+        GenericCrudFieldDefinition f = field(key, label, type, "relation", table, create, update,
+                required, false, false, position);
+        f.setRelationEntityKey(type.getName());
+        f.setRelationDisplayProperty("nama");
+        f.setRelationSearchProperties("kode,nama,nim");
+        return f;
+    }
+
+    private static GenericCrudFieldDefinition choiceField(String key, String label, String[] values,
+            boolean table, boolean create, boolean update, int position) {
+        GenericCrudFieldDefinition f = field(key, label, String.class, "select", table, create, update,
+                false, true, false, position);
+        f.setEnumValues(values);
+        return f;
     }
 
     private static GenericCrudFieldDefinition field(String key, String label, Class type, String editor,

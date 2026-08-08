@@ -41,7 +41,7 @@ public class GenericCrudRequestContext implements Serializable {
                 context.canReject = check(context.menu, CommonPrivilages.REJECT, context.user);
             }
             boolean[] routePermission = GenericCrudRoutePrivilegeResolver.resolve(context.user,
-                    definition.getModuleKey(), definition.getPageKey());
+                    definition.getModuleKey(), definition.getPageKey(), menuId(request));
             if (routePermission != null) {
                 context.canRead = routePermission[0];
                 context.canCreate = routePermission[1];
@@ -63,6 +63,13 @@ public class GenericCrudRequestContext implements Serializable {
     }
 
     private static String first(String one, String two) { return one != null && one.length() > 0 ? one : two; }
+    private static Long menuId(HttpServletRequest request) {
+        if (request == null) return null;
+        String value = request.getParameter("menuId");
+        if (value == null || value.trim().length() == 0) value = request.getParameter("menu");
+        try { return value == null ? null : Long.valueOf(value); }
+        catch (Exception invalid) { return null; }
+    }
     private static boolean check(Menu menu, Integer code, Tbmuser user) {
         try {
             java.lang.reflect.Method exact = CommonPrivilages.class.getMethod("checkPrevilages",

@@ -38,7 +38,7 @@ public class GenericCrudAutoEntityAdapter extends AbstractGenericCrudEntityAdapt
     }
 
     public GeneralValueObject createNew(GenericCrudRequestContext context) throws Exception {
-        requireSuperAdmin();
+        authorize(context);
         Constructor constructor = entityClass.getDeclaredConstructor(new Class[0]);
         if (!constructor.isAccessible()) constructor.setAccessible(true);
         Object value = constructor.newInstance(new Object[0]);
@@ -50,12 +50,14 @@ public class GenericCrudAutoEntityAdapter extends AbstractGenericCrudEntityAdapt
 
     public void applyCreateValues(Session session, GeneralValueObject target, Map values,
             GenericCrudRequestContext context) throws Exception {
+        authorize(context);
         applyContextDefaults(target, values, context);
         applyWithSession(session, target, values);
     }
 
     public void applyUpdateValues(Session session, GeneralValueObject target, Map values,
             GenericCrudRequestContext context) throws Exception {
+        authorize(context);
         applyWithSession(session, target, values);
     }
 
@@ -142,7 +144,7 @@ public class GenericCrudAutoEntityAdapter extends AbstractGenericCrudEntityAdapt
     }
 
     public void delete(Session session, GeneralValueObject target, GenericCrudRequestContext context) throws Exception {
-        requireSuperAdmin();
+        authorize(context);
         ClassMetadata metadata = HibernateUtil.getSessionFactory().getClassMetadata(entityClass);
         metadata.setPropertyValue(target, "aktif", Boolean.FALSE, EntityMode.POJO);
         session.saveOrUpdate(target);
@@ -163,11 +165,12 @@ public class GenericCrudAutoEntityAdapter extends AbstractGenericCrudEntityAdapt
         } catch (Exception ignored) { }
     }
 
-    public void applyReadScope(Criteria criteria, GenericCrudRequestContext context) throws Exception { requireSuperAdmin(); }
-    public void applyCountScope(Criteria criteria, GenericCrudRequestContext context) throws Exception { requireSuperAdmin(); }
-    public void validateObjectScope(GeneralValueObject object, GenericCrudRequestContext context) throws Exception { requireSuperAdmin(); }
+    public void applyReadScope(Criteria criteria, GenericCrudRequestContext context) throws Exception { authorize(context); }
+    public void applyCountScope(Criteria criteria, GenericCrudRequestContext context) throws Exception { authorize(context); }
+    public void validateObjectScope(GeneralValueObject object, GenericCrudRequestContext context) throws Exception { authorize(context); }
 
-    private void requireSuperAdmin() throws GenericCrudException {
+    /** Adapter domain eksplisit boleh mengganti guard ini setelah menyediakan scope sendiri. */
+    protected void authorize(GenericCrudRequestContext context) throws GenericCrudException {
         if (!Common.getApakahAdmin()) {
             throw new GenericCrudException(403, "AUTO_CRUD_SUPER_ADMIN_REQUIRED",
                     "Auto-CRUD seluruh model hanya tersedia untuk Super Admin. Gunakan adapter scope eksplisit untuk role lain.");
