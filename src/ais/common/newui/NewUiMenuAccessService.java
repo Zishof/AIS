@@ -2,187 +2,127 @@ package ais.common.newui;
 
 import java.net.URLEncoder;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
-import java.util.Iterator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Logger;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 
 import org.hibernate.Session;
-import org.hibernate.criterion.Restrictions;
 
 import ais.action.master.sekolah.util.SekolahUtil;
 import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Menu;
+import ais.database.model.Konfigurasi;
 import ais.database.model.RolePrivilage;
 import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
 import ais.database.model.sekolah.Sekolah;
 
-/**
- * Sumber tunggal navigasi & hak akses New UI berbasis RBAC existing.
- *
- * <p>Menghasilkan pohon {@link NewUiMenuNode} yang HANYA memuat menu yang:
- * <ol>
- *   <li>di-assign ke role aktif ({@link Tbmrole#getMenus()} / <code>job_has_menu</code>);</li>
- *   <li>aktif (<code>Menu.aktif</code> tidak bernilai false);</li>
- *   <li>lolos lingkup lembaga (<code>tampilDiPt</code>/<code>tampilDiSekolah</code>);</li>
- *   <li>dapat dibaca (ada <code>RolePrivilage._read=1</code>) — <b>fail-closed</b>, atau
- *       merupakan parent yang menampung minimal satu descendant yang dapat dibaca.</li>
- * </ol>
- * Dipakai bersama sidebar, command palette, breadcrumb, dan route guard.</p>
- *
- * <p>Efisiensi: privilege role diambil sekali secara batch (menghindari N+1). Hasil
- * di-cache per-session dengan penanda <code>version|roleId</code>; bila
- * {@link NewUiCacheInvalidator#getGlobalVersion()} atau role aktif berubah, tree
- * dibangun ulang pada request berikutnya.</p>
- *
- * <p>Kompatibel Java 1.6. Semua entity di-materialisasi menjadi DTO sebelum session
- * ditutup untuk menghindari LazyInitializationException.</p>
- */
+/** Sumber tunggal sidebar, command palette, breadcrumb, dan route guard New UI. */
 public final class NewUiMenuAccessService {
 
-    private static final int READ = 0;
+    private static final Logger LOG = Logger.getLogger(NewUiMenuAccessService.class.getName());
 
     private NewUiMenuAccessService() {
     }
 
-    /**
-     * Pohon menu yang dapat diakses user pada request ini (root-level nodes).
-     * Mengembalikan list kosong bila belum login / role null / tidak ada menu.
-     */
     @SuppressWarnings("unchecked")
     public static List<NewUiMenuNode> getAccessibleTree(HttpServletRequest request) {
         List<NewUiMenuNode> empty = new ArrayList<NewUiMenuNode>();
-        if (request == null) {
+        if (request == null) return empty;
+        Tbmuser user = currentUser(request);
+        if (user == null || user.getUserId() == null) return empty;
+        Tbmrole activeRole = user.hakAkses();
+        if (activeRole == null || activeRole.getRoleId() == null || Boolean.FALSE.equals(activeRole.getAktif())) {
             return empty;
         }
 
-        Tbmuser tbmuser = null;
-        try {
-            tbmuser = Common.getCurrentUser(request);
-        } catch (Exception e) {
-            ais.common.ErrorAuditUtil.record(e, "NewUiMenuAccessService.getCurrentUser");
-        }
-        if (tbmuser == null) {
-            return empty;
-        }
-
-        Tbmrole role = tbmuser.hakAkses();
-        if (role == null || role.getRoleId() == null || Boolean.FALSE.equals(role.getAktif())) {
-            return empty;
-        }
-
-        // --- cache per-session ber-versi ---
+        String scope = institutionScope(request, user);
+        String marker = NewUiCacheInvalidator.getGlobalVersion() + "|" + user.getUserId() + "|"
+                + activeRole.getRoleId() + "|" + scope;
         HttpSession httpSession = request.getSession();
-        String marker = NewUiCacheInvalidator.getGlobalVersion() + "|" + role.getRoleId();
-        try {
-            Object cachedMarker = httpSession.getAttribute(NewUiCacheInvalidator.SESSION_TREE_VERSION);
-            Object cachedTree = httpSession.getAttribute(NewUiCacheInvalidator.SESSION_TREE);
-            if (marker.equals(cachedMarker) && cachedTree instanceof List) {
-                return (List<NewUiMenuNode>) cachedTree;
-            }
-        } catch (Exception e) {
-            ais.common.ErrorAuditUtil.record(e, "NewUiMenuAccessService.cacheRead");
+        Object cachedMarker = httpSession.getAttribute(NewUiCacheInvalidator.SESSION_TREE_VERSION);
+        Object cachedTree = httpSession.getAttribute(NewUiCacheInvalidator.SESSION_TREE);
+        if (marker.equals(cachedMarker) && cachedTree instanceof List) {
+            return (List<NewUiMenuNode>) cachedTree;
         }
 
-        boolean sekolahContext = resolveSekolahContext(request, tbmuser);
+        boolean schoolContext = scope.startsWith("school:");
+        boolean filterPerSchool = false;
+        try {
+            filterPerSchool = Common.bolehKonfigurasi("aktifkan_filter_per_sekolah", Konfigurasi.TIDAK_AKTIF);
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "NewUiMenuAccessService.filterConfiguration");
+        }
+        List<NewUiMenuNode> flat = loadFlat(activeRole.getRoleId(), schoolContext, filterPerSchool);
+        NewUiMenuTreeBuilder.Result result = NewUiMenuTreeBuilder.buildAndPrune(flat);
+        if (result.getDuplicateCount() > 0 || result.getOrphanCount() > 0 || result.getCycleCount() > 0) {
+            LOG.warning("New UI menu diagnostics: duplicate=" + result.getDuplicateCount() + ", orphan="
+                    + result.getOrphanCount() + ", cycle=" + result.getCycleCount());
+        }
+        List<NewUiMenuNode> tree = result.getRoots();
+        httpSession.setAttribute(NewUiCacheInvalidator.SESSION_TREE, tree);
+        httpSession.setAttribute(NewUiCacheInvalidator.SESSION_TREE_VERSION, marker);
+        return tree;
+    }
 
-        // --- build flat DTO list dalam satu session (hindari N+1) ---
+    /** Tiga query tetap: assignment role, seluruh privilege role, metadata menu. */
+    @SuppressWarnings("unchecked")
+    private static List<NewUiMenuNode> loadFlat(String roleId, boolean schoolContext, boolean filterPerSchool) {
         List<NewUiMenuNode> flat = new ArrayList<NewUiMenuNode>();
         Session session = null;
         try {
             session = HibernateUtil.currentNativeSession();
-
-            Tbmrole managed = (Tbmrole) session.createCriteria(Tbmrole.class)
-                    .add(Restrictions.eq("roleId", role.getRoleId())).setMaxResults(1).uniqueResult();
-            if (managed == null) {
-                return empty;
+            List<Object> assignedRows = session.createQuery(
+                    "select m.id from Tbmrole r join r.menus m where r.roleId = :roleId")
+                    .setString("roleId", roleId).list();
+            Set<Long> assignedIds = new HashSet<Long>();
+            for (int i = 0; i < assignedRows.size(); i++) {
+                Object id = assignedRows.get(i);
+                if (id instanceof Number) assignedIds.add(Long.valueOf(((Number) id).longValue()));
             }
 
-            // privilege role sekali (batch) → map menuId -> RolePrivilage
-            Map<Long, RolePrivilage> privByMenu = new HashMap<Long, RolePrivilage>();
-            List<RolePrivilage> privs = session.createCriteria(RolePrivilage.class)
-                    .add(Restrictions.eq("role", managed)).list();
-            if (privs != null) {
-                for (int i = 0; i < privs.size(); i++) {
-                    RolePrivilage rp = privs.get(i);
-                    if (rp != null && rp.getMenu() != null && rp.getMenu().getId() != null) {
-                        privByMenu.put(rp.getMenu().getId(), rp);
-                    }
+            List<RolePrivilage> privileges = session.createQuery(
+                    "select rp from RolePrivilage rp join fetch rp.menu m where rp.role.roleId = :roleId")
+                    .setString("roleId", roleId).list();
+            Map<Long, NewUiPermission> permissionByMenu = new HashMap<Long, NewUiPermission>();
+            for (int i = 0; i < privileges.size(); i++) {
+                RolePrivilage rp = privileges.get(i);
+                if (rp != null && rp.getMenu() != null && rp.getMenu().getId() != null) {
+                    permissionByMenu.put(rp.getMenu().getId(), NewUiPermission.from(rp));
                 }
             }
 
-            Set<Menu> menuSet = managed.getMenus();
-            if (menuSet != null) {
-                Iterator<Menu> it = menuSet.iterator();
-                while (it.hasNext()) {
-                    Menu menu = it.next();
-                    if (menu == null || menu.getId() == null) {
-                        continue;
-                    }
-                    // aktif: sembunyikan hanya bila eksplisit false (konsisten dgn CommonMenu)
-                    if (Boolean.FALSE.equals(menu.getAktif())) {
-                        continue;
-                    }
-                    // lingkup lembaga
-                    if (!passesInstitutionScope(menu, sekolahContext)) {
-                        continue;
-                    }
-                    flat.add(toNode(menu, NewUiPermission.from(privByMenu.get(menu.getId()))));
-                }
+            List<Menu> menus = session.createQuery("from Menu m").list();
+            for (int i = 0; i < menus.size(); i++) {
+                Menu menu = menus.get(i);
+                if (menu == null || menu.getId() == null || Boolean.FALSE.equals(menu.getAktif())
+                        || !passesInstitutionScope(menu, schoolContext, filterPerSchool)) continue;
+                // Parent tetap dimaterialisasi tanpa privilege; hanya assignment+RP memberi izin self.
+                NewUiPermission permission = assignedIds.contains(menu.getId())
+                        ? permissionByMenu.get(menu.getId()) : null;
+                flat.add(toNode(menu, permission == null ? NewUiPermission.none() : permission));
             }
         } catch (Exception e) {
-            ais.common.ErrorAuditUtil.record(e, "NewUiMenuAccessService.build");
+            ais.common.ErrorAuditUtil.record(e, "NewUiMenuAccessService.loadFlat");
         } finally {
             closeQuietly(session);
         }
-
-        // --- urutkan lalu bangun tree + prune (di luar session) ---
-        Collections.sort(flat, NODE_ORDER);
-        List<NewUiMenuNode> roots = buildTree(flat);
-        List<NewUiMenuNode> pruned = pruneUnreadable(roots);
-
-        try {
-            httpSession.setAttribute(NewUiCacheInvalidator.SESSION_TREE, pruned);
-            httpSession.setAttribute(NewUiCacheInvalidator.SESSION_TREE_VERSION, marker);
-        } catch (Exception e) {
-            ais.common.ErrorAuditUtil.record(e, "NewUiMenuAccessService.cacheWrite");
-        }
-        return pruned;
+        LOG.fine("New UI menu snapshot role=" + roleId + ", queryCount=3, metadataNodes=" + flat.size());
+        return flat;
     }
-
-    /** Cek satu hak (READ/CREATE/…): pakai ulang CommonPrivilages agar konsisten. */
-    public static boolean hasPrivilege(HttpServletRequest request, Menu menu, Integer privilegeCode) {
-        if (menu == null) {
-            return false;
-        }
-        Tbmuser tbmuser = null;
-        try {
-            tbmuser = Common.getCurrentUser(request);
-        } catch (Exception e) {
-            ais.common.ErrorAuditUtil.record(e, "NewUiMenuAccessService.hasPrivilege.user");
-        }
-        if (tbmuser == null) {
-            return false;
-        }
-        return ais.common.CommonPrivilages.checkPrevilages(menu, privilegeCode, tbmuser);
-    }
-
-    // ------------------------------------------------------------------
-    // Helper internal
-    // ------------------------------------------------------------------
 
     private static NewUiMenuNode toNode(Menu menu, NewUiPermission permission) {
         NewUiMenuNode node = new NewUiMenuNode();
         node.setMenuId(menu.getId());
-        node.setLabel(menu.getLabel() != null ? menu.getLabel() : "Menu");
+        node.setLabel(menu.getLabel() == null || menu.getLabel().trim().length() == 0 ? "Menu" : menu.getLabel());
+        node.setIcon(menu.getIcon());
         node.setNomorUrut(menu.getNomorUrut());
         node.setRoot(menu.getRoot());
         node.setChild(menu.getChild());
@@ -196,13 +136,11 @@ public final class NewUiMenuAccessService {
         return node;
     }
 
-    /** URL legacy /baru — sama dengan pola CommonMenu.buildMenuItem. */
     private static String buildLegacyUrl(Menu menu) {
-        if (menu.getUrl() == null || menu.getUrl().length() == 0) {
-            return null;
-        }
+        String url = menu == null ? null : menu.getUrl();
+        if (!NewUiRouteRegistry.isSafeLegacyUrl(url)) return null;
         try {
-            String p = menu.getUrl().replaceAll("\\p{Punct}", "");
+            String p = url.replaceAll("\\p{Punct}", "");
             return Common.ROOT + "/baru?p=" + URLEncoder.encode(p, "UTF-8") + "&menu=" + menu.getId();
         } catch (Exception e) {
             ais.common.ErrorAuditUtil.record(e, "NewUiMenuAccessService.buildLegacyUrl");
@@ -210,157 +148,87 @@ public final class NewUiMenuAccessService {
         }
     }
 
-    private static boolean passesInstitutionScope(Menu menu, boolean sekolahContext) {
-        // Lenient: sembunyikan hanya bila flag konteks aktif bernilai false eksplisit.
-        if (sekolahContext) {
-            return !Boolean.FALSE.equals(menu.getTampilDiSekolah());
-        }
-        return !Boolean.FALSE.equals(menu.getTampilDiPt());
+    public static NewUiMenuNode findById(HttpServletRequest request, Long menuId) {
+        return findById(getAccessibleTree(request), menuId);
     }
 
-    private static boolean resolveSekolahContext(HttpServletRequest request, Tbmuser tbmuser) {
-        try {
-            Sekolah sekolah = SekolahUtil.getSekolah(request);
-            if (tbmuser != null && tbmuser.getSekolah() != null && tbmuser.getSekolah().getId() != null) {
-                sekolah = tbmuser.getSekolah();
-            }
-            return sekolah != null && sekolah.getId() != null;
-        } catch (Exception e) {
-            ais.common.ErrorAuditUtil.record(e, "NewUiMenuAccessService.resolveSekolahContext");
-            return false;
-        }
+    public static NewUiMenuNode findByRoute(HttpServletRequest request, String module, String page) {
+        return findByRoute(getAccessibleTree(request), module, page);
     }
 
-    /** Bangun tree dari list datar: root==0 = top-level; anak = node dgn root==induk.child. */
-    private static List<NewUiMenuNode> buildTree(List<NewUiMenuNode> flat) {
-        // index child-key -> list node yang root-nya == child-key
-        Map<Long, List<NewUiMenuNode>> byRoot = new HashMap<Long, List<NewUiMenuNode>>();
-        for (int i = 0; i < flat.size(); i++) {
-            NewUiMenuNode n = flat.get(i);
-            Long r = n.getRoot() == null ? Long.valueOf(0L) : n.getRoot();
-            List<NewUiMenuNode> bucket = byRoot.get(r);
-            if (bucket == null) {
-                bucket = new ArrayList<NewUiMenuNode>();
-                byRoot.put(r, bucket);
-            }
-            bucket.add(n);
-        }
-        List<NewUiMenuNode> roots = byRoot.get(Long.valueOf(0L));
-        if (roots == null) {
-            roots = new ArrayList<NewUiMenuNode>();
-        }
-        for (int i = 0; i < roots.size(); i++) {
-            attachChildren(roots.get(i), byRoot, 0);
-        }
-        return roots;
+    public static List<NewUiMenuNode> breadcrumb(HttpServletRequest request, Long menuId) {
+        List<NewUiMenuNode> path = new ArrayList<NewUiMenuNode>();
+        findPath(getAccessibleTree(request), menuId, path);
+        return path;
     }
 
-    private static void attachChildren(NewUiMenuNode node, Map<Long, List<NewUiMenuNode>> byRoot, int depth) {
-        if (depth > 12) {
-            return; // jaga-jaga terhadap data melingkar
-        }
-        Long key = node.getChild();
-        if (key == null) {
-            return;
-        }
-        List<NewUiMenuNode> kids = byRoot.get(key);
-        if (kids == null || kids.isEmpty()) {
-            return;
-        }
-        List<NewUiMenuNode> childList = new ArrayList<NewUiMenuNode>();
-        for (int i = 0; i < kids.size(); i++) {
-            NewUiMenuNode child = kids.get(i);
-            if (child == node) {
-                continue;
-            }
-            attachChildren(child, byRoot, depth + 1);
-            childList.add(child);
-        }
-        node.setChildren(childList);
-    }
-
-    /**
-     * Buang node yang tidak dapat dibaca dan tidak punya descendant yang dapat dibaca.
-     * Node yang dipertahankan hanya karena anaknya ditandai sebagai group (heading).
-     */
-    private static List<NewUiMenuNode> pruneUnreadable(List<NewUiMenuNode> nodes) {
-        List<NewUiMenuNode> kept = new ArrayList<NewUiMenuNode>();
-        if (nodes == null) {
-            return kept;
-        }
+    private static boolean findPath(List<NewUiMenuNode> nodes, Long id, List<NewUiMenuNode> path) {
+        if (nodes == null || id == null) return false;
         for (int i = 0; i < nodes.size(); i++) {
             NewUiMenuNode node = nodes.get(i);
-            List<NewUiMenuNode> keptChildren = pruneUnreadable(node.getChildren());
-            node.setChildren(keptChildren);
-            boolean selfReadable = node.isReadable();
-            boolean hasTarget = (node.getLegacyUrl() != null && node.getLegacyUrl().length() > 0)
-                    || node.isMappedToNewUi();
-            if (selfReadable || !keptChildren.isEmpty()) {
-                // group/heading jika tidak dapat diklik sendiri tetapi menampung anak
-                node.setGroup(!keptChildren.isEmpty() && (!selfReadable || !hasTarget));
-                kept.add(node);
-            }
+            path.add(node);
+            if (id.equals(node.getMenuId()) || findPath(node.getChildren(), id, path)) return true;
+            path.remove(path.size() - 1);
         }
-        return kept;
+        return false;
+    }
+
+    private static NewUiMenuNode findById(List<NewUiMenuNode> nodes, Long id) {
+        if (nodes == null || id == null) return null;
+        for (int i = 0; i < nodes.size(); i++) {
+            NewUiMenuNode node = nodes.get(i);
+            if (id.equals(node.getMenuId())) return node;
+            NewUiMenuNode child = findById(node.getChildren(), id);
+            if (child != null) return child;
+        }
+        return null;
+    }
+
+    private static NewUiMenuNode findByRoute(List<NewUiMenuNode> nodes, String module, String page) {
+        if (nodes == null || module == null) return null;
+        String wantedPage = page == null || page.length() == 0 ? "index" : page;
+        for (int i = 0; i < nodes.size(); i++) {
+            NewUiMenuNode node = nodes.get(i);
+            String nodePage = node.getNewUiPage() == null ? "index" : node.getNewUiPage();
+            if (module.equals(node.getNewUiModule()) && wantedPage.equals(nodePage)) return node;
+            NewUiMenuNode child = findByRoute(node.getChildren(), module, page);
+            if (child != null) return child;
+        }
+        return null;
+    }
+
+    private static boolean passesInstitutionScope(Menu menu, boolean schoolContext, boolean filterPerSchool) {
+        boolean visible = schoolContext ? !Boolean.FALSE.equals(menu.getTampilDiSekolah())
+                : !Boolean.FALSE.equals(menu.getTampilDiPt());
+        if (!visible || !filterPerSchool || menu.getLabel() == null) return visible;
+        if (schoolContext && "Sistem Informasi Akademik".equalsIgnoreCase(menu.getLabel())) return false;
+        if (!schoolContext && "Sistem Sekolah".equalsIgnoreCase(menu.getLabel())) return false;
+        return true;
+    }
+
+    private static String institutionScope(HttpServletRequest request, Tbmuser user) {
+        try {
+            Sekolah school = user.getSekolah();
+            if (school == null || school.getId() == null) school = SekolahUtil.getSekolah(request);
+            return school != null && school.getId() != null ? "school:" + school.getId() : "pt";
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "NewUiMenuAccessService.institutionScope");
+            return "pt";
+        }
+    }
+
+    private static Tbmuser currentUser(HttpServletRequest request) {
+        try { return Common.getCurrentUser(request); }
+        catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "NewUiMenuAccessService.currentUser");
+            return null;
+        }
     }
 
     private static void closeQuietly(Session session) {
-        try {
-            if (session != null) {
-                session.disconnect();
-            }
-        } catch (Exception e) {
-            ais.common.ErrorAuditUtil.record(e, "NewUiMenuAccessService.close.disconnect");
-        }
-        try {
-            if (session != null) {
-                session.close();
-            }
-        } catch (Exception e) {
-            ais.common.ErrorAuditUtil.record(e, "NewUiMenuAccessService.close.close");
-        }
-        try {
-            HibernateUtil.closeSession();
-        } catch (Exception e) {
-            ais.common.ErrorAuditUtil.record(e, "NewUiMenuAccessService.close.hib");
-        }
-    }
-
-    /** Urutan: nomorUrut ASC (null terakhir), root ASC, child ASC, menuId ASC. */
-    private static final Comparator<NewUiMenuNode> NODE_ORDER = new Comparator<NewUiMenuNode>() {
-        public int compare(NewUiMenuNode a, NewUiMenuNode b) {
-            int c = compareIntNullsLast(a.getNomorUrut(), b.getNomorUrut());
-            if (c != 0) {
-                return c;
-            }
-            c = compareLong(a.getRoot(), b.getRoot());
-            if (c != 0) {
-                return c;
-            }
-            c = compareLong(a.getChild(), b.getChild());
-            if (c != 0) {
-                return c;
-            }
-            return compareLong(a.getMenuId(), b.getMenuId());
-        }
-    };
-
-    private static int compareIntNullsLast(Integer a, Integer b) {
-        if (a == null && b == null) {
-            return 0;
-        }
-        if (a == null) {
-            return 1;
-        }
-        if (b == null) {
-            return -1;
-        }
-        return a.intValue() < b.intValue() ? -1 : (a.intValue() > b.intValue() ? 1 : 0);
-    }
-
-    private static int compareLong(Long a, Long b) {
-        long x = a == null ? 0L : a.longValue();
-        long y = b == null ? 0L : b.longValue();
-        return x < y ? -1 : (x > y ? 1 : 0);
+        try { if (session != null) session.disconnect(); }
+        catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "NewUiMenuAccessService.disconnect"); }
+        try { HibernateUtil.closeSession(); }
+        catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "NewUiMenuAccessService.close"); }
     }
 }

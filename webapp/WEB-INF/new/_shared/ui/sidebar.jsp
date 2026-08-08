@@ -1,6 +1,3 @@
-<%-- Sidebar RBAC New UI: dirender dari NewUiMenuAccessService (menu boleh-akses role aktif).
-     Dipakai index.jsp hanya bila flag konfigurasi nui_rbac_sidebar aktif.
-     Menerima request attribute: nui_current_module (String). --%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ page import="java.io.IOException" %>
 <%@ page import="java.net.URLEncoder" %>
@@ -9,78 +6,20 @@
 <%@ page import="ais.common.newui.NewUiMenuAccessService" %>
 <%@ page import="ais.common.newui.NewUiMenuNode" %>
 <%!
-    private String h(Object v) {
-        if (v == null) return "";
-        return String.valueOf(v).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-                .replace("\"", "&quot;").replace("'", "&#39;");
-    }
-
-    private String linkTarget(NewUiMenuNode node, String newUrl) throws IOException {
-        if (node.isMappedToNewUi()) {
-            return newUrl + "?frame=1&module=" + URLEncoder.encode(node.getNewUiModule(), "UTF-8")
-                    + "&page=" + URLEncoder.encode(node.getNewUiPage() == null ? "index" : node.getNewUiPage(), "UTF-8");
-        }
-        return node.getLegacyUrl();
-    }
-
-    private String shellUrl(NewUiMenuNode node, String newUrl) throws IOException {
-        if (node.isMappedToNewUi()) {
-            return newUrl + "?module=" + URLEncoder.encode(node.getNewUiModule(), "UTF-8")
-                    + "&page=" + URLEncoder.encode(node.getNewUiPage() == null ? "index" : node.getNewUiPage(), "UTF-8");
-        }
-        return node.getLegacyUrl();
-    }
-
-    // Tambahkan tautan untuk node yang readable + punya target, lalu telusuri anaknya (flatten ke link).
-    private void appendLinks(JspWriter out, NewUiMenuNode node, String newUrl, String currentModule)
-            throws IOException {
-        if (node == null) return;
-        boolean hasTarget = (node.getLegacyUrl() != null && node.getLegacyUrl().length() > 0) || node.isMappedToNewUi();
-        if (node.isReadable() && hasTarget) {
-            boolean active = node.getNewUiModule() != null && node.getNewUiModule().equals(currentModule);
-            out.print("<a class=\"" + (active ? "active" : "") + "\" target=\"nuiMainFrame\" data-shell-url=\""
-                    + h(shellUrl(node, newUrl)) + "\" href=\"" + h(linkTarget(node, newUrl)) + "\">"
-                    + "<span>◇</span><span>" + h(node.getLabel()) + "</span></a>\n");
-        }
-        List<NewUiMenuNode> children = node.getChildren();
-        if (children != null) {
-            for (int i = 0; i < children.size(); i++) {
-                appendLinks(out, children.get(i), newUrl, currentModule);
-            }
-        }
-    }
+private String nuiSideH(Object v){if(v==null)return "";return String.valueOf(v).replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&#39;");}
+private boolean nuiSideContains(NewUiMenuNode n,Long id){if(n==null||id==null)return false;if(id.equals(n.getMenuId()))return true;for(int i=0;i<n.getChildren().size();i++)if(nuiSideContains(n.getChildren().get(i),id))return true;return false;}
+private String nuiSideFrame(NewUiMenuNode n,String newUrl)throws IOException{if(n.isMappedToNewUi())return newUrl+"?frame=1&module="+URLEncoder.encode(n.getNewUiModule(),"UTF-8")+"&page="+URLEncoder.encode(n.getNewUiPage()==null?"index":n.getNewUiPage(),"UTF-8")+"&menu="+n.getMenuId();return n.getLegacyUrl();}
+private void nuiSideNode(JspWriter out,NewUiMenuNode n,String newUrl,Long current,int depth)throws IOException{
+ boolean branch=n.hasChildren();boolean open=nuiSideContains(n,current);String id="nuiGroup"+n.getMenuId();
+ out.print("<div class=\"nui-nav-node depth-"+Math.min(depth,6)+(open?" open":"")+"\">");
+ out.print("<div class=\"nui-nav-row\">");
+ if(n.isClickable())out.print("<a class=\"nui-nav-link"+(n.getMenuId().equals(current)?" active":"")+"\" target=\"nuiMainFrame\" data-menu-id=\""+n.getMenuId()+"\" data-shell-url=\""+nuiSideH(newUrl+"?menu="+n.getMenuId())+"\" href=\""+nuiSideH(nuiSideFrame(n,newUrl))+"\"><span class=\"nui-nav-icon\">◇</span><span>"+nuiSideH(n.getLabel())+(n.isMappedToNewUi()?"":"<small class=\"nui-legacy-badge\">Tampilan lama</small>")+"</span>"+(n.getReadableDescendantCount()>0?"<span class=\"nui-nav-count\">"+n.getReadableDescendantCount()+"</span>":"")+"</a>");
+ else out.print("<span class=\"nui-nav-heading\"><span class=\"nui-nav-icon\">◇</span><span>"+nuiSideH(n.getLabel())+"</span>"+(n.getReadableDescendantCount()>0?"<span class=\"nui-nav-count\">"+n.getReadableDescendantCount()+"</span>":"")+"</span>");
+ if(branch)out.print("<button type=\"button\" class=\"nui-nav-toggle\" aria-expanded=\""+open+"\" aria-controls=\""+id+"\" title=\"Buka/tutup submenu\">⌄</button>");
+ out.print("</div>");
+ if(branch){out.print("<div id=\""+id+"\" class=\"nui-nav-children\">");for(int i=0;i<n.getChildren().size();i++)nuiSideNode(out,n.getChildren().get(i),newUrl,current,depth+1);out.print("</div>");}
+ out.print("</div>");
+}
 %>
-<%
-    String ctx = request.getContextPath();
-    String newUrl = ctx + "/new";
-    String currentModule = (String) request.getAttribute("nui_current_module");
-    List<NewUiMenuNode> tree = NewUiMenuAccessService.getAccessibleTree(request);
-    if (tree == null || tree.isEmpty()) {
-%>
-        <div class="nui-nav-group"><div class="nui-nav-label">Menu</div>
-            <a class="disabled" href="#" onclick="return false;"><span>&#9671;</span><span>Tidak ada menu untuk peran aktif</span></a>
-        </div>
-<%
-    } else {
-        for (int i = 0; i < tree.size(); i++) {
-            NewUiMenuNode root = tree.get(i);
-            boolean rootHasTarget = (root.getLegacyUrl() != null && root.getLegacyUrl().length() > 0) || root.isMappedToNewUi();
-            if (root.hasChildren()) {
-                out.print("<div class=\"nui-nav-group\"><div class=\"nui-nav-label\">" + h(root.getLabel()) + "</div>\n");
-                if (root.isReadable() && rootHasTarget) {
-                    appendLinks(out, root, newUrl, currentModule); // termasuk root sendiri
-                } else {
-                    List<NewUiMenuNode> kids = root.getChildren();
-                    for (int j = 0; j < kids.size(); j++) {
-                        appendLinks(out, kids.get(j), newUrl, currentModule);
-                    }
-                }
-                out.print("</div>\n");
-            } else if (root.isReadable() && rootHasTarget) {
-                out.print("<div class=\"nui-nav-group\">\n");
-                appendLinks(out, root, newUrl, currentModule);
-                out.print("</div>\n");
-            }
-        }
-    }
-%>
+<% List<NewUiMenuNode> tree=(List<NewUiMenuNode>)request.getAttribute("nui_menu_tree");Long current=(Long)request.getAttribute("nui_current_menu_id");String newUrl=request.getContextPath()+"/new";
+if(tree==null||tree.isEmpty()){%><div class="nui-nav-empty">Tidak ada menu dengan izin READ untuk peran aktif.</div><%}else{for(int i=0;i<tree.size();i++){out.print("<div class=\"nui-nav-group\">");nuiSideNode(out,tree.get(i),newUrl,current,0);out.print("</div>");}}%>

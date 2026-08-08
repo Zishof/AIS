@@ -372,6 +372,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 				try {
 
 					Common.refreshUpdate(session, (job));
+					ais.common.newui.NewUiCacheInvalidator.invalidateRole(job.getRoleId());
 
 					List<?> list = groupbox.getChildren();
 					((Component) list.get(0)).detach();
@@ -1491,6 +1492,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 							Common.refreshUpdate(session, rolePrivilage);
 						}
 						session.getTransaction().commit();
+						ais.common.newui.NewUiCacheInvalidator.invalidateRole(job.getRoleId());
 
 						System.out.println("2. rolePrivilage -> " + rolePrivilage);
 					}
@@ -1522,6 +1524,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 						job.setMenus(menus);
 					}
 					Common.refreshUpdate(session, job);
+					ais.common.newui.NewUiCacheInvalidator.invalidateRole(job.getRoleId());
 
 					Common.createDefaultTimer(new EventListener() {
 
@@ -1691,6 +1694,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 											Common.refreshDelete(job);
 
 											Common.refreshDeleteFlush(job);
+											ais.common.newui.NewUiCacheInvalidator.invalidateRole(job.getRoleId());
 
 											Common.createDefaultTimer(new EventListener() {
 
@@ -2759,6 +2763,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 			}
 
 		}
+		ais.common.newui.NewUiCacheInvalidator.invalidateRole(tbmrole.getRoleId());
 
 		return true;
 	}

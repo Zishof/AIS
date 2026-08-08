@@ -4,11 +4,12 @@
 <%@ page import="java.security.SecureRandom" %>
 <%@ page import="ais.common.Common" %>
 <%@ page import="ais.database.model.Tbmuser" %>
+<%@ page import="ais.common.newui.NewUiRouteGuard" %>
 <%@ page language="java" contentType="application/json; charset=UTF-8" pageEncoding="UTF-8" %>
 <%!
 private String[] nuiSvcArr(Object value){return value instanceof String[]?(String[])value:new String[0];}
 private String nuiToken(){SecureRandom r=new SecureRandom();byte[] b=new byte[24];r.nextBytes(b);StringBuilder s=new StringBuilder();for(int i=0;i<b.length;i++){s.append(Integer.toHexString((b[i]&0xff)|0x100).substring(1));}return s.toString();}
-private boolean nuiMutating(String action){return "save".equals(action)||"delete".equals(action)||"approve".equals(action)||"reject".equals(action)||"import".equals(action);}
+private boolean nuiMutating(String action){return "save".equals(action)||"save-new".equals(action)||"save-existing".equals(action)||"create".equals(action)||"insert".equals(action)||"update".equals(action)||"delete".equals(action)||"remove".equals(action)||"permanent-delete".equals(action)||"approve".equals(action)||"reject".equals(action)||"import".equals(action)||"upload".equals(action)||"photo".equals(action);}
 %>
 <%
 response.setHeader("Cache-Control","no-store, no-cache, must-revalidate, max-age=0");response.setHeader("Pragma","no-cache");response.setHeader("X-Content-Type-Options","nosniff");
@@ -19,6 +20,8 @@ try{
     String bridgeModule=String.valueOf(request.getAttribute("nuiServiceModule"));
     String bridgePage=String.valueOf(request.getAttribute("nuiServicePage"));
     String[] bridgeEntities=nuiSvcArr(request.getAttribute("nuiServiceEntities"));
+    String action=request.getParameter("action");if(action==null||action.trim().length()==0)action="meta";action=action.trim().toLowerCase();
+    if(!NewUiRouteGuard.isActionAuthorized(request,bridgeModule,bridgePage,action)){response.setStatus(403);root.put("ok",false);root.put("code","ACTION_FORBIDDEN");root.put("message","Peran aktif tidak memiliki izin untuk aksi ini.");root.put("requestId",requestId);out.print(root.toString());return;}
     if(Common.getApakahAdmin()){
         ais.action.master.generic.v2.GenericCrudDefinition autoCrud=ais.action.master.generic.v2.GenericCrudDefinitionRegistry.tryAutoRegister(bridgeModule,bridgePage,bridgeEntities);
         if(autoCrud!=null){
@@ -29,7 +32,6 @@ try{
             return;
         }
     }
-    String action=request.getParameter("action");if(action==null||action.trim().length()==0)action="meta";action=action.trim().toLowerCase();
     String csrf=(String)session.getAttribute("newUiCsrfToken");if(csrf==null){csrf=nuiToken();session.setAttribute("newUiCsrfToken",csrf);}
     if(nuiMutating(action)){
         String sent=request.getHeader("X-CSRF-Token");if(sent==null)sent=request.getParameter("csrf");

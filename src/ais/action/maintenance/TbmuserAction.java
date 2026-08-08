@@ -775,6 +775,7 @@ public class TbmuserAction extends GenericAutowireComposer implements DataCriter
 											Session session = HibernateUtil.currentSession();
 											GeneralValueObject.ubahDataHistory(tbmuser, CommonPrivilages.DELETE);
 											Common.refreshDelete(session, tbmuser);
+											ais.common.newui.NewUiCacheInvalidator.invalidateUser(tbmuser.getUserId());
 
 											Common.createDefaultTimer(new EventListener() {
 
@@ -1788,6 +1789,7 @@ public class TbmuserAction extends GenericAutowireComposer implements DataCriter
 
 		Common.saveOrUpdateUserAccess(tbmuser, null, tbmuser.getUserId(), userPassword.getValue().trim(),
 				tbmuser.getEmail());
+		ais.common.newui.NewUiCacheInvalidator.invalidateUser(tbmuser.getUserId());
 
 		return true;
 	}

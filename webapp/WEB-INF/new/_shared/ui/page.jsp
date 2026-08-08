@@ -5,6 +5,10 @@
 <%@ page import="ais.database.model.Tbmuser" %>
 <%@ page import="ais.action.master.generic.v2.GenericCrudDefinition" %>
 <%@ page import="ais.action.master.generic.v2.GenericCrudDefinitionRegistry" %>
+<%@ page import="ais.common.newui.NewUiMenuAccessService" %>
+<%@ page import="ais.common.newui.NewUiMenuNode" %>
+<%@ page import="ais.common.newui.NewUiPermission" %>
+<%@ page import="ais.common.newui.NewUiRouteGuard" %>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%!
 private String nuiH(Object value){if(value==null)return "";String s=String.valueOf(value);return s.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&#39;");}
@@ -18,6 +22,9 @@ private String nuiMetricLabel(String type,int index){
 <%
 String module=String.valueOf(request.getAttribute("nuiModule"));String moduleLabel=String.valueOf(request.getAttribute("nuiModuleLabel"));String pageName=String.valueOf(request.getAttribute("nuiPage"));String title=String.valueOf(request.getAttribute("nuiPageTitle"));String type=String.valueOf(request.getAttribute("nuiPageType"));String desc=String.valueOf(request.getAttribute("nuiPageDescription"));String sourceClass=String.valueOf(request.getAttribute("nuiSourceClass"));String sourcePackage=String.valueOf(request.getAttribute("nuiSourcePackage"));String sourcePath=String.valueOf(request.getAttribute("nuiSourcePath"));String sourceKind=String.valueOf(request.getAttribute("nuiSourceKind"));String sourceExtends=String.valueOf(request.getAttribute("nuiSourceExtends"));String sourceImplements=String.valueOf(request.getAttribute("nuiSourceImplements"));String[] methods=nuiArr(request.getAttribute("nuiSourceMethods"));String[] legacy=nuiArr(request.getAttribute("nuiLegacyRefs"));String[] entities=nuiArr(request.getAttribute("nuiEntityCandidates"));
 String endpoint=request.getContextPath()+"/new?service=1&module="+URLEncoder.encode(module,"UTF-8")+"&page="+URLEncoder.encode(pageName,"UTF-8");
+Long nuiCurrentMenuId=(Long)request.getAttribute("nui_current_menu_id");
+List<NewUiMenuNode> nuiBreadcrumb=(List<NewUiMenuNode>)request.getAttribute("nui_breadcrumb");if(nuiBreadcrumb==null)nuiBreadcrumb=new ArrayList<NewUiMenuNode>();
+NewUiPermission nuiPermission=NewUiRouteGuard.permissionFor(request,module,pageName);
 if(Common.getApakahAdmin()){
     GenericCrudDefinition autoCrud=GenericCrudDefinitionRegistry.tryAutoRegister(module,pageName,entities);
     if(autoCrud!=null){
@@ -31,8 +38,8 @@ if(Common.getApakahAdmin()){
 %>
 <section class="nui-page" data-service-url="<%=nuiAttr(endpoint)%>">
   <header class="nui-page-head">
-    <div><div class="nui-breadcrumb">Beranda / <%=nuiH(moduleLabel)%> / <%=nuiH(title)%></div><h1 class="nui-page-title"><%=nuiH(title)%></h1><p class="nui-page-desc"><%=nuiH(desc)%></p></div>
-    <div class="nui-head-actions"><button class="nui-btn" data-nui-action data-message="Filter lanjutan siap dihubungkan.">⚲ Filter</button><button class="nui-btn" data-nui-action data-message="Ekspor akan memakai Java report/export service.">⇩ Ekspor</button><button class="nui-btn nui-btn-primary" data-nui-action data-message="Form tambah/edit siap dihubungkan ke Java service layer.">＋ Tambah Data</button></div>
+    <div><div class="nui-breadcrumb">Beranda<%if(nuiBreadcrumb.isEmpty()){%> / <%=nuiH(moduleLabel)%> / <%=nuiH(title)%><%}else{for(int bi=0;bi<nuiBreadcrumb.size();bi++){%> / <%=nuiH(nuiBreadcrumb.get(bi).getLabel())%><%}}%></div><h1 class="nui-page-title"><%=nuiH(title)%></h1><p class="nui-page-desc"><%=nuiH(desc)%></p></div>
+    <div class="nui-head-actions"><%if(nuiPermission.isCanRead()){%><button class="nui-btn" data-nui-action data-message="Filter lanjutan siap dihubungkan.">⚲ Filter</button><button class="nui-btn" data-nui-action data-message="Ekspor akan memakai Java report/export service.">⇩ Ekspor</button><%}if(nuiPermission.isCanCreate()){%><button class="nui-btn nui-btn-primary" data-nui-action data-message="Form tambah siap dihubungkan ke Java service layer.">＋ Tambah Data</button><%}%></div>
   </header>
   <div class="nui-grid nui-grid-4">
   <% for(int i=0;i<4;i++){ %><article class="nui-card nui-card-pad"><div class="nui-stat"><div class="nui-stat-icon"><%=i==0?"◉":i==1?"✓":i==2?"◷":"!"%></div><div><div><%=nuiH(nuiMetricLabel(type,i))%></div><div class="nui-stat-value">--</div><div class="nui-stat-meta">Memuat dari service adapter</div></div></div></article><% } %>

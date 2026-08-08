@@ -1,110 +1,103 @@
 package ais.common.newui;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import ais.database.model.Menu;
 
-/**
- * Registry pemetaan antara route New UI (<code>module</code>/<code>page</code>)
- * dan record {@link ais.database.model.Menu} existing.
- *
- * <p>Route New UI berbasis <b>paket source</b> (mis. <code>akunting</code>), sedangkan
- * hak akses berbasis <b>record Menu</b> (ber-URL <code>.zul</code> legacy). Tidak ada
- * pemetaan 1:1 otomatis, sehingga registry ini memakai <b>tabel alias eksplisit</b>
- * berbasis nilai stabil (substring pada <code>Menu.getUrl()</code>). Route tanpa alias
- * yang cocok dianggap <code>UNMAPPED</code>.</p>
- *
- * <p><b>Catatan:</b> tabel alias di bawah masih parsial dan sengaja diisi hanya untuk
- * halaman yang identitasnya pasti (mis. manajemen role/user). Pengisian penuh dilakukan
- * setelah menjalankan <code>docs/sql/new-ui-rbac-diagnostic.sql</code> pada DB dev untuk
- * memetakan sebaran <code>Menu.url</code> ke modul New UI (lihat parity doc §4.2).</p>
- *
- * <p>Kompatibel Java 1.6.</p>
- */
+/** Registry eksplisit Menu.id/URL legacy yang telah diverifikasi ke route New UI. */
 public final class NewUiRouteRegistry {
 
-    /** Status pemetaan sebuah route New UI. */
     public static final int MAPPED_AND_AUTHORIZED = 0;
     public static final int MAPPED_BUT_FORBIDDEN = 1;
     public static final int UNMAPPED = 2;
     public static final int NOT_FOUND = 3;
 
-    /** Satu baris alias: menu yang URL-nya memuat token → route New UI module/page. */
-    public static final class Alias {
-        public final String menuUrlToken; // dicocokkan (lowercase, contains) ke Menu.getUrl()
-        public final String module;
-        public final String page;
+    public static final class Route {
+        private final Long menuId;
+        private final String exactLegacyUrl;
+        private final String module;
+        private final String page;
 
-        public Alias(String menuUrlToken, String module, String page) {
-            this.menuUrlToken = menuUrlToken;
+        Route(Long menuId, String exactLegacyUrl, String module, String page) {
+            this.menuId = menuId;
+            this.exactLegacyUrl = normalizeUrl(exactLegacyUrl);
             this.module = module;
             this.page = page;
         }
+
+        public Long getMenuId() { return menuId; }
+        public String getModule() { return module; }
+        public String getPage() { return page; }
     }
 
-    private static final List<Alias> ALIASES = new ArrayList<Alias>();
+    private static final List<Route> ROUTES = new ArrayList<Route>();
+    private static final Map<Long, Route> BY_ID = new HashMap<Long, Route>();
+    private static final Map<String, Route> BY_EXACT_URL = new HashMap<String, Route>();
+    private static final Map<String, Route> BY_NEW_ROUTE = new HashMap<String, Route>();
 
     static {
-        // Seed minimal yang identitasnya pasti. Tambah entri lain setelah diagnostik.
-        ALIASES.add(new Alias("tbmrole", "root/maintenance", "tbmrole"));
-        ALIASES.add(new Alias("tbmuser", "root/maintenance", "tbmuser"));
+        // ID dan URL diverifikasi terhadap DB AIS lokal pada 2026-08-08.
+        register(2L, "/pages/maintenance/job/list.zul", "root/maintenance", "tbmrole");
+        register(3L, "/pages/maintenance/users/list.zul", "root/maintenance", "tbmuser");
+        register(121122L, "/pages/master/kkn/kelompok_kkn.zul", "kkn", "kelompok_kkn");
+        register(924987L, "/pages/master/kkn/kkn_utk_mhs.zul", "kkn", "kkn_untuk_mahasiswa");
+        register(100000007L, "/pages/master/agama.zul", "root", "agama");
     }
 
     private NewUiRouteRegistry() {
     }
 
-    /**
-     * Route New UI untuk sebuah Menu, atau null bila UNMAPPED.
-     * @return String[]{module, page} atau null.
-     */
+    private static void register(long menuId, String exactLegacyUrl, String module, String page) {
+        Route route = new Route(Long.valueOf(menuId), exactLegacyUrl, module, page);
+        ROUTES.add(route);
+        BY_ID.put(route.menuId, route);
+        BY_EXACT_URL.put(route.exactLegacyUrl, route);
+        BY_NEW_ROUTE.put(key(module, page), route);
+    }
+
+    /** Mapping harus cocok ID, atau URL exact yang telah diverifikasi; tidak memakai contains. */
     public static String[] routeForMenu(Menu menu) {
-        if (menu == null) {
-            return null;
-        }
-        String url = menu.getUrl();
-        if (url == null) {
-            return null;
-        }
-        String lower = url.toLowerCase();
-        for (int i = 0; i < ALIASES.size(); i++) {
-            Alias a = ALIASES.get(i);
-            if (a.menuUrlToken != null && lower.indexOf(a.menuUrlToken) >= 0) {
-                return new String[] { a.module, a.page };
-            }
-        }
-        return null;
+        Route route = routeForMenuIdAndUrl(menu == null ? null : menu.getId(), menu == null ? null : menu.getUrl());
+        return route == null ? null : new String[] { route.module, route.page };
     }
 
-    /**
-     * Menu yang mengatur sebuah route New UI, dicari di dalam daftar menu yang dapat
-     * diakses user (agar tidak membocorkan menu di luar hak akses). null bila tidak ada.
-     */
-    public static Menu menuForRoute(String module, String page, List<Menu> accessibleMenus) {
-        if (module == null || accessibleMenus == null) {
-            return null;
+    public static Route routeForMenuIdAndUrl(Long menuId, String legacyUrl) {
+        Route byId = menuId == null ? null : BY_ID.get(menuId);
+        if (byId != null && (byId.exactLegacyUrl.length() == 0
+                || byId.exactLegacyUrl.equals(normalizeUrl(legacyUrl)))) {
+            return byId;
         }
-        for (int i = 0; i < accessibleMenus.size(); i++) {
-            Menu m = accessibleMenus.get(i);
-            String[] r = routeForMenu(m);
-            if (r != null && module.equals(r[0]) && (page == null || page.equals(r[1]))) {
-                return m;
-            }
-        }
-        return null;
+        return BY_EXACT_URL.get(normalizeUrl(legacyUrl));
     }
 
-    /** true bila token muncul pada tabel alias (route punya potensi mapping). */
-    public static boolean isKnownRouteToken(String token) {
-        if (token == null) {
-            return false;
-        }
-        for (int i = 0; i < ALIASES.size(); i++) {
-            Alias a = ALIASES.get(i);
-            if (token.equals(a.module) || token.equals(a.module + "/" + a.page)) {
-                return true;
-            }
-        }
-        return false;
+    public static Route routeForNewUi(String module, String page) {
+        return BY_NEW_ROUTE.get(key(module, page));
+    }
+
+    public static boolean isKnownNewUiRoute(String module, String page) {
+        return routeForNewUi(module, page) != null;
+    }
+
+    public static boolean isSafeLegacyUrl(String url) {
+        if (url == null) return false;
+        String value = url.trim();
+        if (value.length() == 0 || value.indexOf("..") >= 0 || value.indexOf('\\') >= 0
+                || value.indexOf('?') >= 0 || value.indexOf('#') >= 0
+                || value.indexOf("://") >= 0 || value.startsWith("//")) return false;
+        return value.matches("/[A-Za-z0-9_./-]+") || value.matches("[A-Za-z_$][A-Za-z0-9_.$]*");
+    }
+
+    private static String normalizeUrl(String url) {
+        if (url == null) return "";
+        return url.trim().replace('\\', '/').toLowerCase();
+    }
+
+    private static String key(String module, String page) {
+        String m = module == null ? "" : module.trim().toLowerCase();
+        String p = page == null || page.trim().length() == 0 ? "index" : page.trim().toLowerCase();
+        return m + "|" + p;
     }
 }
