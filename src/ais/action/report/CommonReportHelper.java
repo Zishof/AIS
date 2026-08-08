@@ -5956,6 +5956,9 @@ public class CommonReportHelper {
 			Kegiatan kegiatan = (Kegiatan) val[2];
 
 			if (kegiatan != null && kegiatan.getAktif()) {
+				if (tambahSnapshotTagihan(val, maps)) {
+					continue;
+				}
 
 				Collection<DetailKegiatan> detailKegiatans = kegiatan == null || kegiatan.getId() == null ? null
 						: kegiatan.ambilDetailKegiatan(false);
@@ -6108,6 +6111,19 @@ public class CommonReportHelper {
 
 		parameters.put("maps", maps);
 		Report.generatePDFReport("pdf", parameters, "tagihan", ais.ui.util.WaktuUtil.getDate());
+	}
+
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	private static boolean tambahSnapshotTagihan(Object[] val, List<Map<String, Serializable>> tujuan) {
+		if (val == null || val.length < 4 || !(val[3] instanceof Collection)) {
+			return false;
+		}
+		for (Object baris : (Collection) val[3]) {
+			if (baris instanceof Map) {
+				tujuan.add(new HashMap<String, Serializable>((Map<String, Serializable>) baris));
+			}
+		}
+		return true;
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })

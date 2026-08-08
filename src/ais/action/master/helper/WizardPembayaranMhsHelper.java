@@ -538,7 +538,8 @@ public class WizardPembayaranMhsHelper {
             });
             footerHost.appendChild(btnTutup);
         } else if (langkah < 4) {
-            String label = langkah == 1 ? "Lanjut →" : (langkah == 2 ? "Atur Nominal →" : "Cara Bayar →");
+            String label = langkah == 1 ? "Lanjut →"
+                    : (langkah == 2 ? "Atur Nominal →" : "Lanjut Pilih Cara Bayar →");
             final String lbl = label;
             MyButtonConfig btnKanan = new MyButtonConfig(lbl);
             btnKanan.setStyle(BTN_PRIMARY);
@@ -641,8 +642,9 @@ public class WizardPembayaranMhsHelper {
             "<div style='font-size:12px;font-weight:800;color:#92400e;margin-bottom:2px;'>"
             + "🛒 Bayar sekaligus jenis pembayaran lain (opsional)</div>"
             + "<div style='font-size:11px;color:#a16207;line-height:1.5;margin-bottom:8px;'>"
-            + "Centang jenis lain untuk digabung dalam SATU pembayaran (mekanisme Keranjang "
-            + "Belanja — satu Virtual Account untuk semua). Kosongkan untuk pembayaran biasa.</div>"));
+            + "Centang bila Anda ingin membayar beberapa jenis tagihan sekaligus. Semua pilihan "
+            + "akan digabung menjadi satu transaksi dan satu nomor pembayaran. Jangan centang "
+            + "apa pun bila hanya membayar jenis yang dipilih di atas.</div>"));
 
         // Kotak pencarian: memfilter daftar checkbox di bawah (penting saat jenis banyak).
         kotakEkstra.appendChild(new Html(
@@ -893,10 +895,20 @@ public class WizardPembayaranMhsHelper {
 
     // ============================================================ STEP 3: ATUR NOMINAL
     private void renderStep3() {
+        double totalKekurangan = hitungTotalKekuranganDipilih();
         bodyHost.appendChild(new Html(
-            "<div style='font-size:12px;color:#475569;line-height:1.5;"
-            + "background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px 12px;margin-bottom:12px;'>"
-            + "Atur nominal yang akan dibayarkan. Boleh sebagian (angsuran) — tidak harus penuh.</div>"));
+            "<div style='font-size:12px;color:#334155;line-height:1.6;"
+            + "background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;padding:12px 14px;margin-bottom:12px;'>"
+            + "<div style='font-size:14px;font-weight:800;color:#1e3a8a;margin-bottom:6px;'>"
+            + "Apa yang harus diisi pada langkah ini?</div>"
+            + "<div><b>1.</b> Angka yang tampil otomatis adalah <b>seluruh sisa tagihan</b> item yang dipilih: "
+            + "<b>" + formatRp(totalKekurangan) + "</b>.</div>"
+            + "<div><b>2.</b> Jika ingin <b>langsung lunas</b>, biarkan angka tersebut tanpa diubah.</div>"
+            + "<div><b>3.</b> Jika item boleh dicicil, isi angka yang lebih kecil lalu tekan "
+            + "<b>Lanjut Pilih Cara Bayar</b>.</div>"
+            + "<div style='margin-top:7px;padding-top:7px;border-top:1px solid #bfdbfe;color:#475569;'>"
+            + "Belum ada pembayaran yang diproses pada halaman ini. Pembayaran baru dilanjutkan setelah Anda "
+            + "memilih bank, Virtual Account, QRIS, atau Tunai/Kasir pada langkah berikutnya.</div></div>"));
 
         final Div[] totalDiv = new Div[1];
         totalDiv[0] = new Div();
@@ -912,17 +924,26 @@ public class WizardPembayaranMhsHelper {
             card.setStyle(CARD_STYLE);
 
             card.appendChild(new Html(
-                "<div style='font-weight:700;color:#1e3a8a;margin-bottom:4px;font-size:13px;'>"
-                + escHtml(nama) + "</div>"
-                + "<div style='font-size:11px;color:#64748b;margin-bottom:10px;'>"
-                + "Kekurangan: <b>" + formatRp(item.kekurangan) + "</b></div>"
+                "<div style='display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;'>"
+                + "<div style='font-weight:800;color:#1e3a8a;font-size:14px;'>" + escHtml(nama) + "</div>"
+                + "<span style='font-size:10px;font-weight:800;border-radius:999px;padding:3px 8px;"
+                + (item.bisaDiubah ? "background:#dcfce7;color:#166534;'>BOLEH DICICIL"
+                        : "background:#fef3c7;color:#92400e;'>WAJIB DIBAYAR PENUH")
+                + "</span></div>"
+                + "<div style='display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:10px 0;'>"
+                + kotakNominal("Tagihan", item.nominal, "#0f172a")
+                + kotakNominal("Sudah Dibayar", item.sudahDibayar, "#166534")
+                + kotakNominal("Sisa Tagihan", item.kekurangan, "#dc2626") + "</div>"
                 + (item.keterangan == null || item.keterangan.trim().isEmpty() ? "" :
                 "<div style='font-size:11px;color:#64748b;margin-bottom:10px;background:#f8fafc;"
                 + "border:1px dashed #cbd5e1;border-radius:6px;padding:4px 8px;'>"
                 + "&#128202; " + escHtml(item.keterangan) + "</div>")));
 
             if (item.bisaDiubah) {
-                card.appendChild(new Html("<label style='" + LABEL_SM + "'>Nominal Bayar Sekarang (Rp)</label>"));
+                card.appendChild(new Html("<label style='" + LABEL_SM + "'>Nominal yang Dibayar Sekarang (Rp)</label>"
+                    + "<div style='font-size:11px;color:#475569;margin:-1px 0 7px 0;'>"
+                    + "Untuk melunasi <b>" + escHtml(nama) + "</b>, biarkan <b>" + formatRp(item.kekurangan)
+                    + "</b>. Untuk mencicil, isi lebih kecil dari angka tersebut.</div>"));
 
                 final Decimalbox dec = new Decimalbox();
                 dec.setValue(new java.math.BigDecimal(item.nominalBayar > 0 ? item.nominalBayar : item.kekurangan));
@@ -982,11 +1003,34 @@ public class WizardPembayaranMhsHelper {
     private void rebuiltTotalCard(Div totalCard) {
         if (totalCard == null) return;
         double total = hitungTotalBayar();
+        double totalKekurangan = hitungTotalKekuranganDipilih();
+        double sisaSetelahBayar = Math.max(0, totalKekurangan - total);
         Common.clear(totalCard);
         totalCard.appendChild(new Html(
-            "<div style='font-size:11px;color:#16a34a;font-weight:700;'>TOTAL AKAN DIBAYAR</div>"
+            "<div style='font-size:11px;color:#16a34a;font-weight:800;'>TOTAL YANG AKAN DIPROSES SEKARANG</div>"
             + "<div style='font-size:22px;font-weight:800;color:#15803d;margin-top:4px;'>"
-            + formatRp(total) + "</div>"));
+            + formatRp(total) + "</div>"
+            + "<div style='font-size:11px;color:#475569;margin-top:6px;line-height:1.5;'>"
+            + (sisaSetelahBayar <= 0.01
+                    ? "Nominal ini akan <b>melunasi seluruh item yang dipilih</b>."
+                    : "Ini pembayaran <b>sebagian/angsuran</b>. Perkiraan sisa setelah pembayaran: <b>"
+                            + formatRp(sisaSetelahBayar) + "</b>.")
+            + " Biaya administrasi kanal pembayaran, jika ada, akan ditampilkan pada langkah berikutnya.</div>"));
+    }
+
+    private double hitungTotalKekuranganDipilih() {
+        double total = 0.0;
+        for (TagihanItem item : tagihanItems) {
+            if (item.dipilih) total += Math.max(0, item.kekurangan);
+        }
+        return total;
+    }
+
+    private String kotakNominal(String label, double nilai, String warna) {
+        return "<div style='background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;padding:7px;min-width:0;'>"
+                + "<div style='font-size:9px;color:#64748b;font-weight:700;text-transform:uppercase;'>"
+                + escHtml(label) + "</div><div style='font-size:11px;color:" + warna
+                + ";font-weight:800;margin-top:2px;word-break:break-word;'>" + formatRp(nilai) + "</div></div>";
     }
 
     private boolean validasiStep3() {
@@ -1025,6 +1069,18 @@ public class WizardPembayaranMhsHelper {
 
         double total = hitungTotalBayar();
         final List<TagihanItem> dipilih = getItemsDipilih();
+
+        bodyHost.appendChild(new Html(
+            "<div style='font-size:12px;color:#334155;line-height:1.6;background:#eff6ff;"
+            + "border:1px solid #93c5fd;border-radius:10px;padding:12px 14px;margin-bottom:12px;'>"
+            + "<div style='font-size:14px;font-weight:800;color:#1e3a8a;margin-bottom:5px;'>"
+            + "Cara menyelesaikan pembayaran</div>"
+            + "<div><b>1.</b> Periksa kembali total dan item di bawah.</div>"
+            + "<div><b>2.</b> Klik <b>satu</b> cara pembayaran yang tersedia.</div>"
+            + "<div><b>3.</b> Untuk VA/QRIS, ikuti nomor atau kode yang diterbitkan sampai transaksi berhasil. "
+            + "Status lunas diperbarui setelah konfirmasi diterima dari bank.</div>"
+            + (isUserAdmin() ? "<div><b>4.</b> Pilih Tunai/Kasir hanya jika uang benar-benar sudah diterima.</div>" : "")
+            + "</div>"));
 
         // Ringkasan total
         bodyHost.appendChild(new Html(
@@ -1463,20 +1519,31 @@ public class WizardPembayaranMhsHelper {
      * konfirmasi sukses sederhana.
      */
     private void renderStep5() {
-        bodyHost.appendChild(new Html(
-            "<div style='text-align:center;padding:24px 20px 8px;'>"
-            + "<div style='font-size:56px;margin-bottom:12px;'>✅</div>"
-            + "<div style='font-size:20px;font-weight:800;color:#0f172a;margin-bottom:6px;'>Selesai</div>"
-            + "<div style='font-size:13px;color:#64748b;max-width:400px;margin:0 auto;line-height:1.6;'>"
-            + "Pembayaran telah diproses. Tutup jendela ini atau kembali untuk melakukan pembayaran lain.</div>"
-            + "</div>"));
-
         boolean adaVa = vaKode != null && !vaKode.trim().isEmpty();
         boolean adaQr = vaQrUrl != null && !vaQrUrl.trim().isEmpty();
+        boolean menungguPembayaranBank = adaVa || adaQr;
+        bodyHost.appendChild(new Html(
+            "<div style='text-align:center;padding:24px 20px 8px;'>"
+            + "<div style='font-size:56px;margin-bottom:12px;'>"
+            + (menungguPembayaranBank ? "🧾" : "✅") + "</div>"
+            + "<div style='font-size:20px;font-weight:800;color:#0f172a;margin-bottom:6px;'>"
+            + (menungguPembayaranBank ? "Instruksi Pembayaran Siap" : "Pembayaran Selesai") + "</div>"
+            + "<div style='font-size:13px;color:#64748b;max-width:400px;margin:0 auto;line-height:1.6;'>"
+            + (menungguPembayaranBank
+                    ? "Transaksi belum dinyatakan lunas. Selesaikan pembayaran sesuai petunjuk di bawah. "
+                            + "Status tagihan akan diperbarui setelah pembayaran dikonfirmasi oleh bank."
+                    : "Pembayaran berhasil diproses dan dicatat. Anda dapat menutup jendela ini atau "
+                            + "kembali untuk melakukan pembayaran lain.")
+            + "</div>"
+            + "</div>"));
+
         if (adaVa || adaQr) {
             StringBuilder sb = new StringBuilder();
             sb.append("<div style='" + CARD_STYLE + "max-width:420px;margin:14px auto 0;"
                     + "background:#eff6ff;border-color:#bfdbfe;text-align:center;'>");
+            sb.append("<div style='display:inline-block;background:#fef3c7;color:#92400e;border-radius:999px;"
+                    + "padding:3px 10px;font-size:10px;font-weight:800;margin-bottom:8px;'>"
+                    + "MENUNGGU PEMBAYARAN</div>");
             sb.append("<div style='font-size:11px;font-weight:700;color:#1d4ed8;letter-spacing:.5px;'>")
               .append(escHtml(vaLabelBank == null ? "VIRTUAL ACCOUNT" : vaLabelBank.toUpperCase()))
               .append("</div>");
@@ -1883,9 +1950,11 @@ public class WizardPembayaranMhsHelper {
     private void bayarBankaltimtara(final PembayaranGatewayKatalog.Gateway g, final List<TagihanItem> dipilih) {
         try {
             MyMessageboxConfig.show(
-                    "Pilih metode pembayaran Bankaltimtara: tekan YA untuk Virtual Account,"
-                            + " atau TIDAK untuk QRIS.",
-                    "Pilihlah Bayar Via",
+                    "Pilih metode pembayaran Bankaltimtara:\n\n"
+                            + "YA = Virtual Account\n"
+                            + "TIDAK = QRIS\n"
+                            + "BATAL = kembali tanpa membuat transaksi",
+                    "Pilih Metode Pembayaran",
                     MyMessageboxConfig.YES.intValue() | MyMessageboxConfig.NO.intValue()
                             | MyMessageboxConfig.CANCEL.intValue(),
                     MyMessageboxConfig.QUESTION, new EventListener() {

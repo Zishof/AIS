@@ -12500,6 +12500,9 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		rows.appendChild(createRowNilai("Report Ijazah — dipakai di: LaporanIjazahPerProdiDanAngkatan", "Report_Ijazah", ""));
 		rows.appendChild(createRowActiveDefault("Absen piket otomatis belum — dipakai di: DetailAbsenGuruPiketHelper, DetailAbsenPiketHelper, DetailAbsenPiketMahasiswaHelper", "absen_piket_otomatis_belum", Konfigurasi.AKTIF));
 		rows.appendChild(createRowNilai("Admin yg boleh buka link login dosen — dipakai di: BiodataDosenAction", "admin_yg_boleh_buka_link_login_dosen", ""));
+		rows.appendChild(createRowNilai("Role yang boleh menampilkan tombol Ambil Mahasiswa pada Dosen PA. "
+				+ "Isi dengan tbmrole.roleid; jika lebih dari satu pisahkan dengan koma — dipakai di: DetailPAHelper",
+				"hak_akses_ambil_mahasiswa_dosen_pa", "am,admfak,admjur"));
 		rows.appendChild(createRowActiveDefault("Aktifkan proses migrasi nilai — dipakai di: JamPerkuliahanSyncrhonizerProcessor", "aktifkan_proses_migrasi_nilai", Konfigurasi.TIDAK_AKTIF));
 		rows.appendChild(createRowActiveDefault("Aktifkan simpan format nilai ke semua smt — dipakai di: FormatPenilaianHelper", "aktifkan_simpan_format_nilai_ke_semua_smt", Konfigurasi.TIDAK_AKTIF));
 		rows.appendChild(createRowActiveDefault("Aktifkan tombol setujui semua karya dosen — dipakai di: PenghargaanDosenAction", "aktifkan_tombol_setujui_semua_karya_dosen", Konfigurasi.AKTIF));

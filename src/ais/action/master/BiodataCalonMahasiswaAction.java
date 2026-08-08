@@ -14,6 +14,7 @@ import org.zkoss.image.AImage;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
+import org.zkoss.zk.ui.sys.ExecutionsCtrl;
 import org.zkoss.zk.ui.util.GenericAutowireComposer;
 import org.zkoss.zul.Combobox;
 import ais.ui.util.MyDetail;
@@ -27,6 +28,7 @@ import org.zkoss.zul.SimpleListModel;
 import org.zkoss.zul.Textbox;
 
 import ais.action.master.helper.RevisiHelper;
+import ais.action.master.helper.RevisiBiodataCalonMahasiswaHelper;
 import ais.common.Common;
 import ais.common.CommonPrivilages;
 import ais.common.listener.DataLoader;
@@ -102,6 +104,28 @@ public class BiodataCalonMahasiswaAction extends GenericAutowireComposer impleme
 
 		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
+
+		MyToolbarbuttonConfig history = new MyToolbarbuttonConfig("History", "/img/jadwal.png");
+		history.setTooltiptext("Telusuri riwayat perubahan, penghapusan, dan pemulihan Biodata Calon Mahasiswa");
+		history.setVisible(edit);
+		history.addEventListener("onClick", new EventListener() {
+
+			@Override
+			public void onEvent(Event event) throws Exception {
+				RevisiBiodataCalonMahasiswaHelper revisiHelper = new RevisiBiodataCalonMahasiswaHelper(
+						new EventListener() {
+
+							@Override
+							public void onEvent(Event event) throws Exception {
+								onSearchDefault(event);
+							}
+						});
+				ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(revisiHelper);
+				revisiHelper.setVisible(true);
+				revisiHelper.onModal();
+			}
+		});
+		Common.appendKeToolbar(history, add, comp);
 
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 
@@ -217,7 +241,8 @@ public class BiodataCalonMahasiswaAction extends GenericAutowireComposer impleme
 			}
 
 			RevisiHelper
-					.createNewRevisi(BiodataCalonMahasiswa.class, biodataCalonMahasiswa, biodataCalonMahasiswa.getNim())
+					.createNewRevisi(BiodataCalonMahasiswa.class, biodataCalonMahasiswa,
+							biodataCalonMahasiswa.getNoRegistrasi())
 					.setParent(arg0);
 
 			new Label(biodataCalonMahasiswa.getNama()).setParent(arg0);

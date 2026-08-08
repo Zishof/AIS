@@ -1938,18 +1938,24 @@ public class AktifitasPerkuliahanHelper {
 					tabpanelReferensi.setHeight("2000px");
 					tabpanelReferensi.setParent(tabpanels);
 
-					LaporanMonitorPerkuliahan laporanMonitorPerkuliahan = new LaporanMonitorPerkuliahan(perkuliahan);
-					laporanMonitorPerkuliahan.setBorder("none");
-					laporanMonitorPerkuliahan.setHeight("2000px");
-					laporanMonitorPerkuliahan.setWidth("100%");
-					tabpanelReferensi.appendChild(laporanMonitorPerkuliahan);
-					tabpanelReferensi.setHeight("2000px");
-					// Konten dimuat eager; onClick hanya tampilkan panel (pola sama seperti tab lain).
+					// Muat laporan setelah tab benar-benar dipilih. Renderer PDF memakai timer dan
+					// sebelumnya dijalankan ketika panel masih tersembunyi, sehingga ukuran area
+					// pratinjau dapat terbaca 0 dan hasilnya tampak kosong.
 					tabMonitor.addEventListener("onClick", new EventListener() {
 						@Override
 						public void onEvent(Event arg0) throws Exception {
-							tabMonitor.setSelected(true);
+							tabbox.setSelectedTab(tabMonitor);
 							tabpanelReferensi.setVisible(true);
+							tabpanelReferensi.setWidth("100%");
+							tabpanelReferensi.setHeight("2000px");
+							if (tabpanelReferensi.getChildren().isEmpty()) {
+								LaporanMonitorPerkuliahan laporanMonitorPerkuliahan = new LaporanMonitorPerkuliahan(
+										perkuliahan);
+								laporanMonitorPerkuliahan.setBorder("none");
+								laporanMonitorPerkuliahan.setHeight("100%");
+								laporanMonitorPerkuliahan.setWidth("100%");
+								tabpanelReferensi.appendChild(laporanMonitorPerkuliahan);
+							}
 						}
 					});
 					// Default: tidak ada tab terpilih — panel semua tersembunyi sampai user klik.
@@ -2029,13 +2035,15 @@ public class AktifitasPerkuliahanHelper {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
-							tabMonitorKbm.setSelected(true);
+							tabbox.setSelectedTab(tabMonitorKbm);
 							tabpanelMonitorKbm.setVisible(true);
+							tabpanelMonitorKbm.setWidth("100%");
+							tabpanelMonitorKbm.setHeight("2000px");
 							if (tabpanelMonitorKbm.getChildren().isEmpty()) {
 								LaporanMonitorPerkuliahanKbm laporanMonitorPerkuliahan = new LaporanMonitorPerkuliahanKbm(
 										perkuliahan);
 								laporanMonitorPerkuliahan.setBorder("none");
-								laporanMonitorPerkuliahan.setHeight("2000px");
+								laporanMonitorPerkuliahan.setHeight("100%");
 								laporanMonitorPerkuliahan.setWidth("100%");
 								tabpanelMonitorKbm.appendChild(laporanMonitorPerkuliahan);
 								tabpanelMonitorKbm.setHeight("2000px");
@@ -2073,8 +2081,10 @@ public class AktifitasPerkuliahanHelper {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
-							tabRekapitulasKehadiran.setSelected(true);
+							tabbox.setSelectedTab(tabRekapitulasKehadiran);
 							tabpanelRekapitulasKehadiran.setVisible(true);
+							tabpanelRekapitulasKehadiran.setWidth("100%");
+							tabpanelRekapitulasKehadiran.setHeight("2000px");
 							if (tabpanelRekapitulasKehadiran.getChildren().isEmpty()) {
 
 								Dosen kaprodi = null;
@@ -2208,8 +2218,10 @@ public class AktifitasPerkuliahanHelper {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
-							tabRekapitulasNilai.setSelected(true);
+							tabbox.setSelectedTab(tabRekapitulasNilai);
 							tabpanelRekapitulasNilai.setVisible(true);
+							tabpanelRekapitulasNilai.setWidth("100%");
+							tabpanelRekapitulasNilai.setHeight("2000px");
 							if (tabpanelRekapitulasNilai.getChildren().isEmpty()) {
 
 								DetailperkuliahanForPenilaianHelper.onLaporan(perkuliahan, tabpanelRekapitulasNilai);

@@ -19,8 +19,10 @@ import javax.persistence.ManyToOne;
 import javax.persistence.Table;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
+import javax.persistence.Transient;
 
 import org.hibernate.envers.Audited;
+import org.hibernate.envers.NotAudited;
 
 import ais.database.model.GeneralValueObject;
 
@@ -51,7 +53,12 @@ public class HasilTemuanSPMI extends GeneralValueObject {
 	public static final String LS = "Melebihi Standar";
 	public static final String LS1 = "LS";
 
+	public static final String BUKTI_TERSEDIA = "Tersedia";
+	public static final String BUKTI_SEBAGIAN = "Sebagian";
+	public static final String BUKTI_BELUM_TERSEDIA = "Belum Tersedia";
+
 	public static final Map<String, String> statusData = new TreeMap<String, String>();
+	public static final Map<String, String> statusKesiapanBuktiData = new TreeMap<String, String>();
 
 	static {
 		statusData.put(O1, O);
@@ -59,6 +66,10 @@ public class HasilTemuanSPMI extends GeneralValueObject {
 		statusData.put(KTS_MNR1, KTS_MNR);
 		statusData.put(S1, S);
 		statusData.put(LS1, LS);
+
+		statusKesiapanBuktiData.put(BUKTI_TERSEDIA, BUKTI_TERSEDIA);
+		statusKesiapanBuktiData.put(BUKTI_SEBAGIAN, BUKTI_SEBAGIAN);
+		statusKesiapanBuktiData.put(BUKTI_BELUM_TERSEDIA, BUKTI_BELUM_TERSEDIA);
 	}
 
 	/** 
@@ -105,6 +116,10 @@ public class HasilTemuanSPMI extends GeneralValueObject {
 	private String nama;
 	private String status;
 	private String keterangan;
+	private String buktiAuditee;
+	private String statusKesiapanBukti;
+	private String catatanAuditee;
+	private String rekomendasi;
 	private Boolean aktif;
 
 	public HasilTemuanSPMI() {
@@ -146,6 +161,58 @@ public class HasilTemuanSPMI extends GeneralValueObject {
 
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
+	}
+
+	/** Bukti atau tautan dokumen yang disampaikan auditee untuk indikator ini. */
+	@NotAudited
+	@Column(name = "bukti_auditee", nullable = true, columnDefinition = "text")
+	public String getBuktiAuditee() {
+		return buktiAuditee;
+	}
+
+	public void setBuktiAuditee(String buktiAuditee) {
+		this.buktiAuditee = buktiAuditee;
+	}
+
+	/** Status kesiapan bukti AMI: Tersedia, Sebagian, atau Belum Tersedia. */
+	@NotAudited
+	@Column(name = "status_kesiapan_bukti", nullable = true, length = 30)
+	public String getStatusKesiapanBukti() {
+		return statusKesiapanBukti == null || statusKesiapanBukti.trim().isEmpty()
+				? null : statusKesiapanBukti.trim();
+	}
+
+	public void setStatusKesiapanBukti(String statusKesiapanBukti) {
+		this.statusKesiapanBukti = statusKesiapanBukti;
+	}
+
+	@NotAudited
+	@Column(name = "catatan_auditee", nullable = true, columnDefinition = "text")
+	public String getCatatanAuditee() {
+		return catatanAuditee;
+	}
+
+	public void setCatatanAuditee(String catatanAuditee) {
+		this.catatanAuditee = catatanAuditee;
+	}
+
+	@NotAudited
+	@Column(name = "rekomendasi", nullable = true, columnDefinition = "text")
+	public String getRekomendasi() {
+		return rekomendasi;
+	}
+
+	public void setRekomendasi(String rekomendasi) {
+		this.rekomendasi = rekomendasi;
+	}
+
+	/** Pemetaan kompatibel ke skor biner instrumen AMI 2026. */
+	@Transient
+	public Integer getSkorAmi() {
+		String nilai = getStatus();
+		if (S1.equals(nilai) || LS1.equals(nilai)) return Integer.valueOf(1);
+		if (O1.equals(nilai) || KTS_MYR1.equals(nilai) || KTS_MNR1.equals(nilai)) return Integer.valueOf(0);
+		return null;
 	}
 
 	public Boolean getAktif() {
