@@ -1,5 +1,6 @@
 package ais.action.master.helper;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -698,12 +699,13 @@ public class TagihanUIBuilder {
 																	Double totalTagihan = 0.0;
 																	Double totalDibayar = 0.0;
 																	Double totalBelumDibayar = 0.0;
+																	List<Map<String, Serializable>> barisLaporan = new ArrayList<Map<String, Serializable>>();
 
 																	resultDTO.put("semuaKey", jk.getId() + "-" + fSmt);
 																	resultDTO.put("semuaVal", new Object[] {
-																			detailBiayas, dataCicilan, kegiatan });
+																			detailBiayas, dataCicilan, kegiatan, barisLaporan });
 																	semua.put(jk.getId() + "-" + fSmt, new Object[] {
-																			detailBiayas, dataCicilan, kegiatan });
+																			detailBiayas, dataCicilan, kegiatan, barisLaporan });
 
 																	for (Object o : detailBiayas) {
 																		DetailBiaya tempdetailBiaya = null;
@@ -909,6 +911,35 @@ public class TagihanUIBuilder {
 																		Double belumDibayar = jumlah - telahDibayar;
 																		totalBelumDibayar += belumDibayar;
 
+																		// Simpan snapshot angka yang PERSIS dipakai layar. PDF Tagihan harus memakai
+																		// snapshot ini dan tidak menghitung ulang lewat jalur/cache lain, karena itu
+																		// pernah membuat layar lunas tetapi PDF masih menyisakan tagihan Rp350.000.
+																		int totalValid = jumlah.intValue() + belumDibayar.intValue()
+																				+ telahDibayar.intValue();
+																		DetailBiaya dbLaporan = pb != null ? pb.getDetailBiaya() : tempdetailBiaya;
+																		if (totalValid != 0 && dbLaporan != null && dbLaporan.getItemBiaya() != null) {
+																			Map<String, Serializable> baris = new HashMap<String, Serializable>();
+																			baris.put("kode", dbLaporan.getItemBiaya().getKode());
+																			String namaItem = dbLaporan.getItemBiaya().getNama();
+																			if (pb != null) {
+																				namaItem += ", Bulan " + pb.getNamaBulan();
+																			} else if (dbLaporan.getDetailSettingBiaya() != null
+																					&& dbLaporan.getDetailSettingBiaya().getSettingBiaya() != null
+																					&& dbLaporan.getDetailSettingBiaya().getSettingBiaya()
+																							.getJumlahPembayaran() > 1) {
+																				namaItem += ", ke-" + dbLaporan.getBayarKe();
+																			}
+																			baris.put("item_biaya", namaItem);
+																			baris.put("biaya", jumlah);
+																			baris.put("dibayar", telahDibayar);
+																			baris.put("sisa", belumDibayar);
+																			baris.put("nama_kegiatan_semester", jk.getNamaKegiatan() + "-" + fSmt);
+																			baris.put("semester", Integer.valueOf(fSmt));
+																			baris.put("tahun_ajaran", taJadwalStr);
+																			baris.put("nama_kegiatan", jk.getNamaKegiatan());
+																			barisLaporan.add(baris);
+																		}
+
 																		Row rowG = new MyRowStyled();
 																		rowG.setVisible(!sederhana);
 																		rowG.setValign("top");
@@ -930,9 +961,6 @@ public class TagihanUIBuilder {
 																		}
 																		rowG.setParent(rowsGrid);
 
-																		int totalValid = jumlah.intValue()
-																				+ belumDibayar.intValue()
-																				+ telahDibayar.intValue();
 																		if (totalValid == 0) {
 																			rowG.setVisible(false);
 																			rowG.detach();
