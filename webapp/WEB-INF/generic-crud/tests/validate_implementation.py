@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import sys
 
 web_inf = Path(__file__).resolve().parents[2]
@@ -15,6 +16,7 @@ auto_adapter = (java_root / "adapter" / "GenericCrudAutoEntityAdapter.java").rea
 converter = (java_root / "GenericCrudValueConverter.java").read_text(encoding="utf-8")
 shared_js = (shared / "assets" / "generic-crud.js").read_text(encoding="utf-8")
 crud_page = (shared / "ui" / "crud_page.jsp").read_text(encoding="utf-8")
+per_model_integration_test = (web_inf / "generic-crud" / "tests" / "GenericCrudPerModelIntegrationTest.java").read_text(encoding="utf-8")
 file_location_models = [
     model_root / "kkn" / "KelompokKkn.java",
     model_root / "pkl" / "KelompokPkl.java",
@@ -22,6 +24,39 @@ file_location_models = [
     model_root / "PembagianKuotaPerkuliahanBerdasarkantahunAngkatan.java",
 ]
 file_location_sources = [path.read_text(encoding="utf-8") for path in file_location_models]
+
+
+def active_hibernate_mappings():
+    mappings = set()
+    for config in source_root.glob("hibernate*.cfg.xml"):
+        source = config.read_text(encoding="utf-8")
+        source = re.sub(r"<!--.*?-->", "", source, flags=re.DOTALL)
+        mappings.update(re.findall(r'<mapping\s+class="([^"]+)"', source))
+    return mappings
+
+
+def annotated_model_entities():
+    entities = set()
+    for path in model_root.rglob("*.java"):
+        source = path.read_text(encoding="utf-8", errors="replace")
+        if not re.search(r"@Entity\b", source):
+            continue
+        package = re.search(r"\bpackage\s+([\w.]+)\s*;", source)
+        type_name = re.search(r"\b(?:public\s+)?(?:abstract\s+)?class\s+(\w+)\b", source)
+        if package and type_name:
+            entities.add(package.group(1) + "." + type_name.group(1))
+    return entities
+
+
+mapping_exclusions = {
+    # Alias legacy dengan entity-name sama; varian subpackage epsbed adalah mapping kanonik.
+    "ais.database.model.EpsbedStatusPs",
+    # Mapping sengaja nonaktif pada konfigurasi lama karena tabel/binary/temp tidak menjadi model CRUD utama.
+    "ais.database.model.library.LampiranItem",
+    "ais.database.model.temp.DetailperkuliahanTemp",
+    "ais.database.model.temp.NilaiTemp",
+}
+unmapped_model_entities = annotated_model_entities() - active_hibernate_mappings()
 
 checks = {
     "java files >= 35": len(list(java_root.rglob("*.java"))) >= 35,
@@ -52,6 +87,16 @@ checks = {
     "restore and admin delete routes": all(token in controller for token in ("restore_field", "restore_revision", "admin_delete_preflight", "admin_delete_confirm")),
     "no request-selected class": "request.getParameter(\"class" not in controller,
     "model source inventory >= 1500": len(list(model_root.rglob("*.java"))) >= 1500,
+    "all persistent model entities mapped": unmapped_model_entities == mapping_exclusions,
+    "safe per-model database CRUD integration test": all(
+        token in per_model_integration_test
+        for token in (
+            "AIS_TEST_DB_PASSWORD",
+            "where 1=0",
+            "transaction.rollback()",
+            "GenericCrudRuntimeMetadataVerifier.verify",
+        )
+    ),
     "auto definition uses Hibernate allow-list": all(token in auto_factory for token in ("getAllClassMetadata", "GeneralValueObject.class.isAssignableFrom", "isBlockedClass", "buildAdministrative")),
     "auto definition never Class.forName": "Class.forName" not in auto_factory,
     "auto CRUD Super Admin scoped": "AUTO_CRUD_SUPER_ADMIN_REQUIRED" in auto_adapter,
