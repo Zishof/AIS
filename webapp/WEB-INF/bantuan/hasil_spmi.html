@@ -72,6 +72,22 @@ kolom identitas tersembunyi, menghapus indikator, atau memakai file dari pengaju
 ID audit, Jenis SPMI, kelengkapan indikator, duplikasi, nilai skor, dan status kesiapan sebelum menyimpan.
 Jika satu validasi gagal, seluruh upload dibatalkan sehingga tidak ada data yang masuk sebagian.
 </p>
+<p style="color:#334155;line-height:1.6;"><b>Urutan kerja yang disarankan:</b></p>
+<ol style="color:#334155;line-height:1.7;padding-left:24px;">
+<li>Pastikan pengajuan AMI sudah tersimpan dan Jenis SPMI yang benar telah dipilih.</li>
+<li>Unduh format terbaru dari baris pengajuan yang akan dinilai; jangan memakai format milik pengajuan atau periode lain.</li>
+<li>Isi hanya sel berwarna kuning pada sheet standar. Skor hanya boleh kosong, 0, atau 1, sedangkan status kesiapan hanya boleh Tersedia, Sebagian, atau Belum Tersedia.</li>
+<li>Jangan mengganti nama sheet, mengubah identitas sistem, menambah indikator manual, menghapus baris indikator, atau mengonversi berkas ke format selain XLSX.</li>
+<li>Periksa Ringkasan Hasil Audit, Rekap Kesiapan Bukti, dan Laporan Tidak Memenuhi sebelum mengunggah berkas.</li>
+<li>Upload berkas pada pengajuan asal. Setelah pesan berhasil muncul, buka kembali detail hasil untuk memastikan skor dan catatan telah tersimpan.</li>
+</ol>
+<p style="color:#334155;line-height:1.6;">
+Saat upload, sistem terlebih dahulu membaca seluruh workbook tanpa menyimpan perubahan. Sistem kemudian
+memastikan versi format, identitas audit, Jenis SPMI, daftar indikator, nilai skor, dan status kesiapan sesuai
+dengan master aktif. Penyimpanan baru dilakukan setelah semua pemeriksaan lolos dalam satu transaksi. Jika
+terjadi kesalahan pada satu baris, transaksi dibatalkan dan data lama tetap dipertahankan. Pesan kesalahan
+menunjukkan sheet atau indikator yang perlu diperbaiki; perbaiki file yang sama lalu lakukan upload ulang.
+</p>
 
 <h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">7. Kaitan dengan Standar, Indikator, dan Audit Mutu</h3>
 <p style="color:#334155;line-height:1.6;">
