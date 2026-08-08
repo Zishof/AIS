@@ -8,10 +8,14 @@ import java.util.Map;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import org.apache.commons.fileupload.FileItem;
+import org.apache.commons.fileupload.disk.DiskFileItemFactory;
+import org.apache.commons.fileupload.servlet.ServletFileUpload;
 
 import org.hibernate.metadata.ClassMetadata;
 
 import ais.common.Common;
+import ais.action.master.generic.v2.adapter.GenericCrudPhotoAdapter;
 
 /** Dispatcher Java; JSP hanya binding dan forwarding. */
 @SuppressWarnings({ "rawtypes", "unchecked" })
@@ -67,6 +71,21 @@ public final class GenericCrudHttpController {
             } else if ("delete".equals(action)) {
                 GenericCrudCsrf.requireMutation(request);
                 payload = facade.delete(context, identifier(context, request.getParameter("id")));
+            } else if ("photo_upload".equals(action)) {
+                GenericCrudCsrf.requireMutation(request);
+                FileItem part = photoPart(request);
+                GenericCrudPhotoAdapter adapter = photoAdapter(context);
+                String photoUrl = new GenericCrudPhotoService().upload(context,
+                        identifier(context, request.getParameter("id")), part.getInputStream(),
+                        part.getName(), part.getContentType(), part.getSize(), adapter);
+                Map photo = new LinkedHashMap(); photo.put("url", photoUrl);
+                payload = GenericCrudResult.ok("Foto mahasiswa berhasil disimpan.", photo);
+            } else if ("photo_delete".equals(action)) {
+                GenericCrudCsrf.requireMutation(request);
+                new GenericCrudPhotoService().remove(context,
+                        identifier(context, request.getParameter("id")), request.getParameter("reason"),
+                        photoAdapter(context));
+                payload = GenericCrudResult.ok("Foto mahasiswa berhasil dihapus.", null);
             } else if ("revisions".equals(action)) {
                 payload = GenericCrudResult.ok("Riwayat berhasil dimuat.", facade.revisions(context,
                         identifier(context, request.getParameter("id")), number(request.getParameter("page"), 1),
@@ -145,6 +164,25 @@ public final class GenericCrudHttpController {
         Object id = GenericCrudValueConverter.convert(raw, metadata.getIdentifierType().getReturnedClass());
         if (!(id instanceof Serializable)) throw new GenericCrudException(400, "INVALID_ID", "Tipe ID tidak serializable.");
         return (Serializable) id;
+    }
+
+    private static GenericCrudPhotoAdapter photoAdapter(GenericCrudRequestContext context) throws GenericCrudException {
+        if (context.getDefinition().getAdapter() instanceof GenericCrudPhotoAdapter)
+            return (GenericCrudPhotoAdapter) context.getDefinition().getAdapter();
+        throw new GenericCrudException(403, "PHOTO_DISABLED", "Photo adapter belum dikonfigurasi.");
+    }
+
+    private static FileItem photoPart(HttpServletRequest request) throws Exception {
+        if (!ServletFileUpload.isMultipartContent(request))
+            throw new GenericCrudException(400, "PHOTO_REQUIRED", "Berkas foto wajib dipilih.");
+        ServletFileUpload upload = new ServletFileUpload(new DiskFileItemFactory());
+        upload.setFileSizeMax(5L * 1024L * 1024L); upload.setSizeMax(6L * 1024L * 1024L);
+        List parts = upload.parseRequest(request);
+        for (int i = 0; i < parts.size(); i++) {
+            FileItem item = (FileItem) parts.get(i);
+            if (!item.isFormField() && "photo".equals(item.getFieldName()) && item.getSize() > 0) return item;
+        }
+        throw new GenericCrudException(400, "PHOTO_REQUIRED", "Berkas foto wajib dipilih.");
     }
 
     private static Map submitted(GenericCrudRequestContext context, HttpServletRequest request) {

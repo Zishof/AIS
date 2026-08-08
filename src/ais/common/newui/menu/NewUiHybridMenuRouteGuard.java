@@ -35,6 +35,7 @@ public final class NewUiHybridMenuRouteGuard {
             return id == null || id.trim().length() == 0 ? permission.isCanCreate() : permission.isCanUpdate();
         }
         if ("update".equals(value) || "edit".equals(value) || "photo".equals(value)
+                || "photo_upload".equals(value) || "photo_delete".equals(value)
                 || "upload".equals(value) || "save-existing".equals(value)
                 || "restore_field".equals(value) || "restore_revision".equals(value)) return permission.isCanUpdate();
         if ("import".equals(value) || value.startsWith("import_")) return permission.isCanCreate() && permission.isCanUpdate();

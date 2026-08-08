@@ -20,6 +20,7 @@ public class NewUiHybridMenuNode extends NewUiMenuNode {
     private boolean clickable;
     private boolean structuralOnly;
     private boolean virtual;
+    private boolean directLeavesInSidebar;
     private Long parentMenuId;
     private String existingUrl;
     private String resolvedUrl;
@@ -49,6 +50,8 @@ public class NewUiHybridMenuNode extends NewUiMenuNode {
     public void setStructuralOnly(boolean value) { structuralOnly = value; }
     public boolean isVirtual() { return virtual; }
     public void setVirtual(boolean virtual) { this.virtual = virtual; }
+    public boolean isDirectLeavesInSidebar() { return directLeavesInSidebar; }
+    public void setDirectLeavesInSidebar(boolean value) { directLeavesInSidebar = value; }
     public Long getParentMenuId() { return parentMenuId; }
     public void setParentMenuId(Long parentMenuId) { this.parentMenuId = parentMenuId; }
     public String getExistingUrl() { return existingUrl; }

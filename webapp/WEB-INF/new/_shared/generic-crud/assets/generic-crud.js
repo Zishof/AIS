@@ -7,7 +7,7 @@
 
   var endpoint = root.getAttribute('data-endpoint');
   var meta = null;
-  var state = {page: 1, pageSize: 10, q: '', sort: '', direction: 'ASC', filters: [], columns: [], editing: null, version: null, dirty: false, importJob: null};
+  var state = {page: 1, pageSize: 10, q: '', sort: '', direction: 'ASC', filters: [], columns: [], editing: null, version: null, dirty: false, importJob: null, photoFile: null};
 
   function node(name, attrs, text) {
     var result = document.createElement(name), key;
@@ -69,7 +69,7 @@
   }
   function loadMeta() {
     return api('meta').then(function (data) {
-      meta = data; query('title').textContent = data.displayName; state.pageSize = data.pageSize || 10;
+      meta = data; query('title').textContent = data.menuSelectionLabel || data.displayName; state.pageSize = data.pageSize || 10;
       query('page-size').value = String(state.pageSize); query('add').hidden = !data.canCreate;
       query('template').hidden = !data.importEnabled; query('import-label').hidden = !data.importEnabled;
       var formats = query('export-format'), enabled = {xlsx: data.exportXlsx, pdf: data.exportPdf, docx: data.exportDocx, pptx: data.exportPptx};
@@ -86,6 +86,11 @@
   }
   function buildParityActions() {
     var actions = meta.formActions || [], container = query('parity-actions'), groups = {}, nativeCount = 0, bridgeCount = 0;
+    if (meta.menuSelectionAction && meta.menuSelectionAction !== 'master' && meta.menuSelectionAction !== 'group') {
+      actions = actions.filter(function (action) { return action.sourceHandler === meta.menuSelectionAction || action.actionKey === meta.menuSelectionAction; });
+    } else if (meta.menuSelectionGroup && meta.menuSelectionAction === 'group') {
+      actions = actions.filter(function (action) { return action.group === meta.menuSelectionGroup; });
+    }
     if (!actions.length) return;
     query('parity').hidden = false; container.textContent = '';
     actions.forEach(function (action) {
@@ -123,6 +128,7 @@
   }
   function buildHeader() {
     var row = node('tr');
+    if (meta.photoEnabled) row.appendChild(node('th', null, 'Foto'));
     visibleFields().forEach(function (field) {
       var heading = node('th', field.sortable ? {'data-sort': field.property} : null, field.label + (state.sort === field.property ? (state.direction === 'ASC' ? ' ▲' : ' ▼') : ''));
       if (field.sortable) heading.addEventListener('click', function () {
@@ -185,9 +191,10 @@
   function renderRows(data) {
     var body = query('body'), fields = visibleFields(); body.textContent = '';
     if (!data.rows || !data.rows.length) {
-      var empty = node('tr'); empty.appendChild(node('td', {colspan: String(fields.length + 1), 'class': 'gc-empty'}, 'Tidak ada data yang cocok.')); body.appendChild(empty);
+      var empty = node('tr'); empty.appendChild(node('td', {colspan: String(fields.length + 1 + (meta.photoEnabled ? 1 : 0)), 'class': 'gc-empty'}, 'Tidak ada data yang cocok.')); body.appendChild(empty);
     } else data.rows.forEach(function (rowData) {
       var row = node('tr');
+      if (meta.photoEnabled) row.appendChild(photoCell(rowData));
       fields.forEach(function (field) {
         var cell = node('td', {'data-label': field.label}), value = rowData[field.property];
         if (field.javaType === 'java.lang.Boolean' || field.javaType === 'boolean') cell.appendChild(node('span', {'class': 'gc-pill' + (value ? '' : ' off')}, value ? 'Aktif' : 'Tidak aktif'));
@@ -205,10 +212,26 @@
     query('status').textContent = data.total + ' data'; query('page-info').textContent = 'Halaman ' + data.page + ' dari ' + Math.max(1, data.pageCount);
     query('prev').disabled = data.page <= 1; query('next').disabled = data.page >= data.pageCount; state.page = data.page;
   }
+  function photoUrl(rowData) {
+    if (!meta.photoUrlTemplate || !rowData) return '';
+    return meta.photoUrlTemplate.replace('{nim}', encodeURIComponent(rowData.nim || '')).replace('{id}', encodeURIComponent(rowData[meta.identifierProperty] || ''));
+  }
+  function initials(name) {
+    var words = String(name || 'M').trim().split(/\s+/), value = words[0] ? words[0].charAt(0) : 'M';
+    if (words.length > 1) value += words[words.length - 1].charAt(0); return value.toUpperCase();
+  }
+  function photoCell(rowData) {
+    var cell = node('td', {'data-label': 'Foto'}), frame = node('span', {'class': 'gc-photo-frame'}), fallback = node('span', {'class': 'gc-photo-fallback'}, initials(rowData && rowData.nama));
+    var image = node('img', {'class': 'gc-photo', alt: 'Foto ' + ((rowData && rowData.nama) || 'mahasiswa'), loading: 'lazy', src: photoUrl(rowData)});
+    image.addEventListener('load', function () { fallback.hidden = true; }); image.addEventListener('error', function () { image.hidden = true; fallback.hidden = false; });
+    frame.appendChild(image); frame.appendChild(fallback); cell.appendChild(frame); return cell;
+  }
   function formFields() { return (meta.fields || []).filter(function (field) { return state.editing === null ? field.createable : (field.updateable || (!meta.canUpdate && field.detailVisible)); }); }
   function openDrawer(rowData) {
-    state.dirty = false; var editing = state.editing !== null, container = query('fields'); container.textContent = '';
+    state.dirty = false; state.photoFile = null; var editing = state.editing !== null, container = query('fields'); container.textContent = '';
     query('form-title').textContent = (editing ? (meta.canUpdate ? 'Ubah ' : 'Detail ') : 'Tambah ') + meta.displayName; query('form-mode').textContent = meta.formMode;
+    buildFormTabs(container);
+    if (meta.photoEnabled) buildPhotoEditor(container, rowData, editing);
     formFields().forEach(function (field) {
       var wrap = node('div', {'class': 'gc-field' + (field.editorType === 'textarea' ? ' gc-field-wide' : '')}), label = node('label', {'for': 'gc-' + field.property}, field.label + (field.required ? ' *' : '')), input, dataList = null;
       if (field.editorType === 'textarea') input = node('textarea', {rows: '4'});
@@ -232,6 +255,26 @@
       if (field.editorType === 'relation' && !input.disabled) bindRelationLookup(field, input, dataList, rowData);
     });
     query('form-error').hidden = true; query('overlay').hidden = false; query('drawer').hidden = false; var first = container.querySelector('input,textarea,select'); if (first) first.focus();
+  }
+  function buildFormTabs(container) {
+    var tabs = meta.formDefinition && meta.formDefinition.tabs ? meta.formDefinition.tabs : [];
+    if (!tabs.length) return;
+    var wrap = node('nav', {'class': 'gc-form-tabs', 'aria-label': 'Bagian data mahasiswa'}), legacy = null;
+    (meta.formActions || []).some(function (action) { if (action.legacyRoute) { legacy = action.legacyRoute; return true; } return false; });
+    tabs.forEach(function (tab, index) {
+      var button = node('button', {type: 'button', 'class': 'gc-btn' + (index === 0 ? ' gc-primary' : '')}, tab.label);
+      if (index > 0) button.addEventListener('click', function () { if (legacy) openLegacy({label: tab.label, legacyRoute: legacy}); else notify('Business flow ' + tab.label + ' belum dapat dibuka.'); });
+      wrap.appendChild(button);
+    });
+    container.appendChild(wrap);
+  }
+  function buildPhotoEditor(container, rowData, editing) {
+    var wrap = node('div', {'class': 'gc-field gc-field-wide gc-photo-editor'}), label = node('label', null, 'Foto Mahasiswa'), body = node('div', {'class': 'gc-photo-editor-body'});
+    var preview = photoCell(rowData || {nama: 'Mahasiswa', nim: ''}).firstChild, input = node('input', {type: 'file', accept: 'image/jpeg,image/png,image/webp'});
+    input.addEventListener('change', function () { state.photoFile = input.files && input.files[0] ? input.files[0] : null; state.dirty = !!state.photoFile || state.dirty; if (state.photoFile) { var image = preview.querySelector('img'); image.hidden = false; image.src = URL.createObjectURL(state.photoFile); } });
+    body.appendChild(preview); body.appendChild(input);
+    if (editing && meta.canUpdate) { var remove = node('button', {type: 'button', 'class': 'gc-btn'}, 'Hapus Foto'); remove.addEventListener('click', function () { if (window.confirm('Hapus foto mahasiswa ini?')) removePhoto(state.editing); }); body.appendChild(remove); }
+    wrap.appendChild(label); wrap.appendChild(body); container.appendChild(wrap);
   }
   function bindRelationLookup(field, input, dataList, rowData) {
     var relationTimer = null, currentId = rowData ? rowData[field.property] : null, currentLabel = rowData ? rowData[field.property + '__label'] : null;
@@ -261,12 +304,18 @@
     var params = {nui_csrf: meta.csrf}, form = query('form');
     formFields().forEach(function (field) { var input = form.elements[field.property]; if (!input || input.disabled) return; params[field.property] = input.type === 'checkbox' ? (input.checked ? 'true' : 'false') : input.value; });
     var action = state.editing === null ? 'create' : 'update'; if (state.editing !== null) { params.id = state.editing; if (meta.versionProperty) params.version = state.version; }
-    api(action, params, 'POST').then(function () { closeAll(true); return loadList(); }).catch(function (error) {
+    api(action, params, 'POST').then(function (result) { var id = state.editing !== null ? state.editing : (result && result.id); return state.photoFile ? uploadPhoto(id, state.photoFile) : null; }).then(function () { closeAll(true); return loadList(); }).catch(function (error) {
       var box = query('form-error'), messages = []; box.textContent = error.message;
       if (error.payload && error.payload.fieldErrors) Object.keys(error.payload.fieldErrors).forEach(function (key) { messages.push(error.payload.fieldErrors[key]); });
       if (messages.length) box.textContent = messages.join(' • '); box.hidden = false;
     });
   }
+  function uploadPhoto(id, file) {
+    var data = new FormData(); data.append('photo', file, file.name);
+    var target = endpoint + (endpoint.indexOf('?') < 0 ? '?' : '&') + pairs({action: 'photo_upload', id: id, nui_csrf: meta.csrf});
+    return fetch(target, {method: 'POST', credentials: 'same-origin', headers: {'Accept': 'application/json'}, body: data}).then(function (response) { return response.json().then(function (body) { if (!response.ok || body.success === false) throw new Error(body.message || 'Upload foto gagal.'); return body.data; }); });
+  }
+  function removePhoto(id) { api('photo_delete', {id: id, nui_csrf: meta.csrf, reason: 'Dihapus melalui form Mahasiswa New UI'}, 'POST').then(function () { notify('Foto berhasil dihapus.'); openExisting(id); loadList(); }).catch(function (error) { notify(error.message); }); }
   function removeRow(id) { if (window.confirm('Data akan dinonaktifkan, bukan menghapus histori audit. Lanjutkan?')) api('delete', {id: id, nui_csrf: meta.csrf}, 'POST').then(loadList).catch(function (error) { notify(error.message); }); }
   function openAudit(id) {
     query('overlay').hidden = false; query('audit').hidden = false; var list = query('audit-list'); list.textContent = 'Memuat…';

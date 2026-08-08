@@ -152,6 +152,7 @@ public final class GenericCrudDefinitionRegistry {
         d.setExportDocxEnabled(true);
         d.setExportPptxEnabled(true);
         d.setSavedViewEnabled(true);
+        d.setPhotoEnabled(true);
         d.setAuditEnabled(true);
         d.setRowAuditEnabled(true);
         d.setGlobalAuditEnabled(false);

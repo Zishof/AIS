@@ -51,6 +51,22 @@ public class GenericCrudFacade {
         result.put("exportDocx", Boolean.valueOf(d.isExportDocxEnabled()));
         result.put("exportPptx", Boolean.valueOf(d.isExportPptxEnabled()));
         result.put("savedViewEnabled", Boolean.valueOf(d.isSavedViewEnabled()));
+        result.put("photoEnabled", Boolean.valueOf(d.isPhotoEnabled()));
+        if (d.isPhotoEnabled()) {
+            result.put("photoUrlTemplate", context.getRequest().getContextPath()
+                    + "/AmbilFotoMahasiswa?nim={nim}&v={id}");
+        }
+        if ("ais.database.model.Mahasiswa".equals(d.getEntityKey())) {
+            result.put("sourceMethodParity", ais.action.master.generic.v2.adapter.MahasiswaActionParityContract.metadata());
+            Long selected = selectedMenuId(context.getRequest());
+            String[] selection = ais.common.newui.menu.NewUiMahasiswaMenu.selection(selected);
+            if (selection != null) {
+                result.put("menuSelectionId", selected);
+                result.put("menuSelectionLabel", selection[0]);
+                result.put("menuSelectionGroup", selection[1]);
+                result.put("menuSelectionAction", selection[2]);
+            }
+        }
         GenericCrudFormOverrideProvider formProvider = d.getFormOverrideProvider();
         if (formProvider != null) {
             GenericCrudFormDefinition form = formProvider.getDefinition(context, null, true);
@@ -61,6 +77,13 @@ public class GenericCrudFacade {
             if (!parityActions.isEmpty()) result.put("formActions", parityActions);
         }
         return result;
+    }
+
+    private Long selectedMenuId(HttpServletRequest request) {
+        Object value = request == null ? null : request.getAttribute("nui_current_menu_id");
+        if (value instanceof Long) return (Long) value;
+        try { return value == null ? null : Long.valueOf(String.valueOf(value)); }
+        catch (Exception ignored) { return null; }
     }
 
     public GenericCrudPage list(GenericCrudRequestContext context, int page, int pageSize, String search,

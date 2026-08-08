@@ -18,6 +18,8 @@ MAHASISWA_ZUL = ZUL_ROOT / "pages" / "master" / "mahasiswa.zul"
 MAHASISWA_ACTION = SOURCE_ROOT / "ais" / "action" / "master" / "MahasiswaAction.java"
 MAHASISWA_PROVIDER = (SOURCE_ROOT / "ais" / "action" / "master" / "generic" / "v2" /
                        "adapter" / "MahasiswaGenericCrudFormProvider.java")
+MAHASISWA_PARITY = (SOURCE_ROOT / "ais" / "action" / "master" / "generic" / "v2" /
+                     "adapter" / "MahasiswaActionParityContract.java")
 
 
 def text(path):
@@ -183,9 +185,11 @@ def mahasiswa_gate():
     contract = zul_contract(MAHASISWA_ZUL)
     methods = top_level_public_methods(MAHASISWA_ACTION)
     provider = text(MAHASISWA_PROVIDER)
+    parity = text(MAHASISWA_PARITY)
     referenced = sorted({item["name"] for item in contract["handlers"]
                          if re.match(r"^[A-Za-z_]\w*$", item["name"])})
     uncovered = [name for name in referenced if name not in provider]
+    uncovered_public = [item["name"] for item in methods if item["name"] not in parity]
     return {
         "sourceZul": MAHASISWA_ZUL.relative_to(ROOT).as_posix(),
         "sourceAction": MAHASISWA_ACTION.relative_to(ROOT).as_posix(),
@@ -194,6 +198,7 @@ def mahasiswa_gate():
         "zulHandlers": referenced,
         "publicMethods": methods,
         "uncoveredZulHandlers": uncovered,
+        "uncoveredPublicMethods": uncovered_public,
         "providerHasSafeBridge": all(token in provider for token in (
             "SAFE_LEGACY_BRIDGE", "NEW_UI_NATIVE", "LEGACY_ROUTE", SOURCE_LITERAL)),
     }
@@ -214,7 +219,8 @@ def main():
     args = parser.parse_args()
     gate = mahasiswa_gate()
     report = {"mahasiswa": gate}
-    failed = bool(gate["uncoveredZulHandlers"]) or not gate["providerHasSafeBridge"]
+    failed = (bool(gate["uncoveredZulHandlers"]) or bool(gate["uncoveredPublicMethods"])
+              or not gate["providerHasSafeBridge"])
     if args.all:
         contracts = all_contracts()
         report["summary"] = {
@@ -229,8 +235,13 @@ def main():
         print("PASS" if not failed else "FAIL", "- Mahasiswa ZUL handlers covered:",
               len(gate["zulHandlers"]) - len(gate["uncoveredZulHandlers"]), "/", len(gate["zulHandlers"]))
         print("PASS" if gate["providerHasSafeBridge"] else "FAIL", "- explicit native/legacy parity policy")
+        print("PASS" if not gate["uncoveredPublicMethods"] else "FAIL",
+              "- MahasiswaAction public methods classified:",
+              len(gate["publicMethods"]) - len(gate["uncoveredPublicMethods"]), "/", len(gate["publicMethods"]))
         if gate["uncoveredZulHandlers"]:
             print("Uncovered:", ", ".join(gate["uncoveredZulHandlers"]))
+        if gate["uncoveredPublicMethods"]:
+            print("Unclassified public methods:", ", ".join(gate["uncoveredPublicMethods"]))
         if args.all:
             print("INFO - ZUL/Action contracts:", report["summary"]["zulWithAction"])
             print("INFO - action source missing:", report["summary"]["actionSourceMissing"])

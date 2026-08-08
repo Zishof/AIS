@@ -25,4 +25,12 @@ public class GenericCrudPhotoService {
         adapter.validate(safeName, contentType, length, context);
         return adapter.store(id, checked, safeName, contentType, context);
     }
+
+    public void remove(GenericCrudRequestContext context, Serializable id, String reason,
+            GenericCrudPhotoAdapter adapter) throws Exception {
+        new GenericCrudPrivilegeGuard().require(context, GenericCrudOperation.UPDATE);
+        if (adapter == null || !context.getDefinition().isPhotoEnabled())
+            throw new GenericCrudException(403, "PHOTO_DISABLED", "Foto belum diaktifkan untuk entity ini.");
+        adapter.remove(id, reason, context);
+    }
 }

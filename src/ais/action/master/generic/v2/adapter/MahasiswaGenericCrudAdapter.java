@@ -1,5 +1,11 @@
 package ais.action.master.generic.v2.adapter;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.Serializable;
+import java.net.URLEncoder;
+
 import java.util.List;
 import java.util.Map;
 
@@ -14,11 +20,13 @@ import ais.database.model.Fakultas;
 import ais.database.model.Jurusan;
 import ais.database.model.Mahasiswa;
 import ais.database.model.PerguruanTinggi;
+import ais.database.model.file.FileFotoLain;
+import ais.database.model.file.FotoMahasiswa;
 
 /** Adapter CRUD Mahasiswa dengan RBAC dari controller dan isolasi perguruan tinggi. */
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public class MahasiswaGenericCrudAdapter extends GenericCrudAutoEntityAdapter
-        implements GenericCrudRelationScopeAdapter {
+        implements GenericCrudRelationScopeAdapter, GenericCrudPhotoAdapter {
 
     public MahasiswaGenericCrudAdapter() {
         super(Mahasiswa.class, true);
@@ -117,5 +125,58 @@ public class MahasiswaGenericCrudAdapter extends GenericCrudAutoEntityAdapter
 
     private boolean blank(Object value) {
         return value == null || String.valueOf(value).trim().length() == 0;
+    }
+
+    public Map validate(String fileName, String contentType, long length,
+            GenericCrudRequestContext context) throws Exception {
+        Map result = new java.util.LinkedHashMap();
+        result.put("fileName", fileName); result.put("contentType", contentType);
+        result.put("length", Long.valueOf(length)); return result;
+    }
+
+    public String store(Serializable id, InputStream input, String fileName, String contentType,
+            GenericCrudRequestContext context) throws Exception {
+        Mahasiswa mahasiswa = scopedMahasiswa(id, context);
+        File temp = File.createTempFile("ais-mahasiswa-photo-", extension(contentType));
+        FileOutputStream output = null; Session session = null;
+        try {
+            output = new FileOutputStream(temp); byte[] buffer = new byte[8192]; int read;
+            while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
+            output.close(); output = null;
+            session = ais.database.hibernate.HibernateUtil.getSessionFactory().openSession();
+            FileFotoLain.createFileFotoLain(context.getUser(), session, FotoMahasiswa.class,
+                    Boolean.FALSE, mahasiswa.getId(), FotoMahasiswa.DEFAULT_JENIS, null, temp, fileName);
+            return context.getRequest().getContextPath() + "/AmbilFotoMahasiswa?nim="
+                    + URLEncoder.encode(mahasiswa.getNim(), "UTF-8") + "&v=" + System.currentTimeMillis();
+        } finally {
+            if (output != null) try { output.close(); } catch (Exception ignored) { }
+            if (session != null) try { session.close(); } catch (Exception ignored) { }
+            if (temp.exists() && !temp.delete()) temp.deleteOnExit();
+        }
+    }
+
+    public void remove(Serializable id, String reason, GenericCrudRequestContext context) throws Exception {
+        Mahasiswa mahasiswa = scopedMahasiswa(id, context); Session session = null;
+        try {
+            session = ais.database.hibernate.StreamingHibernateUtil.getInstance().openSession();
+            FileFotoLain.hapusAtauUpdate(new FotoMahasiswa(), session, false,
+                    mahasiswa.getId(), FotoMahasiswa.DEFAULT_JENIS);
+        } finally { if (session != null) try { session.close(); } catch (Exception ignored) { } }
+    }
+
+    private Mahasiswa scopedMahasiswa(Serializable id, GenericCrudRequestContext context) throws Exception {
+        Session session = null;
+        try {
+            session = ais.database.hibernate.HibernateUtil.getSessionFactory().openSession();
+            Mahasiswa mahasiswa = (Mahasiswa) session.get(Mahasiswa.class, id);
+            if (mahasiswa == null) throw new GenericCrudException(404, "ROW_NOT_FOUND", "Mahasiswa tidak ditemukan.");
+            validateObjectScope(mahasiswa, context); return mahasiswa;
+        } finally { if (session != null) try { session.close(); } catch (Exception ignored) { } }
+    }
+
+    private String extension(String contentType) {
+        if ("image/png".equals(contentType)) return ".png";
+        if ("image/webp".equals(contentType)) return ".webp";
+        return ".jpg";
     }
 }

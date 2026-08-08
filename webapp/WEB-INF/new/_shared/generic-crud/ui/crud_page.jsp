@@ -10,6 +10,7 @@ Object gcMenuId = request.getAttribute("nui_current_menu_id");
 if (gcMenuId != null) gcEndpoint += "&menuId=" + URLEncoder.encode(String.valueOf(gcMenuId), "UTF-8");
 %>
 <style><%@ include file="/WEB-INF/new/_shared/generic-crud/assets/generic-crud.css" %></style>
+<style>.gc-photo-frame{display:inline-flex;width:48px;height:48px;border-radius:12px;overflow:hidden;align-items:center;justify-content:center;background:linear-gradient(135deg,#e7efff,#e9e5ff);color:#3153bd;font-weight:800;box-shadow:inset 0 0 0 1px rgba(49,83,189,.12)}.gc-photo{width:100%;height:100%;object-fit:cover;display:block}.gc-photo-fallback{font-size:13px;letter-spacing:.04em}.gc-photo-editor{border:1px dashed #cbd7ec;border-radius:14px;padding:14px;background:#f8faff}.gc-photo-editor-body{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.gc-photo-editor .gc-photo-frame{width:88px;height:88px;border-radius:18px}.gc-photo-editor input[type=file]{max-width:320px}.gc-form-tabs{grid-column:1/-1;display:flex;gap:7px;overflow:auto;padding:2px 0 8px}.gc-form-tabs .gc-btn{white-space:nowrap;padding:7px 10px;font-size:12px}</style>
 <section class="gc" data-gc-root data-endpoint="<%=gcEndpoint%>">
   <header class="gc-head">
     <div><div class="gc-breadcrumb">Beranda / Master Data</div><h1 data-gc-title>Memuat…</h1><p>CRUD berbasis metadata dengan audit, scope, dan hak akses role aktif.</p></div>

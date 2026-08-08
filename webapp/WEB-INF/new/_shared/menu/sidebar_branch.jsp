@@ -1,6 +1,9 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ page import="java.util.List" %>
+<%@ page import="java.util.ArrayList" %>
+<%@ page import="java.util.Collections" %>
 <%@ page import="ais.common.newui.menu.NewUiHybridMenuNode" %>
+<%@ page import="ais.common.newui.menu.NewUiHybridMenuTreeBuilder" %>
 <%@ page import="ais.common.newui.menu.NewUiIconUtil" %>
 <%!
 private String nuiBranchH(Object v){if(v==null)return "";return String.valueOf(v).replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&#39;");}
@@ -21,9 +24,12 @@ String nuiBranchNewUrl=request.getContextPath()+"/new";String nuiBranchId="nuiHy
     <a class="nui-nav-link nui-nav-branch-button<%=nuiBranchActive?" active":""%>" target="nuiMainFrame" data-menu-id="<%=nuiBranch.getMenuId()%>" data-shell-url="<%=nuiBranchNewUrl%>?groupMenuId=<%=nuiBranch.getMenuId()%>" href="<%=nuiBranchNewUrl%>?frame=1&amp;groupMenuId=<%=nuiBranch.getMenuId()%>"><span class="nui-nav-icon"><i class="<%=nuiBranchH(NewUiIconUtil.classes(nuiBranch.getIcon(),true))%> nui-fa-icon" aria-hidden="true"></i></span><span><%=nuiBranchH(nuiBranch.getLabel())%></span><span class="nui-nav-count"><%=nuiBranch.getLeafCount()%></span></a>
   </div>
   <div id="<%=nuiBranchId%>" class="nui-nav-children nui-nav-branch-children">
-  <%List<NewUiHybridMenuNode> nuiBranchChildren=nuiBranch.getBranchChildren();for(int nuiChildI=0;nuiChildI<nuiBranchChildren.size();nuiChildI++){
-    request.setAttribute("nui_sidebar_branch",nuiBranchChildren.get(nuiChildI));request.setAttribute("nui_sidebar_depth",Integer.valueOf(nuiDepth+1));%>
+  <%List<NewUiHybridMenuNode> nuiSidebarChildren=new ArrayList<NewUiHybridMenuNode>();nuiSidebarChildren.addAll(nuiBranch.getBranchChildren());if(nuiBranch.isDirectLeavesInSidebar())nuiSidebarChildren.addAll(nuiBranch.getDirectLeaves());Collections.sort(nuiSidebarChildren,NewUiHybridMenuTreeBuilder.NODE_ORDER);for(int nuiChildI=0;nuiChildI<nuiSidebarChildren.size();nuiChildI++){NewUiHybridMenuNode nuiChild=nuiSidebarChildren.get(nuiChildI);if(nuiChild.isBranch()){request.setAttribute("nui_sidebar_branch",nuiChild);request.setAttribute("nui_sidebar_depth",Integer.valueOf(nuiDepth+1));%>
     <jsp:include page="/WEB-INF/new/_shared/menu/sidebar_branch.jsp" flush="false"/>
-  <%}request.setAttribute("nui_sidebar_branch",nuiBranch);request.setAttribute("nui_sidebar_depth",Integer.valueOf(nuiDepth));%>
+  <%}else{NewUiHybridMenuNode nuiLeaf=nuiChild;boolean nuiLeafActive=nuiLeaf.getMenuId().equals(request.getAttribute("nui_current_menu_id"));%>
+    <div class="nui-nav-node nui-nav-leaf nui-nav-level-<%=Math.min(nuiDepth+2,6)%>" data-menu-id="<%=nuiLeaf.getMenuId()%>">
+      <a class="nui-nav-link<%=nuiLeafActive?" active":""%>" target="nuiMainFrame" data-menu-id="<%=nuiLeaf.getMenuId()%>" data-shell-url="<%=nuiBranchNewUrl%>?menuId=<%=nuiLeaf.getMenuId()%>" href="<%=nuiBranchNewUrl%>?frame=1&amp;menuId=<%=nuiLeaf.getMenuId()%>"><span class="nui-nav-icon"><i class="<%=nuiBranchH(NewUiIconUtil.classes(nuiLeaf.getIcon(),false))%> nui-fa-icon" aria-hidden="true"></i></span><span><%=nuiBranchH(nuiLeaf.getLabel())%></span></a>
+    </div>
+  <%}}request.setAttribute("nui_sidebar_branch",nuiBranch);request.setAttribute("nui_sidebar_depth",Integer.valueOf(nuiDepth));%>
   </div>
 </div>

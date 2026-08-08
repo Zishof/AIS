@@ -66,6 +66,21 @@ public final class NewUiHybridMenuTreeBuilderSelfTest {
                 NewUiHybridMenuRouteGuard.evaluateMenu(snapshot, Long.valueOf(99999L))), "unassigned menu not forbidden");
         check(built.getDiagnostics().getOrphanCount() > 0, "orphan not diagnosed");
 
+        List<NewUiHybridMenuNode> mahasiswaSource = new ArrayList<NewUiHybridMenuNode>();
+        mahasiswaSource.add(node(100, 0, 10, 1, true, true));
+        NewUiHybridMenuNode mahasiswa = node(6, 10, 0, 1, true, true);
+        mahasiswa.setLabel("Mahasiswa"); mahasiswa.setNewUiModule("root"); mahasiswa.setNewUiPage("mahasiswa");
+        mahasiswaSource.add(mahasiswa);
+        NewUiHybridMenuSnapshot mahasiswaSnapshot = new NewUiHybridMenuSnapshot("u", "r", "pt",
+                NewUiHybridMenuTreeBuilder.build(mahasiswaSource));
+        NewUiHybridMenuNode mahasiswaBranch = mahasiswaSnapshot.findVisible(Long.valueOf(6L));
+        check(mahasiswaBranch != null && mahasiswaBranch.isBranch(), "Mahasiswa must become a branch");
+        check(mahasiswaBranch.getDirectLeaves().size() == 2, "Master/Statistik direct submenu missing");
+        check(mahasiswaBranch.getBranchChildren().size() == 3, "Pendukung/Prestasi/Data submenu missing");
+        check(mahasiswaBranch.getLeafCount() == 27, "Mahasiswa nested leaf count incorrect: " + mahasiswaBranch.getLeafCount());
+        check(mahasiswaSnapshot.findAssigned(Long.valueOf(-6101L)) != null,
+                "virtual Mahasiswa leaf must remain guarded and assigned");
+
         List<NewUiHybridMenuNode> cycle = new ArrayList<NewUiHybridMenuNode>();
         cycle.add(node(10, 0, 1, 1, false, false)); cycle.add(node(11, 1, 2, 1, false, false));
         cycle.add(node(12, 2, 1, 1, true, true));

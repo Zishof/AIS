@@ -102,6 +102,7 @@ public final class NewUiHybridMenuTreeBuilder {
             NewUiHybridMenuNode virtual = virtualGroup(virtualBranches, virtualLeaves);
             branches.add(virtual);
         }
+        NewUiMahasiswaMenu.expand(branches, accepted);
         Collections.sort(branches, NODE_ORDER);
         return new Result(branches, accepted, diagnostics);
     }
