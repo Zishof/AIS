@@ -12,8 +12,16 @@
 <%@page import="ais.database.hibernate.HibernateUtil"%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%!
-    private boolean bolehAksesMenuKantinPedagang(Tbmrole role, String menu) {
+    private boolean bolehAksesMenuKantinPedagang(Tbmuser user, Tbmrole role, String menu) {
         if (role == null || menu == null) return true;
+        // Kompatibilitas role dasar Kantin lama: admin kantin (tanpa relasi Pedagang/Toko)
+        // selalu perlu menu ini untuk menambahkan akun pedagang. Role khusus dan pedagang
+        // biasa tetap tunduk pada menu.pedagang di hak akses grup.
+        if ("pedagang".equals(menu)
+                && user != null && user.getPedagang() == null
+                && role.getRoleId() != null && role.getRoleId().equalsIgnoreCase(Tbmrole.KANTIN)) {
+            return true;
+        }
         org.json.JSONObject ebisnisMenuRole = ais.common.EbisnisMenuKatalog.urai(role.getEbisnisMenu());
         if ("beranda".equals(menu)) return ebisnisMenuRole.optBoolean("berandaKantin", false);
         org.json.JSONObject menuTersimpan = ebisnisMenuRole.optJSONObject("menu");
@@ -256,7 +264,7 @@
                                            String[] subSubEL = (isAdminKantin ? new String[]{"anggota", "barang", "kulakan","retur_penjualan","diskon","pembayaran","pedagang","stok","meja","penyedia","kas","tenant","opname","stok_expired","limit_kredit","mutasi_rekening","produksi","pengaturan_laporan"} : new String[]{ "barang", "kulakan","retur_penjualan","diskon","pembayaran","pedagang","stok","meja","penyedia","kas","tenant","opname","stok_expired","limit_kredit","mutasi_rekening","produksi"});
                                            for(String sub : subEL) {
                                                if(!Common.bolehKonfigurasi("kantin_menu_"+sub)){ continue; } // on/off menu via Konfigurasi (default ON)
-                                               if(!bolehAksesMenuKantinPedagang(tbmrole, sub)){ continue; }
+                                               if(!bolehAksesMenuKantinPedagang(tbmuser, tbmrole, sub)){ continue; }
                                                String label = sub.substring(0,1).toUpperCase() + sub.substring(1).replace("_", " ");
                                                if(sub.equals("laporan_laporan")){ label = "Laporan-Laporan"; }
                                                if(sub.equals("laporan_keuangan")){ label = "Laporan Keuangan"; }
@@ -266,7 +274,7 @@
                                         <%
                                                    for(String subSub : subSubEL) {
                                                        if(!Common.bolehKonfigurasi("kantin_menu_"+subSub)){ continue; } // on/off submenu via Konfigurasi (default ON)
-                                                       if(!bolehAksesMenuKantinPedagang(tbmrole, subSub)){ continue; }
+                                                       if(!bolehAksesMenuKantinPedagang(tbmuser, tbmrole, subSub)){ continue; }
                                                        label = subSub.substring(0,1).toUpperCase() + subSub.substring(1).replace("_", " ");
                                                        if(subSub.equals("retur_penjualan")){ label = "Retur Penjualan"; }
                                                        if(subSub.equals("kas")){ label = "Kas Kasir"; }

@@ -140,6 +140,14 @@ private boolean bolehAksesModulKantin(Tbmuser tbmuser, String p, String s) {
     if (tbmuser == null || tbmuser.hakAkses() == null) return true;
 
     Tbmrole role = tbmuser.hakAkses();
+    // Role dasar Kantin yang sudah lama tersimpan umumnya memiliki menu.pedagang=false.
+    // Admin kantin dikenali dari tidak adanya relasi Pedagang/Toko dan tetap harus dapat
+    // membuka halaman pengelolaan akun pedagang. Role khusus tetap mengikuti konfigurasinya.
+    if ("pedagang".equals(menu)
+            && tbmuser.getPedagang() == null
+            && role.getRoleId() != null && role.getRoleId().equalsIgnoreCase(Tbmrole.KANTIN)) {
+        return true;
+    }
     org.json.JSONObject ebisnisMenuRole = ais.common.EbisnisMenuKatalog.urai(role.getEbisnisMenu());
     if ("beranda".equals(menu)) return ebisnisMenuRole.optBoolean("berandaKantin", false);
     org.json.JSONObject menuTersimpan = ebisnisMenuRole.optJSONObject("menu");
