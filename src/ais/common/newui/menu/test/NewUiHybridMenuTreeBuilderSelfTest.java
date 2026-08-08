@@ -10,6 +10,7 @@ import ais.common.newui.menu.NewUiHybridMenuRouteRegistry;
 import ais.common.newui.menu.NewUiHybridMenuSnapshot;
 import ais.common.newui.menu.NewUiHybridMenuTreeBuilder;
 import ais.common.newui.menu.NewUiPermission;
+import ais.common.newui.menu.NewUiMahasiswaMenu;
 
 /** Test harness tanpa JUnit untuk branch/leaf/RBAC/orphan/cycle Hybrid V2. */
 public final class NewUiHybridMenuTreeBuilderSelfTest {
@@ -80,6 +81,11 @@ public final class NewUiHybridMenuTreeBuilderSelfTest {
         check(mahasiswaBranch.getLeafCount() == 27, "Mahasiswa nested leaf count incorrect: " + mahasiswaBranch.getLeafCount());
         check(mahasiswaSnapshot.findAssigned(Long.valueOf(-6101L)) != null,
                 "virtual Mahasiswa leaf must remain guarded and assigned");
+        check(NewUiMahasiswaMenu.MENU_MAHASISWA.equals(
+                NewUiMahasiswaMenu.authorizationMenuId(Long.valueOf(-6001L))),
+                "virtual Mahasiswa leaf must inherit real menu authorization");
+        check(Long.valueOf(99L).equals(NewUiMahasiswaMenu.authorizationMenuId(Long.valueOf(99L))),
+                "non-Mahasiswa menu authorization must remain unchanged");
 
         List<NewUiHybridMenuNode> cycle = new ArrayList<NewUiHybridMenuNode>();
         cycle.add(node(10, 0, 1, 1, false, false)); cycle.add(node(11, 1, 2, 1, false, false));

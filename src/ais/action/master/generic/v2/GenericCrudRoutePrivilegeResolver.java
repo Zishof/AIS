@@ -19,6 +19,7 @@ final class GenericCrudRoutePrivilegeResolver {
 
     static boolean[] resolve(Tbmuser user, String module, String page, Long requestedMenuId) {
         if (user == null || page == null || page.length() < 4 || "index".equalsIgnoreCase(page)) return null;
+        requestedMenuId = ais.common.newui.menu.NewUiMahasiswaMenu.authorizationMenuId(requestedMenuId);
         Tbmrole role;
         try { role = user.hakAkses(); } catch (Exception denied) { return null; }
         if (role == null || role.getRoleId() == null) return null;

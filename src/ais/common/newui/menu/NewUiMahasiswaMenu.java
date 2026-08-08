@@ -57,6 +57,11 @@ public final class NewUiMahasiswaMenu {
 
     public static String[] selection(Long id) { return id == null ? null : ITEMS.get(id); }
 
+    /** Virtual child tetap memakai assignment/privilege menu Mahasiswa asli. */
+    public static Long authorizationMenuId(Long id) {
+        return id != null && ITEMS.containsKey(id) ? MENU_MAHASISWA : id;
+    }
+
     public static void expand(List<NewUiHybridMenuNode> roots, List<NewUiHybridMenuNode> assigned) {
         if (roots == null) return;
         NewUiHybridMenuNode mahasiswa = detachLeafAndPromote(roots);
