@@ -17,6 +17,8 @@ converter = (java_root / "GenericCrudValueConverter.java").read_text(encoding="u
 shared_js = (shared / "assets" / "generic-crud.js").read_text(encoding="utf-8")
 crud_page = (shared / "ui" / "crud_page.jsp").read_text(encoding="utf-8")
 per_model_integration_test = (web_inf / "generic-crud" / "tests" / "GenericCrudPerModelIntegrationTest.java").read_text(encoding="utf-8")
+zkoss_parity_tool = (web_inf / "generic-crud" / "tools" / "audit_zkoss_crud_parity.py").read_text(encoding="utf-8")
+mahasiswa_parity_provider = (java_root / "adapter" / "MahasiswaGenericCrudFormProvider.java").read_text(encoding="utf-8")
 file_location_models = [
     model_root / "kkn" / "KelompokKkn.java",
     model_root / "pkl" / "KelompokPkl.java",
@@ -106,6 +108,9 @@ checks = {
     "relation lookup allow-list": (java_root / "GenericCrudRelationLookupService.java").exists() and "relation_lookup" in controller,
     "relation UI lookup": all(token in shared_js for token in ("bindRelationLookup", "field.relationEntityKey", "field.property + '__label'")),
     "generic CRUD service retains menu binding": "nui_current_menu_id" in crud_page and "menuId=" in crud_page,
+    "ZKOSS parity source scanner": all(token in zkoss_parity_tool for token in ("all_contracts", "zul_contract", "top_level_public_methods", "uncoveredZulHandlers")),
+    "Mahasiswa parity keeps native and legacy functions explicit": all(token in mahasiswa_parity_provider for token in ("NEW_UI_NATIVE", "SAFE_LEGACY_BRIDGE", "ais.action.master.MahasiswaAction", "/pages/master/mahasiswa.zul")),
+    "Mahasiswa parity UI bridge": all(token in crud_page + shared_js for token in ("data-gc-parity", "data-gc-legacy", "buildParityActions", "openLegacy")),
     "extended scalar conversion": all(token in converter for token in ("BigDecimal", "BigInteger", "UUID.fromString", "target.isEnum()", "java.sql.Timestamp")),
     "native temporal inputs": all(token in shared_js for token in ("'datetime-local'", "'date'", "'time'")),
     "sensitive models read only": "GenericCrudDefinition.READ_ONLY" in auto_factory and 'row.put("restricted"' in auto_factory,

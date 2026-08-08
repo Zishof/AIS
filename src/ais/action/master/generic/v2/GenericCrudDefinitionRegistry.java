@@ -9,6 +9,7 @@ import java.util.Map;
 import ais.action.master.generic.v2.adapter.AgamaGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.GenericCrudFormOverrideProvider;
 import ais.action.master.generic.v2.adapter.MahasiswaGenericCrudAdapter;
+import ais.action.master.generic.v2.adapter.MahasiswaGenericCrudFormProvider;
 import ais.database.model.Agama;
 import ais.database.model.Jenjang;
 import ais.database.model.Jurusan;
@@ -159,10 +160,11 @@ public final class GenericCrudDefinitionRegistry {
         d.setDefaultSortProperty("nama");
         d.setDefaultPageSize(10);
         d.setMaxPageSize(100);
-        d.setFormMode(GenericCrudFormOverrideProvider.MODE_GENERIC_DRAWER);
+        d.setFormMode(GenericCrudFormOverrideProvider.MODE_FULL_PAGE_TABS);
         MahasiswaGenericCrudAdapter adapter = new MahasiswaGenericCrudAdapter();
         d.setAdapter(adapter);
         d.setScopeAdapter(adapter);
+        d.setFormOverrideProvider(new MahasiswaGenericCrudFormProvider());
 
         d.addField(field("id", "ID", Long.class, "number", true, false, false, false, true, false, 10));
         d.addField(field("nim", "NIM", String.class, "text", true, true, true, true, true, true, 20));

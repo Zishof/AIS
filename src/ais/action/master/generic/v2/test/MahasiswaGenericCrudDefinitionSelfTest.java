@@ -7,6 +7,9 @@ import ais.action.master.generic.v2.GenericCrudDefinitionRegistry;
 import ais.action.master.generic.v2.GenericCrudFieldDefinition;
 import ais.action.master.generic.v2.adapter.MahasiswaGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.GenericCrudRelationScopeAdapter;
+import ais.action.master.generic.v2.adapter.GenericCrudFormDefinition;
+import ais.action.master.generic.v2.adapter.GenericCrudFormOverrideProvider;
+import ais.action.master.generic.v2.adapter.MahasiswaGenericCrudFormProvider;
 import ais.common.newui.NewUiPermission;
 import ais.common.newui.menu.NewUiHybridMenuNode;
 import ais.common.newui.menu.NewUiHybridMenuRouteGuard;
@@ -31,6 +34,10 @@ public final class MahasiswaGenericCrudDefinitionSelfTest {
         check(mahasiswa.getScopeAdapter() == mahasiswa.getAdapter(), "Scope Mahasiswa tidak terpasang");
         check(mahasiswa.getAdapter() instanceof GenericCrudRelationScopeAdapter,
                 "Lookup relasi Mahasiswa belum mempunyai scope");
+        check(GenericCrudFormOverrideProvider.MODE_FULL_PAGE_TABS.equals(mahasiswa.getFormMode()),
+                "Form Mahasiswa belum memakai kontrak tab parity");
+        check(mahasiswa.getFormOverrideProvider() instanceof MahasiswaGenericCrudFormProvider,
+                "Provider parity Mahasiswa belum terpasang");
         check(mahasiswa.getField("nim").isRequired() && mahasiswa.getField("nama").isRequired()
                 && mahasiswa.getField("jurusan").isRequired(), "Field wajib Mahasiswa tidak lengkap");
         check(mahasiswa.getField("pass") == null && mahasiswa.getField("token") == null,
@@ -39,8 +46,33 @@ public final class MahasiswaGenericCrudDefinitionSelfTest {
             GenericCrudFieldDefinition field = (GenericCrudFieldDefinition) fields.next();
             check(!field.isSensitive(), "Field sensitif masuk allow-list: " + field.getProperty());
         }
+        assertParityContract(mahasiswa);
         assertActionGuards();
         System.out.println("PASS Mahasiswa Generic CRUD definition self-test");
+    }
+
+    private static void assertParityContract(GenericCrudDefinition mahasiswa) {
+        try {
+            GenericCrudFormDefinition form = mahasiswa.getFormOverrideProvider().getDefinition(null, null, true);
+            check(form.getTabs().size() == 10, "Tab form Mahasiswa tidak lengkap");
+            check(form.getSections().size() == 5, "Kelompok modul ZKOSS Mahasiswa tidak lengkap");
+            check(form.getActions().size() >= 40, "Fungsi ZKOSS Mahasiswa belum tercatat lengkap");
+            int nativeCount = 0; int bridgeCount = 0;
+            for (Iterator values = form.getActions().iterator(); values.hasNext();) {
+                java.util.Map value = (java.util.Map) values.next();
+                String status = String.valueOf(value.get("implementationStatus"));
+                if ("NEW_UI_NATIVE".equals(status)) nativeCount++;
+                if ("SAFE_LEGACY_BRIDGE".equals(status)) {
+                    bridgeCount++;
+                    check(value.get("legacyRoute") != null, "Bridge ZKOSS tidak mempunyai route");
+                    check(value.get("sourceHandler") != null, "Bridge ZKOSS tidak mempunyai source handler");
+                }
+            }
+            check(nativeCount >= 3, "Fungsi native New UI tidak tercatat");
+            check(bridgeCount >= 37, "Fungsi ZKOSS yang belum native tidak terjaga oleh bridge");
+        } catch (Exception e) {
+            throw new IllegalStateException("Kontrak parity Mahasiswa gagal dibaca", e);
+        }
     }
 
     private static void assertActionGuards() {

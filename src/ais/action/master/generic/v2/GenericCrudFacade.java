@@ -6,6 +6,9 @@ import java.util.Map;
 
 import javax.servlet.http.HttpServletRequest;
 
+import ais.action.master.generic.v2.adapter.GenericCrudFormDefinition;
+import ais.action.master.generic.v2.adapter.GenericCrudFormOverrideProvider;
+
 /** Satu pintu API; setiap service tetap mengulang guard server-side. */
 @SuppressWarnings("rawtypes")
 public class GenericCrudFacade {
@@ -48,6 +51,12 @@ public class GenericCrudFacade {
         result.put("exportDocx", Boolean.valueOf(d.isExportDocxEnabled()));
         result.put("exportPptx", Boolean.valueOf(d.isExportPptxEnabled()));
         result.put("savedViewEnabled", Boolean.valueOf(d.isSavedViewEnabled()));
+        GenericCrudFormOverrideProvider formProvider = d.getFormOverrideProvider();
+        if (formProvider != null) {
+            GenericCrudFormDefinition form = formProvider.getDefinition(context, null, true);
+            result.put("formDefinition", form);
+            result.put("formActions", formProvider.getFormActions(context, null));
+        }
         return result;
     }
 

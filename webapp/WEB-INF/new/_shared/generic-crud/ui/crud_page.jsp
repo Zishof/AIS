@@ -22,6 +22,13 @@ if (gcMenuId != null) gcEndpoint += "&menuId=" + URLEncoder.encode(String.valueO
     </div>
   </header>
   <div class="gc-alert" data-gc-alert hidden role="alert"></div>
+  <section class="gc-parity" data-gc-parity hidden>
+    <header>
+      <div><strong>Fungsi dari modul ZKOSS</strong><span data-gc-parity-summary></span></div>
+      <button type="button" class="gc-btn" data-gc-parity-toggle aria-expanded="false">Tampilkan semua fungsi</button>
+    </header>
+    <div class="gc-parity-actions" data-gc-parity-actions hidden></div>
+  </section>
   <section class="gc-card">
     <div class="gc-toolbar">
       <label class="gc-search"><span class="gc-sr">Cari</span><input type="search" data-gc-search placeholder="Cari data…" autocomplete="off"></label>
@@ -52,5 +59,9 @@ if (gcMenuId != null) gcEndpoint += "&menuId=" + URLEncoder.encode(String.valueO
     <div class="gc-audit-list" data-gc-audit-list>Memuat…</div>
   </aside>
   <aside class="gc-drawer" data-gc-import-drawer hidden aria-modal="true" role="dialog" aria-labelledby="gc-import-title"><header><div><small>Dry-run wajib</small><h2 id="gc-import-title">Preview Import</h2></div><button type="button" class="gc-icon-btn" data-gc-import-close aria-label="Tutup">×</button></header><div class="gc-audit-list" data-gc-import-summary></div><footer><button type="button" class="gc-btn" data-gc-import-cancel>Batal</button><button type="button" class="gc-btn gc-primary" data-gc-import-confirm>Konfirmasi Import</button></footer></aside>
+  <aside class="gc-legacy" data-gc-legacy hidden aria-modal="true" role="dialog" aria-labelledby="gc-legacy-title">
+    <header><div><small>Compatibility bridge — business flow asli dipertahankan</small><h2 id="gc-legacy-title" data-gc-legacy-title>Modul ZKOSS</h2></div><button type="button" class="gc-icon-btn" data-gc-legacy-close aria-label="Tutup">×</button></header>
+    <iframe data-gc-legacy-frame title="Modul ZKOSS Mahasiswa" loading="lazy"></iframe>
+  </aside>
 </section>
 <script><%@ include file="/WEB-INF/new/_shared/generic-crud/assets/generic-crud.js" %></script>

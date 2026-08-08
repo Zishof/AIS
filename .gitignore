@@ -17,6 +17,8 @@ target/
 # Temp/junk artifacts
 *.tmp
 tempfile.tmp
+__pycache__/
+*.py[cod]
 
 # OS
 Thumbs.db

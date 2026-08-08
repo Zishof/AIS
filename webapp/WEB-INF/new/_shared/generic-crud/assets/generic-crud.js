@@ -74,6 +74,7 @@
       query('template').hidden = !data.importEnabled; query('import-label').hidden = !data.importEnabled;
       var formats = query('export-format'), enabled = {xlsx: data.exportXlsx, pdf: data.exportPdf, docx: data.exportDocx, pptx: data.exportPptx};
       Array.prototype.forEach.call(formats.options, function (option) { option.disabled = !enabled[option.value]; });
+      buildParityActions();
       return api('preference_load').catch(function () { return null; }).then(function (preference) {
         state.columns = preference && preference.columns ? preference.columns : defaultColumns();
         if (preference && preference.pageSize) { state.pageSize = preference.pageSize; query('page-size').value = String(state.pageSize); }
@@ -82,6 +83,43 @@
         buildFilterFields(); buildColumnChooser(); renderFilters(); buildHeader(); return loadList();
       });
     });
+  }
+  function buildParityActions() {
+    var actions = meta.formActions || [], container = query('parity-actions'), groups = {}, nativeCount = 0, bridgeCount = 0;
+    if (!actions.length) return;
+    query('parity').hidden = false; container.textContent = '';
+    actions.forEach(function (action) {
+      var group = action.group || 'Lainnya';
+      if (!groups[group]) groups[group] = [];
+      groups[group].push(action);
+      if (action.implementationStatus === 'NEW_UI_NATIVE') nativeCount++; else if (action.implementationStatus === 'SAFE_LEGACY_BRIDGE') bridgeCount++;
+    });
+    query('parity-summary').textContent = nativeCount + ' fungsi native New UI • ' + bridgeCount + ' fungsi memakai business flow ZKOSS asli';
+    Object.keys(groups).forEach(function (groupName) {
+      var group = node('section', {'class': 'gc-parity-group'}), title = node('h3', null, groupName), list = node('div', {'class': 'gc-parity-grid'});
+      group.appendChild(title);
+      groups[groupName].forEach(function (action) {
+        var card = node('article', {'class': 'gc-parity-action'}), top = node('div'), label = node('strong', null, action.label), status;
+        top.appendChild(label); card.appendChild(top);
+        card.appendChild(node('small', null, 'Sumber: ' + (action.sourceHandler || action.sourceAction || 'ZKOSS')));
+        if (action.implementationStatus === 'NEW_UI_NATIVE') {
+          status = node('span', {'class': 'gc-parity-status native'}, 'New UI aktif'); card.appendChild(status);
+        } else if (action.legacyRoute) {
+          status = node('button', {type: 'button', 'class': 'gc-btn gc-parity-open'}, 'Buka fungsi lengkap');
+          status.addEventListener('click', function () { openLegacy(action); }); card.appendChild(status);
+        } else {
+          card.appendChild(node('span', {'class': 'gc-parity-status blocked'}, 'Belum dipetakan'));
+        }
+        list.appendChild(card);
+      });
+      group.appendChild(list); container.appendChild(group);
+    });
+  }
+  function openLegacy(action) {
+    if (!action || !action.legacyRoute) { notify('Route ZKOSS tidak tersedia.'); return; }
+    query('legacy-title').textContent = action.label || 'Modul ZKOSS';
+    query('legacy-frame').src = action.legacyRoute;
+    query('overlay').hidden = false; query('legacy').hidden = false;
   }
   function buildHeader() {
     var row = node('tr');
@@ -216,7 +254,7 @@
   function openExisting(id) { api('get', {id: id}).then(function (rowData) { state.editing = id; state.version = meta.versionProperty ? rowData[meta.versionProperty] : null; openDrawer(rowData); }).catch(function (error) { notify(error.message); }); }
   function closeAll(force) {
     if (!force && state.dirty && !window.confirm('Perubahan belum disimpan. Tutup form?')) return;
-    query('drawer').hidden = true; query('audit').hidden = true; query('import-drawer').hidden = true; query('overlay').hidden = true; state.editing = null; state.version = null; state.dirty = false;
+    query('drawer').hidden = true; query('audit').hidden = true; query('import-drawer').hidden = true; query('legacy').hidden = true; query('overlay').hidden = true; state.editing = null; state.version = null; state.dirty = false;
   }
   function save(event) {
     event.preventDefault(); if (state.editing !== null && !meta.canUpdate) return;
@@ -271,6 +309,8 @@
   query('columns-toggle').addEventListener('click', function () { query('columns-panel').hidden = !query('columns-panel').hidden; }); query('columns-reset').addEventListener('click', resetPreference);
   query('form').addEventListener('submit', save); query('close').addEventListener('click', function () { closeAll(false); }); query('cancel').addEventListener('click', function () { closeAll(false); });
   query('audit-close').addEventListener('click', function () { closeAll(true); }); query('import-close').addEventListener('click', function () { closeAll(true); }); query('import-cancel').addEventListener('click', function () { closeAll(true); }); query('import-confirm').addEventListener('click', confirmImport);
+  query('legacy-close').addEventListener('click', function () { closeAll(true); });
+  query('parity-toggle').addEventListener('click', function () { var panel = query('parity-actions'), button = query('parity-toggle'), opened = panel.hidden; panel.hidden = !opened; button.setAttribute('aria-expanded', opened ? 'true' : 'false'); button.textContent = opened ? 'Sembunyikan fungsi' : 'Tampilkan semua fungsi'; });
   query('overlay').addEventListener('click', function () { closeAll(false); }); document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && !query('overlay').hidden) closeAll(false); });
   window.addEventListener('beforeunload', function (event) { if (state.dirty) { event.preventDefault(); event.returnValue = ''; } }); loadMeta().catch(function (error) { notify(error.message); });
 }());
