@@ -830,9 +830,14 @@ public class HasilSPMIAction extends BaseSPMIAction implements FormSop {
         new MyColumnConfig("Pernyataan Ayat Standar/Butir Mutu").setParent(columns);
         new MyColumnConfig("Indikator").setParent(columns);
         new MyColumnConfig("Daftar Tilik/Skenario Pertanyaan/Bukti yang akan diperiksa").setParent(columns);
+        new MyColumnConfig("Status Kesiapan Bukti (Auditee)").setParent(columns);
+        new MyColumnConfig("Bukti/Link Dokumen (Auditee)").setParent(columns);
+        new MyColumnConfig("Catatan Auditee").setParent(columns);
         new MyColumnConfig("Hasil Temuan Audit/Visitasi Lapangan").setParent(columns);
         new MyColumnConfig("Status Temuan\n(O/KTS MYR/KTS MNR/S/LS)*").setParent(columns);
+        new MyColumnConfig("Skor AMI\n(1/0)").setParent(columns);
         new MyColumnConfig("Catatan Khusus").setParent(columns);
+        new MyColumnConfig("Rekomendasi Auditor").setParent(columns);
         new MyColumnConfig("Tindak Lanjut").setParent(columns);
 
         Session session = HibernateUtil.currentSession();
@@ -851,6 +856,7 @@ public class HasilSPMIAction extends BaseSPMIAction implements FormSop {
         // Sequential NO counter and status rekap counters
         int rowNo = 0;
         int cntS = 0, cntKtsMnr = 0, cntKtsMyr = 0, cntO = 0, cntLs = 0, cntBelum = 0;
+        int cntBuktiTersedia = 0, cntBuktiSebagian = 0, cntBuktiBelum = 0, cntBuktiKosong = 0;
         Long lastStandarId = -1L;
 
         for (StandarSPMI standar : standarList) {
@@ -905,6 +911,12 @@ public class HasilSPMIAction extends BaseSPMIAction implements FormSop {
                         else if (HasilTemuanSPMI.O1.equals(st0))        cntO++;
                         else                                             cntBelum++;
 
+                        String kesiapan0 = temuan.getStatusKesiapanBukti();
+                        if (HasilTemuanSPMI.BUKTI_TERSEDIA.equals(kesiapan0)) cntBuktiTersedia++;
+                        else if (HasilTemuanSPMI.BUKTI_SEBAGIAN.equals(kesiapan0)) cntBuktiSebagian++;
+                        else if (HasilTemuanSPMI.BUKTI_BELUM_TERSEDIA.equals(kesiapan0)) cntBuktiBelum++;
+                        else cntBuktiKosong++;
+
                         MyFormRow row = new MyFormRow();
                         row.setValign("top");
                         row.setParent(rows);
@@ -920,9 +932,23 @@ public class HasilSPMIAction extends BaseSPMIAction implements FormSop {
                         row.appendChild(new MyLabelAgakKecil(indikator.getNama()));
                         row.appendChild(new MyLabelAgakKecil(skenario.getNama()));
 
+                        final Combobox kesiapanInput = new Combobox();
+                        final Textbox buktiInput = new Textbox(temuan.getBuktiAuditee());
+                        final Textbox catatanAuditeeInput = new Textbox(temuan.getCatatanAuditee());
                         final Textbox hasilInput   = new Textbox(temuan.getNama());
                         final Combobox statusInput = new Combobox();
                         final Textbox catatanInput = new Textbox(temuan.getKeterangan());
+                        final Textbox rekomendasiInput = new Textbox(temuan.getRekomendasi());
+
+                        for (String key : HasilTemuanSPMI.statusKesiapanBuktiData.keySet()) {
+                            Comboitem ci = new Comboitem(HasilTemuanSPMI.statusKesiapanBuktiData.get(key));
+                            ci.setValue(key);
+                            kesiapanInput.appendChild(ci);
+                        }
+                        Comboitem kesiapanKosong = new Comboitem("Belum diisi");
+                        kesiapanKosong.setValue(null);
+                        kesiapanInput.appendChild(kesiapanKosong);
+                        Common.selectComboItem(kesiapanInput, temuan.getStatusKesiapanBukti());
 
                         for (String key : HasilTemuanSPMI.statusData.keySet()) {
                             Comboitem ci = new Comboitem(HasilTemuanSPMI.statusData.get(key));
@@ -937,10 +963,15 @@ public class HasilSPMIAction extends BaseSPMIAction implements FormSop {
                         EventListener saveTemuan = new EventListener() {
                             @Override
                             public void onEvent(Event e) throws Exception {
+                                temuan.setStatusKesiapanBukti(kesiapanInput.getSelectedItem() == null ? null
+                                        : (String) kesiapanInput.getSelectedItem().getValue());
+                                temuan.setBuktiAuditee(buktiInput.getValue().trim());
+                                temuan.setCatatanAuditee(catatanAuditeeInput.getValue().trim());
                                 temuan.setNama(hasilInput.getValue().trim());
                                 temuan.setStatus(statusInput.getSelectedItem() == null ? null
                                         : (String) statusInput.getSelectedItem().getValue());
                                 temuan.setKeterangan(catatanInput.getValue().trim());
+                                temuan.setRekomendasi(rekomendasiInput.getValue().trim());
                                 temuan.setHasilSPMI(hasilSPMI);
                                 temuan.setSkenarioSPMI(skenario);
                                 if (hasilSPMI != null && hasilSPMI.getId() != null) {
@@ -951,6 +982,21 @@ public class HasilSPMIAction extends BaseSPMIAction implements FormSop {
                         };
 
                         temuanMap.put(skenario.getId(), temuan);
+
+                        if (editable) row.appendChild(kesiapanInput);
+                        else row.appendChild(new MyLabelAgakKecil(temuan.getStatusKesiapanBukti()));
+                        kesiapanInput.setWidth("95%");
+                        kesiapanInput.setReadonly(true);
+
+                        if (editable) row.appendChild(buktiInput);
+                        else row.appendChild(new MyLabelAgakKecil(temuan.getBuktiAuditee()));
+                        buktiInput.setWidth("95%");
+                        buktiInput.setRows(3);
+
+                        if (editable) row.appendChild(catatanAuditeeInput);
+                        else row.appendChild(new MyLabelAgakKecil(temuan.getCatatanAuditee()));
+                        catatanAuditeeInput.setWidth("95%");
+                        catatanAuditeeInput.setRows(3);
 
                         if (editable) {
                             row.appendChild(hasilInput);
@@ -974,6 +1020,11 @@ public class HasilSPMIAction extends BaseSPMIAction implements FormSop {
                         statusInput.setWidth("95%");
                         statusInput.setReadonly(true);
 
+                        Integer skorAmi = temuan.getSkorAmi();
+                        final MyLabelAgakKecil skorAmiOutput = new MyLabelAgakKecil(
+                                skorAmi == null ? "" : String.valueOf(skorAmi));
+                        row.appendChild(skorAmiOutput);
+
                         if (editable) {
                             row.appendChild(catatanInput);
                         } else {
@@ -982,9 +1033,25 @@ public class HasilSPMIAction extends BaseSPMIAction implements FormSop {
                         catatanInput.setWidth("95%");
                         catatanInput.setRows(3);
 
+                        if (editable) row.appendChild(rekomendasiInput);
+                        else row.appendChild(new MyLabelAgakKecil(temuan.getRekomendasi()));
+                        rekomendasiInput.setWidth("95%");
+                        rekomendasiInput.setRows(3);
+
+                        kesiapanInput.addEventListener("onChange", saveTemuan);
+                        buktiInput.addEventListener("onChange", saveTemuan);
+                        catatanAuditeeInput.addEventListener("onChange", saveTemuan);
                         hasilInput.addEventListener("onChange", saveTemuan);
                         statusInput.addEventListener("onChange", saveTemuan);
+                        statusInput.addEventListener("onChange", new EventListener() {
+                            @Override
+                            public void onEvent(Event e) throws Exception {
+                                Integer skor = temuan.getSkorAmi();
+                                skorAmiOutput.setValue(skor == null ? "" : String.valueOf(skor));
+                            }
+                        });
                         catatanInput.addEventListener("onChange", saveTemuan);
+                        rekomendasiInput.addEventListener("onChange", saveTemuan);
 
                         // Kolom Tindak Lanjut — muncul jika temuan sudah tersimpan
                         final Hbox tlHbox = new Hbox();
@@ -1017,7 +1084,7 @@ public class HasilSPMIAction extends BaseSPMIAction implements FormSop {
             int cntTerisi = cntS + cntKtsMnr + cntKtsMyr + cntO + cntLs;
             MyFormRow rekapRow = new MyFormRow();
             rekapRow.setStyle("background:#f8fafc;");
-            ais.ui.util.ZkCompat.setSpans(rekapRow, "9");
+            ais.ui.util.ZkCompat.setSpans(rekapRow, "14");
             rekapRow.setParent(rows);
 
             String rekapHtml =
@@ -1032,6 +1099,14 @@ public class HasilSPMIAction extends BaseSPMIAction implements FormSop {
                 + "&nbsp;&nbsp;|&nbsp;&nbsp;Total skenario: <b>" + rowNo + "</b>"
                 + "&nbsp;&nbsp;|&nbsp;&nbsp;Terisi: <b>" + cntTerisi + "/" + rowNo + "</b>"
                 + (rowNo > 0 ? " (<b>" + (cntTerisi * 100 / rowNo) + "%</b>)" : "")
+                + "<br><b>Skor AMI 2026:</b>&nbsp;&nbsp;Memenuhi: <b style='color:#166534;'>" + (cntS + cntLs) + "</b>"
+                + "&nbsp;&nbsp;|&nbsp;&nbsp;Tidak memenuhi: <b style='color:#991b1b;'>" + (cntKtsMnr + cntKtsMyr + cntO) + "</b>"
+                + "&nbsp;&nbsp;|&nbsp;&nbsp;Capaian: <b>" + ((cntS + cntLs) * 100 / rowNo) + "%</b>"
+                + "<br><b>Kesiapan Bukti:</b>&nbsp;&nbsp;Tersedia: <b style='color:#166534;'>" + cntBuktiTersedia + "</b>"
+                + "&nbsp;&nbsp;|&nbsp;&nbsp;Sebagian: <b style='color:#9a3412;'>" + cntBuktiSebagian + "</b>"
+                + "&nbsp;&nbsp;|&nbsp;&nbsp;Belum tersedia: <b style='color:#991b1b;'>" + cntBuktiBelum + "</b>"
+                + "&nbsp;&nbsp;|&nbsp;&nbsp;Belum diisi: " + cntBuktiKosong
+                + "&nbsp;&nbsp;|&nbsp;&nbsp;Kesiapan: <b>" + (cntBuktiTersedia * 100 / rowNo) + "%</b>"
                 + "</div>";
             new Html(rekapHtml).setParent(rekapRow);
         }
@@ -1165,7 +1240,14 @@ public class HasilSPMIAction extends BaseSPMIAction implements FormSop {
                 boolean hasNama  = temuan.getNama() != null && !temuan.getNama().trim().isEmpty();
                 boolean hasSt    = temuan.getStatus() != null;
                 boolean hasCat   = temuan.getKeterangan() != null && !temuan.getKeterangan().trim().isEmpty();
-                if (isNew && !hasNama && !hasSt && !hasCat) continue; // nothing entered yet
+                boolean hasBukti = temuan.getBuktiAuditee() != null && !temuan.getBuktiAuditee().trim().isEmpty();
+                boolean hasKesiapan = temuan.getStatusKesiapanBukti() != null;
+                boolean hasCatAuditee = temuan.getCatatanAuditee() != null
+                        && !temuan.getCatatanAuditee().trim().isEmpty();
+                boolean hasRekomendasi = temuan.getRekomendasi() != null
+                        && !temuan.getRekomendasi().trim().isEmpty();
+                if (isNew && !hasNama && !hasSt && !hasCat && !hasBukti && !hasKesiapan
+                        && !hasCatAuditee && !hasRekomendasi) continue; // nothing entered yet
                 temuan.setHasilSPMI(hasilSPMI);
                 Common.refreshSaveOrUpdate(session, temuan);
             }
