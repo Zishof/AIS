@@ -29,7 +29,8 @@ public final class GenericCrudZkossParityServiceSelfTest {
     public static void main(String[] args) throws Exception {
         final String zul = "<window apply=\"ais.action.master.AgamaAction\">"
                 + "<button forward=\"onClick=onAdd\"/>"
-                + "<textbox forward=\"onOK=onSearchDefault\"/></window>";
+                + "<textbox forward=\"onOK=onSearchDefault\"/>"
+                + "<button onClick=\"onImport(event)\"/></window>";
         final ServletContext servlet = (ServletContext) Proxy.newProxyInstance(
                 GenericCrudZkossParityServiceSelfTest.class.getClassLoader(),
                 new Class[] { ServletContext.class }, new InvocationHandler() {
@@ -67,7 +68,7 @@ public final class GenericCrudZkossParityServiceSelfTest {
         GenericCrudRequestContext context = new GenericCrudRequestContext();
         field(context, "request", request); field(context, "definition", definition); field(context, "canRead", Boolean.TRUE);
         List actions = new GenericCrudZkossParityService().actions(context);
-        check(actions.size() == 2, "Handler ZUL tidak terbaca lengkap");
+        check(actions.size() == 3, "Handler forward/direct ZUL tidak terbaca lengkap");
         Map first = (Map) actions.get(0);
         check("SAFE_LEGACY_BRIDGE".equals(first.get("implementationStatus")), "Status bridge salah");
         check("/ais/pages/master/agama.zul".equals(first.get("legacyRoute")), "Route legacy salah");

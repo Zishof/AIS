@@ -31,6 +31,8 @@ public final class GenericCrudZkossParityService {
     private static final Pattern APPLY = Pattern.compile("\\bapply\\s*=\\s*\"([^\"]+)\"");
     private static final Pattern FORWARD = Pattern.compile(
             "\\bforward\\s*=\\s*\"on\\w+\\s*=\\s*([A-Za-z_]\\w*)\"");
+    private static final Pattern DIRECT_EVENT = Pattern.compile(
+            "\\bon[A-Z]\\w*\\s*=\\s*\"\\s*([A-Za-z_]\\w*)\\s*\\(");
     private static final Object LOCK = new Object();
     private static volatile ServletContext cachedContext;
     private static volatile Map cachedByAction = Collections.EMPTY_MAP;
@@ -122,6 +124,8 @@ public final class GenericCrudZkossParityService {
             LinkedHashSet handlers = new LinkedHashSet();
             Matcher forward = FORWARD.matcher(source);
             while (forward.find()) handlers.add(forward.group(1));
+            Matcher direct = DIRECT_EVENT.matcher(source);
+            while (direct.find()) handlers.add(direct.group(1));
             String route = routeFromResourcePath(resource);
             if (route == null) return;
             String[] classes = apply.group(1).split(",");
