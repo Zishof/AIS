@@ -58,6 +58,12 @@ public final class NewUiMenuTreeBuilderSelfTest {
         String[] route = NewUiRouteRegistry.routeForMenu(mapped);
         assertTrue(route != null && "root/maintenance".equals(route[0]) && "tbmrole".equals(route[1]),
                 "explicit route mapping failed");
+
+        Menu mahasiswa = new Menu(Long.valueOf(6));
+        mahasiswa.setUrl("/pages/master/mahasiswa.zul");
+        route = NewUiRouteRegistry.routeForMenu(mahasiswa);
+        assertTrue(route != null && "root".equals(route[0]) && "mahasiswa".equals(route[1]),
+                "Mahasiswa must resolve to WEB-INF/new/root/uiux/mahasiswa.jsp");
         assertTrue(!NewUiRouteRegistry.isSafeLegacyUrl("https://evil.example/x"), "external fallback accepted");
         assertTrue(!NewUiRouteRegistry.isSafeLegacyUrl("/pages/../secret.zul"), "traversal fallback accepted");
         System.out.println("PASS New UI RBAC tree/route self-test");

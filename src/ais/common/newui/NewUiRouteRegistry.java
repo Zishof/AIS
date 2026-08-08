@@ -42,6 +42,7 @@ public final class NewUiRouteRegistry {
         // ID dan URL diverifikasi terhadap DB AIS lokal pada 2026-08-08.
         register(2L, "/pages/maintenance/job/list.zul", "root/maintenance", "tbmrole");
         register(3L, "/pages/maintenance/users/list.zul", "root/maintenance", "tbmuser");
+        register(6L, "/pages/master/mahasiswa.zul", "root", "mahasiswa");
         register(121122L, "/pages/master/kkn/kelompok_kkn.zul", "kkn", "kelompok_kkn");
         register(924987L, "/pages/master/kkn/kkn_utk_mhs.zul", "kkn", "kkn_untuk_mahasiswa");
         register(100000007L, "/pages/master/agama.zul", "root", "agama");
