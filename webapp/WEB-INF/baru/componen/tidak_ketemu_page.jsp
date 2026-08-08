@@ -6,6 +6,41 @@
 <%@page import="ais.database.model.Menu"%>
 <%@page import="ais.common.Common"%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%!
+private String baruErrorH(Object value){if(value==null)return "";return String.valueOf(value).replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&#39;");}
+%>
+
+<%
+Throwable pageFailure=(Throwable)request.getAttribute("baru.error.throwable");
+if(pageFailure!=null){
+    String pageTrace=(String)request.getAttribute("baru.error.trace");
+    String pageInfo=(String)request.getAttribute("baru.error.info");
+    String pageContent=(String)request.getAttribute("baru.error.content");
+    Object pageLogId=request.getAttribute("baru.error.log_id");
+    boolean pageShowDetail=Boolean.TRUE.equals(request.getAttribute("baru.error.show_detail"));
+%>
+<div class="card shadow border-danger rounded-lg mb-4 animate__animated animate__fadeInUp">
+  <div class="card-header bg-danger text-white py-3"><h5 class="mb-0 fw-bold"><i class="fas fa-exclamation-triangle me-2"></i>Terjadi error saat mengakses menu</h5></div>
+  <div class="card-body p-4">
+    <p>Error tidak lagi disembunyikan. Detail berikut sudah dicatat ke log server.</p>
+    <div class="table-responsive"><table class="table table-sm table-bordered align-middle">
+      <tr><th style="width:160px">Trace ID</th><td><code><%=baruErrorH(pageTrace)%></code></td></tr>
+      <tr><th>Jenis error</th><td><%=baruErrorH(pageFailure.getClass().getName())%></td></tr>
+      <tr><th>Pesan</th><td><%=baruErrorH(pageFailure.getMessage())%></td></tr>
+      <tr><th>Lokasi/target</th><td><%=baruErrorH(pageInfo)%></td></tr>
+      <tr><th>Error Log ID</th><td><%=baruErrorH(pageLogId==null?"Tidak tersimpan / duplikat":pageLogId)%></td></tr>
+    </table></div>
+    <%if(pageShowDetail&&pageContent!=null){%><details class="mt-3"><summary class="fw-bold">Stack trace lengkap</summary><pre class="mt-2 p-3 rounded bg-dark text-light" style="white-space:pre-wrap;max-height:520px;overflow:auto;font-size:12px"><%=baruErrorH(pageContent)%></pre></details><%}else{%>
+    <div class="alert alert-warning mt-3 mb-0">Stack trace lengkap tersedia di log server. Untuk diagnosis terkontrol, aktifkan konfigurasi <code>global_error_tampilkan_stacktrace_ui</code>.</div><%}%>
+  </div>
+</div>
+<%
+    request.removeAttribute("baru.error.trace");request.removeAttribute("baru.error.info");
+    request.removeAttribute("baru.error.throwable");request.removeAttribute("baru.error.content");
+    request.removeAttribute("baru.error.log_id");request.removeAttribute("baru.error.show_detail");
+    return;
+}
+%>
 
 <%
 Menu menu = null;

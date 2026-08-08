@@ -10,6 +10,8 @@ import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 
+import java.util.UUID;
+
 /**
  * Filter global untuk menangkap error request Servlet/JSP/ZKoss.
  * Daftarkan di web.xml dengan url-pattern /* dan dispatcher REQUEST/FORWARD/INCLUDE/ERROR.
@@ -31,7 +33,15 @@ public class ErrorAuditFilter implements Filter {
             }
 
             HttpServletRequest httpRequest = request instanceof HttpServletRequest ? (HttpServletRequest) request : null;
-            ErrorAuditUtil.record(throwable, "Error tertangkap ErrorAuditFilter", httpRequest, false);
+            String traceId = UUID.randomUUID().toString();
+            ErrorAuditUtil.ErrorAuditResult audit = ErrorAuditUtil.recordVisibleFailure(throwable,
+                    "Error tertangkap ErrorAuditFilter", httpRequest, traceId);
+            if (httpRequest != null) {
+                httpRequest.setAttribute("ais.error.trace", traceId);
+                httpRequest.setAttribute("ais.error.content", audit == null ? null : audit.getContent());
+                httpRequest.setAttribute("ais.error.log_id", audit == null ? null : audit.getErrorLogId());
+                httpRequest.setAttribute("ais.error.throwable", throwable);
+            }
 
             if (throwable instanceof IOException) {
                 throw (IOException) throwable;

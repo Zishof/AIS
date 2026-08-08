@@ -29,6 +29,23 @@ private void logIndex(String trace, long start, String message) {
     }
 }
 
+private void reportPageFailure(HttpServletRequest request, String trace, String info, Throwable throwable) {
+    Throwable actual = throwable == null ? new javax.servlet.ServletException(info) : throwable;
+    ais.common.ErrorAuditUtil.ErrorAuditResult audit = ais.common.ErrorAuditUtil.recordVisibleFailure(
+            actual, info, request, trace);
+    request.setAttribute("baru.error.trace", trace);
+    request.setAttribute("baru.error.info", info);
+    request.setAttribute("baru.error.throwable", actual);
+    request.setAttribute("baru.error.content", audit == null ? null : audit.getContent());
+    request.setAttribute("baru.error.log_id", audit == null ? null : audit.getErrorLogId());
+    request.setAttribute("baru.error.show_detail",
+            Boolean.valueOf(ais.common.ErrorAuditUtil.isUiDetailActive()));
+}
+
+private void includeFailurePage(HttpServletRequest request, HttpServletResponse response) throws Exception {
+    request.getRequestDispatcher("/WEB-INF/baru/componen/tidak_ketemu_page.jsp").include(request, response);
+}
+
 private boolean hasText(String value) {
     return value != null && value.trim().length() > 0;
 }
@@ -74,12 +91,16 @@ private void includePage(HttpServletRequest request, HttpServletResponse respons
     }
     if (!isSafeInternalPath(page)) {
         logIndex(trace, start, "SKIP include unsafe path label=" + label + " page=" + page);
-        request.getRequestDispatcher("/WEB-INF/baru/componen/tidak_ketemu_page.jsp").include(request, response);
+        reportPageFailure(request, trace, "Path include tidak aman: label=" + label + " target=" + page,
+                new SecurityException("Target JSP ditolak oleh validasi path"));
+        includeFailurePage(request, response);
         return;
     }
     if (isLegacyZkPath(page)) {
         logIndex(trace, start, "SKIP include legacy ZK path label=" + label + " page=" + page);
-        request.getRequestDispatcher("/WEB-INF/baru/componen/tidak_ketemu_page.jsp").include(request, response);
+        reportPageFailure(request, trace, "Route masih memakai ZK/ZUL: label=" + label + " target=" + page,
+                new IllegalStateException("Route CRUD belum mempunyai halaman JSP yang dapat dimuat"));
+        includeFailurePage(request, response);
         return;
     }
     logIndex(trace, start, "BEFORE include " + label + " page=" + page);
@@ -92,7 +113,9 @@ private void includePage(HttpServletRequest request, HttpServletResponse respons
         String realPath = request.getServletContext().getRealPath(page);
         if (realPath != null && !(new java.io.File(realPath).exists())) {
             logIndex(trace, start, "MISSING file " + label + " page=" + page);
-            request.getRequestDispatcher("/WEB-INF/baru/componen/tidak_ketemu_page.jsp").include(request, response);
+            reportPageFailure(request, trace, "File JSP tidak ditemukan: label=" + label + " target=" + page,
+                    new java.io.FileNotFoundException(page));
+            includeFailurePage(request, response);
             return;
         }
     } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) webapp/WEB-INF/baru/index.jsp:83");
@@ -100,11 +123,20 @@ private void includePage(HttpServletRequest request, HttpServletResponse respons
     RequestDispatcher dispatcher = request.getRequestDispatcher(page);
     if (dispatcher == null) {
         logIndex(trace, start, "NULL dispatcher " + label + " page=" + page);
-        request.getRequestDispatcher("/WEB-INF/baru/componen/tidak_ketemu_page.jsp").include(request, response);
+        reportPageFailure(request, trace, "RequestDispatcher tidak tersedia: label=" + label + " target=" + page,
+                new java.io.FileNotFoundException(page));
+        includeFailurePage(request, response);
         return;
     }
-    dispatcher.include(request, response);
-    logIndex(trace, start, "AFTER include " + label + " page=" + page + " committed=" + response.isCommitted());
+    try {
+        dispatcher.include(request, response);
+        logIndex(trace, start, "AFTER include " + label + " page=" + page + " committed=" + response.isCommitted());
+    } catch (Throwable throwable) {
+        logIndex(trace, start, "ERROR include " + label + " page=" + page + " "
+                + throwable.getClass().getName() + ":" + throwable.getMessage());
+        reportPageFailure(request, trace, "Gagal include JSP: label=" + label + " target=" + page, throwable);
+        includeFailurePage(request, response);
+    }
 }
 
 private boolean isKonfigurasiAktif(String key, String defaultValue) {
