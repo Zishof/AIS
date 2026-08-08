@@ -642,8 +642,9 @@ public class WizardPembayaranMhsHelper {
             "<div style='font-size:12px;font-weight:800;color:#92400e;margin-bottom:2px;'>"
             + "🛒 Bayar sekaligus jenis pembayaran lain (opsional)</div>"
             + "<div style='font-size:11px;color:#a16207;line-height:1.5;margin-bottom:8px;'>"
-            + "Centang jenis lain untuk digabung dalam SATU pembayaran (mekanisme Keranjang "
-            + "Belanja — satu Virtual Account untuk semua). Kosongkan untuk pembayaran biasa.</div>"));
+            + "Centang bila Anda ingin membayar beberapa jenis tagihan sekaligus. Semua pilihan "
+            + "akan digabung menjadi satu transaksi dan satu nomor pembayaran. Jangan centang "
+            + "apa pun bila hanya membayar jenis yang dipilih di atas.</div>"));
 
         // Kotak pencarian: memfilter daftar checkbox di bawah (penting saat jenis banyak).
         kotakEkstra.appendChild(new Html(
@@ -1518,20 +1519,31 @@ public class WizardPembayaranMhsHelper {
      * konfirmasi sukses sederhana.
      */
     private void renderStep5() {
-        bodyHost.appendChild(new Html(
-            "<div style='text-align:center;padding:24px 20px 8px;'>"
-            + "<div style='font-size:56px;margin-bottom:12px;'>✅</div>"
-            + "<div style='font-size:20px;font-weight:800;color:#0f172a;margin-bottom:6px;'>Selesai</div>"
-            + "<div style='font-size:13px;color:#64748b;max-width:400px;margin:0 auto;line-height:1.6;'>"
-            + "Pembayaran telah diproses. Tutup jendela ini atau kembali untuk melakukan pembayaran lain.</div>"
-            + "</div>"));
-
         boolean adaVa = vaKode != null && !vaKode.trim().isEmpty();
         boolean adaQr = vaQrUrl != null && !vaQrUrl.trim().isEmpty();
+        boolean menungguPembayaranBank = adaVa || adaQr;
+        bodyHost.appendChild(new Html(
+            "<div style='text-align:center;padding:24px 20px 8px;'>"
+            + "<div style='font-size:56px;margin-bottom:12px;'>"
+            + (menungguPembayaranBank ? "🧾" : "✅") + "</div>"
+            + "<div style='font-size:20px;font-weight:800;color:#0f172a;margin-bottom:6px;'>"
+            + (menungguPembayaranBank ? "Instruksi Pembayaran Siap" : "Pembayaran Selesai") + "</div>"
+            + "<div style='font-size:13px;color:#64748b;max-width:400px;margin:0 auto;line-height:1.6;'>"
+            + (menungguPembayaranBank
+                    ? "Transaksi belum dinyatakan lunas. Selesaikan pembayaran sesuai petunjuk di bawah. "
+                            + "Status tagihan akan diperbarui setelah pembayaran dikonfirmasi oleh bank."
+                    : "Pembayaran berhasil diproses dan dicatat. Anda dapat menutup jendela ini atau "
+                            + "kembali untuk melakukan pembayaran lain.")
+            + "</div>"
+            + "</div>"));
+
         if (adaVa || adaQr) {
             StringBuilder sb = new StringBuilder();
             sb.append("<div style='" + CARD_STYLE + "max-width:420px;margin:14px auto 0;"
                     + "background:#eff6ff;border-color:#bfdbfe;text-align:center;'>");
+            sb.append("<div style='display:inline-block;background:#fef3c7;color:#92400e;border-radius:999px;"
+                    + "padding:3px 10px;font-size:10px;font-weight:800;margin-bottom:8px;'>"
+                    + "MENUNGGU PEMBAYARAN</div>");
             sb.append("<div style='font-size:11px;font-weight:700;color:#1d4ed8;letter-spacing:.5px;'>")
               .append(escHtml(vaLabelBank == null ? "VIRTUAL ACCOUNT" : vaLabelBank.toUpperCase()))
               .append("</div>");
@@ -1938,9 +1950,11 @@ public class WizardPembayaranMhsHelper {
     private void bayarBankaltimtara(final PembayaranGatewayKatalog.Gateway g, final List<TagihanItem> dipilih) {
         try {
             MyMessageboxConfig.show(
-                    "Pilih metode pembayaran Bankaltimtara: tekan YA untuk Virtual Account,"
-                            + " atau TIDAK untuk QRIS.",
-                    "Pilihlah Bayar Via",
+                    "Pilih metode pembayaran Bankaltimtara:\n\n"
+                            + "YA = Virtual Account\n"
+                            + "TIDAK = QRIS\n"
+                            + "BATAL = kembali tanpa membuat transaksi",
+                    "Pilih Metode Pembayaran",
                     MyMessageboxConfig.YES.intValue() | MyMessageboxConfig.NO.intValue()
                             | MyMessageboxConfig.CANCEL.intValue(),
                     MyMessageboxConfig.QUESTION, new EventListener() {
