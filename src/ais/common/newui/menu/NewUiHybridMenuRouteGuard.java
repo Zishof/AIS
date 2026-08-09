@@ -28,6 +28,17 @@ public final class NewUiHybridMenuRouteGuard {
         ais.common.newui.NewUiPermission permission = node.getPermission();
         String value = action == null ? "meta" : action.trim().toLowerCase();
         if (isReadAction(value)) return permission.isCanRead();
+        if ("operation_meta".equals(value)) return permission.isCanRead();
+        if ("operation_download".equals(value)) {
+            String subroute = request == null ? null : request.getParameter("nativeSubroute");
+            if ("download_lampiran".equalsIgnoreCase(subroute)) return permission.isCanCreate() && permission.isCanUpdate();
+            return permission.isCanRead();
+        }
+        if ("operation_upload".equals(value) || "operation_execute".equals(value)) {
+            String subroute = request == null ? null : request.getParameter("nativeSubroute");
+            if ("import_data".equalsIgnoreCase(subroute)) return permission.isCanCreate() && permission.isCanUpdate();
+            return permission.isCanUpdate();
+        }
         if ("create".equals(value) || "new".equals(value) || "insert".equals(value)
                 || "add".equals(value) || "save-new".equals(value)) return permission.isCanCreate();
         if ("save".equals(value)) {

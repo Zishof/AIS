@@ -179,6 +179,12 @@ public final class UploadFotoMassalHelper {
 	 * lengkap dengan alasannya, bukan sekadar angka ringkasan.
 	 */
 	public static int[] uploadFotoMahasiswaByNim(List<Media> mediasAsli, ais.common.LaporanUpload laporan) {
+		return uploadFotoMahasiswaByNim(mediasAsli, laporan, null);
+	}
+
+	/** Headless New UI: NIM di luar scope PT aktif selalu dilewati. */
+	public static int[] uploadFotoMahasiswaByNim(List<Media> mediasAsli, ais.common.LaporanUpload laporan,
+			java.util.Set<String> allowedNims) {
 		int berhasil = 0, tidakDitemukan = 0, gagal = 0;
 		int nomor = -1;
 		if (mediasAsli == null || mediasAsli.isEmpty()) {
@@ -196,6 +202,12 @@ public final class UploadFotoMassalHelper {
 			if (nim == null || nim.isEmpty() || !media.isBinary() || !isGambar(media)) {
 				gagal++;
 				catat(laporan, nomor, media, ais.common.LaporanUpload.GAGAL, sebabBukanGambar(media, nim));
+				continue;
+			}
+			if (allowedNims != null && !allowedNims.contains(nim)) {
+				tidakDitemukan++;
+				catat(laporan, nomor, media, ais.common.LaporanUpload.DILEWATI,
+						"NIM tidak ditemukan pada scope perguruan tinggi aktif");
 				continue;
 			}
 			Session streamingSession = null;

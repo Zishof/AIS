@@ -77,8 +77,8 @@ public final class MahasiswaGenericCrudDefinitionSelfTest {
                 }
             }
             check(nativeCount >= 3, "Fungsi native New UI tidak tercatat");
-            check(routeCount >= 20, "Subroute native Mahasiswa belum lengkap");
-            check(pendingCount > 0, "Inventory fungsi yang belum bermigrasi tidak tercatat");
+            check(routeCount >= 40, "Subroute native Mahasiswa belum lengkap");
+            check(pendingCount == 0, "Masih ada fungsi Mahasiswa yang belum bermigrasi");
         } catch (Exception e) {
             throw new IllegalStateException("Kontrak parity Mahasiswa gagal dibaca", e);
         }
@@ -96,6 +96,9 @@ public final class MahasiswaGenericCrudDefinitionSelfTest {
         check(NewUiHybridMenuRouteGuard.isActionAuthorized(null, full, "create"), "CREATE diblokir");
         check(NewUiHybridMenuRouteGuard.isActionAuthorized(null, full, "update"), "UPDATE diblokir");
         check(NewUiHybridMenuRouteGuard.isActionAuthorized(null, full, "delete"), "DELETE diblokir");
+        check(NewUiHybridMenuRouteGuard.isActionAuthorized(null, full, "operation_meta"), "Operation metadata diblokir");
+        check(NewUiHybridMenuRouteGuard.isActionAuthorized(null, full, "operation_download"), "Operation download diblokir");
+        check(NewUiHybridMenuRouteGuard.isActionAuthorized(null, full, "operation_upload"), "Operation upload diblokir");
 
         NewUiHybridMenuNode readOnly = new NewUiHybridMenuNode();
         readOnly.setPermission(new NewUiPermission(true, false, false, false, false, false));

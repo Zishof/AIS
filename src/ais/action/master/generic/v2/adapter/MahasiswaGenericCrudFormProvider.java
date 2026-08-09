@@ -8,6 +8,8 @@ import java.util.Map;
 import ais.action.master.generic.v2.GenericCrudRequestContext;
 import ais.action.master.generic.v2.GenericCrudResult;
 import ais.common.newui.menu.NewUiNativeSubrouteRegistry;
+import ais.common.Common;
+import ais.database.model.Konfigurasi;
 
 /**
  * Kontrak parity Mahasiswa native New UI. Seluruh tab dan action tetap
@@ -148,6 +150,13 @@ public class MahasiswaGenericCrudFormProvider implements GenericCrudFormOverride
     private void nativePanel(List actions, GenericCrudRequestContext context, String key, String label,
             String group, String privilege, String sourceHandler) {
         if (!allowed(context, privilege)) return;
+        if (context != null && "upload_photo_massal".equals(key) && !context.isCanDelete()) return;
+        if (context != null && "download_lampiran".equals(key) && !(context.isCanCreate() && context.isCanUpdate())) return;
+        if (context != null && "ojs".equals(key)
+                && !Common.bolehKonfigurasi("terhubung_ke_ojs", Konfigurasi.TIDAK_AKTIF)) return;
+        if (context != null && "feeder".equals(key)
+                && !(Common.getApakahAdminBolehAksesFeeder()
+                && Common.bolehKonfigurasi("aktifkan_terhubung_langsung_ke_feeder"))) return;
         Map value = action(key, label, group, privilege, sourceHandler);
         value.put("nativePanelKey", key);
         if (NewUiNativeSubrouteRegistry.supportsMahasiswa(key)) {

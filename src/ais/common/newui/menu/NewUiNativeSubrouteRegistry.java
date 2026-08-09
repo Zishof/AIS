@@ -23,6 +23,20 @@ public final class NewUiNativeSubrouteRegistry {
     static {
         Map routes = new LinkedHashMap();
         add(routes, "statistik", "dashboard", "admin/dashboard_mahasiswa");
+        add(routes, "help", "root", "mahasiswa_bantuan");
+        add(routes, "upload_password", "root", "mahasiswa_operasi");
+        add(routes, "download_password", "root", "mahasiswa_operasi");
+        add(routes, "upload_rfid", "root", "mahasiswa_operasi");
+        add(routes, "download_rfid", "root", "mahasiswa_operasi");
+        add(routes, "upload_photo_massal", "root", "mahasiswa_operasi");
+        add(routes, "download_photo_massal", "root", "mahasiswa_operasi");
+        add(routes, "upload_ukt", "root", "mahasiswa_operasi");
+        add(routes, "upload_status", "root", "mahasiswa_operasi");
+        add(routes, "sync_status", "root", "mahasiswa_operasi");
+        add(routes, "import_data", "root", "mahasiswa_operasi");
+        add(routes, "feeder", "root", "mahasiswa_operasi");
+        add(routes, "ojs", "root", "mahasiswa_operasi");
+        add(routes, "download_lampiran", "root", "mahasiswa_operasi");
         add(routes, "rekap", "root/report", "format1/akademik/laporan_rekap_jumlah_mahasiswa");
         add(routes, "surat", "root/report", "format1/akademik/laporan_surat");
         add(routes, "album", "root/report", "format1/akademik/laporan_album_mahasiswa_per_prodi_dan_angkatan");
