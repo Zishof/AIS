@@ -13,7 +13,7 @@
 		apply="ais.action.master.pmb.CetakRegistrasiAction" width="100%"
 		height="100%">
 
-		<tabbox width="100%" height="100%">
+		<tabbox id="tabboxDataCalonMahasiswa" width="100%" height="100%">
 
 			<tabs>
 

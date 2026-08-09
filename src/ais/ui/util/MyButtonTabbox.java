@@ -3,13 +3,20 @@ package ais.ui.util;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
+import org.zkoss.zk.ui.event.Events;
 import org.zkoss.zul.Div;
 import org.zkoss.zul.Hbox;
 import org.zkoss.zul.Label;
+import org.zkoss.zul.Tab;
 import org.zkoss.zul.Tabbox;
+import org.zkoss.zul.Tabpanel;
+import org.zkoss.zul.Tabpanels;
+import org.zkoss.zul.Tabs;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -67,8 +74,102 @@ public class MyButtonTabbox {
 		actionToolbar.setStyle("flex:0 0 auto;");
 		actionToolbar.setParent(outer);
 
-		return new MyButtonTabbox(tombolBar, panelHost, actionToolbar,
+		MyButtonTabbox tabbox = new MyButtonTabbox(tombolBar, panelHost, actionToolbar,
 				tabAktifHolder == null ? new int[] { 1 } : tabAktifHolder);
+		outer.setAttribute("myButtonTabbox", tabbox);
+		panelHost.setAttribute("myButtonTabbox", tabbox);
+		return tabbox;
+	}
+
+	public static MyButtonTabbox gantiTabboxNative(final Tabbox tabbox, int[] tabAktifHolder) {
+		if (tabbox == null || tabbox.getParent() == null) {
+			return null;
+		}
+		Object sudahAda = tabbox.getAttribute("myButtonTabboxPengganti");
+		if (sudahAda instanceof MyButtonTabbox) {
+			return (MyButtonTabbox) sudahAda;
+		}
+
+		int selectedIndex = tabbox.getSelectedIndex() + 1;
+		if (selectedIndex <= 0) {
+			selectedIndex = 1;
+		}
+		int[] tabAktif = tabAktifHolder == null ? new int[] { selectedIndex } : tabAktifHolder;
+		if (tabAktif[0] <= 0) {
+			tabAktif[0] = selectedIndex;
+		}
+
+		String tinggi = tabbox.getHeight();
+		if (tinggi == null || tinggi.trim().isEmpty()) {
+			tinggi = "100%";
+		}
+		final MyButtonTabbox pengganti = buat(tabbox.getParent(), tinggi, tabAktif);
+		tabbox.setAttribute("myButtonTabboxPengganti", pengganti);
+
+		Tabs tabs = tabbox.getTabs();
+		Tabpanels tabpanels = tabbox.getTabpanels();
+		if (tabs == null || tabpanels == null) {
+			tabbox.setVisible(false);
+			return pengganti;
+		}
+
+		List<Component> daftarTab = salinChildren(tabs);
+		List<Component> daftarPanel = salinChildren(tabpanels);
+		for (int i = 0; i < daftarTab.size(); i++) {
+			if (!(daftarTab.get(i) instanceof Tab)) {
+				continue;
+			}
+			final Tab tabAsli = (Tab) daftarTab.get(i);
+			final int index = i + 1;
+			final Div panelBaru = pengganti.tambahTab(index, labelTab(tabAsli));
+			if (!tabAsli.isVisible()) {
+				pengganti.setVisibleTombol(index, false);
+			}
+			final Tabpanel panelAsli = i < daftarPanel.size() && daftarPanel.get(i) instanceof Tabpanel
+					? (Tabpanel) daftarPanel.get(i) : null;
+			pindahkanIsiPanel(panelAsli, panelBaru);
+			pengganti.onSetiapPilih(index, new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					Events.sendEvent(new Event("onClick", tabAsli));
+					// Handler lama masih ter-autowire ke Tabpanel native. Pindahkan hasil
+					// pemuatan lazy ke panel pengganti agar kontennya benar-benar terlihat.
+					pindahkanIsiPanel(panelAsli, panelBaru);
+				}
+			});
+		}
+
+		tabbox.setVisible(false);
+		tabbox.setStyle("display:none;height:0;width:0;overflow:hidden;");
+		pengganti.pulihkanSeleksi(daftarTab.size());
+		return pengganti;
+	}
+
+	private static void pindahkanIsiPanel(Tabpanel panelAsli, Div panelBaru) {
+		if (panelAsli == null || panelBaru == null) {
+			return;
+		}
+		for (Component isi : salinChildren(panelAsli)) {
+			isi.setParent(panelBaru);
+		}
+	}
+
+	private static List<Component> salinChildren(Component component) {
+		List<Component> hasil = new ArrayList<Component>();
+		if (component == null) {
+			return hasil;
+		}
+		for (Object child : component.getChildren()) {
+			if (child instanceof Component) {
+				hasil.add((Component) child);
+			}
+		}
+		return hasil;
+	}
+
+	private static String labelTab(Tab tab) {
+		String label = tab.getLabel();
+		return label == null || label.trim().isEmpty() ? "Tab" : label.trim();
 	}
 
 	public Div tambahTab(final int index, String label) {
@@ -231,6 +332,10 @@ public class MyButtonTabbox {
 				ais.common.Common.tampilErrorJikaAdmin(e);
 			}
 		}
+		Div panelAktif = panelMap.get(Integer.valueOf(index));
+		if (panelAktif != null) {
+			aktifkanTabPertamaDiDalam(panelAktif, new HashSet<MyButtonTabbox>());
+		}
 	}
 
 	public void onSetiapPilih(int index, EventListener listener) {
@@ -263,6 +368,45 @@ public class MyButtonTabbox {
 	public void pulihkanSeleksi(int jumlahTab) {
 		int idx = panelMap.containsKey(Integer.valueOf(tabAktif[0])) ? tabAktif[0] : indexPertama();
 		pilih(idx);
+	}
+
+	public void pilihPertama() {
+		int idx = indexPertama();
+		if (idx > 0) {
+			pilih(idx);
+		}
+	}
+
+	public void muatUlang(int index) {
+		Div panel = panelMap.get(Integer.valueOf(index));
+		if (panel == null) {
+			return;
+		}
+		panel.getChildren().clear();
+		sudahDimuat.remove(Integer.valueOf(index));
+		pilih(index);
+	}
+
+	public static void aktifkanTabPertamaDiDalam(Component root) {
+		aktifkanTabPertamaDiDalam(root, new HashSet<MyButtonTabbox>());
+	}
+
+	private static void aktifkanTabPertamaDiDalam(Component root, Set<MyButtonTabbox> sudahDiproses) {
+		if (root == null) {
+			return;
+		}
+		Object attr = root.getAttribute("myButtonTabbox");
+		if (attr instanceof MyButtonTabbox) {
+			MyButtonTabbox tabbox = (MyButtonTabbox) attr;
+			if (sudahDiproses.add(tabbox)) {
+				tabbox.pilihPertama();
+			}
+		}
+		for (Object child : root.getChildren()) {
+			if (child instanceof Component) {
+				aktifkanTabPertamaDiDalam((Component) child, sudahDiproses);
+			}
+		}
 	}
 
 	public void setLabelTombol(int index, String label) {
