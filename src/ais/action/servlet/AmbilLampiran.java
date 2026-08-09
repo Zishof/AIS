@@ -100,10 +100,35 @@ public class AmbilLampiran extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Bangun nilai header Content-Disposition yang aman utk AJP: konektor AJP Tomcat hanya
+	 * bisa mengirim header sebagai byte ISO-8859-1 (0-255), jadi nama berkas yang mengandung
+	 * karakter di luar itu (emoji, dsb -- lihat KE-11 pengguna "wanto,400": nama berkas
+	 * mengandung karakter unicode) membuat IllegalArgumentException saat Tomcat menyiapkan
+	 * response, PADA SAAT byte pertama ditulis ke output stream. Solusi: kirim fallback ASCII
+	 * lewat parameter "filename" (karakter non-ASCII diganti "_") DAN nama asli lewat parameter
+	 * "filename*" berenkode RFC 5987 (UTF-8 persen-encode -- hasilnya selalu ASCII murni,
+	 * sehingga aman utk AJP) supaya nama berkas asli tetap tampil di browser modern.
+	 */
+	private static String contentDispositionHeader(String disposition, String namaBerkas) {
+		String nama = namaBerkas == null ? "" : namaBerkas;
+		StringBuilder asciiFallback = new StringBuilder();
+		for (int i = 0; i < nama.length(); i++) {
+			char c = nama.charAt(i);
+			asciiFallback.append(c <= 255 && c != '"' ? c : '_');
+		}
+		String header = disposition + ";filename=\"" + asciiFallback.toString() + "\"";
+		try {
+			header += ";filename*=UTF-8''" + java.net.URLEncoder.encode(nama, "UTF-8").replace("+", "%20");
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/AmbilLampiran.java:contentDispositionHeader");
+		}
+		return header;
+	}
+
 	public static void doDownload(HttpServletRequest request1, HttpServletResponse resp, File file) throws Exception {
 		String mimeType = CommonMedia.getMime(file);
 		resp.setContentType(mimeType);
-		resp.setHeader("Content-Disposition", "inline; filename=\"" + file.getName() + "\"");
+		resp.setHeader("Content-Disposition", contentDispositionHeader("inline", file.getName()));
 		resp.setContentLength((int) file.length());
 		InputStream in = new FileInputStream(file);
 		ServletOutputStream out = resp.getOutputStream();
@@ -334,17 +359,15 @@ public class AmbilLampiran extends HttpServlet {
 									}
 								}
 							}
-							resp.setHeader("Content-Disposition", "inline;filename=\"" + file.getName() + "\"");
+							resp.setHeader("Content-Disposition", contentDispositionHeader("inline", file.getName()));
 							resp.setContentLength((int) file.length());
 						} else if ((download != null && !download.equalsIgnoreCase("false"))
 								|| file.getName().trim().toLowerCase().endsWith(".xml")
 								|| file.getName().trim().toLowerCase().endsWith(".jrxml")) {
-							String headerKey = "Content-Disposition";
-							String headerValue = String.format("attachment;filename=\"%s\"", file.getName());
-							resp.setHeader(headerKey, headerValue);
+							resp.setHeader("Content-Disposition", contentDispositionHeader("attachment", file.getName()));
 							resp.setContentLength((int) file.length());
 						} else {
-							resp.setHeader("Content-Disposition", "inline;filename=\"" + file.getName() + "\"");
+							resp.setHeader("Content-Disposition", contentDispositionHeader("inline", file.getName()));
 							resp.setContentLength((int) file.length());
 						}
 						in = new FileInputStream(file);
@@ -383,17 +406,15 @@ public class AmbilLampiran extends HttpServlet {
 									}
 								}
 							}
-							resp.setHeader("Content-Disposition", "inline;filename=\"" + file.getName() + "\"");
+							resp.setHeader("Content-Disposition", contentDispositionHeader("inline", file.getName()));
 							resp.setContentLength((int) file.length());
 						} else if ((download != null && !download.equalsIgnoreCase("false"))
 								|| file.getName().trim().toLowerCase().endsWith(".xml")
 								|| file.getName().trim().toLowerCase().endsWith(".jrxml")) {
-							String headerKey = "Content-Disposition";
-							String headerValue = String.format("attachment;filename=\"%s\"", fileFotoLain.getNama());
-							resp.setHeader(headerKey, headerValue);
+							resp.setHeader("Content-Disposition", contentDispositionHeader("attachment", fileFotoLain.getNama()));
 							resp.setContentLength((int) file.length());
 						} else {
-							resp.setHeader("Content-Disposition", "inline;filename=\"" + fileFotoLain.getNama() + "\"");
+							resp.setHeader("Content-Disposition", contentDispositionHeader("inline", fileFotoLain.getNama()));
 							resp.setContentLength((int) file.length());
 						}
 						in = (fileFotoLain.getCopyDari() != null ? fileFotoLain.getCopyDari().getFoto()

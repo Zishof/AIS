@@ -157,8 +157,40 @@ public class RepositorySyncService {
 					}
 					baris[0]++;
 				}
-				session.flush();
-				session.clear();
+				try {
+					session.flush();
+					session.clear();
+				} catch (Exception flushEx) {
+					// KE-FIX: satu batch yang gagal flush (mis. getter entity yang melempar
+					// exception saat Hibernate dirty-check, koneksi/statement sudah tertutup,
+					// atau deadlock) sebelumnya membuat SESSION ini "tertandai rusak" oleh
+					// Hibernate ("don't flush the Session after an exception occurs") sehingga
+					// SEMUA source berikutnya di synchronizeAll (yang berbagi session yang sama)
+					// ikut gagal berantai dengan AssertionFailure null-id yang membingungkan.
+					// Pulihkan session di sini (rollback + clear + transaksi baru) supaya source
+					// lain tetap bisa disinkron; batch yang gagal ini dicoba ulang siklus
+					// berikutnya (item-nya belum berubah statusnya di DB).
+					summary.failed += data.size();
+					Common.tampilErrorJikaAdmin(flushEx);
+					if (laporan != null) {
+						laporan.tambahCatatan("Sumber " + source.label + " - flush batch gagal, dilewati: "
+								+ ais.common.LaporanUpload.detailTeknisException(flushEx));
+					}
+					try {
+						if (session.getTransaction() != null && session.getTransaction().isActive()) {
+							session.getTransaction().rollback();
+						}
+					} catch (Exception rbEx) { ais.common.ErrorAuditUtil.record(rbEx, "auto-audit(empty-catch) src/ais/action/master/repository/RepositorySyncService.java:flush-rollback"); }
+					try {
+						session.clear();
+					} catch (Exception clEx) { ais.common.ErrorAuditUtil.record(clEx, "auto-audit(empty-catch) src/ais/action/master/repository/RepositorySyncService.java:flush-clear"); }
+					try {
+						if (session.getTransaction() == null || !session.getTransaction().isActive()) {
+							session.beginTransaction();
+						}
+					} catch (Exception txEx) { ais.common.ErrorAuditUtil.record(txEx, "auto-audit(empty-catch) src/ais/action/master/repository/RepositorySyncService.java:flush-retx"); }
+					return summary;
+				}
 			}
 		} catch (Exception e) {
 			summary.message = source.label + " gagal diproses: " + e.getMessage();
@@ -167,6 +199,21 @@ public class RepositorySyncService {
 				laporan.tambahCatatan("Sumber " + source.label + " gagal diproses total: "
 						+ ais.common.LaporanUpload.detailTeknisException(e));
 			}
+			try {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception rbEx) { ais.common.ErrorAuditUtil.record(rbEx, "auto-audit(empty-catch) src/ais/action/master/repository/RepositorySyncService.java:source-rollback"); }
+			try {
+				if (session.isOpen()) {
+					session.clear();
+				}
+			} catch (Exception clEx) { ais.common.ErrorAuditUtil.record(clEx, "auto-audit(empty-catch) src/ais/action/master/repository/RepositorySyncService.java:source-clear"); }
+			try {
+				if (session.isOpen() && (session.getTransaction() == null || !session.getTransaction().isActive())) {
+					session.beginTransaction();
+				}
+			} catch (Exception txEx) { ais.common.ErrorAuditUtil.record(txEx, "auto-audit(empty-catch) src/ais/action/master/repository/RepositorySyncService.java:source-retx"); }
 		}
 		return summary;
 	}

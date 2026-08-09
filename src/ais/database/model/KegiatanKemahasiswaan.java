@@ -136,7 +136,7 @@ public class KegiatanKemahasiswaan extends GeneralValueObject {
 		this.nama = nama;
 	}
 
-	@Column(name = "keterangan", nullable = true)
+	@Column(name = "keterangan", nullable = true, columnDefinition = "text")
 	public String getKeterangan() {
 		return this.keterangan;
 	}

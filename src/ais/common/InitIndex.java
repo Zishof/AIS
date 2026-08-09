@@ -781,6 +781,106 @@ public class InitIndex {
 	}
 
 
+	private static void initIndexDashboardStatistikPmbSuperFast() {
+		/*
+		 * INDEX DASBOR STATISTIK PMB/SPMB
+		 *
+		 * Disusun dari query di ais.action.master.pmb.statistik.*:
+		 * - filter utama selalu tahunAkademik => kolom fisik tahunakademik.
+		 * - semesterMulai opsional, tetapi saat dipilih menjadi filter kedua.
+		 * - panel dashboard melakukan banyak COUNT/GROUP BY untuk prodi pilihan,
+		 *   prodi diterima, NIM, no_ujian, tanggal daftar, gelombang, jalur masuk,
+		 *   gender, propinsi, paket, dan asal sekolah.
+		 *
+		 * Catatan redundansi:
+		 * - idx_bcm_dashboard_stats (prodi_lulus, aktif, tahun DESC) kurang cocok
+		 *   untuk dashboard PMB baru karena query memimpin tahunakademik, bukan tahun.
+		 *   Untuk pola prodi_lulus/tahun lama sudah ada idx_bcm_dash_pt_prodi_lulus_tahun.
+		 */
+		String[] sqlDropRedundan = new String[] {
+				"DROP INDEX IF EXISTS idx_bcm_dashboard_stats"
+		};
+		for (String sql : sqlDropRedundan) {
+			try {
+				eksekusiSql10Menit(sql);
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e,
+						"auto-audit(empty-catch) src/ais/common/InitIndex.java:initIndexDashboardStatistikPmbSuperFast-drop");
+			}
+		}
+
+		String[] indexQueries = new String[] {
+				// Count dasar KPI: total pendaftar per tahun akademik dan semester.
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, id)",
+
+				// KPI peserta ujian, lulus/diterima, dan sudah menjadi mahasiswa.
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_no_ujian "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, no_ujian) "
+						+ "WHERE no_ujian IS NOT NULL",
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_prodi_lulus "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, prodi_lulus) "
+						+ "WHERE prodi_lulus IS NOT NULL",
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_mahasiswa "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, mahasiswa) "
+						+ "WHERE mahasiswa IS NOT NULL",
+
+				// Grafik/top agregasi utama.
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_prodi1 "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, prodi_1) "
+						+ "WHERE prodi_1 IS NOT NULL",
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_tanggal "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, tanggal_daftar) "
+						+ "WHERE tanggal_daftar IS NOT NULL",
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_gelombang "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, gelombang_pendaftaran) "
+						+ "WHERE gelombang_pendaftaran IS NOT NULL",
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_propinsi "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, propinsi_calon) "
+						+ "WHERE propinsi_calon IS NOT NULL",
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_gender "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, jenis_kelamin) "
+						+ "WHERE jenis_kelamin IS NOT NULL",
+
+				// Subtab jalur, paket, asal sekolah, dan filter rekap PMB.
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_jalur "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, jenis_seleksi) "
+						+ "WHERE jenis_seleksi IS NOT NULL",
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_jalur_pilih "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, jenis_seleksi_pilih) "
+						+ "WHERE jenis_seleksi_pilih IS NOT NULL",
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_paket "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, paket_registrasi_mahasiswa) "
+						+ "WHERE paket_registrasi_mahasiswa IS NOT NULL",
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_nama_sekolah "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, nama_sekolah_asal) "
+						+ "WHERE nama_sekolah_asal IS NOT NULL",
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_asal_sma "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, asal_sma) "
+						+ "WHERE asal_sma IS NOT NULL",
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_filter "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, program, jenis_seleksi, gelombang_pendaftaran, paket_registrasi_mahasiswa) "
+						+ "WHERE (aktif = true OR aktif IS NULL)"
+		};
+
+		for (String sql : indexQueries) {
+			try {
+				eksekusiSql10Menit(sql);
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e,
+						"auto-audit(empty-catch) src/ais/common/InitIndex.java:initIndexDashboardStatistikPmbSuperFast");
+			}
+		}
+
+		try {
+			eksekusiSql10Menit("ANALYZE public.biodata_calon_mahasiswa");
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit(empty-catch) src/ais/common/InitIndex.java:initIndexDashboardStatistikPmbSuperFast-analyze");
+		}
+	}
+
+
 	private static void initAlterTableParameterTambahanAngketUmum() {
 		// Perubahan kolom/constraint (mis. lepas NOT NULL grup_checklist_penilaian_umum &
 		// jadwal_checklist_penilaian_umum) tidak lagi di-ALTER manual di sini — diserahkan
@@ -1727,6 +1827,7 @@ public class InitIndex {
 			initDefaultMenuKantin();
 		initIndexPerpustakaanCoverDanPmbKuota();
 		initIndexPmbPortalDanNomorUjianSuperFast();
+		initIndexDashboardStatistikPmbSuperFast();
 		initIndexDepositTabunganSuperFast();
 		initIndexVirtualAccountPaymentSuperFast();
 		initIndexDaftarUlangPembayaranSuperFast();
