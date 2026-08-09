@@ -221,6 +221,67 @@ public class CommonReportHelper {
 
 	private static SimpleDateFormat dateFormat = new SimpleDateFormat("dd MMMMM yyyy", Common.locale);
 
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	private static List<Map> buatParameterBuktiDariRincianLayar(Kegiatan kegiatan,
+			List<Map<String, Serializable>> rincianLayar) {
+		List<Map> hasil = new ArrayList<Map>();
+		if (kegiatan == null || rincianLayar == null) {
+			return hasil;
+		}
+		for (Map<String, Serializable> sumber : rincianLayar) {
+			if (sumber == null || !(sumber.get("biaya") instanceof Number)) {
+				continue;
+			}
+			Double nilaiLayar = Double.valueOf(((Number) sumber.get("biaya")).doubleValue());
+			Map map = new HashMap(sumber);
+			// Snapshot sudah berisi tagihan neto yang sama dengan panel rincian. Template
+			// menghitung tagihan - diskon = biaya, sehingga ketiganya dinormalisasi di sini
+			// dan tidak lagi membaca item DetailKegiatan lama yang sudah tidak tampil.
+			map.put("tagihan", nilaiLayar);
+			map.put("diskon", Double.valueOf(0.0));
+			map.put("biaya", nilaiLayar);
+			map.put("semester", sumber.get("semester") == null ? kegiatan.getSemster() : sumber.get("semester"));
+			map.put("tahun_ajaran", sumber.get("tahun_ajaran") == null
+					? kegiatan.getTahunAkademik() : sumber.get("tahun_ajaran"));
+			map.put("nama_kegiatan", sumber.get("nama_kegiatan") == null
+					? kegiatan.getJenisKegiatan().getNamaKegiatan() : sumber.get("nama_kegiatan"));
+			map.put("ref_number", kegiatan.getRefNumber());
+			map.put("validator", kegiatan.getValidator());
+			map.put("keterangan", kegiatan.getKeterangan());
+			if (!map.containsKey("keterangan1")) map.put("keterangan1", "");
+			if (!map.containsKey("uraian")) map.put("uraian", "");
+
+			if (kegiatan.getMahasiswa() != null) {
+				Mahasiswa mahasiswa = kegiatan.getMahasiswa();
+				map.put("nim", mahasiswa.getNim());
+				map.put("no_registrasi", mahasiswa.getNim());
+				map.put("nama_mahasiswa", mahasiswa.getNama());
+				map.put("nama_fakultas", mahasiswa.getJurusan() == null
+						|| mahasiswa.getJurusan().getFakultas() == null ? ""
+								: mahasiswa.getJurusan().getFakultas().getNama());
+				map.put("nama_jurusan", mahasiswa.getJurusan() == null ? "" : mahasiswa.getJurusan().getNama());
+				map.put("program", mahasiswa.getProgram());
+			} else if (kegiatan.getCalonMahasiswa() != null) {
+				BiodataCalonMahasiswa calon = kegiatan.getCalonMahasiswa();
+				map.put("nim", calon.getNim());
+				String nomorRegistrasi = calon.getNoRegistrasi() == null ? "" : calon.getNoRegistrasi();
+				if (calon.getMahasiswa() != null && calon.getMahasiswa().getNim() != null) {
+					nomorRegistrasi += "(" + calon.getMahasiswa().getNim() + ")";
+				}
+				map.put("no_registrasi", nomorRegistrasi);
+				map.put("nama_mahasiswa", calon.getNama());
+				Jurusan jurusan = calon.getProdiLulus() != null ? calon.getProdiLulus()
+						: calon.getProdi1() != null ? calon.getProdi1() : calon.getProdi2();
+				map.put("nama_fakultas", jurusan == null || jurusan.getFakultas() == null
+						? "" : jurusan.getFakultas().getNama());
+				map.put("nama_jurusan", jurusan == null ? "" : jurusan.getNama());
+				map.put("program", calon.getProgram());
+			}
+			hasil.add(map);
+		}
+		return hasil;
+	}
+
 	public static File resizeImage(File file) throws Exception {
 		File fileKecil = new File(file.getParentFile().getAbsolutePath() + "/kecil_" + file.getName());
 		if (!fileKecil.exists()) {
@@ -244,13 +305,20 @@ public class CommonReportHelper {
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static File cetakBuktipembayaranMahasiswa(Kegiatan kegiatan, boolean kirim) {
+		return cetakBuktipembayaranMahasiswa(kegiatan, kirim, null);
+	}
+
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public static File cetakBuktipembayaranMahasiswa(Kegiatan kegiatan, boolean kirim,
+			List<Map<String, Serializable>> rincianLayar) {
 		try {
 			// Samakan tagihan tersimpan dengan tampilan grid layar sebelum mencetak: item biaya
 			// ber-rumus KRS (mis. UTS/UAS/SKS) yang nilainya tidak diinput manual dihitung ulang
 			// mengikuti KRS terkini, lalu kolom (tagihan/amount/amount_terhutang) yang dibaca PDF
 			// diperbarui. Hanya saat ada session web aktif (cetak interaktif), bukan kirim email
 			// terjadwal, agar tidak ada session yang menggantung di thread non-web.
-			if (kegiatan != null && kegiatan.getId() != null && kegiatan.getMahasiswa() != null
+			if (rincianLayar == null && kegiatan != null
+					&& kegiatan.getId() != null && kegiatan.getMahasiswa() != null
 					&& Sessions.getCurrent() != null) {
 				try {
 					ais.action.master.helper.KegiatanPersistenceHelper.segarkanTagihanLive(kegiatan.getId());
@@ -373,8 +441,11 @@ public class CommonReportHelper {
 
 			List<Map> maps = new ArrayList<Map>();
 			List<Long> detailKegiatans = new ArrayList<Long>();
+			boolean gunakanRincianLayar = "Bukti_Pembayaran_Mahasiswa_tagihan".equals(fileReport)
+					&& rincianLayar != null;
 
-			for (DetailKegiatan detailKegiatan : kegiatan.ambilDetailKegiatan(true)) {
+			if (!gunakanRincianLayar)
+				for (DetailKegiatan detailKegiatan : kegiatan.ambilDetailKegiatan(true)) {
 				detailKegiatans.add(detailKegiatan.getId());
 
 				Double jumlah = detailKegiatan.getBiaya();
@@ -447,6 +518,10 @@ public class CommonReportHelper {
 					map.put("keterangan", kegiatan.getKeterangan());
 					maps.add(map);
 				}
+			}
+
+			if (gunakanRincianLayar) {
+				maps = buatParameterBuktiDariRincianLayar(kegiatan, rincianLayar);
 			}
 
 			if (detailKegiatans.isEmpty()) {
@@ -833,6 +908,12 @@ public class CommonReportHelper {
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static File cetakBuktipembayaranCalonMahasiswa(Kegiatan kegiatan, boolean kirim) {
+		return cetakBuktipembayaranCalonMahasiswa(kegiatan, kirim, null);
+	}
+
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public static File cetakBuktipembayaranCalonMahasiswa(Kegiatan kegiatan, boolean kirim,
+			List<Map<String, Serializable>> rincianLayar) {
 		Session sessionLocal = null;
 		Transaction tx = null;
 		File file = null;
@@ -998,8 +1079,11 @@ public class CommonReportHelper {
 
 			List<Map> maps = new ArrayList<Map>();
 			List<Long> detailKegiatans = new ArrayList<Long>();
+			boolean gunakanRincianLayar = "Bukti_Pembayaran_Calon_Mahasiswa_tagihan".equals(fileReport)
+					&& rincianLayar != null;
 
-			for (DetailKegiatan detailKegiatan : kegiatan.ambilDetailKegiatan(true)) {
+			if (!gunakanRincianLayar)
+				for (DetailKegiatan detailKegiatan : kegiatan.ambilDetailKegiatan(true)) {
 				detailKegiatans.add(detailKegiatan.getId());
 				Double jumlah = detailKegiatan.getBiaya();
 
@@ -1065,6 +1149,10 @@ public class CommonReportHelper {
 					map.put("keterangan", kegiatan.getKeterangan());
 					maps.add(map);
 				}
+			}
+
+			if (gunakanRincianLayar) {
+				maps = buatParameterBuktiDariRincianLayar(kegiatan, rincianLayar);
 			}
 
 			if (detailKegiatans.isEmpty()) {
