@@ -79,10 +79,31 @@ public final class NewUiHybridMenuAccessService {
                     "select rp from RolePrivilage rp join fetch rp.menu m where rp.role.roleId = :roleId")
                     .setString("roleId", roleId).list();
             Map<Long, NewUiPermission> permissions = new HashMap<Long, NewUiPermission>();
+            Map<Long, Boolean> effectiveMenuIds = new HashMap<Long, Boolean>();
+            for (int i = 0; i < menus.size(); i++) {
+                Menu assigned = menus.get(i);
+                if (assigned != null && assigned.getId() != null) {
+                    effectiveMenuIds.put(assigned.getId(), Boolean.TRUE);
+                }
+            }
+            int recoveredAdministratorMenus = 0;
             for (int i = 0; i < privilegeRows.size(); i++) {
                 RolePrivilage row = privilegeRows.get(i);
                 if (row != null && row.getMenu() != null && row.getMenu().getId() != null) {
                     permissions.put(row.getMenu().getId(), NewUiPermission.from(row));
+                    /*
+                     * TbmroleAction.Reset Menu memulihkan job_has_menu dari seluruh
+                     * RolePrivilage role. Terapkan pemulihan efektif yang sama hanya
+                     * untuk role administrator: tidak menulis database dan tidak
+                     * memberikan privilege baru, tetapi mencegah menu READ admin
+                     * hilang ketika relasi job_has_menu tertinggal/tidak lengkap.
+                     */
+                    if (Tbmrole.ADMINISTRATOR.equals(roleId)
+                            && !effectiveMenuIds.containsKey(row.getMenu().getId())) {
+                        menus.add(row.getMenu());
+                        effectiveMenuIds.put(row.getMenu().getId(), Boolean.TRUE);
+                        recoveredAdministratorMenus++;
+                    }
                 }
             }
             for (int i = 0; i < menus.size(); i++) {
@@ -91,6 +112,10 @@ public final class NewUiHybridMenuAccessService {
                         || !passesInstitutionScope(menu, school, filterPerSchool)) continue;
                 NewUiPermission permission = permissions.get(menu.getId());
                 result.add(toNode(menu, permission == null ? NewUiPermission.none() : permission, contextPath));
+            }
+            if (recoveredAdministratorMenus > 0) {
+                LOG.info("Hybrid menu administrator recoveredFromRolePrivilage="
+                        + recoveredAdministratorMenus + ", effectiveAssigned=" + menus.size());
             }
         } catch (Exception e) {
             record(e, "loadAssigned");
