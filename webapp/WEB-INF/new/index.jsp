@@ -19,6 +19,7 @@ if(session.getAttribute("mytbmuser")==null){response.sendRedirect(request.getCon
 boolean service="1".equals(request.getParameter("service"));boolean frame="1".equals(request.getParameter("frame"));
 String requestedModule=request.getParameter("module");String requestedPage=request.getParameter("page");
 String requestedDashboard=request.getParameter("dashboard");
+String requestedDashboardView=request.getParameter("dashboardView");
 boolean requestedDashboardMenu="1".equals(request.getParameter("dashboardMenu"));
 if(service&&"_shared".equals(requestedModule)&&"role_switch".equals(requestedPage)){
     String sharedTarget="/WEB-INF/new/_shared/services/role_switch_service.jsp";
@@ -92,7 +93,7 @@ if(service){
 Tbmuser current=null;try{current=Common.getCurrentUser(request);}catch(Exception ignored){}
 String currentName=current==null?"Pengguna":current.getUserNama();if(currentName==null||currentName.trim().length()==0)currentName=current==null?"Pengguna":current.getUserId();if(currentName==null||currentName.trim().length()==0)currentName="Pengguna";
 String newUrl=request.getContextPath()+"/new";String frameSrc;
-if(requestedDashboard!=null&&requestedDashboard.trim().length()>0)frameSrc=newUrl+"?frame=1&dashboard="+java.net.URLEncoder.encode(requestedDashboard,"UTF-8");
+if(requestedDashboard!=null&&requestedDashboard.trim().length()>0){frameSrc=newUrl+"?frame=1&dashboard="+java.net.URLEncoder.encode(requestedDashboard,"UTF-8");if(requestedDashboardView!=null&&requestedDashboardView.trim().length()>0)frameSrc+="&dashboardView="+java.net.URLEncoder.encode(requestedDashboardView,"UTF-8");}
 else if(requestedDashboardMenu)frameSrc=newUrl+"?frame=1&dashboardMenu=1";
 else if(menuId!=null)frameSrc=newUrl+"?frame=1&menuId="+menuId;
 else if(groupMenuId!=null)frameSrc=newUrl+"?frame=1&groupMenuId="+groupMenuId;
