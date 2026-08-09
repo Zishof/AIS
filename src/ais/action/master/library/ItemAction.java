@@ -2088,7 +2088,7 @@ public class ItemAction extends GenericAutowireComposer implements DataCriteria 
 
 			final MyCheckboxConfig checkbox = new MyCheckboxConfig("Aktif");
 			checkbox.setDisabled(!edit);
-			checkbox.setChecked(item.getAktif());
+			checkbox.setChecked(!Boolean.FALSE.equals(item.getAktif()));
 			checkbox.setParent(arg0);
 			arg0.setAttribute("checkbox", checkbox);
 			checkbox.addEventListener("onCheck", new EventListener() {
@@ -3325,6 +3325,10 @@ public class ItemAction extends GenericAutowireComposer implements DataCriteria 
 			}
 		} catch (Exception eCekDup) { ais.common.ErrorAuditUtil.record(eCekDup, "auto-audit(empty-catch) src/ais/action/master/library/ItemAction.java:3314");
 			// Pengecekan gagal (mis. nama kosong) → lanjutkan ke proses simpan seperti semula.
+		}
+
+		if (item.getAktif() == null) {
+			item.setAktif(true);
 		}
 
 		if (item.getId() != null) {

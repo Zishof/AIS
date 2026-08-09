@@ -1085,6 +1085,9 @@ public class KaryaTulisItemAction extends ItemAction {
 		item.setAbstrakEn(abstrakEn.getValue());
 		item.setKewordsEn(kewordsEn.getValue());
 		item.setImageUrl(imageUrl.getValue().trim());
+		if (item.getAktif() == null) {
+			item.setAktif(true);
+		}
 
 		if (item.getId() != null) {
 			itemDao.update(item);

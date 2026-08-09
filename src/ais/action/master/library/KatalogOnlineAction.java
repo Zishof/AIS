@@ -235,7 +235,9 @@ public class KatalogOnlineAction extends GenericAutowireComposer {
 
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(Item.class)
-				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+				.add(Restrictions.or(Restrictions.isNull("statusTerbitItem"),
+						Restrictions.eq("statusTerbitItem", LibraryUtil.PUBLISH)));
 		if (order)
 			criteria.addOrder(Order.desc("id"));
 		criteria.createAlias("penerbit", "penerbit", Criteria.LEFT_JOIN)

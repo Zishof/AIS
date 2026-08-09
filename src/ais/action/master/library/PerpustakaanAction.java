@@ -175,7 +175,7 @@ public class PerpustakaanAction extends GenericAutowireComposer {
 
 			final MyCheckboxConfig checkbox = new MyCheckboxConfig("Aktif");
 			checkbox.setDisabled(!edit);
-			checkbox.setChecked(perpustakaan.getAktif());
+			checkbox.setChecked(!Boolean.FALSE.equals(perpustakaan.getAktif()));
 			checkbox.setParent(arg0);
 			arg0.setAttribute("checkbox", checkbox);
 			checkbox.addEventListener("onCheck", new EventListener() {
@@ -482,6 +482,9 @@ public class PerpustakaanAction extends GenericAutowireComposer {
 				(Yayasan) (yayasan.getSelectedItem() == null ? null : yayasan.getSelectedItem().getValue()));
 		perpustakaan.setSekolah(
 				(Sekolah) (sekolah.getSelectedItem() == null ? null : sekolah.getSelectedItem().getValue()));
+		if (perpustakaan.getAktif() == null) {
+			perpustakaan.setAktif(true);
+		}
 
 		if (perpustakaan.getId() != null) {
 			perpustakaanDao.update(perpustakaan);

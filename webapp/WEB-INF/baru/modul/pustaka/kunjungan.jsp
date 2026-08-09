@@ -109,7 +109,7 @@ Long currentAnggotaId = (anggota != null) ? anggota.getId() : null;
 
     async function loadPerpustakaan<%=rnd%>() {
         try {
-            const reqObj = { "action": "daftar", tanpaLogin:"true", "class": "<%=ais.database.model.library.Perpustakaan.class.getName()%>", "max": 100, "order1": "asc", "sort1": "nama" };
+            const reqObj = { "action": "daftar", tanpaLogin:"true", "class": "<%=ais.database.model.library.Perpustakaan.class.getName()%>", "where1": "(aktif is null or aktif = true)", "max": 100, "order1": "asc", "sort1": "nama" };
             const response = await fetch(apiUrl<%=rnd%>, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(reqObj) });
             const data = await response.json();
             const selectBox = document.getElementById("filterPerpustakaan<%=rnd%>");
