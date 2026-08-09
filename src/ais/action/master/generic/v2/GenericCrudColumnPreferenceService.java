@@ -21,12 +21,13 @@ public class GenericCrudColumnPreferenceService {
         String user = userKey(context), role = roleKey(context), entity = context.getDefinition().getEntityKey();
         Session session = HibernateUtil.getSessionFactory().openSession();
         try {
+            if (!GenericCrudSchemaAvailability.hasTable(session, "generic_crud_user_view"))
+                return sessionFallback(context, role, entity);
             SQLQuery q = session.createSQLQuery("select visible_columns_json,column_order_json,column_widths_json,pinned_columns_json,page_size,density,sort_json,filter_json,ui_state_json from generic_crud_user_view where user_key=:u and active_role_key=:r and entity_key=:e and view_name='default'");
             q.setString("u", user); q.setString("r", role); q.setString("e", entity); Object row = q.uniqueResult();
             if (row instanceof Object[]) return fromRow(context.getDefinition(), (Object[]) row);
         } catch (Exception migrationMissing) {
-            Object fallback = context.getRequest().getSession(true).getAttribute(SESSION_PREFIX + role + "." + entity);
-            if (fallback instanceof Map) return (Map) fallback;
+            return sessionFallback(context, role, entity);
         } finally { close(session); }
         return defaults(context.getDefinition());
     }
@@ -37,6 +38,10 @@ public class GenericCrudColumnPreferenceService {
         String user = userKey(context), role = roleKey(context), entity = context.getDefinition().getEntityKey();
         Session session = HibernateUtil.getSessionFactory().openSession(); Transaction tx = null;
         try {
+            if (!GenericCrudSchemaAvailability.hasTable(session, "generic_crud_user_view")) {
+                context.getRequest().getSession(true).setAttribute(SESSION_PREFIX + role + "." + entity, safe);
+                return GenericCrudResult.ok("Preferensi tampilan tersimpan untuk sesi aktif.", safe);
+            }
             tx = session.beginTransaction();
             SQLQuery q = session.createSQLQuery("insert into generic_crud_user_view(user_key,active_role_key,entity_key,view_name,is_default,visible_columns_json,column_order_json,column_widths_json,pinned_columns_json,page_size,density,sort_json,filter_json,ui_state_json) values(:u,:r,:e,'default',true,:v,:o,:w,:p,:s,:d,:so,:f,:ui) on conflict (user_key,active_role_key,entity_key,view_name) do update set visible_columns_json=excluded.visible_columns_json,column_order_json=excluded.column_order_json,column_widths_json=excluded.column_widths_json,pinned_columns_json=excluded.pinned_columns_json,page_size=excluded.page_size,density=excluded.density,sort_json=excluded.sort_json,filter_json=excluded.filter_json,ui_state_json=excluded.ui_state_json,updated_at=now()");
             q.setString("u", user); q.setString("r", role); q.setString("e", entity);
@@ -55,7 +60,7 @@ public class GenericCrudColumnPreferenceService {
         String role = roleKey(context), entity = context.getDefinition().getEntityKey();
         context.getRequest().getSession(true).removeAttribute(SESSION_PREFIX + role + "." + entity);
         Session session = HibernateUtil.getSessionFactory().openSession(); Transaction tx = null;
-        try { tx = session.beginTransaction(); SQLQuery q = session.createSQLQuery("delete from generic_crud_user_view where user_key=:u and active_role_key=:r and entity_key=:e and view_name='default'"); q.setString("u", userKey(context)); q.setString("r", role); q.setString("e", entity); q.executeUpdate(); tx.commit(); }
+        try { if (!GenericCrudSchemaAvailability.hasTable(session, "generic_crud_user_view")) return GenericCrudResult.ok("Preferensi dikembalikan ke default.", defaults); tx = session.beginTransaction(); SQLQuery q = session.createSQLQuery("delete from generic_crud_user_view where user_key=:u and active_role_key=:r and entity_key=:e and view_name='default'"); q.setString("u", userKey(context)); q.setString("r", role); q.setString("e", entity); q.executeUpdate(); tx.commit(); }
         catch (Exception ignored) { rollback(tx); } finally { close(session); }
         return GenericCrudResult.ok("Preferensi dikembalikan ke default.", defaults);
     }
@@ -79,6 +84,7 @@ public class GenericCrudColumnPreferenceService {
     }
     private Map validateNamedMap(GenericCrudDefinition d, Object value) { Map result = new LinkedHashMap(); if (!(value instanceof Map)) return result; java.util.Iterator it = ((Map) value).keySet().iterator(); while (it.hasNext()) { String key = String.valueOf(it.next()); GenericCrudFieldDefinition f = d.getField(key); if (f != null && f.isReadable() && !f.isSensitive()) result.put(key, ((Map) value).get(key)); } return result; }
     private Map defaults(GenericCrudDefinition d) { Map m = new LinkedHashMap(); m.put("columns", defaultColumns(d)); m.put("widths", new LinkedHashMap()); m.put("pinned", new ArrayList()); m.put("pageSize", Integer.valueOf(d.getDefaultPageSize())); m.put("density", "COMFORTABLE"); return m; }
+    private Map sessionFallback(GenericCrudRequestContext context, String role, String entity) { Object fallback = context.getRequest().getSession(true).getAttribute(SESSION_PREFIX + role + "." + entity); return fallback instanceof Map ? (Map) fallback : defaults(context.getDefinition()); }
     private List defaultColumns(GenericCrudDefinition d) { List result = new ArrayList(); List fields = d.getFields(); for (int i = 0; i < fields.size(); i++) { GenericCrudFieldDefinition f = (GenericCrudFieldDefinition) fields.get(i); if (f.isTableVisible() && f.isReadable() && !f.isSensitive()) result.add(f.getProperty()); } return result; }
     private Map validateSort(GenericCrudDefinition d, Object value) { if (!(value instanceof Map)) return new LinkedHashMap(); String property = String.valueOf(((Map) value).get("property")); GenericCrudFieldDefinition f = d.getField(property); if (f == null || !f.isReadable() || !f.isSortable() || f.isSensitive()) return new LinkedHashMap(); Map safe = new LinkedHashMap(); safe.put("property", property); safe.put("direction", "DESC".equals(String.valueOf(((Map) value).get("direction"))) ? "DESC" : "ASC"); return safe; }
     private List validateFilters(GenericCrudDefinition d, Object value) { List result = new ArrayList(); if (!(value instanceof List)) return result; List input = (List) value; for (int i = 0; i < input.size() && i < 20; i++) { if (!(input.get(i) instanceof Map)) continue; Map f = (Map) input.get(i); String property = String.valueOf(f.get("property")); GenericCrudFieldDefinition def = d.getField(property); if (def == null || !def.isReadable() || def.isSensitive()) continue; Map safe = new LinkedHashMap(); safe.put("property", property); safe.put("operator", f.get("operator")); safe.put("value", f.get("value")); result.add(safe); } return result; }

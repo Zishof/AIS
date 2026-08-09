@@ -20,6 +20,8 @@ per_model_integration_test = (web_inf / "generic-crud" / "tests" / "GenericCrudP
 zkoss_parity_tool = (web_inf / "generic-crud" / "tools" / "audit_zkoss_crud_parity.py").read_text(encoding="utf-8")
 mahasiswa_parity_provider = (java_root / "adapter" / "MahasiswaGenericCrudFormProvider.java").read_text(encoding="utf-8")
 zkoss_runtime_parity = (java_root / "GenericCrudZkossParityService.java").read_text(encoding="utf-8")
+schema_availability = (java_root / "GenericCrudSchemaAvailability.java").read_text(encoding="utf-8")
+column_preferences = (java_root / "GenericCrudColumnPreferenceService.java").read_text(encoding="utf-8")
 file_location_models = [
     model_root / "kkn" / "KelompokKkn.java",
     model_root / "pkl" / "KelompokPkl.java",
@@ -81,6 +83,7 @@ checks = {
         )
     ) and '<jsp:include page="/WEB-INF/new/_shared/generic-crud/assets/' not in crud_page,
     "column preference UI": "preference_save" in shared_js,
+    "missing preference table checked without failing SQL": all(token in schema_availability + column_preferences for token in ("DatabaseMetaData", "getTables", "GenericCrudSchemaAvailability.hasTable", "sessionFallback")),
     "import dry-run and confirm": all(token in (java_root / "GenericCrudImportService.java").read_text(encoding="utf-8") for token in ("PREVIEW_READY", "confirm(", "IMPORT_DUPLICATE_FILE")),
     "import requires CUD privileges": "isCanCreate() && context.isCanUpdate() && context.isCanDelete()" in (java_root / "GenericCrudImportService.java").read_text(encoding="utf-8"),
     "import job owner role entity bound": all(token in (java_root / "GenericCrudImportService.java").read_text(encoding="utf-8") for token in ("ownerUserKey", "ownerRoleKey", "entityKey", "IMPORT_JOB_OWNER_DENIED", "IMPORT_JOB_EXPIRED")),

@@ -56,8 +56,10 @@ public final class NewUiHybridMenuAccessService {
         NewUiHybridMenuTreeBuilder.Result result = NewUiHybridMenuTreeBuilder.build(assigned);
         NewUiHybridMenuSnapshot snapshot = new NewUiHybridMenuSnapshot(user.getUserId(), role.getRoleId(), scope, result);
         NewUiHybridMenuCache.put(httpSession, marker, snapshot);
-        if (snapshot.getDiagnostics().hasWarnings()) {
+        if (snapshot.getDiagnostics().hasCriticalWarnings()) {
             LOG.warning("Hybrid menu role=" + role.getRoleId() + ": " + snapshot.getDiagnostics().summary());
+        } else if (snapshot.getDiagnostics().hasWarnings()) {
+            LOG.fine("Hybrid menu recovered role=" + role.getRoleId() + ": " + snapshot.getDiagnostics().summary());
         }
         return snapshot;
     }

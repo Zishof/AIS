@@ -66,6 +66,8 @@ public final class NewUiHybridMenuTreeBuilderSelfTest {
         check(NewUiHybridMenuRouteRegistry.FORBIDDEN.equals(
                 NewUiHybridMenuRouteGuard.evaluateMenu(snapshot, Long.valueOf(99999L))), "unassigned menu not forbidden");
         check(built.getDiagnostics().getOrphanCount() > 0, "orphan not diagnosed");
+        check(!built.getDiagnostics().hasCriticalWarnings(),
+                "recoverable orphan/ambiguous hierarchy must not be logged as critical");
 
         List<NewUiHybridMenuNode> mahasiswaSource = new ArrayList<NewUiHybridMenuNode>();
         mahasiswaSource.add(node(100, 0, 10, 1, true, true));
@@ -94,6 +96,7 @@ public final class NewUiHybridMenuTreeBuilderSelfTest {
         cycle.add(node(12, 2, 1, 1, true, true));
         built = NewUiHybridMenuTreeBuilder.build(cycle);
         check(built.getDiagnostics().getCycleCount() > 0, "cycle not diagnosed");
+        check(built.getDiagnostics().hasCriticalWarnings(), "cycle must remain a critical warning");
         System.out.println("PASS Hybrid Menu V2 tree/catalog/guard self-test");
     }
 }

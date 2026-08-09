@@ -31,6 +31,7 @@ public class NewUiHybridMenuDiagnostics implements Serializable {
     public int getDepthLimitCount() { return depthLimitCount; }
     public List<String> getWarnings() { return Collections.unmodifiableList(warnings); }
     public boolean hasWarnings() { return !warnings.isEmpty(); }
+    public boolean hasCriticalWarnings() { return duplicateCount > 0 || cycleCount > 0 || depthLimitCount > 0; }
 
     public String summary() {
         return "duplicate=" + duplicateCount + ", duplicateChildGroup=" + duplicateChildGroupCount
