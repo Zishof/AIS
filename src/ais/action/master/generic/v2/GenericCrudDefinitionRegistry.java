@@ -11,12 +11,18 @@ import ais.action.master.generic.v2.adapter.GenericCrudFormOverrideProvider;
 import ais.action.master.generic.v2.adapter.JenjangProgramStudiGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.MahasiswaGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.MahasiswaGenericCrudFormProvider;
+import ais.action.master.generic.v2.adapter.PenilaianSiswaGenericCrudAdapter;
 import ais.database.model.Agama;
 import ais.database.model.Jenjang;
 import ais.database.model.JenjangProgramStudi;
 import ais.database.model.Jurusan;
 import ais.database.model.Mahasiswa;
 import ais.database.model.StatusAwalMahasiswa;
+import ais.database.model.Ruang;
+import ais.database.model.sekolah.KelasSiswa;
+import ais.database.model.sekolah.KurikulumSekolah;
+import ais.database.model.sekolah.Sekolah;
+import ais.database.model.sekolah.Yayasan;
 
 /**
  * Registry allow-list. Scanner menghasilkan kandidat disabled; hanya entity yang
@@ -29,6 +35,7 @@ public final class GenericCrudDefinitionRegistry {
         register(buildAgama());
         register(buildMahasiswa());
         register(buildJenjangProgramStudi());
+        register(buildPenilaianSiswa());
     }
     private GenericCrudDefinitionRegistry() { }
 
@@ -252,6 +259,49 @@ public final class GenericCrudDefinitionRegistry {
                 false, true, true, 50));
         d.addField(field("homepagePS", "Homepage Program Studi", String.class, "text", false, true, true,
                 false, true, true, 60));
+        return d;
+    }
+
+    private static GenericCrudDefinition buildPenilaianSiswa() {
+        GenericCrudDefinition d = new GenericCrudDefinition();
+        d.setEntityClass(KelasSiswa.class);
+        d.setModuleKey("sekolah");
+        d.setPageKey("penilaian_siswa");
+        d.setDisplayName("Penilaian Siswa / Kelas");
+        d.setSourceActionClassName("ais.action.master.sekolah.PenilaianSiswaAction");
+        d.setExistingActionLifecycleBound(false);
+        d.setLifecycleStatus(GenericCrudDefinition.FULL_CRUD);
+        d.setEnabled(true);
+        d.setCreateEnabled(true);
+        d.setUpdateEnabled(true);
+        d.setDeleteEnabled(true);
+        d.setImportEnabled(false);
+        d.setExportPdfEnabled(true);
+        d.setExportDocxEnabled(true);
+        d.setExportPptxEnabled(true);
+        d.setAuditEnabled(false);
+        d.setRowAuditEnabled(false);
+        d.setRestoreEnabled(false);
+        d.setAdminDeleteEnabled(false);
+        d.setDefaultSortProperty("nama");
+        d.setDefaultPageSize(10);
+        d.setMaxPageSize(100);
+        PenilaianSiswaGenericCrudAdapter adapter = new PenilaianSiswaGenericCrudAdapter();
+        d.setAdapter(adapter);
+        d.setScopeAdapter(adapter);
+        d.addField(field("id", "ID", Long.class, "number", true, false, false, false, true, false, 10));
+        d.addField(field("nama", "Nama Kelas", String.class, "text", true, true, true, true, true, true, 20));
+        d.addField(relationField("yayasan", "Yayasan", Yayasan.class, true, true, true, true, 30));
+        d.addField(relationField("sekolah", "Sekolah", Sekolah.class, true, true, true, true, 40));
+        d.addField(relationField("ruang", "Ruang", Ruang.class, true, true, true, false, 50));
+        d.addField(field("tingkat", "Tingkat", Integer.class, "number", true, true, true, true, true, false, 60));
+        d.addField(field("tahunAjaran", "Tahun Ajaran", String.class, "text", true, true, true, true, true, true, 70));
+        d.addField(relationField("kurikulumSekolah", "Kurikulum Sekolah", KurikulumSekolah.class,
+                true, true, true, false, 80));
+        d.addField(field("keterangan", "Keterangan", String.class, "textarea", true, true, true,
+                false, true, true, 90));
+        d.addField(field("aktif", "Aktif", Boolean.class, "checkbox", true, true, true,
+                false, true, false, 100));
         return d;
     }
 

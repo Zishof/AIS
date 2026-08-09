@@ -57,6 +57,7 @@ def main():
     generic = []
     legacy = []
     entity_init = []
+    native_override = []
     custom_crud = []
     non_crud = []
     unresolved_class = []
@@ -81,6 +82,8 @@ def main():
             unresolved_class.append((path, source))
             continue
         contract = source_contract(source, java, action)
+        override_name = re.sub(r'Action$', '', action) + 'GenericCrudAdapter.java'
+        override_path = SRC / 'ais' / 'action' / 'master' / 'generic' / 'v2' / 'adapter' / override_name
         has_save = bool(re.search(r'public\s+(?:final\s+)?boolean\s+onSave\s*\(\s*(?:org\.zkoss\.zk\.ui\.event\.)?Event\b', java))
         window_field = bool(re.search(
             r'(?:private|protected|public)\s+(?:final\s+)?(?:MyWindow|Window)\s+\w+\s*(?:[;=,])', contract))
@@ -95,6 +98,8 @@ def main():
         elif has_save and lifecycle_host and re.search(
                 r'(?:public|protected|private)\s+void\s+init\s*\(\s*(?:final\s+)?[A-Z][\w.<>?]*\s+\w+', java):
             entity_init.append((path, source))
+        elif has_save and override_path.is_file():
+            native_override.append((path, source, override_path))
         elif has_save:
             custom_crud.append((path, source))
         else:
@@ -105,6 +110,8 @@ def main():
     print("DataInitDefault bound    : %d" % len(legacy))
     print("Entity init(Action) bound: %d" % len(entity_init))
     print("Native lifecycle bound   : %d" % (len(generic) + len(legacy) + len(entity_init)))
+    print("Native override bound    : %d" % len(native_override))
+    print("Total native CRUD bound  : %d" % (len(generic) + len(legacy) + len(entity_init) + len(native_override)))
     print("Custom CRUD review needed: %d" % len(custom_crud))
     print("Non-CRUD source pages    : %d" % len(non_crud))
     print("Unresolvable source class: %d" % len(unresolved_class))

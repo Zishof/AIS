@@ -15,7 +15,9 @@ Hasil `tools/audit_native_crud_source_truth.py` pada checkout ini:
 - 844 rute mempunyai kontrak lifecycle existing yang dapat diverifikasi statis,
   termasuk kontrak yang diwarisi dari superclass: 75 `GenericCrudAction`,
   341 `DataInitDefault`, dan 428 pola `init(Entity)`;
-- 49 rute custom masih memerlukan adapter domain khusus;
+- 2 rute memakai override native eksplisit, sehingga total 846 rute CRUD sudah
+  mempunyai binding native;
+- 47 rute custom masih memerlukan adapter domain khusus;
 - 21 keluaran generator menunjuk nama inner/helper class yang tidak dapat
   di-resolve sebagai Action top-level dan tidak diaktifkan oleh runtime;
 - 2.999 halaman bukan CRUD dan tidak boleh dihitung sebagai CRUD yang tertinggal.
@@ -26,8 +28,8 @@ native yang cocok; ini mencakup `GenericCrudAction` serta Action
 bila entity dan `init(entity)` cocok.
 DELETE otomatis tetap fail-closed karena renderer/selection/konfirmasi ZK lama
 tidak mempunyai kontrak entity tunggal; hanya adapter eksplisit yang boleh
-mengaktifkannya. Jadi angka 844 adalah cakupan jembatan lifecycle, bukan klaim
-bahwa seluruh operasi khusus pada 49 Action custom sudah selesai.
+mengaktifkannya. Jadi angka 846 adalah cakupan binding CRUD native, bukan klaim
+bahwa seluruh operasi khusus pada 47 Action custom sudah selesai.
 
 Override native pertama untuk kelompok custom sudah tersedia pada
 `JenjangProgramStudi`: CREATE/READ/UPDATE/DELETE memakai form metadata New UI,
@@ -36,6 +38,12 @@ tidak lagi dibuka/ditutup dari composer ZK. Workflow header-detail seperti
 transaksi SIRS tetap diklasifikasikan adapter domain khusus; workflow tersebut
 tidak diturunkan menjadi CRUD satu tabel karena dapat menghilangkan detail,
 stok, jadwal, cetak, atau efek bisnis lain.
+
+Override native kedua tersedia pada `PenilaianSiswaAction`. Route
+`sekolah/penilaian_siswa` sekarang dipaksa ke entity `KelasSiswa`, bukan
+`KelasSiswaPunyaSiswa` yang sebelumnya salah terpilih oleh urutan kandidat.
+Form New UI mempertahankan nama kelas, yayasan, sekolah, ruang, tingkat, tahun
+ajaran, kurikulum, keterangan, status aktif, serta scope yayasan/sekolah.
 
 ## Yang sudah tersedia dalam paket
 
