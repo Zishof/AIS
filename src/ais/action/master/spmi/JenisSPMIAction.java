@@ -11,6 +11,7 @@ import org.zkoss.util.media.Media;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
+import org.zkoss.zk.ui.event.ForwardEvent;
 import org.zkoss.zk.ui.event.UploadEvent;
 import org.zkoss.zul.Filedownload;
 import org.zkoss.zul.Label;
@@ -111,9 +112,9 @@ public class JenisSPMIAction extends BaseSPMIAction {
 
     public void onUploadSpmiGlobal(Event event) throws Exception {
         if (!edit) throw new SecurityException("Anda tidak memiliki hak memperbarui master SPMI.");
-        UploadEvent uploadEvent = (UploadEvent) event;
-        Media media = uploadEvent.getMedia();
         try {
+            UploadEvent uploadEvent = resolveUploadEvent(event);
+            Media media = uploadEvent.getMedia();
             if (media == null || media.getName() == null
                     || !media.getName().toLowerCase().endsWith(".xlsx")) {
                 throw new IllegalArgumentException("File harus berformat Excel Open XML (.xlsx).");
@@ -134,6 +135,23 @@ public class JenisSPMIAction extends BaseSPMIAction {
             MyMessageboxConfig.show("Upload SPMI Global gagal. " + e.getMessage(),
                     "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.ERROR);
         }
+    }
+
+    /**
+     * Mengambil event upload asli. Komponen ZUL menggunakan forward sehingga ZK
+     * membungkus UploadEvent di dalam ForwardEvent sebelum memanggil composer.
+     * Tetap menerima UploadEvent langsung agar handler aman digunakan dari kedua
+     * bentuk binding event.
+     */
+    private UploadEvent resolveUploadEvent(Event event) {
+        Event origin = event;
+        while (origin instanceof ForwardEvent) {
+            origin = ((ForwardEvent) origin).getOrigin();
+        }
+        if (!(origin instanceof UploadEvent)) {
+            throw new IllegalArgumentException("Event upload SPMI Global tidak valid.");
+        }
+        return (UploadEvent) origin;
     }
 
     // =====================================================================
