@@ -1227,9 +1227,14 @@ public class FeederJSONImport {
 
 			System.out.println(info + "4. total nilai = " + existing.getTotalNilai() + " "
 					+ detailperkuliahan.getTotalNilai() + " " + nilai0);
-			if (nilai0) {
+			List<FormatNilai> formatNilaisImport = perkuliahan == null
+					? new ArrayList<FormatNilai>() : Common.getFormatNilais(session, perkuliahan);
+			boolean kunciGlobalNilai = existing.apakahNilaiDikunci(null);
+			if (nilai0 && !kunciGlobalNilai) {
 				existing.setTotalIP(detailperkuliahan.getTotalIP());
-				existing.setDetailNilai(detailperkuliahan.getDetailNilai());
+				// Impor massal tidak boleh menimpa entri komponen yang sudah dikunci.
+				// Model menggabungkan nilai impor dengan snapshot permanen per item.
+				existing.setDetailNilaiMematuhiKunci(detailperkuliahan.getDetailNilai(), formatNilaisImport);
 				existing.setDetailNilaiTambahan(detailperkuliahan.getDetailNilaiTambahan());
 				existing.setNilaiHuruf(detailperkuliahan.getNilaiHuruf());
 				existing.setNilaiHurufAsal(detailperkuliahan.getNilaiHurufAsal());
@@ -1239,8 +1244,7 @@ public class FeederJSONImport {
 				existing.setTotalNilai(detailperkuliahan.getTotalNilai());
 
 				if (perkuliahan != null) {
-					List<FormatNilai> formatNilais = Common.getFormatNilais(session, perkuliahan);
-					for (FormatNilai formatNilai : formatNilais) {
+					for (FormatNilai formatNilai : formatNilaisImport) {
 						existing.populateDetailNilai(formatNilai, null, existing.getTotalNilai(), true, tbmuser);
 					}
 				}

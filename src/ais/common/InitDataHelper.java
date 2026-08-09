@@ -6281,6 +6281,7 @@ public class InitDataHelper {
 					"update cicilan_pembayaran set bayarke=1 where bayarke is null",
 					"update setting_biaya set jumlahpembayaran=1 where jumlahpembayaran is null",
 					"update detailperkuliahan set detail_nilai_kunci=detail_nilai_baru_lagi where detail_nilai_kunci is null",
+					"update detailperkuliahan set detail_nilai_tambahan_kunci=detail_nilai_tambahan_baru_lagi where detail_nilai_tambahan_kunci is null",
 					"update employ.kenaikan_pangkat set jenisperubahan='" + KenaikanPangkat.UBAH_JABATAN_DAN_GOLONGAN
 							+ "' where jenisperubahan is null or jenisperubahan = 'Ubah Jabatan dan Golangan' or jenisperubahan = 'Jabatan dan Golangan'",
 					"update payroll.libur_nasional set sampai=tanggal where sampai is null",

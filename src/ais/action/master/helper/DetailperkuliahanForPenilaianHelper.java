@@ -1571,6 +1571,11 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 											}
 										} catch (Exception exSnapshotKunci) {
 											Common.tampilErrorJikaAdmin(exSnapshotKunci);
+											MyMessageboxConfig.show(
+													"Penguncian dibatalkan karena snapshot permanen nilai belum berhasil disimpan seluruhnya.",
+													"Peringatan", MyMessageboxConfig.OK,
+													MyMessageboxConfig.EXCLAMATION);
+											return;
 										}
 
 										perkuliahan.setDikunci(tbmuser);
@@ -2150,18 +2155,15 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 											}
 
 											/*
-											 * Kosongkan seluruh nilai → kembali ke kondisi semula.
-											 * PENTING (urutan): totalNilai & totalNilaiSementara HARUS di-nol-kan
-											 * SEBELUM hitungTotalNilai, karena Detailperkuliahan.refreshNilaiKeDefault()
-											 * akan MEMBANGUN ULANG detailNilai dari totalNilai bila detailNilai kosong
-											 * dan totalNilai > 1 (sehingga reset bisa batal). detailNilaiKunci &
-											 * detailNilaiTambahanKunci juga dikosongkan agar saat dikunci nanti tidak
-											 * memulihkan nilai lama.
+											 * Kembalikan nilai yang masih terbuka ke kondisi semula. Nilai komponen
+											 * terkunci dan snapshot permanennya harus tetap utuh. Total dinolkan
+											 * sebelum dihitung ulang supaya refreshNilaiKeDefault() tidak membangun
+											 * kembali nilai terbuka dari total lama.
 											 */
-											detailperkuliahan.setDetailNilai("");
-											detailperkuliahan.setDetailNilaiTambahan("");
-											detailperkuliahan.setDetailNilaiKunci("");
-											detailperkuliahan.setDetailNilaiTambahanKunci("");
+											// Reset tidak boleh menghapus komponen yang sudah dikunci. Model akan
+											// mengosongkan nilai terbuka dan memulihkan setiap entri terkunci dari
+											// kolom snapshot permanen. Snapshot sengaja tidak pernah dikosongkan.
+											detailperkuliahan.resetDetailNilaiYangTidakDikunci(formatNilais);
 											detailperkuliahan.setTotalNilai(0.0);
 											detailperkuliahan.setTotalNilaiSementara(0.0);
 
