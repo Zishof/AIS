@@ -4,6 +4,7 @@
 <%@ page import="ais.common.Common" %><%@ page import="ais.database.model.Tbmrole" %><%@ page import="ais.database.model.Tbmuser" %>
 <%@ page import="ais.common.newui.menu.NewUiHybridMenuNode" %><%@ page import="ais.common.newui.menu.NewUiHybridMenuSnapshot" %>
 <%@ page import="ais.common.newui.menu.NewUiModuleShortcut" %><%@ page import="ais.common.newui.menu.NewUiModuleShortcutService" %>
+<%@ page import="ais.common.newui.menu.NewUiModuleDashboardService" %><%@ page import="ais.common.newui.menu.NewUiModuleDashboardService.Dashboard" %>
 <%@ page import="ais.common.newui.menu.NewUiDashboardUtilityService" %>
 <%@ page import="ais.common.newui.menu.NewUiDashboardUtilityService.OnlineUserInfo" %>
 <%@ page import="ais.common.newui.menu.NewUiDashboardUtilityService.CustomerContact" %>
@@ -20,6 +21,11 @@ List<CustomerContact> nuiCustomerContacts=NewUiDashboardUtilityService.customerS
 Number nuiAccessCount=NewUiDashboardUtilityService.accessCount();Number nuiOnlineCount=NewUiDashboardUtilityService.onlineCount();
 SimpleDateFormat nuiLoginFormat=new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
 String nuiModuleNewUrl=request.getContextPath()+"/new";
+String nuiDashboardKey=request.getParameter("dashboard");NewUiModuleShortcut nuiActiveDashboardShortcut=null;
+if(nuiDashboardKey!=null)for(int nuiDashI=0;nuiDashI<nuiModules.size();nuiDashI++)if(nuiDashboardKey.equalsIgnoreCase(nuiModules.get(nuiDashI).getKey())){nuiActiveDashboardShortcut=nuiModules.get(nuiDashI);break;}
+Dashboard nuiActiveDashboard=nuiActiveDashboardShortcut==null?null:NewUiModuleDashboardService.load(nuiActiveDashboardShortcut.getKey());
+if(nuiDashboardKey!=null&&nuiActiveDashboard==null){response.setStatus(403);%><jsp:include page="/WEB-INF/new/_shared/ui/403.jsp"/><%return;}
+if(nuiActiveDashboard!=null){request.setAttribute("nuiActiveModuleShortcut",nuiActiveDashboardShortcut);request.setAttribute("nuiActiveModuleDashboard",nuiActiveDashboard);%><jsp:include page="/WEB-INF/new/_shared/dashboard/module_dashboard.jsp"/><%return;}
 %>
 <section class="nui-leaf-catalog nui-module-catalog">
   <header class="nui-module-hero">
@@ -36,9 +42,9 @@ String nuiModuleNewUrl=request.getContextPath()+"/new";
     <%for(int nuiModuleI=0;nuiModuleI<nuiModules.size();nuiModuleI++){
       NewUiModuleShortcut nuiModule=nuiModules.get(nuiModuleI);NewUiHybridMenuNode nuiTarget=nuiModule.getTarget();
       boolean nuiTargetBranch=nuiTarget.isBranch();String nuiTargetParam=nuiTargetBranch?"groupMenuId":"menuId";
-      String nuiTargetShell=nuiModuleNewUrl+"?"+nuiTargetParam+"="+nuiTarget.getMenuId();
+      String nuiDashboardParam=java.net.URLEncoder.encode(nuiModule.getKey(),"UTF-8");String nuiTargetShell=nuiModuleNewUrl+"?dashboard="+nuiDashboardParam;
     %>
-    <a class="nui-page-link nui-leaf-card nui-module-shortcut-card<%=nuiTargetBranch?" nui-menu-branch-card":""%>" data-direct="1" data-search="<%=nuiModuleH(nuiModule.getSearchText())%>" data-label="<%=nuiModuleH(nuiModule.getLabel())%>" data-order="<%=nuiModule.getOrder()%>" data-path="Aplikasi &amp; Modul" target="nuiMainFrame" data-shell-url="<%=nuiTargetShell%>" href="<%=nuiModuleNewUrl+"?frame=1&amp;"+nuiTargetParam+"="+nuiTarget.getMenuId()%>">
+    <a class="nui-page-link nui-leaf-card nui-module-shortcut-card<%=nuiTargetBranch?" nui-menu-branch-card":""%>" data-direct="1" data-search="<%=nuiModuleH(nuiModule.getSearchText())%>" data-label="<%=nuiModuleH(nuiModule.getLabel())%>" data-order="<%=nuiModule.getOrder()%>" data-path="Aplikasi &amp; Modul" target="nuiMainFrame" data-shell-url="<%=nuiTargetShell%>" href="<%=nuiModuleNewUrl+"?frame=1&amp;dashboard="+nuiDashboardParam%>">
       <span class="nui-leaf-icon"><i class="<%=nuiModuleH(nuiModule.getIcon())%> nui-fa-icon" aria-hidden="true"></i></span>
       <strong><%=nuiModuleH(nuiModule.getLabel())%></strong>
       <span class="nui-leaf-path"><%=nuiModuleH(nuiModule.getDescription())%></span>
