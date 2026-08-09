@@ -248,10 +248,11 @@ public class DashboardRegistrasiUlangPmb extends DashboardPmbBase {
 	private int queryCount(Session session, String ta, String sem, String extraWhere) {
 		try {
 			String hql = "SELECT COUNT(bcm) FROM BiodataCalonMahasiswa bcm "
-					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem)
+					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem) + jenjangClause()
 					+ "AND " + extraWhere;
 			org.hibernate.Query q = session.createQuery(hql).setParameter("ta", ta);
 			applySemParam(q, sem);
+			applyJenjangParam(q);
 			Number n = (Number) q.uniqueResult();
 			return n == null ? 0 : n.intValue();
 		} catch (Exception e) {
@@ -269,11 +270,12 @@ public class DashboardRegistrasiUlangPmb extends DashboardPmbBase {
 		try {
 			String hql = "SELECT j.id, j.nama, COUNT(bcm) "
 					+ "FROM BiodataCalonMahasiswa bcm JOIN bcm.prodiLulus j "
-					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem)
+					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem) + jenjangClause()
 					+ "GROUP BY j.id, j.nama ORDER BY COUNT(bcm) DESC";
 			org.hibernate.Query q = session.createQuery(hql).setParameter("ta", ta)
 					.setMaxResults(MAX_PRODI);
 			applySemParam(q, sem);
+			applyJenjangParam(q);
 			for (Object obj : q.list()) {
 				Object[] r  = (Object[]) obj;
 				Object   id = r[0];
@@ -289,11 +291,12 @@ public class DashboardRegistrasiUlangPmb extends DashboardPmbBase {
 		try {
 			String hql = "SELECT j.id, COUNT(bcm) "
 					+ "FROM BiodataCalonMahasiswa bcm JOIN bcm.prodiLulus j "
-					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem)
+					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem) + jenjangClause()
 					+ "AND bcm.pembayaranDaftarUlang IS NOT NULL "
 					+ "GROUP BY j.id";
 			org.hibernate.Query q = session.createQuery(hql).setParameter("ta", ta);
 			applySemParam(q, sem);
+			applyJenjangParam(q);
 			for (Object obj : q.list()) {
 				Object[] r  = (Object[]) obj;
 				Object   id = r[0];

@@ -4,12 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.hibernate.Session;
-import org.hibernate.criterion.Restrictions;
-import org.zkoss.zul.Combobox;
-import org.zkoss.zul.Div;
-import org.zkoss.zul.Label;
 
-import ais.common.Common;
 import ais.database.model.Jenjang;
 import ais.database.model.PerguruanTinggi;
 import ais.ui.util.HtmlChartHelper;
@@ -38,9 +33,6 @@ import ais.ui.util.MyHtml;
  */
 public class DashboardAsalSekolahPmb extends DashboardPmbBase {
 
-	/** Filter jenjang khusus Dasbor Asal Sekolah. */
-	private Combobox cboJenjang;
-
 	// ═══════════════════════════════════════════════════════════════
 	// Inner data classes
 	// ═══════════════════════════════════════════════════════════════
@@ -65,23 +57,6 @@ public class DashboardAsalSekolahPmb extends DashboardPmbBase {
 
 	public DashboardAsalSekolahPmb(PerguruanTinggi pt) {
 		super(pt);
-	}
-
-	@Override
-	protected void buildExtraFilter(Div filterBar) {
-		Label lblJenjang = new Label(Common.getBahasaConfig("Jenjang Studi:"));
-		lblJenjang.setStyle("font-size:12px;color:#6b7280;white-space:nowrap;margin-left:4px;");
-		lblJenjang.setParent(filterBar);
-
-		cboJenjang = new Combobox();
-		cboJenjang.setWidth("120px");
-		cboJenjang.setReadonly(true);
-		Common.insertComboDanSemua(cboJenjang, "nama", Jenjang.class,
-				Restrictions.in("nama", new String[] { "D3", "S1", "S2", "S3", "Profesi" }));
-		if (cboJenjang.getItemCount() > 0) {
-			cboJenjang.setSelectedIndex(0);
-		}
-		cboJenjang.setParent(filterBar);
 	}
 
 	// ═══════════════════════════════════════════════════════════════
@@ -359,22 +334,4 @@ public class DashboardAsalSekolahPmb extends DashboardPmbBase {
 		return result;
 	}
 
-	/** Jenjang terpilih, atau null untuk seluruh jenjang. */
-	private Jenjang getSelectedJenjang() {
-		if (cboJenjang != null && cboJenjang.getSelectedItem() != null
-				&& cboJenjang.getSelectedItem().getValue() instanceof Jenjang) {
-			return (Jenjang) cboJenjang.getSelectedItem().getValue();
-		}
-		return null;
-	}
-
-	private String jenjangClause(Jenjang jenjang) {
-		return jenjang == null ? "" : "AND bcm.jenjang = :jenjang ";
-	}
-
-	private void applyJenjangParam(org.hibernate.Query q, Jenjang jenjang) {
-		if (jenjang != null) {
-			q.setParameter("jenjang", jenjang);
-		}
-	}
 }

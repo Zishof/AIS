@@ -163,7 +163,7 @@ public class DashboardInterviewPmb extends DashboardPmbBase {
 	@SuppressWarnings("unchecked")
 	private KpiInterview queryKpi(Session session, String ta, String sem) {
 		try {
-			String joinSem = hasSem(sem)
+			String joinSem = hasSem(sem) || getSelectedJenjang() != null
 					? "JOIN ipcm.biodataCalonMahasiswa bcm "
 					: "";
 			String whereSem = hasSem(sem)
@@ -174,20 +174,22 @@ public class DashboardInterviewPmb extends DashboardPmbBase {
 					+ "FROM InterviewPunyaCalonMahasiswa ipcm "
 					+ "JOIN ipcm.interviewCalonMahasiswa icm "
 					+ joinSem
-					+ "WHERE icm.tahunAkademik = :ta " + whereSem;
+					+ "WHERE icm.tahunAkademik = :ta " + whereSem + jenjangClause();
 			org.hibernate.Query qTotal = session.createQuery(hqlTotal)
 					.setParameter("ta", ta);
 			if (hasSem(sem)) { qTotal.setParameter("sem", sem); }
+			applyJenjangParam(qTotal);
 			int total = ((Number) qTotal.uniqueResult()).intValue();
 
 			String hqlHadir = "SELECT COUNT(ipcm) "
 					+ "FROM InterviewPunyaCalonMahasiswa ipcm "
 					+ "JOIN ipcm.interviewCalonMahasiswa icm "
 					+ joinSem
-					+ "WHERE icm.tahunAkademik = :ta AND ipcm.siap = true " + whereSem;
+					+ "WHERE icm.tahunAkademik = :ta AND ipcm.siap = true " + whereSem + jenjangClause();
 			org.hibernate.Query qHadir = session.createQuery(hqlHadir)
 					.setParameter("ta", ta);
 			if (hasSem(sem)) { qHadir.setParameter("sem", sem); }
+			applyJenjangParam(qHadir);
 			int hadir = ((Number) qHadir.uniqueResult()).intValue();
 
 			return new KpiInterview(total, hadir);
@@ -201,7 +203,7 @@ public class DashboardInterviewPmb extends DashboardPmbBase {
 	private List<PewawancaraData> queryPerPewawancara(Session session, String ta, String sem) {
 		List<PewawancaraData> result = new ArrayList<PewawancaraData>();
 		try {
-			String joinSem = hasSem(sem) ? "JOIN ipcm.biodataCalonMahasiswa bcm " : "";
+			String joinSem = hasSem(sem) || getSelectedJenjang() != null ? "JOIN ipcm.biodataCalonMahasiswa bcm " : "";
 			String whereSem = hasSem(sem) ? "AND bcm.semesterMulai = :sem " : "";
 
 			String hql = "SELECT p.nama, COUNT(ipcm) "
@@ -209,13 +211,14 @@ public class DashboardInterviewPmb extends DashboardPmbBase {
 					+ "JOIN ipcm.interviewCalonMahasiswa icm "
 					+ "JOIN icm.pegawai p "
 					+ joinSem
-					+ "WHERE icm.tahunAkademik = :ta " + whereSem
+					+ "WHERE icm.tahunAkademik = :ta " + whereSem + jenjangClause()
 					+ "GROUP BY p.id, p.nama "
 					+ "ORDER BY COUNT(ipcm) DESC";
 			org.hibernate.Query q = session.createQuery(hql)
 					.setParameter("ta", ta)
 					.setMaxResults(MAX_PEWAWANCARA);
 			if (hasSem(sem)) { q.setParameter("sem", sem); }
+			applyJenjangParam(q);
 			for (Object obj : q.list()) {
 				Object[] r = (Object[]) obj;
 				String nm = r[0] == null ? "-" : r[0].toString();
@@ -232,7 +235,7 @@ public class DashboardInterviewPmb extends DashboardPmbBase {
 	private List<ProdiInterviewData> queryPerProdi(Session session, String ta, String sem) {
 		List<ProdiInterviewData> result = new ArrayList<ProdiInterviewData>();
 		try {
-			String joinSem = hasSem(sem) ? "JOIN ipcm.biodataCalonMahasiswa bcm " : "";
+			String joinSem = hasSem(sem) || getSelectedJenjang() != null ? "JOIN ipcm.biodataCalonMahasiswa bcm " : "";
 			String whereSem = hasSem(sem) ? "AND bcm.semesterMulai = :sem " : "";
 
 			String hql = "SELECT j.nama, COUNT(ipcm) "
@@ -240,13 +243,14 @@ public class DashboardInterviewPmb extends DashboardPmbBase {
 					+ "JOIN ipcm.interviewCalonMahasiswa icm "
 					+ "JOIN icm.jurusan j "
 					+ joinSem
-					+ "WHERE icm.tahunAkademik = :ta " + whereSem
+					+ "WHERE icm.tahunAkademik = :ta " + whereSem + jenjangClause()
 					+ "GROUP BY j.id, j.nama "
 					+ "ORDER BY COUNT(ipcm) DESC";
 			org.hibernate.Query q = session.createQuery(hql)
 					.setParameter("ta", ta)
 					.setMaxResults(MAX_PRODI);
 			if (hasSem(sem)) { q.setParameter("sem", sem); }
+			applyJenjangParam(q);
 			for (Object obj : q.list()) {
 				Object[] r = (Object[]) obj;
 				String nm = r[0] == null ? "-" : r[0].toString();

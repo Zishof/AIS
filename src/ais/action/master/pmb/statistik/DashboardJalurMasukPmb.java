@@ -25,6 +25,7 @@ import ais.common.Common;
 import ais.common.CommonPrivilages;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.JenisSeleksi;
+import ais.database.model.Jenjang;
 import ais.database.model.Konfigurasi;
 import ais.database.model.PerguruanTinggi;
 import ais.ui.util.HtmlChartHelper;
@@ -282,10 +283,11 @@ public class DashboardJalurMasukPmb extends DashboardPmbBase {
 		try {
 			String hql = "SELECT js.id, js.nama, COUNT(bcm) "
 					+ "FROM BiodataCalonMahasiswa bcm JOIN bcm.jenisSeleksi js "
-					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem)
+					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem) + jenjangClause()
 					+ "GROUP BY js.id, js.nama ORDER BY COUNT(bcm) DESC";
 			org.hibernate.Query q = session.createQuery(hql).setParameter("ta", ta);
 			applySemParam(q, sem);
+			applyJenjangParam(q);
 			for (Object obj : q.list()) {
 				Object[] r  = (Object[]) obj;
 				Object   id = r[0];
@@ -301,10 +303,11 @@ public class DashboardJalurMasukPmb extends DashboardPmbBase {
 		try {
 			String hql2 = "SELECT js.id, js.nama, COUNT(bcm) "
 					+ "FROM BiodataCalonMahasiswa bcm JOIN bcm.jenisSeleksiDipilih js "
-					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem)
+					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem) + jenjangClause()
 					+ "GROUP BY js.id, js.nama";
 			org.hibernate.Query q2 = session.createQuery(hql2).setParameter("ta", ta);
 			applySemParam(q2, sem);
+			applyJenjangParam(q2);
 			for (Object obj : q2.list()) {
 				Object[] r  = (Object[]) obj;
 				Object   id = r[0];
@@ -323,11 +326,12 @@ public class DashboardJalurMasukPmb extends DashboardPmbBase {
 		try {
 			String hql = "SELECT js.id, COUNT(bcm) "
 					+ "FROM BiodataCalonMahasiswa bcm JOIN bcm.jenisSeleksi js "
-					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem)
+					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem) + jenjangClause()
 					+ "AND bcm.prodiLulus IS NOT NULL "
 					+ "GROUP BY js.id";
 			org.hibernate.Query q = session.createQuery(hql).setParameter("ta", ta);
 			applySemParam(q, sem);
+			applyJenjangParam(q);
 			for (Object obj : q.list()) {
 				Object[] r  = (Object[]) obj;
 				Object   id = r[0];
@@ -342,11 +346,12 @@ public class DashboardJalurMasukPmb extends DashboardPmbBase {
 		try {
 			String hql = "SELECT js.id, COUNT(bcm) "
 					+ "FROM BiodataCalonMahasiswa bcm JOIN bcm.jenisSeleksi js "
-					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem)
+					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem) + jenjangClause()
 					+ "AND bcm.mahasiswa IS NOT NULL "
 					+ "GROUP BY js.id";
 			org.hibernate.Query q = session.createQuery(hql).setParameter("ta", ta);
 			applySemParam(q, sem);
+			applyJenjangParam(q);
 			for (Object obj : q.list()) {
 				Object[] r  = (Object[]) obj;
 				Object   id = r[0];
@@ -375,7 +380,12 @@ public class DashboardJalurMasukPmb extends DashboardPmbBase {
 		return hasSem(sem) ? sem.trim().toUpperCase() : SEMUA_SEMESTER;
 	}
 
-	private Konfigurasi findPeminatConfig(Session session, String ta, String sem, Long jenisSeleksiId) {
+	private String jenjangConfigKey(Jenjang jenjang) {
+		return jenjang == null ? "SUMBER_PEMINAT_DASBOR_PMB" : "JENJANG:" + jenjang.getId();
+	}
+
+	private Konfigurasi findPeminatConfig(Session session, String ta, String sem,
+			Long jenisSeleksiId, Jenjang jenjang) {
 		if (session == null || jenisSeleksiId == null) {
 			return null;
 		}
@@ -384,6 +394,7 @@ public class DashboardJalurMasukPmb extends DashboardPmbBase {
 				.add(Restrictions.eq("tahunAkademik", ta))
 				.add(Restrictions.eq("info1", jenisSeleksiId.toString()))
 				.add(Restrictions.eq("info2", semesterKey(sem)))
+				.add(Restrictions.eq("info3", jenjangConfigKey(jenjang)))
 				.addOrder(Order.desc("id")).setMaxResults(1).uniqueResult();
 	}
 
@@ -406,7 +417,8 @@ public class DashboardJalurMasukPmb extends DashboardPmbBase {
 			List<JenisSeleksi> jalur = getJalurAktif(session);
 			for (int i = 0; i < jalur.size(); i++) {
 				JenisSeleksi js = jalur.get(i);
-				Integer eksternal = parsePeminatAsli(findPeminatConfig(session, ta, sem, js.getId()));
+				Integer eksternal = parsePeminatAsli(findPeminatConfig(session, ta, sem,
+						js.getId(), getSelectedJenjang()));
 				if (eksternal == null) {
 					continue;
 				}
@@ -426,6 +438,7 @@ public class DashboardJalurMasukPmb extends DashboardPmbBase {
 	private void tampilkanInputPeminatAsli() throws Exception {
 		final String ta = getSelectedTA();
 		final String sem = getSelectedSem();
+		final Jenjang jenjang = getSelectedJenjang();
 		final Session session = HibernateUtil.currentSession();
 		final List<JalurData> dataDasbor = queryJalur(session, ta, sem);
 		final Map<Object, JalurData> dataPerJalur = new LinkedHashMap<Object, JalurData>();
@@ -444,6 +457,7 @@ public class DashboardJalurMasukPmb extends DashboardPmbBase {
 		root.setStyle("padding:12px;box-sizing:border-box;overflow:auto;");
 		root.setParent(window);
 		Label info = new Label("Periode " + ta + " / " + (hasSem(sem) ? sem : "Semua semester")
+				+ " / " + (jenjang == null ? "Semua jenjang" : jenjang.getNama())
 				+ ". Isi hanya jalur yang pendaftarannya berlangsung di luar eCampus. "
 				+ "Kosongkan agar kembali memakai hitungan eCampus.");
 		info.setMultiline(true);
@@ -512,7 +526,8 @@ public class DashboardJalurMasukPmb extends DashboardPmbBase {
 					}
 				}
 				for (Map.Entry<Long, Intbox> entry : inputPerJalur.entrySet()) {
-					simpanPeminatAsli(session, ta, sem, entry.getKey(), entry.getValue().getValue());
+					simpanPeminatAsli(session, ta, sem, jenjang,
+							entry.getKey(), entry.getValue().getValue());
 				}
 				session.flush();
 				window.detach();
@@ -534,8 +549,9 @@ public class DashboardJalurMasukPmb extends DashboardPmbBase {
 		window.onModal();
 	}
 
-	private void simpanPeminatAsli(Session session, String ta, String sem, Long jenisSeleksiId, Integer nilai) {
-		Konfigurasi konfigurasi = findPeminatConfig(session, ta, sem, jenisSeleksiId);
+	private void simpanPeminatAsli(Session session, String ta, String sem, Jenjang jenjang,
+			Long jenisSeleksiId, Integer nilai) {
+		Konfigurasi konfigurasi = findPeminatConfig(session, ta, sem, jenisSeleksiId, jenjang);
 		if (konfigurasi == null) {
 			if (nilai == null) {
 				return;
@@ -544,10 +560,11 @@ public class DashboardJalurMasukPmb extends DashboardPmbBase {
 			konfigurasi.setTahunAkademik(ta);
 			konfigurasi.setInfo1(jenisSeleksiId.toString());
 			konfigurasi.setInfo2(semesterKey(sem));
-			konfigurasi.setInfo3("SUMBER_PEMINAT_DASBOR_PMB");
+			konfigurasi.setInfo3(jenjangConfigKey(jenjang));
 		}
 		konfigurasi.setNilai(nilai == null ? NILAI_OTOMATIS : nilai.toString());
-		konfigurasi.setKeterangan("Jumlah peminat asli jalur seleksi dari portal eksternal; "
+		konfigurasi.setKeterangan("Jumlah peminat asli jalur seleksi dari portal eksternal untuk "
+				+ (jenjang == null ? "semua jenjang" : "jenjang " + jenjang.getNama()) + "; "
 				+ "AUTO berarti memakai hitungan Biodata Calon Mahasiswa eCampus.");
 		Common.refreshUpdate(session, konfigurasi, false);
 	}

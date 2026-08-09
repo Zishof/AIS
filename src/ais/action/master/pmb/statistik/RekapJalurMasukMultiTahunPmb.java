@@ -241,6 +241,7 @@ public class RekapJalurMasukMultiTahunPmb extends DashboardPmbBase {
             hql.append("SELECT bcm.jenisSeleksi.id, bcm.tahunAkademik, COUNT(bcm) ")
                .append("FROM BiodataCalonMahasiswa bcm ")
                .append("WHERE bcm.tahunAkademik IN (:years) AND bcm.jenisSeleksi IS NOT NULL ");
+			hql.append(jenjangClause());
             if (jurusanId != null) {
                 hql.append("AND ").append(prodiField).append(".id = :jid ");
             } else {
@@ -255,6 +256,7 @@ public class RekapJalurMasukMultiTahunPmb extends DashboardPmbBase {
                     .setParameterList("years", years);
             if (jurusanId != null) q.setParameter("jid", jurusanId);
             if (paketId != null)   q.setParameter("pid", paketId);
+			applyJenjangParam(q);
 
             for (Object obj : q.list()) {
                 Object[] r   = (Object[]) obj;
@@ -286,6 +288,7 @@ public class RekapJalurMasukMultiTahunPmb extends DashboardPmbBase {
             hql.append("SELECT bcm.jenisSeleksi.id, bcm.tahunAkademik, COUNT(bcm) ")
                .append("FROM BiodataCalonMahasiswa bcm ")
                .append("WHERE bcm.tahunAkademik IN (:years) AND bcm.jenisSeleksi IS NOT NULL ");
+			hql.append(jenjangClause());
             if (jurusanId != null) {
                 hql.append("AND (bcm.prodi1.id = :jid OR bcm.prodi2.id = :jid ")
                    .append("OR bcm.prodi3.id = :jid OR bcm.prodi4.id = :jid) ");
@@ -299,6 +302,7 @@ public class RekapJalurMasukMultiTahunPmb extends DashboardPmbBase {
                     .setParameterList("years", years);
             if (jurusanId != null) q.setParameter("jid", jurusanId);
             if (paketId != null)   q.setParameter("pid", paketId);
+			applyJenjangParam(q);
 
             for (Object obj : q.list()) {
                 Object[] r   = (Object[]) obj;
@@ -323,6 +327,7 @@ public class RekapJalurMasukMultiTahunPmb extends DashboardPmbBase {
             hql.append("SELECT bcm.jenisSeleksi.id, bcm.tahunAkademik, COUNT(bcm) ")
                .append("FROM BiodataCalonMahasiswa bcm ")
                .append("WHERE bcm.tahunAkademik IN (:years) AND bcm.jenisSeleksi IS NOT NULL ");
+			hql.append(jenjangClause());
             if (jurusanId != null) {
                 hql.append("AND bcm.prodiLulus.id = :jid ");
             } else {
@@ -337,6 +342,7 @@ public class RekapJalurMasukMultiTahunPmb extends DashboardPmbBase {
                     .setParameterList("years", years);
             if (jurusanId != null) q.setParameter("jid", jurusanId);
             if (paketId != null)   q.setParameter("pid", paketId);
+			applyJenjangParam(q);
 
             for (Object obj : q.list()) {
                 Object[] r  = (Object[]) obj;
@@ -358,12 +364,14 @@ public class RekapJalurMasukMultiTahunPmb extends DashboardPmbBase {
                .append("FROM BiodataCalonMahasiswa bcm ")
                .append("WHERE bcm.tahunAkademik IN (:years) AND bcm.jenisSeleksi IS NOT NULL ")
                .append("AND bcm.pembayaranDaftarUlang IS NOT NULL ");
+			hql.append(jenjangClause());
             if (paketId != null) hql.append("AND bcm.paket.id = :pid ");
             hql.append("GROUP BY bcm.jenisSeleksi.id, bcm.tahunAkademik");
 
             org.hibernate.Query q = session.createQuery(hql.toString())
                     .setParameterList("years", years);
             if (paketId != null) q.setParameter("pid", paketId);
+			applyJenjangParam(q);
 
             for (Object obj : q.list()) {
                 Object[] r  = (Object[]) obj;
@@ -385,12 +393,14 @@ public class RekapJalurMasukMultiTahunPmb extends DashboardPmbBase {
                .append("FROM BiodataCalonMahasiswa bcm ")
                .append("WHERE bcm.tahunAkademik IN (:years) AND bcm.jenisSeleksi IS NOT NULL ")
                .append("AND bcm.pembayaranRegistrasi IS NOT NULL ");
+			hql.append(jenjangClause());
             if (paketId != null) hql.append("AND bcm.paket.id = :pid ");
             hql.append("GROUP BY bcm.jenisSeleksi.id, bcm.tahunAkademik");
 
             org.hibernate.Query q = session.createQuery(hql.toString())
                     .setParameterList("years", years);
             if (paketId != null) q.setParameter("pid", paketId);
+			applyJenjangParam(q);
 
             for (Object obj : q.list()) {
                 Object[] r  = (Object[]) obj;

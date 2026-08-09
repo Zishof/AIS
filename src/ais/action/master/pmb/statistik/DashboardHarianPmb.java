@@ -209,13 +209,14 @@ public class DashboardHarianPmb extends DashboardPmbBase {
 	private int queryCountBetween(Session session, String ta, Date from, Date to) {
 		try {
 			String hql = "SELECT COUNT(bcm) FROM BiodataCalonMahasiswa bcm "
-					+ "WHERE bcm.tahunAkademik = :ta "
+					+ "WHERE bcm.tahunAkademik = :ta " + jenjangClause()
 					+ "AND bcm.tanggalDaftar >= :from AND bcm.tanggalDaftar < :to";
-			Number n = (Number) session.createQuery(hql)
+			org.hibernate.Query q = session.createQuery(hql)
 					.setParameter("ta", ta)
 					.setParameter("from", from)
-					.setParameter("to", to)
-					.uniqueResult();
+					.setParameter("to", to);
+			applyJenjangParam(q);
+			Number n = (Number) q.uniqueResult();
 			return n == null ? 0 : n.intValue();
 		} catch (Exception e) {
 			logErr("queryCountBetween", e);
@@ -228,8 +229,10 @@ public class DashboardHarianPmb extends DashboardPmbBase {
 	private int queryCount(Session session, String ta, Date from, Date to) {
 		try {
 			String hql = "SELECT COUNT(bcm) FROM BiodataCalonMahasiswa bcm "
-					+ "WHERE bcm.tahunAkademik = :ta";
-			Number n = (Number) session.createQuery(hql).setParameter("ta", ta).uniqueResult();
+					+ "WHERE bcm.tahunAkademik = :ta " + jenjangClause();
+			org.hibernate.Query q = session.createQuery(hql).setParameter("ta", ta);
+			applyJenjangParam(q);
+			Number n = (Number) q.uniqueResult();
 			return n == null ? 0 : n.intValue();
 		} catch (Exception e) {
 			logErr("queryCount ta=" + ta, e);
@@ -249,15 +252,16 @@ public class DashboardHarianPmb extends DashboardPmbBase {
 			String hql = "SELECT YEAR(bcm.tanggalDaftar), MONTH(bcm.tanggalDaftar), "
 					+ "DAY(bcm.tanggalDaftar), COUNT(bcm) "
 					+ "FROM BiodataCalonMahasiswa bcm "
-					+ "WHERE bcm.tahunAkademik = :ta "
+					+ "WHERE bcm.tahunAkademik = :ta " + jenjangClause()
 					+ "AND bcm.tanggalDaftar >= :from AND bcm.tanggalDaftar < :to "
 					+ "GROUP BY YEAR(bcm.tanggalDaftar), MONTH(bcm.tanggalDaftar), DAY(bcm.tanggalDaftar) "
 					+ "ORDER BY YEAR(bcm.tanggalDaftar), MONTH(bcm.tanggalDaftar), DAY(bcm.tanggalDaftar)";
-			List<?> rows = session.createQuery(hql)
+			org.hibernate.Query q = session.createQuery(hql)
 					.setParameter("ta", ta)
 					.setParameter("from", from)
-					.setParameter("to", to)
-					.list();
+					.setParameter("to", to);
+			applyJenjangParam(q);
+			List<?> rows = q.list();
 
 			// Bangun map "yyyy-MM-dd" → count
 			Map<String, Integer> dbMap = new LinkedHashMap<String, Integer>();
@@ -306,7 +310,7 @@ public class DashboardHarianPmb extends DashboardPmbBase {
 			String hql = "SELECT YEAR(bcm.tanggalDaftar), MONTH(bcm.tanggalDaftar), "
 					+ "DAY(bcm.tanggalDaftar), COUNT(bcm) "
 					+ "FROM BiodataCalonMahasiswa bcm "
-					+ "WHERE bcm.tahunAkademik = :ta "
+					+ "WHERE bcm.tahunAkademik = :ta " + jenjangClause()
 					+ "AND bcm.tanggalDaftar >= :from AND bcm.tanggalDaftar < :to "
 					+ "GROUP BY YEAR(bcm.tanggalDaftar), MONTH(bcm.tanggalDaftar), DAY(bcm.tanggalDaftar)";
 
@@ -314,11 +318,12 @@ public class DashboardHarianPmb extends DashboardPmbBase {
 				Date wStart = week == 0 ? lastWeekStart : thisWeekStart;
 				Date wEnd   = week == 0 ? thisWeekStart : thisWeekEnd;
 
-				List<?> rows = session.createQuery(hql)
+				org.hibernate.Query q = session.createQuery(hql)
 						.setParameter("ta", ta)
 						.setParameter("from", wStart)
-						.setParameter("to", wEnd)
-						.list();
+						.setParameter("to", wEnd);
+				applyJenjangParam(q);
+				List<?> rows = q.list();
 
 				for (Object obj : rows) {
 					Object[] r  = (Object[]) obj;
