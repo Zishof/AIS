@@ -77,32 +77,39 @@ public final class AmiExcelHelper {
         }
 
         XSSFWorkbook workbook = new XSSFWorkbook();
-        Styles styles = new Styles(workbook);
-        writeCover(workbook, styles, hasil);
+        try {
+            Styles styles = new Styles(workbook);
+            writeCover(workbook, styles, hasil);
 
-        Map<Long, SheetBlock> blocks = groupByStandard(rows);
-        Set<String> usedNames = new HashSet<String>();
-        usedNames.add(SHEET_COVER.toLowerCase());
-        int sequence = 1;
-        for (SheetBlock block : blocks.values()) {
-            block.sheetName = uniqueSheetName(sequence + ". " + block.standard.getNama(), usedNames);
-            writeIndicatorSheet(workbook, styles, block);
-            sequence++;
+            Map<Long, SheetBlock> blocks = groupByStandard(rows);
+            Set<String> usedNames = new HashSet<String>();
+            usedNames.add(SHEET_COVER.toLowerCase());
+            int sequence = 1;
+            for (SheetBlock block : blocks.values()) {
+                block.sheetName = uniqueSheetName(sequence + ". " + block.standard.getNama(), usedNames);
+                writeIndicatorSheet(workbook, styles, block);
+                sequence++;
+            }
+
+            writeSummary(workbook, styles, blocks);
+            writeReadiness(workbook, styles, blocks);
+            writeNonCompliance(workbook, styles, rows);
+            writeDataSheet(workbook, styles, rows);
+            writeMetaSheet(workbook, hasil, rows.size());
+            workbook.setSheetHidden(workbook.getSheetIndex(SHEET_DATA), true);
+            workbook.setSheetHidden(workbook.getSheetIndex(SHEET_META), true);
+            workbook.setActiveSheet(0);
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            try {
+                workbook.write(output);
+                output.flush();
+                return output.toByteArray();
+            } finally {
+                output.close();
+            }
+        } finally {
+            workbook.getPackage().close();
         }
-
-        writeSummary(workbook, styles, blocks);
-        writeReadiness(workbook, styles, blocks);
-        writeNonCompliance(workbook, styles, rows);
-        writeDataSheet(workbook, styles, rows);
-        writeMetaSheet(workbook, hasil, rows.size());
-        workbook.setSheetHidden(workbook.getSheetIndex(SHEET_DATA), true);
-        workbook.setSheetHidden(workbook.getSheetIndex(SHEET_META), true);
-        workbook.setActiveSheet(0);
-
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        workbook.write(output);
-        output.flush();
-        return output.toByteArray();
     }
 
     public static ImportResult importWorkbook(HasilSPMI hasil, byte[] bytes) throws Exception {
@@ -116,82 +123,87 @@ public final class AmiExcelHelper {
             throw new IllegalArgumentException("File tidak dapat dibaca sebagai Excel XLSX yang valid.", e);
         }
 
-        validateMetadata(workbook, hasil);
-        Session session = null;
-        Transaction transaction = null;
         try {
-            session = HibernateUtil.openSession();
-            transaction = session.beginTransaction();
-            HasilSPMI managedAudit = (HasilSPMI) session.get(HasilSPMI.class, hasil.getId());
-            if (managedAudit == null) throw new IllegalArgumentException("Pengajuan AMI tidak ditemukan.");
-            if (managedAudit.getJenisSPMI() == null
-                    || !managedAudit.getJenisSPMI().getId().equals(hasil.getJenisSPMI().getId())) {
-                throw new IllegalArgumentException("Jenis SPMI pengajuan telah berubah. Unduh format terbaru.");
-            }
-
-            List<AuditRow> scope = loadRows(session, managedAudit);
-            Map<Long, AuditRow> allowed = new HashMap<Long, AuditRow>();
-            for (AuditRow row : scope) allowed.put(row.scenario.getId(), row);
-
-            List<ImportedRow> imported = readIndicatorSheets(workbook, allowed);
-            if (imported.size() != allowed.size()) {
-                throw new IllegalArgumentException("Jumlah indikator dalam file tidak sesuai. Ditemukan "
-                        + imported.size() + " dari " + allowed.size()
-                        + " indikator. Unduh format terbaru dari pengajuan ini lalu ulangi upload.");
-            }
-
-            String auditor = readString(workbook.getSheet(SHEET_COVER), 12, 1);
-            String auditee = readString(workbook.getSheet(SHEET_COVER), 11, 1);
-            managedAudit.setAuditorNama(emptyToNull(auditor));
-            managedAudit.setAuditeeNama(emptyToNull(auditee));
-
-            int inserted = 0;
-            int updated = 0;
-            int skipped = 0;
-            for (ImportedRow item : imported) {
-                AuditRow source = allowed.get(item.scenarioId);
-                HasilTemuanSPMI finding = source.finding;
-                boolean hasData = item.score != null || notEmpty(item.auditorNote)
-                        || notEmpty(item.recommendation) || notEmpty(item.evidenceLink)
-                        || notEmpty(item.readiness) || notEmpty(item.auditeeNote);
-                if (finding == null && !hasData) {
-                    skipped++;
-                    continue;
+            validateMetadata(workbook, hasil);
+            Session session = null;
+            Transaction transaction = null;
+            try {
+                session = HibernateUtil.openSession();
+                transaction = session.beginTransaction();
+                HasilSPMI managedAudit = (HasilSPMI) session.get(HasilSPMI.class, hasil.getId());
+                if (managedAudit == null) throw new IllegalArgumentException("Pengajuan AMI tidak ditemukan.");
+                if (managedAudit.getJenisSPMI() == null
+                        || !managedAudit.getJenisSPMI().getId().equals(hasil.getJenisSPMI().getId())) {
+                    throw new IllegalArgumentException("Jenis SPMI pengajuan telah berubah. Unduh format terbaru.");
                 }
-                boolean isNew = finding == null;
-                if (isNew) finding = new HasilTemuanSPMI(source.scenario, managedAudit);
 
-                finding.setHasilSPMI(managedAudit);
-                finding.setSkenarioSPMI(source.scenario);
-                finding.setNama(nullToEmpty(item.auditorNote));
-                finding.setRekomendasi(emptyToNull(item.recommendation));
-                finding.setBuktiAuditee(emptyToNull(item.evidenceLink));
-                finding.setStatusKesiapanBukti(emptyToNull(item.readiness));
-                finding.setCatatanAuditee(emptyToNull(item.auditeeNote));
-                finding.setStatus(mapScoreToStatus(item.score, finding.getStatus()));
-                finding.setAktif(true);
+                List<AuditRow> scope = loadRows(session, managedAudit);
+                Map<Long, AuditRow> allowed = new HashMap<Long, AuditRow>();
+                for (AuditRow row : scope) allowed.put(row.scenario.getId(), row);
+                validateDeclaredIndicatorCount(workbook, allowed.size());
 
-                if (isNew) {
-                    session.save(finding);
-                    inserted++;
-                } else {
-                    updated++;
+                List<ImportedRow> imported = readIndicatorSheets(workbook, allowed);
+                if (imported.size() != allowed.size()) {
+                    throw new IllegalArgumentException("Jumlah indikator dalam file tidak sesuai. Ditemukan "
+                            + imported.size() + " dari " + allowed.size()
+                            + " indikator. Unduh format terbaru dari pengajuan ini lalu ulangi upload.");
                 }
-            }
-            session.flush();
-            transaction.commit();
-            return new ImportResult(imported.size(), inserted, updated, skipped);
-        } catch (Exception e) {
-            if (transaction != null) {
-                try { transaction.rollback(); }
-                catch (Exception rollbackError) {
-                    ais.common.ErrorAuditUtil.record(rollbackError,
-                            "rollback upload format AMI Excel");
+
+                String auditor = readString(workbook.getSheet(SHEET_COVER), 12, 1);
+                String auditee = readString(workbook.getSheet(SHEET_COVER), 11, 1);
+                managedAudit.setAuditorNama(emptyToNull(auditor));
+                managedAudit.setAuditeeNama(emptyToNull(auditee));
+
+                int inserted = 0;
+                int updated = 0;
+                int skipped = 0;
+                for (ImportedRow item : imported) {
+                    AuditRow source = allowed.get(item.scenarioId);
+                    HasilTemuanSPMI finding = source.finding;
+                    boolean hasData = item.score != null || notEmpty(item.auditorNote)
+                            || notEmpty(item.recommendation) || notEmpty(item.evidenceLink)
+                            || notEmpty(item.readiness) || notEmpty(item.auditeeNote);
+                    if (finding == null && !hasData) {
+                        skipped++;
+                        continue;
+                    }
+                    boolean isNew = finding == null;
+                    if (isNew) finding = new HasilTemuanSPMI(source.scenario, managedAudit);
+
+                    finding.setHasilSPMI(managedAudit);
+                    finding.setSkenarioSPMI(source.scenario);
+                    finding.setNama(nullToEmpty(item.auditorNote));
+                    finding.setRekomendasi(emptyToNull(item.recommendation));
+                    finding.setBuktiAuditee(emptyToNull(item.evidenceLink));
+                    finding.setStatusKesiapanBukti(emptyToNull(item.readiness));
+                    finding.setCatatanAuditee(emptyToNull(item.auditeeNote));
+                    finding.setStatus(mapScoreToStatus(item.score, finding.getStatus()));
+                    finding.setAktif(true);
+
+                    if (isNew) {
+                        session.save(finding);
+                        inserted++;
+                    } else {
+                        updated++;
+                    }
                 }
+                session.flush();
+                transaction.commit();
+                return new ImportResult(imported.size(), inserted, updated, skipped);
+            } catch (Exception e) {
+                if (transaction != null) {
+                    try { transaction.rollback(); }
+                    catch (Exception rollbackError) {
+                        ais.common.ErrorAuditUtil.record(rollbackError,
+                                "rollback upload format AMI Excel");
+                    }
+                }
+                throw e;
+            } finally {
+                HibernateUtil.closeSessionQuietly(session);
             }
-            throw e;
         } finally {
-            HibernateUtil.closeSessionQuietly(session);
+            workbook.getPackage().close();
         }
     }
 
@@ -240,6 +252,24 @@ public final class AmiExcelHelper {
         if (typeId == null || !typeId.equals(hasil.getJenisSPMI().getId())) {
             throw new IllegalArgumentException("Jenis SPMI dalam file tidak sama dengan pengajuan yang dipilih.");
         }
+        String[] requiredSheets = new String[] { SHEET_COVER, SHEET_SUMMARY, SHEET_READINESS,
+                SHEET_NONCOMPLIANCE, SHEET_DATA };
+        for (String required : requiredSheets) {
+            if (workbook.getSheet(required) == null) {
+                throw new IllegalArgumentException("Sheet wajib '" + required
+                        + "' tidak ditemukan. Unduh ulang format AMI dari sistem.");
+            }
+        }
+    }
+
+    private static void validateDeclaredIndicatorCount(XSSFWorkbook workbook, int expected) {
+        XSSFSheet meta = workbook.getSheet(SHEET_META);
+        Long declared = parseLong(readString(meta, 3, 1));
+        if (declared == null || declared.longValue() != expected) {
+            throw new IllegalArgumentException("Jumlah indikator pada metadata file tidak sesuai. "
+                    + "File menyatakan " + nullToEmpty(declared) + ", sedangkan master aktif berisi "
+                    + expected + ". Unduh format terbaru dari pengajuan ini.");
+        }
     }
 
     private static List<ImportedRow> readIndicatorSheets(XSSFWorkbook workbook,
@@ -269,6 +299,24 @@ public final class AmiExcelHelper {
                     continue;
                 }
                 try {
+                    AuditRow source = allowed.get(scenarioId);
+                    String indicatorText = cellString(row.getCell(1));
+                    String evidenceText = cellString(row.getCell(2));
+                    if (!sameText(indicatorText, source.indicator.getNama())) {
+                        throw new IllegalArgumentException(location
+                                + ": teks indikator tidak sesuai dengan ID skenario. "
+                                + "Jangan mengubah/menukar kolom identitas indikator.");
+                    }
+                    if (!sameText(evidenceText, source.scenario.getNama())) {
+                        throw new IllegalArgumentException(location
+                                + ": bukti dokumen/daftar tilik tidak sesuai dengan master aktif.");
+                    }
+                    Long findingId = parseLong(cellString(row.getCell(10)));
+                    Long expectedFindingId = source.finding == null ? null : source.finding.getId();
+                    if (findingId == null ? expectedFindingId != null : !findingId.equals(expectedFindingId)) {
+                        throw new IllegalArgumentException(location
+                                + ": ID temuan tidak sesuai. Gunakan file terbaru dari pengajuan ini.");
+                    }
                     ImportedRow item = new ImportedRow();
                     item.scenarioId = scenarioId;
                     item.score = parseScore(row.getCell(3), location);
@@ -353,7 +401,7 @@ public final class AmiExcelHelper {
         sheet.setColumnWidth(1, 70 * 256);
         for (int i = 2; i < 9; i++) sheet.setColumnWidth(i, 12 * 256);
         sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 8));
-        Cell title = cell(sheet, 0, 0, "INSTRUMEN AUDIT MUTU INTERNAL (AMI)");
+        Cell title = cell(sheet, 0, 0, "DAFTAR TILIK AUDIT MUTU INTERNAL (AMI)");
         title.setCellStyle(styles.title);
         writePair(sheet, styles, 2, "ID Audit", hasil.getId());
         writePair(sheet, styles, 3, "Judul Pengajuan", hasil.getNama());
@@ -366,11 +414,14 @@ public final class AmiExcelHelper {
         writePair(sheet, styles, 10, "Tanggal Audit", hasil.getTanggal() == null ? "" : new SimpleDateFormat("dd-MM-yyyy").format(hasil.getTanggal()));
         writePair(sheet, styles, 11, "Nama Auditee", hasil.getAuditeeNama());
         writePair(sheet, styles, 12, "Nama Auditor/Tim Audit", hasil.getAuditorNama());
+        writePair(sheet, styles, 13, "Lembaga Akreditasi/Skema", hasil.getJenisSPMI().getNama());
+        writePair(sheet, styles, 14, "Jenjang Program", hasil.getJurusan() == null
+                || hasil.getJurusan().getJenjang() == null ? "" : hasil.getJurusan().getJenjang().getNama());
         sheet.getRow(11).getCell(1).setCellStyle(styles.input);
         sheet.getRow(12).getCell(1).setCellStyle(styles.input);
 
-        sheet.addMergedRegion(new CellRangeAddress(15, 15, 0, 8));
-        cell(sheet, 15, 0, "PETUNJUK PENGISIAN").setCellStyle(styles.section);
+        sheet.addMergedRegion(new CellRangeAddress(17, 17, 0, 8));
+        cell(sheet, 17, 0, "PETUNJUK PENGISIAN").setCellStyle(styles.section);
         String[] notes = new String[] {
                 "1. Isi seluruh hasil audit pada sheet indikator; jangan mengubah ID/baris tersembunyi.",
                 "2. Skor: 1 = memenuhi dengan bukti valid, 0 = tidak memenuhi, kosong = belum dinilai.",
@@ -378,8 +429,8 @@ public final class AmiExcelHelper {
                 "4. Upload kembali file XLSX ini pada pengajuan AMI yang sama."
         };
         for (int i = 0; i < notes.length; i++) {
-            sheet.addMergedRegion(new CellRangeAddress(16 + i, 16 + i, 0, 8));
-            cell(sheet, 16 + i, 0, notes[i]).setCellStyle(styles.note);
+            sheet.addMergedRegion(new CellRangeAddress(18 + i, 18 + i, 0, 8));
+            cell(sheet, 18 + i, 0, notes[i]).setCellStyle(styles.note);
         }
     }
 
@@ -705,6 +756,14 @@ public final class AmiExcelHelper {
 
     private static boolean notEmpty(String value) {
         return value != null && value.trim().length() > 0;
+    }
+
+    private static boolean sameText(String left, String right) {
+        return normalizeText(left).equals(normalizeText(right));
+    }
+
+    private static String normalizeText(String value) {
+        return nullToEmpty(value).replace('\u00a0', ' ').replaceAll("\\s+", " ").trim();
     }
 
     private static String emptyToNull(String value) {

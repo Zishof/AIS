@@ -1,12 +1,17 @@
 # Analisis Gap Instrumen AMI 2026 dan Modul SPMI AIS
 
-Tanggal analisis: 8 Agustus 2026
+Tanggal analisis awal: 8 Agustus 2026
+
+Verifikasi ulang terhadap berkas Ver08 terbaru: 9 Agustus 2026
 
 Sumber: [INSTRUMEN AMI TAHUN 2026 Ver08](https://docs.google.com/spreadsheets/d/1UEO3cbEo4dHyH5tLXStp6rLnzkxPfV05/edit)
 
 ## Ringkasan instrumen
 
-Instrumen memuat 74 indikator inti dan indikator tambahan yang aktif sesuai lembaga akreditasi program studi:
+Workbook Ver08 terbaru berisi 16 worksheet: `COVER`, 11 worksheet kelompok indikator,
+`Ringkasan Hasil Audit`, `Rekap Kesiapan Bukti`, `Laporan Tidak Memenuhi`, dan satu worksheet
+tersembunyi `_DataIndikator`. Instrumen memuat 74 indikator inti dan indikator tambahan yang aktif
+sesuai lembaga akreditasi program studi:
 
 | Kelompok | Jumlah indikator |
 |---|---:|
@@ -22,7 +27,8 @@ Instrumen memuat 74 indikator inti dan indikator tambahan yang aktif sesuai lemb
 | LAMSPAK | 5 |
 | LAMWISATA | 7 |
 
-Total ruang lingkup audit adalah 74 indikator inti ditambah satu kelompok akreditasi yang dipilih, sehingga jumlah indikator aktif berkisar 79 sampai 116.
+Total data master dalam workbook adalah 148 indikator. Ruang lingkup satu audit adalah 74 indikator
+inti ditambah satu kelompok akreditasi yang dipilih, sehingga jumlah indikator aktif berkisar 79 sampai 116.
 
 Setiap indikator memakai data: indikator, bukti yang diharapkan, skor 1/0, catatan auditor, rekomendasi, bukti/link auditee, status kesiapan bukti, dan catatan auditee. Instrumen juga menyediakan ringkasan hasil, rekap kesiapan bukti, dan daftar otomatis indikator yang tidak memenuhi.
 
@@ -41,7 +47,8 @@ Setiap indikator memakai data: indikator, bukti yang diharapkan, skor 1/0, catat
 | Rekap hasil | Jumlah memenuhi dan persentase | Rekap status temuan | **Ditambahkan** capaian skor AMI tanpa menghapus rekap status lama |
 | Rekap kesiapan | Jumlah per status dan persentase | Belum ada | **Ditambahkan** perhitungan langsung dari data indikator |
 | Daftar tidak memenuhi | Otomatis dari skor 0 | Dashboard KTS dan tindak lanjut | Sudah lebih kaya melalui KTS, dashboard, PIC, target, progres, dan PPEPP |
-| Konten indikator 2026 | 74 inti + satu skema akreditasi | Master lama/manual | Masih perlu dipasang sebagai master versi 2026 per skema agar tidak menimpa instrumen historis |
+| Konten indikator 2026 | 74 inti + satu skema akreditasi | Master bertingkat dan berversi | Kompatibel; ekspor mengambil seluruh indikator aktif pada Jenis SPMI yang dipilih tanpa menimpa instrumen historis |
+| Integritas satu file | Identitas dan seluruh indikator berada dalam satu workbook | Metadata audit, ID skenario, ID temuan, dan jumlah indikator disimpan tersembunyi | Diperketat: setiap upload memeriksa sheet wajib, audit/jenis, jumlah, pasangan ID–teks indikator–bukti, duplikasi, skor, dan kesiapan bukti |
 
 ## Kelebihan instrumen spreadsheet
 
@@ -57,7 +64,8 @@ Setiap indikator memakai data: indikator, bukti yang diharapkan, skor 1/0, catat
 - Skor biner tidak membedakan observasi, minor, mayor, sesuai, dan melampaui standar.
 - Tidak memiliki pengelolaan PIC, tenggat, progres, verifikasi, serta siklus PPEPP terintegrasi.
 - Pemilihan LAM dan rumus bergantung pada referensi antarsheet sehingga rawan rusak saat struktur diubah.
-- Pada versi yang dianalisis, formula persentase kesiapan bukti di `Rekap Kesiapan Bukti` baris standar 2 sampai 6 tidak berisi ekspresi formula, sehingga hasilnya berpotensi 0 atau kosong.
+- Berkas Ver08 terbaru menyimpan formula persentase kesiapan pada seluruh baris standar; pemindaian
+  tidak menemukan `#REF!`, `#DIV/0!`, `#VALUE!`, `#NAME?`, atau `#N/A`.
 
 ## Kelebihan modul SPMI AIS
 
@@ -77,7 +85,7 @@ Setiap indikator memakai data: indikator, bukti yang diharapkan, skor 1/0, catat
 
 ## Rekomendasi lanjutan
 
-1. Buat enam template `Jenis SPMI` berversi: AMI 2026–LAMDIK, BAN-PT, LAMEMBA, LAMINFOKOM, LAMSPAK, dan LAMWISATA. Masing-masing berisi 74 indikator inti ditambah kelompok lembaganya.
+1. Kelola enam template `Jenis SPMI` berversi: AMI 2026–LAMDIK, BAN-PT, LAMEMBA, LAMINFOKOM, LAMSPAK, dan LAMWISATA. Masing-masing berisi 74 indikator inti ditambah kelompok lembaganya.
 2. Jangan mengubah master audit periode lama; lakukan versioning agar laporan historis tetap konsisten.
 3. Tambahkan import master terkontrol dan validasi duplikasi nomor/indikator sebelum template 2026 diaktifkan.
 4. Perluas laporan PDF agar bukti auditee, kesiapan bukti, catatan auditee, rekomendasi, dan skor AMI ikut tercetak.
@@ -91,3 +99,8 @@ Setiap indikator memakai data: indikator, bukti yang diharapkan, skor 1/0, catat
 - Menambah skor AMI otomatis 1/0 tanpa menghilangkan klasifikasi temuan existing.
 - Menambah rekap capaian dan kesiapan bukti pada lembar kerja audit.
 - Menyimpan kolom baru sebagai data nullable agar audit lama tetap dapat dibuka.
+- Menyediakan unduh seluruh lembar AMI dan upload kembali dalam satu file XLSX per pengajuan.
+- Memvalidasi sheet wajib, identitas audit/Jenis SPMI, jumlah indikator, pasangan ID dengan teks
+  indikator dan bukti dokumen, ID temuan, duplikasi, skor, serta kesiapan bukti sebelum transaksi.
+- Menutup resource workbook setelah ekspor/impor dan menjaga rollback penuh jika satu baris gagal.
+- Menyelaraskan COVER dengan istilah Ver08: Daftar Tilik AMI, skema/lembaga akreditasi, dan jenjang program.

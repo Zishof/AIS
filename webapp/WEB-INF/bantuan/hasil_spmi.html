@@ -63,7 +63,10 @@ internal berdampak nyata pada peningkatan mutu.
 Pada baris pengajuan AMI tersedia tombol <b>Unduh AMI</b> dan <b>Upload AMI</b>. Simpan pengajuan dan
 pilih Jenis SPMI terlebih dahulu, kemudian klik <b>Unduh AMI</b>. Sistem membuat satu file XLSX yang
 berisi COVER, seluruh standar dan indikator aktif, Ringkasan Hasil Audit, Rekap Kesiapan Bukti, serta
-Laporan Tidak Memenuhi. Isi kolom berwarna kuning pada sheet indikator: Skor 1/0, Catatan Auditor,
+Laporan Tidak Memenuhi. Struktur tersebut mengikuti komponen workbook AMI 2026; jumlah sheet standar
+menyesuaikan Jenis SPMI/master aktif, sehingga instrumen inti dan skema LAM yang dipakai tetap berada
+dalam satu berkas. COVER juga memuat identitas audit, program studi, skema/lembaga akreditasi, jenjang,
+auditee, dan tim auditor. Isi kolom berwarna kuning pada sheet indikator: Skor 1/0, Catatan Auditor,
 Rekomendasi, Bukti/Link Dokumen, Status Kesiapan Bukti, dan Catatan Auditee.
 </p>
 <p style="color:#334155;line-height:1.6;">
@@ -83,8 +86,9 @@ Jika satu validasi gagal, seluruh upload dibatalkan sehingga tidak ada data yang
 </ol>
 <p style="color:#334155;line-height:1.6;">
 Saat upload, sistem terlebih dahulu membaca seluruh workbook tanpa menyimpan perubahan. Sistem kemudian
-memastikan versi format, identitas audit, Jenis SPMI, daftar indikator, nilai skor, dan status kesiapan sesuai
-dengan master aktif. Penyimpanan baru dilakukan setelah semua pemeriksaan lolos dalam satu transaksi. Jika
+memastikan versi format, identitas audit, Jenis SPMI, jumlah indikator pada metadata, pasangan ID dengan
+teks indikator dan bukti dokumen, nilai skor, serta status kesiapan sesuai dengan master aktif. Penyimpanan
+baru dilakukan setelah semua pemeriksaan lolos dalam satu transaksi. Jika
 terjadi kesalahan pada satu baris, transaksi dibatalkan dan data lama tetap dipertahankan. Pesan kesalahan
 menunjukkan sheet atau indikator yang perlu diperbaiki; perbaiki file yang sama lalu lakukan upload ulang.
 </p>
