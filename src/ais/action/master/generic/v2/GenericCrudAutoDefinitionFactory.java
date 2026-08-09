@@ -152,6 +152,7 @@ public final class GenericCrudAutoDefinitionFactory {
             if (type.isCollectionType() || returned == byte[].class || java.sql.Blob.class.isAssignableFrom(returned)) continue;
             boolean sensitive = isBlockedField(name);
             boolean internal = isInternalField(name);
+            if (sensitive || internal) continue;
             boolean nullable = isNullable(metadata, i);
             ClassMetadata relationMetadata = type.isAssociationType()
                     ? HibernateUtil.getSessionFactory().getClassMetadata(returned) : null;
@@ -208,6 +209,59 @@ public final class GenericCrudAutoDefinitionFactory {
             }
         }
         return false;
+    }
+
+    /**
+     * Melengkapi definition eksplisit dengan seluruh properti Hibernate yang aman.
+     * Field yang sudah direview manual tetap menang; password, token, blob, collection,
+     * dan field audit internal tidak pernah ikut menjadi input browser.
+     */
+    public static void appendMissingMappedFields(GenericCrudDefinition definition) throws Exception {
+        if (definition == null || definition.getEntityClass() == null) return;
+        ClassMetadata metadata = HibernateUtil.getSessionFactory().getClassMetadata(definition.getEntityClass());
+        if (metadata == null) return;
+        String[] names = metadata.getPropertyNames();
+        Type[] types = metadata.getPropertyTypes();
+        int basePosition = definition.getFields().size() + 100;
+        for (int i = 0; i < names.length; i++) {
+            String name = names[i];
+            if (definition.getField(name) != null) continue;
+            Type type = types[i]; Class returned = type.getReturnedClass();
+            if (type.isCollectionType() || returned == byte[].class
+                    || java.sql.Blob.class.isAssignableFrom(returned)) continue;
+            boolean sensitive = isBlockedField(name);
+            boolean internal = isInternalField(name);
+            ClassMetadata relationMetadata = type.isAssociationType()
+                    ? HibernateUtil.getSessionFactory().getClassMetadata(returned) : null;
+            boolean relation = type.isAssociationType() && GeneralValueObject.class.isAssignableFrom(returned)
+                    && relationMetadata != null;
+            if (!(isSupportedScalar(returned) || returned.isEnum() || relation)) continue;
+            boolean mutableRelation = !relation || isSupportedIdentifier(relationMetadata);
+            boolean mutable = mutableRelation;
+            GenericCrudFieldDefinition added = field(name, humanize(name), returned,
+                    mutable && definition.isCreateEnabled(), mutable && definition.isUpdateEnabled(),
+                    basePosition + i);
+            added.setSensitive(sensitive);
+            added.setReadable(!sensitive);
+            added.setExportable(!sensitive);
+            added.setTableVisible(false);
+            added.setSortable(!sensitive && !relation);
+            added.setSearchable(!sensitive && returned == String.class);
+            added.setQuickFilter(false);
+            added.setRequired(mutable && !isNullable(metadata, i));
+            if (relation) {
+                added.setEditorType("relation");
+                added.setRelationEntityKey(returned.getName());
+                added.setRelationDisplayProperty(chooseDisplayProperty(relationMetadata));
+                added.setRelationSearchProperties("kode,nama,nim");
+            } else if (returned.isEnum()) {
+                Object[] constants = returned.getEnumConstants();
+                String[] values = new String[constants == null ? 0 : constants.length];
+                for (int e = 0; e < values.length; e++) values[e] = String.valueOf(constants[e]);
+                added.setEnumValues(values);
+            }
+            definition.addField(added);
+        }
     }
 
     private static Class findMappedClass(String entityKey) {

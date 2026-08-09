@@ -61,17 +61,14 @@ public class MahasiswaGenericCrudAdapter extends GenericCrudAutoEntityAdapter
     public void beforeSave(Session session, ais.database.model.GeneralValueObject value,
             GenericCrudRequestContext context) throws Exception {
         Mahasiswa mahasiswa = (Mahasiswa) value;
-        String nim = mahasiswa.getNim();
-        if (nim == null || nim.trim().length() == 0) {
-            throw new GenericCrudException(400, "NIM_REQUIRED", "NIM wajib diisi.");
+        List errors = MahasiswaExistingBusinessRules.validate(session, mahasiswa);
+        if (!errors.isEmpty()) {
+            String first = String.valueOf(errors.get(0));
+            int separator = first.indexOf(':');
+            throw new GenericCrudException(400, "MAHASISWA_BUSINESS_RULE",
+                    separator < 0 ? first : first.substring(separator + 1));
         }
-        Criteria duplicate = session.createCriteria(Mahasiswa.class)
-                .add(Restrictions.eq("nim", nim.trim()).ignoreCase());
-        if (mahasiswa.getId() != null) duplicate.add(Restrictions.ne("id", mahasiswa.getId()));
-        duplicate.setMaxResults(1);
-        if (!duplicate.list().isEmpty()) {
-            throw new GenericCrudException(409, "NIM_DUPLICATE", "NIM sudah digunakan mahasiswa lain.");
-        }
+        MahasiswaExistingBusinessRules.applyPersistenceDefaults(mahasiswa);
     }
 
     public void applyReadScope(Criteria criteria, GenericCrudRequestContext context) throws Exception {

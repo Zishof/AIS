@@ -7,6 +7,7 @@ import java.util.Map;
 
 import ais.action.master.generic.v2.GenericCrudRequestContext;
 import ais.action.master.generic.v2.GenericCrudResult;
+import ais.common.newui.menu.NewUiNativeSubrouteRegistry;
 
 /**
  * Kontrak parity Mahasiswa native New UI. Seluruh tab dan action tetap
@@ -148,9 +149,15 @@ public class MahasiswaGenericCrudFormProvider implements GenericCrudFormOverride
             String group, String privilege, String sourceHandler) {
         if (!allowed(context, privilege)) return;
         Map value = action(key, label, group, privilege, sourceHandler);
-        value.put("implementationStatus", "NEW_UI_NATIVE_PANEL");
         value.put("nativePanelKey", key);
-        value.put("enabled", Boolean.TRUE);
+        if (NewUiNativeSubrouteRegistry.supportsMahasiswa(key)) {
+            value.put("implementationStatus", "NEW_UI_NATIVE_ROUTE");
+            value.put("nativeSubroute", key);
+            value.put("enabled", Boolean.TRUE);
+        } else {
+            value.put("implementationStatus", "MIGRATION_REQUIRED");
+            value.put("enabled", Boolean.FALSE);
+        }
         actions.add(value);
     }
 

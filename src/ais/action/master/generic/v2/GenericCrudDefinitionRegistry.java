@@ -39,6 +39,12 @@ public final class GenericCrudDefinitionRegistry {
         if (!same(module, definition.getModuleKey()) || !same(page, definition.getPageKey())) {
             throw new GenericCrudException(403, "BINDING_MISMATCH", "Binding module/page tidak sesuai konfigurasi entity.");
         }
+        try {
+            GenericCrudAutoDefinitionFactory.appendMissingMappedFields(definition);
+        } catch (Exception metadataFailure) {
+            throw new GenericCrudException(500, "FIELD_METADATA_FAILED",
+                    "Metadata field entity tidak dapat dimuat.", metadataFailure);
+        }
         GenericCrudRuntimeMetadataVerifier.verify(definition);
         return definition;
     }

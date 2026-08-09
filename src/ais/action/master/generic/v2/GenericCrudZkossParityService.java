@@ -88,11 +88,11 @@ public final class GenericCrudZkossParityService {
         value.put("group", "Panel New UI");
         value.put("requiredPrivilege", "READ");
         value.put("selectionMode", "NONE");
-        value.put("implementationStatus", "NEW_UI_NATIVE_PANEL");
+        value.put("implementationStatus", "MIGRATION_REQUIRED");
         value.put("nativePanelKey", key);
         value.put("sourceAction", entry.actionClass);
         value.put("sourceHandler", sourceHandler);
-        value.put("enabled", Boolean.TRUE);
+        value.put("enabled", Boolean.FALSE);
         result.add(value);
     }
 

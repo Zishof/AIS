@@ -97,7 +97,7 @@
       var group = action.group || 'Lainnya';
       if (!groups[group]) groups[group] = [];
       groups[group].push(action);
-      if (action.implementationStatus === 'NEW_UI_NATIVE') nativeCount++; else if (action.implementationStatus === 'NEW_UI_NATIVE_PANEL') panelCount++;
+      if (action.implementationStatus === 'NEW_UI_NATIVE') nativeCount++; else if (action.implementationStatus === 'NEW_UI_NATIVE_ROUTE') panelCount++;
     });
     query('parity-summary').textContent = nativeCount + ' fungsi CRUD aktif • ' + panelCount + ' panel native New UI';
     Object.keys(groups).forEach(function (groupName) {
@@ -109,8 +109,8 @@
         card.appendChild(node('small', null, 'Service: ' + (action.sourceHandler || action.sourceAction || 'New UI')));
         if (action.implementationStatus === 'NEW_UI_NATIVE') {
           status = node('span', {'class': 'gc-parity-status native'}, 'New UI aktif'); card.appendChild(status);
-        } else if (action.implementationStatus === 'NEW_UI_NATIVE_PANEL') {
-          status = node('button', {type: 'button', 'class': 'gc-btn gc-parity-open'}, 'Buka panel New UI');
+        } else if (action.implementationStatus === 'NEW_UI_NATIVE_ROUTE') {
+          status = node('button', {type: 'button', 'class': 'gc-btn gc-parity-open'}, 'Buka halaman New UI');
           status.addEventListener('click', function () { openNativePanel(action); }); card.appendChild(status);
         } else {
           card.appendChild(node('span', {'class': 'gc-parity-status blocked'}, 'Belum dipetakan'));
@@ -122,6 +122,13 @@
   }
   function openNativePanel(action) {
     action = action || {};
+    if (action.nativeSubroute) {
+      var target = new URL(window.location.href);
+      target.searchParams.set('frame', '1');
+      target.searchParams.set('nativeSubroute', action.nativeSubroute);
+      window.location.href = target.toString();
+      return;
+    }
     var body = query('native-panel-body'), title = action.label || 'Fungsi Mahasiswa';
     query('native-panel-title').textContent = title; body.textContent = '';
     body.appendChild(node('p', {'class': 'gc-native-panel-intro'}, 'Panel ini merupakan UI New sendiri dan tidak membuka iframe, redirect, atau tampilan aplikasi lain.'));

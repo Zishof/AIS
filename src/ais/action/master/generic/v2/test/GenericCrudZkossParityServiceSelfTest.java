@@ -72,7 +72,8 @@ public final class GenericCrudZkossParityServiceSelfTest {
         List actions = new GenericCrudZkossParityService().actions(context);
         check(actions.size() == 3, "Handler forward/direct ZUL tidak terbaca lengkap");
         Map first = (Map) actions.get(0);
-        check("NEW_UI_NATIVE_PANEL".equals(first.get("implementationStatus")), "Status panel native salah");
+        check("MIGRATION_REQUIRED".equals(first.get("implementationStatus")), "Inventory belum fail-closed");
+        check(Boolean.FALSE.equals(first.get("enabled")), "Handler tanpa service native tidak boleh aktif");
         check(first.get("legacyRoute") == null, "Panel native tidak boleh mempunyai route tampilan lain");
         check(first.get("nativePanelKey") != null, "Panel native harus mempunyai key");
         check("ais.action.master.AgamaLegacyAction".equals(first.get("sourceAction")),

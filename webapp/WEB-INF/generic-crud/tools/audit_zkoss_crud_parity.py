@@ -20,6 +20,8 @@ MAHASISWA_PROVIDER = (SOURCE_ROOT / "ais" / "action" / "master" / "generic" / "v
                        "adapter" / "MahasiswaGenericCrudFormProvider.java")
 MAHASISWA_PARITY = (SOURCE_ROOT / "ais" / "action" / "master" / "generic" / "v2" /
                      "adapter" / "MahasiswaActionParityContract.java")
+MAHASISWA_SUBROUTES = (SOURCE_ROOT / "ais" / "common" / "newui" / "menu" /
+                        "NewUiNativeSubrouteRegistry.java")
 
 
 def text(path):
@@ -186,10 +188,16 @@ def mahasiswa_gate():
     methods = top_level_public_methods(MAHASISWA_ACTION)
     provider = text(MAHASISWA_PROVIDER)
     parity = text(MAHASISWA_PARITY)
+    subroutes = text(MAHASISWA_SUBROUTES)
     referenced = sorted({item["name"] for item in contract["handlers"]
                          if re.match(r"^[A-Za-z_]\w*$", item["name"])})
     uncovered = [name for name in referenced if name not in provider]
     uncovered_public = [item["name"] for item in methods if item["name"] not in parity]
+    native_panel_keys = set(re.findall(
+        r'nativePanel\(actions,\s*context,\s*"([^"]+)"', provider))
+    native_subroute_keys = set(re.findall(
+        r'add\(routes,\s*"([^"]+)"', subroutes))
+    pending = sorted(native_panel_keys - native_subroute_keys)
     return {
         "sourceZul": MAHASISWA_ZUL.relative_to(ROOT).as_posix(),
         "sourceAction": MAHASISWA_ACTION.relative_to(ROOT).as_posix(),
@@ -199,8 +207,12 @@ def mahasiswa_gate():
         "publicMethods": methods,
         "uncoveredZulHandlers": uncovered,
         "uncoveredPublicMethods": uncovered_public,
-        "providerHasSafeBridge": all(token in provider for token in (
-            "SAFE_LEGACY_BRIDGE", "NEW_UI_NATIVE", "LEGACY_ROUTE", SOURCE_LITERAL)),
+        "providerHasNativeOnlyPolicy": (SOURCE_LITERAL in provider
+                                         and "NEW_UI_NATIVE" in provider
+                                         and "legacyRoute" not in provider
+                                         and ".zul" not in provider),
+        "nativeSubrouteCount": len(native_panel_keys & native_subroute_keys),
+        "pendingNativeActions": pending,
     }
 
 
@@ -220,7 +232,7 @@ def main():
     gate = mahasiswa_gate()
     report = {"mahasiswa": gate}
     failed = (bool(gate["uncoveredZulHandlers"]) or bool(gate["uncoveredPublicMethods"])
-              or not gate["providerHasSafeBridge"])
+              or not gate["providerHasNativeOnlyPolicy"] or bool(gate["pendingNativeActions"]))
     if args.all:
         contracts = all_contracts()
         report["summary"] = {
@@ -234,7 +246,10 @@ def main():
     else:
         print("PASS" if not failed else "FAIL", "- Mahasiswa ZUL handlers covered:",
               len(gate["zulHandlers"]) - len(gate["uncoveredZulHandlers"]), "/", len(gate["zulHandlers"]))
-        print("PASS" if gate["providerHasSafeBridge"] else "FAIL", "- explicit native/legacy parity policy")
+        print("PASS" if gate["providerHasNativeOnlyPolicy"] else "FAIL", "- native-only parity policy")
+        print("PASS" if not gate["pendingNativeActions"] else "FAIL",
+              "- executable native subroutes:", gate["nativeSubrouteCount"],
+              "pending:", len(gate["pendingNativeActions"]))
         print("PASS" if not gate["uncoveredPublicMethods"] else "FAIL",
               "- MahasiswaAction public methods classified:",
               len(gate["publicMethods"]) - len(gate["uncoveredPublicMethods"]), "/", len(gate["publicMethods"]))
@@ -242,6 +257,8 @@ def main():
             print("Uncovered:", ", ".join(gate["uncoveredZulHandlers"]))
         if gate["uncoveredPublicMethods"]:
             print("Unclassified public methods:", ", ".join(gate["uncoveredPublicMethods"]))
+        if gate["pendingNativeActions"]:
+            print("Pending native actions:", ", ".join(gate["pendingNativeActions"]))
         if args.all:
             print("INFO - ZUL/Action contracts:", report["summary"]["zulWithAction"])
             print("INFO - action source missing:", report["summary"]["actionSourceMissing"])

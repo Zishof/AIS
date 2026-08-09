@@ -13,6 +13,7 @@ import ais.action.master.generic.v2.adapter.MahasiswaGenericCrudFormProvider;
 import ais.common.newui.NewUiPermission;
 import ais.common.newui.menu.NewUiHybridMenuNode;
 import ais.common.newui.menu.NewUiHybridMenuRouteGuard;
+import ais.common.newui.menu.NewUiNativeSubrouteRegistry;
 
 /** Uji konfigurasi tanpa koneksi database untuk build legacy. */
 @SuppressWarnings("rawtypes")
@@ -48,6 +49,7 @@ public final class MahasiswaGenericCrudDefinitionSelfTest {
         }
         assertParityContract(mahasiswa);
         assertActionGuards();
+        assertNativeSubroutes();
         System.out.println("PASS Mahasiswa Generic CRUD definition self-test");
     }
 
@@ -57,20 +59,26 @@ public final class MahasiswaGenericCrudDefinitionSelfTest {
             check(form.getTabs().size() == 10, "Tab form Mahasiswa tidak lengkap");
             check(form.getSections().size() == 5, "Kelompok modul Mahasiswa tidak lengkap");
             check(form.getActions().size() >= 40, "Fungsi Mahasiswa belum tercatat lengkap");
-            int nativeCount = 0; int bridgeCount = 0;
+            int nativeCount = 0; int routeCount = 0; int pendingCount = 0;
             for (Iterator values = form.getActions().iterator(); values.hasNext();) {
                 java.util.Map value = (java.util.Map) values.next();
                 String status = String.valueOf(value.get("implementationStatus"));
                 if ("NEW_UI_NATIVE".equals(status)) nativeCount++;
-                if ("NEW_UI_NATIVE_PANEL".equals(status)) {
-                    bridgeCount++;
+                if ("NEW_UI_NATIVE_ROUTE".equals(status)) {
+                    routeCount++;
                     check(value.get("nativePanelKey") != null, "Panel New UI tidak mempunyai key");
+                    check(value.get("nativeSubroute") != null, "Route New UI tidak mempunyai subroute");
                     check(value.get("legacyRoute") == null, "Panel New UI tidak boleh mempunyai route tampilan lain");
                     check(value.get("sourceHandler") != null, "Panel New UI tidak mempunyai service handler");
                 }
+                if ("MIGRATION_REQUIRED".equals(status)) {
+                    pendingCount++;
+                    check(Boolean.FALSE.equals(value.get("enabled")), "Fungsi pending tidak boleh terlihat aktif");
+                }
             }
             check(nativeCount >= 3, "Fungsi native New UI tidak tercatat");
-            check(bridgeCount >= 37, "Fungsi Mahasiswa belum tersedia sebagai panel native");
+            check(routeCount >= 20, "Subroute native Mahasiswa belum lengkap");
+            check(pendingCount > 0, "Inventory fungsi yang belum bermigrasi tidak tercatat");
         } catch (Exception e) {
             throw new IllegalStateException("Kontrak parity Mahasiswa gagal dibaca", e);
         }
@@ -95,6 +103,19 @@ public final class MahasiswaGenericCrudDefinitionSelfTest {
         check(!NewUiHybridMenuRouteGuard.isActionAuthorized(null, readOnly, "create"), "CREATE bocor");
         check(!NewUiHybridMenuRouteGuard.isActionAuthorized(null, readOnly, "update"), "UPDATE bocor");
         check(!NewUiHybridMenuRouteGuard.isActionAuthorized(null, readOnly, "delete"), "DELETE bocor");
+    }
+
+    private static void assertNativeSubroutes() {
+        NewUiHybridMenuNode mahasiswa = new NewUiHybridMenuNode();
+        mahasiswa.setNewUiModule("root"); mahasiswa.setNewUiPage("mahasiswa");
+        NewUiNativeSubrouteRegistry.Route kelas = NewUiNativeSubrouteRegistry.resolve(mahasiswa, "kelas");
+        check(kelas != null && "/WEB-INF/new/root/uiux/kelas.jsp".equals(kelas.target(false)),
+                "Subroute Kelas tidak menuju JSP New UI");
+        NewUiNativeSubrouteRegistry.Route khs = NewUiNativeSubrouteRegistry.resolve(mahasiswa, "khs");
+        check(khs != null && "/WEB-INF/new/root/report/services/format1/akademik/laporan_khs_service.jsp"
+                .equals(khs.target(true)), "Subroute laporan bersarang salah");
+        check(NewUiNativeSubrouteRegistry.resolve(mahasiswa, "tidak_terdaftar") == null,
+                "Subroute di luar allow-list lolos");
     }
 
     private static void check(boolean value, String message) {

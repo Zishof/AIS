@@ -5,6 +5,7 @@
 <%@ page import="ais.common.newui.menu.NewUiHybridMenuNode" %><%@ page import="ais.common.newui.menu.NewUiHybridMenuRouteGuard" %>
 <%@ page import="ais.common.newui.menu.NewUiHybridMenuRouteRegistry" %><%@ page import="ais.common.newui.menu.NewUiHybridMenuSnapshot" %>
 <%@ page import="ais.common.newui.menu.NewUiNativeJspResolver" %>
+<%@ page import="ais.common.newui.menu.NewUiNativeSubrouteRegistry" %>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%!
 private String nuiShellH(Object v){if(v==null)return "";return String.valueOf(v).replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&#39;");}
@@ -31,6 +32,7 @@ NewUiHybridMenuNode selected=menuId==null?null:snapshot.findAssigned(menuId);
 NewUiHybridMenuNode group=groupMenuId==null?null:snapshot.findVisible(groupMenuId);
 String menuStatus=menuId==null?null:NewUiHybridMenuRouteGuard.evaluateMenu(snapshot,menuId);
 String groupStatus=groupMenuId==null?null:NewUiHybridMenuRouteGuard.evaluateGroup(snapshot,groupMenuId);
+String nativeSubroute=request.getParameter("nativeSubroute");
 
 int httpStatus=200;String target="/WEB-INF/new/_shared/ui/home.jsp";String module="_shared";String pageName="home";
 if(groupMenuId!=null){
@@ -45,12 +47,20 @@ if(groupMenuId!=null){
     else if(NewUiHybridMenuRouteRegistry.NOT_FOUND.equals(menuStatus)){httpStatus=404;target="/WEB-INF/new/_shared/ui/404.jsp";}
     else if(NewUiHybridMenuRouteRegistry.NOT_MAPPED.equals(menuStatus)){httpStatus=404;target="/WEB-INF/new/_shared/menu/not_mapped.jsp";}
     else if(NewUiHybridMenuRouteRegistry.NEW_UI.equals(menuStatus)){
+        NewUiNativeSubrouteRegistry.Route subroute=nativeSubroute==null?null:NewUiNativeSubrouteRegistry.resolve(selected,nativeSubroute);
+        if(nativeSubroute!=null&&subroute==null){httpStatus=403;target="/WEB-INF/new/_shared/ui/403.jsp";}
+        else if(subroute!=null){
+            module=subroute.getModule();pageName=subroute.getPage();target=subroute.target(service);
+            request.setAttribute("nui_native_subroute",nativeSubroute);
+            request.setAttribute("nuiServiceEndpointOverride",request.getContextPath()+"/new?service=1&menuId="+menuId+"&nativeSubroute="+java.net.URLEncoder.encode(nativeSubroute,"UTF-8"));
+        }else{
         module=selected.getNewUiModule();pageName=selected.getNewUiPage()==null?"index":selected.getNewUiPage();
         if("_shared".equals(module)&&"native_menu".equals(pageName)){
             NewUiNativeJspResolver.Result nativeRoute=NewUiNativeJspResolver.resolve(application,selected.getExistingUrl(),service);
             if(nativeRoute==null){target="/WEB-INF/new/_shared/"+(service?"services/native_menu_service.jsp":"uiux/native_menu.jsp");}
             else{module=nativeRoute.getModule();pageName=nativeRoute.getPage();target=nativeRoute.getTarget();request.setAttribute("nui_native_module",module);request.setAttribute("nui_native_page",pageName);}
         }else target="/WEB-INF/new/"+module+(service?"/services/":"/uiux/")+pageName+(service?"_service.jsp":".jsp");
+        }
         if(httpStatus==200&&((requestedModule!=null&&!nuiEqual(requestedModule,module))||(requestedPage!=null&&!nuiEqual(requestedPage,pageName)))){httpStatus=403;target="/WEB-INF/new/_shared/ui/403.jsp";}
     }
 }else if(service||requestedModule!=null||requestedPage!=null){
@@ -83,6 +93,7 @@ String newUrl=request.getContextPath()+"/new";String frameSrc;
 if(menuId!=null)frameSrc=newUrl+"?frame=1&menuId="+menuId;
 else if(groupMenuId!=null)frameSrc=newUrl+"?frame=1&groupMenuId="+groupMenuId;
 else frameSrc=newUrl+"?frame=1";
+if(nativeSubroute!=null&&menuId!=null)frameSrc+="&nativeSubroute="+java.net.URLEncoder.encode(nativeSubroute,"UTF-8");
 if(frame){
 %>
 <!doctype html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>eCampus &amp; eSchool</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous"><link id="nuiFontAwesome" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.0/css/all.min.css" rel="stylesheet" crossorigin="anonymous" onerror="this.onerror=null;this.href='https://unpkg.com/@fortawesome/fontawesome-free@7.3.0/css/all.min.css'"><link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.0/css/v4-shims.min.css" rel="stylesheet" crossorigin="anonymous"><style><%@ include file="/WEB-INF/new/_shared/assets/new-ui.css" %></style></head>
