@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KalenderEvent");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/helper/KalenderEvent.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getAcara", "setAcara", "getContent", "getOriginContent", "setContent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"WorkspacePunyaJenisParameter", "AcaraPunyaJenisParameter", "String", "Integer", "Double", "Date", "Time"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

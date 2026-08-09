@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TampilanPengumumanLibraryAction")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/TampilanPengumumanLibraryAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "loadData", "render", "initCriteria", "onSearchDefault", "displayDetailPertemuanFileContent", "loadDataAttachment", "onSave", "setReadonly", "getReadonly", "getMenu", "setMenu"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PengumumanAkademis", "LampiranPengumumanAkademis", "DiskusiPengumumanAkademis"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KelompokNomorSuratAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.surat");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/surat/KelompokNomorSuratAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initCriteria", "checkKelompok", "onEvent", "onSave", "checkNamaKelompokNomorSurat", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KelompokNomorSurat"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

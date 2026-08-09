@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AssetHargaDppHistoryUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.asset.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/asset/helper/AssetHargaDppHistoryUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getMasterAssetId", "setMasterAssetId", "getNamaBarang", "setNamaBarang", "getSumber", "setSumber", "getNomorDokumen", "setNomorDokumen", "getPenyedia", "setPenyedia", "getTanggal", "setTanggal", "getHargaDppTotal", "setHargaDppTotal", "getHargaDppSatuan", "setHargaDppSatuan", "getRataRataDppSatuan", "setRataRataDppSatuan", "getJumlahRiwayat", "setJumlahRiwayat", "hasHarga", "ambilHargaDppTerbaru", "compare", "hitungDpp", "formatMoney", "formatDate", "ringkasan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PemesananPengadaanMasterAssetDetail", "PenerimaanPengadaanMasterAssetDetail", "SaldoAwalMasterAssetDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

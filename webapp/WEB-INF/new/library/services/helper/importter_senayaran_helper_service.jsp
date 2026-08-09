@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ImportterSenayaranHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/helper/ImportterSenayaranHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getReportFile", "importZip"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

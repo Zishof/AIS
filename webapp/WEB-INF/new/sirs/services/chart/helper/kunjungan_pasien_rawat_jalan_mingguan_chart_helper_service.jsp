@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KunjunganPasienRawatJalanMingguan
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs.chart.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/chart/helper/KunjunganPasienRawatJalanMingguanChartHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getTahun", "getBulan", "getJudul"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

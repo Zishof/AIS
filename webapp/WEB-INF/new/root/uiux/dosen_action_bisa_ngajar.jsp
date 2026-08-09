@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "CommonOnSearchdefault");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onLaporanPerDosen", "onLaporanDosenHarian", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/informasi_jadwal_ajar_dosen.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"Dosen"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TampilanAlurSopAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sop");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sop/TampilanAlurSopAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "loadData", "prosess", "initCriteria", "cetakDisposisi"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/WEB-INF/z/x/y/pages/master/sop/alur_sop.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"DisposisiSop", "DisposisiAlurSop", "AlurSop", "DokumenAlurSop", "ParameterTambahanAlurSop", "ParameterTambahan", "DaftarPengajuanTransfer", "Bank", "ProsesTransferStandingInstruction"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PeminjamanPengadaanItemPunyaItemH
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/helper/PeminjamanPengadaanItemPunyaItemHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"setAnggota", "initDetail", "onEvent", "initRow", "loadBarcode", "getPerpustakaan", "setPerpustakaan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PeminjamanPengadaanItemDetail", "ItemPunyaBarcode", "Item"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

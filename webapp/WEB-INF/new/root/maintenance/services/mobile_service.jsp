@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MobileAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.maintenance");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/maintenance/MobileAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent", "compare"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"e_learning.zul", "/WEB-INF/z/x/y/common/mobile/e_learning_mobile.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

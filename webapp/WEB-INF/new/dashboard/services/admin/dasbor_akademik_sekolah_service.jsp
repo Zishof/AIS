@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DasborAkademikSekolah");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.admin");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/admin/DasborAkademikSekolah.java");
 request.setAttribute("nuiServiceMethods", new String[]{"isDebug", "setDebug", "onEvent", "compare"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Siswa", "Sekolah", "Guru", "KelasSiswa", "KelasLesSiswa", "KurikulumSekolah", "Matapelajaran", "JenisPenilaian", "GrupPenilaian", "NilaiHurufSekolah", "JadwalPelajaran", "JamPelajaran", "MasaJadwalPelajaran", "CatatanSiswa", "KelasSiswaPunyaSiswa", "KelasLesSiswaPunyaSiswa", "Integer", "Object"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

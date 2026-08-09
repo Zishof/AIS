@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PembatalanTransaksiUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.koperasi.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/koperasi/helper/PembatalanTransaksiUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"batalkan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Pembelian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

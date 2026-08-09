@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "Div");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"getNamaModul", "getEmoji", "onEvent", "compare", "render"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"PrestasiMahasiswa", "PrestasiSiswa", "PrestasiPegawai", "PrestasiDosen", "PrestasiGuru"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

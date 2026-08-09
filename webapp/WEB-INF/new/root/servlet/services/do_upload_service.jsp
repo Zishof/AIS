@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DoUpload");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/DoUpload.java");
 request.setAttribute("nuiServiceMethods", new String[]{"run", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/accept.jsp?u="});
 request.setAttribute("nuiServiceEntities", new String[]{"LampiranLainBiodataCalonMahasiswa", "GDriveCode", "FotoMahasiswa", "FotoSiswa", "FotoDosen", "FotoGuru", "FotoPegawai", "FotoAdmin", "String", "Long", "Blob", "BiodataCalonMahasiswa", "JenisKegiatan", "BuktiPembayaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

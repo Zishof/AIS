@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CariRuangKosongAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/CariRuangKosongAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/kalender/perkuliahan/index.zul?ruang=", "/pages/master/pesan_ruangan.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Fakultas", "Gedung", "Ruang", "Perkuliahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TampilanPengumumanAkademisAction"
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/TampilanPengumumanAkademisAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "createMenu", "loadData", "prosess", "sebagaiKelompok", "sebagaiKelompokPmb", "sebagaiALumni", "tampilGelombang", "tampil", "initCriteriaStatic", "onSearchDefault", "setReadonly", "getReadonly"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/pmb/login_calon_mahasiswa.zul", "/pages/psb/login_calon_siswa.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"PengumumanAkademis", "CalonSiswa", "BiodataCalonMahasiswa", "ParameterTambahanPaket", "ParameterTambahan", "RuangPaketPMB", "GelombangPendaftaran", "JenisSeleksi", "LampiranLain", "GelombangPendaftaranPegawai", "ParameterTambahanGelombangPendaftaranPsb", "PembayaranSiswaDetail", "PengaturanBiaya", "GelombangPendaftaranPsb"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

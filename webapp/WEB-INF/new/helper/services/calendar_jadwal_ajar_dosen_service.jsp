@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CalendarJadwalAjarDosenComposer")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/CalendarJadwalAjarDosenComposer.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onSp", "onLaporanPerDosen", "onLaporanSkDosen", "onRefresh", "doBeforeCompose", "doAfterCompose", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/informasi_jadwal_ajar_dosen.zul?dosen="});
 request.setAttribute("nuiServiceEntities", new String[]{"Dosen", "Perkuliahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

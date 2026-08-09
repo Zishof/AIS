@@ -10,6 +10,7 @@ from __future__ import print_function
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 
@@ -21,6 +22,12 @@ HYBRID_MENU = NEW_UI / "_shared" / "menu"
 HYBRID_SIDEBAR = HYBRID_MENU / "sidebar_hybrid.jsp"
 COMMAND = NEW_UI / "_shared" / "ui" / "command_palette.jsp"
 MANIFEST = NEW_UI / "_shared" / "config" / "developer-catalog-manifest.json"
+FORBIDDEN_NATIVE_UI_PATTERNS = (
+    (re.compile(r"\.zul", re.IGNORECASE), "ZUL reference"),
+    (re.compile(r"/WEB-INF/baru", re.IGNORECASE), "non-New-UI JSP reference"),
+    (re.compile(r"/baru(?:\?|/)", re.IGNORECASE), "non-New-UI route"),
+    (re.compile(r"legacyRoute|SAFE_LEGACY_BRIDGE|LEGACY_EMBED|LEGACY_REDIRECT|openLegacy", re.IGNORECASE), "legacy execution hook"),
+)
 
 
 def validate_dynamic_navigation():
@@ -52,6 +59,21 @@ def validate_dynamic_navigation():
         raise SystemExit("\n".join("ERROR: " + error for error in errors))
 
 
+def validate_native_only_ui():
+    errors = []
+    for path in sorted(NEW_UI.rglob("*")):
+        if not path.is_file() or path.suffix.lower() not in (".jsp", ".js", ".css", ".json"):
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for pattern, label in FORBIDDEN_NATIVE_UI_PATTERNS:
+            match = pattern.search(text)
+            if match:
+                line = text.count("\n", 0, match.start()) + 1
+                errors.append("%s:%d contains %s" % (path.relative_to(ROOT), line, label))
+    if errors:
+        raise SystemExit("\n".join("ERROR: " + error for error in errors[:100]))
+
+
 def write_developer_manifest():
     entries = []
     for catalog in sorted(NEW_UI.glob("**/catalog.json")):
@@ -74,9 +96,10 @@ def main():
     parser.add_argument("--write-developer-manifest", action="store_true")
     args = parser.parse_args()
     validate_dynamic_navigation()
+    validate_native_only_ui()
     if args.write_developer_manifest:
         write_developer_manifest()
-    print("PASS: operational navigation remains Menu/RBAC-driven")
+    print("PASS: operational navigation remains Menu/RBAC-driven and native-New-UI-only")
 
 
 if __name__ == "__main__":

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanProfileMahasiswaDanLulusan
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sapto");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sapto/LaporanProfileMahasiswaDanLulusan_A_3_2_4.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onCetak", "run", "onEvent", "initCriteria"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ChecklistHasilPenilaianUmum", "Mahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

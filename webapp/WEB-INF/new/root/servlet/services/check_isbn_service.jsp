@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CheckISBN");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/CheckISBN.java");
 request.setAttribute("nuiServiceMethods", new String[]{"simpanVolume", "itemDariItemTemporary"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Volume", "Item", "Penerbit", "Pengarang", "KategoriItem", "ItemTemporary"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

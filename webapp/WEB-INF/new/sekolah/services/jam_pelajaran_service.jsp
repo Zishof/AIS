@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JamPelajaranAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/JamPelajaranAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onMasa", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/sekolah/kelompok_jam_pelajaran.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"JamPelajaran", "JenisJadwalPelajaran", "KelompokJamPelajaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

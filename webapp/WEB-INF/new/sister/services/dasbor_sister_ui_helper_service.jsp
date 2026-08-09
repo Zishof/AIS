@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DasborSisterUiHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sister");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sister/DasborSisterUiHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"bangunRingkasan", "compare", "hitungAktif", "pendekTabel", "fmt"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"DataSister"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

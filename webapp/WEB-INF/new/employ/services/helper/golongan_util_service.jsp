@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "GolonganUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.employ.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/employ/helper/GolonganUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"ambilTarget", "ambilPoint", "hitung", "ambilDeskripsi"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"SkorGolongan", "Konstanta", "Golongan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KehadiranPegawaiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.payroll");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/payroll/KehadiranPegawaiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onCuti", "onLaporanRekapPerPegawai", "onLaporanTidakHadir", "onGuru", "onSiswa", "onMahasiswa", "onDosen", "onLaporanLembur", "onProsesKehadiran", "onProsesKehadiranPegawai", "onPerHari", "onLaporanAbsensiPegawai", "onLaporanAbsensiPerPegawai", "onLaporanAbsensiPerTanggal", "onLaporanAbsensiPerUnit", "onLaporanAbsensiPerRinci", "doBeforeCompose", "doAfterCompose", "onEvent", "reload", "render", "onKodePegawai", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Tbmuser", "Mahasiswa", "Siswa", "Pegawai", "Dosen", "StatuskehadiranKaryawanHarian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

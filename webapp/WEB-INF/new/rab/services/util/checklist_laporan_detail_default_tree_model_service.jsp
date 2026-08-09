@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ChecklistLaporanDetailDefaultTree
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/util/ChecklistLaporanDetailDefaultTreeModel.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getChildren", "generateAllChildren", "getChild", "getChildCount", "deleteChilds", "isLeaf", "getParentCount", "getParentSet", "getChildsSet", "getIndexOfChild"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ChecklistLaporanDetailDefault"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

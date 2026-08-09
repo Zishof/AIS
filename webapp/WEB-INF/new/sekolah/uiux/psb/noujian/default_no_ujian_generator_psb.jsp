@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "NoUjianGeneratorPsb");
 request.setAttribute("nuiSourceMethods", new String[]{"generateNoUjian"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"RuangPSB", "RuangGelombangPendaftaranPsbPSB", "CalonSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

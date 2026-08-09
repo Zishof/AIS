@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"initDetail", "initRow", "onEvent"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"WorkspacePunyaJenisParameter", "AcaraPunyaJenisParameter", "String", "Integer", "Double", "Date", "Time"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

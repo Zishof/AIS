@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JenisAktiftasHarianDefaultAction"
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/JenisAktiftasHarianDefaultAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisAktiftasHarianDefault"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

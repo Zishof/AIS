@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ProfileAdminPerguruanTinggi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.profile");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/profile/ProfileAdminPerguruanTinggi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"init", "lanjut"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa", "Dosen", "Jurusan", "Fakultas"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

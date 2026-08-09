@@ -70,9 +70,10 @@ public final class GenericCrudZkossParityServiceSelfTest {
         List actions = new GenericCrudZkossParityService().actions(context);
         check(actions.size() == 3, "Handler forward/direct ZUL tidak terbaca lengkap");
         Map first = (Map) actions.get(0);
-        check("SAFE_LEGACY_BRIDGE".equals(first.get("implementationStatus")), "Status bridge salah");
-        check("/ais/pages/master/agama.zul".equals(first.get("legacyRoute")), "Route legacy salah");
-        System.out.println("PASS Generic CRUD ZKOSS parity service self-test");
+        check("NEW_UI_NATIVE_PANEL".equals(first.get("implementationStatus")), "Status panel native salah");
+        check(first.get("legacyRoute") == null, "Panel native tidak boleh mempunyai route tampilan lain");
+        check(first.get("nativePanelKey") != null, "Panel native harus mempunyai key");
+        System.out.println("PASS Generic CRUD native parity inventory self-test");
     }
 
     private static Set set(String value) { return new HashSet(Arrays.asList(new String[] { value })); }

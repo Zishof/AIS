@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "FinpayBackandProsess");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.finpay");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/finpay/FinpayBackandProsess.java");
 request.setAttribute("nuiServiceMethods", new String[]{"check", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"FinpayResponse", "FinpayRequest"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

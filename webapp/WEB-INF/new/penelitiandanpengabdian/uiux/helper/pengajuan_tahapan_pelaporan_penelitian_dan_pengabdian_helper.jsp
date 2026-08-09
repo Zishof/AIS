@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "DataCriteria");
 request.setAttribute("nuiSourceMethods", new String[]{"displayWindowPengajuan", "onEvent", "displayPengajuan", "initCriteria", "loadDataPengajuan", "render", "setReadonly", "getReadonly"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"PengajuanPenelitianDanPengabdian", "PengajuanTahapanPelaporanPenelitianDanPengabdian", "FilePengajuanTahapanPelaporanPenelitianDanPengabdian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

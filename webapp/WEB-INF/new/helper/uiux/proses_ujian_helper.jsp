@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyWindow");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"ikut", "onEvent", "tampil", "newThread", "chekPosisitonJikaKurang", "randomPosisiton", "run", "getCurrentTime", "setStop", "mulai", "detach", "onSelesai", "hitung", "hitungObe", "rincianSkorSubCpmk", "hitungPilihanGanda", "hitungWaktu", "generateHasilUjian", "buildCbtAntiCheatScriptJsp"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"UjianPunyaSoal", "HasilUjianMahasiswaDetail", "SyaratUjian", "BankSoalDetail", "HasilUjianMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

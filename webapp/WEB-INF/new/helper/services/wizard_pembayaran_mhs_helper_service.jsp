@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "WizardPembayaranMhsHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/WizardPembayaranMhsHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"aktif", "buka", "tampilkan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KegiatanTemporary", "CicilanPembayaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

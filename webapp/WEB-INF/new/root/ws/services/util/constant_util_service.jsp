@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ConstantUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.ws.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/ws/util/ConstantUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initIstilahPendaftaran"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisKegiatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PegawaiBawahanHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.payroll.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/payroll/helper/PegawaiBawahanHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"hasBawahan", "ambilBawahan", "applyFilterCuti", "applyFilterByPegawai"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"CutiDanIzin", "Pegawai", "Pejabat"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

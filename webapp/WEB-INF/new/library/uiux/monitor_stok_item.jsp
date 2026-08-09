@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onBarcodeItem", "onPerTipeItem", "onPerJenisItem", "onCetak", "onCetakTrack", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/library/barcode_item.zul?perpustakaan="});
 request.setAttribute("nuiEntityCandidates", new String[]{"JenisItem", "TipeItem", "Perpustakaan", "Item", "DetailTransaksi", "FotoImagePerHalamanItem"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

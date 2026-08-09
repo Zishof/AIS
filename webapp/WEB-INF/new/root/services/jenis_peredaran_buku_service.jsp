@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JenisPeredaranBukuAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/JenisPeredaranBukuAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault", "checkNamaJenisPeredaranBuku"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisPeredaranBuku"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

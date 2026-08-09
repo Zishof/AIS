@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyWindow");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "generateParameters", "parameterIjazah", "onTranskrip"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Mahasiswa", "Jurusan", "Fakultas", "PerguruanTinggi", "Skripsi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

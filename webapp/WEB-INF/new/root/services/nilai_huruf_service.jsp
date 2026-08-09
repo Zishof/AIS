@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "NilaiHurufAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/NilaiHurufAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "initCriteria", "onSyncronisasiNilai", "run", "onSyncronisasiHanyaYangBelumDapatNilai", "onSave", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"NilaiHuruf", "Jurusan", "JenisNilaiHurufMatakuliah", "Fakultas"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

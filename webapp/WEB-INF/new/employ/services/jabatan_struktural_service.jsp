@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JabatanStrukturalAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.employ");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/employ/JabatanStrukturalAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaJabatanStruktural"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JabatanStruktural"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

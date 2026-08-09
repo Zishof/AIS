@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DetailSettingBiayaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/DetailSettingBiayaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "loadData", "display", "uploadDataMahasiswa", "run", "uploadDataCalonMahasiswa", "initCriteria"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"SettingBiayaDetail", "Mahasiswa", "BiodataCalonMahasiswa", "DetailSettingBiaya", "ItemBiaya"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

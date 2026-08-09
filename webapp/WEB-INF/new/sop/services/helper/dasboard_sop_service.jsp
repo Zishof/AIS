@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DasboardSop");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sop.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sop/helper/DasboardSop.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "compare", "getHeaders", "render", "buildCriteria", "initCriteria", "getRefreshLabel", "getRefreshIcon", "onToolbarCreated", "renderData", "supportsBulkApprove"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"AlurSop", "DisposisiSop", "DisposisiAlurSop", "Sop"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

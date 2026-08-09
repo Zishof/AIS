@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "HttpServlet");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"createKegiatan", "prosesResponse"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"PembayaranSiswa", "LogPembayaran", "BriRequest", "KegiatanTemporary", "CicilanPembayaran", "AkunPembayaranSiswa", "Akun", "BriRequestDetail", "BriResponse"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

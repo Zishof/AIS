@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AlatMedisTempatTidurAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/AlatMedisTempatTidurAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent", "render", "onCetakBiayaAlatMedis", "onAdd", "onUploadBiaya", "onDownloadBiaya", "checkNamaAlatMedis", "onSave", "onSearchDefault", "loadData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisAlatMedis", "BiayaAlatMedisPerKelas", "AlatMedis", "Ruang", "Kamar", "KelasPerawatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "SatuanKegiatanTugasJabatanAction"
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.lkp");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/lkp/SatuanKegiatanTugasJabatanAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaSatuanKegiatanTugasJabatan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"SatuanKegiatanTugasJabatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KuesionerSiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/KuesionerSiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onAbsensiSp", "doBeforeCompose", "doAfterCompose", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/common/checklist_penilaian_umum.zul?siswa="});
 request.setAttribute("nuiServiceEntities", new String[]{"JadwalPelajaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PasienAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/PasienAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent", "render", "onDelete", "onAdd", "onExternalAdd", "onSave", "onSearchDefault", "checkKodePasien"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Pasien", "PrioritasPasien", "Pendidikan", "Agama", "JenisPasien", "Propinsi", "Kota", "Kecamatan", "Kelurahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

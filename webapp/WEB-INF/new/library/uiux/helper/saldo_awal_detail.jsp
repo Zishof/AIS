@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyDetail");
 request.setAttribute("nuiSourceImplements", "DataCriteria");
 request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "render", "loadData", "display", "initCriteria", "run", "getDspacePerpustakaan", "loadBarcode", "uploadDataItem"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/library/barcode_item.zul?saldoAwal="});
 request.setAttribute("nuiEntityCandidates", new String[]{"Item", "SaldoAwalDetail", "ItemPunyaBarcode", "Penerbit", "TipeItem", "JenisItem", "LabelItem", "BatchItemPunyaBarcode"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"getSystemTime", "getMahasiswa", "simpanLive", "stopLive", "doAbsen", "simpanAbsen", "getAmbilData", "getMasuk", "getMasukToken", "convert"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/common/tampilan_pengumuman_akademis.zul?user=", "/common/mobile/kalender_akademik_mahasiswa.zul?user=", "/common/mobile/penjadwalan_dosen.zul?user=", "/common/mobile/krs.zul?user=", "/common/mobile/e_learning.zul?user=", "/common/mobile/penilaian.zul?user=", "/common/mobile/absensi.zul?user=", "/common/mobile/pembayaran_online.zul?user=", "/common/mobile/tagihan.zul?siswa=", "/common/mobile/pembayaran_siswa.zul?siswa=", "/common/mobile/pembayaran_online.zul?siswa=", "/common/mobile/deposit_siswa.zul?siswa=", "/common/mobile/pembelian.zul?siswa=", "/common/mobile/laporan_pembayaran.zul?siswa=", "/common/mobile/laporan_pembelian.zul?siswa=", "/common/mobile/laporan_saldo.zul?siswa=", "/common/mobile/laporan_deposit_siswa.zul?siswa=", "/common/mobile/laporan_tunggakan.zul?siswa="});
 request.setAttribute("nuiEntityCandidates", new String[]{"Pertemuan", "Mahasiswa", "Siswa", "Dosen", "Guru", "Tbmuser", "Statusabsensi", "Penduduk"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

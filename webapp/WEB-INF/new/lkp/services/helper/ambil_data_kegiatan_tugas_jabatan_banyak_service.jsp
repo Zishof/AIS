@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataKegiatanTugasJabatanBany
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.lkp.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/lkp/helper/AmbilDataKegiatanTugasJabatanBanyak.java");
 request.setAttribute("nuiServiceMethods", new String[]{"render", "onEvent", "display", "onSearchDefault", "setEventListener", "getEventListener"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KegiatanTugasJabatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

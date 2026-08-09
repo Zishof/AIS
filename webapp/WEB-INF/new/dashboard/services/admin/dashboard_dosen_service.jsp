@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardDosen");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.admin");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/admin/DashboardDosen.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/common/dashboard/dosen.zul?jurusan="});
 request.setAttribute("nuiServiceEntities", new String[]{"Jurusan", "Dosen"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

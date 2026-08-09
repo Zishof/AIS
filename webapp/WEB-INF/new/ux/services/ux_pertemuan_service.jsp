@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "UxPertemuanAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.ux");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/ux/UxPertemuanAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "loadData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Pertemuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PerpustakaanResourcesHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.resources.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/resources/helper/PerpustakaanResourcesHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getChildrenByIds", "getChildCountByIds", "generateChildsByIds"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Item"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

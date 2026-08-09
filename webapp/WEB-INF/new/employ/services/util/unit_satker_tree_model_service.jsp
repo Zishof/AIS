@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "UnitSatkerTreeModel");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.employ.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/employ/util/UnitSatkerTreeModel.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getChildren", "generateAllChildren", "getChild", "getChildCount", "deleteChilds", "isLeaf", "getParentCount", "getParentSet", "getChildsSet", "getIndexOfChild"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"UnitKerja"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"getMasterAssetId", "setMasterAssetId", "getNamaBarang", "setNamaBarang", "getSumber", "setSumber", "getNomorDokumen", "setNomorDokumen", "getPenyedia", "setPenyedia", "getTanggal", "setTanggal", "getHargaDppTotal", "setHargaDppTotal", "getHargaDppSatuan", "setHargaDppSatuan", "getRataRataDppSatuan", "setRataRataDppSatuan", "getJumlahRiwayat", "setJumlahRiwayat", "hasHarga", "ambilHargaDppTerbaru", "compare", "hitungDpp", "formatMoney", "formatDate", "ringkasan"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"PemesananPengadaanMasterAssetDetail", "PenerimaanPengadaanMasterAssetDetail", "SaldoAwalMasterAssetDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

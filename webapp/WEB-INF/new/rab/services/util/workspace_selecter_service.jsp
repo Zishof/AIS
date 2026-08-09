@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "WorkspaceSelecter");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/util/WorkspaceSelecter.java");
 request.setAttribute("nuiServiceMethods", new String[]{"select"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

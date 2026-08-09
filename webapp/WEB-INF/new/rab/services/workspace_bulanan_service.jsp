@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "WorkspaceBulananAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/WorkspaceBulananAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onCreateNewRevisi", "onReloadTab", "onSearchDefault", "initCriteria"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/rab/workspace_revisi_bulanan.zul?revisi="});
 request.setAttribute("nuiServiceEntities", new String[]{"Workspace", "SumberDana"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

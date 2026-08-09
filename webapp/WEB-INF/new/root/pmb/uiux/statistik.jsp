@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onPendaftarSpmb", "onJenisPendidikan", "onPropinsi", "onPerHari"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/pmb/statistik/rekap_pendaftar_spmb.zul", "/pages/pmb/statistik/rekap_pendaftar_spmb_per_jenis_sekolah.zul", "/pages/pmb/statistik/rekap_pendaftar_spmb_propinsi.zul", "/pages/pmb/statistik/rekap_pendaftar_spmb_per_hari.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

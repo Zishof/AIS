@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PindahTempatTidurRawatInapAction"
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/PindahTempatTidurRawatInapAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent", "render", "onDelete", "onAdd", "onExternalAdd", "onSave", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PindahTempatTidurRawatInap", "DiagnosaPenyakit", "Pendaftaran", "KelasPerawatan", "Ruang", "Kamar", "DataPasienKeluar"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

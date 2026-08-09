@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericCrudAction<NilaiHuruf>");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "initCriteria", "onSyncronisasiNilai", "run", "onSyncronisasiHanyaYangBelumDapatNilai", "onSave", "render"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"NilaiHuruf", "Jurusan", "JenisNilaiHurufMatakuliah", "Fakultas"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

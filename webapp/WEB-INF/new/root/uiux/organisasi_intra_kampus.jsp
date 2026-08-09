@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onJabatanOrganisasiMahasiswa", "onUploadData", "run", "onEvent", "doBeforeCompose", "doAfterCompose", "cetakDataCustomButton", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaOrganisasiIntraKampus"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/jabatan_organisasi_intra_kampus.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"OrganisasiIntraKampus", "Mahasiswa", "JabatanOrganisasiIntraKampus", "OrganisasiIntraKampusPunyaMahasiswa", "LampiranLain", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

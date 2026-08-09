@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "kunciLokasi", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaLokasi"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Lokasi", "Toko", "Gudang"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

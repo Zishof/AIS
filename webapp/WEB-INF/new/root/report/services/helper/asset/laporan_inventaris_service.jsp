@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanInventaris");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.helper.asset");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/helper/asset/LaporanInventaris.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "onReport"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PemilikAsset", "Lokasi", "StatusAsset", "JenisAsset", "KelompokAsset"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AcaraAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/AcaraAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onCetakEvaluasi", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "select"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/rab/acara_punya_kendala.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Acara"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

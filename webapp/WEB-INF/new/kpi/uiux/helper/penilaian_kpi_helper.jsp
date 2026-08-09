@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"initRow", "onEvent", "loadData", "display", "run"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/kpi/nilai_kpi.zul?id="});
 request.setAttribute("nuiEntityCandidates", new String[]{"KenaikanPangkat", "PenilaianKpi", "Pegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

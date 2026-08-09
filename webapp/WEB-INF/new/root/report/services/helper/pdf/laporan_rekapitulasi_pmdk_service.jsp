@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanRekapitulasiPMDKWindow");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.helper.pdf");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/helper/pdf/LaporanRekapitulasiPMDKWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "onLaporanPendaftarPMDK"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

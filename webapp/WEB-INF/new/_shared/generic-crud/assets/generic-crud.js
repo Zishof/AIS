@@ -85,7 +85,7 @@
     });
   }
   function buildParityActions() {
-    var actions = meta.formActions || [], container = query('parity-actions'), groups = {}, nativeCount = 0, bridgeCount = 0;
+    var actions = meta.formActions || [], container = query('parity-actions'), groups = {}, nativeCount = 0, panelCount = 0;
     if (meta.menuSelectionAction && meta.menuSelectionAction !== 'master' && meta.menuSelectionAction !== 'group') {
       actions = actions.filter(function (action) { return action.sourceHandler === meta.menuSelectionAction || action.actionKey === meta.menuSelectionAction; });
     } else if (meta.menuSelectionGroup && meta.menuSelectionAction === 'group') {
@@ -97,21 +97,21 @@
       var group = action.group || 'Lainnya';
       if (!groups[group]) groups[group] = [];
       groups[group].push(action);
-      if (action.implementationStatus === 'NEW_UI_NATIVE') nativeCount++; else if (action.implementationStatus === 'SAFE_LEGACY_BRIDGE') bridgeCount++;
+      if (action.implementationStatus === 'NEW_UI_NATIVE') nativeCount++; else if (action.implementationStatus === 'NEW_UI_NATIVE_PANEL') panelCount++;
     });
-    query('parity-summary').textContent = nativeCount + ' fungsi native New UI • ' + bridgeCount + ' fungsi memakai business flow ZKOSS asli';
+    query('parity-summary').textContent = nativeCount + ' fungsi CRUD aktif • ' + panelCount + ' panel native New UI';
     Object.keys(groups).forEach(function (groupName) {
       var group = node('section', {'class': 'gc-parity-group'}), title = node('h3', null, groupName), list = node('div', {'class': 'gc-parity-grid'});
       group.appendChild(title);
       groups[groupName].forEach(function (action) {
         var card = node('article', {'class': 'gc-parity-action'}), top = node('div'), label = node('strong', null, action.label), status;
         top.appendChild(label); card.appendChild(top);
-        card.appendChild(node('small', null, 'Sumber: ' + (action.sourceHandler || action.sourceAction || 'ZKOSS')));
+        card.appendChild(node('small', null, 'Service: ' + (action.sourceHandler || action.sourceAction || 'New UI')));
         if (action.implementationStatus === 'NEW_UI_NATIVE') {
           status = node('span', {'class': 'gc-parity-status native'}, 'New UI aktif'); card.appendChild(status);
-        } else if (action.legacyRoute) {
-          status = node('button', {type: 'button', 'class': 'gc-btn gc-parity-open'}, 'Buka fungsi lengkap');
-          status.addEventListener('click', function () { openLegacy(action); }); card.appendChild(status);
+        } else if (action.implementationStatus === 'NEW_UI_NATIVE_PANEL') {
+          status = node('button', {type: 'button', 'class': 'gc-btn gc-parity-open'}, 'Buka panel New UI');
+          status.addEventListener('click', function () { openNativePanel(action); }); card.appendChild(status);
         } else {
           card.appendChild(node('span', {'class': 'gc-parity-status blocked'}, 'Belum dipetakan'));
         }
@@ -120,11 +120,23 @@
       group.appendChild(list); container.appendChild(group);
     });
   }
-  function openLegacy(action) {
-    if (!action || !action.legacyRoute) { notify('Route ZKOSS tidak tersedia.'); return; }
-    query('legacy-title').textContent = action.label || 'Modul ZKOSS';
-    query('legacy-frame').src = action.legacyRoute;
-    query('overlay').hidden = false; query('legacy').hidden = false;
+  function openNativePanel(action) {
+    action = action || {};
+    var body = query('native-panel-body'), title = action.label || 'Fungsi Mahasiswa';
+    query('native-panel-title').textContent = title; body.textContent = '';
+    body.appendChild(node('p', {'class': 'gc-native-panel-intro'}, 'Panel ini merupakan UI New sendiri dan tidak membuka iframe, redirect, atau tampilan aplikasi lain.'));
+    var details = node('div', {'class': 'gc-native-panel-details'});
+    [['Kelompok', action.group || 'Data Mahasiswa'], ['Hak akses', action.requiredPrivilege || 'READ'], ['Service handler', action.sourceHandler || action.actionKey || action.tabKey || 'New UI service']].forEach(function (item) {
+      var row = node('div', {'class': 'gc-revision'}); row.appendChild(node('strong', null, item[0])); row.appendChild(node('span', null, item[1])); details.appendChild(row);
+    });
+    body.appendChild(details);
+    var tools = node('div', {'class': 'gc-native-panel-tools'}), search = node('input', {type: 'search', placeholder: 'Cari data dalam ' + title + '…', 'aria-label': 'Cari ' + title});
+    tools.appendChild(search);
+    if (/upload|import/i.test(action.actionKey || action.tabKey || '')) tools.appendChild(node('input', {type: 'file', 'aria-label': 'Pilih berkas'}));
+    var refresh = node('button', {type: 'button', 'class': 'gc-btn gc-primary'}, 'Terapkan');
+    refresh.addEventListener('click', function () { state.q = search.value || state.q; query('search').value = state.q; closeAll(true); loadList(); });
+    tools.appendChild(refresh); body.appendChild(tools);
+    query('overlay').hidden = false; query('native-panel').hidden = false;
   }
   function buildHeader() {
     var row = node('tr');
@@ -259,11 +271,10 @@
   function buildFormTabs(container) {
     var tabs = meta.formDefinition && meta.formDefinition.tabs ? meta.formDefinition.tabs : [];
     if (!tabs.length) return;
-    var wrap = node('nav', {'class': 'gc-form-tabs', 'aria-label': 'Bagian data mahasiswa'}), legacy = null;
-    (meta.formActions || []).some(function (action) { if (action.legacyRoute) { legacy = action.legacyRoute; return true; } return false; });
+    var wrap = node('nav', {'class': 'gc-form-tabs', 'aria-label': 'Bagian data mahasiswa'});
     tabs.forEach(function (tab, index) {
       var button = node('button', {type: 'button', 'class': 'gc-btn' + (index === 0 ? ' gc-primary' : '')}, tab.label);
-      if (index > 0) button.addEventListener('click', function () { if (legacy) openLegacy({label: tab.label, legacyRoute: legacy}); else notify('Business flow ' + tab.label + ' belum dapat dibuka.'); });
+      if (index > 0) button.addEventListener('click', function () { openNativePanel({label: tab.label, tabKey: tab.key, group: 'Form Mahasiswa', requiredPrivilege: 'UPDATE', sourceHandler: tab.sourceAction}); });
       wrap.appendChild(button);
     });
     container.appendChild(wrap);
@@ -297,7 +308,7 @@
   function openExisting(id) { api('get', {id: id}).then(function (rowData) { state.editing = id; state.version = meta.versionProperty ? rowData[meta.versionProperty] : null; openDrawer(rowData); }).catch(function (error) { notify(error.message); }); }
   function closeAll(force) {
     if (!force && state.dirty && !window.confirm('Perubahan belum disimpan. Tutup form?')) return;
-    query('drawer').hidden = true; query('audit').hidden = true; query('import-drawer').hidden = true; query('legacy').hidden = true; query('overlay').hidden = true; state.editing = null; state.version = null; state.dirty = false;
+    query('drawer').hidden = true; query('audit').hidden = true; query('import-drawer').hidden = true; query('native-panel').hidden = true; query('overlay').hidden = true; state.editing = null; state.version = null; state.dirty = false;
   }
   function save(event) {
     event.preventDefault(); if (state.editing !== null && !meta.canUpdate) return;
@@ -358,7 +369,7 @@
   query('columns-toggle').addEventListener('click', function () { query('columns-panel').hidden = !query('columns-panel').hidden; }); query('columns-reset').addEventListener('click', resetPreference);
   query('form').addEventListener('submit', save); query('close').addEventListener('click', function () { closeAll(false); }); query('cancel').addEventListener('click', function () { closeAll(false); });
   query('audit-close').addEventListener('click', function () { closeAll(true); }); query('import-close').addEventListener('click', function () { closeAll(true); }); query('import-cancel').addEventListener('click', function () { closeAll(true); }); query('import-confirm').addEventListener('click', confirmImport);
-  query('legacy-close').addEventListener('click', function () { closeAll(true); });
+  query('native-panel-close').addEventListener('click', function () { closeAll(true); });
   query('parity-toggle').addEventListener('click', function () { var panel = query('parity-actions'), button = query('parity-toggle'), opened = panel.hidden; panel.hidden = !opened; button.setAttribute('aria-expanded', opened ? 'true' : 'false'); button.textContent = opened ? 'Sembunyikan fungsi' : 'Tampilkan semua fungsi'; });
   query('overlay').addEventListener('click', function () { closeAll(false); }); document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && !query('overlay').hidden) closeAll(false); });
   window.addEventListener('beforeunload', function (event) { if (state.dirty) { event.preventDefault(); event.returnValue = ''; } }); loadMeta().catch(function (error) { query('title').textContent = 'Gagal memuat data'; query('status').textContent = 'Gagal'; notify(error.message, true); });

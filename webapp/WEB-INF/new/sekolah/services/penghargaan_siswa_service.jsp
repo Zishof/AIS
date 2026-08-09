@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PenghargaanSiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/PenghargaanSiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onKategoriPenghargaan", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/kategori_penghargaan.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"KategoriPenghargaan", "Siswa", "PenghargaanSiswa", "Sekolah"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

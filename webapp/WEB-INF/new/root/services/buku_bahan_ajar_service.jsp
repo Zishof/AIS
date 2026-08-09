@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BukuBahanAjarAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/BukuBahanAjarAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"tampilkanKutipan", "onEvent", "doBeforeCompose", "doAfterCompose", "run", "displayRow", "render", "onAdd", "onAddExternal", "getDspaceBukuBahanAjar", "getDspace", "onSave", "tampilkanInfoDosen", "initCriteria", "onSearchDefault", "generateCSLItemData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"TahapanPenyusunanBuku", "JenisPeredaranBuku", "Dosen", "BukuBahanAjar", "FileBukuBahanAjar"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AngketPenilaianDosenAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/AngketPenilaianDosenAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onAngketAngketUmum", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaAngket"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/angket_penilaian_umum.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"AngketPenilaianDosen", "Fakultas", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

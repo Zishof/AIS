@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilFile");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/AmbilFile.java");
 request.setAttribute("nuiServiceMethods", new String[]{"fastChannelCopy"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"LampiranLain"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

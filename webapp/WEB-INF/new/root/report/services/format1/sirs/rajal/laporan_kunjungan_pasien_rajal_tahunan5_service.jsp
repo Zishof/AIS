@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanKunjunganPasienRajalTahuna
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.sirs.rajal");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/sirs/rajal/LaporanKunjunganPasienRajalTahunan5Window.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "onCetak"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisPasien", "Poly"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

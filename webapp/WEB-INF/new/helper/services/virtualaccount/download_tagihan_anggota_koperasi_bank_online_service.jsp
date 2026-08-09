@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DownloadTagihanAnggotaKoperasiBan
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.virtualaccount");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/virtualaccount/DownloadTagihanAnggotaKoperasiBankOnline.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getBasicAuthenticationHeader", "downloadData", "main"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"VirtualAccountBank"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

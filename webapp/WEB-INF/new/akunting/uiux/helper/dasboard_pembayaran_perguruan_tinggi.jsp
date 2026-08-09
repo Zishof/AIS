@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyPortallayout");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "getThis", "compare", "initCriteria", "clear", "setValue", "getRows"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"JenisKegiatan", "CicilanPembayaran", "Kegiatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

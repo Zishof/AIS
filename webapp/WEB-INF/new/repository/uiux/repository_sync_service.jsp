@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"getScanned", "getSynced", "getFailed", "getMessage", "synchronizeAll"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"RepoCollection", "RepoItem", "RepoItemMetadata", "String", "Boolean"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

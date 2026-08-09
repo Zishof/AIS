@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AbsenGuruPiketAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/AbsenGuruPiketAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onAbsen", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/welsis.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"AbsenGuruPiket"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

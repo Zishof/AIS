@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "InformasiPembayaranMahasiswaActio
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/InformasiPembayaranMahasiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getLastSelectedJkLabel", "setLastSelectedJkLabel", "getLastSelectedJenisKegiatan", "setLastSelectedJenisKegiatan", "getLastSelectedSmtMulai", "setLastSelectedSmtMulai", "getLastSelectedSmtSampai", "setLastSelectedSmtSampai", "doBeforeCompose", "doAfterCompose", "doInBackground", "updateUI", "onViewExternal", "onEvent", "run", "compare", "loadKegiatan", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/common/daftarulang_mahasiswa_lama.zul?mahasiswa=", "/pages/master/bukti_pembayaran.zul?mahasiswa=", "/pages/master/deposit.zul?mahasiswa=", "/pages/master/log_pembayaran.zul?mahasiswa=", "/pages/master/virtual_account_bank.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa", "BiodataCalonMahasiswa", "JenisKegiatan", "HistoryStatusMahasiswa", "DetailKegiatan", "Kegiatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

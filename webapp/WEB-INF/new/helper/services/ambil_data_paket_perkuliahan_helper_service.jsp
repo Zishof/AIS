@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataPaketPerkuliahanHelper")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/AmbilDataPaketPerkuliahanHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getSelectedPerkuliahansCekJikaBelumAda", "save", "display", "onEvent", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Perkuliahan", "Fakultas", "Jurusan", "Program", "PaketPerkuliahan", "KurikulumPunyaMatakuliah"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

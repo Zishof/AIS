@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "Bsiresponse");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/Bsiresponse.java");
 request.setAttribute("nuiServiceMethods", new String[]{"createKegiatan", "prosesResponse", "main"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PembayaranSiswa", "LogPembayaran", "BsiRequest", "KegiatanTemporary", "Kegiatan", "CicilanPembayaran", "AkunPembayaranSiswa", "Akun", "BsiRequestDetail", "DepositSiswa", "Sekolah", "BsiResponse"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

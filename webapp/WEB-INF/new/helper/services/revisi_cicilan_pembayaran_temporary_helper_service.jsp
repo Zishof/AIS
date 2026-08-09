@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RevisiCicilanPembayaranTemporaryH
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/RevisiCicilanPembayaranTemporaryHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"apply"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"CicilanPembayaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

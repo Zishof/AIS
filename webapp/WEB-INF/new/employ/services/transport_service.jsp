@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TransportAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.employ");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/employ/TransportAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Golongan", "Peraturan", "Transport"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

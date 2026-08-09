@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KomponenPenilaianKknAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.kkn");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/kkn/KomponenPenilaianKknAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault", "checkNamaKomponenPenilaianKkn"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KomponenPenilaianKkn"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

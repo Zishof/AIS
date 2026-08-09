@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AturanCutiHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.payroll.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/payroll/helper/AturanCutiHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"gerbangAktif", "nilaiAngka", "jatahTahunanMenurutMasaKerja", "totalBulanKerja", "validasiBatasPengajuan", "validasiLiburPanjang", "apakahLiburPanjang", "durasiBaku", "validasiDurasiBaku", "awalHari", "tambahHari"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"LiburNasional"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

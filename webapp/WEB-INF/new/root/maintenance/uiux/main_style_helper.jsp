@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"setStyle", "getStyle", "setSclass", "setZclass", "appendSclassOnce", "appendStyleOnce", "applyTransparent", "applyTransparentNoBorder", "applyFullSize", "applyStandardTabbox", "applyStandardTabpanels", "applyAutoScrollableTabpanel", "applyDashboardFrame", "applyDashboardContent", "applyDashboardMessage", "applyDashboardMessageTitle", "applyDashboardMessageDescription", "applyDashboardHeader", "applyDashboardHeaderTitle", "applyDashboardHeaderDescription", "applyBackground", "applyResponsiveFrameWidth", "applyResponsiveCenterWidth", "applyResponsiveTabsWidth", "applyResponsivePanelWidth", "applyResponsiveHomePanelWidth", "applyResponsiveGridHeaderWidth", "applyResponsiveFrameHeight", "applyResponsivePanelHeight", "applyResponsiveHomePanelHeight", "applyResponsiveSidebarHeight", "menuBackgroundStyle", "applyFooterText", "applyChatTransparent", "applyHomeStack", "applyAnnouncementPanel", "applyAnnouncementHeader", "applyAnnouncementSearchPanel", "applyAnnouncementSearchInput", "applyAnnouncementSearchPrimaryButton"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"String"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

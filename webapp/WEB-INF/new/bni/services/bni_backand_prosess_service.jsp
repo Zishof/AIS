@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BniBackandProsess");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.bni");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/bni/BniBackandProsess.java");
 request.setAttribute("nuiServiceMethods", new String[]{"check", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"BniResponse", "BniRequest"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

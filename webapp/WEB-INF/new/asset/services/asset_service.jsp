@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AssetAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.asset");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/asset/AssetAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onInventaris", "doBeforeCompose", "doAfterCompose", "onEvent", "initCriteria", "render", "onAdd", "init", "onSave", "initCriteriaDetail", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KelompokAsset", "Lokasi", "JenisAsset", "AssetDetail", "MasterAsset", "Asset", "LampiranLain"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

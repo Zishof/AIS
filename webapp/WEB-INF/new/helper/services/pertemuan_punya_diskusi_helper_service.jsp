@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PertemuanPunyaDiskusiHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/PertemuanPunyaDiskusiHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"displayRow", "onEvent", "loadData", "aksesDianggapHadir", "tidakAksesDianggapAlpa", "diskusiDianggapHadir", "display", "initCriteria", "render", "onAddKomentar", "onAdd", "onSave"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Pertemuan", "LampiranLain", "PertemuanPunyaDiskusi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ConstansValueIso8583");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.iso8583");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/iso8583/ConstansValueIso8583.java");
 request.setAttribute("nuiServiceMethods", new String[]{"main"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

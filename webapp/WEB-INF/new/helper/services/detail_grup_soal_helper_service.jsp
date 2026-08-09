@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DetailGrupSoalHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/DetailGrupSoalHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"display", "onEvent", "render", "doDownload", "doUpload", "loadData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"BankSoal", "BankSoalDetail", "PenjelasanBankSoal"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

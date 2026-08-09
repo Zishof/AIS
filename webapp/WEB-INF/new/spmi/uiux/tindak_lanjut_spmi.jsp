@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "BaseSPMIAction");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"openForTemuan", "buildInlinePanel", "onEvent", "doAfterCompose", "init", "initCriteria", "onSearchDefault", "render"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"TindakLanjutTemuanSPMI"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

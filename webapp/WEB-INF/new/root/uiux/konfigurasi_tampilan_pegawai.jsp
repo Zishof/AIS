@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "KonfigurasiNewAction");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "keyDesc", "apakahAdaTidakAktif", "wajibIsi", "statusWajibIsi", "dataYangWajibDiisi", "onTampil", "muat"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/payroll/jatah_cuti.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

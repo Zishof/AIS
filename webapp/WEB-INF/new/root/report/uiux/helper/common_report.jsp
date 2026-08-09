@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"tampilkanReportPDF", "generateParameters", "onEvent", "tampilkanReportXLS", "generateReportType", "exportReport", "generateFileJasper", "gunakanYangAsli", "inputMinggu", "inputParameterTanggal", "getMinggu"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/sub_report.zul?namaStr=", "/pages/master/pendukung_report.zul?namaStr="});
 request.setAttribute("nuiEntityCandidates", new String[]{"LampiranLain"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

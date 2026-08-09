@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KelompokKegiatanKemahasiswaanActi
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/KelompokKegiatanKemahasiswaanAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onKelompokAspek", "onJabatanKegiatanKemahasiswaan", "onSkalaKegiatanKemahasiswaan", "onNilaiKegiatanKemahasiswaan", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaKelompokKegiatanKemahasiswaan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/jenis_kelompok_kegiatan_kemahasiswaan.zul", "/pages/master/jabatan_kegiatan_kemahasiswaan.zul", "/pages/master/skala_kegiatan_kemahasiswaan.zul", "/pages/master/nilai_kegiatan_kemahasiswaan.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"KelompokKegiatanKemahasiswaan", "JenisKelompokKegiatanKemahasiswaan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"dashboardDescription", "dashboardCard", "closeOpenedSession"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"DashboardLogAktifitasPengguna", "DashboardStatistikJenisSekolahMahasiswaBaru", "DashboardRekapJenisSekolahMahasiswaBaru", "DashboardRekapKunjunganPengguna", "DashboardRekapMenuPengguna", "DashboardRekapPengambilanKRSMahasiswa", "DashboardRekapPerkuliahan", "DashboardRekapStatusMahasiswa", "DashboardStatistikJumlahMahasiswa", "DashboardStatistikKunjunganPengguna", "DashboardStatistikPengambilanKRSMahasiswa", "DashboardStatistikPenilaian", "DashboardStatistikPerkuliahan", "DashboardStatistikStatusMahasiswa", "LaporanDaftarHadirDosen", "LaporanRekapPenilaianMahasiswaWindow", "LaporanDaftarNilaiWindow", "LaporanDaftarPrestasiBelajarWindow", "DashboardPerbandinganSudahMembayarDanBelum", "DashboardRekapPembayaranMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

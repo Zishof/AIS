@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TbmuserAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.maintenance");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/maintenance/TbmuserAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "updateUser", "tampilkanSocialMediaProfile", "render", "onAddExternal", "onDownloadFotoMassal", "onUploadFotoMassal", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Tbmrole", "ParameterTambahanPaket", "Tbmuser", "LogLogin", "Journals", "Users", "Roles", "FotoAdmin", "PerguruanTinggi", "Program", "Toko", "Pedagang"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

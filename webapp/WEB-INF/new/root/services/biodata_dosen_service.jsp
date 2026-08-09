@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BiodataDosenAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/BiodataDosenAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"displayBiodataWindow", "checkEmailDosen", "onEvent", "checkBiodataDosen", "setCommonOnSearchdefault", "getCommonOnSearchdefault", "init", "onSave", "loadDataDosen", "initData", "initKeluarga", "initAlamat", "reloadDosen", "run", "reloadDosenBimbingan", "reloadDosenPenguji", "reloadDosenKkn", "getDspaceSK", "getDspaceTugasMengajar"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/biodata_dosen.zul?refresh=true", "/pages/master/mengajar_di_perguruan_tinggi_lain.zul?dosen=", "/pages/master/tugas_belajar_dosen.zul?dosen=", "/pages/master/akreditasi.zul?dosen=", "/pages/master/buku_bahan_ajar.zul?dosen=", "/common/checklist_penilaian_umum.zul?dosen="});
 request.setAttribute("nuiServiceEntities", new String[]{"Dosen", "BiodataDosen", "FotoDosen", "Tbmuser", "PerguruanTinggi", "Fakultas", "Jurusan", "IkatanKerjaDosen", "StatusKepegawaian", "JenisPendidikDanTenagaKependidikan", "JabatanFungsionalDosen", "StatusPegawai", "GolonganPns", "LembagaPengangkat", "SumberGaji", "Jabatan", "Pendidikan", "AsesorPenunjangKinerjaDosen", "Asesor", "AsesorPegawai", "Pegawai", "Agama", "PekerjaanOrangTua", "Propinsi", "Kota", "PenugasanDosenMengajar"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

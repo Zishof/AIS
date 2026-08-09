@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TenantSetoranUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.koperasi.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/koperasi/helper/TenantSetoranUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"nz", "kewajiban", "daftar", "simpan", "hapus"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"SetoranTenant"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

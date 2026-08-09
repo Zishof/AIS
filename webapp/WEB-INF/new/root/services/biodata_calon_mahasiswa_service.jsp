@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BiodataCalonMahasiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/BiodataCalonMahasiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "initCriteria", "render", "onSearchDefault", "loadData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/kalender_biodataCalonMahasiswa.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"BiodataCalonMahasiswa", "Jenjang", "FotoBiodataCalonMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

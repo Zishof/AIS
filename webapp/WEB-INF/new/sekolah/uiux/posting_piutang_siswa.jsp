@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onPiutangDenda", "onTabungan", "onUtangDiskon", "onDibayarDimuka", "onPostingPembayaran", "doBeforeCompose", "doAfterCompose", "onEvent", "onBatalkanPostingSemua", "onPostingSemua", "run", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/sekolah/posting_piutang_denda.zul", "/pages/master/sekolah/posting_tabungan_siswa.zul", "/pages/master/sekolah/posting_utang_diskon.zul", "/pages/master/sekolah/posting_dibayar_dimuka.zul", "/pages/master/sekolah/posting_pembayaran.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"ItemBiayaSekolah", "Tagihan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

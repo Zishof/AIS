@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MasterPerguruanTinggi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.epsbed");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/epsbed/MasterPerguruanTinggi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PerguruanTinggi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DataSisterAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/DataSisterAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "compare", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"DataSister"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

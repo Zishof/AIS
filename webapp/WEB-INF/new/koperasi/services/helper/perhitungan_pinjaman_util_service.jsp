@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PerhitunganPinjamanUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.koperasi.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/koperasi/helper/PerhitunganPinjamanUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"hitungJadwal", "totalBunga"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

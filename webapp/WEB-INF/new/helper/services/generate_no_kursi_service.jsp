@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "GenerateNoKursiWindow");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/GenerateNoKursiWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "onGenerateLaporanRegistrasiWisuda", "onCetakLaporanNoKursiWisuda"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PendaftaranWisuda"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

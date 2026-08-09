@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "initDetail", "reloadNilai", "loadDataDetail", "initRow"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"PenerimaanPengadaanMasterAssetDetail", "SaldoAwalMasterAssetDetail", "JenisPajakPpn", "JenisPajakBarang", "PenerimaanPengadaanMasterAsset", "PemesananPengadaanMasterAsset", "PermintaanPengadaanMasterAsset"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

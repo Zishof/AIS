@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "IpaymuRequestAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.ipaymu");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/ipaymu/IpaymuRequestAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"IpaymuRequestDetail", "IpaymuRequest"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

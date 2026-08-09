@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MonitorKadaluarsaItemAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/MonitorKadaluarsaItemAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "render", "onCetak", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"SatuanItem", "JenisItem", "Lokasi", "ItemMedis"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

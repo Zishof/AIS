@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CalendarJadwalPolyComposer");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs.jadwal_dokter");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/jadwal_dokter/CalendarJadwalPolyComposer.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onBack", "onNext", "onEvent", "onRefresh", "doAfterCompose", "onMoveDate", "onToday", "onSwitchTimeZone", "onUpdateFirstDayOfWeek", "onUpdateView", "onSave", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Shift", "Poly", "JadwalDokter"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

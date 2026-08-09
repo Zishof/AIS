@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanDaftarNilaiWindow");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.helper.nilai");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/helper/nilai/LaporanDaftarNilaiWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Fakultas", "Jurusan", "Detailperkuliahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

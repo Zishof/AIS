@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "GetTransaksi");
 request.setAttribute("nuiSourceMethods", new String[]{"doAfterCompose", "onEvent", "render", "onDelete", "onAdd", "onSave", "onSaveTransaksi", "onSearchDefault", "getTransaksi", "getLokasi", "getAdd", "getSimpan", "getKelasPerawatan", "getResep", "getSumber"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"JenisPasien", "Pendaftaran", "TransaksiMedis"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

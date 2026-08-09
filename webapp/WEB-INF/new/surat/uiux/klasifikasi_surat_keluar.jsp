@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "OnSaveListener, DataCriteria, DataSearchDefault, DataInitDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onNomorSurat", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "init", "onAdd", "masukkanTabelKeParameter", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/surat/nomor_surat.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"KelompokNomorSurat", "KlasifikasiSuratKeluar", "Tbmrole", "VariableSuratKeluar", "KlasifikasiSuratKeluarParemeter", "KlasifikasiSuratKeluarUntuk", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

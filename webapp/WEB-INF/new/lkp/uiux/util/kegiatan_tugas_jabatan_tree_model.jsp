@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "AbstractTreeModel");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"setSatuanKerja", "getChildren", "getChildrenByIds", "generateAllChildren", "getChild", "getChildCount", "getChildCountByIds", "deleteChilds", "isLeaf", "getIndukCount", "getIndukSet", "generateChildsByIds", "getChildsSet", "getIndexOfChild"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"KegiatanTugasJabatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

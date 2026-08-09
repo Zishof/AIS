@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanRekapRencanaGaji");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.payroll");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/payroll/LaporanRekapRencanaGaji.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "onCetak", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"RencanaGajiPunyaPegawai", "ItemGaji"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CommonUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.ws.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/ws/util/CommonUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"isNowSemensterGanjil", "setRequestAndresponse", "convertToResponse", "checkIfCicilan", "getSemester", "convertToString", "generateTahunAkademik", "simpanTemporary", "ambilTemporary", "ada", "reset"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AbsensiUiHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/AbsensiUiHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"gayaKartuPresensi", "wadahRingkasanAtas", "htmlRingkasanGabung", "badgeStatus", "htmlKomposisiKehadiran", "htmlTrenKehadiran"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Statusabsensi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

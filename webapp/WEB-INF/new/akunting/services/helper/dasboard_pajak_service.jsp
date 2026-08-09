@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DasboardPajak");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.akunting.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/akunting/helper/DasboardPajak.java");
 request.setAttribute("nuiServiceMethods", new String[]{"render", "onEvent", "compare"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Pajak"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

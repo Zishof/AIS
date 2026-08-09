@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "FeederExporterGenerator");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.feeder.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/feeder/util/FeederExporterGenerator.java");
 request.setAttribute("nuiServiceMethods", new String[]{"dosen_pt", "ajar_dosen", "mahasiswa_pt", "mahasiswa", "perkuliahan", "formatNilai", "perkuliahan_dosen", "kurikulumPunyaMatakuliah", "kurikulum", "nilaiHuruf", "matakuliah", "krs", "nilai", "nilai_transfer", "digitPeriodeFeeder", "kuliah_mahasiswa"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"BiodataCalonMahasiswa", "Pertemuan", "StatusMatakuliah", "KelompokMatakuliahPunyaMatakuliah", "KelompokMatakuliah"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericCrudAction<Jurusan>");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "run", "initCriteria", "onAkreditasi", "onKonsentrasi", "onCapaianPembelajaranLulusan", "onJenisCapaianPembelajaranLulusan", "getDspace", "getDspaceBerkasHasilAkreditasi", "onInfo", "buildInfoMode", "onSave", "render"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/akreditasi.zul", "/pages/master/konsentrasi.zul", "/pages/master/capaian_jurusan.zul", "/pages/master/jenis_capaian_jurusan.zul", "/pages/master/berkas_hasil_akreditasi.zul?jurusan=", "/pages/master/capaian_jurusan.zul?jurusan="});
 request.setAttribute("nuiEntityCandidates", new String[]{"Jurusan", "GrupJurusan", "Fakultas", "Jenjang", "BerkasHasilAkreditasiPunyaNama", "JenjangProgramStudi", "FasilitasAkademikJurusan", "Staff"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

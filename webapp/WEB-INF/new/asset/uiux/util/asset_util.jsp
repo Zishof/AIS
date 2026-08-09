@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"ambilDataAkun", "reloadFormula", "onEvent", "reloadDataFormula"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"StatusAsset", "Akun", "SatuanKerja"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

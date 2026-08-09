@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "Data");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/Data.java");
 request.setAttribute("nuiServiceMethods", new String[]{"ambil", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"GDriveCode", "FotoAdmin", "Tbmuser", "Tbmrole", "LampiranLain"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

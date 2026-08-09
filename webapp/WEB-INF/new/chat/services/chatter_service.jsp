@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "Chatter");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.chat");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/chat/Chatter.java");
 request.setAttribute("nuiServiceMethods", new String[]{"run", "getSender", "addMessage", "sendMessage", "setDone"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Pesan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

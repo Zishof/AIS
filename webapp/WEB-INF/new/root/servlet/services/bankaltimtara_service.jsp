@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "Bankaltimtara");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/Bankaltimtara.java");
 request.setAttribute("nuiServiceMethods", new String[]{"checkPakaiqris", "checkPakaiva", "doProcess", "doProses"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Kegiatan", "DetailBiaya", "PengaturanPembayaranBulanan", "CicilanPembayaran", "ItemBiaya"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "GuruMengajarAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/GuruMengajarAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onCopyJadwalPelajaran", "render", "onAddExternal", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Guru", "GuruMengajar", "JadwalPelajaran", "SubMatapelajaran", "JamPelajaran", "Matapelajaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

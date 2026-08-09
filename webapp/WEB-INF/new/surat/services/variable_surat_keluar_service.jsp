@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "VariableSuratKeluarAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.surat");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/surat/VariableSuratKeluarAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault", "checkNamaVariableSuratKeluar"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"VariableSuratKeluar", "String", "Integer", "Double", "Date"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

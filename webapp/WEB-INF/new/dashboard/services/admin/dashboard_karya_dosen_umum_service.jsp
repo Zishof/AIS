@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardKaryaDosenUmum");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.admin");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/admin/DashboardKaryaDosenUmum.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/common/dashboard/penghargaan_dosen.zul?jurusan="});
 request.setAttribute("nuiServiceEntities", new String[]{"PenghargaanDosen"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

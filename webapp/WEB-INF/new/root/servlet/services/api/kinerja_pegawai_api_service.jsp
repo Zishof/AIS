@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KinerjaPegawaiApi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/KinerjaPegawaiApi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"daftarTugasJabatan", "lanjutTugasJabatan", "simpanTugasJabatan", "daftarCatatanTugasJabatan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KegiatanTugasJabatan", "TargetKerjaPegawai", "RealisasiKerjaPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

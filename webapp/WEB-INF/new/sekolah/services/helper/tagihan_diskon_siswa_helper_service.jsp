@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TagihanDiskonSiswaHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/helper/TagihanDiskonSiswaHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"sinkronkanDiskon", "diskonTidakMemotongTagihan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Tagihan", "DiskonSiswaPunyaSiswa", "DiskonSiswaItemBiaya", "DiskonSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

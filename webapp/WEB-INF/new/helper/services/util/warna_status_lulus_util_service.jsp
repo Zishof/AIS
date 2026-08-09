@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "WarnaStatusLulusUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/util/WarnaStatusLulusUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"belumLulus", "warnai"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ConstantValues", "String", "Mahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

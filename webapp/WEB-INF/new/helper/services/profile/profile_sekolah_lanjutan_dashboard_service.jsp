@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ProfileSekolahLanjutanDashboard")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.profile");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/profile/ProfileSekolahLanjutanDashboard.java");
 request.setAttribute("nuiServiceMethods", new String[]{"append", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Siswa", "CalonSiswa", "Guru", "KelasSiswa", "Matapelajaran", "GuruMengajar", "JadwalPelajaran", "PembayaranSiswa", "PelanggaranSiswa", "CatatanSiswa", "KegiatanSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

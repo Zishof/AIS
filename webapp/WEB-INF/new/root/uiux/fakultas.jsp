@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericCrudAction<Fakultas>");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "run", "initCriteria", "getDspace", "onSave", "checkNamaFakultas", "checkKodeFakultas", "render"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/berkas_hasil_akreditasi.zul?fakultas="});
 request.setAttribute("nuiEntityCandidates", new String[]{"Fakultas", "BerkasHasilAkreditasiPunyaNama", "PerguruanTinggi", "Jabatan", "Staff"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PostingDepositSiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/PostingDepositSiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onBiayaAdmin", "onBiayaPaymentGateway", "doBeforeCompose", "doAfterCompose", "onEvent", "onBatalkanPostingSemua", "onPostingSemua", "run", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/posting_biaya_administrasi_pembayaran_siswa.zul", "/pages/master/posting_biaya_payment_gateway_pembayaran_siswa.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"AkunPembayaranSiswa", "DepositSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

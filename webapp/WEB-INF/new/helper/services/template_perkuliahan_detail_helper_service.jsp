@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TemplatePerkuliahanDetailHelper")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/TemplatePerkuliahanDetailHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"display", "onEvent", "checkKeberadaanPerkuliahan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/template_perkuliahan/template_perkuliahan_detail.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"TemplatePerkuliahanDetail", "Perkuliahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

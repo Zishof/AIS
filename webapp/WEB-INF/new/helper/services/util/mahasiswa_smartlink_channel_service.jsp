@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MahasiswaSmartlinkChannelWindow")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/util/MahasiswaSmartlinkChannelWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "initBanyak", "onEvent", "init"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa", "BiodataCalonMahasiswa", "BankHost", "JadwalPembayaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

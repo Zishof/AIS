@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"initAgendaPerkuliahan", "onEvent", "loadData", "run", "tampilCalender", "initDetail", "chekSimpan", "tampilkanLampiran", "createKeterangan", "createKeteranganData", "createCalendarButton", "createClasroomButton"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/tampilan_pengumuman_perkuliahan.zul?perkuliahan=", "/pages/master/rps_obe.zul?kur=", "/pages/master/nilai_obe.zul?perkuliahan=", "/read_qr_code_kartu.jsp?q=", "/read_rfid_kartu.jsp?q="});
 request.setAttribute("nuiEntityCandidates", new String[]{"Pertemuan", "Detailperkuliahan", "Jurusan", "Fakultas", "PerguruanTinggi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

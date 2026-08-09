@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ImportFromRKAKLHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.impor");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/impor/ImportFromRKAKLHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"main", "writeToDBF", "doImport", "importData", "read", "execute"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

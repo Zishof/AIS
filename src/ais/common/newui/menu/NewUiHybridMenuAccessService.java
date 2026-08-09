@@ -1,6 +1,5 @@
 package ais.common.newui.menu;
 
-import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -112,9 +111,6 @@ public final class NewUiHybridMenuAccessService {
         if (NewUiHybridMenuRouteRegistry.NEW_UI.equals(route.getStatus())) {
             node.setNewUiModule(route.getModule()); node.setNewUiPage(route.getPage());
             node.setResolvedUrl(safeContext(contextPath) + "/new?frame=1&menuId=" + menu.getId());
-        } else if (route.isValid()) {
-            String legacy = buildLegacyUrl(menu, contextPath);
-            node.setLegacyUrl(legacy); node.setResolvedUrl(legacy);
         }
         node.setAliases(aliasFor(node.getLabel()));
         node.setKeywords(keywordFor(menu.getUrl()));
@@ -131,14 +127,6 @@ public final class NewUiHybridMenuAccessService {
             if (module.equals(node.getNewUiModule()) && wantedPage.equals(nodePage)) return node;
         }
         return null;
-    }
-
-    private static String buildLegacyUrl(Menu menu, String contextPath) {
-        if (menu == null || !ais.common.newui.NewUiRouteRegistry.isSafeLegacyUrl(menu.getUrl())) return null;
-        try {
-            String p = menu.getUrl().replaceAll("\\p{Punct}", "");
-            return safeContext(contextPath) + "/baru?p=" + URLEncoder.encode(p, "UTF-8") + "&menu=" + menu.getId();
-        } catch (Exception e) { record(e, "buildLegacyUrl"); return null; }
     }
 
     private static boolean passesInstitutionScope(Menu menu, boolean school, boolean filterPerSchool) {

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JurusanAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/JurusanAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "run", "initCriteria", "onAkreditasi", "onKonsentrasi", "onCapaianPembelajaranLulusan", "onJenisCapaianPembelajaranLulusan", "getDspace", "getDspaceBerkasHasilAkreditasi", "onInfo", "buildInfoMode", "onSave", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/akreditasi.zul", "/pages/master/konsentrasi.zul", "/pages/master/capaian_jurusan.zul", "/pages/master/jenis_capaian_jurusan.zul", "/pages/master/berkas_hasil_akreditasi.zul?jurusan=", "/pages/master/capaian_jurusan.zul?jurusan="});
 request.setAttribute("nuiServiceEntities", new String[]{"Jurusan", "GrupJurusan", "Fakultas", "Jenjang", "BerkasHasilAkreditasiPunyaNama", "JenjangProgramStudi", "FasilitasAkademikJurusan", "Staff"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

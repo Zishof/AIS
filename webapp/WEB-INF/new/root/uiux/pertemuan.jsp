@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataLoader, DataCriteria, DataSearchDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onTampilPanelIkut", "onRekapPertemuanPerkuliahan", "onKegiatanMahasiswa", "onPerkuliahanSp", "onEkstrakurikuler", "onParameterPertemuanPerkuliahan", "onPraPerkuliahan", "doBeforeCompose", "onDownloadLampiran", "onEvent", "download", "onJadwalRemedial", "tampilanExportKeFeeder", "run", "kirimKeFeeder", "doAfterCompose", "getDspace", "render", "initCriteria", "loadData", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/ikut_pertemuan.zul", "/pages/master/pertemuan_sp.zul", "/pages/master/pertemuan_ekstrakulikuler.zul", "/pages/master/parameter_tambahan_pertemuan.zul", "/pages/master/pertemuan_pra_perkuliahan.zul", "/pages/master/pertemuan_remedial.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"LampiranLain", "Perkuliahan", "Pertemuan", "Detailperkuliahan", "MahasiswaDapatKelompokKkn", "MahasiswaDapatKelompokPkl"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault, DataInitDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onMasa", "onLaporanJadwalPelajaran", "doBeforeCompose", "doAfterCompose", "onEvent", "run", "lihatJadwalBentrok", "bentrok", "checkBentrokBerdasarRuangan", "checkBentrokBerdasarKelas", "checkBentrokBerdasarGuru", "render", "onAddExternal", "onAdd", "onAddBerdasarKurikulum", "init", "onSave", "initCriteria", "onSearchDefault", "generateiIntroductoryText", "onCopyJadwalPelajaran", "onDeleteJadwalPelajaran"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/sekolah/masa_jadwal_pelajaran.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"KelasSiswa", "JadwalPelajaran", "KurikulumPunyaMatapelajaran", "Pertemuan", "SubMatapelajaran", "MasaJadwalPelajaran", "JamPelajaran", "Matapelajaran", "KelasSiswaPunyaSiswa", "JadwalPelajaranPunyaItem", "MatapelajaranPunyaBukuBahanAjar", "DataPunyaArtikel"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

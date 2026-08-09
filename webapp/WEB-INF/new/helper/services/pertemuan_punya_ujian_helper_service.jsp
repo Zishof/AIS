@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PertemuanPunyaUjianHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/PertemuanPunyaUjianHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"prosesUlangSoal", "onEvent", "run", "tampilBolekIkutUjianAtauTidak", "render", "cetak", "loadData", "bukaPengaturanUjian", "display", "realoadNilai"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/hasil_ujian_mahasiswa.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"PertemuanPunyaUjian", "RuangPaketPMB", "BiodataCalonMahasiswa", "UjianPunyaSoal", "HasilUjianMahasiswaDetail", "Pertemuan", "Ujian", "CapaianLulusan", "ProfilLulusan", "Perkuliahan", "LampiranLain", "Pegawai", "Dosen", "HasilUjianMahasiswa", "BankSoalDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

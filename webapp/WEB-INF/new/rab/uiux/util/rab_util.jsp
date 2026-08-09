@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"ubahSemuaStatus", "getDetailWorkspace", "getDetailTugas", "setDefaultPegawai", "getParentSet", "checkSimpanAcara", "pindahkanAcaraKeRevisiBaru", "checkForChildsCopy", "createNewRevisi", "onEvent", "executeCopy"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"JenisInformasiRab", "Workspace", "Transaksi", "GrupTransaksi", "AcaraHasTransaksi", "Acara", "WorkspacePunyaPegawai", "WorkspacePunyaSasaran", "WorkspacePunyaIndikator", "WorkspacePunyaJenisParameter", "Tugas", "TugasPunyaPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

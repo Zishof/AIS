@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CalonPegawaiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.recruitment");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/recruitment/CalonPegawaiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onDokumen", "onDokumenPenyedia", "doBeforeCompose", "onEvent", "doAfterCompose", "onInfo", "onAddExternalDaftar", "render", "onAddExternal", "init", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/recruitment/verifikasi_kelengkapan_calon_pegawai.zul", "/pages/master/recruitment/calon_pegawai_punya_verifikasi_dokumen.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"CalonPegawai", "Tbmuser", "CalonPegawaiPunyaDokumen", "LampiranLain", "VerifikasiKelengkapanCalonPegawai", "Agama", "GelombangPendaftaranPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

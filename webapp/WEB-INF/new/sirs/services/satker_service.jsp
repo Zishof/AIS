@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "SatkerAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/SatkerAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initCriteria", "onEvent", "onSave", "checkNamaSatker", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Satker"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

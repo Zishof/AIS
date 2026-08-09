@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BuatRacikanBaruHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/helper/BuatRacikanBaruHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "onSave", "render", "loadData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Racikan", "RacikanDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

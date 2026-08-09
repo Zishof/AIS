@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AfiliasiCalonMahasiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/AfiliasiCalonMahasiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onDosen", "onMahasiswa", "doBeforeCompose", "doAfterCompose", "onEvent", "initCriteria", "tampilkanSemuaDownload", "render", "onAdd", "init", "onSave", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/afiliasi_calon_mahasiswa_pegawai.zul", "/pages/master/afiliasi_calon_mahasiswa_mahasiswa.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"AfiliasiCalonMahasiswa", "BiodataCalonMahasiswa", "StatusAwalMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"sinkronkan", "run", "onEvent"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"UangMuka", "KasBesar", "DanaTalangan", "PenggantianKasKecil", "JenisKasKecil", "PengajuanTransaksiPegawai", "TransaksiKoperasi", "PembayaranDpMasterAssetDetail", "PembayaranTerminMasterAssetDetail", "PembayaranPengadaanMasterAssetDetail", "SaldoAwalMasterAsset", "Pertangungjawaban", "PertangungjawabanKasBesar", "Pajak", "Tagihan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

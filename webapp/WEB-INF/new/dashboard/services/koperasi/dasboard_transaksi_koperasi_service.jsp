@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DasboardTransaksiKoperasi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.koperasi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/koperasi/DasboardTransaksiKoperasi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "initCriteria"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"TransaksiKoperasi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

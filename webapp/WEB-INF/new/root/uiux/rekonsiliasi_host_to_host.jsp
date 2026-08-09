@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria");
 request.setAttribute("nuiSourceMethods", new String[]{"onBelumRekonsiliasi", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/log_host_to_host_yang_belum_reconsile.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"RekonsiliasiHostToHost", "CicilanPembayaran", "CicilanPembayaranGagal", "JenisRekonsiliasiHostToHost", "DefaultJenisParsingReconsile"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

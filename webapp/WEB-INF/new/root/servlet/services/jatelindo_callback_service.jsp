@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JatelindoCallback");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/JatelindoCallback.java");
 request.setAttribute("nuiServiceMethods", new String[]{"createKegiatan", "prosesResponse", "prosesTransaksi", "process"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JatelindoRequest", "KegiatanTemporary", "Kegiatan", "CicilanPembayaran", "LogPembayaran", "JatelindoRequestDetail", "JatelindoResponse"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

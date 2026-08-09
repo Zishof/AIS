@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardStatistikPengajuanWisuda
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.admin");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/admin/DashboardStatistikPengajuanWisudaPerJurusan.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "reinit", "initCriteria"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PendaftaranWisuda", "Wisuda"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

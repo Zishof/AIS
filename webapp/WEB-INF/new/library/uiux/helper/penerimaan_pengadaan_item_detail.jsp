@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyDetail");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "render", "loadData", "display"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/library/barcode_item.zul?penerimaanPengadaanItem="});
 request.setAttribute("nuiEntityCandidates", new String[]{"PenerimaanPengadaanItemDetail", "BatchItemPunyaBarcode", "ItemPunyaBarcode"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

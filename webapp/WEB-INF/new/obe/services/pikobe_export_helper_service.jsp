@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PikobeExportHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.obe");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/obe/PikobeExportHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"unduhExcel"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

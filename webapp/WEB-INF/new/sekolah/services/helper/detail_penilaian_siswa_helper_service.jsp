@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DetailPenilaianSiswaHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/helper/DetailPenilaianSiswaHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initCriteria", "displayPenilaian", "onEvent", "displayDetailPA", "uploadDataNilai", "run", "tampilKunci"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KelasSiswaPunyaSiswa", "DetailJenisPenilaian", "GrupPenilaian", "DetailGrupPenilaian", "GrupKategoriItemPenilaianSiswa", "Agama", "DetailGrupKategoriItemPenilaianSiswa", "KategoriItemPenilaianSiswa", "JenisItemPenilaianSiswa", "Siswa", "KurikulumPunyaMatapelajaran", "JenisPenilaian", "JadwalPelajaran", "Guru"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

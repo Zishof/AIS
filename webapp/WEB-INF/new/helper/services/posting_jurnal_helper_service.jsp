@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PostingJurnalHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/PostingJurnalHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"ambilParameterBoolean", "ambilParameterSudahPosting", "ambilParameterEntitasClosing", "terapkanParameterTanggal", "restriksiPosting", "dateSql", "hitung", "terapkanStatusPostingHistory", "restriksiRefClosing", "restriksiJenisClosing", "hitungClosing", "urlPosting", "urlClosing", "urlGrupTransaksi", "bukaJendela", "buatLinkAngka", "onEvent", "tambahBarisJurnal"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/akunting/grup_transaksi.zul?sudah_closing=true", "/pages/master/akunting/grup_transaksi.zul?"});
 request.setAttribute("nuiServiceEntities", new String[]{"GrupTransaksi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

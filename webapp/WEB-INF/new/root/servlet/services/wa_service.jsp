@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "Wa");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/Wa.java");
 request.setAttribute("nuiServiceMethods", new String[]{"tanya", "run", "buatProfile", "kirimWaViaUltramsg", "ubahKeBold"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"WaProfile", "Tbmuser", "JenisPengaduan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

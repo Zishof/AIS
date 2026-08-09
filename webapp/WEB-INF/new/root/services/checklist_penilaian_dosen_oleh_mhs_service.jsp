@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ChecklistPenilaianDosenOlehMhsAct
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/ChecklistPenilaianDosenOlehMhsAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onIsiAngketDosenSelesai", "doBeforeCompose", "doAfterCompose", "onEvent", "onRefresh", "render", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa", "JadwalChecklistPenilaianUmum"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

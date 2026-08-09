@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RiwayatKartuIdentitasPegawaiActio
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.employ");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/employ/RiwayatKartuIdentitasPegawaiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

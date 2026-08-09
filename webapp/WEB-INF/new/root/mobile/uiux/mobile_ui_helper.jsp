@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"div", "label", "image", "iconButton", "bottomButton", "desktopLink", "chip", "card", "sectionHead", "listItem", "notifRow", "profileHead", "profileRow", "hero", "todayCard", "metric", "quickTile", "searchBox", "meter", "simpleTrend", "trendChart", "spider", "empty", "spacer", "clear"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

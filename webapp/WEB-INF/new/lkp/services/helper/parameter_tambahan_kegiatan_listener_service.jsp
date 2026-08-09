@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ParameterTambahanKegiatanListener
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.lkp.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/lkp/helper/ParameterTambahanKegiatanListener.java");
 request.setAttribute("nuiServiceMethods", new String[]{"validate", "onSave", "check", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ParameterTambahanKegiatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

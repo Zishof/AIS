@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PenerimaanPengadaanMasterAssetHel
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.asset.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/asset/helper/PenerimaanPengadaanMasterAssetHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initDetail", "onEvent", "columnsData", "setTermin", "initRow"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PenerimaanPengadaanMasterAssetDetail", "PemesananPengadaanMasterAsset", "PermintaanPengadaanMasterAsset", "JenisPajakPpn", "JenisPajakBarang"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

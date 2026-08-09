@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "SatuanKerjaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/SatuanKerjaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkKodeSatuanKerja"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/pegawai.zul?satuan_kerja="});
 request.setAttribute("nuiServiceEntities", new String[]{"SatuanKerja"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BankAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/BankAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initCriteria", "onEvent", "onSave", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Bank"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

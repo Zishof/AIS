@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TampilanPaymentGateway");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.pmb");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/pmb/TampilanPaymentGateway.java");
 request.setAttribute("nuiServiceMethods", new String[]{"tampilPembayaranDaftarUlang", "adaPembayaranRegistrasi", "tampilPembayaranRegistrasi", "onEvent", "adaPaymentGatewayYangAktif"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/common/daftarulang_mahasiswa_baru.zul?biodataCalonMahasiswa=", "/common/bankaltimtara/no_va.zul?pakaiva=", "/common/ntt/no_va.zul?va=", "/common/online/no_va.zul?va=", "/common/bri/no_va.zul?va=", "/common/bjb/no_va.zul?va=", "/common/btn/no_va.zul?va=", "/common/qris/no_va.zul?va="});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

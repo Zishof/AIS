@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "GrupChecklistPenilaianGuruAction"
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/GrupChecklistPenilaianGuruAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onGrupAngketUmum", "onGrupKuosioner", "onJadwalAngketUmum", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/grup_checklist_penilaian_umum.zul", "/pages/master/grup_kuesioner_umum.zul", "/pages/master/jadwal_checklist_penilaian_umum.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"AngketPenilaianGuru", "GrupChecklistPenilaianGuru"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

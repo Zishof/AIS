@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TampilStudiSiswaHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/helper/TampilStudiSiswaHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"tampil", "onEvent", "initDashboardSiswa", "judul", "subjudul", "deskripsi", "bagian", "ambil"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KelasSiswaPunyaSiswa", "KurikulumPunyaMatapelajaran", "DetailJenisPenilaian", "GrupPenilaian", "DetailGrupPenilaian", "GrupKategoriItemPenilaianSiswa", "Pertemuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

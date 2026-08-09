@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataTindakanBanbox");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/helper/AmbilDataTindakanBanbox.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getTindakanLab", "setTindakanLab", "onEvent", "render", "display", "onSearchDefault", "setEventListener", "getEventListener", "getTindakanOperasi", "setTindakanOperasi", "getTindakanRadiologi", "setTindakanRadiologi", "getTindakanVk", "setTindakanVk", "getTindakanRenalUnit", "setTindakanRenalUnit", "getTindakanGizi", "setTindakanGizi"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Tindakan", "BiayaTindakanPerKelas", "JenisTindakan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

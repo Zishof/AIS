@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "AbstractTreeModel");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"copy", "copyChild", "ubahRealisasiParents", "getChildCountById", "getRealisasiProses", "ubahHargaTotalParentss", "ubahHargaTotalParents", "ubahMulaiParents", "ubahSelesaiParents", "ubahKomplitParents", "ubahDurasiParents", "ubahPegawaisParents", "main", "checkForParent", "getCheckForLeafNulll", "getChildren", "getSatuChildren", "getChildrenIds", "sudahDigunakanTransaksi", "getChild", "getChildCount", "deleteChilds", "deleteChildsWithNativeSession", "getHargaTotal", "getHargaTotals", "getMaksimalSelesai", "getMinimalMulai", "getDurasi", "getPagawais", "getRealisasiSemuaTotal", "getRealisasiTotal", "generateChilds", "generateChildsByIds", "getHargaTotalRealisasiTiapBulan", "getHargaTotalPerencanaanTiapBulan", "getHargaTotalRealisasiTriWulan", "getHargaTotalPerencanaanTriWulan", "getRealisasi", "getJumlahJurnal", "isLeaf"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Workspace", "GrupTransaksi", "WorkspacePunyaPegawai", "Transaksi", "PenggunaanAnggaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

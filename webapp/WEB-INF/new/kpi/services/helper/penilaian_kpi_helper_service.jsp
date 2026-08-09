@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PenilaianKpiHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.kpi.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/kpi/helper/PenilaianKpiHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initRow", "onEvent", "loadData", "display", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/kpi/nilai_kpi.zul?id="});
 request.setAttribute("nuiServiceEntities", new String[]{"KenaikanPangkat", "PenilaianKpi", "Pegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

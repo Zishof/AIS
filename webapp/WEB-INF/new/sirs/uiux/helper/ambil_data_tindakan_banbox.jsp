@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "Bandbox");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"getTindakanLab", "setTindakanLab", "onEvent", "render", "display", "onSearchDefault", "setEventListener", "getEventListener", "getTindakanOperasi", "setTindakanOperasi", "getTindakanRadiologi", "setTindakanRadiologi", "getTindakanVk", "setTindakanVk", "getTindakanRenalUnit", "setTindakanRenalUnit", "getTindakanGizi", "setTindakanGizi"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Tindakan", "BiayaTindakanPerKelas", "JenisTindakan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

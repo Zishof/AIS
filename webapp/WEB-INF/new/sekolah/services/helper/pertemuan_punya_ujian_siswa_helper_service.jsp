@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PertemuanPunyaUjianSiswaHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/helper/PertemuanPunyaUjianSiswaHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"prosesUlangSoal", "onEvent", "run", "tampilBolekIkutUjianAtauTidak", "render", "loadData", "display", "realoadNilai"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/hasil_ujian_mahasiswa.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"PertemuanPunyaUjian", "RuangPaketPMB", "CalonSiswa", "UjianPunyaSoal", "HasilUjianMahasiswaDetail", "Ujian", "DetailJenisPenilaian", "GrupPenilaian", "DetailGrupPenilaian", "GrupKategoriItemPenilaianSiswa", "DetailGrupKategoriItemPenilaianSiswa", "KategoriItemPenilaianSiswa", "JenisItemPenilaianSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

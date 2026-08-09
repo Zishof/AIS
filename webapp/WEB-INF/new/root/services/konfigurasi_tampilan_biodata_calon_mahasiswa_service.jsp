@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KonfigurasiTampilanBiodataCalonMa
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/KonfigurasiTampilanBiodataCalonMahasiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "check", "keyDesc", "apakahAdaTidakAktif", "apakahAdaTidakWajib", "wajibIsi", "statusWajibIsi", "dataYangWajibDiisi", "onTampil"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"BiodataCalonMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

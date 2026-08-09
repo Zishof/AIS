@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanRekapDosenPerFakultasDanPr
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.akademik");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/akademik/LaporanRekapDosenPerFakultasDanProdi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "onDaftarHadirDosenSemua"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Staff"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

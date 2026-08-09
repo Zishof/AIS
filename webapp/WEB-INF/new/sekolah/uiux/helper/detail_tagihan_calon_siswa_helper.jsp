@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "DataLoader, DataCriteria");
 request.setAttribute("nuiSourceMethods", new String[]{"render", "onEvent", "onTagihanRinciBaru", "apakahAda", "initCriteria", "loadData", "display", "run", "reloadGrid", "uploadDataCalonSiswa"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/sekolah/tagihan.zul?pengaturanBiaya="});
 request.setAttribute("nuiEntityCandidates", new String[]{"CalonSiswa", "PembayaranSiswaDetail", "Tagihan", "NominalBiaya", "DiskonSiswa", "GelombangPendaftaranPsb", "PengaturanBiayaPunyaSiswa", "KelasSiswaPunyaSiswa", "PengaturanBiayaItemBiaya", "Siswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TagihanUIBuilder");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/TagihanUIBuilder.java");
 request.setAttribute("nuiServiceMethods", new String[]{"loadTagihan", "doInBackground", "call", "onEvent", "updateUI"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/common/daftarulang_mahasiswa_lama.zul?mahasiswa="});
 request.setAttribute("nuiServiceEntities", new String[]{"BiodataCalonMahasiswa", "JenisDiskonMahasiswa", "DetailKegiatan", "DetailSettingBiaya"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

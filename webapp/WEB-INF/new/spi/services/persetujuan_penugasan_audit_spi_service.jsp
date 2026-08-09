@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PersetujuanPenugasanAuditSPIActio
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.spi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/spi/PersetujuanPenugasanAuditSPIAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"istilah"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

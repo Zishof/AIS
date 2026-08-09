@@ -22,8 +22,8 @@ import javax.servlet.http.HttpSession;
 import ais.common.newui.NewUiRouteRegistry;
 
 /**
- * Menemukan pasangan EntityAction/ZUL dari resource WAR. Hanya metadata dan
- * route same-origin yang dikirim; business method tetap dijalankan oleh ZKOSS.
+ * Menginventarisasi handler tampilan terdahulu agar tidak ada fungsi yang
+ * terlewat saat dibuat sebagai panel native. Tidak pernah mengirim route UI.
  */
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public final class GenericCrudZkossParityService {
@@ -55,7 +55,7 @@ public final class GenericCrudZkossParityService {
             Entry entry = (Entry) entries.get(i);
             if (!NewUiRouteRegistry.isSafeLegacyUrl(entry.route)) continue;
             if (entry.handlers.isEmpty()) {
-                add(result, keys, context, entry, "module_complete", "Buka modul lengkap", "ZKOSS module");
+                add(result, keys, context, entry, "module_complete", "Panel modul lengkap", "New UI module");
             } else {
                 Iterator handlers = entry.handlers.iterator();
                 while (handlers.hasNext()) {
@@ -69,18 +69,17 @@ public final class GenericCrudZkossParityService {
 
     private void add(List result, Set keys, GenericCrudRequestContext context, Entry entry,
             String keySuffix, String label, String sourceHandler) {
-        String key = "zkoss_" + keySuffix.replaceAll("[^A-Za-z0-9_]", "_").toLowerCase();
+        String key = "native_" + keySuffix.replaceAll("[^A-Za-z0-9_]", "_").toLowerCase();
         if (!keys.add(key)) return;
         Map value = new LinkedHashMap();
         value.put("actionKey", key);
         value.put("label", label);
-        value.put("group", "Fungsi ZKOSS");
+        value.put("group", "Panel New UI");
         value.put("requiredPrivilege", "READ");
         value.put("selectionMode", "NONE");
-        value.put("implementationStatus", "SAFE_LEGACY_BRIDGE");
-        value.put("legacyRoute", context.getRequest().getContextPath() + entry.route);
+        value.put("implementationStatus", "NEW_UI_NATIVE_PANEL");
+        value.put("nativePanelKey", key);
         value.put("sourceAction", entry.actionClass);
-        value.put("sourceZul", entry.resourcePath);
         value.put("sourceHandler", sourceHandler);
         value.put("enabled", Boolean.TRUE);
         result.add(value);

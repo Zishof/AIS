@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "OrangTuaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/OrangTuaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "run", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault", "checkNamaOrangTua"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"OrangTua", "BiodataMahasiswa", "Siswa", "Tbmuser", "Mahasiswa", "Pekerjaan", "Penghasilan", "Jenjang"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

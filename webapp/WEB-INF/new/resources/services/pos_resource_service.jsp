@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PosResource");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.resources");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/resources/PosResource.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getSystemTime", "getMahasiswa", "absen", "getAbsen", "update", "getProduk", "getJumlahSiswa", "getSiswa", "getAmbilSiswa"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Pegawai", "Mahasiswa", "Siswa", "Produk", "Pembelian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

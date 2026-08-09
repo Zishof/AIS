@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "NeoFeederProgressHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.feeder.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/feeder/util/NeoFeederProgressHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"show", "onEvent", "updateProgres", "setLabelValueSafe", "run", "setProgressmeterValueSafe"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ChecklistLaporanDetailDefaultActi
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/ChecklistLaporanDetailDefaultAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onAdd", "onEvent", "onSave", "checkKodeChecklistLaporanDetailDefault", "onReloadTree", "render", "openChilds", "closeChilds"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ChecklistLaporanDetailDefault"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

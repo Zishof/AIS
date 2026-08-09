@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanPenugasanAuditSPI");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.spi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/spi/LaporanPenugasanAuditSPI.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateParameters", "onEvent", "generateParameter", "onReport"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"TimAuditSPI", "TemuanAuditSPI"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

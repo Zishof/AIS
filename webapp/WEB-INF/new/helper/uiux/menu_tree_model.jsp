@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "AbstractTreeModel");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"getChildren", "getChild", "getChildCount", "isLeaf", "getIndexOfChild"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Menu"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -55,21 +55,22 @@ public final class MahasiswaGenericCrudDefinitionSelfTest {
         try {
             GenericCrudFormDefinition form = mahasiswa.getFormOverrideProvider().getDefinition(null, null, true);
             check(form.getTabs().size() == 10, "Tab form Mahasiswa tidak lengkap");
-            check(form.getSections().size() == 5, "Kelompok modul ZKOSS Mahasiswa tidak lengkap");
-            check(form.getActions().size() >= 40, "Fungsi ZKOSS Mahasiswa belum tercatat lengkap");
+            check(form.getSections().size() == 5, "Kelompok modul Mahasiswa tidak lengkap");
+            check(form.getActions().size() >= 40, "Fungsi Mahasiswa belum tercatat lengkap");
             int nativeCount = 0; int bridgeCount = 0;
             for (Iterator values = form.getActions().iterator(); values.hasNext();) {
                 java.util.Map value = (java.util.Map) values.next();
                 String status = String.valueOf(value.get("implementationStatus"));
                 if ("NEW_UI_NATIVE".equals(status)) nativeCount++;
-                if ("SAFE_LEGACY_BRIDGE".equals(status)) {
+                if ("NEW_UI_NATIVE_PANEL".equals(status)) {
                     bridgeCount++;
-                    check(value.get("legacyRoute") != null, "Bridge ZKOSS tidak mempunyai route");
-                    check(value.get("sourceHandler") != null, "Bridge ZKOSS tidak mempunyai source handler");
+                    check(value.get("nativePanelKey") != null, "Panel New UI tidak mempunyai key");
+                    check(value.get("legacyRoute") == null, "Panel New UI tidak boleh mempunyai route tampilan lain");
+                    check(value.get("sourceHandler") != null, "Panel New UI tidak mempunyai service handler");
                 }
             }
             check(nativeCount >= 3, "Fungsi native New UI tidak tercatat");
-            check(bridgeCount >= 37, "Fungsi ZKOSS yang belum native tidak terjaga oleh bridge");
+            check(bridgeCount >= 37, "Fungsi Mahasiswa belum tersedia sebagai panel native");
         } catch (Exception e) {
             throw new IllegalStateException("Kontrak parity Mahasiswa gagal dibaca", e);
         }

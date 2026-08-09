@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault, DataInitDefault, FormSop");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onAddExternal", "onSave", "initCriteria", "onSearchDefault", "form", "istilah", "ambil", "ambilClass", "setPersetujuan", "cetakData", "cetak"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/akunting/proses_transfer.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"ProsesTransfer", "DaftarPengajuanTransfer", "DisposisiAlurSop", "Tbmuser", "PembayaranTerminMasterAssetDetail", "Transitori", "CaraPembayaranTransfer"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

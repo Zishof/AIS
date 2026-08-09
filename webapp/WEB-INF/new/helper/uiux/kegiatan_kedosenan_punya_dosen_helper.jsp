@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "DataLoader, DataCriteria, DataSearchDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "displayRow", "render", "initCriteria", "loadData", "display", "process", "run", "getDspace", "getDspaceTipeKegiatanKedosenanPunyaDosen", "getDspaceTipeKegiatanKedosenanPunyaDosenJurusan", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"KegiatanKedosenanPunyaDosen", "KegiatanKedosenan", "DetailKelompokKegiatanKedosenan", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

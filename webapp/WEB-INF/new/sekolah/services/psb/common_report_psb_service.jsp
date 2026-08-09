@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CommonReportPsb");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.psb");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/psb/CommonReportPsb.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onCetakKartuUjianPSB", "onCetakAbsensiPSBFoto", "onEvent", "getDataAlbumPSBAdmin", "onCetakAbsensiPSB", "onCetakPernyataanOrtu", "onCetakPernyataanSiswa", "onCetakVerifikasiPSB", "onCetakCalonSiswa"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"RuangGelombangPendaftaranPsbPSB", "Jurusan", "JadwalUjianPSB", "GelombangPendaftaranPsb", "CalonSiswaPunyaVerifikasiBerkas", "LampiranLain", "CalonSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

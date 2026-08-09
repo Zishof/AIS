@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanPendaftaranPasienWindow");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.sirs.umum");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/sirs/umum/LaporanPendaftaranPasienWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "onCetak"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisPasien"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

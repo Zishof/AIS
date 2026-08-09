@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RawatInapCalculationProcessor");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/util/RawatInapCalculationProcessor.java");
 request.setAttribute("nuiServiceMethods", new String[]{"run", "checkKunjunganDokter", "checkPendaftaran"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Pendaftaran", "DetailTransaksiLayanan", "JenisAlatMedis", "AlatMedis"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

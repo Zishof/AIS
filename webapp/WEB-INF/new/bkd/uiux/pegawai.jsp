@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "CommonOnSearchdefault, DataCriteria, DataSearchDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onLoadData", "render", "onEvent", "onSearchDefault", "doBeforeCompose", "doAfterCompose", "initCriteria"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/bkd/asesor_memberikan_penilaian_rinci.zul?pegawai=", "/pages/master/bkd/kinerja.zul?pegawai="});
 request.setAttribute("nuiEntityCandidates", new String[]{"AsesorPegawai", "StatusPegawai", "SatuanKerja", "AsesorPenunjangKinerjaDosen", "Asesor", "Pegawai", "Tbmuser", "PenilaianAsesor", "GajiPokok"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

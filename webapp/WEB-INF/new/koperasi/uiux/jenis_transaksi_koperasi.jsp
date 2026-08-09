@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault, DataInitDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onManajemenParameter", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/koperasi/parameter_tambahan_produk_koperasi.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"JenisTransaksiKoperasi", "TipeProdukKoperasi", "KelompokParameterTambahanProdukKoperasi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

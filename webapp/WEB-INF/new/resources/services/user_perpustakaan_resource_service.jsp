@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "UserPerpustakaanResource");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.resources");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/resources/UserPerpustakaanResource.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getXml", "ajukanJurnal", "checkPesanItem", "daftarPesanItem", "batalkanPesanItem", "checkKeanggotaan", "pesanItem", "ubahStatus", "daftarPenerbit", "daftarPengarang", "checkPengguna", "daftarItemJurnal", "daftarItemJurnalMereka", "daftarItemKomentarSemua", "daftarItemKomentarSemuaMereka"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"FotoItem", "Tbmuser", "Pengarang", "Penerbit", "DomainPenelitian", "Item", "ItemPunyaPengarang", "ItemPunyaPemeriksa", "PenerbitPunyaPemeriksa", "Anggota", "Perpustakaan", "PesananAnggota", "ItemKomentar"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

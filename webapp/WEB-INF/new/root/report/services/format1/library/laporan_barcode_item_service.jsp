@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanBarcodeItem");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.library");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/library/LaporanBarcodeItem.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "render", "initCriteria", "siapkanParemeter", "onReport"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Item", "ItemPunyaBarcode", "ItemPunyaPengarang"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

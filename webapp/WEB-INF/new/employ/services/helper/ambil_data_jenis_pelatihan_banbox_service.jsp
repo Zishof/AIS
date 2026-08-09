@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataJenisPelatihanBanbox");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.employ.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/employ/helper/AmbilDataJenisPelatihanBanbox.java");
 request.setAttribute("nuiServiceMethods", new String[]{"setChooseAll", "render", "onEvent", "display", "onSearchDefault", "setEventListener", "getEventListener"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisPelatihan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

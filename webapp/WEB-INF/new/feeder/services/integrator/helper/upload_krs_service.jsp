@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "UploadKrs");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.feeder.integrator.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/feeder/integrator/helper/UploadKrs.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "createDetailperkulihana", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Detailperkuliahan", "Matakuliah", "KurikulumPunyaMatakuliah", "Kurikulum", "Mahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

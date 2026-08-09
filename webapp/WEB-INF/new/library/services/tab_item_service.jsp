@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TabItemAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/TabItemAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/library/monitor_stok_item.zul?perpustakaan="});
 request.setAttribute("nuiServiceEntities", new String[]{"Perpustakaan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

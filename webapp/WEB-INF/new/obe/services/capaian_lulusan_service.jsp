@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CapaianLulusanAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.obe");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/obe/CapaianLulusanAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onProfil", "onBahanKajian", "onCpmk", "doAfterCompose", "onAdd", "init", "onAddExternal", "onEvent", "onSave", "initCriteria", "onSearchDefault", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"CapaianLulusan", "ProfilLulusan", "BahanKajian", "ReferensiLulusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "HttpServlet");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{});
-request.setAttribute("nuiLegacyRefs", new String[]{"/WEB-INF/baru/pustaka.jsp?id=", "/WEB-INF/baru/pustaka.jsp", "/WEB-INF/u/pustaka.jsp"});
 request.setAttribute("nuiEntityCandidates", new String[]{"PeminjamanPengadaanItemDetail", "Anggota", "FotoMahasiswa", "FotoSiswa", "FotoDosen", "FotoGuru", "FotoPegawai", "FotoAdmin", "Item"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

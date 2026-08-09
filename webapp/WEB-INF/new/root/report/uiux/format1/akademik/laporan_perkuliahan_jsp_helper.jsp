@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"isEmpty", "toQueryString", "parseParam", "buildFilterForm", "buildFilterFormAjax", "buildRingkasan", "buildTabelJadwal", "buildTabelJadwalPerHari", "buildTabelJadwalPerDosen", "buildTabelPerKelas", "buildTabelPerRuangan", "buildTabelPerMatakuliah", "buildTabelPerAsisten", "buildTabelJmlSksDosen", "buildTabelJmlSksMatakuliah", "buildTabelRekapDosen", "buildTabelDosenPembinaMk", "buildTabelJadwalParalel", "esc"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Perkuliahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardKegiatanKedosenan");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.admin");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/admin/DashboardKegiatanKedosenan.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/prestasi_dosen.zul?dosen=", "/pages/master/penghargaan_dosen.zul", "/pages/master/formulir_kegiatan_peserta.zul?dosen="});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

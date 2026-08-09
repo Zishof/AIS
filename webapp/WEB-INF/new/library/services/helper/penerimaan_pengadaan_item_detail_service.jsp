@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PenerimaanPengadaanItemDetailActi
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/helper/PenerimaanPengadaanItemDetailAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "loadData", "display"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/library/barcode_item.zul?penerimaanPengadaanItem="});
 request.setAttribute("nuiServiceEntities", new String[]{"PenerimaanPengadaanItemDetail", "BatchItemPunyaBarcode", "ItemPunyaBarcode"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

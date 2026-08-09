@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RekapJumlahPegawaiBaseGolongan");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.employ");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/employ/RekapJumlahPegawaiBaseGolongan.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Golongan", "StatusPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CekKesehatanAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.pmb");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/pmb/CekKesehatanAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onPsikotes", "doBeforeCompose", "doAfterCompose", "onEvent", "initCriteria", "onSearchDefault", "onPilihCalonMahasiswa", "onCetak"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/cek_psikotest.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"CekKesehatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

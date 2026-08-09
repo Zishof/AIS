@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RekapRekapAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.pmb");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/pmb/RekapRekapAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onRekapitulasiGelombang", "onRekapitulasi", "onRekapitulasiJenisSeleksi", "onRekapitulasiKota", "onRekapitulasiKecamatan", "onRekapitulasiAgama", "onRekapitulasiAsalSma", "onRekapitulasiTahunKelulusan", "onRekapitulasiProgram", "onRekapitulasiStatusAwalMahasiswa", "onRekapitulasiSkor", "onRekapitulasiInfoKampusDariMana", "onRekapitulasiPekerjaan", "onRekapitulasiPendidikan", "onRekapitulasiPendapatan", "onRekapitulasiJurusan", "onRekapitulasiCalonJenisSeleksi"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

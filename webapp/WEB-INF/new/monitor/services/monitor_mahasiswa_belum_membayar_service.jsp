@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MonitorMahasiswaBelumMembayarActi
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.monitor");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/monitor/MonitorMahasiswaBelumMembayarAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "initCriteria", "onSearchDefault", "loadData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"StatusMahasiswa", "StatusAwalMahasiswa", "Konsentrasi", "Jenjang", "TunggakanMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

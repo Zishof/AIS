@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault, FormSop");
 request.setAttribute("nuiSourceMethods", new String[]{"checkSyaratPembimbingDanPenguji", "onEvent", "onJadwal", "onTampilSeminar", "onTampilSeminar1", "onFormatNilai", "onTahapan", "onKomponenPenilaian", "initReferensi", "doBeforeCompose", "doAfterCompose", "run", "onDownloadLampiran", "tampilkanInfoMahasiswa", "tampilkanInfoJudul", "tampilkanInfoDosenSimple", "tampilkanInfoDosen", "tombolCetakSK", "tombolCetakPengantar", "render", "onAddExternal", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaMahasiswaRequestTugasAkhir", "getDspaceTugasAkhir", "getDspace", "form", "istilah", "ambil", "ambilClass", "setPersetujuan", "cetakData"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/jadwal_seminar_tugas_akhir.zul", "/pages/master/format_nilai_proposal_skripsi.zul", "/pages/master/tahapan_penyusunan_tugas_akhir.zul", "/pages/master/komponen_penilaian_proposal_skripsi.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"TahapanAtauCapaianPembelajaran", "StatusAwalMahasiswa", "StatusMahasiswa", "Jenjang", "MahasiswaRequestTugasAkhir", "Dosen", "FotoDosen", "Mahasiswa", "Jurusan", "Fakultas", "PeminjamanPengadaanItemDetail", "Matakuliah", "ItemBiaya", "FormatNilaiProposalSkripsi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

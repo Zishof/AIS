@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ApiUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/ApiUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"currentUser", "ambilPerguruanTinggi", "pengumuman", "konfigurasi", "code", "waProfile", "ambilCode", "loginLangsung", "loginInfo", "login", "proseslogin"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PengumumanAkademis", "UserDevices", "WaProfile", "Mahasiswa", "Siswa", "Tbmuser", "Penduduk", "BlokirMahasiswa", "PerguruanTinggi", "KrsMahasiswa", "HistoryStatusMahasiswa", "KelasSiswa", "Pejabat", "Pegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

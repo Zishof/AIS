@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"nilaiParameterAman", "ubahIsiSuratKeluar", "onEvent"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Pegawai", "KelasSiswa", "Guru", "Siswa", "Dosen", "Mahasiswa", "Fakultas", "BiodataMahasiswa", "Detailperkuliahan", "KrsMahasiswa", "HistoryStatusMahasiswa", "Skripsi", "MahasiswaRequestTugasAkhir", "VariableSuratKeluar", "AlurPersetujuanSuratKeluarStatus", "Pejabat", "KlasifikasiSuratKeluarParemeter", "KlasifikasiSuratKeluarParemeterValue", "SuratKeluar", "Map"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

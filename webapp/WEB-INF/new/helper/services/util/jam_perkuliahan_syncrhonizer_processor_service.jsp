@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JamPerkuliahanSyncrhonizerProcess
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/util/JamPerkuliahanSyncrhonizerProcessor.java");
 request.setAttribute("nuiServiceMethods", new String[]{"run", "prosesMigrasiNilai", "prosesMigrasiNilaiTanpaTahunAkademik", "processMigrasiAbsensi", "processMigrasiCicilan", "processChecklistPenilaianDosenOlehMahasiswa", "procesDosenPa", "procesKelas", "processMigrasiEkivalen"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"NilaiTemporary", "Detailperkuliahan", "Statuskehadiran_old", "Statusabsensi", "Pertemuan", "Perkuliahan", "BiodataCalonMahasiswa", "ChecklistPenilaianDosenOlehMahasiswa", "ChecklistBaruPenilaianDosenOlehMahasiswa", "DosenPembimbingAkademikTemporary", "KelasPunyaMahasiswaTemporary", "MatakuliahEkivalen", "Jurusan", "JamPerkuliahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

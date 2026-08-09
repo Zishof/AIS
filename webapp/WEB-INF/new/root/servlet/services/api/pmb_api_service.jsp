@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PmbApi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/PmbApi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"portalInfo", "pengumuman", "prodi", "gelombang", "daftar", "cekStatus"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PengumumanAkademis", "Jurusan", "PaketJurusanPmb", "GelombangPendaftaran", "PaketPunyaGelombangPendaftaran", "Paket", "BiodataCalonMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BiodataSiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/BiodataSiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

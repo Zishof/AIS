@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JenjangProgramStudiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/JenjangProgramStudiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Jurusan", "Fakultas", "Jenjang", "EpsbedStatus", "EpsbedStatusAkreditasi", "EpsbedFrekuensiKurikulum", "EpsbedPelaksanaanKurikulum", "JenjangProgramStudi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

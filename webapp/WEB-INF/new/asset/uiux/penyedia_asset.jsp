@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataInitDefault, DataCriteria, DataSearchDefault, FormSop");
 request.setAttribute("nuiSourceMethods", new String[]{"onJenisPekerjaan", "onCheck", "onDashboardVendor", "onJenisPenyedia", "onDokumenPenyedia", "onKategoriPenyedia", "onStatusPenyedia", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "init", "onAdd", "onAddExternal", "onAddExternalDaftar", "reloadDataProduk", "reloadBank", "reloadDataBank", "reloadProduk", "checkNamaAgama", "checkNpwpSudahAda", "onSave", "onCalonVendor", "initCriteria", "onSearchDefault", "form", "istilah", "ambil", "ambilClass", "setPersetujuan", "cetakData"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/asset/jenis_pekerjaan_penyedia.zul", "/pages/master/asset/penyedia_asset_punya_verifikasi_dokumen.zul", "/pages/master/asset/jenis_penyedia_asset.zul", "/pages/master/asset/dokumen_penyedia_asset.zul", "/pages/master/asset/kategori_penyedia_asset.zul", "/pages/master/asset/status_penyedia_asset.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"Tbmuser", "PenyediaAsset", "DokumenPenyediaAsset", "PenyediaAssetPunyaDokumen", "LampiranLain", "Bank", "MasterAsset", "KategoriPenyediaAsset", "JenisPenyediaAsset", "StatusPenyediaAsset", "JenisPekerjaanPenyedia"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

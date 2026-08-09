@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ProdukKomentarHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.inventory.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/inventory/helper/ProdukKomentarHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initDetail", "initRow", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ProdukKomentar"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

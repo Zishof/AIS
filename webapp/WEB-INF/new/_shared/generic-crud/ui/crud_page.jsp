@@ -32,7 +32,7 @@ if (gcMenuId != null) {
   <div class="gc-alert" data-gc-alert hidden role="alert"></div>
   <section class="gc-parity" data-gc-parity hidden>
     <header>
-      <div><strong>Fungsi dari modul ZKOSS</strong><span data-gc-parity-summary></span></div>
+      <div><strong>Fungsi New UI modul</strong><span data-gc-parity-summary></span></div>
       <button type="button" class="gc-btn" data-gc-parity-toggle aria-expanded="false">Tampilkan semua fungsi</button>
     </header>
     <div class="gc-parity-actions" data-gc-parity-actions hidden></div>
@@ -67,9 +67,9 @@ if (gcMenuId != null) {
     <div class="gc-audit-list" data-gc-audit-list>Memuat…</div>
   </aside>
   <aside class="gc-drawer" data-gc-import-drawer hidden aria-modal="true" role="dialog" aria-labelledby="gc-import-title"><header><div><small>Dry-run wajib</small><h2 id="gc-import-title">Preview Import</h2></div><button type="button" class="gc-icon-btn" data-gc-import-close aria-label="Tutup">×</button></header><div class="gc-audit-list" data-gc-import-summary></div><footer><button type="button" class="gc-btn" data-gc-import-cancel>Batal</button><button type="button" class="gc-btn gc-primary" data-gc-import-confirm>Konfirmasi Import</button></footer></aside>
-  <aside class="gc-legacy" data-gc-legacy hidden aria-modal="true" role="dialog" aria-labelledby="gc-legacy-title">
-    <header><div><small>Compatibility bridge — business flow asli dipertahankan</small><h2 id="gc-legacy-title" data-gc-legacy-title>Modul ZKOSS</h2></div><button type="button" class="gc-icon-btn" data-gc-legacy-close aria-label="Tutup">×</button></header>
-    <iframe data-gc-legacy-frame title="Modul ZKOSS Mahasiswa" loading="lazy"></iframe>
+  <aside class="gc-drawer gc-native-panel" data-gc-native-panel hidden aria-modal="true" role="dialog" aria-labelledby="gc-native-panel-title">
+    <header><div><small>Panel native New UI</small><h2 id="gc-native-panel-title" data-gc-native-panel-title>Fungsi Mahasiswa</h2></div><button type="button" class="gc-icon-btn" data-gc-native-panel-close aria-label="Tutup">×</button></header>
+    <div class="gc-native-panel-body" data-gc-native-panel-body></div>
   </aside>
 </section>
 <script><%@ include file="/WEB-INF/new/_shared/generic-crud/assets/generic-crud.js" %></script>

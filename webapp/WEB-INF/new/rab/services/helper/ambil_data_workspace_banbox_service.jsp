@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataWorkspaceBanbox");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/helper/AmbilDataWorkspaceBanbox.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "onRefreshRealisasi", "render", "display", "onSearchDefault", "setEventListener", "getEventListener", "setSatuanKerja"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Workspace", "SumberDana"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

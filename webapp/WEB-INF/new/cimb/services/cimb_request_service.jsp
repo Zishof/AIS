@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CimbRequestAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.cimb");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/cimb/CimbRequestAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"CimbRequestDetail", "CimbRequest"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

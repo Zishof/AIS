@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataAlurPersetujuanSuratKelu
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.surat.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/surat/helper/AmbilDataAlurPersetujuanSuratKeluarBanbox.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "setChooseAll", "render", "display", "onSearchDefault", "setEventListener", "getEventListener"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"AlurPersetujuanSuratKeluar", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

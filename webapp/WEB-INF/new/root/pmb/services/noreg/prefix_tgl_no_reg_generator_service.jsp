@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PrefixTglNoRegGenerator");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.pmb.noreg");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/pmb/noreg/PrefixTglNoRegGenerator.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateNoReg"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"BiodataCalonMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

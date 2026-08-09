@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"checkPembayaranSebelumUTSSudahMemenuhi", "checkPembayaranSebelumUjianSudahMemenuhi", "checkItemBiayaPembayaranSebelumUTSSudahMemenuhi", "checkItemBiayaPembayaranSebelumUASSudahMemenuhi", "checkItemBiayaPembayaranSebelumUjianSudahMemenuhi", "checkPembayaranSebelumKRSSudahMemenuhi", "checkPembayaranSebelumUASSudahMemenuhi"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"BiodataCalonMahasiswa", "ItemBiaya"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

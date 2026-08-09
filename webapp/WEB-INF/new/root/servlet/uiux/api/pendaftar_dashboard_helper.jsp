@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"ringkasan", "brandList", "brandTambah", "tokoList", "tokoTambah", "mesinPosList", "mesinPosTambah", "investorList", "investorTambah", "manajemenList", "manajemenTambah"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Brand", "Toko", "Investor", "AkunManajemen", "Pedagang", "Pendaftar"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

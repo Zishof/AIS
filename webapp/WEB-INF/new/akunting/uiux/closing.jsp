@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault, DataInitDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onSearchDefault", "init", "onAdd", "onSave", "reload", "initCriteria", "checkNamaClosing"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/akunting/grup_transaksi.zul?closing=", "/pages/master/akunting/grup_transaksi.zul?tgl_closing="});
 request.setAttribute("nuiEntityCandidates", new String[]{"Closing", "GrupTransaksi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

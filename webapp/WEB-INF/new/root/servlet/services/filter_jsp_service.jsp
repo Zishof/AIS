@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "FilterJSP");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/FilterJSP.java");
 request.setAttribute("nuiServiceMethods", new String[]{"init", "destroy", "doFilter", "checkSingleDeviceBlock"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/WEB-INF/u/logout.jsp?login_error=Akun+", "/WEB-INF/uiux/ux_pages/index.jsp", "/WEB-INF/z/x/y/pmb.jsp", "/WEB-INF/z/x/y/pm.zul", "accept.jsp", "code.jsp", "broken.jsp", "error.jsp", "login.jsp", "ecampus.jsp", "eschool.jsp", "welpus.zul", "dekstop.zul", "welsis.zul", "vendor.zul", "psb.zul", "karir.zul", "pmb.zul", "alumni.zul", "main.zul", "login.zul", "/WEB-INF/o/ux/index.jsp", "capture.jsp", "capture_keterangan.jsp", "capture_video.jsp", "doupload.jsp", "capture_screen.jsp", "capture_lokasi.jsp", "capture_audio.jsp", "jml_pendaftar.jsp"});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

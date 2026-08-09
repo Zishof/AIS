@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilImageItemPerHalaman");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/AmbilImageItemPerHalaman.java");
 request.setAttribute("nuiServiceMethods", new String[]{"fastChannelCopy", "resizeImage"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"FotoImagePerHalamanItem"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

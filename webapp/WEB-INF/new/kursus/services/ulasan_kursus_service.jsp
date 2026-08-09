@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "UlasanKursusAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.kursus");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/kursus/UlasanKursusAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"UlasanKursus"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

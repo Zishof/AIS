@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanJspUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/helper/LaporanJspUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"parseTanggal", "parseLong", "contentType", "stream"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

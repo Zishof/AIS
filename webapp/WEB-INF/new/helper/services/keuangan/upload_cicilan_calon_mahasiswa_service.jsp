@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "UploadCicilanCalonMahasiswa");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.keuangan");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/keuangan/UploadCicilanCalonMahasiswa.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"CicilanPembayaran", "JenisKegiatan", "BiodataCalonMahasiswa", "ItemBiaya", "PengaturanPembayaranBulanan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

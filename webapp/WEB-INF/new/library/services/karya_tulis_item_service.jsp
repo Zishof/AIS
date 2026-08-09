@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KaryaTulisItemAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/KaryaTulisItemAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAddExternal", "onAdd", "onCheck", "onSave", "onSearchDefault", "initCriteria"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Item", "ItemPunyaPemeriksa", "JenisItem", "TipeItem", "PenerbitPunyaPemeriksa", "ItemPunyaPengarang", "ItemPunyaKategoriItem"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PostingCicilanMahasiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/PostingCicilanMahasiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onDibayarDimuka", "onTabungan", "onPengeluaran", "onPiutang", "onBiayaAdmin", "onBiayaPaymentGateway", "doBeforeCompose", "doAfterCompose", "onEvent", "onBatalkanPostingSemua", "onPostingSemua", "run", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/posting_cicilan_mahasiswa_dibayar_dimuka.zul", "/pages/master/posting_tabungan_mahasiswa.zul", "/pages/master/posting_pengeluaran_mahasiswa.zul", "/pages/master/posting_piutang_mahasiswa.zul", "/pages/master/posting_biaya_administrasi_pembayaran_mahasiswa.zul", "/pages/master/posting_biaya_payment_gateway_pembayaran_mahasiswa.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"ItemBiaya", "JenisKegiatan", "Jenjang", "CicilanPembayaran", "GrupTransaksi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

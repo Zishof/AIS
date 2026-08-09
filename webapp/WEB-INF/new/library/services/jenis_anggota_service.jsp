@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JenisAnggotaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/JenisAnggotaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaJenisAnggota"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisAnggota"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

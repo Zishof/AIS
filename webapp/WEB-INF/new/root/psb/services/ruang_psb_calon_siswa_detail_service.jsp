@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RuangPsbCalonSiswaDetailAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.psb");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/psb/RuangPsbCalonSiswaDetailAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "loadData", "display", "initCriteria"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"RuangGelombangPendaftaranPsbPSB", "CalonSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

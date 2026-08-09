@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BerkasTreeModel");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/util/BerkasTreeModel.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getChildDeepSet", "getChildren", "generateAllChildren", "getChild", "getChildCount", "isLeaf", "getIndexOfChild"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Berkas"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

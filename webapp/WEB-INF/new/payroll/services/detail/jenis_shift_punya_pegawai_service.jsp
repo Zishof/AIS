@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JenisShiftPunyaPegawaiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.payroll.detail");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/payroll/detail/JenisShiftPunyaPegawaiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "initCriteria", "loadData", "run", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KenaikanPangkat", "Pegawai", "JenisShiftPunyaPegawai", "DetailJenisShiftPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

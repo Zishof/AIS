@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardInterviewPmb");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.pmb.statistik");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/pmb/statistik/DashboardInterviewPmb.java");
 request.setAttribute("nuiServiceMethods", new String[]{});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

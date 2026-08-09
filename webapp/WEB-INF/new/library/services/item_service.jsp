@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ItemAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/ItemAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateCSLItemData", "tampilkanKutipan", "onEvent", "run", "onProgress", "accept", "compare", "doBeforeCompose", "doAfterCompose", "uploadDataItem", "getDspaceItemTahunPT", "getDspaceItemTahunJurusan", "getDspaceItemJurusan", "getDspaceItem", "getDspace", "render", "onAdd", "onAddGoogle", "onAddExternal", "onSave", "checkForTerbit", "initCriteria", "onSearchDefault", "checkNamaItem"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Perpustakaan", "TipeItem", "Item", "ItemPunyaPengarang", "JenisItem", "SaldoAwal", "ItemPunyaBarcode", "Penerbit", "LabelItem", "Pengarang", "KategoriItem", "SaldoAwalDetail", "BatchItemPunyaBarcode", "ItemPunyaKategoriItem", "FotoItem", "FotoGambarItem", "FotoImagePerHalamanItem", "Jurusan", "DataDdcItem", "DataDdcItemDetail", "DataUdcItem", "DataUdcItemDetail", "ItemPunyaPemeriksa", "PenerbitPunyaPemeriksa", "ItemPunyaTerbit"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

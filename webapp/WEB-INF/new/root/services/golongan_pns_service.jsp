@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "GolonganPnsAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/GolonganPnsAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initCriteria", "onEvent", "onSave", "checkNamaGolonganPns", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"GolonganPns"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

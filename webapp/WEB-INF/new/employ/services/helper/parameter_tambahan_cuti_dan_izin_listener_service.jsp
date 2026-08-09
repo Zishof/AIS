@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ParameterTambahanCutiDanIzinListe
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.employ.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/employ/helper/ParameterTambahanCutiDanIzinListener.java");
 request.setAttribute("nuiServiceMethods", new String[]{"validate", "onSave", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ParameterTambahanCutiDanIzin", "ParameterTambahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

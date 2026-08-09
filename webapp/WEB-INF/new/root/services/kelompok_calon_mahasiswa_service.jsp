@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KelompokCalonMahasiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/KelompokCalonMahasiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onManajemenStatusAwalMahasiswa", "onManajemenAfiliasi", "doBeforeCompose", "doAfterCompose", "onEvent", "initCriteria", "run", "render", "onAdd", "validasiStatusAwalMahasiswa", "onSave", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/status_awal_mahasiswa.zul", "/pages/master/afiliasi_calon_mahasiswa.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"BiodataCalonMahasiswa", "StatusAwalMahasiswa", "KelompokCalonMahasiswa", "ParameterTambahanPaket", "GelombangPendaftaran", "JenisSeleksi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

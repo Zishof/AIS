@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyWindow");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"simpanVideo", "onEvent", "run"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/component/live/live.jsp?app=", "/component/jw/vod.jsp?app="});
 request.setAttribute("nuiEntityCandidates", new String[]{"VideoPertemuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

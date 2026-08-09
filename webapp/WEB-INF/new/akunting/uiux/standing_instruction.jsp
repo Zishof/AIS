@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onStatistik", "muat", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/WEB-INF/z/x/y/pages/master/akunting/standing_instruction_tab_1.zul", "/WEB-INF/z/x/y/pages/master/akunting/proses_transfer_standing_instruction.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"StandingInstruction", "Bank", "ProsesTransferStandingInstruction"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

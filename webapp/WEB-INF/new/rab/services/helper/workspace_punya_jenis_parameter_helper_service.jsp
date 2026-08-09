@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "WorkspacePunyaJenisParameterHelpe
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/helper/WorkspacePunyaJenisParameterHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initDetail", "onEvent", "initRow"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"WorkspacePunyaJenisParameter", "JenisParameter", "String", "Integer", "Double", "Date", "Time"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

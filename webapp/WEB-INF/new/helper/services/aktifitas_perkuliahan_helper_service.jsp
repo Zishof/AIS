@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AktifitasPerkuliahanHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/AktifitasPerkuliahanHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initAgendaPerkuliahan", "onEvent", "loadData", "run", "tampilCalender", "initDetail", "chekSimpan", "tampilkanLampiran", "createKeterangan", "createKeteranganData", "createCalendarButton", "createClasroomButton"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/tampilan_pengumuman_perkuliahan.zul?perkuliahan=", "/pages/master/rps_obe.zul?kur=", "/pages/master/nilai_obe.zul?perkuliahan=", "/read_qr_code_kartu.jsp?q=", "/read_rfid_kartu.jsp?q="});
 request.setAttribute("nuiServiceEntities", new String[]{"Pertemuan", "Detailperkuliahan", "Jurusan", "Fakultas", "PerguruanTinggi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LabelBahasaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/LabelBahasaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onHapusTakBermakna", "render", "call", "onAdd", "onSave", "onTerjemahkanOtomatis", "onTerjemahkanUlangAiSaja", "onTerjemahkanUlang", "initCriteria", "onSearchDefault", "checkNamaLabelBahasa"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"LabelBahasa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

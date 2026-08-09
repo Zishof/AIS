@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MengajarDiPerguruanTinggiLainActi
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/MengajarDiPerguruanTinggiLainAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "displayRow", "render", "onAdd", "onAddExternal", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Dosen", "MengajarDiPerguruanTinggiLain"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

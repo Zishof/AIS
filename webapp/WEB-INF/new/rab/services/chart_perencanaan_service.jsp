@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ChartPerencanaanAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/ChartPerencanaanAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onPilihKegiatan", "onReport", "onRefresh", "onTampil", "onKembali", "pilih"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Workspace"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

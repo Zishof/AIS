@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardMahasiswaAgama");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.admin");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/admin/DashboardMahasiswaAgama.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "initCriteria", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa", "StatusAwalMahasiswa", "StatusMahasiswa", "StatusKeluar", "Jurusan", "Agama", "BiodataMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

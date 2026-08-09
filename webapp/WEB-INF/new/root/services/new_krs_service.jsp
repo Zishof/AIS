@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "NewKrsAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/NewKrsAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onKrsSp", "onMkRemedial", "doBeforeCompose", "doAfterCompose", "onEvent", "onSearchDefaultKeDatabase", "onSearchDefault", "muat"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/krs_sp.zul?pass=123", "/pages/master/krs_remedial.zul?pass=123"});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

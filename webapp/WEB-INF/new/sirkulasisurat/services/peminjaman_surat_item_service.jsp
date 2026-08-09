@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PeminjamanSuratItemAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirkulasisurat");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirkulasisurat/PeminjamanSuratItemAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "run", "render", "parameter", "onAdd", "form", "onSave", "kirim", "initCriteria", "onSearchDefault", "onKodePeminjamSurat", "istilah", "ambil", "ambilClass", "setPersetujuan", "cetakData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PeminjamanSuratItemDetail", "PeminjamanSuratItem", "SuratMasuk", "PeminjamSurat"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

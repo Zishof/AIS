@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "GenericRevisiHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/GenericRevisiHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"apply", "toString", "getId", "onEvent", "onSearchDefault", "onSearchAllData", "render", "compare", "restoreRevisionObject", "run", "restoreLatestFromDate"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"CharSequence", "Date", "String", "Boolean", "Number", "GeneralValueObject", "Integer", "Long", "Double", "Float", "Short", "Byte", "BigDecimal", "BigInteger", "Character", "VirtualAccountBank"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BiayaResource");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.resources");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/resources/BiayaResource.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getXml", "daftar", "jenisPembayaran", "ambil", "pembayaran", "itemBiaya", "pembayaranMahasiswa"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa", "DetailBiaya", "JenisKegiatan", "ItemBiaya", "CicilanPembayaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

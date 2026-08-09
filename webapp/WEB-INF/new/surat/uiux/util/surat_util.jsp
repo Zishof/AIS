@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"ubahIsiSuratKeluar", "initDefaultKop", "ambilKop", "ambilKopBawah", "ambilKopLampiranLain", "initSatker", "initDefaultKopAja", "ttdpejabat", "initGambarTandaTangan"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"OpsiSuratKeluar", "OpsiSuratMasuk", "KlasifikasiSuratKeluarUntuk", "Sekolah", "Yayasan", "PerguruanTinggi", "Fakultas", "Jurusan", "Tbmuser", "SatuanKerja", "AlurPersetujuanSuratKeluarStatus", "FotoGambarTandaTanganPejabat"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

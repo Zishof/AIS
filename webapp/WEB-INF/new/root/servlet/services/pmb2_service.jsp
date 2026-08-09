@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "Pmb2");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/Pmb2.java");
 request.setAttribute("nuiServiceMethods", new String[]{});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/WEB-INF/u/pmb2.jsp"});
 request.setAttribute("nuiServiceEntities", new String[]{"DiskusiPengumumanAkademis", "PengumumanAkademis", "GelombangPendaftaran", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

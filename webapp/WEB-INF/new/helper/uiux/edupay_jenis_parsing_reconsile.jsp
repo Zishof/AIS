@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "JenisParsingReconsile");
 request.setAttribute("nuiSourceMethods", new String[]{"parsing"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"RekonsiliasiHostToHost", "LogHostToHost"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

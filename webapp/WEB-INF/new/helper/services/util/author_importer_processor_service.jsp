@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AuthorImporterProcessor");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/util/AuthorImporterProcessor.java");
 request.setAttribute("nuiServiceMethods", new String[]{"run", "main"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Pengarang"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

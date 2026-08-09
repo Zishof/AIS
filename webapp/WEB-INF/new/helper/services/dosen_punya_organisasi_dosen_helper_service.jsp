@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DosenPunyaOrganisasiDosenHelper")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/DosenPunyaOrganisasiDosenHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "initCriteria", "loadData", "display", "process"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"OrganisasiDosenPunyaDosen", "JabatanOrganisasiDosen"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

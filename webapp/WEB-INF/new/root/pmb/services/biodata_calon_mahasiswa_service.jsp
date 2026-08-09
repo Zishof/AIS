@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BiodataCalonMahasiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.pmb");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/pmb/BiodataCalonMahasiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"infoMahasiswaBaru", "initBg", "loadBiodataCalonMahasiswa", "onEvent", "init", "onSave", "lengkap", "onCetakKartu", "getEventListener", "setEventListener", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PaketPunyaGelombangPendaftaran", "BiodataCalonMahasiswa", "GelombangPendaftaran", "AfiliasiCalonMahasiswa", "JenisKartuIdentitasMahasiswaBaru", "Agama", "Negara", "JenisSekolahMahasiswaBaru", "JurusanSekolahMahasiswaBaru", "Paket", "PilihanPaketPerJurusanMhsBaru", "PendidikanOrangTua", "PekerjaanOrangTua", "PendapatanOrangTua", "Konsentrasi", "PaketPunyaProgram", "Program", "PaketJurusanPmb", "FotoBiodataCalonMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

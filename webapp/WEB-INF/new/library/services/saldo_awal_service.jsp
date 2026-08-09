@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "SaldoAwalAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/SaldoAwalAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onCetak", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"SaldoAwalDetail", "BatchItemPunyaBarcode", "ItemPunyaBarcode", "SaldoAwal"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

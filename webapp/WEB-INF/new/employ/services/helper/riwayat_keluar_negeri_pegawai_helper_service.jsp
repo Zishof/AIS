@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RiwayatKeluarNegeriPegawaiHelper"
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.employ.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/employ/helper/RiwayatKeluarNegeriPegawaiHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"render", "onEvent", "display", "onSearchDefault", "init", "save"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"RiwayatKeluarNegeriPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

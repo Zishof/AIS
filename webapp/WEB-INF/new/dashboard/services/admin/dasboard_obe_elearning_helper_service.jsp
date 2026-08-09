@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DasboardObeElearningHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.admin");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/admin/DasboardObeElearningHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "run", "compare"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/rps_obe.zul?kur=", "/pages/master/nilai_obe.zul?perkuliahan="});
 request.setAttribute("nuiServiceEntities", new String[]{"Perkuliahan", "Detailperkuliahan", "CapaianPembelajaranLulusan", "CapaianLulusan", "ProfilLulusan", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

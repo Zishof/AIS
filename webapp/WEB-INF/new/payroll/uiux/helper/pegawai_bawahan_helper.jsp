@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"hasBawahan", "ambilBawahan", "applyFilterCuti", "applyFilterByPegawai"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"CutiDanIzin", "Pegawai", "Pejabat"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

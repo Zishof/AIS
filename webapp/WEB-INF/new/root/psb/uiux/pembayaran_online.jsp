@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "onLogin", "doAfterCompose", "onReset"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/sekolah/pembayaran_online.zul?calon_siswa="});
 request.setAttribute("nuiEntityCandidates", new String[]{"CalonSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

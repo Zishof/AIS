@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AbsensKehadiranDosenHarianAction"
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/AbsensKehadiranDosenHarianAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onLaporanAbsensiDosen", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Dosen"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

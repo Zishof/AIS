@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanDataPasienPerPeriodeWindow
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.sirs.umum");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/sirs/umum/LaporanDataPasienPerPeriodeWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "onCetakStatusPasien"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KelasPerawatan", "Ruang", "Kamar", "Poly", "Pendidikan", "JenisPasien", "Agama"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

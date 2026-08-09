@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DisposisiAlurSopAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sop");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sop/DisposisiAlurSopAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAddExternal", "init", "check", "checkAndSave", "onSave", "kerjakan", "run", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"DisposisiAlurSop", "AlurSop", "ParameterTambahanAlurSop", "ParameterTambahan", "DokumenAlurSop", "Sop", "LampiranLain", "Tbmuser", "DisposisiSop"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

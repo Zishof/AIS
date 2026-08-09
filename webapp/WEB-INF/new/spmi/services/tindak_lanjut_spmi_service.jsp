@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TindakLanjutSPMIAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.spmi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/spmi/TindakLanjutSPMIAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"openForTemuan", "buildInlinePanel", "onEvent", "doAfterCompose", "init", "initCriteria", "onSearchDefault", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"TindakLanjutTemuanSPMI"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

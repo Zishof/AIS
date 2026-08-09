@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DiagnosaJadwalUjianHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/helper/DiagnosaJadwalUjianHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"alasan", "hitungPerkuliahan", "hitungSesiUjian"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Perkuliahan", "Pertemuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

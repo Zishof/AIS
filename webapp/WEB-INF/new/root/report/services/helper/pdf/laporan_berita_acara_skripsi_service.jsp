@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanBeritaAcaraSkripsiWindow")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.helper.pdf");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/helper/pdf/LaporanBeritaAcaraSkripsiWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "onBeritaAcaraSkripsi"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Skripsi", "Staff"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

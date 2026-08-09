@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "Main");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/Main.java");
 request.setAttribute("nuiServiceMethods", new String[]{"checkAndSetUserSession"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/WEB-INF/baru/modul/kantin/index.jsp", "/WEB-INF/z/x/y/pages/main/index.zul", "/WEB-INF/baru/modul/common/hak_akses.jsp", "/WEB-INF/baru/modul/kantin/member/form_registrasi_calon.jsp", "/WEB-INF/baru/index.jsp", "/WEB-INF/new/index.jsp", "/WEB-INF/z/x/y/pages/main/index2.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

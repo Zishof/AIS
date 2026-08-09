@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PrestasiMahasiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/PrestasiMahasiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onDasbor", "onKategoriPrestasiMahasiswa", "onCabangPrestasiMahasiswa", "onRekapCabang", "onRekapKategori", "doBeforeCompose", "doAfterCompose", "onEvent", "run", "getDspace", "getDspaceTipePrestasiMahasiswa", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/kategori_prestasi_mahasiswa.zul", "/pages/master/cabang_prestasi_mahasiswa.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"KategoriPrestasiMahasiswa", "CabangPrestasiMahasiswa", "Mahasiswa", "PrestasiMahasiswa", "Jurusan", "JenisAktfitasMahasiswa", "LampiranLain"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

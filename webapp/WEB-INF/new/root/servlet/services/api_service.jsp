@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "Api");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/Api.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initTokens", "putToken", "removeToken", "ambil"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

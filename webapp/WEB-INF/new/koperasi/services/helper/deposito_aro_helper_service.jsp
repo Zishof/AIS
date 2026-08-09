@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DepositoAroHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.koperasi.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/koperasi/helper/DepositoAroHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"proses"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

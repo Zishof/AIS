@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DspaceHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/DspaceHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getDspaceInformation", "tampilkanButtonExportDiPertemuan", "onEvent", "exportDisplayPilihan", "run", "exportDataPertemuan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Perkuliahan", "KelompokKkn", "KelompokPkl", "MahasiswaRequestTugasAkhir", "Skripsi", "MahasiswaDapatKelompokKkn", "MahasiswaDapatKelompokPkl", "Pertemuan", "TugasKelompok", "NamaTugasKelompok"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

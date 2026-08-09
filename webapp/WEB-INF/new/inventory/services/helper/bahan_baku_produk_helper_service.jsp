@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BahanBakuProdukHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.inventory.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/inventory/helper/BahanBakuProdukHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"build", "onEvent", "total", "toJson"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Produk"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanRaporSiswa");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/sekolah/LaporanRaporSiswa.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "render", "initCriteria", "genarateKelompok", "masukkanPoin", "generateParameter", "catatanSiswa", "catatanKelasSiswa", "siapkanParemeter", "onReport"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/sekolah/jenis_rapor_siswa.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Sekolah", "JenisRaporSiswa", "KelasSiswaPunyaSiswa", "KelasSiswa", "JadwalPelajaran", "KurikulumPunyaMatapelajaran", "KelompokMatapelajaran", "DetailJenisPenilaian", "GrupPenilaian", "DetailGrupPenilaian", "GrupKategoriItemPenilaianSiswa", "Guru", "DetailGrupKategoriItemPenilaianSiswa", "KategoriItemPenilaianSiswa", "JenisItemPenilaianSiswa", "Konstanta", "AbsenPiket", "KegiatanSiswa", "PelanggaranSiswa", "ApresiasiSiswa", "Statusabsensi", "CatatanKelasSiswa", "CatatanSiswa", "FormulirKegiatanPeserta", "PrestasiSiswa", "ParameterTambahanCatatanSiswa", "ParameterTambahan", "ParameterTambahanCatatanKelasSiswa", "Siswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

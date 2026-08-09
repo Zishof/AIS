@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericRevisiHelper<HasilUjianMahasiswaDetail>");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"HasilUjianMahasiswaDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

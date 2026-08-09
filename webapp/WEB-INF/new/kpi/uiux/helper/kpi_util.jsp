@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"ambilTarget", "ambilPoint", "ambilDeskripsi"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"SkorKpi", "Konstanta", "Kpi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

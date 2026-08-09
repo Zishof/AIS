@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TugasAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/TugasAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onCreateNewRevisi", "onEvent", "onReloadTab"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/rab/tugas_revisi.zul?revisi="});
 request.setAttribute("nuiServiceEntities", new String[]{"Tugas"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

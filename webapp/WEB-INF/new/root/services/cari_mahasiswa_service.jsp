@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CariMahasiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/CariMahasiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/kalender_mahasiswa.zul?selectedMahasiswa="});
 request.setAttribute("nuiServiceEntities", new String[]{"Konsentrasi", "Fakultas", "Jurusan", "StatusMahasiswa", "StatusAwalMahasiswa", "Jenjang", "Mahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

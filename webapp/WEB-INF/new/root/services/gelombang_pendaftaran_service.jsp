@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "GelombangPendaftaranAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/GelombangPendaftaranAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onKelompok", "onVerifikasiKelengkapanBerkas", "onPembagianKelas", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "loadData", "onSave", "initCriteria", "onSearchDefault", "init"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/sekolah/kelompok_gelombang.zul", "/pages/master/verifikasi_kelengkapan_calon_mahasiswa.zul", "/pages/master/kelas_pmb.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"GelombangPendaftaran", "BiodataCalonMahasiswa", "KelompokGelombang", "JenisSeleksi", "JenisDiskonMahasiswa", "StatusAwalMahasiswa", "Jenjang", "Paket", "PaketPunyaGelombangPendaftaran", "VerifikasiKelengkapanCalonMahasiswa", "KelompokParameterTambahanCalonMahasiswa", "RolePrivilage"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

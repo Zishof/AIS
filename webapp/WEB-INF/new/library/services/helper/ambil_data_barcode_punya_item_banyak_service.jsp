@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataBarcodePunyaItemBanyak")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/helper/AmbilDataBarcodePunyaItemBanyak.java");
 request.setAttribute("nuiServiceMethods", new String[]{"render", "onEvent", "display", "initCriteria", "onSearchDefault", "setEventListener", "getEventListener"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"FotoImagePerHalamanItem", "ItemPunyaBarcode"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

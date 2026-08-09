@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PenugasanAuditSPIAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.spi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/spi/PenugasanAuditSPIAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent", "onDasbor", "render", "onAdd", "init", "form", "tampilRinci", "onSave", "initCriteria", "onSearchDefault", "istilah", "ambil", "ambilClass", "setPersetujuan", "cetakData", "cetak"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisAuditSPI", "PenugasanAuditSPI", "TimAuditSPI", "RencanaAuditTahunanSPI", "KriteriaAuditSPI", "ChecklistAuditSPI", "TemuanAuditSPI"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MainAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.maintenance");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/maintenance/MainAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onPustaka", "onWorkflow", "onRepository", "onAntarJemput", "onSpmi", "onKantin", "onPos", "onKoperasi", "onEmedic", "onGaji", "onSinkronisasiFeeder", "onSinkronisasiSister", "onAdministrasi", "onPengadaan", "onKepegawaian", "onKeuangan", "onPembayaran", "onKinerja", "onAkunting", "onDashboard", "onKegiatanDanPrestasi", "onPengumumanPerkuliahan", "onPengumuman", "onPresensi", "onTutupPopup", "onTop", "onCustomerService", "onEvent", "onPopup", "onInformasiKalenderAkademik", "onDasbordCatatan", "onInformasiKegiatan", "footer", "initPesan", "initBg", "onInfo", "initChatRoom", "onOpenMenu", "onNavigasiOpen", "onPesan", "onChatRoom", "onUploadFoto", "tampilPilihRole", "doBeforeCompose", "doAfterCompose", "getConfiguredFrameMinimumHeight", "loadData", "setDashboardTitle", "onMobile", "onLihatOnline", "updateUserOnline"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/message/message.zul", "/pages/master/chat.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"CustomerService", "PengumumanAkademis", "FotoMahasiswa", "FotoSiswa", "FotoDosen", "FotoGuru", "FotoPegawai", "FotoAdmin", "KalenderAkademik"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

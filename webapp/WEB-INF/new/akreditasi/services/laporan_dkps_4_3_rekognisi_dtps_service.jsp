@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanDkps_4_3_RekognisiDtps");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.akreditasi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/akreditasi/LaporanDkps_4_3_RekognisiDtps.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onCetak", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

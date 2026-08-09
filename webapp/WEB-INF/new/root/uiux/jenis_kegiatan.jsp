@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericCrudAction<JenisKegiatan>");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"initCriteria", "doAfterCompose", "muat", "onPrasyarat", "onEvent", "onSave", "checkNamaKegiatan", "render"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/WEB-INF/z/x/y/pages/master/jenis_kegiatan_tab_0.zul", "/pages/master/jenis_kegiatan_prasyarat.zul", "/WEB-INF/z/x/y/pages/master/sekolah/kanal_pembayaran.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"JenisKegiatan", "Jenjang", "Jurusan", "KanalPembayaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

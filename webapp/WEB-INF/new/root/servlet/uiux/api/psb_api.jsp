@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"portalInfo", "pengumuman", "gelombang", "daftar", "cekStatus"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/sekolah/pembayaran_online.zul?calon_siswa="});
 request.setAttribute("nuiEntityCandidates", new String[]{"PengumumanAkademis", "GelombangPendaftaranPsb", "CalonSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

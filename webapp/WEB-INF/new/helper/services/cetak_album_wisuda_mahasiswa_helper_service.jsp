@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CetakAlbumWisudaMahasiswaHelper")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/CetakAlbumWisudaMahasiswaHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateImageAlbumWisudaMahasiswa"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PendaftaranWisuda", "FotoMahasiswa", "Skripsi", "Detailperkuliahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

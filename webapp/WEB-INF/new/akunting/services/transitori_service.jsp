@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TransitoriAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.akunting");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/akunting/TransitoriAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "muat", "onEvent", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/WEB-INF/z/x/y/pages/master/akunting/proses_transitori.zul", "/WEB-INF/z/x/y/pages/master/akunting/transitori_tab_1.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Transitori"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

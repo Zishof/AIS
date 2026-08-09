@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PembayaranOnline");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/helper/PembayaranOnline.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "doAfterCompose", "execute", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/sekolah/pembayaran_siswa.zul?1=1", "/pages/master/sekolah/pembayaran_calon_siswa.zul?1=1", "/pages/master/bri/bri_request.zul?1=1", "/pages/master/bni/bni_request.zul?1=1", "/pages/master/virtual_account_bank.zul?1=1", "/pages/master/bsi/bsi_request.zul?1=1", "/common/mobile/tagihan.zul?1=1", "/pages/master/sekolah/tagihan.zul?1=1", "/pages/master/deposit.zul?1=1", "/pages/master/koperasi/pem_online.zul?langsungBayar=true&sumberPembayaran=siswa&modePelanggan=siswa&jenisPelanggan=siswa&hanyaSiswa=true&dariPembayaranOnline=true", "/pages/master/pengeluaran_mahasiswa.zul?1=1", "/common/btn/no_va.zul?va=", "/common/online/no_va.zul", "/common/online_2/no_va.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Siswa", "CalonSiswa", "PembayaranSiswaDetail", "Tagihan", "AkunPembayaranSiswa", "PembayaranSiswa", "PengaturanBiaya", "NominalBiaya"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DendaKeterlambatanItemAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/DendaKeterlambatanItemAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onHariLibur", "onKonfigurasi", "uploadDataDenda", "run", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/library/hari_libur_perpustakaan.zul", "/pages/master/library/konfigurasi_perpustakaan.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"DendaKeterlambatanItem", "Perpustakaan", "JenisAnggota", "TipeAnggota", "Fakultas", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

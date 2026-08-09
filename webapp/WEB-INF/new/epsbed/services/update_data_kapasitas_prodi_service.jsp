@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "UpdateDataKapasitasProdi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.epsbed");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/epsbed/UpdateDataKapasitasProdi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "onEvent", "run", "doProcess"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Fakultas", "Jurusan", "KapasitasMahasiswaBaru"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

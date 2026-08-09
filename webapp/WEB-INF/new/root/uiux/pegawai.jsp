@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "CommonOnSearchdefault, DataCriteria, DataSearchDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onUploadRfid", "onDownloadRfid", "onEvent", "onKartuPegawai", "onSatuanKerja", "doBeforeCompose", "doAfterCompose", "onDownloadFoto", "masakerja", "render", "getKeterangan", "onDownloadFotoMassal", "onUploadFotoMassal", "onAdd", "onAddDosen", "onAddGuru", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/satuan_kerja_pegawai.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"Pegawai", "SatuanKerja", "JenisTenagaKependidikan", "StatusPegawai", "Tbmuser", "LogLogin", "FotoDosen", "FotoGuru", "FotoPegawai", "KenaikanPangkat", "GajiPokok", "StatuskehadiranKaryawanHarian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

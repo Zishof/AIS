@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PenjadwalanPertemuanPSBHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/helper/PenjadwalanPertemuanPSBHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"render", "onEvent", "save", "display", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"StatusPertemuan", "Pertemuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

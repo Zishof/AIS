@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MonitorDataTempatTidurHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/helper/MonitorDataTempatTidurHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"render", "display", "onEvent", "onSearchDefault", "setEventListener", "getEventListener", "setMyKelasPerawatan", "getMyKelasPerawatan", "setMyRuang", "getMyRuang", "setMyKamar", "getMyKamar"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Pendaftaran", "KelasPerawatan", "Ruang", "Kamar", "TempatTidur"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

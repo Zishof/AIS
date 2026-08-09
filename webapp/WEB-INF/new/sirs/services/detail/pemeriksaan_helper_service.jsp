@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PemeriksaanHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs.detail");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/detail/PemeriksaanHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"createPemeriksaan", "onEvent", "simpan", "check"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Pemeriksaan", "DiagnosaPenyakitPunyaPemeriksaan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DefaultNisGenerator");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.recruitment.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/recruitment/helper/DefaultNisGenerator.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateNis"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Pegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

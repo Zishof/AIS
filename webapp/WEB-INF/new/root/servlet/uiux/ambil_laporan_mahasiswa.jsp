@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "HttpServlet");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"laporanSurat"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Mahasiswa", "TemplateSuratParameter", "Staff", "FotoMahasiswaLulus", "Integer", "Long", "FormatTemplateSurat", "SuratJrxmlFile", "BiodataCalonMahasiswa", "JenjangProgramStudi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

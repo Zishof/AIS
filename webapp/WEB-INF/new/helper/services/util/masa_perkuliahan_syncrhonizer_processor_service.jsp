@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MasaPerkuliahanSyncrhonizerProces
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/util/MasaPerkuliahanSyncrhonizerProcessor.java");
 request.setAttribute("nuiServiceMethods", new String[]{"run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"CicilanPembayaran", "Jurusan", "MasaPerkuliahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

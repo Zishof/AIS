@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "OperatorSelulerAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/OperatorSelulerAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initCriteria", "onEvent", "onSave", "checkNamaOperatorSeluler", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"OperatorSeluler"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

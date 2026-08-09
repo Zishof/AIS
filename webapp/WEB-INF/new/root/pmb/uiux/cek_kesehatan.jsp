@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onPsikotes", "doBeforeCompose", "doAfterCompose", "onEvent", "initCriteria", "onSearchDefault", "onPilihCalonMahasiswa", "onCetak"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/cek_psikotest.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"CekKesehatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

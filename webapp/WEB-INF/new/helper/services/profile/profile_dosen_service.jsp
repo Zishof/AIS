@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ProfileDosen");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.profile");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/profile/ProfileDosen.java");
 request.setAttribute("nuiServiceMethods", new String[]{"init", "onEvent", "getThis"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/prestasi_dosen.zul?dosen=", "/pages/master/penghargaan_dosen.zul?dosen=", "/pages/master/buku_bahan_ajar.zul?dosen="});
 request.setAttribute("nuiServiceEntities", new String[]{"FormulirKegiatan", "JenisFormulirKegiatan", "KegiatanKedosenanPunyaDosen", "OrganisasiDosenPunyaDosen", "PrestasiDosen", "PenghargaanDosen", "PengajuanPenelitianDanPengabdian", "Artikel", "BukuBahanAjar"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

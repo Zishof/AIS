@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KarirAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.maintenance");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/maintenance/KarirAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "onEvent", "onInfo", "doAfterCompose", "onClickPMB", "onPengumuman"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/karir/login_karir.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"PengumumanAkademis"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

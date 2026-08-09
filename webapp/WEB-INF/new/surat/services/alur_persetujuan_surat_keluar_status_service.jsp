@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AlurPersetujuanSuratKeluarStatusA
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.surat");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/surat/AlurPersetujuanSuratKeluarStatusAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onPreview", "onAddExternal", "initDetail", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisJabatan", "AlurPersetujuanSuratKeluarStatus", "OpsiSuratKeluarValue", "KlasifikasiSuratKeluarParemeterValue", "AlurPersetujuanSuratKeluar", "Pejabat", "SuratMasuk", "AlurPersetujuanSuratMasukStatus"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

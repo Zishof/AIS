@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanJadwalRencanaAnggaranPerUn
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.rab");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/rab/LaporanJadwalRencanaAnggaranPerUnit.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "onReport"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"UnitOrganisasi", "Workspace", "WorkspacePunyaPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

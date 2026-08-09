@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataMenuBanbox");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/AmbilDataMenuBanbox.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "display", "onSearchDefault", "createTreeMenu", "setEventListener", "getEventListener"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Menu"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

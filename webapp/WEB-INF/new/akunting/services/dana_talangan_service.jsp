@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DanaTalanganAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.akunting");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/akunting/DanaTalanganAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "cetakData", "cetak", "init", "onAdd", "form", "onSave", "initCriteria", "onSearchDefault", "istilah", "ambil", "ambilClass", "setPersetujuan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"DanaTalangan", "UangMuka", "JenisUangMuka"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

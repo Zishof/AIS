@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "OnSave");
 request.setAttribute("nuiSourceMethods", new String[]{"doAfterCompose", "onEvent", "onUploadBiaya", "onDownloadBiaya", "render", "onAdd", "onCetakHargaJual", "onCetakHargaBeli", "init", "display", "loadData", "onSave", "onSearchDefault", "checkNamaItem"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"SatuanItem", "JenisItem", "KelompokItem", "ItemMedis", "Penyedia", "HargaBeliItem", "BahanBakuItem", "KonversiSatuanItem"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

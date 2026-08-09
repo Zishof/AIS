@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onDibayarDimuka", "onTabungan", "onPengeluaran", "onPiutang", "onBiayaAdmin", "onBiayaPaymentGateway", "doBeforeCompose", "doAfterCompose", "onEvent", "onBatalkanPostingSemua", "onPostingSemua", "run", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/posting_cicilan_mahasiswa_dibayar_dimuka.zul", "/pages/master/posting_tabungan_mahasiswa.zul", "/pages/master/posting_pengeluaran_mahasiswa.zul", "/pages/master/posting_piutang_mahasiswa.zul", "/pages/master/posting_biaya_administrasi_pembayaran_mahasiswa.zul", "/pages/master/posting_biaya_payment_gateway_pembayaran_mahasiswa.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"ItemBiaya", "JenisKegiatan", "Jenjang", "CicilanPembayaran", "GrupTransaksi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

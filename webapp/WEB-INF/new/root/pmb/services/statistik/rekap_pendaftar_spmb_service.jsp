@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RekapPendaftarSpmb");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.pmb.statistik");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/pmb/statistik/RekapPendaftarSpmb.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onStatistik", "onDasbor", "onDasborInterview", "onDasborTarget", "onDasborSekolah", "onDasborRegistrasi", "onDasborJalur", "onDasborRekapMultiTahun", "onDasborHarian", "onLihatRinci", "onReportPendaftarSPMB", "onReportPeminat", "onReportLulus", "onReportDapatNim", "doBeforeCompose", "doAfterCompose", "onEvent", "onSearchDefault", "initCriteria", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisSeleksi", "GelombangPendaftaran", "Fakultas", "BiodataCalonMahasiswa", "Mahasiswa", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TindakanHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs.detail");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/detail/TindakanHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "init", "display", "render", "setPaket", "loadData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PaketPerawatanDetail", "TindakanDiagnosaPenyakit"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

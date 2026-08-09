@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "GapokImporter");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.employ.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/employ/util/GapokImporter.java");
 request.setAttribute("nuiServiceMethods", new String[]{"checkGolongan", "doImport", "main"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Golongan", "Peraturan", "GajiPokok", "Pegawai", "KenaikanPangkat"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

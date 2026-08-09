@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyPortallayout");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"isDebug", "setDebug", "onEvent", "compare"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/pmb/statistik/rekap_pendaftar_spmb_semua.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"Mahasiswa", "BiodataCalonMahasiswa", "String", "MahasiswaRequestTugasAkhir", "Skripsi", "PendaftaranWisuda", "KrsMahasiswa", "Detailperkuliahan", "KegiatanKemahasiswaanPunyaMahasiswa", "OrganisasiIntraKampusPunyaMahasiswa", "PrestasiMahasiswa", "Dosen", "Perkuliahan", "Pertemuan", "KegiatanKedosenanPunyaDosen", "OrganisasiDosenPunyaDosen", "PrestasiDosen", "PenghargaanDosen", "Artikel", "PengajuanPenelitianDanPengabdian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

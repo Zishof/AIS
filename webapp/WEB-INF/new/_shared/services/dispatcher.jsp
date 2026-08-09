@@ -17,17 +17,17 @@ JSONObject root=new JSONObject();String requestId=System.currentTimeMillis()+"-"
 try{
     Object current=session.getAttribute("mytbmuser");
     if(current==null){response.setStatus(401);root.put("ok",false);root.put("code","AUTH_REQUIRED");root.put("message","Sesi pengguna tidak tersedia.");root.put("requestId",requestId);out.print(root.toString());return;}
-    String bridgeModule=String.valueOf(request.getAttribute("nuiServiceModule"));
-    String bridgePage=String.valueOf(request.getAttribute("nuiServicePage"));
-    String[] bridgeEntities=nuiSvcArr(request.getAttribute("nuiServiceEntities"));
+    String nativeModule=String.valueOf(request.getAttribute("nuiServiceModule"));
+    String nativePage=String.valueOf(request.getAttribute("nuiServicePage"));
+    String[] nativeEntities=nuiSvcArr(request.getAttribute("nuiServiceEntities"));
     String action=request.getParameter("action");if(action==null||action.trim().length()==0)action="meta";action=action.trim().toLowerCase();
-    if(!NewUiRouteGuard.isActionAuthorized(request,bridgeModule,bridgePage,action)){response.setStatus(403);root.put("ok",false);root.put("code","ACTION_FORBIDDEN");root.put("message","Peran aktif tidak memiliki izin untuk aksi ini.");root.put("requestId",requestId);out.print(root.toString());return;}
+    if(!NewUiRouteGuard.isActionAuthorized(request,nativeModule,nativePage,action)){response.setStatus(403);root.put("ok",false);root.put("code","ACTION_FORBIDDEN");root.put("message","Peran aktif tidak memiliki izin untuk aksi ini.");root.put("requestId",requestId);out.print(root.toString());return;}
     if(Common.getApakahAdmin()){
-        ais.action.master.generic.v2.GenericCrudDefinition autoCrud=ais.action.master.generic.v2.GenericCrudDefinitionRegistry.tryAutoRegister(bridgeModule,bridgePage,bridgeEntities);
+        ais.action.master.generic.v2.GenericCrudDefinition autoCrud=ais.action.master.generic.v2.GenericCrudDefinitionRegistry.tryAutoRegister(nativeModule,nativePage,nativeEntities);
         if(autoCrud!=null){
             request.setAttribute("genericCrudEntityKey",autoCrud.getEntityKey());
-            request.setAttribute("genericCrudModuleKey",bridgeModule);
-            request.setAttribute("genericCrudPageKey",bridgePage);
+            request.setAttribute("genericCrudModuleKey",nativeModule);
+            request.setAttribute("genericCrudPageKey",nativePage);
             ais.action.master.generic.v2.GenericCrudHttpController.handle(request,response);
             return;
         }
@@ -38,9 +38,9 @@ try{
         if(sent==null||!csrf.equals(sent)){response.setStatus(403);root.put("ok",false);root.put("code","CSRF_INVALID");root.put("message","Token CSRF tidak valid.");root.put("requestId",requestId);out.print(root.toString());return;}
         if(!"POST".equalsIgnoreCase(request.getMethod())){response.setStatus(405);root.put("ok",false);root.put("code","METHOD_NOT_ALLOWED");root.put("message","Gunakan HTTP POST untuk operasi perubahan data.");root.put("requestId",requestId);out.print(root.toString());return;}
     }
-    String module=String.valueOf(request.getAttribute("nuiServiceModule"));String pageName=String.valueOf(request.getAttribute("nuiServicePage"));String title=String.valueOf(request.getAttribute("nuiServiceTitle"));String type=String.valueOf(request.getAttribute("nuiServiceType"));String sourceClass=String.valueOf(request.getAttribute("nuiServiceSourceClass"));String sourcePackage=String.valueOf(request.getAttribute("nuiServiceSourcePackage"));String sourcePath=String.valueOf(request.getAttribute("nuiServiceSourcePath"));String[] methods=nuiSvcArr(request.getAttribute("nuiServiceMethods"));String[] refs=nuiSvcArr(request.getAttribute("nuiServiceLegacyRefs"));String[] entities=nuiSvcArr(request.getAttribute("nuiServiceEntities"));
+    String module=String.valueOf(request.getAttribute("nuiServiceModule"));String pageName=String.valueOf(request.getAttribute("nuiServicePage"));String title=String.valueOf(request.getAttribute("nuiServiceTitle"));String type=String.valueOf(request.getAttribute("nuiServiceType"));String sourceClass=String.valueOf(request.getAttribute("nuiServiceSourceClass"));String sourcePackage=String.valueOf(request.getAttribute("nuiServiceSourcePackage"));String sourcePath=String.valueOf(request.getAttribute("nuiServiceSourcePath"));String[] methods=nuiSvcArr(request.getAttribute("nuiServiceMethods"));String[] entities=nuiSvcArr(request.getAttribute("nuiServiceEntities"));
     root.put("ok",true);root.put("requestId",requestId);root.put("action",action);root.put("module",module);root.put("page",pageName);root.put("title",title);root.put("pageType",type);root.put("integrationStatus","SCAFFOLD");root.put("csrf",csrf);
-    JSONObject source=new JSONObject();source.put("className",sourceClass);source.put("packageName",sourcePackage);source.put("sourcePath",sourcePath);source.put("methods",new JSONArray(Arrays.asList(methods)));source.put("legacyRefs",new JSONArray(Arrays.asList(refs)));source.put("entityCandidates",new JSONArray(Arrays.asList(entities)));root.put("source",source);
+    JSONObject source=new JSONObject();source.put("className",sourceClass);source.put("packageName",sourcePackage);source.put("sourcePath",sourcePath);source.put("methods",new JSONArray(Arrays.asList(methods)));source.put("entityCandidates",new JSONArray(Arrays.asList(entities)));root.put("source",source);
     if("meta".equals(action)||"health".equals(action)){
         root.put("supportedActions",new JSONArray(Arrays.asList(new String[]{"meta","health","list","detail","options","save","delete","export"})));
         root.put("message","Service adapter tersedia. Operasi data harus didelegasikan ke Java service layer.");

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KlasifikasiSuratKeluarParameterHe
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.surat.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/surat/helper/KlasifikasiSuratKeluarParameterHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "initDetail", "initRow", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KlasifikasiSuratKeluarParemeter", "String", "Integer", "Double", "Date"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

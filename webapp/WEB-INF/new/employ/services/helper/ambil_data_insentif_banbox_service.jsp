@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataInsentifBanbox");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.employ.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/employ/helper/AmbilDataInsentifBanbox.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "display", "onSearchDefault", "setEventListener", "getEventListener"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Golongan", "Peraturan", "Insentif"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

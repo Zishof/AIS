@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PSBAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.maintenance");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/maintenance/PSBAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "footer", "onEvent", "tampilWa", "header", "headerBox", "initHeader", "initBg", "initFooter", "onInfo", "doAfterCompose", "onLihatOnline", "onClickPayment", "onClickInformasi", "onClickPMB", "onClickCariDataUjian", "onClickCariPembayaran", "onClickCariDataDaftar", "onClickLoginPMB", "onClickAlurPendaftaran", "onPengumuman"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/sekolah/pembayaran_online.zul?calon_siswa=", "/pages/psb/informasi.zul", "/pages/psb/cari_data_peserta_ujian.zul", "/pages/psb/cari_data_pembayaran.zul", "/pages/psb/cari_data_pendaftar.zul", "/pages/psb/login_calon_siswa.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"PengumumanAkademis", "CalonSiswa", "Tbmuser"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

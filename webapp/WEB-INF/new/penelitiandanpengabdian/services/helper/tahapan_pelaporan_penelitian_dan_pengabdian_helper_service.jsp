@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TahapanPelaporanPenelitianDanPeng
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.penelitiandanpengabdian.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/penelitiandanpengabdian/helper/TahapanPelaporanPenelitianDanPengabdianHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"displayWindowTahapanPelaporan", "onEvent", "displayTahapanPelaporan", "initCriteria", "loadDataTahapanPelaporan", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PenelitianDanPengabdian", "TahapanPelaporanPenelitianDanPengabdian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

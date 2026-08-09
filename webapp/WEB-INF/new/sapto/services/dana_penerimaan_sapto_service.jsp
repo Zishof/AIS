@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DanaPenerimaanSaptoAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sapto");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sapto/DanaPenerimaanSaptoAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onJenisPenerimaanData", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/sapto/jenis_dana_penerimaan_sapto.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisDanaPenerimaanSapto", "DanaPenerimaanSapto"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

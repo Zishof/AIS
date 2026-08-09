@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault, DataInitDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onDosen", "onMahasiswa", "doBeforeCompose", "doAfterCompose", "onEvent", "initCriteria", "tampilkanSemuaDownload", "render", "onAdd", "init", "onSave", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/afiliasi_calon_mahasiswa_pegawai.zul", "/pages/master/afiliasi_calon_mahasiswa_mahasiswa.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"AfiliasiCalonMahasiswa", "BiodataCalonMahasiswa", "StatusAwalMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

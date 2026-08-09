@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AktifitasJadwalUjianPSBHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/helper/AktifitasJadwalUjianPSBHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initAgendaJadwalUjianPSB", "onEvent", "initDetail", "loadData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Pertemuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

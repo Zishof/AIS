@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KomunitasPunyaPasienAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs.detail");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/detail/KomunitasPunyaPasienAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "loadData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KomunitasPunyaPasien"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

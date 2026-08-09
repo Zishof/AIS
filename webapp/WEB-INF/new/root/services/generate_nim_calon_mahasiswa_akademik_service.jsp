@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "GenerateNimCalonMahasiswaAkademik
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/GenerateNimCalonMahasiswaAkademikAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onPilihCalonMahasiswa", "onEvent", "onGenerateNim", "onRegenerateNim", "loadDataCalonMahasiswaLulus", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa", "CekKesehatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onDeleteTugas", "onEvent", "onPasteTugas", "onCopyTugas", "onAdd", "onSave", "onReloadTree", "render", "openChilds", "closeChilds", "init", "initPegawai"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Tugas", "TugasPunyaPegawai", "TugasPunyaPredecessor", "JenisTugas"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

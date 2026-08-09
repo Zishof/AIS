@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "FilterLanjutHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/FilterLanjutHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"buka", "tutup", "isTerbuka", "tambahBtn", "setup", "onEvent", "getPopup", "getOverlay", "getExtraBtnsContainer"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

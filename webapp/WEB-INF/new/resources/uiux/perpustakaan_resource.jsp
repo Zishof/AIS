@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "DataResource<Perpustakaan>");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"getXml", "getData", "getAllData", "daftarSatuanKerja", "daftarPenerbit", "login", "getPeminjaman", "cariPeminjaman", "cariBuku", "getAnggota", "getKunjunganAnggota", "getItemById", "getItem", "getNewAnggotas", "getKunjunganAnggotas", "getAnggotas", "getDataKunjunganAnggotas", "kembalikan", "pinjam", "cariBukuStok", "cariBukuPopulerPerPerpustakaan", "getLampiran", "daftarPerpustakaan", "daftarFolderItem", "daftarItemJurnal", "daftarItemWithStart", "run", "daftarItem", "daftarItemManual", "tambahKomentarItem", "daftarItemKomentar", "daftarItemKomentarSemua", "daftarPublikasiItem", "publikasiItemByItemId", "publikasiItem", "tambahKomentarItemterbit", "daftarItemTerbitKomentar", "daftarItemTerbitKomentarSemua", "daftarItemTerbitJumlahKomentar", "tambahKomentarInformasiPerpustakaan"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Perpustakaan", "SatuanKerja", "Penerbit", "Tbmuser", "Pustakawan", "PeminjamanPengadaanItem", "Anggota", "BatasWaktuPeminjamanItem", "PeminjamanPengadaanItemDetail", "Item", "KunjunganAnggota", "ItemPunyaBarcode", "PesananAnggota", "KembaliPengadaanItem", "DetailTransaksi", "FotoItem", "ItemKomentar", "ItemPunyaTerbit", "ItemPunyaTerbitKomentar", "DataDdcItemDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

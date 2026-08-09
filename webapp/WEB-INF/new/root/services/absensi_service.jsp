@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AbsensiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/AbsensiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEkstrakurikuler", "onPraPerkuliahan", "onAbsensiSp", "onAbsensiRemedial", "onLaporanKehadiranDosen", "onLaporanKehadiranMahasiswa", "onLaporanKehadiranAsisten", "onLaporanAbsensiMahasiswa", "onRekapitulasiAbsensiMahasiswa", "onProsesKehadiran", "onRekapitulasiAbsensiMatakuliah", "onRekapitulasiAbsensiPerMahasiswa", "onRekapitulasiAbsensiKelas", "onRekapitulasiAbsensiKelasDanMatakuliah", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/absensi_ekstrakurikuler.zul", "/pages/master/absensi_pra_perkuliahan.zul", "/pages/master/absensi_sp.zul", "/pages/master/absensi_remedial.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Perkuliahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

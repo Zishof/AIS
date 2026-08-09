@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onCetakKartuUjianPSB", "onCetakAbsensiPSBFoto", "onEvent", "getDataAlbumPSBAdmin", "onCetakAbsensiPSB", "onCetakPernyataanOrtu", "onCetakPernyataanSiswa", "onCetakVerifikasiPSB", "onCetakCalonSiswa"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"RuangGelombangPendaftaranPsbPSB", "Jurusan", "JadwalUjianPSB", "GelombangPendaftaranPsb", "CalonSiswaPunyaVerifikasiBerkas", "LampiranLain", "CalonSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PeminjamanItem");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.resources.model");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/resources/model/PeminjamanItem.java");
 request.setAttribute("nuiServiceMethods", new String[]{});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

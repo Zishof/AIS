@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RincianPengajuanPengadaanReferens
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.asset.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/asset/helper/RincianPengajuanPengadaanReferensiHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"bangunReferensiPengajuan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PenerimaanPengadaanMasterAsset", "PenerimaanPengadaanMasterAssetDetail", "PermintaanPengadaanMasterAsset", "PermintaanPengadaanMasterAssetDetail", "PemesananPengadaanMasterAsset", "PemesananPengadaanMasterAssetDetail", "DisposisiAlurSop"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

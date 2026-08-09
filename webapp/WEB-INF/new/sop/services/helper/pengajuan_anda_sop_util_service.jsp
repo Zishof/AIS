@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PengajuanAndaSopUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sop.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sop/helper/PengajuanAndaSopUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"userRestriction", "criteriaPengajuanAnda", "criteriaSudahDisposisi", "criteriaMenungguSaya", "criteriaSelesai", "criteriaMenungguAktor", "hitung", "hitungRingkasan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"DisposisiSop", "DisposisiAlurSop"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CatatanMahasiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/CatatanMahasiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onDasbor", "onLaporan", "onJenisCatatanMahasiswa", "onManajemenParameter", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/jenis_catatan_mahasiswa.zul", "/pages/master/parameter_tambahan_catatan_mahasiswa.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa", "JenisCatatanMahasiswa", "CatatanMahasiswa", "ParameterTambahanCatatanMahasiswa", "ParameterTambahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

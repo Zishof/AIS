@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JenisSeleksiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/JenisSeleksiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onKelompokJenisSeleksi", "doBeforeCompose", "doAfterCompose", "onEvent", "run", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/kelompok_jenis_seleksi.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisSeleksi", "KelompokJenisSeleksi", "JenisDiskonMahasiswa", "VerifikasiKelengkapanCalonMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -23,8 +23,8 @@ public final class NewUiHybridMenuTreeBuilderSelfTest {
         value.setMenuId(Long.valueOf(id)); value.setRoot(Long.valueOf(root)); value.setChild(Long.valueOf(child));
         value.setNomorUrut(Integer.valueOf(order)); value.setLabel("M" + id); value.setAssigned(true);
         value.setActiveInScope(true); value.setPermission(new NewUiPermission(read, false, false, false, false, false));
-        value.setRouteStatus(route ? NewUiHybridMenuRouteRegistry.LEGACY_EMBED : NewUiHybridMenuRouteRegistry.NOT_MAPPED);
-        value.setResolvedUrl(route ? "/baru?menu=" + id : null);
+        value.setRouteStatus(route ? NewUiHybridMenuRouteRegistry.NEW_UI : NewUiHybridMenuRouteRegistry.NOT_MAPPED);
+        value.setResolvedUrl(route ? "/new?menuId=" + id : null);
         return value;
     }
 

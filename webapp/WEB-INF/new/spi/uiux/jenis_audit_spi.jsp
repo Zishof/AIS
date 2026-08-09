@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "BaseSPIAction");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onKriteria", "onChecklist", "doAfterCompose", "render", "onEvent", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/spi/kriteria_audit_spi.zul", "/pages/master/spi/checklist_audit_spi.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"JenisAuditSPI"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

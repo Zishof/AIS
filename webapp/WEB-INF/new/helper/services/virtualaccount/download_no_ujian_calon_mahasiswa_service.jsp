@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DownloadNoUjianCalonMahasiswa");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.virtualaccount");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/virtualaccount/DownloadNoUjianCalonMahasiswa.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "getFile", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"BiodataCalonMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

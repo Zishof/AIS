@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RekapUjianSupport");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.admin");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/admin/RekapUjianSupport.java");
 request.setAttribute("nuiServiceMethods", new String[]{"judulKolom", "ambilNilai", "sel"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"HasilUjianMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

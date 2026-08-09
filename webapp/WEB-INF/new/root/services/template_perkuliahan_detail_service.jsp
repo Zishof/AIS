@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TemplatePerkuliahanDetailAction")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/TemplatePerkuliahanDetailAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "copy", "onAdd", "onSave", "onSaveCopy", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"TemplatePerkuliahanDetail", "Jurusan", "Kurikulum", "KurikulumPunyaMatakuliah"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

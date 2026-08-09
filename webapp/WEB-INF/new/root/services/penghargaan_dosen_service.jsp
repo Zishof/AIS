@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PenghargaanDosenAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/PenghargaanDosenAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onKategoriPenghargaan", "doBeforeCompose", "doAfterCompose", "onEvent", "run", "getDspace", "getDspaceTipePenghargaanDosen", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/kategori_penghargaan.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"KategoriPenghargaan", "Dosen", "PenghargaanDosen", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

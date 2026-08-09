@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onCetakKartuUjianPegawai", "onCetakAbsensiPegawaiFoto", "onEvent", "getDataAlbumPegawaiAdmin", "onCetakAbsensiPegawai", "onCetakPernyataanOrtu", "onCetakPernyataanPegawai", "onCetakVerifikasiPegawai", "onCetakCalonPegawai"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"RuangGelombangPendaftaranPegawaiPegawai", "Jurusan", "JadwalUjianPegawai", "GelombangPendaftaranPegawai", "CalonPegawaiPunyaVerifikasiBerkas", "LampiranLain"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

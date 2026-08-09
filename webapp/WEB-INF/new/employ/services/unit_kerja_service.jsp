@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "UnitKerjaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.employ");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/employ/UnitKerjaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "init", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaUnitKerja"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JabatanStruktural", "UnitKerja", "JenisPimpinan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

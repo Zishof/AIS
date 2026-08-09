@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "HttpServlet");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{});
-request.setAttribute("nuiLegacyRefs", new String[]{"/WEB-INF/u/pmb3.jsp"});
 request.setAttribute("nuiEntityCandidates", new String[]{"PengumumanAkademis", "GelombangPendaftaran", "Jurusan", "DiskusiPengumumanAkademis"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

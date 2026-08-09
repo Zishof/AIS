@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilJadwalSeminarTugasAkhirBanbo
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/AmbilJadwalSeminarTugasAkhirBanbox.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "setJurusan", "render", "display", "onSearchDefault", "setEventListener", "getEventListener", "setJurusanSelected", "setFakultasSelected"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Jurusan", "JadwalSeminarTugasAkhir"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

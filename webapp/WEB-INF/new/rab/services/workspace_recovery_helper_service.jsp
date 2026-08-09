@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "WorkspaceRecoveryHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/WorkspaceRecoveryHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"jalankanRecovery", "onEvent", "run", "onProgress", "restoreDeletedWorkspaceFromAudit"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Workspace"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

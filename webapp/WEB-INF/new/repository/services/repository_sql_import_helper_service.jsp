@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RepositorySqlImportHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.repository");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/repository/RepositorySqlImportHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"importSql"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "VerifikasiMatapelajaranPMBHelper"
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.pmb");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/pmb/VerifikasiMatapelajaranPMBHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"tampilkanVerifikasi", "onEvent", "simpanVerifikasi"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PaketPunyaMatapelajaran", "MatapelajaranSekolah", "BiodataCalonMahasiswaPunyaVerifikasiMatapelajaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "InterviewCalonSiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/InterviewCalonSiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent", "tampilkanInterview"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"InterviewCalonSiswa", "Pegawai", "GelombangPendaftaranPsb", "InterviewPunyaCalonSiswa", "CalonSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

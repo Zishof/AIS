@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DaftarUlangPembayaranHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/DaftarUlangPembayaranHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"ambilNominalDariLabel", "hitungNilaiCicilanBelumTersimpanDariGrid", "hitungJumlahYangAkanDibayarDariTampilan", "pasangRingkasanBayar", "getBayarCooldownMs", "buildBayarSignature", "loadIframeToTabpanel", "updateDetailBiayaUntukDibayar", "pilihSettingBiayaSesuai"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

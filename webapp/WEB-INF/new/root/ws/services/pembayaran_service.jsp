@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PembayaranAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.ws");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/ws/PembayaranAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"hello", "reversal", "inquery", "inquiryByNim", "pay", "payByNim"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PengaturanPembayaranBulanan", "ItemBiaya", "Kegiatan", "DetailBiaya", "CicilanPembayaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

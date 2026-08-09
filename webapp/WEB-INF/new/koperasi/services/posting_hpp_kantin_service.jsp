@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PostingHppKantinAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.koperasi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/koperasi/PostingHppKantinAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "lastPostedEnd", "hitungDraftPending", "hitungTerposting"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"MasterAsset", "Akun", "SatuanKerja", "PostingHistory"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

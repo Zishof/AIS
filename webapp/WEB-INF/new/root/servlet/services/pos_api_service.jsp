@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PosApi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/PosApi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"compare", "getParameter", "getParameterMap", "getParameterValues"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"CaraPembayaranKoperasi", "DraftPembelianAnggotaKoperasi", "DraftPembelian", "AnggotaKoperasi", "Toko"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

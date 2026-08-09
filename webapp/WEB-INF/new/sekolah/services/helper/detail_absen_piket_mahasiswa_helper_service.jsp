@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DetailAbsenPiketMahasiswaHelper")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/helper/DetailAbsenPiketMahasiswaHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "initCriteria", "loadData", "displayDetailPA"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa", "Statusabsensi", "AbsenPiketPeserta"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

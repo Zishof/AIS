@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanAbsensiPegawaiPerOrang");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.akademik");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/akademik/LaporanAbsensiPegawaiPerOrang.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "generateDataDanImageAlbum", "data", "execute", "onKHS", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/payroll/cuti_dan_izin.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"IkatanKerjaDosen", "Pegawai", "CutiDanIzin"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

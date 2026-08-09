@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JatelindoRequestAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.jatelindo");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/jatelindo/JatelindoRequestAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"CicilanPembayaran", "JatelindoRequestDetail", "JatelindoRequest"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

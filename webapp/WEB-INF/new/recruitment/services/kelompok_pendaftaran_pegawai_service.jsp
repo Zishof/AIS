@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KelompokPendaftaranPegawaiAction"
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.recruitment");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/recruitment/KelompokPendaftaranPegawaiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"GelombangPendaftaranPegawai", "KelompokPendaftaranPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

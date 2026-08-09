@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"initRow", "onEvent", "run", "loadData", "reloadData", "display", "hitungUlangSemuaPegawai"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/payroll/bayar_gaji_pegawai_data.zul?pembayaranGajiPunyaPegawai="});
 request.setAttribute("nuiEntityCandidates", new String[]{"KenaikanPangkat", "PembayaranGajiPunyaPegawai", "Pegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

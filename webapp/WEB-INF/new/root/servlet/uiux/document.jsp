@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "HttpServlet");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{});
-request.setAttribute("nuiLegacyRefs", new String[]{"/WEB-INF/baru/modul/dms/landing_page.jsp", "/WEB-INF/baru/modul/dms/_dms_service.jsp", "/WEB-INF/baru/modul/dms/_dms_content.jsp"});
 request.setAttribute("nuiEntityCandidates", new String[]{"Akreditasi", "DokumenAkreditasi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

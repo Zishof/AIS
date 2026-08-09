@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RabImporter");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/util/RabImporter.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doImport", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Satuan", "HasilSatuan", "Workspace", "Akun"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

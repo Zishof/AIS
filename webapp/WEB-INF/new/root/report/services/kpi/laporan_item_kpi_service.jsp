@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanItemKpi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.kpi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/kpi/LaporanItemKpi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateParameters", "onEvent", "onReport"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

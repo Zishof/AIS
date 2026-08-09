@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanSlipGajiPegawaiPerOrang");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.payroll");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/payroll/LaporanSlipGajiPegawaiPerOrang.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "generateDataDanImageAlbum", "onKHS"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"FormatItemGaji", "Pegawai", "GajiPokok", "PenilaianKpi", "ParameterTambahanGajiPegawai", "ParameterTambahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

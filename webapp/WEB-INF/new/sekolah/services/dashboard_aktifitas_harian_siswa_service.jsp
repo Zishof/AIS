@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardAktifitasHarianSiswaActi
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/DashboardAktifitasHarianSiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onRefreshDashboard", "compare", "onDownloadExcel", "onPrintPDF"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"AktiftasHarianSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

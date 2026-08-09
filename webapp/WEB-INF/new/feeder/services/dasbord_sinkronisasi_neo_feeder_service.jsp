@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DasbordSinkronisasiNeoFeeder");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.feeder");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/feeder/DasbordSinkronisasiNeoFeeder.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "run", "set", "compare"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "GoogleAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.maintenance");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/maintenance/GoogleAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "proses", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/google.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Tbmuser", "Mahasiswa", "Siswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

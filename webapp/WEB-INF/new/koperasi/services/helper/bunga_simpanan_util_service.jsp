@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BungaSimpananUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.koperasi.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/koperasi/helper/BungaSimpananUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"jumlahHariBulan", "saldoHarian", "saldoTerendah", "saldoRataRata", "totalSaldoHarian", "hitungBunga", "label"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

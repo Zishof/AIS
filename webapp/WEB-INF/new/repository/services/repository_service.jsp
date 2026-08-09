@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RepositoryAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.repository");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/repository/RepositoryAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onSearchDefault", "onSyncLocal", "onSyncDspace", "onEvent", "run", "onProgress", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"RepoCollection", "RepoItem"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

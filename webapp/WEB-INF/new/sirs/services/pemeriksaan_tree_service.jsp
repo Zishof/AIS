@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PemeriksaanTreeAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/PemeriksaanTreeAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onAdd", "onEvent", "onSave", "onReloadTree", "render", "openChilds", "closeChilds"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Pemeriksaan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

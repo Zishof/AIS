@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "GenericActionDashboardHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/GenericActionDashboardHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"refresh", "refreshFromCriteria", "showProgress", "hideProgress", "buildH2HDashboard"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Session"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

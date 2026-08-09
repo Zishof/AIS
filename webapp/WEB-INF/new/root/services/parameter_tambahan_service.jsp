@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ParameterTambahanAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/ParameterTambahanAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onManajemenGrup", "doBeforeCompose", "onRefreshGrup", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/grup_parameter_tambahan.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"GrupParameterTambahan", "ParameterTambahan", "GeneralValueObject", "Agama", "TipeMasaKerja", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

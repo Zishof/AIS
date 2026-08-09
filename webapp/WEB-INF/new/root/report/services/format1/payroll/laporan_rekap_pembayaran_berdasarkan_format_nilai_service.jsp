@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanRekapPembayaranBerdasarkan
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.payroll");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/payroll/LaporanRekapPembayaranBerdasarkanFormatNilai.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "onCetak", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"CaraPembayaranGaji", "Bank", "StatusKepegawaian", "JenisFormatGaji", "KenaikanPangkat", "Keluarga", "JabatanFungsional", "JabatanStruktural", "Jabatan", "GajiPokok", "PenilaianKpi", "PembayaranGajiPunyaPegawai", "Pegawai", "SatuanKerja", "KehadiranPegawaiBulanan", "ItemGaji"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

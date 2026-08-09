@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TampilanHasilScanPerHalamanWindow
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/helper/TampilanHasilScanPerHalamanWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{"init", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"FotoImagePerHalamanItem"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onLaporanPenyusutan", "onPenyusutan", "doBeforeCompose", "doAfterCompose", "onEvent", "run", "render", "tampilKet", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/asset/penyusutan_asset_detail.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"AssetDetail", "PenyusutanAsset"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

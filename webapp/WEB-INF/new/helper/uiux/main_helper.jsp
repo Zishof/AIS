@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"initMain", "onEvent", "onBantuan", "onKatalogBantuan", "onKeluar", "hasChild", "parents", "onDapatkanKode", "onUbahBiodata", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/common/checklist_penilaian_dosen_oleh_mhs.zul", "/pages/master/sekolah/checklist_penilaian_guru_oleh_siswa.zul", "/common/checklist_penilaian_umum_grup.zul", "/common/checklist_penilaian_umum.zul", "/pages/master/biodata_mahasiswa.zul", "/pages/master/biodata_dosen.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

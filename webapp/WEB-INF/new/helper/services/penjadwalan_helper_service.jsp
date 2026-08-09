@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PenjadwalanHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/PenjadwalanHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"render", "onEvent", "loadData", "pindahkanUrutanPertemuan", "checkBolehHapus", "bolehHapus", "tampilTombolDownload", "initCriteria", "tampilTombolHapus", "prosesTampilTombolAturUlangWaktu", "tampilTombolAturUlangWaktu", "tampilTombolBuatPertemuan", "buatPertemuan", "tampilTombolAmbil", "copyLampiranPertemuan", "pesanError", "buatSatuPertemuan", "display", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/rps_obe.zul?kur="});
 request.setAttribute("nuiServiceEntities", new String[]{"Pertemuan", "StatusPertemuan", "KurikulumPunyaMatakuliahDetail", "PerkuliahanPunyaItem", "DataPunyaItem", "PertemuanFileContent", "VideoPertemuan", "AudioPertemuan", "PertemuanPunyaUjian", "TugasKelompok", "TugasPertemuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

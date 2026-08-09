@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "SuratApi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/SuratApi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"disposisi_simpan_surat_masuk", "disposisi_simpan_surat_keluar", "disposisi_surat_keluar", "disposisi_surat_masuk", "klasifikasi", "parameter", "updateParameter", "info", "cetakSurat", "cetak", "lampiranSuratKeluar", "lampiranSuratMasuk"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"SuratMasuk", "Pejabat", "AlurPersetujuanSuratMasukStatus", "SuratKeluar", "AlurPersetujuanSuratKeluarStatus", "AlurPersetujuanSuratKeluar", "AlurPersetujuanSuratMasuk", "KlasifikasiSuratKeluarUntuk", "KlasifikasiSuratKeluar", "KlasifikasiSuratKeluarParemeter", "KlasifikasiSuratKeluarParemeterValue", "FotoGambarSuratKeluar", "FotoGambarSuratMasuk"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

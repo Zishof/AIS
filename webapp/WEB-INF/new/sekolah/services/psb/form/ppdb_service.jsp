@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PPDB");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.psb.form");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/psb/form/PPDB.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getCalonSiswa", "setCalonSiswa", "getGelombangPendaftaranPsb", "setGelombangPendaftaranPsb", "getEventListener", "setEventListener", "init", "anakPegawai", "onEvent", "alumni", "sibling"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Keluarga"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

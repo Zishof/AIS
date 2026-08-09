@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PertangungjawabanKasBesarAction")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.akunting");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/akunting/PertangungjawabanKasBesarAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "cetakData", "cetak", "init", "onAddExternal", "onAdd", "form", "reloadDataFormula", "reloadFormula", "onSave", "initCriteria", "onSearchDefault", "istilah", "ambil", "ambilClass", "setPersetujuan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PertangungjawabanKasBesar", "DaftarPengajuanTransfer", "JenisPajakBarang", "JenisPajakPpn"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

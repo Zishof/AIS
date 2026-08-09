@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onJenisNilai", "doBeforeCompose", "doAfterCompose", "onEvent", "run", "render", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/sekolah/jenis_nilai_siswa.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"KelasSiswaPunyaSiswa", "KurikulumPunyaMatapelajaran", "JenisPenilaian", "DetailJenisPenilaian", "GrupPenilaian", "DetailGrupPenilaian", "GrupKategoriItemPenilaianSiswa", "DetailGrupKategoriItemPenilaianSiswa", "KategoriItemPenilaianSiswa", "JenisItemPenilaianSiswa", "KelasSiswa", "JadwalPelajaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "WorkspaceSelecter");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onCetakEvaluasi", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "select"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/rab/acara_punya_kendala.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"Acara"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

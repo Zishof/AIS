@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DefaultJenisParsingReconsile");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/DefaultJenisParsingReconsile.java");
 request.setAttribute("nuiServiceMethods", new String[]{"parsing"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"RekonsiliasiHostToHost", "LogHostToHost"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

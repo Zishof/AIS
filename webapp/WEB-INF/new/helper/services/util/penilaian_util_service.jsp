@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PenilaianUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/util/PenilaianUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"downloadPenilaianKonversi", "pindahkanSemuaKRS", "downloadSemuaKRS", "downloadPenilaian", "run", "uploadPenilaianKonversi", "uploadPenilaian", "uploadPenilaianBaru", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Detailperkuliahan", "Matakuliah", "NilaiHuruf"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

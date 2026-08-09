@@ -4,12 +4,10 @@ import java.io.Serializable;
 
 import ais.common.newui.NewUiRouteRegistry;
 
-/** Resolver route hybrid dengan status eksplisit. */
+/** Resolver route New UI native dengan status eksplisit dan fail-closed. */
 public final class NewUiHybridMenuRouteRegistry {
 
     public static final String NEW_UI = "NEW_UI";
-    public static final String LEGACY_EMBED = "LEGACY_EMBED";
-    public static final String LEGACY_REDIRECT = "LEGACY_REDIRECT";
     public static final String FORBIDDEN = "FORBIDDEN";
     public static final String NOT_MAPPED = "NOT_MAPPED";
     public static final String NOT_FOUND = "NOT_FOUND";
@@ -28,7 +26,7 @@ public final class NewUiHybridMenuRouteRegistry {
         public String getModule() { return module; }
         public String getPage() { return page; }
         public String getLegacyUrl() { return legacyUrl; }
-        public boolean isValid() { return NEW_UI.equals(status) || LEGACY_EMBED.equals(status) || LEGACY_REDIRECT.equals(status); }
+        public boolean isValid() { return NEW_UI.equals(status); }
     }
 
     private NewUiHybridMenuRouteRegistry() { }
@@ -36,8 +34,11 @@ public final class NewUiHybridMenuRouteRegistry {
     public static ResolvedRoute resolve(Long menuId, String existingUrl, boolean openNewWindow) {
         NewUiRouteRegistry.Route route = NewUiRouteRegistry.routeForMenuIdAndUrl(menuId, existingUrl);
         if (route != null) return new ResolvedRoute(NEW_UI, route.getModule(), route.getPage(), null);
+        // Native-only: URL lama hanya boleh dipakai sebagai kunci pencarian registry.
+        // Menu berizin yang belum mempunyai mapping eksplisit tetap membuka
+        // halaman native milik New UI, tidak pernah di-embed atau di-redirect.
         if (NewUiRouteRegistry.isSafeLegacyUrl(existingUrl)) {
-            return new ResolvedRoute(openNewWindow ? LEGACY_REDIRECT : LEGACY_EMBED, null, null, existingUrl.trim());
+            return new ResolvedRoute(NEW_UI, "_shared", "native_menu", null);
         }
         return new ResolvedRoute(NOT_MAPPED, null, null, null);
     }

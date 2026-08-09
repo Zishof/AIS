@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TicketingAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.ticket");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/ticket/TicketingAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"bolehKelolaSemua", "tipePengguna", "scopedCriteria", "display", "onEvent", "bukaDetailNotifikasi"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Ticket", "TicketKategori", "SatuanKerja", "TicketKomentar"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

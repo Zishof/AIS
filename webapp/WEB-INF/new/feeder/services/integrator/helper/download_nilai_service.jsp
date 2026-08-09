@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DownloadNilai");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.feeder.integrator.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/feeder/integrator/helper/DownloadNilai.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "run", "createData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"StatusMahasiswa", "Detailperkuliahan", "StatusPertemuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

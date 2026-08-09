@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardSirsKomprehensif");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.sirs");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/sirs/DashboardSirsKomprehensif.java");
 request.setAttribute("nuiServiceMethods", new String[]{"compare", "getTitle", "getHeaders", "getCriteria", "addOrder", "render", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"TempatTidur", "Pendaftaran", "BookingRegistrasi", "Pembayaran", "Resep", "Racikan", "DiagnosaPenyakit", "Dokter", "BiayaTindakanPerKelas", "KunjunganDokter", "TransaksiMedisDetail", "TransaksiMedis", "ItemMedis", "Tindakan", "HargaJualItem", "DataPasienKeluar"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

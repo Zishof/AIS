@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PikobeChartHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.obe");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/obe/PikobeChartHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"radar", "donut", "bars", "trend"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

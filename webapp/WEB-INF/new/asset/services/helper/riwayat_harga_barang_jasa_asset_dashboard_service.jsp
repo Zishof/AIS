@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RiwayatHargaBarangJasaAssetDashbo
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.asset.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/asset/helper/RiwayatHargaBarangJasaAssetDashboard.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "compare"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PemesananPengadaanMasterAssetDetail", "PenerimaanPengadaanMasterAssetDetail", "SaldoAwalMasterAssetDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TransaksiKoperasiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.koperasi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/koperasi/TransaksiKoperasiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onStatistik", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "cetakData", "cetak", "init", "onAdd", "form", "reloadAngsuran", "reloadFormula", "reloadDataFormula", "onSave", "checkTransaksi", "initCriteria", "onSearchDefault", "istilah", "ambil", "ambilClass", "setPersetujuan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"TransaksiKoperasi", "TransaksiKoperasiDetail", "ProdukKoperasi", "CaraPembayaranKoperasi", "JenisTransaksiKoperasi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

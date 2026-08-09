@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardStatistikPengajuanPklPer
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.admin");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/admin/DashboardStatistikPengajuanPklPerJurusan.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "reinit", "initCriteria"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/pkl/kelompok_pkl.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"MahasiswaDapatKelompokPkl", "Pkl", "KelompokPkl"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

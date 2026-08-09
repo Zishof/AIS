@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "SaptoGenerator");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sapto.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sapto/util/SaptoGenerator.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateProfileMahasiswaDanLulusan_A_3_2_4", "generateProfileMahasiswaDanLulusan_A_3_2_2", "generateProfileMahasiswaDanLulusan_A_3_2_1", "generateProfileMahasiswaDanLulusanA_3_1_4", "generateProfileMahasiswaDanLulusan", "generateProfileMahasiswa"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ChecklistHasilPenilaianUmum", "KapasitasMahasiswaBaru", "BiodataCalonMahasiswa", "Mahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

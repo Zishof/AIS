@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "FaspayBackandProsess");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.faspay");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/faspay/FaspayBackandProsess.java");
 request.setAttribute("nuiServiceMethods", new String[]{"check", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"FaspayResponse", "FaspayRequest"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

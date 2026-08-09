@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CommonAlatMedis");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/util/CommonAlatMedis.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onUploadBiaya", "run", "onEvent", "onDownloadBiaya", "saveDetail", "initHargaJual"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"AlatMedis", "JenisAlatMedis", "TarifKhususPunyaAlatMedis", "KelasPerawatan", "JenisBiaya", "Biaya"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

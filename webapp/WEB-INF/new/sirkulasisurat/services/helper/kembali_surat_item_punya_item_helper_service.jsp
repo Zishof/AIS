@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KembaliSuratItemPunyaItemHelper")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirkulasisurat.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirkulasisurat/helper/KembaliSuratItemPunyaItemHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initDetail", "onEvent", "initRow", "getPerpustakaan", "setPerpustakaan", "getPeminjamanSuratItem", "setPeminjamanSuratItem", "loadDataDetailFromPeminjaman"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KembaliSuratItemDetail", "FotoGambarSuratMasuk", "PeminjamanSuratItemDetail", "SuratMasuk"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

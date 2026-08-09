@@ -47,7 +47,7 @@ if(groupMenuId!=null){
         module=selected.getNewUiModule();pageName=selected.getNewUiPage()==null?"index":selected.getNewUiPage();
         if((requestedModule!=null&&!nuiEqual(requestedModule,module))||(requestedPage!=null&&!nuiEqual(requestedPage,pageName))){httpStatus=403;target="/WEB-INF/new/_shared/ui/403.jsp";}
         else target="/WEB-INF/new/"+module+(service?"/services/":"/uiux/")+pageName+(service?"_service.jsp":".jsp");
-    }else if(frame&&selected.getResolvedUrl()!=null){response.sendRedirect(selected.getResolvedUrl());return;}
+    }
 }else if(service||requestedModule!=null||requestedPage!=null){
     httpStatus=403;target="/WEB-INF/new/_shared/ui/403.jsp";
 }
@@ -57,6 +57,7 @@ Long currentGroupId=groupMenuId;
 if(currentGroupId==null){for(int pathI=0;pathI<activePath.size();pathI++)if(activePath.get(pathI).isBranch())currentGroupId=activePath.get(pathI).getMenuId();}
 request.setAttribute("nui_current_menu_id",menuId);request.setAttribute("nui_current_group_id",currentGroupId);
 request.setAttribute("nui_active_path",activePath);request.setAttribute("nui_breadcrumb",activePath);
+request.setAttribute("nui_selected_menu_node",selected);
 request.setAttribute("nui_current_module",module);request.setAttribute("nui_current_page",pageName);
 
 if(httpStatus!=200)response.setStatus(httpStatus);
@@ -74,8 +75,7 @@ if(service){
 Tbmuser current=null;try{current=Common.getCurrentUser(request);}catch(Exception ignored){}
 String currentName=current==null?"Pengguna":current.getUserNama();if(currentName==null||currentName.trim().length()==0)currentName=current==null?"Pengguna":current.getUserId();if(currentName==null||currentName.trim().length()==0)currentName="Pengguna";
 String newUrl=request.getContextPath()+"/new";String frameSrc;
-if(menuId!=null&&selected!=null&&!NewUiHybridMenuRouteRegistry.NEW_UI.equals(menuStatus)&&selected.getResolvedUrl()!=null)frameSrc=selected.getResolvedUrl();
-else if(menuId!=null)frameSrc=newUrl+"?frame=1&menuId="+menuId;
+if(menuId!=null)frameSrc=newUrl+"?frame=1&menuId="+menuId;
 else if(groupMenuId!=null)frameSrc=newUrl+"?frame=1&groupMenuId="+groupMenuId;
 else frameSrc=newUrl+"?frame=1";
 if(frame){

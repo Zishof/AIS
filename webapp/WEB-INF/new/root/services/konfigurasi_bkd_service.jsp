@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KonfigurasiBkdAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/KonfigurasiBkdAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "terjemahkanNilai", "onEvent", "onTampil"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JabatanFungsionalDosen", "Jenjang", "TahapanAtauCapaianPembelajaran", "TahapanPenyusunanBuku", "JenisPeredaranBuku", "TahapanPenyusunanArtikel", "TingkatArtikel", "PenelitianDanPengabdian", "TahapanPelaporanPenelitianDanPengabdian", "KelompokKegiatanKedosenan", "DetailKelompokKegiatanKedosenan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

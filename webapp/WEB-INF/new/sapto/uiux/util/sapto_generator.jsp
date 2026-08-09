@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"generateProfileMahasiswaDanLulusan_A_3_2_4", "generateProfileMahasiswaDanLulusan_A_3_2_2", "generateProfileMahasiswaDanLulusan_A_3_2_1", "generateProfileMahasiswaDanLulusanA_3_1_4", "generateProfileMahasiswaDanLulusan", "generateProfileMahasiswa"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"ChecklistHasilPenilaianUmum", "KapasitasMahasiswaBaru", "BiodataCalonMahasiswa", "Mahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

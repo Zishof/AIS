@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TransferItemDetailAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs.detail");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/detail/TransferItemDetailAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "onSave", "loadData", "display"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"TransferItemDetail", "HargaJualItem", "DetailTransaksiPasien", "ItemMedis"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

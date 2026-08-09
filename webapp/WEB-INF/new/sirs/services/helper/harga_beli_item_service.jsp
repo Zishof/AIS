@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "HargaBeliItemAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/helper/HargaBeliItemAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"render", "onEvent", "loadData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Penyedia", "HargaBeliItem", "ItemMedis", "JenisItemMedis"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

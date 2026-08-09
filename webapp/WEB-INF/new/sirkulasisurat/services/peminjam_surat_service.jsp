@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PeminjamSuratAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirkulasisurat");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirkulasisurat/PeminjamSuratAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "run", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PeminjamSurat", "Mahasiswa", "Dosen", "Pegawai", "Siswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

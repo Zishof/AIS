@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "SertifikatAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/SertifikatAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "generateReport", "generateParameters", "cetakSertifikat", "cetakFormPendafatranKegiatan", "mapSertifikat", "onSave", "initCriteria", "onSearchDefault", "checkNamaSertifikat"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Sertifikat", "LampiranLain", "KelompokPkl", "PklPunyaKomponenPenilaianPkl", "KelompokKkn", "KknPunyaKomponenPenilaianKkn", "FormulirKegiatan", "ItemBiaya", "CicilanPembayaran", "KegiatanKedosenan", "FormulirKegiatanPeserta", "KegiatanKemahasiswaan", "KegiatanKesiswaan", "KelasLesSiswaPunyaSiswa", "Ujian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

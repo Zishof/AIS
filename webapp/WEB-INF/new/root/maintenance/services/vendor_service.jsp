@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "VendorAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.maintenance");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/maintenance/VendorAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "onEvent", "onInfo", "doAfterCompose", "onClickPMB", "onPengumuman"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/vendor/login_vendor.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"PengumumanAkademis"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

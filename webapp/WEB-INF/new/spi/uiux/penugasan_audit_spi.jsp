@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "BaseSPIAction");
 request.setAttribute("nuiSourceImplements", "FormSop");
 request.setAttribute("nuiSourceMethods", new String[]{"doAfterCompose", "onEvent", "onDasbor", "render", "onAdd", "init", "form", "tampilRinci", "onSave", "initCriteria", "onSearchDefault", "istilah", "ambil", "ambilClass", "setPersetujuan", "cetakData", "cetak"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"JenisAuditSPI", "PenugasanAuditSPI", "TimAuditSPI", "RencanaAuditTahunanSPI", "KriteriaAuditSPI", "ChecklistAuditSPI", "TemuanAuditSPI"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

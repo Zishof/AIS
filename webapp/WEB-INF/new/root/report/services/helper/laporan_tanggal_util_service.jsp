@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanTanggalUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/helper/LaporanTanggalUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"awalHari", "akhirHari", "normalisasiJamAwalHari", "calendarAwalHari", "batasEksklusifBesok", "jumlahHariInklusif"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

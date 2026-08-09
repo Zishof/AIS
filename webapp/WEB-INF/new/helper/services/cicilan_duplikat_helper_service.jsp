@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CicilanDuplikatHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/CicilanDuplikatHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"cariKembar", "compare", "cariPembayaranBerulang", "adaKembar", "adaKembarDiDb", "bersihkan", "pasangAlatDuplikat", "onEvent", "bersihkanPembayaranBerulang", "pasangAlatPembayaranBerulang"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"CicilanPembayaran", "Kegiatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

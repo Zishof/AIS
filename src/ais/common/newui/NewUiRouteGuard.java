@@ -21,9 +21,7 @@ public final class NewUiRouteGuard {
         NewUiHybridMenuSnapshot snapshot = NewUiMenuAccessService.getSnapshot(request);
         String status = NewUiHybridMenuRouteGuard.evaluateMenu(snapshot, menuId);
         NewUiHybridMenuNode node = menuId == null ? null : snapshot.findAssigned(menuId);
-        if ((NewUiHybridMenuRouteRegistry.NEW_UI.equals(status)
-                || NewUiHybridMenuRouteRegistry.LEGACY_EMBED.equals(status)
-                || NewUiHybridMenuRouteRegistry.LEGACY_REDIRECT.equals(status))
+        if (NewUiHybridMenuRouteRegistry.NEW_UI.equals(status)
                 && node != null && module != null && module.equals(node.getNewUiModule())) {
             String wanted = page == null || page.length() == 0 ? "index" : page;
             String actual = node.getNewUiPage() == null ? "index" : node.getNewUiPage();

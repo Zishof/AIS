@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RepositorySyncService");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.repository");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/repository/RepositorySyncService.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getScanned", "getSynced", "getFailed", "getMessage", "synchronizeAll"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"RepoCollection", "RepoItem", "RepoItemMetadata", "String", "Boolean"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

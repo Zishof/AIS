@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardStatistikKunjunganPenggu
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.admin");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/admin/DashboardStatistikKunjunganPengguna.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "reinit", "ambilDataKunjungan", "compare"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/log_login.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

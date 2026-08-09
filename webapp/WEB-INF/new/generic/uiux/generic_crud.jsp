@@ -22,7 +22,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"initCriteria", "doBeforeCompose", "doAfterCompose", "onEvent", "onSearchDefault", "onAdd", "init", "onBantuan"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Agama"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

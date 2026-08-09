@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "footer", "onEvent", "tampilWa", "header", "headerBox", "initHeader", "initBg", "initFooter", "onInfo", "doAfterCompose", "onLihatOnline", "onClickPayment", "onClickInformasi", "onClickPMB", "onClickCariDataUjian", "onClickCariPembayaran", "onClickCariDataDaftar", "onClickLoginPMB", "onClickAlurPendaftaran", "onPengumuman"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/sekolah/pembayaran_online.zul?calon_siswa=", "/pages/psb/informasi.zul", "/pages/psb/cari_data_peserta_ujian.zul", "/pages/psb/cari_data_pembayaran.zul", "/pages/psb/cari_data_pendaftar.zul", "/pages/psb/login_calon_siswa.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"PengumumanAkademis", "CalonSiswa", "Tbmuser"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

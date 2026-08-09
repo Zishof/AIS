@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "SyaratUjianAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/SyaratUjianAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "initJadwal", "onSave", "initCriteria", "onSearchDefault", "checkNamaSyaratUjian", "checkSyaratSyaratUjian"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"SyaratUjian", "Matakuliah", "Jurusan", "Jenjang", "StatusPertemuan", "StatusAwalMahasiswa", "JenisKegiatan", "ItemBiaya", "BiodataCalonMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

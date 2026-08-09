@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "DataResource<KalenderAkademik>");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"getXml", "getData", "getAllData"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"KalenderAkademik"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

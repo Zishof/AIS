@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataPertemuanFileContent");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.generic");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/generic/AmbilDataPertemuanFileContent.java");
 request.setAttribute("nuiServiceMethods", new String[]{"displayRow", "onEvent", "render", "tampilkanTombolUpload", "tampilkanTombolUploadGDrive", "tampilkanTombolTambahLink", "tampilkanTombolUploadDropbox", "createScanFoto", "createScanLayar", "uploadScorm", "accept", "cariLaunch", "createScorm", "display", "initCriteria", "onSearchDefault", "setEventListener", "getEventListener"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/capture.jsp?lokasi=false&mobile=", "/capture_video.jsp?lokasi=false&mobile=", "/capture_screen.jsp?lokasi=false&mobile=", "/doUpload.jsp?pertemuanFileContent="});
 request.setAttribute("nuiServiceEntities", new String[]{"Pertemuan", "PertemuanFileContent", "BiodataCalonMahasiswa", "Mahasiswa", "Dosen", "Pegawai", "Tbmuser"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

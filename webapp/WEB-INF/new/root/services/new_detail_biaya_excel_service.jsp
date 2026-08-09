@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "NewDetailBiayaExcelAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/NewDetailBiayaExcelAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onCetak", "doBeforeCompose", "doAfterCompose", "onEvent", "run", "onProgress", "onUbahActive", "onSearchSemuaSmt", "onSearchSemua", "onSearchDefault", "onAdd", "onAddPengaturanPembayaranBulanan", "onSave", "hapusSaveDetailBiaya", "onSavePengaturanPembayaranBulananDetail", "onSavePengaturanPembayaranBulanan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Jurusan", "ParameterTambahan", "ItemBiaya", "JenisTinggalMahasiswa", "Jenjang", "JenisSeleksi", "StatusMahasiswa", "StatusAwalMahasiswa", "Paket", "GelombangPendaftaran", "Konfigurasi", "JenisKegiatan", "PengaturanPembayaranBulanan", "DetailBiaya", "PaketJurusanPmb"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

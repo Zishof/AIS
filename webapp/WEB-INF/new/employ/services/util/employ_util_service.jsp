@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "EmployUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.employ.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/employ/util/EmployUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initLoginFromOutApp"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Tbmuser", "Pegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

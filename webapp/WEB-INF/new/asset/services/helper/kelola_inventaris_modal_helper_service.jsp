@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KelolaInventarisModalHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.asset.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/asset/helper/KelolaInventarisModalHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"buka", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PenerimaanPengadaanMasterAsset", "PenerimaanPengadaanMasterAssetDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "Serializable");
 request.setAttribute("nuiSourceMethods", new String[]{"getResponse_code", "setResponse_code", "getResponse_description", "setResponse_description", "getNim", "setNim", "getKurs", "setKurs", "getNama", "setNama", "getProgram", "setProgram", "getFakultas", "setFakultas", "getProdi", "setProdi", "getAngkatan", "setAngkatan", "getSemester", "setSemester", "getSemester_ke", "setSemester_ke", "getAmount", "setAmount", "getTotal_amount", "setTotal_amount", "getKode_status_pembayaran", "setKode_status_pembayaran", "getKeterangan_status_pembayaran", "setKeterangan_status_pembayaran", "getReference_number", "setReference_number", "getInfo1", "setInfo1", "getInfo2", "setInfo2", "getInfo3", "setInfo3", "getInfo4", "setInfo4"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

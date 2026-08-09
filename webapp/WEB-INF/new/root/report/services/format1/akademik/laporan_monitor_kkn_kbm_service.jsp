@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanMonitorKknKbm");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.akademik");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/akademik/LaporanMonitorKknKbm.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateParameters", "onEvent", "onCetak"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KelompokKkn", "Dosen"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

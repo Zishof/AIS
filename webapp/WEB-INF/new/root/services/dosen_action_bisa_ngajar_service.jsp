@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DosenActionBisaNgajar");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/DosenActionBisaNgajar.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onLaporanPerDosen", "onLaporanDosenHarian", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/informasi_jadwal_ajar_dosen.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Dosen"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

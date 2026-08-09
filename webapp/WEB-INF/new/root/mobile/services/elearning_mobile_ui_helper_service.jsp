@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ElearningMobileUiHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.mobile");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/mobile/ElearningMobileUiHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"shellSection", "metricCard", "actionCard", "progressCard", "trendCard", "radarCard", "learningGrid", "primaryButton", "linkButton", "html", "div", "label", "clear"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

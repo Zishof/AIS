@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "GenerateValidasiLaporanWindow");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.helper.pdf");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/helper/pdf/GenerateValidasiLaporanWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "onLaporan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ReportHistory"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericCrudAction<KodeTransaksiMedis>");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"initCriteria", "onEvent", "onSave", "checkKodeTransaksi", "checkNamaKodeTransaksi", "render"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"KodeTransaksiMedis"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

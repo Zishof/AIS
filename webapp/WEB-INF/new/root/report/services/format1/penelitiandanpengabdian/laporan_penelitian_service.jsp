@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanPenelitian");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.penelitiandanpengabdian");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/penelitiandanpengabdian/LaporanPenelitian.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "onReport"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"TipePenelitianDanPengabdian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

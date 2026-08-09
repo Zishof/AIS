@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KpiUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.kpi.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/kpi/helper/KpiUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"ambilTarget", "ambilPoint", "ambilDeskripsi"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"SkorKpi", "Konstanta", "Kpi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

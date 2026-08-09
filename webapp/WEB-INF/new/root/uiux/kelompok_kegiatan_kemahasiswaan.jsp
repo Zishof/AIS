@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onKelompokAspek", "onJabatanKegiatanKemahasiswaan", "onSkalaKegiatanKemahasiswaan", "onNilaiKegiatanKemahasiswaan", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaKelompokKegiatanKemahasiswaan"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/jenis_kelompok_kegiatan_kemahasiswaan.zul", "/pages/master/jabatan_kegiatan_kemahasiswaan.zul", "/pages/master/skala_kegiatan_kemahasiswaan.zul", "/pages/master/nilai_kegiatan_kemahasiswaan.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"KelompokKegiatanKemahasiswaan", "JenisKelompokKegiatanKemahasiswaan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

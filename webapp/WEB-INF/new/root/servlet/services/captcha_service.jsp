@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CaptchaServlet");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/CaptchaServlet.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doGet"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

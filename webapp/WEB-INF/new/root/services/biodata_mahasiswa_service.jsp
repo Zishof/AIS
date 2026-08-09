@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BiodataMahasiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/BiodataMahasiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"displayBiodataWindow", "onEvent", "checkEmailMahasiswa", "checkBiodataMahasiswa", "doBeforeCompose", "doAfterCompose", "initData", "initAlamat", "initOrangTua", "initLampiran", "initWali", "initMain", "onSave", "isTampilFotoBiodata", "setTampilFotoBiodata"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/biodata_mahasiswa.zul?refresh=true", "/common/checklist_penilaian_dosen_oleh_mhs.zul?mahasiswa=", "/common/checklist_penilaian_umum.zul?mahasiswa="});
 request.setAttribute("nuiServiceEntities", new String[]{"BiodataMahasiswa", "Mahasiswa", "FotoMahasiswa", "LampiranLainMahasiswa", "JenisSekolahMahasiswaBaru", "JenisTinggalMahasiswa", "OperatorSeluler", "AlatTransportasiMahasiswa", "StatusSetelahLulus", "StatusPekerjaanSetelahLulus", "StatusDomisiliSetelahLulus", "Skripsi", "PekerjaanOrangTua", "Pekerjaan", "Penghasilan", "PendidikanOrangTua", "Jenjang", "NilaiToeflToaflMahasiswa", "Agama", "HasilUjianMahasiswa", "LampiranLain"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

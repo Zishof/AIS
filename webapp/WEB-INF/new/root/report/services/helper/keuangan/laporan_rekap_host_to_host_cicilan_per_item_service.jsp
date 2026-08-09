@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanRekapHostToHostCicilanPerI
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.helper.keuangan");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/helper/keuangan/LaporanRekapHostToHostCicilanPerItemWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisKegiatan", "JenisSeleksi", "Jenjang", "StatusAwalMahasiswa", "DetailSettingBiaya", "ItemBiaya", "CicilanPembayaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"tagihan", "daftar_va", "va"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/common/smartlink/no_va2.zul?mahasiswa="});
 request.setAttribute("nuiEntityCandidates", new String[]{"JenisKegiatan", "VirtualAccountBank", "BniRequest", "PengaturanPembayaranBulanan", "DetailBiaya"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

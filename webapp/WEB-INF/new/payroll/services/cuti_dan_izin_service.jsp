@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CutiDanIzinAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.payroll");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/payroll/CutiDanIzinAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onCutiBersama", "onJenisCuti", "onLaporanCuti", "doAfterCompose", "onEvent", "render", "onAdd", "init", "form", "onSave", "initCriteria", "onSearchDefault", "istilah", "ambil", "ambilClass", "setPersetujuan", "cetakData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/payroll/cuti_bersama.zul", "/pages/master/status_absensi.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"CutiDanIzin", "Pegawai", "Pejabat", "Statusabsensi", "JenisCutiDanIzin", "StatuskehadiranKaryawanHarian", "CutiBersama"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataInitDefault, DataSearchDefault, DataCriteria, FormSop");
 request.setAttribute("nuiSourceMethods", new String[]{"onCutiBersama", "onJenisCuti", "onLaporanCuti", "doAfterCompose", "onEvent", "render", "onAdd", "init", "form", "onSave", "initCriteria", "onSearchDefault", "istilah", "ambil", "ambilClass", "setPersetujuan", "cetakData"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/payroll/cuti_bersama.zul", "/pages/master/status_absensi.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"CutiDanIzin", "Pegawai", "Pejabat", "Statusabsensi", "JenisCutiDanIzin", "StatuskehadiranKaryawanHarian", "CutiBersama"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

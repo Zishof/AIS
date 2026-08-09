@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PembelianAnggotaKoperasiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.koperasi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/koperasi/PembelianAnggotaKoperasiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent", "render", "onDelete", "onAdd", "onSave", "onSearchDefault", "loadData", "loadTotal", "onCetakPembelianAnggotaKoperasi"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PembelianAnggotaKoperasi", "Pembayaran", "CaraPembayaranKoperasi", "Pembelian", "Produk"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

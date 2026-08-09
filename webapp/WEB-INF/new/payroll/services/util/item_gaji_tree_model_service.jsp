@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ItemGajiTreeModel");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.payroll.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/payroll/util/ItemGajiTreeModel.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getChildren", "generateAllChildren", "getChild", "getChildCount", "deleteChilds", "isLeaf", "getParentCount", "getParentSet", "getChildsSet", "getIndexOfChild", "copyByFormat", "hitungItemGaji"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ItemGaji", "GajiTabahan", "Konstanta"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

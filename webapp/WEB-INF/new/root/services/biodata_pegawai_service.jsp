@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BiodataPegawaiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/BiodataPegawaiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "save", "setCommonOnSearchdefault", "getCommonOnSearchdefault", "init", "onSave", "loadDataPegawai"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/prestasi_pegawai.zul?pegawai=", "/pages/master/catatan_pegawai.zul?currPegawai="});
 request.setAttribute("nuiServiceEntities", new String[]{"Pegawai", "Tbmuser", "PtkpPegawai", "AsuransiPegawai", "JenisJabatan", "TipePegawai", "MasaKerja", "UnitKerja", "TipeMasaKerja", "LampiranLain", "Jurusan", "Sekolah", "FotoDosen", "FotoGuru", "FotoPegawai", "StatusPegawai", "StatusKepegawaian", "IkatanKerjaDosen", "Dosen", "Guru", "Pendidikan", "JenisTenagaKependidikan", "Agama", "Bank", "SatuanKerja", "BiodataPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

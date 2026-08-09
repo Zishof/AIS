@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataFormatItemGajiBanbox");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.payroll.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/payroll/helper/AmbilDataFormatItemGajiBanbox.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "setCabang", "setDepertemen", "setLevelJabatan", "render", "display", "onSearchDefault", "setEventListener", "getEventListener"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"FormatItemGaji", "Cabang", "Departemen", "LevelJabatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

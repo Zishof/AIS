@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DasboardBukuBesar");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.akunting");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/akunting/DasboardBukuBesar.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "initCriteria"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/akunting/grup_transaksi.zul?grup="});
 request.setAttribute("nuiServiceEntities", new String[]{"GrupAkun", "Transaksi", "Akun"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

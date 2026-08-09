@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardUiUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.admin");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/admin/DashboardUiUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"injectGlobalCss", "renderPageNav", "emptyHtml", "loadingHtml", "pageInfoBar", "badge", "statusBadge", "esc"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

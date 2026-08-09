@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AngketUtilApi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/AngketUtilApi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"checkAngket", "simpanAngket", "daftarAngket"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"BlokirMahasiswa", "Perkuliahan", "Dosen", "ChecklistPenilaianDosen", "JadwalPelajaran", "Guru", "ChecklistPenilaianGuru", "GrupChecklistPenilaianDosen", "ChecklistBaruPenilaianDosenOlehMahasiswa", "GrupChecklistPenilaianGuru", "ChecklistBaruPenilaianGuruOlehSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

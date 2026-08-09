@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PeraturanAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.employ");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/employ/PeraturanAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "init", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaPeraturan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisKegiatanEmploy", "JenisPeraturan", "Peraturan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

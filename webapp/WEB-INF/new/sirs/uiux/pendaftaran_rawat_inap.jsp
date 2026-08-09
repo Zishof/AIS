@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"doAfterCompose", "onEvent", "render", "onDelete", "onAdd", "onSave", "onSearchDefault", "checkKodePendaftaran", "onCetakStatusPasien", "onMonitorKeberadaanTempatTidur"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"KelasPerawatan", "Ruang", "Kamar", "JenisPasien", "Bagian", "Pendaftaran", "Pendidikan", "Pasien"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

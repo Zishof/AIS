@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CommonDashboard");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/CommonDashboard.java");
 request.setAttribute("nuiServiceMethods", new String[]{"dashboardDescription", "dashboardCard", "closeOpenedSession"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"DashboardLogAktifitasPengguna", "DashboardStatistikJenisSekolahMahasiswaBaru", "DashboardRekapJenisSekolahMahasiswaBaru", "DashboardRekapKunjunganPengguna", "DashboardRekapMenuPengguna", "DashboardRekapPengambilanKRSMahasiswa", "DashboardRekapPerkuliahan", "DashboardRekapStatusMahasiswa", "DashboardStatistikJumlahMahasiswa", "DashboardStatistikKunjunganPengguna", "DashboardStatistikPengambilanKRSMahasiswa", "DashboardStatistikPenilaian", "DashboardStatistikPerkuliahan", "DashboardStatistikStatusMahasiswa", "LaporanDaftarHadirDosen", "LaporanRekapPenilaianMahasiswaWindow", "LaporanDaftarNilaiWindow", "LaporanDaftarPrestasiBelajarWindow", "DashboardPerbandinganSudahMembayarDanBelum", "DashboardRekapPembayaranMahasiswa", "LaporanRekapHostToHostWindow", "LaporanRekapMahasiswaSudahBayarWindow"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

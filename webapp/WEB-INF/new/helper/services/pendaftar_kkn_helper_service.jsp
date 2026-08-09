@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PendaftarKknHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/PendaftarKknHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"render", "onEvent", "initCriteria", "loadData", "cetakDataCustomButton", "run", "displayPrasyaratKkn", "terimaKkn"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"MahasiswaDaftarKkn", "KknPunyaPersyaratan", "MahasiswaKknPersyaratan", "LampiranKknMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

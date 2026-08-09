@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PklUntukMahasiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.pkl");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/pkl/PklUntukMahasiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onPKL", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "initCriteria", "onSearchDefault", "daftar", "onAddExternal", "tampilkanPersyaratan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/pkl/kelompok_pkl.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Pkl", "ItemBiaya", "MahasiswaDaftarPkl", "MahasiswaDapatKelompokPkl", "MahasiswaPklPersyaratan", "PklPunyaPersyaratan", "CicilanPembayaran", "LampiranPklMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

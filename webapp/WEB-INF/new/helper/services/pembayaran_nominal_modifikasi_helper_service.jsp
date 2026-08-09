@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PembayaranNominalModifikasiHelper
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/PembayaranNominalModifikasiHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"isTanpaPenghitungan", "updateKeterangan", "ambilNominalModifikasi"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"BiodataMahasiswa", "Detailperkuliahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

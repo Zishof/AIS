@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DomainPenelitianTreeModel");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/util/DomainPenelitianTreeModel.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getChildren", "generateAllChildren", "getChild", "getChildCount", "deleteChilds", "isLeaf", "getParentCount", "getParentSet", "getChildsSet", "getIndexOfChild"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"DomainPenelitian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

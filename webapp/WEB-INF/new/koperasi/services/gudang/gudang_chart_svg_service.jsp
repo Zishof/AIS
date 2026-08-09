@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "GudangChartSvg");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.koperasi.gudang");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/koperasi/gudang/GudangChartSvg.java");
 request.setAttribute("nuiServiceMethods", new String[]{"barHorizontal", "donut", "trend", "radar"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

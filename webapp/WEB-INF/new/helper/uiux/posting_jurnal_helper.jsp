@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"ambilParameterBoolean", "ambilParameterSudahPosting", "ambilParameterEntitasClosing", "terapkanParameterTanggal", "restriksiPosting", "dateSql", "hitung", "terapkanStatusPostingHistory", "restriksiRefClosing", "restriksiJenisClosing", "hitungClosing", "urlPosting", "urlClosing", "urlGrupTransaksi", "bukaJendela", "buatLinkAngka", "onEvent", "tambahBarisJurnal"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/akunting/grup_transaksi.zul?sudah_closing=true", "/pages/master/akunting/grup_transaksi.zul?"});
 request.setAttribute("nuiEntityCandidates", new String[]{"GrupTransaksi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

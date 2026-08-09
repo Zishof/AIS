@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KegiatanTugasJabatanTreeModel");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.lkp.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/lkp/util/KegiatanTugasJabatanTreeModel.java");
 request.setAttribute("nuiServiceMethods", new String[]{"setSatuanKerja", "getChildren", "getChildrenByIds", "generateAllChildren", "getChild", "getChildCount", "getChildCountByIds", "deleteChilds", "isLeaf", "getIndukCount", "getIndukSet", "generateChildsByIds", "getChildsSet", "getIndexOfChild"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KegiatanTugasJabatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

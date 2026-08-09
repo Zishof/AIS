@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "Laporan10PenyakitWindow");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.sirs.umum");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/sirs/umum/Laporan10PenyakitWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "onCetak"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisPasien", "Instalasi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

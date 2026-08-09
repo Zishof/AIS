@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PendaftarDashboardHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/PendaftarDashboardHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"ringkasan", "brandList", "brandTambah", "tokoList", "tokoTambah", "mesinPosList", "mesinPosTambah", "investorList", "investorTambah", "manajemenList", "manajemenTambah"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Brand", "Toko", "Investor", "AkunManajemen", "Pedagang", "Pendaftar"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

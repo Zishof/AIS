@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "SaptoBaseWindow");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onCetak", "run"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"InvestasiPrasaranaPerguruanTinggiSapto"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

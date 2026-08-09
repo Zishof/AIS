@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault, DataInitDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onCaraBayarTabungan", "onLaporanDeposit", "onJenis", "onPenggunaan", "doBeforeCompose", "doAfterCompose", "onEvent", "compare", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/jenis_pembayaran.zul", "/pages/master/jenis_tabungan.zul", "/pages/master/cicilan_pembayaran.zul?deposit=true"});
 request.setAttribute("nuiEntityCandidates", new String[]{"Deposit", "Jurusan", "JenisPembayaran", "JenisTabungan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

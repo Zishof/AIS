@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "BaseSPMIAction");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onStandar", "onButirMutu", "onIndikator", "onSkenario", "doAfterCompose", "render", "onEvent", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/spmi/standar_spmi.zul", "/pages/master/spmi/butir_mutu_spmi.zul", "/pages/master/spmi/indikator_spmi.zul", "/pages/master/spmi/skenario_spmi.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"JenisSPMI"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

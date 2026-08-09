@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TransaksiReturAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/TransaksiReturAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent", "render", "onAdd", "loadData", "loadTotal", "onCetak", "onDelete", "onSave", "onSearchDefault", "checkKodeTransaksi"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KelasPerawatan", "Ruang", "Kamar", "Bagian", "TransaksiMedis", "TransaksiReturDetail", "TransaksiMedisDetail", "TransaksiRetur"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardDokumenAkreditasi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.admin");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/admin/DashboardDokumenAkreditasi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "initCriteria", "initCriteria2"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/akreditasi.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Akreditasi", "DokumenAkreditasi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

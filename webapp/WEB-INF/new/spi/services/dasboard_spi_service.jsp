@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DasboardSPI");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.spi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/spi/DasboardSPI.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "compare"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ChecklistAuditSPI", "TindakLanjutAuditSPI", "ProfilRisikoSPI", "TemuanAuditSPI", "PenugasanAuditSPI", "JenisAuditSPI"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

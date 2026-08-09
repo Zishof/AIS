@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BiodataMahasiswaResource");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.resources");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/resources/BiodataMahasiswaResource.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getXml", "getData", "getDataByNIM", "getAllData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"BiodataMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

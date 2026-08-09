@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "Bandbox");
 request.setAttribute("nuiSourceImplements", "GetEventListener");
 request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "setChooseAll", "render", "display", "onSearchDefault", "setEventListener", "getEventListener", "setPenerbit"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"DomainPenelitian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

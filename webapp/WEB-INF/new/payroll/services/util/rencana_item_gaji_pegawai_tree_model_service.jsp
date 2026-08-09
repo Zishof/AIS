@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RencanaItemGajiPegawaiTreeModel")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.payroll.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/payroll/util/RencanaItemGajiPegawaiTreeModel.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getChildren", "populateData", "generateAllChildren", "getChild", "getChildCount", "deleteChilds", "isLeaf", "getParentCount", "getParentSet", "getChildsSet", "getIndexOfChild", "copyByFormat", "reset", "checkExistingItemGaji", "copyByItemGajiPegawai", "getItemGajiPegawaiChildCount"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"RencanaItemGajiPegawai", "PembayaranGajiPunyaPegawai", "ItemGaji", "ItemGajiPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "DataLoader");
 request.setAttribute("nuiSourceMethods", new String[]{"display", "onEvent", "render", "doDownload", "doUpload", "loadData"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"BankSoal", "BankSoalDetail", "PenjelasanBankSoal"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MessageTerkirimAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.message");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/message/MessageTerkirimAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Message"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

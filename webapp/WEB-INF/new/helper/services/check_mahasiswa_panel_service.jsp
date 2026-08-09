@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CheckMahasiswaPanel");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/CheckMahasiswaPanel.java");
 request.setAttribute("nuiServiceMethods", new String[]{"init", "listBiaya", "render", "hitungJumlahBiaya", "hitungJumlahBiayaSeharusnya"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"BiodataMahasiswa", "DetailKegiatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

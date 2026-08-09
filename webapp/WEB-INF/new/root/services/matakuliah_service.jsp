@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MatakuliahAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/MatakuliahAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onCapaian", "onEvent", "selesai", "onBahanKajian", "onKurikulum", "onJenisMkKurikulum", "onCapaianLulusanKurikulum", "getDspaceParentTahunAkademik", "getDspace", "onUploadDBF", "onManajemenKelompokMatakuliah", "onPrasyarat", "onEkivalen", "onLaporanRekapitulasiMahasiswaYangMengambilMatakuliah", "onLaporanRekapitulasiMahasiswaYangTidakMengambilMatakuliah", "doBeforeCompose", "doAfterCompose", "run", "bersihkanKrsMahasiswaDouble", "render", "onAdd", "init", "onSave", "checkKodeMatkul", "checkKodeSajaMatkul", "initCriteria", "onSearchDefault", "uploadDataMatakuliah"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/kelompok_matakuliah.zul", "/pages/master/matakuliah_prasyarat.zul", "/pages/master/matakuliah_ekivalen.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"BahanKajian", "CapaianPembelajaranLulusan", "Jurusan", "StatusMatakuliah", "Prefix", "TingkatKesulitanMatakuliah", "Jenjang", "KelompokMatakuliahPunyaMatakuliah", "Matakuliah", "KurikulumPunyaMatakuliah", "KelompokMatakuliah", "MatakuliahEkivalen", "MatakuliahPrasyarat", "MatakuliahPunyaBukuBahanAjar", "Perkuliahan", "Detailperkuliahan", "JenisNilaiHurufMatakuliah", "CapaianLulusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

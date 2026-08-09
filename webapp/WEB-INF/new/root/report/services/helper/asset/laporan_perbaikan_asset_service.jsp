@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanPerbaikanAsset");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.helper.asset");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/helper/asset/LaporanPerbaikanAsset.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "initData", "generateParameter", "onKHS", "cetak"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisPerbaikanAsset", "PerbaikanAsset", "ParameterTambahanPerbaikanAsset", "ParameterTambahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

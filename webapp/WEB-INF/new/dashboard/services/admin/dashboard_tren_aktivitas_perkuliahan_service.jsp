@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardTrenAktivitasPerkuliahan
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.admin");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/admin/DashboardTrenAktivitasPerkuliahan.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "run", "compare"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Fakultas", "Jurusan", "Perkuliahan", "Pertemuan", "Statusabsensi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

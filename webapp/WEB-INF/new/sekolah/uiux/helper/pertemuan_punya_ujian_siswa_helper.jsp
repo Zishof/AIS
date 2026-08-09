@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "DataLoader");
 request.setAttribute("nuiSourceMethods", new String[]{"prosesUlangSoal", "onEvent", "run", "tampilBolekIkutUjianAtauTidak", "render", "loadData", "display", "realoadNilai"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/hasil_ujian_mahasiswa.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"PertemuanPunyaUjian", "RuangPaketPMB", "CalonSiswa", "UjianPunyaSoal", "HasilUjianMahasiswaDetail", "Ujian", "DetailJenisPenilaian", "GrupPenilaian", "DetailGrupPenilaian", "GrupKategoriItemPenilaianSiswa", "DetailGrupKategoriItemPenilaianSiswa", "KategoriItemPenilaianSiswa", "JenisItemPenilaianSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

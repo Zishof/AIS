@@ -83,9 +83,7 @@ public class NewUiHybridMenuNode extends NewUiMenuNode {
     public void setDescendantLeaves(List<NewUiHybridMenuNode> value) { descendantLeaves = value == null ? new ArrayList<NewUiHybridMenuNode>() : value; }
 
     public boolean hasValidRoute() {
-        return NewUiHybridMenuRouteRegistry.NEW_UI.equals(routeStatus)
-                || NewUiHybridMenuRouteRegistry.LEGACY_EMBED.equals(routeStatus)
-                || NewUiHybridMenuRouteRegistry.LEGACY_REDIRECT.equals(routeStatus);
+        return NewUiHybridMenuRouteRegistry.NEW_UI.equals(routeStatus);
     }
 
     public String getSearchText() {

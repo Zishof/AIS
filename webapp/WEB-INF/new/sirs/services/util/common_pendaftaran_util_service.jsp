@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CommonPendaftaranUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/util/CommonPendaftaranUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initTransaksi", "onEvent", "initBookingRegistrasi", "initPendaftaran", "initJadwalPemeriksaan", "generateNomorAntrian", "riwayatPenyakitPasien", "dokterDanBidanPemeriksa", "displayDetailPaket", "validasiTransaksiDetailPaket", "transaksiDetailPaket", "setDetailBiayaPaket", "setDetailBiaya", "transaksiDetailPaketFinal", "validasiTransaksiDetailPaketFinal", "validasiTransaksiItem", "validasiTransaksiAlatMedis", "validasiTransaksiLayanan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Pendaftaran", "BookingRegistrasi", "DiagnosaPenyakit", "PaketPerawatanDetail", "PaketPerawatanDetailPasien", "RacikanDetail", "Biaya", "TarifKhususPunyaTindakan", "JenisBiayaLain", "TransaksiMedisDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

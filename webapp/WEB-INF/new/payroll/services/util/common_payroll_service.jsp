@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CommonPayroll");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.payroll.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/payroll/util/CommonPayroll.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getDefaultStatuskehadiranKaryawanHarian", "getDetailJenisShiftPegawai"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"LiburRutin", "StatuskehadiranKaryawanHarian", "JenisShiftPunyaPegawai", "DetailJenisShiftPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

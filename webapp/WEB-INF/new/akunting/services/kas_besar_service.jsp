@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KasBesarAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.akunting");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/akunting/KasBesarAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onKasBesar", "onMonitor", "onStatistik", "doBeforeCompose", "doAfterCompose", "onEvent", "tampilRinci", "render", "cetakData", "cetak", "init", "onAdd", "form", "reloadFormula", "reloadDataFormula", "onSave", "initCriteria", "onSearchDefault", "istilah", "ambil", "ambilClass", "setPersetujuan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/akunting/jenis_kas_besar.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"KasBesar", "Workspace", "KasKecil", "JenisKasBesar", "Akun"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

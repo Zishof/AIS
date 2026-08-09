@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"redirectSetelahLogoutPMB", "menggunakanCookieLoginLogoutPMB", "isLoginCalonMahasiswaPMB", "bersihkanCookiePMBJikaTidakDipakai", "setLogoutCalonMahasiswaPMB", "doBeforeCompose", "headerBox", "onEvent", "initHeader", "initBg", "footer", "initFooter", "tampilWa", "onInfo", "onSearchDefault", "doAfterCompose", "onLihatOnline", "onClickPayment", "onClickPMB", "onClickCariDataUjian", "onClickCariPembayaran", "onClickCariDataDaftar", "onClickLoginPMB", "onClickLoginUjian", "onClickAlurPendaftaran", "onJalur"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/pmb/pembayaran_via_payment_gateway.zul", "/pages/master/biodata_calon_mahasiswa.zul", "/pages/pmb/cari_data_peserta_ujian.zul", "/pages/pmb/cari_data_pembayaran.zul", "/pages/pmb/cari_data_pendaftar.zul", "/pages/master/login_calon_mahasiswa.zul", "/pages/master/ujian_online_calon_mahasiswa.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"BiodataCalonMahasiswa", "PengumumanAkademis", "Tbmuser", "AfiliasiCalonMahasiswa", "GelombangPendaftaran", "PaketJurusanPmb", "PaketPunyaProgram", "PilihanPaketPerJurusanMhsBaru", "Jurusan", "PaketPunyaGelombangPendaftaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

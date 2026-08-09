@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ArtikelAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.penelitiandanpengabdian");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/penelitiandanpengabdian/ArtikelAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateCSLItemData", "tampilkanKutipan", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

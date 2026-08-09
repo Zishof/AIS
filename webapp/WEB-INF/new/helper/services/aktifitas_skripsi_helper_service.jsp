@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AktifitasSkripsiHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/AktifitasSkripsiHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initAgendaSkripsi", "onEvent", "initDetail", "loadData", "initCetak", "generateParameters"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/pendaftaran_wisuda_mahasiswa.zul?mahasiswa="});
 request.setAttribute("nuiServiceEntities", new String[]{"Pertemuan", "Skripsi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

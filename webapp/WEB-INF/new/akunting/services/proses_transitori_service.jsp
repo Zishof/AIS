@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ProsesTransitoriAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.akunting");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/akunting/ProsesTransitoriAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault", "form", "istilah", "ambil", "ambilClass", "setPersetujuan", "cetakData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ProsesTransitori", "Transitori"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

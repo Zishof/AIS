@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyWindow");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "initCriteria", "clear", "setValue", "getValues", "getTotal", "getMaxRowTotal"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"LokerSurat", "KlasifikasiSuratKeluar", "SuratKeluar"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

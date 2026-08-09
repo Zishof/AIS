@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DepositHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/util/DepositHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"hitungDeposit"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Deposit", "PengeluaranMahasiswa", "Pembelian", "PencairanDiskon", "PembayaranSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MatakuliahKurikulumDetailHelper")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/MatakuliahKurikulumDetailHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"setHariMulai", "simpan", "copyLampiran", "tampilTombolBuatKurikulumPunyaMatakuliahDetail", "onEvent", "render", "loadData", "display", "initCriteria", "onSearchDefault", "createKeterangan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/rps_obe.zul?kur="});
 request.setAttribute("nuiServiceEntities", new String[]{"Pertemuan", "KurikulumPunyaMatakuliah", "PertemuanFileContent", "VideoPertemuan", "AudioPertemuan", "KurikulumPunyaMatakuliahDetail", "StatusPertemuan", "MatakuliahPunyaBukuBahanAjar", "KurikulumPunyaMatakuliahPunyaItem", "DataPunyaArtikel"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

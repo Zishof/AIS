@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "StokKantinUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.inventory");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/inventory/StokKantinUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"scalar", "recomputeStokProduk", "recomputeStokProdukNative", "recomputeStokProdukViaSql", "recomputeStokToko"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Produk"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

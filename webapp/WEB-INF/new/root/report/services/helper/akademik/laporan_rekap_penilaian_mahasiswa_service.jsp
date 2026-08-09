@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanRekapPenilaianMahasiswaWin
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.helper.akademik");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/helper/akademik/LaporanRekapPenilaianMahasiswaWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

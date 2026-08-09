@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PropinsiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/PropinsiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "initCriteria", "onAddExternal", "onSave", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Propinsi", "Negara"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

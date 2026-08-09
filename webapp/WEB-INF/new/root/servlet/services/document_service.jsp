@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "Document");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/Document.java");
 request.setAttribute("nuiServiceMethods", new String[]{});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/WEB-INF/baru/modul/dms/landing_page.jsp", "/WEB-INF/baru/modul/dms/_dms_service.jsp", "/WEB-INF/baru/modul/dms/_dms_content.jsp"});
 request.setAttribute("nuiServiceEntities", new String[]{"Akreditasi", "DokumenAkreditasi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AsramaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/AsramaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initCriteria", "onTampilAsrama", "onUploadData", "run", "onEvent", "onSave", "checkNamaAsrama", "cetakDataCustomButton", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Asrama", "Perkuliahan", "Mahasiswa", "Jurusan", "AsramaPunyaMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

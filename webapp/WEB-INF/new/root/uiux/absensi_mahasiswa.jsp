@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onAsisten", "onAbsensiSp", "onRekapitulasiAbsensiMahasiswa", "onRekapitulasiAbsensiPerMahasiswa", "doBeforeCompose", "doAfterCompose", "onEvent", "onSearchDefault", "muat"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/absensi.zul", "/pages/master/absensi_mahasiswa_sp.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

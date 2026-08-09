@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "PerpustakaanResource");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"getXml", "ajukanJurnal", "checkPesanItem", "daftarPesanItem", "batalkanPesanItem", "checkKeanggotaan", "pesanItem", "ubahStatus", "daftarPenerbit", "daftarPengarang", "checkPengguna", "daftarItemJurnal", "daftarItemJurnalMereka", "daftarItemKomentarSemua", "daftarItemKomentarSemuaMereka"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"FotoItem", "Tbmuser", "Pengarang", "Penerbit", "DomainPenelitian", "Item", "ItemPunyaPengarang", "ItemPunyaPemeriksa", "PenerbitPunyaPemeriksa", "Anggota", "Perpustakaan", "PesananAnggota", "ItemKomentar"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

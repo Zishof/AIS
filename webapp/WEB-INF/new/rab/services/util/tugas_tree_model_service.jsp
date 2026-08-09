@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TugasTreeModel");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/util/TugasTreeModel.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getCheckForLeafNulll", "getChildren", "getChild", "getChildCount", "checkBentrok", "deleteChilds", "getMaksimalSelesai", "getMinimalMulai", "getPersenKomplit", "getDurasi", "getPagawais", "getTotalBiaya", "isLeaf", "getParentCount", "getIndexOfChild"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Tugas", "TugasPunyaPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

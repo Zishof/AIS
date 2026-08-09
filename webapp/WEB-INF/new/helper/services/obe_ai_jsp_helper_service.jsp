@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ObeAiJspHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/ObeAiJspHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"bangunKonteks", "ekstrakArray", "ekstrakObjek", "parseSeleksi", "appendId", "buatCapaianPembelajaran", "buatCapaianLulusan", "buatBahanKajian", "buatReferensi", "bersih", "potong"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"CapaianLulusan", "CapaianPembelajaranLulusan", "BahanKajian", "ReferensiLulusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

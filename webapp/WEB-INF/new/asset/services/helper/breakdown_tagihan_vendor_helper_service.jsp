@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BreakdownTagihanVendorHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.asset.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/asset/helper/BreakdownTagihanVendorHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"sinkronPajakBreakdown", "tampilkanPopup", "onEvent", "cetakBreakdown", "buildHtmlRingkasanEmbed"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"SaldoAwalMasterAsset", "Pajak", "DaftarPengajuanTransfer", "BreakdownItemTagihanVendor", "JenisPajakBarang"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

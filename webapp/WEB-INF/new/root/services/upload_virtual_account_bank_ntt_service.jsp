@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "UploadVirtualAccountBankNTTAction
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/UploadVirtualAccountBankNTTAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onDownloadTagihanMahasiswa", "onDownloadTagihanNoRegCalonMahasiswa", "onDownloadTagihanNoUjianCalonMahasiswa", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "upload", "run", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"UploadVirtualAccount", "UploadVirtualAccountFileContent", "VirtualAccountBank", "Kegiatan", "DetailBiaya", "PengaturanPembayaranBulanan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

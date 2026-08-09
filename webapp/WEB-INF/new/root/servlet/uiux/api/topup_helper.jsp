@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"topup", "riwayatPembelian", "checkBayar", "bayarOnline", "topupSiswa", "topupAnggotaKoperasi", "topup_mahasiswa"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/common/smartlink/no_va.zul?siswa=", "/common/smartlink/no_va2.zul?mahasiswa="});
 request.setAttribute("nuiEntityCandidates", new String[]{"Pembelian", "Toko", "KodePembayaranOnline", "CaraPembayaranKoperasi", "Lokasi", "DraftPembelianAnggotaKoperasi", "AnggotaKoperasi", "AkunPembayaranSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "Pks");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/Pks.java");
 request.setAttribute("nuiServiceMethods", new String[]{});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/WEB-INF/baru/pks.jsp", "/WEB-INF/baru/pks_kesehatan.jsp", "/WEB-INF/baru/pks_gudang.jsp"});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

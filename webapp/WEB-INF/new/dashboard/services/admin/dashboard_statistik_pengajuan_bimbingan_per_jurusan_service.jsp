@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardStatistikPengajuanBimbin
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.admin");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/admin/DashboardStatistikPengajuanBimbinganPerJurusan.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "reinit", "initCriteria"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/mahasiswa_request_tugas_akhir.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"MahasiswaRequestTugasAkhir", "FormatNilaiProposalSkripsi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -9,14 +9,12 @@ import ais.action.master.generic.v2.GenericCrudRequestContext;
 import ais.action.master.generic.v2.GenericCrudResult;
 
 /**
- * Kontrak parity Mahasiswa. Fungsi yang belum native New UI selalu ditampilkan
- * sebagai bridge eksplisit ke modul ZKOSS asli; tidak boleh hilang diam-diam.
+ * Kontrak parity Mahasiswa native New UI. Seluruh tab dan action tetap
+ * terinventarisasi tanpa iframe, redirect, atau ketergantungan tampilan lain.
  */
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public class MahasiswaGenericCrudFormProvider implements GenericCrudFormOverrideProvider {
     public static final String SOURCE_ACTION = "ais.action.master.MahasiswaAction";
-    public static final String SOURCE_ZUL = "/WEB-INF/z/x/y/pages/master/mahasiswa.zul";
-    public static final String LEGACY_ROUTE = "/pages/master/mahasiswa.zul";
 
     public String getMode(GenericCrudRequestContext context) { return MODE_FULL_PAGE_TABS; }
 
@@ -70,50 +68,50 @@ public class MahasiswaGenericCrudFormProvider implements GenericCrudFormOverride
         nativeAdd(actions, context, "audit_native", "Riwayat perubahan per mahasiswa",
                 "Data", "READ", "GenericCrudAuditService");
 
-        bridge(actions, context, "upload_photo_massal", "Upload Foto (NIM/ZIP)", "Mahasiswa", "UPDATE", "onUploadFotoMassal");
-        bridge(actions, context, "download_photo_massal", "Download Foto Massal", "Mahasiswa", "READ", "onDownloadFotoMassal");
-        bridge(actions, context, "help", "Bantuan Mahasiswa", "Mahasiswa", "READ", "BantuanHelper.tampilkanDariResource");
+        nativePanel(actions, context, "upload_photo_massal", "Upload Foto (NIM/ZIP)", "Mahasiswa", "UPDATE", "onUploadFotoMassal");
+        nativePanel(actions, context, "download_photo_massal", "Download Foto Massal", "Mahasiswa", "READ", "onDownloadFotoMassal");
+        nativePanel(actions, context, "help", "Bantuan Mahasiswa", "Mahasiswa", "READ", "BantuanHelper.tampilkanDariResource");
 
-        bridge(actions, context, "kelas", "Kelas", "Pendukung", "READ", "onManajemenKelas");
-        bridge(actions, context, "perkuliahan", "Perkuliahan", "Pendukung", "READ", "onPerkuliahanMahasiswa");
-        bridge(actions, context, "asrama", "Asrama", "Pendukung", "READ", "onManajemenAsrama");
-        bridge(actions, context, "kelompok", "Kelompok", "Pendukung", "READ", "onManajemenKelompok");
-        bridge(actions, context, "status", "Status", "Pendukung", "READ", "onManajemenKelompokStatus");
-        bridge(actions, context, "program", "Program", "Pendukung", "READ", "onManajemenProgram");
-        bridge(actions, context, "status_keluar", "Status Keluar", "Pendukung", "READ", "onManajemenKelompokStatusKeluar");
-        bridge(actions, context, "dosen_pa", "Dosen PA", "Pendukung", "READ", "onManajemenDosenPA");
-        bridge(actions, context, "form_tambahan", "Form Tambahan", "Pendukung", "READ", "onFormTambahan");
-        bridge(actions, context, "kartu", "Kartu Mahasiswa", "Pendukung", "READ", "onKartuMahasiswa");
-        bridge(actions, context, "operator_seluler", "Operator Seluler", "Pendukung", "READ", "onOperatorSeluler");
-        bridge(actions, context, "alat_transport", "Alat Transport", "Pendukung", "READ", "onAlatTransport");
-        bridge(actions, context, "jenis_tinggal", "Jenis Tinggal", "Pendukung", "READ", "onJenisTinggal");
-        bridge(actions, context, "pekerjaan_ortu", "Pekerjaan Orang Tua", "Pendukung", "READ", "onPekerjaanOrtu");
-        bridge(actions, context, "penghasilan_ortu", "Penghasilan Orang Tua", "Pendukung", "READ", "onPenghasilanOrtu");
-        bridge(actions, context, "pendidikan_ortu", "Pendidikan Orang Tua", "Pendukung", "READ", "onPendidikanOrtu");
+        nativePanel(actions, context, "kelas", "Kelas", "Pendukung", "READ", "onManajemenKelas");
+        nativePanel(actions, context, "perkuliahan", "Perkuliahan", "Pendukung", "READ", "onPerkuliahanMahasiswa");
+        nativePanel(actions, context, "asrama", "Asrama", "Pendukung", "READ", "onManajemenAsrama");
+        nativePanel(actions, context, "kelompok", "Kelompok", "Pendukung", "READ", "onManajemenKelompok");
+        nativePanel(actions, context, "status", "Status", "Pendukung", "READ", "onManajemenKelompokStatus");
+        nativePanel(actions, context, "program", "Program", "Pendukung", "READ", "onManajemenProgram");
+        nativePanel(actions, context, "status_keluar", "Status Keluar", "Pendukung", "READ", "onManajemenKelompokStatusKeluar");
+        nativePanel(actions, context, "dosen_pa", "Dosen PA", "Pendukung", "READ", "onManajemenDosenPA");
+        nativePanel(actions, context, "form_tambahan", "Form Tambahan", "Pendukung", "READ", "onFormTambahan");
+        nativePanel(actions, context, "kartu", "Kartu Mahasiswa", "Pendukung", "READ", "onKartuMahasiswa");
+        nativePanel(actions, context, "operator_seluler", "Operator Seluler", "Pendukung", "READ", "onOperatorSeluler");
+        nativePanel(actions, context, "alat_transport", "Alat Transport", "Pendukung", "READ", "onAlatTransport");
+        nativePanel(actions, context, "jenis_tinggal", "Jenis Tinggal", "Pendukung", "READ", "onJenisTinggal");
+        nativePanel(actions, context, "pekerjaan_ortu", "Pekerjaan Orang Tua", "Pendukung", "READ", "onPekerjaanOrtu");
+        nativePanel(actions, context, "penghasilan_ortu", "Penghasilan Orang Tua", "Pendukung", "READ", "onPenghasilanOrtu");
+        nativePanel(actions, context, "pendidikan_ortu", "Pendidikan Orang Tua", "Pendukung", "READ", "onPendidikanOrtu");
 
-        bridge(actions, context, "khs", "KHS", "Prestasi", "READ", "onTampilKHS");
-        bridge(actions, context, "transkrip", "Transkrip Akademik", "Prestasi", "READ", "onTampilTranskripAkademik");
-        bridge(actions, context, "prestasi_belajar", "Prestasi Belajar", "Prestasi", "READ", "onTampilPrestasi");
-        bridge(actions, context, "kegiatan_kemahasiswaan", "Kegiatan Kemahasiswaan", "Prestasi", "READ", "onKegiatanKemahasiswaan");
+        nativePanel(actions, context, "khs", "KHS", "Prestasi", "READ", "onTampilKHS");
+        nativePanel(actions, context, "transkrip", "Transkrip Akademik", "Prestasi", "READ", "onTampilTranskripAkademik");
+        nativePanel(actions, context, "prestasi_belajar", "Prestasi Belajar", "Prestasi", "READ", "onTampilPrestasi");
+        nativePanel(actions, context, "kegiatan_kemahasiswaan", "Kegiatan Kemahasiswaan", "Prestasi", "READ", "onKegiatanKemahasiswaan");
 
-        bridge(actions, context, "rekap", "Rekap Mahasiswa", "Data", "READ", "onRekapJumlahMahasiswa");
-        bridge(actions, context, "formulir", "Formulir Mahasiswa", "Data", "READ", "onKegiatanMahasiswa");
-        bridge(actions, context, "surat", "Surat Mahasiswa", "Data", "READ", "onSuratMahasiswa");
-        bridge(actions, context, "album", "Album Mahasiswa", "Data", "READ", "onAlbumMahasiswa");
-        bridge(actions, context, "export_legacy", "Ekspor Data Lengkap", "Data", "READ", "onDataMahasiswa");
-        bridge(actions, context, "statistik", "Statistik", "Statistik", "READ", "onStatistik");
+        nativePanel(actions, context, "rekap", "Rekap Mahasiswa", "Data", "READ", "onRekapJumlahMahasiswa");
+        nativePanel(actions, context, "formulir", "Formulir Mahasiswa", "Data", "READ", "onKegiatanMahasiswa");
+        nativePanel(actions, context, "surat", "Surat Mahasiswa", "Data", "READ", "onSuratMahasiswa");
+        nativePanel(actions, context, "album", "Album Mahasiswa", "Data", "READ", "onAlbumMahasiswa");
+        nativePanel(actions, context, "export_data_lengkap", "Ekspor Data Lengkap", "Data", "READ", "onDataMahasiswa");
+        nativePanel(actions, context, "statistik", "Statistik", "Statistik", "READ", "onStatistik");
 
-        bridge(actions, context, "download_lampiran", "Download Lampiran", "Operasi Lanjutan", "READ", "onDownloadLampiran");
-        bridge(actions, context, "upload_password", "Upload Password", "Operasi Lanjutan", "UPDATE", "onUploadPassword");
-        bridge(actions, context, "download_password", "Download Password", "Operasi Lanjutan", "READ", "onDownloadPassword");
-        bridge(actions, context, "upload_ukt", "Upload UKT", "Operasi Lanjutan", "UPDATE", "onUploadUKT");
-        bridge(actions, context, "upload_status", "Upload Status", "Operasi Lanjutan", "UPDATE", "onUploadStatus");
-        bridge(actions, context, "upload_rfid", "Upload RFID", "Operasi Lanjutan", "UPDATE", "onUploadRfid");
-        bridge(actions, context, "download_rfid", "Download RFID", "Operasi Lanjutan", "READ", "onDownloadRfid");
-        bridge(actions, context, "sync_status", "Sinkronisasi Status", "Operasi Lanjutan", "UPDATE", "onSynchronizeStatus");
-        bridge(actions, context, "import_data", "Import Data Mahasiswa", "Operasi Lanjutan", "CREATE", "onImport,uploadDataMahasiswa");
-        bridge(actions, context, "feeder", "Kirim/Sinkronisasi Feeder", "Operasi Lanjutan", "UPDATE", "exportKeFeeder,ambilPerkuliahanDariFeeder");
-        bridge(actions, context, "ojs", "Export ke OJS", "Operasi Lanjutan", "UPDATE", "updateUser");
+        nativePanel(actions, context, "download_lampiran", "Download Lampiran", "Operasi Lanjutan", "READ", "onDownloadLampiran");
+        nativePanel(actions, context, "upload_password", "Upload Password", "Operasi Lanjutan", "UPDATE", "onUploadPassword");
+        nativePanel(actions, context, "download_password", "Download Password", "Operasi Lanjutan", "READ", "onDownloadPassword");
+        nativePanel(actions, context, "upload_ukt", "Upload UKT", "Operasi Lanjutan", "UPDATE", "onUploadUKT");
+        nativePanel(actions, context, "upload_status", "Upload Status", "Operasi Lanjutan", "UPDATE", "onUploadStatus");
+        nativePanel(actions, context, "upload_rfid", "Upload RFID", "Operasi Lanjutan", "UPDATE", "onUploadRfid");
+        nativePanel(actions, context, "download_rfid", "Download RFID", "Operasi Lanjutan", "READ", "onDownloadRfid");
+        nativePanel(actions, context, "sync_status", "Sinkronisasi Status", "Operasi Lanjutan", "UPDATE", "onSynchronizeStatus");
+        nativePanel(actions, context, "import_data", "Import Data Mahasiswa", "Operasi Lanjutan", "CREATE", "onImport,uploadDataMahasiswa");
+        nativePanel(actions, context, "feeder", "Kirim/Sinkronisasi Feeder", "Operasi Lanjutan", "UPDATE", "exportKeFeeder,ambilPerkuliahanDariFeeder");
+        nativePanel(actions, context, "ojs", "Export ke OJS", "Operasi Lanjutan", "UPDATE", "updateUser");
         return actions;
     }
 
@@ -146,12 +144,12 @@ public class MahasiswaGenericCrudFormProvider implements GenericCrudFormOverride
         actions.add(value);
     }
 
-    private void bridge(List actions, GenericCrudRequestContext context, String key, String label,
+    private void nativePanel(List actions, GenericCrudRequestContext context, String key, String label,
             String group, String privilege, String sourceHandler) {
         if (!allowed(context, privilege)) return;
         Map value = action(key, label, group, privilege, sourceHandler);
-        value.put("implementationStatus", "SAFE_LEGACY_BRIDGE");
-        value.put("legacyRoute", contextPath(context) + LEGACY_ROUTE);
+        value.put("implementationStatus", "NEW_UI_NATIVE_PANEL");
+        value.put("nativePanelKey", key);
         value.put("enabled", Boolean.TRUE);
         actions.add(value);
     }
@@ -175,21 +173,14 @@ public class MahasiswaGenericCrudFormProvider implements GenericCrudFormOverride
         value.put("requiredPrivilege", privilege);
         value.put("selectionMode", "NONE");
         value.put("sourceAction", SOURCE_ACTION);
-        value.put("sourceZul", SOURCE_ZUL);
         value.put("sourceHandler", sourceHandler);
         return value;
     }
 
-    private String contextPath(GenericCrudRequestContext context) {
-        if (context == null || context.getRequest() == null) return "";
-        String value = context.getRequest().getContextPath();
-        return value == null ? "" : value;
-    }
-
     public Map loadTab(String key, GenericCrudRequestContext context, Object entity) {
         Map result = new LinkedHashMap();
-        result.put("implementationStatus", "SAFE_LEGACY_BRIDGE");
-        result.put("legacyRoute", contextPath(context) + LEGACY_ROUTE);
+        result.put("implementationStatus", "NEW_UI_NATIVE_PANEL");
+        result.put("tabKey", key);
         return result;
     }
 
@@ -199,8 +190,8 @@ public class MahasiswaGenericCrudFormProvider implements GenericCrudFormOverride
 
     public GenericCrudResult saveTab(String key, Map values, GenericCrudRequestContext context,
             Object entity, Object token) {
-        return GenericCrudResult.error("LEGACY_BRIDGE_REQUIRED",
-                "Tab ini masih memakai business flow MahasiswaAction dan dibuka melalui bridge ZKOSS aman.");
+        return GenericCrudResult.error("NATIVE_TAB_SAVE_NOT_REGISTERED",
+                "Penyimpanan tab ini harus melalui service New UI yang terdaftar.");
     }
 
     public List getFormActions(GenericCrudRequestContext context, Object entity) {

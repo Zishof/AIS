@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TampilanUjianCalonMahasiswa");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.pmb");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/pmb/TampilanUjianCalonMahasiswa.java");
 request.setAttribute("nuiServiceMethods", new String[]{"init", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"RuangPaketPMB", "JadwalUjianPMB", "PertemuanPunyaUjian", "HasilUjianMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

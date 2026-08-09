@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KegiatanAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/KegiatanAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"updateBatasStudiMahasiswa", "onCicilan", "onSejarah", "onTunggakan", "onPerbandinganPembayaran", "onBelumBayar", "onSudahBayar", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "initCriteria", "onSearchDefault", "prosesTagihan", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/cicilan_pembayaran.zul", "/pages/master/log_pembayaran.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Jenjang", "JenisKegiatan", "LogHostToHost", "UploadVirtualAccount", "Kegiatan", "CicilanPembayaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

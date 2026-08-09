@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"tampil", "onEvent", "initDashboard", "judul", "subjudul", "deskripsi", "bagian", "ambil", "initMain", "run", "bersihkanKrsMahasiswaDouble", "render", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Kurikulum", "KurikulumPunyaMatakuliah", "Matakuliah", "Detailperkuliahan", "KrsMahasiswa", "Pertemuan", "Skripsi", "MahasiswaRequestTugasAkhir", "HistoryStatusMahasiswa", "StatusMahasiswa", "StatusAwalMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

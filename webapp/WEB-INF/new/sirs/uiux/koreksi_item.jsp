@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericCrudAction<KoreksiItemMedis>");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"doAfterCompose", "initCriteria", "onCetak", "onEvent", "onSave", "render"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"KoreksiItemMedis", "Lokasi", "KoreksiItemMedisDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

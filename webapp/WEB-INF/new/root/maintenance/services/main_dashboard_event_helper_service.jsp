@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MainDashboardEventHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.maintenance");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/maintenance/MainDashboardEventHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/koperasi/dashboard_kantin.zul", "/pages/master/koperasi/pos_kantin.zul", "/pages/master/koperasi/dashboard_koperasi.zul", "/pages/master/prestasi_pegawai.zul", "/common/mobile/e_learning.zul?user=", "/pages/main/tampilan_pengumuman_akademis_mobile.zul", "/presensi.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

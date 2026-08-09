@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LoadingReportUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/helper/LoadingReportUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"showBusy", "showBusyText", "clearBusy", "selesai", "gagal", "isSelesai", "isError", "getValue", "stopAndDetach"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

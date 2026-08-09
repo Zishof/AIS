@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "NilaiSiswaApi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/NilaiSiswaApi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"daftar_nilai_untuk_input", "input_nilai_siswa"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JadwalPelajaran", "KelasSiswaPunyaSiswa", "DetailJenisPenilaian", "GrupPenilaian", "DetailGrupPenilaian", "GrupKategoriItemPenilaianSiswa", "DetailGrupKategoriItemPenilaianSiswa", "KategoriItemPenilaianSiswa", "JenisItemPenilaianSiswa", "Matapelajaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

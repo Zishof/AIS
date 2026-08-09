@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanPembayaranGaji");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.employ");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/employ/LaporanPembayaranGaji.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateParameters", "onEvent", "onReport", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KenaikanPangkat", "KehadiranPegawaiBulanan", "JabatanFungsional", "JabatanStruktural", "Jabatan", "GajiPokok", "PenilaianKpi", "PembayaranGajiPunyaPegawai", "Pegawai", "ItemGaji"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

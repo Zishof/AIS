@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PostingPenyusutanTabsAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.akunting");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/akunting/PostingPenyusutanTabsAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onFixAset", "onPekerjaan", "onPenyusutan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/asset/posting_saldo_awal_asset.zul", "/pages/master/asset/posting_penyusutan_asset.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

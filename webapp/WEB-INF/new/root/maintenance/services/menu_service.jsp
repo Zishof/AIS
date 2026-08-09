@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MenuAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.maintenance");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/maintenance/MenuAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onMenu", "doBeforeCompose", "doAfterCompose", "onAdd", "onEvent", "onSave", "checkId", "checkKodeMenu", "onReloadTree", "render", "openChilds", "closeChilds"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/menu.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Menu"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PembayaranCalonMahasiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/PembayaranCalonMahasiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onCariBiodataCalonMahasiswa", "listBiaya", "loadData", "render", "onSave", "hitungJumlahBiayaSeharusnya"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisPembayaran", "CicilanPembayaran", "DetailKegiatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

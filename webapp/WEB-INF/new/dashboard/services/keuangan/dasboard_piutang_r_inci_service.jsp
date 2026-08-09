@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DasboardPiutangRInci");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.keuangan");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/keuangan/DasboardPiutangRInci.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "compare", "clear", "setValue", "getRows"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ItemBiaya"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

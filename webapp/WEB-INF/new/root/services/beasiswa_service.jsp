@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BeasiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/BeasiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onPenerima", "onStatistik", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "loadData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Beasiswa", "PersyaratanBeasiswa", "BeasiswaPunyaPersyaratan", "Jenjang", "Jurusan", "JenisPenerimaBeasiswa", "MahasiswaDapatBeasiswa", "BeasiswaPunyaItemBiayaTambahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

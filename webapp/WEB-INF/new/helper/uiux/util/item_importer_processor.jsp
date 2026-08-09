@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "TimerTask");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"run", "main"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Item", "Pengarang", "ItemPunyaPengarang", "KategoriItem", "ItemPunyaKategoriItem", "Penerbit"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ScrollManager");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/ScrollManager.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onScroll", "getCurrentStartIndex"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

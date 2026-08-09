@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JurnalPenelitianAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.penelitiandanpengabdian");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/penelitiandanpengabdian/JurnalPenelitianAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "singkronkanArtikel", "render", "onAddExternal", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Journals", "JurnalPenelitian", "PublishedArticles", "Articles", "Issues", "Users", "Tbmuser", "Mahasiswa", "Artikel"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataItemBiayaHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/AmbilDataItemBiayaHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"render", "onEvent", "save", "display", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"BeasiswaPunyaItemBiayaTambahan", "ItemBiaya"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

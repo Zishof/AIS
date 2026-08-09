@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"syaratKrs", "dataRinci", "ta", "file", "current_smt", "daftar_nilai_mahasiswa", "update_nilai_mahasiswa", "daftar_nilai_siswa_oleh_guru", "daftar_nilai_siswa", "update_absen", "daftar_absen_dosen", "daftar_absen_mahasiswa", "simpanData", "simpanProperty", "daftarAmbilKrs", "simpanDataBanyak", "simpanDataRinci", "prosesSimpan", "prosesHapus", "hapusDataRinci", "aktiftasPerkuliahanInfo", "agenda", "kehadiranDosen", "simpanAbsenPiket", "nilai_komponen_mahasiswa"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"SyaratUjian", "BlokirMahasiswa", "LampiranLain", "Perkuliahan", "Detailperkuliahan", "Guru", "JadwalPelajaran", "KelasSiswaPunyaSiswa", "KurikulumPunyaMatapelajaran", "JenisPenilaian", "DetailJenisPenilaian", "GrupPenilaian", "DetailGrupPenilaian", "GrupKategoriItemPenilaianSiswa", "DetailGrupKategoriItemPenilaianSiswa", "KategoriItemPenilaianSiswa", "JenisItemPenilaianSiswa", "KelasSiswa", "Pertemuan", "Statusabsensi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "OpenLibrarySyncronizer");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/util/OpenLibrarySyncronizer.java");
 request.setAttribute("nuiServiceMethods", new String[]{"process"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"DdcItem"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

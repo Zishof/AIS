@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "DataLoader");
 request.setAttribute("nuiSourceMethods", new String[]{"displayRow", "onEvent", "loadData", "aksesDianggapHadir", "tidakAksesDianggapAlpa", "diskusiDianggapHadir", "display", "initCriteria", "render", "onAddKomentar", "onAdd", "onSave"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Pertemuan", "LampiranLain", "PertemuanPunyaDiskusi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

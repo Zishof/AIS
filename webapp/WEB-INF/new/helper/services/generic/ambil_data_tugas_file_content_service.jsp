@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataTugasFileContent");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.generic");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/generic/AmbilDataTugasFileContent.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "checkFile", "validasiFoto", "tampilkanTombolUpload", "tampilkanTombolUploadGDrive", "tampilkanTombolUploadDropbox", "createScanLayar", "createScanFoto", "display", "initCriteria", "onSearchDefault", "setEventListener", "getEventListener"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/capture_screen.jsp?lokasi=false&mobile=", "/capture.jsp?lokasi=false&mobile=", "/capture_video.jsp?lokasi=false&mobile="});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa", "TugasFileContent"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

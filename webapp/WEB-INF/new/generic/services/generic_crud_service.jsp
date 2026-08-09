@@ -17,7 +17,6 @@ request.setAttribute("nuiServiceSourceClass", "GenericCrudAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.generic");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/generic/GenericCrudAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initCriteria", "doBeforeCompose", "doAfterCompose", "onEvent", "onSearchDefault", "onAdd", "init", "onBantuan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Agama"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

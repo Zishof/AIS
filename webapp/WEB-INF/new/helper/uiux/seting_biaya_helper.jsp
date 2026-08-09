@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"getItemBiaya", "getDetailBiayaDefault", "getDefaultSettingBiaya", "getDetailBiayaBukanDefaultBiaya"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"SettingBiaya", "DetailSettingBiaya", "ItemBiaya", "SettingBiayaDetail", "DetailBiaya"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

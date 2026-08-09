@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DasboardKepegawaian");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.admin");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/admin/DasboardKepegawaian.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "initCriteria", "clear", "setValue", "getRows"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"TipeMasaKerja", "Pegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

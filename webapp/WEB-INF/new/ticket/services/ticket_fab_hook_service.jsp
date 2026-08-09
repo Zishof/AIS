@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TicketFabHook");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.ticket");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/ticket/TicketFabHook.java");
 request.setAttribute("nuiServiceMethods", new String[]{"afterPageAttached", "onEvent", "afterComponentAttached", "afterComponentDetached", "afterComponentMoved", "afterPageDetached"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"panelGajiKategori", "panelKomponenGajiFormula", "compare", "panelTunjanganHonor", "panelDaftarCuti", "panelDaftarPerjalananDinas", "panelKehadiranBulanan"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"PembayaranGajiPunyaPegawai", "PembayaranItemGajiPegawai", "TransaksiPegawai", "CutiDanIzin", "KehadiranPegawaiBulanan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyDetail");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "render", "onSave", "loadData", "display"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"TransferItemDetail", "HargaJualItem", "DetailTransaksiPasien", "ItemMedis"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

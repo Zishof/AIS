@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DefaultNoRegGeneratorPegawai");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.recruitment.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/recruitment/helper/DefaultNoRegGeneratorPegawai.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateNoReg"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"CalonPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

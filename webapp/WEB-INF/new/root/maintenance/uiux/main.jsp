@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onPustaka", "onWorkflow", "onRepository", "onAntarJemput", "onSpmi", "onKantin", "onPos", "onKoperasi", "onEmedic", "onGaji", "onSinkronisasiFeeder", "onSinkronisasiSister", "onAdministrasi", "onPengadaan", "onKepegawaian", "onKeuangan", "onPembayaran", "onKinerja", "onAkunting", "onDashboard", "onKegiatanDanPrestasi", "onPengumumanPerkuliahan", "onPengumuman", "onPresensi", "onTutupPopup", "onTop", "onCustomerService", "onEvent", "onPopup", "onInformasiKalenderAkademik", "onDasbordCatatan", "onInformasiKegiatan", "footer", "initPesan", "initBg", "onInfo", "initChatRoom", "onOpenMenu", "onNavigasiOpen", "onPesan"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/message/message.zul", "/pages/master/chat.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"CustomerService", "PengumumanAkademis", "FotoMahasiswa", "FotoSiswa", "FotoDosen", "FotoGuru", "FotoPegawai", "FotoAdmin", "KalenderAkademik"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

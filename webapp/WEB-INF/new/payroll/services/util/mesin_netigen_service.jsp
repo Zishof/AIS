@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MesinNetigen");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.payroll.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/payroll/util/MesinNetigen.java");
 request.setAttribute("nuiServiceMethods", new String[]{"main", "execute", "process"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Pegawai", "Mahasiswa", "Siswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

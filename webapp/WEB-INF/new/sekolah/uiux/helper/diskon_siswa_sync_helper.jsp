@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"sinkronkanBanyak", "sinkronkan"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"DiskonSiswa", "DiskonSiswaPunyaSiswa", "DiskonSiswaItemBiaya", "Tagihan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

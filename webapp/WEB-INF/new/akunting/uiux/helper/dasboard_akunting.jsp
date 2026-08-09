@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyPortallayout");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "isLeaf", "getChildCount", "getChild", "render", "initCriteria"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/akunting/grup_transaksi.zul?akun="});
 request.setAttribute("nuiEntityCandidates", new String[]{"JenisLaporan", "Transaksi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

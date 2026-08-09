@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "SaptoChartBuilder");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sapto.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sapto/util/SaptoChartBuilder.java");
 request.setAttribute("nuiServiceMethods", new String[]{"build", "buildSummaryCards", "buildRecommendation"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

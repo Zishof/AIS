@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CariDataPembayaranAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.psb");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/psb/CariDataPembayaranAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "onLogin", "doAfterCompose", "onSearchDefault", "render", "onEvent", "onReset"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"CalonSiswa", "PembayaranSiswa", "BriRequest", "BniRequest"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

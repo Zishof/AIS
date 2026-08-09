@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "OrganisasiIntraKampusAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/OrganisasiIntraKampusAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onJabatanOrganisasiMahasiswa", "onUploadData", "run", "onEvent", "doBeforeCompose", "doAfterCompose", "cetakDataCustomButton", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaOrganisasiIntraKampus"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/jabatan_organisasi_intra_kampus.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"OrganisasiIntraKampus", "Mahasiswa", "JabatanOrganisasiIntraKampus", "OrganisasiIntraKampusPunyaMahasiswa", "LampiranLain", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

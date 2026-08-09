@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KelasAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/KelasAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onTampilKelas", "doBeforeCompose", "doAfterCompose", "onEvent", "run", "onUploadData", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaKelas", "cetakDataCustomButton"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Kelas", "Perkuliahan", "Mahasiswa", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

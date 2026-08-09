@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PembayaranAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/PembayaranAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent", "render", "onDelete", "onAdd", "onSave", "onSearchDefault", "onCetak", "loadData", "loadTotal", "onCetakPembayaran"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Bagian", "JenisPasien", "Pembayaran", "DataPasienKeluar", "JenisBiayaLain", "DepositPasien", "DepositPunyaPembayaran", "TransaksiMedis", "KelasPerawatan", "TransaksiDetail", "TransaksiRetur", "DetailTransaksiPasien", "Pasien", "Pendaftaran", "DetailTransaksiLayanan", "JenisPembayaranMedis", "PembayaranNonTunai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

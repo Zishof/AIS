@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KegiatanTugasJabatanPunyaIndikato
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.lkp.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/lkp/helper/KegiatanTugasJabatanPunyaIndikatorHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initDetail", "onEvent", "initRow"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KegiatanTugasJabatanPunyaIndikator", "SatuanKegiatanTugasJabatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

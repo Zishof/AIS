@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CalendarAkademikBulananComposer")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/CalendarAkademikBulananComposer.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onRefresh", "onBack", "onNext", "doBeforeCompose", "doAfterCompose", "onEvent", "onMoveDate", "onToday", "onSwitchTimeZone", "onUpdateFirstDayOfWeek", "onUpdateView", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Fakultas", "Jurusan", "KalenderAkademik"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

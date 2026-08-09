@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault, DataInitDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/payroll/gaji_tambahan.zul?adjusVariablePenggajian="});
 request.setAttribute("nuiEntityCandidates", new String[]{"AdjusVariablePenggajian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

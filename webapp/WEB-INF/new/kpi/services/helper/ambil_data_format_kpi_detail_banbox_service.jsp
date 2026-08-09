@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataFormatKpiDetailBanbox");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.kpi.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/kpi/helper/AmbilDataFormatKpiDetailBanbox.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "display", "onSearchDefault", "setEventListener", "getEventListener"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"FormatKpiDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

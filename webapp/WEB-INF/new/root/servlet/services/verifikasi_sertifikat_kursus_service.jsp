@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "VerifikasiSertifikatKursusServlet
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/VerifikasiSertifikatKursusServlet.java");
 request.setAttribute("nuiServiceMethods", new String[]{});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/WEB-INF/baru/modul/kursus/verifikasi_sertifikat.jsp"});
 request.setAttribute("nuiServiceEntities", new String[]{"SertifikatKursus"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

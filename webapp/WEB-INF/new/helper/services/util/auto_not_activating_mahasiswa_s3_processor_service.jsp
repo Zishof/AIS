@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AutoNotActivatingMahasiswaS3Proce
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/util/AutoNotActivatingMahasiswaS3Processor.java");
 request.setAttribute("nuiServiceMethods", new String[]{"run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Jenjang"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

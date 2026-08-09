@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardCalonMahasiswa");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.admin");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/admin/DashboardCalonMahasiswa.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "initCriteria", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/pmb/statistik/rekap_pendaftar_spmb_semua.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"BiodataCalonMahasiswa", "StatusAwalMahasiswa", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

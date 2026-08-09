@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KelompokItemGajiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.payroll");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/payroll/KelompokItemGajiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onSearchDefault", "init", "onAdd", "onSave", "initCriteria", "checkNamaKelompokItemGaji", "checkKodeKelompokItemGaji"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KelompokItemGaji"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

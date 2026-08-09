@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TagihanSiswa");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/TagihanSiswa.java");
 request.setAttribute("nuiServiceMethods", new String[]{"hapus_split", "split", "piutang", "tagihan", "pembayaran", "va", "bayarTabunganSiswa", "kelasLes", "subscribeKelasLes", "tabungan", "kelasLesAktif", "pertemuanKelasLes"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/common/smartlink/no_va.zul?siswa="});
 request.setAttribute("nuiServiceEntities", new String[]{"Tagihan", "CalonSiswa", "PengaturanBiaya", "Siswa", "AkunPembayaranSiswa", "PembayaranSiswa", "KelasLesSiswa", "KelasLesSiswaPunyaSiswa", "JadwalPelajaran", "Pertemuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

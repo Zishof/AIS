@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DosenPembimbingAkademikAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/DosenPembimbingAkademikAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onTampilDosenPA", "doBeforeCompose", "doAfterCompose", "onEvent", "run", "render", "initCriteria", "onSearchDefault", "cetakDataCustomButton", "onUploadData", "displayRow", "muat"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/dosen_pembimbing_akademik.zul?dosen="});
 request.setAttribute("nuiServiceEntities", new String[]{"Dosen", "Mahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

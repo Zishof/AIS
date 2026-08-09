@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PenumumanWebsiteAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/PenumumanWebsiteAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onSearchDefault", "onEvent", "onAdd", "onSave"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PenumumanWebsite"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PengajuanTahapanPelaporanPeneliti
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.penelitiandanpengabdian.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/penelitiandanpengabdian/helper/PengajuanTahapanPelaporanPenelitianDanPengabdianHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"displayWindowPengajuan", "onEvent", "displayPengajuan", "initCriteria", "loadDataPengajuan", "render", "setReadonly", "getReadonly"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PengajuanPenelitianDanPengabdian", "PengajuanTahapanPelaporanPenelitianDanPengabdian", "FilePengajuanTahapanPelaporanPenelitianDanPengabdian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

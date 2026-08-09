@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"getDetailFile", "putProgressContext", "getProgressContext", "removeProgressContext", "createProgress", "updateProgress", "finishProgress", "errorProgress", "onEvent", "finishProgressAndDisplayPdf", "hitungPersen", "awalHari", "akhirHari", "tambahHari", "hitungJumlahHariInklusif", "normalisasiRentangTanggalInklusif", "openNativeSession", "ensureOpenSession", "isSessionOpen", "closeCurrentSessionQuietly", "closeNativeSession", "getResourcePath", "handleResource", "setPreviewPdfDefaultSekali", "setReportKey", "gabungHtmlMandiri", "generateFileReportCore", "initDefaultParameter", "setlogo", "generateFileReportWithProgress", "execute", "generateFileReport", "generateFileReportSimple", "generateDownloadReport", "generateCompileFileReport", "generateFileImageReport", "ConvertToPDF", "laporanHTML", "cetakLaporanHTML", "generateWindowReport"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"SubReport", "PendukungReport"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

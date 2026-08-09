@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CetakNoRegistrasiSPMBMandiri");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.pmb");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/pmb/CetakNoRegistrasiSPMBMandiri.java");
 request.setAttribute("nuiServiceMethods", new String[]{"display"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

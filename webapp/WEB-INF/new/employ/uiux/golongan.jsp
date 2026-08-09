@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault, DataInitDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onUnit", "onSkor", "onKonstanta", "onManajemenParameter", "doBeforeCompose", "doAfterCompose", "onEvent", "run", "render", "init", "onAdd", "reloadDataFormula", "reloadFormula", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/employ/unit_golongan.zul", "/pages/master/employ/skor_golongan.zul", "/pages/master/konstanta.zul", "/pages/master/parameter_tambahan.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"UnitGolongan", "SkorGolongan", "GajiPokok", "Insentif", "Makan", "Transport", "Golongan", "Peraturan", "LampiranLain"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

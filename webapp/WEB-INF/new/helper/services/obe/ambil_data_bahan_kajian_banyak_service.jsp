@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataBahanKajianBanyak");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.obe");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/obe/AmbilDataBahanKajianBanyak.java");
 request.setAttribute("nuiServiceMethods", new String[]{"render", "onEvent", "display", "onSearchDefault", "setEventListener", "getEventListener"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"BahanKajian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

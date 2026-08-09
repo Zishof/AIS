@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KadaluarsaFarmasiDashboardAction"
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs.chart");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/chart/KadaluarsaFarmasiDashboardAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

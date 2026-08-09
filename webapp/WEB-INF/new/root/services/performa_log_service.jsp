@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PerformaLogAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/PerformaLogAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "initCriteria", "onSearchDefault", "judul", "subjudul", "deskripsi", "bagian", "ambil"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PerformaLog"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

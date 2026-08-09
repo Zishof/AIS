@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "GajiPokokAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.employ");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/employ/GajiPokokAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onKodeTunjangan", "onInsentif", "onMakan", "onTransport", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onDownload", "onUploadGapok", "onAdd", "onSave", "initCriteria", "onSearchDefault", "init"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/payroll/kode_tunjangan.zul", "/pages/master/employ/insentif.zul", "/pages/master/employ/makan.zul", "/pages/master/employ/transport.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Golongan", "Peraturan", "GajiPokok"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />
