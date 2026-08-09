@@ -290,7 +290,7 @@ public class CommonReportHelper {
 	 * masih berisi nominal bruto. Selisih itu sebelumnya membuat layar terlihat lunas
 	 * tetapi PDF kembali menampilkan sisa tagihan (contoh: Rp350.000). Agar audit tetap
 	 * transparan, selisih tidak disembunyikan atau dipaksakan ke salah satu item; laporan
-	 * menambah satu baris "Diskon/Penyesuaian Tagihan" sehingga total rincian sama persis
+	 * menambah satu baris "Selisih Tagihan" sehingga total rincian sama persis
 	 * dengan Tagihan dan Dibayar pada ringkasan.</p>
 	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
@@ -338,7 +338,7 @@ public class CommonReportHelper {
 		Map<String, Serializable> acuan = hasil.isEmpty() ? null : hasil.get(0);
 		Map<String, Serializable> penyesuaian = new HashMap<String, Serializable>();
 		penyesuaian.put("kode", "ADJ");
-		penyesuaian.put("item_biaya", "Diskon/Penyesuaian Tagihan");
+		penyesuaian.put("item_biaya", "Selisih Tagihan");
 		penyesuaian.put("biaya", Double.valueOf(selisihTagihan));
 		penyesuaian.put("dibayar", Double.valueOf(selisihDibayar));
 		penyesuaian.put("sisa", Double.valueOf(selisihTagihan - selisihDibayar));
