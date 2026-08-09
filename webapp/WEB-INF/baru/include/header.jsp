@@ -73,14 +73,14 @@ String _htmlLangHdr = "id".equals(_lgKode) ? "id-ID" : _lgKode;
     
    
 
+    <link href="<%=request.getContextPath() %>/css/baru/base-theme.css?v=<%= cacheBuster %>" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/css/baru/custom-elearning.css?v=<%= cacheBuster %>" rel="stylesheet">
+
     <% 
-    String rawCss = pt.getCss();
+    String rawCss = pt == null ? null : pt.getCss();
     if (rawCss != null && !rawCss.trim().isEmpty()) {
         String fileName = rawCss.substring(rawCss.lastIndexOf("/") + 1);
     %>
-    	 <link href="<%=request.getContextPath() %>/css/baru/base-theme.css?v=<%= cacheBuster %>" rel="stylesheet">
-    
-    	<link href="<%=request.getContextPath() %>/css/baru/custom-elearning.css?v=<%= cacheBuster %>" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/css/baru/<%= fileName %>?v=<%= cacheBuster %>" rel="stylesheet">
     <% } %>
     
