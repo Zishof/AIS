@@ -1,8 +1,12 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ page import="java.util.ArrayList" %><%@ page import="java.util.List" %>
+<%@ page import="java.text.SimpleDateFormat" %>
 <%@ page import="ais.common.Common" %><%@ page import="ais.database.model.Tbmrole" %><%@ page import="ais.database.model.Tbmuser" %>
 <%@ page import="ais.common.newui.menu.NewUiHybridMenuNode" %><%@ page import="ais.common.newui.menu.NewUiHybridMenuSnapshot" %>
 <%@ page import="ais.common.newui.menu.NewUiModuleShortcut" %><%@ page import="ais.common.newui.menu.NewUiModuleShortcutService" %>
+<%@ page import="ais.common.newui.menu.NewUiDashboardUtilityService" %>
+<%@ page import="ais.common.newui.menu.NewUiDashboardUtilityService.OnlineUserInfo" %>
+<%@ page import="ais.common.newui.menu.NewUiDashboardUtilityService.CustomerContact" %>
 <%!
 private String nuiModuleH(Object v){if(v==null)return "";return String.valueOf(v).replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&#39;");}
 %>
@@ -10,12 +14,16 @@ private String nuiModuleH(Object v){if(v==null)return "";return String.valueOf(v
 NewUiHybridMenuSnapshot nuiModuleSnapshot=(NewUiHybridMenuSnapshot)request.getAttribute("newUiHybridMenuSnapshot");
 Tbmuser nuiModuleUser=null;try{nuiModuleUser=Common.getCurrentUser(request);}catch(Exception ignored){}
 Tbmrole nuiModuleRole=null;try{nuiModuleRole=nuiModuleUser==null?null:nuiModuleUser.hakAkses();}catch(Exception ignored){}
-List<NewUiModuleShortcut> nuiModules=NewUiModuleShortcutService.build(nuiModuleRole,nuiModuleSnapshot);
+List<NewUiModuleShortcut> nuiModules=NewUiModuleShortcutService.build(nuiModuleUser,nuiModuleSnapshot);
+List<OnlineUserInfo> nuiOnlineUsers=NewUiDashboardUtilityService.onlineUsers();
+List<CustomerContact> nuiCustomerContacts=NewUiDashboardUtilityService.customerServices();
+Number nuiAccessCount=NewUiDashboardUtilityService.accessCount();Number nuiOnlineCount=NewUiDashboardUtilityService.onlineCount();
+SimpleDateFormat nuiLoginFormat=new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
 String nuiModuleNewUrl=request.getContextPath()+"/new";
 %>
 <section class="nui-leaf-catalog nui-module-catalog">
   <header class="nui-module-hero">
-    <div class="nui-catalog-hero-row"><div><h1>Aplikasi &amp; Modul</h1><p><%=nuiModules.size()%> modul aktif dan dapat diakses oleh role saat ini.</p></div></div>
+    <div class="nui-catalog-hero-row"><div><h1>Aplikasi &amp; Modul</h1><p><%=nuiModules.size()%> modul aktif dan dapat diakses oleh role saat ini.</p></div><div class="nui-dashboard-utilities"><button type="button" class="nui-btn nui-btn-hero" data-nui-dialog-open="nuiOnlineDialog"><i class="fa-solid fa-users"></i> Online: <%=nuiModuleH(nuiOnlineCount)%></button><%if(!nuiCustomerContacts.isEmpty()){%><button type="button" class="nui-btn nui-btn-hero" data-nui-dialog-open="nuiCustomerDialog"><i class="fa-brands fa-whatsapp"></i> Layanan Pengguna</button><%}%></div></div>
   </header>
   <div class="nui-card nui-catalog-toolbar">
     <input id="nuiLeafSearch" class="nui-input" type="search" aria-controls="nuiLeafCatalog" placeholder="Cari aplikasi atau modul..." autocomplete="off">
@@ -41,3 +49,6 @@ String nuiModuleNewUrl=request.getContextPath()+"/new";
   <div id="nuiLeafNoResult" class="nui-card nui-empty nui-leaf-no-result" hidden><div class="nui-empty-icon"><i class="fa-solid fa-magnifying-glass nui-fa-icon" aria-hidden="true"></i></div>Tidak ada aplikasi atau modul yang cocok dengan pencarian.</div>
   <%}%>
 </section>
+<dialog id="nuiOnlineDialog" class="nui-dashboard-dialog"><header><div><small>Sumber: UserOnlineCounter &amp; SecurityFilter.dataOnline</small><h2>Daftar Pengguna Online</h2></div><button type="button" class="nui-icon-btn" data-nui-dialog-close aria-label="Tutup">×</button></header><div class="nui-dashboard-summary"><span>Akses 23 jam: <strong><%=nuiModuleH(nuiAccessCount)%></strong></span><span>Login aktif: <strong><%=nuiModuleH(nuiOnlineCount)%></strong></span></div><div class="nui-table-wrap"><table class="nui-table"><thead><tr><th>Nama</th><th>Jenis pengguna</th><th>Unit</th><th>Sub Unit</th><th>Waktu Login</th></tr></thead><tbody><%if(nuiOnlineUsers.isEmpty()){%><tr><td colspan="5">Belum ada pengguna online.</td></tr><%}for(int nuiOnlineI=0;nuiOnlineI<nuiOnlineUsers.size();nuiOnlineI++){OnlineUserInfo info=nuiOnlineUsers.get(nuiOnlineI);%><tr><td><%=nuiModuleH(info.getName())%></td><td><%=nuiModuleH(info.getRole())%></td><td><%=nuiModuleH(info.getUnit())%></td><td><%=nuiModuleH(info.getSubUnit())%></td><td><%=info.getLogin()==null?"":nuiModuleH(nuiLoginFormat.format(info.getLogin()))%></td></tr><%}%></tbody></table></div></dialog>
+<%if(!nuiCustomerContacts.isEmpty()){%><dialog id="nuiCustomerDialog" class="nui-dashboard-dialog nui-customer-dialog"><header><div><small>Sumber: tabel CustomerService aktif</small><h2>Layanan Pengguna</h2></div><button type="button" class="nui-icon-btn" data-nui-dialog-close aria-label="Tutup">×</button></header><div class="nui-customer-grid"><%for(int nuiContactI=0;nuiContactI<nuiCustomerContacts.size();nuiContactI++){CustomerContact contact=nuiCustomerContacts.get(nuiContactI);String phone=contact.getInternationalPhone();%><article class="nui-card nui-card-pad"><small><%=nuiModuleH(contact.getGroup())%></small><strong><%=nuiModuleH(contact.getPerson().length()==0?contact.getPhone():contact.getPerson())%></strong><span><%=nuiModuleH(contact.getPhone())%></span><div><a class="nui-btn" target="_blank" rel="noopener" href="https://web.whatsapp.com/send?phone=<%=nuiModuleH(phone)%>&amp;text=Halo.."><i class="fa-brands fa-whatsapp"></i> WhatsApp</a><a class="nui-btn" href="tel:<%=nuiModuleH(phone)%>"><i class="fa-solid fa-phone"></i> Telepon</a></div></article><%}%></div></dialog><%}%>
+<button type="button" id="nuiBackToTop" class="nui-back-to-top" aria-label="Kembali ke atas" title="Kembali ke atas"><i class="fa-solid fa-arrow-up"></i></button>
