@@ -46,7 +46,7 @@ public final class GenericCrudZkossParityService {
         if (session == null) return Collections.EMPTY_LIST;
         ServletContext servletContext = session.getServletContext();
         Map byAction = index(servletContext);
-        String actionName = context.getDefinition().getEntityClass().getSimpleName() + "Action";
+        String actionName = sourceActionName(context);
         List entries = (List) byAction.get(actionName);
         if (entries == null || entries.isEmpty()) return Collections.EMPTY_LIST;
         List result = new ArrayList();
@@ -65,6 +65,17 @@ public final class GenericCrudZkossParityService {
             }
         }
         return result;
+    }
+
+    private String sourceActionName(GenericCrudRequestContext context) {
+        Object value = context.getRequest().getAttribute("nuiServiceSourceClass");
+        if (value == null) value = context.getRequest().getAttribute("nuiSourceClass");
+        String name = value == null ? "" : String.valueOf(value).trim();
+        if (name.length() > 0 && !"null".equalsIgnoreCase(name)) {
+            int dot = name.lastIndexOf('.');
+            return dot < 0 ? name : name.substring(dot + 1);
+        }
+        return context.getDefinition().getEntityClass().getSimpleName() + "Action";
     }
 
     private void add(List result, Set keys, GenericCrudRequestContext context, Entry entry,

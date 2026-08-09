@@ -55,16 +55,22 @@ public final class GenericCrudDefinitionRegistry {
 
     /**
      * Bridge untuk JSP scaffold hasil generator. Kandidat berasal dari atribut
-     * JSP server-side, bukan parameter HTTP. Definisi hasil auto tetap dibatasi
-     * Super Admin oleh scope adapter dan class sensitif ditolak factory.
+     * JSP server-side, bukan parameter HTTP. Operasi mutasi diturunkan dari
+     * metode Action existing; RBAC dan scope institusi ditegakkan adapter.
      */
     public static synchronized GenericCrudDefinition tryAutoRegister(String module, String page,
             String[] serverCandidates) {
+        return tryAutoRegister(module, page, serverCandidates, null, null);
+    }
+
+    public static synchronized GenericCrudDefinition tryAutoRegister(String module, String page,
+            String[] serverCandidates, String sourceAction, String[] sourceMethods) {
         if (module == null || page == null || serverCandidates == null || serverCandidates.length == 0) return null;
         GenericCrudDefinition existing = (GenericCrudDefinition) DEFINITIONS.get(routeKey(module, page));
         if (existing != null) return existing.isEnabled() ? existing : null;
         try {
-            GenericCrudDefinition generated = GenericCrudAutoDefinitionFactory.build(module, page, serverCandidates);
+            GenericCrudDefinition generated = GenericCrudAutoDefinitionFactory.build(module, page,
+                    serverCandidates, sourceAction, sourceMethods);
             if (generated == null) return null;
             register(generated);
             return generated;

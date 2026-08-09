@@ -49,13 +49,19 @@ public final class GenericCrudAutoDefinitionFactory {
 
     public static GenericCrudDefinition build(String module, String page, String[] serverCandidates) throws Exception {
         Class entityClass = selectMappedClass(module, page, serverCandidates);
-        return buildForClass(module, page, entityClass, false);
+        return buildForClass(module, page, entityClass, false, null, null);
+    }
+
+    public static GenericCrudDefinition build(String module, String page, String[] serverCandidates,
+            String sourceAction, String[] sourceMethods) throws Exception {
+        Class entityClass = selectMappedClass(module, page, serverCandidates);
+        return buildForClass(module, page, entityClass, false, sourceAction, sourceMethods);
     }
 
     /** Admin model browser: key hanya boleh cocok persis dengan mapped GVO Hibernate. */
     public static GenericCrudDefinition buildAdministrative(String module, String page, String mappedEntityKey) throws Exception {
         Class entityClass = findMappedClass(mappedEntityKey);
-        return buildForClass(module, page, entityClass, true);
+        return buildForClass(module, page, entityClass, true, null, null);
     }
 
     public static List listAdministrativeModels() {
@@ -84,7 +90,7 @@ public final class GenericCrudAutoDefinitionFactory {
     }
 
     private static GenericCrudDefinition buildForClass(String module, String page, Class entityClass,
-            boolean administrative) throws Exception {
+            boolean administrative, String sourceAction, String[] sourceMethods) throws Exception {
         if (entityClass == null) return null;
         ClassMetadata metadata = HibernateUtil.getSessionFactory().getClassMetadata(entityClass);
         if (metadata == null || metadata.getIdentifierPropertyName() == null) return null;
@@ -102,10 +108,17 @@ public final class GenericCrudAutoDefinitionFactory {
         definition.setPageKey(page);
         definition.setDisplayName(humanize(entityClass.getSimpleName()));
         definition.setIdentifierProperty(metadata.getIdentifierPropertyName());
-        definition.setLifecycleStatus(restrictedClass ? GenericCrudDefinition.READ_ONLY : GenericCrudDefinition.FULL_CRUD);
+        boolean actionCreate = administrative || supports(sourceMethods,
+                new String[] { "onAdd", "onCreate", "onNew", "tambah", "buatBaru" });
+        boolean actionUpdate = administrative || supports(sourceMethods,
+                new String[] { "onSave", "onUpdate", "onEdit", "simpan", "ubah" });
+        boolean actionDelete = administrative || supports(sourceMethods,
+                new String[] { "onDelete", "onRemove", "delete", "hapus", "nonaktifkan" });
+        boolean mutable = !restrictedClass && (actionCreate || actionUpdate || actionDelete);
+        definition.setLifecycleStatus(mutable ? GenericCrudDefinition.FULL_CRUD : GenericCrudDefinition.READ_ONLY);
         definition.setEnabled(true);
-        definition.setCreateEnabled(autoCreatePossible);
-        definition.setUpdateEnabled(!restrictedClass);
+        definition.setCreateEnabled(autoCreatePossible && actionCreate);
+        definition.setUpdateEnabled(!restrictedClass && actionUpdate);
         definition.setImportEnabled(false);
         definition.setExportPdfEnabled(true);
         definition.setExportDocxEnabled(true);
@@ -118,7 +131,7 @@ public final class GenericCrudAutoDefinitionFactory {
         definition.setAdministrativeAutoCrud(administrative);
 
         boolean softDelete = hasBooleanProperty(metadata, "aktif");
-        definition.setDeleteEnabled(!restrictedClass && softDelete);
+        definition.setDeleteEnabled(!restrictedClass && softDelete && actionDelete);
         GenericCrudAutoEntityAdapter adapter = new GenericCrudAutoEntityAdapter(entityClass, softDelete);
         definition.setAdapter(adapter);
         definition.setScopeAdapter(adapter);
@@ -181,8 +194,20 @@ public final class GenericCrudAutoDefinitionFactory {
         String defaultSort = chooseSort(metadata);
         definition.setDefaultSortProperty(defaultSort);
         definition.setVersionProperty(findVersionProperty(metadata));
-        definition.setCreateEnabled(autoCreatePossible);
+        definition.setCreateEnabled(autoCreatePossible && actionCreate);
         return definition;
+    }
+
+    public static boolean supports(String[] methods, String[] aliases) {
+        if (methods == null || aliases == null) return false;
+        for (int i = 0; i < methods.length; i++) {
+            String method = normalize(methods[i]);
+            for (int a = 0; a < aliases.length; a++) {
+                String alias = normalize(aliases[a]);
+                if (method.equals(alias) || method.startsWith(alias)) return true;
+            }
+        }
+        return false;
     }
 
     private static Class findMappedClass(String entityKey) {

@@ -11,6 +11,7 @@ import org.hibernate.Criteria;
 import org.hibernate.EntityMode;
 import org.hibernate.Session;
 import org.hibernate.metadata.ClassMetadata;
+import org.hibernate.criterion.Restrictions;
 import org.hibernate.type.Type;
 
 import ais.action.master.generic.v2.GenericCrudException;
@@ -23,8 +24,9 @@ import ais.database.model.Tbmuser;
 
 /**
  * Adapter generik untuk model scalar yang sudah terdaftar pada Hibernate.
- * Auto-adapter sengaja hanya dapat dipakai Super Admin; entity dengan business
- * rule khusus tetap harus menggantinya dengan adapter eksplisit.
+ * Adapter mengikuti privilege menu dan otomatis membatasi relasi institusi atau
+ * pemilik yang tersedia pada pengguna aktif. Business rule khusus tetap dapat
+ * menggantinya dengan adapter eksplisit.
  */
 @SuppressWarnings({ "rawtypes", "unchecked", "deprecation" })
 public class GenericCrudAutoEntityAdapter extends AbstractGenericCrudEntityAdapter<GeneralValueObject>
@@ -118,6 +120,12 @@ public class GenericCrudAutoEntityAdapter extends AbstractGenericCrudEntityAdapt
         setDefault(metadata, target, values, "oleh", user.getUserId());
         setDefault(metadata, target, values, "olehId", user.getUserId());
         setDefault(metadata, target, values, "ditetapkanOleh", user.getUserId());
+        Map scopes = scopeBindings(context);
+        Iterator scoped = scopes.entrySet().iterator();
+        while (scoped.hasNext()) {
+            Map.Entry entry = (Map.Entry) scoped.next();
+            setDefault(metadata, target, values, String.valueOf(entry.getKey()), entry.getValue());
+        }
     }
 
     private void setDefault(ClassMetadata metadata, GeneralValueObject target, Map values,
@@ -165,15 +173,102 @@ public class GenericCrudAutoEntityAdapter extends AbstractGenericCrudEntityAdapt
         } catch (Exception ignored) { }
     }
 
-    public void applyReadScope(Criteria criteria, GenericCrudRequestContext context) throws Exception { authorize(context); }
-    public void applyCountScope(Criteria criteria, GenericCrudRequestContext context) throws Exception { authorize(context); }
-    public void validateObjectScope(GeneralValueObject object, GenericCrudRequestContext context) throws Exception { authorize(context); }
+    public void applyReadScope(Criteria criteria, GenericCrudRequestContext context) throws Exception {
+        authorize(context); applyScope(criteria, context);
+    }
+    public void applyCountScope(Criteria criteria, GenericCrudRequestContext context) throws Exception {
+        authorize(context); applyScope(criteria, context);
+    }
+    public void validateObjectScope(GeneralValueObject object, GenericCrudRequestContext context) throws Exception {
+        authorize(context);
+        if (object == null || Common.getApakahAdmin()) return;
+        ClassMetadata metadata = HibernateUtil.getSessionFactory().getClassMetadata(entityClass);
+        Iterator entries = scopeBindings(context).entrySet().iterator();
+        while (entries.hasNext()) {
+            Map.Entry entry = (Map.Entry) entries.next();
+            Object actual = metadata.getPropertyValue(object, String.valueOf(entry.getKey()), EntityMode.POJO);
+            if (!sameEntity(actual, entry.getValue())) {
+                throw new GenericCrudException(403, "OBJECT_OUTSIDE_SCOPE",
+                        "Data berada di luar institusi atau kepemilikan role aktif.");
+            }
+        }
+    }
 
-    /** Adapter domain eksplisit boleh mengganti guard ini setelah menyediakan scope sendiri. */
+    private void applyScope(Criteria criteria, GenericCrudRequestContext context) {
+        if (criteria == null || Common.getApakahAdmin()) return;
+        Iterator entries = scopeBindings(context).entrySet().iterator();
+        while (entries.hasNext()) {
+            Map.Entry entry = (Map.Entry) entries.next();
+            criteria.add(Restrictions.eq(String.valueOf(entry.getKey()), entry.getValue()));
+        }
+    }
+
+    private Map scopeBindings(GenericCrudRequestContext context) {
+        Map result = new LinkedHashMap();
+        if (context == null || context.getUser() == null || Common.getApakahAdmin()) return result;
+        Tbmuser user = context.getUser();
+        ClassMetadata metadata = HibernateUtil.getSessionFactory().getClassMetadata(entityClass);
+        addScope(metadata, result, "yayasan", invoke(user, "getYayasan"));
+        addScope(metadata, result, "sekolah", invoke(user, "getSekolah"));
+        addScope(metadata, result, "program", invoke(user, "getProgram"));
+        addScope(metadata, result, "fakultas", invoke(user, "getFakultas"));
+        addScope(metadata, result, "jurusan", invoke(user, "getJurusan"));
+        addScope(metadata, result, "satuanKerja", invoke(user, "getSatuanKerja"));
+
+        String role = "";
+        try { role = normalize(String.valueOf(user.hakAkses().getRoleId())); } catch (Exception ignored) { }
+        if (role.indexOf("mahasiswa") >= 0 || "mhs".equals(role)) {
+            addScope(metadata, result, "mahasiswa", invoke(user, "getMahasiswa"));
+        }
+        if (role.indexOf("siswa") >= 0) addScope(metadata, result, "siswa", invoke(user, "getSiswa"));
+        if (role.indexOf("dosen") >= 0) addScope(metadata, result, "dosen", invoke(user, "getDosen"));
+        if (role.indexOf("guru") >= 0) addScope(metadata, result, "guru", invoke(user, "getGuru"));
+        if (role.indexOf("orangtua") >= 0 || "ortu".equals(role)) {
+            addScope(metadata, result, "orangTua", invoke(user, "getOrangTua"));
+        }
+        if (role.indexOf("koperasi") >= 0 || role.indexOf("anggota") >= 0) {
+            addScope(metadata, result, "anggotaKoperasi", invoke(user, "getAnggotaKoperasi"));
+        }
+        return result;
+    }
+
+    private void addScope(ClassMetadata metadata, Map result, String property, Object value) {
+        if (value == null) return;
+        try {
+            Type type = metadata.getPropertyType(property);
+            if (type.isAssociationType() && type.getReturnedClass().isAssignableFrom(value.getClass())) {
+                result.put(property, value);
+            }
+        } catch (Exception missingProperty) { }
+    }
+
+    private Object invoke(Object target, String method) {
+        try { return target.getClass().getMethod(method, new Class[0]).invoke(target, new Object[0]); }
+        catch (Exception unavailable) { return null; }
+    }
+
+    private boolean sameEntity(Object one, Object two) {
+        if (one == two) return true;
+        if (one == null || two == null) return false;
+        try {
+            ClassMetadata metadata = HibernateUtil.getSessionFactory().getClassMetadata(one.getClass());
+            if (metadata != null) {
+                Object oneId = metadata.getIdentifier(one, EntityMode.POJO);
+                Object twoId = metadata.getIdentifier(two, EntityMode.POJO);
+                return oneId != null && oneId.equals(twoId);
+            }
+        } catch (Exception ignored) { }
+        return one.equals(two);
+    }
+
+    private String normalize(String value) {
+        return value == null ? "" : value.replaceAll("[^A-Za-z0-9]", "").toLowerCase();
+    }
+
     protected void authorize(GenericCrudRequestContext context) throws GenericCrudException {
-        if (!Common.getApakahAdmin()) {
-            throw new GenericCrudException(403, "AUTO_CRUD_SUPER_ADMIN_REQUIRED",
-                    "Auto-CRUD seluruh model hanya tersedia untuk Super Admin. Gunakan adapter scope eksplisit untuk role lain.");
+        if (context == null || context.getUser() == null || !context.isCanRead()) {
+            throw new GenericCrudException(403, "AUTO_CRUD_READ_FORBIDDEN",
+                    "Role aktif tidak memiliki hak READ untuk menu Generic CRUD ini.");
         }
     }
 }

@@ -79,6 +79,8 @@ public class GenericCrudMutationService {
             } else {
                 definition.getAdapter().applyUpdateValues(target, values, context);
             }
+            // Cegah perubahan relasi tenant/pemilik untuk memindahkan record ke luar scope aktif.
+            scope.validateObject(target, context);
             definition.getAdapter().beforeSave(session, target, context);
             session.saveOrUpdate(target);
             session.flush();

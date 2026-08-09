@@ -27,7 +27,7 @@ public final class GenericCrudZkossParityServiceSelfTest {
     private GenericCrudZkossParityServiceSelfTest() { }
 
     public static void main(String[] args) throws Exception {
-        final String zul = "<window apply=\"ais.action.master.AgamaAction\">"
+        final String zul = "<window apply=\"ais.action.master.AgamaLegacyAction\">"
                 + "<button forward=\"onClick=onAdd\"/>"
                 + "<textbox forward=\"onOK=onSearchDefault\"/>"
                 + "<button onClick=\"onImport(event)\"/></window>";
@@ -60,6 +60,8 @@ public final class GenericCrudZkossParityServiceSelfTest {
                     public Object invoke(Object proxy, Method method, Object[] args) {
                         if ("getSession".equals(method.getName())) return session;
                         if ("getContextPath".equals(method.getName())) return "/ais";
+                        if ("getAttribute".equals(method.getName())
+                                && "nuiSourceClass".equals(String.valueOf(args[0]))) return "AgamaLegacyAction";
                         return defaultValue(method.getReturnType());
                     }
                 });
@@ -73,6 +75,8 @@ public final class GenericCrudZkossParityServiceSelfTest {
         check("NEW_UI_NATIVE_PANEL".equals(first.get("implementationStatus")), "Status panel native salah");
         check(first.get("legacyRoute") == null, "Panel native tidak boleh mempunyai route tampilan lain");
         check(first.get("nativePanelKey") != null, "Panel native harus mempunyai key");
+        check("ais.action.master.AgamaLegacyAction".equals(first.get("sourceAction")),
+                "Inventory harus mengikuti Action existing dari scaffold, bukan nama entity");
         System.out.println("PASS Generic CRUD native parity inventory self-test");
     }
 
