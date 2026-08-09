@@ -113,7 +113,7 @@ public final class GenericCrudAutoDefinitionFactory {
                 && (!assignedGenerator || assignedIdentifierSupported);
         Class sourceActionClass = resolveSourceAction(sourcePackage, sourceAction);
         boolean actionBacked = GenericCrudExistingActionInvoker.supports(sourceActionClass, entityClass);
-        boolean actionCreateBacked = GenericCrudExistingActionInvoker.supportsCreate(sourceActionClass);
+        boolean actionCreateBacked = GenericCrudExistingActionInvoker.supportsCreate(sourceActionClass, entityClass);
 
         GenericCrudDefinition definition = new GenericCrudDefinition();
         definition.setEntityClass(entityClass);

@@ -2,11 +2,15 @@ package ais.action.master.generic.v2.test;
 
 import ais.action.master.AgamaAction;
 import ais.action.master.AlatTransportasiMahasiswaAction;
+import ais.action.master.asset.PenyediaAssetAction;
 import ais.action.master.generic.v2.adapter.GenericCrudExistingActionInvoker;
+import ais.action.master.recruitment.CalonPegawaiAction;
 import ais.common.HeadlessActionContext;
 import ais.common.HeadlessBusinessRuleException;
 import ais.database.model.Agama;
 import ais.database.model.AlatTransportasiMahasiswa;
+import ais.database.model.asset.PenyediaAsset;
+import ais.database.model.recruitment.CalonPegawai;
 import ais.ui.util.MyMessageboxConfig;
 
 /** Uji bahwa validasi Action existing dapat dijalankan tanpa compose halaman ZUL. */
@@ -38,6 +42,23 @@ public final class HeadlessExistingActionSelfTest {
             rejected = expected.getMessage() != null && expected.getMessage().indexOf("Nama wajib") >= 0;
         }
         check(rejected, "Window legacy bernama non-addWindow tidak berhasil diinjeksi.");
+        check(GenericCrudExistingActionInvoker.supports(LegacyComponentHostAction.class, Agama.class),
+                "Kontrak Action bertipe Component tidak dikenali.");
+        rejected = false;
+        try {
+            Agama componentTarget = new Agama();
+            componentTarget.setKode("");
+            GenericCrudExistingActionInvoker.execute(LegacyComponentHostAction.class, componentTarget);
+        } catch (HeadlessBusinessRuleException expected) {
+            rejected = expected.getMessage() != null && expected.getMessage().trim().length() > 0;
+        }
+        check(rejected, "Container legacy bertipe Component tidak berhasil diinjeksi.");
+        check(GenericCrudExistingActionInvoker.supportsCreate(LegacyComponentHostAction.class, Agama.class),
+                "CREATE Action bertipe Component belum dikenali sebagai lifecycle native.");
+        check(GenericCrudExistingActionInvoker.supportsCreate(PenyediaAssetAction.class, PenyediaAsset.class),
+                "Lifecycle native PenyediaAssetAction belum terhubung.");
+        check(GenericCrudExistingActionInvoker.supportsCreate(CalonPegawaiAction.class, CalonPegawai.class),
+                "Lifecycle native CalonPegawaiAction belum terhubung.");
         check(!HeadlessActionContext.isActive(), "Konteks headless bocor setelah Action selesai.");
         System.out.println("PASS existing Action headless validation self-test");
         // Hibernate/c3p0 aplikasi mempertahankan worker non-daemon pada eksekusi CLI.
@@ -61,6 +82,25 @@ public final class HeadlessExistingActionSelfTest {
         public boolean onSave(org.zkoss.zk.ui.event.Event event) throws Exception {
             if (nama.getValue() == null || nama.getValue().trim().length() == 0) {
                 MyMessageboxConfig.show("Nama wajib diisi.");
+                return false;
+            }
+            return true;
+        }
+    }
+
+    /** Fixture untuk Action lama yang mendeklarasikan addWindow sebagai Component. */
+    public static final class LegacyComponentHostAction {
+        private org.zkoss.zk.ui.Component addWindow;
+        private org.zkoss.zul.Textbox kode;
+
+        public void init(Agama agama) {
+            kode = new org.zkoss.zul.Textbox(agama.getNama());
+            kode.setParent(addWindow);
+        }
+
+        public boolean onSave(org.zkoss.zk.ui.event.Event event) throws Exception {
+            if (kode.getValue() == null || kode.getValue().trim().length() == 0) {
+                MyMessageboxConfig.show("Kode wajib diisi.");
                 return false;
             }
             return true;

@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.zkoss.zk.ui.event.Event;
+import org.zkoss.zk.ui.Component;
 import org.zkoss.zul.Window;
 
 import ais.action.master.generic.GenericCrudAction;
@@ -26,7 +27,7 @@ public final class GenericCrudExistingActionInvoker {
         if (actionClass == null) return false;
         if (GenericCrudAction.class.isAssignableFrom(actionClass)) return hasDefaultConstructor(actionClass);
         return hasDefaultConstructor(actionClass)
-                && !windowFields(actionClass).isEmpty()
+                && !hostFields(actionClass).isEmpty()
                 && booleanEventSave(actionClass) != null
                 && hasEntityInit(actionClass);
     }
@@ -34,14 +35,13 @@ public final class GenericCrudExistingActionInvoker {
     public static boolean supports(Class actionClass, Class entityClass) {
         if (actionClass == null || entityClass == null || !hasDefaultConstructor(actionClass)) return false;
         if (GenericCrudAction.class.isAssignableFrom(actionClass)) return true;
-        return !windowFields(actionClass).isEmpty()
+        return !hostFields(actionClass).isEmpty()
                 && booleanEventSave(actionClass) != null
                 && compatibleInit(actionClass, entityClass) != null;
     }
 
-    public static boolean supportsCreate(Class actionClass) {
-        return actionClass != null && GenericCrudAction.class.isAssignableFrom(actionClass)
-                && hasDefaultConstructor(actionClass);
+    public static boolean supportsCreate(Class actionClass, Class entityClass) {
+        return supports(actionClass, entityClass) && hasDefaultConstructor(entityClass);
     }
 
     public static void execute(Class actionClass, GeneralValueObject target) throws Exception {
@@ -59,7 +59,7 @@ public final class GenericCrudExistingActionInvoker {
         String captured = null;
         boolean accepted = false;
         try {
-            List fields = windowFields(actionClass);
+            List fields = hostFields(actionClass);
             for (int i = 0; i < fields.size(); i++) {
                 Field field = (Field) fields.get(i);
                 field.setAccessible(true);
@@ -140,15 +140,23 @@ public final class GenericCrudExistingActionInvoker {
         return fallback;
     }
 
-    private static List windowFields(Class type) {
+    /**
+     * Action lama tidak konsisten mendeklarasikan container form: sebagian
+     * memakai Window/MyWindow, sebagian sengaja memakai interface Component.
+     * Hanya field container yang bernama window/dialog yang diinjeksi; field UI
+     * lain (button, grid, textbox) tidak pernah ditebak atau dioverride.
+     */
+    private static List hostFields(Class type) {
         List result = new ArrayList();
         Class current = type;
         while (current != null && current != Object.class) {
             Field[] fields = current.getDeclaredFields();
             for (int i = 0; i < fields.length; i++) {
                 Class fieldType = fields[i].getType();
-                if (!Modifier.isStatic(fields[i].getModifiers())
-                        && Window.class.isAssignableFrom(fieldType)
+                String name = fields[i].getName().toLowerCase();
+                boolean containerName = name.indexOf("window") >= 0 || name.indexOf("dialog") >= 0;
+                if (!Modifier.isStatic(fields[i].getModifiers()) && containerName
+                        && Component.class.isAssignableFrom(fieldType)
                         && fieldType.isAssignableFrom(MyWindow.class)) result.add(fields[i]);
             }
             current = current.getSuperclass();

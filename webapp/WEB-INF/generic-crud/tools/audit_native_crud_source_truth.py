@@ -84,11 +84,15 @@ def main():
         has_save = bool(re.search(r'public\s+(?:final\s+)?boolean\s+onSave\s*\(\s*(?:org\.zkoss\.zk\.ui\.event\.)?Event\b', java))
         window_field = bool(re.search(
             r'(?:private|protected|public)\s+(?:final\s+)?(?:MyWindow|Window)\s+\w+\s*(?:[;=,])', contract))
+        component_host = bool(re.search(
+            r'(?:private|protected|public)\s+(?:final\s+)?Component\s+\w*(?:window|dialog)\w*\s*(?:[;=,])',
+            contract, re.IGNORECASE))
+        lifecycle_host = window_field or component_host
         if re.search(r'extends\s+GenericCrudAction\s*<', java) and has_save:
             generic.append((path, source))
-        elif "DataInitDefault" in contract and has_save and window_field:
+        elif "DataInitDefault" in contract and has_save and lifecycle_host:
             legacy.append((path, source))
-        elif has_save and window_field and re.search(
+        elif has_save and lifecycle_host and re.search(
                 r'(?:public|protected|private)\s+void\s+init\s*\(\s*(?:final\s+)?[A-Z][\w.<>?]*\s+\w+', java):
             entity_init.append((path, source))
         elif has_save:

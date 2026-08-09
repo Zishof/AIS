@@ -12,20 +12,30 @@ Hasil `tools/audit_native_crud_source_truth.py` pada checkout ini:
 
 - 3.892 halaman New UI mempunyai referensi source Java;
 - 893 di antaranya merupakan kandidat CRUD dengan `onSave(Event)`;
-- 842 rute mempunyai kontrak lifecycle existing yang dapat diverifikasi statis,
+- 844 rute mempunyai kontrak lifecycle existing yang dapat diverifikasi statis,
   termasuk kontrak yang diwarisi dari superclass: 75 `GenericCrudAction`,
-  339 `DataInitDefault`, dan 428 pola `init(Entity)`;
-- 51 rute custom masih memerlukan adapter domain khusus;
+  341 `DataInitDefault`, dan 428 pola `init(Entity)`;
+- 49 rute custom masih memerlukan adapter domain khusus;
 - 21 keluaran generator menunjuk nama inner/helper class yang tidak dapat
   di-resolve sebagai Action top-level dan tidak diaktifkan oleh runtime;
 - 2.999 halaman bukan CRUD dan tidak boleh dihitung sebagai CRUD yang tertinggal.
 
-CREATE otomatis hanya aktif untuk `GenericCrudAction` yang mempertahankan
-`createNewEntity()` existing. UPDATE aktif bila entity dan `init(entity)` cocok.
+CREATE otomatis aktif bila entity dapat dibuat dan Action mempunyai lifecycle
+native yang cocok; ini mencakup `GenericCrudAction` serta Action
+`DataInitDefault` yang memakai container `Window` atau `Component`. UPDATE aktif
+bila entity dan `init(entity)` cocok.
 DELETE otomatis tetap fail-closed karena renderer/selection/konfirmasi ZK lama
 tidak mempunyai kontrak entity tunggal; hanya adapter eksplisit yang boleh
-mengaktifkannya. Jadi angka 842 adalah cakupan jembatan lifecycle, bukan klaim
-bahwa seluruh operasi khusus pada 51 Action custom sudah selesai.
+mengaktifkannya. Jadi angka 844 adalah cakupan jembatan lifecycle, bukan klaim
+bahwa seluruh operasi khusus pada 49 Action custom sudah selesai.
+
+Override native pertama untuk kelompok custom sudah tersedia pada
+`JenjangProgramStudi`: CREATE/READ/UPDATE/DELETE memakai form metadata New UI,
+validasi Jurusan/Jenjang mengikuti `JenjangProgramStudiAction`, dan transaksi
+tidak lagi dibuka/ditutup dari composer ZK. Workflow header-detail seperti
+transaksi SIRS tetap diklasifikasikan adapter domain khusus; workflow tersebut
+tidak diturunkan menjadi CRUD satu tabel karena dapat menghilangkan detail,
+stok, jadwal, cetak, atau efek bisnis lain.
 
 ## Yang sudah tersedia dalam paket
 

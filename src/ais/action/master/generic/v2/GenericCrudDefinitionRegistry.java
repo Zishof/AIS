@@ -8,10 +8,12 @@ import java.util.Map;
 
 import ais.action.master.generic.v2.adapter.AgamaGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.GenericCrudFormOverrideProvider;
+import ais.action.master.generic.v2.adapter.JenjangProgramStudiGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.MahasiswaGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.MahasiswaGenericCrudFormProvider;
 import ais.database.model.Agama;
 import ais.database.model.Jenjang;
+import ais.database.model.JenjangProgramStudi;
 import ais.database.model.Jurusan;
 import ais.database.model.Mahasiswa;
 import ais.database.model.StatusAwalMahasiswa;
@@ -26,6 +28,7 @@ public final class GenericCrudDefinitionRegistry {
     static {
         register(buildAgama());
         register(buildMahasiswa());
+        register(buildJenjangProgramStudi());
     }
     private GenericCrudDefinitionRegistry() { }
 
@@ -208,6 +211,47 @@ public final class GenericCrudDefinitionRegistry {
         d.addField(field("waktuKuliah", "Waktu Kuliah", String.class, "text", false, true, true, false, true, true, 190));
         d.addField(field("keterangan", "Keterangan", String.class, "textarea", false, true, true, false, false, true, 200));
         d.addField(field("aktif", "Aktif", Boolean.class, "checkbox", true, true, true, false, true, false, 210));
+        return d;
+    }
+
+    private static GenericCrudDefinition buildJenjangProgramStudi() {
+        GenericCrudDefinition d = new GenericCrudDefinition();
+        d.setEntityClass(JenjangProgramStudi.class);
+        d.setModuleKey("root");
+        d.setPageKey("jenjang_program_studi");
+        d.setDisplayName("Jenjang Program Studi");
+        d.setSourceActionClassName("ais.action.master.JenjangProgramStudiAction");
+        d.setExistingActionLifecycleBound(false);
+        d.setLifecycleStatus(GenericCrudDefinition.FULL_CRUD);
+        d.setEnabled(true);
+        d.setCreateEnabled(true);
+        d.setUpdateEnabled(true);
+        d.setDeleteEnabled(true);
+        d.setImportEnabled(false);
+        d.setExportPdfEnabled(true);
+        d.setExportDocxEnabled(true);
+        d.setExportPptxEnabled(true);
+        d.setAuditEnabled(false);
+        d.setRowAuditEnabled(false);
+        d.setRestoreEnabled(false);
+        d.setAdminDeleteEnabled(false);
+        d.setDefaultSortProperty("id");
+        d.setDefaultPageSize(10);
+        d.setMaxPageSize(100);
+        JenjangProgramStudiGenericCrudAdapter adapter = new JenjangProgramStudiGenericCrudAdapter();
+        d.setAdapter(adapter);
+        d.setScopeAdapter(adapter);
+        d.addField(field("id", "ID", Long.class, "number", true, false, false, false, true, false, 10));
+        d.addField(relationField("jurusan", "Jurusan / Program Studi", Jurusan.class,
+                true, true, true, true, 20));
+        d.addField(relationField("jenjang", "Jenjang", Jenjang.class,
+                true, true, true, false, 30));
+        d.addField(field("email", "Email", String.class, "text", true, true, true,
+                false, true, true, 40));
+        d.addField(field("telpPS", "Telepon Program Studi", String.class, "text", true, true, true,
+                false, true, true, 50));
+        d.addField(field("homepagePS", "Homepage Program Studi", String.class, "text", false, true, true,
+                false, true, true, 60));
         return d;
     }
 
