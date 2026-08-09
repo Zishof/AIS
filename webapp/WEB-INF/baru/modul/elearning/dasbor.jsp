@@ -307,7 +307,7 @@
                     for(int i=0; i<statKeys.length; i++) {
                 %>
                 <div class="col">
-                    <div class="card border-0 shadow-sm mini-stat-card-<%=rnd%> <%=borderColors[i]%> h-100">
+                    <div class="card border-0 shadow-sm mini-stat-card-<%=rnd%> <%=borderColors[i]%> h-100" role="button" tabindex="0" data-dasbor-detail="<%=statKeys[i]%>" aria-label="<%=Common.getBahasaConfig("Buka rincian")%> <%=statLabels[i]%>">
                         <div class="card-body p-4">
                             <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
                                 <div class="d-flex align-items-center">
@@ -718,4 +718,23 @@
 
     // Pemuatan data otomatis saat antarmuka pertama kali dimuat
     muatDataDasbor<%=rnd%>(false);
+</script>
+<script>
+(function () {
+    var wrapper = document.getElementById('wrapper-dasbor-<%=rnd%>');
+    if (!wrapper) return;
+    function buka(card) {
+        var key = card.getAttribute('data-dasbor-detail');
+        var tab = wrapper.querySelector('a[href="#pane-' + key + '-<%=rnd%>"]');
+        var pane = document.getElementById('pane-' + key + '-<%=rnd%>');
+        if (tab && typeof bootstrap !== 'undefined') bootstrap.Tab.getOrCreateInstance(tab).show();
+        if (pane) pane.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    wrapper.querySelectorAll('[data-dasbor-detail]').forEach(function (card) {
+        card.addEventListener('click', function () { buka(card); });
+        card.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); buka(card); }
+        });
+    });
+})();
 </script>

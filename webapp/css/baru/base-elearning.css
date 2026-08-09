@@ -311,6 +311,29 @@
 .el-content-card { min-width:0; padding:16px; border:1px solid #e2e8f0; border-radius:18px; background:#fff; box-shadow:0 14px 38px rgba(15,23,42,.07); }
 .el-content-card > .tab-content > .tab-pane { min-height:420px; }
 .el-mobile-nav-wrap { display:none; }
+.el-role-hero { display:grid; grid-template-columns:minmax(260px,.9fr) minmax(480px,1.1fr); gap:18px; align-items:center; margin-bottom:16px; padding:20px 22px; overflow:hidden; border:1px solid rgba(37,99,235,.16); border-radius:18px; background:linear-gradient(118deg,#0b2d61 0%,#1455a2 58%,#0ea5a8 100%); box-shadow:0 16px 36px rgba(11,45,97,.16); color:#fff; }
+.el-role-hero h2 { margin:6px 0 5px; color:#fff; font-size:1.18rem; font-weight:800; letter-spacing:-.025em; }
+.el-role-hero p { max-width:650px; margin:0; color:#dbeafe; font-size:.76rem; line-height:1.5; }
+.el-role-kicker { display:inline-flex; align-items:center; gap:7px; color:#99f6e4; font-size:.68rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+.el-quick-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
+.el-quick-actions button { min-width:0; display:flex; align-items:center; gap:9px; padding:10px; border:1px solid rgba(255,255,255,.19); border-radius:13px; background:rgba(255,255,255,.1); color:#fff; text-align:left; backdrop-filter:blur(8px); transition:background .18s ease,transform .18s ease; }
+.el-quick-actions button:hover { background:rgba(255,255,255,.19); transform:translateY(-2px); }
+.el-quick-actions button > i { width:32px; height:32px; flex:0 0 32px; display:grid; place-items:center; border-radius:10px; background:rgba(255,255,255,.14); color:#a5f3fc; }
+.el-quick-actions strong,.el-quick-actions small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.el-quick-actions strong { font-size:.73rem; }.el-quick-actions small { margin-top:2px; color:#bfdbfe; font-size:.61rem; }
+.el-course-context { position:relative; display:flex; align-items:center; gap:14px; margin-bottom:14px; padding:11px 44px 11px 12px; border:1px solid #bfdbfe; border-radius:15px; background:linear-gradient(100deg,#eff6ff,#f0fdfa); box-shadow:0 8px 22px rgba(37,99,235,.07); }
+.el-course-context[hidden] { display:none; }
+.el-course-context-main { min-width:210px; display:flex; align-items:center; gap:9px; }
+.el-course-context-main small,.el-course-context-main strong { display:block; }.el-course-context-main small { color:#64748b; font-size:.62rem; }.el-course-context-main strong { max-width:290px; overflow:hidden; color:#0f172a; font-size:.76rem; text-overflow:ellipsis; white-space:nowrap; }
+.el-course-icon { width:34px; height:34px; flex:0 0 34px; display:grid; place-items:center; border-radius:11px; background:#2563eb; color:#fff; }
+.el-course-context nav { display:flex; gap:5px; overflow-x:auto; padding-bottom:2px; }
+.el-course-context nav button { flex:0 0 auto; padding:6px 10px; border:1px solid #dbeafe; border-radius:999px; background:#fff; color:#334155; font-size:.68rem; font-weight:700; }
+.el-course-context nav button:hover { border-color:#2563eb; color:#1d4ed8; }
+.el-course-close { position:absolute; top:9px; right:9px; width:29px; height:29px; border:0; border-radius:50%; background:transparent; color:#64748b; }
+.el-course-close:hover { background:#dbeafe; color:#1d4ed8; }
+.el-runtime-error { position:relative; display:flex; align-items:flex-start; gap:10px; margin-bottom:12px; padding:11px 42px 11px 13px; border:1px solid #fecaca; border-radius:13px; background:#fff1f2; color:#9f1239; }
+.el-runtime-error[hidden] { display:none; }.el-runtime-error > i { margin-top:2px; }.el-runtime-error strong,.el-runtime-error small { display:block; }.el-runtime-error strong { font-size:.76rem; }.el-runtime-error small { margin-top:2px; color:#be123c; font-size:.69rem; word-break:break-word; }
+.el-runtime-error button { position:absolute; top:7px; right:7px; width:28px; height:28px; border:0; border-radius:50%; background:transparent; color:#9f1239; }.el-runtime-error button:hover { background:#ffe4e6; }
 
 /* Selaraskan komponen legacy yang berada di dalam workspace. */
 .elearning-workspace .card { border-color:#e2e8f0; box-shadow:0 8px 24px rgba(15,23,42,.055); }
@@ -319,11 +342,14 @@
 .elearning-workspace .table-responsive { border-radius:12px; }
 .elearning-workspace .table thead th { color:#64748b; background:#f8fafc; font-size:.72rem; letter-spacing:.025em; text-transform:uppercase; }
 .elearning-workspace :focus-visible { outline:3px solid rgba(37,99,235,.35); outline-offset:2px; }
+.elearning-workspace [data-dasbor-detail] { cursor:pointer; }
+.elearning-workspace [data-dasbor-detail]:focus-visible { transform:translateY(-3px); }
 
 @media (max-width: 1199.98px) {
   .elearning-workspace { grid-template-columns: 198px minmax(0,1fr); }
   .el-workspace-main { padding:22px 20px 30px; }
   .el-module-nav .nav-link { font-size:.76rem; padding-left:10px; }
+  .el-role-hero { grid-template-columns:1fr; }
 }
 @media (max-width: 991.98px) {
   .elearning-workspace { display:block; margin:-.75rem; min-height:0; }
@@ -332,6 +358,9 @@
   .el-mobile-nav-wrap { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:10px; margin-bottom:14px; padding:10px 12px; border:1px solid #dbe4f0; border-radius:14px; background:#fff; box-shadow:0 8px 24px rgba(15,23,42,.05); }
   .el-mobile-nav-wrap label { margin:0; color:#334155; font-size:.76rem; font-weight:700; white-space:nowrap; }
   .el-mobile-nav-wrap .form-select { min-height:42px; font-size:16px; }
+  .el-role-hero { padding:17px; }
+  .el-course-context { align-items:flex-start; flex-direction:column; }
+  .el-course-context nav { width:100%; }
 }
 @media (max-width: 575.98px) {
   .el-workspace-main { padding:13px 9px 22px; }
@@ -341,6 +370,10 @@
   .el-user-chip { margin-top:12px; max-width:none; }
   .el-mobile-nav-wrap { grid-template-columns:1fr; }
   .el-content-card { padding:8px; border-radius:14px; }
+  .el-role-hero { padding:15px; border-radius:15px; }
+  .el-role-hero h2 { font-size:1rem; }
+  .el-quick-actions { grid-template-columns:1fr; }
+  .el-quick-actions button { min-height:49px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .elearning-workspace *, .elearning-workspace *::before, .elearning-workspace *::after { scroll-behavior:auto !important; transition:none !important; animation:none !important; }

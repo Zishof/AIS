@@ -9,6 +9,10 @@ private String cfgText(String key, String def) {
         return k.getNilai().trim();
     } catch (Throwable t) { return def; }
 }
+private boolean cfgBool(String key, boolean def) {
+    String value = cfgText(key, def ? "true" : "false");
+    return "true".equalsIgnoreCase(value) || "1".equals(value) || "ya".equalsIgnoreCase(value) || "yes".equalsIgnoreCase(value);
+}
 private String elHtml(String value) {
     if (value == null) return "";
     return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -19,6 +23,11 @@ private String elHtml(String value) {
 Tbmuser tbmuser = Common.getCurrentUser(request);
 if (tbmuser == null || tbmuser.getUserId() == null) {
     response.sendRedirect(request.getContextPath() + "/logoff");
+    return;
+}
+boolean elWorkspaceModern = cfgBool("elearning_workspace_modern_aktif", true);
+if (!elWorkspaceModern) {
+%><jsp:include page="/WEB-INF/baru/modul/elearning/index_classic.jsp" /><%
     return;
 }
 boolean elPengajar = tbmuser.ambilDosen() != null || tbmuser.ambilGuru() != null;
@@ -74,7 +83,53 @@ String elDeskripsi = cfgText("elearning_deskripsi_utama", "Akses kelas, materi, 
       </select>
     </div>
 
+    <section class="el-role-hero" aria-label="Aksi utama e-Learning">
+      <div class="el-role-hero-copy">
+        <span class="el-role-kicker"><i class="fas <%=elPengajar ? "fa-chalkboard-teacher" : (elPeserta ? "fa-user-graduate" : "fa-cogs")%>" aria-hidden="true"></i> <%=elHtml(elPeran)%></span>
+        <h2><%=elPengajar ? "Kelola pembelajaran hari ini" : (elPeserta ? "Lanjutkan perjalanan belajar Anda" : "Pantau operasional pembelajaran")%></h2>
+        <p><%=elPengajar ? "Buka kelas, siapkan materi, periksa tugas, dan tindak lanjuti peserta dari satu tempat." : (elPeserta ? "Temukan materi berikutnya, deadline terdekat, ujian, diskusi, serta perkembangan nilai Anda." : "Gunakan ringkasan, katalog kelas, kalender, laporan, dan analitik sesuai hak akses aktif.")%></p>
+      </div>
+      <div class="el-quick-actions" role="group" aria-label="Aksi cepat">
+        <% if (elPengajar) { %>
+        <button type="button" data-el-open="Ringkasan"><i class="fas fa-layer-group"></i><span><strong>Kelola kelas</strong><small>Daftar mata kuliah</small></span></button>
+        <button type="button" data-el-open="Tugas"><i class="fas fa-clipboard-check"></i><span><strong>Periksa tugas</strong><small>Pengumpulan &amp; nilai</small></span></button>
+        <button type="button" data-el-open="Kalender"><i class="fas fa-calendar-check"></i><span><strong>Agenda &amp; presensi</strong><small>Jadwal hari ini</small></span></button>
+        <% } else if (elPeserta) { %>
+        <button type="button" data-el-open="Materi"><i class="fas fa-play-circle"></i><span><strong>Lanjut belajar</strong><small>Materi &amp; modul</small></span></button>
+        <button type="button" data-el-open="Tugas"><i class="fas fa-hourglass-half"></i><span><strong>Lihat deadline</strong><small>Tugas aktif</small></span></button>
+        <button type="button" data-el-open="Obe"><i class="fas fa-chart-line"></i><span><strong>Perkembangan</strong><small>Nilai &amp; capaian</small></span></button>
+        <% } else { %>
+        <button type="button" data-el-open="Dasbor"><i class="fas fa-chart-pie"></i><span><strong>Pantau sistem</strong><small>Ringkasan aktivitas</small></span></button>
+        <button type="button" data-el-open="Ringkasan"><i class="fas fa-book-open"></i><span><strong>Katalog kelas</strong><small>Seluruh pembelajaran</small></span></button>
+        <button type="button" data-el-open="Laporan"><i class="fas fa-file-export"></i><span><strong>Buka laporan</strong><small>Cetak &amp; ekspor</small></span></button>
+        <% } %>
+      </div>
+    </section>
+
+    <section class="el-course-context" id="elCourseContext" hidden aria-live="polite">
+      <div class="el-course-context-main">
+        <span class="el-course-icon"><i class="fas fa-book-reader" aria-hidden="true"></i></span>
+        <span><small>Workspace mata kuliah / kelas</small><strong id="elCourseTitle">-</strong></span>
+      </div>
+      <nav aria-label="Bagian workspace mata kuliah">
+        <button type="button" data-el-course-open="Ringkasan">Ringkasan</button>
+        <button type="button" data-el-course-open="Linimasa">Pertemuan</button>
+        <button type="button" data-el-course-open="Materi">Materi</button>
+        <button type="button" data-el-course-open="Tugas">Tugas</button>
+        <button type="button" data-el-course-open="Ujian">Ujian</button>
+        <button type="button" data-el-course-open="Diskusi">Diskusi</button>
+        <button type="button" data-el-course-open="Kalender">Presensi</button>
+        <button type="button" data-el-course-open="Obe">Nilai / OBE</button>
+      </nav>
+      <button type="button" class="el-course-close" id="elCourseClose" aria-label="Tutup konteks mata kuliah"><i class="fas fa-times"></i></button>
+    </section>
+
     <section class="el-content-card">
+      <div class="el-runtime-error" id="elRuntimeError" hidden role="alert">
+        <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+        <span><strong>Terjadi kendala saat memuat bagian e-Learning.</strong><small id="elRuntimeErrorMessage">Silakan muat ulang atau hubungi administrator.</small></span>
+        <button type="button" id="elRuntimeErrorClose" aria-label="Tutup pesan error"><i class="fas fa-times"></i></button>
+      </div>
       <div class="tab-content">
         <div class="tab-pane fade show active" id="Dasbor" role="tabpanel" aria-labelledby="Dasbor-tab"><jsp:include page="/WEB-INF/baru/modul/elearning/dasbor.jsp"><jsp:param value="${tbmuser}" name="tbmuser" /></jsp:include></div>
         <div class="tab-pane fade" id="Ringkasan" role="tabpanel" aria-labelledby="Ringkasan-tab"><jsp:include page="/WEB-INF/baru/modul/elearning/ringkasan.jsp"><jsp:param value="${tbmuser}" name="tbmuser" /></jsp:include></div>
@@ -102,6 +157,29 @@ String elDeskripsi = cfgText("elearning_deskripsi_utama", "Akses kelas, materi, 
     if (!trigger || typeof bootstrap === 'undefined') return;
     bootstrap.Tab.getOrCreateInstance(trigger).show();
   }
+  function applyCourseFilter(id, course) {
+    if (!course || !course.title) return;
+    var pane = root.querySelector('#' + id);
+    if (!pane) return;
+    var field = pane.querySelector('input[id^="filter-matakuliah-"]');
+    if (field && field.value !== course.title) {
+      field.value = course.title;
+      field.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+  function showCourse(course) {
+    var bar = root.querySelector('#elCourseContext');
+    if (!bar) return;
+    if (!course || !course.title) { bar.hidden = true; return; }
+    root.querySelector('#elCourseTitle').textContent = course.title;
+    bar.hidden = false;
+  }
+  function showRuntimeError(message) {
+    var box = root.querySelector('#elRuntimeError');
+    if (!box) return;
+    root.querySelector('#elRuntimeErrorMessage').textContent = message || 'Silakan muat ulang atau hubungi administrator.';
+    box.hidden = false;
+  }
   root.querySelectorAll('[data-bs-toggle="pill"]').forEach(function (trigger) {
     trigger.addEventListener('shown.bs.tab', function () {
       var id = trigger.getAttribute('data-bs-target').substring(1);
@@ -110,7 +188,38 @@ String elDeskripsi = cfgText("elearning_deskripsi_utama", "Akses kelas, materi, 
       selector.value = id;
       try { sessionStorage.setItem(storageKey, id); } catch (ignore) {}
       if (history.replaceState) history.replaceState(null, '', location.pathname + location.search + '#el-' + id.toLowerCase());
+      var course = null;
+      try { course = JSON.parse(sessionStorage.getItem(storageKey + '.course') || 'null'); } catch (ignore) {}
+      applyCourseFilter(id, course);
     });
+  });
+  root.querySelectorAll('[data-el-open]').forEach(function (button) {
+    button.addEventListener('click', function () { activate(button.getAttribute('data-el-open')); });
+  });
+  root.querySelectorAll('[data-el-course-open]').forEach(function (button) {
+    button.addEventListener('click', function () { activate(button.getAttribute('data-el-course-open')); });
+  });
+  root.addEventListener('ais:elearning:course', function (event) {
+    var course = event.detail || null;
+    if (!course || !course.title) return;
+    try { sessionStorage.setItem(storageKey + '.course', JSON.stringify(course)); } catch (ignore) {}
+    showCourse(course);
+    activate(course.open || 'Linimasa');
+  });
+  root.querySelector('#elCourseClose').addEventListener('click', function () {
+    try { sessionStorage.removeItem(storageKey + '.course'); } catch (ignore) {}
+    showCourse(null);
+  });
+  root.querySelector('#elRuntimeErrorClose').addEventListener('click', function () {
+    root.querySelector('#elRuntimeError').hidden = true;
+  });
+  window.addEventListener('unhandledrejection', function (event) {
+    var reason = event.reason;
+    showRuntimeError(reason && reason.message ? reason.message : String(reason || 'Permintaan data gagal diproses.'));
+  });
+  window.addEventListener('error', function (event) {
+    if (!event || !event.message) return;
+    showRuntimeError(event.message);
   });
   selector.addEventListener('change', function () { activate(selector.value); });
   var requested = location.hash.indexOf('#el-') === 0 ? location.hash.substring(4) : '';
@@ -120,6 +229,9 @@ String elDeskripsi = cfgText("elearning_deskripsi_utama", "Akses kelas, materi, 
   }
   var saved = '';
   try { saved = sessionStorage.getItem(storageKey) || ''; } catch (ignore) {}
+  var savedCourse = null;
+  try { savedCourse = JSON.parse(sessionStorage.getItem(storageKey + '.course') || 'null'); } catch (ignore) {}
+  showCourse(savedCourse);
   activate(byHash ? byHash.id : saved);
 })();
 </script>
