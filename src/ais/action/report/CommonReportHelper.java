@@ -228,7 +228,7 @@ public class CommonReportHelper {
 		if (kegiatan == null || rincianLayar == null) {
 			return hasil;
 		}
-		for (Map<String, Serializable> sumber : rincianLayar) {
+		for (Map<String, Serializable> sumber : selaraskanSnapshotDenganRingkasan(kegiatan, rincianLayar)) {
 			if (sumber == null || !(sumber.get("biaya") instanceof Number)) {
 				continue;
 			}
@@ -279,6 +279,79 @@ public class CommonReportHelper {
 			}
 			hasil.add(map);
 		}
+		return hasil;
+	}
+
+	/**
+	 * Rekonsiliasi terakhir antara rincian item dan angka ringkasan kegiatan.
+	 *
+	 * <p>Ringkasan kegiatan memakai penghitung neto yang juga memperhitungkan diskon,
+	 * DetailKegiatan terbaru, dan item bukan-tagihan. Sebaliknya, rincian historis dapat
+	 * masih berisi nominal bruto. Selisih itu sebelumnya membuat layar terlihat lunas
+	 * tetapi PDF kembali menampilkan sisa tagihan (contoh: Rp350.000). Agar audit tetap
+	 * transparan, selisih tidak disembunyikan atau dipaksakan ke salah satu item; laporan
+	 * menambah satu baris "Diskon/Penyesuaian Tagihan" sehingga total rincian sama persis
+	 * dengan Tagihan dan Dibayar pada ringkasan.</p>
+	 */
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	private static List<Map<String, Serializable>> selaraskanSnapshotDenganRingkasan(Kegiatan kegiatan,
+			Collection rincianLayar) {
+		List<Map<String, Serializable>> hasil = new ArrayList<Map<String, Serializable>>();
+		double totalTagihanRincian = 0.0;
+		double totalDibayarRincian = 0.0;
+
+		if (rincianLayar != null) {
+			for (Object baris : rincianLayar) {
+				if (!(baris instanceof Map)) {
+					continue;
+				}
+				Map<String, Serializable> salinan = new HashMap<String, Serializable>((Map) baris);
+				hasil.add(salinan);
+				if (salinan.get("biaya") instanceof Number) {
+					totalTagihanRincian += ((Number) salinan.get("biaya")).doubleValue();
+				}
+				if (salinan.get("dibayar") instanceof Number) {
+					totalDibayarRincian += ((Number) salinan.get("dibayar")).doubleValue();
+				}
+			}
+		}
+
+		if (kegiatan == null) {
+			return hasil;
+		}
+
+		Double tagihanRingkasan = ais.action.master.helper.KegiatanPersistenceHelper
+				.hitungTagihanSegarKonsisten(kegiatan);
+		if (tagihanRingkasan == null || tagihanRingkasan.doubleValue() <= 0.1) {
+			tagihanRingkasan = kegiatan.hitungTagihan();
+		}
+		Double dibayarRingkasan = kegiatan.hitungDibayar();
+		double selisihTagihan = (tagihanRingkasan == null ? 0.0 : tagihanRingkasan.doubleValue())
+				- totalTagihanRincian;
+		double selisihDibayar = (dibayarRingkasan == null ? 0.0 : dibayarRingkasan.doubleValue())
+				- totalDibayarRincian;
+
+		if (Math.abs(selisihTagihan) <= 0.1 && Math.abs(selisihDibayar) <= 0.1) {
+			return hasil;
+		}
+
+		Map<String, Serializable> acuan = hasil.isEmpty() ? null : hasil.get(0);
+		Map<String, Serializable> penyesuaian = new HashMap<String, Serializable>();
+		penyesuaian.put("kode", "ADJ");
+		penyesuaian.put("item_biaya", "Diskon/Penyesuaian Tagihan");
+		penyesuaian.put("biaya", Double.valueOf(selisihTagihan));
+		penyesuaian.put("dibayar", Double.valueOf(selisihDibayar));
+		penyesuaian.put("sisa", Double.valueOf(selisihTagihan - selisihDibayar));
+		penyesuaian.put("semester", acuan != null && acuan.get("semester") != null
+				? acuan.get("semester") : kegiatan.getSemster());
+		penyesuaian.put("tahun_ajaran", acuan != null && acuan.get("tahun_ajaran") != null
+				? acuan.get("tahun_ajaran") : kegiatan.getTahunAkademik());
+		penyesuaian.put("nama_kegiatan", kegiatan.getJenisKegiatan() == null ? ""
+				: kegiatan.getJenisKegiatan().getNamaKegiatan());
+		penyesuaian.put("nama_kegiatan_semester",
+				(kegiatan.getJenisKegiatan() == null ? "" : kegiatan.getJenisKegiatan().getNamaKegiatan())
+						+ "-" + kegiatan.getSemster());
+		hasil.add(penyesuaian);
 		return hasil;
 	}
 
@@ -6206,11 +6279,8 @@ public class CommonReportHelper {
 		if (val == null || val.length < 4 || !(val[3] instanceof Collection)) {
 			return false;
 		}
-		for (Object baris : (Collection) val[3]) {
-			if (baris instanceof Map) {
-				tujuan.add(new HashMap<String, Serializable>((Map<String, Serializable>) baris));
-			}
-		}
+		Kegiatan kegiatan = val[2] instanceof Kegiatan ? (Kegiatan) val[2] : null;
+		tujuan.addAll(selaraskanSnapshotDenganRingkasan(kegiatan, (Collection) val[3]));
 		return true;
 	}
 
