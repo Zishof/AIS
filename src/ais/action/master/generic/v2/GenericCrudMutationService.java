@@ -32,7 +32,7 @@ public class GenericCrudMutationService {
         List errors = validation.validateRequired(definition, values, true);
         definition.getAdapter().validateCreate(values, context, errors);
         if (!errors.isEmpty()) { return validationError(errors); }
-        Session session = HibernateUtil.getSessionFactory().openSession();
+        Session session = HibernateUtil.currentNativeSession();
         Transaction tx = null;
         try {
             tx = session.beginTransaction();
@@ -44,7 +44,7 @@ public class GenericCrudMutationService {
             }
             scope.validateObject(target, context);
             definition.getAdapter().beforeSave(session, target, context);
-            session.save(target);
+            if (!session.contains(target)) session.save(target);
             session.flush();
             definition.getAdapter().afterSave(session, target, context);
             Serializable id = metadata.getIdentifier(target, EntityMode.POJO);
@@ -54,7 +54,7 @@ public class GenericCrudMutationService {
         } catch (Exception e) {
             rollback(tx);
             throw mapMutationError(e);
-        } finally { close(session); }
+        } finally { HibernateUtil.closeSession(); }
     }
 
     public GenericCrudResult update(GenericCrudRequestContext context, Serializable id, Map submitted, Object optimisticToken) throws Exception {
@@ -64,7 +64,7 @@ public class GenericCrudMutationService {
         ClassMetadata metadata = GenericCrudRuntimeMetadataVerifier.verify(definition);
         Map values = allowedValues(definition, submitted, false);
         List errors = validation.validateRequired(definition, values, false);
-        Session session = HibernateUtil.getSessionFactory().openSession();
+        Session session = HibernateUtil.currentNativeSession();
         Transaction tx = null;
         try {
             tx = session.beginTransaction();
@@ -91,7 +91,7 @@ public class GenericCrudMutationService {
         } catch (Exception e) {
             rollback(tx);
             throw mapMutationError(e);
-        } finally { close(session); }
+        } finally { HibernateUtil.closeSession(); }
     }
 
     public GenericCrudResult softDelete(GenericCrudRequestContext context, Serializable id) throws Exception {
@@ -99,7 +99,7 @@ public class GenericCrudMutationService {
         GenericCrudDefinition definition = context.getDefinition();
         if (!definition.isFullCrud() || !definition.isDeleteEnabled()) { deny("DELETE_DISABLED", "Penghapusan belum diaktifkan."); }
         GenericCrudRuntimeMetadataVerifier.verify(definition);
-        Session session = HibernateUtil.getSessionFactory().openSession();
+        Session session = HibernateUtil.currentNativeSession();
         Transaction tx = null;
         try {
             tx = session.beginTransaction();
@@ -118,7 +118,7 @@ public class GenericCrudMutationService {
         } catch (Exception e) {
             rollback(tx);
             throw mapMutationError(e);
-        } finally { close(session); }
+        } finally { HibernateUtil.closeSession(); }
     }
 
     private Map allowedValues(GenericCrudDefinition definition, Map submitted, boolean create) throws GenericCrudException {
@@ -165,5 +165,4 @@ public class GenericCrudMutationService {
         if (error instanceof IllegalArgumentException) { return new GenericCrudException(409, "BUSINESS_RULE", error.getMessage()); }
         return new GenericCrudException(500, "MUTATION_FAILED", "Operasi gagal dan transaksi dibatalkan.", error);
     }
-    private void close(Session session) { try { if (session != null && session.isOpen()) session.close(); } catch (Exception ignored) { } }
 }

@@ -22,6 +22,8 @@ import org.zkoss.zul.Toolbar;
 import ais.action.master.helper.FilterLanjutHelper;
 import ais.common.Common;
 import ais.common.CommonPrivilages;
+import ais.common.HeadlessActionContext;
+import ais.common.HeadlessBusinessRuleException;
 import ais.database.model.GeneralValueObject;
 import ais.ui.util.DataCriteria;
 import ais.ui.util.DataInitDefault;
@@ -95,6 +97,43 @@ public abstract class GenericCrudAction<T extends GeneralValueObject>
      * Subclass harus menambahkan Borderlayout ke parameter window.
      */
     protected abstract void buildFormContent(MyWindow window, T entity) throws Exception;
+
+    /**
+     * Business rule penyimpanan tetap dimiliki subclass Action existing. New UI
+     * memanggil kontrak yang sama setelah form headless diisi dari entity target.
+     */
+    public abstract boolean onSave(Event event) throws Exception;
+
+    /**
+     * Jalankan lifecycle simpan existing tanpa compose ZUL. Komponen input tetap
+     * dibangun oleh {@link #buildFormContent} sehingga onSave membaca nilai yang
+     * sama persis dengan halaman lama, tetapi window tidak pernah dirender.
+     */
+    public final void executeHeadlessSave(T entity) throws Exception {
+        if (entity == null) {
+            throw new HeadlessBusinessRuleException("Data yang akan disimpan tidak tersedia.");
+        }
+        MyWindow previousWindow = addWindow;
+        T previousEntity = currentEntity;
+        String captured = null;
+        boolean accepted = false;
+        try {
+            currentEntity = entity;
+            HeadlessActionContext.enter();
+            addWindow = new MyWindow(true);
+            buildFormContent(addWindow, entity);
+            accepted = onSave(null);
+        } finally {
+            if (HeadlessActionContext.isActive()) captured = HeadlessActionContext.exit();
+            try { if (addWindow != null) addWindow.detach(); } catch (Exception ignored) { }
+            addWindow = previousWindow;
+            currentEntity = previousEntity;
+        }
+        if (!accepted) {
+            throw new HeadlessBusinessRuleException(captured == null || captured.length() == 0
+                    ? "Validasi business rule existing menolak penyimpanan data." : captured);
+        }
+    }
 
     // ======================== Template methods (bisa di-override) ========================
 

@@ -21,10 +21,21 @@ public class MyWindow extends Window {
 	private static final long serialVersionUID = 3794161371195657634L;
 
 	public static boolean pakaiClose = true;
+	private boolean headless;
 
 	public MyWindow() {
 		super();
 		init();
+	}
+
+	/**
+	 * Window tidak ter-render untuk lifecycle Action yang dipanggil New UI.
+	 * Melewati inisialisasi background/institusi yang hanya relevan untuk dialog ZK.
+	 */
+	public MyWindow(boolean headless) {
+		super();
+		this.headless = headless;
+		if (!headless) init();
 	}
 
 	public MyWindow(String title, String border, boolean closable) {
@@ -84,10 +95,17 @@ public class MyWindow extends Window {
 
 	@Override
 	public boolean setVisible(boolean visible) {
+		if (headless) return false;
 		if (visible) {
 			applyDefaultDialogWidth();
 		}
 		return super.setVisible(visible);
+	}
+
+	@Override
+	public void onModal() throws InterruptedException {
+		if (headless) return;
+		super.onModal();
 	}
 
 	public void initBg() {

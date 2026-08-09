@@ -66,17 +66,22 @@ public final class GenericCrudDefinitionRegistry {
      */
     public static synchronized GenericCrudDefinition tryAutoRegister(String module, String page,
             String[] serverCandidates) {
-        return tryAutoRegister(module, page, serverCandidates, null, null);
+        return tryAutoRegister(module, page, serverCandidates, null, null, null);
     }
 
     public static synchronized GenericCrudDefinition tryAutoRegister(String module, String page,
             String[] serverCandidates, String sourceAction, String[] sourceMethods) {
+        return tryAutoRegister(module, page, serverCandidates, null, sourceAction, sourceMethods);
+    }
+
+    public static synchronized GenericCrudDefinition tryAutoRegister(String module, String page,
+            String[] serverCandidates, String sourcePackage, String sourceAction, String[] sourceMethods) {
         if (module == null || page == null || serverCandidates == null || serverCandidates.length == 0) return null;
         GenericCrudDefinition existing = (GenericCrudDefinition) DEFINITIONS.get(routeKey(module, page));
         if (existing != null) return existing.isEnabled() ? existing : null;
         try {
             GenericCrudDefinition generated = GenericCrudAutoDefinitionFactory.build(module, page,
-                    serverCandidates, sourceAction, sourceMethods);
+                    serverCandidates, sourcePackage, sourceAction, sourceMethods);
             if (generated == null) return null;
             register(generated);
             return generated;
@@ -116,6 +121,8 @@ public final class GenericCrudDefinitionRegistry {
         d.setModuleKey("root");
         d.setPageKey("agama");
         d.setDisplayName("Agama");
+        d.setSourceActionClassName("ais.action.master.AgamaAction");
+        d.setExistingActionLifecycleBound(true);
         d.setLifecycleStatus(GenericCrudDefinition.FULL_CRUD);
         d.setEnabled(true);
         d.setCreateEnabled(true);
@@ -153,6 +160,7 @@ public final class GenericCrudDefinitionRegistry {
         d.setModuleKey("root");
         d.setPageKey("mahasiswa");
         d.setDisplayName("Mahasiswa");
+        d.setSourceActionClassName("ais.action.master.MahasiswaAction");
         d.setLifecycleStatus(GenericCrudDefinition.FULL_CRUD);
         d.setEnabled(true);
         d.setCreateEnabled(true);

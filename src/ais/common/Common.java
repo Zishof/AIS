@@ -1210,10 +1210,12 @@ public class Common {
 	}
 
 	public static String getBahasaConfig(String defaultBahasa) {
+		if (HeadlessActionContext.isActive()) return defaultBahasa;
 		return CommonComboLanguageHelper.getBahasaConfig(defaultBahasa);
 	}
 
 	public static String getBahasaConfig(String prefix, String defaultBahasa) {
+		if (HeadlessActionContext.isActive()) return defaultBahasa;
 		return CommonComboLanguageHelper.getBahasaConfig(prefix, defaultBahasa);
 	}
 

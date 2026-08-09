@@ -1,0 +1,69 @@
+package ais.action.master.generic.v2.test;
+
+import ais.action.master.AgamaAction;
+import ais.action.master.AlatTransportasiMahasiswaAction;
+import ais.action.master.generic.v2.adapter.GenericCrudExistingActionInvoker;
+import ais.common.HeadlessActionContext;
+import ais.common.HeadlessBusinessRuleException;
+import ais.database.model.Agama;
+import ais.database.model.AlatTransportasiMahasiswa;
+import ais.ui.util.MyMessageboxConfig;
+
+/** Uji bahwa validasi Action existing dapat dijalankan tanpa compose halaman ZUL. */
+public final class HeadlessExistingActionSelfTest {
+    private HeadlessExistingActionSelfTest() { }
+
+    public static void main(String[] args) throws Exception {
+        boolean rejected = false;
+        try {
+            new AgamaAction().executeHeadlessSave(new Agama());
+        } catch (HeadlessBusinessRuleException expected) {
+            rejected = expected.getMessage() != null && expected.getMessage().trim().length() > 0;
+        }
+        check(rejected, "Validasi wajib isi AgamaAction tidak dijalankan secara headless.");
+        rejected = false;
+        try {
+            AlatTransportasiMahasiswa legacyTarget = new AlatTransportasiMahasiswa();
+            legacyTarget.setFeeder(Long.valueOf(0L));
+            GenericCrudExistingActionInvoker.execute(AlatTransportasiMahasiswaAction.class,
+                    legacyTarget);
+        } catch (HeadlessBusinessRuleException expected) {
+            rejected = expected.getMessage() != null && expected.getMessage().trim().length() > 0;
+        }
+        check(rejected, "Validasi Action legacy DataInitDefault tidak dijalankan secara headless.");
+        rejected = false;
+        try {
+            GenericCrudExistingActionInvoker.execute(LegacyNamedWindowAction.class, new Agama());
+        } catch (HeadlessBusinessRuleException expected) {
+            rejected = expected.getMessage() != null && expected.getMessage().indexOf("Nama wajib") >= 0;
+        }
+        check(rejected, "Window legacy bernama non-addWindow tidak berhasil diinjeksi.");
+        check(!HeadlessActionContext.isActive(), "Konteks headless bocor setelah Action selesai.");
+        System.out.println("PASS existing Action headless validation self-test");
+        // Hibernate/c3p0 aplikasi mempertahankan worker non-daemon pada eksekusi CLI.
+        System.exit(0);
+    }
+
+    private static void check(boolean value, String message) {
+        if (!value) throw new IllegalStateException(message);
+    }
+
+    /** Fixture kecil untuk membuktikan Action lama tidak bergantung nama field addWindow. */
+    public static final class LegacyNamedWindowAction {
+        private org.zkoss.zul.Window dialog;
+        private org.zkoss.zul.Textbox nama;
+
+        private void init(Agama agama) {
+            nama = new org.zkoss.zul.Textbox(agama.getNama());
+            nama.setParent(dialog);
+        }
+
+        public boolean onSave(org.zkoss.zk.ui.event.Event event) throws Exception {
+            if (nama.getValue() == null || nama.getValue().trim().length() == 0) {
+                MyMessageboxConfig.show("Nama wajib diisi.");
+                return false;
+            }
+            return true;
+        }
+    }
+}

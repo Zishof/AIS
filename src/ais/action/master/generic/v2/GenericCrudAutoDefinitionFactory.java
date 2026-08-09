@@ -15,6 +15,7 @@ import org.hibernate.metadata.ClassMetadata;
 import org.hibernate.type.Type;
 
 import ais.action.master.generic.v2.adapter.GenericCrudAutoEntityAdapter;
+import ais.action.master.generic.v2.adapter.GenericCrudExistingActionInvoker;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.GeneralValueObject;
 
@@ -49,19 +50,29 @@ public final class GenericCrudAutoDefinitionFactory {
 
     public static GenericCrudDefinition build(String module, String page, String[] serverCandidates) throws Exception {
         Class entityClass = selectMappedClass(module, page, serverCandidates);
-        return buildForClass(module, page, entityClass, false, null, null);
+        return buildForClass(module, page, entityClass, false, null, null, null);
     }
 
     public static GenericCrudDefinition build(String module, String page, String[] serverCandidates,
             String sourceAction, String[] sourceMethods) throws Exception {
         Class entityClass = selectMappedClass(module, page, serverCandidates);
-        return buildForClass(module, page, entityClass, false, sourceAction, sourceMethods);
+        return buildForClass(module, page, entityClass, false, null, sourceAction, sourceMethods);
+    }
+
+    public static GenericCrudDefinition build(String module, String page, String[] serverCandidates,
+            String sourcePackage, String sourceAction, String[] sourceMethods) throws Exception {
+        Class entityClass = selectMappedClass(module, page, serverCandidates);
+        return buildForClass(module, page, entityClass, false, sourcePackage, sourceAction, sourceMethods);
     }
 
     /** Admin model browser: key hanya boleh cocok persis dengan mapped GVO Hibernate. */
     public static GenericCrudDefinition buildAdministrative(String module, String page, String mappedEntityKey) throws Exception {
         Class entityClass = findMappedClass(mappedEntityKey);
-        return buildForClass(module, page, entityClass, true, null, null);
+        Class actionClass = resolveAdministrativeAction(entityClass);
+        return buildForClass(module, page, entityClass, true,
+                actionClass == null ? null : actionClass.getPackage().getName(),
+                actionClass == null ? null : actionClass.getSimpleName(),
+                actionClass == null ? null : publicMethodNames(actionClass));
     }
 
     public static List listAdministrativeModels() {
@@ -90,7 +101,7 @@ public final class GenericCrudAutoDefinitionFactory {
     }
 
     private static GenericCrudDefinition buildForClass(String module, String page, Class entityClass,
-            boolean administrative, String sourceAction, String[] sourceMethods) throws Exception {
+            boolean administrative, String sourcePackage, String sourceAction, String[] sourceMethods) throws Exception {
         if (entityClass == null) return null;
         ClassMetadata metadata = HibernateUtil.getSessionFactory().getClassMetadata(entityClass);
         if (metadata == null || metadata.getIdentifierPropertyName() == null) return null;
@@ -100,6 +111,9 @@ public final class GenericCrudAutoDefinitionFactory {
         boolean assignedIdentifierSupported = isSupportedScalar(metadata.getIdentifierType().getReturnedClass());
         boolean autoCreatePossible = !restrictedClass && !isAutoCreateBlocked(entityClass) && constructable
                 && (!assignedGenerator || assignedIdentifierSupported);
+        Class sourceActionClass = resolveSourceAction(sourcePackage, sourceAction);
+        boolean actionBacked = GenericCrudExistingActionInvoker.supports(sourceActionClass, entityClass);
+        boolean actionCreateBacked = GenericCrudExistingActionInvoker.supportsCreate(sourceActionClass);
 
         GenericCrudDefinition definition = new GenericCrudDefinition();
         definition.setEntityClass(entityClass);
@@ -107,13 +121,18 @@ public final class GenericCrudAutoDefinitionFactory {
         definition.setModuleKey(module);
         definition.setPageKey(page);
         definition.setDisplayName(humanize(entityClass.getSimpleName()));
+        definition.setSourceActionClassName(sourceActionClass == null ? null : sourceActionClass.getName());
+        definition.setExistingActionLifecycleBound(actionBacked);
         definition.setIdentifierProperty(metadata.getIdentifierPropertyName());
-        boolean actionCreate = administrative || supports(sourceMethods,
-                new String[] { "onAdd", "onCreate", "onNew", "tambah", "buatBaru" });
-        boolean actionUpdate = administrative || supports(sourceMethods,
-                new String[] { "onSave", "onUpdate", "onEdit", "simpan", "ubah" });
-        boolean actionDelete = administrative || supports(sourceMethods,
-                new String[] { "onDelete", "onRemove", "delete", "hapus", "nonaktifkan" });
+        // Jangan percaya daftar nama hasil scanner sebagai otorisasi mutasi.
+        // Invoker di atas sudah memverifikasi class, constructor, entity init, dan
+        // signature boolean onSave(Event) pada bytecode Action yang benar-benar dimuat.
+        boolean actionCreate = actionCreateBacked;
+        boolean actionUpdate = actionBacked;
+        // Delete lama sering bergantung pada row renderer/checkbox/konfirmasi dan
+        // tidak mempunyai kontrak entity tunggal. Jangan menebak soft-delete dari
+        // nama metode; adapter eksplisit wajib disediakan sebelum tombol diaktifkan.
+        boolean actionDelete = false;
         boolean mutable = !restrictedClass && (actionCreate || actionUpdate || actionDelete);
         definition.setLifecycleStatus(mutable ? GenericCrudDefinition.FULL_CRUD : GenericCrudDefinition.READ_ONLY);
         definition.setEnabled(true);
@@ -132,7 +151,8 @@ public final class GenericCrudAutoDefinitionFactory {
 
         boolean softDelete = hasBooleanProperty(metadata, "aktif");
         definition.setDeleteEnabled(!restrictedClass && softDelete && actionDelete);
-        GenericCrudAutoEntityAdapter adapter = new GenericCrudAutoEntityAdapter(entityClass, softDelete);
+        GenericCrudAutoEntityAdapter adapter = new GenericCrudAutoEntityAdapter(entityClass, softDelete,
+                actionBacked ? sourceActionClass : null);
         definition.setAdapter(adapter);
         definition.setScopeAdapter(adapter);
 
@@ -197,6 +217,40 @@ public final class GenericCrudAutoDefinitionFactory {
         definition.setVersionProperty(findVersionProperty(metadata));
         definition.setCreateEnabled(autoCreatePossible && actionCreate);
         return definition;
+    }
+
+    private static Class resolveSourceAction(String sourcePackage, String sourceAction) {
+        String action = sourceAction == null ? "" : sourceAction.trim();
+        if (action.length() == 0 || "null".equalsIgnoreCase(action)) return null;
+        String className = action.indexOf('.') >= 0 ? action
+                : (sourcePackage == null || sourcePackage.trim().length() == 0
+                        || "null".equalsIgnoreCase(sourcePackage.trim())
+                        ? action : sourcePackage.trim() + "." + action);
+        try {
+            Class resolved = Class.forName(className);
+            return Modifier.isAbstract(resolved.getModifiers()) ? null : resolved;
+        } catch (Throwable unavailable) {
+            return null;
+        }
+    }
+
+    private static Class resolveAdministrativeAction(Class entityClass) {
+        if (entityClass == null) return null;
+        String suffix = entityClass.getPackage().getName().substring("ais.database.model".length());
+        String action = entityClass.getSimpleName() + "Action";
+        String[] packages = new String[] { "ais.action.master" + suffix, "ais.action.master" };
+        for (int i = 0; i < packages.length; i++) {
+            Class candidate = resolveSourceAction(packages[i], action);
+            if (GenericCrudExistingActionInvoker.supports(candidate, entityClass)) return candidate;
+        }
+        return null;
+    }
+
+    private static String[] publicMethodNames(Class type) {
+        java.lang.reflect.Method[] methods = type.getMethods();
+        String[] names = new String[methods.length];
+        for (int i = 0; i < methods.length; i++) names[i] = methods[i].getName();
+        return names;
     }
 
     public static boolean supports(String[] methods, String[] aliases) {

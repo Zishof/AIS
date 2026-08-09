@@ -21,11 +21,12 @@ try{
     String nativePage=String.valueOf(request.getAttribute("nuiServicePage"));
     String[] nativeEntities=nuiSvcArr(request.getAttribute("nuiServiceEntities"));
     String nativeSourceClass=String.valueOf(request.getAttribute("nuiServiceSourceClass"));
+    String nativeSourcePackage=String.valueOf(request.getAttribute("nuiServiceSourcePackage"));
     String[] nativeMethods=nuiSvcArr(request.getAttribute("nuiServiceMethods"));
     String action=request.getParameter("action");if(action==null||action.trim().length()==0)action="meta";action=action.trim().toLowerCase();
     if(!NewUiRouteGuard.isActionAuthorized(request,nativeModule,nativePage,action)){response.setStatus(403);root.put("ok",false);root.put("code","ACTION_FORBIDDEN");root.put("message","Peran aktif tidak memiliki izin untuk aksi ini.");root.put("requestId",requestId);out.print(root.toString());return;}
     if(NewUiRouteGuard.isActionAuthorized(request,nativeModule,nativePage,action)){
-        ais.action.master.generic.v2.GenericCrudDefinition autoCrud=ais.action.master.generic.v2.GenericCrudDefinitionRegistry.tryAutoRegister(nativeModule,nativePage,nativeEntities,nativeSourceClass,nativeMethods);
+        ais.action.master.generic.v2.GenericCrudDefinition autoCrud=ais.action.master.generic.v2.GenericCrudDefinitionRegistry.tryAutoRegister(nativeModule,nativePage,nativeEntities,nativeSourcePackage,nativeSourceClass,nativeMethods);
         if(autoCrud!=null){
             request.setAttribute("genericCrudEntityKey",autoCrud.getEntityKey());
             request.setAttribute("genericCrudModuleKey",nativeModule);

@@ -18,6 +18,7 @@ import ais.action.master.generic.v2.GenericCrudException;
 import ais.action.master.generic.v2.GenericCrudRequestContext;
 import ais.action.master.generic.v2.GenericCrudValueConverter;
 import ais.common.Common;
+import ais.common.HeadlessBusinessRuleException;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.GeneralValueObject;
 import ais.database.model.Tbmuser;
@@ -33,10 +34,16 @@ public class GenericCrudAutoEntityAdapter extends AbstractGenericCrudEntityAdapt
         implements GenericCrudScopeAdapter, GenericCrudSessionValueAdapter {
     private final Class entityClass;
     private final boolean softDelete;
+    private final Class sourceActionClass;
 
     public GenericCrudAutoEntityAdapter(Class entityClass, boolean softDelete) {
+        this(entityClass, softDelete, null);
+    }
+
+    public GenericCrudAutoEntityAdapter(Class entityClass, boolean softDelete, Class sourceActionClass) {
         this.entityClass = entityClass;
         this.softDelete = softDelete;
+        this.sourceActionClass = sourceActionClass;
     }
 
     public GeneralValueObject createNew(GenericCrudRequestContext context) throws Exception {
@@ -61,6 +68,30 @@ public class GenericCrudAutoEntityAdapter extends AbstractGenericCrudEntityAdapt
             GenericCrudRequestContext context) throws Exception {
         authorize(context);
         applyWithSession(session, target, values);
+    }
+
+    /**
+     * Sumber kebenaran mutasi adalah Action existing. Entity yang sudah diisi
+     * dari request New UI diteruskan ke form builder dan onSave milik Action,
+     * sehingga validasi, duplicate check, default, dan efek simpan tidak disalin.
+     */
+    public void beforeSave(Session session, GeneralValueObject target,
+            GenericCrudRequestContext context) throws Exception {
+        authorize(context);
+        if (sourceActionClass == null) {
+            throw new GenericCrudException(501, "EXISTING_ACTION_NOT_BOUND",
+                    "Operasi perubahan belum diaktifkan karena lifecycle Action existing belum terhubung.");
+        }
+        try {
+            GenericCrudExistingActionInvoker.execute(sourceActionClass, target);
+        } catch (HeadlessBusinessRuleException rejected) {
+            throw new GenericCrudException(400, "EXISTING_ACTION_VALIDATION", rejected.getMessage(), rejected);
+        } catch (GenericCrudException known) {
+            throw known;
+        } catch (Exception failure) {
+            throw new GenericCrudException(500, "EXISTING_ACTION_FAILED",
+                    "Lifecycle Action existing gagal dijalankan dan transaksi dibatalkan.", failure);
+        }
     }
 
     private void applyWithSession(Session session, GeneralValueObject target, Map values) throws Exception {

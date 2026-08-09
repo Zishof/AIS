@@ -3,6 +3,7 @@ package ais.ui.util;
 import org.zkoss.zul.Bandpopup;
 
 import ais.common.Common;
+import ais.common.HeadlessActionContext;
 
 public class MyBandpopup extends Bandpopup {
 
@@ -24,6 +25,7 @@ public class MyBandpopup extends Bandpopup {
 	}
 
 	public void initBg() {
+		if (HeadlessActionContext.isActive()) return;
 
 		if (Common.isMobile()) {
 			super.setWidth("100%");
@@ -34,6 +36,10 @@ public class MyBandpopup extends Bandpopup {
 	@Override
 	public void setWidth(String width) {
 		try {
+			if (HeadlessActionContext.isActive()) {
+				super.setWidth(width);
+				return;
+			}
 			if (Common.isMobile()) {
 				super.setWidth("100%");
 				return;

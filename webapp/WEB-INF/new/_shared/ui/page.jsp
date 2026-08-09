@@ -29,7 +29,7 @@ if(nuiCurrentMenuId!=null)endpoint+="&menuId="+nuiCurrentMenuId;
 List<NewUiMenuNode> nuiBreadcrumb=(List<NewUiMenuNode>)request.getAttribute("nui_breadcrumb");if(nuiBreadcrumb==null)nuiBreadcrumb=new ArrayList<NewUiMenuNode>();
 NewUiPermission nuiPermission=NewUiRouteGuard.permissionFor(request,module,pageName);
 if(nuiPermission.isCanRead()){
-    GenericCrudDefinition autoCrud=GenericCrudDefinitionRegistry.tryAutoRegister(module,pageName,entities,sourceClass,methods);
+    GenericCrudDefinition autoCrud=GenericCrudDefinitionRegistry.tryAutoRegister(module,pageName,entities,sourcePackage,sourceClass,methods);
     if(autoCrud!=null){
         request.setAttribute("genericCrudEntityKey",autoCrud.getEntityKey());
         request.setAttribute("genericCrudModuleKey",module);

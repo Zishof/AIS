@@ -16,6 +16,8 @@ public final class GenericCrudActionLifecycleSelfTest {
                 "DELETE prefix dari Action tidak terdeteksi");
         check(!GenericCrudAutoDefinitionFactory.supports(new String[] { "onSearchDefault" },
                 new String[] { "onDelete", "onRemove" }), "READ-only Action tidak boleh mendapat DELETE");
+        check(GenericCrudAutoDefinitionFactory.supports(methods, new String[] { "onSave" }),
+                "Lifecycle existing harus membutuhkan onSave eksplisit");
         System.out.println("PASS Generic CRUD Action lifecycle self-test");
     }
 

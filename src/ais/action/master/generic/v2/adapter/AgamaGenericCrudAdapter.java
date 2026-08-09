@@ -6,9 +6,11 @@ import java.util.Map;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
-import org.hibernate.criterion.Restrictions;
 
 import ais.action.master.generic.v2.GenericCrudRequestContext;
+import ais.action.master.AgamaAction;
+import ais.action.master.generic.v2.GenericCrudException;
+import ais.common.HeadlessBusinessRuleException;
 import ais.database.model.Agama;
 
 @SuppressWarnings({ "rawtypes", "unchecked" })
@@ -31,10 +33,16 @@ public class AgamaGenericCrudAdapter extends AbstractGenericCrudEntityAdapter<Ag
     }
 
     public void beforeSave(Session session, Agama target, GenericCrudRequestContext context) throws Exception {
-        Criteria criteria = session.createCriteria(Agama.class).add(Restrictions.eq("nama", target.getNama()).ignoreCase());
-        if (target.getId() != null) { criteria.add(Restrictions.ne("id", target.getId())); }
-        criteria.setMaxResults(1);
-        if (!criteria.list().isEmpty()) { throw new IllegalArgumentException("Nama agama sudah digunakan."); }
+        try {
+            new AgamaAction().executeHeadlessSave(target);
+        } catch (HeadlessBusinessRuleException rejected) {
+            throw new GenericCrudException(400, "EXISTING_ACTION_VALIDATION",
+                    rejected.getMessage(), rejected);
+        } catch (Exception failure) {
+            if (failure instanceof GenericCrudException) throw failure;
+            throw new GenericCrudException(500, "EXISTING_ACTION_FAILED",
+                    "Lifecycle AgamaAction existing gagal dijalankan dan transaksi dibatalkan.", failure);
+        }
     }
 
     public boolean canDelete(Agama target, GenericCrudRequestContext context, List reasons) { return true; }

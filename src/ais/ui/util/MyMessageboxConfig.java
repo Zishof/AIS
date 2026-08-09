@@ -9,6 +9,7 @@ import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zul.Messagebox;
 
 import ais.common.Common;
+import ais.common.HeadlessActionContext;
 import ais.common.ResponseContext;
 // Pastikan Anda meng-import RequestContext dan ResponseContext sesuai package aplikasi Anda
 // import com.yourpackage.RequestContext; 
@@ -106,6 +107,10 @@ public class MyMessageboxConfig {
 
 	public static void show(String messageCode) throws InterruptedException {
 		String pesan = terjemah(messageCode);
+		if (HeadlessActionContext.isActive()) {
+			HeadlessActionContext.record(pesan);
+			return;
+		}
 		if (isZkEnvironment()) {
 			Messagebox.show(pesan, Common.getBahasaConfig("Informasi"), Messagebox.OK,
 					Messagebox.INFORMATION);
@@ -117,6 +122,10 @@ public class MyMessageboxConfig {
 	public static int show(String messageCode, String titleCode, Integer buttons, String icon)
 			throws InterruptedException {
 		String pesan = terjemah(messageCode);
+		if (HeadlessActionContext.isActive()) {
+			HeadlessActionContext.record(pesan);
+			return OK;
+		}
 		if (isZkEnvironment()) {
 			// Mengembalikan tombol yang diklik (mode sinkron ZK) agar pemanggil dapat memeriksa
 			// hasil, mis. if (MyMessageboxConfig.show(...) == MyMessageboxConfig.YES) { ... }.
@@ -130,6 +139,10 @@ public class MyMessageboxConfig {
 	public static int show(String messageCode, String titleCode, int buttons, String icon, EventListener eventListener)
 			throws InterruptedException {
 		String pesan = terjemah(messageCode);
+		if (HeadlessActionContext.isActive()) {
+			HeadlessActionContext.record(pesan);
+			return OK;
+		}
 		if (isZkEnvironment()) {
 			return Messagebox.show(pesan, Common.getBahasaConfig(titleCode), buttons, icon, eventListener);
 		} else {
@@ -157,6 +170,10 @@ public class MyMessageboxConfig {
 	public static int showFormat(String template, String titleCode, Integer buttons, String icon, Object... args)
 			throws InterruptedException {
 		String pesan = format(template, args);
+		if (HeadlessActionContext.isActive()) {
+			HeadlessActionContext.record(pesan);
+			return OK;
+		}
 		if (isZkEnvironment()) {
 			return Messagebox.show(pesan, Common.getBahasaConfig(titleCode), buttons, icon);
 		} else {
@@ -173,6 +190,10 @@ public class MyMessageboxConfig {
 	public static int showFormatCb(String template, String titleCode, int buttons, String icon,
 			EventListener eventListener, Object... args) throws InterruptedException {
 		String pesan = format(template, args);
+		if (HeadlessActionContext.isActive()) {
+			HeadlessActionContext.record(pesan);
+			return OK;
+		}
 		if (isZkEnvironment()) {
 			return Messagebox.show(pesan, Common.getBahasaConfig(titleCode), buttons, icon, eventListener);
 		} else {

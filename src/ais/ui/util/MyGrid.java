@@ -16,6 +16,7 @@ import org.zkoss.zul.Row;
 import ais.action.master.helper.util.PerguruanTinggiUtil;
 import ais.action.master.sekolah.util.SekolahUtil;
 import ais.common.Common;
+import ais.common.HeadlessActionContext;
 import ais.database.model.PerguruanTinggi;
 import ais.database.model.file.LampiranLain;
 import ais.database.model.sekolah.Sekolah;
@@ -42,6 +43,7 @@ public class MyGrid extends Grid {
 	}
 
 	public void initBg() {
+		if (HeadlessActionContext.isActive()) return;
 		long now = System.currentTimeMillis();
 		if (cachedBgStyle != null && (now - bgCacheTime) < BG_CACHE_TTL_MS) {
 			setStyle(cachedBgStyle);

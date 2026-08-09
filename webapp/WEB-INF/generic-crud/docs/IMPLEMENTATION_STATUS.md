@@ -1,5 +1,29 @@
 # Status Implementasi Paket
 
+## Status runtime checkout AIS — 9 Agustus 2026
+
+Engine New UI sekarang memuat class `Action` dari `nuiSourcePackage` +
+`nuiSourceClass`, memverifikasi pasangan entity/action, dan menjalankan
+`init(entity)` serta `boolean onSave(Event)` existing secara headless di dalam
+transaksi Hibernate yang sama. Pesan validasi ZK ditangkap sebagai error JSON;
+dialog/window/background ZK tidak dirender.
+
+Hasil `tools/audit_native_crud_source_truth.py` pada checkout ini:
+
+- 3.892 halaman New UI mempunyai referensi source Java;
+- 893 di antaranya merupakan kandidat CRUD dengan `onSave(Event)`;
+- 786 rute mempunyai kontrak lifecycle existing yang dapat diverifikasi statis:
+  75 `GenericCrudAction`, 311 `DataInitDefault`, dan 400 pola `init(Entity)`;
+- 107 rute custom masih memerlukan adapter domain khusus;
+- 2.999 halaman bukan CRUD dan tidak boleh dihitung sebagai CRUD yang tertinggal.
+
+CREATE otomatis hanya aktif untuk `GenericCrudAction` yang mempertahankan
+`createNewEntity()` existing. UPDATE aktif bila entity dan `init(entity)` cocok.
+DELETE otomatis tetap fail-closed karena renderer/selection/konfirmasi ZK lama
+tidak mempunyai kontrak entity tunggal; hanya adapter eksplisit yang boleh
+mengaktifkannya. Jadi angka 786 adalah cakupan jembatan lifecycle, bukan klaim
+bahwa seluruh operasi khusus pada 107 Action custom sudah selesai.
+
 ## Yang sudah tersedia dalam paket
 
 - Spesifikasi arsitektur lengkap Generic CRUD metadata-driven.
