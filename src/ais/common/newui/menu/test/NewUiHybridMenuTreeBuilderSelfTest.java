@@ -22,6 +22,7 @@ public final class NewUiHybridMenuTreeBuilderSelfTest {
         NewUiHybridMenuNode value = new NewUiHybridMenuNode();
         value.setMenuId(Long.valueOf(id)); value.setRoot(Long.valueOf(root)); value.setChild(Long.valueOf(child));
         value.setNomorUrut(Integer.valueOf(order)); value.setLabel("M" + id); value.setAssigned(true);
+        value.setJobAssigned(true);
         value.setActiveInScope(true); value.setPermission(new NewUiPermission(read, false, false, false, false, false));
         value.setRouteStatus(route ? NewUiHybridMenuRouteRegistry.NEW_UI : NewUiHybridMenuRouteRegistry.NOT_MAPPED);
         value.setResolvedUrl(route ? "/new?menuId=" + id : null);
@@ -51,7 +52,11 @@ public final class NewUiHybridMenuTreeBuilderSelfTest {
         check(branch.getBranchChildren().size() == 1, "visible sub-group missing");
         check(branch.getDescendantLeaves().size() == 2, "sub-child leaf missing");
         check(snapshot.findVisible(Long.valueOf(3L)) == null, "READ=0 leaf leaked");
-        check(snapshot.getSidebarBranches().size() == 2, "root/orphan leaves were not grouped virtually");
+        check(snapshot.getSidebarBranches().size() == 3,
+                "job_has_menu root or orphan leaves were not placed correctly");
+        NewUiHybridMenuNode assignedRoot = snapshot.findVisible(Long.valueOf(4L));
+        check(assignedRoot != null && assignedRoot.isBranch() && assignedRoot.isClickable(),
+                "root=0 from job_has_menu must stay visible independent of child hierarchy");
         check(NewUiHybridMenuCatalogService.forGroup(snapshot, Long.valueOf(1L), false, "order").size() == 1,
                 "direct catalog incorrect");
         List<NewUiHybridMenuNode> hierarchy = NewUiHybridMenuCatalogService.allDescendants(
@@ -68,6 +73,20 @@ public final class NewUiHybridMenuTreeBuilderSelfTest {
         check(built.getDiagnostics().getOrphanCount() > 0, "orphan not diagnosed");
         check(!built.getDiagnostics().hasCriticalWarnings(),
                 "recoverable orphan/ambiguous hierarchy must not be logged as critical");
+
+        List<NewUiHybridMenuNode> rootAssignment = new ArrayList<NewUiHybridMenuNode>();
+        NewUiHybridMenuNode structuralRoot = node(80, 0, 0, 1, false, false);
+        rootAssignment.add(structuralRoot);
+        NewUiHybridMenuNode recoveredOnlyRoot = node(81, 0, 0, 2, false, false);
+        recoveredOnlyRoot.setJobAssigned(false);
+        rootAssignment.add(recoveredOnlyRoot);
+        NewUiHybridMenuSnapshot rootSnapshot = new NewUiHybridMenuSnapshot("u", "r", "pt",
+                NewUiHybridMenuTreeBuilder.build(rootAssignment));
+        structuralRoot = rootSnapshot.findVisible(Long.valueOf(80L));
+        check(structuralRoot != null && structuralRoot.isBranch() && structuralRoot.isStructuralOnly(),
+                "root=0 in job_has_menu must be visible without READ");
+        check(rootSnapshot.findVisible(Long.valueOf(81L)) == null,
+                "root recovered only from privilege must not bypass job_has_menu assignment rule");
 
         List<NewUiHybridMenuNode> mahasiswaSource = new ArrayList<NewUiHybridMenuNode>();
         mahasiswaSource.add(node(100, 0, 10, 1, true, true));

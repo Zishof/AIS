@@ -138,7 +138,15 @@ public final class NewUiHybridMenuTreeBuilder {
         boolean hasVisibleChild = !visibleBranches.isEmpty() || !visibleLeaves.isEmpty();
         boolean selfReadable = node.getPermission() != null && node.getPermission().isCanRead();
         boolean selfClickable = selfReadable && node.hasValidRoute();
-        if (hasVisibleChild) {
+        /*
+         * job_has_menu adalah sumber assignment navigasi. Root yang memang
+         * diberikan kepada role harus tetap terlihat sebagai structural group
+         * walaupun READ root = 0 atau belum ada descendant yang dapat dibuka.
+         * Menu hasil recovery administrator dari RolePrivilage tidak memakai
+         * aturan ini karena jobAssigned=false.
+         */
+        boolean assignedNavigationRoot = value(node.getRoot()).longValue() == 0L && node.isJobAssigned();
+        if (hasVisibleChild || assignedNavigationRoot) {
             node.setKind(NewUiHybridMenuNode.BRANCH);
             node.setVisible(node.isAssigned() && node.isActiveInScope());
             node.setClickable(selfClickable);

@@ -80,10 +80,12 @@ public final class NewUiHybridMenuAccessService {
                     .setString("roleId", roleId).list();
             Map<Long, NewUiPermission> permissions = new HashMap<Long, NewUiPermission>();
             Map<Long, Boolean> effectiveMenuIds = new HashMap<Long, Boolean>();
+            Map<Long, Boolean> jobAssignedMenuIds = new HashMap<Long, Boolean>();
             for (int i = 0; i < menus.size(); i++) {
                 Menu assigned = menus.get(i);
                 if (assigned != null && assigned.getId() != null) {
                     effectiveMenuIds.put(assigned.getId(), Boolean.TRUE);
+                    jobAssignedMenuIds.put(assigned.getId(), Boolean.TRUE);
                 }
             }
             int recoveredAdministratorMenus = 0;
@@ -111,7 +113,8 @@ public final class NewUiHybridMenuAccessService {
                 if (menu == null || menu.getId() == null || Boolean.FALSE.equals(menu.getAktif())
                         || !passesInstitutionScope(menu, school, filterPerSchool)) continue;
                 NewUiPermission permission = permissions.get(menu.getId());
-                result.add(toNode(menu, permission == null ? NewUiPermission.none() : permission, contextPath));
+                result.add(toNode(menu, permission == null ? NewUiPermission.none() : permission, contextPath,
+                        jobAssignedMenuIds.containsKey(menu.getId())));
             }
             if (recoveredAdministratorMenus > 0) {
                 LOG.info("Hybrid menu administrator recoveredFromRolePrivilage="
@@ -126,11 +129,13 @@ public final class NewUiHybridMenuAccessService {
         return result;
     }
 
-    private static NewUiHybridMenuNode toNode(Menu menu, NewUiPermission permission, String contextPath) {
+    private static NewUiHybridMenuNode toNode(Menu menu, NewUiPermission permission, String contextPath,
+            boolean jobAssigned) {
         NewUiHybridMenuNode node = new NewUiHybridMenuNode();
         node.setMenuId(menu.getId()); node.setLabel(cleanLabel(menu.getLabel())); node.setIcon(menu.getIcon());
         node.setNomorUrut(menu.getNomorUrut()); node.setRoot(menu.getRoot()); node.setChild(menu.getChild());
-        node.setPermission(permission); node.setAssigned(true); node.setActiveInScope(true);
+        node.setPermission(permission); node.setAssigned(true); node.setJobAssigned(jobAssigned);
+        node.setActiveInScope(true);
         node.setExistingUrl(menu.getUrl());
         NewUiHybridMenuRouteRegistry.ResolvedRoute route = NewUiHybridMenuRouteRegistry.resolve(
                 menu.getId(), menu.getUrl(), Boolean.TRUE.equals(menu.getBukaHalamanBaru()));

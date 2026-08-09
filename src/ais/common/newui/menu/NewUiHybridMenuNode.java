@@ -15,6 +15,7 @@ public class NewUiHybridMenuNode extends NewUiMenuNode {
 
     private String kind = LEAF;
     private boolean assigned;
+    private boolean jobAssigned;
     private boolean activeInScope;
     private boolean visible;
     private boolean clickable;
@@ -40,6 +41,8 @@ public class NewUiHybridMenuNode extends NewUiMenuNode {
     public boolean isLeaf() { return LEAF.equals(kind); }
     public boolean isAssigned() { return assigned; }
     public void setAssigned(boolean assigned) { this.assigned = assigned; }
+    public boolean isJobAssigned() { return jobAssigned; }
+    public void setJobAssigned(boolean jobAssigned) { this.jobAssigned = jobAssigned; }
     public boolean isActiveInScope() { return activeInScope; }
     public void setActiveInScope(boolean value) { activeInScope = value; }
     public boolean isVisible() { return visible; }
