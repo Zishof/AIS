@@ -19,6 +19,16 @@ public final class NewUiIconUtilSelfTest {
         check("fa-solid fa-user-doctor", NewUiIconUtil.classes("fas fa-user-md", false));
         check("fa-solid fa-folder-tree", NewUiIconUtil.classes("fas fa-", true));
         check("fa-solid fa-file-lines", NewUiIconUtil.classes("<script>alert(1)</script>", false));
+        check("fa-solid fa-graduation-cap",
+                NewUiIconUtil.classes("fas fa-folder", "Sistem Informasi Akademik", true));
+        check("fa-solid fa-envelopes-bulk",
+                NewUiIconUtil.classes(null, "Tata Kelola Surat", true));
+        check("fa-solid fa-money-bill-wave",
+                NewUiIconUtil.classes("fas fa-folder", "Penggajian (Payroll)", true));
+        check("fa-solid fa-user-shield",
+                NewUiIconUtil.classes("fas fa-folder", "Satuan Pengawasan Internal", true));
+        check("fa-solid fa-folder-tree",
+                NewUiIconUtil.classes("fas fa-folder-tree", "Kategori Khusus Pelanggan", true));
         System.out.println("PASS Font Awesome 7 menu icon normalization self-test");
     }
 }
