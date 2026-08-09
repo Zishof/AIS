@@ -1,2 +1,2 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
-<section class="nui-page"><div class="nui-module-hero"><h1>Beranda</h1><p>Pilih menu pada sidebar. Daftar ini sudah disaring berdasarkan peran aktif dan izin READ.</p></div><article class="nui-card nui-card-pad"><div class="nui-card-title">Navigasi aman</div><p class="nui-page-desc">Gunakan Ctrl + K untuk mencari menu. Menu yang belum dimigrasikan akan dibuka melalui route legacy internal yang tervalidasi.</p></article></section>
+<jsp:include page="/WEB-INF/new/_shared/menu/module_shortcut_catalog.jsp" flush="false"/>

@@ -1,0 +1,128 @@
+package ais.common.newui.menu;
+
+import java.text.Normalizer;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import ais.database.model.Tbmrole;
+
+/**
+ * Mengubah shortcut header legacy menjadi katalog beranda New UI.
+ *
+ * <p>Fail-closed: flag pada {@link Tbmrole} hanya mengaktifkan kandidat. Kartu
+ * baru dikirim ke browser bila targetnya juga ada pada snapshot menu visible
+ * (assignment job_has_menu, scope, status aktif, dan READ sudah tervalidasi).</p>
+ */
+public final class NewUiModuleShortcutService {
+
+    private NewUiModuleShortcutService() { }
+
+    public static List<NewUiModuleShortcut> build(Tbmrole role,
+            NewUiHybridMenuSnapshot snapshot) {
+        List<NewUiModuleShortcut> result = new ArrayList<NewUiModuleShortcut>();
+        if (role == null || snapshot == null) return result;
+
+        List<Spec> specs = specifications(role);
+        Set<Long> used = new HashSet<Long>();
+        for (int i = 0; i < specs.size(); i++) {
+            Spec spec = specs.get(i);
+            if (!spec.enabled) continue;
+            NewUiHybridMenuNode target = findBest(snapshot.getSearchableNodes(),
+                    spec.aliases, used);
+            if (target == null || target.getMenuId() == null) continue;
+            used.add(target.getMenuId());
+            result.add(new NewUiModuleShortcut(spec.key, spec.label,
+                    spec.description, spec.icon, i + 1, target));
+        }
+        return result;
+    }
+
+    static NewUiHybridMenuNode findBest(List<NewUiHybridMenuNode> nodes,
+            String[] aliases, Set<Long> used) {
+        NewUiHybridMenuNode best = null;
+        int bestScore = Integer.MIN_VALUE;
+        if (nodes == null || aliases == null) return null;
+        for (int i = 0; i < nodes.size(); i++) {
+            NewUiHybridMenuNode node = nodes.get(i);
+            if (node == null || !node.isVisible() || node.getMenuId() == null
+                    || (used != null && used.contains(node.getMenuId()))) continue;
+            String label = normalize(node.getLabel());
+            String fullPath = normalize(node.getFullPath());
+            int score = Integer.MIN_VALUE;
+            for (int j = 0; j < aliases.length; j++) {
+                String alias = normalize(aliases[j]);
+                if (alias.length() == 0) continue;
+                int candidate = Integer.MIN_VALUE;
+                if (label.equals(alias)) candidate = 10000 - (j * 20);
+                else if (label.startsWith(alias + " ") || label.endsWith(" " + alias)) candidate = 8200 - (j * 20);
+                else if (label.indexOf(alias) >= 0) candidate = 7200 - (j * 20);
+                else if (fullPath.indexOf(alias) >= 0) candidate = 4200 - (j * 20);
+                if (candidate > score) score = candidate;
+            }
+            if (score == Integer.MIN_VALUE) continue;
+            if (node.isBranch()) score += 900;
+            score -= pathDepth(node.getFullPath()) * 15;
+            if (score > bestScore) { best = node; bestScore = score; }
+        }
+        return best;
+    }
+
+    private static int pathDepth(String path) {
+        if (path == null || path.length() == 0) return 0;
+        int depth = 0;
+        for (int i = 0; i < path.length(); i++) if (path.charAt(i) == '/') depth++;
+        return depth;
+    }
+
+    private static String normalize(String value) {
+        if (value == null) return "";
+        String text = Normalizer.normalize(value, Normalizer.Form.NFD)
+                .replaceAll("[\\p{InCombiningDiacriticalMarks}]", "")
+                .toLowerCase();
+        return text.replaceAll("[^a-z0-9]+", " ").trim();
+    }
+
+    private static boolean yes(Boolean value) { return Boolean.TRUE.equals(value); }
+
+    private static List<Spec> specifications(Tbmrole role) {
+        List<Spec> list = new ArrayList<Spec>();
+        list.add(new Spec("emedic", "eMedic", "Layanan kesehatan dan sistem informasi rumah sakit.", "fa-solid fa-heart-pulse", yes(role.getEmedic()), new String[] {"emedic", "sistem informasi rumah sakit", "rumah sakit", "dokter"}));
+        list.add(new Spec("elearning", "e-Learning", "Kelas, materi, tugas, ujian, dan aktivitas pembelajaran.", "fa-solid fa-book-open-reader", yes(role.getElearning()), new String[] {"e learning", "elearning", "pembelajaran", "perkuliahan"}));
+        list.add(new Spec("prestasi", "Prestasi", "Prestasi, apresiasi, dan kegiatan pengguna.", "fa-solid fa-trophy", yes(role.getKegiatanDanPrestasi()), new String[] {"prestasi", "apresiasi", "kegiatan dan prestasi"}));
+        list.add(new Spec("pustaka", "Pustaka", "Koleksi dan layanan perpustakaan.", "fa-solid fa-book", yes(role.getPustaka()), new String[] {"pustaka", "perpustakaan"}));
+        list.add(new Spec("workflow", "Pengajuan Anda", "Pengajuan, persetujuan, dan alur kerja.", "fa-solid fa-file-circle-check", yes(role.getWorkflow()), new String[] {"pengajuan anda", "pengajuan dan workflow", "workflow", "pengajuan"}));
+        list.add(new Spec("spmi", "SPMI", "Penjaminan mutu internal dan dokumen mutu.", "fa-solid fa-shield-halved", yes(role.getTampilkanSpmi()), new String[] {"spmi", "sistem penjaminan mutu", "penjaminan mutu"}));
+        list.add(new Spec("toko", "Toko", "Penjualan, kantin, dan transaksi toko.", "fa-solid fa-store", yes(role.getKantin()), new String[] {"toko", "kantin"}));
+        list.add(new Spec("koperasi", "Koperasi", "Keanggotaan dan layanan sistem informasi koperasi.", "fa-solid fa-people-group", yes(role.getDashboardKoperasi()), new String[] {"koperasi", "sistem informasi koperasi"}));
+        list.add(new Spec("akademik", "Akademik", "Data dan layanan sistem informasi akademik.", "fa-solid fa-graduation-cap", yes(role.getDashboard()), new String[] {"akademik", "sistem informasi akademik"}));
+        list.add(new Spec("surat", "Surat Menyurat", "Administrasi dan tata kelola surat.", "fa-solid fa-envelopes-bulk", yes(role.getAdministrasi()), new String[] {"surat menyurat", "tata kelola surat", "administrasi"}));
+        list.add(new Spec("pengadaan", "Pengadaan", "Aset, kebutuhan, dan proses pengadaan.", "fa-solid fa-boxes-stacked", yes(role.getPengadaan()), new String[] {"pengadaan", "aset dan pengadaan"}));
+        list.add(new Spec("pembayaran", "Pembayaran", "Tagihan dan transaksi pembayaran.", "fa-solid fa-money-check-dollar", yes(role.getPembayaran()), new String[] {"pembayaran", "tagihan"}));
+        list.add(new Spec("keuangan", "Keuangan", "Anggaran, realisasi, dan layanan keuangan.", "fa-solid fa-wallet", yes(role.getKeuangan()), new String[] {"keuangan", "anggaran belanja dan realisasi"}));
+        list.add(new Spec("akuntansi", "Akuntansi", "Jurnal, buku besar, dan laporan akuntansi.", "fa-solid fa-calculator", yes(role.getAkunting()), new String[] {"akuntansi", "akunting"}));
+        list.add(new Spec("kepegawaian", "Kepegawaian", "Data pegawai dan layanan sumber daya manusia.", "fa-solid fa-id-card", yes(role.getKepegawaian()), new String[] {"kepegawaian", "pegawai"}));
+        list.add(new Spec("gaji", "Gaji", "Penggajian, payroll, dan komponen pendapatan.", "fa-solid fa-money-bill-wave", yes(role.getTampilkanGaji()), new String[] {"gaji", "penggajian", "payroll"}));
+        list.add(new Spec("kinerja", "Kinerja", "Target, aktivitas, dan penilaian kinerja.", "fa-solid fa-chart-line", yes(role.getKinerja()), new String[] {"kinerja", "beban kinerja dosen"}));
+        list.add(new Spec("presensi", "Presensi", "Kehadiran dan rekap presensi pengguna.", "fa-solid fa-calendar-check", yes(role.getPresensiKehadiran()), new String[] {"presensi", "kehadiran"}));
+        list.add(new Spec("feeder", "Neo Feeder", "Integrasi dan pelaporan data PDDIKTI Feeder.", "fa-solid fa-arrows-rotate", yes(role.getBolehAksesFeeder()), new String[] {"neo feeder", "feeder", "pddikti"}));
+        list.add(new Spec("sister", "Sister", "Integrasi layanan SISTER.", "fa-solid fa-building-columns", yes(role.getBolehAksesSister()), new String[] {"sister"}));
+        return list;
+    }
+
+    private static final class Spec {
+        private final String key;
+        private final String label;
+        private final String description;
+        private final String icon;
+        private final boolean enabled;
+        private final String[] aliases;
+
+        private Spec(String key, String label, String description, String icon,
+                boolean enabled, String[] aliases) {
+            this.key = key; this.label = label; this.description = description;
+            this.icon = icon; this.enabled = enabled; this.aliases = aliases;
+        }
+    }
+}
