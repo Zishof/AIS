@@ -121,20 +121,20 @@ public class MyButtonTabbox {
 			}
 			final Tab tabAsli = (Tab) daftarTab.get(i);
 			final int index = i + 1;
-			Div panelBaru = pengganti.tambahTab(index, labelTab(tabAsli));
+			final Div panelBaru = pengganti.tambahTab(index, labelTab(tabAsli));
 			if (!tabAsli.isVisible()) {
 				pengganti.setVisibleTombol(index, false);
 			}
-			if (i < daftarPanel.size() && daftarPanel.get(i) instanceof Tabpanel) {
-				Tabpanel panelAsli = (Tabpanel) daftarPanel.get(i);
-				for (Component isi : salinChildren(panelAsli)) {
-					isi.setParent(panelBaru);
-				}
-			}
+			final Tabpanel panelAsli = i < daftarPanel.size() && daftarPanel.get(i) instanceof Tabpanel
+					? (Tabpanel) daftarPanel.get(i) : null;
+			pindahkanIsiPanel(panelAsli, panelBaru);
 			pengganti.onSetiapPilih(index, new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
 					Events.sendEvent(new Event("onClick", tabAsli));
+					// Handler lama masih ter-autowire ke Tabpanel native. Pindahkan hasil
+					// pemuatan lazy ke panel pengganti agar kontennya benar-benar terlihat.
+					pindahkanIsiPanel(panelAsli, panelBaru);
 				}
 			});
 		}
@@ -143,6 +143,15 @@ public class MyButtonTabbox {
 		tabbox.setStyle("display:none;height:0;width:0;overflow:hidden;");
 		pengganti.pulihkanSeleksi(daftarTab.size());
 		return pengganti;
+	}
+
+	private static void pindahkanIsiPanel(Tabpanel panelAsli, Div panelBaru) {
+		if (panelAsli == null || panelBaru == null) {
+			return;
+		}
+		for (Component isi : salinChildren(panelAsli)) {
+			isi.setParent(panelBaru);
+		}
 	}
 
 	private static List<Component> salinChildren(Component component) {

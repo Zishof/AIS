@@ -1334,7 +1334,9 @@ public class BuktiPembayaranAction extends GenericAutowireComposer implements Da
 				.add(mahasiswa == null ? Restrictions.sqlRestriction("true") : Restrictions.eq("mahasiswa", mahasiswa))
 				.add(biodataCalonMahasiswa == null ? Restrictions.sqlRestriction("true")
 						: Restrictions.eq("biodataCalonMahasiswa", biodataCalonMahasiswa))
-				.add(Restrictions.eq("jenisKegiatan", jenisKegiatan)).add(Restrictions.isNull("cicilanPembayaran"))
+				.add(Restrictions.eq("jenisKegiatan", jenisKegiatan))
+				.add(semester == null ? Restrictions.sqlRestriction("true") : Restrictions.eq("semester", semester))
+				.add(Restrictions.isNull("cicilanPembayaran"))
 				.setProjection(Projections.rowCount()).uniqueResult()).intValue();
 
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig(
@@ -1355,14 +1357,13 @@ public class BuktiPembayaranAction extends GenericAutowireComposer implements Da
 						.add(biodataCalonMahasiswa == null ? Restrictions.sqlRestriction("true")
 								: Restrictions.eq("kegiatan.calonMahasiswa", biodataCalonMahasiswa))
 
+						.add(Restrictions.eq("kegiatan.jenisKegiatan", jenisKegiatan))
+						.add(semester == null ? Restrictions.sqlRestriction("true") : Restrictions.eq("kegiatan.semster", semester))
 						.add(Restrictions.isNotNull("buktiPembayaran"))
 						.setProjection(Projections.property("buktiPembayaran")).list();
 
-				AmbilDataBuktiPembayaranBanyak ambilDataBuktiPembayaranBanyak = new AmbilDataBuktiPembayaranBanyak(
-						buktiPembayarans, mahasiswa, biodataCalonMahasiswa, jenisKegiatan);
-				ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot()
-						.appendChild(ambilDataBuktiPembayaranBanyak);
-				ambilDataBuktiPembayaranBanyak.setEventListener(new EventListener() {
+				AmbilDataBuktiPembayaranBanyak.tampilkan(buktiPembayarans, mahasiswa, biodataCalonMahasiswa,
+						jenisKegiatan, semester, new EventListener() {
 
 					@Override
 					public void onEvent(Event arg0) throws Exception {
@@ -1391,10 +1392,6 @@ public class BuktiPembayaranAction extends GenericAutowireComposer implements Da
 					}
 
 				});
-				ambilDataBuktiPembayaranBanyak.setWidth("97%");
-				ambilDataBuktiPembayaranBanyak.setHeight("97%");
-				ambilDataBuktiPembayaranBanyak.setVisible(true);
-				ambilDataBuktiPembayaranBanyak.onModal();
 
 			}
 
@@ -1544,6 +1541,7 @@ public class BuktiPembayaranAction extends GenericAutowireComposer implements Da
 						.add(biodataCalonMahasiswa == null ? Restrictions.sqlRestriction("true")
 								: Restrictions.eq("biodataCalonMahasiswa", biodataCalonMahasiswa))
 						.add(Restrictions.eq("jenisKegiatan", jenisKegiatan))
+						.add(semester == null ? Restrictions.sqlRestriction("true") : Restrictions.eq("semester", semester))
 						.add(Restrictions.isNull("cicilanPembayaran")).setProjection(Projections.rowCount())
 						.uniqueResult()).intValue();
 
@@ -1565,14 +1563,13 @@ public class BuktiPembayaranAction extends GenericAutowireComposer implements Da
 						.add(biodataCalonMahasiswa == null ? Restrictions.sqlRestriction("true")
 								: Restrictions.eq("kegiatan.calonMahasiswa", biodataCalonMahasiswa))
 
+						.add(Restrictions.eq("kegiatan.jenisKegiatan", jenisKegiatan))
+						.add(semester == null ? Restrictions.sqlRestriction("true") : Restrictions.eq("kegiatan.semster", semester))
 						.add(Restrictions.isNotNull("buktiPembayaran"))
 						.setProjection(Projections.property("buktiPembayaran")).list();
 
-				AmbilDataBuktiPembayaranBanyak ambilDataBuktiPembayaranBanyak = new AmbilDataBuktiPembayaranBanyak(
-						buktiPembayarans, mahasiswa, biodataCalonMahasiswa, jenisKegiatan);
-				ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot()
-						.appendChild(ambilDataBuktiPembayaranBanyak);
-				ambilDataBuktiPembayaranBanyak.setEventListener(new EventListener() {
+				AmbilDataBuktiPembayaranBanyak.tampilkan(buktiPembayarans, mahasiswa, biodataCalonMahasiswa,
+						jenisKegiatan, semester, new EventListener() {
 
 					@Override
 					public void onEvent(Event arg0) throws Exception {
@@ -1585,10 +1582,6 @@ public class BuktiPembayaranAction extends GenericAutowireComposer implements Da
 					}
 
 				});
-				ambilDataBuktiPembayaranBanyak.setWidth("97%");
-				ambilDataBuktiPembayaranBanyak.setHeight("97%");
-				ambilDataBuktiPembayaranBanyak.setVisible(true);
-				ambilDataBuktiPembayaranBanyak.onModal();
 
 			}
 

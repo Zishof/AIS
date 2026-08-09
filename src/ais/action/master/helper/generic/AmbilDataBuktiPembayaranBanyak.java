@@ -12,6 +12,7 @@ import org.hibernate.criterion.Restrictions;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zk.ui.event.Events;
+import org.zkoss.zk.ui.sys.ExecutionsCtrl;
 import org.zkoss.zul.Borderlayout;
 import org.zkoss.zul.Center;
 import org.zkoss.zul.Columns;
@@ -63,14 +64,21 @@ public class AmbilDataBuktiPembayaranBanyak extends MyWindow {
 	private Mahasiswa mahasiswa;
 	private JenisKegiatan jenisKegiatan;
 	private BiodataCalonMahasiswa biodataCalonMahasiswa;
+	private Integer semester;
 
 	public AmbilDataBuktiPembayaranBanyak(List<BuktiPembayaran> buktiPembayarans, Mahasiswa mahasiswa,
 			BiodataCalonMahasiswa biodataCalonMahasiswa, JenisKegiatan jenisKegiatan) {
+		this(buktiPembayarans, mahasiswa, biodataCalonMahasiswa, jenisKegiatan, null);
+	}
+
+	public AmbilDataBuktiPembayaranBanyak(List<BuktiPembayaran> buktiPembayarans, Mahasiswa mahasiswa,
+			BiodataCalonMahasiswa biodataCalonMahasiswa, JenisKegiatan jenisKegiatan, Integer semester) {
 		super();
 		this.buktiPembayarans = buktiPembayarans;
 		this.mahasiswa = mahasiswa;
 		this.jenisKegiatan = jenisKegiatan;
 		this.biodataCalonMahasiswa = biodataCalonMahasiswa;
+		this.semester = semester;
 		display();
 		onSearchDefault(null);
 	}
@@ -78,14 +86,52 @@ public class AmbilDataBuktiPembayaranBanyak extends MyWindow {
 	public AmbilDataBuktiPembayaranBanyak(List<BuktiPembayaran> buktiPembayarans,
 			List<BuktiPembayaran> buktiPembayaransHanyaDitampilkan, Mahasiswa mahasiswa,
 			BiodataCalonMahasiswa biodataCalonMahasiswa, JenisKegiatan jenisKegiatan) {
+		this(buktiPembayarans, buktiPembayaransHanyaDitampilkan, mahasiswa, biodataCalonMahasiswa, jenisKegiatan,
+				null);
+	}
+
+	public AmbilDataBuktiPembayaranBanyak(List<BuktiPembayaran> buktiPembayarans,
+			List<BuktiPembayaran> buktiPembayaransHanyaDitampilkan, Mahasiswa mahasiswa,
+			BiodataCalonMahasiswa biodataCalonMahasiswa, JenisKegiatan jenisKegiatan, Integer semester) {
 		super();
 		this.buktiPembayarans = buktiPembayarans;
 		this.buktiPembayaransHanyaDitampilkan = buktiPembayaransHanyaDitampilkan;
 		this.mahasiswa = mahasiswa;
 		this.jenisKegiatan = jenisKegiatan;
+		this.biodataCalonMahasiswa = biodataCalonMahasiswa;
+		this.semester = semester;
 		display();
 
 		onSearchDefault(null);
+	}
+
+	public static AmbilDataBuktiPembayaranBanyak tampilkan(List<BuktiPembayaran> buktiPembayarans,
+			Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa, JenisKegiatan jenisKegiatan,
+			Integer semester, EventListener eventListener) throws InterruptedException {
+		AmbilDataBuktiPembayaranBanyak window = new AmbilDataBuktiPembayaranBanyak(buktiPembayarans, mahasiswa,
+				biodataCalonMahasiswa, jenisKegiatan, semester);
+		ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(window);
+		window.setEventListener(eventListener);
+		window.setWidth("97%");
+		window.setHeight("97%");
+		window.setVisible(true);
+		window.onModal();
+		return window;
+	}
+
+	public static AmbilDataBuktiPembayaranBanyak tampilkan(List<BuktiPembayaran> buktiPembayarans,
+			List<BuktiPembayaran> buktiPembayaransHanyaDitampilkan, Mahasiswa mahasiswa,
+			BiodataCalonMahasiswa biodataCalonMahasiswa, JenisKegiatan jenisKegiatan, Integer semester,
+			EventListener eventListener) throws InterruptedException {
+		AmbilDataBuktiPembayaranBanyak window = new AmbilDataBuktiPembayaranBanyak(buktiPembayarans,
+				buktiPembayaransHanyaDitampilkan, mahasiswa, biodataCalonMahasiswa, jenisKegiatan, semester);
+		ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(window);
+		window.setEventListener(eventListener);
+		window.setWidth("97%");
+		window.setHeight("97%");
+		window.setVisible(true);
+		window.onModal();
+		return window;
 	}
 
 	private MyTextbox nama;
@@ -331,6 +377,8 @@ public class AmbilDataBuktiPembayaranBanyak extends MyWindow {
 						: Restrictions.eq("biodataCalonMahasiswa", biodataCalonMahasiswa))
 
 				.add(Restrictions.eq("jenisKegiatan", jenisKegiatan))
+				.add(semester == null ? Restrictions.sqlRestriction("true") : Restrictions.eq("semester", semester))
+				.add(Restrictions.isNull("cicilanPembayaran"))
 
 				.addOrder(Order.desc("tanggal"))
 				.add(ids.size() == 0 ? Restrictions.sqlRestriction("1!=1") : Restrictions.in("id", ids)).list();
@@ -341,6 +389,8 @@ public class AmbilDataBuktiPembayaranBanyak extends MyWindow {
 						: Restrictions.eq("biodataCalonMahasiswa", biodataCalonMahasiswa))
 
 				.add(Restrictions.eq("jenisKegiatan", jenisKegiatan)).addOrder(Order.desc("tanggal"))
+				.add(semester == null ? Restrictions.sqlRestriction("true") : Restrictions.eq("semester", semester))
+				.add(Restrictions.isNull("cicilanPembayaran"))
 				.add(ids.size() == 0 ? Restrictions.sqlRestriction("1=1")
 						: Restrictions.not(Restrictions.in("id", ids)))
 				.add(buktiPembayaransHanyaDitampilkan == null || values.size() == 0 ? Restrictions.sqlRestriction("1=1")
