@@ -293,13 +293,14 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 
 	@Column(name = "smt", length = 6)
 	public String getSmt() {
-		// getTahunAkademik()/getSemester() di kelas ini sudah self-default (tak pernah null),
-		// tapi tetap dijaga try-catch defensif -- konsisten dgn konvensi getter serupa di
-		// kelas lain, jangan sampai format string tak terduga bikin NPE tak tertangkap di sini.
-		try {
-			smt = getTahunAkademik().split("/")[0] + (getSemester() % 2 == 0 ? "2" : "1");
-		} catch (Exception e) {
-			ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Skripsi.java:getSmt");
+		Integer tahunAwal = getTahun();
+		Integer semesterAktif = getSemester();
+		if (tahunAwal != null && semesterAktif != null) {
+			smt = tahunAwal + (semesterAktif % 2 == 0 ? "2" : "1");
+		}
+		if (smt == null || smt.trim().isEmpty() || smt.trim().toLowerCase().contains("null")) {
+			smt = ais.ui.util.WaktuUtil.getCalendar().get(Calendar.YEAR)
+					+ (Common.isNowSemensterGanjil() ? "1" : "2");
 		}
 		return smt;
 	}
@@ -1320,10 +1321,16 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 	}
 
 	public Integer getTahun() {
-		try {
-			tahun = Integer.parseInt(StringUtils.split(getTahunAkademik(), "/")[0].trim());
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Skripsi.java:1282");
-			// Common.tampilErrorJikaAdmin(e);
+		String tahunAkademikAktif = getTahunAkademik();
+		if (tahunAkademikAktif != null) {
+			String[] bagian = StringUtils.split(tahunAkademikAktif.trim(), "/");
+			if (bagian != null && bagian.length > 0 && bagian[0] != null && !bagian[0].trim().isEmpty()) {
+				try {
+					tahun = Integer.valueOf(bagian[0].trim());
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/Skripsi.java:getTahun");
+				}
+			}
 		}
 		if (tahun == null) {
 			tahun = ais.ui.util.WaktuUtil.getCalendar().get(Calendar.YEAR);
