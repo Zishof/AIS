@@ -299,6 +299,7 @@ public class CommonReportHelper {
 		List<Map<String, Serializable>> hasil = new ArrayList<Map<String, Serializable>>();
 		double totalTagihanRincian = 0.0;
 		double totalDibayarRincian = 0.0;
+		java.util.LinkedHashSet<String> itemDenganSelisih = new java.util.LinkedHashSet<String>();
 
 		if (rincianLayar != null) {
 			for (Object baris : rincianLayar) {
@@ -312,6 +313,11 @@ public class CommonReportHelper {
 				}
 				if (salinan.get("dibayar") instanceof Number) {
 					totalDibayarRincian += ((Number) salinan.get("dibayar")).doubleValue();
+				}
+				if (salinan.get("sisa") instanceof Number
+						&& Math.abs(((Number) salinan.get("sisa")).doubleValue()) > 0.1
+						&& salinan.get("item_biaya") != null) {
+					itemDenganSelisih.add(salinan.get("item_biaya").toString());
 				}
 			}
 		}
@@ -338,7 +344,21 @@ public class CommonReportHelper {
 		Map<String, Serializable> acuan = hasil.isEmpty() ? null : hasil.get(0);
 		Map<String, Serializable> penyesuaian = new HashMap<String, Serializable>();
 		penyesuaian.put("kode", "ADJ");
-		penyesuaian.put("item_biaya", "Selisih Tagihan");
+		StringBuilder namaSelisih = new StringBuilder("Selisih Tagihan");
+		if (!itemDenganSelisih.isEmpty()) {
+			namaSelisih.append(" (");
+			int panjangMaksimal = 120;
+			for (String namaItem : itemDenganSelisih) {
+				String pemisah = namaSelisih.charAt(namaSelisih.length() - 1) == '(' ? "" : ", ";
+				if (namaSelisih.length() + pemisah.length() + namaItem.length() + 1 > panjangMaksimal) {
+					namaSelisih.append(pemisah).append("item lainnya");
+					break;
+				}
+				namaSelisih.append(pemisah).append(namaItem);
+			}
+			namaSelisih.append(")");
+		}
+		penyesuaian.put("item_biaya", namaSelisih.toString());
 		penyesuaian.put("biaya", Double.valueOf(selisihTagihan));
 		penyesuaian.put("dibayar", Double.valueOf(selisihDibayar));
 		penyesuaian.put("sisa", Double.valueOf(selisihTagihan - selisihDibayar));
