@@ -264,7 +264,9 @@ try {
                 kegDaftarUlang = cama.chekPembayaranDaftarUlang(hibSession);
             }
             boolean jadwalDaftarUlangMasihBerlangsung = false;
+            boolean punyaJadwalPembayaranDaftarUlang = false;
             if (kegDaftarUlang != null && kegDaftarUlang.getJadwalPembayaran() != null) {
+                punyaJadwalPembayaranDaftarUlang = true;
                 JadwalPembayaran jadwalDU = kegDaftarUlang.getJadwalPembayaran();
                 Date sekarangDU = WaktuUtil.getDate();
                 boolean mulaiOk = jadwalDU.getStartDate() == null || !jadwalDU.getStartDate().after(sekarangDU);
@@ -300,7 +302,9 @@ try {
             if (harusLulusSblmDaftarUlang && (cama.getProdiLulus() == null || cama.getProdiLulus().getId() == null)) {
                 showBtnBayarDU = jadwalDaftarUlangMasihBerlangsung && showBtnBayarDU;
             }
-            if (showBtnBayarDU && cama.getGelombangPendaftaran() != null
+            if (showBtnBayarDU && punyaJadwalPembayaranDaftarUlang) {
+                showBtnBayarDU = jadwalDaftarUlangMasihBerlangsung;
+            } else if (showBtnBayarDU && cama.getGelombangPendaftaran() != null
                     && cama.getGelombangPendaftaran().getTanggalDaftarUlangBerakhir() != null) {
                 Date tglBerakhirDU = cama.getGelombangPendaftaran().getTanggalDaftarUlangBerakhir();
                 Date sekarang = WaktuUtil.getDate();
