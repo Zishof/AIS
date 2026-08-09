@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DetailpertemuanHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/DetailpertemuanHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"render", "onEvent", "loadData", "displayDetailPertemuan", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Dosen", "Detailperkuliahan", "Pertemuan", "KelasSiswaPunyaSiswa", "KelasLesSiswaPunyaSiswa", "Siswa", "Mahasiswa", "Statusabsensi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

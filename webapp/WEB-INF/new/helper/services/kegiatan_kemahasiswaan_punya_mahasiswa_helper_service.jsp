@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KegiatanKemahasiswaanPunyaMahasis
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/KegiatanKemahasiswaanPunyaMahasiswaHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "initCriteria", "loadData", "display", "process", "run", "getDspace", "getDspaceTipeKegiatanKemahasiswaanPunyaMahasiswa", "getDspaceTipeKegiatanKemahasiswaanPunyaMahasiswaJurusan", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"DetailKelompokKegiatanKemahasiswaan", "KegiatanKemahasiswaanPunyaMahasiswa", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

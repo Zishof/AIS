@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyPortallayout");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "compare"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"RepoCollection", "RepoItem", "RepoBitstream"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

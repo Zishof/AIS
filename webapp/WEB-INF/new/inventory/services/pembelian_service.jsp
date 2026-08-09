@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PembelianAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.inventory");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/inventory/PembelianAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onCatatanUpload", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/upload_log.zul?className="});
 request.setAttribute("nuiServiceEntities", new String[]{"Pembelian", "Toko", "Siswa", "Produk"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

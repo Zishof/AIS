@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CommonEpsbed");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.epsbed");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/epsbed/CommonEpsbed.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getTahunSemesterPelaporan", "hitungJumlahPeminat", "hitungJumlahLulus", "hitungJumlahDaftarUlang", "hitungJumlahMundur"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"BiodataCalonMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

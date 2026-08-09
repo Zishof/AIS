@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RekapPendaftarSpmbPerPaket");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.pmb.statistik");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/pmb/statistik/RekapPendaftarSpmbPerPaket.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onSearchDefault", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisSeleksi", "GelombangPendaftaran", "BiodataCalonMahasiswa", "Paket", "RuangPMB", "Kegiatan", "RuangPaketPMB"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PaymentLogic");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.ws.logic");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/ws/logic/PaymentLogic.java");
 request.setAttribute("nuiServiceMethods", new String[]{"pembayaranCalonMahasiswa", "pembayaranMahasiswaBaru", "pembayaranMahasiswaLama"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

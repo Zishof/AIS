@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LokasiKantinUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.koperasi.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/koperasi/helper/LokasiKantinUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"bolehKelola", "daftarJenisLokasi", "daftarLokasi", "daftarGudangUntukPicker", "simpanJenisLokasi", "hapusJenisLokasi", "simpanLokasi", "hapusLokasi", "ensureJenisLokasiDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisLokasi", "Lokasi", "Gudang", "Toko"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

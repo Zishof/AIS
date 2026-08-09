@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanProfileDosen_A_4_5_2");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sapto");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sapto/LaporanProfileDosen_A_4_5_2.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onCetak", "run", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"TugasBelajarDosen"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

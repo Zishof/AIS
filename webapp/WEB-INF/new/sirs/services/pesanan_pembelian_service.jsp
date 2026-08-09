@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PesananPembelianAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/PesananPembelianAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent", "render", "onAdd", "onSave", "onSearchDefault", "checkKodePesananPembelian"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Lokasi", "Penyedia", "PesananPembelian", "PesananPembelianDetail", "PenerimaanOrder", "JenisBiayaLain", "PermintaanPembelianDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

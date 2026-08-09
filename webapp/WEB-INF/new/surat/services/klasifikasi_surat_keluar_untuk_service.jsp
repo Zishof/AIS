@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KlasifikasiSuratKeluarUntukAction
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.surat");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/surat/KlasifikasiSuratKeluarUntukAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initCriteria", "onEvent", "onSave", "checkNamaKlasifikasiSuratKeluarUntuk", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KlasifikasiSuratKeluarUntuk", "StatusAwalMahasiswa", "StatusMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

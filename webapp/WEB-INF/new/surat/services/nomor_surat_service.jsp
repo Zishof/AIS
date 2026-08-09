@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "NomorSuratAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.surat");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/surat/NomorSuratAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onVariableSurat", "onKelompokNomorSurat", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaNomorSurat", "init"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/surat/variable_surat_keluar.zul", "/pages/master/surat/kelompok_nomor_surat.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"NomorSurat", "Jurusan", "KelompokNomorSurat"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

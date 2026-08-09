@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilLaporanMahasiswa");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/AmbilLaporanMahasiswa.java");
 request.setAttribute("nuiServiceMethods", new String[]{"laporanSurat"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa", "TemplateSuratParameter", "Staff", "FotoMahasiswaLulus", "Integer", "Long", "FormatTemplateSurat", "SuratJrxmlFile", "BiodataCalonMahasiswa", "JenjangProgramStudi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

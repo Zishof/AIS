@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KategoriPrestasiPegawaiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/KategoriPrestasiPegawaiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault", "checkNamaKategoriPrestasiPegawai"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KategoriPrestasiPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "DataResource<Workspace>");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"getXml", "getData", "getAllData", "daftarWorkspace", "daftarInformasiRab", "daftarInformasiRabKomentar", "daftarInformasiRabJumlahKomentar"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Workspace", "WorkspacePunyaSasaran", "InformasiRab", "FotoInformasiRab", "InformasiRabKomentar"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataVideoPertemuan");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.generic");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/generic/AmbilDataVideoPertemuan.java");
 request.setAttribute("nuiServiceMethods", new String[]{"tampilkanTombolUploadDropbox", "onEvent", "tampilkanTombolUploadGDrive", "tampilkanTombolLinkVideo", "render", "tampilkanTombolUpload", "run", "createScanFoto", "createScanLayar", "display", "initCriteria", "onSearchDefault", "setEventListener", "getEventListener"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/capture_video.jsp?lokasi=false&mobile=", "/capture_screen.jsp?lokasi=false&mobile="});
 request.setAttribute("nuiServiceEntities", new String[]{"Pertemuan", "VideoPertemuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

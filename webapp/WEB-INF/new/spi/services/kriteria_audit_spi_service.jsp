@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KriteriaAuditSPIAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.spi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/spi/KriteriaAuditSPIAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "render", "onEvent", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisAuditSPI", "KriteriaAuditSPI"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

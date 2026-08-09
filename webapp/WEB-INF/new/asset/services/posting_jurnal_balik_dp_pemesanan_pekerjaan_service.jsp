@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PostingJurnalBalikDpPemesananPeke
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.asset");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/asset/PostingJurnalBalikDpPemesananPekerjaanAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onBatalkanPostingSemua", "onEvent", "onPostingSemua", "run", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PemilikAsset", "Lokasi", "GrupTransaksi", "PemesananPengadaanMasterAsset"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

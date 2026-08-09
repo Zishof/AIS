@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PrestasiPegawaiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/PrestasiPegawaiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onDasbor", "onKategoriPrestasiPegawai", "onCabangPrestasiPegawai", "onRekapCabang", "onRekapKategori", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/kategori_prestasi_pegawai.zul", "/pages/master/cabang_prestasi_pegawai.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"KategoriPrestasiPegawai", "CabangPrestasiPegawai", "Pegawai", "PrestasiPegawai", "Pejabat"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataMahasiswaSeleksiPklHelpe
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/AmbilDataMahasiswaSeleksiPklHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"render", "save", "display", "onEvent", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"MahasiswaDaftarPkl", "Mahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

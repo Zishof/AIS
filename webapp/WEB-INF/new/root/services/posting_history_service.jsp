@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PostingHistoryAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/PostingHistoryAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/akunting/posting_transaksi_harian.zul?postingHistory="});
 request.setAttribute("nuiServiceEntities", new String[]{"PostingHistory"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

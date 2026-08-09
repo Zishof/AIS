@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "UnitOrganisasiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/UnitOrganisasiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaUnitOrganisasi"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"UnitOrganisasi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

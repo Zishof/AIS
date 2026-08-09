@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "OkupansiTempatTidurDashboardBuild
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs.chart.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/chart/helper/OkupansiTempatTidurDashboardBuilder.java");
 request.setAttribute("nuiServiceMethods", new String[]{"render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"TempatTidur"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

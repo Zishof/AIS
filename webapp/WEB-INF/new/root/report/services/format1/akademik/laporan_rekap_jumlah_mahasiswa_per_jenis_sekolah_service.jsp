@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanRekapJumlahMahasiswaPerJen
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.akademik");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/akademik/LaporanRekapJumlahMahasiswaPerJenisSekolah.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"StatusMahasiswa", "JenisSekolahMahasiswaBaru"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

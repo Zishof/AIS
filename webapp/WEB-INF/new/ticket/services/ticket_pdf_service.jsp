@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TicketPdf");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.ticket");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/ticket/TicketPdf.java");
 request.setAttribute("nuiServiceMethods", new String[]{"cetak"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"TicketKomentar"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

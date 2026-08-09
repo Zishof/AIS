@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyWindow");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "reinit", "ambilDataKunjungan", "compare"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/log_login.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

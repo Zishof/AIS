@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault, DataInitDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onManajemenGrup", "doBeforeCompose", "onRefreshGrup", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/grup_parameter_tambahan.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"GrupParameterTambahan", "ParameterTambahan", "GeneralValueObject", "Agama", "TipeMasaKerja", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

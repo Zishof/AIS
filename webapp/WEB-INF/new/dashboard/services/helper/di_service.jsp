@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "di");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/helper/DashboardRekapAset.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "setDebug", "isDebug", "clear", "setValue", "getRows"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"StatusAsset", "AssetDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onPustaka", "onEvent", "onWorkflow", "onAdministrasi", "onPengadaan", "onKepegawaian", "onKeuangan", "onPembayaran", "onKinerja", "onAkunting", "onDashboard", "onKegiatanDanPrestasi", "onPengumumanPerkuliahan", "onPengumuman", "onPresensi", "onTutupPopup", "onTop", "onCustomerService", "onPopup", "onInformasiKalenderAkademik", "onInformasiKegiatan", "footer", "initPesan", "initBg", "onInfo", "initChatRoom", "onOpenMenu", "onPesan", "onChatRoom", "onUploadFoto", "tampilPilihRole", "doBeforeCompose", "doAfterCompose", "loadData", "setDashboardTitle", "onMobile", "onLihatOnline", "updateUserOnline"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/prestasi_pegawai.zul", "/common/mobile/e_learning.zul?user=", "/pages/main/tampilan_pengumuman_akademis_mobile.zul", "/presensi.zul", "/pages/master/kalender_akademik_mahasiswa.zul", "/pages/master/jadwal_kegiatan_kampus.zul", "/pages/master/message/message.zul", "/pages/master/chat.zul", "/pages/main/tampilan_pengumuman_akademis.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"CustomerService", "FotoMahasiswa", "FotoSiswa", "FotoDosen", "FotoGuru", "FotoPegawai", "FotoAdmin", "String", "PengumumanAkademis"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

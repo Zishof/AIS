@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "UploadBiodataCalonMahasiswaSPANPT
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/UploadBiodataCalonMahasiswaSPANPTKINAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "onDownload", "upload", "uploadFormat1", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"UploadBiodataCalonMahasiswa", "UploadBiodataCalonMahasiswaFileContent", "GelombangPendaftaran", "Paket", "Jurusan", "BiodataCalonMahasiswa", "JurusanSekolahMahasiswaBaru", "JenisSekolahMahasiswaBaru"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

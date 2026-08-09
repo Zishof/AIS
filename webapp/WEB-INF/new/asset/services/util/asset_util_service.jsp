@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AssetUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.asset.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/asset/util/AssetUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"ambilDataAkun", "reloadFormula", "onEvent", "reloadDataFormula"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"StatusAsset", "Akun", "SatuanKerja"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

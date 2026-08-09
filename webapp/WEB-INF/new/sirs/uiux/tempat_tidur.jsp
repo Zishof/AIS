@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericCrudAction<TempatTidur>");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"doAfterCompose", "onEvent", "initCriteria", "onSave", "render"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"TempatTidur", "KelasPerawatan", "Ruang", "StatusTempatTidur", "Kamar", "Pendaftaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PengajuanPegawaiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/PengajuanPegawaiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onLaporan", "onJenisPengajuanPegawai", "onManajemenParameter", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "form", "onSave", "initCriteria", "onSearchDefault", "istilah", "ambil", "ambilClass", "cetakData", "onKHS", "setPersetujuan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/jenis_pengajuan_pegawai.zul", "/pages/master/parameter_tambahan_pengajuan_pegawai.zul", "/pages/master/pengajuan_pegawai.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisPengajuanPegawai", "PengajuanPegawai", "Pegawai", "Pejabat", "ParameterTambahanPengajuanPegawai", "ParameterTambahan", "Tbmuser"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

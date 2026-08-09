@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MasterMahasiswa");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.epsbed");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/epsbed/MasterMahasiswa.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PerguruanTinggi", "Mahasiswa", "BiodataMahasiswa", "BiodataCalonMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

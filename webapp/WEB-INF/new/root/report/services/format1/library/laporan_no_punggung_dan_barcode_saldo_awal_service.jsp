@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanNoPunggungDanBarcodeSaldoA
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.library");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/library/LaporanNoPunggungDanBarcodeSaldoAwal.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "onReport"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ItemPunyaBarcode", "SaldoAwalDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

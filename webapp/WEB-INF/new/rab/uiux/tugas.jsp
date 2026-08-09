@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onCreateNewRevisi", "onEvent", "onReloadTab"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/rab/tugas_revisi.zul?revisi="});
 request.setAttribute("nuiEntityCandidates", new String[]{"Tugas"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

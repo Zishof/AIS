@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "EksporFromFeederAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/EksporFromFeederAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"display", "koneksi", "onLogin", "onAktifkan", "onLihatBantuan", "doBeforeCompose", "doAfterCompose", "onDownloadAplikasi32", "onDownloadAplikasi", "exists", "onImport", "run", "onEvent", "onDownloadData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/export_from_feeder.zul?hidden=true"});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

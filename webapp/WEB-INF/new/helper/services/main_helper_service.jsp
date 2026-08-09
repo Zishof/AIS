@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MainHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/MainHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initMain", "onEvent", "onBantuan", "onKatalogBantuan", "onKeluar", "hasChild", "parents", "onDapatkanKode", "onUbahBiodata", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/common/checklist_penilaian_dosen_oleh_mhs.zul", "/pages/master/sekolah/checklist_penilaian_guru_oleh_siswa.zul", "/common/checklist_penilaian_umum_grup.zul", "/common/checklist_penilaian_umum.zul", "/pages/master/biodata_mahasiswa.zul", "/pages/master/biodata_dosen.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

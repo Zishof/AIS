@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "GenerateKRSPaketMahasiswaOtomatis
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.generic");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/generic/GenerateKRSPaketMahasiswaOtomatisWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "save"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Perkuliahan", "Mahasiswa", "KurikulumPunyaMatakuliah", "Detailperkuliahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

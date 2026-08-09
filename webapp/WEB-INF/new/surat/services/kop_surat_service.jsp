@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KopSuratAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.surat");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/surat/KopSuratAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaKopSurat"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KopSurat"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

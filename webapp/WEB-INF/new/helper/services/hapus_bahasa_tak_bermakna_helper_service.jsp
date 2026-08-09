@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "HapusBahasaTakBermaknaHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/HapusBahasaTakBermaknaHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getParalel", "getTotalSumber", "getDiperiksa", "getAkanDihapus", "getDihapus", "isSelesai", "isFasePersiapan", "getStatusThread", "getTerkiniGabung", "persen", "mulai", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

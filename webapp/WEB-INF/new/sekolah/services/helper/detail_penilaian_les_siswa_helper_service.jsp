@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DetailPenilaianLesSiswaHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/helper/DetailPenilaianLesSiswaHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initCriteria", "displayPenilaian", "onEvent", "uploadDataNilai", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KelasLesSiswaPunyaSiswa", "DetailJenisPenilaian", "GrupPenilaian", "DetailGrupPenilaian", "GrupKategoriItemPenilaianSiswa", "DetailGrupKategoriItemPenilaianSiswa", "KategoriItemPenilaianSiswa", "JenisItemPenilaianSiswa", "Siswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

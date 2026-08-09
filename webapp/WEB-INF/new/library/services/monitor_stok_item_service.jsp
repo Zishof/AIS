@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MonitorStokItemAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/MonitorStokItemAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onBarcodeItem", "onPerTipeItem", "onPerJenisItem", "onCetak", "onCetakTrack", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/library/barcode_item.zul?perpustakaan="});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisItem", "TipeItem", "Perpustakaan", "Item", "DetailTransaksi", "FotoImagePerHalamanItem"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

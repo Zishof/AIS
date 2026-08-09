@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TemuanAuditSPIAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.spi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/spi/TemuanAuditSPIAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"openForChecklist", "onEvent", "doAfterCompose", "init", "initCriteria", "onSearchDefault", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"TemuanAuditSPI"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MasterAssetAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.asset");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/asset/MasterAssetAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onPersediaan", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "init", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/asset/stok_awal.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisAsset", "KelompokAsset", "MasterAsset", "SatuanMasterAsset", "KategoriAsset", "PenerimaanPengadaanMasterAssetDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

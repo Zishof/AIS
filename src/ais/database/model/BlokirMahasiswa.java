@@ -95,7 +95,9 @@ public class BlokirMahasiswa extends GeneralValueObject {
 
 	@Column(name = "nama", nullable = false, length = 255)
 	public String getNama() {
-		nama = getMahasiswa() == null ? null : getMahasiswa().getNim() + "_" + getMahasiswa().getNama();
+		if (getMahasiswa() != null) {
+			nama = getMahasiswa().getNim() + "_" + getMahasiswa().getNama();
+		}
 		return this.nama == null ? null : this.nama.trim();
 	}
 

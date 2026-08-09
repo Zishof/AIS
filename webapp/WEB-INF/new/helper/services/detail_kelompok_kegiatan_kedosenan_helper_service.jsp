@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DetailKelompokKegiatanKedosenanHe
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/DetailKelompokKegiatanKedosenanHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"render", "onEvent", "loadData", "displayDetailKelompokKegiatanKedosenan", "init"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"DetailKelompokKegiatanKedosenan", "JabatanKegiatanKedosenan", "SkalaKegiatanKedosenan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

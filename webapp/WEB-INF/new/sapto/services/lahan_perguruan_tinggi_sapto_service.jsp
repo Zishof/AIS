@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LahanPerguruanTinggiSaptoAction")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sapto");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sapto/LahanPerguruanTinggiSaptoAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"LahanPerguruanTinggiSapto"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

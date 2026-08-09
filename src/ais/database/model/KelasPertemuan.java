@@ -238,9 +238,11 @@ public class KelasPertemuan extends GeneralValueObject {
 	public Long getPjDosen() {
 		if (pjDosen == null) {
 			pertemuan = getPertemuan();
-			List<Long> dosens = pertemuan.ambilDosenId();
-			if (!dosens.isEmpty()) {
-				pjDosen = dosens.get(0);
+			if (pertemuan != null) {
+				List<Long> dosens = pertemuan.ambilDosenId();
+				if (!dosens.isEmpty()) {
+					pjDosen = dosens.get(0);
+				}
 			}
 		}
 		return pjDosen;

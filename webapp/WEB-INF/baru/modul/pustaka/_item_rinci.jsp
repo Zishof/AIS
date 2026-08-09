@@ -28,7 +28,12 @@
         // Kesalahan parsing diabaikan agar sistem tidak crash, objek item tetap null
     }
 
-    // Penanganan jika data pustaka tidak ditemukan atau telah dihapus
+    // Item nonaktif tidak boleh tetap dapat dibuka melalui URL/detail lama.
+    if (item != null && Boolean.FALSE.equals(item.getAktif())) {
+        item = null;
+    }
+
+    // Penanganan jika data pustaka tidak ditemukan, telah dihapus, atau dinonaktifkan
     if (item == null) {
         out.print("<div class='modal fade' id='" + modalId + "' tabindex='-1' aria-hidden='true'><div class='modal-dialog modal-dialog-centered'><div class='modal-content border-0 shadow rounded-4 p-4 text-center'><h5 class='text-danger mb-0'><i class='fas fa-exclamation-triangle me-2'></i>" + Common.getBahasaConfig("Data Pustaka tidak ditemukan.") + "</h5></div></div></div>");
         return;

@@ -402,7 +402,7 @@ public class KunjunganAnggotaAction extends GenericAutowireComposer implements D
 			return;
 		}
 		Session session = HibernateUtil.currentSession();
-		Anggota anggota = cariAnggotaDariScan(session, kodeScan);
+		Anggota anggota = LibraryUtil.cariAnggotaDariIdentitas(session, kodeScan);
 
 		if (anggota == null) {
 			MyMessageboxConfig.show("Kode/NIM/NIDN/NIK anggota tidak ditemukan", "Peringatan", MyMessageboxConfig.OK,
@@ -464,33 +464,6 @@ public class KunjunganAnggotaAction extends GenericAutowireComposer implements D
 			perpustakaanTerpilih = getPerpustakaanKunjunganDariFilter();
 		}
 		return perpustakaanTerpilih;
-	}
-
-	private Anggota cariAnggotaDariScan(Session session, String kodeScan) {
-		String kode = kodeScan == null ? "" : kodeScan.trim().toLowerCase();
-		if (kode.isEmpty()) {
-			return null;
-		}
-		String hql = "select a from Anggota a "
-				+ "left join a.mahasiswa m "
-				+ "left join a.dosen d "
-				+ "left join a.siswa s "
-				+ "left join a.guru g "
-				+ "left join a.pegawai p "
-				+ "left join a.tbmuser u "
-				+ "where lower(a.kode) = :kode "
-				+ "or lower(m.nim) = :kode "
-				+ "or lower(d.code) = :kode "
-				+ "or lower(d.nidn) = :kode "
-				+ "or lower(s.nim) = :kode "
-				+ "or lower(s.nomorInduk) = :kode "
-				+ "or lower(s.nik) = :kode "
-				+ "or lower(g.kode) = :kode "
-				+ "or lower(g.nip) = :kode "
-				+ "or lower(g.nik) = :kode "
-				+ "or lower(p.code) = :kode "
-				+ "or lower(u.userId) = :kode";
-		return (Anggota) session.createQuery(hql).setString("kode", kode).setMaxResults(1).uniqueResult();
 	}
 
 	public boolean onSave(Event event) throws Exception {

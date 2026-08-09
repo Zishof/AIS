@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericCrudAction<KelasPerawatan>");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"initCriteria", "onEvent", "onSave", "checkNamaKelasPerawatan", "render"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"KelasPerawatan", "ItemMedis"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

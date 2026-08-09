@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PerguruanTinggiLainAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/PerguruanTinggiLainAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "run", "render", "getDspace", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PerguruanTinggiLain"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

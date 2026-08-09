@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanKerjasamaDalamNegeri_A_7_3
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sapto");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sapto/LaporanKerjasamaDalamNegeri_A_7_3_2.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onCetak", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KerjasamaAntarInstansi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

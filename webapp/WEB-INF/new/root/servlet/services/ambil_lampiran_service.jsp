@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilLampiran");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/AmbilLampiran.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doDownload"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"LampiranLain", "FotoAdmin"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

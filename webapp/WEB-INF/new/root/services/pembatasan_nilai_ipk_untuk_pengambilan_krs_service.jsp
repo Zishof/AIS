@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PembatasanNilaiIPKUntukPengambila
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/PembatasanNilaiIPKUntukPengambilanKRSAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PembatasanNilaiIPKUntukPengambilanKRS", "Jurusan", "Program"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

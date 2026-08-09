@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AkunArusKasAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.akunting");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/akunting/AkunArusKasAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"AkunArusKas"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KssnNisGenerator");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.psb.nis");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/psb/nis/KssnNisGenerator.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateNis"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Siswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

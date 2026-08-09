@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AssetDetailAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.asset");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/asset/AssetDetailAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onLaporanPenyusutan", "onPenyusutan", "doBeforeCompose", "doAfterCompose", "onEvent", "run", "render", "tampilKet", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/asset/penyusutan_asset_detail.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"AssetDetail", "PenyusutanAsset"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

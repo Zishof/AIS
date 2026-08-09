@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"gerbangAktif", "nilaiAngka", "jatahTahunanMenurutMasaKerja", "totalBulanKerja", "validasiBatasPengajuan", "validasiLiburPanjang", "apakahLiburPanjang", "durasiBaku", "validasiDurasiBaku", "awalHari", "tambahHari"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"LiburNasional"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

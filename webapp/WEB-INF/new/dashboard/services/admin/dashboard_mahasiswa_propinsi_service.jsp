@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardMahasiswaPropinsi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.admin");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/admin/DashboardMahasiswaPropinsi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "initCriteria", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa", "StatusAwalMahasiswa", "StatusMahasiswa", "StatusKeluar", "Jurusan", "BiodataMahasiswa", "Propinsi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

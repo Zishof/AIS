@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "OrganisasiDosenAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/OrganisasiDosenAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onJabatanOrganisasiDosen", "onLevelOrganisasiDosen", "onUploadData", "run", "onEvent", "doBeforeCompose", "doAfterCompose", "cetakDataCustomButton", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaOrganisasiDosen"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/jabatan_organisasi_dosen.zul", "/pages/master/level_organisasi_dosen.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"OrganisasiDosen", "Dosen", "JabatanOrganisasiDosen", "OrganisasiDosenPunyaDosen", "LevelOrganisasiDosen", "LampiranLain", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

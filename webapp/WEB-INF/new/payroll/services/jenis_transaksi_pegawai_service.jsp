@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JenisTransaksiPegawaiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.payroll");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/payroll/JenisTransaksiPegawaiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "onSearchDefault", "initCriteria", "checkNamaJenisTransaksiPegawai", "checkKodeJenisTransaksiPegawai"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisTransaksiPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

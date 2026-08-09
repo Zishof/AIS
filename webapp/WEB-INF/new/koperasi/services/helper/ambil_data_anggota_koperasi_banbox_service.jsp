@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataAnggotaKoperasiBanbox");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.koperasi.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/koperasi/helper/AmbilDataAnggotaKoperasiBanbox.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "display", "onSearchDefault", "setEventListener", "getEventListener"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Koperasi", "AnggotaKoperasi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

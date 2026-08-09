@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ParameterTambahanAlurSopAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sop");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sop/ParameterTambahanAlurSopAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onResetParameter", "onManajemenKelompok", "onManajemenParameter", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/sop/kelompok_parameter_tambahan_alur_sop.zul", "/pages/master/parameter_tambahan.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"KelompokParameterTambahanAlurSop", "ParameterTambahanAlurSop", "ParameterTambahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

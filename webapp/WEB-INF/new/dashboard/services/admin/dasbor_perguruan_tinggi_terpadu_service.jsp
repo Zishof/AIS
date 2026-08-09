@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DasborPerguruanTinggiTerpadu");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.admin");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/admin/DasborPerguruanTinggiTerpadu.java");
 request.setAttribute("nuiServiceMethods", new String[]{"isDebug", "setDebug", "onEvent", "compare"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/pmb/statistik/rekap_pendaftar_spmb_semua.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa", "BiodataCalonMahasiswa", "String", "MahasiswaRequestTugasAkhir", "Skripsi", "PendaftaranWisuda", "KrsMahasiswa", "Detailperkuliahan", "KegiatanKemahasiswaanPunyaMahasiswa", "OrganisasiIntraKampusPunyaMahasiswa", "PrestasiMahasiswa", "Dosen", "Perkuliahan", "Pertemuan", "KegiatanKedosenanPunyaDosen", "OrganisasiDosenPunyaDosen", "PrestasiDosen", "PenghargaanDosen", "Artikel", "PengajuanPenelitianDanPengabdian", "BukuBahanAjar", "Fakultas", "Jurusan", "Kurikulum", "TipePenelitianDanPengabdian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

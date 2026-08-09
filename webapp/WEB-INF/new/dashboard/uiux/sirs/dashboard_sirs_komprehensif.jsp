@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyPortallayout");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"compare", "getTitle", "getHeaders", "getCriteria", "addOrder", "render", "onEvent"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"TempatTidur", "Pendaftaran", "BookingRegistrasi", "Pembayaran", "Resep", "Racikan", "DiagnosaPenyakit", "Dokter", "BiayaTindakanPerKelas", "KunjunganDokter", "TransaksiMedisDetail", "TransaksiMedis", "ItemMedis", "Tindakan", "HargaJualItem", "DataPasienKeluar"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

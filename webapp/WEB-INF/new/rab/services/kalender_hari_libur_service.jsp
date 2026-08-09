@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KalenderHariLiburAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/KalenderHariLiburAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEventFilter"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"HariLibur"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

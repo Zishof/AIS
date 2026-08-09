@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataDomainPenelitianBanbox")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/helper/AmbilDataDomainPenelitianBanbox.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "setChooseAll", "render", "display", "onSearchDefault", "setEventListener", "getEventListener", "setPenerbit"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"DomainPenelitian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

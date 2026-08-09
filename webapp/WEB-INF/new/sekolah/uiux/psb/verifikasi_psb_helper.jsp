@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"tampilkanGrid", "onEvent", "tampilkanVerifikasi", "simpanVerifikasi"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"GelombangPendaftaranPsb", "CalonSiswaPunyaVerifikasiBerkas", "VerifikasiKelengkapanCalonSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

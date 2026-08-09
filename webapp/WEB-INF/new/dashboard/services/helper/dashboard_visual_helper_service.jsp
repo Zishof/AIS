@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardVisualHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/helper/DashboardVisualHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"kehadiran", "komposisi", "trenDuaSeri", "compare"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

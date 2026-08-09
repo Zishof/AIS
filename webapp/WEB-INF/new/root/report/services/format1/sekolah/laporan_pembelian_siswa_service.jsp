@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanPembelianSiswa");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/sekolah/LaporanPembelianSiswa.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "onCetak"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Siswa", "Toko"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

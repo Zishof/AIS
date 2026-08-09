@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onStatusPertemuan", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAddExternal", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/status_pertemuan.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"PembombotanNilai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

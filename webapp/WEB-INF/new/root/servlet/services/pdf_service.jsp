@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "Pdf");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/Pdf.java");
 request.setAttribute("nuiServiceMethods", new String[]{});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"BiodataCalonMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

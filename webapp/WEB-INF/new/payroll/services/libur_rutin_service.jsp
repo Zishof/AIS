@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LiburRutinAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.payroll");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/payroll/LiburRutinAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent", "render", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"LiburRutin"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

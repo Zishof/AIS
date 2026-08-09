@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PembayaranGatewayHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.ws.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/ws/util/PembayaranGatewayHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"prosesRincianVA", "ambilNamaItemCicilan", "rollbackSession", "adaTokenKeranjang", "prosesSatuTokenKeranjang", "ambilIdKeranjang", "simpanLogHostToHost", "ambilIpClient", "ambilSemuaHeader", "catatLogHostToHost", "ambilStackTrace"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Kegiatan", "DetailBiaya", "PengaturanPembayaranBulanan", "CicilanPembayaran", "ItemBiaya", "KegiatanTemporary"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

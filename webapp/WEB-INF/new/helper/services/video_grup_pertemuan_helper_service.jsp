@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "VideoGrupPertemuanHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/VideoGrupPertemuanHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"render", "onEvent", "loadData", "display", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"GrupPertemuan", "VideoPertemuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

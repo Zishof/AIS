@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BriBackandProsess");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.bri");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/bri/BriBackandProsess.java");
 request.setAttribute("nuiServiceMethods", new String[]{"checkSatu", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"BriResponse", "BriRequest"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

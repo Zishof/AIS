@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DetailBiayaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/DetailBiayaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisKegiatan", "ItemBiaya", "JenisSeleksi", "Fakultas", "Jurusan", "Jenjang", "DetailBiaya"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

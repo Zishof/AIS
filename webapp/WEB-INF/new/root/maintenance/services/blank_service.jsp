@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BlankAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.maintenance");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/maintenance/BlankAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onCari", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"RoleHasDashboard"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

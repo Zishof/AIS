@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanBuktiPembelianAnggotaKoper
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.koperasi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/koperasi/LaporanBuktiPembelianAnggotaKoperasiWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "onCetakStatusPasien", "dataPembelian"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PembelianAnggotaKoperasi", "Pembelian", "Tbmuser"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

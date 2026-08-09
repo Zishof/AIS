@@ -425,6 +425,9 @@ public class InitData {
 		// FIX SQLGrammarException/GenericJDBCException "column ... jenis_seleksi_target does not
 		// exist": kolom pada KelompokCalonMahasiswa yang belum ter-propagate ke semua instalasi.
 		KelompokCalonMahasiswaSchemaFix.initKolomBaru();
+		// Snapshot hasil akhir nilai harus tersedia sebelum migrasi/backfill nilai
+		// dijalankan. Berlaku untuk tabel utama dan audit Envers.
+		NilaiKunciSchemaFix.initKolomSnapshot();
 
 		// Kolom teks yang diisi OTOMATIS oleh AuditTimestampInterceptor (oleh/olehid, berlaku utk
 		// SEMUA entitas) bisa jauh melebihi varchar(255) default JPA -> INSERT gagal "value too

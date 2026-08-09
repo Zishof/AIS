@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"doGenerateTagihanBulanan", "doGenerateTagihanTahunan", "doGenerateTagihanInsendentil", "doSinkronkanTagihanCalonSiswa", "ambilNominalBiaya", "getTagihan", "saring", "tampilkanKunci", "onEvent"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/sekolah/pem_online.zul?lbl_siswa=true&tagihans=", "/pages/master/sekolah/pem_online.zul?lbl_calon_siswa=true&tagihans="});
 request.setAttribute("nuiEntityCandidates", new String[]{"PengaturanBiayaItemBiaya", "PembayaranSiswa", "Tagihan", "PembayaranSiswaDetail", "PengaturanBiaya", "CalonSiswa", "NominalBiaya"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

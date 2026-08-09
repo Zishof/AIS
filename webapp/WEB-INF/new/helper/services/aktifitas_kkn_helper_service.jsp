@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AktifitasKknHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/AktifitasKknHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initAgendaKelompokKkn", "onEvent", "initDetail", "loadData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Pertemuan", "MahasiswaDapatKelompokKkn", "TugasKelompok"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

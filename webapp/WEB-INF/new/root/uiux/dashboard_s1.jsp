@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/common/tampilan_pengumuman_akademis.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"LaporanProfileDosen", "LaporanProfileMahasiswaDanLulusan_A_3_1_1", "LaporanProfileMahasiswaDanLulusan_A_3_1_2", "LaporanProfileMahasiswaDanLulusan_A_3_1_4", "LaporanProfileMahasiswaDanLulusan_A_3_2_1", "LaporanProfileDosen_A_4_3_1", "LaporanProfileDosen_A_4_3_2", "LaporanProfileDosen_A_4_3_3", "LaporanProfileDosen_A_4_3_4", "LaporanProfileDosen_A_4_3_5", "LaporanProfileDosen_A_4_4_1", "LaporanProfileDosen_A_4_4_2", "LaporanProfileDosen_A_4_5_1", "LaporanProfileDosen_A_4_5_2", "LaporanProfileDosen_A_4_5_3", "LaporanProfileDosen_A_4_5_4", "LaporanProfileDosen_A_4_5_5", "LaporanProfileDosen_A_4_6_1", "LaporanDosenInstitusi_A_4_5_1", "LaporanKurikulumDanMatakuliah_A_5_1_2_1"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

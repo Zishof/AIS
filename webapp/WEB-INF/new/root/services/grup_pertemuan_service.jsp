@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "GrupPertemuanAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/GrupPertemuanAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onSejarah", "onTampilJenisLayanan", "onTampilGrupPertemuan", "onTugasAkhir", "onSidang", "doBeforeCompose", "doAfterCompose", "onEvent", "initCriteria", "render", "onAdd", "onSave", "loadMahasiswa", "saveDetail", "onSearchDefault", "tampilkanInfoMahasiswa"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/krs_mahasiswa.zul", "/pages/master/jenis_layanan_kepada_mahasiswa.zul", "/pages/master/mahasiswa_request_tugas_akhir.zul", "/pages/master/skripsi.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"PertemuanPunyaGrupPertemuan", "GrupPertemuan", "JenisLayananKepadaMahasiswa", "Jurusan", "Mahasiswa", "MahasiswaRequestTugasAkhir", "Skripsi", "Pertemuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

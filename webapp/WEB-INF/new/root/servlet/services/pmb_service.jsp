@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "Pmb");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/Pmb.java");
 request.setAttribute("nuiServiceMethods", new String[]{});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/WEB-INF/z/x/y/pmb.zul", "/WEB-INF/baru/pmb.jsp", "/WEB-INF/new/index.jsp"});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

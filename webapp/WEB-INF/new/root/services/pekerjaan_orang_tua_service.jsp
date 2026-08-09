@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PekerjaanOrangTuaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/PekerjaanOrangTuaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "initCriteria", "onSave", "checkNamaPekerjaanOrangTua", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PekerjaanOrangTua"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

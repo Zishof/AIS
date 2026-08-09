@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DisplayUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.ws.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/ws/util/DisplayUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"displayNoRegistrasiNotFound", "displayIpNotAllowed", "displayNimNotFound", "displayPembayaranTerlambat", "displayAlihProdi", "displayKodePembayaranTidakDitemukan", "displayReversalTidakDiaktifkan", "displayTunggakanMahasiswa", "displayKesalahanSistem", "displayNominalTagihanTidakMencukupi"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

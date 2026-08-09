@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "NilaiMahasiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/NilaiMahasiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onNilaiSp", "onAsisten", "onTampilKHS", "onTampilTranskripAkademik", "onTampilRekamanNilai", "doBeforeCompose", "doAfterCompose", "render", "onEvent", "onSearchDefaultKeDatabase", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/nilai_mahasiswa_sp.zul", "/pages/master/penilaian.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"MahasiswaJadiAsisten"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

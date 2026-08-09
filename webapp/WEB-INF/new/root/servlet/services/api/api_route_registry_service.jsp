@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ApiRouteRegistry");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/ApiRouteRegistry.java");
 request.setAttribute("nuiServiceMethods", new String[]{"createDefaultRoutes"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "SpiSampleDataHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.spi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/spi/SpiSampleDataHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"ensureSampleData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisAuditSPI", "ProfilRisikoSPI", "PenugasanAuditSPI", "KriteriaAuditSPI", "ChecklistAuditSPI", "SatuanKerja", "Tbmuser"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

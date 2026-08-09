@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "SimpleCalendarModel");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"setFilterText", "get", "add", "remove", "update", "setList"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

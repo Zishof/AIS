@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PostingDepositSiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/PostingDepositSiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onBatalkanPostingSemua", "onPostingSemua", "run", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisTabungan", "JenisPembayaran", "Jenjang", "Deposit", "GrupTransaksi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

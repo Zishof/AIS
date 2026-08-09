@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KurikulumAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/KurikulumAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onPilihTabKurikulum", "onKurikulum", "onRps", "onStatistik", "onPikobe", "onTampilKurikulum", "onTampilKurikulumMahasiswa", "onTampilRekapKurikulum", "onRekapPertemuanPerkuliahan", "doBeforeCompose", "doAfterCompose", "onEvent", "run", "prosesUlangTagihan", "render", "onAdd", "onSave", "onSaveCopy", "copyLampiran", "copySilabusDariPerkuliahan", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/rps_obe.zul", "/pages/master/obe/pikobe.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Program", "Jenjang", "Kurikulum", "KurikulumPunyaMatakuliah", "Perkuliahan", "Jurusan", "KurikulumPunyaMatakuliahDetail", "KurikulumPunyaMatakuliahPunyaItem", "DataPunyaArtikel", "LampiranLain", "PertemuanFileContent", "VideoPertemuan", "AudioPertemuan", "Pertemuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

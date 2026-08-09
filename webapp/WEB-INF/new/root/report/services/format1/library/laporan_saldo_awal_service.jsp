@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanSaldoAwal");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.library");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/library/LaporanSaldoAwal.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "onReport"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

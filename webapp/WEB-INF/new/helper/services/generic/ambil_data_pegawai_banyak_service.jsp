@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataPegawaiBanyak");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.generic");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/generic/AmbilDataPegawaiBanyak.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "setCabang", "setDepartemen", "setLevelJabatan", "display", "onSearchDefault", "setEventListener", "getEventListener"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KenaikanPangkat", "Pegawai", "StatusPegawai", "FormatItemGaji", "Cabang", "Departemen", "LevelJabatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

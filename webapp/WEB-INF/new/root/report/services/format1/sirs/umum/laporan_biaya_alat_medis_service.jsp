@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanBiayaAlatMedis");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.sirs.umum");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/sirs/umum/LaporanBiayaAlatMedis.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "onCetak"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisAlatMedis"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

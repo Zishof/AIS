@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LoginAlumniAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.maintenance");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/maintenance/LoginAlumniAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onLogin", "onAddExternal", "onEvent", "onSave", "onReset"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa", "FotoMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

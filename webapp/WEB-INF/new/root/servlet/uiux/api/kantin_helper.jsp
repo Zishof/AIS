@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"bayar", "draft_bayar", "topup", "tabungan", "sesiKasStatus", "sesiKasBuka", "sesiKasTutup", "pesananOnlineBaru", "topupSaldo", "gantiPasswordSendiri", "tambahAkunKasir", "pedagangList", "pedagangUbah", "produkSimpan", "produkEksporExcel", "produkImporExcelPreview", "produkImporExcelKomit", "produkNonaktifkanTakDiimpor", "stokHitungUlang", "produkImporExcel", "produkGridEksporExcel", "tokoProfilAmbil", "tokoProfilSimpan", "anggotaSimpan", "anggotaList", "anggotaSyncList", "anggotaTransaksiTerbaru", "jenisAnggotaList", "tipeAnggotaList", "diskonList", "diskonSimpan", "checkBayar", "daftarTokoBolehDiakses", "daftarTokoSaya", "pilihTokoAktif", "ebisnisRoleList", "ebisnisRoleMenuAmbil", "ebisnisRoleMenuSimpan", "soSesiList", "soSesiMulai"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Pembelian", "Toko", "CaraPembayaranKoperasi", "AnggotaKoperasi", "MejaKantin", "DraftPembelianAnggotaKoperasi", "KodePembayaranOnline", "Lokasi", "PembelianAnggotaKoperasi", "Produk", "Tbmuser", "Pedagang", "JenisProduk", "PemasokProduk", "SatuanProduk", "JenisAnggotaKoperasi", "AturanDiskon", "TipeAnggotaKoperasi", "Tbmrole", "SesiStokOpname"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

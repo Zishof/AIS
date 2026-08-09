@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "Window");
 request.setAttribute("nuiSourceImplements", "Serializable");
 request.setAttribute("nuiSourceMethods", new String[]{"display", "onEvent", "execute"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

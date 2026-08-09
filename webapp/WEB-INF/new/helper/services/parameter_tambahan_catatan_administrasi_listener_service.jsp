@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ParameterTambahanCatatanAdministr
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/ParameterTambahanCatatanAdministrasiListener.java");
 request.setAttribute("nuiServiceMethods", new String[]{"validate", "onSave", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ParameterTambahanCatatanAdministrasi", "ParameterTambahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

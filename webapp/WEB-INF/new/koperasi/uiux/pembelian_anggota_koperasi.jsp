@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"doAfterCompose", "onEvent", "render", "onDelete", "onAdd", "onSave", "onSearchDefault", "loadData", "loadTotal", "onCetakPembelianAnggotaKoperasi"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"PembelianAnggotaKoperasi", "Pembayaran", "CaraPembayaranKoperasi", "Pembelian", "Produk"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

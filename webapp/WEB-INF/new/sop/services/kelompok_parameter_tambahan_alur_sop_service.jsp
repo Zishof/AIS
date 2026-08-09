@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KelompokParameterTambahanAlurSopA
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sop");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sop/KelompokParameterTambahanAlurSopAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaKelompokParameterTambahanAlurSop"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KelompokParameterTambahanAlurSop"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

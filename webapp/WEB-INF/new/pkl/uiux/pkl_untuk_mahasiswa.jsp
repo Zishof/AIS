@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onPKL", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "initCriteria", "onSearchDefault", "daftar", "onAddExternal", "tampilkanPersyaratan"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/pkl/kelompok_pkl.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"Pkl", "ItemBiaya", "MahasiswaDaftarPkl", "MahasiswaDapatKelompokPkl", "MahasiswaPklPersyaratan", "PklPunyaPersyaratan", "CicilanPembayaran", "LampiranPklMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RiwayatStatusKepegawaianAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.employ");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/employ/RiwayatStatusKepegawaianAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Golongan", "JabatanStruktural", "JabatanFungsional", "Pegawai", "RiwayatStatusKepegawaian", "Diklat"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

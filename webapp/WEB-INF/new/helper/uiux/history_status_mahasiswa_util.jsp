@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"currentStatusSp", "currentStatus", "getHistoryStatusMahasiswa", "checkStatus", "singkronisasiStatusMahasiswa", "singkronisasiStatusMahasiswaTimer", "onEvent", "singkronisasiStatusMahasiswaNotTimer", "initDataStatusMahasiswa"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"HistoryStatusMahasiswa", "Detailperkuliahan", "KrsMahasiswa", "Mahasiswa", "StatusMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

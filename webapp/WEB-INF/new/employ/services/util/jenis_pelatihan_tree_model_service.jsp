@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JenisPelatihanTreeModel");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.employ.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/employ/util/JenisPelatihanTreeModel.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getChildren", "generateAllChildren", "getChild", "getChildCount", "deleteChilds", "isLeaf", "getParentCount", "getParentSet", "getChildsSet", "getIndexOfChild"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisPelatihan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

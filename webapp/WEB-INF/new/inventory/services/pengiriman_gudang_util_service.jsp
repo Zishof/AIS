@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PengirimanGudangUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.inventory");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/inventory/PengirimanGudangUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"kirim", "terima", "detailPengiriman", "daftarUntukLokasiTujuan", "daftarUntukLokasiAsal"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Lokasi", "Produk", "PengirimanGudang", "PengirimanGudangDetail", "JenisLokasi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onMenu", "doBeforeCompose", "doAfterCompose", "onAdd", "onEvent", "onSave", "checkId", "checkKodeMenu", "onReloadTree", "render", "openChilds", "closeChilds"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/menu.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"Menu"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

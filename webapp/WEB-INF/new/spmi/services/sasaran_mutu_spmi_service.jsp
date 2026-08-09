@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "SasaranMutuSPMIAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.spmi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/spmi/SasaranMutuSPMIAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"openForHasilSPMI", "onEvent", "buildRingkasanHtml"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"IndikatorSPMI"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

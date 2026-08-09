@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardKoperasiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.koperasi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/koperasi/DashboardKoperasiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/koperasi/dashboard_simpan_pinjam.zul", "/pages/master/koperasi/laporan_simpan_pinjam.zul", "/pages/master/koperasi/pembagian_shu.zul", "/pages/master/koperasi/laporan_keuangan_koperasi.zul", "/pages/master/koperasi/anggaran_kas_koperasi.zul", "/pages/master/koperasi/modal_penyertaan_koperasi.zul", "/pages/master/koperasi/deposito_aro_koperasi.zul", "/pages/master/koperasi/dashboard_kantin.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

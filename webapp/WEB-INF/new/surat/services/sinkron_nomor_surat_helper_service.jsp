@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "SinkronNomorSuratHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.surat");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/surat/SinkronNomorSuratHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"buka", "onEvent", "sinkronkan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KlasifikasiSuratKeluar", "SuratKeluar"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

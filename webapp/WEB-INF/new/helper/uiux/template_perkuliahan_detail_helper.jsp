@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"display", "onEvent", "checkKeberadaanPerkuliahan"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/template_perkuliahan/template_perkuliahan_detail.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"TemplatePerkuliahanDetail", "Perkuliahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

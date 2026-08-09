@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "GajiPegawaiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.payroll");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/payroll/GajiPegawaiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onManajemenJenis", "onManajemenParameter", "doAfterCompose", "onEvent", "onResetTree", "run", "render", "informasiParameter", "informasiShift", "createMain", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/payroll/jenis_gaji_pegawai.zul", "/pages/master/payroll/parameter_tambahan_gaji_pegawai.zul", "/pages/master/payroll/item_gaji_pegawai.zul?pegawai="});
 request.setAttribute("nuiServiceEntities", new String[]{"Cabang", "Departemen", "LevelJabatan", "StatusPegawai", "Pegawai", "FormatItemGaji", "ItemGajiPegawai", "Tbmuser", "JenisGajiPegawai", "Bank", "PtkpPegawai", "Pendidikan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

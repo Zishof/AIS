@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "OpsiSuratMasukAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.surat");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/surat/OpsiSuratMasukAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initCriteria", "onEvent", "onSave", "checkNamaOpsiSuratMasuk", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"OpsiSuratMasuk"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

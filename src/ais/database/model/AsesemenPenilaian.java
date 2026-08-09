@@ -270,19 +270,19 @@ public class AsesemenPenilaian extends GeneralValueObject {
 				masaTugas = getBukuBahanAjar().getMasaPenugasan();
 			} else if (getPengajuanPenelitianDanPengabdian() != null) {
 				masaTugas = getPengajuanPenelitianDanPengabdian().getMasaPenugasan();
-			} else if (getSpesifikasi().equals(PenilaianAsesor.PENGAJARAN)) {
+			} else if (PenilaianAsesor.PENGAJARAN.equals(getSpesifikasi())) {
 				masaTugas = "1 semester";
-			} else if (getSpesifikasi().equals(PenilaianAsesor.PEMBIMBING_TA)) {
+			} else if (PenilaianAsesor.PEMBIMBING_TA.equals(getSpesifikasi())) {
 				masaTugas = "1 semester";
-			} else if (getSpesifikasi().equals(PenilaianAsesor.PENGUJI_PROPOSAL_TA)) {
+			} else if (PenilaianAsesor.PENGUJI_PROPOSAL_TA.equals(getSpesifikasi())) {
 				masaTugas = "1 hari";
-			} else if (getSpesifikasi().equals(PenilaianAsesor.PENGUJI_TA)) {
+			} else if (PenilaianAsesor.PENGUJI_TA.equals(getSpesifikasi())) {
 				masaTugas = "1 hari";
-			} else if (getSpesifikasi().equals(PenilaianAsesor.PEMBIMBING_KKN)) {
+			} else if (PenilaianAsesor.PEMBIMBING_KKN.equals(getSpesifikasi())) {
 				masaTugas = "1 semester";
-			} else if (getSpesifikasi().equals(PenilaianAsesor.PEMBIMBING_PKL)) {
+			} else if (PenilaianAsesor.PEMBIMBING_PKL.equals(getSpesifikasi())) {
 				masaTugas = "1 semester";
-			} else if (getSpesifikasi().equals(PenilaianAsesor.PEMBIMBING_AKADEMIK)) {
+			} else if (PenilaianAsesor.PEMBIMBING_AKADEMIK.equals(getSpesifikasi())) {
 				masaTugas = "1 semester";
 			}
 		}

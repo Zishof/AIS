@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataSasaranBanbox");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/helper/AmbilDataSasaranBanbox.java");
 request.setAttribute("nuiServiceMethods", new String[]{"render", "onEvent", "display", "onSearchDefault", "setEventListener", "getEventListener"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Sasaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

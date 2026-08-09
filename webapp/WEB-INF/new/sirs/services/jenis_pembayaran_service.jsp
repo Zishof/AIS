@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JenisPembayaranAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/JenisPembayaranAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initCriteria", "onEvent", "onSave", "checkNamaJenisPembayaran", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisPembayaranMedis"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

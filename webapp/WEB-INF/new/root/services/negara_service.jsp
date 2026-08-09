@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "NegaraAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/NegaraAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "initCriteria", "onAddExternal", "onSave", "checkKodeNegara", "checkNamaNegara", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Negara"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

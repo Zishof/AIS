@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "NisGenerator");
 request.setAttribute("nuiSourceMethods", new String[]{"generateNis"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Siswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

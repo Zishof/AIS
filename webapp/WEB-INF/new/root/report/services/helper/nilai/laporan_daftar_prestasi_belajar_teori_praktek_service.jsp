@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanDaftarPrestasiBelajarTeori
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.helper.nilai");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/helper/nilai/LaporanDaftarPrestasiBelajarTeoriPraktekWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Perkuliahan", "Detailperkuliahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

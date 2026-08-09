@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PendaftarPklHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/PendaftarPklHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"render", "onEvent", "initCriteria", "loadData", "cetakDataCustomButton", "run", "displayPrasyaratPkl", "terimaPkl"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"MahasiswaDaftarPkl", "PklPunyaPersyaratan", "MahasiswaPklPersyaratan", "LampiranPklMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

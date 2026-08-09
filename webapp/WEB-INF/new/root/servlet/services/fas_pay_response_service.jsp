@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "FasPayResponse");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/FasPayResponse.java");
 request.setAttribute("nuiServiceMethods", new String[]{"createKegiatan", "prosesResponse", "prosesTransaksi"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"FaspayRequest", "KegiatanTemporary", "Kegiatan", "CicilanPembayaran", "LogPembayaran", "FaspayRequestDetail", "FaspayResponse", "JenisKegiatan", "Mahasiswa", "BiodataMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

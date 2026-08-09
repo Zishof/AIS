@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ParameterTambahanPerbaikanAssetAc
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.asset");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/asset/ParameterTambahanPerbaikanAssetAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onResetParameter", "onManajemenKelompok", "onManajemenParameter", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/asset/kelompok_parameter_tambahan_perbaikan_asset.zul", "/pages/master/parameter_tambahan.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"KelompokParameterTambahanPerbaikanAsset", "ParameterTambahanPerbaikanAsset", "ParameterTambahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

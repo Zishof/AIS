@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "NotifikasiMemberKantinAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.koperasi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/koperasi/NotifikasiMemberKantinAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onRefresh"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

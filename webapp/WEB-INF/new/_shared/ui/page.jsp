@@ -3,6 +3,12 @@
 <%@ page import="java.util.*" %>
 <%@ page import="ais.common.Common" %>
 <%@ page import="ais.database.model.Tbmuser" %>
+<%@ page import="ais.action.master.generic.v2.GenericCrudDefinition" %>
+<%@ page import="ais.action.master.generic.v2.GenericCrudDefinitionRegistry" %>
+<%@ page import="ais.common.newui.NewUiMenuAccessService" %>
+<%@ page import="ais.common.newui.NewUiMenuNode" %>
+<%@ page import="ais.common.newui.NewUiPermission" %>
+<%@ page import="ais.common.newui.NewUiRouteGuard" %>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%!
 private String nuiH(Object value){if(value==null)return "";String s=String.valueOf(value);return s.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&#39;");}
@@ -14,13 +20,29 @@ private String nuiMetricLabel(String type,int index){
 }
 %>
 <%
-String module=String.valueOf(request.getAttribute("nuiModule"));String moduleLabel=String.valueOf(request.getAttribute("nuiModuleLabel"));String pageName=String.valueOf(request.getAttribute("nuiPage"));String title=String.valueOf(request.getAttribute("nuiPageTitle"));String type=String.valueOf(request.getAttribute("nuiPageType"));String desc=String.valueOf(request.getAttribute("nuiPageDescription"));String sourceClass=String.valueOf(request.getAttribute("nuiSourceClass"));String sourcePackage=String.valueOf(request.getAttribute("nuiSourcePackage"));String sourcePath=String.valueOf(request.getAttribute("nuiSourcePath"));String sourceKind=String.valueOf(request.getAttribute("nuiSourceKind"));String sourceExtends=String.valueOf(request.getAttribute("nuiSourceExtends"));String sourceImplements=String.valueOf(request.getAttribute("nuiSourceImplements"));String[] methods=nuiArr(request.getAttribute("nuiSourceMethods"));String[] legacy=nuiArr(request.getAttribute("nuiLegacyRefs"));String[] entities=nuiArr(request.getAttribute("nuiEntityCandidates"));
-String endpoint=request.getContextPath()+"/new?service=1&module="+URLEncoder.encode(module,"UTF-8")+"&page="+URLEncoder.encode(pageName,"UTF-8");
+String module=String.valueOf(request.getAttribute("nuiModule"));String moduleLabel=String.valueOf(request.getAttribute("nuiModuleLabel"));String pageName=String.valueOf(request.getAttribute("nuiPage"));String title=String.valueOf(request.getAttribute("nuiPageTitle"));String type=String.valueOf(request.getAttribute("nuiPageType"));String desc=String.valueOf(request.getAttribute("nuiPageDescription"));String sourceClass=String.valueOf(request.getAttribute("nuiSourceClass"));String sourcePackage=String.valueOf(request.getAttribute("nuiSourcePackage"));String sourcePath=String.valueOf(request.getAttribute("nuiSourcePath"));String sourceKind=String.valueOf(request.getAttribute("nuiSourceKind"));String sourceExtends=String.valueOf(request.getAttribute("nuiSourceExtends"));String sourceImplements=String.valueOf(request.getAttribute("nuiSourceImplements"));String[] methods=nuiArr(request.getAttribute("nuiSourceMethods"));String[] entities=nuiArr(request.getAttribute("nuiEntityCandidates"));
+String endpoint=request.getAttribute("nuiServiceEndpointOverride")==null
+    ?request.getContextPath()+"/new?service=1&module="+URLEncoder.encode(module,"UTF-8")+"&page="+URLEncoder.encode(pageName,"UTF-8")
+    :String.valueOf(request.getAttribute("nuiServiceEndpointOverride"));
+Long nuiCurrentMenuId=(Long)request.getAttribute("nui_current_menu_id");
+if(nuiCurrentMenuId!=null)endpoint+="&menuId="+nuiCurrentMenuId;
+List<NewUiMenuNode> nuiBreadcrumb=(List<NewUiMenuNode>)request.getAttribute("nui_breadcrumb");if(nuiBreadcrumb==null)nuiBreadcrumb=new ArrayList<NewUiMenuNode>();
+NewUiPermission nuiPermission=NewUiRouteGuard.permissionFor(request,module,pageName);
+if(nuiPermission.isCanRead()){
+    GenericCrudDefinition autoCrud=GenericCrudDefinitionRegistry.tryAutoRegister(module,pageName,entities,sourcePackage,sourceClass,methods);
+    if(autoCrud!=null){
+        request.setAttribute("genericCrudEntityKey",autoCrud.getEntityKey());
+        request.setAttribute("genericCrudModuleKey",module);
+        request.setAttribute("genericCrudPageKey",pageName);
+        request.getRequestDispatcher("/WEB-INF/new/_shared/generic-crud/ui/crud_page.jsp").include(request,response);
+        return;
+    }
+}
 %>
 <section class="nui-page" data-service-url="<%=nuiAttr(endpoint)%>">
   <header class="nui-page-head">
-    <div><div class="nui-breadcrumb">Beranda / <%=nuiH(moduleLabel)%> / <%=nuiH(title)%></div><h1 class="nui-page-title"><%=nuiH(title)%></h1><p class="nui-page-desc"><%=nuiH(desc)%></p></div>
-    <div class="nui-head-actions"><button class="nui-btn" data-nui-action data-message="Filter lanjutan siap dihubungkan.">⚲ Filter</button><button class="nui-btn" data-nui-action data-message="Ekspor akan memakai Java report/export service.">⇩ Ekspor</button><button class="nui-btn nui-btn-primary" data-nui-action data-message="Form tambah/edit siap dihubungkan ke Java service layer.">＋ Tambah Data</button></div>
+    <div><div class="nui-breadcrumb">Beranda<%if(nuiBreadcrumb.isEmpty()){%> / <%=nuiH(moduleLabel)%> / <%=nuiH(title)%><%}else{for(int bi=0;bi<nuiBreadcrumb.size();bi++){%> / <%=nuiH(nuiBreadcrumb.get(bi).getLabel())%><%}}%></div><h1 class="nui-page-title"><%=nuiH(title)%></h1><p class="nui-page-desc"><%=nuiH(desc)%></p></div>
+    <div class="nui-head-actions"><%if(nuiPermission.isCanRead()){%><button class="nui-btn" data-nui-action data-message="Filter lanjutan siap dihubungkan.">⚲ Filter</button><button class="nui-btn" data-nui-action data-message="Ekspor akan memakai Java report/export service.">⇩ Ekspor</button><%}if(nuiPermission.isCanCreate()){%><button class="nui-btn nui-btn-primary" data-nui-action data-message="Form tambah siap dihubungkan ke Java service layer.">＋ Tambah Data</button><%}%></div>
   </header>
   <div class="nui-grid nui-grid-4">
   <% for(int i=0;i<4;i++){ %><article class="nui-card nui-card-pad"><div class="nui-stat"><div class="nui-stat-icon"><%=i==0?"◉":i==1?"✓":i==2?"◷":"!"%></div><div><div><%=nuiH(nuiMetricLabel(type,i))%></div><div class="nui-stat-value">--</div><div class="nui-stat-meta">Memuat dari service adapter</div></div></div></article><% } %>
@@ -46,5 +68,5 @@ String endpoint=request.getContextPath()+"/new?service=1&module="+URLEncoder.enc
 <% } else { %>
   <div class="nui-split"><article class="nui-card"><div class="nui-toolbar"><input class="nui-input" placeholder="Cari data..."><span class="nui-chip">Status: Semua</span><button class="nui-btn" data-nui-action>Filter Lanjutan</button></div><div class="nui-table-wrap"><table class="nui-table"><thead><tr><th><input type="checkbox"></th><th>Kode</th><th>Nama / Deskripsi</th><th>Kategori</th><th>Status</th><th>Terakhir Diubah</th><th>Aksi</th></tr></thead><tbody><tr><td colspan="7"><div class="nui-empty"><div class="nui-empty-icon">☰</div>Belum ada data. Implementasikan <code>action=list</code> pada adapter Java.</div></td></tr></tbody></table></div></article><aside class="nui-card nui-panel-side"><div class="nui-card-title">Detail Data <span class="nui-status info">Pilih baris</span></div><div class="nui-detail-row"><span>Kode</span><strong>--</strong></div><div class="nui-detail-row"><span>Nama</span><strong>--</strong></div><div class="nui-detail-row"><span>Status</span><strong>--</strong></div><div class="nui-detail-row"><span>Audit</span><strong>--</strong></div></aside></div>
 <% } %>
-  <details class="nui-card nui-source"><summary>Pemetaan sumber & status integrasi</summary><div class="nui-card-pad"><div class="nui-grid nui-grid-2"><div><div class="nui-detail-row"><span>Java class</span><strong><%=nuiH(sourcePackage)%>.<%=nuiH(sourceClass)%></strong></div><div class="nui-detail-row"><span>Source</span><strong><%=nuiH(sourcePath)%></strong></div><div class="nui-detail-row"><span>Tipe</span><strong><%=nuiH(sourceKind)%></strong></div><div class="nui-detail-row"><span>Extends</span><strong><%=nuiH(sourceExtends)%></strong></div><div class="nui-detail-row"><span>Implements</span><strong><%=nuiH(sourceImplements)%></strong></div></div><div><div class="nui-card-title">Metode publik terdeteksi</div><div class="nui-methods"><% if(methods.length==0){%><span class="nui-page-desc">Tidak ada metode publik terdeteksi.</span><%} for(int i=0;i<methods.length&&i<24;i++){%><span class="nui-method"><%=nuiH(methods[i])%>()</span><%}%></div></div></div><% if(legacy.length>0){%><div style="margin-top:14px"><div class="nui-card-title">Referensi tampilan lama</div><div class="nui-code"><%for(int i=0;i<legacy.length;i++){%><div><%=nuiH(legacy[i])%></div><%}%></div></div><%}%><% if(entities.length>0){%><div style="margin-top:14px"><div class="nui-card-title">Kandidat entitas</div><div class="nui-methods"><%for(int i=0;i<entities.length;i++){%><span class="nui-method"><%=nuiH(entities[i])%></span><%}%></div></div><%}%></div></details>
+  <details class="nui-card nui-source"><summary>Pemetaan sumber & status integrasi</summary><div class="nui-card-pad"><div class="nui-grid nui-grid-2"><div><div class="nui-detail-row"><span>Java class</span><strong><%=nuiH(sourcePackage)%>.<%=nuiH(sourceClass)%></strong></div><div class="nui-detail-row"><span>Source</span><strong><%=nuiH(sourcePath)%></strong></div><div class="nui-detail-row"><span>Tipe</span><strong><%=nuiH(sourceKind)%></strong></div><div class="nui-detail-row"><span>Extends</span><strong><%=nuiH(sourceExtends)%></strong></div><div class="nui-detail-row"><span>Implements</span><strong><%=nuiH(sourceImplements)%></strong></div></div><div><div class="nui-card-title">Metode publik terdeteksi</div><div class="nui-methods"><% if(methods.length==0){%><span class="nui-page-desc">Tidak ada metode publik terdeteksi.</span><%} for(int i=0;i<methods.length&&i<24;i++){%><span class="nui-method"><%=nuiH(methods[i])%>()</span><%}%></div></div></div><% if(entities.length>0){%><div style="margin-top:14px"><div class="nui-card-title">Kandidat entitas</div><div class="nui-methods"><%for(int i=0;i<entities.length;i++){%><span class="nui-method"><%=nuiH(entities[i])%></span><%}%></div></div><%}%></div></details>
 </section>

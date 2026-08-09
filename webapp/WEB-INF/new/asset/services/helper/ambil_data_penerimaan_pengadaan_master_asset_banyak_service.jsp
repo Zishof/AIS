@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataPenerimaanPengadaanMaste
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.asset.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/asset/helper/AmbilDataPenerimaanPengadaanMasterAssetBanyak.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "display", "initCriteria", "onSearchDefault", "setEventListener", "getEventListener"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PenerimaanPengadaanMasterAsset"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

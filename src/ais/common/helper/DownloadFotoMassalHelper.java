@@ -86,6 +86,17 @@ public final class DownloadFotoMassalHelper {
 				FotoMahasiswa.class, "Foto_Mahasiswa.zip");
 	}
 
+	/**
+	 * Varian headless untuk New UI. Daftar ID berasal dari scope adapter Mahasiswa,
+	 * sehingga ZIP tidak dapat membawa foto milik perguruan tinggi lain.
+	 */
+	public static File createFotoMahasiswaZip(List<Long> mahasiswaIds) throws Exception {
+		List<Object[]> daftar = daftarFotoMahasiswa(mahasiswaIds);
+		AtomicInteger diproses = new AtomicInteger(0);
+		AtomicInteger berhasil = new AtomicInteger(0);
+		return bacaKeZip(daftar, FotoMahasiswa.class, diproses, berhasil);
+	}
+
 	/** Unduh SEMUA foto siswa (nama berkas = No. Induk/NIS). */
 	public static void downloadFotoSiswaMassal() throws Exception {
 		prosesDownload(daftarFoto("select f.id, coalesce(s.nomorInduk, s.nim), f.nama from "
@@ -144,11 +155,24 @@ public final class DownloadFotoMassalHelper {
 	 * ekstensi dari namaAsli (default {@code .jpg}). BLOB TIDAK diambil di sini (dibaca paralel nanti).
 	 */
 	private static List<Object[]> daftarFoto(String hql) {
+		return daftarFoto(hql, null);
+	}
+
+	private static List<Object[]> daftarFotoMahasiswa(List<Long> mahasiswaIds) {
+		if (mahasiswaIds == null || mahasiswaIds.isEmpty()) return new ArrayList<Object[]>();
+		return daftarFoto("select f.id, m.nim, f.nama from ais.database.model.file.FotoMahasiswa f, "
+				+ "ais.database.model.Mahasiswa m where f.mahasiswa = m.id and m.id in (:scopeIds) "
+				+ "and m.nim is not null and m.nim <> ''", mahasiswaIds);
+	}
+
+	private static List<Object[]> daftarFoto(String hql, List<Long> mahasiswaIds) {
 		Session s = null;
 		List<Object[]> hasil = new ArrayList<Object[]>();
 		try {
 			s = HibernateUtil.getSessionFactory().openSession();
-			List<?> rows = s.createQuery(hql).list();
+			org.hibernate.Query query = s.createQuery(hql);
+			if (mahasiswaIds != null) query.setParameterList("scopeIds", mahasiswaIds);
+			List<?> rows = query.list();
 			for (Object o : rows) {
 				Object[] r = (Object[]) o;
 				if (r == null || r[0] == null || r[1] == null) {
@@ -184,6 +208,12 @@ public final class DownloadFotoMassalHelper {
 	private static File bacaKeZip(final List<Object[]> daftar, final Class<?> fotoClass, final AtomicInteger diproses,
 			final AtomicInteger berhasil) throws Exception {
 		final int total = daftar.size();
+		if (total == 0) {
+			File empty = File.createTempFile("foto_massal_", ".zip");
+			ZipOutputStream zip = new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(empty)));
+			zip.close();
+			return empty;
+		}
 		final int threads = Math.min(MAKS_THREAD, Math.max(1, total));
 		final ExecutorService pool = Executors.newFixedThreadPool(threads);
 		final CompletionService<Object[]> cs = new ExecutorCompletionService<Object[]>(pool);

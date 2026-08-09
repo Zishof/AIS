@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "OnSave");
 request.setAttribute("nuiSourceMethods", new String[]{"doAfterCompose", "onEvent", "onUploadBiaya", "onDownloadBiaya", "render", "onCetakBiayaAlatMedis", "onAdd", "checkNamaAlatMedis", "onSave", "onSearchDefault", "loadData"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"JenisAlatMedis", "BiayaAlatMedisPerKelas", "AlatMedis", "KelasPerawatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

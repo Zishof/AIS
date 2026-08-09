@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LiveStreamingPlayerWindow");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.generic");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/generic/LiveStreamingPlayerWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{"simpanVideo", "onEvent", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/component/live/live.jsp?app=", "/component/jw/vod.jsp?app="});
 request.setAttribute("nuiServiceEntities", new String[]{"VideoPertemuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

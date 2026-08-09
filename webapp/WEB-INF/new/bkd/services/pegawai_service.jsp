@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PegawaiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.bkd");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/bkd/PegawaiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onLoadData", "render", "onEvent", "onSearchDefault", "doBeforeCompose", "doAfterCompose", "initCriteria"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/bkd/asesor_memberikan_penilaian_rinci.zul?pegawai=", "/pages/master/bkd/kinerja.zul?pegawai="});
 request.setAttribute("nuiServiceEntities", new String[]{"AsesorPegawai", "StatusPegawai", "SatuanKerja", "AsesorPenunjangKinerjaDosen", "Asesor", "Pegawai", "Tbmuser", "PenilaianAsesor", "GajiPokok"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

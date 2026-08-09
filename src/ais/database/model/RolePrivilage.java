@@ -64,6 +64,18 @@ public class RolePrivilage extends GeneralValueObject {
 		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
 	}
 
+	@javax.persistence.PostPersist
+	@javax.persistence.PostUpdate
+	@javax.persistence.PostRemove
+	protected void invalidateNewUiPrivilegeCache() {
+		try {
+			String roleId = role == null ? null : role.getRoleId();
+			ais.common.newui.NewUiCacheInvalidator.invalidateRole(roleId);
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "RolePrivilage.invalidateNewUiPrivilegeCache");
+		}
+	}
+
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
 	public void setTanggal_dirubah(Date tanggal_dirubah) {

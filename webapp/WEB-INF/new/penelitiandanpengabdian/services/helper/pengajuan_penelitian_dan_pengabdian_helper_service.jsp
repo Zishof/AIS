@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PengajuanPenelitianDanPengabdianH
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.penelitiandanpengabdian.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/penelitiandanpengabdian/helper/PengajuanPenelitianDanPengabdianHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"form", "onEvent", "onSave", "istilah", "ambil", "ambilClass", "setPersetujuan", "cetakData", "getDspacePengajuanPenelitianDanPengabdian", "getDspaceTipePengajuanPenelitianDanPengabdianTahun", "getDspaceTipePengajuanPenelitianDanPengabdian", "getDspace", "displayPengajuan", "run", "initCriteria", "initCriteriaSebagaiAnggota", "loadDataPengajuan", "loadDataPengajuanAnggota", "displayRow", "render", "setReadonly", "getReadonly", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PenelitianDanPengabdian", "PengajuanPenelitianDanPengabdian", "SumberDanaPenelitianDanPengabdian", "Tbmuser", "Mahasiswa", "JenisPenelitianDanPengabdian", "AnggotaPengajuanPenelitianDanPengabdian", "TipePenelitianDanPengabdian", "PengajuanTahapanPelaporanPenelitianDanPengabdian", "FilePengajuanPenelitianDanPengabdian", "PenilaianAsesor"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

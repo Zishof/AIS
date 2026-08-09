@@ -1578,6 +1578,13 @@ public class GradingHelper {
 														MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
 												return;
 											}
+											if (fn.getKunci() != null) {
+												MyMessageboxConfig.show(
+														"Kolom nilai ini telah dikunci dan tidak dapat disinkronkan",
+														"Peringatan", MyMessageboxConfig.OK,
+														MyMessageboxConfig.EXCLAMATION);
+												return;
+											}
 
 											Session session = null;
 											Transaction tx = null;

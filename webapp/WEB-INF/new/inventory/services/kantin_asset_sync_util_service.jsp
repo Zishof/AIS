@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KantinAssetSyncUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.inventory");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/inventory/KantinAssetSyncUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"konsumsiPenjualanKeAset", "syncPengadaanDariBast"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KodeTransaksi", "Produk"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

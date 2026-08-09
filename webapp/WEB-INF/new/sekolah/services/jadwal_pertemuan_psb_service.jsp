@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JadwalPertemuanPSBAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/JadwalPertemuanPSBAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "initCriteria", "render", "onAdd", "init", "onSave", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/sekolah/calon_siswa.zul?jadwalPertemuanPSB="});
 request.setAttribute("nuiServiceEntities", new String[]{"GelombangPendaftaranPsb", "CalonSiswa", "JadwalPertemuanPSB"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

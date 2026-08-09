@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KoreksiItemAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/KoreksiItemAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onCetak", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KoreksiItem", "KoreksiItemDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

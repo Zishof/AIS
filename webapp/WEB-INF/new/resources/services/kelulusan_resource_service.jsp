@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KelulusanResource");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.resources");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/resources/KelulusanResource.java");
 request.setAttribute("nuiServiceMethods", new String[]{"pembayaranMahasiswa"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Skripsi", "LampiranLain"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

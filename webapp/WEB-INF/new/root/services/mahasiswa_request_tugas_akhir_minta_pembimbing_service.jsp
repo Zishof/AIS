@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MahasiswaRequestTugasAkhirMintaPe
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/MahasiswaRequestTugasAkhirMintaPembimbingAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaMahasiswaRequestTugasAkhirMintaPembimbing"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"MahasiswaRequestTugasAkhirMintaPembimbing"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

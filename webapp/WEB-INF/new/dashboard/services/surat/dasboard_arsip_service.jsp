@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DasboardArsip");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.surat");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/surat/DasboardArsip.java");
 request.setAttribute("nuiServiceMethods", new String[]{});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

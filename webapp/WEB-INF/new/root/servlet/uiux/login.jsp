@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "HttpServlet");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"getWriter", "sendRedirect", "sendError"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/WEB-INF/baru/modul/kantin/member/form_registrasi_calon.jsp", "/WEB-INF/baru/modul/kantin/index.jsp", "/WEB-INF/baru/login2.jsp", "/WEB-INF/baru/login3.jsp", "/WEB-INF/baru/login5.jsp", "/WEB-INF/j/ecampus.jsp", "/WEB-INF/j/login_ecampus.jsp", "/WEB-INF/j/eschool.jsp", "/WEB-INF/j/login.jsp", "/WEB-INF/j/index.jsp"});
 request.setAttribute("nuiEntityCandidates", new String[]{"Mahasiswa", "Siswa", "Penduduk", "Tbmuser"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

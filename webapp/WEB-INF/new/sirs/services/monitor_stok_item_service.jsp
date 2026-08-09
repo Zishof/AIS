@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MonitorStokItemAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/MonitorStokItemAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "render", "onCetak", "onSearchDefault", "loadTotal"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Lokasi", "SatuanItem", "JenisItem", "ItemMedis"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

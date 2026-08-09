@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TimelineAnggaranAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/TimelineAnggaranAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "display"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Workspace"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

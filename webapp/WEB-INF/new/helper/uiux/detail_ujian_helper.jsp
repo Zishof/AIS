@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "DataLoader");
 request.setAttribute("nuiSourceMethods", new String[]{"display", "onEvent", "render", "set", "selesai", "tampilSoalDanJawaban", "doDownload", "doUpload", "loadData"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"PertemuanPunyaUjian", "CapaianPembelajaranLulusan", "BahanKajian", "UjianPunyaSoal", "BankSoalDetail", "BankSoal", "HasilUjianMahasiswaDetail", "PenjelasanBankSoal"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

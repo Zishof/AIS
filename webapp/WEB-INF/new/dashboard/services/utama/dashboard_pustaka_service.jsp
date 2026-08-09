@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardPustaka");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.utama");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/utama/DashboardPustaka.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "compare"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Penerbit", "DdcItem", "Item", "ItemPunyaBarcode", "PeminjamanPengadaanItem", "PeminjamanPengadaanItemDetail", "KembaliPengadaanItem", "KunjunganAnggota", "PemesananPengadaanItem", "KembaliPengadaanItemDetail", "AnggotaYangDiblokir", "Perpustakaan", "TipeItem"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -28,6 +28,21 @@ agar penggolongan tepat. Persiapan ini memastikan daftar jenis lengkap dan baku 
 standar dapat dikaitkan dengan jenis yang tepat tanpa kebingungan maupun tumpang tindih kategori.
 </p>
 
+<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">Download dan Upload SPMI Global</h3>
+<p style="color:#334155;line-height:1.6;">
+Pada sisi kanan baris tab Setup SPMI tersedia tombol <b>Download SPMI Global</b> dan
+<b>Upload SPMI Global</b>. Download menghasilkan satu file XLSX yang memuat seluruh hierarki master:
+Jenis SPMI, Standar, Butir Mutu, Indikator, serta Daftar Tilik/Skenario/Bukti. Hubungan antarsheet memakai
+Kode Referensi workbook sehingga format dapat dipindahkan ke kampus lain tanpa bergantung pada ID database.
+</p>
+<p style="color:#334155;line-height:1.6;">
+Saat upload, isi workbook diperiksa dari induk ke anak. Kode Referensi harus unik, referensi induk harus
+tersedia, No Urut harus berupa bilangan bulat, dan kolom Aktif hanya menerima Ya atau Tidak. Sistem melakukan
+tambah/perbarui (upsert); data yang tidak tercantum dalam file tidak dihapus. Seluruh perubahan disimpan
+dalam satu transaksi sehingga satu kesalahan membatalkan seluruh upload. Tombol upload hanya tersedia bagi
+pengguna yang memiliki hak memperbarui master SPMI.
+</p>
+
 <h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">3. Memahami Informasi Jenis</h3>
 <p style="color:#334155;line-height:1.6;">
 Tiap jenis SPMI umumnya mencakup nama jenis, keterangan cakupannya, serta penanda terkait. Memahami informasi

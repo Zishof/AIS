@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PertemuanComparator");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/util/PertemuanComparator.java");
 request.setAttribute("nuiServiceMethods", new String[]{"compare"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

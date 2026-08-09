@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "SifatSuratAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.surat");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/surat/SifatSuratAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initCriteria", "onEvent", "onSave", "checkNamaSifatSurat", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"SifatSurat"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

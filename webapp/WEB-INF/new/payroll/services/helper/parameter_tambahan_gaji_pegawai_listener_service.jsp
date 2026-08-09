@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ParameterTambahanGajiPegawaiListe
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.payroll.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/payroll/helper/ParameterTambahanGajiPegawaiListener.java");
 request.setAttribute("nuiServiceMethods", new String[]{"validate", "onSave", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ParameterTambahanGajiPegawai", "ParameterTambahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

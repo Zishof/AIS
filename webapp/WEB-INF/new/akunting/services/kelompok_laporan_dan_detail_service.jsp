@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KelompokLaporanDanDetailAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.akunting");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/akunting/KelompokLaporanDanDetailAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onJenisLaporan", "doBeforeCompose", "doAfterCompose", "initCriteria", "onEvent", "uploadDataAkun", "run", "loadData", "render", "init", "onSave", "onSearchDefault", "onAddKelompokLaporan", "initCriteriaDetail"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/akunting/jenis_laporan.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisLaporan", "MasterGrupLaporan", "KelompokLaporanPunyaAkun", "KelompokLaporan", "Akun"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

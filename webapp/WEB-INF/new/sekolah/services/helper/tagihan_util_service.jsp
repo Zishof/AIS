@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TagihanUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/helper/TagihanUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getBulanMulai", "kerjakan", "doGenerateTagihanBulanan", "doGenerateTagihanTahunan", "doGenerateTagihanInsendentil", "doSinkronkanTagihanSiswa", "sinkronkanSatuSiswa", "resetNominalBiayaDanTagihan", "resetSemuaTagihanDalamPB", "ambilNominalBiaya", "getTagihan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Tagihan", "NominalBiaya", "PengaturanBiayaItemBiaya", "PembayaranSiswaDetail", "Siswa", "PengaturanBiaya"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

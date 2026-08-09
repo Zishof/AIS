@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onKKN", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "initCriteria", "onSearchDefault", "daftar", "onAddExternal", "tampilkanPersyaratan"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/kkn/kelompok_kkn.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"Kkn", "ItemBiaya", "MahasiswaDaftarKkn", "MahasiswaDapatKelompokKkn", "MahasiswaKknPersyaratan", "KknPunyaPersyaratan", "CicilanPembayaran", "LampiranKknMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

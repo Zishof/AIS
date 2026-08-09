@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KotaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/KotaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "initCriteria", "onAddExternal", "onSave", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Kota", "Propinsi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

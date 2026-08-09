@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PenjaminanMutuAnalisisHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/PenjaminanMutuAnalisisHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"render", "onEvent", "getStatus"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PertemuanPunyaUjian", "Perkuliahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

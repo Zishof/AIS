@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JenisPenyakitAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/JenisPenyakitAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initCriteria", "onEvent", "onSave", "checkNamaJenisPenyakit", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisPenyakit"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

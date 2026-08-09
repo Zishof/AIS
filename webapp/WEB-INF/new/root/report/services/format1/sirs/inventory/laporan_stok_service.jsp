@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanStokWindow");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.sirs.inventory");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/sirs/inventory/LaporanStokWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "onCetakStatusPasien"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Lokasi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

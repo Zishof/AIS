@@ -138,10 +138,17 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 	private Double totalNilai = 0.0;
 	private String nilaiHuruf = "";
 	private Double totalIP = 0.0;
+	private Double totalNilaiKunci;
+	private String nilaiHurufKunci;
+	private Double totalIPKunci;
+	private Boolean lulusKunci;
 
 	private Double totalNilaiSementara = 0.0;
 	private String nilaiHurufSementara = "";
 	private Double totalIPSementara = 0.0;
+	private Double totalNilaiSementaraKunci;
+	private String nilaiHurufSementaraKunci;
+	private Double totalIPSementaraKunci;
 
 	private Integer persetujuan = BELUM_DISETUJUI;
 	private Matakuliah matakuliahKonversi;
@@ -157,8 +164,11 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 	private String detailNilai = "";
 	private String detailNilaiTambahan = "";
 
-	private String detailNilaiKunci = "";
-	private String detailNilaiTambahanKunci = "";
+	// null = data lama belum memiliki snapshot; string kosong = snapshot sah yang
+	// memang membekukan kondisi tanpa nilai. Pembedaan ini penting agar nilai 0/
+	// kosong yang dikunci tidak dapat diisi melalui jalur lain.
+	private String detailNilaiKunci;
+	private String detailNilaiTambahanKunci;
 
 	private String feeder;
 
@@ -578,6 +588,13 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 			Boolean verify, Boolean sembunyikanNilaiJikaBelumDiverifikasi, Tbmuser tbmuser) {
 		jumlah = batasiNilaiMaksimal100(jumlah);
 
+		// Kunci harus ditegakkan di model, bukan hanya dengan men-disable komponen UI.
+		// Semua jalur penulisan (input manual, upload, feeder, dan e-learning) bermuara
+		// ke method ini, sehingga nilai kolom yang sudah dikunci tidak dapat ditimpa.
+		if (apakahNilaiDikunci(formatNilai)) {
+			return;
+		}
+
 		if (formatNilai != null) {
 			String formatBaru = "";
 			String[] nilais = detailNilai == null ? new String[] {} : detailNilai.split(";");
@@ -672,6 +689,171 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 			}
 
 			detailNilaiTambahan = formatBaru;
+		}
+	}
+
+	/**
+	 * Memeriksa kunci utama perkuliahan dan kunci khusus satu kolom nilai.
+	 * Method ini sengaja public agar endpoint integrasi dapat memberi respons yang
+	 * jelas, sementara pemeriksaan yang sama tetap dilakukan lagi saat menyimpan.
+	 */
+	public boolean apakahNilaiDikunci(FormatNilai formatNilai) {
+		Perkuliahan kuliah = getPerkuliahan();
+		return (kuliah != null && kuliah.getDikunci() != null)
+				|| (formatNilai != null && formatNilai.getKunci() != null);
+	}
+
+	private Long ambilKunciFormatNilai(FormatNilai formatNilai) {
+		if (formatNilai == null) {
+			return null;
+		}
+		return formatNilai.getStatusPertemuan() != null
+				? formatNilai.getStatusPertemuan().getId() : formatNilai.getId();
+	}
+
+	private String ambilEntriDetailNilai(String sumber, Long kunciFormat) {
+		if (sumber == null || sumber.trim().isEmpty() || kunciFormat == null) {
+			return null;
+		}
+		String[] entries = sumber.split(";");
+		for (String entry : entries) {
+			try {
+				String[] bagian = entry.split(",");
+				if (bagian.length > 0 && kunciFormat.equals(Long.parseLong(bagian[0].trim()))) {
+					return entry;
+				}
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e,
+						"Detailperkuliahan.ambilEntriDetailNilai id=" + getId());
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Memilih sumber baca nilai untuk satu komponen. Saat kunci global atau kunci
+	 * komponen aktif, entri pada kolom snapshot menjadi sumber kebenaran. Fallback
+	 * ke data live hanya dipakai untuk data lama yang sudah berstatus terkunci
+	 * sebelum kolom snapshot tersedia.
+	 */
+	private String ambilSumberDetailNilai(FormatNilai formatNilai) {
+		if (!apakahNilaiDikunci(formatNilai)) {
+			return detailNilai;
+		}
+		Long kunciFormat = ambilKunciFormatNilai(formatNilai);
+		return ambilEntriDetailNilai(detailNilaiKunci, kunciFormat) == null
+				? detailNilai : detailNilaiKunci;
+	}
+
+	private String gabungkanEntriDetailNilai(String tujuan, Long kunciFormat, String entriTerkunci) {
+		if (kunciFormat == null || entriTerkunci == null || entriTerkunci.trim().isEmpty()) {
+			return tujuan;
+		}
+		String hasil = "";
+		boolean diganti = false;
+		String[] entries = tujuan == null || tujuan.trim().isEmpty() ? new String[] {} : tujuan.split(";");
+		for (String entry : entries) {
+			String entryBaru = entry;
+			try {
+				String[] bagian = entry.split(",");
+				if (bagian.length > 0 && kunciFormat.equals(Long.parseLong(bagian[0].trim()))) {
+					entryBaru = entriTerkunci;
+					diganti = true;
+				}
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e,
+						"Detailperkuliahan.gabungkanEntriDetailNilai id=" + getId());
+			}
+			if (entryBaru != null && !entryBaru.trim().isEmpty()) {
+				hasil += hasil.isEmpty() ? entryBaru : ";" + entryBaru;
+			}
+		}
+		if (!diganti) {
+			hasil += hasil.isEmpty() ? entriTerkunci : ";" + entriTerkunci;
+		}
+		return hasil;
+	}
+
+	/**
+	 * Membekukan nilai satu kolom pada snapshot dan menegaskan nilai yang sama di
+	 * kolom utama. Tidak memerlukan perubahan skema karena memakai kolom snapshot
+	 * yang juga digunakan oleh kunci utama perkuliahan.
+	 */
+	public void bekukanDetailNilai(FormatNilai formatNilai) {
+		Long kunciFormat = ambilKunciFormatNilai(formatNilai);
+		String entriLive = ambilEntriDetailNilai(detailNilai, kunciFormat);
+		if (entriLive == null && kunciFormat != null) {
+			// Nilai kosong tetap harus mempunyai snapshot eksplisit. Tanpa entri 0,
+			// impor massal dapat menganggap tidak ada referensi lalu mengisi komponen
+			// yang sebenarnya sudah dikunci.
+			entriLive = kunciFormat + ",0,0,"
+					+ (formatNilai.getPersen() == null ? 0.0 : formatNilai.getPersen())
+					+ ",false,0";
+		}
+		if (entriLive != null) {
+			detailNilaiKunci = gabungkanEntriDetailNilai(detailNilaiKunci, kunciFormat, entriLive);
+			detailNilai = gabungkanEntriDetailNilai(detailNilai, kunciFormat, entriLive);
+		}
+	}
+
+	/**
+	 * Membuat snapshot lengkap ketika kunci global dipasang. Selain seluruh detail
+	 * komponen, hasil akhir angka/huruf/IP dan versi sementaranya ikut disimpan di
+	 * kolom terpisah agar integrasi lain tidak dapat mengubah hasil akhir terkunci.
+	 * Method harus dipanggil sebelum {@link Perkuliahan#setDikunci(Tbmuser)}.
+	 */
+	public void bekukanSemuaNilai() {
+		detailNilaiKunci = detailNilai == null ? "" : detailNilai;
+		detailNilaiTambahanKunci = detailNilaiTambahan == null ? "" : detailNilaiTambahan;
+		// Salin field live secara langsung agar snapshot persis sama dengan record
+		// saat tombol Kunci ditekan dan tidak memicu kalkulasi/getter yang dapat
+		// mengubah nilai berdasarkan konfigurasi lain pada saat proses pembekuan.
+		totalNilaiKunci = totalNilai == null ? 0.0 : totalNilai;
+		nilaiHurufKunci = nilaiHuruf == null ? "" : nilaiHuruf;
+		totalIPKunci = totalIP == null ? 0.0 : totalIP;
+		lulusKunci = lulus;
+		totalNilaiSementaraKunci = totalNilaiSementara == null ? 0.0 : totalNilaiSementara;
+		nilaiHurufSementaraKunci = nilaiHurufSementara == null ? "" : nilaiHurufSementara;
+		totalIPSementaraKunci = totalIPSementara == null ? 0.0 : totalIPSementara;
+	}
+
+	/**
+	 * Menerapkan nilai massal/impor tanpa mengubah komponen yang telah dikunci.
+	 * Entri terkunci selalu dipulihkan dari kolom snapshot permanen.
+	 */
+	public void setDetailNilaiMematuhiKunci(String nilaiBaru, List<FormatNilai> formatNilais) {
+		Perkuliahan kuliah = getPerkuliahan();
+		if (kuliah != null && kuliah.getDikunci() != null) {
+			if (detailNilaiKunci != null && !detailNilaiKunci.trim().isEmpty()) {
+				detailNilai = detailNilaiKunci;
+			}
+			return;
+		}
+
+		String hasil = nilaiBaru == null ? "" : nilaiBaru;
+		if (formatNilais != null) {
+			for (FormatNilai formatNilai : formatNilais) {
+				if (formatNilai != null && formatNilai.getKunci() != null) {
+					Long kunciFormat = ambilKunciFormatNilai(formatNilai);
+					String entriSnapshot = ambilEntriDetailNilai(detailNilaiKunci, kunciFormat);
+					if (entriSnapshot != null) {
+						hasil = gabungkanEntriDetailNilai(hasil, kunciFormat, entriSnapshot);
+					}
+				}
+			}
+		}
+		detailNilai = hasil;
+	}
+
+	/**
+	 * Reset hanya nilai yang masih terbuka. Snapshot dan nilai live milik komponen
+	 * terkunci dipertahankan agar tombol Reset tidak menjadi jalur belakang untuk
+	 * menghapus nilai permanen.
+	 */
+	public void resetDetailNilaiYangTidakDikunci(List<FormatNilai> formatNilais) {
+		setDetailNilaiMematuhiKunci("", formatNilais);
+		if (getPerkuliahan() == null || getPerkuliahan().getDikunci() == null) {
+			detailNilaiTambahan = "";
 		}
 	}
 
@@ -799,7 +981,8 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		refreshNilaiKeDefault();
 
 		if (formatIdSource != null && formatIdSource.getId() != null) {
-			String[] nilais = detailNilai == null ? new String[] {} : detailNilai.split(";");
+			String sumberNilai = ambilSumberDetailNilai(formatIdSource);
+			String[] nilais = sumberNilai == null ? new String[] {} : sumberNilai.split(";");
 			for (String nn : nilais) {
 				try {
 					String[] s = nn.split(",");
@@ -841,7 +1024,8 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		refreshNilaiKeDefault();
 
 		if (formatIdSource != null && formatIdSource.getId() != null) {
-			String[] nilais = detailNilai == null ? new String[] {} : detailNilai.split(";");
+			String sumberNilai = ambilSumberDetailNilai(formatIdSource);
+			String[] nilais = sumberNilai == null ? new String[] {} : sumberNilai.split(";");
 			for (String nn : nilais) {
 				try {
 					String[] s = nn.split(",");
@@ -881,7 +1065,8 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		refreshNilaiKeDefault();
 
 		if (formatIdSource != null && formatIdSource.getId() != null) {
-			String[] nilais = detailNilai == null ? new String[] {} : detailNilai.split(";");
+			String sumberNilai = ambilSumberDetailNilai(formatIdSource);
+			String[] nilais = sumberNilai == null ? new String[] {} : sumberNilai.split(";");
 			for (String nn : nilais) {
 				try {
 					String[] s = nn.split(",");
@@ -992,12 +1177,24 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return semester;
 	}
 
+	private boolean kunciGlobalNilaiAktif() {
+		Perkuliahan kuliah = getPerkuliahan();
+		return kuliah != null && kuliah.getDikunci() != null;
+	}
+
 	public void setTotalNilai(Double totalNilai) {
+		if (kunciGlobalNilaiAktif() && totalNilaiKunci != null) {
+			this.totalNilai = totalNilaiKunci;
+			return;
+		}
 		this.totalNilai = totalNilai;
 	}
 
 	@Column(name = "total_nilai", nullable = true, precision = 15)
 	public Double getTotalNilai() {
+		if (kunciGlobalNilaiAktif() && totalNilaiKunci != null) {
+			return totalNilaiKunci;
+		}
 		perkuliahan = getPerkuliahan();
 		mahasiswa = getMahasiswa();
 		if (totalNilai == null) {
@@ -1069,11 +1266,18 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 	}
 
 	public void setNilaiHuruf(String nilaiHuruf) {
+		if (kunciGlobalNilaiAktif() && nilaiHurufKunci != null) {
+			this.nilaiHuruf = nilaiHurufKunci;
+			return;
+		}
 		this.nilaiHuruf = nilaiHuruf;
 	}
 
 	@Column(name = "nilai_huruf", nullable = true, length = 2)
 	public String getNilaiHuruf() {
+		if (kunciGlobalNilaiAktif() && nilaiHurufKunci != null) {
+			return nilaiHurufKunci.trim();
+		}
 		perkuliahan = getPerkuliahan();
 		mahasiswa = getMahasiswa();
 		if (perkuliahan != null && perkuliahan.getSembunyikanNilaiJikaBelumDiverifikasi()
@@ -1132,11 +1336,18 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 	}
 
 	public void setTotalIP(Double totalIP) {
+		if (kunciGlobalNilaiAktif() && totalIPKunci != null) {
+			this.totalIP = totalIPKunci;
+			return;
+		}
 		this.totalIP = totalIP;
 	}
 
 	@Column(name = "nilai_ip", nullable = true, precision = 15)
 	public Double getTotalIP() {
+		if (kunciGlobalNilaiAktif() && totalIPKunci != null) {
+			return totalIPKunci;
+		}
 		perkuliahan = getPerkuliahan();
 		mahasiswa = getMahasiswa();
 		if (perkuliahan != null && perkuliahan.getSembunyikanNilaiJikaBelumDiverifikasi()
@@ -1287,40 +1498,35 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 
 	@Column(name = "detail_nilai_baru_lagi", columnDefinition = "text")
 	public String getDetailNilai() {
-		if (getPerkuliahan() != null && perkuliahan.getDikunci() != null && detailNilaiKunci != null
-				&& !detailNilaiKunci.isEmpty()) {
-			// Saat TERKUNCI, nilai yang dipakai = snapshot detailNilaiKunci (nilai beku saat dikunci).
-			// TAPI pada kunci yang SAH, grid nilai DIBEKUKAN (read-only), sehingga detailNilai (live)
-			// MUSTAHIL berbeda dari snapshot. Bila ternyata live BERBEDA & berisi, itu tanda PASTI status
-			// kunci BASI di cache (di DB sudah DIBUKA, tetapi objek Perkuliahan di cache masih 'terkunci')
-			// — dan snapshot lama akan MEMBUANG nilai yang baru diketik (bug "nilai balik ke 0/nilai lama").
-			// Maka swap ke snapshot HANYA bila live == snapshot (tak ada yang hilang) ATAU live kosong;
-			// bila live berbeda & berisi, PERTAHANKAN live. Aman untuk kunci sah, anti hilang untuk kunci basi.
-			if (detailNilai == null || detailNilai.equals(detailNilaiKunci)) {
-				detailNilai = detailNilaiKunci;
-			}
+		if (kunciGlobalNilaiAktif() && detailNilaiKunci != null) {
+			// Kunci global menjadikan snapshot sebagai satu-satunya sumber kebenaran.
+			// Perbedaan dengan nilai live tidak boleh dipakai untuk melewati kunci.
+			detailNilai = detailNilaiKunci;
 		}
 		return detailNilai;
 	}
 
 	public void setDetailNilai(String detailNilai) {
+		if (kunciGlobalNilaiAktif() && detailNilaiKunci != null) {
+			this.detailNilai = detailNilaiKunci;
+			return;
+		}
 		this.detailNilai = detailNilai;
 	}
 
 	@Column(name = "detail_nilai_tambahan_baru_lagi", columnDefinition = "text")
 	public String getDetailNilaiTambahan() {
-		if (getPerkuliahan() != null && perkuliahan.getDikunci() != null && detailNilaiTambahanKunci != null
-				&& !detailNilaiTambahanKunci.isEmpty()) {
-			// Sama seperti getDetailNilai(): jangan buang nilai tambahan live karena status kunci BASI.
-			// Swap ke snapshot hanya bila live == snapshot atau live kosong; bila berbeda -> pertahankan live.
-			if (detailNilaiTambahan == null || detailNilaiTambahan.equals(detailNilaiTambahanKunci)) {
-				detailNilaiTambahan = detailNilaiTambahanKunci;
-			}
+		if (kunciGlobalNilaiAktif() && detailNilaiTambahanKunci != null) {
+			detailNilaiTambahan = detailNilaiTambahanKunci;
 		}
 		return detailNilaiTambahan;
 	}
 
 	public void setDetailNilaiTambahan(String detailNilaiTambahan) {
+		if (kunciGlobalNilaiAktif() && detailNilaiTambahanKunci != null) {
+			this.detailNilaiTambahan = detailNilaiTambahanKunci;
+			return;
+		}
 		this.detailNilaiTambahan = detailNilaiTambahan;
 	}
 
@@ -1483,6 +1689,9 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 	}
 
 	public Boolean getLulus() {
+		if (kunciGlobalNilaiAktif() && lulusKunci != null) {
+			return lulusKunci;
+		}
 		// Samakan status Lulus dengan KONFIGURASI Nilai Huruf yang DIPEROLEH (permintaan user): cari
 		// NilaiHuruf yang cocok dgn huruf ini dari cache ConstantValues.nilaiHurufs (prioritas per
 		// Jurusan -> Fakultas -> global, sama seperti getTotalNilai) lalu pakai flag lulus-nya. Ini
@@ -1515,6 +1724,10 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 
 
 	public void setLulus(Boolean lulus) {
+		if (kunciGlobalNilaiAktif() && lulusKunci != null) {
+			this.lulus = lulusKunci;
+			return;
+		}
 		this.lulus = lulus;
 	}
 
@@ -1574,26 +1787,47 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 	}
 
 	public Double getTotalNilaiSementara() {
+		if (kunciGlobalNilaiAktif() && totalNilaiSementaraKunci != null) {
+			return totalNilaiSementaraKunci;
+		}
 		return totalNilaiSementara == null ? 0.0 : totalNilaiSementara;
 	}
 
 	public void setTotalNilaiSementara(Double totalNilaiSementara) {
+		if (kunciGlobalNilaiAktif() && totalNilaiSementaraKunci != null) {
+			this.totalNilaiSementara = totalNilaiSementaraKunci;
+			return;
+		}
 		this.totalNilaiSementara = totalNilaiSementara;
 	}
 
 	public String getNilaiHurufSementara() {
+		if (kunciGlobalNilaiAktif() && nilaiHurufSementaraKunci != null) {
+			return nilaiHurufSementaraKunci.trim();
+		}
 		return nilaiHurufSementara == null ? "" : nilaiHurufSementara.trim();
 	}
 
 	public void setNilaiHurufSementara(String nilaiHurufSementara) {
+		if (kunciGlobalNilaiAktif() && nilaiHurufSementaraKunci != null) {
+			this.nilaiHurufSementara = nilaiHurufSementaraKunci;
+			return;
+		}
 		this.nilaiHurufSementara = nilaiHurufSementara;
 	}
 
 	public Double getTotalIPSementara() {
+		if (kunciGlobalNilaiAktif() && totalIPSementaraKunci != null) {
+			return totalIPSementaraKunci;
+		}
 		return totalIPSementara == null ? 0.0 : totalIPSementara;
 	}
 
 	public void setTotalIPSementara(Double totalIPSementara) {
+		if (kunciGlobalNilaiAktif() && totalIPSementaraKunci != null) {
+			this.totalIPSementara = totalIPSementaraKunci;
+			return;
+		}
 		this.totalIPSementara = totalIPSementara;
 	}
 
@@ -1618,11 +1852,71 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		this.internal = internal;
 	}
 
+	@Column(name = "total_nilai_kunci", nullable = true, precision = 15)
+	public Double getTotalNilaiKunci() {
+		return totalNilaiKunci;
+	}
+
+	public void setTotalNilaiKunci(Double totalNilaiKunci) {
+		this.totalNilaiKunci = totalNilaiKunci;
+	}
+
+	@Column(name = "nilai_huruf_kunci", nullable = true, length = 2)
+	public String getNilaiHurufKunci() {
+		return nilaiHurufKunci;
+	}
+
+	public void setNilaiHurufKunci(String nilaiHurufKunci) {
+		this.nilaiHurufKunci = nilaiHurufKunci;
+	}
+
+	@Column(name = "nilai_ip_kunci", nullable = true, precision = 15)
+	public Double getTotalIPKunci() {
+		return totalIPKunci;
+	}
+
+	public void setTotalIPKunci(Double totalIPKunci) {
+		this.totalIPKunci = totalIPKunci;
+	}
+
+	@Column(name = "lulus_kunci", nullable = true)
+	public Boolean getLulusKunci() {
+		return lulusKunci;
+	}
+
+	public void setLulusKunci(Boolean lulusKunci) {
+		this.lulusKunci = lulusKunci;
+	}
+
+	@Column(name = "total_nilai_sementara_kunci", nullable = true, precision = 15)
+	public Double getTotalNilaiSementaraKunci() {
+		return totalNilaiSementaraKunci;
+	}
+
+	public void setTotalNilaiSementaraKunci(Double totalNilaiSementaraKunci) {
+		this.totalNilaiSementaraKunci = totalNilaiSementaraKunci;
+	}
+
+	@Column(name = "nilai_huruf_sementara_kunci", nullable = true, length = 2)
+	public String getNilaiHurufSementaraKunci() {
+		return nilaiHurufSementaraKunci;
+	}
+
+	public void setNilaiHurufSementaraKunci(String nilaiHurufSementaraKunci) {
+		this.nilaiHurufSementaraKunci = nilaiHurufSementaraKunci;
+	}
+
+	@Column(name = "nilai_ip_sementara_kunci", nullable = true, precision = 15)
+	public Double getTotalIPSementaraKunci() {
+		return totalIPSementaraKunci;
+	}
+
+	public void setTotalIPSementaraKunci(Double totalIPSementaraKunci) {
+		this.totalIPSementaraKunci = totalIPSementaraKunci;
+	}
+
 	@Column(name = "detail_nilai_kunci", columnDefinition = "text")
 	public String getDetailNilaiKunci() {
-		if (getPerkuliahan() != null && perkuliahan.getDikunci() == null) {
-			detailNilaiKunci = detailNilai;
-		}
 		return detailNilaiKunci;
 	}
 
@@ -1632,9 +1926,6 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 
 	@Column(name = "detail_nilai_tambahan_kunci", columnDefinition = "text")
 	public String getDetailNilaiTambahanKunci() {
-		if (getPerkuliahan() != null && perkuliahan.getDikunci() == null) {
-			detailNilaiTambahanKunci = detailNilaiTambahan;
-		}
 		return detailNilaiTambahanKunci;
 	}
 

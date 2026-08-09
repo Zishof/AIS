@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "StatusKewajibanBebanDosenAction")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.bkd");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/bkd/StatusKewajibanBebanDosenAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkKodeAsesorPenunjangKinerjaDosen", "checkNamaAsesorPenunjangKinerjaDosen"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KewajibanBebanDosen", "StatusKewajibanBebanDosen"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

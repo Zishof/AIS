@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataCalonCalonSiswaForDiskon
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/helper/AmbilDataCalonCalonSiswaForDiskonSiswaHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "save", "display", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Yayasan", "Sekolah", "DiskonSiswaPunyaSiswa", "CalonSiswaAction", "CalonSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

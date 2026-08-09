@@ -2061,6 +2061,29 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 
 	public static Map<String, Tbmrole> getUserRoleYgDipakai = new HashMap<String, Tbmrole>();
 
+	/**
+	 * Memperbarui seluruh cache role aktif yang menunjuk ke role yang baru saja
+	 * disimpan. Cache ini dipakai oleh {@link #hakAkses()}, sehingga tanpa refresh
+	 * pengguna yang sedang login masih dapat membaca nilai hak akses lama sampai
+	 * login ulang atau mengganti role.
+	 *
+	 * @param role role terbaru yang telah disimpan
+	 */
+	public static void refreshHakAksesUntukRole(Tbmrole role) {
+		if (role == null || role.getRoleId() == null) {
+			return;
+		}
+
+		synchronized (getUserRoleYgDipakai) {
+			for (Map.Entry<String, Tbmrole> entry : getUserRoleYgDipakai.entrySet()) {
+				Tbmrole cachedRole = entry.getValue();
+				if (cachedRole != null && role.getRoleId().equals(cachedRole.getRoleId())) {
+					entry.setValue(role);
+				}
+			}
+		}
+	}
+
 	public Tbmrole hakAkses() {
 		try {
 

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanKembaliWindow");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.library");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/library/LaporanKembaliWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KembaliPengadaanItem", "KembaliPengadaanItemDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

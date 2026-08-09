@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "SuratKeluarPunyaSuratMasukHelper"
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.surat.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/surat/helper/SuratKeluarPunyaSuratMasukHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initDetail", "onEvent", "initRow"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"SuratMasuk", "AlurPersetujuanSuratMasukStatus", "OpsiSuratMasukValue", "FotoGambarSuratMasuk"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

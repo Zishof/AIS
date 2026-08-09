@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TicketFormSop");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.ticket");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/ticket/TicketFormSop.java");
 request.setAttribute("nuiServiceMethods", new String[]{"form", "onSave", "istilah", "ambil", "ambilClass", "setPersetujuan", "cetakData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"FormSop", "TicketKategori", "SatuanKerja", "Ticket"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

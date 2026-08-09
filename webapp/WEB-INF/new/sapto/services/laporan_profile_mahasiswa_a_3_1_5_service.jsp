@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanProfileMahasiswa_A_3_1_5")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sapto");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sapto/LaporanProfileMahasiswa_A_3_1_5.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onCetak", "run", "onEvent", "initCriteria"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KapasitasMahasiswaBaru", "BiodataCalonMahasiswa", "Mahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

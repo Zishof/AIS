@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BlacklistIpAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/BlacklistIpAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initCriteria", "onSearchDefault", "onEvent", "onSave", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"BlacklistIp"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

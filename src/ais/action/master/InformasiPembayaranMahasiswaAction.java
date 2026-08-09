@@ -1,11 +1,13 @@
 package ais.action.master;
 
 import java.io.ByteArrayOutputStream;
+import java.io.Serializable;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -2581,6 +2583,33 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 	}
 
 	class KegiatanRenderer extends ais.ui.util.MyRowRenderer {
+		@SuppressWarnings({ "rawtypes", "unchecked" })
+		private List<Map<String, Serializable>> ambilSnapshotRincianTagihan(Kegiatan kegiatan) {
+			if (kegiatan == null || kegiatan.getId() == null || semua == null || semua.isEmpty()) {
+				return null;
+			}
+			for (Object[] data : semua.values()) {
+				if (data == null || data.length < 4 || !(data[2] instanceof Kegiatan)
+						|| !(data[3] instanceof Collection)) {
+					continue;
+				}
+				Kegiatan kegiatanSnapshot = (Kegiatan) data[2];
+				if (kegiatanSnapshot.getId() == null || !kegiatan.getId().equals(kegiatanSnapshot.getId())) {
+					continue;
+				}
+				List<Map<String, Serializable>> hasil = new ArrayList<Map<String, Serializable>>();
+				for (Object baris : (Collection) data[3]) {
+					if (baris instanceof Map) {
+						hasil.add(new HashMap<String, Serializable>((Map<String, Serializable>) baris));
+					}
+				}
+				// Koleksi kosong tetap bersifat otoritatif: layar memang tidak mempunyai
+				// item yang layak dicetak. Null hanya berarti snapshot belum tersedia.
+				return hasil;
+			}
+			return null;
+		}
+
 		@Override
 		public void render(final Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
@@ -2626,10 +2655,11 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 			button.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
+					List<Map<String, Serializable>> rincianLayar = ambilSnapshotRincianTagihan(kegiatan);
 					if (kegiatan.getMahasiswa() != null) {
-						CommonReportHelper.cetakBuktipembayaranMahasiswa(kegiatan, false);
+						CommonReportHelper.cetakBuktipembayaranMahasiswa(kegiatan, false, rincianLayar);
 					} else {
-						CommonReportHelper.cetakBuktipembayaranCalonMahasiswa(kegiatan, false);
+						CommonReportHelper.cetakBuktipembayaranCalonMahasiswa(kegiatan, false, rincianLayar);
 					}
 				}
 			});

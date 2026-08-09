@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CommonAkunting");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.akunting.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/akunting/util/CommonAkunting.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateNoJurnal", "getindex", "jelaskanTransaksiTidakValid", "hintPemetaanItemBiaya", "langkahLengkapiKolomAkun", "langkahIsiKonfigurasiAkun", "konteksItemBiayaKegiatan", "saveTransaksi"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"GrupTransaksi", "Closing", "JenisTransaksi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

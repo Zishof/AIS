@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ProfilRisikoSPIAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.spi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/spi/ProfilRisikoSPIAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ProfilRisikoSPI"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

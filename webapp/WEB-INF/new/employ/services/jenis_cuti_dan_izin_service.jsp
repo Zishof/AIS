@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JenisCutiDanIzinAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.employ");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/employ/JenisCutiDanIzinAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisCutiDanIzin", "Statusabsensi", "KelompokParameterTambahanCutiDanIzin"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

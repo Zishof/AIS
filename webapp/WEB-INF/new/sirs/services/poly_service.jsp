@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PolyAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/PolyAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "initCriteria", "onEvent", "onSave", "checkNamaPoly", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Poly"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

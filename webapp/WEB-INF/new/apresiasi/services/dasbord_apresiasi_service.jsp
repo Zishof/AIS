@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DasbordApresiasi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.apresiasi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/apresiasi/DasbordApresiasi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getNamaModul", "onEvent", "compare", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ApresiasiSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

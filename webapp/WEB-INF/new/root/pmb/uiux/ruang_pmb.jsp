@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "FormSop");
 request.setAttribute("nuiSourceMethods", new String[]{"onGaleriFoto", "doBeforeCompose", "doAfterCompose", "onEvent", "execute", "onManajemenJadwalUjianPMB", "onJenisSeleksi", "onJenisPembiayaan", "onPaketPMB", "onManajemenUjianPMB", "onGelombangPMB", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "cekRuanganIsi", "onCetakAbsensi", "onCetakBau", "onCetakAlbum", "form", "istilah", "ambil", "ambilClass", "setPersetujuan", "cetakData"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/galeri_foto_pmb.zul", "/pages/master/jadwal_ujian_pmb.zul", "/pages/master/jenis_seleksi.zul", "/pages/master/jenis_pembiayaan_mahasiswa.zul", "/pages/master/paket.zul", "/pages/master/ujian_pmb.zul", "/pages/master/gelombang_pendaftaran.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"Gedung", "Paket", "UjianPMB", "RuangPMB", "RuangPaketPMB", "BiodataCalonMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

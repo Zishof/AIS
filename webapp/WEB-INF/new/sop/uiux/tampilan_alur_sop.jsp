@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "loadData", "prosess", "initCriteria", "cetakDisposisi"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/WEB-INF/z/x/y/pages/master/sop/alur_sop.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"DisposisiSop", "DisposisiAlurSop", "AlurSop", "DokumenAlurSop", "ParameterTambahanAlurSop", "ParameterTambahan", "DaftarPengajuanTransfer", "Bank", "ProsesTransferStandingInstruction"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

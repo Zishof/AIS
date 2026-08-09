@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault, DataInitDefault, FormSop");
 request.setAttribute("nuiSourceMethods", new String[]{"onMonitor", "onStatistik", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "cetakData", "cetak", "init", "onAddExternal", "onAdd", "form", "reloadDataFormula", "reloadFormula", "onSave", "initCriteria", "onSearchDefault", "istilah", "ambil", "ambilClass", "setPersetujuan"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Pertangungjawaban", "DaftarPengajuanTransfer", "JenisPajakBarang", "JenisPajakPpn", "Satuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

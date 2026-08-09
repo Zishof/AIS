@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanDkps_8_2_KeterlibatanMhsPk
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.akreditasi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/akreditasi/LaporanDkps_8_2_KeterlibatanMhsPkm.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "onCetak", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

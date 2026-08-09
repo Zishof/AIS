@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataKegiatanTugasJabatanTree
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.lkp.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/lkp/helper/AmbilDataKegiatanTugasJabatanTreeBanbox.java");
 request.setAttribute("nuiServiceMethods", new String[]{"setSatuanKerja", "onEvent", "setChooseAll", "render", "display", "onSearchDefault", "setEventListener", "getEventListener"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KegiatanTugasJabatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

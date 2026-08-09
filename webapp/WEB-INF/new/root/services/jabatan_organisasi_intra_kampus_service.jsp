@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JabatanOrganisasiIntraKampusActio
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/JabatanOrganisasiIntraKampusAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaJabatanOrganisasiIntraKampus"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JabatanOrganisasiIntraKampus"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

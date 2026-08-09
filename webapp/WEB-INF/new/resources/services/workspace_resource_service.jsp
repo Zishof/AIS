@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "WorkspaceResource");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.resources");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/resources/WorkspaceResource.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getXml", "getData", "getAllData", "daftarWorkspace", "daftarInformasiRab", "daftarInformasiRabKomentar", "daftarInformasiRabJumlahKomentar"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Workspace", "WorkspacePunyaSasaran", "InformasiRab", "FotoInformasiRab", "InformasiRabKomentar"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

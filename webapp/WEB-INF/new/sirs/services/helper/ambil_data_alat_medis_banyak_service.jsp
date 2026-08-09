@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataAlatMedisBanyak");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/helper/AmbilDataAlatMedisBanyak.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getAlatMedisLab", "setAlatMedisLab", "render", "onEvent", "display", "onSearchDefault", "setEventListener", "getEventListener"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisAlatMedis", "AlatMedis"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

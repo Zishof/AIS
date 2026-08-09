@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "NilaiObeAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/NilaiObeAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "cetak", "onCetak", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Perkuliahan", "Detailperkuliahan", "CapaianPembelajaranLulusan", "CapaianLulusan", "ProfilLulusan", "KurikulumPunyaMatakuliah", "BahanKajian", "Matakuliah", "PertemuanPunyaUjian", "Pertemuan", "TugasPertemuan", "TugasKelompok", "HasilUjianMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

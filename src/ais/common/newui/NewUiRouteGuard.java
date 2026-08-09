@@ -1,103 +1,100 @@
 package ais.common.newui;
 
-import java.util.List;
-
 import javax.servlet.http.HttpServletRequest;
 
-import ais.common.Common;
-import ais.database.model.Konfigurasi;
+import ais.common.newui.menu.NewUiHybridMenuNode;
+import ais.common.newui.menu.NewUiHybridMenuRouteGuard;
+import ais.common.newui.menu.NewUiHybridMenuRouteRegistry;
+import ais.common.newui.menu.NewUiHybridMenuSnapshot;
 
-/**
- * Penjaga otorisasi route New UI, memakai pohon menu yang dapat diakses
- * ({@link NewUiMenuAccessService}) dan {@link NewUiRouteRegistry}.
- *
- * <p>Prinsip fail-closed: UI hanya boleh dibuka bila route termapping ke sebuah
- * Menu yang dapat dibaca role aktif. Route yang tidak termapping ditolak untuk
- * pengguna biasa (hanya Developer Catalog admin yang boleh melihatnya).</p>
- *
- * <p><b>Rollout aman:</b> penegakan dikendalikan flag konfigurasi
- * <code>nui_rbac_enforce</code> (default <b>nonaktif</b> = mode monitor), sehingga
- * dapat diaktifkan setelah tabel alias {@link NewUiRouteRegistry} dilengkapi dari
- * hasil diagnostik DB dan seluruh uji lulus. Dalam mode monitor, {@link #shouldBlock}
- * selalu false tetapi keputusan tetap dapat dievaluasi/di-log via {@link #evaluate}.</p>
- *
- * <p>Kompatibel Java 1.6.</p>
- */
+/** Fail-closed guard untuk route UI dan action service New UI. */
 public final class NewUiRouteGuard {
 
     private NewUiRouteGuard() {
     }
 
-    /** Status pemetaan/otorisasi route. Lihat konstanta {@link NewUiRouteRegistry}. */
     public static int evaluate(HttpServletRequest request, String module, String page) {
-        List<NewUiMenuNode> tree = NewUiMenuAccessService.getAccessibleTree(request);
-        NewUiMenuNode node = findNode(tree, module, page);
-        if (node != null && node.isReadable()) {
+        if (module != null && module.startsWith("_shared")) {
             return NewUiRouteRegistry.MAPPED_AND_AUTHORIZED;
         }
-        boolean known = NewUiRouteRegistry.isKnownRouteToken(module)
-                || NewUiRouteRegistry.isKnownRouteToken(module + "/" + page);
-        if (known) {
-            return NewUiRouteRegistry.MAPPED_BUT_FORBIDDEN;
+        Long menuId = menuId(request);
+        NewUiHybridMenuSnapshot snapshot = NewUiMenuAccessService.getSnapshot(request);
+        String status = NewUiHybridMenuRouteGuard.evaluateMenu(snapshot, menuId);
+        NewUiHybridMenuNode node = menuId == null ? null : snapshot.findAssigned(menuId);
+        if (NewUiHybridMenuRouteRegistry.NEW_UI.equals(status) && node != null
+                && "_shared".equals(node.getNewUiModule()) && "native_menu".equals(node.getNewUiPage())) {
+            String nativeModule = String.valueOf(request.getAttribute("nui_native_module"));
+            String nativePage = String.valueOf(request.getAttribute("nui_native_page"));
+            String wanted = page == null || page.length() == 0 ? "index" : page;
+            if (module != null && module.equals(nativeModule) && wanted.equals(nativePage)) {
+                return NewUiRouteRegistry.MAPPED_AND_AUTHORIZED;
+            }
         }
+        if (NewUiHybridMenuRouteRegistry.NEW_UI.equals(status)
+                && node != null && module != null && module.equals(node.getNewUiModule())) {
+            String wanted = page == null || page.length() == 0 ? "index" : page;
+            String actual = node.getNewUiPage() == null ? "index" : node.getNewUiPage();
+            if (wanted.equals(actual)) return NewUiRouteRegistry.MAPPED_AND_AUTHORIZED;
+        }
+        if (NewUiHybridMenuRouteRegistry.FORBIDDEN.equals(status)) return NewUiRouteRegistry.MAPPED_BUT_FORBIDDEN;
         return NewUiRouteRegistry.UNMAPPED;
     }
 
-    /** Hak akses untuk route (dipakai menyembunyikan/menampilkan tombol aksi). */
     public static NewUiPermission permissionFor(HttpServletRequest request, String module, String page) {
-        List<NewUiMenuNode> tree = NewUiMenuAccessService.getAccessibleTree(request);
-        NewUiMenuNode node = findNode(tree, module, page);
-        return node != null ? node.getPermission() : NewUiPermission.none();
+        NewUiMenuNode node = NewUiMenuAccessService.findAssigned(request, menuId(request));
+        return node == null ? NewUiPermission.none() : node.getPermission();
     }
 
-    /** true bila UI READ diizinkan untuk route ini. */
     public static boolean isUiReadAuthorized(HttpServletRequest request, String module, String page) {
-        return permissionFor(request, module, page).isCanRead();
+        return evaluate(request, module, page) == NewUiRouteRegistry.MAPPED_AND_AUTHORIZED;
     }
 
-    /**
-     * true bila request HARUS diblokir. Menghormati flag rollout: dalam mode monitor
-     * (default) selalu false. Setelah <code>nui_rbac_enforce</code> aktif, memblokir
-     * route yang MAPPED_BUT_FORBIDDEN atau UNMAPPED.
-     */
     public static boolean shouldBlock(HttpServletRequest request, String module, String page) {
-        if (!isEnforced()) {
-            return false;
-        }
-        // Endpoint infrastruktur (dispatcher, role-switch, aset shell) mengautentikasi
-        // dirinya sendiri (login + CSRF) dan tidak digerbangi RBAC menu.
-        if (module != null && module.startsWith("_shared")) {
-            return false;
-        }
         int status = evaluate(request, module, page);
-        return status == NewUiRouteRegistry.MAPPED_BUT_FORBIDDEN || status == NewUiRouteRegistry.UNMAPPED;
+        return status != NewUiRouteRegistry.MAPPED_AND_AUTHORIZED;
     }
 
-    /** Flag penegakan RBAC New UI. Default nonaktif (monitor). */
-    public static boolean isEnforced() {
-        try {
-            return Common.bolehKonfigurasi("nui_rbac_enforce", Konfigurasi.TIDAK_AKTIF);
-        } catch (Exception e) {
-            ais.common.ErrorAuditUtil.record(e, "NewUiRouteGuard.isEnforced");
-            return false;
+    public static boolean isActionAuthorized(HttpServletRequest request, String module, String page, String action) {
+        if (evaluate(request, module, page) != NewUiRouteRegistry.MAPPED_AND_AUTHORIZED) return false;
+        if (module != null && module.startsWith("_shared")) return true;
+        NewUiPermission permission = permissionFor(request, module, page);
+        String value = action == null ? "meta" : action.trim().toLowerCase();
+        if (isReadAction(value)) return permission.isCanRead();
+        if ("create".equals(value) || "new".equals(value) || "insert".equals(value)
+                || "add".equals(value) || "save-new".equals(value)) return permission.isCanCreate();
+        if ("save".equals(value)) {
+            String id = request == null ? null : request.getParameter("id");
+            return id == null || id.trim().length() == 0 ? permission.isCanCreate() : permission.isCanUpdate();
         }
+        if ("update".equals(value) || "edit".equals(value) || "photo".equals(value)
+                || "upload".equals(value) || "save-existing".equals(value)
+                || "restore_field".equals(value) || "restore_revision".equals(value)) return permission.isCanUpdate();
+        if ("import".equals(value) || value.startsWith("import_")) return permission.isCanCreate() && permission.isCanUpdate();
+        if ("delete".equals(value) || "remove".equals(value)
+                || "permanent-delete".equals(value) || value.startsWith("admin_delete_")) return permission.isCanDelete();
+        if ("approve".equals(value)) return permission.isCanApprove();
+        if ("reject".equals(value)) return permission.isCanReject();
+        return false;
     }
 
-    private static NewUiMenuNode findNode(List<NewUiMenuNode> nodes, String module, String page) {
-        if (nodes == null || module == null) {
-            return null;
-        }
-        for (int i = 0; i < nodes.size(); i++) {
-            NewUiMenuNode node = nodes.get(i);
-            if (module.equals(node.getNewUiModule())
-                    && (page == null || page.equals(node.getNewUiPage()))) {
-                return node;
-            }
-            NewUiMenuNode inChild = findNode(node.getChildren(), module, page);
-            if (inChild != null) {
-                return inChild;
-            }
-        }
-        return null;
+    private static boolean isReadAction(String value) {
+        return "meta".equals(value) || "health".equals(value) || "read".equals(value)
+                || "list".equals(value) || "detail".equals(value) || "get".equals(value)
+                || "options".equals(value) || "lookup".equals(value)
+                || "relation_lookup".equals(value) || "search".equals(value)
+                || "revisions".equals(value) || "global_revisions".equals(value)
+                || "compare".equals(value) || "export".equals(value) || value.startsWith("export_")
+                || value.startsWith("preference_") || value.startsWith("saved_view_");
+    }
+
+    /** Penegakan selalu aktif; method dipertahankan untuk kompatibilitas pemanggil lama. */
+    public static boolean isEnforced() { return true; }
+
+    private static Long menuId(HttpServletRequest request) {
+        if (request == null) return null;
+        String value = request.getParameter("menuId");
+        if (value == null || value.trim().length() == 0) value = request.getParameter("menu");
+        try { return value == null ? null : Long.valueOf(value); }
+        catch (Exception e) { return null; }
     }
 }

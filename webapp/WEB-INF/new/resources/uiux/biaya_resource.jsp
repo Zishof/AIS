@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "DataResource<Mahasiswa>");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"getXml", "daftar", "jenisPembayaran", "ambil", "pembayaran", "itemBiaya", "pembayaranMahasiswa"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Mahasiswa", "DetailBiaya", "JenisKegiatan", "ItemBiaya", "CicilanPembayaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KknUntukMahasiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.kkn");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/kkn/KknUntukMahasiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onKKN", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "initCriteria", "onSearchDefault", "daftar", "onAddExternal", "tampilkanPersyaratan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/kkn/kelompok_kkn.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Kkn", "ItemBiaya", "MahasiswaDaftarKkn", "MahasiswaDapatKelompokKkn", "MahasiswaKknPersyaratan", "KknPunyaPersyaratan", "CicilanPembayaran", "LampiranKknMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

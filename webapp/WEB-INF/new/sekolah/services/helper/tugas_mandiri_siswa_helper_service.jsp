@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TugasMandiriSiswaHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/helper/TugasMandiriSiswaHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onUbahPerintahTugas", "onEvent", "createTugas", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"TugasFileContent", "Siswa", "CalonSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KategoriPengumumanAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/KategoriPengumumanAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault", "checkNamaKategoriPengumuman", "checkNamaNomorUrut"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KategoriPengumuman"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

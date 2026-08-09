@@ -130,6 +130,11 @@
             <i class="fas fa-file-alt me-1"></i><%=Common.getBahasaConfig("Jurnal Ilmiah")%>
         </a>
         <a href="javascript:void(0)" class="nav-link submenu-repo-item<%=rnd%>"
+            onclick="filterJenisDoc<%=rnd%>('Research')"
+            data-doc="Research">
+            <i class="fas fa-flask me-1"></i><%=Common.getBahasaConfig("Penelitian / Pengabdian")%>
+        </a>
+        <a href="javascript:void(0)" class="nav-link submenu-repo-item<%=rnd%>"
             onclick="filterJenisDoc<%=rnd%>('Image')"
             data-doc="Image">
             <i class="far fa-images me-1"></i><%=Common.getBahasaConfig("Gambar")%>

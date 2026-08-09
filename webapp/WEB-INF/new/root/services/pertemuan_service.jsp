@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PertemuanAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/PertemuanAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onTampilPanelIkut", "onRekapPertemuanPerkuliahan", "onKegiatanMahasiswa", "onPerkuliahanSp", "onEkstrakurikuler", "onParameterPertemuanPerkuliahan", "onPraPerkuliahan", "doBeforeCompose", "onDownloadLampiran", "onEvent", "download", "onJadwalRemedial", "tampilanExportKeFeeder", "run", "kirimKeFeeder", "doAfterCompose", "getDspace", "render", "initCriteria", "loadData", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/ikut_pertemuan.zul", "/pages/master/pertemuan_sp.zul", "/pages/master/pertemuan_ekstrakulikuler.zul", "/pages/master/parameter_tambahan_pertemuan.zul", "/pages/master/pertemuan_pra_perkuliahan.zul", "/pages/master/pertemuan_remedial.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"LampiranLain", "Perkuliahan", "Pertemuan", "Detailperkuliahan", "MahasiswaDapatKelompokKkn", "MahasiswaDapatKelompokPkl"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PemakaianiItemAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/PemakaianiItemAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "initCriteria", "onCetak", "onEvent", "onSave", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PemakaianItem", "Lokasi", "PemakaianItemDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

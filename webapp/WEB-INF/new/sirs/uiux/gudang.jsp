@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericCrudAction<Gudang>");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"initCriteria", "onEvent", "onSave", "checkKodeGudang", "render"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Gudang"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

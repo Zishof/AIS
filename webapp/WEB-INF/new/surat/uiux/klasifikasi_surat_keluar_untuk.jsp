@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericCrudAction<KlasifikasiSuratKeluarUntuk>");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"initCriteria", "onEvent", "onSave", "checkNamaKlasifikasiSuratKeluarUntuk", "render"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"KlasifikasiSuratKeluarUntuk", "StatusAwalMahasiswa", "StatusMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

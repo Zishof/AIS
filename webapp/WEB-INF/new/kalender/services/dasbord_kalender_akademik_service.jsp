@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DasbordKalenderAkademik");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.kalender");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/kalender/DasbordKalenderAkademik.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "compare", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KalenderAkademik"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

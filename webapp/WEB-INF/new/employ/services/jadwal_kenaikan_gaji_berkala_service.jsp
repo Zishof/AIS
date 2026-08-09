@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JadwalKenaikanGajiBerkalaAction")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.employ");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/employ/JadwalKenaikanGajiBerkalaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KenaikanGajiBerkala", "Jabatan", "JabatanFungsional", "JabatanStruktural", "Peraturan", "LampiranLain", "KenaikanPangkat"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "SuratUtilHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.surat.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/surat/util/SuratUtilHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"nilaiParameterAman", "ubahIsiSuratKeluar", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Pegawai", "KelasSiswa", "Guru", "Siswa", "Dosen", "Mahasiswa", "Fakultas", "BiodataMahasiswa", "Detailperkuliahan", "KrsMahasiswa", "HistoryStatusMahasiswa", "Skripsi", "MahasiswaRequestTugasAkhir", "VariableSuratKeluar", "AlurPersetujuanSuratKeluarStatus", "Pejabat", "KlasifikasiSuratKeluarParemeter", "KlasifikasiSuratKeluarParemeterValue", "SuratKeluar", "Map", "Tbmuser"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

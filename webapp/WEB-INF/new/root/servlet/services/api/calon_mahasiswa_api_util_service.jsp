@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CalonMahasiswaApiUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/CalonMahasiswaApiUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"biodata_calon_mahasiswa"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"BiodataCalonMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

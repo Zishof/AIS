@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ItemKpiTreeAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.kpi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/kpi/ItemKpiTreeAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent", "initCriteria", "onSearchDefault", "onCetak", "onAdd", "reloadDataFormula", "reloadFormula", "onSave", "onReloadTree", "render", "openChilds", "closeChilds"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ItemKpi", "MasaKpi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

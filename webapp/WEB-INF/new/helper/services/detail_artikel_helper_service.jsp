@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DetailArtikelHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/DetailArtikelHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"form", "onEvent", "istilah", "ambil", "ambilClass", "setPersetujuan", "cetakData", "initdataAwal", "onSave", "displayPengajuan", "run", "initCriteria", "loadDataPengajuan", "displayRow", "render", "setReadonly", "getReadonly", "loadData", "getDspaceArtikel", "getDspaceTahunArtikel", "getDspaceTipeArtikel", "getDspace"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Artikel", "TingkatArtikel", "ArtikelTerindeks", "JenisPenelitianDanPengabdian", "JurnalPenelitian", "SumberDanaPenelitianDanPengabdian", "JenisJabatanPenelitianDanPengabdian", "Tbmuser", "Mahasiswa", "TahapanPenyusunanArtikel", "LampiranLain", "PenilaianAsesor", "SintaArticle", "ScholarArticle", "FileArtikel", "AnggotaArtikel"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

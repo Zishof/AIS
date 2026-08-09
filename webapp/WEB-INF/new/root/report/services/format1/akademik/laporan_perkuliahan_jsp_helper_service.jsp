@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanPerkuliahanJspHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.akademik");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/akademik/LaporanPerkuliahanJspHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"isEmpty", "toQueryString", "parseParam", "buildFilterForm", "buildFilterFormAjax", "buildRingkasan", "buildTabelJadwal", "buildTabelJadwalPerHari", "buildTabelJadwalPerDosen", "buildTabelPerKelas", "buildTabelPerRuangan", "buildTabelPerMatakuliah", "buildTabelPerAsisten", "buildTabelJmlSksDosen", "buildTabelJmlSksMatakuliah", "buildTabelRekapDosen", "buildTabelDosenPembinaMk", "buildTabelJadwalParalel", "esc"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Perkuliahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

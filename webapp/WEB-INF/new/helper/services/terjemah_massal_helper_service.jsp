@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TerjemahMassalHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/TerjemahMassalHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getDiterjemah", "getTotalSumber", "getStatusThread", "getTerkiniGabung", "getTotal", "getDiproses", "getDiperbarui", "isSelesai", "isFasePersiapan", "getParalel", "persen", "mulai", "run", "execute", "terapkanKeMemori"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanStatusAkreditasiProdi_A_2_
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sapto");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sapto/LaporanStatusAkreditasiProdi_A_2_4_6.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onCetak", "run", "onEvent", "initCriteria"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

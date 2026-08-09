@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanDaftarStatusAwalMahasiswa"
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.helper.statistik");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/helper/statistik/LaporanDaftarStatusAwalMahasiswa.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Fakultas", "Jurusan", "StatusAwalMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

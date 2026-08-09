@@ -133,7 +133,7 @@ public class PaketPerkuliahan extends GeneralValueObject {
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
-	@JoinColumn(name = "kurikulum", nullable = true)
+	@JoinColumn(name = "kurikulum", nullable = false)
 	public Kurikulum getKurikulum() {
 		kurikulum = check(kurikulum);
 		return kurikulum;

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault, DataInitDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onLaporan", "onJenisCatatanPegawai", "onManajemenParameter", "doBeforeCompose", "doAfterCompose", "onEvent", "onDasbor", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/jenis_catatan_pegawai.zul", "/pages/master/parameter_tambahan_catatan_pegawai.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"Pegawai", "CatatanPegawai", "ParameterTambahanCatatanPegawai", "ParameterTambahan", "JenisCatatanPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

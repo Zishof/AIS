@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanDaftarHadirUjianSidangWind
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.helper.pdf");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/helper/pdf/LaporanDaftarHadirUjianSidangWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "onDaftarHadirUjianSidang"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Fakultas", "Jurusan", "Staff"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

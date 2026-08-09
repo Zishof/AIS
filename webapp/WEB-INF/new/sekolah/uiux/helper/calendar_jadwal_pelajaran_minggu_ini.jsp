@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericForwardComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"tampilInit", "displayRinci", "init", "onEvent", "onBack", "onNext", "onRefresh", "doBeforeCompose", "doAfterCompose", "ambilData", "onAgendaGuru"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Sekolah", "Yayasan", "Pertemuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

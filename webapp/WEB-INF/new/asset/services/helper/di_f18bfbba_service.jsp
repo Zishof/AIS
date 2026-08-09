@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "di");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.asset.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/asset/helper/DasboardPengadaan.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "getTitle", "getHeaders", "getWidths", "getAligns", "buildCriteria", "renderRow", "render", "setDebug", "isDebug", "count", "list", "initCriteria"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PermintaanPengadaanMasterAsset", "PemesananPengadaanMasterAsset", "PembayaranPengadaanMasterAssetDetail", "PembayaranPengadaanMasterAsset", "PerjanjianKerjasamaMasterAsset", "PenerimaanPengadaanMasterAsset", "PermintaanPengadaanMasterAssetDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"getId", "setId", "getInfo1", "setInfo1", "getInfo2", "setInfo2", "getInfo3", "setInfo3", "getInfo4", "setInfo4", "getInfo5", "setInfo5", "getInfo6", "setInfo6", "getInfo7", "setInfo7", "getInfo8", "setInfo8", "getInfo9", "setInfo9", "getInfo10", "setInfo10", "getInfo11", "setInfo11", "getInfo12", "setInfo12", "getInfo13", "setInfo13", "getInfo14", "setInfo14", "getInfo15", "setInfo15", "getInfo16", "setInfo16", "getInfo17", "setInfo17", "getInfo18", "setInfo18", "getInfo19", "setInfo19"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

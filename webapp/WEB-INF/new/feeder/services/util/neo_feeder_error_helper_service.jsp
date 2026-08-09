@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "NeoFeederErrorHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.feeder.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/feeder/util/NeoFeederErrorHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"belumTerdaftar", "sanitasiRecord", "diagnosa", "compare"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

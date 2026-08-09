@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataTempatTidurBanbox");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/helper/AmbilDataTempatTidurBanbox.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "display", "onSearchDefault", "setEventListener", "getEventListener", "setMyKelasPerawatan", "getMyKelasPerawatan", "setMyRuang", "getMyRuang", "setMyKamar", "getMyKamar"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"TempatTidur", "Pendaftaran", "KelasPerawatan", "Ruang", "Kamar"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

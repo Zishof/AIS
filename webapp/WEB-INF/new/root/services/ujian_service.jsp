@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "UjianAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/UjianAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onSertifikat", "onSyaratUjianTab", "onKuotaUjianTab", "render", "onAdd", "onAddExternal", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/sertifikat.zul", "/pages/master/syarat_ujian.zul", "/pages/master/hasil_ujian_mahasiswa.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Sertifikat", "SyaratUjian", "Jurusan", "Matapelajaran", "Ujian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilJadwalHarian");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs.jadwal_dokter");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/jadwal_dokter/AmbilJadwalHarian.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onRefresh", "onBack", "onNext", "onEvent", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Poly", "JadwalDokter"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PilihKegiatanHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/helper/PilihKegiatanHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"display", "onTampilItem", "onTutupItem", "onEvent", "getSelectedTahun"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Workspace"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

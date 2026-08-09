@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericCrudAction<PendidikanOrangTua>");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "initCriteria", "onSave", "checkNamaPendidikanOrangTua", "render"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"PendidikanOrangTua"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

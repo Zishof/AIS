@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KursusUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.kursus.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/kursus/helper/KursusUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"reloadFormula", "onEvent", "reloadDetail", "reloadDataFormula"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"TipePeserta", "JenisIdentitasPeserta", "JenisPeserta", "KomponenDataProdukKursus", "KomponenProdukKursus"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

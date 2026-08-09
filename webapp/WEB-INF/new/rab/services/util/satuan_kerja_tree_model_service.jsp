@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "SatuanKerjaTreeModel");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/util/SatuanKerjaTreeModel.java");
 request.setAttribute("nuiServiceMethods", new String[]{"ambilYayasan", "getChildren", "getChildrenByIds", "generateAllChildren", "getChild", "getChildCount", "getChildCountByIds", "isLeaf", "deleteChilds", "getParentCount", "getParentSet", "generateChildsByIds", "getChildsSet", "getIndexOfChild"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"SatuanKerja"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

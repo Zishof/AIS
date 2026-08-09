@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "SaldoAwalMasterAssetAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.asset");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/asset/SaldoAwalMasterAssetAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onCetak", "cetakData", "cetak", "render", "onAdd", "generateDetail", "form", "onSave", "initCriteria", "onSearchDefault", "generateCode", "getindex", "istilah", "ambil", "ambilClass", "setPersetujuan", "onAddExternal"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"SaldoAwalMasterAsset", "PenerimaanPengadaanMasterAsset", "SaldoAwalMasterAssetDetail", "PembayaranPengadaanMasterAssetDetail", "JenisPajakBarang", "PemesananPengadaanMasterAssetDetail", "PenerimaanPengadaanMasterAssetDetail", "PemilikAsset", "Lokasi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PembayaranSiswaUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/util/PembayaranSiswaUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"dataPembayaran", "cetakStruk", "cetakDeposit", "cetakBri", "cetakBni", "kirim", "onEvent", "cetakVa", "cetakBsi"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PembayaranSiswaDetail", "Tbmuser", "CalonSiswa", "Siswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BarangDalamProsesDashboard");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.asset.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/asset/helper/BarangDalamProsesDashboard.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PenerimaanPengadaanMasterAsset"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyWindow");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "ambil", "simpan"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/capaian_jurusan.zul", "/pages/master/obe/profesi_lulusan.zul", "/pages/master/obe/profil_lulusan.zul", "/pages/master/obe/capaian_lulusan.zul", "/pages/master/obe/bahan_kajian.zul", "/pages/master/obe/capaian_pembelajaran_lulusan.zul", "/pages/master/obe/referensi_lulusan.zul", "/pages/master/kelompok_matakuliah.zul", "/pages/master/akreditasi.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"ProfesiLulusan", "ProfilLulusan", "CapaianLulusan", "BahanKajian", "CapaianPembelajaranLulusan", "Matakuliah", "CapaianJurusan", "ReferensiLulusan", "IndikatorKinerja", "DokumenAkreditasi", "Kurikulum", "KurikulumPunyaMatakuliah"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

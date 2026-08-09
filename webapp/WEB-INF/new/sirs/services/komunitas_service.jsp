@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KomunitasAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/KomunitasAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initCriteria", "onEvent", "onSave", "checkNamaKomunitas", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Komunitas"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

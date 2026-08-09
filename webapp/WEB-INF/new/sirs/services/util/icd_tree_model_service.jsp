@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "IcdTreeModel");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/util/IcdTreeModel.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getChildren", "getChild", "getChildCount", "isLeaf", "getIndexOfChild"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Icd"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

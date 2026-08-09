@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericCrudAction<OperatorSeluler>");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"initCriteria", "onEvent", "onSave", "checkNamaOperatorSeluler", "render"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"OperatorSeluler"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

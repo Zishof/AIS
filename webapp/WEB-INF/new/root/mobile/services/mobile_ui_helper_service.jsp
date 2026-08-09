@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MobileUiHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.mobile");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/mobile/MobileUiHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"div", "label", "image", "iconButton", "bottomButton", "desktopLink", "chip", "card", "sectionHead", "listItem", "notifRow", "profileHead", "profileRow", "hero", "todayCard", "metric", "quickTile", "searchBox", "meter", "simpleTrend", "trendChart", "spider", "empty", "spacer", "clear"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

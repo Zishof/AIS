@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TugasMandiriHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/TugasMandiriHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onUbahPerintahTugas", "onEvent", "createTugas", "realoadNilai", "run", "muat", "render", "loadData", "tidakIkutDiskusiDiangapTidakHadir", "tidakAksesDiangapTidakHadir", "tidakUploadTugasDiangapTidakHadir", "uploadTugasDiangapHadir", "anggapSemuaSudahUpload"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Pertemuan", "DetailJenisPenilaian", "GrupPenilaian", "DetailGrupPenilaian", "GrupKategoriItemPenilaianSiswa", "DetailGrupKategoriItemPenilaianSiswa", "KategoriItemPenilaianSiswa", "JenisItemPenilaianSiswa", "SyaratUjian", "TugasFileContent", "Mahasiswa", "Siswa", "BiodataCalonMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

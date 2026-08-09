@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault, DataInitDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onManajemenMasaKpi", "onNilaiDefaultKpi", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault", "checkNamaFormatKpi"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/kpi/masa_kpi.zul", "/pages/master/kpi/nilai_default_kpi.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"FormatKpi", "Jurusan", "FormatKpiDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

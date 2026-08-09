@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataLoader, DataCriteria");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "initCriteria", "render", "onSearchDefault", "loadData"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/kalender_biodataCalonMahasiswa.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"BiodataCalonMahasiswa", "Jenjang", "FotoBiodataCalonMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

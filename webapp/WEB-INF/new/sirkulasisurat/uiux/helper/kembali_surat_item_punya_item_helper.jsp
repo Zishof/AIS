@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"initDetail", "onEvent", "initRow", "getPerpustakaan", "setPerpustakaan", "getPeminjamanSuratItem", "setPeminjamanSuratItem", "loadDataDetailFromPeminjaman"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"KembaliSuratItemDetail", "FotoGambarSuratMasuk", "PeminjamanSuratItemDetail", "SuratMasuk"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

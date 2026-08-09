@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ReversalLogic");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.ws.logic");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/ws/logic/ReversalLogic.java");
 request.setAttribute("nuiServiceMethods", new String[]{"reversalCalonMahasiswa", "reversalMahasiswaBaru", "reversalMahasiswaLama"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

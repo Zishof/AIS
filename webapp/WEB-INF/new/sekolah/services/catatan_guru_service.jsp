@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CatatanGuruAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/CatatanGuruAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onLaporan", "onJenisCatatanGuru", "onManajemenParameter", "doBeforeCompose", "doAfterCompose", "onEvent", "onDasbor", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/sekolah/jenis_catatan_guru.zul", "/pages/master/sekolah/parameter_tambahan_catatan_guru.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisCatatanGuru", "CatatanGuru", "ParameterTambahanCatatanGuru", "ParameterTambahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

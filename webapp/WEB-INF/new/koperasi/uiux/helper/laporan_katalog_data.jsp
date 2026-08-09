@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"katalog"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/kantin/laporan_keuangan.zul?lap=", "/common/display.zul?p=akuntansi"});
 request.setAttribute("nuiEntityCandidates", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

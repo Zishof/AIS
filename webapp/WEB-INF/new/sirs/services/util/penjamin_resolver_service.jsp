@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PenjaminResolver");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/util/PenjaminResolver.java");
 request.setAttribute("nuiServiceMethods", new String[]{"asuransiEfektif", "jenisPayer", "isBpjs", "isUmum", "labelPenjamin", "cariKepesertaanUtama"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KepesertaanPasien"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

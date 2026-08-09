@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KonfigurasiPoinKegiatanAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.koperasi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/koperasi/KonfigurasiPoinKegiatanAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "render", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisFormulirKegiatan", "FormulirKegiatan", "KonfigurasiPoinKegiatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

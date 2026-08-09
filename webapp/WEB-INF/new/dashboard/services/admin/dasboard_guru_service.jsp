@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DasboardGuru");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.admin");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/admin/DasboardGuru.java");
 request.setAttribute("nuiServiceMethods", new String[]{"isDebug", "setDebug", "onEvent", "compare"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisGuru", "PenugasanGuruMengajar", "PrestasiGuru", "CatatanGuru", "JenisCatatanGuru", "Guru", "JadwalPelajaran", "AbsenGuruPiket", "Sekolah"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

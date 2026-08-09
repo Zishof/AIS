@@ -19,6 +19,7 @@ public class NewUiMenuNode implements Serializable {
 
     private Long menuId;
     private String label;
+    private String icon;
     private String legacyUrl;      // URL legacy /baru (selalu tersedia bila menu punya url)
     private String newUiModule;    // modul New UI hasil registry, null bila UNMAPPED
     private String newUiPage;      // page New UI hasil registry, null bila UNMAPPED
@@ -27,6 +28,7 @@ public class NewUiMenuNode implements Serializable {
     private Long child;
     private boolean group;         // parent tanpa URL yang menampung child (heading/collapsible)
     private boolean active;        // node yang sedang dibuka
+    private int readableDescendantCount;
     private NewUiPermission permission = NewUiPermission.none();
     private List<NewUiMenuNode> children = new ArrayList<NewUiMenuNode>();
 
@@ -44,6 +46,14 @@ public class NewUiMenuNode implements Serializable {
 
     public void setLabel(String label) {
         this.label = label;
+    }
+
+    public String getIcon() {
+        return icon;
+    }
+
+    public void setIcon(String icon) {
+        this.icon = icon;
     }
 
     public String getLegacyUrl() {
@@ -110,6 +120,14 @@ public class NewUiMenuNode implements Serializable {
         this.active = active;
     }
 
+    public int getReadableDescendantCount() {
+        return readableDescendantCount;
+    }
+
+    public void setReadableDescendantCount(int readableDescendantCount) {
+        this.readableDescendantCount = readableDescendantCount;
+    }
+
     public NewUiPermission getPermission() {
         return permission;
     }
@@ -138,5 +156,11 @@ public class NewUiMenuNode implements Serializable {
     /** true bila node sendiri boleh dibaca. */
     public boolean isReadable() {
         return permission != null && permission.isCanRead();
+    }
+
+    /** Parent display-only tidak pernah menjadi tautan. */
+    public boolean isClickable() {
+        return isReadable() && (isMappedToNewUi()
+                || (legacyUrl != null && legacyUrl.length() > 0));
     }
 }

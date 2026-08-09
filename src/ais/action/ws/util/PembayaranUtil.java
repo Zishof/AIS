@@ -31,6 +31,7 @@ import org.json.JSONObject;
 
 import ais.action.master.KegiatanAction;
 import ais.action.master.SetingBiayaAction;
+import ais.action.master.helper.PembayaranUtilHelper;
 import ais.action.report.CommonReportHelper;
 import ais.common.Common;
 import ais.common.CommonEmail;
@@ -1893,6 +1894,14 @@ public class PembayaranUtil {
 	public Collection<DetailBiaya> getDetailBiayaCalonMahasiswa(BiodataCalonMahasiswa biodataCalonMahasiswa,
 			JenisKegiatan jenisKegiatan, Jurusan jurusan, Integer semester, boolean reload) {
 
+		// Satu sumber kebenaran dengan layar Pembayaran Daftar Ulang. Implementasi
+		// lama di kelas WS memiliki filter/cache yang berbeda sehingga UI dapat
+		// menampilkan tagihan sementara inquiry H2H menghasilkan total 0.
+		if (biodataCalonMahasiswa != null && jenisKegiatan != null) {
+			return PembayaranUtilHelper.getDetailBiayaCalonMahasiswa(biodataCalonMahasiswa,
+					jenisKegiatan, jurusan, semester, reload);
+		}
+
 		String key = "tagihan_cal_mhs_" + biodataCalonMahasiswa.getId() + "_" + jenisKegiatan.getId() + "_" + semester;
 
 		if (!reload) {
@@ -2692,7 +2701,20 @@ public class PembayaranUtil {
 
 			Integer semester = jenisKegiatan.getId().equals(ConstantValues.PENDAFTARAN_CALON_MAHASISWA.getId()) ? 0 : 1;
 
-			Kegiatan kegiatan = biodataCalonMahasiswa.ambilKegiatans(semester, jenisKegiatan);
+			// Gunakan semester kegiatan/tagihan yang sudah ada. Ini menjaga pembayaran
+			// H2H konsisten dengan layar ketika daftar ulang dikonfigurasi di semester 0.
+			Kegiatan kegiatan = biodataCalonMahasiswa.ambilKegiatans(null, jenisKegiatan);
+			if (kegiatan != null) {
+				semester = kegiatan.getSemster();
+			} else if (detailBiayas != null) {
+				for (DetailBiaya detailBiaya : detailBiayas) {
+					if (detailBiaya != null && detailBiaya.getSemester() != null) {
+						semester = detailBiaya.getSemester();
+						break;
+					}
+				}
+				kegiatan = biodataCalonMahasiswa.ambilKegiatans(semester, jenisKegiatan);
+			}
 
 			Session session = HibernateUtil.currentNativeSession();
 

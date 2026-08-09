@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DownloadTagihanMahasiswa");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.virtualaccount");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/virtualaccount/DownloadTagihanMahasiswa.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "getFile", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

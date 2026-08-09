@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BerkasHasilAkreditasiPunyaNamaHel
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/BerkasHasilAkreditasiPunyaNamaHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "initCriteria", "loadData", "onAdd", "display", "process"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"BerkasHasilAkreditasiPunyaNama"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

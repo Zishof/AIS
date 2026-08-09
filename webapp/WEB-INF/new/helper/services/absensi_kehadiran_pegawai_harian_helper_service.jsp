@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AbsensiKehadiranPegawaiHarianHelp
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/AbsensiKehadiranPegawaiHarianHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "display", "run", "loadData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Statusabsensi", "StatuskehadiranKaryawanHarian", "CutiDanIzin", "JenisShiftPunyaPegawai", "DetailJenisShiftPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

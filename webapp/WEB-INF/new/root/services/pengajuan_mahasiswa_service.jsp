@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PengajuanMahasiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/PengajuanMahasiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onLaporan", "onJenisPengajuan", "onTampilAsrama", "onTampilAsrama1", "onTampilAsrama2", "onTampilAsrama3", "onManajemenParameter", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "form", "onSave", "istilah", "ambil", "ambilClass", "cetakData", "onKHS", "initCriteria", "onSearchDefault", "setPersetujuan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/jenis_pengajuan.zul", "/pages/master/parameter_tambahan_pengajuan.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa", "JenisPengajuan", "PengajuanMahasiswa", "ParameterTambahanPengajuan", "ParameterTambahan", "LampiranLain"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

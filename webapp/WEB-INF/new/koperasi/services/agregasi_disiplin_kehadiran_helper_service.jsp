@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AgregasiDisiplinKehadiranHelper")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.koperasi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/koperasi/AgregasiDisiplinKehadiranHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"memenuhiSyaratDisiplin"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"CutiDanIzin", "StatuskehadiranKaryawanHarian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataItemBanyak");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/helper/AmbilDataItemBanyak.java");
 request.setAttribute("nuiServiceMethods", new String[]{"render", "onEvent", "display", "initCriteria", "onSearchDefault", "setEventListener", "getEventListener"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"FotoImagePerHalamanItem", "Item"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

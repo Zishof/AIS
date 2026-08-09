@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DownloadHistory");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.feeder.integrator.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/feeder/integrator/helper/DownloadHistory.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"StatusMahasiswa", "Mahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria");
 request.setAttribute("nuiSourceMethods", new String[]{"generateCSLItemData", "tampilkanKutipan", "onEvent", "run", "onProgress", "accept", "compare", "doBeforeCompose", "doAfterCompose", "uploadDataItem", "getDspaceItemTahunPT", "getDspaceItemTahunJurusan", "getDspaceItemJurusan", "getDspaceItem", "getDspace", "render", "onAdd", "onAddGoogle", "onAddExternal", "onSave", "checkForTerbit", "initCriteria", "onSearchDefault", "checkNamaItem"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Perpustakaan", "TipeItem", "Item", "ItemPunyaPengarang", "JenisItem", "SaldoAwal", "ItemPunyaBarcode", "Penerbit", "LabelItem", "Pengarang", "KategoriItem", "SaldoAwalDetail", "BatchItemPunyaBarcode", "ItemPunyaKategoriItem", "FotoItem", "FotoGambarItem", "FotoImagePerHalamanItem", "Jurusan", "DataDdcItem", "DataDdcItemDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

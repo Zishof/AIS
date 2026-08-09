@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "WinAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/WinAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Tbmuser"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

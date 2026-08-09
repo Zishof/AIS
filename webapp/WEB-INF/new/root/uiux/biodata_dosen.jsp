@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyWindow");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"displayBiodataWindow", "checkEmailDosen", "onEvent", "checkBiodataDosen", "setCommonOnSearchdefault", "getCommonOnSearchdefault", "init", "onSave", "loadDataDosen", "initData", "initKeluarga", "initAlamat", "reloadDosen", "run", "reloadDosenBimbingan", "reloadDosenPenguji", "reloadDosenKkn", "getDspaceSK", "getDspaceTugasMengajar"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/biodata_dosen.zul?refresh=true", "/pages/master/mengajar_di_perguruan_tinggi_lain.zul?dosen=", "/pages/master/tugas_belajar_dosen.zul?dosen=", "/pages/master/akreditasi.zul?dosen=", "/pages/master/buku_bahan_ajar.zul?dosen=", "/common/checklist_penilaian_umum.zul?dosen="});
 request.setAttribute("nuiEntityCandidates", new String[]{"Dosen", "BiodataDosen", "FotoDosen", "Tbmuser", "PerguruanTinggi", "Fakultas", "Jurusan", "IkatanKerjaDosen", "StatusKepegawaian", "JenisPendidikDanTenagaKependidikan", "JabatanFungsionalDosen", "StatusPegawai", "GolonganPns", "LembagaPengangkat", "SumberGaji", "Jabatan", "Pendidikan", "AsesorPenunjangKinerjaDosen", "Asesor", "AsesorPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

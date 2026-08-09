@@ -229,7 +229,7 @@ Long currentAnggotaId = (anggota != null) ? anggota.getId() : null;
 
     async function loadMasterData<%=rnd%>() {
         try {
-            const reqPerpus = { "action": "daftar", "tanpaLogin":"true", "class": "<%=ais.database.model.library.Perpustakaan.class.getName()%>", "max": 100, "order1": "asc", "sort1": "nama" };
+            const reqPerpus = { "action": "daftar", "tanpaLogin":"true", "class": "<%=ais.database.model.library.Perpustakaan.class.getName()%>", "where1": "(aktif is null or aktif = true)", "max": 100, "order1": "asc", "sort1": "nama" };
             const pPerpus = fetch(apiUrl<%=rnd%>, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(reqPerpus) }).then(res => res.json());
 
             const reqJenis = { "action": "daftar", "tanpaLogin":"true", "class": "<%=ais.database.model.library.JenisItem.class.getName()%>", "max": 100, "order1": "asc", "sort1": "nama" };

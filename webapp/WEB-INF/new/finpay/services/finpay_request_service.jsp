@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "FinpayRequestAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.finpay");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/finpay/FinpayRequestAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"FinpayRequestDetail", "CicilanPembayaran", "FinpayRequest"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

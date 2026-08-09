@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanPertangungjawabanKasBesar"
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.akunting");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/akunting/LaporanPertangungjawabanKasBesar.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateParameters", "onEvent", "generateParameter", "onReport"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PertangungjawabanKasBesar", "KasBesar", "JenisPajakBarang"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

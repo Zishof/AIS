@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TampilanPengumumanPerkuliahanActi
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/TampilanPengumumanPerkuliahanAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "loadData", "initCriteria", "onSearchDefault", "displayDetailPertemuanFileContent", "loadDataAttachment", "render", "onSave", "kirimEmail", "broadcastEmail", "kirimEmailKeKorespondensi", "setReadonly", "getReadonly"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Perkuliahan", "PengumumanPerkuliahan", "LampiranPengumumanPerkuliahan", "DiskusiPengumumanPerkuliahan", "Tbmuser", "Detailperkuliahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

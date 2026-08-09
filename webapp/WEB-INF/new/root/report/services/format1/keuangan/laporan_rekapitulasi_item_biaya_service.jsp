@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanRekapitulasiItemBiaya");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.keuangan");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/keuangan/LaporanRekapitulasiItemBiaya.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "onRekap"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisKegiatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

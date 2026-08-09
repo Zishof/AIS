@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PenilaianAsesorHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.bkd.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/bkd/helper/PenilaianAsesorHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"formNilai", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"AsesemenPenilaian", "AsesorPegawai", "PenilaianAsesor"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

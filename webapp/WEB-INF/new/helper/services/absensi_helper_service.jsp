@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AbsensiHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/AbsensiHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"createTombolAbsen", "onEvent", "populateMahasiswaDariPertemuan", "mainInit", "run", "sesuaikan", "render", "createStatusKehadiran", "boleh", "bolehKonfirmasi", "bolehKonfirmasiRps", "bolehOlehAkademik", "createStatusKehadiranData", "createStatusKehadiranKonfirmasi", "createStatusSesuaiDenganRpsKonfirmasi", "createStatusSesuaiOlehAkademik"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/read_qr_code_kartu.jsp?q=", "/read_rfid_kartu.jsp?q="});
 request.setAttribute("nuiServiceEntities", new String[]{"Statusabsensi", "ProdukPeserta", "PesertaKursus", "HasilUjianMahasiswa", "BiodataCalonMahasiswa", "RuangPaketPMB", "Detailperkuliahan", "FormulirKegiatanPeserta", "Mahasiswa", "PendaftaranWisuda", "MahasiswaDapatKelompokKkn", "MahasiswaDapatKelompokPkl", "StatusPertemuan", "Lokasi", "Dosen", "DetailKelasPertemuan", "Pegawai", "Pertemuan", "KelasPertemuan", "PengajuanIzinTidakMasukPerkuliahan", "Tbmuser"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

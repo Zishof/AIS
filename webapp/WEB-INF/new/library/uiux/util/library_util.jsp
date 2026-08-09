@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"generateMaxByPerpustakaan", "generateCode", "convertLampiranToText", "checkDirectory", "tersediaDi", "laporanHTML", "getKuota", "generateImage", "generateImageString", "tampilkanBacaFrame", "checkRef", "run", "hitungDendaItem", "hitungDendaPerItem", "getJumlahHariBatas", "hitungDenda", "gambarAnggota", "gambarTamu", "tampilanSummaryPeminjaman", "tampilanSummaryPeminjamanFormatDesktop", "checkSkripsiForItem", "getJumlahMaksimalPeminjaman", "getJumlahMaksimalPerpanjanganPeminjaman", "onPerpanjang", "onBatalPerpanjang", "cariDiGoogleBook"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"JenisItem", "TipeItem", "JenisInformasiPerpustakaan", "KategoriItem", "TipeAnggota", "JenisIdentitasAnggota", "JenisAnggota", "StatusTerbitItem", "StatusItem", "KodeTransaksi", "FotoItem", "FotoImagePerHalamanItem", "Item", "DomainPenelitian", "PeminjamanPengadaanItemDetail", "KembaliPengadaanItemDetail", "FotoGambarItem", "DendaKeterlambatanItem", "BatasWaktuPeminjamanItem", "PeminjamanSuratItemDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

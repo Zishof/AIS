@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ApiHelperSupport");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/ApiHelperSupport.java");
 request.setAttribute("nuiServiceMethods", new String[]{"hasText", "trimToEmpty", "lowerAction", "absoluteUrl", "safeString", "truncate", "defaultResponse", "errorResponse", "status", "put", "putStatus", "putSuccess", "putEmpty", "putError", "optString", "isNullOrEmptyJsonValue", "withOpenedSession", "closeCurrentNativeSession", "closeOpenedSession", "rollbackQuietly", "commit", "readBody", "getClientIp", "hasGetter"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

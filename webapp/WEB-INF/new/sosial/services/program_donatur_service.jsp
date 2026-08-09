@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ProgramDonaturAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sosial");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sosial/ProgramDonaturAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "form", "getThis", "onSave", "initCriteria", "onSearchDefault", "istilah", "ambil", "ambilClass", "setPersetujuan", "cetakData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ProgramDonatur", "KategoriProgramDonatur", "Donatur", "LampiranLain"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

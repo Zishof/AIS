@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "GateBayarSpUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/util/GateBayarSpUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"alasanBlokir"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Detailperkuliahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

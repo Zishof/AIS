@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CommonReportPegawai");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.recruitment.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/recruitment/helper/CommonReportPegawai.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onCetakKartuUjianPegawai", "onCetakAbsensiPegawaiFoto", "onEvent", "getDataAlbumPegawaiAdmin", "onCetakAbsensiPegawai", "onCetakPernyataanOrtu", "onCetakPernyataanPegawai", "onCetakVerifikasiPegawai", "onCetakCalonPegawai"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"RuangGelombangPendaftaranPegawaiPegawai", "Jurusan", "JadwalUjianPegawai", "GelombangPendaftaranPegawai", "CalonPegawaiPunyaVerifikasiBerkas", "LampiranLain"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

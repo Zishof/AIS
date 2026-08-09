@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardStatistikPengajuanBeasis
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.admin");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/admin/DashboardStatistikPengajuanBeasiswaPerJurusan.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "reinit", "initCriteria"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/kkn/kelompok_kkn.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"MahasiswaDapatKelompokKkn", "Kkn", "KelompokKkn"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

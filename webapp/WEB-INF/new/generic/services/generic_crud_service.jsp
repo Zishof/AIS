@@ -5,6 +5,10 @@ Safe service-adapter scaffold. Implement data access in a Java service layer, no
 --%>
 <%@ page language="java" contentType="application/json; charset=UTF-8" pageEncoding="UTF-8" %>
 <%
+if(ais.common.Common.getApakahAdmin()){
+    request.getRequestDispatcher("/WEB-INF/new/generic/services/model_catalog_service.jsp").forward(request,response);
+    return;
+}
 request.setAttribute("nuiServiceModule", "generic");
 request.setAttribute("nuiServicePage", "generic_crud");
 request.setAttribute("nuiServiceTitle", "Generic Crud");
@@ -13,7 +17,6 @@ request.setAttribute("nuiServiceSourceClass", "GenericCrudAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.generic");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/generic/GenericCrudAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initCriteria", "doBeforeCompose", "doAfterCompose", "onEvent", "onSearchDefault", "onAdd", "init", "onBantuan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Agama"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ProfileAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.maintenance");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/maintenance/ProfileAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "initProfile"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

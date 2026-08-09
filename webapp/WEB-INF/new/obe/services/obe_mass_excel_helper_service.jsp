@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ObeMassExcelHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.obe");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/obe/ObeMassExcelHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"buildWorkbookBytes", "importWorkbook"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ProfilLulusan", "CapaianLulusan", "CapaianPembelajaranLulusan", "BahanKajian", "ReferensiLulusan", "Matakuliah", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardStatistikPembayaran");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.keuangan");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/keuangan/DashboardStatistikPembayaran.java");
 request.setAttribute("nuiServiceMethods", new String[]{"reinit", "onEvent", "judul", "subjudul", "deskripsi", "bagian", "ambil"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/kegiatan.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

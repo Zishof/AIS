@@ -6,6 +6,7 @@ import org.zkoss.zul.Borderlayout;
 import ais.action.master.helper.util.PerguruanTinggiUtil;
 import ais.action.master.sekolah.util.SekolahUtil;
 import ais.common.Common;
+import ais.common.HeadlessActionContext;
 import ais.database.model.PerguruanTinggi;
 import ais.database.model.file.LampiranLain;
 import ais.database.model.sekolah.Sekolah;
@@ -23,6 +24,7 @@ public class MyBorderlayout extends Borderlayout {
 	public MyBorderlayout() {
 		super();
 		initBg();
+		if (HeadlessActionContext.isActive()) return;
 		if (Common.isMobile() && !initModel) {
 			initModel = true;
 			setVisible(false);
@@ -46,6 +48,7 @@ public class MyBorderlayout extends Borderlayout {
 		super();
 		this.initModel = initModel;
 		initBg();
+		if (HeadlessActionContext.isActive()) return;
 		if (Common.isMobile() && !initModel) {
 			initModel = true;
 			setVisible(false);
@@ -66,6 +69,7 @@ public class MyBorderlayout extends Borderlayout {
 	}
 
 	public void initBg() {
+		if (HeadlessActionContext.isActive()) return;
 
 		setStyle("background:url('" + Common.ROOT
 				+ "/img/bg_default.jpg') no-repeat center center fixed;-webkit-background-size: cover;-moz-background-size: cover;background-size: cover;-o-background-size: cover;");

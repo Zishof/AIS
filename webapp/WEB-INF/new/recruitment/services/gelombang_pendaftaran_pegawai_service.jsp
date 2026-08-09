@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "GelombangPendaftaranPegawaiAction
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.recruitment");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/recruitment/GelombangPendaftaranPegawaiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onVerifikasiKelengkapanBerkas", "onVerifikasiTambahan", "onKonfigurasiCalonBiodataPegawai", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/recruitment/verifikasi_kelengkapan_calon_pegawai.zul", "/pages/master/recruitment/parameter_verifikasi_calon_pegawai.zul", "/pages/master/konfigurasi_biodata_calon_pegawai.zul", "/pages/pegawai/ujian_pegawai.zul?gelombangPendaftaranPegawai=", "/pages/pegawai/ruang_pegawai.zul?gelombangPendaftaranPegawai=", "/pages/pegawai/jadwal_ujian_pegawai.zul?gelombangPendaftaranPegawai=", "/pages/pegawai/parameter_tambahan_gelombang.zul?gelombangPendaftaranPegawai=", "/pages/pegawai/gelombang_punya_parameter_verifikasi_calon_pegawai.zul?gelombangPendaftaranPegawai="});
 request.setAttribute("nuiServiceEntities", new String[]{"GelombangPendaftaranPegawai", "VerifikasiKelengkapanCalonPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "SatuanKpiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.kpi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/kpi/SatuanKpiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onManajemenParameter", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault", "checkNamaSatuanKpi"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/parameter_tambahan.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"SatuanKpi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

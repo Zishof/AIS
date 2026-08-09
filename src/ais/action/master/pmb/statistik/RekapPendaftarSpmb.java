@@ -28,6 +28,7 @@ import org.zkoss.zul.Row;
 
 import org.zkoss.zul.Rows;
 import org.zkoss.zul.SimpleListModel;
+import org.zkoss.zul.Tabbox;
 import org.zkoss.zul.Tabpanel;
 import org.zkoss.zul.Vbox;
 
@@ -57,6 +58,7 @@ import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyComboitemConfig;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyLabelBoldAja;
+import ais.ui.util.MyButtonTabbox;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.UIUtil;
 
@@ -68,6 +70,14 @@ public class RekapPendaftarSpmb extends GenericAutowireComposer {
 	private static final long serialVersionUID = 3173385938131248092L;
 
 	private MyGrid grid;
+	private Tabbox tabboxPendaftarSpmbInduk;
+	private Tabbox tabboxDashboardPmb;
+	private Tabbox tabboxRekapPmb;
+	private Tabbox tabboxStatistikPmb;
+	private final int[] tabAktifInduk = new int[] { 1 };
+	private final int[] tabAktifDashboard = new int[] { 1 };
+	private final int[] tabAktifRekap = new int[] { 1 };
+	private final int[] tabAktifStatistik = new int[] { 1 };
 
 	private Combobox jenisseleksisearch;
 	private Combobox searchTahunAjaran;
@@ -114,6 +124,25 @@ public class RekapPendaftarSpmb extends GenericAutowireComposer {
 	private DashboardHarianPmb dashboardHarian;
 
 	private MyToolbarbuttonConfig find;
+
+	private void gantiTabboxNativeKeButton() {
+		MyButtonTabbox.gantiTabboxNative(tabboxPendaftarSpmbInduk, tabAktifInduk);
+		MyButtonTabbox.gantiTabboxNative(tabboxDashboardPmb, tabAktifDashboard);
+		MyButtonTabbox.gantiTabboxNative(tabboxRekapPmb, tabAktifRekap);
+		MyButtonTabbox.gantiTabboxNative(tabboxStatistikPmb, tabAktifStatistik);
+	}
+
+	public void onTabDashboardPmb(Event event) {
+		onDasbor(event);
+	}
+
+	public void onTabRekapPmb(Event event) {
+		onDasborRekapMultiTahun(event);
+	}
+
+	public void onTabStatistikPmb(Event event) {
+		onReportPeminat(event);
+	}
 
 	public void onStatistik(Event event) {
 
@@ -344,6 +373,7 @@ public class RekapPendaftarSpmb extends GenericAutowireComposer {
 		gelombangEventListener.onEvent(null);
 		searchTahunAjaran.addEventListener("onChange", gelombangEventListener);
 
+		gantiTabboxNativeKeButton();
 		onSearchDefault(null);
 		onDasbor(null);
 

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KadaluarsaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs.detail");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/detail/KadaluarsaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "onAdd", "onSave", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Kadaluarsa", "Lokasi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

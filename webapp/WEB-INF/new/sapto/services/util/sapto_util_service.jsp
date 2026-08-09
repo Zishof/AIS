@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "SaptoUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sapto.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sapto/util/SaptoUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"displayWorksheet", "onEvent", "compare"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

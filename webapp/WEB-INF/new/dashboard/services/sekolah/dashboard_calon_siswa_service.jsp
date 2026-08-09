@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardCalonSiswa");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/sekolah/DashboardCalonSiswa.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "initCriteria", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"CalonSiswa", "Sekolah"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

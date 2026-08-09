@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PrestasiDosenAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/PrestasiDosenAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onDasbor", "onKategoriPrestasiDosen", "onCabangPrestasiDosen", "onRekapCabang", "onRekapKategori", "doBeforeCompose", "doAfterCompose", "onEvent", "run", "getDspace", "getDspaceTipePrestasiDosen", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/kategori_prestasi_dosen.zul", "/pages/master/cabang_prestasi_dosen.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"KategoriPrestasiDosen", "CabangPrestasiDosen", "Dosen", "Jurusan", "PrestasiDosen"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

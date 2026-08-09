@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CalonPegawaiPunyaDokumenAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.recruitment");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/recruitment/CalonPegawaiPunyaDokumenAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"CalonPegawaiPunyaDokumen", "CalonPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

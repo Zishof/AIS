@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ParameterTambahanPengajuanTransak
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.payroll");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/payroll/ParameterTambahanPengajuanTransaksiPegawaiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onResetParameter", "onManajemenKelompok", "onManajemenParameter", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/payroll/kelompok_parameter_tambahan_pengajuan_transaksi_pegawai.zul", "/pages/master/parameter_tambahan.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"KelompokParameterTambahanPengajuanTransaksiPegawai", "ParameterTambahanPengajuanTransaksiPegawai", "ParameterTambahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

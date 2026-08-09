@@ -55,6 +55,7 @@ import org.zkoss.zul.Checkbox;
 import org.zkoss.zul.Columns;
 import org.zkoss.zul.Combobox;
 import org.zkoss.zul.Comboitem;
+import org.zkoss.zul.Div;
 import ais.ui.util.MyDetail;
 import org.zkoss.zul.Filedownload;
 import org.zkoss.zul.Groupbox;
@@ -134,6 +135,7 @@ import ais.ui.util.MyCheckboxConfig;
 import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyComboitemConfig;
 import ais.ui.util.MyGrid;
+import ais.ui.util.MyButtonTabbox;
 import ais.ui.util.MyInclude;
 import ais.ui.util.MyLabelKecil;
 import ais.ui.util.MyLabelKecilBold;
@@ -149,6 +151,8 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 
 	private MyGrid grid;
 	private Paging paging;
+	private Tabbox tabboxDataCalonMahasiswa;
+	private final int[] tabAktifDataCalonMahasiswa = new int[] { 1 };
 
 	private Textbox searchnama;
 	private Textbox searchnoreg;
@@ -235,23 +239,8 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 
 		if (pilihanCalonMahasiswa.getChildren().isEmpty()) {
 
-			Tabbox tabbox = new Tabbox();
-			tabbox.setHeight("100%");
-			tabbox.setParent(pilihanCalonMahasiswa);
-			Tabs tabs = new Tabs();
-			tabs.setParent(tabbox);
-
-			MyTabConfig tabData = new MyTabConfig("Data Peserta");
-			tabData.setParent(tabs);
-
-			MyTabConfig tabDataCalon = new MyTabConfig("Daftar Hadir Ujian");
-			tabDataCalon.setParent(tabs);
-
-			Tabpanels tabpanels = new Tabpanels();
-			tabpanels.setParent(tabbox);
-
-			Tabpanel tabpanelUtama = new ais.ui.util.MyTabpanel();
-			tabpanelUtama.setParent(tabpanels);
+			MyButtonTabbox tabbox = MyButtonTabbox.buat(pilihanCalonMahasiswa, "100%", new int[] { 1 });
+			Div tabpanelUtama = tabbox.tambahTab(1, "Data Peserta");
 
 			MyWindow window = CommonReportHelper.onCetakDataPMBFoto();
 			window.setClosable(false);
@@ -261,23 +250,19 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 			window.setBorder("none");
 			tabpanelUtama.appendChild(window);
 
-			final Tabpanel tabpanel = new ais.ui.util.MyTabpanel();
-			tabpanel.setParent(tabpanels);
-
-			tabDataCalon.addEventListener("onClick", new EventListener() {
+			tabbox.tambahTabLazy(2, "Daftar Hadir Ujian", new MyButtonTabbox.PemuatTab() {
 				@Override
-				public void onEvent(Event arg0) throws Exception {
-					if (tabpanel.getChildren().isEmpty()) {
-						MyWindow window = CommonReportHelper.onCetakAbsensiPMBFoto();
-						window.setClosable(false);
-						window.setTitle("");
-						window.setHeight("100%");
-						window.setWidth("100%");
-						window.setBorder("none");
-						tabpanel.appendChild(window);
-					}
+				public void muat(Div panel) throws Exception {
+					MyWindow window = CommonReportHelper.onCetakAbsensiPMBFoto();
+					window.setClosable(false);
+					window.setTitle("");
+					window.setHeight("100%");
+					window.setWidth("100%");
+					window.setBorder("none");
+					panel.appendChild(window);
 				}
 			});
+			tabbox.pilih(1);
 
 		}
 	}
@@ -2544,6 +2529,7 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 			});
 		}
 
+		MyButtonTabbox.gantiTabboxNative(tabboxDataCalonMahasiswa, tabAktifDataCalonMahasiswa);
 		onSearchDefault(null);
 
 		Common.initPaging(paging, new EventListener() {

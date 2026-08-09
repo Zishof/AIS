@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DaftarDataService");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/DaftarDataService.java");
 request.setAttribute("nuiServiceMethods", new String[]{"daftar", "load", "sql", "proses"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Tbmuser", "Tbmrole", "Program", "Mahasiswa", "Siswa", "Guru", "Dosen", "Pegawai", "FotoAdmin", "FotoMahasiswa", "FotoSiswa", "FotoDosen", "FotoGuru", "FotoPegawai", "BiodataCalonMahasiswa", "FotoBiodataCalonMahasiswa", "CalonSiswa", "FotoCalonSiswa", "Pedagang", "Produk", "LampiranLain"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

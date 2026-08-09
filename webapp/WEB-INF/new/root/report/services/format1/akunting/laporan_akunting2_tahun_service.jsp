@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanAkunting2Tahun");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.akunting");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/akunting/LaporanAkunting2Tahun.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "onReport"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisLaporan", "MasterGrupLaporan", "KelompokLaporan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

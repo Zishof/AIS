@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PeminjamanPengadaanItemAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/PeminjamanPengadaanItemAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "run", "onCetakPeminjamanPerAnggota", "onSynchronizeDenda", "onCetakPeminjamanPerAnggotaBelumDikembalikan", "render", "onAdd", "onSave", "kirim", "initCriteria", "onSearchDefault", "onKodeAnggota"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PeminjamanPengadaanItemDetail", "PeminjamanPengadaanItem", "KunjunganAnggota", "Perpustakaan", "AnggotaYangDiblokir", "Anggota"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

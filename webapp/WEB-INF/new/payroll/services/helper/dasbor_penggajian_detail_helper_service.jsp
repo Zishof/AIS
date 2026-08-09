@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DasborPenggajianDetailHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.payroll.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/payroll/helper/DasborPenggajianDetailHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"panelGajiKategori", "panelKomponenGajiFormula", "compare", "panelTunjanganHonor", "panelDaftarCuti", "panelDaftarPerjalananDinas", "panelKehadiranBulanan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PembayaranGajiPunyaPegawai", "PembayaranItemGajiPegawai", "TransaksiPegawai", "CutiDanIzin", "KehadiranPegawaiBulanan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PemakaianMasterAssetDetailAction"
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.asset.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/asset/helper/PemakaianMasterAssetDetailAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "loadData", "display", "uploadDataMasterAsset", "run", "initCriteria"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PemakaianMasterAssetDetail", "MasterAsset"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

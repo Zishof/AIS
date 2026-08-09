@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PenilaianSiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/PenilaianSiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onJenisNilai", "doBeforeCompose", "doAfterCompose", "onEvent", "run", "render", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/sekolah/jenis_nilai_siswa.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"KelasSiswaPunyaSiswa", "KurikulumPunyaMatapelajaran", "JenisPenilaian", "DetailJenisPenilaian", "GrupPenilaian", "DetailGrupPenilaian", "GrupKategoriItemPenilaianSiswa", "DetailGrupKategoriItemPenilaianSiswa", "KategoriItemPenilaianSiswa", "JenisItemPenilaianSiswa", "KelasSiswa", "JadwalPelajaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

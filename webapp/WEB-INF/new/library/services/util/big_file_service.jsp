@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BigFile");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/util/BigFile.java");
 request.setAttribute("nuiServiceMethods", new String[]{"Close", "iterator", "hasNext", "next", "remove"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

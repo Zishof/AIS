@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "HelperFormPpdb");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.psb.form");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/psb/form/HelperFormPpdb.java");
 request.setAttribute("nuiServiceMethods", new String[]{"barisForm", "aturLebarInput", "labelWajib", "barisKeterangan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

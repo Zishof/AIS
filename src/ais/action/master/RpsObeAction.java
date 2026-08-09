@@ -869,6 +869,7 @@ public class RpsObeAction extends GenericAutowireComposer {
 				Session session = null;
 				try {
 					session = HibernateUtil.openSession();
+					session.beginTransaction();
 						session.refresh(kurikulumPunyaMatakuliah);
 						if (tanggalPenyusunan != null) {
 							kurikulumPunyaMatakuliah.setTanggalPenyusunan(tanggalPenyusunan.getValue());
@@ -913,10 +914,44 @@ public class RpsObeAction extends GenericAutowireComposer {
 							kurikulumPunyaMatakuliah.setNilaiMenggunakanCpmk(nilaiMenggunakanCpmk.isChecked());
 						}
 						Common.refreshUpdate(session, kurikulumPunyaMatakuliah);
+					session.getTransaction().commit();
 
 					if (arg0 != null && nilaiMenggunakanCpmk != null && arg0.getTarget() == nilaiMenggunakanCpmk) {
+						// Rebuild FormatNilai semua Perkuliahan yang memakai kurikulum ini
+						// agar kolom penilaian (CPMK / Sub-CPMK) langsung berubah tanpa perlu
+						// tekan tombol Format Nilai secara manual.
+						Session sess2 = null;
+						try {
+							sess2 = HibernateUtil.openSession();
+							sess2.beginTransaction();
+							@SuppressWarnings("unchecked")
+							java.util.List<ais.database.model.Perkuliahan> perkuliahanList = sess2
+									.createCriteria(ais.database.model.Perkuliahan.class)
+									.add(org.hibernate.criterion.Restrictions.eq(
+											"kurikulumPunyaMatakuliah", kurikulumPunyaMatakuliah))
+									.list();
+							for (ais.database.model.Perkuliahan p : perkuliahanList) {
+								p.belum("format_nilai_baru");
+								ais.database.model.PembombotanNilai.setDefaultPembobotan(p, sess2, true);
+							}
+							sess2.getTransaction().commit();
+						} catch (Exception eRebuild) {
+							if (sess2 != null && sess2.getTransaction() != null) {
+								try { sess2.getTransaction().rollback(); } catch (Exception er) { ais.common.ErrorAuditUtil.record(er, "auto-audit(empty-catch) RpsObeAction:rebuildFormatNilai:rollback"); }
+							}
+							ais.common.ErrorAuditUtil.record(eRebuild, "auto-audit RpsObeAction rebuildFormatNilai nilaiMenggunakanCpmk");
+						} finally {
+							if (sess2 != null && sess2.isOpen()) {
+								try { sess2.close(); } catch (Exception er) { ais.common.ErrorAuditUtil.record(er, "auto-audit(empty-catch) RpsObeAction:rebuildFormatNilai:close"); }
+							}
+						}
 						onSearchDefault(null);
 					}
+				} catch (Exception eSave) {
+					if (session != null && session.getTransaction() != null) {
+						try { session.getTransaction().rollback(); } catch (Exception er) { ais.common.ErrorAuditUtil.record(er, "auto-audit(empty-catch) src/ais/action/master/RpsObeAction.java:eventListener"); }
+					}
+					ais.common.ErrorAuditUtil.record(eSave, "auto-audit RpsObeAction eventListener save");
 				} finally {
 					closeSessionQuietly(session);
 				}
@@ -1609,7 +1644,7 @@ public class RpsObeAction extends GenericAutowireComposer {
 				sb.append("<td>").append(bkStr).append("</td>");
 				sb.append("<td>").append(rpsHe(luring)).append("</td>");
 				sb.append("<td>").append(rpsHe(daring)).append("</td>");
-				sb.append("<td></td>");
+				sb.append("<td>").append(rpsHe(rpsHs(r, "pengalamanBelajar"))).append("</td>");
 				sb.append("<td>").append(rpsHe(teknik)).append("</td>");
 				sb.append("<td>").append(rpsHe(indik)).append("</td>");
 				sb.append("<td class='tc'>").append(rpsHe(bobStr)).append("</td>");
@@ -5729,6 +5764,16 @@ public class RpsObeAction extends GenericAutowireComposer {
 		pembelajaranDaring.setWidth("95%");
 		pembelajaranDaring.setRows(5);
 
+		row = new MyFormRow();
+		row.setValign("top");
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig(Common.getBahasaConfig("Pengalaman Belajar Mahasiswa")));
+		final MyTextbox pengalamanBelajar = new MyTextbox(jsonObject.isNull("pengalamanBelajar")
+				? "" : jsonObject.getString("pengalamanBelajar"));
+		row.appendChild(pengalamanBelajar);
+		pengalamanBelajar.setWidth("95%");
+		pengalamanBelajar.setRows(5);
+
 		// -- Setup Checkboxes for Bahan Kajian, Pustaka Utama, Pustaka Pendukung --
 		final JSONObject bahanKajians = jsonObject.isNull("bahanKajians") ? new JSONObject()
 				: jsonObject.getJSONObject("bahanKajians");
@@ -5861,6 +5906,7 @@ public class RpsObeAction extends GenericAutowireComposer {
 				jsonObject.put("metodePembelajaran", metodePembelajaran.getValue().trim());
 				jsonObject.put("pembelajaranDaring", pembelajaranDaring.getValue().trim());
 				jsonObject.put("pembelajaranLuring", pembelajaranLuring.getValue().trim());
+				jsonObject.put("pengalamanBelajar", pengalamanBelajar.getValue().trim());
 				jsonObject.put("teknikDanKriteria", teknikDanKriteria.getValue().trim());
 				jsonObject.put("indikator", indikator.getValue().trim());
 
@@ -6244,8 +6290,8 @@ public class RpsObeAction extends GenericAutowireComposer {
 				p.append("[{\"minggu\":").append(startWeek)
 						.append(",\"subCpmkNo\":1,\"indikator\":\"...\",\"teknikDanKriteria\":\"- Kriteria: ...\\n"
 								+ "- Bentuk: ...\",\"metodePembelajaran\":\"...\",\"pembelajaranLuring\":\"- Kuliah: ...\\n"
-								+ "- Diskusi: ...\",\"pembelajaranDaring\":\"e-Learning: ...\",\"bahanKajianNo\":[1],"
-								+ "\"pustakaUtamaNo\":[1],\"pustakaPendukungNo\":[]}]\n");
+								+ "- Diskusi: ...\",\"pembelajaranDaring\":\"e-Learning: ...\",\"pengalamanBelajar\":\"...\","
+								+ "\"bahanKajianNo\":[1],\"pustakaUtamaNo\":[1],\"pustakaPendukungNo\":[]}]\n");
 				final String prompt = p.toString();
 
 				jalankanAiStreaming(Common.getBahasaConfig("Generate Rincian/Agenda via AI"), prompt,
@@ -6282,6 +6328,7 @@ public class RpsObeAction extends GenericAutowireComposer {
 									r.put("metodePembelajaran", o.optString("metodePembelajaran", ""));
 									r.put("pembelajaranLuring", o.optString("pembelajaranLuring", ""));
 									r.put("pembelajaranDaring", o.optString("pembelajaranDaring", ""));
+									r.put("pengalamanBelajar", o.optString("pengalamanBelajar", ""));
 									r.put("bahanKajians", bangunMapRef(o.optJSONArray("bahanKajianNo"), bkList));
 									r.put("pustakaUtamas", bangunMapRef(o.optJSONArray("pustakaUtamaNo"), puList));
 									r.put("pustakaPendukungs", bangunMapRef(o.optJSONArray("pustakaPendukungNo"), ppList));

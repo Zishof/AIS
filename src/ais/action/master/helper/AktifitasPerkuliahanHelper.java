@@ -1928,43 +1928,44 @@ public class AktifitasPerkuliahanHelper {
 					tabRekapitulasKetidakhadiran.setVisible(
 							tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null);
 
-					// FIX konten sub-tab Laporan KOSONG (mis. "Kontrak Perkuliahan"): di ZK 5.5 klik tab
-					// hanya memicu onSelect Tabbox, sedangkan mount konten dipasang pada onClick MASING-
-					// MASING tab -> kadang tak ter-trigger sehingga panel kosong. Pasang onSelect di Tabbox
-					// yang me-RE-DISPATCH onClick ke tab terpilih (mount andal & idempoten karena tiap
-					// handler cek getChildren().isEmpty()). Tab pertama (Rencana Perkuliahan) DIKECUALIKAN
-					// karena panelnya sudah dibangun eager (tanpa onClick).
-					final org.zkoss.zul.Tab tabPertamaLaporan = tabMonitor;
-					tabbox.addEventListener(org.zkoss.zk.ui.event.Events.ON_SELECT, new EventListener() {
-						@Override
-						public void onEvent(Event evSel) throws Exception {
-							org.zkoss.zul.Tab terpilih = tabbox.getSelectedTab();
-							if (terpilih != null && terpilih != tabPertamaLaporan) {
-								org.zkoss.zk.ui.event.Events.sendEvent(new Event("onClick", terpilih));
-							}
-						}
-					});
+					// Pola sama seperti tab luar: setiap onClick wajib setSelected(true)+setVisible(true)
+					// agar panel tidak tetap display:none di ZK 5. Tab pertama ditangani di onClick-nya sendiri.
 
 					Tabpanels tabpanels = new Tabpanels();
 					tabpanels.setParent(tabbox);
 
-					Tabpanel tabpanelReferensi = new ais.ui.util.MyTabpanel();
+					final Tabpanel tabpanelReferensi = new ais.ui.util.MyTabpanel();
 					tabpanelReferensi.setHeight("2000px");
 					tabpanelReferensi.setParent(tabpanels);
 
-					LaporanMonitorPerkuliahan laporanMonitorPerkuliahan = new LaporanMonitorPerkuliahan(perkuliahan);
-					laporanMonitorPerkuliahan.setBorder("none");
-					laporanMonitorPerkuliahan.setHeight("2000px");
-					laporanMonitorPerkuliahan.setWidth("100%");
-					tabpanelReferensi.appendChild(laporanMonitorPerkuliahan);
-					tabpanelReferensi.setHeight("2000px");
-
+					// Muat laporan setelah tab benar-benar dipilih. Renderer PDF memakai timer dan
+					// sebelumnya dijalankan ketika panel masih tersembunyi, sehingga ukuran area
+					// pratinjau dapat terbaca 0 dan hasilnya tampak kosong.
+					tabMonitor.addEventListener("onClick", new EventListener() {
+						@Override
+						public void onEvent(Event arg0) throws Exception {
+							tabbox.setSelectedTab(tabMonitor);
+							tabpanelReferensi.setVisible(true);
+							tabpanelReferensi.setWidth("100%");
+							tabpanelReferensi.setHeight("2000px");
+							if (tabpanelReferensi.getChildren().isEmpty()) {
+								LaporanMonitorPerkuliahan laporanMonitorPerkuliahan = new LaporanMonitorPerkuliahan(
+										perkuliahan);
+								laporanMonitorPerkuliahan.setBorder("none");
+								laporanMonitorPerkuliahan.setHeight("100%");
+								laporanMonitorPerkuliahan.setWidth("100%");
+								tabpanelReferensi.appendChild(laporanMonitorPerkuliahan);
+							}
+						}
+					});
 					final Tabpanel tabpanelJurnalParalel = new ais.ui.util.MyTabpanel();
 					tabpanelJurnalParalel.setParent(tabpanels);
 					tabJurnal.addEventListener("onClick", new EventListener() {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
+							tabJurnal.setSelected(true);
+							tabpanelJurnalParalel.setVisible(true);
 							if (tabpanelJurnalParalel.getChildren().isEmpty()) {
 
 								LaporanJurnalMengajar laporanJurnalMengajar = new LaporanJurnalMengajar(perkuliahan);
@@ -1985,6 +1986,8 @@ public class AktifitasPerkuliahanHelper {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
+							tabKontrak.setSelected(true);
+							tabpanelKontrak.setVisible(true);
 							if (tabpanelKontrak.getChildren().isEmpty()) {
 
 								LaporanKontrakPerkuliahan laporanKontrakPerkuliahan = new LaporanKontrakPerkuliahan(
@@ -2007,6 +2010,8 @@ public class AktifitasPerkuliahanHelper {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
+							tabMonitorParalel.setSelected(true);
+							tabpanelMonitorParalel.setVisible(true);
 							if (tabpanelMonitorParalel.getChildren().isEmpty()) {
 								LaporanMonitorPerkuliahanParalel laporanJurnalPerkuliahan = new LaporanMonitorPerkuliahanParalel(
 										perkuliahan);
@@ -2026,11 +2031,15 @@ public class AktifitasPerkuliahanHelper {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
+							tabbox.setSelectedTab(tabMonitorKbm);
+							tabpanelMonitorKbm.setVisible(true);
+							tabpanelMonitorKbm.setWidth("100%");
+							tabpanelMonitorKbm.setHeight("2000px");
 							if (tabpanelMonitorKbm.getChildren().isEmpty()) {
 								LaporanMonitorPerkuliahanKbm laporanMonitorPerkuliahan = new LaporanMonitorPerkuliahanKbm(
 										perkuliahan);
 								laporanMonitorPerkuliahan.setBorder("none");
-								laporanMonitorPerkuliahan.setHeight("2000px");
+								laporanMonitorPerkuliahan.setHeight("100%");
 								laporanMonitorPerkuliahan.setWidth("100%");
 								tabpanelMonitorKbm.appendChild(laporanMonitorPerkuliahan);
 								tabpanelMonitorKbm.setHeight("2000px");
@@ -2045,6 +2054,8 @@ public class AktifitasPerkuliahanHelper {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
+							tabRekapitulasTugasMandiri.setSelected(true);
+							tabpanelTugasMandiri.setVisible(true);
 							if (tabpanelTugasMandiri.getChildren().isEmpty()) {
 								LaporanRekapitulasiTugasMandiri laporanRekapitulasiTugasMandiri = new LaporanRekapitulasiTugasMandiri(
 										perkuliahan);
@@ -2066,6 +2077,10 @@ public class AktifitasPerkuliahanHelper {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
+							tabbox.setSelectedTab(tabRekapitulasKehadiran);
+							tabpanelRekapitulasKehadiran.setVisible(true);
+							tabpanelRekapitulasKehadiran.setWidth("100%");
+							tabpanelRekapitulasKehadiran.setHeight("2000px");
 							if (tabpanelRekapitulasKehadiran.getChildren().isEmpty()) {
 
 								Dosen kaprodi = null;
@@ -2199,6 +2214,10 @@ public class AktifitasPerkuliahanHelper {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
+							tabbox.setSelectedTab(tabRekapitulasNilai);
+							tabpanelRekapitulasNilai.setVisible(true);
+							tabpanelRekapitulasNilai.setWidth("100%");
+							tabpanelRekapitulasNilai.setHeight("2000px");
 							if (tabpanelRekapitulasNilai.getChildren().isEmpty()) {
 
 								DetailperkuliahanForPenilaianHelper.onLaporan(perkuliahan, tabpanelRekapitulasNilai);
@@ -2215,6 +2234,8 @@ public class AktifitasPerkuliahanHelper {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
+							tabRekapitulasKehadiranNilai.setSelected(true);
+							tabpanelRekapitulasKehadiranNilai.setVisible(true);
 							if (tabpanelRekapitulasKehadiranNilai.getChildren().isEmpty()) {
 								DashboardDataNilaiMahasiswa laporan = new DashboardDataNilaiMahasiswa(perkuliahan);
 								laporan.setHeight("100%");
@@ -2232,6 +2253,8 @@ public class AktifitasPerkuliahanHelper {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
+							tabRekapitulasKetidakhadiran.setSelected(true);
+							tabpanelRekapitulasKetidakhadiran.setVisible(true);
 							if (tabpanelRekapitulasKetidakhadiran.getChildren().isEmpty()) {
 
 								Dosen kaprodi = null;
@@ -2344,6 +2367,12 @@ public class AktifitasPerkuliahanHelper {
 
 						}
 					});
+
+					// Saat menu "Lap." baru dibuka, ZK menandai tab pertama secara visual tetapi tidak
+					// mengirim onClick. Akibatnya panel Rencana Perkuliahan aktif namun kosong. Jalankan
+					// listener yang sama setelah seluruh pasangan Tab/Tabpanel selesai dibuat agar konten
+					// pertama langsung terpasang dalam keadaan panel sudah terlihat.
+					org.zkoss.zk.ui.event.Events.sendEvent(new Event("onClick", tabMonitor));
 
 				}
 			}

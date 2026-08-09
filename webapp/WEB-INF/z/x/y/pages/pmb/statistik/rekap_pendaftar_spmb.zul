@@ -10,11 +10,14 @@
 		<!-- ═══════════════════════════════════════════════════════
 		     Tab induk — 3 kelompok: Dashboard | Rekap | Statistik
 		     ═══════════════════════════════════════════════════════ -->
-		<tabbox width="100%" height="100%">
+		<tabbox id="tabboxPendaftarSpmbInduk" width="100%" height="100%">
 			<tabs>
-				<tab use="ais.ui.util.MyTabConfig" selected="true">Dashboard PMB</tab>
-				<tab use="ais.ui.util.MyTabConfig">Rekap PMB</tab>
-				<tab use="ais.ui.util.MyTabConfig">Statistik PMB</tab>
+				<tab use="ais.ui.util.MyTabConfig" selected="true"
+					forward="onClick=onTabDashboardPmb">Dashboard PMB</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onTabRekapPmb">Rekap PMB</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onTabStatistikPmb">Statistik PMB</tab>
 			</tabs>
 			<tabpanels>
 
@@ -23,7 +26,7 @@
 				     Semua dasbor interaktif berbasis grafik/tabel
 				     ══════════════════════════════════════════════ -->
 				<tabpanel style="overflow:hidden;padding:0;">
-					<tabbox width="100%" height="100%">
+					<tabbox id="tabboxDashboardPmb" width="100%" height="100%">
 						<tabs>
 							<tab use="ais.ui.util.MyTabConfig" selected="true"
 								forward="onClick=onDasbor">
@@ -71,7 +74,7 @@
 				     Rekap multi-tahun &amp; statistik mahasiswa baru
 				     ══════════════════════════════════════════════ -->
 				<tabpanel style="overflow:hidden;padding:0;">
-					<tabbox width="100%" height="100%">
+					<tabbox id="tabboxRekapPmb" width="100%" height="100%">
 						<tabs>
 							<tab use="ais.ui.util.MyTabConfig" selected="true"
 								forward="onClick=onDasborRekapMultiTahun">
@@ -200,7 +203,7 @@
 				     Laporan peminat, lulus, dapat NIM, statistik
 				     ══════════════════════════════════════════════ -->
 				<tabpanel style="overflow:hidden;padding:0;">
-					<tabbox width="100%" height="100%">
+					<tabbox id="tabboxStatistikPmb" width="100%" height="100%">
 						<tabs>
 							<tab use="ais.ui.util.MyTabConfig" selected="true"
 								forward="onClick=onReportPeminat">

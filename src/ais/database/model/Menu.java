@@ -58,6 +58,13 @@ public class Menu extends GeneralValueObject {
 		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
 	}
 
+	@javax.persistence.PostPersist
+	@javax.persistence.PostUpdate
+	@javax.persistence.PostRemove
+	protected void invalidateNewUiMenuCache() {
+		ais.common.newui.NewUiCacheInvalidator.invalidateAllMenuVersions();
+	}
+
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
 	public void setTanggal_dirubah(Date tanggal_dirubah) {

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"generateRencanaAnggaran", "generateRencanaTiapBulanAnggaran", "generateRencanaTriWulanAnggaran", "generateRencanaDanRealisasiTriWulanAnggaran", "generateRealisasiTriWulanAnggaran", "generateRealisasiTiapBulanAnggaran", "getHargaTotal", "collectChilds", "generateJadwalAnggaran", "generateJadwalAnggaranPerUnit", "getMaxrevisi"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Workspace", "WorkspacePunyaPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

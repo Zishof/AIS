@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault, DataInitDefault, FormSop");
 request.setAttribute("nuiSourceMethods", new String[]{"onKasKecil", "onStatistik", "onMonitor", "doBeforeCompose", "doAfterCompose", "onEvent", "tampilRinci", "render", "cetakData", "cetak", "init", "onAdd", "form", "reloadFormula", "reloadDataFormula", "onSave", "initCriteria", "onSearchDefault", "istilah", "ambil", "ambilClass", "setPersetujuan"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/akunting/jenis_kas_kecil.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"KasKecil", "Akun", "JenisKasKecil", "Workspace"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

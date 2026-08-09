@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"doImport", "perguruanTinggi", "pekerjaan", "penghasilan", "agama", "jenisEvaluasi", "statusAwalMahasiswa", "wilayah", "kebutuhanKhusus", "jenjang", "ikatanKerjaDosen", "statusKepegawaian", "lembagaPengangkat", "statusPegawai", "golongan", "nilaiHuruf", "fakultas", "grupJurusan", "jurusan", "matakuliah", "kurikulum", "kurikulumPunyaMatakuliah", "mahasiswa", "dosen", "penugasanDosenMengajar"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"PerguruanTinggi", "Pekerjaan", "Penghasilan", "Agama", "JenisEvaluasi", "StatusAwalMahasiswa", "Wilayah", "KebutuhanKhusus", "Jenjang", "IkatanKerjaDosen", "StatusKepegawaian", "LembagaPengangkat", "StatusPegawai", "Golongan", "NilaiHuruf", "Fakultas", "GrupJurusan", "Jurusan", "Matakuliah", "Kurikulum"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

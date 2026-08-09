@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "FormatItemGajiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.payroll");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/payroll/FormatItemGajiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent", "render", "onAdd", "onSave", "onSearchDefault", "checkNamaFormatItemGaji"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Cabang", "Departemen", "LevelJabatan", "FormatItemGaji"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

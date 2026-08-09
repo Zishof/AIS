@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"createTombolAbsen", "onEvent", "mainInit", "save", "render", "createStatusKehadiran", "boleh"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"PertemuanPunyaGrupPertemuan", "Dosen", "PengajuanIzinTidakMasukPerkuliahan", "Statusabsensi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RadiusProcessor");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/util/RadiusProcessor.java");
 request.setAttribute("nuiServiceMethods", new String[]{"run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Tbmuser", "Radcheck", "Mahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

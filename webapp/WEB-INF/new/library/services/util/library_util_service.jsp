@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LibraryUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/util/LibraryUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateMaxByPerpustakaan", "generateCode", "convertLampiranToText", "checkDirectory", "tersediaDi", "laporanHTML", "getKuota", "generateImage", "generateImageString", "tampilkanBacaFrame", "checkRef", "run", "hitungDendaItem", "hitungDendaPerItem", "getJumlahHariBatas", "hitungDenda", "gambarAnggota", "gambarTamu", "tampilanSummaryPeminjaman", "tampilanSummaryPeminjamanFormatDesktop", "checkSkripsiForItem", "getJumlahMaksimalPeminjaman", "getJumlahMaksimalPerpanjanganPeminjaman", "onPerpanjang", "onBatalPerpanjang", "cariDiGoogleBook"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisItem", "TipeItem", "JenisInformasiPerpustakaan", "KategoriItem", "TipeAnggota", "JenisIdentitasAnggota", "JenisAnggota", "StatusTerbitItem", "StatusItem", "KodeTransaksi", "FotoItem", "FotoImagePerHalamanItem", "Item", "DomainPenelitian", "PeminjamanPengadaanItemDetail", "KembaliPengadaanItemDetail", "FotoGambarItem", "DendaKeterlambatanItem", "BatasWaktuPeminjamanItem", "PeminjamanSuratItemDetail", "LampiranLain", "Pengarang", "ItemPunyaPengarang"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

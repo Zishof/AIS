@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "QuotaWisudaUntukFakultasHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/QuotaWisudaUntukFakultasHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"tampil", "onEvent", "render", "onSearchDefault", "onChangeQuota", "onChangeKeterangan", "getQuotaWisudaUntukFakultas"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Fakultas", "QuotaWisudaUntukFakultas"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

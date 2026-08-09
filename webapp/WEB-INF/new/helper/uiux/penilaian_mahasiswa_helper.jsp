@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "DataLoader");
 request.setAttribute("nuiSourceMethods", new String[]{"render", "onEvent", "tampilNilai", "loadData", "display", "getSemesterPendek", "setSemesterPendek", "checkBolehLihatNilai"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Detailperkuliahan", "Perkuliahan", "FormatNilaiTambahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

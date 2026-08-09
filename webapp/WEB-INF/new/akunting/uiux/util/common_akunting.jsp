@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"generateNoJurnal", "getindex", "jelaskanTransaksiTidakValid", "hintPemetaanItemBiaya", "langkahLengkapiKolomAkun", "langkahIsiKonfigurasiAkun", "konteksItemBiayaKegiatan", "saveTransaksi"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"GrupTransaksi", "Closing", "JenisTransaksi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

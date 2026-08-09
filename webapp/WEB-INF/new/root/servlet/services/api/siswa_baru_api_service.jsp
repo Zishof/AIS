@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "SiswaBaruApi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/SiswaBaruApi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"pendaftaran_siswa_baru"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/sekolah/pembayaran_online.zul?calon_siswa="});
 request.setAttribute("nuiServiceEntities", new String[]{"CalonSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

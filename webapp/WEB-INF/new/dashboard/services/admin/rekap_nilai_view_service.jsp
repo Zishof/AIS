@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RekapNilaiView");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.admin");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/admin/RekapNilaiView.java");
 request.setAttribute("nuiServiceMethods", new String[]{"tidakIkut", "tambah", "isiNilai", "prodiPilihan", "tableGrid", "dashboardHtml", "dashboard", "writeExcel", "writeExcelSections", "renderSections"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

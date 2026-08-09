@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "StokLokasiUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.inventory");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/inventory/StokLokasiUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"catat", "catatMasuk", "catatKeluar", "catatTransfer", "catatPenyesuaian", "qtyStok", "rekapStokLokasi", "rekapStokLokasiLengkap", "rekapStokPerGudang", "trenMutasiHarian"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Lokasi", "Produk"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

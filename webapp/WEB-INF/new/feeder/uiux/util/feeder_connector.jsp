@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"main", "getToken", "getData", "getCount", "getDictionary", "insertOrUpdateRecordBaru", "getTokenLama", "listTable", "getRecord", "getRecordset", "getDeletedRecordset", "getCountLama", "insertRecordOld", "restoreRecord", "updateRecordOld", "updateRecordset", "writeLog"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

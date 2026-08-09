@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanRencanaBkdWindow");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.bkd");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/bkd/LaporanRencanaBkdWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "onLaporanAngketDosenPerDosen"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

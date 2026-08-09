@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KegiatanProsesHeper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/KegiatanProsesHeper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"newThread", "prosesUlangTagihanCombo", "prosesUlangTagihan", "singkronkanDataCicilan", "onEvent", "run", "call", "prosesSuratTagihan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisKegiatan", "StatusMahasiswa", "ItemBiaya", "BiodataCalonMahasiswa", "Mahasiswa", "HistoryStatusMahasiswa", "JenisPembayaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

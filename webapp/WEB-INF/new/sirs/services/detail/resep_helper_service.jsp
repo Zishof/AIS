@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ResepHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs.detail");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/detail/ResepHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "display", "loadData", "setPaket", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Resep", "ResepDetail", "PaketPerawatanDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

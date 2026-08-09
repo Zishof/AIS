@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PembayaranGajiPunyaPegawaiAction"
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.payroll.detail");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/payroll/detail/PembayaranGajiPunyaPegawaiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "loadData", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/payroll/bayar_gaji_pegawai_data.zul?pembayaranGajiPunyaPegawai="});
 request.setAttribute("nuiServiceEntities", new String[]{"KenaikanPangkat", "PembayaranGajiPunyaPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

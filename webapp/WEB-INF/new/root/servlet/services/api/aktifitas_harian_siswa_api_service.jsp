@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AktifitasHarianSiswaApi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/AktifitasHarianSiswaApi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"daftar", "detail", "simpan", "pesanOrangTua", "pesanPembina"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"AktiftasHarianSiswa", "Siswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

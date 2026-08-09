@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardAkademikHtmlCssHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.admin");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/admin/DashboardAkademikHtmlCssHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getLabel", "getSubLabel", "getValue", "item", "css", "panel", "stat", "statClickable", "modal", "verticalBarChart", "groupedBarChart", "spiderChart", "trendLineChart", "funnelChart", "donutChart", "fmt", "esc", "escAttr", "shortText"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

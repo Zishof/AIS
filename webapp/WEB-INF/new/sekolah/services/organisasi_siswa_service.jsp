@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "OrganisasiSiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/OrganisasiSiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onJabatanOrganisasiSiswa", "onUploadData", "run", "onEvent", "doBeforeCompose", "doAfterCompose", "cetakDataCustomButton", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaOrganisasiSiswa"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/sekolah/jabatan_organisasi_siswa.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"OrganisasiSiswa", "Siswa", "JabatanOrganisasiSiswa", "OrganisasiSiswaPunyaSiswa", "LampiranLain", "Sekolah"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

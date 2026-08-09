@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ParameterTambahanPsbListener");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.psb");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/psb/ParameterTambahanPsbListener.java");
 request.setAttribute("nuiServiceMethods", new String[]{"validate", "onSave", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ParameterTambahanGelombangPendaftaranPsb"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

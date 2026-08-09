@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "FeederConnector");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.feeder.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/feeder/util/FeederConnector.java");
 request.setAttribute("nuiServiceMethods", new String[]{"main", "getToken", "getData", "getCount", "getDictionary", "insertOrUpdateRecordBaru", "getTokenLama", "listTable", "getRecord", "getRecordset", "getDeletedRecordset", "getCountLama", "insertRecordOld", "restoreRecord", "updateRecordOld", "updateRecordset", "writeLog"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

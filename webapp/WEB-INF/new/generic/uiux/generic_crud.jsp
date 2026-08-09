@@ -5,6 +5,10 @@ This JSP contains presentation metadata only. Keep business logic in Java servic
 --%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%
+if(ais.common.Common.getApakahAdmin()){
+    request.getRequestDispatcher("/WEB-INF/new/generic/uiux/model_catalog.jsp").include(request,response);
+    return;
+}
 request.setAttribute("nuiModule", "generic");
 request.setAttribute("nuiModuleLabel", "Generic");
 request.setAttribute("nuiPage", "generic_crud");
@@ -18,7 +22,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"initCriteria", "doBeforeCompose", "doAfterCompose", "onEvent", "onSearchDefault", "onAdd", "init", "onBantuan"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Agama"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

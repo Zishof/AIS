@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MainMenuHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/MainMenuHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"loadMenuCari", "onEvent", "loadTree", "createTreeMenu"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Tbmrole"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

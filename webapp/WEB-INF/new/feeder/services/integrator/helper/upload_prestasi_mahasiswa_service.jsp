@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "UploadPrestasiMahasiswa");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.feeder.integrator.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/feeder/integrator/helper/UploadPrestasiMahasiswa.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa", "CabangPrestasiMahasiswa", "KategoriPrestasiMahasiswa", "PrestasiMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

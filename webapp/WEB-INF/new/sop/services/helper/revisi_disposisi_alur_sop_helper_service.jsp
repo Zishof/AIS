@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RevisiDisposisiAlurSopHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sop.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sop/helper/RevisiDisposisiAlurSopHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"DisposisiAlurSop"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

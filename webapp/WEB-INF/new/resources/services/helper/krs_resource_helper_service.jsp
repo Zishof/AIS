@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KrsResourceHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.resources.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/resources/helper/KrsResourceHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"hapusKrs", "checkAmbil", "ambilKrs"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Perkuliahan", "Detailperkuliahan", "Komentar", "MatakuliahPrasyarat"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

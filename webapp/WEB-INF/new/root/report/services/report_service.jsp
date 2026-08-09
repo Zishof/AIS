@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "Report");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/Report.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getDetailFile", "putProgressContext", "getProgressContext", "removeProgressContext", "createProgress", "updateProgress", "finishProgress", "errorProgress", "onEvent", "finishProgressAndDisplayPdf", "hitungPersen", "awalHari", "akhirHari", "tambahHari", "hitungJumlahHariInklusif", "normalisasiRentangTanggalInklusif", "openNativeSession", "ensureOpenSession", "isSessionOpen", "closeCurrentSessionQuietly", "closeNativeSession", "getResourcePath", "handleResource", "setPreviewPdfDefaultSekali", "setReportKey", "gabungHtmlMandiri", "generateFileReportCore", "initDefaultParameter", "setlogo", "generateFileReportWithProgress", "execute", "generateFileReport", "generateFileReportSimple", "generateDownloadReport", "generateCompileFileReport", "generateFileImageReport", "ConvertToPDF", "laporanHTML", "cetakLaporanHTML", "generateWindowReport", "generatePDFReport", "generateParameters", "generatePDFReportKembaliTab", "tampil", "onBantuan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"SubReport", "PendukungReport"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

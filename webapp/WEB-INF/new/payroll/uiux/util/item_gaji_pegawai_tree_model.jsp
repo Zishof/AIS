@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "AbstractTreeModel");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"getChildren", "populateData", "generateAllChildren", "getChild", "getChildCount", "deleteChilds", "isLeaf", "getParentCount", "getParentSet", "getChildsSet", "getIndexOfChild", "copyByFormat", "reset", "checkExistingItemGaji", "copyByItemGaji", "getItemGajiChildCount", "hitungItemGajiPegawai", "angka", "fixing"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"KodeTunjangan", "AsuransiPegawai", "ItemGajiPegawai", "RencanaItemGajiPegawai", "ItemGaji", "PenilaianKpi", "GajiTabahan", "TransaksiPegawai", "JenisTransaksiPegawai", "Konstanta", "Keluarga", "RencanaGajiPunyaPegawai", "ParameterTambahan", "JadwalPelajaran", "KehadiranDosenBulanan", "RekapUjianDosenBulanan", "KehadiranPegawaiBulanan", "StatuskehadiranKaryawanHarian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

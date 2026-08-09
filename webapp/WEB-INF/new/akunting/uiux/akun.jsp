@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onJenisTransaksi", "onBank", "doBeforeCompose", "doAfterCompose", "onEvent", "run", "render", "onAddAkun", "onAdd", "onSave", "onReloadTree", "onSearchDefault", "checkNamaAkun"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/akunting/jenis_transaksi.zul", "/pages/master/bank.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"Akun", "SatuanKerja", "GrupAkun", "Bank"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

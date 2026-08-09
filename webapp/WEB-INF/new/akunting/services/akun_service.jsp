@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AkunAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.akunting");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/akunting/AkunAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onJenisTransaksi", "onBank", "doBeforeCompose", "doAfterCompose", "onEvent", "run", "render", "onAddAkun", "onAdd", "onSave", "onReloadTree", "onSearchDefault", "checkNamaAkun"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/akunting/jenis_transaksi.zul", "/pages/master/bank.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Akun", "SatuanKerja", "GrupAkun", "Bank"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RabUploadReportHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/util/RabUploadReportHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"tampilkan", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "NoRegGenerator");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.pmb.noreg");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/pmb/noreg/NoRegGenerator.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateNoReg"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

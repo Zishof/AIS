@@ -372,6 +372,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 				try {
 
 					Common.refreshUpdate(session, (job));
+					ais.common.newui.NewUiCacheInvalidator.invalidateRole(job.getRoleId());
 
 					List<?> list = groupbox.getChildren();
 					((Component) list.get(0)).detach();
@@ -391,23 +392,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 									"Jika kendala berulang, hubungi Administrator Sistem untuk memeriksa relasi menu-grup pengguna terkait." });
 				}
 
-				try {
-
-					for (String key : Tbmuser.getUserRoleYgDipakai.keySet()) {
-						try {
-							Tbmrole r = Tbmuser.getUserRoleYgDipakai.get(key);
-							if (r != null && r.getRoleId().equals(job.getRoleId())) {
-								Tbmuser.getUserRoleYgDipakai.put(key, job);
-							}
-						} catch (Exception e) {
-							Common.tampilErrorJikaAdmin(e);
-
-						}
-					}
-				} catch (Exception e) {
-					Common.tampilErrorJikaAdmin(e);
-
-				}
+				Tbmuser.refreshHakAksesUntukRole(job);
 
 //				Tbmuser.getUserRoleYgDipakai.put(tbmuser.getUserId(), tbmrole);
 
@@ -1491,6 +1476,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 							Common.refreshUpdate(session, rolePrivilage);
 						}
 						session.getTransaction().commit();
+						ais.common.newui.NewUiCacheInvalidator.invalidateRole(job.getRoleId());
 
 						System.out.println("2. rolePrivilage -> " + rolePrivilage);
 					}
@@ -1522,6 +1508,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 						job.setMenus(menus);
 					}
 					Common.refreshUpdate(session, job);
+					ais.common.newui.NewUiCacheInvalidator.invalidateRole(job.getRoleId());
 
 					Common.createDefaultTimer(new EventListener() {
 
@@ -1691,6 +1678,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 											Common.refreshDelete(job);
 
 											Common.refreshDeleteFlush(job);
+											ais.common.newui.NewUiCacheInvalidator.invalidateRole(job.getRoleId());
 
 											Common.createDefaultTimer(new EventListener() {
 
@@ -2759,6 +2747,11 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 			}
 
 		}
+		ais.common.newui.NewUiCacheInvalidator.invalidateRole(tbmrole.getRoleId());
+		// hakAkses() memakai cache role aktif per pengguna. Segarkan cache tersebut
+		// agar perubahan hak (termasuk Boleh entry topup/deposit) langsung dipakai
+		// oleh dashboard tanpa menunggu pengguna login ulang atau mengganti role.
+		Tbmuser.refreshHakAksesUntukRole(tbmrole);
 
 		return true;
 	}

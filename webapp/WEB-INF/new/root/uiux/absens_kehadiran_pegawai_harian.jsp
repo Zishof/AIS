@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "CommonOnSearchdefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onRiwayatProsesKehadiranPegawai", "onLaporanTidakHadir", "onLaporanLembur", "onProsesKehadiran", "onProsesKehadiranPegawai", "onPerHari", "onLaporanAbsensiPegawai", "onLaporanAbsensiPerPegawai", "onLaporanAbsensiPerTanggal", "onLaporanAbsensiPerUnit", "onLaporanAbsensiPerRinci", "onQrPerTanggal", "doBeforeCompose", "doAfterCompose", "onEvent", "uploadDataMahasiswa", "run", "cetakDataCustomButton", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/kehadiran_pegawai_bulanan.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"StatusPegawai", "Pegawai", "Statusabsensi", "Tbmuser", "KenaikanPangkat", "StatuskehadiranKaryawanHarian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

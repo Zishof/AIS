@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "SopUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sop.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sop/helper/SopUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"hapusDisposisi", "tampilAktor", "resolveAktor", "ambilNama", "load"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Tbmuser", "Pejabat"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

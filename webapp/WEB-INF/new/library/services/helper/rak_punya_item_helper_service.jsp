@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RakPunyaItemHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/helper/RakPunyaItemHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initDetail", "onEvent", "initRow"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"RakDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

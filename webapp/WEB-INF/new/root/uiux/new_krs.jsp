@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onKrsSp", "onMkRemedial", "doBeforeCompose", "doAfterCompose", "onEvent", "onSearchDefaultKeDatabase", "onSearchDefault", "muat"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/krs_sp.zul?pass=123", "/pages/master/krs_remedial.zul?pass=123"});
 request.setAttribute("nuiEntityCandidates", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

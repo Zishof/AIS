@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "SuratMasukAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.surat");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/surat/SuratMasukAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onStatistik", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "initJenisJabatan", "getindexSurat", "generateCode", "getindex", "initParameter", "onSave", "cetakDisposisi", "infoDisposisi", "infoDisposisiBagan", "compare", "initCriteria", "onSearchDefault", "form", "istilah", "ambil", "ambilClass", "setPersetujuan", "cetakData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"LokerSurat", "SuratMasuk", "OpsiSuratMasukValue", "KlasifikasiSuratMasukParemeterValue", "AlurPersetujuanSuratMasukStatus", "JenisJabatan", "Pejabat", "OpsiSuratMasuk", "KlasifikasiSuratMasukParemeter", "String", "Integer", "Double", "Date", "Tbmuser", "SuratKeluar", "SifatSurat", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

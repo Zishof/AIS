@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "WorkspaceProjectAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/WorkspaceProjectAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onTimeline", "onTimeplot", "doBeforeCompose", "doAfterCompose", "onEvent", "onReloadTab"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/rab/workspace_project_revisi.zul?revisi="});
 request.setAttribute("nuiServiceEntities", new String[]{"SumberDana", "Workspace"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

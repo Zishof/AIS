@@ -7,7 +7,9 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import ais.common.Common;
+import ais.common.ErrorAuditUtil;
+
+import java.util.UUID;
 
 /**
  * Servlet implementation class CheckISBN
@@ -30,11 +32,7 @@ public class Error extends HttpServlet {
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
-		try {
-			process(request, response);
-		} catch (Exception e) {
-			Common.tampilErrorJikaAdmin(e);
-		}
+		process(request, response);
 	}
 
 	/**
@@ -43,15 +41,33 @@ public class Error extends HttpServlet {
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
-		try {
-			process(request, response);
-		} catch (Exception e) {
-			Common.tampilErrorJikaAdmin(e);
-		}
+		process(request, response);
 	}
 
 	@SuppressWarnings({})
-	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
+	private void process(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+		Throwable throwable = (Throwable) request.getAttribute("javax.servlet.error.exception");
+		if (throwable == null) {
+			throwable = (Throwable) request.getAttribute("ais.error.throwable");
+		}
+		String traceId = (String) request.getAttribute("ais.error.trace");
+		if (traceId == null || traceId.trim().length() == 0) {
+			traceId = UUID.randomUUID().toString();
+			request.setAttribute("ais.error.trace", traceId);
+		}
+		if (request.getAttribute("ais.error.content") == null) {
+			if (throwable == null) {
+				Object status = request.getAttribute("javax.servlet.error.status_code");
+				Object message = request.getAttribute("javax.servlet.error.message");
+				throwable = new ServletException("HTTP " + status + ": " + message);
+			}
+			ErrorAuditUtil.ErrorAuditResult audit = ErrorAuditUtil.recordVisibleFailure(throwable,
+					"Container error page", request, traceId);
+			request.setAttribute("ais.error.content", audit == null ? null : audit.getContent());
+			request.setAttribute("ais.error.log_id", audit == null ? null : audit.getErrorLogId());
+			request.setAttribute("ais.error.throwable", throwable);
+		}
+		request.setAttribute("ais.error.show_detail", Boolean.valueOf(ErrorAuditUtil.isUiDetailActive()));
 		request.getRequestDispatcher("/WEB-INF/u/error.jsp").forward(request, response);
 
 	}

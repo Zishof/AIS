@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyDetail");
 request.setAttribute("nuiSourceImplements", "DataSearchDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "render", "loadData", "display", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"GrupKuosionerUmumDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

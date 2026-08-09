@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onPilihanCalonMahasiswa", "onEvent", "onSpanPtkin", "onInterview", "onKelompok", "onRekapRekap", "onStatistik", "onDasborKeuangan", "onDownloadLampiran", "download", "doBeforeCompose", "onAdd", "onEdit", "onUploadUKT", "onUploadNIM", "doAfterCompose", "process", "execute", "run", "singkronkanDenganNim", "singkronkanDenganPembayaran", "onDownloadFoto", "bukaRinci", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/upload_biodata_calon_mahasiswa_span_ptkin.zul", "/pages/master/interview_calon_mahasiswa.zul", "/pages/master/kelompok_calon_mahasiswa.zul", "/pages/pmb/statistik.zul", "/pages/pmb/dasbor_keuangan_pmb.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"LampiranLainBiodataCalonMahasiswa", "BiodataCalonMahasiswa", "FotoBiodataCalonMahasiswa", "BiodataCalonMahasiswaPunyaVerifikasiBerkas", "StatusAwalMahasiswa", "AfiliasiCalonMahasiswa", "JenisSeleksi", "JenisSekolahMahasiswaBaru", "JurusanSekolahMahasiswaBaru", "Paket", "Jurusan", "GelombangPendaftaran", "PaketPunyaMatapelajaran", "BiodataCalonMahasiswaPunyaVerifikasiMatapelajaran", "VerifikasiKelengkapanCalonMahasiswa", "CekKesehatan", "RuangPaketPMB", "BuktiPembayaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

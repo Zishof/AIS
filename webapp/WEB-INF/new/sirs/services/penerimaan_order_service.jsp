@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PenerimaanOrderAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/PenerimaanOrderAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent", "render", "onCetak", "onAdd", "onSave", "onSearchDefault", "checkKodePenerimaanOrder"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Lokasi", "PenerimaanOrder", "PenerimaanOrderDetail", "PenerimaanOrderKembali", "JenisBiayaLain", "PesananPembelianDetail", "HargaBeliItem"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

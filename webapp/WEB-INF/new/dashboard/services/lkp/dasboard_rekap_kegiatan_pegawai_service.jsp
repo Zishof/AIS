@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DasboardRekapKegiatanPegawai");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.lkp");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/lkp/DasboardRekapKegiatanPegawai.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "initCriteria", "compare"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"SatuanKerja", "Pegawai", "CutiDanIzin", "RealisasiKerjaPegawai", "StatuskehadiranKaryawanHarian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

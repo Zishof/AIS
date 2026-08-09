@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataPenerbitBanbox");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/helper/AmbilDataPenerbitBanbox.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "display", "onSearchDefault", "setEventListener", "getEventListener", "setSatuanKerja"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Penerbit"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

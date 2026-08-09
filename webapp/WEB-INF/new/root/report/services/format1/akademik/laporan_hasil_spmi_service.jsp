@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanHasilSPMI");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.akademik");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/akademik/LaporanHasilSPMI.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateParameters", "onEvent", "generateParameter", "onReport"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"HasilSPMI", "HasilTemuanSPMI", "SkenarioSPMI", "IndikatorSPMI", "ButirMutuSPMI", "StandarSPMI", "JenisSPMI"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

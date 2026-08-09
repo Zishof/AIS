@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BiodataCalonMahasiswaPunyaVerifik
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/BiodataCalonMahasiswaPunyaVerifikasiBerkasAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Jurusan", "JenisSeleksi", "Paket", "GelombangPendaftaran", "BiodataCalonMahasiswaPunyaVerifikasiBerkas", "BiodataCalonMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

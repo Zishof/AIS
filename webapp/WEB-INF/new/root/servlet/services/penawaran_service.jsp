@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "Penawaran");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/Penawaran.java");
 request.setAttribute("nuiServiceMethods", new String[]{});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/WEB-INF/baru/surat_penawaran.jsp", "/WEB-INF/baru/surat_penawaran_kesehatan.jsp", "/WEB-INF/baru/surat_penawaran_gudang.jsp"});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

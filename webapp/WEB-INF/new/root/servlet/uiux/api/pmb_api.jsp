@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"portalInfo", "pengumuman", "prodi", "gelombang", "daftar", "cekStatus"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"PengumumanAkademis", "Jurusan", "PaketJurusanPmb", "GelombangPendaftaran", "PaketPunyaGelombangPendaftaran", "Paket", "BiodataCalonMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

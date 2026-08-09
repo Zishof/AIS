@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ParameterTambahanPaketAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/ParameterTambahanPaketAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onResetParameter", "onKonfigurasiCalonBiodataMahasiswa", "onKonfigurasiLoginCalonMahasiswa", "onManajemenKelompok", "onManajemenParameter", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/konfigurasi_biodata_calon_mahasiswa.zul", "/pages/master/konfigurasi_login_calon_mahasiswa.zul", "/pages/master/kelompok_parameter_tambahan_calon_mahasiswa.zul", "/pages/master/parameter_tambahan.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"KelompokParameterTambahanCalonMahasiswa", "Paket", "ParameterTambahanPaket", "GelombangPendaftaran", "ParameterTambahan", "Agama"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

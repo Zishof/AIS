@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardStatistikJadwalMengajar"
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/sekolah/DashboardStatistikJadwalMengajar.java");
 request.setAttribute("nuiServiceMethods", new String[]{"reinit", "init", "onEvent", "initCriteria", "ambilData", "ambilDataSemua", "initChart"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JadwalPelajaran", "KelasSiswaPunyaSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

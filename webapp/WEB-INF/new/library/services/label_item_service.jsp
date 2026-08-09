@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LabelItemAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/LabelItemAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaLabelItem"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"LabelItem"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

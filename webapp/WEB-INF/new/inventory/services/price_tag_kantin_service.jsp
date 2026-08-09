@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PriceTagKantinAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.inventory");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/inventory/PriceTagKantinAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Toko"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

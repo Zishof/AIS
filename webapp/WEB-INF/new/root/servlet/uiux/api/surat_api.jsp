@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"disposisi_simpan_surat_masuk", "disposisi_simpan_surat_keluar", "disposisi_surat_keluar", "disposisi_surat_masuk", "klasifikasi", "parameter", "updateParameter", "info", "cetakSurat", "cetak", "lampiranSuratKeluar", "lampiranSuratMasuk"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"SuratMasuk", "Pejabat", "AlurPersetujuanSuratMasukStatus", "SuratKeluar", "AlurPersetujuanSuratKeluarStatus", "AlurPersetujuanSuratKeluar", "AlurPersetujuanSuratMasuk", "KlasifikasiSuratKeluarUntuk", "KlasifikasiSuratKeluar", "KlasifikasiSuratKeluarParemeter", "KlasifikasiSuratKeluarParemeterValue", "FotoGambarSuratKeluar", "FotoGambarSuratMasuk"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

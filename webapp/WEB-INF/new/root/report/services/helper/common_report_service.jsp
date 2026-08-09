@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CommonReport");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/helper/CommonReport.java");
 request.setAttribute("nuiServiceMethods", new String[]{"tampilkanReportPDF", "generateParameters", "onEvent", "tampilkanReportXLS", "generateReportType", "exportReport", "generateFileJasper", "gunakanYangAsli", "inputMinggu", "inputParameterTanggal", "getMinggu"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/sub_report.zul?namaStr=", "/pages/master/pendukung_report.zul?namaStr="});
 request.setAttribute("nuiServiceEntities", new String[]{"LampiranLain"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

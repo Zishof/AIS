@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JenisItemAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/JenisItemAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaJenisItem"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisItem"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

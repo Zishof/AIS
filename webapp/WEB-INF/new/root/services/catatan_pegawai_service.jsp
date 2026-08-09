@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CatatanPegawaiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/CatatanPegawaiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onLaporan", "onJenisCatatanPegawai", "onManajemenParameter", "doBeforeCompose", "doAfterCompose", "onEvent", "onDasbor", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/jenis_catatan_pegawai.zul", "/pages/master/parameter_tambahan_catatan_pegawai.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Pegawai", "CatatanPegawai", "ParameterTambahanCatatanPegawai", "ParameterTambahan", "JenisCatatanPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

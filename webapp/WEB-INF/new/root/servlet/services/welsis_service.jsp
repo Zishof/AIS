@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "Welsis");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/Welsis.java");
 request.setAttribute("nuiServiceMethods", new String[]{});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/WEB-INF/z/x/y/welsis.zul", "/WEB-INF/baru/welsis.jsp"});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

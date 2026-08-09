@@ -409,6 +409,15 @@ public class AmbilDataMahasiswaForDosenPAHelper {
 						|| searchfakultas.getSelectedItem().getValue() == null ? Restrictions.sqlRestriction("1=1")
 								: CommonSearchFilterHelper.eqSelectedWithId("jurusan.fakultas", searchfakultas, false));
 
+		// Pengambilan mahasiswa Dosen PA wajib tetap berada pada lingkup organisasi
+		// dosen yang dipilih. Ini menjadi penjaga backend ketika tombol diberikan
+		// kepada operator fakultas/prodi yang hanya memiliki privilege READ menu.
+		if (dosen != null && dosen.getJurusan() != null) {
+			criteria.add(Restrictions.eq("jurusan.id", dosen.getJurusan().getId()));
+		} else if (dosen != null && dosen.getFakultas() != null) {
+			criteria.add(Restrictions.eq("jurusan.fakultas", dosen.getFakultas()));
+		}
+
 		if (order)
 			criteria.addOrder(Order.desc("tahunangkatan")).addOrder(Order.asc("nim"));
 

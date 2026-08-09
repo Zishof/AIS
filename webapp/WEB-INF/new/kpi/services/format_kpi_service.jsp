@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "FormatKpiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.kpi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/kpi/FormatKpiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onManajemenMasaKpi", "onNilaiDefaultKpi", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault", "checkNamaFormatKpi"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/kpi/masa_kpi.zul", "/pages/master/kpi/nilai_default_kpi.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"FormatKpi", "Jurusan", "FormatKpiDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

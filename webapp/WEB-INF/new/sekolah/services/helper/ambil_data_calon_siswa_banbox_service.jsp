@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataCalonSiswaBanbox");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/helper/AmbilDataCalonSiswaBanbox.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "display", "initCriteria", "onSearchDefault", "setEventListener", "getEventListener"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"CalonSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

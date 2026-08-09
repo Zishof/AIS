@@ -721,10 +721,37 @@ public class Va extends HttpServlet {
 		jsonObject.put("tahun_akademik", Common.getCurrentTahunAkademik());
 		jsonObject.put("jenis", "Pembayaran");
 
-		JSONObject jsonObjectRinci = new JSONObject();
-		jsonObjectRinci.put("nama", namaRinci);
-		jsonObjectRinci.put("nominal", nominalRinci);
-		rincian.put(jsonObjectRinci);
+		boolean rincianAsliDitambahkan = false;
+		String amount = response.getAmount();
+		if (amount != null && !amount.trim().isEmpty()) {
+			String[] barisRincian = StringUtils.split(amount, '|');
+			if (barisRincian != null) {
+				for (String baris : barisRincian) {
+					String[] bagian = StringUtils.splitPreserveAllTokens(baris, '\\');
+					if (bagian != null && bagian.length >= 3) {
+						try {
+							Double nominalItem = Double.parseDouble(bagian[bagian.length - 1].trim());
+							String namaItem = bagian[1] == null ? "" : bagian[1].trim();
+							if (!namaItem.isEmpty()) {
+								JSONObject item = new JSONObject();
+								item.put("nama", namaItem);
+								item.put("nominal", nominalItem);
+								rincian.put(item);
+								rincianAsliDitambahkan = true;
+							}
+						} catch (Exception e) {
+							Common.tampilErrorJikaAdmin(e);
+						}
+					}
+				}
+			}
+		}
+		if (!rincianAsliDitambahkan) {
+			JSONObject jsonObjectRinci = new JSONObject();
+			jsonObjectRinci.put("nama", namaRinci);
+			jsonObjectRinci.put("nominal", nominalRinci);
+			rincian.put(jsonObjectRinci);
+		}
 
 		jsonObject.put("nominal", Double.parseDouble(response.getTotal_amount()));
 		jsonObject.put("keterangan", response.getResponse_description());

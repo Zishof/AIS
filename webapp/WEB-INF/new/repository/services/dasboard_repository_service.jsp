@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DasboardRepository");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.repository");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/repository/DasboardRepository.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "compare"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"RepoCollection", "RepoItem", "RepoBitstream"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

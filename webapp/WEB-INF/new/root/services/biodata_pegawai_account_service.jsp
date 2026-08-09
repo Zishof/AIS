@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BiodataPegawaiAccountAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/BiodataPegawaiAccountAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "setCommonOnSearchdefault", "getCommonOnSearchdefault", "init", "onSave", "loadDataPegawai"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Pegawai", "FotoPegawai", "Bank", "StatusPegawai", "Agama", "BiodataPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

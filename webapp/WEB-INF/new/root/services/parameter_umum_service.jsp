@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ParameterUmumAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/ParameterUmumAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "doAfterComposeOri", "onSearchDefault", "createRowNilaiProgramDanJurusan", "createButtonLihat", "run", "createButtonLihatProgramJurusan", "createRowNilai"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ParameterUmum", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CatatanAdministrasiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/CatatanAdministrasiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onDasbor", "onLaporan", "onJenisCatatanAdministrasi", "onManajemenParameter", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "cetakData", "onAdd", "init", "form", "onSave", "initCriteria", "onSearchDefault", "istilah", "ambil", "ambilClass", "setPersetujuan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/jenis_catatan_administrasi.zul", "/pages/master/parameter_tambahan_catatan_administrasi.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"CatatanAdministrasi", "ParameterTambahanCatatanAdministrasi", "ParameterTambahan", "JenisCatatanAdministrasi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

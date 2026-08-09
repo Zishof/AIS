@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BuktiPembayaranAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/BuktiPembayaranAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAddExternal", "onAdd", "onSave", "initCriteria", "onSearchDefault", "ambilBukti"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/common/daftarulang_mahasiswa_lama.zul?buktiPembayaran=", "/pages/master/daftarulang_mahasiswa_calon.zul?buktiPembayaran=", "/common/daftarulang_mahasiswa_baru.zul?buktiPembayaran="});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisKegiatan", "Jurusan", "BuktiPembayaran", "CicilanPembayaran", "DetailKegiatan", "JenisPembayaran", "BiodataCalonMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

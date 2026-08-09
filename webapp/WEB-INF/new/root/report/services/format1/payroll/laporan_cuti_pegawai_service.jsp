@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanCutiPegawai");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.payroll");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/payroll/LaporanCutiPegawai.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "generateDataDanImageAlbum", "execute", "generateCutiDanIzinParameter", "onKHS", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"IkatanKerjaDosen", "Pegawai", "CutiBersama", "CutiDanIzin"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

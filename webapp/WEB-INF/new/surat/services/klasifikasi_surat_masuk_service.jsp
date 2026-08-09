@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KlasifikasiSuratMasukAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.surat");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/surat/KlasifikasiSuratMasukAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onMasaBerlaku", "onStatusDipertahankan", "onSifatSurat", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/surat/masa_berlaku_surat.zul", "/pages/master/surat/status_dipertahankan.zul", "/pages/master/surat/sifat_surat.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"KlasifikasiSuratMasuk", "Tbmrole", "SifatSurat", "Jurusan", "MasaBerlakuSurat", "StatusDipertahankan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

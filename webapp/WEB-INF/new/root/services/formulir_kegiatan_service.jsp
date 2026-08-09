@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "FormulirKegiatanAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/FormulirKegiatanAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onGrupFormulirKegiatan", "onSertifikat", "onJenisFormulirKegiatan", "doBeforeCompose", "doAfterCompose", "onEvent", "run", "render", "muat", "onAdd", "init", "initReferensi", "onSave", "initCriteria", "onSearchDefault", "getKodeItemBiaya", "setKodeItemBiaya"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/grup_formulir_kegiatan.zul", "/pages/master/sertifikat.zul", "/pages/master/jenis_formulir_kegiatan.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Dosen", "Mahasiswa", "Siswa", "Guru", "FormulirKegiatan", "FormulirKegiatanPeserta", "ItemBiaya", "JenisFormulirKegiatan", "GrupFormulirKegiatan", "JenisAktfitasMahasiswa", "Jurusan", "Sekolah", "Sertifikat", "KegiatanKemahasiswaan", "KegiatanKedosenan", "SyaratUjian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ProdukUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.inventory.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/inventory/helper/ProdukUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateImage"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"FotoGambarProduk"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

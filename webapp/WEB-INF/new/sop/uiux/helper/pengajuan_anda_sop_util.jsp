@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"userRestriction", "criteriaPengajuanAnda", "criteriaSudahDisposisi", "criteriaMenungguSaya", "criteriaSelesai", "criteriaMenungguAktor", "hitung", "hitungRingkasan"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"DisposisiSop", "DisposisiAlurSop"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

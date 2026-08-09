@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DataResource");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.resources");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/resources/DataResource.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getSystemTime", "getData", "getAllData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"String"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

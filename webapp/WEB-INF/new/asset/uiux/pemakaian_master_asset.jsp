@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "FormSop");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "form", "istilah", "ambil", "ambilClass", "onSave", "initCriteria", "onSearchDefault", "setPersetujuan", "cetakData", "generateCode", "getindex"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"PemilikAsset", "PemakaianMasterAsset", "PemakaianMasterAssetDetail", "Lokasi", "Mitra"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "DataResource<Mahasiswa>");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"getXml", "getMasuk", "getLogin", "getLoginNim", "lihatKrs", "checkAmbilKrs", "ambilKrs", "hapusKrs", "lihatNilai", "lihatDetailPembayaran", "lihatPembayaran", "getData", "getAllData", "jenisPembayaran", "reportLog", "getFormatTemplateSurat", "bayar", "pembayaranMahasiswa"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Mahasiswa", "Detailperkuliahan", "TemplateSurat", "FormatTemplateSurat", "JenisKegiatan", "ItemBiaya"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

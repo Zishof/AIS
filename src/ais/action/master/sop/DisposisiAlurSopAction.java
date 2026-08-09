@@ -1648,6 +1648,13 @@ public class DisposisiAlurSopAction extends GenericAutowireComposer
 		} catch (Exception e) {
 			if (sessionUtama != null && sessionUtama.getTransaction().isActive()) sessionUtama.getTransaction().rollback();
 			ais.common.Common.tampilErrorJikaAdmin(e);
+			// PERBAIKAN: sebelumnya pengguna biasa tidak melihat apa pun bila onSave() gagal
+			// (tampilErrorJikaAdmin hanya mencatat ke ErrorLog, tidak menampilkan dialog) --
+			// tombol "Setujui"/"Simpan" terkesan tidak berfungsi tanpa penjelasan. Tampilkan
+			// pesan generik agar pengguna tahu penyimpanan GAGAL dan bisa melapor ke admin.
+			ais.ui.util.MyMessageboxConfig.show(
+					"Mohon maaf, disposisi ini gagal disimpan karena terjadi kesalahan pada sistem. Langkah yang dapat dilakukan: (1) muat ulang halaman lalu coba kembali; (2) bila kendala berlanjut, sampaikan ke admin beserta waktu kejadian ini agar dapat ditelusuri lebih lanjut.",
+					"Gagal Menyimpan", ais.ui.util.MyMessageboxConfig.OK, ais.ui.util.MyMessageboxConfig.ERROR);
 			return false;
 		} finally {
 			if (sessionUtama != null) { try { sessionUtama.clear(); sessionUtama.disconnect(); sessionUtama.close(); } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/sop/DisposisiAlurSopAction.java:1624");} }

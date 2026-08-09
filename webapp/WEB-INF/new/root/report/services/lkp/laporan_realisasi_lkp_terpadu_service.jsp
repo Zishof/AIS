@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanRealisasiLkpTerpaduWindow"
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.lkp");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/lkp/LaporanRealisasiLkpTerpaduWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "compare"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

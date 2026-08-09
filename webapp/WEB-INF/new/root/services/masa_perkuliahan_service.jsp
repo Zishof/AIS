@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MasaPerkuliahanAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/MasaPerkuliahanAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onAddExternal", "render", "onDelete", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/perkuliahan_simple.zul?masaPerkuliahan="});
 request.setAttribute("nuiServiceEntities", new String[]{"MasaPerkuliahan", "Perkuliahan", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

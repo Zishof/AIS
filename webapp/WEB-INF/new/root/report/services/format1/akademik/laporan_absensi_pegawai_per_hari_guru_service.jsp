@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanAbsensiPegawaiPerHariGuru"
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.akademik");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/akademik/LaporanAbsensiPegawaiPerHariGuru.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "generateDataDanImageAlbum", "execute", "onKHS", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Pegawai", "CutiDanIzin"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

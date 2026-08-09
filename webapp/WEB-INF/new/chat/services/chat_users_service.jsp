@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ChatUsers");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.chat");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/chat/ChatUsers.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onCreate", "init", "onEvent", "loadData", "loadDataSemua", "createOnlineUsers", "checkPesan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Detailperkuliahan", "Mahasiswa", "Dosen", "Tbmuser", "Pesan", "OnlineUsers"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PenerimaanPengadaanMasterAssetAct
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.asset");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/asset/PenerimaanPengadaanMasterAssetAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onInventaris", "onBarangDalamProses", "onPersediaan", "doBeforeCompose", "doAfterCompose", "onEvent", "initCriteria", "render", "onAdd", "generateDetail", "onSave", "parameter", "cetakData", "onSearchDefault", "form", "istilah", "ambil", "ambilClass", "generateCode", "getindex", "setPersetujuan", "onAddExternal"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/asset/monitor_stok_asset.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisPenerimaanBarang", "Lokasi", "PenerimaanPengadaanMasterAssetDetail", "PenerimaanPengadaanMasterAsset", "PembayaranPengadaanMasterAssetDetail", "PermintaanPengadaanMasterAssetDetail", "PemesananPengadaanMasterAssetDetail", "DokumenPenyediaAsset", "PenyediaAssetPunyaDokumen", "Workspace", "PemilikAsset", "JenisPajakBarang"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

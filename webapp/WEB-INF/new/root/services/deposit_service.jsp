@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DepositAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/DepositAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onCaraBayarTabungan", "onLaporanDeposit", "onJenis", "onPenggunaan", "doBeforeCompose", "doAfterCompose", "onEvent", "compare", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/jenis_pembayaran.zul", "/pages/master/jenis_tabungan.zul", "/pages/master/cicilan_pembayaran.zul?deposit=true"});
 request.setAttribute("nuiServiceEntities", new String[]{"Deposit", "Jurusan", "JenisPembayaran", "JenisTabungan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

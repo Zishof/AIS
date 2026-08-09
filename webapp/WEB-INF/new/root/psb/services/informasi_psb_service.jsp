@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "InformasiPSB");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.psb");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/psb/InformasiPSB.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onCreate", "init", "onEvent", "loadData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Yayasan", "Sekolah"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

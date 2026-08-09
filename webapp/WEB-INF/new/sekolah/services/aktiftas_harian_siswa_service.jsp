@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AktiftasHarianSiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/AktiftasHarianSiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onDashboardAktifitasHarianSiswa", "onBukuPenghubung", "showPopupForm", "doAfterCompose", "onDaftarAktifitasSiswa", "onJenisAktiftasHarianDefault", "onJenisMateriHarianDefault", "initCriteria", "onSearchDefault", "render", "onEvent", "onAdd", "init", "onSave", "onCancel"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/sekolah/dashboard_aktifitas_harian_siswa.zul", "/pages/master/sekolah/daftar_aktifitas_harian_siswa.zul", "/pages/master/sekolah/jenis_aktiftas_harian_default.zul", "/pages/master/sekolah/jenis_materi_harian_default.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"AktiftasHarianSiswa", "JenisAktiftasHarianDefault", "JenisMateriHarianDefault"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

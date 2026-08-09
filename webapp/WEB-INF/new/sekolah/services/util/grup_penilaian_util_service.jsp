@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "GrupPenilaianUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/util/GrupPenilaianUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"ambilTarget", "ambilTargetMin", "ambilTargetMax", "ambilPoint", "hitung", "ambilDeskripsi"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisItemPenilaianSiswa", "Konstanta", "DetailGrupKategoriItemPenilaianSiswa", "DetailGrupPenilaian", "GrupPenilaian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

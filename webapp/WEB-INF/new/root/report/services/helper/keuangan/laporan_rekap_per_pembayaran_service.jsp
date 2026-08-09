@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanRekapPerPembayaranWindow")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.helper.keuangan");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/helper/keuangan/LaporanRekapPerPembayaranWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Fakultas"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

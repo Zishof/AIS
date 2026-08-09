@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "UserOnlineCounter");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/UserOnlineCounter.java");
 request.setAttribute("nuiServiceMethods", new String[]{"check", "doRestart", "restartCheck", "ujianCheck", "run", "bytesToMegabytes", "bytesToMegabytesLong", "accept", "runGc"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"login.jsp", "index.jsp", "error.jsp", "ecampus.jsp", "mail.jsp", "broken.jsp", "accept_dropbox.jsp", "__reset.jsp", "accept.jsp", "code.jsp", "display_status_krs.jsp", "submit.jsp", "login_ecampus.jsp", "eschool.jsp"});
 request.setAttribute("nuiServiceEntities", new String[]{"AccessedUsers", "HasilUjianMahasiswa", "TanyaJawab"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

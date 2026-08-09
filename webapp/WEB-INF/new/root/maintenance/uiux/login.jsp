@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"doAfterCompose", "onLihatOnline", "onClickPMB", "onClickLoginPMB", "onClickHome", "onClickMahasiswa", "onEvent", "onClickPMDK", "onUpdateUserOnline", "onForgotPassword"});
-request.setAttribute("nuiLegacyRefs", new String[]{"pmb.zul", "/pages/master/login_calon_mahasiswa.zul", "/pages/main/blank.zul", "/pages/master/kegiatan_per_mahasiswa.zul", "/pages/master/pendaftaranPMDK.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"String"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

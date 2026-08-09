@@ -11,6 +11,7 @@
 <%@page import="ais.database.model.library.Anggota"%>
 <%@page import="ais.database.model.library.KunjunganAnggota"%>
 <%@page import="ais.database.model.library.Perpustakaan"%>
+<%@page import="ais.action.master.library.util.LibraryUtil"%>
 <%@page import="org.json.JSONObject"%>
 <%@ page language="java" contentType="application/json; charset=UTF-8" pageEncoding="UTF-8"%>
 
@@ -31,7 +32,11 @@ try {
         dbSession.beginTransaction();
 
         // Mengambil record perpustakaan aktif yang akan menjadi lokasi kunjungan
-        Perpustakaan lokasiPerpus = (Perpustakaan) dbSession.createCriteria(Perpustakaan.class).setMaxResults(1).uniqueResult();
+        Perpustakaan lokasiPerpus = (Perpustakaan) dbSession.createCriteria(Perpustakaan.class)
+            .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+            .addOrder(Order.asc("id"))
+            .setMaxResults(1)
+            .uniqueResult();
         
         if (lokasiPerpus == null) {
             jsonRes.put("status", "error");
@@ -53,10 +58,7 @@ try {
                 jsonRes.put("message", Common.getBahasaConfig("Silakan masukkan kode identitas yang sah."));
             } else {
                 // Pencarian data anggota yang terdaftar di basis data
-                Anggota profilAnggota = (Anggota) dbSession.createCriteria(Anggota.class)
-                    .add(Restrictions.eq("kode", idAnggota.trim()))
-                    .setMaxResults(1)
-                    .uniqueResult();
+                Anggota profilAnggota = LibraryUtil.cariAnggotaDariIdentitas(dbSession, idAnggota);
 
                 if (profilAnggota == null) {
                     jsonRes.put("status", "error");
@@ -75,6 +77,7 @@ try {
                         entriKunjungan.setPerpustakaan(lokasiPerpus);
                         entriKunjungan.setAnggota(profilAnggota);
                         entriKunjungan.setTanggal(hariIni);
+                        entriKunjungan.setTgl(hariIni);
                         
                         dbSession.save(entriKunjungan);
                         
@@ -118,6 +121,7 @@ try {
                     entriTamu.setAlamat(alamatTamu.trim());
                     entriTamu.setKeterangan(infoTambahan != null ? infoTambahan.trim() : "");
                     entriTamu.setTanggal(hariIni);
+                    entriTamu.setTgl(hariIni);
                     
                     dbSession.save(entriTamu);
                     
@@ -139,12 +143,14 @@ try {
             // Hitung Total Data untuk Paging
             Long totalData = (Long) dbSession.createCriteria(KunjunganAnggota.class)
                 .add(Restrictions.eq("perpustakaan", lokasiPerpus))
+                .add(Restrictions.eq("tgl", hariIni))
                 .setProjection(Projections.rowCount())
                 .uniqueResult();
             
             // Ambil Data Kunjungan
             List<KunjunganAnggota> listKunjungan = dbSession.createCriteria(KunjunganAnggota.class)
                 .add(Restrictions.eq("perpustakaan", lokasiPerpus))
+                .add(Restrictions.eq("tgl", hariIni))
                 .addOrder(Order.desc("id"))
                 .setFirstResult(pageIdx * limit)
                 .setMaxResults(limit)

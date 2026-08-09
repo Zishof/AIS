@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DasboardSurat");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.surat.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/surat/helper/DasboardSurat.java");
 request.setAttribute("nuiServiceMethods", new String[]{"isDebug", "setDebug", "onEvent", "getThis", "initCriteria", "render", "count", "list", "build", "compare", "tolak", "buildAlurKeluarStatusHtmlV20", "buildAlurMasukStatusHtmlV20", "buildAlurMasukStatusListHtmlV20", "buildOpsiChipsHtmlV20", "buildParamRowHtmlV20", "buildIsiWrapperHtmlV20", "buildAktifBadgeHtmlV20", "buildUnitInfoHtmlV20", "buildParentAlurHtmlV20", "buildKeteranganHtmlV20"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"SuratKeluar", "AlurPersetujuanSuratKeluarStatus", "OpsiSuratKeluarValue", "FotoGambarSuratKeluar", "AlurPersetujuanSuratMasukStatus", "OpsiSuratMasukValue", "FotoGambarSuratMasuk", "KlasifikasiSuratKeluarParemeterValue", "SuratMasuk"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

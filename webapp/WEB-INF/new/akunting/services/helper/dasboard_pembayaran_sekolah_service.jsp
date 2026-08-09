@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DasboardPembayaranSekolah");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.akunting.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/akunting/helper/DasboardPembayaranSekolah.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "getThis", "initCriteria", "compare", "buildCriteria", "clear", "setValue", "getRows"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PembayaranSiswaDetail", "Sekolah", "Tagihan", "Detailperkuliahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CariDataPembayaranAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.pmb");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/pmb/CariDataPembayaranAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "onLogin", "afterLogin", "onEvent", "upload", "doAfterCompose", "onSearchDefault", "render", "onReset"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"BiodataCalonMahasiswa", "LampiranLainBiodataCalonMahasiswa", "JenisKegiatan", "BuktiPembayaran", "Kegiatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

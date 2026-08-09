@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BooksSample");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/util/BooksSample.java");
 request.setAttribute("nuiServiceMethods", new String[]{"queryGoogleBooks"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

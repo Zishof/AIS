@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanTransaksiPegawai");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.payroll");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/payroll/LaporanTransaksiPegawai.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "onCetak"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Siswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

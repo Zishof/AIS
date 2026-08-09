@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ApiBaruElearning");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/ApiBaruElearning.java");
 request.setAttribute("nuiServiceMethods", new String[]{"daftarJadwalPelajaran", "buat"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JadwalPelajaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

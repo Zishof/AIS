@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BsiRequestAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.bsi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/bsi/BsiRequestAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "run", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Siswa", "CalonSiswa", "CicilanPembayaran", "BsiRequestDetail", "BsiRequest"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

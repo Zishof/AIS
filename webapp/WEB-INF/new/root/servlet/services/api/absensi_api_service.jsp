@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AbsensiApiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/AbsensiApiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"absen"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Pertemuan", "Statusabsensi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanKantinZkPanel");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.koperasi.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/koperasi/helper/LaporanKantinZkPanel.java");
 request.setAttribute("nuiServiceMethods", new String[]{"build", "onEvent", "getParameter"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Toko"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

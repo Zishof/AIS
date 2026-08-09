@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "InqueryLogic");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.ws.logic");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/ws/logic/InqueryLogic.java");
 request.setAttribute("nuiServiceMethods", new String[]{"inqueryCalonMahasiswa", "inqueryMahasiswaBaru", "inqueryMahasiswaLama"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

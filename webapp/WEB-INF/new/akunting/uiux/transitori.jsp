@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "muat", "onEvent", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/WEB-INF/z/x/y/pages/master/akunting/proses_transitori.zul", "/WEB-INF/z/x/y/pages/master/akunting/transitori_tab_1.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"Transitori"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

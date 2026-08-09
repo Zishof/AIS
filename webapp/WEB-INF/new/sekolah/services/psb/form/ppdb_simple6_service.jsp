@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PPDB_Simple6");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.psb.form");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/psb/form/PPDB_Simple6.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "init", "onSave", "checkNik"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PaketPsbPunyaGelombangPendaftaranPsb", "PaketPsb", "JadwalPertemuanPSB", "CalonSiswa", "FotoCalonSiswa", "DefaultNisGenerator", "Siswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

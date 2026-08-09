@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault, DataInitDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onJenisLaporan", "doBeforeCompose", "doAfterCompose", "initCriteria", "onEvent", "uploadDataAkun", "run", "loadData", "render", "init", "onSave", "onSearchDefault", "onAddKelompokLaporan", "initCriteriaDetail"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/akunting/jenis_laporan.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"JenisLaporan", "MasterGrupLaporan", "KelompokLaporanPunyaAkun", "KelompokLaporan", "Akun"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

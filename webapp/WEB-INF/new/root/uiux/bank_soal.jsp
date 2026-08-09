@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onKategori", "doBeforeCompose", "doAfterCompose", "muat", "onEvent", "loadData", "render", "onAddExternal", "onAdd", "tampilkanLampiran", "onSave", "initCriteria", "onSearchDefault", "display", "reloadDataFormula", "reloadFormula"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/kategori_bank_soal.zul", "/WEB-INF/z/x/y/pages/master/bank_soal_tab_0.zul", "penjelasan_bank_soal.zul", "/WEB-INF/z/x/y/pages/master/penjelasan_bank_soal.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"KategoriBankSoal", "BankSoal", "Fakultas", "Jurusan", "Matapelajaran", "BankSoalDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PustakaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.maintenance");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/maintenance/PustakaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "onInfo", "onEvent", "doAfterCompose", "initCriteria", "onSearchDefault", "render", "berkunjung", "displayPustaka"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"TipeItem", "JenisItem", "Item", "ItemPunyaBarcode", "Anggota", "KunjunganAnggota", "Perpustakaan", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

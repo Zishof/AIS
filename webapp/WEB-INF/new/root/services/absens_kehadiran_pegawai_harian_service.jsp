@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AbsensKehadiranPegawaiHarianActio
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/AbsensKehadiranPegawaiHarianAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onRiwayatProsesKehadiranPegawai", "onLaporanTidakHadir", "onLaporanLembur", "onProsesKehadiran", "onProsesKehadiranPegawai", "onPerHari", "onLaporanAbsensiPegawai", "onLaporanAbsensiPerPegawai", "onLaporanAbsensiPerTanggal", "onLaporanAbsensiPerUnit", "onLaporanAbsensiPerRinci", "onQrPerTanggal", "doBeforeCompose", "doAfterCompose", "onEvent", "uploadDataMahasiswa", "run", "cetakDataCustomButton", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/kehadiran_pegawai_bulanan.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"StatusPegawai", "Pegawai", "Statusabsensi", "Tbmuser", "KenaikanPangkat", "StatuskehadiranKaryawanHarian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

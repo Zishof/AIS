@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AbsensiMahasiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/AbsensiMahasiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onAsisten", "onAbsensiSp", "onRekapitulasiAbsensiMahasiswa", "onRekapitulasiAbsensiPerMahasiswa", "doBeforeCompose", "doAfterCompose", "onEvent", "onSearchDefault", "muat"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/absensi.zul", "/pages/master/absensi_mahasiswa_sp.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

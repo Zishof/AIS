@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanKurikulumWindow");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.helper.pdf");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/helper/pdf/LaporanKurikulumWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Fakultas", "Jurusan", "Kurikulum"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

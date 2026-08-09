@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CustomerServiceAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/CustomerServiceAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault", "checkNamaCustomerService"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"CustomerService"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

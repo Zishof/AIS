@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardS1Action");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/DashboardS1Action.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/common/tampilan_pengumuman_akademis.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"LaporanProfileDosen", "LaporanProfileMahasiswaDanLulusan_A_3_1_1", "LaporanProfileMahasiswaDanLulusan_A_3_1_2", "LaporanProfileMahasiswaDanLulusan_A_3_1_4", "LaporanProfileMahasiswaDanLulusan_A_3_2_1", "LaporanProfileDosen_A_4_3_1", "LaporanProfileDosen_A_4_3_2", "LaporanProfileDosen_A_4_3_3", "LaporanProfileDosen_A_4_3_4", "LaporanProfileDosen_A_4_3_5", "LaporanProfileDosen_A_4_4_1", "LaporanProfileDosen_A_4_4_2", "LaporanProfileDosen_A_4_5_1", "LaporanProfileDosen_A_4_5_2", "LaporanProfileDosen_A_4_5_3", "LaporanProfileDosen_A_4_5_4", "LaporanProfileDosen_A_4_5_5", "LaporanProfileDosen_A_4_6_1", "LaporanDosenInstitusi_A_4_5_1", "LaporanKurikulumDanMatakuliah_A_5_1_2_1", "LaporanKurikulumDanMatakuliah_A_5_1_2_2", "LaporanKurikulumDanMatakuliah_A_5_1_3", "LaporanDosenPembimbing_A_5_4_1", "LaporanDosenPembimbingTugasAkhir_A_5_5_1", "LaporanDosenPembimbingTugasAkhir_A_5_5_2", "LaporanDana_A_6_2_1_1", "LaporanDana_A_6_2_1_2", "LaporanDana_A_6_2_2", "LaporanDana_A_6_2_3"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

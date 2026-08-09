@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "HakAksesApi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/HakAksesApi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"hakAksesSaya"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Tbmrole", "RolePrivilage"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

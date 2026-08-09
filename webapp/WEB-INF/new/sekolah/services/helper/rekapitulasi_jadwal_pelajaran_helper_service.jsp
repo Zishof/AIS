@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RekapitulasiJadwalPelajaranHelper
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/helper/RekapitulasiJadwalPelajaranHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"tambahJadwalMengajar", "onEvent", "display"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Matapelajaran", "JadwalPelajaran", "KelasSiswaPunyaSiswa", "KelasLesSiswaPunyaSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

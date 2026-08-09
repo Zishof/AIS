@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyWindow");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "save", "setCommonOnSearchdefault", "getCommonOnSearchdefault", "init", "onSave", "loadDataPegawai"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/prestasi_pegawai.zul?pegawai=", "/pages/master/catatan_pegawai.zul?currPegawai="});
 request.setAttribute("nuiEntityCandidates", new String[]{"Pegawai", "Tbmuser", "PtkpPegawai", "AsuransiPegawai", "JenisJabatan", "TipePegawai", "MasaKerja", "UnitKerja", "TipeMasaKerja", "LampiranLain", "Jurusan", "Sekolah", "FotoDosen", "FotoGuru", "FotoPegawai", "StatusPegawai", "StatusKepegawaian", "IkatanKerjaDosen", "Dosen", "Guru"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

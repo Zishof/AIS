@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "HttpServlet");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"simpanVolume", "itemDariItemTemporary"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Volume", "Item", "Penerbit", "Pengarang", "KategoriItem", "ItemTemporary"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

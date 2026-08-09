@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PermintaanPembelianDetailAction")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs.detail");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/detail/PermintaanPembelianDetailAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "loadData", "display"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Penyedia", "HargaBeliItem", "PermintaanPembelianDetail", "SatuanItem", "ItemMedis"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

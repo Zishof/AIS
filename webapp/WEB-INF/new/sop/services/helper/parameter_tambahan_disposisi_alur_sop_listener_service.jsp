@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ParameterTambahanDisposisiAlurSop
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sop.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sop/helper/ParameterTambahanDisposisiAlurSopListener.java");
 request.setAttribute("nuiServiceMethods", new String[]{"validate", "onSave", "getTampil", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"AlurSop", "ParameterTambahanAlurSop", "ParameterTambahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

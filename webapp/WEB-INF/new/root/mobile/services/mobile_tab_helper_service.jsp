@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MobileTabHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.mobile");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/mobile/MobileTabHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"build", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

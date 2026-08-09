@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "GaleriFotoHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/GaleriFotoHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initDetail", "onEvent", "initRow"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"GaleriFotoImage"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

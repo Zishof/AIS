@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanStatistikSuratKeluarPerJen
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.surat");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/surat/LaporanStatistikSuratKeluarPerJenis.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "onReport"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KlasifikasiSuratMasuk", "LokerSurat"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

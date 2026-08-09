@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "FormBiodataCalonMahasiswaAction")
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.pmb");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/pmb/FormBiodataCalonMahasiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

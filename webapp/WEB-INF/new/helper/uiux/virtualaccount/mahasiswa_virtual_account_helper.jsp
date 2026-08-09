@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"openSession", "tambahTokenCicilan", "ensureOpen", "beginTransactionIfNeeded", "commitTransactionIfActive", "rollbackTransactionIfActive", "closeSessionQuietly", "closeHibernateContextQuietly", "closeOpenedSession", "closeNativeSession", "rollbackQuietly", "ambilKegiatanTemporaryTerpilih", "ambilMahasiswa", "ambilCalonMahasiswa", "hitungTotal", "validasiKeranjang", "getKonfigurasiDouble", "buatPesanKonfirmasi", "buatUrlNoVa", "tampilkanHasilVirtualAccount", "redirectLinkVirtualAccount", "tampilkanProgress", "sembunyikanProgress", "applyGatewayFlag"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/common/online/no_va.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

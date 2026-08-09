@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MainProgressHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.maintenance");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/maintenance/MainProgressHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"createProgressPanel", "updateProgressPanel", "finishProgressPanel", "errorProgressPanel", "startProgressAnimation", "onEvent", "normalizePercent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TunggakanMahasiswaDaftarUlangProc
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/util/TunggakanMahasiswaDaftarUlangProcessor.java");
 request.setAttribute("nuiServiceMethods", new String[]{"run", "insertTunggakanMahasiswaDetail"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa", "TunggakanMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

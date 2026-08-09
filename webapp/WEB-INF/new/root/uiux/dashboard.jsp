@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onSarjana", "doBeforeCompose", "doAfterCompose", "onEvent"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/dashboard_s1.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"LaporanStatusAkreditasiProdi_A_2_4_6", "LaporanProfileMahasiswa_A_3_1_5", "LaporanLayananKepadaMahasiswa_A_3_1_8", "LaporanPrestasiMahasiswa_A_3_1_11", "LaporanProfileMahasiswaDanLulusan_A_3_2_1", "LaporanProfileMahasiswaDanLulusan_A_3_2_2", "LaporanProfileMahasiswaDanLulusan_A_3_2_4", "LaporanDosenInstitusi_A_4_3_1", "LaporanDosenInstitusi_A_4_3_2", "LaporanKegiatanDosen_A_4_4", "LaporanDosenInstitusi_A_4_5_1", "LaporanDanaInstitusi_A_6_1_4", "LaporanDanaInstitusi_A_6_1_5", "LaporanDanaInstitusi_A_6_1_6", "LaporanDanaInstitusi_A_6_1_7", "LaporanLahanInstitusi_A_6_2_2", "LaporanPrasaranaInstitusi_A_6_2_3A", "LaporanPrasaranaInstitusi_A_6_2_3B", "LaporanPrasaranaInstitusi_A_6_2_4", "LaporanPustaka_A_6_2_5"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

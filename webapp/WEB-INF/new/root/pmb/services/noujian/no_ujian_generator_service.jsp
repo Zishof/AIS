@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "NoUjianGenerator");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.pmb.noujian");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/pmb/noujian/NoUjianGenerator.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateNoUjian"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

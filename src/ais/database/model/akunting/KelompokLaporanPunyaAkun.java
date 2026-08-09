@@ -99,7 +99,7 @@ public class KelompokLaporanPunyaAkun extends GeneralValueObject {
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
-	@JoinColumn(name = "akun", nullable = true)
+	@JoinColumn(name = "akun", nullable = false)
 	public Akun getAkun() {
 		akun = check(akun);
 		return akun;
@@ -111,7 +111,7 @@ public class KelompokLaporanPunyaAkun extends GeneralValueObject {
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
-	@JoinColumn(name = "kelompok_laporan", nullable = true)
+	@JoinColumn(name = "kelompok_laporan", nullable = false)
 	public KelompokLaporan getKelompokLaporan() {
 		return kelompokLaporan;
 	}

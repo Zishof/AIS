@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ApiAccessGuard");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/ApiAccessGuard.java");
 request.setAttribute("nuiServiceMethods", new String[]{"check"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"BlokirMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanSPTB");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.akunting");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/akunting/LaporanSPTB.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateParameters", "onEvent", "onReport"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Pejabat"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

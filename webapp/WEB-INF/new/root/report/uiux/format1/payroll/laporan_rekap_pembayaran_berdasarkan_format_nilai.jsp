@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyWindow");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "generateParameters", "onCetak", "run"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"CaraPembayaranGaji", "Bank", "StatusKepegawaian", "JenisFormatGaji", "KenaikanPangkat", "Keluarga", "JabatanFungsional", "JabatanStruktural", "Jabatan", "GajiPokok", "PenilaianKpi", "PembayaranGajiPunyaPegawai", "Pegawai", "SatuanKerja", "KehadiranPegawaiBulanan", "ItemGaji"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

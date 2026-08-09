@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RealisasiKerjaPegawaiDetailAction
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.lkp.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/lkp/helper/RealisasiKerjaPegawaiDetailAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "setTargetKerjaPegawai", "displayRow", "render", "onAdd", "getChildCount", "onAddExternal", "onEditExternal", "onSave", "loadData", "display", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ParameterTambahanKegiatan", "Pegawai", "RealisasiKerjaPegawai", "KegiatanTugasJabatan", "TargetKerjaPegawai", "KegiatanTugasJabatanPunyaSasaran", "KegiatanTugasJabatanPunyaIndikator", "KegiatanTugasJabatanPunyaPredecessor"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

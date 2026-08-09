@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RuangAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/RuangAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onFasilitasRuangan", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/fasilitas_ruangan.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Gedung", "Ruang", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

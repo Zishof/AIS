@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "UploadDataHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.payroll.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/payroll/helper/UploadDataHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "loadData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"UploadLog"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

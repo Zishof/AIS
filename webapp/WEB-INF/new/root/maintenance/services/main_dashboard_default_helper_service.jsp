@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MainDashboardDefaultHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.maintenance");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/maintenance/MainDashboardDefaultHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"compare"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"MyWindow"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

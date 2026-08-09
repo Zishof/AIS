@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RevisiPembayaranSiswaDetailHelper
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/helper/RevisiPembayaranSiswaDetailHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"apply", "bukaTabSeluruhData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PembayaranSiswa", "PembayaranSiswaDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

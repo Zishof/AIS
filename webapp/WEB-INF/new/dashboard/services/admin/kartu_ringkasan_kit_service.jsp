@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KartuRingkasanKit");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.admin");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/admin/KartuRingkasanKit.java");
 request.setAttribute("nuiServiceMethods", new String[]{"tabbox", "bukaPanel", "tutupGrid", "tutupPanel", "seksiBar", "kartuProgres", "kartuAngka", "kartuBreakdown", "kartuTotal", "barKomposisi", "klikable", "bungkusKlikable", "modal", "barisRincian", "head", "pill", "fmt", "esc", "css"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

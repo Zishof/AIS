@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ErrorLogAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/ErrorLogAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "initCriteria", "onSearchDefault", "judul", "subjudul", "deskripsi", "bagian", "ambil", "compare"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ErrorLog"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

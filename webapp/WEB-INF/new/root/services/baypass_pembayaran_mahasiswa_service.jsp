@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BaypassPembayaranMahasiswaAction"
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/BaypassPembayaranMahasiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "run", "render", "initCriteria", "onSearchDefault", "onAdd", "onSave", "loadData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"StatusMahasiswa", "StatusAwalMahasiswa", "Konsentrasi", "Fakultas", "Jurusan", "Jenjang", "BaypassPembayaranMahasiswa", "JenisKegiatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

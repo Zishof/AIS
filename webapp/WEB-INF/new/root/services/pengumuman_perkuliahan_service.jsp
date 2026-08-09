@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PengumumanPerkuliahanAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/PengumumanPerkuliahanAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent", "render", "onAdd", "onAddExternal", "onSave", "initCriteria", "onSearchDefault", "tampilPengumuman", "initIsiPolling", "tampilkanPolling"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Fakultas", "Jurusan", "KategoriPengumuman", "PengumumanPerkuliahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ElearningPertemuanApi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/ElearningPertemuanApi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"selesaiSoal", "simpanJawabanSoal", "ujian", "semuaPertemuan", "semuaDikusi"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PertemuanPunyaUjian", "HasilUjianMahasiswa", "BankSoalDetail", "HasilUjianMahasiswaDetail", "SyaratUjian", "UjianPunyaSoal", "BankSoal", "Pertemuan", "PertemuanPunyaDiskusi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

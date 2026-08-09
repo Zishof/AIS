@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"doAfterCompose"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/library/monitor_stok_item.zul?perpustakaan="});
 request.setAttribute("nuiEntityCandidates", new String[]{"Perpustakaan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

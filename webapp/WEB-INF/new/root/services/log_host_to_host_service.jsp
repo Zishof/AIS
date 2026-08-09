@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LogHostToHostAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/LogHostToHostAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "onVa", "onFinpay", "onIpaymu", "onFaspay", "onJatelindo", "onCimb", "onBni", "onBsi", "onBri", "onCicilanGagal", "onRekonsiliasi", "doBeforeCompose", "doAfterCompose", "run", "render", "initCriteria", "onSearchDefault", "compare"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/virtual_account_bank.zul?b=", "/pages/master/virtual_account_bank.zul", "/pages/master/finpay/finpay_request.zul", "/pages/master/ipaymu/ipaymu_request.zul", "/pages/master/faspay/faspay_request.zul", "/pages/master/jatelindo/jatelindo_request.zul", "/pages/master/cimb/cimb_request.zul", "/pages/master/bni/bni_request.zul", "/pages/master/bsi/bsi_request.zul", "/pages/master/bri/bri_request.zul", "/pages/master/cicilan_pembayaran_gagal.zul", "/pages/master/rekonsiliasi_host_to_host.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"VirtualAccountBank", "LogHostToHost"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

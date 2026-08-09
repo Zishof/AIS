@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"ambilTarget", "ambilTargetMin", "ambilTargetMax", "ambilPoint", "hitung", "ambilDeskripsi"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"JenisItemPenilaianSiswa", "Konstanta", "DetailGrupKategoriItemPenilaianSiswa", "DetailGrupPenilaian", "GrupPenilaian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

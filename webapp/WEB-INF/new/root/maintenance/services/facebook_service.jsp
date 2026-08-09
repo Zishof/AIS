@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "FacebookAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.maintenance");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/maintenance/FacebookAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "proses", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/facebook.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

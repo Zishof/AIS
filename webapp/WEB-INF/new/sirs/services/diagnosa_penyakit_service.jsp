@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DiagnosaPenyakitAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/DiagnosaPenyakitAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent", "render", "onProcessDelete", "onDelete", "onAdd", "onSave", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"DiagnosaPenyakit", "Pendaftaran", "StatusPulang", "Poly", "Dokter", "Instalasi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

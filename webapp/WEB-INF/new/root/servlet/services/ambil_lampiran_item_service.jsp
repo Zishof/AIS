@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilLampiranItem");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/AmbilLampiranItem.java");
 request.setAttribute("nuiServiceMethods", new String[]{"fastChannelCopy", "resizeImage"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"FotoItem", "Item"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

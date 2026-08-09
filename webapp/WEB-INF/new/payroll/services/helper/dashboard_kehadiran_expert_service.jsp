@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardKehadiranExpert");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.payroll.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/payroll/helper/DashboardKehadiranExpert.java");
 request.setAttribute("nuiServiceMethods", new String[]{"render", "onEvent", "update", "compare"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"StatuskehadiranKaryawanHarian", "Pegawai", "CutiBersama", "CutiDanIzin", "PengajuanPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

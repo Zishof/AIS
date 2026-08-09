@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ApiTokenManager");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/ApiTokenManager.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initTokens", "putToken", "removeToken", "getTokenValue", "containsToken", "clearLocalTokens"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa", "Siswa", "Penduduk", "Tbmuser"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

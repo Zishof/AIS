@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PemilikAssetAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.asset");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/asset/PemilikAssetAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaPemilikAsset"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/asset/asset.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"PemilikAsset", "Fakultas", "Jurusan", "PerguruanTinggi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

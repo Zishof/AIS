@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "Window");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"getAlatMedisLab", "setAlatMedisLab", "render", "onEvent", "display", "onSearchDefault", "setEventListener", "getEventListener"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"JenisAlatMedis", "AlatMedis"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

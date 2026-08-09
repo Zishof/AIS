@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyWindow");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "run"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/virtual_account_bank.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"JenisKegiatan", "JenisSeleksi", "Jenjang", "StatusAwalMahasiswa", "DetailSettingBiaya", "CicilanPembayaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

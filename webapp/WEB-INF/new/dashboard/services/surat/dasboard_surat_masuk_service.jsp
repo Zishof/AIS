@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DasboardSuratMasuk");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.surat");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/surat/DasboardSuratMasuk.java");
 request.setAttribute("nuiServiceMethods", new String[]{"compare", "onEvent", "initCriteria", "clear", "setValue", "getValues", "getTotal", "getMaxRowTotal"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisJabatan", "SuratMasuk", "AlurPersetujuanSuratMasukStatus", "OpsiSuratMasukValue", "FotoGambarSuratMasuk", "PeminjamSurat", "PeminjamanSuratItemDetail", "KembaliSuratItemDetail", "LokerSurat", "KlasifikasiSuratMasuk"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

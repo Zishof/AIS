@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardPenelitianDanPengabdian"
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.admin");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/admin/DashboardPenelitianDanPengabdian.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "initCriteria", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PengajuanPenelitianDanPengabdian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

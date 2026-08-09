@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PendudukAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sisdes");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sisdes/PendudukAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent", "render", "onDelete", "onAdd", "onExternalAdd", "onSave", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Penduduk", "Pendidikan", "Agama", "Propinsi", "Kota", "Kecamatan", "Kelurahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

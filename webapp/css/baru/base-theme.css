@@ -918,19 +918,44 @@ span.badge.bg-primary.bg-opacity-10.text-primary.rounded-pill i {
 }
 
 /* EKSEKUSI TUKAR WARNA SAAT HOVER */
-.btn-outline-primary:hover, .btn-light:hover, 
+.btn-outline-primary:hover, .btn-light:hover,
 .btn-secondary:hover, .btn-outline-dark:hover {
-    background: var(--theme-gradient) !important; 
-    color: var(--theme-text-on-primary) !important; 
+    background: var(--theme-gradient) !important;
+    color: var(--theme-text-on-primary) !important;
     /* BORDER WARNA TEMA GELAP AGAR MAKIN SOLID */
-    border: 2px solid var(--theme-primary-dark) !important; 
+    border: 2px solid var(--theme-primary-dark) !important;
     box-shadow: 0 6px 15px rgba(0,0,0,0.15) !important;
     transform: translateY(-2px);
 }
 .btn-outline-primary:hover svg, .btn-outline-primary:hover i,
-.btn-light:hover svg, .btn-light:hover i, 
+.btn-light:hover svg, .btn-light:hover i,
 .btn-secondary:hover svg, .btn-secondary:hover i,
 .btn-outline-dark:hover svg, .btn-outline-dark:hover i {
+    color: var(--theme-text-on-primary) !important;
+    fill: var(--theme-text-on-primary) !important;
+}
+
+/* TUKAR WARNA SAAT AKTIF / DIKLIK — teks wajib terbaca di atas background gelap */
+.btn-outline-primary:active, .btn-outline-primary:focus,
+.btn-light:active, .btn-light:focus,
+.btn-secondary:active, .btn-secondary:focus,
+.btn-outline-dark:active, .btn-outline-dark:focus,
+.btn-outline-primary:focus-visible, .btn-light:focus-visible,
+.btn-secondary:focus-visible, .btn-outline-dark:focus-visible {
+    background: var(--theme-gradient) !important;
+    color: var(--theme-text-on-primary) !important;
+    border: 2px solid var(--theme-primary-dark) !important;
+    box-shadow: 0 0 0 3px rgba(var(--theme-primary-rgb, 13,110,253), 0.35) !important;
+    outline: none !important;
+}
+.btn-outline-primary:active svg, .btn-outline-primary:active i,
+.btn-outline-primary:focus svg, .btn-outline-primary:focus i,
+.btn-light:active svg, .btn-light:active i,
+.btn-light:focus svg, .btn-light:focus i,
+.btn-secondary:active svg, .btn-secondary:active i,
+.btn-secondary:focus svg, .btn-secondary:focus i,
+.btn-outline-dark:active svg, .btn-outline-dark:active i,
+.btn-outline-dark:focus svg, .btn-outline-dark:focus i {
     color: var(--theme-text-on-primary) !important;
     fill: var(--theme-text-on-primary) !important;
 }

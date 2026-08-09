@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DasboardKinerja");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.employ");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/employ/DasboardKinerja.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "getThis", "initCriteria", "compare"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"RealisasiKerjaPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

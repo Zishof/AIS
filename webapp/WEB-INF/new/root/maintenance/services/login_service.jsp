@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LoginAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.maintenance");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/maintenance/LoginAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onLihatOnline", "onClickPMB", "onClickLoginPMB", "onClickHome", "onClickMahasiswa", "onEvent", "onClickPMDK", "onUpdateUserOnline", "onForgotPassword"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"pmb.zul", "/pages/master/login_calon_mahasiswa.zul", "/pages/main/blank.zul", "/pages/master/kegiatan_per_mahasiswa.zul", "/pages/master/pendaftaranPMDK.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"String"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

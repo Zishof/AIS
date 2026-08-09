@@ -7,12 +7,16 @@ import org.hibernate.Session;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
+import org.zkoss.util.media.Media;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
+import org.zkoss.zk.ui.event.UploadEvent;
+import org.zkoss.zul.Filedownload;
 import org.zkoss.zul.Label;
 import org.zkoss.zul.Row;
 import org.zkoss.zul.Rows;
+import org.zkoss.zul.Tabbox;
 import org.zkoss.zul.Tabpanel;
 import org.zkoss.zul.Textbox;
 
@@ -24,6 +28,7 @@ import ais.database.model.spmi.JenisSPMI;
 import ais.ui.util.MyCheckboxConfig;
 import ais.ui.util.MyInclude;
 import ais.ui.util.MyMessageboxConfig;
+import ais.ui.util.MyToolbarbuttonConfig;
 
 public class JenisSPMIAction extends BaseSPMIAction {
 
@@ -42,6 +47,9 @@ public class JenisSPMIAction extends BaseSPMIAction {
     protected Tabpanel butirMutuTab;
     protected Tabpanel indikatorTab;
     protected Tabpanel skenarioTab; 
+    protected Tabbox spmiTabbox;
+    protected MyToolbarbuttonConfig downloadSpmiGlobal;
+    protected MyToolbarbuttonConfig uploadSpmiGlobal;
 
     // =====================================================================
     // Lazy tab loading
@@ -82,10 +90,50 @@ public class JenisSPMIAction extends BaseSPMIAction {
         super.doAfterCompose(comp);
         Common.initLaguage();
         initPrivileges();
+        uploadSpmiGlobal.setVisible(edit);
+        uploadSpmiGlobal.setUpload(Common.ukuranFileUpload());
         onSearchDefault(null);
         initPagingListener();
         appendCetakUpload(JenisSPMI.class,
                 new String[]{"id", "kode", "nama", "keterangan", "aktif"});
+    }
+
+    public void onDownloadSpmiGlobal(Event event) throws Exception {
+        try {
+            Filedownload.save(SpmiGlobalExcelHelper.exportWorkbook(),
+                    SpmiGlobalExcelHelper.MIME_XLSX, SpmiGlobalExcelHelper.fileName());
+        } catch (Exception e) {
+            Common.tampilErrorJikaAdmin(e);
+            MyMessageboxConfig.show("Master SPMI Global tidak dapat diunduh. " + e.getMessage(),
+                    "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.ERROR);
+        }
+    }
+
+    public void onUploadSpmiGlobal(Event event) throws Exception {
+        if (!edit) throw new SecurityException("Anda tidak memiliki hak memperbarui master SPMI.");
+        UploadEvent uploadEvent = (UploadEvent) event;
+        Media media = uploadEvent.getMedia();
+        try {
+            if (media == null || media.getName() == null
+                    || !media.getName().toLowerCase().endsWith(".xlsx")) {
+                throw new IllegalArgumentException("File harus berformat Excel Open XML (.xlsx).");
+            }
+            if (!ais.action.master.helper.generic.AmbilDataTugasFileContent.checkFile(media)) return;
+            SpmiGlobalExcelHelper.ImportResult result =
+                    SpmiGlobalExcelHelper.importWorkbook(media.getByteData());
+            standarTab.getChildren().clear();
+            butirMutuTab.getChildren().clear();
+            indikatorTab.getChildren().clear();
+            skenarioTab.getChildren().clear();
+            spmiTabbox.setSelectedIndex(0);
+            onSearchDefault(null);
+            MyMessageboxConfig.show(result.message(), "Pemberitahuan",
+                    MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+        } catch (Exception e) {
+            Common.tampilErrorJikaAdmin(e);
+            MyMessageboxConfig.show("Upload SPMI Global gagal. " + e.getMessage(),
+                    "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.ERROR);
+        }
     }
 
     // =====================================================================

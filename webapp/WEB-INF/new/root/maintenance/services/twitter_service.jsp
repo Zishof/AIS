@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TwitterAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.maintenance");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/maintenance/TwitterAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "proses", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/twitter.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

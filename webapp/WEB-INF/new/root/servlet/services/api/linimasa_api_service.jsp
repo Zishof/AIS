@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LinimasaApi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/LinimasaApi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"masukkanInfoKePertemuan", "refreshPertemuan", "displayPertemuan", "daftar_ujian", "daftar_tugas", "daftar_tugas_kelompok", "daftar_materi", "daftar_video", "daftar_audio", "linimasa"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Pertemuan", "PertemuanPunyaUjian", "HasilUjianMahasiswa", "Mahasiswa", "Siswa", "BiodataCalonMahasiswa", "Statusabsensi", "Dosen", "Guru", "TugasPertemuan", "TugasKelompok", "PertemuanFileContent", "VideoPertemuan", "AudioPertemuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

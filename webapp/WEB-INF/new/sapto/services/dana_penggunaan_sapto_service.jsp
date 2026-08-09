@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DanaPenggunaanSaptoAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sapto");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sapto/DanaPenggunaanSaptoAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onJenisPenggunaanData", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/sapto/jenis_dana_penggunaan_sapto.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisDanaPenggunaanSapto", "DanaPenggunaanSapto"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

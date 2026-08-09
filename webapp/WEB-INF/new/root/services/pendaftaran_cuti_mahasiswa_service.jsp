@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PendaftaranCutiMahasiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/PendaftaranCutiMahasiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "form", "onSave", "updateStatus", "initCriteria", "onSearchDefault", "checkNamaPendaftaranCutiMahasiswa", "istilah", "ambil", "ambilClass", "setPersetujuan", "cetakData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa", "PendaftaranCutiMahasiswa", "HistoryStatusMahasiswa", "KrsMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -33,15 +33,17 @@ public class RepositorySyncService {
 		private String modelClassName;
 		private String actionClassName;
 		private String documentType;
+		private String eligibility;
 
 		SourceDescriptor(String label, String collectionCode, String collectionName, String modelClassName,
-				String actionClassName, String documentType) {
+				String actionClassName, String documentType, String eligibility) {
 			this.label = label;
 			this.collectionCode = collectionCode;
 			this.collectionName = collectionName;
 			this.modelClassName = modelClassName;
 			this.actionClassName = actionClassName;
 			this.documentType = documentType;
+			this.eligibility = eligibility;
 		}
 	}
 
@@ -60,14 +62,18 @@ public class RepositorySyncService {
 	private static List<SourceDescriptor> getDefaultSources() {
 		List<SourceDescriptor> sources = new ArrayList<SourceDescriptor>();
 		sources.add(new SourceDescriptor("Skripsi/Tugas Akhir", "SKRIPSI", "Skripsi, Thesis, Disertasi, dan Tugas Akhir",
-				"ais.database.model.Skripsi", "ais.action.master.SkripsiAction", "Thesis"));
+				"ais.database.model.Skripsi", "ais.action.master.SkripsiAction", "Thesis", "COMPLETED_THESIS"));
 		sources.add(new SourceDescriptor("Perpustakaan", "LIBRARY_ITEM", "Koleksi Perpustakaan",
-				"ais.database.model.library.Item", "ais.action.master.library.ItemAction", "Book"));
+				"ais.database.model.library.Item", "ais.action.master.library.ItemAction", "Book", "PUBLIC_LIBRARY_ITEM"));
 		sources.add(new SourceDescriptor("Buku Bahan Ajar", "BUKU_BAHAN_AJAR", "Buku Bahan Ajar",
-				"ais.database.model.BukuBahanAjar", "ais.action.master.BukuBahanAjarAction", "Book"));
+				"ais.database.model.BukuBahanAjar", "ais.action.master.BukuBahanAjarAction", "Book", "TITLED"));
 		sources.add(new SourceDescriptor("Artikel", "ARTIKEL", "Artikel Penelitian dan Pengabdian",
 				"ais.database.model.penelitiandanpengabdian.Artikel",
-				"ais.action.master.penelitiandanpengabdian.ArtikelAction", "Article"));
+				"ais.action.master.penelitiandanpengabdian.ArtikelAction", "Article", "APPROVED"));
+		sources.add(new SourceDescriptor("Penelitian dan Pengabdian", "PENELITIAN_PENGABDIAN",
+				"Hasil Penelitian dan Pengabdian",
+				"ais.database.model.penelitiandanpengabdian.PengajuanPenelitianDanPengabdian", "", "Research",
+				"APPROVED"));
 		return sources;
 	}
 
@@ -76,6 +82,12 @@ public class RepositorySyncService {
 	}
 
 	public static SyncSummary synchronizeAll(boolean pushToDspace, boolean updateDspace,
+			ais.common.LaporanUpload laporan) {
+		return synchronizeAll(HibernateUtil.currentSession(), pushToDspace, updateDspace, laporan);
+	}
+
+	/** Sinkronisasi dengan session milik pemanggil (dipakai scheduler/background). */
+	public static SyncSummary synchronizeAll(Session session, boolean pushToDspace, boolean updateDspace,
 			ais.common.LaporanUpload laporan) {
 		SyncSummary summary = new SyncSummary();
 		String cookie = "";
@@ -95,7 +107,7 @@ public class RepositorySyncService {
 		int[] baris = new int[] { 0 };
 		List<SourceDescriptor> sources = getDefaultSources();
 		for (SourceDescriptor source : sources) {
-			SyncSummary part = synchronizeSource(source, cookie, pushToDspace, updateDspace, laporan, baris);
+			SyncSummary part = synchronizeSource(session, source, cookie, pushToDspace, updateDspace, laporan, baris);
 			summary.scanned += part.scanned;
 			summary.synced += part.synced;
 			summary.failed += part.failed;
@@ -107,10 +119,9 @@ public class RepositorySyncService {
 	}
 
 	@SuppressWarnings("unchecked")
-	private static SyncSummary synchronizeSource(SourceDescriptor source, String cookie, boolean pushToDspace,
+	private static SyncSummary synchronizeSource(Session session, SourceDescriptor source, String cookie, boolean pushToDspace,
 			boolean updateDspace, ais.common.LaporanUpload laporan, int[] baris) {
 		SyncSummary summary = new SyncSummary();
-		Session session = HibernateUtil.currentSession();
 		try {
 			Class<?> modelClass = Class.forName(source.modelClassName);
 			Long collectionId = ensureCollection(session, source).getId();
@@ -167,6 +178,18 @@ public class RepositorySyncService {
 			return null;
 		}
 		RepoItem item = findRepoItem(session, source.modelClassName, sourceId);
+		boolean eligible = isEligible(source, obj);
+		if (!eligible) {
+			if (item != null && item.getAktif()) {
+				item.setAktif(Boolean.FALSE);
+				item.setIsWithdrawn(Boolean.TRUE);
+				item.setSyncStatus(STATUS_SYNCED);
+				item.setSyncMessage("Ditarik otomatis karena sumber tidak lagi aktif/layak publik.");
+				item.setLastSyncAt(new Date());
+				Common.refreshSaveOrUpdate(session, item);
+			}
+			return item;
+		}
 		if (item == null) {
 			item = new RepoItem();
 			item.setSourceClass(source.modelClassName);
@@ -174,21 +197,34 @@ public class RepositorySyncService {
 			item.setCollectionId(collectionId);
 			item.setSubmittedAt(new Date());
 		}
+		Date sourceUpdatedAt = firstDate(obj, "getTanggal_dirubah", "getSetujuiTanggal", "getTanggalPublikasi",
+				"getTanggal");
+		if (!pushToDspace && item.getId() != null && item.getLastSyncAt() != null && sourceUpdatedAt != null
+				&& !sourceUpdatedAt.after(item.getLastSyncAt()) && item.getAktif() && !item.getIsWithdrawn()) {
+			return item;
+		}
 
+		item.setAktif(Boolean.TRUE);
+		item.setIsWithdrawn(Boolean.FALSE);
 		item.setSourceLabel(source.label);
 		item.setDocumentType(source.documentType);
 		item.setTitle(firstNotEmpty(invokeString(obj, "getJudul"), invokeString(obj, "getNama"), obj.toString()));
 		item.setAbstractText(firstNotEmpty(invokeString(obj, "getAbstrack"), invokeString(obj, "getAbstrak"),
-				invokeString(obj, "getAbstractText")));
+				invokeString(obj, "getAbstractText"), invokeString(obj, "getTujuan"), invokeString(obj, "getKeterangan")));
 		item.setSubjects(firstNotEmpty(invokeString(obj, "getKeyword"), invokeString(obj, "getKewords"),
 				invokeString(obj, "getKategories"), invokeString(obj, "getSubjects")));
-		item.setAuthors(firstNotEmpty(invokeString(obj, "getPengarangs"), invokeNestedString(obj, "getMahasiswa", "getNama"),
-				invokeNestedString(obj, "getTbmuser", "getUserName")));
+		item.setAuthors(firstNotEmpty(invokeString(obj, "getPengarangs"), invokeString(obj, "getOlehPenguna"),
+				invokeNestedString(obj, "getMahasiswa", "getNama"), invokeNestedString(obj, "getTbmuser", "getUserName"),
+				joinAuthors(obj)));
 		item.setPublisher(firstNotEmpty(invokeNestedString(obj, "getMahasiswa", "getJurusan", "getNama"),
-				invokeString(obj, "getPenerbit")));
-		item.setIssuedAt(firstDate(obj, "getTanggalSidang", "getTanggalPublikasi", "getTanggalterbit", "getTanggal"));
-		item.setAccessPolicy(Common.getKonfigurasi("repository_default_access_policy", "OPEN_ACCESS").getNilai());
-		item.setTurnitinIndexed(Common.getKonfigurasi("repository_turnitin_index_default", "Aktif").getNilai()
+				invokeString(obj, "getPenerbit"), invokeNestedString(obj, "getPenelitianDanPengabdian", "getJudul")));
+		item.setIssuedAt(firstDate(obj, "getTanggalSidang", "getTanggalPublikasi", "getTanggalterbit", "getSetujuiTanggal"));
+		if (firstNotEmpty(item.getOaiIdentifier()).length() == 0) {
+			item.setOaiIdentifier(buildOaiIdentifier(source, sourceId));
+		}
+		item.setLanguage(firstNotEmpty(invokeString(obj, "getBahasa"), "id"));
+		item.setAccessPolicy(Common.getKonfigurasi(session, "repository_default_access_policy", "OPEN_ACCESS").getNilai());
+		item.setTurnitinIndexed(Common.getKonfigurasi(session, "repository_turnitin_index_default", "Aktif").getNilai()
 				.equalsIgnoreCase("Aktif"));
 		if (item.getTurnitinIndexed() && item.getTurnitinIndexedAt() == null) {
 			item.setTurnitinIndexedAt(new Date());
@@ -276,6 +312,9 @@ public class RepositorySyncService {
 
 	private static DspaceInformation invokeDspace(String actionClassName, String cookie, Object obj, boolean update)
 			throws Exception {
+		if (actionClassName == null || actionClassName.trim().length() == 0) {
+			return null;
+		}
 		Class<?> actionClass = Class.forName(actionClassName);
 		Method[] methods = actionClass.getMethods();
 		for (int i = 0; i < methods.length; i++) {
@@ -365,5 +404,55 @@ public class RepositorySyncService {
 			}
 		}
 		return "";
+	}
+
+	private static boolean isEligible(SourceDescriptor source, Object obj) {
+		if (obj == null || firstNotEmpty(invokeString(obj, "getJudul"), invokeString(obj, "getNama")).length() == 0) {
+			return false;
+		}
+		if (hasFalse(obj, "getAktif")) {
+			return false;
+		}
+		if ("COMPLETED_THESIS".equals(source.eligibility)) {
+			return isTrue(obj, "getLulus") || numberGreaterThanZero(obj, "getTelahSidang");
+		}
+		if ("PUBLIC_LIBRARY_ITEM".equals(source.eligibility)) {
+			return !isTrue(obj, "getFolder") && !hasFalse(obj, "getDefaultItem");
+		}
+		if ("APPROVED".equals(source.eligibility)) {
+			return "Disetujui".equalsIgnoreCase(invokeString(obj, "getStatus"));
+		}
+		return true;
+	}
+
+	private static boolean isTrue(Object obj, String method) {
+		return Boolean.TRUE.equals(invoke(obj, method));
+	}
+
+	private static boolean hasFalse(Object obj, String method) {
+		Object value = invoke(obj, method);
+		return value instanceof Boolean && !((Boolean) value).booleanValue();
+	}
+
+	private static boolean numberGreaterThanZero(Object obj, String method) {
+		Object value = invoke(obj, method);
+		return value instanceof Number && ((Number) value).longValue() > 0L;
+	}
+
+	private static String joinAuthors(Object obj) {
+		StringBuilder value = new StringBuilder();
+		for (int i = 1; i <= 5; i++) {
+			String author = firstNotEmpty(invokeString(obj, "getPengarang" + i),
+					invokeNestedString(obj, "getDosenPengarang" + i, "getTbmuser", "getUserName"));
+			if (author.length() > 0 && value.indexOf(author) < 0) {
+				if (value.length() > 0) value.append("; ");
+				value.append(author);
+			}
+		}
+		return value.toString();
+	}
+
+	private static String buildOaiIdentifier(SourceDescriptor source, Long sourceId) {
+		return "oai:ais:" + source.collectionCode.toLowerCase().replace('_', '-') + ":" + sourceId;
 	}
 }

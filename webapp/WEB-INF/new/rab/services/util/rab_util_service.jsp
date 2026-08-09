@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RabUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/util/RabUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"ubahSemuaStatus", "getDetailWorkspace", "getDetailTugas", "setDefaultPegawai", "getParentSet", "checkSimpanAcara", "pindahkanAcaraKeRevisiBaru", "checkForChildsCopy", "createNewRevisi", "onEvent", "executeCopy"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisInformasiRab", "Workspace", "Transaksi", "GrupTransaksi", "AcaraHasTransaksi", "Acara", "WorkspacePunyaPegawai", "WorkspacePunyaSasaran", "WorkspacePunyaIndikator", "WorkspacePunyaJenisParameter", "Tugas", "TugasPunyaPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

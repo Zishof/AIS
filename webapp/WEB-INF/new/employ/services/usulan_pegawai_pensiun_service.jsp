@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "UsulanPegawaiPensiunAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.employ");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/employ/UsulanPegawaiPensiunAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onKontrak", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/employ/usulan_pegawai_habis_kontrak.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"StatusPegawai", "KenaikanPangkat", "Pegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

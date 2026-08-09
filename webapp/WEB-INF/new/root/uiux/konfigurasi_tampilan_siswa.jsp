@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "KonfigurasiNewAction");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "muat", "keyDesc", "apakahAdaTidakAktif", "apakahAdaTidakWajib", "wajibIsi", "statusWajibIsi", "dataYangWajibDiisi", "onTampil"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/sekolah/jenis_tinggal_siswa.zul", "/pages/master/sekolah/alat_transportasi_siswa.zul", "/pages/master/sekolah/penghasilan_orang_tua_siswa.zul", "/pages/master/sekolah/pekerjaan_ortu_siswa.zul", "/pages/master/sekolah/pendidikan_orang_tua_siswa.zul", "/pages/master/sekolah/status_awal_siswa.zul", "/pages/master/sekolah/status_keluar_siswa.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

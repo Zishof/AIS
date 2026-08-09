@@ -872,6 +872,28 @@ public class DasboardPengadaan extends MyPortallayout {
 						(ais.database.model.rab.SatuanKerja) cbSatker.getAttribute("satuanKerja"), txtKeyword.getValue());
 			}
 		});
+
+		MyToolbarbuttonConfig sinkronisasi = new MyToolbarbuttonConfig("Sinkronisasi", "/img/svg/refresh.svg");
+		sinkronisasi.setTooltiptext("Ambil ulang data pengajuan pengadaan terbaru langsung dari database");
+		sinkronisasi.setStyle("font-weight:bold; color:#ffffff; background:#059669; border-radius:10px; "
+				+ "padding:6px 14px; margin-left:4px;");
+		sinkronisasi.setParent(toolbar);
+		sinkronisasi.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				// Tutup sesi thread lama agar first-level cache tidak membuat data pengadaan
+				// yang baru disimpan terlihat basi. Render berikutnya membuka sesi baru,
+				// menjalankan backfill persetujuan SOP, lalu menghitung ulang seluruh KPI.
+				try {
+					HibernateUtil.closeSession();
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e,
+							"DasboardPengadaan.sinkronisasi.tutupSessionLama");
+				}
+				renderDasborPengadaanContent(parent, dbMulai.getValue(), dbSampai.getValue(),
+						(ais.database.model.rab.SatuanKerja) cbSatker.getAttribute("satuanKerja"), txtKeyword.getValue());
+			}
+		});
 		txtKeyword.addEventListener("onOK", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {

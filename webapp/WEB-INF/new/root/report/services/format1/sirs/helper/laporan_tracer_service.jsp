@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanTracerWindow");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.sirs.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/sirs/helper/LaporanTracerWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "onCetakTracer"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

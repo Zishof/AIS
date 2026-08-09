@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PembayaranOnlineAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.psb");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/psb/PembayaranOnlineAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "onLogin", "doAfterCompose", "onReset"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/sekolah/pembayaran_online.zul?calon_siswa="});
 request.setAttribute("nuiServiceEntities", new String[]{"CalonSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MServet");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/MServet.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doProsesLogin", "getHeadersInfo"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"CalonSiswa", "BiodataCalonMahasiswa", "Mahasiswa", "Siswa", "Tbmuser"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

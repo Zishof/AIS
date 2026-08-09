@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PosDeviceAuthApi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/PosDeviceAuthApi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"terbitkanToken", "resolveDariRequest", "cabutToken"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PosDeviceToken", "Tbmuser"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

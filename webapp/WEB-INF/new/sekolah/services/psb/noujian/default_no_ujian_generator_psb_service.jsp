@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DefaultNoUjianGeneratorPsb");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.psb.noujian");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/psb/noujian/DefaultNoUjianGeneratorPsb.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateNoUjian"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"RuangPSB", "RuangGelombangPendaftaranPsbPSB", "CalonSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

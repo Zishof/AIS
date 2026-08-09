@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "Briresponse");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/Briresponse.java");
 request.setAttribute("nuiServiceMethods", new String[]{"createKegiatan", "prosesResponse"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PembayaranSiswa", "LogPembayaran", "BriRequest", "KegiatanTemporary", "CicilanPembayaran", "AkunPembayaranSiswa", "Akun", "BriRequestDetail", "BriResponse"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

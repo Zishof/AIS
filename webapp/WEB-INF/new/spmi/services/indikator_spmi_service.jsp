@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "IndikatorSPMIAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.spmi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/spmi/IndikatorSPMIAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisSPMI", "StandarSPMI", "ButirMutuSPMI", "IndikatorSPMI"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

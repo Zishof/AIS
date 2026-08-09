@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "ItemAction");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAddExternal", "onAdd", "onCheck", "onSave", "onSearchDefault", "initCriteria"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Item", "ItemPunyaPemeriksa", "JenisItem", "TipeItem", "PenerbitPunyaPemeriksa", "ItemPunyaPengarang", "ItemPunyaKategoriItem"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

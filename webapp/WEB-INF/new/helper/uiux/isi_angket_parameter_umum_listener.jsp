@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "EventListener");
 request.setAttribute("nuiSourceMethods", new String[]{"validate", "onSave", "onEvent"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"IsiAngketParameterUmum", "ParameterTambahanAngketUmum"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

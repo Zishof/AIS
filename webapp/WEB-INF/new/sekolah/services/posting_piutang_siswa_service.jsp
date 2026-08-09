@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PostingPiutangSiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/PostingPiutangSiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onPiutangDenda", "onTabungan", "onUtangDiskon", "onDibayarDimuka", "onPostingPembayaran", "doBeforeCompose", "doAfterCompose", "onEvent", "onBatalkanPostingSemua", "onPostingSemua", "run", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/sekolah/posting_piutang_denda.zul", "/pages/master/sekolah/posting_tabungan_siswa.zul", "/pages/master/sekolah/posting_utang_diskon.zul", "/pages/master/sekolah/posting_dibayar_dimuka.zul", "/pages/master/sekolah/posting_pembayaran.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"ItemBiayaSekolah", "Tagihan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanStokItem");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.library");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/library/LaporanStokItem.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "namaTemplateLaporanJsp", "generateParameterJsp", "generateParameterDariRequestJsp", "onReport"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

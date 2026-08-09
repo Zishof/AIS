@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PembobotanNilaiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/PembobotanNilaiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onStatusPertemuan", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAddExternal", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/status_pertemuan.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"PembombotanNilai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanPendapatanKasirHarianWindo
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.sirs.kasir");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/sirs/kasir/LaporanPendapatanKasirHarianWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "onCetakStatusPasien"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Lokasi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

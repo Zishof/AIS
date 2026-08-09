@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataInitDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onPengumumanPerkuliahan", "onPenumumanWebsite", "onKategoriPengumuman", "onTeksBerjalan", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "init", "onAdd", "tampilkanPolling", "tandaiKehadiranHomeDitampilkan", "isKehadiranHomeDitampilkan", "tampilkanKehadiranDosen", "tampilkanKehadiranGuru", "tampilPengumuanLangsungTampil", "tampilPengumuman", "tampilPengumumanLain", "onSave", "initCriteria", "onSearchDefault", "initIsiPolling"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/pengumuman_perkuliahan.zul", "/pages/master/penumuman_website.zul", "/pages/master/kategori_pengumuman.zul", "/pages/master/text_berjalan.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"PerguruanTinggi", "KategoriPengumuman", "PengumumanAkademis", "LampiranLain", "Jurusan", "Pertemuan", "Statusabsensi", "Siswa", "Mahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

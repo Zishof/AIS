@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault, DataInitDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onManajemenParameter", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault", "checkNamaSatuanKpi"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/parameter_tambahan.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"SatuanKpi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

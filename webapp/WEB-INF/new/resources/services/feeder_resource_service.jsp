@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "FeederResource");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.resources");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/resources/FeederResource.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getSystemTime", "getMahasiswa", "update", "convertMahasiswa", "convertRiwayatMahasiswa", "convertRiwayatMahasiswaLulus", "getMahasiswaBaru", "getMatakuliah", "getMatakuliah_Baru", "getKurikulum", "getDosen", "getPerkuliahan", "getPerkuliahanMhs", "getNilaiTransfer", "getAkm", "getAkmAngkatan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa", "Matakuliah", "Kurikulum", "KurikulumPunyaMatakuliah", "Perkuliahan", "BiodataCalonMahasiswa", "Skripsi", "Dosen", "PenugasanDosenMengajar", "Pertemuan", "Detailperkuliahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

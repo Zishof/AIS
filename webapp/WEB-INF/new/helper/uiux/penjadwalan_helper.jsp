@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"render", "onEvent", "loadData", "pindahkanUrutanPertemuan", "checkBolehHapus", "bolehHapus", "tampilTombolDownload", "initCriteria", "tampilTombolHapus", "prosesTampilTombolAturUlangWaktu", "tampilTombolAturUlangWaktu", "tampilTombolBuatPertemuan", "buatPertemuan", "tampilTombolAmbil", "copyLampiranPertemuan", "pesanError", "buatSatuPertemuan", "display", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/rps_obe.zul?kur="});
 request.setAttribute("nuiEntityCandidates", new String[]{"Pertemuan", "StatusPertemuan", "KurikulumPunyaMatakuliahDetail", "PerkuliahanPunyaItem", "DataPunyaItem", "PertemuanFileContent", "VideoPertemuan", "AudioPertemuan", "PertemuanPunyaUjian", "TugasKelompok", "TugasPertemuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

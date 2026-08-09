@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DasboardSPMI");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.spmi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/spmi/DasboardSPMI.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "compare"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"SkenarioSPMI", "StandarSPMI", "TindakLanjutTemuanSPMI", "HasilTemuanSPMI", "HasilSPMI", "JenisSPMI"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

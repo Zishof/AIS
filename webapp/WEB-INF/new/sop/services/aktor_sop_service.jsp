@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AktorSopAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sop");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sop/AktorSopAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"AktorSop"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

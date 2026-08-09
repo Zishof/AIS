@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanDosenPembimbing_A_5_4_1");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sapto");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sapto/LaporanDosenPembimbing_A_5_4_1.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onCetak", "run", "onEvent", "initCriteria"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa", "Dosen", "Pertemuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

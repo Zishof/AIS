@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AntarJemputAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.antarjemput");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/antarjemput/AntarJemputAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onRefresh", "onSearchKendaraan", "onSearchRute", "onSearchJadwal", "onSearchPeserta", "onSearchKartu", "onSearchTransaksi", "onSearchDetail", "onSearchLog", "onAddKendaraan", "onAddRute", "onAddJadwal", "onAddPeserta", "onAddKartu", "onVerifikasiGerbang", "onReloadDashboard", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KendaraanAntarJemput", "RuteAntarJemput", "JadwalAntarJemput", "PesertaJadwalAntarJemput", "KartuPenjemputAntarJemput", "TransaksiPenjemputanAntarJemput", "DetailPenjemputanAntarJemput", "LogNotifikasiAntarJemput", "Asset", "AssetDetail", "Pegawai", "Siswa", "Mahasiswa", "Guru", "Dosen", "KelasSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

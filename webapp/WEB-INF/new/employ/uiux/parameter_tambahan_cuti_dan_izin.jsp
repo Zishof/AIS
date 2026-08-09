@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onResetParameter", "onManajemenKelompok", "onManajemenParameter", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/employ/kelompok_parameter_tambahan_cuti_dan_izin.zul", "/pages/master/parameter_tambahan.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"KelompokParameterTambahanCutiDanIzin", "ParameterTambahanCutiDanIzin", "ParameterTambahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

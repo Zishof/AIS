@@ -127,7 +127,7 @@ public class DepositSiswa extends GeneralValueObject {
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
-	@JoinColumn(name = "siswa_id", nullable = true)
+	@JoinColumn(name = "siswa_id", nullable = false)
 	public Siswa getSiswa() {
 		if (calonSiswa != null && calonSiswa.getSiswa() != null) {
 			siswa = calonSiswa.getSiswa();
@@ -141,7 +141,7 @@ public class DepositSiswa extends GeneralValueObject {
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
-	@JoinColumn(name = "sekolah_id")
+	@JoinColumn(name = "sekolah_id", nullable = false)
 	public Sekolah getSekolah() {
 		calonSiswa = getCalonSiswa();
 		siswa = getSiswa();

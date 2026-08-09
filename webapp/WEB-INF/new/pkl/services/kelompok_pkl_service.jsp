@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KelompokPklAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.pkl");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/pkl/KelompokPklAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "initCriteria", "run", "tampilkanInfoDosen", "cetakDataCustomButton", "displayRow", "render", "onAdd", "onSave", "onSearchDefault", "getDspacePkl", "getDspace"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Dosen", "Pkl", "KelompokPkl", "MahasiswaDapatKelompokPkl", "Detailperkuliahan", "PklPunyaPersyaratan", "MahasiswaPklPersyaratan", "LampiranPklMahasiswa", "MahasiswaDaftarPkl", "KerjasamaAntarInstansi", "Lokasi", "Sertifikat"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

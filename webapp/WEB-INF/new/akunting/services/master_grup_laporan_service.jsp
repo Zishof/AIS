@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MasterGrupLaporanAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.akunting");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/akunting/MasterGrupLaporanAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "render", "onAdd", "onEvent", "onSave", "onSearchDefault", "initCriteria", "init"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"MasterGrupLaporan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

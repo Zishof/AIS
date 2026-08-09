@@ -134,7 +134,7 @@
 .embed-title { font-weight: bold; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .embed-link { font-size: 12px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* ============================================================== 
+/* ==============================================================
    BASE ELEARNING CSS - Modern, ringan, dan terpusat
    File ini menjadi pusat seluruh style khusus modul e-Learning.
    ============================================================== */
@@ -249,3 +249,132 @@
 .el-css-radar-item{display:grid;grid-template-columns:minmax(70px,1fr) 54px;gap:8px;font-size:12px;color:#475569;}
 .el-css-radar-item strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#334155;}
 .el-chart-empty{padding:24px;text-align:center;border:1px dashed #cbd5e1;border-radius:14px;color:#64748b;background:#f8fafc;font-size:12px;}
+
+/* ==============================================================
+   E-LEARNING WORKSPACE V1 — shell modern 10 layar, tanpa memutus
+   JSP/service existing. Semua selector dibatasi pada workspace.
+   ============================================================== */
+.elearning-workspace {
+  --el-navy: #0b2d61;
+  --el-blue: #2563eb;
+  --el-cyan: #20bfd0;
+  --el-work-bg: #f4f7fb;
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  min-height: calc(100vh - 84px);
+  margin: -1rem;
+  background: var(--el-work-bg);
+  color: #0f172a;
+}
+.el-workspace-nav {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  min-height: calc(100vh - 84px);
+  max-height: calc(100vh - 84px);
+  overflow-y: auto;
+  padding: 20px 14px;
+  color: #fff;
+  background: linear-gradient(180deg, #092451 0%, #0d376d 72%, #0a2b5c 100%);
+  box-shadow: 12px 0 32px rgba(15, 23, 42, .08);
+  z-index: 3;
+}
+.el-brand-block { display:flex; align-items:center; gap:11px; padding:0 7px 19px; border-bottom:1px solid rgba(255,255,255,.12); }
+.el-brand-block strong { display:block; color:#fff; font-size:1rem; letter-spacing:-.02em; }
+.el-brand-block small { display:block; margin-top:2px; color:#bfdbfe; font-size:.68rem; }
+.el-brand-mark { width:42px; height:42px; flex:0 0 42px; display:grid; place-items:center; border-radius:13px; background:linear-gradient(145deg,#38bdf8,#14b8a6); color:#fff; font-weight:800; box-shadow:0 9px 22px rgba(34,211,238,.24); }
+.el-nav-label { padding:18px 10px 7px; color:#93c5fd; font-size:.65rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
+.el-module-nav { display:flex; flex-direction:column; gap:4px; }
+.el-module-nav .nav-link { width:100%; min-height:43px; display:flex; align-items:center; gap:11px; padding:9px 12px; border:0; border-radius:11px; background:transparent; color:#dbeafe; text-align:left; font-size:.82rem; font-weight:650; transition:background .18s ease, color .18s ease, transform .18s ease; }
+.el-module-nav .nav-link i { width:19px; text-align:center; color:#93c5fd; font-size:.9rem; }
+.el-module-nav .nav-link:hover { background:rgba(255,255,255,.09); color:#fff; transform:translateX(2px); }
+.el-module-nav .nav-link.active { background:linear-gradient(90deg,#2f75ee,#2563eb); color:#fff; box-shadow:0 10px 24px rgba(37,99,235,.3); }
+.el-module-nav .nav-link.active i { color:#fff; }
+.el-session-card { margin-top:22px; padding:13px; border:1px solid rgba(255,255,255,.12); border-radius:14px; background:rgba(255,255,255,.08); }
+.el-session-card small,.el-session-card strong,.el-session-card span { display:block; }
+.el-session-card small { color:#bfdbfe; font-size:.68rem; }
+.el-session-card strong { margin:4px 0 9px; color:#fff; font-size:.79rem; }
+.el-session-card span { color:#dbeafe; font-size:.67rem; }
+.el-session-card i { color:#34d399; font-size:.5rem; }
+.el-workspace-main { min-width:0; padding:25px 28px 34px; }
+.el-workspace-head { display:flex; align-items:flex-start; justify-content:space-between; gap:22px; margin-bottom:18px; }
+.el-workspace-head h1 { margin:8px 0 3px; color:#0f172a; font-size:1.7rem; font-weight:800; letter-spacing:-.035em; }
+.el-workspace-head p { max-width:760px; margin:0; color:#64748b; font-size:.86rem; line-height:1.5; }
+.el-breadcrumb { display:flex; align-items:center; gap:8px; color:#64748b; font-size:.72rem; }
+.el-breadcrumb i { color:#94a3b8; font-size:.55rem; }
+.el-breadcrumb strong { color:#334155; }
+.el-user-chip { display:flex; align-items:center; gap:9px; max-width:250px; padding:7px 11px 7px 7px; border:1px solid #e2e8f0; border-radius:14px; background:#fff; box-shadow:0 8px 24px rgba(15,23,42,.05); }
+.el-user-avatar { width:36px; height:36px; flex:0 0 36px; display:grid; place-items:center; border-radius:50%; background:linear-gradient(145deg,#7c3aed,#2563eb); color:#fff; }
+.el-user-chip strong,.el-user-chip small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.el-user-chip strong { color:#0f172a; font-size:.76rem; }
+.el-user-chip small { color:#64748b; font-size:.65rem; }
+.el-content-card { min-width:0; padding:16px; border:1px solid #e2e8f0; border-radius:18px; background:#fff; box-shadow:0 14px 38px rgba(15,23,42,.07); }
+.el-content-card > .tab-content > .tab-pane { min-height:420px; }
+.el-mobile-nav-wrap { display:none; }
+.el-role-hero { display:grid; grid-template-columns:minmax(260px,.9fr) minmax(480px,1.1fr); gap:18px; align-items:center; margin-bottom:16px; padding:20px 22px; overflow:hidden; border:1px solid rgba(37,99,235,.16); border-radius:18px; background:linear-gradient(118deg,#0b2d61 0%,#1455a2 58%,#0ea5a8 100%); box-shadow:0 16px 36px rgba(11,45,97,.16); color:#fff; }
+.el-role-hero h2 { margin:6px 0 5px; color:#fff; font-size:1.18rem; font-weight:800; letter-spacing:-.025em; }
+.el-role-hero p { max-width:650px; margin:0; color:#dbeafe; font-size:.76rem; line-height:1.5; }
+.el-role-kicker { display:inline-flex; align-items:center; gap:7px; color:#99f6e4; font-size:.68rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+.el-quick-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
+.el-quick-actions button { min-width:0; display:flex; align-items:center; gap:9px; padding:10px; border:1px solid rgba(255,255,255,.19); border-radius:13px; background:rgba(255,255,255,.1); color:#fff; text-align:left; backdrop-filter:blur(8px); transition:background .18s ease,transform .18s ease; }
+.el-quick-actions button:hover { background:rgba(255,255,255,.19); transform:translateY(-2px); }
+.el-quick-actions button > i { width:32px; height:32px; flex:0 0 32px; display:grid; place-items:center; border-radius:10px; background:rgba(255,255,255,.14); color:#a5f3fc; }
+.el-quick-actions strong,.el-quick-actions small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.el-quick-actions strong { font-size:.73rem; }.el-quick-actions small { margin-top:2px; color:#bfdbfe; font-size:.61rem; }
+.el-course-context { position:relative; display:flex; align-items:center; gap:14px; margin-bottom:14px; padding:11px 44px 11px 12px; border:1px solid #bfdbfe; border-radius:15px; background:linear-gradient(100deg,#eff6ff,#f0fdfa); box-shadow:0 8px 22px rgba(37,99,235,.07); }
+.el-course-context[hidden] { display:none; }
+.el-course-context-main { min-width:210px; display:flex; align-items:center; gap:9px; }
+.el-course-context-main small,.el-course-context-main strong { display:block; }.el-course-context-main small { color:#64748b; font-size:.62rem; }.el-course-context-main strong { max-width:290px; overflow:hidden; color:#0f172a; font-size:.76rem; text-overflow:ellipsis; white-space:nowrap; }
+.el-course-icon { width:34px; height:34px; flex:0 0 34px; display:grid; place-items:center; border-radius:11px; background:#2563eb; color:#fff; }
+.el-course-context nav { display:flex; gap:5px; overflow-x:auto; padding-bottom:2px; }
+.el-course-context nav button { flex:0 0 auto; padding:6px 10px; border:1px solid #dbeafe; border-radius:999px; background:#fff; color:#334155; font-size:.68rem; font-weight:700; }
+.el-course-context nav button:hover { border-color:#2563eb; color:#1d4ed8; }
+.el-course-close { position:absolute; top:9px; right:9px; width:29px; height:29px; border:0; border-radius:50%; background:transparent; color:#64748b; }
+.el-course-close:hover { background:#dbeafe; color:#1d4ed8; }
+.el-runtime-error { position:relative; display:flex; align-items:flex-start; gap:10px; margin-bottom:12px; padding:11px 42px 11px 13px; border:1px solid #fecaca; border-radius:13px; background:#fff1f2; color:#9f1239; }
+.el-runtime-error[hidden] { display:none; }.el-runtime-error > i { margin-top:2px; }.el-runtime-error strong,.el-runtime-error small { display:block; }.el-runtime-error strong { font-size:.76rem; }.el-runtime-error small { margin-top:2px; color:#be123c; font-size:.69rem; word-break:break-word; }
+.el-runtime-error button { position:absolute; top:7px; right:7px; width:28px; height:28px; border:0; border-radius:50%; background:transparent; color:#9f1239; }.el-runtime-error button:hover { background:#ffe4e6; }
+
+/* Selaraskan komponen legacy yang berada di dalam workspace. */
+.elearning-workspace .card { border-color:#e2e8f0; box-shadow:0 8px 24px rgba(15,23,42,.055); }
+.elearning-workspace .btn-primary { background:#2563eb; border-color:#2563eb; }
+.elearning-workspace .btn-primary:hover { background:#1d4ed8; border-color:#1d4ed8; }
+.elearning-workspace .table-responsive { border-radius:12px; }
+.elearning-workspace .table thead th { color:#64748b; background:#f8fafc; font-size:.72rem; letter-spacing:.025em; text-transform:uppercase; }
+.elearning-workspace :focus-visible { outline:3px solid rgba(37,99,235,.35); outline-offset:2px; }
+.elearning-workspace [data-dasbor-detail] { cursor:pointer; }
+.elearning-workspace [data-dasbor-detail]:focus-visible { transform:translateY(-3px); }
+
+@media (max-width: 1199.98px) {
+  .elearning-workspace { grid-template-columns: 198px minmax(0,1fr); }
+  .el-workspace-main { padding:22px 20px 30px; }
+  .el-module-nav .nav-link { font-size:.76rem; padding-left:10px; }
+  .el-role-hero { grid-template-columns:1fr; }
+}
+@media (max-width: 991.98px) {
+  .elearning-workspace { display:block; margin:-.75rem; min-height:0; }
+  .el-workspace-nav { display:none; }
+  .el-workspace-main { padding:17px 14px 26px; }
+  .el-mobile-nav-wrap { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:10px; margin-bottom:14px; padding:10px 12px; border:1px solid #dbe4f0; border-radius:14px; background:#fff; box-shadow:0 8px 24px rgba(15,23,42,.05); }
+  .el-mobile-nav-wrap label { margin:0; color:#334155; font-size:.76rem; font-weight:700; white-space:nowrap; }
+  .el-mobile-nav-wrap .form-select { min-height:42px; font-size:16px; }
+  .el-role-hero { padding:17px; }
+  .el-course-context { align-items:flex-start; flex-direction:column; }
+  .el-course-context nav { width:100%; }
+}
+@media (max-width: 575.98px) {
+  .el-workspace-main { padding:13px 9px 22px; }
+  .el-workspace-head { display:block; }
+  .el-workspace-head h1 { font-size:1.35rem; }
+  .el-workspace-head p { font-size:.78rem; }
+  .el-user-chip { margin-top:12px; max-width:none; }
+  .el-mobile-nav-wrap { grid-template-columns:1fr; }
+  .el-content-card { padding:8px; border-radius:14px; }
+  .el-role-hero { padding:15px; border-radius:15px; }
+  .el-role-hero h2 { font-size:1rem; }
+  .el-quick-actions { grid-template-columns:1fr; }
+  .el-quick-actions button { min-height:49px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .elearning-workspace *, .elearning-workspace *::before, .elearning-workspace *::after { scroll-behavior:auto !important; transition:none !important; animation:none !important; }
+}

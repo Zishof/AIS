@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DiskonAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/DiskonAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "initCriteria", "onEvent", "onSave", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Diskon", "Asuransi", "Komunitas"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

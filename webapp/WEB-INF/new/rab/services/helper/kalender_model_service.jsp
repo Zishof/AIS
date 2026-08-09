@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KalenderModel");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/helper/KalenderModel.java");
 request.setAttribute("nuiServiceMethods", new String[]{"setFilterText", "get", "add", "remove", "update"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"AcaraHasTransaksi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

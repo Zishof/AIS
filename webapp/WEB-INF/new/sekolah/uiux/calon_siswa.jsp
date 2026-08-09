@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault, DataInitDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "run", "onDownloadLampiran", "onDownloadNilaiRaport", "render", "initCriteria", "initBg", "onDownloadFotoMassal", "onUploadFotoMassal", "onAdd", "onAddExternal", "init", "initKelasLes", "reloadDataFormula", "reloadFormula", "onSave", "onSearchDefault", "onCetakKartu", "checkInfoDariMana", "infoDariMana", "infoPindahan", "onDasborStatistik", "onDasborStatus", "onDasborSekolah", "onDasborRegistrasi", "onDasborHarian", "onDasborRekapMultiTahun"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/WEB-INF/z/x/y/pages/master/sekolah/dasbor_keuangan_siswa.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"GelombangPendaftaranPsb", "StatusAwalSiswa", "CalonSiswa", "FotoCalonSiswa", "CalonSiswaPunyaVerifikasiBerkas", "GelombangPendaftaranPsbPunyaMatapelajaran", "MatapelajaranSekolah", "CalonSiswaPunyaVerifikasiMatapelajaran", "LampiranLain", "PembayaranSiswaDetail", "DefaultNisGenerator", "RuangPSB", "RuangGelombangPendaftaranPsbPSB", "KelasSiswaPSB", "KelasLesSiswa", "KelasLesSiswaPunyaSiswa", "Agama", "JadwalPertemuanPSB", "JenisTinggalMahasiswa", "AlatTransportasiMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

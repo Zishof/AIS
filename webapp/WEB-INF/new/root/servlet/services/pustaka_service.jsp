@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "Pustaka");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/Pustaka.java");
 request.setAttribute("nuiServiceMethods", new String[]{});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/WEB-INF/baru/pustaka.jsp?id=", "/WEB-INF/baru/pustaka.jsp", "/WEB-INF/u/pustaka.jsp"});
 request.setAttribute("nuiServiceEntities", new String[]{"PeminjamanPengadaanItemDetail", "Anggota", "FotoMahasiswa", "FotoSiswa", "FotoDosen", "FotoGuru", "FotoPegawai", "FotoAdmin", "Item"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

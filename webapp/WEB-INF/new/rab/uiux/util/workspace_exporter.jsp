@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"exportXlsx", "updateByIdFromXlsx", "exportBulananXlsx", "updateBulananByIdFromXlsx"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Workspace", "Satuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

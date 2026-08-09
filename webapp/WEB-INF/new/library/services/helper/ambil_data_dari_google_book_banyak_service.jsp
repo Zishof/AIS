@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataDariGoogleBookBanyak");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/helper/AmbilDataDariGoogleBookBanyak.java");
 request.setAttribute("nuiServiceMethods", new String[]{"render", "run", "onEvent", "display", "onSearchDefault", "initCriteria", "setEventListener", "getEventListener"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ItemTemporary"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "GolonganAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.employ");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/employ/GolonganAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onUnit", "onSkor", "onKonstanta", "onManajemenParameter", "doBeforeCompose", "doAfterCompose", "onEvent", "run", "render", "init", "onAdd", "reloadDataFormula", "reloadFormula", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/employ/unit_golongan.zul", "/pages/master/employ/skor_golongan.zul", "/pages/master/konstanta.zul", "/pages/master/parameter_tambahan.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"UnitGolongan", "SkorGolongan", "GajiPokok", "Insentif", "Makan", "Transport", "Golongan", "Peraturan", "LampiranLain"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

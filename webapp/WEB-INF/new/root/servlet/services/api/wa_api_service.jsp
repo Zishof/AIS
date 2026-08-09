@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "WaApi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/WaApi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"ultramsgFormat", "watzapFormat"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

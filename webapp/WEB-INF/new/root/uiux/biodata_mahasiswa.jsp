@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"displayBiodataWindow", "onEvent", "checkEmailMahasiswa", "checkBiodataMahasiswa", "doBeforeCompose", "doAfterCompose", "initData", "initAlamat", "initOrangTua", "initLampiran", "initWali", "initMain", "onSave", "isTampilFotoBiodata", "setTampilFotoBiodata"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/biodata_mahasiswa.zul?refresh=true", "/common/checklist_penilaian_dosen_oleh_mhs.zul?mahasiswa=", "/common/checklist_penilaian_umum.zul?mahasiswa="});
 request.setAttribute("nuiEntityCandidates", new String[]{"BiodataMahasiswa", "Mahasiswa", "FotoMahasiswa", "LampiranLainMahasiswa", "JenisSekolahMahasiswaBaru", "JenisTinggalMahasiswa", "OperatorSeluler", "AlatTransportasiMahasiswa", "StatusSetelahLulus", "StatusPekerjaanSetelahLulus", "StatusDomisiliSetelahLulus", "Skripsi", "PekerjaanOrangTua", "Pekerjaan", "Penghasilan", "PendidikanOrangTua", "Jenjang", "NilaiToeflToaflMahasiswa", "Agama", "HasilUjianMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

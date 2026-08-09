@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onMasaBerlaku", "onStatusDipertahankan", "onSifatSurat", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/surat/masa_berlaku_surat.zul", "/pages/master/surat/status_dipertahankan.zul", "/pages/master/surat/sifat_surat.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"KlasifikasiSuratMasuk", "Tbmrole", "SifatSurat", "Jurusan", "MasaBerlakuSurat", "StatusDipertahankan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

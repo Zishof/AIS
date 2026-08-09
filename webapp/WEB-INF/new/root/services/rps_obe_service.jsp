@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RpsObeAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/RpsObeAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "tampilKunci", "cetak", "onCetak", "onCetakHtml", "cetakHtmlByKpmId", "loadData", "run", "selesai", "editRinci", "displayRinci", "updatePertemuan", "displayMinggu", "refreshPertemuan", "reloadRinci", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ReferensiLulusan", "Menu", "Perkuliahan", "Matakuliah", "KurikulumPunyaMatakuliah", "CapaianLulusan", "CapaianPembelajaranLulusan", "BahanKajian", "ProfilLulusan", "Dosen", "Pertemuan", "StatusPertemuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

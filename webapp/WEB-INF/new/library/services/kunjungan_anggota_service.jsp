@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KunjunganAnggotaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/KunjunganAnggotaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onKodeAnggota", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KunjunganAnggota"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "UjianPegawaiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.recruitment");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/recruitment/UjianPegawaiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"GelombangPendaftaranPegawai", "UjianPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

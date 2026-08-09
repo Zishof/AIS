@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanRekapPembayaranSiswa");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/sekolah/LaporanRekapPembayaranSiswa.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "onCetak", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Siswa", "JenisBiayaSekolah", "ItemBiayaSekolah", "Tagihan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

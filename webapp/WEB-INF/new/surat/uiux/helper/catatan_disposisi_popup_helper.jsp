@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"showKeluar", "showMasuk", "onEvent"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"AlurPersetujuanSuratKeluarStatus", "AlurPersetujuanSuratMasukStatus"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "NilaiToeflToaflMahasiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/NilaiToeflToaflMahasiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onJenis", "onLaporanToefl", "onLaporanToeflMahasiswa", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/jenis_toefl.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisToefl", "NilaiToeflToaflMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

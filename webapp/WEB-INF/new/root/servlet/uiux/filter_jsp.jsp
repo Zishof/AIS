@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "Filter");
 request.setAttribute("nuiSourceMethods", new String[]{"init", "destroy", "doFilter", "checkSingleDeviceBlock"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/WEB-INF/u/logout.jsp?login_error=Akun+", "/WEB-INF/uiux/ux_pages/index.jsp", "/WEB-INF/z/x/y/pmb.jsp", "/WEB-INF/z/x/y/pm.zul", "accept.jsp", "code.jsp", "broken.jsp", "error.jsp", "login.jsp", "ecampus.jsp", "eschool.jsp", "welpus.zul", "dekstop.zul", "welsis.zul", "vendor.zul", "psb.zul", "karir.zul", "pmb.zul", "alumni.zul", "main.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

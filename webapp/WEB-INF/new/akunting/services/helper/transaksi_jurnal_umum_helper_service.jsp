@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TransaksiJurnalUmumHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.akunting.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/akunting/helper/TransaksiJurnalUmumHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateCode", "initWindow", "onEvent", "initCriteria", "onSearchDefault", "onSave", "render", "onAdd", "checkNamaAgama", "onSaveTransaksiUtama", "setEventListener", "getEventListener"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"GrupTransaksi", "JenisTransaksi", "Transaksi", "Akun", "Closing"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

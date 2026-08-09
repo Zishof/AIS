@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onJabatanOrganisasiDosen", "onLevelOrganisasiDosen", "onUploadData", "run", "onEvent", "doBeforeCompose", "doAfterCompose", "cetakDataCustomButton", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaOrganisasiDosen"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/jabatan_organisasi_dosen.zul", "/pages/master/level_organisasi_dosen.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"OrganisasiDosen", "Dosen", "JabatanOrganisasiDosen", "OrganisasiDosenPunyaDosen", "LevelOrganisasiDosen", "LampiranLain", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

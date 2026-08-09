@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "Bandbox");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"getAlatMedisLab", "setAlatMedisLab", "onEvent", "render", "display", "onSearchDefault", "setEventListener", "getEventListener"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"AlatMedis", "BiayaAlatMedisPerKelas", "JenisAlatMedis"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

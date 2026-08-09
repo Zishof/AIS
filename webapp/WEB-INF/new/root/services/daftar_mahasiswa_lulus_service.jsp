@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DaftarMahasiswaLulusAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/DaftarMahasiswaLulusAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onCheck", "doBeforeCompose", "doAfterCompose", "onEvent", "run", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/biodata_calon_mahasiswa_punya_verifikasi_berkas.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisSeleksi", "JenisSekolahMahasiswaBaru", "JurusanSekolahMahasiswaBaru", "Paket", "Jurusan", "GelombangPendaftaran", "BiodataCalonMahasiswa", "BiodataCalonMahasiswaPunyaVerifikasiBerkas", "VerifikasiKelengkapanCalonMahasiswa", "LampiranLain"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

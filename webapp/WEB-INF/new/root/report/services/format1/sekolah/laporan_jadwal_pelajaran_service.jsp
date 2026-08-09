@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanJadwalPelajaran");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/sekolah/LaporanJadwalPelajaran.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "render", "initCriteria", "masukkanData", "onReport"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/sekolah/jenis_laporan_jadwal_sekolah.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Sekolah", "JenisLaporanJadwalSekolah", "KelasSiswa", "JadwalPelajaran", "KelasSiswaPunyaSiswa", "KelompokJamPelajaran", "Konstanta"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"tampilPembayaranDaftarUlang", "adaPembayaranRegistrasi", "tampilPembayaranRegistrasi", "onEvent", "adaPaymentGatewayYangAktif"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/common/daftarulang_mahasiswa_baru.zul?biodataCalonMahasiswa=", "/common/bankaltimtara/no_va.zul?pakaiva=", "/common/ntt/no_va.zul?va=", "/common/online/no_va.zul?va=", "/common/bri/no_va.zul?va=", "/common/bjb/no_va.zul?va=", "/common/btn/no_va.zul?va=", "/common/qris/no_va.zul?va="});
 request.setAttribute("nuiEntityCandidates", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"entitasDariAksi", "kelasLokalDariEntitas", "hitungLokal", "ambilSemuaTersimpan", "catat", "catatProses"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"NeoFeederSync"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

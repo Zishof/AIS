@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericCrudAction<SaldoAwalMedis>");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"doAfterCompose", "initCriteria", "onEvent", "onSave", "render"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"SaldoAwalMedis", "Lokasi", "SaldoAwalMedisDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "HadirAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.maintenance");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/maintenance/HadirAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "onEvent", "onInfo", "doAfterCompose"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

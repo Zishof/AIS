@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanRekapKpiPegawai");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.kpi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/kpi/LaporanRekapKpiPegawai.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "onCetak", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PenilaianKpi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

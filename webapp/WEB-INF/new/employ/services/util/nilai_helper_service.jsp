@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "NilaiHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.employ.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/employ/util/NilaiHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getNilai"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

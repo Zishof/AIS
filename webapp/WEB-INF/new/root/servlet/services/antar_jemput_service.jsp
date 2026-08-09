@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AntarJemput");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/AntarJemput.java");
 request.setAttribute("nuiServiceMethods", new String[]{});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KartuPenjemputAntarJemput", "JadwalAntarJemput", "PesertaJadwalAntarJemput", "TransaksiPenjemputanAntarJemput"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

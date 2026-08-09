@@ -281,6 +281,7 @@ public class PembayaranSiswa extends GeneralValueObject {
 		siswa = getSiswa();
 		calonSiswa = getCalonSiswa();
 
+		if (siswa == null && calonSiswa == null) return nama;
 		nama = (siswa == null ? (calonSiswa.getNomorInduk() + "-" + calonSiswa.getNamaSiswa())
 				: (siswa.getNomorInduk() + "-" + siswa.getNamaSiswa())) + "-"
 				+ (getJenisBiayaSekolah() == null ? "Semua" : getJenisBiayaSekolah().getNama()) + "-"
@@ -304,7 +305,7 @@ public class PembayaranSiswa extends GeneralValueObject {
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
-	@JoinColumn(name = "sekolah_id")
+	@JoinColumn(name = "sekolah_id", nullable = false)
 	public Sekolah getSekolah() {
 		calonSiswa = getCalonSiswa();
 		siswa = getSiswa();

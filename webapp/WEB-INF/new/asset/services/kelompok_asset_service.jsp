@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KelompokAssetAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.asset");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/asset/KelompokAssetAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaKelompokAsset", "init"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/asset/master_asset.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"KelompokAsset"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

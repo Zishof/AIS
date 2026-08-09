@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardRingkasanSiswa");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/sekolah/DashboardRingkasanSiswa.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

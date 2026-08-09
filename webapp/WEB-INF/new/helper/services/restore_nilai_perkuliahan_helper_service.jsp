@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "RestoreNilaiPerkuliahanHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/RestoreNilaiPerkuliahanHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"tanggalRevisi", "restore", "bukaDialog", "onEvent", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Detailperkuliahan", "PembombotanNilai", "String", "Boolean", "Date", "Number"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

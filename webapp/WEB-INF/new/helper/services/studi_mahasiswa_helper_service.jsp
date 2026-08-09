@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "StudiMahasiswaHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/StudiMahasiswaHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"render", "onEvent", "run", "loadData", "display", "loadDataKomentar"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Detailperkuliahan", "Komentar", "SyaratUjian", "BlokirMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

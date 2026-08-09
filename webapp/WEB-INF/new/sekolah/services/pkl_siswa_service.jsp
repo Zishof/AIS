@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PklSiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/PklSiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "initCriteria", "onSearchDefault", "loadData", "render", "onEvent", "onAdd"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Sekolah", "KelompokPkl", "SiswaDapatKelompokPkl"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

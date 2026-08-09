@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AssetDetailPosisiHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.asset.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/asset/helper/AssetDetailPosisiHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"display", "onEvent", "initMap"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

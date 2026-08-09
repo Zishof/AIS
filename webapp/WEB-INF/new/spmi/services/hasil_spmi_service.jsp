@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "HasilSPMIAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.spmi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/spmi/HasilSPMIAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent", "onDasbor", "render", "cetakData", "cetak", "onAdd", "init", "form", "tampilRinci", "onSave", "initCriteria", "onSearchDefault", "istilah", "ambil", "ambilClass", "setPersetujuan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisSPMI", "HasilSPMI", "Jurusan", "StandarSPMI", "ButirMutuSPMI", "IndikatorSPMI", "SkenarioSPMI", "HasilTemuanSPMI"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

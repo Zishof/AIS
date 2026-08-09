@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault, FormSop");
 request.setAttribute("nuiSourceMethods", new String[]{"onLaporan", "onJenisPengajuan", "onTampilAsrama", "onTampilAsrama1", "onTampilAsrama2", "onTampilAsrama3", "onManajemenParameter", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "form", "onSave", "istilah", "ambil", "ambilClass", "cetakData", "onKHS", "initCriteria", "onSearchDefault", "setPersetujuan"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/jenis_pengajuan.zul", "/pages/master/parameter_tambahan_pengajuan.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"Siswa", "JenisPengajuan", "PengajuanSiswa", "ParameterTambahanPengajuan", "ParameterTambahan", "LampiranLain"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

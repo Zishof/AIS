@@ -204,7 +204,7 @@ public class DisposisiAlurSop extends GeneralValueObject {
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
-	@JoinColumn(name = "disposisi_sop", nullable = true)
+	@JoinColumn(name = "disposisi_sop", nullable = false)
 	public DisposisiSop getDisposisiSop() {
 		disposisiSop = check(disposisiSop);
 		return disposisiSop;

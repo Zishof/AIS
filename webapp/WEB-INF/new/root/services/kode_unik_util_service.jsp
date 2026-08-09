@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KodeUnikUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/KodeUnikUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"kodeSudahDipakai", "pastikanUnik"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KasBesar", "PemesananPengadaanMasterAsset"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

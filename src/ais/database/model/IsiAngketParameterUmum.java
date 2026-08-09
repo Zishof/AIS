@@ -263,7 +263,7 @@ public class IsiAngketParameterUmum extends GeneralValueObject {
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
-	@JoinColumn(name = "jadwal_checklist_penilaian_umum", nullable = true)
+	@JoinColumn(name = "jadwal_checklist_penilaian_umum", nullable = false)
 	public JadwalChecklistPenilaianUmum getJadwalChecklistPenilaianUmum() {
 		jadwalChecklistPenilaianUmum = check(jadwalChecklistPenilaianUmum);
 		return jadwalChecklistPenilaianUmum;

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CatatanDisposisiPopupHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.surat.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/surat/helper/CatatanDisposisiPopupHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"showKeluar", "showMasuk", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"AlurPersetujuanSuratKeluarStatus", "AlurPersetujuanSuratMasukStatus"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

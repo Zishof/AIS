@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "YY_PROGRAM_PRODI_URUT_NimGenerato
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.pmb.nim");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/pmb/nim/YY_PROGRAM_PRODI_URUT_NimGenerator.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateNim"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

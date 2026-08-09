@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardRekapMahasiswaBaruBerdas
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/helper/DashboardRekapMahasiswaBaruBerdasarkanMatapelajaran.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Paket", "BiodataCalonMahasiswa", "PaketPunyaMatapelajaran", "BiodataCalonMahasiswaPunyaVerifikasiMatapelajaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

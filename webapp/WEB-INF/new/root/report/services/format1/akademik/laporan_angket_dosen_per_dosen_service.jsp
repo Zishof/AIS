@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanAngketDosenPerDosenWindow"
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.akademik");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/akademik/LaporanAngketDosenPerDosenWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateParameters", "onLaporanAngketDosenPerDosen"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/rangking_ipd.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"RangkingIpd", "ChecklistBaruPenilaianDosenOlehMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

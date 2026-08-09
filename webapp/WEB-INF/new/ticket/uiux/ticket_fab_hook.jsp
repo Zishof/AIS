@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "UiLifeCycle");
 request.setAttribute("nuiSourceMethods", new String[]{"afterPageAttached", "onEvent", "afterComponentAttached", "afterComponentDetached", "afterComponentMoved", "afterPageDetached"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

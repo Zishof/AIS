@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ThemeApi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/ThemeApi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"tema"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Sekolah", "Pendaftar", "PerguruanTinggi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

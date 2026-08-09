@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PembelianPunyaBarangHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.inventory.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/inventory/helper/PembelianPunyaBarangHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initDetail", "onEvent", "initRow", "loadBarcode", "tambahan", "simpan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Produk", "Pembelian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

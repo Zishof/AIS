@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ProsesAbsensiPegawai");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.payroll.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/payroll/helper/ProsesAbsensiPegawai.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "generateDataDanImageAlbum", "execute", "onKHS", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"IkatanKerjaDosen", "Pegawai", "CutiBersama", "CutiDanIzin", "PengajuanPegawai", "Statusabsensi", "KehadiranPegawaiBulanan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

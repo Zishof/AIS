@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanKatalogData");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.koperasi.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/koperasi/helper/LaporanKatalogData.java");
 request.setAttribute("nuiServiceMethods", new String[]{"katalog"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/kantin/laporan_keuangan.zul?lap=", "/common/display.zul?p=akuntansi"});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PenjadwalanUjianPegawaiHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.recruitment.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/recruitment/helper/PenjadwalanUjianPegawaiHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"render", "onEvent", "save", "display", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"StatusPertemuan", "Pertemuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

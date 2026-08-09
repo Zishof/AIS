@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardReportKit");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/DashboardReportKit.java");
 request.setAttribute("nuiServiceMethods", new String[]{"kpi", "tabel", "batang", "donut", "radar", "garis", "pasangTombol", "onEvent", "bukaLaporan", "sql", "L", "S", "fmt"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

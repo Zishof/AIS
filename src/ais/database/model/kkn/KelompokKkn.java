@@ -547,6 +547,11 @@ public class KelompokKkn extends VOPembelajaran {
 	}
 
 	public String getFileLocation() {
+		return fileLocation;
+	}
+
+	@javax.persistence.Transient
+	public String getOrCreateFileLocation() {
 		if (fileLocation == null || !fileLocation.endsWith(getId() + ".json")
 				|| java.nio.file.Files.notExists(java.nio.file.Paths.get(fileLocation))) {
 			write();

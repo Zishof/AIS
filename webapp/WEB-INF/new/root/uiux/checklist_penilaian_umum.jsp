@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria");
 request.setAttribute("nuiSourceMethods", new String[]{"onSubGrupAngketUmum", "doBeforeCompose", "doAfterCompose", "onEvent", "run", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/sub_grup_checklist_penilaian_umum.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"AngketPenilaianUmum", "GrupChecklistPenilaianUmum", "ChecklistPenilaianUmum", "SubGrupChecklistPenilaianUmum"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

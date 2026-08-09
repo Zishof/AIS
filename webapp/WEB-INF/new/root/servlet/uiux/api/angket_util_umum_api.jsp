@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"simpanAngket", "logout", "daftarAngket"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"ChecklistPenilaianUmum", "ChecklistHasilPenilaianUmum", "JadwalChecklistPenilaianUmum", "IsiAngketParameterUmum", "GrupChecklistPenilaianUmum"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PengecekanPendaftaranWisudaPerpus
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/PengecekanPendaftaranWisudaPerpustakaanAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onPilihMahasiswa", "onSetuju", "onEvent", "onTolak"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PendaftaranWisuda"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

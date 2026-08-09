@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JenisAssetAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.asset");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/asset/JenisAssetAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaJenisAsset"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/asset/master_asset.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisAsset"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

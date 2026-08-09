@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JenisPajakBarangAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.asset");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/asset/JenisPajakBarangAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onDataPpn", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/asset/jenis_pajak_ppn.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisPajakBarang"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "HttpServlet");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"ambil", "onEvent"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"GDriveCode", "FotoAdmin", "Tbmuser", "Tbmrole", "LampiranLain"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

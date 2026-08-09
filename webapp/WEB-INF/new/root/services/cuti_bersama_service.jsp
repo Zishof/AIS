@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CutiBersamaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/CutiBersamaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault", "checkNamaCutiBersama", "checkTahunCutiBersama"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"CutiBersama"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

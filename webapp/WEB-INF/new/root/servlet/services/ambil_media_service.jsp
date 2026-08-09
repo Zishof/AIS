@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilMedia");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/AmbilMedia.java");
 request.setAttribute("nuiServiceMethods", new String[]{"fastChannelCopy"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"FotoAdmin", "Integer", "Long", "Double"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

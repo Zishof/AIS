@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanAngketGuruDashboardWindow"
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.akademik");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/akademik/LaporanAngketGuruDashboardWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ChecklistPenilaianGuru", "GrupChecklistPenilaianGuru", "ChecklistBaruPenilaianGuruOlehSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "FeederExporter");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.feeder.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/feeder/util/FeederExporter.java");
 request.setAttribute("nuiServiceMethods", new String[]{"kurikulumPunyaMatakuliah", "kurikulum", "nilaiHuruf", "matakuliah", "aktivitasMahasiswaPkl", "aktivitasMahasiswaKkn", "aktivitasMahasiswaForm", "aktivitasMahasiswaPengahargaan", "aktivitasMahasiswaPrestasi", "aktivitasKegiatanMahasiswa", "aktivitasMahasiswa", "aktivitasMahasiswaBimbingan", "aktivitasMahasiswaKrs", "kelas_kuliah", "kirimkanDosen", "kirimkanKomponene", "run", "ajar_dosen", "mahasiswa", "mahasiswa_pt", "dosen", "dosen_pt", "doEksport", "value", "nilaiTransfer", "nilai", "kuliah_mahasiswa"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KurikulumPunyaMatakuliah", "Kurikulum", "NilaiHuruf", "Jurusan", "NilaiHurufExport", "MahasiswaDapatKelompokPkl", "Mahasiswa", "MahasiswaDapatKelompokKkn", "FormulirKegiatanPeserta", "Dosen", "KegiatanKemahasiswaanPunyaMahasiswa", "Matakuliah", "Detailperkuliahan", "Perkuliahan", "BiodataDosen", "PenugasanDosenMengajar"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

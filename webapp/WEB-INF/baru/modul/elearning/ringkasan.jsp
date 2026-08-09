@@ -406,6 +406,7 @@
         var safeProp = (item.prop_name || "").replace(/'/g, "\\'");
         
         var vopParams = item.id + ", '" + safeJenis + "', '" + safeProp + "', '" + safeTitle + "', " + (item.is_obe ? "true" : "false") + ", '" + (item.id_kur || "") + "'";
+        var workspaceParams = item.id + ", '" + safeJenis + "', '" + safeProp + "', '" + safeTitle + "'";
         
         // Membalut kad di dalam ID unik 'card_vop_{id}' supaya boleh disegarkan secara individu
         var html = `<div id="card_vop_` + item.id + `">
@@ -422,6 +423,7 @@
                    <h6 class="font-weight-bold text-primary mb-2" style="line-height:1.4;" title="`+item.title+`">`+item.title+`</h6>
                    <div class="mb-3">` + badgesHtml + `</div>
                    <ul class="list-unstyled mb-0" style="font-size: 12.5px; color: #555;">` + listHtml + `</ul>
+                   <button type="button" class="btn btn-primary btn-sm rounded-pill px-3 mt-3 font-weight-bold" onclick="bukaWorkspace<%=rnd%>(`+workspaceParams+`)"><i class="fas fa-arrow-right mr-1"></i><%=Common.getBahasaConfig("Buka Workspace")%></button>
                 </div>
                 
                 <div class="col-md-5 col-lg-5 py-1">
@@ -505,6 +507,17 @@
         </div>
         </div>`;
         return html;
+    }
+
+    function bukaWorkspace<%=rnd%>(id, jenisVop, propName, encodedTitle) {
+        var title = "";
+        try { title = decodeURIComponent(encodedTitle || ""); } catch (ignore) { title = encodedTitle || ""; }
+        var workspace = document.querySelector('[data-elearning-workspace]');
+        if (!workspace) return;
+        workspace.dispatchEvent(new CustomEvent('ais:elearning:course', { detail: {
+            id: String(id || ""), jenis: jenisVop || "", propName: propName || "",
+            title: title, open: 'Linimasa'
+        }}));
     }
 
     // =================================================================================

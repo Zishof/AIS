@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ResetPasswordApi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/ResetPasswordApi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"cari", "reset"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Tbmrole", "Tbmuser", "Mahasiswa", "Siswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

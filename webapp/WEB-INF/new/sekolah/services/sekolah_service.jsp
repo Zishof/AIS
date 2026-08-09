@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "SekolahAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/SekolahAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"reInitByDomain", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Sekolah", "Yayasan", "Pendaftar", "JenisSekolah", "PerguruanTinggi", "KanalPembayaran", "PenjurusanSekolah"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

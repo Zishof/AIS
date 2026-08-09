@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onBiayaAdmin", "onBiayaPaymentGateway", "doBeforeCompose", "doAfterCompose", "onEvent", "onBatalkanPostingSemua", "onPostingSemua", "run", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/posting_biaya_administrasi_pembayaran_siswa.zul", "/pages/master/posting_biaya_payment_gateway_pembayaran_siswa.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"AkunPembayaranSiswa", "DepositSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

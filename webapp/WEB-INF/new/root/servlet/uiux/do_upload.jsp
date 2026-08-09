@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "HttpServlet");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"run", "onEvent"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/accept.jsp?u="});
 request.setAttribute("nuiEntityCandidates", new String[]{"LampiranLainBiodataCalonMahasiswa", "GDriveCode", "FotoMahasiswa", "FotoSiswa", "FotoDosen", "FotoGuru", "FotoPegawai", "FotoAdmin", "String", "Long", "Blob", "BiodataCalonMahasiswa", "JenisKegiatan", "BuktiPembayaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

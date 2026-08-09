@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onPendidikanOrtu", "onTampilkanParameter", "onMatapelajaranSekolah", "onParameterVerifikasi", "onKartuIdentitas", "onJenisSekolah", "onJurusanSekolah", "onNamaSekolah", "onPekerjaanOrtu", "onPendapatanOrtu", "doBeforeCompose", "doAfterCompose", "render", "onEvent", "onAdd", "onSave", "onSearchDefault", "checkNamaPaket"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/pendidikan_orangtua.zul", "/pages/master/parameter_tambahan_paket.zul", "/pages/master/matapelajaran_sekolah.zul", "/pages/master/parameter_verifikasi_calon_mahasiswa.zul", "/pages/master/jenis_kartu_identitas.zul", "/pages/master/jenis_sekolah.zul", "/pages/master/jurusan_sekolah.zul", "/pages/master/nama_sekolah_asal.zul", "/pages/master/pekerjaan_orangtua.zul", "/pages/master/pendapatan_orangtua.zul", "/pages/master/paket_registrasi_mahasiswa.zul?paket=", "/pages/master/paket_punya_program.zul?paket=", "/pages/master/parameter_tambahan_paket.zul?paket=", "/pages/master/paket_punya_gelombang_pendaftaran.zul?paket=", "/pages/master/persyaratan_pilihan_paket.zul?paket=", "/pages/master/paket_punya_matapelajaran.zul?paket=", "/pages/master/paket_punya_parameter_verifikasi_calon_mahasiswa.zul?paket="});
 request.setAttribute("nuiEntityCandidates", new String[]{"Paket"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

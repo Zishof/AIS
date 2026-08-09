@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ShiftAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/ShiftAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "initCriteria", "onEvent", "onSave", "checkNamaShift", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Shift", "Lokasi", "JenisBiayaLain"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

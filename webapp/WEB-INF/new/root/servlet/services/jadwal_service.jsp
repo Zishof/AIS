@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "Jadwal");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/Jadwal.java");
 request.setAttribute("nuiServiceMethods", new String[]{});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/WEB-INF/u/jadwal.jsp"});
 request.setAttribute("nuiServiceEntities", new String[]{"FotoDosen", "Perkuliahan", "Pertemuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

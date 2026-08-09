@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ItemMedisAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/ItemMedisAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent", "onUploadBiaya", "onDownloadBiaya", "render", "onAdd", "onCetakHargaJual", "onCetakHargaBeli", "init", "display", "loadData", "onSave", "onSearchDefault", "checkNamaItem"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"SatuanItem", "JenisItem", "KelompokItem", "ItemMedis", "Penyedia", "HargaBeliItem", "BahanBakuItem", "KonversiSatuanItem"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

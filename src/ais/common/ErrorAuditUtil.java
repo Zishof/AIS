@@ -32,6 +32,7 @@ public class ErrorAuditUtil {
     public static final String KEY_REQUEST_DETAIL = "global_error_log_request_detail";
     public static final String KEY_MAX_CONTENT_LENGTH = "global_error_log_max_content_length";
     public static final String KEY_IGNORE_CLIENT_ABORT = "global_error_log_abaikan_client_abort";
+    public static final String KEY_UI_DETAIL = "global_error_tampilkan_stacktrace_ui";
 
     public static final int DEFAULT_MAX_CONTENT_LENGTH = 250000;
 
@@ -108,8 +109,13 @@ public class ErrorAuditUtil {
             lokasiBaru = true; // bila dedup gagal, jangan sampai menghalangi pencatatan
         }
         if (!lokasiBaru) {
-            // Lokasi ini sudah pernah dicatat -> lewati total (tak bangun konten, tak simpan DB, tak server-log).
-            ErrorAuditResult result = new ErrorAuditResult("", null);
+            // Database tetap dedup 1x-per-lokasi, tetapi setiap kejadian harus tetap masuk server log.
+            // Ini penting untuk melihat frekuensi dan konteks request terbaru di catalina.out.
+            String duplicateContent = buildErrorText(throwable, info, request);
+            if (isServerLogActive()) {
+                writeToServerLog(throwable, duplicateContent);
+            }
+            ErrorAuditResult result = new ErrorAuditResult(duplicateContent, null);
             LAST_RESULT.set(result);
             return result;
         }
@@ -150,6 +156,38 @@ public class ErrorAuditUtil {
 
     public static ErrorAuditResult getLastResult() {
         return LAST_RESULT.get();
+    }
+
+    /**
+     * Mencatat kegagalan request/include yang harus terlihat pada halaman error.
+     * Jika server-log dimatikan lewat konfigurasi, System.err tetap digunakan agar
+     * kegagalan request tidak hilang dari catalina.out.
+     */
+    public static ErrorAuditResult recordVisibleFailure(Throwable throwable, String info,
+            HttpServletRequest request, String traceId) {
+        String decorated = "trace=" + safeTrace(traceId) + (info == null ? "" : " | " + info);
+        ErrorAuditResult result = record(throwable, decorated, request, false);
+        String content = result == null ? null : result.getContent();
+        if (content == null || content.length() == 0) {
+            content = buildErrorText(throwable, decorated, request);
+            result = new ErrorAuditResult(content, result == null ? null : result.getErrorLogId());
+        }
+        if (!isServerLogActive()) {
+            try {
+                System.err.println("[AIS-REQUEST-ERROR] " + decorated);
+                System.err.println(content);
+            } catch (Throwable ignored) {
+            }
+        }
+        return result;
+    }
+
+    public static boolean isUiDetailActive() {
+        return isKonfigurasiActive(KEY_UI_DETAIL, Konfigurasi.TIDAK_AKTIF);
+    }
+
+    private static String safeTrace(String value) {
+        return value == null || value.trim().length() == 0 ? "NO-TRACE" : value.trim();
     }
 
     /**

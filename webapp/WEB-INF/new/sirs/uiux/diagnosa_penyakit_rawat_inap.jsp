@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"doAfterCompose", "onEvent", "render", "onProcessDelete", "onDelete", "onAdd", "onSave", "onSearchDefault", "init", "display", "loadData"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/sirs/diagnosa_penyakit_detail.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"DiagnosaPenyakit", "Pendaftaran", "Instalasi", "TindakanDiagnosaPenyakit", "BiayaTindakanPerKelas", "Transaksi", "ItemDiagnosaPenyakit", "HargaJualItem", "KunjunganDokter", "Tindakan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

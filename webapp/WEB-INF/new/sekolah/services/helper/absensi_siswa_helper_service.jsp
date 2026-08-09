@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AbsensiSiswaHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/helper/AbsensiSiswaHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"createTombolAbsen", "onEvent", "populateSiswaDariPertemuan", "mainInit", "run", "sesuaikan", "render", "createStatusKehadiran", "boleh", "createStatusKehadiranData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PengajuanIzinTidakMasukPerkuliahan", "Statusabsensi", "KelasSiswaPunyaSiswa", "KelasLesSiswaPunyaSiswa", "FormulirKegiatanPeserta", "Siswa", "StatusPertemuan", "Lokasi", "Guru", "Pegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

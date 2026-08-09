@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onAbsensiSp", "doBeforeCompose", "doAfterCompose", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/common/checklist_penilaian_umum.zul?siswa="});
 request.setAttribute("nuiEntityCandidates", new String[]{"JadwalPelajaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

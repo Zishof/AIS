@@ -156,7 +156,11 @@ public class NamaTugasKelompokHelper implements DataLoader {
 			};
 
 			detail.setParent(row);
-			detail.setOpen(true);
+			// Jangan membuka seluruh anggota untuk 10 kelompok sekaligus. Selain membuat modal
+			// sangat panjang, render detail yang berat dapat menahan event paging sehingga
+			// halaman 2 (Kelompok 11 dan seterusnya) terlihat tidak dapat dibuka. Pengguna
+			// tetap dapat membuka anggota kelompok yang diperlukan lewat ikon panah Detail.
+			detail.setOpen(false);
 			Common.createDefaultTimer(eventListener);
 
 			boolean bukan = false;
@@ -430,12 +434,22 @@ public class NamaTugasKelompokHelper implements DataLoader {
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 		Session session = HibernateUtil.currentSession();
+		// setModel() milik ZK mengembalikan paging ke halaman pertama. Simpan posisi
+		// agar setelah mengedit Kelompok 11 pengguna tetap berada di halaman 2.
+		int activePage = 0;
+		if (grid != null && grid.getPagingChild() != null) {
+			activePage = grid.getPagingChild().getActivePage();
+		}
 		List<NamaTugasKelompok> namaTugasKelompok = session.createCriteria(NamaTugasKelompok.class)
 				.addOrder(Order.asc("id")).add(Restrictions.eq("tugasKelompok", tugasKelompok)).list();
 
 		ListModel strset = new SimpleListModel(namaTugasKelompok);
 		grid.setRowRenderer(new DetailTugasKelompokRenderer());
 		grid.setModelCheckMobile(strset);
+		if (grid.getPagingChild() != null && grid.getPagingChild().getPageCount() > 0) {
+			int lastPage = grid.getPagingChild().getPageCount() - 1;
+			grid.getPagingChild().setActivePage(Math.min(activePage, lastPage));
+		}
 
 	}
 

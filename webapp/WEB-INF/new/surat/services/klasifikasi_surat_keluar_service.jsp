@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KlasifikasiSuratKeluarAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.surat");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/surat/KlasifikasiSuratKeluarAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onNomorSurat", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "init", "onAdd", "masukkanTabelKeParameter", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/surat/nomor_surat.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"KelompokNomorSurat", "KlasifikasiSuratKeluar", "Tbmrole", "VariableSuratKeluar", "KlasifikasiSuratKeluarParemeter", "KlasifikasiSuratKeluarUntuk", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardKehadiranTambahan");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.payroll.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/payroll/helper/DashboardKehadiranTambahan.java");
 request.setAttribute("nuiServiceMethods", new String[]{"renderAll", "renderSkorKedisiplinanPegawai", "compare", "renderRasioKehadiranPerPegawai", "renderKonsistensiKehadiranPegawai", "renderRankingKetidakhadiranPegawai", "renderEfektivitasJamKerjaPegawai", "renderPegawaiSeringMasukHariLibur", "renderValidasiAnomaliPresensi", "renderRekapPengajuanPegawai", "renderHeatmapKeterlambatanHari", "renderPegawaiRisikoDisiplinMenurun"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

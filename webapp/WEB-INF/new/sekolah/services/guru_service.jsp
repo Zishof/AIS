@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "GuruAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/GuruAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onUploadRfid", "onDownloadRfid", "onEvent", "doBeforeCompose", "doAfterCompose", "onDownloadFoto", "render", "onAddExternal", "onDownloadFotoMassal", "onUploadFotoMassal", "onAdd", "init", "reloadGuru", "onSave", "initCriteria", "onSearchDefault", "onKonfigurasiBiodataGuru"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/sekolah/siswa_id.zul?guruPembina=", "/pages/master/sekolah/siswa_id.zul?guruBk=", "/pages/master/konfigurasi_guru.zul", "/pages/master/ikatan_kerja_dosen.zul", "/pages/master/status_kepegawaian.zul", "/pages/master/jenis_pendidik_dan_tenaga_kependidikan.zul", "/pages/master/lembaga_pengangkat.zul", "/pages/master/sumber_gaji.zul", "/pages/master/status_pegawai.zul", "/pages/master/jabatan.zul", "/pages/master/jenis_tenaga_kependidikan.zul", "/pages/master/golongan_pns.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Guru", "Tbmuser", "LogLogin", "Pegawai", "FotoGuru", "JadwalPelajaran", "PenugasanGuruMengajar", "StatusKepegawaian", "Sekolah", "StatusPegawai", "GolonganPns", "LembagaPengangkat", "SumberGaji", "JenisPendidikDanTenagaKependidikan", "Pendidikan", "JenisGuru", "Agama", "PekerjaanOrangTua"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

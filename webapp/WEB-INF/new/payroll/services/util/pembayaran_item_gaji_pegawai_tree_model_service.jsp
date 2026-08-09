@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PembayaranItemGajiPegawaiTreeMode
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.payroll.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/payroll/util/PembayaranItemGajiPegawaiTreeModel.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getChildren", "populateData", "generateAllChildren", "getChild", "getChildCount", "deleteChilds", "isLeaf", "getParentCount", "getParentSet", "getChildsSet", "getIndexOfChild", "copyByFormat", "reset", "checkExistingItemGaji", "copyByItemGajiPegawai", "setLunas", "getItemGajiPegawaiChildCount"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PembayaranItemGajiPegawai", "ItemGajiPegawai", "TransaksiPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -58,6 +58,42 @@ memantau tindak lanjut, institusi dapat memastikan rekomendasi dilaksanakan, seh
 internal berdampak nyata pada peningkatan mutu.
 </p>
 
+<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">Download dan Upload Format AMI Satu File</h3>
+<p style="color:#334155;line-height:1.6;">
+Pada baris pengajuan AMI tersedia tombol <b>Unduh AMI</b> dan <b>Upload AMI</b>. Simpan pengajuan dan
+pilih Jenis SPMI terlebih dahulu, kemudian klik <b>Unduh AMI</b>. Sistem membuat satu file XLSX format
+umum V2 yang berisi PETUNJUK, IDENTITAS, DATA_AMI, Ringkasan Hasil Audit, REFERENSI, dan metadata sistem.
+Seluruh standar dan indikator aktif berada dalam satu tabel DATA_AMI sehingga pengguna lintas kampus tidak
+perlu membuat atau menyalin banyak sheet. IDENTITAS memuat perguruan tinggi, fakultas, program studi,
+periode, skema, auditee, dan tim auditor. Isi kolom berwarna pada DATA_AMI: Skor 1/0, Catatan Auditor,
+Rekomendasi, Bukti/Link Dokumen, Status Kesiapan Bukti, dan Catatan Auditee.
+</p>
+<p style="color:#334155;line-height:1.6;">
+Setelah selesai, unggah file melalui <b>Upload AMI</b> pada pengajuan yang sesuai. Format V2 hasil download
+sistem membawa ID teknis untuk pencocokan paling presisi. File umum buatan kampus juga dapat diunggah tanpa
+ID teknis; sistem akan mencocokkan kombinasi Standar, Butir/Klausul, Indikator, dan Bukti Dokumen secara unik
+dengan master audit aktif. Format lama V1 tetap diterima untuk menjaga kompatibilitas. Sistem memeriksa
+identitas yang tersedia, kelengkapan indikator, duplikasi, skor, dan status kesiapan sebelum menyimpan.
+Jika satu validasi gagal, seluruh upload dibatalkan sehingga tidak ada data yang masuk sebagian.
+</p>
+<p style="color:#334155;line-height:1.6;"><b>Urutan kerja yang disarankan:</b></p>
+<ol style="color:#334155;line-height:1.7;padding-left:24px;">
+<li>Pastikan pengajuan AMI sudah tersimpan dan Jenis SPMI yang benar telah dipilih.</li>
+<li>Unduh format terbaru dari baris pengajuan yang akan dinilai; jangan memakai format milik pengajuan atau periode lain.</li>
+<li>Isi hanya kolom G-L pada DATA_AMI. Skor hanya boleh kosong, 0, atau 1, sedangkan status kesiapan hanya boleh Tersedia, Sebagian, atau Belum Tersedia.</li>
+<li>Jangan mengubah teks Standar, Butir/Klausul, Indikator, dan Bukti Dokumen. Kolom ID teknis boleh kosong pada format umum buatan kampus.</li>
+<li>Periksa Ringkasan Hasil Audit sebelum mengunggah berkas.</li>
+<li>Upload berkas pada pengajuan asal. Setelah pesan berhasil muncul, buka kembali detail hasil untuk memastikan skor dan catatan telah tersimpan.</li>
+</ol>
+<p style="color:#334155;line-height:1.6;">
+Saat upload, sistem terlebih dahulu membaca seluruh workbook tanpa menyimpan perubahan. Sistem kemudian
+memastikan versi format, identitas audit bila tersedia, Jenis SPMI, jumlah indikator bila dideklarasikan,
+pencocokan unik indikator dan bukti dokumen, nilai skor, serta status kesiapan sesuai master aktif. Penyimpanan
+baru dilakukan setelah semua pemeriksaan lolos dalam satu transaksi. Jika
+terjadi kesalahan pada satu baris, transaksi dibatalkan dan data lama tetap dipertahankan. Pesan kesalahan
+menunjukkan sheet atau indikator yang perlu diperbaiki; perbaiki file yang sama lalu lakukan upload ulang.
+</p>
+
 <h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">7. Kaitan dengan Standar, Indikator, dan Audit Mutu</h3>
 <p style="color:#334155;line-height:1.6;">
 Hasil SPMI ini berkaitan dengan <b>standar dan indikator mutu</b> serta dengan kegiatan <b>audit mutu

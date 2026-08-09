@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PenggunaApi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/PenggunaApi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"daftar", "detail", "daftarRole", "simpan", "simpanProfilSaya", "hapus"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Tbmuser", "Tbmrole", "RolePrivilage"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MahasiswaVirtualAccountHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.virtualaccount");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/virtualaccount/MahasiswaVirtualAccountHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"openSession", "tambahTokenCicilan", "ensureOpen", "beginTransactionIfNeeded", "commitTransactionIfActive", "rollbackTransactionIfActive", "closeSessionQuietly", "closeHibernateContextQuietly", "closeOpenedSession", "closeNativeSession", "rollbackQuietly", "ambilKegiatanTemporaryTerpilih", "ambilMahasiswa", "ambilCalonMahasiswa", "hitungTotal", "validasiKeranjang", "getKonfigurasiDouble", "buatPesanKonfirmasi", "buatUrlNoVa", "tampilkanHasilVirtualAccount", "redirectLinkVirtualAccount", "tampilkanProgress", "sembunyikanProgress", "applyGatewayFlag"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/common/online/no_va.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

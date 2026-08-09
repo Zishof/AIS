@@ -221,6 +221,160 @@ public class CommonReportHelper {
 
 	private static SimpleDateFormat dateFormat = new SimpleDateFormat("dd MMMMM yyyy", Common.locale);
 
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	private static List<Map> buatParameterBuktiDariRincianLayar(Kegiatan kegiatan,
+			List<Map<String, Serializable>> rincianLayar) {
+		List<Map> hasil = new ArrayList<Map>();
+		if (kegiatan == null || rincianLayar == null) {
+			return hasil;
+		}
+		for (Map<String, Serializable> sumber : selaraskanSnapshotDenganRingkasan(kegiatan, rincianLayar)) {
+			if (sumber == null || !(sumber.get("biaya") instanceof Number)) {
+				continue;
+			}
+			Double nilaiLayar = Double.valueOf(((Number) sumber.get("biaya")).doubleValue());
+			Map map = new HashMap(sumber);
+			// Snapshot sudah berisi tagihan neto yang sama dengan panel rincian. Template
+			// menghitung tagihan - diskon = biaya, sehingga ketiganya dinormalisasi di sini
+			// dan tidak lagi membaca item DetailKegiatan lama yang sudah tidak tampil.
+			map.put("tagihan", nilaiLayar);
+			map.put("diskon", Double.valueOf(0.0));
+			map.put("biaya", nilaiLayar);
+			map.put("semester", sumber.get("semester") == null ? kegiatan.getSemster() : sumber.get("semester"));
+			map.put("tahun_ajaran", sumber.get("tahun_ajaran") == null
+					? kegiatan.getTahunAkademik() : sumber.get("tahun_ajaran"));
+			map.put("nama_kegiatan", sumber.get("nama_kegiatan") == null
+					? kegiatan.getJenisKegiatan().getNamaKegiatan() : sumber.get("nama_kegiatan"));
+			map.put("ref_number", kegiatan.getRefNumber());
+			map.put("validator", kegiatan.getValidator());
+			map.put("keterangan", kegiatan.getKeterangan());
+			if (!map.containsKey("keterangan1")) map.put("keterangan1", "");
+			if (!map.containsKey("uraian")) map.put("uraian", "");
+
+			if (kegiatan.getMahasiswa() != null) {
+				Mahasiswa mahasiswa = kegiatan.getMahasiswa();
+				map.put("nim", mahasiswa.getNim());
+				map.put("no_registrasi", mahasiswa.getNim());
+				map.put("nama_mahasiswa", mahasiswa.getNama());
+				map.put("nama_fakultas", mahasiswa.getJurusan() == null
+						|| mahasiswa.getJurusan().getFakultas() == null ? ""
+								: mahasiswa.getJurusan().getFakultas().getNama());
+				map.put("nama_jurusan", mahasiswa.getJurusan() == null ? "" : mahasiswa.getJurusan().getNama());
+				map.put("program", mahasiswa.getProgram());
+			} else if (kegiatan.getCalonMahasiswa() != null) {
+				BiodataCalonMahasiswa calon = kegiatan.getCalonMahasiswa();
+				map.put("nim", calon.getNim());
+				String nomorRegistrasi = calon.getNoRegistrasi() == null ? "" : calon.getNoRegistrasi();
+				if (calon.getMahasiswa() != null && calon.getMahasiswa().getNim() != null) {
+					nomorRegistrasi += "(" + calon.getMahasiswa().getNim() + ")";
+				}
+				map.put("no_registrasi", nomorRegistrasi);
+				map.put("nama_mahasiswa", calon.getNama());
+				Jurusan jurusan = calon.getProdiLulus() != null ? calon.getProdiLulus()
+						: calon.getProdi1() != null ? calon.getProdi1() : calon.getProdi2();
+				map.put("nama_fakultas", jurusan == null || jurusan.getFakultas() == null
+						? "" : jurusan.getFakultas().getNama());
+				map.put("nama_jurusan", jurusan == null ? "" : jurusan.getNama());
+				map.put("program", calon.getProgram());
+			}
+			hasil.add(map);
+		}
+		return hasil;
+	}
+
+	/**
+	 * Rekonsiliasi terakhir antara rincian item dan angka ringkasan kegiatan.
+	 *
+	 * <p>Ringkasan kegiatan memakai penghitung neto yang juga memperhitungkan diskon,
+	 * DetailKegiatan terbaru, dan item bukan-tagihan. Sebaliknya, rincian historis dapat
+	 * masih berisi nominal bruto. Selisih itu sebelumnya membuat layar terlihat lunas
+	 * tetapi PDF kembali menampilkan sisa tagihan (contoh: Rp350.000). Agar audit tetap
+	 * transparan, selisih tidak disembunyikan atau dipaksakan ke salah satu item; laporan
+	 * menambah satu baris "Selisih Tagihan" sehingga total rincian sama persis
+	 * dengan Tagihan dan Dibayar pada ringkasan.</p>
+	 */
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	private static List<Map<String, Serializable>> selaraskanSnapshotDenganRingkasan(Kegiatan kegiatan,
+			Collection rincianLayar) {
+		List<Map<String, Serializable>> hasil = new ArrayList<Map<String, Serializable>>();
+		double totalTagihanRincian = 0.0;
+		double totalDibayarRincian = 0.0;
+		java.util.LinkedHashSet<String> itemDenganSelisih = new java.util.LinkedHashSet<String>();
+
+		if (rincianLayar != null) {
+			for (Object baris : rincianLayar) {
+				if (!(baris instanceof Map)) {
+					continue;
+				}
+				Map<String, Serializable> salinan = new HashMap<String, Serializable>((Map) baris);
+				hasil.add(salinan);
+				if (salinan.get("biaya") instanceof Number) {
+					totalTagihanRincian += ((Number) salinan.get("biaya")).doubleValue();
+				}
+				if (salinan.get("dibayar") instanceof Number) {
+					totalDibayarRincian += ((Number) salinan.get("dibayar")).doubleValue();
+				}
+				if (salinan.get("sisa") instanceof Number
+						&& Math.abs(((Number) salinan.get("sisa")).doubleValue()) > 0.1
+						&& salinan.get("item_biaya") != null) {
+					itemDenganSelisih.add(salinan.get("item_biaya").toString());
+				}
+			}
+		}
+
+		if (kegiatan == null) {
+			return hasil;
+		}
+
+		Double tagihanRingkasan = ais.action.master.helper.KegiatanPersistenceHelper
+				.hitungTagihanSegarKonsisten(kegiatan);
+		if (tagihanRingkasan == null || tagihanRingkasan.doubleValue() <= 0.1) {
+			tagihanRingkasan = kegiatan.hitungTagihan();
+		}
+		Double dibayarRingkasan = kegiatan.hitungDibayar();
+		double selisihTagihan = (tagihanRingkasan == null ? 0.0 : tagihanRingkasan.doubleValue())
+				- totalTagihanRincian;
+		double selisihDibayar = (dibayarRingkasan == null ? 0.0 : dibayarRingkasan.doubleValue())
+				- totalDibayarRincian;
+
+		if (Math.abs(selisihTagihan) <= 0.1 && Math.abs(selisihDibayar) <= 0.1) {
+			return hasil;
+		}
+
+		Map<String, Serializable> acuan = hasil.isEmpty() ? null : hasil.get(0);
+		Map<String, Serializable> penyesuaian = new HashMap<String, Serializable>();
+		penyesuaian.put("kode", "ADJ");
+		StringBuilder namaSelisih = new StringBuilder("Selisih Tagihan");
+		if (!itemDenganSelisih.isEmpty()) {
+			namaSelisih.append(" (");
+			int panjangMaksimal = 120;
+			for (String namaItem : itemDenganSelisih) {
+				String pemisah = namaSelisih.charAt(namaSelisih.length() - 1) == '(' ? "" : ", ";
+				if (namaSelisih.length() + pemisah.length() + namaItem.length() + 1 > panjangMaksimal) {
+					namaSelisih.append(pemisah).append("item lainnya");
+					break;
+				}
+				namaSelisih.append(pemisah).append(namaItem);
+			}
+			namaSelisih.append(")");
+		}
+		penyesuaian.put("item_biaya", namaSelisih.toString());
+		penyesuaian.put("biaya", Double.valueOf(selisihTagihan));
+		penyesuaian.put("dibayar", Double.valueOf(selisihDibayar));
+		penyesuaian.put("sisa", Double.valueOf(selisihTagihan - selisihDibayar));
+		penyesuaian.put("semester", acuan != null && acuan.get("semester") != null
+				? acuan.get("semester") : kegiatan.getSemster());
+		penyesuaian.put("tahun_ajaran", acuan != null && acuan.get("tahun_ajaran") != null
+				? acuan.get("tahun_ajaran") : kegiatan.getTahunAkademik());
+		penyesuaian.put("nama_kegiatan", kegiatan.getJenisKegiatan() == null ? ""
+				: kegiatan.getJenisKegiatan().getNamaKegiatan());
+		penyesuaian.put("nama_kegiatan_semester",
+				(kegiatan.getJenisKegiatan() == null ? "" : kegiatan.getJenisKegiatan().getNamaKegiatan())
+						+ "-" + kegiatan.getSemster());
+		hasil.add(penyesuaian);
+		return hasil;
+	}
+
 	public static File resizeImage(File file) throws Exception {
 		File fileKecil = new File(file.getParentFile().getAbsolutePath() + "/kecil_" + file.getName());
 		if (!fileKecil.exists()) {
@@ -244,13 +398,20 @@ public class CommonReportHelper {
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static File cetakBuktipembayaranMahasiswa(Kegiatan kegiatan, boolean kirim) {
+		return cetakBuktipembayaranMahasiswa(kegiatan, kirim, null);
+	}
+
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public static File cetakBuktipembayaranMahasiswa(Kegiatan kegiatan, boolean kirim,
+			List<Map<String, Serializable>> rincianLayar) {
 		try {
 			// Samakan tagihan tersimpan dengan tampilan grid layar sebelum mencetak: item biaya
 			// ber-rumus KRS (mis. UTS/UAS/SKS) yang nilainya tidak diinput manual dihitung ulang
 			// mengikuti KRS terkini, lalu kolom (tagihan/amount/amount_terhutang) yang dibaca PDF
 			// diperbarui. Hanya saat ada session web aktif (cetak interaktif), bukan kirim email
 			// terjadwal, agar tidak ada session yang menggantung di thread non-web.
-			if (kegiatan != null && kegiatan.getId() != null && kegiatan.getMahasiswa() != null
+			if (rincianLayar == null && kegiatan != null
+					&& kegiatan.getId() != null && kegiatan.getMahasiswa() != null
 					&& Sessions.getCurrent() != null) {
 				try {
 					ais.action.master.helper.KegiatanPersistenceHelper.segarkanTagihanLive(kegiatan.getId());
@@ -373,8 +534,11 @@ public class CommonReportHelper {
 
 			List<Map> maps = new ArrayList<Map>();
 			List<Long> detailKegiatans = new ArrayList<Long>();
+			boolean gunakanRincianLayar = "Bukti_Pembayaran_Mahasiswa_tagihan".equals(fileReport)
+					&& rincianLayar != null;
 
-			for (DetailKegiatan detailKegiatan : kegiatan.ambilDetailKegiatan(true)) {
+			if (!gunakanRincianLayar)
+				for (DetailKegiatan detailKegiatan : kegiatan.ambilDetailKegiatan(true)) {
 				detailKegiatans.add(detailKegiatan.getId());
 
 				Double jumlah = detailKegiatan.getBiaya();
@@ -447,6 +611,10 @@ public class CommonReportHelper {
 					map.put("keterangan", kegiatan.getKeterangan());
 					maps.add(map);
 				}
+			}
+
+			if (gunakanRincianLayar) {
+				maps = buatParameterBuktiDariRincianLayar(kegiatan, rincianLayar);
 			}
 
 			if (detailKegiatans.isEmpty()) {
@@ -833,6 +1001,12 @@ public class CommonReportHelper {
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static File cetakBuktipembayaranCalonMahasiswa(Kegiatan kegiatan, boolean kirim) {
+		return cetakBuktipembayaranCalonMahasiswa(kegiatan, kirim, null);
+	}
+
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public static File cetakBuktipembayaranCalonMahasiswa(Kegiatan kegiatan, boolean kirim,
+			List<Map<String, Serializable>> rincianLayar) {
 		Session sessionLocal = null;
 		Transaction tx = null;
 		File file = null;
@@ -998,8 +1172,11 @@ public class CommonReportHelper {
 
 			List<Map> maps = new ArrayList<Map>();
 			List<Long> detailKegiatans = new ArrayList<Long>();
+			boolean gunakanRincianLayar = "Bukti_Pembayaran_Calon_Mahasiswa_tagihan".equals(fileReport)
+					&& rincianLayar != null;
 
-			for (DetailKegiatan detailKegiatan : kegiatan.ambilDetailKegiatan(true)) {
+			if (!gunakanRincianLayar)
+				for (DetailKegiatan detailKegiatan : kegiatan.ambilDetailKegiatan(true)) {
 				detailKegiatans.add(detailKegiatan.getId());
 				Double jumlah = detailKegiatan.getBiaya();
 
@@ -1065,6 +1242,10 @@ public class CommonReportHelper {
 					map.put("keterangan", kegiatan.getKeterangan());
 					maps.add(map);
 				}
+			}
+
+			if (gunakanRincianLayar) {
+				maps = buatParameterBuktiDariRincianLayar(kegiatan, rincianLayar);
 			}
 
 			if (detailKegiatans.isEmpty()) {
@@ -5956,6 +6137,9 @@ public class CommonReportHelper {
 			Kegiatan kegiatan = (Kegiatan) val[2];
 
 			if (kegiatan != null && kegiatan.getAktif()) {
+				if (tambahSnapshotTagihan(val, maps)) {
+					continue;
+				}
 
 				Collection<DetailKegiatan> detailKegiatans = kegiatan == null || kegiatan.getId() == null ? null
 						: kegiatan.ambilDetailKegiatan(false);
@@ -6108,6 +6292,16 @@ public class CommonReportHelper {
 
 		parameters.put("maps", maps);
 		Report.generatePDFReport("pdf", parameters, "tagihan", ais.ui.util.WaktuUtil.getDate());
+	}
+
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	private static boolean tambahSnapshotTagihan(Object[] val, List<Map<String, Serializable>> tujuan) {
+		if (val == null || val.length < 4 || !(val[3] instanceof Collection)) {
+			return false;
+		}
+		Kegiatan kegiatan = val[2] instanceof Kegiatan ? (Kegiatan) val[2] : null;
+		tujuan.addAll(selaraskanSnapshotDenganRingkasan(kegiatan, (Collection) val[3]));
+		return true;
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JadwalChecklistPenilaianUmumActio
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/JadwalChecklistPenilaianUmumAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"GrupChecklistPenilaianUmum", "GrupChecklistPenilaianDosen", "GrupChecklistPenilaianGuru", "JadwalChecklistPenilaianUmum", "GrupKuesionerUmum"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

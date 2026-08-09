@@ -1362,6 +1362,14 @@ public class DetailTagihanSiswaHelper implements DataLoader, DataCriteria {
 	@SuppressWarnings("unchecked")
 	public static Criteria initCriteria(Session session, PengaturanBiaya pengaturanBiaya, Siswa siswa, Textbox nama,
 			PengaturanBiayaItemBiaya pengaturanBiayaItemBiaya, boolean sudahBayar, boolean order) {
+		String nilaiNama = nama == null ? "" : nama.getValue();
+		return initCriteriaDenganNama(session, pengaturanBiaya, siswa, nilaiNama,
+				pengaturanBiayaItemBiaya, sudahBayar, order);
+	}
+
+	@SuppressWarnings("unchecked")
+	public static Criteria initCriteriaDenganNama(Session session, PengaturanBiaya pengaturanBiaya, Siswa siswa,
+			String nama, PengaturanBiayaItemBiaya pengaturanBiayaItemBiaya, boolean sudahBayar, boolean order) {
 
 		Criteria criteria = session.createCriteria(Siswa.class).add(Restrictions.isNotNull("namaSiswa"))
 				.add(Restrictions.ne("namaSiswa", "")).add(Restrictions.isNotNull("sekolah"))
@@ -1482,9 +1490,9 @@ public class DetailTagihanSiswaHelper implements DataLoader, DataCriteria {
 						: pengaturanBiaya.getPenjurusanSekolah() == null ? Restrictions.sqlRestriction("true")
 								: Restrictions.eq("penjurusanSekolah", pengaturanBiaya.getPenjurusanSekolah()))
 
-				.add(nama == null || nama.getValue().trim().isEmpty() ? Restrictions.sqlRestriction("1=1")
-						: Restrictions.or(Restrictions.ilike("namaSiswa", nama.getValue().trim(), MatchMode.ANYWHERE),
-								Restrictions.ilike("nomorIndukNasional", nama.getValue().trim(), MatchMode.ANYWHERE)));
+				.add(nama == null || nama.trim().isEmpty() ? Restrictions.sqlRestriction("1=1")
+						: Restrictions.or(Restrictions.ilike("namaSiswa", nama.trim(), MatchMode.ANYWHERE),
+								Restrictions.ilike("nomorIndukNasional", nama.trim(), MatchMode.ANYWHERE)));
 
 		if (order) {
 			criteria.addOrder(Order.asc("namaSiswa")).addOrder(Order.asc("id"));
@@ -1597,7 +1605,8 @@ public class DetailTagihanSiswaHelper implements DataLoader, DataCriteria {
 
 		});
 
-		MyToolbarbuttonConfig buttonTagihan = new MyToolbarbuttonConfig("Singkronkan", "/img/Configure.png");
+		MyToolbarbuttonConfig buttonTagihan = new MyToolbarbuttonConfig("Sinkronkan", "/img/Configure.png");
+		buttonTagihan.setTooltiptext("Sinkronkan ulang data siswa dan tagihan pembayaran dari database");
 		buttonTagihan.addEventListener("onClick", new EventListener() {
 
 			@Override
@@ -1648,7 +1657,7 @@ public class DetailTagihanSiswaHelper implements DataLoader, DataCriteria {
 						try {
 							// Gunakan variabel final yang sudah diekstrak di atas
 							TagihanUtil.doSinkronkanTagihanSiswa(pengaturanBiaya, pengaturanBiayaItemBiaya,
-									pembayaranTerakhir, label, nama, true);
+									pembayaranTerakhir, label, namaBefore, true);
 
 							Thread.sleep(1000);
 

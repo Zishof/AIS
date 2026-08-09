@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JadwalPelajaranAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/JadwalPelajaranAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onMasa", "onLaporanJadwalPelajaran", "doBeforeCompose", "doAfterCompose", "onEvent", "run", "lihatJadwalBentrok", "bentrok", "checkBentrokBerdasarRuangan", "checkBentrokBerdasarKelas", "checkBentrokBerdasarGuru", "render", "onAddExternal", "onAdd", "onAddBerdasarKurikulum", "init", "onSave", "initCriteria", "onSearchDefault", "generateiIntroductoryText", "onCopyJadwalPelajaran", "onDeleteJadwalPelajaran"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/sekolah/masa_jadwal_pelajaran.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"KelasSiswa", "JadwalPelajaran", "KurikulumPunyaMatapelajaran", "Pertemuan", "SubMatapelajaran", "MasaJadwalPelajaran", "JamPelajaran", "Matapelajaran", "KelasSiswaPunyaSiswa", "JadwalPelajaranPunyaItem", "MatapelajaranPunyaBukuBahanAjar", "DataPunyaArtikel"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

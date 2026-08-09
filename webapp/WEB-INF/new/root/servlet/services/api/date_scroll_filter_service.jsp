@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DateScrollFilter");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/DateScrollFilter.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getFilteredDateData", "compare", "main"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

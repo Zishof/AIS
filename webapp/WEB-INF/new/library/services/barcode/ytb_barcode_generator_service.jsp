@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "YtbBarcodeGenerator");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library.barcode");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/barcode/YtbBarcodeGenerator.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateBarcode"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ItemPunyaBarcode"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

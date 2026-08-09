@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DefaultNoUjianGeneratorPegawai");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.recruitment.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/recruitment/helper/DefaultNoUjianGeneratorPegawai.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateNoUjian"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"RuangPegawai", "RuangGelombangPendaftaranPegawaiPegawai", "CalonPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

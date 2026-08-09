@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AlurPersetujuanSuratMasukTreeActi
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.surat");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/surat/AlurPersetujuanSuratMasukTreeAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onAdd", "onSave", "onReloadTree", "render", "openChilds", "closeChilds"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisJabatan", "Jurusan", "AlurPersetujuanSuratMasuk"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

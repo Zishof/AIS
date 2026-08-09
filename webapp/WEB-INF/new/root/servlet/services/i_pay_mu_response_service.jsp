@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "IPayMuResponse");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/IPayMuResponse.java");
 request.setAttribute("nuiServiceMethods", new String[]{"prosesResponse", "prosesTransaksi"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"IpaymuRequest", "IpaymuRequestDetail", "CicilanPembayaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

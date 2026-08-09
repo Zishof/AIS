@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TransaksiMengajarDosen");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.epsbed");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/epsbed/TransaksiMengajarDosen.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Fakultas", "Jurusan", "PerguruanTinggi", "Perkuliahan", "Pertemuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

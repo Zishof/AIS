@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ObeBaseAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.obe");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/obe/ObeBaseAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "onEvent", "ringkasanKeterangan", "namaCellRingkas"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

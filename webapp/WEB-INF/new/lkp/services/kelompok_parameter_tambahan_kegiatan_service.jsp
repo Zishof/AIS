@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KelompokParameterTambahanKegiatan
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.lkp");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/lkp/KelompokParameterTambahanKegiatanAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaKelompokParameterTambahanKegiatan"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KelompokParameterTambahanKegiatan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

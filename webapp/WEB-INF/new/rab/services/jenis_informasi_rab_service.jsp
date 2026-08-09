@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JenisInformasiRabAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/JenisInformasiRabAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkNamaJenisInformasiRab"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisInformasiRab"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

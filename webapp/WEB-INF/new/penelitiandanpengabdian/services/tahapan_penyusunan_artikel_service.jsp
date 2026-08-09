@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TahapanPenyusunanArtikelAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.penelitiandanpengabdian");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/penelitiandanpengabdian/TahapanPenyusunanArtikelAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "isiDataDefault", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault", "checkNamaTahapanPenyusunanArtikel"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"TahapanPenyusunanArtikel"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

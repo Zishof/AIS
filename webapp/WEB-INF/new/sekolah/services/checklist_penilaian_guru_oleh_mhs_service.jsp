@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ChecklistPenilaianGuruOlehMhsActi
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/ChecklistPenilaianGuruOlehMhsAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onIsiAngketGuruSelesai", "doBeforeCompose", "doAfterCompose", "onEvent", "onRefresh", "render", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Siswa", "JadwalPelajaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

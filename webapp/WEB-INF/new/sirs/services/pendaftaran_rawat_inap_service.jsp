@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PendaftaranRawatInapAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/PendaftaranRawatInapAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doAfterCompose", "onEvent", "render", "onDelete", "onAdd", "onSave", "onSearchDefault", "checkKodePendaftaran", "onCetakStatusPasien", "onMonitorKeberadaanTempatTidur"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KelasPerawatan", "Ruang", "Kamar", "JenisPasien", "Bagian", "Pendaftaran", "Pendidikan", "Pasien"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

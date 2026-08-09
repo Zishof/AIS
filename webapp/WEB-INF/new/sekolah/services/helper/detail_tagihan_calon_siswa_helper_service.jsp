@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DetailTagihanCalonSiswaHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/helper/DetailTagihanCalonSiswaHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"render", "onEvent", "onTagihanRinciBaru", "apakahAda", "initCriteria", "loadData", "display", "run", "reloadGrid", "uploadDataCalonSiswa"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/sekolah/tagihan.zul?pengaturanBiaya="});
 request.setAttribute("nuiServiceEntities", new String[]{"CalonSiswa", "PembayaranSiswaDetail", "Tagihan", "NominalBiaya", "DiskonSiswa", "GelombangPendaftaranPsb", "PengaturanBiayaPunyaSiswa", "KelasSiswaPunyaSiswa", "PengaturanBiayaItemBiaya", "Siswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

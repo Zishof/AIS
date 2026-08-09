@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "FakultasAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/FakultasAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "run", "initCriteria", "getDspace", "onSave", "checkNamaFakultas", "checkKodeFakultas", "render"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/berkas_hasil_akreditasi.zul?fakultas="});
 request.setAttribute("nuiServiceEntities", new String[]{"Fakultas", "BerkasHasilAkreditasiPunyaNama", "PerguruanTinggi", "Jabatan", "Staff"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

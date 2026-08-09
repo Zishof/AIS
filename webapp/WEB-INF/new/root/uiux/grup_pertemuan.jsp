@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria");
 request.setAttribute("nuiSourceMethods", new String[]{"onSejarah", "onTampilJenisLayanan", "onTampilGrupPertemuan", "onTugasAkhir", "onSidang", "doBeforeCompose", "doAfterCompose", "onEvent", "initCriteria", "render", "onAdd", "onSave", "loadMahasiswa", "saveDetail", "onSearchDefault", "tampilkanInfoMahasiswa"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/krs_mahasiswa.zul", "/pages/master/jenis_layanan_kepada_mahasiswa.zul", "/pages/master/mahasiswa_request_tugas_akhir.zul", "/pages/master/skripsi.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"PertemuanPunyaGrupPertemuan", "GrupPertemuan", "JenisLayananKepadaMahasiswa", "Jurusan", "Mahasiswa", "MahasiswaRequestTugasAkhir", "Skripsi", "Pertemuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onEkstrakurikuler", "onPraPerkuliahan", "onAbsensiSp", "onAbsensiRemedial", "onLaporanKehadiranDosen", "onLaporanKehadiranMahasiswa", "onLaporanKehadiranAsisten", "onLaporanAbsensiMahasiswa", "onRekapitulasiAbsensiMahasiswa", "onProsesKehadiran", "onRekapitulasiAbsensiMatakuliah", "onRekapitulasiAbsensiPerMahasiswa", "onRekapitulasiAbsensiKelas", "onRekapitulasiAbsensiKelasDanMatakuliah", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/absensi_ekstrakurikuler.zul", "/pages/master/absensi_pra_perkuliahan.zul", "/pages/master/absensi_sp.zul", "/pages/master/absensi_remedial.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"Perkuliahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

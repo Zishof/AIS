@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "FeederImporter");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.feeder.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/feeder/util/FeederImporter.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doImport", "perguruanTinggi", "pekerjaan", "penghasilan", "agama", "jenisEvaluasi", "statusAwalMahasiswa", "wilayah", "kebutuhanKhusus", "jenjang", "ikatanKerjaDosen", "statusKepegawaian", "lembagaPengangkat", "statusPegawai", "golongan", "nilaiHuruf", "fakultas", "grupJurusan", "jurusan", "matakuliah", "kurikulum", "kurikulumPunyaMatakuliah", "mahasiswa", "dosen", "penugasanDosenMengajar"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PerguruanTinggi", "Pekerjaan", "Penghasilan", "Agama", "JenisEvaluasi", "StatusAwalMahasiswa", "Wilayah", "KebutuhanKhusus", "Jenjang", "IkatanKerjaDosen", "StatusKepegawaian", "LembagaPengangkat", "StatusPegawai", "Golongan", "NilaiHuruf", "Fakultas", "GrupJurusan", "Jurusan", "Matakuliah", "Kurikulum", "KurikulumPunyaMatakuliah", "Mahasiswa", "BiodataMahasiswa", "Dosen", "BiodataDosen", "PenugasanDosenMengajar"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

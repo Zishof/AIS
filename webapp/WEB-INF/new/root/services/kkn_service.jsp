@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KknAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/KknAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onStatistik", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Kkn", "ItemBiaya", "JenisAktfitasMahasiswa", "Jurusan", "KomponenPenilaianKkn", "KknPunyaKomponenPenilaianKkn", "PersyaratanKkn", "KknPunyaPersyaratan", "MahasiswaDapatKkn"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

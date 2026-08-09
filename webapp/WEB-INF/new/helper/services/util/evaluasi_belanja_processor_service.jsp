@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "EvaluasiBelanjaProcessor");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/util/EvaluasiBelanjaProcessor.java");
 request.setAttribute("nuiServiceMethods", new String[]{"run", "prosesEvaluasiDanKembalikanNotifikasi", "cekDanKirimNotifikasiPelanggaran", "simpanNotifikasi"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisAnggotaKoperasi", "AnggotaKoperasi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ProyekAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/ProyekAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Proyek"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardTampilanKrsMahasiswa");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.admin");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/admin/DashboardTampilanKrsMahasiswa.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/krs.zul", "/pages/master/nilai_mahasiswa.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

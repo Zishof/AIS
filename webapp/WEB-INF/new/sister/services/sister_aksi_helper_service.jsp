@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "SisterAksiHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sister");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sister/SisterAksiHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"bukaDialogLogin", "onEvent", "bukaDialogPilihDosen"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

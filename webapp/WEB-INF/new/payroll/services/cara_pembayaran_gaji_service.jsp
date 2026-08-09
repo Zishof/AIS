@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CaraPembayaranGajiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.payroll");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/payroll/CaraPembayaranGajiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "checkKode", "checkNama", "init"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"CaraPembayaranGaji"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

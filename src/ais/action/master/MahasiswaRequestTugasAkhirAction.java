@@ -62,6 +62,7 @@ import ais.action.master.helper.AktifitasTugasAkhirHelper;
 import ais.action.master.helper.AmbilDataDosenBanbox;
 import ais.action.master.helper.AmbilDataMahasiswaBanbox;
 import ais.action.master.helper.AmbilJadwalSeminarTugasAkhirBanbox;
+import ais.action.master.helper.KrsDanSkripsiHelper;
 import ais.action.master.helper.RevisiHelper;
 import ais.action.report.Report;
 import ais.action.report.format1.akademik.LaporanRekapitulasiSeminar;
@@ -2271,12 +2272,15 @@ public class MahasiswaRequestTugasAkhirAction extends GenericAutowireComposer
 			}
 		}
 
-		if (!formatNilaiProposalSkripsi.getKodeMatakuliahDan().trim().isEmpty()) {
-			check = Common.checkApakahSudahMengambilKrsSeminarSkripsiDan(mahasiswa,
-					formatNilaiProposalSkripsi.getKodeMatakuliahDan().trim());
-			if (check == null) {
+		String kodeMatakuliahDanEfektif = KrsDanSkripsiHelper.kodeMatakuliahDanEfektif(
+				formatNilaiProposalSkripsi.getKodeMatakuliahDan(),
+				formatNilaiProposalSkripsi.getKodeMatakuliah());
+		if (!kodeMatakuliahDanEfektif.isEmpty()) {
+			Detailperkuliahan checkDan = Common.checkApakahSudahMengambilKrsSeminarSkripsiDan(mahasiswa,
+					kodeMatakuliahDanEfektif);
+			if (checkDan == null) {
 				String mk = "";
-				for (String kode : formatNilaiProposalSkripsi.getKodeMatakuliahDan().split(",")) {
+				for (String kode : kodeMatakuliahDanEfektif.split(",")) {
 					if (!kode.trim().isEmpty()) {
 						Object[] nama = (Object[]) HibernateUtil.currentSession().createCriteria(Matakuliah.class)
 								.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
@@ -2295,6 +2299,9 @@ public class MahasiswaRequestTugasAkhirAction extends GenericAutowireComposer
 						"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, mhs.getNim(),
 						mhs.getNama(), mk);
 				return false;
+			}
+			if (check == null) {
+				check = checkDan;
 			}
 		}
 

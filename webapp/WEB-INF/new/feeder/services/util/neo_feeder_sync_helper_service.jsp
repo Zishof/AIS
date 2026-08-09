@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "NeoFeederSyncHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.feeder.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/feeder/util/NeoFeederSyncHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"entitasDariAksi", "kelasLokalDariEntitas", "hitungLokal", "ambilSemuaTersimpan", "catat", "catatProses"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"NeoFeederSync"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

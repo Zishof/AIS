@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericRevisiHelper<PembayaranSiswaDetail>");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"apply", "bukaTabSeluruhData"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"PembayaranSiswa", "PembayaranSiswaDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

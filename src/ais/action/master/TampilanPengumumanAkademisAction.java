@@ -115,6 +115,7 @@ import ais.database.model.GeneralValueObject;
 import ais.database.model.HasilUjianMahasiswa;
 import ais.database.model.JenisKegiatan;
 import ais.database.model.JenisSeleksi;
+import ais.database.model.JadwalPembayaran;
 import ais.database.model.Jurusan;
 import ais.database.model.KategoriPengumuman;
 import ais.database.model.Kegiatan;
@@ -282,6 +283,56 @@ public class TampilanPengumumanAkademisAction extends GenericAutowireComposer {
 					"auto-audit src/ais/action/master/TampilanPengumumanAkademisAction.java:hitungBiayaRegistrasiCalonMahasiswa");
 		}
 		return total;
+	}
+
+	/**
+	 * Jadwal pembayaran adalah sumber kebenaran untuk membuka pembayaran daftar
+	 * ulang. Batas daftar ulang pada gelombang hanya dipakai sebagai fallback untuk
+	 * data lama yang belum memiliki relasi jadwal pembayaran.
+	 */
+	private static boolean pembayaranDaftarUlangMasihDibuka(BiodataCalonMahasiswa calon, Kegiatan kegiatan) {
+		Date sekarang = WaktuUtil.getDate();
+		JadwalPembayaran jadwalTertaut = kegiatan == null ? null : kegiatan.getJadwalPembayaran();
+
+		if (jadwalTertaut != null) {
+			boolean aktif = jadwalTertaut.getAktif();
+			boolean sudahMulai = jadwalTertaut.getStartDate() == null
+					|| !jadwalTertaut.getStartDate().after(sekarang);
+			boolean belumBerakhir = jadwalTertaut.getEndDate() == null
+					|| !jadwalTertaut.getEndDate().before(sekarang);
+			if (aktif && sudahMulai && belumBerakhir) {
+				return true;
+			}
+		}
+
+		// Kegiatan lama dapat masih menunjuk jadwal yang sudah lewat. Cari jadwal aktif
+		// terbaru agar jadwal baru yang dibuat petugas langsung berlaku di akun calon.
+		try {
+			JenisKegiatan jenis = kegiatan != null && kegiatan.getJenisKegiatan() != null
+					? kegiatan.getJenisKegiatan()
+					: ConstantValues.PENDAFTARAN_ULANG_MAHASISWA_BARU;
+			java.io.Serializable[] hasil = CommonPMB.pembayaranUtil
+					.getJadwalPembayaranDanDendaBerdasarkanTahunAkademik(sekarang, jenis,
+							calon.getJenjang(), calon.getTahunAkademik(), Boolean.TRUE,
+							calon.getJenisSeleksi(), calon.getProgram(), calon.getNoRegistrasi(),
+							calon.getGelombangPendaftaran());
+			if (hasil != null && hasil.length > 0 && hasil[0] instanceof JadwalPembayaran) {
+				return true;
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"TampilanPengumumanAkademisAction.pembayaranDaftarUlangMasihDibuka");
+		}
+
+		// Data lama tanpa relasi jadwal tetap mengikuti batas gelombang seperti semula.
+		if (jadwalTertaut == null && calon.getGelombangPendaftaran() != null
+				&& calon.getGelombangPendaftaran().getTanggalDaftarUlangBerakhir() != null) {
+			Date batasGelombang = calon.getGelombangPendaftaran().getTanggalDaftarUlangBerakhir();
+			return !batasGelombang.before(sekarang)
+					|| Common.dateFormat1.get().format(batasGelombang)
+							.equals(Common.dateFormat1.get().format(sekarang));
+		}
+		return jadwalTertaut == null;
 	}
 
 	/**
@@ -2206,16 +2257,9 @@ public class TampilanPengumumanAkademisAction extends GenericAutowireComposer {
 						bayarDaftarUlang.setVisible(false);
 					}
 				}
-				if (bayarDaftarUlang.isVisible() && biodataCalonMahasiswa.getGelombangPendaftaran() != null
-						&& biodataCalonMahasiswa.getGelombangPendaftaran().getTanggalDaftarUlangBerakhir() != null) {
-					java.util.Date tglBerakhirDU = biodataCalonMahasiswa.getGelombangPendaftaran()
-							.getTanggalDaftarUlangBerakhir();
-					java.util.Date sekarang = ais.ui.util.WaktuUtil.getDate();
-					if (tglBerakhirDU.before(sekarang)
-							&& !Common.dateFormat1.get().format(tglBerakhirDU)
-									.equals(Common.dateFormat1.get().format(sekarang))) {
-						bayarDaftarUlang.setVisible(false);
-					}
+				if (bayarDaftarUlang.isVisible()
+						&& !pembayaranDaftarUlangMasihDibuka(biodataCalonMahasiswa, kegiatanDaftarUlang)) {
+					bayarDaftarUlang.setVisible(false);
 				}
 
 				MyToolbarbutton uploadRegistrasi = new MyToolbarbutton("fa-upload",

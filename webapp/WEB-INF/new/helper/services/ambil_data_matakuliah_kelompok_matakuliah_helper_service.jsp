@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataMatakuliahKelompokMataku
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/AmbilDataMatakuliahKelompokMatakuliahHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "save", "display", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Jenjang", "KelompokMatakuliahPunyaMatakuliah", "Matakuliah"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

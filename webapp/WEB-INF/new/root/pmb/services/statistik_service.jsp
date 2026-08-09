@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "StatistikAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.pmb");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/pmb/StatistikAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onPendaftarSpmb", "onJenisPendidikan", "onPropinsi", "onPerHari"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/pmb/statistik/rekap_pendaftar_spmb.zul", "/pages/pmb/statistik/rekap_pendaftar_spmb_per_jenis_sekolah.zul", "/pages/pmb/statistik/rekap_pendaftar_spmb_propinsi.zul", "/pages/pmb/statistik/rekap_pendaftar_spmb_per_hari.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

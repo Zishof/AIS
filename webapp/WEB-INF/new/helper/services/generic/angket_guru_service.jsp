@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AngketGuruWindow");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.generic");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/generic/AngketGuruWindow.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "render", "onSave"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"ChecklistBaruPenilaianGuruOlehSiswa", "JadwalPelajaran", "GrupChecklistPenilaianGuru", "ChecklistPenilaianGuru", "ParameterTambahanAngketUmum", "IsiAngketParameterUmum"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

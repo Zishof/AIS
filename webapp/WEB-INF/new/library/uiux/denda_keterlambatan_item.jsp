@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onHariLibur", "onKonfigurasi", "uploadDataDenda", "run", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/library/hari_libur_perpustakaan.zul", "/pages/master/library/konfigurasi_perpustakaan.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"DendaKeterlambatanItem", "Perpustakaan", "JenisAnggota", "TipeAnggota", "Fakultas", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

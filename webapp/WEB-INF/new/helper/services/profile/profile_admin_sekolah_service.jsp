@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ProfileAdminSekolah");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.profile");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/profile/ProfileAdminSekolah.java");
 request.setAttribute("nuiServiceMethods", new String[]{"init", "lanjut", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Siswa", "Guru"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

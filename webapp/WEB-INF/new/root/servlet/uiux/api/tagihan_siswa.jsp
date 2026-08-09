@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"hapus_split", "split", "piutang", "tagihan", "pembayaran", "va", "bayarTabunganSiswa", "kelasLes", "subscribeKelasLes", "tabungan", "kelasLesAktif", "pertemuanKelasLes"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/common/smartlink/no_va.zul?siswa="});
 request.setAttribute("nuiEntityCandidates", new String[]{"Tagihan", "CalonSiswa", "PengaturanBiaya", "Siswa", "AkunPembayaranSiswa", "PembayaranSiswa", "KelasLesSiswa", "KelasLesSiswaPunyaSiswa", "JadwalPelajaran", "Pertemuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

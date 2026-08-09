@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MasaKerjaUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.employ.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/employ/helper/MasaKerjaUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"masaKerja", "hitung", "cariGajiPokok"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Konstanta", "Pegawai", "SkorGolongan", "GajiPokok"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

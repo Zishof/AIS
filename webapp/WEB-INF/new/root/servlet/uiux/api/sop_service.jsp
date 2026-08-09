@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"dashboard", "daftar", "detail", "cari", "proses", "batalkanPengajuan", "batalkanLangkah", "cetak", "jenis", "mulaiInfo", "cariEntitas", "ajukan", "compare"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"DisposisiSop", "DisposisiAlurSop", "AlurSop", "ParameterTambahanAlurSop", "DokumenAlurSop", "Sop", "GeneralValueObject", "LampiranLain", "Date", "Boolean", "Number", "Integer", "Long", "Double", "Float", "BigDecimal", "ParameterTambahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

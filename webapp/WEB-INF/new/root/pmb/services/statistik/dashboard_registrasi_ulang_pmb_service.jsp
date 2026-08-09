@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardRegistrasiUlangPmb");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.pmb.statistik");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/pmb/statistik/DashboardRegistrasiUlangPmb.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

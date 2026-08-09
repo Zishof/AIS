@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onAdd", "onCetak", "onSave", "checkKodeChecklistLaporanDetail", "onReloadTree", "render", "openChilds", "closeChilds"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/rab/foto_bukti_checklist_laporan.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"ChecklistLaporanDetail", "FotoBuktiChecklistLaporan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

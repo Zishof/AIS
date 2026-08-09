@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "WorkspaceRevisiBulananAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/WorkspaceRevisiBulananAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onCetak", "onRecovery", "onDeleteWorkspace", "onUploadWorkspace", "onPasteWorkspace", "onCopyWorkspace", "onAdd", "initPercabangan", "hitungTotal", "init", "onSave", "onReloadTree", "render", "openChilds", "closeChilds", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"workspace_revisi.zul?revisi="});
 request.setAttribute("nuiServiceEntities", new String[]{"SatuanKerja", "SumberDana", "Workspace", "UnitOrganisasi", "WorkspacePunyaPegawai", "MetodePengadaan", "HasilSatuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault, DataInitDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onVerifikasiKelengkapanBerkas", "onVerifikasiTambahan", "onKonfigurasiCalonBiodataPegawai", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/recruitment/verifikasi_kelengkapan_calon_pegawai.zul", "/pages/master/recruitment/parameter_verifikasi_calon_pegawai.zul", "/pages/master/konfigurasi_biodata_calon_pegawai.zul", "/pages/pegawai/ujian_pegawai.zul?gelombangPendaftaranPegawai=", "/pages/pegawai/ruang_pegawai.zul?gelombangPendaftaranPegawai=", "/pages/pegawai/jadwal_ujian_pegawai.zul?gelombangPendaftaranPegawai=", "/pages/pegawai/parameter_tambahan_gelombang.zul?gelombangPendaftaranPegawai=", "/pages/pegawai/gelombang_punya_parameter_verifikasi_calon_pegawai.zul?gelombangPendaftaranPegawai="});
 request.setAttribute("nuiEntityCandidates", new String[]{"GelombangPendaftaranPegawai", "VerifikasiKelengkapanCalonPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PengumumanPenelitianAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.penelitiandanpengabdian");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/penelitiandanpengabdian/PengumumanPenelitianAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "kirimEmail", "kirimEmailKeKorespondensi"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PengumumanPenelitian", "Tbmuser", "DiskusiPengumumanPenelitian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

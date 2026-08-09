@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AlurPersetujuanSuratKeluarTreeMod
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.surat.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/surat/helper/AlurPersetujuanSuratKeluarTreeModel.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getChildren", "generateAllChildren", "getChild", "getChildCount", "deleteChilds", "isLeaf", "getParentCount", "getParentSet", "getChildsSet", "getIndexOfChild"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"AlurPersetujuanSuratKeluar"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

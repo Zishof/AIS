@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TerjemahAiHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/TerjemahAiHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"ambilDoc", "simpanDoc"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KamusTerjemah"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

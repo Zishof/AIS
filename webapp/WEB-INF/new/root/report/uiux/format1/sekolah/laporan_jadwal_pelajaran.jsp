@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyWindow");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "generateParameters", "render", "initCriteria", "masukkanData", "onReport"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/sekolah/jenis_laporan_jadwal_sekolah.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"Sekolah", "JenisLaporanJadwalSekolah", "KelasSiswa", "JadwalPelajaran", "KelasSiswaPunyaSiswa", "KelompokJamPelajaran", "Konstanta"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

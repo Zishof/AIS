@@ -1433,6 +1433,38 @@ public class LibraryUtil {
 		}
 		return image;
 	}
+
+	/**
+	 * Mencari anggota dari identitas yang lazim dipakai pada pemindai kartu/buku
+	 * tamu. Pencarian tidak hanya bergantung pada kode anggota karena pengguna
+	 * sering memasukkan NIM/NPM, NIDN, NIP, NIK, atau user ID.
+	 */
+	public static Anggota cariAnggotaDariIdentitas(Session session, String identitas) {
+		String kode = identitas == null ? "" : identitas.trim().toLowerCase();
+		if (session == null || kode.isEmpty()) {
+			return null;
+		}
+		String hql = "select a from Anggota a "
+				+ "left join a.mahasiswa m "
+				+ "left join a.dosen d "
+				+ "left join a.siswa s "
+				+ "left join a.guru g "
+				+ "left join a.pegawai p "
+				+ "left join a.tbmuser u "
+				+ "where lower(a.kode) = :kode "
+				+ "or lower(m.nim) = :kode "
+				+ "or lower(d.code) = :kode "
+				+ "or lower(d.nidn) = :kode "
+				+ "or lower(s.nim) = :kode "
+				+ "or lower(s.nomorInduk) = :kode "
+				+ "or lower(s.nik) = :kode "
+				+ "or lower(g.kode) = :kode "
+				+ "or lower(g.nip) = :kode "
+				+ "or lower(g.nik) = :kode "
+				+ "or lower(p.code) = :kode "
+				+ "or lower(u.userId) = :kode";
+		return (Anggota) session.createQuery(hql).setString("kode", kode).setMaxResults(1).uniqueResult();
+	}
 	
 	
 

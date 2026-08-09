@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AmbilDataProdukKursusBanbox");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.kursus.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/kursus/helper/AmbilDataProdukKursusBanbox.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "getEventListener", "setEventListener", "render", "display", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KomponenProdukKursus", "ProdukKursus"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

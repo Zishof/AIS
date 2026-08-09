@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"render", "onEvent", "save", "displayProses", "display", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/WEB-INF/z/x/y/pages/master/rps_obe.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"Jurusan", "Perkuliahan", "Detailperkuliahan", "PembombotanNilai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

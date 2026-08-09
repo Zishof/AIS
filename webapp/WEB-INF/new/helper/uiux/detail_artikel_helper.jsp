@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "DataLoader, DataCriteria, FormSop");
 request.setAttribute("nuiSourceMethods", new String[]{"form", "onEvent", "istilah", "ambil", "ambilClass", "setPersetujuan", "cetakData", "initdataAwal", "onSave", "displayPengajuan", "run", "initCriteria", "loadDataPengajuan", "displayRow", "render", "setReadonly", "getReadonly", "loadData", "getDspaceArtikel", "getDspaceTahunArtikel", "getDspaceTipeArtikel", "getDspace"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"Artikel", "TingkatArtikel", "ArtikelTerindeks", "JenisPenelitianDanPengabdian", "JurnalPenelitian", "SumberDanaPenelitianDanPengabdian", "JenisJabatanPenelitianDanPengabdian", "Tbmuser", "Mahasiswa", "TahapanPenyusunanArtikel", "LampiranLain", "PenilaianAsesor", "SintaArticle", "ScholarArticle", "FileArtikel", "AnggotaArtikel"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

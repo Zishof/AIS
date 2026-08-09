@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanApi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/LaporanApi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"laporan_absen", "raport_siswa", "catatan_guru", "catatan_kelas_siswa", "catatan_pegawai", "catatan_administrasi", "catatan_siswa", "khs", "warningsKhs", "warningsUas", "warningsUts", "warningsKrs", "krs", "uts", "uas", "transkrip", "ipk", "sertifikatKelasLes", "struk", "slip"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JenisRaporSiswa", "KelasSiswaPunyaSiswa", "JenisCatatanGuru", "JenisCatatanKelasSiswa", "KelasSiswa", "JenisCatatanPegawai", "JenisCatatanAdministrasi", "JenisCatatanSiswa", "BlokirMahasiswa", "SyaratUjian", "Detailperkuliahan", "KelasLesSiswaPunyaSiswa", "PembayaranSiswa", "CalonSiswa", "Siswa", "PembayaranGajiPunyaPegawai", "FormatItemGaji", "Pegawai", "PembayaranGaji", "GajiPokok", "PenilaianKpi", "ParameterTambahanGajiPegawai", "ParameterTambahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

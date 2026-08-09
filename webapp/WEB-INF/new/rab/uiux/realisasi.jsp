@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onRealisasiAnggaran", "onDasborRealisasi", "doBeforeCompose", "doAfterCompose", "onEvent", "onRefreshRealisasi", "onReloadTree", "render", "onCetak", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/rab/penggunaan_anggaran.zul", "/pages/master/akunting/grup_transaksi.zul?workspace=", "/pages/master/rab/penggunaan_anggaran.zul?workspace="});
 request.setAttribute("nuiEntityCandidates", new String[]{"SumberDana", "Workspace", "WorkspacePunyaSasaran", "WorkspacePunyaIndikator"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

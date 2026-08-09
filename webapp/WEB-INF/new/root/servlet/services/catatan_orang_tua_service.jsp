@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CatatanOrangTuaServlet");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/CatatanOrangTuaServlet.java");
 request.setAttribute("nuiServiceMethods", new String[]{});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/common/catatan_orang_tua_terhadap_aktiftas_harian_siswa.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Siswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PaketPsbAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/PaketPsbAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault", "checkNamaPaketPsb"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"PaketPsb"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

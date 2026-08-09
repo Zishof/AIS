@@ -18,6 +18,8 @@ import javax.persistence.TemporalType;
 
 import org.hibernate.annotations.Fetch;
 import org.hibernate.annotations.FetchMode;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 import org.hibernate.envers.Audited;
 
 import ais.database.model.GeneralValueObject;
@@ -89,6 +91,7 @@ public class KurikulumPunyaJenisNilai extends GeneralValueObject {
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@Fetch(FetchMode.SELECT)
+	@NotFound(action = NotFoundAction.IGNORE)
 	@JoinColumn(name = "detail_jenis_penilaian_id")
 	public DetailJenisPenilaian getDetailJenisPenilaian() {
 		return detailJenisPenilaian;

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PegawaiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/PegawaiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onUploadRfid", "onDownloadRfid", "onEvent", "onKartuPegawai", "onSatuanKerja", "doBeforeCompose", "doAfterCompose", "onDownloadFoto", "masakerja", "render", "getKeterangan", "onDownloadFotoMassal", "onUploadFotoMassal", "onAdd", "onAddDosen", "onAddGuru", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/satuan_kerja_pegawai.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Pegawai", "SatuanKerja", "JenisTenagaKependidikan", "StatusPegawai", "Tbmuser", "LogLogin", "FotoDosen", "FotoGuru", "FotoPegawai", "KenaikanPangkat", "GajiPokok", "StatuskehadiranKaryawanHarian"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

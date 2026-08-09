@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "BaseSPMIAction");
 request.setAttribute("nuiSourceImplements", "FormSop");
 request.setAttribute("nuiSourceMethods", new String[]{"doAfterCompose", "onEvent", "onDasbor", "render", "cetakData", "cetak", "onAdd", "init", "form", "tampilRinci", "onSave", "initCriteria", "onSearchDefault", "istilah", "ambil", "ambilClass", "setPersetujuan"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"JenisSPMI", "HasilSPMI", "Jurusan", "StandarSPMI", "ButirMutuSPMI", "IndikatorSPMI", "SkenarioSPMI", "HasilTemuanSPMI"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

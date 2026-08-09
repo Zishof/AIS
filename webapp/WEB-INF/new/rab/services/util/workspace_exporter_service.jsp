@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "WorkspaceExporter");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/util/WorkspaceExporter.java");
 request.setAttribute("nuiServiceMethods", new String[]{"exportXlsx", "updateByIdFromXlsx", "exportBulananXlsx", "updateBulananByIdFromXlsx"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Workspace", "Satuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

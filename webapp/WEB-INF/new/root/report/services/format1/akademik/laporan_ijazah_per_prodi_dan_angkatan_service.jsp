@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "LaporanIjazahPerProdiDanAngkatan"
 request.setAttribute("nuiServiceSourcePackage", "ais.action.report.format1.akademik");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/report/format1/akademik/LaporanIjazahPerProdiDanAngkatan.java");
 request.setAttribute("nuiServiceMethods", new String[]{"generateParameters", "onEvent", "onKHS"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa", "BiodataMahasiswa", "FotoMahasiswaLulus"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

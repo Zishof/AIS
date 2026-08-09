@@ -117,6 +117,7 @@ import ais.action.master.helper.RevisiMahasiswaHelper;
 import ais.action.master.helper.TampilStudiMahasiswaHelper;
 import ais.action.master.helper.impor.ImportFromEpsbedHelper;
 import ais.action.master.helper.util.PerguruanTinggiUtil;
+import ais.action.master.generic.v2.adapter.MahasiswaExistingBusinessRules;
 import ais.action.report.CommonReportHelper;
 import ais.action.report.format1.akademik.LaporanAlbumMahasiswaPerProdiDanAngkatan;
 import ais.action.report.format1.akademik.LaporanFormatEMIS;
@@ -7336,6 +7337,18 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 		mahasiswa.setNamaTionghoa(namaTionghoa.getValue());
 
 		mahasiswa.setProgramSelaluIkutDataUtama(programSelaluIkutDataUtama.isChecked());
+
+		// Sumber aturan bisnis bersama: validasi yang sama juga dijalankan oleh
+		// MahasiswaGenericCrudAdapter pada New UI, tanpa ketergantungan komponen ZK.
+		List<String> newUiSharedRuleErrors = MahasiswaExistingBusinessRules.validate(session, mahasiswa);
+		if (!newUiSharedRuleErrors.isEmpty()) {
+			String firstRuleError = String.valueOf(newUiSharedRuleErrors.get(0));
+			int separator = firstRuleError.indexOf(':');
+			MyMessageboxConfig.show(separator < 0 ? firstRuleError : firstRuleError.substring(separator + 1),
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			return false;
+		}
+		MahasiswaExistingBusinessRules.applyPersistenceDefaults(mahasiswa);
 
 		StatusKeluar sk = (StatusKeluar) (statusKeluar == null || statusKeluar.getSelectedItem() == null ? null
 				: statusKeluar.getSelectedItem().getValue());

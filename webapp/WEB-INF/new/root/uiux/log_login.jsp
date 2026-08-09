@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria");
 request.setAttribute("nuiSourceMethods", new String[]{"onRevisi", "onLogMenuRinci", "onMobile", "tampilDpsaceLog", "onEvent", "onLogNotifikasi", "onKesalahanSistem", "onPerformaSistem", "onCatatanUpload", "onPemakaianMemori", "onPemakaianFlagCache", "onBlacklist", "onDspace", "onKunjunganPenggunaAndroid", "onStatistikKunjunganPengguna", "onLogAktifitasPengguna", "onLogMenuPengguna", "onRekapKunjunganPengguna", "doBeforeCompose", "doAfterCompose", "render", "initCriteria", "onSearchDefault", "onCetakLaporanKunjungan", "onEksporExcelKunjungan", "onProsesEksporXlsxKunjungan"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/revisi.zul", "/pages/master/detail_log_login.zul", "/pages/master/log_mobile.zul", "/pages/master/dspace_log.zul", "/pages/master/notifikasi.zul", "/pages/master/error_log.zul", "/pages/master/performa_log.zul", "/pages/master/upload_log.zul", "/pages/master/memory_info.zul", "/pages/master/flag_cache_info.zul", "/pages/master/blacklistip.zul", "/pages/master/log_login_android.zul?loginFrom=Login+from+Android", "/WEB-INF/z/x/y/pages/master/log_login_tab_0_dasbor.zul", "/WEB-INF/z/x/y/pages/master/log_login_tab_1_login.zul", "/WEB-INF/z/x/y/pages/master/online_users.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"BlacklistIp", "LogLogin"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

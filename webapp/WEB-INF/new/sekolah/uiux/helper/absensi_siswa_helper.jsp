@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"createTombolAbsen", "onEvent", "populateSiswaDariPertemuan", "mainInit", "run", "sesuaikan", "render", "createStatusKehadiran", "boleh", "createStatusKehadiranData"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"PengajuanIzinTidakMasukPerkuliahan", "Statusabsensi", "KelasSiswaPunyaSiswa", "KelasLesSiswaPunyaSiswa", "FormulirKegiatanPeserta", "Siswa", "StatusPertemuan", "Lokasi", "Guru", "Pegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "DataLoader");
 request.setAttribute("nuiSourceMethods", new String[]{"render", "onEvent", "initCriteria", "loadData", "display"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"DataPunyaArtikel", "Artikel"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

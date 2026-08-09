@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyWindow");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onEvent"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/common/dashboard/kurikulum.zul?tahun="});
 request.setAttribute("nuiEntityCandidates", new String[]{"Kurikulum", "Jurusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

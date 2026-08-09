@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "NotifikasiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/NotifikasiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onWa", "onTanyaJawab", "doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/notifikasi_wa.zul", "/pages/master/tanya_jawab.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"Notifikasi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

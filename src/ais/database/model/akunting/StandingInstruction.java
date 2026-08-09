@@ -163,24 +163,18 @@ public class StandingInstruction extends DataSop {
 	}
 
 	public Boolean getAktif() {
-		disposisiSop = getDisposisiSop();
-		if (disposisiSop != null && !disposisiSop.getAktif()) {
-			aktif = false;
-		}
-
-		if (getPembayaranGaji() != null) {
-			aktif = pembayaranGaji.getDisetujuiOleh() != null;
-		}
-
-		if (disposisiSop != null && disposisiSop.getDisposisiEnd() != null
-				&& disposisiSop.getDisposisiEnd().getAlurSop() != null
-				&& disposisiSop.getDisposisiEnd().getAlurSop().getPenolakanAdaDiSini()) {
-			aktif = false;
-		}
-
-		aktif = true;
-
 		return aktif == null ? true : aktif;
+	}
+
+	/** Hitung status bisnis secara eksplisit tanpa membuat getter persistence bermutasi. */
+	public Boolean hitungAktifDariStatus() {
+		DisposisiSop currentDisposisi = getDisposisiSop();
+		if (currentDisposisi != null && !currentDisposisi.getAktif()) return false;
+		if (currentDisposisi != null && currentDisposisi.getDisposisiEnd() != null
+				&& currentDisposisi.getDisposisiEnd().getAlurSop() != null
+				&& currentDisposisi.getDisposisiEnd().getAlurSop().getPenolakanAdaDiSini()) return false;
+		if (getPembayaranGaji() != null) return pembayaranGaji.getDisetujuiOleh() != null;
+		return getAktif();
 	}
 
 	public void setAktif(Boolean aktif) {

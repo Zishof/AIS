@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DokumenAlurSopAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sop");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sop/DokumenAlurSopAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Sop", "DokumenAlurSop"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -78,7 +78,7 @@
                                                     label="Jenis/Fakultas/Prodi" />
                                                 <column use="ais.ui.util.MyColumnConfig" width="9%"
                                                     label="Tahun Akademik/Smt" />
-                                                <column use="ais.ui.util.MyColumnConfig" width="10%"
+                                                <column use="ais.ui.util.MyColumnConfig" width="16%"
                                                     label="Tanggal Pengajuan" />
                                                 <column use="ais.ui.util.MyColumnConfig" width="12%"
                                                     label="Status Persetujuan" />

@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyWindow");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onEvent", "generateParameters", "onLaporanAngketDosenPerDosen"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/rangking_ipd.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"RangkingIpd", "ChecklistBaruPenilaianDosenOlehMahasiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

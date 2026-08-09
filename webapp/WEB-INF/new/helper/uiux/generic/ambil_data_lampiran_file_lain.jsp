@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "MyWindow");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"render", "onEvent", "createScanFoto", "createScanLayar", "ambilFile", "mappingInstanceData", "createRekamAudio", "tampilkanTombolUpload", "tampilkanTombolUploadGDrive", "tampilkanTombolUploadDropbox", "bolehDriveAtauLink", "display", "initCriteria", "onSearchDefault", "setEventListener", "getEventListener"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/capture.jsp?lokasi=false&mobile=", "/capture_video.jsp?lokasi=false&mobile=", "/capture_screen.jsp?lokasi=false&mobile=", "/capture_audio.jsp?lokasi=false&mobile="});
 request.setAttribute("nuiEntityCandidates", new String[]{"FotoMahasiswa", "FotoMahasiswaLulus", "FotoBiodataCalonMahasiswa", "FotoDosen", "FotoPegawai", "FotoSiswa", "FotoCalonSiswa", "KlasifikasiSuratKeluarParemeter", "FotoCalonPegawai", "BiodataCalonMahasiswa", "Mahasiswa", "Dosen", "Pegawai", "Tbmuser"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

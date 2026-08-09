@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "WisudaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/WisudaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onStatistik", "onGenerateNoKursi", "onPesertaWisuda", "onAlbumWisuda", "onAlbumProfile", "onTranskipWisuda", "doBeforeCompose", "doAfterCompose", "onEvent", "onAdd", "onSave", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Wisuda"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

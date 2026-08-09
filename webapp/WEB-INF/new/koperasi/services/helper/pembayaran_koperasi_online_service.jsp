@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "PembayaranKoperasiOnline");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.koperasi.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/koperasi/helper/PembayaranKoperasiOnline.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent", "doAfterCompose"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/koperasi/pembayaran_anggota_koperasi.zul", "/pages/master/virtual_account_bank.zul?1=1", "/pages/master/koperasi/cetak_struk.jsp?id="});
 request.setAttribute("nuiServiceEntities", new String[]{"AnggotaKoperasi", "Siswa", "Mahasiswa", "CaraPembayaranKoperasi", "PembayaranAnggotaKoperasi", "TransaksiKoperasiDetail", "PembayaranAnggotaKoperasiDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

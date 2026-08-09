@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataInitDefault, DataCriteria, DataSearchDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onDokumen", "onDokumenPenyedia", "doBeforeCompose", "onEvent", "doAfterCompose", "onInfo", "onAddExternalDaftar", "render", "onAddExternal", "init", "onAdd", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/recruitment/verifikasi_kelengkapan_calon_pegawai.zul", "/pages/master/recruitment/calon_pegawai_punya_verifikasi_dokumen.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"CalonPegawai", "Tbmuser", "CalonPegawaiPunyaDokumen", "LampiranLain", "VerifikasiKelengkapanCalonPegawai", "Agama", "GelombangPendaftaranPegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

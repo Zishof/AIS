@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "OldAkunTreeModel");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.akunting.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/akunting/util/OldAkunTreeModel.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getChildren", "getChild", "getChildCount", "isLeaf", "getIndexOfChild"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Akun"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

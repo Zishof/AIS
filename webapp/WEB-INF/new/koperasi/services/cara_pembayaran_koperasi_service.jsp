@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CaraPembayaranKoperasiAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.koperasi");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/koperasi/CaraPembayaranKoperasiAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "muat", "onEvent", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault", "checkNamaCaraPembayaranKoperasi"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/WEB-INF/z/x/y/pages/master/koperasi/cara_pembayaran_koperasi_tab_0.zul", "/WEB-INF/z/x/y/pages/master/sekolah/kanal_pembayaran.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"CaraPembayaranKoperasi", "Koperasi", "KanalPembayaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KelasLesSiswaAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/KelasLesSiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onMasa", "onSertifikat", "doBeforeCompose", "doAfterCompose", "onEvent", "run", "render", "onAdd", "init", "onSave", "initCriteria", "onSearchDefault", "initPengaturanBiaya"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/sekolah/masa_jadwal_pelajaran.zul", "/pages/master/sertifikat.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"KelasLesSiswa", "KelasLesSiswaPunyaSiswa", "Siswa", "PengaturanBiaya", "JenisBiayaSekolah", "Sertifikat", "Matapelajaran", "MasaJadwalPelajaran"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "KoreksiHasilUjian");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/KoreksiHasilUjian.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initCriteria", "loadData", "render", "onEvent", "display", "selesai", "kumpulkanEssay", "bangunKonteksUjian", "promptKoreksiEssay", "terapkanKoreksiEssay", "kumpulkanPg", "promptKoreksiPg", "terapkanKoreksiPg"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"HasilUjianMahasiswaDetail", "UjianPunyaSoal", "BankSoalDetail", "HasilUjianMahasiswa", "CapaianPembelajaranLulusan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

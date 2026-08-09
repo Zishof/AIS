@@ -309,7 +309,7 @@ try {
     // Fungsi Pengambilan Data Master secara Paralel untuk Filter (Perpustakaan, Jenis, dan Tipe)
     async function loadMasterData<%=rnd%>() {
         try {
-            const reqPerpus = { "action": "daftar", "tanpaLogin":"true", "class": "<%=ais.database.model.library.Perpustakaan.class.getName()%>", "max": 100, "order1": "asc", "sort1": "nama" };
+            const reqPerpus = { "action": "daftar", "tanpaLogin":"true", "class": "<%=ais.database.model.library.Perpustakaan.class.getName()%>", "where1": "(aktif is null or aktif = true)", "max": 100, "order1": "asc", "sort1": "nama" };
             const pPerpus = fetch(apiUrl<%=rnd%>, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(reqPerpus) }).then(res => res.json());
 
             const reqJenis = { "action": "daftar", "tanpaLogin":"true", "class": "<%=ais.database.model.library.JenisItem.class.getName()%>", "max": 100, "order1": "asc", "sort1": "nama" };
@@ -344,7 +344,7 @@ try {
 
     // Fungsi Penyusunan SQL Filter berdasarkan form yang diinput
     function buildFilterSQL<%=rnd%>() {
-        let condition = " WHERE 1=1 AND a.qty > 0 AND a.kode_transaksi = 6 AND b.aktif = true ";
+        let condition = " WHERE 1=1 AND a.qty > 0 AND a.kode_transaksi = 6 AND (b.aktif IS NULL OR b.aktif = true) AND (b.status_terbit_item IS NULL OR b.status_terbit_item IN (SELECT id FROM library.status_terbit_item WHERE lower(nama) IN ('terbit', 'publish'))) ";
         
         // Membaca Nilai Pencarian Dasar
         const elJudul = document.getElementById("filterJudul<%=rnd%>");

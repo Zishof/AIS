@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ProsesTransferAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.akunting");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/akunting/ProsesTransferAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "init", "onAddExternal", "onSave", "initCriteria", "onSearchDefault", "form", "istilah", "ambil", "ambilClass", "setPersetujuan", "cetakData", "cetak"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/akunting/proses_transfer.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"ProsesTransfer", "DaftarPengajuanTransfer", "DisposisiAlurSop", "Tbmuser", "PembayaranTerminMasterAssetDetail", "Transitori", "CaraPembayaranTransfer"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

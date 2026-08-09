@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "AktifitasGrupPertemuanHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/AktifitasGrupPertemuanHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initAgendaGrupPertemuan", "onEvent", "initDetail", "loadData", "generateParameters", "run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"KrsMahasiswa", "Mahasiswa", "Fakultas", "Pertemuan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

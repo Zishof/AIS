@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DasboardNeracaLajur");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.akunting");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/akunting/DasboardNeracaLajur.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/akunting/grup_transaksi.zul?akun="});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

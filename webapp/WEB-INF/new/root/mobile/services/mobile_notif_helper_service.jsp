@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "MobileNotifHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.mobile");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/mobile/MobileNotifHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"displayTitle", "load", "count", "openListener", "onEvent", "open", "loadData"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

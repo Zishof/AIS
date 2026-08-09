@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "SekolahUtil");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/util/SekolahUtil.java");
 request.setAttribute("nuiServiceMethods", new String[]{"ambilSatuanKerjas", "getYayasan", "getSekolah", "getSekolahMedia", "getYayasanMedia"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"SatuanKerja"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

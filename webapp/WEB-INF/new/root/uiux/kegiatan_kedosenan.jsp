@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"onDasbor", "onKelompokKegiatanKedosenan", "onRekapBerdasarJabatan", "onForm", "onRekapBerdasarSkala", "onRekapBerdasarKelompok", "onRekapBerdasarDetailKelompok", "onUploadData", "run", "onEvent", "doBeforeCompose", "doAfterCompose", "initCriteria", "render", "onAdd", "onAddExternal", "checkNamaAgama", "onSave", "onSearchDefault"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/kelompok_kegiatan_kedosenan.zul", "/pages/master/formulir_kegiatan.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"KegiatanKedosenan", "Dosen", "JabatanKegiatanKedosenan", "KegiatanKedosenanPunyaDosen", "KelompokKegiatanKedosenan", "DetailKelompokKegiatanKedosenan", "Jurusan", "Sertifikat", "DosenAction"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

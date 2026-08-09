@@ -98,7 +98,9 @@ public class NilaiDefaultKpi extends GeneralValueObject {
 
 	@Column(name = "nama", nullable = false, length = 255)
 	public String getNama() {
-		nama = getPegawai() == null ? null : getPegawai().getNama();
+		if (getPegawai() != null) {
+			nama = getPegawai().getNama();
+		}
 		return this.nama == null ? null : this.nama.trim();
 	}
 

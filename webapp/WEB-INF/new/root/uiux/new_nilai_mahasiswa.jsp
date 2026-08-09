@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"onNilaiSp", "onAsisten", "onTampilKHS", "onTampilTranskripAkademik", "onTampilRekamanNilai", "doBeforeCompose", "doAfterCompose", "onEvent", "onSearchDefaultKeDatabase", "onSearchDefault", "muat"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/pages/master/nilai_mahasiswa_sp.zul", "/pages/master/penilaian.zul"});
 request.setAttribute("nuiEntityCandidates", new String[]{"MahasiswaJadiAsisten"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

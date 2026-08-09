@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JabatanFungsionalTreeModel");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.employ.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/employ/util/JabatanFungsionalTreeModel.java");
 request.setAttribute("nuiServiceMethods", new String[]{"getChildren", "generateAllChildren", "getChild", "getChildCount", "deleteChilds", "isLeaf", "getParentCount", "getParentSet", "getChildsSet", "getIndexOfChild"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"JabatanFungsional"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

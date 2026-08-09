@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardTampilkanDataHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.dashboard.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/dashboard/helper/DashboardTampilkanDataHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"run"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

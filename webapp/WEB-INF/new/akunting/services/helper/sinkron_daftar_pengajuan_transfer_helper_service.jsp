@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "SinkronDaftarPengajuanTransferHel
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.akunting.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/akunting/helper/SinkronDaftarPengajuanTransferHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"sinkronkan", "run", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"UangMuka", "KasBesar", "DanaTalangan", "PenggantianKasKecil", "JenisKasKecil", "PengajuanTransaksiPegawai", "TransaksiKoperasi", "PembayaranDpMasterAssetDetail", "PembayaranTerminMasterAssetDetail", "PembayaranPengadaanMasterAssetDetail", "SaldoAwalMasterAsset", "Pertangungjawaban", "PertangungjawabanKasBesar", "Pajak", "Tagihan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

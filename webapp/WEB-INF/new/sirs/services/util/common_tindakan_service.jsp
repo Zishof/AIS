@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CommonTindakan");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sirs.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sirs/util/CommonTindakan.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onUploadBiaya", "run", "onEvent", "onDownloadBiaya", "saveDetail", "initHargaJual"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Tindakan", "JenisTindakan", "TarifKhususPunyaTindakan", "KelasPerawatan", "JenisBiaya", "Biaya"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

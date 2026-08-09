@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "CatatanApi");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.servlet.api");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/servlet/api/CatatanApi.java");
 request.setAttribute("nuiServiceMethods", new String[]{"jenisSiswa", "parameter", "daftar", "detail", "simpan", "hapus"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"CatatanSiswa", "JenisCatatanSiswa", "ParameterTambahanCatatanSiswa", "ParameterTambahan", "Siswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

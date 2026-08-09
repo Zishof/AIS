@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "BkdPengajaranHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.bkd.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/bkd/helper/BkdPengajaranHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"populate"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Perkuliahan", "AsesorPegawai", "AsesemenPenilaian", "Detailperkuliahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

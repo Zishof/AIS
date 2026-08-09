@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TerimaPengadaanItemAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.library");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/library/TerimaPengadaanItemAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "onCetak", "render", "onAdd", "generateDetail", "onSave", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"TerimaPengadaanItem", "TerimaPengadaanItemDetail", "TransferPengadaanItemDetail"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

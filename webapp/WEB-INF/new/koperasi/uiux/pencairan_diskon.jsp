@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericCrudAction<PencairanDiskon>");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"initCriteria", "onEvent", "onSave", "render"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"PencairanDiskon", "AnggotaKoperasi", "Toko", "CaraPembayaranKoperasi"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

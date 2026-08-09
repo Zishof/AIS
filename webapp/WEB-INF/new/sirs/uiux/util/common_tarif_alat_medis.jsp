@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"getBiayaAlatMedisPerKelas", "getTarifKhususPunyaAlatMedis", "getJenisBiayas", "getBiayaPerJenis"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"TarifKhususPunyaAlatMedis", "BiayaAlatMedisPerKelas", "Biaya", "JenisBiaya"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

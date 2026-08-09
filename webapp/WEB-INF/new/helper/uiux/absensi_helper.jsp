@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"createTombolAbsen", "onEvent", "populateMahasiswaDariPertemuan", "mainInit", "run", "sesuaikan", "render", "createStatusKehadiran", "boleh", "bolehKonfirmasi", "bolehKonfirmasiRps", "bolehOlehAkademik", "createStatusKehadiranData", "createStatusKehadiranKonfirmasi", "createStatusSesuaiDenganRpsKonfirmasi", "createStatusSesuaiOlehAkademik"});
-request.setAttribute("nuiLegacyRefs", new String[]{"/read_qr_code_kartu.jsp?q=", "/read_rfid_kartu.jsp?q="});
 request.setAttribute("nuiEntityCandidates", new String[]{"Statusabsensi", "ProdukPeserta", "PesertaKursus", "HasilUjianMahasiswa", "BiodataCalonMahasiswa", "RuangPaketPMB", "Detailperkuliahan", "FormulirKegiatanPeserta", "Mahasiswa", "PendaftaranWisuda", "MahasiswaDapatKelompokKkn", "MahasiswaDapatKelompokPkl", "StatusPertemuan", "Lokasi", "Dosen", "DetailKelasPertemuan", "Pegawai", "Pertemuan", "KelasPertemuan", "PengajuanIzinTidakMasukPerkuliahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

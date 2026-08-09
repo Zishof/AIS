@@ -18,7 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "");
 request.setAttribute("nuiSourceImplements", "");
 request.setAttribute("nuiSourceMethods", new String[]{"reloadFormula", "onEvent", "reloadDetail", "reloadDataFormula"});
-request.setAttribute("nuiLegacyRefs", new String[]{});
 request.setAttribute("nuiEntityCandidates", new String[]{"TipePeserta", "JenisIdentitasPeserta", "JenisPeserta", "KomponenDataProdukKursus", "KomponenProdukKursus"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />

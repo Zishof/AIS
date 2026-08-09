@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "TugasPunyaPredecessorHelper");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.rab.helper");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/rab/helper/TugasPunyaPredecessorHelper.java");
 request.setAttribute("nuiServiceMethods", new String[]{"initDetail", "onEvent", "initRow"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"TugasPunyaPredecessor"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

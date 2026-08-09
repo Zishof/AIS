@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "ProfileMahasiswa");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.helper.profile");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/helper/profile/ProfileMahasiswa.java");
 request.setAttribute("nuiServiceMethods", new String[]{"init", "onEvent", "buat", "getThis"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/pages/master/krs.zul?pass=true", "/pages/master/krs_paket.zul?pass=true", "/pages/master/nilai_mahasiswa.zul?pass=true", "/pages/master/absensi_mahasiswa.zul?pass=true", "/pages/master/pertemuan.zul?pass=true", "/pages/master/prestasi_mahasiswa.zul?mahasiswa=", "/pages/master/penghargaan_mahasiswa.zul?mahasiswa="});
 request.setAttribute("nuiServiceEntities", new String[]{"FormulirKegiatan", "JenisFormulirKegiatan", "KegiatanKemahasiswaanPunyaMahasiswa", "OrganisasiIntraKampusPunyaMahasiswa", "PrestasiMahasiswa", "PenghargaanMahasiswa", "Detailperkuliahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

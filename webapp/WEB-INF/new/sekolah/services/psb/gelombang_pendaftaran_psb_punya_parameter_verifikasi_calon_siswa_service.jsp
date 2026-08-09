@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "GelombangPendaftaranPsbPunyaParam
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah.psb");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/psb/GelombangPendaftaranPsbPunyaParameterVerifikasiCalonSiswaAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "render", "onEvent", "onAdd", "onSave", "onSearchDefault"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"GelombangPendaftaranPsb", "ParameterVerifikasiCalonSiswa", "GelombangPendaftaranPsbPunyaParameterVerifikasiCalonSiswa"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

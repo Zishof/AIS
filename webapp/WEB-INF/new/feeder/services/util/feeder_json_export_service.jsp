@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "FeederJSONExport");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.feeder.util");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/feeder/util/FeederJSONExport.java");
 request.setAttribute("nuiServiceMethods", new String[]{"proses", "mahasiswa_pt", "mahasiswa", "kelas_kuliah", "kurikulumPunyaMatakuliah", "kurikulum", "nilaiHuruf", "matakuliah", "dosen_pt", "ajar_dosen", "nilai", "nilai_transfer", "krs", "kuliah_mahasiswa", "main"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"Mahasiswa", "Perkuliahan", "KurikulumPunyaMatakuliah", "Kurikulum", "NilaiHuruf", "Jurusan", "NilaiHurufExport", "Matakuliah", "PenugasanDosenMengajar", "Pertemuan", "Detailperkuliahan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

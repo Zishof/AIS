@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "DashboardAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/DashboardAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"onSarjana", "doBeforeCompose", "doAfterCompose", "onEvent"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{"/dashboard_s1.zul"});
 request.setAttribute("nuiServiceEntities", new String[]{"LaporanStatusAkreditasiProdi_A_2_4_6", "LaporanProfileMahasiswa_A_3_1_5", "LaporanLayananKepadaMahasiswa_A_3_1_8", "LaporanPrestasiMahasiswa_A_3_1_11", "LaporanProfileMahasiswaDanLulusan_A_3_2_1", "LaporanProfileMahasiswaDanLulusan_A_3_2_2", "LaporanProfileMahasiswaDanLulusan_A_3_2_4", "LaporanDosenInstitusi_A_4_3_1", "LaporanDosenInstitusi_A_4_3_2", "LaporanKegiatanDosen_A_4_4", "LaporanDosenInstitusi_A_4_5_1", "LaporanDanaInstitusi_A_6_1_4", "LaporanDanaInstitusi_A_6_1_5", "LaporanDanaInstitusi_A_6_1_6", "LaporanDanaInstitusi_A_6_1_7", "LaporanLahanInstitusi_A_6_2_2", "LaporanPrasaranaInstitusi_A_6_2_3A", "LaporanPrasaranaInstitusi_A_6_2_3B", "LaporanPrasaranaInstitusi_A_6_2_4", "LaporanPustaka_A_6_2_5", "LaporanAksesbilitas_A_6_2_7", "LaporanPenelitianDosen_A_7_1_2", "LaporanPenelitianDosen_A_7_1_3", "LaporanPenelitianDosen_A_7_1_4", "LaporanKaryaDosen_A_7_1_5", "LaporanPengabdianDosen_A_7_2_2", "LaporanKerjasamaDalamNegeri_A_7_3_2", "LaporanKerjasamaLuarNegeri_A_7_3_3"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

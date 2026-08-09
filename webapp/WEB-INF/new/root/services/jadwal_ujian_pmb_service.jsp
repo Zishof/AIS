@@ -13,7 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "JadwalUjianPMBAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/JadwalUjianPMBAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "render", "onAdd", "onSave", "initCriteria", "onSearchDefault", "init"});
-request.setAttribute("nuiServiceLegacyRefs", new String[]{});
 request.setAttribute("nuiServiceEntities", new String[]{"UjianPMB", "Paket", "Pertemuan", "JadwalUjianPMB", "RuangPMB"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />
