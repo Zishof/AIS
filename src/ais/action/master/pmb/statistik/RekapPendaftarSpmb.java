@@ -28,6 +28,7 @@ import org.zkoss.zul.Row;
 
 import org.zkoss.zul.Rows;
 import org.zkoss.zul.SimpleListModel;
+import org.zkoss.zul.Tab;
 import org.zkoss.zul.Tabpanel;
 import org.zkoss.zul.Vbox;
 
@@ -105,6 +106,7 @@ public class RekapPendaftarSpmb extends GenericAutowireComposer {
 	private DashboardRegistrasiUlangPmb dashboardRegistrasi;
 
 	private Tabpanel dasborJalur;
+	private Tab tabDasborJalur;
 	private DashboardJalurMasukPmb dashboardJalur;
 
 	private Tabpanel dasborRekapMultiTahun;
@@ -345,7 +347,15 @@ public class RekapPendaftarSpmb extends GenericAutowireComposer {
 		searchTahunAjaran.addEventListener("onChange", gelombangEventListener);
 
 		onSearchDefault(null);
-		onDasbor(null);
+		if (execution.getParameter("dashboard") != null
+				&& "jalur".equalsIgnoreCase(execution.getParameter("dashboard"))) {
+			if (tabDasborJalur != null) {
+				tabDasborJalur.setSelected(true);
+			}
+			onDasborJalur(null);
+		} else {
+			onDasbor(null);
+		}
 
 		if (find != null) {
 			MyToolbarbuttonConfig toolbarbutton = new MyToolbarbuttonConfig("Download", "/img/print.png");
