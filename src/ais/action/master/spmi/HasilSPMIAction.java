@@ -326,7 +326,7 @@ public class HasilSPMIAction extends BaseSPMIAction implements FormSop {
             actionHbox.setParent(row);
 
             MyToolbarbuttonConfig downloadAmi = new MyToolbarbuttonConfig("Unduh AMI", "/img/excel.png");
-            downloadAmi.setTooltiptext("Unduh seluruh lembar AMI dalam satu XLSX: cover, indikator, ringkasan, kesiapan bukti, dan temuan tidak memenuhi");
+            downloadAmi.setTooltiptext("Unduh format umum AMI satu XLSX: petunjuk, identitas, satu tabel seluruh indikator, ringkasan, dan referensi pilihan");
             downloadAmi.setOrient("vertical");
             downloadAmi.addEventListener("onClick", new EventListener() {
                 @Override
@@ -348,7 +348,7 @@ public class HasilSPMIAction extends BaseSPMIAction implements FormSop {
             downloadAmi.setParent(actionHbox);
 
             MyToolbarbuttonConfig uploadAmi = new MyToolbarbuttonConfig("Upload AMI", "/img/upload.png");
-            uploadAmi.setTooltiptext("Upload kembali satu XLSX AMI; seluruh identitas, indikator, dan nilai divalidasi sebelum satu transaksi disimpan");
+            uploadAmi.setTooltiptext("Upload format AMI V2 atau format lama V1; ID teknis boleh kosong jika teks indikator dan bukti cocok unik dengan master aktif");
             uploadAmi.setOrient("vertical");
             uploadAmi.setVisible(canEdit);
             uploadAmi.setUpload(Common.ukuranFileUpload());
