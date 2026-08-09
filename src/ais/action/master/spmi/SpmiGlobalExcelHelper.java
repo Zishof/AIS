@@ -14,22 +14,26 @@ import java.util.Set;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.hibernate.criterion.Order;
-import org.zkoss.poi.ss.usermodel.Cell;
-import org.zkoss.poi.ss.usermodel.CellStyle;
-import org.zkoss.poi.ss.usermodel.DataValidation;
-import org.zkoss.poi.ss.usermodel.DataValidationConstraint;
-import org.zkoss.poi.ss.usermodel.DataValidationHelper;
-import org.zkoss.poi.ss.usermodel.Font;
-import org.zkoss.poi.ss.usermodel.IndexedColors;
-import org.zkoss.poi.ss.usermodel.Row;
-import org.zkoss.poi.ss.util.CellRangeAddress;
-import org.zkoss.poi.ss.util.CellRangeAddressList;
-import org.zkoss.poi.xssf.usermodel.XSSFCellStyle;
-import org.zkoss.poi.xssf.usermodel.XSSFDataValidationHelper;
-import org.zkoss.poi.xssf.usermodel.XSSFFont;
-import org.zkoss.poi.xssf.usermodel.XSSFRow;
-import org.zkoss.poi.xssf.usermodel.XSSFSheet;
-import org.zkoss.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.DataValidation;
+import org.apache.poi.ss.usermodel.DataValidationConstraint;
+import org.apache.poi.ss.usermodel.DataValidationHelper;
+import org.apache.poi.ss.usermodel.BorderStyle;
+import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
+import org.apache.poi.ss.usermodel.IndexedColors;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.VerticalAlignment;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.ss.util.CellRangeAddressList;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
+import org.apache.poi.xssf.usermodel.XSSFDataValidationHelper;
+import org.apache.poi.xssf.usermodel.XSSFFont;
+import org.apache.poi.xssf.usermodel.XSSFRow;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import ais.common.ConstantValues;
 import ais.database.hibernate.HibernateUtil;
@@ -454,12 +458,12 @@ public final class SpmiGlobalExcelHelper {
             XSSFFont white = wb.createFont(); white.setBold(true); white.setColor(IndexedColors.WHITE.getIndex());
             XSSFFont dark = wb.createFont(); dark.setBold(true); dark.setColor(IndexedColors.DARK_BLUE.getIndex());
             XSSFFont normal = wb.createFont();
-            title = style(wb, white, IndexedColors.DARK_BLUE); title.setAlignment(CellStyle.ALIGN_CENTER);
-            header = style(wb, white, IndexedColors.TEAL); header.setAlignment(CellStyle.ALIGN_CENTER);
+            title = style(wb, white, IndexedColors.DARK_BLUE); title.setAlignment(HorizontalAlignment.CENTER);
+            header = style(wb, white, IndexedColors.TEAL); header.setAlignment(HorizontalAlignment.CENTER);
             body = style(wb, normal, IndexedColors.WHITE); input = style(wb, normal, IndexedColors.LIGHT_YELLOW);
-            inputCenter = style(wb, normal, IndexedColors.LIGHT_YELLOW); inputCenter.setAlignment(CellStyle.ALIGN_CENTER);
+            inputCenter = style(wb, normal, IndexedColors.LIGHT_YELLOW); inputCenter.setAlignment(HorizontalAlignment.CENTER);
             note = style(wb, dark, IndexedColors.LIGHT_CORNFLOWER_BLUE);
         }
-        private static XSSFCellStyle style(XSSFWorkbook wb, Font font, IndexedColors fill) { XSSFCellStyle st = wb.createCellStyle(); st.setFont(font); st.setFillForegroundColor(fill.getIndex()); st.setFillPattern(CellStyle.SOLID_FOREGROUND); st.setBorderBottom(CellStyle.BORDER_THIN); st.setBorderTop(CellStyle.BORDER_THIN); st.setBorderLeft(CellStyle.BORDER_THIN); st.setBorderRight(CellStyle.BORDER_THIN); st.setVerticalAlignment(CellStyle.VERTICAL_TOP); st.setWrapText(true); return st; }
+        private static XSSFCellStyle style(XSSFWorkbook wb, Font font, IndexedColors fill) { XSSFCellStyle st = wb.createCellStyle(); st.setFont(font); st.setFillForegroundColor(fill.getIndex()); st.setFillPattern(FillPatternType.SOLID_FOREGROUND); st.setBorderBottom(BorderStyle.THIN); st.setBorderTop(BorderStyle.THIN); st.setBorderLeft(BorderStyle.THIN); st.setBorderRight(BorderStyle.THIN); st.setVerticalAlignment(VerticalAlignment.TOP); st.setWrapText(true); return st; }
     }
 }
