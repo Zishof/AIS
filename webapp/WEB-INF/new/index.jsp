@@ -4,6 +4,7 @@
 <%@ page import="ais.common.newui.menu.NewUiHybridMenuAccessService" %><%@ page import="ais.common.newui.menu.NewUiHybridMenuCatalogService" %>
 <%@ page import="ais.common.newui.menu.NewUiHybridMenuNode" %><%@ page import="ais.common.newui.menu.NewUiHybridMenuRouteGuard" %>
 <%@ page import="ais.common.newui.menu.NewUiHybridMenuRouteRegistry" %><%@ page import="ais.common.newui.menu.NewUiHybridMenuSnapshot" %>
+<%@ page import="ais.common.newui.menu.NewUiNativeJspResolver" %>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%!
 private String nuiShellH(Object v){if(v==null)return "";return String.valueOf(v).replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&#39;");}
@@ -45,8 +46,12 @@ if(groupMenuId!=null){
     else if(NewUiHybridMenuRouteRegistry.NOT_MAPPED.equals(menuStatus)){httpStatus=404;target="/WEB-INF/new/_shared/menu/not_mapped.jsp";}
     else if(NewUiHybridMenuRouteRegistry.NEW_UI.equals(menuStatus)){
         module=selected.getNewUiModule();pageName=selected.getNewUiPage()==null?"index":selected.getNewUiPage();
-        if((requestedModule!=null&&!nuiEqual(requestedModule,module))||(requestedPage!=null&&!nuiEqual(requestedPage,pageName))){httpStatus=403;target="/WEB-INF/new/_shared/ui/403.jsp";}
-        else target="/WEB-INF/new/"+module+(service?"/services/":"/uiux/")+pageName+(service?"_service.jsp":".jsp");
+        if("_shared".equals(module)&&"native_menu".equals(pageName)){
+            NewUiNativeJspResolver.Result nativeRoute=NewUiNativeJspResolver.resolve(application,selected.getExistingUrl(),service);
+            if(nativeRoute==null){target="/WEB-INF/new/_shared/"+(service?"services/native_menu_service.jsp":"uiux/native_menu.jsp");}
+            else{module=nativeRoute.getModule();pageName=nativeRoute.getPage();target=nativeRoute.getTarget();request.setAttribute("nui_native_module",module);request.setAttribute("nui_native_page",pageName);}
+        }else target="/WEB-INF/new/"+module+(service?"/services/":"/uiux/")+pageName+(service?"_service.jsp":".jsp");
+        if(httpStatus==200&&((requestedModule!=null&&!nuiEqual(requestedModule,module))||(requestedPage!=null&&!nuiEqual(requestedPage,pageName)))){httpStatus=403;target="/WEB-INF/new/_shared/ui/403.jsp";}
     }
 }else if(service||requestedModule!=null||requestedPage!=null){
     httpStatus=403;target="/WEB-INF/new/_shared/ui/403.jsp";

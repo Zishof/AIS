@@ -21,6 +21,15 @@ public final class NewUiRouteGuard {
         NewUiHybridMenuSnapshot snapshot = NewUiMenuAccessService.getSnapshot(request);
         String status = NewUiHybridMenuRouteGuard.evaluateMenu(snapshot, menuId);
         NewUiHybridMenuNode node = menuId == null ? null : snapshot.findAssigned(menuId);
+        if (NewUiHybridMenuRouteRegistry.NEW_UI.equals(status) && node != null
+                && "_shared".equals(node.getNewUiModule()) && "native_menu".equals(node.getNewUiPage())) {
+            String nativeModule = String.valueOf(request.getAttribute("nui_native_module"));
+            String nativePage = String.valueOf(request.getAttribute("nui_native_page"));
+            String wanted = page == null || page.length() == 0 ? "index" : page;
+            if (module != null && module.equals(nativeModule) && wanted.equals(nativePage)) {
+                return NewUiRouteRegistry.MAPPED_AND_AUTHORIZED;
+            }
+        }
         if (NewUiHybridMenuRouteRegistry.NEW_UI.equals(status)
                 && node != null && module != null && module.equals(node.getNewUiModule())) {
             String wanted = page == null || page.length() == 0 ? "index" : page;
