@@ -1958,10 +1958,6 @@ public class AktifitasPerkuliahanHelper {
 							}
 						}
 					});
-					// Default: tidak ada tab terpilih — panel semua tersembunyi sampai user klik.
-					tabpanelReferensi.setVisible(false);
-					tabbox.setSelectedIndex(-1);
-
 					final Tabpanel tabpanelJurnalParalel = new ais.ui.util.MyTabpanel();
 					tabpanelJurnalParalel.setParent(tabpanels);
 					tabJurnal.addEventListener("onClick", new EventListener() {
@@ -2371,6 +2367,12 @@ public class AktifitasPerkuliahanHelper {
 
 						}
 					});
+
+					// Saat menu "Lap." baru dibuka, ZK menandai tab pertama secara visual tetapi tidak
+					// mengirim onClick. Akibatnya panel Rencana Perkuliahan aktif namun kosong. Jalankan
+					// listener yang sama setelah seluruh pasangan Tab/Tabpanel selesai dibuat agar konten
+					// pertama langsung terpasang dalam keadaan panel sudah terlihat.
+					org.zkoss.zk.ui.event.Events.sendEvent(new Event("onClick", tabMonitor));
 
 				}
 			}
