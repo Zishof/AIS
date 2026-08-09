@@ -1562,10 +1562,10 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 												Detailperkuliahan dpkKunci = (Detailperkuliahan) GeneralValueObject
 														.ambilData(Detailperkuliahan.class, idSnapshotKunci.toString());
 												if (dpkKunci != null) {
-													// perkuliahan masih terbuka -> getDetailNilai()/getDetailNilaiTambahan()
-													// mengembalikan nilai LIVE (detailNilai), bukan snapshot.
-													dpkKunci.setDetailNilaiKunci(dpkKunci.getDetailNilai());
-													dpkKunci.setDetailNilaiTambahanKunci(dpkKunci.getDetailNilaiTambahan());
+													// Perkuliahan masih terbuka: bekukan detail komponen sekaligus
+													// total, huruf, IP, kelulusan, dan nilai sementara ke kolom
+													// snapshot masing-masing sebelum status global dipasang.
+													dpkKunci.bekukanSemuaNilai();
 													Common.refreshUpdate(dpkKunci);
 												}
 											}
