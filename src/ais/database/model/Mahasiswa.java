@@ -1539,11 +1539,12 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 	public Integer currentTahapan() {
 		Integer currentTahapan = 0;
 		if (ConstantValues.aktifkanTahapan && currentSemester() > 0
-				&& ConstantValues.getJumlahTahapan(getProgram(), getJurusan()) > 2) {
+				&& ConstantValues.getJumlahTahapan(getProgram(), getJurusan()).intValue() > 2) {
 			try {
 				String bln = Common.BULAN[ais.ui.util.WaktuUtil.getCalendar().get(Calendar.MONTH)];
-				currentTahapan = Common.poulateTahapan(program, jurusan, currentSemester(), getSemesterMulai())
+				Integer tahapanBulan = Common.poulateTahapan(program, jurusan, currentSemester(), getSemesterMulai())
 						.get(bln);
+				currentTahapan = tahapanBulan == null ? Integer.valueOf(0) : tahapanBulan;
 				System.out.println("==> currentTahapan " + currentTahapan + ", bln ");
 			} catch (Exception e) {
 				Common.tampilErrorJikaAdmin(e);
@@ -1556,11 +1557,12 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 	public Integer currentTahapan(Integer semester) {
 
 		Integer currentTahapan = 0;
-		if (ConstantValues.aktifkanTahapan && semester > 0
-				&& ConstantValues.getJumlahTahapan(getProgram(), getJurusan()) > 2) {
+		if (ConstantValues.aktifkanTahapan && semester != null && semester.intValue() > 0
+				&& ConstantValues.getJumlahTahapan(getProgram(), getJurusan()).intValue() > 2) {
 			try {
 				String bln = Common.BULAN[ais.ui.util.WaktuUtil.getCalendar().get(Calendar.MONTH)];
-				currentTahapan = Common.poulateTahapan(program, jurusan, semester, getSemesterMulai()).get(bln);
+				Integer tahapanBulan = Common.poulateTahapan(program, jurusan, semester, getSemesterMulai()).get(bln);
+				currentTahapan = tahapanBulan == null ? Integer.valueOf(0) : tahapanBulan;
 				System.out.println("==> currentTahapan " + currentTahapan + ", bln ");
 			} catch (Exception e) {
 				Common.tampilErrorJikaAdmin(e);
