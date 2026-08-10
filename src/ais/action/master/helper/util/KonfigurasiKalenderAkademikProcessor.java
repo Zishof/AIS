@@ -255,6 +255,21 @@ public class KonfigurasiKalenderAkademikProcessor extends TimerTask {
 	}
 
 	private static void applyOneChange(Session session, ConfigChange change, String fase) {
+		// KE-FIX (ConstraintViolationException "duplicate key ... konfigurasi_pkey" saat commit,
+		// mis. konfigurasi_id=986): baris Konfigurasi yang sama bisa juga sedang diedit lewat
+		// layar admin (KonfigurasiAction dkk) tepat saat processor latar ini berjalan. Karena
+		// session ini dipakai berulang lintas-iterasi (dibuka sekali di applyChanges, session.clear()
+		// hanya melepas objek Java dari persistence context -- TIDAK membuka koneksi/transaksi baru),
+		// tabrakan tulis-bersamaan pada baris yang sama bisa membuat flush/commit gagal dengan
+		// exception yang membingungkan meski data sebenarnya konsisten setelah pihak lain selesai.
+		// Ini murni kontensi sesaat (bukan bug data), jadi aman & tepat untuk dicoba ulang SEKALI
+		// dengan membaca ulang nilai TERKINI dari DB pada sesi/transaksi yang baru -- alih-alih
+		// langsung menyerah untuk satu konfigurasi_id yang datanya sebenarnya baik-baik saja.
+		applyOneChangeWithRetry(session, change, fase, true);
+	}
+
+	private static void applyOneChangeWithRetry(Session session, ConfigChange change, String fase,
+			boolean bolehRetry) {
 		Transaction transaction = null;
 		try {
 			if (session == null || change == null || change.konfigurasiId == null) {
@@ -284,11 +299,33 @@ public class KonfigurasiKalenderAkademikProcessor extends TimerTask {
 			transaction.commit();
 		} catch (Exception e) {
 			rollbackQuietly(transaction);
+			clearSessionQuietly(session);
+			if (bolehRetry && isConstraintViolation(e)) {
+				applyOneChangeWithRetry(session, change, fase, false);
+				return;
+			}
 			Common.tampilErrorJikaAdmin(new Exception("Gagal update konfigurasi kalender akademik fase " + fase
 					+ " untuk konfigurasi_id=" + (change == null ? null : change.konfigurasiId), e));
 		} finally {
 			clearSessionQuietly(session);
 		}
+	}
+
+	private static boolean isConstraintViolation(Throwable e) {
+		Throwable t = e;
+		int guard = 0;
+		while (t != null && guard++ < 12) {
+			String className = t.getClass().getName();
+			if (className.indexOf("ConstraintViolationException") >= 0) {
+				return true;
+			}
+			String msg = t.getMessage() == null ? "" : t.getMessage().toLowerCase();
+			if (msg.indexOf("duplicate key") >= 0 || msg.indexOf("unique constraint") >= 0) {
+				return true;
+			}
+			t = t.getCause();
+		}
+		return false;
 	}
 
 	private static boolean equalsString(String a, String b) {

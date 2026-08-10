@@ -461,6 +461,19 @@ public class InitIndex {
 				|| lowerSql.endsWith("." + tableName);
 	}
 
+	private static boolean isOutOfMemory(Throwable e) {
+		Throwable t = e;
+		int guard = 0;
+		while (t != null && guard++ < 12) {
+			String msg = t.getMessage() == null ? "" : t.getMessage().toLowerCase(java.util.Locale.ENGLISH);
+			if (msg.indexOf("out of memory") >= 0) {
+				return true;
+			}
+			t = t.getCause();
+		}
+		return false;
+	}
+
 	private static boolean isSqlTabelHibernateStreaming(String sql) {
 		if (sql == null) {
 			return false;
@@ -520,6 +533,21 @@ public class InitIndex {
 									+ " gagal walau statement_timeout sudah diperpanjang (10 menit). "
 									+ "Statistik planner tabel ini mungkin belum ter-update. Penyebab: "
 									+ abaikan.getMessage());
+						}
+						// KE-FIX (PSQLException "out of memory" saat CREATE INDEX ... USING gin (... gin_trgm_ops)
+						// pada tabel besar, mis. disposisi_alur_sop.properti): ini keterbatasan resource
+						// server Postgres (maintenance_work_mem terlalu kecil utk membangun index GIN
+						// trigram di kolom tsb), BUKAN bug kode -- statement-nya sendiri sudah benar & sudah
+						// idempoten (IF NOT EXISTS). Tetap ditelan (jangan hentikan startup aplikasi lain di
+						// thread ini) tapi beri diagnosis yang jelas & actionable, drpd cuma masuk log generik
+						// yg sulit ditelusuri operator.
+						if (isOutOfMemory(abaikan)) {
+							System.err.println("PERINGATAN: " + sEksekusi
+									+ " gagal karena server PostgreSQL kehabisan memori saat membangun index. "
+									+ "Index ini TIDAK terbentuk (pencarian pada kolom terkait akan tetap berjalan, "
+									+ "hanya lebih lambat). Solusi: naikkan parameter 'maintenance_work_mem' pada "
+									+ "konfigurasi server PostgreSQL (postgresql.conf) lalu jalankan ulang statement "
+									+ "ini secara manual, atau restart aplikasi setelah parameter dinaikkan.");
 						}
 						ais.common.ErrorAuditUtil.record(abaikan, "auto-audit(empty-catch) src/ais/common/InitIndex.java:437");
 					}

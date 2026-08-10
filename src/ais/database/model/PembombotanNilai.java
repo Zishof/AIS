@@ -407,11 +407,20 @@ public class PembombotanNilai extends GeneralValueObject {
 									bobot = Double.parseDouble(jsonObject.get("bobot") + "");
 								}
 
-								StatusPertemuan statusPertemuan = StatusPertemuan.ambilByNama(kode);
 								// Cari FormatNilai lewat kodeSubCpmk (key dari formula JSON) dulu
 								// karena lebih stabil daripada relasi statusPertemuan yang ID-nya bisa
 								// berbeda antara satu proses hitung ulang dengan proses berikutnya.
 								String keyStr = jsonObject.isNull("key") ? "" : (jsonObject.get("key") + "");
+								// KE-FIX (PSQLException NOT NULL "status_pertemuan" saat INSERT FormatNilai
+								// baru, mis. entri "evaluasi sub CPMK"): entri formula sub-CPMK OBE sering
+								// TIDAK mengisi "kode" (hanya "key"/"nama") -- StatusPertemuan.ambilByNama("")
+								// pulang null karena guard string kosongnya sendiri, padahal method ini akan
+								// SELALU auto-create+simpan StatusPertemuan baru bila diberi nama yang tidak
+								// kosong. Jatuhkan ke keyStr lalu nama sebagai nama StatusPertemuan pengganti
+								// supaya FormatNilai baru tidak pernah dibuat dengan statusPertemuan null.
+								String namaStatusPertemuan = !kode.trim().isEmpty() ? kode
+										: (!keyStr.trim().isEmpty() ? keyStr : nama);
+								StatusPertemuan statusPertemuan = StatusPertemuan.ambilByNama(namaStatusPertemuan);
 								FormatNilai formatNilai = null;
 								if (!keyStr.isEmpty()) {
 									formatNilai = (FormatNilai) session.createCriteria(FormatNilai.class)
