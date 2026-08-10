@@ -615,6 +615,17 @@ public class DasboardSPMI extends Div {
                 });
             }
         });
+
+        MyToolbarbuttonConfig panduan = new MyToolbarbuttonConfig("Panduan Lengkap SPMI", "/img/help.gif");
+        panduan.setTooltiptext("Buka tutorial langkah demi langkah SPMI dan Audit Mutu Internal");
+        panduan.setParent(bar);
+        panduan.addEventListener("onClick", new EventListener() {
+            @Override
+            public void onEvent(Event e) throws Exception {
+                ais.action.master.helper.BantuanHelper.tampilkanDariResource(
+                        e.getTarget(), "hasil_spmi", "Panduan Lengkap SPMI dan AMI");
+            }
+        });
     }
 
     private void readFilter() {

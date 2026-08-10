@@ -32,7 +32,7 @@
 									<div sclass="ais-crud-filter-actions">
 										<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="add" label="Tambah" image="/img/new.gif" tooltiptext="Tambah data baru" forward="onClick=onAdd"/>
 										<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="find" label="Cari" image="/img/search.gif" tooltiptext="Cari data" forward="onClick=onSearchDefault"/>
-<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;hasil_spmi&quot;, &quot;Bantuan&quot;);"/></div>
+<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Panduan Lengkap SPMI" image="/img/help.gif" tooltiptext="Tutorial langkah demi langkah SPMI dan AMI" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;hasil_spmi&quot;, &quot;Panduan Lengkap SPMI dan AMI&quot;);"/></div>
 								</div>
 								<div sclass="ais-crud-filter-body">
 									<grid use="ais.ui.util.MyGrid" fixedLayout="true" sclass="ais-crud-filter-grid">
