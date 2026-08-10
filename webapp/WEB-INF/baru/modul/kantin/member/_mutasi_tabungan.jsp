@@ -28,6 +28,17 @@ String rnd = Common.getGeneratedBarCode(7);
             </h4>
             <p class="text-muted small mb-0"><%=Common.getBahasaConfig("Urutan mutasi tabungan anggota: uang masuk, uang keluar, saldo per penabung, dan saldo total berjalan.")%></p>
         </div>
+        <div class="d-flex gap-2 flex-wrap justify-content-center">
+            <button class="btn btn-outline-success rounded-pill px-3 shadow-sm fw-bold" onclick="downloadExcelMutasi<%=rnd%>()" title="<%=Common.getBahasaConfig("Unduh Excel")%>">
+                <i class="fas fa-file-excel me-1"></i><%=Common.getBahasaConfig("Download")%>
+            </button>
+            <button class="btn btn-outline-warning rounded-pill px-3 shadow-sm fw-bold" onclick="showUploadModalMutasi<%=rnd%>()" title="<%=Common.getBahasaConfig("Unggah Excel Topup/Koreksi")%>">
+                <i class="fas fa-file-upload me-1"></i><%=Common.getBahasaConfig("Upload")%>
+            </button>
+            <button class="btn btn-outline-secondary rounded-pill px-3 shadow-sm fw-bold" onclick="cetakPdfMutasi<%=rnd%>()" title="<%=Common.getBahasaConfig("Cetak PDF")%>">
+                <i class="fas fa-file-pdf me-1"></i><%=Common.getBahasaConfig("Cetak PDF")%>
+            </button>
+        </div>
     </div>
 
     <!-- FILTER SECTION -->
@@ -138,10 +149,37 @@ String rnd = Common.getGeneratedBarCode(7);
 
 </div>
 
+<!-- MODAL: UPLOAD EXCEL TOPUP/KOREKSI (masuk ke public.deposit, sama spt tab Topup) -->
+<div class="modal fade" id="modalUploadExcelMutasi<%=rnd%>" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 shadow-lg">
+            <div class="modal-header bg-light border-bottom-0 pb-3">
+                <h5 class="modal-title fw-bold text-dark">
+                    <i class="fas fa-file-upload text-warning me-2"></i><%=Common.getBahasaConfig("Unggah Data Topup/Koreksi Saldo")%>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 pt-2 text-center">
+                <p class="text-muted small mb-4"><%=Common.getBahasaConfig("Kolom wajib: KODE_ANGGOTA, NOMINAL (boleh negatif utk pengeluaran manual). Opsional: WAKTU (YYYY-MM-DD HH:mm:ss), KETERANGAN. Ekstensi yang didukung: .xls, .xlsx")%></p>
+                <input class="form-control mb-3" type="file" id="fileUploadExcelMutasi<%=rnd%>" accept=".xls,.xlsx">
+                <div id="uploadStatusBoxMutasi<%=rnd%>" class="alert alert-info py-2" style="display: none;"></div>
+                <div class="mt-4">
+                    <button type="button" class="btn btn-light px-4 me-2 rounded-pill fw-semibold" data-bs-dismiss="modal"><%=Common.getBahasaConfig("Batal")%></button>
+                    <button type="button" class="btn btn-warning text-dark px-4 rounded-pill fw-bold shadow-sm" id="btnProsesUploadMutasi<%=rnd%>" onclick="prosesUploadExcelMutasi<%=rnd%>()">
+                        <i class="fas fa-cogs me-2"></i><%=Common.getBahasaConfig("Proses Data")%>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     // ==========================================
     // VARIABEL GLOBAL
     // ==========================================
+    const masterClassMutasiUpload<%=rnd%> = "ais.database.model.Deposit";
+    let modalInstanceUploadMutasi<%=rnd%> = null;
     let currentPageMutasi<%=rnd%> = 1;
     const limitPerPageMutasi<%=rnd%> = 10;
     let dataMutasiLengkap<%=rnd%> = []; // seluruh baris hasil filter (paging dilakukan di client, spt Pesanan/Produk)
@@ -402,6 +440,198 @@ String rnd = Common.getGeneratedBarCode(7);
             currentPageMutasi<%=rnd%>++;
             renderTabelMutasi<%=rnd%>();
         }
+    };
+
+    // ==========================================
+    // DOWNLOAD EXCEL (ekspor ledger yg sedang ditampilkan)
+    // ==========================================
+    const downloadExcelMutasi<%=rnd%> = () => {
+        if (dataMutasiLengkap<%=rnd%>.length === 0) {
+            showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Tidak ada data untuk diunduh. Silakan saring data terlebih dahulu.")%>', 'bg-warning text-dark');
+            return;
+        }
+        const rows = dataMutasiLengkap<%=rnd%>.map(r => ({
+            NAMA_ANGGOTA: r.nama_anggota || '',
+            TANGGAL: formatTanggalMutasi<%=rnd%>(r.waktu),
+            JENIS_MUTASI: r.jenis_mutasi || '',
+            KETERANGAN: r.keterangan || '',
+            MASUK_DEBIT: parseFloat(r.masuk) || 0,
+            KELUAR_KREDIT: parseFloat(r.keluar) || 0,
+            SALDO_PER_PENABUNG: parseFloat(r.saldo_per_penabung) || 0,
+            SALDO_TOTAL: parseFloat(r.saldo_total) || 0
+        }));
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Mutasi Tabungan");
+        const tglAwal = document.getElementById('searchDateStartMutasi<%=rnd%>').value;
+        const tglAkhir = document.getElementById('searchDateEndMutasi<%=rnd%>').value;
+        XLSX.writeFile(wb, "Mutasi_Tabungan_" + tglAwal + "_sd_" + tglAkhir + ".xlsx");
+    };
+
+    // ==========================================
+    // UPLOAD EXCEL (bulk entri topup/koreksi ke public.deposit)
+    // ==========================================
+    const showUploadModalMutasi<%=rnd%> = () => {
+        document.getElementById('fileUploadExcelMutasi<%=rnd%>').value = '';
+        const statusBox = document.getElementById('uploadStatusBoxMutasi<%=rnd%>');
+        statusBox.style.display = 'none';
+        statusBox.innerHTML = '';
+        if (modalInstanceUploadMutasi<%=rnd%> === null) {
+            modalInstanceUploadMutasi<%=rnd%> = new bootstrap.Modal(document.getElementById('modalUploadExcelMutasi<%=rnd%>'));
+        }
+        modalInstanceUploadMutasi<%=rnd%>.show();
+    };
+
+    const cariIdAnggotaByKodeMutasi<%=rnd%> = async (kode) => {
+        if (!kode) return null;
+        const safeKode = String(kode).trim().replace(/'/g, "''");
+        const sql = "SELECT id FROM koperasi.anggota_koperasi WHERE kode = '" + safeKode + "' LIMIT 1";
+        const res = await fetchApiMutasi<%=rnd%>({ action: "sql", sql: sql });
+        return (res.data && res.data[0]) ? res.data[0].id : null;
+    };
+
+    const prosesUploadExcelMutasi<%=rnd%> = () => {
+        const fileInput = document.getElementById('fileUploadExcelMutasi<%=rnd%>');
+        const file = fileInput.files[0];
+        if (!file) {
+            showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Pilih file Excel terlebih dahulu!")%>', 'bg-warning text-dark');
+            return;
+        }
+
+        const btnProcess = document.getElementById('btnProsesUploadMutasi<%=rnd%>');
+        const statusBox = document.getElementById('uploadStatusBoxMutasi<%=rnd%>');
+        btnProcess.disabled = true;
+        btnProcess.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span><%=Common.getBahasaConfig("Membaca File...")%>';
+        statusBox.style.display = 'block';
+        statusBox.className = 'alert alert-info py-2 small';
+        statusBox.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Mengekstrak data baris demi baris...';
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const excelRows = XLSX.utils.sheet_to_json(firstSheet, {defval: ""});
+
+                if (excelRows.length === 0) {
+                    throw new Error("File Excel Kosong atau format tidak sesuai.");
+                }
+
+                let berhasil = 0;
+                let gagal = 0;
+                const pesanGagal = [];
+
+                for (let i = 0; i < excelRows.length; i++) {
+                    const row = excelRows[i];
+                    statusBox.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Memproses baris ' + (i + 1) + ' dari ' + excelRows.length + '...';
+
+                    const kodeAnggota = row['KODE_ANGGOTA'] ? String(row['KODE_ANGGOTA']).trim() : '';
+                    const nominal = parseFloat(row['NOMINAL']) || 0;
+                    const waktu = row['WAKTU'] ? String(row['WAKTU']).trim() : '';
+
+                    const idAnggota = await cariIdAnggotaByKodeMutasi<%=rnd%>(kodeAnggota);
+                    if (!idAnggota) {
+                        gagal++;
+                        pesanGagal.push('Baris ' + (i + 2) + ': kode anggota "' + kodeAnggota + '" tidak ditemukan.');
+                        continue;
+                    }
+                    if (nominal === 0) {
+                        gagal++;
+                        pesanGagal.push('Baris ' + (i + 2) + ': nominal kosong/nol.');
+                        continue;
+                    }
+
+                    const dataObj = {
+                        anggotaKoperasi: idAnggota,
+                        nominal: nominal,
+                        waktu: waktu ? waktu : undefined,
+                        keterangan: row['KETERANGAN'] || ''
+                    };
+
+                    try {
+                        const result = await fetchApiMutasi<%=rnd%>({ action: "simpanDataRinci", class: masterClassMutasiUpload<%=rnd%>, data: dataObj });
+                        if (result.status === '00' || result.status === 'success' || result.id) {
+                            berhasil++;
+                        } else {
+                            gagal++;
+                            pesanGagal.push('Baris ' + (i + 2) + ': ' + (result.description || 'gagal disimpan.'));
+                        }
+                    } catch (errBaris) {
+                        gagal++;
+                        pesanGagal.push('Baris ' + (i + 2) + ': kesalahan koneksi.');
+                    }
+                }
+
+                if (gagal === 0) {
+                    statusBox.className = 'alert alert-success py-2 small fw-bold';
+                    statusBox.innerHTML = '<i class="fas fa-check-circle me-2"></i>' + berhasil + ' baris berhasil disimpan!';
+                } else {
+                    statusBox.className = 'alert alert-warning py-2 small';
+                    statusBox.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>' + berhasil + ' berhasil, ' + gagal + ' gagal.<br>' +
+                        pesanGagal.slice(0, 5).join('<br>') + (pesanGagal.length > 5 ? '<br>... dan ' + (pesanGagal.length - 5) + ' lainnya.' : '');
+                }
+
+                showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Upload selesai.")%>', gagal === 0 ? 'bg-success text-white' : 'bg-warning text-dark');
+                resetAndLoadMutasi<%=rnd%>();
+                if (gagal === 0) {
+                    setTimeout(() => { modalInstanceUploadMutasi<%=rnd%>.hide(); }, 1500);
+                }
+            } catch (error) {
+                console.error("Upload Error:", error);
+                statusBox.className = 'alert alert-danger py-2 small';
+                statusBox.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Terjadi Kesalahan: ' + error.message;
+            } finally {
+                btnProcess.disabled = false;
+                btnProcess.innerHTML = '<i class="fas fa-cogs me-2"></i><%=Common.getBahasaConfig("Proses Data")%>';
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    };
+
+    // ==========================================
+    // CETAK PDF (print-friendly popup window)
+    // ==========================================
+    const cetakPdfMutasi<%=rnd%> = () => {
+        if (dataMutasiLengkap<%=rnd%>.length === 0) {
+            showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Tidak ada data untuk dicetak. Silakan saring data terlebih dahulu.")%>', 'bg-warning text-dark');
+            return;
+        }
+        const tglAwal = document.getElementById('searchDateStartMutasi<%=rnd%>').value;
+        const tglAkhir = document.getElementById('searchDateEndMutasi<%=rnd%>').value;
+
+        let baris = '';
+        dataMutasiLengkap<%=rnd%>.forEach(r => {
+            baris += '<tr>' +
+                '<td>' + (r.nama_anggota || '-') + '</td>' +
+                '<td>' + formatTanggalMutasi<%=rnd%>(r.waktu) + '</td>' +
+                '<td>' + (r.jenis_mutasi || '') + '</td>' +
+                '<td>' + (r.keterangan || '') + '</td>' +
+                '<td style="text-align:right;">' + (r.masuk > 0 ? formatRpMutasi<%=rnd%>(r.masuk) : '-') + '</td>' +
+                '<td style="text-align:right;">' + (r.keluar > 0 ? formatRpMutasi<%=rnd%>(r.keluar) : '-') + '</td>' +
+                '<td style="text-align:right;">' + formatRpMutasi<%=rnd%>(r.saldo_per_penabung) + '</td>' +
+                '</tr>';
+        });
+
+        const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Mutasi Tabungan</title>' +
+            '<style>body{font-family:Arial,sans-serif;font-size:11px;padding:16px;} h3{margin-bottom:4px;} p{margin-top:0;color:#555;} ' +
+            'table{width:100%;border-collapse:collapse;} th,td{border:1px solid #ccc;padding:5px 7px;} th{background:#f0f0f0;text-align:left;}</style>' +
+            '</head><body>' +
+            '<h3><%=Common.getBahasaConfigJS("Mutasi Tabungan (Buku Besar)")%></h3>' +
+            '<p>' + tglAwal + ' s/d ' + tglAkhir + '</p>' +
+            '<table><thead><tr>' +
+            '<th><%=Common.getBahasaConfigJS("Nama")%></th><th><%=Common.getBahasaConfigJS("Tanggal")%></th>' +
+            '<th><%=Common.getBahasaConfigJS("Jenis Mutasi")%></th><th><%=Common.getBahasaConfigJS("Keterangan")%></th>' +
+            '<th><%=Common.getBahasaConfigJS("Masuk (Debit)")%></th><th><%=Common.getBahasaConfigJS("Keluar (Kredit)")%></th>' +
+            '<th><%=Common.getBahasaConfigJS("Saldo Per Penabung")%></th>' +
+            '</tr></thead><tbody>' + baris + '</tbody></table>' +
+            '<script>window.onload = function(){ window.print(); };<' + '/script>' +
+            '</body></html>';
+
+        const jendela = window.open('', '_blank');
+        jendela.document.open();
+        jendela.document.write(html);
+        jendela.document.close();
     };
 
     // ==========================================
