@@ -41,6 +41,7 @@ import ais.database.model.koperasi.JenisAnggotaKoperasi;
 import ais.database.model.koperasi.KodePembayaranOnline;
 import ais.database.model.koperasi.MejaKantin;
 import ais.database.model.koperasi.PembelianAnggotaKoperasi;
+import ais.database.model.koperasi.TipeAnggotaKoperasi;
 import ais.ui.util.WaktuUtil;
 
 /**
@@ -472,6 +473,41 @@ public class KantinHelper {
 						hasil.put("status", "91");
 						hasil.put("description", split.pesanError);
 						return;
+					}
+
+					// Gerbang batas hutang (2026-08-10): kalau salah satu SLOT pembayaran memakai cara
+					// bayar yg ditandai CaraPembayaranKoperasi.masukSebagaiHutang, transaksi ini menambah
+					// piutang toko ke anggota -- WAJIB dicek terhadap TipeAnggotaKoperasi.maksimalBolehUtang
+					// SEBELUM transaksi ditulis (bukan sesudah), supaya anggota tidak bisa menumpuk hutang
+					// melewati batas tipenya. Dilewati kalau tak ada anggota (transaksi umum/kasir tanpa
+					// member selalu lunas tunai/non-tunai, bukan hutang perorangan).
+					if (anggotaKoperasi != null) {
+						double slot1Nominal = Math.max(0.0,
+								total.doubleValue() - split.nominal2 - split.nominal3 - split.nominal4 - split.nominal5);
+						double hutangBaru = 0.0;
+						if (caraPembayaranKoperasiOnline != null
+								&& Boolean.TRUE.equals(caraPembayaranKoperasiOnline.getMasukSebagaiHutang())) {
+							hutangBaru += slot1Nominal;
+						}
+						if (split.cara2 != null && Boolean.TRUE.equals(split.cara2.getMasukSebagaiHutang())) hutangBaru += split.nominal2;
+						if (split.cara3 != null && Boolean.TRUE.equals(split.cara3.getMasukSebagaiHutang())) hutangBaru += split.nominal3;
+						if (split.cara4 != null && Boolean.TRUE.equals(split.cara4.getMasukSebagaiHutang())) hutangBaru += split.nominal4;
+						if (split.cara5 != null && Boolean.TRUE.equals(split.cara5.getMasukSebagaiHutang())) hutangBaru += split.nominal5;
+
+						if (hutangBaru > 0.0) {
+							TipeAnggotaKoperasi tipeAnggotaHutang = anggotaKoperasi.getTipeAnggotaKoperasi();
+							double maksimalBolehUtang = tipeAnggotaHutang == null ? 0.0
+									: tipeAnggotaHutang.getMaksimalBolehUtang();
+							double hutangBerjalan = hitungTotalHutangBerjalan(session, anggotaKoperasi.getId());
+							if (hutangBerjalan + hutangBaru > maksimalBolehUtang + 0.5) {
+								hasil.put("status", "91");
+								hasil.put("description", "Transaksi ditolak: batas maksimal hutang anggota ini ("
+										+ Common.numberFormat.get().format(maksimalBolehUtang) + ") akan terlampaui. "
+										+ "Hutang berjalan saat ini " + Common.numberFormat.get().format(hutangBerjalan)
+										+ ", transaksi ini menambah " + Common.numberFormat.get().format(hutangBaru) + ".");
+								return;
+							}
+						}
 					}
 
 					KodePembayaranOnline kodePembayaranOnline = (KodePembayaranOnline) (kodePembayaranOnlineId == null
@@ -4203,6 +4239,171 @@ public class KantinHelper {
 		}
 	}
 
+	/**
+	 * Fitur "Cara Pembayaran" (CRUD admin) -- paritas dgn JSP {@code cara_bayar/index.jsp}, dipakai
+	 * Desktop/Android/Flutter yang tidak punya jalur raw-SQL client-side spt JSP. Beda dgn
+	 * {@link #caraBayarListSemua} (hanya {@code id,nama} utk dropdown picker) -- di sini SEMUA kolom
+	 * dikembalikan utk layar manajemen.
+	 */
+	public static void caraBayarListAdmin(JSONObject request, JSONObject hasil) throws Exception {
+		String keyword = request.optString("keyword", "").trim();
+		boolean termasukNonaktif = request.optBoolean("termasuk_nonaktif", false);
+		int page = Math.max(1, request.optInt("page", 1));
+		int pageSize = Math.min(100, Math.max(1, request.optInt("page_size", 20)));
+		int offset = (page - 1) * pageSize;
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			StringBuilder where = new StringBuilder(" WHERE 1=1 ");
+			if (!termasukNonaktif) where.append(" AND COALESCE(aktif,true) = true ");
+			if (!keyword.isEmpty()) where.append(" AND (nama ILIKE ? OR kode ILIKE ?) ");
+
+			java.sql.Connection conn = session.connection();
+			java.sql.PreparedStatement psCount = conn
+					.prepareStatement("SELECT COUNT(*) FROM koperasi.cara_pembayaran_koperasi" + where);
+			if (!keyword.isEmpty()) {
+				String kw = "%" + keyword + "%";
+				psCount.setString(1, kw);
+				psCount.setString(2, kw);
+			}
+			java.sql.ResultSet rsCount = psCount.executeQuery();
+			long total = rsCount.next() ? rsCount.getLong(1) : 0;
+			rsCount.close();
+			psCount.close();
+
+			java.sql.PreparedStatement ps = conn.prepareStatement(
+					"SELECT id, COALESCE(kode,''), nama, COALESCE(keterangan,''), manual, online, "
+							+ "COALESCE(memotong_deposit,false), COALESCE(masuk_sebagai_hutang,false), COALESCE(aktif,true) "
+							+ "FROM koperasi.cara_pembayaran_koperasi" + where + " ORDER BY nama ASC LIMIT ? OFFSET ?");
+			int idx = 1;
+			if (!keyword.isEmpty()) {
+				String kw = "%" + keyword + "%";
+				ps.setString(idx++, kw);
+				ps.setString(idx++, kw);
+			}
+			ps.setInt(idx++, pageSize);
+			ps.setInt(idx++, offset);
+			java.sql.ResultSet rs = ps.executeQuery();
+			JSONArray arr = new JSONArray();
+			while (rs.next()) {
+				JSONObject j = new JSONObject();
+				j.put("id", rs.getLong(1));
+				j.put("kode", rs.getString(2));
+				j.put("nama", rs.getString(3));
+				j.put("keterangan", rs.getString(4));
+				boolean manual = rs.getBoolean(5);
+				j.put("manual", rs.wasNull() ? JSONObject.NULL : manual);
+				j.put("online", rs.getBoolean(6));
+				j.put("memotongDeposit", rs.getBoolean(7));
+				j.put("masukSebagaiHutang", rs.getBoolean(8));
+				j.put("aktif", rs.getBoolean(9));
+				arr.put(j);
+			}
+			rs.close();
+			ps.close();
+
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+			hasil.put("total", total);
+			hasil.put("page", page);
+			hasil.put("pageSize", pageSize);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/** Fitur "Cara Pembayaran" -- simpan (create/update) satu baris {@code CaraPembayaranKoperasi}. */
+	public static void caraBayarSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggilCb = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean adminGlobalCb = pemanggilCb == null;
+		boolean supervisorCb = pemanggilCb != null && Boolean.TRUE.equals(pemanggilCb.getSupervisor());
+		String aksiCb = request.isNull("id") ? "create" : "update";
+		if (!bolehAksiCrud(tbmuser, pemanggilCb, adminGlobalCb, supervisorCb, "pembayaran", aksiCb)) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat mengelola Cara Pembayaran.");
+			return;
+		}
+		String nama = request.optString("nama", "").trim();
+		if (nama.isEmpty()) {
+			hasil.put("status", "91");
+			hasil.put("description", "Nama cara pembayaran wajib diisi.");
+			return;
+		}
+		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.koperasi.CaraPembayaranKoperasi cara;
+			boolean baru = (id == null);
+			if (baru) {
+				cara = new ais.database.model.koperasi.CaraPembayaranKoperasi();
+			} else {
+				cara = (ais.database.model.koperasi.CaraPembayaranKoperasi) session
+						.get(ais.database.model.koperasi.CaraPembayaranKoperasi.class, id);
+				if (cara == null) {
+					hasil.put("status", "91");
+					hasil.put("description", "Cara pembayaran tidak ditemukan.");
+					return;
+				}
+			}
+			cara.setKode(request.optString("kode", ""));
+			cara.setNama(nama);
+			cara.setKeterangan(request.optString("keterangan", ""));
+			if (request.has("manual")) {
+				cara.setManual(request.isNull("manual") ? null : Boolean.valueOf(request.optBoolean("manual")));
+			}
+			cara.setOnline(request.optBoolean("online", false));
+			cara.setMemotongDeposit(Boolean.valueOf(request.optBoolean("memotongDeposit", false)));
+			cara.setMasukSebagaiHutang(Boolean.valueOf(request.optBoolean("masukSebagaiHutang", false)));
+			cara.setAktif(!request.has("aktif") || request.optBoolean("aktif", true));
+
+			session.beginTransaction();
+			session.saveOrUpdate(cara);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("id", cara.getId());
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/** Fitur "Cara Pembayaran" -- hapus satu baris {@code CaraPembayaranKoperasi}. */
+	public static void caraBayarHapus(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggilCh = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean adminGlobalCh = pemanggilCh == null;
+		boolean supervisorCh = pemanggilCh != null && Boolean.TRUE.equals(pemanggilCh.getSupervisor());
+		if (!bolehAksiCrud(tbmuser, pemanggilCh, adminGlobalCh, supervisorCh, "pembayaran", "delete")) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat menghapus Cara Pembayaran.");
+			return;
+		}
+		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		if (id == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "ID cara pembayaran wajib diisi.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.koperasi.CaraPembayaranKoperasi cara = (ais.database.model.koperasi.CaraPembayaranKoperasi) session
+					.get(ais.database.model.koperasi.CaraPembayaranKoperasi.class, id);
+			if (cara == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Cara pembayaran tidak ditemukan.");
+				return;
+			}
+			session.beginTransaction();
+			session.delete(cara);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+		} catch (Exception eHapusCara) {
+			hasil.put("status", "91");
+			hasil.put("description", "Gagal menghapus: metode pembayaran ini sudah dipakai di transaksi. Nonaktifkan saja, jangan dihapus.");
+			ais.common.ErrorAuditUtil.record(eHapusCara, "auto-audit caraBayarHapus src/ais/action/servlet/api/KantinHelper.java");
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
 	/** Daftar jenis keanggotaan aktif -- dipakai dropdown form "Customer/Anggota" Desktop. */
 	public static void jenisAnggotaList(JSONObject hasil) throws Exception {
 		Session session = HibernateUtil.getSessionFactory().openSession();
@@ -4525,7 +4726,8 @@ public class KantinHelper {
 
 			java.sql.PreparedStatement ps = conn.prepareStatement(
 					"SELECT t.id, COALESCE(t.kode,''), t.nama, COALESCE(t.keterangan,''), COALESCE(t.aktif,true), "
-							+ "(SELECT COUNT(*) FROM koperasi.anggota_koperasi a WHERE a.tipe_anggota_koperasi = t.id) "
+							+ "(SELECT COUNT(*) FROM koperasi.anggota_koperasi a WHERE a.tipe_anggota_koperasi = t.id), "
+							+ "COALESCE(t.maksimal_boleh_utang,0) "
 							+ "FROM koperasi.tipe_anggota_koperasi t" + where + " ORDER BY t.nama ASC LIMIT ? OFFSET ?");
 			int idx = 1;
 			if (!keyword.isEmpty()) {
@@ -4545,6 +4747,7 @@ public class KantinHelper {
 				j.put("keterangan", rs.getString(4));
 				j.put("aktif", rs.getBoolean(5));
 				j.put("jumlahAnggota", rs.getLong(6));
+				j.put("maksimalBolehUtang", rs.getDouble(7));
 				arr.put(j);
 			}
 			rs.close();
@@ -4597,6 +4800,9 @@ public class KantinHelper {
 			tipe.setNama(nama);
 			tipe.setKeterangan(request.optString("keterangan", ""));
 			tipe.setAktif(!request.has("aktif") || request.optBoolean("aktif", true));
+			if (request.has("maksimalBolehUtang") && !request.isNull("maksimalBolehUtang")) {
+				tipe.setMaksimalBolehUtang(request.optDouble("maksimalBolehUtang", 0.0));
+			}
 
 			session.beginTransaction();
 			session.saveOrUpdate(tipe);
@@ -4846,6 +5052,334 @@ public class KantinHelper {
 			}
 			session.beginTransaction();
 			session.delete(deposit);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * Fitur "Mutasi Tabungan" (tab {@code anggota.jsp} / layar Mutasi Tabungan Desktop-Android) --
+	 * versi Java dari query UNION ALL raw-SQL client-side di {@code _mutasi_tabungan.jsp} (JSP admin
+	 * boleh raw-SQL client-side, Desktop/Android/Flutter TIDAK -- makanya perlu method khusus ini).
+	 * Saldo berjalan (window function) dihitung atas SELURUH baris dlm rentang tanggal dulu, BARU
+	 * dipotong halaman -- makanya {@code total} bisa lebih besar dari {@code page_size} tapi
+	 * paginasi dilakukan di CLIENT (pola sama dgn Pesanan/Produk: server flat-list, client paging),
+	 * supaya "Saldo Per Penabung"/"Saldo Total" tetap identik dgn urutan baris yg ditampilkan.
+	 *
+	 * @param request payload berisi {@code dari}/{@code sampai} (wajib, "yyyy-MM-dd"),
+	 *                {@code id_anggota} (opsional).
+	 */
+	public static void mutasiTabunganList(JSONObject request, JSONObject hasil) throws Exception {
+		String dari = request.optString("dari", "").trim();
+		String sampai = request.optString("sampai", "").trim();
+		if (dari.isEmpty() || sampai.isEmpty()) {
+			hasil.put("status", "91");
+			hasil.put("description", "Tanggal Mulai dan Tanggal Akhir wajib diisi.");
+			return;
+		}
+		Long idAnggota = request.isNull("id_anggota") ? null : Long.valueOf((request.get("id_anggota") + "").trim());
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			String filterAnggotaDeposit = idAnggota != null ? " AND d.anggota_koperasi = ? " : "";
+			String filterAnggotaPembelian = idAnggota != null ? " AND p.anggota_koperasi = ? " : "";
+			String filterAnggotaPencairan = idAnggota != null ? " AND pc.anggota_koperasi = ? " : "";
+
+			String sql = "WITH mutasi AS ( "
+					+ "  SELECT d.waktu AS waktu, ('D' || d.id) AS baris_id, (a.kode || ' - ' || a.nama) AS nama_anggota, d.anggota_koperasi AS id_anggota, "
+					+ "         CASE WHEN d.nominal >= 0 THEN 'Topup Tabungan' ELSE 'Pengeluaran Manual' END AS jenis_mutasi, "
+					+ "         COALESCE(d.keterangan, '') AS keterangan, GREATEST(d.nominal, 0) AS masuk, GREATEST(-d.nominal, 0) AS keluar "
+					+ "  FROM public.deposit d JOIN koperasi.anggota_koperasi a ON d.anggota_koperasi = a.id "
+					+ "  WHERE d.anggota_koperasi IS NOT NULL AND d.waktu BETWEEN ?::date AND (?::date + interval '1 day') " + filterAnggotaDeposit
+					+ "  UNION ALL "
+					+ "  SELECT p.waktu, ('P' || p.id), (a.kode || ' - ' || a.nama), p.anggota_koperasi, "
+					+ "         'Pembelian/Belanja' AS jenis_mutasi, COALESCE(p.kode, '') AS keterangan, 0 AS masuk, COALESCE(p.total, 0) AS keluar "
+					+ "  FROM koperasi.pembelian p "
+					+ "  JOIN koperasi.anggota_koperasi a ON p.anggota_koperasi = a.id "
+					+ "  JOIN koperasi.cara_pembayaran_koperasi cpk ON p.cara_pembayaran_koperasi = cpk.id "
+					+ "  WHERE p.anggota_koperasi IS NOT NULL AND (cpk.manual = false OR cpk.memotong_deposit = true) "
+					+ "  AND p.waktu BETWEEN ?::date AND (?::date + interval '1 day') " + filterAnggotaPembelian
+					+ "  UNION ALL "
+					+ "  SELECT pc.waktu_pencairan, ('C' || pc.id), (a.kode || ' - ' || a.nama), pc.anggota_koperasi, "
+					+ "         'Cashback Diskon' AS jenis_mutasi, 'Pencairan diskon' AS keterangan, COALESCE(pc.nominal_cair, 0) AS masuk, 0 AS keluar "
+					+ "  FROM koperasi.pencairan_diskon pc "
+					+ "  JOIN koperasi.anggota_koperasi a ON pc.anggota_koperasi = a.id "
+					+ "  JOIN koperasi.cara_pembayaran_koperasi cpk2 ON pc.cara_pembayaran = cpk2.id "
+					+ "  WHERE pc.status = 'BERHASIL' AND cpk2.manual = false "
+					+ "  AND pc.waktu_pencairan BETWEEN ?::date AND (?::date + interval '1 day') " + filterAnggotaPencairan
+					+ ") "
+					+ "SELECT waktu, baris_id, nama_anggota, id_anggota, jenis_mutasi, keterangan, masuk, keluar, "
+					+ "  SUM(masuk - keluar) OVER (PARTITION BY id_anggota ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_per_penabung, "
+					+ "  SUM(masuk - keluar) OVER (ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_total "
+					+ "FROM mutasi ORDER BY waktu ASC, baris_id ASC LIMIT 3000";
+
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(sql);
+			int idx = 1;
+			ps.setString(idx++, dari);
+			ps.setString(idx++, sampai);
+			if (idAnggota != null) ps.setLong(idx++, idAnggota);
+			ps.setString(idx++, dari);
+			ps.setString(idx++, sampai);
+			if (idAnggota != null) ps.setLong(idx++, idAnggota);
+			ps.setString(idx++, dari);
+			ps.setString(idx++, sampai);
+			if (idAnggota != null) ps.setLong(idx++, idAnggota);
+
+			java.sql.ResultSet rs = ps.executeQuery();
+			JSONArray arr = new JSONArray();
+			java.text.SimpleDateFormat sdfWaktu = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			while (rs.next()) {
+				JSONObject j = new JSONObject();
+				java.sql.Timestamp waktu = rs.getTimestamp(1);
+				j.put("waktu", waktu == null ? JSONObject.NULL : sdfWaktu.format(waktu));
+				j.put("barisId", rs.getString(2));
+				j.put("namaAnggota", rs.getString(3));
+				long idA = rs.getLong(4);
+				j.put("idAnggota", rs.wasNull() ? JSONObject.NULL : idA);
+				j.put("jenisMutasi", rs.getString(5));
+				j.put("keterangan", rs.getString(6));
+				j.put("masuk", rs.getDouble(7));
+				j.put("keluar", rs.getDouble(8));
+				j.put("saldoPerPenabung", rs.getDouble(9));
+				j.put("saldoTotal", rs.getDouble(10));
+				arr.put(j);
+			}
+			rs.close();
+			ps.close();
+
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+			hasil.put("total", arr.length());
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * Fitur "Mutasi Hutang" (tab {@code anggota.jsp} / layar Mutasi Hutang Desktop-Android) -- versi
+	 * Java dari query UNION ALL raw-SQL client-side di {@code _mutasi_hutang.jsp}. DEBIT ("Hutang
+	 * Bertambah") dihitung per SLOT split-pembayaran {@code koperasi.pembelian_anggota_koperasi} yg
+	 * cara-bayarnya ditandai {@link ais.database.model.koperasi.CaraPembayaranKoperasi#getMasukSebagaiHutang()},
+	 * KREDIT ("Pembayaran") dari {@link ais.database.model.koperasi.PembayaranHutang}. Lihat JavaDoc
+	 * {@link #mutasiTabunganList} soal alasan flat-list (bukan server-paginated).
+	 */
+	public static void mutasiHutangList(JSONObject request, JSONObject hasil) throws Exception {
+		String dari = request.optString("dari", "").trim();
+		String sampai = request.optString("sampai", "").trim();
+		if (dari.isEmpty() || sampai.isEmpty()) {
+			hasil.put("status", "91");
+			hasil.put("description", "Tanggal Mulai dan Tanggal Akhir wajib diisi.");
+			return;
+		}
+		Long idAnggota = request.isNull("id_anggota") ? null : Long.valueOf((request.get("id_anggota") + "").trim());
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			String n1 = "GREATEST(0, COALESCE(h.total_biaya,0) - COALESCE(h.nominal_bayar_2,0) - COALESCE(h.nominal_bayar_3,0) - COALESCE(h.nominal_bayar_4,0) - COALESCE(h.nominal_bayar_5,0))";
+			String filterH = idAnggota != null ? " AND h.anggota_koperasi = ? " : "";
+			String filterPh = idAnggota != null ? " AND ph.anggota_koperasi = ? " : "";
+
+			StringBuilder sql = new StringBuilder();
+			sql.append("WITH mutasi AS ( ");
+			String[] slotJoin = { "h.cara_pembayaran_koperasi", "h.cara_pembayaran_koperasi_2",
+					"h.cara_pembayaran_koperasi_3", "h.cara_pembayaran_koperasi_4", "h.cara_pembayaran_koperasi_5" };
+			String[] slotNominal = { n1, "COALESCE(h.nominal_bayar_2,0)", "COALESCE(h.nominal_bayar_3,0)",
+					"COALESCE(h.nominal_bayar_4,0)", "COALESCE(h.nominal_bayar_5,0)" };
+			for (int slot = 1; slot <= 5; slot++) {
+				if (slot > 1) sql.append(" UNION ALL ");
+				sql.append("  SELECT h.tanggal_pembayaran AS waktu, ('H").append(slot).append("' || h.id) AS baris_id, "
+						+ "(a.kode || ' - ' || a.nama) AS nama_anggota, h.anggota_koperasi AS id_anggota, "
+						+ "'Belanja (Hutang)' AS jenis_mutasi, COALESCE(h.kode, '') AS keterangan, ")
+						.append(slotNominal[slot - 1]).append(" AS bertambah, 0 AS berkurang "
+						+ "FROM koperasi.pembelian_anggota_koperasi h "
+						+ "JOIN koperasi.anggota_koperasi a ON h.anggota_koperasi = a.id "
+						+ "JOIN koperasi.cara_pembayaran_koperasi cpk").append(slot).append(" ON ")
+						.append(slotJoin[slot - 1]).append(" = cpk").append(slot).append(".id "
+						+ "WHERE cpk").append(slot).append(".masuk_sebagai_hutang = true AND h.anggota_koperasi IS NOT NULL AND ")
+						.append(slotNominal[slot - 1]).append(" > 0 "
+						+ "AND h.tanggal_pembayaran BETWEEN ?::date AND (?::date + interval '1 day') ").append(filterH);
+			}
+			sql.append(" UNION ALL ")
+					.append("  SELECT ph.waktu, ('C' || ph.id), (a.kode || ' - ' || a.nama), ph.anggota_koperasi, "
+							+ "'Pembayaran Hutang', COALESCE(ph.keterangan, ''), 0, COALESCE(ph.nominal, 0) "
+							+ "FROM koperasi.pembayaran_hutang ph "
+							+ "JOIN koperasi.anggota_koperasi a ON ph.anggota_koperasi = a.id "
+							+ "WHERE ph.waktu BETWEEN ?::date AND (?::date + interval '1 day') ").append(filterPh)
+					.append(") SELECT waktu, baris_id, nama_anggota, id_anggota, jenis_mutasi, keterangan, bertambah, berkurang, "
+							+ "  SUM(bertambah - berkurang) OVER (PARTITION BY id_anggota ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_per_anggota, "
+							+ "  SUM(bertambah - berkurang) OVER (ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_total "
+							+ "FROM mutasi ORDER BY waktu ASC, baris_id ASC LIMIT 3000");
+
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(sql.toString());
+			int idx = 1;
+			for (int slot = 1; slot <= 5; slot++) {
+				ps.setString(idx++, dari);
+				ps.setString(idx++, sampai);
+				if (idAnggota != null) ps.setLong(idx++, idAnggota);
+			}
+			ps.setString(idx++, dari);
+			ps.setString(idx++, sampai);
+			if (idAnggota != null) ps.setLong(idx++, idAnggota);
+
+			java.sql.ResultSet rs = ps.executeQuery();
+			JSONArray arr = new JSONArray();
+			java.text.SimpleDateFormat sdfWaktu = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			while (rs.next()) {
+				JSONObject j = new JSONObject();
+				java.sql.Timestamp waktu = rs.getTimestamp(1);
+				j.put("waktu", waktu == null ? JSONObject.NULL : sdfWaktu.format(waktu));
+				j.put("barisId", rs.getString(2));
+				j.put("namaAnggota", rs.getString(3));
+				long idA = rs.getLong(4);
+				j.put("idAnggota", rs.wasNull() ? JSONObject.NULL : idA);
+				j.put("jenisMutasi", rs.getString(5));
+				j.put("keterangan", rs.getString(6));
+				j.put("bertambah", rs.getDouble(7));
+				j.put("berkurang", rs.getDouble(8));
+				j.put("saldoPerAnggota", rs.getDouble(9));
+				j.put("saldoTotal", rs.getDouble(10));
+				arr.put(j);
+			}
+			rs.close();
+			ps.close();
+
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+			hasil.put("total", arr.length());
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * Total hutang berjalan SATU anggota per SAAT INI -- dipakai gerbang batas
+	 * {@link ais.database.model.koperasi.TipeAnggotaKoperasi#getMaksimalBolehUtang()} saat checkout
+	 * (lihat {@link #cekBatasHutang}) maupun ditampilkan di kartu ringkasan anggota. Pola query SAMA
+	 * dgn {@link #mutasiHutangList} tapi tanpa rentang tanggal (SEMUA histori) dan hasil di-SUM
+	 * langsung di SQL, bukan per-baris.
+	 */
+	public static double hitungTotalHutangBerjalan(Session session, long idAnggota) throws Exception {
+		String n1 = "GREATEST(0, COALESCE(h.total_biaya,0) - COALESCE(h.nominal_bayar_2,0) - COALESCE(h.nominal_bayar_3,0) - COALESCE(h.nominal_bayar_4,0) - COALESCE(h.nominal_bayar_5,0))";
+		String sql = "SELECT COALESCE(( "
+				+ "  SELECT SUM(CASE WHEN cpk1.masuk_sebagai_hutang = true THEN " + n1 + " ELSE 0 END "
+				+ "    + CASE WHEN cpk2.masuk_sebagai_hutang = true THEN COALESCE(h.nominal_bayar_2,0) ELSE 0 END "
+				+ "    + CASE WHEN cpk3.masuk_sebagai_hutang = true THEN COALESCE(h.nominal_bayar_3,0) ELSE 0 END "
+				+ "    + CASE WHEN cpk4.masuk_sebagai_hutang = true THEN COALESCE(h.nominal_bayar_4,0) ELSE 0 END "
+				+ "    + CASE WHEN cpk5.masuk_sebagai_hutang = true THEN COALESCE(h.nominal_bayar_5,0) ELSE 0 END) "
+				+ "  FROM koperasi.pembelian_anggota_koperasi h "
+				+ "  LEFT JOIN koperasi.cara_pembayaran_koperasi cpk1 ON h.cara_pembayaran_koperasi = cpk1.id "
+				+ "  LEFT JOIN koperasi.cara_pembayaran_koperasi cpk2 ON h.cara_pembayaran_koperasi_2 = cpk2.id "
+				+ "  LEFT JOIN koperasi.cara_pembayaran_koperasi cpk3 ON h.cara_pembayaran_koperasi_3 = cpk3.id "
+				+ "  LEFT JOIN koperasi.cara_pembayaran_koperasi cpk4 ON h.cara_pembayaran_koperasi_4 = cpk4.id "
+				+ "  LEFT JOIN koperasi.cara_pembayaran_koperasi cpk5 ON h.cara_pembayaran_koperasi_5 = cpk5.id "
+				+ "  WHERE h.anggota_koperasi = ? "
+				+ "),0) - COALESCE(( "
+				+ "  SELECT SUM(ph.nominal) FROM koperasi.pembayaran_hutang ph WHERE ph.anggota_koperasi = ? "
+				+ "),0) AS saldo_hutang";
+		java.sql.PreparedStatement ps = session.connection().prepareStatement(sql);
+		ps.setLong(1, idAnggota);
+		ps.setLong(2, idAnggota);
+		java.sql.ResultSet rs = ps.executeQuery();
+		double saldo = rs.next() ? rs.getDouble(1) : 0.0;
+		rs.close();
+		ps.close();
+		return Math.max(0.0, saldo);
+	}
+
+	/**
+	 * Fitur "Bayar Hutang" (form entri di layar Mutasi Hutang) -- simpan (create/update) satu baris
+	 * {@link ais.database.model.koperasi.PembayaranHutang}. Gerbang SAMA dgn {@link #topupSaldo}
+	 * ({@code Tbmrole.bolehEntryTopup}) -- entri finansial manual, bukan bagian grid CRUD menu.
+	 */
+	public static void hutangBayarSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.Tbmrole roleHb = tbmuser == null ? null : tbmuser.hakAkses();
+		boolean bolehHb = roleHb != null && roleHb.getBolehEntryTopup() != null && roleHb.getBolehEntryTopup().booleanValue();
+		if (!bolehHb) {
+			hasil.put("status", "91");
+			hasil.put("description", "Anda tidak memiliki hak akses untuk mencatat pembayaran hutang.");
+			return;
+		}
+		Long idAnggota = request.isNull("id_member") ? null : Long.valueOf((request.get("id_member") + "").trim());
+		if (idAnggota == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Anggota wajib dipilih.");
+			return;
+		}
+		double nominal = request.optDouble("nominal", 0);
+		if (nominal <= 0) {
+			hasil.put("status", "91");
+			hasil.put("description", "Nominal pembayaran harus lebih dari 0.");
+			return;
+		}
+		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.koperasi.PembayaranHutang bayar;
+			if (id == null) {
+				bayar = new ais.database.model.koperasi.PembayaranHutang();
+				bayar.setAnggotaKoperasi((ais.database.model.koperasi.AnggotaKoperasi) session
+						.get(ais.database.model.koperasi.AnggotaKoperasi.class, idAnggota));
+			} else {
+				bayar = (ais.database.model.koperasi.PembayaranHutang) session
+						.get(ais.database.model.koperasi.PembayaranHutang.class, id);
+				if (bayar == null) {
+					hasil.put("status", "91");
+					hasil.put("description", "Data pembayaran hutang tidak ditemukan.");
+					return;
+				}
+			}
+			bayar.setNominal(Double.valueOf(nominal));
+			bayar.setKeterangan(request.optString("keterangan", ""));
+			if (!request.isNull("waktu") && !request.optString("waktu", "").trim().isEmpty()) {
+				try {
+					bayar.setWaktu(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(request.optString("waktu")));
+				} catch (Exception eParse) {
+					ais.common.ErrorAuditUtil.record(eParse, "auto-audit hutangBayarSimpan-parse-waktu src/ais/action/servlet/api/KantinHelper.java");
+				}
+			} else if (id == null) {
+				bayar.setWaktu(ais.ui.util.WaktuUtil.getDate());
+			}
+			session.beginTransaction();
+			session.saveOrUpdate(bayar);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("id", bayar.getId());
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * Fitur "Bayar Hutang" -- hapus satu baris {@link ais.database.model.koperasi.PembayaranHutang}.
+	 * Gerbang SAMA dgn {@link #hutangBayarSimpan}.
+	 */
+	public static void hutangBayarHapus(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.Tbmrole roleHh = tbmuser == null ? null : tbmuser.hakAkses();
+		boolean bolehHh = roleHh != null && roleHh.getBolehEntryTopup() != null && roleHh.getBolehEntryTopup().booleanValue();
+		if (!bolehHh) {
+			hasil.put("status", "91");
+			hasil.put("description", "Anda tidak memiliki hak akses untuk menghapus entri pembayaran hutang.");
+			return;
+		}
+		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		if (id == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "ID pembayaran hutang wajib diisi.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.koperasi.PembayaranHutang bayar = (ais.database.model.koperasi.PembayaranHutang) session
+					.get(ais.database.model.koperasi.PembayaranHutang.class, id);
+			if (bayar == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Data pembayaran hutang tidak ditemukan.");
+				return;
+			}
+			session.beginTransaction();
+			session.delete(bayar);
 			session.getTransaction().commit();
 			hasil.put("status", "00");
 		} finally {

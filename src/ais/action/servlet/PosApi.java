@@ -421,6 +421,27 @@ public class PosApi extends HttpServlet {
 			} else if ("deposit_hapus".equals(action)) {
 				KantinHelper.depositHapus(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "deposit_hapus");
+			} else if ("cara_bayar_list_admin".equals(action)) {
+				KantinHelper.caraBayarListAdmin(payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "cara_bayar_list_admin");
+			} else if ("cara_bayar_simpan".equals(action)) {
+				KantinHelper.caraBayarSimpan(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "cara_bayar_simpan");
+			} else if ("cara_bayar_hapus".equals(action)) {
+				KantinHelper.caraBayarHapus(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "cara_bayar_hapus");
+			} else if ("mutasi_tabungan_list".equals(action)) {
+				KantinHelper.mutasiTabunganList(payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "mutasi_tabungan_list");
+			} else if ("mutasi_hutang_list".equals(action)) {
+				KantinHelper.mutasiHutangList(payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "mutasi_hutang_list");
+			} else if ("hutang_bayar_simpan".equals(action)) {
+				KantinHelper.hutangBayarSimpan(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "hutang_bayar_simpan");
+			} else if ("hutang_bayar_hapus".equals(action)) {
+				KantinHelper.hutangBayarHapus(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "hutang_bayar_hapus");
 			} else if ("notifikasi_list".equals(action)) {
 				KantinHelper.notifikasiList(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "notifikasi_list");
