@@ -18,6 +18,7 @@ import javax.persistence.ManyToOne;
 import javax.persistence.Table;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
+import javax.persistence.Transient;
 
 import org.hibernate.Session;
 import org.hibernate.annotations.Fetch;
@@ -701,10 +702,15 @@ public class PembelianAnggotaKoperasi extends GeneralValueObject {
 	 * {@link #getTotalBiaya()} setelah dikurangi slot 2-5 -- bukan kolom tersendiri -- supaya invarian
 	 * "jumlah semua slot = totalBiaya" otomatis terjaga tanpa perlu divalidasi terpisah saat simpan.
 	 */
+	@Transient
 	public Double getNominalBayar1() {
 		double sisa = getTotalBiaya() - getNominalBayar2() - getNominalBayar3() - getNominalBayar4()
 				- getNominalBayar5();
 		return sisa < 0.0 ? 0.0 : sisa;
+	}
+
+	public void setNominalBayar1(Double nominalBayar1) {
+		// Slot 1 dihitung implisit dari totalBiaya dikurangi slot 2-5.
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
