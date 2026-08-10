@@ -780,47 +780,6 @@ public class InitIndex {
 		}
 	}
 
-	/**
-	 * Menghapus index non-constraint yang definisinya PERSIS sama dengan index
-	 * peserta perkuliahan kanonik. Pencocokan memakai metadata pg_index (kolom,
-	 * operator class, collation, opsi, expression, dan predicate), bukan sekadar
-	 * kemiripan nama. Primary/unique/constraint index tidak pernah disentuh.
-	 */
-	private static void hapusIndexDuplikatPesertaPerkuliahan() {
-		String sql = "DO $$ DECLARE duplikat RECORD; BEGIN "
-				+ "FOR duplikat IN "
-				+ "SELECT ns_dup.nspname AS schema_name, cls_dup.relname AS index_name "
-				+ "FROM pg_class cls_target "
-				+ "JOIN pg_namespace ns_target ON ns_target.oid = cls_target.relnamespace "
-				+ "JOIN pg_index idx_target ON idx_target.indexrelid = cls_target.oid "
-				+ "JOIN pg_index idx_dup ON idx_dup.indrelid = idx_target.indrelid "
-				+ " AND idx_dup.indexrelid <> idx_target.indexrelid "
-				+ " AND idx_dup.indkey = idx_target.indkey "
-				+ " AND idx_dup.indclass = idx_target.indclass "
-				+ " AND idx_dup.indcollation = idx_target.indcollation "
-				+ " AND idx_dup.indoption = idx_target.indoption "
-				+ " AND idx_dup.indexprs IS NOT DISTINCT FROM idx_target.indexprs "
-				+ " AND idx_dup.indpred IS NOT DISTINCT FROM idx_target.indpred "
-				+ "JOIN pg_class cls_dup ON cls_dup.oid = idx_dup.indexrelid "
-				+ "JOIN pg_namespace ns_dup ON ns_dup.oid = cls_dup.relnamespace "
-				+ "WHERE ns_target.nspname = 'public' "
-				+ " AND cls_target.relname IN ('idx_detailperkuliahan_dash_pt_perkul_pers', "
-				+ "'idx_dash_el_detailperkuliahan_mhs_perkul_pers', "
-				+ "'idx_absen_online_dp_perkul_mhs_acc') "
-				+ " AND NOT idx_dup.indisprimary AND NOT idx_dup.indisunique "
-				+ " AND NOT EXISTS (SELECT 1 FROM pg_constraint con "
-				+ "                 WHERE con.conindid = idx_dup.indexrelid) "
-				+ "LOOP EXECUTE 'DROP INDEX IF EXISTS ' || quote_ident(duplikat.schema_name) "
-				+ " || '.' || quote_ident(duplikat.index_name); END LOOP; END $$;";
-		try {
-			eksekusiSql10Menit(sql);
-		} catch (Exception e) {
-			e.printStackTrace();
-			ErrorAuditUtil.record(e, "auto-audit src/ais/common/InitIndex.java:index-duplikat-peserta");
-		}
-	}
-
-
 	private static void initIndexDashboardStatistikPmbSuperFast() {
 		/*
 		 * INDEX DASBOR STATISTIK PMB/SPMB
@@ -3304,8 +3263,6 @@ public class InitIndex {
 			// aman bila dipanggil ulang). Eksekusi DB kembali sinkron di luar metode ini.
 			tungguSemuaDdlSelesai();
 			DDL_POOL = null;
-			// Seluruh index kanonik sudah selesai dibuat sebelum duplikat dibersihkan.
-			hapusIndexDuplikatPesertaPerkuliahan();
 			try {
 				ddlPool.shutdown();
 			} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "auto-audit(empty-catch) src/ais/common/InitIndex.java:2753");
