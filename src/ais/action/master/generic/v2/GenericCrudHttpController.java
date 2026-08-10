@@ -64,10 +64,11 @@ public final class GenericCrudHttpController {
                 payload = GenericCrudResult.ok("Data berhasil dimuat.", facade.get(context, identifier(context, request.getParameter("id"))));
             } else if ("create".equals(action)) {
                 GenericCrudCsrf.requireMutation(request);
-                payload = facade.create(context, submitted(context, request));
+                payload = facade.create(context, submitted(context, request, true));
             } else if ("update".equals(action)) {
                 GenericCrudCsrf.requireMutation(request);
-                payload = facade.update(context, identifier(context, request.getParameter("id")), submitted(context, request), request.getParameter("version"));
+                payload = facade.update(context, identifier(context, request.getParameter("id")),
+                        submitted(context, request, false), request.getParameter("version"));
             } else if ("delete".equals(action)) {
                 GenericCrudCsrf.requireMutation(request);
                 payload = facade.delete(context, identifier(context, request.getParameter("id")));
@@ -185,16 +186,10 @@ public final class GenericCrudHttpController {
         throw new GenericCrudException(400, "PHOTO_REQUIRED", "Berkas foto wajib dipilih.");
     }
 
-    private static Map submitted(GenericCrudRequestContext context, HttpServletRequest request) {
-        Map result = new LinkedHashMap();
-        List fields = context.getDefinition().getFields();
-        Map parameters = request.getParameterMap();
-        for (int i = 0; i < fields.size(); i++) {
-            GenericCrudFieldDefinition field = (GenericCrudFieldDefinition) fields.get(i);
-            String key = field.getProperty();
-            if (parameters.containsKey(key)) result.put(key, request.getParameter(key));
-        }
-        return result;
+    private static Map submitted(GenericCrudRequestContext context, HttpServletRequest request,
+            boolean create) {
+        return GenericCrudSubmittedValues.fromParameters(context.getDefinition(),
+                request.getParameterMap(), create);
     }
 
     private static List filters(HttpServletRequest request) {

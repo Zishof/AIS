@@ -56,7 +56,8 @@ public class GenericCrudDefinition implements Serializable {
     private boolean defaultSortAscending = true;
     private int defaultPageSize = 10;
     private int maxPageSize = 100;
-    private int lookupThreshold = 20;
+    /** Di atas 50 pilihan UI otomatis memakai pencarian relasi server-side. */
+    private int lookupThreshold = 50;
     private int maxExportRows = 100000;
     private int maxImportRows = 10000;
     private int synchronousExportLimit = 5000;

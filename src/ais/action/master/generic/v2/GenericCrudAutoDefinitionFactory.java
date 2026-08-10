@@ -424,6 +424,8 @@ public final class GenericCrudAutoDefinitionFactory {
     private static String chooseDisplayProperty(ClassMetadata metadata) {
         if (metadata == null) return null;
         try { if (metadata.getPropertyType("nama").getReturnedClass() == String.class) return "nama"; } catch (Exception ignored) { }
+        try { if (metadata.getPropertyType("userNama").getReturnedClass() == String.class) return "userNama"; } catch (Exception ignored) { }
+        try { if (metadata.getPropertyType("roleName").getReturnedClass() == String.class) return "roleName"; } catch (Exception ignored) { }
         try { if (metadata.getPropertyType("kode").getReturnedClass() == String.class) return "kode"; } catch (Exception ignored) { }
         try { if (metadata.getPropertyType("nim").getReturnedClass() == String.class) return "nim"; } catch (Exception ignored) { }
         return metadata.getIdentifierPropertyName();
