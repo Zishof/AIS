@@ -211,6 +211,7 @@ public class CaraPembayaranKoperasi extends GeneralValueObject {
 	 * <p><b>Default sengaja {@code false}</b> (bukan {@code true} seperti {@code getManual()}): data
 	 * lama tidak boleh mendadak ikut memotong saldo.</p>
 	 */
+	@Column(name = "memotong_deposit")
 	public Boolean getMemotongDeposit() {
 		return memotongDeposit == null ? false : memotongDeposit;
 	}
