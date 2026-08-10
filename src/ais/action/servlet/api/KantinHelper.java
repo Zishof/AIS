@@ -2000,17 +2000,17 @@ public class KantinHelper {
 			java.sql.ResultSet rs = ps.executeQuery();
 			JSONArray arr = new JSONArray();
 			while (rs.next()) {
-				long pedagangId = rs.getLong(1);
-				ais.database.model.inventory.Pedagang pedagangBaris = (ais.database.model.inventory.Pedagang) session
-						.get(ais.database.model.inventory.Pedagang.class, Long.valueOf(pedagangId));
+				// FIX: jangan panggil session.get() di dalam while(rs.next()) —
+				// Hibernate menerbitkan SQL baru pada koneksi JDBC yang sama sehingga
+				// menutup ResultSet aktif → PSQLException: This ResultSet is closed.
+				// Nilai supervisor sudah tersedia dari kolom 6 SQL (COALESCE(supervisor,false)).
 				JSONObject j = new JSONObject();
-				j.put("id", pedagangId);
+				j.put("id", rs.getLong(1));
 				j.put("userid", rs.getString(2));
 				j.put("nama", rs.getString(3));
 				j.put("keterangan", rs.getString(4));
 				j.put("aktif", rs.getBoolean(5));
-				j.put("supervisor", pedagangBaris == null ? rs.getBoolean(6)
-						: Boolean.TRUE.equals(pedagangBaris.getSupervisor()));
+				j.put("supervisor", rs.getBoolean(6));
 				arr.put(j);
 			}
 			rs.close();
@@ -4167,6 +4167,35 @@ public class KantinHelper {
 						: Common.dateFormatInput.get().format((java.util.Date) r[1]));
 				arr.put(j);
 			}
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * Daftar SEMUA cara pembayaran koperasi aktif (tanpa filter member/jenis) -- BEDA dari
+	 * {@code cara_bayar_list} (aksi checkout, `PosApi.prosesCaraBayarList`, HANYA mengembalikan
+	 * baris yg sudah diizinkan utk jenis keanggotaan SATU member tertentu). Dipakai form "Jenis
+	 * Member" (tab Pelanggan) utk menyusun checklist {@code daftarCaraPembayaranYangBolehDiPilih}
+	 * itu sendiri -- perlu SEMUA opsi, bukan yg sudah tersaring.
+	 */
+	public static void caraBayarListSemua(JSONObject hasil) throws Exception {
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(
+					"SELECT id, nama FROM koperasi.cara_pembayaran_koperasi WHERE COALESCE(aktif,true) = true ORDER BY nama ASC");
+			java.sql.ResultSet rs = ps.executeQuery();
+			JSONArray arr = new JSONArray();
+			while (rs.next()) {
+				JSONObject j = new JSONObject();
+				j.put("id", rs.getLong(1));
+				j.put("nama", rs.getString(2));
+				arr.put(j);
+			}
+			rs.close();
+			ps.close();
 			hasil.put("status", "00");
 			hasil.put("data", arr);
 		} finally {

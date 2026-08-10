@@ -1675,9 +1675,43 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 									if (i == MyMessageboxConfig.OK) {
 										try {
 
-											Common.refreshDelete(job);
-
-											Common.refreshDeleteFlush(job);
+											// FIX: ganti Common.refreshDeleteFlush yang pakai currentNativeSession
+											// (kena statement_timeout saat DELETE job_has_menu).
+											// Gunakan session dedicated + SET LOCAL statement_timeout=0 agar
+											// DELETE koleksi Tbmrole.menus tidak terpotong lock-timeout.
+											Session sessHapus = null;
+											try {
+												sessHapus = HibernateUtil.getSessionFactory().openSession();
+												sessHapus.beginTransaction();
+												sessHapus.createSQLQuery("SET LOCAL statement_timeout = 0")
+														.executeUpdate();
+												Tbmrole jobFresh = (Tbmrole) sessHapus.get(Tbmrole.class,
+														job.getRoleId());
+												if (jobFresh != null) {
+													sessHapus.delete(jobFresh);
+												}
+												sessHapus.getTransaction().commit();
+											} catch (Exception eHapus) {
+												if (sessHapus != null && sessHapus.getTransaction() != null) {
+													try {
+														sessHapus.getTransaction().rollback();
+													} catch (Exception er) {
+														ais.common.ErrorAuditUtil.record(er,
+																"auto-audit(empty-catch) TbmroleAction:hapus:rollback");
+													}
+												}
+												throw eHapus;
+											} finally {
+												if (sessHapus != null && sessHapus.isOpen()) {
+													try {
+														sessHapus.clear();
+														sessHapus.close();
+													} catch (Exception er) {
+														ais.common.ErrorAuditUtil.record(er,
+																"auto-audit(empty-catch) TbmroleAction:hapus:close");
+													}
+												}
+											}
 											ais.common.newui.NewUiCacheInvalidator.invalidateRole(job.getRoleId());
 
 											Common.createDefaultTimer(new EventListener() {
