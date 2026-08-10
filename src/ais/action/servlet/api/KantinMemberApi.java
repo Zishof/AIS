@@ -915,30 +915,84 @@ public final class KantinMemberApi {
             AnggotaKoperasi anggota = resolveAnggotaDb(s, user, true);
             if (anggota == null) return noMember();
 
-            Object[] summary = (Object[]) s.createSQLQuery(
-                "SELECT COUNT(id), COALESCE(SUM(total_biaya),0), " +
-                "COALESCE(SUM(COALESCE(total_diskon,0)+COALESCE(totalcashback,0)),0) " +
-                "FROM koperasi.pembelian_anggota_koperasi WHERE anggota_koperasi=:m"
-            ).setParameter("m", anggota.getId()).uniqueResult();
+            // KE-FIX (Bad value for type double : "Toko Al Bahjah"): autodiscovery tipe kolom
+            // Hibernate untuk native SQLQuery (uniqueResult()/list()) sempat memetakan kolom
+            // teks (mis. COALESCE(t.nama,'Koperasi Utama')) sebagai double, melempar
+            // org.postgresql.util.PSQLException: Bad value for type double. Baca lewat JDBC
+            // PreparedStatement/ResultSet.getObject() (pola yang sudah dipakai
+            // DashboardKantinAction.rows() utk bug yang sama) agar tipe kolom diambil apa
+            // adanya, bukan ditebak Hibernate.
+            java.sql.Connection conn = s.connection();
 
-            Object topupRow = s.createSQLQuery(
-                "SELECT COALESCE(SUM(nominal),0) FROM public.deposit WHERE anggota_koperasi=:m"
-            ).setParameter("m", anggota.getId()).uniqueResult();
+            Object[] summary = null;
+            java.sql.PreparedStatement psSummary = null;
+            java.sql.ResultSet rsSummary = null;
+            try {
+                psSummary = conn.prepareStatement(
+                    "SELECT COUNT(id), COALESCE(SUM(total_biaya),0), " +
+                    "COALESCE(SUM(COALESCE(total_diskon,0)+COALESCE(totalcashback,0)),0) " +
+                    "FROM koperasi.pembelian_anggota_koperasi WHERE anggota_koperasi=?");
+                psSummary.setLong(1, anggota.getId());
+                rsSummary = psSummary.executeQuery();
+                if (rsSummary.next()) {
+                    summary = new Object[] { rsSummary.getObject(1), rsSummary.getObject(2), rsSummary.getObject(3) };
+                }
+            } finally {
+                try { if (rsSummary != null) rsSummary.close(); } catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/action/servlet/api/KantinMemberApi.java:dashboard-summary-rs"); }
+                try { if (psSummary != null) psSummary.close(); } catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/action/servlet/api/KantinMemberApi.java:dashboard-summary-ps"); }
+            }
 
-            @SuppressWarnings("unchecked")
-            List<Object[]> trend = s.createSQLQuery(
-                "SELECT TO_CHAR(tanggal_pembayaran,'Mon YYYY'), TO_CHAR(tanggal_pembayaran,'YYYY-MM'), COALESCE(SUM(total_biaya),0) " +
-                "FROM koperasi.pembelian_anggota_koperasi WHERE anggota_koperasi=:m " +
-                "GROUP BY TO_CHAR(tanggal_pembayaran,'Mon YYYY'), TO_CHAR(tanggal_pembayaran,'YYYY-MM') " +
-                "ORDER BY 2 ASC LIMIT 6"
-            ).setParameter("m", anggota.getId()).list();
+            Object topupRow = null;
+            java.sql.PreparedStatement psTopup = null;
+            java.sql.ResultSet rsTopup = null;
+            try {
+                psTopup = conn.prepareStatement("SELECT COALESCE(SUM(nominal),0) FROM public.deposit WHERE anggota_koperasi=?");
+                psTopup.setLong(1, anggota.getId());
+                rsTopup = psTopup.executeQuery();
+                if (rsTopup.next()) {
+                    topupRow = rsTopup.getObject(1);
+                }
+            } finally {
+                try { if (rsTopup != null) rsTopup.close(); } catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/action/servlet/api/KantinMemberApi.java:dashboard-topup-rs"); }
+                try { if (psTopup != null) psTopup.close(); } catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/action/servlet/api/KantinMemberApi.java:dashboard-topup-ps"); }
+            }
 
-            @SuppressWarnings("unchecked")
-            List<Object[]> tokoFav = s.createSQLQuery(
-                "SELECT COALESCE(t.nama,'Koperasi Utama'), COALESCE(SUM(a.total_biaya),0) " +
-                "FROM koperasi.pembelian_anggota_koperasi a LEFT JOIN koperasi.toko t ON a.toko=t.id " +
-                "WHERE a.anggota_koperasi=:m GROUP BY t.nama ORDER BY 2 DESC LIMIT 5"
-            ).setParameter("m", anggota.getId()).list();
+            List<Object[]> trend = new java.util.ArrayList<Object[]>();
+            java.sql.PreparedStatement psTrend = null;
+            java.sql.ResultSet rsTrend = null;
+            try {
+                psTrend = conn.prepareStatement(
+                    "SELECT TO_CHAR(tanggal_pembayaran,'Mon YYYY'), TO_CHAR(tanggal_pembayaran,'YYYY-MM'), COALESCE(SUM(total_biaya),0) " +
+                    "FROM koperasi.pembelian_anggota_koperasi WHERE anggota_koperasi=? " +
+                    "GROUP BY TO_CHAR(tanggal_pembayaran,'Mon YYYY'), TO_CHAR(tanggal_pembayaran,'YYYY-MM') " +
+                    "ORDER BY 2 ASC LIMIT 6");
+                psTrend.setLong(1, anggota.getId());
+                rsTrend = psTrend.executeQuery();
+                while (rsTrend.next()) {
+                    trend.add(new Object[] { rsTrend.getObject(1), rsTrend.getObject(2), rsTrend.getObject(3) });
+                }
+            } finally {
+                try { if (rsTrend != null) rsTrend.close(); } catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/action/servlet/api/KantinMemberApi.java:dashboard-trend-rs"); }
+                try { if (psTrend != null) psTrend.close(); } catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/action/servlet/api/KantinMemberApi.java:dashboard-trend-ps"); }
+            }
+
+            List<Object[]> tokoFav = new java.util.ArrayList<Object[]>();
+            java.sql.PreparedStatement psToko = null;
+            java.sql.ResultSet rsToko = null;
+            try {
+                psToko = conn.prepareStatement(
+                    "SELECT COALESCE(t.nama,'Koperasi Utama'), COALESCE(SUM(a.total_biaya),0) " +
+                    "FROM koperasi.pembelian_anggota_koperasi a LEFT JOIN koperasi.toko t ON a.toko=t.id " +
+                    "WHERE a.anggota_koperasi=? GROUP BY t.nama ORDER BY 2 DESC LIMIT 5");
+                psToko.setLong(1, anggota.getId());
+                rsToko = psToko.executeQuery();
+                while (rsToko.next()) {
+                    tokoFav.add(new Object[] { rsToko.getObject(1), rsToko.getObject(2) });
+                }
+            } finally {
+                try { if (rsToko != null) rsToko.close(); } catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/action/servlet/api/KantinMemberApi.java:dashboard-toko-rs"); }
+                try { if (psToko != null) psToko.close(); } catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/action/servlet/api/KantinMemberApi.java:dashboard-toko-ps"); }
+            }
 
             JSONObject data = new JSONObject();
             if (summary != null) {

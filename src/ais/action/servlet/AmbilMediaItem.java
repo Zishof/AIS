@@ -155,23 +155,27 @@ public class AmbilMediaItem extends HttpServlet {
 			System.out.println("myfile = " + myfile + ", " + myfile.exists());
 
 			if (!myfile.exists()) {
-				Blob blob = (Blob) streamingSession.createCriteria(FotoGambarItem.class)
-						.add(Restrictions.eq("item", Long.parseLong(strid.trim()))).addOrder(Order.desc("id"))
-						.setProjection(Projections.property("foto")).setMaxResults(1).uniqueResult();
-				if (blob == null) {
-					if (!Common.isImage(file)) {
-						return new File(Common.REAL_PATH + "/img/book.jpg");
-					}
-					return file;
-				}
-
-				// Blob "foto" = Large Object (oid) yang WAJIB dibaca pada koneksi NON-autocommit.
-				// streamingSession di sini bisa autocommit -> "Large Objects may not be used in
-				// auto-commit mode". Bungkus penulisan dalam transaksi agar LO terbaca; bila gagal
-				// biarkan fallback ke placeholder (book.jpg) di bawah.
+				// KE-FIX (Large Objects may not be used in auto-commit mode): kolom "foto" adalah
+				// Large Object (oid) Postgres -- kursor LO-nya terikat pada transaksi yang AKTIF
+				// SAAT BARIS DIAMBIL, bukan saat isi-nya dibaca. Membungkus transaksi hanya di
+				// sekitar writeBlobToFile() (versi sebelumnya) TIDAK cukup: query createCriteria()
+				// di bawah sudah terlanjur jalan di mode autocommit sebelum transaksi dimulai,
+				// sehingga blob.getBinaryStream() tetap gagal. Transaksi HARUS sudah aktif SEBELUM
+				// query yang mengambil kolom Blob dijalankan.
 				org.hibernate.Transaction txLo = null;
 				try {
 					txLo = streamingSession.beginTransaction();
+					Blob blob = (Blob) streamingSession.createCriteria(FotoGambarItem.class)
+							.add(Restrictions.eq("item", Long.parseLong(strid.trim()))).addOrder(Order.desc("id"))
+							.setProjection(Projections.property("foto")).setMaxResults(1).uniqueResult();
+					if (blob == null) {
+						txLo.commit();
+						txLo = null;
+						if (!Common.isImage(file)) {
+							return new File(Common.REAL_PATH + "/img/book.jpg");
+						}
+						return file;
+					}
 					writeBlobToFile(blob, myfile);
 					txLo.commit();
 					txLo = null;

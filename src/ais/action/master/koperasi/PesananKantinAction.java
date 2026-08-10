@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import org.hibernate.SQLQuery;
 import org.hibernate.criterion.Restrictions;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -504,14 +503,36 @@ public class PesananKantinAction extends GenericAutowireComposer {
         c.setParent(columns);
     }
 
-    @SuppressWarnings("unchecked")
+    // KE-FIX (Bad value for type double : "Toko Al Bahjah"/"-"): autodiscovery tipe kolom
+    // Hibernate untuk native SQLQuery.list() sempat memetakan kolom teks (mis.
+    // COALESCE(ak.nama,'-')/COALESCE(t.nama,'-')) sebagai double, melempar
+    // org.postgresql.util.PSQLException: Bad value for type double. Baca lewat JDBC
+    // ResultSet.getObject() (pola yang sudah dipakai DashboardKantinAction.rows() untuk bug
+    // yang sama) agar tipe kolom diambil apa adanya, bukan ditebak Hibernate. Session dari
+    // currentSession() TIDAK ditutup di sini (siklus hidupnya milik ZK, ditutup di akhir request).
     private List<Object[]> rows(String sql) {
+        java.sql.Statement st = null;
+        java.sql.ResultSet rs = null;
+        List<Object[]> out = new ArrayList<Object[]>();
         try {
-            SQLQuery q = HibernateUtil.currentSession().createSQLQuery(sql);
-            return q.list();
+            java.sql.Connection conn = HibernateUtil.currentSession().connection();
+            st = conn.createStatement();
+            rs = st.executeQuery(sql);
+            int cols = rs.getMetaData().getColumnCount();
+            while (rs.next()) {
+                Object[] r = new Object[cols];
+                for (int i = 1; i <= cols; i++) {
+                    r[i - 1] = rs.getObject(i);
+                }
+                out.add(r);
+            }
+            return out;
         } catch (Exception e) {
             Common.tampilErrorJikaAdmin(e);
             return new ArrayList<Object[]>();
+        } finally {
+            try { if (rs != null) rs.close(); } catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/action/master/koperasi/PesananKantinAction.java:rows-rs-close"); }
+            try { if (st != null) st.close(); } catch (Exception ig) { ais.common.ErrorAuditUtil.record(ig, "auto-audit(empty-catch) src/ais/action/master/koperasi/PesananKantinAction.java:rows-st-close"); }
         }
     }
 

@@ -1062,8 +1062,12 @@ public class DashboardKantinAction extends GenericAutowireComposer {
         // dimasukkan (HAVING SUM(qty) > 0) supaya tidak ada baris estimasi tak terhingga/menyesatkan.
         // Data 30-hari-terakhir ini TIDAK mengikuti filter periode dasbor (qShared), sama seperti tabel
         // Peringatan Stok di atas.
+        // KE-FIX: ROUND(double precision, integer) TIDAK ADA di Postgres (hanya
+        // round(numeric,int) atau round(double precision) 1-argumen) -> "function round(double
+        // precision, integer) does not exist". SUM(pb.qty)/30.0 & pembagian di baris kedua
+        // menghasilkan double precision (literal 30.0), jadi di-cast ::numeric dulu.
         List<Object[]> estimasi = qShared("estimasihabisbahan", "SELECT b.nama, pr.nama, COALESCE(pr.stok,0), "
-                + "ROUND(SUM(pb.qty)/30.0, 2), ROUND(COALESCE(pr.stok,0) / (SUM(pb.qty)/30.0), 1) "
+                + "ROUND((SUM(pb.qty)/30.0)::numeric, 2), ROUND((COALESCE(pr.stok,0) / (SUM(pb.qty)/30.0))::numeric, 1) "
                 + "FROM koperasi.pemakaian_bahan_baku pb "
                 + "JOIN koperasi.produk pr ON pr.id = pb.produk "
                 + "JOIN koperasi.toko b ON b.id = pb.toko "
