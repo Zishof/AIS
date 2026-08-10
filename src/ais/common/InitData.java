@@ -625,6 +625,10 @@ public class InitData {
 				PekerjaanOrtuSiswa.class, KodeTunjangan.class, NomorSuratAlurPengadaan.class,
 				JenisKegiatanPrasyarat.class);
 
+		// Template SOP AMI dibuat setelah master AktorSop/JenisSop/Sop/AlurSop selesai
+		// dimuat. Helper idempoten: bila SOP sudah ada, tidak ada data yang diubah.
+		AmiSopWorkflowTemplate.ensureCreated();
+
 		// Eksekusi Logika Reload Defaults
 		reloadDefaults();
 	}

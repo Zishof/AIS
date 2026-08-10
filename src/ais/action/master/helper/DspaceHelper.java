@@ -99,9 +99,23 @@ public class DspaceHelper {
 
 			@Override
 			public void onEvent(Event arg0) throws Exception {
-				String cookie = DspaceCommon.login();
-				DspaceHelper.exportDisplayPilihan(cookie, null, perkuliahan, kelompokKkn, kelompokPkl,
-						mahasiswaRequestTugasAkhir, skripsi, eventListener);
+				// FIX: DspaceCommon.login() melempar IOException mentah (mis. endpoint DSpace
+				// REST /rest/login membalas HTTP 404 -- URL/konfigurasi tenant salah/usang) yang
+				// sebelumnya lolos sampai ke ZK's default exception handler & menampilkan stack
+				// trace teknis ke pengguna. Tangkap & tampilkan pesan ramah, konsisten dgn pola
+				// messagebox utk kegagalan layanan eksternal lain di codebase ini.
+				try {
+					String cookie = DspaceCommon.login();
+					DspaceHelper.exportDisplayPilihan(cookie, null, perkuliahan, kelompokKkn, kelompokPkl,
+							mahasiswaRequestTugasAkhir, skripsi, eventListener);
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e,
+							"auto-audit src/ais/action/master/helper/DspaceHelper.java:tampilkanButtonExportDiPertemuan-login");
+					MyMessageboxConfig.show(
+							"Gagal terhubung ke Repository DSpace, periksa konfigurasi URL/endpoint. Rincian: "
+									+ e.getMessage(),
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				}
 			}
 		});
 
@@ -126,15 +140,27 @@ public class DspaceHelper {
 								int i = Integer.parseInt(event.getData().toString());
 								if (i == MyMessageboxConfig.OK) {
 									if (dspaceInformation != null) {
-										String cookie = DspaceCommon.login();
-										DspaceInformation.delete(cookie, "collections/" + dspaceInformation.getUuid(),
-												dspaceInformation.getPostInfo());
-										Session session = HibernateUtil.currentNativeSession();
-										session.getTransaction().begin();
-										session.delete(dspaceInformation);
-										session.getTransaction().commit();
-										HibernateUtil.closeSession();
-										batalExport.setVisible(false);
+										// FIX: sama seperti tombol "Ekspor" di atas -- DspaceCommon.login() bisa
+										// melempar IOException mentah (mis. endpoint DSpace REST 404) yang
+										// sebelumnya lolos sampai ke ZK's default exception handler.
+										try {
+											String cookie = DspaceCommon.login();
+											DspaceInformation.delete(cookie, "collections/" + dspaceInformation.getUuid(),
+													dspaceInformation.getPostInfo());
+											Session session = HibernateUtil.currentNativeSession();
+											session.getTransaction().begin();
+											session.delete(dspaceInformation);
+											session.getTransaction().commit();
+											HibernateUtil.closeSession();
+											batalExport.setVisible(false);
+										} catch (Exception e) {
+											ais.common.ErrorAuditUtil.record(e,
+													"auto-audit src/ais/action/master/helper/DspaceHelper.java:tampilkanButtonExportDiPertemuan-batalExport");
+											MyMessageboxConfig.show(
+													"Gagal terhubung ke Repository DSpace, periksa konfigurasi URL/endpoint. Rincian: "
+															+ e.getMessage(),
+													"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+										}
 									}
 								}
 

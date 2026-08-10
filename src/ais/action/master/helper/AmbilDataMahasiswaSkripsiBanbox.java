@@ -363,9 +363,16 @@ public class AmbilDataMahasiswaSkripsiBanbox extends Bandbox implements GetEvent
 			// pencarian lain di codebase ini.
 			ais.common.ErrorAuditUtil.record(e,
 					"auto-audit src/ais/action/master/helper/AmbilDataMahasiswaSkripsiBanbox.java:onSearchDefault");
-			ais.ui.util.MyMessageboxConfig.show(
-					"Data sedang digunakan pengguna lain, silakan coba lagi.", "Peringatan",
-					ais.ui.util.MyMessageboxConfig.OK, ais.ui.util.MyMessageboxConfig.EXCLAMATION);
+			try {
+				// onSearchDefault() tidak mendeklarasikan "throws Exception" (dipanggil langsung dari
+				// display() yang juga tanpa throws) -- MyMessageboxConfig.show() checked-throws
+				// InterruptedException, jadi ditangkap lokal di sini alih-alih mengubah signature method.
+				ais.ui.util.MyMessageboxConfig.show(
+						"Data sedang digunakan pengguna lain, silakan coba lagi.", "Peringatan",
+						ais.ui.util.MyMessageboxConfig.OK, ais.ui.util.MyMessageboxConfig.EXCLAMATION);
+			} catch (InterruptedException ie) {
+				Thread.currentThread().interrupt();
+			}
 		}
 
 	}

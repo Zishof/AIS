@@ -337,6 +337,17 @@ public class Pegawai extends Karyawan {
 
 	public static Pegawai createDataPegawaiDariDosen(Session session, Dosen dosen) {
 
+		// FIX SessionException "Session is closed!" (ForeignKeys$Nullifier.errorIfClosed) saat
+		// auto-provisioning Pegawai untuk Dosen yang login pertama kali via FilterLoginAis.
+		// checkBlokirDanKuotaDosen() mengoper session native miliknya sendiri ke sini, tapi pada
+		// kondisi tertentu (mis. request lain di thread yang sama sempat menutup ThreadLocal native
+		// session ini lebih dulu) session yang diterima bisa sudah closed di titik ini. Pakai pola
+		// baku HibernateUtil.ensureOpenSession() (dipakai di banyak tempat lain utk kasus sama)
+		// sebelum query/save apa pun -- no-op bila session masih hidup, atau ambil pengganti native
+		// session yang open bila sudah mati, sehingga save() di bawah tidak lagi menabrak session
+		// tertutup.
+		session = HibernateUtil.ensureOpenSession(session);
+
 		Pegawai pegawai = (Pegawai) (ConstantValues
 				.simpleObject(session.createCriteria(Pegawai.class).add(Restrictions.eq("dosen", dosen))
 						.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))

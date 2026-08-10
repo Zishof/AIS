@@ -4249,6 +4249,19 @@ public class SuratKeluarAction extends GenericAutowireComposer implements DataCr
 						session.saveOrUpdate(klasifikasiSuratKeluarParemeterValue);
 					} else if (coponent instanceof Datebox) {
 						Datebox isi = (Datebox) coponent;
+						Date nilaiTanggalIsi;
+						try {
+							nilaiTanggalIsi = isi.getValue();
+						} catch (org.zkoss.zk.ui.WrongValueException wve) {
+							/* Teks yang diketik user di Datebox tidak dapat diparse (format tanggal
+							 * tidak lengkap/tidak valid) -> getValue() melempar WrongValueException.
+							 * Beri tahu user secara ramah, lalu lewati parameter ini (bukan crash). */
+							MyMessageboxConfig.show("Mohon Bapak/Ibu memeriksa kembali isian tanggal pada parameter \""
+									+ klasifikasiSuratKeluarParemeter.getNama()
+									+ "\". Format tanggal yang diisi tidak valid/lengkap. Langkah yang dapat dilakukan: (1) klik kolom tanggal tersebut; (2) pilih ulang tanggal yang benar melalui kalender; (3) lanjutkan menyimpan surat.",
+									"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+							continue;
+						}
 						KlasifikasiSuratKeluarParemeterValue klasifikasiSuratKeluarParemeterValue = (KlasifikasiSuratKeluarParemeterValue) session
 								.createCriteria(KlasifikasiSuratKeluarParemeterValue.class)
 								.add(Restrictions.eq("klasifikasiSuratKeluarParemeter",
@@ -4259,7 +4272,7 @@ public class SuratKeluarAction extends GenericAutowireComposer implements DataCr
 							klasifikasiSuratKeluarParemeterValue = new KlasifikasiSuratKeluarParemeterValue();
 						}
 						klasifikasiSuratKeluarParemeterValue.setNama(Common.dateFormat2.get()
-								.format(isi.getValue() == null ? ais.ui.util.WaktuUtil.getDate() : isi.getValue()));
+								.format(nilaiTanggalIsi == null ? ais.ui.util.WaktuUtil.getDate() : nilaiTanggalIsi));
 						klasifikasiSuratKeluarParemeterValue
 								.setKlasifikasiSuratKeluarParemeter(klasifikasiSuratKeluarParemeter);
 						klasifikasiSuratKeluarParemeterValue.setSuratKeluar(suratKeluar);

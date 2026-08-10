@@ -159,7 +159,11 @@ public class AmbilDataDariGoogleBookBanyak extends MyWindow {
 
 					@Override
 					public void onEvent(Event arg0) throws Exception {
-						String isbn13 = volumeInfo.getIndustryIdentifiers().get(1).getIdentifier();
+						String isbn13 = "";
+						try {
+							isbn13 = volumeInfo.getIndustryIdentifiers().get(1).getIdentifier();
+						} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/library/helper/AmbilDataDariGoogleBookBanyak.java:162");
+						}
 						if (checkbox.isChecked()) {
 							ids.add(volume);
 							isbn13s.add(isbn13);

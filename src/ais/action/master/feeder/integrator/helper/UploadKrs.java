@@ -178,6 +178,13 @@ public class UploadKrs extends MyWindow {
 			@Override
 			public void onEvent(Event event) throws Exception {
 
+				if (file == null || !file.exists()) {
+					MyMessageboxConfig.show(
+							"Belum ada data KRS yang diupload/diproses. Silakan upload file KRS (xlsx) terlebih dahulu.",
+							"Error", MyMessageboxConfig.OK, MyMessageboxConfig.ERROR);
+					return;
+				}
+
 				try {
 					Filedownload.save(new FileInputStream(file),
 							"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "KRS.xlsx");

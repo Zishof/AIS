@@ -4672,10 +4672,19 @@ public class AbsensiHelper {
 						detailperkuliahan == null ? semester : detailperkuliahan.getSemester(), tahap,
 						(Mahasiswa) mahasiswa, false, false)) {
 					kehadiran.setVisible(false);
-					MyLabelAgakKecil a;
-					kehadiran.getParent().appendChild(a = new MyLabelAgakKecil(
+					MyLabelAgakKecil a = new MyLabelAgakKecil(
 							"Mahasiswa tidak bisa di-absen karena belum memenuhi kewajiban pembayaran di semester "
-									+ (detailperkuliahan == null ? semester : detailperkuliahan.getSemester())));
+									+ (detailperkuliahan == null ? semester : detailperkuliahan.getSemester()));
+					// kehadiran hanya di-attach ke parent pada cabang mahasiswa boleh ubah absen
+					// sendiri (lihat hbox.appendChild(kehadiran) di atas); pada tampilan
+					// read-only (mis. mahasiswa lihat absensi sendiri tanpa hak ubah) kehadiran
+					// TIDAK PERNAH di-attach sehingga getParent() null -> jatuhkan ke vboxStats
+					// (kontainer baris ini, selalu sudah ter-attach) agar tidak NPE.
+					if (kehadiran.getParent() != null) {
+						kehadiran.getParent().appendChild(a);
+					} else {
+						a.setParent(vboxStats);
+					}
 					a.setStyle("font-size:10px;color:red;");
 				}
 

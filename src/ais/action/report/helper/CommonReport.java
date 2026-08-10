@@ -1611,12 +1611,35 @@ public class CommonReport {
                 compileReportToFileDenganFallbackUtf8(fileJrxml, fileJasper);
             } catch (Exception e) {
                 Common.tampilErrorJikaAdmin(e);
-                PesanFormalHelper.tampilkanGagalException("pembuatan berkas PDF Common Report", "Sistem mengalami kendala teknis saat menyusun berkas PDF laporan ini, kemungkinan karena salah satu data sumber laporan tidak lengkap, format datanya tidak sesuai dengan yang diharapkan oleh template laporan, atau terjadi gangguan sementara pada proses pembuatan berkas.", e,
-                		new String[] {
-                			"Periksa kembali filter/kriteria/periode yang Bapak/Ibu pilih sebelum mencetak laporan ini.",
-                			"Pastikan data yang menjadi sumber laporan ini (mis. data akademik/keuangan/pegawai terkait) sudah lengkap dan benar, kemudian coba cetak ulang.",
-                			"Jika kendala terus berulang, silakan hubungi Administrator atau laporkan ke Pengembang Sistem disertai tangkapan layar (screenshot) pesan ini."
-                		});
+                // KE-FIX (JRXML template rusak/bukan XML valid, mis. SAXParseException "Content is
+                // not allowed in prolog" karena berkas .jrxml terpotong/corrupt/kosong): baik berkas
+                // di disk maupun salinan cadangan dari LampiranLain (yang baru saja disalin ke
+                // fileJrxml di atas) sama-sama tetap gagal di-parse sebagai XML walau sudah dicoba
+                // dipulihkan lewat compileReportToFileDenganFallbackUtf8 (termasuk percobaan
+                // perbaikan BOM/encoding). Ini BUKAN masalah data/filter laporan — pesan generik di
+                // bawah menyuruh pengguna mengecek data/filter, yang tidak akan pernah menyelesaikan
+                // masalah berkas template yang rusak. Beri diagnosis log yang jelas + pesan yang
+                // akurat (arahkan ke admin), tanpa mengubah perilaku fallback yang sudah ada.
+                if (adalahMasalahEncodingJrxml(e)) {
+                    ais.common.ErrorAuditUtil.record(e,
+                            "auto-audit(jrxml-template-corrupt) src/ais/action/report/helper/CommonReport.java template="
+                                    + namaAsli);
+                    PesanFormalHelper.tampilkanGagalException("pembuatan berkas PDF Common Report",
+                            "Berkas template laporan \"" + namaAsli + "\" rusak atau bukan format XML yang valid (kemungkinan terpotong/corrupt saat disimpan atau diunggah), sehingga tidak dapat dibaca sistem untuk membuat PDF laporan ini.",
+                            e,
+                            new String[] {
+                                    "Ini BUKAN disebabkan oleh data, filter, atau periode yang Bapak/Ibu pilih — mengubahnya tidak akan menyelesaikan kendala ini.",
+                                    "Template laporan ini perlu diperbaiki atau diunggah ulang oleh Administrator/Pengembang Sistem.",
+                                    "Silakan hubungi Administrator atau laporkan ke Pengembang Sistem, sebutkan nama laporan (\"" + namaAsli + "\") dan sertakan tangkapan layar (screenshot) pesan ini."
+                            });
+                } else {
+                    PesanFormalHelper.tampilkanGagalException("pembuatan berkas PDF Common Report", "Sistem mengalami kendala teknis saat menyusun berkas PDF laporan ini, kemungkinan karena salah satu data sumber laporan tidak lengkap, format datanya tidak sesuai dengan yang diharapkan oleh template laporan, atau terjadi gangguan sementara pada proses pembuatan berkas.", e,
+                    		new String[] {
+                    			"Periksa kembali filter/kriteria/periode yang Bapak/Ibu pilih sebelum mencetak laporan ini.",
+                    			"Pastikan data yang menjadi sumber laporan ini (mis. data akademik/keuangan/pegawai terkait) sudah lengkap dan benar, kemudian coba cetak ulang.",
+                    			"Jika kendala terus berulang, silakan hubungi Administrator atau laporkan ke Pengembang Sistem disertai tangkapan layar (screenshot) pesan ini."
+                    		});
+                }
             }
         }
     }

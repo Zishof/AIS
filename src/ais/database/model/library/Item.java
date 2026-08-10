@@ -4,6 +4,7 @@ package ais.database.model.library;
 
 import static javax.persistence.GenerationType.IDENTITY;
 
+import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.net.URL;
@@ -876,7 +877,20 @@ public class Item extends GeneralValueObject {
 
 						if (img != null) {
 							f.getParentFile().mkdirs();
-							if (!ImageIO.write(img, "JPEG", f)) {
+							// JPEG tidak mendukung alpha channel; menulis BufferedImage
+							// ARGB/indexed (mis. sampul PNG) langsung via ImageIO.write ke
+							// format JPEG bisa memicu NullPointerException internal pada
+							// JPEGImageWriter (bug JDK yang sudah ditangani dengan pola sama
+							// di ItemPunyaGambarFotoHelper). Konversi dulu ke TYPE_INT_RGB.
+							BufferedImage rgbImg = new BufferedImage(img.getWidth(), img.getHeight(),
+									BufferedImage.TYPE_INT_RGB);
+							Graphics2D graphics = rgbImg.createGraphics();
+							try {
+								graphics.drawImage(img, 0, 0, null);
+							} finally {
+								graphics.dispose();
+							}
+							if (!ImageIO.write(rgbImg, "JPEG", f)) {
 
 							}
 						}

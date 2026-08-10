@@ -1,181 +1,188 @@
-<h2 style="margin:0 0 10px;color:#1d4ed8;">Panduan Penggunaan Halaman Hasil SPMI</h2>
+<div style="font-family:Arial,Helvetica,sans-serif;color:#334155;line-height:1.55;">
+  <h2 style="margin:0 0 6px;color:#1d4ed8;">Panduan Lengkap SPMI dan Audit Mutu Internal (AMI)</h2>
+  <p style="margin:0 0 14px;color:#475569;">
+    Panduan ini menjelaskan pekerjaan dari penyiapan master SPMI, pembuatan pengajuan AMI, pengisian
+    lembar kerja, pemeriksaan auditor, penyelesaian temuan dan Rencana Tindak Lanjut (RTL), sampai
+    pemantauan pada Rapat Tinjauan Manajemen (RTM). Nama tombol dapat sedikit berbeda sesuai hak akses akun.
+  </p>
 
-<p style="color:#334155;line-height:1.6;margin:0 0 12px;">
-Halaman ini digunakan untuk meninjau hasil SPMI, yaitu hasil pelaksanaan Sistem Penjaminan Mutu Internal,
-berupa capaian standar mutu, temuan, serta tindak lanjut yang diperoleh dari kegiatan penjaminan mutu seperti
-audit mutu internal. Pengelolaan mencakup peninjauan capaian tiap standar, penelusuran temuan, pemantauan
-tindak lanjut, hingga pemanfaatannya untuk perbaikan. Singkatnya, di sinilah hasil penjaminan mutu internal
-dihimpun dan ditinjau. Panduan ini disusun berurutan agar Anda memahami fungsi tiap bagian serta langkah
-yang perlu disiapkan, dilakukan, dan diselesaikan dari awal hingga akhir.
-</p>
+  <div style="background:#eff6ff;border-left:4px solid #2563eb;padding:10px 12px;margin-bottom:16px;">
+    <b>Alur paling singkat:</b> siapkan master → buat pengajuan AMI → auditee melengkapi bukti
+    → admin memverifikasi → auditor melakukan desk evaluation dan visitasi → LHA diterbitkan
+    → auditee mengisi RTL → auditor/LPM memverifikasi → pimpinan memantau melalui RTM.
+  </div>
 
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">1. Tujuan Halaman</h3>
-<p style="color:#334155;line-height:1.6;">
-Halaman Hasil SPMI berfungsi menampilkan hasil penjaminan mutu internal agar capaian standar dan temuan
-dapat ditinjau serta ditindaklanjuti. Dengan hasil yang dikelola baik, institusi dapat mengetahui sejauh
-mana standar mutu telah dipenuhi dan bagian mana yang perlu diperbaiki. Peninjauan yang tertib memastikan
-hasil penjaminan mutu benar-benar dimanfaatkan untuk peningkatan, sehingga mutu institusi terus berkembang
-secara berkelanjutan.
-</p>
+  <h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">1. Peran Pengguna dan Tanggung Jawab</h3>
+  <table style="width:100%;border-collapse:collapse;margin:8px 0 14px;">
+    <tr style="background:#e2e8f0;"><th style="border:1px solid #cbd5e1;padding:7px;text-align:left;">Peran</th><th style="border:1px solid #cbd5e1;padding:7px;text-align:left;">Pekerjaan utama</th></tr>
+    <tr><td style="border:1px solid #cbd5e1;padding:7px;"><b>Admin SPMI/LPM</b></td><td style="border:1px solid #cbd5e1;padding:7px;">Menyiapkan master, memeriksa kelengkapan pengajuan, menjaga jadwal, dan memantau seluruh proses.</td></tr>
+    <tr><td style="border:1px solid #cbd5e1;padding:7px;"><b>Kaprodi/Unit (Auditee)</b></td><td style="border:1px solid #cbd5e1;padding:7px;">Mengisi evaluasi diri, menyiapkan bukti, menanggapi temuan, dan menyelesaikan RTL.</td></tr>
+    <tr><td style="border:1px solid #cbd5e1;padding:7px;"><b>Auditor</b></td><td style="border:1px solid #cbd5e1;padding:7px;">Melakukan desk evaluation, visitasi, memberi skor, mencatat temuan, dan memverifikasi RTL.</td></tr>
+    <tr><td style="border:1px solid #cbd5e1;padding:7px;"><b>Kepala Pusat AMI/Ketua LPM</b></td><td style="border:1px solid #cbd5e1;padding:7px;">Menetapkan auditor dan jadwal, memvalidasi hasil, serta menutup tindak lanjut.</td></tr>
+    <tr><td style="border:1px solid #cbd5e1;padding:7px;"><b>Pimpinan/Rektor</b></td><td style="border:1px solid #cbd5e1;padding:7px;">Meninjau capaian dan temuan pada dashboard/RTM untuk menetapkan keputusan peningkatan mutu.</td></tr>
+  </table>
 
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">2. Hal yang Perlu Disiapkan</h3>
-<p style="color:#334155;line-height:1.6;">
-Sebelum meninjau, pastikan kegiatan penjaminan mutu telah dilaksanakan dan hasilnya tercatat, serta pahami
-standar mutu dan indikator yang dipakai. Persiapan ini memastikan peninjauan hasil dilakukan dengan dasar
-yang jelas, sehingga capaian dan temuan dapat dipahami dengan benar dan tindak lanjut diarahkan tepat
-sasaran.
-</p>
+  <h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">2. Persiapan Sebelum Memulai</h3>
+  <ol style="padding-left:24px;">
+    <li>Pastikan Tahun Akademik dan Semester yang akan diaudit sudah tersedia.</li>
+    <li>Pastikan Fakultas, Prodi, pengguna auditee, auditor, dan pejabat LPM sudah benar.</li>
+    <li>Administrator memastikan setiap grup pengguna mempunyai hak akses SPMI dan aktor SOP yang sesuai.</li>
+    <li>Siapkan dokumen sumber: kebijakan mutu, manual, standar, indikator, daftar tilik, dan bukti pendukung.</li>
+    <li>Sepakati periode audit, ruang lingkup, tim auditor, auditee, serta tenggat setiap tahapan.</li>
+  </ol>
 
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">3. Memahami Informasi Hasil SPMI</h3>
-<p style="color:#334155;line-height:1.6;">
-Hasil SPMI umumnya mencakup standar yang dinilai, capaian terhadap indikator, temuan, serta rekomendasi atau
-tindak lanjut. Memahami informasi ini penting agar peninjauan tepat. Dengan mengenali tiap komponen, Anda
-dapat menilai pemenuhan standar dan mengenali bagian yang belum tercapai, sehingga perbaikan dapat diarahkan
-pada hal yang benar-benar memerlukan.
-</p>
+  <h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">3. Menyiapkan Master SPMI Secara Manual</h3>
+  <p>Buka <b>Setup SPMI</b>. Isi data berurutan karena data pada tingkat bawah bergantung pada tingkat di atasnya:</p>
+  <ol style="padding-left:24px;">
+    <li><b>Jenis SPMI</b>: buat kode, nama jenis, keterangan, lalu centang Aktif.</li>
+    <li><b>Standar SPMI/Referensi Eksternal</b>: pilih Jenis SPMI, lalu isi kode dan nama standar.</li>
+    <li><b>Pernyataan Ayat Standar/Butir Mutu</b>: pilih standar induk dan masukkan pernyataan yang akan dinilai.</li>
+    <li><b>Indikator</b>: pilih butir mutu, tulis ukuran keberhasilan yang spesifik dan dapat dibuktikan.</li>
+    <li><b>Daftar Tilik/Skenario Pertanyaan/Bukti</b>: pilih indikator, lalu tulis pertanyaan audit atau bukti yang harus tersedia.</li>
+  </ol>
+  <div style="background:#fff7ed;border-left:4px solid #f97316;padding:9px 12px;margin:10px 0 14px;">
+    <b>Penting:</b> jangan membuat indikator yang tidak memiliki butir mutu atau bukti yang tidak memiliki indikator.
+    Gunakan kode yang stabil dan unik agar data dapat dicocokkan saat upload Excel.
+  </div>
 
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">4. Meninjau Capaian Standar</h3>
-<p style="color:#334155;line-height:1.6;">
-Tinjau capaian tiap standar mutu untuk menilai sejauh mana indikator telah dipenuhi. Peninjauan ini penting
-agar pemenuhan standar diketahui dengan jelas. Dengan menelaah capaian, Anda dapat membedakan standar yang
-telah terpenuhi dari yang masih kurang, sehingga upaya perbaikan dapat diprioritaskan pada standar yang
-belum tercapai.
-</p>
+  <h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">4. Download dan Upload Master SPMI Global</h3>
+  <p>Fitur ini dipakai untuk memindahkan seluruh hierarki master dalam satu file Excel.</p>
+  <ol style="padding-left:24px;">
+    <li>Buka <b>Setup SPMI</b> pada tab <b>Jenis SPMI</b>.</li>
+    <li>Klik <b>Download SPMI Global</b> untuk mendapatkan format terbaru dan salinan data yang ada.</li>
+    <li>Buka file XLSX, baca sheet petunjuk, lalu isi sesuai urutan dan contoh pada template.</li>
+    <li>Jangan mengganti nama sheet, judul kolom, kode induk, atau struktur tabel.</li>
+    <li>Simpan sebagai <b>.xlsx</b>. Pastikan ukuran file tidak melebihi batas yang tertulis pada tombol upload.</li>
+    <li>Klik <b>Upload SPMI Global</b>, pilih file, lalu tunggu ringkasan jumlah data baru dan data yang diperbarui.</li>
+    <li>Buka kelima tab master dan periksa hubungan Jenis → Standar → Butir → Indikator → Bukti.</li>
+  </ol>
+  <p><b>Praktik aman:</b> selalu download cadangan sebelum upload, gunakan kode yang sama untuk memperbarui data,
+    hindari baris ganda, dan perbaiki semua pesan validasi sebelum mengunggah ulang. Penyimpanan dilakukan sebagai
+    satu transaksi; bila satu baris gagal divalidasi, perubahan upload dibatalkan agar master tidak masuk sebagian.</p>
 
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">5. Menelusuri Temuan dan Rekomendasi</h3>
-<p style="color:#334155;line-height:1.6;">
-Telusuri temuan yang diperoleh dari penjaminan mutu beserta rekomendasinya untuk memahami akar persoalan
-dan langkah perbaikan yang disarankan. Penelusuran ini penting agar tindak lanjut tepat. Dengan memahami
-temuan, penanggung jawab dapat menyusun perbaikan yang sesuai, sehingga persoalan mutu tidak berulang dan
-standar dapat dipenuhi pada periode berikutnya.
-</p>
+  <h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">5. Membuat Pengajuan AMI</h3>
+  <ol style="padding-left:24px;">
+    <li>Buka menu <b>Pengajuan SPMI</b>, lalu tab <b>Daftar Pengajuan AMI</b>.</li>
+    <li>Klik <b>Tambah</b>.</li>
+    <li>Isi <b>Judul Pengajuan SPMI</b>, <b>Nama Auditor/Tim Audit</b>, dan <b>Nama Auditee</b>.</li>
+    <li>Pilih Fakultas, Prodi, Tahun Akademik, Semester, dan <b>Jenis Pengajuan SPMI</b>.</li>
+    <li>Isi Tanggal Pengajuan dan Keterangan. Lampirkan dokumen pengajuan; jika lebih dari satu, gabungkan dalam ZIP.</li>
+    <li>Periksa daftar standar, indikator, dan bukti yang muncul. Jika kosong, periksa kembali Jenis SPMI dan master aktif.</li>
+    <li>Klik <b>Simpan dan Cetak</b>. Setelah tersimpan, pengajuan dapat dicari berdasarkan judul, jenis, status, fakultas, atau prodi.</li>
+  </ol>
 
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">6. Memantau Tindak Lanjut</h3>
-<p style="color:#334155;line-height:1.6;">
-Pantau tindak lanjut atas temuan untuk memastikan perbaikan benar-benar dilakukan dan persoalan
-terselesaikan. Pemantauan ini penting agar hasil penjaminan mutu tidak berhenti pada catatan. Dengan
-memantau tindak lanjut, institusi dapat memastikan rekomendasi dilaksanakan, sehingga penjaminan mutu
-internal berdampak nyata pada peningkatan mutu.
-</p>
+  <h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">6. Mengisi Lembar Kerja AMI di Sistem</h3>
+  <p>Auditee dan auditor mengisi kolom sesuai kewenangannya. Klik baris/detail pengajuan untuk membuka lembar kerja.</p>
+  <ul style="padding-left:24px;">
+    <li><b>Auditee:</b> isi Status Kesiapan Bukti, Bukti/Link Dokumen, dan Catatan Auditee.</li>
+    <li><b>Auditor:</b> isi Skor, Catatan Auditor, dan Rekomendasi Auditor berdasarkan bukti yang sudah diverifikasi.</li>
+    <li>Gunakan tautan yang dapat dibuka oleh auditor. Nama file sebaiknya memuat kode standar dan periode.</li>
+    <li>Simpan setiap perubahan dan buka ulang detail untuk memastikan data benar-benar tercatat.</li>
+  </ul>
+  <p>Status kesiapan bukti digunakan secara konsisten: <b>Tersedia</b> bila lengkap dan dapat diverifikasi,
+    <b>Sebagian</b> bila belum lengkap, serta <b>Belum Tersedia</b> bila belum ada. Skor mengikuti ketentuan
+    pada format audit aktif.</p>
 
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">Download dan Upload Format AMI Satu File</h3>
-<p style="color:#334155;line-height:1.6;">
-Pada baris pengajuan AMI tersedia tombol <b>Unduh AMI</b> dan <b>Upload AMI</b>. Simpan pengajuan dan
-pilih Jenis SPMI terlebih dahulu, kemudian klik <b>Unduh AMI</b>. Sistem membuat satu file XLSX format
-umum V2 yang berisi PETUNJUK, IDENTITAS, DATA_AMI, Ringkasan Hasil Audit, REFERENSI, dan metadata sistem.
-Seluruh standar dan indikator aktif berada dalam satu tabel DATA_AMI sehingga pengguna lintas kampus tidak
-perlu membuat atau menyalin banyak sheet. IDENTITAS memuat perguruan tinggi, fakultas, program studi,
-periode, skema, auditee, dan tim auditor. Isi kolom berwarna pada DATA_AMI: Skor 1/0, Catatan Auditor,
-Rekomendasi, Bukti/Link Dokumen, Status Kesiapan Bukti, dan Catatan Auditee.
-</p>
-<p style="color:#334155;line-height:1.6;">
-Setelah selesai, unggah file melalui <b>Upload AMI</b> pada pengajuan yang sesuai. Format V2 hasil download
-sistem membawa ID teknis untuk pencocokan paling presisi. File umum buatan kampus juga dapat diunggah tanpa
-ID teknis; sistem akan mencocokkan kombinasi Standar, Butir/Klausul, Indikator, dan Bukti Dokumen secara unik
-dengan master audit aktif. Format lama V1 tetap diterima untuk menjaga kompatibilitas. Sistem memeriksa
-identitas yang tersedia, kelengkapan indikator, duplikasi, skor, dan status kesiapan sebelum menyimpan.
-Jika satu validasi gagal, seluruh upload dibatalkan sehingga tidak ada data yang masuk sebagian.
-</p>
-<p style="color:#334155;line-height:1.6;"><b>Urutan kerja yang disarankan:</b></p>
-<ol style="color:#334155;line-height:1.7;padding-left:24px;">
-<li>Pastikan pengajuan AMI sudah tersimpan dan Jenis SPMI yang benar telah dipilih.</li>
-<li>Unduh format terbaru dari baris pengajuan yang akan dinilai; jangan memakai format milik pengajuan atau periode lain.</li>
-<li>Isi hanya kolom G-L pada DATA_AMI. Skor hanya boleh kosong, 0, atau 1, sedangkan status kesiapan hanya boleh Tersedia, Sebagian, atau Belum Tersedia.</li>
-<li>Jangan mengubah teks Standar, Butir/Klausul, Indikator, dan Bukti Dokumen. Kolom ID teknis boleh kosong pada format umum buatan kampus.</li>
-<li>Periksa Ringkasan Hasil Audit sebelum mengunggah berkas.</li>
-<li>Upload berkas pada pengajuan asal. Setelah pesan berhasil muncul, buka kembali detail hasil untuk memastikan skor dan catatan telah tersimpan.</li>
-</ol>
-<p style="color:#334155;line-height:1.6;">
-Saat upload, sistem terlebih dahulu membaca seluruh workbook tanpa menyimpan perubahan. Sistem kemudian
-memastikan versi format, identitas audit bila tersedia, Jenis SPMI, jumlah indikator bila dideklarasikan,
-pencocokan unik indikator dan bukti dokumen, nilai skor, serta status kesiapan sesuai master aktif. Penyimpanan
-baru dilakukan setelah semua pemeriksaan lolos dalam satu transaksi. Jika
-terjadi kesalahan pada satu baris, transaksi dibatalkan dan data lama tetap dipertahankan. Pesan kesalahan
-menunjukkan sheet atau indikator yang perlu diperbaiki; perbaiki file yang sama lalu lakukan upload ulang.
-</p>
+  <h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">7. Mengisi AMI dengan Satu File Excel</h3>
+  <ol style="padding-left:24px;">
+    <li>Simpan pengajuan dan pastikan Jenis SPMI sudah dipilih.</li>
+    <li>Pada baris pengajuan yang benar, klik <b>Unduh AMI</b>. Jangan menggunakan file dari pengajuan/periode lain.</li>
+    <li>Isi sheet <b>IDENTITAS</b> bila diperlukan dan isi kolom yang diperbolehkan pada <b>DATA_AMI</b>.</li>
+    <li>Isi Skor dengan kosong, 0, atau 1; isi Catatan Auditor, Rekomendasi, Bukti/Link Dokumen,
+      Status Kesiapan Bukti, dan Catatan Auditee.</li>
+    <li>Jangan mengubah Standar, Butir/Klausul, Indikator, Bukti Dokumen, metadata, maupun ID teknis.</li>
+    <li>Periksa <b>Ringkasan Hasil Audit</b>, simpan file, lalu klik <b>Upload AMI</b> pada pengajuan asal.</li>
+    <li>Setelah pesan berhasil, buka kembali detail pengajuan dan cocokkan beberapa indikator, skor, dan catatan.</li>
+  </ol>
+  <p>Format V2 hasil sistem memberi pencocokan paling presisi. Format umum tanpa ID teknis tetap dapat dipakai
+    bila kombinasi Standar, Butir/Klausul, Indikator, dan Bukti Dokumen cocok secara unik dengan master aktif.
+    Sistem memvalidasi seluruh workbook sebelum menyimpan; kesalahan satu baris membatalkan seluruh upload.</p>
 
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">7. Kaitan dengan Standar, Indikator, dan Audit Mutu</h3>
-<p style="color:#334155;line-height:1.6;">
-Hasil SPMI ini berkaitan dengan <b>standar dan indikator mutu</b> serta dengan kegiatan <b>audit mutu
-internal</b>. Standar dan indikator menjadi acuan penilaian, audit menghasilkan temuan, dan hasil SPMI
-menghimpunnya. Keterkaitan ini menjadikan ketepatan hasil penting, karena perbaikan yang tepat bergantung
-pada hasil yang akurat; hasil yang keliru dapat mengarahkan perbaikan pada hal yang salah.
-</p>
+  <h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">8. Alur Persetujuan AMI (12 Tahap)</h3>
+  <table style="width:100%;border-collapse:collapse;margin:8px 0 14px;font-size:0.96em;">
+    <tr style="background:#dbeafe;"><th style="border:1px solid #cbd5e1;padding:6px;">No.</th><th style="border:1px solid #cbd5e1;padding:6px;text-align:left;">Tahap</th><th style="border:1px solid #cbd5e1;padding:6px;text-align:left;">Pelaksana</th><th style="border:1px solid #cbd5e1;padding:6px;text-align:left;">Hasil yang diharapkan</th></tr>
+    <tr><td style="border:1px solid #cbd5e1;padding:6px;">1</td><td style="border:1px solid #cbd5e1;padding:6px;">Pengajuan bukti audit</td><td style="border:1px solid #cbd5e1;padding:6px;">Kaprodi/Auditee</td><td style="border:1px solid #cbd5e1;padding:6px;">Diajukan</td></tr>
+    <tr><td style="border:1px solid #cbd5e1;padding:6px;">2</td><td style="border:1px solid #cbd5e1;padding:6px;">Verifikasi kelengkapan</td><td style="border:1px solid #cbd5e1;padding:6px;">Admin LPM</td><td style="border:1px solid #cbd5e1;padding:6px;">Diverifikasi atau Dikembalikan</td></tr>
+    <tr><td style="border:1px solid #cbd5e1;padding:6px;">3</td><td style="border:1px solid #cbd5e1;padding:6px;">Penjadwalan dan penugasan auditor</td><td style="border:1px solid #cbd5e1;padding:6px;">Kepala Pusat AMI</td><td style="border:1px solid #cbd5e1;padding:6px;">Terjadwal</td></tr>
+    <tr><td style="border:1px solid #cbd5e1;padding:6px;">4</td><td style="border:1px solid #cbd5e1;padding:6px;">Notifikasi otomatis</td><td style="border:1px solid #cbd5e1;padding:6px;">Sistem</td><td style="border:1px solid #cbd5e1;padding:6px;">Terkirim</td></tr>
+    <tr><td style="border:1px solid #cbd5e1;padding:6px;">5</td><td style="border:1px solid #cbd5e1;padding:6px;">Desk evaluation</td><td style="border:1px solid #cbd5e1;padding:6px;">Auditor</td><td style="border:1px solid #cbd5e1;padding:6px;">Sedang Direview</td></tr>
+    <tr><td style="border:1px solid #cbd5e1;padding:6px;">6</td><td style="border:1px solid #cbd5e1;padding:6px;">Visitasi</td><td style="border:1px solid #cbd5e1;padding:6px;">Auditor</td><td style="border:1px solid #cbd5e1;padding:6px;">Visitasi Berlangsung</td></tr>
+    <tr><td style="border:1px solid #cbd5e1;padding:6px;">7</td><td style="border:1px solid #cbd5e1;padding:6px;">Input skor dan temuan</td><td style="border:1px solid #cbd5e1;padding:6px;">Auditor</td><td style="border:1px solid #cbd5e1;padding:6px;">Temuan Terinput: OK, Observasi, atau KTS</td></tr>
+    <tr><td style="border:1px solid #cbd5e1;padding:6px;">8</td><td style="border:1px solid #cbd5e1;padding:6px;">Validasi hasil audit</td><td style="border:1px solid #cbd5e1;padding:6px;">Kepala Pusat AMI</td><td style="border:1px solid #cbd5e1;padding:6px;">Tervalidasi</td></tr>
+    <tr><td style="border:1px solid #cbd5e1;padding:6px;">9</td><td style="border:1px solid #cbd5e1;padding:6px;">Publikasi LHA</td><td style="border:1px solid #cbd5e1;padding:6px;">Sistem/LPM</td><td style="border:1px solid #cbd5e1;padding:6px;">Terpublikasi</td></tr>
+    <tr><td style="border:1px solid #cbd5e1;padding:6px;">10</td><td style="border:1px solid #cbd5e1;padding:6px;">Pengajuan RTL</td><td style="border:1px solid #cbd5e1;padding:6px;">Kaprodi/Auditee</td><td style="border:1px solid #cbd5e1;padding:6px;">RTL Diajukan</td></tr>
+    <tr><td style="border:1px solid #cbd5e1;padding:6px;">11</td><td style="border:1px solid #cbd5e1;padding:6px;">Verifikasi dan penutupan RTL</td><td style="border:1px solid #cbd5e1;padding:6px;">Auditor dan Ketua LPM</td><td style="border:1px solid #cbd5e1;padding:6px;">Closed atau Belum Selesai</td></tr>
+    <tr><td style="border:1px solid #cbd5e1;padding:6px;">12</td><td style="border:1px solid #cbd5e1;padding:6px;">Monitoring dan RTM</td><td style="border:1px solid #cbd5e1;padding:6px;">Pimpinan dan Ketua LPM</td><td style="border:1px solid #cbd5e1;padding:6px;">Dashboard real-time dan keputusan RTM</td></tr>
+  </table>
+  <p>Jika tahap verifikasi menyatakan <b>Dikembalikan</b>, auditee harus memperbaiki bukti/catatan lalu mengajukan
+    kembali. Jika verifikasi RTL menyatakan <b>Belum Selesai</b>, proses kembali ke tahap pengajuan RTL. Hanya RTL
+    yang bukti perbaikannya sudah diverifikasi yang boleh ditutup sebagai <b>Closed</b>.</p>
 
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">8. Peran dan Hak Akses</h3>
-<p style="color:#334155;line-height:1.6;">
-Peninjauan hasil SPMI umumnya dilakukan oleh bagian penjaminan mutu atau pimpinan yang berwenang, sehingga
-halaman ini hanya tampil bagi peran tertentu. Apabila Anda tidak menemukan data yang diharapkan, kemungkinan
-peran akun Anda belum memiliki haknya; hubungi administrator sistem untuk penyesuaian. Pembatasan ini
-menjaga agar hasil penjaminan mutu ditinjau pihak yang berwenang dan ditindaklanjuti dengan benar.
-</p>
+  <h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">9. Cara Auditor Melakukan Pemeriksaan</h3>
+  <ol style="padding-left:24px;">
+    <li>Pastikan ruang lingkup, jadwal, auditee, dan daftar indikator sesuai surat tugas.</li>
+    <li>Pada desk evaluation, buka setiap bukti dan catat apakah bukti relevan, cukup, mutakhir, serta sah.</li>
+    <li>Catat pertanyaan/klarifikasi yang perlu dibuktikan saat visitasi.</li>
+    <li>Saat visitasi, konfirmasi pelaksanaan nyata melalui wawancara, observasi, dan sampling dokumen.</li>
+    <li>Isi skor, catatan objektif, klasifikasi temuan, dan rekomendasi. Hindari catatan tanpa rujukan bukti.</li>
+    <li>Periksa konsistensi total/ringkasan, lalu teruskan hasil untuk validasi Kepala Pusat AMI.</li>
+  </ol>
 
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">9. Kesalahan Umum dan Cara Menghindarinya</h3>
-<p style="color:#334155;line-height:1.6;">
-Kendala yang sering terjadi antara lain meninjau hasil tanpa memahami standar, mengabaikan temuan, serta
-tidak memantau tindak lanjut sehingga perbaikan tidak terlaksana. Untuk menghindarinya, pahami standar,
-telaah temuan, dan pantau tindak lanjut. Ketelitian ini menjaga agar penjaminan mutu berdampak nyata pada
-peningkatan mutu institusi.
-</p>
+  <h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">10. Temuan, LHA, PTK, dan RTL</h3>
+  <ul style="padding-left:24px;">
+    <li><b>OK/Sesuai:</b> bukti menunjukkan persyaratan telah dipenuhi.</li>
+    <li><b>Observasi:</b> belum menjadi ketidaksesuaian, tetapi berpotensi menimbulkan masalah atau perlu peningkatan.</li>
+    <li><b>KTS:</b> terdapat bukti objektif bahwa persyaratan/standar tidak dipenuhi.</li>
+    <li><b>LHA:</b> laporan final yang memuat ruang lingkup, hasil, skor, temuan, dan rekomendasi.</li>
+    <li><b>PTK/RTL:</b> tindakan koreksi yang memuat akar masalah, rencana, penanggung jawab, target waktu, dan bukti penyelesaian.</li>
+  </ul>
+  <p>Auditee mengisi RTL untuk setiap temuan yang memerlukan tindakan. Gunakan target yang realistis dan terukur.
+    Auditor memverifikasi bukti penyelesaian, sedangkan LPM memastikan temuan tidak ditutup hanya berdasarkan pernyataan.</p>
 
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">10. Pertanyaan yang Sering Diajukan</h3>
-<p style="color:#334155;line-height:1.6;">
-<b>Apa itu hasil SPMI?</b> Hasil pelaksanaan penjaminan mutu internal berupa capaian, temuan, dan tindak
-lanjut. <b>Dari mana hasilnya?</b> Umumnya dari audit mutu internal terhadap standar. <b>Apa yang
-ditinjau?</b> Capaian standar, temuan, dan tindak lanjutnya. <b>Untuk apa?</b> Sebagai dasar perbaikan dan
-peningkatan mutu institusi.
-</p>
+  <h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">11. Dashboard, Pencarian, dan Cetak Laporan</h3>
+  <ol style="padding-left:24px;">
+    <li>Buka tab <b>Dasbor AMI</b> untuk melihat ringkasan pelaksanaan dan analitik.</li>
+    <li>Gunakan filter periode, fakultas, prodi, jenis, atau status untuk mempersempit data.</li>
+    <li>Klik angka/kartu pada dashboard bila tersedia untuk melihat rincian sumber angka.</li>
+    <li>Pada <b>Daftar Pengajuan AMI</b>, gunakan kolom pencarian lalu klik <b>Cari</b>.</li>
+    <li>Buka pengajuan dan gunakan fungsi cetak/laporan untuk menghasilkan lembar kerja atau LHA.</li>
+    <li>Pada RTM, fokuskan pembahasan pada KTS terbuka, RTL terlambat, tren skor, dan temuan berulang.</li>
+  </ol>
 
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">11. Langkah Akhir dan Verifikasi</h3>
-<p style="color:#334155;line-height:1.6;">
-Sebagai langkah akhir, periksa kembali hasil untuk memastikan capaian tiap standar, temuan, dan tindak
-lanjut telah ditinjau, tanpa standar atau temuan yang terlewat. Pastikan rekomendasi ditindaklanjuti.
-Dengan verifikasi ini, hasil SPMI menjadi dasar yang andal bagi perbaikan dan peningkatan mutu yang
-berkelanjutan.
-</p>
+  <h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">12. Pemeriksaan Sebelum Menyelesaikan Tahap</h3>
+  <ul style="padding-left:24px;">
+    <li>Identitas pengajuan, periode, prodi, jenis audit, auditor, dan auditee sudah benar.</li>
+    <li>Semua indikator yang wajib sudah dinilai dan semua tautan bukti dapat dibuka.</li>
+    <li>Catatan auditor menyebut bukti objektif; rekomendasi sesuai akar masalah.</li>
+    <li>Status workflow sesuai pekerjaan yang benar-benar telah selesai.</li>
+    <li>RTL mempunyai penanggung jawab, tenggat, dan bukti penyelesaian.</li>
+    <li>LHA sudah divalidasi sebelum dipublikasikan; hasil RTM dan keputusan tindak lanjut terdokumentasi.</li>
+  </ul>
 
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">12. Ringkasan Alur Singkat</h3>
-<p style="color:#334155;line-height:1.6;">
-Secara ringkas: pastikan penjaminan mutu terlaksana dan tercatat, tinjau capaian standar, telusuri temuan
-dan rekomendasi, pantau tindak lanjut, lalu manfaatkan untuk perbaikan. Dengan mengikuti urutan ini, hasil
-SPMI benar-benar mendorong peningkatan mutu.
-</p>
+  <h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">13. Solusi Kendala yang Sering Terjadi</h3>
+  <table style="width:100%;border-collapse:collapse;margin:8px 0 14px;">
+    <tr style="background:#e2e8f0;"><th style="border:1px solid #cbd5e1;padding:7px;text-align:left;">Kendala</th><th style="border:1px solid #cbd5e1;padding:7px;text-align:left;">Yang harus diperiksa</th></tr>
+    <tr><td style="border:1px solid #cbd5e1;padding:7px;">Jenis/standar/indikator kosong</td><td style="border:1px solid #cbd5e1;padding:7px;">Pastikan master aktif, hierarkinya lengkap, dan Jenis SPMI pengajuan sudah dipilih.</td></tr>
+    <tr><td style="border:1px solid #cbd5e1;padding:7px;">Upload global gagal</td><td style="border:1px solid #cbd5e1;padding:7px;">Gunakan template terbaru, .xlsx, ukuran sesuai batas, nama sheet/header tidak berubah, dan kode induk tersedia.</td></tr>
+    <tr><td style="border:1px solid #cbd5e1;padding:7px;">Upload AMI tidak cocok</td><td style="border:1px solid #cbd5e1;padding:7px;">Gunakan file dari pengajuan asal dan jangan mengubah metadata maupun teks master.</td></tr>
+    <tr><td style="border:1px solid #cbd5e1;padding:7px;">Tombol tidak muncul/nonaktif</td><td style="border:1px solid #cbd5e1;padding:7px;">Periksa peran, hak akses, aktor SOP, status aktif, dan apakah tahap tersebut memang milik pengguna.</td></tr>
+    <tr><td style="border:1px solid #cbd5e1;padding:7px;">Workflow tidak berpindah</td><td style="border:1px solid #cbd5e1;padding:7px;">Lengkapi kolom wajib, catatan/lampiran, keputusan disposisi, dan pemetaan aktor tahap berikutnya.</td></tr>
+    <tr><td style="border:1px solid #cbd5e1;padding:7px;">Data terlihat belum berubah</td><td style="border:1px solid #cbd5e1;padding:7px;">Simpan, tutup detail, klik Cari/Refresh, buka ulang pengajuan, lalu periksa periode dan filter aktif.</td></tr>
+  </table>
 
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">13. Manfaat Peninjauan yang Tertib</h3>
-<p style="color:#334155;line-height:1.6;">
-Peninjauan hasil SPMI yang tertib memastikan capaian standar dan temuan benar-benar ditindaklanjuti,
-sehingga penjaminan mutu internal berdampak nyata pada peningkatan mutu. Hasil yang ditelaah dengan baik
-memudahkan penyusunan perbaikan yang tepat. Bagi institusi, pemanfaatan hasil SPMI mencerminkan budaya mutu
-yang sungguh-sungguh. Sebaliknya, hasil yang dibiarkan tanpa tindak lanjut membuat penjaminan mutu sia-sia.
-Karena itu, tinjau hasil SPMI dengan cermat agar mutu terus meningkat.
-</p>
+  <h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">14. Data yang Disiapkan Saat Meminta Bantuan</h3>
+  <p>Agar pemeriksaan cepat, kirimkan: nama kampus, username/peran (tanpa password), judul dan ID pengajuan,
+    Jenis SPMI, Tahun Akademik/Semester, tahap/status terakhir, waktu kejadian, langkah yang dilakukan,
+    tangkapan layar utuh, pesan error lengkap, serta file Excel yang gagal bila masalah terjadi saat upload.</p>
 
-<h3 style="color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:4px;">14. Tips Penggunaan</h3>
-<p style="color:#334155;line-height:1.6;">
-Pahami standar dan indikator sebelum menilai capaian. Telaah temuan untuk mengenali akar persoalan. Catat
-dan pantau tindak lanjut hingga selesai. Bandingkan hasil antarperiode untuk melihat perkembangan mutu.
-Prioritaskan perbaikan pada standar yang belum tercapai, dan koordinasikan dengan penanggung jawab agar
-tindak lanjut hasil SPMI dilaksanakan sesuai rekomendasi.
-</p>
+  <div style="background:#ecfdf5;border-left:4px solid #10b981;padding:10px 12px;margin-top:14px;">
+    <b>Prinsip penutupan audit:</b> audit belum selesai hanya karena skor sudah diisi atau laporan sudah dicetak.
+    Audit dinyatakan tuntas setelah hasil divalidasi, LHA dipublikasikan, seluruh KTS memiliki RTL, bukti RTL
+    diverifikasi, status ditutup, dan hasilnya dibahas atau dipantau dalam RTM.
+  </div>
 
-<p style="color:#475569;line-height:1.6;margin-top:14px;font-style:italic;">
-Dengan mengikuti langkah-langkah di atas secara berurutan, peninjauan hasil SPMI dapat dilakukan dengan
-tertib, mulai dari penelaahan capaian standar, penelusuran temuan, hingga pemantauan tindak lanjut sebagai
-langkah akhir. Apabila menemui kendala dalam meninjau atau menindaklanjuti hasil, hubungi bagian penjaminan
-mutu atau administrator sistem agar hasil penjaminan mutu internal benar-benar mendorong peningkatan mutu
-institusi secara berkelanjutan. Peninjauan hasil yang dilakukan secara cermat dan ditindaklanjuti dengan
-sungguh-sungguh akan membantu memastikan bahwa setiap temuan memperoleh perbaikan yang nyata, sehingga
-standar mutu yang belum tercapai dapat dipenuhi pada periode berikutnya dan budaya mutu di institusi tumbuh
-secara konsisten dari waktu ke waktu. Dengan demikian, hasil penjaminan mutu internal tidak berhenti sebagai
-catatan semata, melainkan benar-benar menjadi penggerak perbaikan yang nyata dan terukur bagi seluruh unit
-di lingkungan institusi. Pemanfaatan hasil yang konsisten dari periode ke periode juga memungkinkan pimpinan
-mengukur kemajuan mutu secara jelas dan mengambil kebijakan yang tepat berdasarkan data yang dapat
-dipercaya.
-</p>
-
-<p style="color:#94a3b8;line-height:1.6;margin-top:8px;font-size:0.92em;">
-Catatan: panduan ini disusun untuk memudahkan pengguna memahami alur kerja halaman secara umum.
-Tampilan, penamaan menu, serta ketersediaan sebagian tombol dapat berbeda menyesuaikan peran pengguna
-dan pengaturan masing-masing institusi. Apabila terdapat perbedaan, ikuti ketentuan resmi yang berlaku
-di lingkungan Anda dan tanyakan kepada petugas yang berwenang bila diperlukan.
-</p>
+  <p style="color:#64748b;margin-top:12px;font-size:0.92em;">
+    Catatan: sistem menampilkan fungsi sesuai hak akses dan konfigurasi institusi. Jika menu atau tahap berbeda,
+    ikuti SOP resmi kampus dan hubungi Admin SPMI/LPM untuk pemeriksaan hak akses serta pemetaan aktor.
+  </p>
+</div>
