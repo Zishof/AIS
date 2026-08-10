@@ -234,6 +234,7 @@ public class CaraPembayaranKoperasi extends GeneralValueObject {
 	 * <p>Default sengaja {@code false}: metode pembayaran lama (kolom ini masih null/false) TIDAK
 	 * pernah mendadak dianggap hutang.</p>
 	 */
+	@Column(name = "masuk_sebagai_hutang")
 	public Boolean getMasukSebagaiHutang() {
 		return masukSebagaiHutang == null ? false : masukSebagaiHutang;
 	}
