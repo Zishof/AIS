@@ -27,6 +27,10 @@ String rnd = Common.getGeneratedBarCode(7);
 	</li>
 	<li class="nav-item" role="presentation">
 		<button class="nav-link" data-bs-toggle="tab"
+			data-bs-target="#sub-mutasi-hutang<%=rnd%>" type="button" role="tab"><%=Common.getBahasaConfig("Mutasi Hutang")%></button>
+	</li>
+	<li class="nav-item" role="presentation">
+		<button class="nav-link" data-bs-toggle="tab"
 			data-bs-target="#sub-notifikasi<%=rnd%>" type="button" role="tab"><%=Common.getBahasaConfig("Notifikasi")%></button>
 	</li>
 	<li class="nav-item" role="presentation">
@@ -55,6 +59,10 @@ String rnd = Common.getGeneratedBarCode(7);
 	<div class="tab-pane fade" id="sub-mutasi-tabungan<%=rnd%>" role="tabpanel">
 		<jsp:include
 			page="/WEB-INF/baru/modul/kantin/member/_mutasi_tabungan.jsp" />
+	</div>
+	<div class="tab-pane fade" id="sub-mutasi-hutang<%=rnd%>" role="tabpanel">
+		<jsp:include
+			page="/WEB-INF/baru/modul/kantin/member/_mutasi_hutang.jsp" />
 	</div>
 	<div class="tab-pane fade" id="sub-notifikasi<%=rnd%>" role="tabpanel">
 		<jsp:include

@@ -391,6 +391,11 @@ public class CommonReport {
             if (Common.bolehKonfigurasi("report_tombol_parameter")) {
                 tambahTombolParameter(toolbar, parameters, nama);
             }
+            // Tombol Reset hanya untuk superadmin: menghapus jrxml kustom dan
+            // mengembalikan laporan ke file JRXML bawaan (default).
+            if (Common.getApakahAdmin() && Common.bolehKonfigurasi("report_tombol_reset")) {
+                tambahTombolResetJrxml(toolbar, nama);
+            }
         }
         return toolbar;
     }
@@ -456,6 +461,95 @@ public class CommonReport {
                 handleParameterReport(parameters, nama);
             }
         });
+    }
+
+    private static void tambahTombolResetJrxml(Toolbar toolbar, final String nama) {
+        MyToolbarbuttonConfig btnReset = new MyToolbarbuttonConfig("Reset", "/img/svg/refresh.svg");
+        btnReset.setTooltiptext("Kembalikan laporan ke file JRXML bawaan (hapus konfigurasi yang diunggah)");
+        btnReset.setParent(toolbar);
+        btnReset.addEventListener("onClick", new EventListener() {
+            @Override
+            public void onEvent(Event arg0) throws Exception {
+                MyMessageboxConfig.show(
+                        "Yakin ingin mereset laporan \"" + nama + "\" ke file JRXML bawaan?\n"
+                                + "File JRXML yang pernah diunggah akan dihapus dari konfigurasi.",
+                        "Konfirmasi Reset",
+                        MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL,
+                        MyMessageboxConfig.QUESTION,
+                        new EventListener() {
+                            @Override
+                            public void onEvent(Event event) throws Exception {
+                                int i = Integer.parseInt(event.getData().toString());
+                                if (i == MyMessageboxConfig.OK) {
+                                    try {
+                                        handleResetJrxml(nama);
+                                        MyMessageboxConfig.show(
+                                                "Laporan \"" + nama + "\" berhasil direset ke file JRXML bawaan.",
+                                                "Berhasil", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+                                    } catch (Exception e) {
+                                        Common.tampilErrorJikaAdmin(e);
+                                        PesanFormalHelper.tampilkanGagalException(
+                                                "reset JRXML laporan " + nama, e,
+                                                new String[] {
+                                                        "Coba ulangi operasi reset.",
+                                                        "Hubungi Administrator jika masalah berlanjut." });
+                                    }
+                                }
+                            }
+                        });
+            }
+        });
+    }
+
+    private static void handleResetJrxml(String nama) throws Exception {
+        // lampiran_lain ada di streaming DB — wajib pakai StreamingHibernateUtil
+        org.hibernate.Session streamSess = null;
+        org.hibernate.Session mainSess = null;
+        try {
+            streamSess = StreamingHibernateUtil.getInstance().getSessionFactory().openSession();
+            streamSess.beginTransaction();
+            streamSess.createSQLQuery(
+                    "DELETE FROM lampiran_lain WHERE ref = -10001 AND jenis = :jenis")
+                    .setParameter("jenis", REPORT_PREFIX + nama)
+                    .executeUpdate();
+            streamSess.getTransaction().commit();
+        } catch (Exception e) {
+            if (streamSess != null && streamSess.getTransaction() != null) {
+                try { streamSess.getTransaction().rollback(); } catch (Exception er) {
+                    ais.common.ErrorAuditUtil.record(er, "auto-audit(empty-catch) CommonReport:handleResetJrxml:streamRollback");
+                }
+            }
+            throw e;
+        } finally {
+            if (streamSess != null && streamSess.isOpen()) {
+                try { streamSess.close(); } catch (Exception er) {
+                    ais.common.ErrorAuditUtil.record(er, "auto-audit(empty-catch) CommonReport:handleResetJrxml:streamClose");
+                }
+            }
+        }
+        // Konfigurasi ada di main DB
+        try {
+            mainSess = HibernateUtil.getSessionFactory().openSession();
+            mainSess.beginTransaction();
+            mainSess.createSQLQuery(
+                    "UPDATE konfigurasi SET info1 = '' WHERE kunci = :kunci")
+                    .setParameter("kunci", REPORT_PREFIX + nama)
+                    .executeUpdate();
+            mainSess.getTransaction().commit();
+        } catch (Exception e) {
+            if (mainSess != null && mainSess.getTransaction() != null) {
+                try { mainSess.getTransaction().rollback(); } catch (Exception er) {
+                    ais.common.ErrorAuditUtil.record(er, "auto-audit(empty-catch) CommonReport:handleResetJrxml:mainRollback");
+                }
+            }
+            throw e;
+        } finally {
+            if (mainSess != null && mainSess.isOpen()) {
+                try { mainSess.close(); } catch (Exception er) {
+                    ais.common.ErrorAuditUtil.record(er, "auto-audit(empty-catch) CommonReport:handleResetJrxml:mainClose");
+                }
+            }
+        }
     }
 
     @SuppressWarnings("rawtypes")

@@ -6033,7 +6033,11 @@ public class KantinHelper {
 		ais.database.model.inventory.Pedagang pemanggilSo = tbmuser == null ? null : tbmuser.getPedagang();
 		boolean adminGlobalSo = pemanggilSo == null;
 		boolean supervisorSo = pemanggilSo != null && Boolean.TRUE.equals(pemanggilSo.getSupervisor());
-		if (!adminGlobalSo && !supervisorSo) {
+		// Gap-closure (audit hak-akses): sebelumnya HANYA admin/supervisor (gerbang keras, checkbox
+		// "Stok Opname" di matriks Hak Akses Pedagang tak berpengaruh apa pun). Sekarang konsisten dgn
+		// menu granular lain (anggota/produk/kulakan/dst) -- kasir non-supervisor BOLEH kalau rolenya
+		// diberi hak "Stok Opname: Create" secara eksplisit.
+		if (!bolehAksiCrud(tbmuser, pemanggilSo, adminGlobalSo, supervisorSo, "stokopname", "create")) {
 			hasil.put("status", "91");
 			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat mencatat hasil Stok Opname.");
 			return;

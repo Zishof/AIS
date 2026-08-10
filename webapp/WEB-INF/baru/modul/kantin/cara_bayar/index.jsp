@@ -63,6 +63,7 @@ boolean isAdmin = (toko == null);
                                     <th class="fw-semibold text-uppercase small px-3" style="width: 120px;"><i class="fas fa-hand-holding-usd me-1"></i><%=Common.getBahasaConfig("Manual")%></th>
                                     <th class="fw-semibold text-uppercase small px-3" style="width: 120px;"><i class="fas fa-globe me-1"></i><%=Common.getBahasaConfig("Online")%></th>
                                     <th class="fw-semibold text-uppercase small px-3" style="width: 130px;"><i class="fas fa-wallet me-1"></i><%=Common.getBahasaConfig("Potong Saldo")%></th>
+                                    <th class="fw-semibold text-uppercase small px-3" style="width: 120px;"><i class="fas fa-hand-holding-usd me-1"></i><%=Common.getBahasaConfig("Hutang")%></th>
                                     <th class="fw-semibold text-uppercase small px-3" style="width: 120px;"><i class="fas fa-toggle-on me-1"></i><%=Common.getBahasaConfig("Status")%></th>
                                     <% if (isAdmin) { %>
                                     <th class="fw-semibold text-uppercase small px-3 text-center" style="width: 100px;"><i class="fas fa-cogs"></i></th>
@@ -70,7 +71,7 @@ boolean isAdmin = (toko == null);
                                 </tr>
                             </thead>
                             <tbody id="tabelDataCaraBayar<%=rnd%>">
-                                <tr><td colspan="<%= isAdmin ? 9 : 8 %>" class="text-center py-5"><div class="spinner-border text-primary mb-3"></div><br><span class="text-muted fw-medium"><%=Common.getBahasaConfig("Memuat data...")%></span></td></tr>
+                                <tr><td colspan="<%= isAdmin ? 10 : 9 %>" class="text-center py-5"><div class="spinner-border text-primary mb-3"></div><br><span class="text-muted fw-medium"><%=Common.getBahasaConfig("Memuat data...")%></span></td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -167,6 +168,17 @@ boolean isAdmin = (toko == null);
                                 </div>
                             </div>
 
+                            <!-- Masuk Sebagai Hutang: metode pembayaran "ambil dari utang" -- transaksi yg
+                                 memakainya TIDAK dianggap lunas, dicatat sbg piutang toko ke member (lihat
+                                 tab "Mutasi Hutang" & batas "Maksimal Boleh Utang" di Tipe Member). -->
+                            <div class="col-12 pt-2">
+                                <div class="form-check form-switch fs-6 border border-danger rounded-3 p-2" style="background-color:#fdecea;">
+                                    <input class="form-check-input ms-1 me-2" type="checkbox" id="inputMasukSebagaiHutang<%=rnd%>" style="cursor: pointer;">
+                                    <label class="form-check-label fw-semibold text-dark small" for="inputMasukSebagaiHutang<%=rnd%>"><%=Common.getBahasaConfig("Masukkan sebagai Hutang")%></label>
+                                    <div class="small text-muted mt-1 ms-1"><%=Common.getBahasaConfig("Jika dicentang, transaksi dengan metode ini dicatat sebagai HUTANG pelanggan (bukan lunas) — tercatat di tab \"Mutasi Hutang\" dan dibatasi oleh \"Maksimal Boleh Utang\" pada Tipe Member-nya.")%></div>
+                                </div>
+                            </div>
+
                             <div class="col-12 mt-3">
                                 <label class="form-label small fw-semibold text-secondary"><%=Common.getBahasaConfig("Keterangan Tambahan")%></label>
                                 <textarea class="form-control text-muted shadow-sm" id="inputKeterangan<%=rnd%>" rows="3" placeholder="<%=Common.getBahasaConfig("Masukkan instruksi atau no. rekening jika ada...")%>"></textarea>
@@ -195,7 +207,7 @@ boolean isAdmin = (toko == null);
     
     // Inject status Admin
     const isAdmin<%=rnd%> = <%=isAdmin%>;
-    const colSpan<%=rnd%> = isAdmin<%=rnd%> ? 9 : 8; // +1 kolom "Potong Saldo"
+    const colSpan<%=rnd%> = isAdmin<%=rnd%> ? 10 : 9; // +1 kolom "Potong Saldo", +1 kolom "Hutang"
 
     // Variabel Paging
     let currentPage<%=rnd%> = 1;
@@ -268,7 +280,7 @@ boolean isAdmin = (toko == null);
         const sqlCount = "SELECT COUNT(*) AS jumlah FROM koperasi.cara_pembayaran_koperasi " + sqlFilters + ";";
         
         // Asumsi struktur DB column names (berdasarkan Hibernate default naming)
-        const sqlData = "SELECT id, kode, nama, keterangan, manual, online, memotong_deposit, aktif FROM koperasi.cara_pembayaran_koperasi " + sqlFilters + " ORDER BY nama ASC LIMIT " + limitPerPage<%=rnd%> + " OFFSET " + offset + ";";
+        const sqlData = "SELECT id, kode, nama, keterangan, manual, online, memotong_deposit, masuk_sebagai_hutang, aktif FROM koperasi.cara_pembayaran_koperasi " + sqlFilters + " ORDER BY nama ASC LIMIT " + limitPerPage<%=rnd%> + " OFFSET " + offset + ";";
 
         try {
             const [resCount, resData] = await Promise.all([
@@ -305,6 +317,11 @@ boolean isAdmin = (toko == null);
                         ? '<span class="badge bg-warning bg-opacity-25 text-dark border border-warning px-2 py-1"><i class="fas fa-wallet me-1"></i>Ya</span>'
                         : '<span class="text-secondary fw-bold"><i class="fas fa-minus me-1"></i>Tidak</span>';
 
+                    const isHutang = (row.masuk_sebagai_hutang === true || row.masuk_sebagai_hutang === 't' || row.masuk_sebagai_hutang === 'true');
+                    const badgeHutang = isHutang
+                        ? '<span class="badge bg-danger bg-opacity-25 text-danger border border-danger px-2 py-1"><i class="fas fa-hand-holding-usd me-1"></i>Ya</span>'
+                        : '<span class="text-secondary fw-bold"><i class="fas fa-minus me-1"></i>Tidak</span>';
+
                     htmlList += '<tr>' +
                             '<td class="text-center text-muted fw-medium">' + (no++) + '</td>' +
                             '<td class="text-start fw-bold text-secondary">' + (row.kode || '-') + '</td>' +
@@ -313,6 +330,7 @@ boolean isAdmin = (toko == null);
                             '<td class="text-center">' + badgeManual + '</td>' +
                             '<td class="text-center">' + badgeOnline + '</td>' +
                             '<td class="text-center">' + badgePotong + '</td>' +
+                            '<td class="text-center">' + badgeHutang + '</td>' +
                             '<td class="text-center">' + badgeStatus + '</td>';
                     
                     // Render kolom aksi hanya jika user adalah admin
@@ -376,6 +394,7 @@ boolean isAdmin = (toko == null);
         document.getElementById('inputManual<%=rnd%>').checked = true;
         document.getElementById('inputOnline<%=rnd%>').checked = false; // Default online false
         document.getElementById('inputMemotongDeposit<%=rnd%>').checked = false; // Default TIDAK memotong saldo
+        document.getElementById('inputMasukSebagaiHutang<%=rnd%>').checked = false; // Default BUKAN hutang
         
         document.getElementById('formTitle<%=rnd%>').innerHTML = '<i class="fas fa-wallet text-primary me-2"></i><%=Common.getBahasaConfig("Tambah Metode Pembayaran")%>';
         
@@ -408,6 +427,7 @@ boolean isAdmin = (toko == null);
             manual: document.getElementById('inputManual<%=rnd%>').checked,
             online: document.getElementById('inputOnline<%=rnd%>').checked, // Parameter Online
             memotongDeposit: document.getElementById('inputMemotongDeposit<%=rnd%>').checked, // Kurangi saldo anggota
+            masukSebagaiHutang: document.getElementById('inputMasukSebagaiHutang<%=rnd%>').checked, // Catat sbg hutang
             aktif: document.getElementById('inputStatusAktif<%=rnd%>').checked
         };
         
@@ -452,7 +472,7 @@ boolean isAdmin = (toko == null);
     const editCaraBayar<%=rnd%> = async (id) => {
         if (!isAdmin<%=rnd%>) return;
         
-        const sql = 'SELECT id, kode, nama, keterangan, manual, online, memotong_deposit, aktif FROM koperasi.cara_pembayaran_koperasi WHERE id = ' + id;
+        const sql = 'SELECT id, kode, nama, keterangan, manual, online, memotong_deposit, masuk_sebagai_hutang, aktif FROM koperasi.cara_pembayaran_koperasi WHERE id = ' + id;
         const res = await fetchData<%=rnd%>(sql);
         
         if (res.length > 0) {
@@ -474,6 +494,9 @@ boolean isAdmin = (toko == null);
             // metode bayar lama tidak boleh mendadak ikut memotong saldo.
             const isPotongDeposit = (data.memotong_deposit === true || data.memotong_deposit === 'true' || data.memotong_deposit === 't');
             document.getElementById('inputMemotongDeposit<%=rnd%>').checked = isPotongDeposit;
+
+            const isMasukHutang = (data.masuk_sebagai_hutang === true || data.masuk_sebagai_hutang === 'true' || data.masuk_sebagai_hutang === 't');
+            document.getElementById('inputMasukSebagaiHutang<%=rnd%>').checked = isMasukHutang;
 
             const isAktif = (data.aktif === null || data.aktif === true || data.aktif === 'true' || data.aktif === 't');
             const chkAktif = document.getElementById('inputStatusAktif<%=rnd%>');
