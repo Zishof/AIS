@@ -108,6 +108,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 	private Tbmuser tbmuser;
 	private MyDoublebox nominal;
 	private MyDatebox waktu;
+	private MyDatebox tanggalExpired;
 
 	private Tabpanel tabCaraBayarTabungan;
 
@@ -331,7 +332,8 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		});
 
 		String[] contents = new String[] { "id", "mahasiswa", "biodataCalonMahasiswa", "siswa", "calonSiswa",
-				"anggotaKoperasi", "nominal", "waktu", "jenisPembayaran", "jenisTabungan", "keterangan" };
+				"anggotaKoperasi", "nominal", "waktu", "tanggalExpired", "jenisPembayaran", "jenisTabungan",
+				"keterangan" };
 		if (add != null && add.getParent() != null) {
 			MyToolbarbuttonConfig cetakToolbarbutton = Common.cetakData(Deposit.class, this, contents);
 			Common.appendKeToolbar(cetakToolbarbutton, add, comp);
@@ -1808,6 +1810,22 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 
 			// 3. Kolom Lainnya
 			new Label(Common.dateFormat.get().format(deposit.getWaktu())).setParent(arg0);
+
+			// Kadaluarsa: label merah + "(Hangus)" kalau tanggalnya sudah lewat hari ini, supaya
+			// kasir/admin langsung tahu baris ini tidak lagi dihitung di saldo terpakai (lihat
+			// DepositHelper.hitungDeposit -> totalHangus).
+			if (deposit.getTanggalExpired() == null) {
+				new Label("-").setParent(arg0);
+			} else {
+				boolean sudahHangus = deposit.getTanggalExpired().before(new Date());
+				Label lblExpired = new Label(
+						Common.dateFormat.get().format(deposit.getTanggalExpired()) + (sudahHangus ? " (Hangus)" : ""));
+				if (sudahHangus) {
+					lblExpired.setStyle("color:#dc2626;font-weight:bold;");
+				}
+				lblExpired.setParent(arg0);
+			}
+
 			new Label(deposit.getJenisPembayaran() == null ? "" : deposit.getJenisPembayaran().getNama())
 					.setParent(arg0);
 			new Label(deposit.getJenisTabungan() == null ? "" : deposit.getJenisTabungan().getNama()).setParent(arg0);
@@ -1973,6 +1991,17 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		waktu.setReadonly(true);
 		waktu.setWidth("90%");
 
+		// Tanggal Expired/Kadaluarsa: OPSIONAL. Kosong = saldo tidak pernah hangus (perilaku lama,
+		// tidak berubah). Bila diisi, saldo topup ini otomatis dianggap hangus (tidak bisa dipakai
+		// lagi) setelah tanggal tsb -- enforcement sudah ada di DepositHelper.hitungDeposit
+		// (totalDepositVoucherExpired/totalHangus), form ini hanya menyediakan cara mengisinya.
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Tanggal Expired (Kadaluarsa)"));
+		row.appendChild(tanggalExpired = new MyDatebox(deposit.getTanggalExpired()));
+		tanggalExpired.setFormat(Common.dateFormat.get().toPattern());
+		tanggalExpired.setWidth("90%");
+
 		row = new MyFormRow();
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Cara Pembayaran *"));
@@ -2110,6 +2139,7 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 		deposit.setJenisTabungan((JenisTabungan) jenisTabungan.getSelectedItem().getValue());
 		deposit.setNominal(nominal.getValue());
 		deposit.setWaktu(waktu == null || waktu.getValue() == null ? new Date() : waktu.getValue());
+		deposit.setTanggalExpired(tanggalExpired == null ? null : tanggalExpired.getValue());
 		deposit.setKeterangan(keterangan == null ? null : keterangan.getValue());
 
 		Common.refreshSaveOrUpdate(session, deposit);

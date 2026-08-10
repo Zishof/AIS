@@ -98,10 +98,14 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
     .qty-btn-<%=rnd%> { width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 1px solid #e2e8f0; font-weight: 800; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; line-height: 1; }
     .qty-btn-<%=rnd%>:hover { background: #0d6efd; color: #fff; border-color: #0d6efd; }
 
-    .paymethod-card-<%=rnd%> { border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px; cursor: pointer; transition: .12s; background: #fff; height: 100%; }
+    .paymethod-card-<%=rnd%> { position: relative; border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px; cursor: pointer; transition: .12s; background: #fff; height: 100%; }
     .paymethod-card-<%=rnd%>:hover { border-color: #0d6efd; box-shadow: 0 4px 12px rgba(13,110,253,.12); }
     .paymethod-card-<%=rnd%>.sel { border-color: #0d6efd; background: rgba(13,110,253,.06); box-shadow: 0 0 0 2px rgba(13,110,253,.2) inset; }
+    .paymethod-card-<%=rnd%>.split-sel { border-color: #198754; box-shadow: 0 0 0 2px rgba(25,135,84,.25) inset; }
     .paymethod-ic-<%=rnd%> { width: 38px; height: 38px; border-radius: 10px; background: rgba(13,110,253,.1); color: #0d6efd; display: flex; align-items: center; justify-content: center; font-size: 17px; margin-bottom: 8px; }
+    .paymethod-split-chk-<%=rnd%> { position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid #cbd5e1; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; color: transparent; }
+    .paymethod-split-chk-<%=rnd%>:hover { border-color: #198754; }
+    .paymethod-split-chk-<%=rnd%>.checked { background: #198754; border-color: #198754; color: #fff; }
 
     /* ===== Responsif ponsel: kartu produk lebih rapat, teks/khusus komponen dikecilkan sedikit ===== */
     @media (max-width: 576px) {
@@ -415,7 +419,14 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
     const filterTokoSQL<%=rnd%> = "<%=sqlFilterToko%>";
     const pajakPersenPOS<%=rnd%> = <%=pajakPersenPOS%>;
     let grandPajakValue<%=rnd%> = 0; // nominal Rp pajak keranjang saat ini (diisi ulang tiap renderCart)
-    let currentDraftId<%=rnd%> = null; // id koperasi.draft_pembelian_anggota_koperasi bila keranjang ini hasil "Muat" dr Tertahan 
+    let currentDraftId<%=rnd%> = null; // id koperasi.draft_pembelian_anggota_koperasi bila keranjang ini hasil "Muat" dr Tertahan
+
+    // Split pembayaran (s/d 5 metode/transaksi, mis. separuh Transfer + separuh Tunai): array of
+    // {id, nama, manual, nominal}. Kosong = mode lama satu-metode (select#selectCaraBayar<%=rnd%> tetap
+    // sumber kebenaran, TIDAK ada perubahan perilaku). Terisi >=2 = mode split aktif, panel QR/tunai
+    // besar disembunyikan (lihat lanjutkanPembayaranSetelahPin) karena tidak jelas dibayar via metode
+    // mana yang harusnya menampilkan QR/kembalian saat displit.
+    let splitSelectedMetodeBayar<%=rnd%> = [];
     
     // Variabel state untuk QR Code Polling
     let qrCheckInterval<%=rnd%> = null;
@@ -555,8 +566,20 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
               </div>
               <div class="modal-body pt-2 pb-4">
+                <p class="text-muted small mb-2"><%=Common.getBahasaConfig("Klik kartu utk bayar penuh 1 metode, atau centang ikon di pojok kartu utk gabungkan s/d 5 metode (split bayar).")%></p>
                 <div class="row g-2" id="gridMetodeBayar<%=rnd%>">
                     <div class="col-12 text-center text-muted py-3"><%=Common.getBahasaConfig("Memuat data...")%></div>
+                </div>
+                <div class="d-none mt-3 pt-3 border-top" id="panelSplitBayar<%=rnd%>">
+                    <div class="fw-bold small text-dark mb-2"><i class="fas fa-layer-group me-1"></i><%=Common.getBahasaConfig("Bagi Nominal per Metode")%></div>
+                    <div id="listSplitBayar<%=rnd%>"></div>
+                    <div class="d-flex justify-content-between align-items-center mt-2 mb-3 px-1">
+                        <span class="small text-muted"><%=Common.getBahasaConfig("Sisa belum dialokasikan")%></span>
+                        <span class="fw-bold" id="sisaSplitBayar<%=rnd%>">Rp 0</span>
+                    </div>
+                    <button type="button" class="btn btn-primary w-100 rounded-pill fw-bold" id="btnTerapkanSplitBayar<%=rnd%>" onclick="terapkanSplitPembayaran<%=rnd%>()">
+                        <i class="fas fa-check me-1"></i><%=Common.getBahasaConfig("Terapkan Split Pembayaran")%>
+                    </button>
                 </div>
               </div>
             </div>
@@ -702,9 +725,12 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             if (opt.value === '') continue;
             ada = true;
             const nama = opt.getAttribute('data-nama') || opt.text;
+            const isManual = opt.getAttribute('data-manual') === 'true';
             const isSel = opt.selected ? 'sel' : '';
+            const dalamSplit = splitSelectedMetodeBayar<%=rnd%>.some(s => String(s.id) === String(opt.value));
             html += '<div class="col-6">' +
-                        '<div class="paymethod-card-<%=rnd%> ' + isSel + '" id="paymethod-<%=rnd%>-' + opt.value + '" onclick="pilihMetodeBayar<%=rnd%>(\'' + opt.value + '\')">' +
+                        '<div class="paymethod-card-<%=rnd%> ' + isSel + (dalamSplit ? ' split-sel' : '') + '" id="paymethod-<%=rnd%>-' + opt.value + '" onclick="pilihMetodeBayar<%=rnd%>(\'' + opt.value + '\')">' +
+                            '<div class="paymethod-split-chk-<%=rnd%>' + (dalamSplit ? ' checked' : '') + '" onclick="event.stopPropagation(); toggleSplitMetodeBayar<%=rnd%>(\'' + opt.value + '\', ' + JSON.stringify(nama) + ', ' + isManual + ');" title="<%=Common.getBahasaConfig("Sertakan dalam split pembayaran")%>"><i class="fas fa-check"></i></div>' +
                             '<div class="paymethod-ic-<%=rnd%>"><i class="fas ' + ikonMetodeBayar<%=rnd%>(nama) + '"></i></div>' +
                             '<div class="fw-bold text-dark" style="font-size:13px;">' + nama + '</div>' +
                         '</div>' +
@@ -712,6 +738,95 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         }
         grid.innerHTML = ada ? html : '<div class="col-12 text-center text-muted py-3"><%=Common.getBahasaConfig("Tidak ada metode pembayaran tersedia.")%></div>';
         perbaruiLabelMetodeBayar<%=rnd%>();
+    };
+
+    // ==========================================
+    // SPLIT PEMBAYARAN (s/d 5 metode/transaksi)
+    // ==========================================
+    window.toggleSplitMetodeBayar<%=rnd%> = (id, nama, manual) => {
+        const idx = splitSelectedMetodeBayar<%=rnd%>.findIndex(s => String(s.id) === String(id));
+        if (idx >= 0) {
+            splitSelectedMetodeBayar<%=rnd%>.splice(idx, 1);
+        } else {
+            if (splitSelectedMetodeBayar<%=rnd%>.length >= 5) {
+                if (typeof tampilkanToast === "function") tampilkanToast('<%=Common.getBahasaConfigJS("Maksimal 5 metode pembayaran per transaksi.")%>', 'bg-warning text-dark');
+                return;
+            }
+            splitSelectedMetodeBayar<%=rnd%>.push({ id: id, nama: nama, manual: manual, nominal: 0 });
+        }
+        renderMetodeBayarCards<%=rnd%>();
+        renderSplitPanel<%=rnd%>();
+    };
+
+    const renderSplitPanel<%=rnd%> = () => {
+        const panel = document.getElementById('panelSplitBayar<%=rnd%>');
+        const list = document.getElementById('listSplitBayar<%=rnd%>');
+        if (!panel || !list) return;
+
+        if (splitSelectedMetodeBayar<%=rnd%>.length < 2) {
+            panel.classList.add('d-none');
+            return;
+        }
+        panel.classList.remove('d-none');
+
+        // Default: bagi rata, sisa pembulatan dibebankan ke slot terakhir. HANYA dijalankan sekali
+        // per perubahan jumlah slot (dideteksi via seluruh nominal masih 0) -- supaya angka yg sudah
+        // diedit manual oleh kasir tidak direset ulang tiap render.
+        const semuaNol = splitSelectedMetodeBayar<%=rnd%>.every(s => !s.nominal);
+        if (semuaNol && grandTotalValue<%=rnd%> > 0) {
+            const n = splitSelectedMetodeBayar<%=rnd%>.length;
+            const rata = Math.floor(grandTotalValue<%=rnd%> / n);
+            splitSelectedMetodeBayar<%=rnd%>.forEach((s, i) => {
+                s.nominal = (i === n - 1) ? (grandTotalValue<%=rnd%> - rata * (n - 1)) : rata;
+            });
+        }
+
+        let html = '';
+        splitSelectedMetodeBayar<%=rnd%>.forEach(s => {
+            html += '<div class="d-flex align-items-center gap-2 mb-2">' +
+                        '<div class="small fw-semibold text-dark" style="width:38%;"><i class="fas ' + ikonMetodeBayar<%=rnd%>(s.nama) + ' me-1 text-muted"></i>' + s.nama + '</div>' +
+                        '<div class="input-group input-group-sm">' +
+                            '<span class="input-group-text">Rp</span>' +
+                            '<input type="number" min="0" step="any" class="form-control text-end" value="' + s.nominal + '" oninput="updateSplitNominal<%=rnd%>(\'' + s.id + '\', this.value)">' +
+                        '</div>' +
+                    '</div>';
+        });
+        list.innerHTML = html;
+        updateSisaSplitLabel<%=rnd%>();
+    };
+
+    window.updateSplitNominal<%=rnd%> = (id, value) => {
+        const s = splitSelectedMetodeBayar<%=rnd%>.find(s => String(s.id) === String(id));
+        if (s) s.nominal = parseFloat(value) || 0;
+        updateSisaSplitLabel<%=rnd%>();
+    };
+
+    const updateSisaSplitLabel<%=rnd%> = () => {
+        const totalDialokasikan = splitSelectedMetodeBayar<%=rnd%>.reduce((sum, s) => sum + (parseFloat(s.nominal) || 0), 0);
+        const sisa = grandTotalValue<%=rnd%> - totalDialokasikan;
+        const lbl = document.getElementById('sisaSplitBayar<%=rnd%>');
+        const btn = document.getElementById('btnTerapkanSplitBayar<%=rnd%>');
+        if (!lbl || !btn) return;
+        lbl.textContent = formatRp<%=rnd%>(sisa);
+        const balance = Math.abs(sisa) < 1; // toleransi pembulatan
+        lbl.className = balance ? 'fw-bold text-success' : 'fw-bold text-danger';
+        btn.disabled = !balance;
+    };
+
+    window.terapkanSplitPembayaran<%=rnd%> = () => {
+        if (splitSelectedMetodeBayar<%=rnd%>.length < 2) return;
+        // Slot 1 (select#selectCaraBayar) tetap diisi metode PERTAMA yg dicentang -- dibutuhkan
+        // beberapa jalur lama yg masih membaca select.value (mis. label tombol pemicu modal).
+        const select = document.getElementById('selectCaraBayar<%=rnd%>');
+        select.value = splitSelectedMetodeBayar<%=rnd%>[0].id;
+        document.getElementById('lblMetodeBayarTerpilih<%=rnd%>').innerHTML =
+            '<i class="fas fa-layer-group me-1"></i>' + splitSelectedMetodeBayar<%=rnd%>.length + ' <%=Common.getBahasaConfigJS("Metode (Split)")%>';
+        document.getElementById('lblMetodeBayarTerpilih<%=rnd%>').classList.remove('text-muted');
+        document.getElementById('lblMetodeBayarTerpilih<%=rnd%>').classList.add('fw-bold', 'text-dark');
+        document.getElementById('panelUangTunai<%=rnd%>').style.display = 'none'; // ambigu saat split, lihat JavaDoc lanjutkanPembayaranSetelahPin
+        const modalEl = document.getElementById('modalMetodeBayar<%=rnd%>');
+        const inst = modalEl && window.bootstrap ? bootstrap.Modal.getInstance(modalEl) : null;
+        if (inst) inst.hide();
     };
 
     const perbaruiLabelMetodeBayar<%=rnd%> = () => {
@@ -732,11 +847,17 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
     window.pilihMetodeBayar<%=rnd%> = (value) => {
         const select = document.getElementById('selectCaraBayar<%=rnd%>');
         if (!select) return;
+        // Klik badan kartu = pilih SATU metode utk bayar penuh, spt sebelum fitur split ada -- selalu
+        // membatalkan/mereset split yg sedang disusun (kalau kasir berubah pikiran dari split ke satu
+        // metode saja), supaya tak ada state split "nyangkut" saat checkout.
+        splitSelectedMetodeBayar<%=rnd%> = [];
         select.value = value;
         select.dispatchEvent(new Event('change'));
-        document.querySelectorAll('#gridMetodeBayar<%=rnd%> .paymethod-card-<%=rnd%>').forEach(c => c.classList.remove('sel'));
+        document.querySelectorAll('#gridMetodeBayar<%=rnd%> .paymethod-card-<%=rnd%>').forEach(c => c.classList.remove('sel', 'split-sel'));
+        document.querySelectorAll('#gridMetodeBayar<%=rnd%> .paymethod-split-chk-<%=rnd%>').forEach(c => c.classList.remove('checked'));
         const el = document.getElementById('paymethod-<%=rnd%>-' + value);
         if (el) el.classList.add('sel');
+        renderSplitPanel<%=rnd%>();
         perbaruiLabelMetodeBayar<%=rnd%>();
         const modalEl = document.getElementById('modalMetodeBayar<%=rnd%>');
         const inst = modalEl && window.bootstrap ? bootstrap.Modal.getInstance(modalEl) : null;
@@ -1481,6 +1602,8 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
     const kosongkanKeranjang<%=rnd%> = () => {
         cart<%=rnd%> = [];
         currentDraftId<%=rnd%> = null;
+        splitSelectedMetodeBayar<%=rnd%> = [];
+        renderSplitPanel<%=rnd%>();
         recalculateCart<%=rnd%>();
         document.getElementById('inputUangTunai<%=rnd%>').value = '';
         hitungKembalian<%=rnd%>();
@@ -1842,10 +1965,17 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
 
         const namaCaraBayar = selectBayar.options[selectBayar.selectedIndex].getAttribute('data-nama').toLowerCase();
         const optCaraBayar = selectBayar.options[selectBayar.selectedIndex];
-        const isManual = optCaraBayar ? (optCaraBayar.getAttribute('data-manual') === 'true') : false;
+        const isSplitAktif = splitSelectedMetodeBayar<%=rnd%>.length >= 2;
 
-        // --- VALIDASI SALDO MENGENDAP (HANYA JIKA BUKAN MANUAL/TUNAI) ---
-        if (!isManual) {
+        // --- VALIDASI SALDO MENGENDAP (HANYA UTK NOMINAL YG BENAR2 MEMOTONG SALDO) ---
+        // Mode split: jumlahkan HANYA slot yg metodenya non-manual (potong saldo), BUKAN seluruh
+        // grandTotal -- persis permintaan "nominal yg memotong deposit bisa ada di salah satu dari
+        // 5 kolom". Mode lama (1 metode): identik spt sebelumnya (isManual dari satu-satunya slot).
+        const nominalPotongSaldo = isSplitAktif
+            ? splitSelectedMetodeBayar<%=rnd%>.filter(s => !s.manual).reduce((sum, s) => sum + (parseFloat(s.nominal) || 0), 0)
+            : ((optCaraBayar && optCaraBayar.getAttribute('data-manual') === 'true') ? 0 : grandTotalValue<%=rnd%>);
+
+        if (nominalPotongSaldo > 0) {
             if (idMember === "") {
                 if (typeof tampilkanToast === "function") {
                     tampilkanToast('<%=Common.getBahasaConfigJS("Silakan pilih Member (Pelanggan) untuk metode potong saldo.")%>', 'bg-warning text-dark');
@@ -1861,8 +1991,8 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             const memberSaatIni = arrDataMember<%=rnd%>.find(m => String(m.id) === String(idMember));
             const namaMemberSaatIni = memberSaatIni ? memberSaatIni.nama : '<%=Common.getBahasaConfigJS("pelanggan ini")%>';
 
-            if (currentSaldo < grandTotalValue<%=rnd%>) {
-                const pesanSaldoKurang = '<%=Common.getBahasaConfigJS("Maaf, saldo")%> ' + namaMemberSaatIni + ' <%=Common.getBahasaConfigJS("tidak mencukupi untuk transaksi ini")%> (<%=Common.getBahasaConfigJS("saldo")%> ' + formatRp<%=rnd%>(currentSaldo) + ', <%=Common.getBahasaConfigJS("total belanja")%> ' + formatRp<%=rnd%>(grandTotalValue<%=rnd%>) + ').';
+            if (currentSaldo < nominalPotongSaldo) {
+                const pesanSaldoKurang = '<%=Common.getBahasaConfigJS("Maaf, saldo")%> ' + namaMemberSaatIni + ' <%=Common.getBahasaConfigJS("tidak mencukupi untuk transaksi ini")%> (<%=Common.getBahasaConfigJS("saldo")%> ' + formatRp<%=rnd%>(currentSaldo) + ', <%=Common.getBahasaConfigJS("nominal yg memotong saldo")%> ' + formatRp<%=rnd%>(nominalPotongSaldo) + ').';
                 if (typeof tampilkanToast === "function") {
                     tampilkanToast(pesanSaldoKurang, 'bg-danger text-white');
                 } else {
@@ -1870,9 +2000,9 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
                 }
                 return;
             }
-            
+
             // Validasi Minimal Saldo Mengendap
-            if ((currentSaldo - grandTotalValue<%=rnd%>) < minimalDeposit) {
+            if ((currentSaldo - nominalPotongSaldo) < minimalDeposit) {
                 const pesanMengendapKurang = '<%=Common.getBahasaConfigJS("Transaksi ditolak! Sisa saldo")%> ' + namaMemberSaatIni + ' <%=Common.getBahasaConfigJS("setelah transaksi kurang dari batas saldo mengendap yang diizinkan")%> (' + formatRp<%=rnd%>(minimalDeposit) + ').';
                 if (typeof tampilkanToast === "function") {
                     tampilkanToast(pesanMengendapKurang, 'bg-danger text-white');
@@ -1943,6 +2073,20 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         };
 
         if (posTanpaLogin<%=rnd%>) payload.tanpaLogin = "true";
+
+        const isSplitAktif = splitSelectedMetodeBayar<%=rnd%>.length >= 2;
+        if (isSplitAktif) {
+            // Slot 1 (payload.caraBayar di atas) SUDAH metode pertama yg dicentang -- kirim sisanya
+            // (slot 2-5) sbg caraBayarTambahan. Nominal slot 1 TIDAK dikirim eksplisit -- server
+            // menghitungnya implisit dari totalBiaya dikurangi slot 2-5 (lihat
+            // PembelianAnggotaKoperasi.getNominalBayar1()), jadi harus SELALU konsisten dgn total di sini.
+            payload.caraBayarTambahan = splitSelectedMetodeBayar<%=rnd%>.slice(1).map(s => ({ caraBayar: s.id, nominal: s.nominal }));
+            // Split: QR-code besar & panel kembalian tunai diambil dari model "satu metode = seluruh
+            // total", tidak berlaku saat displit ke banyak metode -- langsung eksekusi seperti metode
+            // non-tunai/non-QR biasa (nominal per metode sudah pasti dari panel split, bukan dihitung ulang).
+            eksekusiPembayaranBackend<%=rnd%>(payload, 0, 0);
+            return;
+        }
 
         if (namaCaraBayar.includes('online') || namaCaraBayar.includes('qris') || namaCaraBayar.includes('topup')) {
             tampilkanModalQR<%=rnd%>(payload, grandTotalValue<%=rnd%>);
@@ -2070,7 +2214,7 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
     // gap-nya ada di sisi server yang sebelumnya tidak membacanya -- lihat pos_offline_service.jsp.
     const posTrxOffline<%=rnd%> = (payload, uangTunai, kembalian) => ({
         clientTrxId: payload.kodeUnik, tokoId: payload.idToko, waktu: payload.waktu,
-        caraBayar: payload.caraBayar, member: payload.id_member,
+        caraBayar: payload.caraBayar, caraBayarTambahan: payload.caraBayarTambahan, member: payload.id_member,
         total: grandTotalValue<%=rnd%>, bayar: uangTunai, kembalian: kembalian,
         items: (payload.transaksi || []).map(t => ({
             produkId: t.id, qty: t.jumlah, harga: t.harga,

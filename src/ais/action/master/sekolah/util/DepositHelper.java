@@ -3,6 +3,7 @@ package ais.action.master.sekolah.util;
 import java.util.Date;
 
 import org.hibernate.Criteria;
+import org.hibernate.SQLQuery;
 import org.hibernate.Session;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
@@ -310,17 +311,35 @@ public class DepositHelper {
             // CaraPembayaranKoperasi.getMemotongDeposit). Bersifat MENAMBAH: metode lama yang kolomnya
             // masih null/false tetap berperilaku persis seperti sebelumnya.
             //
-            // CATATAN NULL: eq(..., false) TIDAK mencocokkan baris ber-NULL di SQL, sehingga
+            // CATATAN NULL: manual=false TIDAK mencocokkan baris ber-NULL di SQL, sehingga
             // metode bayar lama yang manual-nya NULL memang sengaja tidak ikut memotong -- sama
             // dengan getManual() yang menganggap NULL = manual = true.
-            Double pengeluaranBelanja = getSafeDouble((Number) session.createCriteria(Pembelian.class)
-                    .setProjection(Projections.sum("total"))
-                    .createAlias("caraPembayaranKoperasi", "caraPembayaranKoperasi")
-                    .add(Restrictions.or(
-                            Restrictions.eq("caraPembayaranKoperasi.manual", false),
-                            Restrictions.eq("caraPembayaranKoperasi.memotongDeposit", true)))
-                    .add(Restrictions.eq("anggotaKoperasi", anggotaKoperasi))
-                    .add(Restrictions.sqlRestriction("date(this_.waktu) <= date('" + dbDate + "')"))
+            //
+            // CATATAN SPLIT PEMBAYARAN (2026-08-10): dihitung dari HEADER koperasi.pembelian_anggota_
+            // koperasi (bukan lagi baris detail koperasi.pembelian per item -- lihat JavaDoc
+            // PembelianAnggotaKoperasi.getNominalBayar1()), karena satu transaksi kini bisa dibayar s/d
+            // 5 metode berbeda sekaligus (mis. separuh Transfer + separuh Tunai) -- baris item TIDAK
+            // punya cara pembayaran sendiri-sendiri, hanya menyalin metode header lama sebelum fitur ini
+            // ada. Slot 1 nominalnya IMPLISIT (total_biaya dikurangi slot 2-5, lihat getNominalBayar1()),
+            // makanya dihitung di sini via ekspresi yang sama, bukan kolom tersendiri.
+            Double pengeluaranBelanja = getSafeDouble((Number) session.createSQLQuery(
+                    "SELECT COALESCE(SUM(" +
+                    "  CASE WHEN cpk1.manual = false OR cpk1.memotong_deposit = true " +
+                    "       THEN GREATEST(0, COALESCE(h.total_biaya,0) - COALESCE(h.nominal_bayar_2,0) - COALESCE(h.nominal_bayar_3,0) - COALESCE(h.nominal_bayar_4,0) - COALESCE(h.nominal_bayar_5,0)) " +
+                    "       ELSE 0 END " +
+                    "  + CASE WHEN cpk2.manual = false OR cpk2.memotong_deposit = true THEN COALESCE(h.nominal_bayar_2,0) ELSE 0 END " +
+                    "  + CASE WHEN cpk3.manual = false OR cpk3.memotong_deposit = true THEN COALESCE(h.nominal_bayar_3,0) ELSE 0 END " +
+                    "  + CASE WHEN cpk4.manual = false OR cpk4.memotong_deposit = true THEN COALESCE(h.nominal_bayar_4,0) ELSE 0 END " +
+                    "  + CASE WHEN cpk5.manual = false OR cpk5.memotong_deposit = true THEN COALESCE(h.nominal_bayar_5,0) ELSE 0 END " +
+                    "),0) " +
+                    "FROM koperasi.pembelian_anggota_koperasi h " +
+                    "LEFT JOIN koperasi.cara_pembayaran_koperasi cpk1 ON h.cara_pembayaran_koperasi = cpk1.id " +
+                    "LEFT JOIN koperasi.cara_pembayaran_koperasi cpk2 ON h.cara_pembayaran_koperasi_2 = cpk2.id " +
+                    "LEFT JOIN koperasi.cara_pembayaran_koperasi cpk3 ON h.cara_pembayaran_koperasi_3 = cpk3.id " +
+                    "LEFT JOIN koperasi.cara_pembayaran_koperasi cpk4 ON h.cara_pembayaran_koperasi_4 = cpk4.id " +
+                    "LEFT JOIN koperasi.cara_pembayaran_koperasi cpk5 ON h.cara_pembayaran_koperasi_5 = cpk5.id " +
+                    "WHERE h.anggota_koperasi = :anggotaId AND date(h.tanggal_pembayaran) <= date('" + dbDate + "')")
+                    .setParameter("anggotaId", anggotaKoperasi.getId())
                     .uniqueResult());
             long t2_end = System.currentTimeMillis();
             System.out.println("Query [Pengeluaran Pembelian] selesai dalam: " + formatWaktu(t2, t2_end));

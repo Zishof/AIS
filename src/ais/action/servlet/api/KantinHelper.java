@@ -251,6 +251,88 @@ public class KantinHelper {
 	 *                    terbuka selalu ditangkap dan diterjemahkan menjadi {@code hasil.status = "91"},
 	 *                    tidak pernah merambat sebagai exception mentah ke pemanggil.
 	 */
+	/**
+	 * Hasil parse payload split-pembayaran (field opsional {@code caraBayarTambahan}, array berisi
+	 * s/d 4 objek {@code {caraBayar, nominal}} -- slot 2-5; slot 1 tetap dari field {@code caraBayar}
+	 * lama). Dipisah dari {@link #bayar(Tbmuser, JSONObject, JSONObject)} supaya method itu tidak
+	 * makin gemuk dan supaya validasi "total semua slot != totalBiaya" hanya ditulis SEKALI, dipakai
+	 * di kedua cabang if/else (draft vs baru) yang sebelumnya duplikat identik.
+	 */
+	private static class SplitPembayaran {
+		CaraPembayaranKoperasi cara2, cara3, cara4, cara5;
+		Double nominal2 = 0.0, nominal3 = 0.0, nominal4 = 0.0, nominal5 = 0.0;
+		String pesanError;
+
+		void terapkanKe(PembelianAnggotaKoperasi p) {
+			p.setCaraPembayaranKoperasi2(cara2);
+			p.setNominalBayar2(nominal2);
+			p.setCaraPembayaranKoperasi3(cara3);
+			p.setNominalBayar3(nominal3);
+			p.setCaraPembayaranKoperasi4(cara4);
+			p.setNominalBayar4(nominal4);
+			p.setCaraPembayaranKoperasi5(cara5);
+			p.setNominalBayar5(nominal5);
+		}
+	}
+
+	private static SplitPembayaran resolveSplitPembayaran(JSONObject jsonObject, Double totalBiaya) {
+		SplitPembayaran hasil = new SplitPembayaran();
+		if (jsonObject.isNull("caraBayarTambahan")) {
+			return hasil;
+		}
+		JSONArray tambahan;
+		try {
+			tambahan = jsonObject.getJSONArray("caraBayarTambahan");
+		} catch (Exception e) {
+			return hasil;
+		}
+		// Maks 4 slot tambahan (slot 2-5) -- elemen ke-5 dst diabaikan diam-diam, bukan error keras,
+		// supaya klien yang (secara keliru) mengirim lebih dari batas tetap bisa checkout dgn 5
+		// metode pertama drpd transaksi gagal total.
+		CaraPembayaranKoperasi[] caraSlot = new CaraPembayaranKoperasi[4];
+		Double[] nominalSlot = new Double[] { 0.0, 0.0, 0.0, 0.0 };
+		double totalTambahan = 0.0;
+		int batas = Math.min(tambahan.length(), 4);
+		for (int i = 0; i < batas; i++) {
+			try {
+				JSONObject entri = tambahan.getJSONObject(i);
+				if (entri.isNull("caraBayar") || !Common.isNumber((entri.get("caraBayar") + "").trim())) {
+					continue;
+				}
+				double nominal = entri.isNull("nominal") ? 0.0 : Double.parseDouble((entri.get("nominal") + "").trim());
+				if (nominal <= 0.0) {
+					continue;
+				}
+				CaraPembayaranKoperasi cara = (CaraPembayaranKoperasi) GeneralValueObject
+						.ambilData(CaraPembayaranKoperasi.class, (entri.get("caraBayar") + "").trim());
+				if (cara == null) {
+					hasil.pesanError = "Salah satu metode pembayaran tambahan tidak ditemukan.";
+					return hasil;
+				}
+				caraSlot[i] = cara;
+				nominalSlot[i] = nominal;
+				totalTambahan += nominal;
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/api/KantinHelper.java:resolveSplitPembayaran");
+			}
+		}
+		// Toleransi pembulatan kecil (0.5) -- nominal dari klien berupa pecahan hasil input manual kasir.
+		if (totalBiaya != null && totalTambahan > totalBiaya.doubleValue() + 0.5) {
+			hasil.pesanError = "Total nominal metode pembayaran tambahan (" + Common.numberFormat.get().format(totalTambahan)
+					+ ") melebihi total tagihan (" + Common.numberFormat.get().format(totalBiaya) + ").";
+			return hasil;
+		}
+		hasil.cara2 = caraSlot[0];
+		hasil.nominal2 = nominalSlot[0];
+		hasil.cara3 = caraSlot[1];
+		hasil.nominal3 = nominalSlot[1];
+		hasil.cara4 = caraSlot[2];
+		hasil.nominal4 = nominalSlot[2];
+		hasil.cara5 = caraSlot[3];
+		hasil.nominal5 = nominalSlot[3];
+		return hasil;
+	}
+
 	public static void bayar(Tbmuser tbmuser, JSONObject jsonObject, JSONObject hasil) throws Exception {
 		if (!jsonObject.isNull("kodeUnik") && !jsonObject.isNull("idToko") && !jsonObject.isNull("waktu")
 				&& !jsonObject.isNull("transaksi") && !jsonObject.isNull("caraBayar")
@@ -381,6 +463,17 @@ public class KantinHelper {
 					Double totalDiskon = Double.valueOf(th.totalDiskon);
 					Double totalCashback = Double.valueOf(th.totalCashback);
 
+					// Split pembayaran (maks 5 metode/transaksi): "caraBayar" (di atas) TETAP wajib &
+					// selalu jadi slot 1 -- payload lama tanpa "caraBayarTambahan" sama sekali (client
+					// belum di-update) berperilaku 100% identik spt sebelum fitur ini ada. Elemen ke-5
+					// dst pada array diabaikan (lihat JavaDoc SplitPembayaran di bawah).
+					SplitPembayaran split = resolveSplitPembayaran(jsonObject, total);
+					if (split.pesanError != null) {
+						hasil.put("status", "91");
+						hasil.put("description", split.pesanError);
+						return;
+					}
+
 					KodePembayaranOnline kodePembayaranOnline = (KodePembayaranOnline) (kodePembayaranOnlineId == null
 							? null
 							: session.createCriteria(KodePembayaranOnline.class)
@@ -424,6 +517,7 @@ public class KantinHelper {
 						pembelianAnggotaKoperasi.setCaraPembayaranKoperasi(caraPembayaranKoperasiOnline);
 						pembelianAnggotaKoperasi.setTotalBiaya(total);
 						pembelianAnggotaKoperasi.setBiaya(total);
+						split.terapkanKe(pembelianAnggotaKoperasi);
 						pembelianAnggotaKoperasi.setLokasi(lokasi);
 						pembelianAnggotaKoperasi.setTbmuser(tbmuser);
 						pembelianAnggotaKoperasi.setKasirLoginNama(kasirLoginNamaVal);
@@ -455,6 +549,7 @@ public class KantinHelper {
 						pembelianAnggotaKoperasi.setCaraPembayaranKoperasi(caraPembayaranKoperasiOnline);
 						pembelianAnggotaKoperasi.setTotalBiaya(total);
 						pembelianAnggotaKoperasi.setBiaya(total);
+						split.terapkanKe(pembelianAnggotaKoperasi);
 						pembelianAnggotaKoperasi.setLokasi(lokasi);
 						pembelianAnggotaKoperasi.setTbmuser(tbmuser);
 						pembelianAnggotaKoperasi.setKasirLoginNama(kasirLoginNamaVal);

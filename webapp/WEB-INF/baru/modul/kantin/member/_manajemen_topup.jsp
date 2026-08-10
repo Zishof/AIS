@@ -35,7 +35,13 @@ String rnd = Common.getGeneratedBarCode(7);
         </div>
         
         <div class="d-flex flex-wrap gap-2 justify-content-center">
+            <button class="btn btn-success rounded-pill px-3 shadow-sm fw-bold" onclick="downloadExcelTopup<%=rnd%>()" title="<%=Common.getBahasaConfig("Unduh file Excel")%>">
+                <i class="fas fa-file-excel me-1"></i><%=Common.getBahasaConfig("Unduh Excel")%>
+            </button>
             <% if (bolehEntryTopup) { %>
+                <button class="btn btn-warning rounded-pill px-3 shadow-sm fw-bold" onclick="showUploadModalTopup<%=rnd%>()" title="<%=Common.getBahasaConfig("Unggah file Excel")%>">
+                    <i class="fas fa-file-upload me-1"></i><%=Common.getBahasaConfig("Unggah Excel")%>
+                </button>
                 <button class="btn btn-primary rounded-pill px-4 shadow-sm fw-bold" onclick="bukaFormTopup<%=rnd%>()">
                     <i class="fas fa-plus-circle me-1"></i><%=Common.getBahasaConfig("Tambah Topup")%>
                 </button>
@@ -87,6 +93,7 @@ String rnd = Common.getGeneratedBarCode(7);
                                 <th class="fw-bold text-uppercase small"><%=Common.getBahasaConfig("Waktu")%></th>
                                 <th class="fw-bold text-uppercase small"><%=Common.getBahasaConfig("Nama Referensi (Deposit)")%></th>
                                 <th class="fw-bold text-uppercase small text-end"><%=Common.getBahasaConfig("Nominal Topup")%></th>
+                                <th class="fw-bold text-uppercase small"><%=Common.getBahasaConfig("Kadaluarsa")%></th>
                                 <th class="fw-bold text-uppercase small"><%=Common.getBahasaConfig("Keterangan")%></th>
                                 <% if (bolehEntryTopup) { %>
                                     <th class="text-center fw-bold text-uppercase small" style="width: 130px;"><%=Common.getBahasaConfig("Aksi")%></th>
@@ -95,7 +102,7 @@ String rnd = Common.getGeneratedBarCode(7);
                         </thead>
                         <tbody id="tabelDataTopup<%=rnd%>">
                             <tr>
-                                <td colspan="<%=bolehEntryTopup ? 6 : 5%>" class="text-center py-5">
+                                <td colspan="<%=bolehEntryTopup ? 7 : 6%>" class="text-center py-5">
                                     <div class="spinner-border text-primary mb-3"></div>
                                     <br><span class="text-muted fw-medium"><%=Common.getBahasaConfig("Sistem sedang memuat data topup...")%></span>
                                 </td>
@@ -152,6 +159,12 @@ String rnd = Common.getGeneratedBarCode(7);
                                     </div>
                                 </div>
 
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold text-secondary"><%=Common.getBahasaConfig("Tanggal Expired / Kadaluarsa (Opsional)")%></label>
+                                    <input type="date" class="form-control fw-medium" id="inputTanggalExpiredTopup<%=rnd%>">
+                                    <small class="text-muted d-block mt-1" style="font-size:11px;"><i class="fas fa-info-circle me-1"></i><%=Common.getBahasaConfig("Kosongkan jika saldo tidak pernah hangus. Jika diisi, saldo ini otomatis tidak bisa dipakai lagi setelah tanggal tersebut.")%></small>
+                                </div>
+
                                 <div class="col-12 p-3 bg-light border rounded-3">
                                     <label class="form-label small fw-bold text-primary mb-1"><i class="fas fa-user me-1"></i><%=Common.getBahasaConfig("Cari Anggota Koperasi")%> <span class="text-danger">*</span></label>
                                     <div class="input-group shadow-sm">
@@ -200,11 +213,36 @@ String rnd = Common.getGeneratedBarCode(7);
 
 </div>
 
+<div class="modal fade" id="modalUploadExcelTopup<%=rnd%>" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 shadow-lg">
+            <div class="modal-header bg-light border-bottom-0 pb-3">
+                <h5 class="modal-title fw-bold text-dark">
+                    <i class="fas fa-file-upload text-warning me-2"></i><%=Common.getBahasaConfig("Unggah Data Topup")%>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 pt-2 text-center">
+                <p class="text-muted small mb-4"><%=Common.getBahasaConfig("Pastikan format file Excel yang Anda unggah sama persis dengan format file yang Anda unduh dari sistem ini (kolom ID_ANGGOTA wajib diisi kode/id anggota yang valid). Ekstensi yang didukung: .xls, .xlsx")%></p>
+                <input class="form-control mb-3" type="file" id="fileUploadExcelTopup<%=rnd%>" accept=".xls,.xlsx">
+                <div id="uploadStatusBoxTopup<%=rnd%>" class="alert alert-info py-2" style="display: none;"></div>
+                <div class="mt-4">
+                    <button type="button" class="btn btn-light px-4 me-2 rounded-pill fw-semibold" data-bs-dismiss="modal"><%=Common.getBahasaConfig("Batal")%></button>
+                    <button type="button" class="btn btn-warning text-dark px-4 rounded-pill fw-bold shadow-sm" id="btnProsesUploadTopup<%=rnd%>" onclick="prosesUploadExcelTopup<%=rnd%>()">
+                        <i class="fas fa-cogs me-2"></i><%=Common.getBahasaConfig("Proses Data")%>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     // ==========================================
     // VARIABEL GLOBAL & KONFIGURASI
     // ==========================================
     const masterClassTopup<%=rnd%> = "ais.database.model.Deposit";
+    let modalInstanceUploadTopup<%=rnd%> = null;
     const canEdit<%=rnd%> = <%=bolehEntryTopup%>;
     let currentPageTopup<%=rnd%> = 1;
     const limitPerPageTopup<%=rnd%> = 10;
@@ -385,7 +423,7 @@ String rnd = Common.getGeneratedBarCode(7);
 
     const loadDataTopup<%=rnd%> = async () => {
         const tbody = document.getElementById('tabelDataTopup<%=rnd%>');
-        const colSpan = canEdit<%=rnd%> ? 6 : 5;
+        const colSpan = canEdit<%=rnd%> ? 7 : 6;
         tbody.innerHTML = '<tr><td colspan="' + colSpan + '" class="text-center py-5"><div class="spinner-border text-primary mb-3"></div><br><span class="text-muted fw-medium"><%=Common.getBahasaConfig("Sistem sedang memuat data topup...")%></span></td></tr>';
 
         const sqlFilters = getFilterQueryTopup<%=rnd%>();
@@ -395,7 +433,8 @@ String rnd = Common.getGeneratedBarCode(7);
         
         // Ambil ID Anggota Koperasi juga
         const sqlData = "SELECT d.id, TO_CHAR(d.waktu, 'DD Mon YYYY HH24:MI') as waktu_str, d.waktu, (case when a.nama is null then d.nama else a.kode||' '||a.nama end) as nama, d.keterangan, d.nominal, " +
-                        "d.jenis_pembayaran, d.jenis_tabungan, d.anggota_koperasi, a.nama as nama_anggota, a.kode as kode_anggota " +
+                        "d.jenis_pembayaran, d.jenis_tabungan, d.anggota_koperasi, a.nama as nama_anggota, a.kode as kode_anggota, " +
+                        "d.tanggal_expired, TO_CHAR(d.tanggal_expired, 'DD Mon YYYY') as tanggal_expired_str " +
                         "FROM public.deposit d " +
                         "LEFT JOIN koperasi.anggota_koperasi a ON d.anggota_koperasi = a.id " +
                         sqlFilters + " ORDER BY d.waktu DESC, d.id DESC LIMIT " + limitPerPageTopup<%=rnd%> + " OFFSET " + offset + ";";
@@ -427,11 +466,22 @@ String rnd = Common.getGeneratedBarCode(7);
                 const idAnggota = row.anggota_koperasi || '';
                 const namaAnggotaStr = row.nama_anggota ? (row.kode_anggota + ' - ' + row.nama_anggota) : '';
                 const isoWaktu = formatDateTimeLocal<%=rnd%>(row.waktu);
+                const tglExpiredInput = row.tanggal_expired ? new Date(row.tanggal_expired).toISOString().slice(0, 10) : '';
+
+                let selExpired = '';
+                if (row.tanggal_expired) {
+                    const sudahHangus = new Date(row.tanggal_expired) < new Date();
+                    selExpired = '<span class="' + (sudahHangus ? 'text-danger fw-bold' : 'text-muted') + '">' +
+                        row.tanggal_expired_str + (sudahHangus ? ' <span class="badge bg-danger bg-opacity-25 text-danger border border-danger">Hangus</span>' : '') +
+                        '</span>';
+                } else {
+                    selExpired = '<span class="text-muted">-</span>';
+                }
 
                 let actBtn = '';
                 if (canEdit<%=rnd%>) {
                     actBtn = '<td class="text-center text-nowrap">' +
-                                '<button class="btn btn-sm btn-outline-warning text-dark shadow-sm px-2 me-1 mb-1 fw-bold" onclick="editTopup<%=rnd%>(' + row.id + ', \'' + isoWaktu + '\', \'' + row.nominal + '\', \'' + safeKet + '\', \'' + idAnggota + '\', \'' + namaAnggotaStr.replace(/'/g, "\\'") + '\', \'' + (row.jenis_pembayaran||'') + '\', \'' + (row.jenis_tabungan||'') + '\')" title="<%=Common.getBahasaConfig("Ubah Data")%>"><i class="fas fa-edit"></i></button>' +
+                                '<button class="btn btn-sm btn-outline-warning text-dark shadow-sm px-2 me-1 mb-1 fw-bold" onclick="editTopup<%=rnd%>(' + row.id + ', \'' + isoWaktu + '\', \'' + row.nominal + '\', \'' + safeKet + '\', \'' + idAnggota + '\', \'' + namaAnggotaStr.replace(/'/g, "\\'") + '\', \'' + (row.jenis_pembayaran||'') + '\', \'' + (row.jenis_tabungan||'') + '\', \'' + tglExpiredInput + '\')" title="<%=Common.getBahasaConfig("Ubah Data")%>"><i class="fas fa-edit"></i></button>' +
                                 '<button class="btn btn-sm btn-outline-danger shadow-sm px-2 mb-1 fw-bold" onclick="hapusTopup<%=rnd%>(' + row.id + ')" title="<%=Common.getBahasaConfig("Hapus Data")%>"><i class="fas fa-trash-alt"></i></button>' +
                             '</td>';
                 }
@@ -441,6 +491,7 @@ String rnd = Common.getGeneratedBarCode(7);
                         '<td class="text-secondary small fw-semibold"><i class="far fa-clock me-1"></i>' + (row.waktu_str || '-') + '</td>' +
                         '<td class="fw-bold text-dark">' + safeNama + '</td>' +
                         '<td class="text-end fw-bolder text-success fs-6">' + formatRp<%=rnd%>(row.nominal) + '</td>' +
+                        '<td class="small">' + selExpired + '</td>' +
                         '<td class="text-muted small">' + safeKet + '</td>' +
                         actBtn +
                     '</tr>';
@@ -478,7 +529,8 @@ String rnd = Common.getGeneratedBarCode(7);
         document.getElementById('formTopup<%=rnd%>').reset();
         document.getElementById('inputIdTopup<%=rnd%>').value = '';
         document.getElementById('idAnggotaTerpilih<%=rnd%>').value = '';
-        
+        document.getElementById('inputTanggalExpiredTopup<%=rnd%>').value = '';
+
         // Set Default Date to Now
         const now = new Date();
         const offset = now.getTimezoneOffset() * 60000;
@@ -522,9 +574,12 @@ String rnd = Common.getGeneratedBarCode(7);
         // Field "nama" (referensi) otomatis diset default di backend jika null, tp kita beri nilai standard
         const valNominal = parseFloat(document.getElementById('inputNominalTopup<%=rnd%>').value || 0);
 
+        const rawTglExpired = document.getElementById('inputTanggalExpiredTopup<%=rnd%>').value;
+
         const dataObj = {
             waktu: formattedWaktu,
             nominal: valNominal,
+            tanggalExpired: rawTglExpired ? (rawTglExpired + " 23:59:59") : null,
             keterangan: document.getElementById('inputKeteranganTopup<%=rnd%>').value.trim(),
             anggotaKoperasi: idAnggota
         };
@@ -555,14 +610,15 @@ String rnd = Common.getGeneratedBarCode(7);
         }
     };
 
-    const editTopup<%=rnd%> = (id, waktu, nominal, ket, idAnggota, namaAnggotaStr, jnsPem, jnsTab) => {
+    const editTopup<%=rnd%> = (id, waktu, nominal, ket, idAnggota, namaAnggotaStr, jnsPem, jnsTab, tglExpired) => {
         if(!canEdit<%=rnd%>) return;
 
         document.getElementById('inputIdTopup<%=rnd%>').value = id;
         document.getElementById('inputWaktuTopup<%=rnd%>').value = waktu;
         document.getElementById('inputNominalTopup<%=rnd%>').value = nominal;
+        document.getElementById('inputTanggalExpiredTopup<%=rnd%>').value = tglExpired || '';
         document.getElementById('inputKeteranganTopup<%=rnd%>').value = ket;
-        
+
         document.getElementById('idAnggotaTerpilih<%=rnd%>').value = idAnggota;
         document.getElementById('inputCariAnggota<%=rnd%>').value = namaAnggotaStr;
 
@@ -582,6 +638,191 @@ String rnd = Common.getGeneratedBarCode(7);
             loadDataTopup<%=rnd%>();
        });
 
+    };
+
+    // ==========================================
+    // DOWNLOAD & UPLOAD EXCEL
+    // ==========================================
+    const downloadExcelTopup<%=rnd%> = async () => {
+        showToastUI<%=rnd%>('<%=Common.getBahasaConfigJS("Sedang menyiapkan file Excel, mohon tunggu...")%>', 'bg-info text-dark');
+
+        const sqlFilters = getFilterQueryTopup<%=rnd%>();
+        const sqlQuery = "SELECT d.id, a.kode as kode_anggota, (case when a.nama is null then d.nama else a.nama end) as nama, " +
+                        "TO_CHAR(d.waktu, 'YYYY-MM-DD HH24:MI:SS') as waktu, d.nominal, " +
+                        "TO_CHAR(d.tanggal_expired, 'YYYY-MM-DD') as tanggal_expired, d.keterangan " +
+                        "FROM public.deposit d LEFT JOIN koperasi.anggota_koperasi a ON d.anggota_koperasi = a.id " +
+                        sqlFilters + " ORDER BY d.waktu DESC;";
+
+        try {
+            const res = await fetchApiTopup<%=rnd%>({ action: "sql", sql: sqlQuery });
+            const rows = res.data || [];
+            if (rows.length === 0) {
+                showToastUI<%=rnd%>('<%=Common.getBahasaConfigJS("Tidak ada data untuk diunduh.")%>', 'bg-warning text-dark');
+                return;
+            }
+
+            let tableHtml = '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"><style>';
+            tableHtml += 'th { background-color: #f8f9fa; font-weight: bold; border: 1px solid black; } td { border: 1px solid black; mso-number-format:"\\@"; }';
+            tableHtml += '</style></head><body><table><thead><tr>';
+            tableHtml += '<th>ID_SISTEM</th><th>KODE_ANGGOTA</th><th>NAMA</th><th>WAKTU</th><th>NOMINAL</th><th>TANGGAL_EXPIRED</th><th>KETERANGAN</th>';
+            tableHtml += '</tr></thead><tbody>';
+            rows.forEach(r => {
+                tableHtml += '<tr>' +
+                    '<td>' + (r.id || '') + '</td>' +
+                    '<td>' + (r.kode_anggota || '') + '</td>' +
+                    '<td>' + (r.nama || '') + '</td>' +
+                    '<td>' + (r.waktu || '') + '</td>' +
+                    '<td>' + (r.nominal || 0) + '</td>' +
+                    '<td>' + (r.tanggal_expired || '') + '</td>' +
+                    '<td>' + (r.keterangan || '') + '</td>' +
+                    '</tr>';
+            });
+            tableHtml += '</tbody></table></body></html>';
+
+            const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            const timestamp = new Date().toISOString().slice(0,10).replace(/-/g,"");
+            link.download = "Format_Topup_Deposit_" + timestamp + ".xls";
+            link.href = url;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(url), 100);
+        } catch (error) {
+            console.error(error);
+            showToastUI<%=rnd%>('<%=Common.getBahasaConfigJS("Gagal mengunduh data.")%>', 'bg-danger text-white');
+        }
+    };
+
+    const showUploadModalTopup<%=rnd%> = () => {
+        document.getElementById('fileUploadExcelTopup<%=rnd%>').value = '';
+        const statusBox = document.getElementById('uploadStatusBoxTopup<%=rnd%>');
+        statusBox.style.display = 'none';
+        statusBox.innerHTML = '';
+        if (modalInstanceUploadTopup<%=rnd%> === null) {
+            modalInstanceUploadTopup<%=rnd%> = new bootstrap.Modal(document.getElementById('modalUploadExcelTopup<%=rnd%>'));
+        }
+        modalInstanceUploadTopup<%=rnd%>.show();
+    };
+
+    // Kolom KODE_ANGGOTA (bukan ID) dicari dulu ke koperasi.anggota_koperasi supaya file Excel
+    // tetap bisa dipakai orang-ke-orang tanpa perlu tahu id numerik internal -- konsisten dgn
+    // datalist pencarian anggota yg sudah ada di form Tambah/Ubah pada layar ini.
+    const cariIdAnggotaByKode<%=rnd%> = async (kode) => {
+        if (!kode) return null;
+        const safeKode = String(kode).trim().replace(/'/g, "''");
+        const sql = "SELECT id FROM koperasi.anggota_koperasi WHERE kode = '" + safeKode + "' LIMIT 1";
+        const res = await fetchApiTopup<%=rnd%>({ action: "sql", sql: sql });
+        return (res.data && res.data[0]) ? res.data[0].id : null;
+    };
+
+    const prosesUploadExcelTopup<%=rnd%> = () => {
+        const fileInput = document.getElementById('fileUploadExcelTopup<%=rnd%>');
+        const file = fileInput.files[0];
+        if (!file) {
+            showToastUI<%=rnd%>('<%=Common.getBahasaConfigJS("Pilih file Excel terlebih dahulu!")%>', 'bg-warning text-dark');
+            return;
+        }
+
+        const btnProcess = document.getElementById('btnProsesUploadTopup<%=rnd%>');
+        const statusBox = document.getElementById('uploadStatusBoxTopup<%=rnd%>');
+        btnProcess.disabled = true;
+        btnProcess.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span><%=Common.getBahasaConfig("Membaca File...")%>';
+        statusBox.style.display = 'block';
+        statusBox.className = 'alert alert-info py-2 small';
+        statusBox.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Mengekstrak data baris demi baris...';
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const excelRows = XLSX.utils.sheet_to_json(firstSheet, {defval: ""});
+
+                if (excelRows.length === 0) {
+                    throw new Error("File Excel Kosong atau format tidak sesuai.");
+                }
+
+                let berhasil = 0;
+                let gagal = 0;
+                const pesanGagal = [];
+
+                for (let i = 0; i < excelRows.length; i++) {
+                    const row = excelRows[i];
+                    statusBox.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Memproses baris ' + (i + 1) + ' dari ' + excelRows.length + '...';
+
+                    const idSistem = row['ID_SISTEM'] ? String(row['ID_SISTEM']).trim() : '';
+                    const kodeAnggota = row['KODE_ANGGOTA'] ? String(row['KODE_ANGGOTA']).trim() : '';
+                    const nominal = parseFloat(row['NOMINAL']) || 0;
+                    const waktu = row['WAKTU'] ? String(row['WAKTU']).trim() : '';
+                    const tglExpiredRaw = row['TANGGAL_EXPIRED'] ? String(row['TANGGAL_EXPIRED']).trim() : '';
+
+                    let idAnggota = null;
+                    if (kodeAnggota) {
+                        idAnggota = await cariIdAnggotaByKode<%=rnd%>(kodeAnggota);
+                    }
+                    if (!idAnggota && !idSistem) {
+                        gagal++;
+                        pesanGagal.push('Baris ' + (i + 2) + ': kode anggota "' + kodeAnggota + '" tidak ditemukan.');
+                        continue;
+                    }
+                    if (nominal === 0 && !idSistem) {
+                        gagal++;
+                        pesanGagal.push('Baris ' + (i + 2) + ': nominal kosong/nol.');
+                        continue;
+                    }
+
+                    const dataObj = {
+                        nominal: nominal,
+                        waktu: waktu ? waktu : undefined,
+                        tanggalExpired: tglExpiredRaw ? (tglExpiredRaw + " 23:59:59") : null,
+                        keterangan: row['KETERANGAN'] || ''
+                    };
+                    if (idAnggota) dataObj.anggotaKoperasi = idAnggota;
+
+                    const payload = { action: "simpanDataRinci", class: masterClassTopup<%=rnd%>, data: dataObj };
+                    if (idSistem) payload.id = idSistem;
+
+                    try {
+                        const result = await fetchApiTopup<%=rnd%>(payload);
+                        if (result.status === '00' || result.status === 'success' || result.id) {
+                            berhasil++;
+                        } else {
+                            gagal++;
+                            pesanGagal.push('Baris ' + (i + 2) + ': ' + (result.description || 'gagal disimpan.'));
+                        }
+                    } catch (errBaris) {
+                        gagal++;
+                        pesanGagal.push('Baris ' + (i + 2) + ': kesalahan koneksi.');
+                    }
+                }
+
+                if (gagal === 0) {
+                    statusBox.className = 'alert alert-success py-2 small fw-bold';
+                    statusBox.innerHTML = '<i class="fas fa-check-circle me-2"></i>' + berhasil + ' baris berhasil disimpan!';
+                } else {
+                    statusBox.className = 'alert alert-warning py-2 small';
+                    statusBox.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>' + berhasil + ' berhasil, ' + gagal + ' gagal.<br>' +
+                        pesanGagal.slice(0, 5).join('<br>') + (pesanGagal.length > 5 ? '<br>... dan ' + (pesanGagal.length - 5) + ' lainnya.' : '');
+                }
+
+                showToastUI<%=rnd%>('<%=Common.getBahasaConfigJS("Upload selesai.")%>', gagal === 0 ? 'bg-success text-white' : 'bg-warning text-dark');
+                loadDataTopup<%=rnd%>();
+                if (gagal === 0) {
+                    setTimeout(() => { modalInstanceUploadTopup<%=rnd%>.hide(); }, 1500);
+                }
+            } catch (error) {
+                console.error("Upload Error:", error);
+                statusBox.className = 'alert alert-danger py-2 small';
+                statusBox.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Terjadi Kesalahan: ' + error.message;
+            } finally {
+                btnProcess.disabled = false;
+                btnProcess.innerHTML = '<i class="fas fa-cogs me-2"></i><%=Common.getBahasaConfig("Proses Data")%>';
+            }
+        };
+        reader.readAsArrayBuffer(file);
     };
 
     // ==========================================

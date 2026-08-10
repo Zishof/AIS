@@ -114,6 +114,21 @@ public class PembelianAnggotaKoperasi extends GeneralValueObject {
 	private Lokasi lokasi;
 	private Date tanggalPembayaran = new Date();
 	private CaraPembayaranKoperasi caraPembayaranKoperasi;
+	// Split pembayaran (mis. Rp50rb Transfer + Rp50rb Tunai untuk satu transaksi Rp100rb): metode
+	// PERTAMA yang dipilih kasir selalu masuk ke caraPembayaranKoperasi (slot 1) di atas, dengan
+	// nominalnya DIHITUNG IMPLISIT = totalBiaya - (nominalBayar2+3+4+5) -- BUKAN kolom tersendiri --
+	// supaya transaksi lama/satu-metode (nominalBayar2..5 semua 0/null) tetap 100% identik perilakunya
+	// tanpa migrasi data apa pun. Slot 2-5 di bawah ini OPSIONAL, dipakai hanya kalau kasir memilih
+	// lebih dari satu metode pembayaran (maks 5 total). Lihat DepositHelper.hitungDeposit(AnggotaKoperasi)
+	// utk cara kelima slot ini dijumlahkan saat menentukan potongan saldo deposit anggota.
+	private CaraPembayaranKoperasi caraPembayaranKoperasi2;
+	private CaraPembayaranKoperasi caraPembayaranKoperasi3;
+	private CaraPembayaranKoperasi caraPembayaranKoperasi4;
+	private CaraPembayaranKoperasi caraPembayaranKoperasi5;
+	private Double nominalBayar2 = 0.0;
+	private Double nominalBayar3 = 0.0;
+	private Double nominalBayar4 = 0.0;
+	private Double nominalBayar5 = 0.0;
 	private KodePembayaranOnline kodePembayaranOnline;
 	private Double biaya = 0.0;
 	private Double retur = 0.0;
@@ -599,6 +614,97 @@ public class PembelianAnggotaKoperasi extends GeneralValueObject {
 
 	public void setCaraPembayaranKoperasi(CaraPembayaranKoperasi caraPembayaranKoperasi) {
 		this.caraPembayaranKoperasi = caraPembayaranKoperasi;
+	}
+
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
+	@JoinColumn(name = "cara_pembayaran_koperasi_2", nullable = true)
+	public CaraPembayaranKoperasi getCaraPembayaranKoperasi2() {
+		caraPembayaranKoperasi2 = check(caraPembayaranKoperasi2);
+		return caraPembayaranKoperasi2;
+	}
+
+	public void setCaraPembayaranKoperasi2(CaraPembayaranKoperasi caraPembayaranKoperasi2) {
+		this.caraPembayaranKoperasi2 = caraPembayaranKoperasi2;
+	}
+
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
+	@JoinColumn(name = "cara_pembayaran_koperasi_3", nullable = true)
+	public CaraPembayaranKoperasi getCaraPembayaranKoperasi3() {
+		caraPembayaranKoperasi3 = check(caraPembayaranKoperasi3);
+		return caraPembayaranKoperasi3;
+	}
+
+	public void setCaraPembayaranKoperasi3(CaraPembayaranKoperasi caraPembayaranKoperasi3) {
+		this.caraPembayaranKoperasi3 = caraPembayaranKoperasi3;
+	}
+
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
+	@JoinColumn(name = "cara_pembayaran_koperasi_4", nullable = true)
+	public CaraPembayaranKoperasi getCaraPembayaranKoperasi4() {
+		caraPembayaranKoperasi4 = check(caraPembayaranKoperasi4);
+		return caraPembayaranKoperasi4;
+	}
+
+	public void setCaraPembayaranKoperasi4(CaraPembayaranKoperasi caraPembayaranKoperasi4) {
+		this.caraPembayaranKoperasi4 = caraPembayaranKoperasi4;
+	}
+
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
+	@JoinColumn(name = "cara_pembayaran_koperasi_5", nullable = true)
+	public CaraPembayaranKoperasi getCaraPembayaranKoperasi5() {
+		caraPembayaranKoperasi5 = check(caraPembayaranKoperasi5);
+		return caraPembayaranKoperasi5;
+	}
+
+	public void setCaraPembayaranKoperasi5(CaraPembayaranKoperasi caraPembayaranKoperasi5) {
+		this.caraPembayaranKoperasi5 = caraPembayaranKoperasi5;
+	}
+
+	@Column(name = "nominal_bayar_2")
+	public Double getNominalBayar2() {
+		return nominalBayar2 == null ? 0.0 : nominalBayar2;
+	}
+
+	public void setNominalBayar2(Double nominalBayar2) {
+		this.nominalBayar2 = nominalBayar2;
+	}
+
+	@Column(name = "nominal_bayar_3")
+	public Double getNominalBayar3() {
+		return nominalBayar3 == null ? 0.0 : nominalBayar3;
+	}
+
+	public void setNominalBayar3(Double nominalBayar3) {
+		this.nominalBayar3 = nominalBayar3;
+	}
+
+	@Column(name = "nominal_bayar_4")
+	public Double getNominalBayar4() {
+		return nominalBayar4 == null ? 0.0 : nominalBayar4;
+	}
+
+	public void setNominalBayar4(Double nominalBayar4) {
+		this.nominalBayar4 = nominalBayar4;
+	}
+
+	@Column(name = "nominal_bayar_5")
+	public Double getNominalBayar5() {
+		return nominalBayar5 == null ? 0.0 : nominalBayar5;
+	}
+
+	public void setNominalBayar5(Double nominalBayar5) {
+		this.nominalBayar5 = nominalBayar5;
+	}
+
+	/**
+	 * Nominal slot 1 (metode {@link #getCaraPembayaranKoperasi()}) SELALU dihitung implisit dari sisa
+	 * {@link #getTotalBiaya()} setelah dikurangi slot 2-5 -- bukan kolom tersendiri -- supaya invarian
+	 * "jumlah semua slot = totalBiaya" otomatis terjaga tanpa perlu divalidasi terpisah saat simpan.
+	 */
+	public Double getNominalBayar1() {
+		double sisa = getTotalBiaya() - getNominalBayar2() - getNominalBayar3() - getNominalBayar4()
+				- getNominalBayar5();
+		return sisa < 0.0 ? 0.0 : sisa;
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })

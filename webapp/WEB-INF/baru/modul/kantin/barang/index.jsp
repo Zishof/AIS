@@ -365,17 +365,58 @@ String namaTokoAktif = toko != null ? toko.getNama() : "";
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4 pt-2 text-center">
-                <p class="text-muted small mb-4"><%=Common.getBahasaConfig("Pastikan format file Excel yang Anda unggah sama persis dengan format file yang Anda unduh dari sistem ini. Ekstensi yang didukung: .xls, .xlsx")%></p>
-                
+                <p class="text-muted small mb-3"><%=Common.getBahasaConfig("Format Excel: \"Daftar Barang dan Jasa\" (Accurate) -- sama dgn format file Unduh di sini, atau file ekspor Accurate asli tanpa perlu diedit dulu. Setelah diproses, baris akan ditinjau dulu sebelum disimpan.")%></p>
+
                 <input class="form-control mb-3" type="file" id="fileUploadExcel<%=rnd%>" accept=".xls,.xlsx">
-                
+
                 <div id="uploadStatusBox<%=rnd%>" class="alert alert-info py-2" style="display: none;">
                     </div>
 
                 <div class="mt-4">
                     <button type="button" class="btn btn-light px-4 me-2 rounded-pill fw-semibold" data-bs-dismiss="modal"><%=Common.getBahasaConfig("Batal")%></button>
                     <button type="button" class="btn btn-warning text-dark px-4 rounded-pill fw-bold shadow-sm" id="btnProsesUpload<%=rnd%>" onclick="prosesUploadExcel<%=rnd%>()">
-                        <i class="fas fa-cogs me-2"></i><%=Common.getBahasaConfig("Proses Data")%>
+                        <i class="fas fa-cogs me-2"></i><%=Common.getBahasaConfig("Proses & Tinjau")%>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalTinjauImporExcel<%=rnd%>" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content border-0 rounded-4 shadow-lg">
+            <div class="modal-header bg-light border-bottom-0 pb-3">
+                <h5 class="modal-title fw-bold text-dark">
+                    <i class="fas fa-clipboard-check text-primary me-2"></i><%=Common.getBahasaConfig("Tinjau Sebelum Simpan")%>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 pt-2">
+                <div id="tinjauPeringatanBox<%=rnd%>" class="alert alert-warning py-2 small d-none"></div>
+                <p class="text-muted small mb-2" id="tinjauRingkasan<%=rnd%>"></p>
+                <div class="table-responsive" style="max-height: 55vh; overflow-y: auto;">
+                    <table class="table table-hover table-sm align-middle mb-0">
+                        <thead class="table-dark text-center" style="position: sticky; top: 0; z-index: 1;">
+                            <tr>
+                                <th>#</th>
+                                <th class="text-start">Kode</th>
+                                <th class="text-start">Nama Barang</th>
+                                <th class="text-start">Kategori</th>
+                                <th>Stok Lama &rarr; Baru</th>
+                                <th>Harga Jual</th>
+                                <th>Harga Beli</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tinjauTabelBody<%=rnd%>"></tbody>
+                    </table>
+                </div>
+                <div id="tinjauStatusBox<%=rnd%>" class="alert alert-info py-2 mt-3 d-none"></div>
+                <div class="mt-4 text-end">
+                    <button type="button" class="btn btn-light px-4 me-2 rounded-pill fw-semibold" data-bs-dismiss="modal"><%=Common.getBahasaConfig("Batal")%></button>
+                    <button type="button" class="btn btn-primary px-4 rounded-pill fw-bold shadow-sm" id="btnKomitImporExcel<%=rnd%>" onclick="komitImporExcel<%=rnd%>()">
+                        <i class="fas fa-save me-2"></i><%=Common.getBahasaConfig("Simpan Semua")%>
                     </button>
                 </div>
             </div>
@@ -1060,74 +1101,42 @@ String namaTokoAktif = toko != null ? toko.getNama() : "";
     // DOWNLOAD & UPLOAD EXCEL FEATURE
     // ==========================================
     
+    // Unduh Excel -- format PERSIS "Daftar Barang dan Jasa" (Accurate), sama dgn versi POS Desktop/
+    // Apk Flutter (aksi server `produk_ekspor_excel`, BUKAN lagi format ID_SISTEM/KODE_PRODUK/dst
+    // buatan sendiri) -- supaya file yg diunduh di sini bisa langsung dicocokkan/diedit dgn file
+    // Accurate asli lalu diunggah kembali tanpa menata ulang kolom sama sekali.
     const downloadExcelProduk<%=rnd%> = async () => {
         showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Sedang menyiapkan file Excel, mohon tunggu...")%>', 'bg-info text-dark');
-        
-        const sqlFilters = buildFiltersProduk<%=rnd%>();
-        const sqlQuery = "SELECT a.id, a.kode, a.barcode, a.nama, a.hargabeli, a.hargajual, a.stok, a.aktif, a.keterangan, " +
-                         "a.jenis_produk AS id_jenis, a.toko AS id_toko " +
-                         "FROM koperasi.produk a INNER JOIN koperasi.toko b ON (a.toko = b.id and b.aktif) " +
-                         sqlFilters + " ORDER BY a.nama ASC;";
-
+        const idToko = isAdminProduk<%=rnd%> ? document.getElementById('filterToko<%=rnd%>').value : idTokoLogin<%=rnd%>;
+        if (!idToko) {
+            showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Pilih Toko terlebih dahulu di filter sebelum mengunduh.")%>', 'bg-warning text-dark');
+            return;
+        }
         try {
-            const result = await fetchSqlData<%=rnd%>(sqlQuery);
-            if (!result || result.length === 0) {
-                showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Tidak ada data untuk diunduh.")%>', 'bg-warning text-dark');
-                return;
-            }
-
-            let tableHtml = '<html xmlns:x="urn:schemas-microsoft-com:office:excel">';
-            tableHtml += '<head><meta charset="UTF-8"><style>';
-            tableHtml += 'th { background-color: #f8f9fa; font-weight: bold; border: 1px solid black; }';
-            tableHtml += 'td { border: 1px solid black; }';
-            tableHtml += '</style></head><body>';
-            
-            tableHtml += '<table><thead><tr>';
-            tableHtml += '<th>ID_SISTEM</th>';
-            tableHtml += '<th>KODE_PRODUK</th>';
-            tableHtml += '<th>BARCODE</th>';
-            tableHtml += '<th>NAMA_PRODUK</th>';
-            tableHtml += '<th>ID_JENIS</th>';
-            tableHtml += '<th>ID_TOKO</th>';
-            tableHtml += '<th>HARGA_BELI</th>';
-            tableHtml += '<th>HARGA_JUAL</th>';
-            tableHtml += '<th>STOK</th>';
-            tableHtml += '<th>KETERANGAN</th>';
-            tableHtml += '<th>AKTIF_TRUE_FALSE</th>';
-            tableHtml += '</tr></thead><tbody>';
-
-            result.forEach(r => {
-                tableHtml += '<tr>';
-                tableHtml += '<td>' + (r.id || '') + '</td>';
-                tableHtml += '<td>' + (r.kode || '') + '</td>';
-                tableHtml += '<td>' + (r.barcode || '') + '</td>';
-                tableHtml += '<td>' + (r.nama || '') + '</td>';
-                tableHtml += '<td>' + (r.id_jenis || '') + '</td>';
-                tableHtml += '<td>' + (r.id_toko || '') + '</td>';
-                tableHtml += '<td>' + (r.hargabeli || 0) + '</td>';
-                tableHtml += '<td>' + (r.hargajual || 0) + '</td>';
-                tableHtml += '<td>' + (r.stok || 0) + '</td>';
-                tableHtml += '<td>' + (r.keterangan || '') + '</td>';
-                tableHtml += '<td>' + ((r.aktif === 'true' || r.aktif === true) ? 'TRUE' : 'FALSE') + '</td>';
-                tableHtml += '</tr>';
+            const res = await fetch('<%=Common.ROOT%>/Data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'produk_ekspor_excel', toko_id: idToko, hanya_aktif: true })
             });
-
-            tableHtml += '</tbody></table></body></html>';
-
-            const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel' });
+            const result = await res.json();
+            if (result.status !== '00' || !result.fileBase64) {
+                throw new Error(result.description || 'Server tidak mengembalikan berkas.');
+            }
+            const byteChars = atob(result.fileBase64);
+            const byteNumbers = new Array(byteChars.length);
+            for (let i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
+            const blob = new Blob([new Uint8Array(byteNumbers)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
-            const timestamp = new Date().toISOString().slice(0,10).replace(/-/g,"");
-            link.download = "Format_Master_Produk_" + timestamp + ".xls";
+            link.download = result.namaFile || 'Katalog.xlsx';
             link.href = url;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             setTimeout(() => URL.revokeObjectURL(url), 100);
-
         } catch (error) {
             console.error(error);
-            showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Gagal mengunduh data.")%>', 'bg-danger text-white');
+            showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Gagal mengunduh: ")%>' + error.message, 'bg-danger text-white');
         }
     };
 
@@ -1143,93 +1152,168 @@ String namaTokoAktif = toko != null ? toko.getNama() : "";
         modalInstanceUpload<%=rnd%>.show();
     };
 
+    // Impor Excel 2 langkah -- PARSE saja dulu (aksi `produk_impor_excel_preview`, format Accurate
+    // yg sama dgn Unduh), tampilkan baris di layar Tinjau supaya bisa diperiksa/diedit, BARU disimpan
+    // lewat `produk_impor_excel_komit` saat tombol "Simpan Semua" ditekan -- pola SAMA PERSIS dgn
+    // versi POS Desktop/Apk Flutter (ImporExcelProdukScreen), bukan lagi commit langsung tanpa tinjau.
+    let modalInstanceTinjau<%=rnd%> = null;
+    let barisTinjauImpor<%=rnd%> = [];
+    let tokoIdTinjauImpor<%=rnd%> = null;
+
+    const arrayBufferKeBase64<%=rnd%> = (buffer) => {
+        let binary = '';
+        const bytes = new Uint8Array(buffer);
+        const chunk = 0x8000;
+        for (let i = 0; i < bytes.length; i += chunk) {
+            binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+        }
+        return btoa(binary);
+    };
+
     const prosesUploadExcel<%=rnd%> = () => {
         const fileInput = document.getElementById('fileUploadExcel<%=rnd%>');
         const file = fileInput.files[0];
-        
+
         if (!file) {
             showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Pilih file Excel terlebih dahulu!")%>', 'bg-warning text-dark');
             return;
         }
-        
+
+        const idToko = isAdminProduk<%=rnd%> ? document.getElementById('filterToko<%=rnd%>').value : idTokoLogin<%=rnd%>;
+        if (!idToko) {
+            showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Pilih Toko terlebih dahulu di filter sebelum mengunggah.")%>', 'bg-warning text-dark');
+            return;
+        }
+
         const btnProcess = document.getElementById('btnProsesUpload<%=rnd%>');
         const statusBox = document.getElementById('uploadStatusBox<%=rnd%>');
-        
+
         btnProcess.disabled = true;
         btnProcess.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span><%=Common.getBahasaConfig("Membaca File...")%>';
         statusBox.style.display = 'block';
         statusBox.className = 'alert alert-info py-2 small';
-        statusBox.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Mengekstrak data baris demi baris...';
+        statusBox.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Membaca berkas & mencocokkan dgn katalog saat ini...';
 
         const reader = new FileReader();
         reader.onload = async (e) => {
             try {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, {type: 'array'});
-                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                const excelRows = XLSX.utils.sheet_to_json(firstSheet, {defval: ""});
-                
-                if (excelRows.length === 0) {
-                    throw new Error("File Excel Kosong atau format tidak sesuai.");
-                }
-
-                statusBox.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Mengunggah ' + excelRows.length + ' baris data ke server...';
-
-                const batchData = excelRows.map(row => {
-                    return {
-                        id: row['ID_SISTEM'] ? row['ID_SISTEM'].toString().trim() : "",
-                        kode: row['KODE_PRODUK'] || "",
-                        barcode: row['BARCODE'] ? row['BARCODE'].toString().trim() : null,
-                        nama: row['NAMA_PRODUK'] || "",
-                        jenisProduk: row['ID_JENIS'] || "",
-                        toko: row['ID_TOKO'] || "",
-                        hargaBeli: parseFloat(row['HARGA_BELI']) || 0,
-                        hargaJual: parseFloat(row['HARGA_JUAL']) || 0,
-                        stok: parseFloat(row['STOK']) || 0,
-                        keterangan: row['KETERANGAN'] || "",
-                        // Jika Admin yang upload, bisa baca status dari file, jika Pedagang yang upload akan selalu di-default False untuk keamanan (Approval Mode)
-                        aktif: isAdminProduk<%=rnd%> ? (row['AKTIF_TRUE_FALSE'] && row['AKTIF_TRUE_FALSE'].toString().toUpperCase() === 'TRUE') : false
-                    };
-                });
-
-                const payload = {
-                    action: "simpanBatchProduk", 
-                    class: "<%=Produk.class.getName()%>",
-                    dataBatch: batchData
-                };
-
-                const response = await fetch('<%=Common.ROOT%>/Data', {
+                const fileBase64 = arrayBufferKeBase64<%=rnd%>(e.target.result);
+                const res = await fetch('<%=Common.ROOT%>/Data', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify({ action: 'produk_impor_excel_preview', toko_id: idToko, file_base64: fileBase64, format: 'accurate' })
                 });
-                
-                const result = await response.json();
-
-                if (result.status === '00' || result.status === 'success') {
-                    statusBox.className = 'alert alert-success py-2 small fw-bold';
-                    statusBox.innerHTML = '<i class="fas fa-check-circle me-2"></i>Data berhasil diunggah dan disimpan!';
-                    showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Upload Selesai!")%>', 'bg-success text-white');
-                    
-                    setTimeout(() => {
-                        modalInstanceUpload<%=rnd%>.hide();
-                        loadDataProdukAPI<%=rnd%>(); 
-                    }, 1500);
-                } else {
-                    throw new Error(result.description || "Gagal menyimpan di sisi server.");
+                const result = await res.json();
+                if (result.status !== '00') {
+                    throw new Error(result.description || 'Gagal membaca berkas Excel.');
+                }
+                if (!result.baris || result.baris.length === 0) {
+                    throw new Error('Tidak ada baris barang/jasa terbaca dari berkas ini.');
                 }
 
+                barisTinjauImpor<%=rnd%> = result.baris;
+                tokoIdTinjauImpor<%=rnd%> = idToko;
+                tampilkanTinjauImporExcel<%=rnd%>(result.kolomTidakDitemukan || []);
+
+                statusBox.style.display = 'none';
+                if (modalInstanceUpload<%=rnd%>) modalInstanceUpload<%=rnd%>.hide();
             } catch (error) {
                 console.error("Upload Error:", error);
                 statusBox.className = 'alert alert-danger py-2 small';
                 statusBox.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Terjadi Kesalahan: ' + error.message;
             } finally {
                 btnProcess.disabled = false;
-                btnProcess.innerHTML = '<i class="fas fa-cogs me-2"></i><%=Common.getBahasaConfig("Proses Data")%>';
+                btnProcess.innerHTML = '<i class="fas fa-cogs me-2"></i><%=Common.getBahasaConfig("Proses & Tinjau")%>';
             }
         };
-        
+
         reader.readAsArrayBuffer(file);
+    };
+
+    const tampilkanTinjauImporExcel<%=rnd%> = (kolomTidakDitemukan) => {
+        const peringatanBox = document.getElementById('tinjauPeringatanBox<%=rnd%>');
+        if (kolomTidakDitemukan.length > 0) {
+            peringatanBox.classList.remove('d-none');
+            peringatanBox.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i><b>Kolom tidak ditemukan di berkas:</b> ' + kolomTidakDitemukan.join(', ') +
+                '. Baris di bawah akan tersimpan dgn nilai <b>0</b> utk kolom ini kecuali Anda mengedit manual sebelum Simpan.';
+        } else {
+            peringatanBox.classList.add('d-none');
+        }
+
+        document.getElementById('tinjauRingkasan<%=rnd%>').textContent = barisTinjauImpor<%=rnd%>.length + ' baris siap ditinjau.';
+
+        const tbody = document.getElementById('tinjauTabelBody<%=rnd%>');
+        let html = '';
+        barisTinjauImpor<%=rnd%>.forEach((b, i) => {
+            const badgeStatus = b.baru
+                ? '<span class="badge bg-success bg-opacity-25 text-success border border-success">Baru</span>'
+                : '<span class="badge bg-warning bg-opacity-25 text-dark border border-warning">Update</span>';
+            const selisih = (b.stokBaru || 0) - (b.stokLama || 0);
+            const warnaSelisih = selisih === 0 ? 'text-muted' : (selisih > 0 ? 'text-success' : 'text-danger');
+            html += '<tr>' +
+                '<td class="text-center text-muted">' + (i + 1) + '</td>' +
+                '<td class="text-start fw-bold">' + (b.kode || '-') + '</td>' +
+                '<td class="text-start">' + (b.nama || '-') + '</td>' +
+                '<td class="text-start small text-muted">' + (b.kategoriNama || '-') + '</td>' +
+                '<td class="text-center small">' + (b.stokLama || 0) + ' &rarr; <input type="number" class="form-control form-control-sm d-inline-block text-center" style="width:80px;" value="' + (b.stokBaru || 0) + '" oninput="tinjauUbahNilai<%=rnd%>(' + i + ', \'stokBaru\', this.value)"><br><span class="' + warnaSelisih + '">(' + (selisih >= 0 ? '+' : '') + selisih + ')</span></td>' +
+                '<td class="text-center"><input type="number" class="form-control form-control-sm text-end" style="width:110px;" value="' + (b.hargaJual || 0) + '" oninput="tinjauUbahNilai<%=rnd%>(' + i + ', \'hargaJual\', this.value)"></td>' +
+                '<td class="text-center"><input type="number" class="form-control form-control-sm text-end" style="width:110px;" value="' + (b.hargaBeli || 0) + '" oninput="tinjauUbahNilai<%=rnd%>(' + i + ', \'hargaBeli\', this.value)"></td>' +
+                '<td class="text-center">' + badgeStatus + '</td>' +
+                '</tr>';
+        });
+        tbody.innerHTML = html;
+
+        const statusBox = document.getElementById('tinjauStatusBox<%=rnd%>');
+        statusBox.classList.add('d-none');
+        const btnKomit = document.getElementById('btnKomitImporExcel<%=rnd%>');
+        btnKomit.disabled = false;
+        btnKomit.innerHTML = '<i class="fas fa-save me-2"></i><%=Common.getBahasaConfig("Simpan Semua")%>';
+
+        if (modalInstanceTinjau<%=rnd%> === null) {
+            modalInstanceTinjau<%=rnd%> = new bootstrap.Modal(document.getElementById('modalTinjauImporExcel<%=rnd%>'));
+        }
+        modalInstanceTinjau<%=rnd%>.show();
+    };
+
+    window.tinjauUbahNilai<%=rnd%> = (idx, field, value) => {
+        if (!barisTinjauImpor<%=rnd%>[idx]) return;
+        barisTinjauImpor<%=rnd%>[idx][field] = parseFloat(value) || 0;
+    };
+
+    window.komitImporExcel<%=rnd%> = async () => {
+        const btnKomit = document.getElementById('btnKomitImporExcel<%=rnd%>');
+        const statusBox = document.getElementById('tinjauStatusBox<%=rnd%>');
+        btnKomit.disabled = true;
+        btnKomit.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span><%=Common.getBahasaConfig("Menyimpan...")%>';
+        statusBox.classList.remove('d-none');
+        statusBox.className = 'alert alert-info py-2 mt-3';
+        statusBox.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Menyimpan ' + barisTinjauImpor<%=rnd%>.length + ' baris ke server...';
+
+        try {
+            const res = await fetch('<%=Common.ROOT%>/Data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'produk_impor_excel_komit', toko_id: tokoIdTinjauImpor<%=rnd%>, baris: barisTinjauImpor<%=rnd%> })
+            });
+            const result = await res.json();
+            if (result.status !== '00') {
+                throw new Error(result.description || 'Gagal menyimpan data.');
+            }
+            statusBox.className = 'alert alert-success py-2 mt-3 fw-bold';
+            statusBox.innerHTML = '<i class="fas fa-check-circle me-2"></i>Selesai: ' + (result.dibuat || 0) + ' dibuat, ' + (result.diperbarui || 0) +
+                ' diperbarui, ' + (result.dilewati || 0) + ' dilewati' + ((result.error || 0) > 0 ? ', <span class="text-danger">' + result.error + ' gagal</span>' : '') + '.';
+            showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Impor Excel selesai!")%>', 'bg-success text-white');
+            setTimeout(() => {
+                if (modalInstanceTinjau<%=rnd%>) modalInstanceTinjau<%=rnd%>.hide();
+                loadDataProdukAPI<%=rnd%>();
+            }, 1800);
+        } catch (error) {
+            console.error("Komit Error:", error);
+            statusBox.className = 'alert alert-danger py-2 mt-3';
+            statusBox.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Terjadi Kesalahan: ' + error.message;
+            btnKomit.disabled = false;
+            btnKomit.innerHTML = '<i class="fas fa-save me-2"></i><%=Common.getBahasaConfig("Simpan Semua")%>';
+        }
     };
 
 

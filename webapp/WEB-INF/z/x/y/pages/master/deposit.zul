@@ -105,6 +105,8 @@
 												<column
 													use="ais.ui.util.MyColumnConfig" label="Tanggal/Waktu" />
 												<column
+													use="ais.ui.util.MyColumnConfig" label="Kadaluarsa" />
+												<column
 													use="ais.ui.util.MyColumnConfig" label="Cara Pembayaran" />
 												<column
 													use="ais.ui.util.MyColumnConfig" label="Jenis Tabungan" />

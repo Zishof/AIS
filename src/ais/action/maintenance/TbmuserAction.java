@@ -971,8 +971,7 @@ public class TbmuserAction extends GenericAutowireComposer implements DataCriter
 			public void onEvent(Event arg0) throws Exception {
 				fileFoto = (FotoAdmin) arg0.getData();
 			}
-		}, tbmuser.getUserId() == null && tbmuser.getPegawai() == null && tbmuser.getDosen() == null
-				&& tbmuser.getGuru() == null);
+		}, true);
 
 		Center center = new Center();
 		center.setParent(borderlayout);
