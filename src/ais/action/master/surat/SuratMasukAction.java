@@ -2533,6 +2533,9 @@ public class SuratMasukAction extends GenericAutowireComposer implements DataCri
 
 		Map<String, List<DisposisiMasukChip>> perGrup = new LinkedHashMap<String, List<DisposisiMasukChip>>();
 		int nomor = 1;
+		// Lacak chip sebelumnya (jabatan pendisposisi + waktu ia mendisposisikan) untuk tooltip.
+		String prevLabel = null;
+		Date prevWaktu = null;
 		for (AlurPersetujuanSuratMasukStatus s : list) {
 			JenisJabatan jenisJabatan = jenisJabatanDariStatusMasuk(s);
 			if (jenisJabatan == null && (s == null || s.getAlurPersetujuanSuratMasuk() == null)) {
@@ -2548,9 +2551,13 @@ public class SuratMasukAction extends GenericAutowireComposer implements DataCri
 			chip.nomor = nomor;
 			chip.label = labelDisposisiMasuk(s, jenisJabatan);
 			isiStatusChipMasuk(chip, s);
-			chip.tooltip = tooltipDisposisiMasuk(s, chip.label, chip.status);
+			chip.tooltip = tooltipDisposisiMasuk(s, chip.label, chip.status, prevLabel, prevWaktu);
 			chips.add(chip);
 			nomor++;
+
+			// Chip ini menjadi "pendisposisi sebelumnya" untuk chip berikutnya.
+			prevLabel = chip.label;
+			prevWaktu = waktuDisposisiMasuk(s);
 		}
 
 		return buatHtmlDisposisiMasukBergrup(perGrup);
@@ -2727,8 +2734,22 @@ public class SuratMasukAction extends GenericAutowireComposer implements DataCri
 		}
 	}
 
+	/** Waktu suatu status "mendisposisikan" (waktu persetujuan; bila ditolak pakai waktu penolakan). */
+	private static Date waktuDisposisiMasuk(AlurPersetujuanSuratMasukStatus status) {
+		if (status == null) {
+			return null;
+		}
+		if (Boolean.TRUE.equals(status.getDisetujui())) {
+			return status.getWaktuPersetujuan();
+		}
+		if (Boolean.TRUE.equals(status.getDitolak())) {
+			return status.getWaktuDitolak();
+		}
+		return null;
+	}
+
 	private static String tooltipDisposisiMasuk(AlurPersetujuanSuratMasukStatus status, String label,
-			String statusText) {
+			String statusText, String prevLabel, Date prevWaktu) {
 		StringBuilder sb = new StringBuilder();
 		sb.append(label).append(" - ").append(statusText);
 		if (status == null) {
@@ -2749,6 +2770,13 @@ public class SuratMasukAction extends GenericAutowireComposer implements DataCri
 		}
 		if (status.getKeterangan() != null && status.getKeterangan().trim().length() > 0) {
 			sb.append(" - ").append(status.getKeterangan().replace('\n', ' '));
+		}
+		// Info pendisposisi sebelumnya (jabatan + tanggal & waktu ia mendisposisikan) pada baris baru.
+		if (prevLabel != null && prevLabel.trim().length() > 0) {
+			sb.append("\nJabatan yang mendisposisikan : ").append(prevLabel);
+			if (prevWaktu != null) {
+				sb.append("\nTanggal & Waktu : ").append(Common.dateFormat3.get().format(prevWaktu));
+			}
 		}
 		return sb.toString();
 	}

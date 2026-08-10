@@ -118,7 +118,21 @@ public final class CatatanDisposisiPopupHelper {
 				b.pWaktu = fmtTgl(waktu);
 				baris.add(b);
 			}
-			tampilTabel(owner, "Catatan Disposisi — " + nz(nomor), nz(surat.getKepada()), nz(nomor), baris);
+
+			// Listener "Cetak Disposisi" (format resmi lama) — SuratKeluarAction.cetakDisposisi(params, status, tbmuser).
+			final AlurPersetujuanSuratKeluarStatus statusFinal = status;
+			final SuratKeluar suratFinal = surat;
+			final Tbmuser tbmuserFinal = tbmuser;
+			org.zkoss.zk.ui.event.EventListener cetakDisposisi = new org.zkoss.zk.ui.event.EventListener() {
+				@SuppressWarnings("rawtypes")
+				public void onEvent(org.zkoss.zk.ui.event.Event event) throws Exception {
+					java.util.Map parameters = ais.action.master.surat.util.SuratUtil.ubahIsiSuratKeluar(suratFinal, null);
+					ais.action.master.surat.SuratKeluarAction.cetakDisposisi(parameters, statusFinal, tbmuserFinal);
+				}
+			};
+
+			tampilTabel(owner, "Catatan Disposisi — " + nz(nomor), nz(surat.getKepada()), nz(nomor), baris,
+					cetakDisposisi);
 		} catch (Exception e) {
 			Common.tampilErrorJikaAdmin(e);
 		}
@@ -160,7 +174,17 @@ public final class CatatanDisposisiPopupHelper {
 				b.pWaktu = fmtTgl(waktu);
 				baris.add(b);
 			}
-			tampilTabel(owner, "Catatan Disposisi — " + nz(nomor), nz(surat.getAsal()), nz(nomor), baris);
+
+			// Listener "Cetak Disposisi" (format resmi lama) — SuratMasukAction.cetakDisposisi(status, tbmuser).
+			final AlurPersetujuanSuratMasukStatus statusFinal = status;
+			final Tbmuser tbmuserFinal = tbmuser;
+			org.zkoss.zk.ui.event.EventListener cetakDisposisi = new org.zkoss.zk.ui.event.EventListener() {
+				public void onEvent(org.zkoss.zk.ui.event.Event event) throws Exception {
+					ais.action.master.surat.SuratMasukAction.cetakDisposisi(statusFinal, tbmuserFinal);
+				}
+			};
+
+			tampilTabel(owner, "Catatan Disposisi — " + nz(nomor), nz(surat.getAsal()), nz(nomor), baris, cetakDisposisi);
 		} catch (Exception e) {
 			Common.tampilErrorJikaAdmin(e);
 		}
@@ -168,7 +192,8 @@ public final class CatatanDisposisiPopupHelper {
 
 	// ── Render modal + tabel (generik) ──────────────────────────────────────────────────────
 	private static void tampilTabel(Component owner, final String judul, final String diperuntukkanHeader,
-			final String nomorFile, final List<Baris> baris) throws Exception {
+			final String nomorFile, final List<Baris> baris,
+			final org.zkoss.zk.ui.event.EventListener cetakDisposisiListener) throws Exception {
 		boolean mobile = Common.isMobile();
 
 		final Window window = new Window();
@@ -194,12 +219,31 @@ public final class CatatanDisposisiPopupHelper {
 		root.setStyle("padding:12px 14px; box-sizing:border-box; background:#f8fafc;");
 		root.setParent(window);
 
-		// Bilah aksi: tombol Cetak / Unduh PDF (rata kanan)
+		// Bilah aksi: tombol Cetak Disposisi (format resmi, seperti di SuratKeluarAction) + Cetak PDF (rata kanan)
 		Hbox bar = new Hbox();
 		bar.setWidth("100%");
 		bar.setPack("end");
 		bar.setStyle("margin-bottom:6px;");
 		bar.setParent(root);
+
+		// "Cetak Disposisi" — mencetak PDF disposisi format resmi via SuratKeluarAction/SuratMasukAction.cetakDisposisi
+		// (sama seperti tombol lama "Disposisi"). Hanya tampil bila listener tersedia (status & tbmuser diketahui).
+		if (cetakDisposisiListener != null) {
+			MyToolbarbuttonConfig btnDisposisi = new MyToolbarbuttonConfig("Cetak Disposisi", "/img/print.png");
+			btnDisposisi.setTooltiptext("Cetak lembar disposisi (format resmi) ke PDF");
+			btnDisposisi.setParent(bar);
+			btnDisposisi.addEventListener(org.zkoss.zk.ui.event.Events.ON_CLICK,
+					new org.zkoss.zk.ui.event.EventListener() {
+						public void onEvent(org.zkoss.zk.ui.event.Event event) throws Exception {
+							try {
+								cetakDisposisiListener.onEvent(event);
+							} catch (Exception ex) {
+								Common.tampilErrorJikaAdmin(ex);
+							}
+						}
+					});
+		}
+
 		MyToolbarbuttonConfig btnPdf = new MyToolbarbuttonConfig("Cetak PDF", "/img/print.png");
 		btnPdf.setTooltiptext("Unduh catatan disposisi ke format PDF");
 		btnPdf.setParent(bar);
