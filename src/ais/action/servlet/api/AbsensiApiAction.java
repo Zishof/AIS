@@ -167,16 +167,9 @@ public class AbsensiApiAction {
 									jsonObjectAbsen.put(keyTgl + "_foto", urlFoto);
 									jsonObject.put(keyTgl + "_foto", urlFoto);
 
-									List<Mahasiswa> mahasiswas = pertemuan.ambilMahasiswa();
-									boolean ada = false;
-									for (Mahasiswa mhs : mahasiswas) {
-										if (mhs != null && mhs.getId() != null
-												&& mhs.getId().equals(mahasiswa.getId())) {
-											ada = true;
-											break;
-										}
-									}
-									mahasiswas = null;
+									// Jangan memakai cache peserta untuk keputusan boleh/tidak boleh absen.
+									// KRS yang baru disetujui harus langsung terbaca dari database.
+									boolean ada = pertemuan.apakahMahasiswaPesertaDisetujuiLangsung(mahasiswa);
 									if (!ada) {
 										String s = "Mahasiswa dengan NIM \"" + mahasiswa.getNim() + "\" dan nama \""
 												+ mahasiswa.getNama()

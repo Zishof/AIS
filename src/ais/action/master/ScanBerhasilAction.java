@@ -1233,15 +1233,9 @@ public class ScanBerhasilAction extends GenericAutowireComposer {
 					jsonObject.put(keyTgl + "_foto", urlFoto);
 					jsonObject.put(keyTgl + "_lokasi", map);
 
-					List<Mahasiswa> mahasiswas = pertemuan.ambilMahasiswa();
-					boolean ada = false;
-					for (Mahasiswa mhs : mahasiswas) {
-						if (mhs != null && mhs.getId() != null && mhs.getId().equals(mahasiswa.getId())) {
-							ada = true;
-							break;
-						}
-					}
-					mahasiswas = null;
+					// Validasi peserta harus membaca DB langsung. Cache peserta perkuliahan dapat
+					// tertinggal sesaat setelah KRS disetujui dan menyebabkan penolakan palsu.
+					boolean ada = pertemuan.apakahMahasiswaPesertaDisetujuiLangsung(mahasiswa);
 					if (!ada) {
 						String s = "Mahasiswa dengan NIM \"" + mahasiswa.getNim() + "\" dan nama \""
 								+ mahasiswa.getNama()

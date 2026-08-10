@@ -780,6 +780,146 @@ public class InitIndex {
 		}
 	}
 
+	/**
+	 * Menghapus index non-constraint yang definisinya PERSIS sama dengan index
+	 * peserta perkuliahan kanonik. Pencocokan memakai metadata pg_index (kolom,
+	 * operator class, collation, opsi, expression, dan predicate), bukan sekadar
+	 * kemiripan nama. Primary/unique/constraint index tidak pernah disentuh.
+	 */
+	private static void hapusIndexDuplikatPesertaPerkuliahan() {
+		String sql = "DO $$ DECLARE duplikat RECORD; BEGIN "
+				+ "FOR duplikat IN "
+				+ "SELECT ns_dup.nspname AS schema_name, cls_dup.relname AS index_name "
+				+ "FROM pg_class cls_target "
+				+ "JOIN pg_namespace ns_target ON ns_target.oid = cls_target.relnamespace "
+				+ "JOIN pg_index idx_target ON idx_target.indexrelid = cls_target.oid "
+				+ "JOIN pg_index idx_dup ON idx_dup.indrelid = idx_target.indrelid "
+				+ " AND idx_dup.indexrelid <> idx_target.indexrelid "
+				+ " AND idx_dup.indkey = idx_target.indkey "
+				+ " AND idx_dup.indclass = idx_target.indclass "
+				+ " AND idx_dup.indcollation = idx_target.indcollation "
+				+ " AND idx_dup.indoption = idx_target.indoption "
+				+ " AND idx_dup.indexprs IS NOT DISTINCT FROM idx_target.indexprs "
+				+ " AND idx_dup.indpred IS NOT DISTINCT FROM idx_target.indpred "
+				+ "JOIN pg_class cls_dup ON cls_dup.oid = idx_dup.indexrelid "
+				+ "JOIN pg_namespace ns_dup ON ns_dup.oid = cls_dup.relnamespace "
+				+ "WHERE ns_target.nspname = 'public' "
+				+ " AND cls_target.relname IN ('idx_detailperkuliahan_dash_pt_perkul_pers', "
+				+ "'idx_dash_el_detailperkuliahan_mhs_perkul_pers', "
+				+ "'idx_absen_online_dp_perkul_mhs_acc') "
+				+ " AND NOT idx_dup.indisprimary AND NOT idx_dup.indisunique "
+				+ " AND NOT EXISTS (SELECT 1 FROM pg_constraint con "
+				+ "                 WHERE con.conindid = idx_dup.indexrelid) "
+				+ "LOOP EXECUTE 'DROP INDEX IF EXISTS ' || quote_ident(duplikat.schema_name) "
+				+ " || '.' || quote_ident(duplikat.index_name); END LOOP; END $$;";
+		try {
+			eksekusiSql10Menit(sql);
+		} catch (Exception e) {
+			e.printStackTrace();
+			ErrorAuditUtil.record(e, "auto-audit src/ais/common/InitIndex.java:index-duplikat-peserta");
+		}
+	}
+
+
+	private static void initIndexDashboardStatistikPmbSuperFast() {
+		/*
+		 * INDEX DASBOR STATISTIK PMB/SPMB
+		 *
+		 * Disusun dari query di ais.action.master.pmb.statistik.*:
+		 * - filter utama selalu tahunAkademik => kolom fisik tahunakademik.
+		 * - semesterMulai opsional, tetapi saat dipilih menjadi filter kedua.
+		 * - panel dashboard melakukan banyak COUNT/GROUP BY untuk prodi pilihan,
+		 *   prodi diterima, NIM, no_ujian, tanggal daftar, gelombang, jalur masuk,
+		 *   gender, propinsi, paket, dan asal sekolah.
+		 *
+		 * Catatan redundansi:
+		 * - idx_bcm_dashboard_stats (prodi_lulus, aktif, tahun DESC) kurang cocok
+		 *   untuk dashboard PMB baru karena query memimpin tahunakademik, bukan tahun.
+		 *   Untuk pola prodi_lulus/tahun lama sudah ada idx_bcm_dash_pt_prodi_lulus_tahun.
+		 */
+		String[] sqlDropRedundan = new String[] {
+				"DROP INDEX IF EXISTS idx_bcm_dashboard_stats"
+		};
+		for (String sql : sqlDropRedundan) {
+			try {
+				eksekusiSql10Menit(sql);
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e,
+						"auto-audit(empty-catch) src/ais/common/InitIndex.java:initIndexDashboardStatistikPmbSuperFast-drop");
+			}
+		}
+
+		String[] indexQueries = new String[] {
+				// Count dasar KPI: total pendaftar per tahun akademik dan semester.
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, id)",
+
+				// KPI peserta ujian, lulus/diterima, dan sudah menjadi mahasiswa.
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_no_ujian "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, no_ujian) "
+						+ "WHERE no_ujian IS NOT NULL",
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_prodi_lulus "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, prodi_lulus) "
+						+ "WHERE prodi_lulus IS NOT NULL",
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_mahasiswa "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, mahasiswa) "
+						+ "WHERE mahasiswa IS NOT NULL",
+
+				// Grafik/top agregasi utama.
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_prodi1 "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, prodi_1) "
+						+ "WHERE prodi_1 IS NOT NULL",
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_tanggal "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, tanggal_daftar) "
+						+ "WHERE tanggal_daftar IS NOT NULL",
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_gelombang "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, gelombang_pendaftaran) "
+						+ "WHERE gelombang_pendaftaran IS NOT NULL",
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_propinsi "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, propinsi_calon) "
+						+ "WHERE propinsi_calon IS NOT NULL",
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_gender "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, jenis_kelamin) "
+						+ "WHERE jenis_kelamin IS NOT NULL",
+
+				// Subtab jalur, paket, asal sekolah, dan filter rekap PMB.
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_jalur "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, jenis_seleksi) "
+						+ "WHERE jenis_seleksi IS NOT NULL",
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_jalur_pilih "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, jenis_seleksi_pilih) "
+						+ "WHERE jenis_seleksi_pilih IS NOT NULL",
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_paket "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, paket_registrasi_mahasiswa) "
+						+ "WHERE paket_registrasi_mahasiswa IS NOT NULL",
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_nama_sekolah "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, nama_sekolah_asal) "
+						+ "WHERE nama_sekolah_asal IS NOT NULL",
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_asal_sma "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, asal_sma) "
+						+ "WHERE asal_sma IS NOT NULL",
+				"CREATE INDEX IF NOT EXISTS idx_pmb_dash_bcm_ta_sem_filter "
+						+ "ON public.biodata_calon_mahasiswa (tahunakademik, semester_mulai, program, jenis_seleksi, gelombang_pendaftaran, paket_registrasi_mahasiswa) "
+						+ "WHERE (aktif = true OR aktif IS NULL)"
+		};
+
+		for (String sql : indexQueries) {
+			try {
+				eksekusiSql10Menit(sql);
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e,
+						"auto-audit(empty-catch) src/ais/common/InitIndex.java:initIndexDashboardStatistikPmbSuperFast");
+			}
+		}
+
+		try {
+			eksekusiSql10Menit("ANALYZE public.biodata_calon_mahasiswa");
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit(empty-catch) src/ais/common/InitIndex.java:initIndexDashboardStatistikPmbSuperFast-analyze");
+		}
+	}
+
 
 	private static void initAlterTableParameterTambahanAngketUmum() {
 		// Perubahan kolom/constraint (mis. lepas NOT NULL grup_checklist_penilaian_umum &
@@ -1727,6 +1867,7 @@ public class InitIndex {
 			initDefaultMenuKantin();
 		initIndexPerpustakaanCoverDanPmbKuota();
 		initIndexPmbPortalDanNomorUjianSuperFast();
+		initIndexDashboardStatistikPmbSuperFast();
 		initIndexDepositTabunganSuperFast();
 		initIndexVirtualAccountPaymentSuperFast();
 		initIndexDaftarUlangPembayaranSuperFast();
@@ -3062,6 +3203,10 @@ public class InitIndex {
 				// Detail KRS mahasiswa untuk filter mahasiswa dan agregasi jumlah peserta.
 				"CREATE INDEX IF NOT EXISTS idx_dash_el_detailperkuliahan_mhs_perkul_pers "
 						+ "ON detailperkuliahan (mahasiswa, perkuliahan, persetujuan)",
+				// Validasi Absen Online membaca DB langsung dan hanya menerima KRS yang sudah
+				// disetujui. Partial index ini lebih kecil daripada index seluruh status KRS.
+				"CREATE INDEX IF NOT EXISTS idx_absen_online_dp_perkul_mhs_acc "
+						+ "ON detailperkuliahan (perkuliahan, mahasiswa) WHERE persetujuan = 1",
 
 				// Pertemuan untuk aggregate ID, tanggal, absensi, dan join ke perkuliahan.
 				"CREATE INDEX IF NOT EXISTS idx_dash_el_pertemuan_perkul_absensi_notempty "
@@ -3159,6 +3304,8 @@ public class InitIndex {
 			// aman bila dipanggil ulang). Eksekusi DB kembali sinkron di luar metode ini.
 			tungguSemuaDdlSelesai();
 			DDL_POOL = null;
+			// Seluruh index kanonik sudah selesai dibuat sebelum duplikat dibersihkan.
+			hapusIndexDuplikatPesertaPerkuliahan();
 			try {
 				ddlPool.shutdown();
 			} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "auto-audit(empty-catch) src/ais/common/InitIndex.java:2753");
