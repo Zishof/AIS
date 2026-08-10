@@ -228,6 +228,9 @@ public class PosApi extends HttpServlet {
 				prosesCariMember(payload, hasil);
 			} else if ("cara_bayar_list".equals(action)) {
 				prosesCaraBayarList(payload, hasil);
+			} else if ("cara_bayar_list_semua".equals(action)) {
+				KantinHelper.caraBayarListSemua(hasil);
+				normalisasiStatusKantinHelper(hasil, "cara_bayar_list_semua");
 			} else if ("saldo_member".equals(action)) {
 				KantinHelper.tabungan(payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "saldo_member");
@@ -1045,6 +1048,9 @@ public class PosApi extends HttpServlet {
 				|| "topup_saldo".equals(action) || "verifikasi_pin".equals(action)
 				|| "layar_pelanggan_kirim".equals(action) || "layar_pelanggan_ambil".equals(action)) {
 			return menu.optBoolean("kasir", true);
+		}
+		if ("cara_bayar_list_semua".equals(action)) {
+			return menu.optBoolean("kasir", true) || menu.optBoolean("anggota", true);
 		}
 		if (action.startsWith("pesanan_") || "batal_pesanan".equals(action)
 				|| "pesanan_list".equals(action) || "pesanan_hitung_ulang".equals(action)
