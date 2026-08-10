@@ -897,12 +897,12 @@ public class LaporanAbsensiPegawaiDetail extends MyWindow {
 					CommonReport.tampilkanReportPDF(center, file);
 				} catch (Exception e) {
 					ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/report/format1/payroll/LaporanAbsensiPegawaiDetail.java:onKHS-generate");
-					PesanFormalHelper.tampilkanGagalException("pembuatan berkas PDF Laporan Absensi Pegawai Detail", "Sistem mengalami kendala teknis saat menyusun berkas PDF laporan ini, kemungkinan karena salah satu data sumber laporan tidak lengkap, format datanya tidak sesuai dengan yang diharapkan oleh template laporan, atau terjadi gangguan sementara pada proses pembuatan berkas.", e,
-							new String[] {
-								"Periksa kembali filter/kriteria/periode yang Bapak/Ibu pilih sebelum mencetak laporan ini.",
-								"Pastikan data yang menjadi sumber laporan ini sudah lengkap dan benar, kemudian coba cetak ulang.",
-								"Jika kendala terus berulang, silakan hubungi Administrator atau laporkan ke Pengembang Sistem disertai tangkapan layar (screenshot) pesan ini."
-							});
+					if (Common.getApakahAdmin()) {
+						String msgJs = ("Error PDF Absensi Pegawai: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()))
+								.replace("\\", "\\\\").replace("'", "\\'")
+								.replace("\r\n", " ").replace("\r", " ").replace("\n", " ");
+						org.zkoss.zk.ui.util.Clients.evalJavaScript("tampilkanToast('" + msgJs + "', 'error');");
+					}
 				}
 			}
 		});
@@ -921,12 +921,21 @@ public class LaporanAbsensiPegawaiDetail extends MyWindow {
 					generateDataDanImageAlbum(label);
 				} catch (Exception e) {
 					e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/report/format1/payroll/LaporanAbsensiPegawaiDetail.java:860");
-					PesanFormalHelper.tampilkanGagalException("pembuatan berkas PDF Laporan Absensi Pegawai Detail", "Sistem mengalami kendala teknis saat menyusun berkas PDF laporan ini, kemungkinan karena salah satu data sumber laporan tidak lengkap, format datanya tidak sesuai dengan yang diharapkan oleh template laporan, atau terjadi gangguan sementara pada proses pembuatan berkas.", e,
-						new String[] {
-							"Periksa kembali filter/kriteria/periode yang Bapak/Ibu pilih sebelum mencetak laporan ini.",
-							"Pastikan data yang menjadi sumber laporan ini sudah lengkap dan benar, kemudian coba cetak ulang.",
-							"Jika kendala terus berulang, silakan hubungi Administrator atau laporkan ke Pengembang Sistem disertai tangkapan layar (screenshot) pesan ini."
-						});
+					if (Common.getApakahAdmin() && desktop != null) {
+						try {
+							org.zkoss.zk.ui.Executions.activate(desktop);
+							try {
+								String msgJs = ("Error data Absensi Pegawai: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()))
+										.replace("\\", "\\\\").replace("'", "\\'")
+										.replace("\r\n", " ").replace("\r", " ").replace("\n", " ");
+								org.zkoss.zk.ui.util.Clients.evalJavaScript("tampilkanToast('" + msgJs + "', 'error');");
+							} finally {
+								org.zkoss.zk.ui.Executions.deactivate(desktop);
+							}
+						} catch (Exception eToast) {
+							ais.common.ErrorAuditUtil.record(eToast, "auto-audit(empty-catch) LaporanAbsensiPegawaiDetail:thread-toast");
+						}
+					}
 				}
 			}
 		}).start();
