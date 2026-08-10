@@ -1748,7 +1748,38 @@ public class KantinHelper {
 			ais.database.model.Deposit deposit = new ais.database.model.Deposit();
 			deposit.setAnggotaKoperasi(anggota);
 			deposit.setNominal(Double.valueOf(nominal));
-			deposit.setWaktu(new Date());
+			// Parity JSP "_manajemen_topup.jsp": waktu boleh backdate (opsional), default SEKARANG
+			// spt perilaku lama bila tak dikirim -- TIDAK mengubah perilaku pemanggil existing.
+			Date waktuTopup = new Date();
+			if (!request.isNull("waktu") && !request.optString("waktu", "").trim().isEmpty()) {
+				try {
+					waktuTopup = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(request.optString("waktu"));
+				} catch (Exception eParse) {
+					ais.common.ErrorAuditUtil.record(eParse, "auto-audit topupSaldo-parse-waktu src/ais/action/servlet/api/KantinHelper.java");
+				}
+			}
+			deposit.setWaktu(waktuTopup);
+			if (!request.isNull("tanggal_expired") && !request.optString("tanggal_expired", "").trim().isEmpty()) {
+				try {
+					java.util.Date exp = new SimpleDateFormat("yyyy-MM-dd").parse(request.optString("tanggal_expired"));
+					java.util.Calendar cal = java.util.Calendar.getInstance();
+					cal.setTime(exp);
+					cal.set(java.util.Calendar.HOUR_OF_DAY, 23);
+					cal.set(java.util.Calendar.MINUTE, 59);
+					cal.set(java.util.Calendar.SECOND, 59);
+					deposit.setTanggalExpired(cal.getTime());
+				} catch (Exception eParse) {
+					ais.common.ErrorAuditUtil.record(eParse, "auto-audit topupSaldo-parse-expired src/ais/action/servlet/api/KantinHelper.java");
+				}
+			}
+			if (!request.isNull("jenis_pembayaran_id")) {
+				deposit.setJenisPembayaran((ais.database.model.JenisPembayaran) session.get(ais.database.model.JenisPembayaran.class,
+						Long.valueOf((request.get("jenis_pembayaran_id") + "").trim())));
+			}
+			if (!request.isNull("jenis_tabungan_id")) {
+				deposit.setJenisTabungan((ais.database.model.JenisTabungan) session.get(ais.database.model.JenisTabungan.class,
+						Long.valueOf((request.get("jenis_tabungan_id") + "").trim())));
+			}
 			deposit.setKeterangan(request.optString("keterangan", ""));
 			deposit.setOleh(idKasir[0]);
 			deposit.setOlehId(idKasir[1]);
@@ -1952,16 +1983,18 @@ public class KantinHelper {
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
-			// Kolom akses_* pakai COALESCE(...,true) (BUKAN false spt supervisor) -- lihat JavaDoc
-			// Pedagang.getAksesKasir() dkk soal alasan default aktif (kolom NULL = akun lama sebelum
-			// fitur ini ada, HARUS tetap penuh akses spt sebelumnya, bukan diam-diam terkunci).
+			// Fix bug: kolom akses_kasir/akses_ringkasan/dst di bawah PERNAH direncanakan
+			// (lihat komentar lama yg menyebut "Pedagang.getAksesKasir()") tapi TIDAK PERNAH
+			// benar-benar dibuat -- baik sbg kolom @Column di Pedagang.java maupun via
+			// hbm2ddl -- krn desain akhirnya beralih ke Tbmrole.ebisnisMenu (menu "Hak Akses"
+			// per grup pengguna, lihat EbisnisMenuKatalog). Query lama ini SELALU gagal
+			// (Postgres "column does not exist") setiap kali tab "Akun Pengguna" dibuka,
+			// tampil sbg "Terjadi kesalahan pada sistem" -- field-nya jg dikonfirmasi TIDAK
+			// dipakai sama sekali oleh klien Flutter manapun (grep bersih), jadi dihapus
+			// (bukan diperbaiki jadi kolom sungguhan) drpd menghidupkan lagi fitur yatim yg
+			// tak pernah py jalur simpan (pedagangUbah tak pernah menulis kolom ini).
 			java.sql.PreparedStatement ps = session.connection().prepareStatement(
-					"SELECT id, userid, nama, COALESCE(keterangan,''), COALESCE(aktif,true), COALESCE(supervisor,false), "
-							+ "COALESCE(akses_kasir,true), COALESCE(akses_ringkasan,true), COALESCE(akses_pesanan,true), "
-							+ "COALESCE(akses_anggota,true), COALESCE(akses_produk,true), COALESCE(akses_stok_opname,true), "
-							+ "COALESCE(akses_kulakan,true), COALESCE(akses_diskon,true), COALESCE(akses_laporan_transaksi,true), "
-							+ "COALESCE(akses_laporan,true), COALESCE(akses_riwayat_sinkronisasi,true), COALESCE(akses_log_error,true), "
-							+ "COALESCE(akses_konfigurasi,true) "
+					"SELECT id, userid, nama, COALESCE(keterangan,''), COALESCE(aktif,true), COALESCE(supervisor,false) "
 							+ "FROM koperasi.pedagang WHERE toko = ? ORDER BY nama ASC");
 			ps.setLong(1, tokoId);
 			java.sql.ResultSet rs = ps.executeQuery();
@@ -1978,19 +2011,6 @@ public class KantinHelper {
 				j.put("aktif", rs.getBoolean(5));
 				j.put("supervisor", pedagangBaris == null ? rs.getBoolean(6)
 						: Boolean.TRUE.equals(pedagangBaris.getSupervisor()));
-				j.put("aksesKasir", rs.getBoolean(7));
-				j.put("aksesRingkasan", rs.getBoolean(8));
-				j.put("aksesPesanan", rs.getBoolean(9));
-				j.put("aksesAnggota", rs.getBoolean(10));
-				j.put("aksesProduk", rs.getBoolean(11));
-				j.put("aksesStokOpname", rs.getBoolean(12));
-				j.put("aksesKulakan", rs.getBoolean(13));
-				j.put("aksesDiskon", rs.getBoolean(14));
-				j.put("aksesLaporanTransaksi", rs.getBoolean(15));
-				j.put("aksesLaporan", rs.getBoolean(16));
-				j.put("aksesRiwayatSinkronisasi", rs.getBoolean(17));
-				j.put("aksesLogError", rs.getBoolean(18));
-				j.put("aksesKonfigurasi", rs.getBoolean(19));
 				arr.put(j);
 			}
 			rs.close();
@@ -3856,6 +3876,42 @@ public class KantinHelper {
 				JenisAnggotaKoperasi jenis = (JenisAnggotaKoperasi) session.get(JenisAnggotaKoperasi.class, idJenis);
 				anggota.setJenisAnggotaKoperasi(jenis);
 			}
+			if (!request.isNull("tipe_anggota_koperasi_id")) {
+				ais.database.model.koperasi.TipeAnggotaKoperasi tipe = (ais.database.model.koperasi.TipeAnggotaKoperasi) session
+						.get(ais.database.model.koperasi.TipeAnggotaKoperasi.class,
+								Long.valueOf((request.get("tipe_anggota_koperasi_id") + "").trim()));
+				anggota.setTipeAnggotaKoperasi(tipe);
+			}
+			// "Ubah Tanggal Kadaluarsa" (gap-closure parity anggota_koperasi.jsp) -- kosong/hilang
+			// berarti TIDAK kadaluarsa (dibiarkan null), TIDAK mengubah nilai lama kalau field ini
+			// sama sekali tak dikirim (mis. klien lama yg belum tahu field ini).
+			if (request.has("tanggal_kadaluarsa")) {
+				String tglKadaluarsa = request.optString("tanggal_kadaluarsa", "").trim();
+				if (tglKadaluarsa.isEmpty()) {
+					anggota.setTanggalKadaluarsa(null);
+				} else {
+					try {
+						anggota.setTanggalKadaluarsa(new SimpleDateFormat("yyyy-MM-dd").parse(tglKadaluarsa));
+					} catch (Exception eParse) {
+						ais.common.ErrorAuditUtil.record(eParse, "auto-audit anggotaSimpan-parse-kadaluarsa src/ais/action/servlet/api/KantinHelper.java");
+					}
+				}
+			}
+			// Kode member manual (gap-closure "Edit Kode Member Secara Manual" di JSP) -- HANYA
+			// dihormati saat UPDATE data yg sudah ada (baris baru tetap auto-generate di bawah, spt
+			// perilaku lama, supaya format urut PREFIX-N/MM/YYYY/N tak diganggu klien lama yg blm
+			// kirim field ini).
+			if (!baru && request.has("kode") && !request.optString("kode", "").trim().isEmpty()) {
+				anggota.setKode(request.optString("kode", "").trim());
+			}
+			// Kredensial login (opsional) -- HANYA diubah kalau dikirim eksplisit, supaya panggilan
+			// lama yg tak menyertakan field ini tak sengaja menghapus/menimpa userid+pass yg sudah ada.
+			if (request.has("userid") && !request.optString("userid", "").trim().isEmpty()) {
+				anggota.setUserid(request.optString("userid", "").trim());
+			}
+			if (request.has("pass") && !request.optString("pass", "").trim().isEmpty()) {
+				anggota.setPass(request.optString("pass", "").trim());
+			}
 
 			session.beginTransaction();
 			if (baru) {
@@ -3908,8 +3964,10 @@ public class KantinHelper {
 
 			java.sql.PreparedStatement ps = conn.prepareStatement(
 					"SELECT a.id, a.nama, a.kode, COALESCE(a.kode_identitas,''), COALESCE(a.hp,''), COALESCE(a.aktif,true), COALESCE(j.nama,'-'), "
-							+ "COALESCE(a.telp,''), COALESCE(a.email_nasabah,''), COALESCE(a.keterangan,''), a.jenis_anggota_koperasi "
+							+ "COALESCE(a.telp,''), COALESCE(a.email_nasabah,''), COALESCE(a.keterangan,''), a.jenis_anggota_koperasi, "
+							+ "a.tipe_anggota_koperasi, COALESCE(t.nama,'-'), a.tanggal_kadaluarsa, COALESCE(a.userid,'') "
 							+ "FROM koperasi.anggota_koperasi a LEFT JOIN koperasi.jenis_anggota_koperasi j ON a.jenis_anggota_koperasi = j.id "
+							+ "LEFT JOIN koperasi.tipe_anggota_koperasi t ON a.tipe_anggota_koperasi = t.id "
 							+ "WHERE 1=1" + andKw + " ORDER BY a.nama ASC LIMIT ? OFFSET ?");
 			int idx = 1;
 			if (!keyword.isEmpty()) {
@@ -3922,6 +3980,7 @@ public class KantinHelper {
 			ps.setInt(idx++, offset);
 			java.sql.ResultSet rs = ps.executeQuery();
 			JSONArray arr = new JSONArray();
+			java.text.SimpleDateFormat sdfTglAl = new java.text.SimpleDateFormat("yyyy-MM-dd");
 			while (rs.next()) {
 				JSONObject j = new JSONObject();
 				j.put("id", rs.getLong(1));
@@ -3936,6 +3995,12 @@ public class KantinHelper {
 				j.put("keterangan", rs.getString(10));
 				long idJenisRow = rs.getLong(11);
 				j.put("jenisAnggotaKoperasiId", rs.wasNull() ? JSONObject.NULL : idJenisRow);
+				long idTipeRow = rs.getLong(12);
+				j.put("tipeAnggotaKoperasiId", rs.wasNull() ? JSONObject.NULL : idTipeRow);
+				j.put("tipeNama", rs.getString(13));
+				java.sql.Date tglKadaluarsaRow = rs.getDate(14);
+				j.put("tanggalKadaluarsa", tglKadaluarsaRow == null ? JSONObject.NULL : sdfTglAl.format(tglKadaluarsaRow));
+				j.put("userid", rs.getString(15));
 				arr.put(j);
 			}
 			rs.close();
@@ -4150,6 +4215,951 @@ public class KantinHelper {
 			ps.close();
 			hasil.put("status", "00");
 			hasil.put("data", arr);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * Fitur "Data Member Baru" (Pelanggan) -- hapus SATU baris {@link AnggotaKoperasi}. Gap-closure
+	 * parity dgn JSP {@code anggota_koperasi.jsp} (yg sudah bisa hapus lewat endpoint generik
+	 * {@code /Data} action {@code deleteData}) -- Desktop/Android/Flutter belum punya jalur ini sama
+	 * sekali sebelum method ini. Gerbang SAMA persis dgn {@link #anggotaSimpan}.
+	 *
+	 * <p>{@link AnggotaKoperasi} dirujuk banyak tabel riwayat (pembelian_anggota_koperasi, deposit,
+	 * dst) -- kalau penghapusan gagal krn constraint FK di database, pesan diarahkan ke solusi yang
+	 * BENAR (nonaktifkan, BUKAN hapus) drpd menampilkan pesan SQL mentah yg membingungkan pengguna
+	 * non-teknis.</p>
+	 */
+	public static void anggotaHapus(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggilAh = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean adminGlobalAh = pemanggilAh == null;
+		boolean supervisorAh = pemanggilAh != null && Boolean.TRUE.equals(pemanggilAh.getSupervisor());
+		if (!bolehAksiCrud(tbmuser, pemanggilAh, adminGlobalAh, supervisorAh, "anggota", "delete")) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat menghapus data Customer/Anggota.");
+			return;
+		}
+		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		if (id == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "ID member wajib diisi.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			AnggotaKoperasi anggota = (AnggotaKoperasi) session.get(AnggotaKoperasi.class, id);
+			if (anggota == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Member tidak ditemukan.");
+				return;
+			}
+			session.beginTransaction();
+			session.delete(anggota);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("description", "Member berhasil dihapus.");
+		} catch (Exception e) {
+			try {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception eRollback) {
+				ais.common.ErrorAuditUtil.record(eRollback,
+						"auto-audit(empty-catch) src/ais/action/servlet/api/KantinHelper.java:anggotaHapus-rollback");
+			}
+			hasil.put("status", "91");
+			hasil.put("description",
+					"Member ini tidak bisa dihapus karena masih punya riwayat transaksi/topup terkait. Nonaktifkan saja member ini (Ubah -> Status Nonaktif).");
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * Fitur "Jenis Member" (tab {@code anggota.jsp}) -- daftar LENGKAP+berpaginasi utk layar CRUD admin,
+	 * BEDA dari {@link #jenisAnggotaList} (dropdown ringan id+nama, aktif-only, TIDAK diubah supaya
+	 * konsumen lama -- form Customer/Anggota &amp; Aturan Diskon -- tetap dapat SELURUH baris aktif
+	 * tanpa terpotong paginasi).
+	 *
+	 * @param request payload berisi {@code keyword} (opsional, cocok kode/nama), {@code page} (def:1),
+	 *                {@code page_size} (def:20, maks 100), {@code termasuk_nonaktif} (def:false).
+	 */
+	public static void jenisAnggotaListAdmin(JSONObject request, JSONObject hasil) throws Exception {
+		String keyword = request.optString("keyword", "").trim();
+		boolean termasukNonaktif = request.optBoolean("termasuk_nonaktif", false);
+		int page = Math.max(1, request.optInt("page", 1));
+		int pageSize = Math.min(100, Math.max(1, request.optInt("page_size", 20)));
+		int offset = (page - 1) * pageSize;
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			StringBuilder where = new StringBuilder(" WHERE 1=1 ");
+			if (!termasukNonaktif) where.append(" AND COALESCE(aktif,true) = true ");
+			if (!keyword.isEmpty()) where.append(" AND (nama ILIKE ? OR kode ILIKE ?) ");
+
+			java.sql.Connection conn = session.connection();
+			java.sql.PreparedStatement psCount = conn
+					.prepareStatement("SELECT COUNT(*) FROM koperasi.jenis_anggota_koperasi" + where);
+			if (!keyword.isEmpty()) {
+				String kw = "%" + keyword + "%";
+				psCount.setString(1, kw);
+				psCount.setString(2, kw);
+			}
+			java.sql.ResultSet rsCount = psCount.executeQuery();
+			long total = rsCount.next() ? rsCount.getLong(1) : 0;
+			rsCount.close();
+			psCount.close();
+
+			java.sql.PreparedStatement ps = conn.prepareStatement(
+					"SELECT id, COALESCE(kode,''), nama, COALESCE(keterangan,''), COALESCE(aktif,true), COALESCE(dipilih,true), "
+							+ "COALESCE(boleh_entry_topup_oleh_admin,false), COALESCE(istilah_sisa_saldo,'Saldo Kas'), COALESCE(tampilkan_sisa_saldo,true), "
+							+ "COALESCE(istilah_cashback,'Cashback'), COALESCE(tampilkan_cashback,true), COALESCE(minimal_saldo,0), "
+							+ "COALESCE(wajib_pin,false), COALESCE(wajib_belanja_rutin,false), COALESCE(target_frekuensi_belanja,0), "
+							+ "COALESCE(maksimal_pelanggaran,0), COALESCE(daftar_cara_pembayaran_yang_boleh_di_pilih,''), "
+							+ "(SELECT COUNT(*) FROM koperasi.anggota_koperasi a WHERE a.jenis_anggota_koperasi = j.id) "
+							+ "FROM koperasi.jenis_anggota_koperasi j" + where + " ORDER BY nama ASC LIMIT ? OFFSET ?");
+			int idx = 1;
+			if (!keyword.isEmpty()) {
+				String kw = "%" + keyword + "%";
+				ps.setString(idx++, kw);
+				ps.setString(idx++, kw);
+			}
+			ps.setInt(idx++, pageSize);
+			ps.setInt(idx++, offset);
+			java.sql.ResultSet rs = ps.executeQuery();
+			JSONArray arr = new JSONArray();
+			while (rs.next()) {
+				JSONObject j = new JSONObject();
+				j.put("id", rs.getLong(1));
+				j.put("kode", rs.getString(2));
+				j.put("nama", rs.getString(3));
+				j.put("keterangan", rs.getString(4));
+				j.put("aktif", rs.getBoolean(5));
+				j.put("dipilih", rs.getBoolean(6));
+				j.put("bolehEntryTopupOlehAdmin", rs.getBoolean(7));
+				j.put("istilahSisaSaldo", rs.getString(8));
+				j.put("tampilkanSisaSaldo", rs.getBoolean(9));
+				j.put("istilahCashback", rs.getString(10));
+				j.put("tampilkanCashback", rs.getBoolean(11));
+				j.put("minimalSaldo", rs.getDouble(12));
+				j.put("wajibPin", rs.getBoolean(13));
+				j.put("wajibBelanjaRutin", rs.getBoolean(14));
+				j.put("targetFrekuensiBelanja", rs.getInt(15));
+				j.put("maksimalPelanggaran", rs.getInt(16));
+				j.put("daftarCaraPembayaranYangBolehDiPilih", rs.getString(17));
+				j.put("jumlahAnggota", rs.getLong(18));
+				arr.put(j);
+			}
+			rs.close();
+			ps.close();
+
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+			hasil.put("total", total);
+			hasil.put("page", page);
+			hasil.put("pageSize", pageSize);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/** Fitur "Jenis Member" -- simpan (create/update) satu baris {@link JenisAnggotaKoperasi}. */
+	public static void jenisAnggotaSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggilJa = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean adminGlobalJa = pemanggilJa == null;
+		boolean supervisorJa = pemanggilJa != null && Boolean.TRUE.equals(pemanggilJa.getSupervisor());
+		String aksiJa = request.isNull("id") ? "create" : "update";
+		if (!bolehAksiCrud(tbmuser, pemanggilJa, adminGlobalJa, supervisorJa, "anggota", aksiJa)) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat mengelola Jenis Member.");
+			return;
+		}
+		String nama = request.optString("nama", "").trim();
+		if (nama.isEmpty()) {
+			hasil.put("status", "91");
+			hasil.put("description", "Nama jenis member wajib diisi.");
+			return;
+		}
+		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			JenisAnggotaKoperasi jenis;
+			boolean baru = (id == null);
+			if (baru) {
+				jenis = new JenisAnggotaKoperasi();
+			} else {
+				jenis = (JenisAnggotaKoperasi) session.get(JenisAnggotaKoperasi.class, id);
+				if (jenis == null) {
+					hasil.put("status", "91");
+					hasil.put("description", "Jenis member tidak ditemukan.");
+					return;
+				}
+			}
+			jenis.setKode(request.optString("kode", ""));
+			jenis.setNama(nama);
+			jenis.setKeterangan(request.optString("keterangan", ""));
+			jenis.setAktif(!request.has("aktif") || request.optBoolean("aktif", true));
+			jenis.setDipilih(request.optBoolean("dipilih", true));
+			jenis.setBolehEntryTopupOlehAdmin(request.optBoolean("boleh_entry_topup_oleh_admin", false));
+			jenis.setIstilahSisaSaldo(request.optString("istilah_sisa_saldo", "Saldo Kas"));
+			jenis.setTampilkanSisaSaldo(request.optBoolean("tampilkan_sisa_saldo", true));
+			jenis.setIstilahCashback(request.optString("istilah_cashback", "Cashback"));
+			jenis.setTampilkanCashback(request.optBoolean("tampilkan_cashback", true));
+			jenis.setMinimalSaldo(Double.valueOf(request.optDouble("minimal_saldo", 0)));
+			jenis.setWajibPin(request.optBoolean("wajib_pin", false));
+			jenis.setWajibBelanjaRutin(request.optBoolean("wajib_belanja_rutin", false));
+			jenis.setTargetFrekuensiBelanja(Integer.valueOf(request.optInt("target_frekuensi_belanja", 0)));
+			jenis.setMaksimalPelanggaran(Integer.valueOf(request.optInt("maksimal_pelanggaran", 0)));
+			jenis.setDaftarCaraPembayaranYangBolehDiPilih(request.optString("daftar_cara_pembayaran_yang_boleh_di_pilih", ""));
+
+			session.beginTransaction();
+			session.saveOrUpdate(jenis);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("id", jenis.getId());
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/** Fitur "Jenis Member" -- hapus satu baris {@link JenisAnggotaKoperasi}. */
+	public static void jenisAnggotaHapus(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggilJh = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean adminGlobalJh = pemanggilJh == null;
+		boolean supervisorJh = pemanggilJh != null && Boolean.TRUE.equals(pemanggilJh.getSupervisor());
+		if (!bolehAksiCrud(tbmuser, pemanggilJh, adminGlobalJh, supervisorJh, "anggota", "delete")) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat menghapus Jenis Member.");
+			return;
+		}
+		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		if (id == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "ID jenis member wajib diisi.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			JenisAnggotaKoperasi jenis = (JenisAnggotaKoperasi) session.get(JenisAnggotaKoperasi.class, id);
+			if (jenis == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Jenis member tidak ditemukan.");
+				return;
+			}
+			session.beginTransaction();
+			session.delete(jenis);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+		} catch (Exception e) {
+			try {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception eRollback) {
+				ais.common.ErrorAuditUtil.record(eRollback,
+						"auto-audit(empty-catch) src/ais/action/servlet/api/KantinHelper.java:jenisAnggotaHapus-rollback");
+			}
+			hasil.put("status", "91");
+			hasil.put("description", "Jenis member ini tidak bisa dihapus karena masih dipakai member yang ada. Nonaktifkan saja.");
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/** Fitur "Tipe Member" -- daftar LENGKAP+berpaginasi, sama pola dgn {@link #jenisAnggotaListAdmin}. */
+	public static void tipeAnggotaListAdmin(JSONObject request, JSONObject hasil) throws Exception {
+		String keyword = request.optString("keyword", "").trim();
+		boolean termasukNonaktif = request.optBoolean("termasuk_nonaktif", false);
+		int page = Math.max(1, request.optInt("page", 1));
+		int pageSize = Math.min(100, Math.max(1, request.optInt("page_size", 20)));
+		int offset = (page - 1) * pageSize;
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			StringBuilder where = new StringBuilder(" WHERE 1=1 ");
+			if (!termasukNonaktif) where.append(" AND COALESCE(aktif,true) = true ");
+			if (!keyword.isEmpty()) where.append(" AND (nama ILIKE ? OR kode ILIKE ?) ");
+
+			java.sql.Connection conn = session.connection();
+			java.sql.PreparedStatement psCount = conn
+					.prepareStatement("SELECT COUNT(*) FROM koperasi.tipe_anggota_koperasi" + where);
+			if (!keyword.isEmpty()) {
+				String kw = "%" + keyword + "%";
+				psCount.setString(1, kw);
+				psCount.setString(2, kw);
+			}
+			java.sql.ResultSet rsCount = psCount.executeQuery();
+			long total = rsCount.next() ? rsCount.getLong(1) : 0;
+			rsCount.close();
+			psCount.close();
+
+			java.sql.PreparedStatement ps = conn.prepareStatement(
+					"SELECT t.id, COALESCE(t.kode,''), t.nama, COALESCE(t.keterangan,''), COALESCE(t.aktif,true), "
+							+ "(SELECT COUNT(*) FROM koperasi.anggota_koperasi a WHERE a.tipe_anggota_koperasi = t.id) "
+							+ "FROM koperasi.tipe_anggota_koperasi t" + where + " ORDER BY t.nama ASC LIMIT ? OFFSET ?");
+			int idx = 1;
+			if (!keyword.isEmpty()) {
+				String kw = "%" + keyword + "%";
+				ps.setString(idx++, kw);
+				ps.setString(idx++, kw);
+			}
+			ps.setInt(idx++, pageSize);
+			ps.setInt(idx++, offset);
+			java.sql.ResultSet rs = ps.executeQuery();
+			JSONArray arr = new JSONArray();
+			while (rs.next()) {
+				JSONObject j = new JSONObject();
+				j.put("id", rs.getLong(1));
+				j.put("kode", rs.getString(2));
+				j.put("nama", rs.getString(3));
+				j.put("keterangan", rs.getString(4));
+				j.put("aktif", rs.getBoolean(5));
+				j.put("jumlahAnggota", rs.getLong(6));
+				arr.put(j);
+			}
+			rs.close();
+			ps.close();
+
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+			hasil.put("total", total);
+			hasil.put("page", page);
+			hasil.put("pageSize", pageSize);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/** Fitur "Tipe Member" -- simpan (create/update) satu baris {@code TipeAnggotaKoperasi}. */
+	public static void tipeAnggotaSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggilTa = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean adminGlobalTa = pemanggilTa == null;
+		boolean supervisorTa = pemanggilTa != null && Boolean.TRUE.equals(pemanggilTa.getSupervisor());
+		String aksiTa = request.isNull("id") ? "create" : "update";
+		if (!bolehAksiCrud(tbmuser, pemanggilTa, adminGlobalTa, supervisorTa, "anggota", aksiTa)) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat mengelola Tipe Member.");
+			return;
+		}
+		String nama = request.optString("nama", "").trim();
+		if (nama.isEmpty()) {
+			hasil.put("status", "91");
+			hasil.put("description", "Nama tipe member wajib diisi.");
+			return;
+		}
+		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.koperasi.TipeAnggotaKoperasi tipe;
+			boolean baru = (id == null);
+			if (baru) {
+				tipe = new ais.database.model.koperasi.TipeAnggotaKoperasi();
+			} else {
+				tipe = (ais.database.model.koperasi.TipeAnggotaKoperasi) session
+						.get(ais.database.model.koperasi.TipeAnggotaKoperasi.class, id);
+				if (tipe == null) {
+					hasil.put("status", "91");
+					hasil.put("description", "Tipe member tidak ditemukan.");
+					return;
+				}
+			}
+			tipe.setKode(request.optString("kode", ""));
+			tipe.setNama(nama);
+			tipe.setKeterangan(request.optString("keterangan", ""));
+			tipe.setAktif(!request.has("aktif") || request.optBoolean("aktif", true));
+
+			session.beginTransaction();
+			session.saveOrUpdate(tipe);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("id", tipe.getId());
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/** Fitur "Tipe Member" -- hapus satu baris {@code TipeAnggotaKoperasi}. */
+	public static void tipeAnggotaHapus(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggilTh = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean adminGlobalTh = pemanggilTh == null;
+		boolean supervisorTh = pemanggilTh != null && Boolean.TRUE.equals(pemanggilTh.getSupervisor());
+		if (!bolehAksiCrud(tbmuser, pemanggilTh, adminGlobalTh, supervisorTh, "anggota", "delete")) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat menghapus Tipe Member.");
+			return;
+		}
+		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		if (id == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "ID tipe member wajib diisi.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.koperasi.TipeAnggotaKoperasi tipe = (ais.database.model.koperasi.TipeAnggotaKoperasi) session
+					.get(ais.database.model.koperasi.TipeAnggotaKoperasi.class, id);
+			if (tipe == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Tipe member tidak ditemukan.");
+				return;
+			}
+			session.beginTransaction();
+			session.delete(tipe);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+		} catch (Exception e) {
+			try {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception eRollback) {
+				ais.common.ErrorAuditUtil.record(eRollback,
+						"auto-audit(empty-catch) src/ais/action/servlet/api/KantinHelper.java:tipeAnggotaHapus-rollback");
+			}
+			hasil.put("status", "91");
+			hasil.put("description", "Tipe member ini tidak bisa dihapus karena masih dipakai member yang ada. Nonaktifkan saja.");
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * Fitur "Topup" (tab {@code anggota.jsp}) -- riwayat/daftar {@link ais.database.model.Deposit}
+	 * berpaginasi, dgn filter member+rentang tanggal, dipakai layar admin Pelanggan Flutter (parity dgn
+	 * {@code _manajemen_topup.jsp}). BEDA dari {@link #topup}/{@link #tabungan} (saldo TERKINI satu
+	 * member, dipakai alur checkout) -- ini daftar histori transaksi topup itu sendiri.
+	 *
+	 * @param request payload berisi {@code id_member} (opsional), {@code keyword} (opsional, cocok
+	 *                nama member), {@code dari}/{@code sampai} (opsional, "yyyy-MM-dd"), {@code page}
+	 *                (def:1), {@code page_size} (def:20, maks 100).
+	 */
+	public static void depositList(JSONObject request, JSONObject hasil) throws Exception {
+		Long idMember = request.isNull("id_member") ? null : Long.valueOf((request.get("id_member") + "").trim());
+		String keyword = request.optString("keyword", "").trim();
+		String dari = request.optString("dari", "").trim();
+		String sampai = request.optString("sampai", "").trim();
+		int page = Math.max(1, request.optInt("page", 1));
+		int pageSize = Math.min(100, Math.max(1, request.optInt("page_size", 20)));
+		int offset = (page - 1) * pageSize;
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			StringBuilder where = new StringBuilder(" WHERE 1=1 ");
+			if (idMember != null) where.append(" AND d.anggota_koperasi = ? ");
+			if (!keyword.isEmpty()) where.append(" AND a.nama ILIKE ? ");
+			if (!dari.isEmpty()) where.append(" AND d.waktu >= ?::date ");
+			if (!sampai.isEmpty()) where.append(" AND d.waktu < (?::date + interval '1 day') ");
+
+			java.sql.Connection conn = session.connection();
+			java.util.List<Object> params = new java.util.ArrayList<Object>();
+			if (idMember != null) params.add(idMember);
+			if (!keyword.isEmpty()) params.add("%" + keyword + "%");
+			if (!dari.isEmpty()) params.add(dari);
+			if (!sampai.isEmpty()) params.add(sampai);
+
+			java.sql.PreparedStatement psCount = conn.prepareStatement(
+					"SELECT COUNT(*) FROM public.deposit d LEFT JOIN koperasi.anggota_koperasi a ON d.anggota_koperasi = a.id"
+							+ where);
+			for (int i = 0; i < params.size(); i++) psCount.setObject(i + 1, params.get(i));
+			java.sql.ResultSet rsCount = psCount.executeQuery();
+			long total = rsCount.next() ? rsCount.getLong(1) : 0;
+			rsCount.close();
+			psCount.close();
+
+			java.sql.PreparedStatement ps = conn.prepareStatement(
+					"SELECT d.id, d.anggota_koperasi, COALESCE(a.nama, d.nama, '-'), d.nominal, d.waktu, d.tanggal_expired, "
+							+ "COALESCE(d.keterangan,''), d.jenis_pembayaran, COALESCE(jp.nama,''), d.jenis_tabungan, COALESCE(jt.nama,''), "
+							+ "COALESCE(d.oleh,'') "
+							+ "FROM public.deposit d LEFT JOIN koperasi.anggota_koperasi a ON d.anggota_koperasi = a.id "
+							+ "LEFT JOIN public.jenis_pembayaran jp ON d.jenis_pembayaran = jp.id "
+							+ "LEFT JOIN public.jenis_tabungan jt ON d.jenis_tabungan = jt.id" + where
+							+ " ORDER BY d.waktu DESC, d.id DESC LIMIT ? OFFSET ?");
+			for (int i = 0; i < params.size(); i++) ps.setObject(i + 1, params.get(i));
+			ps.setInt(params.size() + 1, pageSize);
+			ps.setInt(params.size() + 2, offset);
+			java.sql.ResultSet rs = ps.executeQuery();
+			JSONArray arr = new JSONArray();
+			java.text.SimpleDateFormat sdfWaktu = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			java.text.SimpleDateFormat sdfTanggal = new java.text.SimpleDateFormat("yyyy-MM-dd");
+			while (rs.next()) {
+				JSONObject j = new JSONObject();
+				j.put("id", rs.getLong(1));
+				long idAnggotaRow = rs.getLong(2);
+				j.put("idMember", rs.wasNull() ? JSONObject.NULL : idAnggotaRow);
+				j.put("namaMember", rs.getString(3));
+				j.put("nominal", rs.getDouble(4));
+				java.sql.Timestamp waktu = rs.getTimestamp(5);
+				j.put("waktu", waktu == null ? JSONObject.NULL : sdfWaktu.format(waktu));
+				java.sql.Timestamp expired = rs.getTimestamp(6);
+				j.put("tanggalExpired", expired == null ? JSONObject.NULL : sdfTanggal.format(expired));
+				j.put("keterangan", rs.getString(7));
+				long idJp = rs.getLong(8);
+				j.put("jenisPembayaranId", rs.wasNull() ? JSONObject.NULL : idJp);
+				j.put("jenisPembayaranNama", rs.getString(9));
+				long idJt = rs.getLong(10);
+				j.put("jenisTabunganId", rs.wasNull() ? JSONObject.NULL : idJt);
+				j.put("jenisTabunganNama", rs.getString(11));
+				j.put("oleh", rs.getString(12));
+				arr.put(j);
+			}
+			rs.close();
+			ps.close();
+
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+			hasil.put("total", total);
+			hasil.put("page", page);
+			hasil.put("pageSize", pageSize);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * Fitur "Topup" -- ubah SATU baris {@link ais.database.model.Deposit} yang sudah ada (koreksi
+	 * nominal/tanggal/keterangan). Gerbang SAMA dgn {@link #topupSaldo} ({@code Tbmrole.bolehEntryTopup}).
+	 */
+	public static void depositUbah(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.Tbmrole roleDu = tbmuser == null ? null : tbmuser.hakAkses();
+		boolean bolehDu = roleDu != null && roleDu.getBolehEntryTopup() != null && roleDu.getBolehEntryTopup().booleanValue();
+		if (!bolehDu) {
+			hasil.put("status", "91");
+			hasil.put("description", "Anda tidak memiliki hak akses untuk mengubah entri topup.");
+			return;
+		}
+		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		if (id == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "ID topup wajib diisi.");
+			return;
+		}
+		double nominal = request.optDouble("nominal", 0);
+		if (nominal <= 0) {
+			hasil.put("status", "91");
+			hasil.put("description", "Nominal topup harus lebih dari 0.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.Deposit deposit = (ais.database.model.Deposit) session.get(ais.database.model.Deposit.class, id);
+			if (deposit == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Data topup tidak ditemukan.");
+				return;
+			}
+			deposit.setNominal(Double.valueOf(nominal));
+			deposit.setKeterangan(request.optString("keterangan", ""));
+			if (!request.isNull("waktu") && !request.optString("waktu", "").trim().isEmpty()) {
+				try {
+					deposit.setWaktu(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(request.optString("waktu")));
+				} catch (Exception eParse) {
+					ais.common.ErrorAuditUtil.record(eParse, "auto-audit depositUbah-parse-waktu src/ais/action/servlet/api/KantinHelper.java");
+				}
+			}
+			if (!request.isNull("tanggal_expired") && !request.optString("tanggal_expired", "").trim().isEmpty()) {
+				try {
+					java.util.Date exp = new java.text.SimpleDateFormat("yyyy-MM-dd").parse(request.optString("tanggal_expired"));
+					java.util.Calendar cal = java.util.Calendar.getInstance();
+					cal.setTime(exp);
+					cal.set(java.util.Calendar.HOUR_OF_DAY, 23);
+					cal.set(java.util.Calendar.MINUTE, 59);
+					cal.set(java.util.Calendar.SECOND, 59);
+					deposit.setTanggalExpired(cal.getTime());
+				} catch (Exception eParse) {
+					ais.common.ErrorAuditUtil.record(eParse, "auto-audit depositUbah-parse-expired src/ais/action/servlet/api/KantinHelper.java");
+				}
+			} else if (request.has("tanggal_expired")) {
+				deposit.setTanggalExpired(null);
+			}
+			if (!request.isNull("jenis_pembayaran_id")) {
+				deposit.setJenisPembayaran((ais.database.model.JenisPembayaran) session.get(ais.database.model.JenisPembayaran.class,
+						Long.valueOf((request.get("jenis_pembayaran_id") + "").trim())));
+			}
+			if (!request.isNull("jenis_tabungan_id")) {
+				deposit.setJenisTabungan((ais.database.model.JenisTabungan) session.get(ais.database.model.JenisTabungan.class,
+						Long.valueOf((request.get("jenis_tabungan_id") + "").trim())));
+			}
+			session.beginTransaction();
+			session.saveOrUpdate(deposit);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * Fitur "Topup" -- hapus SATU baris {@link ais.database.model.Deposit}. Gerbang SAMA dgn
+	 * {@link #topupSaldo}/{@link #depositUbah}.
+	 */
+	public static void depositHapus(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.Tbmrole roleDh = tbmuser == null ? null : tbmuser.hakAkses();
+		boolean bolehDh = roleDh != null && roleDh.getBolehEntryTopup() != null && roleDh.getBolehEntryTopup().booleanValue();
+		if (!bolehDh) {
+			hasil.put("status", "91");
+			hasil.put("description", "Anda tidak memiliki hak akses untuk menghapus entri topup.");
+			return;
+		}
+		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		if (id == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "ID topup wajib diisi.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.Deposit deposit = (ais.database.model.Deposit) session.get(ais.database.model.Deposit.class, id);
+			if (deposit == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Data topup tidak ditemukan.");
+				return;
+			}
+			session.beginTransaction();
+			session.delete(deposit);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * Fitur "Notifikasi" (tab {@code anggota.jsp}) -- log/riwayat {@link ais.database.model.Notifikasi}
+	 * yg SUDAH dikirim ke member (mis. peringatan wajib-belanja-rutin), BUKAN layar konfigurasi. Sama
+	 * query dgn {@code notifikasi.jsp} (join {@code n.nama = ak.userid}). Halaman JSP asalnya ADMIN-ONLY
+	 * (toko==null) -- gerbang direplikasi PERSIS di sini, BUKAN dilonggarkan ke supervisor toko.
+	 */
+	public static void notifikasiList(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		boolean isAdminNl = tbmuser != null && tbmuser.getPedagang() == null;
+		if (!isAdminNl) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin yang dapat melihat log Notifikasi.");
+			return;
+		}
+		String keyword = request.optString("keyword", "").trim();
+		String dari = request.optString("dari", "").trim();
+		String sampai = request.optString("sampai", "").trim();
+		int page = Math.max(1, request.optInt("page", 1));
+		int pageSize = Math.min(100, Math.max(1, request.optInt("page_size", 20)));
+		int offset = (page - 1) * pageSize;
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			StringBuilder where = new StringBuilder(" WHERE 1=1 ");
+			java.util.List<Object> params = new java.util.ArrayList<Object>();
+			if (!keyword.isEmpty()) {
+				where.append(" AND (n.nama ILIKE ? OR n.keterangan ILIKE ? OR ak.nama ILIKE ? OR ak.hp ILIKE ?) ");
+				String kw = "%" + keyword + "%";
+				params.add(kw);
+				params.add(kw);
+				params.add(kw);
+				params.add(kw);
+			}
+			if (!dari.isEmpty()) {
+				where.append(" AND n.waktu >= ?::date ");
+				params.add(dari);
+			}
+			if (!sampai.isEmpty()) {
+				where.append(" AND n.waktu < (?::date + interval '1 day') ");
+				params.add(sampai);
+			}
+
+			java.sql.Connection conn = session.connection();
+			java.sql.PreparedStatement psCount = conn.prepareStatement(
+					"SELECT COUNT(n.id) FROM public.notifikasi n LEFT JOIN koperasi.anggota_koperasi ak ON n.nama = ak.userid"
+							+ where);
+			for (int i = 0; i < params.size(); i++) psCount.setObject(i + 1, params.get(i));
+			java.sql.ResultSet rsCount = psCount.executeQuery();
+			long total = rsCount.next() ? rsCount.getLong(1) : 0;
+			rsCount.close();
+			psCount.close();
+
+			java.sql.PreparedStatement ps = conn.prepareStatement(
+					"SELECT n.id, n.waktu, n.nama, COALESCE(n.emails,''), COALESCE(n.keterangan,''), COALESCE(n.hasil,''), "
+							+ "COALESCE(n.buka,false), COALESCE(ak.nama,''), COALESCE(ak.hp,'') "
+							+ "FROM public.notifikasi n LEFT JOIN koperasi.anggota_koperasi ak ON n.nama = ak.userid" + where
+							+ " ORDER BY n.waktu DESC, n.id DESC LIMIT ? OFFSET ?");
+			for (int i = 0; i < params.size(); i++) ps.setObject(i + 1, params.get(i));
+			ps.setInt(params.size() + 1, pageSize);
+			ps.setInt(params.size() + 2, offset);
+			java.sql.ResultSet rs = ps.executeQuery();
+			JSONArray arr = new JSONArray();
+			java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			while (rs.next()) {
+				JSONObject j = new JSONObject();
+				j.put("id", rs.getLong(1));
+				java.sql.Timestamp waktu = rs.getTimestamp(2);
+				j.put("waktu", waktu == null ? JSONObject.NULL : sdf.format(waktu));
+				j.put("userid", rs.getString(3));
+				j.put("emails", rs.getString(4));
+				j.put("keterangan", rs.getString(5));
+				j.put("tipe", rs.getString(6));
+				j.put("buka", rs.getBoolean(7));
+				j.put("namaMember", rs.getString(8));
+				j.put("telpMember", rs.getString(9));
+				arr.put(j);
+			}
+			rs.close();
+			ps.close();
+
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+			hasil.put("total", total);
+			hasil.put("page", page);
+			hasil.put("pageSize", pageSize);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/** Fitur "Notifikasi" -- hapus satu baris log. Gerbang SAMA (admin-only) dgn {@link #notifikasiList}. */
+	public static void notifikasiHapus(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		boolean isAdminNh = tbmuser != null && tbmuser.getPedagang() == null;
+		if (!isAdminNh) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin yang dapat menghapus log Notifikasi.");
+			return;
+		}
+		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		if (id == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "ID notifikasi wajib diisi.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.Notifikasi n = (ais.database.model.Notifikasi) session.get(ais.database.model.Notifikasi.class, id);
+			if (n == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Data notifikasi tidak ditemukan.");
+				return;
+			}
+			session.beginTransaction();
+			session.delete(n);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * Fitur "Sinkronisasi Siswa/Mahasiswa" -- populasi dropdown (Koperasi/Fakultas/Jurusan/Yayasan/
+	 * Sekolah), reuse PERSIS query {@code sinkron_siswa_mahasiswa_service.jsp} supaya daftar yg
+	 * ditampilkan Flutter identik dgn versi JSP.
+	 *
+	 * @param request payload berisi {@code tipe} (wajib: "koperasi"|"fakultas"|"jurusan"|"yayasan"|
+	 *                "sekolah") dan {@code induk_id} (opsional, dipakai "jurusan" utk filter fakultas,
+	 *                "sekolah" utk filter yayasan).
+	 */
+	public static void sinkronReferensi(JSONObject request, JSONObject hasil) throws Exception {
+		String tipe = request.optString("tipe", "").trim();
+		Long indukId = request.isNull("induk_id") ? null : Long.valueOf((request.get("induk_id") + "").trim());
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			JSONArray arr = new JSONArray();
+			if ("koperasi".equals(tipe)) {
+				for (Object o : session.createCriteria(ais.database.model.koperasi.Koperasi.class)
+						.addOrder(Order.asc("nama")).list()) {
+					ais.database.model.koperasi.Koperasi k = (ais.database.model.koperasi.Koperasi) o;
+					JSONObject j = new JSONObject();
+					j.put("id", k.getId());
+					j.put("nama", k.getNama() == null ? ("Koperasi #" + k.getId()) : k.getNama());
+					arr.put(j);
+				}
+			} else if ("fakultas".equals(tipe)) {
+				for (Object o : session.createCriteria(ais.database.model.Fakultas.class)
+						.addOrder(Order.asc("nama")).list()) {
+					ais.database.model.Fakultas f = (ais.database.model.Fakultas) o;
+					JSONObject j = new JSONObject();
+					j.put("id", f.getId());
+					j.put("nama", f.getNama() == null ? "-" : f.getNama());
+					arr.put(j);
+				}
+			} else if ("jurusan".equals(tipe)) {
+				org.hibernate.Criteria c = session.createCriteria(ais.database.model.Jurusan.class)
+						.addOrder(Order.asc("nama"));
+				if (indukId != null) {
+					ais.database.model.Fakultas fk = (ais.database.model.Fakultas) session.get(ais.database.model.Fakultas.class, indukId);
+					if (fk != null) c.add(Restrictions.eq("fakultas", fk));
+				}
+				for (Object o : c.list()) {
+					ais.database.model.Jurusan j2 = (ais.database.model.Jurusan) o;
+					JSONObject j = new JSONObject();
+					j.put("id", j2.getId());
+					j.put("nama", j2.getNama() == null ? "-" : j2.getNama());
+					arr.put(j);
+				}
+			} else if ("yayasan".equals(tipe)) {
+				for (Object o : session.createCriteria(ais.database.model.sekolah.Yayasan.class)
+						.addOrder(Order.asc("nama")).list()) {
+					ais.database.model.sekolah.Yayasan y = (ais.database.model.sekolah.Yayasan) o;
+					JSONObject j = new JSONObject();
+					j.put("id", y.getId());
+					j.put("nama", y.getNama() == null ? "-" : y.getNama());
+					arr.put(j);
+				}
+			} else if ("sekolah".equals(tipe)) {
+				org.hibernate.Criteria c = session.createCriteria(ais.database.model.sekolah.Sekolah.class)
+						.addOrder(Order.asc("nama"));
+				if (indukId != null) {
+					ais.database.model.sekolah.Yayasan yy = (ais.database.model.sekolah.Yayasan) session
+							.get(ais.database.model.sekolah.Yayasan.class, indukId);
+					if (yy != null) c.add(Restrictions.eq("yayasan", yy));
+				}
+				for (Object o : c.list()) {
+					ais.database.model.sekolah.Sekolah s = (ais.database.model.sekolah.Sekolah) o;
+					JSONObject j = new JSONObject();
+					j.put("id", s.getId());
+					j.put("nama", s.getNama() == null ? "-" : s.getNama());
+					arr.put(j);
+				}
+			} else {
+				hasil.put("status", "91");
+				hasil.put("description", "Tipe referensi tidak dikenali.");
+				return;
+			}
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * Fitur "Sinkronisasi Siswa/Mahasiswa" -- jalankan sinkron Mahasiswa -&gt; AnggotaKoperasi, reuse
+	 * PERSIS {@code Common.checkApakahMahasiswaOtomatisMenjadiAnggotaKoperasi} (satu sumber logika dgn
+	 * versi JSP/ZK). Gerbang: admin global ATAU supervisor toko SAJA (TIDAK ada fallback role granular
+	 * -- sengaja disamakan dgn {@code LokasiKantinUtil.bolehKelola} versi JSP, bukan {@link
+	 * #bolehAksiCrud}, supaya konsisten dgn permintaan awal "sesuai versi JSP").
+	 *
+	 * @param request payload berisi {@code koperasi_id} (wajib), {@code tahun} (wajib, tahun angkatan),
+	 *                {@code fakultas_id}/{@code jurusan_id} (opsional, filter kandidat).
+	 */
+	public static void sinkronMahasiswa(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggilSm = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean bolehSm = pemanggilSm == null || Boolean.TRUE.equals(pemanggilSm.getSupervisor());
+		if (!bolehSm) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/supervisor toko yang boleh menjalankan sinkronisasi.");
+			return;
+		}
+		if (request.isNull("koperasi_id") || request.isNull("tahun")) {
+			hasil.put("status", "91");
+			hasil.put("description", "Koperasi dan Tahun Angkatan wajib diisi.");
+			return;
+		}
+		Long koperasiId = Long.valueOf((request.get("koperasi_id") + "").trim());
+		Integer tahun = Integer.valueOf((request.get("tahun") + "").trim());
+		Long fakultasId = request.isNull("fakultas_id") ? null : Long.valueOf((request.get("fakultas_id") + "").trim());
+		Long jurusanId = request.isNull("jurusan_id") ? null : Long.valueOf((request.get("jurusan_id") + "").trim());
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.koperasi.Koperasi koperasi = (ais.database.model.koperasi.Koperasi) session
+					.get(ais.database.model.koperasi.Koperasi.class, koperasiId);
+			if (koperasi == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Koperasi tidak ditemukan.");
+				return;
+			}
+			ais.database.model.Jurusan jurusanEntity = jurusanId != null
+					? (ais.database.model.Jurusan) session.get(ais.database.model.Jurusan.class, jurusanId) : null;
+			ais.database.model.Fakultas fakultasEntity = fakultasId != null
+					? (ais.database.model.Fakultas) session.get(ais.database.model.Fakultas.class, fakultasId) : null;
+			org.hibernate.Criteria cq = session.createCriteria(ais.database.model.Mahasiswa.class)
+					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+					.createAlias("jurusan", "jurusan")
+					.add(Restrictions.eq("tahunangkatan", tahun))
+					.setProjection(org.hibernate.criterion.Projections.groupProperty("nim"));
+			if (jurusanEntity != null) cq.add(Restrictions.eq("jurusan", jurusanEntity));
+			if (fakultasEntity != null) cq.add(Restrictions.eq("jurusan.fakultas", fakultasEntity));
+			@SuppressWarnings("unchecked")
+			java.util.List<String> ids = cq.list();
+
+			int berhasil = 0, gagal = 0;
+			for (String nim : ids) {
+				try {
+					if (Common.checkApakahMahasiswaOtomatisMenjadiAnggotaKoperasi(nim, koperasi) != null) berhasil++;
+				} catch (Exception exSatu) {
+					gagal++;
+					ais.common.ErrorAuditUtil.record(exSatu,
+							"auto-audit sinkronMahasiswa src/ais/action/servlet/api/KantinHelper.java nim=" + nim);
+				}
+			}
+			hasil.put("status", "00");
+			hasil.put("total", ids.size());
+			hasil.put("berhasil", berhasil);
+			hasil.put("gagal", gagal);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * Fitur "Sinkronisasi Siswa/Mahasiswa" -- jalankan sinkron Siswa -&gt; AnggotaKoperasi, padanan
+	 * {@link #sinkronMahasiswa} utk jenjang sekolah. Sama gerbang &amp; sumber logika (lihat JavaDoc
+	 * {@link #sinkronMahasiswa}).
+	 *
+	 * @param request payload berisi {@code koperasi_id} (wajib), {@code tahun} (wajib, tahun masuk),
+	 *                {@code yayasan_id}/{@code sekolah_id} (opsional, filter kandidat).
+	 */
+	public static void sinkronSiswa(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggilSs = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean bolehSs = pemanggilSs == null || Boolean.TRUE.equals(pemanggilSs.getSupervisor());
+		if (!bolehSs) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/supervisor toko yang boleh menjalankan sinkronisasi.");
+			return;
+		}
+		if (request.isNull("koperasi_id") || request.isNull("tahun")) {
+			hasil.put("status", "91");
+			hasil.put("description", "Koperasi dan Tahun Masuk wajib diisi.");
+			return;
+		}
+		Long koperasiId = Long.valueOf((request.get("koperasi_id") + "").trim());
+		Integer tahun = Integer.valueOf((request.get("tahun") + "").trim());
+		Long yayasanId = request.isNull("yayasan_id") ? null : Long.valueOf((request.get("yayasan_id") + "").trim());
+		Long sekolahId = request.isNull("sekolah_id") ? null : Long.valueOf((request.get("sekolah_id") + "").trim());
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.koperasi.Koperasi koperasi = (ais.database.model.koperasi.Koperasi) session
+					.get(ais.database.model.koperasi.Koperasi.class, koperasiId);
+			if (koperasi == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Koperasi tidak ditemukan.");
+				return;
+			}
+			ais.database.model.sekolah.Sekolah sekolahEntity = sekolahId != null
+					? (ais.database.model.sekolah.Sekolah) session.get(ais.database.model.sekolah.Sekolah.class, sekolahId) : null;
+			ais.database.model.sekolah.Yayasan yayasanEntity = yayasanId != null
+					? (ais.database.model.sekolah.Yayasan) session.get(ais.database.model.sekolah.Yayasan.class, yayasanId) : null;
+			org.hibernate.Criteria cq = session.createCriteria(ais.database.model.sekolah.Siswa.class)
+					.add(Restrictions.isNotNull("namaSiswa")).add(Restrictions.ne("namaSiswa", ""))
+					.add(Restrictions.isNotNull("sekolah"))
+					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+					.add(Restrictions.eq("tahunMasuk", tahun));
+			if (sekolahEntity != null) cq.add(Restrictions.eq("sekolah", sekolahEntity));
+			if (yayasanEntity != null) cq.add(Restrictions.eq("yayasan", yayasanEntity));
+			@SuppressWarnings("unchecked")
+			java.util.List<ais.database.model.sekolah.Siswa> daftarSiswa = cq.list();
+
+			int berhasil = 0, gagal = 0;
+			for (ais.database.model.sekolah.Siswa siswa : daftarSiswa) {
+				try {
+					if (Common.checkApakahSiswaOtomatisMenjadiAnggotaKoperasi(siswa, koperasi) != null) berhasil++;
+				} catch (Exception exSatu) {
+					gagal++;
+					ais.common.ErrorAuditUtil.record(exSatu,
+							"auto-audit sinkronSiswa src/ais/action/servlet/api/KantinHelper.java siswaId=" + siswa.getId());
+				}
+			}
+			hasil.put("status", "00");
+			hasil.put("total", daftarSiswa.size());
+			hasil.put("berhasil", berhasil);
+			hasil.put("gagal", gagal);
 		} finally {
 			tutupSessionPolaB(session);
 		}

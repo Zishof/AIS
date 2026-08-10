@@ -382,12 +382,57 @@ public class PosApi extends HttpServlet {
 			} else if ("anggota_simpan".equals(action)) {
 				KantinHelper.anggotaSimpan(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "anggota_simpan");
+			} else if ("anggota_hapus".equals(action)) {
+				KantinHelper.anggotaHapus(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "anggota_hapus");
 			} else if ("jenis_anggota_list".equals(action)) {
 				KantinHelper.jenisAnggotaList(hasil);
 				normalisasiStatusKantinHelper(hasil, "jenis_anggota_list");
+			} else if ("jenis_anggota_list_admin".equals(action)) {
+				KantinHelper.jenisAnggotaListAdmin(payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "jenis_anggota_list_admin");
+			} else if ("jenis_anggota_simpan".equals(action)) {
+				KantinHelper.jenisAnggotaSimpan(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "jenis_anggota_simpan");
+			} else if ("jenis_anggota_hapus".equals(action)) {
+				KantinHelper.jenisAnggotaHapus(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "jenis_anggota_hapus");
 			} else if ("tipe_anggota_list".equals(action)) {
 				KantinHelper.tipeAnggotaList(hasil);
 				normalisasiStatusKantinHelper(hasil, "tipe_anggota_list");
+			} else if ("tipe_anggota_list_admin".equals(action)) {
+				KantinHelper.tipeAnggotaListAdmin(payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "tipe_anggota_list_admin");
+			} else if ("tipe_anggota_simpan".equals(action)) {
+				KantinHelper.tipeAnggotaSimpan(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "tipe_anggota_simpan");
+			} else if ("tipe_anggota_hapus".equals(action)) {
+				KantinHelper.tipeAnggotaHapus(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "tipe_anggota_hapus");
+			} else if ("deposit_list".equals(action)) {
+				KantinHelper.depositList(payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "deposit_list");
+			} else if ("deposit_ubah".equals(action)) {
+				KantinHelper.depositUbah(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "deposit_ubah");
+			} else if ("deposit_hapus".equals(action)) {
+				KantinHelper.depositHapus(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "deposit_hapus");
+			} else if ("notifikasi_list".equals(action)) {
+				KantinHelper.notifikasiList(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "notifikasi_list");
+			} else if ("notifikasi_hapus".equals(action)) {
+				KantinHelper.notifikasiHapus(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "notifikasi_hapus");
+			} else if ("sinkron_referensi".equals(action)) {
+				KantinHelper.sinkronReferensi(payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "sinkron_referensi");
+			} else if ("sinkron_mahasiswa".equals(action)) {
+				KantinHelper.sinkronMahasiswa(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "sinkron_mahasiswa");
+			} else if ("sinkron_siswa".equals(action)) {
+				KantinHelper.sinkronSiswa(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "sinkron_siswa");
 			} else if ("diskon_list".equals(action)) {
 				KantinHelper.diskonList(payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "diskon_list");
@@ -661,8 +706,12 @@ public class PosApi extends HttpServlet {
 		hasil.put("supervisorPedagang", (pedagang != null && Boolean.TRUE.equals(pedagang.getSupervisor()))
 				|| (roleAksesMenu != null
 						&& ais.common.EbisnisMenuKatalog.urai(roleAksesMenu.getEbisnisMenu()).optBoolean("supervisor", false)));
-		// Fitur "Hak Akses Menu per Akun" (gap-closure Toko Al-Bahjah) -- lihat JavaDoc lengkap di
-		// Pedagang.getAksesKasir() dkk. Admin global (pedagang==null, TIDAK terikat satu toko) SELALU
+		// Fitur "Topup" (tab Pelanggan) -- gerbang SAMA dgn Tbmrole.bolehEntryTopup yg SUDAH ditegakkan
+		// server-side di KantinHelper.topupSaldo/depositUbah/depositHapus; flag ini murni utk gating
+		// tampilan tombol Topup di Flutter (mirror pola isAdmin/supervisorPedagang di atas).
+		hasil.put("bolehEntryTopup", roleAksesMenu != null && roleAksesMenu.getBolehEntryTopup() != null
+				&& roleAksesMenu.getBolehEntryTopup().booleanValue());
+		// Fitur "Hak Akses Menu per Akun" (gap-closure Toko Al-Bahjah). Admin global (pedagang==null, TIDAK terikat satu toko) SELALU
 		// akses semua menu -- flag akses per-menu HANYA berlaku utk akun Pedagang toko biasa. Gerbang
 		// SEBENARNYA (sidebar disembunyikan) ada di klien; ini murni sumber kebenarannya dari server
 		// supaya admin bisa mengatur dari layar Konfigurasi/web tanpa klien bisa memalsukannya sendiri
@@ -1017,7 +1066,8 @@ public class PosApi extends HttpServlet {
 			return menu.optBoolean("stokopname", true);
 		}
 		if (action.startsWith("anggota_") || action.startsWith("jenis_anggota_")
-				|| action.startsWith("tipe_anggota_")) {
+				|| action.startsWith("tipe_anggota_") || action.startsWith("deposit_")
+				|| action.startsWith("notifikasi_") || action.startsWith("sinkron_")) {
 			return menu.optBoolean("anggota", true);
 		}
 		if (action.startsWith("diskon_")) {
