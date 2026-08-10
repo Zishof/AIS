@@ -52,11 +52,49 @@ public class RepositorySyncService {
 		private int synced;
 		private int failed;
 		private String message = "";
+		// KE-FIX: begitu koneksi JDBC fisik terputus (SSL/socket closed, "connection has
+		// been closed"), sesi Hibernate yang sama TIDAK BISA dipulihkan dengan rollback/clear/
+		// beginTransaction() biasa -- semua operasi berikutnya di sesi itu akan gagal lagi dgn
+		// exception yg BERBEDA-BEDA (AssertionFailure null-id, StaleStateException, GenericJDBCException,
+		// dst) tergantung pemeriksaan internal Hibernate mana yg tersandung duluan, membuat SATU
+		// insiden putus-koneksi terlihat seperti belasan bug berbeda di log. Flag ini dipakai
+		// synchronizeAll utk berhenti lebih awal begitu insiden ini terdeteksi, drpd terus memaksa
+		// sumber berikutnya memakai sesi yg sudah pasti rusak.
+		private boolean connectionLost;
 
 		public int getScanned() { return scanned; }
 		public int getSynced() { return synced; }
 		public int getFailed() { return failed; }
 		public String getMessage() { return message == null ? "" : message; }
+		public boolean isConnectionLost() { return connectionLost; }
+	}
+
+	/**
+	 * Deteksi apakah exception (atau salah satu cause-nya) menandakan koneksi JDBC FISIK
+	 * sudah mati (bukan sekadar transaksi/state Hibernate yang perlu di-rollback). Pada
+	 * kondisi ini, rollback()/clear()/beginTransaction() pada sesi yang sama tidak akan
+	 * memulihkan apa pun -- semua akan gagal lagi memakai koneksi yang sama-sama sudah tertutup.
+	 */
+	private static boolean isConnectionDead(Throwable e) {
+		Throwable cur = e;
+		int guard = 0;
+		while (cur != null && guard++ < 12) {
+			if (cur instanceof org.hibernate.exception.JDBCConnectionException
+					|| cur instanceof java.net.SocketException || cur instanceof javax.net.ssl.SSLException) {
+				return true;
+			}
+			String msg = cur.getMessage();
+			if (msg != null) {
+				String low = msg.toLowerCase();
+				if (low.contains("connection has been closed") || low.contains("statement has been closed")
+						|| low.contains("socket closed")
+						|| low.contains("i/o error occurred while sending to the backend")) {
+					return true;
+				}
+			}
+			cur = cur.getCause();
+		}
+		return false;
 	}
 
 	private static List<SourceDescriptor> getDefaultSources() {
@@ -114,6 +152,15 @@ public class RepositorySyncService {
 			if (part.message != null && part.message.trim().length() > 0) {
 				summary.message += (summary.message.length() == 0 ? "" : "\n") + part.message;
 			}
+			if (part.connectionLost) {
+				// KE-FIX: koneksi sudah mati -- sumber lain di siklus ini pasti akan gagal juga
+				// (dgn exception yg berbeda-beda tiap panggilan, membanjiri log). Hentikan siklus
+				// ini; scheduler akan membuka sesi/koneksi baru di siklus berikutnya (lihat
+				// RepositorySyncScheduler.jalankanSekali).
+				summary.connectionLost = true;
+				summary.message += (summary.message.length() == 0 ? "" : "\n") + "Koneksi database terputus, sisa sumber pada siklus ini dilewati (akan dicoba lagi di siklus berikutnya).";
+				break;
+			}
 		}
 		return summary;
 	}
@@ -128,6 +175,7 @@ public class RepositorySyncService {
 			Number count = (Number) session.createCriteria(modelClass).setProjection(Projections.rowCount())
 					.uniqueResult();
 			int total = count == null ? 0 : count.intValue();
+			outerBatch:
 			for (int first = 0; first < total; first += DEFAULT_BATCH_SIZE) {
 				Criteria criteria = session.createCriteria(modelClass).setFirstResult(first)
 						.setMaxResults(DEFAULT_BATCH_SIZE);
@@ -150,6 +198,21 @@ public class RepositorySyncService {
 						}
 					} catch (Exception e) {
 						summary.failed++;
+						if (isConnectionDead(e)) {
+							// KE-FIX: koneksi fisik sudah mati -- item lain di source ini pasti akan
+							// gagal juga dgn exception yg BERBEDA-BEDA tiap kali dipaksa lanjut (lihat
+							// javadoc SyncSummary.connectionLost). Catat SEKALI lalu hentikan source ini;
+							// JANGAN coba rollback/reopen-transaksi di sini, akan gagal lagi memakai
+							// koneksi yang sama-sama sudah tertutup.
+							ais.common.ErrorAuditUtil.record(e,
+									"auto-audit src/ais/action/master/repository/RepositorySyncService.java:connection-lost");
+							if (laporan != null) {
+								laporan.tambahCatatan("Sumber " + source.label + " - koneksi database terputus, sisa item dilewati: "
+										+ ais.common.LaporanUpload.detailTeknisException(e));
+							}
+							summary.connectionLost = true;
+							break outerBatch;
+						}
 						Common.tampilErrorJikaAdmin(e);
 						if (laporan != null) {
 							laporan.catatGagalDetail(baris[0], kunci, e);
@@ -171,6 +234,19 @@ public class RepositorySyncService {
 					// lain tetap bisa disinkron; batch yang gagal ini dicoba ulang siklus
 					// berikutnya (item-nya belum berubah statusnya di DB).
 					summary.failed += data.size();
+					if (isConnectionDead(flushEx)) {
+						// KE-FIX: koneksi fisik sudah mati -- rollback/clear/beginTransaction() di
+						// bawah ini akan gagal lagi memakai koneksi yg sama (lihat javadoc
+						// SyncSummary.connectionLost). Catat SEKALI saja dan hentikan source ini.
+						ais.common.ErrorAuditUtil.record(flushEx,
+								"auto-audit src/ais/action/master/repository/RepositorySyncService.java:connection-lost-flush");
+						if (laporan != null) {
+							laporan.tambahCatatan("Sumber " + source.label + " - koneksi database terputus saat flush, sisa batch dilewati: "
+									+ ais.common.LaporanUpload.detailTeknisException(flushEx));
+						}
+						summary.connectionLost = true;
+						return summary;
+					}
 					Common.tampilErrorJikaAdmin(flushEx);
 					if (laporan != null) {
 						laporan.tambahCatatan("Sumber " + source.label + " - flush batch gagal, dilewati: "
@@ -194,6 +270,19 @@ public class RepositorySyncService {
 			}
 		} catch (Exception e) {
 			summary.message = source.label + " gagal diproses: " + e.getMessage();
+			if (isConnectionDead(e)) {
+				// KE-FIX: koneksi fisik sudah mati -- rollback/clear/beginTransaction() di bawah
+				// ini akan gagal lagi memakai koneksi yg sama (lihat javadoc SyncSummary.connectionLost).
+				// Catat SEKALI saja dan hentikan source ini.
+				ais.common.ErrorAuditUtil.record(e,
+						"auto-audit src/ais/action/master/repository/RepositorySyncService.java:connection-lost-source");
+				if (laporan != null) {
+					laporan.tambahCatatan("Sumber " + source.label + " - koneksi database terputus: "
+							+ ais.common.LaporanUpload.detailTeknisException(e));
+				}
+				summary.connectionLost = true;
+				return summary;
+			}
 			Common.tampilErrorJikaAdmin(e);
 			if (laporan != null) {
 				laporan.tambahCatatan("Sumber " + source.label + " gagal diproses total: "

@@ -2460,7 +2460,22 @@ public class PembayaranUtil {
 			// sebelum commit (pola sama dgn re-acquire di atas) agar tak commit ke
 			// referensi session yang sudah closed -> "Session is closed!".
 			session = HibernateUtil.currentNativeSession();
-			session.getTransaction().commit();
+			try {
+				session.getTransaction().commit();
+			} catch (org.hibernate.SessionException sessionClosedEx) {
+				// KE-FIX (lanjutan KE-18): meski di-ambil ulang TEPAT sebelum commit, sesi native
+				// ThreadLocal bisa tetap tertutup di tengah alur pembayaran VA yang panjang
+				// (dipanggil bertingkat dari Va servlet -> PembayaranAction -> PaymentLogic).
+				// Jangan biarkan pembayaran mahasiswa gagal total karena race sesi murni --
+				// buka sesi native BARU, simpan ulang "kegiatan" (belum ter-commit sebelumnya
+				// karena flush di atas gagal), lalu commit sekali lagi.
+				ais.common.ErrorAuditUtil.record(sessionClosedEx,
+						"auto-audit src/ais/action/ws/util/PembayaranUtil.java:commit-retry-session-closed");
+				session = HibernateUtil.currentNativeSession();
+				session.getTransaction().begin();
+				Common.refreshSaveOrUpdate(session, kegiatan);
+				session.getTransaction().commit();
+			}
 
 			Collection<DetailKegiatan> detailKegiatans = kegiatan == null || kegiatan.getId() == null ? null
 					: kegiatan.ambilDetailKegiatan();

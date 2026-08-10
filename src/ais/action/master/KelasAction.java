@@ -1150,6 +1150,14 @@ public class KelasAction extends GenericAutowireComposer implements DataCriteria
 									System.out.println("data = " + data.size());
 
 									String namaAsli = kelas.getNama() == null ? "Kelas" : kelas.getNama().trim();
+									// KE-FIX (IllegalArgumentException: Invalid char found in sheet name): Excel
+									// melarang \ / ? * [ ] : pada nama sheet (mis. nama kelas "17-KPI/BC" gagal
+									// dibuat). Ganti karakter terlarang dgn "-" SEBELUM pemotongan panjang/
+									// disambiguasi di bawah supaya nama kelas apa pun tetap bisa jadi nama sheet.
+									namaAsli = namaAsli.replaceAll("[\\\\/\\?\\*\\[\\]:]", "-");
+									if (namaAsli.isEmpty()) {
+										namaAsli = "Kelas";
+									}
 									String namaSheet = namaAsli.length() > 31 ? namaAsli.substring(0, 31) : namaAsli;
 									String namaSheetUnik = namaSheet;
 									int sufiks = 2;

@@ -312,6 +312,10 @@ public class CheckISBN extends HttpServlet {
 			String[] pengs = authors.split(",");
 
 			for (String p : pengs) {
+				p = p.trim();
+				if (p.isEmpty()) {
+					continue;
+				}
 				Pengarang pengarang = (Pengarang) session.createCriteria(Pengarang.class)
 						.add(Restrictions.ilike("nama", p, MatchMode.EXACT)).setMaxResults(1).uniqueResult();
 				if (pengarang == null) {
@@ -335,6 +339,9 @@ public class CheckISBN extends HttpServlet {
 
 			for (String p : cats) {
 				p = p.trim();
+				if (p.isEmpty()) {
+					continue;
+				}
 				KategoriItem kategoriItem = (KategoriItem) session.createCriteria(KategoriItem.class)
 						.add(Restrictions.ilike("nama", p.trim(), MatchMode.EXACT)).setMaxResults(1).uniqueResult();
 				if (kategoriItem == null) {
@@ -580,6 +587,10 @@ public class CheckISBN extends HttpServlet {
 			String[] pengs = authors.split(",");
 
 			for (String p : pengs) {
+				p = p.trim();
+				if (p.isEmpty()) {
+					continue;
+				}
 				Pengarang pengarang = (Pengarang) session.createCriteria(Pengarang.class)
 						.add(Restrictions.ilike("nama", p, MatchMode.EXACT)).setMaxResults(1).uniqueResult();
 				if (pengarang == null) {
@@ -603,6 +614,9 @@ public class CheckISBN extends HttpServlet {
 
 			for (String p : cats) {
 				p = p.trim();
+				if (p.isEmpty()) {
+					continue;
+				}
 				KategoriItem kategoriItemTemporary = (KategoriItem) session.createCriteria(KategoriItem.class)
 						.add(Restrictions.ilike("nama", p.trim(), MatchMode.EXACT)).setMaxResults(1).uniqueResult();
 				if (kategoriItemTemporary == null) {

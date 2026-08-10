@@ -183,6 +183,38 @@ public class Bankaltimtara extends HttpServlet {
 	}
 
 	/**
+	 * Cek status pembayaran Bankaltimtara dengan FALLBACK ke kanal lain: coba dulu kanal
+	 * yang tercatat di VA ({@link VirtualAccountBank#getPakaiva()} — VA atau QRIS), lalu
+	 * bila kanal itu gagal (exception apa pun dari bank, mis. "code: 04; message: not
+	 * found"), coba kanal SATUNYA sebelum menyerah. Diminta karena "Cek Ulang" yang cuma
+	 * mengecek satu kanal sering gagal walau bank sebenarnya sudah mencatat pembayaran di
+	 * kanal lainnya (kd_tagihan/kode VA yang sama dipakai bank utk kedua kanal).
+	 *
+	 * @throws Exception bila KEDUA kanal gagal — pesan memuat rincian error dari keduanya.
+	 */
+	public static JSONObject checkPakaivaAtauQris(final VirtualAccountBank virtualAccountBankReadOnly)
+			throws Exception {
+		boolean vaDulu = virtualAccountBankReadOnly.getPakaiva();
+		Exception errorPertama;
+		try {
+			return vaDulu ? checkPakaiva(virtualAccountBankReadOnly) : checkPakaiqris(virtualAccountBankReadOnly);
+		} catch (Exception e) {
+			errorPertama = e;
+			ais.common.ErrorAuditUtil.record(e, "Bankaltimtara.checkPakaivaAtauQris: kanal utama ("
+					+ (vaDulu ? "VA" : "QRIS") + ") gagal, mencoba kanal lain (" + (vaDulu ? "QRIS" : "VA") + ")");
+		}
+		try {
+			return vaDulu ? checkPakaiqris(virtualAccountBankReadOnly) : checkPakaiva(virtualAccountBankReadOnly);
+		} catch (Exception eFallback) {
+			throw new Exception(
+					"Pemeriksaan ulang gagal di kedua kanal Bankaltimtara. " + (vaDulu ? "VA" : "QRIS") + ": "
+							+ errorPertama.getMessage() + " | " + (vaDulu ? "QRIS" : "VA") + ": "
+							+ eFallback.getMessage(),
+					errorPertama);
+		}
+	}
+
+	/**
 	 * Validasi minimal sebelum {@code new JSONObject(hasil)}: pastikan respons tidak
 	 * null/kosong dan diawali karakter '{' (setelah di-trim). Endpoint bank kadang membalas
 	 * string kosong atau halaman HTML error (mis. gateway timeout/404) alih-alih JSON, yang

@@ -54,6 +54,13 @@ public class AmbilDataKategoriItemBanyak extends MyWindow {
 	private List<KategoriItem> kategoriItemsHanyaDitampilkan;
 
 	private Set<Long> ids = new HashSet<Long>();
+	// KE-FIX (picker "pilih banyak -> hanya halaman aktif tersimpan"): grid ini pakai mold
+	// "paging" (lihat display()), jadi grid.getRows().getChildren() saat Simpan HANYA berisi
+	// baris di halaman yang sedang tampil -- centang di halaman lain hilang diam-diam. Simpan
+	// referensi objek yang sudah tercentang di sini (kunci = id, sejalan dgn Set "ids" yang
+	// sudah ada) supaya tombol Simpan bisa membaca SELURUH pilihan lintas halaman, bukan cuma
+	// yang ada di DOM grid saat ini. Pola sama dgn AmbilDataMasterAssetBanyak.
+	private java.util.Map<Long, KategoriItem> idKategoriItemMap = new java.util.HashMap<Long, KategoriItem>();
 
 	public AmbilDataKategoriItemBanyak(List<KategoriItem> kategoriItems) {
 		super();
@@ -103,6 +110,7 @@ public class AmbilDataKategoriItemBanyak extends MyWindow {
 				public void onEvent(Event arg0) throws Exception {
 					if (checkbox.isChecked()) {
 						ids.add(kategoriItem.getId());
+						idKategoriItemMap.put(kategoriItem.getId(), kategoriItem);
 					} else {
 						ids.remove(kategoriItem.getId());
 					}
@@ -230,14 +238,14 @@ public class AmbilDataKategoriItemBanyak extends MyWindow {
 			@SuppressWarnings("unchecked")
 			@Override
 			public void onEvent(Event event) throws Exception {
-				if (eventListener != null && grid.getRows() != null && grid.getRows().getChildren() != null) {
+				if (eventListener != null) {
+					// KE-FIX: baca dari Set "ids" (dipelihara onCheck, lintas halaman) bukan
+					// grid.getRows().getChildren() (cuma halaman aktif saat grid mold="paging").
 					List<KategoriItem> kategoriItems = new ArrayList<KategoriItem>();
-					List<Row> rows = grid.getRows().getChildren();
-					for (Row row : rows) {
+					for (Long id : ids) {
 						try {
-							MyCheckboxConfig checkbox = (MyCheckboxConfig) row.getAttribute("checkbox");
-							if (checkbox.isChecked() && !checkbox.isDisabled()) {
-								KategoriItem myKategoriItem = (KategoriItem) row.getAttribute("kategoriItem");
+							KategoriItem myKategoriItem = idKategoriItemMap.get(id);
+							if (myKategoriItem != null) {
 								kategoriItems.add(myKategoriItem);
 							}
 						} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/library/helper/AmbilDataKategoriItemBanyak.java:242");

@@ -911,9 +911,29 @@ public class ApiUtil {
 						mahasiswa.setGcpToken(gcpToken);
 					}
 					mahasiswa.appendEmail(email);
-					session.getTransaction().begin();
-					Common.refreshUpdate(session, mahasiswa);
-					session.getTransaction().commit();
+					// KE-FIX (ConstraintViolationException nimkey duplikat -> login gagal total):
+					// simpan token perangkat mobile ini adalah efek samping login, BUKAN inti proses
+					// login. Data mahasiswa yg nimkey-nya bentrok (data lama tak konsisten) tidak
+					// boleh membuat login gagal untuk pengguna itu -- tangkap di sini sebagai
+					// pengaman terakhir agar login tetap lanjut walau simpan token gagal.
+					try {
+						session.getTransaction().begin();
+						Common.refreshUpdate(session, mahasiswa);
+						session.getTransaction().commit();
+					} catch (Exception exToken) {
+						ais.common.ErrorAuditUtil.record(exToken,
+								"auto-audit src/ais/action/servlet/api/ApiUtil.java:proseslogin-simpan-token-mahasiswa");
+						try {
+							if (session.getTransaction() != null && session.getTransaction().isActive()) {
+								session.getTransaction().rollback();
+							}
+						} catch (Exception rbEx) { ais.common.ErrorAuditUtil.record(rbEx, "auto-audit(empty-catch) src/ais/action/servlet/api/ApiUtil.java:proseslogin-token-rollback"); }
+						try {
+							if (session.getTransaction() == null || !session.getTransaction().isActive()) {
+								session.getTransaction().begin();
+							}
+						} catch (Exception txEx) { ais.common.ErrorAuditUtil.record(txEx, "auto-audit(empty-catch) src/ais/action/servlet/api/ApiUtil.java:proseslogin-token-retx"); }
+					}
 				} else if (mahasiswa.getToken() == null || mahasiswa.getToken().trim().isEmpty()) {
 					token = Common.getGeneratedBarCode(30);
 					mahasiswa.setToken(token);
@@ -921,9 +941,24 @@ public class ApiUtil {
 						mahasiswa.setGcpToken(gcpToken);
 					}
 					mahasiswa.appendEmail(email);
-					session.getTransaction().begin();
-					Common.refreshUpdate(session, mahasiswa);
-					session.getTransaction().commit();
+					try {
+						session.getTransaction().begin();
+						Common.refreshUpdate(session, mahasiswa);
+						session.getTransaction().commit();
+					} catch (Exception exToken) {
+						ais.common.ErrorAuditUtil.record(exToken,
+								"auto-audit src/ais/action/servlet/api/ApiUtil.java:proseslogin-simpan-token-mahasiswa-baru");
+						try {
+							if (session.getTransaction() != null && session.getTransaction().isActive()) {
+								session.getTransaction().rollback();
+							}
+						} catch (Exception rbEx) { ais.common.ErrorAuditUtil.record(rbEx, "auto-audit(empty-catch) src/ais/action/servlet/api/ApiUtil.java:proseslogin-token-baru-rollback"); }
+						try {
+							if (session.getTransaction() == null || !session.getTransaction().isActive()) {
+								session.getTransaction().begin();
+							}
+						} catch (Exception txEx) { ais.common.ErrorAuditUtil.record(txEx, "auto-audit(empty-catch) src/ais/action/servlet/api/ApiUtil.java:proseslogin-token-baru-retx"); }
+					}
 				} else {
 					token = mahasiswa.getToken();
 				}

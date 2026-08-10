@@ -284,9 +284,21 @@ public class ItemPunyaGambarFotoHelper {
 		}
 		try {
 			Session session = HibernateUtil.currentSession();
-			session.refresh(item);
-			item.setImagePath(fotoGambarItem.getPath());
-			Common.refreshUpdate(session, item);
+			// KE-FIX (race hapus-vs-upload cover, UnresolvableObjectException): "item" bisa berupa
+			// referensi Hibernate yang sudah usang (mis. dari render halaman sebelumnya) yang
+			// barisnya sudah dihapus oleh pengguna lain sebelum upload cover ini selesai diproses.
+			// session.refresh(item) langsung pada Item yang sudah tidak ada di DB akan melempar
+			// UnresolvableObjectException. Cek dulu keberadaannya via session.get() dan lewati update
+			// cover secara halus bila item sudah tidak ada, alih-alih bergantung pada refresh buta +
+			// exception generik.
+			Item itemTerkini = (Item) session.get(Item.class, item.getId());
+			if (itemTerkini == null) {
+				// Item sudah dihapus oleh pengguna lain sejak halaman ini dimuat — lewati update cover.
+				return;
+			}
+			session.refresh(itemTerkini);
+			itemTerkini.setImagePath(fotoGambarItem.getPath());
+			Common.refreshUpdate(session, itemTerkini);
 		} catch (Exception e) {
 			try {
 				Common.tampilErrorJikaAdmin(e);

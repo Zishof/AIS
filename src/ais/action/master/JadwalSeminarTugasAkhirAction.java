@@ -485,9 +485,9 @@ public class JadwalSeminarTugasAkhirAction extends GenericAutowireComposer {
 				subrow.setAttribute("o", o);
 
 				subrow.appendChild(new Label(n));
-				subrow.appendChild(new Label(Common.dateFormat51.get().format(o[1])));
-				subrow.appendChild(new Label(Common.dateFormat51.get().format(o[2])));
-				subrow.appendChild(new Label(o[3].toString()));
+				subrow.appendChild(new Label(o[1] instanceof Date ? Common.dateFormat51.get().format(o[1]) : ""));
+				subrow.appendChild(new Label(o[2] instanceof Date ? Common.dateFormat51.get().format(o[2]) : ""));
+				subrow.appendChild(new Label(o[3] != null ? o[3].toString() : ""));
 
 				MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Hapus", "/img/svg/trash.svg");
 				button.setTooltiptext("Hapus Data");

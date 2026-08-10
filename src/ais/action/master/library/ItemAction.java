@@ -2617,7 +2617,22 @@ public class ItemAction extends GenericAutowireComposer implements DataCriteria 
 		Common.clear(addWindow);
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 
-		if (item.getId() != null && !item.getPengarangs().replaceAll(",", "").trim().isEmpty()) {
+		// KE-FIX (race hapus-vs-edit item, ConstraintViolationException FK "item" saat insert
+		// ItemPunyaPengarang/ItemPunyaKategoriItem): parameter "item" di sini bisa berupa referensi
+		// Hibernate yang sudah usang — mis. diambil dari baris grid saat render sebelumnya — yang
+		// barisnya sudah dihapus oleh pengguna lain (tombol Hapus) di antara render grid dan klik
+		// tombol Ubah/Upload Cover. Verifikasi dulu Item tsb masih ada di DB sebelum mencoba
+		// menyimpan child row yang mereferensikannya, supaya tidak melempar ConstraintViolationException
+		// mentah ke pengguna.
+		boolean itemMasihAda = item.getId() == null
+				|| HibernateUtil.currentSession().get(Item.class, item.getId()) != null;
+		if (item.getId() != null && !itemMasihAda) {
+			MyMessageboxConfig.show(
+					"Item ini sudah dihapus oleh pengguna lain sebelum perubahan disimpan. Silakan muat ulang daftar item.",
+					"Informasi", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+		}
+
+		if (itemMasihAda && item.getId() != null && !item.getPengarangs().replaceAll(",", "").trim().isEmpty()) {
 			Session session = HibernateUtil.currentSession();
 			int jumlahPengarang = ((Number) session.createCriteria(ItemPunyaPengarang.class)
 					.add(Restrictions.eq("item", item)).setProjection(Projections.rowCount()).uniqueResult())
@@ -2649,7 +2664,7 @@ public class ItemAction extends GenericAutowireComposer implements DataCriteria 
 			}
 		}
 
-		if (item.getId() != null && !item.getKategories().replaceAll(",", "").trim().isEmpty()) {
+		if (itemMasihAda && item.getId() != null && !item.getKategories().replaceAll(",", "").trim().isEmpty()) {
 			Session session = HibernateUtil.currentSession();
 			int jumlahKategoriItem = ((Number) session.createCriteria(ItemPunyaKategoriItem.class)
 					.add(Restrictions.eq("item", item)).setProjection(Projections.rowCount()).uniqueResult())

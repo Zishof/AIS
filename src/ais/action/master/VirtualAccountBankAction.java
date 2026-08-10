@@ -336,9 +336,7 @@ public class VirtualAccountBankAction extends GenericAutowireComposer implements
 		}
 
 		if (bankVirtualAccount.equalsIgnoreCase("Bank Bankaltimtara") || bankVirtualAccount.equalsIgnoreCase("BMS")) {
-			JSONObject jsonObject2 = virtualAccountBankReadOnly.getPakaiva()
-					? Bankaltimtara.checkPakaiva(virtualAccountBankReadOnly)
-					: Bankaltimtara.checkPakaiqris(virtualAccountBankReadOnly);
+			JSONObject jsonObject2 = Bankaltimtara.checkPakaivaAtauQris(virtualAccountBankReadOnly);
 			return "Bankaltimtara: " + (jsonObject2 == null ? "tidak ada respons dari gateway" : jsonObject2.toString());
 		}
 
@@ -1019,19 +1017,8 @@ public class VirtualAccountBankAction extends GenericAutowireComposer implements
 														label.setValue("Proses " + uraian + " ("
 																+ Common.numberFormat.get().format(h) + "%)");
 
-														JSONObject jsonObject2;
-
-														if (virtualAccountBank.getPakaiva()) {
-
-															jsonObject2 = Bankaltimtara
-																	.checkPakaiva(virtualAccountBank);
-
-														} else {
-
-															jsonObject2 = Bankaltimtara
-																	.checkPakaiqris(virtualAccountBank);
-
-														}
+														JSONObject jsonObject2 = Bankaltimtara
+																.checkPakaivaAtauQris(virtualAccountBank);
 
 														uraian += " ";
 
@@ -2188,40 +2175,20 @@ public class VirtualAccountBankAction extends GenericAutowireComposer implements
 										if (i == MyMessageboxConfig.OK) {
 											try {
 
-												if (virtualAccountBankReadOnly.getPakaiva()) {
+												JSONObject jsonObject2 = Bankaltimtara
+														.checkPakaivaAtauQris(virtualAccountBankReadOnly);
 
-													JSONObject jsonObject2 = Bankaltimtara
-															.checkPakaiva(virtualAccountBankReadOnly);
-
-													MyMessageboxConfig.showFormat(
+												MyMessageboxConfig.showFormat(
 										"Informasi hasil pemeriksaan status pembayaran: {V1}",
 										"Pemberitahuan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION, jsonObject2);
 
-													Common.createDefaultTimer(new EventListener() {
+												Common.createDefaultTimer(new EventListener() {
 
-														@Override
-														public void onEvent(Event arg0) throws Exception {
-															onSearchDefault(null);
-														}
-													});
-												} else {
-
-													JSONObject jsonObject2 = Bankaltimtara
-															.checkPakaiqris(virtualAccountBankReadOnly);
-
-													MyMessageboxConfig.showFormat(
-										"Informasi hasil pemeriksaan status pembayaran: {V1}",
-										"Pemberitahuan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION, jsonObject2);
-
-													Common.createDefaultTimer(new EventListener() {
-
-														@Override
-														public void onEvent(Event arg0) throws Exception {
-															onSearchDefault(null);
-														}
-													});
-
-												}
+													@Override
+													public void onEvent(Event arg0) throws Exception {
+														onSearchDefault(null);
+													}
+												});
 
 											} catch (Exception e) {
 												tampilkanErrorCekPembayaran(e);

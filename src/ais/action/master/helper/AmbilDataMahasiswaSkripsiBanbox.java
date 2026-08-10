@@ -327,31 +327,46 @@ public class AmbilDataMahasiswaSkripsiBanbox extends Bandbox implements GetEvent
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
-		Session session = HibernateUtil.currentSession();
-		List<Mahasiswa> mahasiswa = 
-				session.createCriteria(Mahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).addOrder(Order.desc("tahunangkatan")).addOrder(Order.asc("nim"))
-						.add(Restrictions.ilike("nama", nama.getText().trim(), MatchMode.ANYWHERE))
-						.add(Restrictions.ilike("nim", nim.getText().trim(), MatchMode.ANYWHERE))
-						.add(tahunangkatan.getValue() == null ? Restrictions.sqlRestriction("1=1")
-								: Restrictions.eq("tahunangkatan", tahunangkatan.getValue().intValue()))
+		try {
+			Session session = HibernateUtil.currentSession();
+			List<Mahasiswa> mahasiswa =
+					session.createCriteria(Mahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).addOrder(Order.desc("tahunangkatan")).addOrder(Order.asc("nim"))
+							.add(Restrictions.ilike("nama", nama.getText().trim(), MatchMode.ANYWHERE))
+							.add(Restrictions.ilike("nim", nim.getText().trim(), MatchMode.ANYWHERE))
+							.add(tahunangkatan.getValue() == null ? Restrictions.sqlRestriction("1=1")
+									: Restrictions.eq("tahunangkatan", tahunangkatan.getValue().intValue()))
 
-						.add(searchjurusan.getSelectedItem() == null
-								|| searchjurusan.getSelectedItem().getValue() == null
-								|| searchjurusan.getSelectedItem().getValue() == null
-										? Restrictions.sqlRestriction("1=1")
-										: CommonSearchFilterHelper.eqSelectedWithId("jurusan", searchjurusan, false))
+							.add(searchjurusan.getSelectedItem() == null
+									|| searchjurusan.getSelectedItem().getValue() == null
+									|| searchjurusan.getSelectedItem().getValue() == null
+											? Restrictions.sqlRestriction("1=1")
+											: CommonSearchFilterHelper.eqSelectedWithId("jurusan", searchjurusan, false))
 
-						.createAlias("jurusan", "jurusan", Criteria.LEFT_JOIN)
+							.createAlias("jurusan", "jurusan", Criteria.LEFT_JOIN)
 
-						.add(searchfakultas.getSelectedItem() == null || searchfakultas.getSelectedItem().getValue() == null
-								? Restrictions.sqlRestriction("1=1")
-								: CommonSearchFilterHelper.eqSelectedWithId("jurusan.fakultas", searchfakultas, false))
+							.add(searchfakultas.getSelectedItem() == null || searchfakultas.getSelectedItem().getValue() == null
+									? Restrictions.sqlRestriction("1=1")
+									: CommonSearchFilterHelper.eqSelectedWithId("jurusan.fakultas", searchfakultas, false))
 
-						.setMaxResults(20).list();
+							.setMaxResults(20).list();
 
-		ListModel strset = new SimpleListModel(mahasiswa);
-		grid.setRowRenderer(new MahasiswaRenderer());
-		grid.setModelCheckMobile(strset);
+			ListModel strset = new SimpleListModel(mahasiswa);
+			grid.setRowRenderer(new MahasiswaRenderer());
+			grid.setModelCheckMobile(strset);
+		} catch (Exception e) {
+			// FIX: pencarian ini memakai HibernateUtil.currentSession() (sesi kontekstual per-request
+			// -- TIDAK boleh ditutup manual di sini, lihat finally di method lain yg pakai openSession()).
+			// Kriteria .list() bisa memicu auto-flush entity Mahasiswa lain yang sedang kotor di sesi
+			// yang sama; kalau baris itu sedang dikunci proses lain, auto-flush kena lock timeout
+			// PostgreSQL (55P03) dan sebelumnya exception ini lolos mentah ke ZK, menampilkan stack
+			// trace teknis ke pengguna. Tangkap & tampilkan pesan ramah, konsisten dgn pola messagebox
+			// pencarian lain di codebase ini.
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit src/ais/action/master/helper/AmbilDataMahasiswaSkripsiBanbox.java:onSearchDefault");
+			ais.ui.util.MyMessageboxConfig.show(
+					"Data sedang digunakan pengguna lain, silakan coba lagi.", "Peringatan",
+					ais.ui.util.MyMessageboxConfig.OK, ais.ui.util.MyMessageboxConfig.EXCLAMATION);
+		}
 
 	}
 

@@ -180,19 +180,25 @@ public class DosenPembimbingAkademikAction extends GenericAutowireComposer imple
 
 								KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa);
 								krsMahasiswa.setDosenPa(prodi);
-								Session session1 = HibernateUtil.currentNativeSession();
-								// FIX "Session is closed!" (KE-30): proses bulk ini berjalan dalam satu Thread
-								// latar memutar BANYAK mahasiswa berturutan; currentNativeSession() bisa
-								// mengembalikan session yg baru saja dievict/basi. Cek ulang tepat sebelum
-								// dipakai supaya baris berikutnya tetap dapat diproses.
-								if (session1 == null || !session1.isOpen()) {
-									session1 = HibernateUtil.currentNativeSession();
+								// KE-FIX (SessionException: Session is closed!): loop bulk ini memutar BANYAK
+								// mahasiswa berturutan, membuka+menutup session native SATU per iterasi. Cek
+								// "session1 == null/!isOpen()" sebelumnya tidak cukup -- currentNativeSession()
+								// sendiri sudah menangani itu, sedangkan yang benar-benar terjadi adalah
+								// session bisa tertutup DI ANTARA begin() dan commit() (mis. race pada thread
+								// latar timer ZK). Bungkus satu baris ini dalam try/catch supaya SATU
+								// mahasiswa yang gagal tidak menghentikan seluruh proses bulk untuk mahasiswa
+								// lain -- konsisten dgn pola pemulihan yang sudah dipakai di RepositorySyncService.
+								try {
+									Session session1 = HibernateUtil.currentNativeSession();
+									session1.getTransaction().begin();
+									Common.refreshSaveOrUpdate(session1, krsMahasiswa);
+									session1.getTransaction().commit();
+								} catch (Exception exBulk) {
+									ais.common.ErrorAuditUtil.record(exBulk,
+											"auto-audit src/ais/action/master/DosenPembimbingAkademikAction.java:bulk-dosenpa-satu-mahasiswa");
+								} finally {
+									HibernateUtil.closeSession();
 								}
-								session1.getTransaction().begin();
-								Common.refreshSaveOrUpdate(session1, krsMahasiswa);
-								session1.getTransaction().commit();
-
-								HibernateUtil.closeSession();
 
 							}
 						}

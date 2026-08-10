@@ -424,6 +424,75 @@ public class ProfileMahasiswa {
 						krsMahasiswa.getSemesterPendek(), krsMahasiswa, false)
 				+ "</div>"));
 
+		// Tombol refresh mandiri utk mahasiswa (permintaan user 2026-08-06, kasus ICHLAS
+		// NUR A'MAL/UIN Bukittinggi, status tetap Nonaktif walau sudah bayar): status
+		// Aktif/Non-Aktif & tagihan Kegiatan HANYA dihitung ulang saat ada aksi refresh=true
+		// (Proses Tagihan batch / tombol admin) -- mahasiswa sendiri TIDAK punya cara memicu
+		// ini, jadi harus menunggu admin. Tombol ini menghitung ulang Kegiatan (jenis yg jadi
+		// syarat keaktifan saja, hitungUlang=true TAPI rst=false -- TIDAK memicu hapus-buat-ulang
+		// DetailKegiatan yg destruktif) lalu status (refresh=true, bypass cache), sehingga
+		// mahasiswa bisa mandiri tanpa perlu admin sinkron satu-satu.
+		row = new MyRowStyled();
+		row.setParent(rows);
+		ais.ui.util.ZkCompat.setSpans(row, "2");
+		Hbox hboxRefreshStatusTagihan = new Hbox();
+		hboxRefreshStatusTagihan.setStyle("padding: 5px;");
+		hboxRefreshStatusTagihan.setParent(row);
+		MyToolbarbuttonConfig btnRefreshStatusTagihan = new MyToolbarbuttonConfig("Refresh Status & Tagihan",
+				"/img/Button-Refresh-icon.png");
+		btnRefreshStatusTagihan.setStyle("font-weight: bold; color:#1d4ed8;");
+		btnRefreshStatusTagihan.setTooltiptext(
+				"Hitung ulang status keaktifan & tagihan Anda saat ini berdasarkan data pembayaran terbaru.");
+		hboxRefreshStatusTagihan.appendChild(btnRefreshStatusTagihan);
+		btnRefreshStatusTagihan.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				Common.createDefaultTimer(new EventListener() {
+					@Override
+					public void onEvent(Event arg0) throws Exception {
+						try {
+							if (ais.common.CommonHelperClass.jenisKegiatansUntukSyaratAktif == null) {
+								try {
+									ais.common.CommonHelperClass.reloadJenisKegiatans();
+								} catch (Exception eReload) {
+									ais.common.ErrorAuditUtil.record(eReload,
+											"auto-audit(empty-catch) ProfileMahasiswa refresh mandiri: reloadJenisKegiatans");
+								}
+							}
+							Session session = null;
+							try {
+								session = HibernateUtil.getSessionFactory().openSession();
+								if (ais.common.CommonHelperClass.jenisKegiatansUntukSyaratAktif != null) {
+									for (ais.database.model.JenisKegiatan jk : ais.common.CommonHelperClass.jenisKegiatansUntukSyaratAktif) {
+										try {
+											ais.action.master.helper.KegiatanHelper.checkKegiatanMahasiswa(jk, mahasiswa,
+													smt, krsMahasiswa.getTahunAkademik(), true, false, null, session);
+										} catch (Exception eKeg) {
+											ais.common.ErrorAuditUtil.record(eKeg,
+													"auto-audit(empty-catch) ProfileMahasiswa refresh mandiri: checkKegiatanMahasiswa");
+										}
+									}
+								}
+							} finally {
+								if (session != null) {
+									try { session.clear(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ProfileMahasiswa refresh mandiri: clear"); }
+									try { session.disconnect(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ProfileMahasiswa refresh mandiri: disconnect"); }
+									try { session.close(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ProfileMahasiswa refresh mandiri: close"); }
+								}
+							}
+							ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(krsMahasiswa, true);
+						} catch (Exception e) {
+							ais.common.ErrorAuditUtil.record(e,
+									"auto-audit ProfileMahasiswa refresh mandiri status+tagihan");
+						}
+						pagingPerkuliahan = 1;
+						pagingFormulirKegiatan = 1;
+						init(parent, smt, semesterPendek, tampilMateri);
+					}
+				});
+			}
+		});
+
 		String catatanKrs = bersihkanCatatan(krsMahasiswa == null ? null : krsMahasiswa.getCatatan());
 		String catatanKhs = bersihkanCatatan(krsMahasiswa == null ? null : krsMahasiswa.getCatatanKhs());
 		if (catatanKrs.length() > 0 || catatanKhs.length() > 0) {
