@@ -81,6 +81,7 @@ public class TipeAnggotaKoperasi extends GeneralValueObject {
 	private String nama;
 	private String keterangan;
 	private Boolean aktif;
+	private Double maksimalBolehUtang;
 
 	public TipeAnggotaKoperasi() {
 	}
@@ -128,5 +129,19 @@ public class TipeAnggotaKoperasi extends GeneralValueObject {
 
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
+	}
+
+	/**
+	 * Batas maksimal hutang (piutang toko) yang boleh ditumpuk seorang member dgn tipe ini, bila
+	 * ybs bertransaksi memakai cara pembayaran yg ditandai {@link CaraPembayaranKoperasi#getMasukSebagaiHutang()}.
+	 * {@code 0} (default) berarti tipe ini TIDAK diizinkan berhutang sama sekali.
+	 */
+	@Column(name = "maksimal_boleh_utang")
+	public Double getMaksimalBolehUtang() {
+		return maksimalBolehUtang == null ? 0.0 : maksimalBolehUtang;
+	}
+
+	public void setMaksimalBolehUtang(Double maksimalBolehUtang) {
+		this.maksimalBolehUtang = maksimalBolehUtang;
 	}
 }

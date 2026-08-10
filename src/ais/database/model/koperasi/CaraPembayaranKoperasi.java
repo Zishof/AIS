@@ -93,6 +93,7 @@ public class CaraPembayaranKoperasi extends GeneralValueObject {
 	private Boolean aktif;
 	private Boolean online;
 	private Boolean memotongDeposit;
+	private Boolean masukSebagaiHutang;
 
 	public CaraPembayaranKoperasi() {
 	}
@@ -216,5 +217,28 @@ public class CaraPembayaranKoperasi extends GeneralValueObject {
 
 	public void setMemotongDeposit(Boolean memotongDeposit) {
 		this.memotongDeposit = memotongDeposit;
+	}
+
+	/**
+	 * Menandai bahwa transaksi yang memakai metode pembayaran ini dicatat sebagai <b>HUTANG
+	 * pelanggan</b> (piutang toko) -- BUKAN transaksi lunas -- lihat JavaDoc
+	 * {@code DepositHelper.hitungHutang}/{@code KantinHelper.SplitPembayaran} soal cara nominalnya
+	 * dijumlahkan per slot (pola SAMA PERSIS dgn {@link #getMemotongDeposit()}: dihormati per SLOT
+	 * pembayaran, bukan per transaksi keseluruhan -- satu transaksi split separuh Tunai + separuh
+	 * "Ambil dari Utang" HANYA separuh nominalnya yang tercatat sbg hutang).
+	 *
+	 * <p>Batas maksimal hutang yang boleh ditumpuk seorang anggota diatur per
+	 * {@link TipeAnggotaKoperasi#getMaksimalBolehUtang()} (kategori referensi sivitasnya), BUKAN di
+	 * sini -- kolom ini murni menandai METODE pembayarannya, gerbang limitnya ada di sisi member.</p>
+	 *
+	 * <p>Default sengaja {@code false}: metode pembayaran lama (kolom ini masih null/false) TIDAK
+	 * pernah mendadak dianggap hutang.</p>
+	 */
+	public Boolean getMasukSebagaiHutang() {
+		return masukSebagaiHutang == null ? false : masukSebagaiHutang;
+	}
+
+	public void setMasukSebagaiHutang(Boolean masukSebagaiHutang) {
+		this.masukSebagaiHutang = masukSebagaiHutang;
 	}
 }
