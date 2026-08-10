@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.hibernate.Criteria;
+import org.hibernate.Hibernate;
 import org.hibernate.Session;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
@@ -337,7 +338,7 @@ public class LaporanAbsensiPegawaiDetail extends MyWindow {
 		calendarAwal.set(Calendar.SECOND, 1);
 
 		Calendar calendarAkhir = ais.ui.util.WaktuUtil.getCalendar();
-		calendarAkhir.set(Calendar.DATE, calendarAwal.getMaximum(Calendar.DATE));
+		calendarAkhir.set(Calendar.DATE, calendarAwal.getActualMaximum(Calendar.DAY_OF_MONTH));
 		calendarAkhir.set(Calendar.MONTH, bulanVal - 1);
 		calendarAkhir.set(Calendar.YEAR, tahunVal);
 		calendarAkhir.set(Calendar.HOUR_OF_DAY, 23);
@@ -394,6 +395,7 @@ public class LaporanAbsensiPegawaiDetail extends MyWindow {
 
 				statusHarianMap = CommonPayroll.getDefaultStatuskehadiranKaryawanHarian(
 						cutiDanIzinsSemua, dateMulai, dateSampai, pegawaisAsli, session, true);
+				inisialisasiRelasiLaporan(pegawaisAsli, cutiDanIzinsSemua, statusHarianMap);
 			}
 
 		} catch (Exception e) {
@@ -781,6 +783,11 @@ public class LaporanAbsensiPegawaiDetail extends MyWindow {
 
 						mapS.put("masuk_jam", skh.ambilMasukjam());
 						mapS.put("pulang_jam", skh.ambilPulangjam());
+						// Nama key harus sama persis dengan field pada template Jasper.
+						mapS.put("jumlahjammasuk", skh.getWaktuJamMasuk());
+						mapS.put("jumlahterlambat", skh.getWaktuTerlambat());
+						mapS.put("jumlahcepatkeluar", skh.getWaktuCepatKeluar());
+						mapS.put("jumlahlemburmasuk", skh.getWaktuLemburMasuk());
 						mapS.put("waktujammasuk", skh.getWaktuJamMasuk());
 						mapS.put("waktuterlambat", skh.getWaktuTerlambat());
 						mapS.put("waktucepatkeluar", skh.getWaktuCepatKeluar());
@@ -813,6 +820,9 @@ public class LaporanAbsensiPegawaiDetail extends MyWindow {
 
 				} catch (Exception e) {
 					Common.tampilErrorJikaAdmin(e);
+					ais.common.ErrorAuditUtil.record(e,
+							"auto-audit src/ais/action/report/format1/payroll/LaporanAbsensiPegawaiDetail.java:worker");
+					throw e;
 				}
 			}
 		});
@@ -832,6 +842,37 @@ public class LaporanAbsensiPegawaiDetail extends MyWindow {
 
 		if (label != null) {
 			ais.action.report.helper.LoadingReportUtil.selesai(label);
+		}
+	}
+
+	/**
+	 * Inisialisasi relasi LAZY yang dipakai worker setelah native session ditutup.
+	 * Tanpa ini satu LazyInitializationException dapat membuang seluruh baris milik
+	 * seorang pegawai dan menghasilkan PDF kosong tanpa penjelasan.
+	 */
+	private void inisialisasiRelasiLaporan(List<Pegawai> pegawais,
+			List<CutiDanIzin> cutiDanIzins,
+			Map<String, StatuskehadiranKaryawanHarian> statusHarianMap) {
+		for (Pegawai dataPegawai : pegawais) {
+			Hibernate.initialize(dataPegawai.getTipePegawai());
+			Hibernate.initialize(dataPegawai.getSatuanKerja());
+			Hibernate.initialize(dataPegawai.getDosen());
+			Hibernate.initialize(dataPegawai.getGuru());
+		}
+		for (CutiDanIzin cuti : cutiDanIzins) {
+			Hibernate.initialize(cuti.getPegawai());
+			Hibernate.initialize(cuti.getStatusabsensi());
+			Hibernate.initialize(cuti.getDisetujuiOleh());
+		}
+		for (StatuskehadiranKaryawanHarian status : statusHarianMap.values()) {
+			Hibernate.initialize(status.getPegawai());
+			Hibernate.initialize(status.getStatusabsensi());
+			Hibernate.initialize(status.getCutiDanIzin());
+			Hibernate.initialize(status.getLiburNasional());
+			Hibernate.initialize(status.getDetailJenisShiftPegawai());
+			if (status.getDetailJenisShiftPegawai() != null) {
+				Hibernate.initialize(status.getDetailJenisShiftPegawai().getJenisShiftPegawai());
+			}
 		}
 	}
 
