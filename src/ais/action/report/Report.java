@@ -1693,7 +1693,7 @@ public class Report extends GenericAutowireComposer {
 	private static boolean namaParameterTanggal(Object key) {
 		String nama = key == null ? "" : key.toString().toLowerCase();
 		return nama.indexOf("tanggal") >= 0 || nama.startsWith("tgl") || nama.indexOf("_tgl") >= 0
-				|| nama.indexOf("date") >= 0;
+				|| nama.indexOf("date") >= 0 || nama.indexOf("_jam") >= 0;
 	}
 
 	private static boolean bolehKosongSebagaiNullDiJasper(Object key) {

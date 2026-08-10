@@ -532,7 +532,7 @@ public class CommonReport {
             mainSess = HibernateUtil.getSessionFactory().openSession();
             mainSess.beginTransaction();
             mainSess.createSQLQuery(
-                    "UPDATE konfigurasi SET info1 = '' WHERE kunci = :kunci")
+                    "UPDATE konfigurasi SET info1 = '' WHERE nama = :kunci")
                     .setParameter("kunci", REPORT_PREFIX + nama)
                     .executeUpdate();
             mainSess.getTransaction().commit();

@@ -201,6 +201,22 @@ public class PostingJurnalBalikDpPemesananPekerjaanAction extends GenericAutowir
 	private Boolean sudah_posting = null;
 
 	/**
+	 * Mengembalikan {@code true} bila kedua akun merujuk entitas yang sama (dibandingkan
+	 * berdasarkan {@code id} agar kebal terhadap identity-map/override equals). Dipakai
+	 * sebagai penjaga agar jurnal balik DP tidak pernah dibuat dengan akun debet == akun
+	 * kredit (yang akan menghasilkan jurnal Dr X / Cr X = bernilai nol/tak bermakna).
+	 */
+	private static boolean akunSama(Akun a, Akun b) {
+		if (a == null || b == null) {
+			return false;
+		}
+		if (a == b) {
+			return true;
+		}
+		return a.getId() != null && a.getId().equals(b.getId());
+	}
+
+	/**
 	 * <b>Tujuan:</b> Interceptor siklus hidup ZK yang dijalankan <em>sebelum</em> komponen
 	 * ZUL di-compose. Digunakan untuk memeriksa keamanan akses halaman sebelum komponen
 	 * apapun diinisialisasi, sehingga pengguna yang tidak berhak tidak dapat mengakses
@@ -737,8 +753,10 @@ public class PostingJurnalBalikDpPemesananPekerjaanAction extends GenericAutowir
 																											.size())
 																					+ " %)");
 
+																			// PENJAGA: akun debet & kredit tak boleh sama (jurnal nol tak valid) -> lewati.
 																			if (akunDebet != null
-																					&& akunKredit != null) {
+																					&& akunKredit != null
+																					&& !akunSama(akunDebet, akunKredit)) {
 
 																				try {
 
@@ -991,10 +1009,21 @@ public class PostingJurnalBalikDpPemesananPekerjaanAction extends GenericAutowir
 			Akun akunDebet = pemesananPengadaanMasterAsset.getJenisPemesananPengadaanAsset() == null ? null
 					: pemesananPengadaanMasterAsset.getJenisPemesananPengadaanAsset().getAkunUtangPekerjaan();
 
+			/*
+			 * Kredit memakai getAkunUtangDp() — DISELARASKAN dengan proses posting nyata
+			 * (onPostingSemua & posting per-baris). Sebelumnya preview memakai getAkunDp()
+			 * sehingga jurnal yang DIPRATINJAU bisa berbeda dari yang benar-benar diposting.
+			 */
 			Akun akunKredit = pemesananPengadaanMasterAsset.getJenisPemesananPengadaanAsset() == null ? null
-					: pemesananPengadaanMasterAsset.getJenisPemesananPengadaanAsset().getAkunDp();
+					: pemesananPengadaanMasterAsset.getJenisPemesananPengadaanAsset().getAkunUtangDp();
 
-			if (akunDebet != null && akunKredit != null) {
+			/*
+			 * PENJAGA: akun debet & kredit TIDAK BOLEH SAMA. Bila master Jenis Pemesanan
+			 * menyetel Akun Utang Pekerjaan (debet) = Akun Uang Muka/DP (kredit), jurnal balik
+			 * menjadi Dr X / Cr X = bernilai NOL (netral, tak bermakna). Tandai "Transaksi tidak
+			 * valid" agar tidak dianggap jurnal wajar dan tidak bisa diposting.
+			 */
+			if (akunDebet != null && akunKredit != null && !akunSama(akunDebet, akunKredit)) {
 
 				List<Akun> akunsDebets = new ArrayList<Akun>();
 				List<Akun> akunsKredits = new ArrayList<Akun>();
@@ -1015,7 +1044,10 @@ public class PostingJurnalBalikDpPemesananPekerjaanAction extends GenericAutowir
 						+ (akunDebet != null ? " Debet: " + akunDebet.getKode() + "-" + akunDebet.getNama() + "."
 								: " Akun debet tidak ada.")
 						+ (akunKredit != null ? " Kredit: " + akunKredit.getKode() + "-" + akunKredit.getNama() + "."
-								: " Akun kredit tidak ada."))
+								: " Akun kredit tidak ada.")
+						+ (akunDebet != null && akunKredit != null && akunSama(akunDebet, akunKredit)
+								? " Akun debet & kredit SAMA — jurnal balik akan bernilai nol. Perbaiki master Jenis Pemesanan Pengadaan Asset: Akun Utang Pekerjaan (debet) harus berbeda dari Akun Utang DP/Uang Muka (kredit)."
+								: ""))
 						.setParent(arg0);
 			}
 
@@ -1071,7 +1103,9 @@ public class PostingJurnalBalikDpPemesananPekerjaanAction extends GenericAutowir
 
 				button = new MyToolbarbuttonConfig("", "/img/svg/check2-circle.svg");
 				button.setTooltiptext("Posting Data");
-				button.setVisible(edit && pemesananPengadaanMasterAsset.getPostingHistory() == null && tbmuser != null);
+				// Sembunyikan tombol Posting bila akun debet & kredit sama (jurnal nol tak valid).
+				button.setVisible(edit && pemesananPengadaanMasterAsset.getPostingHistory() == null && tbmuser != null
+						&& !akunSama(akunDebet, akunKredit));
 				button.addEventListener("onClick", new EventListener() {
 					@Override
 					public void onEvent(Event event) throws Exception {
@@ -1101,7 +1135,8 @@ public class PostingJurnalBalikDpPemesananPekerjaanAction extends GenericAutowir
 												: pemesananPengadaanMasterAsset.getJenisPemesananPengadaanAsset()
 														.getAkunUtangDp();
 
-								if (akunDebet != null && akunKredit != null) {
+								// PENJAGA: jangan posting bila akun debet & kredit sama (jurnal nol tak valid).
+								if (akunDebet != null && akunKredit != null && !akunSama(akunDebet, akunKredit)) {
 									Boolean apakahUangMasuk = true;
 
 									String ket = "";
