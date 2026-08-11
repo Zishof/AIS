@@ -214,9 +214,20 @@ public final class SalesInventoryMasterHelper {
 			j.put("version", sp == null ? JSONObject.NULL : sp.getVersion());
 			j.put("auditOleh", sp == null ? "" : str(sp.getOleh()));
 			j.put("auditWaktu", sp == null || sp.getTanggal_dirubah() == null ? "" : sp.getTanggal_dirubah().toString());
-			// Saldo hutang supplier: ledger AP dibangun fase P3 (layar 22-27) -- sampai itu ada,
-			// nilai ini null (bukan 0 palsu) supaya klien menampilkan "-" dgn jujur.
-			j.put("saldoHutang", JSONObject.NULL);
+			// Saldo hutang supplier -- NYATA dari ledger AP (P3): SUM outstanding seluruh faktur
+			// DP/CREDIT supplier ini (formula sama si_payable_list). Baca-saja & direkonsiliasi.
+			java.sql.PreparedStatement psHutang = session.connection().prepareStatement(
+					"SELECT COALESCE(SUM(COALESCE(f.total_faktur_manual, COALESCE(f.total_hitung_saat_simpan,0)) "
+							+ "- COALESCE(i.dibayar_awal,0) "
+							+ "- COALESCE((SELECT SUM(a.nominal) FROM koperasi.alokasi_pembayaran_hutang_supplier a WHERE a.pengadaan_faktur = f.id),0)),0) "
+							+ "FROM koperasi.pengadaan_faktur f "
+							+ "JOIN koperasi.payable_faktur_info i ON i.pengadaan_faktur = f.id "
+							+ "WHERE f.supplier = ? AND i.jenis_pembayaran IN ('DP','CREDIT')");
+			psHutang.setLong(1, p.getId().longValue());
+			java.sql.ResultSet rsHutang = psHutang.executeQuery();
+			double saldoHutang = rsHutang.next() ? rsHutang.getDouble(1) : 0;
+			rsHutang.close(); psHutang.close();
+			j.put("saldoHutang", saldoHutang);
 			hasil.put("status", "00");
 			hasil.put("data", j);
 		} finally {
