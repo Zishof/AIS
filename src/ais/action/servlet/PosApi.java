@@ -503,6 +503,15 @@ public class PosApi extends HttpServlet {
 			} else if ("sinkron_siswa".equals(action)) {
 				KantinHelper.sinkronSiswa(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "sinkron_siswa");
+			} else if ("sinkron_dosen".equals(action)) {
+				KantinHelper.sinkronDosen(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "sinkron_dosen");
+			} else if ("sinkron_guru".equals(action)) {
+				KantinHelper.sinkronGuru(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "sinkron_guru");
+			} else if ("sinkron_pegawai".equals(action)) {
+				KantinHelper.sinkronPegawai(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "sinkron_pegawai");
 			} else if ("diskon_list".equals(action)) {
 				KantinHelper.diskonList(payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "diskon_list");

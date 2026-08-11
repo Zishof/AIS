@@ -5822,6 +5822,205 @@ public class KantinHelper {
 	}
 
 	/**
+	 * Fitur "Sinkronisasi Master Data Sivitas" -- jalankan sinkron Dosen -&gt; AnggotaKoperasi, padanan
+	 * {@link #sinkronMahasiswa} utk dosen. Sama gerbang &amp; sumber logika (lihat JavaDoc
+	 * {@link #sinkronMahasiswa}); reuse {@code Common.checkApakahDosenOtomatisMenjadiAnggotaKoperasi}
+	 * (satu sumber logika dgn tombol "Singkronkan Dosen" ZK {@code AnggotaKoperasiAction}).
+	 *
+	 * @param request payload berisi {@code koperasi_id} (wajib), {@code fakultas_id}/{@code jurusan_id}
+	 *                (opsional, filter kandidat via Dosen.jurusan).
+	 */
+	public static void sinkronDosen(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggilSd = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean bolehSd = pemanggilSd == null || Boolean.TRUE.equals(pemanggilSd.getSupervisor());
+		if (!bolehSd) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/supervisor toko yang boleh menjalankan sinkronisasi.");
+			return;
+		}
+		if (request.isNull("koperasi_id")) {
+			hasil.put("status", "91");
+			hasil.put("description", "Koperasi wajib diisi.");
+			return;
+		}
+		Long koperasiId = Long.valueOf((request.get("koperasi_id") + "").trim());
+		Long fakultasId = request.isNull("fakultas_id") ? null : Long.valueOf((request.get("fakultas_id") + "").trim());
+		Long jurusanId = request.isNull("jurusan_id") ? null : Long.valueOf((request.get("jurusan_id") + "").trim());
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.koperasi.Koperasi koperasi = (ais.database.model.koperasi.Koperasi) session
+					.get(ais.database.model.koperasi.Koperasi.class, koperasiId);
+			if (koperasi == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Koperasi tidak ditemukan.");
+				return;
+			}
+			ais.database.model.Jurusan jurusanEntity = jurusanId != null
+					? (ais.database.model.Jurusan) session.get(ais.database.model.Jurusan.class, jurusanId) : null;
+			ais.database.model.Fakultas fakultasEntity = fakultasId != null
+					? (ais.database.model.Fakultas) session.get(ais.database.model.Fakultas.class, fakultasId) : null;
+			org.hibernate.Criteria cq = session.createCriteria(ais.database.model.Dosen.class)
+					.createAlias("jurusan", "jurusan", org.hibernate.Criteria.LEFT_JOIN)
+					.add(Restrictions.ne("nidn", "")).add(Restrictions.isNotNull("nidn"))
+					.setProjection(org.hibernate.criterion.Projections.groupProperty("nidn"));
+			if (jurusanEntity != null) cq.add(Restrictions.eq("jurusan", jurusanEntity));
+			if (fakultasEntity != null) cq.add(Restrictions.eq("jurusan.fakultas", fakultasEntity));
+			@SuppressWarnings("unchecked")
+			java.util.List<String> ids = cq.list();
+
+			int berhasil = 0, gagal = 0;
+			for (String nidn : ids) {
+				try {
+					if (Common.checkApakahDosenOtomatisMenjadiAnggotaKoperasi(nidn, koperasi) != null) berhasil++;
+				} catch (Exception exSatu) {
+					gagal++;
+					ais.common.ErrorAuditUtil.record(exSatu,
+							"auto-audit sinkronDosen src/ais/action/servlet/api/KantinHelper.java nidn=" + nidn);
+				}
+			}
+			hasil.put("status", "00");
+			hasil.put("total", ids.size());
+			hasil.put("berhasil", berhasil);
+			hasil.put("gagal", gagal);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * Fitur "Sinkronisasi Master Data Sivitas" -- jalankan sinkron Guru -&gt; AnggotaKoperasi, padanan
+	 * {@link #sinkronSiswa} utk guru. Sama gerbang &amp; sumber logika (lihat JavaDoc
+	 * {@link #sinkronMahasiswa}); reuse {@code Common.checkApakahGuruOtomatisMenjadiAnggotaKoperasi}.
+	 *
+	 * @param request payload berisi {@code koperasi_id} (wajib), {@code yayasan_id}/{@code sekolah_id}
+	 *                (opsional, filter kandidat).
+	 */
+	public static void sinkronGuru(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggilSg = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean bolehSg = pemanggilSg == null || Boolean.TRUE.equals(pemanggilSg.getSupervisor());
+		if (!bolehSg) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/supervisor toko yang boleh menjalankan sinkronisasi.");
+			return;
+		}
+		if (request.isNull("koperasi_id")) {
+			hasil.put("status", "91");
+			hasil.put("description", "Koperasi wajib diisi.");
+			return;
+		}
+		Long koperasiId = Long.valueOf((request.get("koperasi_id") + "").trim());
+		Long yayasanId = request.isNull("yayasan_id") ? null : Long.valueOf((request.get("yayasan_id") + "").trim());
+		Long sekolahId = request.isNull("sekolah_id") ? null : Long.valueOf((request.get("sekolah_id") + "").trim());
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.koperasi.Koperasi koperasi = (ais.database.model.koperasi.Koperasi) session
+					.get(ais.database.model.koperasi.Koperasi.class, koperasiId);
+			if (koperasi == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Koperasi tidak ditemukan.");
+				return;
+			}
+			ais.database.model.sekolah.Sekolah sekolahEntity = sekolahId != null
+					? (ais.database.model.sekolah.Sekolah) session.get(ais.database.model.sekolah.Sekolah.class, sekolahId) : null;
+			ais.database.model.sekolah.Yayasan yayasanEntity = yayasanId != null
+					? (ais.database.model.sekolah.Yayasan) session.get(ais.database.model.sekolah.Yayasan.class, yayasanId) : null;
+			org.hibernate.Criteria cq = session.createCriteria(ais.database.model.sekolah.Guru.class)
+					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+					.add(Restrictions.ne("nip", "")).add(Restrictions.isNotNull("nip"))
+					.setProjection(org.hibernate.criterion.Projections.groupProperty("nip"));
+			if (sekolahEntity != null) cq.add(Restrictions.eq("sekolah", sekolahEntity));
+			if (yayasanEntity != null) cq.add(Restrictions.eq("yayasan", yayasanEntity));
+			@SuppressWarnings("unchecked")
+			java.util.List<String> ids = cq.list();
+
+			int berhasil = 0, gagal = 0;
+			for (String nip : ids) {
+				try {
+					if (Common.checkApakahGuruOtomatisMenjadiAnggotaKoperasi(nip, koperasi) != null) berhasil++;
+				} catch (Exception exSatu) {
+					gagal++;
+					ais.common.ErrorAuditUtil.record(exSatu,
+							"auto-audit sinkronGuru src/ais/action/servlet/api/KantinHelper.java nip=" + nip);
+				}
+			}
+			hasil.put("status", "00");
+			hasil.put("total", ids.size());
+			hasil.put("berhasil", berhasil);
+			hasil.put("gagal", gagal);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * Fitur "Sinkronisasi Master Data Sivitas" -- jalankan sinkron Pegawai -&gt; AnggotaKoperasi,
+	 * padanan {@link #sinkronMahasiswa} utk pegawai umum. Sama gerbang &amp; sumber logika (lihat
+	 * JavaDoc {@link #sinkronMahasiswa}); reuse {@code Common.checkApakahPegawaiOtomatisMenjadiAnggotaKoperasi}
+	 * (satu sumber logika dgn tombol "Singkronkan Pegawai" ZK {@code AnggotaKoperasiAction}).
+	 *
+	 * <p><b>Dedup thd Dosen/Guru (PENTING).</b> Kandidat pegawai SENGAJA mengecualikan baris yang
+	 * sudah tertaut ke {@code dosen} ATAU {@code guru} -- pegawai yang sebenarnya seorang dosen/guru
+	 * HANYA disinkronkan lewat jalur {@link #sinkronDosen}/{@link #sinkronGuru} (kunci NIDN/NIP),
+	 * tidak boleh terhitung dobel lewat jalur pegawai umum (kunci {@code mycode}). Versi ZK
+	 * {@code AnggotaKoperasiAction} lama HANYA mengecualikan {@code dosen} (bukan {@code guru}) --
+	 * celah itu ditutup di sini sekaligus.</p>
+	 *
+	 * @param request payload berisi {@code koperasi_id} (wajib).
+	 */
+	public static void sinkronPegawai(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggilSp = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean bolehSp = pemanggilSp == null || Boolean.TRUE.equals(pemanggilSp.getSupervisor());
+		if (!bolehSp) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/supervisor toko yang boleh menjalankan sinkronisasi.");
+			return;
+		}
+		if (request.isNull("koperasi_id")) {
+			hasil.put("status", "91");
+			hasil.put("description", "Koperasi wajib diisi.");
+			return;
+		}
+		Long koperasiId = Long.valueOf((request.get("koperasi_id") + "").trim());
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.koperasi.Koperasi koperasi = (ais.database.model.koperasi.Koperasi) session
+					.get(ais.database.model.koperasi.Koperasi.class, koperasiId);
+			if (koperasi == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Koperasi tidak ditemukan.");
+				return;
+			}
+			org.hibernate.Criteria cq = session.createCriteria(ais.database.model.Pegawai.class)
+					.add(Restrictions.or(Restrictions.eq("aktif", true), Restrictions.isNull("aktif")))
+					.add(Restrictions.isNull("dosen")).add(Restrictions.isNull("guru"))
+					.add(Restrictions.ne("mycode", "")).add(Restrictions.isNotNull("mycode"))
+					.setProjection(org.hibernate.criterion.Projections.groupProperty("mycode"));
+			@SuppressWarnings("unchecked")
+			java.util.List<String> ids = cq.list();
+
+			int berhasil = 0, gagal = 0;
+			for (String mycode : ids) {
+				try {
+					if (Common.checkApakahPegawaiOtomatisMenjadiAnggotaKoperasi(mycode, koperasi) != null) berhasil++;
+				} catch (Exception exSatu) {
+					gagal++;
+					ais.common.ErrorAuditUtil.record(exSatu,
+							"auto-audit sinkronPegawai src/ais/action/servlet/api/KantinHelper.java mycode=" + mycode);
+				}
+			}
+			hasil.put("status", "00");
+			hasil.put("total", ids.size());
+			hasil.put("berhasil", berhasil);
+			hasil.put("gagal", gagal);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
 	 * Layar baru "Aturan Diskon" di Desktop (permintaan "fitur mengatur diskon seperti fitur POS
 	 * online") -- kelola baris {@link ais.database.model.koperasi.AturanDiskon} (mesin promo yang
 	 * SUDAH ADA dan SUDAH otomatis diterapkan saat checkout ZK/JSP, lihat {@code PosKantinAction.evaluasiDiskon}).

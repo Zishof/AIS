@@ -12365,6 +12365,70 @@ public class Common {
 	}
 
 	/**
+	 * Mendaftarkan guru (berdasarkan NIP) secara otomatis sebagai anggota koperasi,
+	 * atau memperbarui asosiasi koperasi pada rekam anggota yang sudah ada.
+	 *
+	 * <p><b>Tujuan.</b> Padanan {@link #checkApakahDosenOtomatisMenjadiAnggotaKoperasi(String, Koperasi)}
+	 * utk jenjang sekolah -- memastikan guru aktif bisa mengakses layanan koperasi sekolah tanpa
+	 * pendaftaran manual.</p>
+	 *
+	 * <p><b>Cara kerja (inline).</b> SAMA PERSIS strukturnya dgn versi Dosen (lihat javadoc method
+	 * tsb), kunci identitas NIP menggantikan NIDN, dan {@code AnggotaKoperasi.guru} menggantikan
+	 * {@code AnggotaKoperasi.dosen}.</p>
+	 *
+	 * @param nip      NIP guru yang akan didaftarkan; tidak boleh null
+	 * @param koperasi koperasi tujuan; tidak boleh null
+	 * @return entitas {@code AnggotaKoperasi} yang dibuat/diperbarui, atau null bila guru tidak ditemukan
+	 */
+	public static AnggotaKoperasi checkApakahGuruOtomatisMenjadiAnggotaKoperasi(String nip, ais.database.model.koperasi.Koperasi koperasi) {
+		Session session = HibernateUtil.currentNativeSession();
+		AnggotaKoperasi anggotaKoperasi = ((AnggotaKoperasi) ConstantValues.simpleObject(
+				session.createCriteria(AnggotaKoperasi.class).createAlias("guru", "guru", Criteria.LEFT_JOIN)
+						.add(Restrictions.or(Restrictions.eq("guru.nip", nip),
+								Restrictions.sqlRestriction("replace(trim(this_.kode),'.','') = replace(trim('"
+										+ nip.replaceAll("'", "") + "'),'.','')")))
+						.setMaxResults(1),
+				AnggotaKoperasi.class));
+		if (anggotaKoperasi == null) {
+			ais.database.model.sekolah.Guru guru = (ais.database.model.sekolah.Guru) ConstantValues.simpleObject(
+					session.createCriteria(ais.database.model.sekolah.Guru.class).add(Restrictions.eq("nip", nip)).setMaxResults(1),
+					ais.database.model.sekolah.Guru.class);
+			if (guru != null) {
+				anggotaKoperasi = new AnggotaKoperasi();
+				anggotaKoperasi.setAktif(true);
+				anggotaKoperasi.setGuru(guru);
+				anggotaKoperasi.setAlamat(guru.getAlamatGuru());
+				anggotaKoperasi.setEmail(guru.getAlamatEmail());
+				anggotaKoperasi.setJenisIdentitas("NIP");
+				anggotaKoperasi.setKeterangan("Anggota Koperasi ini mendaftar otomatis");
+				anggotaKoperasi.setKodeIdentitas(guru.getNip());
+				anggotaKoperasi.setKode(guru.getNip());
+				anggotaKoperasi.setNama(guru.getNama());
+				anggotaKoperasi.setKoperasi(null);
+				anggotaKoperasi.setTanggal_dirubah(ais.ui.util.WaktuUtil.getDate());
+				anggotaKoperasi.setGuru(guru);
+				anggotaKoperasi.setTipeAnggotaKoperasi(ConstantValues.GURU);
+				anggotaKoperasi.setTipe(ConstantValues.GURU.getNama());
+				anggotaKoperasi.setKoperasi(koperasi);
+				session.getTransaction().begin();
+				session.save(anggotaKoperasi);
+				session.getTransaction().commit();
+			}
+		} else {
+			anggotaKoperasi.setKoperasi(koperasi);
+			session.getTransaction().begin();
+			Common.refreshSaveOrUpdate(session, anggotaKoperasi);
+			session.getTransaction().commit();
+		}
+		if (session.isOpen()) {
+			session.disconnect();
+			session.close();
+		}
+		HibernateUtil.closeSession();
+		return anggotaKoperasi;
+	}
+
+	/**
 	 * Menghasilkan tanda tangan HMAC-SHA512 dari nilai dan kunci rahasia yang diberikan,
 	 * dikembalikan sebagai string heksadesimal huruf kecil.
 	 *
