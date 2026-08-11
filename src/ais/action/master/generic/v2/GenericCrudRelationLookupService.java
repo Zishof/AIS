@@ -44,13 +44,13 @@ public class GenericCrudRelationLookupService {
             Criteria count = session.createCriteria(relationClass);
             applyActiveFilter(count, metadata);
             applyScope(count, context, property, relationClass);
-            applySearch(count, metadata, search);
+            applySearch(count, metadata, field, search);
             Number total = (Number) count.setProjection(Projections.rowCount()).uniqueResult();
 
             Criteria rows = session.createCriteria(relationClass);
             applyActiveFilter(rows, metadata);
             applyScope(rows, context, property, relationClass);
-            applySearch(rows, metadata, search);
+            applySearch(rows, metadata, field, search);
             String display = safeDisplayProperty(metadata, field.getRelationDisplayProperty());
             if (!metadata.getIdentifierPropertyName().equals(display)) rows.addOrder(Order.asc(display));
             rows.addOrder(Order.asc(metadata.getIdentifierPropertyName()));
@@ -72,6 +72,8 @@ public class GenericCrudRelationLookupService {
             data.put("page", Integer.valueOf(page));
             data.put("pageSize", Integer.valueOf(pageSize));
             data.put("hasMore", Boolean.valueOf((long) page * pageSize < totalRows));
+            data.put("identifierProperty", metadata.getIdentifierPropertyName());
+            data.put("identifierMode", relationIdentifierMode(relationClass));
             return GenericCrudResult.ok("Pilihan relasi berhasil dimuat.", data);
         } finally {
             try { if (session.isOpen()) session.close(); } catch (Exception ignored) { }
@@ -111,20 +113,70 @@ public class GenericCrudRelationLookupService {
         } catch (Exception noActiveField) { }
     }
 
-    private void applySearch(Criteria criteria, ClassMetadata metadata, String search) {
+    private void applySearch(Criteria criteria, ClassMetadata metadata,
+            GenericCrudFieldDefinition field, String search) {
         if (search == null || search.trim().length() == 0) return;
         String value = "%" + search.trim() + "%";
         Disjunction any = Restrictions.disjunction();
         int added = 0;
-        String[] candidates = new String[] { "kode", "nama", "nim" };
-        for (int i = 0; i < candidates.length; i++) {
+        List candidates = searchProperties(metadata, field);
+        for (int i = 0; i < candidates.size(); i++) {
+            String property = String.valueOf(candidates.get(i));
             try {
-                if (metadata.getPropertyType(candidates[i]).getReturnedClass() == String.class) {
-                    any.add(Restrictions.ilike(candidates[i], value)); added++;
+                if (metadata.getPropertyType(property).getReturnedClass() == String.class) {
+                    any.add(Restrictions.ilike(property, value)); added++;
                 }
             } catch (Exception ignored) { }
         }
+        String identifier = metadata.getIdentifierPropertyName();
+        try {
+            if (!candidates.contains(identifier)) {
+                Object id = GenericCrudValueConverter.convert(search.trim(),
+                        metadata.getIdentifierType().getReturnedClass());
+                if (id != null) { any.add(Restrictions.eq(identifier, id)); added++; }
+            }
+        } catch (Exception notAnIdentifier) { }
         if (added > 0) criteria.add(any);
+    }
+
+    private List searchProperties(ClassMetadata metadata, GenericCrudFieldDefinition field) {
+        List result = new ArrayList();
+        addSearchProperty(result, metadata, metadata.getIdentifierPropertyName());
+        addSearchProperty(result, metadata, field.getRelationDisplayProperty());
+        String configured = field.getRelationSearchProperties();
+        if (configured != null) {
+            String[] names = configured.split(",");
+            for (int i = 0; i < names.length; i++) addSearchProperty(result, metadata, names[i].trim());
+        }
+        addSearchProperty(result, metadata, "kode");
+        addSearchProperty(result, metadata, "nama");
+        addSearchProperty(result, metadata, "nim");
+        addSearchProperty(result, metadata, "userNama");
+        addSearchProperty(result, metadata, "roleName");
+        return result;
+    }
+
+    private void addSearchProperty(List target, ClassMetadata metadata, String property) {
+        if (property == null || property.length() == 0 || target.contains(property)) return;
+        try {
+            if (metadata.getIdentifierPropertyName().equals(property)) {
+                if (metadata.getIdentifierType().getReturnedClass() == String.class) target.add(property);
+            } else if (metadata.getPropertyType(property).getReturnedClass() == String.class) {
+                target.add(property);
+            }
+        } catch (Exception ignored) { }
+    }
+
+    /**
+     * Semua relasi memakai identifier Hibernate. Tiga model legacy ini memang
+     * mempunyai natural primary key: userId, roleId, dan nama Program.
+     */
+    private String relationIdentifierMode(Class relationClass) {
+        String name = relationClass == null ? "" : relationClass.getName();
+        if ("ais.database.model.Tbmuser".equals(name)
+                || "ais.database.model.Tbmrole".equals(name)
+                || "ais.database.model.Program".equals(name)) return "NATURAL_KEY";
+        return "ENTITY_ID";
     }
 
     private String safeDisplayProperty(ClassMetadata metadata, String preferred) {

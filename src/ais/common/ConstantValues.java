@@ -295,14 +295,19 @@ public class ConstantValues {
 	public static Integer getJumlahTahapan(String program, Jurusan jurusan) {
 		Integer tahap = 0;
 		try {
-			tahap = jumlahTahapan.get(program + "_" + jurusan.getId());
+			if (jurusan != null && jurusan.getId() != null) {
+				tahap = jumlahTahapan.get(program + "_" + jurusan.getId());
+			}
 			if (tahap == null) {
 				tahap = jumlahTahapan.get(program);
 			}
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/ConstantValues.java:300");
 			// TODO: handle exception
 		}
-		return tahap;
+		// Nilai ini sering dibandingkan dengan literal int. Jangan pernah kembalikan
+		// null karena auto-unboxing akan melempar NullPointerException saat cache
+		// ringkasan memproses mahasiswa yang mapping tahapannya belum tersedia.
+		return tahap == null ? Integer.valueOf(0) : tahap;
 	}
 
 	public static boolean ABSEN_DOSEN_TERINTEGRASI_DENGAN_FINGER_PRINT = true;

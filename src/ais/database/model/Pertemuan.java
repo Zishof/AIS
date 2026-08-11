@@ -4547,6 +4547,26 @@ public class Pertemuan extends Tugas {
 		return mahasiswas;
 	}
 
+	/**
+	 * Validasi peserta yang selalu membaca database untuk pertemuan perkuliahan.
+	 * Pertemuan non-perkuliahan tetap memakai sumber pesertanya masing-masing.
+	 */
+	public boolean apakahMahasiswaPesertaDisetujuiLangsung(Mahasiswa mahasiswa) {
+		if (mahasiswa == null || mahasiswa.getId() == null) {
+			return false;
+		}
+		Perkuliahan dataPerkuliahan = getPerkuliahan();
+		if (dataPerkuliahan != null) {
+			return dataPerkuliahan.apakahMahasiswaPesertaDisetujuiLangsung(mahasiswa);
+		}
+		for (Mahasiswa peserta : ambilMahasiswa()) {
+			if (peserta != null && mahasiswa.getId().equals(peserta.getId())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	public List<Siswa> ambilSiswa() {
 		List<Siswa> siswas = new ArrayList<Siswa>();
 		try {

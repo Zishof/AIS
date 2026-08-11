@@ -9542,10 +9542,12 @@ public class KantinHelper {
 	 * <p>Logika PORTING 1:1 dari mesin evaluasi client-side yang SUDAH ADA -- JSP {@code _pos.jsp}
 	 * (fungsi {@code evaluateDiscount}/{@code recalculateCart}/{@code loadAturanDiskon}/{@code
 	 * updateUsageDiskonMember}) dan ZK ({@code PosKantinAction.evaluasiDiskon}) -- BUKAN logika baru:
-	 * cocokkan aturan PERTAMA per baris (produk WAJIB cocok -- kolom {@code aturan_diskon.produk}
-	 * {@code NOT NULL}, toko cocok/berlaku-semua-toko, jendela tanggal berlaku, target member
-	 * semua/jenis/tipe), hitung persentase ATAU nominal (persentase diprioritaskan, nominal dikali
-	 * qty lalu dibatasi maks total baris), lalu terapkan batas maksimal potongan -- KUMULATIF
+	 * cocokkan aturan PERTAMA per baris (produk cocok ATAU aturan berlaku semua produk -- kolom
+	 * {@code aturan_diskon.produk} NULLABLE, {@code NULL} = semua produk; toko cocok/berlaku-semua-toko;
+	 * jendela tanggal berlaku; hari aktif; target member semua/jenis/tipe; DIKECUALIKAN kalau
+	 * {@code aktivasiManual=true} -- aturan itu hanya bisa aktif lewat kasir memilih manual, lihat
+	 * {@link #diskonManualList}), hitung persentase ATAU nominal (persentase diprioritaskan, nominal
+	 * dikali qty lalu dibatasi maks total baris), lalu terapkan batas maksimal potongan -- KUMULATIF
 	 * per-hari-per-toko bila aturan itu {@code berlakuPerHariDanPerToko} (dijumlah dari transaksi hari
 	 * ini yg SUDAH tersimpan di server + akumulasi antar baris DALAM SATU pemanggilan ini), atau
 	 * per-baris biasa bila tidak.</p>
@@ -9566,6 +9568,8 @@ public class KantinHelper {
 			return;
 		}
 		Long memberId = request.isNull("id_member") ? null : Long.valueOf((request.get("id_member") + "").trim());
+		Long hanyaAturanId = request.isNull("hanya_aturan_id") ? null
+				: Long.valueOf((request.get("hanya_aturan_id") + "").trim());
 		JSONArray items = request.optJSONArray("items");
 		if (items == null) {
 			items = new JSONArray();
@@ -9574,9 +9578,110 @@ public class KantinHelper {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			java.sql.Connection conn = session.connection();
-			JSONArray outArr = evaluasiDiskonItems(conn, tokoId, memberId, items);
+			JSONArray outArr = evaluasiDiskonItems(conn, tokoId, memberId, items, hanyaAturanId);
 			hasil.put("status", "00");
 			hasil.put("items", outArr);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * <h3>Kasir -- daftar Promo "Aktivasi Manual" yang eligible utk keranjang saat ini.</h3>
+	 *
+	 * <p>Promo dgn {@code aktivasiManual=true} SENGAJA dikecualikan dari {@link #diskonEvaluasi}
+	 * (jalur auto-apply) -- baru bisa aktif kalau kasir memilihnya lewat picker "Promo" di UI. Method
+	 * ini murni LISTING (nama/keterangan, tanpa menghitung nominal potongan -- nominal baru dihitung
+	 * saat kasir sudah pilih 1 promo, lewat panggilan {@link #diskonEvaluasi} ulang dgn {@code
+	 * hanya_aturan_id} diisi id promo terpilih, memakai mesin hitung yang SAMA PERSIS dgn auto-apply).
+	 * Reuse total: query kandidat + cek kelayakan SAMA PERSIS dgn {@link #evaluasiDiskonItems}, lewat
+	 * {@link #loadAturanDiskonKandidat}/{@link #aturanEligibleUntukItem}.</p>
+	 *
+	 * @param request payload sama dgn {@link #diskonEvaluasi}: {@code toko_id}, {@code id_member}
+	 *                (opsional), {@code items} ({@code {id, harga, jumlah}}).
+	 * @param hasil   diisi {@code status="00"}, {@code promo} (array {@code {id, namaAturan,
+	 *                keterangan, persentase, nominal, potonganLangsung}}, hanya promo yang eligible
+	 *                utk MINIMAL SATU baris di {@code items}).
+	 */
+	public static void diskonManualList(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		Long tokoId = soResolveTokoId(tbmuser, request);
+		if (tokoId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko tidak diketahui.");
+			return;
+		}
+		Long memberId = request.isNull("id_member") ? null : Long.valueOf((request.get("id_member") + "").trim());
+		JSONArray items = request.optJSONArray("items");
+		if (items == null) {
+			items = new JSONArray();
+		}
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			java.sql.Connection conn = session.connection();
+
+			java.util.LinkedHashSet<Long> produkIdSet = new java.util.LinkedHashSet<Long>();
+			java.util.List<Long> produkIdPerItem = new java.util.ArrayList<Long>();
+			for (int i = 0; i < items.length(); i++) {
+				JSONObject it = items.getJSONObject(i);
+				Long pid = it.isNull("id") ? null : Long.valueOf((it.get("id") + "").trim());
+				produkIdPerItem.add(pid);
+				if (pid != null) {
+					produkIdSet.add(pid);
+				}
+			}
+			if (produkIdSet.isEmpty()) {
+				hasil.put("status", "00");
+				hasil.put("promo", new JSONArray());
+				return;
+			}
+
+			java.util.List<java.util.Map<String, Object>> rules = loadAturanDiskonKandidat(conn, tokoId, produkIdSet);
+
+			Long memberJenis = null;
+			Long memberTipe = null;
+			if (memberId != null) {
+				java.sql.PreparedStatement psM = conn.prepareStatement(
+						"SELECT jenis_anggota_koperasi, tipe_anggota_koperasi FROM koperasi.anggota_koperasi WHERE id = ?");
+				psM.setLong(1, memberId);
+				java.sql.ResultSet rsM = psM.executeQuery();
+				if (rsM.next()) {
+					long j = rsM.getLong(1);
+					memberJenis = rsM.wasNull() ? null : Long.valueOf(j);
+					long t = rsM.getLong(2);
+					memberTipe = rsM.wasNull() ? null : Long.valueOf(t);
+				}
+				rsM.close();
+				psM.close();
+			}
+
+			JSONArray promoArr = new JSONArray();
+			for (java.util.Map<String, Object> r : rules) {
+				if (!Boolean.TRUE.equals(r.get("aktivasiManual"))) {
+					continue;
+				}
+				boolean eligibleUntukSalahSatu = false;
+				for (Long produkId : produkIdPerItem) {
+					if (produkId != null
+							&& aturanEligibleUntukItem(r, produkId, tokoId, memberId, memberJenis, memberTipe)) {
+						eligibleUntukSalahSatu = true;
+						break;
+					}
+				}
+				if (!eligibleUntukSalahSatu) {
+					continue;
+				}
+				JSONObject out = new JSONObject();
+				out.put("id", r.get("id"));
+				out.put("namaAturan", r.get("namaAturan"));
+				out.put("keterangan", r.get("keterangan") == null ? "" : r.get("keterangan"));
+				out.put("persentase", r.get("persentase"));
+				out.put("nominal", r.get("nominal"));
+				out.put("potonganLangsung", r.get("potonganLangsung"));
+				promoArr.put(out);
+			}
+			hasil.put("status", "00");
+			hasil.put("promo", promoArr);
 		} finally {
 			tutupSessionPolaB(session);
 		}
@@ -9656,7 +9761,7 @@ public class KantinHelper {
 
 			session.beginTransaction();
 			java.sql.Connection conn = session.connection();
-			JSONArray hasilEvaluasi = evaluasiDiskonItems(conn, tokoId, memberId, itemsPayload);
+			JSONArray hasilEvaluasi = evaluasiDiskonItems(conn, tokoId, memberId, itemsPayload, null);
 
 			// produkId -> {diskon, cashback, aturanDiskonId(-1 bila null)} -- dipakai ULANG utk
 			// mencerminkan ke baris "pembelian" (sudah lunas) di bawah, dicocokkan per PRODUK (SAMA
@@ -9769,8 +9874,110 @@ public class KantinHelper {
 	 * @return array sejajar (indeks sama dgn {@code items}) berisi
 	 *         {@code {id, diskon, cashback, aturanDiskon, berlakuPerHariDanPerToko}}.
 	 */
-	private static JSONArray evaluasiDiskonItems(java.sql.Connection conn, Long tokoId, Long memberId, JSONArray items)
-			throws Exception {
+	/**
+	 * Muat kandidat {@code AturanDiskon} yang aktif, dalam jendela tanggal, cocok toko, dan cocok
+	 * PRODUK ATAU berlaku semua produk ({@code produk IS NULL}) -- dipakai bersama oleh
+	 * {@link #evaluasiDiskonItems} (auto-apply/apply-manual) dan {@link #diskonManualList} (listing
+	 * promo manual yang eligible), supaya query+row-mapping tidak dobel.
+	 */
+	private static java.util.List<java.util.Map<String, Object>> loadAturanDiskonKandidat(java.sql.Connection conn,
+			Long tokoId, java.util.Set<Long> produkIdSet) throws Exception {
+		StringBuilder inKlausa = new StringBuilder();
+		for (Long pid : produkIdSet) {
+			if (inKlausa.length() > 0) {
+				inKlausa.append(',');
+			}
+			inKlausa.append(pid);
+		}
+
+		java.util.List<java.util.Map<String, Object>> rules = new java.util.ArrayList<java.util.Map<String, Object>>();
+		java.sql.PreparedStatement psRule = conn.prepareStatement(
+				"SELECT id, produk, toko, COALESCE(berlaku_semua_member,false), jenis_anggota, tipe_anggota, "
+						+ "persentase, maksimal_potongan, nominal, COALESCE(potongan_langsung,true), "
+						+ "COALESCE(berlaku_per_hari_dan_per_toko,false), hari_aktif, COALESCE(aktivasi_manual,false), "
+						+ "nama_aturan, keterangan FROM koperasi.aturan_diskon "
+						+ "WHERE aktif = true AND (produk IS NULL OR produk IN (" + inKlausa + ")) "
+						+ "AND (toko IS NULL OR toko = ?) "
+						+ "AND (tanggal_mulai IS NULL OR tanggal_mulai <= now()) "
+						+ "AND (tanggal_selesai IS NULL OR tanggal_selesai >= now()) ORDER BY id ASC");
+		psRule.setLong(1, tokoId);
+		java.sql.ResultSet rsRule = psRule.executeQuery();
+		while (rsRule.next()) {
+			java.util.Map<String, Object> r = new java.util.HashMap<String, Object>();
+			r.put("id", rsRule.getLong(1));
+			long produkRaw = rsRule.getLong(2);
+			r.put("produk", rsRule.wasNull() ? null : Long.valueOf(produkRaw));
+			long tokoRule = rsRule.getLong(3);
+			r.put("toko", rsRule.wasNull() ? null : Long.valueOf(tokoRule));
+			r.put("berlakuSemuaMember", rsRule.getBoolean(4));
+			long jenisRule = rsRule.getLong(5);
+			r.put("jenisAnggota", rsRule.wasNull() ? null : Long.valueOf(jenisRule));
+			long tipeRule = rsRule.getLong(6);
+			r.put("tipeAnggota", rsRule.wasNull() ? null : Long.valueOf(tipeRule));
+			r.put("persentase", rsRule.getDouble(7));
+			r.put("maksimalPotongan", rsRule.getDouble(8));
+			r.put("nominal", rsRule.getDouble(9));
+			r.put("potonganLangsung", rsRule.getBoolean(10));
+			r.put("berlakuPerHariDanPerToko", rsRule.getBoolean(11));
+			r.put("hariAktif", rsRule.getString(12));
+			r.put("aktivasiManual", rsRule.getBoolean(13));
+			r.put("namaAturan", rsRule.getString(14));
+			r.put("keterangan", rsRule.getString(15));
+			r.put("terpakaiHariIni", Double.valueOf(0d));
+			r.put("terpakaiDiKeranjang", Double.valueOf(0d));
+			rules.add(r);
+		}
+		rsRule.close();
+		psRule.close();
+		return rules;
+	}
+
+	/**
+	 * Cek kelayakan SATU aturan (produk/toko/hari/member) untuk satu baris item -- TIDAK termasuk
+	 * cek {@code aktivasiManual} (itu keputusan si PEMANGGIL: auto-apply skip yang manual, picker
+	 * manual justru HANYA ambil yang manual). Dipakai bersama oleh jalur auto-apply, jalur
+	 * apply-satu-aturan-terpilih, dan {@link #diskonManualList}.
+	 */
+	private static boolean aturanEligibleUntukItem(java.util.Map<String, Object> r, Long produkId, Long tokoId,
+			Long memberId, Long memberJenis, Long memberTipe) {
+		Object ruleProduk = r.get("produk");
+		if (ruleProduk != null && !ruleProduk.equals(produkId)) {
+			return false;
+		}
+		Long tokoRule = (Long) r.get("toko");
+		if (tokoRule != null && !tokoRule.equals(tokoId)) {
+			return false;
+		}
+		if (!ais.common.HariAktifUtil.aktifPadaHari((String) r.get("hariAktif"), new java.util.Date())) {
+			return false;
+		}
+		boolean semuaMember = Boolean.TRUE.equals(r.get("berlakuSemuaMember"));
+		if (!semuaMember) {
+			if (memberId == null) {
+				return false;
+			}
+			Long jenisRule = (Long) r.get("jenisAnggota");
+			if (jenisRule != null && !jenisRule.equals(memberJenis)) {
+				return false;
+			}
+			Long tipeRule = (Long) r.get("tipeAnggota");
+			if (tipeRule != null && !tipeRule.equals(memberTipe)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * @param hanyaAturanId bila {@code null} (jalur normal/auto-apply): aturan {@code
+	 *                      aktivasiManual=true} DIKECUALIKAN, ambil aturan pertama yang eligible per
+	 *                      baris. Bila DIISI (kasir sudah pilih 1 promo manual lewat picker, lihat
+	 *                      {@link #diskonManualList}): HANYA hitung aturan dgn id itu (terlepas dari
+	 *                      flag {@code aktivasiManual}-nya), pakai mesin hitung yang SAMA PERSIS
+	 *                      (persentase/nominal/batas maksimal/kumulatif per-hari).
+	 */
+	private static JSONArray evaluasiDiskonItems(java.sql.Connection conn, Long tokoId, Long memberId,
+			JSONArray items, Long hanyaAturanId) throws Exception {
 		{
 			java.util.LinkedHashSet<Long> produkIdSet = new java.util.LinkedHashSet<Long>();
 			for (int i = 0; i < items.length(); i++) {
@@ -9782,47 +9989,8 @@ public class KantinHelper {
 			if (produkIdSet.isEmpty()) {
 				return new JSONArray();
 			}
-			StringBuilder inKlausa = new StringBuilder();
-			for (Long pid : produkIdSet) {
-				if (inKlausa.length() > 0) {
-					inKlausa.append(',');
-				}
-				inKlausa.append(pid);
-			}
 
-			java.util.List<java.util.Map<String, Object>> rules = new java.util.ArrayList<java.util.Map<String, Object>>();
-			java.sql.PreparedStatement psRule = conn.prepareStatement(
-					"SELECT id, produk, toko, COALESCE(berlaku_semua_member,false), jenis_anggota, tipe_anggota, "
-							+ "persentase, maksimal_potongan, nominal, COALESCE(potongan_langsung,true), "
-							+ "COALESCE(berlaku_per_hari_dan_per_toko,false), hari_aktif FROM koperasi.aturan_diskon "
-							+ "WHERE aktif = true AND produk IN (" + inKlausa + ") AND (toko IS NULL OR toko = ?) "
-							+ "AND (tanggal_mulai IS NULL OR tanggal_mulai <= now()) "
-							+ "AND (tanggal_selesai IS NULL OR tanggal_selesai >= now()) ORDER BY id ASC");
-			psRule.setLong(1, tokoId);
-			java.sql.ResultSet rsRule = psRule.executeQuery();
-			while (rsRule.next()) {
-				java.util.Map<String, Object> r = new java.util.HashMap<String, Object>();
-				r.put("id", rsRule.getLong(1));
-				r.put("produk", rsRule.getLong(2));
-				long tokoRule = rsRule.getLong(3);
-				r.put("toko", rsRule.wasNull() ? null : Long.valueOf(tokoRule));
-				r.put("berlakuSemuaMember", rsRule.getBoolean(4));
-				long jenisRule = rsRule.getLong(5);
-				r.put("jenisAnggota", rsRule.wasNull() ? null : Long.valueOf(jenisRule));
-				long tipeRule = rsRule.getLong(6);
-				r.put("tipeAnggota", rsRule.wasNull() ? null : Long.valueOf(tipeRule));
-				r.put("persentase", rsRule.getDouble(7));
-				r.put("maksimalPotongan", rsRule.getDouble(8));
-				r.put("nominal", rsRule.getDouble(9));
-				r.put("potonganLangsung", rsRule.getBoolean(10));
-				r.put("berlakuPerHariDanPerToko", rsRule.getBoolean(11));
-				r.put("hariAktif", rsRule.getString(12));
-				r.put("terpakaiHariIni", Double.valueOf(0d));
-				r.put("terpakaiDiKeranjang", Double.valueOf(0d));
-				rules.add(r);
-			}
-			rsRule.close();
-			psRule.close();
+			java.util.List<java.util.Map<String, Object>> rules = loadAturanDiskonKandidat(conn, tokoId, produkIdSet);
 
 			Long memberJenis = null;
 			Long memberTipe = null;
@@ -9880,29 +10048,16 @@ public class KantinHelper {
 
 				java.util.Map<String, Object> applied = null;
 				for (java.util.Map<String, Object> r : rules) {
-					if (produkId == null || !produkId.equals(r.get("produk"))) {
-						continue;
-					}
-					Long tokoRule = (Long) r.get("toko");
-					if (tokoRule != null && !tokoRule.equals(tokoId)) {
-						continue;
-					}
-					if (!ais.common.HariAktifUtil.aktifPadaHari((String) r.get("hariAktif"), new java.util.Date())) {
-						continue;
-					}
-					boolean semuaMember = Boolean.TRUE.equals(r.get("berlakuSemuaMember"));
-					if (!semuaMember) {
-						if (memberId == null) {
+					if (hanyaAturanId != null) {
+						if (!hanyaAturanId.equals(r.get("id"))) {
 							continue;
 						}
-						Long jenisRule = (Long) r.get("jenisAnggota");
-						if (jenisRule != null && !jenisRule.equals(memberJenis)) {
-							continue;
-						}
-						Long tipeRule = (Long) r.get("tipeAnggota");
-						if (tipeRule != null && !tipeRule.equals(memberTipe)) {
-							continue;
-						}
+					} else if (Boolean.TRUE.equals(r.get("aktivasiManual"))) {
+						continue; // dikecualikan dari auto-apply -- hanya aktif lewat picker manual
+					}
+					if (produkId == null || !aturanEligibleUntukItem(r, produkId, tokoId, memberId, memberJenis,
+							memberTipe)) {
+						continue;
 					}
 					applied = r;
 					break;

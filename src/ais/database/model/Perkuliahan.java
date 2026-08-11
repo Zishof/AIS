@@ -2392,6 +2392,40 @@ public class Perkuliahan extends VOPembelajaran {
 		return detailperkuliahansTemp;
 	}
 
+	/**
+	 * Memeriksa peserta perkuliahan langsung ke tabel detailperkuliahan.
+	 *
+	 * Jalur ini sengaja tidak membaca flag/file cache peserta karena dipakai pada
+	 * validasi transaksional seperti Absen Online. KRS yang baru disetujui harus
+	 * langsung dikenali tanpa menunggu tombol sinkronisasi atau refresh cache.
+	 */
+	public boolean apakahMahasiswaPesertaDisetujuiLangsung(Mahasiswa mahasiswa) {
+		if (mahasiswa == null || mahasiswa.getId() == null || getId() == null) {
+			return false;
+		}
+
+		Perkuliahan perkuliahanPeserta = getPerkuliahan_paralel() == null ? this : getPerkuliahan_paralel();
+		if (perkuliahanPeserta.getId() == null) {
+			return false;
+		}
+		Session session = null;
+		try {
+			session = HibernateUtil.openSession();
+			Number jumlah = (Number) session.createQuery("select count(dp.id) from Detailperkuliahan dp "
+					+ "where dp.perkuliahan.id = :perkuliahanId and dp.mahasiswa.id = :mahasiswaId "
+					+ "and dp.persetujuan = :persetujuan")
+					.setLong("perkuliahanId", perkuliahanPeserta.getId().longValue())
+					.setLong("mahasiswaId", mahasiswa.getId().longValue())
+					.setInteger("persetujuan", Detailperkuliahan.DISETUJUI.intValue()).uniqueResult();
+			return jumlah != null && jumlah.longValue() > 0L;
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+			return false;
+		} finally {
+			HibernateUtil.closeOpenedSessionQuietly(session);
+		}
+	}
+
 	@SuppressWarnings("unchecked")
 	public Collection<Long> ambilMahasiswaId(boolean refresh) {
 

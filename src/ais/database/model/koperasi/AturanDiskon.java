@@ -40,7 +40,7 @@ public class AturanDiskon extends VoKunci {
 	private String keterangan;
 
 	// --- 1. TARGET PRODUK & TOKO ---
-	private Produk produk; // WAJIB: Produk apa yang didiskon
+	private Produk produk; // OPSIONAL: Jika null, berarti berlaku untuk SEMUA produk
 	private Toko toko; // OPSIONAL: Jika null, berarti berlaku di semua toko/kios
 
 	// --- 2. TARGET MEMBER ---
@@ -63,6 +63,10 @@ public class AturanDiskon extends VoKunci {
 	private Date tanggalSelesai;
 	private String hariAktif; // CSV hari ISO weekday (1=Senin..7=Minggu); null/kosong = semua hari
 	private Boolean aktif;
+
+	// TRUE = tidak auto-terapkan di checkout, kasir wajib pilih manual lewat picker promo.
+	// null/false = perilaku default (auto-apply, aturan pertama yang cocok langsung dipakai).
+	private Boolean aktivasiManual;
 
 	private String oleh;
 	private String olehId;
@@ -140,9 +144,9 @@ public class AturanDiskon extends VoKunci {
 		this.keterangan = keterangan;
 	}
 
-	// Relasi Produk (WAJIB)
+	// Relasi Produk (OPSIONAL -- null = berlaku semua produk)
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
-	@JoinColumn(name = "produk", nullable = false)
+	@JoinColumn(name = "produk", nullable = true)
 	public Produk getProduk() {
 		produk = check(produk);
 		return produk;
@@ -278,6 +282,15 @@ public class AturanDiskon extends VoKunci {
 
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
+	}
+
+	@Column(name = "aktivasi_manual")
+	public Boolean getAktivasiManual() {
+		return aktivasiManual == null ? false : aktivasiManual;
+	}
+
+	public void setAktivasiManual(Boolean aktivasiManual) {
+		this.aktivasiManual = aktivasiManual;
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)

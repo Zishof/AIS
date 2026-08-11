@@ -9,11 +9,13 @@ import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
+import org.zkoss.zul.Button;
 import org.zkoss.zul.Checkbox;
 import org.zkoss.zul.Combobox;
 import org.zkoss.zul.Datebox;
 import org.zkoss.zul.Div;
 import org.zkoss.zul.Grid;
+import org.zkoss.zul.Hbox;
 import org.zkoss.zul.Label;
 import org.zkoss.zul.Row;
 import org.zkoss.zul.Rows;
@@ -67,6 +69,7 @@ public class AturanDiskonAction extends GenericCrudAction<AturanDiskon> {
     private MyDoublebox nominal;
     private Datebox tglMulai;
     private Datebox tglSelesai;
+    private Checkbox[] chkHari; // gap-closure "Hari Aktif" -- indeks 0..6 = ISO weekday 1..7 (Senin..Minggu)
 
     // Cache lingkup toko (untuk pedagang)
     private Toko scopeTokoCache;
@@ -177,13 +180,13 @@ public class AturanDiskonAction extends GenericCrudAction<AturanDiskon> {
         produk.setWidth("100%");
         produk.setReadonly(true);
         if (st != null) {
-            Common.insertCombo(produk, "nama", Produk.class, Restrictions.eq("aktif", true),
-                    Restrictions.eq("toko", st));
+            Common.insertComboDanSemua(produk, "nama", Produk.class,
+                    Restrictions.and(Restrictions.eq("aktif", true), Restrictions.eq("toko", st)));
         } else {
-            Common.insertCombo(produk, "nama", Produk.class, Restrictions.eq("aktif", true));
+            Common.insertComboDanSemua(produk, "nama", Produk.class, Restrictions.eq("aktif", true));
         }
         Common.selectComboItem(produk, ad.getProduk());
-        fb.addRow("Produk *", produk, "Barang yang mendapat diskon");
+        fb.addRow("Produk", produk, "Kosongkan (Semua) berarti berlaku untuk seluruh produk");
 
         toko = new Combobox();
         toko.setWidth("100%");
@@ -249,6 +252,36 @@ public class AturanDiskonAction extends GenericCrudAction<AturanDiskon> {
         tglSelesai.setWidth("100%");
         fb.addRow("Selesai Berlaku", tglSelesai, "Kosongkan = tanpa batas waktu");
 
+        String[] labelHari = { "Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min" };
+        java.util.Set<String> hariAktifTerpilih = new java.util.HashSet<String>();
+        if (ad.getHariAktif() != null) {
+            for (String s : ad.getHariAktif().split(",")) {
+                if (!s.trim().isEmpty()) {
+                    hariAktifTerpilih.add(s.trim());
+                }
+            }
+        }
+        Hbox hariBox = new Hbox();
+        hariBox.setSpacing("6px");
+        chkHari = new Checkbox[7];
+        for (int i = 0; i < 7; i++) {
+            Checkbox c = new Checkbox(labelHari[i]);
+            c.setChecked(hariAktifTerpilih.contains(String.valueOf(i + 1)));
+            c.setParent(hariBox);
+            chkHari[i] = c;
+        }
+        Button btnSemuaHari = new Button("Pilih Semua Hari");
+        btnSemuaHari.addEventListener("onClick", new EventListener() {
+            @Override
+            public void onEvent(Event event) throws Exception {
+                for (Checkbox c : chkHari) {
+                    c.setChecked(false);
+                }
+            }
+        });
+        btnSemuaHari.setParent(hariBox);
+        fb.addRow("Hari Aktif", hariBox, "Kosongkan semua = berlaku semua hari");
+
         keterangan = new org.zkoss.zul.Textbox(ad.getKeterangan());
         keterangan.setWidth("100%");
         keterangan.setRows(3);
@@ -297,12 +330,6 @@ public class AturanDiskonAction extends GenericCrudAction<AturanDiskon> {
                     MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
             return false;
         }
-        if (produk.getSelectedItem() == null || produk.getSelectedItem().getValue() == null) {
-            MyMessageboxConfig.show("Mohon maaf, produk yang akan didiskon belum dipilih. Langkah yang dapat dilakukan: (1) pilih produk dari daftar yang tersedia; (2) ulangi penyimpanan.", "Peringatan",
-                    MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
-            return false;
-        }
-
         Session session = HibernateUtil.currentSession();
         AturanDiskon ad = currentEntity;
         if (ad.getId() != null) {
@@ -312,7 +339,7 @@ public class AturanDiskonAction extends GenericCrudAction<AturanDiskon> {
 
         ad.setNamaAturan(namaAturan.getValue());
         ad.setKeterangan(keterangan.getValue());
-        ad.setProduk((Produk) produk.getSelectedItem().getValue());
+        ad.setProduk((Produk) (produk.getSelectedItem() == null ? null : produk.getSelectedItem().getValue()));
 
         Toko st = scopeToko();
         if (st != null) {
@@ -333,6 +360,16 @@ public class AturanDiskonAction extends GenericCrudAction<AturanDiskon> {
         ad.setBerlakuPerHariDanPerToko(chkBatas1x.isChecked());
         ad.setTanggalMulai(tglMulai.getValue());
         ad.setTanggalSelesai(tglSelesai.getValue());
+        StringBuilder hariCsv = new StringBuilder();
+        for (int i = 0; i < chkHari.length; i++) {
+            if (chkHari[i].isChecked()) {
+                if (hariCsv.length() > 0) {
+                    hariCsv.append(',');
+                }
+                hariCsv.append(i + 1);
+            }
+        }
+        ad.setHariAktif(hariCsv.length() == 0 ? null : hariCsv.toString());
         if (ad.getId() == null) {
             ad.setAktif(true);
         }
@@ -350,7 +387,7 @@ public class AturanDiskonAction extends GenericCrudAction<AturanDiskon> {
             final AturanDiskon ad = (AturanDiskon) arg1;
 
             RevisiHelper.createNewRevisi(AturanDiskon.class, ad, ad.getNamaAturan()).setParent(arg0);
-            new Label(ad.getProduk() == null ? "" : ad.getProduk().getNama()).setParent(arg0);
+            new Label(ad.getProduk() == null ? "Semua Produk" : ad.getProduk().getNama()).setParent(arg0);
             new Label(ad.getToko() == null ? "Semua Toko" : ad.getToko().getNama()).setParent(arg0);
             new Label(deskripsiDiskon(ad)).setParent(arg0);
             new Label(deskripsiPeriode(ad)).setParent(arg0);

@@ -199,6 +199,7 @@ public class PosKantinAction extends GenericAutowireComposer {
         Date tglMulai;
         Date tglSelesai;
         String hariAktif; // gap-closure "Promo Pilih Hari" -- lihat ais.common.HariAktifUtil
+        boolean aktivasiManual; // TRUE = dikecualikan dari auto-apply, hanya lewat picker "Promo" manual
         // State pembatasan "berlaku per hari & per toko": pemakaian hari ini (dari DB)
         // dan akumulasi sementara di keranjang saat ini.
         double terpakaiHariIni;
@@ -429,7 +430,8 @@ public class PosKantinAction extends GenericAutowireComposer {
         try {
             String sql = "SELECT id, produk, toko, jenis_anggota, tipe_anggota, berlaku_semua_member, "
                     + "persentase, maksimal_potongan, nominal, potongan_langsung, berlaku_per_hari_dan_per_toko, "
-                    + "tanggal_mulai, tanggal_selesai, hari_aktif FROM koperasi.aturan_diskon WHERE aktif = true";
+                    + "tanggal_mulai, tanggal_selesai, hari_aktif, aktivasi_manual FROM koperasi.aturan_diskon "
+                    + "WHERE aktif = true";
             for (Object[] r : rows(sql)) {
                 Rule x = new Rule();
                 x.aturanId = lng(r[0]);
@@ -446,6 +448,7 @@ public class PosKantinAction extends GenericAutowireComposer {
                 x.tglMulai = date(r[11]);
                 x.tglSelesai = date(r[12]);
                 x.hariAktif = str(r[13]);
+                x.aktivasiManual = bool(r[14]);
                 list.add(x);
             }
         } catch (Exception ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/koperasi/PosKantinAction.java:364");
@@ -1733,6 +1736,9 @@ public class PosKantinAction extends GenericAutowireComposer {
         Date now = new Date();
         Rule applied = null;
         for (Rule r : rules) {
+            if (r.aktivasiManual) {
+                continue; // dikecualikan dari auto-apply -- ZK belum punya picker "Promo" manual
+            }
             if (r.produkId != null && !r.produkId.equals(it.id)) {
                 continue;
             }

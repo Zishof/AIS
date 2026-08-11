@@ -252,15 +252,29 @@
     buildFormTabs(container);
     if (meta.photoEnabled) buildPhotoEditor(container, rowData, editing);
     formFields().forEach(function (field) {
-      var wrap = node('div', {'class': 'gc-field' + (field.editorType === 'textarea' ? ' gc-field-wide' : '')}), label = node('label', {'for': 'gc-' + field.property}, field.label + (field.required ? ' *' : '')), input, dataList = null;
+      var wrap = node('div', {'class': 'gc-field' + (field.editorType === 'textarea' ? ' gc-field-wide' : '')}), label = node('label', {'for': 'gc-' + field.property}, field.label + (field.required ? ' *' : '')), input, relationUi = null;
       if (field.editorType === 'textarea') input = node('textarea', {rows: '4'});
       else if (field.editorType === 'checkbox') input = node('input', {type: 'checkbox'});
       else if (field.editorType === 'select') {
         input = node('select'); input.appendChild(node('option', {value: ''}, '— Pilih —'));
         (field.enumValues || []).forEach(function (value) { input.appendChild(node('option', {value: value}, value)); });
       } else if (field.editorType === 'relation') {
-        dataList = node('datalist', {id: 'gc-list-' + field.property});
-        input = node('input', {type: 'search', list: dataList.id, autocomplete: 'off', placeholder: 'Ketik ID atau cari pilihan…'});
+        input = node('input', {type: 'hidden', 'data-gc-relation-value': field.property});
+        var relationShell = node('div', {'class': 'gc-relation-picker', 'data-relation-property': field.property});
+        var relationControl = node('div', {'class': 'gc-relation-control'});
+        var relationSearch = node('input', {type: 'search', autocomplete: 'off', role: 'combobox',
+          'aria-autocomplete': 'list', 'aria-expanded': 'false', placeholder: 'Cari dan pilih ' + field.label + '…',
+          'data-gc-relation-display': field.property});
+        var relationToggle = node('button', {type: 'button', 'class': 'gc-relation-toggle',
+          'aria-label': 'Buka pilihan ' + field.label}, '⌄');
+        var relationPanel = node('div', {'class': 'gc-relation-panel', role: 'listbox', hidden: 'hidden'});
+        var relationResults = node('div', {'class': 'gc-relation-results'});
+        var relationStatus = node('small', {'class': 'gc-relation-status'}, 'Ketik untuk mencari pilihan.');
+        relationControl.appendChild(relationSearch); relationControl.appendChild(relationToggle);
+        relationPanel.appendChild(relationResults); relationPanel.appendChild(relationStatus);
+        relationShell.appendChild(input); relationShell.appendChild(relationControl); relationShell.appendChild(relationPanel);
+        relationUi = {shell: relationShell, search: relationSearch, toggle: relationToggle,
+          panel: relationPanel, results: relationResults, status: relationStatus};
       } else input = node('input', {type: ['number', 'date', 'time', 'datetime-local'].indexOf(field.editorType) >= 0 ? field.editorType : 'text'});
       input.id = 'gc-' + field.property; input.name = field.property;
       input.required = !!field.required;
@@ -270,8 +284,17 @@
         else if (input.type === 'datetime-local') { var timestamp = new Date(rowData[field.property]); if (!isNaN(timestamp.getTime())) input.value = timestamp.getFullYear() + '-' + String(timestamp.getMonth() + 1).replace(/^(\d)$/, '0$1') + '-' + String(timestamp.getDate()).replace(/^(\d)$/, '0$1') + 'T' + String(timestamp.getHours()).replace(/^(\d)$/, '0$1') + ':' + String(timestamp.getMinutes()).replace(/^(\d)$/, '0$1'); }
         else input.value = String(rowData[field.property]);
       }
-      if (editing && !meta.canUpdate) input.disabled = true; input.addEventListener('input', function () { state.dirty = true; }); wrap.appendChild(label); wrap.appendChild(input); if (dataList) wrap.appendChild(dataList); container.appendChild(wrap);
-      if (field.editorType === 'relation' && !input.disabled) bindRelationLookup(field, input, dataList, rowData);
+      if (relationUi && rowData && rowData[field.property] !== null && rowData[field.property] !== undefined) {
+        relationUi.search.value = String(rowData[field.property + '__label'] || rowData[field.property]);
+      }
+      if (relationUi) {
+        relationUi.search.id = 'gc-' + field.property + '-display'; label.setAttribute('for', relationUi.search.id);
+        relationUi.search.required = !!field.required;
+      }
+      if (editing && !meta.canUpdate) { input.disabled = true; if (relationUi) { relationUi.search.disabled = true; relationUi.toggle.disabled = true; } }
+      if (!relationUi) input.addEventListener('input', function () { state.dirty = true; });
+      wrap.appendChild(label); wrap.appendChild(relationUi ? relationUi.shell : input); container.appendChild(wrap);
+      if (relationUi && !input.disabled) bindRelationLookup(field, input, relationUi, rowData);
     });
     query('form-error').hidden = true; query('overlay').hidden = false; query('drawer').hidden = false; var first = container.querySelector('input,textarea,select'); if (first) first.focus();
   }
@@ -294,23 +317,73 @@
     if (editing && meta.canUpdate) { var remove = node('button', {type: 'button', 'class': 'gc-btn'}, 'Hapus Foto'); remove.addEventListener('click', function () { if (window.confirm('Hapus foto mahasiswa ini?')) removePhoto(state.editing); }); body.appendChild(remove); }
     wrap.appendChild(label); wrap.appendChild(body); container.appendChild(wrap);
   }
-  function bindRelationLookup(field, input, dataList, rowData) {
-    var relationTimer = null, currentId = rowData ? rowData[field.property] : null, currentLabel = rowData ? rowData[field.property + '__label'] : null;
-    function addOption(id, label) {
-      if (id === null || id === undefined) return;
-      var option = node('option', {value: String(id)}, label || String(id)); dataList.appendChild(option);
+  function bindRelationLookup(field, valueInput, picker, rowData) {
+    var relationTimer = null, requestNumber = 0, loaded = false;
+    var threshold = Math.max(1, Math.min(parseInt(meta.lookupThreshold || 50, 10), 50));
+    var currentId = rowData ? rowData[field.property] : null;
+    var currentLabel = rowData ? rowData[field.property + '__label'] : null;
+    var selectedLabel = currentId === null || currentId === undefined ? '' : String(currentLabel || currentId);
+    if (currentId !== null && currentId !== undefined) valueInput.value = String(currentId);
+    picker.search.value = selectedLabel;
+
+    function setOpen(open) {
+      picker.panel.hidden = !open; picker.search.setAttribute('aria-expanded', open ? 'true' : 'false');
+      picker.shell.classList.toggle('open', open);
+    }
+    function selectItem(item) {
+      valueInput.value = item && item.id !== null && item.id !== undefined ? String(item.id) : '';
+      selectedLabel = item ? String(item.label || item.id) : '';
+      picker.search.value = selectedLabel; picker.search.setCustomValidity('');
+      state.dirty = true; setOpen(false);
+    }
+    function renderOptions(data) {
+      var items = data.items || [], total = parseInt(data.total || 0, 10), identifier = data.identifierProperty || 'id';
+      picker.results.textContent = '';
+      if (!field.required) {
+        var clear = node('button', {type: 'button', 'class': 'gc-relation-option clear'}, '— Kosongkan pilihan —');
+        clear.addEventListener('click', function () { selectItem(null); }); picker.results.appendChild(clear);
+      }
+      items.forEach(function (item) {
+        var option = node('button', {type: 'button', 'class': 'gc-relation-option', role: 'option'});
+        option.appendChild(node('strong', null, String(item.label || item.id)));
+        if (String(item.label || '') !== String(item.id)) option.appendChild(node('span', null, identifier + ': ' + item.id));
+        option.addEventListener('click', function () { selectItem(item); }); picker.results.appendChild(option);
+      });
+      if (!items.length) picker.results.appendChild(node('div', {'class': 'gc-relation-empty'}, 'Pilihan tidak ditemukan.'));
+      var large = total > threshold; picker.shell.classList.toggle('gc-relation-large', large);
+      picker.status.textContent = large
+        ? total + ' data tersedia — ketik nama/kode/ID untuk mempersempit pencarian.'
+        : total + ' pilihan tersedia.';
+      loaded = true; setOpen(true);
     }
     function loadOptions(search) {
-      api('relation_lookup', {field: field.property, q: search || '', page: 1, pageSize: 30}).then(function (data) {
-        dataList.textContent = ''; if (currentId !== null && currentId !== undefined) addOption(currentId, currentLabel);
-        (data.items || []).forEach(function (item) { addOption(item.id, item.label); });
-      }).catch(function (error) { notify(error.message); });
+      var sequence = ++requestNumber; picker.status.textContent = 'Memuat pilihan…'; setOpen(true);
+      api('relation_lookup', {field: field.property, q: search || '', page: 1, pageSize: threshold}).then(function (data) {
+        if (sequence === requestNumber) renderOptions(data);
+      }).catch(function (error) { if (sequence === requestNumber) { picker.status.textContent = error.message; notify(error.message); } });
     }
-    if (currentId !== null && currentId !== undefined) addOption(currentId, currentLabel);
-    input.addEventListener('input', function () {
-      window.clearTimeout(relationTimer); relationTimer = window.setTimeout(function () { loadOptions(input.value); }, 300);
+    picker.search.addEventListener('focus', function () { if (!loaded) loadOptions(''); else setOpen(true); });
+    picker.search.addEventListener('input', function () {
+      state.dirty = true;
+      if (picker.search.value !== selectedLabel) valueInput.value = '';
+      picker.search.setCustomValidity(''); window.clearTimeout(relationTimer);
+      relationTimer = window.setTimeout(function () { loadOptions(picker.search.value); }, 300);
     });
-    loadOptions('');
+    picker.search.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') { setOpen(false); return; }
+      if (event.key === 'ArrowDown') {
+        var first = picker.results.querySelector('.gc-relation-option:not(.clear)');
+        if (first) { event.preventDefault(); first.focus(); }
+      }
+    });
+    picker.search.addEventListener('blur', function (event) {
+      var next = event.relatedTarget;
+      if (!next || !picker.shell.contains(next)) setOpen(false);
+    });
+    picker.toggle.addEventListener('click', function () {
+      if (picker.panel.hidden) { picker.search.focus(); if (!loaded) loadOptions(''); else setOpen(true); }
+      else setOpen(false);
+    });
   }
   function openExisting(id) { api('get', {id: id}).then(function (rowData) { state.editing = id; state.version = meta.versionProperty ? rowData[meta.versionProperty] : null; openDrawer(rowData); }).catch(function (error) { notify(error.message); }); }
   function closeAll(force) {
@@ -319,8 +392,26 @@
   }
   function save(event) {
     event.preventDefault(); if (state.editing !== null && !meta.canUpdate) return;
-    var params = {nui_csrf: meta.csrf}, form = query('form');
-    formFields().forEach(function (field) { var input = form.elements[field.property]; if (!input || input.disabled) return; params[field.property] = input.type === 'checkbox' ? (input.checked ? 'true' : 'false') : input.value; });
+    var params = {nui_csrf: meta.csrf}, form = query('form'), relationErrors = [], firstInvalid = null;
+    if (!form.checkValidity()) { if (form.reportValidity) form.reportValidity(); return; }
+    formFields().forEach(function (field) {
+      var input = form.elements[field.property]; if (!input || input.disabled) return;
+      if (field.editorType === 'relation') {
+        var display = input.parentNode.querySelector('[data-gc-relation-display]');
+        var typed = display ? display.value.replace(/^\s+|\s+$/g, '') : '';
+        if ((field.required || typed.length > 0) && !input.value) {
+          relationErrors.push(field.label + ': pilih satu data dari daftar hasil pencarian.');
+          if (display) { display.setCustomValidity('Pilih data dari daftar hasil pencarian.'); if (!firstInvalid) firstInvalid = display; }
+          return;
+        }
+      }
+      params[field.property] = input.type === 'checkbox' ? (input.checked ? 'true' : 'false') : input.value;
+    });
+    if (relationErrors.length) {
+      var invalidBox = query('form-error'); invalidBox.textContent = relationErrors.join(' • '); invalidBox.hidden = false;
+      if (firstInvalid) { firstInvalid.focus(); if (firstInvalid.reportValidity) firstInvalid.reportValidity(); }
+      return;
+    }
     var action = state.editing === null ? 'create' : 'update'; if (state.editing !== null) { params.id = state.editing; if (meta.versionProperty) params.version = state.version; }
     api(action, params, 'POST').then(function (result) { var id = state.editing !== null ? state.editing : (result && result.id); return state.photoFile ? uploadPhoto(id, state.photoFile) : null; }).then(function () { closeAll(true); return loadList(); }).catch(function (error) {
       var box = query('form-error'), messages = []; box.textContent = error.message;
