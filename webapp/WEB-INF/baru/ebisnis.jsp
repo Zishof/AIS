@@ -3014,9 +3014,14 @@ session.removeAttribute(EbisnisPublicServlet.SESSION_FLASH_JENIS);
                                     <i class="fas fa-store fa-3x text-primary mb-3"></i>
                                     <h4 class="fw-bold"><%= Common.getBahasaConfig("Pendaftar Baru") %></h4>
                                     <p class="text-secondary"><%= Common.getBahasaConfig("Daftarkan bisnis Anda dan mulai uji coba gratis 30 hari.") %></p>
-                                    <button type="button" class="btn btn-primary px-5 py-2 fw-bold" data-bs-toggle="modal" data-bs-target="#modalDaftarEbisnis">
+                                    <%-- P2 Pendaftaran Tenant: CTA daftar diarahkan ke wizard baru
+                                         Common.ROOT + "/pendaftaran" (multi-jenis-usaha + verifikasi email).
+                                         Modal #modalDaftarEbisnis lama dipertahankan di DOM utk kompatibilitas
+                                         tautan lama, tetapi submit aksi=daftar kini dijawab redirect ke wizard
+                                         (lihat EbisnisPublicServlet -- deprecation §4.5 opsi transisi). --%>
+                                    <a class="btn btn-primary px-5 py-2 fw-bold" href="<%= Common.ROOT %>/pendaftaran">
                                         <i class="fas fa-rocket me-2"></i><%= Common.getBahasaConfig("Daftar Sekarang") %>
-                                    </button>
+                                    </a>
                                 </div>
                             </div>
                             <div class="col-md-5">

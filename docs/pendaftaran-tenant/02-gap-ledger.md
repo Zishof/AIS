@@ -25,6 +25,19 @@
 | G-19 | Backfill Pendaftar existing | — | HANYA akun self-service terbukti (passwordHash NOT NULL) diberi profile; jenisBisnis dikenal→map, tak dikenal→LAINNYA+raw; exception report CSV | AUDITED |
 | G-20 | Mode kompatibilitas LEGACY/HYBRID/TENANT_ONLY | Tidak ada | Konfigurasi default **LEGACY** (provisioning schema OFF — perilaku deployment existing tidak berubah diam-diam) | AUDITED |
 
+## Pembaruan status per fase
+
+- Setelah P1 (commit feecdedc): G-03/G-05/G-07(model)/G-08(model)/G-11(model)/G-12(model)/G-13(model)/G-14(model)/G-15(model) → **MIGRATION_DONE** (entity+mapping+seed; tabel tercipta hbm2ddl saat deploy).
+- Setelah P2: G-01 → **UI_DONE** (servlet+mapping+JSP wizard 8 langkah+status+verifikasi); G-02 → **BACKEND_DONE**
+  (submit transaksi tunggal, aktif=false eksplisit); G-04 → **BACKEND_DONE** (reservation INSERT unique + cek
+  benturan domain/registry/reservation/tbmuser/pedagang(COUNT>0)/pg_namespace/reserved-configurable);
+  G-07 → **BACKEND_DONE** (challenge+verify+resend+MailSender best-effort); G-08 → **BACKEND_DONE**;
+  G-09 → **BACKEND_DONE** (idempotency_key unique + replay balikan kode sama); G-10 → **SECURITY_DONE**
+  (CSRF+rate limit+honeypot+elapsed; CAPTCHA configurable = catatan); G-16 → **BACKEND_DONE** (jalur baru);
+  G-15 → **BACKEND_DONE** utk event submit/verify (event provisioning menyusul P4). Bridge aksi=daftar =
+  deprecation redirect (§4.5 opsi transisi, alasan consent — lihat 06-api-contract.md).
+- Belum tersentuh (fase berikut): G-06/G-18 (P5), G-11/G-12/G-13/G-14 sisi worker/logic (P4), G-17 (P6), G-19 (P4/P6).
+
 ## Catatan risiko lingkungan
 
 - **PostgreSQL versi deployment bisa 9.3** (memori insiden `to_regclass`): `SELECT ... FOR UPDATE SKIP LOCKED` (9.5+) TIDAK boleh jadi satu-satunya mekanisme lock worker → pakai `locked_by/locked_at/retry_at` + `FOR UPDATE` biasa + lease timeout.

@@ -923,6 +923,13 @@
 		<servlet-class>ais.action.servlet.EbisnisPublicServlet</servlet-class>
 	</servlet>
 	<servlet>
+		<description>Pendaftaran Tenant Baru eBisnis (wizard publik multi-jenis-usaha; link JSP memakai Common.ROOT + "/pendaftaran"). Lihat JavaDoc ais.action.servlet.PendaftaranTenantServlet.</description>
+		<display-name>PendaftaranTenant</display-name>
+		<servlet-name>PendaftaranTenant</servlet-name>
+		<servlet-class>ais.action.servlet.PendaftaranTenantServlet</servlet-class>
+		<load-on-startup>20</load-on-startup>
+	</servlet>
+	<servlet>
 		<description>
 		</description>
 		<display-name>kursus</display-name>
@@ -1739,6 +1746,10 @@
 	<servlet-mapping>
 		<servlet-name>EbisnisPublicServlet</servlet-name>
 		<url-pattern>/EbisnisPublic</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>PendaftaranTenant</servlet-name>
+		<url-pattern>/pendaftaran</url-pattern>
 	</servlet-mapping>
 	<servlet-mapping>
 		<servlet-name>DokuResponse</servlet-name>

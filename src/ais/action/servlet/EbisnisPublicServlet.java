@@ -73,25 +73,26 @@ public class EbisnisPublicServlet extends HttpServlet {
 		}
 
 		if ("daftar".equals(aksi)) {
-			HasilProses hasil = PendaftarPublicHelper.daftar(
-					request.getParameter("namaBisnis"),
-					request.getParameter("email"),
-					request.getParameter("telp"),
-					request.getParameter("password"),
-					request.getParameter("konfirmasiPassword"),
-					request.getParameter("negara"),
-					request.getParameter("provinsi"),
-					request.getParameter("kotaKabupaten"),
-					request.getParameter("kecamatan"),
-					request.getParameter("jenisBisnis"),
-					request.getParameter("alamat"),
-					request.getParameter("kontakPerson"),
-					request.getParameter("telpKontakPerson"));
-			terapkanHasil(session, hasil);
+			// DEPRECATED (P2 Pendaftaran Tenant, §4.5 opsi transisi): jalur ini TIDAK lagi
+			// menyimpan Pendaftar. Satu-satunya jalur pembuatan akun baru = wizard
+			// Common.ROOT + "/pendaftaran" -- form modal lama tidak memuat consent
+			// Syarat&Ketentuan/Privasi versioned, pilihan multi-jenis-usaha, maupun username
+			// tenant, sehingga "delegasi diam-diam" akan MEMALSUKAN consent yang tidak pernah
+			// dicentang pengguna (dilarang §14.5). Respons tetap kompatibel kontrak lama:
+			// AJAX menerima {status:"00", redirect:...} -> JS lama otomatis berpindah halaman.
+			String tujuanWizard = request.getContextPath() + "/pendaftaran";
 			if (ajax) {
-				tulisJson(response, jsonDariHasil(request, hasil));
+				JSONObject j = new JSONObject();
+				j.put("status", "00");
+				j.put("code", "REGISTRATION_MOVED");
+				j.put("description",
+						"Formulir pendaftaran telah diperbarui. Anda akan diarahkan ke halaman pendaftaran tenant baru.");
+				j.put("redirect", tujuanWizard);
+				tulisJson(response, j);
 				return;
 			}
+			response.sendRedirect(tujuanWizard);
+			return;
 		} else if ("login".equals(aksi)) {
 			HasilProses hasil = PendaftarPublicHelper.login(
 					request.getParameter("email"),
