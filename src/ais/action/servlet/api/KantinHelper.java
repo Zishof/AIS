@@ -6021,6 +6021,364 @@ public class KantinHelper {
 	}
 
 	/**
+	 * Gerbang akses fitur Screensaver Layar Pelanggan (menu Konfigurasi tab baru) -- SAMA persis
+	 * pola "admin ATAU supervisor toko" yang sudah dipakai {@code tokoProfilSimpan} (tab Profil
+	 * Toko di layar yang sama), bukan {@code bolehAksiCrud} granular (fitur ini murni pengaturan
+	 * tampilan mesin/toko, bukan data bisnis).
+	 */
+	private static boolean bolehKelolaScreensaver(Tbmuser tbmuser) {
+		ais.database.model.inventory.Pedagang pemanggil = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean adminGlobal = pemanggil == null;
+		boolean supervisor = pemanggil != null && Boolean.TRUE.equals(pemanggil.getSupervisor());
+		return adminGlobal || supervisor;
+	}
+
+	/**
+	 * Resolusi {@code toko_id} utk fitur Screensaver -- SAMA pola dgn {@code diskonSimpan}/
+	 * {@code pencairanDiskonList}: pedagang toko SELALU dikunci ke tokonya sendiri (IDOR-safe,
+	 * parameter klien diabaikan), admin/manager global bebas memilih ATAU mengosongkan (null =
+	 * lingkup semua toko -- HANYA valid utk query baca "list milik semua toko admin", bukan utk
+	 * upload/simpan yang WAJIB toko konkret).
+	 */
+	private static Long resolveTokoIdScreensaver(Tbmuser tbmuser, JSONObject request) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggil = tbmuser == null ? null : tbmuser.getPedagang();
+		if (pemanggil != null) {
+			return pemanggil.getToko() == null ? null : pemanggil.getToko().getId();
+		}
+		return (!request.isNull("toko_id") && !((request.get("toko_id") + "").trim().isEmpty()))
+				? Long.valueOf((request.get("toko_id") + "").trim())
+				: null;
+	}
+
+	/**
+	 * Daftar gambar slideshow screensaver Layar Pelanggan (utk layar kelola di Konfigurasi).
+	 * Query lewat {@code StreamingHibernateUtil} (tabel {@code layar_pelanggan_slide} ADA di DB
+	 * streaming, bukan utama -- lihat JavaDoc {@link ais.database.model.file.LayarPelangganSlide}).
+	 *
+	 * @param request payload: {@code toko_id} (admin saja, opsional -- pedagang toko selalu dikunci).
+	 */
+	public static void layarPelangganSlideList(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehKelolaScreensaver(tbmuser)) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat mengelola screensaver.");
+			return;
+		}
+		Long tokoId = resolveTokoIdScreensaver(tbmuser, request);
+		Session session = ais.database.hibernate.StreamingHibernateUtil.getInstance().openSession();
+		try {
+			org.hibernate.Criteria cq = session.createCriteria(ais.database.model.file.LayarPelangganSlide.class)
+					.addOrder(org.hibernate.criterion.Order.asc("urutan")).addOrder(org.hibernate.criterion.Order.asc("id"));
+			if (tokoId != null) cq.add(Restrictions.eq("tokoId", tokoId));
+			@SuppressWarnings("unchecked")
+			java.util.List<ais.database.model.file.LayarPelangganSlide> daftar = cq.list();
+			JSONArray arr = new JSONArray();
+			for (ais.database.model.file.LayarPelangganSlide s : daftar) {
+				JSONObject j = new JSONObject();
+				j.put("id", s.getId());
+				j.put("namaFile", s.getNamaFile() == null ? "" : s.getNamaFile());
+				j.put("tokoId", s.getTokoId() == null ? JSONObject.NULL : s.getTokoId());
+				j.put("idMesin", s.getIdMesin() == null ? JSONObject.NULL : s.getIdMesin());
+				j.put("urutan", s.getUrutan());
+				j.put("aktif", s.getAktif());
+				arr.put(j);
+			}
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+		} finally {
+			ais.database.hibernate.HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Unggah satu gambar slideshow screensaver -- payload gambar base64 (pola SAMA dgn
+	 * {@code impor_excel_produk} Flutter, satu-satunya presedan "kirim byte ke server lewat aksi
+	 * JSON" di codebase ini; tak ada endpoint multipart terpisah).
+	 *
+	 * @param request payload: {@code gambar_base64} (wajib), {@code nama_file} (wajib),
+	 *                {@code toko_id} (admin saja -- pedagang toko selalu dikunci; WAJIB resolve
+	 *                ke toko konkret, tidak boleh null), {@code id_mesin} (opsional -- kosong =
+	 *                tampil di SEMUA mesin toko ini; diisi = HANYA mesin dgn id itu, lihat
+	 *                JavaDoc entity), {@code urutan} (opsional, default di belakang daftar).
+	 */
+	public static void layarPelangganSlideUpload(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehKelolaScreensaver(tbmuser)) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat mengelola screensaver.");
+			return;
+		}
+		String base64 = request.optString("gambar_base64", "").trim();
+		String namaFile = request.optString("nama_file", "").trim();
+		if (base64.isEmpty() || namaFile.isEmpty()) {
+			hasil.put("status", "91");
+			hasil.put("description", "Gambar dan nama berkas wajib diisi.");
+			return;
+		}
+		Long tokoId = resolveTokoIdScreensaver(tbmuser, request);
+		if (tokoId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko wajib dipilih sebelum mengunggah gambar screensaver.");
+			return;
+		}
+		String idMesin = request.optString("id_mesin", "").trim();
+		Integer urutan = request.isNull("urutan") ? null : request.optInt("urutan", 0);
+
+		byte[] bytes;
+		try {
+			bytes = java.util.Base64.getDecoder().decode(base64);
+		} catch (IllegalArgumentException eb64) {
+			hasil.put("status", "91");
+			hasil.put("description", "Data gambar tidak valid (base64 gagal diurai).");
+			return;
+		}
+
+		Session session = ais.database.hibernate.StreamingHibernateUtil.getInstance().openSession();
+		try {
+			ais.database.model.file.LayarPelangganSlide s = new ais.database.model.file.LayarPelangganSlide();
+			s.setNamaFile(namaFile);
+			s.setTokoId(tokoId);
+			s.setIdMesin(idMesin.isEmpty() ? null : idMesin);
+			s.setUrutan(urutan);
+			s.setAktif(true);
+			s.setTanggalUpload(ais.ui.util.WaktuUtil.getDate());
+			s.setGambar(org.hibernate.Hibernate.createBlob(bytes));
+			session.beginTransaction();
+			session.save(s);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("id", s.getId());
+		} finally {
+			ais.database.hibernate.HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Ubah metadata satu slide (urutan/aktif/lingkup mesin) TANPA mengganti gambarnya --
+	 * dipisah dari {@link #layarPelangganSlideUpload} supaya reorder/toggle-aktif ringan (tak
+	 * perlu kirim ulang base64 gambar setiap kali).
+	 *
+	 * @param request payload: {@code id} (wajib), {@code urutan}, {@code aktif}, {@code id_mesin}
+	 *                (kosong string = berlaku semua mesin toko).
+	 */
+	public static void layarPelangganSlideUbah(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehKelolaScreensaver(tbmuser)) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat mengelola screensaver.");
+			return;
+		}
+		if (request.isNull("id")) {
+			hasil.put("status", "91");
+			hasil.put("description", "ID slide wajib diisi.");
+			return;
+		}
+		Long id = Long.valueOf((request.get("id") + "").trim());
+		Long tokoId = resolveTokoIdScreensaver(tbmuser, request);
+
+		Session session = ais.database.hibernate.StreamingHibernateUtil.getInstance().openSession();
+		try {
+			ais.database.model.file.LayarPelangganSlide s = (ais.database.model.file.LayarPelangganSlide) session
+					.get(ais.database.model.file.LayarPelangganSlide.class, id);
+			if (s == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Slide tidak ditemukan.");
+				return;
+			}
+			// Pedagang toko HANYA boleh mengubah slide milik tokonya sendiri (IDOR-safe).
+			if (tokoId != null && !tokoId.equals(s.getTokoId())) {
+				hasil.put("status", "91");
+				hasil.put("description", "Slide ini bukan milik toko Anda.");
+				return;
+			}
+			if (!request.isNull("urutan")) s.setUrutan(request.optInt("urutan", 0));
+			if (!request.isNull("aktif")) s.setAktif(request.optBoolean("aktif", true));
+			if (!request.isNull("id_mesin")) {
+				String idMesin = request.optString("id_mesin", "").trim();
+				s.setIdMesin(idMesin.isEmpty() ? null : idMesin);
+			}
+			session.beginTransaction();
+			session.saveOrUpdate(s);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+		} finally {
+			ais.database.hibernate.HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Hapus satu slide screensaver -- gerbang toko SAMA pola dgn {@link #layarPelangganSlideUbah}. */
+	public static void layarPelangganSlideHapus(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehKelolaScreensaver(tbmuser)) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat mengelola screensaver.");
+			return;
+		}
+		if (request.isNull("id")) {
+			hasil.put("status", "91");
+			hasil.put("description", "ID slide wajib diisi.");
+			return;
+		}
+		Long id = Long.valueOf((request.get("id") + "").trim());
+		Long tokoId = resolveTokoIdScreensaver(tbmuser, request);
+
+		Session session = ais.database.hibernate.StreamingHibernateUtil.getInstance().openSession();
+		try {
+			ais.database.model.file.LayarPelangganSlide s = (ais.database.model.file.LayarPelangganSlide) session
+					.get(ais.database.model.file.LayarPelangganSlide.class, id);
+			if (s == null) {
+				hasil.put("status", "00");
+				return;
+			}
+			if (tokoId != null && !tokoId.equals(s.getTokoId())) {
+				hasil.put("status", "91");
+				hasil.put("description", "Slide ini bukan milik toko Anda.");
+				return;
+			}
+			session.beginTransaction();
+			session.delete(s);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+		} finally {
+			ais.database.hibernate.HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Ambil pengaturan screensaver satu toko (get-or-default -- baris belum pernah dibuat = SEMUA
+	 * nilai default dikembalikan, {@code aktif=false} supaya fitur baru ini opt-in, bukan otomatis
+	 * menyala di instalasi lama begitu di-deploy).
+	 *
+	 * @param request payload: {@code toko_id} (admin saja, opsional; pedagang toko selalu dikunci).
+	 */
+	public static void layarPelangganScreensaverConfigAmbil(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		Long tokoId = resolveTokoIdScreensaver(tbmuser, request);
+		if (tokoId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko wajib dipilih.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.koperasi.LayarPelangganScreensaverConfig cfg = (ais.database.model.koperasi.LayarPelangganScreensaverConfig) session
+					.createCriteria(ais.database.model.koperasi.LayarPelangganScreensaverConfig.class)
+					.add(Restrictions.eq("tokoId", tokoId)).setMaxResults(1).uniqueResult();
+			JSONObject j = new JSONObject();
+			j.put("aktif", cfg == null ? false : cfg.getAktif());
+			j.put("modeTampilan", cfg == null ? ais.database.model.koperasi.LayarPelangganScreensaverConfig.MODE_FULLSCREEN : cfg.getModeTampilan());
+			j.put("animasi", cfg == null ? ais.database.model.koperasi.LayarPelangganScreensaverConfig.ANIMASI_FADE : cfg.getAnimasi());
+			j.put("durasiDetik", cfg == null ? 6 : cfg.getDurasiDetik());
+			j.put("idleDetik", cfg == null ? 30 : cfg.getIdleDetik());
+			hasil.put("status", "00");
+			hasil.put("data", j);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * Simpan pengaturan screensaver satu toko (upsert -- buat baris baru bila belum ada).
+	 *
+	 * @param request payload: {@code toko_id} (admin saja), {@code aktif}, {@code mode_tampilan}
+	 *                (FULLSCREEN/SETENGAH), {@code animasi} (FADE/SLIDE/ZOOM/KEN_BURNS),
+	 *                {@code durasi_detik}, {@code idle_detik}.
+	 */
+	public static void layarPelangganScreensaverConfigSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehKelolaScreensaver(tbmuser)) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat mengelola screensaver.");
+			return;
+		}
+		Long tokoId = resolveTokoIdScreensaver(tbmuser, request);
+		if (tokoId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko wajib dipilih.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.koperasi.LayarPelangganScreensaverConfig cfg = (ais.database.model.koperasi.LayarPelangganScreensaverConfig) session
+					.createCriteria(ais.database.model.koperasi.LayarPelangganScreensaverConfig.class)
+					.add(Restrictions.eq("tokoId", tokoId)).setMaxResults(1).uniqueResult();
+			if (cfg == null) {
+				cfg = new ais.database.model.koperasi.LayarPelangganScreensaverConfig();
+				cfg.setTokoId(tokoId);
+			}
+			cfg.setAktif(request.optBoolean("aktif", false));
+			cfg.setModeTampilan(request.optString("mode_tampilan", ais.database.model.koperasi.LayarPelangganScreensaverConfig.MODE_FULLSCREEN));
+			cfg.setAnimasi(request.optString("animasi", ais.database.model.koperasi.LayarPelangganScreensaverConfig.ANIMASI_FADE));
+			cfg.setDurasiDetik(request.optInt("durasi_detik", 6));
+			cfg.setIdleDetik(request.optInt("idle_detik", 30));
+			session.beginTransaction();
+			session.saveOrUpdate(cfg);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * Fetch gabungan (config + daftar slide aktif utk lingkup pemanggil) dipanggil Layar Pelanggan
+	 * SEKALI setiap kali masuk state screensaver (BUKAN dipoll tiap 500ms spt {@code
+	 * layarPelangganAmbil} -- konten slideshow jarang berubah, cukup disegarkan tiap kali screensaver
+	 * baru menyala supaya gambar baru ter-upload ikut muncul tanpa perlu restart aplikasi).
+	 *
+	 * <p>Filter lingkup: {@code toko_id = X AND aktif = true AND (id_mesin IS NULL OR id_mesin =
+	 * &lt;id_mesin milik pemanggil&gt;)} -- gambar "semua mesin" (id_mesin null) SELALU ikut,
+	 * gambar "khusus mesin ini" hanya muncul di mesin yang cocok.</p>
+	 *
+	 * @param request payload: {@code toko_id} (wajib), {@code id_mesin} (opsional, dari
+	 *                {@code IdentitasMesin.instance.idMesin} sisi Flutter).
+	 */
+	public static void layarPelangganSlideUntukTampil(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (request.isNull("toko_id")) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko wajib diisi.");
+			return;
+		}
+		Long tokoId = Long.valueOf((request.get("toko_id") + "").trim());
+		String idMesin = request.optString("id_mesin", "").trim();
+
+		JSONObject cfgJson = new JSONObject();
+		Session sesiUtama = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.koperasi.LayarPelangganScreensaverConfig cfg = (ais.database.model.koperasi.LayarPelangganScreensaverConfig) sesiUtama
+					.createCriteria(ais.database.model.koperasi.LayarPelangganScreensaverConfig.class)
+					.add(Restrictions.eq("tokoId", tokoId)).setMaxResults(1).uniqueResult();
+			cfgJson.put("aktif", cfg == null ? false : cfg.getAktif());
+			cfgJson.put("modeTampilan", cfg == null ? ais.database.model.koperasi.LayarPelangganScreensaverConfig.MODE_FULLSCREEN : cfg.getModeTampilan());
+			cfgJson.put("animasi", cfg == null ? ais.database.model.koperasi.LayarPelangganScreensaverConfig.ANIMASI_FADE : cfg.getAnimasi());
+			cfgJson.put("durasiDetik", cfg == null ? 6 : cfg.getDurasiDetik());
+			cfgJson.put("idleDetik", cfg == null ? 30 : cfg.getIdleDetik());
+		} finally {
+			tutupSessionPolaB(sesiUtama);
+		}
+
+		JSONArray arr = new JSONArray();
+		if (cfgJson.optBoolean("aktif", false)) {
+			Session sesiStreaming = ais.database.hibernate.StreamingHibernateUtil.getInstance().openSession();
+			try {
+				org.hibernate.Criteria cq = sesiStreaming.createCriteria(ais.database.model.file.LayarPelangganSlide.class)
+						.add(Restrictions.eq("tokoId", tokoId))
+						.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+						.add(idMesin.isEmpty() ? Restrictions.isNull("idMesin")
+								: Restrictions.or(Restrictions.isNull("idMesin"), Restrictions.eq("idMesin", idMesin)))
+						.addOrder(org.hibernate.criterion.Order.asc("urutan")).addOrder(org.hibernate.criterion.Order.asc("id"));
+				@SuppressWarnings("unchecked")
+				java.util.List<ais.database.model.file.LayarPelangganSlide> daftar = cq.list();
+				for (ais.database.model.file.LayarPelangganSlide s : daftar) {
+					JSONObject j = new JSONObject();
+					j.put("id", s.getId());
+					arr.put(j);
+				}
+			} finally {
+				ais.database.hibernate.HibernateUtil.closeSessionQuietly(sesiStreaming);
+			}
+		}
+
+		hasil.put("status", "00");
+		hasil.put("config", cfgJson);
+		hasil.put("slides", arr);
+	}
+
+	/**
 	 * Layar baru "Aturan Diskon" di Desktop (permintaan "fitur mengatur diskon seperti fitur POS
 	 * online") -- kelola baris {@link ais.database.model.koperasi.AturanDiskon} (mesin promo yang
 	 * SUDAH ADA dan SUDAH otomatis diterapkan saat checkout ZK/JSP, lihat {@code PosKantinAction.evaluasiDiskon}).

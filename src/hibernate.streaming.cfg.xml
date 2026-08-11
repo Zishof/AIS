@@ -100,6 +100,7 @@
 		<property name="hibernate.cache.use_query_cache">false</property>
 
 		<mapping class="ais.database.model.file.GaleriFotoImage" />
+		<mapping class="ais.database.model.file.LayarPelangganSlide" />
 		<mapping class="ais.database.model.file.LampiranLain" />
 		<mapping class="ais.database.model.file.LampiranBeasiswaMahasiswa" />
 		<mapping class="ais.database.model.file.LampiranKknMahasiswa" />

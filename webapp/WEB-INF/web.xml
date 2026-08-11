@@ -1009,6 +1009,13 @@
 	<servlet>
 		<description>
 		</description>
+		<display-name>AmbilMediaLayarPelangganSlide</display-name>
+		<servlet-name>AmbilMediaLayarPelangganSlide</servlet-name>
+		<servlet-class>ais.action.servlet.AmbilMediaLayarPelangganSlide</servlet-class>
+	</servlet>
+	<servlet>
+		<description>
+		</description>
 		<display-name>AmbilLaporanPerpustakaan</display-name>
 		<servlet-name>AmbilLaporanPerpustakaan</servlet-name>
 		<servlet-class>ais.action.servlet.AmbilLaporanPerpustakaan</servlet-class>
@@ -1556,6 +1563,10 @@
 	<servlet-mapping>
 		<servlet-name>AmbilMediaProduk</servlet-name>
 		<url-pattern>/AmbilMediaProduk</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>AmbilMediaLayarPelangganSlide</servlet-name>
+		<url-pattern>/AmbilMediaLayarPelangganSlide</url-pattern>
 	</servlet-mapping>
 	<servlet-mapping>
 		<servlet-name>AmbilLaporanPerpustakaan</servlet-name>

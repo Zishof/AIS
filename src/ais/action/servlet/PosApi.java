@@ -404,6 +404,41 @@ public class PosApi extends HttpServlet {
 			} else if ("layar_pelanggan_ambil".equals(action)) {
 				KantinHelper.layarPelangganAmbil(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "layar_pelanggan_ambil");
+			} else if ("layar_pelanggan_slide_list".equals(action)) {
+				KantinHelper.layarPelangganSlideList(tbmuser, payload, hasil);
+				if (hasil.has("data")) {
+					JSONArray daftarSlide = hasil.getJSONArray("data");
+					for (int iSlide = 0; iSlide < daftarSlide.length(); iSlide++) {
+						JSONObject jSlide = daftarSlide.getJSONObject(iSlide);
+						jSlide.put("urlGambar", buildUrlGambarLayarPelangganSlide(request, jSlide.getLong("id")));
+					}
+				}
+				normalisasiStatusKantinHelper(hasil, "layar_pelanggan_slide_list");
+			} else if ("layar_pelanggan_slide_upload".equals(action)) {
+				KantinHelper.layarPelangganSlideUpload(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "layar_pelanggan_slide_upload");
+			} else if ("layar_pelanggan_slide_ubah".equals(action)) {
+				KantinHelper.layarPelangganSlideUbah(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "layar_pelanggan_slide_ubah");
+			} else if ("layar_pelanggan_slide_hapus".equals(action)) {
+				KantinHelper.layarPelangganSlideHapus(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "layar_pelanggan_slide_hapus");
+			} else if ("layar_pelanggan_screensaver_config_ambil".equals(action)) {
+				KantinHelper.layarPelangganScreensaverConfigAmbil(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "layar_pelanggan_screensaver_config_ambil");
+			} else if ("layar_pelanggan_screensaver_config_simpan".equals(action)) {
+				KantinHelper.layarPelangganScreensaverConfigSimpan(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "layar_pelanggan_screensaver_config_simpan");
+			} else if ("layar_pelanggan_slide_untuk_tampil".equals(action)) {
+				KantinHelper.layarPelangganSlideUntukTampil(tbmuser, payload, hasil);
+				if (hasil.has("slides")) {
+					JSONArray daftarSlide = hasil.getJSONArray("slides");
+					for (int iSlide = 0; iSlide < daftarSlide.length(); iSlide++) {
+						JSONObject jSlide = daftarSlide.getJSONObject(iSlide);
+						jSlide.put("urlGambar", buildUrlGambarLayarPelangganSlide(request, jSlide.getLong("id")));
+					}
+				}
+				normalisasiStatusKantinHelper(hasil, "layar_pelanggan_slide_untuk_tampil");
 			} else if ("survey_kepuasan_simpan".equals(action)) {
 				KantinHelper.surveyKepuasanSimpan(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "survey_kepuasan_simpan");
@@ -783,6 +818,20 @@ public class PosApi extends HttpServlet {
 		boolean portDefault = ("http".equals(scheme) && port == 80) || ("https".equals(scheme) && port == 443);
 		String basis = scheme + "://" + request.getServerName() + (portDefault ? "" : (":" + port)) + request.getContextPath();
 		return basis + "/AmbilMediaProduk?id=" + produkId + "&height=200&width=200&img=.jpg";
+	}
+
+	/**
+	 * Padanan {@link #buildUrlGambarProduk} utk slide screensaver Layar Pelanggan -- endpoint
+	 * {@code /AmbilMediaLayarPelangganSlide} SAMA publik/tanpa otentikasi (lihat javadoc servlet).
+	 * TIDAK dikecilkan (tanpa height/width) -- gambar screensaver ditampilkan penuh/fullscreen,
+	 * beda kebutuhan dgn thumbnail katalog produk.
+	 */
+	private static String buildUrlGambarLayarPelangganSlide(HttpServletRequest request, Long slideId) {
+		String scheme = request.getScheme();
+		int port = request.getServerPort();
+		boolean portDefault = ("http".equals(scheme) && port == 80) || ("https".equals(scheme) && port == 443);
+		String basis = scheme + "://" + request.getServerName() + (portDefault ? "" : (":" + port)) + request.getContextPath();
+		return basis + "/AmbilMediaLayarPelangganSlide?id=" + slideId;
 	}
 
 	/**
