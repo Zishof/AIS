@@ -1844,6 +1844,9 @@
 		<mapping class="ais.database.model.sirs.TransferItemDetail" />
 		<mapping class="ais.database.model.sirs.BahanBakuItem" />
 		<mapping class="ais.database.model.sirs.Kadaluarsa" />
+		<mapping class="ais.database.model.sirs.ApotikItemProfile" />
+		<mapping class="ais.database.model.sirs.ApotikBatchKonsumsi" />
+		<mapping class="ais.database.model.sirs.ApotikNarkotikaLog" />
 		<mapping class="ais.database.model.sirs.TindakanLabDetail" />
 
 

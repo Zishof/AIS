@@ -52,7 +52,12 @@ public class ApiEBisnis extends PosApi {
 			org.json.JSONObject payload, org.json.JSONObject hasil,
 			javax.servlet.http.HttpServletRequest request, javax.servlet.http.HttpServletResponse response)
 			throws Exception {
-		return ais.action.servlet.api.SalesInventoryApiDispatcher.dispatch(action, tbmuser, payload, hasil,
-				request, response);
+		if (ais.action.servlet.api.SalesInventoryApiDispatcher.dispatch(action, tbmuser, payload, hasil,
+				request, response)) {
+			return true;
+		}
+		// Varian "POS Apotik" (prefix apotik_) -- gerbang menu fail-closed sudah lewat
+		// bolehAksesActionKantin; dispatcher berikut murni rute + normalisasi.
+		return ais.action.servlet.api.ApotikApiDispatcher.dispatch(action, tbmuser, payload, hasil);
 	}
 }

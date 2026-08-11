@@ -1356,6 +1356,21 @@ public class PosApi extends HttpServlet {
 		if ("si_actor_context".equals(action)) {
 			return true; // konteks diri sendiri -- setara "konfigurasi", tanpa data bisnis.
 		}
+		// -- Varian "POS Apotik" (prefix apotik_): kunci menu default NONAKTIF (fail-closed),
+		// pola sama blok si_ di bawah -- optBoolean(..., false), prefix spesifik lebih dulu.
+		if ("apotik_item_profil_simpan".equals(action)) {
+			return menu.optBoolean("apotik_formularium", false);
+		}
+		if (action.startsWith("apotik_resep_")) {
+			return menu.optBoolean("apotik_resep", false) || menu.optBoolean("apotik_kasir", false);
+		}
+		if (action.startsWith("apotik_item_")) {
+			return menu.optBoolean("apotik_kasir", false) || menu.optBoolean("apotik_formularium", false)
+					|| menu.optBoolean("apotik_stok_opname", false) || menu.optBoolean("apotik_batch", false);
+		}
+		if (action.startsWith("apotik_")) {
+			return menu.optBoolean("apotik_kasir", false);
+		}
 		if (action.startsWith("si_supplier_price_") || action.startsWith("si_customer_price_")
 				|| action.startsWith("si_price_") || action.startsWith("si_selling_price_")) {
 			return menu.optBoolean("harga", false);
