@@ -97,6 +97,22 @@ public class EbisnisPublicServlet extends HttpServlet {
 			HasilProses hasil = PendaftarPublicHelper.login(
 					request.getParameter("email"),
 					request.getParameter("password"));
+			if (hasil.sukses) {
+				// Mitigasi session fixation (§12.2): sesi pra-login dibuang, ganti sesi baru
+				// (Servlet 2.5 tidak punya changeSessionId) -- atribut flash/CSRF pendaftaran
+				// lama ikut hangus, itu memang disengaja.
+				try {
+					session.invalidate();
+				} catch (IllegalStateException e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) EbisnisPublicServlet.login.invalidate");
+				}
+				session = request.getSession(true);
+				if (hasil.pendaftar != null) {
+					session.setAttribute(ais.common.security.PendaftarSessionPrincipal.SESSION_KEY,
+							ais.common.security.PendaftarSessionPrincipal.dari(hasil.pendaftar));
+					// READY -> ACTIVE saat owner login pertama (invariant workflow #7).
+					ais.service.tenant.TenantOnboardingService.tandaiAktifSaatLogin(hasil.pendaftar.getId());
+				}
+			}
 			terapkanHasil(session, hasil);
 			if (ajax) {
 				tulisJson(response, jsonDariHasil(request, hasil));
@@ -104,6 +120,7 @@ public class EbisnisPublicServlet extends HttpServlet {
 			}
 		} else if ("logout".equals(aksi)) {
 			session.removeAttribute(SESSION_PENDAFTAR);
+			session.removeAttribute(ais.common.security.PendaftarSessionPrincipal.SESSION_KEY);
 			if (ajax) {
 				JSONObject j = new JSONObject();
 				j.put("status", "00");
@@ -142,7 +159,28 @@ public class EbisnisPublicServlet extends HttpServlet {
 				String nm = namaParam.nextElement();
 				payload.put(nm, request.getParameter(nm));
 			}
-			if ("ringkasan".equals(subAksi)) {
+
+			// ---- Gerbang program pendaftaran tenant (§11.1): SEMUA aksi mutasi data
+			// operasional ditolak sebelum tenant READY/ACTIVE. Status di-re-fetch dari DB
+			// (bukan entity sesi detached); akun legacy pra-program tetap lolos (G-06).
+			boolean aksiMutasi = subAksi.endsWith("_tambah") || subAksi.endsWith("_ubah")
+					|| subAksi.endsWith("_nonaktif");
+			if (aksiMutasi) {
+				String modulPerlu = subAksi.startsWith("toko_") || subAksi.startsWith("mesin_pos_")
+						? "POS" : null;
+				String alasan = ais.service.tenant.TenantOnboardingService
+						.alasanTidakBolehMutasi(pendaftar.getId(), modulPerlu);
+				if (alasan != null) {
+					hasil.put("status", "91");
+					hasil.put("code", "TENANT_NOT_READY");
+					hasil.put("description", alasan);
+					return hasil;
+				}
+			}
+
+			if ("tenant_list".equals(subAksi)) {
+				ais.service.tenant.TenantOnboardingService.tenantList(pendaftar.getId(), hasil);
+			} else if ("ringkasan".equals(subAksi)) {
 				PendaftarDashboardHelper.ringkasan(pendaftar, hasil);
 			} else if ("brand_list".equals(subAksi)) {
 				PendaftarDashboardHelper.brandList(pendaftar, hasil);
@@ -164,6 +202,16 @@ public class EbisnisPublicServlet extends HttpServlet {
 				PendaftarDashboardHelper.manajemenList(pendaftar, hasil);
 			} else if ("manajemen_tambah".equals(subAksi)) {
 				PendaftarDashboardHelper.manajemenTambah(pendaftar, payload, hasil);
+			} else if ("brand_ubah".equals(subAksi)) {
+				PendaftarDashboardHelper.brandUbah(pendaftar, payload, hasil);
+			} else if ("toko_ubah".equals(subAksi)) {
+				PendaftarDashboardHelper.tokoUbah(pendaftar, payload, hasil);
+			} else if ("mesin_pos_nonaktif".equals(subAksi)) {
+				PendaftarDashboardHelper.mesinPosNonaktif(pendaftar, payload, hasil);
+			} else if ("investor_nonaktif".equals(subAksi)) {
+				PendaftarDashboardHelper.investorNonaktif(pendaftar, payload, hasil);
+			} else if ("manajemen_nonaktif".equals(subAksi)) {
+				PendaftarDashboardHelper.manajemenNonaktif(pendaftar, payload, hasil);
 			} else {
 				hasil.put("status", "91");
 				hasil.put("description", "Aksi tidak dikenal.");

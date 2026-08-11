@@ -430,6 +430,161 @@ public class PendaftarDashboardHelper {
 	}
 
 	// ==================================================================
+	// UBAH / NONAKTIF (program pendaftaran tenant §11.2 -- IDOR-safe pola sama:
+	// resolve entity by id LALU cocokkan pendaftar pemilik; bukan percaya klien)
+	// ==================================================================
+
+	public static void brandUbah(Pendaftar pendaftar, JSONObject request, JSONObject hasil) throws Exception {
+		Long id = request.isNull("id") ? null : Long.valueOf(request.get("id") + "");
+		String nama = request.optString("nama", "").trim();
+		if (id == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Brand wajib dipilih.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			Brand b = (Brand) session.get(Brand.class, id);
+			if (b == null || b.getPendaftar() == null
+					|| !pendaftar.getId().equals(b.getPendaftar().getId())) {
+				hasil.put("status", "91");
+				hasil.put("description", "Brand tidak ditemukan atau bukan milik Anda.");
+				return;
+			}
+			if (!nama.isEmpty()) {
+				b.setNama(nama);
+			}
+			if (request.has("aktif")) {
+				b.setAktif(Boolean.valueOf("true".equals(request.optString("aktif"))));
+			}
+			session.beginTransaction();
+			session.saveOrUpdate(b);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	public static void tokoUbah(Pendaftar pendaftar, JSONObject request, JSONObject hasil) throws Exception {
+		Long id = request.isNull("id") ? null : Long.valueOf(request.get("id") + "");
+		if (id == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko wajib dipilih.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			Toko t = (Toko) session.get(Toko.class, id);
+			if (!milikPendaftar(t, pendaftar)) {
+				hasil.put("status", "91");
+				hasil.put("description", "Toko tidak ditemukan atau bukan milik Anda.");
+				return;
+			}
+			String nama = request.optString("nama", "").trim();
+			if (!nama.isEmpty()) {
+				t.setNama(nama);
+			}
+			if (request.has("alamat")) {
+				t.setAlamat(request.optString("alamat", ""));
+			}
+			if (request.has("kota")) {
+				t.setKota(request.optString("kota", ""));
+			}
+			if (request.has("telp")) {
+				t.setTelp(request.optString("telp", ""));
+			}
+			if (request.has("aktif")) {
+				t.setAktif(Boolean.valueOf("true".equals(request.optString("aktif"))));
+			}
+			session.beginTransaction();
+			session.saveOrUpdate(t);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** Nonaktif/aktifkan kembali mesin POS (baris Pedagang) -- kepemilikan via toko.pendaftar. */
+	public static void mesinPosNonaktif(Pendaftar pendaftar, JSONObject request, JSONObject hasil) throws Exception {
+		Long id = request.isNull("id") ? null : Long.valueOf(request.get("id") + "");
+		if (id == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Mesin POS wajib dipilih.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			Pedagang p = (Pedagang) session.get(Pedagang.class, id);
+			if (p == null || !milikPendaftar(p.getToko(), pendaftar)) {
+				hasil.put("status", "91");
+				hasil.put("description", "Mesin POS tidak ditemukan atau bukan milik Anda.");
+				return;
+			}
+			p.setAktif(Boolean.valueOf("true".equals(request.optString("aktif", "false"))));
+			session.beginTransaction();
+			session.saveOrUpdate(p);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	public static void investorNonaktif(Pendaftar pendaftar, JSONObject request, JSONObject hasil) throws Exception {
+		Long id = request.isNull("id") ? null : Long.valueOf(request.get("id") + "");
+		if (id == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Investor wajib dipilih.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			Investor inv = (Investor) session.get(Investor.class, id);
+			if (inv == null || inv.getPendaftar() == null
+					|| !pendaftar.getId().equals(inv.getPendaftar().getId())) {
+				hasil.put("status", "91");
+				hasil.put("description", "Investor tidak ditemukan atau bukan milik Anda.");
+				return;
+			}
+			inv.setAktif(Boolean.valueOf("true".equals(request.optString("aktif", "false"))));
+			session.beginTransaction();
+			session.saveOrUpdate(inv);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	public static void manajemenNonaktif(Pendaftar pendaftar, JSONObject request, JSONObject hasil) throws Exception {
+		Long id = request.isNull("id") ? null : Long.valueOf(request.get("id") + "");
+		if (id == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Akun manajemen wajib dipilih.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			AkunManajemen a = (AkunManajemen) session.get(AkunManajemen.class, id);
+			if (a == null || a.getPendaftar() == null
+					|| !pendaftar.getId().equals(a.getPendaftar().getId())) {
+				hasil.put("status", "91");
+				hasil.put("description", "Akun manajemen tidak ditemukan atau bukan milik Anda.");
+				return;
+			}
+			a.setAktif(Boolean.valueOf("true".equals(request.optString("aktif", "false"))));
+			session.beginTransaction();
+			session.saveOrUpdate(a);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	// ==================================================================
 	// UTIL BERSAMA
 	// ==================================================================
 

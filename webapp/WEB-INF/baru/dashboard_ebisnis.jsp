@@ -59,6 +59,22 @@ String namaBisnis = StringEscapeUtils.escapeHtml(pendaftar.getNama());
 
     <div class="container pb-5">
 
+        <%-- Panel tenant program pendaftaran /pendaftaran: status READY/ACTIVE + trial + modul.
+             HANYA tampil bila akun ini punya tenant (s=tenant_list) -- akun legacy tidak berubah. --%>
+        <div id="panelTenant" class="alert d-none mb-4" role="status" style="border-left:4px solid #0b5ed7;background:#eff6ff">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <b id="tenantNama">-</b> <span class="badge bg-primary" id="tenantStatus">-</span>
+                    <div class="small text-secondary" id="tenantTrial"></div>
+                    <div class="small" id="tenantModul"></div>
+                    <div class="small text-warning" id="tenantModulRencana"></div>
+                </div>
+                <a class="btn btn-outline-primary btn-sm" href="<%= request.getContextPath() %>/pendaftaran?mode=tenant-baru">
+                    <i class="fas fa-plus me-1"></i><%= Common.getBahasaConfig("Buat Tenant Baru") %>
+                </a>
+            </div>
+        </div>
+
         <div class="row g-3 mb-4" id="ringkasanCards">
             <div class="col-6 col-md-3">
                 <div class="stat-card p-3 d-flex align-items-center gap-3">
@@ -290,6 +306,26 @@ String namaBisnis = StringEscapeUtils.escapeHtml(pendaftar.getNama());
             });
         }
 
+        // ---------------- TENANT (program /pendaftaran) ----------------
+        function muatTenant() {
+            panggil('tenant_list').then(function (h) {
+                if (h.status !== '00' || !h.data || !h.data.length) { return; }
+                var t = h.data[0]; // tenant pertama; multi-tenant memakai daftar yang sama
+                var panel = document.getElementById('panelTenant');
+                panel.classList.remove('d-none');
+                document.getElementById('tenantNama').textContent = t.nama + ' (' + (t.slug || '-') + ')';
+                document.getElementById('tenantStatus').textContent = t.status;
+                document.getElementById('tenantTrial').textContent =
+                    t.trialEnd ? ('Masa coba hingga: ' + t.trialEnd) : '';
+                document.getElementById('tenantModul').textContent =
+                    (t.modulAktif && t.modulAktif.length) ? ('Modul aktif: ' + t.modulAktif.join(', ')) : '';
+                // JUJUR: modul PLANNED ditampilkan sbg "belum tersedia", TANPA tombol/link.
+                document.getElementById('tenantModulRencana').textContent =
+                    (t.modulBelumTersedia && t.modulBelumTersedia.length)
+                        ? ('Dalam roadmap (belum tersedia): ' + t.modulBelumTersedia.join(', ')) : '';
+            }).catch(function () { /* akun legacy tanpa tenant: panel tetap tersembunyi */ });
+        }
+
         // ---------------- TAB SWITCH ----------------
         document.querySelectorAll('#ebisnisTab .nav-link').forEach(function (btn) {
             btn.addEventListener('click', function () {
@@ -462,6 +498,7 @@ String namaBisnis = StringEscapeUtils.escapeHtml(pendaftar.getNama());
         });
 
         muatRingkasan();
+        muatTenant();
         muatBrand();
     })();
     </script>

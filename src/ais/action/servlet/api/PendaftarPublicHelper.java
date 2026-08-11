@@ -170,6 +170,24 @@ public class PendaftarPublicHelper {
 				return new HasilProses(false, "Akun ini sedang tidak aktif. Hubungi dukungan pelanggan.");
 			}
 
+			// Catat lastLoginAt pada extension profile (bila akun jalur pendaftaran tenant) --
+			// best-effort: kegagalan pencatatan TIDAK boleh menggagalkan login.
+			try {
+				ais.database.model.tenant.PendaftarTenantProfile profile =
+						(ais.database.model.tenant.PendaftarTenantProfile) session
+								.createCriteria(ais.database.model.tenant.PendaftarTenantProfile.class)
+								.add(Restrictions.eq("pendaftar.id", p.getId()))
+								.setMaxResults(1).uniqueResult();
+				if (profile != null) {
+					session.beginTransaction();
+					profile.setLastLoginAt(WaktuUtil.getDate());
+					session.saveOrUpdate(profile);
+					session.getTransaction().commit();
+				}
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e, "auto-audit PendaftarPublicHelper.login.lastLoginAt");
+			}
+
 			HasilProses hasil = new HasilProses(true, "Berhasil masuk.");
 			hasil.pendaftarId = p.getId();
 			hasil.namaBisnis = p.getNama();
@@ -224,7 +242,10 @@ public class PendaftarPublicHelper {
 		}
 		byte[] salt = hexToByte(saltHexTersimpan);
 		String hashHex = pbkdf2(password, salt);
-		return hashHex.equalsIgnoreCase(hashHexTersimpan);
+		// Constant-time (§12.3 program pendaftaran tenant) -- semantik identik equalsIgnoreCase
+		// lama (kedua sisi hex lowercase-kan dulu), hanya menutup timing side-channel.
+		return java.security.MessageDigest.isEqual(hashHex.toLowerCase().getBytes(),
+				hashHexTersimpan.toLowerCase().getBytes());
 	}
 
 	private static String pbkdf2(String password, byte[] salt) {

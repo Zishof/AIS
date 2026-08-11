@@ -55,6 +55,14 @@ public class PendaftaranTenantServlet extends HttpServlet {
 		super.init();
 		// Seed katalog idempoten saat startup (load-on-startup web.xml) -- §6.1.
 		JenisUsahaTenantSeedService.pastikanSeed();
+		// Worker provisioning latar (daemon; lihat JavaDoc TenantProvisioningWorker).
+		ais.service.tenant.TenantProvisioningWorker.mulai();
+	}
+
+	@Override
+	public void destroy() {
+		ais.service.tenant.TenantProvisioningWorker.hentikan();
+		super.destroy();
 	}
 
 	@Override
@@ -87,6 +95,13 @@ public class PendaftaranTenantServlet extends HttpServlet {
 			}
 
 			// mode default & mode=tenant-baru -> wizard.
+			if ("tenant-baru".equals(mode)
+					&& ais.common.security.PendaftarSessionPrincipal.dariSesi(session) == null) {
+				// Flow tenant tambahan HANYA utk pendaftar yang sudah login (§3.1) --
+				// belum login: kembali ke landing utk masuk dulu.
+				response.sendRedirect(request.getContextPath() + "/");
+				return;
+			}
 			request.setAttribute("modeHalaman", "tenant-baru".equals(mode) ? "tenant-baru" : "wizard");
 			forwardWizard(request, response, session);
 		} catch (Exception e) {
@@ -230,9 +245,12 @@ public class PendaftaranTenantServlet extends HttpServlet {
 		p.put("sourceIp", ip);
 		p.put("userAgent", request.getHeader("User-Agent") == null ? "" : request.getHeader("User-Agent"));
 
-		// Sesi pendaftar login (flow tenant-baru) menyusul di fase session-principal;
-		// pengunjung anonim = null (buat Pendaftar baru / arahkan login bila email terdaftar).
-		JSONObject hasil = PendaftaranTenantService.submit(p, null, baseUrl(request));
+		// Pendaftar yang SUDAH login (principal ringan): permohonan menjadi tenant tambahan
+		// milik akun itu -- tidak membuat Pendaftar kedua (§3.1). Anonim = null.
+		ais.common.security.PendaftarSessionPrincipal principal =
+				ais.common.security.PendaftarSessionPrincipal.dariSesi(session);
+		JSONObject hasil = PendaftaranTenantService.submit(p,
+				principal == null ? null : principal.pendaftarId, baseUrl(request));
 
 		if ("00".equals(hasil.optString("status")) && hasil.has("registrationCode")) {
 			tandaiMilikSesi(session, hasil.optString("registrationCode"));

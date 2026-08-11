@@ -115,7 +115,7 @@ public final class PendaftaranTenantService {
 		}
 	}
 
-	static String subdomainBase() {
+	public static String subdomainBase() {
 		try {
 			return Common.getKonfigurasi("pendaftaran_subdomain_base", "ebisnis.id").getNilai();
 		} catch (Exception e) {
@@ -316,6 +316,9 @@ public final class PendaftaranTenantService {
 					session.getTransaction().rollback();
 					return error(hasil, "SESSION_INVALID", "Sesi Anda tidak valid. Silakan masuk kembali.", false);
 				}
+				// Tenant tambahan: tantangan verifikasi SELALU ke email akun yang login,
+				// bukan isian form (mencegah pengalihan verifikasi ke email pihak lain).
+				emailLogin = PendaftaranValidationService.normalisasiEmail(pendaftar.getEmail());
 			} else {
 				if (adaAkunSelfService(session, emailLogin)) {
 					session.getTransaction().rollback();
