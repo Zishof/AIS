@@ -96,6 +96,8 @@ public final class SalesInventoryApiDispatcher {
 			SalesInventoryPayableHelper.payableAging(ctx, payload, hasil);
 		} else if ("si_purchase_report".equals(action)) {
 			SalesInventoryPayableHelper.purchaseReport(ctx, payload, hasil);
+		} else if ("si_import_legacy".equals(action)) {
+			SalesInventoryDbfImportHelper.importLegacy(ctx, tbmuser, payload, hasil);
 		} else {
 			// Aksi si_ lain menyusul per fase (P3 AP, P4 AR, P5 SPJ/Nota Sales, P6 finance).
 			hasil.put("status", "error");
