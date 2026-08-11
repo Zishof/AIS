@@ -365,6 +365,11 @@ public class PembombotanNilai extends GeneralValueObject {
 									.addOrder(Order.desc("id")).setMaxResults(1).uniqueResult();
 
 							if (formatNilai == null) {
+								// Guard: statusPertemuan null (kode CPMK kosong) → skip agar tidak INSERT
+								// FormatNilai dengan status_pertemuan=null yang melanggar NOT NULL constraint.
+								if (statusPertemuan == null) {
+									continue;
+								}
 								formatNilai = new FormatNilai();
 								formatNilai.setPerkuliahan(perkuliahan);
 								formatNilai.setStatusPertemuan(statusPertemuan);
@@ -436,6 +441,11 @@ public class PembombotanNilai extends GeneralValueObject {
 								}
 
 								if (formatNilai == null) {
+									// Guard: statusPertemuan null (kode/key/nama semuanya kosong) → skip
+									// agar tidak INSERT FormatNilai dengan status_pertemuan=null (NOT NULL constraint).
+									if (statusPertemuan == null) {
+										continue;
+									}
 									formatNilai = new FormatNilai();
 									formatNilai.setPerkuliahan(perkuliahan);
 									formatNilai.setStatusPertemuan(statusPertemuan);

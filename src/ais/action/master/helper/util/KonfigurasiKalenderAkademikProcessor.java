@@ -292,7 +292,12 @@ public class KonfigurasiKalenderAkademikProcessor extends TimerTask {
 				String nilaiLama = konfigurasi.getNilai();
 				if (!equalsString(nilaiLama, change.nilaiBaru)) {
 					konfigurasi.setNilai(change.nilaiBaru);
-					Common.refreshUpdate(session, konfigurasi);
+					// Konfigurasi dimuat dari session yang sama → sudah MANAGED → dirty-check
+					// Hibernate akan menghasilkan UPDATE otomatis saat commit/flush, TANPA perlu
+					// memanggil session.update() secara eksplisit. Memanggil Common.refreshUpdate
+					// (yang memanggil session.update()) pada entity persistent dapat memicu
+					// NonUniqueObjectException → recoverWithMerge → session.save() → INSERT duplikat
+					// → ConstraintViolationException "duplicate key konfigurasi_pkey".
 				}
 			}
 
