@@ -3,7 +3,7 @@
 ## Branch & commit
 - Branch: `feat/new-ui-rbac-role-user` (keputusan tetap di branch delivery — 00-baseline.md).
 - Commit program ini: `2340d2cc` (P0 audit) → `feecdedc` (P1 entity+seed) → `f4fcfc67`
-  (P2 route+wizard+keamanan) → `340f0db0` (P3-P5 principal+worker+gating) → <commit P6> (backoffice+test+docs).
+  (P2 route+wizard+keamanan) → `340f0db0` (P3-P5 principal+worker+gating) → `5c0d05ab` (P6 backoffice+test+docs).
 - Semua ter-push ke `origin` (github.com/Zishof/AIS.git); mirror SVN otomatis.
 
 ## File berubah/baru (inti)
