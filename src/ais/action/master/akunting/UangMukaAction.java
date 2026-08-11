@@ -1301,6 +1301,14 @@ public class UangMukaAction extends GenericAutowireComposer
 			viewOnly = true;
 		}
 
+		// REVISI: pengajuan dibuka lewat disposisi SOP yang MASIH aktif (belum selesai) untuk direvisi
+		// pemohon (bukan mode approver, bukan view-only). Saat revisi, "Jumlah Pengajuan" boleh diubah
+		// meski status sudah "Disetujui" pada siklus sebelumnya (permintaan user 11-08).
+		final boolean revisi = !persetujuan && !viewOnly && uangMuka.getDisposisiSop() != null
+				&& uangMuka.getDisposisiSop().getId() != null
+				&& (uangMuka.getDisposisiSop().getAktif() == null
+						|| Boolean.TRUE.equals(uangMuka.getDisposisiSop().getAktif()));
+
 		System.out.println("uangMuka -> " + uangMuka);
 
 		workspace = new AmbilDataWorkspaceBanbox(false);
@@ -1778,7 +1786,8 @@ public class UangMukaAction extends GenericAutowireComposer
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Jumlah Pengajuan"));
 
-		if (persetujuan || setujui || viewOnly) {
+		// Kunci nominal saat approver/setujui/view-only, KECUALI saat REVISI (pemohon boleh ubah nominal).
+		if (!revisi && (persetujuan || setujui || viewOnly)) {
 			row.appendChild(new Label(
 					uangMuka.getNilai() == null ? "" : Common.numberFormat.get().format(uangMuka.getNilai())));
 		} else {
