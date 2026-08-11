@@ -3059,10 +3059,10 @@ public class PosApi extends HttpServlet {
 			// LaporanKantinUtil, kode "perputaran_stok") -- diport apa adanya, BUKAN dihitung ulang
 			// beda rumus, supaya kedua tampilan selalu sama persis.
 			java.sql.PreparedStatement psTurnover = conn.prepareStatement(
-					"SELECT pr.kode, pr.nama, SUM(COALESCE(p.qty,0)), COALESCE(pr.stok,0), "
-							+ "(CASE WHEN COALESCE(pr.stok,0) > 0 THEN SUM(COALESCE(p.qty,0))/COALESCE(pr.stok,0) ELSE 0 END) "
-							+ "FROM koperasi.pembelian p JOIN koperasi.produk pr ON pr.id = p.produk "
-							+ "WHERE p.toko = ? AND " + intervalRekap + " GROUP BY pr.id, pr.kode, pr.nama, pr.stok ORDER BY 5 DESC");
+					"SELECT pr.kode, pr.nama, SUM(COALESCE(a.qty,0)), COALESCE(pr.stok,0), "
+							+ "(CASE WHEN COALESCE(pr.stok,0) > 0 THEN SUM(COALESCE(a.qty,0))/COALESCE(pr.stok,0) ELSE 0 END) "
+							+ "FROM koperasi.pembelian a JOIN koperasi.produk pr ON pr.id = a.produk "
+							+ "WHERE a.toko = ? AND " + intervalRekap + " GROUP BY pr.id, pr.kode, pr.nama, pr.stok ORDER BY 5 DESC");
 			psTurnover.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsTurnover = psTurnover.executeQuery();
 			JSONArray perputaranStok = new JSONArray();
