@@ -112,6 +112,14 @@
 						<textbox forward="onOK=onSearchDefault"
 						id="searchnamamhs" width="95%" />
 						</row>
+						<row>
+						<label use="ais.ui.util.MyLabelConfig"
+						value="" />
+						<checkbox use="ais.ui.util.MyCheckboxConfig"
+						label="Sembunyikan Mahasiswa Nonaktif (mis. NIM duplikat/feeder)"
+						forward="onCheck=onSearchDefault"
+						id="searchsembunyikannonaktif" width="95%" />
+						</row>
 						</rows>
 					</grid>
 				</div>

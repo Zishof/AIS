@@ -88,6 +88,7 @@ public class PostingDetailKegiatanAction extends GenericAutowireComposer {
 	private Decimalbox searchtahun;
 	private AmbilDataSatuanKerjaBanbox satuanKerja;
 	private Combobox searchjenjang;
+	private MyCheckboxConfig searchsembunyikannonaktif;
 
 	private boolean edit = false;
 
@@ -167,7 +168,10 @@ public class PostingDetailKegiatanAction extends GenericAutowireComposer {
 			}
 		});
 
-	        FilterLanjutHelper.setup(comp);
+		// Halaman ini dipakai staf keuangan sesering "Pembayaran" -- semua field filter
+		// (3 baris) tetap tampil langsung seperti sebelumnya, tanpa perlu klik "+ Lanjutan"
+		// dulu (beda dari halaman lain yang jarang dipakai & filternya boleh disembunyikan).
+	        FilterLanjutHelper.setup(comp, 3);
 }
 
 	public void onBatalkanPostingSemua(Event event) throws Exception {
@@ -977,6 +981,16 @@ public class PostingDetailKegiatanAction extends GenericAutowireComposer {
 				.createAlias("calonMahasiswa.prodiLulus", "prodiLulus", Criteria.LEFT_JOIN)
 				.createAlias("calonMahasiswa.prodi1", "prodi1", Criteria.LEFT_JOIN)
 				.createAlias("calonMahasiswa.prodi2", "prodi2", Criteria.LEFT_JOIN)
+
+				// Opt-in (default TIDAK dicentang): sembunyikan baris yang mahasiswa-nya
+				// eksplisit Nonaktif -- dipakai utk kasus mahasiswa yg punya 2 record/NIM (satu
+				// utk data Feeder), supaya NIM duplikat itu (setelah ditandai Nonaktif di menu
+				// Mahasiswa) tidak ikut muncul/ke-posting dobel di sini. isNull tetap lolos supaya
+				// baris calon mahasiswa (tanpa mahasiswa terjoin) tidak ikut tersembunyi.
+				.add(searchsembunyikannonaktif != null && searchsembunyikannonaktif.isChecked()
+						? Restrictions.or(Restrictions.isNull("mahasiswa.aktif"),
+								Restrictions.eq("mahasiswa.aktif", true))
+						: Restrictions.sqlRestriction("1=1"))
 
 				.add(searchtahun.getValue() == null ? Restrictions.sqlRestriction("1=1")
 						: Restrictions.or(Restrictions.eq("mahasiswa.tahunangkatan", searchtahun.getValue().intValue()),
