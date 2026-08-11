@@ -6810,6 +6810,168 @@ public class KantinHelper {
 	}
 
 	/**
+	 * <h3>Stok Opname Desktop/Android -- tombol "Unduh Excel" (gap-closure, padanan tombol yang
+	 * sudah ada di JSP {@code kantin/stok/index.jsp}).</h3>
+	 *
+	 * <p>BEDA dari {@link #soRiwayat} (yang SENGAJA dibatasi "hari ini" saja utk kartu ringkasan
+	 * layar) -- method ini TIDAK dibatasi tanggal secara default (seluruh riwayat toko), supaya
+	 * unduhan benar-benar berguna sbg arsip/laporan, bukan cuma cerminan tabel di layar.</p>
+	 *
+	 * @param request payload: {@code toko_id} (wajib utk admin, diabaikan utk pedagang/kasir),
+	 *                {@code bulan} (opsional, format {@code YYYY-MM}, filter bulan opname).
+	 * @param hasil   diisi {@code status="00"} + {@code fileBase64}, {@code namaFile}, {@code total}.
+	 */
+	public static void soEksporExcel(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		Long tokoId = soResolveTokoId(tbmuser, request);
+		if (tokoId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko tidak diketahui.");
+			return;
+		}
+		String bulan = request.optString("bulan", "").trim();
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			StringBuilder sql = new StringBuilder(
+					"SELECT a.id, TO_CHAR(a.waktuopname, 'YYYY-MM-DD HH24:MI') as waktu, " +
+					"a.stoksistem, a.stokfisik, a.selisih, a.keterangan, " +
+					"a.produk AS id_produk, p.nama AS nama_produk, p.kode AS kode_produk " +
+					"FROM koperasi.stok_opname a LEFT JOIN koperasi.produk p ON a.produk = p.id " +
+					"WHERE a.toko = :tokoId ");
+			if (!bulan.isEmpty()) {
+				sql.append("AND TO_CHAR(a.waktuopname, 'YYYY-MM') = :bulan ");
+			}
+			sql.append("ORDER BY a.waktuopname DESC, a.id DESC");
+
+			org.hibernate.SQLQuery q = session.createSQLQuery(sql.toString());
+			q.setParameter("tokoId", tokoId);
+			if (!bulan.isEmpty()) q.setParameter("bulan", bulan);
+
+			@SuppressWarnings("unchecked")
+			List<Object[]> rows = q.list();
+
+			XSSFWorkbook wb = new XSSFWorkbook();
+			XSSFSheet sheet = wb.createSheet("Stok Opname");
+			sheet.setDefaultColumnWidth(18);
+			String[] kolom = { "ID_SISTEM", "ID_PRODUK", "NAMA_PRODUK_INFO", "WAKTU_OPNAME", "STOK_SISTEM", "STOK_FISIK", "SELISIH", "KETERANGAN" };
+			XSSFRow header = sheet.createRow(0);
+			for (int i = 0; i < kolom.length; i++) header.createCell(i).setCellValue(kolom[i]);
+
+			int r = 1;
+			for (Object[] row : rows) {
+				XSSFRow xr = sheet.createRow(r++);
+				xr.createCell(0).setCellValue(row[0] == null ? "" : row[0].toString());
+				xr.createCell(1).setCellValue(row[6] == null ? "" : row[6].toString());
+				String kode = row[8] == null ? "" : " [" + row[8] + "]";
+				xr.createCell(2).setCellValue((row[7] == null ? "" : row[7].toString()) + kode);
+				xr.createCell(3).setCellValue(row[1] == null ? "" : row[1].toString());
+				xr.createCell(4).setCellValue(row[2] == null ? 0 : ((Number) row[2]).doubleValue());
+				xr.createCell(5).setCellValue(row[3] == null ? 0 : ((Number) row[3]).doubleValue());
+				xr.createCell(6).setCellValue(row[4] == null ? 0 : ((Number) row[4]).doubleValue());
+				xr.createCell(7).setCellValue(row[5] == null ? "" : row[5].toString());
+			}
+
+			ByteArrayOutputStream bos = new ByteArrayOutputStream();
+			wb.write(bos);
+			hasil.put("status", "00");
+			hasil.put("fileBase64", java.util.Base64.getEncoder().encodeToString(bos.toByteArray()));
+			hasil.put("namaFile", "StokOpname-" + System.currentTimeMillis() + ".xlsx");
+			hasil.put("total", rows.size());
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * <h3>Stok Opname Desktop/Android -- tombol "Unggah Excel" (gap-closure, padanan tombol yang
+	 * sudah ada di JSP {@code kantin/stok/index.jsp}).</h3>
+	 *
+	 * <p>SENGAJA insert-only (setiap baris file selalu jadi catatan {@link StokOpname} BARU lewat
+	 * {@link StokOpnameScanUtil#simpanOpname}, TIDAK PERNAH meng-update baris lama sekalipun kolom
+	 * {@code ID_SISTEM} terisi) -- konsisten dgn semantik "SO by Scan" yang sudah ada (setiap
+	 * hitungan fisik = catatan log baru, bukan koreksi diam-diam atas catatan lama) dan lebih aman
+	 * utk alur "hitung offline di Excel, lalu upload sbg batch" drpd upsert diam-diam. Kolom
+	 * {@code ID_PRODUK} WAJIB (dari template hasil "Unduh Excel") -- baris tanpa itu dilewati.</p>
+	 *
+	 * @param request payload: {@code toko_id} (wajib utk admin), {@code file_base64} (wajib).
+	 * @param hasil   diisi {@code status="00"}, {@code disimpan} (jumlah baris berhasil), {@code dilewati} (jumlah baris gagal/tak lengkap).
+	 */
+	public static void soImporExcel(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggilSo = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean adminGlobalSo = pemanggilSo == null;
+		boolean supervisorSo = pemanggilSo != null && Boolean.TRUE.equals(pemanggilSo.getSupervisor());
+		if (!bolehAksiCrud(tbmuser, pemanggilSo, adminGlobalSo, supervisorSo, "stokopname", "create")) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat mengunggah Stok Opname.");
+			return;
+		}
+		Long tokoId = soResolveTokoId(tbmuser, request);
+		if (tokoId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko tidak diketahui.");
+			return;
+		}
+		String fileBase64 = request.optString("file_base64", "");
+		if (fileBase64.trim().isEmpty()) {
+			hasil.put("status", "91");
+			hasil.put("description", "File Excel tidak dikirim.");
+			return;
+		}
+		byte[] bytes;
+		try {
+			bytes = java.util.Base64.getDecoder().decode(fileBase64);
+		} catch (Exception e) {
+			hasil.put("status", "91");
+			hasil.put("description", "File Excel tidak valid (gagal decode).");
+			return;
+		}
+
+		String oleh = tbmuser == null ? "excel-import-stok-opname" : tbmuser.getUserId();
+		int disimpan = 0;
+		int dilewati = 0;
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			XSSFWorkbook wb = new XSSFWorkbook(new ByteArrayInputStream(bytes));
+			XSSFSheet sheet = wb.getSheetAt(0);
+			int lastRow = sheet.getLastRowNum();
+			for (int r = 1; r <= lastRow; r++) {
+				XSSFRow row = sheet.getRow(r);
+				if (row == null) continue;
+				String idProdukTeks = Common.getCellContent(row.getCell(1)).trim();
+				String stokFisikTeks = Common.getCellContent(row.getCell(5)).trim();
+				String keterangan = Common.getCellContent(row.getCell(7)).trim();
+				if (idProdukTeks.isEmpty() || stokFisikTeks.isEmpty()) {
+					dilewati++;
+					continue;
+				}
+				try {
+					Long produkId = Long.valueOf(idProdukTeks);
+					double stokFisik = parseAngkaAman(stokFisikTeks);
+					session.beginTransaction();
+					ais.action.master.inventory.StokOpnameScanUtil.simpanOpname(session, tokoId, produkId, stokFisik, keterangan, oleh);
+					session.getTransaction().commit();
+					disimpan++;
+				} catch (Exception eBaris) {
+					try {
+						if (session.getTransaction() != null && session.getTransaction().isActive()) {
+							session.getTransaction().rollback();
+						}
+					} catch (Exception eRollback) {
+						ais.common.ErrorAuditUtil.record(eRollback, "auto-audit(empty-catch) src/ais/action/servlet/api/KantinHelper.java:soImporExcel-rollback");
+					}
+					dilewati++;
+				}
+			}
+			hasil.put("status", "00");
+			hasil.put("disimpan", disimpan);
+			hasil.put("dilewati", dilewati);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
 	 * <h3>Dashboard "Mutasi Barang" (gap-closure Desktop/Android) -- padanan panel "Kartu Mutasi
 	 * Stok" JSP {@code stok/mutasi_stok.jsp}.</h3>
 	 *

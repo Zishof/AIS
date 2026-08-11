@@ -57,6 +57,10 @@ String namaTokoAktif = tokoLogin != null ? tokoLogin.getNama() : "";
                             <i class="fas fa-file-download me-1"></i><%=Common.getBahasaConfig("Unduh")%>
                         </button>
 
+                        <button class="btn btn-outline-secondary rounded-pill px-3 shadow-sm fw-bold" onclick="cetakPdfOpname<%=rnd%>()" title="<%=Common.getBahasaConfig("Cetak PDF")%>">
+                            <i class="fas fa-file-pdf me-1"></i><%=Common.getBahasaConfig("Cetak PDF")%>
+                        </button>
+
                         <button class="btn btn-primary rounded-pill px-4 shadow-sm fw-bold text-nowrap" onclick="bukaFormTambah<%=rnd%>()">
                             <i class="fas fa-plus-circle me-1"></i><%=Common.getBahasaConfig("Catat Opname")%>
                         </button>
@@ -233,15 +237,38 @@ String namaTokoAktif = tokoLogin != null ? tokoLogin.getNama() : "";
     </div>
 </div>
 
+<div class="modal fade" id="modalUploadExcel<%=rnd%>" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="fw-bold text-dark"><i class="fas fa-file-upload text-warning me-2"></i><%=Common.getBahasaConfig("Unggah Excel Stok Opname")%></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pt-2">
+                <p class="small text-muted"><%=Common.getBahasaConfig("Gunakan format dari tombol Unduh sebagai contoh kolom. Baris dengan ID_SISTEM kosong akan disimpan sebagai data opname baru; baris dengan ID_SISTEM terisi akan memperbarui data yang sudah ada.")%></p>
+                <input type="file" class="form-control shadow-sm" id="fileUploadExcel<%=rnd%>" accept=".xlsx,.xls,.csv">
+                <div id="uploadStatusBox<%=rnd%>" class="mt-3" style="display:none;"></div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light rounded-pill px-3 fw-semibold border" data-bs-dismiss="modal"><%=Common.getBahasaConfig("Batal")%></button>
+                <button type="button" class="btn btn-warning text-dark rounded-pill px-3 fw-bold" id="btnProsesUpload<%=rnd%>" onclick="prosesUploadExcel<%=rnd%>()">
+                    <i class="fas fa-cogs me-2"></i><%=Common.getBahasaConfig("Proses Data")%>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     // ==========================================
     // BAGIAN 1: UTILITIES & STATE GLOBAL
     // ==========================================
     const masterModelClass<%=rnd%> = "ais.database.model.inventory.StokOpname";
-    
+
     const isAdmin<%=rnd%> = <%=isAdmin%>;
     const idTokoLogin<%=rnd%> = '<%=idTokoAktif%>';
     const colSpan<%=rnd%> = isAdmin<%=rnd%> ? 9 : 8;
+    let modalInstanceUpload<%=rnd%> = null;
 
     let arrDataProduk<%=rnd%> = [];
     let currentPage<%=rnd%> = 1;
@@ -846,6 +873,64 @@ String namaTokoAktif = tokoLogin != null ? tokoLogin.getNama() : "";
             console.error(error);
             showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Gagal mengunduh data.")%>', 'bg-danger text-white');
         }
+    };
+
+    // ==========================================
+    // CETAK PDF (print-friendly popup window)
+    // ==========================================
+    const cetakPdfOpname<%=rnd%> = async () => {
+        showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Menyiapkan PDF...")%>', 'bg-info text-dark');
+
+        const sqlFilters = buildFilterSQL<%=rnd%>();
+        const sqlQuery = "SELECT TO_CHAR(a.waktuopname, 'YYYY-MM-DD HH24:MI') as waktu, " +
+                         "a.stoksistem, a.stokfisik, a.selisih, a.keterangan, " +
+                         "p.nama AS nama_produk, p.kode as kode_produk, t.nama as nama_toko " +
+                         "FROM koperasi.stok_opname a " +
+                         "LEFT JOIN koperasi.produk p ON a.produk = p.id " +
+                         "INNER JOIN koperasi.toko t ON (a.toko = t.id and t.aktif) " +
+                         sqlFilters + " ORDER BY a.waktuopname DESC;";
+
+        const result = await fetchData<%=rnd%>(sqlQuery);
+        if (!result || result.length === 0) {
+            showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Tidak ada data untuk dicetak.")%>', 'bg-warning text-dark');
+            return;
+        }
+
+        let baris = '';
+        result.forEach(r => {
+            const kode = r.kode_produk ? ' [' + r.kode_produk + ']' : '';
+            const selisih = parseFloat(r.selisih || 0);
+            baris += '<tr>' +
+                '<td>' + (r.waktu || '-') + '</td>' +
+                '<td>' + (r.nama_produk || '-') + kode + '</td>' +
+                (isAdmin<%=rnd%> ? ('<td>' + (r.nama_toko || '-') + '</td>') : '') +
+                '<td style="text-align:right;">' + (r.stoksistem || 0) + '</td>' +
+                '<td style="text-align:right;">' + (r.stokfisik || 0) + '</td>' +
+                '<td style="text-align:right;">' + (selisih >= 0 ? '+' : '') + selisih + '</td>' +
+                '<td>' + (r.keterangan || '-') + '</td>' +
+                '</tr>';
+        });
+
+        const kolomToko = isAdmin<%=rnd%> ? '<th><%=Common.getBahasaConfigJS("Toko")%></th>' : '';
+        const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Stok Opname</title>' +
+            '<style>body{font-family:Arial,sans-serif;font-size:11px;padding:16px;} h3{margin-bottom:4px;} p{margin-top:0;color:#555;} ' +
+            'table{width:100%;border-collapse:collapse;} th,td{border:1px solid #ccc;padding:5px 7px;} th{background:#f0f0f0;text-align:left;}</style>' +
+            '</head><body>' +
+            '<h3><%=Common.getBahasaConfigJS("Laporan Stok Opname")%></h3>' +
+            '<p>' + (isAdmin<%=rnd%> ? '<%=Common.getBahasaConfigJS("Semua Toko")%>' : '<%=namaTokoAktif%>') + '</p>' +
+            '<table><thead><tr>' +
+            '<th><%=Common.getBahasaConfigJS("Waktu Opname")%></th><th><%=Common.getBahasaConfigJS("Produk")%></th>' +
+            kolomToko +
+            '<th><%=Common.getBahasaConfigJS("Stok Sistem")%></th><th><%=Common.getBahasaConfigJS("Stok Fisik")%></th>' +
+            '<th><%=Common.getBahasaConfigJS("Selisih")%></th><th><%=Common.getBahasaConfigJS("Keterangan")%></th>' +
+            '</tr></thead><tbody>' + baris + '</tbody></table>' +
+            '<script>window.onload = function(){ window.print(); };<' + '/script>' +
+            '</body></html>';
+
+        const jendela = window.open('', '_blank');
+        jendela.document.open();
+        jendela.document.write(html);
+        jendela.document.close();
     };
 
     const showUploadModal<%=rnd%> = () => {
