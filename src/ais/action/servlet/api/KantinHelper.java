@@ -7254,13 +7254,25 @@ public class KantinHelper {
 			JSONObject menuTersimpan = terurai.getJSONObject("menu");
 			JSONArray daftarMenu = new JSONArray();
 			for (ais.common.EbisnisMenuKatalog.Entri e : ais.common.EbisnisMenuKatalog.DAFTAR) {
-				if (!ais.common.EbisnisMenuKatalog.MODUL_POS.equals(e.modul)) {
+				// Modul POS + seluruh modul VARIAN (Inventory & Sales / Apotik / eMedik) --
+				// sebelumnya HANYA MODUL_POS, sehingga kunci varian tidak pernah bisa
+				// dilihat/diatur dari layar Hak Akses Flutter (gap ketahuan saat uji E2E
+				// FASE A-4: simpan kunci apotik_* diam-diam terfilter). MODUL_KANTIN_JSP
+				// tetap di luar (layarnya JSP, diatur dari editor ZK Grup Pengguna).
+				// Default tampil per kunci ikut jalur terpusat KUNCI_DEFAULT_NONAKTIF
+				// (kunci varian false, kunci lama true) -- bukan hardcode true.
+				if (!ais.common.EbisnisMenuKatalog.MODUL_POS.equals(e.modul)
+						&& !ais.common.EbisnisMenuKatalog.MODUL_INVENTORY_SALES.equals(e.modul)
+						&& !ais.common.EbisnisMenuKatalog.MODUL_APOTIK.equals(e.modul)
+						&& !ais.common.EbisnisMenuKatalog.MODUL_EMEDIK.equals(e.modul)) {
 					continue;
 				}
 				JSONObject j = new JSONObject();
 				j.put("kunci", e.kunci);
 				j.put("label", e.label);
-				j.put("boleh", menuTersimpan.optBoolean(e.kunci, true));
+				j.put("modul", e.modul);
+				j.put("boleh", menuTersimpan.optBoolean(e.kunci,
+						!ais.common.EbisnisMenuKatalog.KUNCI_DEFAULT_NONAKTIF.contains(e.kunci)));
 				daftarMenu.put(j);
 			}
 			hasil.put("status", "00");
@@ -7312,7 +7324,13 @@ public class KantinHelper {
 			JSONObject terurai = ais.common.EbisnisMenuKatalog.urai(role.getEbisnisMenu());
 			JSONObject menuSaatIni = terurai.getJSONObject("menu");
 			for (ais.common.EbisnisMenuKatalog.Entri e : ais.common.EbisnisMenuKatalog.DAFTAR) {
-				if (!ais.common.EbisnisMenuKatalog.MODUL_POS.equals(e.modul)) {
+				// Selaras ebisnisRoleMenuAmbil: POS + modul varian (lihat komentar di sana);
+				// kunci di payload yang bukan bagian modul ini tetap diabaikan diam2
+				// (perilaku lama utk kunci tak dikenal dipertahankan).
+				if (!ais.common.EbisnisMenuKatalog.MODUL_POS.equals(e.modul)
+						&& !ais.common.EbisnisMenuKatalog.MODUL_INVENTORY_SALES.equals(e.modul)
+						&& !ais.common.EbisnisMenuKatalog.MODUL_APOTIK.equals(e.modul)
+						&& !ais.common.EbisnisMenuKatalog.MODUL_EMEDIK.equals(e.modul)) {
 					continue;
 				}
 				if (menuBaru.has(e.kunci)) {
