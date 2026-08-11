@@ -209,13 +209,15 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 		//     pr.metode_hpp = metode biaya per-produk (kosong = default rata-rata kulakan → fallback harga beli).
 		@SuppressWarnings("unchecked")
 		List<Object[]> rows = session.createSQLQuery(
-				"SELECT pb.produk, pr.master_asset, COALESCE(pr.hargabeli,0), COALESCE(SUM(pb.qty),0), pr.metode_hpp "
+				"SELECT pb.produk, pr.master_asset, COALESCE(pr.hargabeli,0), COALESCE(SUM(pb.qty),0), pr.metode_hpp, "
+						+ "jp.akun_hpp "
 						+ "FROM koperasi.pembelian pb "
 						+ "INNER JOIN koperasi.produk pr ON pr.id = pb.produk "
+						+ "LEFT JOIN koperasi.jenis_produk jp ON jp.id = pr.jenis_produk "
 						+ "INNER JOIN koperasi.pembelian_anggota_koperasi h ON h.id = pb.pembelian_anggota_koperasi "
 						+ "WHERE pr.master_asset IS NOT NULL AND pb.aktif = true "
 						+ "AND date(h.tanggal_pembayaran) BETWEEN date('" + mStr + "') AND date('" + sStr + "') "
-						+ "GROUP BY pb.produk, pr.master_asset, pr.hargabeli, pr.metode_hpp "
+						+ "GROUP BY pb.produk, pr.master_asset, pr.hargabeli, pr.metode_hpp, jp.akun_hpp "
 						+ "ORDER BY pb.produk").list();
 
 		for (Object[] r : rows) {
@@ -270,16 +272,26 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 			MasterAsset ma = (MasterAsset) session.get(MasterAsset.class, masterAssetId);
 			String namaBarang = ma == null ? ("#" + masterAssetId) : ma.getNama();
 
+			Long jpAkunHppId = r.length > 5 && r[5] != null ? Long.valueOf(((Number) r[5]).longValue()) : null;
+
 			Akun akunHpp = null;
 			Akun akunPersediaan = null;
+			// Prioritas akun HPP: dari Jenis Produk (bila diisi), lalu fallback ke Kelompok Aset.
+			if (jpAkunHppId != null) {
+				try {
+					akunHpp = (Akun) ConstantValues.ambil(Akun.class.getName(), jpAkunHppId);
+				} catch (Exception ex) {
+					akunHpp = null;
+				}
+			}
 			if (ma != null) {
 				KelompokAsset kelompok = ma.getKelompokAsset();
 				try {
-					if (kelompok != null && kelompok.getAkunBebanPokokPenjualan() != null) {
+					if (akunHpp == null && kelompok != null && kelompok.getAkunBebanPokokPenjualan() != null) {
 						akunHpp = AssetUtil.ambilDataAkun(kelompok.getAkunBebanPokokPenjualan(), satker);
 					}
 				} catch (Exception ex) {
-					akunHpp = null;
+					// biarkan akunHpp apa adanya (mungkin sudah dari Jenis Produk)
 				}
 				try {
 					if (ma.getAkunTransaksi() != null && !ma.getAkunTransaksi().trim().isEmpty()) {

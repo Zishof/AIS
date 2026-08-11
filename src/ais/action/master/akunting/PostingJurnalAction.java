@@ -191,6 +191,10 @@ public class PostingJurnalAction extends GenericAutowireComposer {
 			btabs.tambahTabZul(idx++, "Posting HPP",
 					"/WEB-INF/z/x/y/pages/master/koperasi/posting_hpp_kantin.zul");
 		}
+		if (Common.bolehKonfigurasi(P + "posting_penjualan")) {
+			btabs.tambahTabZul(idx++, "Posting Penjualan",
+					"/WEB-INF/z/x/y/pages/master/koperasi/posting_penjualan_kantin.zul");
+		}
 
 		super.doAfterCompose(comp);
 		btabs.pulihkanSeleksi(idx);

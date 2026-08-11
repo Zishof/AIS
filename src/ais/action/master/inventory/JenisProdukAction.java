@@ -58,6 +58,9 @@ public class JenisProdukAction extends GenericAutowireComposer
 	private Textbox nama;
 	private MyDoublebox maksimalHarian;
 	private Textbox keterangan;
+	private ais.action.master.akunting.helper.AmbilDataAkunBanbox akunPendapatan;
+	private ais.action.master.akunting.helper.AmbilDataAkunBanbox akunPpnKeluaran;
+	private ais.action.master.akunting.helper.AmbilDataAkunBanbox akunHpp;
 
 	private boolean edit = false;
 	private boolean delete = false;
@@ -181,6 +184,37 @@ public class JenisProdukAction extends GenericAutowireComposer
 		keterangan.setWidth("90%");
 		keterangan.setRows(3);
 
+		// Akun untuk Posting Penjualan Kantin (sisi KREDIT) per jenis produk.
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Akun Pendapatan Penjualan"));
+		row.appendChild(akunPendapatan = new ais.action.master.akunting.helper.AmbilDataAkunBanbox(false));
+		akunPendapatan.setWidth("90%");
+		if (jenisProduk.getAkunPendapatan() != null) {
+			akunPendapatan.setAttribute("akun", jenisProduk.getAkunPendapatan());
+			akunPendapatan.setValue(jenisProduk.getAkunPendapatan().toString());
+		}
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Akun PPN Keluaran"));
+		row.appendChild(akunPpnKeluaran = new ais.action.master.akunting.helper.AmbilDataAkunBanbox(false));
+		akunPpnKeluaran.setWidth("90%");
+		if (jenisProduk.getAkunPpnKeluaran() != null) {
+			akunPpnKeluaran.setAttribute("akun", jenisProduk.getAkunPpnKeluaran());
+			akunPpnKeluaran.setValue(jenisProduk.getAkunPpnKeluaran().toString());
+		}
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Akun HPP (Beban Pokok Penjualan)"));
+		row.appendChild(akunHpp = new ais.action.master.akunting.helper.AmbilDataAkunBanbox(false));
+		akunHpp.setWidth("90%");
+		if (jenisProduk.getAkunHpp() != null) {
+			akunHpp.setAttribute("akun", jenisProduk.getAkunHpp());
+			akunHpp.setValue(jenisProduk.getAkunHpp().toString());
+		}
+
 		South south = new South();
 		ais.ui.util.ZkCompat.setFlex(south, true);
 		south.setParent(borderlayout);
@@ -236,6 +270,12 @@ public class JenisProdukAction extends GenericAutowireComposer
 		jenisProduk.setNama(nama.getValue());
 		jenisProduk.setMaksimalHarian(maksimalHarian.getValue());
 		jenisProduk.setKeterangan(keterangan.getValue());
+		jenisProduk.setAkunPendapatan(
+				(ais.database.model.akunting.Akun) (akunPendapatan == null ? null : akunPendapatan.getAttribute("akun")));
+		jenisProduk.setAkunPpnKeluaran(
+				(ais.database.model.akunting.Akun) (akunPpnKeluaran == null ? null : akunPpnKeluaran.getAttribute("akun")));
+		jenisProduk.setAkunHpp(
+				(ais.database.model.akunting.Akun) (akunHpp == null ? null : akunHpp.getAttribute("akun")));
 
 		Common.refreshSaveOrUpdate(session, jenisProduk);
 

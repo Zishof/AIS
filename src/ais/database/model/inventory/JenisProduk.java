@@ -138,4 +138,57 @@ public class JenisProduk extends GeneralValueObject {
 		this.aktif = aktif;
 	}
 
+	private ais.database.model.akunting.Akun akunPendapatan;
+	private ais.database.model.akunting.Akun akunPpnKeluaran;
+
+	/**
+	 * Akun <b>Pendapatan Penjualan</b> (posisi KREDIT) untuk fitur Posting Penjualan Kantin —
+	 * ditetapkan per jenis produk sehingga tiap kategori bisa memakai akun pendapatan berbeda.
+	 * {@code @NotAudited}: field pemetaan akun, tak perlu histori audit (hindari sinkron
+	 * {@code new_audit.jenis_produk__audit}). Kolom FK {@code akun_pendapatan} ke {@code akunting.akun}.
+	 */
+	@org.hibernate.envers.NotAudited
+	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "akun_pendapatan", nullable = true)
+	public ais.database.model.akunting.Akun getAkunPendapatan() {
+		return akunPendapatan;
+	}
+
+	public void setAkunPendapatan(ais.database.model.akunting.Akun akunPendapatan) {
+		this.akunPendapatan = akunPendapatan;
+	}
+
+	/**
+	 * Akun <b>PPN Keluaran</b> (posisi KREDIT) untuk Posting Penjualan Kantin — per jenis produk.
+	 * {@code @NotAudited}. Kolom FK {@code akun_ppn_keluaran} ke {@code akunting.akun}.
+	 */
+	@org.hibernate.envers.NotAudited
+	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "akun_ppn_keluaran", nullable = true)
+	public ais.database.model.akunting.Akun getAkunPpnKeluaran() {
+		return akunPpnKeluaran;
+	}
+
+	public void setAkunPpnKeluaran(ais.database.model.akunting.Akun akunPpnKeluaran) {
+		this.akunPpnKeluaran = akunPpnKeluaran;
+	}
+
+	private ais.database.model.akunting.Akun akunHpp;
+
+	/**
+	 * Akun <b>Beban Pokok Penjualan (HPP)</b> (posisi DEBIT) untuk Posting HPP Kantin — per jenis
+	 * produk. Bila diisi, dipakai lebih dulu daripada akun HPP di Kelompok Aset. {@code @NotAudited}.
+	 * Kolom FK {@code akun_hpp} ke {@code akunting.akun}.
+	 */
+	@org.hibernate.envers.NotAudited
+	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "akun_hpp", nullable = true)
+	public ais.database.model.akunting.Akun getAkunHpp() {
+		return akunHpp;
+	}
+
+	public void setAkunHpp(ais.database.model.akunting.Akun akunHpp) {
+		this.akunHpp = akunHpp;
+	}
+
 }

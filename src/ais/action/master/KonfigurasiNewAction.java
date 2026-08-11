@@ -844,6 +844,8 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		rows.appendChild(createRowActiveDefault(
 				"Tampilkan tab \"Posting HPP\" (juga menampilkan/menyembunyikan barisnya di Ringkasan Kesiapan Posting Jurnal)",
 				P + "posting_hpp", Konfigurasi.AKTIF));
+		rows.appendChild(createRowActiveDefault("Tampilkan tab \"Posting Penjualan\"", P + "posting_penjualan",
+				Konfigurasi.AKTIF));
 	}
 
 	/**
