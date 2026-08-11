@@ -369,6 +369,25 @@
 		<mapping class="ais.database.model.Brand" />
 		<mapping class="ais.database.model.Investor" />
 		<mapping class="ais.database.model.AkunManajemen" />
+		<!-- Control-plane Pendaftaran Tenant (route /pendaftaran) - schema public,
+		     semua @Audited (audit table di new_audit.<tabel>__audit, dibuat otomatis
+		     hbm2ddl utk TABEL BARU; lihat docs/pendaftaran-tenant/01-source-audit.md §9) -->
+		<mapping class="ais.database.model.tenant.JenisUsahaTenant" />
+		<mapping class="ais.database.model.tenant.JenisUsahaTenantModule" />
+		<mapping class="ais.database.model.tenant.PendaftarTenantProfile" />
+		<mapping class="ais.database.model.tenant.PendaftaranTenant" />
+		<mapping class="ais.database.model.tenant.PendaftaranTenantJenisUsaha" />
+		<mapping class="ais.database.model.tenant.SchemaNameReservation" />
+		<mapping class="ais.database.model.tenant.TenantRegistry" />
+		<mapping class="ais.database.model.tenant.TenantDomain" />
+		<mapping class="ais.database.model.tenant.TenantModuleEntitlement" />
+		<mapping class="ais.database.model.tenant.PendaftaranEmailVerification" />
+		<mapping class="ais.database.model.tenant.PendaftaranConsent" />
+		<mapping class="ais.database.model.tenant.RegistrationCredentialDelivery" />
+		<mapping class="ais.database.model.tenant.ProvisioningJob" />
+		<mapping class="ais.database.model.tenant.ProvisioningStep" />
+		<mapping class="ais.database.model.tenant.TenantMembership" />
+		<mapping class="ais.database.model.tenant.PendaftaranAuditEvent" />
 		<mapping class="ais.database.model.KategoriPrestasiPegawai" />
 		<mapping class="ais.database.model.CabangPrestasiPegawai" />
 		<mapping class="ais.database.model.PrestasiPegawai" />
