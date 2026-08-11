@@ -366,12 +366,14 @@ public final class LaporanKatalogData {
     public static JSONArray katalogKeuangan() throws Exception {
         // Nama kategori MENTAH (sesuai new Kat(...)); dibandingkan setelah getBahasaConfig agar cocok
         // dengan field "kat" pada output katalog() (yang sudah diterjemahkan).
+        // SENGAJA HANYA kategori yang laporannya dijalankan NATIVE via mesin laporan (aksi
+        // laporan_jalankan / LaporanKantinUtil) — kategori "…Resmi (Akuntansi)" & "Arus Kas & Analisa"
+        // yang isinya laporan JRXML/ZK berbasis {@code url} TIDAK diikutkan, supaya menu Laporan
+        // Keuangan berjalan native di SEMUA platform (Desktop/Android via API, JSP versi JSP-nya
+        // sendiri, ZK di dasbor ZK-nya sendiri) — bukan membuka URL ke platform lain.
         String[] kategoriKeuangan = new String[] {
                 "Keuangan",
-                "Laporan Keuangan Resmi — Komparatif (Akuntansi)",
-                "Arus Kas & Analisa Keuangan (Akuntansi)",
                 "Buku Besar (Akuntansi)",
-                "Buku Besar Resmi (Akuntansi)",
                 "Kas & Bank (Akuntansi)",
                 "Piutang",
                 "Pengadaan (Vendor / PO / BAST)",
@@ -386,10 +388,25 @@ public final class LaporanKatalogData {
             String label = Common.getBahasaConfig(raw);
             for (int i = 0; i < semua.length(); i++) {
                 JSONObject kat = semua.getJSONObject(i);
-                if (label.equals(kat.optString("kat"))) {
-                    out.put(kat);
-                    break;
+                if (!label.equals(kat.optString("kat"))) {
+                    continue;
                 }
+                // Saring item ber-url (laporan JRXML/ZK) agar hanya laporan native yang tampil.
+                JSONArray itemsAsli = kat.optJSONArray("items");
+                JSONArray itemsNative = new JSONArray();
+                for (int j = 0; itemsAsli != null && j < itemsAsli.length(); j++) {
+                    JSONObject it = itemsAsli.getJSONObject(j);
+                    if (!it.has("url")) {
+                        itemsNative.put(it);
+                    }
+                }
+                if (itemsNative.length() > 0) {
+                    JSONObject katBaru = new JSONObject();
+                    katBaru.put("kat", kat.optString("kat"));
+                    katBaru.put("items", itemsNative);
+                    out.put(katBaru);
+                }
+                break;
             }
         }
         return out;
