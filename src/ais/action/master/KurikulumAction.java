@@ -1486,10 +1486,23 @@ public class KurikulumAction extends GenericAutowireComposer implements DataCrit
 
 		row = new MyFormRow();
 		row.setParent(rows);
-		row.appendChild(new ais.ui.util.MyLabelConfig("Berlaku Mulai Tahun Akademik OBE"));
+		final ais.ui.util.MyLabelConfig labelTahunAkademikObe = new ais.ui.util.MyLabelConfig(
+				obe.isChecked() ? "Berlaku Mulai Tahun Akademik OBE *" : "Berlaku Mulai Tahun Akademik OBE");
+		row.appendChild(labelTahunAkademikObe);
 		row.appendChild(tahunAkademikObe);
 		tahunAkademikObe.setWidth("90%");
 		Common.selectComboItem(tahunAkademikObe, kurikulum.getTahunAkademikObe());
+
+		obe.addEventListener("onCheck", new org.zkoss.zk.ui.event.EventListener() {
+			@Override
+			public void onEvent(org.zkoss.zk.ui.event.Event event) throws Exception {
+				if (obe.isChecked()) {
+					labelTahunAkademikObe.setValueData("Berlaku Mulai Tahun Akademik OBE *");
+				} else {
+					labelTahunAkademikObe.setValueData("Berlaku Mulai Tahun Akademik OBE");
+				}
+			}
+		});
 
 		row = new MyFormRow();
 		row.setParent(rows);
@@ -1662,6 +1675,17 @@ public class KurikulumAction extends GenericAutowireComposer implements DataCrit
 					"Kolom Jenis semester belum Bapak/Ibu isi, padahal kolom ini wajib diisi sebelum data dapat disimpan.",
 					new String[] {
 							"Isi/pilih terlebih dahulu Jenis semester.",
+							"Ulangi proses penyimpanan setelah kolom tersebut terisi."
+					});
+			return false;
+		}
+		if (obe.isChecked()
+				&& (tahunAkademikObe.getSelectedItem() == null
+						|| tahunAkademikObe.getSelectedItem().getValue() == null)) {
+			PesanFormalHelper.tampilkanGagal("penyimpanan data Kurikulum OBE",
+					"Kolom \"Berlaku Mulai Tahun Akademik OBE\" wajib diisi jika kurikulum OBE diaktifkan.",
+					new String[] {
+							"Pilih Tahun Akademik OBE terlebih dahulu.",
 							"Ulangi proses penyimpanan setelah kolom tersebut terisi."
 					});
 			return false;
