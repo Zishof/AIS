@@ -34,6 +34,11 @@ public class ApiEBisnis extends PosApi {
 		} catch (Exception e) {
 			ais.common.ErrorAuditUtil.record(e, "ApiEBisnis.init: seed role inventory_sales");
 		}
+		try {
+			ais.action.servlet.api.ApotikEmedikSeedHelper.pastikanSeed();
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "ApiEBisnis.init: seed menu apotik/emedik");
+		}
 	}
 
 	/**

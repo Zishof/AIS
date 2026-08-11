@@ -67,6 +67,13 @@ public final class EbisnisMenuKatalog {
 	public static final String MODUL_KANTIN_JSP = "Menu Pengaturan e-Kantin (versi JSP)";
 	/** Varian "eBisnis Inventory &amp; Sales" (48 layar legacy, lihat docs/pos-inventory-sales di repo zishof-platform). */
 	public static final String MODUL_INVENTORY_SALES = "Menu Inventory & Sales (varian eBisnis Inventory & Sales)";
+	/** Varian "POS Apotik" (eFarmasi) -- penjualan obat resep/bebas, batch-kedaluwarsa, pengadaan PBF.
+	 *  Layar datanya MENUMPANG modul SIRS existing ({@code ais.action.master.sirs}, 191 berkas) --
+	 *  lihat komentar padanan per baris {@link #DAFTAR}; JANGAN membangun ulang layar SIRS. */
+	public static final String MODUL_APOTIK = "Menu POS Apotik (varian eFarmasi)";
+	/** Varian "POS eMedik" -- kasir layanan fasilitas kesehatan (pendaftaran/tagihan/deposit/penjamin),
+	 *  BUKAN penjual obat: pemisahan wewenang apoteker vs tenaga medis disengaja (lihat seed role). */
+	public static final String MODUL_EMEDIK = "Menu POS eMedik (varian layanan medis)";
 
 	/**
 	 * Daftar lengkap menu yang dikenal versi kode ini. Menambah menu baru = tambah baris di sini --
@@ -127,6 +134,27 @@ public final class EbisnisMenuKatalog {
 		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "kas_jurnal", "Kas & Jurnal", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "laba_rugi", "Laba / Rugi", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "laporan_inventory_sales", "Laporan Inventory & Sales", "desktop", "android"));
+
+		// -- Varian POS Apotik (eFarmasi) -- padanan layar SIRS hasil survei sirs/ dicatat per baris;
+		// hanya "apotik_narkotika" yang TIDAK punya padanan (pekerjaan baru di fase layar apotik).
+		DAFTAR.add(new Entri(MODUL_APOTIK, "apotik_kasir", "Kasir Apotik", "desktop", "android")); // sirs/TransaksiAction + detail/TransaksiItemDetailHelper
+		DAFTAR.add(new Entri(MODUL_APOTIK, "apotik_resep", "Tebus Resep Dokter", "desktop", "android")); // sirs/detail/ResepHelper + helper/AmbilDataResepBanbox
+		DAFTAR.add(new Entri(MODUL_APOTIK, "apotik_racikan", "Racikan", "desktop", "android")); // sirs/RacikanAction + helper/BuatRacikanBaruHelper
+		DAFTAR.add(new Entri(MODUL_APOTIK, "apotik_formularium", "Formularium & Obat", "desktop", "android")); // sirs/ItemMedisAction + GenerikItemAction
+		DAFTAR.add(new Entri(MODUL_APOTIK, "apotik_batch", "Batch & Kedaluwarsa", "desktop", "android")); // sirs/detail/KadaluarsaAction + MonitorKadaluarsaItemAction
+		DAFTAR.add(new Entri(MODUL_APOTIK, "apotik_pengadaan", "Pengadaan / PBF", "desktop", "android")); // sirs/PermintaanPembelian->PesananPembelian->PenerimaanOrder(Kembali)
+		DAFTAR.add(new Entri(MODUL_APOTIK, "apotik_stok_opname", "Stok Opname Apotik", "desktop", "android")); // sirs/KoreksiItemAction + MonitorStokItemAction + SaldoAwalAction
+		DAFTAR.add(new Entri(MODUL_APOTIK, "apotik_retur", "Retur Obat", "desktop", "android")); // sirs/TransaksiReturAction + PemakaianReturItemAction
+		DAFTAR.add(new Entri(MODUL_APOTIK, "apotik_narkotika", "Obat Terkendali (Narkotika/Psikotropika)", "desktop", "android")); // BARU -- tanpa padanan SIRS
+		DAFTAR.add(new Entri(MODUL_APOTIK, "apotik_laporan", "Laporan Apotik", "desktop", "android")); // sirs/chart/KadaluarsaFarmasiDashboard + PendapatanDashboard
+
+		// -- Varian POS eMedik (kasir layanan medis, non-obat) --
+		DAFTAR.add(new Entri(MODUL_EMEDIK, "emedik_kasir", "Kasir Layanan Medis", "desktop", "android")); // sirs/TransaksiAction + PembayaranAction
+		DAFTAR.add(new Entri(MODUL_EMEDIK, "emedik_pendaftaran", "Pendaftaran Pasien", "desktop", "android")); // sirs/BookingRegistrasiAction + PendaftaranRawatJalan/Inap/Ugd
+		DAFTAR.add(new Entri(MODUL_EMEDIK, "emedik_tagihan", "Tagihan Kunjungan", "desktop", "android")); // sirs/TransaksiAction + StatusPembayaranAction
+		DAFTAR.add(new Entri(MODUL_EMEDIK, "emedik_deposit", "Deposit Pasien", "desktop", "android")); // sirs/DepositAction
+		DAFTAR.add(new Entri(MODUL_EMEDIK, "emedik_penjamin", "Penjamin & Asuransi", "desktop", "android")); // sirs/AsuransiAction + util/PenjaminResolver
+		DAFTAR.add(new Entri(MODUL_EMEDIK, "emedik_laporan", "Laporan Kasir Medis", "desktop", "android")); // sirs/chart/PendapatanDashboard + PendaftaranOverviewDashboard
 	}
 
 	/**
@@ -140,7 +168,13 @@ public final class EbisnisMenuKatalog {
 	public static final java.util.Set<String> KUNCI_DEFAULT_NONAKTIF = new java.util.LinkedHashSet<String>(java.util.Arrays.asList(
 			"master_supplier", "master_customer", "master_sales", "persediaan", "harga", "hutang",
 			"penjualan_sales", "piutang", "surat_perintah_sales", "nota_sales", "biaya_sales",
-			"pembelian_sales", "rekonsiliasi_sales", "kas_jurnal", "laba_rugi", "laporan_inventory_sales"));
+			"pembelian_sales", "rekonsiliasi_sales", "kas_jurnal", "laba_rugi", "laporan_inventory_sales",
+			// varian POS Apotik + POS eMedik: alasan fail-closed yang sama -- role POS existing
+			// TIDAK boleh mendadak melihat menu apotek/medis; nyala hanya via seed 1.5 / admin.
+			"apotik_kasir", "apotik_resep", "apotik_racikan", "apotik_formularium", "apotik_batch",
+			"apotik_pengadaan", "apotik_stok_opname", "apotik_retur", "apotik_narkotika", "apotik_laporan",
+			"emedik_kasir", "emedik_pendaftaran", "emedik_tagihan", "emedik_deposit", "emedik_penjamin",
+			"emedik_laporan"));
 
 	/**
 	 * Subset {@link #DAFTAR} kunci yang punya record/CRUD sungguhan (bukan sekadar layar lihat-saja spt
@@ -159,7 +193,12 @@ public final class EbisnisMenuKatalog {
 			// varian Inventory & Sales (default aksi ikut KUNCI_DEFAULT_NONAKTIF: false)
 			"master_supplier", "master_customer", "master_sales", "harga", "hutang",
 			"penjualan_sales", "piutang", "surat_perintah_sales", "nota_sales", "biaya_sales",
-			"pembelian_sales", "kas_jurnal"));
+			"pembelian_sales", "kas_jurnal",
+			// varian POS Apotik/eMedik: menu ber-record nyata (laporan & monitor batch sengaja
+			// tidak disertakan -- tidak ada create/update/delete yang berarti di sana)
+			"apotik_kasir", "apotik_resep", "apotik_racikan", "apotik_formularium",
+			"apotik_pengadaan", "apotik_stok_opname", "apotik_retur", "apotik_narkotika",
+			"emedik_kasir", "emedik_pendaftaran", "emedik_tagihan", "emedik_deposit", "emedik_penjamin"));
 
 	/** Aksi granular yg bisa diatur per {@link #KUNCI_CRUD}, di luar Read (sudah diwakili {@code menu}). */
 	public static final String[] AKSI_CRUD = { "create", "update", "delete", "approve", "reject" };

@@ -84,8 +84,10 @@ public final class SalesInventoryHelper {
 	 * default {@code urai()}) -- role seed harus deterministik: menu di luar {@code aktifkan}
 	 * eksplisit {@code false}, aksi CRUD di luar {@code crudAktif} eksplisit {@code false}.
 	 */
-	private static String bungkusMenuRole(java.util.Set<String> aktifkan,
+	/* package */ static String bungkusMenuRole(java.util.Set<String> aktifkan,
 			java.util.Map<String, java.util.Set<String>> crudAktif) throws Exception {
+		// Visibilitas package (bukan private): di-reuse seed varian lain satu paket
+		// (ApotikEmedikSeedHelper) -- format bungkus JSON role harus SATU sumber.
 		JSONObject obj = new JSONObject();
 		obj.put("supervisor", false);
 		obj.put("berandaKantin", false);
@@ -109,11 +111,11 @@ public final class SalesInventoryHelper {
 		return obj.toString();
 	}
 
-	private static java.util.Set<String> set(String... isi) {
+	/* package */ static java.util.Set<String> set(String... isi) {
 		return new java.util.LinkedHashSet<String>(java.util.Arrays.asList(isi));
 	}
 
-	private static final java.util.Set<String> SEMUA_AKSI_CRUD = set("create", "update", "delete", "approve", "reject");
+	/* package */ static final java.util.Set<String> SEMUA_AKSI_CRUD = set("create", "update", "delete", "approve", "reject");
 
 	/**
 	 * Pemilik Sales/Inventory: seluruh menu varian Inventory &amp; Sales + menu POS existing yang

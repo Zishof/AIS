@@ -963,6 +963,14 @@ public class PosApi extends HttpServlet {
 		aksesMenu.put("pengaturan", menuTersimpan.optBoolean("konfigurasi", true));
 		aksesMenu.put("riwayatpenjualan", menuTersimpan.optBoolean("riwayatpenjualan", true));
 		aksesMenu.put("returpenjualan", menuTersimpan.optBoolean("returpenjualan", true));
+		// Kunci varian fail-closed (Inventory & Sales, POS Apotik, POS eMedik) -- SATU jalur
+		// terpusat dari KUNCI_DEFAULT_NONAKTIF, default EKSPLISIT false: klien lama
+		// (Sesi.bolehMenu) menganggap kunci yang HILANG = boleh, jadi kunci baru wajib selalu
+		// hadir di respons ini bernilai false bila role belum pernah menyimpannya. Kunci varian
+		// baru berikutnya otomatis ikut tanpa menambah baris manual di sini.
+		for (String kunciVarian : ais.common.EbisnisMenuKatalog.KUNCI_DEFAULT_NONAKTIF) {
+			aksesMenu.put(kunciVarian, menuTersimpan.optBoolean(kunciVarian, false));
+		}
 		hasil.put("aksesMenu", aksesMenu);
 		JSONObject aksesMenuCrud = new JSONObject();
 		JSONObject crudTersimpan = ebisnisMenuRole.optJSONObject("crud");
