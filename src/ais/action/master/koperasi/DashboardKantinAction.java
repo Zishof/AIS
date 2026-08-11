@@ -381,7 +381,8 @@ public class DashboardKantinAction extends GenericAutowireComposer {
 
         String[] judulTab = { "Ringkasan", "Peringkat Mitra/Toko", "Keuangan & Laba", "Produk & Stok", "Pelanggan",
                 "Transaksi & Pesanan", "Resep, HPP & Margin", "Laporan-Laporan", "Kepatuhan Operasional",
-                "Ramalan Penjualan", "Monitor Promo & Cashback", "Stok & Mutasi (Inventory)", "Kas Kasir" };
+                "Ramalan Penjualan", "Monitor Promo & Cashback", "Stok & Mutasi (Inventory)", "Kas Kasir",
+                "Laporan Keuangan" };
         Tabpanel[] panels = new Tabpanel[judulTab.length];
         for (int i = 0; i < judulTab.length; i++) {
             Tab t = new Tab(judulTab[i]);
@@ -433,6 +434,7 @@ public class DashboardKantinAction extends GenericAutowireComposer {
                 // Kas Kasir SENGAJA tidak diteruskan tokoId/perToko -- dasbor ini aksi buka/tutup kas
                 // milik toko SI PENGGUNA yang login, bukan laporan lintas-toko yang boleh disaring admin.
                 case 12: muatDasborLain(panel, "/pages/master/kantin/kas_kasir.zul", false); break;
+                case 13: buildLaporanKeuangan(panel); break;
                 default: break;
             }
         } catch (Exception e) {
@@ -1392,6 +1394,18 @@ public class DashboardKantinAction extends GenericAutowireComposer {
         Div wrap = new Div();
         wrap.setParent(panel);
         ais.action.master.koperasi.helper.LaporanKantinZkPanel.build(wrap);
+    }
+
+    /** TAB Laporan Keuangan: katalog terkurasi khusus akuntansi/keuangan (subset Laporan-Laporan). */
+    private void buildLaporanKeuangan(Tabpanel panel) throws Exception {
+        panel.appendChild(DashboardUiKit.html(DashboardUiKit.descChip(
+                "Laporan Keuangan: Neraca, Laba Rugi, Arus Kas, Buku Besar &amp; Jurnal, Kas &amp; Bank, Piutang, "
+                        + "Utang/Pengadaan, Pajak, Anggaran, Gaji, dan Rekonsiliasi -- cari/pilih kategori lalu "
+                        + "jalankan atau unduh PDF/Excel.")));
+        Div wrap = new Div();
+        wrap.setParent(panel);
+        ais.action.master.koperasi.helper.LaporanKantinZkPanel.build(wrap,
+                ais.action.master.koperasi.helper.LaporanKatalogData.katalogKeuangan());
     }
 
     // ---------- TAB 9-13: DASBOR LAIN YANG DIPAKAI ULANG (Kepatuhan, Ramalan, Promo, Stok/Mutasi, Kas Kasir) ----------

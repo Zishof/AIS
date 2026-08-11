@@ -87,6 +87,7 @@ public final class EbisnisMenuKatalog {
 		DAFTAR.add(new Entri(MODUL_POS, "riwayatpenjualan", "Riwayat Penjualan", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "laporantransaksi", "Laporan Transaksi", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "laporan", "Laporan Katalog", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_POS, "laporankeuangan", "Laporan Keuangan", "desktop", "android", "jsp"));
 		DAFTAR.add(new Entri(MODUL_POS, "riwayatsinkronisasi", "Riwayat Sinkronisasi", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "logerror", "Log Error", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "konfigurasi", "Konfigurasi (Desktop/Android)", "desktop", "android"));

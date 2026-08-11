@@ -174,6 +174,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 	private MyCheckboxConfig aksesDiskon;
 	private MyCheckboxConfig aksesLaporanTransaksi;
 	private MyCheckboxConfig aksesLaporan;
+	private MyCheckboxConfig aksesLaporanKeuangan;
 	private MyCheckboxConfig aksesRiwayatSinkronisasi;
 	private MyCheckboxConfig aksesLogError;
 	private MyCheckboxConfig aksesKonfigurasi;
@@ -2343,6 +2344,8 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		row.appendChild(new ais.ui.util.MyLabelConfig(""));
 		row.appendChild(aksesLaporan = new MyCheckboxConfig("Laporan"));
 		aksesLaporan.setChecked(ebisnisMenuMap.optBoolean("laporan", true));
+		row.appendChild(aksesLaporanKeuangan = new MyCheckboxConfig("Laporan Keuangan"));
+		aksesLaporanKeuangan.setChecked(ebisnisMenuMap.optBoolean("laporankeuangan", true));
 
 		row = new MyFormRow();
 		row.setParent(rows);
@@ -2601,6 +2604,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		menu.put("mutasirekening", aksesMutasiRekening == null || aksesMutasiRekening.isChecked());
 		menu.put("produksi", aksesProduksi == null || aksesProduksi.isChecked());
 		menu.put("laporan", aksesLaporan == null || aksesLaporan.isChecked());
+		menu.put("laporankeuangan", aksesLaporanKeuangan == null || aksesLaporanKeuangan.isChecked());
 		menu.put("laporantransaksi", aksesLaporanTransaksi == null || aksesLaporanTransaksi.isChecked());
 		menu.put("pengaturanlaporan", aksesPengaturanLaporan == null || aksesPengaturanLaporan.isChecked());
 		menu.put("riwayatsinkronisasi", aksesRiwayatSinkronisasi == null || aksesRiwayatSinkronisasi.isChecked());

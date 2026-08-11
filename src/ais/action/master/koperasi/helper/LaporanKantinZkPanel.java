@@ -81,8 +81,13 @@ public final class LaporanKantinZkPanel {
 
 	/** Titik masuk -- dipanggil {@code DashboardKantinAction.buildLaporanLaporan}. */
 	public static void build(Div panel) {
+		build(panel, null);
+	}
+
+	/** Varian dengan katalog kustom (mis. {@link LaporanKatalogData#katalogKeuangan()} untuk menu Laporan Keuangan). */
+	public static void build(Div panel, JSONArray katalogParam) {
 		try {
-			final JSONArray katalog = LaporanKatalogData.katalog();
+			final JSONArray katalog = katalogParam != null ? katalogParam : LaporanKatalogData.katalog();
 
 			Hbox cariBox = new Hbox();
 			cariBox.setWidth("100%");

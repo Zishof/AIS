@@ -869,6 +869,7 @@ public class PosApi extends HttpServlet {
 		aksesMenu.put("laporantransaksi", menuTersimpan.optBoolean("laporantransaksi", true));
 		aksesMenu.put("laporan_transaksi", menuTersimpan.optBoolean("laporantransaksi", true));
 		aksesMenu.put("laporan", menuTersimpan.optBoolean("laporan", true));
+		aksesMenu.put("laporankeuangan", menuTersimpan.optBoolean("laporankeuangan", true));
 		aksesMenu.put("pengaturanlaporan", menuTersimpan.optBoolean("pengaturanlaporan", true));
 		aksesMenu.put("pengaturan_laporan", menuTersimpan.optBoolean("pengaturanlaporan", true));
 		aksesMenu.put("riwayatsinkronisasi", menuTersimpan.optBoolean("riwayatsinkronisasi", true));

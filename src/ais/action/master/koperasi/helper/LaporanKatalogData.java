@@ -353,4 +353,43 @@ public final class LaporanKatalogData {
         }
         return out;
     }
+
+    /**
+     * Subset katalog khusus <b>Laporan Keuangan</b> — hanya kategori akuntansi/keuangan, dalam urutan
+     * yang lebih enak dibaca (Neraca/Laba Rugi → Arus Kas → Buku Besar → Kas &amp; Bank → Piutang →
+     * Utang/Pengadaan → Pajak → Anggaran → Gaji → Rekonsiliasi). Dipakai menu "Laporan Keuangan" pada
+     * Desktop/Android/JSP/ZK. Reuse penuh {@link #katalog()} (label/kunci/SQL sama) — di sini hanya
+     * memilih &amp; mengurutkan kategori keuangan, tanpa menduplikasi definisi laporan.
+     */
+    public static JSONArray katalogKeuangan() throws Exception {
+        // Nama kategori MENTAH (sesuai new Kat(...)); dibandingkan setelah getBahasaConfig agar cocok
+        // dengan field "kat" pada output katalog() (yang sudah diterjemahkan).
+        String[] kategoriKeuangan = new String[] {
+                "Keuangan",
+                "Laporan Keuangan Resmi — Komparatif (Akuntansi)",
+                "Arus Kas & Analisa Keuangan (Akuntansi)",
+                "Buku Besar (Akuntansi)",
+                "Buku Besar Resmi (Akuntansi)",
+                "Kas & Bank (Akuntansi)",
+                "Piutang",
+                "Pengadaan (Vendor / PO / BAST)",
+                "Pajak (PPN)",
+                "Anggaran (RAB)",
+                "Gaji Karyawan (Payroll)",
+                "Rekonsiliasi Bank",
+        };
+        JSONArray semua = katalog();
+        JSONArray out = new JSONArray();
+        for (String raw : kategoriKeuangan) {
+            String label = Common.getBahasaConfig(raw);
+            for (int i = 0; i < semua.length(); i++) {
+                JSONObject kat = semua.getJSONObject(i);
+                if (label.equals(kat.optString("kat"))) {
+                    out.put(kat);
+                    break;
+                }
+            }
+        }
+        return out;
+    }
 }

@@ -28,6 +28,7 @@
         if ("pesanan".equals(menu)) return menuTersimpan.optBoolean("pesanan", true);
         if ("pengaturan".equals(menu)) return menuTersimpan.optBoolean("konfigurasi", true);
         if ("laporan_laporan".equals(menu)) return menuTersimpan.optBoolean("laporan", true);
+        if ("laporan_keuangan".equals(menu)) return menuTersimpan.optBoolean("laporankeuangan", true);
         if ("anggota".equals(menu)) return menuTersimpan.optBoolean("anggota", true);
         if ("barang".equals(menu)) return menuTersimpan.optBoolean("produk", true);
         if ("kulakan".equals(menu)) return menuTersimpan.optBoolean("kulakan", true);
@@ -309,7 +310,7 @@
                                 </a>
                                 <ul class="nav collapse <%=p.equals("kantin") || tbmrole.getRoleId().equalsIgnoreCase(Tbmrole.KANTIN)  ? "show" : "" %>" id="kantin_sub">
                                     <% 
-                                       String[] subEL = tbmuser.getPedagang() == null && tbmrole.getRoleId() != null && !tbmrole.getRoleId().equals(Tbmrole.KANTIN) ? new String[]{"beranda", "ringkasan", "pos", "pesanan", "pengaturan", "laporan_laporan"} : new String[]{"ringkasan", "pos", "pesanan", "pengaturan", "laporan_laporan"};
+                                       String[] subEL = tbmuser.getPedagang() == null && tbmrole.getRoleId() != null && !tbmrole.getRoleId().equals(Tbmrole.KANTIN) ? new String[]{"beranda", "ringkasan", "pos", "pesanan", "pengaturan", "laporan_laporan", "laporan_keuangan"} : new String[]{"ringkasan", "pos", "pesanan", "pengaturan", "laporan_laporan", "laporan_keuangan"};
                                        String[] subSubEL = (isAdminKantin ? new String[]{"anggota", "barang", "kulakan","retur_penjualan","diskon","pembayaran","pedagang","stok","meja","penyedia","kas","tenant","opname","stok_expired","limit_kredit","mutasi_rekening","produksi","pengaturan_laporan"} : new String[]{ "barang", "kulakan","retur_penjualan","diskon","pembayaran","pedagang","stok","meja","penyedia","kas","tenant","opname","stok_expired","limit_kredit","mutasi_rekening","produksi"});
                                        for(String sub : subEL) {
                                            if(!Common.bolehKonfigurasi("kantin_menu_"+sub)){ continue; } // on/off menu via Konfigurasi (default ON)
