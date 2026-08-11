@@ -151,6 +151,26 @@ boolean isAdmin = (toko == null);
                                 <textarea class="form-control text-muted shadow-sm" id="inputKeterangan<%=rnd%>" rows="3" placeholder="<%=Common.getBahasaConfig("Masukkan penjelasan tambahan jika ada...")%>"></textarea>
                             </div>
 
+                            <div class="col-12 mt-3">
+                                <div class="border rounded-3 p-3 bg-light-subtle">
+                                    <div class="fw-bold text-secondary small mb-2"><i class="fas fa-book text-primary me-1"></i><%=Common.getBahasaConfig("Akun Akuntansi (untuk Posting Jurnal Kantin)")%></div>
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label small fw-semibold text-secondary"><%=Common.getBahasaConfig("Akun Pendapatan Penjualan")%></label>
+                                            <select class="form-select form-select-sm shadow-sm" id="inputAkunPendapatan<%=rnd%>"><option value=""><%=Common.getBahasaConfig("- Pilih Akun -")%></option></select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small fw-semibold text-secondary"><%=Common.getBahasaConfig("Akun PPN Keluaran")%></label>
+                                            <select class="form-select form-select-sm shadow-sm" id="inputAkunPpnKeluaran<%=rnd%>"><option value=""><%=Common.getBahasaConfig("- Pilih Akun -")%></option></select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small fw-semibold text-secondary"><%=Common.getBahasaConfig("Akun HPP (Beban Pokok Penjualan)")%></label>
+                                            <select class="form-select form-select-sm shadow-sm" id="inputAkunHpp<%=rnd%>"><option value=""><%=Common.getBahasaConfig("- Pilih Akun -")%></option></select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="col-12 mt-4 text-end border-top pt-3">
                                 <button type="button" class="btn btn-light px-4 me-2 rounded-pill fw-semibold border shadow-sm" onclick="tutupForm<%=rnd%>()"><i class="fas fa-times text-danger me-2"></i><%=Common.getBahasaConfig("Batal")%></button>
                                 <button type="submit" class="btn btn-success px-4 rounded-pill shadow-sm fw-bold" id="btnSimpan<%=rnd%>">
@@ -202,6 +222,26 @@ boolean isAdmin = (toko == null);
         } else {
             alert(msg);
         }
+    };
+
+    // Pemilih Akun (mirror AmbilDataAkunBanbox versi ZK): daftar akun dari akunting.akun.
+    let akunOptionsHtml<%=rnd%> = '<option value=""><%=Common.getBahasaConfigJS("- Pilih Akun -")%></option>';
+    const loadAkunOptions<%=rnd%> = async () => {
+        const list = await fetchData<%=rnd%>("SELECT id, kode, nama FROM akunting.akun ORDER BY kode ASC");
+        let html = '<option value=""><%=Common.getBahasaConfigJS("- Pilih Akun -")%></option>';
+        (list || []).forEach((a) => {
+            const label = ((a.kode || '') + ' - ' + (a.nama || '')).replace(/</g, '&lt;').replace(/"/g, '&quot;');
+            html += '<option value="' + a.id + '">' + label + '</option>';
+        });
+        akunOptionsHtml<%=rnd%> = html;
+        ['inputAkunPendapatan<%=rnd%>', 'inputAkunPpnKeluaran<%=rnd%>', 'inputAkunHpp<%=rnd%>'].forEach((sid) => {
+            const el = document.getElementById(sid);
+            if (el) { const cur = el.value; el.innerHTML = html; el.value = cur; }
+        });
+    };
+    const setAkunSelect<%=rnd%> = (sid, val) => {
+        const el = document.getElementById(sid);
+        if (el) { el.value = (val === null || val === undefined) ? '' : (val + ''); }
     };
 
     // Label UI Switch Status Aktif
@@ -370,7 +410,11 @@ boolean isAdmin = (toko == null);
             keterangan: document.getElementById('inputKeterangan<%=rnd%>').value,
             maksimalHarian: parseFloat(document.getElementById('inputMaksHarian<%=rnd%>').value) || null,
             defaultProduk: document.getElementById('inputDefaultProduk<%=rnd%>').checked,
-            aktif: document.getElementById('inputStatusAktif<%=rnd%>').checked
+            aktif: document.getElementById('inputStatusAktif<%=rnd%>').checked,
+            // FK Akun: dikirim sebagai id (server resolve ke entity Akun; kosong = null).
+            akunPendapatan: document.getElementById('inputAkunPendapatan<%=rnd%>').value || null,
+            akunPpnKeluaran: document.getElementById('inputAkunPpnKeluaran<%=rnd%>').value || null,
+            akunHpp: document.getElementById('inputAkunHpp<%=rnd%>').value || null
         };
         
         const payload = { 
@@ -414,17 +458,20 @@ boolean isAdmin = (toko == null);
     const editJenisProduk<%=rnd%> = async (id) => {
         if (!isAdmin<%=rnd%>) return;
         
-        const sql = 'SELECT id, nama, keterangan, maksimalharian as maksimal_harian, defaultproduk as default_produk, aktif FROM koperasi.jenis_produk WHERE id = ' + id;
+        const sql = 'SELECT id, nama, keterangan, maksimalharian as maksimal_harian, defaultproduk as default_produk, aktif, akun_pendapatan, akun_ppn_keluaran, akun_hpp FROM koperasi.jenis_produk WHERE id = ' + id;
         const res = await fetchData<%=rnd%>(sql);
-        
+
         if (res.length > 0) {
             const data = res[0];
-            
+
             // Set Form Data
             document.getElementById('inputIdJenisProduk<%=rnd%>').value = data.id;
             document.getElementById('inputNama<%=rnd%>').value = data.nama || '';
             document.getElementById('inputMaksHarian<%=rnd%>').value = data.maksimal_harian || '';
             document.getElementById('inputKeterangan<%=rnd%>').value = data.keterangan || '';
+            setAkunSelect<%=rnd%>('inputAkunPendapatan<%=rnd%>', data.akun_pendapatan);
+            setAkunSelect<%=rnd%>('inputAkunPpnKeluaran<%=rnd%>', data.akun_ppn_keluaran);
+            setAkunSelect<%=rnd%>('inputAkunHpp<%=rnd%>', data.akun_hpp);
             
             const isDefault = (data.default_produk === true || data.default_produk === 'true' || data.default_produk === 't');
             document.getElementById('inputDefaultProduk<%=rnd%>').checked = isDefault;
@@ -465,5 +512,6 @@ boolean isAdmin = (toko == null);
             }
         });
         loadDataJenisProduk<%=rnd%>();
+        loadAkunOptions<%=rnd%>();
     });
 </script>
