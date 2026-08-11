@@ -53,6 +53,16 @@ String pathFotoPedagang = CommonMedia.getUrlFotoPengguna(tbmuser);
 						<%=Common.getBahasaConfig("Harga Beli (Kulakan)")%>
 					</button>
 
+					<button class="nav-link text-start rounded-3 fw-medium py-2"
+						id="v-pills-returpembelian-tab<%=rnd%>" data-bs-toggle="pill"
+						data-bs-target="#v-pills-returpembelian<%=rnd%>" type="button"
+						role="tab">
+						<i
+							class="fas fa-undo me-2 text-warning text-center"
+							style="width: 20px;"></i>
+						<%=Common.getBahasaConfig("Retur Pembelian")%>
+					</button>
+
 
 					<button class="nav-link text-start rounded-3 fw-medium py-2"
 						id="v-pills-diskon-tab<%=rnd%>" data-bs-toggle="pill"
@@ -251,6 +261,12 @@ String pathFotoPedagang = CommonMedia.getUrlFotoPengguna(tbmuser);
 						role="tabpanel">
 						<h5 class="fw-bold mb-3"><%=Common.getBahasaConfig("Manajemen Harga Beli")%></h5>
 						<jsp:include page="/WEB-INF/baru/modul/kantin/pengadaan/index.jsp" />
+					</div>
+
+					<div class="tab-pane fade" id="v-pills-returpembelian<%=rnd%>"
+						role="tabpanel">
+						<h5 class="fw-bold mb-3"><%=Common.getBahasaConfig("Retur Pembelian")%></h5>
+						<jsp:include page="/WEB-INF/baru/modul/kantin/pengadaan/retur_pembelian.jsp" />
 					</div>
 
 					<div class="tab-pane fade" id="v-pills-diskon<%=rnd%>"

@@ -312,7 +312,7 @@ String namaTokoAktif = tokoLogin != null ? tokoLogin.getNama() : "";
         }
         tbody.innerHTML = '<tr><td colspan="8" class="text-center py-5"><div class="spinner-border text-primary mb-3"></div></td></tr>';
         const result = await fetchData<%=rnd%>({ action: "mutasi_stok_list", toko_id: tokoId, limit: 100 });
-        const rows = (result.data && result.data.data) || [];
+        const rows = result.data || [];
         if (rows.length === 0) {
             tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-5"><%=Common.getBahasaConfig("Belum ada riwayat mutasi stok.")%></td></tr>';
             return;
