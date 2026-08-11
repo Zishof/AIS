@@ -3487,9 +3487,62 @@ public class PenjadwalanHelper {
 						return;
 					}
 
-					MyMessageboxConfig.show(
-							"Apakah yakin ingin melakukan menghapus semua pertemuan jika lebih dari "
-									+ perkuliahan.getJumlahMaksimalPertemuan() + " yang tidak terpakai ?",
+					// KE-FIX (pengaman): sebelumnya idsBoleh (daftar pertemuan yang akan DIHAPUS
+					// PERMANEN) baru dihitung SETELAH pengguna menekan OK pada dialog konfirmasi
+					// yang generik ("...lebih dari N yang tidak terpakai?") -- pengguna menyetujui
+					// tanpa tahu persis pertemuan ke berapa saja & berapa banyak yang akan hilang.
+					// "N" (getJumlahMaksimalPertemuan()) sendiri BISA berubah diam-diam mengikuti
+					// setting kurikulum mata kuliah (lihat javadoc method itu), sehingga tombol ini
+					// bisa menghapus pertemuan yang sebenarnya sudah digenerate sah di awal semester
+					// hanya karena kurikulumnya belakangan diedit. Hitung dulu daftar konkretnya DI
+					// SINI supaya bisa ditampilkan ke pengguna sebelum konfirmasi, dan beri
+					// peringatan ekstra + arahan ke "Recovery Data" saat jumlahnya besar (indikasi
+					// kuat perubahan setting yang tak disengaja, bukan sekadar baris duplikat/nyasar).
+					Session sessionCek = HibernateUtil.currentSession();
+					List<Pertemuan> pertemuansCek = sessionCek.createCriteria(Pertemuan.class)
+							.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+							.addOrder(!perkuliahan.getUrutkanotomatis() ? Order.asc("pertemuanKe") : Order.asc("tanggal"))
+							.add(Restrictions.isNotNull("tanggal")).addOrder(Order.asc("id"))
+							.add(Restrictions.eq("perkuliahan", perkuliahan)).list();
+					perkuliahan.reInitPertemuan(pertemuansCek, sessionCek);
+
+					final List<Long> idsBolehHapus = new ArrayList<Long>();
+					final List<Integer> pertemuanKeAkanDihapus = new ArrayList<Integer>();
+					for (Pertemuan pertemuan : pertemuansCek) {
+						if (pertemuan.getPertemuanKe() > perkuliahan.getJumlahMaksimalPertemuan()) {
+							if (PenjadwalanHelper.checkBolehHapus(pertemuan, false)) {
+								idsBolehHapus.add(pertemuan.getId());
+								pertemuanKeAkanDihapus.add(pertemuan.getPertemuanKe());
+							}
+						}
+					}
+
+					if (idsBolehHapus.isEmpty()) {
+						MyMessageboxConfig.show(
+								"Tidak ada pertemuan yang tidak terpakai (>" + perkuliahan.getJumlahMaksimalPertemuan()
+										+ ") yang dapat dihapus (pertemuan yang sudah punya kehadiran/materi/tugas/nilai tidak akan dihapus).",
+								"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+						return;
+					}
+
+					StringBuilder daftarPertemuan = new StringBuilder();
+					for (int idx = 0; idx < pertemuanKeAkanDihapus.size(); idx++) {
+						if (idx > 0) daftarPertemuan.append(", ");
+						daftarPertemuan.append(pertemuanKeAkanDihapus.get(idx));
+					}
+
+					String pesanKonfirmasi = "Akan menghapus PERMANEN " + idsBolehHapus.size()
+							+ " pertemuan yang tidak terpakai: pertemuan ke-" + daftarPertemuan
+							+ ". Tindakan ini tidak dapat dibatalkan (kecuali lewat fitur Recovery Data). ";
+					if (idsBolehHapus.size() > 2) {
+						pesanKonfirmasi += "PERINGATAN: jumlah yang akan dihapus cukup banyak -- pastikan dulu "
+								+ "batas jumlah pertemuan (" + perkuliahan.getJumlahMaksimalPertemuan()
+								+ ") pada mata kuliah ini memang SENGAJA diubah (bukan akibat perubahan setting "
+								+ "kurikulum yang tidak disadari), sebelum melanjutkan. ";
+					}
+					pesanKonfirmasi += "Lanjutkan?";
+
+					MyMessageboxConfig.show(pesanKonfirmasi,
 							"Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL,
 							MyMessageboxConfig.QUESTION, new EventListener() {
 
@@ -3500,41 +3553,15 @@ public class PenjadwalanHelper {
 									if (i == MyMessageboxConfig.OK) {
 										try {
 											Session session = HibernateUtil.currentSession();
-											List<Pertemuan> pertemuansTemp = session.createCriteria(Pertemuan.class)
-													.add(Restrictions.or(Restrictions.isNull("aktif"),
-															Restrictions.eq("aktif", true)))
-													.addOrder(
-															!perkuliahan.getUrutkanotomatis() ? Order.asc("pertemuanKe")
-																	: Order.asc("tanggal"))
-													.add(Restrictions.isNotNull("tanggal")).addOrder(Order.asc("id"))
-													.add(Restrictions.eq("perkuliahan", perkuliahan)).list();
-											perkuliahan.reInitPertemuan(pertemuansTemp, session);
 
-											List<Long> idsBoleh = new ArrayList<Long>();
-											for (Pertemuan pertemuan : pertemuansTemp) {
-												if (pertemuan.getPertemuanKe() > perkuliahan
-														.getJumlahMaksimalPertemuan()) {
-
-													if (PenjadwalanHelper.checkBolehHapus(pertemuan, false)) {
-														idsBoleh.add(pertemuan.getId());
-													}
-												}
-											}
-
-											pertemuansTemp.clear();
-											pertemuansTemp = null;
-
-											System.out.println("idsBoleh -> " + idsBoleh);
-
-											if (!idsBoleh.isEmpty()) {
-												pertemuansTemp = session.createCriteria(Pertemuan.class)
-														.add(Restrictions.or(Restrictions.isNull("aktif"),
-																Restrictions.eq("aktif", true)))
-														.add(Restrictions.in("id", idsBoleh)).list();
-												for (Pertemuan pertemuan : pertemuansTemp) {
-													Common.refreshDelete(session, pertemuan);
-												}
-
+											List<Pertemuan> pertemuansHapus = idsBolehHapus.isEmpty()
+													? new ArrayList<Pertemuan>()
+													: session.createCriteria(Pertemuan.class)
+															.add(Restrictions.or(Restrictions.isNull("aktif"),
+																	Restrictions.eq("aktif", true)))
+															.add(Restrictions.in("id", idsBolehHapus)).list();
+											for (Pertemuan pertemuan : pertemuansHapus) {
+												Common.refreshDelete(session, pertemuan);
 											}
 
 											Common.createDefaultTimer(new EventListener() {
