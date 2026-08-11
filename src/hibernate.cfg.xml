@@ -1680,6 +1680,11 @@
 		<mapping class="ais.database.model.koperasi.PayableFakturInfo"></mapping>
 		<mapping class="ais.database.model.koperasi.PembayaranHutangSupplier"></mapping>
 		<mapping class="ais.database.model.koperasi.AlokasiPembayaranHutangSupplier"></mapping>
+		<mapping class="ais.database.model.koperasi.SalesOrderLapangan"></mapping>
+		<mapping class="ais.database.model.koperasi.SalesOrderLapanganItem"></mapping>
+		<mapping class="ais.database.model.koperasi.PiutangCustomerDoc"></mapping>
+		<mapping class="ais.database.model.koperasi.PenerimaanPiutangCustomer"></mapping>
+		<mapping class="ais.database.model.koperasi.AlokasiPenerimaanPiutangCustomer"></mapping>
 		<mapping class="ais.database.model.koperasi.Koperasi"></mapping>
 		<mapping class="ais.database.model.koperasi.AnggotaKoperasi"></mapping>
 		<mapping
