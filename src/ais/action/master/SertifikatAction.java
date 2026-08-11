@@ -35,11 +35,6 @@ import ais.ui.util.MyFormRow;
 import org.zkoss.zul.Rows;
 import org.zkoss.zul.SimpleListModel;
 import org.zkoss.zul.South;
-import org.zkoss.zul.Tab;
-import org.zkoss.zul.Tabbox;
-import org.zkoss.zul.Tabpanel;
-import org.zkoss.zul.Tabpanels;
-import org.zkoss.zul.Tabs;
 import org.zkoss.zul.Textbox;
 import org.zkoss.zul.Toolbar;
 import org.zkoss.zul.Toolbarbutton;
@@ -226,11 +221,12 @@ public class SertifikatAction extends GenericAutowireComposer {
 	@SuppressWarnings("unchecked")
 	public static void generateReport(Component east, LampiranLain lainMahasiswa, Sertifikat sertifikat) {
 		Map<String, Object> parameters = HashMapGenerator.getRandStringObject();
+		List<LampiranLain> lampiranLains = new ArrayList<LampiranLain>();
 
 		if (sertifikat != null && sertifikat.getId() != null) {
 			try {
 				Session streamingSession = StreamingHibernateUtil.getInstance().currentSession();
-				List<LampiranLain> lampiranLains = streamingSession.createCriteria(LampiranLain.class)
+				lampiranLains = streamingSession.createCriteria(LampiranLain.class)
 						.addOrder(Order.asc("id")).add(Restrictions.eq("ref", sertifikat.getId()))
 						.add(Restrictions.ilike("jenis", "Galery_Sertifikat_", MatchMode.START)).list();
 				int index = 0;
@@ -252,12 +248,23 @@ public class SertifikatAction extends GenericAutowireComposer {
 			}
 		}
 
-		generateReport(east, lainMahasiswa, parameters);
+		// KE-FIX (tab "Gambar Pendukung" hilang): overload lama membuang lampiranLains
+		// yang sudah di-query di atas lalu memanggil overload Map 3-argumen (yang cuma
+		// tahu 2 tab). Teruskan lampiranLains ke overload 4-argumen di bawah supaya tab
+		// pratinjau galeri gambar pendukung bisa dibangun.
+		generateReport(east, lainMahasiswa, parameters, lampiranLains);
+	}
+
+	public static void generateReport(Component east, LampiranLain lainMahasiswa,
+			final Map<String, Object> parameters) {
+		// Dipertahankan untuk pemanggil lama (mis. proses cetak sertifikat ujian) yang
+		// tidak punya daftar lampiran galeri -- tab "Gambar Pendukung" dilewati (null).
+		generateReport(east, lainMahasiswa, parameters, null);
 	}
 
 	@SuppressWarnings("deprecation")
-	public static void generateReport(Component east, LampiranLain lainMahasiswa,
-			final Map<String, Object> parameters) {
+	private static void generateReport(Component east, LampiranLain lainMahasiswa,
+			final Map<String, Object> parameters, final List<LampiranLain> lampiranLains) {
 		Common.clear(east);
 		if (lainMahasiswa != null && lainMahasiswa.getId() != null) {
 			try {
@@ -271,34 +278,27 @@ public class SertifikatAction extends GenericAutowireComposer {
 					center.setParent(borderlayout);
 					ais.ui.util.ZkCompat.setFlex(center, true);
 
-					Tabbox tabbox = new Tabbox();
-					tabbox.setParent(center);
+					// KE-FIX (tab "Gambar Pendukung" hilang + responsivitas): Tabbox/Tabpanel
+					// native ZK 5 kerap kolaps tinggi 0px di form besar seperti ini (lihat javadoc
+					// MyButtonTabbox). Ganti seluruh tab di layar ini ke MyButtonTabbox (Div biasa,
+					// tanpa bug kolaps) sekaligus tambahkan kembali tab pratinjau galeri gambar
+					// pendukung yang sebelumnya hanya dibangun di sisi kiri form (myGridGaleri),
+					// tidak pernah dijadikan tab pratinjau di sini.
+					int[] tabAktif = { 0 };
+					ais.ui.util.MyButtonTabbox mtabs = ais.ui.util.MyButtonTabbox.buat(center, "100%", tabAktif);
 
-					Tabs tabs = new Tabs();
-					tabs.setParent(tabbox);
+					org.zkoss.zul.Div panelTampilan = mtabs.tambahTab(0, "Tampilan Sertifikat");
 
-					Tab tab1 = new Tab("Tampilan Sertifikat");
-					Tab tab2 = new Tab("Parameter Sertifikat");
+					Borderlayout borderlayoutTampilan = new Borderlayout();
+					borderlayoutTampilan.setHeight("100%");
+					borderlayoutTampilan.setParent(panelTampilan);
 
-					tab1.setParent(tabs);
-					tab2.setParent(tabs);
-
-					Tabpanels tabpanels = new Tabpanels();
-					tabpanels.setParent(tabbox);
-
-					Tabpanel tabpanel = new ais.ui.util.MyTabpanel();
-					tabpanel.setParent(tabpanels);
-					tabpanel.setStyle("min-height:500px");
-
-					borderlayout = new Borderlayout();
-					borderlayout.setParent(tabpanel);
-
-					center = new Center();
-					center.setParent(borderlayout);
-					ais.ui.util.ZkCompat.setFlex(center, true);
+					Center centerTampilan = new Center();
+					centerTampilan.setParent(borderlayoutTampilan);
+					ais.ui.util.ZkCompat.setFlex(centerTampilan, true);
 
 					org.zkoss.zul.North north = new org.zkoss.zul.North();
-					north.setParent(borderlayout);
+					north.setParent(borderlayoutTampilan);
 					north.appendChild(CommonReport.exportReport(new ParameterListener() {
 
 						@SuppressWarnings({ "unchecked", "rawtypes" })
@@ -316,22 +316,21 @@ public class SertifikatAction extends GenericAutowireComposer {
 
 					File file = Report.generateCompileFileReport(Report.PDF, parameters,
 							lainMahasiswa.ambilFile().getAbsolutePath(), ais.ui.util.WaktuUtil.getDate());
-					CommonReport.tampilkanReportPDF(center, file);
+					CommonReport.tampilkanReportPDF(centerTampilan, file);
 
-					tabpanel = new ais.ui.util.MyTabpanel();
-					tabpanel.setParent(tabpanels);
-					tabpanel.setStyle("min-height:500px");
+					org.zkoss.zul.Div panelParameter = mtabs.tambahTab(1, "Parameter Sertifikat");
 
-					borderlayout = new Borderlayout();
-					borderlayout.setParent(tabpanel);
+					Borderlayout borderlayoutParameter = new Borderlayout();
+					borderlayoutParameter.setHeight("100%");
+					borderlayoutParameter.setParent(panelParameter);
 
-					center = new Center();
-					center.setParent(borderlayout);
-					ais.ui.util.ZkCompat.setFlex(center, true);
+					Center centerParameter = new Center();
+					centerParameter.setParent(borderlayoutParameter);
+					ais.ui.util.ZkCompat.setFlex(centerParameter, true);
 
 					MyGrid grid = new MyGrid();
 					grid.setWidth("100%");
-					grid.setParent(center);
+					grid.setParent(centerParameter);
 					grid.setWidth("100%");
 					grid.setHeight("100%");
 
@@ -390,6 +389,57 @@ public class SertifikatAction extends GenericAutowireComposer {
 						cariAkun.onEvent(null);
 					} catch (Exception e) {
 						Common.tampilErrorJikaAdmin(e);
+					}
+
+					if (lampiranLains != null && !lampiranLains.isEmpty()) {
+						org.zkoss.zul.Div panelGambar = mtabs.tambahTab(2, "Gambar Pendukung");
+
+						Borderlayout borderlayoutGambar = new Borderlayout();
+						borderlayoutGambar.setHeight("100%");
+						borderlayoutGambar.setParent(panelGambar);
+
+						Center centerGambar = new Center();
+						centerGambar.setParent(borderlayoutGambar);
+						ais.ui.util.ZkCompat.setFlex(centerGambar, true);
+
+						MyGrid gridGambar = new MyGrid();
+						gridGambar.setWidth("100%");
+						gridGambar.setParent(centerGambar);
+
+						Rows rowsGambar = new Rows();
+						gridGambar.appendChild(rowsGambar);
+
+						for (LampiranLain pendukung : lampiranLains) {
+							String link = FileFotoLain.ambilLinkLampiranLain(pendukung, false, false,
+									LampiranLain.class, false);
+							MyFormRow rowGambar = new MyFormRow();
+							rowGambar.setParent(rowsGambar);
+
+							Vbox vbox = new Vbox();
+							vbox.setParent(rowGambar);
+
+							Image image = new Image(link);
+							image.setStyle(
+									"max-width: 256px !important;min-width: 60px !important;min-height: 300px !important;");
+							image.setSclass("gambar_profile");
+							image.setWidth("90%");
+							image.setParent(vbox);
+
+							A a = new A(link);
+							a.setStyle("font-size:10px");
+							a.setParent(vbox);
+							a.setTarget("_blank");
+							a.setHref(link);
+
+							if (pendukung.getDeskripsi() != null && !pendukung.getDeskripsi().trim().isEmpty()) {
+								Label deskripsi = new Label(pendukung.getDeskripsi());
+								deskripsi.setParent(vbox);
+							}
+						}
+
+						mtabs.pulihkanSeleksi(3);
+					} else {
+						mtabs.pulihkanSeleksi(2);
 					}
 
 				} else {
