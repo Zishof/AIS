@@ -509,6 +509,18 @@ public class PosApi extends HttpServlet {
 			} else if ("diskon_simpan".equals(action)) {
 				KantinHelper.diskonSimpan(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "diskon_simpan");
+			} else if ("pencairan_diskon_list".equals(action)) {
+				KantinHelper.pencairanDiskonList(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "pencairan_diskon_list");
+			} else if ("pencairan_diskon_simpan".equals(action)) {
+				KantinHelper.pencairanDiskonSimpan(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "pencairan_diskon_simpan");
+			} else if ("pencairan_diskon_hapus".equals(action)) {
+				KantinHelper.pencairanDiskonHapus(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "pencairan_diskon_hapus");
+			} else if ("pencairan_diskon_saldo_member".equals(action)) {
+				KantinHelper.pencairanDiskonSaldoMember(payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "pencairan_diskon_saldo_member");
 			} else if ("kulakan_list".equals(action)) {
 				KantinHelper.kulakanList(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "kulakan_list");
@@ -1209,7 +1221,7 @@ public class PosApi extends HttpServlet {
 				|| action.startsWith("notifikasi_") || action.startsWith("sinkron_")) {
 			return menu.optBoolean("anggota", true);
 		}
-		if (action.startsWith("diskon_")) {
+		if (action.startsWith("diskon_") || action.startsWith("pencairan_diskon_")) {
 			return menu.optBoolean("diskon", true) || menu.optBoolean("kasir", true);
 		}
 		if (action.startsWith("kulakan_")) {

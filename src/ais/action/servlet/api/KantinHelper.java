@@ -5859,7 +5859,7 @@ public class KantinHelper {
 			java.sql.PreparedStatement ps = conn.prepareStatement(
 					"SELECT a.id, a.nama_aturan, COALESCE(p.nama,''), COALESCE(t.nama,''), "
 							+ "COALESCE(a.persentase,0), COALESCE(a.nominal,0), COALESCE(a.potongan_langsung,true), COALESCE(a.aktif,true), "
-							+ "a.tanggal_mulai, a.tanggal_selesai, a.hari_aktif "
+							+ "a.tanggal_mulai, a.tanggal_selesai, a.hari_aktif, COALESCE(a.aktivasi_manual,false) "
 							+ "FROM koperasi.aturan_diskon a "
 							+ "LEFT JOIN koperasi.produk p ON a.produk = p.id "
 							+ "LEFT JOIN koperasi.toko t ON a.toko = t.id "
@@ -5888,6 +5888,7 @@ public class KantinHelper {
 				j.put("tanggalMulai", tm == null ? "" : fmt.format(tm));
 				j.put("tanggalSelesai", ts == null ? "" : fmt.format(ts));
 				j.put("hariAktif", rs.getString(11) == null ? "" : rs.getString(11));
+				j.put("aktivasiManual", rs.getBoolean(12));
 				arr.put(j);
 			}
 			rs.close();
@@ -6011,12 +6012,348 @@ public class KantinHelper {
 			// berlaku semua hari. Lihat JavaDoc AturanDiskon.getHariAktif().
 			String hariAktifStr = request.optString("hari_aktif", "").trim();
 			a.setHariAktif(hariAktifStr.isEmpty() ? null : hariAktifStr);
+			// Gap-closure "Aktivasi Manual" -- lihat JavaDoc AturanDiskon.getAktivasiManual(): true =
+			// aturan ini DIKECUALIKAN dari auto-apply, kasir pilih manual lewat tombol Promo saat checkout.
+			a.setAktivasiManual(request.optBoolean("aktivasi_manual", false));
 
 			session.beginTransaction();
 			session.saveOrUpdate(a);
 			session.getTransaction().commit();
 			hasil.put("status", "00");
 			hasil.put("id", a.getId());
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * <h3>Pencairan Diskon -- riwayat (paginated, per toko), gap-closure paritas tab "Pencairan
+	 * Diskon" JSP ({@code webapp/WEB-INF/baru/modul/kantin/diskon/pencairan_diskon.jsp}) yang
+	 * sebelumnya HANYA reachable dari cookie-session JSP (raw {@code /Data} {@code action:"sql"}) --
+	 * Electron/Flutter (Bearer-token) tidak punya jalur itu.</h3>
+	 *
+	 * @param request payload: {@code keyword} (cocok kode_pencairan/nama/kode_identitas anggota),
+	 *                {@code status} (opsional, PENDING/BERHASIL/DITOLAK), {@code toko_id} (opsional
+	 *                utk admin -- kosong = semua toko; pedagang toko SELALU dikunci ke tokonya
+	 *                sendiri, parameter ini diabaikan utk pedagang), {@code page}/{@code page_size}.
+	 */
+	public static void pencairanDiskonList(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggilPd = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean adminGlobalPd = pemanggilPd == null;
+		String keyword = request.optString("keyword", "").trim();
+		String status = request.optString("status", "").trim();
+		Long tokoId = null;
+		if (!adminGlobalPd) {
+			tokoId = pemanggilPd.getToko() == null ? null : pemanggilPd.getToko().getId();
+		} else if (!request.isNull("toko_id") && !((request.get("toko_id") + "").trim().isEmpty())) {
+			tokoId = Long.valueOf((request.get("toko_id") + "").trim());
+		}
+		int page = Math.max(1, request.optInt("page", 1));
+		int pageSize = Math.min(100, Math.max(1, request.optInt("page_size", 20)));
+		int offset = (page - 1) * pageSize;
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			StringBuilder where = new StringBuilder(" WHERE 1=1");
+			java.util.List<Object> params = new java.util.ArrayList<Object>();
+			if (!keyword.isEmpty()) {
+				where.append(" AND (a.kode_pencairan ILIKE ? OR ak.nama ILIKE ? OR ak.kode_identitas ILIKE ?)");
+				String kw = "%" + keyword + "%";
+				params.add(kw); params.add(kw); params.add(kw);
+			}
+			if (!status.isEmpty()) {
+				where.append(" AND a.status = ?");
+				params.add(status);
+			}
+			if (tokoId != null) {
+				where.append(" AND a.toko = ?");
+				params.add(tokoId);
+			}
+
+			java.sql.Connection conn = session.connection();
+			java.sql.PreparedStatement psCount = conn.prepareStatement(
+					"SELECT COUNT(*) FROM koperasi.pencairan_diskon a LEFT JOIN koperasi.anggota_koperasi ak ON a.anggota_koperasi = ak.id"
+							+ where);
+			for (int i = 0; i < params.size(); i++) psCount.setObject(i + 1, params.get(i));
+			java.sql.ResultSet rsCount = psCount.executeQuery();
+			long total = rsCount.next() ? rsCount.getLong(1) : 0;
+			rsCount.close(); psCount.close();
+
+			java.sql.PreparedStatement ps = conn.prepareStatement(
+					"SELECT a.id, a.kode_pencairan, TO_CHAR(a.waktu_pencairan,'YYYY-MM-DD HH24:MI') , "
+							+ "TO_CHAR(a.waktu_pencairan,'YYYY-MM-DD\"T\"HH24:MI'), a.nominal_cair, a.status, COALESCE(a.keterangan,''), "
+							+ "TO_CHAR(a.tanggal_expired_jika_berupa_topup,'YYYY-MM-DD'), t.id, COALESCE(t.nama,''), "
+							+ "ak.id, COALESCE(ak.nama,''), COALESCE(ak.kode_identitas,''), cb.id, COALESCE(cb.nama,'') "
+							+ "FROM koperasi.pencairan_diskon a "
+							+ "LEFT JOIN koperasi.toko t ON a.toko = t.id "
+							+ "LEFT JOIN koperasi.anggota_koperasi ak ON a.anggota_koperasi = ak.id "
+							+ "LEFT JOIN koperasi.cara_pembayaran_koperasi cb ON a.cara_pembayaran = cb.id"
+							+ where + " ORDER BY a.waktu_pencairan DESC, a.id DESC LIMIT ? OFFSET ?");
+			for (int i = 0; i < params.size(); i++) ps.setObject(i + 1, params.get(i));
+			ps.setInt(params.size() + 1, pageSize);
+			ps.setInt(params.size() + 2, offset);
+			java.sql.ResultSet rs = ps.executeQuery();
+			JSONArray arr = new JSONArray();
+			while (rs.next()) {
+				JSONObject j = new JSONObject();
+				j.put("id", rs.getLong(1));
+				j.put("kodePencairan", rs.getString(2));
+				j.put("waktuPencairan", rs.getString(3));
+				j.put("waktuPencairanRaw", rs.getString(4));
+				j.put("nominalCair", rs.getDouble(5));
+				j.put("status", rs.getString(6));
+				j.put("keterangan", rs.getString(7));
+				String tglExp = rs.getString(8);
+				j.put("tanggalExpired", tglExp == null ? JSONObject.NULL : tglExp);
+				long idToko = rs.getLong(9);
+				j.put("tokoId", rs.wasNull() ? JSONObject.NULL : idToko);
+				j.put("tokoNama", rs.getString(10));
+				j.put("anggotaId", rs.getLong(11));
+				j.put("anggotaNama", rs.getString(12));
+				j.put("anggotaKode", rs.getString(13));
+				j.put("caraPembayaranId", rs.getLong(14));
+				j.put("caraPembayaranNama", rs.getString(15));
+				arr.put(j);
+			}
+			rs.close(); ps.close();
+
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+			hasil.put("total", total);
+			hasil.put("page", page);
+			hasil.put("pageSize", pageSize);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * <h3>Sisa saldo cashback member yang belum dicairkan.</h3> Formula SAMA PERSIS
+	 * {@code cekSaldoMember} di {@code pencairan_diskon.jsp}: total cashback dari
+	 * {@code pembelian_anggota_koperasi} dikurangi total pencairan berstatus BERHASIL/PENDING.
+	 * Dipakai baik oleh form Flutter (live saldo saat memilih anggota) MAUPUN sbg validasi
+	 * server-side di {@link #pencairanDiskonSimpan} -- JSP hanya mengecek ini di klien (bisa
+	 * dilewati), server-side wajib jadi sumber kebenaran akhir utk aksi finansial.
+	 *
+	 * @param exceptId baris pencairan yang DIKECUALIKAN dari perhitungan "sudah dicairkan" (dipakai
+	 *                 saat MENGUBAH baris yang sudah ada, supaya nominal baris itu sendiri tidak
+	 *                 dihitung dobel); {@code null} saat membuat baris baru.
+	 */
+	private static double pencairanDiskonSisaSaldo(Session session, Long anggotaId, Long exceptId) throws Exception {
+		java.sql.Connection conn = session.connection();
+		String exceptCond = exceptId == null ? "" : " AND id != ?";
+		java.sql.PreparedStatement ps = conn.prepareStatement(
+				"SELECT (COALESCE((SELECT SUM(totalcashback) FROM koperasi.pembelian_anggota_koperasi WHERE anggota_koperasi = ?),0) - "
+						+ "COALESCE((SELECT SUM(nominal_cair) FROM koperasi.pencairan_diskon WHERE anggota_koperasi = ? AND status IN ('BERHASIL','PENDING')"
+						+ exceptCond + "),0))");
+		ps.setLong(1, anggotaId);
+		ps.setLong(2, anggotaId);
+		if (exceptId != null) ps.setLong(3, exceptId);
+		java.sql.ResultSet rs = ps.executeQuery();
+		double sisa = rs.next() ? rs.getDouble(1) : 0.0;
+		rs.close(); ps.close();
+		return sisa;
+	}
+
+	/** <h3>Pencairan Diskon -- helper cek sisa saldo member (dipakai form Flutter, live saat memilih anggota).</h3> */
+	public static void pencairanDiskonSaldoMember(JSONObject request, JSONObject hasil) throws Exception {
+		Long anggotaId = request.isNull("anggota_koperasi_id") ? null
+				: Long.valueOf((request.get("anggota_koperasi_id") + "").trim());
+		if (anggotaId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Anggota koperasi wajib dipilih.");
+			return;
+		}
+		Long exceptId = request.isNull("except_id") ? null : Long.valueOf((request.get("except_id") + "").trim());
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			double sisa = pencairanDiskonSisaSaldo(session, anggotaId, exceptId);
+			hasil.put("status", "00");
+			hasil.put("sisaSaldo", sisa);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * <h3>Pencairan Diskon -- simpan (buat/ubah) SATU baris.</h3> Gerbang SAMA dgn
+	 * {@link #diskonSimpan} (admin/supervisor-only -- aksi finansial, bukan utk kasir biasa).
+	 *
+	 * @param request payload: {@code id} (opsional, utk ubah), {@code kode_pencairan} (opsional --
+	 *                kosong = digenerate server {@code "WD-"+timestamp}), {@code anggota_koperasi_id}
+	 *                (wajib), {@code toko_id} (admin saja, opsional), {@code cara_pembayaran_id}
+	 *                (wajib), {@code nominal_cair} (wajib, &gt;0), {@code waktu_pencairan} (wajib,
+	 *                {@code yyyy-MM-dd'T'HH:mm}), {@code tanggal_expired} (opsional, {@code
+	 *                yyyy-MM-dd}), {@code status} (PENDING/BERHASIL/DITOLAK, default PENDING),
+	 *                {@code keterangan} (opsional).
+	 */
+	public static void pencairanDiskonSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggilPs = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean adminGlobalPs = pemanggilPs == null;
+		boolean supervisorPs = pemanggilPs != null && Boolean.TRUE.equals(pemanggilPs.getSupervisor());
+		String aksiPs = request.isNull("id") ? "create" : "update";
+		if (!bolehAksiCrud(tbmuser, pemanggilPs, adminGlobalPs, supervisorPs, "pencairandiskon", aksiPs)) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat mengelola Pencairan Diskon.");
+			return;
+		}
+		Long anggotaId = request.isNull("anggota_koperasi_id") ? null
+				: Long.valueOf((request.get("anggota_koperasi_id") + "").trim());
+		if (anggotaId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Anggota koperasi wajib dipilih.");
+			return;
+		}
+		Long caraBayarId = request.isNull("cara_pembayaran_id") ? null
+				: Long.valueOf((request.get("cara_pembayaran_id") + "").trim());
+		if (caraBayarId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Cara pencairan wajib dipilih.");
+			return;
+		}
+		double nominalCair = request.optDouble("nominal_cair", 0);
+		if (nominalCair <= 0) {
+			hasil.put("status", "91");
+			hasil.put("description", "Nominal pencairan harus lebih dari 0.");
+			return;
+		}
+		String waktuStr = request.optString("waktu_pencairan", "").trim();
+		if (waktuStr.isEmpty()) {
+			hasil.put("status", "91");
+			hasil.put("description", "Waktu pencairan wajib diisi.");
+			return;
+		}
+		String status = request.optString("status", "PENDING").trim();
+		if (status.isEmpty()) status = "PENDING";
+		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			// Validasi saldo SERVER-SIDE (sumber kebenaran akhir aksi finansial, bukan sekadar
+			// pengecekan klien spt di JSP) -- dilewati kalau status DITOLAK (uang tidak sungguh
+			// keluar), sama semantik dgn pencairan_diskon.jsp.
+			if (!"DITOLAK".equals(status)) {
+				double sisaSaldo = pencairanDiskonSisaSaldo(session, anggotaId, id);
+				if (nominalCair > sisaSaldo) {
+					hasil.put("status", "91");
+					hasil.put("description", "Saldo cashback member tidak mencukupi. Sisa saldo saat ini: Rp"
+							+ String.format("%,.0f", sisaSaldo).replace(',', '.'));
+					return;
+				}
+			}
+
+			ais.database.model.koperasi.PencairanDiskon p;
+			if (id == null) {
+				p = new ais.database.model.koperasi.PencairanDiskon();
+			} else {
+				p = (ais.database.model.koperasi.PencairanDiskon) session.get(ais.database.model.koperasi.PencairanDiskon.class, id);
+				if (p == null) {
+					hasil.put("status", "91");
+					hasil.put("description", "Data pencairan tidak ditemukan.");
+					return;
+				}
+			}
+
+			ais.database.model.koperasi.AnggotaKoperasi anggota = (ais.database.model.koperasi.AnggotaKoperasi) session
+					.get(ais.database.model.koperasi.AnggotaKoperasi.class, anggotaId);
+			if (anggota == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Anggota koperasi tidak ditemukan.");
+				return;
+			}
+			ais.database.model.koperasi.CaraPembayaranKoperasi caraBayar = (ais.database.model.koperasi.CaraPembayaranKoperasi) session
+					.get(ais.database.model.koperasi.CaraPembayaranKoperasi.class, caraBayarId);
+			if (caraBayar == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Cara pencairan tidak ditemukan.");
+				return;
+			}
+
+			p.setAnggotaKoperasi(anggota);
+			p.setCaraPembayaran(caraBayar);
+			// Resolusi toko: pedagang toko WAJIB terkunci ke tokonya sendiri, admin bebas (termasuk kosong).
+			if (pemanggilPs != null) {
+				p.setToko(pemanggilPs.getToko());
+			} else if (!request.isNull("toko_id") && !((request.get("toko_id") + "").trim().isEmpty())) {
+				p.setToko((Toko) session.get(Toko.class, Long.valueOf((request.get("toko_id") + "").trim())));
+			} else {
+				p.setToko(null);
+			}
+
+			String kodePencairan = request.optString("kode_pencairan", "").trim();
+			p.setKodePencairan(kodePencairan.isEmpty() ? ("WD-" + System.currentTimeMillis()) : kodePencairan);
+
+			java.text.SimpleDateFormat fmtInput = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm");
+			p.setWaktuPencairan(fmtInput.parse(waktuStr));
+			String tglExpStr = request.optString("tanggal_expired", "").trim();
+			p.setTanggalExpiredJikaBerupaTopup(
+					tglExpStr.isEmpty() ? null : new java.text.SimpleDateFormat("yyyy-MM-dd").parse(tglExpStr));
+
+			p.setNominalCair(nominalCair);
+			p.setStatus(status);
+			p.setKeterangan(request.optString("keterangan", ""));
+			p.setOleh(tbmuser == null ? "pencairan_diskon" : tbmuser.getUserNama());
+			p.setOlehId(tbmuser == null ? "-" : String.valueOf(tbmuser.getUserId()));
+
+			session.beginTransaction();
+			try {
+				session.saveOrUpdate(p);
+				session.getTransaction().commit();
+			} catch (org.hibernate.exception.ConstraintViolationException eDup) {
+				try { if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				} } catch (Exception eRb) { ais.common.ErrorAuditUtil.record(eRb, "auto-audit(empty-catch) src/ais/action/servlet/api/KantinHelper.java:pencairanDiskonSimpan-rollback-dup"); }
+				hasil.put("status", "91");
+				hasil.put("description", "Nomor referensi \"" + p.getKodePencairan() + "\" sudah dipakai baris lain. Ubah nomor referensi lalu coba lagi.");
+				return;
+			}
+			hasil.put("status", "00");
+			hasil.put("id", p.getId());
+			hasil.put("kodePencairan", p.getKodePencairan());
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/** <h3>Pencairan Diskon -- hapus SATU baris.</h3> Gerbang SAMA dgn {@link #pencairanDiskonSimpan}. */
+	public static void pencairanDiskonHapus(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggilHp = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean adminGlobalHp = pemanggilHp == null;
+		boolean supervisorHp = pemanggilHp != null && Boolean.TRUE.equals(pemanggilHp.getSupervisor());
+		if (!bolehAksiCrud(tbmuser, pemanggilHp, adminGlobalHp, supervisorHp, "pencairandiskon", "delete")) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat menghapus Pencairan Diskon.");
+			return;
+		}
+		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		if (id == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "ID pencairan wajib diisi.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.koperasi.PencairanDiskon p = (ais.database.model.koperasi.PencairanDiskon) session
+					.get(ais.database.model.koperasi.PencairanDiskon.class, id);
+			if (p == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Data pencairan tidak ditemukan.");
+				return;
+			}
+			if (pemanggilHp != null) {
+				Long tokoPedagang = pemanggilHp.getToko() == null ? null : pemanggilHp.getToko().getId();
+				Long tokoBaris = p.getToko() == null ? null : p.getToko().getId();
+				if (tokoPedagang == null || !tokoPedagang.equals(tokoBaris)) {
+					hasil.put("status", "91");
+					hasil.put("description", "Data pencairan ini bukan milik toko Anda.");
+					return;
+				}
+			}
+			session.beginTransaction();
+			session.delete(p);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("description", "Data pencairan berhasil dihapus.");
 		} finally {
 			tutupSessionPolaB(session);
 		}
@@ -8929,17 +9266,81 @@ public class KantinHelper {
 	 * periode. Sengaja TIDAK menyertakan tabel saldo "MRS" (fitur niche khusus kelompok anggota
 	 * tertentu, di luar cakupan "Monitor Promo & Cashback" yg diminta).
 	 */
+	/**
+	 * Kondisi waktu SQL utk {@code periode} -- SAMA PERSIS semantik {@code MonitorDiskonKantinAction
+	 * .timeCond(String)} (versi ZK) supaya KPI/tren/top-list Monitor Diskon konsisten antara ZK dan
+	 * API JSON (Electron/Flutter), sekalipun implementasinya dobel-tulis (raw JDBC di sini vs
+	 * {@code scalar()}/{@code rows()} di sana -- keduanya cuma tipis di atas SQL mentah, tak ada
+	 * abstraksi bersama yg bisa dipakai lintas ZK/servlet tanpa refactor lebih besar).
+	 *
+	 * <p>{@code "last30"} BUKAN pilihan periode versi ZK -- sentinel INTERNAL yg mereproduksi PERSIS
+	 * kondisi lama method ini ({@code >= NOW() - INTERVAL '30 days'}) sebelum filter periode
+	 * ditambahkan, dipakai sbg DEFAULT saat klien tak mengirim {@code periode} sama sekali. Ini WAJIB
+	 * supaya pemanggil lama ({@code RingkasanTabPromo} Flutter, tab "Promo & Cashback" dasbor
+	 * Ringkasan -- tak pernah mengirim {@code periode}) TIDAK diam-diam berubah angkanya jadi
+	 * "bulan berjalan" begitu parameter baru ini di-deploy -- hanya pemanggil BARU yg sengaja
+	 * mengirim {@code periode} eksplisit (mis. tab Monitor Diskon baru) yg dapat semantik ZK.</p>
+	 */
+	private static String monitorDiskonTimeCond(String periode, String kolom) {
+		String p = periode == null ? "last30" : periode;
+		if ("today".equals(p)) {
+			return " AND " + kolom + " >= current_date ";
+		}
+		if ("week".equals(p)) {
+			return " AND " + kolom + " >= current_date - interval '7 days' ";
+		}
+		if ("month".equals(p)) {
+			return " AND date_trunc('month'," + kolom + ") = date_trunc('month',current_date) ";
+		}
+		if ("semester".equals(p)) {
+			return " AND " + kolom + " >= current_date - interval '6 months' ";
+		}
+		if ("year".equals(p)) {
+			return " AND date_trunc('year'," + kolom + ") = date_trunc('year',current_date) ";
+		}
+		if ("3years".equals(p)) {
+			return " AND " + kolom + " >= current_date - interval '3 years' ";
+		}
+		// "last30" (default sentinel, lihat javadoc) -- juga fallback utk nilai tak dikenal.
+		return " AND " + kolom + " >= NOW() - INTERVAL '30 days' ";
+	}
+
+	private static boolean monitorDiskonBulanan(String periode) {
+		return "year".equals(periode) || "semester".equals(periode) || "3years".equals(periode);
+	}
+
 	public static void monitorPromoCashback(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		Long tokoId = soResolveTokoId(tbmuser, request);
+		// Default "last30" (BUKAN "month") -- lihat javadoc monitorDiskonTimeCond utk alasan
+		// kompatibilitas mundur dgn pemanggil lama yg tak pernah mengirim parameter ini.
+		String periode = request.optString("periode", "last30").trim();
+		if (periode.isEmpty()) periode = "last30";
+		Long jenisAnggotaId = request.isNull("jenis_anggota_id") ? null
+				: Long.valueOf((request.get("jenis_anggota_id") + "").trim());
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			java.sql.Connection conn = session.connection();
 			String kondisiTokoA = tokoId == null ? "" : " AND a.toko = ?";
+			// jenisAnggotaId sudah divalidasi Long (bukan string mentah dari pengguna) -- aman
+			// disisipkan sbg literal langsung, menghindari perlu menata ulang urutan bind-param `?`
+			// yg sudah ada di tiap query di bawah (pola sama dgn MonitorDiskonKantinAction ZK yg
+			// juga menyisipkan jenisId sbg literal, bukan bind param).
+			String joinJenisPak = jenisAnggotaId == null ? ""
+					: " INNER JOIN koperasi.anggota_koperasi jc ON a.anggota_koperasi = jc.id ";
+			String condJenisPak = jenisAnggotaId == null ? "" : " AND jc.jenis_anggota_koperasi = " + jenisAnggotaId;
+			String joinJenisD = jenisAnggotaId == null ? ""
+					: " INNER JOIN koperasi.anggota_koperasi jc ON d.anggota_koperasi = jc.id ";
+			String condJenisD = jenisAnggotaId == null ? "" : " AND jc.jenis_anggota_koperasi = " + jenisAnggotaId;
+			String joinJenisDet = jenisAnggotaId == null ? ""
+					: " INNER JOIN koperasi.pembelian_anggota_koperasi jpak ON det.pembelian_anggota_koperasi = jpak.id "
+							+ " INNER JOIN koperasi.anggota_koperasi jc ON jpak.anggota_koperasi = jc.id ";
+			String condJenisDet = jenisAnggotaId == null ? "" : " AND jc.jenis_anggota_koperasi = " + jenisAnggotaId;
 
 			double diskonDiberikan = 0, cashbackDiberikan = 0;
 			java.sql.PreparedStatement psKpi1 = conn.prepareStatement(
 					"SELECT COALESCE(SUM(a.total_diskon),0), COALESCE(SUM(a.totalcashback),0) FROM koperasi.pembelian_anggota_koperasi a "
-							+ "WHERE a.tanggal_pembayaran >= NOW() - INTERVAL '30 days'" + kondisiTokoA);
+							+ joinJenisPak + "WHERE 1=1" + kondisiTokoA
+							+ monitorDiskonTimeCond(periode, "a.tanggal_pembayaran") + condJenisPak);
 			if (tokoId != null) psKpi1.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsKpi1 = psKpi1.executeQuery();
 			if (rsKpi1.next()) { diskonDiberikan = rsKpi1.getDouble(1); cashbackDiberikan = rsKpi1.getDouble(2); }
@@ -8947,37 +9348,62 @@ public class KantinHelper {
 
 			double cashbackDicairkan = 0;
 			java.sql.PreparedStatement psKpi2 = conn.prepareStatement(
-					"SELECT COALESCE(SUM(d.nominal_cair),0) FROM koperasi.pencairan_diskon d "
-							+ "WHERE d.status IN ('BERHASIL','PENDING') AND d.waktu_pencairan >= NOW() - INTERVAL '30 days'"
-							+ (tokoId == null ? "" : " AND d.toko = ?"));
+					"SELECT COALESCE(SUM(d.nominal_cair),0) FROM koperasi.pencairan_diskon d " + joinJenisD
+							+ "WHERE d.status IN ('BERHASIL','PENDING')" + (tokoId == null ? "" : " AND d.toko = ?")
+							+ monitorDiskonTimeCond(periode, "d.waktu_pencairan") + condJenisD);
 			if (tokoId != null) psKpi2.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsKpi2 = psKpi2.executeQuery();
 			if (rsKpi2.next()) cashbackDicairkan = rsKpi2.getDouble(1);
 			rsKpi2.close(); psKpi2.close();
 
+			// Saldo mengendap SENGAJA ALL-TIME (tanpa timeCond) -- sama semantik ZK: akumulasi saldo
+			// cashback yg belum dicairkan sejak awal, bukan terbatas periode filter yg sedang dipilih.
 			double cashbackAllTime = 0, cairAllTime = 0;
 			java.sql.PreparedStatement psSaldo1 = conn.prepareStatement(
-					"SELECT COALESCE(SUM(a.totalcashback),0) FROM koperasi.pembelian_anggota_koperasi a WHERE 1=1" + kondisiTokoA);
+					"SELECT COALESCE(SUM(a.totalcashback),0) FROM koperasi.pembelian_anggota_koperasi a " + joinJenisPak
+							+ "WHERE 1=1" + kondisiTokoA + condJenisPak);
 			if (tokoId != null) psSaldo1.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsSaldo1 = psSaldo1.executeQuery();
 			if (rsSaldo1.next()) cashbackAllTime = rsSaldo1.getDouble(1);
 			rsSaldo1.close(); psSaldo1.close();
 
 			java.sql.PreparedStatement psSaldo2 = conn.prepareStatement(
-					"SELECT COALESCE(SUM(d.nominal_cair),0) FROM koperasi.pencairan_diskon d WHERE d.status IN ('BERHASIL','PENDING')"
-							+ (tokoId == null ? "" : " AND d.toko = ?"));
+					"SELECT COALESCE(SUM(d.nominal_cair),0) FROM koperasi.pencairan_diskon d " + joinJenisD
+							+ "WHERE d.status IN ('BERHASIL','PENDING')" + (tokoId == null ? "" : " AND d.toko = ?")
+							+ condJenisD);
 			if (tokoId != null) psSaldo2.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsSaldo2 = psSaldo2.executeQuery();
 			if (rsSaldo2.next()) cairAllTime = rsSaldo2.getDouble(1);
 			rsSaldo2.close(); psSaldo2.close();
 			double saldoMengendap = cashbackAllTime - cairAllTime;
 
+			// ---- Tren diskon vs cashback (BARU -- gap-closure paritas Monitor Diskon Flutter) ----
+			String fmtTren = monitorDiskonBulanan(periode) ? "YYYY-MM" : "YYYY-MM-DD";
+			JSONArray tren = new JSONArray();
+			java.sql.PreparedStatement psTren = conn.prepareStatement(
+					"SELECT TO_CHAR(a.tanggal_pembayaran,'" + fmtTren + "') t, COALESCE(SUM(a.total_diskon),0), "
+							+ "COALESCE(SUM(a.totalcashback),0) FROM koperasi.pembelian_anggota_koperasi a " + joinJenisPak
+							+ "WHERE (a.total_diskon > 0 OR a.totalcashback > 0)" + kondisiTokoA
+							+ monitorDiskonTimeCond(periode, "a.tanggal_pembayaran") + condJenisPak
+							+ " GROUP BY TO_CHAR(a.tanggal_pembayaran,'" + fmtTren + "') ORDER BY t ASC");
+			if (tokoId != null) psTren.setLong(1, tokoId.longValue());
+			java.sql.ResultSet rsTren = psTren.executeQuery();
+			while (rsTren.next()) {
+				JSONObject o = new JSONObject();
+				o.put("periode", rsTren.getString(1));
+				o.put("diskon", rsTren.getDouble(2));
+				o.put("cashback", rsTren.getDouble(3));
+				tren.put(o);
+			}
+			rsTren.close(); psTren.close();
+
 			String kondisiTokoDet = tokoId == null ? "" : " AND det.toko = ?";
 			JSONArray topProduk = new JSONArray();
 			java.sql.PreparedStatement psTopProduk = conn.prepareStatement(
 					"SELECT COALESCE(pr.nama,'-') nm, COALESCE(SUM(det.diskon)+SUM(det.cashback),0) nilai "
-							+ "FROM koperasi.pembelian det LEFT JOIN koperasi.produk pr ON pr.id = det.produk "
-							+ "WHERE (det.diskon > 0 OR det.cashback > 0) AND det.waktu >= NOW() - INTERVAL '30 days'" + kondisiTokoDet
+							+ "FROM koperasi.pembelian det LEFT JOIN koperasi.produk pr ON pr.id = det.produk " + joinJenisDet
+							+ "WHERE (det.diskon > 0 OR det.cashback > 0)" + kondisiTokoDet
+							+ monitorDiskonTimeCond(periode, "det.waktu") + condJenisDet
 							+ " GROUP BY pr.nama ORDER BY nilai DESC LIMIT 5");
 			if (tokoId != null) psTopProduk.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsTopProduk = psTopProduk.executeQuery();
@@ -8991,7 +9417,9 @@ public class KantinHelper {
 			java.sql.PreparedStatement psTopMember = conn.prepareStatement(
 					"SELECT COALESCE(c.nama,'-') nm, COALESCE(SUM(a.totalcashback),0) nilai "
 							+ "FROM koperasi.pembelian_anggota_koperasi a LEFT JOIN koperasi.anggota_koperasi c ON c.id = a.anggota_koperasi "
-							+ "WHERE a.tanggal_pembayaran >= NOW() - INTERVAL '30 days'" + kondisiTokoA
+							+ "WHERE (a.total_diskon > 0 OR a.totalcashback > 0)" + kondisiTokoA
+							+ monitorDiskonTimeCond(periode, "a.tanggal_pembayaran")
+							+ (jenisAnggotaId == null ? "" : " AND c.jenis_anggota_koperasi = " + jenisAnggotaId)
 							+ " GROUP BY c.nama ORDER BY nilai DESC LIMIT 8");
 			if (tokoId != null) psTopMember.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsTopMember = psTopMember.executeQuery();
@@ -9004,8 +9432,8 @@ public class KantinHelper {
 			JSONArray aturanDiskon = new JSONArray();
 			java.sql.PreparedStatement psAturan = conn.prepareStatement(
 					"SELECT ad.nama_aturan, ad.potongan_langsung, COUNT(det.id) dipakai, COALESCE(SUM(det.diskon+det.cashback),0) totalBiaya "
-							+ "FROM koperasi.pembelian det INNER JOIN koperasi.aturan_diskon ad ON det.aturan_diskon = ad.id "
-							+ "WHERE det.waktu >= NOW() - INTERVAL '30 days'" + kondisiTokoDet
+							+ "FROM koperasi.pembelian det INNER JOIN koperasi.aturan_diskon ad ON det.aturan_diskon = ad.id " + joinJenisDet
+							+ "WHERE 1=1" + kondisiTokoDet + monitorDiskonTimeCond(periode, "det.waktu") + condJenisDet
 							+ " GROUP BY ad.id, ad.nama_aturan, ad.potongan_langsung ORDER BY totalBiaya DESC LIMIT 50");
 			if (tokoId != null) psAturan.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsAturan = psAturan.executeQuery();
@@ -9020,10 +9448,12 @@ public class KantinHelper {
 			rsAturan.close(); psAturan.close();
 
 			hasil.put("status", "00");
+			hasil.put("periode", periode);
 			hasil.put("diskonDiberikan", diskonDiberikan);
 			hasil.put("cashbackDiberikan", cashbackDiberikan);
 			hasil.put("cashbackDicairkan", cashbackDicairkan);
 			hasil.put("saldoMengendap", saldoMengendap);
+			hasil.put("tren", tren);
 			hasil.put("topProduk", topProduk);
 			hasil.put("topMember", topMember);
 			hasil.put("aturanDiskon", aturanDiskon);
