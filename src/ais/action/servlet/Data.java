@@ -487,6 +487,24 @@ public class Data extends HttpServlet {
 				KantinHelper.mutasiStokSimpan(tbmuser, jsonObject, hasil);
 			} else if ("mutasi_stok_list".equals(action)) {
 				KantinHelper.mutasiStokList(tbmuser, jsonObject, hasil);
+			} else if ("kulakan_faktur_simpan".equals(action)) {
+				KantinHelper.kulakanFakturSimpan(tbmuser, jsonObject, hasil);
+			} else if ("kulakan_faktur_list".equals(action)) {
+				KantinHelper.kulakanFakturList(tbmuser, jsonObject, hasil);
+			} else if ("kulakan_faktur_detail".equals(action)) {
+				KantinHelper.kulakanFakturDetail(tbmuser, jsonObject, hasil);
+			} else if ("penyedia_list".equals(action)) {
+				KantinHelper.penyediaList(tbmuser, jsonObject, hasil);
+			} else if ("penyedia_simpan".equals(action)) {
+				KantinHelper.penyediaSimpan(tbmuser, jsonObject, hasil);
+			} else if ("retur_pembelian_simpan".equals(action)) {
+				KantinHelper.returPembelianSimpan(tbmuser, jsonObject, hasil);
+			} else if ("retur_pembelian_list".equals(action)) {
+				KantinHelper.returPembelianList(tbmuser, jsonObject, hasil);
+			} else if ("retur_pembelian_hapus".equals(action)) {
+				KantinHelper.returPembelianHapus(tbmuser, jsonObject, hasil);
+			} else if ("sinkron_stok_toko".equals(action)) {
+				KantinHelper.sinkronStokToko(tbmuser, jsonObject, hasil);
 			} else if ("tabungan".equals(action)) {
 				KantinHelper.tabungan(jsonObject, hasil);
 			} else if ("sesi_kas_status".equals(action)) {

@@ -7199,6 +7199,93 @@ public class KantinHelper {
 	}
 
 	/**
+	 * <h3>Sinkronkan Ulang Stok &amp; Harga Modal (gap-closure bug JSP {@code pengadaan/index.jsp}
+	 * 2026-08-11).</h3>
+	 *
+	 * <p>Tombol JSP "Sinkronkan Stok &amp; Harga Modal" SEBELUMNYA menjalankan UPDATE SQL mentah di
+	 * klien dgn rumus stok 3-suku USANG (pengadaan + Σselisih opname − pembelian) yg ditulis SEBELUM
+	 * {@link StokKantinUtil#formulaStokSql} tumbuh jadi 7 suku sepanjang sesi ini (pemakaian bahan
+	 * baku, retur penjualan, mutasi stok antar outlet ×2, retur pembelian) -- kalau tombol lama itu
+	 * diklik, SEMUA kontribusi 5 suku baru itu akan HILANG DIAM-DIAM (stok ditimpa balik ke versi
+	 * lama yg salah). Method ini menggantikannya dgn memanggil {@link
+	 * StokKantinUtil#recomputeStokProdukNative} (rumus KANONIK, SATU sumber kebenaran, varian
+	 * ber-{@code session} eksplisit -- BUKAN {@code recomputeStokProduk(Long)} yg bergantung pada
+	 * {@code HibernateUtil.currentSession()} ambient milik konteks ZK/FilterJSP, tak cocok dipakai dari
+	 * sini yg membuka session sendiri spt {@link #mutasiStokSimpan}/{@link #kulakanFakturSimpan}) per
+	 * produk milik toko ybs, plus penyesuaian harga beli/jual dari pengadaan terakhir ditulis ulang
+	 * inline di sini (logic IDENTIK {@code recomputeStokProduk(Long)}, disalin krn varian native itu
+	 * sengaja TIDAK menyentuh harga) -- meniru maksud tombol lama, lewat jalur yg sudah benar.</p>
+	 *
+	 * <p>Gerbang SAMA dgn {@link #mutasiStokSimpan} (admin/supervisor-only) -- operasi berat yg
+	 * menyentuh SEMUA produk toko, bukan utk kasir biasa.</p>
+	 *
+	 * @param request payload: {@code toko_id} (wajib utk admin, dikunci ke toko sendiri utk pedagang).
+	 * @param hasil   diisi {@code status="00"}, {@code jumlahProduk} (banyak produk yg direcompute).
+	 */
+	public static void sinkronStokToko(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggilSs = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean adminGlobalSs = pemanggilSs == null;
+		boolean supervisorSs = pemanggilSs != null && Boolean.TRUE.equals(pemanggilSs.getSupervisor());
+		if (!adminGlobalSs && !supervisorSs) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat menyinkronkan stok.");
+			return;
+		}
+		Long tokoId = soResolveTokoId(tbmuser, request);
+		if (tokoId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko tidak diketahui.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			@SuppressWarnings("unchecked")
+			java.util.List<Object> ids = session.createSQLQuery("SELECT id FROM koperasi.produk WHERE toko = " + tokoId).list();
+			session.beginTransaction();
+			int jumlah = 0;
+			for (Object o : ids) {
+				Long produkId = ((Number) o).longValue();
+				try {
+					ais.action.master.inventory.StokKantinUtil.recomputeStokProdukNative(session, produkId);
+					Object latestObj = session.createSQLQuery(
+							"SELECT hargabelisatuan FROM koperasi.pengadaan_produk WHERE produk = " + produkId
+									+ " ORDER BY waktupengadaan DESC, id DESC LIMIT 1").uniqueResult();
+					double latest = latestObj == null ? 0.0 : ((Number) latestObj).doubleValue();
+					if (latest > 0) {
+						Produk p = (Produk) session.get(Produk.class, produkId);
+						if (p != null) {
+							p.setHargaBeli(latest);
+							double hargaJual = p.getHargaJual() == null ? 0 : p.getHargaJual();
+							if (latest >= hargaJual) {
+								p.setHargaJual(latest);
+							}
+							session.update(p);
+						}
+					}
+					jumlah++;
+				} catch (Exception eSatu) {
+					ais.common.ErrorAuditUtil.record(eSatu, "auto-audit(empty-catch) src/ais/action/servlet/api/KantinHelper.java:sinkronStokToko-satu");
+				}
+			}
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("jumlahProduk", jumlah);
+		} catch (Exception e) {
+			try {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception eRollback) {
+				ais.common.ErrorAuditUtil.record(eRollback, "auto-audit(empty-catch) src/ais/action/servlet/api/KantinHelper.java:sinkronStokToko-rollback");
+			}
+			hasil.put("status", "91");
+			hasil.put("description", Common.tampilErrorJikaAdmin(e));
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
 	 * <h3>Mutasi Stok Antar Outlet -- daftar SEMUA toko aktif (bukan cuma toko yg boleh diakses
 	 * pemanggil).</h3>
 	 *
