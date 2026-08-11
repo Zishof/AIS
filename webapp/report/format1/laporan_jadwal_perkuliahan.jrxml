@@ -73,7 +73,8 @@ a.kelas,
 (case a.semester%2 when 1 then 'Ganjil' else 'Genap' end) as jenis_semester,
 a.tahun_ajaran,
 e.nama as fakultas,
-d.nama as jurusan
+d.nama as jurusan,
+a.keterangan_jadwal
 
 from perkuliahan a
 left join ruang a1 on (a1.id = a.ruang)
@@ -119,6 +120,7 @@ a.waktu_mulai_d,a.waktu_selesai_d,c.nama]]>
 	<field name="tahun_ajaran" class="java.lang.String"/>
 	<field name="fakultas" class="java.lang.String"/>
 	<field name="jurusan" class="java.lang.String"/>
+	<field name="keterangan_jadwal" class="java.lang.String"/>
 	<group name="hari">
 		<groupExpression><![CDATA[$F{hari}==null||$F{hari}.isEmpty() ? "Tanpa Jadwal" : $F{hari}]]></groupExpression>
 		<groupHeader>
@@ -323,7 +325,7 @@ a.waktu_mulai_d,a.waktu_selesai_d,c.nama]]>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font size="7"/>
 				</textElement>
-				<textFieldExpression><![CDATA[($F{waktu}==null?"":$F{waktu})+"\n"+($F{waktu_perkuliahan}==null?"":$F{waktu_perkuliahan})]]></textFieldExpression>
+				<textFieldExpression><![CDATA[($F{waktu}==null?($F{keterangan_jadwal}==null?"":$F{keterangan_jadwal}):$F{waktu})+"\n"+($F{waktu_perkuliahan}==null?"":$F{waktu_perkuliahan})]]></textFieldExpression>
 			</textField>
 			<textField isBlankWhenNull="true">
 				<reportElement style="Detail" x="101" y="0" width="76" height="31" uuid="de2c428e-20ec-404e-b292-9a2a0023664b"/>
