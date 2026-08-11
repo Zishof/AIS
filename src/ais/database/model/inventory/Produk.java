@@ -416,4 +416,25 @@ public class Produk extends GeneralValueObject {
 		this.satuan = satuan;
 	}
 
+	private String jenisItem;
+
+	/**
+	 * Diskriminator "Jenis Item" -- {@code "JUAL"} (default, produk jadi yang bisa dijual/dicari di
+	 * Kasir) vs {@code "BAHAN"} (bahan baku, HANYA muncul di picker "Pilih Bahan Baku" pada
+	 * editor Resep/HPP produk lain, TIDAK muncul di katalog/pencarian Kasir). Baris lama (dibuat
+	 * sebelum field ini ada) tetap {@code NULL} di DB dan diperlakukan sebagai {@code "JUAL"} oleh
+	 * getter ini -- TIDAK di-backfill otomatis, admin re-tag manual lewat form Tambah/Ubah Produk.
+	 * Setiap query/filter yang meng-exclude {@code "BAHAN"} WAJIB pola {@code OR IS NULL} (bukan
+	 * {@code <>}/{@code ne} polos, yang tidak match NULL di Postgres) supaya baris lama tidak
+	 * hilang diam-diam dari Kasir. Reserved untuk masa depan: {@code "EKSTRA"} (Produk Ekstra/modifier).
+	 */
+	@Column(name = "jenis_item", length = 20)
+	public String getJenisItem() {
+		return (jenisItem == null || jenisItem.trim().isEmpty()) ? "JUAL" : jenisItem;
+	}
+
+	public void setJenisItem(String jenisItem) {
+		this.jenisItem = jenisItem;
+	}
+
 }

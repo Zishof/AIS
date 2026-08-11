@@ -198,6 +198,7 @@ public class PosKantinAction extends GenericAutowireComposer {
         double nominal;
         Date tglMulai;
         Date tglSelesai;
+        String hariAktif; // gap-closure "Promo Pilih Hari" -- lihat ais.common.HariAktifUtil
         // State pembatasan "berlaku per hari & per toko": pemakaian hari ini (dari DB)
         // dan akumulasi sementara di keranjang saat ini.
         double terpakaiHariIni;
@@ -428,7 +429,7 @@ public class PosKantinAction extends GenericAutowireComposer {
         try {
             String sql = "SELECT id, produk, toko, jenis_anggota, tipe_anggota, berlaku_semua_member, "
                     + "persentase, maksimal_potongan, nominal, potongan_langsung, berlaku_per_hari_dan_per_toko, "
-                    + "tanggal_mulai, tanggal_selesai FROM koperasi.aturan_diskon WHERE aktif = true";
+                    + "tanggal_mulai, tanggal_selesai, hari_aktif FROM koperasi.aturan_diskon WHERE aktif = true";
             for (Object[] r : rows(sql)) {
                 Rule x = new Rule();
                 x.aturanId = lng(r[0]);
@@ -444,6 +445,7 @@ public class PosKantinAction extends GenericAutowireComposer {
                 x.berlakuPerHari = bool(r[10]);
                 x.tglMulai = date(r[11]);
                 x.tglSelesai = date(r[12]);
+                x.hariAktif = str(r[13]);
                 list.add(x);
             }
         } catch (Exception ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/koperasi/PosKantinAction.java:364");
@@ -1384,8 +1386,13 @@ public class PosKantinAction extends GenericAutowireComposer {
             return;
         }
         String kw = txtCariProduk == null ? "" : txtCariProduk.getValue().trim().replace("'", "''");
+        // Gap-closure "Jenis Item" (Produk vs Bahan Baku) -- bahan baku TIDAK boleh dijual langsung
+        // lewat Kasir, hanya dipakai via resep produk lain. `<>` polos TIDAK match NULL di Postgres
+        // (produk lama sebelum kolom ini ada), jadi WAJIB pola OR IS NULL supaya tidak diam-diam
+        // menghilangkan seluruh katalog lama dari Kasir -- lihat JavaDoc Produk.getJenisItem().
         StringBuilder sql = new StringBuilder("SELECT id, kode, nama, COALESCE(hargajual,0), COALESCE(stok,0) "
-                + "FROM koperasi.produk WHERE aktif = true AND toko = " + tokoIdAktif);
+                + "FROM koperasi.produk WHERE aktif = true AND toko = " + tokoIdAktif
+                + " AND (jenis_item IS NULL OR jenis_item <> 'BAHAN')");
         if (kategoriFilterId != null) {
             sql.append(" AND jenis_produk = ").append(kategoriFilterId);
         }
@@ -1734,6 +1741,9 @@ public class PosKantinAction extends GenericAutowireComposer {
                 continue;
             }
             if (r.tglSelesai != null && r.tglSelesai.before(now)) {
+                continue;
+            }
+            if (!ais.common.HariAktifUtil.aktifPadaHari(r.hariAktif, now)) {
                 continue;
             }
             if (!r.berlakuSemua) {

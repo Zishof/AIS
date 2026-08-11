@@ -373,6 +373,9 @@ public class PosApi extends HttpServlet {
 			} else if ("layar_pelanggan_ambil".equals(action)) {
 				KantinHelper.layarPelangganAmbil(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "layar_pelanggan_ambil");
+			} else if ("survey_kepuasan_simpan".equals(action)) {
+				KantinHelper.surveyKepuasanSimpan(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "survey_kepuasan_simpan");
 			} else if ("anggota_list".equals(action)) {
 				KantinHelper.anggotaList(payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "anggota_list");
@@ -559,6 +562,11 @@ public class PosApi extends HttpServlet {
 		// keamanan (akun terikat toko TIDAK PERNAH melihat data toko LAIN, hanya orphan toko=null).
 		boolean semuaTokoDiminta = payload.optBoolean("semuaToko", false);
 		boolean adminGlobal = tbmuser.getPedagang() == null;
+		// Gap-closure "Jenis Item" (Produk vs Bahan Baku) -- "JUAL"/"BAHAN" menyaring server-side
+		// (lihat PriceTagUtil.listProduk 6-argumen), kosong/tak dikirim = tanpa filter (perilaku
+		// lama, dipakai layar admin Produk yang harus melihat SEMUA baris).
+		String jenisItemFilter = payload.optString("jenisItem", "").trim().toUpperCase();
+		if (jenisItemFilter.isEmpty()) jenisItemFilter = null;
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -571,13 +579,18 @@ public class PosApi extends HttpServlet {
 			java.util.Map<Long, String> petaKategori = new java.util.LinkedHashMap<Long, String>();
 
 			JSONArray produkArr = new JSONArray();
-			for (Object o : PriceTagUtil.listProduk(session, tokoId, keyword, semuaTokoDiminta, adminGlobal)) {
+			for (Object o : PriceTagUtil.listProduk(session, tokoId, keyword, semuaTokoDiminta, adminGlobal, jenisItemFilter)) {
 				Produk p = (Produk) o;
 				JSONObject j = new JSONObject();
 				j.put("id", p.getId());
 				j.put("kode", str(p.getKode()));
 				j.put("barcode", str(p.getBarcode()));
 				j.put("nama", str(p.getNama()));
+				// Gap-closure "Jenis Item" (Produk vs Bahan Baku) -- selalu dikirim (bukan hanya saat
+				// difilter) supaya klien bisa membangun picker "Pilih Bahan Baku" dari list yang sudah
+				// di memori (mis. daftar hasil katalog tanpa filter di layar admin Produk) tanpa perlu
+				// call server kedua.
+				j.put("jenisItem", str(p.getJenisItem()));
 				// Ditampilkan hanya relevan saat semuaToko aktif (baris bisa berasal dari toko lain/null)
 				// -- tetap dikirim selalu supaya klien tak perlu tahu mode aktifnya utk merender kolom ini.
 				j.put("tokoIdProduk", p.getToko() == null ? JSONObject.NULL : p.getToko().getId());
@@ -1067,7 +1080,8 @@ public class PosApi extends HttpServlet {
 				|| "checkBayar".equals(action) || "cari_member".equals(action)
 				|| "cara_bayar_list".equals(action) || "saldo_member".equals(action)
 				|| "topup_saldo".equals(action) || "verifikasi_pin".equals(action)
-				|| "layar_pelanggan_kirim".equals(action) || "layar_pelanggan_ambil".equals(action)) {
+				|| "layar_pelanggan_kirim".equals(action) || "layar_pelanggan_ambil".equals(action)
+				|| "survey_kepuasan_simpan".equals(action)) {
 			return menu.optBoolean("kasir", true);
 		}
 		if ("cara_bayar_list_semua".equals(action)) {
@@ -2686,6 +2700,85 @@ public class PosApi extends HttpServlet {
 			rsRekapTerlaris.close();
 			psRekapTerlaris.close();
 
+			// Gap-closure "Analisa Produk: jam sibuk per-produk" -- jamSibuk yang sudah ada
+			// (prosesDashboardUmum/prosesDashboardPelanggan) selalu agregat SELURUH toko, tidak per
+			// item. Dibatasi TOP 5 produk (30 hari terakhir) supaya query murah & chart tetap terbaca.
+			java.sql.PreparedStatement psJamSibukProduk = conn.prepareStatement(
+					"SELECT c.id, c.nama, EXTRACT(HOUR FROM a.waktu) AS jam, SUM(a.qty) "
+							+ "FROM koperasi.pembelian a INNER JOIN koperasi.produk c ON a.produk = c.id "
+							+ "WHERE a.toko = ? AND DATE(a.waktu) >= CURRENT_DATE - INTERVAL '30 days' "
+							+ "AND c.id IN (SELECT produk FROM koperasi.pembelian WHERE toko = ? AND DATE(waktu) >= CURRENT_DATE - INTERVAL '30 days' "
+							+ "GROUP BY produk ORDER BY SUM(qty) DESC LIMIT 5) "
+							+ "GROUP BY c.id, c.nama, jam ORDER BY c.nama, jam");
+			psJamSibukProduk.setLong(1, tokoId.longValue());
+			psJamSibukProduk.setLong(2, tokoId.longValue());
+			java.sql.ResultSet rsJamSibukProduk = psJamSibukProduk.executeQuery();
+			java.util.LinkedHashMap<Long, JSONObject> petaJamSibukProduk = new java.util.LinkedHashMap<Long, JSONObject>();
+			while (rsJamSibukProduk.next()) {
+				long idProduk = rsJamSibukProduk.getLong(1);
+				JSONObject entri = petaJamSibukProduk.get(idProduk);
+				if (entri == null) {
+					entri = new JSONObject();
+					entri.put("produkId", idProduk);
+					entri.put("nama", str(rsJamSibukProduk.getString(2)));
+					double[] jamArr = new double[24];
+					JSONArray jamJson = new JSONArray();
+					for (int j = 0; j < 24; j++) jamJson.put(0);
+					entri.put("jam", jamJson);
+					petaJamSibukProduk.put(idProduk, entri);
+				}
+				int jamIdx = (int) rsJamSibukProduk.getDouble(3);
+				if (jamIdx >= 0 && jamIdx < 24) {
+					entri.getJSONArray("jam").put(jamIdx, rsJamSibukProduk.getDouble(4));
+				}
+			}
+			rsJamSibukProduk.close();
+			psJamSibukProduk.close();
+			JSONArray jamSibukPerProduk = new JSONArray();
+			for (JSONObject entri : petaJamSibukProduk.values()) jamSibukPerProduk.put(entri);
+
+			// Gap-closure "Analisa Produk: perputaran stok (turnover)" -- formula SAMA PERSIS dgn
+			// laporan JSP ad-hoc "Perputaran Stok (Turnover)" (ais.action.master.koperasi.helper.
+			// LaporanKantinUtil, kode "perputaran_stok") -- diport apa adanya, BUKAN dihitung ulang
+			// beda rumus, supaya kedua tampilan selalu sama persis.
+			java.sql.PreparedStatement psTurnover = conn.prepareStatement(
+					"SELECT pr.kode, pr.nama, SUM(COALESCE(p.qty,0)), COALESCE(pr.stok,0), "
+							+ "(CASE WHEN COALESCE(pr.stok,0) > 0 THEN SUM(COALESCE(p.qty,0))/COALESCE(pr.stok,0) ELSE 0 END) "
+							+ "FROM koperasi.pembelian p JOIN koperasi.produk pr ON pr.id = p.produk "
+							+ "WHERE p.toko = ? AND " + intervalRekap + " GROUP BY pr.id, pr.kode, pr.nama, pr.stok ORDER BY 5 DESC");
+			psTurnover.setLong(1, tokoId.longValue());
+			java.sql.ResultSet rsTurnover = psTurnover.executeQuery();
+			JSONArray perputaranStok = new JSONArray();
+			while (rsTurnover.next()) {
+				JSONObject t = new JSONObject();
+				t.put("kode", str(rsTurnover.getString(1)));
+				t.put("nama", str(rsTurnover.getString(2)));
+				t.put("qtyTerjual", rsTurnover.getDouble(3));
+				t.put("stokKini", rsTurnover.getDouble(4));
+				t.put("perputaran", rsTurnover.getDouble(5));
+				perputaranStok.put(t);
+			}
+			rsTurnover.close();
+			psTurnover.close();
+
+			// Gap-closure "Survey Kepuasan Pelanggan" -- lingkup TOKO (bukan per-produk, lihat
+			// JavaDoc entity SurveyKepuasanPos), rata-rata + jumlah responden 30 hari terakhir.
+			java.sql.PreparedStatement psKepuasan = conn.prepareStatement(
+					"SELECT COALESCE(AVG(rating),0), COUNT(*) FROM koperasi.survey_kepuasan_pos "
+							+ "WHERE toko = ? AND waktu >= CURRENT_DATE - INTERVAL '30 days'");
+			psKepuasan.setLong(1, tokoId.longValue());
+			java.sql.ResultSet rsKepuasan = psKepuasan.executeQuery();
+			JSONObject kepuasanPelanggan = new JSONObject();
+			if (rsKepuasan.next()) {
+				kepuasanPelanggan.put("rataRating", rsKepuasan.getDouble(1));
+				kepuasanPelanggan.put("jumlahResponden", rsKepuasan.getInt(2));
+			} else {
+				kepuasanPelanggan.put("rataRating", 0);
+				kepuasanPelanggan.put("jumlahResponden", 0);
+			}
+			rsKepuasan.close();
+			psKepuasan.close();
+
 			java.sql.PreparedStatement psKurang = conn.prepareStatement(
 					"SELECT c.nama, COALESCE(SUM(a.qty),0) FROM koperasi.produk c "
 							+ "LEFT JOIN koperasi.pembelian a ON (a.produk = c.id AND DATE(a.waktu) >= CURRENT_DATE - INTERVAL '30 days') "
@@ -2710,6 +2803,9 @@ public class PosApi extends HttpServlet {
 			hasil.put("metodeBayar", metodeBayar);
 			hasil.put("rekapProdukTerlaris", rekapProdukTerlaris);
 			hasil.put("produkKurangLaku", produkKurangLaku);
+			hasil.put("jamSibukPerProduk", jamSibukPerProduk);
+			hasil.put("perputaranStok", perputaranStok);
+			hasil.put("kepuasanPelanggan", kepuasanPelanggan);
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}

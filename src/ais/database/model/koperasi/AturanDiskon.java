@@ -61,6 +61,7 @@ public class AturanDiskon extends VoKunci {
 	// --- 5. MASA BERLAKU ---
 	private Date tanggalMulai;
 	private Date tanggalSelesai;
+	private String hariAktif; // CSV hari ISO weekday (1=Senin..7=Minggu); null/kosong = semua hari
 	private Boolean aktif;
 
 	private String oleh;
@@ -251,6 +252,23 @@ public class AturanDiskon extends VoKunci {
 
 	public void setTanggalSelesai(Date tanggalSelesai) {
 		this.tanggalSelesai = tanggalSelesai;
+	}
+
+	/**
+	 * Gap-closure "Promo Pilih Hari" -- CSV angka hari ISO-8601 ({@code 1}=Senin .. {@code 7}=Minggu,
+	 * mis. {@code "1,2,3,4,5"} utk Senin-Jumat). {@code null}/kosong = berlaku SEMUA hari (tanpa
+	 * batasan), konsisten dgn konvensi {@link #getTanggalMulai()}/{@link #getTanggalSelesai()} null =
+	 * tanpa batas. Dicek lewat {@link ais.common.HariAktifUtil#aktifPadaHari(String, Date)} dari DUA
+	 * mesin pencocokan promo yang wajib tetap sinkron: {@code PosKantinAction.evaluasiDiskon} (ZK/JSP,
+	 * checkout langsung) dan {@code KantinHelper.evaluasiDiskonItems} (API, dipakai Electron/Flutter).
+	 */
+	@Column(name = "hari_aktif", length = 20)
+	public String getHariAktif() {
+		return hariAktif;
+	}
+
+	public void setHariAktif(String hariAktif) {
+		this.hariAktif = hariAktif;
 	}
 
 	@Column(name = "aktif")

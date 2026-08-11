@@ -66,6 +66,29 @@ public final class PriceTagUtil {
 	 */
 	@SuppressWarnings("unchecked")
 	public static List<Produk> listProduk(Session session, Long tokoId, String q, boolean semuaToko, boolean adminGlobal) {
+		return listProduk(session, tokoId, q, semuaToko, adminGlobal, null);
+	}
+
+	/**
+	 * Overload gap-closure "Jenis Item" (Produk vs Bahan Baku) -- SENGAJA method terpisah (bukan
+	 * mengubah overload 5-argumen di atas) supaya pemanggil lama yang belum peduli Jenis Item
+	 * (mis. Price Tag, yang boleh mencetak label utk Bahan Baku juga) tidak perlu ikut berubah.
+	 *
+	 * @param jenisItemFilter {@code null}/kosong = tanpa filter (perilaku lama, dipakai layar admin
+	 *                        Produk yang harus melihat SEMUA baris apa pun jenisnya); {@code "JUAL"}
+	 *                        = exclude baris {@code jenis_item="BAHAN"} (dipakai katalog Kasir --
+	 *                        bahan baku tidak boleh dijual langsung/dicari kasir); {@code "BAHAN"} =
+	 *                        HANYA baris {@code jenis_item="BAHAN"} (dipakai picker "Pilih Bahan
+	 *                        Baku" pada editor Resep/HPP). Filter exclude WAJIB pola
+	 *                        {@code OR isNull} -- {@link Produk#getJenisItem()} memperlakukan NULL
+	 *                        sbg {@code "JUAL"}, tapi filter Hibernate/SQL beroperasi di kolom DB
+	 *                        mentah, dan {@code Restrictions.ne}/{@code <>} TIDAK PERNAH match NULL
+	 *                        di Postgres -- pola {@code ne} polos akan diam-diam menyembunyikan
+	 *                        SELURUH produk lama (dibuat sebelum kolom ini ada) dari Kasir.
+	 */
+	@SuppressWarnings("unchecked")
+	public static List<Produk> listProduk(Session session, Long tokoId, String q, boolean semuaToko, boolean adminGlobal,
+			String jenisItemFilter) {
 		if (tokoId == null && !(semuaToko && adminGlobal)) {
 			return new ArrayList<Produk>();
 		}
@@ -92,6 +115,11 @@ public final class PriceTagUtil {
 			c.add(Restrictions.or(Restrictions.or(Restrictions.ilike("nama", q.trim(), MatchMode.ANYWHERE),
 					Restrictions.ilike("kode", q.trim(), MatchMode.ANYWHERE)),
 					Restrictions.ilike("barcode", q.trim(), MatchMode.ANYWHERE)));
+		}
+		if ("JUAL".equals(jenisItemFilter)) {
+			c.add(Restrictions.or(Restrictions.isNull("jenisItem"), Restrictions.ne("jenisItem", "BAHAN")));
+		} else if ("BAHAN".equals(jenisItemFilter)) {
+			c.add(Restrictions.eq("jenisItem", "BAHAN"));
 		}
 		return c.list();
 	}

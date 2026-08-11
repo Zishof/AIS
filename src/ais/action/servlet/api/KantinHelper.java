@@ -2316,6 +2316,11 @@ public class KantinHelper {
 			} else if (request.has("kategori_id")) {
 				p.setJenisProduk(null);
 			}
+			// Gap-closure "Jenis Item" (Produk vs Bahan Baku) -- lihat JavaDoc Produk.getJenisItem().
+			if (request.has("jenis_item")) {
+				String jenisItem = request.optString("jenis_item", "JUAL").trim().toUpperCase();
+				p.setJenisItem(jenisItem.isEmpty() ? "JUAL" : jenisItem);
+			}
 
 			// Bahan Baku (Resep) & HPP otomatis -- gap-closure Desktop/Android, padanan JSP
 			// barang/index.jsp (blok "Bahan Baku (Resep) & HPP"): SAMA PERSIS perilakunya -- bila resep
@@ -5766,7 +5771,7 @@ public class KantinHelper {
 			java.sql.PreparedStatement ps = conn.prepareStatement(
 					"SELECT a.id, a.nama_aturan, COALESCE(p.nama,''), COALESCE(t.nama,''), "
 							+ "COALESCE(a.persentase,0), COALESCE(a.nominal,0), COALESCE(a.potongan_langsung,true), COALESCE(a.aktif,true), "
-							+ "a.tanggal_mulai, a.tanggal_selesai "
+							+ "a.tanggal_mulai, a.tanggal_selesai, a.hari_aktif "
 							+ "FROM koperasi.aturan_diskon a "
 							+ "LEFT JOIN koperasi.produk p ON a.produk = p.id "
 							+ "LEFT JOIN koperasi.toko t ON a.toko = t.id "
@@ -5794,6 +5799,7 @@ public class KantinHelper {
 				java.sql.Timestamp ts = rs.getTimestamp(10);
 				j.put("tanggalMulai", tm == null ? "" : fmt.format(tm));
 				j.put("tanggalSelesai", ts == null ? "" : fmt.format(ts));
+				j.put("hariAktif", rs.getString(11) == null ? "" : rs.getString(11));
 				arr.put(j);
 			}
 			rs.close();
@@ -5913,6 +5919,10 @@ public class KantinHelper {
 			a.setTanggalMulai(tglMulaiStr.isEmpty() ? null : fmtInput.parse(tglMulaiStr));
 			String tglSelesaiStr = request.optString("tanggal_selesai", "").trim();
 			a.setTanggalSelesai(tglSelesaiStr.isEmpty() ? null : fmtInput.parse(tglSelesaiStr));
+			// Gap-closure "Promo Pilih Hari" -- CSV dari klien (mis. "1,2,3,4,5"), kosong/tak dikirim =
+			// berlaku semua hari. Lihat JavaDoc AturanDiskon.getHariAktif().
+			String hariAktifStr = request.optString("hari_aktif", "").trim();
+			a.setHariAktif(hariAktifStr.isEmpty() ? null : hariAktifStr);
 
 			session.beginTransaction();
 			session.saveOrUpdate(a);
@@ -8685,6 +8695,13 @@ public class KantinHelper {
 		state.put("diskon", request.optDouble("diskon", 0));
 		state.put("total", request.optDouble("total", 0));
 		state.put("memberNama", request.optString("member_nama", ""));
+		// Gap-closure "Survey Kepuasan Pelanggan" -- "tipe" opsional dari klien membedakan siaran
+		// keranjang biasa ("keranjang", default/tak dikirim) dari siaran "transaksi baru saja SUKSES,
+		// tampilkan rating bintang" ("sukses") -- dipakai Layar Pelanggan Flutter (arsitektur polling
+		// 2-perangkat, BEDA dgn Layar Pelanggan Electron yang push langsung antar-window lewat IPC
+		// lokal tanpa lewat server sama sekali) utk tahu kapan harus pindah dari layar keranjang ke
+		// layar ucapan terima kasih + rating, tanpa perlu endpoint terpisah.
+		state.put("tipe", request.optString("tipe", "keranjang"));
 		layarPelangganState.put(tokoId, state);
 		layarPelangganWaktu.put(tokoId, Long.valueOf(System.currentTimeMillis()));
 		hasil.put("status", "00");
@@ -8715,6 +8732,46 @@ public class KantinHelper {
 			hasil.put("diskon", state.getDouble("diskon"));
 			hasil.put("total", state.getDouble("total"));
 			hasil.put("memberNama", state.optString("memberNama", ""));
+			hasil.put("tipe", state.optString("tipe", "keranjang"));
+		}
+	}
+
+	/**
+	 * Gap-closure "Survey Kepuasan Pelanggan" (rating 1-5 lewat Layar Pelanggan setelah transaksi
+	 * selesai) -- lihat JavaDoc entity {@link ais.database.model.inventory.SurveyKepuasanPos}.
+	 * Diajukan oleh perangkat Layar Pelanggan (BUKAN kasir) memakai sesi Tbmuser kasir yang sama
+	 * (sama batas kepercayaan dgn {@link #layarPelangganKirim}/{@link #verifikasiPin}) -- tidak ada
+	 * gerbang CRUD tambahan selain autentikasi token yang sudah dilakukan di lapisan servlet.
+	 *
+	 * @param request payload: {@code toko_id} (wajib utk admin, diabaikan utk pedagang/kasir),
+	 *                {@code rating} (wajib, 1-5), {@code catatan} (opsional).
+	 */
+	public static void surveyKepuasanSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		Long tokoId = soResolveTokoId(tbmuser, request);
+		if (tokoId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko tidak diketahui.");
+			return;
+		}
+		int rating = request.optInt("rating", 0);
+		if (rating < 1 || rating > 5) {
+			hasil.put("status", "91");
+			hasil.put("description", "Rating wajib antara 1-5.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.inventory.SurveyKepuasanPos s = new ais.database.model.inventory.SurveyKepuasanPos();
+			s.setToko((Toko) session.get(Toko.class, tokoId));
+			s.setRating(Integer.valueOf(rating));
+			String catatan = request.optString("catatan", "").trim();
+			s.setCatatan(catatan.isEmpty() ? null : catatan);
+			session.beginTransaction();
+			session.save(s);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+		} finally {
+			tutupSessionPolaB(session);
 		}
 	}
 
@@ -9660,7 +9717,7 @@ public class KantinHelper {
 			java.sql.PreparedStatement psRule = conn.prepareStatement(
 					"SELECT id, produk, toko, COALESCE(berlaku_semua_member,false), jenis_anggota, tipe_anggota, "
 							+ "persentase, maksimal_potongan, nominal, COALESCE(potongan_langsung,true), "
-							+ "COALESCE(berlaku_per_hari_dan_per_toko,false) FROM koperasi.aturan_diskon "
+							+ "COALESCE(berlaku_per_hari_dan_per_toko,false), hari_aktif FROM koperasi.aturan_diskon "
 							+ "WHERE aktif = true AND produk IN (" + inKlausa + ") AND (toko IS NULL OR toko = ?) "
 							+ "AND (tanggal_mulai IS NULL OR tanggal_mulai <= now()) "
 							+ "AND (tanggal_selesai IS NULL OR tanggal_selesai >= now()) ORDER BY id ASC");
@@ -9682,6 +9739,7 @@ public class KantinHelper {
 				r.put("nominal", rsRule.getDouble(9));
 				r.put("potonganLangsung", rsRule.getBoolean(10));
 				r.put("berlakuPerHariDanPerToko", rsRule.getBoolean(11));
+				r.put("hariAktif", rsRule.getString(12));
 				r.put("terpakaiHariIni", Double.valueOf(0d));
 				r.put("terpakaiDiKeranjang", Double.valueOf(0d));
 				rules.add(r);
@@ -9750,6 +9808,9 @@ public class KantinHelper {
 					}
 					Long tokoRule = (Long) r.get("toko");
 					if (tokoRule != null && !tokoRule.equals(tokoId)) {
+						continue;
+					}
+					if (!ais.common.HariAktifUtil.aktifPadaHari((String) r.get("hariAktif"), new java.util.Date())) {
 						continue;
 					}
 					boolean semuaMember = Boolean.TRUE.equals(r.get("berlakuSemuaMember"));

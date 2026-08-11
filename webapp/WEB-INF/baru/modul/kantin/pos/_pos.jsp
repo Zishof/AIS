@@ -1419,9 +1419,13 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
 
         grid.innerHTML = '<div class="col-12 text-center py-5"><div class="spinner-border text-primary"></div></div>';
 
+        // Gap-closure "Jenis Item" (Produk vs Bahan Baku) -- bahan baku TIDAK boleh dijual langsung
+        // lewat Kasir, hanya dipakai via resep produk lain. "<>" polos TIDAK match NULL di Postgres
+        // (produk lama sebelum kolom ini ada), jadi WAJIB pola OR IS NULL.
         let sqlQuery = "SELECT a.id, a.kode, a.nama, a.hargajual, COALESCE(a.stok,0) AS stok, " +
                        "(SELECT MAX(persentase) FROM koperasi.aturan_diskon d WHERE d.aktif=true AND (d.produk IS NULL OR d.produk = a.id) AND (d.toko IS NULL OR d.toko = a.toko)) AS diskon_persen " +
-                       "FROM koperasi.produk a WHERE a.aktif = true AND a.toko = " + currentTokoId<%=rnd%> + " ";
+                       "FROM koperasi.produk a WHERE a.aktif = true AND a.toko = " + currentTokoId<%=rnd%> +
+                       " AND (a.jenis_item IS NULL OR a.jenis_item <> 'BAHAN') ";
         if (currentKategoriId<%=rnd%> !== '') {
             sqlQuery += " AND a.jenis_produk = " + currentKategoriId<%=rnd%> + " ";
         }
