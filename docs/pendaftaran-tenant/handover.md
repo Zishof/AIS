@@ -49,9 +49,12 @@ Belum ada (dibuat lewat wizard saat UAT). Admin backoffice: pakai akun admin pla
 5. Backoffice = halaman ringkas gated (bukan tab ZK PendaftarAction) — semua aksi §15 tersedia;
    integrasi menu ZK bisa menyusul tanpa perubahan server.
 
-## UAT_REQUIRED
-Deploy+restart Tomcat (operator) → jalankan 11-uat.md (UAT-1..7) + acceptance SQL ERD §8 +
-harness konkurensi → simpan evidence → status DoD → UAT_PASSED/DONE.
+## UAT — SUDAH DIJALANKAN (2026-08-12)
+UAT-1..7 dieksekusi LULUS pada deployment LOKAL setara produksi (Tomcat 9.0.89 + JDK 1.8.0_202 +
+PostgreSQL 9.3, context /uat_tenant, DB segar, mode LEGACY) — bukti `evidence/uat-lokal-hasil.md`
+(acceptance SQL ERD §8 terpenuhi; harness konkurensi 1/50; idempotency replay; backoffice penuh).
+Sisa utk server DEV berdata nyata (operator): verifikasi cabang fail-open akun legacy +
+resend-limit + backfill §16.4 (`migration-exceptions.csv`) + uji email SMTP sungguhan.
 
 ## Rollback
 `git revert` commit fase (additive); tabel telanjur dibuat dibiarkan (tidak dibaca setelah revert).

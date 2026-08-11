@@ -47,6 +47,15 @@
 - Status akhir program (sebelum deploy): seluruh item implementasi **TESTED/SECURITY_DONE**;
   G-19 (backfill) + UAT runtime (Tomcat smoke, E2E, konkurensi ber-DB) = **UAT_REQUIRED**
   (11-uat.md; wewenang operator deploy).
+- **2026-08-12 (lanjutan): UAT-1..7 DIEKSEKUSI dan LULUS** pada deployment lokal setara produksi
+  (Tomcat 9 + JDK8 + PostgreSQL 9.3, DB segar, mode LEGACY) — bukti lengkap
+  `evidence/uat-lokal-hasil.md`: E2E Apotek+IS & Bengkel (PLANNED jujur), gating pra-READY,
+  konkurensi 1-menang-dari-50, idempotency replay kode sama, backoffice
+  (verify-manual/reject/release-guard/retry-dari-step-aman/step-panel/gerbang admin), bridge
+  REGISTRATION_MOVED, CSRF/honeypot/elapsed/rate-limit, Envers terisi, trial 30 hari dari READY.
+  Status program → **UAT_PASSED** dgn 3 temuan minor backlog (step-FAILED rollback, trust-proxy
+  XFF, artefak tester) + 2 cabang menunggu DB dev berdata legacy (fail-open akun lama,
+  resend-limit) — lihat evidence.
 
 ## Catatan risiko lingkungan
 
