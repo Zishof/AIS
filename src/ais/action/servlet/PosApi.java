@@ -1368,6 +1368,19 @@ public class PosApi extends HttpServlet {
 			return menu.optBoolean("apotik_kasir", false) || menu.optBoolean("apotik_formularium", false)
 					|| menu.optBoolean("apotik_stok_opname", false) || menu.optBoolean("apotik_batch", false);
 		}
+		if (action.startsWith("apotik_terima_")) {
+			return menu.optBoolean("apotik_pengadaan", false);
+		}
+		if (action.startsWith("apotik_opname_")) {
+			return menu.optBoolean("apotik_stok_opname", false);
+		}
+		if (action.startsWith("apotik_retur_")) {
+			return menu.optBoolean("apotik_retur", false);
+		}
+		if (action.startsWith("apotik_batch_")) {
+			return menu.optBoolean("apotik_batch", false) || menu.optBoolean("apotik_stok_opname", false)
+					|| menu.optBoolean("apotik_kasir", false);
+		}
 		if (action.startsWith("apotik_")) {
 			return menu.optBoolean("apotik_kasir", false);
 		}

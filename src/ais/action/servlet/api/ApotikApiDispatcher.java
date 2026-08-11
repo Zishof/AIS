@@ -35,6 +35,14 @@ public final class ApotikApiDispatcher {
 			ApotikApiHelper.itemProfilSimpan(tbmuser, payload, hasil);
 		} else if ("apotik_bayar".equals(action)) {
 			ApotikApiHelper.bayar(tbmuser, payload, hasil);
+		} else if ("apotik_terima_barang".equals(action)) {
+			ApotikPersediaanHelper.terimaBarang(tbmuser, payload, hasil);
+		} else if ("apotik_opname_simpan".equals(action)) {
+			ApotikPersediaanHelper.opnameSimpan(tbmuser, payload, hasil);
+		} else if ("apotik_retur_simpan".equals(action)) {
+			ApotikPersediaanHelper.returSimpan(tbmuser, payload, hasil);
+		} else if ("apotik_batch_monitor".equals(action)) {
+			ApotikPersediaanHelper.batchMonitor(payload, hasil);
 		} else {
 			hasil.put("status", "error");
 			hasil.put("message", "Aksi POS Apotik belum tersedia di server ini: " + action);

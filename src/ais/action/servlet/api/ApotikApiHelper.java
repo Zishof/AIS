@@ -93,8 +93,9 @@ public final class ApotikApiHelper {
 	}
 
 	/** Stok per item dari ledger -- SQL PERSIS pola AmbilDataItemMedisBanyakBerdasarkanStok
-	 *  (sirs/helper, baris 340-346): SUM((qty+qty_bonus)*jenis), opsional per lokasi. */
-	private static java.util.Map<Long, Double> stokPerItem(Session session, List<Long> itemIds, Long lokasiId)
+	 *  (sirs/helper, baris 340-346): SUM((qty+qty_bonus)*jenis), opsional per lokasi.
+	 *  Package-visible: dipakai juga ApotikPersediaanHelper (opname hitung selisih). */
+	/* package */ static java.util.Map<Long, Double> stokPerItem(Session session, List<Long> itemIds, Long lokasiId)
 			throws Exception {
 		java.util.Map<Long, Double> stok = new java.util.HashMap<Long, Double>();
 		if (itemIds.isEmpty()) {
@@ -121,7 +122,7 @@ public final class ApotikApiHelper {
 	}
 
 	/** Konsumsi batch ter-agregasi per kadaluarsa id (sisa = Kadaluarsa.qty - nilai peta ini). */
-	private static java.util.Map<Long, Double> konsumsiPerBatch(Session session, List<Long> kadaluarsaIds) {
+	/* package */ static java.util.Map<Long, Double> konsumsiPerBatch(Session session, List<Long> kadaluarsaIds) {
 		java.util.Map<Long, Double> peta = new java.util.HashMap<Long, Double>();
 		if (kadaluarsaIds.isEmpty()) {
 			return peta;
