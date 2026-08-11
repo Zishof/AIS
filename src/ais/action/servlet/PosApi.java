@@ -445,6 +445,18 @@ public class PosApi extends HttpServlet {
 			} else if ("cara_bayar_hapus".equals(action)) {
 				KantinHelper.caraBayarHapus(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "cara_bayar_hapus");
+			} else if ("jenis_produk_list".equals(action)) {
+				ais.action.servlet.api.JenisProdukApiHelper.jenisProdukList(payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "jenis_produk_list");
+			} else if ("jenis_produk_simpan".equals(action)) {
+				ais.action.servlet.api.JenisProdukApiHelper.jenisProdukSimpan(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "jenis_produk_simpan");
+			} else if ("jenis_produk_hapus".equals(action)) {
+				ais.action.servlet.api.JenisProdukApiHelper.jenisProdukHapus(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "jenis_produk_hapus");
+			} else if ("akun_list".equals(action)) {
+				ais.action.servlet.api.JenisProdukApiHelper.akunList(payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "akun_list");
 			} else if ("mutasi_tabungan_list".equals(action)) {
 				KantinHelper.mutasiTabunganList(payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "mutasi_tabungan_list");
