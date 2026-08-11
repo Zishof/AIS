@@ -98,8 +98,32 @@ public final class SalesInventoryApiDispatcher {
 			SalesInventoryPayableHelper.purchaseReport(ctx, payload, hasil);
 		} else if ("si_import_legacy".equals(action)) {
 			SalesInventoryDbfImportHelper.importLegacy(ctx, tbmuser, payload, hasil);
+		} else if ("si_sales_order_create".equals(action)) {
+			SalesInventoryReceivableHelper.salesOrderSimpan(ctx, tbmuser, payload, hasil, false);
+		} else if ("si_sales_order_update".equals(action)) {
+			SalesInventoryReceivableHelper.salesOrderSimpan(ctx, tbmuser, payload, hasil, true);
+		} else if ("si_sales_order_list".equals(action)) {
+			SalesInventoryReceivableHelper.salesOrderList(ctx, payload, hasil);
+		} else if ("si_sales_order_detail".equals(action)) {
+			SalesInventoryReceivableHelper.salesOrderDetail(ctx, payload, hasil);
+		} else if ("si_sales_order_status".equals(action)) {
+			SalesInventoryReceivableHelper.salesOrderStatus(ctx, tbmuser, payload, hasil);
+		} else if ("si_sales_order_invoice".equals(action)) {
+			SalesInventoryReceivableHelper.salesOrderInvoice(ctx, tbmuser, payload, hasil);
+		} else if ("si_receivable_list".equals(action) || "si_receivable_from_sale".equals(action)) {
+			SalesInventoryReceivableHelper.receivableList(ctx, payload, hasil);
+		} else if ("si_collection_create".equals(action)) {
+			SalesInventoryReceivableHelper.collectionCreate(ctx, tbmuser, payload, hasil);
+		} else if ("si_collection_history".equals(action)) {
+			SalesInventoryReceivableHelper.collectionHistory(ctx, payload, hasil);
+		} else if ("si_collection_receipt".equals(action)) {
+			SalesInventoryReceivableHelper.collectionReceipt(ctx, payload, hasil);
+		} else if ("si_receivable_aging_customer".equals(action)) {
+			SalesInventoryReceivableHelper.receivableAgingCustomer(ctx, payload, hasil);
+		} else if ("si_receivable_aging_sales".equals(action)) {
+			SalesInventoryReceivableHelper.receivableAgingSales(ctx, payload, hasil);
 		} else {
-			// Aksi si_ lain menyusul per fase (P3 AP, P4 AR, P5 SPJ/Nota Sales, P6 finance).
+			// Aksi si_ lain menyusul per fase (P5 SPJ/Nota Sales, P6 finance).
 			hasil.put("status", "error");
 			hasil.put("message", "Aksi Inventory & Sales belum tersedia di server ini: " + action);
 			return true;

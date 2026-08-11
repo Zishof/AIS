@@ -467,9 +467,11 @@ public final class SalesInventoryMasterHelper {
 		}
 	}
 
-	/** Saldo piutang customer (baca-saja) -- formula SAMA dgn KantinHelper.mutasiHutangList
-	 *  (belanja ber-cara-bayar masuk_sebagai_hutang, 5 slot split-payment, minus pembayaran_hutang),
-	 *  tanpa filter tanggal (saldo berjalan seluruh histori). */
+	/** Saldo piutang customer (baca-saja) = DUA sub-ledger dijumlah (keputusan D-12, P4):
+	 *  (1) ledger POS existing -- formula SAMA dgn KantinHelper.mutasiHutangList (belanja
+	 *  ber-cara-bayar masuk_sebagai_hutang, 5 slot split-payment, minus pembayaran_hutang);
+	 *  (2) outstanding faktur AR varian IS (piutang_customer_doc AKTIF: total - dibayar_awal -
+	 *  alokasi penerimaan). Keduanya ledger terpisah tanpa duplikasi pencatatan. */
 	private static double saldoPiutang(Session session, long anggotaId) throws Exception {
 		String n1 = "GREATEST(0, COALESCE(h.total_biaya,0) - COALESCE(h.nominal_bayar_2,0) - COALESCE(h.nominal_bayar_3,0) - COALESCE(h.nominal_bayar_4,0) - COALESCE(h.nominal_bayar_5,0))";
 		String[] slotJoin = { "h.cara_pembayaran_koperasi", "h.cara_pembayaran_koperasi_2",
@@ -486,7 +488,11 @@ public final class SalesInventoryMasterHelper {
 					.append(anggotaId).append(" AND ").append(slotNominal[slot - 1]).append(" > 0");
 		}
 		sql.append(") t),0) - COALESCE((SELECT SUM(nominal) FROM koperasi.pembayaran_hutang WHERE anggota_koperasi = ")
-				.append(anggotaId).append("),0)");
+				.append(anggotaId).append("),0)")
+				.append(" + COALESCE((SELECT SUM(COALESCE(d.total_faktur,0) - COALESCE(d.dibayar_awal,0)")
+				.append(" - COALESCE((SELECT SUM(a.nominal) FROM koperasi.alokasi_penerimaan_piutang_customer a")
+				.append(" WHERE a.piutang_doc = d.id),0)) FROM koperasi.piutang_customer_doc d")
+				.append(" WHERE d.customer = ").append(anggotaId).append(" AND d.status = 'AKTIF'),0)");
 		java.sql.PreparedStatement ps = session.connection().prepareStatement(sql.toString());
 		java.sql.ResultSet rs = ps.executeQuery();
 		double saldo = rs.next() ? rs.getDouble(1) : 0;
