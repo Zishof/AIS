@@ -462,4 +462,30 @@ public class Produk extends GeneralValueObject {
 		this.ekstraPilihan = ekstraPilihan;
 	}
 
+	private String metodeHpp;
+
+	/**
+	 * Metode penentuan HARGA POKOK (biaya) per unit saat Posting HPP Penjualan Kantin (per produk).
+	 * Nilai:
+	 * <ul>
+	 *   <li>{@code null}/kosong = <b>Default</b>: rata-rata biaya kulakan; bila produk belum pernah
+	 *       kulakan → jatuh ke {@code hargaBeli} produk.</li>
+	 *   <li>{@code "RATA_RATA_KULAKAN"} = rata-rata biaya kulakan (fallback {@code hargaBeli}).</li>
+	 *   <li>{@code "KULAKAN_TERAKHIR"} = biaya kulakan terakhir per tanggal (fallback {@code hargaBeli}).</li>
+	 *   <li>{@code "HARGA_BELI_PRODUK"} = memakai {@code hargaBeli} produk apa adanya (statis).</li>
+	 * </ul>
+	 * {@code @NotAudited}: field pengaturan, tak perlu histori audit (hindari sinkron tabel
+	 * {@code new_audit.produk__audit}). {@code @Column} eksplisit agar nama kolom tidak "digabung"
+	 * oleh implicit naming Hibernate deployment ini.
+	 */
+	@org.hibernate.envers.NotAudited
+	@Column(name = "metode_hpp", length = 30)
+	public String getMetodeHpp() {
+		return metodeHpp == null || metodeHpp.trim().isEmpty() ? null : metodeHpp.trim();
+	}
+
+	public void setMetodeHpp(String metodeHpp) {
+		this.metodeHpp = metodeHpp;
+	}
+
 }

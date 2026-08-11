@@ -200,20 +200,22 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 		StringBuilder detailRows = new StringBuilder();
 		int barisTampil = 0;
 
-		// (1) Rata-rata biaya kulakan per produk s.d tanggal "sampai" (metode default HPP).
+		// (1) Rata-rata & (1b) biaya kulakan TERAKHIR per produk s.d tanggal "sampai" (bahan metode HPP).
 		Map<Long, double[]> rataKulakan = rataRataKulakanPerProduk(session, sStr);
+		Map<Long, Double> kulakanTerakhir = kulakanTerakhirPerProduk(session, sStr);
 
 		// (2) Penjualan per produk — DIBACA LEWAT header pembelian_anggota_koperasi (penjualan ke anggota),
 		//     memakai tanggal_pembayaran header sebagai tanggal jual. Hanya baris aktif & produk tertaut aset.
+		//     pr.metode_hpp = metode biaya per-produk (kosong = default rata-rata kulakan → fallback harga beli).
 		@SuppressWarnings("unchecked")
 		List<Object[]> rows = session.createSQLQuery(
-				"SELECT pb.produk, pr.master_asset, COALESCE(pr.hargabeli,0), COALESCE(SUM(pb.qty),0) "
+				"SELECT pb.produk, pr.master_asset, COALESCE(pr.hargabeli,0), COALESCE(SUM(pb.qty),0), pr.metode_hpp "
 						+ "FROM koperasi.pembelian pb "
 						+ "INNER JOIN koperasi.produk pr ON pr.id = pb.produk "
 						+ "INNER JOIN koperasi.pembelian_anggota_koperasi h ON h.id = pb.pembelian_anggota_koperasi "
 						+ "WHERE pr.master_asset IS NOT NULL AND pb.aktif = true "
 						+ "AND date(h.tanggal_pembayaran) BETWEEN date('" + mStr + "') AND date('" + sStr + "') "
-						+ "GROUP BY pb.produk, pr.master_asset, pr.hargabeli "
+						+ "GROUP BY pb.produk, pr.master_asset, pr.hargabeli, pr.metode_hpp "
 						+ "ORDER BY pb.produk").list();
 
 		for (Object[] r : rows) {
@@ -224,24 +226,44 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 			Long masterAssetId = ((Number) r[1]).longValue();
 			double hargaBeliProduk = r[2] == null ? 0 : ((Number) r[2]).doubleValue();
 			double qty = r[3] == null ? 0 : ((Number) r[3]).doubleValue();
+			String metode = r.length > 4 && r[4] != null ? r[4].toString().trim() : null;
 			if (qty <= 0) {
 				continue;
 			}
 
-			// Harga pokok/satuan: DEFAULT rata-rata biaya kulakan; bila tak ada kulakan → harga beli produk (terakhir).
+			// Harga pokok/satuan mengikuti METODE HPP per-produk (pr.metode_hpp):
+			//  - HARGA_BELI_PRODUK        → harga beli produk (statis)
+			//  - KULAKAN_TERAKHIR         → biaya kulakan terakhir (fallback harga beli produk)
+			//  - RATA_RATA_KULAKAN/kosong → DEFAULT: rata-rata biaya kulakan (fallback harga beli produk)
 			double[] k = rataKulakan.get(produkId);
 			double avgKulakan = (k != null && k[1] > 0) ? (k[0] / k[1]) : 0.0;
+			Double lastObj = kulakanTerakhir.get(produkId);
+			double lastKulakan = lastObj == null ? 0.0 : lastObj.doubleValue();
 			double hargaPokok;
 			String sumberBiaya;
-			if (avgKulakan > 0) {
-				hargaPokok = avgKulakan;
-				sumberBiaya = "Rata-rata kulakan";
-			} else if (hargaBeliProduk > 0) {
+			if ("HARGA_BELI_PRODUK".equals(metode)) {
 				hargaPokok = hargaBeliProduk;
 				sumberBiaya = "Harga beli produk";
+			} else if ("KULAKAN_TERAKHIR".equals(metode)) {
+				if (lastKulakan > 0) {
+					hargaPokok = lastKulakan;
+					sumberBiaya = "Kulakan terakhir";
+				} else {
+					hargaPokok = hargaBeliProduk;
+					sumberBiaya = "Harga beli produk (fallback)";
+				}
 			} else {
-				hargaPokok = 0;
-				sumberBiaya = "-";
+				// default / RATA_RATA_KULAKAN
+				if (avgKulakan > 0) {
+					hargaPokok = avgKulakan;
+					sumberBiaya = "Rata-rata kulakan";
+				} else if (hargaBeliProduk > 0) {
+					hargaPokok = hargaBeliProduk;
+					sumberBiaya = "Harga beli produk (fallback)";
+				} else {
+					hargaPokok = 0;
+					sumberBiaya = "-";
+				}
 			}
 			double hpp = qty * hargaPokok;
 
@@ -390,6 +412,34 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 			}
 		} catch (Exception e) {
 			ais.common.ErrorAuditUtil.record(e, "auto-audit rataRataKulakanPerProduk");
+		}
+		return map;
+	}
+
+	/**
+	 * Biaya kulakan TERAKHIR (per tanggal) tiap produk s.d {@code sampaiStr}. Memakai
+	 * {@code DISTINCT ON (produk)} PostgreSQL (urut waktupengadaan &amp; id turun) sehingga tiap produk
+	 * mengambil satu baris kulakan paling akhir. Map: produkId → hargaBeliSatuan.
+	 */
+	private static Map<Long, Double> kulakanTerakhirPerProduk(Session session, String sampaiStr) {
+		Map<Long, Double> map = new java.util.HashMap<Long, Double>();
+		try {
+			@SuppressWarnings("unchecked")
+			List<Object[]> rows = session.createSQLQuery(
+					"SELECT DISTINCT ON (produk) produk, COALESCE(hargabelisatuan,0) "
+							+ "FROM koperasi.pengadaan_produk "
+							+ "WHERE produk IS NOT NULL AND date(waktupengadaan) <= date('" + sampaiStr + "') "
+							+ "ORDER BY produk, waktupengadaan DESC, id DESC").list();
+			for (Object[] r : rows) {
+				if (r[0] == null) {
+					continue;
+				}
+				Long pid = ((Number) r[0]).longValue();
+				double biaya = r[1] == null ? 0 : ((Number) r[1]).doubleValue();
+				map.put(pid, Double.valueOf(biaya));
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit kulakanTerakhirPerProduk");
 		}
 		return map;
 	}

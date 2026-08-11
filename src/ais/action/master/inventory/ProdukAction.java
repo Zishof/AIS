@@ -94,6 +94,7 @@ public class ProdukAction extends GenericAutowireComposer implements DataCriteri
 	private Combobox toko;
 	private MyDoublebox hargaBeli;
 	private MyDoublebox hargaJual;
+	private Combobox metodeHpp;
 	private Combobox izinkanJualMinusStok;
 	private Toko currentToko;
 	private Textbox imageUrl;
@@ -435,6 +436,37 @@ public class ProdukAction extends GenericAutowireComposer implements DataCriteri
 
 		row = new MyFormRow();
 		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Metode HPP (Posting)"));
+		row.appendChild(metodeHpp = new Combobox());
+		metodeHpp.setReadonly(true);
+		metodeHpp.setWidth("90%");
+		{
+			Comboitem ciDefault = new Comboitem("Default (Rata-rata Kulakan, fallback Harga Beli)");
+			ciDefault.setValue("");
+			ciDefault.setParent(metodeHpp);
+			Comboitem ciAvg = new Comboitem("Rata-rata Biaya Kulakan");
+			ciAvg.setValue("RATA_RATA_KULAKAN");
+			ciAvg.setParent(metodeHpp);
+			Comboitem ciLast = new Comboitem("Biaya Kulakan Terakhir");
+			ciLast.setValue("KULAKAN_TERAKHIR");
+			ciLast.setParent(metodeHpp);
+			Comboitem ciProduk = new Comboitem("Harga Beli Produk (Statis)");
+			ciProduk.setValue("HARGA_BELI_PRODUK");
+			ciProduk.setParent(metodeHpp);
+			String m = produk.getMetodeHpp();
+			if ("RATA_RATA_KULAKAN".equals(m)) {
+				metodeHpp.setSelectedItem(ciAvg);
+			} else if ("KULAKAN_TERAKHIR".equals(m)) {
+				metodeHpp.setSelectedItem(ciLast);
+			} else if ("HARGA_BELI_PRODUK".equals(m)) {
+				metodeHpp.setSelectedItem(ciProduk);
+			} else {
+				metodeHpp.setSelectedItem(ciDefault);
+			}
+		}
+
+		row = new MyFormRow();
+		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Aturan Jual Saat Stok Kurang"));
 		row.appendChild(izinkanJualMinusStok = new Combobox());
 		izinkanJualMinusStok.setReadonly(true);
@@ -626,6 +658,10 @@ public class ProdukAction extends GenericAutowireComposer implements DataCriteri
 		produk.setNama(nama.getValue());
 		produk.setHargaBeli(hargaBeli.getValue());
 		produk.setHargaJual(hargaJual.getValue());
+		if (metodeHpp != null && metodeHpp.getSelectedItem() != null) {
+			String mVal = (String) metodeHpp.getSelectedItem().getValue();
+			produk.setMetodeHpp(mVal == null || mVal.trim().isEmpty() ? null : mVal);
+		}
 		if (izinkanJualMinusStok.getSelectedItem() == null || izinkanJualMinusStok.getSelectedItem().getValue().equals("")) {
 			produk.setIzinkanJualMinusStok(null);
 		} else {
