@@ -86,6 +86,18 @@ public class PendaftaranTenantServlet extends HttpServlet {
 				return;
 			}
 
+			if ("admin".equals(mode)) {
+				// Backoffice ringkas (§15): HANYA admin platform (root/role Administrator).
+				if (!adminBerwenang(Common.getCurrentUser(request))) {
+					response.sendRedirect(request.getContextPath() + "/");
+					return;
+				}
+				request.setAttribute("csrfToken", PendaftaranCsrfUtil.getToken(session));
+				request.getRequestDispatcher("/WEB-INF/baru/public/pendaftaran_tenant_admin.jsp")
+						.forward(request, response);
+				return;
+			}
+
 			if ("status".equals(mode)) {
 				request.setAttribute("modeHalaman", "status");
 				request.setAttribute("kodeStatus",
@@ -197,8 +209,11 @@ public class PendaftaranTenantServlet extends HttpServlet {
 			return PendaftaranTenantService.cancel(kode);
 		}
 		if ("retry_provisioning".equals(action)) {
-			// Retry adalah wewenang admin backoffice (P6) -- endpoint publik menolak.
+			// Retry adalah wewenang admin backoffice -- endpoint publik menolak (pakai admin_retry).
 			return tolak("ADMIN_ONLY", "Aksi ini memerlukan akses admin.");
+		}
+		if (action.startsWith("admin_")) {
+			return prosesAdmin(request, action);
 		}
 		if ("submit_registration".equals(action)) {
 			return prosesSubmit(request, session, ip);
@@ -260,6 +275,65 @@ public class PendaftaranTenantServlet extends HttpServlet {
 			}
 		}
 		return hasil;
+	}
+
+	// =====================================================================
+	// ADMIN BACKOFFICE (§15) -- gerbang privilege per-request, bukan sesi publik
+	// =====================================================================
+
+	private JSONObject prosesAdmin(HttpServletRequest request, String action) throws Exception {
+		ais.database.model.Tbmuser admin = Common.getCurrentUser(request);
+		if (!adminBerwenang(admin)) {
+			return tolak("ADMIN_ONLY", "Aksi ini memerlukan akses admin platform.");
+		}
+		String kode = param(request, "kode", 40);
+		String reason = param(request, "reason", 500);
+		if ("admin_list".equals(action)) {
+			JSONObject filter = new JSONObject();
+			filter.put("q", param(request, "q", 100));
+			filter.put("statusFilter", param(request, "statusFilter", 40));
+			filter.put("halaman", param(request, "halaman", 6));
+			return ais.service.registration.PendaftaranTenantAdminService.daftar(filter);
+		}
+		if ("admin_detail_provisioning".equals(action)) {
+			return ais.service.registration.PendaftaranTenantAdminService.detailProvisioning(kode);
+		}
+		if ("admin_approve".equals(action)) {
+			return ais.service.registration.PendaftaranTenantAdminService.approve(admin, kode, reason);
+		}
+		if ("admin_reject".equals(action)) {
+			return ais.service.registration.PendaftaranTenantAdminService.reject(admin, kode, reason);
+		}
+		if ("admin_retry".equals(action)) {
+			return ais.service.registration.PendaftaranTenantAdminService.retry(admin, kode, reason);
+		}
+		if ("admin_release_reservation".equals(action)) {
+			return ais.service.registration.PendaftaranTenantAdminService
+					.releaseReservation(admin, kode, reason);
+		}
+		if ("admin_verify_manual".equals(action)) {
+			return ais.service.registration.PendaftaranTenantAdminService
+					.verifikasiManual(admin, kode, reason);
+		}
+		return tolak("UNKNOWN_ACTION", "Aksi admin tidak dikenal.");
+	}
+
+	/** Root ATAU role Administrator ("am") -- konsisten gerbang layar master platform. */
+	private static boolean adminBerwenang(ais.database.model.Tbmuser user) {
+		if (user == null) {
+			return false;
+		}
+		try {
+			if (Boolean.TRUE.equals(user.getRoot())) {
+				return true;
+			}
+			ais.database.model.Tbmrole role = user.hakAkses();
+			return role != null
+					&& ais.database.model.Tbmrole.ADMINISTRATOR.equalsIgnoreCase(role.getRoleId());
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit PendaftaranTenantServlet.adminBerwenang");
+			return false; // ragu = tolak (fail-closed)
+		}
 	}
 
 	// =====================================================================

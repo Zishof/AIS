@@ -1,0 +1,41 @@
+Perintah: java -cp C:\opt\AIS\ais\build\maven\classes ais.service.registration.VerifikasiPendaftaranTenantMandiri
+Tanggal : 2026-08-12
+Hasil   : LULUS=35 GAGAL=0, EXIT=0
+
+[LULUS] email trim+lowercase
+[LULUS] email valid
+[LULUS] email tanpa tld tidak valid
+[LULUS] email spasi tidak valid
+[LULUS] email kosong tidak valid
+[LULUS] username lowercase
+[LULUS] username NFKC (fullwidth->ascii)
+[LULUS] username valid dasar
+[LULUS] username terlalu pendek
+[LULUS] username mulai angka
+[LULUS] username huruf besar ditolak
+[LULUS] username dash ditolak (schema-safe)
+[LULUS] username 31 char valid
+[LULUS] username 32 char ditolak
+[LULUS] telepon buang non-digit
+[LULUS] telepon plus ganda dibuang
+[LULUS] dedup ukuran
+[LULUS] dedup pertahankan urutan (primary=3)
+[LULUS] dedup kosong
+[LULUS] rapikan trim
+[LULUS] rapikan potong
+[LULUS] rapikan null
+[LULUS] hash hex 64 char (256 bit)
+[LULUS] salt hex 64 char (32 byte)
+[LULUS] verify benar
+[LULUS] verify salah
+[LULUS] verify null aman
+[LULUS] verify iterasi null pakai default
+[LULUS] salt unik per hash
+[LULUS] sha256 deterministik
+[LULUS] sha256 abc dikenal
+[LULUS] token acak panjang
+[LULUS] token acak unik
+[LULUS] parameter versi 1 = 120000 iterasi
+[LULUS] algoritma versi 1
+
+Baseline mvn -o compile: EXIT=0 pada P0 (sebelum perubahan), P1, P2, P3-P5, P6.

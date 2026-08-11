@@ -36,7 +36,17 @@
   (CSRF+rate limit+honeypot+elapsed; CAPTCHA configurable = catatan); G-16 → **BACKEND_DONE** (jalur baru);
   G-15 → **BACKEND_DONE** utk event submit/verify (event provisioning menyusul P4). Bridge aksi=daftar =
   deprecation redirect (§4.5 opsi transisi, alasan consent — lihat 06-api-contract.md).
-- Belum tersentuh (fase berikut): G-06/G-18 (P5), G-11/G-12/G-13/G-14 sisi worker/logic (P4), G-17 (P6), G-19 (P4/P6).
+- Setelah P3-P5 (commit 340f0db0): G-06 → **BACKEND_DONE+UI_DONE** (guard TENANT_NOT_READY semua aksi
+  mutasi dashboard + panel tenant); G-11 → **BACKEND_DONE** (worker + step machine + retry backoff);
+  G-12 → **BACKEND_DONE** (union entitlement ACTIVE/PLANNED); G-13 → **BACKEND_DONE** (trial mulai
+  READY); G-14 → **BACKEND_DONE** (membership owner + tenant_list); G-18 → **BACKEND_DONE**
+  (ubah/nonaktif IDOR-safe). Session principal + fixation + constant-time login → **SECURITY_DONE**.
+- Setelah P6: G-17 → **UI_DONE** (backoffice mode=admin: list/filter/step + approve/reject/retry/
+  release/verify-manual, reason wajib, gerbang root/role "am" per-request); unit test mandiri
+  **TESTED** (35/35 LULUS, evidence/p6-verifikasi-mandiri.txt); harness konkurensi siap.
+- Status akhir program (sebelum deploy): seluruh item implementasi **TESTED/SECURITY_DONE**;
+  G-19 (backfill) + UAT runtime (Tomcat smoke, E2E, konkurensi ber-DB) = **UAT_REQUIRED**
+  (11-uat.md; wewenang operator deploy).
 
 ## Catatan risiko lingkungan
 

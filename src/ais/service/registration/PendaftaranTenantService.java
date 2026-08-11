@@ -581,6 +581,76 @@ public final class PendaftaranTenantService {
 		}
 	}
 
+	/**
+	 * Verifikasi TANPA token -- HANYA utk verifikasi manual admin (backoffice; token mentah tidak
+	 * pernah bisa direkonstruksi dari hash). Transisi status memakai jalur yang SAMA dgn
+	 * verifikasi token; challenge PENDING ditandai SUPERSEDED supaya tautan lama mati.
+	 */
+	public static JSONObject verifikasiTanpaToken(Long permohonanId) throws Exception {
+		JSONObject hasil = new JSONObject();
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			session.beginTransaction();
+			PendaftaranTenant permohonan = (PendaftaranTenant) session.get(PendaftaranTenant.class, permohonanId);
+			if (permohonan == null) {
+				session.getTransaction().rollback();
+				return error(hasil, "REGISTRATION_NOT_FOUND", "Permohonan tidak ditemukan.", false);
+			}
+			if (!PendaftaranTenant.STATUS_EMAIL_VERIFICATION_PENDING.equals(permohonan.getStatus())
+					&& !PendaftaranTenant.STATUS_SUBMITTED.equals(permohonan.getStatus())) {
+				session.getTransaction().rollback();
+				return error(hasil, "STATE_INVALID", "Permohonan tidak sedang menunggu verifikasi email.", false);
+			}
+			List<?> pending = session.createCriteria(PendaftaranEmailVerification.class)
+					.add(Restrictions.eq("pendaftaranTenant.id", permohonan.getId()))
+					.add(Restrictions.eq("status", PendaftaranEmailVerification.STATUS_PENDING)).list();
+			for (Object o : pending) {
+				((PendaftaranEmailVerification) o).setStatus(PendaftaranEmailVerification.STATUS_SUPERSEDED);
+				session.saveOrUpdate((PendaftaranEmailVerification) o);
+			}
+			Date sekarang = new Date();
+			permohonan.setVerifiedAt(sekarang);
+			boolean perluReview = perluManualReview(session, permohonan);
+			if (perluReview) {
+				permohonan.setStatus(PendaftaranTenant.STATUS_REVIEW_PENDING);
+				permohonan.setCurrentStage("MANUAL_REVIEW");
+			} else {
+				permohonan.setStatus(PendaftaranTenant.STATUS_PROVISIONING_QUEUED);
+				permohonan.setCurrentStage("PROVISIONING");
+				buatJobProvisioning(session, permohonan, sekarang);
+			}
+			session.saveOrUpdate(permohonan);
+			PendaftarTenantProfile profile = (PendaftarTenantProfile) session
+					.createCriteria(PendaftarTenantProfile.class)
+					.add(Restrictions.eq("pendaftar.id", permohonan.getPendaftar().getId()))
+					.setMaxResults(1).uniqueResult();
+			if (profile != null) {
+				profile.setEmailVerifiedAt(sekarang);
+				profile.setAccountStatus(PendaftarTenantProfile.STATUS_ACTIVE);
+				session.saveOrUpdate(profile);
+			}
+			audit(session, PendaftaranAuditEvent.EV_EMAIL_VERIFIED, permohonan,
+					permohonan.getPendaftar().getId(), "manual-admin", new JSONObject());
+			String kode = permohonan.getRegistrationCode();
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("code", "EMAIL_VERIFIED");
+			hasil.put("description", "Verifikasi manual berhasil; permohonan lanjut ke tahap berikutnya.");
+			hasil.put("registrationCode", kode);
+			return hasil;
+		} catch (Exception e) {
+			try {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception rollbackEx) { ais.common.ErrorAuditUtil.record(rollbackEx, "auto-audit(empty-catch) PendaftaranTenantService.verifikasiTanpaToken.rollback");
+			}
+			throw e;
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
 	private static boolean perluManualReview(Session session, PendaftaranTenant permohonan) {
 		if (Common.bolehKonfigurasi("pendaftaran_wajib_review_manual",
 				ais.database.model.Konfigurasi.TIDAK_AKTIF)) {
