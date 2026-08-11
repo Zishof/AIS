@@ -1,0 +1,82 @@
+package ais.action.servlet.api;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.json.JSONObject;
+
+import ais.database.model.Tbmuser;
+
+/**
+ * <h3>Dispatcher aksi {@code si_*} -- varian "eBisnis Inventory &amp; Sales".</h3>
+ *
+ * <p>Dipanggil dari {@code ApiEBisnis.prosesAksiTambahan} (hook yang disisipkan TEPAT sebelum
+ * fallback "Aksi tidak dikenal" di {@code PosApi.proses}) -- jadi HANYA hidup di endpoint
+ * {@code /Api_eBisnis}; endpoint {@code /PosApi} lama tidak pernah melihat aksi ini.</p>
+ *
+ * <p>Kontrak return: {@code true} = aksi sudah ditangani (termasuk ditangani-dengan-error);
+ * {@code false} = bukan aksi milik dispatcher ini, biarkan jatuh ke fallback "Aksi tidak
+ * dikenal" existing. Aksi ber-prefix {@code si_} yang TIDAK dikenali TETAP ditangani (balasan
+ * error spesifik) supaya pesan errornya jelas milik modul ini -- fail-closed, bukan diam.</p>
+ */
+public final class SalesInventoryApiDispatcher {
+
+	private SalesInventoryApiDispatcher() {
+	}
+
+	public static boolean dispatch(String action, Tbmuser tbmuser, JSONObject payload, JSONObject hasil,
+			HttpServletRequest request, HttpServletResponse response) throws Exception {
+		if (action == null || !action.startsWith("si_")) {
+			return false;
+		}
+
+		// Gerbang aktor fail-closed utk SELURUH permukaan si_: aktor POS biasa ditolak di sini
+		// (lapisan kedua setelah gate menu bolehAksesActionKantin -- dua-duanya harus lolos).
+		EbisnisActorContextResolver.ActorContext ctx = EbisnisActorContextResolver.resolve(tbmuser);
+		if (EbisnisActorContextResolver.ACTOR_POS.equals(ctx.actorType) && !adaMenuInventorySales(ctx)) {
+			hasil.put("status", "error");
+			hasil.put("message", "Akun Anda tidak terdaftar pada modul Inventory & Sales. Hubungi admin untuk mengaktifkan.");
+			return true;
+		}
+
+		if ("si_actor_context".equals(action)) {
+			SalesInventoryHelper.aktorContext(tbmuser, hasil);
+			normalisasi(hasil);
+			return true;
+		}
+
+		// Aksi si_ lain menyusul per fase (P2 master, P3 AP, P4 AR, P5 SPJ/Nota Sales, P6 finance).
+		hasil.put("status", "error");
+		hasil.put("message", "Aksi Inventory & Sales belum tersedia di server ini: " + action);
+		return true;
+	}
+
+	/** Minimal satu kunci menu varian aktif utk role aktor -- dipakai meloloskan aktor POS yang
+	 *  oleh admin memang sengaja diberi kunci Inventory &amp; Sales lewat editor Grup Pengguna. */
+	private static boolean adaMenuInventorySales(EbisnisActorContextResolver.ActorContext ctx) {
+		String[] kunci = { "master_supplier", "master_customer", "master_sales", "persediaan", "harga",
+				"hutang", "penjualan_sales", "piutang", "surat_perintah_sales", "nota_sales",
+				"biaya_sales", "pembelian_sales", "rekonsiliasi_sales", "kas_jurnal", "laba_rugi",
+				"laporan_inventory_sales" };
+		for (int i = 0; i < kunci.length; i++) {
+			if (ctx.bolehMenu(kunci[i])) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** Seragamkan konvensi "00"/"91" helper ke status:"success"/"error" (paritas normalisasi PosApi). */
+	private static void normalisasi(JSONObject hasil) throws Exception {
+		String status = hasil.optString("status", "");
+		if ("00".equals(status)) {
+			hasil.put("status", "success");
+		} else if (!"success".equals(status) && !"error".equals(status)) {
+			hasil.put("statusAsli", status);
+			hasil.put("status", "error");
+			if (!hasil.has("message")) {
+				hasil.put("message", hasil.optString("description", "Permintaan tidak dapat diproses."));
+			}
+		}
+	}
+}

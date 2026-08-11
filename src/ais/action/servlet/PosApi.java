@@ -616,7 +616,7 @@ public class PosApi extends HttpServlet {
 				prosesLaporanSesiList(tbmuser, payload, hasil);
 			} else if ("laporan_payment_list".equals(action)) {
 				prosesLaporanPaymentList(tbmuser, payload, hasil);
-			} else {
+			} else if (!prosesAksiTambahan(action, tbmuser, payload, hasil, request, response)) {
 				hasil.put("status", "error");
 				hasil.put("message", "Aksi tidak dikenal: " + action);
 			}
@@ -926,6 +926,15 @@ public class PosApi extends HttpServlet {
 			aksesMenuCrud.put(kunciCrud, baris);
 		}
 		hasil.put("aksesMenuCrud", aksesMenuCrud);
+		// Konteks aktor varian "eBisnis Inventory & Sales" (P1 FND-006/FND-008) -- ADITIF: klien
+		// POS lama mengabaikan field baru ini; klien varian inventory_sales memakainya menentukan
+		// landing + menu per aktor. Dibungkus try/catch: kegagalan resolusi (mis. tabel
+		// sales_inventory belum tercipta pada start pertama) TIDAK boleh merusak aksi konfigurasi.
+		try {
+			ais.action.servlet.api.SalesInventoryHelper.isiKonteksAktor(tbmuser, hasil);
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "PosApi.prosesKonfigurasi: isiKonteksAktor (aditif, dilewati)");
+		}
 		// Fitur "Top Up Saldo lewat POS": tombolnya hanya boleh tampil bila kasir ini punya hak
 		// Tbmrole.getBolehEntryTopup() -- gerbang YANG SAMA dgn menu "Manajemen Saldo (Deposit)"
 		// (bukan gerbang baru); gerbang SEBENARNYA tetap dicek ulang di server saat topup_saldo
@@ -1177,6 +1186,24 @@ public class PosApi extends HttpServlet {
 				ais.common.EbisnisMenuKatalog.urai(role.getEbisnisMenu()), "pesanan", aksi);
 	}
 
+	/**
+	 * <h3>Hook ekstensi aksi per-lini-produk (P1 varian "eBisnis Inventory &amp; Sales").</h3>
+	 *
+	 * <p>Dipanggil TEPAT sebelum fallback "Aksi tidak dikenal" -- SETELAH autentikasi token dan
+	 * gate {@link #bolehAksesActionKantin} lolos, jadi implementasi override menerima
+	 * {@code tbmuser} yang sudah terverifikasi. Default di {@code PosApi} ini SELALU {@code false}
+	 * (tidak menangani apa pun): endpoint {@code /PosApi} lama TIDAK berubah perilakunya sama
+	 * sekali. Subclass per lini produk ({@link ApiEBisnis}) meng-override utk mendaftarkan aksi
+	 * barunya sendiri TANPA menggandakan autentikasi/CORS/parsing/normalisasi.</p>
+	 *
+	 * @return {@code true} bila aksi sudah ditangani (hasil terisi); {@code false} bila bukan
+	 *         aksi milik subclass -- pemanggil menampilkan pesan "Aksi tidak dikenal" existing.
+	 */
+	protected boolean prosesAksiTambahan(String action, Tbmuser tbmuser, JSONObject payload, JSONObject hasil,
+			HttpServletRequest request, HttpServletResponse response) throws Exception {
+		return false;
+	}
+
 	private static boolean bolehAksesActionKantin(Tbmuser tbmuser, String action) {
 		if (action == null || action.length() == 0) return true;
 		Tbmrole role = tbmuser == null ? null : tbmuser.hakAkses();
@@ -1262,6 +1289,75 @@ public class PosApi extends HttpServlet {
 		}
 		if (action.startsWith("error_log_")) {
 			return menu.optBoolean("logerror", true);
+		}
+		// -- Varian "eBisnis Inventory & Sales" (prefix si_): SELURUH kunci menu barunya default
+		// NONAKTIF (EbisnisMenuKatalog.KUNCI_DEFAULT_NONAKTIF), jadi optBoolean(..., false) --
+		// fail-closed: role lama yang belum pernah diaktifkan adminnya TIDAK bisa memanggil aksi
+		// si_ apa pun. Prefix LEBIH SPESIFIK wajib dicek lebih dulu (si_supplier_price_ sebelum
+		// si_supplier_, dst.). Aktor-level (ADMIN/PEMILIK/SALES) dicek LAGI di
+		// SalesInventoryApiDispatcher -- dua lapis, bukan satu.
+		if ("si_actor_context".equals(action)) {
+			return true; // konteks diri sendiri -- setara "konfigurasi", tanpa data bisnis.
+		}
+		if (action.startsWith("si_supplier_price_") || action.startsWith("si_customer_price_")
+				|| action.startsWith("si_price_") || action.startsWith("si_selling_price_")) {
+			return menu.optBoolean("harga", false);
+		}
+		if (action.startsWith("si_supplier_")) {
+			return menu.optBoolean("master_supplier", false);
+		}
+		if (action.startsWith("si_customer_")) {
+			return menu.optBoolean("master_customer", false);
+		}
+		if (action.startsWith("si_sales_order_")) {
+			return menu.optBoolean("penjualan_sales", false);
+		}
+		if (action.startsWith("si_sales_")) {
+			return menu.optBoolean("master_sales", false);
+		}
+		if (action.startsWith("si_inventory_")) {
+			return menu.optBoolean("persediaan", false);
+		}
+		if (action.startsWith("si_stock_count_")) {
+			// Layar 9-10 reuse Stok Opname existing -- gate paritas dgn layar so_* lama.
+			return menu.optBoolean("stokopname", true);
+		}
+		if (action.startsWith("si_stock_")) {
+			return menu.optBoolean("persediaan", false);
+		}
+		if (action.startsWith("si_purchase_")) {
+			// Layar 20/28/29 adalah perluasan Kulakan existing -- gate paritas dgn kulakan_* lama.
+			return menu.optBoolean("kulakan", true);
+		}
+		if (action.startsWith("si_payable_")) {
+			return menu.optBoolean("hutang", false);
+		}
+		if (action.startsWith("si_receivable_") || action.startsWith("si_collection_")) {
+			return menu.optBoolean("piutang", false);
+		}
+		if (action.startsWith("si_spj_")) {
+			return menu.optBoolean("surat_perintah_sales", false);
+		}
+		if (action.startsWith("si_trip_purchase_")) {
+			return menu.optBoolean("pembelian_sales", false);
+		}
+		if (action.startsWith("si_trip_")) {
+			return menu.optBoolean("nota_sales", false);
+		}
+		if (action.startsWith("si_expense_")) {
+			return menu.optBoolean("biaya_sales", false);
+		}
+		if (action.startsWith("si_coa_") || action.startsWith("si_cash_journal_")) {
+			return menu.optBoolean("kas_jurnal", false);
+		}
+		if (action.startsWith("si_profit_loss_") || action.startsWith("si_gross_profit_")) {
+			return menu.optBoolean("laba_rugi", false);
+		}
+		if (action.startsWith("si_sync_")) {
+			return menu.optBoolean("nota_sales", false) || menu.optBoolean("penjualan_sales", false);
+		}
+		if (action.startsWith("si_")) {
+			return false; // prefix si_ tak dikenal = TOLAK (fail-closed), bukan jatuh ke default true.
 		}
 		return true;
 	}

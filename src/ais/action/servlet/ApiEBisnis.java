@@ -20,4 +20,34 @@ package ais.action.servlet;
  */
 public class ApiEBisnis extends PosApi {
 	private static final long serialVersionUID = 1L;
+
+	/**
+	 * Seed idempoten role varian "Inventory &amp; Sales" ({@code pemilik_sales_inventory},
+	 * {@code sales_keliling}) saat servlet dimuat -- aman dipanggil berulang (lookup by roleId),
+	 * dan kegagalannya TIDAK menjatuhkan servlet (dicoba ulang di load berikutnya).
+	 */
+	@Override
+	public void init() throws javax.servlet.ServletException {
+		super.init();
+		try {
+			ais.action.servlet.api.SalesInventoryHelper.pastikanSeedRole();
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "ApiEBisnis.init: seed role inventory_sales");
+		}
+	}
+
+	/**
+	 * Titik masuk seluruh aksi baru lini eBisnis (prefix {@code si_} utk varian Inventory &amp;
+	 * Sales) -- lihat JavaDoc {@code PosApi.prosesAksiTambahan}: dipanggil setelah autentikasi
+	 * token, TEPAT sebelum fallback "Aksi tidak dikenal". Endpoint {@code /PosApi} lama tidak
+	 * pernah melihat aksi ini (hook default di PosApi selalu {@code false}).
+	 */
+	@Override
+	protected boolean prosesAksiTambahan(String action, ais.database.model.Tbmuser tbmuser,
+			org.json.JSONObject payload, org.json.JSONObject hasil,
+			javax.servlet.http.HttpServletRequest request, javax.servlet.http.HttpServletResponse response)
+			throws Exception {
+		return ais.action.servlet.api.SalesInventoryApiDispatcher.dispatch(action, tbmuser, payload, hasil,
+				request, response);
+	}
 }

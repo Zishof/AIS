@@ -65,6 +65,8 @@ public final class EbisnisMenuKatalog {
 	/** Label grup ditampilkan di UI, urut sesuai kemunculan pertama pada {@link #DAFTAR}. */
 	public static final String MODUL_POS = "Menu POS (Kasir Desktop / Android)";
 	public static final String MODUL_KANTIN_JSP = "Menu Pengaturan e-Kantin (versi JSP)";
+	/** Varian "eBisnis Inventory &amp; Sales" (48 layar legacy, lihat docs/pos-inventory-sales di repo zishof-platform). */
+	public static final String MODUL_INVENTORY_SALES = "Menu Inventory & Sales (varian eBisnis Inventory & Sales)";
 
 	/**
 	 * Daftar lengkap menu yang dikenal versi kode ini. Menambah menu baru = tambah baris di sini --
@@ -105,7 +107,40 @@ public final class EbisnisMenuKatalog {
 		DAFTAR.add(new Entri(MODUL_KANTIN_JSP, "mutasirekening", "Rekening Koran (Rekonsiliasi)", "jsp"));
 		DAFTAR.add(new Entri(MODUL_KANTIN_JSP, "produksi", "Produksi Kantin", "jsp"));
 		DAFTAR.add(new Entri(MODUL_KANTIN_JSP, "pengaturanlaporan", "Konfigurasi Laporan (Admin Kantin)", "jsp"));
+
+		// -- 16 menu varian "eBisnis Inventory & Sales" (48 layar legacy; layar yang reuse layar POS
+		// existing TETAP memakai kunci lamanya: Stok Opname->stokopname, Kulakan->kulakan,
+		// Sales Order digabung ke penjualan_sales [layar 30 = satu layar]) --
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "master_supplier", "Master Supplier", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "master_customer", "Master Customer", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "master_sales", "Master Sales", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "persediaan", "Persediaan & Kartu Stok", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "harga", "Master & Analisis Harga", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "hutang", "Hutang Supplier (AP)", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "penjualan_sales", "Penjualan Sales / Sales Order", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "piutang", "Piutang Customer (AR)", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "surat_perintah_sales", "Surat Perintah Sales Jalan", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "nota_sales", "Nota Sales (Sesi)", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "biaya_sales", "Biaya Sales", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "pembelian_sales", "Pembelian dalam Sesi Sales", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "rekonsiliasi_sales", "Rekonsiliasi Sesi Sales", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "kas_jurnal", "Kas & Jurnal", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "laba_rugi", "Laba / Rugi", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "laporan_inventory_sales", "Laporan Inventory & Sales", "desktop", "android"));
 	}
+
+	/**
+	 * Kunci yang DEFAULT-nya NONAKTIF (kebalikan konvensi katalog lama yang default {@code true}):
+	 * seluruh kunci {@link #MODUL_INVENTORY_SALES}. Alasan fail-closed: menu varian baru TIDAK
+	 * boleh bocor otomatis ke role POS existing yang belum pernah menyimpan kunci ini (aturan
+	 * "gerbang baru wajib opt-in" -- role lama tidak berubah perilakunya, admin mengaktifkan
+	 * eksplisit lewat editor Grup Pengguna; role seed {@code pemilik_sales_inventory}/
+	 * {@code sales_keliling} sudah menyimpan nilai eksplisit sendiri).
+	 */
+	public static final java.util.Set<String> KUNCI_DEFAULT_NONAKTIF = new java.util.LinkedHashSet<String>(java.util.Arrays.asList(
+			"master_supplier", "master_customer", "master_sales", "persediaan", "harga", "hutang",
+			"penjualan_sales", "piutang", "surat_perintah_sales", "nota_sales", "biaya_sales",
+			"pembelian_sales", "rekonsiliasi_sales", "kas_jurnal", "laba_rugi", "laporan_inventory_sales"));
 
 	/**
 	 * Subset {@link #DAFTAR} kunci yang punya record/CRUD sungguhan (bukan sekadar layar lihat-saja spt
@@ -120,7 +155,11 @@ public final class EbisnisMenuKatalog {
 	public static final java.util.Set<String> KUNCI_CRUD = new java.util.LinkedHashSet<String>(java.util.Arrays.asList(
 			"produk", "anggota", "diskon", "kulakan", "returpenjualan", "stokopname", "pesanan",
 			"pembayaran", "pedagang", "penyedia", "limitkredit", "kaskasir", "setorantenant",
-			"jadwalopname", "mutasirekening", "produksi"));
+			"jadwalopname", "mutasirekening", "produksi",
+			// varian Inventory & Sales (default aksi ikut KUNCI_DEFAULT_NONAKTIF: false)
+			"master_supplier", "master_customer", "master_sales", "harga", "hutang",
+			"penjualan_sales", "piutang", "surat_perintah_sales", "nota_sales", "biaya_sales",
+			"pembelian_sales", "kas_jurnal"));
 
 	/** Aksi granular yg bisa diatur per {@link #KUNCI_CRUD}, di luar Read (sudah diwakili {@code menu}). */
 	public static final String[] AKSI_CRUD = { "create", "update", "delete", "approve", "reject" };
@@ -141,14 +180,17 @@ public final class EbisnisMenuKatalog {
 			obj.put("landingKantin", false);
 			JSONObject menu = new JSONObject();
 			for (Entri e : DAFTAR) {
-				menu.put(e.kunci, true);
+				// Kunci lama default TAMPIL (backward-compat, lihat JavaDoc method); kunci varian
+				// Inventory & Sales default TERSEMBUNYI (fail-closed, lihat KUNCI_DEFAULT_NONAKTIF).
+				menu.put(e.kunci, !KUNCI_DEFAULT_NONAKTIF.contains(e.kunci));
 			}
 			obj.put("menu", menu);
 			JSONObject crud = new JSONObject();
 			for (String kunci : KUNCI_CRUD) {
 				JSONObject aksiMenu = new JSONObject();
+				boolean defaultAksi = !KUNCI_DEFAULT_NONAKTIF.contains(kunci);
 				for (String aksi : AKSI_CRUD) {
-					aksiMenu.put(aksi, true);
+					aksiMenu.put(aksi, defaultAksi);
 				}
 				crud.put(kunci, aksiMenu);
 			}
