@@ -197,6 +197,8 @@ public class AktifitasGrupPertemuanHelper {
 
 					Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 					borderlayout.setParent(tabpanelCetak);
+					borderlayout.setWidth("100%");
+					borderlayout.setHeight("2000px");
 
 					North north = new North();
 					north.setParent(borderlayout);
@@ -222,15 +224,50 @@ public class AktifitasGrupPertemuanHelper {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
-							ut.setDestinationStream(new FileOutputStream(filePdfBaru));
-							ut.mergeDocuments();
-
-							CommonReport.tampilkanReportPDF(center, filePdfBaru);
+							try {
+								ut.setDestinationStream(new FileOutputStream(filePdfBaru));
+								ut.mergeDocuments();
+								CommonReport.tampilkanReportPDF(center, filePdfBaru);
+							} catch (Exception eMerge) {
+								ais.common.ErrorAuditUtil.record(eMerge, "auto-audit src/ais/action/master/helper/AktifitasGrupPertemuanHelper.java:mergeDocuments");
+								if (Common.getApakahAdmin()) {
+									String msgJs = ("Error cetak agenda: " + (eMerge.getMessage() != null ? eMerge.getMessage() : eMerge.getClass().getSimpleName()))
+											.replace("\\", "\\\\").replace("'", "\\'")
+											.replace("\r\n", " ").replace("\r", " ").replace("\n", " ");
+									org.zkoss.zk.ui.util.Clients.evalJavaScript("tampilkanToast('" + msgJs + "', 'error');");
+								}
+							}
 						}
 					});
 
+					// Server push wajib agar label.setValue() dari Thread terdeteksi Timer
+					final org.zkoss.zk.ui.Desktop threadDesktop = org.zkoss.zk.ui.Executions.getCurrent().getDesktop();
+					if (threadDesktop != null && !threadDesktop.isServerPushEnabled()) {
+						threadDesktop.enableServerPush(true);
+					}
+
 					new Thread(new Runnable() {
 
+						@SuppressWarnings("rawtypes")
+						private void setLabel(String nilai) {
+							if (threadDesktop == null) {
+								label.setValue(nilai);
+								return;
+							}
+							try {
+								org.zkoss.zk.ui.Executions.activate(threadDesktop);
+								try {
+									label.setValue(nilai);
+								} finally {
+									org.zkoss.zk.ui.Executions.deactivate(threadDesktop);
+								}
+							} catch (Exception eAct) {
+								ais.common.ErrorAuditUtil.record(eAct, "auto-audit(empty-catch) AktifitasGrupPertemuanHelper:setLabel");
+								label.setValue(nilai);
+							}
+						}
+
+						@SuppressWarnings("rawtypes")
 						@Override
 						public void run() {
 							int index = 0;
@@ -239,7 +276,7 @@ public class AktifitasGrupPertemuanHelper {
 							for (PertemuanPunyaGrupPertemuan pertemuanPunyaGrupPertemuan : pertemuanPunyaGrupPertemuans) {
 								Mahasiswa mahasiswa = pertemuanPunyaGrupPertemuan.getMahasiswa();
 								index++;
-								label.setValue("Memperoses data " + mahasiswa.getNama() + " ("
+								setLabel("Memperoses data " + mahasiswa.getNama() + " ("
 										+ Common.numberFormat.get().format(((index * 1.0) / (size * 1.0)) * 100.0) + "%)");
 								try {
 									KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa);
@@ -250,8 +287,13 @@ public class AktifitasGrupPertemuanHelper {
 											1);
 									parameters.put("perkuliahan", krsMahasiswa == null || krsMahasiswa.getId() == null ? -1L : krsMahasiswa.getId());
 									parameters.put("kelas", krsMahasiswa.getKelas());
-									
-									Common.insertProperty(Fakultas.class, krsMahasiswa.getMahasiswa().getJurusan().getFakultas(), parameters, "fak");
+
+									// FIX: null guard untuk jurusan (sebelumnya NPE jika jurusan null)
+									Fakultas fakMhs = (krsMahasiswa.getMahasiswa() == null
+											|| krsMahasiswa.getMahasiswa().getJurusan() == null)
+													? null
+													: krsMahasiswa.getMahasiswa().getJurusan().getFakultas();
+									Common.insertProperty(Fakultas.class, fakMhs, parameters, "fak");
 
 									parameters.put("nidn_kaprodi", krsMahasiswa.getMahasiswa() == null
 											|| krsMahasiswa.getMahasiswa().getJurusan() == null
@@ -291,9 +333,12 @@ public class AktifitasGrupPertemuanHelper {
 										map.put("buku_rujukan",
 												pertemuan.getBukuRujukan1() + " " + pertemuan.getBukuRujukan2());
 
-										map.put("nama_jurusan", krsMahasiswa.getMahasiswa() == null ? ""
+										map.put("nama_jurusan", (krsMahasiswa.getMahasiswa() == null
+												|| krsMahasiswa.getMahasiswa().getJurusan() == null) ? ""
 												: krsMahasiswa.getMahasiswa().getJurusan().getNama());
-										map.put("fakultas", krsMahasiswa.getMahasiswa() == null ? ""
+										map.put("fakultas", (krsMahasiswa.getMahasiswa() == null
+												|| krsMahasiswa.getMahasiswa().getJurusan() == null
+												|| krsMahasiswa.getMahasiswa().getJurusan().getFakultas() == null) ? ""
 												: krsMahasiswa.getMahasiswa().getJurusan().getFakultas().getNama());
 										map.put("tahun_ajaran", krsMahasiswa.getTahunAkademik());
 										map.put("kelas", krsMahasiswa.getKelas());
@@ -327,12 +372,11 @@ public class AktifitasGrupPertemuanHelper {
 											ais.ui.util.WaktuUtil.getDate(), toolbar);
 									ut.addSource(file);
 								} catch (Exception e) {
-									// TODO Auto-generated catch block
 									e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/AktifitasGrupPertemuanHelper.java:366");
 								}
 							}
 
-							label.setValue("");
+							setLabel("");
 						}
 					}).start();
 
