@@ -744,6 +744,35 @@ public final class LaporanKantinUtil {
                 kolom.add(new Kolom("Keterangan","text")); kolom.add(new Kolom("Debet (Hutang)","num"));
                 kolom.add(new Kolom("Kredit (Bayar)","num")); kolom.add(new Kolom("Saldo","num"));
 
+            } else if ("akn_bb_pembantu_utang".equals(r)) {
+                judul = "Buku Besar Pembantu Utang (per Pemasok)"; grupIdx = 0;
+                catatan = "Kulakan/pengadaan barang masuk per pemasok + saldo berjalan. Catatan: modul kantin belum "
+                    + "mencatat pembayaran ke pemasok, sehingga saldo = akumulasi nilai kulakan (utang bruto), bukan sisa utang bersih.";
+                String wU = kondToko("pp.toko", tokoId, prm) + klausaTanggal("pp.waktupengadaan", tglMulai, tglSampai, prm);
+                sql = "select pemasok, tgl, faktur, produk, nilai, "
+                    + " sum(nilai) over (partition by pemasok order by tgl asc, urut asc rows between unbounded preceding and current row) as saldo "
+                    + " from ( select coalesce(nullif(trim(pp.namasupplier),''),'Tanpa Nama Pemasok') as pemasok, "
+                    + "   cast(pp.waktupengadaan as date) as tgl, coalesce(pp.nomorfaktur,'-') as faktur, coalesce(pr.nama,'-') as produk, "
+                    + "   coalesce(pp.totalharga, coalesce(pp.qty,0)*coalesce(pp.hargabelisatuan,0), 0) as nilai, pp.id as urut "
+                    + "   from koperasi.pengadaan_produk pp left join koperasi.produk pr on pr.id = pp.produk " + wU
+                    + " ) x order by pemasok asc, tgl asc, urut asc ";
+                tipe = new String[]{"text","tgl","text","text","num","num"};
+                kolom.add(new Kolom("Pemasok","text")); kolom.add(new Kolom("Tanggal","tgl")); kolom.add(new Kolom("No. Faktur","text"));
+                kolom.add(new Kolom("Produk","text")); kolom.add(new Kolom("Nilai Kulakan","num")); kolom.add(new Kolom("Saldo","num"));
+
+            } else if ("akn_aset_tetap".equals(r)) {
+                judul = "Daftar Aset Tetap (Nilai Buku)";
+                catatan = "Aktiva tetap yang masih aktif (belum dihapus): nilai perolehan, akumulasi penyusutan, "
+                    + "dan nilai buku (= perolehan - akumulasi penyusutan).";
+                sql = "select ad.nama, cast(ad.tanggalbeli as date), coalesce(ad.hargabeli,0), "
+                    + " coalesce((select sum(coalesce(ps.nilaipenyusutan,0)) from asset.penyusutan_asset ps where ps.asset_detail = ad.id),0), "
+                    + " coalesce(ad.hargabeli,0) - coalesce((select sum(coalesce(ps.nilaipenyusutan,0)) from asset.penyusutan_asset ps where ps.asset_detail = ad.id),0) "
+                    + " from asset.asset_detail ad where ad.penghapusan_master_asset_detail is null "
+                    + " order by ad.tanggalbeli asc nulls last, ad.nama asc ";
+                tipe = new String[]{"text","tgl","num","num","num"};
+                kolom.add(new Kolom("Nama Aset","text")); kolom.add(new Kolom("Tgl Perolehan","tgl"));
+                kolom.add(new Kolom("Nilai Perolehan","num")); kolom.add(new Kolom("Akumulasi Penyusutan","num")); kolom.add(new Kolom("Nilai Buku","num"));
+
             } else if ("gl_rincian".equals(r)) {
                 judul = "Rincian Buku Besar (Kas Kantin)";
                 catatan = "Buku besar kas sederhana: penjualan = uang masuk, pengadaan = uang keluar.";

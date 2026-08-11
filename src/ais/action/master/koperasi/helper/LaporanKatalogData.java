@@ -248,6 +248,7 @@ public final class LaporanKatalogData {
         k.items.add(item("akn_ringkasan_beban", "Ringkasan Pencatatan Beban", "Total beban per akun (klasifikasi Beban/Biaya/HPP) dari Jurnal Akuntansi."));
         k.items.add(item("akn_rincian_beban", "Rincian Beban Pembayaran", "Rincian baris jurnal yang membebani akun Beban (per akun) dari Jurnal Akuntansi."));
         k.items.add(item("gl_rincian", "Rincian Buku Besar Kas (Ringkas)", "Buku besar kas ringkas: penjualan vs pengadaan (approksimasi, tanpa posting)."));
+        k.items.add(item("akn_aset_tetap", "Daftar Aset Tetap (Nilai Buku)", "Aktiva tetap aktif: nilai perolehan, akumulasi penyusutan, dan nilai buku."));
         semua.add(k);
 
         k = new Kat("Kas & Bank (Akuntansi)");
@@ -308,6 +309,7 @@ public final class LaporanKatalogData {
         k.items.add(item("beli_bast_rinci", "Rincian BAST per Item", "Item barang tiap penerimaan/BAST (per nomor BAST).", true, false, false, null));
         k.items.add(item("beli_tagihan", "Terima Tagihan / Pembayaran Vendor", "Tagihan vendor: nilai, dibayar, pajak, sisa."));
         k.items.add(item("beli_utang_vendor", "Utang Vendor (Belum Lunas)", "Sisa kewajiban ke tiap vendor."));
+        k.items.add(item("akn_bb_pembantu_utang", "Buku Besar Pembantu Utang (Kulakan)", "Kulakan/pengadaan barang masuk per pemasok + saldo berjalan (utang bruto)."));
         k.items.add(item("beli_per_vendor", "Pembelian per Vendor", "Rekap nilai PO per vendor."));
         k.items.add(item("beli_retur_pengadaan", "Retur Pengadaan (ke Vendor)", "Retur barang yang dikembalikan ke vendor."));
         k.items.add(item("beli_belum_datang", "Barang Belum Diterima (PR)", "Permintaan pengadaan yang barangnya belum lengkap datang."));
