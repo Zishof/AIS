@@ -269,7 +269,7 @@ String namaTokoAktif = tokoLogin != null ? tokoLogin.getNama() : "";
 
         try {
             const result = await fetchData<%=rnd%>(payload);
-            if (result.statusAsli === '00') {
+            if (result.status === '00') {
                 showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Stok berhasil dikirim ke ")%>' + (result.produkTujuanNama || '') + '.', 'bg-success text-white');
                 document.getElementById('formMutasi<%=rnd%>').reset();
                 resetPilihManual<%=rnd%>();
@@ -277,7 +277,7 @@ String namaTokoAktif = tokoLogin != null ? tokoLogin.getNama() : "";
                 if (isAdmin<%=rnd%>) document.getElementById('inputCariProdukAsal<%=rnd%>').value = '';
                 loadRiwayatMutasi<%=rnd%>();
                 if (!isAdmin<%=rnd%>) loadComboProdukAsal<%=rnd%>();
-            } else if (result.statusAsli === '92') {
+            } else if (result.status === '92') {
                 document.getElementById('boxPilihManual<%=rnd%>').style.display = 'block';
                 await muatProdukTujuanManual<%=rnd%>();
                 showToast<%=rnd%>(result.description || '<%=Common.getBahasaConfigJS("Pilih produk tujuan secara manual di bawah, lalu kirim ulang.")%>', 'bg-warning text-dark');

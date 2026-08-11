@@ -323,7 +323,20 @@ public class PosApi extends HttpServlet {
 				normalisasiStatusKantinHelper(hasil, "so_impor_excel");
 			} else if ("mutasi_stok_simpan".equals(action)) {
 				KantinHelper.mutasiStokSimpan(tbmuser, payload, hasil);
-				normalisasiStatusKantinHelper(hasil, "mutasi_stok_simpan");
+				// Gap-closure: method ini py KONTRAK 3-STATE ("00"=sukses, "91"=gagal keras,
+				// "92"=butuh pilih manual, lihat JavaDoc KantinHelper.mutasiStokSimpan) -- BEDA dari
+				// checkout yg cuma py 2 state (normalisasiStatusKantinHelper dirancang utk itu, akan
+				// meratakan "92" jadi status:"error" generik & MEMBUANG field data spt kandidat[]/
+				// butuhPilihManual krn panggilPosApi/ApiClient.aksi di klien HANYA meneruskan body saat
+				// status:"success"). "92" BUKAN error sistem -- klien harus tetap terima body-nya utuh
+				// utk menampilkan picker manual, jadi dipetakan ke "success" jg (bukan diklasifikasi).
+				// "91"/status tak dikenal TETAP lewat classifier standar spt sebelumnya.
+				String statusAsliMutasi = hasil.optString("status", "");
+				if ("00".equals(statusAsliMutasi) || "92".equals(statusAsliMutasi)) {
+					hasil.put("status", "success");
+				} else {
+					normalisasiStatusKantinHelper(hasil, "mutasi_stok_simpan");
+				}
 			} else if ("mutasi_stok_list".equals(action)) {
 				KantinHelper.mutasiStokList(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "mutasi_stok_list");
