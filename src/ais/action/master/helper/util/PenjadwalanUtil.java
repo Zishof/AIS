@@ -560,7 +560,8 @@ public class PenjadwalanUtil {
 														: Restrictions.eq("semester",
 																semester.getSelectedItem().getValue()))
 										.createAlias("matakuliah", "matakuliah")
-										.add(Restrictions.eq("matakuliah.aktif", true));
+										.add(Restrictions.or(Restrictions.isNull("matakuliah.aktif"),
+										Restrictions.eq("matakuliah.aktif", true)));
 
 								if (ekstrakurikuler != null && ekstrakurikuler.equals(Perkuliahan.EKSTRA)) {
 
@@ -2711,7 +2712,8 @@ public class PenjadwalanUtil {
 											: Restrictions.eq("semester", semester.getSelectedItem().getValue()))
 
 									.createAlias("matakuliah", "matakuliah")
-									.add(Restrictions.eq("matakuliah.aktif", true));
+									.add(Restrictions.or(Restrictions.isNull("matakuliah.aktif"),
+										Restrictions.eq("matakuliah.aktif", true)));
 
 							if (ekstrakurikuler != null && ekstrakurikuler.equals(Perkuliahan.EKSTRA)) {
 
