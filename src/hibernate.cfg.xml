@@ -1685,6 +1685,14 @@
 		<mapping class="ais.database.model.koperasi.PiutangCustomerDoc"></mapping>
 		<mapping class="ais.database.model.koperasi.PenerimaanPiutangCustomer"></mapping>
 		<mapping class="ais.database.model.koperasi.AlokasiPenerimaanPiutangCustomer"></mapping>
+		<mapping class="ais.database.model.koperasi.SuratPerintahSalesJalan"></mapping>
+		<mapping class="ais.database.model.koperasi.SpjSalesBarang"></mapping>
+		<mapping class="ais.database.model.koperasi.SpjSalesNota"></mapping>
+		<mapping class="ais.database.model.koperasi.NotaSalesSession"></mapping>
+		<mapping class="ais.database.model.koperasi.KategoriBiayaSales"></mapping>
+		<mapping class="ais.database.model.koperasi.NotaSalesBiaya"></mapping>
+		<mapping class="ais.database.model.koperasi.NotaSalesPembelian"></mapping>
+		<mapping class="ais.database.model.koperasi.NotaSalesKas"></mapping>
 		<mapping class="ais.database.model.koperasi.Koperasi"></mapping>
 		<mapping class="ais.database.model.koperasi.AnggotaKoperasi"></mapping>
 		<mapping

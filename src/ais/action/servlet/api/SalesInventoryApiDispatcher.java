@@ -122,6 +122,46 @@ public final class SalesInventoryApiDispatcher {
 			SalesInventoryReceivableHelper.receivableAgingCustomer(ctx, payload, hasil);
 		} else if ("si_receivable_aging_sales".equals(action)) {
 			SalesInventoryReceivableHelper.receivableAgingSales(ctx, payload, hasil);
+		} else if ("si_spj_create".equals(action)) {
+			SalesInventoryTripHelper.spjSimpan(ctx, tbmuser, payload, hasil, false);
+		} else if ("si_spj_update".equals(action)) {
+			SalesInventoryTripHelper.spjSimpan(ctx, tbmuser, payload, hasil, true);
+		} else if ("si_spj_list".equals(action)) {
+			SalesInventoryTripHelper.spjList(ctx, payload, hasil);
+		} else if ("si_spj_detail".equals(action)) {
+			SalesInventoryTripHelper.spjDetail(ctx, payload, hasil);
+		} else if ("si_spj_status".equals(action)) {
+			SalesInventoryTripHelper.spjStatus(ctx, tbmuser, payload, hasil);
+		} else if ("si_spj_nota_assign".equals(action)) {
+			SalesInventoryTripHelper.spjNotaAssign(ctx, tbmuser, payload, hasil);
+		} else if ("si_trip_start".equals(action)) {
+			SalesInventoryTripHelper.tripStart(ctx, tbmuser, payload, hasil);
+		} else if ("si_trip_list".equals(action)) {
+			SalesInventoryTripHelper.tripList(ctx, payload, hasil);
+		} else if ("si_trip_detail".equals(action) || "si_trip_report".equals(action)) {
+			SalesInventoryTripHelper.tripDetail(ctx, payload, hasil);
+		} else if ("si_trip_nota_result".equals(action)) {
+			SalesInventoryTripHelper.tripNotaResult(ctx, tbmuser, payload, hasil);
+		} else if ("si_trip_barang_update".equals(action)) {
+			SalesInventoryTripHelper.tripBarangUpdate(ctx, tbmuser, payload, hasil);
+		} else if ("si_trip_cash_sale".equals(action)) {
+			SalesInventoryTripHelper.tripCashSale(ctx, tbmuser, payload, hasil);
+		} else if ("si_trip_deposit".equals(action)) {
+			SalesInventoryTripHelper.tripDeposit(ctx, tbmuser, payload, hasil);
+		} else if ("si_trip_return".equals(action)) {
+			SalesInventoryTripHelper.tripReturn(ctx, tbmuser, payload, hasil);
+		} else if ("si_trip_reconcile".equals(action)) {
+			SalesInventoryTripHelper.tripReconcile(ctx, tbmuser, payload, hasil);
+		} else if ("si_trip_close".equals(action)) {
+			SalesInventoryTripHelper.tripClose(ctx, tbmuser, payload, hasil);
+		} else if ("si_trip_purchase_link".equals(action)) {
+			SalesInventoryTripHelper.tripPurchaseLink(ctx, tbmuser, payload, hasil);
+		} else if ("si_expense_category_list".equals(action)) {
+			SalesInventoryTripHelper.expenseCategoryList(ctx, payload, hasil);
+		} else if ("si_expense_category_save".equals(action)) {
+			SalesInventoryTripHelper.expenseCategorySave(ctx, tbmuser, payload, hasil);
+		} else if ("si_expense_create".equals(action)) {
+			SalesInventoryTripHelper.expenseCreate(ctx, tbmuser, payload, hasil);
 		} else {
 			// Aksi si_ lain menyusul per fase (P5 SPJ/Nota Sales, P6 finance).
 			hasil.put("status", "error");

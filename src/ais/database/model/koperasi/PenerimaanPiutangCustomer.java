@@ -56,6 +56,7 @@ public class PenerimaanPiutangCustomer extends GeneralValueObject {
 	private String keterangan;
 	private String kodeUnik;
 	private Tbmuser dibuatOleh;
+	private NotaSalesSession sesi;
 
 	private String oleh;
 	private String olehId;
@@ -190,6 +191,18 @@ public class PenerimaanPiutangCustomer extends GeneralValueObject {
 
 	public void setDibuatOleh(Tbmuser dibuatOleh) {
 		this.dibuatOleh = dibuatOleh;
+	}
+
+	/** Sesi Nota Sales tempat penerimaan ini terjadi (nullable -- penerimaan kantor tanpa
+	 *  sesi lapangan). Dipakai laporan sesi P5 (tertagih per sesi + kas COLLECTION_CASH). */
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
+	@JoinColumn(name = "sesi")
+	public NotaSalesSession getSesi() {
+		return sesi;
+	}
+
+	public void setSesi(NotaSalesSession sesi) {
+		this.sesi = sesi;
 	}
 
 	public String getOleh() {

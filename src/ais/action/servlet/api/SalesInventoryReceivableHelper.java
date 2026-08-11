@@ -788,6 +788,21 @@ public final class SalesInventoryReceivableHelper {
 			if (salesId != null) {
 				terima.setSales((SalesInventory) session.get(SalesInventory.class, salesId));
 			}
+			// Penerimaan dalam sesi Nota Sales (P5): tandai sesi + kas COLLECTION_CASH bila tunai
+			// + akumulasi nilai tertagih nota dibawa.
+			ais.database.model.koperasi.NotaSalesSession sesiTrip = null;
+			Long tripSessionId = optLong(request, "trip_session_id");
+			if (tripSessionId != null) {
+				sesiTrip = (ais.database.model.koperasi.NotaSalesSession) session
+						.get(ais.database.model.koperasi.NotaSalesSession.class, tripSessionId);
+				if (sesiTrip == null
+						|| ais.database.model.koperasi.NotaSalesSession.STATUS_CLOSED.equals(sesiTrip.getStatus())) {
+					tx.rollback();
+					tolak(hasil, "Sesi Nota Sales tidak ditemukan / sudah ditutup.");
+					return;
+				}
+				terima.setSesi(sesiTrip);
+			}
 			isiOleh(terima, tbmuser);
 			session.save(terima);
 			session.flush();
@@ -801,6 +816,45 @@ public final class SalesInventoryReceivableHelper {
 						Long.valueOf(a.optLong("piutang_id"))));
 				al.setNominal(new BigDecimal(String.valueOf(a.optDouble("nominal"))));
 				session.save(al);
+			}
+			if (sesiTrip != null) {
+				if (PenerimaanPiutangCustomer.METODE_TUNAI.equals(metode)) {
+					ais.database.model.koperasi.NotaSalesKas kas =
+							new ais.database.model.koperasi.NotaSalesKas();
+					kas.setSesi(sesiTrip);
+					kas.setJenis(ais.database.model.koperasi.NotaSalesKas.JENIS_COLLECTION_CASH);
+					kas.setNominal(nominal);
+					kas.setReferensi("KWT-" + terima.getId());
+					kas.setKeterangan("Penagihan tunai " + str(customer.getNama()));
+					session.save(kas);
+				}
+				// Akumulasi nilaiTertagih + status nota dibawa milik SPJ sesi ini.
+				for (int i = 0; i < alokasi.length(); i++) {
+					long did = alokasi.getJSONObject(i).optLong("piutang_id");
+					double n = alokasi.getJSONObject(i).optDouble("nominal", 0);
+					ais.database.model.koperasi.SpjSalesNota notaBawa =
+							(ais.database.model.koperasi.SpjSalesNota) session
+									.createCriteria(ais.database.model.koperasi.SpjSalesNota.class)
+									.add(Restrictions.eq("spj", sesiTrip.getSpj()))
+									.add(Restrictions.eq("piutangDoc",
+											session.get(PiutangCustomerDoc.class, Long.valueOf(did))))
+									.setMaxResults(1).uniqueResult();
+					if (notaBawa != null) {
+						notaBawa.setNilaiTertagih(notaBawa.getNilaiTertagih()
+								.add(new BigDecimal(String.valueOf(n))));
+						java.sql.PreparedStatement cekSisa = session.connection().prepareStatement(
+								"SELECT " + EXPR_OUTSTANDING
+										+ " FROM koperasi.piutang_customer_doc d WHERE d.id = ?");
+						cekSisa.setLong(1, did);
+						java.sql.ResultSet rsSisa = cekSisa.executeQuery();
+						double sisa = rsSisa.next() ? rsSisa.getDouble(1) : 1;
+						rsSisa.close(); cekSisa.close();
+						notaBawa.setStatus(sisa <= 0.009
+								? ais.database.model.koperasi.SpjSalesNota.STATUS_PAID
+								: ais.database.model.koperasi.SpjSalesNota.STATUS_PARTIAL);
+						session.saveOrUpdate(notaBawa);
+					}
+				}
 			}
 			// Derivasi status order LUNAS bila faktur asalnya kini nol outstanding.
 			for (int i = 0; i < alokasi.length(); i++) {
