@@ -217,6 +217,30 @@ public class RepositorySyncService {
 						if (laporan != null) {
 							laporan.catatGagalDetail(baris[0], kunci, e);
 						}
+						// KE-FIX (cascade "current transaction is aborted"/AssertionFailure null-id
+						// pada item BERIKUTNYA, mis. deadlock Postgres saat auto-flush di findRepoItem):
+						// exception di sini (kalaupun bukan koneksi mati -- mis. deadlock antar-transaksi
+						// yang genuinely eksternal, atau constraint) tetap membuat TRANSAKSI Postgres yang
+						// SEDANG BERJALAN pada session ini berstatus "aborted" sampai di-rollback, dan
+						// Hibernate sendiri menandai session "jangan di-flush lagi setelah exception".
+						// Sebelumnya method ini cuma log lalu lanjut ke item berikutnya TANPA rollback --
+						// item berikutnya (atau bahkan source berikutnya yg berbagi session yg sama)
+						// otomatis ikut gagal dgn exception generik yg membingungkan. Pulihkan sesi di
+						// sini (pola sama seperti catch flush-batch & catch per-source di bawah) supaya
+						// item/batch/source berikutnya tetap bisa diproses dari kondisi bersih.
+						try {
+							if (session.getTransaction() != null && session.getTransaction().isActive()) {
+								session.getTransaction().rollback();
+							}
+						} catch (Exception rbEx) { ais.common.ErrorAuditUtil.record(rbEx, "auto-audit(empty-catch) src/ais/action/master/repository/RepositorySyncService.java:item-rollback"); }
+						try {
+							session.clear();
+						} catch (Exception clEx) { ais.common.ErrorAuditUtil.record(clEx, "auto-audit(empty-catch) src/ais/action/master/repository/RepositorySyncService.java:item-clear"); }
+						try {
+							if (session.getTransaction() == null || !session.getTransaction().isActive()) {
+								session.beginTransaction();
+							}
+						} catch (Exception txEx) { ais.common.ErrorAuditUtil.record(txEx, "auto-audit(empty-catch) src/ais/action/master/repository/RepositorySyncService.java:item-retx"); }
 					}
 					baris[0]++;
 				}
