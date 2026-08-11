@@ -72,6 +72,16 @@ public final class SalesInventoryApiDispatcher {
 			SalesInventoryStokHelper.inventoryBalance(ctx, payload, hasil);
 		} else if ("si_inventory_ledger".equals(action)) {
 			SalesInventoryStokHelper.inventoryLedger(ctx, payload, hasil);
+		} else if ("si_supplier_price_list".equals(action)) {
+			SalesInventoryHargaHelper.supplierPriceList(ctx, payload, hasil);
+		} else if ("si_supplier_price_save".equals(action)) {
+			SalesInventoryHargaHelper.supplierPriceSave(ctx, tbmuser, payload, hasil);
+		} else if ("si_customer_price_list".equals(action)) {
+			SalesInventoryHargaHelper.customerPriceList(ctx, payload, hasil);
+		} else if ("si_customer_price_save".equals(action)) {
+			SalesInventoryHargaHelper.customerPriceSave(ctx, tbmuser, payload, hasil);
+		} else if ("si_price_analysis".equals(action)) {
+			SalesInventoryHargaHelper.priceAnalysis(ctx, payload, hasil);
 		} else {
 			// Aksi si_ lain menyusul per fase (P3 AP, P4 AR, P5 SPJ/Nota Sales, P6 finance).
 			hasil.put("status", "error");
