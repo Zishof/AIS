@@ -68,6 +68,10 @@ public final class SalesInventoryApiDispatcher {
 			SalesInventoryMasterHelper.salesSimpan(ctx, tbmuser, payload, hasil);
 		} else if ("si_sales_deactivate".equals(action)) {
 			SalesInventoryMasterHelper.salesDeactivate(ctx, tbmuser, payload, hasil);
+		} else if ("si_inventory_balance".equals(action)) {
+			SalesInventoryStokHelper.inventoryBalance(ctx, payload, hasil);
+		} else if ("si_inventory_ledger".equals(action)) {
+			SalesInventoryStokHelper.inventoryLedger(ctx, payload, hasil);
 		} else {
 			// Aksi si_ lain menyusul per fase (P3 AP, P4 AR, P5 SPJ/Nota Sales, P6 finance).
 			hasil.put("status", "error");
