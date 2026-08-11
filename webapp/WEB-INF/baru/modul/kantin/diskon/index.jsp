@@ -188,6 +188,34 @@ String namaTokoAktif = tokoLogin != null ? tokoLogin.getNama() : "";
                                 <input type="datetime-local" class="form-control" id="inputTglSelesai<%=rnd%>">
                             </div>
 
+                            <div class="col-md-12">
+                                <label class="form-label small fw-bold text-secondary d-block"><%=Common.getBahasaConfig("Pilih Hari (kosongkan = berlaku semua hari)")%></label>
+                                <div class="d-flex flex-wrap gap-2 align-items-center">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="pilihSemuaHariDiskon<%=rnd%>()"><%=Common.getBahasaConfig("Pilih Semua Hari")%></button>
+                                    <div class="form-check form-check-inline bg-light px-2 py-1 rounded-pill border m-0">
+                                        <input class="form-check-input" type="checkbox" value="1" id="inputHari1_<%=rnd%>"><label class="form-check-label small" for="inputHari1_<%=rnd%>"><%=Common.getBahasaConfig("Senin")%></label>
+                                    </div>
+                                    <div class="form-check form-check-inline bg-light px-2 py-1 rounded-pill border m-0">
+                                        <input class="form-check-input" type="checkbox" value="2" id="inputHari2_<%=rnd%>"><label class="form-check-label small" for="inputHari2_<%=rnd%>"><%=Common.getBahasaConfig("Selasa")%></label>
+                                    </div>
+                                    <div class="form-check form-check-inline bg-light px-2 py-1 rounded-pill border m-0">
+                                        <input class="form-check-input" type="checkbox" value="3" id="inputHari3_<%=rnd%>"><label class="form-check-label small" for="inputHari3_<%=rnd%>"><%=Common.getBahasaConfig("Rabu")%></label>
+                                    </div>
+                                    <div class="form-check form-check-inline bg-light px-2 py-1 rounded-pill border m-0">
+                                        <input class="form-check-input" type="checkbox" value="4" id="inputHari4_<%=rnd%>"><label class="form-check-label small" for="inputHari4_<%=rnd%>"><%=Common.getBahasaConfig("Kamis")%></label>
+                                    </div>
+                                    <div class="form-check form-check-inline bg-light px-2 py-1 rounded-pill border m-0">
+                                        <input class="form-check-input" type="checkbox" value="5" id="inputHari5_<%=rnd%>"><label class="form-check-label small" for="inputHari5_<%=rnd%>"><%=Common.getBahasaConfig("Jumat")%></label>
+                                    </div>
+                                    <div class="form-check form-check-inline bg-light px-2 py-1 rounded-pill border m-0">
+                                        <input class="form-check-input" type="checkbox" value="6" id="inputHari6_<%=rnd%>"><label class="form-check-label small" for="inputHari6_<%=rnd%>"><%=Common.getBahasaConfig("Sabtu")%></label>
+                                    </div>
+                                    <div class="form-check form-check-inline bg-light px-2 py-1 rounded-pill border m-0">
+                                        <input class="form-check-input" type="checkbox" value="7" id="inputHari7_<%=rnd%>"><label class="form-check-label small" for="inputHari7_<%=rnd%>"><%=Common.getBahasaConfig("Minggu")%></label>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="col-md-12 mt-4">
                                 <h6 class="fw-bold text-primary border-bottom pb-2"><i class="fas fa-users me-2"></i>Target Member & Batasan</h6>
                             </div>
@@ -530,7 +558,7 @@ String namaTokoAktif = tokoLogin != null ? tokoLogin.getNama() : "";
                         "t.id AS id_toko, t.nama AS nama_toko, " +
                         "ja.id AS id_jenis, ja.nama AS nama_jenis, " +
                         "ta.id AS id_tipe, ta.nama AS nama_tipe, " +
-                        "a.dikunci, u.usernama as nama_pengunci " + 
+                        "a.dikunci, u.usernama as nama_pengunci, a.hari_aktif " +
                         "FROM koperasi.aturan_diskon a " +
                         "LEFT JOIN koperasi.produk p ON a.produk = p.id " +
                         "LEFT JOIN koperasi.toko t ON a.toko = t.id " + 
@@ -604,7 +632,7 @@ String namaTokoAktif = tokoLogin != null ? tokoLogin.getNama() : "";
 
                     if (isAdmin<%=rnd%> || row.id_toko == idTokoLogin<%=rnd%>) {
                         if (!isLocked) {
-                            actBtn = '<button class="btn btn-sm btn-outline-warning text-dark shadow-sm px-2 me-1 mb-1 fw-bold" onclick="editDiskon<%=rnd%>(' + row.id + ', \'' + safeNamaAturan + '\', ' + (row.id_toko || 'null') + ', ' + (row.id_produk || 'null') + ', \'' + safeProdukName + '\', ' + isAllMember + ', ' + (row.id_jenis || 'null') + ', ' + (row.id_tipe || 'null') + ', ' + (row.persentase || 0) + ', ' + (row.maksimal_potongan || 0) + ', ' + (row.nominal || 0) + ', ' + isPotongLsg + ', \'' + (row.tgl_mulai || '') + '\', \'' + (row.tgl_selesai || '') + '\', ' + isAktif + ', \'' + safeKet + '\', ' + isLimit1x + ')" title="<%=Common.getBahasaConfig("Ubah Data")%>"><i class="fas fa-edit"></i></button>' +
+                            actBtn = '<button class="btn btn-sm btn-outline-warning text-dark shadow-sm px-2 me-1 mb-1 fw-bold" onclick="editDiskon<%=rnd%>(' + row.id + ', \'' + safeNamaAturan + '\', ' + (row.id_toko || 'null') + ', ' + (row.id_produk || 'null') + ', \'' + safeProdukName + '\', ' + isAllMember + ', ' + (row.id_jenis || 'null') + ', ' + (row.id_tipe || 'null') + ', ' + (row.persentase || 0) + ', ' + (row.maksimal_potongan || 0) + ', ' + (row.nominal || 0) + ', ' + isPotongLsg + ', \'' + (row.tgl_mulai || '') + '\', \'' + (row.tgl_selesai || '') + '\', ' + isAktif + ', \'' + safeKet + '\', ' + isLimit1x + ', \'' + (row.hari_aktif || '') + '\')" title="<%=Common.getBahasaConfig("Ubah Data")%>"><i class="fas fa-edit"></i></button>' +
                                      '<button class="btn btn-sm btn-outline-secondary text-dark shadow-sm px-2 me-1 mb-1 fw-bold" onclick="kunciDiskon<%=rnd%>(' + row.id + ')" title="<%=Common.getBahasaConfig("Kunci Data Ini")%>"><i class="fas fa-lock"></i></button>' +
                                      '<button class="btn btn-sm btn-outline-danger shadow-sm px-2 mb-1 fw-bold" onclick="hapusDiskon<%=rnd%>(' + row.id + ')" title="<%=Common.getBahasaConfig("Hapus Data")%>"><i class="fas fa-trash-alt"></i></button>';
                         } else {
@@ -771,7 +799,16 @@ String namaTokoAktif = tokoLogin != null ? tokoLogin.getNama() : "";
         const tglSelesai = document.getElementById('inputTglSelesai<%=rnd%>').value;
         if(tglMulai !== "") dataObj.tanggalMulai = tglMulai;
         if(tglSelesai !== "") dataObj.tanggalSelesai = tglSelesai;
-		
+
+        // Gap-closure "Promo Pilih Hari" -- CSV angka hari yg dicentang, kosong/tak ada yg dicentang =
+        // berlaku semua hari (konsisten dgn null=tanpa batas di tanggalMulai/tanggalSelesai).
+        const hariTerpilih<%=rnd%> = [];
+        for (let hh = 1; hh <= 7; hh++) {
+            const cb = document.getElementById('inputHari' + hh + '_<%=rnd%>');
+            if (cb && cb.checked) hariTerpilih<%=rnd%>.push(hh);
+        }
+        dataObj.hariAktif = hariTerpilih<%=rnd%>.length > 0 ? hariTerpilih<%=rnd%>.join(',') : null;
+
         const payload = { 
             action: "simpanDataRinci", 
             class: masterModelClass<%=rnd%>, 
@@ -803,8 +840,21 @@ String namaTokoAktif = tokoLogin != null ? tokoLogin.getNama() : "";
         }
     };
 
-    const editDiskon<%=rnd%> = async (id, namaAturan, idToko, idProduk, namaProdukFull, isAllMember, idJenis, idTipe, persen, maxPotongan, nominal, isPotongLsg, tMulai, tSelesai, isAktif, ket, isLimit) => {
+    const pilihSemuaHariDiskon<%=rnd%> = () => {
+        for (let hh = 1; hh <= 7; hh++) {
+            const cb = document.getElementById('inputHari' + hh + '_<%=rnd%>');
+            if (cb) cb.checked = false;
+        }
+    };
+
+    const editDiskon<%=rnd%> = async (id, namaAturan, idToko, idProduk, namaProdukFull, isAllMember, idJenis, idTipe, persen, maxPotongan, nominal, isPotongLsg, tMulai, tSelesai, isAktif, ket, isLimit, hariAktif) => {
         document.getElementById('inputIdDiskon<%=rnd%>').value = id;
+        // Gap-closure "Promo Pilih Hari" -- centang ulang checkbox sesuai CSV tersimpan, kosong = semua hari
+        const hariAktifSet<%=rnd%> = (hariAktif || '').split(',').map(s => s.trim()).filter(s => s !== '');
+        for (let hh = 1; hh <= 7; hh++) {
+            const cb = document.getElementById('inputHari' + hh + '_<%=rnd%>');
+            if (cb) cb.checked = hariAktifSet<%=rnd%>.indexOf(String(hh)) !== -1;
+        }
         document.getElementById('inputNamaAturan<%=rnd%>').value = namaAturan;
         
         if (isAdmin<%=rnd%>) {

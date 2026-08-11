@@ -100,7 +100,15 @@ String namaTokoAktif = toko != null ? toko.getNama() : "";
                                 <option value=""><%=Common.getBahasaConfig("- Semua Jenis -")%></option>
                             </select>
                         </div>
-                        
+                        <div class="col-md-auto">
+                            <label class="form-label small fw-bold text-secondary mb-1 d-block"><%=Common.getBahasaConfig("Jenis Item")%></label>
+                            <div class="btn-group btn-group-sm shadow-sm" role="group">
+                                <button type="button" class="btn btn-outline-secondary active" id="btnFilterJenisItemSemua<%=rnd%>" onclick="setFilterJenisItem<%=rnd%>('')"><%=Common.getBahasaConfig("Semua")%></button>
+                                <button type="button" class="btn btn-outline-secondary" id="btnFilterJenisItemJual<%=rnd%>" onclick="setFilterJenisItem<%=rnd%>('JUAL')"><%=Common.getBahasaConfig("Produk")%></button>
+                                <button type="button" class="btn btn-outline-secondary" id="btnFilterJenisItemBahan<%=rnd%>" onclick="setFilterJenisItem<%=rnd%>('BAHAN')"><%=Common.getBahasaConfig("Bahan")%></button>
+                            </div>
+                        </div>
+
                         <% if (isAdmin) { %>
                         <div class="col-md-3">
                             <label class="form-label small fw-bold text-secondary mb-1"><%=Common.getBahasaConfig("Toko / Pedagang")%></label>
@@ -260,6 +268,15 @@ String namaTokoAktif = toko != null ? toko.getNama() : "";
                         <div class="col-md-4">
                             <label class="form-label small fw-bold text-secondary"><%=Common.getBahasaConfig("Stok Awal")%></label>
                             <input type="number" class="form-control" id="formStok<%=rnd%>" placeholder="0" step="0.01">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-secondary"><%=Common.getBahasaConfig("Jenis Item")%></label>
+                            <select class="form-select" id="formJenisItem<%=rnd%>">
+                                <option value="JUAL"><%=Common.getBahasaConfig("Produk (bisa dijual di Kasir)")%></option>
+                                <option value="BAHAN"><%=Common.getBahasaConfig("Bahan Baku (hanya dipakai via resep)")%></option>
+                            </select>
+                            <small class="text-muted d-block mt-1"><%=Common.getBahasaConfig("Bahan Baku tidak muncul di katalog Kasir, hanya bisa dipilih sebagai bahan di editor Resep produk lain.")%></small>
                         </div>
 
                         <div class="col-md-6">
@@ -437,6 +454,17 @@ String namaTokoAktif = toko != null ? toko.getNama() : "";
     let currentPageProduk<%=rnd%> = 1;
     const limitPerPageProduk<%=rnd%> = 20;
     let totalRecordsProduk<%=rnd%> = 0;
+    let filterJenisItemAktif<%=rnd%> = ''; // '' = semua, 'JUAL' = produk saja, 'BAHAN' = bahan baku saja
+
+    const setFilterJenisItem<%=rnd%> = (val) => {
+        filterJenisItemAktif<%=rnd%> = val;
+        ['Semua', 'Jual', 'Bahan'].forEach(k => {
+            document.getElementById('btnFilterJenisItem' + k + '<%=rnd%>').classList.remove('active');
+        });
+        const key = val === '' ? 'Semua' : (val === 'JUAL' ? 'Jual' : 'Bahan');
+        document.getElementById('btnFilterJenisItem' + key + '<%=rnd%>').classList.add('active');
+        triggerSearchProduk<%=rnd%>();
+    };
     
     // Variabel untuk menyimpan ID produk yang sedang diedit (untuk upload foto)
     let activeEditingProdukId<%=rnd%> = "";
@@ -511,7 +539,9 @@ String namaTokoAktif = toko != null ? toko.getNama() : "";
     // BAHAN BAKU (RESEP) & HPP
     // ==========================================
     const loadBahanBakuOptions<%=rnd%> = async () => {
-        let sql = "SELECT id, kode, nama, COALESCE(hargabeli,0) AS hargabeli FROM koperasi.produk WHERE 1=1 ";
+        // Gap-closure "Jenis Item" -- picker resep HANYA menampilkan item yg ditandai Bahan Baku,
+        // bukan seluruh katalog produk jual seperti sebelumnya.
+        let sql = "SELECT id, kode, nama, COALESCE(hargabeli,0) AS hargabeli FROM koperasi.produk WHERE jenis_item = 'BAHAN' ";
         if (!isAdminProduk<%=rnd%>) sql += " AND toko = " + idTokoLogin<%=rnd%> + " ";
         sql += " ORDER BY nama ASC LIMIT 2000";
         bahanBakuOptions<%=rnd%> = await fetchSqlData<%=rnd%>(sql);
@@ -642,7 +672,11 @@ String namaTokoAktif = toko != null ? toko.getNama() : "";
         if (kode !== "") filters += " AND (a.kode ILIKE '%" + kode + "%' OR a.barcode ILIKE '%" + kode + "%') ";
         if (nama !== "") filters += " AND a.nama ILIKE '%" + nama + "%' ";
         if (jenis !== "") filters += " AND a.jenis_produk = " + jenis + " ";
-        
+        // Gap-closure "Jenis Item" (Produk vs Bahan Baku) -- "<>" polos TIDAK match NULL di Postgres
+        // (produk lama sebelum kolom ini ada), jadi WAJIB pola OR IS NULL utk filter "JUAL".
+        if (filterJenisItemAktif<%=rnd%> === 'JUAL') filters += " AND (a.jenis_item IS NULL OR a.jenis_item <> 'BAHAN') ";
+        else if (filterJenisItemAktif<%=rnd%> === 'BAHAN') filters += " AND a.jenis_item = 'BAHAN' ";
+
         if (!isAdminProduk<%=rnd%>) {
             filters += " AND a.toko = " + idTokoLogin<%=rnd%> + " ";
         } else if (toko !== "") {
@@ -667,7 +701,7 @@ String namaTokoAktif = toko != null ? toko.getNama() : "";
         const sqlFilters = buildFiltersProduk<%=rnd%>();
 
         const sqlQueryData = "SELECT a.id, a.kode, a.barcode, a.nama, a.hargabeli, a.hargajual, a.stok, a.aktif, a.keterangan, " +
-                             "a.izinkan_jual_minus_stok, " +
+                             "a.izinkan_jual_minus_stok, a.jenis_item, " +
                              "b.id AS id_toko, b.nama AS nama_toko, " +
                              "c.id AS id_jenis, c.nama AS nama_jenis " +
                              "FROM koperasi.produk a " +
@@ -717,7 +751,11 @@ String namaTokoAktif = toko != null ? toko.getNama() : "";
                                  
                     htmlTbody += '<td class="fw-bold">' + (row.kode || '-') + '</td>';
                     htmlTbody += '<td class="fw-bold text-dark">' + (row.nama || '-') + '</td>';
-                    htmlTbody += '<td>' + (row.nama_jenis || '-') + '</td>';
+                    const jenisItemRow = row.jenis_item || 'JUAL';
+                    const badgeJenisItem = jenisItemRow === 'BAHAN'
+                        ? '<span class="badge bg-warning text-dark rounded-pill">' + '<%=Common.getBahasaConfigJS("Bahan")%>' + '</span>'
+                        : '<span class="badge bg-info text-dark rounded-pill">' + '<%=Common.getBahasaConfigJS("Produk")%>' + '</span>';
+                    htmlTbody += '<td>' + (row.nama_jenis || '-') + '<br>' + badgeJenisItem + '</td>';
                     
                     if (isAdminProduk<%=rnd%>) {
                         htmlTbody += '<td><span class="text-muted">' + (row.nama_toko || '-') + '</span></td>';
@@ -732,7 +770,7 @@ String namaTokoAktif = toko != null ? toko.getNama() : "";
 
                     const safeBarcode = (row.barcode || '').replace(/'/g, "\\'");
                     htmlTbody += '<td class="text-center text-nowrap">' +
-                                    '<button class="btn btn-sm btn-outline-warning text-dark shadow-sm me-1" onclick="showEditModal<%=rnd%>(' + row.id + ', \'' + (row.kode || '') + '\', \'' + safeName + '\', ' + (row.id_jenis || 'null') + ', ' + (row.id_toko || 'null') + ', ' + (row.hargabeli || 0) + ', ' + (row.hargajual || 0) + ', ' + stok + ', \'' + safeKet + '\', ' + isAktif + ', ' + izinkanMinusJs + ', \'' + safeBarcode + '\')" title="Edit Produk & Gambar"><i class="fas fa-edit"></i></button>' +
+                                    '<button class="btn btn-sm btn-outline-warning text-dark shadow-sm me-1" onclick="showEditModal<%=rnd%>(' + row.id + ', \'' + (row.kode || '') + '\', \'' + safeName + '\', ' + (row.id_jenis || 'null') + ', ' + (row.id_toko || 'null') + ', ' + (row.hargabeli || 0) + ', ' + (row.hargajual || 0) + ', ' + stok + ', \'' + safeKet + '\', ' + isAktif + ', ' + izinkanMinusJs + ', \'' + safeBarcode + '\', \'' + jenisItemRow + '\')" title="Edit Produk & Gambar"><i class="fas fa-edit"></i></button>' +
                                     '<button class="btn btn-sm btn-outline-danger shadow-sm" onclick="deleteProduk<%=rnd%>(' + row.id + ')" title="Hapus Produk"><i class="fas fa-trash-alt"></i></button>' +
                                  '</td>';
                     htmlTbody += '</tr>';
@@ -869,7 +907,7 @@ String namaTokoAktif = toko != null ? toko.getNama() : "";
         modalInstanceProduk<%=rnd%>.show();
     };
 
-    const showEditModal<%=rnd%> = (id, kode, nama, idJenis, idToko, hb, hj, stok, ket, aktif, izinkanJualMinusStok, barcode) => {
+    const showEditModal<%=rnd%> = (id, kode, nama, idJenis, idToko, hb, hj, stok, ket, aktif, izinkanJualMinusStok, barcode, jenisItem) => {
         document.getElementById('modalTitleProduk<%=rnd%>').innerHTML = '<i class="fas fa-edit text-warning me-2"></i><%=Common.getBahasaConfig("Ubah Data Produk")%>';
 
         document.getElementById('formId<%=rnd%>').value = id;
@@ -877,6 +915,7 @@ String namaTokoAktif = toko != null ? toko.getNama() : "";
         document.getElementById('formBarcode<%=rnd%>').value = barcode || '';
         document.getElementById('formNama<%=rnd%>').value = nama;
         document.getElementById('formJenis<%=rnd%>').value = idJenis || '';
+        document.getElementById('formJenisItem<%=rnd%>').value = jenisItem || 'JUAL';
         
         if(isAdminProduk<%=rnd%>) {
              document.getElementById('formToko<%=rnd%>').value = idToko || '';
@@ -924,6 +963,7 @@ String namaTokoAktif = toko != null ? toko.getNama() : "";
         const barcode = document.getElementById('formBarcode<%=rnd%>').value.trim();
         const nama = document.getElementById('formNama<%=rnd%>').value.trim();
         const jenisId = document.getElementById('formJenis<%=rnd%>').value;
+        const jenisItem = document.getElementById('formJenisItem<%=rnd%>').value || 'JUAL';
         const tokoId = document.getElementById('formToko<%=rnd%>').value;
         
         // Dapatkan value harga (walaupun field disabled, value tetap bisa ditarik oleh JS di browser modern)
@@ -968,6 +1008,7 @@ String namaTokoAktif = toko != null ? toko.getNama() : "";
                 aktif: aktif,
                 izinkanJualMinusStok: izinkanJualMinusStok,
                 jenisProduk: jenisId,
+                jenisItem: jenisItem,
                 toko: tokoId,
                 bahanBaku: JSON.stringify(bahanBakuList<%=rnd%>),
                 masterAsset: (document.getElementById('formMasterAsset<%=rnd%>').value || null)
