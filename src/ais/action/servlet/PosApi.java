@@ -1405,7 +1405,8 @@ public class PosApi extends HttpServlet {
 			JSONArray arr = new JSONArray();
 			if (idJenisAnggota != null) {
 				java.sql.PreparedStatement ps = session.connection().prepareStatement(
-						"SELECT cpk.id, cpk.nama, cpk.manual FROM koperasi.cara_pembayaran_koperasi cpk "
+						"SELECT cpk.id, cpk.nama, cpk.manual, COALESCE(cpk.ada_kembalian, cpk.nama ILIKE '%tunai%') "
+								+ "FROM koperasi.cara_pembayaran_koperasi cpk "
 								+ "WHERE cpk.aktif = true AND (SELECT jak.daftar_cara_pembayaran_yang_boleh_di_pilih "
 								+ "FROM koperasi.jenis_anggota_koperasi jak WHERE jak.id = ?) LIKE '%,' || cpk.id || ',%' "
 								+ "ORDER BY cpk.nama ASC");
@@ -1416,6 +1417,7 @@ public class PosApi extends HttpServlet {
 					j.put("id", rs.getLong(1));
 					j.put("nama", rs.getString(2));
 					j.put("manual", rs.getBoolean(3));
+					j.put("adaKembalian", rs.getBoolean(4));
 					arr.put(j);
 				}
 				rs.close();
@@ -1429,6 +1431,7 @@ public class PosApi extends HttpServlet {
 					j.put("id", cb.getId());
 					j.put("nama", str(cb.getNama()));
 					j.put("manual", cb.getManual() != null && cb.getManual());
+					j.put("adaKembalian", cb.getAdaKembalian());
 					arr.put(j);
 				}
 			}

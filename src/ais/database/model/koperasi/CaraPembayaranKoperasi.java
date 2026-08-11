@@ -94,6 +94,7 @@ public class CaraPembayaranKoperasi extends GeneralValueObject {
 	private Boolean online;
 	private Boolean memotongDeposit;
 	private Boolean masukSebagaiHutang;
+	private Boolean adaKembalian;
 
 	public CaraPembayaranKoperasi() {
 	}
@@ -242,5 +243,27 @@ public class CaraPembayaranKoperasi extends GeneralValueObject {
 
 	public void setMasukSebagaiHutang(Boolean masukSebagaiHutang) {
 		this.masukSebagaiHutang = masukSebagaiHutang;
+	}
+
+	/**
+	 * Menandai bahwa metode pembayaran ini MEMUNGKINKAN kembalian (uang diterima kasir boleh LEBIH
+	 * dari total, sisanya dikembalikan) -- pola cara bayar fisik spt Tunai. {@code false} berarti
+	 * pembayaran WAJIB pas (uang diterima harus SAMA PERSIS dgn total, tanpa kembalian) -- cocok utk
+	 * metode non-tunai spt QRIS/Transfer/Voucher/Kasbon yang jumlahnya dipotong persis sesuai total,
+	 * bukan "dibayar lebih lalu dikembalikan".
+	 *
+	 * <p>Default TIDAK statis -- mengikuti pola {@link #getOnline()}: kalau belum diisi eksplisit
+	 * (data lama/baru), dihitung dari nama metode mengandung kata "tunai" (case-insensitive). Ini
+	 * menghindari migrasi data manual utk baris cara-bayar yang sudah ada -- baris lama bernama
+	 * "Tunai" otomatis dapat {@code true}, baris lain otomatis {@code false}, admin tetap bisa
+	 * override eksplisit lewat form.</p>
+	 */
+	@Column(name = "ada_kembalian")
+	public Boolean getAdaKembalian() {
+		return adaKembalian == null ? (getNama() != null && getNama().toLowerCase().contains("tunai")) : adaKembalian;
+	}
+
+	public void setAdaKembalian(Boolean adaKembalian) {
+		this.adaKembalian = adaKembalian;
 	}
 }

@@ -88,6 +88,9 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
     .prod-nm-<%=rnd%> { font-weight: 700; font-size: 12.5px; color: #0f172a; min-height: 32px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .prod-foot-<%=rnd%> { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
     .prod-pr-<%=rnd%> { font-weight: 800; color: #0d6efd; font-size: 13.5px; }
+    .prod-pr-wrap-<%=rnd%> { display: flex; flex-direction: column; line-height: 1.15; }
+    .prod-pr-coret-<%=rnd%> { font-size: 10.5px; color: #94a3b8; text-decoration: line-through; font-weight: 600; }
+    .prod-pr-promo-<%=rnd%> { font-weight: 800; color: #dc3545; font-size: 13.5px; }
     .prod-add-<%=rnd%> { width: 26px; height: 26px; border-radius: 8px; background: #0d6efd; color: #fff; font-weight: 900; display: flex; align-items: center; justify-content: center; font-size: 16px; box-shadow: 0 4px 10px rgba(13,110,253,.35); flex-shrink: 0; }
     .prod-card-<%=rnd%>:hover .prod-add-<%=rnd%> { background: #0b5ed7; }
 
@@ -254,6 +257,9 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
 					<button class="btn btn-sm btn-outline-secondary rounded-circle position-relative d-flex align-items-center justify-content-center" style="width:34px;height:34px;padding:0;" data-bs-toggle="modal" data-bs-target="#modalKeranjangTertahan<%=rnd%>" onclick="loadDaftarTertahan<%=rnd%>()" title="<%=Common.getBahasaConfig("Keranjang Tertahan")%>">
 						<i class="fas fa-inbox"></i>
 						<span class="badge bg-danger rounded-pill d-none" id="badgeTertahan<%=rnd%>" style="font-size:8px;position:absolute;top:-3px;right:-3px;">0</span>
+					</button>
+					<button class="btn btn-sm btn-outline-warning rounded-circle d-flex align-items-center justify-content-center" style="width:34px;height:34px;padding:0;" data-bs-toggle="modal" data-bs-target="#modalPromoManual<%=rnd%>" onclick="bukaPickerPromoManual<%=rnd%>()" title="<%=Common.getBahasaConfig("Pilih Promo")%>">
+						<i class="fas fa-tags"></i>
 					</button>
 					<button class="btn btn-sm btn-outline-primary rounded-circle d-flex align-items-center justify-content-center" style="width:34px;height:34px;padding:0;" onclick="bukaLayarPelanggan<%=rnd%>()" title="<%=Common.getBahasaConfig("Layar Pelanggan")%>">
 						<i class="fas fa-tv"></i>
@@ -642,6 +648,28 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
           </div>
         </div>
 
+        <!-- Gap-closure "Aktivasi Manual" -- promo dgn aktivasi_manual=true TIDAK auto-terapkan (lihat
+             evaluateDiscount<%=rnd%>), kasir wajib memilihnya di sini dulu. -->
+        <div class="modal fade" id="modalPromoManual<%=rnd%>" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 rounded-4 shadow">
+              <div class="modal-header border-bottom-0 pb-1">
+                <h5 class="modal-title fw-bold text-dark"><i class="fas fa-tags me-2"></i><%=Common.getBahasaConfig("Pilih Promo")%></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body pt-2 pb-3">
+                <p class="text-muted small mb-2"><%=Common.getBahasaConfig("Promo berikut tersedia untuk keranjang saat ini, tapi harus dipilih manual.")%></p>
+                <div id="bodyModalPromoManual<%=rnd%>">
+                    <div class="text-center text-muted py-3"><div class="spinner-border spinner-border-sm text-primary"></div></div>
+                </div>
+              </div>
+              <div class="modal-footer border-top-0 pt-0">
+                <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal"><%=Common.getBahasaConfig("Tutup")%></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="modal fade" id="modalStatusSinkron<%=rnd%>" tabindex="-1" aria-hidden="true">
           <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content border-0 rounded-4 shadow">
@@ -887,11 +915,16 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
     };
 
     const loadMetodePembayaranPOS<%=rnd%> = async (idJenisAnggota) => {
-        let sql = "SELECT id, nama, manual FROM koperasi.cara_pembayaran_koperasi WHERE aktif = true ORDER BY nama ASC";
-        
+        // Gap-closure "Ada Kembalian" -- dulu panel Uang Tunai/Kembalian dinyalakan lewat tebak-nama
+        // ("tunai"/"cash" di nama metode). Sekarang pakai kolom sungguhan `ada_kembalian`, dgn fallback
+        // SAMA PERSIS spt getter entity (COALESCE ke nama ILIKE tunai) utk metode lama yg kolomnya
+        // masih NULL -- tidak perlu migrasi data.
+        let sql = "SELECT id, nama, manual, COALESCE(ada_kembalian, nama ILIKE '%tunai%') AS ada_kembalian " +
+                   "FROM koperasi.cara_pembayaran_koperasi WHERE aktif = true ORDER BY nama ASC";
+
         // Jika ada ID Jenis Anggota, filter berdasarkan daftar_cara_pembayaran_yang_boleh_di_pilih
         if (idJenisAnggota) {
-            sql = "SELECT cpk.id, cpk.nama, cpk.manual " +
+            sql = "SELECT cpk.id, cpk.nama, cpk.manual, COALESCE(cpk.ada_kembalian, cpk.nama ILIKE '%tunai%') AS ada_kembalian " +
                   "FROM koperasi.cara_pembayaran_koperasi cpk " +
                   "WHERE cpk.aktif = true " +
                   "AND (SELECT jak.daftar_cara_pembayaran_yang_boleh_di_pilih FROM koperasi.jenis_anggota_koperasi jak WHERE jak.id = " + idJenisAnggota + ") LIKE '%,' || cpk.id || ',%' " +
@@ -899,18 +932,19 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         }
 
         const res = await fetchData<%=rnd%>(sql);
-        
+
         let optHtml = '<option value=""><%=Common.getBahasaConfig("-- Pilih Metode --")%></option>';
         if(res && res.length > 0) {
-            res.forEach(item => { 
+            res.forEach(item => {
                 const isSelected = (res.length === 1) ? 'selected' : '';
                 const isManual = item.manual === true || item.manual === 't' || item.manual === 'true' ? 'true' : 'false';
-                optHtml += '<option value="' + item.id + '" data-nama="' + item.nama + '" data-manual="' + isManual + '" ' + isSelected + '>' + item.nama + '</option>'; 
+                const adaKembalian = item.ada_kembalian === true || item.ada_kembalian === 't' || item.ada_kembalian === 'true' ? 'true' : 'false';
+                optHtml += '<option value="' + item.id + '" data-nama="' + item.nama + '" data-manual="' + isManual + '" data-ada-kembalian="' + adaKembalian + '" ' + isSelected + '>' + item.nama + '</option>';
             });
         } else if (idJenisAnggota) {
             optHtml = '<option value=""><%=Common.getBahasaConfig("-- Tidak Ada Metode Pembayaran Diizinkan --")%></option>';
         }
-        
+
         const selectCara = document.getElementById('selectCaraBayar<%=rnd%>');
         if(selectCara) {
             selectCara.innerHTML = optHtml;
@@ -919,19 +953,28 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         }
     };
 
+    /** Metode terpilih saat ini punya kembalian (true) atau pembayaran wajib pas (false)? Default
+     * true saat belum ada metode terpilih (biar tidak keliru memblokir sebelum kasir memilih apa pun). */
+    const metodeBayarAdaKembalian<%=rnd%> = () => {
+        const select = document.getElementById('selectCaraBayar<%=rnd%>');
+        if (!select || select.selectedIndex <= 0) return true;
+        return select.options[select.selectedIndex].getAttribute('data-ada-kembalian') === 'true';
+    };
+
     const handleCaraBayarChange<%=rnd%> = () => {
         const select = document.getElementById('selectCaraBayar<%=rnd%>');
         const panelTunai = document.getElementById('panelUangTunai<%=rnd%>');
-        
-        if (select.selectedIndex > 0) {
-            const namaCaraBayar = select.options[select.selectedIndex].getAttribute('data-nama').toLowerCase();
-            if (namaCaraBayar.includes('tunai') || namaCaraBayar.includes('cash')) {
-                panelTunai.style.display = 'block';
-            } else {
-                panelTunai.style.display = 'none';
-            }
+        const inputUangTunai = document.getElementById('inputUangTunai<%=rnd%>');
+
+        // Gap-closure "Ada Kembalian" -- panel Uang Diterima/Kembalian dulu ditebak dari nama metode
+        // ("tunai"/"cash"), sekarang dari kolom sungguhan `ada_kembalian`. Metode non-tunai (QRIS/
+        // Transfer/Voucher/Kasbon dst) tidak menampilkan panel sama sekali -- pembayarannya WAJIB pas
+        // dgn total, dikosongkan supaya tak ada input "Uang Diterima" yang membingungkan/keliru dipakai.
+        if (select.selectedIndex > 0 && metodeBayarAdaKembalian<%=rnd%>()) {
+            panelTunai.style.display = 'block';
         } else {
             panelTunai.style.display = 'none';
+            if (inputUangTunai) inputUangTunai.value = '';
         }
         hitungKembalian<%=rnd%>();
     };
@@ -1333,9 +1376,19 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         }
     };
 
+    /**
+     * Cek CSV hari aktif ("1,3,5", 1=Senin..7=Minggu ISO weekday) vs HARI INI -- SAMA konvensi
+     * dgn ais.common.HariAktifUtil.aktifPadaHari (Java, ZK+API); kosong/null = berlaku semua hari.
+     */
+    const hariAktifSekarang<%=rnd%> = (csv) => {
+        if (!csv || (csv + '').trim() === '') return true;
+        const isoDow = ((new Date().getDay() + 6) % 7) + 1; // JS getDay(): 0=Minggu..6=Sabtu -> ISO 1..7
+        return (',' + csv + ',').indexOf(',' + isoDow + ',') >= 0;
+    };
+
     const loadAturanDiskon<%=rnd%> = async () => {
         // Jangan ubah type date jadi _iso langsung di sql, biar action:"sql" yang tambahin otomatis
-        const sqlAturan = "SELECT id, produk, toko, berlaku_semua_member, jenis_anggota, tipe_anggota, persentase, maksimal_potongan, nominal, potongan_langsung, berlaku_per_hari_dan_per_toko, tanggal_mulai, tanggal_selesai FROM koperasi.aturan_diskon WHERE aktif = true";
+        const sqlAturan = "SELECT id, produk, toko, berlaku_semua_member, jenis_anggota, tipe_anggota, persentase, maksimal_potongan, nominal, potongan_langsung, berlaku_per_hari_dan_per_toko, tanggal_mulai, tanggal_selesai, hari_aktif, COALESCE(aktivasi_manual,false) AS aktivasi_manual, nama_aturan, keterangan FROM koperasi.aturan_diskon WHERE aktif = true";
         const res = await fetchData<%=rnd%>(sqlAturan);
         if(res) {
             arrAturanDiskon<%=rnd%> = res;
@@ -1446,8 +1499,21 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         // lain. "<>" polos TIDAK match NULL di Postgres (produk lama sebelum kolom ini ada), jadi
         // WAJIB pola OR IS NULL. `ekstra_pilihan` ikut diambil supaya addToCart tahu apa produk ini
         // punya ekstra yg bisa dipilih (buka modal picker) sebelum push ke keranjang.
+        // Gap-closure "Harga Coret" -- preview diskon di level katalog (sebelum masuk keranjang).
+        // Hanya promo PUBLIK (berlaku_semua_member) yg dipreview di sini krn belum ada member terpilih
+        // di titik ini (sama spt evaluateDiscount<%=rnd%> di bawah); hanya potongan_langsung=true krn
+        // cashback tidak mengubah harga struk; aktivasi_manual DIKECUALIKAN krn baru aktif lewat picker
+        // "Promo" manual, bukan preview otomatis. hari_aktif dicek via CSV-membership (ISODOW Postgres
+        // = 1..7 Senin..Minggu, SAMA konvensi dgn ais.common.HariAktifUtil).
+        const kondisiDiskonAktif<%=rnd%> = "d.aktif = true AND (d.produk IS NULL OR d.produk = a.id) AND (d.toko IS NULL OR d.toko = a.toko) " +
+            "AND (d.tanggal_mulai IS NULL OR d.tanggal_mulai <= now()) AND (d.tanggal_selesai IS NULL OR d.tanggal_selesai >= now()) " +
+            "AND COALESCE(d.berlaku_semua_member,false) = true AND COALESCE(d.potongan_langsung,true) = true " +
+            "AND COALESCE(d.aktivasi_manual,false) = false " +
+            "AND (d.hari_aktif IS NULL OR d.hari_aktif = '' OR (',' || d.hari_aktif || ',') LIKE ('%,' || EXTRACT(ISODOW FROM now())::int || ',%'))";
         let sqlQuery = "SELECT a.id, a.kode, a.nama, a.hargajual, COALESCE(a.stok,0) AS stok, a.ekstra_pilihan, " +
-                       "(SELECT MAX(persentase) FROM koperasi.aturan_diskon d WHERE d.aktif=true AND (d.produk IS NULL OR d.produk = a.id) AND (d.toko IS NULL OR d.toko = a.toko)) AS diskon_persen " +
+                       "(SELECT MAX(d.persentase) FROM koperasi.aturan_diskon d WHERE " + kondisiDiskonAktif<%=rnd%> + " AND COALESCE(d.persentase,0) > 0) AS diskon_persen, " +
+                       "(SELECT MAX(d.maksimal_potongan) FROM koperasi.aturan_diskon d WHERE " + kondisiDiskonAktif<%=rnd%> + " AND COALESCE(d.persentase,0) > 0) AS diskon_maks_potongan, " +
+                       "(SELECT MAX(d.nominal) FROM koperasi.aturan_diskon d WHERE " + kondisiDiskonAktif<%=rnd%> + " AND COALESCE(d.persentase,0) = 0 AND COALESCE(d.nominal,0) > 0) AS diskon_nominal " +
                        "FROM koperasi.produk a WHERE a.aktif = true AND a.toko = " + currentTokoId<%=rnd%> +
                        " AND (a.jenis_item IS NULL OR a.jenis_item NOT IN ('BAHAN','EKSTRA')) ";
         if (currentKategoriId<%=rnd%> !== '') {
@@ -1476,23 +1542,39 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
                 const pHarga = parseFloat(p.hargajual || 0);
                 const pStok = parseFloat(p.stok || 0);
                 const diskonPersen = parseFloat(p.diskon_persen || 0);
+                const diskonMaksPotongan = parseFloat(p.diskon_maks_potongan || 0);
+                const diskonNominal = parseFloat(p.diskon_nominal || 0);
+                // Gap-closure "Harga Coret" -- persentase diprioritaskan drpd nominal (SAMA urutan dgn
+                // evaluateDiscount<%=rnd%>/mesin server), lalu dibatasi maksimal_potongan bila ada.
+                let hargaPromo<%=rnd%> = null;
+                if (diskonPersen > 0) {
+                    let potongan = pHarga * (diskonPersen / 100);
+                    if (diskonMaksPotongan > 0 && potongan > diskonMaksPotongan) potongan = diskonMaksPotongan;
+                    hargaPromo<%=rnd%> = pHarga - potongan;
+                } else if (diskonNominal > 0) {
+                    hargaPromo<%=rnd%> = pHarga - Math.min(diskonNominal, pHarga);
+                }
+                const adaPromo<%=rnd%> = hargaPromo<%=rnd%> !== null && hargaPromo<%=rnd%> < pHarga;
                 // Gap-closure "Produk Ekstra" -- diteruskan sbg 5th arg (string JSON id array, mis.
                 // "[601,602]", atau string kosong bila produk ini tak punya ekstra) ke addToCart supaya
                 // ia tahu perlu buka modal picker sebelum push ke keranjang atau tidak.
                 const pEkstraPilihan = (p.ekstra_pilihan || '').replace(/'/g, "\\'");
                 const stokBadge = pStok <= 0 ? '<span class="badge bg-danger position-absolute top-0 end-0 m-1" style="font-size:9px;z-index:2;"><%=Common.getBahasaConfig("Habis")%></span>' : (pStok <= 5 ? '<span class="badge bg-warning text-dark position-absolute top-0 end-0 m-1" style="font-size:9px;z-index:2;">Stok ' + pStok + '</span>' : '');
+                const hargaHtml<%=rnd%> = adaPromo<%=rnd%>
+                    ? '<span class="prod-pr-wrap-<%=rnd%>"><span class="prod-pr-coret-<%=rnd%>">' + formatRp<%=rnd%>(pHarga) + '</span><span class="prod-pr-promo-<%=rnd%>">' + formatRp<%=rnd%>(hargaPromo<%=rnd%>) + '</span></span>'
+                    : '<span class="prod-pr-<%=rnd%>">' + formatRp<%=rnd%>(pHarga) + '</span>';
 
                 htmlGrid += '<div class="col-lg-4 col-md-6 col-sm-6">' +
                         '<div class="prod-card-<%=rnd%>" onclick="addToCart<%=rnd%>(' + pId + ', \'' + pKode + '\', \'' + pNama + '\', ' + pHarga + ', \'' + pEkstraPilihan + '\')">' +
                             '<div class="prod-thumb-<%=rnd%>" id="prod-icon-wrapper-<%=rnd%>-' + pId + '">' +
-                                (diskonPersen > 0 ? '<span class="prod-badge-diskon-<%=rnd%>">' + Math.round(diskonPersen) + '%</span>' : '') +
+                                (diskonPersen > 0 ? '<span class="prod-badge-diskon-<%=rnd%>">' + Math.round(diskonPersen) + '%</span>' : (adaPromo<%=rnd%> ? '<span class="prod-badge-diskon-<%=rnd%>">Promo</span>' : '')) +
                                 stokBadge +
                                 '<i class="fas ' + icon + '"></i>' +
                             '</div>' +
                             '<div class="prod-body-<%=rnd%>">' +
                                 '<div class="prod-nm-<%=rnd%>" title="' + p.nama + '">' + p.nama + '</div>' +
                                 '<div class="prod-foot-<%=rnd%>">' +
-                                    '<span class="prod-pr-<%=rnd%>">' + formatRp<%=rnd%>(pHarga) + '</span>' +
+                                    hargaHtml<%=rnd%> +
                                     '<span class="prod-add-<%=rnd%>">+</span>' +
                                 '</div>' +
                             '</div>' +
@@ -1511,33 +1593,61 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
     // ==========================================
     // LOGIKA ATURAN DISKON & KERANJANG
     // ==========================================
-    const evaluateDiscount<%=rnd%> = (item) => {
-        let appliedRule = null;
-        const now = new Date();
-        
+    /** Member yg dipilih kasir saat ini, atau null (dipakai evaluateDiscount + picker Promo manual). */
+    const memberTerpilihSaatIni<%=rnd%> = () => {
         const idMember = document.getElementById('idMemberSelected<%=rnd%>').value;
-        let selectedMember = null;
         if (idMember && arrDataMember<%=rnd%>.length > 0) {
-            selectedMember = arrDataMember<%=rnd%>.find(m => m.id == idMember);
+            return arrDataMember<%=rnd%>.find(m => m.id == idMember) || null;
         }
+        return null;
+    };
+
+    /**
+     * Cek kelayakan SATU aturan (produk/toko/tanggal/hari/member) utk satu baris keranjang -- TIDAK
+     * termasuk cek aktivasi_manual (itu keputusan PEMANGGIL). Dipakai bersama oleh evaluateDiscount
+     * (auto-apply &amp; apply-1-aturan-terpilih) dan bukaPickerPromoManual (listing).
+     */
+    const aturanEligibleUntukItem<%=rnd%> = (rule, item, selectedMember) => {
+        const now = new Date();
+        const isSpecificProduct = (rule.produk !== null && rule.produk !== '' && rule.produk !== undefined);
+        if ((isSpecificProduct == true || isSpecificProduct == 'true') && rule.produk != item.id) return false;
+
+        const isSpecificToko = (rule.toko !== null && rule.toko !== '' && rule.toko !== undefined);
+        if ((isSpecificToko == true || isSpecificToko == 'true') && rule.toko != currentTokoId<%=rnd%>) return false;
+
+        if (rule.tanggal_mulai_iso && rule.tanggal_mulai_iso !== '' && new Date(rule.tanggal_mulai_iso) > now) return false;
+        if (rule.tanggal_selesai_iso && rule.tanggal_selesai_iso !== '' && new Date(rule.tanggal_selesai_iso) < now) return false;
+        if (!hariAktifSekarang<%=rnd%>(rule.hari_aktif)) return false;
+
+        const isAllMember = (rule.berlaku_semua_member === 'true' || rule.berlaku_semua_member === true || rule.berlaku_semua_member === 't');
+        if (!isAllMember) {
+            if (!selectedMember) return false; // Butuh member spesifik tapi kasir belum pilih member
+            if (rule.jenis_anggota && rule.jenis_anggota !== '' && rule.jenis_anggota != selectedMember.jenis_anggota) return false;
+            if (rule.tipe_anggota && rule.tipe_anggota !== '' && rule.tipe_anggota != selectedMember.tipe_anggota) return false;
+        }
+        return true;
+    };
+
+    /**
+     * @param onlyRuleId bila diisi (kasir sudah pilih 1 promo manual lewat picker "Promo", lihat
+     *                   {@code bukaPickerPromoManual}/{@code pilihPromoManual}): HANYA hitung aturan
+     *                   dgn id itu (aktivasi_manual DIABAIKAN krn kasir sudah pilih eksplisit), pakai
+     *                   rumus yg SAMA PERSIS dgn auto-apply. Kosong/null (default): perilaku auto-apply
+     *                   biasa, aturan aktivasi_manual=true DIKECUALIKAN.
+     */
+    const evaluateDiscount<%=rnd%> = (item, onlyRuleId) => {
+        let appliedRule = null;
+        const selectedMember = memberTerpilihSaatIni<%=rnd%>();
 
         for (let rule of arrAturanDiskon<%=rnd%>) {
-            const isSpecificProduct = (rule.produk !== null && rule.produk !== '' && rule.produk !== undefined);
-            if ((isSpecificProduct == true || isSpecificProduct == 'true') && rule.produk != item.id) continue;
-            
-            const isSpecificToko = (rule.toko !== null && rule.toko !== '' && rule.toko !== undefined);
-            if ((isSpecificToko == true || isSpecificToko == 'true') && rule.toko != currentTokoId<%=rnd%>) continue;
-            
-            if (rule.tanggal_mulai_iso && rule.tanggal_mulai_iso !== '' && new Date(rule.tanggal_mulai_iso) > now) continue;
-            if (rule.tanggal_selesai_iso && rule.tanggal_selesai_iso !== '' && new Date(rule.tanggal_selesai_iso) < now) continue;
-            
-            // Evaluasi Member
-            const isAllMember = (rule.berlaku_semua_member === 'true' || rule.berlaku_semua_member === true || rule.berlaku_semua_member === 't');
-            if (!isAllMember) {
-                if (!selectedMember) continue; // Butuh member spesifik tapi kasir belum pilih member
-                if (rule.jenis_anggota && rule.jenis_anggota !== '' && rule.jenis_anggota != selectedMember.jenis_anggota) continue;
-                if (rule.tipe_anggota && rule.tipe_anggota !== '' && rule.tipe_anggota != selectedMember.tipe_anggota) continue;
+            if (onlyRuleId != null) {
+                if (rule.id != onlyRuleId) continue;
+            } else {
+                const isManual = (rule.aktivasi_manual === true || rule.aktivasi_manual === 'true' || rule.aktivasi_manual === 't');
+                if (isManual) continue; // dikecualikan dari auto-apply -- hanya lewat picker "Promo" manual
             }
+
+            if (!aturanEligibleUntukItem<%=rnd%>(rule, item, selectedMember)) continue;
 
             appliedRule = rule;
             break;
@@ -1596,9 +1706,78 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             arrAturanDiskon<%=rnd%>.forEach(r => r.terpakai_di_keranjang = 0);
         }
         cart<%=rnd%>.forEach(item => {
-            evaluateDiscount<%=rnd%>(item);
+            // Gap-closure "Aktivasi Manual" -- baris yg promonya dipilih manual kasir (item.promoManual)
+            // TETAP dihitung ulang (bukan dibekukan) supaya batas maksimal_potongan tetap akurat, tapi
+            // dgn onlyRuleId terkunci ke promo itu saja -- bukan ikut auto-apply biasa.
+            evaluateDiscount<%=rnd%>(item, item.promoManual ? item.aturanDiskon : null);
         });
         renderCart<%=rnd%>();
+    };
+
+    /**
+     * Gap-closure "Aktivasi Manual" -- buka picker daftar promo `aktivasi_manual=true` yang eligible
+     * utk MINIMAL SATU baris keranjang saat ini (reuse aturanEligibleUntukItem, sama predikat yg
+     * dipakai auto-apply, cuma dibalik: hanya ambil yang manual, bukan yang di-skip).
+     */
+    const bukaPickerPromoManual<%=rnd%> = () => {
+        const body = document.getElementById('bodyModalPromoManual<%=rnd%>');
+        if (cart<%=rnd%>.length === 0) {
+            body.innerHTML = '<p class="text-muted text-center py-3 mb-0"><%=Common.getBahasaConfig("Keranjang masih kosong.")%></p>';
+            return;
+        }
+        const selectedMember = memberTerpilihSaatIni<%=rnd%>();
+        const promoEligible = arrAturanDiskon<%=rnd%>.filter(rule => {
+            const isManual = (rule.aktivasi_manual === true || rule.aktivasi_manual === 'true' || rule.aktivasi_manual === 't');
+            if (!isManual) return false;
+            return cart<%=rnd%>.some(item => aturanEligibleUntukItem<%=rnd%>(rule, item, selectedMember));
+        });
+
+        if (promoEligible.length === 0) {
+            body.innerHTML = '<p class="text-muted text-center py-3 mb-0"><%=Common.getBahasaConfig("Tidak ada promo manual yang tersedia untuk keranjang saat ini.")%></p>';
+            return;
+        }
+
+        let html = '<div class="list-group">';
+        promoEligible.forEach(rule => {
+            const aktifSekarang = cart<%=rnd%>.some(item => item.promoManual && item.aturanDiskon == rule.id);
+            const persen = parseFloat(rule.persentase) || 0;
+            const nominal = parseFloat(rule.nominal) || 0;
+            const isPotongLsg = (rule.potongan_langsung === 'true' || rule.potongan_langsung === true || rule.potongan_langsung === 't');
+            const deskripsiNilai = persen > 0 ? ('Potongan ' + persen + '%') : (nominal > 0 ? ('Potongan ' + formatRp<%=rnd%>(nominal)) : 'Promo');
+            const namaAturan = (rule.nama_aturan || 'Promo').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            html += '<button type="button" class="list-group-item list-group-item-action' + (aktifSekarang ? ' active' : '') + '" onclick="pilihPromoManual<%=rnd%>(' + rule.id + ')">' +
+                '<div class="d-flex justify-content-between align-items-center">' +
+                    '<div><div class="fw-bold">' + namaAturan + '</div><div class="small' + (aktifSekarang ? '' : ' text-muted') + '">' + deskripsiNilai + (isPotongLsg ? '' : ' (cashback)') + '</div></div>' +
+                    (aktifSekarang ? '<i class="fas fa-check-circle"></i>' : '') +
+                '</div>' +
+            '</button>';
+        });
+        html += '</div>';
+        body.innerHTML = html;
+    };
+
+    /** Kasir memilih 1 promo manual dari picker -- terapkan ke SEMUA baris keranjang yang eligible. */
+    window.pilihPromoManual<%=rnd%> = (aturanId) => {
+        const selectedMember = memberTerpilihSaatIni<%=rnd%>();
+        let adaYangDapat = false;
+        cart<%=rnd%>.forEach(item => {
+            const rule = arrAturanDiskon<%=rnd%>.find(r => r.id == aturanId);
+            if (rule && aturanEligibleUntukItem<%=rnd%>(rule, item, selectedMember)) {
+                item.promoManual = true;
+                adaYangDapat = true;
+            }
+        });
+        if (!adaYangDapat) {
+            const pesan = '<%=Common.getBahasaConfigJS("Promo ini tidak berlaku untuk produk di keranjang saat ini.")%>';
+            if (typeof tampilkanToast === "function") tampilkanToast(pesan, 'bg-warning text-dark'); else alert(pesan);
+            return;
+        }
+        recalculateCart<%=rnd%>();
+        const modalEl = document.getElementById('modalPromoManual<%=rnd%>');
+        const modal = modalEl && window.bootstrap ? bootstrap.Modal.getInstance(modalEl) : null;
+        if (modal) modal.hide();
+        const pesanSukses = '<%=Common.getBahasaConfigJS("Promo diterapkan.")%>';
+        if (typeof tampilkanToast === "function") tampilkanToast(pesanSukses, 'bg-success text-white');
     };
 
     const addToCart<%=rnd%> = async (id, kode, nama, harga, ekstraPilihanJson) => {
@@ -2281,7 +2460,11 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         } else {
             let uangTunai = 0;
             let kembalian = 0;
-            if (namaCaraBayar.includes('tunai') || namaCaraBayar.includes('cash')) {
+            // Gap-closure "Ada Kembalian" -- dulu ditebak dari nama ('tunai'/'cash'), sekarang dari
+            // kolom sungguhan (lihat handleCaraBayarChange<%=rnd%>/metodeBayarAdaKembalian<%=rnd%>).
+            // Metode TANPA kembalian (QRIS/Transfer/Voucher/Kasbon dst) WAJIB bayar pas -- uangTunai
+            // dikunci = total persis, tidak dibaca dari input (panelnya memang disembunyikan).
+            if (metodeBayarAdaKembalian<%=rnd%>()) {
                 uangTunai = parseFloat(document.getElementById('inputUangTunai<%=rnd%>').value) || 0;
                 kembalian = uangTunai - grandTotalValue<%=rnd%>;
                 if (uangTunai < grandTotalValue<%=rnd%>) {
@@ -2295,6 +2478,9 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
                     btnBayar.disabled = false;
                     return;
                 }
+            } else {
+                uangTunai = grandTotalValue<%=rnd%>;
+                kembalian = 0;
             }
             eksekusiPembayaranBackend<%=rnd%>(payload, uangTunai, kembalian);
         }

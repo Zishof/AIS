@@ -64,6 +64,7 @@ boolean isAdmin = (toko == null);
                                     <th class="fw-semibold text-uppercase small px-3" style="width: 120px;"><i class="fas fa-globe me-1"></i><%=Common.getBahasaConfig("Online")%></th>
                                     <th class="fw-semibold text-uppercase small px-3" style="width: 130px;"><i class="fas fa-wallet me-1"></i><%=Common.getBahasaConfig("Potong Saldo")%></th>
                                     <th class="fw-semibold text-uppercase small px-3" style="width: 120px;"><i class="fas fa-hand-holding-usd me-1"></i><%=Common.getBahasaConfig("Hutang")%></th>
+                                    <th class="fw-semibold text-uppercase small px-3" style="width: 130px;"><i class="fas fa-coins me-1"></i><%=Common.getBahasaConfig("Kembalian")%></th>
                                     <th class="fw-semibold text-uppercase small px-3" style="width: 120px;"><i class="fas fa-toggle-on me-1"></i><%=Common.getBahasaConfig("Status")%></th>
                                     <% if (isAdmin) { %>
                                     <th class="fw-semibold text-uppercase small px-3 text-center" style="width: 100px;"><i class="fas fa-cogs"></i></th>
@@ -71,7 +72,7 @@ boolean isAdmin = (toko == null);
                                 </tr>
                             </thead>
                             <tbody id="tabelDataCaraBayar<%=rnd%>">
-                                <tr><td colspan="<%= isAdmin ? 10 : 9 %>" class="text-center py-5"><div class="spinner-border text-primary mb-3"></div><br><span class="text-muted fw-medium"><%=Common.getBahasaConfig("Memuat data...")%></span></td></tr>
+                                <tr><td colspan="<%= isAdmin ? 11 : 10 %>" class="text-center py-5"><div class="spinner-border text-primary mb-3"></div><br><span class="text-muted fw-medium"><%=Common.getBahasaConfig("Memuat data...")%></span></td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -157,6 +158,18 @@ boolean isAdmin = (toko == null);
                                 </div>
                             </div>
 
+                            <!-- Ada Kembalian: gap-closure -- metode spt Tunai boleh dibayar LEBIH lalu
+                                 dikembalikan sisanya; metode non-tunai (QRIS/Transfer/Voucher/Kasbon dst)
+                                 harus PAS, tanpa kembalian. Default mengikuti nama (ilike "tunai") selama
+                                 admin belum menyentuh checkbox ini secara manual -- lihat listener di bawah. -->
+                            <div class="col-md-6 pt-2">
+                                <div class="form-check form-switch fs-6 border rounded-3 p-2 bg-light">
+                                    <input class="form-check-input ms-1 me-2" type="checkbox" id="inputAdaKembalian<%=rnd%>" style="cursor: pointer;">
+                                    <label class="form-check-label fw-semibold text-dark small" for="inputAdaKembalian<%=rnd%>"><%=Common.getBahasaConfig("Ada Kembalian")%></label>
+                                    <div class="small text-muted mt-1 ms-1"><%=Common.getBahasaConfig("Jika dicentang, kasir boleh menerima uang lebih dari total lalu mengembalikan sisanya. Tidak dicentang = pembayaran harus pas, tanpa kembalian.")%></div>
+                                </div>
+                            </div>
+
                             <!-- Memotong Deposit: dipisah dari "Verifikasi Manual" supaya metode bayar bisa
                                  SEKALIGUS diverifikasi admin DAN memotong saldo (mis. Voucher). Diberi warna
                                  peringatan karena efeknya langsung ke saldo anggota. -->
@@ -207,7 +220,10 @@ boolean isAdmin = (toko == null);
     
     // Inject status Admin
     const isAdmin<%=rnd%> = <%=isAdmin%>;
-    const colSpan<%=rnd%> = isAdmin<%=rnd%> ? 10 : 9; // +1 kolom "Potong Saldo", +1 kolom "Hutang"
+    const colSpan<%=rnd%> = isAdmin<%=rnd%> ? 11 : 10; // +1 "Potong Saldo", +1 "Hutang", +1 "Kembalian"
+    // Gap-closure "Ada Kembalian" -- true selama admin BELUM menyentuh checkbox-nya sendiri di form
+    // Tambah; sekali disentuh (atau saat form Ubah dibuka), berhenti auto-mengikuti field Nama.
+    let kembalianDisentuhManual<%=rnd%> = false;
 
     // Variabel Paging
     let currentPage<%=rnd%> = 1;
@@ -236,6 +252,23 @@ boolean isAdmin = (toko == null);
             alert(msg);
         }
     };
+
+    // Gap-closure "Ada Kembalian" -- selama admin belum menyentuh checkbox-nya sendiri, ikuti field
+    // Nama secara live (ilike "tunai" -> Ya). Sekali disentuh manual, berhenti auto-mengikuti.
+    const uiAdaKembalian<%=rnd%> = document.getElementById('inputAdaKembalian<%=rnd%>');
+    const uiNamaUntukKembalian<%=rnd%> = document.getElementById('inputNama<%=rnd%>');
+    if (uiAdaKembalian<%=rnd%>) {
+        uiAdaKembalian<%=rnd%>.addEventListener('change', function() {
+            kembalianDisentuhManual<%=rnd%> = true;
+        });
+    }
+    if (uiNamaUntukKembalian<%=rnd%>) {
+        uiNamaUntukKembalian<%=rnd%>.addEventListener('input', function() {
+            if (!kembalianDisentuhManual<%=rnd%> && uiAdaKembalian<%=rnd%>) {
+                uiAdaKembalian<%=rnd%>.checked = this.value.trim().toLowerCase().indexOf('tunai') >= 0;
+            }
+        });
+    }
 
     // Label UI Switch Status Aktif
     const uiStatusAktif<%=rnd%> = document.getElementById('inputStatusAktif<%=rnd%>');
@@ -280,7 +313,9 @@ boolean isAdmin = (toko == null);
         const sqlCount = "SELECT COUNT(*) AS jumlah FROM koperasi.cara_pembayaran_koperasi " + sqlFilters + ";";
         
         // Asumsi struktur DB column names (berdasarkan Hibernate default naming)
-        const sqlData = "SELECT id, kode, nama, keterangan, manual, online, memotong_deposit, masuk_sebagai_hutang, aktif FROM koperasi.cara_pembayaran_koperasi " + sqlFilters + " ORDER BY nama ASC LIMIT " + limitPerPage<%=rnd%> + " OFFSET " + offset + ";";
+        const sqlData = "SELECT id, kode, nama, keterangan, manual, online, memotong_deposit, masuk_sebagai_hutang, aktif, " +
+            "COALESCE(ada_kembalian, nama ILIKE '%tunai%') AS ada_kembalian " +
+            "FROM koperasi.cara_pembayaran_koperasi " + sqlFilters + " ORDER BY nama ASC LIMIT " + limitPerPage<%=rnd%> + " OFFSET " + offset + ";";
 
         try {
             const [resCount, resData] = await Promise.all([
@@ -322,6 +357,11 @@ boolean isAdmin = (toko == null);
                         ? '<span class="badge bg-danger bg-opacity-25 text-danger border border-danger px-2 py-1"><i class="fas fa-hand-holding-usd me-1"></i>Ya</span>'
                         : '<span class="text-secondary fw-bold"><i class="fas fa-minus me-1"></i>Tidak</span>';
 
+                    const isKembalian = (row.ada_kembalian === true || row.ada_kembalian === 't' || row.ada_kembalian === 'true');
+                    const badgeKembalian = isKembalian
+                        ? '<span class="text-success fw-bold"><i class="fas fa-coins me-1"></i>Ya</span>'
+                        : '<span class="text-secondary fw-bold"><i class="fas fa-minus me-1"></i>Tidak</span>';
+
                     htmlList += '<tr>' +
                             '<td class="text-center text-muted fw-medium">' + (no++) + '</td>' +
                             '<td class="text-start fw-bold text-secondary">' + (row.kode || '-') + '</td>' +
@@ -331,6 +371,7 @@ boolean isAdmin = (toko == null);
                             '<td class="text-center">' + badgeOnline + '</td>' +
                             '<td class="text-center">' + badgePotong + '</td>' +
                             '<td class="text-center">' + badgeHutang + '</td>' +
+                            '<td class="text-center">' + badgeKembalian + '</td>' +
                             '<td class="text-center">' + badgeStatus + '</td>';
                     
                     // Render kolom aksi hanya jika user adalah admin
@@ -395,7 +436,9 @@ boolean isAdmin = (toko == null);
         document.getElementById('inputOnline<%=rnd%>').checked = false; // Default online false
         document.getElementById('inputMemotongDeposit<%=rnd%>').checked = false; // Default TIDAK memotong saldo
         document.getElementById('inputMasukSebagaiHutang<%=rnd%>').checked = false; // Default BUKAN hutang
-        
+        document.getElementById('inputAdaKembalian<%=rnd%>').checked = false; // Nama masih kosong -- mengikuti field Nama begitu diketik
+        kembalianDisentuhManual<%=rnd%> = false;
+
         document.getElementById('formTitle<%=rnd%>').innerHTML = '<i class="fas fa-wallet text-primary me-2"></i><%=Common.getBahasaConfig("Tambah Metode Pembayaran")%>';
         
         document.getElementById('viewList<%=rnd%>').style.display = 'none';
@@ -428,6 +471,7 @@ boolean isAdmin = (toko == null);
             online: document.getElementById('inputOnline<%=rnd%>').checked, // Parameter Online
             memotongDeposit: document.getElementById('inputMemotongDeposit<%=rnd%>').checked, // Kurangi saldo anggota
             masukSebagaiHutang: document.getElementById('inputMasukSebagaiHutang<%=rnd%>').checked, // Catat sbg hutang
+            adaKembalian: document.getElementById('inputAdaKembalian<%=rnd%>').checked, // Boleh ada kembalian
             aktif: document.getElementById('inputStatusAktif<%=rnd%>').checked
         };
         
@@ -472,7 +516,9 @@ boolean isAdmin = (toko == null);
     const editCaraBayar<%=rnd%> = async (id) => {
         if (!isAdmin<%=rnd%>) return;
         
-        const sql = 'SELECT id, kode, nama, keterangan, manual, online, memotong_deposit, masuk_sebagai_hutang, aktif FROM koperasi.cara_pembayaran_koperasi WHERE id = ' + id;
+        const sql = 'SELECT id, kode, nama, keterangan, manual, online, memotong_deposit, masuk_sebagai_hutang, aktif, ' +
+            "COALESCE(ada_kembalian, nama ILIKE '%tunai%') AS ada_kembalian " +
+            'FROM koperasi.cara_pembayaran_koperasi WHERE id = ' + id;
         const res = await fetchData<%=rnd%>(sql);
         
         if (res.length > 0) {
@@ -497,6 +543,13 @@ boolean isAdmin = (toko == null);
 
             const isMasukHutang = (data.masuk_sebagai_hutang === true || data.masuk_sebagai_hutang === 'true' || data.masuk_sebagai_hutang === 't');
             document.getElementById('inputMasukSebagaiHutang<%=rnd%>').checked = isMasukHutang;
+
+            // SQL sudah pakai COALESCE(ada_kembalian, nama ILIKE '%tunai%') jadi nilainya sudah final
+            // (tidak perlu fallback lagi di sini) -- begitu form Ubah dibuka, berhenti auto-mengikuti
+            // field Nama (nilai yang dimuat inilah sumber kebenarannya, bukan diturunkan ulang).
+            const isKembalian = (data.ada_kembalian === true || data.ada_kembalian === 'true' || data.ada_kembalian === 't');
+            document.getElementById('inputAdaKembalian<%=rnd%>').checked = isKembalian;
+            kembalianDisentuhManual<%=rnd%> = true;
 
             const isAktif = (data.aktif === null || data.aktif === true || data.aktif === 'true' || data.aktif === 't');
             const chkAktif = document.getElementById('inputStatusAktif<%=rnd%>');

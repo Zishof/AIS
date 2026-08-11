@@ -4355,7 +4355,8 @@ public class KantinHelper {
 
 			java.sql.PreparedStatement ps = conn.prepareStatement(
 					"SELECT id, COALESCE(kode,''), nama, COALESCE(keterangan,''), manual, online, "
-							+ "COALESCE(memotong_deposit,false), COALESCE(masuk_sebagai_hutang,false), COALESCE(aktif,true) "
+							+ "COALESCE(memotong_deposit,false), COALESCE(masuk_sebagai_hutang,false), COALESCE(aktif,true), "
+							+ "COALESCE(ada_kembalian, nama ILIKE '%tunai%') "
 							+ "FROM koperasi.cara_pembayaran_koperasi" + where + " ORDER BY nama ASC LIMIT ? OFFSET ?");
 			int idx = 1;
 			if (!keyword.isEmpty()) {
@@ -4379,6 +4380,7 @@ public class KantinHelper {
 				j.put("memotongDeposit", rs.getBoolean(7));
 				j.put("masukSebagaiHutang", rs.getBoolean(8));
 				j.put("aktif", rs.getBoolean(9));
+				j.put("adaKembalian", rs.getBoolean(10));
 				arr.put(j);
 			}
 			rs.close();
@@ -4436,6 +4438,9 @@ public class KantinHelper {
 			cara.setOnline(request.optBoolean("online", false));
 			cara.setMemotongDeposit(Boolean.valueOf(request.optBoolean("memotongDeposit", false)));
 			cara.setMasukSebagaiHutang(Boolean.valueOf(request.optBoolean("masukSebagaiHutang", false)));
+			if (request.has("adaKembalian")) {
+				cara.setAdaKembalian(request.isNull("adaKembalian") ? null : Boolean.valueOf(request.optBoolean("adaKembalian")));
+			}
 			cara.setAktif(!request.has("aktif") || request.optBoolean("aktif", true));
 
 			session.beginTransaction();
@@ -9555,8 +9560,15 @@ public class KantinHelper {
 	 * @param request payload: {@code toko_id} (wajib utk admin global, diabaikan utk pedagang/kasir),
 	 *                {@code id_member} (opsional -- tanpa ini, aturan yg menyasar member spesifik
 	 *                otomatis tidak berlaku, sama spt kasir belum pilih member di JSP/ZK), {@code
-	 *                items} (array {@code {id, harga, jumlah}} -- id = id {@link Produk}, harga =
-	 *                harga satuan yg dipakai di keranjang saat ini, jumlah = qty).
+	 *                hanya_aturan_id} (opsional, level-request -- default bila item tak menyertakan
+	 *                miliknya sendiri, lihat di bawah), {@code items} (array {@code {id, harga, jumlah,
+	 *                hanya_aturan_id}} -- id = id {@link Produk}, harga = harga satuan yg dipakai di
+	 *                keranjang saat ini, jumlah = qty, {@code hanya_aturan_id} OPSIONAL PER BARIS --
+	 *                gap-closure "Aktivasi Manual": kosongkan utk baris auto-apply biasa (aturan
+	 *                {@code aktivasiManual=true} dikecualikan), isi dgn id {@code AturanDiskon} kalau
+	 *                kasir sudah memilih promo manual utk baris itu lewat picker "Promo" (lihat
+	 *                {@link #diskonManualList}) -- 1 keranjang boleh campur baris auto &amp; manual
+	 *                dalam SATU panggilan ini).
 	 * @param hasil   diisi {@code status="00"}, {@code items} (array SEJAJAR urutan input, masing2
 	 *                {@code {id, diskon, cashback, aturanDiskon, berlakuPerHariDanPerToko}}).
 	 */
@@ -9969,15 +9981,24 @@ public class KantinHelper {
 	}
 
 	/**
-	 * @param hanyaAturanId bila {@code null} (jalur normal/auto-apply): aturan {@code
-	 *                      aktivasiManual=true} DIKECUALIKAN, ambil aturan pertama yang eligible per
-	 *                      baris. Bila DIISI (kasir sudah pilih 1 promo manual lewat picker, lihat
+	 * @param hanyaAturanIdDefault nilai default bila item TIDAK menyertakan {@code hanya_aturan_id}
+	 *                      sendiri (lihat javadoc per-item di bawah) -- biasanya {@code null} (auto-apply
+	 *                      utk seluruh keranjang, dipakai {@link #diskonEvaluasi} apa adanya).
+	 *                      <p>Per-item {@code hanya_aturan_id} SENGAJA didukung (bukan cuma satu nilai
+	 *                      global) supaya SATU keranjang boleh berisi CAMPURAN baris auto-apply dan
+	 *                      baris promo-manual-terpilih dalam SATU panggilan (mis. kasir sudah pilih
+	 *                      promo manual utk sebagian baris, baris lain tetap auto) -- tanpa ini,
+	 *                      Electron/Flutter terpaksa memanggil aksi ini berkali-kali lalu
+	 *                      menggabung hasil secara manual di klien, rawan drift. Per baris: {@code null}
+	 *                      (atau field tak ada) = jalur normal/auto-apply, aturan {@code
+	 *                      aktivasiManual=true} DIKECUALIKAN, ambil aturan pertama yang eligible. Bila
+	 *                      DIISI (kasir sudah pilih 1 promo manual lewat picker, lihat
 	 *                      {@link #diskonManualList}): HANYA hitung aturan dgn id itu (terlepas dari
 	 *                      flag {@code aktivasiManual}-nya), pakai mesin hitung yang SAMA PERSIS
 	 *                      (persentase/nominal/batas maksimal/kumulatif per-hari).
 	 */
 	private static JSONArray evaluasiDiskonItems(java.sql.Connection conn, Long tokoId, Long memberId,
-			JSONArray items, Long hanyaAturanId) throws Exception {
+			JSONArray items, Long hanyaAturanIdDefault) throws Exception {
 		{
 			java.util.LinkedHashSet<Long> produkIdSet = new java.util.LinkedHashSet<Long>();
 			for (int i = 0; i < items.length(); i++) {
@@ -10045,11 +10066,14 @@ public class KantinHelper {
 				double harga = it.optDouble("harga", 0);
 				double jumlah = it.optDouble("jumlah", 0);
 				double itemTotal = harga * jumlah;
+				Long hanyaAturanIdItem = it.isNull("hanya_aturan_id")
+						? hanyaAturanIdDefault
+						: Long.valueOf((it.get("hanya_aturan_id") + "").trim());
 
 				java.util.Map<String, Object> applied = null;
 				for (java.util.Map<String, Object> r : rules) {
-					if (hanyaAturanId != null) {
-						if (!hanyaAturanId.equals(r.get("id"))) {
+					if (hanyaAturanIdItem != null) {
+						if (!hanyaAturanIdItem.equals(r.get("id"))) {
 							continue;
 						}
 					} else if (Boolean.TRUE.equals(r.get("aktivasiManual"))) {
