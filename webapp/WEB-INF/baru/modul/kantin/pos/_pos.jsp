@@ -1419,13 +1419,15 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
 
         grid.innerHTML = '<div class="col-12 text-center py-5"><div class="spinner-border text-primary"></div></div>';
 
-        // Gap-closure "Jenis Item" (Produk vs Bahan Baku) -- bahan baku TIDAK boleh dijual langsung
-        // lewat Kasir, hanya dipakai via resep produk lain. "<>" polos TIDAK match NULL di Postgres
-        // (produk lama sebelum kolom ini ada), jadi WAJIB pola OR IS NULL.
-        let sqlQuery = "SELECT a.id, a.kode, a.nama, a.hargajual, COALESCE(a.stok,0) AS stok, " +
+        // Gap-closure "Jenis Item" (Produk vs Bahan Baku/Ekstra) -- bahan baku & ekstra TIDAK boleh
+        // dijual langsung lewat Kasir sbg baris mandiri, hanya dipakai via resep/picker ekstra produk
+        // lain. "<>" polos TIDAK match NULL di Postgres (produk lama sebelum kolom ini ada), jadi
+        // WAJIB pola OR IS NULL. `ekstra_pilihan` ikut diambil supaya addToCart tahu apa produk ini
+        // punya ekstra yg bisa dipilih (buka modal picker) sebelum push ke keranjang.
+        let sqlQuery = "SELECT a.id, a.kode, a.nama, a.hargajual, COALESCE(a.stok,0) AS stok, a.ekstra_pilihan, " +
                        "(SELECT MAX(persentase) FROM koperasi.aturan_diskon d WHERE d.aktif=true AND (d.produk IS NULL OR d.produk = a.id) AND (d.toko IS NULL OR d.toko = a.toko)) AS diskon_persen " +
                        "FROM koperasi.produk a WHERE a.aktif = true AND a.toko = " + currentTokoId<%=rnd%> +
-                       " AND (a.jenis_item IS NULL OR a.jenis_item <> 'BAHAN') ";
+                       " AND (a.jenis_item IS NULL OR a.jenis_item NOT IN ('BAHAN','EKSTRA')) ";
         if (currentKategoriId<%=rnd%> !== '') {
             sqlQuery += " AND a.jenis_produk = " + currentKategoriId<%=rnd%> + " ";
         }

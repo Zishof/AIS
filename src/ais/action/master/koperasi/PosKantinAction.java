@@ -1386,13 +1386,15 @@ public class PosKantinAction extends GenericAutowireComposer {
             return;
         }
         String kw = txtCariProduk == null ? "" : txtCariProduk.getValue().trim().replace("'", "''");
-        // Gap-closure "Jenis Item" (Produk vs Bahan Baku) -- bahan baku TIDAK boleh dijual langsung
-        // lewat Kasir, hanya dipakai via resep produk lain. `<>` polos TIDAK match NULL di Postgres
+        // Gap-closure "Jenis Item" (Produk vs Bahan Baku/Ekstra) -- bahan baku & ekstra TIDAK boleh
+        // dijual langsung lewat Kasir sbg baris mandiri. `<>` polos TIDAK match NULL di Postgres
         // (produk lama sebelum kolom ini ada), jadi WAJIB pola OR IS NULL supaya tidak diam-diam
         // menghilangkan seluruh katalog lama dari Kasir -- lihat JavaDoc Produk.getJenisItem().
+        // Catatan: picker "Pilih Ekstra" (mis. JSP/Electron/Flutter Kasir) belum dibangun di layar
+        // ZK ini pada batch ini -- produk berekstra tetap bisa dijual di sini TANPA opsi ekstra.
         StringBuilder sql = new StringBuilder("SELECT id, kode, nama, COALESCE(hargajual,0), COALESCE(stok,0) "
                 + "FROM koperasi.produk WHERE aktif = true AND toko = " + tokoIdAktif
-                + " AND (jenis_item IS NULL OR jenis_item <> 'BAHAN')");
+                + " AND (jenis_item IS NULL OR jenis_item NOT IN ('BAHAN','EKSTRA'))");
         if (kategoriFilterId != null) {
             sql.append(" AND jenis_produk = ").append(kategoriFilterId);
         }

@@ -437,4 +437,29 @@ public class Produk extends GeneralValueObject {
 		this.jenisItem = jenisItem;
 	}
 
+	private String ekstraPilihan;
+
+	/**
+	 * Gap-closure "Produk Ekstra" (modifier/add-on) -- HANYA berlaku pada baris produk DASAR
+	 * (jenisItem {@code "JUAL"}): JSON array berisi id-id produk lain yang boleh dipilih pembeli
+	 * sebagai ekstra saat memesan produk ini (mis. {@code [601,602,603]}). Setiap id di dalamnya
+	 * SEHARUSNYA menunjuk ke produk dengan {@code jenisItem = "EKSTRA"}, tapi tidak divalidasi
+	 * server-side -- form admin yang menjaga ini (picker hanya menampilkan produk ber-jenisItem
+	 * EKSTRA).
+	 *
+	 * <p><b>Beda dengan {@link #getBahanBaku()}</b>: {@code bahanBaku} menyimpan SNAPSHOT
+	 * {@code {produk,nama,qty,harga}} (HPP harus beku sejak resep dibuat), sedangkan field ini
+	 * HANYA menyimpan id mentah -- harga ekstra yang ditampilkan/dibayar pembeli SELALU diambil
+	 * live dari {@code hargaJual} milik produk ekstra itu sendiri saat checkout, tidak pernah
+	 * dibekukan di sini.</p>
+	 */
+	@Column(name = "ekstra_pilihan", columnDefinition = "text", nullable = true)
+	public String getEkstraPilihan() {
+		return ekstraPilihan;
+	}
+
+	public void setEkstraPilihan(String ekstraPilihan) {
+		this.ekstraPilihan = ekstraPilihan;
+	}
+
 }

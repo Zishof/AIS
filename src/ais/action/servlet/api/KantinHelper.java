@@ -145,6 +145,65 @@ public class KantinHelper {
 	 *         DALAM loop per baris item TIDAK merambat (ditangkap &amp; dicatat per baris, lihat di
 	 *         atas), konsisten dengan perilaku method aslinya sebelum diekstrak.
 	 */
+	/**
+	 * Gap-closure "Produk Ekstra" -- meratakan {@code transaksi} (yang tiap itemnya BOLEH punya key
+	 * opsional {@code ekstra}: array {@code {id,kode,nama,harga,jumlah}}, {@code jumlah} = pengali
+	 * PER-UNIT induk) jadi {@code JSONArray} BARU berisi baris flat sejajar dgn baris induknya,
+	 * SUPAYA logic yang sudah generic/per-produk-id (cek kadaluarsa, lock stok,
+	 * {@link #hitungTotalDiskonCashback}, {@code BahanBakuUtil.konsumsiBahanBaku}, recompute stok)
+	 * bisa dipakai APA ADANYA tanpa tahu konsep "ekstra" sama sekali -- lihat memory roadmap Produk
+	 * Ekstra. TIDAK PERNAH memutasi {@code transaksi} asli (dikembalikan array baru) -- pemanggil
+	 * checkout MASIH perlu {@code transaksi} nested asli utk {@code simpanRinci}, satu-satunya
+	 * tempat yang perlu paham nesting (bikin baris Pembelian/DraftPembelian ekstra + set indukId).
+	 *
+	 * <p>Item TANPA key {@code ekstra} (atau kosong) diteruskan apa adanya, TIDAK diubah -- ini yang
+	 * menjamin transaksi checkout lama (99% kasus hari ini) 100% identik perilakunya, nol regresi.</p>
+	 *
+	 * @return array baru; entry ekstra dapat {@code diskon=0}/{@code cashback=0} (ekstra SENGAJA
+	 *         belum independently discount-eligible di batch ini).
+	 */
+	private static JSONArray ratakanTransaksiDenganEkstra(JSONArray transaksi) {
+		JSONArray hasil = new JSONArray();
+		for (int i = 0; i < transaksi.length(); i++) {
+			try {
+				JSONObject item = transaksi.getJSONObject(i);
+				hasil.put(item);
+				if (item.isNull("ekstra")) {
+					continue;
+				}
+				JSONArray ekstraArr = item.optJSONArray("ekstra");
+				if (ekstraArr == null || ekstraArr.length() == 0) {
+					continue;
+				}
+				double jumlahInduk = item.isNull("jumlah") ? 1.0
+						: Double.parseDouble((item.get("jumlah") + "").trim());
+				for (int k = 0; k < ekstraArr.length(); k++) {
+					try {
+						JSONObject e = ekstraArr.getJSONObject(k);
+						double jumlahEkstra = e.isNull("jumlah") ? 1.0
+								: Double.parseDouble((e.get("jumlah") + "").trim());
+						JSONObject rata = new JSONObject();
+						rata.put("id", e.isNull("id") ? JSONObject.NULL : e.get("id"));
+						rata.put("kode", e.optString("kode", "_"));
+						rata.put("nama", e.optString("nama", "_"));
+						rata.put("harga", e.isNull("harga") ? 0.0 : Double.parseDouble((e.get("harga") + "").trim()));
+						rata.put("jumlah", jumlahInduk * jumlahEkstra);
+						rata.put("diskon", 0.0);
+						rata.put("cashback", 0.0);
+						hasil.put(rata);
+					} catch (Exception eEkstra) {
+						ais.common.ErrorAuditUtil.record(eEkstra,
+								"auto-audit src/ais/action/servlet/api/KantinHelper.java:ratakanTransaksiDenganEkstra:ekstra");
+					}
+				}
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e,
+						"auto-audit src/ais/action/servlet/api/KantinHelper.java:ratakanTransaksiDenganEkstra");
+			}
+		}
+		return hasil;
+	}
+
 	private static TotalHitung hitungTotalDiskonCashback(JSONObject jsonObject, JSONArray transaksi,
 			String auditTagSuffix) throws Exception {
 		double total = jsonObject.isNull("pajak") ? 0.0
@@ -400,6 +459,13 @@ public class KantinHelper {
 									.createCriteria(DraftPembelianAnggotaKoperasi.class)
 									.add(Restrictions.idEq(iddraftPembelianAnggotaKoperasi)).uniqueResult());
 					JSONArray transaksi = jsonObject.getJSONArray("transaksi");
+					// Gap-closure "Produk Ekstra" -- versi RATA dipakai oleh SEMUA logic generic per-baris
+					// di bawah (cek kadaluarsa, lock stok, hitung total, konsumsi bahan baku, recompute
+					// stok) supaya ekstra ikut tervalidasi/terhitung/terdekremen persis spt baris biasa
+					// TANPA satu pun dari method itu perlu tahu konsep "ekstra" -- lihat JavaDoc
+					// ratakanTransaksiDenganEkstra. `transaksi` NESTED ASLI tetap dipakai di simpanRinci
+					// (satu-satunya tempat yang perlu bikin baris Pembelian ekstra + set indukId).
+					JSONArray transaksiRata = ratakanTransaksiDenganEkstra(transaksi);
 
 					// Fase 0 (2026-07-26, gap analisis PDF klien "Kadaluarsa"): produk yang SUDAH lewat
 					// tanggal kadaluarsa (Produk.tanggalExpired) WAJIB diblokir keras -- BEDA dgn kekurangan
@@ -408,7 +474,7 @@ public class KantinHelper {
 					// data stok historis blm bersih. Field ini sudah ada (dipakai laporan "akan/sudah
 					// kadaluarsa" di LaporanKantinUtil) tapi SEBELUM INI tidak pernah dicek sama sekali di
 					// jalur checkout -- kasir bisa saja menjual produk kadaluarsa tanpa peringatan apa pun.
-					List<String> produkKadaluarsa = cekProdukKadaluarsa(session, transaksi);
+					List<String> produkKadaluarsa = cekProdukKadaluarsa(session, transaksiRata);
 					if (!produkKadaluarsa.isEmpty()) {
 						hasil.put("status", "91");
 						hasil.put("description", "Produk berikut sudah melewati tanggal kadaluarsa dan tidak boleh dijual: "
@@ -433,7 +499,7 @@ public class KantinHelper {
 					// override per-produk Produk.izinkanJualMinusStok=false WAJIB diblokir keras di sini
 					// -- admin sengaja mengunci produk itu, kekurangannya TIDAK boleh diam-diam dilewati
 					// spt gerbang toko default.
-					HasilValidasiStok stokKurang = validasiStokCukupDenganLock(transaksi);
+					HasilValidasiStok stokKurang = validasiStokCukupDenganLock(transaksiRata);
 					if (stokKurang != null && stokKurang.wajibBlokir != null && !stokKurang.wajibBlokir.isEmpty()) {
 						StringBuilder pesanWajibBlokir = new StringBuilder();
 						for (String s : stokKurang.wajibBlokir) {
@@ -459,7 +525,7 @@ public class KantinHelper {
 								"auto-audit src/ais/action/servlet/api/KantinHelper.java:stokKurangDilewati");
 					}
 
-					TotalHitung th = hitungTotalDiskonCashback(jsonObject, transaksi, "bayarHitungTotal");
+					TotalHitung th = hitungTotalDiskonCashback(jsonObject, transaksiRata, "bayarHitungTotal");
 					Double total = Double.valueOf(th.total);
 					Double totalDiskon = Double.valueOf(th.totalDiskon);
 					Double totalCashback = Double.valueOf(th.totalCashback);
@@ -637,7 +703,7 @@ public class KantinHelper {
 					// Fail-safe: kegagalan di sini tidak boleh menggagalkan transaksi penjualan. ===
 					try {
 						java.util.Set<Long> bahanTerpakai = ais.action.master.inventory.BahanBakuUtil
-								.konsumsiBahanBaku(session, transaksi, toko, currentWaktu, pembelianAnggotaKoperasi);
+								.konsumsiBahanBaku(session, transaksiRata, toko, currentWaktu, pembelianAnggotaKoperasi);
 						for (Long bahanId : bahanTerpakai) {
 							try {
 								ais.action.master.inventory.StokKantinUtil.recomputeStokProduk(bahanId);
@@ -660,9 +726,9 @@ public class KantinHelper {
 					// checkout konsisten. Fail-safe, pola identik dengan blok bahan baku di atas. ===
 					try {
 						java.util.Set<Long> produkTerjual = new java.util.HashSet<Long>();
-						for (int i = 0; i < transaksi.length(); i++) {
+						for (int i = 0; i < transaksiRata.length(); i++) {
 							try {
-								JSONObject t = transaksi.getJSONObject(i);
+								JSONObject t = transaksiRata.getJSONObject(i);
 								if (!t.isNull("id")) {
 									produkTerjual.add(Long.valueOf(Long.parseLong((t.get("id") + "").trim())));
 								}
@@ -1030,7 +1096,12 @@ public class KantinHelper {
 					}
 
 					JSONArray transaksi = jsonObject.getJSONArray("transaksi");
-					TotalHitung th = hitungTotalDiskonCashback(jsonObject, transaksi, "draftBayarHitungTotal");
+					// Gap-closure "Produk Ekstra" -- total HARUS ikut hitung harga ekstra; tidak ada cek
+					// stok/kadaluarsa/BOM di draft_bayar() (memang sengaja, lihat JavaDoc kelas ini) jadi
+					// hanya hitungTotalDiskonCashback yang perlu versi rata di sini. `transaksi` NESTED
+					// asli tetap dipakai simpanRinci di bawah (bikin baris DraftPembelian ekstra + indukId).
+					JSONArray transaksiRata = ratakanTransaksiDenganEkstra(transaksi);
+					TotalHitung th = hitungTotalDiskonCashback(jsonObject, transaksiRata, "draftBayarHitungTotal");
 					Double total = Double.valueOf(th.total);
 					Double totalDiskon = Double.valueOf(th.totalDiskon);
 					Double totalCashback = Double.valueOf(th.totalCashback);
@@ -2320,6 +2391,12 @@ public class KantinHelper {
 			if (request.has("jenis_item")) {
 				String jenisItem = request.optString("jenis_item", "JUAL").trim().toUpperCase();
 				p.setJenisItem(jenisItem.isEmpty() ? "JUAL" : jenisItem);
+			}
+			// Gap-closure "Produk Ekstra" -- JSON array id mentah (mis. "[601,602]"), disimpan apa
+			// adanya, TIDAK di-snapshot spt bahan_baku -- lihat JavaDoc Produk.getEkstraPilihan().
+			if (request.has("ekstra_pilihan")) {
+				p.setEkstraPilihan(request.isNull("ekstra_pilihan") ? null
+						: request.getJSONArray("ekstra_pilihan").toString());
 			}
 
 			// Bahan Baku (Resep) & HPP otomatis -- gap-closure Desktop/Android, padanan JSP

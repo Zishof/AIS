@@ -124,6 +124,7 @@ public class DraftPembelian extends GeneralValueObject {
 	private Double cashback;
 	private AturanDiskon aturanDiskon;
 	private Boolean terlayani;
+	private Long indukId;
 
 	private Pembelian lunas;
 
@@ -525,6 +526,23 @@ public class DraftPembelian extends GeneralValueObject {
 
 	public void setTerlayani(Boolean terlayani) {
 		this.terlayani = terlayani;
+	}
+
+	/**
+	 * Gap-closure "Produk Ekstra" -- sama makna dgn {@link Pembelian#getIndukId()}, TAPI di sini
+	 * nilainya menunjuk ke {@code id} baris {@link DraftPembelian} LAIN (bukan {@code Pembelian}),
+	 * karena baris ini masih berupa draft/tertahan. Saat draft difinalisasi
+	 * ({@code PembelianAnggotaKoperasi.simpanRinci}, cabang draft-finalization), nilai ini di-remap
+	 * 2-pass jadi {@code Pembelian.indukId} yang menunjuk ke {@code Pembelian} baru hasil finalisasi
+	 * induknya -- lihat JavaDoc di sana.
+	 */
+	@Column(name = "induk_id")
+	public Long getIndukId() {
+		return indukId;
+	}
+
+	public void setIndukId(Long indukId) {
+		this.indukId = indukId;
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })

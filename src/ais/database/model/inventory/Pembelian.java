@@ -126,6 +126,7 @@ public class Pembelian extends GeneralValueObject {
 	private Double cashback;
 	private AturanDiskon aturanDiskon;
 	private Boolean terlayani;
+	private Long indukId;
 
 	public Pembelian() {
 	}
@@ -538,6 +539,23 @@ public class Pembelian extends GeneralValueObject {
 
 	public void setTerlayani(Boolean terlayani) {
 		this.terlayani = terlayani;
+	}
+
+	/**
+	 * Gap-closure "Produk Ekstra" -- {@code null} (default, SEMUA baris lama) berarti baris biasa,
+	 * persis perilaku hari ini. Terisi berarti baris ini adalah Ekstra yang dipilih pembeli, dan
+	 * nilainya adalah {@code id} baris {@link Pembelian} LAIN (induknya) di bill yang sama --
+	 * SENGAJA field polos (bukan relasi {@code @ManyToOne} self-reference) karena tidak ada
+	 * kebutuhan navigasi object graph, hanya filter/grouping SQL di struk &amp; laporan (lihat
+	 * {@code PosApi.prosesDetailTransaksi}, {@code ORDER BY COALESCE(induk_id,id),id}).
+	 */
+	@Column(name = "induk_id")
+	public Long getIndukId() {
+		return indukId;
+	}
+
+	public void setIndukId(Long indukId) {
+		this.indukId = indukId;
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)

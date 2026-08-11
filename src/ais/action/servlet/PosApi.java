@@ -630,6 +630,19 @@ public class PosApi extends HttpServlet {
 				} else {
 					j.put("bahanBaku", new JSONArray());
 				}
+				// Gap-closure "Produk Ekstra" -- SELALU dikirim (pola sama persis bahanBaku/jenisItem
+				// di atas) supaya klien bisa resolve/bangun picker "Pilih Ekstra" dari list yang sudah
+				// di memori tanpa call server kedua.
+				String ekstraPilihanMentah = str(p.getEkstraPilihan()).trim();
+				if (!ekstraPilihanMentah.isEmpty() && !ekstraPilihanMentah.equals("[]")) {
+					try {
+						j.put("ekstraPilihan", new JSONArray(ekstraPilihanMentah));
+					} catch (Exception eEkstraParse) {
+						j.put("ekstraPilihan", new JSONArray());
+					}
+				} else {
+					j.put("ekstraPilihan", new JSONArray());
+				}
 				produkArr.put(j);
 
 				if (jp != null && jp.getId() != null) {
@@ -1002,6 +1015,13 @@ public class PosApi extends HttpServlet {
 					ji.put("diskon", dp.getDiskon() == null ? 0 : dp.getDiskon());
 					ji.put("cashback", dp.getCashback() == null ? 0 : dp.getCashback());
 					ji.put("aturanDiskon", dp.getAturanDiskon() == null ? JSONObject.NULL : dp.getAturanDiskon().getId());
+					// Gap-closure "Produk Ekstra" -- draftItemId = id baris DraftPembelian INI SENDIRI
+					// (BEDA dari "id" di atas yg id Produk), dibutuhkan klien utk mencocokkan "indukId"
+					// baris lain ke baris mana saat merekonstruksi keranjang ber-ekstra dari draft yang
+					// ditahan. indukId null = baris dasar, terisi = baris ekstra (nilainya draftItemId
+					// baris induknya).
+					ji.put("draftItemId", dp.getId());
+					ji.put("indukId", dp.getIndukId() == null ? JSONObject.NULL : dp.getIndukId());
 					items.put(ji);
 				}
 				j.put("items", items);
@@ -1974,10 +1994,16 @@ public class PosApi extends HttpServlet {
 			rsHeader.close(); psHeader.close();
 
 			if (punyaHeaderKelompok) {
+				// Gap-closure "Produk Ekstra" -- ORDER BY COALESCE(induk_id,id),id mengelompokkan baris
+				// induk lalu ekstra-nya tepat sesudahnya (BUKAN urutan id mentah, yang bisa salah urut
+				// krn baris ekstra bisa punya id lebih kecil dari baris induk LAIN yg tak terkait) --
+				// klien (struk/riwayat) cukup render indent saat indukId != null, tanpa perlu grouping
+				// sendiri.
 				java.sql.PreparedStatement psItem = conn.prepareStatement(
-						"SELECT COALESCE(pr.nama,''), p.qty, COALESCE(p.hargasatuan, (p.total / NULLIF(p.qty,0)), 0), COALESCE(p.diskon,0), COALESCE(p.cashback,0), p.produk "
+						"SELECT COALESCE(pr.nama,''), p.qty, COALESCE(p.hargasatuan, (p.total / NULLIF(p.qty,0)), 0), COALESCE(p.diskon,0), COALESCE(p.cashback,0), p.produk, p.induk_id "
 								+ "FROM koperasi.pembelian p LEFT JOIN koperasi.produk pr ON p.produk = pr.id "
-								+ "WHERE p.pembelian_anggota_koperasi = ? AND p.toko = ? ORDER BY p.id ASC");
+								+ "WHERE p.pembelian_anggota_koperasi = ? AND p.toko = ? "
+								+ "ORDER BY COALESCE(p.induk_id, p.id) ASC, p.id ASC");
 				psItem.setLong(1, idTransaksi);
 				psItem.setLong(2, tokoId.longValue());
 				java.sql.ResultSet rsItem = psItem.executeQuery();
@@ -1991,6 +2017,8 @@ public class PosApi extends HttpServlet {
 					j.put("cashback", rsItem.getDouble(5));
 					long produkIdItem = rsItem.getLong(6);
 					j.put("produkId", rsItem.wasNull() ? JSONObject.NULL : produkIdItem);
+					long indukIdItem = rsItem.getLong(7);
+					j.put("indukId", rsItem.wasNull() ? JSONObject.NULL : indukIdItem);
 					item.put(j);
 				}
 				rsItem.close(); psItem.close();

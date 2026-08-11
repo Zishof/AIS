@@ -150,32 +150,12 @@ public class DraftPembelianAnggotaKoperasi extends GeneralValueObject {
 						: Double.parseDouble((objectTransaksi.get("diskon") + "").trim());
 				Double cashbackBarang = objectTransaksi.isNull("cashback") ? 0.0
 						: Double.parseDouble((objectTransaksi.get("cashback") + "").trim());
-				Produk produk = (Produk)
-
-				(idBarang != null && !idBarang.trim().isEmpty() ? GeneralValueObject.ambilData(Produk.class, idBarang) :
-
-						ConstantValues
-								.simpleObject(
-										session.createCriteria(Produk.class).add(Restrictions.eq("toko", toko))
-												.add(Restrictions.ilike("nama", namaBarang, MatchMode.EXACT))
-												.add(Restrictions.ilike("kode", kodeBarang, MatchMode.EXACT)),
-										Produk.class));
+				Produk produk = PembelianAnggotaKoperasi.resolveOrCreateProduk(session, idBarang, kodeBarang,
+						namaBarang, hargaBarang, toko);
 
 				AturanDiskon aturanDiskon = (objectTransaksi.isNull("aturanDiskon") ? null
 						: (AturanDiskon) GeneralValueObject.ambilData(AturanDiskon.class,
 								(objectTransaksi.get("aturanDiskon") + "").trim()));
-
-				if (produk == null) {
-					produk = new Produk();
-					produk.setNama(namaBarang);
-					produk.setKode(kodeBarang);
-					produk.setHargaBeli(hargaBarang);
-					produk.setHargaJual(hargaBarang);
-					produk.setToko(toko);
-					session.getTransaction().begin();
-					session.save(produk);
-					session.getTransaction().commit();
-				}
 
 				DraftPembelian pembelian = new DraftPembelian();
 				pembelian.setDraftPembelianAnggotaKoperasi(this);
@@ -199,6 +179,64 @@ public class DraftPembelianAnggotaKoperasi extends GeneralValueObject {
 				Common.insertProperty(DraftPembelian.class, pembelian, data, "", 1, "siswa", "calonSiswa", "mahasiswa",
 						"biodataCalonMahasiswa", "pembelianAnggotaKoperasi", "tbmuser", "kodePembayaranOnline", "toko");
 				arrayTransaksi.put(data);
+
+				// Gap-closure "Produk Ekstra" -- sama pola persis dgn PembelianAnggotaKoperasi.simpanRinci
+				// (lihat JavaDoc di sana), TAPI indukId di sini menunjuk ke id DraftPembelian INDUK ini
+				// (bukan Pembelian) -- di-remap 2-pass jadi id Pembelian yg benar saat draft difinalisasi
+				// (lihat PembelianAnggotaKoperasi.simpanRinci cabang draft-finalization).
+				if (!objectTransaksi.isNull("ekstra")) {
+					JSONArray ekstraArr = objectTransaksi.optJSONArray("ekstra");
+					for (int k = 0; ekstraArr != null && k < ekstraArr.length(); k++) {
+						try {
+							JSONObject e = ekstraArr.getJSONObject(k);
+							String idEkstra = e.isNull("id") ? null : e.get("id") + "";
+							String kodeEkstra = e.isNull("kode") ? "_" : e.get("kode") + "";
+							String namaEkstra = e.isNull("nama") ? "_" : e.get("nama") + "";
+							Double hargaEkstra = e.isNull("harga") ? 0.0
+									: Double.parseDouble((e.get("harga") + "").trim());
+							Double jumlahEkstra = e.isNull("jumlah") ? 1.0
+									: Double.parseDouble((e.get("jumlah") + "").trim());
+
+							Produk produkEkstra = PembelianAnggotaKoperasi.resolveOrCreateProduk(session, idEkstra,
+									kodeEkstra, namaEkstra, hargaEkstra, toko);
+
+							DraftPembelian pembelianEkstra = new DraftPembelian();
+							pembelianEkstra.setDraftPembelianAnggotaKoperasi(this);
+							pembelianEkstra.setAnggotaKoperasi(this.getAnggotaKoperasi());
+							pembelianEkstra.setKode(kodeUnik + "-" + kodeBarang + "-" + kodeEkstra);
+							pembelianEkstra.setNama(namaEkstra);
+							pembelianEkstra.setKodePembayaranOnline(kodePembayaranOnline);
+							pembelianEkstra.setQty(jumlahBarang * jumlahEkstra);
+							pembelianEkstra.setDiskon(0.0);
+							pembelianEkstra.setCashback(0.0);
+							pembelianEkstra.setHargaSatuan(hargaEkstra);
+							pembelianEkstra.setProduk(produkEkstra);
+							pembelianEkstra.setToko(toko);
+							pembelianEkstra.setWaktu(currentWaktu);
+							pembelianEkstra.setIndukId(pembelian.getId());
+							session.getTransaction().begin();
+							session.save(pembelianEkstra);
+							session.getTransaction().commit();
+
+							JSONObject dataEkstra = new JSONObject();
+							Common.insertProperty(DraftPembelian.class, pembelianEkstra, dataEkstra, "", 1, "siswa",
+									"calonSiswa", "mahasiswa", "biodataCalonMahasiswa", "pembelianAnggotaKoperasi",
+									"tbmuser", "kodePembayaranOnline", "toko");
+							arrayTransaksi.put(dataEkstra);
+						} catch (Exception eEkstra) {
+							ais.common.ErrorAuditUtil.record(eEkstra,
+									"auto-audit src/ais/database/model/koperasi/DraftPembelianAnggotaKoperasi.java:simpanRinci:ekstra");
+							try {
+								if (session.getTransaction() != null && session.getTransaction().isActive()) {
+									session.getTransaction().rollback();
+								}
+							} catch (Exception eRollback) {
+								ais.common.ErrorAuditUtil.record(eRollback,
+										"auto-audit(rollback) src/ais/database/model/koperasi/DraftPembelianAnggotaKoperasi.java:simpanRinci:ekstra");
+							}
+						}
+					}
+				}
 
 			} catch (Exception e) {
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/koperasi/DraftPembelianAnggotaKoperasi.java:200");

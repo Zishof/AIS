@@ -169,7 +169,23 @@ public class PembelianAnggotaKoperasi extends GeneralValueObject {
 
 			List<DraftPembelian> draftPembelians = session.createCriteria(DraftPembelian.class)
 					.add(Restrictions.eq("draftPembelianAnggotaKoperasi", draftPembelianAnggotaKoperasi)).list();
+
+			// Gap-closure "Produk Ekstra" -- REMAP 2-PASS, BUKAN 1 loop spt sebelumnya: baris ekstra
+			// (DraftPembelian.indukId != null) menunjuk ke id DraftPembelian LAIN, yang begitu
+			// difinalisasi jadi Pembelian BARU dgn id BARU -- indukId-nya harus di-remap ke id BARU
+			// itu, bukan disalin mentah. Pass 1 memproses SEMUA baris dasar (indukId == null) dulu &
+			// mencatat peta id-lama->id-baru; pass 2 baru memproses baris ekstra memakai peta itu.
+			// SENGAJA TIDAK ditambah try/catch per-baris di sini (beda dari cabang normal-checkout di
+			// bawah) -- cabang finalisasi draft ini SUDAH all-or-nothing sejak awal (kegagalan di
+			// tengah loop merambat ke luar, ditangkap pemanggil bayar()), keputusan SADAR dipertahankan
+			// apa adanya, bukan ikut pola isolasi cabang lain tanpa sengaja.
+			java.util.Map<Long, Long> petaDraftKePembelian = new java.util.HashMap<Long, Long>();
+
+			// Pass 1: baris DASAR (indukId == null).
 			for (DraftPembelian draftPembelian : draftPembelians) {
+				if (draftPembelian.getIndukId() != null) {
+					continue;
+				}
 
 				AturanDiskon aturanDiskon = draftPembelian.getAturanDiskon();
 				Produk produk = draftPembelian.getProduk();
@@ -188,6 +204,59 @@ public class PembelianAnggotaKoperasi extends GeneralValueObject {
 				pembelian.setProduk(produk);
 				pembelian.setToko(toko);
 				pembelian.setWaktu(currentWaktu);
+				session.getTransaction().begin();
+				session.save(pembelian);
+				session.getTransaction().commit();
+
+				petaDraftKePembelian.put(draftPembelian.getId(), pembelian.getId());
+
+				JSONObject data = new JSONObject();
+				Common.insertProperty(Pembelian.class, pembelian, data, "", 1, "siswa", "calonSiswa", "mahasiswa",
+						"biodataCalonMahasiswa", "pembelianAnggotaKoperasi", "tbmuser", "kodePembayaranOnline", "toko",
+						"draftPembelian");
+				arrayTransaksi.put(data);
+
+				draftPembelian.setLunas(pembelian);
+				session.getTransaction().begin();
+				session.update(draftPembelian);
+				session.getTransaction().commit();
+			}
+
+			// Pass 2: baris EKSTRA (indukId != null) -- indukId di-remap via peta pass 1.
+			for (DraftPembelian draftPembelian : draftPembelians) {
+				if (draftPembelian.getIndukId() == null) {
+					continue;
+				}
+				Long indukPembelianId = petaDraftKePembelian.get(draftPembelian.getIndukId());
+				if (indukPembelianId == null) {
+					// Induk gagal/tak ketemu ter-map -- JANGAN fallback indukId=null (itu akan membuat
+					// baris ekstra ini keanggep baris mandiri, salah atribusi piutang/laporan). Skip +
+					// audit log, konsisten dgn semangat "no cross-line atomicity" fitur ini.
+					ais.common.ErrorAuditUtil.record(
+							new RuntimeException("draft finalize: baris ekstra draftPembelian id=" + draftPembelian.getId()
+									+ " indukId=" + draftPembelian.getIndukId() + " tidak ketemu di peta induk"),
+							"auto-audit src/ais/database/model/koperasi/PembelianAnggotaKoperasi.java:simpanRinci:draftFinalizeOrphanEkstra");
+					continue;
+				}
+
+				AturanDiskon aturanDiskon = draftPembelian.getAturanDiskon();
+				Produk produk = draftPembelian.getProduk();
+
+				Pembelian pembelian = new Pembelian();
+				pembelian.setPembelianAnggotaKoperasi(this);
+				pembelian.setAnggotaKoperasi(this.getAnggotaKoperasi());
+				pembelian.setKode(draftPembelian.getKode());
+				pembelian.setNama(draftPembelian.getNama());
+				pembelian.setKodePembayaranOnline(kodePembayaranOnline);
+				pembelian.setQty(draftPembelian.getQty());
+				pembelian.setDiskon(draftPembelian.getDiskon());
+				pembelian.setAturanDiskon(aturanDiskon);
+				pembelian.setCashback(draftPembelian.getCashback());
+				pembelian.setHargaSatuan(draftPembelian.getHargaSatuan());
+				pembelian.setProduk(produk);
+				pembelian.setToko(toko);
+				pembelian.setWaktu(currentWaktu);
+				pembelian.setIndukId(indukPembelianId);
 				session.getTransaction().begin();
 				session.save(pembelian);
 				session.getTransaction().commit();
@@ -220,33 +289,11 @@ public class PembelianAnggotaKoperasi extends GeneralValueObject {
 							: Double.parseDouble((objectTransaksi.get("diskon") + "").trim());
 					Double cashbackBarang = objectTransaksi.isNull("cashback") ? 0.0
 							: Double.parseDouble((objectTransaksi.get("cashback") + "").trim());
-					Produk produk = (Produk)
-
-					(idBarang != null && !idBarang.trim().isEmpty()
-							? GeneralValueObject.ambilData(Produk.class, idBarang)
-							:
-
-							ConstantValues.simpleObject(
-									session.createCriteria(Produk.class).add(Restrictions.eq("toko", toko))
-											.add(Restrictions.ilike("nama", namaBarang, MatchMode.EXACT))
-											.add(Restrictions.ilike("kode", kodeBarang, MatchMode.EXACT)),
-									Produk.class));
+					Produk produk = resolveOrCreateProduk(session, idBarang, kodeBarang, namaBarang, hargaBarang, toko);
 
 					AturanDiskon aturanDiskon = (objectTransaksi.isNull("aturanDiskon") ? null
 							: (AturanDiskon) GeneralValueObject.ambilData(AturanDiskon.class,
 									(objectTransaksi.get("aturanDiskon") + "").trim()));
-
-					if (produk == null) {
-						produk = new Produk();
-						produk.setNama(namaBarang);
-						produk.setKode(kodeBarang);
-						produk.setHargaBeli(hargaBarang);
-						produk.setHargaJual(hargaBarang);
-						produk.setToko(toko);
-						session.getTransaction().begin();
-						session.save(produk);
-						session.getTransaction().commit();
-					}
 
 					Pembelian pembelian = new Pembelian();
 					pembelian.setPembelianAnggotaKoperasi(this);
@@ -272,6 +319,66 @@ public class PembelianAnggotaKoperasi extends GeneralValueObject {
 							"toko", "draftPembelian");
 					arrayTransaksi.put(data);
 
+					// Gap-closure "Produk Ekstra" -- SETELAH baris induk tersimpan (punya .getId()), bikin
+					// SATU baris Pembelian per ekstra terpilih, indukId menunjuk balik ke baris induk ini.
+					// Try/catch TERPISAH dari try/catch per-item induk di atas (baris ~275) -- kegagalan 1
+					// ekstra TIDAK BOLEH rollback induk yang sudah commit, konsisten dgn filosofi "no
+					// cross-line atomicity" yang sudah dianut loop ini sejak awal (1 item transaksi gagal
+					// tidak menggagalkan item lain).
+					if (!objectTransaksi.isNull("ekstra")) {
+						JSONArray ekstraArr = objectTransaksi.optJSONArray("ekstra");
+						for (int k = 0; ekstraArr != null && k < ekstraArr.length(); k++) {
+							try {
+								JSONObject e = ekstraArr.getJSONObject(k);
+								String idEkstra = e.isNull("id") ? null : e.get("id") + "";
+								String kodeEkstra = e.isNull("kode") ? "_" : e.get("kode") + "";
+								String namaEkstra = e.isNull("nama") ? "_" : e.get("nama") + "";
+								Double hargaEkstra = e.isNull("harga") ? 0.0
+										: Double.parseDouble((e.get("harga") + "").trim());
+								Double jumlahEkstra = e.isNull("jumlah") ? 1.0
+										: Double.parseDouble((e.get("jumlah") + "").trim());
+
+								Produk produkEkstra = resolveOrCreateProduk(session, idEkstra, kodeEkstra, namaEkstra,
+										hargaEkstra, toko);
+
+								Pembelian pembelianEkstra = new Pembelian();
+								pembelianEkstra.setPembelianAnggotaKoperasi(this);
+								pembelianEkstra.setAnggotaKoperasi(this.getAnggotaKoperasi());
+								pembelianEkstra.setKode(kodeUnik + "-" + kodeBarang + "-" + kodeEkstra);
+								pembelianEkstra.setNama(namaEkstra);
+								pembelianEkstra.setKodePembayaranOnline(kodePembayaranOnline);
+								pembelianEkstra.setQty(jumlahBarang * jumlahEkstra);
+								pembelianEkstra.setDiskon(0.0);
+								pembelianEkstra.setCashback(0.0);
+								pembelianEkstra.setHargaSatuan(hargaEkstra);
+								pembelianEkstra.setProduk(produkEkstra);
+								pembelianEkstra.setToko(toko);
+								pembelianEkstra.setWaktu(currentWaktu);
+								pembelianEkstra.setIndukId(pembelian.getId());
+								session.getTransaction().begin();
+								session.save(pembelianEkstra);
+								session.getTransaction().commit();
+
+								JSONObject dataEkstra = new JSONObject();
+								Common.insertProperty(Pembelian.class, pembelianEkstra, dataEkstra, "", 1, "siswa",
+										"calonSiswa", "mahasiswa", "biodataCalonMahasiswa", "pembelianAnggotaKoperasi",
+										"tbmuser", "kodePembayaranOnline", "toko", "draftPembelian");
+								arrayTransaksi.put(dataEkstra);
+							} catch (Exception eEkstra) {
+								ais.common.ErrorAuditUtil.record(eEkstra,
+										"auto-audit src/ais/database/model/koperasi/PembelianAnggotaKoperasi.java:simpanRinci:ekstra");
+								try {
+									if (session.getTransaction() != null && session.getTransaction().isActive()) {
+										session.getTransaction().rollback();
+									}
+								} catch (Exception eRollback) {
+									ais.common.ErrorAuditUtil.record(eRollback,
+											"auto-audit(rollback) src/ais/database/model/koperasi/PembelianAnggotaKoperasi.java:simpanRinci:ekstra");
+								}
+							}
+						}
+					}
+
 				} catch (Exception e) {
 					e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/koperasi/PembelianAnggotaKoperasi.java:249");
 					// Rollback eksplisit -- lihat JavaDoc di DraftPembelianAnggotaKoperasi.simpanRinci
@@ -289,6 +396,38 @@ public class PembelianAnggotaKoperasi extends GeneralValueObject {
 		}
 
 		return arrayTransaksi;
+	}
+
+	/**
+	 * Cari {@link Produk} berdasarkan id (kalau dikirim), atau kode+nama persis di toko yang sama;
+	 * kalau tak ketemu, buat baris baru dgn harga jual/beli = {@code hargaBarang}. Diekstrak dari
+	 * logic yang SEBELUMNYA inline-duplicated persis di sini dan di
+	 * {@link DraftPembelianAnggotaKoperasi#simpanRinci} (gap-closure "Produk Ekstra" -- tanpa
+	 * ekstraksi ini logic yg sama akan ter-copy-paste 4x begitu baris Ekstra ikut butuh resolve
+	 * produk yg sama persis). {@code public static} supaya bisa dipanggil lintas-kelas dari
+	 * {@code DraftPembelianAnggotaKoperasi} tanpa duplikasi.
+	 */
+	public static Produk resolveOrCreateProduk(Session session, String idBarang, String kodeBarang,
+			String namaBarang, Double hargaBarang, Toko toko) {
+		Produk produk = (Produk) (idBarang != null && !idBarang.trim().isEmpty()
+				? GeneralValueObject.ambilData(Produk.class, idBarang)
+				: ConstantValues.simpleObject(
+						session.createCriteria(Produk.class).add(Restrictions.eq("toko", toko))
+								.add(Restrictions.ilike("nama", namaBarang, MatchMode.EXACT))
+								.add(Restrictions.ilike("kode", kodeBarang, MatchMode.EXACT)),
+						Produk.class));
+		if (produk == null) {
+			produk = new Produk();
+			produk.setNama(namaBarang);
+			produk.setKode(kodeBarang);
+			produk.setHargaBeli(hargaBarang);
+			produk.setHargaJual(hargaBarang);
+			produk.setToko(toko);
+			session.getTransaction().begin();
+			session.save(produk);
+			session.getTransaction().commit();
+		}
+		return produk;
 	}
 
 	public PembelianAnggotaKoperasi() {

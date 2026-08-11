@@ -76,10 +76,13 @@ public final class PriceTagUtil {
 	 *
 	 * @param jenisItemFilter {@code null}/kosong = tanpa filter (perilaku lama, dipakai layar admin
 	 *                        Produk yang harus melihat SEMUA baris apa pun jenisnya); {@code "JUAL"}
-	 *                        = exclude baris {@code jenis_item="BAHAN"} (dipakai katalog Kasir --
-	 *                        bahan baku tidak boleh dijual langsung/dicari kasir); {@code "BAHAN"} =
-	 *                        HANYA baris {@code jenis_item="BAHAN"} (dipakai picker "Pilih Bahan
-	 *                        Baku" pada editor Resep/HPP). Filter exclude WAJIB pola
+	 *                        = exclude baris {@code jenis_item IN ('BAHAN','EKSTRA')} (dipakai
+	 *                        katalog Kasir -- bahan baku & ekstra tidak boleh dijual/dicari langsung
+	 *                        sbg baris mandiri); {@code "BAHAN"} = HANYA baris
+	 *                        {@code jenis_item="BAHAN"} (dipakai picker "Pilih Bahan Baku" pada
+	 *                        editor Resep/HPP); {@code "EKSTRA"} = HANYA baris
+	 *                        {@code jenis_item="EKSTRA"} (dipakai picker "Pilih Ekstra" pada produk
+	 *                        dasar). Filter exclude WAJIB pola
 	 *                        {@code OR isNull} -- {@link Produk#getJenisItem()} memperlakukan NULL
 	 *                        sbg {@code "JUAL"}, tapi filter Hibernate/SQL beroperasi di kolom DB
 	 *                        mentah, dan {@code Restrictions.ne}/{@code <>} TIDAK PERNAH match NULL
@@ -117,9 +120,14 @@ public final class PriceTagUtil {
 					Restrictions.ilike("barcode", q.trim(), MatchMode.ANYWHERE)));
 		}
 		if ("JUAL".equals(jenisItemFilter)) {
-			c.add(Restrictions.or(Restrictions.isNull("jenisItem"), Restrictions.ne("jenisItem", "BAHAN")));
+			// Gap-closure "Produk Ekstra" -- Ekstra jg dikeluarkan dari katalog Kasir/admin-JUAL
+			// persis spt Bahan Baku (hanya boleh dipilih via picker "Pilih Ekstra" pada produk dasar).
+			c.add(Restrictions.or(Restrictions.isNull("jenisItem"),
+					Restrictions.and(Restrictions.ne("jenisItem", "BAHAN"), Restrictions.ne("jenisItem", "EKSTRA"))));
 		} else if ("BAHAN".equals(jenisItemFilter)) {
 			c.add(Restrictions.eq("jenisItem", "BAHAN"));
+		} else if ("EKSTRA".equals(jenisItemFilter)) {
+			c.add(Restrictions.eq("jenisItem", "EKSTRA"));
 		}
 		return c.list();
 	}
