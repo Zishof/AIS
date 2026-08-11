@@ -583,23 +583,43 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 			if (rowMobile != null)
 				rowMobile.setVisible(false);
 			rowNim.setVisible(true);
-			labelNoUjianMahasiswa.setValue((calonMahasiswa.getNoUjian() == null ? "" : calonMahasiswa.getNoUjian())
-					+ (calonMahasiswa.getPaket() == null ? "" : "/" + calonMahasiswa.getPaket().getNama())
-					+ (calonMahasiswa.getJenisSeleksi() == null ? "" : "/" + calonMahasiswa.getJenisSeleksi().getNama())
-					+ (calonMahasiswa.getStatusAwalMahasiswa() == null ? ""
-							: "/" + calonMahasiswa.getStatusAwalMahasiswa().getNama())
-					+ "/" + calonMahasiswa.getSemesterMulai() + (calonMahasiswa.getGelombangPendaftaran() == null ? ""
-							: "/" + calonMahasiswa.getGelombangPendaftaran().getNama()));
+			// Tiap data akademik diberi LABEL sendiri (multi-baris) agar mudah dikenali.
+			labelNoUjianMahasiswa.setMultiline(true);
+			labelNoUjianMahasiswa.setValue("No. Ujian : "
+					+ (calonMahasiswa.getNoUjian() == null || calonMahasiswa.getNoUjian().trim().isEmpty() ? "-"
+							: calonMahasiswa.getNoUjian())
+					+ "\nPaket : " + (calonMahasiswa.getPaket() == null ? "-" : calonMahasiswa.getPaket().getNama())
+					+ "\nJenis Seleksi : "
+					+ (calonMahasiswa.getJenisSeleksi() == null ? "-" : calonMahasiswa.getJenisSeleksi().getNama())
+					+ "\nStatus Awal : "
+					+ (calonMahasiswa.getStatusAwalMahasiswa() == null ? "-"
+							: calonMahasiswa.getStatusAwalMahasiswa().getNama())
+					+ "\nSemester Masuk : "
+					+ (calonMahasiswa.getSemesterMulai() == null ? "-" : (calonMahasiswa.getSemesterMulai() + ""))
+					+ "\nGelombang : " + (calonMahasiswa.getGelombangPendaftaran() == null ? "-"
+							: calonMahasiswa.getGelombangPendaftaran().getNama()));
 
-			labelNamaMahasiswa.setValue(calonMahasiswa.getNama()
-					+ (calonMahasiswa.getTeleponRumah() == null || calonMahasiswa.getTeleponRumah().trim().isEmpty()
-							? ""
-							: " / " + calonMahasiswa.getTeleponRumah())
-					+ (calonMahasiswa.getEmail() == null || calonMahasiswa.getEmail().trim().isEmpty() ? ""
-							: " / " + calonMahasiswa.getEmail())
-					+ (calonMahasiswa.getAlamat() == null || calonMahasiswa.getAlamat().trim().isEmpty() ? ""
-							: " / " + calonMahasiswa.getAlamat())
-					+ " / " + calonMahasiswa.getKewarganegaraan());
+			// Tiap data identitas diberi LABEL sendiri (multi-baris) agar mudah dikenali.
+			String namaAyahCalon = calonMahasiswa.getNamaAyah() == null
+					|| calonMahasiswa.getNamaAyah().trim().isEmpty() ? null : calonMahasiswa.getNamaAyah().trim();
+			StringBuilder sbIdentitasCalon = new StringBuilder();
+			sbIdentitasCalon.append("Nama : ").append(calonMahasiswa.getNama() == null ? "-" : calonMahasiswa.getNama());
+			if (calonMahasiswa.getTeleponRumah() != null && !calonMahasiswa.getTeleponRumah().trim().isEmpty()) {
+				sbIdentitasCalon.append("\nNo. HP : ").append(calonMahasiswa.getTeleponRumah());
+			}
+			if (calonMahasiswa.getEmail() != null && !calonMahasiswa.getEmail().trim().isEmpty()) {
+				sbIdentitasCalon.append("\nEmail : ").append(calonMahasiswa.getEmail());
+			}
+			if (calonMahasiswa.getAlamat() != null && !calonMahasiswa.getAlamat().trim().isEmpty()) {
+				sbIdentitasCalon.append("\nAlamat : ").append(calonMahasiswa.getAlamat());
+			}
+			if (namaAyahCalon != null) {
+				sbIdentitasCalon.append("\nNama Ayah : ").append(namaAyahCalon);
+			}
+			sbIdentitasCalon.append("\nKewarganegaraan : ")
+					.append(calonMahasiswa.getKewarganegaraan() == null ? "-" : calonMahasiswa.getKewarganegaraan());
+			labelNamaMahasiswa.setMultiline(true);
+			labelNamaMahasiswa.setValue(sbIdentitasCalon.toString());
 
 			if (labelFotoMahasiswa != null) {
 				Common.clear(labelFotoMahasiswa);

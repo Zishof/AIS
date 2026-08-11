@@ -822,8 +822,23 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 							: "-";
 			String progNama = tempHistoryStatusMahasiswa != null ? tempHistoryStatusMahasiswa.getProgram() : "-";
 
-			jenisKuliah.setValue(progNama + " / " + statusNama + " / " + statusAwalNama + " / "
-					+ mahasiswa.getSemesterMulai() + " / " + mahasiswa.getKelas());
+			// Tampilkan tiap data akademik dengan LABEL-nya sendiri (multi-baris) agar mudah dikenali.
+			String jenisSeleksiNama = mahasiswa.getJenisSeleksi() == null ? "-"
+					: mahasiswa.getJenisSeleksi().getNama();
+			String gelombangNama = mahasiswa.getGelombangPendaftaran() == null ? "-"
+					: mahasiswa.getGelombangPendaftaran().getNama();
+			String semesterMasukNama = mahasiswa.getSemesterMulai() == null ? "-"
+					: (mahasiswa.getSemesterMulai() + "");
+			String kelasNama = mahasiswa.getKelas() == null || mahasiswa.getKelas().trim().isEmpty() ? "-"
+					: mahasiswa.getKelas();
+			jenisKuliah.setMultiline(true);
+			jenisKuliah.setValue("Jenis Kuliah : " + (progNama == null ? "-" : progNama)
+					+ "\nStatus : " + (statusNama == null ? "-" : statusNama)
+					+ "\nStatus Awal : " + (statusAwalNama == null ? "-" : statusAwalNama)
+					+ "\nJenis Seleksi : " + jenisSeleksiNama
+					+ "\nGelombang : " + gelombangNama
+					+ "\nSemester Masuk : " + semesterMasukNama
+					+ "\nKelas : " + kelasNama);
 
 			Serializable[] serializables = pembayaranUtil.getJadwalPembayaranDanDendaBerdasarkanTahunAkademik(tanggal,
 					jenisKegiatan, mahasiswa.getJenjang(), tahunAkademik, smt.intValue() % 2 != 0,
@@ -1038,13 +1053,27 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 					Common.tampilErrorJikaAdmin(e);
 				}
 
-				labelNamaMahasiswa
-						.setValue(mahasiswa.getNama() + (hps == null || hps.trim().isEmpty() ? "" : " / " + hps)
-								+ (mahasiswa.getEmail() == null || mahasiswa.getEmail().trim().isEmpty() ? ""
-										: " / " + mahasiswa.getEmail())
-								+ (mahasiswa.getAlamat() == null || mahasiswa.getAlamat().trim().isEmpty() ? ""
-										: " / " + mahasiswa.getAlamat())
-								+ " / " + mahasiswa.getWarganegara());
+				// Tiap data identitas diberi LABEL sendiri (multi-baris) agar mudah dikenali.
+				String namaAyahMhs = biodataMahasiswa == null || biodataMahasiswa.getNamaAyah() == null
+						|| biodataMahasiswa.getNamaAyah().trim().isEmpty() ? null : biodataMahasiswa.getNamaAyah().trim();
+				StringBuilder sbIdentitas = new StringBuilder();
+				sbIdentitas.append("Nama : ").append(mahasiswa.getNama() == null ? "-" : mahasiswa.getNama());
+				if (hps != null && !hps.trim().isEmpty()) {
+					sbIdentitas.append("\nNo. HP : ").append(hps);
+				}
+				if (mahasiswa.getEmail() != null && !mahasiswa.getEmail().trim().isEmpty()) {
+					sbIdentitas.append("\nEmail : ").append(mahasiswa.getEmail());
+				}
+				if (mahasiswa.getAlamat() != null && !mahasiswa.getAlamat().trim().isEmpty()) {
+					sbIdentitas.append("\nAlamat : ").append(mahasiswa.getAlamat());
+				}
+				if (namaAyahMhs != null) {
+					sbIdentitas.append("\nNama Ayah : ").append(namaAyahMhs);
+				}
+				sbIdentitas.append("\nKewarganegaraan : ")
+						.append(mahasiswa.getWarganegara() == null ? "-" : mahasiswa.getWarganegara());
+				labelNamaMahasiswa.setMultiline(true);
+				labelNamaMahasiswa.setValue(sbIdentitas.toString());
 
 				if (labelTabungan != null) {
 					labelTabungan.setValue("Tabungan : " + Common.numberFormat.get().format(tabungan));
