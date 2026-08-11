@@ -7,7 +7,6 @@ import java.io.File;
 import java.io.Serializable;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -350,8 +349,11 @@ public class LaporanDaftarHadirDosen extends MyWindow {
 
 		parameters.put("tahun_ajaran", tahunAkademik == null ? "Semua" : tahunAkademik);
 		parameters.put("tanggal", tanggal.getValue() == null ? "" : format.format(this.tanggal.getValue()));
-		Calendar calendar = Calendar.getInstance(Common.locale);
-		calendar.setTime(this.tanggal.getValue());
+		// KE-FIX (NullPointerException Calendar.setTime): "calendar" di sini tidak pernah dibaca
+		// lagi di method ini (dibuat lalu langsung ditinggalkan) -- murni kode sisa yang dulunya
+		// crash saat tanggal belum dipilih (this.tanggal.getValue() == null), tanpa memberi efek
+		// apa pun ke laporan yang dihasilkan. Dihapus, bukan sekadar diberi null-guard, karena
+		// menjaganya hidup (dgn guard) hanya menambah kode yang tak pernah dipakai.
 
 		parameters.put("tanggal_dibuat", tanggal.getValue() == null ? "" : dateFormat.format(this.tanggal.getValue()));
 		parameters.put("pudek1", staffPudek1 == null ? "" : staffPudek1.getNama());

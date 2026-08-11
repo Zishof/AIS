@@ -45,10 +45,27 @@ public class LaporanRekapBiayaEcampusWindow extends MyWindow {
 	private Spreadsheet spreadsheet = new ais.ui.util.MySpreadsheet();
 	private MyDatebox start = new MyDatebox();
 	private MyDatebox end = new MyDatebox();
-	private MyDoublebox biaya = new MyDoublebox(
-			Double.parseDouble(Common.getKonfigurasi("biaya_transaksi_ecampus", "0.0").getNilai()));
+	private MyDoublebox biaya = new MyDoublebox(ambilBiayaTransaksiEcampusDefault());
 
 	private Center center = new Center();
+
+	// KE-FIX (NumberFormatException "tidak aktif"/dll): field initializer di atas berjalan
+	// SEBELUM try/catch di badan konstruktor sempat aktif (field initializer termasuk
+	// prolog konstruktor), jadi kalau admin mengisi Konfigurasi "biaya_transaksi_ecampus"
+	// dgn nilai non-angka (mis. "tidak aktif" utk menonaktifkan fitur, atau kesalahan input)
+	// Double.parseDouble melempar exception MENTAH yg tidak pernah tertangkap try/catch
+	// manapun di kelas ini, membatalkan pembukaan seluruh layar laporan. Parse dgn aman di
+	// sini, default ke 0.0 bila nilai konfigurasi bukan angka yang valid.
+	private static double ambilBiayaTransaksiEcampusDefault() {
+		String nilai = Common.getKonfigurasi("biaya_transaksi_ecampus", "0.0").getNilai();
+		try {
+			return Double.parseDouble(nilai == null ? "0.0" : nilai.trim());
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit(empty-catch) src/ais/action/report/helper/keuangan/LaporanRekapBiayaEcampusWindow.java:ambilBiayaTransaksiEcampusDefault");
+			return 0.0;
+		}
+	}
 
 	public LaporanRekapBiayaEcampusWindow() {
 		super();

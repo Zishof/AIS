@@ -462,18 +462,35 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 		try {
 			formatNilaiSkripsi = getFormatNilaiSkripsi();
 
-			if (formatNilaiSkripsi != null && (nilaiKetuaSidang > 0.1 || nilaiPembimbing > 0.1 || nilaiPembimbing3 > 0.1
-					|| nilaiPenguji1 > 0.1 || nilaiPenguji2 > 0.1 || nilaiPenguji3 > 0.1 || getNilaiPenguji4() > 0.1
-					|| getNilaiPenguji5() > 0.1)) {
+			// KE-FIX (NullPointerException getTotalNilai): field nilaiKetuaSidang/nilaiPembimbing/
+			// nilaiPembimbing3/nilaiPenguji1/nilaiPenguji2/nilaiPenguji3 adalah Double (boxed) yang
+			// BOLEH null (belum dinilai), tapi kode di bawah sebelumnya membaca field MENTAH-nya
+			// langsung (bukan lewat getter null-safe getNilaiKetuaSidang()/dst) sehingga unboxing
+			// otomatis pada "> 0.1" dan perkalian "*" melempar NPE begitu SATU SAJA dari nilai-nilai
+			// itu belum diisi -- sering terjadi krn sidang skripsi biasanya diisi bertahap oleh
+			// masing-masing penguji. NPE ini menembus getNilaiHuruf()/getLulus() dan mengganggu
+			// proses lain yg membaca entity Skripsi (mis. RepositorySyncService, dirty-check flush
+			// Hibernate). Perbaiki dgn membaca lewat getter null-safe (default 0.0) supaya nilai yg
+			// belum diisi dihitung sbg 0, bukan melempar NPE dan membatalkan seluruh perhitungan.
+			double nilaiKetuaSidangSafe = getNilaiKetuaSidang();
+			double nilaiPembimbingSafe = getNilaiPembimbing();
+			double nilaiPembimbing3Safe = getNilaiPembimbing3();
+			double nilaiPenguji1Safe = getNilaiPenguji1();
+			double nilaiPenguji2Safe = getNilaiPenguji2();
+			double nilaiPenguji3Safe = getNilaiPenguji3();
 
-				Double nilaiKetuaV = nilaiKetuaSidang * (formatNilaiSkripsi.getProsentasiNilaiKetuaSidang()) / 100.0;
-				Double nilaiPembimbingV = nilaiPembimbing * (formatNilaiSkripsi.getProsentasiNilaiPembimbing()) / 100.0;
-				Double nilaiPembimbing3V = nilaiPembimbing3 * (formatNilaiSkripsi.getProsentasiNilaiPembimbing3())
+			if (formatNilaiSkripsi != null && (nilaiKetuaSidangSafe > 0.1 || nilaiPembimbingSafe > 0.1
+					|| nilaiPembimbing3Safe > 0.1 || nilaiPenguji1Safe > 0.1 || nilaiPenguji2Safe > 0.1
+					|| nilaiPenguji3Safe > 0.1 || getNilaiPenguji4() > 0.1 || getNilaiPenguji5() > 0.1)) {
+
+				Double nilaiKetuaV = nilaiKetuaSidangSafe * (formatNilaiSkripsi.getProsentasiNilaiKetuaSidang()) / 100.0;
+				Double nilaiPembimbingV = nilaiPembimbingSafe * (formatNilaiSkripsi.getProsentasiNilaiPembimbing()) / 100.0;
+				Double nilaiPembimbing3V = nilaiPembimbing3Safe * (formatNilaiSkripsi.getProsentasiNilaiPembimbing3())
 						/ 100.0;
-				Double nilaiPenguji1V = nilaiPenguji1 * (formatNilaiSkripsi.getProsentasiNilaiPenguji1()) / 100.0;
-				Double nilaiPenguji2V = nilaiPenguji2 * (formatNilaiSkripsi.getProsentasiNilaiPenguji2()) / 100.0;
+				Double nilaiPenguji1V = nilaiPenguji1Safe * (formatNilaiSkripsi.getProsentasiNilaiPenguji1()) / 100.0;
+				Double nilaiPenguji2V = nilaiPenguji2Safe * (formatNilaiSkripsi.getProsentasiNilaiPenguji2()) / 100.0;
 
-				Double nilaiPenguji3V = nilaiPenguji3 * (formatNilaiSkripsi.getProsentasiNilaiPenguji3()) / 100.0;
+				Double nilaiPenguji3V = nilaiPenguji3Safe * (formatNilaiSkripsi.getProsentasiNilaiPenguji3()) / 100.0;
 
 				Double nilaiPenguji4V = getNilaiPenguji4() * (formatNilaiSkripsi.getProsentasiNilaiPenguji4()) / 100.0;
 

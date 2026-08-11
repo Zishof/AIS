@@ -9489,6 +9489,15 @@ public class CommonReportHelper {
 						? detailperkuliahan.getPerkuliahan().getMatakuliah()
 						: detailperkuliahan.getMatakuliahKonversi();
 
+				// KE-FIX (NullPointerException matakuliah.getTerdapatUas()/getTerdapatUts()):
+				// detailperkuliahan yatim (tidak punya Perkuliahan ATAUPUN MatakuliahKonversi --
+				// data tidak konsisten, mis. Perkuliahan induknya sudah dihapus) membuat matakuliah
+				// di atas bernilai null; baris ini sebelumnya langsung memanggil method di atasnya
+				// tanpa jaga-jaga. Lewati baris data yang tidak konsisten ini (sama seperti guard
+				// longsHasilTidak di atas), bukan meng-crash seluruh proses cetak KRS mahasiswa.
+				if (matakuliah == null) {
+					continue;
+				}
 				if (uas && !matakuliah.getTerdapatUas()) {
 					continue;
 				}
