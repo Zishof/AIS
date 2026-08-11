@@ -192,86 +192,169 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 		}
 
 		SatuanKerja satker = satkerKantin();
+		Session session = HibernateUtil.currentSession();
 		String mStr = Common.databaseDateFormat.get().format(mulai);
 		String sStr = Common.databaseDateFormat.get().format(sampai);
 
+		// Rincian per barang (untuk tampilan seperti tab posting lain).
+		StringBuilder detailRows = new StringBuilder();
+		int barisTampil = 0;
+
+		// (1) Rata-rata biaya kulakan per produk s.d tanggal "sampai" (metode default HPP).
+		Map<Long, double[]> rataKulakan = rataRataKulakanPerProduk(session, sStr);
+
+		// (2) Penjualan per produk — DIBACA LEWAT header pembelian_anggota_koperasi (penjualan ke anggota),
+		//     memakai tanggal_pembayaran header sebagai tanggal jual. Hanya baris aktif & produk tertaut aset.
 		@SuppressWarnings("unchecked")
-		List<Object[]> rows = HibernateUtil.currentSession().createSQLQuery(
-				"SELECT pr.master_asset, COALESCE(SUM(pb.qty*COALESCE(pr.hargabeli,0)),0) "
-						+ "FROM koperasi.pembelian pb INNER JOIN koperasi.produk pr ON pr.id = pb.produk "
-						+ "WHERE pr.master_asset IS NOT NULL AND (pb.aktif = true) "
-						+ "AND date(pb.waktu) BETWEEN date('" + mStr + "') AND date('" + sStr + "') "
-						+ "GROUP BY pr.master_asset").list();
+		List<Object[]> rows = session.createSQLQuery(
+				"SELECT pb.produk, pr.master_asset, COALESCE(pr.hargabeli,0), COALESCE(SUM(pb.qty),0) "
+						+ "FROM koperasi.pembelian pb "
+						+ "INNER JOIN koperasi.produk pr ON pr.id = pb.produk "
+						+ "INNER JOIN koperasi.pembelian_anggota_koperasi h ON h.id = pb.pembelian_anggota_koperasi "
+						+ "WHERE pr.master_asset IS NOT NULL AND pb.aktif = true "
+						+ "AND date(h.tanggal_pembayaran) BETWEEN date('" + mStr + "') AND date('" + sStr + "') "
+						+ "GROUP BY pb.produk, pr.master_asset, pr.hargabeli "
+						+ "ORDER BY pb.produk").list();
 
 		for (Object[] r : rows) {
-			if (r[0] == null) {
+			if (r[0] == null || r[1] == null) {
 				continue;
 			}
-			Long masterAssetId = ((Number) r[0]).longValue();
-			double nilai = r[1] == null ? 0 : ((Number) r[1]).doubleValue();
-			if (nilai <= 0) {
+			Long produkId = ((Number) r[0]).longValue();
+			Long masterAssetId = ((Number) r[1]).longValue();
+			double hargaBeliProduk = r[2] == null ? 0 : ((Number) r[2]).doubleValue();
+			double qty = r[3] == null ? 0 : ((Number) r[3]).doubleValue();
+			if (qty <= 0) {
 				continue;
 			}
-			MasterAsset ma = (MasterAsset) HibernateUtil.currentSession().get(MasterAsset.class, masterAssetId);
-			if (ma == null) {
-				continue;
+
+			// Harga pokok/satuan: DEFAULT rata-rata biaya kulakan; bila tak ada kulakan → harga beli produk (terakhir).
+			double[] k = rataKulakan.get(produkId);
+			double avgKulakan = (k != null && k[1] > 0) ? (k[0] / k[1]) : 0.0;
+			double hargaPokok;
+			String sumberBiaya;
+			if (avgKulakan > 0) {
+				hargaPokok = avgKulakan;
+				sumberBiaya = "Rata-rata kulakan";
+			} else if (hargaBeliProduk > 0) {
+				hargaPokok = hargaBeliProduk;
+				sumberBiaya = "Harga beli produk";
+			} else {
+				hargaPokok = 0;
+				sumberBiaya = "-";
 			}
-			KelompokAsset kelompok = ma.getKelompokAsset();
+			double hpp = qty * hargaPokok;
+
+			MasterAsset ma = (MasterAsset) session.get(MasterAsset.class, masterAssetId);
+			String namaBarang = ma == null ? ("#" + masterAssetId) : ma.getNama();
+
 			Akun akunHpp = null;
 			Akun akunPersediaan = null;
-			try {
-				if (kelompok != null && kelompok.getAkunBebanPokokPenjualan() != null) {
-					akunHpp = AssetUtil.ambilDataAkun(kelompok.getAkunBebanPokokPenjualan(), satker);
+			if (ma != null) {
+				KelompokAsset kelompok = ma.getKelompokAsset();
+				try {
+					if (kelompok != null && kelompok.getAkunBebanPokokPenjualan() != null) {
+						akunHpp = AssetUtil.ambilDataAkun(kelompok.getAkunBebanPokokPenjualan(), satker);
+					}
+				} catch (Exception ex) {
+					akunHpp = null;
 				}
-			} catch (Exception ex) {
-				akunHpp = null;
+				try {
+					if (ma.getAkunTransaksi() != null && !ma.getAkunTransaksi().trim().isEmpty()) {
+						akunPersediaan = AssetUtil.ambilDataAkun(ma.getAkunTransaksi(), satker);
+					}
+					if (akunPersediaan == null && kelompok != null) {
+						akunPersediaan = AssetUtil.ambilDataAkun(kelompok.getAkunTransaksi(), satker);
+					}
+				} catch (Exception ex) {
+					akunPersediaan = null;
+				}
 			}
-			try {
-				if (ma.getAkunTransaksi() != null && !ma.getAkunTransaksi().trim().isEmpty()) {
-					akunPersediaan = AssetUtil.ambilDataAkun(ma.getAkunTransaksi(), satker);
+
+			boolean akunLengkap = hpp > 0 && akunHpp != null && akunPersediaan != null;
+
+			// Baris rincian per barang (selalu ditampilkan agar transparan; yang tak lengkap ditandai).
+			barisTampil++;
+			detailRows.append("<tr style='border-bottom:1px solid #eef2f7;").append(akunLengkap ? "" : "background:#fff7ed;")
+					.append("'>")
+					.append("<td style='padding:6px;'>").append(DashboardUiKit.esc(namaBarang)).append("</td>")
+					.append("<td style='text-align:right;padding:6px;'>").append(DashboardUiKit.money(qty)).append("</td>")
+					.append("<td style='text-align:right;padding:6px;'>Rp ").append(DashboardUiKit.money(hargaPokok))
+					.append("<div style='font-size:9px;color:#64748b;'>").append(DashboardUiKit.esc(sumberBiaya))
+					.append("</div></td>")
+					.append("<td style='text-align:right;padding:6px;font-weight:700;'>Rp ").append(DashboardUiKit.money(hpp))
+					.append("</td>")
+					.append("<td style='padding:6px;font-size:11px;'>")
+					.append(akunHpp == null ? "<span style='color:#b45309;'>(akun HPP belum diatur)</span>"
+							: DashboardUiKit.esc(namaAkun(akunHpp)))
+					.append("</td>")
+					.append("<td style='padding:6px;font-size:11px;'>")
+					.append(akunPersediaan == null ? "<span style='color:#b45309;'>(akun persediaan belum diatur)</span>"
+							: DashboardUiKit.esc(namaAkun(akunPersediaan)))
+					.append("</td></tr>");
+
+			if (!akunLengkap) {
+				if (hpp > 0) {
+					belumDipetakan.add(namaBarang);
 				}
-				if (akunPersediaan == null && kelompok != null) {
-					akunPersediaan = AssetUtil.ambilDataAkun(kelompok.getAkunTransaksi(), satker);
-				}
-			} catch (Exception ex) {
-				akunPersediaan = null;
-			}
-			if (akunHpp == null || akunPersediaan == null) {
-				belumDipetakan.add(ma.getNama());
 				continue;
 			}
-			tambah(debitPerAkun, akunHpp, nilai);
-			tambah(kreditPerAkun, akunPersediaan, nilai);
+
+			tambah(debitPerAkun, akunHpp, hpp);
+			tambah(kreditPerAkun, akunPersediaan, hpp);
 			akunNama.put(akunHpp.getId(), namaAkun(akunHpp));
 			akunNama.put(akunPersediaan.getId(), namaAkun(akunPersediaan));
-			totalCogs += nilai;
+			totalCogs += hpp;
 		}
 
 		StringBuilder sb = new StringBuilder();
 		sb.append("<div style='font-size:13px;font-weight:800;color:#0f172a;margin:6px 0;'>Pratinjau Jurnal HPP — ")
 				.append(Common.dateFormat.get().format(mulai)).append(" s.d ").append(Common.dateFormat.get().format(sampai))
 				.append("</div>");
-		if (debitPerAkun.isEmpty()) {
-			sb.append("<div style='font-size:12px;color:#64748b;padding:8px;'>Tidak ada HPP penjualan barang tertaut pada periode ini.</div>");
+
+		if (barisTampil == 0) {
+			sb.append("<div style='font-size:12px;color:#64748b;padding:8px;'>Tidak ada penjualan barang tertaut aset "
+					+ "pada periode ini (dibaca dari Pembelian Anggota Koperasi). Pastikan ada transaksi kasir pada rentang "
+					+ "tanggal, dan produk sudah ditautkan ke Barang/Aset persediaan.</div>");
 		} else {
-			sb.append("<table style='width:100%;border-collapse:collapse;font-size:12px;'>");
-			sb.append("<thead><tr style='background:#f1f5f9;'><th style='text-align:left;padding:6px;'>Akun</th>"
-					+ "<th style='text-align:left;padding:6px;'>Posisi</th><th style='text-align:right;padding:6px;'>Nominal</th></tr></thead><tbody>");
-			for (Map.Entry<Long, Double> en : debitPerAkun.entrySet()) {
-				sb.append("<tr><td style='padding:6px;'>").append(DashboardUiKit.esc(akunNama.get(en.getKey())))
-						.append("</td><td style='padding:6px;color:#16a34a;font-weight:700;'>DEBIT (HPP)</td>")
-						.append("<td style='text-align:right;padding:6px;font-weight:700;'>Rp ")
-						.append(DashboardUiKit.money(en.getValue())).append("</td></tr>");
+			// Rincian per barang (mirip tampilan tab posting lain: memperlihatkan asal data & perhitungan).
+			sb.append("<div style='font-size:12px;font-weight:700;color:#334155;margin:8px 0 4px;'>Rincian per barang</div>");
+			sb.append("<div style='overflow-x:auto;'><table style='width:100%;border-collapse:collapse;font-size:12px;'>");
+			sb.append("<thead><tr style='background:#f1f5f9;'>"
+					+ "<th style='text-align:left;padding:6px;'>Barang</th>"
+					+ "<th style='text-align:right;padding:6px;'>Qty Terjual</th>"
+					+ "<th style='text-align:right;padding:6px;'>Harga Pokok/Sat</th>"
+					+ "<th style='text-align:right;padding:6px;'>HPP</th>"
+					+ "<th style='text-align:left;padding:6px;'>Akun HPP (Debit)</th>"
+					+ "<th style='text-align:left;padding:6px;'>Akun Persediaan (Kredit)</th></tr></thead><tbody>");
+			sb.append(detailRows);
+			sb.append("</tbody></table></div>");
+
+			// Ringkasan jurnal (yang akan diposting) — akun terkelompok.
+			sb.append("<div style='font-size:12px;font-weight:700;color:#334155;margin:12px 0 4px;'>Ringkasan Jurnal (akan diposting)</div>");
+			if (debitPerAkun.isEmpty()) {
+				sb.append("<div style='font-size:12px;color:#b45309;padding:8px;'>Belum ada baris yang siap diposting "
+						+ "(akun HPP/persediaan pada Kelompok Aset belum lengkap).</div>");
+			} else {
+				sb.append("<table style='width:100%;border-collapse:collapse;font-size:12px;'>");
+				sb.append("<thead><tr style='background:#f1f5f9;'><th style='text-align:left;padding:6px;'>Akun</th>"
+						+ "<th style='text-align:left;padding:6px;'>Posisi</th><th style='text-align:right;padding:6px;'>Nominal</th></tr></thead><tbody>");
+				for (Map.Entry<Long, Double> en : debitPerAkun.entrySet()) {
+					sb.append("<tr><td style='padding:6px;'>").append(DashboardUiKit.esc(akunNama.get(en.getKey())))
+							.append("</td><td style='padding:6px;color:#16a34a;font-weight:700;'>DEBIT (HPP)</td>")
+							.append("<td style='text-align:right;padding:6px;font-weight:700;'>Rp ")
+							.append(DashboardUiKit.money(en.getValue())).append("</td></tr>");
+				}
+				for (Map.Entry<Long, Double> en : kreditPerAkun.entrySet()) {
+					sb.append("<tr><td style='padding:6px;'>").append(DashboardUiKit.esc(akunNama.get(en.getKey())))
+							.append("</td><td style='padding:6px;color:#dc2626;'>Kredit (Persediaan)</td>")
+							.append("<td style='text-align:right;padding:6px;'>Rp ")
+							.append(DashboardUiKit.money(en.getValue())).append("</td></tr>");
+				}
+				sb.append("</tbody><tfoot><tr style='border-top:2px solid #e2e8f0;font-weight:800;'>"
+						+ "<td style='padding:6px;' colspan='2'>TOTAL</td><td style='text-align:right;padding:6px;'>Rp ")
+						.append(DashboardUiKit.money(totalCogs)).append("</td></tr></tfoot></table>");
 			}
-			for (Map.Entry<Long, Double> en : kreditPerAkun.entrySet()) {
-				sb.append("<tr><td style='padding:6px;'>").append(DashboardUiKit.esc(akunNama.get(en.getKey())))
-						.append("</td><td style='padding:6px;color:#dc2626;'>Kredit (Persediaan)</td>")
-						.append("<td style='text-align:right;padding:6px;'>Rp ")
-						.append(DashboardUiKit.money(en.getValue())).append("</td></tr>");
-			}
-			sb.append("</tbody><tfoot><tr style='border-top:2px solid #e2e8f0;font-weight:800;'>"
-					+ "<td style='padding:6px;' colspan='2'>TOTAL</td><td style='text-align:right;padding:6px;'>Rp ")
-					.append(DashboardUiKit.money(totalCogs)).append("</td></tr></tfoot></table>");
 		}
 		if (!belumDipetakan.isEmpty()) {
 			sb.append("<div style='font-size:12px;color:#b45309;margin-top:8px;'>⚠ ").append(belumDipetakan.size())
@@ -279,6 +362,36 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 					.append(DashboardUiKit.esc(ringkas(belumDipetakan))).append("</div>");
 		}
 		previewBox.appendChild(DashboardUiKit.html(sb.toString()));
+	}
+
+	/**
+	 * Rata-rata biaya kulakan (pengadaan/barang masuk) per produk s.d tanggal {@code sampaiStr}
+	 * (weighted-average: Σ(qty×hargaBeliSatuan) / Σqty). Dipakai sebagai metode HPP default;
+	 * bila sebuah produk tak punya kulakan, pemanggil jatuh ke {@code Produk.hargaBeli} (biaya terakhir).
+	 * Map: produkId → [totalBiaya, totalQty].
+	 */
+	private static Map<Long, double[]> rataRataKulakanPerProduk(Session session, String sampaiStr) {
+		Map<Long, double[]> map = new java.util.HashMap<Long, double[]>();
+		try {
+			@SuppressWarnings("unchecked")
+			List<Object[]> rows = session.createSQLQuery(
+					"SELECT produk, COALESCE(SUM(qty*COALESCE(hargabelisatuan,0)),0), COALESCE(SUM(qty),0) "
+							+ "FROM koperasi.pengadaan_produk "
+							+ "WHERE produk IS NOT NULL AND date(waktupengadaan) <= date('" + sampaiStr + "') "
+							+ "GROUP BY produk").list();
+			for (Object[] r : rows) {
+				if (r[0] == null) {
+					continue;
+				}
+				Long pid = ((Number) r[0]).longValue();
+				double biaya = r[1] == null ? 0 : ((Number) r[1]).doubleValue();
+				double q = r[2] == null ? 0 : ((Number) r[2]).doubleValue();
+				map.put(pid, new double[] { biaya, q });
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit rataRataKulakanPerProduk");
+		}
+		return map;
 	}
 
 	private void onPosting() throws Exception {
@@ -444,24 +557,17 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 			}
 			String mStr = Common.databaseDateFormat.get().format(c.getTime());
 			String sStr = Common.databaseDateFormat.get().format(WaktuUtil.getDate());
-			@SuppressWarnings("unchecked")
-			List<Object[]> rows = session.createSQLQuery(
-					"SELECT pr.master_asset, COALESCE(SUM(pb.qty*COALESCE(pr.hargabeli,0)),0) "
-							+ "FROM koperasi.pembelian pb INNER JOIN koperasi.produk pr ON pr.id = pb.produk "
-							+ "WHERE pr.master_asset IS NOT NULL AND (pb.aktif = true) "
-							+ "AND date(pb.waktu) BETWEEN date('" + mStr + "') AND date('" + sStr + "') "
-							+ "GROUP BY pr.master_asset").list();
-			int n = 0;
-			for (Object[] r : rows) {
-				if (r[0] == null) {
-					continue;
-				}
-				double nilai = r[1] == null ? 0 : ((Number) r[1]).doubleValue();
-				if (nilai > 0) {
-					n++;
-				}
-			}
-			return n;
+			// Jumlah produk tertaut aset yang terjual (via header Pembelian Anggota Koperasi) pada periode pending.
+			// Konsisten dengan sumber penjualan di hitungPreview (tanggal_pembayaran header).
+			Number n = (Number) session.createSQLQuery(
+					"SELECT COUNT(DISTINCT pb.produk) "
+							+ "FROM koperasi.pembelian pb "
+							+ "INNER JOIN koperasi.produk pr ON pr.id = pb.produk "
+							+ "INNER JOIN koperasi.pembelian_anggota_koperasi h ON h.id = pb.pembelian_anggota_koperasi "
+							+ "WHERE pr.master_asset IS NOT NULL AND pb.aktif = true "
+							+ "AND date(h.tanggal_pembayaran) BETWEEN date('" + mStr + "') AND date('" + sStr + "')")
+					.uniqueResult();
+			return n == null ? 0 : n.intValue();
 		} catch (Exception e) {
 			return 0;
 		}
