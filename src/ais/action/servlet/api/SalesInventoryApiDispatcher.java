@@ -82,6 +82,20 @@ public final class SalesInventoryApiDispatcher {
 			SalesInventoryHargaHelper.customerPriceSave(ctx, tbmuser, payload, hasil);
 		} else if ("si_price_analysis".equals(action)) {
 			SalesInventoryHargaHelper.priceAnalysis(ctx, payload, hasil);
+		} else if ("si_purchase_terms_save".equals(action)) {
+			SalesInventoryPayableHelper.purchaseTermsSave(ctx, tbmuser, payload, hasil);
+		} else if ("si_payable_list".equals(action) || "si_payable_from_purchase".equals(action)) {
+			SalesInventoryPayableHelper.payableList(ctx, payload, hasil);
+		} else if ("si_payable_payment_create".equals(action)) {
+			SalesInventoryPayableHelper.payablePaymentCreate(ctx, tbmuser, payload, hasil);
+		} else if ("si_payable_payment_history".equals(action)) {
+			SalesInventoryPayableHelper.payablePaymentHistory(ctx, payload, hasil);
+		} else if ("si_payable_payment_receipt".equals(action)) {
+			SalesInventoryPayableHelper.payablePaymentReceipt(ctx, payload, hasil);
+		} else if ("si_payable_aging".equals(action)) {
+			SalesInventoryPayableHelper.payableAging(ctx, payload, hasil);
+		} else if ("si_purchase_report".equals(action)) {
+			SalesInventoryPayableHelper.purchaseReport(ctx, payload, hasil);
 		} else {
 			// Aksi si_ lain menyusul per fase (P3 AP, P4 AR, P5 SPJ/Nota Sales, P6 finance).
 			hasil.put("status", "error");

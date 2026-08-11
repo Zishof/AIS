@@ -1658,6 +1658,9 @@
 		<mapping class="ais.database.model.koperasi.CustomerInventoryProfile"></mapping>
 		<mapping class="ais.database.model.koperasi.HargaBeliSupplier"></mapping>
 		<mapping class="ais.database.model.koperasi.HargaJualCustomer"></mapping>
+		<mapping class="ais.database.model.koperasi.PayableFakturInfo"></mapping>
+		<mapping class="ais.database.model.koperasi.PembayaranHutangSupplier"></mapping>
+		<mapping class="ais.database.model.koperasi.AlokasiPembayaranHutangSupplier"></mapping>
 		<mapping class="ais.database.model.koperasi.Koperasi"></mapping>
 		<mapping class="ais.database.model.koperasi.AnggotaKoperasi"></mapping>
 		<mapping
