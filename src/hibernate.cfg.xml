@@ -2214,10 +2214,12 @@
 		
 		<mapping class="ais.database.model.inventory.StokOpname"></mapping>
 		<mapping class="ais.database.model.inventory.MutasiStokToko"></mapping>
+		<mapping class="ais.database.model.inventory.PengadaanFaktur"></mapping>
 		<mapping class="ais.database.model.inventory.PengadaanProduk"></mapping>
 		<mapping class="ais.database.model.inventory.PemakaianBahanBaku"></mapping>
 		<mapping class="ais.database.model.inventory.ReturBarang"></mapping>
 		<mapping class="ais.database.model.inventory.ReturPenjualan"></mapping>
+		<mapping class="ais.database.model.inventory.ReturPembelian"></mapping>
 		<mapping class="ais.database.model.inventory.SesiKasKasir"></mapping>
 		<mapping class="ais.database.model.inventory.SetoranTenant"></mapping>
 		<mapping class="ais.database.model.inventory.SesiStokOpname"></mapping>

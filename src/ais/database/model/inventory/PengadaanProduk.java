@@ -35,6 +35,7 @@ public class PengadaanProduk extends GeneralValueObject {
 	private String nomorFaktur; // Nomor nota dari supplier
 	private String namaSupplier;
 	private PenyediaAsset supplier;
+	private PengadaanFaktur fakturPengadaan; // Header Kulakan-per-Faktur (gap-closure 2026-08-11) -- nullable, data lama tetap null selamanya
 	private Double qty; // Jumlah barang yang masuk
 	private Double hargaBeliSatuan;
 	private Double totalHarga;
@@ -171,6 +172,17 @@ public class PengadaanProduk extends GeneralValueObject {
 
 	public void setSupplier(PenyediaAsset supplier) {
 		this.supplier = supplier;
+	}
+
+	/** Header Kulakan-per-Faktur (gap-closure 2026-08-11) -- lihat JavaDoc {@link PengadaanFaktur}. */
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
+	@JoinColumn(name = "faktur_pengadaan", nullable = true)
+	public PengadaanFaktur getFakturPengadaan() {
+		return fakturPengadaan;
+	}
+
+	public void setFakturPengadaan(PengadaanFaktur fakturPengadaan) {
+		this.fakturPengadaan = fakturPengadaan;
 	}
 
 }

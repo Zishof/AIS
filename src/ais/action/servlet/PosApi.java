@@ -484,6 +484,30 @@ public class PosApi extends HttpServlet {
 			} else if ("kulakan_simpan".equals(action)) {
 				KantinHelper.kulakanSimpan(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "kulakan_simpan");
+			} else if ("kulakan_faktur_simpan".equals(action)) {
+				KantinHelper.kulakanFakturSimpan(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "kulakan_faktur_simpan");
+			} else if ("kulakan_faktur_list".equals(action)) {
+				KantinHelper.kulakanFakturList(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "kulakan_faktur_list");
+			} else if ("kulakan_faktur_detail".equals(action)) {
+				KantinHelper.kulakanFakturDetail(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "kulakan_faktur_detail");
+			} else if ("penyedia_list".equals(action)) {
+				KantinHelper.penyediaList(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "penyedia_list");
+			} else if ("penyedia_simpan".equals(action)) {
+				KantinHelper.penyediaSimpan(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "penyedia_simpan");
+			} else if ("retur_pembelian_list".equals(action)) {
+				KantinHelper.returPembelianList(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "retur_pembelian_list");
+			} else if ("retur_pembelian_simpan".equals(action)) {
+				KantinHelper.returPembelianSimpan(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "retur_pembelian_simpan");
+			} else if ("retur_pembelian_hapus".equals(action)) {
+				KantinHelper.returPembelianHapus(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "retur_pembelian_hapus");
 			} else if ("retur_penjualan_list".equals(action)) {
 				KantinHelper.returPenjualanList(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "retur_penjualan_list");

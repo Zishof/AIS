@@ -13,11 +13,12 @@ import ais.database.model.inventory.Produk;
  * modul Pengadaan, Stok Opname, penjualan POS (online maupun sinkronisasi offline), dan konsumsi
  * bahan baku resep.
  *
- * <h3>Rumus baku (6 suku, selalu sama di seluruh variasi method di bawah)</h3>
+ * <h3>Rumus baku (7 suku, selalu sama di seluruh variasi method di bawah)</h3>
  * <pre>
  *   stok = &Sigma;pengadaan.qty + &Sigma;stok_opname.selisih &minus; &Sigma;pembelian.qty
  *          &minus; &Sigma;pemakaian_bahan_baku.qty + &Sigma;retur_penjualan.qty(kembali_ke_stok)
  *          + &Sigma;mutasi_stok_toko.qty(tujuan) &minus; &Sigma;mutasi_stok_toko.qty(asal)
+ *          &minus; &Sigma;retur_pembelian.qty
  * </pre>
  * <ul>
  *   <li><b>&Sigma;pengadaan.qty</b> — total barang masuk lewat modul Pengadaan (nota pembelian dari
@@ -35,6 +36,8 @@ import ais.database.model.inventory.Produk;
  *   <li><b>&Sigma;mutasi_stok_toko.qty</b> — transfer stok antar outlet (Fase 3 roadmap F&amp;B):
  *       baris di mana produk ini jadi {@code produk_tujuan} MENAMBAH, baris di mana produk ini jadi
  *       {@code produk_asal} MENGURANGI (lihat JavaDoc {@link ais.database.model.inventory.MutasiStokToko}).</li>
+ *   <li><b>&Sigma;retur_pembelian.qty</b> — barang dikembalikan KE SUPPLIER, SELALU mengurangi
+ *       stok tanpa syarat (lihat JavaDoc {@link ais.database.model.inventory.ReturPembelian}).</li>
  * </ul>
  * Suku pemakaian-bahan-baku inilah yang membuat rumus ini TIDAK BOLEH disederhanakan jadi
  * "stok = masuk - terjual" naif: satu transaksi penjualan produk jadi (mis. kopi) bisa mengurangi stok
@@ -147,12 +150,16 @@ public final class StokKantinUtil {
                 "SELECT COALESCE(SUM(qty),0) FROM koperasi.mutasi_stok_toko WHERE produk_tujuan = " + produkId);
         double mutasiKeluar = scalar(
                 "SELECT COALESCE(SUM(qty),0) FROM koperasi.mutasi_stok_toko WHERE produk_asal = " + produkId);
+        // Retur Pembelian (barang kembali ke supplier): SELALU mengurangi stok, tanpa syarat --
+        // lihat JavaDoc ReturPembelian.
+        double returPembelian = scalar(
+                "SELECT COALESCE(SUM(qty),0) FROM koperasi.retur_pembelian WHERE produk = " + produkId);
         double latest = scalar("SELECT hargabelisatuan FROM koperasi.pengadaan_produk WHERE produk = " + produkId
                 + " ORDER BY waktupengadaan DESC, id DESC LIMIT 1");
 
         Session s = HibernateUtil.currentSession();
         Produk p = (Produk) s.load(Produk.class, produkId);
-        p.setStok(masuk + opname - keluar - pakai + returPenjualan + mutasiMasuk - mutasiKeluar);
+        p.setStok(masuk + opname - keluar - pakai + returPenjualan + mutasiMasuk - mutasiKeluar - returPembelian);
         if (latest > 0) {
             p.setHargaBeli(latest);
             double hargaJual = p.getHargaJual() == null ? 0 : p.getHargaJual();
@@ -182,7 +189,10 @@ public final class StokKantinUtil {
                 // Mutasi Stok Antar Outlet (Fase 3): baris toko TUJUAN menambah, baris toko ASAL
                 // mengurangi -- lihat catatan sama di recomputeStokProduk(Long)/JavaDoc MutasiStokToko.
                 + " + COALESCE((SELECT SUM(qty) FROM koperasi.mutasi_stok_toko WHERE produk_tujuan = " + produkId + "),0)"
-                + " - COALESCE((SELECT SUM(qty) FROM koperasi.mutasi_stok_toko WHERE produk_asal = " + produkId + "),0)";
+                + " - COALESCE((SELECT SUM(qty) FROM koperasi.mutasi_stok_toko WHERE produk_asal = " + produkId + "),0)"
+                // Retur Pembelian: SELALU mengurangi stok tanpa syarat -- lihat catatan sama di
+                // recomputeStokProduk(Long)/JavaDoc ReturPembelian.
+                + " - COALESCE((SELECT SUM(qty) FROM koperasi.retur_pembelian WHERE produk = " + produkId + "),0)";
     }
 
     /**

@@ -27,8 +27,10 @@ import ais.database.model.asset.Lokasi;
 import ais.database.model.inventory.JenisProduk;
 import ais.database.model.inventory.PemasokProduk;
 import ais.database.model.inventory.Pembelian;
+import ais.database.model.inventory.PengadaanFaktur;
 import ais.database.model.inventory.PengadaanProduk;
 import ais.database.model.inventory.Produk;
+import ais.database.model.inventory.ReturPembelian;
 import ais.database.model.inventory.ReturPenjualan;
 import ais.database.model.inventory.SatuanProduk;
 import ais.database.model.inventory.SesiStokOpname;
@@ -9818,6 +9820,635 @@ public class KantinHelper {
 				}
 			} catch (Exception eRollback) {
 				ais.common.ErrorAuditUtil.record(eRollback, "auto-audit(empty-catch) src/ais/action/servlet/api/KantinHelper.java:returPenjualanHapus-rollback");
+			}
+			hasil.put("status", "91");
+			hasil.put("description", Common.tampilErrorJikaAdmin(e));
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * <h3>Kulakan per-Faktur (gap-closure permintaan user 2026-08-11) -- catat SATU faktur/nota
+	 * supplier (nomor faktur/tanggal/supplier diisi SEKALI) diikuti banyak baris produk sekaligus,
+	 * satu transaksi.</h3>
+	 *
+	 * <p>Pola items[] SAMA PERSIS {@link #returPenjualanSimpan} -- header dibangun sekali
+	 * ({@link PengadaanFaktur}), lalu satu baris {@link PengadaanProduk} per item dgn FK
+	 * {@code fakturPengadaan} menunjuk header yg sama. {@code kulakanSimpan}/{@code kulakanList} lama
+	 * (satu baris per panggilan, TANPA header) TETAP ADA apa adanya -- aksi ini murni ADDITIF, jalur
+	 * lama tidak diubah/dihapus, data lama (fakturPengadaan=null) tetap valid selamanya.</p>
+	 *
+	 * <p><b>Diskon/potongan faktur</b>: {@code total_faktur_manual} opsional -- diisi HANYA bila
+	 * nilai nota fisik LEBIH KECIL dari jumlah hitungan baris (qty*harga tiap item dijumlah); server
+	 * (BUKAN klien) menghitung {@code diskon = totalHitung - totalFakturManual} (clamp ke 0 minimal,
+	 * tak pernah negatif -- bila manual justru LEBIH BESAR dari hitungan, diskon dianggap 0, total
+	 * final tetap dari hitungan baris, kelebihan pengisian diabaikan bukan dianggap "diskon negatif").</p>
+	 *
+	 * @param request payload: {@code toko_id} (toko asal -- wajib utk admin, dikunci pedagang),
+	 *                {@code nomor_faktur} (wajib), {@code tanggal_faktur} (opsional, ISO -- default
+	 *                sekarang), {@code supplier_id} (opsional, id {@code library.Penyedia}),
+	 *                {@code total_faktur_manual} (opsional), {@code keterangan} (opsional),
+	 *                {@code items} (wajib, array {@code {produk_id, qty, harga_beli_satuan,
+	 *                keterangan}}, minimal satu baris).
+	 * @param hasil   diisi {@code status="00"}, {@code fakturId}, {@code totalHitung}, {@code diskon},
+	 *                {@code totalFakturFinal}, {@code jumlahItem}.
+	 */
+	public static void kulakanFakturSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggilKf = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean adminGlobalKf = pemanggilKf == null;
+		boolean supervisorKf = pemanggilKf != null && Boolean.TRUE.equals(pemanggilKf.getSupervisor());
+		if (!bolehAksiCrud(tbmuser, pemanggilKf, adminGlobalKf, supervisorKf, "kulakan", "create")) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat mencatat Kulakan (Harga Beli).");
+			return;
+		}
+		Long tokoId = soResolveTokoId(tbmuser, request);
+		if (tokoId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko tidak diketahui.");
+			return;
+		}
+		String nomorFaktur = request.optString("nomor_faktur", "").trim();
+		if (nomorFaktur.isEmpty()) {
+			hasil.put("status", "91");
+			hasil.put("description", "Nomor Faktur wajib diisi.");
+			return;
+		}
+		JSONArray items = request.optJSONArray("items");
+		if (items == null || items.length() == 0) {
+			hasil.put("status", "91");
+			hasil.put("description", "Belum ada barang yang dimasukkan untuk faktur ini.");
+			return;
+		}
+		Long supplierId = request.isNull("supplier_id") ? null : Long.valueOf((request.get("supplier_id") + "").trim());
+		Double totalManual = request.isNull("total_faktur_manual") ? null : request.getDouble("total_faktur_manual");
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			Toko toko = (Toko) session.get(Toko.class, tokoId);
+			if (toko == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Toko tidak ditemukan.");
+				return;
+			}
+			ais.database.model.library.Penyedia supplier = supplierId == null ? null
+					: (ais.database.model.library.Penyedia) session.get(ais.database.model.library.Penyedia.class, supplierId);
+
+			double totalHitung = 0;
+			for (int i = 0; i < items.length(); i++) {
+				JSONObject it = items.getJSONObject(i);
+				totalHitung += it.optDouble("qty", 0) * it.optDouble("harga_beli_satuan", 0);
+			}
+			double totalFinal = totalManual == null ? totalHitung : totalManual;
+			double diskon = totalManual == null ? 0 : Math.max(0, totalHitung - totalManual);
+
+			session.beginTransaction();
+			PengadaanFaktur header = new PengadaanFaktur();
+			header.setToko(toko);
+			header.setSupplier(supplier);
+			header.setNomorFaktur(nomorFaktur);
+			header.setTanggalFaktur(request.isNull("tanggal_faktur") ? new Date()
+					: Common.dateFormatInput.get().parse(request.getString("tanggal_faktur")));
+			header.setTotalFakturManual(totalManual);
+			header.setTotalHitungSaatSimpan(totalHitung);
+			header.setDiskon(diskon);
+			header.setKeterangan(request.optString("keterangan", ""));
+			header.setOleh(tbmuser == null ? "kulakan_faktur" : tbmuser.getUserId());
+			header.setWaktu(new Date());
+			session.save(header);
+
+			String oleh = tbmuser == null ? "kulakan_faktur" : tbmuser.getUserId();
+			for (int i = 0; i < items.length(); i++) {
+				JSONObject it = items.getJSONObject(i);
+				Long produkId = it.isNull("produk_id") ? null : Long.valueOf((it.get("produk_id") + "").trim());
+				if (produkId == null) {
+					throw new IllegalArgumentException("Produk baris ke-" + (i + 1) + " belum dipilih.");
+				}
+				double qty = it.optDouble("qty", 0);
+				if (qty <= 0) {
+					throw new IllegalArgumentException("Jumlah baris ke-" + (i + 1) + " harus lebih dari 0.");
+				}
+				double hargaBeliSatuan = it.optDouble("harga_beli_satuan", 0);
+				if (hargaBeliSatuan <= 0) {
+					throw new IllegalArgumentException("Harga beli baris ke-" + (i + 1) + " harus lebih dari 0.");
+				}
+				Produk produk = (Produk) session.get(Produk.class, produkId);
+				if (produk == null) {
+					throw new IllegalArgumentException("Produk baris ke-" + (i + 1) + " tidak ditemukan.");
+				}
+				if (!adminGlobalKf) {
+					Long tokoProduk = produk.getToko() == null ? null : produk.getToko().getId();
+					if (!tokoId.equals(tokoProduk)) {
+						throw new IllegalArgumentException("Produk baris ke-" + (i + 1) + " bukan milik toko Anda.");
+					}
+				}
+
+				PengadaanProduk pg = new PengadaanProduk();
+				pg.setProduk(produk);
+				pg.setToko(produk.getToko());
+				pg.setFakturPengadaan(header);
+				pg.setNomorFaktur(nomorFaktur);
+				pg.setNamaSupplier(supplier == null ? "" : supplier.getNama());
+				pg.setQty(qty);
+				pg.setHargaBeliSatuan(hargaBeliSatuan);
+				pg.setTotalHarga(qty * hargaBeliSatuan);
+				pg.setWaktuPengadaan(header.getTanggalFaktur());
+				pg.setKeterangan(it.optString("keterangan", ""));
+				pg.setOleh(oleh);
+				session.save(pg);
+				session.flush();
+				ais.action.master.inventory.StokKantinUtil.recomputeStokProdukNative(session, produkId);
+			}
+			session.getTransaction().commit();
+
+			hasil.put("status", "00");
+			hasil.put("fakturId", header.getId());
+			hasil.put("totalHitung", totalHitung);
+			hasil.put("diskon", diskon);
+			hasil.put("totalFakturFinal", totalFinal);
+			hasil.put("jumlahItem", items.length());
+		} catch (Exception e) {
+			try {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception eRollback) {
+				ais.common.ErrorAuditUtil.record(eRollback, "auto-audit(empty-catch) src/ais/action/servlet/api/KantinHelper.java:kulakanFakturSimpan-rollback");
+			}
+			hasil.put("status", "91");
+			hasil.put("description", Common.tampilErrorJikaAdmin(e));
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * <h3>Kulakan per-Faktur -- riwayat header (paginated, per toko).</h3> Satu baris hasil = satu
+	 * faktur (bukan satu produk) -- {@code jumlahItem}/{@code totalHitung} dihitung agregat dari
+	 * {@link PengadaanProduk} yg menunjuk header ybs.
+	 */
+	public static void kulakanFakturList(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		Long tokoId = soResolveTokoId(tbmuser, request);
+		if (tokoId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko tidak diketahui.");
+			return;
+		}
+		String keyword = request.optString("keyword", "").trim();
+		int page = Math.max(1, request.optInt("page", 1));
+		int pageSize = Math.min(100, Math.max(1, request.optInt("page_size", 20)));
+		int offset = (page - 1) * pageSize;
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			String andKw = keyword.isEmpty() ? ""
+					: " AND (COALESCE(f.nomor_faktur,'') ILIKE ? OR COALESCE(s.nama,'') ILIKE ?)";
+			java.sql.Connection conn = session.connection();
+
+			java.sql.PreparedStatement psCount = conn.prepareStatement(
+					"SELECT COUNT(*) FROM koperasi.pengadaan_faktur f LEFT JOIN library.penyedia s ON f.supplier = s.id "
+							+ "WHERE f.toko = ?" + andKw);
+			int idxC = 1;
+			psCount.setLong(idxC++, tokoId);
+			if (!keyword.isEmpty()) {
+				String kw = "%" + keyword + "%";
+				psCount.setString(idxC++, kw);
+				psCount.setString(idxC++, kw);
+			}
+			java.sql.ResultSet rsCount = psCount.executeQuery();
+			long total = rsCount.next() ? rsCount.getLong(1) : 0;
+			rsCount.close();
+			psCount.close();
+
+			java.sql.PreparedStatement ps = conn.prepareStatement(
+					"SELECT f.id, f.tanggal_faktur, COALESCE(f.nomor_faktur,''), COALESCE(s.nama,''), "
+							+ "f.total_faktur_manual, f.total_hitung_saat_simpan, f.diskon, COALESCE(f.keterangan,''), "
+							+ "(SELECT COUNT(*) FROM koperasi.pengadaan_produk pg WHERE pg.faktur_pengadaan = f.id) AS jumlah_item "
+							+ "FROM koperasi.pengadaan_faktur f LEFT JOIN library.penyedia s ON f.supplier = s.id "
+							+ "WHERE f.toko = ?" + andKw + " ORDER BY f.tanggal_faktur DESC, f.id DESC LIMIT ? OFFSET ?");
+			int idx = 1;
+			ps.setLong(idx++, tokoId);
+			if (!keyword.isEmpty()) {
+				String kw = "%" + keyword + "%";
+				ps.setString(idx++, kw);
+				ps.setString(idx++, kw);
+			}
+			ps.setInt(idx++, pageSize);
+			ps.setInt(idx++, offset);
+			java.sql.ResultSet rs = ps.executeQuery();
+			SimpleDateFormat fmt = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+			JSONArray arr = new JSONArray();
+			while (rs.next()) {
+				JSONObject j = new JSONObject();
+				j.put("fakturId", rs.getLong(1));
+				java.sql.Timestamp tgl = rs.getTimestamp(2);
+				j.put("tanggalFaktur", tgl == null ? "" : fmt.format(tgl));
+				j.put("nomorFaktur", rs.getString(3));
+				j.put("namaSupplier", rs.getString(4));
+				double totalManual = rs.getDouble(5);
+				j.put("totalFakturManual", rs.wasNull() ? JSONObject.NULL : totalManual);
+				j.put("totalHitung", rs.getDouble(6));
+				j.put("diskon", rs.getDouble(7));
+				j.put("keterangan", rs.getString(8));
+				j.put("jumlahItem", rs.getInt(9));
+				arr.put(j);
+			}
+			rs.close();
+			ps.close();
+
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+			hasil.put("total", total);
+			hasil.put("page", page);
+			hasil.put("pageSize", pageSize);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/** <h3>Kulakan per-Faktur -- detail SATU header (dipakai layar detail/tap-riwayat).</h3> */
+	public static void kulakanFakturDetail(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		Long fakturId = request.isNull("faktur_id") ? null : Long.valueOf((request.get("faktur_id") + "").trim());
+		if (fakturId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "ID faktur wajib diisi.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			PengadaanFaktur f = (PengadaanFaktur) session.get(PengadaanFaktur.class, fakturId);
+			if (f == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Faktur tidak ditemukan.");
+				return;
+			}
+			JSONObject header = new JSONObject();
+			header.put("fakturId", f.getId());
+			header.put("nomorFaktur", f.getNomorFaktur());
+			header.put("tanggalFaktur", Common.dateFormatInput.get().format(f.getTanggalFaktur()));
+			header.put("namaSupplier", f.getSupplier() == null ? "" : f.getSupplier().getNama());
+			header.put("totalFakturManual", f.getTotalFakturManual() == null ? JSONObject.NULL : f.getTotalFakturManual());
+			header.put("totalHitung", f.getTotalHitungSaatSimpan());
+			header.put("diskon", f.getDiskon());
+			header.put("totalFakturFinal", f.getTotalFakturFinal());
+			header.put("keterangan", f.getKeterangan());
+
+			@SuppressWarnings("unchecked")
+			java.util.List<PengadaanProduk> items = session.createCriteria(PengadaanProduk.class)
+					.add(org.hibernate.criterion.Restrictions.eq("fakturPengadaan", f)).list();
+			JSONArray arr = new JSONArray();
+			for (PengadaanProduk pg : items) {
+				JSONObject j = new JSONObject();
+				j.put("id", pg.getId());
+				j.put("produkId", pg.getProduk().getId());
+				j.put("namaProduk", pg.getProduk().getNama());
+				j.put("qty", pg.getQty());
+				j.put("hargaBeliSatuan", pg.getHargaBeliSatuan());
+				j.put("totalHarga", pg.getTotalHarga());
+				arr.put(j);
+			}
+			hasil.put("status", "00");
+			hasil.put("header", header);
+			hasil.put("items", arr);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * <h3>Master Supplier (gap-closure "Data supplier belum ngelink ke master supplier") -- cari
+	 * {@link ais.database.model.library.Penyedia} berdasarkan nama.</h3> Dipakai picker supplier di
+	 * layar Kulakan per-Faktur (Desktop/Android). Boleh dipanggil siapa saja yg login (murni baca).
+	 */
+	public static void penyediaList(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		String keyword = request.optString("keyword", "").trim();
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			org.hibernate.Criteria c = session.createCriteria(ais.database.model.library.Penyedia.class)
+					.addOrder(org.hibernate.criterion.Order.asc("nama"));
+			if (!keyword.isEmpty()) {
+				c.add(org.hibernate.criterion.Restrictions.ilike("nama", keyword, org.hibernate.criterion.MatchMode.ANYWHERE));
+			}
+			c.setMaxResults(50);
+			@SuppressWarnings("unchecked")
+			java.util.List<ais.database.model.library.Penyedia> daftar = c.list();
+			JSONArray arr = new JSONArray();
+			for (ais.database.model.library.Penyedia p : daftar) {
+				JSONObject j = new JSONObject();
+				j.put("id", p.getId());
+				j.put("nama", p.getNama());
+				j.put("kontak", p.getKontak() == null ? "" : p.getKontak());
+				j.put("telp", p.getTelp() == null ? "" : p.getTelp());
+				arr.put(j);
+			}
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * <h3>Master Supplier -- tambah cepat {@link ais.database.model.library.Penyedia} baru dari
+	 * layar Kulakan</h3> (kantin admin blm tentu punya akses ke modul Library tempat entity ini
+	 * biasanya dikelola). Boleh dipanggil siapa saja yg boleh mencatat Kulakan (gerbang SAMA dgn
+	 * {@link #kulakanFakturSimpan}) -- bukan admin-only, supaya alur "supplier baru belum terdaftar"
+	 * tidak memblokir kasir/supervisor toko yg sedang mencatat faktur.
+	 */
+	public static void penyediaSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggilPy = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean adminGlobalPy = pemanggilPy == null;
+		boolean supervisorPy = pemanggilPy != null && Boolean.TRUE.equals(pemanggilPy.getSupervisor());
+		if (!bolehAksiCrud(tbmuser, pemanggilPy, adminGlobalPy, supervisorPy, "kulakan", "create")) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat menambah Supplier baru.");
+			return;
+		}
+		String nama = request.optString("nama", "").trim();
+		if (nama.isEmpty()) {
+			hasil.put("status", "91");
+			hasil.put("description", "Nama supplier wajib diisi.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.library.Penyedia p = new ais.database.model.library.Penyedia();
+			p.setNama(nama);
+			p.setKontak(request.optString("kontak", ""));
+			p.setTelp(request.optString("telp", ""));
+			p.setAlamat(request.optString("alamat", ""));
+			p.setKeterangan(request.optString("keterangan", ""));
+
+			session.beginTransaction();
+			session.save(p);
+			session.getTransaction().commit();
+
+			hasil.put("status", "00");
+			hasil.put("id", p.getId());
+			hasil.put("nama", p.getNama());
+		} catch (Exception e) {
+			try {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception eRollback) {
+				ais.common.ErrorAuditUtil.record(eRollback, "auto-audit(empty-catch) src/ais/action/servlet/api/KantinHelper.java:penyediaSimpan-rollback");
+			}
+			hasil.put("status", "91");
+			hasil.put("description", Common.tampilErrorJikaAdmin(e));
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * <h3>Retur Pembelian (gap-closure roadmap Fase 3, permintaan user 2026-08-11) -- catat satu atau
+	 * lebih produk yang dikembalikan KE SUPPLIER, satu transaksi.</h3>
+	 *
+	 * <p>Pola items[] SAMA PERSIS {@link #returPenjualanSimpan}/{@link #kulakanFakturSimpan}. Gated
+	 * Supervisor -- SAMA pola gerbangnya dgn {@link #returPenjualanSimpan} (tindakan yg mengoreksi
+	 * stok, bukan dibiarkan bebas). Stok SELALU berkurang (tanpa flag kembalikan-ke-stok, beda dari
+	 * Retur Penjualan -- lihat JavaDoc {@link ReturPembelian}).</p>
+	 *
+	 * @param request payload: {@code faktur_pengadaan_id} (opsional -- id header {@link
+	 *                PengadaanFaktur} asal), {@code kode_faktur_asal} (opsional, utk tampilan bila
+	 *                tak ada link faktur), {@code supplier_id} (opsional), {@code items} (wajib,
+	 *                array {@code {produk_id, qty, harga_satuan, alasan, keterangan}}).
+	 * @param hasil   diisi {@code status="00"}, {@code ids}, {@code totalNilaiRetur}.
+	 */
+	public static void returPembelianSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggilRb = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean adminGlobalRb = pemanggilRb == null;
+		boolean supervisorRb = pemanggilRb != null && Boolean.TRUE.equals(pemanggilRb.getSupervisor());
+		if (!bolehAksiCrud(tbmuser, pemanggilRb, adminGlobalRb, supervisorRb, "returpembelian", "create")) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat mencatat Retur Pembelian.");
+			return;
+		}
+		JSONArray items = request.optJSONArray("items");
+		if (items == null || items.length() == 0) {
+			hasil.put("status", "91");
+			hasil.put("description", "Belum ada barang yang dipilih untuk diretur.");
+			return;
+		}
+		Long fakturPengadaanId = request.isNull("faktur_pengadaan_id") ? null
+				: Long.valueOf((request.get("faktur_pengadaan_id") + "").trim());
+		String kodeFakturAsal = request.optString("kode_faktur_asal", "");
+		Long supplierId = request.isNull("supplier_id") ? null : Long.valueOf((request.get("supplier_id") + "").trim());
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			PengadaanFaktur faktur = fakturPengadaanId == null ? null
+					: (PengadaanFaktur) session.get(PengadaanFaktur.class, fakturPengadaanId);
+			ais.database.model.library.Penyedia supplier = supplierId == null ? null
+					: (ais.database.model.library.Penyedia) session.get(ais.database.model.library.Penyedia.class, supplierId);
+			if (faktur != null && kodeFakturAsal.isEmpty()) {
+				kodeFakturAsal = faktur.getNomorFaktur();
+			}
+			if (faktur != null && supplier == null) {
+				supplier = faktur.getSupplier();
+			}
+
+			session.beginTransaction();
+			JSONArray ids = new JSONArray();
+			double totalNilaiRetur = 0;
+			for (int i = 0; i < items.length(); i++) {
+				JSONObject it = items.getJSONObject(i);
+				Long produkId = it.isNull("produk_id") ? null : Long.valueOf((it.get("produk_id") + "").trim());
+				if (produkId == null) {
+					throw new IllegalArgumentException("Produk baris ke-" + (i + 1) + " belum dipilih.");
+				}
+				double qty = it.optDouble("qty", 0);
+				if (qty <= 0) {
+					throw new IllegalArgumentException("Jumlah retur baris ke-" + (i + 1) + " harus lebih dari 0.");
+				}
+				double hargaSatuan = it.optDouble("harga_satuan", 0);
+
+				Produk produk = (Produk) session.get(Produk.class, produkId);
+				if (produk == null) {
+					throw new IllegalArgumentException("Produk baris ke-" + (i + 1) + " tidak ditemukan.");
+				}
+				if (!adminGlobalRb) {
+					Long tokoPedagang = pemanggilRb.getToko() == null ? null : pemanggilRb.getToko().getId();
+					Long tokoProduk = produk.getToko() == null ? null : produk.getToko().getId();
+					if (tokoPedagang == null || !tokoPedagang.equals(tokoProduk)) {
+						throw new IllegalArgumentException("Produk baris ke-" + (i + 1) + " bukan milik toko Anda.");
+					}
+				}
+
+				ReturPembelian rb = new ReturPembelian();
+				rb.setProduk(produk);
+				rb.setToko(produk.getToko());
+				rb.setFakturPengadaan(faktur);
+				rb.setKodeFakturAsal(kodeFakturAsal);
+				rb.setSupplier(supplier);
+				rb.setQty(qty);
+				rb.setHargaSatuan(hargaSatuan);
+				rb.setTotalNilai(qty * hargaSatuan);
+				rb.setAlasan(it.optString("alasan", ""));
+				rb.setKeterangan(it.optString("keterangan", ""));
+				rb.setWaktu(new Date());
+				rb.setOleh(tbmuser == null ? "retur_pembelian" : tbmuser.getUserId());
+
+				session.save(rb);
+				ais.action.master.inventory.StokKantinUtil.recomputeStokProduk(produkId);
+
+				ids.put(rb.getId());
+				totalNilaiRetur += rb.getTotalNilai();
+			}
+			session.getTransaction().commit();
+
+			hasil.put("status", "00");
+			hasil.put("ids", ids);
+			hasil.put("totalNilaiRetur", totalNilaiRetur);
+		} catch (Exception e) {
+			try {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception eRollback) {
+				ais.common.ErrorAuditUtil.record(eRollback, "auto-audit(empty-catch) src/ais/action/servlet/api/KantinHelper.java:returPembelianSimpan-rollback");
+			}
+			hasil.put("status", "91");
+			hasil.put("description", Common.tampilErrorJikaAdmin(e));
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/** <h3>Retur Pembelian -- riwayat (paginated, per toko).</h3> Pola query SAMA PERSIS {@link #returPenjualanList}. */
+	public static void returPembelianList(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		Long tokoId = soResolveTokoId(tbmuser, request);
+		if (tokoId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko tidak diketahui.");
+			return;
+		}
+		String keyword = request.optString("keyword", "").trim();
+		int page = Math.max(1, request.optInt("page", 1));
+		int pageSize = Math.min(100, Math.max(1, request.optInt("page_size", 20)));
+		int offset = (page - 1) * pageSize;
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			String andKw = keyword.isEmpty() ? ""
+					: " AND (p.nama ILIKE ? OR COALESCE(rb.kode_faktur_asal,'') ILIKE ?)";
+			java.sql.Connection conn = session.connection();
+
+			java.sql.PreparedStatement psCount = conn.prepareStatement(
+					"SELECT COUNT(*) FROM koperasi.retur_pembelian rb JOIN koperasi.produk p ON rb.produk = p.id "
+							+ "WHERE rb.toko = ?" + andKw);
+			int idxC = 1;
+			psCount.setLong(idxC++, tokoId);
+			if (!keyword.isEmpty()) {
+				String kw = "%" + keyword + "%";
+				psCount.setString(idxC++, kw);
+				psCount.setString(idxC++, kw);
+			}
+			java.sql.ResultSet rsCount = psCount.executeQuery();
+			long total = rsCount.next() ? rsCount.getLong(1) : 0;
+			rsCount.close();
+			psCount.close();
+
+			// Kolom fisik rb.hargasatuan/totalnilai TANPA underscore (pola sama ReturPenjualan --
+			// entity ReturPembelian tidak punya @Column eksplisit utk field ini).
+			java.sql.PreparedStatement ps = conn.prepareStatement(
+					"SELECT rb.id, rb.waktu, COALESCE(rb.kode_faktur_asal,''), rb.produk, p.nama, "
+							+ "rb.qty, rb.hargasatuan, rb.totalnilai, COALESCE(rb.alasan,''), COALESCE(rb.keterangan,''), COALESCE(rb.oleh,'') "
+							+ "FROM koperasi.retur_pembelian rb JOIN koperasi.produk p ON rb.produk = p.id "
+							+ "WHERE rb.toko = ?" + andKw + " ORDER BY rb.waktu DESC, rb.id DESC LIMIT ? OFFSET ?");
+			int idx = 1;
+			ps.setLong(idx++, tokoId);
+			if (!keyword.isEmpty()) {
+				String kw = "%" + keyword + "%";
+				ps.setString(idx++, kw);
+				ps.setString(idx++, kw);
+			}
+			ps.setInt(idx++, pageSize);
+			ps.setInt(idx++, offset);
+			java.sql.ResultSet rs = ps.executeQuery();
+			SimpleDateFormat fmt = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+			JSONArray arr = new JSONArray();
+			while (rs.next()) {
+				JSONObject j = new JSONObject();
+				j.put("id", rs.getLong(1));
+				java.sql.Timestamp w = rs.getTimestamp(2);
+				j.put("waktu", w == null ? "" : fmt.format(w));
+				j.put("kodeFakturAsal", rs.getString(3));
+				j.put("produkId", rs.getLong(4));
+				j.put("namaProduk", rs.getString(5));
+				j.put("qty", rs.getDouble(6));
+				j.put("hargaSatuan", rs.getDouble(7));
+				j.put("totalNilai", rs.getDouble(8));
+				j.put("alasan", rs.getString(9));
+				j.put("keterangan", rs.getString(10));
+				j.put("oleh", rs.getString(11));
+				arr.put(j);
+			}
+			rs.close();
+			ps.close();
+
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+			hasil.put("total", total);
+			hasil.put("page", page);
+			hasil.put("pageSize", pageSize);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/** <h3>Retur Pembelian -- hapus SATU baris (mis. salah entri).</h3> Pola sama {@link #returPenjualanHapus}. */
+	public static void returPembelianHapus(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggilRb = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean adminGlobalRb = pemanggilRb == null;
+		boolean supervisorRb = pemanggilRb != null && Boolean.TRUE.equals(pemanggilRb.getSupervisor());
+		if (!bolehAksiCrud(tbmuser, pemanggilRb, adminGlobalRb, supervisorRb, "returpembelian", "delete")) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat menghapus Retur Pembelian.");
+			return;
+		}
+		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		if (id == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "ID retur wajib diisi.");
+			return;
+		}
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ReturPembelian rb = (ReturPembelian) session.get(ReturPembelian.class, id);
+			if (rb == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Data retur tidak ditemukan.");
+				return;
+			}
+			if (!adminGlobalRb) {
+				Long tokoPedagang = pemanggilRb.getToko() == null ? null : pemanggilRb.getToko().getId();
+				Long tokoRetur = rb.getToko() == null ? null : rb.getToko().getId();
+				if (tokoPedagang == null || !tokoPedagang.equals(tokoRetur)) {
+					hasil.put("status", "91");
+					hasil.put("description", "Retur ini bukan milik toko Anda.");
+					return;
+				}
+			}
+
+			Long produkId = rb.getProduk() == null ? null : rb.getProduk().getId();
+			session.beginTransaction();
+			session.delete(rb);
+			session.getTransaction().commit();
+			ais.action.master.inventory.StokKantinUtil.recomputeStokProduk(produkId);
+
+			hasil.put("status", "00");
+			hasil.put("description", "Retur berhasil dihapus.");
+		} catch (Exception e) {
+			try {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception eRollback) {
+				ais.common.ErrorAuditUtil.record(eRollback, "auto-audit(empty-catch) src/ais/action/servlet/api/KantinHelper.java:returPembelianHapus-rollback");
 			}
 			hasil.put("status", "91");
 			hasil.put("description", Common.tampilErrorJikaAdmin(e));
