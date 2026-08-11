@@ -321,6 +321,12 @@ public class PosApi extends HttpServlet {
 			} else if ("so_impor_excel".equals(action)) {
 				KantinHelper.soImporExcel(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "so_impor_excel");
+			} else if ("mutasi_stok_simpan".equals(action)) {
+				KantinHelper.mutasiStokSimpan(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "mutasi_stok_simpan");
+			} else if ("mutasi_stok_list".equals(action)) {
+				KantinHelper.mutasiStokList(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "mutasi_stok_list");
 			} else if ("stok_dashboard".equals(action)) {
 				KantinHelper.stokDashboard(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "stok_dashboard");
@@ -746,7 +752,11 @@ public class PosApi extends HttpServlet {
 
 		hasil.put("status", "success");
 		hasil.put("pajakPersen", pajakPersen);
-		hasil.put("wajibSesiKas", Common.bolehKonfigurasi(Konfigurasi.KANTIN_POS_WAJIB_SESI_KAS, Konfigurasi.TIDAK_AKTIF));
+		// WAJIB PERMANEN utk SEMUA toko (2026-08-11) -- lihat catatan sama di KantinHelper.bayar()/
+		// PosKantinAction.onBayar(); field ini TETAP dikirim (bukan dihapus) supaya klien lama/baru
+		// selalu tahu utk menampilkan gerbang Buka Kas proaktif, bukan cuma menemukan gerbangnya
+		// setelah percobaan checkout gagal.
+		hasil.put("wajibSesiKas", true);
 		hasil.put("cegahOversell", Common.bolehKonfigurasi(Konfigurasi.KANTIN_POS_CEGAH_OVERSELL, Konfigurasi.TIDAK_AKTIF));
 		hasil.put("isAdmin", toko == null);
 		hasil.put("tokoId", toko == null ? JSONObject.NULL : toko.getId());

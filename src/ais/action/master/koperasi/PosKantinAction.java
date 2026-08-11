@@ -1857,11 +1857,12 @@ public class PosKantinAction extends GenericAutowireComposer {
                     MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
             return;
         }
-        // Fase 1: gerbang Sesi Kas Kasir -- OFF secara default (lihat javadoc konstanta Konfigurasi),
-        // toko yang mengaktifkannya wajib membuka kas dulu (menu "Kas Kasir") sebelum bisa checkout.
+        // Fase 1: gerbang Sesi Kas Kasir -- WAJIB PERMANEN utk SEMUA toko (2026-08-11, permintaan
+        // eksplisit user; sebelumnya opt-in per-toko lewat Konfigurasi.KANTIN_POS_WAJIB_SESI_KAS,
+        // default OFF -- opsi mematikannya SEKARANG dihapus, bukan sekadar default-nya diubah).
         // Kecocokan sesi terbuka memakai pola identitas (oleh/olehId) yang SAMA dengan KasKasirZkAction
         // agar SesiKasUtil.hitungPenjualan() nanti mencocokkan transaksi ke sesi yang benar.
-        if (Common.bolehKonfigurasi(Konfigurasi.KANTIN_POS_WAJIB_SESI_KAS, Konfigurasi.TIDAK_AKTIF)) {
+        {
             Long sesiTerbukaId = ais.action.master.koperasi.helper.SesiKasUtil.idSesiTerbuka(
                     HibernateUtil.currentSession(), oleh, olehId, tokoIdAktif);
             if (sesiTerbukaId == null) {

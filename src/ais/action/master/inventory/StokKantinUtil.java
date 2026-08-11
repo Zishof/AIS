@@ -13,10 +13,11 @@ import ais.database.model.inventory.Produk;
  * modul Pengadaan, Stok Opname, penjualan POS (online maupun sinkronisasi offline), dan konsumsi
  * bahan baku resep.
  *
- * <h3>Rumus baku (4 suku, selalu sama di seluruh variasi method di bawah)</h3>
+ * <h3>Rumus baku (6 suku, selalu sama di seluruh variasi method di bawah)</h3>
  * <pre>
  *   stok = &Sigma;pengadaan.qty + &Sigma;stok_opname.selisih &minus; &Sigma;pembelian.qty
- *          &minus; &Sigma;pemakaian_bahan_baku.qty
+ *          &minus; &Sigma;pemakaian_bahan_baku.qty + &Sigma;retur_penjualan.qty(kembali_ke_stok)
+ *          + &Sigma;mutasi_stok_toko.qty(tujuan) &minus; &Sigma;mutasi_stok_toko.qty(asal)
  * </pre>
  * <ul>
  *   <li><b>&Sigma;pengadaan.qty</b> — total barang masuk lewat modul Pengadaan (nota pembelian dari
@@ -29,11 +30,16 @@ import ais.database.model.inventory.Produk;
  *   <li><b>&Sigma;pemakaian_bahan_baku.qty</b> — konsumsi otomatis bahan baku saat produk BER-RESEP
  *       terjual (lihat {@link BahanBakuUtil#konsumsiBahanBaku}); bahan baku itu sendiri adalah
  *       {@link ais.database.model.inventory.Produk} lain yang stoknya ikut berkurang di sini.</li>
+ *   <li><b>&Sigma;retur_penjualan.qty</b> — barang kembali dari pelanggan, HANYA baris
+ *       {@code kembalikan_ke_stok=true} (barang rusak/tak layak jual tidak menambah stok jual).</li>
+ *   <li><b>&Sigma;mutasi_stok_toko.qty</b> — transfer stok antar outlet (Fase 3 roadmap F&amp;B):
+ *       baris di mana produk ini jadi {@code produk_tujuan} MENAMBAH, baris di mana produk ini jadi
+ *       {@code produk_asal} MENGURANGI (lihat JavaDoc {@link ais.database.model.inventory.MutasiStokToko}).</li>
  * </ul>
- * Suku ke-4 inilah yang membuat rumus ini TIDAK BOLEH disederhanakan jadi "stok = masuk - terjual"
- * naif: satu transaksi penjualan produk jadi (mis. kopi) bisa mengurangi stok BEBERAPA produk sekaligus
- * (kopi bubuk, gula, gelas) lewat baris {@code pemakaian_bahan_baku} yang terpisah dari baris
- * {@code pembelian} milik produk jadi itu sendiri.
+ * Suku pemakaian-bahan-baku inilah yang membuat rumus ini TIDAK BOLEH disederhanakan jadi
+ * "stok = masuk - terjual" naif: satu transaksi penjualan produk jadi (mis. kopi) bisa mengurangi stok
+ * BEBERAPA produk sekaligus (kopi bubuk, gula, gelas) lewat baris {@code pemakaian_bahan_baku} yang
+ * terpisah dari baris {@code pembelian} milik produk jadi itu sendiri.
  *
  * <h3>Kenapa ada 3 variasi method yang menghitung rumus yang sama</h3>
  * Formula di atas dipanggil dari 3 konteks eksekusi yang berbeda kemampuan/batasannya, sehingga
@@ -135,12 +141,18 @@ public final class StokKantinUtil {
         // JavaDoc ReturPenjualan.getKembalikanKeStok()).
         double returPenjualan = scalar("SELECT COALESCE(SUM(qty),0) FROM koperasi.retur_penjualan WHERE produk = "
                 + produkId + " AND kembalikan_ke_stok = true");
+        // Mutasi Stok Antar Outlet (Fase 3): baris ini toko TUJUAN (stok bertambah) minus baris ini
+        // toko ASAL (stok berkurang) -- lihat JavaDoc MutasiStokToko.
+        double mutasiMasuk = scalar(
+                "SELECT COALESCE(SUM(qty),0) FROM koperasi.mutasi_stok_toko WHERE produk_tujuan = " + produkId);
+        double mutasiKeluar = scalar(
+                "SELECT COALESCE(SUM(qty),0) FROM koperasi.mutasi_stok_toko WHERE produk_asal = " + produkId);
         double latest = scalar("SELECT hargabelisatuan FROM koperasi.pengadaan_produk WHERE produk = " + produkId
                 + " ORDER BY waktupengadaan DESC, id DESC LIMIT 1");
 
         Session s = HibernateUtil.currentSession();
         Produk p = (Produk) s.load(Produk.class, produkId);
-        p.setStok(masuk + opname - keluar - pakai + returPenjualan);
+        p.setStok(masuk + opname - keluar - pakai + returPenjualan + mutasiMasuk - mutasiKeluar);
         if (latest > 0) {
             p.setHargaBeli(latest);
             double hargaJual = p.getHargaJual() == null ? 0 : p.getHargaJual();
@@ -166,7 +178,11 @@ public final class StokKantinUtil {
                 // Retur Penjualan: hanya baris kembalikan_ke_stok=true (barang rusak/tak layak jual
                 // TIDAK menambah stok jual) -- lihat catatan sama di recomputeStokProduk(Long).
                 + " + COALESCE((SELECT SUM(qty) FROM koperasi.retur_penjualan WHERE produk = " + produkId
-                + " AND kembalikan_ke_stok = true),0)";
+                + " AND kembalikan_ke_stok = true),0)"
+                // Mutasi Stok Antar Outlet (Fase 3): baris toko TUJUAN menambah, baris toko ASAL
+                // mengurangi -- lihat catatan sama di recomputeStokProduk(Long)/JavaDoc MutasiStokToko.
+                + " + COALESCE((SELECT SUM(qty) FROM koperasi.mutasi_stok_toko WHERE produk_tujuan = " + produkId + "),0)"
+                + " - COALESCE((SELECT SUM(qty) FROM koperasi.mutasi_stok_toko WHERE produk_asal = " + produkId + "),0)";
     }
 
     /**

@@ -436,11 +436,15 @@ public class KantinHelper {
 					// gerbang sama sekali (hanya ZK PosKantinAction.onBayar() yg mengecek client-side
 					// sebelum sampai ke sini). Dipasang di sini, ketiga platform otomatis konsisten tanpa
 					// duplikasi logika. Sengaja TIDAK dipasang di draft_bayar() -- "Simpan/Tahan Keranjang"
-					// bukan komitmen finansial, jadi tidak perlu sesi kas terbuka. OFF secara default
-					// (lihat javadoc Konfigurasi.KANTIN_POS_WAJIB_SESI_KAS). Memakai session POLA B yang
-					// SUDAH dibuka di atas (BUKAN HibernateUtil.currentSession() -- lihat javadoc kelas).
-					if (Common.bolehKonfigurasi(ais.database.model.Konfigurasi.KANTIN_POS_WAJIB_SESI_KAS,
-							ais.database.model.Konfigurasi.TIDAK_AKTIF)) {
+					// bukan komitmen finansial, jadi tidak perlu sesi kas terbuka.
+					//
+					// WAJIB PERMANEN utk SEMUA toko (2026-08-11, permintaan eksplisit user) -- sebelumnya
+					// gerbang ini opt-in per-toko lewat Konfigurasi.KANTIN_POS_WAJIB_SESI_KAS (default
+					// TIDAK_AKTIF/OFF), SEKARANG tanpa syarat, opsi mematikannya DIHAPUS (bukan sekadar
+					// diubah default-nya) -- toko manapun yg belum pernah membuka kas hari itu TIDAK BISA
+					// checkout, harus Buka Kas dulu. Memakai session POLA B yang SUDAH dibuka di atas
+					// (BUKAN HibernateUtil.currentSession() -- lihat javadoc kelas).
+					{
 						String[] idKasir = identitasKasir(tbmuser);
 						if (ais.action.master.koperasi.helper.SesiKasUtil.idSesiTerbuka(session,
 								idKasir[0], idKasir[1], toko.getId()) == null) {
@@ -6966,6 +6970,227 @@ public class KantinHelper {
 			hasil.put("status", "00");
 			hasil.put("disimpan", disimpan);
 			hasil.put("dilewati", dilewati);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * <h3>Mutasi Stok Antar Outlet (Fase 3 roadmap F&amp;B, klien item #5) -- transfer stok dari toko
+	 * asal ke toko tujuan.</h3>
+	 *
+	 * <p>Karena tiap outlet punya baris {@link Produk} TERPISAH utk "barang yang sama", produk tujuan
+	 * dicoba di-match OTOMATIS di toko tujuan lewat kode/barcode produk asal (persis kode ATAU persis
+	 * barcode, keduanya case-insensitive/trim) -- kalau ketemu TEPAT SATU kandidat, dipakai langsung;
+	 * kalau ketemu nol atau lebih dari satu (ambigu), method ini menolak dgn {@code status="92"} +
+	 * {@code butuhPilihManual=true} supaya klien menampilkan picker cari-produk di toko tujuan lalu
+	 * mengirim ulang dgn {@code produk_tujuan_id} eksplisit (melewati auto-match sepenuhnya).</p>
+	 *
+	 * <p>Baris {@link ais.database.model.inventory.MutasiStokToko} yg tersimpan LANGSUNG memicu
+	 * {@link StokKantinUtil#recomputeStokProdukNative} utk KEDUA produk (asal &amp; tujuan) -- efeknya
+	 * terlihat seketika di Kasir kedua toko, TANPA langkah approval terpisah, konsisten dgn "SO by
+	 * Scan"/Kulakan yg sudah ada.</p>
+	 *
+	 * <p>Gerbang SENGAJA supervisor/admin-only (TIDAK memakai matriks hak-akses granular {@code
+	 * bolehAksiCrud} spt menu lain) -- fitur baru & lintas-2-toko sekaligus, mulai dari default paling
+	 * ketat lebih aman drpd langsung mengekspos ke kasir biasa.</p>
+	 *
+	 * @param request payload: {@code toko_id} (toko ASAL -- wajib utk admin, diabaikan/dikunci utk
+	 *                pedagang, pola sama {@link #soResolveTokoId}), {@code produk_asal_id} (wajib),
+	 *                {@code toko_tujuan_id} (wajib), {@code produk_tujuan_id} (opsional -- lewati
+	 *                auto-match bila diisi), {@code qty} (wajib, &gt;0), {@code keterangan} (opsional).
+	 * @param hasil   diisi {@code status="00"}, {@code id}, {@code produkTujuanNama} bila berhasil;
+	 *                {@code status="92"}+{@code butuhPilihManual=true}+{@code kandidat} (array
+	 *                {@code {id,nama,kode}}, 0 atau &gt;1 baris) bila auto-match gagal.
+	 */
+	public static void mutasiStokSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggil = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean adminGlobal = pemanggil == null;
+		boolean supervisor = pemanggil != null && Boolean.TRUE.equals(pemanggil.getSupervisor());
+		if (!adminGlobal && !supervisor) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat mencatat Mutasi Stok Antar Outlet.");
+			return;
+		}
+		Long tokoAsalId = soResolveTokoId(tbmuser, request);
+		if (tokoAsalId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko asal tidak diketahui.");
+			return;
+		}
+		Long produkAsalId = request.isNull("produk_asal_id") ? null : Long.valueOf((request.get("produk_asal_id") + "").trim());
+		Long tokoTujuanId = request.isNull("toko_tujuan_id") ? null : Long.valueOf((request.get("toko_tujuan_id") + "").trim());
+		if (produkAsalId == null || tokoTujuanId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Produk asal dan toko tujuan wajib diisi.");
+			return;
+		}
+		if (tokoTujuanId.equals(tokoAsalId)) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko tujuan tidak boleh sama dengan toko asal.");
+			return;
+		}
+		if (!request.has("qty") || request.isNull("qty") || request.getDouble("qty") <= 0) {
+			hasil.put("status", "91");
+			hasil.put("description", "Jumlah (qty) wajib diisi lebih dari 0.");
+			return;
+		}
+		double qty = request.getDouble("qty");
+		String keterangan = request.optString("keterangan", "");
+		String oleh = tbmuser == null ? "admin" : tbmuser.getUserId();
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			Produk produkAsal = (Produk) session.get(Produk.class, produkAsalId);
+			if (produkAsal == null || produkAsal.getToko() == null || !produkAsal.getToko().getId().equals(tokoAsalId)) {
+				hasil.put("status", "91");
+				hasil.put("description", "Produk asal tidak ditemukan di toko asal.");
+				return;
+			}
+			if (produkAsal.getStok() == null || produkAsal.getStok() < qty) {
+				hasil.put("status", "91");
+				hasil.put("description", "Stok produk asal tidak cukup (tersedia " + (produkAsal.getStok() == null ? 0 : produkAsal.getStok()) + ").");
+				return;
+			}
+			Toko tokoTujuan = (Toko) session.get(Toko.class, tokoTujuanId);
+			if (tokoTujuan == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Toko tujuan tidak ditemukan.");
+				return;
+			}
+
+			Produk produkTujuan;
+			Long produkTujuanIdEksplisit = request.isNull("produk_tujuan_id") ? null : Long.valueOf((request.get("produk_tujuan_id") + "").trim());
+			if (produkTujuanIdEksplisit != null) {
+				produkTujuan = (Produk) session.get(Produk.class, produkTujuanIdEksplisit);
+				if (produkTujuan == null || produkTujuan.getToko() == null || !produkTujuan.getToko().getId().equals(tokoTujuanId)) {
+					hasil.put("status", "91");
+					hasil.put("description", "Produk tujuan tidak ditemukan di toko tujuan.");
+					return;
+				}
+			} else {
+				String kodeAsal = produkAsal.getKode() == null ? "" : produkAsal.getKode().trim();
+				String barcodeAsal = produkAsal.getBarcode() == null ? "" : produkAsal.getBarcode().trim();
+				org.hibernate.criterion.Disjunction pencocokan = Restrictions.disjunction();
+				boolean adaKriteria = false;
+				if (!kodeAsal.isEmpty()) { pencocokan.add(Restrictions.eq("kode", kodeAsal).ignoreCase()); adaKriteria = true; }
+				if (!barcodeAsal.isEmpty()) { pencocokan.add(Restrictions.eq("barcode", barcodeAsal).ignoreCase()); adaKriteria = true; }
+				@SuppressWarnings("unchecked")
+				java.util.List<Produk> kandidat = adaKriteria
+						? session.createCriteria(Produk.class)
+								.add(Restrictions.eq("toko", tokoTujuan))
+								.add(Restrictions.eq("aktif", true))
+								.add(pencocokan)
+								.list()
+						: new java.util.ArrayList<Produk>();
+				if (kandidat.size() != 1) {
+					hasil.put("status", "92");
+					hasil.put("butuhPilihManual", true);
+					JSONArray arr = new JSONArray();
+					for (Produk k : kandidat) {
+						JSONObject o = new JSONObject();
+						o.put("id", k.getId());
+						o.put("nama", k.getNama());
+						o.put("kode", k.getKode());
+						arr.put(o);
+					}
+					hasil.put("kandidat", arr);
+					hasil.put("description", kandidat.isEmpty()
+							? "Produk yang sama tidak ditemukan otomatis di toko tujuan -- pilih manual."
+							: "Ditemukan lebih dari satu kandidat produk di toko tujuan -- pilih manual.");
+					return;
+				}
+				produkTujuan = kandidat.get(0);
+			}
+
+			session.beginTransaction();
+			ais.database.model.inventory.MutasiStokToko m = new ais.database.model.inventory.MutasiStokToko();
+			m.setProdukAsal(produkAsal);
+			m.setProdukTujuan(produkTujuan);
+			m.setTokoAsal(produkAsal.getToko());
+			m.setTokoTujuan(tokoTujuan);
+			m.setQty(qty);
+			m.setWaktu(ais.ui.util.WaktuUtil.getDate());
+			m.setKeterangan(keterangan);
+			m.setOleh(oleh);
+			session.save(m);
+			session.flush();
+			ais.action.master.inventory.StokKantinUtil.recomputeStokProdukNative(session, produkAsal.getId());
+			ais.action.master.inventory.StokKantinUtil.recomputeStokProdukNative(session, produkTujuan.getId());
+			session.getTransaction().commit();
+
+			hasil.put("status", "00");
+			hasil.put("id", m.getId());
+			hasil.put("produkTujuanNama", produkTujuan.getNama());
+		} catch (Exception e) {
+			try {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception eRollback) {
+				ais.common.ErrorAuditUtil.record(eRollback, "auto-audit(empty-catch) src/ais/action/servlet/api/KantinHelper.java:mutasiStokSimpan-rollback");
+			}
+			hasil.put("status", "91");
+			hasil.put("description", Common.tampilErrorJikaAdmin(e));
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * <h3>Mutasi Stok Antar Outlet -- riwayat.</h3>
+	 *
+	 * @param request payload: {@code toko_id} (wajib utk admin, dikunci ke toko sendiri utk pedagang
+	 *                -- riwayat mencakup baris di mana toko ybs jadi ASAL ATAU TUJUAN), {@code limit}
+	 *                (opsional, default 50, maks 200).
+	 * @param hasil   diisi {@code status="00"}, {@code data} (array {@code {id, waktu, arah
+	 *                ("masuk"/"keluar"), produkAsalNama, produkTujuanNama, tokoAsalNama, tokoTujuanNama,
+	 *                qty, keterangan, oleh}}).
+	 */
+	public static void mutasiStokList(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		Long tokoId = soResolveTokoId(tbmuser, request);
+		if (tokoId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko tidak diketahui.");
+			return;
+		}
+		int limit = Math.min(request.optInt("limit", 50), 200);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			@SuppressWarnings("unchecked")
+			java.util.List<Object[]> rows = session.createSQLQuery(
+					"SELECT m.id, TO_CHAR(m.waktu, 'YYYY-MM-DD HH24:MI') as waktu, "
+							+ "pa.nama AS produk_asal_nama, pt.nama AS produk_tujuan_nama, "
+							+ "ta.nama AS toko_asal_nama, tt.nama AS toko_tujuan_nama, "
+							+ "m.toko_asal, m.toko_tujuan, m.qty, m.keterangan, m.oleh "
+							+ "FROM koperasi.mutasi_stok_toko m "
+							+ "LEFT JOIN koperasi.produk pa ON m.produk_asal = pa.id "
+							+ "LEFT JOIN koperasi.produk pt ON m.produk_tujuan = pt.id "
+							+ "LEFT JOIN koperasi.toko ta ON m.toko_asal = ta.id "
+							+ "LEFT JOIN koperasi.toko tt ON m.toko_tujuan = tt.id "
+							+ "WHERE m.toko_asal = :tokoId OR m.toko_tujuan = :tokoId "
+							+ "ORDER BY m.waktu DESC, m.id DESC LIMIT :limit")
+					.setParameter("tokoId", tokoId)
+					.setParameter("limit", limit)
+					.list();
+			JSONArray data = new JSONArray();
+			for (Object[] r : rows) {
+				JSONObject o = new JSONObject();
+				o.put("id", r[0]);
+				o.put("waktu", r[1] == null ? "" : r[1].toString());
+				o.put("produkAsalNama", r[2] == null ? "" : r[2].toString());
+				o.put("produkTujuanNama", r[3] == null ? "" : r[3].toString());
+				o.put("tokoAsalNama", r[4] == null ? "" : r[4].toString());
+				o.put("tokoTujuanNama", r[5] == null ? "" : r[5].toString());
+				Long baristTokoAsalId = r[6] == null ? null : ((Number) r[6]).longValue();
+				o.put("arah", tokoId.equals(baristTokoAsalId) ? "keluar" : "masuk");
+				o.put("qty", r[8] == null ? 0 : ((Number) r[8]).doubleValue());
+				o.put("keterangan", r[9] == null ? "" : r[9].toString());
+				o.put("oleh", r[10] == null ? "" : r[10].toString());
+				data.put(o);
+			}
+			hasil.put("status", "00");
+			hasil.put("data", data);
 		} finally {
 			tutupSessionPolaB(session);
 		}

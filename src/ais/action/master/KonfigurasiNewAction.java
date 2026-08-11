@@ -887,9 +887,9 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		rows.appendChild(createRowActiveDefault(
 				"Cegah Oversell Kasir — blokir penambahan item melebihi stok pada POS (default MATI; aktifkan setelah toko rutin mencatat stok masuk lewat Pengadaan/Stok Opname, jika belum akan memblokir seluruh penjualan produk yang stoknya belum pernah tercatat)",
 				Konfigurasi.KANTIN_POS_CEGAH_OVERSELL, Konfigurasi.TIDAK_AKTIF));
-		rows.appendChild(createRowActiveDefault(
-				"Wajibkan Sesi Kas Kasir terbuka sebelum bisa memproses pembayaran (aktifkan setelah toko terbiasa memakai fitur Buka/Tutup Kas)",
-				Konfigurasi.KANTIN_POS_WAJIB_SESI_KAS, Konfigurasi.TIDAK_AKTIF));
+		// Gap-closure (2026-08-11): "Wajibkan Sesi Kas Kasir" TIDAK LAGI opsional -- toggle ini
+		// dihapus dari layar Konfigurasi supaya admin tidak salah kira bisa mematikannya (gerbangnya
+		// sekarang tanpa syarat di KantinHelper.bayar()/PosKantinAction.onBayar(), lihat catatan di sana).
 	}
 
 	/**

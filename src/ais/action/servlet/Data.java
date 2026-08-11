@@ -483,6 +483,10 @@ public class Data extends HttpServlet {
 				KantinHelper.draft_bayar(tbmuser, jsonObject, hasil);
 			} else if ("checkBayar".equals(action)) {
 				KantinHelper.checkBayar(jsonObject, hasil);
+			} else if ("mutasi_stok_simpan".equals(action)) {
+				KantinHelper.mutasiStokSimpan(tbmuser, jsonObject, hasil);
+			} else if ("mutasi_stok_list".equals(action)) {
+				KantinHelper.mutasiStokList(tbmuser, jsonObject, hasil);
 			} else if ("tabungan".equals(action)) {
 				KantinHelper.tabungan(jsonObject, hasil);
 			} else if ("sesi_kas_status".equals(action)) {

@@ -16,6 +16,10 @@ String rnd = Common.getGeneratedBarCode(7);
 		<button class="nav-link" data-bs-toggle="tab"
 			data-bs-target="#sub-opname-scan<%=rnd%>" type="button" role="tab"><i class="fas fa-barcode me-1"></i><%=Common.getBahasaConfig("SO by Scan (HP/PDT)")%></button>
 	</li>
+	<li class="nav-item" role="presentation">
+		<button class="nav-link" data-bs-toggle="tab"
+			data-bs-target="#sub-mutasi-outlet<%=rnd%>" type="button" role="tab"><i class="fas fa-truck-loading me-1"></i><%=Common.getBahasaConfig("Mutasi Antar Outlet")%></button>
+	</li>
 </ul>
 <div class="tab-content">
 	<div class="tab-pane fade show active" id="sub-kartu-stok<%=rnd%>"
@@ -27,5 +31,8 @@ String rnd = Common.getGeneratedBarCode(7);
 	</div>
 	<div class="tab-pane fade" id="sub-opname-scan<%=rnd%>" role="tabpanel">
 		<jsp:include page="/WEB-INF/baru/modul/kantin/stok/opname_scan.jsp" />
+	</div>
+	<div class="tab-pane fade" id="sub-mutasi-outlet<%=rnd%>" role="tabpanel">
+		<jsp:include page="/WEB-INF/baru/modul/kantin/stok/mutasi_antar_outlet.jsp" />
 	</div>
 </div>

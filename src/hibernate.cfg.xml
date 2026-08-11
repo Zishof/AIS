@@ -2213,6 +2213,7 @@
 		<mapping class="ais.database.model.inventory.ProdukKomentar"></mapping>
 		
 		<mapping class="ais.database.model.inventory.StokOpname"></mapping>
+		<mapping class="ais.database.model.inventory.MutasiStokToko"></mapping>
 		<mapping class="ais.database.model.inventory.PengadaanProduk"></mapping>
 		<mapping class="ais.database.model.inventory.PemakaianBahanBaku"></mapping>
 		<mapping class="ais.database.model.inventory.ReturBarang"></mapping>
