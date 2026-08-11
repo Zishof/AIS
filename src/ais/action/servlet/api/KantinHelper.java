@@ -6104,19 +6104,22 @@ public class KantinHelper {
 	 * baru) -- pola SAMA PERSIS dengan {@link #pedagangList} (kasir/pedagang selalu scope tokonya
 	 * sendiri, dari sesi login server, TIDAK PERNAH dipercaya dari klien; admin global wajib kirim
 	 * {@code toko_id} eksplisit karena tidak terikat satu toko).
+	 *
+	 * <p><b>Gap-closure "Kunci Toko per Akun" (2026-08-11).</b> {@code Pedagang.toko} (diisi lewat
+	 * field "Toko / Penjual" di {@code TbmuserAction}) SEKARANG dicek LEBIH DULU -- kalau terisi,
+	 * akun ini terkunci ke toko itu, TITIK, walau {@code tokoAktifMultiToko} masih menyimpan nilai
+	 * BEKAS dari sesi multi-toko SEBELUM akun ini dikunci admin (nilai bekas itu diabaikan, bukan
+	 * dipercaya lagi). Sama pola prioritas dgn {@link #daftarTokoBolehDiakses}.</p>
 	 */
 	private static Long soResolveTokoId(Tbmuser tbmuser, JSONObject request) throws Exception {
 		ais.database.model.inventory.Pedagang pemanggil = tbmuser == null ? null : tbmuser.getPedagang();
 		if (pemanggil != null) {
-			// Multi-toko (lihat JavaDoc Tbmuser.tokoAktifMultiToko): kalau pengguna ini PERNAH
-			// memilih toko (lewat sesi_kas_buka), field ini SELALU dipercaya lebih dulu -- pengguna
-			// toko-tunggal biasa tidak pernah mengisi field ini jadi cabang ini tidak berlaku bagi
-			// mereka (perilaku lama di baris berikutnya tetap sama persis).
-			Long tokoAktifMulti = tbmuser.getTokoAktifMultiToko();
-			if (tokoAktifMulti != null) {
-				return tokoAktifMulti;
+			if (pemanggil.getToko() != null) {
+				return pemanggil.getToko().getId();
 			}
-			return pemanggil.getToko() == null ? null : pemanggil.getToko().getId();
+			// Toko/Penjual TIDAK ditentukan -- akun ini bukan dikunci, boleh multi-toko. Field
+			// tokoAktifMultiToko (diisi lewat sesi_kas_buka) baru relevan di sini.
+			return tbmuser.getTokoAktifMultiToko();
 		}
 		return request.isNull("toko_id") ? null : Long.valueOf((request.get("toko_id") + "").trim());
 	}
@@ -6131,9 +6134,29 @@ public class KantinHelper {
 	 * <p>Utk pengguna toko-tunggal (kasus paling umum), gabungan ini SELALU berukuran <=1 -- dipakai
 	 * jugai oleh {@link #sesiKasBuka} utk memutuskan apakah kombinasi pilih-toko perlu ditampilkan
 	 * sama sekali di klien.</p>
+	 *
+	 * <p><b>Gap-closure "Kunci Toko per Akun" (2026-08-11).</b> Field "Toko / Penjual" di layar
+	 * admin {@code TbmuserAction} menulis ke {@code Tbmuser.getPedagang().getToko()} -- kalau field
+	 * itu DIISI, akun ini WAJIB terkunci ke toko tersebut SAJA di POS Android/Desktop/JSP + Stok
+	 * Opname Android, TIDAK BOLEH ada pilihan ke toko lain, walau grup penggunanya (Tbmrole) punya
+	 * konfigurasi multi-toko ({@code tokoAksesJson}) ATAU akun ini juga punya baris {@code Pedagang}
+	 * tambahan dari layar "Ambil Pengguna". SEBELUMNYA kode ini memberi PRIORITAS ke
+	 * {@code tokoAksesJson} (return lebih dulu di atas), sehingga grup multi-toko diam-diam
+	 * MENGALAHKAN kunci per-akun ini -- kasir yg semestinya terkunci tetap melihat combo pilih-toko.
+	 * Sekarang {@code Pedagang.toko} dicek PALING AWAL dan, bila terisi, langsung
+	 * DIKEMBALIKAN SENDIRIAN (bukan digabung) -- kunci akun selalu menang. {@code tokoAksesJson}/
+	 * multi-{@code Pedagang} HANYA dipakai sbg fallback ketika {@code Pedagang.toko} kosong (field
+	 * "Toko/Penjual" memang sengaja tidak ditentukan -- kasus admin/manajer/kasir multi-toko).</p>
 	 */
 	public static java.util.List<Toko> daftarTokoBolehDiakses(Session session, Tbmuser tbmuser) {
 		java.util.LinkedHashMap<Long, Toko> peta = new java.util.LinkedHashMap<Long, Toko>();
+		ais.database.model.inventory.Pedagang milikSendiri = tbmuser == null ? null : tbmuser.getPedagang();
+		if (milikSendiri != null && milikSendiri.getToko() != null) {
+			// Kunci per-akun (Toko/Penjual di TbmuserAction) -- SELALU menang, abaikan tokoAksesJson
+			// role dan baris Pedagang tambahan lain sama sekali. Satu toko, tanpa kompromi.
+			peta.put(milikSendiri.getToko().getId(), milikSendiri.getToko());
+			return new java.util.ArrayList<Toko>(peta.values());
+		}
 		ais.database.model.Tbmrole role = tbmuser == null ? null : tbmuser.hakAkses();
 		if (role != null && role.getTokoAksesJson() != null) {
 			try {
@@ -6160,10 +6183,6 @@ public class KantinHelper {
 			if (!peta.isEmpty()) {
 				return new java.util.ArrayList<Toko>(peta.values());
 			}
-		}
-		ais.database.model.inventory.Pedagang milikSendiri = tbmuser == null ? null : tbmuser.getPedagang();
-		if (milikSendiri != null && milikSendiri.getToko() != null) {
-			peta.put(milikSendiri.getToko().getId(), milikSendiri.getToko());
 		}
 		if (tbmuser != null) {
 			java.util.List<?> daftarPedagang = session.createCriteria(ais.database.model.inventory.Pedagang.class)
