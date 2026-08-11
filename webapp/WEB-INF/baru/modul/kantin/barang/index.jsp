@@ -275,8 +275,9 @@ String namaTokoAktif = toko != null ? toko.getNama() : "";
                             <select class="form-select" id="formJenisItem<%=rnd%>">
                                 <option value="JUAL"><%=Common.getBahasaConfig("Produk (bisa dijual di Kasir)")%></option>
                                 <option value="BAHAN"><%=Common.getBahasaConfig("Bahan Baku (hanya dipakai via resep)")%></option>
+                                <option value="EKSTRA"><%=Common.getBahasaConfig("Ekstra (hanya dipakai via picker ekstra produk lain)")%></option>
                             </select>
-                            <small class="text-muted d-block mt-1"><%=Common.getBahasaConfig("Bahan Baku tidak muncul di katalog Kasir, hanya bisa dipilih sebagai bahan di editor Resep produk lain.")%></small>
+                            <small class="text-muted d-block mt-1"><%=Common.getBahasaConfig("Bahan Baku & Ekstra tidak muncul di katalog Kasir. Bahan Baku hanya bisa dipilih di editor Resep, Ekstra hanya bisa dipilih di editor Pilih Ekstra produk lain.")%></small>
                         </div>
 
                         <div class="col-md-6">
@@ -344,6 +345,26 @@ String namaTokoAktif = toko != null ? toko.getNama() : "";
                                 <div class="text-end">
                                     <button type="button" class="btn btn-sm btn-outline-success rounded-pill fw-bold" onclick="bbSetAsHpp<%=rnd%>()"><i class="fas fa-equals me-1"></i><%=Common.getBahasaConfig("Jadikan Harga Modal/Beli")%></button>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- ============ PILIH EKSTRA (MODIFIER/ADD-ON) ============ -->
+                        <div class="col-12 mt-2">
+                            <div class="p-3 rounded-3 border" style="background:#f8fafc;">
+                                <label class="form-label fw-bold text-dark mb-1">
+                                    <i class="fas fa-mug-hot me-2 text-primary"></i><%=Common.getBahasaConfig("Pilih Ekstra")%>
+                                </label>
+                                <p class="text-muted small mb-2"><%=Common.getBahasaConfig("Produk lain ber-Jenis Item \"Ekstra\" yang boleh dipilih pembeli sebagai tambahan/topping saat memesan produk ini (mis. Ekstra Topping Mesis, Ekstra Cruble Oreo).")%></p>
+                                <div class="row g-2 align-items-end mb-2">
+                                    <div class="col-md-9">
+                                        <label class="form-label small fw-semibold text-secondary mb-1"><%=Common.getBahasaConfig("Ekstra (produk lain)")%></label>
+                                        <select class="form-select form-select-sm" id="eksSelectProduk<%=rnd%>"><option value=""><%=Common.getBahasaConfig("Memuat...")%></option></select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <button type="button" class="btn btn-sm btn-primary w-100 fw-bold rounded-3" onclick="eksAdd<%=rnd%>()"><i class="fas fa-plus me-1"></i><%=Common.getBahasaConfig("Tambah")%></button>
+                                    </div>
+                                </div>
+                                <div id="eksList<%=rnd%>"></div>
                             </div>
                         </div>
 
@@ -472,6 +493,12 @@ String namaTokoAktif = toko != null ? toko.getNama() : "";
     // Bahan baku (resep) & HPP
     let bahanBakuList<%=rnd%> = [];      // [{produk, nama, qty, harga}]
     let bahanBakuOptions<%=rnd%> = [];   // kandidat bahan baku (produk lain)
+
+    // Pilih Ekstra (modifier/add-on) -- lebih sederhana dari Bahan Baku: hanya id mentah (tanpa
+    // qty/harga snapshot), karena harga ekstra SELALU diambil live dari hargaJual produk ekstra
+    // itu sendiri saat checkout (lihat JavaDoc Produk.getEkstraPilihan()).
+    let ekstraPilihanList<%=rnd%> = [];  // [id, id, ...] id produk ber-jenisItem EKSTRA
+    let ekstraPilihanOptions<%=rnd%> = []; // kandidat ekstra (produk lain ber-jenisItem EKSTRA)
 
     const formatRpProduk<%=rnd%> = (angka) => {
         return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka || 0);
@@ -629,6 +656,85 @@ String namaTokoAktif = toko != null ? toko.getNama() : "";
         } catch (e) { console.error("bahanBaku/masterAsset parse error", e); }
         bbRenderOptions<%=rnd%>();
         bbRender<%=rnd%>();
+    };
+
+
+    // ==========================================
+    // PILIH EKSTRA (MODIFIER/ADD-ON)
+    // ==========================================
+    const loadEkstraOptions<%=rnd%> = async () => {
+        // Padanan loadBahanBakuOptions, tapi sumbernya produk ber-jenisItem EKSTRA (bukan BAHAN) --
+        // dan harga yg ditampilkan hargajual (harga JUAL yg dibayar pembeli), BUKAN hargabeli spt
+        // bahan baku (yg dicost pakai hargabeli krn itu utk hitung HPP).
+        let sql = "SELECT id, kode, nama, COALESCE(hargajual,0) AS hargajual FROM koperasi.produk WHERE jenis_item = 'EKSTRA' ";
+        if (!isAdminProduk<%=rnd%>) sql += " AND toko = " + idTokoLogin<%=rnd%> + " ";
+        sql += " ORDER BY nama ASC LIMIT 2000";
+        ekstraPilihanOptions<%=rnd%> = await fetchSqlData<%=rnd%>(sql);
+        eksRenderOptions<%=rnd%>();
+    };
+
+    const eksRenderOptions<%=rnd%> = () => {
+        const sel = document.getElementById('eksSelectProduk<%=rnd%>');
+        if (!sel) return;
+        const curId = (document.getElementById('formId<%=rnd%>').value || '').toString();
+        let opt = '<option value=""><%=Common.getBahasaConfig("-- Pilih ekstra --")%></option>';
+        ekstraPilihanOptions<%=rnd%>.forEach(p => {
+            if (curId !== '' && p.id.toString() === curId) return; // tidak boleh jadi ekstra dirinya sendiri
+            if (ekstraPilihanList<%=rnd%>.indexOf(parseInt(p.id)) !== -1) return; // sudah dipilih, jangan tampil lagi
+            opt += '<option value="' + p.id + '">' + (p.kode ? p.kode + ' - ' : '') + p.nama + ' (' + formatRpProduk<%=rnd%>(p.hargajual) + ')</option>';
+        });
+        sel.innerHTML = opt;
+    };
+
+    const eksRender<%=rnd%> = () => {
+        const wrap = document.getElementById('eksList<%=rnd%>');
+        if (!wrap) return;
+        if (ekstraPilihanList<%=rnd%>.length === 0) {
+            wrap.innerHTML = '<div class="text-muted small py-1"><%=Common.getBahasaConfig("Belum ada ekstra dipilih. Produk dijual tanpa opsi tambahan.")%></div>';
+            return;
+        }
+        let html = '<div class="list-group list-group-flush">';
+        ekstraPilihanList<%=rnd%>.forEach((id, i) => {
+            const p = ekstraPilihanOptions<%=rnd%>.find(x => x.id.toString() === id.toString());
+            const nama = p ? p.nama : ('#' + id);
+            const harga = p ? formatRpProduk<%=rnd%>(p.hargajual) : '';
+            html += '<div class="list-group-item d-flex justify-content-between align-items-center px-0 py-1 bg-transparent">' +
+                        '<span class="small"><i class="fas fa-mug-hot text-muted me-1"></i>' + nama + (harga ? ' <span class="text-muted">(' + harga + ')</span>' : '') + '</span>' +
+                        '<button type="button" class="btn btn-sm btn-outline-danger border-0 p-1" onclick="eksRemove<%=rnd%>(' + i + ')"><i class="fas fa-times"></i></button>' +
+                    '</div>';
+        });
+        html += '</div>';
+        wrap.innerHTML = html;
+    };
+
+    const eksAdd<%=rnd%> = () => {
+        const sel = document.getElementById('eksSelectProduk<%=rnd%>');
+        const pid = sel.value;
+        if (pid === '') { showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Pilih ekstra terlebih dahulu.")%>', 'bg-warning text-dark'); return; }
+        const idInt = parseInt(pid);
+        if (ekstraPilihanList<%=rnd%>.indexOf(idInt) === -1) { ekstraPilihanList<%=rnd%>.push(idInt); }
+        sel.value = '';
+        eksRender<%=rnd%>();
+        eksRenderOptions<%=rnd%>();
+    };
+
+    const eksRemove<%=rnd%> = (idx) => {
+        ekstraPilihanList<%=rnd%>.splice(idx, 1);
+        eksRender<%=rnd%>();
+        eksRenderOptions<%=rnd%>();
+    };
+
+    const eksLoadForEdit<%=rnd%> = async (id) => {
+        ekstraPilihanList<%=rnd%> = [];
+        try {
+            const res = await fetchSqlData<%=rnd%>("SELECT ekstra_pilihan FROM koperasi.produk WHERE id = " + id);
+            if (res && res[0] && res[0].ekstra_pilihan) {
+                const arr = JSON.parse(res[0].ekstra_pilihan);
+                if (Array.isArray(arr)) ekstraPilihanList<%=rnd%> = arr.map(x => parseInt(x));
+            }
+        } catch (e) { console.error("ekstraPilihan parse error", e); }
+        eksRenderOptions<%=rnd%>();
+        eksRender<%=rnd%>();
     };
 
 
@@ -895,6 +1001,11 @@ String namaTokoAktif = toko != null ? toko.getNama() : "";
         bbRenderOptions<%=rnd%>();
         bbRender<%=rnd%>();
 
+        // Reset editor pilih ekstra
+        ekstraPilihanList<%=rnd%> = [];
+        eksRenderOptions<%=rnd%>();
+        eksRender<%=rnd%>();
+
         // Reset tautan barang persediaan (aset)
         var selMaAdd = document.getElementById('formMasterAsset<%=rnd%>');
         if (selMaAdd) selMaAdd.value = '';
@@ -950,6 +1061,9 @@ String namaTokoAktif = toko != null ? toko.getNama() : "";
 
         // Muat bahan baku (resep) tersimpan
         bbLoadForEdit<%=rnd%>(id);
+
+        // Muat pilihan ekstra tersimpan
+        eksLoadForEdit<%=rnd%>(id);
 
         if(modalInstanceProduk<%=rnd%> === null) {
             modalInstanceProduk<%=rnd%> = new bootstrap.Modal(document.getElementById('modalFormProduk<%=rnd%>'));
@@ -1011,6 +1125,7 @@ String namaTokoAktif = toko != null ? toko.getNama() : "";
                 jenisItem: jenisItem,
                 toko: tokoId,
                 bahanBaku: JSON.stringify(bahanBakuList<%=rnd%>),
+                ekstraPilihan: JSON.stringify(ekstraPilihanList<%=rnd%>),
                 masterAsset: (document.getElementById('formMasterAsset<%=rnd%>').value || null)
             }
         };
@@ -1370,6 +1485,9 @@ String namaTokoAktif = toko != null ? toko.getNama() : "";
 
         // Muat kandidat bahan baku (produk lain) untuk editor resep/HPP
         loadBahanBakuOptions<%=rnd%>();
+
+        // Muat kandidat ekstra (produk lain ber-jenisItem EKSTRA) untuk editor Pilih Ekstra
+        loadEkstraOptions<%=rnd%>();
 
         // Muat daftar barang persediaan (aset) untuk tautan opsional
         loadMasterAssetOptions<%=rnd%>();

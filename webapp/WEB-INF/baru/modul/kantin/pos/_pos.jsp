@@ -620,6 +620,28 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
           </div>
         </div>
 
+        <!-- Gap-closure "Produk Ekstra" -- modal picker topping/tambahan, dibuka dari addToCart<%=rnd%> bila produk yg ditap punya ekstra_pilihan terisi. -->
+        <div class="modal fade" id="modalEkstraPilihan<%=rnd%>" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 rounded-4 shadow">
+              <div class="modal-header border-bottom-0 pb-1">
+                <h5 class="modal-title fw-bold text-dark"><i class="fas fa-mug-hot me-2"></i><%=Common.getBahasaConfig("Pilih Ekstra")%> - <span id="judulModalEkstra<%=rnd%>"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body pt-2 pb-3">
+                <p class="text-muted small mb-2"><%=Common.getBahasaConfig("Centang tambahan/topping yang dipesan (opsional).")%></p>
+                <div id="bodyModalEkstra<%=rnd%>">
+                    <div class="text-center text-muted py-3"><div class="spinner-border spinner-border-sm text-primary"></div></div>
+                </div>
+              </div>
+              <div class="modal-footer border-top-0 pt-0">
+                <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal"><%=Common.getBahasaConfig("Batal")%></button>
+                <button type="button" class="btn btn-primary rounded-pill fw-bold px-4" onclick="konfirmasiModalEkstra<%=rnd%>()"><i class="fas fa-cart-plus me-1"></i><%=Common.getBahasaConfig("Tambah ke Keranjang")%></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="modal fade" id="modalStatusSinkron<%=rnd%>" tabindex="-1" aria-hidden="true">
           <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content border-0 rounded-4 shadow">
@@ -1454,10 +1476,14 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
                 const pHarga = parseFloat(p.hargajual || 0);
                 const pStok = parseFloat(p.stok || 0);
                 const diskonPersen = parseFloat(p.diskon_persen || 0);
+                // Gap-closure "Produk Ekstra" -- diteruskan sbg 5th arg (string JSON id array, mis.
+                // "[601,602]", atau string kosong bila produk ini tak punya ekstra) ke addToCart supaya
+                // ia tahu perlu buka modal picker sebelum push ke keranjang atau tidak.
+                const pEkstraPilihan = (p.ekstra_pilihan || '').replace(/'/g, "\\'");
                 const stokBadge = pStok <= 0 ? '<span class="badge bg-danger position-absolute top-0 end-0 m-1" style="font-size:9px;z-index:2;"><%=Common.getBahasaConfig("Habis")%></span>' : (pStok <= 5 ? '<span class="badge bg-warning text-dark position-absolute top-0 end-0 m-1" style="font-size:9px;z-index:2;">Stok ' + pStok + '</span>' : '');
 
                 htmlGrid += '<div class="col-lg-4 col-md-6 col-sm-6">' +
-                        '<div class="prod-card-<%=rnd%>" onclick="addToCart<%=rnd%>(' + pId + ', \'' + pKode + '\', \'' + pNama + '\', ' + pHarga + ')">' +
+                        '<div class="prod-card-<%=rnd%>" onclick="addToCart<%=rnd%>(' + pId + ', \'' + pKode + '\', \'' + pNama + '\', ' + pHarga + ', \'' + pEkstraPilihan + '\')">' +
                             '<div class="prod-thumb-<%=rnd%>" id="prod-icon-wrapper-<%=rnd%>-' + pId + '">' +
                                 (diskonPersen > 0 ? '<span class="prod-badge-diskon-<%=rnd%>">' + Math.round(diskonPersen) + '%</span>' : '') +
                                 stokBadge +
@@ -1575,21 +1601,124 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         renderCart<%=rnd%>();
     };
 
-    const addToCart<%=rnd%> = async (id, kode, nama, harga) => {
+    const addToCart<%=rnd%> = async (id, kode, nama, harga, ekstraPilihanJson) => {
         const idMember = document.getElementById('idMemberSelected<%=rnd%>').value;
         if(idMember) {
              // Selalu refresh saldo saat memilih barang
              await checkSaldoTerbaru<%=rnd%>(idMember);
         }
 
-        const existingItem = cart<%=rnd%>.find(item => item.id === id);
+        // Gap-closure "Produk Ekstra" -- produk dgn ekstra_pilihan terisi WAJIB lewat modal picker
+        // dulu (kasir centang topping/tambahan apa saja) sebelum push ke keranjang. Produk tanpa
+        // ekstra (mayoritas) tetap langsung masuk spt sebelumnya lewat pushKeKeranjang dgn ekstra=[].
+        let idsEkstra = [];
+        if (ekstraPilihanJson) {
+            try {
+                const arr = JSON.parse(ekstraPilihanJson);
+                if (Array.isArray(arr) && arr.length > 0) idsEkstra = arr;
+            } catch(e) { /* produk lama/rusak tanpa ekstra valid -- perlakukan spt tanpa ekstra */ }
+        }
+
+        if (idsEkstra.length > 0) {
+            bukaModalEkstra<%=rnd%>(id, kode, nama, harga, idsEkstra);
+            return;
+        }
+
+        pushKeKeranjang<%=rnd%>(id, kode, nama, harga, []);
+    };
+
+    /**
+     * Bandingkan dua pilihan ekstra (array of {id,...} ATAU array of id polos) apakah SAMA PERSIS
+     * (set id identik, urutan tak penting). Dipakai sbg bagian kunci merge baris keranjang -- baris
+     * produk yg sama TAPI beda pilihan ekstra harus jadi baris keranjang TERPISAH.
+     */
+    const sameEkstraSelection<%=rnd%> = (a, b) => {
+        const idsA = (a || []).map(x => (x && typeof x === 'object' ? x.id : x)).map(String).sort();
+        const idsB = (b || []).map(x => (x && typeof x === 'object' ? x.id : x)).map(String).sort();
+        if (idsA.length !== idsB.length) return false;
+        return idsA.every((v, i) => v === idsB[i]);
+    };
+
+    /** Push/merge aktual ke keranjang -- dipakai baik oleh jalur langsung (tanpa ekstra) maupun oleh konfirmasiModalEkstra (dgn ekstra). */
+    const pushKeKeranjang<%=rnd%> = (id, kode, nama, harga, ekstraArr) => {
+        const ekstra = Array.isArray(ekstraArr) ? ekstraArr : [];
+        const existingItem = cart<%=rnd%>.find(item => item.id === id && sameEkstraSelection<%=rnd%>(item.ekstra, ekstra));
         if (existingItem) {
             existingItem.jumlah += 1;
         } else {
-            let newItem = { id: id, kode: kode, nama: nama, harga: harga, jumlah: 1, diskon: 0, cashback: 0, aturanDiskon: null, berlakuPerHariDanPerToko: false };
+            let newItem = { id: id, kode: kode, nama: nama, harga: harga, jumlah: 1, diskon: 0, cashback: 0, aturanDiskon: null, berlakuPerHariDanPerToko: false, ekstra: ekstra };
             cart<%=rnd%>.push(newItem);
         }
         recalculateCart<%=rnd%>();
+    };
+
+    // ==========================================
+    // MODAL PILIH EKSTRA (MODIFIER/ADD-ON)
+    // ==========================================
+    let ekstraModalPending<%=rnd%> = null; // {id, kode, nama, harga} produk dasar yg sedang menunggu pilihan ekstra di modal
+
+    const bukaModalEkstra<%=rnd%> = async (id, kode, nama, harga, idsEkstra) => {
+        ekstraModalPending<%=rnd%> = { id: id, kode: kode, nama: nama, harga: harga };
+        document.getElementById('judulModalEkstra<%=rnd%>').innerText = nama;
+        const body = document.getElementById('bodyModalEkstra<%=rnd%>');
+        body.innerHTML = '<div class="text-center text-muted py-3"><div class="spinner-border spinner-border-sm text-primary"></div></div>';
+
+        const modalEl = document.getElementById('modalEkstraPilihan<%=rnd%>');
+        new bootstrap.Modal(modalEl).show();
+
+        // Resolve id->{nama,harga} LIVE dari DB (bukan cache) -- JSP ini selalu online, tidak perlu
+        // dijaga terhadap offline-cache spt Electron/Flutter. Filter numerik dulu (defensif thd data
+        // ekstra_pilihan yg rusak/bukan angka) sebelum dirangkai jadi klausa SQL IN (...).
+        const idsEkstraAman = idsEkstra.map(x => parseInt(x)).filter(x => !isNaN(x));
+        if (idsEkstraAman.length === 0) {
+            body.innerHTML = '<div class="text-center text-muted py-3"><%=Common.getBahasaConfig("Data ekstra tidak ditemukan.")%></div>';
+            return;
+        }
+        const sql = "SELECT id, kode, nama, COALESCE(hargajual,0) AS hargajual FROM koperasi.produk WHERE id IN (" + idsEkstraAman.join(',') + ") ORDER BY nama ASC";
+        const opsi = await fetchData<%=rnd%>(sql);
+
+        if (!opsi || opsi.length === 0) {
+            body.innerHTML = '<div class="text-center text-muted py-3"><%=Common.getBahasaConfig("Data ekstra tidak ditemukan.")%></div>';
+            return;
+        }
+
+        let html = '';
+        opsi.forEach(p => {
+            const namaEks = (p.nama || '').replace(/"/g, '&quot;');
+            const hargaEks = parseFloat(p.hargajual || 0);
+            html += '<div class="form-check d-flex justify-content-between align-items-center border-bottom py-2">' +
+                        '<div class="form-check">' +
+                            '<input class="form-check-input" type="checkbox" value="' + p.id + '" id="ckEkstra<%=rnd%>-' + p.id + '" ' +
+                                'data-kode="' + (p.kode || '') + '" data-nama="' + namaEks + '" data-harga="' + hargaEks + '">' +
+                            '<label class="form-check-label" for="ckEkstra<%=rnd%>-' + p.id + '">' + (p.nama || '') + '</label>' +
+                        '</div>' +
+                        '<span class="text-muted small">' + formatRp<%=rnd%>(hargaEks) + '</span>' +
+                    '</div>';
+        });
+        body.innerHTML = html;
+    };
+
+    const konfirmasiModalEkstra<%=rnd%> = () => {
+        if (!ekstraModalPending<%=rnd%>) return;
+        const body = document.getElementById('bodyModalEkstra<%=rnd%>');
+        const ekstraArr = [];
+        body.querySelectorAll('input[type="checkbox"]:checked').forEach(ck => {
+            ekstraArr.push({
+                id: parseInt(ck.value),
+                kode: ck.getAttribute('data-kode') || '',
+                nama: ck.getAttribute('data-nama') || '',
+                harga: parseFloat(ck.getAttribute('data-harga')) || 0,
+                jumlah: 1
+            });
+        });
+        const p = ekstraModalPending<%=rnd%>;
+        ekstraModalPending<%=rnd%> = null;
+
+        const modalEl = document.getElementById('modalEkstraPilihan<%=rnd%>');
+        const inst = window.bootstrap ? bootstrap.Modal.getInstance(modalEl) : null;
+        if (inst) inst.hide();
+
+        pushKeKeranjang<%=rnd%>(p.id, p.kode, p.nama, p.harga, ekstraArr);
     };
 
     const updateQty<%=rnd%> = async (index, delta) => {
@@ -1660,8 +1789,13 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
     };
 
     window.muatKeranjangTertahan<%=rnd%> = async (idDraft) => {
+        // Gap-closure "Produk Ekstra" -- d.id (draft_item_id) & d.induk_id ikut diambil supaya baris
+        // flat draft_pembelian bisa diregroup balik jadi cart bersarang (baris dasar + .ekstra[]) di
+        // bawah. Baris lama (sebelum fitur ini ada) punya induk_id NULL utk semuanya -- tetap
+        // ter-flatten jadi baris dasar biasa, TIDAK ada perubahan perilaku.
         const sqlItems = "SELECT p.id as produk_id, p.kode, COALESCE(p.nama, d.nama) as nama, " +
-            "d.hargasatuan as harga, d.qty as jumlah, COALESCE(d.diskon,0) as diskon, COALESCE(d.cashback,0) as cashback, d.aturan_diskon " +
+            "d.hargasatuan as harga, d.qty as jumlah, COALESCE(d.diskon,0) as diskon, COALESCE(d.cashback,0) as cashback, d.aturan_diskon, " +
+            "d.id AS draft_item_id, d.induk_id " +
             "FROM koperasi.draft_pembelian d LEFT JOIN koperasi.produk p ON d.produk = p.id " +
             "WHERE d.draft_pembelian_anggota_koperasi = " + idDraft + ";";
         const resItems = await fetchData<%=rnd%>(sqlItems);
@@ -1670,11 +1804,27 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             return;
         }
 
-        cart<%=rnd%> = resItems.map(it => ({
+        // Pass 1: baris dasar (induk_id kosong) -- jadi baris cart, kunci sementara _draftItemId
+        // dipakai pass 2 utk mencocokkan ekstra ke induknya, lalu dibuang.
+        const barisDasar = resItems.filter(it => !it.induk_id);
+        const barisEkstra = resItems.filter(it => !!it.induk_id);
+
+        const cartBaru = barisDasar.map(it => ({
             id: it.produk_id, kode: it.kode || '', nama: it.nama, harga: parseFloat(it.harga || 0),
             jumlah: parseFloat(it.jumlah || 0), diskon: parseFloat(it.diskon || 0), cashback: parseFloat(it.cashback || 0),
-            aturanDiskon: it.aturan_diskon || null, berlakuPerHariDanPerToko: false
+            aturanDiskon: it.aturan_diskon || null, berlakuPerHariDanPerToko: false,
+            ekstra: [], _draftItemId: it.draft_item_id
         }));
+
+        // Pass 2: tempelkan tiap baris ekstra ke baris dasar yg draft_item_id-nya = induk_id baris ini.
+        barisEkstra.forEach(it => {
+            const induk = cartBaru.find(c => String(c._draftItemId) === String(it.induk_id));
+            if (!induk) return; // induk sudah tak ada/tak valid -- lewati diam2 drpd error
+            induk.ekstra.push({ id: it.produk_id, kode: it.kode || '', nama: it.nama, harga: parseFloat(it.harga || 0), jumlah: 1 });
+        });
+
+        cartBaru.forEach(c => { delete c._draftItemId; });
+        cart<%=rnd%> = cartBaru;
         currentDraftId<%=rnd%> = idDraft;
 
         // Muat balik header (member+metode bayar) supaya kasir tinggal lanjut Bayar
@@ -1734,7 +1884,8 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             caraBayar: idCaraBayar,
             transaksi: cart<%=rnd%>.map(item => ({
                 id: item.id, kode: item.kode, nama: item.nama, harga: item.harga, jumlah: item.jumlah,
-                diskon: item.diskon, aturanDiskon: item.aturanDiskon, cashback: item.cashback
+                diskon: item.diskon, aturanDiskon: item.aturanDiskon, cashback: item.cashback,
+                ekstra: item.ekstra || [] // Gap-closure "Produk Ekstra" -- kosong utk baris tanpa ekstra, byte-identical spt sebelumnya
             }))
         };
         if (posTanpaLogin<%=rnd%>) payload.tanpaLogin = "true";
@@ -1774,8 +1925,16 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         } else {
             let htmlCart = '';
             cart<%=rnd%>.forEach((item, index) => {
-                const itemTotal = (item.harga * item.jumlah) - item.diskon;
-                subtotal += (item.harga * item.jumlah);
+                // Gap-closure "Produk Ekstra" -- ekstra ikut menambah nilai baris ini. Server
+                // mengalikan harga tiap ekstra dgn jumlah INDUK (lihat KantinHelper.
+                // ratakanTransaksiDenganEkstra, jumlahEkstra selalu 1 dari sisi kita), jadi
+                // kontribusinya ke subtotal HARUS dihitung persis sama di sini supaya total yg
+                // ditampilkan/divalidasi (tunai, QR, potong saldo, struk) SELALU sinkron dgn total
+                // yang sebenarnya tersimpan di server.
+                const ekstraList = item.ekstra || [];
+                const ekstraHargaPerParent = ekstraList.reduce((s, ek) => s + ((parseFloat(ek.harga) || 0) * (parseFloat(ek.jumlah) || 1)), 0);
+                const itemTotal = (item.harga * item.jumlah) - item.diskon + (ekstraHargaPerParent * item.jumlah);
+                subtotal += (item.harga * item.jumlah) + (ekstraHargaPerParent * item.jumlah);
                 totalDiskon += item.diskon;
                 totalCashback += item.cashback;
 
@@ -1784,11 +1943,20 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
                 if(item.diskon > 0) notePromo += '<span class="badge bg-danger text-white rounded-pill mt-1 px-2" style="font-size: 9.5px;"><i class="fas fa-cut me-1"></i>Potong ' + formatRp<%=rnd%>(item.diskon) + '</span> ';
                 if(item.cashback > 0) notePromo += '<span class="badge bg-info text-dark rounded-pill mt-1 px-2" style="font-size: 9.5px;"><i class="fas fa-wallet me-1"></i>Cashback ' + formatRp<%=rnd%>(item.cashback) + '</span>';
 
+                // Sub-list ekstra (topping/tambahan) terpilih, terindentasi di bawah nama produk induk
+                let ekstraHtmlBaris = '';
+                if (ekstraList.length > 0) {
+                    ekstraHtmlBaris = '<div class="mt-1">' + ekstraList.map(ek =>
+                        '<div class="text-muted" style="font-size:10.5px;padding-left:6px;">+ ' + ek.nama + (ek.harga ? ' <span class="text-secondary">(' + formatRp<%=rnd%>(ek.harga) + ')</span>' : '') + '</div>'
+                    ).join('') + '</div>';
+                }
+
                 htmlCart += '<div class="cart-item-<%=rnd%>">' +
                         '<div class="cart-thumb-<%=rnd%>"><i class="fas fa-box"></i></div>' +
                         '<div class="flex-grow-1">' +
                             '<div class="fw-bold text-dark" style="font-size:13px;">' + item.nama + '</div>' +
                             '<div class="text-muted" style="font-size:11px;">' + formatRp<%=rnd%>(item.harga) + '</div>' +
+                            ekstraHtmlBaris +
                             (notePromo ? '<div class="mt-1">' + notePromo + '</div>' : '') +
                         '</div>' +
                         '<div class="qty-pill-<%=rnd%>">' +
@@ -1892,6 +2060,17 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             if(itemCashback > 0) {
                 htmlStruk += '<tr><td colspan="2" style="padding-bottom:5px;">&nbsp;&nbsp;<i>Cashback Didapat</i></td><td class="text-right">+' + formatRp<%=rnd%>(itemCashback) + '</td></tr>';
             }
+
+            // Gap-closure "Produk Ekstra" -- flatten baris ekstra langsung di bawah baris induknya,
+            // diindentasi spt tambahan/topping. Harga per baris = harga ekstra x jumlah INDUK (server
+            // mengalikan persis sama, lihat KantinHelper.ratakanTransaksiDenganEkstra).
+            const ekstraStruk = item.ekstra || [];
+            ekstraStruk.forEach(ek => {
+                const hargaEk = parseFloat(ek.harga) || 0;
+                const subEk = hargaEk * item.jumlah;
+                subtotalAwal += subEk;
+                htmlStruk += '<tr><td colspan="2" style="padding-bottom:5px;">&nbsp;&nbsp;+ ' + ek.nama + '</td><td class="text-right" style="padding-bottom:5px;">' + formatRp<%=rnd%>(subEk) + '</td></tr>';
+            });
         });
         
         htmlStruk += '</table></div>';
@@ -2074,7 +2253,8 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
                 diskon: item.diskon,
                 aturanDiskon: item.aturanDiskon, // Inject ID Promo ke backend
                 cashback: item.cashback,          // Inject Cashback ke backend
-                berlakuPerHariDanPerToko: item.berlakuPerHariDanPerToko
+                berlakuPerHariDanPerToko: item.berlakuPerHariDanPerToko,
+                ekstra: item.ekstra || [] // Gap-closure "Produk Ekstra" -- kosong utk baris tanpa ekstra, byte-identical spt sebelumnya
             }))
         };
 
