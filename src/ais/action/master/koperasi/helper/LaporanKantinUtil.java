@@ -83,6 +83,64 @@ public final class LaporanKantinUtil {
         return sb.toString();
     }
 
+    /**
+     * Kondisi tanggal INLINE (bukan named-param) — dipakai pada SQL yang mengulang kolom tanggal
+     * banyak kali (mis. UNION 5 slot bayar pada buku besar pembantu piutang), agar tidak bergantung
+     * pada pengulangan {@code :tglMulai}/{@code :tglSampai}. Nilai tanggal berasal dari datebox
+     * (format yyyy-MM-dd), tanda kutip dibuang untuk aman.
+     */
+    private static String kondTanggalInline(String kolom, String tglMulai, String tglSampai) {
+        StringBuilder sb = new StringBuilder();
+        if (ada(tglMulai)) {
+            sb.append(" AND cast(").append(kolom).append(" as date) >= date '")
+                    .append(tglMulai.trim().replace("'", "")).append("' ");
+        }
+        if (ada(tglSampai)) {
+            sb.append(" AND cast(").append(kolom).append(" as date) <= date '")
+                    .append(tglSampai.trim().replace("'", "")).append("' ");
+        }
+        return sb.toString();
+    }
+
+    /**
+     * CTE {@code mutasi} piutang anggota — sumber Buku Besar Pembantu Piutang &amp; Histori Piutang.
+     * DEBIT (bertambah) = belanja via metode "Masuk sebagai Hutang" (5 slot bayar), KREDIT (berkurang)
+     * = {@code koperasi.pembayaran_hutang}. Pola SQL sama dengan {@code KantinHelper.mutasiHutangList}
+     * (sudah dipakai di produksi), tanggal di-inline. {@code selectAkhir} = SELECT + window saldo.
+     */
+    private static String sqlMutasiPiutang(String condH, String condPh, String selectAkhir) {
+        String[] slotJoin = { "h.cara_pembayaran_koperasi", "h.cara_pembayaran_koperasi_2",
+                "h.cara_pembayaran_koperasi_3", "h.cara_pembayaran_koperasi_4", "h.cara_pembayaran_koperasi_5" };
+        String[] slotNom = {
+                "coalesce(h.total_biaya,0)-coalesce(h.nominal_bayar_2,0)-coalesce(h.nominal_bayar_3,0)"
+                        + "-coalesce(h.nominal_bayar_4,0)-coalesce(h.nominal_bayar_5,0)",
+                "coalesce(h.nominal_bayar_2,0)", "coalesce(h.nominal_bayar_3,0)",
+                "coalesce(h.nominal_bayar_4,0)", "coalesce(h.nominal_bayar_5,0)" };
+        StringBuilder sql = new StringBuilder("with mutasi as ( ");
+        for (int slot = 1; slot <= 5; slot++) {
+            if (slot > 1) {
+                sql.append(" union all ");
+            }
+            sql.append(" select h.tanggal_pembayaran as waktu, ('H").append(slot).append("' || h.id) as baris_id, ")
+                    .append("(a.kode || ' - ' || a.nama) as nama_anggota, h.anggota_koperasi as id_anggota, ")
+                    .append("'Belanja (Hutang)' as jenis_mutasi, coalesce(h.kode,'') as keterangan, (")
+                    .append(slotNom[slot - 1]).append(") as bertambah, 0 as berkurang ")
+                    .append("from koperasi.pembelian_anggota_koperasi h ")
+                    .append("join koperasi.anggota_koperasi a on h.anggota_koperasi = a.id ")
+                    .append("join koperasi.cara_pembayaran_koperasi cpk").append(slot).append(" on ")
+                    .append(slotJoin[slot - 1]).append(" = cpk").append(slot).append(".id ")
+                    .append("where cpk").append(slot).append(".masuk_sebagai_hutang = true ")
+                    .append("and h.anggota_koperasi is not null and (").append(slotNom[slot - 1]).append(") > 0 ")
+                    .append(condH);
+        }
+        sql.append(" union all select ph.waktu, ('C' || ph.id), (a.kode || ' - ' || a.nama), ph.anggota_koperasi, ")
+                .append("'Pembayaran Hutang', coalesce(ph.keterangan,''), 0, coalesce(ph.nominal,0) ")
+                .append("from koperasi.pembayaran_hutang ph ")
+                .append("join koperasi.anggota_koperasi a on ph.anggota_koperasi = a.id where 1=1 ").append(condPh);
+        sql.append(" ) ").append(selectAkhir);
+        return sql.toString();
+    }
+
     /** Klausa lingkup toko (kolom FK toko) + isi parameter :tokoId (idempoten). */
     private static String kondToko(String kolom, Long tokoId, Map<String, Object> p) {
         if (tokoId == null) { return ""; }
@@ -656,6 +714,35 @@ public final class LaporanKantinUtil {
                     + " group by a.kode, a.kode_identitas, a.nama order by 4 desc ";
                 tipe = new String[]{"text","text","num","num"};
                 kolom.add(new Kolom("Kode","text")); kolom.add(new Kolom("Pelanggan","text")); kolom.add(new Kolom("Jml Faktur","num")); kolom.add(new Kolom("Saldo Piutang","num"));
+
+            } else if ("akn_bb_pembantu_piutang".equals(r)) {
+                judul = "Buku Besar Pembantu Piutang (per Pelanggan)"; grupIdx = 0;
+                catatan = "Mutasi piutang tiap pelanggan/anggota: DEBET = belanja via metode 'Masuk sebagai Hutang', "
+                    + "KREDIT = pembayaran hutang, dengan saldo berjalan per pelanggan.";
+                sql = sqlMutasiPiutang(kondTanggalInline("h.tanggal_pembayaran", tglMulai, tglSampai),
+                    kondTanggalInline("ph.waktu", tglMulai, tglSampai),
+                    "select nama_anggota, cast(waktu as date), jenis_mutasi, keterangan, bertambah, berkurang, "
+                    + " sum(bertambah - berkurang) over (partition by id_anggota order by waktu asc, baris_id asc "
+                    + "   rows between unbounded preceding and current row) as saldo "
+                    + " from mutasi order by nama_anggota asc, waktu asc, baris_id asc ");
+                tipe = new String[]{"text","tgl","text","text","num","num","num"};
+                kolom.add(new Kolom("Pelanggan","text")); kolom.add(new Kolom("Tanggal","tgl")); kolom.add(new Kolom("Jenis","text"));
+                kolom.add(new Kolom("Keterangan","text")); kolom.add(new Kolom("Debet (Hutang)","num"));
+                kolom.add(new Kolom("Kredit (Bayar)","num")); kolom.add(new Kolom("Saldo","num"));
+
+            } else if ("akn_histori_piutang".equals(r)) {
+                judul = "Histori Piutang (Kronologis)";
+                catatan = "Seluruh mutasi piutang (belanja hutang & pembayaran hutang) urut waktu, dengan saldo total berjalan.";
+                sql = sqlMutasiPiutang(kondTanggalInline("h.tanggal_pembayaran", tglMulai, tglSampai),
+                    kondTanggalInline("ph.waktu", tglMulai, tglSampai),
+                    "select cast(waktu as date), nama_anggota, jenis_mutasi, keterangan, bertambah, berkurang, "
+                    + " sum(bertambah - berkurang) over (order by waktu asc, baris_id asc "
+                    + "   rows between unbounded preceding and current row) as saldo "
+                    + " from mutasi order by waktu asc, baris_id asc ");
+                tipe = new String[]{"tgl","text","text","text","num","num","num"};
+                kolom.add(new Kolom("Tanggal","tgl")); kolom.add(new Kolom("Pelanggan","text")); kolom.add(new Kolom("Jenis","text"));
+                kolom.add(new Kolom("Keterangan","text")); kolom.add(new Kolom("Debet (Hutang)","num"));
+                kolom.add(new Kolom("Kredit (Bayar)","num")); kolom.add(new Kolom("Saldo","num"));
 
             } else if ("gl_rincian".equals(r)) {
                 judul = "Rincian Buku Besar (Kas Kantin)";

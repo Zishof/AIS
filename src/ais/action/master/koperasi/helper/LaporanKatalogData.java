@@ -213,6 +213,8 @@ public final class LaporanKatalogData {
         k.items.add(item("ar_faktur_belum_lunas", "Faktur Belum Lunas", "Faktur penjualan yang belum lunas.", false, true, false, null));
         k.items.add(item("ar_umur_piutang", "Umur Piutang (Aging)", "Sisa piutang per kelompok umur 0-30/31-60/61-90/>90 hari.", false, true, false, null));
         k.items.add(item("ar_sisa_kredit", "Limit & Sisa Kredit Pelanggan", "Plafon kredit anggota vs piutang terpakai; sisa & tanda melebihi limit. Atur limit di Pengaturan.", false, true, false, null));
+        k.items.add(item("akn_bb_pembantu_piutang", "Buku Besar Pembantu Piutang", "Mutasi piutang per pelanggan (belanja hutang vs pembayaran) + saldo berjalan."));
+        k.items.add(item("akn_histori_piutang", "Histori Piutang", "Seluruh mutasi piutang urut waktu (kronologis) + saldo total berjalan."));
         semua.add(k);
 
         k = new Kat("Pajak (PPN)");
