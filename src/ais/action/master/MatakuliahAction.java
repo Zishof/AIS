@@ -3521,7 +3521,9 @@ public class MatakuliahAction extends GenericAutowireComposer
 
 		if (perguruanTinggi != null) {
 			criteria.createAlias("jurusan.fakultas", "fakultas", Criteria.LEFT_JOIN)
-					.add(Restrictions.eq("fakultas.perguruanTinggi", perguruanTinggi));
+					.add(Restrictions.or(
+							Restrictions.isNull("jurusan"),
+							Restrictions.eq("fakultas.perguruanTinggi", perguruanTinggi)));
 		}
 
 		return criteria;
