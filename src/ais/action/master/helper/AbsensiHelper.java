@@ -3943,16 +3943,26 @@ public class AbsensiHelper {
 						pengajuanIzinTidakMasukPerkuliahan.setMahasiswa(mhs);
 						pengajuanIzinTidakMasukPerkuliahan.setStatusabsensi((Statusabsensi) s.getAttribute("nilai"));
 						pengajuanIzinTidakMasukPerkuliahan.setKeterangan(katerangan.getValue().trim());
-						// FIX akar masalah "SessionException: Session is closed!" (KE-3/KE-13): pada
-						// beberapa request, session yang diambil di atas ternyata sudah tertutup
-						// oleh titik ini (mis. dari panggilan lain di request yang sama yang
-						// menutup/rollback session-nya sendiri). Ambil ulang session yang dijamin
-						// terbuka sebelum simpan, alih-alih memakai referensi yang mungkin basi.
-						if (!session.isOpen()) {
-							session = HibernateUtil.currentSession();
+						// currentSession() adalah sesi ZK OpenSessionInView. Bila sesi sudah
+						// tertutup (mis. event dari timer/server-push di luar execution ZK normal),
+						// buka sesi baru yang kita kelola sendiri dan tutup di finally.
+						Session sessionFallback = null;
+						try {
+							if (!session.isOpen()) {
+								sessionFallback = HibernateUtil.openSession();
+								sessionFallback.beginTransaction();
+								session = sessionFallback;
+							}
+							Common.refreshSaveOrUpdate(session, pengajuanIzinTidakMasukPerkuliahan);
+							session.flush();
+							if (sessionFallback != null && sessionFallback.getTransaction().isActive()) {
+								sessionFallback.getTransaction().commit();
+							}
+						} finally {
+							if (sessionFallback != null && sessionFallback.isOpen()) {
+								sessionFallback.close();
+							}
 						}
-						Common.refreshSaveOrUpdate(session, pengajuanIzinTidakMasukPerkuliahan);
-						session.flush();
 
 						pertemuan.belum("PengajuanIzinTidakMasukPerkuliahan");
 
@@ -5014,13 +5024,19 @@ public class AbsensiHelper {
 
 			Date m = null;
 			try {
-				m = Common.timeFormat2.get().parse(pertemuan.retreiveAbsensiMulai(dosen.getId()));
+				String mulaiStr = pertemuan.retreiveAbsensiMulai(dosen.getId());
+				if (mulaiStr != null && !mulaiStr.trim().isEmpty()) {
+					m = Common.timeFormat2.get().parse(mulaiStr);
+				}
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/AbsensiHelper.java:4982");
 			}
 
 			Date s = null;
 			try {
-				s = Common.timeFormat2.get().parse(pertemuan.retreiveAbsensiSampai(dosen.getId()));
+				String sampaiStr = pertemuan.retreiveAbsensiSampai(dosen.getId());
+				if (sampaiStr != null && !sampaiStr.trim().isEmpty()) {
+					s = Common.timeFormat2.get().parse(sampaiStr);
+				}
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/AbsensiHelper.java:4988");
 			}
 

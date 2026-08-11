@@ -336,8 +336,11 @@ public final class CommonTimerHelper {
 				}
 			}
 
-			Component root = ExecutionsCtrl.getCurrentCtrl() == null ? null
-					: ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot();
+			Component root = null;
+			if (ExecutionsCtrl.getCurrentCtrl() != null
+					&& ExecutionsCtrl.getCurrentCtrl().getCurrentPage() != null) {
+				root = ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot();
+			}
 			if (root != null) {
 				timer.setParent(root);
 			}

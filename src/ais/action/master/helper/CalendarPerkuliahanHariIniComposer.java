@@ -342,7 +342,9 @@ public class CalendarPerkuliahanHariIniComposer extends GenericForwardComposer {
 			if (penjadwalanjamMulai.getNilai().equals(Konfigurasi.AKTIF)) {
 				Integer mulai = 7;
 				try {
-					mulai = Integer.parseInt(penjadwalanjamMulai.getInfo1().trim());
+					String mulaiRaw = penjadwalanjamMulai.getInfo1().trim();
+					int dotIdx = mulaiRaw.indexOf('.');
+					mulai = Integer.parseInt(dotIdx >= 0 ? mulaiRaw.substring(0, dotIdx) : mulaiRaw);
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/CalendarPerkuliahanHariIniComposer.java:346");
 				}
 				calendars.setBeginTime(mulai);
@@ -350,7 +352,9 @@ public class CalendarPerkuliahanHariIniComposer extends GenericForwardComposer {
 			if (penjadwalanjamSelesai.getNilai().equals(Konfigurasi.AKTIF)) {
 				Integer sampai = 23;
 				try {
-					sampai = Integer.parseInt(penjadwalanjamSelesai.getInfo1().trim());
+					String sampaiRaw = penjadwalanjamSelesai.getInfo1().trim();
+					int dotIdx = sampaiRaw.indexOf('.');
+					sampai = Integer.parseInt(dotIdx >= 0 ? sampaiRaw.substring(0, dotIdx) : sampaiRaw);
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/CalendarPerkuliahanHariIniComposer.java:354");
 				}
 				calendars.setEndTime(sampai);

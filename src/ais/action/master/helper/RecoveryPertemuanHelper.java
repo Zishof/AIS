@@ -591,10 +591,11 @@ public class RecoveryPertemuanHelper extends MyWindow {
 						String key = relation.getClass().getName() + "-" + relation.getId();
 						if (!processedIds.contains(key)) {
 							processedIds.add(key);
-							Object checkDb = session.get(relation.getClass(), relation.getId());
+							Class<?> realClass = org.hibernate.Hibernate.getClass(relation);
+						Object checkDb = session.get(realClass, relation.getId());
 							if (checkDb == null) {
 								List results = reader.createQuery()
-										.forRevisionsOfEntity(relation.getClass(), true, false)
+										.forRevisionsOfEntity(realClass, true, false)
 										.add(AuditEntity.id().eq(relation.getId()))
 										.addOrder(AuditEntity.revisionNumber().desc()).setMaxResults(1).getResultList();
 								if (results != null && !results.isEmpty()) {

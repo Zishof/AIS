@@ -691,7 +691,7 @@ public class LinimasaApi {
 
 						jsonObject.put("nim", mahasiswa.getNim());
 						jsonObject.put("nama", mahasiswa.getNama());
-						jsonObject.put("jurusan", mahasiswa.getJurusan().getNama());
+						jsonObject.put("jurusan", mahasiswa.getJurusan() != null ? mahasiswa.getJurusan().getNama() : "");
 						jsonObject.put("angkatan", mahasiswa.getTahunangkatan());
 
 						Statusabsensi statusabsensi = (Statusabsensi) ConstantValues

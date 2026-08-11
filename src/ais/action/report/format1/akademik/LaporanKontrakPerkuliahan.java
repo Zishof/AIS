@@ -177,7 +177,7 @@ public class LaporanKontrakPerkuliahan extends MyWindow {
 				if (lam != null) {
 					File file = lam.ambilFile();
 					parameters.put("ttd_dekan", file == null ? "" : file.getAbsolutePath());
-					parameters.put("ttd_dekan_id_" + perkuliahan.getJurusan().getKaprodi().getId(),
+					parameters.put("ttd_dekan_id_" + perkuliahan.getJurusan().getFakultas().getDekan().getId(),
 							file == null ? "" : file.getAbsolutePath());
 
 					System.out.println("ttd_dekan_" + d + " => " + ttd);

@@ -212,7 +212,9 @@ public class AmbilDataDariGoogleBookBanyak extends MyWindow {
 
 				String autors = "";
 				try {
-					autors = volumeInfo.getAuthors().toString().replaceAll("\\[", "").replaceAll("\\]", "");
+					autors = volumeInfo.getAuthors() != null
+							? volumeInfo.getAuthors().toString().replaceAll("\\[", "").replaceAll("\\]", "")
+							: "";
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/library/helper/AmbilDataDariGoogleBookBanyak.java:212");
 					// TODO: handle exception
 				}

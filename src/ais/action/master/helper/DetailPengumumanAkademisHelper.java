@@ -137,9 +137,12 @@ public class DetailPengumumanAkademisHelper {
 		Common.clear(center);
 
 		Session session = HibernateUtil.currentSession();
-		List<LampiranPengumumanAkademis> lampiranPengumumanAkademis = session
-				.createCriteria(LampiranPengumumanAkademis.class).addOrder(Order.desc("id"))
-				.add(Restrictions.eq("pengumumanAkademis", pengumumanAkademis)).list();
+		List<LampiranPengumumanAkademis> lampiranPengumumanAkademis = new java.util.ArrayList<LampiranPengumumanAkademis>();
+		if (pengumumanAkademis != null && pengumumanAkademis.getId() != null) {
+			lampiranPengumumanAkademis = session.createCriteria(LampiranPengumumanAkademis.class)
+					.addOrder(Order.desc("id"))
+					.add(Restrictions.eq("pengumumanAkademis", pengumumanAkademis)).list();
+		}
 
 		if (lampiranPengumumanAkademis.isEmpty()) {
 			// Belum ada lampiran (mis. pengumuman baru) — tampilkan petunjuk, jangan biarkan kosong.

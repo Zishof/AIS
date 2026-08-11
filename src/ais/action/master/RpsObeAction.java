@@ -5971,8 +5971,9 @@ public class RpsObeAction extends GenericAutowireComposer {
 
 		if (kurikulumPunyaMatakuliah.getNilaiMenggunakanCpmk()) {
 			try {
+				String subCpmkIdStr = jsonObject.isNull(jsonKey) ? null : jsonObject.getString(jsonKey).trim();
 				Common.selectComboItem(combo,
-						jsonObject.isNull(jsonKey) ? null : Long.valueOf(jsonObject.getString(jsonKey).trim()));
+						(subCpmkIdStr == null || subCpmkIdStr.isEmpty()) ? null : Long.valueOf(subCpmkIdStr));
 			} catch (Exception e) {
 			ais.common.Common.tampilErrorJikaAdmin(e);
 		}

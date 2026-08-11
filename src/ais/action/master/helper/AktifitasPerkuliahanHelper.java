@@ -1944,7 +1944,9 @@ public class AktifitasPerkuliahanHelper {
 					tabMonitor.addEventListener("onClick", new EventListener() {
 						@Override
 						public void onEvent(Event arg0) throws Exception {
-							tabbox.setSelectedTab(tabMonitor);
+							if (tabMonitor.getParent() != null) {
+								tabbox.setSelectedTab(tabMonitor);
+							}
 							tabpanelReferensi.setVisible(true);
 							tabpanelReferensi.setWidth("100%");
 							tabpanelReferensi.setHeight("2000px");
@@ -1964,7 +1966,7 @@ public class AktifitasPerkuliahanHelper {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
-							tabJurnal.setSelected(true);
+							if (tabJurnal.getParent() != null) { tabJurnal.setSelected(true); }
 							tabpanelJurnalParalel.setVisible(true);
 							if (tabpanelJurnalParalel.getChildren().isEmpty()) {
 

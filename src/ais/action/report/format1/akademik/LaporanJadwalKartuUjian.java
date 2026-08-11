@@ -363,11 +363,13 @@ public class LaporanJadwalKartuUjian extends MyWindow {
 								try {
 									FileFotoLain lampiranLain = FileFotoLain.ambil(false, mahasiswa.getId(),
 											LampiranLain.TTD_MAHASISWA, LampiranLain.class);
-									File file = lampiranLain.ambilFile();
-									if (file.exists()) {
-										parameters.put("ttd_mahasiswa_" + mahasiswa.getId(), file.getAbsolutePath());
+									if (lampiranLain != null) {
+										File file = lampiranLain.ambilFile();
+										if (file != null && file.exists()) {
+											parameters.put("ttd_mahasiswa_" + mahasiswa.getId(), file.getAbsolutePath());
+										}
+										file = null;
 									}
-									file = null;
 									lampiranLain = null;
 								} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/format1/akademik/LaporanJadwalKartuUjian.java:365");
 //									e.printStackTrace();
