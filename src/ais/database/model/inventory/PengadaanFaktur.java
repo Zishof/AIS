@@ -13,6 +13,7 @@ import javax.persistence.ManyToOne;
 import javax.persistence.Table;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
+import javax.persistence.Transient;
 
 import org.hibernate.envers.Audited;
 import ais.database.model.GeneralValueObject;
@@ -142,9 +143,20 @@ public class PengadaanFaktur extends GeneralValueObject {
 		this.diskon = diskon;
 	}
 
-	/** Total faktur final -- manual bila diisi, jika tidak = jumlah hitungan baris. */
+	/**
+	 * Total faktur final -- manual bila diisi, jika tidak = jumlah hitungan baris. {@code @Transient}
+	 * WAJIB: tanpa ini Hibernate menganggapnya kolom persisten (implicit-naming ->
+	 * {@code totalfakturfinal}) yang tak pernah ada di skema {@code koperasi.pengadaan_faktur},
+	 * bikin hbm2ddl gagal validasi/rebuild setiap start (root-cause bug identik pernah terjadi di
+	 * {@code PembelianAnggotaKoperasi.getNominalBayar1()}).
+	 */
+	@Transient
 	public Double getTotalFakturFinal() {
 		return totalFakturManual == null ? getTotalHitungSaatSimpan() : totalFakturManual;
+	}
+
+	public void setTotalFakturFinal(Double totalFakturFinal) {
+		// Nilai final dihitung implisit dari totalFakturManual/totalHitungSaatSimpan.
 	}
 
 	@Column(columnDefinition = "text")
