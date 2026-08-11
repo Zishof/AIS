@@ -7199,6 +7199,107 @@ public class KantinHelper {
 	}
 
 	/**
+	 * <h3>Mutasi Stok Antar Outlet -- daftar SEMUA toko aktif (bukan cuma toko yg boleh diakses
+	 * pemanggil).</h3>
+	 *
+	 * <p>SENGAJA beda dari {@link #daftarTokoSaya} ({@code daftarTokoBolehDiakses} -- "toko milik
+	 * saya", cuma 1 baris utk pedagang toko-terkunci) -- picker "Toko Tujuan" di fitur ini harus bisa
+	 * menunjuk toko MANAPUN di sistem (itulah maksud "antar outlet"), bukan cuma toko sendiri. JSP
+	 * asli memakai raw SQL lewat aksi {@code sql} (hanya tersedia utk sesi JSP cookie-based); Electron
+	 * &amp; Flutter (Bearer-token PosApi) tidak punya jalur itu, jadi aksi kecil ini dibuat sebagai
+	 * padanannya. Nama toko bukan data sensitif -- gerbang cukup "sudah login", sama spt {@link
+	 * #penyediaList}.</p>
+	 */
+	public static void mutasiStokTokoList(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			@SuppressWarnings("unchecked")
+			java.util.List<Toko> daftar = session.createCriteria(Toko.class)
+					.add(Restrictions.eq("aktif", true))
+					.addOrder(org.hibernate.criterion.Order.asc("nama")).list();
+			JSONArray arr = new JSONArray();
+			for (Toko t : daftar) {
+				JSONObject j = new JSONObject();
+				j.put("id", t.getId());
+				j.put("nama", t.getNama());
+				arr.put(j);
+			}
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * <h3>Mutasi Stok Antar Outlet -- cari produk di toko MANAPUN (dipakai picker Produk Asal &amp;
+	 * picker manual Produk Tujuan).</h3>
+	 *
+	 * <p>Beda dari {@code prosesKatalog} (PosApi, terkunci ke toko pemanggil via {@code
+	 * resolveTokoId}) -- {@code toko_id} di sini WAJIB dikirim eksplisit oleh klien (bukan
+	 * auto-resolve ke toko pemanggil), karena titik pakainya justru untuk melihat toko LAIN. Gerbang
+	 * SAMA dgn {@link #mutasiStokSimpan} (admin/supervisor-only) -- fitur lintas-toko, bukan utk kasir
+	 * biasa. Hanya {@code jenisItem} "JUAL" (pola OR-IS-NULL) yg dikembalikan -- Bahan Baku/Ekstra
+	 * tidak relevan utk transfer stok antar outlet.</p>
+	 *
+	 * @param request payload: {@code toko_id} (wajib), {@code keyword} (opsional).
+	 * @param hasil   diisi {@code status="00"}, {@code data} (array {@code {id,nama,kode,stok}},
+	 *                maks 50 baris).
+	 */
+	public static void mutasiStokProdukList(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggilMp = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean adminGlobalMp = pemanggilMp == null;
+		boolean supervisorMp = pemanggilMp != null && Boolean.TRUE.equals(pemanggilMp.getSupervisor());
+		if (!adminGlobalMp && !supervisorMp) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat memakai Mutasi Stok Antar Outlet.");
+			return;
+		}
+		Long tokoId = request.isNull("toko_id") ? null : Long.valueOf((request.get("toko_id") + "").trim());
+		if (tokoId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko wajib diisi.");
+			return;
+		}
+		String keyword = request.optString("keyword", "").trim();
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			Toko toko = (Toko) session.get(Toko.class, tokoId);
+			if (toko == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Toko tidak ditemukan.");
+				return;
+			}
+			org.hibernate.Criteria c = session.createCriteria(Produk.class)
+					.add(Restrictions.eq("toko", toko))
+					.add(Restrictions.eq("aktif", true))
+					.add(Restrictions.or(Restrictions.isNull("jenisItem"), Restrictions.eq("jenisItem", "JUAL")))
+					.addOrder(org.hibernate.criterion.Order.asc("nama"));
+			if (!keyword.isEmpty()) {
+				c.add(Restrictions.or(
+						Restrictions.ilike("nama", keyword, org.hibernate.criterion.MatchMode.ANYWHERE),
+						Restrictions.ilike("kode", keyword, org.hibernate.criterion.MatchMode.ANYWHERE)));
+			}
+			c.setMaxResults(50);
+			@SuppressWarnings("unchecked")
+			java.util.List<Produk> daftar = c.list();
+			JSONArray arr = new JSONArray();
+			for (Produk p : daftar) {
+				JSONObject j = new JSONObject();
+				j.put("id", p.getId());
+				j.put("nama", p.getNama());
+				j.put("kode", p.getKode() == null ? "" : p.getKode());
+				j.put("stok", p.getStok() == null ? 0 : p.getStok());
+				arr.put(j);
+			}
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
 	 * <h3>Dashboard "Mutasi Barang" (gap-closure Desktop/Android) -- padanan panel "Kartu Mutasi
 	 * Stok" JSP {@code stok/mutasi_stok.jsp}.</h3>
 	 *

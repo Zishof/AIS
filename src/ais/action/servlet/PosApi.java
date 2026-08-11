@@ -327,6 +327,12 @@ public class PosApi extends HttpServlet {
 			} else if ("mutasi_stok_list".equals(action)) {
 				KantinHelper.mutasiStokList(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "mutasi_stok_list");
+			} else if ("mutasi_stok_toko_list".equals(action)) {
+				KantinHelper.mutasiStokTokoList(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "mutasi_stok_toko_list");
+			} else if ("mutasi_stok_produk_list".equals(action)) {
+				KantinHelper.mutasiStokProdukList(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "mutasi_stok_produk_list");
 			} else if ("stok_dashboard".equals(action)) {
 				KantinHelper.stokDashboard(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "stok_dashboard");
@@ -561,6 +567,9 @@ public class PosApi extends HttpServlet {
 			} else if ("laporan_katalog".equals(action)) {
 				hasil.put("status", "success");
 				hasil.put("kategori", ais.action.master.koperasi.helper.LaporanKatalogData.katalog());
+			} else if ("laporan_keuangan_katalog".equals(action)) {
+				hasil.put("status", "success");
+				hasil.put("kategori", ais.action.master.koperasi.helper.LaporanKatalogData.katalogKeuangan());
 			} else if ("laporan_jalankan".equals(action)) {
 				prosesLaporanJalankan(request, tbmuser, payload, hasil);
 			} else if ("laporan_pdf".equals(action)) {
