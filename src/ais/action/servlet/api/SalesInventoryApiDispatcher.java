@@ -45,9 +45,36 @@ public final class SalesInventoryApiDispatcher {
 			return true;
 		}
 
-		// Aksi si_ lain menyusul per fase (P2 master, P3 AP, P4 AR, P5 SPJ/Nota Sales, P6 finance).
-		hasil.put("status", "error");
-		hasil.put("message", "Aksi Inventory & Sales belum tersedia di server ini: " + action);
+		// -- P2: Master Supplier / Customer / Sales (layar 01-07) --
+		if ("si_supplier_list".equals(action)) {
+			SalesInventoryMasterHelper.supplierList(ctx, payload, hasil);
+		} else if ("si_supplier_detail".equals(action)) {
+			SalesInventoryMasterHelper.supplierDetail(ctx, payload, hasil);
+		} else if ("si_supplier_create".equals(action) || "si_supplier_update".equals(action)) {
+			SalesInventoryMasterHelper.supplierSimpan(ctx, tbmuser, payload, hasil);
+		} else if ("si_supplier_deactivate".equals(action)) {
+			SalesInventoryMasterHelper.supplierDeactivate(ctx, tbmuser, payload, hasil);
+		} else if ("si_customer_list".equals(action)) {
+			SalesInventoryMasterHelper.customerList(ctx, payload, hasil);
+		} else if ("si_customer_detail".equals(action)) {
+			SalesInventoryMasterHelper.customerDetail(ctx, payload, hasil);
+		} else if ("si_customer_create".equals(action) || "si_customer_update".equals(action)) {
+			SalesInventoryMasterHelper.customerSimpan(ctx, tbmuser, payload, hasil);
+		} else if ("si_customer_deactivate".equals(action)) {
+			SalesInventoryMasterHelper.customerDeactivate(ctx, tbmuser, payload, hasil);
+		} else if ("si_sales_list".equals(action) || "si_sales_detail".equals(action)) {
+			SalesInventoryMasterHelper.salesList(ctx, payload, hasil);
+		} else if ("si_sales_create".equals(action) || "si_sales_update".equals(action)) {
+			SalesInventoryMasterHelper.salesSimpan(ctx, tbmuser, payload, hasil);
+		} else if ("si_sales_deactivate".equals(action)) {
+			SalesInventoryMasterHelper.salesDeactivate(ctx, tbmuser, payload, hasil);
+		} else {
+			// Aksi si_ lain menyusul per fase (P3 AP, P4 AR, P5 SPJ/Nota Sales, P6 finance).
+			hasil.put("status", "error");
+			hasil.put("message", "Aksi Inventory & Sales belum tersedia di server ini: " + action);
+			return true;
+		}
+		normalisasi(hasil);
 		return true;
 	}
 

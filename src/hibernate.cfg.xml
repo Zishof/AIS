@@ -1630,6 +1630,7 @@
 		<mapping class="ais.database.model.inventory.Pedagang"></mapping>
 		<mapping class="ais.database.model.koperasi.KodePembayaranOnline"></mapping>
 		<mapping class="ais.database.model.koperasi.AturanDiskon"></mapping>
+		<mapping class="ais.database.model.koperasi.LayarPelangganScreensaverConfig"></mapping>
 		<mapping class="ais.database.model.koperasi.PencairanDiskon"></mapping>
 		<mapping class="ais.database.model.koperasi.PembatalanTransaksiKantin"></mapping>
 		<mapping class="ais.database.model.koperasi.CalonAnggotaKoperasi"></mapping>
@@ -1653,6 +1654,8 @@
 		<mapping
 			class="ais.database.model.koperasi.PembayaranHutang"></mapping>
 		<mapping class="ais.database.model.koperasi.SalesInventory"></mapping>
+		<mapping class="ais.database.model.koperasi.SupplierInventoryProfile"></mapping>
+		<mapping class="ais.database.model.koperasi.CustomerInventoryProfile"></mapping>
 		<mapping class="ais.database.model.koperasi.Koperasi"></mapping>
 		<mapping class="ais.database.model.koperasi.AnggotaKoperasi"></mapping>
 		<mapping
