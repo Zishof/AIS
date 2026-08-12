@@ -32,6 +32,7 @@ public class GenericCrudFacade {
         result.put("lifecycleStatus", d.getLifecycleStatus());
         result.put("sourceActionClassName", d.getSourceActionClassName());
         result.put("existingActionLifecycleBound", Boolean.valueOf(d.isExistingActionLifecycleBound()));
+        result.put("metadataLifecycleBound", Boolean.valueOf(d.isMetadataLifecycleBound()));
         result.put("fields", d.getFields());
         result.put("pageSize", Integer.valueOf(d.getDefaultPageSize()));
         result.put("maxPageSize", Integer.valueOf(d.getMaxPageSize()));

@@ -88,8 +88,9 @@ public final class GenericCrudAutoDefinitionFactory {
             Map row = new LinkedHashMap();
             row.put("entityKey", mapped.getName()); row.put("displayName", humanize(mapped.getSimpleName()));
             row.put("packageName", mapped.getPackage().getName()); row.put("tableName", metadata.getEntityName());
-            row.put("restricted", Boolean.valueOf(isBlockedClass(mapped)));
-            row.put("mode", isBlockedClass(mapped) ? GenericCrudDefinition.READ_ONLY : GenericCrudDefinition.FULL_CRUD);
+            boolean restricted = isBlockedClass(mapped) || hasSensitiveMappedProperty(metadata);
+            row.put("restricted", Boolean.valueOf(restricted));
+            row.put("mode", restricted ? GenericCrudDefinition.READ_ONLY : GenericCrudDefinition.FULL_CRUD);
             result.add(row);
         }
         Collections.sort(result, new Comparator() {
@@ -105,7 +106,7 @@ public final class GenericCrudAutoDefinitionFactory {
         if (entityClass == null) return null;
         ClassMetadata metadata = HibernateUtil.getSessionFactory().getClassMetadata(entityClass);
         if (metadata == null || metadata.getIdentifierPropertyName() == null) return null;
-        boolean restrictedClass = isBlockedClass(entityClass);
+        boolean restrictedClass = isBlockedClass(entityClass) || hasSensitiveMappedProperty(metadata);
         boolean constructable = hasDefaultConstructor(entityClass);
         boolean assignedGenerator = isAssignedIdentifier(metadata);
         boolean assignedIdentifierSupported = isSupportedScalar(metadata.getIdentifierType().getReturnedClass());
@@ -114,6 +115,7 @@ public final class GenericCrudAutoDefinitionFactory {
         Class sourceActionClass = resolveSourceAction(sourcePackage, sourceAction);
         boolean actionBacked = GenericCrudExistingActionInvoker.supports(sourceActionClass, entityClass);
         boolean actionCreateBacked = GenericCrudExistingActionInvoker.supportsCreate(sourceActionClass, entityClass);
+        boolean metadataBacked = sourceActionClass == null && !restrictedClass;
 
         GenericCrudDefinition definition = new GenericCrudDefinition();
         definition.setEntityClass(entityClass);
@@ -123,12 +125,13 @@ public final class GenericCrudAutoDefinitionFactory {
         definition.setDisplayName(humanize(entityClass.getSimpleName()));
         definition.setSourceActionClassName(sourceActionClass == null ? null : sourceActionClass.getName());
         definition.setExistingActionLifecycleBound(actionBacked);
+        definition.setMetadataLifecycleBound(metadataBacked);
         definition.setIdentifierProperty(metadata.getIdentifierPropertyName());
         // Jangan percaya daftar nama hasil scanner sebagai otorisasi mutasi.
         // Invoker di atas sudah memverifikasi class, constructor, entity init, dan
         // signature boolean onSave(Event) pada bytecode Action yang benar-benar dimuat.
-        boolean actionCreate = actionCreateBacked;
-        boolean actionUpdate = actionBacked;
+        boolean actionCreate = actionCreateBacked || metadataBacked;
+        boolean actionUpdate = actionBacked || metadataBacked;
         // Delete lama sering bergantung pada row renderer/checkbox/konfirmasi dan
         // tidak mempunyai kontrak entity tunggal. Jangan menebak soft-delete dari
         // nama metode; adapter eksplisit wajib disediakan sebelum tombol diaktifkan.
@@ -150,9 +153,9 @@ public final class GenericCrudAutoDefinitionFactory {
         definition.setAdministrativeAutoCrud(administrative);
 
         boolean softDelete = hasBooleanProperty(metadata, "aktif");
-        definition.setDeleteEnabled(!restrictedClass && softDelete && actionDelete);
+        definition.setDeleteEnabled(!restrictedClass && softDelete && (actionDelete || metadataBacked));
         GenericCrudAutoEntityAdapter adapter = new GenericCrudAutoEntityAdapter(entityClass, softDelete,
-                actionBacked ? sourceActionClass : null);
+                actionBacked ? sourceActionClass : null, metadataBacked);
         definition.setAdapter(adapter);
         definition.setScopeAdapter(adapter);
 
@@ -170,10 +173,13 @@ public final class GenericCrudAutoDefinitionFactory {
         for (int i = 0; i < names.length; i++) {
             String name = names[i]; Type type = types[i]; Class returned = type.getReturnedClass();
             if (type.isCollectionType() || returned == byte[].class || java.sql.Blob.class.isAssignableFrom(returned)) continue;
+            boolean nullable = isNullable(metadata, i);
             boolean sensitive = isBlockedField(name);
             boolean internal = isInternalField(name);
-            if (sensitive || internal) continue;
-            boolean nullable = isNullable(metadata, i);
+            if (sensitive || internal) {
+                if (!nullable && !isAutoPopulatedInternal(name)) autoCreatePossible = false;
+                continue;
+            }
             ClassMetadata relationMetadata = type.isAssociationType()
                     ? HibernateUtil.getSessionFactory().getClassMetadata(returned) : null;
             boolean relation = type.isAssociationType() && GeneralValueObject.class.isAssignableFrom(returned)
@@ -227,7 +233,9 @@ public final class GenericCrudAutoDefinitionFactory {
                         || "null".equalsIgnoreCase(sourcePackage.trim())
                         ? action : sourcePackage.trim() + "." + action);
         try {
-            Class resolved = Class.forName(className);
+            ClassLoader loader = Thread.currentThread().getContextClassLoader();
+            if (loader == null) loader = GenericCrudAutoDefinitionFactory.class.getClassLoader();
+            Class resolved = Class.forName(className, false, loader);
             return Modifier.isAbstract(resolved.getModifiers()) ? null : resolved;
         } catch (Throwable unavailable) {
             return null;
@@ -239,11 +247,13 @@ public final class GenericCrudAutoDefinitionFactory {
         String suffix = entityClass.getPackage().getName().substring("ais.database.model".length());
         String action = entityClass.getSimpleName() + "Action";
         String[] packages = new String[] { "ais.action.master" + suffix, "ais.action.master" };
+        Class fallback = null;
         for (int i = 0; i < packages.length; i++) {
             Class candidate = resolveSourceAction(packages[i], action);
             if (GenericCrudExistingActionInvoker.supports(candidate, entityClass)) return candidate;
+            if (fallback == null && candidate != null) fallback = candidate;
         }
-        return null;
+        return fallback;
     }
 
     private static String[] publicMethodNames(Class type) {
@@ -438,7 +448,18 @@ public final class GenericCrudAutoDefinitionFactory {
         }
         return false;
     }
-    private static boolean isBlockedField(String value) { return containsToken(value, BLOCKED_FIELD_TOKENS); }
+    private static boolean isBlockedField(String value) {
+        String normalized = normalize(value);
+        return "pass".equals(normalized) || "pin".equals(normalized) || "pwd".equals(normalized)
+                || "sandi".equals(normalized) || "katasandi".equals(normalized)
+                || containsToken(value, BLOCKED_FIELD_TOKENS);
+    }
+    private static boolean hasSensitiveMappedProperty(ClassMetadata metadata) {
+        if (metadata == null) return true;
+        String[] names = metadata.getPropertyNames();
+        for (int i = 0; i < names.length; i++) if (isBlockedField(names[i])) return true;
+        return false;
+    }
     private static boolean isInternalField(String value) { return containsToken(normalize(value), INTERNAL_FIELDS); }
     private static boolean isAutoPopulatedInternal(String value) {
         String normalized = normalize(value);

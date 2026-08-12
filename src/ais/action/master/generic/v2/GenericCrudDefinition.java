@@ -50,6 +50,7 @@ public class GenericCrudDefinition implements Serializable {
     private boolean administrativeAutoCrud;
     private String sourceActionClassName;
     private boolean existingActionLifecycleBound;
+    private boolean metadataLifecycleBound;
     private String identifierProperty = "id";
     private String versionProperty;
     private String defaultSortProperty = "id";
@@ -129,6 +130,8 @@ public class GenericCrudDefinition implements Serializable {
     public void setSourceActionClassName(String value) { sourceActionClassName = value; }
     public boolean isExistingActionLifecycleBound() { return existingActionLifecycleBound; }
     public void setExistingActionLifecycleBound(boolean value) { existingActionLifecycleBound = value; }
+    public boolean isMetadataLifecycleBound() { return metadataLifecycleBound; }
+    public void setMetadataLifecycleBound(boolean value) { metadataLifecycleBound = value; }
     public String getIdentifierProperty() { return identifierProperty; }
     public void setIdentifierProperty(String value) { identifierProperty = value; }
     public String getVersionProperty() { return versionProperty; }
