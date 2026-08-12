@@ -8,7 +8,7 @@ memahami aturan, konteks pengguna, sumber data, dan target operasionalnya.
 
 ## Hasil inventarisasi
 
-- 24 `toolbarbutton` utama terdaftar sebagai modul New UI.
+- Seluruh 29 `toolbarbutton` terdaftar: 24 modul dan 5 utility shell.
 - 127 fungsi dashboard/operasional mempunyai key stabil dan deskripsi native.
 - 71 class action/dashboard existing dirujuk sebagai sumber logika; seluruh
   file sumbernya telah diverifikasi ada.
@@ -17,6 +17,9 @@ memahami aturan, konteks pengguna, sumber data, dan target operasionalnya.
   `job_has_menu`, scope institusi, status aktif, dan privilege `READ`.
 - Parameter `dashboard` atau `dashboardView` yang tidak terotorisasi ditolak;
   parameter tersebut bukan sumber pemberian hak akses.
+- Utility `usersOnline`, `eMenuButton`, `menuService`, `customerService`, dan
+  `back_to_top` tersedia di shell New UI pada semua halaman. Daftar pengguna
+  online dan customer service tetap memakai sumber data existing.
 
 ## Modul yang dicakup
 
@@ -60,4 +63,5 @@ tidak melakukan fallback ke ZK/ZUL.
 existing, setiap modul mempunyai minimal empat fungsi, key fungsi tidak
 duplikat, dan total inventarisasi tidak kurang dari batas audit. Java dikompilasi
 dengan `-source 1.7 -target 1.7`; JSP baru diparse dan dikompilasi dengan Jasper.
-
+`NewUiIndexToolbarParitySelfTest` memastikan seluruh 29 kontrol—termasuk utility
+shell—mempunyai handler existing dan implementasi native.
