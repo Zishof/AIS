@@ -28,6 +28,7 @@
 %>
 <jsp:include page="/WEB-INF/baru/include/header.jsp" />
 <style><jsp:include page="/WEB-INF/baru/modul/inventory/inventory.css" /></style>
+<style>@media(max-width:520px){.si-toolbar-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible}.si-toolbar-actions .si-button{width:100%;padding:0 8px}}</style>
 <body class="si-body">
 <div id="siApp" class="si-app" data-api="<%=ctx%>/Api_eBisnis" data-user="<%=pengguna.getUserId()%>" data-initial="<%=request.getAttribute("inventoryInitialScreen") == null ? "01" : request.getAttribute("inventoryInitialScreen")%>">
     <aside class="si-sidebar" id="siSidebar">
@@ -74,6 +75,9 @@
                     <label class="si-search"><i class="fas fa-search"></i><input id="siKeyword" placeholder="Cari kode, nama, nomor dokumen..."></label>
                     <select id="siFilter"><option value="">Semua status</option><option value="aktif">Aktif</option><option value="nonaktif">Nonaktif</option><option value="open">Belum lunas</option><option value="lunas">Lunas</option></select>
                     <div class="si-toolbar-actions">
+                        <button class="si-button" id="siDetail"><i class="fas fa-eye"></i> Detail</button>
+                        <button class="si-button" id="siWorkflow"><i class="fas fa-bolt"></i> Aksi</button>
+                        <button class="si-button" id="siPrintHistory"><i class="fas fa-history"></i> Riwayat Cetak</button>
                         <button class="si-button" id="siExport"><i class="fas fa-file-excel"></i> Ekspor</button>
                         <button class="si-button" id="siPrint"><i class="fas fa-print"></i> Cetak</button>
                         <button class="si-button si-primary" id="siCreate"><i class="fas fa-plus"></i> Tambah</button>
