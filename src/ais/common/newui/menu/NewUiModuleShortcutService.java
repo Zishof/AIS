@@ -115,7 +115,7 @@ public final class NewUiModuleShortcutService {
         list.add(new Spec("toko", "Toko", "Penjualan, kantin, dan transaksi toko.", "fa-solid fa-store", yes(role.getKantin()), new String[] {"toko", "kantin"}));
         list.add(new Spec("koperasi", "Koperasi", "Keanggotaan dan layanan sistem informasi koperasi.", "fa-solid fa-people-group", yes(role.getDashboardKoperasi()), new String[] {"koperasi", "sistem informasi koperasi"}));
         list.add(new Spec("akademik", "Akademik", "Data dan layanan sistem informasi akademik.", "fa-solid fa-graduation-cap", yes(role.getDashboard()), new String[] {"akademik", "sistem informasi akademik"}));
-        list.add(new Spec("surat", "Surat Menyurat", "Administrasi dan tata kelola surat.", "fa-solid fa-envelopes-bulk", yes(role.getAdministrasi()), new String[] {"surat menyurat", "tata kelola surat", "administrasi"}));
+        list.add(new Spec("administrasi", "Administrasi", "Administrasi, persuratan, arsip, dan tata kelola surat.", "fa-solid fa-envelopes-bulk", yes(role.getAdministrasi()), new String[] {"administrasi", "surat menyurat", "tata kelola surat"}));
         list.add(new Spec("pengadaan", "Pengadaan", "Aset, kebutuhan, dan proses pengadaan.", "fa-solid fa-boxes-stacked", yes(role.getPengadaan()), new String[] {"pengadaan", "aset dan pengadaan"}));
         list.add(new Spec("pembayaran", "Pembayaran", "Tagihan dan transaksi pembayaran.", "fa-solid fa-money-check-dollar", yes(role.getPembayaran()), new String[] {"pembayaran", "tagihan"}));
         list.add(new Spec("keuangan", "Keuangan", "Anggaran, realisasi, dan layanan keuangan.", "fa-solid fa-wallet", yes(role.getKeuangan()), new String[] {"keuangan", "anggaran belanja dan realisasi"}));
@@ -168,4 +168,3 @@ public final class NewUiModuleShortcutService {
         }
     }
 }
-

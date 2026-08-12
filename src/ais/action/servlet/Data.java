@@ -489,6 +489,12 @@ public class Data extends HttpServlet {
 				KantinHelper.mutasiStokList(tbmuser, jsonObject, hasil);
 			} else if ("kulakan_faktur_simpan".equals(action)) {
 				KantinHelper.kulakanFakturSimpan(tbmuser, jsonObject, hasil);
+			} else if ("kedaluwarsa_list".equals(action)) {
+				KantinHelper.kedaluwarsaList(tbmuser, jsonObject, hasil);
+			} else if ("produk_batch_simpan".equals(action)) {
+				KantinHelper.produkBatchSimpan(tbmuser, jsonObject, hasil);
+			} else if ("produk_batch_produk_list".equals(action)) {
+				KantinHelper.produkBatchProdukList(tbmuser, jsonObject, hasil);
 			} else if ("kulakan_faktur_list".equals(action)) {
 				KantinHelper.kulakanFakturList(tbmuser, jsonObject, hasil);
 			} else if ("kulakan_faktur_detail".equals(action)) {

@@ -1,5 +1,6 @@
 ﻿<%@page import="org.hibernate.criterion.Criterion"%>
 <%@page import="org.hibernate.criterion.Restrictions"%>
+<%@page import="org.apache.commons.lang.StringUtils"%>
 <%@page import="ais.database.hibernate.HibernateUtil"%>
 <%@page import="org.hibernate.Session"%>
 <%@page import="ais.database.model.koperasi.AnggotaKoperasi"%>
@@ -58,7 +59,8 @@ boolean aktifkanTampilSisaSaldo = curentAnggota != null && curentAnggota.getJeni
 // Perbaikan logika: jika null, kembalikan 0.0, jika tidak null ambil minimal saldo.
 Double minimalDeposit = curentAnggota == null || curentAnggota.getJenisAnggotaKoperasi() == null ? 0.0 : curentAnggota.getJenisAnggotaKoperasi().getMinimalSaldo();
 
-String baseUrlTopup = Common.ROOT + "/baru?hanya_tampil_jsp=true&p=kantin%2Fmember&s=topup";
+String urlTopupService = Common.ROOT + "/baru?hanya_tampil_jsp=true&p=kantin%2Fmember&s=_topup_service";
+String channelTopup = Common.getKonfigurasi("cannel_va_e_smartlink", "VA_BNI:2500:BNI;VA_BRI:2500:BRI;VA_BCA:3500:BCA;VA_BNC:3500:BNC(Bank Neo Commerce);VA_CIMB:2500:CIMB Niaga;VA_MANDIRI:3500:Bank Mandiri;VA_PERMATA:2500:Bank Permata;VA_BSI:3000:BSI;VA_DANAMON:3000:Danamon;OTC_ALFAMART:3000:Alfamart;OTC_INDOMARET:3000:Indomart").getNilai();
 %>
 
 <!-- Library untuk membaca QR Code via Kamera (HTML5-QRCode) -->
@@ -460,7 +462,7 @@ String baseUrlTopup = Common.ROOT + "/baru?hanya_tampil_jsp=true&p=kantin%2Fmemb
     // ==========================================
     const isLogin<%=rnd%> = <%=isLogin%>;
     const idMemberAktif<%=rnd%> = '<%=idMember%>';
-    const baseUrlTopup<%=rnd%> = '<%=baseUrlTopup%>';
+    const urlTopupService<%=rnd%> = '<%=urlTopupService%>';
     const reqPilihMeja<%=rnd%> = <%=aktifkanPilihanMeja%>;
     const minimalDeposit<%=rnd%> = <%=minimalDeposit%>; // Variable Minimal Saldo Mengendap
     let saldoMember<%=rnd%> = 0;
@@ -482,6 +484,7 @@ String baseUrlTopup = Common.ROOT + "/baru?hanya_tampil_jsp=true&p=kantin%2Fmemb
     let totalRecords<%=rnd%> = 0;
     let topupModalInstance<%=rnd%> = null;
     let modalPilihTopupInstance<%=rnd%> = null;
+    let idCaraBayarTopup<%=rnd%> = '';
     let scannerModalInstance<%=rnd%> = null;
 
     // ==========================================
@@ -552,16 +555,45 @@ String baseUrlTopup = Common.ROOT + "/baru?hanya_tampil_jsp=true&p=kantin%2Fmemb
                 </div>
             </div>
 
-            <!-- Modal Iframe Topup -->
+            <!-- Modal top-up milik halaman ini; transaksi dilakukan lewat API. -->
             <div class="modal fade" id="modalTopup<%=rnd%>" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-                <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+                <div class="modal-dialog modal-dialog-centered modal-lg modal-fullscreen-sm-down">
                     <div class="modal-content rounded-4 border-0 shadow-lg">
                         <div class="modal-header bg-light border-bottom-0 pb-2 pt-3 px-4">
                             <h5 class="modal-title fw-bold text-dark"><i class="fas fa-wallet text-warning me-2"></i><%=Common.getBahasaConfig("Isi Saldo (Top-Up)")%></h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" onclick="closeTopupModal<%=rnd%>()"></button>
                         </div>
-                        <div class="modal-body p-0" style="height: 80vh; min-height: 400px;">
-                            <iframe id="iframeTopup<%=rnd%>" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+                        <div class="modal-body p-4 bg-light">
+                            <form id="formTopupLangsung<%=rnd%>" onsubmit="event.preventDefault(); eksekusiTopupLangsung<%=rnd%>();">
+                                <div id="pesanTopupLangsung<%=rnd%>" class="alert d-none"></div>
+                                <label class="form-label fw-bold"><%=Common.getBahasaConfig("Nominal Isi Saldo")%></label>
+                                <div class="input-group input-group-lg mb-3 shadow-sm">
+                                    <span class="input-group-text">Rp</span>
+                                    <input type="number" min="10000" step="1000" class="form-control fw-bold" id="nominalTopupLangsung<%=rnd%>" placeholder="10000" required>
+                                </div>
+                                <div class="d-flex flex-wrap gap-2 mb-4">
+                                    <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('nominalTopupLangsung<%=rnd%>').value=10000">10.000</button>
+                                    <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('nominalTopupLangsung<%=rnd%>').value=50000">50.000</button>
+                                    <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('nominalTopupLangsung<%=rnd%>').value=100000">100.000</button>
+                                    <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('nominalTopupLangsung<%=rnd%>').value=500000">500.000</button>
+                                </div>
+                                <label class="form-label fw-bold"><%=Common.getBahasaConfig("Saluran Pembayaran")%></label>
+                                <select class="form-select form-select-lg mb-4 shadow-sm" id="channelTopupLangsung<%=rnd%>" required>
+                                    <option value=""><%=Common.getBahasaConfig("-- Pilih Bank / Saluran --")%></option>
+                                    <%
+                                        for (String channel : channelTopup.split(";")) {
+                                            if (channel.trim().isEmpty()) continue;
+                                            String[] detailChannel = StringUtils.split(channel.trim(), ":");
+                                            if (detailChannel == null || detailChannel.length < 3) continue;
+                                    %>
+                                        <option value="<%=detailChannel[0]%>|<%=detailChannel[1]%>"><%=detailChannel[2]%> — Admin Rp <%=Common.numberFormat.get().format(Double.parseDouble(detailChannel[1]))%></option>
+                                    <% } %>
+                                </select>
+                                <button class="btn btn-success btn-lg w-100 rounded-pill fw-bold shadow-sm" id="btnTopupLangsung<%=rnd%>" type="submit">
+                                    <i class="fas fa-lock me-2"></i><%=Common.getBahasaConfig("Buat Tagihan Pembayaran")%>
+                                </button>
+                                <small class="text-muted d-block text-center mt-3"><%=Common.getBahasaConfig("Setelah tagihan dibuat, Anda akan dialihkan ke halaman pembayaran.")%></small>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -867,7 +899,7 @@ String baseUrlTopup = Common.ROOT + "/baru?hanya_tampil_jsp=true&p=kantin%2Fmemb
         try {
             const res = await fetchDataAPI<%=rnd%>({ action: "sql", sql: sql });
             if (res.data && res.data.length === 1) {
-                bukaIframeTopup<%=rnd%>(res.data[0].id);
+                bukaTopupLangsung<%=rnd%>(res.data[0].id);
             } else if (res.data && res.data.length > 1) {
                 const selectEl = document.getElementById('selectMetodeTopup<%=rnd%>');
                 selectEl.innerHTML = '';
@@ -899,27 +931,82 @@ String baseUrlTopup = Common.ROOT + "/baru?hanya_tampil_jsp=true&p=kantin%2Fmemb
         if (modalPilihTopupInstance<%=rnd%>) {
             modalPilihTopupInstance<%=rnd%>.hide();
         }
-        bukaIframeTopup<%=rnd%>(idCaraBayar);
+        bukaTopupLangsung<%=rnd%>(idCaraBayar);
     };
 
-    const bukaIframeTopup<%=rnd%> = (idCaraBayar) => {
+    const bukaTopupLangsung<%=rnd%> = (idCaraBayar) => {
         let modalElement = document.getElementById('modalTopup<%=rnd%>');
         if (!topupModalInstance<%=rnd%>) {
             topupModalInstance<%=rnd%> = new bootstrap.Modal(modalElement);
         }
-        
-        const iframe = document.getElementById('iframeTopup<%=rnd%>');
-        if(iframe) {
-            iframe.src = baseUrlTopup<%=rnd%> + "&cara_pembayaran_id=" + idCaraBayar;
-        }
-
+        idCaraBayarTopup<%=rnd%> = idCaraBayar;
+        document.getElementById('formTopupLangsung<%=rnd%>').reset();
+        document.getElementById('pesanTopupLangsung<%=rnd%>').classList.add('d-none');
         topupModalInstance<%=rnd%>.show();
     };
 
     const closeTopupModal<%=rnd%> = () => {
-        const iframe = document.getElementById('iframeTopup<%=rnd%>');
-        if(iframe) iframe.src = ''; 
+        idCaraBayarTopup<%=rnd%> = '';
         loadSaldoMember<%=rnd%>(true); 
+    };
+
+    const tampilkanPesanTopupLangsung<%=rnd%> = (message, success) => {
+        const element = document.getElementById('pesanTopupLangsung<%=rnd%>');
+        element.textContent = message || '';
+        element.className = 'alert ' + (success ? 'alert-success' : 'alert-danger');
+        element.classList.toggle('d-none', !message);
+    };
+
+    const eksekusiTopupLangsung<%=rnd%> = async () => {
+        const nominal = Number(document.getElementById('nominalTopupLangsung<%=rnd%>').value || 0);
+        const channelValue = document.getElementById('channelTopupLangsung<%=rnd%>').value;
+        const channelParts = channelValue.split('|');
+        if (nominal < 10000 || channelParts.length < 2 || !idCaraBayarTopup<%=rnd%>) {
+            tampilkanPesanTopupLangsung<%=rnd%>('<%=Common.getBahasaConfigJS("Isi nominal minimal Rp 10.000 dan pilih saluran pembayaran.")%>', false);
+            return;
+        }
+
+        const channelCode = channelParts[0];
+        const admin = Number(channelParts[1] || 0);
+        const button = document.getElementById('btnTopupLangsung<%=rnd%>');
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span><%=Common.getBahasaConfig("Memproses...")%>';
+        tampilkanPesanTopupLangsung<%=rnd%>('', false);
+
+        const endpoint = urlTopupService<%=rnd%> + '&selectedChannelCode=' + encodeURIComponent(channelCode) + '&cara_pembayaran_id=' + encodeURIComponent(idCaraBayarTopup<%=rnd%>);
+        const payload = {
+            action: 'topup',
+            id_member: idMemberAktif<%=rnd%>,
+            nominal: nominal,
+            selectedChannelCode: channelCode,
+            cara_pembayaran_id: idCaraBayarTopup<%=rnd%>,
+            admin: admin
+        };
+
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            let paymentUrl = null;
+            if (result.data && Array.isArray(result.data) && result.data.length > 0) paymentUrl = result.data[0].link;
+            if (!paymentUrl && result.url) paymentUrl = result.url;
+            if (response.ok && (result.status === '00' || result.status === 'success') && paymentUrl) {
+                tampilkanPesanTopupLangsung<%=rnd%>('<%=Common.getBahasaConfigJS("Tagihan berhasil dibuat. Mengalihkan ke pembayaran...")%>', true);
+                window.location.href = paymentUrl;
+                return;
+            }
+            tampilkanPesanTopupLangsung<%=rnd%>(result.message || result.description || '<%=Common.getBahasaConfigJS("Tagihan pembayaran gagal dibuat.")%>', false);
+        } catch (error) {
+            console.error('Topup API error:', error);
+            tampilkanPesanTopupLangsung<%=rnd%>('<%=Common.getBahasaConfigJS("Gagal terhubung ke layanan pembayaran.")%>', false);
+        } finally {
+            button.disabled = false;
+            button.innerHTML = '<i class="fas fa-lock me-2"></i><%=Common.getBahasaConfig("Buat Tagihan Pembayaran")%>';
+        }
     };
 
     // ==========================================

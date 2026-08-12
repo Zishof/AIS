@@ -2250,6 +2250,8 @@
 		<mapping class="ais.database.model.inventory.PemasokProduk"></mapping>
 		<mapping class="ais.database.model.inventory.SatuanProduk"></mapping>
 		<mapping class="ais.database.model.inventory.Produk"></mapping>
+		<mapping class="ais.database.model.inventory.ProdukBatch"></mapping>
+		<mapping class="ais.database.model.inventory.MutasiProdukBatch"></mapping>
 		<mapping class="ais.database.model.inventory.PengajuanPerubahanHargaProduk"></mapping>
 		<mapping class="ais.database.model.inventory.AmbangStokGudang"></mapping>
 		<mapping class="ais.database.model.inventory.PengajuanPembelianGudang"></mapping>

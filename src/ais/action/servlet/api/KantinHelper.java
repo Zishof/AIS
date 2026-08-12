@@ -14,6 +14,7 @@ import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.zkoss.poi.ss.usermodel.FormulaEvaluator;
 import org.zkoss.poi.xssf.usermodel.XSSFCell;
 import org.zkoss.poi.xssf.usermodel.XSSFRow;
 import org.zkoss.poi.xssf.usermodel.XSSFSheet;
@@ -30,6 +31,8 @@ import ais.database.model.inventory.Pembelian;
 import ais.database.model.inventory.PengadaanFaktur;
 import ais.database.model.inventory.PengadaanProduk;
 import ais.database.model.inventory.Produk;
+import ais.database.model.inventory.ProdukBatch;
+import ais.database.model.inventory.MutasiProdukBatch;
 import ais.database.model.inventory.ReturPembelian;
 import ais.database.model.inventory.ReturPenjualan;
 import ais.database.model.inventory.SatuanProduk;
@@ -481,6 +484,7 @@ public class KantinHelper {
 					// kadaluarsa" di LaporanKantinUtil) tapi SEBELUM INI tidak pernah dicek sama sekali di
 					// jalur checkout -- kasir bisa saja menjual produk kadaluarsa tanpa peringatan apa pun.
 					List<String> produkKadaluarsa = cekProdukKadaluarsa(session, transaksiRata);
+					produkKadaluarsa.addAll(cekKetersediaanBatchFefo(session, transaksiRata));
 					if (!produkKadaluarsa.isEmpty()) {
 						hasil.put("status", "91");
 						hasil.put("description", "Produk berikut sudah melewati tanggal kadaluarsa dan tidak boleh dijual: "
@@ -705,6 +709,17 @@ public class KantinHelper {
 						return;
 					}
 
+					// Produk yang sudah memakai lot dikurangi otomatis dengan FEFO (tanggal paling dekat
+					// lebih dahulu). Produk legacy tanpa lot tetap memakai perhitungan stok lama.
+					try {
+						konsumsiBatchFefo(session, transaksiRata, pembelianAnggotaKoperasi.getId(),
+								tbmuser == null ? "pos" : tbmuser.getUserId());
+					} catch (Exception exBatch) {
+						exBatch.printStackTrace();
+						ais.common.ErrorAuditUtil.record(exBatch,
+								"auto-audit src/ais/action/servlet/api/KantinHelper.java:konsumsiBatchFefo");
+					}
+
 					// === Otomatis: kurangi stok bahan baku (resep/BOM) untuk produk ber-resep yang terjual.
 					// Fail-safe: kegagalan di sini tidak boleh menggagalkan transaksi penjualan. ===
 					try {
@@ -872,7 +887,7 @@ public class KantinHelper {
 		if (transaksi == null || transaksi.length() == 0) {
 			return hasil;
 		}
-		java.util.Date sekarang = ais.ui.util.WaktuUtil.getDate();
+		java.util.Date sekarang = awalHariIni();
 		for (int i = 0; i < transaksi.length(); i++) {
 			try {
 				JSONObject t = transaksi.getJSONObject(i);
@@ -881,6 +896,9 @@ public class KantinHelper {
 				}
 				Long pid = Long.valueOf(Long.parseLong((t.get("id") + "").trim()));
 				Produk p = (Produk) session.get(Produk.class, pid);
+				Long jumlahBatch = (Long) session.createQuery("select count(*) from ProdukBatch where produk.id=:pid")
+						.setParameter("pid", pid).uniqueResult();
+				if (jumlahBatch != null && jumlahBatch.longValue() > 0) continue;
 				if (p != null && p.getTanggalExpired() != null && p.getTanggalExpired().before(sekarang)) {
 					hasil.add(p.getNama() + " (kadaluarsa " + Common.dateFormat6.get().format(p.getTanggalExpired()) + ")");
 				}
@@ -890,6 +908,100 @@ public class KantinHelper {
 			}
 		}
 		return hasil;
+	}
+
+	/** Validasi keras stok batch aktif dan belum kedaluwarsa untuk produk yang sudah dikelola per lot. */
+	private static List<String> cekKetersediaanBatchFefo(Session session, JSONArray transaksi) {
+		List<String> hasil = new java.util.ArrayList<String>();
+		Map<Long, Double> diminta = kelompokkanQtyProduk(transaksi);
+		for (Map.Entry<Long, Double> en : diminta.entrySet()) {
+			Long totalBatch = (Long) session.createQuery("select count(*) from ProdukBatch where produk.id=:pid")
+					.setParameter("pid", en.getKey()).uniqueResult();
+			if (totalBatch == null || totalBatch.longValue() == 0) continue;
+			Double tersedia = (Double) session.createQuery("select sum(stok) from ProdukBatch where produk.id=:pid "
+					+ "and status=:status and tanggalExpired>=current_date() and stok>0")
+					.setParameter("pid", en.getKey()).setParameter("status", ProdukBatch.STATUS_AKTIF).uniqueResult();
+			double ada = tersedia == null ? 0.0 : tersedia.doubleValue();
+			if (ada + 0.000001 < en.getValue().doubleValue()) {
+				Produk p = (Produk) session.get(Produk.class, en.getKey());
+				hasil.add((p == null ? ("#" + en.getKey()) : p.getNama()) + " (batch layak jual " + ada
+						+ ", diminta " + en.getValue() + ")");
+			}
+		}
+		return hasil;
+	}
+
+	private static Map<Long, Double> kelompokkanQtyProduk(JSONArray transaksi) {
+		Map<Long, Double> hasil = new java.util.TreeMap<Long, Double>();
+		if (transaksi == null) return hasil;
+		for (int i=0;i<transaksi.length();i++) try {
+			JSONObject t=transaksi.getJSONObject(i); if(t.isNull("id"))continue;
+			Long id=Long.valueOf((t.get("id")+"").trim()); double qty=t.optDouble("jumlah",0); if(qty<=0)continue;
+			Double lama=hasil.get(id);hasil.put(id,Double.valueOf((lama==null?0:lama.doubleValue())+qty));
+		} catch(Exception e){ais.common.ErrorAuditUtil.record(e,"auto-audit KantinHelper:kelompokkanQtyProduk");}
+		return hasil;
+	}
+
+	@SuppressWarnings("unchecked")
+	private static void konsumsiBatchFefo(Session session, JSONArray transaksi, Long penjualanId, String oleh) {
+		Map<Long, Double> diminta=kelompokkanQtyProduk(transaksi); if(diminta.isEmpty())return;
+		boolean mulai=!session.getTransaction().isActive(); if(mulai)session.beginTransaction();
+		try {
+			for(Map.Entry<Long,Double> en:diminta.entrySet()){
+				List<ProdukBatch> semua=session.createCriteria(ProdukBatch.class).add(Restrictions.eq("produk.id",en.getKey()))
+						.setMaxResults(1).list(); if(semua.isEmpty())continue;
+				List<ProdukBatch> batches=session.createCriteria(ProdukBatch.class).add(Restrictions.eq("produk.id",en.getKey()))
+						.add(Restrictions.eq("status",ProdukBatch.STATUS_AKTIF)).add(Restrictions.ge("tanggalExpired",awalHariIni()))
+						.add(Restrictions.gt("stok",Double.valueOf(0))).addOrder(Order.asc("tanggalExpired"))
+						.setLockMode(org.hibernate.LockMode.UPGRADE).list();
+				double sisa=en.getValue().doubleValue();
+				for(ProdukBatch b:batches){if(sisa<=0)break;double ambil=Math.min(sisa,b.getStok().doubleValue());
+					b.setStok(Double.valueOf(b.getStok().doubleValue()-ambil));session.saveOrUpdate(b);session.flush();
+					catatMutasiBatch(session,b,"PENJUALAN",0,ambil,"PENJUALAN-"+penjualanId,"Alokasi otomatis FEFO",oleh);sisa-=ambil;}
+				if(sisa>0.000001)throw new IllegalStateException("Stok batch berubah saat checkout untuk produk #"+en.getKey());
+			}
+			if(mulai)session.getTransaction().commit();
+		}catch(RuntimeException e){if(mulai&&session.getTransaction().isActive())session.getTransaction().rollback();throw e;}
+	}
+
+	@SuppressWarnings("unchecked")
+	private static void transferBatchFefo(Session session, Produk asal, Produk tujuan, double qty,
+			String referensi, String oleh) {
+		List<ProdukBatch> ada = session.createCriteria(ProdukBatch.class)
+				.add(Restrictions.eq("produk.id", asal.getId())).setMaxResults(1).list();
+		if (ada.isEmpty()) return; // produk legacy tetap mengikuti mutasi stok agregat existing
+		List<ProdukBatch> sumber = session.createCriteria(ProdukBatch.class)
+				.add(Restrictions.eq("produk.id", asal.getId()))
+				.add(Restrictions.eq("status", ProdukBatch.STATUS_AKTIF))
+				.add(Restrictions.ge("tanggalExpired", awalHariIni()))
+				.add(Restrictions.gt("stok", Double.valueOf(0)))
+				.addOrder(Order.asc("tanggalExpired"))
+				.setLockMode(org.hibernate.LockMode.UPGRADE).list();
+		double sisa = qty;
+		for (ProdukBatch dari : sumber) {
+			if (sisa <= 0) break;
+			double pindah = Math.min(sisa, dari.getStok().doubleValue());
+			List<ProdukBatch> cocok = session.createCriteria(ProdukBatch.class)
+					.add(Restrictions.eq("produk.id", tujuan.getId()))
+					.add(Restrictions.eq("nomorBatch", dari.getNomorBatch()))
+					.add(Restrictions.eq("tanggalExpired", dari.getTanggalExpired())).setMaxResults(1).list();
+			ProdukBatch ke;
+			if (cocok.isEmpty()) {
+				ke = new ProdukBatch(); ke.setProduk(tujuan); ke.setToko(tujuan.getToko());
+				ke.setNomorBatch(dari.getNomorBatch()); ke.setTanggalProduksi(dari.getTanggalProduksi());
+				ke.setTanggalExpired(dari.getTanggalExpired()); ke.setStok(Double.valueOf(0));
+				ke.setHargaModal(dari.getHargaModal()); ke.setStatus(ProdukBatch.STATUS_AKTIF); ke.setOleh(oleh);
+				session.save(ke); session.flush();
+			} else ke = cocok.get(0);
+			dari.setStok(Double.valueOf(dari.getStok().doubleValue() - pindah));
+			ke.setStok(Double.valueOf(ke.getStok().doubleValue() + pindah));
+			session.saveOrUpdate(dari); session.saveOrUpdate(ke); session.flush();
+			catatMutasiBatch(session, dari, "MUTASI_KELUAR", 0, pindah, referensi, "Transfer antar outlet", oleh);
+			catatMutasiBatch(session, ke, "MUTASI_MASUK", pindah, 0, referensi, "Transfer antar outlet", oleh);
+			sisa -= pindah;
+		}
+		if (sisa > 0.000001) throw new IllegalArgumentException(
+				"Stok batch yang aktif dan belum kedaluwarsa tidak cukup untuk ditransfer (kurang " + sisa + ").");
 	}
 
 	private static HasilValidasiStok validasiStokCukupDenganLock(JSONArray transaksi) {
@@ -3075,6 +3187,7 @@ public class KantinHelper {
 
 			XSSFWorkbook wb = new XSSFWorkbook(new ByteArrayInputStream(bytes));
 			XSSFSheet sheet = wb.getSheetAt(0);
+			FormulaEvaluator formulaEvaluator = wb.getCreationHelper().createFormulaEvaluator();
 			// "format" (gap-closure fitur pilih-format Unggah/Unggah Excel) -- "accurate" (default, satu-
 			// satunya format tersedia saat ini) memakai pemetaan kolom TETAP {@link
 			// #deteksiKolomExcelProdukFormatAccurate} (permintaan user eksplisit: jangan deteksi per-kolom),
@@ -3156,9 +3269,9 @@ public class KantinHelper {
 				String kategoriNama = idx.kategori >= 0 ? Common.getCellContent(Common.getCell(sheet, idx.kategori, r)).trim() : "";
 				String pemasokNama = idx.pemasok >= 0 ? Common.getCellContent(Common.getCell(sheet, idx.pemasok, r)).trim() : "";
 				String satuanNama = idx.satuan >= 0 ? Common.getCellContent(Common.getCell(sheet, idx.satuan, r)).trim() : "";
-				double stokBaru = idx.stok >= 0 ? parseAngkaAman(Common.getCellContent(Common.getCell(sheet, idx.stok, r))) : 0;
-				double hargaJual = idx.hargaJual >= 0 ? parseAngkaAman(Common.getCellContent(Common.getCell(sheet, idx.hargaJual, r))) : 0;
-				double hargaBeli = idx.hargaBeli >= 0 ? parseAngkaAman(Common.getCellContent(Common.getCell(sheet, idx.hargaBeli, r))) : 0;
+				double stokBaru = idx.stok >= 0 ? bacaAngkaExcel(sheet, idx.stok, r, formulaEvaluator) : 0;
+				double hargaJual = idx.hargaJual >= 0 ? bacaAngkaExcel(sheet, idx.hargaJual, r, formulaEvaluator) : 0;
+				double hargaBeli = idx.hargaBeli >= 0 ? bacaAngkaExcel(sheet, idx.hargaBeli, r, formulaEvaluator) : 0;
 
 				Produk existing = petaProdukToko.get(kode.toUpperCase());
 				double stokLama = existing == null ? 0 : (existing.getStok() == null ? 0 : existing.getStok());
@@ -4055,13 +4168,44 @@ public class KantinHelper {
 	/** Parsing angka toleran -- Excel kadang menyimpan angka sbg teks berformat ("Rp 8.000", "8,000.00") lewat {@code Common.getCellContent}; sisa karakter non-digit/koma/titik dibuang sebelum parse, koma dianggap ribuan (dibuang) mengikuti format akunting sumber file. */
 	private static double parseAngkaAman(String s) {
 		if (s == null || s.trim().isEmpty()) return 0;
-		String bersih = s.trim().replace(",", "").replaceAll("[^0-9.\\-]", "");
+		String bersih = s.trim().replaceAll("[^0-9.,\\-]", "");
+		int titikTerakhir = bersih.lastIndexOf('.');
+		int komaTerakhir = bersih.lastIndexOf(',');
+		if (titikTerakhir >= 0 && komaTerakhir >= 0) {
+			// Separator paling kanan adalah desimal, yang lain pemisah ribuan.
+			if (komaTerakhir > titikTerakhir) {
+				bersih = bersih.replace(".", "").replace(',', '.');
+			} else {
+				bersih = bersih.replace(",", "");
+			}
+		} else if (komaTerakhir >= 0) {
+			int digitBelakang = bersih.length() - komaTerakhir - 1;
+			bersih = digitBelakang <= 2 ? bersih.replace(',', '.') : bersih.replace(",", "");
+		} else if (titikTerakhir >= 0 && bersih.indexOf('.') != titikTerakhir) {
+			bersih = bersih.replace(".", "");
+		}
 		if (bersih.isEmpty() || bersih.equals("-") || bersih.equals(".")) return 0;
 		try {
 			return Double.parseDouble(bersih);
 		} catch (NumberFormatException e) {
 			return 0;
 		}
+	}
+
+	/** Baca angka Excel termasuk formula yang belum punya cached-value terbaru. */
+	private static double bacaAngkaExcel(XSSFSheet sheet, int kolom, int baris,
+			FormulaEvaluator evaluator) {
+		XSSFCell cell = Common.getCell(sheet, kolom, baris);
+		if (cell == null) return 0;
+		try {
+			if (cell.getCellType() == XSSFCell.CELL_TYPE_FORMULA) {
+				evaluator.evaluateFormulaCell(cell);
+			}
+		} catch (Exception e) {
+			// Formula eksternal kadang tidak dapat dievaluasi server; cached value
+			// tetap dibaca oleh Common.getCellContent sebagai jalur cadangan.
+		}
+		return parseAngkaAman(Common.getCellContent(cell));
 	}
 
 	/**
@@ -5422,12 +5566,12 @@ public class KantinHelper {
 			String filterAnggotaPembelian = idAnggota != null ? " AND p.anggota_koperasi = ? " : "";
 			String filterAnggotaPencairan = idAnggota != null ? " AND pc.anggota_koperasi = ? " : "";
 
-			String sql = "WITH mutasi AS ( "
+			String sql = "WITH semua_mutasi AS ( "
 					+ "  SELECT d.waktu AS waktu, ('D' || d.id) AS baris_id, (a.kode || ' - ' || a.nama) AS nama_anggota, d.anggota_koperasi AS id_anggota, "
 					+ "         CASE WHEN d.nominal >= 0 THEN 'Topup Tabungan' ELSE 'Pengeluaran Manual' END AS jenis_mutasi, "
 					+ "         COALESCE(d.keterangan, '') AS keterangan, GREATEST(d.nominal, 0) AS masuk, GREATEST(-d.nominal, 0) AS keluar "
 					+ "  FROM public.deposit d JOIN koperasi.anggota_koperasi a ON d.anggota_koperasi = a.id "
-					+ "  WHERE d.anggota_koperasi IS NOT NULL AND d.waktu BETWEEN ?::date AND (?::date + interval '1 day') " + filterAnggotaDeposit
+					+ "  WHERE d.anggota_koperasi IS NOT NULL " + filterAnggotaDeposit
 					+ "  UNION ALL "
 					+ "  SELECT p.waktu, ('P' || p.id), (a.kode || ' - ' || a.nama), p.anggota_koperasi, "
 					+ "         'Pembelian/Belanja' AS jenis_mutasi, COALESCE(p.kode, '') AS keterangan, 0 AS masuk, COALESCE(p.total, 0) AS keluar "
@@ -5435,7 +5579,7 @@ public class KantinHelper {
 					+ "  JOIN koperasi.anggota_koperasi a ON p.anggota_koperasi = a.id "
 					+ "  JOIN koperasi.cara_pembayaran_koperasi cpk ON p.cara_pembayaran_koperasi = cpk.id "
 					+ "  WHERE p.anggota_koperasi IS NOT NULL AND (cpk.manual = false OR cpk.memotong_deposit = true) "
-					+ "  AND p.waktu BETWEEN ?::date AND (?::date + interval '1 day') " + filterAnggotaPembelian
+					+ filterAnggotaPembelian
 					+ "  UNION ALL "
 					+ "  SELECT pc.waktu_pencairan, ('C' || pc.id), (a.kode || ' - ' || a.nama), pc.anggota_koperasi, "
 					+ "         'Cashback Diskon' AS jenis_mutasi, 'Pencairan diskon' AS keterangan, COALESCE(pc.nominal_cair, 0) AS masuk, 0 AS keluar "
@@ -5443,24 +5587,26 @@ public class KantinHelper {
 					+ "  JOIN koperasi.anggota_koperasi a ON pc.anggota_koperasi = a.id "
 					+ "  JOIN koperasi.cara_pembayaran_koperasi cpk2 ON pc.cara_pembayaran = cpk2.id "
 					+ "  WHERE pc.status = 'BERHASIL' AND cpk2.manual = false "
-					+ "  AND pc.waktu_pencairan BETWEEN ?::date AND (?::date + interval '1 day') " + filterAnggotaPencairan
+					+ filterAnggotaPencairan
+					+ "), saldo_awal AS ( "
+					+ "  SELECT id_anggota, SUM(masuk-keluar) AS saldo_awal FROM semua_mutasi WHERE waktu < ?::date GROUP BY id_anggota "
+					+ "), mutasi AS ( "
+					+ "  SELECT * FROM semua_mutasi WHERE waktu >= ?::date AND waktu < (?::date + interval '1 day') "
 					+ ") "
 					+ "SELECT waktu, baris_id, nama_anggota, id_anggota, jenis_mutasi, keterangan, masuk, keluar, "
-					+ "  SUM(masuk - keluar) OVER (PARTITION BY id_anggota ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_per_penabung, "
-					+ "  SUM(masuk - keluar) OVER (ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_total "
-					+ "FROM mutasi ORDER BY waktu ASC, baris_id ASC LIMIT 3000";
+					+ "  COALESCE(sa.saldo_awal,0) + SUM(masuk - keluar) OVER (PARTITION BY m.id_anggota ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_per_penabung, "
+					+ "  (SELECT COALESCE(SUM(saldo_awal),0) FROM saldo_awal) + SUM(masuk - keluar) OVER (ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_total, "
+					+ "  COALESCE(sa.saldo_awal,0) AS saldo_awal "
+					+ "FROM mutasi m LEFT JOIN saldo_awal sa ON sa.id_anggota=m.id_anggota ORDER BY waktu ASC, baris_id ASC LIMIT 3000";
 
 			java.sql.PreparedStatement ps = session.connection().prepareStatement(sql);
 			int idx = 1;
-			ps.setString(idx++, dari);
-			ps.setString(idx++, sampai);
+			if (idAnggota != null) ps.setLong(idx++, idAnggota);
+			if (idAnggota != null) ps.setLong(idx++, idAnggota);
 			if (idAnggota != null) ps.setLong(idx++, idAnggota);
 			ps.setString(idx++, dari);
-			ps.setString(idx++, sampai);
-			if (idAnggota != null) ps.setLong(idx++, idAnggota);
 			ps.setString(idx++, dari);
 			ps.setString(idx++, sampai);
-			if (idAnggota != null) ps.setLong(idx++, idAnggota);
 
 			java.sql.ResultSet rs = ps.executeQuery();
 			JSONArray arr = new JSONArray();
@@ -5479,6 +5625,7 @@ public class KantinHelper {
 				j.put("keluar", rs.getDouble(8));
 				j.put("saldoPerPenabung", rs.getDouble(9));
 				j.put("saldoTotal", rs.getDouble(10));
+				j.put("saldoAwal", rs.getDouble(11));
 				arr.put(j);
 			}
 			rs.close();
@@ -5517,7 +5664,7 @@ public class KantinHelper {
 			String filterPh = idAnggota != null ? " AND ph.anggota_koperasi = ? " : "";
 
 			StringBuilder sql = new StringBuilder();
-			sql.append("WITH mutasi AS ( ");
+			sql.append("WITH semua_mutasi AS ( ");
 			String[] slotJoin = { "h.cara_pembayaran_koperasi", "h.cara_pembayaran_koperasi_2",
 					"h.cara_pembayaran_koperasi_3", "h.cara_pembayaran_koperasi_4", "h.cara_pembayaran_koperasi_5" };
 			String[] slotNominal = { n1, "COALESCE(h.nominal_bayar_2,0)", "COALESCE(h.nominal_bayar_3,0)",
@@ -5533,30 +5680,32 @@ public class KantinHelper {
 						+ "JOIN koperasi.cara_pembayaran_koperasi cpk").append(slot).append(" ON ")
 						.append(slotJoin[slot - 1]).append(" = cpk").append(slot).append(".id "
 						+ "WHERE cpk").append(slot).append(".masuk_sebagai_hutang = true AND h.anggota_koperasi IS NOT NULL AND ")
-						.append(slotNominal[slot - 1]).append(" > 0 "
-						+ "AND h.tanggal_pembayaran BETWEEN ?::date AND (?::date + interval '1 day') ").append(filterH);
+						.append(slotNominal[slot - 1]).append(" > 0 ").append(filterH);
 			}
 			sql.append(" UNION ALL ")
 					.append("  SELECT ph.waktu, ('C' || ph.id), (a.kode || ' - ' || a.nama), ph.anggota_koperasi, "
 							+ "'Pembayaran Hutang', COALESCE(ph.keterangan, ''), 0, COALESCE(ph.nominal, 0) "
 							+ "FROM koperasi.pembayaran_hutang ph "
 							+ "JOIN koperasi.anggota_koperasi a ON ph.anggota_koperasi = a.id "
-							+ "WHERE ph.waktu BETWEEN ?::date AND (?::date + interval '1 day') ").append(filterPh)
-					.append(") SELECT waktu, baris_id, nama_anggota, id_anggota, jenis_mutasi, keterangan, bertambah, berkurang, "
-							+ "  SUM(bertambah - berkurang) OVER (PARTITION BY id_anggota ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_per_anggota, "
-							+ "  SUM(bertambah - berkurang) OVER (ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_total "
-							+ "FROM mutasi ORDER BY waktu ASC, baris_id ASC LIMIT 3000");
+							+ "WHERE ph.anggota_koperasi IS NOT NULL ").append(filterPh)
+					.append("), saldo_awal AS ( "
+							+ "SELECT id_anggota, SUM(bertambah-berkurang) AS saldo_awal FROM semua_mutasi WHERE waktu < ?::date GROUP BY id_anggota"
+							+ "), mutasi AS (SELECT * FROM semua_mutasi WHERE waktu >= ?::date AND waktu < (?::date + interval '1 day')) "
+							+ "SELECT waktu, baris_id, nama_anggota, m.id_anggota, jenis_mutasi, keterangan, bertambah, berkurang, "
+							+ "  COALESCE(sa.saldo_awal,0) + SUM(bertambah - berkurang) OVER (PARTITION BY m.id_anggota ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_per_anggota, "
+							+ "  (SELECT COALESCE(SUM(saldo_awal),0) FROM saldo_awal) + SUM(bertambah - berkurang) OVER (ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_total, "
+							+ "  COALESCE(sa.saldo_awal,0) AS saldo_awal "
+							+ "FROM mutasi m LEFT JOIN saldo_awal sa ON sa.id_anggota=m.id_anggota ORDER BY waktu ASC, baris_id ASC LIMIT 3000");
 
 			java.sql.PreparedStatement ps = session.connection().prepareStatement(sql.toString());
 			int idx = 1;
 			for (int slot = 1; slot <= 5; slot++) {
-				ps.setString(idx++, dari);
-				ps.setString(idx++, sampai);
 				if (idAnggota != null) ps.setLong(idx++, idAnggota);
 			}
+			if (idAnggota != null) ps.setLong(idx++, idAnggota);
+			ps.setString(idx++, dari);
 			ps.setString(idx++, dari);
 			ps.setString(idx++, sampai);
-			if (idAnggota != null) ps.setLong(idx++, idAnggota);
 
 			java.sql.ResultSet rs = ps.executeQuery();
 			JSONArray arr = new JSONArray();
@@ -5575,6 +5724,7 @@ public class KantinHelper {
 				j.put("berkurang", rs.getDouble(8));
 				j.put("saldoPerAnggota", rs.getDouble(9));
 				j.put("saldoTotal", rs.getDouble(10));
+				j.put("saldoAwal", rs.getDouble(11));
 				arr.put(j);
 			}
 			rs.close();
@@ -8326,6 +8476,7 @@ public class KantinHelper {
 			m.setOleh(oleh);
 			session.save(m);
 			session.flush();
+			transferBatchFefo(session, produkAsal, produkTujuan, qty, "MUTASI-" + m.getId(), oleh);
 			ais.action.master.inventory.StokKantinUtil.recomputeStokProdukNative(session, produkAsal.getId());
 			ais.action.master.inventory.StokKantinUtil.recomputeStokProdukNative(session, produkTujuan.getId());
 			session.getTransaction().commit();
@@ -10856,6 +11007,226 @@ public class KantinHelper {
 		}
 	}
 
+	/** Simpan satu baris buku besar batch setelah saldo batch berubah. */
+	private static void catatMutasiBatch(Session session, ProdukBatch batch, String jenis, double masuk,
+			double keluar, String referensi, String keterangan, String oleh) {
+		MutasiProdukBatch mutasi = new MutasiProdukBatch();
+		mutasi.setBatch(batch);
+		mutasi.setWaktu(new Date());
+		mutasi.setJenis(jenis);
+		mutasi.setMasuk(Double.valueOf(masuk));
+		mutasi.setKeluar(Double.valueOf(keluar));
+		mutasi.setSaldo(batch.getStok());
+		mutasi.setReferensi(referensi);
+		mutasi.setKeterangan(keterangan);
+		mutasi.setOleh(oleh);
+		session.save(mutasi);
+	}
+
+	private static Date parseTanggalBatch(String nilai) throws Exception {
+		String teks = nilai == null ? "" : nilai.trim();
+		if (teks.length() >= 10) teks = teks.substring(0, 10);
+		return new SimpleDateFormat("yyyy-MM-dd").parse(teks);
+	}
+
+	private static Date awalHariIni() {
+		java.util.Calendar c = java.util.Calendar.getInstance();
+		c.set(java.util.Calendar.HOUR_OF_DAY, 0);
+		c.set(java.util.Calendar.MINUTE, 0);
+		c.set(java.util.Calendar.SECOND, 0);
+		c.set(java.util.Calendar.MILLISECOND, 0);
+		return c.getTime();
+	}
+
+	/**
+	 * Tambahkan stok penerimaan ke lot yang sama (produk+toko+nomor batch+tanggal kedaluwarsa).
+	 * Data batch bersifat opsional agar payload Kulakan versi lama tetap 100% kompatibel.
+	 */
+	private static ProdukBatch tambahPenerimaanBatch(Session session, Produk produk, JSONObject sumber,
+			double qty, double hargaModal, String referensi, String oleh) throws Exception {
+		String nomor = sumber.optString("nomor_batch", "").trim();
+		String tanggalText = sumber.optString("tanggal_expired", "").trim();
+		if (nomor.isEmpty() && tanggalText.isEmpty()) {
+			return null;
+		}
+		if (nomor.isEmpty() || tanggalText.isEmpty()) {
+			throw new IllegalArgumentException("Nomor batch dan tanggal kedaluwarsa wajib diisi bersamaan.");
+		}
+		Date tanggalExpired = parseTanggalBatch(tanggalText);
+		Date tanggalProduksi = sumber.optString("tanggal_produksi", "").trim().isEmpty() ? null
+				: parseTanggalBatch(sumber.getString("tanggal_produksi"));
+		@SuppressWarnings("unchecked")
+		List<ProdukBatch> cocok = session.createCriteria(ProdukBatch.class)
+				.add(Restrictions.eq("produk.id", produk.getId()))
+				.add(Restrictions.eq("toko.id", produk.getToko().getId()))
+				.add(Restrictions.eq("nomorBatch", nomor))
+				.add(Restrictions.eq("tanggalExpired", tanggalExpired)).setMaxResults(1).list();
+		ProdukBatch batch;
+		if (cocok.isEmpty()) {
+			batch = new ProdukBatch();
+			batch.setProduk(produk);
+			batch.setToko(produk.getToko());
+			batch.setNomorBatch(nomor);
+			batch.setTanggalExpired(tanggalExpired);
+			batch.setTanggalProduksi(tanggalProduksi);
+			batch.setStok(Double.valueOf(qty));
+			batch.setHargaModal(Double.valueOf(hargaModal));
+			batch.setStatus(ProdukBatch.STATUS_AKTIF);
+			batch.setOleh(oleh);
+			session.save(batch);
+		} else {
+			batch = cocok.get(0);
+			batch.setStok(Double.valueOf(batch.getStok().doubleValue() + qty));
+			batch.setHargaModal(Double.valueOf(hargaModal));
+			if (tanggalProduksi != null) batch.setTanggalProduksi(tanggalProduksi);
+			batch.setStatus(ProdukBatch.STATUS_AKTIF);
+			session.saveOrUpdate(batch);
+		}
+		session.flush();
+		catatMutasiBatch(session, batch, "KULAKAN", qty, 0.0, referensi,
+				"Penerimaan barang dari Kulakan", oleh);
+		return batch;
+	}
+
+	/** Daftar dan ringkasan batch kedaluwarsa per toko, termasuk data produk legacy. */
+	public static void kedaluwarsaList(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		Long tokoId = soResolveTokoId(tbmuser, request);
+		if (tokoId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko tidak diketahui.");
+			return;
+		}
+		String filter = request.optString("filter", "90_HARI").trim().toUpperCase();
+		String keyword = request.optString("keyword", "").trim();
+		int page = Math.max(1, request.optInt("page", 1));
+		int pageSize = Math.min(100, Math.max(1, request.optInt("page_size", 30)));
+		int offset = (page - 1) * pageSize;
+		String kondisi;
+		if ("KADALUWARSA".equals(filter)) kondisi = "tanggal_expired < current_date";
+		else if ("7_HARI".equals(filter)) kondisi = "tanggal_expired between current_date and current_date + 7";
+		else if ("30_HARI".equals(filter)) kondisi = "tanggal_expired between current_date and current_date + 30";
+		else if ("90_HARI".equals(filter)) kondisi = "tanggal_expired between current_date and current_date + 90";
+		else if ("TANPA_TANGGAL".equals(filter)) kondisi = "tanggal_expired is null";
+		else if ("KARANTINA".equals(filter)) kondisi = "status = 'KARANTINA'";
+		else kondisi = "1=1";
+
+		String cte = "WITH data AS ("
+				+ "SELECT pb.id batch_id,p.id produk_id,p.kode,p.nama,pb.nomor_batch,pb.tanggal_produksi,pb.tanggal_expired,pb.stok,pb.status,pb.keterangan,false legacy "
+				+ "FROM koperasi.produk_batch pb JOIN koperasi.produk p ON p.id=pb.produk WHERE pb.toko=? "
+				+ "UNION ALL SELECT NULL,p.id,p.kode,p.nama,COALESCE(p.batch,''),NULL,p.tanggal_expired,COALESCE(p.stok,0),'AKTIF','',true "
+				+ "FROM koperasi.produk p WHERE p.toko=? AND COALESCE(p.aktif,true)=true AND NOT EXISTS "
+				+ "(SELECT 1 FROM koperasi.produk_batch pb WHERE pb.produk=p.id)) ";
+		String andKw = keyword.isEmpty() ? "" : " AND (nama ILIKE ? OR COALESCE(kode,'') ILIKE ? OR COALESCE(nomor_batch,'') ILIKE ?)";
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			java.sql.Connection conn = session.connection();
+			java.sql.PreparedStatement ringkas = conn.prepareStatement(cte
+					+ "SELECT COUNT(*),COALESCE(SUM(CASE WHEN tanggal_expired<current_date AND stok>0 THEN 1 ELSE 0 END),0),"
+					+ "COALESCE(SUM(CASE WHEN tanggal_expired between current_date and current_date+30 AND stok>0 THEN 1 ELSE 0 END),0),"
+					+ "COALESCE(SUM(CASE WHEN tanggal_expired between current_date and current_date+90 AND stok>0 THEN 1 ELSE 0 END),0),"
+					+ "COALESCE(SUM(CASE WHEN tanggal_expired IS NULL AND stok>0 THEN 1 ELSE 0 END),0),"
+					+ "COALESCE(SUM(CASE WHEN status='KARANTINA' AND stok>0 THEN stok ELSE 0 END),0) FROM data");
+			ringkas.setLong(1, tokoId); ringkas.setLong(2, tokoId);
+			java.sql.ResultSet rr = ringkas.executeQuery();
+			JSONObject summary = new JSONObject();
+			if (rr.next()) {
+				summary.put("total", rr.getLong(1));
+				summary.put("kedaluwarsa", rr.getLong(2));
+				summary.put("dalam30Hari", rr.getLong(3));
+				summary.put("dalam90Hari", rr.getLong(4));
+				summary.put("tanpaTanggal", rr.getLong(5));
+				summary.put("stokKarantina", rr.getDouble(6));
+			}
+			rr.close(); ringkas.close();
+
+			java.sql.PreparedStatement count = conn.prepareStatement(cte + "SELECT COUNT(*) FROM data WHERE " + kondisi + andKw);
+			int ci = 1; count.setLong(ci++, tokoId); count.setLong(ci++, tokoId);
+			if (!keyword.isEmpty()) { String kw="%"+keyword+"%"; count.setString(ci++,kw); count.setString(ci++,kw); count.setString(ci++,kw); }
+			java.sql.ResultSet cr=count.executeQuery(); long total=cr.next()?cr.getLong(1):0; cr.close(); count.close();
+
+			java.sql.PreparedStatement ps = conn.prepareStatement(cte
+					+ "SELECT batch_id,produk_id,kode,nama,nomor_batch,tanggal_produksi,tanggal_expired,stok,status,keterangan,legacy,"
+					+ "CASE WHEN tanggal_expired IS NULL THEN NULL ELSE tanggal_expired-current_date END sisa_hari "
+					+ "FROM data WHERE " + kondisi + andKw + " ORDER BY tanggal_expired NULLS LAST,nama LIMIT ? OFFSET ?");
+			int pi=1; ps.setLong(pi++,tokoId); ps.setLong(pi++,tokoId);
+			if(!keyword.isEmpty()){String kw="%"+keyword+"%";ps.setString(pi++,kw);ps.setString(pi++,kw);ps.setString(pi++,kw);}
+			ps.setInt(pi++,pageSize); ps.setInt(pi++,offset);
+			java.sql.ResultSet rs=ps.executeQuery(); JSONArray data=new JSONArray();
+			while(rs.next()){
+				JSONObject j=new JSONObject(); Object bid=rs.getObject(1); j.put("batchId",bid==null?JSONObject.NULL:rs.getLong(1));
+				j.put("produkId",rs.getLong(2)); j.put("kode",rs.getString(3)); j.put("nama",rs.getString(4));
+				j.put("nomorBatch",rs.getString(5));
+				java.sql.Date tp=rs.getDate(6),te=rs.getDate(7);
+				j.put("tanggalProduksi",tp==null?JSONObject.NULL:tp.toString()); j.put("tanggalExpired",te==null?JSONObject.NULL:te.toString());
+				j.put("stok",rs.getDouble(8)); j.put("status",rs.getString(9)); j.put("keterangan",rs.getString(10));
+				j.put("legacy",rs.getBoolean(11)); Object sh=rs.getObject(12); j.put("sisaHari",sh==null?JSONObject.NULL:rs.getInt(12)); data.put(j);
+			}
+			rs.close(); ps.close();
+			hasil.put("status","00"); hasil.put("data",data); hasil.put("summary",summary); hasil.put("total",total);
+			hasil.put("page",page); hasil.put("pageSize",pageSize);
+		} finally { tutupSessionPolaB(session); }
+	}
+
+	/** Daftar ringkas produk toko untuk picker "Tambah Batch" di JSP/Android. */
+	public static void produkBatchProdukList(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		Long tokoId = soResolveTokoId(tbmuser, request);
+		if (tokoId == null) {
+			hasil.put("status", "91"); hasil.put("description", "Toko tidak diketahui."); return;
+		}
+		String keyword = request.optString("keyword", "").trim();
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			String sql = "SELECT id,COALESCE(kode,''),nama,COALESCE(stok,0) FROM koperasi.produk "
+					+ "WHERE toko=:toko AND COALESCE(aktif,true)=true ";
+			if (!keyword.isEmpty()) sql += "AND (nama ILIKE :kw OR COALESCE(kode,'') ILIKE :kw OR COALESCE(barcode,'') ILIKE :kw) ";
+			sql += "ORDER BY nama LIMIT 100";
+			SQLQuery q = session.createSQLQuery(sql);
+			q.setParameter("toko", tokoId);
+			if (!keyword.isEmpty()) q.setParameter("kw", "%" + keyword + "%");
+			JSONArray data = new JSONArray();
+			for (Object o : q.list()) {
+				Object[] a = (Object[]) o; JSONObject j = new JSONObject();
+				j.put("id", a[0]); j.put("kode", a[1]); j.put("nama", a[2]);
+				j.put("stok", a[3] == null ? 0 : ((Number) a[3]).doubleValue()); data.put(j);
+			}
+			hasil.put("status", "00"); hasil.put("data", data);
+		} finally { tutupSessionPolaB(session); }
+	}
+
+	/** Buat/ubah batch dan catat selisih stok fisik sebagai mutasi OPNAME_BATCH. */
+	public static void produkBatchSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pedagang=tbmuser==null?null:tbmuser.getPedagang();
+		boolean admin=pedagang==null, supervisor=pedagang!=null&&Boolean.TRUE.equals(pedagang.getSupervisor());
+		if(!bolehAksiCrud(tbmuser,pedagang,admin,supervisor,"stokopname","create")){
+			hasil.put("status","91"); hasil.put("description","Anda tidak berhak mengubah data batch."); return;
+		}
+		Long tokoId=soResolveTokoId(tbmuser,request); Long batchId=request.isNull("batch_id")?null:Long.valueOf(request.get("batch_id")+"");
+		Long produkId=request.isNull("produk_id")?null:Long.valueOf(request.get("produk_id")+"");
+		String nomor=request.optString("nomor_batch","").trim(), tanggal=request.optString("tanggal_expired","").trim();
+		if(produkId==null||nomor.isEmpty()||tanggal.isEmpty()){hasil.put("status","91");hasil.put("description","Produk, nomor batch, dan tanggal kedaluwarsa wajib diisi.");return;}
+		String status=request.optString("status",ProdukBatch.STATUS_AKTIF).trim().toUpperCase();
+		if(!ProdukBatch.STATUS_AKTIF.equals(status)&&!ProdukBatch.STATUS_KARANTINA.equals(status)&&!ProdukBatch.STATUS_DIMUSNAHKAN.equals(status)){
+			hasil.put("status","91");hasil.put("description","Status batch tidak valid.");return;
+		}
+		Session session=HibernateUtil.getSessionFactory().openSession();
+		try{
+			Produk produk=(Produk)session.get(Produk.class,produkId);
+			if(produk==null||produk.getToko()==null||!produk.getToko().getId().equals(tokoId)){hasil.put("status","91");hasil.put("description","Produk bukan milik toko aktif.");return;}
+			session.beginTransaction(); ProdukBatch b=batchId==null?new ProdukBatch():(ProdukBatch)session.get(ProdukBatch.class,batchId);
+			if(b==null){throw new IllegalArgumentException("Batch tidak ditemukan.");}
+			if(b.getId()!=null&&!b.getToko().getId().equals(tokoId)){throw new IllegalArgumentException("Batch bukan milik toko aktif.");}
+			double lama=b.getId()==null?0:b.getStok().doubleValue(); double baru=request.has("stok_fisik")?request.getDouble("stok_fisik"):lama;
+			if(baru<0)throw new IllegalArgumentException("Stok batch tidak boleh negatif.");
+			b.setProduk(produk);b.setToko(produk.getToko());b.setNomorBatch(nomor);b.setTanggalExpired(parseTanggalBatch(tanggal));
+			String produksi=request.optString("tanggal_produksi","").trim();b.setTanggalProduksi(produksi.isEmpty()?null:parseTanggalBatch(produksi));
+			b.setStok(Double.valueOf(baru));b.setStatus(status);b.setKeterangan(request.optString("keterangan",""));b.setOleh(tbmuser==null?"batch":tbmuser.getUserId());
+			session.saveOrUpdate(b);session.flush(); double selisih=baru-lama;
+			if(selisih!=0)catatMutasiBatch(session,b,"OPNAME_BATCH",Math.max(0,selisih),Math.max(0,-selisih),"BATCH-"+b.getId(),request.optString("keterangan",""),tbmuser==null?"batch":tbmuser.getUserId());
+			session.getTransaction().commit();hasil.put("status","00");hasil.put("batchId",b.getId());hasil.put("selisih",selisih);
+		}catch(Exception e){try{if(session.getTransaction()!=null&&session.getTransaction().isActive())session.getTransaction().rollback();}catch(Exception ignored){}hasil.put("status","91");hasil.put("description",Common.tampilErrorJikaAdmin(e));}
+		finally{tutupSessionPolaB(session);}
+	}
+
 	/**
 	 * <h3>Menu "Kulakan" (Harga Beli / Pengadaan Produk) -- daftar riwayat barang masuk toko ini.</h3>
 	 *
@@ -11030,6 +11401,9 @@ public class KantinHelper {
 
 			session.beginTransaction();
 			session.save(pg);
+			session.flush();
+			tambahPenerimaanBatch(session, produk, request, qty, hargaBeliSatuan,
+					"KULAKAN-" + pg.getId(), tbmuser == null ? "kulakan" : tbmuser.getUserId());
 			ais.action.master.inventory.StokKantinUtil.recomputeStokProduk(produkId);
 			session.getTransaction().commit();
 
@@ -11549,6 +11923,8 @@ public class KantinHelper {
 				pg.setOleh(oleh);
 				session.save(pg);
 				session.flush();
+				tambahPenerimaanBatch(session, produk, it, qty, hargaBeliSatuan,
+						"FAKTUR-" + header.getId() + "-PENGADAAN-" + pg.getId(), oleh);
 				ais.action.master.inventory.StokKantinUtil.recomputeStokProdukNative(session, produkId);
 			}
 			session.getTransaction().commit();

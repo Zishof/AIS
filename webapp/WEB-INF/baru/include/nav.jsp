@@ -311,7 +311,7 @@
                                 <ul class="nav collapse <%=p.equals("kantin") || tbmrole.getRoleId().equalsIgnoreCase(Tbmrole.KANTIN)  ? "show" : "" %>" id="kantin_sub">
                                     <% 
                                        String[] subEL = tbmuser.getPedagang() == null && tbmrole.getRoleId() != null && !tbmrole.getRoleId().equals(Tbmrole.KANTIN) ? new String[]{"beranda", "ringkasan", "pos", "pesanan", "pengaturan", "laporan_laporan", "laporan_keuangan"} : new String[]{"ringkasan", "pos", "pesanan", "pengaturan", "laporan_laporan", "laporan_keuangan"};
-                                       String[] subSubEL = (isAdminKantin ? new String[]{"anggota", "barang", "kulakan","retur_penjualan","diskon","pembayaran","pedagang","stok","meja","penyedia","kas","tenant","opname","stok_expired","limit_kredit","mutasi_rekening","produksi","pengaturan_laporan"} : new String[]{ "barang", "kulakan","retur_penjualan","diskon","pembayaran","pedagang","stok","meja","penyedia","kas","tenant","opname","stok_expired","limit_kredit","mutasi_rekening","produksi"});
+                                       String[] subSubEL = (isAdminKantin ? new String[]{"anggota", "barang", "kulakan","retur_penjualan","diskon","pembayaran","pedagang","stok","stok_expired","meja","penyedia","kas","tenant","opname","limit_kredit","mutasi_rekening","produksi","pengaturan_laporan"} : new String[]{ "barang", "kulakan","retur_penjualan","diskon","pembayaran","pedagang","stok","stok_expired","meja","penyedia","kas","tenant","opname","limit_kredit","mutasi_rekening","produksi"});
                                        for(String sub : subEL) {
                                            if(!Common.bolehKonfigurasi("kantin_menu_"+sub)){ continue; } // on/off menu via Konfigurasi (default ON)
                                            if(!bolehAksesMenuKantinPedagang(tbmuser, tbmrole, sub)){ continue; }
@@ -344,7 +344,7 @@
                                                 	   if(subSub.equals("kas")){ label = "Kas Kasir"; }
                                                 	   if(subSub.equals("tenant")){ label = "Setoran Tenant"; }
                                                 	   if(subSub.equals("opname")){ label = "Jadwal Opname"; }
-                                                	   if(subSub.equals("stok_expired")){ label = "Stok Min & Expired"; }
+											   if(subSub.equals("stok_expired")){ label = "Kedaluwarsa"; }
                                                 	   if(subSub.equals("limit_kredit")){ label = "Limit Kredit Anggota"; }
                                                 	   if(subSub.equals("mutasi_rekening")){ label = "Rekening Koran (Rekonsiliasi)"; }
                                                 	   if(subSub.equals("produksi")){ label = "Produksi Kantin"; }
