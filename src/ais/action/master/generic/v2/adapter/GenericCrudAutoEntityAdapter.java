@@ -11,7 +11,6 @@ import org.hibernate.Criteria;
 import org.hibernate.EntityMode;
 import org.hibernate.Session;
 import org.hibernate.metadata.ClassMetadata;
-import org.hibernate.criterion.Restrictions;
 import org.hibernate.type.Type;
 
 import ais.action.master.generic.v2.GenericCrudException;
@@ -234,56 +233,13 @@ public class GenericCrudAutoEntityAdapter extends AbstractGenericCrudEntityAdapt
     }
 
     private void applyScope(Criteria criteria, GenericCrudRequestContext context) {
-        if (criteria == null || Common.getApakahAdmin()) return;
-        Iterator entries = scopeBindings(context).entrySet().iterator();
-        while (entries.hasNext()) {
-            Map.Entry entry = (Map.Entry) entries.next();
-            criteria.add(Restrictions.eq(String.valueOf(entry.getKey()), entry.getValue()));
-        }
+        GenericCrudInstitutionScope.apply(criteria, entityClass,
+                context == null ? null : context.getUser());
     }
 
     private Map scopeBindings(GenericCrudRequestContext context) {
-        Map result = new LinkedHashMap();
-        if (context == null || context.getUser() == null || Common.getApakahAdmin()) return result;
-        Tbmuser user = context.getUser();
-        ClassMetadata metadata = HibernateUtil.getSessionFactory().getClassMetadata(entityClass);
-        addScope(metadata, result, "yayasan", invoke(user, "getYayasan"));
-        addScope(metadata, result, "sekolah", invoke(user, "getSekolah"));
-        addScope(metadata, result, "program", invoke(user, "getProgram"));
-        addScope(metadata, result, "fakultas", invoke(user, "getFakultas"));
-        addScope(metadata, result, "jurusan", invoke(user, "getJurusan"));
-        addScope(metadata, result, "satuanKerja", invoke(user, "getSatuanKerja"));
-
-        String role = "";
-        try { role = normalize(String.valueOf(user.hakAkses().getRoleId())); } catch (Exception ignored) { }
-        if (role.indexOf("mahasiswa") >= 0 || "mhs".equals(role)) {
-            addScope(metadata, result, "mahasiswa", invoke(user, "getMahasiswa"));
-        }
-        if (role.indexOf("siswa") >= 0) addScope(metadata, result, "siswa", invoke(user, "getSiswa"));
-        if (role.indexOf("dosen") >= 0) addScope(metadata, result, "dosen", invoke(user, "getDosen"));
-        if (role.indexOf("guru") >= 0) addScope(metadata, result, "guru", invoke(user, "getGuru"));
-        if (role.indexOf("orangtua") >= 0 || "ortu".equals(role)) {
-            addScope(metadata, result, "orangTua", invoke(user, "getOrangTua"));
-        }
-        if (role.indexOf("koperasi") >= 0 || role.indexOf("anggota") >= 0) {
-            addScope(metadata, result, "anggotaKoperasi", invoke(user, "getAnggotaKoperasi"));
-        }
-        return result;
-    }
-
-    private void addScope(ClassMetadata metadata, Map result, String property, Object value) {
-        if (value == null) return;
-        try {
-            Type type = metadata.getPropertyType(property);
-            if (type.isAssociationType() && type.getReturnedClass().isAssignableFrom(value.getClass())) {
-                result.put(property, value);
-            }
-        } catch (Exception missingProperty) { }
-    }
-
-    private Object invoke(Object target, String method) {
-        try { return target.getClass().getMethod(method, new Class[0]).invoke(target, new Object[0]); }
-        catch (Exception unavailable) { return null; }
+        return GenericCrudInstitutionScope.bindings(entityClass,
+                context == null ? null : context.getUser());
     }
 
     private boolean sameEntity(Object one, Object two) {
@@ -298,10 +254,6 @@ public class GenericCrudAutoEntityAdapter extends AbstractGenericCrudEntityAdapt
             }
         } catch (Exception ignored) { }
         return one.equals(two);
-    }
-
-    private String normalize(String value) {
-        return value == null ? "" : value.replaceAll("[^A-Za-z0-9]", "").toLowerCase();
     }
 
     protected void authorize(GenericCrudRequestContext context) throws GenericCrudException {

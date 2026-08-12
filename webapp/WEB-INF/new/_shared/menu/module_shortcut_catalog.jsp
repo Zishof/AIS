@@ -25,7 +25,7 @@ SimpleDateFormat nuiLoginFormat=new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
 String nuiModuleNewUrl=request.getContextPath()+"/new";
 String nuiDashboardKey=request.getParameter("dashboard");NewUiModuleShortcut nuiActiveDashboardShortcut=null;
 if(nuiDashboardKey!=null)for(int nuiDashI=0;nuiDashI<nuiModules.size();nuiDashI++)if(nuiDashboardKey.equalsIgnoreCase(nuiModules.get(nuiDashI).getKey())){nuiActiveDashboardShortcut=nuiModules.get(nuiDashI);break;}
-Dashboard nuiActiveDashboard=nuiActiveDashboardShortcut==null?null:NewUiModuleDashboardService.load(nuiActiveDashboardShortcut.getKey());
+Dashboard nuiActiveDashboard=nuiActiveDashboardShortcut==null?null:NewUiModuleDashboardService.load(nuiActiveDashboardShortcut.getKey(),nuiModuleUser);
 if(nuiDashboardKey!=null&&nuiActiveDashboard==null){response.setStatus(403);%><jsp:include page="/WEB-INF/new/_shared/ui/403.jsp"/><%return;}
 if(nuiActiveDashboard!=null){
   NewUiHybridMenuNode nuiDashboardTarget=nuiActiveDashboardShortcut.getTarget();Long nuiDashboardGroupId=nuiDashboardTarget!=null&&nuiDashboardTarget.isBranch()?nuiDashboardTarget.getMenuId():null;

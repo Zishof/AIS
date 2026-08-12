@@ -20,6 +20,10 @@ memahami aturan, konteks pengguna, sumber data, dan target operasionalnya.
 - Utility `usersOnline`, `eMenuButton`, `menuService`, `customerService`, dan
   `back_to_top` tersedia di shell New UI pada semua halaman. Daftar pengguna
   online dan customer service tetap memakai sumber data existing.
+- Angka dashboard memakai pembatas institusi/pemilik yang sama dengan Generic
+  CRUD. Admin dapat melihat agregat global; role lain hanya dihitung dari relasi
+  yayasan, sekolah, program, fakultas, jurusan, satuan kerja, atau profilnya
+  yang benar-benar tersedia pada metadata entity.
 
 ## Modul yang dicakup
 

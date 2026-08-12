@@ -12,6 +12,8 @@ import org.hibernate.Session;
 import org.hibernate.criterion.Projections;
 
 import ais.database.hibernate.HibernateUtil;
+import ais.database.model.Tbmuser;
+import ais.action.master.generic.v2.adapter.GenericCrudInstitutionScope;
 
 /**
  * Adapter konten dashboard native untuk tombol utama index.zul.
@@ -100,6 +102,12 @@ public final class NewUiModuleDashboardService {
     private NewUiModuleDashboardService() { }
 
     public static Dashboard load(String key) {
+        Tbmuser user = null;
+        try { user = ais.common.Common.getCurrentUser(); } catch (Exception ignored) { }
+        return load(key, user);
+    }
+
+    public static Dashboard load(String key, Tbmuser user) {
         Definition definition = (Definition) DEFINITIONS.get(normalize(key));
         if (definition == null) return null;
         List metrics = new ArrayList();
@@ -110,6 +118,7 @@ public final class NewUiModuleDashboardService {
             try {
                 Class entity = Class.forName(spec.entityClass);
                 Criteria criteria = session.createCriteria(entity).setProjection(Projections.rowCount());
+                GenericCrudInstitutionScope.apply(criteria, entity, user);
                 Object result = criteria.uniqueResult(); value = result instanceof Number ? ((Number) result).longValue() : 0L; available = true;
             } catch (Exception error) {
                 try { ais.common.ErrorAuditUtil.record(error, "NewUiModuleDashboardService." + definition.key + "." + spec.entityClass); } catch (Exception ignored) { }
