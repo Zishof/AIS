@@ -64,7 +64,7 @@ public final class ApotikLaporanHelper {
 
 			// KPI total
 			java.sql.PreparedStatement psTot = session.connection().prepareStatement(
-					"SELECT COALESCE(SUM(d.qty),0), COALESCE(SUM(d.hasil_penghitungan_total),0), COUNT(*) " + where);
+					"SELECT COALESCE(SUM(d.qty),0), COALESCE(SUM(d.hasilpenghitungantotal),0), COUNT(*) " + where);
 			psTot.setString(1, p[0]); psTot.setString(2, p[1]);
 			java.sql.ResultSet rt = psTot.executeQuery();
 			double totalQty = 0, totalNilai = 0; long baris = 0;
@@ -73,8 +73,8 @@ public final class ApotikLaporanHelper {
 
 			// Per item
 			java.sql.PreparedStatement psItem = session.connection().prepareStatement(
-					"SELECT i.id, i.kode, i.nama, SUM(d.qty), SUM(d.hasil_penghitungan_total) " + where
-							+ " GROUP BY i.id, i.kode, i.nama ORDER BY SUM(d.hasil_penghitungan_total) DESC LIMIT 200");
+					"SELECT i.id, i.kode, i.nama, SUM(d.qty), SUM(d.hasilpenghitungantotal) " + where
+							+ " GROUP BY i.id, i.kode, i.nama ORDER BY SUM(d.hasilpenghitungantotal) DESC LIMIT 200");
 			psItem.setString(1, p[0]); psItem.setString(2, p[1]);
 			java.sql.ResultSet ri = psItem.executeQuery();
 			JSONArray perItem = new JSONArray();
@@ -97,7 +97,7 @@ public final class ApotikLaporanHelper {
 					+ "WHERE k.kode = 'AJ' AND d.tanggal BETWEEN ?::date AND (?::date + interval '1 day') "
 					+ filterLokasi;
 			java.sql.PreparedStatement psGol = session.connection().prepareStatement(
-					"SELECT COALESCE(ap.golongan_obat,'BEBAS') gol, SUM(d.qty), SUM(d.hasil_penghitungan_total) "
+					"SELECT COALESCE(ap.golongan_obat,'BEBAS') gol, SUM(d.qty), SUM(d.hasilpenghitungantotal) "
 							+ whereGol + " GROUP BY COALESCE(ap.golongan_obat,'BEBAS') ORDER BY 3 DESC");
 			psGol.setString(1, p[0]); psGol.setString(2, p[1]);
 			JSONArray perGolongan = new JSONArray();
