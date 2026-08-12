@@ -46,6 +46,9 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	public static final String DOKTER = "Dokter";
 	public static final String GURU = "Guru";
 	public static final String KANTIN = "Kantin";
+	public static final String HALAMAN_UTAMA_KANTIN = "/WEB-INF/baru/modul/kantin/index.jsp";
+	public static final String HALAMAN_UTAMA_APOTIK = "/WEB-INF/baru/modul/apotik/index.jsp";
+	public static final String HALAMAN_UTAMA_EMEDIK = "/WEB-INF/baru/modul/emedik/index.jsp";
 	public static final String ORANG_TUA_KODE = "ortu";
 	public static final String ORANG_TUA = "Ortu";
 	public static final String KOMUNITAS = "Komunitas";
@@ -904,7 +907,7 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	public String getHalamanUtama() {
 
 		if (getRoleId() != null && getRoleId().equals(KANTIN)) {
-			halamanUtama = "/WEB-INF/baru/modul/kantin/index.jsp";
+			halamanUtama = HALAMAN_UTAMA_KANTIN;
 		}
 
 		return halamanUtama == null || halamanUtama.trim().isEmpty() ? null : halamanUtama.trim();

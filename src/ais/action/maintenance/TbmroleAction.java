@@ -162,6 +162,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 	private MyCheckboxConfig aksesFeeder;
 	private MyCheckboxConfig aksesSister;
 	private Combobox dashboardDefaultMain;
+	private Combobox halamanUtama;
 	private MyCheckboxConfig aksesSupervisorKantin;
 	private MyCheckboxConfig aksesKasir;
 	private MyCheckboxConfig aksesBerandaKantin;
@@ -1964,6 +1965,29 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 
 		row = new MyFormRow();
 		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Halaman langsung setelah login"));
+		halamanUtama = new Combobox();
+		halamanUtama.setWidth("90%");
+		halamanUtama.setReadonly(true);
+		String[][] pilihanHalamanUtama = {
+				{ "== Ikuti Tampilan Utama ==", null },
+				{ "POS Apotik (JSP)", Tbmrole.HALAMAN_UTAMA_APOTIK },
+				{ "eMedik (JSP)", Tbmrole.HALAMAN_UTAMA_EMEDIK }
+		};
+		String nilaiHalamanUtama = tbmrole.getHalamanUtama();
+		for (int i = 0; i < pilihanHalamanUtama.length; i++) {
+			Comboitem item = new Comboitem(pilihanHalamanUtama[i][0]);
+			item.setValue(pilihanHalamanUtama[i][1]);
+			item.setParent(halamanUtama);
+			if ((nilaiHalamanUtama == null && pilihanHalamanUtama[i][1] == null)
+					|| (nilaiHalamanUtama != null && nilaiHalamanUtama.equals(pilihanHalamanUtama[i][1]))) {
+				halamanUtama.setSelectedItem(item);
+			}
+		}
+		row.appendChild(halamanUtama);
+
+		row = new MyFormRow();
+		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig(""));
 		elearning = new MyCheckboxConfig("Tampilkan Dashboard E-learning");
 		elearning.setChecked(tbmrole.getElearning());
@@ -2683,6 +2707,9 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		tbmrole.setDashboardDefaultMain(
 				dashboardDefaultMain == null || dashboardDefaultMain.getSelectedItem() == null ? null
 						: (String) dashboardDefaultMain.getSelectedItem().getValue());
+		tbmrole.setHalamanUtama(
+				halamanUtama == null || halamanUtama.getSelectedItem() == null ? null
+						: (String) halamanUtama.getSelectedItem().getValue());
 		tbmrole.setKode(kodeAkses.getValue().trim());
 		tbmrole.setRoleName(nama.getValue());
 		tbmrole.setRoleId(kode.getValue());

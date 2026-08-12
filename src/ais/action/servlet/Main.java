@@ -66,8 +66,11 @@ import org.springframework.security.core.userdetails.UserDetails;
 public class Main extends HttpServlet {
 
 	private static final long serialVersionUID = 1L;
-	private static final String PAGE_KANTIN_INDEX = "/WEB-INF/baru/modul/kantin/index.jsp";
+	private static final String PAGE_KANTIN_INDEX = Tbmrole.HALAMAN_UTAMA_KANTIN;
+	private static final String PAGE_APOTIK_INDEX = Tbmrole.HALAMAN_UTAMA_APOTIK;
+	private static final String PAGE_EMEDIK_INDEX = Tbmrole.HALAMAN_UTAMA_EMEDIK;
 	private static final String ATTR_KANTIN_DIRECT_PAGE = "kantinDirectPage";
+	private static final String ATTR_POS_DIRECT_PAGE = "posDirectPage";
 
 	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		processRequest(request, response);
@@ -135,6 +138,9 @@ public class Main extends HttpServlet {
 		if (PAGE_KANTIN_INDEX.equals(page)) {
 			request.setAttribute(ATTR_KANTIN_DIRECT_PAGE, Boolean.TRUE);
 		}
+		if (PAGE_APOTIK_INDEX.equals(page) || PAGE_EMEDIK_INDEX.equals(page)) {
+			request.setAttribute(ATTR_POS_DIRECT_PAGE, Boolean.TRUE);
+		}
 		RequestDispatcher dispatcher = request.getRequestDispatcher(page);
 		dispatcher.forward(request, response);
 	}
@@ -156,6 +162,10 @@ public class Main extends HttpServlet {
 			}
 			if (isKoperasiMemberLandingEnabled(user)) {
 				return PAGE_KANTIN_INDEX;
+			}
+			String halamanRole = resolveRoleLandingPage(user);
+			if (halamanRole != null) {
+				return halamanRole;
 			}
 
 			boolean versiLama = isParameterAktif(request, "versilama") || isParameterAktif(request, "versi_lama");
@@ -194,6 +204,17 @@ public class Main extends HttpServlet {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/Main.java:164");
 		}
 		return page;
+	}
+
+	private String resolveRoleLandingPage(Tbmuser user) {
+		if (user == null || user.hakAkses() == null) {
+			return null;
+		}
+		String halaman = user.hakAkses().getHalamanUtama();
+		if (PAGE_APOTIK_INDEX.equals(halaman) || PAGE_EMEDIK_INDEX.equals(halaman)) {
+			return halaman;
+		}
+		return null;
 	}
 
 	private String getPiilhanTampilanDomain(HttpServletRequest request) {
