@@ -2444,6 +2444,250 @@ public class KantinHelper {
 		}
 	}
 
+	/** Maksimal jumlah foto per produk (gap-closure permintaan user eksplisit: "maksimal 10 foto") --
+	 * ditegakkan DI SINI (server) sbg sumber kebenaran; klien juga menegakkan batas yg sama utk UX
+	 * responsif, tapi validasi sungguhan HARUS di sini spy tak bisa dilewati lewat panggilan API
+	 * langsung. */
+	private static final int MAKS_FOTO_PRODUK = 10;
+
+	/**
+	 * Verifikasi produk ini milik toko pemanggil (IDOR-safe, pola SAMA dgn cabang update
+	 * {@link #produkSimpan}) -- dipakai bersama oleh {@link #produkFotoUpload} dan
+	 * {@link #produkFotoHapus}. Admin/global (pemanggil==null) selalu lolos tanpa dibatasi toko.
+	 *
+	 * @return {@link Produk} bila lolos verifikasi; {@code null} bila tidak (alasan penolakan
+	 *         SUDAH di-put ke {@code hasil} oleh method ini, pemanggil cukup langsung {@code return}).
+	 */
+	private static Produk verifikasiPemilikProdukUntukFoto(Session session, Tbmuser tbmuser, Long produkId,
+			JSONObject hasil) throws Exception {
+		Produk p = (Produk) session.get(Produk.class, produkId);
+		if (p == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Produk tidak ditemukan.");
+			return null;
+		}
+		ais.database.model.inventory.Pedagang pemanggil = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean supervisor = pemanggil != null && Boolean.TRUE.equals(pemanggil.getSupervisor());
+		if (supervisor) {
+			Long tokoSupervisor = pemanggil.getToko() == null ? null : pemanggil.getToko().getId();
+			Long tokoProduk = p.getToko() == null ? null : p.getToko().getId();
+			if (tokoSupervisor == null || !tokoSupervisor.equals(tokoProduk)) {
+				hasil.put("status", "91");
+				hasil.put("description", "Produk ini bukan milik toko Anda.");
+				return null;
+			}
+		}
+		return p;
+	}
+
+	/**
+	 * Daftar foto satu produk (BACA-saja, urut lama-&gt;baru = urutan unggah) -- {@code data} berisi
+	 * {@code {id}} apa adanya per baris; {@link ais.action.servlet.PosApi} yang menyuntik
+	 * {@code urlGambar} tiap item SETELAH method ini kembali (pola SAMA dgn
+	 * {@code layar_pelanggan_slide_list}/{@code buildUrlGambarLayarPelangganSlide}) -- method ini
+	 * sendiri TIDAK tahu apa pun soal URL/host.
+	 *
+	 * @param request payload: {@code produk_id} (wajib).
+	 */
+	public static void produkFotoList(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (request.isNull("produk_id")) {
+			hasil.put("status", "91");
+			hasil.put("description", "ID produk wajib diisi.");
+			return;
+		}
+		Long produkId = Long.valueOf((request.get("produk_id") + "").trim());
+		Session streamSession = ais.database.hibernate.StreamingHibernateUtil.getInstance().openSession();
+		try {
+			@SuppressWarnings("unchecked")
+			List<ais.database.model.file.FotoGambarProduk> daftar = streamSession
+					.createCriteria(ais.database.model.file.FotoGambarProduk.class)
+					.add(Restrictions.eq("produk", produkId)).addOrder(Order.asc("id")).list();
+			JSONArray arr = new JSONArray();
+			for (ais.database.model.file.FotoGambarProduk f : daftar) {
+				JSONObject o = new JSONObject();
+				o.put("id", f.getId());
+				arr.put(o);
+			}
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+		} finally {
+			ais.database.hibernate.HibernateUtil.closeSessionQuietly(streamSession);
+		}
+	}
+
+	/**
+	 * Unggah satu foto produk (klien loop panggilan ini utk banyak foto sekaligus -- pola SAMA dgn
+	 * {@code layarPelangganSlideUpload}: satu aksi = satu berkas, base64 di body JSON, TIDAK ada
+	 * endpoint multipart terpisah di codebase ini). Menolak (status "91") bila produk ini SUDAH
+	 * mencapai {@value #MAKS_FOTO_PRODUK} foto.
+	 *
+	 * @param request payload: {@code produk_id} (wajib), {@code file_base64} (wajib), {@code nama_file}
+	 *                (opsional, default nama generik+waktu -- klien SEBAIKNYA selalu mengirim nama
+	 *                asli berkas utk ekstensi yg benar).
+	 */
+	public static void produkFotoUpload(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggil = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean adminGlobal = pemanggil == null;
+		boolean supervisor = pemanggil != null && Boolean.TRUE.equals(pemanggil.getSupervisor());
+		if (!bolehAksiCrud(tbmuser, pemanggil, adminGlobal, supervisor, "produk", "update")) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat mengelola foto produk.");
+			return;
+		}
+		if (request.isNull("produk_id")) {
+			hasil.put("status", "91");
+			hasil.put("description", "ID produk wajib diisi.");
+			return;
+		}
+		Long produkId = Long.valueOf((request.get("produk_id") + "").trim());
+		String base64 = request.optString("file_base64", "").trim();
+		if (base64.isEmpty()) {
+			hasil.put("status", "91");
+			hasil.put("description", "Berkas gambar wajib diisi.");
+			return;
+		}
+		byte[] bytes;
+		try {
+			bytes = java.util.Base64.getDecoder().decode(base64);
+		} catch (IllegalArgumentException eb64) {
+			hasil.put("status", "91");
+			hasil.put("description", "Data gambar tidak valid (base64 gagal diurai).");
+			return;
+		}
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			if (verifikasiPemilikProdukUntukFoto(session, tbmuser, produkId, hasil) == null) return;
+		} finally {
+			tutupSessionPolaB(session);
+		}
+
+		Session streamSession = ais.database.hibernate.StreamingHibernateUtil.getInstance().openSession();
+		try {
+			long jumlahSekarang = (Long) streamSession
+					.createCriteria(ais.database.model.file.FotoGambarProduk.class)
+					.add(Restrictions.eq("produk", produkId))
+					.setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult();
+			if (jumlahSekarang >= MAKS_FOTO_PRODUK) {
+				hasil.put("status", "91");
+				hasil.put("description",
+						"Maksimal " + MAKS_FOTO_PRODUK + " foto per produk. Hapus foto lama sebelum menambah yang baru.");
+				return;
+			}
+			String namaFile = request.optString("nama_file", "").trim();
+			if (namaFile.isEmpty()) {
+				namaFile = "foto-" + produkId + "-" + System.currentTimeMillis() + ".jpg";
+			}
+			ais.database.model.file.FotoGambarProduk f = new ais.database.model.file.FotoGambarProduk();
+			f.setProduk(produkId);
+			f.setNama(namaFile);
+			f.setOleh(tbmuser == null ? null : tbmuser.getUserNama());
+			f.setOlehId(tbmuser == null ? null : String.valueOf(tbmuser.getUserId()));
+			f.setFoto(org.hibernate.Hibernate.createBlob(bytes));
+			streamSession.beginTransaction();
+			streamSession.save(f);
+			streamSession.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("id", f.getId());
+		} finally {
+			ais.database.hibernate.HibernateUtil.closeSessionQuietly(streamSession);
+		}
+
+		// Tandai Produk.adaFileGambar=true (DB UTAMA, terpisah dari blob di DB streaming di atas) --
+		// gerbang dipakai PosApi.prosesKatalog utk mengisi `gambarUrl` thumbnail (lihat javadoc
+		// Produk.getAdaFileGambar). Kegagalan di sini TIDAK membatalkan upload yg sudah commit di
+		// atas -- foto tetap tersimpan, hanya thumbnail lama kemungkinan tak ikut nyala sampai
+		// produk ini disimpan ulang lewat jalur lain; dicatat ke audit, bukan dilempar ke klien.
+		try {
+			Session sesiFlag = HibernateUtil.getSessionFactory().openSession();
+			try {
+				Produk pFlag = (Produk) sesiFlag.get(Produk.class, produkId);
+				if (pFlag != null && !Boolean.TRUE.equals(pFlag.getAdaFileGambar())) {
+					pFlag.setAdaFileGambar(true);
+					sesiFlag.beginTransaction();
+					sesiFlag.saveOrUpdate(pFlag);
+					sesiFlag.getTransaction().commit();
+				}
+			} finally {
+				tutupSessionPolaB(sesiFlag);
+			}
+		} catch (Exception eFlag) {
+			ais.common.ErrorAuditUtil.record(eFlag, "produk-foto-upload-set-flag src/ais/action/servlet/api/KantinHelper.java:produkFotoUpload");
+		}
+	}
+
+	/** Hapus satu foto produk -- gerbang+kepemilikan toko SAMA pola dgn {@link #produkFotoUpload}.
+	 * @param request payload: {@code id} (wajib -- id baris {@code FotoGambarProduk}, BUKAN id produk). */
+	public static void produkFotoHapus(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggil = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean adminGlobal = pemanggil == null;
+		boolean supervisor = pemanggil != null && Boolean.TRUE.equals(pemanggil.getSupervisor());
+		if (!bolehAksiCrud(tbmuser, pemanggil, adminGlobal, supervisor, "produk", "update")) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat mengelola foto produk.");
+			return;
+		}
+		if (request.isNull("id")) {
+			hasil.put("status", "91");
+			hasil.put("description", "ID foto wajib diisi.");
+			return;
+		}
+		Long id = Long.valueOf((request.get("id") + "").trim());
+
+		Session streamSession = ais.database.hibernate.StreamingHibernateUtil.getInstance().openSession();
+		try {
+			ais.database.model.file.FotoGambarProduk f = (ais.database.model.file.FotoGambarProduk) streamSession
+					.get(ais.database.model.file.FotoGambarProduk.class, id);
+			if (f == null) {
+				hasil.put("status", "00");
+				return;
+			}
+			Long produkId = f.getProduk();
+			if (produkId != null) {
+				Session session = HibernateUtil.getSessionFactory().openSession();
+				try {
+					if (verifikasiPemilikProdukUntukFoto(session, tbmuser, produkId, hasil) == null) return;
+				} finally {
+					tutupSessionPolaB(session);
+				}
+			}
+			streamSession.beginTransaction();
+			streamSession.delete(f);
+			streamSession.getTransaction().commit();
+
+			// Kalau ini foto TERAKHIR produk tsb, matikan Produk.adaFileGambar (pola sama dgn
+			// alasan set true di produkFotoUpload) -- dicek SETELAH commit delete di atas supaya
+			// hitungannya akurat (baris yg baru dihapus sudah benar-benar hilang).
+			if (produkId != null) {
+				long sisa = (Long) streamSession
+						.createCriteria(ais.database.model.file.FotoGambarProduk.class)
+						.add(Restrictions.eq("produk", produkId))
+						.setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult();
+				if (sisa == 0) {
+					try {
+						Session sesiFlag = HibernateUtil.getSessionFactory().openSession();
+						try {
+							Produk pFlag = (Produk) sesiFlag.get(Produk.class, produkId);
+							if (pFlag != null && Boolean.TRUE.equals(pFlag.getAdaFileGambar())) {
+								pFlag.setAdaFileGambar(false);
+								sesiFlag.beginTransaction();
+								sesiFlag.saveOrUpdate(pFlag);
+								sesiFlag.getTransaction().commit();
+							}
+						} finally {
+							tutupSessionPolaB(sesiFlag);
+						}
+					} catch (Exception eFlag) {
+						ais.common.ErrorAuditUtil.record(eFlag, "produk-foto-hapus-clear-flag src/ais/action/servlet/api/KantinHelper.java:produkFotoHapus");
+					}
+				}
+			}
+			hasil.put("status", "00");
+		} finally {
+			ais.database.hibernate.HibernateUtil.closeSessionQuietly(streamSession);
+		}
+	}
+
 	/** Urutan+label kolom Excel katalog barang dipakai BERSAMA oleh {@link #produkEksporExcel} (menulis)
 	 * dan {@link #produkImporExcel} (mencari kolom berdasarkan label, bukan posisi tetap -- lihat
 	 * {@link #cariIndeksKolom}) -- sengaja identik dengan format akunting umum ("Daftar Barang dan

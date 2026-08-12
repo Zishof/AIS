@@ -294,6 +294,22 @@ public class PosApi extends HttpServlet {
 			} else if ("produk_impor_excel".equals(action)) {
 				KantinHelper.produkImporExcel(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "produk_impor_excel");
+			} else if ("produk_foto_list".equals(action)) {
+				KantinHelper.produkFotoList(tbmuser, payload, hasil);
+				if (hasil.has("data")) {
+					JSONArray daftarFoto = hasil.getJSONArray("data");
+					for (int iFoto = 0; iFoto < daftarFoto.length(); iFoto++) {
+						JSONObject jFoto = daftarFoto.getJSONObject(iFoto);
+						jFoto.put("urlGambar", buildUrlGambarFotoProduk(request, jFoto.getLong("id")));
+					}
+				}
+				normalisasiStatusKantinHelper(hasil, "produk_foto_list");
+			} else if ("produk_foto_upload".equals(action)) {
+				KantinHelper.produkFotoUpload(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "produk_foto_upload");
+			} else if ("produk_foto_hapus".equals(action)) {
+				KantinHelper.produkFotoHapus(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "produk_foto_hapus");
 			} else if ("so_sesi_list".equals(action)) {
 				KantinHelper.soSesiList(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "so_sesi_list");
@@ -706,6 +722,10 @@ public class PosApi extends HttpServlet {
 			// sama sekali) -- membingungkan kasir krn pill kategori itu bila diklik selalu kosong.
 			// LinkedHashMap sekadar dedup by id; urutan akhir tetap diseragamkan alfabetis di bawah.
 			java.util.Map<Long, String> petaKategori = new java.util.LinkedHashMap<Long, String>();
+			// Gap-closure "Foto Produk" (banyak foto per produk) -- dikumpulkan selama loop utama di
+			// bawah, dipakai SETELAH loop selesai utk satu query batch ke DB streaming (lihat di bawah
+			// loop) supaya tak jadi N+1 (satu query per produk).
+			java.util.Map<Long, JSONObject> jsonPorProdukId = new java.util.LinkedHashMap<Long, JSONObject>();
 
 			JSONArray produkArr = new JSONArray();
 			for (Object o : PriceTagUtil.listProduk(session, tokoId, keyword, semuaTokoDiminta, adminGlobal, jenisItemFilter)) {
@@ -744,6 +764,10 @@ public class PosApi extends HttpServlet {
 				j.put("satuanNama", p.getSatuan() == null ? "" : str(p.getSatuan().getNama()));
 				j.put("pemasokNama", p.getPemasok() == null ? "" : str(p.getPemasok().getNama()));
 				j.put("gambarUrl", Boolean.TRUE.equals(p.getAdaFileGambar()) ? buildUrlGambarProduk(request, p.getId()) : JSONObject.NULL);
+				// Diisi ulang (bila ada) SETELAH loop ini lewat batch query -- default kosong dulu di
+				// sini supaya baris tanpa foto tetap konsisten kirim array (bukan null/hilang).
+				j.put("fotoUrls", new JSONArray());
+				jsonPorProdukId.put(p.getId(), j);
 				// Resep Bahan Baku (gap-closure Desktop/Android, padanan JSP barang/index.jsp) -- dipakai
 				// mengisi ulang daftar bahan saat form "Ubah" produk ber-resep dibuka kembali. Kolom
 				// {@code Produk.bahanBaku} sudah berupa string JSON persis bentuk array (lihat JavaDoc
@@ -776,6 +800,41 @@ public class PosApi extends HttpServlet {
 
 				if (jp != null && jp.getId() != null) {
 					petaKategori.put(jp.getId(), str(jp.getNama()));
+				}
+			}
+
+			// Gap-closure "Foto Produk" (banyak foto per produk, carousel Kasir tiap 3 detik bila >1) --
+			// SATU query batch ke DB streaming terpisah utk SELURUH produk di halaman ini (bukan N+1),
+			// lalu suntikkan array fotoUrls per baris (urut lama->baru = urutan unggah). Kosong/tak ada
+			// baris FotoGambarProduk = tetap array kosong (sudah di-default di loop atas).
+			if (!jsonPorProdukId.isEmpty()) {
+				Session streamSession = ais.database.hibernate.StreamingHibernateUtil.getInstance().openSession();
+				try {
+					@SuppressWarnings("unchecked")
+					java.util.List<Object[]> barisFoto = streamSession
+							.createCriteria(ais.database.model.file.FotoGambarProduk.class)
+							.add(Restrictions.in("produk", jsonPorProdukId.keySet()))
+							.setProjection(org.hibernate.criterion.Projections.projectionList()
+									.add(org.hibernate.criterion.Projections.property("produk"))
+									.add(org.hibernate.criterion.Projections.property("id")))
+							.addOrder(Order.asc("id")).list();
+					java.util.Map<Long, JSONArray> fotoPorProduk = new java.util.HashMap<Long, JSONArray>();
+					for (Object[] baris : barisFoto) {
+						Long produkIdBaris = (Long) baris[0];
+						Long fotoId = (Long) baris[1];
+						JSONArray arr = fotoPorProduk.get(produkIdBaris);
+						if (arr == null) {
+							arr = new JSONArray();
+							fotoPorProduk.put(produkIdBaris, arr);
+						}
+						arr.put(buildUrlGambarFotoProduk(request, fotoId));
+					}
+					for (java.util.Map.Entry<Long, JSONArray> e : fotoPorProduk.entrySet()) {
+						JSONObject jTarget = jsonPorProdukId.get(e.getKey());
+						if (jTarget != null) jTarget.put("fotoUrls", e.getValue());
+					}
+				} finally {
+					ais.database.hibernate.HibernateUtil.closeSessionQuietly(streamSession);
 				}
 			}
 
@@ -818,6 +877,22 @@ public class PosApi extends HttpServlet {
 		boolean portDefault = ("http".equals(scheme) && port == 80) || ("https".equals(scheme) && port == 443);
 		String basis = scheme + "://" + request.getServerName() + (portDefault ? "" : (":" + port)) + request.getContextPath();
 		return basis + "/AmbilMediaProduk?id=" + produkId + "&height=200&width=200&img=.jpg";
+	}
+
+	/**
+	 * Padanan {@link #buildUrlGambarProduk} utk SATU foto tertentu (gap-closure "Foto Produk" banyak
+	 * foto) -- pakai param BARU {@code fotoId} (id baris {@code FotoGambarProduk} itu sendiri, lihat
+	 * javadoc {@code AmbilMediaProduk.loadFile}), BUKAN {@code id} (yang berarti "produk ini, ambil
+	 * foto TERBARUnya" -- dipakai {@link #buildUrlGambarProduk}). TIDAK dikecilkan (tanpa
+	 * height/width) -- dipakai galeri form Ubah Produk & carousel Kasir, keduanya sudah mengatur
+	 * ukuran tampil sendiri di sisi UI.
+	 */
+	private static String buildUrlGambarFotoProduk(HttpServletRequest request, Long fotoId) {
+		String scheme = request.getScheme();
+		int port = request.getServerPort();
+		boolean portDefault = ("http".equals(scheme) && port == 80) || ("https".equals(scheme) && port == 443);
+		String basis = scheme + "://" + request.getServerName() + (portDefault ? "" : (":" + port)) + request.getContextPath();
+		return basis + "/AmbilMediaProduk?fotoId=" + fotoId;
 	}
 
 	/**
@@ -1386,6 +1461,9 @@ public class PosApi extends HttpServlet {
 		if (action.startsWith("apotik_batch_")) {
 			return menu.optBoolean("apotik_batch", false) || menu.optBoolean("apotik_stok_opname", false)
 					|| menu.optBoolean("apotik_kasir", false);
+		}
+		if (action.startsWith("apotik_laporan_")) {
+			return menu.optBoolean("apotik_laporan", false);
 		}
 		if (action.startsWith("apotik_")) {
 			return menu.optBoolean("apotik_kasir", false);

@@ -139,6 +139,32 @@ public class AmbilMediaProduk extends HttpServlet {
 
 		File file = new File(sc.getRealPath("/img/Package-Warning-icon.png"));
 
+		// Gap-closure "foto produk banyak" -- param BARU `fotoId` (id baris FotoGambarProduk itu
+		// SENDIRI, BUKAN id produk) untuk mengambil SATU foto tertentu apa adanya, dipakai galeri
+		// Ubah Produk & carousel Kasir (produk_foto_list mengembalikan daftar id, masing-masing
+		// dirender lewat URL ini). TIDAK mengubah perilaku param `id` yang sudah ada di bawah
+		// (tetap "foto TERBARU milik produk ini", dipakai thumbnail katalog) -- dua param berbeda,
+		// boleh dipakai salah satu.
+		String strFotoId = request.getParameter("fotoId");
+		if (strFotoId != null && !strFotoId.trim().isEmpty()) {
+			FotoGambarProduk baris = (FotoGambarProduk) streamingSession.get(FotoGambarProduk.class,
+					Long.parseLong(strFotoId.trim()));
+			if (baris == null || baris.getFoto() == null) {
+				return new File(Common.REAL_PATH + "/img/Package-Warning-icon.png");
+			}
+			String namaFoto = baris.getNama() == null ? "foto.jpg" : baris.getNama();
+			resp.setHeader("Content-Disposition", "attachment; filename=\"" + namaFoto + "\"");
+			File fotoFile = new File(mediaDic + "/foto_" + strFotoId.trim() + "_"
+					+ namaFoto.replaceAll(" ", "_"));
+			if (!fotoFile.exists()) {
+				writeBlobToFile(baris.getFoto(), fotoFile);
+			}
+			if (!Common.isImage(fotoFile)) {
+				return new File(Common.REAL_PATH + "/img/Package-Warning-icon.png");
+			}
+			return fotoFile;
+		}
+
 		String strid = request.getParameter("id");
 		String height = request.getParameter("height");
 		String width = request.getParameter("width");
