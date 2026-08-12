@@ -1404,7 +1404,23 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 								: " " + detailKegiatan.getUraian())))
 						.setParent(vbox);
 
-				if (pengaturanPembayaranBulanan.getDeadline() != null) {
+				if (isStaf) {
+					final MyDatebox deadlineEditor = new MyDatebox(pengaturanPembayaranBulanan.getDeadline());
+					deadlineEditor.setFormat(Common.dateFormat.get().toPattern());
+					deadlineEditor.setReadonly(false);
+					deadlineEditor.setWidth("150px");
+					deadlineEditor.setTooltiptext("Ubah deadline tagihan bulanan ini lalu pilih tanggal baru");
+					new MyLabelAgakKecilBoldMerah("Deadline (dapat diubah staf)").setParent(vbox);
+					deadlineEditor.setParent(vbox);
+					deadlineEditor.addEventListener("onChange", new EventListener() {
+						@Override
+						public void onEvent(Event event) throws Exception {
+							pengaturanPembayaranBulanan.setDeadline(deadlineEditor.getValue());
+							executeNativeUpdateTransaction(pengaturanPembayaranBulanan);
+							deadlineEditor.setTooltiptext("Deadline berhasil diperbarui");
+						}
+					});
+				} else if (pengaturanPembayaranBulanan.getDeadline() != null) {
 					new MyLabelAgakKecilBoldMerah(
 							"Deadline : " + Common.dateFormat4.get().format(pengaturanPembayaranBulanan.getDeadline()))
 							.setParent(vbox);

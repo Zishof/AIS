@@ -18,6 +18,7 @@ import java.util.TreeSet;
 
 import org.apache.commons.lang.StringUtils;
 import org.hibernate.Session;
+import org.hibernate.Transaction;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Projections;
@@ -110,6 +111,44 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 	 * 
 	 */
 	private static final long serialVersionUID = 2585694348321865102L;
+
+	/** Simpan deadline dengan transaksi mandiri agar perubahan Datebox tidak hilang saat popup ditutup. */
+	private static void simpanDeadlinePengaturanPembayaranBulanan(Long id, Date deadline) throws Exception {
+		if (id == null) {
+			return;
+		}
+		Session session = null;
+		Transaction transaction = null;
+		try {
+			session = HibernateUtil.currentNativeSession();
+			transaction = session.beginTransaction();
+			PengaturanPembayaranBulanan data = (PengaturanPembayaranBulanan) session.get(
+					PengaturanPembayaranBulanan.class, id);
+			if (data == null) {
+				throw new IllegalStateException("Pengaturan pembayaran bulanan tidak ditemukan: " + id);
+			}
+			data.setDeadline(deadline);
+			session.update(data);
+			session.flush();
+			transaction.commit();
+		} catch (Exception e) {
+			if (transaction != null && transaction.isActive()) {
+				transaction.rollback();
+			}
+			throw e;
+		} finally {
+			if (session != null && session.isOpen()) {
+				try { session.close(); } catch (Exception ignored) {
+					ais.common.ErrorAuditUtil.record(ignored,
+							"auto-audit(empty-catch) NewDetailBiayaExcelAction:simpanDeadline");
+				}
+			}
+			try { HibernateUtil.closeSession(); } catch (Exception ignored) {
+				ais.common.ErrorAuditUtil.record(ignored,
+						"auto-audit(empty-catch) NewDetailBiayaExcelAction:simpanDeadline-close");
+			}
+		}
+	}
 	private MyWindow addWindow;
 	private Row rowInfoTagihan;
 	private Row rowFilterPmb;
@@ -2112,10 +2151,10 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 
-						Session session = HibernateUtil.currentSession();
-						session.refresh(pengaturanPembayaranBulanan);
-						pengaturanPembayaranBulanan.setDeadline(deadline.getValue());
-						session.update(pengaturanPembayaranBulanan);
+						Date deadlineBaru = deadline.getValue();
+						simpanDeadlinePengaturanPembayaranBulanan(pengaturanPembayaranBulanan.getId(), deadlineBaru);
+						pengaturanPembayaranBulanan.setDeadline(deadlineBaru);
+						deadline.setTooltiptext("Deadline berhasil disimpan");
 					}
 				});
 
