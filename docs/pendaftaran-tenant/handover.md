@@ -45,6 +45,13 @@ Belum ada (dibuat lewat wizard saat UAT). Admin backoffice: pakai akun admin pla
    mirror). UAT HYBRID lulus (evidence/uat-hybrid-hasil.md). Batas BARU yang tersisa: data-plane
    CUTOVER (aplikasi membaca/menulis tabel tenant schema = mode TENANT_ONLY, butuh routing sesi
    Hibernate per-tenant) — belum dikerjakan, by design bertahap.
+   **UPDATE P8 (2026-08-12)**: cutover DIMULAI utk permukaan milik program ini —
+   `TenantDataPlaneService`: dual-write atomik Brand/Toko/Mesin POS ke schema tenant + audit
+   Envers-style nyata di `<slug>__audit` (revinfo/revtype), READ daftar dari schema tenant +
+   sinkron backfill, gerbang §3.3 TENANT_ONLY (mode dibaca SQL langsung → switch admin efektif
+   seketika). UAT 7/7 lulus (evidence/uat-tenantonly-hasil.md; termasuk bug label kolom native
+   query yang tertangkap & diperbaiki). Batas jujur TERSISA: runtime POS/eBisnis (PosApi dst.)
+   masih membaca tabel shared — cutover penuh runtime = program lanjutan tersendiri.
 2. Rate limiter in-JVM per node (bukan cluster-wide).
 3. CAPTCHA belum (honeypot+elapsed+rate limit sudah); paket = Konfigurasi JSON (belum entity
    plan/billing penuh); flow wizard `tenant-baru` memakai wizard yang sama (langkah akun tetap

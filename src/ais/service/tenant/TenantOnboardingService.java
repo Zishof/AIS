@@ -59,6 +59,12 @@ public final class TenantOnboardingService {
 			if (tenantSiap.isEmpty()) {
 				return "Tenant Anda belum siap (READY). Pantau progres pada halaman status pendaftaran.";
 			}
+			// P8 §3.3: mode platform TENANT_ONLY -- tenant program TANPA schema valid diblokir
+			// menjalankan data-plane (mode dibaca SQL langsung, efek seketika tanpa restart).
+			String blokirTenantOnly = TenantDataPlaneService.alasanBlokirTenantOnly(session, pendaftarId);
+			if (blokirTenantOnly != null) {
+				return blokirTenantOnly;
+			}
 			if (modulDibutuhkan == null || modulDibutuhkan.trim().isEmpty()) {
 				return null;
 			}

@@ -91,6 +91,18 @@ public class PendaftarDashboardHelper {
 	public static void brandList(Pendaftar pendaftar, JSONObject hasil) throws Exception {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
+			// P8 TENANT_ONLY cutover: tenant ber-schema membaca dari SCHEMA TENANT
+			// (sinkron backfill menyalin baris shared pra-cutover yang belum ada).
+			String schemaTenant = ais.service.tenant.TenantDataPlaneService
+					.schemaTenantMilik(session, pendaftar.getId());
+			if (schemaTenant != null) {
+				ais.service.tenant.TenantDataPlaneService
+						.sinkronDenganTransaksi(session, schemaTenant, pendaftar.getId());
+				hasil.put("status", "00");
+				hasil.put("data", ais.service.tenant.TenantDataPlaneService.listBrand(session, schemaTenant));
+				hasil.put("sumberData", "tenant-schema");
+				return;
+			}
 			List<?> daftar = session.createCriteria(Brand.class)
 					.add(Restrictions.eq("pendaftar.id", pendaftar.getId()))
 					.addOrder(Order.asc("nama")).list();
@@ -127,6 +139,14 @@ public class PendaftarDashboardHelper {
 			b.setDibuatPada(WaktuUtil.getDate());
 			session.beginTransaction();
 			session.save(b);
+			session.flush();
+			// P8: DUAL-WRITE mirror + audit ke schema tenant dalam TX yang SAMA (atomik).
+			String schemaTenant = ais.service.tenant.TenantDataPlaneService
+					.schemaTenantMilik(session, pendaftar.getId());
+			if (schemaTenant != null) {
+				ais.service.tenant.TenantDataPlaneService.mirrorBrand(session, schemaTenant,
+						b.getId(), b.getNama(), Boolean.TRUE, true);
+			}
 			session.getTransaction().commit();
 			hasil.put("status", "00");
 			hasil.put("id", b.getId());
@@ -142,6 +162,16 @@ public class PendaftarDashboardHelper {
 	public static void tokoList(Pendaftar pendaftar, JSONObject hasil) throws Exception {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
+			String schemaTenant = ais.service.tenant.TenantDataPlaneService
+					.schemaTenantMilik(session, pendaftar.getId());
+			if (schemaTenant != null) {
+				ais.service.tenant.TenantDataPlaneService
+						.sinkronDenganTransaksi(session, schemaTenant, pendaftar.getId());
+				hasil.put("status", "00");
+				hasil.put("data", ais.service.tenant.TenantDataPlaneService.listToko(session, schemaTenant));
+				hasil.put("sumberData", "tenant-schema");
+				return;
+			}
 			List<?> daftar = session.createCriteria(Toko.class)
 					.add(Restrictions.eq("pendaftar.id", pendaftar.getId()))
 					.addOrder(Order.asc("nama")).list();
@@ -201,6 +231,13 @@ public class PendaftarDashboardHelper {
 			t.setAktif(true);
 			session.beginTransaction();
 			session.save(t);
+			session.flush();
+			String schemaTenant = ais.service.tenant.TenantDataPlaneService
+					.schemaTenantMilik(session, pendaftar.getId());
+			if (schemaTenant != null) {
+				ais.service.tenant.TenantDataPlaneService.mirrorToko(session, schemaTenant, t.getId(),
+						t.getNama(), brandId, t.getAlamat(), t.getKota(), t.getTelp(), Boolean.TRUE, true);
+			}
 			session.getTransaction().commit();
 			hasil.put("status", "00");
 			hasil.put("id", t.getId());
@@ -226,6 +263,17 @@ public class PendaftarDashboardHelper {
 			if (!milikPendaftar(toko, pendaftar)) {
 				hasil.put("status", "91");
 				hasil.put("description", "Toko tidak ditemukan atau bukan milik Anda.");
+				return;
+			}
+			String schemaTenant = ais.service.tenant.TenantDataPlaneService
+					.schemaTenantMilik(session, pendaftar.getId());
+			if (schemaTenant != null) {
+				ais.service.tenant.TenantDataPlaneService
+						.sinkronDenganTransaksi(session, schemaTenant, pendaftar.getId());
+				hasil.put("status", "00");
+				hasil.put("data", ais.service.tenant.TenantDataPlaneService
+						.listMesinPos(session, schemaTenant, tokoId));
+				hasil.put("sumberData", "tenant-schema");
 				return;
 			}
 			List<?> daftar = session.createCriteria(Pedagang.class)
@@ -282,6 +330,13 @@ public class PendaftarDashboardHelper {
 			p.setSupervisor(false);
 			session.beginTransaction();
 			session.save(p);
+			session.flush();
+			String schemaTenant = ais.service.tenant.TenantDataPlaneService
+					.schemaTenantMilik(session, pendaftar.getId());
+			if (schemaTenant != null) {
+				ais.service.tenant.TenantDataPlaneService.mirrorPedagang(session, schemaTenant, p.getId(),
+						userid, password, nama, tokoId, Boolean.FALSE, Boolean.TRUE, true);
+			}
 			session.getTransaction().commit();
 
 			hasil.put("status", "00");
@@ -459,6 +514,12 @@ public class PendaftarDashboardHelper {
 			}
 			session.beginTransaction();
 			session.saveOrUpdate(b);
+			String schemaTenant = ais.service.tenant.TenantDataPlaneService
+					.schemaTenantMilik(session, pendaftar.getId());
+			if (schemaTenant != null) {
+				ais.service.tenant.TenantDataPlaneService.mirrorBrand(session, schemaTenant, b.getId(),
+						b.getNama(), b.getAktif(), false);
+			}
 			session.getTransaction().commit();
 			hasil.put("status", "00");
 		} finally {
@@ -499,6 +560,13 @@ public class PendaftarDashboardHelper {
 			}
 			session.beginTransaction();
 			session.saveOrUpdate(t);
+			String schemaTenant = ais.service.tenant.TenantDataPlaneService
+					.schemaTenantMilik(session, pendaftar.getId());
+			if (schemaTenant != null) {
+				ais.service.tenant.TenantDataPlaneService.mirrorToko(session, schemaTenant, t.getId(),
+						t.getNama(), t.getBrand() == null ? null : t.getBrand().getId(), t.getAlamat(),
+						t.getKota(), t.getTelp(), t.getAktif(), false);
+			}
 			session.getTransaction().commit();
 			hasil.put("status", "00");
 		} finally {
@@ -525,6 +593,14 @@ public class PendaftarDashboardHelper {
 			p.setAktif(Boolean.valueOf("true".equals(request.optString("aktif", "false"))));
 			session.beginTransaction();
 			session.saveOrUpdate(p);
+			String schemaTenant = ais.service.tenant.TenantDataPlaneService
+					.schemaTenantMilik(session, pendaftar.getId());
+			if (schemaTenant != null) {
+				ais.service.tenant.TenantDataPlaneService.mirrorPedagang(session, schemaTenant, p.getId(),
+						p.getUserid(), p.getPass(), p.getNama(),
+						p.getToko() == null ? null : p.getToko().getId(), p.getSupervisor(),
+						p.getAktif(), false);
+			}
 			session.getTransaction().commit();
 			hasil.put("status", "00");
 		} finally {
