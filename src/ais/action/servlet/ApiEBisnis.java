@@ -31,6 +31,7 @@ public class ApiEBisnis extends PosApi {
 		super.init();
 		try {
 			ais.action.servlet.api.SalesInventoryHelper.pastikanSeedRole();
+			ais.action.servlet.api.SalesInventoryHelper.pastikanSeedAkunUatLokal();
 		} catch (Exception e) {
 			ais.common.ErrorAuditUtil.record(e, "ApiEBisnis.init: seed role inventory_sales");
 		}

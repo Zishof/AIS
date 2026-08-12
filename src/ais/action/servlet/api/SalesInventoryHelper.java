@@ -9,6 +9,8 @@ import ais.common.EbisnisMenuKatalog;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
+import ais.database.model.inventory.Toko;
+import ais.database.model.koperasi.SalesInventory;
 
 /**
  * <h3>Helper varian "eBisnis Inventory &amp; Sales" (P1: fondasi role/menu/konteks aktor).</h3>
@@ -46,26 +48,27 @@ public final class SalesInventoryHelper {
 			Tbmrole sales = (Tbmrole) session.createCriteria(Tbmrole.class)
 					.add(Restrictions.eq("roleId", EbisnisActorContextResolver.ROLE_SALES_KELILING))
 					.setMaxResults(1).uniqueResult();
-			if (pemilik != null && sales != null) {
-				return;
-			}
 			tx = session.beginTransaction();
 			if (pemilik == null) {
 				pemilik = new Tbmrole();
 				pemilik.setRoleId(EbisnisActorContextResolver.ROLE_PEMILIK);
-				pemilik.setRoleName("Pemilik Sales / Inventory");
 				pemilik.setAktif(Boolean.TRUE);
 				pemilik.setEbisnisMenu(menuRolePemilikJson());
 				session.save(pemilik);
 			}
+			pemilik.setRoleName("Pemilik Usaha Sales");
+			pemilik.setHalamanUtama(Tbmrole.HALAMAN_UTAMA_INVENTORY);
+			session.saveOrUpdate(pemilik);
 			if (sales == null) {
 				sales = new Tbmrole();
 				sales.setRoleId(EbisnisActorContextResolver.ROLE_SALES_KELILING);
-				sales.setRoleName("Sales Keliling");
 				sales.setAktif(Boolean.TRUE);
 				sales.setEbisnisMenu(menuRoleSalesJson());
 				session.save(sales);
 			}
+			sales.setRoleName("Sales Keliling");
+			sales.setHalamanUtama(Tbmrole.HALAMAN_UTAMA_INVENTORY);
+			session.saveOrUpdate(sales);
 			tx.commit();
 			System.out.println("[SI-SEED] Role inventory_sales dipastikan ada (pemilik_sales_inventory, sales_keliling).");
 		} catch (Exception e) {
@@ -77,6 +80,88 @@ public final class SalesInventoryHelper {
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
+	}
+
+	/**
+	 * Membuat akun contoh UAT lokal secara idempoten. Seed ini sengaja <b>fail-closed</b> dan
+	 * hanya aktif bila JVM diberi {@code -Dais.inventory.uat.seed=true}; kredensial contoh tidak
+	 * pernah dibuat pada deployment biasa. Akun pemilik memakai toko aktif pertama sebagai scope,
+	 * sedangkan akun sales juga memperoleh profil {@link SalesInventory} pada toko yang sama.
+	 */
+	public static void pastikanSeedAkunUatLokal() {
+		if (!Boolean.getBoolean("ais.inventory.uat.seed")) {
+			return;
+		}
+		pastikanSeedRole();
+		Session session = null;
+		Transaction tx = null;
+		try {
+			session = HibernateUtil.getSessionFactory().openSession();
+			Tbmrole pemilikRole = (Tbmrole) session.get(Tbmrole.class,
+					EbisnisActorContextResolver.ROLE_PEMILIK);
+			Tbmrole salesRole = (Tbmrole) session.get(Tbmrole.class,
+					EbisnisActorContextResolver.ROLE_SALES_KELILING);
+			Toko toko = (Toko) session.createCriteria(Toko.class)
+					.add(Restrictions.eq("aktif", Boolean.TRUE)).setMaxResults(1).uniqueResult();
+			if (pemilikRole == null || salesRole == null || toko == null) {
+				throw new IllegalStateException("Role Inventory & Sales atau toko aktif untuk UAT belum tersedia.");
+			}
+			tx = session.beginTransaction();
+			pemilikRole.setRoleName("Pemilik Usaha Sales");
+			pemilikRole.setHalamanUtama(Tbmrole.HALAMAN_UTAMA_INVENTORY);
+			salesRole.setHalamanUtama(Tbmrole.HALAMAN_UTAMA_INVENTORY);
+			session.update(pemilikRole);
+			session.update(salesRole);
+
+			Tbmuser muklis = seedAkunUat(session, "muklis", "Muklis - Pemilik Usaha Sales",
+					"muklis123", pemilikRole);
+			muklis.setTokoAktifMultiToko(toko.getId());
+			session.saveOrUpdate(muklis);
+			Tbmuser agung = seedAkunUat(session, "agung", "Agung - Sales Keliling",
+					"agung123", salesRole);
+			session.saveOrUpdate(agung);
+
+			SalesInventory profil = (SalesInventory) session.createCriteria(SalesInventory.class)
+					.add(Restrictions.eq("tbmuser", agung)).setMaxResults(1).uniqueResult();
+			if (profil == null) {
+				profil = new SalesInventory();
+				profil.setKode("UAT-AGUNG");
+				profil.setNama("Agung");
+				profil.setTbmuser(agung);
+				profil.setToko(toko);
+				profil.setArea("Area UAT Lokal");
+				profil.setAktif(Boolean.TRUE);
+				session.save(profil);
+			} else {
+				profil.setAktif(Boolean.TRUE);
+				profil.setToko(toko);
+				session.update(profil);
+			}
+			tx.commit();
+			System.out.println("[SI-UAT-SEED] Akun lokal muklis dan agung siap pada toko " + toko.getId() + ".");
+		} catch (Exception e) {
+			try { if (tx != null && tx.isActive()) tx.rollback(); } catch (Exception ignore) { }
+			ais.common.ErrorAuditUtil.record(e, "SalesInventoryHelper.pastikanSeedAkunUatLokal");
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	private static Tbmuser seedAkunUat(Session session, String userId, String nama, String password,
+			Tbmrole role) {
+		Tbmuser user = (Tbmuser) session.get(Tbmuser.class, userId);
+		if (user == null) {
+			user = new Tbmuser();
+			user.setUserId(userId);
+		}
+		user.setUserNama(nama);
+		user.setUserPassword(ais.common.Common.desEncrypter.get().encrypt(password));
+		user.setIs_encripted(Boolean.TRUE);
+		user.setAktif(Boolean.TRUE);
+		user.setRoot(Boolean.FALSE);
+		user.setUserShow(Integer.valueOf(1));
+		user.setUserRole(role);
+		return user;
 	}
 
 	/**
@@ -140,7 +225,9 @@ public final class SalesInventoryHelper {
 		for (int i = 0; i < crudPenuh.length; i++) {
 			crudAktif.put(crudPenuh[i], SEMUA_AKSI_CRUD);
 		}
-		return bungkusMenuRole(menuAktif, crudAktif);
+		JSONObject hasil = new JSONObject(bungkusMenuRole(menuAktif, crudAktif));
+		hasil.put("landingInventory", true);
+		return hasil.toString();
 	}
 
 	/**
@@ -160,7 +247,9 @@ public final class SalesInventoryHelper {
 		crudAktif.put("nota_sales", set("create", "update"));
 		crudAktif.put("biaya_sales", set("create", "update"));
 		crudAktif.put("pembelian_sales", set("create"));
-		return bungkusMenuRole(menuAktif, crudAktif);
+		JSONObject hasil = new JSONObject(bungkusMenuRole(menuAktif, crudAktif));
+		hasil.put("landingInventory", true);
+		return hasil.toString();
 	}
 
 	// =============================================================================================
