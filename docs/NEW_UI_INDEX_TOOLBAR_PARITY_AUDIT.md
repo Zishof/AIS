@@ -24,6 +24,8 @@ memahami aturan, konteks pengguna, sumber data, dan target operasionalnya.
   CRUD. Admin dapat melihat agregat global; role lain hanya dihitung dari relasi
   yayasan, sekolah, program, fakultas, jurusan, satuan kerja, atau profilnya
   yang benar-benar tersedia pada metadata entity.
+- Entity yang mempunyai flag `aktif` menampilkan rincian aktif/nonaktif dengan
+  scope yang sama, bukan hanya angka total global.
 
 ## Modul yang dicakup
 

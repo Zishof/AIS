@@ -10,6 +10,8 @@ import java.util.Map;
 import org.hibernate.Criteria;
 import org.hibernate.Session;
 import org.hibernate.criterion.Projections;
+import org.hibernate.criterion.Restrictions;
+import org.hibernate.metadata.ClassMetadata;
 
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmuser;
@@ -114,21 +116,43 @@ public final class NewUiModuleDashboardService {
         Session session = null;
         try { session = HibernateUtil.currentSession(); } catch (Exception ignored) { }
         for (int i = 0; i < definition.metrics.length; i++) {
-            MetricSpec spec = definition.metrics[i]; long value = 0L; boolean available = false;
+            MetricSpec spec = definition.metrics[i]; long value = 0L, active = 0L, inactive = 0L;
+            boolean available = false, statusAvailable = false;
             try {
                 Class entity = Class.forName(spec.entityClass);
                 Criteria criteria = session.createCriteria(entity).setProjection(Projections.rowCount());
                 GenericCrudInstitutionScope.apply(criteria, entity, user);
                 Object result = criteria.uniqueResult(); value = result instanceof Number ? ((Number) result).longValue() : 0L; available = true;
+                ClassMetadata metadata = HibernateUtil.getSessionFactory().getClassMetadata(entity);
+                if (hasBooleanProperty(metadata, "aktif")) {
+                    active = countByBoolean(session, entity, user, "aktif", true);
+                    inactive = countByBoolean(session, entity, user, "aktif", false);
+                    statusAvailable = true;
+                }
             } catch (Exception error) {
                 try { ais.common.ErrorAuditUtil.record(error, "NewUiModuleDashboardService." + definition.key + "." + spec.entityClass); } catch (Exception ignored) { }
             }
-            metrics.add(new Metric(spec.label, spec.entityClass, value, available));
+            metrics.add(new Metric(spec.label, spec.entityClass, value, available,
+                    active, inactive, statusAvailable));
         }
         return new Dashboard(definition, metrics, System.currentTimeMillis());
     }
 
     public static boolean supports(String key) { return DEFINITIONS.containsKey(normalize(key)); }
+    private static long countByBoolean(Session session, Class entity, Tbmuser user,
+            String property, boolean value) {
+        Criteria criteria = session.createCriteria(entity).add(Restrictions.eq(property, Boolean.valueOf(value)))
+                .setProjection(Projections.rowCount());
+        GenericCrudInstitutionScope.apply(criteria, entity, user);
+        Object result = criteria.uniqueResult();
+        return result instanceof Number ? ((Number) result).longValue() : 0L;
+    }
+    private static boolean hasBooleanProperty(ClassMetadata metadata, String property) {
+        try {
+            Class type = metadata.getPropertyType(property).getReturnedClass();
+            return type == Boolean.class || type == Boolean.TYPE;
+        } catch (Exception missing) { return false; }
+    }
     private static String normalize(String key) { return key == null ? "" : key.trim().toLowerCase(); }
     private static MetricSpec m(String label, String entityClass) { return new MetricSpec(label, entityClass); }
     private static String[] f(String a,String b,String c,String d) { return new String[]{a,b,c,d}; }
@@ -143,9 +167,10 @@ public final class NewUiModuleDashboardService {
         public String getKey(){return key;} public String getTitle(){return title;} public String getSourceClass(){return sourceClass;} public String getDescription(){return description;} public String[] getFeatures(){return features;}
     }
     public static final class Metric implements Serializable {
-        private static final long serialVersionUID=1L; private final String label,entityClass; private final long value; private final boolean available;
-        Metric(String label,String entityClass,long value,boolean available){this.label=label;this.entityClass=entityClass;this.value=value;this.available=available;}
+        private static final long serialVersionUID=1L; private final String label,entityClass; private final long value,activeValue,inactiveValue; private final boolean available,statusAvailable;
+        Metric(String label,String entityClass,long value,boolean available,long activeValue,long inactiveValue,boolean statusAvailable){this.label=label;this.entityClass=entityClass;this.value=value;this.available=available;this.activeValue=activeValue;this.inactiveValue=inactiveValue;this.statusAvailable=statusAvailable;}
         public String getLabel(){return label;} public String getEntityClass(){return entityClass;} public long getValue(){return value;} public boolean isAvailable(){return available;}
+        public long getActiveValue(){return activeValue;} public long getInactiveValue(){return inactiveValue;} public boolean isStatusAvailable(){return statusAvailable;}
     }
     public static final class Dashboard implements Serializable {
         private static final long serialVersionUID=1L; private final Definition definition; private final List metrics; private final long generatedAt;
