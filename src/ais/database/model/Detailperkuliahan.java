@@ -219,16 +219,20 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 				Boolean verify = retreiveDetailVerifikasiNilai(formatNilai);
 
 				String aformatBaru = "";
+				Long kunciFormat = ambilKunciFormatNilai(formatNilai);
 
-				if (!sembunyikanNilaiJikaBelumDiverifikasi || (sembunyikanNilaiJikaBelumDiverifikasi && verify)) {
-					if (formatNilai.getStatusPertemuan() != null) { // fix: komponen yg sudah dipilih tetap dihitung walau statusPertemuan non-aktif
-						aformatBaru = formatNilai.getStatusPertemuan().getId() + "," + jumlah + ",0,"
-								+ formatNilai.getPersen() + "," + verify + "," + jumlahBelum;
-					}
-				} else {
-					if (formatNilai.getStatusPertemuan() != null) { // fix: komponen yg sudah dipilih tetap dihitung walau statusPertemuan non-aktif
-						aformatBaru = formatNilai.getStatusPertemuan().getId() + ",0,0," + formatNilai.getPersen() + ","
+				// Format nilai klasik menggunakan statusPertemuan.id, sedangkan format OBE/Sub-CPMK
+				// dapat tidak memiliki StatusPertemuan dan menggunakan formatNilai.id. Seluruh jalur
+				// baca/tulis harus memakai kunci kanonik yang sama; jika tidak, Hitung Ulang akan
+				// menghapus komponen OBE lalu menghasilkan total 0 (E).
+				if (kunciFormat != null) {
+					if (!sembunyikanNilaiJikaBelumDiverifikasi
+							|| (sembunyikanNilaiJikaBelumDiverifikasi && verify)) {
+						aformatBaru = kunciFormat + "," + jumlah + ",0," + formatNilai.getPersen() + ","
 								+ verify + "," + jumlahBelum;
+					} else {
+						aformatBaru = kunciFormat + ",0,0," + formatNilai.getPersen() + "," + verify + ","
+								+ jumlahBelum;
 					}
 				}
 
@@ -879,8 +883,9 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 				// (hitungTotalNilai) sehingga tidak pernah tersimpan/terhitung ke nilai akhir
 				// (totalPersen < 100). Entri untuk format yang BUKAN komponen aktif tetap dibuang
 				// oleh filter "ids.contains(...)" di bawah.
-				if (formatNilai.getStatusPertemuan() != null) {
-					ids.add(formatNilai.getStatusPertemuan().getId());
+				Long kunciFormat = ambilKunciFormatNilai(formatNilai);
+				if (kunciFormat != null) {
+					ids.add(kunciFormat);
 				}
 			}
 
@@ -919,9 +924,10 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 			List<FormatNilai> formatNilais = Common.getFormatNilais(HibernateUtil.currentSession(), perkuliahan);
 
 			for (FormatNilai formatNilai : formatNilais) {
-				if (formatNilai.getStatusPertemuan() != null) { // fix: komponen yg sudah dipilih tetap dihitung walau statusPertemuan non-aktif
-					String aformatBaru = formatNilai.getStatusPertemuan().getId() + "," + totalNilai + ",0,"
-							+ formatNilai.getPersen() + ",false," + totalNilai;
+				Long kunciFormat = ambilKunciFormatNilai(formatNilai);
+				if (kunciFormat != null) {
+					String aformatBaru = kunciFormat + "," + totalNilai + ",0," + formatNilai.getPersen()
+							+ ",false," + totalNilai;
 					formatbaru += formatbaru.isEmpty() ? aformatBaru : ";" + aformatBaru;
 				}
 			}
