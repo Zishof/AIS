@@ -5593,7 +5593,7 @@ public class KantinHelper {
 					+ "), mutasi AS ( "
 					+ "  SELECT * FROM semua_mutasi WHERE waktu >= ?::date AND waktu < (?::date + interval '1 day') "
 					+ ") "
-					+ "SELECT waktu, baris_id, nama_anggota, id_anggota, jenis_mutasi, keterangan, masuk, keluar, "
+					+ "SELECT waktu, baris_id, nama_anggota, m.id_anggota, jenis_mutasi, keterangan, masuk, keluar, "
 					+ "  COALESCE(sa.saldo_awal,0) + SUM(masuk - keluar) OVER (PARTITION BY m.id_anggota ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_per_penabung, "
 					+ "  (SELECT COALESCE(SUM(saldo_awal),0) FROM saldo_awal) + SUM(masuk - keluar) OVER (ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_total, "
 					+ "  COALESCE(sa.saldo_awal,0) AS saldo_awal "
