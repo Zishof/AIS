@@ -151,6 +151,28 @@ private boolean isKonfigurasiAktif(String key, String defaultValue) {
 }
 
 private boolean bolehAksesModulKantin(Tbmuser tbmuser, String p, String s) {
+	if ("apotik".equals(p) || "emedik".equals(p)) {
+		if (!hasText(s) || "index".equals(s)) return true;
+		if (tbmuser == null || tbmuser.hakAkses() == null) return false;
+		String menuVarian = s;
+		if ("apotik".equals(p)) {
+			if ("resep".equals(s)) menuVarian = "apotik_resep";
+			else if ("racikan".equals(s)) menuVarian = "apotik_racikan";
+			else if ("formularium".equals(s)) menuVarian = "apotik_formularium";
+			else if ("batch".equals(s)) menuVarian = "apotik_batch";
+			else if ("pengadaan".equals(s)) menuVarian = "apotik_pengadaan";
+			else if ("stok_opname".equals(s)) menuVarian = "apotik_stok_opname";
+			else if ("retur".equals(s)) menuVarian = "apotik_retur";
+			else if ("narkotika".equals(s)) menuVarian = "apotik_narkotika";
+			else if ("laporan".equals(s)) menuVarian = "apotik_laporan";
+			else menuVarian = "apotik_kasir";
+		} else {
+			menuVarian = "emedik_" + s;
+		}
+		org.json.JSONObject hak = ais.common.EbisnisMenuKatalog.urai(tbmuser.hakAkses().getEbisnisMenu());
+		org.json.JSONObject menuVarianJson = hak.optJSONObject("menu");
+		return menuVarianJson != null && menuVarianJson.optBoolean(menuVarian, false);
+	}
     String menu = s;
     if (p != null && p.startsWith("kantin/")) {
         menu = p.substring("kantin/".length());

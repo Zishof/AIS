@@ -1,0 +1,4 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<div class="mb-3"><h4>Pendaftaran Pasien</h4><p class="text-muted">Booking dan registrasi rawat jalan, rawat inap, serta UGD.</p></div>
+<ul class="nav nav-tabs mb-3" role="tablist"><li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#emedik-booking">Booking</button></li><li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#emedik-daftar">Registrasi Pasien</button></li></ul>
+<div class="tab-content"><div class="tab-pane fade show active" id="emedik-booking"><jsp:include page="/WEB-INF/baru/modul/pagesmastersirsbookingregistrasizul/index.jsp" /></div><div class="tab-pane fade" id="emedik-daftar"><jsp:include page="/WEB-INF/baru/modul/pagesmastersirspendaftaranrawatjalanzul/index.jsp" /></div></div>

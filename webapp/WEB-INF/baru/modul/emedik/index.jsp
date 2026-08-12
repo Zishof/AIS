@@ -22,13 +22,12 @@
     boolean isMob = MobileHubHelper.isMobile(request);
     boolean directPage = Boolean.TRUE.equals(request.getAttribute("posDirectPage"));
     String[][] menus = {
-        {"emedik_kasir",        "pagesmastersirspembayaranzul",               "cash-register",    "#2563eb", "Kasir eMedik",       "Pembayaran layanan dan tindakan medis"},
-        {"emedik_pendaftaran",  "pagesmastersirsbookingregistrasizul",        "calendar-check",   "#0891b2", "Booking Pasien",     "Booking dan antrean registrasi pasien"},
-        {"emedik_pendaftaran",  "pagesmastersirspendaftaranrawatjalanzul",    "user-plus",        "#059669", "Pendaftaran Pasien", "Registrasi pelayanan rawat jalan"},
-        {"emedik_tagihan",      "pagesmastersirsstatuspembayaranzul",         "file-invoice",     "#7c3aed", "Tagihan",            "Status dan pengelolaan tagihan pasien"},
-        {"emedik_deposit",      "pagesmastersirsdepositzul",                  "wallet",           "#d97706", "Deposit Pasien",     "Penerimaan dan penggunaan deposit"},
-        {"emedik_penjamin",     "pagesmastersirsasuransizul",                 "hand-holding-heart","#db2777", "Penjamin & Asuransi","Master penjamin dan asuransi pasien"},
-        {"emedik_laporan",      "pagesmastersirsstatuspembayaranzul",         "chart-line",       "#0f766e", "Laporan eMedik",     "Monitoring pelayanan dan pembayaran"}
+        {"emedik_kasir",        "kasir",        "cash-register",    "#2563eb", "Kasir eMedik",       "Pembayaran layanan dan tindakan medis"},
+        {"emedik_pendaftaran",  "pendaftaran",  "user-plus",        "#059669", "Pendaftaran Pasien", "Booking, rawat jalan, inap, dan UGD"},
+        {"emedik_tagihan",      "tagihan",      "file-invoice",     "#7c3aed", "Tagihan",            "Status dan pengelolaan tagihan pasien"},
+        {"emedik_deposit",      "deposit",      "wallet",           "#d97706", "Deposit Pasien",     "Penerimaan dan penggunaan deposit"},
+        {"emedik_penjamin",     "penjamin",     "hand-holding-heart","#db2777", "Penjamin & Asuransi","Master penjamin dan asuransi pasien"},
+        {"emedik_laporan",      "laporan",      "chart-line",       "#0f766e", "Laporan eMedik",     "Monitoring pelayanan dan pembayaran"}
     };
     int jumlahMenu = 0;
     for (int i = 0; i < menus.length; i++) if (menu.optBoolean(menus[i][0], false)) jumlahMenu++;
@@ -46,7 +45,7 @@
     <% } else { %>
     <div class="row g-3">
         <% for (int i = 0; i < menus.length; i++) { String[] m = menus[i]; if (!menu.optBoolean(m[0], false)) continue; %>
-        <%= MobileHubHelper.buildCard(m[4], ctx + "/baru?p=" + m[1], m[2], m[3], m[5]) %>
+        <%= MobileHubHelper.buildCard(m[4], ctx + "/baru?p=emedik&s=" + m[1], m[2], m[3], m[5]) %>
         <% } %>
     </div>
     <% } %>
