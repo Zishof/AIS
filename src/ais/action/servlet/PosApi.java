@@ -362,6 +362,9 @@ public class PosApi extends HttpServlet {
 			} else if ("mutasi_stok_produk_list".equals(action)) {
 				KantinHelper.mutasiStokProdukList(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "mutasi_stok_produk_list");
+			} else if ("stok_mutasi_ledger".equals(action)) {
+				KantinHelper.stokMutasiLedger(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "stok_mutasi_ledger");
 			} else if ("stok_dashboard".equals(action)) {
 				KantinHelper.stokDashboard(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "stok_dashboard");

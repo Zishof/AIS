@@ -8410,6 +8410,107 @@ public class KantinHelper {
 	}
 
 	/**
+	 * <h3>"Monitor Keluar/Masuk Barang" -- buku besar mutasi stok (gap-closure, layar Stok Opname
+	 * Flutter/Electron).</h3>
+	 *
+	 * <p>Beda dari {@link #mutasiStokList} (HANYA mutasi antar-outlet) -- method ini menyatukan
+	 * SEMUA 7 sumber yang dibaca {@link StokKantinUtil#formulaStokSql} (satu-satunya rumus kanonik
+	 * stok, lihat javadoc kelas itu) jadi SATU daftar kronologis: Pengadaan/Kulakan (+), Stok Opname
+	 * (selisih, sudah bertanda), Penjualan (-), Pemakaian Bahan Baku (-), Retur Penjualan (+, HANYA
+	 * baris {@code kembalikan_ke_stok=true}), Mutasi Antar Outlet (+ di toko tujuan / - di toko asal,
+	 * dari baris yang SAMA), dan Retur Pembelian (-). Kasir/admin bisa langsung lihat KENAPA stok
+	 * satu produk berubah tanpa harus membuka 5+ layar berbeda satu-satu.</p>
+	 *
+	 * <p>Kolom tabel per sumber TIDAK seragam (lihat {@link StokKantinUtil#formulaStokSql} utk nama
+	 * kolom native tiap tabel) -- beberapa TANPA {@code @Column} eksplisit jadi nama kolom DB-nya
+	 * collapse tanpa underscore (mis. {@code waktupengadaan}, {@code waktuopname}, {@code namasupplier}
+	 * -- lihat memory project soal Hibernate implicit-naming). Jangan disamakan formatnya dgn kolom
+	 * yang MEMANG punya underscore ({@code kembalikan_ke_stok}, {@code kode_faktur_asal}, dst).</p>
+	 *
+	 * <p>Dibatasi {@code hari} (default 30, maks 365) -- BUKAN filter tanggal presisi spt laporan lain
+	 * (unduhan Excel), krn 8 cabang UNION ALL tanpa batas waktu bisa jadi mahal di toko yg sudah lama
+	 * jalan. Ambil {@code limit+1} baris utk deteksi murah "adaLagi" (paging "muat lebih banyak")
+	 * tanpa perlu query {@code COUNT(*)} kedua yang sama mahalnya dgn query utama.</p>
+	 *
+	 * @param request payload: {@code toko_id} (wajib utk admin, dikunci ke toko sendiri utk pedagang),
+	 *                {@code produk_id} (opsional -- filter satu produk, utk lihat riwayat lengkapnya),
+	 *                {@code hari} (opsional, default 30, maks 365), {@code limit} (opsional, default
+	 *                100, maks 300), {@code offset} (opsional, default 0, utk "muat lebih banyak").
+	 * @param hasil   diisi {@code status="00"}, {@code data} (array {@code waktu, jenis, produkId,
+	 *                produkKode, produkNama, qty, keterangan}, terurut waktu TERBARU dulu), dan
+	 *                {@code adaLagi} (boolean).
+	 */
+	public static void stokMutasiLedger(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		Long tokoId = soResolveTokoId(tbmuser, request);
+		if (tokoId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko tidak diketahui.");
+			return;
+		}
+		Long produkId = request.isNull("produk_id") ? null : Long.valueOf(request.get("produk_id").toString());
+		int hari = Math.min(Math.max(request.optInt("hari", 30), 1), 365);
+		int limit = Math.min(Math.max(request.optInt("limit", 100), 1), 300);
+		int offset = Math.max(request.optInt("offset", 0), 0);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			String sejak = "(now() - interval '" + hari + " days')";
+			String filterProduk = produkId == null ? "" : " AND u.produk_id = " + produkId;
+			String sql = "SELECT u.waktu, u.jenis, u.produk_id, pr.kode AS produk_kode, pr.nama AS produk_nama, u.qty, u.keterangan FROM ("
+					+ "SELECT p.waktupengadaan AS waktu, 'Pengadaan (Kulakan)' AS jenis, p.produk AS produk_id, p.qty AS qty, "
+					+ "TRIM(BOTH ' - ' FROM COALESCE(p.namasupplier,'') || CASE WHEN p.nomorfaktur IS NOT NULL AND p.nomorfaktur <> '' THEN ' - Faktur ' || p.nomorfaktur ELSE '' END) AS keterangan "
+					+ "FROM koperasi.pengadaan_produk p WHERE p.toko = " + tokoId + " AND p.waktupengadaan >= " + sejak
+					+ " UNION ALL "
+					+ "SELECT a.waktuopname AS waktu, 'Stok Opname' AS jenis, a.produk AS produk_id, a.selisih AS qty, COALESCE(a.keterangan,'') AS keterangan "
+					+ "FROM koperasi.stok_opname a WHERE a.toko = " + tokoId + " AND a.waktuopname >= " + sejak
+					+ " UNION ALL "
+					+ "SELECT b.waktu AS waktu, 'Penjualan' AS jenis, b.produk AS produk_id, -b.qty AS qty, COALESCE(b.keterangan,'') AS keterangan "
+					+ "FROM koperasi.pembelian b WHERE b.toko = " + tokoId + " AND b.waktu >= " + sejak
+					+ " UNION ALL "
+					+ "SELECT c.waktu AS waktu, 'Pemakaian Bahan Baku' AS jenis, c.produk AS produk_id, -c.qty AS qty, COALESCE(c.keterangan,'') AS keterangan "
+					+ "FROM koperasi.pemakaian_bahan_baku c WHERE c.toko = " + tokoId + " AND c.waktu >= " + sejak
+					+ " UNION ALL "
+					+ "SELECT d.waktu AS waktu, 'Retur Penjualan' AS jenis, d.produk AS produk_id, d.qty AS qty, "
+					+ "('Dari ' || COALESCE(d.namapembeli,'-') || CASE WHEN d.alasan IS NOT NULL AND d.alasan <> '' THEN ': ' || d.alasan ELSE '' END) AS keterangan "
+					+ "FROM koperasi.retur_penjualan d WHERE d.toko = " + tokoId + " AND d.kembalikan_ke_stok = true AND d.waktu >= " + sejak
+					+ " UNION ALL "
+					+ "SELECT e.waktu AS waktu, 'Mutasi Masuk (Antar Outlet)' AS jenis, e.produk_tujuan AS produk_id, e.qty AS qty, COALESCE(e.keterangan,'') AS keterangan "
+					+ "FROM koperasi.mutasi_stok_toko e WHERE e.toko_tujuan = " + tokoId + " AND e.produk_tujuan IS NOT NULL AND e.waktu >= " + sejak
+					+ " UNION ALL "
+					+ "SELECT e2.waktu AS waktu, 'Mutasi Keluar (Antar Outlet)' AS jenis, e2.produk_asal AS produk_id, -e2.qty AS qty, COALESCE(e2.keterangan,'') AS keterangan "
+					+ "FROM koperasi.mutasi_stok_toko e2 WHERE e2.toko_asal = " + tokoId + " AND e2.produk_asal IS NOT NULL AND e2.waktu >= " + sejak
+					+ " UNION ALL "
+					+ "SELECT f.waktu AS waktu, 'Retur Pembelian' AS jenis, f.produk AS produk_id, -f.qty AS qty, "
+					+ "(CASE WHEN f.kode_faktur_asal IS NOT NULL AND f.kode_faktur_asal <> '' THEN 'Faktur ' || f.kode_faktur_asal || ' ' ELSE '' END || COALESCE(f.alasan,'')) AS keterangan "
+					+ "FROM koperasi.retur_pembelian f WHERE f.toko = " + tokoId + " AND f.waktu >= " + sejak
+					+ ") u LEFT JOIN koperasi.produk pr ON pr.id = u.produk_id"
+					+ " WHERE 1=1" + filterProduk
+					+ " ORDER BY u.waktu DESC LIMIT " + (limit + 1) + " OFFSET " + offset;
+			@SuppressWarnings("unchecked")
+			java.util.List<Object[]> rows = session.createSQLQuery(sql).list();
+			java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm");
+			boolean adaLagi = rows.size() > limit;
+			JSONArray data = new JSONArray();
+			for (int i = 0; i < Math.min(rows.size(), limit); i++) {
+				Object[] r = rows.get(i);
+				JSONObject o = new JSONObject();
+				o.put("waktu", r[0] == null ? "" : fmt.format((java.util.Date) r[0]));
+				o.put("jenis", r[1] == null ? "" : r[1].toString());
+				o.put("produkId", r[2] == null ? null : ((Number) r[2]).longValue());
+				o.put("produkKode", r[3] == null ? "" : r[3].toString());
+				o.put("produkNama", r[4] == null ? "(produk terhapus)" : r[4].toString());
+				o.put("qty", r[5] == null ? 0 : ((Number) r[5]).doubleValue());
+				o.put("keterangan", r[6] == null ? "" : r[6].toString());
+				data.put(o);
+			}
+			hasil.put("status", "00");
+			hasil.put("data", data);
+			hasil.put("adaLagi", adaLagi);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
 	 * <h3>Sinkronkan Ulang Stok &amp; Harga Modal (gap-closure bug JSP {@code pengadaan/index.jsp}
 	 * 2026-08-11).</h3>
 	 *
