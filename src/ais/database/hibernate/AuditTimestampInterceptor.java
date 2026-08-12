@@ -239,8 +239,17 @@ public class AuditTimestampInterceptor extends EmptyInterceptor {
 			}
 			GeneralValueObject generalValueObject = (GeneralValueObject) o;
 			generalValueObject.setTanggal_dirubah(ais.ui.util.WaktuUtil.getDate());
-			generalValueObject.setOleh(AuditTimestampInterceptor.oleh());
-			generalValueObject.setOlehId(AuditTimestampInterceptor.olehId());
+			// Gap-closure "Kas Terbuka tapi checkout ditolak" (2026-08-12, log produksi asli):
+			// jalur session.save() murni (SesiKasKasir.buka() dkk) TIDAK PERNAH lewat isiMetadataAudit()
+			// (yang sudah dikecualikan lewat olehOlehIdAdalahDataBisnis) -- ia lewat SINI, dipanggil
+			// LANGSUNG dari SaveEventListener SEBELUM Hibernate flush apa pun. Tanpa cek yang sama di
+			// sini, oleh/olehId milik SesiKasKasir tetap tertimpa identitas audit generik meski
+			// exemption di isiMetadataAudit() sudah benar -- baris INSERT sukses tapi dgn data salah,
+			// persis gejala yg dilaporkan (query pencarian sesi terbuka tak pernah cocok).
+			if (!olehOlehIdAdalahDataBisnis(o)) {
+				generalValueObject.setOleh(AuditTimestampInterceptor.oleh());
+				generalValueObject.setOlehId(AuditTimestampInterceptor.olehId());
+			}
 			AuditTrailHelper.debug("AuditTimestampInterceptor.ubah metadata entity="
 					+ AuditTrailHelper.describeEntity(o, AuditTrailHelper.safeIdentifier(o)));
 		}
