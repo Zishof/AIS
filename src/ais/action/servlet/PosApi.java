@@ -1534,6 +1534,11 @@ public class PosApi extends HttpServlet {
 		if (action.startsWith("si_sync_")) {
 			return menu.optBoolean("nota_sales", false) || menu.optBoolean("penjualan_sales", false);
 		}
+		if (action.startsWith("si_print_log_")) {
+			// Register riwayat cetak: create boleh semua aktor varian (mencatat cetakan
+			// miliknya); list dijaga Pemilik/Admin di helper.
+			return true;
+		}
 		if (action.startsWith("si_audit_")) {
 			// Riwayat Audit per record: gerbang menu detail per-entity ditegakkan helper
 			// (petaAudit) -- di lapis menu cukup salah satu kunci varian aktif.

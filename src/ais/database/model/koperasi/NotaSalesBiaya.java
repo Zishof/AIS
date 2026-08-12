@@ -49,6 +49,14 @@ public class NotaSalesBiaya extends GeneralValueObject {
 	private String nomorBukti;
 	private String kodeUnik;
 	private Tbmuser dibuatOleh;
+	// P10 reversal: biaya posted dibatalkan lewat baris pembalik bernilai negatif.
+	private String statusDok;
+	private String alasanReversal;
+	private Long reversalDari;
+
+	public static final String DOK_AKTIF = "AKTIF";
+	public static final String DOK_DIBATALKAN = "DIBATALKAN";
+	public static final String DOK_REVERSAL = "REVERSAL";
 
 	@javax.persistence.PreUpdate protected void onUpdate() { ais.database.hibernate.AuditTimestampInterceptor.ubah(this);}     private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
@@ -158,6 +166,34 @@ public class NotaSalesBiaya extends GeneralValueObject {
 
 	public void setDibuatOleh(Tbmuser dibuatOleh) {
 		this.dibuatOleh = dibuatOleh;
+	}
+
+	/** AKTIF (default) | DIBATALKAN (sudah direversal) | REVERSAL (baris pembalik). */
+	@Column(name = "status_dok", length = 20)
+	public String getStatusDok() {
+		return statusDok == null || statusDok.trim().isEmpty() ? DOK_AKTIF : statusDok;
+	}
+
+	public void setStatusDok(String statusDok) {
+		this.statusDok = statusDok;
+	}
+
+	@Column(name = "alasan_reversal", columnDefinition = "text")
+	public String getAlasanReversal() {
+		return alasanReversal;
+	}
+
+	public void setAlasanReversal(String alasanReversal) {
+		this.alasanReversal = alasanReversal;
+	}
+
+	@Column(name = "reversal_dari")
+	public Long getReversalDari() {
+		return reversalDari;
+	}
+
+	public void setReversalDari(Long reversalDari) {
+		this.reversalDari = reversalDari;
 	}
 
 	@Temporal(TemporalType.TIMESTAMP)

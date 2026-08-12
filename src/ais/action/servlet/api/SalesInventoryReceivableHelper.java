@@ -923,7 +923,8 @@ public final class SalesInventoryReceivableHelper {
 							+ " (SELECT COALESCE(string_agg(d.nomor, ', '), '') FROM"
 							+ "   koperasi.alokasi_penerimaan_piutang_customer a"
 							+ "   JOIN koperasi.piutang_customer_doc d ON a.piutang_doc = d.id"
-							+ "   WHERE a.penerimaan = p.id) AS faktur"
+							+ "   WHERE a.penerimaan = p.id) AS faktur,"
+							+ " COALESCE(p.status_dok,'AKTIF'), p.status_bg"
 							+ " FROM koperasi.penerimaan_piutang_customer p"
 							+ " JOIN koperasi.anggota_koperasi c ON p.customer = c.id"
 							+ " LEFT JOIN koperasi.sales_inventory s ON p.sales = s.id" + where
@@ -950,6 +951,8 @@ public final class SalesInventoryReceivableHelper {
 				r.put("customerNama", str(rs.getString(10)));
 				r.put("salesNama", str(rs.getString(11)));
 				r.put("faktur", str(rs.getString(12)));
+				r.put("statusDok", str(rs.getString(13)));
+				r.put("statusBg", rs.getString(14) == null ? "" : str(rs.getString(14)));
 				rows.put(r);
 				total += rs.getDouble(4);
 			}

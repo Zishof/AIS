@@ -180,6 +180,20 @@ public final class SalesInventoryApiDispatcher {
 			SalesInventoryFinanceHelper.profitLossDetail(ctx, payload, hasil);
 		} else if ("si_audit_history".equals(action)) {
 			SalesInventoryFinanceHelper.auditHistory(ctx, payload, hasil);
+		} else if ("si_payable_payment_reverse".equals(action)) {
+			SalesInventoryReversalHelper.payablePaymentReverse(ctx, tbmuser, payload, hasil);
+		} else if ("si_collection_reverse".equals(action)) {
+			SalesInventoryReversalHelper.collectionReverse(ctx, tbmuser, payload, hasil);
+		} else if ("si_expense_reverse".equals(action)) {
+			SalesInventoryReversalHelper.expenseReverse(ctx, tbmuser, payload, hasil);
+		} else if ("si_payable_bg_status".equals(action)) {
+			SalesInventoryReversalHelper.payableBgStatus(ctx, tbmuser, payload, hasil);
+		} else if ("si_collection_bg_status".equals(action)) {
+			SalesInventoryReversalHelper.collectionBgStatus(ctx, tbmuser, payload, hasil);
+		} else if ("si_print_log_create".equals(action)) {
+			SalesInventoryReversalHelper.printLogCreate(ctx, tbmuser, payload, hasil);
+		} else if ("si_print_log_list".equals(action)) {
+			SalesInventoryReversalHelper.printLogList(ctx, payload, hasil);
 		} else {
 			// Aksi si_ lain menyusul per fase (P5 SPJ/Nota Sales, P6 finance).
 			hasil.put("status", "error");

@@ -1693,6 +1693,7 @@
 		<mapping class="ais.database.model.koperasi.NotaSalesBiaya"></mapping>
 		<mapping class="ais.database.model.koperasi.NotaSalesPembelian"></mapping>
 		<mapping class="ais.database.model.koperasi.NotaSalesKas"></mapping>
+		<mapping class="ais.database.model.koperasi.LogCetak"></mapping>
 		<mapping class="ais.database.model.koperasi.Koperasi"></mapping>
 		<mapping class="ais.database.model.koperasi.AnggotaKoperasi"></mapping>
 		<mapping

@@ -440,7 +440,8 @@ public final class SalesInventoryPayableHelper {
 							+ "COALESCE(b.keterangan,''), COALESCE(b.oleh,''), b.kode_unik, "
 							+ "(SELECT COALESCE(string_agg(COALESCE(f2.nomor_faktur,'#' || f2.id) || ' (' || a2.nominal || ')', ', '),'') "
 							+ " FROM koperasi.alokasi_pembayaran_hutang_supplier a2 "
-							+ " JOIN koperasi.pengadaan_faktur f2 ON a2.pengadaan_faktur = f2.id WHERE a2.pembayaran = b.id) "
+							+ " JOIN koperasi.pengadaan_faktur f2 ON a2.pengadaan_faktur = f2.id WHERE a2.pembayaran = b.id), "
+							+ "COALESCE(b.status_dok,'AKTIF'), b.status_bg "
 							+ dasar + " ORDER BY b.tanggal DESC, b.id DESC LIMIT ? OFFSET ?");
 			int idx = 1;
 			for (int i = 0; i < params.size(); i++) ps.setObject(idx++, params.get(i));
@@ -464,6 +465,8 @@ public final class SalesInventoryPayableHelper {
 				j.put("oleh", str(rs.getString(12)));
 				j.put("kodeUnik", str(rs.getString(13)));
 				j.put("alokasiRingkas", str(rs.getString(14)));
+				j.put("statusDok", str(rs.getString(15)));
+				j.put("statusBg", rs.getString(16) == null ? "" : str(rs.getString(16)));
 				arr.put(j);
 			}
 			rs.close(); ps.close();

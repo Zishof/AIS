@@ -57,6 +57,20 @@ public class PembayaranHutangSupplier extends GeneralValueObject {
 	private String keterangan;
 	private String kodeUnik;
 	private Tbmuser dibuatOleh;
+	// P10 reversal + siklus BG: dokumen posted tidak dihapus -- dibatalkan lewat
+	// dokumen pembalik; giro punya status pencairan sendiri.
+	private String statusDok;
+	private String alasanReversal;
+	private Long reversalDari;
+	private String statusBg;
+	private Date tanggalStatusBg;
+
+	public static final String DOK_AKTIF = "AKTIF";
+	public static final String DOK_DIBATALKAN = "DIBATALKAN";
+	public static final String DOK_REVERSAL = "REVERSAL";
+	public static final String BG_DITERIMA = "DITERIMA";
+	public static final String BG_CAIR = "CAIR";
+	public static final String BG_TOLAK = "TOLAK";
 
 	private String oleh;
 	private String olehId;
@@ -170,6 +184,55 @@ public class PembayaranHutangSupplier extends GeneralValueObject {
 
 	public void setDibuatOleh(Tbmuser dibuatOleh) {
 		this.dibuatOleh = dibuatOleh;
+	}
+
+	/** AKTIF (default) | DIBATALKAN (sudah direversal) | REVERSAL (dokumen pembaliknya). */
+	@Column(name = "status_dok", length = 20)
+	public String getStatusDok() {
+		return statusDok == null || statusDok.trim().isEmpty() ? DOK_AKTIF : statusDok;
+	}
+
+	public void setStatusDok(String statusDok) {
+		this.statusDok = statusDok;
+	}
+
+	@Column(name = "alasan_reversal", columnDefinition = "text")
+	public String getAlasanReversal() {
+		return alasanReversal;
+	}
+
+	public void setAlasanReversal(String alasanReversal) {
+		this.alasanReversal = alasanReversal;
+	}
+
+	/** id dokumen asal yang dibalik (diisi hanya pada baris REVERSAL). */
+	@Column(name = "reversal_dari")
+	public Long getReversalDari() {
+		return reversalDari;
+	}
+
+	public void setReversalDari(Long reversalDari) {
+		this.reversalDari = reversalDari;
+	}
+
+	/** Siklus giro: DITERIMA -> CAIR | TOLAK (null utk metode non-GIRO). */
+	@Column(name = "status_bg", length = 20)
+	public String getStatusBg() {
+		return statusBg;
+	}
+
+	public void setStatusBg(String statusBg) {
+		this.statusBg = statusBg;
+	}
+
+	@Temporal(TemporalType.TIMESTAMP)
+	@Column(name = "tanggal_status_bg")
+	public Date getTanggalStatusBg() {
+		return tanggalStatusBg;
+	}
+
+	public void setTanggalStatusBg(Date tanggalStatusBg) {
+		this.tanggalStatusBg = tanggalStatusBg;
 	}
 
 	public String getOleh() {

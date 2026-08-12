@@ -784,6 +784,7 @@ public final class SalesInventoryTripHelper {
 				r.put("nilai", b.getNilai().doubleValue());
 				r.put("metode", b.getMetode());
 				r.put("penerima", str(b.getPenerima()));
+				r.put("statusDok", b.getStatusDok());
 				arrBiaya.put(r);
 				totalBiaya += b.getNilai().doubleValue();
 			}
