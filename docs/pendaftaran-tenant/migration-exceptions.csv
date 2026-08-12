@@ -1,0 +1,4 @@
+pendaftar_id,nama,email,jenis_kasus,keterangan
+11,Warung Legacy Lama,legacy@uji.example,JENIS_BISNIS_LAINNYA,LAINNYA_RAW:Warung Makan
+12,Toko Dua Legacy,legacy@uji.example,EMAIL_DUPLIKAT,email sudah dipakai profile/pendaftar lain -- perlu penanganan manual
+13,Kios Tanpa Email,,EMAIL_KOSONG_ATAU_INVALID,self-service tanpa email valid -- perlu penanganan manual

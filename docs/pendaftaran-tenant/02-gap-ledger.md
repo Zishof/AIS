@@ -56,6 +56,13 @@
   Status program → **UAT_PASSED** dgn 3 temuan minor backlog (step-FAILED rollback, trust-proxy
   XFF, artefak tester) + 2 cabang menunggu DB dev berdata legacy (fail-open akun lama,
   resend-limit) — lihat evidence.
+- **2026-08-12 (penutupan): UAT-8a..8d LULUS** — cabang tersisa dieksekusi runtime: fail-open akun
+  legacy sintetis (brand_tambah diizinkan tanpa tenant program), resend-limit 3/jam/kode +
+  supersede token (3 SUPERSEDED+1 PENDING), verifikasi via TAUTAN token positif/negatif +
+  single-use → READY, dan **G-19 backfill DITUTUP**: tool `PendaftarBackfillTool` (DRY-RUN/apply,
+  idempoten) + report `migration-exceptions.csv` (klasifikasi LAINNYA_RAW/EMAIL_DUPLIKAT/
+  EMAIL_KOSONG). G-19 → **TESTED** utk mekanisme; eksekusi di DB produksi tetap wewenang operator.
+  Satu-satunya di luar jangkauan lokal: SMTP sungguhan. **UAT SELESAI SEMUA.**
 
 ## Catatan risiko lingkungan
 

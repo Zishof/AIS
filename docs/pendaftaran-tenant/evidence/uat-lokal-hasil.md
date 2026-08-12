@@ -86,7 +86,40 @@ TENANT_ACTIVATED=2, PROVISIONING_FAILED=1, PROVISIONING_RETRIED=1, REGISTRATION_
 3. Artefak tester: baris reservation CONSUMED `retailgagal_uat` terhapus oleh sabotase yang kalah
    race (hanya data UAT lokal; keunikan tetap dijaga `tenant_registry.slug`).
 
-## Kesimpulan
-UAT-1..7 **LULUS** pada deployment lokal setara produksi (Tomcat+PG9.3). Status DoD → UAT_PASSED
-utk seluruh alur; dua catatan cabang (fail-open legacy, resend-limit) + verifikasi ulang di server
-dev berdata nyata dicatat utk operator.
+## UAT-8 (lanjutan) — Penutupan butir tersisa ✅ SEMUA LULUS
+
+**8a. Fail-open akun LEGACY**: Pendaftar sintetis pra-program (password_hash terisi, TANPA baris
+`pendaftaran_tenant`) → login sukses → `brand_tambah` **DIIZINKAN** (id=2) → gating fail-open utk
+akun lama TERBUKTI runtime (bukan hanya kode); `tenant_list`=0 → panel tenant tersembunyi.
+
+**8b. Resend-limit + supersede**: REG-2026-000007 → resend ×4 =
+`VERIFICATION_RESENT,VERIFICATION_RESENT,VERIFICATION_RESENT,RATE_LIMITED` (limit 3/jam/kode,
+kebal ganti-IP via XFF krn kunci per-kode); SQL: tantangan = **3 SUPERSEDED + 1 PENDING** (token
+lama mati saat token baru dibuat).
+
+**8c. Verifikasi via TAUTAN token** (GET `mode=verifikasi&token=`):
+token ngawur → halaman "Verifikasi Gagal" aman; token sah (challenge diinjeksi dgn hash SHA-256
+dari token uji yang diketahui — simulasi klik tautan email) → **"Email Berhasil Diverifikasi"** +
+link status REG-2026-000007 → worker → **READY**; klik tautan yang SAMA kedua kali → GAGAL
+(**single-use** CONSUMED).
+
+**8d. Backfill G-19 (§16.4)**: tool operator baru `ais.service.registration.PendaftarBackfillTool`
+(JDBC murni, DRY-RUN default, `apply` eksplisit, idempoten) dijalankan terhadap uat_tenant berisi
+4 akun legacy sintetis (self-service unik, duplikat-email, tanpa-email, buatan-staf):
+DRY-RUN = APPLY = `profile_dibuat=1, bukan_self_service=1, exception=2, jenis_bisnis_dikenal=7,
+jenis_bisnis_lainnya=1`; rerun APPLY → `profile_dibuat=0` (idempoten). Report
+`docs/pendaftaran-tenant/migration-exceptions.csv` berisi klasifikasi
+JENIS_BISNIS_LAINNYA (LAINNYA_RAW:Warung Makan), EMAIL_DUPLIKAT, EMAIL_KOSONG_ATAU_INVALID.
+Profile hasil backfill bertanda `registration_source=BACKFILL`; TIDAK ada registry dibuat
+(menunggu persetujuan — sesuai aturan); password tidak disentuh.
+
+Status akhir permohonan UAT: REG-1 ACTIVE, REG-2 ACTIVE, REG-3 REJECTED, REG-4 READY,
+REG-5 READY (via retry), REG-6 EMAIL_VERIFICATION_PENDING (artefak harness, wajar),
+REG-7 READY (via tautan token).
+
+## Kesimpulan (final)
+**SELURUH skenario UAT-1..7 + butir lanjutan 8a-8d LULUS** pada deployment lokal setara produksi
+(Tomcat 9 + JDK8 + PostgreSQL 9.3). Satu-satunya yang tidak dapat diuji lokal = pengiriman email
+SMTP sungguhan (butuh kredensial SMTP platform; jalur best-effort + resend + verifikasi manual
+sudah terbukti). Status DoD → **UAT_PASSED penuh**; 2 temuan minor backlog tetap tercatat
+(step-FAILED rollback, trust-proxy XFF).
