@@ -5,6 +5,7 @@
 <%@ page import="ais.common.newui.menu.NewUiHybridMenuNode" %><%@ page import="ais.common.newui.menu.NewUiHybridMenuSnapshot" %>
 <%@ page import="ais.common.newui.menu.NewUiModuleShortcut" %><%@ page import="ais.common.newui.menu.NewUiModuleShortcutService" %>
 <%@ page import="ais.common.newui.menu.NewUiModuleDashboardService" %><%@ page import="ais.common.newui.menu.NewUiModuleDashboardService.Dashboard" %>
+<%@ page import="ais.common.newui.menu.NewUiModuleFunctionService" %><%@ page import="ais.common.newui.menu.NewUiModuleFunctionService.Function" %>
 <%@ page import="ais.common.newui.menu.NewUiHybridMenuCatalogService" %>
 <%@ page import="ais.common.newui.menu.NewUiDashboardUtilityService" %>
 <%@ page import="ais.common.newui.menu.NewUiDashboardUtilityService.OnlineUserInfo" %>
@@ -30,9 +31,11 @@ if(nuiActiveDashboard!=null){
   NewUiHybridMenuNode nuiDashboardTarget=nuiActiveDashboardShortcut.getTarget();Long nuiDashboardGroupId=nuiDashboardTarget!=null&&nuiDashboardTarget.isBranch()?nuiDashboardTarget.getMenuId():null;
   if(nuiDashboardGroupId==null&&nuiDashboardTarget!=null){List<NewUiHybridMenuNode> nuiDashboardPath=nuiModuleSnapshot.breadcrumb(nuiDashboardTarget.getMenuId());for(int nuiPathI=nuiDashboardPath.size()-1;nuiPathI>=0;nuiPathI--)if(nuiDashboardPath.get(nuiPathI).isBranch()){nuiDashboardGroupId=nuiDashboardPath.get(nuiPathI).getMenuId();break;}}
   List<NewUiHybridMenuNode> nuiDashboardMenus=NewUiHybridMenuCatalogService.allDescendants(nuiModuleSnapshot,nuiDashboardGroupId,NewUiHybridMenuCatalogService.SORT_ORDER);
-  request.setAttribute("nuiActiveModuleShortcut",nuiActiveDashboardShortcut);request.setAttribute("nuiActiveModuleDashboard",nuiActiveDashboard);request.setAttribute("nuiActiveModuleMenus",nuiDashboardMenus);
+  List<Function> nuiDashboardFunctions=NewUiModuleFunctionService.build(nuiDashboardKey,nuiModuleUser,nuiDashboardMenus);
+  request.setAttribute("nuiActiveModuleShortcut",nuiActiveDashboardShortcut);request.setAttribute("nuiActiveModuleDashboard",nuiActiveDashboard);request.setAttribute("nuiActiveModuleMenus",nuiDashboardMenus);request.setAttribute("nuiActiveModuleFunctions",nuiDashboardFunctions);
   String nuiDashboardView=request.getParameter("dashboardView");
   if("elearning".equalsIgnoreCase(nuiDashboardKey)&&"linimasa".equalsIgnoreCase(nuiDashboardView)){%><jsp:include page="/WEB-INF/new/_shared/dashboard/elearning_timeline.jsp"/><%return;}
+  if(nuiDashboardView!=null&&nuiDashboardView.trim().length()>0){Function nuiSelectedFunction=null;for(int nuiFnI=0;nuiFnI<nuiDashboardFunctions.size();nuiFnI++)if(nuiDashboardView.equalsIgnoreCase(nuiDashboardFunctions.get(nuiFnI).getKey())){nuiSelectedFunction=nuiDashboardFunctions.get(nuiFnI);break;}if(nuiSelectedFunction==null){response.setStatus(403);%><jsp:include page="/WEB-INF/new/_shared/ui/403.jsp"/><%return;}request.setAttribute("nuiActiveModuleFunction",nuiSelectedFunction);%><jsp:include page="/WEB-INF/new/_shared/dashboard/module_function.jsp"/><%return;}
   %><jsp:include page="/WEB-INF/new/_shared/dashboard/module_dashboard.jsp"/><%return;}
 %>
 <section class="nui-leaf-catalog nui-module-catalog">

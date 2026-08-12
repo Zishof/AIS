@@ -1,0 +1,63 @@
+# Audit Parity Toolbar `index.zul` ke New UI
+
+Dokumen ini mencatat kontrak migrasi toolbar utama. Sumber kebenaran tetap
+`webapp/WEB-INF/z/x/y/pages/main/index.zul`, `MainAction`,
+`MainDashboardEventHelper`, dan class dashboard/action yang dipanggil olehnya.
+New UI tidak menjalankan atau menyertakan `.zul`; class existing dipakai untuk
+memahami aturan, konteks pengguna, sumber data, dan target operasionalnya.
+
+## Hasil inventarisasi
+
+- 24 `toolbarbutton` utama terdaftar sebagai modul New UI.
+- 127 fungsi dashboard/operasional mempunyai key stabil dan deskripsi native.
+- 71 class action/dashboard existing dirujuk sebagai sumber logika; seluruh
+  file sumbernya telah diverifikasi ada.
+- Fungsi disaring menurut konteks PT, sekolah, personal, atau admin.
+- Target operasional hanya dipilih dari snapshot menu yang telah lolos
+  `job_has_menu`, scope institusi, status aktif, dan privilege `READ`.
+- Parameter `dashboard` atau `dashboardView` yang tidak terotorisasi ditolak;
+  parameter tersebut bukan sumber pemberian hak akses.
+
+## Modul yang dicakup
+
+1. eMedic
+2. e-Learning
+3. Prestasi
+4. Pustaka
+5. Pengajuan Anda / Workflow
+6. Repository
+7. Antar Jemput
+8. SPMI
+9. Toko
+10. Koperasi
+11. Akademik
+12. Administrasi
+13. Pengadaan
+14. Pembayaran
+15. Keuangan
+16. Akuntansi
+17. Kepegawaian
+18. Gaji
+19. Kinerja
+20. Presensi
+21. Kalender Akademik
+22. Info Kegiatan
+23. Neo Feeder
+24. SISTER
+
+## Aturan implementasi
+
+Setiap kartu modul membuka dashboard native di `WEB-INF/new`. Dashboard memuat
+metric dari entity Hibernate existing, daftar fungsi hasil audit action ZK, dan
+seluruh child/sub-child yang benar-benar dapat diakses role aktif. Fungsi yang
+mempunyai menu operasional membuka route New UI terotorisasi. Fungsi ringkasan
+yang tidak mempunyai menu terpisah tetap mempunyai halaman ringkasan native dan
+tidak melakukan fallback ke ZK/ZUL.
+
+## Pemeriksaan otomatis
+
+`NewUiModuleFunctionServiceSelfTest` memastikan jumlah modul sama dengan toolbar
+existing, setiap modul mempunyai minimal empat fungsi, key fungsi tidak
+duplikat, dan total inventarisasi tidak kurang dari batas audit. Java dikompilasi
+dengan `-source 1.7 -target 1.7`; JSP baru diparse dan dikompilasi dengan Jasper.
+
