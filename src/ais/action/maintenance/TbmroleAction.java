@@ -1972,6 +1972,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		halamanUtama.setReadonly(true);
 		String[][] pilihanHalamanUtama = {
 				{ "== Ikuti Tampilan Utama ==", null },
+				{ "Kantin (JSP)", Tbmrole.HALAMAN_UTAMA_KANTIN },
 				{ "POS Apotik (JSP)", Tbmrole.HALAMAN_UTAMA_APOTIK },
 				{ "eMedik (JSP)", Tbmrole.HALAMAN_UTAMA_EMEDIK },
 				{ "Inventory & Sales (48 layar JSP)", Tbmrole.HALAMAN_UTAMA_INVENTORY }

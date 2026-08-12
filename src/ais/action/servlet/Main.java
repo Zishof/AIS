@@ -154,6 +154,14 @@ public class Main extends HttpServlet {
 		String page = defaultPage;
 		try {
 			Tbmuser user = checkAndSetUserSession(request, true);
+			// Pilihan eksplisit pada Tbmrole harus menjadi sumber utama landing page.
+			// Sebelumnya flag landingInventory/landingKantin dan role Kantin dievaluasi
+			// lebih dulu, sehingga pilihan POS Apotik/eMedik yang baru disimpan dapat
+			// terabaikan setelah login.
+			String halamanRole = resolveRoleLandingPage(user);
+			if (halamanRole != null) {
+				return halamanRole;
+			}
 			if (isInventoryLandingRole(user)) {
 				return PAGE_INVENTORY_INDEX;
 			}
@@ -171,11 +179,6 @@ public class Main extends HttpServlet {
 			if (isKoperasiMemberLandingEnabled(user)) {
 				return PAGE_KANTIN_INDEX;
 			}
-			String halamanRole = resolveRoleLandingPage(user);
-			if (halamanRole != null) {
-				return halamanRole;
-			}
-
 			boolean versiLama = isParameterAktif(request, "versilama") || isParameterAktif(request, "versi_lama");
 			boolean zkBaru = isParameterAktif(request, "zkbaru") || isParameterAktif(request, "main2")
 					|| isParameterAktif(request, "index2") || isParameterAktif(request, "versizk")
@@ -219,7 +222,7 @@ public class Main extends HttpServlet {
 			return null;
 		}
 		String halaman = user.hakAkses().getHalamanUtama();
-		if (PAGE_APOTIK_INDEX.equals(halaman) || PAGE_EMEDIK_INDEX.equals(halaman)
+		if (PAGE_KANTIN_INDEX.equals(halaman) || PAGE_APOTIK_INDEX.equals(halaman) || PAGE_EMEDIK_INDEX.equals(halaman)
 				|| PAGE_INVENTORY_INDEX.equals(halaman)) {
 			return halaman;
 		}

@@ -906,12 +906,12 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	}
 
 	public String getHalamanUtama() {
-
-		if (getRoleId() != null && getRoleId().equals(KANTIN)) {
-			halamanUtama = HALAMAN_UTAMA_KANTIN;
+		if (halamanUtama != null && !halamanUtama.trim().isEmpty()) {
+			return halamanUtama.trim();
 		}
-
-		return halamanUtama == null || halamanUtama.trim().isEmpty() ? null : halamanUtama.trim();
+		// Pertahankan default historis role Kantin, tetapi jangan menimpa pilihan
+		// eksplisit POS Apotik/eMedik/Inventory yang disimpan administrator.
+		return getRoleId() != null && getRoleId().equals(KANTIN) ? HALAMAN_UTAMA_KANTIN : null;
 	}
 
 	public void setHalamanUtama(String halamanUtama) {
