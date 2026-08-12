@@ -38,9 +38,13 @@ Lihat 09-migration.md (additive via hbm2ddl; TANPA kolom baru di pendaftar) dan 
 Belum ada (dibuat lewat wizard saat UAT). Admin backoffice: pakai akun admin platform existing.
 
 ## Known limitation (jujur, tercatat di kode+docs)
-1. Mode HYBRID: schema per-tenant dibuat+diverifikasi TAPI `schema-only-v0` — migrasi tabel
-   data-plane per-tenant belum diaktifkan (step RUN_MIGRATIONS/INSTALL_AUDIT = SKIPPED bercatat).
-   Mode default LEGACY tidak terdampak.
+1. ~~Mode HYBRID schema-only~~ **DITUTUP di P7 (2026-08-12)**: RUN_MIGRATIONS/INSTALL_AUDIT/
+   VERIFY_SCHEMA kini AKTIF pada mode non-LEGACY — mesin migrasi kanonik `TenantSchemaMigrations`
+   (+`TenantSchemaService.terapkanMigrasi`) dgn riwayat `<schema>.tenant_schema_migration` +
+   checksum SHA-256, idempoten, baseline `v1-core-pos` (brand/toko/pedagang + audit revinfo/
+   mirror). UAT HYBRID lulus (evidence/uat-hybrid-hasil.md). Batas BARU yang tersisa: data-plane
+   CUTOVER (aplikasi membaca/menulis tabel tenant schema = mode TENANT_ONLY, butuh routing sesi
+   Hibernate per-tenant) — belum dikerjakan, by design bertahap.
 2. Rate limiter in-JVM per node (bukan cluster-wide).
 3. CAPTCHA belum (honeypot+elapsed+rate limit sudah); paket = Konfigurasi JSON (belum entity
    plan/billing penuh); flow wizard `tenant-baru` memakai wizard yang sama (langkah akun tetap

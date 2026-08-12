@@ -247,14 +247,27 @@ public final class TenantProvisioningService {
 					return "schema " + tenant.getSlug() + " dipastikan ada";
 				}
 
-				if (ProvisioningStep.STEP_RUN_MIGRATIONS.equals(stepCode)
-						|| ProvisioningStep.STEP_INSTALL_AUDIT.equals(stepCode)) {
+				if (ProvisioningStep.STEP_RUN_MIGRATIONS.equals(stepCode)) {
 					if (legacy) {
 						throw new LewatiStep("mode LEGACY: tidak ada migrasi schema per-tenant");
 					}
-					// JUJUR: fase ini baru schema-only (lihat JavaDoc TenantSchemaService) --
-					// tabel data-plane per-tenant menyusul saat mode TENANT_ONLY dikerjakan.
-					throw new LewatiStep("schema-only-v0: migrasi tabel data-plane belum diaktifkan");
+					// P7 HYBRID: migrasi kanonik ber-riwayat+checksum (BUKAN hbm2ddl) -- §10.2.
+					String hasilMigrasi = TenantSchemaService.terapkanMigrasi(session,
+							tenant.getSlug(), TenantSchemaMigrations.TARGET_ERP);
+					tenant.setSchemaVersion(TenantSchemaMigrations.VERSI_TERKINI);
+					session.saveOrUpdate(tenant);
+					return "ERP " + hasilMigrasi + " checksum=" + TenantSchemaService
+							.checksumTarget(TenantSchemaMigrations.TARGET_ERP).substring(0, 12);
+				}
+
+				if (ProvisioningStep.STEP_INSTALL_AUDIT.equals(stepCode)) {
+					if (legacy) {
+						throw new LewatiStep("mode LEGACY: tidak ada audit schema per-tenant");
+					}
+					String hasilAudit = TenantSchemaService.terapkanMigrasi(session,
+							tenant.getSlug(), TenantSchemaMigrations.TARGET_AUDIT);
+					return "AUDIT " + hasilAudit + " checksum=" + TenantSchemaService
+							.checksumTarget(TenantSchemaMigrations.TARGET_AUDIT).substring(0, 12);
 				}
 
 				if (ProvisioningStep.STEP_SEED_CONFIGURATION.equals(stepCode)) {
@@ -313,10 +326,10 @@ public final class TenantProvisioningService {
 					if (legacy) {
 						throw new LewatiStep("mode LEGACY: tanpa schema per-tenant");
 					}
-					if (!TenantSchemaService.schemaAda(session, tenant.getSlug())) {
-						throw new IllegalStateException("Schema tenant tidak ditemukan pasca-pembuatan.");
-					}
-					return "schema terverifikasi";
+					// P7: verifikasi menyeluruh -- schema + seluruh tabel wajib + riwayat migrasi.
+					TenantSchemaService.verifikasiLengkap(session, tenant.getSlug());
+					return "schema+tabel+riwayat migrasi terverifikasi (" +
+							TenantSchemaMigrations.VERSI_TERKINI + ")";
 				}
 
 				if (ProvisioningStep.STEP_VERIFY_LOGIN.equals(stepCode)) {

@@ -43,7 +43,10 @@ Konfigurasi `pendaftaran_tenant_mode` (tabel Konfigurasi existing, `Common.getKo
 - **LEGACY**: provisioning schema OFF — step CREATE_SCHEMA_*/RUN_MIGRATIONS/INSTALL_AUDIT = SKIPPED sah;
   tenant tetap dapat registry + entitlement + membership + trial; data operasional tetap scope
   per-Pendaftar di tabel existing (Brand/Toko/… dgn kolom `pendaftar`).
-- **HYBRID**: tenant lama tetap; tenant baru boleh diprovision ke schema `<slug>` + `<slug>__audit`.
+- **HYBRID**: tenant lama tetap; tenant baru diprovision ke schema `<slug>` + `<slug>__audit`
+  DENGAN migrasi kanonik ber-riwayat+checksum (P7: `TenantSchemaMigrations` v1-core-pos —
+  brand/toko/pedagang + audit; BUKAN hbm2ddl; idempoten; VERIFY_SCHEMA memeriksa schema+tabel+
+  riwayat). Data-plane cutover (baca/tulis tabel tenant) = tahap TENANT_ONLY.
 - **TENANT_ONLY**: hanya tenant ber-registry/schema valid yang menjalankan data-plane baru.
 
 ## Keputusan penamaan kolom
