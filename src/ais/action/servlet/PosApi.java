@@ -169,6 +169,11 @@ public class PosApi extends HttpServlet {
 
 			// SEMUA aksi selain login/logout/i18n_kamus wajib token valid.
 			Tbmuser tbmuser = PosDeviceAuthApi.resolveDariRequest(request);
+			// Workspace JSP Inventory berjalan same-origin dengan sesi AIS. Token perangkat tetap
+			// wajib untuk klien Flutter/Desktop; fallback cookie ini sengaja dibatasi ke aksi si_*.
+			if ((tbmuser == null || tbmuser.getUserId() == null) && action.startsWith("si_")) {
+				tbmuser = Common.getCurrentUser(request);
+			}
 			if (tbmuser == null || tbmuser.getUserId() == null) {
 				response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 				hasil.put("status", "error");

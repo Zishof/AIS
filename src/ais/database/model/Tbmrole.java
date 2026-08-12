@@ -49,6 +49,7 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	public static final String HALAMAN_UTAMA_KANTIN = "/WEB-INF/baru/modul/kantin/index.jsp";
 	public static final String HALAMAN_UTAMA_APOTIK = "/WEB-INF/baru/modul/apotik/index.jsp";
 	public static final String HALAMAN_UTAMA_EMEDIK = "/WEB-INF/baru/modul/emedik/index.jsp";
+	public static final String HALAMAN_UTAMA_INVENTORY = "/WEB-INF/baru/modul/inventory/index.jsp";
 	public static final String ORANG_TUA_KODE = "ortu";
 	public static final String ORANG_TUA = "Ortu";
 	public static final String KOMUNITAS = "Komunitas";
