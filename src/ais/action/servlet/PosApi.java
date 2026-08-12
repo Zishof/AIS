@@ -2484,9 +2484,11 @@ public class PosApi extends HttpServlet {
 	 *
 	 * <p><b>Kenapa "sesi" harus DIREKONSTRUKSI, bukan dibaca dari FK</b>: tidak ada kolom
 	 * {@code sesi_kas_kasir} di {@code pembelian_anggota_koperasi} (dikonfirmasi lewat pembacaan
-	 * entity) -- keduanya dicocokkan HANYA lewat identitas kasir ({@code oleh}/{@code olehid}) +
-	 * rentang waktu {@code waktubuka..waktututup}, PERSIS pola yg sudah dipakai
-	 * {@code SesiKasUtil.hitungPenjualan()} utk menghitung total tunai/non-tunai per sesi saat tutup
+	 * entity) -- keduanya dicocokkan HANYA lewat identitas kasir ({@code sesi_kas_kasir.kasir_nama}/
+	 * {@code kasir_user_id}, BUKAN {@code oleh}/{@code olehid} -- itu audit generik, lihat javadoc
+	 * {@code SesiKasKasir.getKasirNama()}) + rentang waktu {@code waktubuka..waktututup}, PERSIS pola
+	 * yg sudah dipakai {@code SesiKasUtil.hitungPenjualan()} utk menghitung total tunai/non-tunai per
+	 * sesi saat tutup
 	 * kas. Query di bawah mereproduksi pencocokan yg SAMA lewat {@code LEFT JOIN LATERAL}, supaya
 	 * "sesi ke berapa" bisa dihitung per-baris tanpa mengubah skema database sama sekali.</p>
 	 */
@@ -2593,7 +2595,7 @@ public class PosApi extends HttpServlet {
 
 		// ---- Data (dikelompokkan per transaksi, dicocokkan ke sesi via LATERAL, dipaginasi) ----
 		String sql = "WITH sesi_bertingkat AS ("
-				+ "  SELECT id, oleh, olehid, waktubuka, waktututup,"
+				+ "  SELECT id, kasir_nama, kasir_user_id, waktubuka, waktututup,"
 				+ "         ROW_NUMBER() OVER (ORDER BY waktubuka) AS nomor_sesi"
 				+ "  FROM koperasi.sesi_kas_kasir WHERE toko = ?"
 				+ "), order_dasar AS ("
@@ -2620,7 +2622,7 @@ public class PosApi extends HttpServlet {
 				+ "  SELECT od.*, sb.id AS sesi_id, sb.nomor_sesi FROM order_dasar od"
 				+ "  LEFT JOIN LATERAL ("
 				+ "    SELECT * FROM sesi_bertingkat s"
-				+ "    WHERE (s.oleh = od.kasir OR s.olehid = od.kasir_id)"
+				+ "    WHERE (s.kasir_nama = od.kasir OR s.kasir_user_id = od.kasir_id)"
 				+ "      AND od.waktu >= s.waktubuka AND od.waktu <= COALESCE(s.waktututup, NOW())"
 				+ "    ORDER BY s.waktubuka DESC LIMIT 1"
 				+ "  ) sb ON true"
@@ -2726,12 +2728,18 @@ public class PosApi extends HttpServlet {
 			long total = rsCount.next() ? rsCount.getLong(1) : 0;
 			rsCount.close(); psCount.close();
 
-			String sql = "SELECT sk.id, sk.oleh, sk.waktubuka, sk.waktututup, sk.modalawal, sk.uangfisik, sk.status,"
+			// Gap-closure (2026-08-12): sk.oleh/olehid diganti sk.kasir_nama/kasir_user_id (oleh/olehid
+			// murni audit generik, lihat javadoc SesiKasKasir.getKasirNama()). Subquery pencocokan
+			// pak.oleh/olehid diberi tambahan OR pak.kasir_login_nama -- pak.oleh SELALU "external_update"
+			// utk transaksi lewat PosApi (lihat javadoc PembelianAnggotaKoperasi.getKasirLoginNama() +
+			// SesiKasUtil.hitungPenjualan), jadi tanpa ini "Total Tunai/Non-Tunai Live" selalu nol utk
+			// sesi kasir Electron/Flutter.
+			String sql = "SELECT sk.id, sk.kasir_nama, sk.waktubuka, sk.waktututup, sk.modalawal, sk.uangfisik, sk.status,"
 					+ "       COALESCE((SELECT SUM(COALESCE(pak.bayar_tunai,0)) FROM koperasi.pembelian_anggota_koperasi pak"
-					+ "                 WHERE pak.toko = sk.toko AND (pak.oleh = sk.oleh OR pak.olehid = sk.olehid)"
+					+ "                 WHERE pak.toko = sk.toko AND (pak.oleh = sk.kasir_nama OR pak.olehid = sk.kasir_user_id OR pak.kasir_login_nama = sk.kasir_nama)"
 					+ "                 AND pak.tanggal_pembayaran >= sk.waktubuka AND pak.tanggal_pembayaran <= COALESCE(sk.waktututup, NOW())),0) AS total_tunai_live,"
 					+ "       COALESCE((SELECT SUM(COALESCE(pak.bayar_non_tunai,0)) FROM koperasi.pembelian_anggota_koperasi pak"
-					+ "                 WHERE pak.toko = sk.toko AND (pak.oleh = sk.oleh OR pak.olehid = sk.olehid)"
+					+ "                 WHERE pak.toko = sk.toko AND (pak.oleh = sk.kasir_nama OR pak.olehid = sk.kasir_user_id OR pak.kasir_login_nama = sk.kasir_nama)"
 					+ "                 AND pak.tanggal_pembayaran >= sk.waktubuka AND pak.tanggal_pembayaran <= COALESCE(sk.waktututup, NOW())),0) AS total_nontunai_live,"
 					+ "       ROW_NUMBER() OVER (ORDER BY sk.waktubuka) AS nomor_sesi"
 					+ " FROM koperasi.sesi_kas_kasir sk WHERE " + where + " ORDER BY sk.waktubuka DESC LIMIT ? OFFSET ?";

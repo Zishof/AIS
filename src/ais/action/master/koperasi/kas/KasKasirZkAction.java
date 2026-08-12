@@ -251,7 +251,7 @@ public class KasKasirZkAction extends MyWindow {
 			w.append(" and k.toko=").append(tokoId);
 		}
 		SQLQuery q = session.createSQLQuery(
-				"select k.oleh, k.waktubuka, k.waktututup, coalesce(k.modalawal,0), coalesce(k.totaltunai,0), coalesce(k.uangfisik,0), coalesce(k.selisih,0), coalesce(k.status,'BUKA') "
+				"select k.kasir_nama, k.waktubuka, k.waktututup, coalesce(k.modalawal,0), coalesce(k.totaltunai,0), coalesce(k.uangfisik,0), coalesce(k.selisih,0), coalesce(k.status,'BUKA') "
 						+ " from koperasi.sesi_kas_kasir k " + w + " order by k.waktubuka desc ");
 		q.setMaxResults(100);
 		List<Object[]> data = q.list();

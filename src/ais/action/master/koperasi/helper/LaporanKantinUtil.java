@@ -1421,7 +1421,7 @@ public final class LaporanKantinUtil {
                 StringBuilder w = new StringBuilder(" where 1=1 ");
                 w.append(kondToko("k.toko", tokoId, prm));
                 w.append(klausaTanggal("k.waktubuka", tglMulai, tglSampai, prm));
-                sql = "select coalesce(k.oleh,'-'), k.waktubuka, k.waktututup, coalesce(k.modalawal,0), coalesce(k.totaltunai,0), coalesce(k.totalnontunai,0), coalesce(k.uangfisik,0), coalesce(k.selisih,0), coalesce(k.status,'BUKA') "
+                sql = "select coalesce(k.kasir_nama,'-'), k.waktubuka, k.waktututup, coalesce(k.modalawal,0), coalesce(k.totaltunai,0), coalesce(k.totalnontunai,0), coalesce(k.uangfisik,0), coalesce(k.selisih,0), coalesce(k.status,'BUKA') "
                     + " from koperasi.sesi_kas_kasir k " + w + " order by k.waktubuka desc ";
 
             } else if ("kas_selisih".equals(r)) {
@@ -1436,7 +1436,7 @@ public final class LaporanKantinUtil {
                 StringBuilder w = new StringBuilder(" where coalesce(k.status,'BUKA') = 'TUTUP' and coalesce(k.selisih,0) <> 0 ");
                 w.append(kondToko("k.toko", tokoId, prm));
                 w.append(klausaTanggal("k.waktubuka", tglMulai, tglSampai, prm));
-                sql = "select coalesce(k.oleh,'-'), k.waktubuka, coalesce(t.nama,'-'), (coalesce(k.modalawal,0)+coalesce(k.totaltunai,0)), coalesce(k.uangfisik,0), coalesce(k.selisih,0) "
+                sql = "select coalesce(k.kasir_nama,'-'), k.waktubuka, coalesce(t.nama,'-'), (coalesce(k.modalawal,0)+coalesce(k.totaltunai,0)), coalesce(k.uangfisik,0), coalesce(k.selisih,0) "
                     + " from koperasi.sesi_kas_kasir k left join koperasi.toko t on t.id=k.toko " + w + " order by abs(coalesce(k.selisih,0)) desc ";
 
             } else if ("tenant_setoran".equals(r)) {
@@ -1570,8 +1570,8 @@ public final class LaporanKantinUtil {
                 StringBuilder w = new StringBuilder(" where coalesce(k.status,'BUKA') = 'TUTUP' ");
                 w.append(kondToko("k.toko", tokoId, prm));
                 w.append(klausaTanggal("k.waktubuka", tglMulai, tglSampai, prm));
-                sql = "select coalesce(k.oleh,'-'), count(*), sum(case when coalesce(k.selisih,0) <> 0 then 1 else 0 end), sum(abs(coalesce(k.selisih,0))) "
-                    + " from koperasi.sesi_kas_kasir k " + w + " group by k.oleh order by 4 desc ";
+                sql = "select coalesce(k.kasir_nama,'-'), count(*), sum(case when coalesce(k.selisih,0) <> 0 then 1 else 0 end), sum(abs(coalesce(k.selisih,0))) "
+                    + " from koperasi.sesi_kas_kasir k " + w + " group by k.kasir_nama order by 4 desc ";
 
             } else if ("produk_sering_dikoreksi".equals(r)) {
                 judul = "Produk Sering Dikoreksi (Opname)";

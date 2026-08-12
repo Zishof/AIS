@@ -38,9 +38,10 @@ import ais.database.model.GeneralValueObject;
  *       {@code waktuBuka}=sekarang.</li>
  *   <li><b>Tutup kas:</b> saat menutup, sistem menghitung <i>total tunai</i> dan <i>total non‑tunai</i>
  *       dari transaksi POS oleh kasir yang sama dalam rentang {@code waktuBuka}..{@code waktuTutup}
- *       (dicocokkan lewat kolom {@code oleh} = nama kasir pada transaksi), lalu kasir mengisi
- *       <i>uang fisik</i> yang dihitung. <b>Selisih</b> = uangFisik − (modalAwal + totalTunai).
- *       {@code status}=TUTUP.</li>
+ *       (dicocokkan lewat {@link #getKasirNama()}/{@link #getKasirUserId()} = identitas kasir pada
+ *       transaksi -- BUKAN {@code oleh}/{@code olehId}, itu audit generik, lihat javadoc
+ *       {@link #getKasirNama()}), lalu kasir mengisi <i>uang fisik</i> yang dihitung. <b>Selisih</b> =
+ *       uangFisik − (modalAwal + totalTunai). {@code status}=TUTUP.</li>
  * </ul>
  *
  * <p>
@@ -70,6 +71,8 @@ public class SesiKasKasir extends GeneralValueObject {
 	private Toko toko;
 	private String oleh;
 	private String olehId;
+	private String kasirNama;
+	private String kasirUserId;
 	private Date waktuBuka;
 	private Date waktuTutup;
 	private Double modalAwal;
@@ -127,6 +130,35 @@ public class SesiKasKasir extends GeneralValueObject {
 
 	public void setOlehId(String olehId) {
 		this.olehId = olehId;
+	}
+
+	/**
+	 * Nama kasir yang membuka sesi ini -- SENGAJA field baru terpisah dari {@link #getOleh()} (itu
+	 * metadata audit generik "siapa terakhir mengubah baris", diisi otomatis oleh interceptor/listener
+	 * Hibernate di {@code ais.database.hibernate}, TIDAK dimaksudkan untuk dibaca sebagai data bisnis).
+	 * Sebelum field ini ada, {@code SesiKasUtil.buka()} menyalahgunakan {@code oleh}/{@code olehId}
+	 * untuk menyimpan identitas kasir -- interceptor audit generik menimpanya diam-diam sebelum baris
+	 * tersimpan (root cause bug "Kas Terbuka tapi checkout ditolak", lihat commit 869f858d), karena
+	 * kedua nama itu kebetulan sama dengan nama kolom audit. Pola field terpisah ini mengikuti preseden
+	 * {@link ais.database.model.koperasi.PembelianAnggotaKoperasi#getKasirLoginNama()}.
+	 */
+	@Column(name = "kasir_nama", nullable = true)
+	public String getKasirNama() {
+		return kasirNama;
+	}
+
+	public void setKasirNama(String kasirNama) {
+		this.kasirNama = kasirNama;
+	}
+
+	/** Pasangan id (userId) dari {@link #getKasirNama()} -- lihat javadoc di sana. */
+	@Column(name = "kasir_user_id", nullable = true)
+	public String getKasirUserId() {
+		return kasirUserId;
+	}
+
+	public void setKasirUserId(String kasirUserId) {
+		this.kasirUserId = kasirUserId;
 	}
 
 	@Temporal(TemporalType.TIMESTAMP)
