@@ -1583,7 +1583,17 @@ public class CommonReport {
 
     public static File generateFileJasper(String file, String namaAsli) throws Exception {
         if (file == null || file.trim().length() == 0) {
-            return null;
+            // FIX (root cause NPE "fileJasper.getAbsolutePath()" di Report.fillJasperReportSekali):
+            // dulu diam-diam return null di sini ketika konfigurasi "Report_<namaAsli>" kosong/belum
+            // diisi -- pemanggil (Report.generateFileReportCore/generateFileImageReport) TIDAK menduga
+            // null, jadi meledak jadi NullPointerException tanpa pesan 2-3 frame lebih dalam. Sekarang
+            // gagal dengan pesan yang jelas ("konfigurasi laporan kosong") supaya log/audit langsung
+            // menunjuk akar masalahnya (konfigurasi kosong), bukan NPE misterius. Alur retry/fallback
+            // ke fileSebelumnya di Report.generateFileReportCore TETAP jalan sama seperti sebelumnya
+            // (exception ini tetap tertangkap oleh catch (Exception e) yang sama).
+            throw new Exception("Template laporan \"" + (namaAsli == null ? "" : namaAsli)
+                    + "\" belum dikonfigurasi (nama berkas Jasper kosong) -- periksa konfigurasi \"Report_"
+                    + (namaAsli == null ? "" : namaAsli) + "\" di menu Admin.");
         }
 
         String fileTrim = file.trim();
