@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.hibernate.Session;
 
+import ais.database.model.Jenjang;
 import ais.database.model.PerguruanTinggi;
 import ais.ui.util.HtmlChartHelper;
 import ais.ui.util.MyHtml;
@@ -64,20 +65,25 @@ public class DashboardAsalSekolahPmb extends DashboardPmbBase {
 
 	@Override
 	protected void doRefresh(Session session, String ta, String sem) {
-		List<NamaData> sekolahList   = queryTopSekolah(session, ta, sem);
-		List<NamaData> jenisSekolah  = queryJenisSekolah(session, ta, sem);
-		List<NamaData> propinsiList  = queryPropinsiSekolah(session, ta, sem);
-		List<NamaData> lulusanList   = queryTahunLulusan(session, ta, sem);
+		Jenjang jenjang = getSelectedJenjang();
+		List<NamaData> sekolahList   = queryTopSekolah(session, ta, sem, jenjang);
+		List<NamaData> jenisSekolah  = queryJenisSekolah(session, ta, sem, jenjang);
+		List<NamaData> propinsiList  = queryPropinsiSekolah(session, ta, sem, jenjang);
+		List<NamaData> lulusanList   = queryTahunLulusan(session, ta, sem, jenjang);
 
 		// Hitung total sekolah unik
-		int totalSekolah = countSekolahUnik(session, ta, sem);
+		int totalSekolah = countSekolahUnik(session, ta, sem, jenjang);
 
 		StringBuilder sb = new StringBuilder(5120);
 
 		// Header
 		sb.append("<div style=\"margin-bottom:14px;\">")
 		  .append("<div style=\"font-size:18px;font-weight:700;color:#1e3a5f;margin-bottom:3px;\">")
-		  .append("Profil Asal Sekolah &#8212; ").append(escHtml(ta)).append("</div>")
+		  .append("Profil Asal Sekolah &#8212; ").append(escHtml(ta));
+		if (jenjang != null) {
+			sb.append(" &#8212; ").append(escHtml(jenjang.getNama()));
+		}
+		sb.append("</div>")
 		  .append("<div style=\"font-size:12px;color:#9ca3af;\">")
 		  .append("Dari mana calon mahasiswa berasal: sekolah, jenis sekolah, daerah asal sekolah, dan tahun kelulusan.")
 		  .append("</div></div>");
@@ -181,24 +187,26 @@ public class DashboardAsalSekolahPmb extends DashboardPmbBase {
 
 	/** Jumlah sekolah unik berdasarkan namaSekolahAsal atau asalSma string. */
 	@SuppressWarnings("unchecked")
-	private int countSekolahUnik(Session session, String ta, String sem) {
+	private int countSekolahUnik(Session session, String ta, String sem, Jenjang jenjang) {
 		try {
 			String hql = "SELECT COUNT(DISTINCT bcm.namaSekolahAsal) "
 					+ "FROM BiodataCalonMahasiswa bcm "
-					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem)
+					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem) + jenjangClause(jenjang)
 					+ "AND bcm.namaSekolahAsal IS NOT NULL";
 			org.hibernate.Query q = session.createQuery(hql).setParameter("ta", ta);
 			applySemParam(q, sem);
+			applyJenjangParam(q, jenjang);
 			Number n = (Number) q.uniqueResult();
 			if (n != null && n.intValue() > 0) { return n.intValue(); }
 
 			// Fallback ke string asalSma
 			String hql2 = "SELECT COUNT(DISTINCT bcm.asalSma) "
 					+ "FROM BiodataCalonMahasiswa bcm "
-					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem)
+					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem) + jenjangClause(jenjang)
 					+ "AND bcm.asalSma IS NOT NULL AND bcm.asalSma != ''";
 			org.hibernate.Query q2 = session.createQuery(hql2).setParameter("ta", ta);
 			applySemParam(q2, sem);
+			applyJenjangParam(q2, jenjang);
 			Number n2 = (Number) q2.uniqueResult();
 			return n2 == null ? 0 : n2.intValue();
 		} catch (Exception e) {
@@ -209,18 +217,19 @@ public class DashboardAsalSekolahPmb extends DashboardPmbBase {
 
 	/** Top N sekolah berdasarkan namaSekolahAsal entity, fallback ke asalSma string. */
 	@SuppressWarnings("unchecked")
-	private List<NamaData> queryTopSekolah(Session session, String ta, String sem) {
+	private List<NamaData> queryTopSekolah(Session session, String ta, String sem, Jenjang jenjang) {
 		List<NamaData> result = new ArrayList<NamaData>();
 		try {
 			// Coba join entity NamaSekolahAsal
 			String hql = "SELECT nsa.nama, COUNT(bcm) "
 					+ "FROM BiodataCalonMahasiswa bcm JOIN bcm.namaSekolahAsal nsa "
-					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem)
+					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem) + jenjangClause(jenjang)
 					+ "GROUP BY nsa.id, nsa.nama "
 					+ "ORDER BY COUNT(bcm) DESC";
 			org.hibernate.Query q = session.createQuery(hql).setParameter("ta", ta)
 					.setMaxResults(MAX_SEKOLAH);
 			applySemParam(q, sem);
+			applyJenjangParam(q, jenjang);
 			for (Object obj : q.list()) {
 				Object[] r = (Object[]) obj;
 				result.add(new NamaData(r[0] == null ? "-" : r[0].toString(),
@@ -231,13 +240,14 @@ public class DashboardAsalSekolahPmb extends DashboardPmbBase {
 			// Fallback: string asalSma
 			String hql2 = "SELECT bcm.asalSma, COUNT(bcm) "
 					+ "FROM BiodataCalonMahasiswa bcm "
-					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem)
+					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem) + jenjangClause(jenjang)
 					+ "AND bcm.asalSma IS NOT NULL AND bcm.asalSma != '' "
 					+ "GROUP BY bcm.asalSma "
 					+ "ORDER BY COUNT(bcm) DESC";
 			org.hibernate.Query q2 = session.createQuery(hql2).setParameter("ta", ta)
 					.setMaxResults(MAX_SEKOLAH);
 			applySemParam(q2, sem);
+			applyJenjangParam(q2, jenjang);
 			for (Object obj : q2.list()) {
 				Object[] r = (Object[]) obj;
 				result.add(new NamaData(r[0] == null ? "-" : r[0].toString(),
@@ -251,16 +261,17 @@ public class DashboardAsalSekolahPmb extends DashboardPmbBase {
 
 	/** Distribusi berdasarkan jenis sekolah (SMA / SMK / MA / dll). */
 	@SuppressWarnings("unchecked")
-	private List<NamaData> queryJenisSekolah(Session session, String ta, String sem) {
+	private List<NamaData> queryJenisSekolah(Session session, String ta, String sem, Jenjang jenjang) {
 		List<NamaData> result = new ArrayList<NamaData>();
 		try {
 			String hql = "SELECT j.nama, COUNT(bcm) "
 					+ "FROM BiodataCalonMahasiswa bcm JOIN bcm.jenisSekolah j "
-					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem)
+					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem) + jenjangClause(jenjang)
 					+ "GROUP BY j.id, j.nama "
 					+ "ORDER BY COUNT(bcm) DESC";
 			org.hibernate.Query q = session.createQuery(hql).setParameter("ta", ta);
 			applySemParam(q, sem);
+			applyJenjangParam(q, jenjang);
 			for (Object obj : q.list()) {
 				Object[] r = (Object[]) obj;
 				result.add(new NamaData(r[0] == null ? "-" : r[0].toString(),
@@ -274,17 +285,18 @@ public class DashboardAsalSekolahPmb extends DashboardPmbBase {
 
 	/** Top N propinsi dari propinsiSekolah (bukan propinsi calon — ini propinsi sekolahnya). */
 	@SuppressWarnings("unchecked")
-	private List<NamaData> queryPropinsiSekolah(Session session, String ta, String sem) {
+	private List<NamaData> queryPropinsiSekolah(Session session, String ta, String sem, Jenjang jenjang) {
 		List<NamaData> result = new ArrayList<NamaData>();
 		try {
 			String hql = "SELECT ps.nama, COUNT(bcm) "
 					+ "FROM BiodataCalonMahasiswa bcm JOIN bcm.propinsiSekolah ps "
-					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem)
+					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem) + jenjangClause(jenjang)
 					+ "GROUP BY ps.id, ps.nama "
 					+ "ORDER BY COUNT(bcm) DESC";
 			org.hibernate.Query q = session.createQuery(hql).setParameter("ta", ta)
 					.setMaxResults(MAX_PROPINSI);
 			applySemParam(q, sem);
+			applyJenjangParam(q, jenjang);
 			for (Object obj : q.list()) {
 				Object[] r = (Object[]) obj;
 				result.add(new NamaData(r[0] == null ? "-" : r[0].toString(),
@@ -298,18 +310,19 @@ public class DashboardAsalSekolahPmb extends DashboardPmbBase {
 
 	/** Distribusi tahun kelulusan SMA. */
 	@SuppressWarnings("unchecked")
-	private List<NamaData> queryTahunLulusan(Session session, String ta, String sem) {
+	private List<NamaData> queryTahunLulusan(Session session, String ta, String sem, Jenjang jenjang) {
 		List<NamaData> result = new ArrayList<NamaData>();
 		try {
 			String hql = "SELECT bcm.tahunKelulusan, COUNT(bcm) "
 					+ "FROM BiodataCalonMahasiswa bcm "
-					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem)
+					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem) + jenjangClause(jenjang)
 					+ "AND bcm.tahunKelulusan IS NOT NULL AND bcm.tahunKelulusan != '' "
 					+ "GROUP BY bcm.tahunKelulusan "
 					+ "ORDER BY bcm.tahunKelulusan";
 			org.hibernate.Query q = session.createQuery(hql).setParameter("ta", ta)
 					.setMaxResults(10);
 			applySemParam(q, sem);
+			applyJenjangParam(q, jenjang);
 			for (Object obj : q.list()) {
 				Object[] r = (Object[]) obj;
 				result.add(new NamaData(r[0] == null ? "-" : r[0].toString(),
@@ -320,4 +333,5 @@ public class DashboardAsalSekolahPmb extends DashboardPmbBase {
 		}
 		return result;
 	}
+
 }
