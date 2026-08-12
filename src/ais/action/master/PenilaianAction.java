@@ -199,6 +199,12 @@ public class PenilaianAction extends GenericAutowireComposer implements DataCrit
 	protected Tabpanel jenis;
 
 	public void onJenis(Event event) {
+		// Master Jenis Evaluasi mengendalikan pilihan "Jenis Penilaian" pada setiap
+		// komponen nilai. CRUD ini hanya boleh dimuat oleh administrator, bukan sekadar
+		// disembunyikan lewat tab, agar event yang dipanggil langsung tetap aman.
+		if (!Common.getApakahAdmin()) {
+			return;
+		}
 
 		if (jenis.getChildren().size() == 0) {
 			MyInclude include = new MyInclude();
@@ -942,10 +948,14 @@ public class PenilaianAction extends GenericAutowireComposer implements DataCrit
 					pengajuan.getLinkedTab().setVisible(pengecualianVisible);
 			}
 
+			// Tab "Jenis Penilaian" adalah CRUD master jenis_evaluasi yang menjadi sumber
+			// dropdown jenis penilaian pada Format Nilai. Tampil khusus administrator dan
+			// diletakkan setelah Nilai Huruf pada penilaian.zul.
 			if (jenis != null) {
-				jenis.setVisible(pengecualianVisible);
+				boolean bolehKelolaJenisPenilaian = Common.getApakahAdmin();
+				jenis.setVisible(bolehKelolaJenisPenilaian);
 				if (jenis.getLinkedTab() != null)
-					jenis.getLinkedTab().setVisible(pengecualianVisible);
+					jenis.getLinkedTab().setVisible(bolehKelolaJenisPenilaian);
 			}
 
 			// Tab "Nilai Huruf": tampil HANYA untuk pengguna NON-dosen & NON-mahasiswa (admin/staf).

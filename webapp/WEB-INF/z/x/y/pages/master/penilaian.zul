@@ -48,14 +48,15 @@
 					forward="onClick=onPengajuan">
 					Pengajuan
 				</tab>
-				<tab use="ais.ui.util.MyTabConfig" visible="false"
-					forward="onClick=onJenis">
-					Jenis
-				</tab>
 							<!-- Tab "Nilai Huruf": hanya tampil utk NON-dosen & NON-mahasiswa (admin/staf); divisibilitas diatur di PenilaianAction.doAfterCompose. -->
 				<tab use="ais.ui.util.MyTabConfig" visible="false"
 					forward="onClick=onNilaiHuruf">
 					Nilai Huruf
+				</tab>
+				<!-- CRUD master jenis_evaluasi, khusus Common.getApakahAdmin(), harus tepat setelah Nilai Huruf. -->
+				<tab use="ais.ui.util.MyTabConfig" visible="false"
+					forward="onClick=onJenis">
+					Jenis Penilaian
 				</tab>
 			</tabs>
 
@@ -425,11 +426,10 @@
 
 				</tabpanel>
 
-				<tabpanel use="ais.ui.util.MyTabpanel" id="jenis" visible="false">
-
+				<tabpanel use="ais.ui.util.MyTabpanel" id="nilaiHurufTab" visible="false">
 				</tabpanel>
-			
-							<tabpanel use="ais.ui.util.MyTabpanel" id="nilaiHurufTab" visible="false">
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="jenis" visible="false">
 				</tabpanel>
 			</tabpanels>
 		</tabbox>
