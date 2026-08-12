@@ -5,6 +5,8 @@
 <%@ page import="ais.database.model.Tbmuser"%>
 <%@ page import="org.json.JSONObject"%>
 <%
+    response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    response.setHeader("Pragma", "no-cache");
     Tbmuser pengguna = Common.getCurrentUser(request);
     if (pengguna == null || Boolean.FALSE.equals(pengguna.getAktif())) {
         response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
@@ -27,7 +29,7 @@
     String ctx = request.getContextPath();
 %>
 <jsp:include page="/WEB-INF/baru/include/header.jsp" />
-<style><jsp:include page="/WEB-INF/baru/modul/inventory/inventory.css" /></style>
+<style><%@ include file="inventory.css" %></style>
 <style>@media(max-width:520px){.si-toolbar-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible}.si-toolbar-actions .si-button{width:100%;padding:0 8px}}</style>
 <body class="si-body">
 <div id="siApp" class="si-app" data-api="<%=ctx%>/Api_eBisnis" data-user="<%=pengguna.getUserId()%>" data-initial="<%=request.getAttribute("inventoryInitialScreen") == null ? "01" : request.getAttribute("inventoryInitialScreen")%>">
@@ -95,6 +97,6 @@
     <div class="si-modal" id="siModal" hidden><div class="si-modal-card" role="dialog" aria-modal="true"><header><div><span class="si-eyebrow">INPUT DATA</span><h2 id="siModalTitle">Tambah data</h2></div><button class="si-icon-button" id="siModalClose"><i class="fas fa-times"></i></button></header><form id="siForm"><div class="si-form-grid" id="siFormFields"></div><footer><button type="button" class="si-button" id="siCancel">Batal</button><button type="submit" class="si-button si-primary"><i class="fas fa-save"></i> Simpan</button></footer></form></div></div>
     <div class="si-toast" id="siToast" hidden></div>
 </div>
-<script><jsp:include page="/WEB-INF/baru/modul/inventory/inventory.js" /></script>
+<script><%@ include file="inventory.js" %></script>
 </body>
 </html>

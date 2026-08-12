@@ -73,6 +73,56 @@ public class Main extends HttpServlet {
 	private static final String ATTR_KANTIN_DIRECT_PAGE = "kantinDirectPage";
 	private static final String ATTR_POS_DIRECT_PAGE = "posDirectPage";
 	private static final String ATTR_INVENTORY_DIRECT_PAGE = "inventoryDirectPage";
+	private static final String[][] INVENTORY_FUNCTION_PAGES = {
+			{ "data_supplier", "data_supplier.jsp" },
+			{ "daftar_supplier", "daftar_supplier.jsp" },
+			{ "detail_supplier_aktif", "detail_supplier_aktif.jsp" },
+			{ "data_customer", "data_customer.jsp" },
+			{ "daftar_customer", "daftar_customer.jsp" },
+			{ "detail_customer_aktif", "detail_customer_aktif.jsp" },
+			{ "data_sales", "data_sales.jsp" },
+			{ "data_stok_barang", "data_stok_barang.jsp" },
+			{ "laporan_opname", "laporan_opname.jsp" },
+			{ "cetak_laporan_opname", "cetak_laporan_opname.jsp" },
+			{ "harga_beli_jual", "harga_beli_jual.jsp" },
+			{ "cetak_harga_beli_jual", "cetak_harga_beli_jual.jsp" },
+			{ "cetak_harga_jual", "cetak_harga_jual.jsp" },
+			{ "ekspor_harga_stok", "ekspor_harga_stok.jsp" },
+			{ "cetak_daftar_stok", "cetak_daftar_stok.jsp" },
+			{ "hasil_cetak_stok", "hasil_cetak_stok.jsp" },
+			{ "menu_master_harga", "menu_master_harga.jsp" },
+			{ "harga_beli_supplier", "harga_beli_supplier.jsp" },
+			{ "harga_jual_customer", "harga_jual_customer.jsp" },
+			{ "pembelian_supplier", "pembelian_supplier.jsp" },
+			{ "hutang_pembelian", "hutang_pembelian.jsp" },
+			{ "data_hutang_supplier", "data_hutang_supplier.jsp" },
+			{ "hutang_dengan_lunas", "hutang_dengan_lunas.jsp" },
+			{ "pembayaran_hutang", "pembayaran_hutang.jsp" },
+			{ "riwayat_pembayaran_hutang", "riwayat_pembayaran_hutang.jsp" },
+			{ "cetak_pembayaran_hutang", "cetak_pembayaran_hutang.jsp" },
+			{ "analisis_hutang", "analisis_hutang.jsp" },
+			{ "cetak_faktur_pembelian", "cetak_faktur_pembelian.jsp" },
+			{ "laporan_pembelian_periode", "laporan_pembelian_periode.jsp" },
+			{ "penjualan_sales", "penjualan_sales.jsp" },
+			{ "piutang_penjualan", "piutang_penjualan.jsp" },
+			{ "data_piutang_customer", "data_piutang_customer.jsp" },
+			{ "piutang_dengan_lunas", "piutang_dengan_lunas.jsp" },
+			{ "pembayaran_piutang", "pembayaran_piutang.jsp" },
+			{ "riwayat_pembayaran_piutang", "riwayat_pembayaran_piutang.jsp" },
+			{ "cetak_pembayaran_piutang", "cetak_pembayaran_piutang.jsp" },
+			{ "analisis_piutang_customer", "analisis_piutang_customer.jsp" },
+			{ "analisis_piutang_sales", "analisis_piutang_sales.jsp" },
+			{ "surat_perintah_sales", "surat_perintah_sales.jsp" },
+			{ "nota_sales", "nota_sales.jsp" },
+			{ "laporan_piutang", "laporan_piutang.jsp" },
+			{ "cetak_laporan_piutang", "cetak_laporan_piutang.jsp" },
+			{ "kas_jurnal", "kas_jurnal.jsp" },
+			{ "data_perkiraan", "data_perkiraan.jsp" },
+			{ "parameter_laba_rugi", "parameter_laba_rugi.jsp" },
+			{ "cetak_laba_rugi_kotor", "cetak_laba_rugi_kotor.jsp" },
+			{ "laporan_laba_rugi", "laporan_laba_rugi.jsp" },
+			{ "cetak_laporan_laba_rugi", "cetak_laporan_laba_rugi.jsp" }
+	};
 
 	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		processRequest(request, response);
@@ -121,6 +171,20 @@ public class Main extends HttpServlet {
 				return;
 			}
 		}
+		String inventoryFunction = request.getParameter("inventory");
+		if ((inventoryFunction != null && inventoryFunction.trim().length() > 0)
+				|| path.startsWith("/main/inventory/")) {
+			String functionName = inventoryFunction != null && inventoryFunction.trim().length() > 0
+					? inventoryFunction : path.substring("/main/inventory/".length());
+			String inventoryPage = resolveInventoryFunctionPage(functionName);
+			if (inventoryPage != null) {
+				request.setAttribute(ATTR_INVENTORY_DIRECT_PAGE, Boolean.TRUE);
+				request.getRequestDispatcher(inventoryPage).forward(request, response);
+				return;
+			}
+			response.sendError(HttpServletResponse.SC_NOT_FOUND, "Halaman Inventory & Sales tidak ditemukan.");
+			return;
+		}
 
 		String page = "/WEB-INF/z/x/y/pages/main/index.zul";
 		if ("true".equals(request.getParameter("hak_akses"))) {
@@ -148,6 +212,19 @@ public class Main extends HttpServlet {
 		}
 		RequestDispatcher dispatcher = request.getRequestDispatcher(page);
 		dispatcher.forward(request, response);
+	}
+
+	private String resolveInventoryFunctionPage(String functionName) {
+		if (functionName == null) {
+			return null;
+		}
+		String normalized = functionName.trim();
+		for (int i = 0; i < INVENTORY_FUNCTION_PAGES.length; i++) {
+			if (INVENTORY_FUNCTION_PAGES[i][0].equals(normalized)) {
+				return "/WEB-INF/baru/modul/inventory/" + INVENTORY_FUNCTION_PAGES[i][1];
+			}
+		}
+		return null;
 	}
 
 	private String resolveMainPage(HttpServletRequest request, String defaultPage) {

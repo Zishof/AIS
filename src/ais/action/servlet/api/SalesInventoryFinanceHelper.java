@@ -78,7 +78,7 @@ public final class SalesInventoryFinanceHelper {
 			StringBuilder where = new StringBuilder(" WHERE 1=1");
 			if (!q.isEmpty()) where.append(" AND (LOWER(a.kode) LIKE ? OR LOWER(a.nama) LIKE ?)");
 			java.sql.PreparedStatement ps = session.connection().prepareStatement(
-					"SELECT a.id, a.kode, a.nama, a.keterangan, a.debet_credit, p.kode, p.nama"
+					"SELECT a.id, a.kode, a.nama, a.keterangan, a.debit_credit, p.kode, p.nama"
 							+ " FROM akunting.akun a LEFT JOIN akunting.akun p ON a.parent = p.id"
 							+ where + " ORDER BY a.kode LIMIT 500");
 			int ix = 1;
