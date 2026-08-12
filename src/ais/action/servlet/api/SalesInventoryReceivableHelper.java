@@ -1020,6 +1020,68 @@ public final class SalesInventoryReceivableHelper {
 	}
 
 	// =============================================================================================
+	// SCR-41: Laporan Piutang jenis "Rekap Penjualan Barang" (fungsi legacy layar 41)
+	// =============================================================================================
+
+	/** Rekap penjualan PER BARANG (legacy layar 41: #Brg, Nama, Satuan, QTY, Jumlah Rp) dari
+	 *  baris order terfakturkan. Urut: nama | qty (fast moving). Tab Outstanding & Register
+	 *  Event memakai {@code si_receivable_list} / {@code si_collection_history} existing. */
+	public static void receivableReport(EbisnisActorContextResolver.ActorContext ctx,
+			JSONObject request, JSONObject hasil) throws Exception {
+		if (!ctx.bolehMenu("piutang")) {
+			tolak(hasil, "Menu Piutang tidak aktif untuk akun Anda.");
+			return;
+		}
+		String dariRaw = request.optString("dari", "").trim();
+		String sampaiRaw = request.optString("sampai", "").trim();
+		String dari = dariRaw.matches("\\d{4}-\\d{2}-\\d{2}") ? ("DATE '" + dariRaw + "'")
+				: "(CURRENT_DATE - 30)";
+		String sampai = sampaiRaw.matches("\\d{4}-\\d{2}-\\d{2}") ? ("DATE '" + sampaiRaw + "'")
+				: "CURRENT_DATE";
+		String urut = "qty".equalsIgnoreCase(request.optString("urut", "nama"))
+				? "3 DESC" : "i.nama_produk ASC";
+		String q = request.optString("q", "").trim().toLowerCase();
+		Long salesId = aktorSales(ctx) ? ctx.salesId : optLong(request, "sales_id");
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			StringBuilder where = new StringBuilder(" WHERE o.status IN ('SIAP_TAGIH','LUNAS')"
+					+ " AND o.tanggal >= " + dari + " AND o.tanggal < (" + sampai + " + 1)");
+			if (!q.isEmpty()) where.append(" AND LOWER(i.nama_produk) LIKE ?");
+			if (salesId != null) where.append(" AND o.sales = ?");
+			if (ctx.tokoId != null && !ctx.admin) where.append(" AND o.toko = ?");
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(
+					"SELECT i.produk, i.nama_produk, SUM(i.jumlah), SUM(i.subtotal)"
+							+ " FROM koperasi.sales_order_lapangan_item i"
+							+ " JOIN koperasi.sales_order_lapangan o ON i.sales_order = o.id" + where
+							+ " GROUP BY i.produk, i.nama_produk ORDER BY " + urut + " LIMIT 500");
+			int ix = 1;
+			if (!q.isEmpty()) ps.setString(ix++, "%" + q + "%");
+			if (salesId != null) ps.setLong(ix++, salesId.longValue());
+			if (ctx.tokoId != null && !ctx.admin) ps.setLong(ix++, ctx.tokoId.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			JSONArray rows = new JSONArray();
+			double totalQty = 0, totalRp = 0;
+			while (rs.next()) {
+				JSONObject r = new JSONObject();
+				r.put("produkId", rs.getLong(1));
+				r.put("namaProduk", str(rs.getString(2)));
+				r.put("qty", rs.getDouble(3));
+				r.put("jumlahRp", rs.getDouble(4));
+				rows.put(r);
+				totalQty += rs.getDouble(3);
+				totalRp += rs.getDouble(4);
+			}
+			rs.close(); ps.close();
+			hasil.put("status", "00");
+			hasil.put("rows", rows);
+			hasil.put("totalQty", totalQty);
+			hasil.put("totalRp", totalRp);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	// =============================================================================================
 	// SCR-37/38: aging per customer / per sales
 	// =============================================================================================
 

@@ -1531,6 +1531,14 @@ public class PosApi extends HttpServlet {
 		if (action.startsWith("si_sync_")) {
 			return menu.optBoolean("nota_sales", false) || menu.optBoolean("penjualan_sales", false);
 		}
+		if (action.startsWith("si_audit_")) {
+			// Riwayat Audit per record: gerbang menu detail per-entity ditegakkan helper
+			// (petaAudit) -- di lapis menu cukup salah satu kunci varian aktif.
+			return menu.optBoolean("master_supplier", false) || menu.optBoolean("master_customer", false)
+					|| menu.optBoolean("master_sales", false) || menu.optBoolean("piutang", false)
+					|| menu.optBoolean("penjualan_sales", false)
+					|| menu.optBoolean("surat_perintah_sales", false);
+		}
 		if ("si_import_legacy".equals(action)) {
 			// Impor DBF: gerbang aktor sesungguhnya (PEMILIK/ADMIN) di helper -- di lapis menu
 			// cukup salah satu kunci master varian aktif.

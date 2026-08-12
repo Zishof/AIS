@@ -268,6 +268,14 @@ public final class SalesInventoryFinanceHelper {
 		String dari = tglLiteral(request, "dari", "(CURRENT_DATE - 30)");
 		String sampai = tglLiteral(request, "sampai", "CURRENT_DATE");
 		String grup = request.optString("group_by", "produk").trim().toLowerCase();
+		// "HPP Tambah (%)" legacy (layar 45/46): markup atas HPP snapshot -- eksplisit dari
+		// request, 0 bila tak diisi, di-echo balik supaya tercantum di cetakan.
+		double hppTambah = request.optDouble("hpp_tambah_persen", 0);
+		if (hppTambah < 0 || hppTambah > 100) {
+			tolak(hasil, "hpp_tambah_persen harus 0..100.");
+			return;
+		}
+		double faktorHpp = 1 + hppTambah / 100.0;
 		String kolomGrup;
 		String joinGrup = "";
 		if ("customer".equals(grup)) {
@@ -307,7 +315,7 @@ public final class SalesInventoryFinanceHelper {
 				r.put("grupNama", str(rs.getString(2)));
 				r.put("qty", rs.getDouble(3));
 				double jual = rs.getDouble(4);
-				double hpp = rs.getDouble(5);
+				double hpp = rs.getDouble(5) * faktorHpp;
 				r.put("penjualan", jual);
 				r.put("hpp", hpp);
 				r.put("labaKotor", jual - hpp);
@@ -319,13 +327,179 @@ public final class SalesInventoryFinanceHelper {
 			rs.close(); ps.close();
 			hasil.put("status", "00");
 			hasil.put("groupBy", grup);
+			hasil.put("hppTambahPersen", hppTambah);
 			hasil.put("rows", rows);
 			JSONObject ringkas = new JSONObject();
 			ringkas.put("penjualan", totalJual);
 			ringkas.put("hpp", totalHpp);
 			ringkas.put("labaKotor", totalJual - totalHpp);
 			ringkas.put("marginPersen", totalJual <= 0 ? 0 : (totalJual - totalHpp) / totalJual * 100);
+			ringkas.put("hppTambahPersen", hppTambah);
 			hasil.put("ringkasan", ringkas);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	// =============================================================================================
+	// SCR-47: rincian Laba/Rugi PER BARIS FAKTUR (grid legacy: Sales, Tanggal, No.Faktur,
+	// Nama Barang, HPP, Hrg.Jual, Jumlah, Rugi/Laba, Customer) + filter Jual Rugi / Lunas
+	// =============================================================================================
+
+	public static void profitLossDetail(EbisnisActorContextResolver.ActorContext ctx,
+			JSONObject request, JSONObject hasil) throws Exception {
+		if (!ctx.bolehMenu("laba_rugi")) {
+			tolak(hasil, "Menu Laba Rugi tidak aktif untuk akun Anda.");
+			return;
+		}
+		String dari = tglLiteral(request, "dari", "(CURRENT_DATE - 30)");
+		String sampai = tglLiteral(request, "sampai", "CURRENT_DATE");
+		Long salesId = optLong(request, "sales_id");
+		boolean hanyaRugi = "jual_rugi".equalsIgnoreCase(request.optString("filter", ""));
+		// lunas | belum | (kosong = semua) -- status pelunasan faktur asal baris.
+		String statusLunas = request.optString("status_lunas", "").trim().toLowerCase();
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			String exprOut = "(COALESCE(d.total_faktur,0) - COALESCE(d.dibayar_awal,0)"
+					+ " - COALESCE((SELECT SUM(a.nominal) FROM koperasi.alokasi_penerimaan_piutang_customer a"
+					+ " WHERE a.piutang_doc = d.id),0))";
+			StringBuilder where = new StringBuilder(" WHERE o.status IN ('SIAP_TAGIH','LUNAS')"
+					+ " AND o.tanggal >= " + dari + " AND o.tanggal < (" + sampai + " + 1)");
+			if (salesId != null) where.append(" AND o.sales = ?");
+			if (ctx.tokoId != null && !ctx.admin) where.append(" AND o.toko = ?");
+			if (hanyaRugi) where.append(" AND (i.subtotal - i.hpp_snapshot * i.jumlah) < 0");
+			if ("lunas".equals(statusLunas)) where.append(" AND " + exprOut + " <= 0.009");
+			else if ("belum".equals(statusLunas)) where.append(" AND " + exprOut + " > 0.009");
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(
+					"SELECT COALESCE(s.nama,'(tanpa sales)'), o.tanggal, COALESCE(d.nomor, o.nomor),"
+							+ " i.nama_produk, i.jumlah, i.hpp_snapshot, i.harga_satuan, i.subtotal,"
+							+ " (i.subtotal - i.hpp_snapshot * i.jumlah), c.nama, " + exprOut
+							+ " FROM koperasi.sales_order_lapangan_item i"
+							+ " JOIN koperasi.sales_order_lapangan o ON i.sales_order = o.id"
+							+ " JOIN koperasi.anggota_koperasi c ON o.customer = c.id"
+							+ " LEFT JOIN koperasi.sales_inventory s ON o.sales = s.id"
+							+ " LEFT JOIN koperasi.piutang_customer_doc d ON d.sales_order = o.id" + where
+							+ " ORDER BY o.tanggal, o.id, i.id LIMIT 500");
+			int ix = 1;
+			if (salesId != null) ps.setLong(ix++, salesId.longValue());
+			if (ctx.tokoId != null && !ctx.admin) ps.setLong(ix++, ctx.tokoId.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			JSONArray rows = new JSONArray();
+			double totalJual = 0, totalHpp = 0;
+			while (rs.next()) {
+				JSONObject r = new JSONObject();
+				r.put("salesNama", str(rs.getString(1)));
+				r.put("tanggal", str(rs.getTimestamp(2)));
+				r.put("fakturNomor", str(rs.getString(3)));
+				r.put("namaProduk", str(rs.getString(4)));
+				r.put("qty", rs.getDouble(5));
+				r.put("hppSatuan", rs.getDouble(6));
+				r.put("hargaJual", rs.getDouble(7));
+				r.put("jumlah", rs.getDouble(8));
+				r.put("labaRugi", rs.getDouble(9));
+				r.put("customerNama", str(rs.getString(10)));
+				r.put("lunas", rs.getDouble(11) <= 0.009);
+				rows.put(r);
+				totalJual += rs.getDouble(8);
+				totalHpp += rs.getDouble(6) * rs.getDouble(5);
+			}
+			rs.close(); ps.close();
+			hasil.put("status", "00");
+			hasil.put("rows", rows);
+			JSONObject ringkas = new JSONObject();
+			ringkas.put("penjualan", totalJual);
+			ringkas.put("hpp", totalHpp);
+			ringkas.put("labaRugi", totalJual - totalHpp);
+			hasil.put("ringkasan", ringkas);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	// =============================================================================================
+	// Riwayat Audit per record (aksi "Riwayat Audit" di seluruh layar master -- baca Envers)
+	// =============================================================================================
+
+	/** Peta jenis entity -> kelas + kunci menu penjaga. Whitelist eksplisit, bukan reflection
+	 *  bebas -- mencegah pembacaan entity di luar varian. */
+	private static Object[] petaAudit(String jenis) {
+		if ("supplier".equals(jenis))
+			return new Object[] { ais.database.model.koperasi.SupplierInventoryProfile.class, "master_supplier" };
+		if ("customer".equals(jenis))
+			return new Object[] { ais.database.model.koperasi.CustomerInventoryProfile.class, "master_customer" };
+		if ("sales".equals(jenis))
+			return new Object[] { ais.database.model.koperasi.SalesInventory.class, "master_sales" };
+		if ("piutang".equals(jenis))
+			return new Object[] { ais.database.model.koperasi.PiutangCustomerDoc.class, "piutang" };
+		if ("penerimaan".equals(jenis))
+			return new Object[] { ais.database.model.koperasi.PenerimaanPiutangCustomer.class, "piutang" };
+		if ("order".equals(jenis))
+			return new Object[] { ais.database.model.koperasi.SalesOrderLapangan.class, "penjualan_sales" };
+		if ("spj".equals(jenis))
+			return new Object[] { ais.database.model.koperasi.SuratPerintahSalesJalan.class, "surat_perintah_sales" };
+		return null;
+	}
+
+	public static void auditHistory(EbisnisActorContextResolver.ActorContext ctx,
+			JSONObject request, JSONObject hasil) throws Exception {
+		String jenis = request.optString("entity", "").trim().toLowerCase();
+		Long id = optLong(request, "id");
+		Object[] peta = petaAudit(jenis);
+		if (peta == null || id == null) {
+			tolak(hasil, "entity (supplier/customer/sales/piutang/penerimaan/order/spj) dan id wajib diisi.");
+			return;
+		}
+		if (!ctx.bolehMenu((String) peta[1])) {
+			tolak(hasil, "Menu terkait tidak aktif untuk akun Anda.");
+			return;
+		}
+		Class<?> kelas = (Class<?>) peta[0];
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			org.hibernate.envers.AuditReader reader =
+					org.hibernate.envers.AuditReaderFactory.get(session);
+			@SuppressWarnings("unchecked")
+			java.util.List<Number> revs = reader.getRevisions((Class<Object>) kelas, id);
+			JSONArray rows = new JSONArray();
+			// 25 revisi terakhir -- cukup utk telaah perubahan tanpa membebani respon.
+			int mulai = Math.max(0, revs.size() - 25);
+			for (int i = revs.size() - 1; i >= mulai; i--) {
+				Number rev = revs.get(i);
+				Object snap = reader.find(kelas, id, rev);
+				JSONObject r = new JSONObject();
+				r.put("revisi", rev.longValue());
+				r.put("waktu", str(reader.getRevisionDate(rev)));
+				JSONObject nilai = new JSONObject();
+				if (snap != null) {
+					// Hanya getter skalar (String/Number/Boolean/Date) -- relasi/koleksi dilewati
+					// supaya snapshot ringkas dan bebas lazy-loading.
+					for (java.lang.reflect.Method m : kelas.getMethods()) {
+						if (!m.getName().startsWith("get") || m.getParameterTypes().length != 0
+								|| "getClass".equals(m.getName())) {
+							continue;
+						}
+						Class<?> tipe = m.getReturnType();
+						if (tipe != String.class && !Number.class.isAssignableFrom(tipe)
+								&& tipe != Boolean.class && tipe != java.util.Date.class
+								&& !tipe.isPrimitive()) {
+							continue;
+						}
+						try {
+							Object v = m.invoke(snap);
+							if (v != null) {
+								nilai.put(m.getName().substring(3), str(v));
+							}
+						} catch (Exception lewati) {
+							// properti audit yang gagal dibaca dilewati senyap.
+						}
+					}
+				}
+				r.put("nilai", nilai);
+				rows.put(r);
+			}
+			hasil.put("status", "00");
+			hasil.put("rows", rows);
+			hasil.put("totalRevisi", revs.size());
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}

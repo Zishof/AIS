@@ -174,6 +174,12 @@ public final class SalesInventoryApiDispatcher {
 			SalesInventoryFinanceHelper.grossProfitReport(ctx, payload, hasil);
 		} else if ("si_profit_loss_report".equals(action) || "si_profit_loss_print".equals(action)) {
 			SalesInventoryFinanceHelper.profitLossReport(ctx, payload, hasil);
+		} else if ("si_receivable_report".equals(action)) {
+			SalesInventoryReceivableHelper.receivableReport(ctx, payload, hasil);
+		} else if ("si_profit_loss_detail".equals(action)) {
+			SalesInventoryFinanceHelper.profitLossDetail(ctx, payload, hasil);
+		} else if ("si_audit_history".equals(action)) {
+			SalesInventoryFinanceHelper.auditHistory(ctx, payload, hasil);
 		} else {
 			// Aksi si_ lain menyusul per fase (P5 SPJ/Nota Sales, P6 finance).
 			hasil.put("status", "error");
