@@ -56,6 +56,46 @@ import ais.ui.util.MyWindow;
 
 public class WindowViewerHelper {
 
+	private static boolean isProtectedEcampusLampiranUrl(String src) {
+		if (src == null) {
+			return false;
+		}
+		String lower = src.trim().toLowerCase();
+		return lower.contains("/al?d=") || lower.contains("ambillampiran");
+	}
+
+	private static boolean isBrowserPreviewable(String nama) {
+		if (nama == null) {
+			return false;
+		}
+		String lower = nama.trim().toLowerCase();
+		return lower.endsWith(".pdf") || lower.endsWith(".png") || lower.endsWith(".jpg")
+				|| lower.endsWith(".jpeg") || lower.endsWith(".webp") || lower.endsWith(".gif")
+				|| lower.endsWith(".txt");
+	}
+
+	private static String escapeAttr(String value) {
+		if (value == null) {
+			return "";
+		}
+		return value.replace("&", "&amp;").replace("\"", "&quot;").replace("<", "&lt;").replace(">", "&gt;");
+	}
+
+	private static void tampilkanInfoPreviewDokumenProtected(Center center, String link) {
+		Html info = new ais.ui.util.MyHtml("<div style='margin:14px;padding:14px 16px;"
+				+ "font-family:Arial,sans-serif;color:#334155;background:#f8fafc;border:1px solid #cbd5e1;"
+				+ "border-radius:10px;line-height:1.5;'>"
+				+ "<b>Preview dokumen Office tidak ditampilkan melalui Google.</b><br/>"
+				+ "Berkas ini dilindungi login eCampus. Google Viewer tidak membawa sesi login pengguna, "
+				+ "sehingga yang terbaca bisa halaman login, bukan isi dokumen."
+				+ "<div style='margin-top:10px;'><a href='" + escapeAttr(link)
+				+ "' target='_blank' rel='noopener noreferrer' "
+				+ "style='display:inline-block;padding:7px 12px;border-radius:5px;background:#1d4ed8;"
+				+ "color:#fff;text-decoration:none;font-weight:600;'>Buka / unduh lewat eCampus</a></div>"
+				+ "</div>");
+		center.appendChild(info);
+	}
+
 	public static MyWindow displayWindow(String src, boolean tampilToolbar) throws Exception {
 		return displayWindow(src, tampilToolbar, "95%", "95%");
 	}
@@ -199,22 +239,26 @@ public class WindowViewerHelper {
 					src = link;
 				} else {
 					boolean isViewableDirectly = false;
+					boolean isDoc = false;
 					if (f != null && f.getName() != null) {
-						String lowerName = f.getName().toLowerCase();
-						isViewableDirectly = lowerName.endsWith(".pdf") || lowerName.endsWith(".png")
-								|| lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg")
-								|| lowerName.endsWith(".webp") || lowerName.endsWith(".gif");
+						isViewableDirectly = isBrowserPreviewable(f.getName());
+						isDoc = FileFoto.merupakanDokumen(f.getName());
 					}
 
 					if (isViewableDirectly) {
 						src = link;
+					} else if (isDoc && isProtectedEcampusLampiranUrl(link)) {
+						tampilkanInfoPreviewDokumenProtected(center, link);
+						src = null;
 					} else {
 						src = "https://docs.google.com/gview?embedded=true&url=" + URLEncoder.encode(link, "UTF-8");
 					}
 				}
 
-				Iframe c = new Iframe(src);
-				center.appendChild(c);
+				if (src != null && !src.trim().isEmpty()) {
+					Iframe c = new Iframe(src);
+					center.appendChild(c);
+				}
 
 				South south = new South();
 				ais.ui.util.ZkCompat.setFlex(south, true);
@@ -402,7 +446,9 @@ public class WindowViewerHelper {
 					} else if (!fileHilang && iframe != null && iframe) {
 						boolean isDoc = (file != null && FileFoto.merupakanDokumen(file.getName()))
 								|| FileFoto.merupakanDokumen(src);
-						if (lowerSrc.startsWith("http") && isDoc) {
+						if (isDoc && isProtectedEcampusLampiranUrl(src)) {
+							tampilkanInfoPreviewDokumenProtected(center, src);
+						} else if (lowerSrc.startsWith("http") && isDoc) {
 							String url = "https://docs.google.com/gview?embedded=true&url="
 									+ URLEncoder.encode(src, "UTF-8");
 							center.appendChild(new Iframe(url));

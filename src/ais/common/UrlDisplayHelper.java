@@ -35,6 +35,21 @@ import ais.ui.util.MyToolbarbuttonConfig;
 public class UrlDisplayHelper {
 
 	private static final String CACHE_DIR = "/opt/ecampus/";
+
+	private static boolean isProtectedEcampusLampiranUrl(String url) {
+		if (url == null) {
+			return false;
+		}
+		String lower = url.trim().toLowerCase();
+		return lower.contains("/al?d=") || lower.contains("ambillampiran");
+	}
+
+	private static String escapeAttr(String value) {
+		if (value == null) {
+			return "";
+		}
+		return value.replace("&", "&amp;").replace("\"", "&quot;").replace("<", "&lt;").replace(">", "&gt;");
+	}
 	
 	public static String getStyleContent() {
 		String s = "style=\"min-height: 430px;min-width: 360px;width:100%;height:95%;\" scrolling=\"yes\" frameborder=\"0\" allowTransparency=\"true\" allowFullScreen=\"true\"";
@@ -425,6 +440,20 @@ public class UrlDisplayHelper {
 			iframe.setAttribute("lampiran_tambahan", true);
 			container.appendChild(iframe);
 			setContainerMinHeight(container, 410);
+		} else if (isProtectedEcampusLampiranUrl(u)) {
+			String html = "<div style='margin:8px 0;padding:12px 14px;font-family:Arial,sans-serif;"
+					+ "color:#334155;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;line-height:1.45;'>"
+					+ "<b>Preview dokumen Office tidak tersedia di sini.</b><br/>"
+					+ "Berkas ini dilindungi login eCampus, sehingga Google Viewer tidak dapat membacanya dengan aman."
+					+ "<div style='margin-top:8px;'><a href='" + escapeAttr(u)
+					+ "' target='_blank' rel='noopener noreferrer' "
+					+ "style='display:inline-block;padding:6px 10px;border-radius:4px;background:#1d4ed8;"
+					+ "color:#fff;text-decoration:none;font-weight:600;'>Buka / unduh lewat eCampus</a></div>"
+					+ "</div>";
+			Html info = new ais.ui.util.MyHtml(html);
+			info.setAttribute("lampiran_tambahan", true);
+			container.appendChild(info);
+			setContainerMinHeight(container, 110);
 		} else {
 			// Google Docs Viewer fallback for other docs or mobile PDF
 			String gViewUrl = "https://docs.google.com/gview?embedded=true&url=" + URLEncoder.encode(u, "UTF-8");

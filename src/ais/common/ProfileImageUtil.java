@@ -49,6 +49,34 @@ import ais.database.model.sekolah.Siswa;
 
 public class ProfileImageUtil {
 
+	private static boolean isProtectedEcampusLampiranUrl(String url) {
+		if (url == null) {
+			return false;
+		}
+		String lower = url.trim().toLowerCase();
+		return lower.contains("/al?d=") || lower.contains("ambillampiran");
+	}
+
+	private static String escapeAttr(String value) {
+		if (value == null) {
+			return "";
+		}
+		return value.replace("&", "&amp;").replace("\"", "&quot;").replace("<", "&lt;").replace(">", "&gt;");
+	}
+
+	private static String protectedOfficePreviewInfo(String link) {
+		return "<div style='margin:8px 0;padding:12px 14px;font-family:Arial,sans-serif;"
+				+ "color:#334155;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;line-height:1.45;'>"
+				+ "<b>Preview dokumen Office tidak tersedia di sini.</b><br/>"
+				+ "Berkas ini dilindungi login eCampus. Google Viewer tidak membawa sesi login pengguna, "
+				+ "sehingga yang terbaca bisa halaman login, bukan isi dokumen."
+				+ "<div style='margin-top:8px;'><a href='" + escapeAttr(link)
+				+ "' target='_blank' rel='noopener noreferrer' "
+				+ "style='display:inline-block;padding:6px 10px;border-radius:4px;background:#1d4ed8;"
+				+ "color:#fff;text-decoration:none;font-weight:600;'>Buka / unduh lewat eCampus</a></div>"
+				+ "</div>";
+	}
+
 	public static A tampilkanGambar(final String url, String ukuran, String align) throws Exception {
 		A a = new A();
 
@@ -416,6 +444,8 @@ public class ProfileImageUtil {
 			return "<img style=\"width:95%;\" src='" + u + "'/>";
 		} else if (nama.toLowerCase().endsWith(".pdf")) {
 			return "<iframe src=\"" + u + "\" " + Common.getStyleContent() + "></iframe>";
+		} else if (isProtectedEcampusLampiranUrl(u)) {
+			return protectedOfficePreviewInfo(u);
 		} else {
 			String link = "https://docs.google.com/gview?embedded=true&url=" + URLEncoder.encode(u, "UTF-8");
 			return "<iframe src=\"" + link + "\" " + Common.getStyleContent() + "></iframe>";
@@ -500,17 +530,23 @@ public class ProfileImageUtil {
 				}
 			}
 
-			Iframe iframe = new Iframe(
-					"https://docs.google.com/gview?embedded=true&url=" + URLEncoder.encode(u, "UTF-8"));
-			if (isMobileLayout) {
-				iframe.setWidth("100%");
-				iframe.setHeight("600px");
+			if (isProtectedEcampusLampiranUrl(u)) {
+				Html info = new ais.ui.util.MyHtml(protectedOfficePreviewInfo(u));
+				info.setAttribute("lampiran_tambahan", true);
+				info.setParent(parent);
 			} else {
-				iframe.setWidth("640px");
-				iframe.setHeight("400px");
+				Iframe iframe = new Iframe(
+						"https://docs.google.com/gview?embedded=true&url=" + URLEncoder.encode(u, "UTF-8"));
+				if (isMobileLayout) {
+					iframe.setWidth("100%");
+					iframe.setHeight("600px");
+				} else {
+					iframe.setWidth("640px");
+					iframe.setHeight("400px");
+				}
+				iframe.setStyle("border:none;width:100%;");
+				parent.appendChild(iframe);
 			}
-			iframe.setStyle("border:none;width:100%;");
-			parent.appendChild(iframe);
 		}
 	}
 
