@@ -254,6 +254,9 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
 			<div class="card-header bg-white border-bottom-0 pt-4 pb-2 px-4 d-flex justify-content-between align-items-center flex-nowrap">
 				<h5 class="fw-bold text-dark mb-0 text-truncate"><i class="fas fa-shopping-cart text-primary me-2"></i><%=Common.getBahasaConfig("Keranjang")%></h5>
 				<div class="d-flex gap-2 flex-nowrap flex-shrink-0">
+					<button class="btn btn-sm btn-outline-info rounded-circle d-flex align-items-center justify-content-center" style="width:34px;height:34px;padding:0;" data-bs-toggle="modal" data-bs-target="#modalBantuanPOS<%=rnd%>" title="<%=Common.getBahasaConfig("Bantuan POS lengkap (F1)")%>">
+						<i class="fas fa-question"></i>
+					</button>
 					<button class="btn btn-sm btn-outline-secondary rounded-circle position-relative d-flex align-items-center justify-content-center" style="width:34px;height:34px;padding:0;" data-bs-toggle="modal" data-bs-target="#modalKeranjangTertahan<%=rnd%>" onclick="loadDaftarTertahan<%=rnd%>()" title="<%=Common.getBahasaConfig("Keranjang Tertahan")%>">
 						<i class="fas fa-inbox"></i>
 						<span class="badge bg-danger rounded-pill d-none" id="badgeTertahan<%=rnd%>" style="font-size:8px;position:absolute;top:-3px;right:-3px;">0</span>
@@ -404,6 +407,7 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
 	</div>
 </div>
 
+<%@ include file="_bantuan_pos.jsp" %>
 <script src="<%=Common.ROOT%>/js/pesan-formal.js"></script>
 <script src="<%=Common.ROOT%>/js/ais_pos_offline.js"></script>
 <script src="<%=Common.ROOT%>/js/ais_image_compress.js"></script>
@@ -2982,7 +2986,11 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         // mempercepat kasir yg terbiasa tanpa mouse. Diabaikan bila fokus ada di textarea/uang tunai
         // agar tak mengganggu pengetikan biasa.
         document.addEventListener('keydown', (event) => {
-            if (event.key === 'F2' || event.key === 'F3') {
+            if (event.key === 'F1') {
+                event.preventDefault();
+                const bantuan = document.getElementById('modalBantuanPOS<%=rnd%>');
+                if (bantuan && window.bootstrap) bootstrap.Modal.getOrCreateInstance(bantuan).show();
+            } else if (event.key === 'F2' || event.key === 'F3') {
                 event.preventDefault();
                 document.getElementById('searchProduk<%=rnd%>').focus();
             } else if (event.key === 'F12') {

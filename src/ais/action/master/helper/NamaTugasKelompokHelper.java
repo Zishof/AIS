@@ -154,6 +154,7 @@ public class NamaTugasKelompokHelper implements DataLoader {
 
 				}
 			};
+			detail.addEventListener("onOpen", eventListener);
 
 			detail.setParent(row);
 			// Jangan membuka seluruh anggota untuk 10 kelompok sekaligus. Selain membuat modal
@@ -161,7 +162,6 @@ public class NamaTugasKelompokHelper implements DataLoader {
 			// halaman 2 (Kelompok 11 dan seterusnya) terlihat tidak dapat dibuka. Pengguna
 			// tetap dapat membuka anggota kelompok yang diperlukan lewat ikon panah Detail.
 			detail.setOpen(false);
-			Common.createDefaultTimer(eventListener);
 
 			boolean bukan = false;
 
@@ -357,6 +357,27 @@ public class NamaTugasKelompokHelper implements DataLoader {
 			}
 
 			Hbox toolbar = new Hbox();
+			final MyToolbarbuttonConfig kelolaAnggota = new MyToolbarbuttonConfig("Kelola Anggota",
+					"/img/group.gif");
+			kelolaAnggota.setVisible(bolehKelolaKelompok() && edit);
+			kelolaAnggota.setTooltiptext("Tambah, lihat, atau hapus anggota kelompok");
+			kelolaAnggota.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					if (detail.isOpen()) {
+						detail.setOpen(false);
+						Common.clear(detail);
+						kelolaAnggota.setLabel("Kelola Anggota");
+					} else {
+						detail.setOpen(true);
+						Common.clear(detail);
+						namaTugasKelompokPunyaMahasiswaHelper.display(namaTugasKelompok, detail);
+						kelolaAnggota.setLabel("Tutup Anggota");
+					}
+				}
+			});
+			kelolaAnggota.setParent(toolbar);
+
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/svg/edit-box-line.svg");
 			button.setVisible(bolehKelolaKelompok() && edit);
 			button.setTooltiptext("Edit Data");
@@ -674,7 +695,9 @@ public class NamaTugasKelompokHelper implements DataLoader {
 			MyColumnConfig column = new MyColumnConfig();
 			column.setParent(columns);
 			column.setLabel("");
-			column.setWidth("0px");
+			// Panah detail tetap terlihat sebagai alternatif tombol "Kelola Anggota".
+			// Sebelumnya 0px membuat detail anggota dan kontrol tambah anggota tidak dapat dibuka.
+			column.setWidth("34px");
 
 			column = new MyColumnConfig();
 			column.setParent(columns);
@@ -694,7 +717,7 @@ public class NamaTugasKelompokHelper implements DataLoader {
 			column.setParent(columns);
 			column.setLabel("");
 			column.setWidth(
-					tbmuser != null && (tbmuser.getMahasiswa() != null || tbmuser.getSiswa() != null) ? "0%" : "15%");
+					tbmuser != null && (tbmuser.getMahasiswa() != null || tbmuser.getSiswa() != null) ? "0%" : "24%");
 
 			loadData(null);
 		}
@@ -1092,8 +1115,51 @@ public class NamaTugasKelompokHelper implements DataLoader {
 									Mahasiswa.class);
 							if (mahasiswaRow == null) {
 								dilewati++;
+								if (catatanGagal.length() < 1500) {
+									catatanGagal.append("\n- Baris ").append(i + 1)
+											.append(": mahasiswa (NIM kolom ke-2) tidak ditemukan.");
+								}
 								continue;
 							}
+
+							// Import OBE sebelumnya hanya menulis nilai JSON dan tidak pernah membuat
+							// NamaTugasKelompokPunyaMahasiswa. Akibatnya upload tampak selesai, tetapi
+							// jumlah peserta tetap 0. Sinkronkan relasi kelompok dari kolom 1 seperti
+							// importer non-OBE; jika mahasiswa sudah berada di kelompok lain pada tugas
+							// yang sama, pindahkan relasinya agar tidak tercipta anggota ganda.
+							String namaKelompok = normalisasiNamaKelompok(
+									Common.getSheetContentAsString(sheet, 0, i));
+							if (namaKelompok != null && !namaKelompok.isEmpty()) {
+								NamaTugasKelompok kelompok = (NamaTugasKelompok) session
+										.createCriteria(NamaTugasKelompok.class)
+										.add(Restrictions.eq("tugasKelompok", tk))
+										.add(Restrictions.ilike("nama", namaKelompok)).setMaxResults(1).uniqueResult();
+								if (kelompok == null) {
+									dilewati++;
+									if (catatanGagal.length() < 1500) {
+										catatanGagal.append("\n- Baris ").append(i + 1).append(": kelompok '")
+												.append(namaKelompok).append("' tidak ditemukan.");
+									}
+									continue;
+								}
+
+								NamaTugasKelompokPunyaMahasiswa anggota = (NamaTugasKelompokPunyaMahasiswa) session
+										.createCriteria(NamaTugasKelompokPunyaMahasiswa.class)
+										.createAlias("namaTugasKelompok", "ntk")
+										.add(Restrictions.eq("ntk.tugasKelompok", tk))
+										.add(Restrictions.eq("mahasiswa", mahasiswaRow)).setMaxResults(1)
+										.uniqueResult();
+								if (anggota == null) {
+									anggota = new NamaTugasKelompokPunyaMahasiswa();
+									anggota.setMahasiswa(mahasiswaRow);
+								}
+								anggota.setNamaTugasKelompok(kelompok);
+								anggota.setKeterangan(Common.getSheetContentAsString(sheet, 3, i));
+								session.getTransaction().begin();
+								session.saveOrUpdate(anggota);
+								session.getTransaction().commit();
+							}
+
 							String keyBase = mahasiswaRow.getId() + "_mhs_nilai_";
 							for (int f = 0; f < obeFormatNilais.size(); f++) {
 								Double val = Common.getSheetContentAsDouble(sheet, fnCols[f], i);
@@ -1104,6 +1170,12 @@ public class NamaTugasKelompokHelper implements DataLoader {
 							label.setValue("Upload nilai OBE " + mahasiswaRow.getNama() + " ("
 									+ Common.numberFormat.get().format(i * 100.0 / rowCount) + " %)");
 						} catch (Exception e) {
+							try {
+								if (session.getTransaction().isActive()) session.getTransaction().rollback();
+							} catch (Exception rollbackError) {
+								ais.common.ErrorAuditUtil.record(rollbackError,
+										"auto-audit NamaTugasKelompokHelper.uploadDataKelompokObe.rollback");
+							}
 							dilewati++;
 							if (catatanGagal.length() < 1500) {
 								catatanGagal.append("\n- Baris ").append(i + 1).append(": ")
@@ -1130,6 +1202,29 @@ public class NamaTugasKelompokHelper implements DataLoader {
 				label.setValue("");
 			}
 		}).start();
+	}
+
+	/** Menghapus prefix ID hasil download (mis. "123-Kelompok 1") tanpa merusak nama ber-tanda minus. */
+	private String normalisasiNamaKelompok(String nilaiCell) {
+		if (nilaiCell == null) {
+			return "";
+		}
+		String hasil = nilaiCell.trim();
+		int posDash = hasil.indexOf('-');
+		if (posDash > 0) {
+			String prefix = hasil.substring(0, posDash).trim();
+			boolean angka = !prefix.isEmpty();
+			for (int i = 0; i < prefix.length(); i++) {
+				if (!Character.isDigit(prefix.charAt(i))) {
+					angka = false;
+					break;
+				}
+			}
+			if (angka) {
+				hasil = hasil.substring(posDash + 1).trim();
+			}
+		}
+		return hasil;
 	}
 
 }

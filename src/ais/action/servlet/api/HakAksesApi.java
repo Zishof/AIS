@@ -250,12 +250,13 @@ public class HakAksesApi {
 		put(modul, "kantin", role.getKantin());
 		put(modul, "tampilPos", role.getTampilPos());
 		put(modul, "dashboardKoperasi", role.getDashboardKoperasi());
-		// 3 flag ini SEKARANG bagian dari Tbmrole.ebisnisMenu (JSON konsolidasi) -- lihat
+		// Flag landing/modul ini bagian dari Tbmrole.ebisnisMenu (JSON konsolidasi) -- lihat
 		// ais.common.EbisnisMenuKatalog. Nama key JSON API di sini SENGAJA dipertahankan sama persis
 		// (kantinMemberLandingPage/aksesSupervisorKantin/aksesBerandaKantin) demi kompatibilitas
 		// pemanggil existing, walau sumber datanya sekarang satu kolom JSON.
 		org.json.JSONObject ebisnisMenuRole = ais.common.EbisnisMenuKatalog.urai(role.getEbisnisMenu());
 		put(modul, "kantinMemberLandingPage", Boolean.valueOf(ebisnisMenuRole.optBoolean("landingKantin", false)));
+		put(modul, "inventorySalesLandingPage", Boolean.valueOf(ebisnisMenuRole.optBoolean("landingInventory", false)));
 		put(modul, "aksesSupervisorKantin", Boolean.valueOf(ebisnisMenuRole.optBoolean("supervisor", false)));
 		put(modul, "aksesBerandaKantin", Boolean.valueOf(ebisnisMenuRole.optBoolean("berandaKantin", false)));
 		put(modul, "emedic", role.getEmedic());

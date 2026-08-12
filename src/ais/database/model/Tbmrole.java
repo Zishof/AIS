@@ -46,6 +46,10 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	public static final String DOKTER = "Dokter";
 	public static final String GURU = "Guru";
 	public static final String KANTIN = "Kantin";
+	public static final String HALAMAN_UTAMA_KANTIN = "/WEB-INF/baru/modul/kantin/index.jsp";
+	public static final String HALAMAN_UTAMA_APOTIK = "/WEB-INF/baru/modul/apotik/index.jsp";
+	public static final String HALAMAN_UTAMA_EMEDIK = "/WEB-INF/baru/modul/emedik/index.jsp";
+	public static final String HALAMAN_UTAMA_INVENTORY = "/WEB-INF/baru/modul/inventory/index.jsp";
 	public static final String ORANG_TUA_KODE = "ortu";
 	public static final String ORANG_TUA = "Ortu";
 	public static final String KOMUNITAS = "Komunitas";
@@ -902,12 +906,12 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	}
 
 	public String getHalamanUtama() {
-
-		if (getRoleId() != null && getRoleId().equals(KANTIN)) {
-			halamanUtama = "/WEB-INF/baru/modul/kantin/index.jsp";
+		if (halamanUtama != null && !halamanUtama.trim().isEmpty()) {
+			return halamanUtama.trim();
 		}
-
-		return halamanUtama == null || halamanUtama.trim().isEmpty() ? null : halamanUtama.trim();
+		// Pertahankan default historis role Kantin, tetapi jangan menimpa pilihan
+		// eksplisit POS Apotik/eMedik/Inventory yang disimpan administrator.
+		return getRoleId() != null && getRoleId().equals(KANTIN) ? HALAMAN_UTAMA_KANTIN : null;
 	}
 
 	public void setHalamanUtama(String halamanUtama) {

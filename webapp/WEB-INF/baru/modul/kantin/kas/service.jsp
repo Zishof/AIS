@@ -3,7 +3,7 @@
   Endpoint JSON Sesi Kas Kasir (Buka/Tutup Kas). Aksi:
     status : sesi terbuka milik kasir + hitung tunai/non-tunai POS sejak buka.
     buka   : buka kas (modal awal).  tutup : tutup kas (input uang fisik -> selisih).  list : riwayat.
-  Tunai/non-tunai dihitung dari koperasi.pembelian_anggota_koperasi (oleh = kasir) dalam rentang sesi.
+  Tunai/non-tunai dihitung dari koperasi.pembelian_anggota_koperasi (kasir_login_nama, fallback oleh/olehid) dalam rentang sesi.
   Sesi currentSession() (tak ditutup). Toko dipaksa ke toko pedagang bila login pedagang.
 --%>
 <%@page import="org.json.*"%>
@@ -48,8 +48,10 @@ try {
     if (u.getPedagang() != null && u.getPedagang().getToko() != null) { tokoId = u.getPedagang().getToko().getId(); lockToko = true; }
     else { String tp = request.getParameter("tokoId"); if (ada(tp)) { try { tokoId = Long.valueOf(tp.trim()); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) webapp/WEB-INF/baru/modul/kantin/kas/service.jsp:41");} } }
 
-    // cari sesi terbuka milik kasir ini
-    StringBuilder cari = new StringBuilder("select id from koperasi.sesi_kas_kasir where coalesce(status,'BUKA')='BUKA' and (oleh=:o or olehid=:i) ");
+    // cari sesi terbuka milik kasir ini -- kasir_nama/kasir_user_id (BUKAN oleh/olehid, itu audit
+    // generik yang bisa ditimpa interceptor Hibernate kapan saja -- lihat javadoc
+    // SesiKasKasir.getKasirNama())
+    StringBuilder cari = new StringBuilder("select id from koperasi.sesi_kas_kasir where coalesce(status,'BUKA')='BUKA' and (kasir_nama=:o or kasir_user_id=:i) ");
     if (tokoId != null) cari.append(" and toko=:t ");
     cari.append(" order by id desc ");
     SQLQuery cq = session.createSQLQuery(cari.toString());
@@ -69,7 +71,7 @@ try {
         if (lockToko) toko = u.getPedagang().getToko();
         else if (tokoId != null) toko = (Toko) session.get(Toko.class, tokoId);
         SesiKasKasir o = new SesiKasKasir();
-        o.setToko(toko); o.setOleh(oleh); o.setOlehId(olehId);
+        o.setToko(toko); o.setKasirNama(oleh); o.setKasirUserId(olehId);
         o.setWaktuBuka(new Date()); o.setModalAwal(Double.valueOf(d(request.getParameter("modalAwal"))));
         o.setStatus(SesiKasKasir.STATUS_BUKA); o.setKeterangan(request.getParameter("keterangan"));
         Common.refreshSaveOrUpdate(session, o);
@@ -93,7 +95,7 @@ try {
     } else if ("list".equals(aksi)) {
         StringBuilder w = new StringBuilder(" where 1=1 ");
         if (lockToko) w.append(" and k.toko=").append(tokoId);
-        SQLQuery q = session.createSQLQuery("select k.oleh, k.waktubuka, k.waktututup, coalesce(k.modalawal,0), coalesce(k.totaltunai,0), coalesce(k.totalnontunai,0), coalesce(k.uangfisik,0), coalesce(k.selisih,0), coalesce(k.status,'BUKA') "
+        SQLQuery q = session.createSQLQuery("select k.kasir_nama, k.waktubuka, k.waktututup, coalesce(k.modalawal,0), coalesce(k.totaltunai,0), coalesce(k.totalnontunai,0), coalesce(k.uangfisik,0), coalesce(k.selisih,0), coalesce(k.status,'BUKA') "
             + " from koperasi.sesi_kas_kasir k " + w + " order by k.waktubuka desc ");
         q.setMaxResults(100);
         JSONArray arr = new JSONArray();
@@ -128,11 +130,17 @@ try {
 out.print(result.toString());
 %>
 <%!
-    /** Hitung [tunai, nontunai] penjualan POS oleh kasir dlm rentang waktu. */
+    /**
+     * Hitung [tunai, nontunai] penjualan POS oleh kasir dlm rentang waktu. Cocokkan lewat
+     * kasir_login_nama (diisi andal saat checkout, lihat javadoc
+     * PembelianAnggotaKoperasi.getKasirLoginNama()) SELAIN oleh/olehid (fallback baris
+     * lama/ZK-JSP) -- oleh/olehid SENDIRI SELALU "external_update" utk transaksi lewat PosApi
+     * (Electron/Flutter), lihat SesiKasUtil.hitungPenjualan javadoc utk detail lengkap.
+     */
     private double[] hitungPenjualan(Session session, String oleh, String olehId, Long tokoId, Date dari, Date sampai) {
         try {
             StringBuilder sb = new StringBuilder("select coalesce(sum(coalesce(bayar_tunai,0)),0), coalesce(sum(coalesce(bayar_non_tunai,0)),0) "
-                + " from koperasi.pembelian_anggota_koperasi where (oleh=:o or oleh=:i) and tanggal_pembayaran >= :dari and tanggal_pembayaran <= :sampai ");
+                + " from koperasi.pembelian_anggota_koperasi where (oleh=:o or oleh=:i or kasir_login_nama=:o) and tanggal_pembayaran >= :dari and tanggal_pembayaran <= :sampai ");
             if (tokoId != null) sb.append(" and toko=:t ");
             SQLQuery q = session.createSQLQuery(sb.toString());
             q.setParameter("o", oleh); q.setParameter("i", olehId);

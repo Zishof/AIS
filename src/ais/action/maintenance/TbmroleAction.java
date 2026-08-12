@@ -162,6 +162,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 	private MyCheckboxConfig aksesFeeder;
 	private MyCheckboxConfig aksesSister;
 	private Combobox dashboardDefaultMain;
+	private Combobox halamanUtama;
 	private MyCheckboxConfig aksesSupervisorKantin;
 	private MyCheckboxConfig aksesKasir;
 	private MyCheckboxConfig aksesBerandaKantin;
@@ -193,6 +194,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 	private MyCheckboxConfig aksesRiwayatPenjualan;
 	private MyCheckboxConfig aksesReturPenjualan;
 	private MyCheckboxConfig kantinMemberLandingPage;
+	private MyCheckboxConfig inventorySalesLandingPage;
 	private Map<Long, MyCheckboxConfig> tokoAksesCheckboxMap;
 	/**
 	 * Checkbox grid Create/Update/Delete/Approve/Reject per menu {@link ais.common.EbisnisMenuKatalog#KUNCI_CRUD}
@@ -1964,6 +1966,31 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 
 		row = new MyFormRow();
 		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Halaman langsung setelah login"));
+		halamanUtama = new Combobox();
+		halamanUtama.setWidth("90%");
+		halamanUtama.setReadonly(true);
+		String[][] pilihanHalamanUtama = {
+				{ "== Ikuti Tampilan Utama ==", null },
+				{ "Kantin (JSP)", Tbmrole.HALAMAN_UTAMA_KANTIN },
+				{ "POS Apotik (JSP)", Tbmrole.HALAMAN_UTAMA_APOTIK },
+				{ "eMedik (JSP)", Tbmrole.HALAMAN_UTAMA_EMEDIK },
+				{ "Inventory & Sales (48 layar JSP)", Tbmrole.HALAMAN_UTAMA_INVENTORY }
+		};
+		String nilaiHalamanUtama = tbmrole.getHalamanUtama();
+		for (int i = 0; i < pilihanHalamanUtama.length; i++) {
+			Comboitem item = new Comboitem(pilihanHalamanUtama[i][0]);
+			item.setValue(pilihanHalamanUtama[i][1]);
+			item.setParent(halamanUtama);
+			if ((nilaiHalamanUtama == null && pilihanHalamanUtama[i][1] == null)
+					|| (nilaiHalamanUtama != null && nilaiHalamanUtama.equals(pilihanHalamanUtama[i][1]))) {
+				halamanUtama.setSelectedItem(item);
+			}
+		}
+		row.appendChild(halamanUtama);
+
+		row = new MyFormRow();
+		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig(""));
 		elearning = new MyCheckboxConfig("Tampilkan Dashboard E-learning");
 		elearning.setChecked(tbmrole.getElearning());
@@ -2235,6 +2262,23 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		row.appendChild(kantinMemberLandingPage = new MyCheckboxConfig(
 				"Arahkan langsung ke halaman kantin (/WEB-INF/baru/modul/kantin/index.jsp)"));
 		kantinMemberLandingPage.setChecked(ebisnisMenuTersimpan.optBoolean("landingKantin", false));
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Main menu Inventory & Sales"));
+		row.appendChild(inventorySalesLandingPage = new MyCheckboxConfig(
+				"Arahkan langsung ke halaman Inventory & Sales (/WEB-INF/baru/modul/inventory/index.jsp)"));
+		inventorySalesLandingPage.setChecked(ebisnisMenuTersimpan.optBoolean("landingInventory", false));
+		kantinMemberLandingPage.addEventListener("onCheck", new EventListener() {
+			@Override public void onEvent(Event event) throws Exception {
+				if (kantinMemberLandingPage.isChecked() && inventorySalesLandingPage != null) inventorySalesLandingPage.setChecked(false);
+			}
+		});
+		inventorySalesLandingPage.addEventListener("onCheck", new EventListener() {
+			@Override public void onEvent(Event event) throws Exception {
+				if (inventorySalesLandingPage.isChecked() && kantinMemberLandingPage != null) kantinMemberLandingPage.setChecked(false);
+			}
+		});
 
 		row = new MyFormRow();
 		row.setParent(rows);
@@ -2582,7 +2626,11 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		obj.put("supervisor", aksesSupervisorKantin != null && aksesSupervisorKantin.isChecked());
 		obj.put("berandaKantin", aksesBerandaKantin != null && aksesBerandaKantin.isChecked());
 		obj.put("landingKantin", kantinMemberLandingPage != null && kantinMemberLandingPage.isChecked());
-		JSONObject menu = new JSONObject();
+		obj.put("landingInventory", inventorySalesLandingPage != null && inventorySalesLandingPage.isChecked());
+		// Pertahankan kunci modul varian (Inventory/Apotik/eMedik) yang dikelola editor
+		// hak akses baru. Form ZK ini hanya menimpa checkbox lama yang memang ditampilkannya.
+		JSONObject menu = ais.common.EbisnisMenuKatalog.urai(
+				tbmrole == null ? null : tbmrole.getEbisnisMenu()).getJSONObject("menu");
 		menu.put("kasir", aksesKasir == null || aksesKasir.isChecked());
 		menu.put("ringkasan", aksesRingkasan == null || aksesRingkasan.isChecked());
 		menu.put("pesanan", aksesPesanan == null || aksesPesanan.isChecked());
@@ -2683,6 +2731,9 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 		tbmrole.setDashboardDefaultMain(
 				dashboardDefaultMain == null || dashboardDefaultMain.getSelectedItem() == null ? null
 						: (String) dashboardDefaultMain.getSelectedItem().getValue());
+		tbmrole.setHalamanUtama(
+				halamanUtama == null || halamanUtama.getSelectedItem() == null ? null
+						: (String) halamanUtama.getSelectedItem().getValue());
 		tbmrole.setKode(kodeAkses.getValue().trim());
 		tbmrole.setRoleName(nama.getValue());
 		tbmrole.setRoleId(kode.getValue());

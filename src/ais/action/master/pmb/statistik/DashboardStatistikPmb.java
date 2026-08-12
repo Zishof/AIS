@@ -25,6 +25,7 @@ import org.zkoss.zk.ui.event.EventListener;
 import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BiodataCalonMahasiswa;
+import ais.database.model.Jenjang;
 import ais.database.model.PerguruanTinggi;
 import ais.ui.util.HtmlChartHelper;
 import ais.ui.util.MyColumnConfig;
@@ -252,6 +253,9 @@ public class DashboardStatistikPmb {
 	/** Combobox semester di filter bar. */
 	private Combobox cboSem;
 
+	/** Combobox jenjang studi di filter bar. */
+	private Combobox cboJenjang;
+
 	/** Area HTML charts — dibersihkan saat Muat Ulang. */
 	private Div contentHolder;
 
@@ -315,6 +319,20 @@ public class DashboardStatistikPmb {
 		cboSem = buildSemesterCombo(defaultSem);
 		cboSem.setParent(filterBar);
 
+		Label lblJenjang = new Label(Common.getBahasaConfig("Jenjang Studi:"));
+		lblJenjang.setStyle("font-size:12px;color:#6b7280;white-space:nowrap;margin-left:4px;");
+		lblJenjang.setParent(filterBar);
+
+		cboJenjang = new Combobox();
+		cboJenjang.setWidth("120px");
+		cboJenjang.setReadonly(true);
+		Common.insertComboDanSemua(cboJenjang, "nama", Jenjang.class,
+				Restrictions.in("nama", new String[] { "D3", "S1", "S2", "S3", "Profesi" }));
+		if (cboJenjang.getItemCount() > 0) {
+			cboJenjang.setSelectedIndex(0);
+		}
+		cboJenjang.setParent(filterBar);
+
 		MyToolbarbuttonConfig btnRefresh = new MyToolbarbuttonConfig("Muat Ulang", "/img/refresh.gif");
 		btnRefresh.setStyle("margin-left:6px;");
 		btnRefresh.setParent(filterBar);
@@ -377,6 +395,14 @@ public class DashboardStatistikPmb {
 		if (cboSem != null && cboSem.getSelectedItem() != null
 				&& cboSem.getSelectedItem().getValue() != null) {
 			return (String) cboSem.getSelectedItem().getValue();
+		}
+		return null;
+	}
+
+	private Jenjang getSelectedJenjang() {
+		if (cboJenjang != null && cboJenjang.getSelectedItem() != null
+				&& cboJenjang.getSelectedItem().getValue() instanceof Jenjang) {
+			return (Jenjang) cboJenjang.getSelectedItem().getValue();
 		}
 		return null;
 	}
@@ -929,11 +955,13 @@ public class DashboardStatistikPmb {
 					+ "FROM BiodataCalonMahasiswa bcm "
 					+ "WHERE bcm.tahunAkademik = :ta "
 					+ semClause(sem)
+					+ jenjangClause()
 					+ "AND bcm.jenisKelamin IS NOT NULL "
 					+ "GROUP BY bcm.jenisKelamin";
 			org.hibernate.Query q = session.createQuery(hql)
 					.setParameter("ta", ta);
 			if (hasSem(sem)) { q.setParameter("sem", sem); }
+			applyJenjangParam(q);
 
 			int laki = 0, perempuan = 0;
 			for (Object obj : q.list()) {
@@ -962,12 +990,14 @@ public class DashboardStatistikPmb {
 					+ "FROM BiodataCalonMahasiswa bcm "
 					+ "WHERE bcm.tahunAkademik = :ta "
 					+ semClause(sem)
+					+ jenjangClause()
 					+ "AND bcm.tanggalDaftar IS NOT NULL "
 					+ "GROUP BY MONTH(bcm.tanggalDaftar) "
 					+ "ORDER BY MONTH(bcm.tanggalDaftar)";
 			org.hibernate.Query q = session.createQuery(hql)
 					.setParameter("ta", ta);
 			if (hasSem(sem)) { q.setParameter("sem", sem); }
+			applyJenjangParam(q);
 
 			for (Object obj : q.list()) {
 				Object[] r    = (Object[]) obj;
@@ -1003,11 +1033,13 @@ public class DashboardStatistikPmb {
 					+ "FROM BiodataCalonMahasiswa bcm JOIN bcm.prodi1 j "
 					+ "WHERE bcm.tahunAkademik = :ta "
 					+ semClause(sem)
+					+ jenjangClause()
 					+ "GROUP BY j.id, j.nama "
 					+ "ORDER BY COUNT(bcm) DESC";
 			org.hibernate.Query qPem = session.createQuery(hqlPem)
 					.setParameter("ta", ta);
 			if (hasSem(sem)) { qPem.setParameter("sem", sem); }
+			applyJenjangParam(qPem);
 
 			// Simpan ke LinkedHashMap agar urutan terjaga
 			Map<Object, ProdiKetatatanData> map =
@@ -1029,10 +1061,12 @@ public class DashboardStatistikPmb {
 					+ "FROM BiodataCalonMahasiswa bcm JOIN bcm.prodiLulus j "
 					+ "WHERE bcm.tahunAkademik = :ta "
 					+ semClause(sem)
+					+ jenjangClause()
 					+ "GROUP BY j.id";
 			org.hibernate.Query qDit = session.createQuery(hqlDit)
 					.setParameter("ta", ta);
 			if (hasSem(sem)) { qDit.setParameter("sem", sem); }
+			applyJenjangParam(qDit);
 
 			for (Object obj : qDit.list()) {
 				Object[] r   = (Object[]) obj;
@@ -1048,11 +1082,13 @@ public class DashboardStatistikPmb {
 					+ "FROM BiodataCalonMahasiswa bcm JOIN bcm.prodiLulus j "
 					+ "WHERE bcm.tahunAkademik = :ta "
 					+ semClause(sem)
+					+ jenjangClause()
 					+ "AND bcm.mahasiswa IS NOT NULL "
 					+ "GROUP BY j.id";
 			org.hibernate.Query qNIM = session.createQuery(hqlNIM)
 					.setParameter("ta", ta);
 			if (hasSem(sem)) { qNIM.setParameter("sem", sem); }
+			applyJenjangParam(qNIM);
 
 			for (Object obj : qNIM.list()) {
 				Object[] r   = (Object[]) obj;
@@ -1079,10 +1115,12 @@ public class DashboardStatistikPmb {
 					+ "FROM BiodataCalonMahasiswa bcm JOIN bcm.gelombangPendaftaran g "
 					+ "WHERE bcm.tahunAkademik = :ta "
 					+ semClause(sem)
+					+ jenjangClause()
 					+ "GROUP BY g.id, g.nama ORDER BY g.id";
 			org.hibernate.Query q = session.createQuery(hql)
 					.setParameter("ta", ta);
 			if (hasSem(sem)) { q.setParameter("sem", sem); }
+			applyJenjangParam(q);
 
 			for (Object obj : q.list()) {
 				Object[] r  = (Object[]) obj;
@@ -1106,12 +1144,14 @@ public class DashboardStatistikPmb {
 					+ "FROM BiodataCalonMahasiswa bcm JOIN bcm.propinsiCalon p "
 					+ "WHERE bcm.tahunAkademik = :ta "
 					+ semClause(sem)
+					+ jenjangClause()
 					+ "GROUP BY p.id, p.nama "
 					+ "ORDER BY COUNT(bcm) DESC";
 			org.hibernate.Query q = session.createQuery(hql)
 					.setParameter("ta", ta)
 					.setMaxResults(MAX_PROPINSI);
 			if (hasSem(sem)) { q.setParameter("sem", sem); }
+			applyJenjangParam(q);
 
 			for (Object obj : q.list()) {
 				Object[] r  = (Object[]) obj;
@@ -1140,6 +1180,9 @@ public class DashboardStatistikPmb {
 		if (hasSem(sem)) {
 			c.add(Restrictions.eq("semesterMulai", sem));
 		}
+		if (getSelectedJenjang() != null) {
+			c.add(Restrictions.eq("jenjang", getSelectedJenjang()));
+		}
 		return c;
 	}
 
@@ -1151,6 +1194,16 @@ public class DashboardStatistikPmb {
 	/** Mengembalikan true jika filter semester terisi (bukan null/kosong). */
 	private boolean hasSem(String sem) {
 		return sem != null && sem.trim().length() > 0;
+	}
+
+	private String jenjangClause() {
+		return getSelectedJenjang() == null ? "" : "AND bcm.jenjang = :jenjang ";
+	}
+
+	private void applyJenjangParam(org.hibernate.Query q) {
+		if (getSelectedJenjang() != null) {
+			q.setParameter("jenjang", getSelectedJenjang());
+		}
 	}
 
 	/**

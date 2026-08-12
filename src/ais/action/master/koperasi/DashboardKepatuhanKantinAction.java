@@ -481,7 +481,7 @@ public class DashboardKepatuhanKantinAction extends GenericAutowireComposer {
      * sini harus ikut memperlakukannya begitu agar sesi lama tidak luput dari pengawasan.
      */
     private List<Object[]> qSesiKasTerbuka() {
-        return qShared("kas_terbuka", "SELECT COALESCE(t.nama,'-'), COALESCE(k.oleh,'-'), "
+        return qShared("kas_terbuka", "SELECT COALESCE(t.nama,'-'), COALESCE(k.kasir_nama,'-'), "
                 + "COALESCE(TO_CHAR(k.waktubuka,'dd-MM-yyyy HH24:MI'),'-'), "
                 + "COALESCE(ROUND((EXTRACT(EPOCH FROM (NOW() - k.waktubuka))/3600.0)::numeric, 1), 0) "
                 + "FROM koperasi.sesi_kas_kasir k LEFT JOIN koperasi.toko t ON t.id = k.toko "
@@ -491,7 +491,7 @@ public class DashboardKepatuhanKantinAction extends GenericAutowireComposer {
 
     /** Sesi kas yang sudah ditutup tapi uang fisiknya tidak cocok, dalam periode. */
     private List<Object[]> qSelisihKas() {
-        return q("selisih_kas", "SELECT COALESCE(t.nama,'-'), COALESCE(k.oleh,'-'), "
+        return q("selisih_kas", "SELECT COALESCE(t.nama,'-'), COALESCE(k.kasir_nama,'-'), "
                 + "COALESCE(TO_CHAR(k.waktututup,'dd-MM-yyyy HH24:MI'),'-'), "
                 + "COALESCE(k.modalawal,0), COALESCE(k.uangfisik,0), COALESCE(k.selisih,0) "
                 + "FROM koperasi.sesi_kas_kasir k LEFT JOIN koperasi.toko t ON t.id = k.toko "

@@ -4,6 +4,7 @@ import java.text.DecimalFormat;
 import java.text.NumberFormat;
 
 import org.hibernate.Session;
+import org.hibernate.criterion.Restrictions;
 import org.zkoss.zul.Combobox;
 import org.zkoss.zul.Comboitem;
 import org.zkoss.zul.Div;
@@ -14,6 +15,7 @@ import org.zkoss.zk.ui.event.EventListener;
 
 import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
+import ais.database.model.Jenjang;
 import ais.database.model.PerguruanTinggi;
 import ais.ui.util.MyComboitemConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
@@ -53,6 +55,9 @@ public abstract class DashboardPmbBase {
 
 	/** Combobox Semester di filter bar. */
 	protected Combobox cboSem;
+
+	/** Combobox Jenjang Studi di filter bar seluruh dasbor PMB. */
+	protected Combobox cboJenjang;
 
 	/** Div tempat HTML chart ditempatkan; dibersihkan setiap Muat Ulang. */
 	protected Div contentHolder;
@@ -110,6 +115,20 @@ public abstract class DashboardPmbBase {
 
 		cboSem = buildSemesterCombo(defaultSem);
 		cboSem.setParent(filterBar);
+
+		Label lblJenjang = new Label(Common.getBahasaConfig("Jenjang Studi:"));
+		lblJenjang.setStyle("font-size:12px;color:#6b7280;white-space:nowrap;margin-left:4px;");
+		lblJenjang.setParent(filterBar);
+
+		cboJenjang = new Combobox();
+		cboJenjang.setWidth("120px");
+		cboJenjang.setReadonly(true);
+		Common.insertComboDanSemua(cboJenjang, "nama", Jenjang.class,
+				Restrictions.in("nama", new String[] { "D3", "S1", "S2", "S3", "Profesi" }));
+		if (cboJenjang.getItemCount() > 0) {
+			cboJenjang.setSelectedIndex(0);
+		}
+		cboJenjang.setParent(filterBar);
 
 		buildExtraFilter(filterBar);
 
@@ -244,6 +263,34 @@ public abstract class DashboardPmbBase {
 	protected void applySemParam(org.hibernate.Query q, String sem) {
 		if (hasSem(sem)) {
 			q.setParameter("sem", sem);
+		}
+	}
+
+	/** Jenjang terpilih, atau null untuk seluruh jenjang. */
+	protected Jenjang getSelectedJenjang() {
+		if (cboJenjang != null && cboJenjang.getSelectedItem() != null
+				&& cboJenjang.getSelectedItem().getValue() instanceof Jenjang) {
+			return (Jenjang) cboJenjang.getSelectedItem().getValue();
+		}
+		return null;
+	}
+
+	/** Klausa filter jenjang untuk query dengan alias BiodataCalonMahasiswa {@code bcm}. */
+	protected String jenjangClause() {
+		return jenjangClause(getSelectedJenjang());
+	}
+
+	protected String jenjangClause(Jenjang jenjang) {
+		return jenjang == null ? "" : "AND bcm.jenjang = :jenjang ";
+	}
+
+	protected void applyJenjangParam(org.hibernate.Query q) {
+		applyJenjangParam(q, getSelectedJenjang());
+	}
+
+	protected void applyJenjangParam(org.hibernate.Query q, Jenjang jenjang) {
+		if (jenjang != null) {
+			q.setParameter("jenjang", jenjang);
 		}
 	}
 

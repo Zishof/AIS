@@ -48,7 +48,7 @@
 								forward="onClick=onDasborRegistrasi">
 								Dasbor Registrasi
 							</tab>
-							<tab use="ais.ui.util.MyTabConfig"
+							<tab use="ais.ui.util.MyTabConfig" id="tabDasborJalur"
 								forward="onClick=onDasborJalur">
 								Dasbor Jalur Masuk
 							</tab>

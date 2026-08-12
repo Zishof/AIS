@@ -109,9 +109,13 @@ public class HistoryStatusMahasiswaUtil {
 
         JSONObject jsonObject = Common.getJSONTemporary(mahasiswa, key);
         if (jsonObject == null) jsonObject = new JSONObject();
+		boolean semesterDipaksaAktif = semesterAdaDalamDaftar(mahasiswa.getPaksaAktifSemester(), semester);
 
         // 1. Cek dari Cache / RAM (Jika tidak dipaksa proses)
-        if (!tetapDiprosesWalaupunSudahAda) {
+		// Status semester yang dipaksa aktif tidak boleh berhenti pada cache lama (mis. masih
+		// Nonaktif sebelum kolom paksa diisi). Lewati cache agar aturan paksa dievaluasi dan
+		// hasilnya ikut disimpan ke HistoryStatusMahasiswa.
+        if (!tetapDiprosesWalaupunSudahAda && !semesterDipaksaAktif) {
             HistoryStatusMahasiswa s = cekDanUpdateCacheStatus(krsMahasiswa, mahasiswa, key, jsonObject);
             if (s != null) return s;
         }
@@ -128,7 +132,7 @@ public class HistoryStatusMahasiswaUtil {
             // 2. Query ke Database
             historyStatusMahasiswa = fetchHistoryFromDb(session, mahasiswa, krsMahasiswa, semester, tahap);
 
-            if (!tetapDiprosesWalaupunSudahAda && historyStatusMahasiswa != null) {
+			if (!tetapDiprosesWalaupunSudahAda && !semesterDipaksaAktif && historyStatusMahasiswa != null) {
                 if (mahasiswa.currentSemester() != null && !mahasiswa.currentSemester().equals(semester)) {
                     simpanKeCache(mahasiswa, key, jsonObject, historyStatusMahasiswa);
                     return historyStatusMahasiswa;
@@ -624,7 +628,10 @@ public class HistoryStatusMahasiswaUtil {
         if (daftar == null || daftar.trim().isEmpty() || semester == null) {
             return false;
         }
-        for (String s : daftar.split(",")) {
+		// Selain koma (format yang dianjurkan UI), toleransi titik koma, tanda pipa, dan
+		// spasi. Data lama sering diisi "7|8" atau "7 8" sehingga sebelumnya tidak pernah
+		// cocok dan status tetap Nonaktif meskipun secara maksud sudah dipaksa aktif.
+		for (String s : daftar.split("[,;|\\s]+")) {
             if (s != null && s.trim().equalsIgnoreCase(String.valueOf(semester))) {
                 return true;
             }

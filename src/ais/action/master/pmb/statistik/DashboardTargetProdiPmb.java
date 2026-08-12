@@ -262,14 +262,16 @@ public class DashboardTargetProdiPmb extends DashboardPmbBase {
 
 		// 1. Target dari KapasitasMahasiswaBaru
 		try {
+			boolean filterJenjang = getSelectedJenjang() != null;
 			String hqlTarget = "SELECT j.id, j.nama, SUM(kmb.jumlahTargetMahasiswaBaru) "
 					+ "FROM KapasitasMahasiswaBaru kmb JOIN kmb.jurusan j "
 					+ "WHERE kmb.tahunAkademik = :ta "
+					+ (filterJenjang ? "AND j.jenjang = :jenjang " : "")
 					+ "GROUP BY j.id, j.nama "
 					+ "ORDER BY SUM(kmb.jumlahTargetMahasiswaBaru) DESC";
-			List<?> rows = session.createQuery(hqlTarget)
-					.setParameter("ta", ta)
-					.list();
+			org.hibernate.Query qTarget = session.createQuery(hqlTarget).setParameter("ta", ta);
+			applyJenjangParam(qTarget);
+			List<?> rows = qTarget.list();
 			for (Object obj : rows) {
 				Object[] r  = (Object[]) obj;
 				Object   id = r[0];
@@ -290,12 +292,13 @@ public class DashboardTargetProdiPmb extends DashboardPmbBase {
 		try {
 			String hqlPem = "SELECT j.id, j.nama, COUNT(bcm) "
 					+ "FROM BiodataCalonMahasiswa bcm JOIN bcm.prodi1 j "
-					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem)
+					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem) + jenjangClause()
 					+ "GROUP BY j.id, j.nama "
 					+ "ORDER BY COUNT(bcm) DESC";
 			org.hibernate.Query q = session.createQuery(hqlPem).setParameter("ta", ta)
 					.setMaxResults(MAX_PRODI);
 			applySemParam(q, sem);
+			applyJenjangParam(q);
 			for (Object obj : q.list()) {
 				Object[] r  = (Object[]) obj;
 				Object   id = r[0];
@@ -315,10 +318,11 @@ public class DashboardTargetProdiPmb extends DashboardPmbBase {
 		try {
 			String hqlDit = "SELECT j.id, COUNT(bcm) "
 					+ "FROM BiodataCalonMahasiswa bcm JOIN bcm.prodiLulus j "
-					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem)
+					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem) + jenjangClause()
 					+ "GROUP BY j.id";
 			org.hibernate.Query q = session.createQuery(hqlDit).setParameter("ta", ta);
 			applySemParam(q, sem);
+			applyJenjangParam(q);
 			for (Object obj : q.list()) {
 				Object[] r  = (Object[]) obj;
 				Object   id = r[0];
@@ -333,11 +337,12 @@ public class DashboardTargetProdiPmb extends DashboardPmbBase {
 		try {
 			String hqlNIM = "SELECT j.id, COUNT(bcm) "
 					+ "FROM BiodataCalonMahasiswa bcm JOIN bcm.prodiLulus j "
-					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem)
+					+ "WHERE bcm.tahunAkademik = :ta " + semClause(sem) + jenjangClause()
 					+ "AND bcm.mahasiswa IS NOT NULL "
 					+ "GROUP BY j.id";
 			org.hibernate.Query q = session.createQuery(hqlNIM).setParameter("ta", ta);
 			applySemParam(q, sem);
+			applyJenjangParam(q);
 			for (Object obj : q.list()) {
 				Object[] r  = (Object[]) obj;
 				Object   id = r[0];

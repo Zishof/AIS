@@ -48,12 +48,17 @@ public final class SesiKasUtil {
 	 * psql), raw SQL di Hibernate TIDAK ikut auto-flush perubahan tertunda pada sesi yang sama sebelum
 	 * dieksekusi (beda dari Criteria/HQL yang otomatis flush lebih dulu) -- celah korektnes yang tak
 	 * perlu ada utk query sesederhana ini. Criteria langsung memetakan ke properti entitas ({@code
-	 * oleh}/{@code olehId}/{@code status}/{@code toko}), jadi tetap benar walau nama kolom fisik
-	 * berubah di masa depan.</p>
+	 * kasirNama}/{@code kasirUserId}/{@code status}/{@code toko}), jadi tetap benar walau nama kolom
+	 * fisik berubah di masa depan.</p>
+	 *
+	 * <p><b>Kenapa {@code kasirNama}/{@code kasirUserId}, BUKAN {@code oleh}/{@code olehId}.</b> Lihat
+	 * javadoc {@link SesiKasKasir#getKasirNama()} -- {@code oleh}/{@code olehId} adalah metadata audit
+	 * generik yang bisa ditimpa interceptor kapan saja, tidak aman dipakai sbg kunci pencarian data
+	 * bisnis.</p>
 	 */
-	public static SesiKasKasir sesiTerbuka(Session session, String oleh, String olehId, Long tokoId) {
+	public static SesiKasKasir sesiTerbuka(Session session, String kasirNama, String kasirUserId, Long tokoId) {
 		Criteria c = session.createCriteria(SesiKasKasir.class)
-				.add(Restrictions.or(Restrictions.eq("oleh", oleh), Restrictions.eq("olehId", olehId)))
+				.add(Restrictions.or(Restrictions.eq("kasirNama", kasirNama), Restrictions.eq("kasirUserId", kasirUserId)))
 				.add(Restrictions.or(Restrictions.eq("status", SesiKasKasir.STATUS_BUKA), Restrictions.isNull("status")))
 				.addOrder(Order.desc("id"))
 				.setMaxResults(1);
@@ -68,13 +73,30 @@ public final class SesiKasUtil {
 	 * atau {@code null} bila tidak ada. Tipis di atas {@link #sesiTerbuka} -- SATU query, bukan dua
 	 * (dulu method ini query sendiri lalu {@link #sesiTerbuka} query ULANG + {@code session.get}).
 	 */
-	public static Long idSesiTerbuka(Session session, String oleh, String olehId, Long tokoId) {
-		SesiKasKasir sesi = sesiTerbuka(session, oleh, olehId, tokoId);
+	public static Long idSesiTerbuka(Session session, String kasirNama, String kasirUserId, Long tokoId) {
+		SesiKasKasir sesi = sesiTerbuka(session, kasirNama, kasirUserId, tokoId);
 		return sesi == null ? null : sesi.getId();
 	}
 
 	/**
-	 * Menghitung total penjualan POS oleh kasir dalam rentang waktu.
+	 * Menghitung total penjualan POS oleh kasir dalam rentang waktu. Parameter method ini diisi dari
+	 * {@link SesiKasKasir#getKasirNama()}/{@link SesiKasKasir#getKasirUserId()} pemanggil (lihat
+	 * {@link #tutup}), TIDAK lagi dari {@code oleh}/{@code olehId} milik sesi.
+	 *
+	 * <p><b>Gap-closure ditemukan &amp; diperbaiki bersamaan (2026-08-12).</b> Query ini SEBELUMNYA
+	 * cuma cocokkan {@code oleh}/{@code olehId} milik {@code koperasi.pembelian_anggota_koperasi} --
+	 * kolom itu diisi otomatis oleh {@code AuditTimestampInterceptor} (metadata audit generik, BUKAN
+	 * data bisnis, sama kelasnya dgn root cause bug "Kas Terbuka tapi checkout ditolak" yg baru
+	 * diperbaiki di commit 869f858d). Javadoc {@link
+	 * ais.database.model.koperasi.PembelianAnggotaKoperasi#getKasirLoginNama()} sendiri menegaskan
+	 * {@code oleh} SELALU jatuh ke fallback {@code "external_update"} utk permintaan lewat
+	 * {@code PosApi} (Electron/Flutter, TANPA sesi browser) -- artinya utk SEMUA transaksi POS yg
+	 * dibuat lewat {@code KantinHelper.bayar()} (bukan ZK/JSP), query lama ini TIDAK PERNAH cocok,
+	 * shg Total Tunai/Non-Tunai saat Tutup Kas SELALU nol utk kasir Electron/Flutter. Ditambahkan
+	 * pencocokan lewat {@code kasir_login_nama} (diisi eksplisit &amp; andal di {@code bayar()}, lihat
+	 * javadoc di atas) sbg jalur TAMBAHAN -- {@code oleh}/{@code olehId} tetap dipertahankan sbg
+	 * fallback utk baris lama/ZK-JSP (browser session, {@code oleh} bisa berisi nama asli), jadi tidak
+	 * ada regresi utk jalur yg SUDAH benar.</p>
 	 *
 	 * @return array {@code [tunai, nonTunai]}.
 	 */
@@ -82,7 +104,7 @@ public final class SesiKasUtil {
 		try {
 			StringBuilder sb = new StringBuilder(
 					"select coalesce(sum(coalesce(bayar_tunai,0)),0), coalesce(sum(coalesce(bayar_non_tunai,0)),0) "
-							+ " from koperasi.pembelian_anggota_koperasi where (oleh=:o or oleh=:i) "
+							+ " from koperasi.pembelian_anggota_koperasi where (oleh=:o or oleh=:i or kasir_login_nama=:o) "
 							+ " and tanggal_pembayaran >= :dari and tanggal_pembayaran <= :sampai ");
 			if (tokoId != null) {
 				sb.append(" and toko=:t ");
@@ -122,8 +144,8 @@ public final class SesiKasUtil {
 	 * Membuka kas: membuat sesi baru berstatus BUKA dengan modal awal. Mengembalikan sesi yang dibuat.
 	 * Pemanggil sebaiknya memastikan belum ada sesi terbuka (lihat {@link #idSesiTerbuka}).
 	 */
-	public static SesiKasKasir buka(Session session, Toko toko, String oleh, String olehId, double modalAwal, String keterangan) {
-		return buka(session, toko, oleh, olehId, modalAwal, keterangan, null, null);
+	public static SesiKasKasir buka(Session session, Toko toko, String kasirNama, String kasirUserId, double modalAwal, String keterangan) {
+		return buka(session, toko, kasirNama, kasirUserId, modalAwal, keterangan, null, null);
 	}
 
 	/**
@@ -143,12 +165,12 @@ public final class SesiKasUtil {
 	 *                       (mis. baru online lagi 10 menit setelah kas sebenarnya dibuka offline)
 	 *                       supaya {@code waktuBuka} yang tercatat tetap AKURAT, bukan waktu sinkron.
 	 */
-	public static SesiKasKasir buka(Session session, Toko toko, String oleh, String olehId, double modalAwal,
+	public static SesiKasKasir buka(Session session, Toko toko, String kasirNama, String kasirUserId, double modalAwal,
 			String keterangan, String kode, Date waktuBukaKlien) {
 		SesiKasKasir o = new SesiKasKasir();
 		o.setToko(toko);
-		o.setOleh(oleh);
-		o.setOlehId(olehId);
+		o.setKasirNama(kasirNama);
+		o.setKasirUserId(kasirUserId);
 		o.setWaktuBuka(waktuBukaKlien != null ? waktuBukaKlien : new Date());
 		o.setModalAwal(Double.valueOf(modalAwal));
 		o.setStatus(SesiKasKasir.STATUS_BUKA);
@@ -177,7 +199,7 @@ public final class SesiKasUtil {
 	 */
 	public static double tutup(Session session, SesiKasKasir sesi, double uangFisik, String keterangan, Date waktuTutupKlien) {
 		Date sampai = waktuTutupKlien != null ? waktuTutupKlien : new Date();
-		double[] jual = hitungPenjualan(session, sesi.getOleh(), sesi.getOlehId(),
+		double[] jual = hitungPenjualan(session, sesi.getKasirNama(), sesi.getKasirUserId(),
 				sesi.getToko() == null ? null : sesi.getToko().getId(), sesi.getWaktuBuka(), sampai);
 		double seharusnya = sesi.getModalAwal().doubleValue() + jual[0];
 		double selisih = uangFisik - seharusnya;

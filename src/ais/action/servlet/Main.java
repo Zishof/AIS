@@ -66,8 +66,13 @@ import org.springframework.security.core.userdetails.UserDetails;
 public class Main extends HttpServlet {
 
 	private static final long serialVersionUID = 1L;
-	private static final String PAGE_KANTIN_INDEX = "/WEB-INF/baru/modul/kantin/index.jsp";
+	private static final String PAGE_KANTIN_INDEX = Tbmrole.HALAMAN_UTAMA_KANTIN;
+	private static final String PAGE_APOTIK_INDEX = Tbmrole.HALAMAN_UTAMA_APOTIK;
+	private static final String PAGE_EMEDIK_INDEX = Tbmrole.HALAMAN_UTAMA_EMEDIK;
+	private static final String PAGE_INVENTORY_INDEX = Tbmrole.HALAMAN_UTAMA_INVENTORY;
 	private static final String ATTR_KANTIN_DIRECT_PAGE = "kantinDirectPage";
+	private static final String ATTR_POS_DIRECT_PAGE = "posDirectPage";
+	private static final String ATTR_INVENTORY_DIRECT_PAGE = "inventoryDirectPage";
 
 	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		processRequest(request, response);
@@ -135,6 +140,12 @@ public class Main extends HttpServlet {
 		if (PAGE_KANTIN_INDEX.equals(page)) {
 			request.setAttribute(ATTR_KANTIN_DIRECT_PAGE, Boolean.TRUE);
 		}
+		if (PAGE_APOTIK_INDEX.equals(page) || PAGE_EMEDIK_INDEX.equals(page)) {
+			request.setAttribute(ATTR_POS_DIRECT_PAGE, Boolean.TRUE);
+		}
+		if (PAGE_INVENTORY_INDEX.equals(page)) {
+			request.setAttribute(ATTR_INVENTORY_DIRECT_PAGE, Boolean.TRUE);
+		}
 		RequestDispatcher dispatcher = request.getRequestDispatcher(page);
 		dispatcher.forward(request, response);
 	}
@@ -143,6 +154,17 @@ public class Main extends HttpServlet {
 		String page = defaultPage;
 		try {
 			Tbmuser user = checkAndSetUserSession(request, true);
+			// Pilihan eksplisit pada Tbmrole harus menjadi sumber utama landing page.
+			// Sebelumnya flag landingInventory/landingKantin dan role Kantin dievaluasi
+			// lebih dulu, sehingga pilihan POS Apotik/eMedik yang baru disimpan dapat
+			// terabaikan setelah login.
+			String halamanRole = resolveRoleLandingPage(user);
+			if (halamanRole != null) {
+				return halamanRole;
+			}
+			if (isInventoryLandingRole(user)) {
+				return PAGE_INVENTORY_INDEX;
+			}
 			if (isKantinMemberLandingRole(user)) {
 				request.setAttribute("default_p", "kantin");
 				request.setAttribute("default_s", "ringkasan");
@@ -157,7 +179,6 @@ public class Main extends HttpServlet {
 			if (isKoperasiMemberLandingEnabled(user)) {
 				return PAGE_KANTIN_INDEX;
 			}
-
 			boolean versiLama = isParameterAktif(request, "versilama") || isParameterAktif(request, "versi_lama");
 			boolean zkBaru = isParameterAktif(request, "zkbaru") || isParameterAktif(request, "main2")
 					|| isParameterAktif(request, "index2") || isParameterAktif(request, "versizk")
@@ -196,6 +217,18 @@ public class Main extends HttpServlet {
 		return page;
 	}
 
+	private String resolveRoleLandingPage(Tbmuser user) {
+		if (user == null || user.hakAkses() == null) {
+			return null;
+		}
+		String halaman = user.hakAkses().getHalamanUtama();
+		if (PAGE_KANTIN_INDEX.equals(halaman) || PAGE_APOTIK_INDEX.equals(halaman) || PAGE_EMEDIK_INDEX.equals(halaman)
+				|| PAGE_INVENTORY_INDEX.equals(halaman)) {
+			return halaman;
+		}
+		return null;
+	}
+
 	private String getPiilhanTampilanDomain(HttpServletRequest request) {
 		try {
 			PerguruanTinggi pt = PerguruanTinggiUtil.getPerguruanTinggi(request);
@@ -229,6 +262,16 @@ public class Main extends HttpServlet {
 		try {
 			return user != null && user.hakAkses() != null
 					&& ais.common.EbisnisMenuKatalog.urai(user.hakAkses().getEbisnisMenu()).optBoolean("landingKantin", false);
+		} catch (Exception e) {
+			return false;
+		}
+	}
+
+	private boolean isInventoryLandingRole(Tbmuser user) {
+		try {
+			return user != null && user.hakAkses() != null
+					&& ais.common.EbisnisMenuKatalog.urai(user.hakAkses().getEbisnisMenu())
+							.optBoolean("landingInventory", false);
 		} catch (Exception e) {
 			return false;
 		}

@@ -29,6 +29,7 @@ import org.json.JSONObject;
  *   "supervisor": false,
  *   "berandaKantin": false,
  *   "landingKantin": false,
+ *   "landingInventory": false,
  *   "menu": {
  *     "kasir": true,
  *     "ringkasan": true,
@@ -118,22 +119,22 @@ public final class EbisnisMenuKatalog {
 		// -- 16 menu varian "eBisnis Inventory & Sales" (48 layar legacy; layar yang reuse layar POS
 		// existing TETAP memakai kunci lamanya: Stok Opname->stokopname, Kulakan->kulakan,
 		// Sales Order digabung ke penjualan_sales [layar 30 = satu layar]) --
-		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "master_supplier", "Master Supplier", "desktop", "android"));
-		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "master_customer", "Master Customer", "desktop", "android"));
-		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "master_sales", "Master Sales", "desktop", "android"));
-		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "persediaan", "Persediaan & Kartu Stok", "desktop", "android"));
-		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "harga", "Master & Analisis Harga", "desktop", "android"));
-		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "hutang", "Hutang Supplier (AP)", "desktop", "android"));
-		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "penjualan_sales", "Penjualan Sales / Sales Order", "desktop", "android"));
-		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "piutang", "Piutang Customer (AR)", "desktop", "android"));
-		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "surat_perintah_sales", "Surat Perintah Sales Jalan", "desktop", "android"));
-		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "nota_sales", "Nota Sales (Sesi)", "desktop", "android"));
-		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "biaya_sales", "Biaya Sales", "desktop", "android"));
-		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "pembelian_sales", "Pembelian dalam Sesi Sales", "desktop", "android"));
-		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "rekonsiliasi_sales", "Rekonsiliasi Sesi Sales", "desktop", "android"));
-		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "kas_jurnal", "Kas & Jurnal", "desktop", "android"));
-		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "laba_rugi", "Laba / Rugi", "desktop", "android"));
-		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "laporan_inventory_sales", "Laporan Inventory & Sales", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "master_supplier", "Master Supplier", "desktop", "android", "jsp"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "master_customer", "Master Customer", "desktop", "android", "jsp"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "master_sales", "Master Sales", "desktop", "android", "jsp"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "persediaan", "Persediaan & Kartu Stok", "desktop", "android", "jsp"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "harga", "Master & Analisis Harga", "desktop", "android", "jsp"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "hutang", "Hutang Supplier (AP)", "desktop", "android", "jsp"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "penjualan_sales", "Penjualan Sales / Sales Order", "desktop", "android", "jsp"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "piutang", "Piutang Customer (AR)", "desktop", "android", "jsp"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "surat_perintah_sales", "Surat Perintah Sales Jalan", "desktop", "android", "jsp"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "nota_sales", "Nota Sales (Sesi)", "desktop", "android", "jsp"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "biaya_sales", "Biaya Sales", "desktop", "android", "jsp"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "pembelian_sales", "Pembelian dalam Sesi Sales", "desktop", "android", "jsp"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "rekonsiliasi_sales", "Rekonsiliasi Sesi Sales", "desktop", "android", "jsp"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "kas_jurnal", "Kas & Jurnal", "desktop", "android", "jsp"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "laba_rugi", "Laba / Rugi", "desktop", "android", "jsp"));
+		DAFTAR.add(new Entri(MODUL_INVENTORY_SALES, "laporan_inventory_sales", "Laporan Inventory & Sales", "desktop", "android", "jsp"));
 
 		// -- Varian POS Apotik (eFarmasi) -- padanan layar SIRS hasil survei sirs/ dicatat per baris;
 		// hanya "apotik_narkotika" yang TIDAK punya padanan (pekerjaan baru di fase layar apotik).
@@ -217,6 +218,7 @@ public final class EbisnisMenuKatalog {
 			obj.put("supervisor", false);
 			obj.put("berandaKantin", false);
 			obj.put("landingKantin", false);
+			obj.put("landingInventory", false);
 			JSONObject menu = new JSONObject();
 			for (Entri e : DAFTAR) {
 				// Kunci lama default TAMPIL (backward-compat, lihat JavaDoc method); kunci varian
@@ -267,6 +269,9 @@ public final class EbisnisMenuKatalog {
 			}
 			if (tersimpan.has("landingKantin")) {
 				hasil.put("landingKantin", tersimpan.optBoolean("landingKantin", false));
+			}
+			if (tersimpan.has("landingInventory")) {
+				hasil.put("landingInventory", tersimpan.optBoolean("landingInventory", false));
 			}
 			JSONObject menuTersimpan = tersimpan.optJSONObject("menu");
 			if (menuTersimpan != null) {

@@ -24,6 +24,7 @@ public class Baru extends HttpServlet {
 	private static final String PAGE_BARU_INDEX = "/WEB-INF/baru/index.jsp";
 	private static final String PAGE_HAK_AKSES = "/WEB-INF/baru/modul/common/hak_akses.jsp";
 	private static final String PAGE_MEMBER = "/WEB-INF/baru/modul/kantin/index.jsp";
+	private static final String PAGE_APOTIK_SERVICE = "/WEB-INF/baru/modul/apotik/service.jsp";
 
 	public Baru() {
 		super();
@@ -93,6 +94,10 @@ public class Baru extends HttpServlet {
 	}
 
 	private String resolveDispatcher(HttpServletRequest request, Tbmuser tbmuser) throws Exception {
+		if ("apotik".equalsIgnoreCase(request.getParameter("p"))
+				&& "service".equalsIgnoreCase(request.getParameter("s"))) {
+			return PAGE_APOTIK_SERVICE;
+		}
 		/*
 		 * Prioritas 1:
 		 * Jika user adalah anggota koperasi/member biasa,

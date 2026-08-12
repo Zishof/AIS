@@ -1428,13 +1428,13 @@ public class KantinHelper {
 		// dipakai QUERY TULIS di sesiKasBuka -- kejadian berikutnya sekarang bisa dibandingkan LANGSUNG
 		// dari catalina.out utk memastikan apakah keduanya benar-benar cocok atau ada perbedaan
 		// (mis. spasi/kapitalisasi/nilai berbeda) yang selama ini luput dari pengamatan.
-		System.out.println("[SESI-KAS-STATUS] cek -- kasir(oleh=" + id[0] + ", olehId=" + id[1] + "), toko=" + tokoId);
+		System.out.println("[SESI-KAS-STATUS] cek -- kasir(kasirNama=" + id[0] + ", kasirUserId=" + id[1] + "), toko=" + tokoId);
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			ais.database.model.inventory.SesiKasKasir sesi = ais.action.master.koperasi.helper.SesiKasUtil
 					.sesiTerbuka(session, id[0], id[1], tokoId);
 			System.out.println("[SESI-KAS-STATUS] hasil query -- " + (sesi == null ? "TIDAK DITEMUKAN (null)"
-					: ("DITEMUKAN id=" + sesi.getId() + ", oleh=" + sesi.getOleh() + ", olehId=" + sesi.getOlehId()
+					: ("DITEMUKAN id=" + sesi.getId() + ", kasirNama=" + sesi.getKasirNama() + ", kasirUserId=" + sesi.getKasirUserId()
 							+ ", toko=" + (sesi.getToko() == null ? "null" : sesi.getToko().getId()) + ", status=" + sesi.getStatus())));
 			// Diagnostik tambahan -- SAMA persis dgn [SESI-KAS-BUKA][DIAGNOSTIK]: cetak identitas fisik
 			// koneksi database (current_database/inet_server_addr/inet_server_port) supaya bisa
@@ -1543,7 +1543,7 @@ public class KantinHelper {
 		String[] id = identitasKasir(tbmuser);
 		Long tokoId = request.isNull("id_toko") ? null : Long.valueOf(request.get("id_toko").toString());
 		String kode = request.isNull("kode") ? null : request.optString("kode", null);
-		System.out.println("[SESI-KAS-BUKA] mulai -- kasir(oleh=" + id[0] + ", olehId=" + id[1] + "), toko=" + tokoId
+		System.out.println("[SESI-KAS-BUKA] mulai -- kasir(kasirNama=" + id[0] + ", kasirUserId=" + id[1] + "), toko=" + tokoId
 				+ ", kode=" + kode + ", payload=" + request.toString());
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -1657,7 +1657,7 @@ public class KantinHelper {
 			cekUlangDiagnostikSesiKasBuka(session, id, tokoId, "SESSION SAMA (setelah commit)");
 			hasil.put("status", "00");
 		} catch (Exception e) {
-			String pesanKonteks = "[SESI-KAS-BUKA] GAGAL -- kasir(oleh=" + id[0] + ", olehId=" + id[1] + "), toko=" + tokoId
+			String pesanKonteks = "[SESI-KAS-BUKA] GAGAL -- kasir(kasirNama=" + id[0] + ", kasirUserId=" + id[1] + "), toko=" + tokoId
 					+ ", payload=" + request.toString();
 			System.out.println(pesanKonteks + " -- exception: " + e);
 			e.printStackTrace();
@@ -1709,7 +1709,7 @@ public class KantinHelper {
 			} catch (Exception eInfo) {
 				infoKoneksi = "gagal ambil info koneksi: " + eInfo;
 			}
-			System.out.println("[SESI-KAS-BUKA][DIAGNOSTIK] " + label + " -- kasir(oleh=" + id[0] + ", olehId="
+			System.out.println("[SESI-KAS-BUKA][DIAGNOSTIK] " + label + " -- kasir(kasirNama=" + id[0] + ", kasirUserId="
 					+ id[1] + "), toko=" + tokoId + " -- hasil cek ulang: "
 					+ (idTerbuka == null ? "TIDAK DITEMUKAN (null)" : ("DITEMUKAN id=" + idTerbuka)) + " -- " + infoKoneksi);
 		} catch (Exception e) {
@@ -10644,7 +10644,7 @@ public class KantinHelper {
 			JSONArray sesiTerbuka = new JSONArray();
 			long jmlSesiLupa = 0;
 			java.sql.PreparedStatement psSesi = conn.prepareStatement(
-					"SELECT COALESCE(t.nama,'-') toko, s.oleh, s.waktubuka, "
+					"SELECT COALESCE(t.nama,'-') toko, s.kasir_nama, s.waktubuka, "
 							+ "EXTRACT(EPOCH FROM (NOW() - s.waktubuka))/3600 jam "
 							+ "FROM koperasi.sesi_kas_kasir s LEFT JOIN koperasi.toko t ON t.id = s.toko "
 							+ "WHERE (s.status = 'BUKA' OR s.status IS NULL)" + kondisiTokoS
@@ -10666,7 +10666,7 @@ public class KantinHelper {
 			JSONArray selisihKas = new JSONArray();
 			double totalSelisihKas = 0;
 			java.sql.PreparedStatement psSelisih = conn.prepareStatement(
-					"SELECT COALESCE(t.nama,'-') toko, s.oleh, s.waktututup, s.selisih "
+					"SELECT COALESCE(t.nama,'-') toko, s.kasir_nama, s.waktututup, s.selisih "
 							+ "FROM koperasi.sesi_kas_kasir s LEFT JOIN koperasi.toko t ON t.id = s.toko "
 							+ "WHERE s.status = 'TUTUP' AND s.selisih <> 0 AND s.waktututup >= NOW() - INTERVAL '30 days'" + kondisiTokoS2
 							+ " ORDER BY ABS(s.selisih) DESC LIMIT 50");

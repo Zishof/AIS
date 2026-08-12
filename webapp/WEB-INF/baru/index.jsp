@@ -150,7 +150,33 @@ private boolean isKonfigurasiAktif(String key, String defaultValue) {
     return Konfigurasi.AKTIF.equalsIgnoreCase(defaultValue);
 }
 
-private boolean bolehAksesModulKantin(Tbmuser tbmuser, String p, String s) {
+private boolean bolehAksesModulKantin(HttpServletRequest request, Tbmuser tbmuser, String p, String s) {
+	if ("apotik".equals(p) || "emedik".equals(p)) {
+		if (!hasText(s) || "index".equals(s)) return true;
+		if (tbmuser == null || tbmuser.hakAkses() == null) return false;
+		String menuVarian = s;
+		if ("help".equals(s)) {
+			menuVarian = request.getParameter("menu");
+			if (!hasText(menuVarian) || !menuVarian.startsWith(p + "_")) return false;
+		}
+		else if ("apotik".equals(p)) {
+			if ("resep".equals(s)) menuVarian = "apotik_resep";
+			else if ("racikan".equals(s)) menuVarian = "apotik_racikan";
+			else if ("formularium".equals(s)) menuVarian = "apotik_formularium";
+			else if ("batch".equals(s)) menuVarian = "apotik_batch";
+			else if ("pengadaan".equals(s)) menuVarian = "apotik_pengadaan";
+			else if ("stok_opname".equals(s)) menuVarian = "apotik_stok_opname";
+			else if ("retur".equals(s)) menuVarian = "apotik_retur";
+			else if ("narkotika".equals(s)) menuVarian = "apotik_narkotika";
+			else if ("laporan".equals(s)) menuVarian = "apotik_laporan";
+			else menuVarian = "apotik_kasir";
+		} else {
+			menuVarian = "emedik_" + s;
+		}
+		org.json.JSONObject hak = ais.common.EbisnisMenuKatalog.urai(tbmuser.hakAkses().getEbisnisMenu());
+		org.json.JSONObject menuVarianJson = hak.optJSONObject("menu");
+		return menuVarianJson != null && menuVarianJson.optBoolean(menuVarian, false);
+	}
     String menu = s;
     if (p != null && p.startsWith("kantin/")) {
         menu = p.substring("kantin/".length());
@@ -297,7 +323,7 @@ try {
     if (hanya_tampil_jsp) {
         if (hasText(p) && hasText(s)) {
             try {
-                if (bolehAksesModulKantin(tbmuser, p, s)) {
+                if (bolehAksesModulKantin(request, tbmuser, p, s)) {
                     includePage(request, response, out, "/WEB-INF/baru/modul/" + p + "/" + s + ".jsp", "hanyaTampilJsp", __trace,
                             __start);
                 } else {
@@ -332,7 +358,7 @@ try {
         out.write("<body style=\"padding:0;background:#f3f5f9;\">");
         if (hasText(p)) {
             try {
-                if (bolehAksesModulKantin(tbmuser, p, mobSub)) {
+                if (bolehAksesModulKantin(request, tbmuser, p, mobSub)) {
                     includePage(request, response, out,
                             "/WEB-INF/baru/modul/" + p + "/" + mobSub + ".jsp",
                             "mobContent", __trace, __start);
@@ -403,7 +429,7 @@ try {
                     }
                 } else if (hasText(p) && hasText(s)) {
                     try {
-                        if (bolehAksesModulKantin(tbmuser, p, s)) {
+                        if (bolehAksesModulKantin(request, tbmuser, p, s)) {
                             includePage(request, response, out, "/WEB-INF/baru/modul/" + p + "/" + s + ".jsp", "modulPdanS", __trace,
                                     __start);
                         } else {

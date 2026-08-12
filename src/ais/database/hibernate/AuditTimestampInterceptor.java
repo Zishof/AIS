@@ -177,46 +177,28 @@ public class AuditTimestampInterceptor extends EmptyInterceptor {
 	}
 
 	/**
-	 * Entity yang properti {@code oleh}/{@code olehId}-nya BUKAN metadata audit generik (siapa
-	 * terakhir mengubah baris), melainkan DATA BISNIS milik entitas itu sendiri -- sehingga TIDAK
-	 * BOLEH ditimpa otomatis oleh interceptor ini.
-	 *
-	 * <p><b>Kenapa perlu.</b> Akar masalah bug "Kas Belum Dibuka/Tertutup tak mau hilang" (dilacak
-	 * lewat query DB langsung -- baris {@code koperasi.sesi_kas_kasir} tersimpan dgn {@code
-	 * oleh='external_update'} & {@code olehid}=stack-trace, PADAHAL kode eksplisit mengisi
-	 * {@code oleh='toko3'}/{@code olehId='toko3'}) ternyata BUKAN soal koneksi/session Hibernate sama
-	 * sekali -- {@link #isiMetadataAudit} SELALU menimpa properti bernama persis {@code oleh}/{@code
-	 * olehId} pada SEMUA {@link GeneralValueObject} tanpa kecuali, karena kedua nama itu SECARA
-	 * KEBETULAN dipakai ulang oleh {@code SesiKasKasir} untuk field bisnisnya sendiri (kasir mana yang
-	 * membuka sesi) -- bukan untuk audit trail "siapa yang mengubah baris ini". Akibatnya nilai kasir
-	 * yang benar SELALU diganti diam-diam sebelum INSERT/UPDATE benar-benar dieksekusi, sehingga query
-	 * pencarian sesi terbuka (yang mencocokkan {@code oleh}/{@code olehid} dgn identitas kasir asli)
-	 * TIDAK PERNAH menemukan barisnya sendiri -- persis gejala yang dilaporkan, dan PERSISTEN krn
-	 * murni soal DATA yang salah tersimpan, bukan soal staleness/caching.</p>
-	 *
-	 * <p><b>Pemeliharaan.</b> Bila entitas LAIN di masa depan juga memakai nama field {@code oleh}/
-	 * {@code olehId} utk data bisnis (bukan audit generik), tambahkan ke daftar {@code instanceof} di
-	 * sini. Field {@code tanggal_dirubah} TIDAK dikecualikan -- timestamp "terakhir diubah" aman
-	 * ditimpa otomatis utk entitas apa pun.</p>
+	 * <b>Historis (2026-08-12, superseded).</b> Sebelumnya method ini ({@code
+	 * olehOlehIdAdalahDataBisnis}, sudah DIHAPUS) mengecualikan {@code SesiKasKasir} di sini agar
+	 * {@code oleh}/{@code olehId}-nya tidak ditimpa -- root cause bug "Kas Terbuka tapi checkout
+	 * ditolak" saat itu adalah {@code SesiKasKasir} menyalahgunakan nama kolom audit generik ini utk
+	 * data bisnisnya sendiri (kasir mana yang membuka sesi). Pengecualian instanceof-based itu RAPUH
+	 * (terbukti: baris yang sama juga perlu dikecualikan terpisah di {@link #ubah}, jalur
+	 * {@code SaveEventListener} yang berbeda dari method ini -- mudah lupa dikecualikan lagi kalau
+	 * entity lain di masa depan melakukan hal serupa). Diperbaiki dgn benar dgn memberi {@code
+	 * SesiKasKasir} kolom sendiri ({@code kasirNama}/{@code kasirUserId}, lihat javadoc {@link
+	 * ais.database.model.inventory.SesiKasKasir#getKasirNama()}) -- {@code oleh}/{@code olehId}
+	 * sekarang murni metadata audit generik lagi utk SEMUA entity tanpa kecuali, sesuai maksud
+	 * aslinya.
 	 */
-	private static boolean olehOlehIdAdalahDataBisnis(Object entity) {
-		return entity instanceof ais.database.model.inventory.SesiKasKasir;
-	}
-
 	private boolean isiMetadataAudit(Object entity, Object[] state, String[] propertyNames) {
 		boolean berubah = false;
 		if (state == null || propertyNames == null) {
 			return false;
 		}
-		boolean lewatiOlehOlehId = olehOlehIdAdalahDataBisnis(entity);
 		for (int i = 0; i < propertyNames.length && i < state.length; i++) {
 			if (AuditTrailHelper.PROP_TANGGAL_DIRUBAH.equals(propertyNames[i])) {
 				state[i] = ais.ui.util.WaktuUtil.getDate();
 				berubah = true;
-			} else if (lewatiOlehOlehId) {
-				// Entitas ini memakai oleh/olehId sbg data bisnis -- JANGAN ditimpa (lihat javadoc
-				// olehOlehIdAdalahDataBisnis).
-				continue;
 			} else if (AuditTrailHelper.PROP_OLEH_ID.equals(propertyNames[i])) {
 				state[i] = AuditTimestampInterceptor.olehId();
 				berubah = true;
