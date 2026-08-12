@@ -602,6 +602,12 @@ public class PosApi extends HttpServlet {
 			} else if ("penyedia_simpan".equals(action)) {
 				KantinHelper.penyediaSimpan(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "penyedia_simpan");
+			} else if ("penyedia_list_admin".equals(action)) {
+				KantinHelper.penyediaListAdmin(payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "penyedia_list_admin");
+			} else if ("penyedia_hapus".equals(action)) {
+				KantinHelper.penyediaHapus(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "penyedia_hapus");
 			} else if ("retur_pembelian_list".equals(action)) {
 				KantinHelper.returPembelianList(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "retur_pembelian_list");

@@ -11636,17 +11636,35 @@ public class KantinHelper {
 			hasil.put("description", "Nama supplier wajib diisi.");
 			return;
 		}
+		// Gap-closure layar "Supplier (Penyedia)" CRUD -- `id` hadir = ubah, kosong/tak ada = tambah
+		// (perilaku LAMA dipertahankan apa adanya, ini murni tambahan opsional supaya picker cepat-
+		// tambah dari Kulakan tetap jalan tanpa berubah, lihat JavaDoc method ini).
+		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
-			ais.database.model.library.Penyedia p = new ais.database.model.library.Penyedia();
+			ais.database.model.library.Penyedia p;
+			if (id != null) {
+				p = (ais.database.model.library.Penyedia) session.get(ais.database.model.library.Penyedia.class, id);
+				if (p == null) {
+					hasil.put("status", "91");
+					hasil.put("description", "Supplier tidak ditemukan.");
+					return;
+				}
+			} else {
+				p = new ais.database.model.library.Penyedia();
+			}
 			p.setNama(nama);
+			p.setKode(request.optString("kode", ""));
 			p.setKontak(request.optString("kontak", ""));
 			p.setTelp(request.optString("telp", ""));
+			p.setFax(request.optString("fax", ""));
+			p.setEmail(request.optString("email", ""));
 			p.setAlamat(request.optString("alamat", ""));
+			p.setKodePos(request.optString("kode_pos", ""));
 			p.setKeterangan(request.optString("keterangan", ""));
 
 			session.beginTransaction();
-			session.save(p);
+			session.saveOrUpdate(p);
 			session.getTransaction().commit();
 
 			hasil.put("status", "00");
@@ -11662,6 +11680,102 @@ public class KantinHelper {
 			}
 			hasil.put("status", "91");
 			hasil.put("description", Common.tampilErrorJikaAdmin(e));
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * <h3>Layar "Supplier (Penyedia)" CRUD -- daftar lengkap (semua kolom) + paginasi.</h3> Beda
+	 * dari {@link #penyediaList} (hanya {@code id,nama,kontak,telp}, maks 50, utk picker cepat di
+	 * Kulakan) -- di sini SEMUA kolom dikembalikan utk layar manajemen master data supplier.
+	 */
+	public static void penyediaListAdmin(JSONObject request, JSONObject hasil) throws Exception {
+		String keyword = request.optString("keyword", "").trim();
+		int page = Math.max(1, request.optInt("page", 1));
+		int pageSize = Math.min(100, Math.max(1, request.optInt("page_size", 20)));
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			org.hibernate.Criteria cCount = session.createCriteria(ais.database.model.library.Penyedia.class);
+			org.hibernate.Criteria cData = session.createCriteria(ais.database.model.library.Penyedia.class)
+					.addOrder(org.hibernate.criterion.Order.asc("nama"));
+			if (!keyword.isEmpty()) {
+				org.hibernate.criterion.Disjunction atau = org.hibernate.criterion.Restrictions.disjunction();
+				atau.add(org.hibernate.criterion.Restrictions.ilike("nama", keyword, org.hibernate.criterion.MatchMode.ANYWHERE));
+				atau.add(org.hibernate.criterion.Restrictions.ilike("kode", keyword, org.hibernate.criterion.MatchMode.ANYWHERE));
+				cCount.add(atau);
+				cData.add(org.hibernate.criterion.Restrictions.sqlRestriction(
+						"(lower({alias}.nama) like lower(?) or lower({alias}.kode) like lower(?))",
+						new Object[] { "%" + keyword + "%", "%" + keyword + "%" },
+						new org.hibernate.type.Type[] { org.hibernate.type.StandardBasicTypes.STRING,
+								org.hibernate.type.StandardBasicTypes.STRING }));
+			}
+			long total = (Long) cCount.setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult();
+			cData.setFirstResult((page - 1) * pageSize).setMaxResults(pageSize);
+			@SuppressWarnings("unchecked")
+			java.util.List<ais.database.model.library.Penyedia> daftar = cData.list();
+			JSONArray arr = new JSONArray();
+			for (ais.database.model.library.Penyedia p : daftar) {
+				JSONObject j = new JSONObject();
+				j.put("id", p.getId());
+				j.put("kode", p.getKode() == null ? "" : p.getKode());
+				j.put("nama", p.getNama());
+				j.put("kontak", p.getKontak() == null ? "" : p.getKontak());
+				j.put("telp", p.getTelp() == null ? "" : p.getTelp());
+				j.put("fax", p.getFax() == null ? "" : p.getFax());
+				j.put("email", p.getEmail() == null ? "" : p.getEmail());
+				j.put("alamat", p.getAlamat() == null ? "" : p.getAlamat());
+				j.put("kode_pos", p.getKodePos() == null ? "" : p.getKodePos());
+				j.put("keterangan", p.getKeterangan() == null ? "" : p.getKeterangan());
+				arr.put(j);
+			}
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+			hasil.put("total", total);
+			hasil.put("page", page);
+			hasil.put("page_size", pageSize);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/** Hapus Supplier (Penyedia) -- gerbang SAMA dgn {@link #penyediaSimpan} (kunci CRUD "kulakan").
+	 * Tak ada pre-check referensi terpisah -- kalau supplier ini masih dipakai di faktur Kulakan
+	 * ({@link ais.database.model.inventory.PengadaanFaktur#getSupplier()}), constraint FK di DB
+	 * menolak DELETE, ditangkap di catch (pola sama dgn {@link #caraBayarHapus}). */
+	public static void penyediaHapus(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggilPyH = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean adminGlobalPyH = pemanggilPyH == null;
+		boolean supervisorPyH = pemanggilPyH != null && Boolean.TRUE.equals(pemanggilPyH.getSupervisor());
+		if (!bolehAksiCrud(tbmuser, pemanggilPyH, adminGlobalPyH, supervisorPyH, "kulakan", "delete")) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya admin/manager atau supervisor toko yang dapat menghapus Supplier.");
+			return;
+		}
+		Long id = request.isNull("id") ? null : Long.valueOf((request.get("id") + "").trim());
+		if (id == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "ID supplier wajib diisi.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.library.Penyedia p = (ais.database.model.library.Penyedia) session
+					.get(ais.database.model.library.Penyedia.class, id);
+			if (p == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Supplier tidak ditemukan.");
+				return;
+			}
+			session.beginTransaction();
+			session.delete(p);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+		} catch (Exception eHapusPy) {
+			hasil.put("status", "91");
+			hasil.put("description", "Gagal menghapus: supplier ini sudah dipakai di faktur Kulakan.");
+			ais.common.ErrorAuditUtil.record(eHapusPy, "auto-audit penyediaHapus src/ais/action/servlet/api/KantinHelper.java");
 		} finally {
 			tutupSessionPolaB(session);
 		}
