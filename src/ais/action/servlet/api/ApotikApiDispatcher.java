@@ -43,6 +43,12 @@ public final class ApotikApiDispatcher {
 			ApotikPersediaanHelper.returSimpan(tbmuser, payload, hasil);
 		} else if ("apotik_batch_monitor".equals(action)) {
 			ApotikPersediaanHelper.batchMonitor(payload, hasil);
+		} else if ("apotik_laporan_penjualan".equals(action)) {
+			ApotikLaporanHelper.laporanPenjualan(payload, hasil);
+		} else if ("apotik_laporan_terkendali".equals(action)) {
+			ApotikLaporanHelper.laporanTerkendali(payload, hasil);
+		} else if ("apotik_laporan_kedaluwarsa".equals(action)) {
+			ApotikLaporanHelper.laporanKedaluwarsa(payload, hasil);
 		} else if ("apotik_provision_demo".equals(action)) {
 			// Provisioning UAT: admin + token konfirmasi + hanya server tanpa data SIRS.
 			ApotikDemoProvisionHelper.provisionDemo(tbmuser, payload, hasil);
