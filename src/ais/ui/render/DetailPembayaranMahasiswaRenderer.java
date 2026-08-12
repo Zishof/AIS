@@ -1405,32 +1405,57 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 						.setParent(vbox);
 
 				if (isStaf) {
+					final Hbox deadlineDisplay = new Hbox();
+					deadlineDisplay.setAlign("center");
+					deadlineDisplay.setSpacing("4px");
+					deadlineDisplay.setParent(vbox);
+					final MyLabelAgakKecilBoldMerah deadlineLabel = new MyLabelAgakKecilBoldMerah(
+							"Deadline : " + (pengaturanPembayaranBulanan.getDeadline() == null ? "-"
+									: Common.dateFormat4.get().format(pengaturanPembayaranBulanan.getDeadline())));
+					deadlineLabel.setParent(deadlineDisplay);
+					final MyToolbarbuttonConfig editDeadline = new MyToolbarbuttonConfig("",
+							"/img/svg/edit-box-line.svg");
+					editDeadline.setTooltiptext("Ubah deadline");
+					editDeadline.setStyle("padding:0 3px; min-width:20px;");
+					editDeadline.setParent(deadlineDisplay);
+
 					final MyDatebox deadlineEditor = new MyDatebox(pengaturanPembayaranBulanan.getDeadline());
 					deadlineEditor.setFormat(Common.dateFormat.get().toPattern());
 					deadlineEditor.setReadonly(false);
 					deadlineEditor.setWidth("150px");
 					deadlineEditor.setTooltiptext("Ubah deadline tagihan bulanan ini lalu pilih tanggal baru");
-					new MyLabelAgakKecilBoldMerah("Deadline (dapat diubah staf)").setParent(vbox);
+					deadlineEditor.setVisible(false);
 					deadlineEditor.setParent(vbox);
+					editDeadline.addEventListener("onClick", new EventListener() {
+						@Override
+						public void onEvent(Event event) throws Exception {
+							deadlineDisplay.setVisible(false);
+							deadlineEditor.setVisible(true);
+							deadlineEditor.setFocus(true);
+						}
+					});
 					deadlineEditor.addEventListener("onChange", new EventListener() {
 						@Override
 						public void onEvent(Event event) throws Exception {
 							pengaturanPembayaranBulanan.setDeadline(deadlineEditor.getValue());
 							executeNativeUpdateTransaction(pengaturanPembayaranBulanan);
-							deadlineEditor.setTooltiptext("Deadline berhasil diperbarui");
+							deadlineLabel.setValue("Deadline : " + (deadlineEditor.getValue() == null ? "-"
+									: Common.dateFormat4.get().format(deadlineEditor.getValue())));
+							deadlineEditor.setVisible(false);
+							deadlineDisplay.setVisible(true);
 						}
 					});
 				} else if (pengaturanPembayaranBulanan.getDeadline() != null) {
 					new MyLabelAgakKecilBoldMerah(
 							"Deadline : " + Common.dateFormat4.get().format(pengaturanPembayaranBulanan.getDeadline()))
 							.setParent(vbox);
+				}
 
-					if (!pengaturanPembayaranBulanan.getInfoDenda().isEmpty()) {
-						MyLabelAgakKecilBoldMerah infoDenda;
-						(infoDenda = new MyLabelAgakKecilBoldMerah(pengaturanPembayaranBulanan.getInfoDenda()))
-								.setParent(vbox);
-						rowPembayaran.setAttribute("infoDenda", infoDenda);
-					}
+				if (!pengaturanPembayaranBulanan.getInfoDenda().isEmpty()) {
+					MyLabelAgakKecilBoldMerah infoDenda;
+					(infoDenda = new MyLabelAgakKecilBoldMerah(pengaturanPembayaranBulanan.getInfoDenda()))
+							.setParent(vbox);
+					rowPembayaran.setAttribute("infoDenda", infoDenda);
 				}
 
 				if (detailKegiatan != null && detailKegiatan.getTanggal() != null) {
