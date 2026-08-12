@@ -1358,6 +1358,12 @@ public class PosApi extends HttpServlet {
 		}
 		// -- Varian "POS Apotik" (prefix apotik_): kunci menu default NONAKTIF (fail-closed),
 		// pola sama blok si_ di bawah -- optBoolean(..., false), prefix spesifik lebih dulu.
+		// Provisioning demo UAT: lolos gate menu (self-guarded di handler: admin + token
+		// konfirmasi + hanya server tanpa data SIRS) -- pola sama si_actor_context, supaya
+		// tidak chicken-and-egg (butuh apotik utk menyiapkan apotik).
+		if ("apotik_provision_demo".equals(action)) {
+			return true;
+		}
 		if ("apotik_item_profil_simpan".equals(action)) {
 			return menu.optBoolean("apotik_formularium", false);
 		}

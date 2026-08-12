@@ -43,6 +43,9 @@ public final class ApotikApiDispatcher {
 			ApotikPersediaanHelper.returSimpan(tbmuser, payload, hasil);
 		} else if ("apotik_batch_monitor".equals(action)) {
 			ApotikPersediaanHelper.batchMonitor(payload, hasil);
+		} else if ("apotik_provision_demo".equals(action)) {
+			// Provisioning UAT: admin + token konfirmasi + hanya server tanpa data SIRS.
+			ApotikDemoProvisionHelper.provisionDemo(tbmuser, payload, hasil);
 		} else {
 			hasil.put("status", "error");
 			hasil.put("message", "Aksi POS Apotik belum tersedia di server ini: " + action);

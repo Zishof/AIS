@@ -7337,6 +7337,34 @@ public class KantinHelper {
 					menuSaatIni.put(e.kunci, menuBaru.optBoolean(e.kunci, true));
 				}
 			}
+			// OPSIONAL: sub-objek `crud` (aksi granular per KUNCI_CRUD). ADITIF & backward-compat --
+			// payload lama tanpa `crud` tidak mengubah CRUD sama sekali. Hanya kunci yg disebut yg
+			// diperbarui; kunci di luar KUNCI_CRUD diabaikan. Dipakai mengaktifkan create/update/
+			// delete/approve/reject varian (mis. apotik_pengadaan) yg sebelumnya tak bisa di-grant.
+			JSONObject crudBaru = request.optJSONObject("crud");
+			if (crudBaru != null) {
+				JSONObject crudSaatIni = terurai.optJSONObject("crud");
+				if (crudSaatIni == null) {
+					crudSaatIni = new JSONObject();
+					terurai.put("crud", crudSaatIni);
+				}
+				for (String kunciCrud : ais.common.EbisnisMenuKatalog.KUNCI_CRUD) {
+					JSONObject aksiBaru = crudBaru.optJSONObject(kunciCrud);
+					if (aksiBaru == null) {
+						continue;
+					}
+					JSONObject aksiSaatIni = crudSaatIni.optJSONObject(kunciCrud);
+					if (aksiSaatIni == null) {
+						aksiSaatIni = new JSONObject();
+						crudSaatIni.put(kunciCrud, aksiSaatIni);
+					}
+					for (String aksi : ais.common.EbisnisMenuKatalog.AKSI_CRUD) {
+						if (aksiBaru.has(aksi)) {
+							aksiSaatIni.put(aksi, aksiBaru.optBoolean(aksi, false));
+						}
+					}
+				}
+			}
 			tx = session.beginTransaction();
 			role.setEbisnisMenu(terurai.toString());
 			session.update(role);
