@@ -640,6 +640,10 @@ public final class ApotikApiHelper {
 			tx = session.beginTransaction();
 			TransaksiMedis trx = new TransaksiMedis();
 			trx.setKode(kodeIdem.isEmpty() ? "APT" + System.currentTimeMillis() : kodeIdem);
+			// jenis_transaksi NOT NULL (kolom wajib) -- penjualan item apotek = TRX_ITEM, sama
+			// dgn jalur rumah sakit (TransaksiAction). sumber=APOTIK menandai asal transaksi.
+			trx.setJenisTransaksi(TransaksiMedis.TRX_ITEM);
+			trx.setSumber(TransaksiMedis.SUMBER_APOTIK);
 			trx.setBebas(Boolean.TRUE);
 			trx.setLunas(Boolean.TRUE);
 			trx.setTanggalTransaksi(new Date());
@@ -742,7 +746,16 @@ public final class ApotikApiHelper {
 			hasil.put("total", total);
 		} catch (Exception e) {
 			try { if (tx != null && tx.isActive()) tx.rollback(); } catch (Exception ignore) { }
-			throw e;
+			ais.common.ErrorAuditUtil.record(e, "ApotikApiHelper.bayar");
+			// Surface penyebab NYATA ke klien (bukan "Terjadi kesalahan sistem" generik) --
+			// pesan spesifik jauh lebih berguna utk kasir & diagnosa. Sertakan sebab-akar bila ada.
+			Throwable akar = e;
+			while (akar.getCause() != null && akar.getCause() != akar) {
+				akar = akar.getCause();
+			}
+			tolak(hasil, "Gagal menyimpan penjualan: " + e.getClass().getSimpleName()
+					+ (akar != e ? " -> " + akar.getClass().getSimpleName() : "")
+					+ ": " + (akar.getMessage() == null ? "(tanpa pesan)" : akar.getMessage()));
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
