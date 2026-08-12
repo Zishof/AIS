@@ -72,7 +72,7 @@ String rnd = Common.getGeneratedBarCode(7);
     </div>
 
     <!-- DETAIL LEDGER -->
-    <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4" id="detailMutasiTabungan<%=rnd%>">
         <div class="card-header bg-white border-0 pt-4 pb-2 px-4">
             <h6 class="fw-bold text-dark mb-0"><%=Common.getBahasaConfig("Buku Besar Mutasi Tabungan")%></h6>
         </div>
@@ -122,10 +122,10 @@ String rnd = Common.getGeneratedBarCode(7);
     </div>
 
     <!-- SUMMARY PER ANGGOTA -->
-    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4" id="rekapMutasiTabungan<%=rnd%>">
         <div class="card-header bg-white border-0 pt-4 pb-2 px-4">
-            <h6 class="fw-bold text-dark mb-0"><%=Common.getBahasaConfig("Summary Buku Besar Mutasi Tabungan")%></h6>
-            <small class="text-muted"><%=Common.getBahasaConfig("Mutasi digabung per penabung agar saldo setiap orang lebih cepat diketahui.")%></small>
+            <h6 class="fw-bold text-dark mb-0"><%=Common.getBahasaConfig("Rekap Mutasi per Anggota")%></h6>
+            <small class="text-muted"><%=Common.getBahasaConfig("Saldo awal dihitung dari seluruh transaksi sebelum tanggal mulai; saldo akhir adalah sisa yang bisa dipakai.")%></small>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive px-3 py-2">
@@ -133,13 +133,14 @@ String rnd = Common.getGeneratedBarCode(7);
                     <thead class="table-light text-secondary">
                         <tr>
                             <th class="fw-bold text-uppercase small"><%=Common.getBahasaConfig("Nama")%></th>
-                            <th class="fw-bold text-uppercase small text-end"><%=Common.getBahasaConfig("Sum Debit")%></th>
-                            <th class="fw-bold text-uppercase small text-end"><%=Common.getBahasaConfig("Sum Kredit")%></th>
-                            <th class="fw-bold text-uppercase small text-end"><%=Common.getBahasaConfig("Sum Saldo")%></th>
+                            <th class="fw-bold text-uppercase small text-end"><%=Common.getBahasaConfig("Saldo Awal")%></th>
+                            <th class="fw-bold text-uppercase small text-end"><%=Common.getBahasaConfig("Masuk")%></th>
+                            <th class="fw-bold text-uppercase small text-end"><%=Common.getBahasaConfig("Keluar")%></th>
+                            <th class="fw-bold text-uppercase small text-end"><%=Common.getBahasaConfig("Saldo Akhir")%></th>
                         </tr>
                     </thead>
                     <tbody id="tabelSummaryMutasi<%=rnd%>">
-                        <tr><td colspan="4" class="text-center py-4 text-muted"><%=Common.getBahasaConfig("Memuat...")%></td></tr>
+                        <tr><td colspan="5" class="text-center py-4 text-muted"><%=Common.getBahasaConfig("Memuat...")%></td></tr>
                     </tbody>
                     <tfoot id="tabelSummaryFooterMutasi<%=rnd%>"></tfoot>
                 </table>
@@ -257,7 +258,7 @@ String rnd = Common.getGeneratedBarCode(7);
         const tbody = document.getElementById('tabelDataMutasi<%=rnd%>');
         tbody.innerHTML = '<tr><td colspan="8" class="text-center py-5"><div class="spinner-border text-primary mb-3"></div><br><span class="text-muted fw-medium"><%=Common.getBahasaConfig("Sistem sedang memuat data mutasi...")%></span></td></tr>';
         document.getElementById('tabelFooterMutasi<%=rnd%>').innerHTML = '';
-        document.getElementById('tabelSummaryMutasi<%=rnd%>').innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted"><%=Common.getBahasaConfig("Memuat...")%></td></tr>';
+        document.getElementById('tabelSummaryMutasi<%=rnd%>').innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted"><%=Common.getBahasaConfig("Memuat...")%></td></tr>';
         document.getElementById('tabelSummaryFooterMutasi<%=rnd%>').innerHTML = '';
 
         const tglAwal = document.getElementById('searchDateStartMutasi<%=rnd%>').value;
@@ -269,16 +270,17 @@ String rnd = Common.getGeneratedBarCode(7);
             return;
         }
 
-        const rentang = "'" + tglAwal + " 00:00:00' AND '" + tglAkhir + " 23:59:59'";
+        const batasAwal = "'" + tglAwal + "'::date";
+        const batasAkhir = "('" + tglAkhir + "'::date + interval '1 day')";
         const filterAnggota = idAnggota !== '' ? (" AND anggota_koperasi = " + parseInt(idAnggota, 10) + " ") : "";
 
         const sql =
-            "WITH mutasi AS ( " +
+            "WITH semua_mutasi AS ( " +
             "  SELECT d.waktu AS waktu, ('D' || d.id) AS baris_id, (a.kode || ' - ' || a.nama) AS nama_anggota, d.anggota_koperasi AS id_anggota, " +
             "         CASE WHEN d.nominal >= 0 THEN 'Topup Tabungan' ELSE 'Pengeluaran Manual' END AS jenis_mutasi, " +
             "         COALESCE(d.keterangan, '') AS keterangan, GREATEST(d.nominal, 0) AS masuk, GREATEST(-d.nominal, 0) AS keluar " +
             "  FROM public.deposit d JOIN koperasi.anggota_koperasi a ON d.anggota_koperasi = a.id " +
-            "  WHERE d.anggota_koperasi IS NOT NULL AND d.waktu BETWEEN " + rentang + filterAnggota.replace(/anggota_koperasi/g, "d.anggota_koperasi") +
+            "  WHERE d.anggota_koperasi IS NOT NULL AND d.waktu < " + batasAkhir + filterAnggota.replace(/anggota_koperasi/g, "d.anggota_koperasi") +
             "  UNION ALL " +
             "  SELECT p.waktu, ('P' || p.id), (a.kode || ' - ' || a.nama), p.anggota_koperasi, " +
             "         'Pembelian/Belanja' AS jenis_mutasi, COALESCE(p.kode, '') AS keterangan, 0 AS masuk, COALESCE(p.total, 0) AS keluar " +
@@ -286,7 +288,7 @@ String rnd = Common.getGeneratedBarCode(7);
             "  JOIN koperasi.anggota_koperasi a ON p.anggota_koperasi = a.id " +
             "  JOIN koperasi.cara_pembayaran_koperasi cpk ON p.cara_pembayaran_koperasi = cpk.id " +
             "  WHERE p.anggota_koperasi IS NOT NULL AND (cpk.manual = false OR cpk.memotong_deposit = true) " +
-            "  AND p.waktu BETWEEN " + rentang + filterAnggota.replace(/anggota_koperasi/g, "p.anggota_koperasi") +
+            "  AND p.waktu < " + batasAkhir + filterAnggota.replace(/anggota_koperasi/g, "p.anggota_koperasi") +
             "  UNION ALL " +
             "  SELECT pc.waktu_pencairan, ('C' || pc.id), (a.kode || ' - ' || a.nama), pc.anggota_koperasi, " +
             "         'Cashback Diskon' AS jenis_mutasi, 'Pencairan diskon' AS keterangan, COALESCE(pc.nominal_cair, 0) AS masuk, 0 AS keluar " +
@@ -294,12 +296,13 @@ String rnd = Common.getGeneratedBarCode(7);
             "  JOIN koperasi.anggota_koperasi a ON pc.anggota_koperasi = a.id " +
             "  JOIN koperasi.cara_pembayaran_koperasi cpk2 ON pc.cara_pembayaran = cpk2.id " +
             "  WHERE pc.status = 'BERHASIL' AND cpk2.manual = false " +
-            "  AND pc.waktu_pencairan BETWEEN " + rentang + filterAnggota.replace(/anggota_koperasi/g, "pc.anggota_koperasi") +
-            ") " +
-            "SELECT *, " +
-            "  SUM(masuk - keluar) OVER (PARTITION BY id_anggota ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_per_penabung, " +
-            "  SUM(masuk - keluar) OVER (ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_total " +
-            "FROM mutasi ORDER BY waktu ASC, baris_id ASC;";
+            "  AND pc.waktu_pencairan < " + batasAkhir + filterAnggota.replace(/anggota_koperasi/g, "pc.anggota_koperasi") +
+            "), saldo_awal AS (SELECT id_anggota, SUM(masuk-keluar) AS saldo_awal FROM semua_mutasi WHERE waktu < " + batasAwal + " GROUP BY id_anggota), " +
+            "mutasi AS (SELECT * FROM semua_mutasi WHERE waktu >= " + batasAwal + ") " +
+            "SELECT m.*, COALESCE(sa.saldo_awal,0) AS saldo_awal, " +
+            "  COALESCE(sa.saldo_awal,0) + SUM(masuk - keluar) OVER (PARTITION BY m.id_anggota ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_per_penabung, " +
+            "  (SELECT COALESCE(SUM(saldo_awal),0) FROM saldo_awal) + SUM(masuk - keluar) OVER (ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_total " +
+            "FROM mutasi m LEFT JOIN saldo_awal sa ON sa.id_anggota=m.id_anggota ORDER BY waktu ASC, baris_id ASC;";
 
         try {
             const res = await fetchApiMutasi<%=rnd%>({ action: "sql", sql: sql });
@@ -380,7 +383,7 @@ String rnd = Common.getGeneratedBarCode(7);
         const tfoot = document.getElementById('tabelSummaryFooterMutasi<%=rnd%>');
 
         if (dataMutasiLengkap<%=rnd%>.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4"><%=Common.getBahasaConfig("Tidak ada data.")%></td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4"><%=Common.getBahasaConfig("Tidak ada data.")%></td></tr>';
             return;
         }
 
@@ -388,20 +391,22 @@ String rnd = Common.getGeneratedBarCode(7);
         const peta = new Map();
         dataMutasiLengkap<%=rnd%>.forEach(row => {
             const key = row.id_anggota;
-            if (!peta.has(key)) peta.set(key, { nama: row.nama_anggota, debit: 0, kredit: 0 });
+            if (!peta.has(key)) peta.set(key, { nama: row.nama_anggota, awal: parseFloat(row.saldo_awal) || 0, debit: 0, kredit: 0 });
             const rec = peta.get(key);
             rec.debit += parseFloat(row.masuk) || 0;
             rec.kredit += parseFloat(row.keluar) || 0;
         });
 
         let html = '';
-        let totalDebit = 0, totalKredit = 0;
+        let totalAwal = 0, totalDebit = 0, totalKredit = 0;
         peta.forEach(rec => {
-            const saldo = rec.debit - rec.kredit;
+            const saldo = rec.awal + rec.debit - rec.kredit;
+            totalAwal += rec.awal;
             totalDebit += rec.debit;
             totalKredit += rec.kredit;
             html += '<tr>' +
                 '<td class="fw-bold text-dark">' + rec.nama + '</td>' +
+                '<td class="text-end text-secondary">' + formatRpMutasi<%=rnd%>(rec.awal) + '</td>' +
                 '<td class="text-end text-success">' + formatRpMutasi<%=rnd%>(rec.debit) + '</td>' +
                 '<td class="text-end text-danger">' + formatRpMutasi<%=rnd%>(rec.kredit) + '</td>' +
                 '<td class="text-end fw-bolder ' + (saldo >= 0 ? 'text-primary' : 'text-danger') + '">' + formatRpMutasi<%=rnd%>(saldo) + '</td>' +
@@ -411,9 +416,10 @@ String rnd = Common.getGeneratedBarCode(7);
 
         tfoot.innerHTML = '<tr class="table-light fw-bold">' +
             '<td class="text-end"><%=Common.getBahasaConfig("TOTAL")%> :</td>' +
+            '<td class="text-end text-secondary">' + formatRpMutasi<%=rnd%>(totalAwal) + '</td>' +
             '<td class="text-end text-success">' + formatRpMutasi<%=rnd%>(totalDebit) + '</td>' +
             '<td class="text-end text-danger">' + formatRpMutasi<%=rnd%>(totalKredit) + '</td>' +
-            '<td class="text-end text-dark">' + formatRpMutasi<%=rnd%>(totalDebit - totalKredit) + '</td>' +
+            '<td class="text-end text-dark">' + formatRpMutasi<%=rnd%>(totalAwal + totalDebit - totalKredit) + '</td>' +
             '</tr>';
     };
 
@@ -638,6 +644,9 @@ String rnd = Common.getGeneratedBarCode(7);
     // INISIALISASI
     // ==========================================
     document.addEventListener("DOMContentLoaded", () => {
+        const rekap = document.getElementById('rekapMutasiTabungan<%=rnd%>');
+        const detail = document.getElementById('detailMutasiTabungan<%=rnd%>');
+        detail.parentNode.insertBefore(rekap, detail);
         setDefaultDatesMutasi<%=rnd%>();
         const filterInputs = document.querySelectorAll('.filter-mutasi-<%=rnd%>');
         filterInputs.forEach(input => {
