@@ -7,6 +7,7 @@ Tbmuser apotikUser = Common.getCurrentUser(request);
 if (apotikUser == null || !apotikUser.getAktif()) { response.sendError(403); return; }
 String apotikView = (String) request.getAttribute("apotikView");
 if (apotikView == null) apotikView = "kasir";
+String apotikHelpKey = "apotik_" + apotikView;
 String csrf = (String) session.getAttribute("apotikJspCsrf");
 if (csrf == null) { csrf = UUID.randomUUID().toString(); session.setAttribute("apotikJspCsrf", csrf); }
 %>
@@ -14,7 +15,7 @@ if (csrf == null) { csrf = UUID.randomUUID().toString(); session.setAttribute("a
 .apt{--a:#2563eb;--b:#0891b2}.apt .card{border:0;box-shadow:0 4px 18px rgba(15,23,42,.08)}.apt .apt-head{background:linear-gradient(135deg,var(--a),var(--b));color:#fff;border-radius:14px;padding:20px}.apt .table{font-size:.88rem}.apt .result-row{cursor:pointer}.apt .result-row:hover{background:#eff6ff}.apt .money{text-align:right;font-variant-numeric:tabular-nums}.apt .pill{display:inline-block;padding:.2rem .5rem;border-radius:999px;background:#e0f2fe;color:#075985;font-size:.75rem}.apt .danger{background:#fee2e2;color:#991b1b}.apt .sticky-actions{position:sticky;bottom:0;background:#fff;padding:12px 0;border-top:1px solid #e5e7eb}
 </style>
 <div class="apt container-fluid pb-4" data-view="<%= apotikView %>">
-  <div class="apt-head mb-3 d-flex justify-content-between align-items-center"><div><h4 class="m-0" id="apt-title">POS Apotik</h4><small id="apt-subtitle">Layanan farmasi native JSP</small></div><a class="btn btn-light btn-sm" href="<%=request.getContextPath()%>/main"><i class="fas fa-home"></i> Beranda</a></div>
+  <div class="apt-head mb-3 d-flex justify-content-between align-items-center"><div><h4 class="m-0" id="apt-title">POS Apotik</h4><small id="apt-subtitle">Layanan farmasi native JSP</small></div><div class="d-flex gap-2"><a class="btn btn-warning btn-sm" href="<%=request.getContextPath()%>/baru?p=apotik&amp;s=help&amp;menu=<%=apotikHelpKey%>"><i class="fas fa-question-circle"></i> Bantuan</a><a class="btn btn-light btn-sm" href="<%=request.getContextPath()%>/main"><i class="fas fa-home"></i> Beranda</a></div></div>
   <div id="apt-alert"></div><div id="apt-content"><div class="text-center py-5"><span class="spinner-border text-primary"></span></div></div>
 </div>
 <script>

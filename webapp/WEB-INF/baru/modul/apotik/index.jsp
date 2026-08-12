@@ -34,7 +34,8 @@
         {"apotik_laporan",     "laporan",     "chart-bar",      "#0f766e", "Laporan Apotik",     "Penjualan, obat terkendali, dan kedaluwarsa"}
     };
     int jumlahMenu = 0;
-    for (int i = 0; i < menus.length; i++) if (menu.optBoolean(menus[i][0], false)) jumlahMenu++;
+    String firstHelpMenu = null;
+    for (int i = 0; i < menus.length; i++) if (menu.optBoolean(menus[i][0], false)) { jumlahMenu++; if (firstHelpMenu == null) firstHelpMenu = menus[i][0]; }
 %>
 <% if (directPage) { %>
 <jsp:include page="/WEB-INF/baru/include/header.jsp" />
@@ -44,6 +45,7 @@
 <% if (isMob) { %><%= MobileHubHelper.buildMobCss() %><% } %>
 <%= MobileHubHelper.buildHeader("POS Apotik", "Penjualan, resep, dan persediaan farmasi", "prescription-bottle-alt", "linear-gradient(135deg,#2563eb,#0891b2)") %>
 <div class="container-fluid pb-3">
+    <% if (firstHelpMenu != null) { %><div class="text-end mb-3"><a class="btn btn-warning" href="<%=ctx%>/baru?p=apotik&amp;s=help&amp;menu=<%=firstHelpMenu%>"><i class="fas fa-question-circle"></i> Bantuan</a></div><% } %>
     <% if (jumlahMenu == 0) { %>
     <div class="alert alert-warning border-0 shadow-sm">Role ini belum memiliki hak akses menu POS Apotik. Atur hak akses eBisnis pada Grup Pengguna.</div>
     <% } else { %>

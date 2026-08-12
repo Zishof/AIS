@@ -1,3 +1,3 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
-<div class="mb-3"><h4>Tagihan Kunjungan</h4><p class="text-muted">Status tagihan dan pembayaran pasien.</p></div>
+<div class="mb-3 d-flex justify-content-between"><div><h4>Tagihan Kunjungan</h4><p class="text-muted">Status tagihan dan pembayaran pasien.</p></div><a class="btn btn-warning align-self-start" href="<%=request.getContextPath()%>/baru?p=emedik&amp;s=help&amp;menu=emedik_tagihan"><i class="fas fa-question-circle"></i> Bantuan</a></div>
 <jsp:include page="/WEB-INF/baru/modul/pagesmastersirsstatuspembayaranzul/index.jsp" />
