@@ -789,17 +789,15 @@ public class KantinHelper {
 					hasil.put("description", "Error: " + e.getMessage());
 					e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/api/KantinHelper.java:209");
 				} finally {
-					try {
-						try { session.clear(); } catch (Exception ignoreClear) { ais.common.ErrorAuditUtil.record(ignoreClear, "auto-audit(empty-catch) src/ais/action/servlet/api/KantinHelper.java:212");}
-						session.disconnect();
-					} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/api/KantinHelper.java:214");
-						// TODO: handle exception
-					}
-					try {
-						session.close();
-					} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/api/KantinHelper.java:219");
-						// TODO: handle exception
-					}
+					// Gap-closure "Kas Terbuka tapi checkout ditolak" (2026-08-12): sebelumnya blok ini
+					// clear/disconnect/close TANPA rollback dulu -- persis pola LAMA yang sudah terbukti
+					// jadi akar bug "idle in transaction" di javadoc tutupSessionPolaB (koneksi kembali ke
+					// pool c3p0 masih menggenggam transaksi implisit terbuka, permintaan BERIKUTNYA yang
+					// meminjam koneksi yg SAMA bisa terus melihat snapshot data LAMA -- termasuk gerbang
+					// Sesi Kas di atas yg baca SesiKasKasir dari SESSION INI, paling awal dipanggil di
+					// method ini, paling rentan kena efeknya). bayar() ditulis sebelum tutupSessionPolaB
+					// ada dan tak pernah dimigrasikan -- sekarang pakai helper yg sama spt ~100 method lain.
+					tutupSessionPolaB(session);
 				}
 			}
 		}

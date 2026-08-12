@@ -315,6 +315,16 @@ public class PendaftaranTenantServlet extends HttpServlet {
 			return ais.service.registration.PendaftaranTenantAdminService
 					.verifikasiManual(admin, kode, reason);
 		}
+		if ("admin_reconcile".equals(action) || "admin_reconcile_repair".equals(action)) {
+			Long pendaftarId = ais.service.registration.PendaftaranTenantAdminService
+					.pendaftarIdDariKode(kode);
+			if (pendaftarId == null) {
+				return tolak("REGISTRATION_NOT_FOUND", "Permohonan tidak ditemukan.");
+			}
+			return "admin_reconcile_repair".equals(action)
+					? ais.service.tenant.TenantDataReconciliationService.repair(pendaftarId)
+					: ais.service.tenant.TenantDataReconciliationService.reconcile(pendaftarId);
+		}
 		return tolak("UNKNOWN_ACTION", "Aksi admin tidak dikenal.");
 	}
 

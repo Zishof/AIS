@@ -127,8 +127,27 @@ public final class TenantProvisioningWorker {
 			Long id = job.getId();
 			session.getTransaction().commit(); // @Version: node lain yang mengklaim bersamaan gagal di sini
 			return id;
+		} catch (org.hibernate.StaleStateException staleEx) {
+			// Kalah race klaim (StaleObjectState/StaleState via @Version) itu normal pada multi-node --
+			// bukan error alur, tetap ditelan diam-diam seperti semula.
+			try {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception rollbackEx) { ais.common.ErrorAuditUtil.record(rollbackEx, "auto-audit(empty-catch) TenantProvisioningWorker.klaim.rollback");
+			}
+			return null;
 		} catch (Exception e) {
-			// Kalah race klaim (StaleObjectState) itu normal pada multi-node -- bukan error alur.
+			// FIX (gap observability): sebelumnya SEMUA Exception (termasuk PSQLException koneksi
+			// mati/dead c3p0 connection -- "This connection has been closed", SQLState 08006) ikut
+			// ditelan diam-diam di sini seolah cuma kalah race klaim StaleObjectState (lihat JavaDoc
+			// kelas ini), sehingga gangguan koneksi DB yang sebenarnya TIDAK PERNAH terlihat di
+			// Error Log. Sekarang hanya StaleStateException (race klaim -- benar-benar normal) yang
+			// ditelan diam-diam; exception lain (mis. koneksi mati) diaudit di sini supaya ops bisa
+			// melihat gangguan berulang, tapi worker TETAP tidak berhenti (return null, tick berikut
+			// membuka session/koneksi baru dari pool seperti biasa -- tidak ada perubahan perilaku
+			// pemulihan, hanya visibilitas).
+			ais.common.ErrorAuditUtil.record(e, "auto-audit TenantProvisioningWorker.klaimSatuJob");
 			try {
 				if (session.getTransaction() != null && session.getTransaction().isActive()) {
 					session.getTransaction().rollback();

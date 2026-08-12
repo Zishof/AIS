@@ -56,6 +56,10 @@
 		<listener-class>ais.common.ErrorAuditContextListener</listener-class>
 	</listener>
 	<listener>
+		<description>Hapus baris public.log_mobile lebih tua dari ambang retensi (default 30 hari) sekali per start webapp, di background. Lihat JavaDoc ais.service.maintenance.LogMobileCleanupService.</description>
+		<listener-class>ais.common.LogMobileCleanupListener</listener-class>
+	</listener>
+	<listener>
 		<listener-class>ais.common.AppStartupListener</listener-class>
 	</listener>
 	<listener>

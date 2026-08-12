@@ -95,6 +95,38 @@ public class ErrorAuditUtil {
             return result;
         }
 
+        // FIX StackOverflowError (rekursi tanpa akhir): guard reentrancy RECORDING dulu di-set SETELAH
+        // buildErrorText() dipanggil (lihat riwayat method ini) -- buildErrorText -> getMaxContentLength ->
+        // getKonfigurasi(lokal) -> Common.getKonfigurasi -> KonfigurasiManager.getKonfigurasi. Kalau lookup
+        // Konfigurasi ITU SENDIRI gagal (mis. pool koneksi DB habis) dan meng-audit kegagalannya lewat
+        // record() lagi (KonfigurasiManager.java:98), panggilan bersarang itu TIDAK terlindungi (guard
+        // belum sempat ter-set) -> rekursi record->buildErrorText->getKonfigurasi->record->... tanpa henti
+        // sampai StackOverflowError. Karena record() dipanggil dari ribuan catch block di seluruh
+        // aplikasi, SETIAP audit error yang terjadi selama gangguan DB ikut ambruk. Sekarang guard
+        // membungkus SELURUH proses pencatatan (termasuk buildErrorText) -- panggilan bersarang langsung
+        // fallback ke pesan minimal TANPA memanggil buildErrorText/Konfigurasi lagi, memutus rekursi di
+        // percobaan kedua tanpa mengubah perilaku jalur normal (non-bersarang) sama sekali.
+        if (Boolean.TRUE.equals(RECORDING.get())) {
+            String minimal = "[ErrorAuditUtil-reentrant] " + (info == null ? "" : info) + " :: "
+                    + (throwable == null ? "" : throwable.toString());
+            try {
+                System.err.println(minimal);
+            } catch (Throwable ignored) {
+            }
+            return new ErrorAuditResult(minimal, null);
+        }
+
+        try {
+            RECORDING.set(Boolean.TRUE);
+            return recordGuarded(throwable, info, request);
+        } finally {
+            RECORDING.set(null);
+        }
+    }
+
+    /** Isi asli {@link #record(Throwable, String, HttpServletRequest, boolean)}, dijalankan HANYA saat
+     * guard RECORDING sudah aktif (dipanggil dari situ) sehingga aman memanggil buildErrorText/Konfigurasi. */
+    private static ErrorAuditResult recordGuarded(Throwable throwable, String info, HttpServletRequest request) {
         // DEDUP 1x-per-lokasi: bila kelas+baris (atau info fast-throw) ini SUDAH pernah dicatat sejak
         // start/last-reset, JANGAN catat lagi. Cek in-memory (tanpa DB) supaya performa tak turun.
         // add() -> true bila baru, false bila sudah ada. Reset via resetDedup() (menu Hapus Semua).
@@ -123,14 +155,7 @@ public class ErrorAuditUtil {
         String content = buildErrorText(throwable, info, request);
         Long errorLogId = null;
 
-        if (Boolean.TRUE.equals(RECORDING.get())) {
-            writeToServerLog(throwable, content);
-            return new ErrorAuditResult(content, null);
-        }
-
         try {
-            RECORDING.set(Boolean.TRUE);
-
             if (isServerLogActive()) {
                 writeToServerLog(throwable, content);
             }
@@ -149,8 +174,6 @@ public class ErrorAuditUtil {
             } catch (Throwable ignored) {
             }
             return new ErrorAuditResult(content, errorLogId);
-        } finally {
-            RECORDING.set(null);
         }
     }
 

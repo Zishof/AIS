@@ -380,6 +380,17 @@ public final class PendaftaranTenantAdminService {
 		}
 	}
 
+	/** id pendaftar pemilik permohonan (utk aksi lintas-service spt rekonsiliasi P9); null bila tak ada. */
+	public static Long pendaftarIdDariKode(String kode) {
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			PendaftaranTenant pt = cariByKode(session, kode);
+			return pt == null || pt.getPendaftar() == null ? null : pt.getPendaftar().getId();
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
 	private static PendaftaranTenant cariByKode(Session session, String kode) {
 		if (kode == null || kode.trim().isEmpty() || kode.length() > 40) {
 			return null;

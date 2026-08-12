@@ -65,6 +65,14 @@ th{background:#f8fafc;font-size:.72rem;text-transform:uppercase;color:#6b7280}
 		</table>
 	</div>
 	<div class="kartu"><pre id="detailStep"></pre></div>
+	<div class="kartu">
+		<b>Rekonsiliasi Data-Plane (drift shared ↔ schema tenant)</b>
+		<div style="font-size:.78rem;color:#6b7280;margin:4px 0 8px">
+			Bukti konsistensi sebelum mengaktifkan mode TENANT_ONLY. "Periksa" = laporan saja;
+			"Perbaiki" = sinkron + mirror-ulang baris beda (shared sumber kebenaran; yatim tidak dihapus).
+		</div>
+		<pre id="reconOut" style="font-size:.78rem;white-space:pre-wrap;background:#0f172a;color:#e2e8f0;border-radius:8px;padding:10px;display:none"></pre>
+	</div>
 </div>
 <script>
 (function(){
@@ -133,6 +141,21 @@ function muat(){
 						pre.textContent = JSON.stringify(r2, null, 2);
 					});
 				}));
+				if (['READY','ACTIVE'].indexOf(d.statusPermohonan) >= 0){
+					w.appendChild(tombol('Periksa Drift', 'abu', function(){
+						kirim('admin_reconcile', { kode: d.kode }).then(function(r2){
+							var pre = el('reconOut'); pre.style.display = 'block';
+							pre.textContent = d.kode + '\n' + JSON.stringify(r2, null, 2);
+						});
+					}));
+					w.appendChild(tombol('Perbaiki Drift', '', function(){
+						if (!window.confirm('Sinkron + mirror-ulang drift utk ' + d.kode + '?')) return;
+						kirim('admin_reconcile_repair', { kode: d.kode }).then(function(r2){
+							var pre = el('reconOut'); pre.style.display = 'block';
+							pre.textContent = d.kode + ' (setelah repair)\n' + JSON.stringify(r2, null, 2);
+						});
+					}));
+				}
 				if (d.statusPermohonan === 'REVIEW_PENDING'){
 					w.appendChild(tombol('Setujui', 'hijau', function(){ aksi('admin_approve', d.kode, true); }));
 					w.appendChild(tombol('Tolak', 'merah', function(){ aksi('admin_reject', d.kode, true); }));
