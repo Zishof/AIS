@@ -162,6 +162,18 @@ public final class SalesInventoryApiDispatcher {
 			SalesInventoryTripHelper.expenseCategorySave(ctx, tbmuser, payload, hasil);
 		} else if ("si_expense_create".equals(action)) {
 			SalesInventoryTripHelper.expenseCreate(ctx, tbmuser, payload, hasil);
+		} else if ("si_coa_list".equals(action)) {
+			SalesInventoryFinanceHelper.coaList(ctx, payload, hasil);
+		} else if ("si_coa_save".equals(action)) {
+			SalesInventoryFinanceHelper.coaSave(ctx, tbmuser, payload, hasil);
+		} else if ("si_cash_journal_list".equals(action)) {
+			SalesInventoryFinanceHelper.cashJournalList(ctx, payload, hasil);
+		} else if ("si_profit_loss_params".equals(action)) {
+			SalesInventoryFinanceHelper.profitLossParams(ctx, payload, hasil);
+		} else if ("si_gross_profit_report".equals(action)) {
+			SalesInventoryFinanceHelper.grossProfitReport(ctx, payload, hasil);
+		} else if ("si_profit_loss_report".equals(action) || "si_profit_loss_print".equals(action)) {
+			SalesInventoryFinanceHelper.profitLossReport(ctx, payload, hasil);
 		} else {
 			// Aksi si_ lain menyusul per fase (P5 SPJ/Nota Sales, P6 finance).
 			hasil.put("status", "error");
