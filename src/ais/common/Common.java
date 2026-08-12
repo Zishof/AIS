@@ -12293,6 +12293,73 @@ public class Common {
 	}
 
 	/**
+	 * Padanan {@link #checkApakahPegawaiOtomatisMenjadiAnggotaKoperasi(String, Koperasi)} utk
+	 * pegawai TANPA kode ({@code mycode} null/kosong) -- sebelumnya pegawai semacam ini
+	 * dikecualikan total dari kandidat sinkronisasi (permintaan eksplisit user 2026-08-12:
+	 * "tetap ambil saja, buat kode otomatis random/acak"), krn overload berbasis-String di atas
+	 * memakai {@code mycode} sbg KUNCI PENCARIAN AnggotaKoperasi yang sudah ada -- kunci
+	 * kosong/null tak bisa dipakai (banyak pegawai berbeda akan tabrakan pada satu kunci sama).
+	 *
+	 * <p>Overload ini mencari/mencocokkan lewat FK {@code pegawai.id} langsung (stabil, tak
+	 * bergantung mycode), dan men-generate {@code kode} otomatis via
+	 * {@link BarcodeCommon#generateCode()} (pola sama dgn fallback bawaan
+	 * {@link AnggotaKoperasi#getKode()}, dgn retry-loop cek tabrakan thd {@code kode unique})
+	 * HANYA saat pertama kali dibuat -- re-sync berikutnya cocok lewat {@code pegawai.id}, bukan
+	 * generate kode baru lagi.</p>
+	 *
+	 * @param idPegawai id {@code Pegawai} yang akan didaftarkan; tidak boleh null
+	 * @param koperasi  koperasi tujuan; tidak boleh null
+	 * @return entitas {@code AnggotaKoperasi} yang dibuat/diperbarui, atau null bila pegawai tidak ditemukan
+	 */
+	public static AnggotaKoperasi checkApakahPegawaiOtomatisMenjadiAnggotaKoperasi(Long idPegawai, Koperasi koperasi) {
+		Session session = HibernateUtil.currentNativeSession();
+		AnggotaKoperasi anggotaKoperasi = ((AnggotaKoperasi) ConstantValues.simpleObject(
+				session.createCriteria(AnggotaKoperasi.class).createAlias("pegawai", "pegawai", Criteria.LEFT_JOIN)
+						.add(Restrictions.eq("pegawai.id", idPegawai)).setMaxResults(1),
+				AnggotaKoperasi.class));
+		if (anggotaKoperasi == null) {
+			Pegawai pegawai = (Pegawai) session.get(Pegawai.class, idPegawai);
+			if (pegawai != null) {
+				String kodeOtomatis;
+				do {
+					kodeOtomatis = ais.common.BarcodeCommon.generateCode();
+				} while (session.createCriteria(AnggotaKoperasi.class).add(Restrictions.eq("kode", kodeOtomatis))
+						.setMaxResults(1).uniqueResult() != null);
+
+				anggotaKoperasi = new AnggotaKoperasi();
+				anggotaKoperasi.setAktif(true);
+				anggotaKoperasi.setPegawai(pegawai);
+				anggotaKoperasi.setAlamat(pegawai.getAlamat());
+				anggotaKoperasi.setEmail(pegawai.getEmail());
+				anggotaKoperasi.setJenisIdentitas("NIK");
+				anggotaKoperasi.setKeterangan(
+						"Anggota Koperasi ini mendaftar otomatis (kode auto-generate, pegawai tanpa kode)");
+				anggotaKoperasi.setKodeIdentitas(kodeOtomatis);
+				anggotaKoperasi.setKode(kodeOtomatis);
+				anggotaKoperasi.setNama(pegawai.getNama());
+				anggotaKoperasi.setTanggal_dirubah(ais.ui.util.WaktuUtil.getDate());
+				anggotaKoperasi.setTipeAnggotaKoperasi(ConstantValues.PEGAWAI);
+				anggotaKoperasi.setTipe(ConstantValues.PEGAWAI.getNama());
+				anggotaKoperasi.setKoperasi(koperasi);
+				session.getTransaction().begin();
+				session.save(anggotaKoperasi);
+				session.getTransaction().commit();
+			}
+		} else {
+			anggotaKoperasi.setKoperasi(koperasi);
+			session.getTransaction().begin();
+			Common.refreshSaveOrUpdate(session, anggotaKoperasi);
+			session.getTransaction().commit();
+		}
+		if (session.isOpen()) {
+			session.disconnect();
+			session.close();
+		}
+		HibernateUtil.closeSession();
+		return anggotaKoperasi;
+	}
+
+	/**
 	 * Mendaftarkan dosen (berdasarkan NIDN) secara otomatis sebagai anggota koperasi,
 	 * atau memperbarui asosiasi koperasi pada rekam anggota yang sudah ada.
 	 *

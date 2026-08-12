@@ -6211,6 +6211,11 @@ public class KantinHelper {
 	 * {@code AnggotaKoperasiAction} lama HANYA mengecualikan {@code dosen} (bukan {@code guru}) --
 	 * celah itu ditutup di sini sekaligus.</p>
 	 *
+	 * <p><b>Pegawai tanpa kode.</b> Pegawai dengan {@code mycode} null/kosong TETAP disinkronkan
+	 * (bukan dilewati) lewat overload {@code Common.checkApakahPegawaiOtomatisMenjadiAnggotaKoperasi(Long, Koperasi)}
+	 * yang mencocokkan via FK {@code pegawai.id} (bukan {@code mycode}) dan men-generate kode
+	 * member otomatis pada saat pertama kali dibuat.</p>
+	 *
 	 * @param request payload berisi {@code koperasi_id} (wajib).
 	 */
 	public static void sinkronPegawai(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
@@ -6245,6 +6250,19 @@ public class KantinHelper {
 			@SuppressWarnings("unchecked")
 			java.util.List<String> ids = cq.list();
 
+			// Pegawai TANPA kode (mycode null/kosong) -- permintaan eksplisit user 2026-08-12:
+			// jangan dilewati begitu saja, tetap ambil, kode di-generate otomatis (lihat
+			// Common.checkApakahPegawaiOtomatisMenjadiAnggotaKoperasi(Long, Koperasi)). Diambil
+			// per-id (BUKAN group-by mycode spt di atas -- mycode kosong akan collapse SEMUA
+			// pegawai tanpa kode jadi satu grup, cuma 1 yg kesinkron).
+			org.hibernate.Criteria cqTanpaKode = session.createCriteria(ais.database.model.Pegawai.class)
+					.add(Restrictions.or(Restrictions.eq("aktif", true), Restrictions.isNull("aktif")))
+					.add(Restrictions.isNull("dosen")).add(Restrictions.isNull("guru"))
+					.add(Restrictions.or(Restrictions.isNull("mycode"), Restrictions.eq("mycode", "")))
+					.setProjection(org.hibernate.criterion.Projections.property("id"));
+			@SuppressWarnings("unchecked")
+			java.util.List<Long> idsTanpaKode = cqTanpaKode.list();
+
 			int berhasil = 0, gagal = 0;
 			for (String mycode : ids) {
 				try {
@@ -6255,8 +6273,17 @@ public class KantinHelper {
 							"auto-audit sinkronPegawai src/ais/action/servlet/api/KantinHelper.java mycode=" + mycode);
 				}
 			}
+			for (Long idPegawai : idsTanpaKode) {
+				try {
+					if (Common.checkApakahPegawaiOtomatisMenjadiAnggotaKoperasi(idPegawai, koperasi) != null) berhasil++;
+				} catch (Exception exSatu) {
+					gagal++;
+					ais.common.ErrorAuditUtil.record(exSatu, "auto-audit sinkronPegawai(tanpa-kode) "
+							+ "src/ais/action/servlet/api/KantinHelper.java idPegawai=" + idPegawai);
+				}
+			}
 			hasil.put("status", "00");
-			hasil.put("total", ids.size());
+			hasil.put("total", ids.size() + idsTanpaKode.size());
 			hasil.put("berhasil", berhasil);
 			hasil.put("gagal", gagal);
 		} finally {
