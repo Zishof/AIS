@@ -7,6 +7,7 @@ import java.util.List;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
+import org.hibernate.Transaction;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
@@ -482,7 +483,7 @@ public class MatakuliahKurikulumDetailHelper implements DataLoader {
 					}
 				});
 				cancel.setParent(toolbar);
-				MyToolbarbuttonConfig save = new MyToolbarbuttonConfig("Simpan", "/img/save.gif");
+				final MyToolbarbuttonConfig save = new MyToolbarbuttonConfig("Simpan", "/img/save.gif");
 				save.setTooltiptext("Simpan");
 				save.addEventListener("onClick", new EventListener() {
 					@Override
@@ -506,58 +507,63 @@ public class MatakuliahKurikulumDetailHelper implements DataLoader {
 							return;
 						}
 
-						Session session = HibernateUtil.currentSession();
-
-						kurikulumPunyaMatakuliah.setDeskripsiPembelajaran(deskripsiPembelajaran.getValue());
-						kurikulumPunyaMatakuliah.setCapaianPembelajaranProdi(kompetensi.getValue());
-						kurikulumPunyaMatakuliah
-								.setJumlahPertemuanPerkuliahanDefault(jumlahKurikulumPunyaMatakuliahDetail.getValue());
-						kurikulumPunyaMatakuliah.setInti(inti.isChecked());
-						kurikulumPunyaMatakuliah.setInstitusional(institusional.isChecked());
-						kurikulumPunyaMatakuliah.setTerdapatTugas(terdapatTugas.isChecked());
-						Common.refreshUpdate(session, kurikulumPunyaMatakuliah);
-
-						if (hapus.isChecked()) {
-							session.createSQLQuery(
-									"delete from kurikulum_punya_matakuliah_detail where kurikulum_punya_matakuliah="
-											+ kurikulumPunyaMatakuliah.getId())
-									.executeUpdate();
-						}
-
-						for (int i = 1; i <= jumlahKurikulumPunyaMatakuliahDetail.getValue(); i++) {
-							KurikulumPunyaMatakuliahDetail kurikulumPunyaMatakuliahDetail = (KurikulumPunyaMatakuliahDetail) session
-									.createCriteria(KurikulumPunyaMatakuliahDetail.class)
-									.add(Restrictions.eq("kurikulumPunyaMatakuliah", kurikulumPunyaMatakuliah))
-									.add(Restrictions.eq("nomorUrut", i)).setMaxResults(1).uniqueResult();
-							if (kurikulumPunyaMatakuliahDetail == null) {
-								kurikulumPunyaMatakuliahDetail = new KurikulumPunyaMatakuliahDetail();
-								kurikulumPunyaMatakuliahDetail.setNomorUrut(i);
-								kurikulumPunyaMatakuliahDetail.setStatusPertemuan(ConstantValues.TATAP_MUKA);
-
-								if (uas.isChecked()) {
-									if (i == jumlahKurikulumPunyaMatakuliahDetail.getValue()) {
-										kurikulumPunyaMatakuliahDetail.setStatusPertemuan(ConstantValues.UAS);
-										kurikulumPunyaMatakuliahDetail.setTopik("Pertemuan ke " + i + " : UAS");
-										kurikulumPunyaMatakuliahDetail.setMetodePembelajaran("Mengerjakan soal UAS");
-									}
-								}
-
-								if (uts.isChecked()) {
-									if (i == (jumlahKurikulumPunyaMatakuliahDetail.getValue() / 2)) {
-										kurikulumPunyaMatakuliahDetail.setStatusPertemuan(ConstantValues.UTS);
-										kurikulumPunyaMatakuliahDetail.setTopik("Pertemuan ke " + i + " : UTS");
-										kurikulumPunyaMatakuliahDetail.setMetodePembelajaran("Mengerjakan soal UTS");
-									}
-								}
-
-								kurikulumPunyaMatakuliahDetail.setKurikulumPunyaMatakuliah(kurikulumPunyaMatakuliah);
-								Common.refreshSaveOrUpdate(session, kurikulumPunyaMatakuliahDetail);
+						save.setDisabled(true);
+						Session session = null;
+						Transaction transaction = null;
+						try {
+							session = HibernateUtil.currentNativeSession();
+							transaction = session.beginTransaction();
+							KurikulumPunyaMatakuliah dataInduk = (KurikulumPunyaMatakuliah) session.get(
+									KurikulumPunyaMatakuliah.class, kurikulumPunyaMatakuliah.getId());
+							if (dataInduk == null) throw new IllegalStateException("Data kurikulum mata kuliah tidak ditemukan.");
+							dataInduk.setDeskripsiPembelajaran(deskripsiPembelajaran.getValue());
+							dataInduk.setCapaianPembelajaranProdi(kompetensi.getValue());
+							dataInduk.setJumlahPertemuanPerkuliahanDefault(jumlahKurikulumPunyaMatakuliahDetail.getValue());
+							dataInduk.setInti(inti.isChecked());
+							dataInduk.setInstitusional(institusional.isChecked());
+							dataInduk.setTerdapatTugas(terdapatTugas.isChecked());
+							session.update(dataInduk);
+							if (hapus.isChecked()) {
+								session.createSQLQuery("delete from kurikulum_punya_matakuliah_detail where kurikulum_punya_matakuliah=:id")
+										.setLong("id", dataInduk.getId()).executeUpdate();
+								session.flush(); session.clear();
+								dataInduk = (KurikulumPunyaMatakuliah) session.get(KurikulumPunyaMatakuliah.class, kurikulumPunyaMatakuliah.getId());
 							}
-
+							for (int i = 1; i <= jumlahKurikulumPunyaMatakuliahDetail.getValue(); i++) {
+								KurikulumPunyaMatakuliahDetail detail = (KurikulumPunyaMatakuliahDetail) session
+										.createCriteria(KurikulumPunyaMatakuliahDetail.class)
+										.add(Restrictions.eq("kurikulumPunyaMatakuliah", dataInduk))
+										.add(Restrictions.eq("nomorUrut", i)).setMaxResults(1).uniqueResult();
+								if (detail == null) {
+									detail = new KurikulumPunyaMatakuliahDetail(); detail.setNomorUrut(i);
+									StatusPertemuan statusPertemuan = ConstantValues.TATAP_MUKA;
+									if (uas.isChecked() && i == jumlahKurikulumPunyaMatakuliahDetail.getValue()) {
+										statusPertemuan = ConstantValues.UAS; detail.setTopik("Pertemuan ke " + i + " : UAS");
+										detail.setMetodePembelajaran("Mengerjakan soal UAS");
+									}
+									if (uts.isChecked() && i == (jumlahKurikulumPunyaMatakuliahDetail.getValue() / 2)) {
+										statusPertemuan = ConstantValues.UTS; detail.setTopik("Pertemuan ke " + i + " : UTS");
+										detail.setMetodePembelajaran("Mengerjakan soal UTS");
+									}
+									if (statusPertemuan == null || statusPertemuan.getId() == null) throw new IllegalStateException("Status pertemuan belum dikonfigurasi.");
+									detail.setStatusPertemuan((StatusPertemuan) session.get(StatusPertemuan.class, statusPertemuan.getId()));
+									detail.setKurikulumPunyaMatakuliah(dataInduk); session.save(detail);
+								}
+							}
+							session.flush(); transaction.commit();
+							kurikulumPunyaMatakuliah.setDeskripsiPembelajaran(deskripsiPembelajaran.getValue());
+							kurikulumPunyaMatakuliah.setCapaianPembelajaranProdi(kompetensi.getValue());
+							kurikulumPunyaMatakuliah.setJumlahPertemuanPerkuliahanDefault(jumlahKurikulumPunyaMatakuliahDetail.getValue());
+							window.detach(); Common.createDefaultTimer(eventListener);
+						} catch (Exception e) {
+							if (transaction != null && transaction.isActive()) try { transaction.rollback(); } catch (Exception rollbackError) { ais.common.ErrorAuditUtil.record(rollbackError, "auto-audit MatakuliahKurikulumDetailHelper:simpan-rollback"); }
+							save.setDisabled(false); Common.tampilErrorJikaAdmin(e);
+							PesanFormalHelper.tampilkanGagalException("Menyimpan rencana pembelajaran", e,
+									new String[] { "Pastikan deskripsi, capaian/kompetensi, dan jumlah pertemuan sudah benar.", "Coba simpan kembali. Jika masih gagal, kirimkan waktu kejadian kepada Administrator." });
+						} finally {
+							if (session != null && session.isOpen()) try { session.close(); } catch (Exception closeError) { ais.common.ErrorAuditUtil.record(closeError, "auto-audit MatakuliahKurikulumDetailHelper:simpan-close"); }
+							try { HibernateUtil.closeSession(); } catch (Exception closeError) { ais.common.ErrorAuditUtil.record(closeError, "auto-audit MatakuliahKurikulumDetailHelper:simpan-close-context"); }
 						}
-						window.detach();
-
-						Common.createDefaultTimer(eventListener);
 					}
 				});
 				save.setParent(toolbar);
