@@ -40,6 +40,8 @@ import ais.database.model.BiodataDosen;
 import ais.database.model.BiodataMahasiswa;
 import ais.database.model.BiodataPegawai;
 import ais.database.model.Dosen;
+import ais.database.model.koperasi.PembayaranAnggotaKoperasi;
+import ais.database.model.rab.Tugas;
 
 /** Memilih adapter hasil review untuk model yang mempunyai rule Action khusus. */
 public final class GenericCrudReviewedAdapterFactory {
@@ -85,7 +87,9 @@ public final class GenericCrudReviewedAdapterFactory {
                 || BiodataDosen.class.equals(entityClass)
                 || BiodataMahasiswa.class.equals(entityClass)
                 || BiodataPegawai.class.equals(entityClass)
-                || Dosen.class.equals(entityClass);
+                || Dosen.class.equals(entityClass)
+                || PembayaranAnggotaKoperasi.class.equals(entityClass)
+                || Tugas.class.equals(entityClass);
     }
 
     public static GenericCrudAutoEntityAdapter create(Class entityClass, boolean softDelete,
@@ -138,6 +142,8 @@ public final class GenericCrudReviewedAdapterFactory {
         if (BiodataMahasiswa.class.equals(entityClass)) return new StudentBiodataWorkflowGenericCrudAdapter();
         if (BiodataPegawai.class.equals(entityClass)) return new EmployeeBiodataWorkflowGenericCrudAdapter();
         if (Dosen.class.equals(entityClass)) return new LecturerIdentityWorkflowGenericCrudAdapter();
+        if (PembayaranAnggotaKoperasi.class.equals(entityClass)) return new CooperativeMemberPaymentWorkflowGenericCrudAdapter();
+        if (Tugas.class.equals(entityClass)) return new RabTaskRevisionWorkflowGenericCrudAdapter();
         return new GenericCrudAutoEntityAdapter(entityClass, softDelete, sourceActionClass, metadataLifecycle);
     }
 }

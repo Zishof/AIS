@@ -1,0 +1,4 @@
+package ais.action.master.generic.v2.adapter;
+import java.util.Arrays;import java.util.List;import ais.action.master.generic.v2.GenericCrudDefinition;import ais.database.model.koperasi.PembayaranAnggotaKoperasi;
+/** A member payment atomically settles installment details, changes balances, records validator/account data, and may originate from a bank gateway. */
+@SuppressWarnings({"rawtypes","unchecked"})public final class CooperativeMemberPaymentWorkflowGenericCrudAdapter extends GenericCrudAutoEntityAdapter{public CooperativeMemberPaymentWorkflowGenericCrudAdapter(){super(PembayaranAnggotaKoperasi.class,false,null,true);}public void configure(GenericCrudDefinition d){PerkuliahanWorkflowGenericCrudAdapter.lock(d,"Pembayaran Anggota Koperasi","tanggal");}public List getNaturalKeyProperties(){return Arrays.asList("anggotaKoperasi","tanggal","nominal");}}
