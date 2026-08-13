@@ -773,6 +773,11 @@ public class PosApi extends HttpServlet {
 		// lama, dipakai layar admin Produk yang harus melihat SEMUA baris).
 		String jenisItemFilter = payload.optString("jenisItem", "").trim().toUpperCase();
 		if (jenisItemFilter.isEmpty()) jenisItemFilter = null;
+		int page = Math.max(1, payload.optInt("page", 1));
+		int pageSize = Math.min(100, Math.max(1, payload.optInt("page_size", 100)));
+		boolean berpaginasi = payload.has("page") || payload.has("page_size");
+		Long kategoriId = payload.isNull("kategori_id") ? null
+				: Long.valueOf((payload.get("kategori_id") + "").trim());
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -789,7 +794,14 @@ public class PosApi extends HttpServlet {
 			java.util.Map<Long, JSONObject> jsonPorProdukId = new java.util.LinkedHashMap<Long, JSONObject>();
 
 			JSONArray produkArr = new JSONArray();
-			for (Object o : PriceTagUtil.listProduk(session, tokoId, keyword, semuaTokoDiminta, adminGlobal, jenisItemFilter)) {
+			long totalProduk = berpaginasi
+					? PriceTagUtil.countProduk(session, tokoId, keyword, semuaTokoDiminta, adminGlobal, jenisItemFilter, kategoriId)
+					: 0L;
+			java.util.List<Produk> daftarProduk = berpaginasi
+					? PriceTagUtil.listProduk(session, tokoId, keyword, semuaTokoDiminta, adminGlobal,
+							jenisItemFilter, kategoriId, (page - 1) * pageSize, pageSize)
+					: PriceTagUtil.listProduk(session, tokoId, keyword, semuaTokoDiminta, adminGlobal, jenisItemFilter);
+			for (Object o : daftarProduk) {
 				Produk p = (Produk) o;
 				JSONObject j = new JSONObject();
 				j.put("id", p.getId());
@@ -921,6 +933,11 @@ public class PosApi extends HttpServlet {
 			hasil.put("produk", produkArr);
 			hasil.put("tokoId", tokoId == null ? JSONObject.NULL : tokoId);
 			hasil.put("semuaToko", semuaTokoDiminta);
+			if (berpaginasi) {
+				hasil.put("total", totalProduk);
+				hasil.put("page", page);
+				hasil.put("pageSize", pageSize);
+			}
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
@@ -1047,6 +1064,8 @@ public class PosApi extends HttpServlet {
 		// tampilan tombol Topup di Flutter (mirror pola isAdmin/supervisorPedagang di atas).
 		hasil.put("bolehEntryTopup", roleAksesMenu != null && roleAksesMenu.getBolehEntryTopup() != null
 				&& roleAksesMenu.getBolehEntryTopup().booleanValue());
+		hasil.put("bolehHapusPesanan", bolehSupervisorAtauAdmin(tbmuser)
+				|| bolehAksiCrudPesanan(tbmuser, "delete") || bolehAksiCrudPesanan(tbmuser, "reject"));
 		// Fitur "Hak Akses Menu per Akun" (gap-closure Toko Al-Bahjah). Admin global (pedagang==null, TIDAK terikat satu toko) SELALU
 		// akses semua menu -- flag akses per-menu HANYA berlaku utk akun Pedagang toko biasa. Gerbang
 		// SEBENARNYA (sidebar disembunyikan) ada di klien; ini murni sumber kebenarannya dari server
@@ -1615,7 +1634,8 @@ public class PosApi extends HttpServlet {
 	}
 
 	private void prosesBatalPesanan(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
-		if (!bolehSupervisorAtauAdmin(tbmuser) && !bolehAksiCrudPesanan(tbmuser, "reject")) {
+		if (!bolehSupervisorAtauAdmin(tbmuser) && !bolehAksiCrudPesanan(tbmuser, "delete")
+				&& !bolehAksiCrudPesanan(tbmuser, "reject")) {
 			hasil.put("status", "error");
 			hasil.put("message", "Hanya supervisor/admin yang boleh membatalkan pesanan.");
 			return;
@@ -1648,6 +1668,7 @@ public class PosApi extends HttpServlet {
 		}
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
+		org.hibernate.Transaction txBatal = null;
 		try {
 			DraftPembelianAnggotaKoperasi draft = (DraftPembelianAnggotaKoperasi) session
 					.get(DraftPembelianAnggotaKoperasi.class, draftId);
@@ -1656,26 +1677,44 @@ public class PosApi extends HttpServlet {
 				hasil.put("message", "Pesanan tidak ditemukan (mungkin sudah dibatalkan sebelumnya).");
 				return;
 			}
-			if (draft.getLunas() != null) {
+			Long tokoLoginId = resolveTokoId(tbmuser, payload);
+			if (tokoLoginId != null && (draft.getToko() == null || draft.getToko().getId() == null
+					|| !tokoLoginId.equals(draft.getToko().getId()))) {
 				hasil.put("status", "error");
-				hasil.put("message", "Pesanan yang sudah lunas tidak bisa dibatalkan dari sini.");
+				hasil.put("message", "Pesanan bukan milik toko yang sedang login.");
 				return;
 			}
-
 			System.out.println("[BATAL-PESANAN] draftId=" + draftId + ", kode=" + draft.getKode()
 					+ ", total=" + draft.getTotalBiaya() + ", oleh=" + (tbmuser == null ? "?" : tbmuser.getUserId())
 					+ ", alasan=" + alasan);
 
-			session.beginTransaction();
+			txBatal = session.beginTransaction();
+			boolean sudahLunas = draft.getLunas() != null;
+			if (sudahLunas) {
+				// Lepas FK draft->transaksi lebih dulu agar penghapusan header oleh utility tidak
+				// ditolak database. Utility menyimpan snapshot audit lalu menghapus rincian/header,
+				// sehingga stok, saldo anggota, dan laporan kembali seperti sebelum pembelian.
+				ais.database.model.koperasi.PembelianAnggotaKoperasi transaksi = draft.getLunas();
+				draft.setLunas(null);
+				session.update(draft);
+				session.flush();
+				ais.action.master.koperasi.helper.PembatalanTransaksiUtil.batalkan(session, transaksi, alasan);
+			}
 			Criteria ci = session.createCriteria(DraftPembelian.class)
 					.add(Restrictions.eq("draftPembelianAnggotaKoperasi", draft));
 			for (Object oi : ci.list()) {
 				session.delete(oi);
 			}
 			session.delete(draft);
-			session.getTransaction().commit();
+			txBatal.commit();
 
 			hasil.put("status", "success");
+			hasil.put("description", sudahLunas
+					? "Pembelian berhasil dibatalkan; stok dan saldo terkait telah dikoreksi serta jejak audit disimpan."
+					: "Pesanan berhasil dibatalkan.");
+		} catch (Exception e) {
+			if (txBatal != null && txBatal.isActive()) txBatal.rollback();
+			throw e;
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
