@@ -1823,7 +1823,33 @@ public class InitIndex {
 		});
 	}
 
+	/**
+	 * Sinkronkan skema instalasi lama dengan model {@code AturanDiskon}: produk
+	 * memang opsional, dan nilai NULL berarti promo berlaku untuk semua produk.
+	 *
+	 * Perintah yang sama dahulu hanya ada di webapp/cascade.sql. Berkas itu tidak
+	 * dijalankan oleh alur build/deploy Tomcat, sehingga database produksi lama
+	 * tetap memiliki NOT NULL dan menolak promo global dengan SQLState 23502.
+	 * ALTER COLUMN ... DROP NOT NULL idempoten serta tidak membuat index/constraint
+	 * redundan. Dijalankan sebelum DDL pool aktif agar migrasi selesai sebelum
+	 * inisialisasi startup dilanjutkan.
+	 */
+	static void initAturanDiskonProdukNullable() {
+		try {
+			ais.common.Common.updateSql(
+					"ALTER TABLE koperasi.aturan_diskon ALTER COLUMN produk DROP NOT NULL");
+		} catch (Exception e) {
+			e.printStackTrace();
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit InitIndex.initAturanDiskonProdukNullable");
+		}
+	}
+
 	public static void initEksekusiQueryIndex() {
+		// Migrasi kompatibilitas skema harus selesai secara sinkron sebelum pool
+		// pekerjaan index paralel diaktifkan.
+		initAturanDiskonProdukNullable();
+
 		// 1. EKSTENSI TRIGRAM (WAJIB) — dijalankan SINKRON (sebelum pool paralel aktif) karena
 		// seluruh index GIN trigram bergantung pada ekstensi ini; harus tersedia lebih dulu.
 		try {

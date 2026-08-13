@@ -110,6 +110,11 @@ public class AppStartupListener implements ServletContextListener {
 				System.err.println(
 						"Warm-up SessionFactory gagal (lanjut, akan dibangun on-demand): " + e.getMessage());
 			}
+			// Migrasi kecil dan idempoten ini harus dijalankan segera setelah
+			// SessionFactory tersedia, sebelum init data/menu yang berat. Dengan
+			// demikian promo "Semua Produk" tidak perlu menunggu seluruh maintenance
+			// index selesai di thread latar.
+			InitIndex.initAturanDiskonProdukNullable();
 
 			ConstantValues.initNativeSesion();
 
