@@ -25,6 +25,7 @@ import ais.database.model.rab.PenggunaanAnggaran;
 import ais.database.model.kursus.KomponenDataProdukKursus;
 import ais.database.model.lkp.RealisasiKerjaPegawai;
 import ais.database.model.TunggakanMahasiswa;
+import ais.database.model.asset.AssetDetail;
 
 /** Memilih adapter hasil review untuk model yang mempunyai rule Action khusus. */
 public final class GenericCrudReviewedAdapterFactory {
@@ -55,7 +56,8 @@ public final class GenericCrudReviewedAdapterFactory {
                 || PenggunaanAnggaran.class.equals(entityClass)
                 || KomponenDataProdukKursus.class.equals(entityClass)
                 || RealisasiKerjaPegawai.class.equals(entityClass)
-                || TunggakanMahasiswa.class.equals(entityClass);
+                || TunggakanMahasiswa.class.equals(entityClass)
+                || AssetDetail.class.equals(entityClass);
     }
 
     public static GenericCrudAutoEntityAdapter create(Class entityClass, boolean softDelete,
@@ -93,6 +95,7 @@ public final class GenericCrudReviewedAdapterFactory {
         if (KomponenDataProdukKursus.class.equals(entityClass)) return new CourseComponentWorkflowGenericCrudAdapter();
         if (RealisasiKerjaPegawai.class.equals(entityClass)) return new WorkRealizationWorkflowGenericCrudAdapter();
         if (TunggakanMahasiswa.class.equals(entityClass)) return new StudentArrearsWorkflowGenericCrudAdapter();
+        if (AssetDetail.class.equals(entityClass)) return new AssetDepreciationWorkflowGenericCrudAdapter();
         return new GenericCrudAutoEntityAdapter(entityClass, softDelete, sourceActionClass, metadataLifecycle);
     }
 }
