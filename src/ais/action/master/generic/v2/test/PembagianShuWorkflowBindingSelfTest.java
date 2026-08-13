@@ -1,0 +1,5 @@
+package ais.action.master.generic.v2.test;
+import java.util.List;import ais.action.master.generic.v2.*;import ais.action.master.generic.v2.adapter.*;import ais.database.model.koperasi.PembagianShu;
+@SuppressWarnings("rawtypes") public final class PembagianShuWorkflowBindingSelfTest{
+ private PembagianShuWorkflowBindingSelfTest(){}public static void main(String[]a)throws Exception{PembagianShuWorkflowGenericCrudAdapter x=new PembagianShuWorkflowGenericCrudAdapter();GenericCrudDefinition d=new GenericCrudDefinition();d.setEntityClass(PembagianShu.class);d.setCreateEnabled(true);d.setUpdateEnabled(true);d.setDeleteEnabled(true);d.setImportEnabled(true);x.configure(d);check(!d.isCreateEnabled()&&!d.isUpdateEnabled()&&!d.isDeleteEnabled()&&!d.isImportEnabled(),"workflow-only");List keys=x.getNaturalKeyProperties();check(keys.contains("tahun")&&keys.contains("koperasi"),"natural key");check(GenericCrudReviewedAdapterFactory.isReviewed(PembagianShu.class),"review binding");System.out.println("PembagianShuWorkflowBindingSelfTest OK");System.exit(0);}private static void check(boolean v,String m){if(!v)throw new IllegalStateException(m);}
+}

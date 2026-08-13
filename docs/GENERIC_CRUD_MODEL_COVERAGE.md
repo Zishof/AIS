@@ -27,8 +27,8 @@ mempunyai lifecycle yang jelas untuk setiap model.
 - Model sensitif/restricted: 132
 - Lifecycle Action existing yang dapat dipanggil headless: 746
 - Lifecycle metadata hanya untuk model tanpa Action: 572
-- Definition/adapter eksplisit: 47
-- Action kompleks yang tetap fail-closed dan perlu review: 30
+- Definition/adapter eksplisit: 48
+- Action kompleks yang tetap fail-closed dan perlu review: 29
 - Create aktif: 1.300
 - Update aktif: 1.313
 - Delete/soft-delete aktif: 186
@@ -39,7 +39,7 @@ restricted walaupun nama class-nya terlihat umum. Field wajib yang sengaja
 disembunyikan juga otomatis mematikan create agar constraint tidak dilewati.
 
 Angka di atas dihasilkan oleh `GenericCrudModelCoverageAudit` setelah kebijakan
-strict diterapkan. Tiga puluh Action kompleks bukan dianggap selesai: mutation
+strict diterapkan. Dua puluh sembilan Action kompleks bukan dianggap selesai: mutation
 ditolak sampai Action tersebut diklasifikasikan sebagai read-only atau memperoleh
 adapter/service native yang mempertahankan validasi dan efek bisnis existing.
 
@@ -107,6 +107,15 @@ entity utama. Hanya angka nilai yang dapat diedit, kombinasi relasi divalidasi,
 dan aksi pelengkap matriks hanya membuat sel yang belum tersedia. Database lokal
 saat audit belum memiliki konfigurasi kombinasi kesiswaan, sehingga aksi tersebut
 terverifikasi sebagai no-op aman sampai master rincian/skala diisi.
+
+`PembagianShuAction` telah diakui sebagai workflow native yang sebelumnya sudah
+tersedia tetapi belum tersambung ke route menu. Halaman dan endpoint
+`koperasi/pembagian_shu` kini langsung memakai `NewUiPembagianShuController` dan
+`NewUiPembagianShuService`: form keputusan RAT, validasi total alokasi 100%,
+perhitungan jasa modal/usaha, penulisan ulang rincian anggota dalam transaksi,
+scope koperasi, RBAC, CSRF, pencarian anggota, dan ringkasan nilai. Model kepala
+SHU diklasifikasikan read-only pada Generic CRUD agar perhitungan rincian tidak
+dapat dilewati melalui edit tabel biasa.
 
 Perubahan penting dari audit awal adalah `metadataBacked` tidak lagi digunakan
 bila class Action existing ditemukan. Sebelumnya kondisi tersebut dapat membuat
