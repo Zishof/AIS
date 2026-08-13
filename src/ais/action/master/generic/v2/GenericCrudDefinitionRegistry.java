@@ -28,6 +28,7 @@ import ais.action.master.generic.v2.adapter.BerkasGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.CimbRequestGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.IpaymuRequestGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.WorkspaceGenericCrudAdapter;
+import ais.action.master.generic.v2.adapter.JatelindoRequestGenericCrudAdapter;
 import ais.database.model.Agama;
 import ais.database.model.BadanHukum;
 import ais.database.model.Jenjang;
@@ -87,6 +88,8 @@ import ais.database.model.rab.JenisWorkspace;
 import ais.database.model.rab.UnitOrganisasi;
 import ais.database.model.rab.MetodePengadaan;
 import ais.database.model.akunting.Akun;
+import ais.database.model.jatelindo.JatelindoRequest;
+import ais.database.model.jatelindo.JatelindoResponse;
 
 /**
  * Registry allow-list. Scanner menghasilkan kandidat disabled; hanya entity yang
@@ -115,6 +118,7 @@ public final class GenericCrudDefinitionRegistry {
         register(buildCimbRequest());
         register(buildIpaymuRequest());
         register(buildWorkspace());
+        register(buildJatelindoRequest());
         register(buildEmployeeHistory(RiwayatTandaJasaPegawai.class, "riwayat_tanda_jasa_pegawai", "Riwayat Tanda Jasa Pegawai"));
         register(buildEmployeeHistory(RiwayatPendidikanPegawai.class, "riwayat_pendidikan_pegawai", "Riwayat Pendidikan Pegawai"));
         register(buildEmployeeHistory(RiwayatPelatihanPegawai.class, "riwayat_pelatihan_pegawai", "Riwayat Pelatihan Pegawai"));
@@ -875,6 +879,22 @@ public final class GenericCrudDefinitionRegistry {
         d.addField(field("carryOver", "Carry Over", Boolean.class, "checkbox", true, true, true, false, true, false, 200));
         d.addField(field("aktifManual", "Aktif Manual", Boolean.class, "checkbox", true, true, true, false, true, false, 210));
         d.addField(field("keterangan", "Keterangan", String.class, "textarea", true, true, true, false, true, true, 220));
+        return d;
+    }
+
+    private static GenericCrudDefinition buildJatelindoRequest() {
+        GenericCrudDefinition d = paymentRequest("jatelindo", "jatelindo_request", "Jatelindo Request",
+                JatelindoRequest.class, "ais.action.master.jatelindo.JatelindoRequestAction");
+        JatelindoRequestGenericCrudAdapter adapter = new JatelindoRequestGenericCrudAdapter();
+        d.setAdapter(adapter); d.setScopeAdapter(adapter); addPaymentFields(d);
+        d.addField(field("trxId", "Transaction ID", String.class, "text", true, false, false, false, true, true, 20));
+        d.addField(field("merchant_id", "Merchant ID", String.class, "text", true, false, false, false, true, true, 30));
+        d.addField(field("merchant", "Merchant", String.class, "text", true, false, false, false, true, true, 40));
+        d.addField(field("amount", "Nominal", Double.class, "number", true, false, false, false, true, false, 60));
+        d.addField(field("biayaAdministrasi", "Biaya Administrasi", Double.class, "number", true, false, false, false, true, false, 65));
+        d.addField(field("status", "Status", String.class, "text", true, false, false, false, true, true, 100));
+        d.addField(field("kodeStatus", "Kode Status", String.class, "text", true, false, false, false, true, true, 110));
+        d.addField(relationField("jatelindoResponse", "Respons Jatelindo", JatelindoResponse.class, true, false, false, false, 120));
         return d;
     }
 
