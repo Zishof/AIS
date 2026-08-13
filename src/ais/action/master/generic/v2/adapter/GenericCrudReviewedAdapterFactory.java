@@ -22,6 +22,7 @@ import ais.database.model.sekolah.Tagihan;
 import ais.database.model.rab.Kalender;
 import ais.database.model.BiodataCalonMahasiswaPunyaVerifikasiBerkas;
 import ais.database.model.rab.PenggunaanAnggaran;
+import ais.database.model.kursus.KomponenDataProdukKursus;
 
 /** Memilih adapter hasil review untuk model yang mempunyai rule Action khusus. */
 public final class GenericCrudReviewedAdapterFactory {
@@ -49,7 +50,8 @@ public final class GenericCrudReviewedAdapterFactory {
                 || Tagihan.class.equals(entityClass)
                 || Kalender.class.equals(entityClass)
                 || BiodataCalonMahasiswaPunyaVerifikasiBerkas.class.equals(entityClass)
-                || PenggunaanAnggaran.class.equals(entityClass);
+                || PenggunaanAnggaran.class.equals(entityClass)
+                || KomponenDataProdukKursus.class.equals(entityClass);
     }
 
     public static GenericCrudAutoEntityAdapter create(Class entityClass, boolean softDelete,
@@ -84,6 +86,7 @@ public final class GenericCrudReviewedAdapterFactory {
         if (Kalender.class.equals(entityClass)) return new KalenderHariLiburGenericCrudAdapter();
         if (BiodataCalonMahasiswaPunyaVerifikasiBerkas.class.equals(entityClass)) return new CandidateDocumentVerificationWorkflowGenericCrudAdapter();
         if (PenggunaanAnggaran.class.equals(entityClass)) return new PenggunaanAnggaranWorkflowGenericCrudAdapter();
+        if (KomponenDataProdukKursus.class.equals(entityClass)) return new CourseComponentWorkflowGenericCrudAdapter();
         return new GenericCrudAutoEntityAdapter(entityClass, softDelete, sourceActionClass, metadataLifecycle);
     }
 }
