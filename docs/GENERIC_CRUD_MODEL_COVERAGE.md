@@ -27,8 +27,8 @@ mempunyai lifecycle yang jelas untuk setiap model.
 - Model sensitif/restricted: 132
 - Lifecycle Action existing yang dapat dipanggil headless: 746
 - Lifecycle metadata hanya untuk model tanpa Action: 572
-- Definition/adapter eksplisit: 49
-- Action kompleks yang tetap fail-closed dan perlu review: 28
+- Definition/adapter eksplisit: 50
+- Action kompleks yang tetap fail-closed dan perlu review: 27
 - Create aktif: 1.300
 - Update aktif: 1.314
 - Delete/soft-delete aktif: 186
@@ -39,7 +39,7 @@ restricted walaupun nama class-nya terlihat umum. Field wajib yang sengaja
 disembunyikan juga otomatis mematikan create agar constraint tidak dilewati.
 
 Angka di atas dihasilkan oleh `GenericCrudModelCoverageAudit` setelah kebijakan
-strict diterapkan. Dua puluh delapan Action kompleks bukan dianggap selesai: mutation
+strict diterapkan. Dua puluh tujuh Action kompleks bukan dianggap selesai: mutation
 ditolak sampai Action tersebut diklasifikasikan sebagai read-only atau memperoleh
 adapter/service native yang mempertahankan validasi dan efek bisnis existing.
 
@@ -126,6 +126,18 @@ CSRF, validasi status, dan audit user. Generic CRUD model pengajuan hanya
 mengizinkan perubahan status; create/delete dan perubahan nilai hasil scheduler
 tetap ditutup. Audit PostgreSQL lokal menemukan nol status invalid dan nol
 pasangan ambang duplikat pada kondisi database saat pengujian.
+
+`InterviewCalonSiswaAction` kini mempunyai workflow native lengkap untuk PSB:
+filter dan pencarian sesi, tambah/edit sesi, tahun ajaran, rentang waktu,
+platform konferensi beserta tautannya, kapasitas, pewawancara, gelombang,
+scope sekolah/yayasan, daftar peserta, penambahan berdasarkan nomor registrasi,
+waktu khusus, status kesiapan, penghapusan peserta, serta penghapusan sesi dan
+seluruh assignment dalam satu transaksi. Endpoint menerapkan pemisahan privilege
+CREATE/UPDATE/DELETE dan CSRF. Validasi server menolak jadwal terbalik, platform
+atau tautan yang tidak konsisten, peserta duplikat, dan kapasitas penuh. Smoke
+test PostgreSQL create/read/update/delete dijalankan di dalam transaksi rollback;
+tidak meninggalkan data uji. Generic CRUD model sesi bersifat read-only agar
+mutation tidak dapat melewati cascade peserta dan scope workflow native.
 
 Perubahan penting dari audit awal adalah `metadataBacked` tidak lagi digunakan
 bila class Action existing ditemukan. Sebelumnya kondisi tersebut dapat membuat

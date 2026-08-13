@@ -1,0 +1,6 @@
+package ais.action.master.generic.v2.adapter;
+import java.util.ArrayList;import java.util.List;import ais.action.master.generic.v2.GenericCrudDefinition;import ais.action.master.generic.v2.GenericCrudFieldDefinition;import ais.database.model.sekolah.InterviewCalonSiswa;
+/** Model sesi hanya dibaca Generic CRUD; mutasi dan cascade peserta melalui workflow native. */
+@SuppressWarnings("rawtypes") public final class InterviewCalonSiswaWorkflowGenericCrudAdapter extends GenericCrudAutoEntityAdapter{
+ public InterviewCalonSiswaWorkflowGenericCrudAdapter(){super(InterviewCalonSiswa.class,false,null,true);}public void configure(GenericCrudDefinition d){d.setDisplayName("Interview Calon Siswa");d.setLifecycleStatus(GenericCrudDefinition.READ_ONLY);d.setCreateEnabled(false);d.setUpdateEnabled(false);d.setDeleteEnabled(false);d.setImportEnabled(false);d.setDefaultSortProperty("id");d.setDefaultSortAscending(false);d.setDefaultPageSize(100);for(int i=0;i<d.getFields().size();i++){GenericCrudFieldDefinition f=(GenericCrudFieldDefinition)d.getFields().get(i);f.setCreateable(false);f.setUpdateable(false);}}public List getNaturalKeyProperties(){List v=new ArrayList();v.add("sekolah");v.add("nama");v.add("mulai");return v;}
+}
