@@ -1,0 +1,5 @@
+package ais.action.master.generic.v2.adapter;
+import java.util.ArrayList;import java.util.List;import ais.action.master.generic.v2.GenericCrudDefinition;import ais.action.master.generic.v2.GenericCrudFieldDefinition;import ais.database.model.sekolah.Tagihan;
+/** Fail-closed: mutasi Tagihan hanya melalui workflow native yang menjaga relasi pembayaran. */
+@SuppressWarnings("rawtypes") public final class TagihanWorkflowGenericCrudAdapter extends GenericCrudAutoEntityAdapter{
+ public TagihanWorkflowGenericCrudAdapter(){super(Tagihan.class,false,null,true);}public void configure(GenericCrudDefinition d){d.setDisplayName("Tagihan Siswa");d.setLifecycleStatus(GenericCrudDefinition.READ_ONLY);d.setCreateEnabled(false);d.setUpdateEnabled(false);d.setDeleteEnabled(false);d.setImportEnabled(false);d.setDefaultSortProperty("tahunbulan");d.setDefaultSortAscending(true);for(Object o:d.getFields()){GenericCrudFieldDefinition f=(GenericCrudFieldDefinition)o;f.setCreateable(false);f.setUpdateable(false);}}public List getNaturalKeyProperties(){List v=new ArrayList();v.add("kodeUnik");v.add("siswa");v.add("calonSiswa");v.add("tahunbulan");v.add("bayarKe");return v;}}

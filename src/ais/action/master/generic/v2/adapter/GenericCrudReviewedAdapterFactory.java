@@ -18,6 +18,7 @@ import ais.database.model.sekolah.InterviewCalonSiswa;
 import ais.database.model.inventory.Pembelian;
 import ais.database.model.akunting.StandingInstruction;
 import ais.database.model.akunting.Transitori;
+import ais.database.model.sekolah.Tagihan;
 
 /** Memilih adapter hasil review untuk model yang mempunyai rule Action khusus. */
 public final class GenericCrudReviewedAdapterFactory {
@@ -41,7 +42,8 @@ public final class GenericCrudReviewedAdapterFactory {
                 || InterviewCalonSiswa.class.equals(entityClass)
                 || Pembelian.class.equals(entityClass)
                 || StandingInstruction.class.equals(entityClass)
-                || Transitori.class.equals(entityClass);
+                || Transitori.class.equals(entityClass)
+                || Tagihan.class.equals(entityClass);
     }
 
     public static GenericCrudAutoEntityAdapter create(Class entityClass, boolean softDelete,
@@ -72,6 +74,7 @@ public final class GenericCrudReviewedAdapterFactory {
         if (Pembelian.class.equals(entityClass)) return new PembelianWorkflowGenericCrudAdapter();
         if (StandingInstruction.class.equals(entityClass)) return new StandingInstructionWorkflowGenericCrudAdapter();
         if (Transitori.class.equals(entityClass)) return new TransitoriWorkflowGenericCrudAdapter();
+        if (Tagihan.class.equals(entityClass)) return new TagihanWorkflowGenericCrudAdapter();
         return new GenericCrudAutoEntityAdapter(entityClass, softDelete, sourceActionClass, metadataLifecycle);
     }
 }
