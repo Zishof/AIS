@@ -87,16 +87,36 @@
   function buildCustomActions() {
     var container = query('custom-actions'); container.textContent = '';
     (meta.customActions || []).forEach(function (action) {
-      if (action.enabled === false) return;
+      if (action.enabled === false || (action.selectionMode && action.selectionMode !== 'NONE')) return;
       var button = node('button', {type: 'button', 'class': 'gc-btn' + (action.dangerous ? ' gc-btn-danger' : '')}, action.label || action.actionKey);
       button.addEventListener('click', function () {
-        if (action.confirmation && !window.confirm(action.confirmation)) return;
-        button.disabled = true;
-        api('custom_action', {nui_csrf: meta.csrf, actionKey: action.actionKey}, 'POST').then(function () {
-          notify('Aksi berhasil dijalankan.'); return loadList();
-        }).then(loadMetaDashboard).catch(function (error) { notify(error.message, true); }).then(function () { button.disabled = false; });
+        executeCustomAction(action, [], button);
       }); container.appendChild(button);
     });
+  }
+  function customActionParameters(action) {
+    var result = {}, definitions = action.parameters || [], i, definition, value;
+    for (i = 0; i < definitions.length; i++) {
+      definition = definitions[i] || {};
+      value = window.prompt(definition.label || definition.name,
+        definition.defaultValue === undefined || definition.defaultValue === null ? '' : String(definition.defaultValue));
+      if (value === null) return null;
+      value = String(value).trim();
+      if (definition.required && !value) { notify((definition.label || definition.name) + ' wajib diisi.', true); return null; }
+      result[definition.name] = value;
+    }
+    return result;
+  }
+  function executeCustomAction(action, selectedIds, button) {
+    if (action.confirmation && !window.confirm(action.confirmation)) return;
+    var parameters = customActionParameters(action); if (parameters === null) return;
+    parameters.nui_csrf = meta.csrf; parameters.actionKey = action.actionKey;
+    if (selectedIds && selectedIds.length) parameters.selectedId = selectedIds;
+    button.disabled = true;
+    api('custom_action', parameters, 'POST').then(function (data) {
+      notify((data && data.message) || 'Aksi berhasil dijalankan.'); return loadList();
+    }).then(loadMetaDashboard).catch(function (error) { notify(error.message, true); })
+      .then(function () { button.disabled = false; });
   }
   function loadMetaDashboard() { return api('meta').then(function (data) { meta.dashboard = data.dashboard; renderDashboard(); }); }
   function renderDashboard() {
@@ -256,6 +276,12 @@
         approval.addEventListener('click', function () { changeApproval(rowId, approvalAction, approvalLabel); });
         buttons.appendChild(approval);
       }
+      (meta.customActions || []).forEach(function (action) {
+        if (action.enabled === false || action.selectionMode !== 'SINGLE') return;
+        var custom = node('button', {type: 'button', 'class': 'gc-btn' + (action.dangerous ? ' gc-btn-danger' : '')}, action.label || action.actionKey);
+        custom.addEventListener('click', function () { executeCustomAction(action, [rowId], custom); });
+        buttons.appendChild(custom);
+      });
       if (meta.canDelete) { var remove = node('button', {type: 'button', 'class': 'gc-btn'}, 'Nonaktifkan'); remove.addEventListener('click', function () { removeRow(rowId); }); buttons.appendChild(remove); }
       actions.appendChild(buttons); row.appendChild(actions); body.appendChild(row);
     });

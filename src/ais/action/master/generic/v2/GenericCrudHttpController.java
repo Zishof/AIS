@@ -85,9 +85,11 @@ public final class GenericCrudHttpController {
                 GenericCrudCsrf.requireMutation(request);
                 if (!(context.getDefinition().getAdapter() instanceof GenericCrudCustomActionProvider))
                     throw new GenericCrudException(403, "CUSTOM_ACTION_DISABLED", "Custom action belum dikonfigurasi.");
+                GenericCrudCustomActionProvider customProvider =
+                        (GenericCrudCustomActionProvider) context.getDefinition().getAdapter();
                 payload = new GenericCrudCustomActionService().execute(context,
                         request.getParameter("actionKey"), identifiers(context, request.getParameterValues("selectedId")),
-                        new LinkedHashMap(), (GenericCrudCustomActionProvider) context.getDefinition().getAdapter());
+                        customActionParameters(context, request, customProvider), customProvider);
             } else if ("photo_upload".equals(action)) {
                 GenericCrudCsrf.requireMutation(request);
                 FileItem part = photoPart(request);
@@ -203,6 +205,28 @@ public final class GenericCrudHttpController {
             Common.tampilErrorJikaAdmin(e);
             writeJson(response, 500, GenericCrudResult.error("INTERNAL_ERROR", "Terjadi kesalahan internal. Referensi telah dicatat."));
         }
+    }
+
+    private static Map customActionParameters(GenericCrudRequestContext context,
+            HttpServletRequest request, GenericCrudCustomActionProvider provider) throws Exception {
+        Map result = new LinkedHashMap();
+        String key = request.getParameter("actionKey");
+        List actions = provider.getActions(context.getDefinition(), context);
+        for (int i = 0; actions != null && i < actions.size(); i++) {
+            if (!(actions.get(i) instanceof Map)) continue;
+            Map action = (Map) actions.get(i);
+            if (!String.valueOf(action.get("actionKey")).equals(key)) continue;
+            Object names = action.get("parameterNames");
+            if (!(names instanceof List)) return result;
+            List allowed = (List) names;
+            for (int p = 0; p < allowed.size(); p++) {
+                String name = String.valueOf(allowed.get(p));
+                String value = request.getParameter(name);
+                if (value != null) result.put(name, value);
+            }
+            return result;
+        }
+        return result;
     }
 
     private static Serializable identifier(GenericCrudRequestContext context, String raw) throws Exception {

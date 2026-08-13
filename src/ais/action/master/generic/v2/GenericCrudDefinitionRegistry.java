@@ -20,6 +20,7 @@ import ais.action.master.generic.v2.adapter.LiburRutinGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.NomorSuratAlurKeuanganGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.NomorSuratAlurPengadaanGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.MemoryInfoGenericCrudAdapter;
+import ais.action.master.generic.v2.adapter.FormatItemGajiGenericCrudAdapter;
 import ais.database.model.Agama;
 import ais.database.model.BadanHukum;
 import ais.database.model.Jenjang;
@@ -50,6 +51,11 @@ import ais.database.model.akunting.NomorSuratAlurKeuangan;
 import ais.database.model.surat.NomorSurat;
 import ais.database.model.asset.NomorSuratAlurPengadaan;
 import ais.database.model.MemoryInfo;
+import ais.database.model.payroll.FormatItemGaji;
+import ais.database.model.payroll.Cabang;
+import ais.database.model.payroll.Departemen;
+import ais.database.model.payroll.LevelJabatan;
+import ais.database.model.rab.SatuanKerja;
 
 /**
  * Registry allow-list. Scanner menghasilkan kandidat disabled; hanya entity yang
@@ -70,6 +76,7 @@ public final class GenericCrudDefinitionRegistry {
         register(buildNomorSuratAlurKeuangan());
         register(buildNomorSuratAlurPengadaan());
         register(buildMemoryInfo());
+        register(buildFormatItemGaji());
         register(buildEmployeeHistory(RiwayatTandaJasaPegawai.class, "riwayat_tanda_jasa_pegawai", "Riwayat Tanda Jasa Pegawai"));
         register(buildEmployeeHistory(RiwayatPendidikanPegawai.class, "riwayat_pendidikan_pegawai", "Riwayat Pendidikan Pegawai"));
         register(buildEmployeeHistory(RiwayatPelatihanPegawai.class, "riwayat_pelatihan_pegawai", "Riwayat Pelatihan Pegawai"));
@@ -644,6 +651,29 @@ public final class GenericCrudDefinitionRegistry {
         d.addField(field("allocatedMemory", "Dialokasikan (byte)", Long.class, "number", true, false, false, false, true, false, 40));
         d.addField(field("freeMemory", "Free JVM (byte)", Long.class, "number", true, false, false, false, true, false, 50));
         d.addField(field("totalFreeMemory", "Total Bebas (byte)", Long.class, "number", true, false, false, false, true, false, 60));
+        return d;
+    }
+
+    private static GenericCrudDefinition buildFormatItemGaji() {
+        GenericCrudDefinition d = new GenericCrudDefinition(); d.setEntityClass(FormatItemGaji.class);
+        d.setModuleKey("payroll"); d.setPageKey("format_item_gaji"); d.setDisplayName("Format Item Gaji");
+        d.setSourceActionClassName("ais.action.master.payroll.FormatItemGajiAction");
+        d.setExistingActionLifecycleBound(false); d.setLifecycleStatus(GenericCrudDefinition.FULL_CRUD);
+        d.setEnabled(true); d.setCreateEnabled(true); d.setUpdateEnabled(true); d.setDeleteEnabled(true);
+        d.setImportEnabled(false); d.setExportPdfEnabled(true); d.setExportDocxEnabled(true); d.setExportPptxEnabled(true);
+        d.setSavedViewEnabled(true); d.setAuditEnabled(true); d.setRowAuditEnabled(true);
+        d.setGlobalAuditEnabled(false); d.setRestoreEnabled(false); d.setAdminDeleteEnabled(false);
+        d.setDefaultSortProperty("nama"); d.setDefaultSortAscending(true); d.setDefaultPageSize(10); d.setMaxPageSize(100);
+        FormatItemGajiGenericCrudAdapter adapter = new FormatItemGajiGenericCrudAdapter();
+        d.setAdapter(adapter); d.setScopeAdapter(adapter);
+        d.addField(field("id", "ID", Long.class, "number", false, false, false, false, true, false, 10));
+        d.addField(field("nama", "Nama Format", String.class, "text", true, true, true, true, true, true, 20));
+        d.addField(relationField("satuanKerja", "Satuan Kerja", SatuanKerja.class, true, true, true, false, 30));
+        d.addField(relationField("cabang", "Cabang", Cabang.class, true, true, true, false, 40));
+        d.addField(relationField("departemen", "Departemen", Departemen.class, true, true, true, false, 50));
+        d.addField(relationField("levelJabatan", "Level Jabatan", LevelJabatan.class, true, true, true, false, 60));
+        d.addField(field("keterangan", "Keterangan", String.class, "textarea", true, true, true, false, true, true, 70));
+        d.addField(field("aktif", "Aktif", Boolean.class, "checkbox", true, true, true, false, true, true, 80));
         return d;
     }
 
