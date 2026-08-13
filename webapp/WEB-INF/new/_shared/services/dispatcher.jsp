@@ -9,7 +9,7 @@
 <%!
 private String[] nuiSvcArr(Object value){return value instanceof String[]?(String[])value:new String[0];}
 private String nuiToken(){SecureRandom r=new SecureRandom();byte[] b=new byte[24];r.nextBytes(b);StringBuilder s=new StringBuilder();for(int i=0;i<b.length;i++){s.append(Integer.toHexString((b[i]&0xff)|0x100).substring(1));}return s.toString();}
-private boolean nuiMutating(String action){return "save".equals(action)||"save-new".equals(action)||"save-existing".equals(action)||"create".equals(action)||"insert".equals(action)||"update".equals(action)||"delete".equals(action)||"remove".equals(action)||"permanent-delete".equals(action)||"approve".equals(action)||"reject".equals(action)||"import".equals(action)||"upload".equals(action)||"photo".equals(action);}
+private boolean nuiMutating(String action){return "save".equals(action)||"save-new".equals(action)||"save-existing".equals(action)||"create".equals(action)||"insert".equals(action)||"update".equals(action)||"delete".equals(action)||"remove".equals(action)||"permanent-delete".equals(action)||"approve".equals(action)||"reject".equals(action)||"import".equals(action)||"upload".equals(action)||"photo".equals(action)||"custom_action".equals(action);}
 %>
 <%
 response.setHeader("Cache-Control","no-store, no-cache, must-revalidate, max-age=0");response.setHeader("Pragma","no-cache");response.setHeader("X-Content-Type-Options","nosniff");

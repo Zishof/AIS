@@ -74,7 +74,7 @@
       query('template').hidden = !data.importEnabled; query('import-label').hidden = !data.importEnabled;
       var formats = query('export-format'), enabled = {xlsx: data.exportXlsx, pdf: data.exportPdf, docx: data.exportDocx, pptx: data.exportPptx};
       Array.prototype.forEach.call(formats.options, function (option) { option.disabled = !enabled[option.value]; });
-      buildParityActions();
+      buildParityActions(); buildCustomActions(); renderDashboard();
       return api('preference_load').catch(function () { return null; }).then(function (preference) {
         state.columns = preference && preference.columns ? preference.columns : defaultColumns();
         if (preference && preference.pageSize) { state.pageSize = preference.pageSize; query('page-size').value = String(state.pageSize); }
@@ -83,6 +83,30 @@
         buildFilterFields(); buildColumnChooser(); renderFilters(); buildHeader(); return loadList();
       });
     });
+  }
+  function buildCustomActions() {
+    var container = query('custom-actions'); container.textContent = '';
+    (meta.customActions || []).forEach(function (action) {
+      if (action.enabled === false) return;
+      var button = node('button', {type: 'button', 'class': 'gc-btn' + (action.dangerous ? ' gc-btn-danger' : '')}, action.label || action.actionKey);
+      button.addEventListener('click', function () {
+        if (action.confirmation && !window.confirm(action.confirmation)) return;
+        button.disabled = true;
+        api('custom_action', {nui_csrf: meta.csrf, actionKey: action.actionKey}, 'POST').then(function () {
+          notify('Aksi berhasil dijalankan.'); return loadList();
+        }).then(loadMetaDashboard).catch(function (error) { notify(error.message, true); }).then(function () { button.disabled = false; });
+      }); container.appendChild(button);
+    });
+  }
+  function loadMetaDashboard() { return api('meta').then(function (data) { meta.dashboard = data.dashboard; renderDashboard(); }); }
+  function renderDashboard() {
+    var box = query('dashboard'), dashboard = meta.dashboard, max = 1; box.textContent = '';
+    if (!dashboard) { box.hidden = true; return; } box.hidden = false;
+    var head = node('header', {'class': 'gc-dashboard-head'}); head.appendChild(node('h2', null, dashboard.title || 'Dashboard')); head.appendChild(node('p', null, dashboard.description || '')); box.appendChild(head);
+    var cards = node('div', {'class': 'gc-kpis'}); (dashboard.kpis || []).forEach(function (item) { var card = node('article', {'class': 'gc-kpi'}); card.appendChild(node('strong', null, item.label)); card.appendChild(node('span', null, String(item.value) + (item.unit ? ' ' + item.unit : ''))); cards.appendChild(card); }); box.appendChild(cards);
+    (dashboard.trend || []).forEach(function (point) { max = Math.max(max, Number(point.value || 0)); });
+    if ((dashboard.trend || []).length) { var trend = node('div', {'class': 'gc-trend', title: 'Tren pemakaian memori'}); dashboard.trend.forEach(function (point) { trend.appendChild(node('i', {title: point.label + ': ' + point.value + ' MB', style: 'height:' + Math.max(2, Math.round(Number(point.value || 0) * 100 / max)) + '%'})); }); box.appendChild(trend); }
+    if ((dashboard.recent || []).length) { var wrap = node('div', {'class': 'gc-dashboard-table'}), table = node('table'), thead = node('tr'); ['ID','Waktu','Maks MB','Alokasi MB','Bebas MB'].forEach(function (label) { thead.appendChild(node('th', null, label)); }); table.appendChild(thead); dashboard.recent.forEach(function (item) { var row = node('tr'); [item.id, item.timestamp ? new Date(item.timestamp).toLocaleString('id-ID') : '', item.maxMb, item.allocatedMb, item.freeMb].forEach(function (value) { row.appendChild(node('td', null, String(value))); }); table.appendChild(row); }); wrap.appendChild(table); box.appendChild(wrap); }
   }
   function buildParityActions() {
     var actions = meta.formActions || [], container = query('parity-actions'), groups = {}, nativeCount = 0, panelCount = 0;

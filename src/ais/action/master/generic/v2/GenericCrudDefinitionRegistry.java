@@ -19,6 +19,7 @@ import ais.action.master.generic.v2.adapter.ParameterUmumGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.LiburRutinGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.NomorSuratAlurKeuanganGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.NomorSuratAlurPengadaanGenericCrudAdapter;
+import ais.action.master.generic.v2.adapter.MemoryInfoGenericCrudAdapter;
 import ais.database.model.Agama;
 import ais.database.model.BadanHukum;
 import ais.database.model.Jenjang;
@@ -48,6 +49,7 @@ import ais.database.model.payroll.LiburRutin;
 import ais.database.model.akunting.NomorSuratAlurKeuangan;
 import ais.database.model.surat.NomorSurat;
 import ais.database.model.asset.NomorSuratAlurPengadaan;
+import ais.database.model.MemoryInfo;
 
 /**
  * Registry allow-list. Scanner menghasilkan kandidat disabled; hanya entity yang
@@ -67,6 +69,7 @@ public final class GenericCrudDefinitionRegistry {
         register(buildLiburRutin());
         register(buildNomorSuratAlurKeuangan());
         register(buildNomorSuratAlurPengadaan());
+        register(buildMemoryInfo());
         register(buildEmployeeHistory(RiwayatTandaJasaPegawai.class, "riwayat_tanda_jasa_pegawai", "Riwayat Tanda Jasa Pegawai"));
         register(buildEmployeeHistory(RiwayatPendidikanPegawai.class, "riwayat_pendidikan_pegawai", "Riwayat Pendidikan Pegawai"));
         register(buildEmployeeHistory(RiwayatPelatihanPegawai.class, "riwayat_pelatihan_pegawai", "Riwayat Pelatihan Pegawai"));
@@ -621,6 +624,26 @@ public final class GenericCrudDefinitionRegistry {
         d.addField(field("nama", "Nama Alur", String.class, "text", true, false, false, true, true, true, 30));
         d.addField(relationField("nomorSurat", "Template Nomor Surat", NomorSurat.class, true, false, true, false, 40));
         d.addField(field("keterangan", "Keterangan", String.class, "textarea", true, false, false, false, true, true, 50));
+        return d;
+    }
+
+    private static GenericCrudDefinition buildMemoryInfo() {
+        GenericCrudDefinition d = new GenericCrudDefinition(); d.setEntityClass(MemoryInfo.class);
+        d.setModuleKey("root"); d.setPageKey("memory_info"); d.setDisplayName("Info Memori Server");
+        d.setSourceActionClassName("ais.action.master.MemoryInfoAction"); d.setExistingActionLifecycleBound(false);
+        d.setLifecycleStatus(GenericCrudDefinition.READ_ONLY); d.setEnabled(true); d.setCreateEnabled(false);
+        d.setUpdateEnabled(false); d.setDeleteEnabled(false); d.setImportEnabled(false);
+        d.setExportPdfEnabled(true); d.setExportDocxEnabled(true); d.setExportPptxEnabled(true);
+        d.setSavedViewEnabled(true); d.setAuditEnabled(true); d.setRowAuditEnabled(true);
+        d.setGlobalAuditEnabled(false); d.setRestoreEnabled(false); d.setAdminDeleteEnabled(false);
+        d.setDefaultSortProperty("id"); d.setDefaultSortAscending(false); d.setDefaultPageSize(25); d.setMaxPageSize(100);
+        MemoryInfoGenericCrudAdapter adapter = new MemoryInfoGenericCrudAdapter(); d.setAdapter(adapter); d.setScopeAdapter(adapter);
+        d.addField(field("id", "ID", Long.class, "number", true, false, false, false, true, false, 10));
+        d.addField(field("tanggal_dirubah", "Waktu", java.util.Date.class, "datetime", true, false, false, false, true, false, 20));
+        d.addField(field("maxMemory", "Maksimum (byte)", Long.class, "number", true, false, false, false, true, false, 30));
+        d.addField(field("allocatedMemory", "Dialokasikan (byte)", Long.class, "number", true, false, false, false, true, false, 40));
+        d.addField(field("freeMemory", "Free JVM (byte)", Long.class, "number", true, false, false, false, true, false, 50));
+        d.addField(field("totalFreeMemory", "Total Bebas (byte)", Long.class, "number", true, false, false, false, true, false, 60));
         return d;
     }
 

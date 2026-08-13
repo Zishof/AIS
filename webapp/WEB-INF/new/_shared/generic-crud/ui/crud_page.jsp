@@ -19,6 +19,7 @@ if (gcMenuId != null) {
 <style><%@ include file="/WEB-INF/new/_shared/generic-crud/assets/generic-crud.css" %></style>
 <style>.gc-photo-frame{display:inline-flex;width:48px;height:48px;border-radius:12px;overflow:hidden;align-items:center;justify-content:center;background:linear-gradient(135deg,#e7efff,#e9e5ff);color:#3153bd;font-weight:800;box-shadow:inset 0 0 0 1px rgba(49,83,189,.12)}.gc-photo{width:100%;height:100%;object-fit:cover;display:block}.gc-photo-fallback{font-size:13px;letter-spacing:.04em}.gc-photo-editor{border:1px dashed #cbd7ec;border-radius:14px;padding:14px;background:#f8faff}.gc-photo-editor-body{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.gc-photo-editor .gc-photo-frame{width:88px;height:88px;border-radius:18px}.gc-photo-editor input[type=file]{max-width:320px}.gc-form-tabs{grid-column:1/-1;display:flex;gap:7px;overflow:auto;padding:2px 0 8px}.gc-form-tabs .gc-btn{white-space:nowrap;padding:7px 10px;font-size:12px}</style>
 <style>.gc-attachments{grid-column:1/-1;border:1px dashed #cbd7ec;border-radius:14px;padding:14px;background:#f8faff}.gc-attachment-head,.gc-attachment-row{display:flex;align-items:center;justify-content:space-between;gap:10px}.gc-attachment-head{margin-bottom:10px}.gc-attachment-list{display:grid;gap:7px}.gc-attachment-row{background:#fff;border:1px solid #d9e1ec;border-radius:9px;padding:9px}.gc-attachment-row span{min-width:0;overflow-wrap:anywhere}.gc-attachment-actions{display:flex;gap:6px;flex-shrink:0}</style>
+<style>.gc-custom-actions{display:flex;gap:9px;flex-wrap:wrap}.gc-btn-danger{background:#b42318;border-color:#b42318;color:#fff}.gc-dashboard{margin-bottom:16px}.gc-dashboard-head{margin-bottom:10px}.gc-dashboard-head h2{margin:0 0 4px}.gc-dashboard-head p{margin:0;color:#667085}.gc-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}.gc-kpi{background:#fff;border:1px solid #d9e1ec;border-radius:11px;padding:14px}.gc-kpi strong{display:block;color:#667085;font-size:12px}.gc-kpi span{display:block;font-size:25px;font-weight:800;margin-top:5px}.gc-trend{height:120px;display:flex;align-items:flex-end;gap:2px;background:#fff;border:1px solid #d9e1ec;border-radius:11px;padding:12px;margin-top:10px}.gc-trend i{flex:1;min-width:2px;background:#155eef;border-radius:3px 3px 0 0}.gc-dashboard-table{margin-top:10px;background:#fff;border:1px solid #d9e1ec;border-radius:11px;padding:12px;overflow:auto}.gc-dashboard-table table{width:100%;border-collapse:collapse}.gc-dashboard-table td,.gc-dashboard-table th{padding:6px;border-bottom:1px solid #edf0f5;text-align:left}</style>
 <section class="gc" data-gc-root data-endpoint="<%=gcEndpoint%>">
   <header class="gc-head">
     <div><div class="gc-breadcrumb">Beranda / Master Data</div><h1 data-gc-title>Memuat…</h1><p>CRUD berbasis metadata dengan audit, scope, dan hak akses role aktif.</p></div>
@@ -28,9 +29,11 @@ if (gcMenuId != null) {
       <button type="button" class="gc-btn" data-gc-template hidden>Template Import</button>
       <label class="gc-btn gc-file" data-gc-import-label hidden>Import XLSX<input type="file" accept=".xlsx" data-gc-import></label>
       <button type="button" class="gc-btn gc-primary" data-gc-add hidden>+ Tambah Data</button>
+      <span class="gc-custom-actions" data-gc-custom-actions></span>
     </div>
   </header>
   <div class="gc-alert" data-gc-alert hidden role="alert"></div>
+  <section class="gc-dashboard" data-gc-dashboard hidden></section>
   <section class="gc-parity" data-gc-parity hidden>
     <header>
       <div><strong>Fungsi New UI modul</strong><span data-gc-parity-summary></span></div>

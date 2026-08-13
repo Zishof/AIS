@@ -9,6 +9,8 @@ import javax.servlet.http.HttpServletRequest;
 import ais.action.master.generic.v2.adapter.GenericCrudFormDefinition;
 import ais.action.master.generic.v2.adapter.GenericCrudFormOverrideProvider;
 import ais.action.master.generic.v2.adapter.GenericCrudApprovalAdapter;
+import ais.action.master.generic.v2.adapter.GenericCrudCustomActionProvider;
+import ais.action.master.generic.v2.adapter.GenericCrudDashboardProvider;
 
 /** Satu pintu API; setiap service tetap mengulang guard server-side. */
 @SuppressWarnings("rawtypes")
@@ -62,6 +64,12 @@ public class GenericCrudFacade {
         result.put("approvalEnabled", Boolean.valueOf(approval));
         result.put("canApprove", Boolean.valueOf(approval && context.isCanApprove()));
         result.put("canReject", Boolean.valueOf(approval && context.isCanReject()));
+        if (d.getAdapter() instanceof GenericCrudCustomActionProvider) {
+            result.put("customActions", ((GenericCrudCustomActionProvider) d.getAdapter()).getActions(d, context));
+        }
+        if (d.getAdapter() instanceof GenericCrudDashboardProvider) {
+            result.put("dashboard", ((GenericCrudDashboardProvider) d.getAdapter()).getDashboard(context));
+        }
         if (d.isPhotoEnabled()) {
             result.put("photoUrlTemplate", context.getRequest().getContextPath()
                     + "/AmbilFotoMahasiswa?nim={nim}&v={id}");

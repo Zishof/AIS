@@ -74,6 +74,9 @@ public final class NewUiRouteGuard {
                 || "permanent-delete".equals(value) || value.startsWith("admin_delete_")) return permission.isCanDelete();
         if ("approve".equals(value)) return permission.isCanApprove();
         if ("reject".equals(value)) return permission.isCanReject();
+        // Custom action lolos hanya sampai dispatcher dengan READ; provider server-side
+        // tetap memeriksa privilege spesifik (CREATE/UPDATE/DELETE/APPROVE/REJECT).
+        if ("custom_action".equals(value)) return permission.isCanRead();
         return false;
     }
 

@@ -18,6 +18,7 @@ import ais.common.Common;
 import ais.action.master.generic.v2.adapter.GenericCrudPhotoAdapter;
 import ais.action.master.generic.v2.adapter.GenericCrudApprovalAdapter;
 import ais.action.master.generic.v2.adapter.GenericCrudAttachmentAdapter;
+import ais.action.master.generic.v2.adapter.GenericCrudCustomActionProvider;
 
 /** Dispatcher Java; JSP hanya binding dan forwarding. */
 @SuppressWarnings({ "rawtypes", "unchecked" })
@@ -80,6 +81,13 @@ public final class GenericCrudHttpController {
             } else if ("delete".equals(action)) {
                 GenericCrudCsrf.requireMutation(request);
                 payload = facade.delete(context, identifier(context, request.getParameter("id")));
+            } else if ("custom_action".equals(action)) {
+                GenericCrudCsrf.requireMutation(request);
+                if (!(context.getDefinition().getAdapter() instanceof GenericCrudCustomActionProvider))
+                    throw new GenericCrudException(403, "CUSTOM_ACTION_DISABLED", "Custom action belum dikonfigurasi.");
+                payload = new GenericCrudCustomActionService().execute(context,
+                        request.getParameter("actionKey"), identifiers(context, request.getParameterValues("selectedId")),
+                        new LinkedHashMap(), (GenericCrudCustomActionProvider) context.getDefinition().getAdapter());
             } else if ("photo_upload".equals(action)) {
                 GenericCrudCsrf.requireMutation(request);
                 FileItem part = photoPart(request);
@@ -203,6 +211,12 @@ public final class GenericCrudHttpController {
         Object id = GenericCrudValueConverter.convert(raw, metadata.getIdentifierType().getReturnedClass());
         if (!(id instanceof Serializable)) throw new GenericCrudException(400, "INVALID_ID", "Tipe ID tidak serializable.");
         return (Serializable) id;
+    }
+
+    private static List identifiers(GenericCrudRequestContext context, String[] values) throws Exception {
+        List result = new ArrayList(); if (values == null) return result;
+        for (int i = 0; i < values.length; i++) result.add(identifier(context, values[i]));
+        return result;
     }
 
     private static GenericCrudPhotoAdapter photoAdapter(GenericCrudRequestContext context) throws GenericCrudException {
