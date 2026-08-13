@@ -25,6 +25,8 @@ import ais.action.master.generic.v2.adapter.ProdukPesertaGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.HasilUjianMahasiswaGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.CicilanPembayaranGagalGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.BerkasGenericCrudAdapter;
+import ais.action.master.generic.v2.adapter.CimbRequestGenericCrudAdapter;
+import ais.action.master.generic.v2.adapter.IpaymuRequestGenericCrudAdapter;
 import ais.database.model.Agama;
 import ais.database.model.BadanHukum;
 import ais.database.model.Jenjang;
@@ -71,6 +73,12 @@ import ais.database.model.JenisPembayaran;
 import ais.database.model.ItemBiaya;
 import ais.database.model.Berkas;
 import ais.database.model.Fakultas;
+import ais.database.model.BiodataCalonMahasiswa;
+import ais.database.model.JenisKegiatan;
+import ais.database.model.cimb.CimbRequest;
+import ais.database.model.cimb.CimbResponse;
+import ais.database.model.ipaymu.IpaymuRequest;
+import ais.database.model.ipaymu.IpaymuResponse;
 
 /**
  * Registry allow-list. Scanner menghasilkan kandidat disabled; hanya entity yang
@@ -96,6 +104,8 @@ public final class GenericCrudDefinitionRegistry {
         register(buildHasilUjianMahasiswa());
         register(buildCicilanPembayaranGagal());
         register(buildBerkas());
+        register(buildCimbRequest());
+        register(buildIpaymuRequest());
         register(buildEmployeeHistory(RiwayatTandaJasaPegawai.class, "riwayat_tanda_jasa_pegawai", "Riwayat Tanda Jasa Pegawai"));
         register(buildEmployeeHistory(RiwayatPendidikanPegawai.class, "riwayat_pendidikan_pegawai", "Riwayat Pendidikan Pegawai"));
         register(buildEmployeeHistory(RiwayatPelatihanPegawai.class, "riwayat_pelatihan_pegawai", "Riwayat Pelatihan Pegawai"));
@@ -792,6 +802,60 @@ public final class GenericCrudDefinitionRegistry {
         d.addField(relationField("parent", "Induk Berkas", Berkas.class, true, true, true, false, 90));
         d.addField(field("keterangan", "Keterangan", String.class, "textarea", true, true, true, false, true, true, 100));
         return d;
+    }
+
+    private static GenericCrudDefinition buildCimbRequest() {
+        GenericCrudDefinition d = paymentRequest("cimb", "cimb_request", "CIMB Request",
+                CimbRequest.class, "ais.action.master.cimb.CimbRequestAction");
+        CimbRequestGenericCrudAdapter adapter = new CimbRequestGenericCrudAdapter();
+        d.setAdapter(adapter); d.setScopeAdapter(adapter);
+        addPaymentFields(d);
+        d.addField(field("trxId", "Transaction ID", String.class, "text", true, false, false, false, true, true, 20));
+        d.addField(field("amount", "Nominal", Double.class, "number", true, false, false, false, true, false, 60));
+        d.addField(field("status", "Status", String.class, "text", true, false, false, false, true, true, 100));
+        d.addField(field("kodeStatus", "Kode Status", String.class, "text", true, false, false, false, true, true, 110));
+        d.addField(relationField("cimbResponse", "Respons CIMB", CimbResponse.class, true, false, false, false, 120));
+        return d;
+    }
+
+    private static GenericCrudDefinition buildIpaymuRequest() {
+        GenericCrudDefinition d = paymentRequest("ipaymu", "ipaymu_request", "iPaymu Request",
+                IpaymuRequest.class, "ais.action.master.ipaymu.IpaymuRequestAction");
+        IpaymuRequestGenericCrudAdapter adapter = new IpaymuRequestGenericCrudAdapter();
+        d.setAdapter(adapter); d.setScopeAdapter(adapter);
+        addPaymentFields(d);
+        d.addField(field("trxId", "Transaction ID", String.class, "text", true, false, false, false, true, true, 20));
+        d.addField(field("noRekeningDeposit", "Rekening Deposit", String.class, "text", true, false, false, false, true, true, 30));
+        d.addField(field("buyer", "Pembeli", String.class, "text", true, false, false, false, true, true, 40));
+        d.addField(field("comments", "Komentar", String.class, "textarea", true, false, false, false, true, true, 50));
+        d.addField(field("amount", "Nominal", Double.class, "number", true, false, false, false, true, false, 60));
+        d.addField(relationField("ipaymuResponse", "Respons iPaymu", IpaymuResponse.class, true, false, false, false, 120));
+        return d;
+    }
+
+    private static GenericCrudDefinition paymentRequest(String module, String page, String label,
+            Class entity, String action) {
+        GenericCrudDefinition d = new GenericCrudDefinition(); d.setEntityClass(entity);
+        d.setModuleKey(module); d.setPageKey(page); d.setDisplayName(label);
+        d.setSourceActionClassName(action); d.setExistingActionLifecycleBound(false);
+        d.setLifecycleStatus(GenericCrudDefinition.READ_ONLY); d.setEnabled(true);
+        d.setCreateEnabled(false); d.setUpdateEnabled(false); d.setDeleteEnabled(false); d.setImportEnabled(false);
+        d.setExportPdfEnabled(true); d.setExportDocxEnabled(true); d.setExportPptxEnabled(true);
+        d.setSavedViewEnabled(true); d.setAuditEnabled(true); d.setRowAuditEnabled(true);
+        d.setGlobalAuditEnabled(false); d.setRestoreEnabled(false); d.setAdminDeleteEnabled(false);
+        d.setDefaultSortProperty("id"); d.setDefaultSortAscending(false); d.setDefaultPageSize(10); d.setMaxPageSize(100);
+        return d;
+    }
+
+    private static void addPaymentFields(GenericCrudDefinition d) {
+        d.addField(field("id", "ID", Long.class, "number", false, false, false, false, true, false, 10));
+        d.addField(relationField("mahasiswa", "Mahasiswa", Mahasiswa.class, true, false, false, false, 70));
+        d.addField(relationField("biodataCalonMahasiswa", "Calon Mahasiswa", BiodataCalonMahasiswa.class, true, false, false, false, 75));
+        d.addField(relationField("jenisKegiatan", "Jenis Kegiatan", JenisKegiatan.class, true, false, false, false, 80));
+        d.addField(field("tahunAkademik", "Tahun Akademik", String.class, "text", true, false, false, false, true, true, 85));
+        d.addField(field("semester", "Semester", Integer.class, "number", true, false, false, false, true, false, 90));
+        d.addField(field("tanggal_dirubah", "Tanggal", java.util.Date.class, "datetime", true, false, false, false, true, false, 95));
+        d.addField(field("keterangan", "Keterangan", String.class, "textarea", true, false, false, false, true, true, 115));
     }
 
     private static GenericCrudFieldDefinition relationField(String key, String label, Class type,
