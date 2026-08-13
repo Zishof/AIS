@@ -330,6 +330,9 @@ public class HakAksesApi {
 				item.put("child", menu.getChild());
 				item.put("urut", menu.getNomorUrut());
 				item.put("icon", ApiHelperSupport.safeString(menu.getIcon()));
+				item.put("bigIcon", ApiHelperSupport.safeString(menu.getBigIcon()));
+				item.put("url", ApiHelperSupport.safeString(menu.getUrl()));
+				item.put("bukaHalamanBaru", Boolean.valueOf(Boolean.TRUE.equals(menu.getBukaHalamanBaru())));
 				item.put("priv", privilegeJson(privilegePerMenu.get(menu.getId())));
 				array.put(item);
 				dikirim++;

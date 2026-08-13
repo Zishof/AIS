@@ -432,6 +432,10 @@ public class Main extends HttpServlet {
 	private boolean isParameterAktif(HttpServletRequest request, String name) {
 		try {
 			String value = request == null || name == null ? null : request.getParameter(name);
+			if (value == null && request != null && name != null
+					&& request.getAttribute(name) != null) {
+				value = String.valueOf(request.getAttribute(name));
+			}
 			if (value == null) {
 				return false;
 			}

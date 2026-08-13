@@ -1970,9 +1970,69 @@ public class KantinHelper {
 				return;
 			}
 			String[] idKasir = identitasKasir(tbmuser);
+			ais.database.model.JenisPembayaran jenisPembayaran = null;
+			ais.database.model.JenisTabungan jenisTabungan = null;
+			if (!request.isNull("jenis_pembayaran_id")
+					&& !request.optString("jenis_pembayaran_id", "").trim().isEmpty()) {
+				String id = request.optString("jenis_pembayaran_id", "").trim();
+				if (!Common.isNumber(id)) {
+					hasil.put("status", "91");
+					hasil.put("description", "Cara pembayaran yang dipilih tidak valid.");
+					return;
+				}
+				jenisPembayaran = (ais.database.model.JenisPembayaran) session.get(
+						ais.database.model.JenisPembayaran.class, Long.valueOf(id));
+			} else {
+				jenisPembayaran = (ais.database.model.JenisPembayaran) session
+						.createCriteria(ais.database.model.JenisPembayaran.class)
+						.add(Restrictions.eq("defaultPembayaran", Boolean.TRUE))
+						.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
+						.add(Restrictions.isNull("jenisTabungan")).setMaxResults(1).uniqueResult();
+				if (jenisPembayaran == null) {
+					jenisPembayaran = (ais.database.model.JenisPembayaran) session
+							.createCriteria(ais.database.model.JenisPembayaran.class)
+							.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
+							.add(Restrictions.isNull("jenisTabungan")).addOrder(Order.asc("id"))
+							.setMaxResults(1).uniqueResult();
+				}
+			}
+			if (!request.isNull("jenis_tabungan_id")
+					&& !request.optString("jenis_tabungan_id", "").trim().isEmpty()) {
+				String id = request.optString("jenis_tabungan_id", "").trim();
+				if (!Common.isNumber(id)) {
+					hasil.put("status", "91");
+					hasil.put("description", "Jenis tabungan yang dipilih tidak valid.");
+					return;
+				}
+				jenisTabungan = (ais.database.model.JenisTabungan) session.get(
+						ais.database.model.JenisTabungan.class, Long.valueOf(id));
+			} else {
+				jenisTabungan = (ais.database.model.JenisTabungan) session
+						.createCriteria(ais.database.model.JenisTabungan.class)
+						.add(Restrictions.eq("defaultTabungan", Boolean.TRUE))
+						.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
+						.setMaxResults(1).uniqueResult();
+				if (jenisTabungan == null) {
+					jenisTabungan = (ais.database.model.JenisTabungan) session
+							.createCriteria(ais.database.model.JenisTabungan.class)
+							.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
+							.addOrder(Order.asc("id")).setMaxResults(1).uniqueResult();
+				}
+			}
+			if (jenisPembayaran == null || jenisTabungan == null) {
+				hasil.put("status", "91");
+				hasil.put("description",
+						"Topup belum dapat disimpan karena Cara Pembayaran atau Jenis Tabungan default belum dikonfigurasi. Buka menu Keuangan, tetapkan satu data aktif sebagai default, lalu coba kembali.");
+				return;
+			}
 			ais.database.model.Deposit deposit = new ais.database.model.Deposit();
 			deposit.setAnggotaKoperasi(anggota);
 			deposit.setNominal(Double.valueOf(nominal));
+			// Form admin lama selalu mengisi dua relasi wajib ini. Klien POS boleh tidak
+			// mengirimkannya, tetapi server tetap memasang entity default yang dimuat
+			// dari session ini (bukan singleton statis yang mungkin sudah detached).
+			deposit.setJenisPembayaran(jenisPembayaran);
+			deposit.setJenisTabungan(jenisTabungan);
 			// Parity JSP "_manajemen_topup.jsp": waktu boleh backdate (opsional), default SEKARANG
 			// spt perilaku lama bila tak dikirim -- TIDAK mengubah perilaku pemanggil existing.
 			Date waktuTopup = new Date();
@@ -1996,14 +2056,6 @@ public class KantinHelper {
 				} catch (Exception eParse) {
 					ais.common.ErrorAuditUtil.record(eParse, "auto-audit topupSaldo-parse-expired src/ais/action/servlet/api/KantinHelper.java");
 				}
-			}
-			if (!request.isNull("jenis_pembayaran_id")) {
-				deposit.setJenisPembayaran((ais.database.model.JenisPembayaran) session.get(ais.database.model.JenisPembayaran.class,
-						Long.valueOf((request.get("jenis_pembayaran_id") + "").trim())));
-			}
-			if (!request.isNull("jenis_tabungan_id")) {
-				deposit.setJenisTabungan((ais.database.model.JenisTabungan) session.get(ais.database.model.JenisTabungan.class,
-						Long.valueOf((request.get("jenis_tabungan_id") + "").trim())));
 			}
 			deposit.setKeterangan(request.optString("keterangan", ""));
 			deposit.setOleh(idKasir[0]);
@@ -8657,6 +8709,100 @@ public class KantinHelper {
 			hasil.put("status", "00");
 			hasil.put("data", data);
 			hasil.put("adaLagi", adaLagi);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
+	 * Ringkasan mutasi gudang per produk untuk tab Produk > Mutasi Barang.
+	 * Saldo akhir historis diturunkan dari stok saat ini dikurangi seluruh mutasi
+	 * setelah tanggal akhir; cara ini tetap mengakui stok awal hasil migrasi/impor
+	 * yang tidak mempunyai dokumen mutasi lama. Nilai persediaan memakai harga beli
+	 * produk saat laporan dibuat, konsisten dengan KPI Nilai Stok.
+	 */
+	public static void produkMutasiRingkasan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		Long tokoId = soResolveTokoId(tbmuser, request);
+		if (tokoId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko tidak diketahui.");
+			return;
+		}
+		String dari = request.optString("dari", "").trim();
+		String sampai = request.optString("sampai", "").trim();
+		if (!dari.matches("\\d{4}-\\d{2}-\\d{2}") || !sampai.matches("\\d{4}-\\d{2}-\\d{2}")) {
+			hasil.put("status", "91");
+			hasil.put("description", "Tanggal mulai dan akhir wajib diisi dengan format yyyy-MM-dd.");
+			return;
+		}
+		int page = Math.max(1, request.optInt("page", 1));
+		int pageSize = Math.min(500, Math.max(1, request.optInt("page_size", 15)));
+		String keyword = request.optString("keyword", "").trim();
+		Long kategoriId = request.isNull("kategori_id") ? null
+				: Long.valueOf((request.get("kategori_id") + "").trim());
+
+		String tid = tokoId.toString();
+		String sql = "WITH u AS ("
+				+ "SELECT p.produk produk_id,p.waktupengadaan waktu,p.qty qty FROM koperasi.pengadaan_produk p WHERE p.toko=" + tid + " AND p.waktupengadaan>=CAST(? AS date) "
+				+ "UNION ALL SELECT a.produk,a.waktuopname,a.selisih FROM koperasi.stok_opname a WHERE a.toko=" + tid + " AND a.waktuopname>=CAST(? AS date) "
+				+ "UNION ALL SELECT b.produk,b.waktu,-b.qty FROM koperasi.pembelian b WHERE b.toko=" + tid + " AND b.waktu>=CAST(? AS date) "
+				+ "UNION ALL SELECT c.produk,c.waktu,-c.qty FROM koperasi.pemakaian_bahan_baku c WHERE c.toko=" + tid + " AND c.waktu>=CAST(? AS date) "
+				+ "UNION ALL SELECT d.produk,d.waktu,d.qty FROM koperasi.retur_penjualan d WHERE d.toko=" + tid + " AND d.kembalikan_ke_stok=true AND d.waktu>=CAST(? AS date) "
+				+ "UNION ALL SELECT e.produk_tujuan,e.waktu,e.qty FROM koperasi.mutasi_stok_toko e WHERE e.toko_tujuan=" + tid + " AND e.produk_tujuan IS NOT NULL AND e.waktu>=CAST(? AS date) "
+				+ "UNION ALL SELECT e2.produk_asal,e2.waktu,-e2.qty FROM koperasi.mutasi_stok_toko e2 WHERE e2.toko_asal=" + tid + " AND e2.produk_asal IS NOT NULL AND e2.waktu>=CAST(? AS date) "
+				+ "UNION ALL SELECT f.produk,f.waktu,-f.qty FROM koperasi.retur_pembelian f WHERE f.toko=" + tid + " AND f.waktu>=CAST(? AS date)), "
+				+ "a AS (SELECT produk_id,"
+				+ "COALESCE(SUM(CASE WHEN waktu<CAST(? AS date)+interval '1 day' AND qty>0 THEN qty ELSE 0 END),0) masuk,"
+				+ "COALESCE(SUM(CASE WHEN waktu<CAST(? AS date)+interval '1 day' AND qty<0 THEN -qty ELSE 0 END),0) keluar,"
+				+ "COALESCE(SUM(CASE WHEN waktu>=CAST(? AS date)+interval '1 day' THEN qty ELSE 0 END),0) sesudah FROM u GROUP BY produk_id),"
+				+ "r AS (SELECT COALESCE(j.nama,'TANPA KATEGORI') kategori,p.kode,COALESCE(p.barcode,'') barcode,p.nama,"
+				+ "COALESCE(p.hargabeli,0) harga_beli,COALESCE(a.masuk,0) masuk,COALESCE(a.keluar,0) keluar,"
+				+ "COALESCE(p.stok,0)-COALESCE(a.sesudah,0) saldo_akhir,"
+				+ "COALESCE(p.stok,0)-COALESCE(a.sesudah,0)-COALESCE(a.masuk,0)+COALESCE(a.keluar,0) saldo_awal "
+				+ "FROM koperasi.produk p LEFT JOIN koperasi.jenis_produk j ON j.id=p.jenis_produk LEFT JOIN a ON a.produk_id=p.id "
+				+ "WHERE p.toko=? "
+				+ (kategoriId == null ? "" : "AND p.jenis_produk=? ")
+				+ (keyword.isEmpty() ? "" : "AND (LOWER(COALESCE(p.nama,'')) LIKE ? OR LOWER(COALESCE(p.kode,'')) LIKE ? OR LOWER(COALESCE(p.barcode,'')) LIKE ?) ")
+				+ ") SELECT kategori,kode,barcode,nama,saldo_awal,saldo_awal*harga_beli nilai_awal,masuk,masuk*harga_beli nilai_masuk,"
+				+ "keluar,keluar*harga_beli nilai_keluar,saldo_akhir,saldo_akhir*harga_beli nilai_akhir,"
+				+ "COUNT(*) OVER() total_baris,SUM(saldo_awal) OVER() t_saldo_awal,SUM(saldo_awal*harga_beli) OVER() t_nilai_awal,"
+				+ "SUM(masuk) OVER() t_masuk,SUM(masuk*harga_beli) OVER() t_nilai_masuk,SUM(keluar) OVER() t_keluar,"
+				+ "SUM(keluar*harga_beli) OVER() t_nilai_keluar,SUM(saldo_akhir) OVER() t_saldo_akhir,SUM(saldo_akhir*harga_beli) OVER() t_nilai_akhir "
+				+ "FROM r ORDER BY kategori,nama,kode LIMIT ? OFFSET ?";
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(sql);
+			int i = 1;
+			for (int x = 0; x < 8; x++) ps.setString(i++, dari);
+			ps.setString(i++, sampai); ps.setString(i++, sampai); ps.setString(i++, sampai);
+			ps.setLong(i++, tokoId.longValue());
+			if (kategoriId != null) ps.setLong(i++, kategoriId.longValue());
+			if (!keyword.isEmpty()) {
+				String q = "%" + keyword.toLowerCase() + "%";
+				ps.setString(i++, q); ps.setString(i++, q); ps.setString(i++, q);
+			}
+			ps.setInt(i++, pageSize); ps.setInt(i++, (page - 1) * pageSize);
+			java.sql.ResultSet rs = ps.executeQuery();
+			JSONArray data = new JSONArray();
+			JSONObject summary = new JSONObject();
+			long total = 0;
+			while (rs.next()) {
+				JSONObject o = new JSONObject();
+				o.put("kategori", rs.getString(1)); o.put("kode", rs.getString(2));
+				o.put("barcode", rs.getString(3)); o.put("nama", rs.getString(4));
+				o.put("saldoAwal", rs.getDouble(5)); o.put("nilaiAwal", rs.getDouble(6));
+				o.put("masuk", rs.getDouble(7)); o.put("nilaiMasuk", rs.getDouble(8));
+				o.put("keluar", rs.getDouble(9)); o.put("nilaiKeluar", rs.getDouble(10));
+				o.put("saldoAkhir", rs.getDouble(11)); o.put("nilaiAkhir", rs.getDouble(12));
+				data.put(o); total = rs.getLong(13);
+				summary.put("saldoAwal", rs.getDouble(14)); summary.put("nilaiAwal", rs.getDouble(15));
+				summary.put("masuk", rs.getDouble(16)); summary.put("nilaiMasuk", rs.getDouble(17));
+				summary.put("keluar", rs.getDouble(18)); summary.put("nilaiKeluar", rs.getDouble(19));
+				summary.put("saldoAkhir", rs.getDouble(20)); summary.put("nilaiAkhir", rs.getDouble(21));
+			}
+			rs.close(); ps.close();
+			hasil.put("status", "00"); hasil.put("data", data); hasil.put("total", total);
+			hasil.put("page", page); hasil.put("pageSize", pageSize); hasil.put("summary", summary);
 		} finally {
 			tutupSessionPolaB(session);
 		}

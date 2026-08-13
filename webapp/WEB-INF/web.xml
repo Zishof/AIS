@@ -1833,5 +1833,14 @@
 		<servlet-name>LaporanKantinPdf</servlet-name>
 		<url-pattern>/LaporanKantinPdf</url-pattern>
 	</servlet-mapping>
+	<servlet>
+		<description>Bootstrap sesi aman untuk membuka leaf menu ZK dari aplikasi desktop</description>
+		<servlet-name>DesktopMenuBootstrap</servlet-name>
+		<servlet-class>ais.action.servlet.DesktopMenuBootstrap</servlet-class>
+	</servlet>
+	<servlet-mapping>
+		<servlet-name>DesktopMenuBootstrap</servlet-name>
+		<url-pattern>/desktop-menu</url-pattern>
+	</servlet-mapping>
 	<distributable />
 </web-app>

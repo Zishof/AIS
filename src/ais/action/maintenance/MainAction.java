@@ -87,6 +87,7 @@ import ais.action.master.helper.DaftarPenggunaOnline;
 import ais.action.master.helper.MainHelper;
 import ais.action.master.helper.MainMenuHelper;
 import ais.action.master.helper.MainTreeMenuHelper;
+import ais.common.PesanFormalHelper;
 import ais.action.master.helper.PertemuanHelper;
 import ais.action.master.helper.UserOnlineCounter;
 import ais.action.master.helper.util.PerguruanTinggiUtil;
@@ -116,6 +117,7 @@ import ais.database.model.Kegiatan;
 import ais.database.model.Konfigurasi;
 import ais.database.model.LogLogin;
 import ais.database.model.Mahasiswa;
+import ais.database.model.Menu;
 import ais.database.model.Notifikasi;
 import ais.database.model.Pegawai;
 import ais.database.model.PengumumanAkademis;
@@ -319,11 +321,21 @@ public class MainAction extends GenericAutowireComposer {
 			int responseCode = connection.getResponseCode();
 			if (responseCode >= 200 && responseCode < 300) {
 				StringBuilder json = new StringBuilder();
-				try (BufferedReader reader = new BufferedReader(
-						new InputStreamReader(connection.getInputStream(), "UTF-8"))) {
+				BufferedReader reader = null;
+				try {
+					reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), "UTF-8"));
 					String line;
 					while ((line = reader.readLine()) != null) {
 						json.append(line);
+					}
+				} finally {
+					if (reader != null) {
+						try {
+							reader.close();
+						} catch (Exception ignored) {
+							ais.common.ErrorAuditUtil.record(ignored,
+									"auto-audit(empty-catch) src/ais/action/maintenance/MainAction.java:resolveLatestDesktopDownloadUrl-close");
+						}
 					}
 				}
 				JSONArray releases = new JSONArray(json.toString());
@@ -3487,6 +3499,7 @@ public class MainAction extends GenericAutowireComposer {
 		initPencarianMenu();
 		if (mycenter != null)
 			mycenter.setVisible(true);
+		bukaMenuDesktopYangTertunda();
 
 		Common.createDefaultTimer(new EventListener() {
 			public void onEvent(Event arg0) throws Exception {
@@ -3507,6 +3520,54 @@ public class MainAction extends GenericAutowireComposer {
 			Common.checkApakahPasswordSudahDiganti(tbmuser);
 		}
 		applyResponsiveShellEnhancement(page == null ? null : page.getFirstRoot());
+	}
+
+	/**
+	 * Membuka menu yang sebelumnya sudah divalidasi DesktopMenuBootstrap.
+	 * Menu dicari ulang pada currentMenus milik role aktif agar id yang tersimpan
+	 * di sesi tidak pernah dipakai untuk melewati job_has_menu.
+	 */
+	@SuppressWarnings("unchecked")
+	private void bukaMenuDesktopYangTertunda() {
+		Object pending = session.getAttribute(
+				ais.action.servlet.DesktopMenuBootstrap.ATTR_PENDING_MENU_ID);
+		if (!(pending instanceof Long)) {
+			return;
+		}
+
+		// Hapus sebelum launch agar refresh/error tidak membuka jendela berulang kali.
+		session.removeAttribute(ais.action.servlet.DesktopMenuBootstrap.ATTR_PENDING_MENU_ID);
+		session.removeAttribute(ais.action.servlet.DesktopMenuBootstrap.ATTR_PENDING_ROLE_ID);
+		try {
+			List<Menu> menus = (List<Menu>) session.getAttribute("currentMenus");
+			if (menus == null || tbmuser == null || tbmuser.hakAkses() == null) {
+				return;
+			}
+			Menu target = null;
+			for (Menu menu : menus) {
+				if (menu != null && pending.equals(menu.getId())
+						&& (menu.getAktif() == null || menu.getAktif().booleanValue())
+						&& menu.getUrl() != null && menu.getUrl().trim().length() > 0
+						&& !MainHelper.hasChild(menu.getChild(), menus)) {
+					target = menu;
+					break;
+				}
+			}
+			if (target == null) {
+				return;
+			}
+			session.setAttribute("currentMenu", target);
+			Common.launchMenu(navigasi, menuService, iframe, target, login);
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+			try {
+				PesanFormalHelper.tampilkanGagalException("Membuka menu desktop",
+						"Menu tidak berhasil dibuka pada tampilan web.", e,
+						new String[] { "Tutup halaman ini, lalu pilih kembali menu dari aplikasi desktop." });
+			} catch (Exception ignored) {
+				// Pesan tambahan bersifat best-effort; exception utama sudah diaudit.
+			}
+		}
 	}
 
 	private boolean renderModernHomeCenter(PerguruanTinggi ptAktif) {
