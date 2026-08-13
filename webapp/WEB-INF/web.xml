@@ -1842,5 +1842,13 @@
 		<servlet-name>DesktopMenuBootstrap</servlet-name>
 		<url-pattern>/desktop-menu</url-pattern>
 	</servlet-mapping>
+	<servlet>
+		<servlet-name>DesktopNativeApi</servlet-name>
+		<servlet-class>ais.action.servlet.DesktopNativeApi</servlet-class>
+	</servlet>
+	<servlet-mapping>
+		<servlet-name>DesktopNativeApi</servlet-name>
+		<url-pattern>/desktop-native-api</url-pattern>
+	</servlet-mapping>
 	<distributable />
 </web-app>
