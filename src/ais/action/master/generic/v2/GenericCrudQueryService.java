@@ -20,6 +20,7 @@ import org.hibernate.type.Type;
 
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.GeneralValueObject;
+import ais.action.master.generic.v2.adapter.GenericCrudRowSanitizer;
 
 @SuppressWarnings({ "rawtypes", "unchecked", "deprecation" })
 public class GenericCrudQueryService {
@@ -53,7 +54,7 @@ public class GenericCrudQueryService {
             query.setFirstResult((page - 1) * pageSize).setMaxResults(pageSize);
             List objects = query.list();
             List rows = new ArrayList();
-            for (int i = 0; i < objects.size(); i++) { rows.add(toRow(objects.get(i), definition, metadata)); }
+            for (int i = 0; i < objects.size(); i++) { rows.add(toRow(objects.get(i), definition, metadata, context)); }
             GenericCrudPage result = new GenericCrudPage();
             result.setRows(rows);
             result.setTotal(total == null ? 0L : total.longValue());
@@ -72,7 +73,7 @@ public class GenericCrudQueryService {
             Object object = session.get(definition.getEntityClass(), id);
             if (!(object instanceof GeneralValueObject)) { throw new GenericCrudException(404, "ROW_NOT_FOUND", "Data tidak ditemukan."); }
             scope.validateObject((GeneralValueObject) object, context);
-            return toRow(object, definition, metadata);
+            return toRow(object, definition, metadata, context);
         } finally { close(session); }
     }
 
@@ -137,7 +138,8 @@ public class GenericCrudQueryService {
         }
     }
 
-    private Map toRow(Object object, GenericCrudDefinition definition, ClassMetadata metadata) {
+    private Map toRow(Object object, GenericCrudDefinition definition, ClassMetadata metadata,
+            GenericCrudRequestContext context) throws Exception {
         Map row = new LinkedHashMap();
         row.put(definition.getIdentifierProperty(), metadata.getIdentifier(object, EntityMode.POJO));
         Iterator fields = definition.getFields().iterator();
@@ -156,6 +158,11 @@ public class GenericCrudQueryService {
                 if (value instanceof GeneralValueObject) value = String.valueOf(value);
                 row.put(field.getProperty(), value);
             }
+        }
+        if (object instanceof GeneralValueObject
+                && definition.getAdapter() instanceof GenericCrudRowSanitizer) {
+            ((GenericCrudRowSanitizer) definition.getAdapter()).sanitizeRow(
+                    (GeneralValueObject) object, row, context);
         }
         return row;
     }

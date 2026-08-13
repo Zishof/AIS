@@ -15,6 +15,7 @@ import ais.action.master.generic.v2.adapter.MahasiswaGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.MahasiswaGenericCrudFormProvider;
 import ais.action.master.generic.v2.adapter.PenilaianSiswaGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.PegawaiHistoryGenericCrudAdapter;
+import ais.action.master.generic.v2.adapter.ParameterUmumGenericCrudAdapter;
 import ais.database.model.Agama;
 import ais.database.model.BadanHukum;
 import ais.database.model.Jenjang;
@@ -22,6 +23,7 @@ import ais.database.model.JenjangProgramStudi;
 import ais.database.model.Jurusan;
 import ais.database.model.Mahasiswa;
 import ais.database.model.StatusAwalMahasiswa;
+import ais.database.model.ParameterUmum;
 import ais.database.model.Ruang;
 import ais.database.model.sekolah.KelasSiswa;
 import ais.database.model.sekolah.KurikulumSekolah;
@@ -54,6 +56,7 @@ public final class GenericCrudDefinitionRegistry {
         register(buildPenilaianSiswa());
         register(buildBadanHukum());
         register(buildKeluarga());
+        register(buildParameterUmum());
         register(buildEmployeeHistory(RiwayatTandaJasaPegawai.class, "riwayat_tanda_jasa_pegawai", "Riwayat Tanda Jasa Pegawai"));
         register(buildEmployeeHistory(RiwayatPendidikanPegawai.class, "riwayat_pendidikan_pegawai", "Riwayat Pendidikan Pegawai"));
         register(buildEmployeeHistory(RiwayatPelatihanPegawai.class, "riwayat_pelatihan_pegawai", "Riwayat Pelatihan Pegawai"));
@@ -471,6 +474,47 @@ public final class GenericCrudDefinitionRegistry {
                 true, true, false, false, 20));
         d.addField(field("status", "Status Persetujuan", Boolean.class, "checkbox",
                 true, false, false, false, true, false, 900));
+        return d;
+    }
+
+    private static GenericCrudDefinition buildParameterUmum() {
+        GenericCrudDefinition d = new GenericCrudDefinition();
+        d.setEntityClass(ParameterUmum.class);
+        d.setModuleKey("root");
+        d.setPageKey("parameter_umum");
+        d.setDisplayName("Parameter Umum");
+        d.setSourceActionClassName("ais.action.master.ParameterUmumAction");
+        d.setExistingActionLifecycleBound(false);
+        d.setLifecycleStatus(GenericCrudDefinition.FULL_CRUD);
+        d.setEnabled(true);
+        d.setCreateEnabled(false);
+        d.setUpdateEnabled(true);
+        d.setDeleteEnabled(false);
+        d.setImportEnabled(false);
+        d.setExportPdfEnabled(true);
+        d.setExportDocxEnabled(true);
+        d.setExportPptxEnabled(true);
+        d.setSavedViewEnabled(true);
+        d.setAuditEnabled(true);
+        d.setRowAuditEnabled(true);
+        d.setGlobalAuditEnabled(false);
+        d.setRestoreEnabled(false);
+        d.setAdminDeleteEnabled(false);
+        d.setDefaultSortProperty("nama");
+        d.setDefaultPageSize(25);
+        d.setMaxPageSize(100);
+        ParameterUmumGenericCrudAdapter adapter = new ParameterUmumGenericCrudAdapter();
+        d.setAdapter(adapter);
+        d.setScopeAdapter(adapter);
+        d.addField(field("id", "ID", Long.class, "number", true, false, false, false, true, false, 10));
+        d.addField(field("nama", "Nama Parameter", String.class, "text", true, false, false, true, true, true, 20));
+        d.addField(field("nilai", "Nilai", String.class, "textarea", true, false, true, false, false, false, 30));
+        d.addField(field("keterangan", "Keterangan", String.class, "textarea", true, false, true, false, false, true, 40));
+        d.addField(field("info1", "Info 1", String.class, "textarea", false, false, true, false, false, false, 50));
+        d.addField(field("info2", "Info 2", String.class, "textarea", false, false, true, false, false, false, 60));
+        d.addField(field("info3", "Info 3", String.class, "textarea", false, false, true, false, false, false, 70));
+        d.addField(field("info4", "Info 4", String.class, "textarea", false, false, true, false, false, false, 80));
+        d.addField(field("info5", "Info 5", String.class, "textarea", false, false, true, false, false, false, 90));
         return d;
     }
 

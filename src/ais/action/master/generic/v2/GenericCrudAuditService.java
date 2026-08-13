@@ -14,6 +14,8 @@ import org.hibernate.envers.query.AuditEntity;
 import org.hibernate.envers.query.AuditQuery;
 
 import ais.database.hibernate.HibernateUtil;
+import ais.action.master.generic.v2.adapter.GenericCrudRowSanitizer;
+import ais.database.model.GeneralValueObject;
 
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public class GenericCrudAuditService {
@@ -76,8 +78,18 @@ public class GenericCrudAuditService {
                 Object newValue = descriptor.getReadMethod().invoke(two, new Object[0]);
                 if (oldValue == null ? newValue != null : !oldValue.equals(newValue)) {
                     Map change = new LinkedHashMap();
-                    change.put("left", oldValue);
-                    change.put("right", newValue);
+                    GenericCrudRowSanitizer sanitizer = context.getDefinition().getAdapter()
+                            instanceof GenericCrudRowSanitizer
+                            ? (GenericCrudRowSanitizer) context.getDefinition().getAdapter() : null;
+                    boolean sensitive = sanitizer != null
+                            && ((one instanceof GeneralValueObject
+                                    && sanitizer.isSensitiveProperty((GeneralValueObject) one,
+                                            field.getProperty(), context))
+                                || (two instanceof GeneralValueObject
+                                    && sanitizer.isSensitiveProperty((GeneralValueObject) two,
+                                            field.getProperty(), context)));
+                    change.put("left", sensitive ? "********" : oldValue);
+                    change.put("right", sensitive ? "********" : newValue);
                     result.put(field.getProperty(), change);
                 }
             }
