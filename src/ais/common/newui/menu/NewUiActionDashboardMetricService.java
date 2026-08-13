@@ -34,10 +34,12 @@ public final class NewUiActionDashboardMetricService {
     private NewUiActionDashboardMetricService() { }
 
     public static boolean hasNativeAdapter(String sourceClass) {
-        return sourceClass != null && (sourceClass.endsWith("PendaftaranOverviewDashboardAction")
+        return NewUiActionDashboardNavigationService.hasDefinition(sourceClass)
+                || sourceClass != null && (sourceClass.endsWith("PendaftaranOverviewDashboardAction")
                 || sourceClass.endsWith("PendapatanDashboardAction")
                 || sourceClass.endsWith("DiagnosaTerbanyakDashboardAction")
-                || sourceClass.endsWith("KadaluarsaFarmasiDashboardAction"));
+                || sourceClass.endsWith("KadaluarsaFarmasiDashboardAction")
+                || sourceClass.endsWith("DasboardPiutangRinciSekolah"));
     }
 
     public static List<Metric> load(String sourceClass, Tbmuser user) {
@@ -111,6 +113,29 @@ public final class NewUiActionDashboardMetricService {
                     if (index >= 0 && index < labels.length) counts[index] = number(row[1]).longValue();
                 }
                 for (int i = 0; i < labels.length; i++) result.add(new Metric(labels[i], "sirs.kadaluarsa", counts[i], true));
+            } else if (sourceClass.endsWith("DasboardPiutangRinciSekolah")) {
+                SQLQuery query = session.createSQLQuery("select count(t.id), "
+                        + "coalesce(sum(coalesce(t.nominal,0)-coalesce(t.diskon,0)),0), "
+                        + "coalesce(sum(coalesce(t.dibayar,0)),0), "
+                        + "coalesce(sum(coalesce(t.nominal,0)-coalesce(t.diskon,0)-coalesce(t.dibayar,0)),0), "
+                        + "coalesce(sum(coalesce(t.diskon,0)),0), "
+                        + "coalesce(sum(case when coalesce(t.nominal,0)-coalesce(t.diskon,0)-coalesce(t.dibayar,0)>0.1 then 1 else 0 end),0), "
+                        + "coalesce(sum(case when coalesce(t.nominal,0)-coalesce(t.diskon,0)>0.1 and coalesce(t.nominal,0)-coalesce(t.diskon,0)-coalesce(t.dibayar,0)<=0.1 then 1 else 0 end),0), "
+                        + "coalesce(sum(case when s.id is not null then 1 else 0 end),0), "
+                        + "coalesce(sum(case when s.id is null and c.id is not null then 1 else 0 end),0) "
+                        + "from sekolah.tagihan t left join sekolah.siswa s on t.siswa_id=s.id "
+                        + "left join sekolah.calon_siswa c on t.calon_siswa_id=c.id "
+                        + "inner join sekolah.item_biaya_sekolah ib on t.item_biaya_id=ib.id "
+                        + "where (coalesce(t.nominal,0)>0.1 or coalesce(t.dibayar,0)>0.1)");
+                Object row = query.uniqueResult();
+                if (row instanceof Object[]) {
+                    Object[] values = (Object[]) row;
+                    String[] labels = { "Baris Tagihan", "Tagihan Netto", "Sudah Dibayar",
+                            "Sisa Piutang", "Potongan", "Tagihan Berpiutang", "Tagihan Lunas",
+                            "Tagihan Siswa", "Tagihan Calon Siswa" };
+                    for (int i = 0; i < labels.length; i++) add(result, labels[i], values, i,
+                            "sekolah.tagihan");
+                }
             }
         } catch (Exception error) {
             try { ais.common.ErrorAuditUtil.record(error, "NewUiActionDashboardMetricService.sql." + sourceClass); }

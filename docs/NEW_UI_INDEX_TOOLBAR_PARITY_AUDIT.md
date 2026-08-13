@@ -29,11 +29,13 @@ memahami aturan, konteks pengguna, sumber data, dan target operasionalnya.
 - Halaman fungsi membaca referensi entity secara rekursif dari bytecode Action,
   superclass, dan inner/delegated dashboard class existing. Audit saat ini
   menemukan 67 dari 75 class sumber memakai entity Hibernate langsung (831
-  referensi). Empat dashboard SIRS berbasis raw SQL sudah mempunyai adapter
-  native terparameterisasi dan telah diuji terhadap PostgreSQL lokal. Empat
-  class yang tersisa merupakan container navigasi prestasi/koperasi dan
-  dashboard piutang sekolah; semuanya tetap fail-closed sampai adapter native
-  khususnya selesai dan lolos audit.
+  referensi). Delapan sumber lain sudah mempunyai adapter native: empat
+  dashboard SIRS berbasis raw SQL, dashboard piutang sekolah berbasis raw SQL,
+  serta tiga container navigasi untuk prestasi dosen, prestasi siswa, dan
+  koperasi. Query SQL terparameterisasi telah diuji terhadap PostgreSQL lokal;
+  seluruh 4 + 4 + 8 tab container hanya diselesaikan ke menu New UI yang lolos
+  RBAC. Dengan demikian audit source dashboard tidak lagi menyisakan class
+  tanpa resolver native.
 
 ## Modul yang dicakup
 
