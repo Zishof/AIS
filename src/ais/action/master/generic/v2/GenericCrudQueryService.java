@@ -21,6 +21,7 @@ import org.hibernate.type.Type;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.GeneralValueObject;
 import ais.action.master.generic.v2.adapter.GenericCrudRowSanitizer;
+import ais.action.master.generic.v2.adapter.GenericCrudQueryInitializer;
 
 @SuppressWarnings({ "rawtypes", "unchecked", "deprecation" })
 public class GenericCrudQueryService {
@@ -36,6 +37,7 @@ public class GenericCrudQueryService {
         pageSize = normalizePageSize(pageSize, definition);
         Session session = HibernateUtil.getSessionFactory().openSession();
         try {
+            prepareRead(definition, session, context);
             Criteria count = session.createCriteria(definition.getEntityClass());
             definition.getAdapter().applyDefaultFilters(count, context);
             scope.applyCount(count, context);
@@ -70,6 +72,7 @@ public class GenericCrudQueryService {
         ClassMetadata metadata = GenericCrudRuntimeMetadataVerifier.verify(definition);
         Session session = HibernateUtil.getSessionFactory().openSession();
         try {
+            prepareRead(definition, session, context);
             Object object = session.get(definition.getEntityClass(), id);
             if (!(object instanceof GeneralValueObject)) { throw new GenericCrudException(404, "ROW_NOT_FOUND", "Data tidak ditemukan."); }
             scope.validateObject((GeneralValueObject) object, context);
@@ -80,6 +83,13 @@ public class GenericCrudQueryService {
     private int normalizePageSize(int size, GenericCrudDefinition definition) {
         int value = size < 1 ? definition.getDefaultPageSize() : size;
         return Math.min(value, definition.getMaxPageSize());
+    }
+
+    private void prepareRead(GenericCrudDefinition definition, Session session,
+            GenericCrudRequestContext context) throws Exception {
+        if (definition.getAdapter() instanceof GenericCrudQueryInitializer) {
+            ((GenericCrudQueryInitializer) definition.getAdapter()).prepareRead(session, context);
+        }
     }
 
     private GenericCrudSort validateSort(GenericCrudDefinition definition, GenericCrudSort sort) throws GenericCrudException {

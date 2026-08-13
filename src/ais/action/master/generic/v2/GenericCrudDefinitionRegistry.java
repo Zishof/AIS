@@ -16,6 +16,7 @@ import ais.action.master.generic.v2.adapter.MahasiswaGenericCrudFormProvider;
 import ais.action.master.generic.v2.adapter.PenilaianSiswaGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.PegawaiHistoryGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.ParameterUmumGenericCrudAdapter;
+import ais.action.master.generic.v2.adapter.LiburRutinGenericCrudAdapter;
 import ais.database.model.Agama;
 import ais.database.model.BadanHukum;
 import ais.database.model.Jenjang;
@@ -41,6 +42,7 @@ import ais.database.model.employ.RiwayatKerjaPegawai;
 import ais.database.model.employ.RiwayatKeluarNegeriPegawai;
 import ais.database.model.employ.RiwayatKartuIdentitasPegawai;
 import ais.database.model.payroll.AsuransiPegawai;
+import ais.database.model.payroll.LiburRutin;
 
 /**
  * Registry allow-list. Scanner menghasilkan kandidat disabled; hanya entity yang
@@ -57,6 +59,7 @@ public final class GenericCrudDefinitionRegistry {
         register(buildBadanHukum());
         register(buildKeluarga());
         register(buildParameterUmum());
+        register(buildLiburRutin());
         register(buildEmployeeHistory(RiwayatTandaJasaPegawai.class, "riwayat_tanda_jasa_pegawai", "Riwayat Tanda Jasa Pegawai"));
         register(buildEmployeeHistory(RiwayatPendidikanPegawai.class, "riwayat_pendidikan_pegawai", "Riwayat Pendidikan Pegawai"));
         register(buildEmployeeHistory(RiwayatPelatihanPegawai.class, "riwayat_pelatihan_pegawai", "Riwayat Pelatihan Pegawai"));
@@ -515,6 +518,43 @@ public final class GenericCrudDefinitionRegistry {
         d.addField(field("info3", "Info 3", String.class, "textarea", false, false, true, false, false, false, 70));
         d.addField(field("info4", "Info 4", String.class, "textarea", false, false, true, false, false, false, 80));
         d.addField(field("info5", "Info 5", String.class, "textarea", false, false, true, false, false, false, 90));
+        return d;
+    }
+
+    private static GenericCrudDefinition buildLiburRutin() {
+        GenericCrudDefinition d = new GenericCrudDefinition();
+        d.setEntityClass(LiburRutin.class);
+        d.setModuleKey("payroll");
+        d.setPageKey("libur_rutin");
+        d.setDisplayName("Libur Rutin");
+        d.setSourceActionClassName("ais.action.master.payroll.LiburRutinAction");
+        d.setExistingActionLifecycleBound(false);
+        d.setLifecycleStatus(GenericCrudDefinition.FULL_CRUD);
+        d.setEnabled(true);
+        d.setCreateEnabled(false);
+        d.setUpdateEnabled(true);
+        d.setDeleteEnabled(false);
+        d.setImportEnabled(false);
+        d.setExportPdfEnabled(true);
+        d.setExportDocxEnabled(true);
+        d.setExportPptxEnabled(true);
+        d.setSavedViewEnabled(true);
+        d.setAuditEnabled(true);
+        d.setRowAuditEnabled(true);
+        d.setGlobalAuditEnabled(false);
+        d.setRestoreEnabled(false);
+        d.setAdminDeleteEnabled(false);
+        d.setDefaultSortProperty("hari");
+        d.setDefaultPageSize(7);
+        d.setMaxPageSize(7);
+        LiburRutinGenericCrudAdapter adapter = new LiburRutinGenericCrudAdapter();
+        d.setAdapter(adapter);
+        d.setScopeAdapter(adapter);
+        d.addField(field("id", "ID", Long.class, "number", false, false, false, false, true, false, 10));
+        d.addField(field("hari", "Urutan Hari", Integer.class, "number", false, false, false, true, true, false, 20));
+        d.addField(field("nama", "Hari", String.class, "text", true, false, false, true, true, true, 30));
+        d.addField(field("libur", "Libur", Boolean.class, "checkbox", true, false, true, false, true, false, 40));
+        d.addField(field("keterangan", "Keterangan", String.class, "text", true, false, false, false, true, true, 50));
         return d;
     }
 
