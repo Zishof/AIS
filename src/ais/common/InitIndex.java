@@ -1823,7 +1823,63 @@ public class InitIndex {
 		});
 	}
 
+	/**
+	 * Sinkronkan skema instalasi lama dengan model {@code AturanDiskon}: produk
+	 * memang opsional, dan nilai NULL berarti promo berlaku untuk semua produk.
+	 *
+	 * Perintah yang sama dahulu hanya ada di webapp/cascade.sql. Berkas itu tidak
+	 * dijalankan oleh alur build/deploy Tomcat, sehingga database produksi lama
+	 * tetap memiliki NOT NULL dan menolak promo global dengan SQLState 23502.
+	 * ALTER COLUMN ... DROP NOT NULL idempoten serta tidak membuat index/constraint
+	 * redundan. Dijalankan sebelum DDL pool aktif agar migrasi selesai sebelum
+	 * inisialisasi startup dilanjutkan.
+	 */
+	static void initAturanDiskonProdukNullable() {
+		try {
+			ais.common.Common.updateSql(
+					"ALTER TABLE koperasi.aturan_diskon ALTER COLUMN produk DROP NOT NULL");
+		} catch (Exception e) {
+			e.printStackTrace();
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit InitIndex.initAturanDiskonProdukNullable");
+		}
+	}
+
+	/**
+	 * Membuat master Kebijakan Retur dan relasinya ke Produk secara idempoten.
+	 * Hanya dua index yang dibuat: nama unik master dan FK produk untuk lookup.
+	 */
+	static void initKebijakanReturProduk() {
+		try {
+			ais.common.Common.updateSql("CREATE TABLE IF NOT EXISTS koperasi.kebijakan_retur ("
+					+ "id bigserial PRIMARY KEY, nama varchar(255) NOT NULL, keterangan text, "
+					+ "aktif boolean DEFAULT true, oleh varchar(255), oleh_id varchar(255), "
+					+ "tanggal_dirubah timestamp without time zone DEFAULT now())");
+			ais.common.Common.updateSql("CREATE UNIQUE INDEX IF NOT EXISTS kebijakan_retur_nama_uq "
+					+ "ON koperasi.kebijakan_retur (lower(btrim(nama)))");
+			ais.common.Common.updateSql("INSERT INTO koperasi.kebijakan_retur(nama,keterangan,aktif) "
+					+ "SELECT 'Tanpa Kebijakan Retur','Produk tidak menerima retur, kecuali diwajibkan oleh ketentuan yang berlaku.',true "
+					+ "WHERE NOT EXISTS (SELECT 1 FROM koperasi.kebijakan_retur WHERE lower(btrim(nama))=lower('Tanpa Kebijakan Retur'))");
+			ais.common.Common.updateSql("ALTER TABLE koperasi.produk ADD COLUMN IF NOT EXISTS kebijakan_retur bigint");
+			ais.common.Common.updateSql("UPDATE koperasi.produk SET kebijakan_retur=(SELECT id FROM koperasi.kebijakan_retur "
+					+ "WHERE lower(btrim(nama))=lower('Tanpa Kebijakan Retur') ORDER BY id LIMIT 1) WHERE kebijakan_retur IS NULL");
+			ais.common.Common.updateSql("CREATE INDEX IF NOT EXISTS produk_kebijakan_retur_idx ON koperasi.produk(kebijakan_retur)");
+			ais.common.Common.updateSql("DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint "
+					+ "WHERE conname='produk_kebijakan_retur_fk' AND conrelid='koperasi.produk'::regclass) THEN "
+					+ "ALTER TABLE koperasi.produk ADD CONSTRAINT produk_kebijakan_retur_fk FOREIGN KEY (kebijakan_retur) "
+					+ "REFERENCES koperasi.kebijakan_retur(id); END IF; END $$");
+		} catch (Exception e) {
+			e.printStackTrace();
+			ais.common.ErrorAuditUtil.record(e, "auto-audit InitIndex.initKebijakanReturProduk");
+		}
+	}
+
 	public static void initEksekusiQueryIndex() {
+		// Migrasi kompatibilitas skema harus selesai secara sinkron sebelum pool
+		// pekerjaan index paralel diaktifkan.
+		initAturanDiskonProdukNullable();
+		initKebijakanReturProduk();
+
 		// 1. EKSTENSI TRIGRAM (WAJIB) — dijalankan SINKRON (sebelum pool paralel aktif) karena
 		// seluruh index GIN trigram bergantung pada ekstensi ini; harus tersedia lebih dulu.
 		try {
@@ -3261,13 +3317,17 @@ public class InitIndex {
 		// juga memfilter `WHERE toko = ?` (katalog Kasir/PriceTagUtil.listProduk, laporan,
 		// dsb.) -- FK `produk.toko`/`pembelian.produk` TIDAK otomatis diindeks Postgres
 		// (beda dari constraint-nya sendiri), jadi tiap query begini selama ini full-scan.
+		// Index lama (toko,kode,barcode,nama) sengaja dihapus: B-tree hanya efektif dari
+		// left-most prefix, sehingga sesudah (toko,kode) ia tidak membantu pencarian
+		// alternatif berdasarkan barcode/nama dan hanya menduplikasi index spesifik di bawah.
+		// Lebih banyak index justru memperlama setiap UPDATE produk dan memperpanjang row-lock.
 		// ---------------------------------------------------------------------------
 		String[] INDEX_QUERIES_KOPERASI_PRODUK_DUPLIKAT_FAST = new String[] {
+				"DROP INDEX IF EXISTS koperasi.idx_kop_produk_toko_kode_barcode_nama",
 				"CREATE INDEX IF NOT EXISTS idx_kop_produk_toko ON koperasi.produk (toko, id)",
 				"CREATE INDEX IF NOT EXISTS idx_kop_produk_toko_kode ON koperasi.produk (toko, kode)",
 				"CREATE INDEX IF NOT EXISTS idx_kop_produk_toko_barcode ON koperasi.produk (toko, barcode)",
 				"CREATE INDEX IF NOT EXISTS idx_kop_produk_toko_nama_norm ON koperasi.produk (toko, LOWER(TRIM(nama)))",
-				"CREATE INDEX IF NOT EXISTS idx_kop_produk_toko_kode_barcode_nama ON koperasi.produk (toko, kode, barcode, LOWER(TRIM(nama)))",
 				"CREATE INDEX IF NOT EXISTS idx_kop_pembelian_produk ON koperasi.pembelian (produk)" };
 		for (String sql : INDEX_QUERIES_KOPERASI_PRODUK_DUPLIKAT_FAST) {
 			try {

@@ -75,7 +75,7 @@ String rnd = Common.getGeneratedBarCode(7);
     </div>
 
     <!-- DETAIL LEDGER -->
-    <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4" id="detailMutasiHutang<%=rnd%>">
         <div class="card-header bg-white border-0 pt-4 pb-2 px-4">
             <h6 class="fw-bold text-dark mb-0"><%=Common.getBahasaConfig("Buku Besar Mutasi Hutang")%></h6>
         </div>
@@ -125,10 +125,10 @@ String rnd = Common.getGeneratedBarCode(7);
     </div>
 
     <!-- SUMMARY PER ANGGOTA -->
-    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4" id="rekapMutasiHutang<%=rnd%>">
         <div class="card-header bg-white border-0 pt-4 pb-2 px-4">
-            <h6 class="fw-bold text-dark mb-0"><%=Common.getBahasaConfig("Summary Buku Besar Mutasi Hutang")%></h6>
-            <small class="text-muted"><%=Common.getBahasaConfig("Mutasi digabung per anggota agar saldo hutang setiap orang lebih cepat diketahui.")%></small>
+            <h6 class="fw-bold text-dark mb-0"><%=Common.getBahasaConfig("Rekap Hutang per Anggota")%></h6>
+            <small class="text-muted"><%=Common.getBahasaConfig("Saldo awal dihitung dari seluruh transaksi sebelum tanggal mulai; saldo akhir adalah sisa hutang.")%></small>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive px-3 py-2">
@@ -136,13 +136,14 @@ String rnd = Common.getGeneratedBarCode(7);
                     <thead class="table-light text-secondary">
                         <tr>
                             <th class="fw-bold text-uppercase small"><%=Common.getBahasaConfig("Nama")%></th>
-                            <th class="fw-bold text-uppercase small text-end"><%=Common.getBahasaConfig("Sum Hutang Bertambah")%></th>
-                            <th class="fw-bold text-uppercase small text-end"><%=Common.getBahasaConfig("Sum Pembayaran")%></th>
-                            <th class="fw-bold text-uppercase small text-end"><%=Common.getBahasaConfig("Sisa Hutang")%></th>
+                            <th class="fw-bold text-uppercase small text-end"><%=Common.getBahasaConfig("Saldo Awal")%></th>
+                            <th class="fw-bold text-uppercase small text-end"><%=Common.getBahasaConfig("Hutang Bertambah")%></th>
+                            <th class="fw-bold text-uppercase small text-end"><%=Common.getBahasaConfig("Pembayaran")%></th>
+                            <th class="fw-bold text-uppercase small text-end"><%=Common.getBahasaConfig("Saldo Akhir")%></th>
                         </tr>
                     </thead>
                     <tbody id="tabelSummaryHutang<%=rnd%>">
-                        <tr><td colspan="4" class="text-center py-4 text-muted"><%=Common.getBahasaConfig("Memuat...")%></td></tr>
+                        <tr><td colspan="5" class="text-center py-4 text-muted"><%=Common.getBahasaConfig("Memuat...")%></td></tr>
                     </tbody>
                     <tfoot id="tabelSummaryFooterHutang<%=rnd%>"></tfoot>
                 </table>
@@ -317,7 +318,7 @@ String rnd = Common.getGeneratedBarCode(7);
         const tbody = document.getElementById('tabelDataHutang<%=rnd%>');
         tbody.innerHTML = '<tr><td colspan="8" class="text-center py-5"><div class="spinner-border text-danger mb-3"></div><br><span class="text-muted fw-medium"><%=Common.getBahasaConfig("Sistem sedang memuat data mutasi hutang...")%></span></td></tr>';
         document.getElementById('tabelFooterHutang<%=rnd%>').innerHTML = '';
-        document.getElementById('tabelSummaryHutang<%=rnd%>').innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted"><%=Common.getBahasaConfig("Memuat...")%></td></tr>';
+        document.getElementById('tabelSummaryHutang<%=rnd%>').innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted"><%=Common.getBahasaConfig("Memuat...")%></td></tr>';
         document.getElementById('tabelSummaryFooterHutang<%=rnd%>').innerHTML = '';
 
         const tglAwal = document.getElementById('searchDateStartHutang<%=rnd%>').value;
@@ -329,21 +330,22 @@ String rnd = Common.getGeneratedBarCode(7);
             return;
         }
 
-        const rentang = "'" + tglAwal + " 00:00:00' AND '" + tglAkhir + " 23:59:59'";
+        const batasAwal = "'" + tglAwal + "'::date";
+        const batasAkhir = "('" + tglAkhir + "'::date + interval '1 day')";
         const filterAnggota = idAnggota !== '' ? (" AND anggota_koperasi = " + parseInt(idAnggota, 10) + " ") : "";
 
         // Ekspresi nominal slot-1 (implisit, lihat JavaDoc PembelianAnggotaKoperasi.getNominalBayar1())
         const n1 = "GREATEST(0, COALESCE(h.total_biaya,0) - COALESCE(h.nominal_bayar_2,0) - COALESCE(h.nominal_bayar_3,0) - COALESCE(h.nominal_bayar_4,0) - COALESCE(h.nominal_bayar_5,0))";
 
         const sql =
-            "WITH mutasi AS ( " +
+            "WITH semua_mutasi AS ( " +
             "  SELECT h.tanggal_pembayaran AS waktu, ('H1' || h.id) AS baris_id, (a.kode || ' - ' || a.nama) AS nama_anggota, h.anggota_koperasi AS id_anggota, " +
             "         'Belanja (Hutang)' AS jenis_mutasi, COALESCE(h.kode, '') AS keterangan, " + n1 + " AS bertambah, 0 AS berkurang " +
             "  FROM koperasi.pembelian_anggota_koperasi h " +
             "  JOIN koperasi.anggota_koperasi a ON h.anggota_koperasi = a.id " +
             "  JOIN koperasi.cara_pembayaran_koperasi cpk1 ON h.cara_pembayaran_koperasi = cpk1.id " +
             "  WHERE cpk1.masuk_sebagai_hutang = true AND h.anggota_koperasi IS NOT NULL AND " + n1 + " > 0 " +
-            "  AND h.tanggal_pembayaran BETWEEN " + rentang + filterAnggota.replace(/anggota_koperasi/g, "h.anggota_koperasi") +
+            "  AND h.tanggal_pembayaran < " + batasAkhir + filterAnggota.replace(/anggota_koperasi/g, "h.anggota_koperasi") +
             "  UNION ALL " +
             "  SELECT h.tanggal_pembayaran, ('H2' || h.id), (a.kode || ' - ' || a.nama), h.anggota_koperasi, " +
             "         'Belanja (Hutang)', COALESCE(h.kode, ''), COALESCE(h.nominal_bayar_2,0), 0 " +
@@ -351,7 +353,7 @@ String rnd = Common.getGeneratedBarCode(7);
             "  JOIN koperasi.anggota_koperasi a ON h.anggota_koperasi = a.id " +
             "  JOIN koperasi.cara_pembayaran_koperasi cpk2 ON h.cara_pembayaran_koperasi_2 = cpk2.id " +
             "  WHERE cpk2.masuk_sebagai_hutang = true AND h.anggota_koperasi IS NOT NULL AND COALESCE(h.nominal_bayar_2,0) > 0 " +
-            "  AND h.tanggal_pembayaran BETWEEN " + rentang + filterAnggota.replace(/anggota_koperasi/g, "h.anggota_koperasi") +
+            "  AND h.tanggal_pembayaran < " + batasAkhir + filterAnggota.replace(/anggota_koperasi/g, "h.anggota_koperasi") +
             "  UNION ALL " +
             "  SELECT h.tanggal_pembayaran, ('H3' || h.id), (a.kode || ' - ' || a.nama), h.anggota_koperasi, " +
             "         'Belanja (Hutang)', COALESCE(h.kode, ''), COALESCE(h.nominal_bayar_3,0), 0 " +
@@ -359,7 +361,7 @@ String rnd = Common.getGeneratedBarCode(7);
             "  JOIN koperasi.anggota_koperasi a ON h.anggota_koperasi = a.id " +
             "  JOIN koperasi.cara_pembayaran_koperasi cpk3 ON h.cara_pembayaran_koperasi_3 = cpk3.id " +
             "  WHERE cpk3.masuk_sebagai_hutang = true AND h.anggota_koperasi IS NOT NULL AND COALESCE(h.nominal_bayar_3,0) > 0 " +
-            "  AND h.tanggal_pembayaran BETWEEN " + rentang + filterAnggota.replace(/anggota_koperasi/g, "h.anggota_koperasi") +
+            "  AND h.tanggal_pembayaran < " + batasAkhir + filterAnggota.replace(/anggota_koperasi/g, "h.anggota_koperasi") +
             "  UNION ALL " +
             "  SELECT h.tanggal_pembayaran, ('H4' || h.id), (a.kode || ' - ' || a.nama), h.anggota_koperasi, " +
             "         'Belanja (Hutang)', COALESCE(h.kode, ''), COALESCE(h.nominal_bayar_4,0), 0 " +
@@ -367,7 +369,7 @@ String rnd = Common.getGeneratedBarCode(7);
             "  JOIN koperasi.anggota_koperasi a ON h.anggota_koperasi = a.id " +
             "  JOIN koperasi.cara_pembayaran_koperasi cpk4 ON h.cara_pembayaran_koperasi_4 = cpk4.id " +
             "  WHERE cpk4.masuk_sebagai_hutang = true AND h.anggota_koperasi IS NOT NULL AND COALESCE(h.nominal_bayar_4,0) > 0 " +
-            "  AND h.tanggal_pembayaran BETWEEN " + rentang + filterAnggota.replace(/anggota_koperasi/g, "h.anggota_koperasi") +
+            "  AND h.tanggal_pembayaran < " + batasAkhir + filterAnggota.replace(/anggota_koperasi/g, "h.anggota_koperasi") +
             "  UNION ALL " +
             "  SELECT h.tanggal_pembayaran, ('H5' || h.id), (a.kode || ' - ' || a.nama), h.anggota_koperasi, " +
             "         'Belanja (Hutang)', COALESCE(h.kode, ''), COALESCE(h.nominal_bayar_5,0), 0 " +
@@ -375,18 +377,19 @@ String rnd = Common.getGeneratedBarCode(7);
             "  JOIN koperasi.anggota_koperasi a ON h.anggota_koperasi = a.id " +
             "  JOIN koperasi.cara_pembayaran_koperasi cpk5 ON h.cara_pembayaran_koperasi_5 = cpk5.id " +
             "  WHERE cpk5.masuk_sebagai_hutang = true AND h.anggota_koperasi IS NOT NULL AND COALESCE(h.nominal_bayar_5,0) > 0 " +
-            "  AND h.tanggal_pembayaran BETWEEN " + rentang + filterAnggota.replace(/anggota_koperasi/g, "h.anggota_koperasi") +
+            "  AND h.tanggal_pembayaran < " + batasAkhir + filterAnggota.replace(/anggota_koperasi/g, "h.anggota_koperasi") +
             "  UNION ALL " +
             "  SELECT ph.waktu, ('C' || ph.id), (a.kode || ' - ' || a.nama), ph.anggota_koperasi, " +
             "         'Pembayaran Hutang', COALESCE(ph.keterangan, ''), 0, COALESCE(ph.nominal, 0) " +
             "  FROM koperasi.pembayaran_hutang ph " +
             "  JOIN koperasi.anggota_koperasi a ON ph.anggota_koperasi = a.id " +
-            "  WHERE ph.waktu BETWEEN " + rentang + filterAnggota.replace(/anggota_koperasi/g, "ph.anggota_koperasi") +
-            ") " +
-            "SELECT *, " +
-            "  SUM(bertambah - berkurang) OVER (PARTITION BY id_anggota ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_per_anggota, " +
-            "  SUM(bertambah - berkurang) OVER (ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_total " +
-            "FROM mutasi ORDER BY waktu ASC, baris_id ASC;";
+            "  WHERE ph.waktu < " + batasAkhir + filterAnggota.replace(/anggota_koperasi/g, "ph.anggota_koperasi") +
+            "), saldo_awal AS (SELECT id_anggota, SUM(bertambah-berkurang) AS saldo_awal FROM semua_mutasi WHERE waktu < " + batasAwal + " GROUP BY id_anggota), " +
+            "mutasi AS (SELECT * FROM semua_mutasi WHERE waktu >= " + batasAwal + ") " +
+            "SELECT m.*, COALESCE(sa.saldo_awal,0) AS saldo_awal, " +
+            "  COALESCE(sa.saldo_awal,0) + SUM(bertambah - berkurang) OVER (PARTITION BY m.id_anggota ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_per_anggota, " +
+            "  (SELECT COALESCE(SUM(saldo_awal),0) FROM saldo_awal) + SUM(bertambah - berkurang) OVER (ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_total " +
+            "FROM mutasi m LEFT JOIN saldo_awal sa ON sa.id_anggota=m.id_anggota ORDER BY waktu ASC, baris_id ASC;";
 
         try {
             const res = await fetchApiHutang<%=rnd%>({ action: "sql", sql: sql });
@@ -462,27 +465,29 @@ String rnd = Common.getGeneratedBarCode(7);
         const tfoot = document.getElementById('tabelSummaryFooterHutang<%=rnd%>');
 
         if (dataMutasiHutangLengkap<%=rnd%>.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4"><%=Common.getBahasaConfig("Tidak ada data.")%></td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4"><%=Common.getBahasaConfig("Tidak ada data.")%></td></tr>';
             return;
         }
 
         const peta = new Map();
         dataMutasiHutangLengkap<%=rnd%>.forEach(row => {
             const key = row.id_anggota;
-            if (!peta.has(key)) peta.set(key, { nama: row.nama_anggota, bertambah: 0, berkurang: 0 });
+            if (!peta.has(key)) peta.set(key, { nama: row.nama_anggota, awal: parseFloat(row.saldo_awal) || 0, bertambah: 0, berkurang: 0 });
             const rec = peta.get(key);
             rec.bertambah += parseFloat(row.bertambah) || 0;
             rec.berkurang += parseFloat(row.berkurang) || 0;
         });
 
         let html = '';
-        let totalBertambah = 0, totalBerkurang = 0;
+        let totalAwal = 0, totalBertambah = 0, totalBerkurang = 0;
         peta.forEach(rec => {
-            const sisa = rec.bertambah - rec.berkurang;
+            const sisa = rec.awal + rec.bertambah - rec.berkurang;
+            totalAwal += rec.awal;
             totalBertambah += rec.bertambah;
             totalBerkurang += rec.berkurang;
             html += '<tr>' +
                 '<td class="fw-bold text-dark">' + rec.nama + '</td>' +
+                '<td class="text-end text-secondary">' + formatRpHutang<%=rnd%>(rec.awal) + '</td>' +
                 '<td class="text-end text-danger">' + formatRpHutang<%=rnd%>(rec.bertambah) + '</td>' +
                 '<td class="text-end text-success">' + formatRpHutang<%=rnd%>(rec.berkurang) + '</td>' +
                 '<td class="text-end fw-bolder ' + (sisa > 0 ? 'text-danger' : 'text-success') + '">' + formatRpHutang<%=rnd%>(sisa) + '</td>' +
@@ -492,9 +497,10 @@ String rnd = Common.getGeneratedBarCode(7);
 
         tfoot.innerHTML = '<tr class="table-light fw-bold">' +
             '<td class="text-end"><%=Common.getBahasaConfig("TOTAL")%> :</td>' +
+            '<td class="text-end text-secondary">' + formatRpHutang<%=rnd%>(totalAwal) + '</td>' +
             '<td class="text-end text-danger">' + formatRpHutang<%=rnd%>(totalBertambah) + '</td>' +
             '<td class="text-end text-success">' + formatRpHutang<%=rnd%>(totalBerkurang) + '</td>' +
-            '<td class="text-end text-dark">' + formatRpHutang<%=rnd%>(totalBertambah - totalBerkurang) + '</td>' +
+            '<td class="text-end text-dark">' + formatRpHutang<%=rnd%>(totalAwal + totalBertambah - totalBerkurang) + '</td>' +
             '</tr>';
     };
 
@@ -782,6 +788,9 @@ String rnd = Common.getGeneratedBarCode(7);
     // INISIALISASI
     // ==========================================
     document.addEventListener("DOMContentLoaded", () => {
+        const rekap = document.getElementById('rekapMutasiHutang<%=rnd%>');
+        const detail = document.getElementById('detailMutasiHutang<%=rnd%>');
+        detail.parentNode.insertBefore(rekap, detail);
         setDefaultDatesHutang<%=rnd%>();
         pasangSearchAnggota<%=rnd%>('inputCariAnggotaHutang<%=rnd%>', 'listAnggotaHutang<%=rnd%>', 'idAnggotaHutangTerpilih<%=rnd%>');
         pasangSearchAnggota<%=rnd%>('inputCariAnggotaBayarHutang<%=rnd%>', 'listAnggotaBayarHutang<%=rnd%>', 'idAnggotaBayarHutangTerpilih<%=rnd%>');

@@ -124,7 +124,7 @@ public class PosApi extends HttpServlet {
 	private static void terapkanHeaderCors(HttpServletResponse response) {
 		response.setHeader("Access-Control-Allow-Origin", "*");
 		response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-		response.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+		response.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Request-ID");
 		response.setHeader("Access-Control-Max-Age", "600");
 	}
 
@@ -143,6 +143,15 @@ public class PosApi extends HttpServlet {
 						payload.optString("password", ""),
 						payload.has("labelPerangkat") ? payload.optString("labelPerangkat", null) : null,
 						request, response);
+				tulisJson(response, hasil);
+				return;
+			}
+
+			// Pelaporan best-effort dari POS Flutter. Diletakkan sebelum gerbang token
+			// agar kegagalan pada layar login juga tercatat. Endpoint hanya menerima
+			// metadata kesalahan yang dibatasi/disanitasi, bukan password atau body bisnis.
+			if ("client_error_log".equals(action)) {
+				hasil = ais.action.servlet.api.ClientErrorLogApi.catat(payload, request);
 				tulisJson(response, hasil);
 				return;
 			}
@@ -333,6 +342,15 @@ public class PosApi extends HttpServlet {
 			} else if ("so_ringkasan".equals(action)) {
 				KantinHelper.soRingkasan(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "so_ringkasan");
+			} else if ("kedaluwarsa_list".equals(action)) {
+				KantinHelper.kedaluwarsaList(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "kedaluwarsa_list");
+			} else if ("produk_batch_simpan".equals(action)) {
+				KantinHelper.produkBatchSimpan(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "produk_batch_simpan");
+			} else if ("produk_batch_produk_list".equals(action)) {
+				KantinHelper.produkBatchProdukList(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "produk_batch_produk_list");
 			} else if ("so_riwayat".equals(action)) {
 				KantinHelper.soRiwayat(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "so_riwayat");
@@ -370,6 +388,9 @@ public class PosApi extends HttpServlet {
 			} else if ("stok_mutasi_ledger".equals(action)) {
 				KantinHelper.stokMutasiLedger(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "stok_mutasi_ledger");
+			} else if ("produk_mutasi_ringkasan".equals(action)) {
+				KantinHelper.produkMutasiRingkasan(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "produk_mutasi_ringkasan");
 			} else if ("stok_dashboard".equals(action)) {
 				KantinHelper.stokDashboard(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "stok_dashboard");
@@ -532,6 +553,15 @@ public class PosApi extends HttpServlet {
 			} else if ("jenis_produk_hapus".equals(action)) {
 				ais.action.servlet.api.JenisProdukApiHelper.jenisProdukHapus(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "jenis_produk_hapus");
+			} else if ("kebijakan_retur_list".equals(action)) {
+				ais.action.servlet.api.KebijakanReturApiHelper.list(payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "kebijakan_retur_list");
+			} else if ("kebijakan_retur_simpan".equals(action)) {
+				ais.action.servlet.api.KebijakanReturApiHelper.simpan(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "kebijakan_retur_simpan");
+			} else if ("kebijakan_retur_hapus".equals(action)) {
+				ais.action.servlet.api.KebijakanReturApiHelper.hapus(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "kebijakan_retur_hapus");
 			} else if ("akun_list".equals(action)) {
 				ais.action.servlet.api.JenisProdukApiHelper.akunList(payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "akun_list");
@@ -686,12 +716,32 @@ public class PosApi extends HttpServlet {
 				hasil.put("message", "Aksi tidak dikenal: " + action);
 			}
 		} catch (Exception e) {
-			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit PosApi.proses");
+			String traceId = request.getHeader("X-Request-ID");
+			if (traceId == null || traceId.trim().length() == 0) {
+				traceId = "SRV-" + Long.toString(System.currentTimeMillis(), 36).toUpperCase();
+			}
+			// Selalu cetak exception beserta seluruh cause/stack ke log Tomcat,
+			// lalu simpan ke ErrorLog. Jangan hanya mengirim pesan ramah ke klien.
+			ais.common.ErrorAuditUtil.ErrorAuditResult audit = ais.common.ErrorAuditUtil
+					.recordVisibleFailure(e, "PosApi.proses", request, traceId);
 			hasil = new JSONObject();
 			try {
 				hasil.put("status", "error");
 				hasil.put("message", "Terjadi kesalahan pada sistem. Silakan hubungi administrator.");
-			} catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) PosApi.proses"); }
+				hasil.put("kode", "SERVER_EXCEPTION");
+				hasil.put("referensi", traceId);
+				hasil.put("errorLogId", audit == null || audit.getErrorLogId() == null
+						? JSONObject.NULL : audit.getErrorLogId());
+				String errorLogId = audit == null || audit.getErrorLogId() == null
+						? "-" : audit.getErrorLogId().toString();
+				// Jangan mengirim audit.getContent(): isinya dapat memuat metadata request.
+				// Klien cukup menerima referensi, ID ErrorLog, dan exception/stack lengkap.
+				hasil.put("teknis", "Referensi: " + traceId + "\nErrorLog ID: " + errorLogId
+						+ "\nException server:\n" + ais.common.ErrorAuditUtil.getStackTraceAsString(e));
+			} catch (Exception ignored) {
+				ignored.printStackTrace(System.err);
+				ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) PosApi.proses");
+			}
 		}
 		tulisJson(response, hasil);
 	}
@@ -726,6 +776,11 @@ public class PosApi extends HttpServlet {
 		// lama, dipakai layar admin Produk yang harus melihat SEMUA baris).
 		String jenisItemFilter = payload.optString("jenisItem", "").trim().toUpperCase();
 		if (jenisItemFilter.isEmpty()) jenisItemFilter = null;
+		int page = Math.max(1, payload.optInt("page", 1));
+		int pageSize = Math.min(100, Math.max(1, payload.optInt("page_size", 100)));
+		boolean berpaginasi = payload.has("page") || payload.has("page_size");
+		Long kategoriId = payload.isNull("kategori_id") ? null
+				: Long.valueOf((payload.get("kategori_id") + "").trim());
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -742,7 +797,14 @@ public class PosApi extends HttpServlet {
 			java.util.Map<Long, JSONObject> jsonPorProdukId = new java.util.LinkedHashMap<Long, JSONObject>();
 
 			JSONArray produkArr = new JSONArray();
-			for (Object o : PriceTagUtil.listProduk(session, tokoId, keyword, semuaTokoDiminta, adminGlobal, jenisItemFilter)) {
+			long totalProduk = berpaginasi
+					? PriceTagUtil.countProduk(session, tokoId, keyword, semuaTokoDiminta, adminGlobal, jenisItemFilter, kategoriId)
+					: 0L;
+			java.util.List<Produk> daftarProduk = berpaginasi
+					? PriceTagUtil.listProduk(session, tokoId, keyword, semuaTokoDiminta, adminGlobal,
+							jenisItemFilter, kategoriId, (page - 1) * pageSize, pageSize)
+					: PriceTagUtil.listProduk(session, tokoId, keyword, semuaTokoDiminta, adminGlobal, jenisItemFilter);
+			for (Object o : daftarProduk) {
 				Produk p = (Produk) o;
 				JSONObject j = new JSONObject();
 				j.put("id", p.getId());
@@ -773,6 +835,9 @@ public class PosApi extends HttpServlet {
 				JenisProduk jp = p.getJenisProduk();
 				j.put("kategoriId", jp == null || jp.getId() == null ? JSONObject.NULL : jp.getId());
 				j.put("kategoriNama", jp == null ? "" : str(jp.getNama()));
+				ais.database.model.inventory.KebijakanRetur kr = p.getKebijakanRetur();
+				j.put("kebijakanReturId", kr == null || kr.getId() == null ? JSONObject.NULL : kr.getId());
+				j.put("kebijakanReturNama", kr == null ? ais.database.model.inventory.KebijakanRetur.TANPA_KEBIJAKAN : str(kr.getNama()));
 				// Gap-closure "Cetak PDF" (layar Produk) -- perlu Satuan/UOM & Pemasok per baris utk
 				// cetakan detail, field ini SEBELUMNYA tak pernah dikirim aksi katalog sama sekali.
 				j.put("satuanNama", p.getSatuan() == null ? "" : str(p.getSatuan().getNama()));
@@ -871,6 +936,11 @@ public class PosApi extends HttpServlet {
 			hasil.put("produk", produkArr);
 			hasil.put("tokoId", tokoId == null ? JSONObject.NULL : tokoId);
 			hasil.put("semuaToko", semuaTokoDiminta);
+			if (berpaginasi) {
+				hasil.put("total", totalProduk);
+				hasil.put("page", page);
+				hasil.put("pageSize", pageSize);
+			}
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
@@ -997,6 +1067,8 @@ public class PosApi extends HttpServlet {
 		// tampilan tombol Topup di Flutter (mirror pola isAdmin/supervisorPedagang di atas).
 		hasil.put("bolehEntryTopup", roleAksesMenu != null && roleAksesMenu.getBolehEntryTopup() != null
 				&& roleAksesMenu.getBolehEntryTopup().booleanValue());
+		hasil.put("bolehHapusPesanan", bolehSupervisorAtauAdmin(tbmuser)
+				|| bolehAksiCrudPesanan(tbmuser, "delete") || bolehAksiCrudPesanan(tbmuser, "reject"));
 		// Fitur "Hak Akses Menu per Akun" (gap-closure Toko Al-Bahjah). Admin global (pedagang==null, TIDAK terikat satu toko) SELALU
 		// akses semua menu -- flag akses per-menu HANYA berlaku utk akun Pedagang toko biasa. Gerbang
 		// SEBENARNYA (sidebar disembunyikan) ada di klien; ini murni sumber kebenarannya dari server
@@ -1169,58 +1241,13 @@ public class PosApi extends HttpServlet {
 	 */
 	private void prosesPesananList(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
+		int page = Math.max(1, payload.optInt("page", 1));
+		int pageSize = Math.min(100, Math.max(1, payload.optInt("page_size", payload.optInt("limit", 15))));
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
-			Criteria c = session.createCriteria(DraftPembelianAnggotaKoperasi.class).addOrder(Order.desc("id"));
-			boolean butuhAliasToko = tokoId != null || !payload.optString("pedagang", "").trim().isEmpty();
-			if (butuhAliasToko) {
-				c.createAlias("toko", "tk");
-			}
-			if (tokoId != null) {
-				c.add(Restrictions.eq("tk.id", tokoId));
-			}
-
-			// Filter tambahan (gap-closure -- padanan filter Mulai/Akhir/Kode/Pembeli/Pedagang di JSP
-			// _draft_pesanan_anggota.jsp) -- SEMUA opsional, TIDAK mengubah perilaku lama saat kosong
-			// (aplikasi lama yg belum di-update tetap dapat 100 baris terbaru tanpa filter apa pun).
-			String sejak = payload.optString("sejak", "").trim();
-			String sampai = payload.optString("sampai", "").trim();
-			if (!sejak.isEmpty() || !sampai.isEmpty()) {
-				java.text.SimpleDateFormat fmtTgl = new java.text.SimpleDateFormat("yyyy-MM-dd");
-				if (!sejak.isEmpty()) {
-					c.add(Restrictions.ge("tanggalPembayaran", fmtTgl.parse(sejak)));
-				}
-				if (!sampai.isEmpty()) {
-					java.util.Calendar akhirHari = java.util.Calendar.getInstance();
-					akhirHari.setTime(fmtTgl.parse(sampai));
-					akhirHari.set(java.util.Calendar.HOUR_OF_DAY, 23);
-					akhirHari.set(java.util.Calendar.MINUTE, 59);
-					akhirHari.set(java.util.Calendar.SECOND, 59);
-					c.add(Restrictions.le("tanggalPembayaran", akhirHari.getTime()));
-				}
-			}
-			String kode = payload.optString("kode", "").trim();
-			if (!kode.isEmpty()) {
-				c.add(Restrictions.ilike("kode", kode, org.hibernate.criterion.MatchMode.ANYWHERE));
-			}
-			String pembeli = payload.optString("pembeli", "").trim();
-			if (!pembeli.isEmpty()) {
-				c.createAlias("anggotaKoperasi", "ak").add(Restrictions.ilike("ak.nama", pembeli, org.hibernate.criterion.MatchMode.ANYWHERE));
-			}
-			String pedagang = payload.optString("pedagang", "").trim();
-			if (!pedagang.isEmpty()) {
-				c.add(Restrictions.ilike("tk.nama", pedagang, org.hibernate.criterion.MatchMode.ANYWHERE));
-			}
-			if (payload.optBoolean("hanya_belum_lunas", false)) {
-				c.add(Restrictions.isNull("lunas"));
-			}
-
-			int batas = payload.optInt("limit", 100);
-			if (batas <= 0 || batas > 500) {
-				batas = 100;
-			}
-			c.setMaxResults(batas);
+			Criteria c = buatCriteriaPesanan(session, tokoId, payload).addOrder(Order.desc("id"));
+			c.setFirstResult((page - 1) * pageSize).setMaxResults(pageSize);
 
 			JSONArray arr = new JSONArray();
 			java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
@@ -1284,9 +1311,84 @@ public class PosApi extends HttpServlet {
 
 			hasil.put("status", "success");
 			hasil.put("pesanan", arr);
+			Object total = buatCriteriaPesanan(session, tokoId, payload)
+					.setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult();
+			hasil.put("total", total instanceof Number ? ((Number) total).longValue() : 0L);
+			hasil.put("page", page);
+			hasil.put("pageSize", pageSize);
+			// KPI dihitung oleh DB dengan agregasi, bukan dengan mengambil semua baris ke JVM.
+			JSONObject ringkasanPayload = new JSONObject(payload.toString());
+			ringkasanPayload.remove("asal");
+			Criteria semuaKpi = buatCriteriaPesanan(session, tokoId, ringkasanPayload);
+			Object jumlahSemua = semuaKpi.setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult();
+			Criteria lunasKpi = buatCriteriaPesanan(session, tokoId, ringkasanPayload)
+					.add(Restrictions.isNotNull("lunas"));
+			Object jumlahLunas = lunasKpi.setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult();
+			Criteria belumKpi = buatCriteriaPesanan(session, tokoId, ringkasanPayload)
+					.add(Restrictions.isNull("lunas"));
+			Object jumlahBelum = belumKpi.setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult();
+			Criteria onlineKpi = buatCriteriaPesanan(session, tokoId, ringkasanPayload)
+					.add(Restrictions.isNull("lunas"))
+					.createAlias("tbmuser", "kpu", org.hibernate.sql.JoinFragment.LEFT_OUTER_JOIN)
+					.createAlias("kpu.anggotaKoperasi", "kpak", org.hibernate.sql.JoinFragment.LEFT_OUTER_JOIN)
+					.add(Restrictions.isNotNull("kpak.id"));
+			Object jumlahOnline = onlineKpi.setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult();
+			Criteria nilaiKpi = buatCriteriaPesanan(session, tokoId, ringkasanPayload)
+					.add(Restrictions.isNull("lunas"));
+			Object nilaiMenunggu = nilaiKpi.setProjection(org.hibernate.criterion.Projections.sum("totalBiaya")).uniqueResult();
+			long nSemua = jumlahSemua instanceof Number ? ((Number) jumlahSemua).longValue() : 0L;
+			long nLunas = jumlahLunas instanceof Number ? ((Number) jumlahLunas).longValue() : 0L;
+			long nBelum = jumlahBelum instanceof Number ? ((Number) jumlahBelum).longValue() : 0L;
+			long nOnline = jumlahOnline instanceof Number ? ((Number) jumlahOnline).longValue() : 0L;
+			JSONObject ringkasan = new JSONObject();
+			ringkasan.put("total", nSemua);
+			ringkasan.put("online", nOnline);
+			ringkasan.put("tertahan", Math.max(0L, nBelum - nOnline));
+			ringkasan.put("terbayar", nLunas);
+			ringkasan.put("nilaiMenunggu", nilaiMenunggu instanceof Number ? ((Number) nilaiMenunggu).doubleValue() : 0D);
+			hasil.put("ringkasan", ringkasan);
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
+	}
+
+	/** Criteria tunggal agar filter data dan COUNT paging selalu identik. */
+	private static Criteria buatCriteriaPesanan(Session session, Long tokoId, JSONObject payload) throws Exception {
+		Criteria c = session.createCriteria(DraftPembelianAnggotaKoperasi.class);
+		boolean butuhAliasToko = tokoId != null || !payload.optString("pedagang", "").trim().isEmpty();
+		if (butuhAliasToko) c.createAlias("toko", "tk");
+		if (tokoId != null) c.add(Restrictions.eq("tk.id", tokoId));
+		String sejak = payload.optString("sejak", "").trim();
+		String sampai = payload.optString("sampai", "").trim();
+		if (!sejak.isEmpty() || !sampai.isEmpty()) {
+			java.text.SimpleDateFormat fmtTgl = new java.text.SimpleDateFormat("yyyy-MM-dd");
+			if (!sejak.isEmpty()) c.add(Restrictions.ge("tanggalPembayaran", fmtTgl.parse(sejak)));
+			if (!sampai.isEmpty()) {
+				java.util.Calendar akhirHari = java.util.Calendar.getInstance();
+				akhirHari.setTime(fmtTgl.parse(sampai));
+				akhirHari.set(java.util.Calendar.HOUR_OF_DAY, 23);
+				akhirHari.set(java.util.Calendar.MINUTE, 59);
+				akhirHari.set(java.util.Calendar.SECOND, 59);
+				c.add(Restrictions.le("tanggalPembayaran", akhirHari.getTime()));
+			}
+		}
+		String kode = payload.optString("kode", "").trim();
+		if (!kode.isEmpty()) c.add(Restrictions.ilike("kode", kode, org.hibernate.criterion.MatchMode.ANYWHERE));
+		String pembeli = payload.optString("pembeli", "").trim();
+		if (!pembeli.isEmpty()) {
+			c.createAlias("anggotaKoperasi", "ak")
+					.add(Restrictions.ilike("ak.nama", pembeli, org.hibernate.criterion.MatchMode.ANYWHERE));
+		}
+		String pedagang = payload.optString("pedagang", "").trim();
+		if (!pedagang.isEmpty()) c.add(Restrictions.ilike("tk.nama", pedagang, org.hibernate.criterion.MatchMode.ANYWHERE));
+		if (payload.optBoolean("hanya_belum_lunas", false)) c.add(Restrictions.isNull("lunas"));
+		String asal = payload.optString("asal", "").trim().toLowerCase();
+		if ("online".equals(asal) || "tertahan".equals(asal)) {
+			c.createAlias("tbmuser", "pu", org.hibernate.sql.JoinFragment.LEFT_OUTER_JOIN)
+					.createAlias("pu.anggotaKoperasi", "pak", org.hibernate.sql.JoinFragment.LEFT_OUTER_JOIN);
+			c.add("online".equals(asal) ? Restrictions.isNotNull("pak.id") : Restrictions.isNull("pak.id"));
+		}
+		return c;
 	}
 
 	/**
@@ -1565,7 +1667,8 @@ public class PosApi extends HttpServlet {
 	}
 
 	private void prosesBatalPesanan(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
-		if (!bolehSupervisorAtauAdmin(tbmuser) && !bolehAksiCrudPesanan(tbmuser, "reject")) {
+		if (!bolehSupervisorAtauAdmin(tbmuser) && !bolehAksiCrudPesanan(tbmuser, "delete")
+				&& !bolehAksiCrudPesanan(tbmuser, "reject")) {
 			hasil.put("status", "error");
 			hasil.put("message", "Hanya supervisor/admin yang boleh membatalkan pesanan.");
 			return;
@@ -1598,6 +1701,7 @@ public class PosApi extends HttpServlet {
 		}
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
+		org.hibernate.Transaction txBatal = null;
 		try {
 			DraftPembelianAnggotaKoperasi draft = (DraftPembelianAnggotaKoperasi) session
 					.get(DraftPembelianAnggotaKoperasi.class, draftId);
@@ -1606,26 +1710,44 @@ public class PosApi extends HttpServlet {
 				hasil.put("message", "Pesanan tidak ditemukan (mungkin sudah dibatalkan sebelumnya).");
 				return;
 			}
-			if (draft.getLunas() != null) {
+			Long tokoLoginId = resolveTokoId(tbmuser, payload);
+			if (tokoLoginId != null && (draft.getToko() == null || draft.getToko().getId() == null
+					|| !tokoLoginId.equals(draft.getToko().getId()))) {
 				hasil.put("status", "error");
-				hasil.put("message", "Pesanan yang sudah lunas tidak bisa dibatalkan dari sini.");
+				hasil.put("message", "Pesanan bukan milik toko yang sedang login.");
 				return;
 			}
-
 			System.out.println("[BATAL-PESANAN] draftId=" + draftId + ", kode=" + draft.getKode()
 					+ ", total=" + draft.getTotalBiaya() + ", oleh=" + (tbmuser == null ? "?" : tbmuser.getUserId())
 					+ ", alasan=" + alasan);
 
-			session.beginTransaction();
+			txBatal = session.beginTransaction();
+			boolean sudahLunas = draft.getLunas() != null;
+			if (sudahLunas) {
+				// Lepas FK draft->transaksi lebih dulu agar penghapusan header oleh utility tidak
+				// ditolak database. Utility menyimpan snapshot audit lalu menghapus rincian/header,
+				// sehingga stok, saldo anggota, dan laporan kembali seperti sebelum pembelian.
+				ais.database.model.koperasi.PembelianAnggotaKoperasi transaksi = draft.getLunas();
+				draft.setLunas(null);
+				session.update(draft);
+				session.flush();
+				ais.action.master.koperasi.helper.PembatalanTransaksiUtil.batalkan(session, transaksi, alasan);
+			}
 			Criteria ci = session.createCriteria(DraftPembelian.class)
 					.add(Restrictions.eq("draftPembelianAnggotaKoperasi", draft));
 			for (Object oi : ci.list()) {
 				session.delete(oi);
 			}
 			session.delete(draft);
-			session.getTransaction().commit();
+			txBatal.commit();
 
 			hasil.put("status", "success");
+			hasil.put("description", sudahLunas
+					? "Pembelian berhasil dibatalkan; stok dan saldo terkait telah dikoreksi serta jejak audit disimpan."
+					: "Pesanan berhasil dibatalkan.");
+		} catch (Exception e) {
+			if (txBatal != null && txBatal.isActive()) txBatal.rollback();
+			throw e;
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}

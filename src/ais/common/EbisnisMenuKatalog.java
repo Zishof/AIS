@@ -188,7 +188,7 @@ public final class EbisnisMenuKatalog {
 	 * disertakan (Approve/Reject/Create/Update/Delete tidak berarti apa pun di sana).
 	 */
 	public static final java.util.Set<String> KUNCI_CRUD = new java.util.LinkedHashSet<String>(java.util.Arrays.asList(
-			"produk", "anggota", "diskon", "kulakan", "returpenjualan", "stokopname", "pesanan",
+			"produk", "anggota", "diskon", "kulakan", "returpenjualan", "riwayatpenjualan", "stokopname", "pesanan",
 			"pembayaran", "pedagang", "penyedia", "limitkredit", "kaskasir", "setorantenant",
 			"jadwalopname", "mutasirekening", "produksi",
 			// varian Inventory & Sales (default aksi ikut KUNCI_DEFAULT_NONAKTIF: false)

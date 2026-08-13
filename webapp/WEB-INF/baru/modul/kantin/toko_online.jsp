@@ -46,11 +46,6 @@ String istilahCashback = (isLogin && curentAnggota.getJenisAnggotaKoperasi() != 
 
 // URL Login & Integrasi Google
 String linkLoginViaGoogle = Common.ROOT+"/google.zul"; 
-String currentUrl = request.getRequestURL().toString();
-String queryString = request.getQueryString();
-if (queryString != null) currentUrl += "?" + queryString;
-String loginUrl = Common.ROOT + "/login?urlLama=" + java.net.URLEncoder.encode(currentUrl, "UTF-8");
-String daftarUrl = Common.ROOT + "/login?p=registrasi_calon_anggota";
 %>
 
 <!-- Library QR & Excel (Bila diperlukan) -->
@@ -107,10 +102,11 @@ String daftarUrl = Common.ROOT + "/login?p=registrasi_calon_anggota";
         font-size: 0.65rem;
     }
 
-    /* Modal Iframe Custom Height */
-    .modal-iframe-height {
+    /* Modal autentikasi milik halaman ini (tanpa iframe). */
+    .modal-auth-height {
         height: 80vh;
         min-height: 500px;
+        overflow-y: auto;
     }
 
     /* Divider style for Google Login */
@@ -132,7 +128,7 @@ String daftarUrl = Common.ROOT + "/login?p=registrasi_calon_anggota";
         .row.g-3 { --bs-gutter-x: 0.75rem; margin-left: 0; margin-right: 0; }
         .row.g-3 > [class*="col-"] { padding-left: 0.375rem; padding-right: 0.375rem; }
         .product-img-wrapper-<%=rnd%> { height: 130px; }
-        .modal-iframe-height { height: 90vh; }
+        .modal-auth-height { height: 90vh; }
     }
 </style>
 
@@ -294,9 +290,6 @@ String daftarUrl = Common.ROOT + "/login?p=registrasi_calon_anggota";
     // ==========================================
     const isLogin<%=rnd%> = <%=isLogin%>;
     const idMemberAktif<%=rnd%> = '<%=idMember%>';
-    const urlLoginTarget<%=rnd%> = '<%=loginUrl%>';
-    const urlDaftarTarget<%=rnd%> = '<%=daftarUrl%>';
-    
     let saldoMember<%=rnd%> = 0;
     let grandTotalValue<%=rnd%> = 0;
     
@@ -387,8 +380,45 @@ String daftarUrl = Common.ROOT + "/login?p=registrasi_calon_anggota";
                         <h5 class="modal-title fw-bold text-dark" id="modalAuthTitle<%=rnd%>"><%=Common.getBahasaConfig("Autentikasi Pengguna")%></h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" onclick="tutupModalAuth<%=rnd%>()"></button>
                     </div>
-                    <div class="modal-body p-0 modal-iframe-height bg-light">
-                        <iframe id="iframeAuth<%=rnd%>" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+                    <div class="modal-body p-4 modal-auth-height bg-light">
+                        <div id="authLoginPane<%=rnd%>">
+                            <form id="formLoginMarketplace<%=rnd%>" onsubmit="event.preventDefault(); prosesLoginMarketplace<%=rnd%>();" class="mx-auto" style="max-width: 460px;">
+                                <div class="text-center mb-4">
+                                    <i class="fas fa-user-circle fa-4x text-primary mb-3"></i>
+                                    <p class="text-muted mb-0"><%=Common.getBahasaConfig("Gunakan akun anggota Anda untuk melanjutkan.")%></p>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold"><%=Common.getBahasaConfig("Nama Pengguna")%></label>
+                                    <input class="form-control form-control-lg" id="authUsername<%=rnd%>" autocomplete="username" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold"><%=Common.getBahasaConfig("Kata Sandi")%></label>
+                                    <input type="password" class="form-control form-control-lg" id="authPassword<%=rnd%>" autocomplete="current-password" required>
+                                </div>
+                                <div id="authLoginMessage<%=rnd%>" class="alert alert-danger d-none"></div>
+                                <button class="btn btn-primary btn-lg w-100 rounded-pill fw-bold" id="btnLoginMarketplace<%=rnd%>" type="submit">
+                                    <i class="fas fa-sign-in-alt me-2"></i><%=Common.getBahasaConfig("Masuk")%>
+                                </button>
+                                <button class="btn btn-link w-100 mt-2" type="button" onclick="tampilkanModalDaftar<%=rnd%>()"><%=Common.getBahasaConfig("Belum punya akun? Daftar")%></button>
+                            </form>
+                        </div>
+                        <div id="authRegisterPane<%=rnd%>" class="d-none">
+                            <form id="formDaftarMarketplace<%=rnd%>" onsubmit="event.preventDefault(); prosesDaftarMarketplace<%=rnd%>();" class="mx-auto" style="max-width: 720px;">
+                                <div class="row g-3">
+                                    <div class="col-12"><div id="authRegisterMessage<%=rnd%>" class="alert d-none"></div></div>
+                                    <div class="col-md-6"><label class="form-label fw-bold"><%=Common.getBahasaConfig("Nama Lengkap")%></label><input class="form-control" id="daftarNama<%=rnd%>" required></div>
+                                    <div class="col-md-6"><label class="form-label fw-bold"><%=Common.getBahasaConfig("Nomor HP / WhatsApp")%></label><input class="form-control" id="daftarHp<%=rnd%>" required></div>
+                                    <div class="col-md-6"><label class="form-label fw-bold"><%=Common.getBahasaConfig("Email")%></label><input type="email" class="form-control" id="daftarEmail<%=rnd%>" required></div>
+                                    <div class="col-md-6"><label class="form-label fw-bold"><%=Common.getBahasaConfig("Jenis Keanggotaan")%></label><select class="form-select" id="daftarJenis<%=rnd%>" required><option value=""><%=Common.getBahasaConfig("Memuat data...")%></option></select></div>
+                                    <div class="col-md-6"><label class="form-label fw-bold"><%=Common.getBahasaConfig("Nama Pengguna")%></label><input class="form-control" id="daftarUsername<%=rnd%>" pattern="[A-Za-z0-9._-]+" autocomplete="username" required><small class="text-muted"><%=Common.getBahasaConfig("Gunakan huruf, angka, titik, garis bawah, atau tanda hubung.")%></small></div>
+                                    <div class="col-md-6"><label class="form-label fw-bold"><%=Common.getBahasaConfig("Kata Sandi")%></label><input type="password" minlength="6" class="form-control" id="daftarPassword<%=rnd%>" autocomplete="new-password" required></div>
+                                    <div class="col-12 d-flex gap-2 justify-content-end mt-4">
+                                        <button class="btn btn-light rounded-pill px-4" type="button" onclick="tampilkanModalLogin<%=rnd%>()"><%=Common.getBahasaConfig("Kembali ke Login")%></button>
+                                        <button class="btn btn-success rounded-pill px-4 fw-bold" id="btnDaftarMarketplace<%=rnd%>" type="submit"><i class="fas fa-user-plus me-2"></i><%=Common.getBahasaConfig("Daftar")%></button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -485,29 +515,142 @@ String daftarUrl = Common.ROOT + "/login?p=registrasi_calon_anggota";
     const tampilkanModalLogin<%=rnd%> = () => {
         if (!modalAuthInstance<%=rnd%>) return;
         document.getElementById('modalAuthTitle<%=rnd%>').innerHTML = '<i class="fas fa-sign-in-alt text-primary me-2"></i><%=Common.getBahasaConfig("Masuk Ke Sistem")%>';
-        document.getElementById('iframeAuth<%=rnd%>').src = urlLoginTarget<%=rnd%>;
+        document.getElementById('authLoginPane<%=rnd%>').classList.remove('d-none');
+        document.getElementById('authRegisterPane<%=rnd%>').classList.add('d-none');
         if(offcanvasCartInstance<%=rnd%>) offcanvasCartInstance<%=rnd%>.hide();
         modalAuthInstance<%=rnd%>.show();
+        setTimeout(() => document.getElementById('authUsername<%=rnd%>').focus(), 250);
     };
 
-    const tampilkanModalDaftar<%=rnd%> = () => {
+    const tampilkanModalDaftar<%=rnd%> = async () => {
         if (!modalAuthInstance<%=rnd%>) return;
         document.getElementById('modalAuthTitle<%=rnd%>').innerHTML = '<i class="fas fa-user-plus text-success me-2"></i><%=Common.getBahasaConfig("Pendaftaran Anggota Baru")%>';
-        document.getElementById('iframeAuth<%=rnd%>').src = urlDaftarTarget<%=rnd%>;
+        document.getElementById('authLoginPane<%=rnd%>').classList.add('d-none');
+        document.getElementById('authRegisterPane<%=rnd%>').classList.remove('d-none');
         if(offcanvasCartInstance<%=rnd%>) offcanvasCartInstance<%=rnd%>.hide();
         modalAuthInstance<%=rnd%>.show();
+        await muatJenisDaftarMarketplace<%=rnd%>();
     };
 
     const tutupModalAuth<%=rnd%> = () => {
-        document.getElementById('iframeAuth<%=rnd%>').src = '';
+        const password = document.getElementById('authPassword<%=rnd%>');
+        if (password) password.value = '';
     };
 
-    // Listen untuk pesan dari iframe jika login sukses (Opsional, tergantung implementasi backend login Anda)
-    window.addEventListener('message', function(event) {
-        if (event.data === 'login_success' || event.data === 'register_success') {
-            location.reload(); 
+    const setAuthMessage<%=rnd%> = (id, message, success) => {
+        const element = document.getElementById(id);
+        element.textContent = message || '';
+        element.className = 'alert ' + (success ? 'alert-success' : 'alert-danger');
+        element.classList.toggle('d-none', !message);
+    };
+
+    const prosesLoginMarketplace<%=rnd%> = async () => {
+        const button = document.getElementById('btnLoginMarketplace<%=rnd%>');
+        const username = document.getElementById('authUsername<%=rnd%>').value.trim();
+        const password = document.getElementById('authPassword<%=rnd%>').value;
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span><%=Common.getBahasaConfig("Memproses...")%>';
+        setAuthMessage<%=rnd%>('authLoginMessage<%=rnd%>', '', false);
+        try {
+            const payload = new URLSearchParams({ username: username, password: password });
+            const response = await fetch('<%=Common.ROOT%>/login?action=ajax_login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                credentials: 'include',
+                body: payload.toString()
+            });
+            const result = await response.json();
+            if (response.ok && result.status === 'success') {
+                setAuthMessage<%=rnd%>('authLoginMessage<%=rnd%>', result.message || '<%=Common.getBahasaConfigJS("Login berhasil.")%>', true);
+                window.setTimeout(() => window.location.reload(), 600);
+                return;
+            }
+            setAuthMessage<%=rnd%>('authLoginMessage<%=rnd%>', result.message || '<%=Common.getBahasaConfigJS("Nama pengguna atau kata sandi tidak valid.")%>', false);
+            document.getElementById('authPassword<%=rnd%>').focus();
+        } catch (error) {
+            console.error(error);
+            setAuthMessage<%=rnd%>('authLoginMessage<%=rnd%>', '<%=Common.getBahasaConfigJS("Gagal terhubung ke peladen.")%>', false);
+        } finally {
+            button.disabled = false;
+            button.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i><%=Common.getBahasaConfig("Masuk")%>';
         }
-    });
+    };
+
+    let jenisDaftarSudahDimuat<%=rnd%> = false;
+    const muatJenisDaftarMarketplace<%=rnd%> = async () => {
+        if (jenisDaftarSudahDimuat<%=rnd%>) return;
+        const result = await fetchDataAPI<%=rnd%>({
+            action: 'sql',
+            sql: 'SELECT id, nama, kode FROM koperasi.jenis_anggota_koperasi WHERE aktif = true AND dipilih = true ORDER BY nama ASC'
+        });
+        const select = document.getElementById('daftarJenis<%=rnd%>');
+        select.innerHTML = '<option value=""><%=Common.getBahasaConfig("-- Pilih Jenis Keanggotaan --")%></option>';
+        (result.data || []).forEach(item => {
+            const option = document.createElement('option');
+            option.value = item.id;
+            option.dataset.kode = item.kode || 'MEM';
+            option.textContent = item.nama;
+            select.appendChild(option);
+        });
+        jenisDaftarSudahDimuat<%=rnd%> = true;
+    };
+
+    const prosesDaftarMarketplace<%=rnd%> = async () => {
+        const button = document.getElementById('btnDaftarMarketplace<%=rnd%>');
+        const username = document.getElementById('daftarUsername<%=rnd%>').value.trim();
+        if (!/^[A-Za-z0-9._-]+$/.test(username)) {
+            setAuthMessage<%=rnd%>('authRegisterMessage<%=rnd%>', '<%=Common.getBahasaConfigJS("Format nama pengguna tidak valid.")%>', false);
+            return;
+        }
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span><%=Common.getBahasaConfig("Memproses...")%>';
+        try {
+            const cekUser = await fetchDataAPI<%=rnd%>({ action: 'sql', sql: "SELECT userid FROM public.tbmuser WHERE userid = '" + username + "' LIMIT 1" });
+            if (cekUser.data && cekUser.data.length > 0) {
+                setAuthMessage<%=rnd%>('authRegisterMessage<%=rnd%>', '<%=Common.getBahasaConfigJS("Nama pengguna sudah dipakai.")%>', false);
+                return;
+            }
+            const jenis = document.getElementById('daftarJenis<%=rnd%>');
+            const prefix = (jenis.options[jenis.selectedIndex].dataset.kode || 'MEM').toUpperCase().replace(/[^A-Z0-9_-]/g, '') || 'MEM';
+            const now = new Date();
+            const kode = prefix + '-' + now.getTime();
+            const payload = {
+                action: 'simpanDataRinci',
+                class: '<%=AnggotaKoperasi.class.getName()%>',
+                tanpaLogin: 'true',
+                data: {
+                    nama: document.getElementById('daftarNama<%=rnd%>').value.trim(),
+                    hp: document.getElementById('daftarHp<%=rnd%>').value.trim(),
+                    emailNasabah: document.getElementById('daftarEmail<%=rnd%>').value.trim(),
+                    userid: username,
+                    pass: document.getElementById('daftarPassword<%=rnd%>').value,
+                    jenisAnggotaKoperasi: jenis.value,
+                    kode: kode,
+                    aktif: true
+                }
+            };
+            const response = await fetch('<%=Common.ROOT%>/Data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            if (response.ok && (result.status === '00' || result.status === 'success' || result.id)) {
+                setAuthMessage<%=rnd%>('authRegisterMessage<%=rnd%>', '<%=Common.getBahasaConfigJS("Pendaftaran berhasil. Silakan masuk menggunakan akun baru Anda.")%>', true);
+                document.getElementById('formDaftarMarketplace<%=rnd%>').reset();
+                window.setTimeout(tampilkanModalLogin<%=rnd%>, 900);
+                return;
+            }
+            setAuthMessage<%=rnd%>('authRegisterMessage<%=rnd%>', result.description || '<%=Common.getBahasaConfigJS("Pendaftaran gagal diproses.")%>', false);
+        } catch (error) {
+            console.error(error);
+            setAuthMessage<%=rnd%>('authRegisterMessage<%=rnd%>', '<%=Common.getBahasaConfigJS("Terjadi kesalahan koneksi.")%>', false);
+        } finally {
+            button.disabled = false;
+            button.innerHTML = '<i class="fas fa-user-plus me-2"></i><%=Common.getBahasaConfig("Daftar")%>';
+        }
+    };
 
     // ==========================================
     // PENGAMBILAN DATA AWAL (SALDO, DISKON, TOKO)
@@ -1116,6 +1259,7 @@ String daftarUrl = Common.ROOT + "/login?p=registrasi_calon_anggota";
                 idToko: tId, 
                 waktu: curWaktu,
                 id_member: idMemberAktif<%=rnd%>,
+                kanalCheckout: "anggota_online",
                 transaksi: transaksiToko.map(item => ({
                     id: item.id,
                     kode: item.kode,

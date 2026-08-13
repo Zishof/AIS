@@ -31,6 +31,8 @@ import ais.database.hibernate.HibernateUtil;
  */
 public final class LogMobileCleanupService {
 
+	private static final int UKURAN_BATCH = 500;
+	private static final long JEDA_BATCH_MS = 100L;
 	private static volatile ScheduledExecutorService penjadwal;
 
 	private LogMobileCleanupService() {
@@ -83,17 +85,40 @@ public final class LogMobileCleanupService {
 		}
 	}
 
-	/** Hapus baris {@code log_mobile} lebih tua dari ambang retensi. Buka/tutup session sendiri. */
+	/**
+	 * Hapus baris {@code log_mobile} lebih tua dari ambang retensi dalam batch kecil.
+	 * Satu DELETE besar pernah melewati {@code statement_timeout} PostgreSQL dan juga
+	 * menahan lock serta transaksi terlalu lama pada instalasi dengan backlog log besar.
+	 */
 	private static void bersihkanSekali() {
 		Date cutoff = new Date(System.currentTimeMillis() - retensiHari() * 24L * 60L * 60L * 1000L);
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Transaction tx = null;
+		int totalDihapus = 0;
 		try {
-			tx = session.beginTransaction();
-			int dihapus = session.createQuery("delete from LogMobile lm where lm.login < :cutoff")
-					.setTimestamp("cutoff", cutoff).executeUpdate();
-			tx.commit();
-			System.out.println("[LogMobileCleanup] " + dihapus + " baris log_mobile lebih tua dari "
+			while (!Thread.currentThread().isInterrupted()) {
+				tx = session.beginTransaction();
+				int dihapus = session.createSQLQuery(
+						"delete from public.log_mobile where id in ("
+								+ "select id from public.log_mobile where login < :cutoff "
+								+ "order by id asc limit " + UKURAN_BATCH + ")")
+						.setTimestamp("cutoff", cutoff).executeUpdate();
+				tx.commit();
+				tx = null;
+				totalDihapus += dihapus;
+				session.clear();
+
+				if (dihapus < UKURAN_BATCH) {
+					break;
+				}
+				try {
+					Thread.sleep(JEDA_BATCH_MS);
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+					break;
+				}
+			}
+			System.out.println("[LogMobileCleanup] " + totalDihapus + " baris log_mobile lebih tua dari "
 					+ retensiHari() + " hari dihapus (cutoff=" + cutoff + ")");
 		} catch (Exception e) {
 			try {
