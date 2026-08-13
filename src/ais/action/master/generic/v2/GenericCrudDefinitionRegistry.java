@@ -24,6 +24,7 @@ import ais.action.master.generic.v2.adapter.FormatItemGajiGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.ProdukPesertaGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.HasilUjianMahasiswaGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.CicilanPembayaranGagalGenericCrudAdapter;
+import ais.action.master.generic.v2.adapter.BerkasGenericCrudAdapter;
 import ais.database.model.Agama;
 import ais.database.model.BadanHukum;
 import ais.database.model.Jenjang;
@@ -68,6 +69,8 @@ import ais.database.model.CicilanPembayaranGagal;
 import ais.database.model.Kegiatan;
 import ais.database.model.JenisPembayaran;
 import ais.database.model.ItemBiaya;
+import ais.database.model.Berkas;
+import ais.database.model.Fakultas;
 
 /**
  * Registry allow-list. Scanner menghasilkan kandidat disabled; hanya entity yang
@@ -92,6 +95,7 @@ public final class GenericCrudDefinitionRegistry {
         register(buildProdukPeserta());
         register(buildHasilUjianMahasiswa());
         register(buildCicilanPembayaranGagal());
+        register(buildBerkas());
         register(buildEmployeeHistory(RiwayatTandaJasaPegawai.class, "riwayat_tanda_jasa_pegawai", "Riwayat Tanda Jasa Pegawai"));
         register(buildEmployeeHistory(RiwayatPendidikanPegawai.class, "riwayat_pendidikan_pegawai", "Riwayat Pendidikan Pegawai"));
         register(buildEmployeeHistory(RiwayatPelatihanPegawai.class, "riwayat_pelatihan_pegawai", "Riwayat Pelatihan Pegawai"));
@@ -762,6 +766,31 @@ public final class GenericCrudDefinitionRegistry {
         d.addField(field("nilai", "Nilai", Double.class, "number", true, false, false, false, true, false, 60));
         d.addField(relationField("itemBiaya", "Item Biaya", ItemBiaya.class, true, false, false, false, 70));
         d.addField(field("keterangan", "Keterangan", String.class, "textarea", true, false, false, false, true, true, 80));
+        return d;
+    }
+
+    private static GenericCrudDefinition buildBerkas() {
+        GenericCrudDefinition d = new GenericCrudDefinition(); d.setEntityClass(Berkas.class);
+        d.setModuleKey("root"); d.setPageKey("berkas"); d.setDisplayName("Berkas");
+        d.setSourceActionClassName("ais.action.master.BerkasAction"); d.setExistingActionLifecycleBound(false);
+        d.setLifecycleStatus(GenericCrudDefinition.FULL_CRUD); d.setEnabled(true);
+        d.setCreateEnabled(true); d.setUpdateEnabled(true); d.setDeleteEnabled(true); d.setImportEnabled(false);
+        d.setExportPdfEnabled(true); d.setExportDocxEnabled(true); d.setExportPptxEnabled(true);
+        d.setSavedViewEnabled(true); d.setAuditEnabled(true); d.setRowAuditEnabled(true);
+        d.setGlobalAuditEnabled(false); d.setRestoreEnabled(false); d.setAdminDeleteEnabled(false);
+        d.setDefaultSortProperty("nama"); d.setDefaultSortAscending(true); d.setDefaultPageSize(25); d.setMaxPageSize(100);
+        BerkasGenericCrudAdapter adapter = new BerkasGenericCrudAdapter(); d.setAdapter(adapter); d.setScopeAdapter(adapter);
+        d.addField(field("id", "ID", Long.class, "number", false, false, false, false, true, false, 10));
+        d.addField(field("nama", "Nama Berkas", String.class, "text", true, true, true, true, true, true, 30));
+        d.addField(relationField("fakultas", "Fakultas", Fakultas.class, true, true, true, false, 40));
+        d.addField(relationField("jurusan", "Program Studi", Jurusan.class, true, true, true, false, 50));
+        d.addField(field("program", "Program", String.class, "text", true, true, true, false, true, true, 60));
+        d.addField(field("tahunAkademik", "Tahun Akademik", String.class, "text", true, true, true, false, true, true, 70));
+        GenericCrudFieldDefinition semester = field("jenisSemester", "Semester", String.class, "select",
+                true, true, true, false, true, true, 80);
+        semester.setEnumValues(new String[] { "Ganjil", "Genap" }); d.addField(semester);
+        d.addField(relationField("parent", "Induk Berkas", Berkas.class, true, true, true, false, 90));
+        d.addField(field("keterangan", "Keterangan", String.class, "textarea", true, true, true, false, true, true, 100));
         return d;
     }
 
