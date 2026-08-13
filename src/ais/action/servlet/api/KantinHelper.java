@@ -2906,6 +2906,43 @@ public class KantinHelper {
 	}
 
 	/**
+	 * Pembaca nilai khusus impor produk yang sama sekali tidak meminta cell style.
+	 * File Accurate tertentu memiliki isi sel valid tetapi referensi base-style
+	 * rusak; DataFormatter/DateUtil ZK POI lama akan melempar sebelum nilai dibaca.
+	 * Kolom katalog tidak memuat tanggal, jadi format tanggal memang tidak relevan.
+	 */
+	private static String bacaTeksExcelProduk(XSSFCell cell) {
+		if (cell == null) return "";
+		try {
+			int tipe = cell.getCellType();
+			if (tipe == XSSFCell.CELL_TYPE_FORMULA) {
+				tipe = cell.getCachedFormulaResultType();
+			}
+			switch (tipe) {
+			case XSSFCell.CELL_TYPE_STRING:
+				return cell.getRichStringCellValue() == null ? ""
+						: cell.getRichStringCellValue().getString();
+			case XSSFCell.CELL_TYPE_NUMERIC:
+				double nilai = cell.getNumericCellValue();
+				long bulat = (long) nilai;
+				return nilai == (double) bulat ? String.valueOf(bulat)
+						: java.math.BigDecimal.valueOf(nilai).stripTrailingZeros().toPlainString();
+			case XSSFCell.CELL_TYPE_BOOLEAN:
+				return String.valueOf(cell.getBooleanCellValue());
+			case XSSFCell.CELL_TYPE_ERROR:
+				return String.valueOf(cell.getErrorCellValue());
+			case XSSFCell.CELL_TYPE_BLANK:
+			default:
+				return "";
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"bacaTeksExcelProduk tanpa-style");
+			return "";
+		}
+	}
+
+	/**
 	 * Mencari indeks kolom (basis-0) di baris header berdasarkan LABEL (bukan posisi tetap) -- dicek
 	 * dengan {@code contains} case-insensitive supaya varian label yang sedikit berbeda (mis. "Nama
 	 * Barang" vs "Nama Produk") tetap terbaca, dan supaya file yang diunduh lewat
@@ -2918,7 +2955,7 @@ public class KantinHelper {
 		String labelUpper = label.toUpperCase();
 		for (int c = row.getFirstCellNum(); c < row.getLastCellNum(); c++) {
 			XSSFCell cell = row.getCell(c);
-			String isi = Common.getCellContent(cell).trim().toUpperCase();
+			String isi = bacaTeksExcelProduk(cell).trim().toUpperCase();
 			if (isi.length() > 0 && isi.contains(labelUpper)) return c;
 		}
 		return -1;
@@ -2966,7 +3003,7 @@ public class KantinHelper {
 			if (row == null) continue;
 			boolean adaKode = false, adaBarcode = false;
 			for (int c = row.getFirstCellNum(); c < row.getLastCellNum(); c++) {
-				String isi = Common.getCellContent(row.getCell(c)).trim().toUpperCase();
+				String isi = bacaTeksExcelProduk(row.getCell(c)).trim().toUpperCase();
 				if (isi.equals("KODE")) adaKode = true;
 				if (isi.contains("BARCODE")) adaBarcode = true;
 			}
@@ -3029,7 +3066,7 @@ public class KantinHelper {
 		int terisi = 0, cocokAngka = 0;
 		int batasSampel = Math.min(lastRow, barisDataAwal + 40);
 		for (int r = barisDataAwal; r <= batasSampel; r++) {
-			String isi = Common.getCellContent(Common.getCell(sheet, kolom, r)).trim();
+			String isi = bacaTeksExcelProduk(Common.getCell(sheet, kolom, r)).trim();
 			if (isi.isEmpty()) continue;
 			terisi++;
 			// Angka murni (boleh minus/desimal titik-atau-koma) -- SENGAJA tidak memakai parseAngkaAman
@@ -3257,18 +3294,18 @@ public class KantinHelper {
 				// Accurate (kolomNomorUrut>=0, lihat JavaDoc deteksiKolomExcelProdukFormatAccurate); begitu
 				// ketemu, berhenti total (bukan skip) krn baris SETELAHNYA bukan lagi data barang/jasa.
 				if (idx.kolomNomorUrut >= 0) {
-					String noTeks = Common.getCellContent(Common.getCell(sheet, idx.kolomNomorUrut, r)).trim().toUpperCase();
+					String noTeks = bacaTeksExcelProduk(Common.getCell(sheet, idx.kolomNomorUrut, r)).trim().toUpperCase();
 					if (noTeks.contains("TOTAL")) break;
 				}
-				String kode = Common.getCellContent(Common.getCell(sheet, idx.kode, r)).trim();
-				String nama = Common.getCellContent(Common.getCell(sheet, idx.nama, r)).trim();
+				String kode = bacaTeksExcelProduk(Common.getCell(sheet, idx.kode, r)).trim();
+				String nama = bacaTeksExcelProduk(Common.getCell(sheet, idx.nama, r)).trim();
 				if (kode.isEmpty() || nama.isEmpty()) continue;
 				no++;
 
-				String barcode = idx.barcode >= 0 ? Common.getCellContent(Common.getCell(sheet, idx.barcode, r)).trim() : "";
-				String kategoriNama = idx.kategori >= 0 ? Common.getCellContent(Common.getCell(sheet, idx.kategori, r)).trim() : "";
-				String pemasokNama = idx.pemasok >= 0 ? Common.getCellContent(Common.getCell(sheet, idx.pemasok, r)).trim() : "";
-				String satuanNama = idx.satuan >= 0 ? Common.getCellContent(Common.getCell(sheet, idx.satuan, r)).trim() : "";
+				String barcode = idx.barcode >= 0 ? bacaTeksExcelProduk(Common.getCell(sheet, idx.barcode, r)).trim() : "";
+				String kategoriNama = idx.kategori >= 0 ? bacaTeksExcelProduk(Common.getCell(sheet, idx.kategori, r)).trim() : "";
+				String pemasokNama = idx.pemasok >= 0 ? bacaTeksExcelProduk(Common.getCell(sheet, idx.pemasok, r)).trim() : "";
+				String satuanNama = idx.satuan >= 0 ? bacaTeksExcelProduk(Common.getCell(sheet, idx.satuan, r)).trim() : "";
 				double stokBaru = idx.stok >= 0 ? bacaAngkaExcel(sheet, idx.stok, r, formulaEvaluator) : 0;
 				double hargaJual = idx.hargaJual >= 0 ? bacaAngkaExcel(sheet, idx.hargaJual, r, formulaEvaluator) : 0;
 				double hargaBeli = idx.hargaBeli >= 0 ? bacaAngkaExcel(sheet, idx.hargaBeli, r, formulaEvaluator) : 0;
@@ -4269,7 +4306,7 @@ public class KantinHelper {
 		hasil.put("total", barisArr.length());
 	}
 
-	/** Parsing angka toleran -- Excel kadang menyimpan angka sbg teks berformat ("Rp 8.000", "8,000.00") lewat {@code Common.getCellContent}; sisa karakter non-digit/koma/titik dibuang sebelum parse, koma dianggap ribuan (dibuang) mengikuti format akunting sumber file. */
+	/** Parsing angka toleran -- Excel kadang menyimpan angka sbg teks berformat ("Rp 8.000", "8,000.00"); sisa karakter non-digit/koma/titik dibuang sebelum parse, koma dianggap ribuan (dibuang) mengikuti format akunting sumber file. */
 	private static double parseAngkaAman(String s) {
 		if (s == null || s.trim().isEmpty()) return 0;
 		String bersih = s.trim().replaceAll("[^0-9.,\\-]", "");
@@ -4307,9 +4344,9 @@ public class KantinHelper {
 			}
 		} catch (Exception e) {
 			// Formula eksternal kadang tidak dapat dievaluasi server; cached value
-			// tetap dibaca oleh Common.getCellContent sebagai jalur cadangan.
+			// tetap dibaca oleh pembaca tanpa-style sebagai jalur cadangan.
 		}
-		return parseAngkaAman(Common.getCellContent(cell));
+		return parseAngkaAman(bacaTeksExcelProduk(cell));
 	}
 
 	/**
