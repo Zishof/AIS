@@ -3359,8 +3359,9 @@ public class KantinHelper {
 	private static final int BATCH_FLUSH_IMPOR_PRODUK = 300;
 
 	/**
-	 * Gap-closure "deadlock Postgres saat impor Excel" -- ditemukan dari log produksi:
-	 * {@code ERROR: deadlock detected ... while updating tuple ... in relation "produk"} saat
+	 * Gap-closure "konflik lock Postgres saat impor Excel" -- ditemukan dari log produksi:
+	 * {@code ERROR: deadlock detected ... while updating tuple ... in relation "produk"} atau
+	 * {@code canceling statement due to statement timeout ... while rechecking updated tuple} saat
 	 * {@link #produkImporExcelKomitSatuPercobaan}'s {@code session.getTransaction().commit()}
 	 * dipanggil. Akar masalahnya BUKAN bug logika (data tetap benar), tapi 2 transaksi yang SAMA-
 	 * SAMA meng-UPDATE baris {@code koperasi.produk} yang tumpang tindih dalam URUTAN BERBEDA
@@ -3374,26 +3375,26 @@ public class KantinHelper {
 	 * <p>Solusi standar utk deadlock (bukan hanya di sini -- pola umum semua sistem transaksional
 	 * berkonkurensi tinggi): DETEKSI kegagalan spesifik ini lalu ULANGI SELURUH transaksi dari awal
 	 * (bukan sebagian -- transaksi yg dibatalkan Postgres TIDAK bisa dilanjutkan sebagian, harus
-	 * mulai baru). Method ini membungkus {@link #produkImporExcelKomitSatuPercobaan} dgn hingga 3
-	 * percobaan, jeda singkat (bertahap: 300ms/600ms/900ms) di antara percobaan supaya transaksi
+	 * mulai baru). Method ini membungkus {@link #produkImporExcelKomitSatuPercobaan} dgn hingga 5
+	 * percobaan, lock-timeout lokal 2,5 detik, dan jeda singkat bertahap di antara percobaan supaya transaksi
 	 * pesaing sempat selesai duluan -- pada percobaan berikutnya urutan lock biasanya sudah berbeda
-	 * (transaksi lain sudah commit/rollback), jadi deadlock yg sama nyaris tidak pernah berulang.
-	 * Kegagalan LAIN (bukan deadlock) TETAP langsung dilempar tanpa diulang, spt sebelumnya.</p>
+	 * (transaksi lain sudah commit/rollback), jadi konflik yg sama biasanya tidak berulang.
+	 * Kegagalan LAIN (bukan konflik lock sementara) TETAP langsung dilempar tanpa diulang.</p>
 	 */
 	public static void produkImporExcelKomit(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
-		int percobaanMaks = 3;
+		int percobaanMaks = 5;
 		for (int percobaan = 1; percobaan <= percobaanMaks; percobaan++) {
 			try {
 				produkImporExcelKomitSatuPercobaan(tbmuser, request, hasil);
 				return;
 			} catch (Exception e) {
-				if (!merupakanDeadlockPostgres(e) || percobaan >= percobaanMaks) {
+				if (!merupakanKonflikLockTransienPostgres(e) || percobaan >= percobaanMaks) {
 					throw e;
 				}
-				ais.common.ErrorAuditUtil.record(e, "produkImporExcelKomit deadlock -- percobaan " + percobaan
-						+ "/" + percobaanMaks + " gagal, mencoba ulang seluruh batch");
+				ais.common.ErrorAuditUtil.record(e, "produkImporExcelKomit konflik lock sementara -- percobaan " + percobaan
+						+ "/" + percobaanMaks + " gagal, mencoba ulang seluruh batch dari transaksi baru");
 				try {
-					Thread.sleep(300L * percobaan);
+					Thread.sleep(500L * percobaan);
 				} catch (InterruptedException eSela) {
 					Thread.currentThread().interrupt();
 					throw e;
@@ -3408,6 +3409,27 @@ public class KantinHelper {
 		while (cur != null) {
 			if (cur instanceof java.sql.SQLException && "40P01".equals(((java.sql.SQLException) cur).getSQLState())) {
 				return true;
+			}
+			cur = cur.getCause();
+		}
+		return false;
+	}
+
+	/**
+	 * Konflik konkurensi yang aman diulang dari transaksi baru:
+	 * 40P01=deadlock, 55P03=lock_timeout/lock_not_available, dan 57014 hanya
+	 * bila benar-benar statement timeout/cancel saat menunggu tuple (bukan
+	 * sembarang pembatalan manual).
+	 */
+	private static boolean merupakanKonflikLockTransienPostgres(Throwable e) {
+		Throwable cur = e;
+		while (cur != null) {
+			if (cur instanceof java.sql.SQLException) {
+				String state = ((java.sql.SQLException) cur).getSQLState();
+				if ("40P01".equals(state) || "55P03".equals(state)) return true;
+				String pesan = cur.getMessage() == null ? "" : cur.getMessage().toLowerCase();
+				if ("57014".equals(state) && (pesan.indexOf("statement timeout") >= 0
+						|| pesan.indexOf("rechecking updated tuple") >= 0)) return true;
 			}
 			cur = cur.getCause();
 		}
@@ -3524,6 +3546,15 @@ public class KantinHelper {
 			String oleh = tbmuser == null ? "impor-excel-katalog" : tbmuser.getUserId();
 
 			session.beginTransaction();
+			// Jangan memakai seluruh statement_timeout global hanya untuk menunggu
+			// satu produk yang sedang ditulis kasir/impor lain. Gagal cepat lalu
+			// wrapper di atas mengulang SELURUH transaksi secara idempoten.
+			java.sql.Statement pengaturLock = session.connection().createStatement();
+			try {
+				pengaturLock.execute("SET LOCAL lock_timeout = '2500ms'");
+			} finally {
+				pengaturLock.close();
+			}
 			for (int i = 0; i < barisArr.length(); i++) {
 				JSONObject bh = new JSONObject();
 				bh.put("no", i + 1);
@@ -3816,6 +3847,10 @@ public class KantinHelper {
 						session.clear();
 						toko = (Toko) session.load(Toko.class, tokoId);
 					}
+					// Timeout/deadlock bukan kesalahan isi baris. Jangan tandai baris gagal
+					// permanen; lempar ke wrapper agar transaksi utuh diulang setelah lock
+					// pesaing sempat selesai. Semua perubahan percobaan ini belum commit.
+					if (merupakanKonflikLockTransienPostgres(eBaris)) throw eBaris;
 					String pesanTeknis = eBaris.getClass().getSimpleName() + ": " + (eBaris.getMessage() == null ? eBaris.toString() : eBaris.getMessage());
 					if (errorArr.length() < 50) {
 						errorArr.put("Baris " + (i + 1) + ": " + pesanTeknis);
