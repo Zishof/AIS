@@ -1,0 +1,128 @@
+package ais.action.master.generic.v2.adapter;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.hibernate.Session;
+import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Restrictions;
+
+import ais.action.master.generic.v2.GenericCrudDefinition;
+import ais.action.master.generic.v2.GenericCrudException;
+import ais.action.master.generic.v2.GenericCrudFieldDefinition;
+import ais.action.master.generic.v2.GenericCrudOperation;
+import ais.action.master.generic.v2.GenericCrudRequestContext;
+import ais.action.master.generic.v2.GenericCrudResult;
+import ais.database.hibernate.HibernateUtil;
+import ais.database.model.GeneralValueObject;
+import ais.database.model.Tbmuser;
+import ais.database.model.sekolah.DetailKelompokKegiatanKesiswaan;
+import ais.database.model.sekolah.JabatanKegiatanKesiswaan;
+import ais.database.model.sekolah.NilaiKegiatanKesiswaan;
+import ais.database.model.sekolah.SkalaKegiatanKesiswaan;
+
+/** Matrix angka kredit siswa dari NilaiKegiatanKesiswaanAction existing. */
+@SuppressWarnings({ "rawtypes", "unchecked" })
+public final class NilaiKegiatanKesiswaanGenericCrudAdapter extends GenericCrudAutoEntityAdapter
+        implements GenericCrudCustomActionProvider {
+    private static final String INITIALIZE = "initialize_score_matrix";
+
+    public NilaiKegiatanKesiswaanGenericCrudAdapter() {
+        super(NilaiKegiatanKesiswaan.class, false, null, true);
+    }
+
+    public void configure(GenericCrudDefinition definition) {
+        definition.setDisplayName("Nilai Kegiatan Kesiswaan");
+        definition.setCreateEnabled(false); definition.setUpdateEnabled(true);
+        definition.setDeleteEnabled(false); definition.setImportEnabled(false);
+        definition.setDefaultSortProperty("kodeUnik"); definition.setDefaultSortAscending(true);
+        definition.setDefaultPageSize(50);
+        List fields = definition.getFields();
+        for (int i = 0; i < fields.size(); i++) {
+            GenericCrudFieldDefinition field = (GenericCrudFieldDefinition) fields.get(i);
+            field.setCreateable(false); field.setUpdateable("nilai".equals(field.getProperty()));
+            field.setTableVisible("id".equals(field.getProperty())
+                    || "detailKelompokKegiatanKesiswaan".equals(field.getProperty())
+                    || "jabatanKegiatanKesiswaan".equals(field.getProperty())
+                    || "skalaKegiatanKesiswaan".equals(field.getProperty())
+                    || "nilai".equals(field.getProperty()));
+        }
+    }
+
+    public void beforeSave(Session session, GeneralValueObject target,
+            GenericCrudRequestContext context) throws Exception {
+        NilaiKegiatanKesiswaan value = (NilaiKegiatanKesiswaan) target;
+        DetailKelompokKegiatanKesiswaan detail = value.getDetailKelompokKegiatanKesiswaan();
+        SkalaKegiatanKesiswaan scale = value.getSkalaKegiatanKesiswaan();
+        if (detail == null || scale == null || !detail.getSkalaKegiatanKesiswaans().contains(scale))
+            throw new GenericCrudException(400, "SCORE_MATRIX_INVALID", "Skala tidak terhubung ke rincian kegiatan.");
+        Set positions = detail.getJabatanKegiatanKesiswaans();
+        if (!positions.isEmpty() && (value.getJabatanKegiatanKesiswaan() == null
+                || !positions.contains(value.getJabatanKegiatanKesiswaan())))
+            throw new GenericCrudException(400, "SCORE_POSITION_INVALID", "Jabatan tidak terhubung ke rincian kegiatan.");
+        if (positions.isEmpty() && value.getJabatanKegiatanKesiswaan() != null)
+            throw new GenericCrudException(400, "SCORE_POSITION_INVALID", "Rincian ini tidak memakai jabatan.");
+        Tbmuser user = context == null ? null : context.getUser();
+        if (user != null) { value.setOleh(user.getUserNama()); value.setOlehId(user.getUserId()); }
+        super.beforeSave(session, target, context);
+    }
+
+    public List getActions(GenericCrudDefinition definition, GenericCrudRequestContext context) {
+        List result = new ArrayList(); Map action = new LinkedHashMap();
+        action.put("actionKey", INITIALIZE); action.put("label", "Lengkapi Matriks Nilai");
+        action.put("requiredPrivilege", GenericCrudOperation.UPDATE); action.put("selectionMode", "NONE");
+        action.put("enabled", Boolean.valueOf(context != null && context.isCanUpdate()));
+        action.put("dangerous", Boolean.FALSE); action.put("parameterNames", new ArrayList());
+        result.add(action); return result;
+    }
+
+    public GenericCrudResult execute(String actionKey, List selectedIds, Map parameters,
+            GenericCrudRequestContext context) throws Exception {
+        if (!INITIALIZE.equals(actionKey)) return GenericCrudResult.error("ACTION_NOT_ALLOWED", "Aksi tidak dikenal.");
+        Session session = HibernateUtil.currentNativeSession(); int created = 0;
+        try {
+            session.beginTransaction();
+            List details = session.createCriteria(DetailKelompokKegiatanKesiswaan.class)
+                    .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
+                    .addOrder(Order.asc("nomorUrut")).list();
+            for (int i = 0; i < details.size(); i++) {
+                DetailKelompokKegiatanKesiswaan detail = (DetailKelompokKegiatanKesiswaan) details.get(i);
+                Set scales = detail.getSkalaKegiatanKesiswaans(); Set positions = detail.getJabatanKegiatanKesiswaans();
+                for (Iterator si = scales.iterator(); si.hasNext();) {
+                    SkalaKegiatanKesiswaan scale = (SkalaKegiatanKesiswaan) si.next();
+                    if (!Boolean.TRUE.equals(scale.getAktif())) continue;
+                    if (positions.isEmpty()) created += ensure(session, detail, scale, null, context);
+                    else for (Iterator pi = positions.iterator(); pi.hasNext();)
+                        created += ensure(session, detail, scale, (JabatanKegiatanKesiswaan) pi.next(), context);
+                }
+            }
+            session.getTransaction().commit(); Map data = new LinkedHashMap();
+            data.put("created", Integer.valueOf(created));
+            return GenericCrudResult.ok(created + " sel matriks nilai berhasil dilengkapi.", data);
+        } catch (Exception failure) {
+            if (session.getTransaction() != null && session.getTransaction().isActive()) session.getTransaction().rollback();
+            throw failure;
+        } finally { HibernateUtil.closeSession(); }
+    }
+
+    private int ensure(Session session, DetailKelompokKegiatanKesiswaan detail,
+            SkalaKegiatanKesiswaan scale, JabatanKegiatanKesiswaan position,
+            GenericCrudRequestContext context) {
+        String key = detail.getId() + "-" + scale.getId() + "-" + (position == null ? "" : position.getId());
+        Object existing = session.createCriteria(NilaiKegiatanKesiswaan.class)
+                .add(Restrictions.eq("kodeUnik", key)).setMaxResults(1).uniqueResult();
+        if (existing != null) return 0;
+        NilaiKegiatanKesiswaan value = new NilaiKegiatanKesiswaan();
+        value.setDetailKelompokKegiatanKesiswaan(detail); value.setSkalaKegiatanKesiswaan(scale);
+        value.setJabatanKegiatanKesiswaan(position); value.setNilai(Double.valueOf(0)); value.setKodeUnik(key);
+        Tbmuser user = context == null ? null : context.getUser();
+        if (user != null) { value.setOleh(user.getUserNama()); value.setOlehId(user.getUserId()); }
+        session.save(value); return 1;
+    }
+
+    public List getNaturalKeyProperties() { List result = new ArrayList(); result.add("kodeUnik"); return result; }
+}

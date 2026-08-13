@@ -11,6 +11,7 @@ import ais.database.model.Dashboard;
 import ais.database.model.Pegawai;
 import ais.database.model.employ.Pensiun;
 import ais.database.model.NilaiKegiatanKemahasiswaan;
+import ais.database.model.sekolah.NilaiKegiatanKesiswaan;
 
 /** Memilih adapter hasil review untuk model yang mempunyai rule Action khusus. */
 public final class GenericCrudReviewedAdapterFactory {
@@ -27,7 +28,8 @@ public final class GenericCrudReviewedAdapterFactory {
                 || Dashboard.class.equals(entityClass)
                 || Pegawai.class.equals(entityClass)
                 || Pensiun.class.equals(entityClass)
-                || NilaiKegiatanKemahasiswaan.class.equals(entityClass);
+                || NilaiKegiatanKemahasiswaan.class.equals(entityClass)
+                || NilaiKegiatanKesiswaan.class.equals(entityClass);
     }
 
     public static GenericCrudAutoEntityAdapter create(Class entityClass, boolean softDelete,
@@ -51,6 +53,7 @@ public final class GenericCrudReviewedAdapterFactory {
         }
         if (Pensiun.class.equals(entityClass)) return new PensiunRecordGenericCrudAdapter();
         if (NilaiKegiatanKemahasiswaan.class.equals(entityClass)) return new NilaiKegiatanKemahasiswaanGenericCrudAdapter();
+        if (NilaiKegiatanKesiswaan.class.equals(entityClass)) return new NilaiKegiatanKesiswaanGenericCrudAdapter();
         return new GenericCrudAutoEntityAdapter(entityClass, softDelete, sourceActionClass, metadataLifecycle);
     }
 }

@@ -13,6 +13,6 @@ request.setAttribute("nuiServiceSourceClass", "NilaiKegiatanKesiswaanAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.sekolah");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/sekolah/NilaiKegiatanKesiswaanAction.java");
 request.setAttribute("nuiServiceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "run", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiServiceEntities", new String[]{"SkalaKegiatanKesiswaan", "NilaiKegiatanKesiswaan", "DetailKelompokKegiatanKesiswaan", "JabatanKegiatanKesiswaan"});
+request.setAttribute("nuiServiceEntities", new String[]{"ais.database.model.sekolah.NilaiKegiatanKesiswaan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

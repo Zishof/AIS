@@ -10,7 +10,7 @@ request.setAttribute("nuiModuleLabel", "eSchool");
 request.setAttribute("nuiPage", "nilai_kegiatan_kesiswaan");
 request.setAttribute("nuiPageTitle", "Nilai Kegiatan Kesiswaan");
 request.setAttribute("nuiPageType", "academic");
-request.setAttribute("nuiPageDescription", "Akademik untuk eSchool. Data akademik, jadwal, capaian, dan status proses pendidikan.");
+request.setAttribute("nuiPageDescription", "Matriks angka kredit kegiatan siswa berdasarkan rincian, jabatan/status, dan skala kegiatan.");
 request.setAttribute("nuiSourceClass", "NilaiKegiatanKesiswaanAction");
 request.setAttribute("nuiSourcePackage", "ais.action.master.sekolah");
 request.setAttribute("nuiSourcePath", "src/ais/action/master/sekolah/NilaiKegiatanKesiswaanAction.java");
@@ -18,6 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "run", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiEntityCandidates", new String[]{"SkalaKegiatanKesiswaan", "NilaiKegiatanKesiswaan", "DetailKelompokKegiatanKesiswaan", "JabatanKegiatanKesiswaan"});
+request.setAttribute("nuiEntityCandidates", new String[]{"ais.database.model.sekolah.NilaiKegiatanKesiswaan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />
