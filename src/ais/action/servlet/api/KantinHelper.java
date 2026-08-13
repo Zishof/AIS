@@ -3294,7 +3294,11 @@ public class KantinHelper {
 			@SuppressWarnings("unchecked")
 			List<Produk> semuaProdukToko = session.createCriteria(Produk.class).add(Restrictions.eq("toko", toko)).list();
 			Map<String, Produk> petaProdukToko = new HashMap<String, Produk>();
-			for (Produk p : semuaProdukToko) if (p.getKode() != null) petaProdukToko.put(p.getKode().trim().toUpperCase(), p);
+			for (Produk p : semuaProdukToko) {
+				String kunci = ais.common.ProdukKunciUnikUtil.hitung(
+						p.getKode(), p.getBarcode(), p.getNama(), tokoId);
+				if (!kunci.isEmpty()) petaProdukToko.put(kunci, p);
+			}
 
 			JSONArray barisArr = new JSONArray();
 			int lastRow = sheet.getLastRowNum();
@@ -3322,7 +3326,9 @@ public class KantinHelper {
 				double hargaJual = idx.hargaJual >= 0 ? bacaAngkaExcel(sheet, idx.hargaJual, r, formulaEvaluator) : 0;
 				double hargaBeli = idx.hargaBeli >= 0 ? bacaAngkaExcel(sheet, idx.hargaBeli, r, formulaEvaluator) : 0;
 
-				Produk existing = petaProdukToko.get(kode.toUpperCase());
+				String kunciProduk = ais.common.ProdukKunciUnikUtil.hitung(
+						kode, barcode.isEmpty() ? null : barcode, nama, tokoId);
+				Produk existing = petaProdukToko.get(kunciProduk);
 				double stokLama = existing == null ? 0 : (existing.getStok() == null ? 0 : existing.getStok());
 				double hargaJualLama = existing == null ? 0 : (existing.getHargaJual() == null ? 0 : existing.getHargaJual());
 				double hargaBeliLama = existing == null ? 0 : (existing.getHargaBeli() == null ? 0 : existing.getHargaBeli());
@@ -3367,19 +3373,11 @@ public class KantinHelper {
 	 * {@code produkId} yang dikirim klien -- SENGAJA diabaikan/dicari ulang server-side via kode+toko
 	 * supaya supervisor toko A tidak bisa menimpa produk toko B walau id-nya ditebak/dipalsukan).
 	 *
-	 * <p><b>Gap-closure "impor Excel jangan sampai bikin duplikat lagi"</b>: SEBELUMNYA pencarian
-	 * produk yang sudah ada HANYA lewat {@code kode} persis -- kalau baris Excel punya {@code kode}
-	 * yang (sedikit) berbeda dari kode produk yang sudah tersimpan (mis. format ulang dari
-	 * vendor/re-export) tapi {@code barcode} atau {@code nama}-nya SAMA, baris itu diam-diam dianggap
-	 * PRODUK BARU -- persis skenario yang menghasilkan baris duplikat yang lalu harus dibersihkan
-	 * manual lewat "Bersihkan Produk Duplikat". Sekarang pencarian jatuh bertingkat: {@code kode}
-	 * persis dulu (paling otoritatif) -> kalau tak ketemu DAN barcode terisi, coba {@code barcode}
-	 * persis -> kalau masih tak ketemu, coba {@code nama} persis (case/spasi-insensitive). Begitu
-	 * ketemu lewat jalur mana pun, baris dianggap UPDATE ke produk itu (termasuk kode-nya ikut
-	 * diperbarui ke nilai baru dari Excel), BUKAN insert baru -- stok pun ikut benar (ditimpa lewat
-	 * StokOpname resmi ke baris yang sama, bukan tersebar ke baris baru). Peta kode/barcode/nama
-	 * DIPERBARUI tiap baris diproses (bukan cuma dibaca sekali di awal) supaya baris-baris LAIN dalam
-	 * batch impor yang SAMA juga saling mencegah duplikat satu sama lain, bukan cuma vs data lama.</p>
+	 * <p><b>Identitas produk saat impor.</b> Produk dianggap sudah ada hanya bila kombinasi
+	 * {@code kode + barcode + nama + toko} yang sudah dinormalisasi sama. Kesamaan hanya kode,
+	 * barcode, atau nama tidak cukup untuk menimpa produk lain. Bila kombinasi belum ditemukan,
+	 * baris wajib dibuat sebagai produk baru walaupun stok dan kedua harganya nol. Peta kombinasi
+	 * diperbarui setiap baris agar pengulangan kombinasi dalam batch yang sama tetap idempoten.</p>
 	 *
 	 * <p>Perilaku upsert produk, cari-atau-buat kategori/pemasok/satuan, dan pencatatan kolom stok sbg
 	 * {@link ais.database.model.inventory.StokOpname} resmi (BUKAN overwrite langsung) SAMA PERSIS dgn
@@ -3788,20 +3786,11 @@ public class KantinHelper {
 					String barcodeUpper = barcode.isEmpty() ? null : barcode.toUpperCase();
 					String namaUpper = nama.toUpperCase();
 					String kunciUnikBaris = ais.common.ProdukKunciUnikUtil.hitung(kode, barcode.isEmpty() ? null : barcode, nama, tokoId);
-					Long produkId = petaProdukToko.get(kodeUpper);
-					String dicocokkanVia = produkId != null ? "kode" : null;
-					if (produkId == null && barcodeUpper != null) {
-						produkId = petaProdukTokoBarcode.get(barcodeUpper);
-						if (produkId != null) dicocokkanVia = "barcode";
-					}
-					if (produkId == null) {
-						produkId = petaProdukTokoNama.get(namaUpper);
-						if (produkId != null) dicocokkanVia = "nama";
-					}
-					if (produkId == null) {
-						produkId = petaProdukTokoKunciUnik.get(kunciUnikBaris);
-						if (produkId != null) dicocokkanVia = "kunci_unik";
-					}
+					// Sumber identitas impor adalah kombinasi kode + barcode + nama + toko.
+					// Kesamaan hanya salah satu unsur tidak boleh mengubah produk lain; bila
+					// kombinasi belum ada, baris wajib INSERT meskipun stok/harganya nol.
+					Long produkId = petaProdukTokoKunciUnik.get(kunciUnikBaris);
+					String dicocokkanVia = produkId != null ? "kunci_unik" : null;
 					Produk p;
 					boolean baru = (produkId == null);
 					double stokLama = 0;
