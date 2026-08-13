@@ -3562,8 +3562,7 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 			// Daftar_Nilai_0 tidak pernah ada sebagai berkas template.
 			String namaTemplateDaftarNilai = (formatNilais.size() == 0
 					|| perkuliahan.getHanyaInputNilaiHuruf()) ? "Daftar_Nilai_1"
-							: formatNilais.size() >= 10 ? "Daftar_Nilai_14"
-							: formatNilais.size() == 9 ? "Daftar_Nilai_9"
+							: formatNilais.size() >= 9 ? "Daftar_Nilai_" + Math.min(formatNilais.size(), 14)
 							: formatNilais.size() == 3 ? "Daftar_Nilai"
 									: "Daftar_Nilai_" + formatNilais.size();
 			Report.generatePDFReport(Report.PDF, parameters, namaTemplateDaftarNilai,
