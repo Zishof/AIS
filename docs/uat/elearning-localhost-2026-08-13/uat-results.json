@@ -1,0 +1,35 @@
+{
+  "executedAt": "2026-08-13",
+  "timezone": "Asia/Jakarta",
+  "environment": {
+    "baseUrl": "http://localhost:9090/ais",
+    "database": "ais",
+    "postgresql": "16.4",
+    "tomcat": "9.0.82",
+    "java": "1.8.0_502"
+  },
+  "credentialsRecorded": false,
+  "summary": {
+    "status": "FAILED",
+    "passed": 21,
+    "failed": 1,
+    "total": 22
+  },
+  "failure": {
+    "id": "EL-API-01",
+    "request": "POST /ais/api",
+    "expected": "application/json with status 00",
+    "actual": "text/html containing the public landing page",
+    "workingExistingRoute": "POST /ais/Api"
+  },
+  "localData": {
+    "perkuliahan": 0,
+    "pertemuan": 2,
+    "tugasPertemuan": 0
+  },
+  "screenshots": {
+    "available": false,
+    "reason": "No Chrome or in-app browser was connected to the Codex browser runtime during execution."
+  }
+}
+
