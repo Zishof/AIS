@@ -3200,7 +3200,8 @@ public class KantinHelper {
 	 * @param request payload: {@code file_base64} (wajib), {@code toko_id} (wajib utk admin global).
 	 * @param hasil   diisi {@code status="00"} + {@code baris} (array
 	 *                {@code {no,kode,barcode,nama,kategoriId,kategoriNama,pemasokId,pemasokNama,
-	 *                satuanId,satuanNama,stokBaru,stokLama,hargaJual,hargaBeli,produkId,baru}}),
+	 *                satuanId,satuanNama,stokBaru,stokLama,hargaJual,hargaJualLama,
+	 *                hargaBeli,hargaBeliLama,produkId,baru}}),
 	 *                {@code daftarKategori}/{@code daftarPemasok}/{@code daftarSatuan} (array
 	 *                {@code {id,nama}}, opsi utk dropdown/datalist di layar review), {@code tokoId}.
 	 */
@@ -3323,6 +3324,8 @@ public class KantinHelper {
 
 				Produk existing = petaProdukToko.get(kode.toUpperCase());
 				double stokLama = existing == null ? 0 : (existing.getStok() == null ? 0 : existing.getStok());
+				double hargaJualLama = existing == null ? 0 : (existing.getHargaJual() == null ? 0 : existing.getHargaJual());
+				double hargaBeliLama = existing == null ? 0 : (existing.getHargaBeli() == null ? 0 : existing.getHargaBeli());
 
 				JSONObject b = new JSONObject();
 				b.put("no", no);
@@ -3338,7 +3341,9 @@ public class KantinHelper {
 				b.put("stokBaru", stokBaru);
 				b.put("stokLama", stokLama);
 				b.put("hargaJual", hargaJual);
+				b.put("hargaJualLama", hargaJualLama);
 				b.put("hargaBeli", hargaBeli);
+				b.put("hargaBeliLama", hargaBeliLama);
 				b.put("produkId", existing == null ? JSONObject.NULL : existing.getId());
 				b.put("baru", existing == null);
 				barisArr.put(b);
@@ -3563,7 +3568,8 @@ public class KantinHelper {
 		if (tokoId == null) return;
 
 		JSONArray barisArr = request.optJSONArray("baris");
-		boolean hanyaStokBerbeda = request.optBoolean("hanya_stok_berbeda", false);
+		boolean hanyaPerubahan = request.optBoolean("hanya_perubahan",
+				request.optBoolean("hanya_stok_berbeda", false));
 		if (barisArr == null || barisArr.length() == 0) {
 			hasil.put("status", "91");
 			hasil.put("description", "Tidak ada baris untuk disimpan.");
@@ -3680,25 +3686,36 @@ public class KantinHelper {
 						continue;
 					}
 
-					// Mode rekonsiliasi stok dari klien terbaru: jangan menyentuh metadata,
-					// membuat kategori, ataupun menulis produk/opname bila stok Excel sama
-					// dengan stok aktual server. produkId hanya petunjuk dari preview dan
+					// Mode rekonsiliasi dari klien: jangan menyentuh metadata atau menulis
+					// produk bila stok DAN kedua harga Excel sama dengan nilai aktual server.
+					// produkId hanya petunjuk dari preview dan
 					// tetap divalidasi harus milik toko aktif agar tidak mempercayai klien.
-					if (hanyaStokBerbeda) {
+					if (hanyaPerubahan) {
 						double stokExcel = b.optDouble("stokBaru", 0);
+						double hargaJualExcel = b.optDouble("hargaJual", 0);
+						double hargaBeliExcel = b.optDouble("hargaBeli", 0);
 						Long idPreview = b.isNull("produkId") ? null : Long.valueOf(b.optLong("produkId"));
 						double stokAktual = 0;
-						boolean identitasValid = idPreview == null;
+						double hargaJualAktual = 0;
+						double hargaBeliAktual = 0;
+						boolean identitasValid = false;
 						if (idPreview != null) {
 							Produk produkPreview = (Produk) session.get(Produk.class, idPreview);
 							identitasValid = produkPreview != null && produkPreview.getToko() != null
 									&& tokoId.equals(produkPreview.getToko().getId());
-							if (identitasValid && produkPreview.getStok() != null) stokAktual = produkPreview.getStok();
+							if (identitasValid) {
+								if (produkPreview.getStok() != null) stokAktual = produkPreview.getStok();
+								if (produkPreview.getHargaJual() != null) hargaJualAktual = produkPreview.getHargaJual();
+								if (produkPreview.getHargaBeli() != null) hargaBeliAktual = produkPreview.getHargaBeli();
+							}
 						}
-						if (identitasValid && Math.abs(stokExcel - stokAktual) <= 0.000001d) {
+						if (identitasValid
+								&& Math.abs(stokExcel - stokAktual) <= 0.000001d
+								&& Math.abs(hargaJualExcel - hargaJualAktual) <= 0.000001d
+								&& Math.abs(hargaBeliExcel - hargaBeliAktual) <= 0.000001d) {
 							dilewati++;
 							bh.put("status", "dilewati");
-							bh.put("pesan", "Dilewati otomatis: stok Excel sama dengan stok saat ini.");
+							bh.put("pesan", "Dilewati otomatis: stok, harga jual, dan harga beli sama dengan data saat ini.");
 							bh.put("stokLama", stokAktual);
 							bh.put("stokBaru", stokExcel);
 							bh.put("selisih", 0);
