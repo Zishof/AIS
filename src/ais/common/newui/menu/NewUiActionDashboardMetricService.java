@@ -26,6 +26,7 @@ import ais.database.model.Tbmuser;
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public final class NewUiActionDashboardMetricService {
     private static final Pattern MODEL = Pattern.compile("ais/database/model/[A-Za-z0-9_$/]+");
+    private static final Pattern ACTION = Pattern.compile("ais/action/[A-Za-z0-9_$/]+");
     private static final int MAX_METRICS = 24;
 
     private NewUiActionDashboardMetricService() { }
@@ -107,6 +108,15 @@ public final class NewUiActionDashboardMetricService {
         Pattern innerPattern = Pattern.compile(Pattern.quote(internal) + "\\$[A-Za-z0-9_$]+");
         Matcher inner = innerPattern.matcher(value == null ? "" : value);
         while (inner.find()) innerClasses.add(inner.group().replace('/', '.'));
+        Matcher dependency = ACTION.matcher(value == null ? "" : value);
+        while (dependency.find()) {
+            String name = dependency.group().replace('/', '.');
+            String simple = name.substring(name.lastIndexOf('.') + 1);
+            if (!name.equals(sourceClass) && (simple.indexOf("Dashboard") >= 0
+                    || simple.indexOf("Dasboard") >= 0 || simple.indexOf("Builder") >= 0)) {
+                innerClasses.add(name);
+            }
+        }
     }
 
     private static String label(String className) {

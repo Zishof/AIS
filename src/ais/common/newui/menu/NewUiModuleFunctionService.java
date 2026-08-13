@@ -49,7 +49,7 @@ public final class NewUiModuleFunctionService {
         add(values, "prestasi",
                 f("mahasiswa", "Prestasi Mahasiswa", "Aktivitas, prestasi, karya, penghargaan, dan organisasi mahasiswa.", "ais.action.master.dashboard.admin.DashboardKegiatanKemahasiswaan", PT, a("prestasi mahasiswa", "kegiatan mahasiswa")),
                 f("dosen", "Prestasi Dosen", "Aktivitas, prestasi, karya, penelitian, dan pengabdian dosen.", "ais.action.master.dashboard.admin.DashboardKegiatanKedosenan", PT, a("prestasi dosen", "kegiatan dosen")),
-                f("siswa", "Prestasi Siswa", "Aktivitas, prestasi, karya, dan organisasi siswa.", "ais.action.master.dashboard.sekolah.DashboardKegiatanKesiswaan", SCHOOL, a("prestasi siswa", "kegiatan siswa")),
+                f("siswa", "Prestasi Siswa", "Aktivitas, prestasi, karya, dan organisasi siswa.", "ais.action.master.dashboard.admin.DashboardKegiatanKesiswaan", SCHOOL, a("prestasi siswa", "kegiatan siswa")),
                 f("mahasiswa_admin", "Analitik Prestasi Mahasiswa", "Dashboard pembinaan aktivitas dan prestasi mahasiswa untuk pengelola.", "ais.action.master.dashboard.admin.DashboardKegiatanKemahasiswaanAdmin", ADMIN_PT, a("prestasi mahasiswa", "kegiatan mahasiswa")),
                 f("dosen_admin", "Analitik Prestasi Dosen", "Dashboard pembinaan aktivitas dan prestasi dosen untuk pengelola.", "ais.action.master.dashboard.admin.DashboardKegiatanKedosenanAdmin", ADMIN_PT, a("prestasi dosen", "kegiatan dosen")),
                 f("siswa_admin", "Analitik Prestasi Siswa", "Dashboard pembinaan aktivitas dan prestasi siswa untuk pengelola.", "ais.action.master.dashboard.sekolah.DashboardKegiatanKesiswaanAdmin", ADMIN_SCHOOL, a("prestasi siswa", "kegiatan siswa")),
@@ -156,10 +156,10 @@ public final class NewUiModuleFunctionService {
                 f("evaluasi", "Evaluasi Periode", "Evaluasi kinerja dan tindak lanjut.", "ais.action.master.dashboard.employ.DasboardKinerja", ALL, a("evaluasi kinerja", "penilaian kinerja")),
                 f("bkd", "Beban Kinerja Dosen", "Rencana, realisasi, dan verifikasi BKD.", "ais.action.master.dashboard.employ.DasboardKinerja", PT, a("beban kinerja dosen", "bkd")));
         add(values, "presensi",
-                f("hari_ini", "Kehadiran Hari Ini", "Presensi masuk, pulang, dan status hari ini.", "ais.action.maintenance.MainDashboardEventHelper", ALL, a("presensi", "kehadiran hari ini")),
-                f("bulanan", "Rekap Bulanan", "Rekap kehadiran per periode.", "ais.action.maintenance.MainDashboardEventHelper", ALL, a("rekap presensi", "kehadiran bulanan")),
-                f("keterlambatan", "Keterlambatan", "Keterlambatan dan pulang sebelum waktunya.", "ais.action.maintenance.MainDashboardEventHelper", ALL, a("keterlambatan", "absen pegawai")),
-                f("anomali", "Anomali Presensi", "Data tidak lengkap dan kondisi yang perlu ditindaklanjuti.", "ais.action.maintenance.MainDashboardEventHelper", ALL, a("anomali presensi", "presensi tidak lengkap")));
+                f("hari_ini", "Kehadiran Hari Ini", "Presensi masuk, pulang, dan status hari ini.", "ais.action.master.payroll.KehadiranPegawaiAction", ALL, a("presensi", "kehadiran hari ini")),
+                f("bulanan", "Rekap Bulanan", "Rekap kehadiran per periode.", "ais.action.master.payroll.KehadiranPegawaiAction", ALL, a("rekap presensi", "kehadiran bulanan")),
+                f("keterlambatan", "Keterlambatan", "Keterlambatan dan pulang sebelum waktunya.", "ais.action.master.payroll.KehadiranPegawaiAction", ALL, a("keterlambatan", "absen pegawai")),
+                f("anomali", "Anomali Presensi", "Data tidak lengkap dan kondisi yang perlu ditindaklanjuti.", "ais.action.master.payroll.KehadiranPegawaiAction", ALL, a("anomali presensi", "presensi tidak lengkap")));
         add(values, "kalender_akademik",
                 f("agenda", "Agenda Akademik", "Seluruh kegiatan akademik dan status pelaksanaannya.", "ais.action.master.kalender.DasbordKalenderAkademik", ALL, a("kalender akademik", "agenda akademik")),
                 f("periode", "Periode Akademik", "Tahun akademik, semester, dan rentang kegiatan.", "ais.action.master.kalender.DasbordKalenderAkademik", ALL, a("periode akademik", "tahun akademik")),

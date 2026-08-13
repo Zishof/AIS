@@ -26,6 +26,11 @@ memahami aturan, konteks pengguna, sumber data, dan target operasionalnya.
   yang benar-benar tersedia pada metadata entity.
 - Entity yang mempunyai flag `aktif` menampilkan rincian aktif/nonaktif dengan
   scope yang sama, bukan hanya angka total global.
+- Halaman fungsi membaca referensi entity langsung dari bytecode Action dan
+  inner class existing. Audit saat ini menemukan 63 dari 75 class sumber
+  memakai entity Hibernate langsung (786 referensi); 12 class berupa container
+  navigasi, pewaris dashboard, raw-SQL builder, atau integrasi dan diperlakukan
+  fail-closed sampai adapter khususnya tersedia.
 
 ## Modul yang dicakup
 
