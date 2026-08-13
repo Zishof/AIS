@@ -27,10 +27,10 @@ mempunyai lifecycle yang jelas untuk setiap model.
 - Model sensitif/restricted: 132
 - Lifecycle Action existing yang dapat dipanggil headless: 746
 - Lifecycle metadata hanya untuk model tanpa Action: 572
-- Definition/adapter eksplisit: 48
-- Action kompleks yang tetap fail-closed dan perlu review: 29
+- Definition/adapter eksplisit: 49
+- Action kompleks yang tetap fail-closed dan perlu review: 28
 - Create aktif: 1.300
-- Update aktif: 1.313
+- Update aktif: 1.314
 - Delete/soft-delete aktif: 186
 
 Audit keamanan tambahan memperlakukan model yang mempunyai field password,
@@ -39,7 +39,7 @@ restricted walaupun nama class-nya terlihat umum. Field wajib yang sengaja
 disembunyikan juga otomatis mematikan create agar constraint tidak dilewati.
 
 Angka di atas dihasilkan oleh `GenericCrudModelCoverageAudit` setelah kebijakan
-strict diterapkan. Dua puluh sembilan Action kompleks bukan dianggap selesai: mutation
+strict diterapkan. Dua puluh delapan Action kompleks bukan dianggap selesai: mutation
 ditolak sampai Action tersebut diklasifikasikan sebagai read-only atau memperoleh
 adapter/service native yang mempertahankan validasi dan efek bisnis existing.
 
@@ -116,6 +116,16 @@ perhitungan jasa modal/usaha, penulisan ulang rincian anggota dalam transaksi,
 scope koperasi, RBAC, CSRF, pencarian anggota, dan ringkasan nilai. Model kepala
 SHU diklasifikasikan read-only pada Generic CRUD agar perhitungan rincian tidak
 dapat dilewati melalui edit tabel biasa.
+
+`PengajuanPembelianGudangAction` kini mempunyai workflow native lengkap di
+`WEB-INF/new`: daftar dan form inline ambang stok per produk/gudang, pilihan
+master aktif, hapus ambang, 200 pengajuan terbaru, pencarian lokal, perubahan
+status, dan tombol menjalankan siklus `StokThresholdScheduler` saat itu juga.
+Semua mutasi menggunakan Java service transaksional, privilege UPDATE existing,
+CSRF, validasi status, dan audit user. Generic CRUD model pengajuan hanya
+mengizinkan perubahan status; create/delete dan perubahan nilai hasil scheduler
+tetap ditutup. Audit PostgreSQL lokal menemukan nol status invalid dan nol
+pasangan ambang duplikat pada kondisi database saat pengujian.
 
 Perubahan penting dari audit awal adalah `metadataBacked` tidak lagi digunakan
 bila class Action existing ditemukan. Sebelumnya kondisi tersebut dapat membuat
