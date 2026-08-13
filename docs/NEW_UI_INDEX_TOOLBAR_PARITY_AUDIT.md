@@ -9,8 +9,8 @@ memahami aturan, konteks pengguna, sumber data, dan target operasionalnya.
 ## Hasil inventarisasi
 
 - Seluruh 29 `toolbarbutton` terdaftar: 24 modul dan 5 utility shell.
-- 131 fungsi dashboard/operasional mempunyai key stabil dan deskripsi native.
-- 75 class action/dashboard existing dirujuk sebagai sumber logika; seluruh
+- 135 fungsi dashboard/operasional mempunyai key stabil dan deskripsi native.
+- 81 class action/dashboard existing dirujuk sebagai sumber logika; seluruh
   file sumbernya telah diverifikasi ada.
 - Fungsi disaring menurut konteks PT, sekolah, personal, atau admin.
 - Target operasional hanya dipilih dari snapshot menu yang telah lolos
@@ -28,7 +28,7 @@ memahami aturan, konteks pengguna, sumber data, dan target operasionalnya.
   scope yang sama, bukan hanya angka total global.
 - Halaman fungsi membaca referensi entity secara rekursif dari bytecode Action,
   superclass, dan inner/delegated dashboard class existing. Audit saat ini
-  menemukan 67 dari 75 class sumber memakai entity Hibernate langsung (831
+  menemukan 73 dari 81 class sumber memakai entity Hibernate langsung (868
   referensi). Delapan sumber lain sudah mempunyai adapter native: empat
   dashboard SIRS berbasis raw SQL, dashboard piutang sekolah berbasis raw SQL,
   serta tiga container navigasi untuk prestasi dosen, prestasi siswa, dan

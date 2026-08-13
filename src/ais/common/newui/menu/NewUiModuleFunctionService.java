@@ -92,11 +92,15 @@ public final class NewUiModuleFunctionService {
                 f("jam", "Jam Transaksi Ramai", "Distribusi transaksi berdasarkan waktu.", "ais.action.master.koperasi.DashboardKantinAction", ALL, a("jam transaksi", "transaksi")),
                 f("pelanggan", "Pelanggan & Member", "Pelanggan setia dan aktivitas member.", "ais.action.master.koperasi.DashboardMemberKantinAction", ALL, a("member kantin", "pelanggan")));
         add(values, "koperasi",
-                f("anggota", "Keanggotaan", "Anggota dan status keanggotaan koperasi.", "ais.action.master.koperasi.DashboardKoperasiAction", ALL, a("anggota koperasi", "keanggotaan")),
-                f("simpan_pinjam", "Simpan Pinjam", "Simpanan, pinjaman, angsuran, dan tunggakan.", "ais.action.master.koperasi.DashboardSimpanPinjamAction", ALL, a("simpan pinjam", "simpanan", "pinjaman")),
-                f("laporan", "Laporan Koperasi", "Ringkasan transaksi dan laporan koperasi.", "ais.action.master.koperasi.DashboardKoperasiAction", ALL, a("laporan koperasi", "transaksi koperasi")),
-                f("shu", "Pembagian SHU", "Perhitungan dan pembagian sisa hasil usaha.", "ais.action.master.koperasi.DashboardKoperasiAction", ALL, a("pembagian shu", "shu")),
-                f("kantin", "Kantin Koperasi", "Penjualan dan produk koperasi.", "ais.action.master.koperasi.DashboardKantinAction", ALL, a("kantin", "produk koperasi")));
+                f("ringkasan", "Dasbor Koperasi", "Pintu masuk seluruh fungsi koperasi yang tersedia pada Action existing.", "ais.action.master.koperasi.DashboardKoperasiAction", ALL, a("koperasi", "sistem informasi koperasi")),
+                f("simpan_pinjam", "Simpan Pinjam", "Simpanan, pinjaman, angsuran, dan tunggakan.", "ais.action.master.koperasi.DashboardSimpanPinjamAction", ALL, a("dashboard simpan pinjam", "simpan pinjam")),
+                f("laporan_simpan_pinjam", "Laporan Simpan Pinjam", "Laporan transaksi simpan pinjam dan posisi anggota.", "ais.action.master.koperasi.LaporanSimpanPinjamAction", ALL, a("laporan simpan pinjam")),
+                f("shu", "Pembagian SHU", "Perhitungan dan pembagian sisa hasil usaha.", "ais.action.master.koperasi.PembagianShuAction", ALL, a("pembagian shu", "shu")),
+                f("laporan_keuangan", "Laporan Keuangan", "Neraca, SHU, arus kas, COA, CALK, dan PPAP koperasi.", "ais.action.master.koperasi.LaporanKeuanganKoperasiAction", ALL, a("laporan keuangan koperasi")),
+                f("anggaran_kas", "Anggaran Kas", "Rencana penerimaan, pengeluaran, saldo, dan analisis anggaran kas.", "ais.action.master.koperasi.AnggaranKasKoperasiAction", ALL, a("anggaran kas koperasi")),
+                f("modal_penyertaan", "Modal Penyertaan", "Kelola modal penyertaan dan status penyertaan koperasi.", "ais.action.master.koperasi.ModalPenyertaanKoperasiAction", ALL, a("modal penyertaan koperasi")),
+                f("deposito_aro", "ARO Deposito", "Pantau deposito jatuh tempo dan proses automatic rollover.", "ais.action.master.koperasi.DepositoAroKoperasiAction", ALL, a("deposito aro koperasi", "aro deposito")),
+                f("kantin", "Kantin / Toko", "Penjualan dan produk koperasi.", "ais.action.master.koperasi.DashboardKantinAction", ALL, a("dashboard kantin", "kantin koperasi")));
         add(values, "akademik",
                 f("profil", "Profil Akademik", "Dashboard pribadi mahasiswa, dosen, guru, atau siswa.", "ais.action.maintenance.ProfileAction", PERSONAL, a("profil akademik", "profil")),
                 f("pt", "Akademik Perguruan Tinggi", "Ringkasan akademik kampus untuk pengelola.", "ais.action.master.dashboard.utama.DashboardData", PT, a("sistem informasi akademik", "akademik")),
