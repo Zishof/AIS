@@ -220,7 +220,8 @@ public class DosenPembimbingAkademikAction extends GenericAutowireComposer imple
 			}
 		});
 
-		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Singkronkan", "/img/new.gif");
+		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Sinkron PA ke KRS", "/img/new.gif");
+		button.setTooltiptext("Sinkronkan Dosen PA dari data mahasiswa ke KRS mahasiswa untuk rentang semester yang dipilih.");
 		button.addEventListener("onClick", new EventListener() {
 
 			@Override
@@ -250,9 +251,9 @@ public class DosenPembimbingAkademikAction extends GenericAutowireComposer imple
 				row.appendChild(new ais.ui.util.MyLabelConfig("Mulai dari semester :"));
 				final Combobox formStartSemester = new Combobox();
 				MyComboitemConfig comboitem;
-				for (int i = 1; i <= 8; i++) {
+				for (int i = 1; i <= 30; i++) {
 					comboitem = new MyComboitemConfig();
-					comboitem.setLabel("semester saat ini - " + i);
+					comboitem.setLabel("Semester " + i);
 					comboitem.setValue(i);
 					formStartSemester.appendChild(comboitem);
 				}
@@ -269,9 +270,9 @@ public class DosenPembimbingAkademikAction extends GenericAutowireComposer imple
 				row.setParent(rows);
 				row.appendChild(new ais.ui.util.MyLabelConfig("Sampai dengan semester :"));
 				final Combobox formEndSemester = new Combobox();
-				for (int i = 1; i <= 8; i++) {
+				for (int i = 1; i <= 30; i++) {
 					comboitem = new MyComboitemConfig();
-					comboitem.setLabel("semester saat ini + " + i);
+					comboitem.setLabel("Semester " + i);
 					comboitem.setValue(i);
 					formEndSemester.appendChild(comboitem);
 				}
@@ -378,13 +379,11 @@ public class DosenPembimbingAkademikAction extends GenericAutowireComposer imple
 											Integer mulai = (Integer) (formStartSemester.getSelectedItem() == null
 													|| formStartSemester.getSelectedItem().getValue() == null
 															? mahasiswa.currentSemester()
-															: mahasiswa.currentSemester() - ((Integer) formStartSemester
-																	.getSelectedItem().getValue()));
+															: formStartSemester.getSelectedItem().getValue());
 											Integer sampai = (Integer) (formEndSemester.getSelectedItem() == null
 													|| formEndSemester.getSelectedItem().getValue() == null
 															? mahasiswa.currentSemester()
-															: mahasiswa.currentSemester() + ((Integer) formEndSemester
-																	.getSelectedItem().getValue()));
+															: formEndSemester.getSelectedItem().getValue());
 
 											if (mulai < 1) {
 												mulai = 1;

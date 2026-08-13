@@ -58,6 +58,7 @@ b.id as dosen_id,
 a.hari,
 a.waktu_mulai || '-' || a.waktu_selesai as waktu,
 (case when m.id is null then '' else m.nama end) as waktu_perkuliahan,
+a.keteranganjadwal as keterangan_jadwal,
 a.semester,
 case when a1.kode_ruangan is null then a1.nama else a1.kode_ruangan end as ruang,
 b.nama as dosen,
@@ -102,6 +103,7 @@ a.waktu_mulai_d,a.waktu_selesai_d,c.nama]]>
 	<field name="hari" class="java.lang.String"/>
 	<field name="waktu" class="java.lang.String"/>
 	<field name="waktu_perkuliahan" class="java.lang.String"/>
+	<field name="keterangan_jadwal" class="java.lang.String"/>
 	<field name="semester" class="java.lang.Integer"/>
 	<field name="ruang" class="java.lang.String"/>
 	<field name="dosen" class="java.lang.String"/>
@@ -309,7 +311,7 @@ a.waktu_mulai_d,a.waktu_selesai_d,c.nama]]>
 				</textElement>
 				<textFieldExpression><![CDATA[$V{hari_COUNT}]]></textFieldExpression>
 			</textField>
-			<textField isBlankWhenNull="true">
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
 				<reportElement style="Detail" x="22" y="0" width="79" height="31" uuid="48340964-be50-47d9-a023-6ab0b340362b"/>
 				<box>
 					<topPen lineWidth="0.5"/>
@@ -320,7 +322,7 @@ a.waktu_mulai_d,a.waktu_selesai_d,c.nama]]>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font size="8"/>
 				</textElement>
-				<textFieldExpression><![CDATA[($F{waktu}==null?"":$F{waktu})+"\n"+($F{waktu_perkuliahan}==null?"":$F{waktu_perkuliahan})]]></textFieldExpression>
+				<textFieldExpression><![CDATA[(($F{waktu}==null||$F{waktu}.trim().length()==0||$F{waktu}.equals("-"))?($F{keterangan_jadwal}==null?"":$F{keterangan_jadwal}):(($F{keterangan_jadwal}==null||$F{keterangan_jadwal}.trim().length()==0)?$F{waktu}:$F{waktu}+"\n"+$F{keterangan_jadwal}))+(($F{waktu_perkuliahan}==null||$F{waktu_perkuliahan}.trim().length()==0)?"":"\n"+$F{waktu_perkuliahan})]]></textFieldExpression>
 			</textField>
 			<textField isBlankWhenNull="true">
 				<reportElement style="Detail" x="101" y="0" width="114" height="31" uuid="721369b3-1715-469a-958b-1ab170bdef7b"/>

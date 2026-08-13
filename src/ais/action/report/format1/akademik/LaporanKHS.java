@@ -957,7 +957,19 @@ public class LaporanKHS extends MyWindow {
 		}
 		try {
 
-			File file = Report.generateFileReportWithProgress(Report.PDF, generateParameter(), "Kartu_Hasil_Studi",
+			Map parameters = generateParameter();
+			if (parameters == null) {
+				if (bandboxMahasiswa.getAttribute("mahasiswa") != null && semesterAbsensiUjian.getSelectedItem() != null) {
+					Integer semester = (Integer) semesterAbsensiUjian.getSelectedItem().getValue();
+					MyMessageboxConfig.show(
+							"Laporan KHS semester " + semester
+									+ " belum dapat dibuat. Kemungkinan data KRS/KHS semester ini belum tersinkron, nilai belum lengkap, atau mahasiswa belum memenuhi syarat pembayaran/blokir nilai. Silakan klik Hitung Ulang IP/IPK lalu cetak ulang; bila tetap gagal, cek status pembayaran mahasiswa dan sinkronkan kembali data KRS.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				}
+				return;
+			}
+
+			File file = Report.generateFileReportWithProgress(Report.PDF, parameters, "Kartu_Hasil_Studi",
 					ais.ui.util.WaktuUtil.getDate(), toolbar);
 			if (file == null) {
 				// FIX (blank KHS): generateParameter()/Report.generateFileReportWithProgress(...) balik

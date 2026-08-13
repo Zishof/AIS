@@ -1,0 +1,4 @@
+package ais.action.master.generic.v2.adapter;
+import java.util.Arrays;import java.util.List;import ais.action.master.generic.v2.GenericCrudDefinition;import ais.database.model.KegiatanTemporary;
+/** Cart rows are owned by the guarded payment/gateway workflow and must never be mutated as standalone CRUD records. */
+@SuppressWarnings({"rawtypes","unchecked"})public final class BillingCartWorkflowGenericCrudAdapter extends GenericCrudAutoEntityAdapter{public BillingCartWorkflowGenericCrudAdapter(){super(KegiatanTemporary.class,false,null,true);}public void configure(GenericCrudDefinition d){PerkuliahanWorkflowGenericCrudAdapter.lock(d,"Keranjang Pembayaran Mahasiswa","tanggal");}public List getNaturalKeyProperties(){return Arrays.asList("mahasiswa","jenisKegiatan","tahunAkademik","semster");}}

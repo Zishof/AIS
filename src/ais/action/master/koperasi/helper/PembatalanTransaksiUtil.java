@@ -125,6 +125,8 @@ public final class PembatalanTransaksiUtil {
         qBahan.setLong("id", idTransaksi);
         qBahan.executeUpdate();
 
+        PembelianReferenceCleanupUtil.lepasDraftPembelianLunasUntukHeader(session, idTransaksi);
+
         SQLQuery qRinci = session.createSQLQuery("delete from koperasi.pembelian where pembelian_anggota_koperasi = :id");
         qRinci.setLong("id", idTransaksi);
         qRinci.executeUpdate();

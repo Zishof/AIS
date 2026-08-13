@@ -304,6 +304,8 @@ public class PembelianPunyaBarangHelper {
 								if (i == MyMessageboxConfig.OK) {
 									if (pembelian.getId() != null) {
 										Session session = HibernateUtil.currentSession();
+										ais.action.master.koperasi.helper.PembelianReferenceCleanupUtil
+												.lepasDraftPembelianLunas(session, pembelian.getId());
 										session.delete(pembelian);
 									}
 									row.setVisible(false);

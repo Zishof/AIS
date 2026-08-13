@@ -101,15 +101,16 @@ public class PenilaianUtil {
 
 	@SuppressWarnings("unchecked")
 	public static void pindahkanSemuaKRS(Mahasiswa mahasiswa, Integer penambahan) throws Exception {
+		if (mahasiswa == null || penambahan == null) {
+			return;
+		}
 		Session session = HibernateUtil.currentSession();
-		List<Long> detailperkuliahans = session.createCriteria(Detailperkuliahan.class)
+		List<Detailperkuliahan> detailperkuliahans = session.createCriteria(Detailperkuliahan.class)
 				.add(Restrictions.eq("mahasiswa", mahasiswa)).addOrder(Order.asc("semester")).addOrder(Order.asc("id"))
 				.list();
 
-		for (Long detailperkuliahanid : detailperkuliahans) {
-			Detailperkuliahan detailperkuliahan = (Detailperkuliahan) GeneralValueObject
-					.ambilData(Detailperkuliahan.class, detailperkuliahanid.toString());
-			if (detailperkuliahan != null) {
+		for (Detailperkuliahan detailperkuliahan : detailperkuliahans) {
+			if (detailperkuliahan != null && detailperkuliahan.getSemester() != null) {
 				detailperkuliahan.setSemester(detailperkuliahan.getSemester() + penambahan);
 				Common.refreshUpdate(session, detailperkuliahan);
 			}
@@ -674,7 +675,7 @@ public class PenilaianUtil {
 
 	/**
 	 * Normalisasi nama kolom header untuk pencocokan ke {@code FormatNilai.getNama()}:
-	 * buang bagian setelah baris-baru dan akhiran persen (mis. "CPMK022 \n32.0%" → "cpmk022"),
+	 * buang bagian setelah baris-baru dan akhiran persen (mis. "CPMK022 \n32.0%" â†’ "cpmk022"),
 	 * lalu di-trim &amp; huruf-kecil.
 	 */
 	private static String normalisasiNamaKolom(String h) {
@@ -748,7 +749,7 @@ public class PenilaianUtil {
 
 					// Peta NAMA kolom (CPMK) -> indeks kolom, dibaca dari baris header yang sel
 					// ke-2-nya berisi "NIM". Dipakai sebagai FALLBACK pencocokan kolom ke
-					// FormatNilai ketika baris id-pertemuan (pertemuans) tidak ada/ tidak cocok —
+					// FormatNilai ketika baris id-pertemuan (pertemuans) tidak ada/ tidak cocok â€”
 					// mis. format Excel berheader "CPMK022 \n32.0%" yang FormatNilai-nya tidak
 					// punya statusPertemuan. Tanpa ini, nilai tidak terbaca dan tersimpan 0.
 					java.util.Map<String, Integer> kolomByNamaCpmk = new java.util.HashMap<String, Integer>();
@@ -776,7 +777,7 @@ public class PenilaianUtil {
 						try {
 							i++;
 							// Guard: baris yang kolomnya kurang dari 2 (mis. baris kosong/format ganjil)
-							// membuat strings.get(1) melempar IndexOutOfBoundsException → lewati baris.
+							// membuat strings.get(1) melempar IndexOutOfBoundsException â†’ lewati baris.
 							if (strings == null || strings.size() < 2) {
 								continue;
 							}
@@ -818,7 +819,7 @@ public class PenilaianUtil {
 											try {
 												idPertemuan = (long) Double.parseDouble(d.trim());
 											} catch (NumberFormatException nfeIdPertemuan) {
-												// kolom ini bukan id pertemuan numerik (mis. label) → lewati
+												// kolom ini bukan id pertemuan numerik (mis. label) â†’ lewati
 												continue;
 											}
 											if (formatNilai.getStatusPertemuan() != null
@@ -938,3 +939,4 @@ public class PenilaianUtil {
 	}
 
 }
+

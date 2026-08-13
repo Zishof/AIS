@@ -1632,13 +1632,23 @@ public class PerkuliahanAction extends GenericAutowireComposer
 	public static void tampilanImportKelasDariFeeder(final Component parent, final Tbmuser tbmuser,
 			final Combobox searchTahunAjaran, final Combobox searchJenisSemester, final Combobox searchjurusan,
 			final DataSearchDefault dataSearch) {
-		if (!(tbmuser != null && Common.getApakahAdminBolehAksesFeeder()
-				&& Common.bolehKonfigurasi("aktifkan_terhubung_langsung_ke_feeder"))) {
+		if (parent == null) {
 			return;
 		}
 
-		MyToolbarbuttonConfig buttonAmbil = new MyToolbarbuttonConfig("Ambil dari Feeder",
+		boolean bolehAksesFeeder = tbmuser != null && Common.getApakahAdminBolehAksesFeeder();
+		boolean feederAktif = Common.bolehKonfigurasi("aktifkan_terhubung_langsung_ke_feeder");
+		MyToolbarbuttonConfig buttonAmbil = new MyToolbarbuttonConfig("Ambil Jadwal dari Feeder",
 				"/img/Button-Refresh-icon.png");
+		buttonAmbil.setTooltiptext("Ambil/penarikan jadwal kelas kuliah dari Neo Feeder sesuai filter Tahun Akademik, Semester, dan Prodi.");
+		parent.appendChild(buttonAmbil);
+		if (!bolehAksesFeeder || !feederAktif) {
+			buttonAmbil.setDisabled(true);
+			buttonAmbil.setTooltiptext(!feederAktif
+					? "Tombol nonaktif karena konfigurasi aktifkan_terhubung_langsung_ke_feeder belum aktif."
+					: "Tombol nonaktif karena user ini belum memiliki akses admin Feeder.");
+			return;
+		}
 		buttonAmbil.addEventListener("onClick", new EventListener() {
 
 			@Override
@@ -1655,7 +1665,7 @@ public class PerkuliahanAction extends GenericAutowireComposer
 				String tahunAjaran = (String) searchTahunAjaran.getSelectedItem().getValue();
 				String tahun = tahunAjaran.split("/")[0];
 
-				// Jenis semester (Ganjil/Genap) → digit id_semester feeder (1/2). Null = Semua.
+				// Jenis semester (Ganjil/Genap) -> digit id_semester feeder (1/2). Null = Semua.
 				String jenisSmt = (searchJenisSemester == null || searchJenisSemester.getSelectedItem() == null
 						|| searchJenisSemester.getSelectedItem().getValue() == null) ? null
 								: (String) searchJenisSemester.getSelectedItem().getValue();
@@ -1858,7 +1868,6 @@ public class PerkuliahanAction extends GenericAutowireComposer
 						});
 			}
 		});
-		parent.appendChild(buttonAmbil);
 	}
 
 	protected Tabpanel jadwalSp;

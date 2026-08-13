@@ -270,6 +270,10 @@ public class TopupHelper {
 
 										if (kodePembayaranOnline != null) {
 
+											ais.action.master.koperasi.helper.PembelianReferenceCleanupUtil
+													.lepasDraftPembelianLunasUntukKodePembayaranOnline(session,
+															kodePembayaranOnline.getId());
+
 											session.createSQLQuery(
 													"delete from koperasi.pembelian where kode_pembayaran_online="
 															+ kodePembayaranOnline.getId())

@@ -49,6 +49,7 @@ import ais.database.model.GeneralValueObject;
 import ais.database.model.asset.MasterAsset;
 import ais.database.model.file.FotoGambarProduk;
 import ais.database.model.inventory.JenisProduk;
+import ais.database.model.inventory.KebijakanRetur;
 import ais.database.model.inventory.Produk;
 import ais.database.model.inventory.Toko;
 import ais.ui.util.DataCriteria;
@@ -91,6 +92,7 @@ public class ProdukAction extends GenericAutowireComposer implements DataCriteri
 	private Textbox kode;
 	private Textbox catatan;
 	private Combobox jenisProduk;
+	private Combobox kebijakanRetur;
 	private Combobox toko;
 	private MyDoublebox hargaBeli;
 	private MyDoublebox hargaJual;
@@ -412,6 +414,20 @@ public class ProdukAction extends GenericAutowireComposer implements DataCriteri
 
 		row = new MyFormRow();
 		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Kebijakan Retur"));
+		row.appendChild(kebijakanRetur = new Combobox());
+		Common.insertCombo(kebijakanRetur, "nama", KebijakanRetur.class, Restrictions.eq("aktif", true));
+		KebijakanRetur kebijakanTerpilih = produk.getKebijakanRetur();
+		if (kebijakanTerpilih == null) {
+			kebijakanTerpilih = (KebijakanRetur) HibernateUtil.currentSession().createCriteria(KebijakanRetur.class)
+					.add(Restrictions.ilike("nama", KebijakanRetur.TANPA_KEBIJAKAN)).setMaxResults(1).uniqueResult();
+		}
+		Common.selectComboItem(kebijakanRetur, kebijakanTerpilih);
+		kebijakanRetur.setWidth("90%");
+		kebijakanRetur.setReadonly(true);
+
+		row = new MyFormRow();
+		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Toko"));
 		row.appendChild(toko = new Combobox());
 		Common.insertComboDanSemua(toko, "nama", Toko.class, Restrictions.eq("aktif", true));
@@ -655,6 +671,12 @@ public class ProdukAction extends GenericAutowireComposer implements DataCriteri
 		String barcodeValue = barcode.getValue() == null ? "" : barcode.getValue().trim();
 		produk.setBarcode(barcodeValue.isEmpty() ? null : barcodeValue);
 		produk.setJenisProduk((JenisProduk) jenisProduk.getSelectedItem().getValue());
+		KebijakanRetur kebijakan = kebijakanRetur == null || kebijakanRetur.getSelectedItem() == null ? null : (KebijakanRetur) kebijakanRetur.getSelectedItem().getValue();
+		if (kebijakan == null) {
+			kebijakan = (KebijakanRetur) session.createCriteria(KebijakanRetur.class)
+					.add(Restrictions.ilike("nama", KebijakanRetur.TANPA_KEBIJAKAN)).setMaxResults(1).uniqueResult();
+		}
+		produk.setKebijakanRetur(kebijakan);
 		produk.setNama(nama.getValue());
 		produk.setHargaBeli(hargaBeli.getValue());
 		produk.setHargaJual(hargaJual.getValue());

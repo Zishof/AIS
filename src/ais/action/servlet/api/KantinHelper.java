@@ -681,6 +681,8 @@ public class KantinHelper {
 								"update koperasi.draft_pembelian set lunas = null where draft_pembelian_anggota_koperasi = :draftId")
 								.setParameter("draftId", draftPembelianAnggotaKoperasi.getId()).executeUpdate();
 					}
+					ais.action.master.koperasi.helper.PembelianReferenceCleanupUtil
+							.lepasDraftPembelianLunasUntukHeader(session, pembelianAnggotaKoperasi.getId());
 					session.createSQLQuery(
 							"delete from koperasi.pembelian where pembelian_anggota_koperasi = :id")
 							.setParameter("id", pembelianAnggotaKoperasi.getId()).executeUpdate();
@@ -2503,6 +2505,7 @@ public class KantinHelper {
 			} else if (request.has("kategori_id")) {
 				p.setJenisProduk(null);
 			}
+			p.setKebijakanRetur(KebijakanReturApiHelper.resolveAtauBawaan(session, request));
 			// Gap-closure "Jenis Item" (Produk vs Bahan Baku) -- lihat JavaDoc Produk.getJenisItem().
 			if (request.has("jenis_item")) {
 				String jenisItem = request.optString("jenis_item", "JUAL").trim().toUpperCase();
@@ -12567,10 +12570,18 @@ public class KantinHelper {
 		}
 		ais.database.model.inventory.Pedagang pedagang = tbmuser.getPedagang();
 		ais.database.model.inventory.Toko tokoLogin = pedagang == null ? null : pedagang.getToko();
-		boolean bolehSupervisor = pedagang == null || Boolean.TRUE.equals(pedagang.getSupervisor());
-		if (!bolehSupervisor) {
+		ais.database.model.Tbmrole role = tbmuser.hakAkses();
+		org.json.JSONObject menuRole = ais.common.EbisnisMenuKatalog.urai(
+				role == null ? null : role.getEbisnisMenu());
+		boolean bolehSupervisor = pedagang == null || Boolean.TRUE.equals(pedagang.getSupervisor())
+				|| menuRole.optBoolean("supervisor", false);
+		boolean bolehHapus = ais.common.EbisnisMenuKatalog.bolehAksi(
+				menuRole, "riwayatpenjualan", "delete")
+				|| ais.common.EbisnisMenuKatalog.bolehAksi(
+						menuRole, "riwayatpenjualan", "reject");
+		if (!bolehSupervisor && !bolehHapus) {
 			hasil.put("status", "91");
-			hasil.put("description", "Hanya supervisor/admin yang boleh membatalkan transaksi.");
+			hasil.put("description", "Akun Anda tidak memiliki hak pembatalan transaksi. Minta supervisor atau admin memberikan izin Hapus/Tolak pada menu Riwayat Penjualan.");
 			return;
 		}
 		String alasan = request.optString("alasan", "").trim();

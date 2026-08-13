@@ -1112,7 +1112,7 @@ public class CommonHelperClass {
 				if (!Common.checkBaypassStatusPembayaranMahasiswa(semester, tahap, mahasiswa, jenisKegiatansUntukKrs)) {
 					List<Kegiatan> kegiatanDibayars = mahasiswa.ambilKegiatans(semester, jenisKegiatansUntukKrs);
 					for (Kegiatan kegiatanDibayar : kegiatanDibayars) {
-						boolean lunas = (kegiatanDibayar != null && kegiatanDibayar.getPersentaseLunas() >= harusLunas);
+						boolean lunas = (kegiatanDibayar != null && kegiatanDibayar.hitungPersentaseLunasAktual() >= harusLunas);
 						System.out.println("kegiatanDibayar -> " + kegiatanDibayar + ", lunas " + lunas);
 						hasil &= lunas;
 					}
@@ -1206,7 +1206,7 @@ public class CommonHelperClass {
 				if (!Common.checkBaypassStatusPembayaranMahasiswa(semester, tahap, mahasiswa, jenisKegiatansUntukKrs)) {
 					List<Kegiatan> kegiatanDibayars = mahasiswa.ambilKegiatans(semester, jenisKegiatansUntukKrs);
 					for (Kegiatan kegiatanDibayar : kegiatanDibayars) {
-						hasil &= (kegiatanDibayar != null && kegiatanDibayar.getPersentaseLunas() >= harusLunas);
+						hasil &= (kegiatanDibayar != null && kegiatanDibayar.hitungPersentaseLunasAktual() >= harusLunas);
 					}
 				}
 
@@ -1257,7 +1257,7 @@ public class CommonHelperClass {
 				if (!Common.checkBaypassStatusPembayaranMahasiswa(semester, tahap, mahasiswa, jenisKegiatansUntukKrs)) {
 					List<Kegiatan> kegiatanDibayars = mahasiswa.ambilKegiatans(semester, jenisKegiatansUntukKrs);
 					for (Kegiatan kegiatanDibayar : kegiatanDibayars) {
-						hasil &= (kegiatanDibayar != null && kegiatanDibayar.getPersentaseLunas() >= harusLunas);
+						hasil &= (kegiatanDibayar != null && kegiatanDibayar.hitungPersentaseLunasAktual() >= harusLunas);
 					}
 				}
 
@@ -1322,11 +1322,11 @@ public class CommonHelperClass {
 				} else {
 					for (Kegiatan kegiatanDibayar : kegiatanDibayars) {
 						if (kegiatanDibayar != null) {
-							hasil &= (kegiatanDibayar != null && kegiatanDibayar.getPersentaseLunas() >= harusLunas);
+							hasil &= (kegiatanDibayar != null && kegiatanDibayar.hitungPersentaseLunasAktual() >= harusLunas);
 
 							System.out.println("mahasiswa " + mahasiswa + " semester " + semester + " tahap " + tahap
 									+ ", kegiatanDibayar = " + kegiatanDibayar + ", harusLunas = " + harusLunas
-									+ ", prosenYangSudahDibayar " + kegiatanDibayar.getPersentaseLunas() + ", hasil "
+									+ ", prosenYangSudahDibayar " + kegiatanDibayar.hitungPersentaseLunasAktual() + ", hasil "
 									+ hasil);
 						}
 					}
@@ -1362,7 +1362,7 @@ public class CommonHelperClass {
 			if (!Common.checkBaypassStatusPembayaranMahasiswa(semester, null, mahasiswa, jenisKegiatansUntukKrs)) {
 				List<Kegiatan> kegiatanDibayars = mahasiswa.ambilKegiatans(semester, jenisKegiatansUntukKrs);
 				for (Kegiatan kegiatanDibayar : kegiatanDibayars) {
-					hasil &= (kegiatanDibayar != null && kegiatanDibayar.getPersentaseLunas() >= harusLunas);
+					hasil &= (kegiatanDibayar != null && kegiatanDibayar.hitungPersentaseLunasAktual() >= harusLunas);
 				}
 			}
 
@@ -1394,7 +1394,7 @@ public class CommonHelperClass {
 			if (!Common.checkBaypassStatusPembayaranMahasiswa(semester, null, mahasiswa, jenisKegiatansUntukKrs)) {
 				List<Kegiatan> kegiatanDibayars = mahasiswa.ambilKegiatans(semester, jenisKegiatansUntukKrs);
 				for (Kegiatan kegiatanDibayar : kegiatanDibayars) {
-					hasil &= (kegiatanDibayar != null && kegiatanDibayar.getPersentaseLunas() >= harusLunas);
+					hasil &= (kegiatanDibayar != null && kegiatanDibayar.hitungPersentaseLunasAktual() >= harusLunas);
 				}
 			}
 
@@ -1432,7 +1432,7 @@ public class CommonHelperClass {
 			if (!Common.checkBaypassStatusPembayaranMahasiswa(semester, null, mahasiswa, jenisKegiatansUntukKrs)) {
 				List<Kegiatan> kegiatanDibayars = mahasiswa.ambilKegiatans(semester, jenisKegiatansUntukKrs);
 				for (Kegiatan kegiatanDibayar : kegiatanDibayars) {
-					hasil &= (kegiatanDibayar != null && kegiatanDibayar.getPersentaseLunas() >= harusLunas);
+					hasil &= (kegiatanDibayar != null && kegiatanDibayar.hitungPersentaseLunasAktual() >= harusLunas);
 				}
 			}
 

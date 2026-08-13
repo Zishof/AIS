@@ -89,6 +89,55 @@ public final class SinkronDaftarPengajuanTransferHelper {
 	private SinkronDaftarPengajuanTransferHelper() {
 	}
 
+	/**
+	 * Entry point tanpa komponen ZK untuk New UI. Semua kandidat tetap memakai daftar
+	 * sumber dan gating yang sama dengan layar existing, tetapi diproses berurutan agar
+	 * satu request HTTP tidak menghabiskan pool koneksi PostgreSQL.
+	 */
+	public static HasilSinkron sinkronkanHeadless() {
+		HasilSinkron hasil = new HasilSinkron();
+		List<Object[]> tugas = new ArrayList<Object[]>();
+		Session baca = null;
+		try {
+			baca = HibernateUtil.openSession();
+			for (Sumber sumber : daftarSumber()) {
+				try {
+					List<Long> ids = sumber.kandidat(baca);
+					if (ids != null) for (Long id : ids) if (id != null) tugas.add(new Object[] { sumber, id });
+				} catch (Exception ex) {
+					hasil.gagal++;
+					hasil.pesan.add(sumber.nama() + ": " + ex.getMessage());
+					try { ais.common.ErrorAuditUtil.record(ex, "SinkronDaftarPengajuanTransferHelper.headless.query"); } catch (Exception ignored) { }
+				}
+			}
+		} finally {
+			HibernateUtil.closeSessionQuietly(baca);
+		}
+		hasil.total = tugas.size();
+		for (Object[] tugasSatu : tugas) {
+			Sumber sumber = (Sumber) tugasSatu[0];
+			Long id = (Long) tugasSatu[1];
+			try {
+				if (sumber.sinkronSatu(id)) hasil.berhasil++; else hasil.dilewati++;
+			} catch (Throwable ex) {
+				hasil.gagal++;
+				hasil.pesan.add(sumber.nama() + " ID " + id + ": " + ex.getMessage());
+				try { ais.common.ErrorAuditUtil.record(ex instanceof Exception ? (Exception) ex : new RuntimeException(ex), "SinkronDaftarPengajuanTransferHelper.headless.item"); } catch (Exception ignored) { }
+			} finally {
+				try { HibernateUtil.closeSession(); } catch (Exception ignored) { }
+			}
+		}
+		return hasil;
+	}
+
+	public static final class HasilSinkron {
+		public int total;
+		public int berhasil;
+		public int dilewati;
+		public int gagal;
+		public final List<String> pesan = new ArrayList<String>();
+	}
+
 	// ── Titik masuk (dipanggil dari tombol) ─────────────────────────────────────────────────────
 
 	/**

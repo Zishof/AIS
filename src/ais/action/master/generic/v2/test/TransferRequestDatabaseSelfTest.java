@@ -1,0 +1,8 @@
+package ais.action.master.generic.v2.test;
+import ais.common.newui.akunting.NewUiTransferWorkflowService;
+import ais.common.newui.akunting.NewUiTransferWorkflowService.Filter;
+import ais.common.newui.akunting.NewUiTransferWorkflowService.Options;
+import ais.common.newui.akunting.NewUiTransferWorkflowService.ProcessDraft;
+import ais.common.newui.akunting.NewUiTransferWorkflowService.ProcessSnapshot;
+import ais.common.newui.akunting.NewUiTransferWorkflowService.Snapshot;
+public final class TransferRequestDatabaseSelfTest{private TransferRequestDatabaseSelfTest(){}public static void main(String[]a){NewUiTransferWorkflowService s=new NewUiTransferWorkflowService();Filter f=new Filter();f.page=0;f.size=10;Snapshot d=s.load(f);check(d.total>=0&&d.rows.size()<=10,"paging");Filter st=new Filter();st.waiting=true;st.submitted=true;st.transitory=true;st.transferred=true;st.page=0;st.size=10;s.load(st);Filter kind=new Filter();kind.advance=true;kind.accountability=true;kind.procurement=true;kind.termin=true;kind.tax=true;kind.page=0;kind.size=10;s.load(kind);ProcessSnapshot p=s.processes(f);check(p.total>=0&&p.rows.size()<=10,"process paging");Options o=s.options();ProcessDraft bad=new ProcessDraft();bad.title=" ";boolean rejected=false;try{s.createProcess(bad,null);}catch(IllegalArgumentException e){rejected=true;}check(rejected,"invalid process rejected");System.out.println("TransferRequestDatabaseSelfTest OK requests="+d.total+" processes="+p.total+" methods="+o.methods.size());System.exit(0);}private static void check(boolean v,String m){if(!v)throw new IllegalStateException(m);}}

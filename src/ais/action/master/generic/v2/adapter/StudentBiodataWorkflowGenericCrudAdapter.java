@@ -1,0 +1,4 @@
+package ais.action.master.generic.v2.adapter;
+import java.util.Arrays;import java.util.List;import ais.action.master.generic.v2.GenericCrudDefinition;import ais.database.model.BiodataMahasiswa;
+/** Biodata mahasiswa is saved with required documents, photo, adviser/KRS propagation, account/session refresh, and configurable validation. */
+@SuppressWarnings({"rawtypes","unchecked"})public final class StudentBiodataWorkflowGenericCrudAdapter extends GenericCrudAutoEntityAdapter{public StudentBiodataWorkflowGenericCrudAdapter(){super(BiodataMahasiswa.class,false,null,true);}public void configure(GenericCrudDefinition d){PerkuliahanWorkflowGenericCrudAdapter.lock(d,"Biodata Mahasiswa","id");d.setDefaultSortAscending(true);}public List getNaturalKeyProperties(){return Arrays.asList("mahasiswa");}}

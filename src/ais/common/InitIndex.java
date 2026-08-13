@@ -1823,7 +1823,57 @@ public class InitIndex {
 		});
 	}
 
+	/**
+	 * Sinkronkan skema instalasi lama dengan model {@code AturanDiskon}: produk
+	 * memang opsional, dan nilai NULL berarti promo berlaku untuk semua produk.
+	 *
+	 * Perintah yang sama dahulu hanya ada di webapp/cascade.sql. Berkas itu tidak
+	 * dijalankan oleh alur build/deploy Tomcat, sehingga database produksi lama
+	 * tetap memiliki NOT NULL dan menolak promo global dengan SQLState 23502.
+	 * ALTER COLUMN ... DROP NOT NULL idempoten serta tidak membuat index/constraint
+	 * redundan. Dijalankan sebelum DDL pool aktif agar migrasi selesai sebelum
+	 * inisialisasi startup dilanjutkan.
+	 */
+	static void initAturanDiskonProdukNullable() {
+		try {
+			ais.common.Common.updateSql(
+					"ALTER TABLE koperasi.aturan_diskon ALTER COLUMN produk DROP NOT NULL");
+		} catch (Exception e) {
+			e.printStackTrace();
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit InitIndex.initAturanDiskonProdukNullable");
+		}
+	}
+
+	/** Membuat master Kebijakan Retur dan relasinya ke Produk secara idempoten. */
+	static void initKebijakanReturProduk() {
+		try {
+			ais.common.Common.updateSql("CREATE TABLE IF NOT EXISTS koperasi.kebijakan_retur ("
+					+ "id bigserial PRIMARY KEY, nama varchar(255) NOT NULL, keterangan text, "
+					+ "aktif boolean DEFAULT true, oleh varchar(255), oleh_id varchar(255), tanggal_dirubah timestamp without time zone DEFAULT now())");
+			ais.common.Common.updateSql("CREATE UNIQUE INDEX IF NOT EXISTS kebijakan_retur_nama_uq ON koperasi.kebijakan_retur (lower(btrim(nama)))");
+			ais.common.Common.updateSql("INSERT INTO koperasi.kebijakan_retur(nama,keterangan,aktif) SELECT 'Tanpa Kebijakan Retur','Produk tidak menerima retur, kecuali diwajibkan oleh ketentuan yang berlaku.',true WHERE NOT EXISTS (SELECT 1 FROM koperasi.kebijakan_retur WHERE lower(btrim(nama))=lower('Tanpa Kebijakan Retur'))");
+			ais.common.Common.updateSql("ALTER TABLE koperasi.produk ADD COLUMN IF NOT EXISTS kebijakan_retur bigint");
+			ais.common.Common.updateSql("UPDATE koperasi.produk SET kebijakan_retur=(SELECT id FROM koperasi.kebijakan_retur WHERE lower(btrim(nama))=lower('Tanpa Kebijakan Retur') ORDER BY id LIMIT 1) WHERE kebijakan_retur IS NULL");
+			ais.common.Common.updateSql("CREATE INDEX IF NOT EXISTS produk_kebijakan_retur_idx ON koperasi.produk(kebijakan_retur)");
+			java.util.List<Object[]> constraint = ais.common.Common.ambilSql(
+					"SELECT 1 FROM pg_constraint WHERE conname='produk_kebijakan_retur_fk' AND conrelid='koperasi.produk'::regclass");
+			if (constraint == null || constraint.isEmpty()) {
+				ais.common.Common.updateSql(
+						"ALTER TABLE koperasi.produk ADD CONSTRAINT produk_kebijakan_retur_fk FOREIGN KEY (kebijakan_retur) REFERENCES koperasi.kebijakan_retur(id)");
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			ais.common.ErrorAuditUtil.record(e, "auto-audit InitIndex.initKebijakanReturProduk");
+		}
+	}
+
 	public static void initEksekusiQueryIndex() {
+		// Migrasi kompatibilitas skema harus selesai secara sinkron sebelum pool
+		// pekerjaan index paralel diaktifkan.
+		initAturanDiskonProdukNullable();
+		initKebijakanReturProduk();
+
 		// 1. EKSTENSI TRIGRAM (WAJIB) — dijalankan SINKRON (sebelum pool paralel aktif) karena
 		// seluruh index GIN trigram bergantung pada ekstensi ini; harus tersedia lebih dulu.
 		try {

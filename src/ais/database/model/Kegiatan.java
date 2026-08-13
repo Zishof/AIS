@@ -485,24 +485,26 @@ public class Kegiatan extends GeneralValueObject {
 	}
 
 	public Double getPersentaseLunas() {
-//		if (getAmountTerhutang() < 0.01) {
-//			persentaseLunas = 100.0;
-//		} else if (getAmount() != null && amountTerhutang != null) {
-//			if ((getAmount().intValue() + amountTerhutang.intValue()) == 0) {
-//				persentaseLunas = 100.0;
-//			} else if ((getAmount().intValue() + amountTerhutang.intValue()) > 0) {
-//				persentaseLunas = ((getAmount() * 100.0) / (getAmount() + amountTerhutang));
-//			} else {
-//				persentaseLunas = 0.0;
-//			}
-//		} else if (amountTerhutang == null) {
-//			persentaseLunas = 100.0;
-//		} else {
-//			persentaseLunas = 0.0;
-//		}
-
 		persentaseLunas = getPersentase();
 		return persentaseLunas;
+	}
+
+	public Double hitungPersentaseLunasAktual() {
+		Double tagihanLama = tagihan;
+		Double dibayarLama = dibayar;
+		Double tagihanHitung = hitungTagihan();
+		Double dibayarHitung = hitungDibayarAktualTanpaBatas();
+		tagihan = tagihanLama;
+		dibayar = dibayarLama;
+		double totalTagihan = tagihanHitung == null ? 0.0 : tagihanHitung.doubleValue();
+		double totalDibayar = dibayarHitung == null ? 0.0 : dibayarHitung.doubleValue();
+		if (totalTagihan < 0.01) {
+			return totalDibayar >= -0.01 ? 100.0 : 0.0;
+		}
+		if (totalDibayar + 0.01 >= totalTagihan) {
+			return 100.0;
+		}
+		return (totalDibayar * 100.0) / totalTagihan;
 	}
 
 	public void setPersentaseLunas(Double persentaseLunas) {
@@ -1560,6 +1562,45 @@ public class Kegiatan extends GeneralValueObject {
 		}
 
 		return dibayar;
+	}
+
+	@SuppressWarnings("unchecked")
+	public Double hitungDibayarAktualTanpaBatas() {
+		Double hasil = null;
+		try {
+			String blnStr = getBulans();
+
+			if (blnStr != null && !blnStr.trim().isEmpty() && !blnStr.equals("{}")) {
+				hasil = 0.0;
+				JSONObject jsonObject = new JSONObject(blnStr);
+				Iterator<String> iterator = jsonObject.keys();
+
+				while (iterator.hasNext()) {
+					String key = iterator.next();
+					String val = jsonObject.optString(key, "").trim();
+
+					if (!val.isEmpty() && !"null".equalsIgnoreCase(val) && key.split("_").length >= 3) {
+						try {
+							Double v = Double.parseDouble(val);
+							if (v > 0.0) {
+								hasil += v;
+							}
+						} catch (NumberFormatException nfe) {
+							ais.common.ErrorAuditUtil.record(nfe,
+									"auto-audit(empty-catch) src/ais/database/model/Kegiatan.java:hitungDibayarAktualTanpaBatas");
+						}
+					}
+				}
+				jsonObject = null;
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit(empty-catch) src/ais/database/model/Kegiatan.java:hitungDibayarAktualTanpaBatas");
+		}
+		if (hasil == null) {
+			hasil = dibayar == null ? 0.0 : dibayar;
+		}
+		return hasil;
 	}
 
 	@SuppressWarnings("unchecked")

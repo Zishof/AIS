@@ -1203,7 +1203,9 @@ public class CommonComboLanguageHelper extends Common {
 			}
 
 			try {
-				if (Common.isNumber(StringUtils.split(defaultBahasa, "/")[0].trim())) {
+				String[] slashParts = StringUtils.split(defaultBahasa, "/");
+				if (slashParts != null && slashParts.length > 0 && slashParts[0] != null
+						&& Common.isNumber(slashParts[0].trim())) {
 					return defaultBahasa;
 				}
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/CommonComboLanguageHelper.java:1198");

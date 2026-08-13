@@ -7,6 +7,7 @@ import org.hibernate.Criteria;
 import org.hibernate.Session;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 
 import ais.database.hibernate.HibernateUtil;
@@ -92,6 +93,18 @@ public final class PriceTagUtil {
 	@SuppressWarnings("unchecked")
 	public static List<Produk> listProduk(Session session, Long tokoId, String q, boolean semuaToko, boolean adminGlobal,
 			String jenisItemFilter) {
+		return listProduk(session, tokoId, q, semuaToko, adminGlobal, jenisItemFilter, -1, -1);
+	}
+
+	@SuppressWarnings("unchecked")
+	public static List<Produk> listProduk(Session session, Long tokoId, String q, boolean semuaToko,
+			boolean adminGlobal, String jenisItemFilter, int offset, int limit) {
+		return listProduk(session, tokoId, q, semuaToko, adminGlobal, jenisItemFilter, null, offset, limit);
+	}
+
+	@SuppressWarnings("unchecked")
+	public static List<Produk> listProduk(Session session, Long tokoId, String q, boolean semuaToko,
+			boolean adminGlobal, String jenisItemFilter, Long kategoriId, int offset, int limit) {
 		if (tokoId == null && !(semuaToko && adminGlobal)) {
 			return new ArrayList<Produk>();
 		}
@@ -102,9 +115,31 @@ public final class PriceTagUtil {
 		// Android, lihat PosApi.prosesKatalog), yang WAJIB mengembalikan SELURUH katalog, bukan hanya
 		// sebagian. Fitur Price Tag (pemanggil ASLI batas ini) tetap aman tanpa batas krn pemakainya
 		// selalu menyaring dulu lewat `q` sebelum mencetak.
-		Criteria c = s.createCriteria(Produk.class)
-				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+		Criteria c = buatCriteria(s, tokoId, q, semuaToko, adminGlobal, jenisItemFilter, kategoriId)
 				.addOrder(Order.asc("nama"));
+		if (offset >= 0) c.setFirstResult(offset);
+		if (limit > 0) c.setMaxResults(limit);
+		return c.list();
+	}
+
+	public static long countProduk(Session session, Long tokoId, String q, boolean semuaToko,
+			boolean adminGlobal, String jenisItemFilter) {
+		return countProduk(session, tokoId, q, semuaToko, adminGlobal, jenisItemFilter, null);
+	}
+
+	public static long countProduk(Session session, Long tokoId, String q, boolean semuaToko,
+			boolean adminGlobal, String jenisItemFilter, Long kategoriId) {
+		if (tokoId == null && !(semuaToko && adminGlobal)) return 0L;
+		Session s = session == null ? HibernateUtil.currentSession() : session;
+		Object nilai = buatCriteria(s, tokoId, q, semuaToko, adminGlobal, jenisItemFilter, kategoriId)
+				.setProjection(Projections.rowCount()).uniqueResult();
+		return nilai instanceof Number ? ((Number) nilai).longValue() : 0L;
+	}
+
+	private static Criteria buatCriteria(Session s, Long tokoId, String q, boolean semuaToko,
+			boolean adminGlobal, String jenisItemFilter, Long kategoriId) {
+		Criteria c = s.createCriteria(Produk.class)
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
 		if (semuaToko) {
 			if (!adminGlobal) {
 				c.add(Restrictions.or(Restrictions.eq("toko.id", tokoId), Restrictions.isNull("toko")));
@@ -119,6 +154,7 @@ public final class PriceTagUtil {
 					Restrictions.ilike("kode", q.trim(), MatchMode.ANYWHERE)),
 					Restrictions.ilike("barcode", q.trim(), MatchMode.ANYWHERE)));
 		}
+		if (kategoriId != null) c.add(Restrictions.eq("jenisProduk.id", kategoriId));
 		if ("JUAL".equals(jenisItemFilter)) {
 			// Gap-closure "Produk Ekstra" -- Ekstra jg dikeluarkan dari katalog Kasir/admin-JUAL
 			// persis spt Bahan Baku (hanya boleh dipilih via picker "Pilih Ekstra" pada produk dasar).
@@ -129,6 +165,6 @@ public final class PriceTagUtil {
 		} else if ("EKSTRA".equals(jenisItemFilter)) {
 			c.add(Restrictions.eq("jenisItem", "EKSTRA"));
 		}
-		return c.list();
+		return c;
 	}
 }

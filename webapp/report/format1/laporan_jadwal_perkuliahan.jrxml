@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="laporan_dosen_pembina_matakuliah" language="groovy" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="535" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="70e6cbe7-014c-4e35-a07e-31fef7576c31">
 	<property name="ireport.zoom" value="1.9487171000000014"/>
 	<property name="ireport.x" value="0"/>
@@ -74,7 +74,7 @@ a.kelas,
 a.tahun_ajaran,
 e.nama as fakultas,
 d.nama as jurusan,
-a.keterangan_jadwal
+a.keteranganjadwal as keterangan_jadwal
 
 from perkuliahan a
 left join ruang a1 on (a1.id = a.ruang)
@@ -314,7 +314,7 @@ a.waktu_mulai_d,a.waktu_selesai_d,c.nama]]>
 				</textElement>
 				<textFieldExpression><![CDATA[$V{hari_COUNT}]]></textFieldExpression>
 			</textField>
-			<textField isBlankWhenNull="true">
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
 				<reportElement style="Detail" x="22" y="0" width="79" height="31" uuid="971bb170-42f6-401e-a332-05259052c7ff"/>
 				<box>
 					<topPen lineWidth="0.5"/>
@@ -325,7 +325,7 @@ a.waktu_mulai_d,a.waktu_selesai_d,c.nama]]>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font size="7"/>
 				</textElement>
-				<textFieldExpression><![CDATA[($F{waktu}==null?($F{keterangan_jadwal}==null?"":$F{keterangan_jadwal}):$F{waktu})+"\n"+($F{waktu_perkuliahan}==null?"":$F{waktu_perkuliahan})]]></textFieldExpression>
+				<textFieldExpression><![CDATA[(($F{waktu}==null||$F{waktu}.trim().length()==0||$F{waktu}.equals("-"))?($F{keterangan_jadwal}==null?"":$F{keterangan_jadwal}):(($F{keterangan_jadwal}==null||$F{keterangan_jadwal}.trim().length()==0)?$F{waktu}:$F{waktu}+"\n"+$F{keterangan_jadwal}))+(($F{waktu_perkuliahan}==null||$F{waktu_perkuliahan}.trim().length()==0)?"":"\n"+$F{waktu_perkuliahan})]]></textFieldExpression>
 			</textField>
 			<textField isBlankWhenNull="true">
 				<reportElement style="Detail" x="101" y="0" width="76" height="31" uuid="de2c428e-20ec-404e-b292-9a2a0023664b"/>
@@ -466,3 +466,4 @@ a.waktu_mulai_d,a.waktu_selesai_d,c.nama]]>
 		</band>
 	</summary>
 </jasperReport>
+

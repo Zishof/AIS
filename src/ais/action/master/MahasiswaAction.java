@@ -6831,7 +6831,7 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 
 			final Tabpanel tabpanelBiodata = new ais.ui.util.MyTabpanel();
 			tabpanelBiodata.setParent(tabpanels);
-			tabBiodata.addEventListener("onClick", new EventListener() {
+			EventListener tabBiodataListener = new EventListener() {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
@@ -6844,12 +6844,14 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 						tabpanelBiodata.appendChild(initBiodata(mahasiswa));
 					}
 				}
-			});
+			};
+			tabBiodata.addEventListener("onClick", tabBiodataListener);
+			tabBiodata.addEventListener("onSelect", tabBiodataListener);
 
 			final Tabpanel tabpanelBeasiswa = new ais.ui.util.MyTabpanel();
 			tabpanelBeasiswa.setParent(tabpanels);
 
-			tabBeasiswa.addEventListener("onClick", new EventListener() {
+			EventListener tabBeasiswaListener = new EventListener() {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
@@ -6864,12 +6866,14 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 						tabpanelBeasiswa.appendChild(initBeasiswa(MahasiswaAction.this.mahasiswa));
 					}
 				}
-			});
+			};
+			tabBeasiswa.addEventListener("onClick", tabBeasiswaListener);
+			tabBeasiswa.addEventListener("onSelect", tabBeasiswaListener);
 
 			final Tabpanel tabpanelCuti = new ais.ui.util.MyTabpanel();
 			tabpanelCuti.setParent(tabpanels);
 
-			tabCuti.addEventListener("onClick", new EventListener() {
+			EventListener tabCutiListener = new EventListener() {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
@@ -6884,7 +6888,9 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 						tabpanelCuti.appendChild(initCuti(MahasiswaAction.this.mahasiswa));
 					}
 				}
-			});
+			};
+			tabCuti.addEventListener("onClick", tabCutiListener);
+			tabCuti.addEventListener("onSelect", tabCutiListener);
 
 			tabpanel = new ais.ui.util.MyTabpanel();
 			tabpanel.setParent(tabpanels);
@@ -6893,7 +6899,7 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 			final Tabpanel tabpanelAlumni = new ais.ui.util.MyTabpanel();
 			tabpanelAlumni.setParent(tabpanels);
 
-			tabAlumni.addEventListener("onClick", new EventListener() {
+			EventListener tabAlumniListener = new EventListener() {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
@@ -6908,7 +6914,9 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 						tabpanelAlumni.appendChild(initAlumni(MahasiswaAction.this.mahasiswa));
 					}
 				}
-			});
+			};
+			tabAlumni.addEventListener("onClick", tabAlumniListener);
+			tabAlumni.addEventListener("onSelect", tabAlumniListener);
 
 			tabpanel = new ais.ui.util.MyTabpanel();
 			tabpanel.setParent(tabpanels);
