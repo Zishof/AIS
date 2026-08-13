@@ -550,6 +550,15 @@ public class PosApi extends HttpServlet {
 			} else if ("jenis_produk_hapus".equals(action)) {
 				ais.action.servlet.api.JenisProdukApiHelper.jenisProdukHapus(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "jenis_produk_hapus");
+			} else if ("kebijakan_retur_list".equals(action)) {
+				ais.action.servlet.api.KebijakanReturApiHelper.list(payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "kebijakan_retur_list");
+			} else if ("kebijakan_retur_simpan".equals(action)) {
+				ais.action.servlet.api.KebijakanReturApiHelper.simpan(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "kebijakan_retur_simpan");
+			} else if ("kebijakan_retur_hapus".equals(action)) {
+				ais.action.servlet.api.KebijakanReturApiHelper.hapus(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "kebijakan_retur_hapus");
 			} else if ("akun_list".equals(action)) {
 				ais.action.servlet.api.JenisProdukApiHelper.akunList(payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "akun_list");
@@ -811,6 +820,9 @@ public class PosApi extends HttpServlet {
 				JenisProduk jp = p.getJenisProduk();
 				j.put("kategoriId", jp == null || jp.getId() == null ? JSONObject.NULL : jp.getId());
 				j.put("kategoriNama", jp == null ? "" : str(jp.getNama()));
+				ais.database.model.inventory.KebijakanRetur kr = p.getKebijakanRetur();
+				j.put("kebijakanReturId", kr == null || kr.getId() == null ? JSONObject.NULL : kr.getId());
+				j.put("kebijakanReturNama", kr == null ? ais.database.model.inventory.KebijakanRetur.TANPA_KEBIJAKAN : str(kr.getNama()));
 				// Gap-closure "Cetak PDF" (layar Produk) -- perlu Satuan/UOM & Pemasok per baris utk
 				// cetakan detail, field ini SEBELUMNYA tak pernah dikirim aksi katalog sama sekali.
 				j.put("satuanNama", p.getSatuan() == null ? "" : str(p.getSatuan().getNama()));

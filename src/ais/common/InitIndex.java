@@ -1845,10 +1845,40 @@ public class InitIndex {
 		}
 	}
 
+	/**
+	 * Membuat master Kebijakan Retur dan relasinya ke Produk secara idempoten.
+	 * Hanya dua index yang dibuat: nama unik master dan FK produk untuk lookup.
+	 */
+	static void initKebijakanReturProduk() {
+		try {
+			ais.common.Common.updateSql("CREATE TABLE IF NOT EXISTS koperasi.kebijakan_retur ("
+					+ "id bigserial PRIMARY KEY, nama varchar(255) NOT NULL, keterangan text, "
+					+ "aktif boolean DEFAULT true, oleh varchar(255), oleh_id varchar(255), "
+					+ "tanggal_dirubah timestamp without time zone DEFAULT now())");
+			ais.common.Common.updateSql("CREATE UNIQUE INDEX IF NOT EXISTS kebijakan_retur_nama_uq "
+					+ "ON koperasi.kebijakan_retur (lower(btrim(nama)))");
+			ais.common.Common.updateSql("INSERT INTO koperasi.kebijakan_retur(nama,keterangan,aktif) "
+					+ "SELECT 'Tanpa Kebijakan Retur','Produk tidak menerima retur, kecuali diwajibkan oleh ketentuan yang berlaku.',true "
+					+ "WHERE NOT EXISTS (SELECT 1 FROM koperasi.kebijakan_retur WHERE lower(btrim(nama))=lower('Tanpa Kebijakan Retur'))");
+			ais.common.Common.updateSql("ALTER TABLE koperasi.produk ADD COLUMN IF NOT EXISTS kebijakan_retur bigint");
+			ais.common.Common.updateSql("UPDATE koperasi.produk SET kebijakan_retur=(SELECT id FROM koperasi.kebijakan_retur "
+					+ "WHERE lower(btrim(nama))=lower('Tanpa Kebijakan Retur') ORDER BY id LIMIT 1) WHERE kebijakan_retur IS NULL");
+			ais.common.Common.updateSql("CREATE INDEX IF NOT EXISTS produk_kebijakan_retur_idx ON koperasi.produk(kebijakan_retur)");
+			ais.common.Common.updateSql("DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint "
+					+ "WHERE conname='produk_kebijakan_retur_fk' AND conrelid='koperasi.produk'::regclass) THEN "
+					+ "ALTER TABLE koperasi.produk ADD CONSTRAINT produk_kebijakan_retur_fk FOREIGN KEY (kebijakan_retur) "
+					+ "REFERENCES koperasi.kebijakan_retur(id); END IF; END $$");
+		} catch (Exception e) {
+			e.printStackTrace();
+			ais.common.ErrorAuditUtil.record(e, "auto-audit InitIndex.initKebijakanReturProduk");
+		}
+	}
+
 	public static void initEksekusiQueryIndex() {
 		// Migrasi kompatibilitas skema harus selesai secara sinkron sebelum pool
 		// pekerjaan index paralel diaktifkan.
 		initAturanDiskonProdukNullable();
+		initKebijakanReturProduk();
 
 		// 1. EKSTENSI TRIGRAM (WAJIB) — dijalankan SINKRON (sebelum pool paralel aktif) karena
 		// seluruh index GIN trigram bergantung pada ekstensi ini; harus tersedia lebih dulu.

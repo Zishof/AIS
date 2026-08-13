@@ -115,6 +115,7 @@ public class AppStartupListener implements ServletContextListener {
 			// demikian promo "Semua Produk" tidak perlu menunggu seluruh maintenance
 			// index selesai di thread latar.
 			InitIndex.initAturanDiskonProdukNullable();
+			InitIndex.initKebijakanReturProduk();
 
 			ConstantValues.initNativeSesion();
 

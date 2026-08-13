@@ -119,6 +119,7 @@ public class Produk extends GeneralValueObject {
 	private MasterAsset masterAsset;
 	private PemasokProduk pemasok;
 	private SatuanProduk satuan;
+	private KebijakanRetur kebijakanRetur;
 
 	public Produk() {
 	}
@@ -414,6 +415,19 @@ public class Produk extends GeneralValueObject {
 
 	public void setSatuan(SatuanProduk satuan) {
 		this.satuan = satuan;
+	}
+
+	/** Kebijakan retur produk; data kosong dimaknai sebagai kebijakan baku tanpa retur. */
+	@org.hibernate.envers.NotAudited
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "kebijakan_retur", nullable = true)
+	public KebijakanRetur getKebijakanRetur() {
+		kebijakanRetur = check(kebijakanRetur);
+		return kebijakanRetur;
+	}
+
+	public void setKebijakanRetur(KebijakanRetur kebijakanRetur) {
+		this.kebijakanRetur = kebijakanRetur;
 	}
 
 	private String jenisItem;

@@ -2514,6 +2514,9 @@ public class KantinHelper {
 			} else if (request.has("kategori_id")) {
 				p.setJenisProduk(null);
 			}
+			// Kebijakan retur tidak pernah dibiarkan tanpa makna: bila field kosong,
+			// produk memakai master baku "Tanpa Kebijakan Retur".
+			p.setKebijakanRetur(KebijakanReturApiHelper.resolveAtauBawaan(session, request));
 			// Gap-closure "Jenis Item" (Produk vs Bahan Baku) -- lihat JavaDoc Produk.getJenisItem().
 			if (request.has("jenis_item")) {
 				String jenisItem = request.optString("jenis_item", "JUAL").trim().toUpperCase();
