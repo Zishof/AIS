@@ -7,12 +7,14 @@ import java.util.List;
 import java.util.Map;
 
 import ais.action.master.generic.v2.adapter.AgamaGenericCrudAdapter;
+import ais.action.master.generic.v2.adapter.BadanHukumGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.GenericCrudFormOverrideProvider;
 import ais.action.master.generic.v2.adapter.JenjangProgramStudiGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.MahasiswaGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.MahasiswaGenericCrudFormProvider;
 import ais.action.master.generic.v2.adapter.PenilaianSiswaGenericCrudAdapter;
 import ais.database.model.Agama;
+import ais.database.model.BadanHukum;
 import ais.database.model.Jenjang;
 import ais.database.model.JenjangProgramStudi;
 import ais.database.model.Jurusan;
@@ -36,6 +38,7 @@ public final class GenericCrudDefinitionRegistry {
         register(buildMahasiswa());
         register(buildJenjangProgramStudi());
         register(buildPenilaianSiswa());
+        register(buildBadanHukum());
     }
     private GenericCrudDefinitionRegistry() { }
 
@@ -302,6 +305,53 @@ public final class GenericCrudDefinitionRegistry {
                 false, true, true, 90));
         d.addField(field("aktif", "Aktif", Boolean.class, "checkbox", true, true, true,
                 false, true, false, 100));
+        return d;
+    }
+
+    private static GenericCrudDefinition buildBadanHukum() {
+        GenericCrudDefinition d = new GenericCrudDefinition();
+        d.setEntityClass(BadanHukum.class);
+        d.setModuleKey("root");
+        d.setPageKey("badan_hukum");
+        d.setDisplayName("Badan Hukum");
+        d.setSourceActionClassName("ais.action.master.BadanHukumAction");
+        d.setExistingActionLifecycleBound(false);
+        d.setLifecycleStatus(GenericCrudDefinition.FULL_CRUD);
+        d.setEnabled(true);
+        d.setCreateEnabled(true);
+        d.setUpdateEnabled(true);
+        d.setDeleteEnabled(false);
+        d.setImportEnabled(false);
+        d.setExportPdfEnabled(true);
+        d.setExportDocxEnabled(true);
+        d.setExportPptxEnabled(true);
+        d.setAuditEnabled(true);
+        d.setRowAuditEnabled(true);
+        d.setRestoreEnabled(false);
+        d.setAdminDeleteEnabled(false);
+        d.setDefaultSortProperty("id");
+        d.setDefaultPageSize(10);
+        d.setMaxPageSize(10);
+        BadanHukumGenericCrudAdapter adapter = new BadanHukumGenericCrudAdapter();
+        d.setAdapter(adapter);
+        d.setScopeAdapter(adapter);
+        d.addField(field("id", "ID", Long.class, "number", true, false, false, false, true, false, 10));
+        d.addField(field("kode", "Kode", String.class, "text", true, true, true, true, true, true, 20));
+        d.addField(field("nama", "Nama", String.class, "text", true, true, true, false, true, true, 30));
+        d.addField(field("alamat1", "Alamat 1", String.class, "textarea", false, true, true, false, false, true, 40));
+        d.addField(field("alamat2", "Alamat 2", String.class, "textarea", false, true, true, false, false, true, 50));
+        d.addField(field("kota", "Kota", String.class, "text", true, true, true, false, true, true, 60));
+        d.addField(field("kodePos", "Kode Pos", String.class, "text", false, true, true, false, true, true, 70));
+        d.addField(field("telepon", "Telepon", String.class, "text", false, true, true, false, true, true, 80));
+        d.addField(field("faksimil", "Faksimil", String.class, "text", false, true, true, false, true, true, 90));
+        d.addField(field("tanggalAkta", "Tanggal Akta", java.util.Date.class, "date", false, true, true, false, true, false, 100));
+        d.addField(field("namaAkta", "Nama Akta", String.class, "text", false, true, true, false, true, true, 110));
+        d.addField(field("tanggalPengesahan", "Tanggal Pengesahan", java.util.Date.class, "date", false, true, true, false, true, false, 120));
+        d.addField(field("nomorPengesahan", "Nomor Pengesahan", String.class, "text", false, true, true, false, true, true, 130));
+        d.addField(field("tanggalAwalPendirian", "Tanggal Awal Pendirian", java.util.Date.class, "date", false, true, true, false, true, false, 140));
+        d.addField(field("email", "Email", String.class, "text", false, true, true, false, true, true, 150));
+        d.addField(field("alamatWebsite", "Website", String.class, "text", false, true, true, false, true, true, 160));
+        d.addField(field("logo", "Logo", String.class, "text", false, true, true, false, true, true, 170));
         return d;
     }
 

@@ -40,3 +40,9 @@ disembunyikan juga otomatis mematikan create agar constraint tidak dilewati.
 Angka di atas dihasilkan oleh `GenericCrudModelCoverageAudit`; audit berikutnya
 akan memisahkan definition eksplisit dan Action kompleks yang masih memerlukan
 adapter khusus.
+
+## Adapter kompleks yang sudah dipindahkan
+
+- `BadanHukumAction`: form singleton ID 1, validasi kode wajib, seluruh field
+  legalitas/kontak, audit, ekspor, serta larangan delete telah menjadi definition
+  dan adapter native. Penyimpanan tidak merender komponen ZUL.
