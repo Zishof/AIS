@@ -22,6 +22,7 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.GeneralValueObject;
 import ais.action.master.generic.v2.adapter.GenericCrudRowSanitizer;
 import ais.action.master.generic.v2.adapter.GenericCrudQueryInitializer;
+import ais.action.master.generic.v2.adapter.GenericCrudQueryProvider;
 
 @SuppressWarnings({ "rawtypes", "unchecked", "deprecation" })
 public class GenericCrudQueryService {
@@ -32,6 +33,10 @@ public class GenericCrudQueryService {
             String search, List filters, GenericCrudSort sort) throws Exception {
         privilege.require(context, GenericCrudOperation.READ);
         GenericCrudDefinition definition = context.getDefinition();
+        if (definition.getAdapter() instanceof GenericCrudQueryProvider) {
+            return ((GenericCrudQueryProvider) definition.getAdapter()).listRows(
+                    context, page, normalizePageSize(pageSize, definition), search, filters, sort);
+        }
         ClassMetadata metadata = GenericCrudRuntimeMetadataVerifier.verify(definition);
         page = page < 1 ? 1 : page;
         pageSize = normalizePageSize(pageSize, definition);
@@ -69,6 +74,9 @@ public class GenericCrudQueryService {
     public Map get(GenericCrudRequestContext context, Serializable id) throws Exception {
         privilege.require(context, GenericCrudOperation.READ);
         GenericCrudDefinition definition = context.getDefinition();
+        if (definition.getAdapter() instanceof GenericCrudQueryProvider) {
+            return ((GenericCrudQueryProvider) definition.getAdapter()).getRow(context, id);
+        }
         ClassMetadata metadata = GenericCrudRuntimeMetadataVerifier.verify(definition);
         Session session = HibernateUtil.getSessionFactory().openSession();
         try {

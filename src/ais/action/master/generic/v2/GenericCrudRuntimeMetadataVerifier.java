@@ -4,6 +4,7 @@ import org.hibernate.metadata.ClassMetadata;
 import org.hibernate.type.Type;
 
 import ais.database.hibernate.HibernateUtil;
+import ais.action.master.generic.v2.adapter.GenericCrudQueryProvider;
 
 /** Hibernate runtime metadata adalah sumber kebenaran terakhir sebelum entity dipakai. */
 public final class GenericCrudRuntimeMetadataVerifier {
@@ -33,6 +34,7 @@ public final class GenericCrudRuntimeMetadataVerifier {
             Type type;
             try { type = metadata.getPropertyType(field.getProperty()); }
             catch (Exception missing) {
+                if (definition.getAdapter() instanceof GenericCrudQueryProvider) continue;
                 throw new GenericCrudException(409, "FIELD_METADATA_DRIFT", "Field konfigurasi tidak ada pada metadata runtime: " + field.getProperty());
             }
             Class returned = type.getReturnedClass();

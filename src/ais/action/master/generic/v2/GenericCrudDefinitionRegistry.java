@@ -22,6 +22,7 @@ import ais.action.master.generic.v2.adapter.NomorSuratAlurPengadaanGenericCrudAd
 import ais.action.master.generic.v2.adapter.MemoryInfoGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.FormatItemGajiGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.ProdukPesertaGenericCrudAdapter;
+import ais.action.master.generic.v2.adapter.HasilUjianMahasiswaGenericCrudAdapter;
 import ais.database.model.Agama;
 import ais.database.model.BadanHukum;
 import ais.database.model.Jenjang;
@@ -61,6 +62,7 @@ import ais.database.model.kursus.ProdukPeserta;
 import ais.database.model.kursus.PesertaKursus;
 import ais.database.model.kursus.ProdukKursus;
 import ais.database.model.kursus.PesertaPunyaProdukKursus;
+import ais.database.model.HasilUjianMahasiswa;
 
 /**
  * Registry allow-list. Scanner menghasilkan kandidat disabled; hanya entity yang
@@ -83,6 +85,7 @@ public final class GenericCrudDefinitionRegistry {
         register(buildMemoryInfo());
         register(buildFormatItemGaji());
         register(buildProdukPeserta());
+        register(buildHasilUjianMahasiswa());
         register(buildEmployeeHistory(RiwayatTandaJasaPegawai.class, "riwayat_tanda_jasa_pegawai", "Riwayat Tanda Jasa Pegawai"));
         register(buildEmployeeHistory(RiwayatPendidikanPegawai.class, "riwayat_pendidikan_pegawai", "Riwayat Pendidikan Pegawai"));
         register(buildEmployeeHistory(RiwayatPelatihanPegawai.class, "riwayat_pelatihan_pegawai", "Riwayat Pelatihan Pegawai"));
@@ -707,6 +710,29 @@ public final class GenericCrudDefinitionRegistry {
                 PesertaPunyaProdukKursus.class, true, false, false, false, 50);
         pembelian.setRelationDisplayProperty("waktuBeli"); d.addField(pembelian);
         d.addField(field("keterangan", "Keterangan", String.class, "textarea", true, false, false, false, true, true, 60));
+        return d;
+    }
+
+    private static GenericCrudDefinition buildHasilUjianMahasiswa() {
+        GenericCrudDefinition d = new GenericCrudDefinition(); d.setEntityClass(HasilUjianMahasiswa.class);
+        d.setModuleKey("root"); d.setPageKey("hasil_ujian_mahasiswa"); d.setDisplayName("Antrean Ujian Mahasiswa");
+        d.setSourceActionClassName("ais.action.master.HasilUjianMahasiswaAction");
+        d.setExistingActionLifecycleBound(false); d.setLifecycleStatus(GenericCrudDefinition.READ_ONLY);
+        d.setEnabled(true); d.setCreateEnabled(false); d.setUpdateEnabled(false); d.setDeleteEnabled(false);
+        d.setImportEnabled(false); d.setExportPdfEnabled(true); d.setExportDocxEnabled(true); d.setExportPptxEnabled(true);
+        d.setSavedViewEnabled(false); d.setAuditEnabled(false); d.setRowAuditEnabled(false);
+        d.setGlobalAuditEnabled(false); d.setRestoreEnabled(false); d.setAdminDeleteEnabled(false);
+        d.setDefaultSortProperty("id"); d.setDefaultSortAscending(true);
+        d.setDefaultPageSize(10); d.setMaxPageSize(100);
+        HasilUjianMahasiswaGenericCrudAdapter adapter = new HasilUjianMahasiswaGenericCrudAdapter();
+        d.setAdapter(adapter); d.setScopeAdapter(adapter);
+        d.addField(field("id", "ID", Long.class, "number", false, false, false, false, true, false, 10));
+        d.addField(field("keyhasil", "Kunci Antrean", String.class, "text", false, false, false, false, true, true, 15));
+        d.addField(field("ujian", "Ujian / Pertemuan", String.class, "text", true, false, false, false, false, true, 20));
+        d.addField(field("peserta", "Peserta", String.class, "text", true, false, false, false, false, true, 30));
+        d.addField(field("mulaiPada", "Mulai Pada", java.util.Date.class, "datetime", true, false, false, false, false, false, 40));
+        d.addField(field("sisaWaktu", "Sisa Waktu", String.class, "text", true, false, false, false, false, true, 50));
+        d.addField(field("lamaPengerjaan", "Lama Pengerjaan", java.util.Date.class, "time", true, false, false, false, false, false, 60));
         return d;
     }
 
