@@ -1888,6 +1888,12 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 	}
 
 	public void removePertemuan(Serializable id) {
+		// Pada callback Hibernate post-delete, ID pada instance entity dapat sudah
+		// dikosongkan. Jangan mencoba id.toString() karena pemeliharaan cache ini
+		// bersifat best-effort dan tidak boleh menggagalkan transaksi utama.
+		if (id == null) {
+			return;
+		}
 		try {
 			JSONObject c;
 			try {

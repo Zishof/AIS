@@ -1020,7 +1020,7 @@ public class AuditListener extends AuditEventListener {
 
 			} else if (serializable instanceof Pertemuan) {
 				Pertemuan p = (Pertemuan) serializable;
-				p.hapusPertemuan();
+				p.hapusPertemuan(id);
 				p.delete();
 			} else if (serializable instanceof PertemuanPunyaDiskusi) {
 				PertemuanPunyaDiskusi p = (PertemuanPunyaDiskusi) serializable;
@@ -1250,7 +1250,7 @@ public class AuditListener extends AuditEventListener {
 
 			} else if (serializable instanceof Pertemuan) {
 				Pertemuan p = (Pertemuan) serializable;
-				p.hapusPertemuan();
+				p.hapusPertemuan(id);
 				p.tambahPertemuan();
 				p.write();
 			} else if (serializable instanceof PertemuanPunyaDiskusi) {

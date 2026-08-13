@@ -2662,6 +2662,18 @@ public class Pertemuan extends Tugas {
 	}
 
 	public void hapusPertemuan() {
+		hapusPertemuan(getId());
+	}
+
+	/**
+	 * Menghapus referensi pertemuan dari cache dosen menggunakan ID yang diberikan
+	 * event Hibernate. ID event tetap tersedia pada fase post-delete walaupun ID
+	 * pada instance entity kadang sudah null.
+	 */
+	public void hapusPertemuan(Serializable pertemuanId) {
+		if (pertemuanId == null) {
+			return;
+		}
 		Collection<Dosen> dosens = null;
 		if (getPerkuliahan() != null) {
 			dosens = getPerkuliahan().populateDosenBuNama();
@@ -2679,7 +2691,9 @@ public class Pertemuan extends Tugas {
 		}
 		if (dosens != null) {
 			for (Dosen dosen : dosens) {
-				dosen.removePertemuan(getId());
+				if (dosen != null) {
+					dosen.removePertemuan(pertemuanId);
+				}
 			}
 		}
 		dosens = null;
