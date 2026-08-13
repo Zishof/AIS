@@ -27,10 +27,10 @@ mempunyai lifecycle yang jelas untuk setiap model.
 - Model sensitif/restricted: 132
 - Lifecycle Action existing yang dapat dipanggil headless: 746
 - Lifecycle metadata hanya untuk model tanpa Action: 572
-- Definition/adapter eksplisit: 39
-- Action kompleks yang tetap fail-closed dan perlu review: 38
+- Definition/adapter eksplisit: 40
+- Action kompleks yang tetap fail-closed dan perlu review: 37
 - Create aktif: 1.299
-- Update aktif: 1.308
+- Update aktif: 1.309
 - Delete/soft-delete aktif: 186
 
 Audit keamanan tambahan memperlakukan model yang mempunyai field password,
@@ -39,7 +39,7 @@ restricted walaupun nama class-nya terlihat umum. Field wajib yang sengaja
 disembunyikan juga otomatis mematikan create agar constraint tidak dilewati.
 
 Angka di atas dihasilkan oleh `GenericCrudModelCoverageAudit` setelah kebijakan
-strict diterapkan. Tiga puluh delapan Action kompleks bukan dianggap selesai: mutation
+strict diterapkan. Tiga puluh tujuh Action kompleks bukan dianggap selesai: mutation
 ditolak sampai Action tersebut diklasifikasikan sebagai read-only atau memperoleh
 adapter/service native yang mempertahankan validasi dan efek bisnis existing.
 
@@ -60,6 +60,12 @@ create/delete manual tetap dimatikan. Aksi “Generate No. SK Berdasarkan Jadwal
 tersedia sebagai custom action ber-CSRF dan privilege UPDATE, memproses tahun
 akademik/semester secara transaksional, mempertahankan natural key existing,
 memperbarui SKS, audit user, dan membatasi jadwal ke perguruan tinggi pengguna.
+
+`TransaksiKoperasiDetailAction` kini mempertahankan pola checkbox existing:
+record hanya dapat diubah pada field `aktif`; create, delete, import, serta edit
+pokok/margin/sisa ditutup. Daftar default hanya menampilkan record aktif,
+diurutkan ID terbaru, diaudit, dan untuk role anggota dibatasi ke transaksi milik
+anggota tersebut.
 
 Perubahan penting dari audit awal adalah `metadataBacked` tidak lagi digunakan
 bila class Action existing ditemukan. Sebelumnya kondisi tersebut dapat membuat
