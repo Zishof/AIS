@@ -14,6 +14,7 @@ import ais.action.master.generic.v2.adapter.KeluargaGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.MahasiswaGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.MahasiswaGenericCrudFormProvider;
 import ais.action.master.generic.v2.adapter.PenilaianSiswaGenericCrudAdapter;
+import ais.action.master.generic.v2.adapter.PegawaiHistoryGenericCrudAdapter;
 import ais.database.model.Agama;
 import ais.database.model.BadanHukum;
 import ais.database.model.Jenjang;
@@ -27,6 +28,16 @@ import ais.database.model.sekolah.KurikulumSekolah;
 import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Yayasan;
 import ais.database.model.employ.Keluarga;
+import ais.database.model.employ.RiwayatTandaJasaPegawai;
+import ais.database.model.employ.RiwayatPendidikanPegawai;
+import ais.database.model.employ.RiwayatPelatihanPegawai;
+import ais.database.model.employ.RiwayatOrganisasiSekolahPegawai;
+import ais.database.model.employ.RiwayatOrganisasiKampusPegawai;
+import ais.database.model.employ.RiwayatOrganisasiLainPegawai;
+import ais.database.model.employ.RiwayatKeteranganLainPegawai;
+import ais.database.model.employ.RiwayatKerjaPegawai;
+import ais.database.model.employ.RiwayatKeluarNegeriPegawai;
+import ais.database.model.employ.RiwayatKartuIdentitasPegawai;
 import ais.database.model.payroll.AsuransiPegawai;
 
 /**
@@ -43,6 +54,16 @@ public final class GenericCrudDefinitionRegistry {
         register(buildPenilaianSiswa());
         register(buildBadanHukum());
         register(buildKeluarga());
+        register(buildEmployeeHistory(RiwayatTandaJasaPegawai.class, "riwayat_tanda_jasa_pegawai", "Riwayat Tanda Jasa Pegawai"));
+        register(buildEmployeeHistory(RiwayatPendidikanPegawai.class, "riwayat_pendidikan_pegawai", "Riwayat Pendidikan Pegawai"));
+        register(buildEmployeeHistory(RiwayatPelatihanPegawai.class, "riwayat_pelatihan_pegawai", "Riwayat Pelatihan Pegawai"));
+        register(buildEmployeeHistory(RiwayatOrganisasiSekolahPegawai.class, "riwayat_organisasi_sekolah_pegawai", "Riwayat Organisasi Sekolah Pegawai"));
+        register(buildEmployeeHistory(RiwayatOrganisasiKampusPegawai.class, "riwayat_organisasi_kampus_pegawai", "Riwayat Organisasi Kampus Pegawai"));
+        register(buildEmployeeHistory(RiwayatOrganisasiLainPegawai.class, "riwayat_organisasi_lain_pegawai", "Riwayat Organisasi Lain Pegawai"));
+        register(buildEmployeeHistory(RiwayatKeteranganLainPegawai.class, "riwayat_keterangan_lain_pegawai", "Riwayat Keterangan Lain Pegawai"));
+        register(buildEmployeeHistory(RiwayatKerjaPegawai.class, "riwayat_kerja_pegawai", "Riwayat Kerja Pegawai"));
+        register(buildEmployeeHistory(RiwayatKeluarNegeriPegawai.class, "riwayat_keluar_negeri_pegawai", "Riwayat Keluar Negeri Pegawai"));
+        register(buildEmployeeHistory(RiwayatKartuIdentitasPegawai.class, "riwayat_kartu_identitas_pegawai", "Riwayat Kartu Identitas Pegawai"));
     }
     private GenericCrudDefinitionRegistry() { }
 
@@ -372,7 +393,8 @@ public final class GenericCrudDefinitionRegistry {
         d.setCreateEnabled(true);
         d.setUpdateEnabled(true);
         d.setDeleteEnabled(true);
-        d.setImportEnabled(false);
+        d.setImportEnabled(true);
+        d.setImportRequiresApprove(true);
         d.setAttachmentEnabled(true);
         d.setExportPdfEnabled(true);
         d.setExportDocxEnabled(true);
@@ -412,6 +434,43 @@ public final class GenericCrudDefinitionRegistry {
                 false, true, true, true, false, true, 150));
         d.addField(field("status", "Status Persetujuan", Boolean.class, "checkbox",
                 true, false, false, false, true, false, 160));
+        return d;
+    }
+
+    private static GenericCrudDefinition buildEmployeeHistory(Class entityClass, String page, String label) {
+        GenericCrudDefinition d = new GenericCrudDefinition();
+        d.setEntityClass(entityClass);
+        d.setModuleKey("employ");
+        d.setPageKey(page);
+        d.setDisplayName(label);
+        d.setSourceActionClassName("ais.action.master.employ." + entityClass.getSimpleName() + "Action");
+        d.setExistingActionLifecycleBound(false);
+        d.setLifecycleStatus(GenericCrudDefinition.FULL_CRUD);
+        d.setEnabled(true);
+        d.setCreateEnabled(true);
+        d.setUpdateEnabled(true);
+        d.setDeleteEnabled(true);
+        d.setImportEnabled(true);
+        d.setImportRequiresApprove(true);
+        d.setAttachmentEnabled(true);
+        d.setExportPdfEnabled(true);
+        d.setExportDocxEnabled(true);
+        d.setExportPptxEnabled(true);
+        d.setAuditEnabled(true);
+        d.setRowAuditEnabled(true);
+        d.setRestoreEnabled(false);
+        d.setAdminDeleteEnabled(false);
+        d.setDefaultSortProperty("id");
+        d.setDefaultPageSize(10);
+        d.setMaxPageSize(100);
+        PegawaiHistoryGenericCrudAdapter adapter = new PegawaiHistoryGenericCrudAdapter(entityClass);
+        d.setAdapter(adapter);
+        d.setScopeAdapter(adapter);
+        d.addField(field("id", "ID", Long.class, "number", true, false, false, false, true, false, 10));
+        d.addField(relationField("pegawai", "Pegawai", ais.database.model.Pegawai.class,
+                true, true, false, false, 20));
+        d.addField(field("status", "Status Persetujuan", Boolean.class, "checkbox",
+                true, false, false, false, true, false, 900));
         return d;
     }
 

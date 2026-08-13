@@ -13,6 +13,7 @@ import org.hibernate.criterion.Restrictions;
 import ais.action.master.generic.v2.GenericCrudException;
 import ais.action.master.generic.v2.GenericCrudRequestContext;
 import ais.action.master.generic.v2.GenericCrudResult;
+import ais.common.Common;
 import ais.common.CommonPrivilages;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.GeneralValueObject;
@@ -171,11 +172,12 @@ public class KeluargaGenericCrudAdapter extends AbstractGenericCrudEntityAdapter
             criteria.add(Restrictions.eq("pegawai", employee));
             return;
         }
+        if (Common.getApakahAdmin()) return;
         Object unit = context.getUser().getSatuanKerja();
         if (unit != null) {
             criteria.createAlias("pegawai", "scopePegawai");
             criteria.add(Restrictions.eq("scopePegawai.satuanKerja", unit));
-        }
+        } else criteria.add(Restrictions.sqlRestriction("1=0"));
     }
 
     public void validateObjectScope(GeneralValueObject object,
@@ -187,9 +189,10 @@ public class KeluargaGenericCrudAdapter extends AbstractGenericCrudEntityAdapter
             if (!same(employee, family.getPegawai())) deny();
             return;
         }
+        if (Common.getApakahAdmin()) return;
         Object allowedUnit = context.getUser().getSatuanKerja();
         Object actualUnit = family.getPegawai() == null ? null : family.getPegawai().getSatuanKerja();
-        if (allowedUnit != null && !allowedUnit.equals(actualUnit)) deny();
+        if (allowedUnit == null || !allowedUnit.equals(actualUnit)) deny();
     }
 
     private Pegawai owner(GenericCrudRequestContext context) {

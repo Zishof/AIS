@@ -222,8 +222,12 @@ public class GenericCrudImportService {
     }
     private void requireImport(GenericCrudRequestContext context) throws GenericCrudException {
         if (!context.getDefinition().isImportEnabled()) throw new GenericCrudException(403, "IMPORT_DISABLED", "Import belum diaktifkan untuk entity ini.");
-        if (!(context.isCanCreate() && context.isCanUpdate() && context.isCanDelete())) {
-            throw new GenericCrudException(403, "IMPORT_PRIVILEGE_DENIED", "Import memerlukan CREATE, UPDATE, dan DELETE.");
+        if (!(context.isCanCreate() && context.isCanUpdate())
+                || (context.getDefinition().isImportDeleteEnabled() && !context.isCanDelete())) {
+            throw new GenericCrudException(403, "IMPORT_PRIVILEGE_DENIED", "Import memerlukan CREATE dan UPDATE; DELETE wajib bila import-delete aktif.");
+        }
+        if (context.getDefinition().isImportRequiresApprove() && !context.isCanApprove()) {
+            throw new GenericCrudException(403, "IMPORT_APPROVE_REQUIRED", "Import riwayat pegawai memerlukan privilege APPROVE.");
         }
     }
     private ImportJob getJob(GenericCrudRequestContext context, String key) throws GenericCrudException {

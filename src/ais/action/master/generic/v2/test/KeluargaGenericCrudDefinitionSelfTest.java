@@ -27,6 +27,8 @@ public final class KeluargaGenericCrudDefinitionSelfTest {
         check(found.getAdapter() instanceof GenericCrudApprovalAdapter, "Approval keluarga tidak terpasang");
         check(found.isAttachmentEnabled() && found.getAdapter() instanceof GenericCrudAttachmentAdapter,
                 "Lampiran keluarga tidak terpasang");
+        check(found.isImportEnabled() && found.isImportRequiresApprove() && !found.isImportDeleteEnabled(),
+                "Aturan import keluarga tidak sesuai helper legacy");
         check(found.getField("pegawai") != null && found.getField("hubungan") != null
                 && found.getField("status") != null, "Field inti keluarga belum lengkap");
         check(!found.getField("status").isCreateable() && !found.getField("status").isUpdateable(),

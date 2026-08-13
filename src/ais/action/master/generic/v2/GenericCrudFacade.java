@@ -48,7 +48,8 @@ public class GenericCrudFacade {
         result.put("restore", Boolean.valueOf(d.isRestoreEnabled()));
         result.put("adminDelete", Boolean.valueOf(d.isAdminDeleteEnabled()));
         result.put("importEnabled", Boolean.valueOf(d.isImportEnabled() && context.isCanCreate()
-                && context.isCanUpdate() && context.isCanDelete()));
+                && context.isCanUpdate() && (!d.isImportDeleteEnabled() || context.isCanDelete())
+                && (!d.isImportRequiresApprove() || context.isCanApprove())));
         result.put("importDeleteEnabled", Boolean.valueOf(d.isImportDeleteEnabled() && context.isCanDelete()));
         result.put("exportXlsx", Boolean.valueOf(d.isExportXlsxEnabled()));
         result.put("exportPdf", Boolean.valueOf(d.isExportPdfEnabled()));

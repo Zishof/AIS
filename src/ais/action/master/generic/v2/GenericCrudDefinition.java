@@ -34,6 +34,7 @@ public class GenericCrudDefinition implements Serializable {
     private boolean deleteEnabled;
     private boolean importEnabled;
     private boolean importDeleteEnabled;
+    private boolean importRequiresApprove;
     private boolean exportXlsxEnabled = true;
     private boolean exportPdfEnabled;
     private boolean exportDocxEnabled;
@@ -99,6 +100,8 @@ public class GenericCrudDefinition implements Serializable {
     public void setImportEnabled(boolean value) { importEnabled = value; }
     public boolean isImportDeleteEnabled() { return importDeleteEnabled; }
     public void setImportDeleteEnabled(boolean value) { importDeleteEnabled = value; }
+    public boolean isImportRequiresApprove() { return importRequiresApprove; }
+    public void setImportRequiresApprove(boolean value) { importRequiresApprove = value; }
     public boolean isExportXlsxEnabled() { return exportXlsxEnabled; }
     public void setExportXlsxEnabled(boolean value) { exportXlsxEnabled = value; }
     public boolean isExportPdfEnabled() { return exportPdfEnabled; }
