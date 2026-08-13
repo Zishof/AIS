@@ -40,6 +40,7 @@ public final class GenericCrudInstitutionScope {
         if (entityClass == null || user == null || Common.getApakahAdmin()) return result;
         ClassMetadata metadata = HibernateUtil.getSessionFactory().getClassMetadata(entityClass);
         if (metadata == null) return result;
+        add(metadata, result, "perguruanTinggi", invoke(user, "getPerguruanTinggi"));
         add(metadata, result, "yayasan", invoke(user, "getYayasan"));
         add(metadata, result, "sekolah", invoke(user, "getSekolah"));
         add(metadata, result, "program", invoke(user, "getProgram"));

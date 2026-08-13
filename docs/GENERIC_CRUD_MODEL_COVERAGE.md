@@ -27,10 +27,10 @@ mempunyai lifecycle yang jelas untuk setiap model.
 - Model sensitif/restricted: 132
 - Lifecycle Action existing yang dapat dipanggil headless: 746
 - Lifecycle metadata hanya untuk model tanpa Action: 572
-- Definition/adapter eksplisit: 35
-- Action kompleks yang tetap fail-closed dan perlu review: 40
-- Create aktif: 1.298
-- Update aktif: 1.306
+- Definition/adapter eksplisit: 38
+- Action kompleks yang tetap fail-closed dan perlu review: 39
+- Create aktif: 1.299
+- Update aktif: 1.307
 - Delete/soft-delete aktif: 186
 
 Audit keamanan tambahan memperlakukan model yang mempunyai field password,
@@ -39,9 +39,20 @@ restricted walaupun nama class-nya terlihat umum. Field wajib yang sengaja
 disembunyikan juga otomatis mematikan create agar constraint tidak dilewati.
 
 Angka di atas dihasilkan oleh `GenericCrudModelCoverageAudit` setelah kebijakan
-strict diterapkan. Empat puluh Action kompleks bukan dianggap selesai: mutation
+strict diterapkan. Tiga puluh sembilan Action kompleks bukan dianggap selesai: mutation
 ditolak sampai Action tersebut diklasifikasikan sebagai read-only atau memperoleh
 adapter/service native yang mempertahankan validasi dan efek bisnis existing.
+
+`PenumumanWebsiteAction` kini mempunyai adapter native hasil review: judul wajib,
+default tanggal/kategori/status, scope perguruan tinggi, audit user, urutan tanggal
+terbaru, batas baca 200, serta capability tambah/ubah tanpa delete/import. Hook
+konfigurasi adapter juga dijalankan setelah field metadata dibentuk agar aturan
+Action tersebut tidak tertimpa default auto-definition.
+
+Guard institusi generik sekarang juga mengikat properti `perguruanTinggi` dari
+user aktif. Sebelumnya property tenant tersebut belum ikut pada criteria baca,
+count, create default, dan validasi object; kondisi itu telah ditutup tanpa
+memanggil atau merender komponen ZK.
 
 Perubahan penting dari audit awal adalah `metadataBacked` tidak lagi digunakan
 bila class Action existing ditemukan. Sebelumnya kondisi tersebut dapat membuat

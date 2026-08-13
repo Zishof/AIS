@@ -240,6 +240,10 @@ public final class GenericCrudAutoDefinitionFactory {
         definition.setDefaultSortProperty(defaultSort);
         definition.setVersionProperty(findVersionProperty(metadata));
         definition.setCreateEnabled(autoCreatePossible && actionCreate);
+        // Adapter hasil review dapat mempertahankan konfigurasi layar Action
+        // existing (urutan, page size, ekspor, dan capability) setelah field
+        // metadata selesai dibentuk.
+        adapter.configure(definition);
         return definition;
     }
 
