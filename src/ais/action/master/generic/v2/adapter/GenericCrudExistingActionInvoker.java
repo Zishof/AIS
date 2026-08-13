@@ -29,7 +29,7 @@ public final class GenericCrudExistingActionInvoker {
             if (GenericCrudAction.class.isAssignableFrom(actionClass)) return hasDefaultConstructor(actionClass);
             return hasDefaultConstructor(actionClass)
                     && !hostFields(actionClass).isEmpty()
-                    && booleanEventSave(actionClass) != null
+                    && lifecycleEventSave(actionClass) != null
                     && hasEntityInit(actionClass);
         } catch (Throwable unavailableDependency) {
             return false;
@@ -41,7 +41,7 @@ public final class GenericCrudExistingActionInvoker {
             if (actionClass == null || entityClass == null || !hasDefaultConstructor(actionClass)) return false;
             if (GenericCrudAction.class.isAssignableFrom(actionClass)) return true;
             return !hostFields(actionClass).isEmpty()
-                    && booleanEventSave(actionClass) != null
+                    && lifecycleEventSave(actionClass) != null
                     && compatibleInit(actionClass, entityClass) != null;
         } catch (Throwable unavailableDependency) {
             return false;
@@ -50,6 +50,20 @@ public final class GenericCrudExistingActionInvoker {
 
     public static boolean supportsCreate(Class actionClass, Class entityClass) {
         return supports(actionClass, entityClass) && hasDefaultConstructor(entityClass);
+    }
+
+    /** Ringkasan kontrak untuk audit CLI; tidak memuat atau mengeksekusi halaman ZUL. */
+    public static String supportDiagnostics(Class actionClass, Class entityClass) {
+        try {
+            if (actionClass == null) return "action=missing";
+            return "ctor=" + hasDefaultConstructor(actionClass)
+                    + ",generic=" + GenericCrudAction.class.isAssignableFrom(actionClass)
+                    + ",host=" + hostFields(actionClass).size()
+                    + ",eventOnSave=" + saveContract(actionClass)
+                    + ",entityInit=" + (compatibleInit(actionClass, entityClass) != null);
+        } catch (Throwable failed) {
+            return "reflectionError=" + failed.getClass().getName();
+        }
     }
 
     public static void execute(Class actionClass, GeneralValueObject target) throws Exception {
@@ -81,8 +95,9 @@ public final class GenericCrudExistingActionInvoker {
             }
             init.setAccessible(true);
             init.invoke(action, new Object[] { target });
-            Object result = booleanEventSave(actionClass).invoke(action, new Object[] { null });
-            accepted = Boolean.TRUE.equals(result);
+            Method save = lifecycleEventSave(actionClass);
+            Object result = save.invoke(action, new Object[] { null });
+            accepted = save.getReturnType() == Void.TYPE || Boolean.TRUE.equals(result);
         } catch (InvocationTargetException wrapped) {
             Throwable cause = wrapped.getCause();
             if (cause instanceof Exception) throw (Exception) cause;
@@ -108,12 +123,18 @@ public final class GenericCrudExistingActionInvoker {
         catch (Throwable missing) { return false; }
     }
 
-    private static Method booleanEventSave(Class type) {
+    private static Method lifecycleEventSave(Class type) {
         try {
             Method method = type.getMethod("onSave", new Class[] { Event.class });
             return method.getReturnType() == Boolean.TYPE || method.getReturnType() == Boolean.class
+                    || method.getReturnType() == Void.TYPE
                     ? method : null;
         } catch (Throwable missing) { return null; }
+    }
+
+    private static String saveContract(Class type) {
+        Method method = lifecycleEventSave(type);
+        return method == null ? "none" : method.getReturnType().getName();
     }
 
     private static boolean hasEntityInit(Class type) {

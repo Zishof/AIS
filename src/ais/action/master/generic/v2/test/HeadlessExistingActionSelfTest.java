@@ -55,6 +55,9 @@ public final class HeadlessExistingActionSelfTest {
         check(rejected, "Container legacy bertipe Component tidak berhasil diinjeksi.");
         check(GenericCrudExistingActionInvoker.supportsCreate(LegacyComponentHostAction.class, Agama.class),
                 "CREATE Action bertipe Component belum dikenali sebagai lifecycle native.");
+        LegacyVoidSaveAction.saved = false;
+        GenericCrudExistingActionInvoker.execute(LegacyVoidSaveAction.class, new Agama());
+        check(LegacyVoidSaveAction.saved, "Action legacy void onSave(Event) tidak dieksekusi.");
         check(GenericCrudExistingActionInvoker.supportsCreate(PenyediaAssetAction.class, PenyediaAsset.class),
                 "Lifecycle native PenyediaAssetAction belum terhubung.");
         check(GenericCrudExistingActionInvoker.supportsCreate(CalonPegawaiAction.class, CalonPegawai.class),
@@ -104,6 +107,21 @@ public final class HeadlessExistingActionSelfTest {
                 return false;
             }
             return true;
+        }
+    }
+
+    /** Fixture pola legacy yang menyatakan sukses lewat return normal, bukan boolean. */
+    public static final class LegacyVoidSaveAction {
+        static boolean saved;
+        private org.zkoss.zul.Window dialog;
+
+        public void init(Agama agama) {
+            org.zkoss.zul.Label marker = new org.zkoss.zul.Label("siap");
+            marker.setParent(dialog);
+        }
+
+        public void onSave(org.zkoss.zk.ui.event.Event event) {
+            saved = true;
         }
     }
 }

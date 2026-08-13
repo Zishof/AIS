@@ -10,6 +10,7 @@ import org.hibernate.cfg.Configuration;
 import ais.action.master.generic.v2.GenericCrudAutoDefinitionFactory;
 import ais.action.master.generic.v2.GenericCrudDefinition;
 import ais.action.master.generic.v2.GenericCrudDefinitionRegistry;
+import ais.action.master.generic.v2.adapter.GenericCrudExistingActionInvoker;
 import ais.database.hibernate.HibernateUtil;
 
 /** Audit read-only cakupan model Hibernate terhadap lifecycle Action existing. */
@@ -67,7 +68,9 @@ public final class GenericCrudModelCoverageAudit {
                     && !definition.isMetadataLifecycleBound()) {
                 unbound++;
                 System.out.println("UNBOUND entity=" + entityKey + " action="
-                        + definition.getSourceActionClassName());
+                        + definition.getSourceActionClassName() + " contract="
+                        + GenericCrudExistingActionInvoker.supportDiagnostics(
+                                resolve(definition.getSourceActionClassName()), entityClass));
             }
             if (definition.isCreateEnabled()) create++;
             if (definition.isUpdateEnabled()) update++;
@@ -105,11 +108,18 @@ public final class GenericCrudModelCoverageAudit {
         // Audit metadata tidak boleh menjalankan schema update terhadap ribuan tabel.
         configuration.getProperties().remove("hbm2ddl.auto");
         configuration.getProperties().remove("hibernate.hbm2ddl.auto");
+        configuration.getProperties().remove("hibernate.session_factory_name");
         configuration.setProperty("javax.persistence.validation.mode", "none");
         configuration.setProperty("hibernate.validator.autoregister_listeners", "false");
         configuration.setProperty("hibernate.validator.apply_to_ddl", "false");
         SessionFactory standalone = configuration.buildSessionFactory();
         field.set(null, standalone);
         return standalone;
+    }
+
+    private static Class resolve(String name) {
+        if (name == null) return null;
+        try { return Class.forName(name); }
+        catch (Throwable missing) { return null; }
     }
 }
