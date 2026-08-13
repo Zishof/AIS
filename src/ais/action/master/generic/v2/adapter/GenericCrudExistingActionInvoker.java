@@ -94,7 +94,7 @@ public final class GenericCrudExistingActionInvoker {
                         "Action existing tidak mempunyai init(entity) yang cocok dengan model ini.");
             }
             init.setAccessible(true);
-            init.invoke(action, new Object[] { target });
+            init.invoke(action, initArguments(actionClass, init, target));
             Method save = lifecycleEventSave(actionClass);
             Object result = save.invoke(action, new Object[] { null });
             accepted = save.getReturnType() == Void.TYPE || Boolean.TRUE.equals(result);
@@ -166,7 +166,35 @@ public final class GenericCrudExistingActionInvoker {
             }
             current = current.getSuperclass();
         }
-        return fallback;
+        if (fallback != null) return fallback;
+        Boolean configured = configuredBooleanInit(type);
+        if (configured == null) return null;
+        current = type;
+        while (current != null && current != Object.class) {
+            Method[] methods = current.getDeclaredMethods();
+            for (int i = 0; i < methods.length; i++) {
+                Class[] parameters = methods[i].getParameterTypes();
+                if (!"init".equals(methods[i].getName()) || parameters.length != 2
+                        || !parameters[0].isAssignableFrom(entityClass)) continue;
+                if (parameters[1] == Boolean.TYPE || parameters[1] == Boolean.class) return methods[i];
+            }
+            current = current.getSuperclass();
+        }
+        return null;
+    }
+
+    private static Object[] initArguments(Class actionClass, Method init, GeneralValueObject target) {
+        if (init.getParameterTypes().length == 1) return new Object[] { target };
+        return new Object[] { target, configuredBooleanInit(actionClass) };
+    }
+
+    /** Nilai flag mengikuti arti parameter pada Action existing, bukan ditebak dari ID entity. */
+    private static Boolean configuredBooleanInit(Class actionClass) {
+        if (actionClass == null) return null;
+        String name = actionClass.getName();
+        if ("ais.action.master.KurikulumAction".equals(name)) return Boolean.FALSE; // copy=false
+        if ("ais.action.master.SkripsiAction".equals(name)) return Boolean.TRUE; // tampilkanSimpan=true
+        return null;
     }
 
     /**

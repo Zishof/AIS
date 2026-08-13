@@ -2,6 +2,8 @@ package ais.action.master.generic.v2.test;
 
 import ais.action.master.AgamaAction;
 import ais.action.master.AlatTransportasiMahasiswaAction;
+import ais.action.master.KurikulumAction;
+import ais.action.master.SkripsiAction;
 import ais.action.master.asset.PenyediaAssetAction;
 import ais.action.master.generic.v2.adapter.GenericCrudExistingActionInvoker;
 import ais.action.master.recruitment.CalonPegawaiAction;
@@ -9,6 +11,8 @@ import ais.common.HeadlessActionContext;
 import ais.common.HeadlessBusinessRuleException;
 import ais.database.model.Agama;
 import ais.database.model.AlatTransportasiMahasiswa;
+import ais.database.model.Kurikulum;
+import ais.database.model.Skripsi;
 import ais.database.model.asset.PenyediaAsset;
 import ais.database.model.recruitment.CalonPegawai;
 import ais.ui.util.MyMessageboxConfig;
@@ -62,6 +66,10 @@ public final class HeadlessExistingActionSelfTest {
                 "Lifecycle native PenyediaAssetAction belum terhubung.");
         check(GenericCrudExistingActionInvoker.supportsCreate(CalonPegawaiAction.class, CalonPegawai.class),
                 "Lifecycle native CalonPegawaiAction belum terhubung.");
+        check(GenericCrudExistingActionInvoker.supportsCreate(KurikulumAction.class, Kurikulum.class),
+                "Lifecycle init(Kurikulum, copy=false) belum terhubung.");
+        check(GenericCrudExistingActionInvoker.supportsCreate(SkripsiAction.class, Skripsi.class),
+                "Lifecycle init(Skripsi, tampilkanSimpan=true) belum terhubung.");
         check(!HeadlessActionContext.isActive(), "Konteks headless bocor setelah Action selesai.");
         System.out.println("PASS existing Action headless validation self-test");
         // Hibernate/c3p0 aplikasi mempertahankan worker non-daemon pada eksekusi CLI.
