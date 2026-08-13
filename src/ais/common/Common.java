@@ -4660,6 +4660,36 @@ public class Common {
 	public static final DataFormatter df = new DataFormatter();
 
 	/**
+	 * Pemeriksaan tanggal yang tahan terhadap file XLSX dengan referensi style
+	 * rusak/tidak lengkap. Beberapa ekspor Accurate menyimpan atribut style sel
+	 * (misalnya s="10") tetapi styles.xml tidak memiliki cellXfs yang dirujuk.
+	 * ZK POI lama melempar IndexOutOfBoundsException sebelum nilai numerik sempat
+	 * dibaca. Dalam kondisi tersebut style tidak dapat dipercaya, sehingga nilai
+	 * diperlakukan sebagai angka biasa; isi selnya sendiri tetap valid.
+	 */
+	private static boolean isCellDateFormattedAman(XSSFCell cell) {
+		if (cell == null) {
+			return false;
+		}
+		try {
+			int jumlahStyle = cell.getSheet().getWorkbook().getNumCellStyles() & 0xffff;
+			if (jumlahStyle <= 0) {
+				return false;
+			}
+			if (cell.getCTCell() != null && cell.getCTCell().isSetS()) {
+				long indeksStyle = cell.getCTCell().getS();
+				if (indeksStyle < 0 || indeksStyle >= jumlahStyle) {
+					return false;
+				}
+			}
+			return org.zkoss.poi.ss.usermodel.DateUtil.isCellDateFormatted(cell);
+		} catch (IndexOutOfBoundsException e) {
+			// Fallback terkontrol untuk ketidakcocokan style table ZK POI.
+			return false;
+		}
+	}
+
+	/**
 	 * Mengonversi sebuah sel Excel ({@link XSSFCell}) menjadi representasi STRING-nya, apa pun tipe selnya.
 	 *
 	 * <p><b>Tujuan.</b> Membaca nilai sel secara seragam sebagai teks—menangani perbedaan tipe sel POI
@@ -4698,7 +4728,7 @@ public class Common {
 				content = cell.getRichStringCellValue().getString();
 				break;
 			case XSSFCell.CELL_TYPE_NUMERIC:
-				if (org.zkoss.poi.ss.usermodel.DateUtil.isCellDateFormatted(cell)) {
+				if (isCellDateFormattedAman(cell)) {
 					content = df.formatCellValue(cell);
 				} else {
 					double numV = cell.getNumericCellValue();
@@ -4720,7 +4750,7 @@ public class Common {
 			case XSSFCell.CELL_TYPE_FORMULA:
 				switch (cell.getCachedFormulaResultType()) {
 				case XSSFCell.CELL_TYPE_NUMERIC:
-					if (org.zkoss.poi.ss.usermodel.DateUtil.isCellDateFormatted(cell)) {
+					if (isCellDateFormattedAman(cell)) {
 						content = df.formatCellValue(cell);
 					} else {
 						double numV = cell.getNumericCellValue();
