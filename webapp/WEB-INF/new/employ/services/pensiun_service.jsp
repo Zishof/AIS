@@ -12,7 +12,7 @@ request.setAttribute("nuiServiceType", "list");
 request.setAttribute("nuiServiceSourceClass", "PensiunAction");
 request.setAttribute("nuiServiceSourcePackage", "ais.action.master.employ");
 request.setAttribute("nuiServiceSourcePath", "src/ais/action/master/employ/PensiunAction.java");
-request.setAttribute("nuiServiceMethods", new String[]{});
-request.setAttribute("nuiServiceEntities", new String[]{});
+request.setAttribute("nuiServiceMethods", new String[]{"onSearchDefault"});
+request.setAttribute("nuiServiceEntities", new String[]{"ais.database.model.Pegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

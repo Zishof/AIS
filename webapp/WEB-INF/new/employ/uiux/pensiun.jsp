@@ -10,14 +10,14 @@ request.setAttribute("nuiModuleLabel", "SDM & Kepegawaian");
 request.setAttribute("nuiPage", "pensiun");
 request.setAttribute("nuiPageTitle", "Pensiun");
 request.setAttribute("nuiPageType", "list");
-request.setAttribute("nuiPageDescription", "Pendataan untuk SDM & Kepegawaian. Daftar data, pencarian, filter, detail, impor, dan ekspor.");
+request.setAttribute("nuiPageDescription", "Daftar pegawai berstatus pensiun, pencarian, filter satuan kerja, ekspor, dan pengaktifan kembali sesuai hak akses.");
 request.setAttribute("nuiSourceClass", "PensiunAction");
 request.setAttribute("nuiSourcePackage", "ais.action.master.employ");
 request.setAttribute("nuiSourcePath", "src/ais/action/master/employ/PensiunAction.java");
 request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "PegawaiAction");
 request.setAttribute("nuiSourceImplements", "");
-request.setAttribute("nuiSourceMethods", new String[]{});
-request.setAttribute("nuiEntityCandidates", new String[]{});
+request.setAttribute("nuiSourceMethods", new String[]{"onSearchDefault"});
+request.setAttribute("nuiEntityCandidates", new String[]{"ais.database.model.Pegawai"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />
