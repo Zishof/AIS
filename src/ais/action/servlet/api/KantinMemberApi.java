@@ -513,6 +513,10 @@ public final class KantinMemberApi {
         } finally { closeSession(s); }
 
         json.put("id_member", anggotaId.toString());
+        // Endpoint ini sudah mengautentikasi token dan mengikat id_member ke akun
+        // yang login. Tandai sebagai checkout mandiri agar tidak memerlukan sesi
+        // kas kasir; KantinHelper tetap memverifikasi kecocokan akun dan anggota.
+        json.put("kanalCheckout", "anggota_online");
         JSONObject hasil = new JSONObject();
         KantinHelper.bayar(user, json, hasil);
         return hasil;

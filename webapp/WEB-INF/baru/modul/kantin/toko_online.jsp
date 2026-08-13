@@ -1259,6 +1259,7 @@ String linkLoginViaGoogle = Common.ROOT+"/google.zul";
                 idToko: tId, 
                 waktu: curWaktu,
                 id_member: idMemberAktif<%=rnd%>,
+                kanalCheckout: "anggota_online",
                 transaksi: transaksiToko.map(item => ({
                     id: item.id,
                     kode: item.kode,

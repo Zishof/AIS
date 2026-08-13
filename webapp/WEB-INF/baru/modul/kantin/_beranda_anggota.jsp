@@ -1640,6 +1640,7 @@ String channelTopup = Common.getKonfigurasi("cannel_va_e_smartlink", "VA_BNI:250
                 idToko: tId,
                 waktu: curWaktu,
                 id_member: idMemberAktif<%=rnd%>,
+                kanalCheckout: "anggota_online",
                 caraBayar: idCaraBayar,
                 keterangan: komentarKeranjang,
                 transaksi: transaksiToko.map(item => ({

@@ -436,6 +436,16 @@ public class KantinHelper {
 				Session session = HibernateUtil.getSessionFactory().openSession();
 
 				try {
+					// Checkout mandiri anggota (web/JSP atau API member) bukan transaksi yang
+					// diterima kasir di meja kas, sehingga tidak bergantung pada Sesi Kas Kasir.
+					// Penanda kanal saja TIDAK cukup: akun login, relasi anggota akun, dan
+					// id_member pada transaksi wajib cocok. Dengan demikian kasir/POS biasa
+					// tidak dapat menyisipkan parameter ini untuk melewati gerbang sesi kas.
+					boolean checkoutMandiriAnggota = "anggota_online".equals(
+							jsonObject.optString("kanalCheckout", ""))
+							&& tbmuser != null && tbmuser.getAnggotaKoperasi() != null
+							&& anggotaKoperasi != null
+							&& tbmuser.getAnggotaKoperasi().getId().equals(anggotaKoperasi.getId());
 					// Fitur "Sesi Kasir": gerbang SERVER-SIDE (belt-and-suspenders) di titik SATU-SATUNYA
 					// tempat checkout FINAL ditulis -- JSP dan Desktop (PosApi) sebelumnya TIDAK punya
 					// gerbang sama sekali (hanya ZK PosKantinAction.onBayar() yg mengecek client-side
@@ -443,13 +453,14 @@ public class KantinHelper {
 					// duplikasi logika. Sengaja TIDAK dipasang di draft_bayar() -- "Simpan/Tahan Keranjang"
 					// bukan komitmen finansial, jadi tidak perlu sesi kas terbuka.
 					//
-					// WAJIB PERMANEN utk SEMUA toko (2026-08-11, permintaan eksplisit user) -- sebelumnya
+					// WAJIB PERMANEN utk kasir/POS di SEMUA toko (2026-08-11) -- sebelumnya
 					// gerbang ini opt-in per-toko lewat Konfigurasi.KANTIN_POS_WAJIB_SESI_KAS (default
 					// TIDAK_AKTIF/OFF), SEKARANG tanpa syarat, opsi mematikannya DIHAPUS (bukan sekadar
-					// diubah default-nya) -- toko manapun yg belum pernah membuka kas hari itu TIDAK BISA
-					// checkout, harus Buka Kas dulu. Memakai session POLA B yang SUDAH dibuka di atas
+					// diubah default-nya) -- kasir toko yg belum membuka kas hari itu TIDAK BISA
+					// checkout. Pengecualian hanya checkout mandiri anggota terverifikasi di atas.
+					// Memakai session POLA B yang SUDAH dibuka di atas
 					// (BUKAN HibernateUtil.currentSession() -- lihat javadoc kelas).
-					{
+					if (!checkoutMandiriAnggota) {
 						String[] idKasir = identitasKasir(tbmuser);
 						if (ais.action.master.koperasi.helper.SesiKasUtil.idSesiTerbuka(session,
 								idKasir[0], idKasir[1], toko.getId()) == null) {
