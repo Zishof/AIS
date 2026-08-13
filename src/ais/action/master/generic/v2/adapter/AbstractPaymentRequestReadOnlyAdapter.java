@@ -17,6 +17,7 @@ import ais.action.master.generic.v2.GenericCrudResult;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.GeneralValueObject;
 import ais.database.model.Mahasiswa;
+import ais.database.model.sekolah.Siswa;
 
 /** Scope bersama laporan request payment gateway sebagaimana Action ZKoss lama. */
 @SuppressWarnings("rawtypes")
@@ -27,6 +28,7 @@ public abstract class AbstractPaymentRequestReadOnlyAdapter<T extends GeneralVal
     protected abstract Class requestType();
     protected abstract Class detailType();
     protected abstract String detailRequestProperty();
+    protected Siswa schoolOwner(T target) { return null; }
 
     public T createNew(GenericCrudRequestContext context) { return null; }
     public boolean canDelete(T target, GenericCrudRequestContext context, List reasons) {
@@ -37,6 +39,14 @@ public abstract class AbstractPaymentRequestReadOnlyAdapter<T extends GeneralVal
     public void applyReadScope(Criteria criteria, GenericCrudRequestContext context) {
         Mahasiswa mahasiswa = currentStudent(context);
         if (mahasiswa != null) criteria.add(Restrictions.eq("mahasiswa", mahasiswa));
+        Siswa siswa = currentSchoolStudent(context);
+        if (siswa != null) criteria.add(Restrictions.eq("siswa", siswa));
+        if (context != null && context.getUser() != null && context.getUser().getOrangTua() != null) {
+            List schoolIds = context.getUser().getOrangTua().ambilAnakSiswa();
+            List collegeIds = context.getUser().getOrangTua().ambilAnakMahasiswa();
+            if (schoolIds != null && !schoolIds.isEmpty()) criteria.add(Restrictions.in("siswa.id", schoolIds));
+            if (collegeIds != null && !collegeIds.isEmpty()) criteria.add(Restrictions.in("mahasiswa.id", collegeIds));
+        }
     }
     public void applyCountScope(Criteria criteria, GenericCrudRequestContext context) {
         applyReadScope(criteria, context);
@@ -47,11 +57,23 @@ public abstract class AbstractPaymentRequestReadOnlyAdapter<T extends GeneralVal
         if (mahasiswa != null && !sameStudent(mahasiswa, owner((T) object)))
             throw new GenericCrudException(403, "PAYMENT_REQUEST_SCOPE_DENIED",
                     "Request payment gateway bukan milik mahasiswa aktif.");
+        Siswa siswa = currentSchoolStudent(context);
+        if (siswa != null && !sameSchoolStudent(siswa, schoolOwner((T) object)))
+            throw new GenericCrudException(403, "PAYMENT_REQUEST_SCOPE_DENIED",
+                    "Request payment gateway bukan milik siswa aktif.");
     }
     private Mahasiswa currentStudent(GenericCrudRequestContext context) {
         return context == null || context.getUser() == null ? null : context.getUser().getMahasiswa();
     }
+    private Siswa currentSchoolStudent(GenericCrudRequestContext context) {
+        return context == null || context.getUser() == null ? null : context.getUser().getSiswa();
+    }
     private boolean sameStudent(Mahasiswa expected, Mahasiswa actual) {
+        if (expected == actual) return true;
+        if (expected == null || actual == null || expected.getId() == null || actual.getId() == null) return false;
+        return expected.getId().equals(actual.getId());
+    }
+    private boolean sameSchoolStudent(Siswa expected, Siswa actual) {
         if (expected == actual) return true;
         if (expected == null || actual == null || expected.getId() == null || actual.getId() == null) return false;
         return expected.getId().equals(actual.getId());
