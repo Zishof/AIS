@@ -19,6 +19,9 @@ Handler menu lama yang berupa nama metode/class juga dipetakan eksplisit:
 undangan wisuda, laporan LKP/BKD, verifikasi BKD, rekap angket dosen, rekap
 host-to-host, dan rekap PMDK. Handler tersebut tidak lagi jatuh ke halaman
 native kosong hanya karena tidak mempunyai ekstensi URL.
+Handler pendaftaran sidang mahasiswa `daftar_sidang_atau_munaqosah` diarahkan
+ke halaman native Skripsi, sesuai helper existing yang mencari/membuat entity
+`Skripsi` milik mahasiswa aktif sebelum membuka `SkripsiAction`.
 
 ## Hasil inventarisasi
 

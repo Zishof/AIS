@@ -106,6 +106,7 @@ public final class NewUiNativeJspResolver {
         values.put("rekapangketdosenperdosen", ROOT+"root/report/uiux/format1/akademik/laporan_rekap_angket_dosen_per_dosen.jsp");
         values.put("laporanrekaphosttohostwindow", ROOT+"root/report/uiux/helper/keuangan/laporan_rekap_host_to_host.jsp");
         values.put("rekapdatapmdk", ROOT+"root/report/uiux/helper/pdf/laporan_rekapitulasi_pmdk.jsp");
+        values.put("daftar_sidang_atau_munaqosah", ROOT+"root/uiux/skripsi.jsp");
         return Collections.unmodifiableMap(values);
     }
 
