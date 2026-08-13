@@ -33,6 +33,7 @@ import ais.action.master.generic.v2.adapter.FinpayRequestGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.FaspayRequestGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.BriRequestGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.BsiRequestGenericCrudAdapter;
+import ais.action.master.generic.v2.adapter.BniRequestGenericCrudAdapter;
 import ais.database.model.Agama;
 import ais.database.model.BadanHukum;
 import ais.database.model.Jenjang;
@@ -102,6 +103,8 @@ import ais.database.model.bri.BriRequest;
 import ais.database.model.bri.BriResponse;
 import ais.database.model.bsi.BsiRequest;
 import ais.database.model.bsi.BsiResponse;
+import ais.database.model.bni.BniRequest;
+import ais.database.model.bni.BniResponse;
 
 /**
  * Registry allow-list. Scanner menghasilkan kandidat disabled; hanya entity yang
@@ -135,6 +138,7 @@ public final class GenericCrudDefinitionRegistry {
         register(buildFaspayRequest());
         register(buildBriRequest());
         register(buildBsiRequest());
+        register(buildBniRequest());
         register(buildEmployeeHistory(RiwayatTandaJasaPegawai.class, "riwayat_tanda_jasa_pegawai", "Riwayat Tanda Jasa Pegawai"));
         register(buildEmployeeHistory(RiwayatPendidikanPegawai.class, "riwayat_pendidikan_pegawai", "Riwayat Pendidikan Pegawai"));
         register(buildEmployeeHistory(RiwayatPelatihanPegawai.class, "riwayat_pelatihan_pegawai", "Riwayat Pelatihan Pegawai"));
@@ -966,6 +970,7 @@ public final class GenericCrudDefinitionRegistry {
         BsiRequestGenericCrudAdapter a=new BsiRequestGenericCrudAdapter();d.setAdapter(a);d.setScopeAdapter(a);addPaymentFields(d);
         d.addField(field("va","Virtual Account",String.class,"text",true,false,false,false,true,true,20));d.addField(field("trxId","Transaction ID",String.class,"text",true,false,false,false,true,true,30));d.addField(field("amount","Nominal",Double.class,"number",true,false,false,false,true,false,60));d.addField(field("biayaAdministrasi","Biaya Administrasi",Double.class,"number",true,false,false,false,true,false,65));d.addField(field("status","Status",String.class,"text",true,false,false,false,true,true,100));d.addField(field("kodeStatus","Kode Status",String.class,"text",true,false,false,false,true,true,110));d.addField(relationField("bsiResponse","Respons BSI",BsiResponse.class,true,false,false,false,120));return d;
     }
+    private static GenericCrudDefinition buildBniRequest(){GenericCrudDefinition d=paymentRequest("bni","bni_request","BNI Virtual Account",BniRequest.class,"ais.action.master.bni.BniRequestAction");BniRequestGenericCrudAdapter a=new BniRequestGenericCrudAdapter();d.setAdapter(a);d.setScopeAdapter(a);addPaymentFields(d);d.addField(field("va","Virtual Account",String.class,"text",true,false,false,false,true,true,20));d.addField(field("trxId","Transaction ID",String.class,"text",true,false,false,false,true,true,30));d.addField(field("amount","Nominal",Double.class,"number",true,false,false,false,true,false,60));d.addField(field("biayaAdministrasi","Biaya Administrasi",Double.class,"number",true,false,false,false,true,false,65));d.addField(field("status","Status",String.class,"text",true,false,false,false,true,true,100));d.addField(field("kodeStatus","Kode Status",String.class,"text",true,false,false,false,true,true,110));d.addField(relationField("bniResponse","Respons BNI",BniResponse.class,true,false,false,false,120));return d;}
 
     private static GenericCrudDefinition paymentRequest(String module, String page, String label,
             Class entity, String action) {
