@@ -29,6 +29,7 @@ import ais.action.master.generic.v2.adapter.CimbRequestGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.IpaymuRequestGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.WorkspaceGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.JatelindoRequestGenericCrudAdapter;
+import ais.action.master.generic.v2.adapter.FinpayRequestGenericCrudAdapter;
 import ais.database.model.Agama;
 import ais.database.model.BadanHukum;
 import ais.database.model.Jenjang;
@@ -90,6 +91,8 @@ import ais.database.model.rab.MetodePengadaan;
 import ais.database.model.akunting.Akun;
 import ais.database.model.jatelindo.JatelindoRequest;
 import ais.database.model.jatelindo.JatelindoResponse;
+import ais.database.model.finpay.FinpayRequest;
+import ais.database.model.finpay.FinpayResponse;
 
 /**
  * Registry allow-list. Scanner menghasilkan kandidat disabled; hanya entity yang
@@ -119,6 +122,7 @@ public final class GenericCrudDefinitionRegistry {
         register(buildIpaymuRequest());
         register(buildWorkspace());
         register(buildJatelindoRequest());
+        register(buildFinpayRequest());
         register(buildEmployeeHistory(RiwayatTandaJasaPegawai.class, "riwayat_tanda_jasa_pegawai", "Riwayat Tanda Jasa Pegawai"));
         register(buildEmployeeHistory(RiwayatPendidikanPegawai.class, "riwayat_pendidikan_pegawai", "Riwayat Pendidikan Pegawai"));
         register(buildEmployeeHistory(RiwayatPelatihanPegawai.class, "riwayat_pelatihan_pegawai", "Riwayat Pelatihan Pegawai"));
@@ -895,6 +899,22 @@ public final class GenericCrudDefinitionRegistry {
         d.addField(field("status", "Status", String.class, "text", true, false, false, false, true, true, 100));
         d.addField(field("kodeStatus", "Kode Status", String.class, "text", true, false, false, false, true, true, 110));
         d.addField(relationField("jatelindoResponse", "Respons Jatelindo", JatelindoResponse.class, true, false, false, false, 120));
+        return d;
+    }
+
+    private static GenericCrudDefinition buildFinpayRequest() {
+        GenericCrudDefinition d = paymentRequest("finpay", "finpay_request", "Finpay Request",
+                FinpayRequest.class, "ais.action.master.finpay.FinpayRequestAction");
+        FinpayRequestGenericCrudAdapter adapter = new FinpayRequestGenericCrudAdapter();
+        d.setAdapter(adapter); d.setScopeAdapter(adapter); addPaymentFields(d);
+        d.addField(field("paymentCode", "Payment Code", String.class, "text", true, false, false, false, true, true, 20));
+        d.addField(field("invoice", "Invoice", String.class, "text", true, false, false, false, true, true, 30));
+        d.addField(field("merchant", "Merchant", String.class, "text", true, false, false, false, true, true, 40));
+        d.addField(field("tipe", "Tipe", String.class, "text", true, false, false, false, true, true, 50));
+        d.addField(field("amount", "Nominal", Double.class, "number", true, false, false, false, true, false, 60));
+        d.addField(field("resultCode", "Kode Hasil", String.class, "text", true, false, false, false, true, true, 100));
+        d.addField(field("status", "Status", String.class, "text", true, false, false, false, true, true, 110));
+        d.addField(relationField("finpayResponse", "Respons Finpay", FinpayResponse.class, true, false, false, false, 120));
         return d;
     }
 
