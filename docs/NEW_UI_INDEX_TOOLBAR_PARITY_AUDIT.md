@@ -26,6 +26,13 @@ memahami aturan, konteks pengguna, sumber data, dan target operasionalnya.
   yang benar-benar tersedia pada metadata entity.
 - Entity yang mempunyai flag `aktif` menampilkan rincian aktif/nonaktif dengan
   scope yang sama, bukan hanya angka total global.
+- Dashboard koperasi mengekspos seluruh delapan tab Action existing. Laporan
+  keuangan koperasi sudah memakai service headless native dengan perhitungan
+  neraca, hasil usaha, arus kas, PPAP, CALK, dan ekspor XLSX yang sama dengan
+  `LaporanKeuanganKoperasiAction`.
+- Halaman ARO deposito sudah native: daftar/ringkasan jatuh tempo, filter lokal,
+  toggle ARO dengan privilege `UPDATE` dan CSRF, serta pemicu manual scheduler
+  existing. Tidak ada include atau redirect ke ZUL.
 - Halaman fungsi membaca referensi entity secara rekursif dari bytecode Action,
   superclass, dan inner/delegated dashboard class existing. Audit saat ini
   menemukan 73 dari 81 class sumber memakai entity Hibernate langsung (868
