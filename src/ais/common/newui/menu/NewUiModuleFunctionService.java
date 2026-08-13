@@ -23,11 +23,14 @@ public final class NewUiModuleFunctionService {
     private static final String SCHOOL = "SCHOOL";
     private static final String PERSONAL = "PERSONAL";
     private static final String ADMIN = "ADMIN";
+    private static final String ADMIN_PT = "ADMIN_PT";
+    private static final String ADMIN_SCHOOL = "ADMIN_SCHOOL";
     private static final Map DEFINITIONS;
 
     static {
         Map values = new LinkedHashMap();
         add(values, "emedic",
+                f("ringkasan", "Dasbor Utama eMedic", "Ringkasan komprehensif layanan rumah sakit dan klinik.", "ais.action.master.dashboard.sirs.DashboardSirsKomprehensif", ALL, a("sistem informasi rumah sakit", "emedic", "dashboard sirs")),
                 f("okupansi", "Okupansi Tempat Tidur", "Pantau ketersediaan dan keterisian tempat tidur.", "ais.action.master.sirs.chart.OkupansiTempatTidurDashboardAction", ALL, a("okupansi tempat tidur", "tempat tidur")),
                 f("pendaftaran", "Pendaftaran & Booking", "Ringkasan pendaftaran, booking, dan layanan pasien.", "ais.action.master.sirs.chart.PendaftaranOverviewDashboardAction", ALL, a("pendaftaran", "booking", "registrasi pasien")),
                 f("rawat_jalan_mingguan", "Rawat Jalan Mingguan", "Tren kunjungan rawat jalan per minggu.", "ais.action.master.sirs.chart.RawatJalanMingguanDashboardAction", ALL, a("rawat jalan mingguan", "rawat jalan")),
@@ -46,7 +49,10 @@ public final class NewUiModuleFunctionService {
         add(values, "prestasi",
                 f("mahasiswa", "Prestasi Mahasiswa", "Aktivitas, prestasi, karya, penghargaan, dan organisasi mahasiswa.", "ais.action.master.dashboard.admin.DashboardKegiatanKemahasiswaan", PT, a("prestasi mahasiswa", "kegiatan mahasiswa")),
                 f("dosen", "Prestasi Dosen", "Aktivitas, prestasi, karya, penelitian, dan pengabdian dosen.", "ais.action.master.dashboard.admin.DashboardKegiatanKedosenan", PT, a("prestasi dosen", "kegiatan dosen")),
-                f("siswa", "Prestasi Siswa", "Aktivitas, prestasi, karya, dan organisasi siswa.", "ais.action.master.dashboard.sekolah.DashboardKegiatanKesiswaanAdmin", SCHOOL, a("prestasi siswa", "kegiatan siswa")),
+                f("siswa", "Prestasi Siswa", "Aktivitas, prestasi, karya, dan organisasi siswa.", "ais.action.master.dashboard.sekolah.DashboardKegiatanKesiswaan", SCHOOL, a("prestasi siswa", "kegiatan siswa")),
+                f("mahasiswa_admin", "Analitik Prestasi Mahasiswa", "Dashboard pembinaan aktivitas dan prestasi mahasiswa untuk pengelola.", "ais.action.master.dashboard.admin.DashboardKegiatanKemahasiswaanAdmin", ADMIN_PT, a("prestasi mahasiswa", "kegiatan mahasiswa")),
+                f("dosen_admin", "Analitik Prestasi Dosen", "Dashboard pembinaan aktivitas dan prestasi dosen untuk pengelola.", "ais.action.master.dashboard.admin.DashboardKegiatanKedosenanAdmin", ADMIN_PT, a("prestasi dosen", "kegiatan dosen")),
+                f("siswa_admin", "Analitik Prestasi Siswa", "Dashboard pembinaan aktivitas dan prestasi siswa untuk pengelola.", "ais.action.master.dashboard.sekolah.DashboardKegiatanKesiswaanAdmin", ADMIN_SCHOOL, a("prestasi siswa", "kegiatan siswa")),
                 f("pegawai", "Prestasi Pegawai", "Aktivitas dan prestasi pegawai.", "ais.action.master.prestasi.DasbordPrestasi", ALL, a("prestasi pegawai", "apresiasi pegawai")),
                 f("riwayat", "Riwayat Capaian", "Riwayat prestasi sesuai profil pengguna aktif.", "ais.action.master.prestasi.DasbordKegiatanKedosenan", PERSONAL, a("riwayat prestasi", "capaian")));
         add(values, "pustaka",
@@ -232,6 +238,18 @@ public final class NewUiModuleFunctionService {
         return Collections.unmodifiableList(result);
     }
 
+    /** Class Action/dashboard existing yang menjadi sumber kebenaran tiap fungsi. */
+    public static List<String> definitionSourceClasses(String key) {
+        List values = (List) DEFINITIONS.get(normalize(key));
+        List<String> result = new ArrayList<String>();
+        if (values == null) return Collections.unmodifiableList(result);
+        for (int i = 0; i < values.size(); i++) {
+            String source = ((Spec) values.get(i)).sourceClass;
+            if (!result.contains(source)) result.add(source);
+        }
+        return Collections.unmodifiableList(result);
+    }
+
     private static boolean applies(String audience, Tbmuser user) {
         if (ALL.equals(audience)) return true;
         boolean personal = false;
@@ -242,6 +260,10 @@ public final class NewUiModuleFunctionService {
         if (ADMIN.equals(audience)) return !personal;
         boolean[] context = null;
         try { context = Common.chekPtAtauSekolah(); } catch (Exception ignored) { }
+        if (ADMIN_PT.equals(audience)) return !personal
+                && (context == null || context.length == 0 || context[0]);
+        if (ADMIN_SCHOOL.equals(audience)) return !personal
+                && (context == null || context.length < 2 || context[1]);
         if (PT.equals(audience)) return context == null || context.length == 0 || context[0];
         if (SCHOOL.equals(audience)) return context == null || context.length < 2 || context[1];
         return true;

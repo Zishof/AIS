@@ -37,6 +37,16 @@ public final class NewUiModuleFunctionServiceSelfTest {
             total += keys.size();
         }
         check(total >= 110, "audit fungsi toolbar tidak lengkap: " + total);
+        check(NewUiModuleFunctionService.definitionSourceClasses("emedic").contains(
+                "ais.action.master.dashboard.sirs.DashboardSirsKomprehensif"),
+                "dashboard utama eMedic existing belum dipetakan");
+        List<String> prestasiSources = NewUiModuleFunctionService.definitionSourceClasses("prestasi");
+        check(prestasiSources.contains("ais.action.master.dashboard.admin.DashboardKegiatanKemahasiswaanAdmin"),
+                "dashboard prestasi mahasiswa admin belum dipetakan");
+        check(prestasiSources.contains("ais.action.master.dashboard.admin.DashboardKegiatanKedosenanAdmin"),
+                "dashboard prestasi dosen admin belum dipetakan");
+        check(prestasiSources.contains("ais.action.master.dashboard.sekolah.DashboardKegiatanKesiswaanAdmin"),
+                "dashboard prestasi siswa admin belum dipetakan");
         System.out.println("NewUiModuleFunctionServiceSelfTest OK modules="
                 + TOOLBAR_KEYS.length + " functions=" + total);
     }

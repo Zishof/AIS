@@ -9,8 +9,8 @@ memahami aturan, konteks pengguna, sumber data, dan target operasionalnya.
 ## Hasil inventarisasi
 
 - Seluruh 29 `toolbarbutton` terdaftar: 24 modul dan 5 utility shell.
-- 127 fungsi dashboard/operasional mempunyai key stabil dan deskripsi native.
-- 71 class action/dashboard existing dirujuk sebagai sumber logika; seluruh
+- 131 fungsi dashboard/operasional mempunyai key stabil dan deskripsi native.
+- 75 class action/dashboard existing dirujuk sebagai sumber logika; seluruh
   file sumbernya telah diverifikasi ada.
 - Fungsi disaring menurut konteks PT, sekolah, personal, atau admin.
 - Target operasional hanya dipilih dari snapshot menu yang telah lolos
