@@ -114,7 +114,12 @@
     if (selectedIds && selectedIds.length) parameters.selectedId = selectedIds;
     button.disabled = true;
     api('custom_action', parameters, 'POST').then(function (data) {
-      notify((data && data.message) || 'Aksi berhasil dijalankan.'); return loadList();
+      notify((data && data.message) || 'Aksi berhasil dijalankan.');
+      var redirectUrl = data && data.data && data.data.redirectUrl;
+      if (redirectUrl && (redirectUrl.charAt(0) === '/' || redirectUrl.indexOf(window.location.origin + '/') === 0)) {
+        window.open(redirectUrl, '_blank', 'noopener');
+      }
+      return loadList();
     }).then(loadMetaDashboard).catch(function (error) { notify(error.message, true); })
       .then(function () { button.disabled = false; });
   }
