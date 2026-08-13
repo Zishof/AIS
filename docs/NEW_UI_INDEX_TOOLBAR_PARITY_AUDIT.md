@@ -33,6 +33,10 @@ memahami aturan, konteks pengguna, sumber data, dan target operasionalnya.
 - Halaman ARO deposito sudah native: daftar/ringkasan jatuh tempo, filter lokal,
   toggle ARO dengan privilege `UPDATE` dan CSRF, serta pemicu manual scheduler
   existing. Tidak ada include atau redirect ke ZUL.
+- CRUD Anggaran Kas dan Modal Penyertaan memakai adapter hasil review, bukan
+  lifecycle metadata generik saja. Adapter menegakkan default dan validasi
+  `onSave` existing: tahun valid/unik per koperasi, nama penyerta wajib,
+  nominal positif, tanggal masuk, jenis penyerta, serta status bawaan.
 - Halaman fungsi membaca referensi entity secara rekursif dari bytecode Action,
   superclass, dan inner/delegated dashboard class existing. Audit saat ini
   menemukan 73 dari 81 class sumber memakai entity Hibernate langsung (868

@@ -15,6 +15,7 @@ import org.hibernate.metadata.ClassMetadata;
 import org.hibernate.type.Type;
 
 import ais.action.master.generic.v2.adapter.GenericCrudAutoEntityAdapter;
+import ais.action.master.generic.v2.adapter.GenericCrudReviewedAdapterFactory;
 import ais.action.master.generic.v2.adapter.GenericCrudExistingActionInvoker;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.GeneralValueObject;
@@ -166,7 +167,7 @@ public final class GenericCrudAutoDefinitionFactory {
 
         boolean softDelete = hasBooleanProperty(metadata, "aktif");
         definition.setDeleteEnabled(!restrictedClass && softDelete && (actionDelete || metadataBacked));
-        GenericCrudAutoEntityAdapter adapter = new GenericCrudAutoEntityAdapter(entityClass, softDelete,
+        GenericCrudAutoEntityAdapter adapter = GenericCrudReviewedAdapterFactory.create(entityClass, softDelete,
                 actionBacked ? sourceActionClass : null, metadataBacked);
         definition.setAdapter(adapter);
         definition.setScopeAdapter(adapter);
