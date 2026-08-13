@@ -18,6 +18,7 @@ import ais.action.master.generic.v2.adapter.PegawaiHistoryGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.ParameterUmumGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.LiburRutinGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.NomorSuratAlurKeuanganGenericCrudAdapter;
+import ais.action.master.generic.v2.adapter.NomorSuratAlurPengadaanGenericCrudAdapter;
 import ais.database.model.Agama;
 import ais.database.model.BadanHukum;
 import ais.database.model.Jenjang;
@@ -46,6 +47,7 @@ import ais.database.model.payroll.AsuransiPegawai;
 import ais.database.model.payroll.LiburRutin;
 import ais.database.model.akunting.NomorSuratAlurKeuangan;
 import ais.database.model.surat.NomorSurat;
+import ais.database.model.asset.NomorSuratAlurPengadaan;
 
 /**
  * Registry allow-list. Scanner menghasilkan kandidat disabled; hanya entity yang
@@ -64,6 +66,7 @@ public final class GenericCrudDefinitionRegistry {
         register(buildParameterUmum());
         register(buildLiburRutin());
         register(buildNomorSuratAlurKeuangan());
+        register(buildNomorSuratAlurPengadaan());
         register(buildEmployeeHistory(RiwayatTandaJasaPegawai.class, "riwayat_tanda_jasa_pegawai", "Riwayat Tanda Jasa Pegawai"));
         register(buildEmployeeHistory(RiwayatPendidikanPegawai.class, "riwayat_pendidikan_pegawai", "Riwayat Pendidikan Pegawai"));
         register(buildEmployeeHistory(RiwayatPelatihanPegawai.class, "riwayat_pelatihan_pegawai", "Riwayat Pelatihan Pegawai"));
@@ -597,6 +600,27 @@ public final class GenericCrudDefinitionRegistry {
                 true, false, true, false, 40));
         d.addField(field("keterangan", "Keterangan", String.class, "textarea", true, false, false,
                 false, true, true, 50));
+        return d;
+    }
+
+    private static GenericCrudDefinition buildNomorSuratAlurPengadaan() {
+        GenericCrudDefinition d = new GenericCrudDefinition();
+        d.setEntityClass(NomorSuratAlurPengadaan.class); d.setModuleKey("asset");
+        d.setPageKey("nomor_surat_alur_pengadaan"); d.setDisplayName("Nomor Surat Alur Pengadaan");
+        d.setSourceActionClassName("ais.action.master.asset.NomorSuratAlurPengadaanAction");
+        d.setExistingActionLifecycleBound(false); d.setLifecycleStatus(GenericCrudDefinition.FULL_CRUD);
+        d.setEnabled(true); d.setCreateEnabled(false); d.setUpdateEnabled(true); d.setDeleteEnabled(false);
+        d.setImportEnabled(false); d.setExportPdfEnabled(true); d.setExportDocxEnabled(true);
+        d.setExportPptxEnabled(true); d.setSavedViewEnabled(true); d.setAuditEnabled(true);
+        d.setRowAuditEnabled(true); d.setGlobalAuditEnabled(false); d.setRestoreEnabled(false);
+        d.setAdminDeleteEnabled(false); d.setDefaultSortProperty("kode"); d.setDefaultPageSize(16); d.setMaxPageSize(100);
+        NomorSuratAlurPengadaanGenericCrudAdapter adapter = new NomorSuratAlurPengadaanGenericCrudAdapter();
+        d.setAdapter(adapter); d.setScopeAdapter(adapter);
+        d.addField(field("id", "ID", Long.class, "number", false, false, false, false, true, false, 10));
+        d.addField(field("kode", "Kode", String.class, "text", true, false, false, true, true, true, 20));
+        d.addField(field("nama", "Nama Alur", String.class, "text", true, false, false, true, true, true, 30));
+        d.addField(relationField("nomorSurat", "Template Nomor Surat", NomorSurat.class, true, false, true, false, 40));
+        d.addField(field("keterangan", "Keterangan", String.class, "textarea", true, false, false, false, true, true, 50));
         return d;
     }
 
