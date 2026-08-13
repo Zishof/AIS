@@ -124,7 +124,7 @@ public class PosApi extends HttpServlet {
 	private static void terapkanHeaderCors(HttpServletResponse response) {
 		response.setHeader("Access-Control-Allow-Origin", "*");
 		response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-		response.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+		response.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Request-ID");
 		response.setHeader("Access-Control-Max-Age", "600");
 	}
 
@@ -704,12 +704,32 @@ public class PosApi extends HttpServlet {
 				hasil.put("message", "Aksi tidak dikenal: " + action);
 			}
 		} catch (Exception e) {
-			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit PosApi.proses");
+			String traceId = request.getHeader("X-Request-ID");
+			if (traceId == null || traceId.trim().length() == 0) {
+				traceId = "SRV-" + Long.toString(System.currentTimeMillis(), 36).toUpperCase();
+			}
+			// Selalu cetak exception beserta seluruh cause/stack ke log Tomcat,
+			// lalu simpan ke ErrorLog. Jangan hanya mengirim pesan ramah ke klien.
+			ais.common.ErrorAuditUtil.ErrorAuditResult audit = ais.common.ErrorAuditUtil
+					.recordVisibleFailure(e, "PosApi.proses", request, traceId);
 			hasil = new JSONObject();
 			try {
 				hasil.put("status", "error");
 				hasil.put("message", "Terjadi kesalahan pada sistem. Silakan hubungi administrator.");
-			} catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) PosApi.proses"); }
+				hasil.put("kode", "SERVER_EXCEPTION");
+				hasil.put("referensi", traceId);
+				hasil.put("errorLogId", audit == null || audit.getErrorLogId() == null
+						? JSONObject.NULL : audit.getErrorLogId());
+				String errorLogId = audit == null || audit.getErrorLogId() == null
+						? "-" : audit.getErrorLogId().toString();
+				// Jangan mengirim audit.getContent(): isinya dapat memuat metadata request.
+				// Klien cukup menerima referensi, ID ErrorLog, dan exception/stack lengkap.
+				hasil.put("teknis", "Referensi: " + traceId + "\nErrorLog ID: " + errorLogId
+						+ "\nException server:\n" + ais.common.ErrorAuditUtil.getStackTraceAsString(e));
+			} catch (Exception ignored) {
+				ignored.printStackTrace(System.err);
+				ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) PosApi.proses");
+			}
 		}
 		tulisJson(response, hasil);
 	}

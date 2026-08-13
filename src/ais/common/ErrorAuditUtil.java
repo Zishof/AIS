@@ -144,9 +144,10 @@ public class ErrorAuditUtil {
             // Database tetap dedup 1x-per-lokasi, tetapi setiap kejadian harus tetap masuk server log.
             // Ini penting untuk melihat frekuensi dan konteks request terbaru di catalina.out.
             String duplicateContent = buildErrorText(throwable, info, request);
-            if (isServerLogActive()) {
-                writeToServerLog(throwable, duplicateContent);
-            }
+            // Exception WAJIB selalu terlihat lengkap di log server. Konfigurasi
+            // server-log tidak boleh membuat stack trace hilang; database tetap
+            // didedup agar tabel ErrorLog tidak membengkak.
+            writeToServerLog(throwable, duplicateContent);
             ErrorAuditResult result = new ErrorAuditResult(duplicateContent, null);
             LAST_RESULT.set(result);
             return result;
@@ -156,9 +157,7 @@ public class ErrorAuditUtil {
         Long errorLogId = null;
 
         try {
-            if (isServerLogActive()) {
-                writeToServerLog(throwable, content);
-            }
+            writeToServerLog(throwable, content);
 
             if (isActive() && isDatabaseActive()) {
                 errorLogId = saveToDatabase(content, request);
@@ -195,11 +194,16 @@ public class ErrorAuditUtil {
             content = buildErrorText(throwable, decorated, request);
             result = new ErrorAuditResult(content, result == null ? null : result.getErrorLogId());
         }
-        if (!isServerLogActive()) {
+        // Kegagalan request yang sampai ke pengguna harus mempunyai kejadian
+        // tersendiri di ErrorLog, sekalipun lokasi source pernah tercatat.
+        // Dedup umum tetap berlaku untuk error latar belakang yang berulang.
+        if (result.getErrorLogId() == null && isActive() && isDatabaseActive()) {
             try {
-                System.err.println("[AIS-REQUEST-ERROR] " + decorated);
-                System.err.println(content);
-            } catch (Throwable ignored) {
+                result = new ErrorAuditResult(content, saveToDatabase(content, request));
+                LAST_RESULT.set(result);
+            } catch (Throwable gagalSimpan) {
+                writeToServerLog(gagalSimpan,
+                        "Gagal menyimpan kejadian visible ke ErrorLog\n" + content);
             }
         }
         return result;
