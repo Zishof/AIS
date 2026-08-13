@@ -68,6 +68,13 @@ public final class GenericCrudAutoDefinitionFactory {
     /** Admin model browser: key hanya boleh cocok persis dengan mapped GVO Hibernate. */
     public static GenericCrudDefinition buildAdministrative(String module, String page, String mappedEntityKey) throws Exception {
         Class entityClass = findMappedClass(mappedEntityKey);
+        return buildAdministrativeForClass(module, page, entityClass);
+    }
+
+    /** Jalur audit internal O(1): caller sudah memperoleh class dari metadata Hibernate. */
+    public static GenericCrudDefinition buildAdministrativeForClass(String module, String page, Class entityClass) throws Exception {
+        if (entityClass == null || !GeneralValueObject.class.isAssignableFrom(entityClass)
+                || Modifier.isAbstract(entityClass.getModifiers())) return null;
         Class actionClass = resolveAdministrativeAction(entityClass);
         return buildForClass(module, page, entityClass, true,
                 actionClass == null ? null : actionClass.getPackage().getName(),

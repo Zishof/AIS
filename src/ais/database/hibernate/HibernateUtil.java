@@ -307,8 +307,10 @@ public class HibernateUtil {
             if (sf instanceof SessionFactory) {
                 return (SessionFactory) sf;
             }
-        } catch (Throwable e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/hibernate/HibernateUtil.java:310");
-            // zkplus tidak tersedia (ZK 9/10 CE) - bangun sendiri di bawah (tetap dgn interceptor).
+        } catch (Throwable e) {
+            // zkplus tidak tersedia (ZK 9/10 CE) adalah kondisi fallback normal. Jangan panggil
+            // ErrorAuditUtil di fase ini: audit tersebut membutuhkan HibernateUtil dan akan
+            // merekursi bootstrap sebelum FACTORY sempat tersedia.
         }
         return new org.hibernate.cfg.Configuration().configure()
                 .setInterceptor(AuditTimestampInterceptor.instance).buildSessionFactory();

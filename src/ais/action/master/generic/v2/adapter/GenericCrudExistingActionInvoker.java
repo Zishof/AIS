@@ -24,20 +24,28 @@ public final class GenericCrudExistingActionInvoker {
     private GenericCrudExistingActionInvoker() { }
 
     public static boolean supports(Class actionClass) {
-        if (actionClass == null) return false;
-        if (GenericCrudAction.class.isAssignableFrom(actionClass)) return hasDefaultConstructor(actionClass);
-        return hasDefaultConstructor(actionClass)
-                && !hostFields(actionClass).isEmpty()
-                && booleanEventSave(actionClass) != null
-                && hasEntityInit(actionClass);
+        try {
+            if (actionClass == null) return false;
+            if (GenericCrudAction.class.isAssignableFrom(actionClass)) return hasDefaultConstructor(actionClass);
+            return hasDefaultConstructor(actionClass)
+                    && !hostFields(actionClass).isEmpty()
+                    && booleanEventSave(actionClass) != null
+                    && hasEntityInit(actionClass);
+        } catch (Throwable unavailableDependency) {
+            return false;
+        }
     }
 
     public static boolean supports(Class actionClass, Class entityClass) {
-        if (actionClass == null || entityClass == null || !hasDefaultConstructor(actionClass)) return false;
-        if (GenericCrudAction.class.isAssignableFrom(actionClass)) return true;
-        return !hostFields(actionClass).isEmpty()
-                && booleanEventSave(actionClass) != null
-                && compatibleInit(actionClass, entityClass) != null;
+        try {
+            if (actionClass == null || entityClass == null || !hasDefaultConstructor(actionClass)) return false;
+            if (GenericCrudAction.class.isAssignableFrom(actionClass)) return true;
+            return !hostFields(actionClass).isEmpty()
+                    && booleanEventSave(actionClass) != null
+                    && compatibleInit(actionClass, entityClass) != null;
+        } catch (Throwable unavailableDependency) {
+            return false;
+        }
     }
 
     public static boolean supportsCreate(Class actionClass, Class entityClass) {
@@ -97,7 +105,7 @@ public final class GenericCrudExistingActionInvoker {
 
     private static boolean hasDefaultConstructor(Class type) {
         try { type.getDeclaredConstructor(new Class[0]); return true; }
-        catch (Exception missing) { return false; }
+        catch (Throwable missing) { return false; }
     }
 
     private static Method booleanEventSave(Class type) {
@@ -105,7 +113,7 @@ public final class GenericCrudExistingActionInvoker {
             Method method = type.getMethod("onSave", new Class[] { Event.class });
             return method.getReturnType() == Boolean.TYPE || method.getReturnType() == Boolean.class
                     ? method : null;
-        } catch (Exception missing) { return null; }
+        } catch (Throwable missing) { return null; }
     }
 
     private static boolean hasEntityInit(Class type) {

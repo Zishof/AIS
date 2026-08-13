@@ -61,6 +61,18 @@ public abstract class AbstractPaymentRequestReadOnlyAdapter<T extends GeneralVal
         if (siswa != null && !sameSchoolStudent(siswa, schoolOwner((T) object)))
             throw new GenericCrudException(403, "PAYMENT_REQUEST_SCOPE_DENIED",
                     "Request payment gateway bukan milik siswa aktif.");
+        if (context != null && context.getUser() != null && context.getUser().getOrangTua() != null) {
+            Mahasiswa requestStudent = owner((T) object);
+            Siswa requestSchoolStudent = schoolOwner((T) object);
+            List collegeIds = context.getUser().getOrangTua().ambilAnakMahasiswa();
+            List schoolIds = context.getUser().getOrangTua().ambilAnakSiswa();
+            if (requestStudent != null && !containsId(collegeIds, requestStudent.getId()))
+                throw new GenericCrudException(403, "PAYMENT_REQUEST_SCOPE_DENIED",
+                        "Request payment gateway bukan milik anak mahasiswa pengguna aktif.");
+            if (requestSchoolStudent != null && !containsId(schoolIds, requestSchoolStudent.getId()))
+                throw new GenericCrudException(403, "PAYMENT_REQUEST_SCOPE_DENIED",
+                        "Request payment gateway bukan milik anak siswa pengguna aktif.");
+        }
     }
     private Mahasiswa currentStudent(GenericCrudRequestContext context) {
         return context == null || context.getUser() == null ? null : context.getUser().getMahasiswa();
@@ -77,6 +89,15 @@ public abstract class AbstractPaymentRequestReadOnlyAdapter<T extends GeneralVal
         if (expected == actual) return true;
         if (expected == null || actual == null || expected.getId() == null || actual.getId() == null) return false;
         return expected.getId().equals(actual.getId());
+    }
+    private boolean containsId(List ids, Long expected) {
+        if (ids == null || expected == null) return false;
+        for (int i = 0; i < ids.size(); i++) {
+            Object value = ids.get(i);
+            if (expected.equals(value)) return true;
+            if (value != null && expected.toString().equals(String.valueOf(value))) return true;
+        }
+        return false;
     }
 
     public List getActions(GenericCrudDefinition definition, GenericCrudRequestContext context) {

@@ -8,6 +8,7 @@ import ais.action.master.generic.v2.adapter.CimbRequestGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.IpaymuRequestGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.GenericCrudCustomActionProvider;
 import ais.database.model.Mahasiswa;
+import ais.database.model.OrangTua;
 import ais.database.model.Tbmuser;
 import ais.database.model.cimb.CimbRequest;
 import ais.database.model.ipaymu.IpaymuRequest;
@@ -46,6 +47,27 @@ public final class PaymentRequestGenericCrudDefinitionSelfTest {
             throw new IllegalStateException("scope mahasiswa lain lolos");
         } catch (GenericCrudException expected) {
             check(expected.getStatus() == 403, "scope mahasiswa lain harus 403");
+        }
+        final java.util.List childIds = new java.util.ArrayList();
+        childIds.add(Long.valueOf(1));
+        Tbmuser parentUser = new Tbmuser() {
+            private static final long serialVersionUID = 1L;
+            public OrangTua getOrangTua() {
+                return new OrangTua() {
+                    private static final long serialVersionUID = 1L;
+                    public java.util.List<Long> ambilAnakMahasiswa() { return childIds; }
+                    public java.util.List<Long> ambilAnakSiswa() { return new java.util.ArrayList<Long>(); }
+                };
+            }
+        };
+        GenericCrudRequestContext parentContext = new GenericCrudRequestContext();
+        set(parentContext, "user", parentUser);
+        ((CimbRequestGenericCrudAdapter) cimb.getAdapter()).validateObjectScope(own, parentContext);
+        try {
+            ((IpaymuRequestGenericCrudAdapter) ipaymu.getAdapter()).validateObjectScope(denied, parentContext);
+            throw new IllegalStateException("scope anak mahasiswa lain lolos untuk orang tua");
+        } catch (GenericCrudException expected) {
+            check(expected.getStatus() == 403, "scope anak mahasiswa lain untuk orang tua harus 403");
         }
         System.out.println("PASS payment request Generic CRUD definition self-test"); System.exit(0);
     }

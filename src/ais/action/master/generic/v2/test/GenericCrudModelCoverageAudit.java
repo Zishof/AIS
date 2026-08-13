@@ -4,9 +4,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+
 import ais.action.master.generic.v2.GenericCrudAutoDefinitionFactory;
 import ais.action.master.generic.v2.GenericCrudDefinition;
 import ais.action.master.generic.v2.GenericCrudDefinitionRegistry;
+import ais.database.hibernate.HibernateUtil;
 
 /** Audit read-only cakupan model Hibernate terhadap lifecycle Action existing. */
 @SuppressWarnings("rawtypes")
@@ -14,6 +18,15 @@ public final class GenericCrudModelCoverageAudit {
     private GenericCrudModelCoverageAudit() { }
 
     public static void main(String[] args) {
+        try { runAudit(); }
+        catch (Throwable failed) {
+            failed.printStackTrace();
+            System.exit(1);
+        }
+    }
+
+    private static void runAudit() throws Exception {
+        SessionFactory standalone = installStandaloneSessionFactory();
         List models = GenericCrudAutoDefinitionFactory.listAdministrativeModels();
         Map explicitByClass = new HashMap();
         List explicitDefinitions = GenericCrudDefinitionRegistry.listDefinitions();
@@ -29,8 +42,13 @@ public final class GenericCrudModelCoverageAudit {
             Map row = (Map) models.get(i);
             if (Boolean.TRUE.equals(row.get("restricted"))) restricted++;
             String entityKey = String.valueOf(row.get("entityKey"));
-            GenericCrudDefinition definition = GenericCrudDefinitionRegistry.tryAdministrativeRegister(
-                    "generic", "model_" + i, entityKey);
+            Class entityClass;
+            try { entityClass = Class.forName(entityKey); }
+            catch (Exception missing) { continue; }
+            GenericCrudDefinition definition;
+            try { definition = GenericCrudAutoDefinitionFactory.buildAdministrativeForClass(
+                    "generic", "model_" + i, entityClass); }
+            catch (Exception failed) { definition = null; }
             if (definition == null) continue;
             registered++;
             GenericCrudDefinition routed = (GenericCrudDefinition) explicitByClass.get(entityKey);
@@ -63,6 +81,35 @@ public final class GenericCrudModelCoverageAudit {
         if (models.isEmpty() || registered != models.size()) {
             throw new IllegalStateException("Metadata model Hibernate tidak dapat diaudit seluruhnya.");
         }
+        standalone.close();
         System.exit(0);
+    }
+
+    /** Hindari bootstrap ZKPlus/ErrorAudit ketika audit dijalankan sebagai proses CLI. */
+    private static SessionFactory installStandaloneSessionFactory() throws Exception {
+        java.lang.reflect.Field field = HibernateUtil.class.getDeclaredField("FACTORY");
+        field.setAccessible(true);
+        SessionFactory placeholder = (SessionFactory) java.lang.reflect.Proxy.newProxyInstance(
+                GenericCrudModelCoverageAudit.class.getClassLoader(),
+                new Class[] { SessionFactory.class }, new java.lang.reflect.InvocationHandler() {
+                    public Object invoke(Object proxy, java.lang.reflect.Method method, Object[] args) {
+                        Class type = method.getReturnType();
+                        if (type == Boolean.TYPE) return Boolean.FALSE;
+                        if (type == Integer.TYPE) return Integer.valueOf(0);
+                        if (type == Long.TYPE) return Long.valueOf(0L);
+                        return null;
+                    }
+                });
+        field.set(null, placeholder);
+        Configuration configuration = new Configuration().configure();
+        // Audit metadata tidak boleh menjalankan schema update terhadap ribuan tabel.
+        configuration.getProperties().remove("hbm2ddl.auto");
+        configuration.getProperties().remove("hibernate.hbm2ddl.auto");
+        configuration.setProperty("javax.persistence.validation.mode", "none");
+        configuration.setProperty("hibernate.validator.autoregister_listeners", "false");
+        configuration.setProperty("hibernate.validator.apply_to_ddl", "false");
+        SessionFactory standalone = configuration.buildSessionFactory();
+        field.set(null, standalone);
+        return standalone;
     }
 }
