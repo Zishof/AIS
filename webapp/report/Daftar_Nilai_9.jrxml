@@ -104,10 +104,10 @@
 	</queryString>
 	<field name="nim" class="java.lang.String"/>
 	<field name="nama" class="java.lang.String"/>
-	<field name="nilai_3" class="java.lang.Double"/>
-	<field name="nilai_4" class="java.lang.Double"/>
-	<field name="nilai_2" class="java.lang.Double"/>
-	<field name="nilai_1" class="java.lang.Double"/>
+	<field name="nilai_3" class="java.lang.String"/>
+	<field name="nilai_4" class="java.lang.String"/>
+	<field name="nilai_2" class="java.lang.String"/>
+	<field name="nilai_1" class="java.lang.String"/>
 	<field name="nilai" class="java.lang.Double"/>
 	<field name="nilai_huruf" class="java.lang.String"/>
 	<field name="nama_matakuliah" class="java.lang.String"/>
@@ -117,11 +117,20 @@
 	<field name="fakultas" class="java.lang.String"/>
 	<field name="kode_matakuliah" class="java.lang.String"/>
 	<field name="nip" class="java.lang.String"/>
-	<field name="nilai_5" class="java.lang.Double"/>
-	<field name="nilai_6" class="java.lang.Double"/>
-	<field name="nilai_7" class="java.lang.Double"/>
-	<field name="nilai_8" class="java.lang.Double"/>
-	<field name="nilai_9" class="java.lang.Double"/>
+	<field name="nilai_5" class="java.lang.String"/>
+	<field name="nilai_6" class="java.lang.String"/>
+	<field name="nilai_7" class="java.lang.String"/>
+	<field name="nilai_8" class="java.lang.String"/>
+	<field name="nilai_9" class="java.lang.String"/>
+	<field name="nilai_bobot_1" class="java.lang.String"/>
+	<field name="nilai_bobot_2" class="java.lang.String"/>
+	<field name="nilai_bobot_3" class="java.lang.String"/>
+	<field name="nilai_bobot_4" class="java.lang.String"/>
+	<field name="nilai_bobot_5" class="java.lang.String"/>
+	<field name="nilai_bobot_6" class="java.lang.String"/>
+	<field name="nilai_bobot_7" class="java.lang.String"/>
+	<field name="nilai_bobot_8" class="java.lang.String"/>
+	<field name="nilai_bobot_9" class="java.lang.String"/>
 	<background>
 		<band splitType="Stretch"/>
 	</background>
@@ -674,7 +683,7 @@
 				<textElement textAlignment="Right" verticalAlignment="Middle">
 					<font size="6"/>
 				</textElement>
-				<textFieldExpression><![CDATA[$F{nilai_3}*(((Double)$P{REPORT_PARAMETERS_MAP}.get( "persen_3" ))/100.0)]]></textFieldExpression>
+				<textFieldExpression><![CDATA[$F{nilai_bobot_3}]]></textFieldExpression>
 			</textField>
 			<textField pattern="#,##0.00" isBlankWhenNull="true">
 				<reportElement key="textField" x="331" y="0" width="22" height="18" uuid="9f74fd4d-ecd0-4a98-9828-0c7128717837"/>
@@ -702,7 +711,7 @@
 				<textElement textAlignment="Right" verticalAlignment="Middle">
 					<font size="6"/>
 				</textElement>
-				<textFieldExpression><![CDATA[$F{nilai_6}*(((Double)$P{REPORT_PARAMETERS_MAP}.get( "persen_6" ))/100.0)]]></textFieldExpression>
+				<textFieldExpression><![CDATA[$F{nilai_bobot_6}]]></textFieldExpression>
 			</textField>
 			<textField pattern="#,##0.00" isBlankWhenNull="true">
 				<reportElement key="textField" x="375" y="0" width="22" height="18" uuid="f9482529-938a-4665-8c33-d7c6ecd66cbd"/>
@@ -730,7 +739,7 @@
 				<textElement textAlignment="Right" verticalAlignment="Middle">
 					<font size="6"/>
 				</textElement>
-				<textFieldExpression><![CDATA[$F{nilai_8}*(((Double)$P{REPORT_PARAMETERS_MAP}.get( "persen_8" ))/100.0)]]></textFieldExpression>
+				<textFieldExpression><![CDATA[$F{nilai_bobot_8}]]></textFieldExpression>
 			</textField>
 			<textField pattern="#,##0.00" isBlankWhenNull="true">
 				<reportElement key="textField" x="441" y="0" width="22" height="18" uuid="9649481e-84d2-45c3-8def-3d0d22b43268"/>
@@ -744,7 +753,7 @@
 				<textElement textAlignment="Right" verticalAlignment="Middle">
 					<font size="6"/>
 				</textElement>
-				<textFieldExpression><![CDATA[$F{nilai_7}*(((Double)$P{REPORT_PARAMETERS_MAP}.get( "persen_7" ))/100.0)]]></textFieldExpression>
+				<textFieldExpression><![CDATA[$F{nilai_bobot_7}]]></textFieldExpression>
 			</textField>
 			<textField pattern="#,##0.00" isBlankWhenNull="true">
 				<reportElement key="textField" x="177" y="0" width="22" height="18" uuid="fe3a60c6-07a6-4377-aa5d-b13d12dfb14e"/>
@@ -758,7 +767,7 @@
 				<textElement textAlignment="Right" verticalAlignment="Middle">
 					<font size="6"/>
 				</textElement>
-				<textFieldExpression><![CDATA[$F{nilai_1}*(((Double)$P{REPORT_PARAMETERS_MAP}.get( "persen_1" ))/100.0)]]></textFieldExpression>
+				<textFieldExpression><![CDATA[$F{nilai_bobot_1}]]></textFieldExpression>
 			</textField>
 			<textField pattern="##0.00" isBlankWhenNull="false">
 				<reportElement key="textField" x="551" y="0" width="19" height="18" uuid="765585e5-f410-44c3-af8f-4dc22b3ba9e1"/>
@@ -786,7 +795,7 @@
 				<textElement textAlignment="Right" verticalAlignment="Middle">
 					<font size="6"/>
 				</textElement>
-				<textFieldExpression><![CDATA[$F{nilai_4}*(((Double)$P{REPORT_PARAMETERS_MAP}.get( "persen_4" ))/100.0)]]></textFieldExpression>
+				<textFieldExpression><![CDATA[$F{nilai_bobot_4}]]></textFieldExpression>
 			</textField>
 			<textField pattern="#,##0.00" isBlankWhenNull="true">
 				<reportElement key="textField" x="199" y="0" width="22" height="18" uuid="424fc0be-9610-4277-9479-328e4201c511"/>
@@ -828,7 +837,7 @@
 				<textElement textAlignment="Right" verticalAlignment="Middle">
 					<font size="6"/>
 				</textElement>
-				<textFieldExpression><![CDATA[$F{nilai_5}*(((Double)$P{REPORT_PARAMETERS_MAP}.get( "persen_5" ))/100.0)]]></textFieldExpression>
+				<textFieldExpression><![CDATA[$F{nilai_bobot_5}]]></textFieldExpression>
 			</textField>
 			<textField pattern="#,##0.00" isBlankWhenNull="true">
 				<reportElement key="textField" x="243" y="0" width="22" height="18" uuid="a5bb7bb1-0eef-4469-954e-609db335174e"/>
@@ -884,7 +893,7 @@
 				<textElement textAlignment="Right" verticalAlignment="Middle">
 					<font size="6"/>
 				</textElement>
-				<textFieldExpression><![CDATA[$F{nilai_2}*(((Double)$P{REPORT_PARAMETERS_MAP}.get( "persen_2" ))/100.0)]]></textFieldExpression>
+				<textFieldExpression><![CDATA[$F{nilai_bobot_2}]]></textFieldExpression>
 			</textField>
 			<textField isBlankWhenNull="false">
 				<reportElement key="textField" x="570" y="0" width="15" height="18" uuid="3c3ff4b1-33ee-42c1-a214-4fdf382cb951"/>
@@ -926,7 +935,7 @@
 				<textElement textAlignment="Right" verticalAlignment="Middle">
 					<font size="6"/>
 				</textElement>
-				<textFieldExpression><![CDATA[$F{nilai_9}*(((Double)$P{REPORT_PARAMETERS_MAP}.get( "persen_9" ))/100.0)]]></textFieldExpression>
+				<textFieldExpression><![CDATA[$F{nilai_bobot_9}]]></textFieldExpression>
 			</textField>
 		</band>
 	</detail>

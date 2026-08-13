@@ -3345,12 +3345,37 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		}
 
 		int i = 1;
+		boolean laporanNilaiBanyakKolom = formatNilais.size() >= 9;
+		StringBuilder[] namaKolom = laporanNilaiBanyakKolom ? new StringBuilder[9] : null;
+		StringBuilder[] persenKolom = laporanNilaiBanyakKolom ? new StringBuilder[9] : null;
 		for (FormatNilai formatNilai : formatNilais) {
-			parameters.put("col" + i, formatNilai.getNama() + "\n" + formatNilai.getPersen() + "%");
-			parameters.put("col_nama_" + i, formatNilai.getNama());
-			parameters.put("col_persen_" + i, Common.numberFormat.get().format(formatNilai.getPersen()) + "%");
-			parameters.put("persen_" + i, formatNilai.getPersen());
+			int nomorKolom = laporanNilaiBanyakKolom ? ((i - 1) % 9) + 1 : i;
+			if (laporanNilaiBanyakKolom) {
+				int bucket = nomorKolom - 1;
+				if (namaKolom[bucket] == null) {
+					namaKolom[bucket] = new StringBuilder();
+					persenKolom[bucket] = new StringBuilder();
+				} else {
+					namaKolom[bucket].append(" / ");
+					persenKolom[bucket].append(" / ");
+				}
+				namaKolom[bucket].append(formatNilai.getNama());
+				persenKolom[bucket].append(Common.numberFormat.get().format(formatNilai.getPersen())).append('%');
+			} else {
+				parameters.put("col" + nomorKolom, formatNilai.getNama() + "\n" + formatNilai.getPersen() + "%");
+				parameters.put("col_nama_" + nomorKolom, formatNilai.getNama());
+				parameters.put("col_persen_" + nomorKolom,
+						Common.numberFormat.get().format(formatNilai.getPersen()) + "%");
+				parameters.put("persen_" + nomorKolom, formatNilai.getPersen());
+			}
 			i++;
+		}
+		if (laporanNilaiBanyakKolom) {
+			for (int kolom = 1; kolom <= 9; kolom++) {
+				parameters.put("col_nama_" + kolom, namaKolom[kolom - 1] == null ? "" : namaKolom[kolom - 1].toString());
+				parameters.put("col_persen_" + kolom,
+						persenKolom[kolom - 1] == null ? "" : persenKolom[kolom - 1].toString());
+			}
 		}
 
 		List<Map<String, Object>> maps = new ArrayList<Map<String, Object>>();
@@ -3370,16 +3395,41 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 				Common.insertProperty(Detailperkuliahan.class, detailperkuliahan, map, "detailperkuliahan");
 
 				i = 1;
+				StringBuilder[] nilaiKolom = laporanNilaiBanyakKolom ? new StringBuilder[9] : null;
+				StringBuilder[] bobotKolom = laporanNilaiBanyakKolom ? new StringBuilder[9] : null;
 				for (FormatNilai formatNilai : formatNilais) {
+					Double nilai;
 					if (perkuliahan != null && perkuliahan.getSembunyikanNilaiJikaBelumDiverifikasi()
 							&& Detailperkuliahan.NOT_VERIFIED.equals(detailperkuliahan.getVerify())) {
-						Double nilai = detailperkuliahan.retreiveDetailNilaiBelumVerify(formatNilai);
-						map.put("nilai_" + i, (nilai));
+						nilai = detailperkuliahan.retreiveDetailNilaiBelumVerify(formatNilai);
 					} else {
-						Double nilai = detailperkuliahan.retreiveDetailNilai(formatNilai);
-						map.put("nilai_" + i, (nilai));
+						nilai = detailperkuliahan.retreiveDetailNilai(formatNilai);
+					}
+					if (laporanNilaiBanyakKolom) {
+						int bucket = (i - 1) % 9;
+						if (nilaiKolom[bucket] == null) {
+							nilaiKolom[bucket] = new StringBuilder();
+							bobotKolom[bucket] = new StringBuilder();
+						} else {
+							nilaiKolom[bucket].append(" / ");
+							bobotKolom[bucket].append(" / ");
+						}
+						nilaiKolom[bucket].append(nilai == null ? "-" : Common.numberFormat.get().format(nilai));
+						Double berbobot = nilai == null || formatNilai.getPersen() == null ? null
+								: nilai * formatNilai.getPersen() / 100.0;
+						bobotKolom[bucket].append(berbobot == null ? "-" : Common.numberFormat.get().format(berbobot));
+					} else {
+						map.put("nilai_" + i, nilai);
 					}
 					i++;
+				}
+				if (laporanNilaiBanyakKolom) {
+					for (int kolom = 1; kolom <= 9; kolom++) {
+						map.put("nilai_" + kolom,
+								nilaiKolom[kolom - 1] == null ? "" : nilaiKolom[kolom - 1].toString());
+						map.put("nilai_bobot_" + kolom,
+								bobotKolom[kolom - 1] == null ? "" : bobotKolom[kolom - 1].toString());
+					}
 				}
 
 				if (perkuliahan != null && perkuliahan.getSembunyikanNilaiJikaBelumDiverifikasi()
@@ -3505,11 +3555,13 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		}
 
 		try {
-			// Pilih template: size 0 atau >9 → Daftar_Nilai_1 (catch-all), size 3 → Daftar_Nilai,
+			// Mulai 9 komponen gunakan template 9 kolom adaptif. Komponen ke-10 dan
+			// seterusnya digabung per kolom (tetap ditampilkan), bukan dibuang.
 			// selain itu → Daftar_Nilai_<size>. Size 0 WAJIB dijabarkan eksplisit karena
 			// Daftar_Nilai_0 tidak pernah ada sebagai berkas template.
-			String namaTemplateDaftarNilai = (formatNilais.size() == 0 || formatNilais.size() > 9
+			String namaTemplateDaftarNilai = (formatNilais.size() == 0
 					|| perkuliahan.getHanyaInputNilaiHuruf()) ? "Daftar_Nilai_1"
+							: formatNilais.size() >= 9 ? "Daftar_Nilai_9"
 							: formatNilais.size() == 3 ? "Daftar_Nilai"
 									: "Daftar_Nilai_" + formatNilais.size();
 			Report.generatePDFReport(Report.PDF, parameters, namaTemplateDaftarNilai,
