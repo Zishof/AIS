@@ -12,6 +12,11 @@ import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zul.Window;
+import org.zkoss.zul.Tab;
+import org.zkoss.zul.Tabbox;
+import org.zkoss.zul.Tabpanel;
+import org.zkoss.zul.Tabpanels;
+import org.zkoss.zul.Tabs;
 
 import ais.action.master.generic.GenericCrudAction;
 import ais.common.HeadlessActionContext;
@@ -86,7 +91,7 @@ public final class GenericCrudExistingActionInvoker {
             for (int i = 0; i < fields.size(); i++) {
                 Field field = (Field) fields.get(i);
                 field.setAccessible(true);
-                field.set(action, window);
+                field.set(action, createHost(field.getType(), window));
             }
             HeadlessActionContext.enter();
             Method init = compatibleInit(actionClass, target.getClass());
@@ -225,13 +230,26 @@ public final class GenericCrudExistingActionInvoker {
             for (int i = 0; i < fields.length; i++) {
                 Class fieldType = fields[i].getType();
                 String name = fields[i].getName().toLowerCase();
-                boolean containerName = name.indexOf("window") >= 0 || name.indexOf("dialog") >= 0;
+                boolean tabPanelHost = "tambahdata".equals(name) && Tabpanel.class.isAssignableFrom(fieldType);
+                boolean containerName = name.indexOf("window") >= 0 || name.indexOf("dialog") >= 0
+                        || tabPanelHost;
                 if (!Modifier.isStatic(fields[i].getModifiers()) && containerName
                         && Component.class.isAssignableFrom(fieldType)
-                        && fieldType.isAssignableFrom(MyWindow.class)) result.add(fields[i]);
+                        && (fieldType.isAssignableFrom(MyWindow.class) || tabPanelHost)) result.add(fields[i]);
             }
             current = current.getSuperclass();
         }
         return result;
+    }
+
+    private static Component createHost(Class fieldType, MyWindow window) {
+        if (!Tabpanel.class.isAssignableFrom(fieldType)) return window;
+        Tabbox box = new Tabbox();
+        box.setParent(window);
+        Tabs tabs = new Tabs(); tabs.setParent(box);
+        Tab tab = new Tab("Form"); tab.setParent(tabs);
+        Tabpanels panels = new Tabpanels(); panels.setParent(box);
+        Tabpanel panel = new Tabpanel(); panel.setParent(panels);
+        return panel;
     }
 }

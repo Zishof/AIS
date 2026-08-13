@@ -7,6 +7,12 @@ import ais.action.master.SkripsiAction;
 import ais.action.master.payroll.ItemGajiPegawaiAction;
 import ais.action.master.rab.ChecklistLaporanDetailAction;
 import ais.action.master.rab.ChecklistLaporanDetailDefaultAction;
+import ais.action.master.sirs.BookingRegistrasiAction;
+import ais.action.master.sirs.CetakKartuPasienAction;
+import ais.action.master.sirs.DiagnosaPenyakitAction;
+import ais.action.master.sirs.PembayaranAction;
+import ais.action.master.sirs.TransaksiReturAction;
+import ais.action.master.koperasi.PembelianAnggotaKoperasiAction;
 import ais.action.master.asset.PenyediaAssetAction;
 import ais.action.master.generic.v2.adapter.GenericCrudExistingActionInvoker;
 import ais.action.master.recruitment.CalonPegawaiAction;
@@ -19,6 +25,12 @@ import ais.database.model.Skripsi;
 import ais.database.model.payroll.ItemGajiPegawai;
 import ais.database.model.rab.ChecklistLaporanDetail;
 import ais.database.model.rab.ChecklistLaporanDetailDefault;
+import ais.database.model.sirs.BookingRegistrasi;
+import ais.database.model.sirs.CetakKartuPasien;
+import ais.database.model.sirs.DiagnosaPenyakit;
+import ais.database.model.sirs.Pembayaran;
+import ais.database.model.sirs.TransaksiRetur;
+import ais.database.model.koperasi.PembelianAnggotaKoperasi;
 import ais.database.model.asset.PenyediaAsset;
 import ais.database.model.recruitment.CalonPegawai;
 import ais.ui.util.MyMessageboxConfig;
@@ -68,6 +80,9 @@ public final class HeadlessExistingActionSelfTest {
         LegacyVoidSaveAction.saved = false;
         GenericCrudExistingActionInvoker.execute(LegacyVoidSaveAction.class, new Agama());
         check(LegacyVoidSaveAction.saved, "Action legacy void onSave(Event) tidak dieksekusi.");
+        LegacyTabpanelAction.saved = false;
+        GenericCrudExistingActionInvoker.execute(LegacyTabpanelAction.class, new Agama());
+        check(LegacyTabpanelAction.saved, "Root Tabpanel legacy tidak dibangun secara headless.");
         check(GenericCrudExistingActionInvoker.supportsCreate(PenyediaAssetAction.class, PenyediaAsset.class),
                 "Lifecycle native PenyediaAssetAction belum terhubung.");
         check(GenericCrudExistingActionInvoker.supportsCreate(CalonPegawaiAction.class, CalonPegawai.class),
@@ -82,6 +97,18 @@ public final class HeadlessExistingActionSelfTest {
                 ChecklistLaporanDetailDefault.class), "Lifecycle callback Checklist Default belum terhubung.");
         check(GenericCrudExistingActionInvoker.supportsCreate(ItemGajiPegawaiAction.class,
                 ItemGajiPegawai.class), "Lifecycle callback Item Gaji Pegawai belum terhubung.");
+        check(GenericCrudExistingActionInvoker.supportsCreate(BookingRegistrasiAction.class,
+                BookingRegistrasi.class), "Tabpanel form Booking Registrasi belum terhubung.");
+        check(GenericCrudExistingActionInvoker.supportsCreate(CetakKartuPasienAction.class,
+                CetakKartuPasien.class), "Tabpanel form Cetak Kartu Pasien belum terhubung.");
+        check(GenericCrudExistingActionInvoker.supportsCreate(DiagnosaPenyakitAction.class,
+                DiagnosaPenyakit.class), "Tabpanel form Diagnosa Penyakit belum terhubung.");
+        check(GenericCrudExistingActionInvoker.supportsCreate(PembayaranAction.class,
+                Pembayaran.class), "Tabpanel form Pembayaran SIRS belum terhubung.");
+        check(GenericCrudExistingActionInvoker.supportsCreate(PembelianAnggotaKoperasiAction.class,
+                PembelianAnggotaKoperasi.class), "Tabpanel form Pembelian Anggota belum terhubung.");
+        check(GenericCrudExistingActionInvoker.supportsCreate(TransaksiReturAction.class,
+                TransaksiRetur.class), "Tabpanel form Transaksi Retur belum terhubung.");
         check(!HeadlessActionContext.isActive(), "Konteks headless bocor setelah Action selesai.");
         System.out.println("PASS existing Action headless validation self-test");
         // Hibernate/c3p0 aplikasi mempertahankan worker non-daemon pada eksekusi CLI.
@@ -142,6 +169,23 @@ public final class HeadlessExistingActionSelfTest {
 
         public void onSave(org.zkoss.zk.ui.event.Event event) {
             saved = true;
+        }
+    }
+
+    /** Fixture root form tambahData yang lazim pada CRUD SIRS/koperasi. */
+    public static final class LegacyTabpanelAction {
+        static boolean saved;
+        private org.zkoss.zul.Tabpanel tambahData;
+
+        public void init(Agama agama) {
+            org.zkoss.zul.Div form = new org.zkoss.zul.Div();
+            form.setParent(tambahData);
+            tambahData.getLinkedTab().setSelected(true);
+        }
+
+        public boolean onSave(org.zkoss.zk.ui.event.Event event) {
+            saved = tambahData.getLinkedTab().isSelected();
+            return saved;
         }
     }
 }
