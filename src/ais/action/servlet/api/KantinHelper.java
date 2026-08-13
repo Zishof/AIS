@@ -12728,10 +12728,18 @@ public class KantinHelper {
 		}
 		ais.database.model.inventory.Pedagang pedagang = tbmuser.getPedagang();
 		ais.database.model.inventory.Toko tokoLogin = pedagang == null ? null : pedagang.getToko();
-		boolean bolehSupervisor = pedagang == null || Boolean.TRUE.equals(pedagang.getSupervisor());
-		if (!bolehSupervisor) {
+		ais.database.model.Tbmrole role = tbmuser.hakAkses();
+		org.json.JSONObject menuRole = ais.common.EbisnisMenuKatalog.urai(
+				role == null ? null : role.getEbisnisMenu());
+		boolean bolehSupervisor = pedagang == null || Boolean.TRUE.equals(pedagang.getSupervisor())
+				|| menuRole.optBoolean("supervisor", false);
+		boolean bolehHapus = ais.common.EbisnisMenuKatalog.bolehAksi(
+				menuRole, "riwayatpenjualan", "delete")
+				|| ais.common.EbisnisMenuKatalog.bolehAksi(
+						menuRole, "riwayatpenjualan", "reject");
+		if (!bolehSupervisor && !bolehHapus) {
 			hasil.put("status", "91");
-			hasil.put("description", "Hanya supervisor/admin yang boleh membatalkan transaksi.");
+			hasil.put("description", "Akun Anda tidak memiliki hak pembatalan transaksi. Minta supervisor atau admin memberikan izin Hapus/Tolak pada menu Riwayat Penjualan.");
 			return;
 		}
 		String alasan = request.optString("alasan", "").trim();
