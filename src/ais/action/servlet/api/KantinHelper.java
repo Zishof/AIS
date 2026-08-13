@@ -3437,6 +3437,41 @@ public class KantinHelper {
 	}
 
 	/**
+	 * Kunci lebih dulu seluruh produk lama yang akan disentuh satu chunk impor, selalu menurut ID
+	 * menaik. Index primary-key {@code produk_pkey} sudah merupakan index terbaik untuk query ini;
+	 * menambah index lain tidak dapat mencegah deadlock update baris yang sama. Urutan lock yang
+	 * deterministiklah yang memutus siklus A-menunggu-B/B-menunggu-A antara dua impor atau impor dan
+	 * checkout. Produk baru tidak ikut dikunci karena belum mempunyai baris di database; benturan
+	 * insert tetap diamankan unique index {@code idx_produk_kunci_unik} dan retry transaksi.
+	 */
+	private static void kunciProdukImporTerurut(Session session, JSONArray barisArr, Long tokoId,
+			Map<String, Long> petaKode, Map<String, Long> petaBarcode, Map<String, Long> petaNama,
+			Map<String, Long> petaKunciUnik) {
+		java.util.SortedSet<Long> ids = new java.util.TreeSet<Long>();
+		for (int i = 0; i < barisArr.length(); i++) {
+			JSONObject b = barisArr.optJSONObject(i);
+			if (b == null) continue;
+			String kode = b.optString("kode", "").trim();
+			String nama = b.optString("nama", "").trim();
+			String barcode = b.optString("barcode", "").trim();
+			if (kode.isEmpty() || nama.isEmpty()) continue;
+			Long id = petaKode.get(kode.toUpperCase());
+			if (id == null && !barcode.isEmpty()) id = petaBarcode.get(barcode.toUpperCase());
+			if (id == null) id = petaNama.get(nama.toUpperCase());
+			if (id == null) {
+				String kunci = ais.common.ProdukKunciUnikUtil.hitung(kode,
+						barcode.isEmpty() ? null : barcode, nama, tokoId);
+				id = petaKunciUnik.get(kunci);
+			}
+			if (id != null) ids.add(id);
+		}
+		if (!ids.isEmpty()) {
+			session.createSQLQuery("SELECT id FROM koperasi.produk WHERE id IN (:ids) ORDER BY id FOR UPDATE")
+					.setParameterList("ids", ids).list();
+		}
+	}
+
+	/**
 	 * Gap-closure "kenapa masih bisa error 'duplicate key kunci_unik', harusnya sudah dicegah?" --
 	 * deteksi SPESIFIK pelanggaran UNIQUE INDEX {@code idx_produk_kunci_unik} (lihat
 	 * {@code InitIndex.initIndexProdukKunciUnik}), BUKAN sembarang unique_violation (23505) lain --
@@ -3555,6 +3590,11 @@ public class KantinHelper {
 			} finally {
 				pengaturLock.close();
 			}
+			// Semua transaksi yang menyentuh kumpulan produk sama mengambil row-lock dalam
+			// urutan primary-key yang sama. Ini pencegahan deadlock; retry di wrapper tetap
+			// menjadi jaring pengaman bila lock dipegang transaksi lama/eksternal.
+			kunciProdukImporTerurut(session, barisArr, tokoId, petaProdukToko,
+					petaProdukTokoBarcode, petaProdukTokoNama, petaProdukTokoKunciUnik);
 			for (int i = 0; i < barisArr.length(); i++) {
 				JSONObject bh = new JSONObject();
 				bh.put("no", i + 1);

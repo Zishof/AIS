@@ -3261,13 +3261,17 @@ public class InitIndex {
 		// juga memfilter `WHERE toko = ?` (katalog Kasir/PriceTagUtil.listProduk, laporan,
 		// dsb.) -- FK `produk.toko`/`pembelian.produk` TIDAK otomatis diindeks Postgres
 		// (beda dari constraint-nya sendiri), jadi tiap query begini selama ini full-scan.
+		// Index lama (toko,kode,barcode,nama) sengaja dihapus: B-tree hanya efektif dari
+		// left-most prefix, sehingga sesudah (toko,kode) ia tidak membantu pencarian
+		// alternatif berdasarkan barcode/nama dan hanya menduplikasi index spesifik di bawah.
+		// Lebih banyak index justru memperlama setiap UPDATE produk dan memperpanjang row-lock.
 		// ---------------------------------------------------------------------------
 		String[] INDEX_QUERIES_KOPERASI_PRODUK_DUPLIKAT_FAST = new String[] {
+				"DROP INDEX IF EXISTS koperasi.idx_kop_produk_toko_kode_barcode_nama",
 				"CREATE INDEX IF NOT EXISTS idx_kop_produk_toko ON koperasi.produk (toko, id)",
 				"CREATE INDEX IF NOT EXISTS idx_kop_produk_toko_kode ON koperasi.produk (toko, kode)",
 				"CREATE INDEX IF NOT EXISTS idx_kop_produk_toko_barcode ON koperasi.produk (toko, barcode)",
 				"CREATE INDEX IF NOT EXISTS idx_kop_produk_toko_nama_norm ON koperasi.produk (toko, LOWER(TRIM(nama)))",
-				"CREATE INDEX IF NOT EXISTS idx_kop_produk_toko_kode_barcode_nama ON koperasi.produk (toko, kode, barcode, LOWER(TRIM(nama)))",
 				"CREATE INDEX IF NOT EXISTS idx_kop_pembelian_produk ON koperasi.pembelian (produk)" };
 		for (String sql : INDEX_QUERIES_KOPERASI_PRODUK_DUPLIKAT_FAST) {
 			try {
