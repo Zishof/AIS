@@ -1979,9 +1979,69 @@ public class KantinHelper {
 				return;
 			}
 			String[] idKasir = identitasKasir(tbmuser);
+			ais.database.model.JenisPembayaran jenisPembayaran = null;
+			ais.database.model.JenisTabungan jenisTabungan = null;
+			if (!request.isNull("jenis_pembayaran_id")
+					&& !request.optString("jenis_pembayaran_id", "").trim().isEmpty()) {
+				String id = request.optString("jenis_pembayaran_id", "").trim();
+				if (!Common.isNumber(id)) {
+					hasil.put("status", "91");
+					hasil.put("description", "Cara pembayaran yang dipilih tidak valid.");
+					return;
+				}
+				jenisPembayaran = (ais.database.model.JenisPembayaran) session.get(
+						ais.database.model.JenisPembayaran.class, Long.valueOf(id));
+			} else {
+				jenisPembayaran = (ais.database.model.JenisPembayaran) session
+						.createCriteria(ais.database.model.JenisPembayaran.class)
+						.add(Restrictions.eq("defaultPembayaran", Boolean.TRUE))
+						.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
+						.add(Restrictions.isNull("jenisTabungan")).setMaxResults(1).uniqueResult();
+				if (jenisPembayaran == null) {
+					jenisPembayaran = (ais.database.model.JenisPembayaran) session
+							.createCriteria(ais.database.model.JenisPembayaran.class)
+							.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
+							.add(Restrictions.isNull("jenisTabungan")).addOrder(Order.asc("id"))
+							.setMaxResults(1).uniqueResult();
+				}
+			}
+			if (!request.isNull("jenis_tabungan_id")
+					&& !request.optString("jenis_tabungan_id", "").trim().isEmpty()) {
+				String id = request.optString("jenis_tabungan_id", "").trim();
+				if (!Common.isNumber(id)) {
+					hasil.put("status", "91");
+					hasil.put("description", "Jenis tabungan yang dipilih tidak valid.");
+					return;
+				}
+				jenisTabungan = (ais.database.model.JenisTabungan) session.get(
+						ais.database.model.JenisTabungan.class, Long.valueOf(id));
+			} else {
+				jenisTabungan = (ais.database.model.JenisTabungan) session
+						.createCriteria(ais.database.model.JenisTabungan.class)
+						.add(Restrictions.eq("defaultTabungan", Boolean.TRUE))
+						.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
+						.setMaxResults(1).uniqueResult();
+				if (jenisTabungan == null) {
+					jenisTabungan = (ais.database.model.JenisTabungan) session
+							.createCriteria(ais.database.model.JenisTabungan.class)
+							.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
+							.addOrder(Order.asc("id")).setMaxResults(1).uniqueResult();
+				}
+			}
+			if (jenisPembayaran == null || jenisTabungan == null) {
+				hasil.put("status", "91");
+				hasil.put("description",
+						"Topup belum dapat disimpan karena Cara Pembayaran atau Jenis Tabungan default belum dikonfigurasi. Buka menu Keuangan, tetapkan satu data aktif sebagai default, lalu coba kembali.");
+				return;
+			}
 			ais.database.model.Deposit deposit = new ais.database.model.Deposit();
 			deposit.setAnggotaKoperasi(anggota);
 			deposit.setNominal(Double.valueOf(nominal));
+			// Form admin lama selalu mengisi dua relasi wajib ini. Klien POS boleh tidak
+			// mengirimkannya, tetapi server tetap memasang entity default yang dimuat
+			// dari session ini (bukan singleton statis yang mungkin sudah detached).
+			deposit.setJenisPembayaran(jenisPembayaran);
+			deposit.setJenisTabungan(jenisTabungan);
 			// Parity JSP "_manajemen_topup.jsp": waktu boleh backdate (opsional), default SEKARANG
 			// spt perilaku lama bila tak dikirim -- TIDAK mengubah perilaku pemanggil existing.
 			Date waktuTopup = new Date();
@@ -2005,14 +2065,6 @@ public class KantinHelper {
 				} catch (Exception eParse) {
 					ais.common.ErrorAuditUtil.record(eParse, "auto-audit topupSaldo-parse-expired src/ais/action/servlet/api/KantinHelper.java");
 				}
-			}
-			if (!request.isNull("jenis_pembayaran_id")) {
-				deposit.setJenisPembayaran((ais.database.model.JenisPembayaran) session.get(ais.database.model.JenisPembayaran.class,
-						Long.valueOf((request.get("jenis_pembayaran_id") + "").trim())));
-			}
-			if (!request.isNull("jenis_tabungan_id")) {
-				deposit.setJenisTabungan((ais.database.model.JenisTabungan) session.get(ais.database.model.JenisTabungan.class,
-						Long.valueOf((request.get("jenis_tabungan_id") + "").trim())));
 			}
 			deposit.setKeterangan(request.optString("keterangan", ""));
 			deposit.setOleh(idKasir[0]);
