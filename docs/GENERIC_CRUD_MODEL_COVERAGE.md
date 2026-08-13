@@ -27,8 +27,8 @@ mempunyai lifecycle yang jelas untuk setiap model.
 - Model sensitif/restricted: 132
 - Lifecycle Action existing yang dapat dipanggil headless: 746
 - Lifecycle metadata hanya untuk model tanpa Action: 572
-- Definition/adapter eksplisit: 41
-- Action kompleks yang tetap fail-closed dan perlu review: 36
+- Definition/adapter eksplisit: 42
+- Action kompleks yang tetap fail-closed dan perlu review: 35
 - Create aktif: 1.299
 - Update aktif: 1.310
 - Delete/soft-delete aktif: 186
@@ -39,7 +39,7 @@ restricted walaupun nama class-nya terlihat umum. Field wajib yang sengaja
 disembunyikan juga otomatis mematikan create agar constraint tidak dilewati.
 
 Angka di atas dihasilkan oleh `GenericCrudModelCoverageAudit` setelah kebijakan
-strict diterapkan. Tiga puluh enam Action kompleks bukan dianggap selesai: mutation
+strict diterapkan. Tiga puluh lima Action kompleks bukan dianggap selesai: mutation
 ditolak sampai Action tersebut diklasifikasikan sebagai read-only atau memperoleh
 adapter/service native yang mempertahankan validasi dan efek bisnis existing.
 
@@ -72,6 +72,12 @@ oleh service kursus, sedangkan New UI hanya dapat mengubah status Aktif/Dicabut.
 Nomor, peserta, nilai, dan data terbit tidak dapat diedit. Aksi per-baris
 “Verifikasi Publik” membuka servlet verifikasi pada tab baru melalui redirect URL
 same-origin yang tervalidasi; peserta hanya dapat melihat sertifikatnya sendiri.
+
+`KehadiranPegawaiBulananAction` telah diklasifikasikan eksplisit sebagai laporan
+read/search/export. Semua metrik kehadiran immutable di layar ini, record tanpa
+pegawai disaring, urutan dimulai dari tahun terbaru, dan role pegawai tanpa hak
+melihat pegawai lain dibatasi pada data dirinya; scope satuan kerja digunakan
+untuk role yang memang mempunyai hak melihat pegawai lain.
 
 Perubahan penting dari audit awal adalah `metadataBacked` tidak lagi digunakan
 bila class Action existing ditemukan. Sebelumnya kondisi tersebut dapat membuat
