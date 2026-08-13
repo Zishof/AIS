@@ -15,6 +15,7 @@ import ais.database.model.sekolah.NilaiKegiatanKesiswaan;
 import ais.database.model.koperasi.PembagianShu;
 import ais.database.model.inventory.PengajuanPembelianGudang;
 import ais.database.model.sekolah.InterviewCalonSiswa;
+import ais.database.model.inventory.Pembelian;
 
 /** Memilih adapter hasil review untuk model yang mempunyai rule Action khusus. */
 public final class GenericCrudReviewedAdapterFactory {
@@ -35,7 +36,8 @@ public final class GenericCrudReviewedAdapterFactory {
                 || NilaiKegiatanKesiswaan.class.equals(entityClass)
                 || PembagianShu.class.equals(entityClass)
                 || PengajuanPembelianGudang.class.equals(entityClass)
-                || InterviewCalonSiswa.class.equals(entityClass);
+                || InterviewCalonSiswa.class.equals(entityClass)
+                || Pembelian.class.equals(entityClass);
     }
 
     public static GenericCrudAutoEntityAdapter create(Class entityClass, boolean softDelete,
@@ -63,6 +65,7 @@ public final class GenericCrudReviewedAdapterFactory {
         if (PembagianShu.class.equals(entityClass)) return new PembagianShuWorkflowGenericCrudAdapter();
         if (PengajuanPembelianGudang.class.equals(entityClass)) return new PengajuanPembelianGudangWorkflowGenericCrudAdapter();
         if (InterviewCalonSiswa.class.equals(entityClass)) return new InterviewCalonSiswaWorkflowGenericCrudAdapter();
+        if (Pembelian.class.equals(entityClass)) return new PembelianWorkflowGenericCrudAdapter();
         return new GenericCrudAutoEntityAdapter(entityClass, softDelete, sourceActionClass, metadataLifecycle);
     }
 }
