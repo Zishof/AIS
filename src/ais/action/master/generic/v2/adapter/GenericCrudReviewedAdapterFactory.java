@@ -36,6 +36,10 @@ import ais.database.model.KrsMahasiswa;
 import ais.database.model.Kegiatan;
 import ais.database.model.KegiatanTemporary;
 import ais.database.model.PembayaranMahasiswa;
+import ais.database.model.BiodataDosen;
+import ais.database.model.BiodataMahasiswa;
+import ais.database.model.BiodataPegawai;
+import ais.database.model.Dosen;
 
 /** Memilih adapter hasil review untuk model yang mempunyai rule Action khusus. */
 public final class GenericCrudReviewedAdapterFactory {
@@ -77,7 +81,11 @@ public final class GenericCrudReviewedAdapterFactory {
                 || KrsMahasiswa.class.equals(entityClass)
                 || Kegiatan.class.equals(entityClass)
                 || KegiatanTemporary.class.equals(entityClass)
-                || PembayaranMahasiswa.class.equals(entityClass);
+                || PembayaranMahasiswa.class.equals(entityClass)
+                || BiodataDosen.class.equals(entityClass)
+                || BiodataMahasiswa.class.equals(entityClass)
+                || BiodataPegawai.class.equals(entityClass)
+                || Dosen.class.equals(entityClass);
     }
 
     public static GenericCrudAutoEntityAdapter create(Class entityClass, boolean softDelete,
@@ -126,6 +134,10 @@ public final class GenericCrudReviewedAdapterFactory {
         if (Kegiatan.class.equals(entityClass)) return new BillingChargeWorkflowGenericCrudAdapter();
         if (KegiatanTemporary.class.equals(entityClass)) return new BillingCartWorkflowGenericCrudAdapter();
         if (PembayaranMahasiswa.class.equals(entityClass)) return new StudentPaymentWorkflowGenericCrudAdapter();
+        if (BiodataDosen.class.equals(entityClass)) return new LecturerBiodataWorkflowGenericCrudAdapter();
+        if (BiodataMahasiswa.class.equals(entityClass)) return new StudentBiodataWorkflowGenericCrudAdapter();
+        if (BiodataPegawai.class.equals(entityClass)) return new EmployeeBiodataWorkflowGenericCrudAdapter();
+        if (Dosen.class.equals(entityClass)) return new LecturerIdentityWorkflowGenericCrudAdapter();
         return new GenericCrudAutoEntityAdapter(entityClass, softDelete, sourceActionClass, metadataLifecycle);
     }
 }
