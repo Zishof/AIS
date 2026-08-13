@@ -96,6 +96,16 @@ public final class NewUiNativeJspResolver {
         values.put("ais.action.report.helper.asset.laporansaldoawal", ROOT+"root/report/uiux/helper/asset/laporan_saldo_awal.jsp");
         values.put("ais.action.report.format1.library.laporansaldoawal", ROOT+"root/report/uiux/format1/library/laporan_saldo_awal.jsp");
         values.put("ais.action.report.format1.library.laporantrackingstokitem", ROOT+"root/report/uiux/format1/library/laporan_tracking_stok_item.jsp");
+        values.put("cetakundanganwisuda", ROOT+"helper/uiux/generate_undangan_wisuda.jsp");
+        values.put("ais.action.report.lkp.laporanrealisasilkpcatatanharianwindow", ROOT+"root/report/uiux/lkp/laporan_realisasi_lkp_catatan_harian.jsp");
+        values.put("ais.action.report.lkp.laporanrealisasilkpwindow", ROOT+"root/report/uiux/lkp/laporan_realisasi_lkp.jsp");
+        values.put("ais.action.report.lkp.laporanrealisasilkpdetailwindow", ROOT+"root/report/uiux/lkp/laporan_realisasi_lkp_detail.jsp");
+        values.put("ais.action.report.bkd.laporanrealisasibkdwindow", ROOT+"root/report/uiux/bkd/laporan_realisasi_bkd.jsp");
+        values.put("ais.action.report.bkd.laporanrencanabkdwindow", ROOT+"root/report/uiux/bkd/laporan_rencana_bkd.jsp");
+        values.put("ais.action.report.bkd.laporanlembarhasilverifikasibkdwindow", ROOT+"root/report/uiux/bkd/laporan_lembar_hasil_verifikasi_bkd.jsp");
+        values.put("rekapangketdosenperdosen", ROOT+"root/report/uiux/format1/akademik/laporan_rekap_angket_dosen_per_dosen.jsp");
+        values.put("laporanrekaphosttohostwindow", ROOT+"root/report/uiux/helper/keuangan/laporan_rekap_host_to_host.jsp");
+        values.put("rekapdatapmdk", ROOT+"root/report/uiux/helper/pdf/laporan_rekapitulasi_pmdk.jsp");
         return Collections.unmodifiableMap(values);
     }
 

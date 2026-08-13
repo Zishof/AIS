@@ -15,6 +15,10 @@ identitas route tersebut kini mempunyai pemetaan path-aware, termasuk RAB,
 antar-jemput, repository, pustaka, pertemuan, absensi, paket PMB, konfigurasi
 menu, serta laporan payroll/library/asset. Target mapping diverifikasi ada di
 `WEB-INF/new`, termasuk pasangan service-nya ketika endpoint dipanggil.
+Handler menu lama yang berupa nama metode/class juga dipetakan eksplisit:
+undangan wisuda, laporan LKP/BKD, verifikasi BKD, rekap angket dosen, rekap
+host-to-host, dan rekap PMDK. Handler tersebut tidak lagi jatuh ke halaman
+native kosong hanya karena tidak mempunyai ekstensi URL.
 
 ## Hasil inventarisasi
 

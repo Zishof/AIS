@@ -13,6 +13,11 @@ public final class NewUiNativeJspExplicitRouteSelfTest {
         check("/WEB-INF/new/root/maintenance/uiux/menu.jsp", "/pages/main/menu.zul", false);
         check("/WEB-INF/new/root/pmb/uiux/paket.jsp", "/pages/master/paket.zul", false);
         check("/WEB-INF/new/root/report/uiux/format1/payroll/laporan_absensi_pegawai.jsp", "ais.action.report.format1.payroll.LaporanAbsensiPegawai", false);
+        check("/WEB-INF/new/helper/uiux/generate_undangan_wisuda.jsp", "cetakUndanganWisuda", false);
+        check("/WEB-INF/new/root/report/uiux/lkp/laporan_realisasi_lkp_detail.jsp", "ais.action.report.lkp.LaporanRealisasiLkpDetailWindow", false);
+        check("/WEB-INF/new/root/report/uiux/bkd/laporan_lembar_hasil_verifikasi_bkd.jsp", "ais.action.report.bkd.LaporanLembarHasilVerifikasiBkdWindow", false);
+        check("/WEB-INF/new/root/report/uiux/format1/akademik/laporan_rekap_angket_dosen_per_dosen.jsp", "rekapAngketDosenPerDosen", false);
+        check("/WEB-INF/new/root/report/uiux/helper/pdf/laporan_rekapitulasi_pmdk.jsp", "rekapDataPmdk", false);
         if(NewUiNativeJspResolver.explicitFromRoute("/pages/other/mahasiswa.zul",false)!=null)throw new IllegalStateException("Route yang tidak terdaftar tidak boleh ditebak eksplisit.");
         System.out.println("NewUiNativeJspExplicitRouteSelfTest OK");
     }
