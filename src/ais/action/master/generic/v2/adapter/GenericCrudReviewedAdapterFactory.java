@@ -29,6 +29,10 @@ import ais.database.model.asset.AssetDetail;
 import ais.database.model.CicilanPembayaran;
 import ais.database.model.akunting.GrupTransaksi;
 import ais.database.model.akunting.DaftarPengajuanTransfer;
+import ais.database.model.Perkuliahan;
+import ais.database.model.Detailperkuliahan;
+import ais.database.model.Pertemuan;
+import ais.database.model.KrsMahasiswa;
 
 /** Memilih adapter hasil review untuk model yang mempunyai rule Action khusus. */
 public final class GenericCrudReviewedAdapterFactory {
@@ -63,7 +67,11 @@ public final class GenericCrudReviewedAdapterFactory {
                 || AssetDetail.class.equals(entityClass)
                 || CicilanPembayaran.class.equals(entityClass)
                 || GrupTransaksi.class.equals(entityClass)
-                || DaftarPengajuanTransfer.class.equals(entityClass);
+                || DaftarPengajuanTransfer.class.equals(entityClass)
+                || Perkuliahan.class.equals(entityClass)
+                || Detailperkuliahan.class.equals(entityClass)
+                || Pertemuan.class.equals(entityClass)
+                || KrsMahasiswa.class.equals(entityClass);
     }
 
     public static GenericCrudAutoEntityAdapter create(Class entityClass, boolean softDelete,
@@ -105,6 +113,10 @@ public final class GenericCrudReviewedAdapterFactory {
         if (CicilanPembayaran.class.equals(entityClass)) return new InstallmentPaymentWorkflowGenericCrudAdapter();
         if (GrupTransaksi.class.equals(entityClass)) return new JournalWorkflowGenericCrudAdapter();
         if (DaftarPengajuanTransfer.class.equals(entityClass)) return new TransferRequestWorkflowGenericCrudAdapter();
+        if (Perkuliahan.class.equals(entityClass)) return new PerkuliahanWorkflowGenericCrudAdapter();
+        if (Detailperkuliahan.class.equals(entityClass)) return new DetailPerkuliahanWorkflowGenericCrudAdapter();
+        if (Pertemuan.class.equals(entityClass)) return new PertemuanWorkflowGenericCrudAdapter();
+        if (KrsMahasiswa.class.equals(entityClass)) return new KrsMahasiswaWorkflowGenericCrudAdapter();
         return new GenericCrudAutoEntityAdapter(entityClass, softDelete, sourceActionClass, metadataLifecycle);
     }
 }
