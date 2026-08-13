@@ -144,9 +144,11 @@ public class Main extends HttpServlet {
 		try {
 			Tbmuser user = checkAndSetUserSession(request, true);
 			if (isKantinUser(user)) {
-				// Petugas dengan role dasar Kantin harus langsung memakai halaman
-				// Kantin JSP existing, sebelum flag landing katalog dievaluasi.
-				return PAGE_KANTIN_INDEX;
+				// Buka shell JSP Kantin lengkap (header, sidebar dan Ringkasan),
+				// sebelum flag landing Inventory/Pergudangan dievaluasi.
+				request.setAttribute("default_p", "kantin");
+				request.setAttribute("default_s", "ringkasan");
+				return "/WEB-INF/baru/index.jsp";
 			}
 			if (isKantinMemberLandingRole(user)) {
 				request.setAttribute("default_p", "kantin");
