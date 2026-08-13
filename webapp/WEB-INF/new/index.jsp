@@ -28,6 +28,9 @@ if(service&&"_shared".equals(requestedModule)&&"role_switch".equals(requestedPag
 
 NewUiHybridMenuSnapshot snapshot=NewUiHybridMenuAccessService.getSnapshot(request);
 request.setAttribute("newUiHybridMenuSnapshot",snapshot);request.setAttribute("nui_menu_tree",snapshot.getSidebarBranches());
+if(service&&"_shared".equals(requestedModule)&&"dashboard_function".equals(requestedPage)){
+    request.getRequestDispatcher("/WEB-INF/new/_shared/services/dashboard_function_service.jsp").forward(request,response);return;
+}
 
 Long menuId=nuiLong(request.getParameter("menuId"));if(menuId==null)menuId=nuiLong(request.getParameter("menu"));
 Long groupMenuId=nuiLong(request.getParameter("groupMenuId"));if(menuId!=null)groupMenuId=null;

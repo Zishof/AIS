@@ -33,6 +33,11 @@ memahami aturan, konteks pengguna, sumber data, dan target operasionalnya.
 - Halaman ARO deposito sudah native: daftar/ringkasan jatuh tempo, filter lokal,
   toggle ARO dengan privilege `UPDATE` dan CSRF, serta pemicu manual scheduler
   existing. Tidak ada include atau redirect ke ZUL.
+- Fungsi Pembagian SHU sudah mempunyai workflow native: parameter hasil RAT,
+  validasi tujuh pos alokasi harus tepat 100%, perhitungan proporsional jasa
+  modal dan jasa usaha, penyimpanan header+rincian dalam satu transaksi,
+  scope koperasi aktif, RBAC `UPDATE`, CSRF, pencarian anggota, dan ringkasan
+  nominal. Rumus dan basis transaksi mengikuti `PembagianShuAction` existing.
 - CRUD Anggaran Kas dan Modal Penyertaan memakai adapter hasil review, bukan
   lifecycle metadata generik saja. Adapter menegakkan default dan validasi
   `onSave` existing: tahun valid/unik per koperasi, nama penyerta wajib,
