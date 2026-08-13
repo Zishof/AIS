@@ -26,11 +26,14 @@ memahami aturan, konteks pengguna, sumber data, dan target operasionalnya.
   yang benar-benar tersedia pada metadata entity.
 - Entity yang mempunyai flag `aktif` menampilkan rincian aktif/nonaktif dengan
   scope yang sama, bukan hanya angka total global.
-- Halaman fungsi membaca referensi entity langsung dari bytecode Action dan
-  inner class existing. Audit saat ini menemukan 63 dari 75 class sumber
-  memakai entity Hibernate langsung (786 referensi); 12 class berupa container
-  navigasi, pewaris dashboard, raw-SQL builder, atau integrasi dan diperlakukan
-  fail-closed sampai adapter khususnya tersedia.
+- Halaman fungsi membaca referensi entity secara rekursif dari bytecode Action,
+  superclass, dan inner/delegated dashboard class existing. Audit saat ini
+  menemukan 67 dari 75 class sumber memakai entity Hibernate langsung (831
+  referensi). Empat dashboard SIRS berbasis raw SQL sudah mempunyai adapter
+  native terparameterisasi dan telah diuji terhadap PostgreSQL lokal. Empat
+  class yang tersisa merupakan container navigasi prestasi/koperasi dan
+  dashboard piutang sekolah; semuanya tetap fail-closed sampai adapter native
+  khususnya selesai dan lolos audit.
 
 ## Modul yang dicakup
 

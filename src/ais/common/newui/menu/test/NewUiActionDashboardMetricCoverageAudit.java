@@ -15,16 +15,17 @@ public final class NewUiActionDashboardMetricCoverageAudit {
         for (int i = 0; i < modules.size(); i++) {
             sources.addAll(NewUiModuleFunctionService.definitionSourceClasses(modules.get(i)));
         }
-        int withEntities = 0, entityReferences = 0, withoutEntities = 0;
+        int withEntities = 0, entityReferences = 0, withoutEntities = 0, adapted = 0;
         for (String source : sources) {
             Class.forName(source, false, NewUiActionDashboardMetricCoverageAudit.class.getClassLoader());
             List<String> entities = NewUiActionDashboardMetricService.entityClassNames(source);
-            if (entities.isEmpty()) { withoutEntities++; System.out.println("NO_DIRECT_ENTITY " + source); }
+            if (entities.isEmpty() && NewUiActionDashboardMetricService.hasNativeAdapter(source)) adapted++;
+            else if (entities.isEmpty()) { withoutEntities++; System.out.println("NO_DIRECT_ENTITY " + source); }
             else { withEntities++; entityReferences += entities.size(); }
         }
         System.out.println("NewUiActionDashboardMetricCoverageAudit sources=" + sources.size()
                 + " withEntities=" + withEntities + " withoutEntities=" + withoutEntities
-                + " entityReferences=" + entityReferences);
+                + " adapted=" + adapted + " entityReferences=" + entityReferences);
         if (sources.size() < 75) throw new IllegalStateException("source Action belum lengkap");
     }
 }

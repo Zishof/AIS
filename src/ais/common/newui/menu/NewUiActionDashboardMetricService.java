@@ -4,6 +4,7 @@ import java.io.DataInputStream;
 import java.io.InputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -13,6 +14,7 @@ import java.util.regex.Pattern;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
+import org.hibernate.SQLQuery;
 import org.hibernate.criterion.Projections;
 
 import ais.action.master.generic.v2.adapter.GenericCrudInstitutionScope;
@@ -30,6 +32,13 @@ public final class NewUiActionDashboardMetricService {
     private static final int MAX_METRICS = 24;
 
     private NewUiActionDashboardMetricService() { }
+
+    public static boolean hasNativeAdapter(String sourceClass) {
+        return sourceClass != null && (sourceClass.endsWith("PendaftaranOverviewDashboardAction")
+                || sourceClass.endsWith("PendapatanDashboardAction")
+                || sourceClass.endsWith("DiagnosaTerbanyakDashboardAction")
+                || sourceClass.endsWith("KadaluarsaFarmasiDashboardAction"));
+    }
 
     public static List<Metric> load(String sourceClass, Tbmuser user) {
         List<String> names = entityClassNames(sourceClass);
@@ -53,8 +62,75 @@ public final class NewUiActionDashboardMetricService {
             }
             result.add(new Metric(label(name), name, count, available));
         }
+        if (result.isEmpty()) loadSqlAdapter(sourceClass, session, result);
         return Collections.unmodifiableList(result);
     }
+
+    /** Adapter query identik dengan builder dashboard SIRS existing. */
+    private static void loadSqlAdapter(String sourceClass, Session session, List<Metric> result) {
+        if (session == null || sourceClass == null) return;
+        int year = Calendar.getInstance().get(Calendar.YEAR);
+        try {
+            if (sourceClass.endsWith("PendaftaranOverviewDashboardAction")) {
+                SQLQuery query = session.createSQLQuery("select coalesce(nullif(trim(jenis),''),'(Lainnya)'), count(*) "
+                        + "from sirs.pendaftaran where extract(year from tanggalpendaftaran)=:tahun group by 1 order by 2 desc");
+                query.setInteger("tahun", year); List rows = query.list(); long total = 0L;
+                for (int i = 0; rows != null && i < rows.size(); i++) total += number(((Object[]) rows.get(i))[1]).longValue();
+                result.add(new Metric("Total Pendaftaran " + year, "sirs.pendaftaran", total, true));
+                addGrouped(result, rows, "Pendaftaran ", "sirs.pendaftaran");
+            } else if (sourceClass.endsWith("PendapatanDashboardAction")) {
+                SQLQuery query = session.createSQLQuery("select count(*), coalesce(sum(total_biaya),0), "
+                        + "coalesce(sum(bayar_tunai),0), coalesce(sum(bayar_non_tunai),0) from sirs.pembayaran "
+                        + "where extract(year from tanggal_pembayaran)=:tahun");
+                query.setInteger("tahun", year); Object row = query.uniqueResult();
+                if (row instanceof Object[]) {
+                    Object[] values = (Object[]) row;
+                    add(result, "Transaksi " + year, values, 0, "sirs.pembayaran");
+                    add(result, "Total Pendapatan " + year, values, 1, "sirs.pembayaran.total_biaya");
+                    add(result, "Tunai " + year, values, 2, "sirs.pembayaran.bayar_tunai");
+                    add(result, "Non Tunai " + year, values, 3, "sirs.pembayaran.bayar_non_tunai");
+                }
+            } else if (sourceClass.endsWith("DiagnosaTerbanyakDashboardAction")) {
+                SQLQuery total = session.createSQLQuery("select count(*) from sirs.diagnosa_penyakit "
+                        + "where diagnosa_akhir1 is not null and extract(year from tanggal)=:tahun");
+                total.setInteger("tahun", year); result.add(metric("Total Diagnosis " + year,
+                        "sirs.diagnosa_penyakit", total.uniqueResult()));
+                SQLQuery top = session.createSQLQuery("select coalesce(nullif(trim(i.nama_indonesia),''),i.kode,'(Tanpa Nama)'), count(*) "
+                        + "from sirs.diagnosa_penyakit d join sirs.icd i on d.diagnosa_akhir1=i.id "
+                        + "where extract(year from d.tanggal)=:tahun group by 1 order by 2 desc limit 10");
+                top.setInteger("tahun", year); addGrouped(result, top.list(), "", "sirs.diagnosa_penyakit");
+            } else if (sourceClass.endsWith("KadaluarsaFarmasiDashboardAction")) {
+                SQLQuery query = session.createSQLQuery("select case when tanggal_kadaluarsa < now() then 0 "
+                        + "when tanggal_kadaluarsa <= now()+interval '30 day' then 1 "
+                        + "when tanggal_kadaluarsa <= now()+interval '90 day' then 2 else 3 end, count(*) "
+                        + "from sirs.kadaluarsa where tanggal_kadaluarsa is not null group by 1 order by 1");
+                List rows = query.list(); String[] labels = { "Sudah Kedaluwarsa", "≤ 30 Hari", "31–90 Hari", "> 90 Hari" };
+                long[] counts = new long[labels.length];
+                for (int i = 0; rows != null && i < rows.size(); i++) {
+                    Object[] row = (Object[]) rows.get(i); int index = number(row[0]).intValue();
+                    if (index >= 0 && index < labels.length) counts[index] = number(row[1]).longValue();
+                }
+                for (int i = 0; i < labels.length; i++) result.add(new Metric(labels[i], "sirs.kadaluarsa", counts[i], true));
+            }
+        } catch (Exception error) {
+            try { ais.common.ErrorAuditUtil.record(error, "NewUiActionDashboardMetricService.sql." + sourceClass); }
+            catch (Exception ignored) { }
+        }
+    }
+
+    private static void addGrouped(List<Metric> result, List rows, String prefix, String source) {
+        for (int i = 0; rows != null && i < rows.size() && result.size() < MAX_METRICS; i++) {
+            Object[] row = (Object[]) rows.get(i);
+            result.add(metric(prefix + String.valueOf(row[0]), source, row[1]));
+        }
+    }
+    private static void add(List<Metric> result, String label, Object[] values, int index, String source) {
+        if (index < values.length) result.add(metric(label, source, values[index]));
+    }
+    private static Metric metric(String label, String source, Object value) {
+        return new Metric(label, source, number(value).longValue(), true);
+    }
+    private static Number number(Object value) { return value instanceof Number ? (Number) value : Long.valueOf(0L); }
 
     /** Deterministik dan tanpa database; dipakai audit parity source Action. */
     public static List<String> entityClassNames(String sourceClass) {
@@ -113,7 +189,8 @@ public final class NewUiActionDashboardMetricService {
             String name = dependency.group().replace('/', '.');
             String simple = name.substring(name.lastIndexOf('.') + 1);
             if (!name.equals(sourceClass) && (simple.indexOf("Dashboard") >= 0
-                    || simple.indexOf("Dasboard") >= 0 || simple.indexOf("Builder") >= 0)) {
+                    || simple.indexOf("Dasboard") >= 0 || simple.indexOf("Dasbor") >= 0
+                    || simple.indexOf("Builder") >= 0)) {
                 innerClasses.add(name);
             }
         }
