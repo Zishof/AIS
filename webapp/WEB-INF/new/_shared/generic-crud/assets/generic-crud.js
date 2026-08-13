@@ -225,6 +225,13 @@
       var rowId = rowData[meta.identifierProperty];
       var detail = node('button', {type: 'button', 'class': 'gc-btn'}, meta.canUpdate ? 'Edit' : 'Detail'); detail.addEventListener('click', function () { openExisting(rowId); }); buttons.appendChild(detail);
       if (meta.rowAudit) { var audit = node('button', {type: 'button', 'class': 'gc-btn'}, 'Riwayat'); audit.addEventListener('click', function () { openAudit(rowId); }); buttons.appendChild(audit); }
+      if (meta.approvalEnabled && meta.canApprove) {
+        var approvalAction = rowData.status ? 'unapprove' : 'approve';
+        var approvalLabel = rowData.status ? 'Batalkan Persetujuan' : 'Setujui';
+        var approval = node('button', {type: 'button', 'class': 'gc-btn'}, approvalLabel);
+        approval.addEventListener('click', function () { changeApproval(rowId, approvalAction, approvalLabel); });
+        buttons.appendChild(approval);
+      }
       if (meta.canDelete) { var remove = node('button', {type: 'button', 'class': 'gc-btn'}, 'Nonaktifkan'); remove.addEventListener('click', function () { removeRow(rowId); }); buttons.appendChild(remove); }
       actions.appendChild(buttons); row.appendChild(actions); body.appendChild(row);
     });
@@ -425,6 +432,7 @@
     return fetch(target, {method: 'POST', credentials: 'same-origin', headers: {'Accept': 'application/json'}, body: data}).then(function (response) { return response.json().then(function (body) { if (!response.ok || body.success === false) throw new Error(body.message || 'Upload foto gagal.'); return body.data; }); });
   }
   function removePhoto(id) { api('photo_delete', {id: id, nui_csrf: meta.csrf, reason: 'Dihapus melalui form Mahasiswa New UI'}, 'POST').then(function () { notify('Foto berhasil dihapus.'); openExisting(id); loadList(); }).catch(function (error) { notify(error.message); }); }
+  function changeApproval(id, action, label) { if (window.confirm(label + ' data ini?')) api(action, {id: id, nui_csrf: meta.csrf, reason: label + ' melalui New UI'}, 'POST').then(function (result) { notify(result && result.message ? result.message : 'Status persetujuan diperbarui.'); return loadList(); }).catch(function (error) { notify(error.message); }); }
   function removeRow(id) { if (window.confirm('Data akan dinonaktifkan, bukan menghapus histori audit. Lanjutkan?')) api('delete', {id: id, nui_csrf: meta.csrf}, 'POST').then(loadList).catch(function (error) { notify(error.message); }); }
   function openAudit(id) {
     query('overlay').hidden = false; query('audit').hidden = false; var list = query('audit-list'); list.textContent = 'Memuat…';

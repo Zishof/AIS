@@ -16,6 +16,7 @@ import org.hibernate.metadata.ClassMetadata;
 
 import ais.common.Common;
 import ais.action.master.generic.v2.adapter.GenericCrudPhotoAdapter;
+import ais.action.master.generic.v2.adapter.GenericCrudApprovalAdapter;
 
 /** Dispatcher Java; JSP hanya binding dan forwarding. */
 @SuppressWarnings({ "rawtypes", "unchecked" })
@@ -87,6 +88,21 @@ public final class GenericCrudHttpController {
                         identifier(context, request.getParameter("id")), request.getParameter("reason"),
                         photoAdapter(context));
                 payload = GenericCrudResult.ok("Foto mahasiswa berhasil dihapus.", null);
+            } else if ("approve".equals(action)) {
+                GenericCrudCsrf.requireMutation(request);
+                payload = new GenericCrudApprovalService().approve(context,
+                        identifier(context, request.getParameter("id")), request.getParameter("reason"),
+                        approvalAdapter(context));
+            } else if ("unapprove".equals(action)) {
+                GenericCrudCsrf.requireMutation(request);
+                payload = new GenericCrudApprovalService().unapprove(context,
+                        identifier(context, request.getParameter("id")), request.getParameter("reason"),
+                        approvalAdapter(context));
+            } else if ("reject".equals(action)) {
+                GenericCrudCsrf.requireMutation(request);
+                payload = new GenericCrudApprovalService().reject(context,
+                        identifier(context, request.getParameter("id")), request.getParameter("reason"),
+                        approvalAdapter(context));
             } else if ("revisions".equals(action)) {
                 payload = GenericCrudResult.ok("Riwayat berhasil dimuat.", facade.revisions(context,
                         identifier(context, request.getParameter("id")), number(request.getParameter("page"), 1),
@@ -171,6 +187,13 @@ public final class GenericCrudHttpController {
         if (context.getDefinition().getAdapter() instanceof GenericCrudPhotoAdapter)
             return (GenericCrudPhotoAdapter) context.getDefinition().getAdapter();
         throw new GenericCrudException(403, "PHOTO_DISABLED", "Photo adapter belum dikonfigurasi.");
+    }
+
+    private static GenericCrudApprovalAdapter approvalAdapter(GenericCrudRequestContext context) throws GenericCrudException {
+        if (!(context.getDefinition().getAdapter() instanceof GenericCrudApprovalAdapter)) {
+            throw new GenericCrudException(403, "APPROVAL_DISABLED", "Approval tidak tersedia untuk entity ini.");
+        }
+        return (GenericCrudApprovalAdapter) context.getDefinition().getAdapter();
     }
 
     private static FileItem photoPart(HttpServletRequest request) throws Exception {

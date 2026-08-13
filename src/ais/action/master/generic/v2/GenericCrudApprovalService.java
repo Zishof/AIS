@@ -15,4 +15,10 @@ public class GenericCrudApprovalService {
         if (adapter == null) throw new GenericCrudException(403, "APPROVAL_DISABLED", "Approval adapter belum dikonfigurasi.");
         return adapter.reject(id, reason, context);
     }
+    /** Status checkbox legacy memakai privilege APPROVE untuk set dan batal. */
+    public GenericCrudResult unapprove(GenericCrudRequestContext context, Serializable id, String reason, GenericCrudApprovalAdapter adapter) throws Exception {
+        privilege.require(context, GenericCrudOperation.APPROVE);
+        if (adapter == null) throw new GenericCrudException(403, "APPROVAL_DISABLED", "Approval adapter belum dikonfigurasi.");
+        return adapter.reject(id, reason, context);
+    }
 }

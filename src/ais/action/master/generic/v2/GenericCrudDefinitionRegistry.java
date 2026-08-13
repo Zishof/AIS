@@ -10,6 +10,7 @@ import ais.action.master.generic.v2.adapter.AgamaGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.BadanHukumGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.GenericCrudFormOverrideProvider;
 import ais.action.master.generic.v2.adapter.JenjangProgramStudiGenericCrudAdapter;
+import ais.action.master.generic.v2.adapter.KeluargaGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.MahasiswaGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.MahasiswaGenericCrudFormProvider;
 import ais.action.master.generic.v2.adapter.PenilaianSiswaGenericCrudAdapter;
@@ -25,6 +26,8 @@ import ais.database.model.sekolah.KelasSiswa;
 import ais.database.model.sekolah.KurikulumSekolah;
 import ais.database.model.sekolah.Sekolah;
 import ais.database.model.sekolah.Yayasan;
+import ais.database.model.employ.Keluarga;
+import ais.database.model.payroll.AsuransiPegawai;
 
 /**
  * Registry allow-list. Scanner menghasilkan kandidat disabled; hanya entity yang
@@ -39,6 +42,7 @@ public final class GenericCrudDefinitionRegistry {
         register(buildJenjangProgramStudi());
         register(buildPenilaianSiswa());
         register(buildBadanHukum());
+        register(buildKeluarga());
     }
     private GenericCrudDefinitionRegistry() { }
 
@@ -352,6 +356,61 @@ public final class GenericCrudDefinitionRegistry {
         d.addField(field("email", "Email", String.class, "text", false, true, true, false, true, true, 150));
         d.addField(field("alamatWebsite", "Website", String.class, "text", false, true, true, false, true, true, 160));
         d.addField(field("logo", "Logo", String.class, "text", false, true, true, false, true, true, 170));
+        return d;
+    }
+
+    private static GenericCrudDefinition buildKeluarga() {
+        GenericCrudDefinition d = new GenericCrudDefinition();
+        d.setEntityClass(Keluarga.class);
+        d.setModuleKey("employ");
+        d.setPageKey("keluarga");
+        d.setDisplayName("Keluarga Pegawai");
+        d.setSourceActionClassName("ais.action.master.employ.KeluargaAction");
+        d.setExistingActionLifecycleBound(false);
+        d.setLifecycleStatus(GenericCrudDefinition.FULL_CRUD);
+        d.setEnabled(true);
+        d.setCreateEnabled(true);
+        d.setUpdateEnabled(true);
+        d.setDeleteEnabled(true);
+        d.setImportEnabled(false);
+        d.setExportPdfEnabled(true);
+        d.setExportDocxEnabled(true);
+        d.setExportPptxEnabled(true);
+        d.setAuditEnabled(true);
+        d.setRowAuditEnabled(true);
+        d.setRestoreEnabled(false);
+        d.setAdminDeleteEnabled(false);
+        d.setDefaultSortProperty("hubungan");
+        d.setDefaultPageSize(10);
+        d.setMaxPageSize(100);
+        KeluargaGenericCrudAdapter adapter = new KeluargaGenericCrudAdapter();
+        d.setAdapter(adapter);
+        d.setScopeAdapter(adapter);
+        d.addField(field("id", "ID", Long.class, "number", true, false, false, false, true, false, 10));
+        d.addField(relationField("pegawai", "Pegawai", ais.database.model.Pegawai.class,
+                true, true, false, false, 20));
+        d.addField(choiceField("hubungan", "Hubungan", new String[] { Keluarga.SUAMI, Keluarga.ISTRI,
+                Keluarga.ANAK, Keluarga.MERTUA, Keluarga.ORANG_TUA, Keluarga.SAUDARA }, true, true, true, 30));
+        d.addField(field("tanggalNikah", "Tanggal Hubungan (Nikah)", java.util.Date.class, "date",
+                false, true, true, false, true, false, 40));
+        d.addField(field("nama", "Nama", String.class, "text", true, true, true, true, true, true, 50));
+        d.addField(field("tempatLahir", "Tempat Lahir", String.class, "text", false, true, true, true, true, true, 60));
+        d.addField(field("tanggalLahir", "Tanggal Lahir", java.util.Date.class, "date", true, true, true, true, true, false, 70));
+        d.addField(choiceField("jenisKelamin", "Jenis Kelamin", new String[] { "Laki-laki", "Perempuan" }, true, true, true, 80));
+        d.addField(field("alamat", "Alamat", String.class, "textarea", false, true, true, true, false, true, 90));
+        d.addField(field("pekerjaan", "Pekerjaan", String.class, "text", true, true, true, true, true, true, 100));
+        d.addField(relationField("asuransiPegawai1", "Asuransi", AsuransiPegawai.class,
+                false, true, true, false, 110));
+        d.addField(field("nomorAsuransiPegawai1", "Nomor Asuransi", String.class, "text",
+                false, true, true, false, true, true, 120));
+        d.addField(field("premiAsuransi1", "Premi Asuransi", Double.class, "number",
+                false, true, true, false, true, false, 130));
+        d.addField(field("keterangan", "Keterangan", String.class, "textarea",
+                false, true, true, false, false, true, 140));
+        d.addField(field("keteranganTambahan", "Keterangan Tambahan", String.class, "textarea",
+                false, true, true, true, false, true, 150));
+        d.addField(field("status", "Status Persetujuan", Boolean.class, "checkbox",
+                true, false, false, false, true, false, 160));
         return d;
     }
 
