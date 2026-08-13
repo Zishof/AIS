@@ -391,6 +391,9 @@ public class PosApi extends HttpServlet {
 			} else if ("produk_mutasi_ringkasan".equals(action)) {
 				KantinHelper.produkMutasiRingkasan(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "produk_mutasi_ringkasan");
+			} else if ("produk_rekonsiliasi_ledger".equals(action)) {
+				KantinHelper.produkRekonsiliasiLedger(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "produk_rekonsiliasi_ledger");
 			} else if ("stok_dashboard".equals(action)) {
 				KantinHelper.stokDashboard(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "stok_dashboard");
@@ -443,6 +446,9 @@ public class PosApi extends HttpServlet {
 			} else if ("error_log_kirim".equals(action)) {
 				KantinHelper.errorLogKirim(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "error_log_kirim");
+			} else if ("error_log_health".equals(action)) {
+				KantinHelper.errorLogHealth(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "error_log_health");
 			} else if ("layar_pelanggan_kirim".equals(action)) {
 				KantinHelper.layarPelangganKirim(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "layar_pelanggan_kirim");

@@ -2,6 +2,8 @@ package ais.action.servlet.api;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
@@ -782,6 +784,42 @@ public class KantinHelper {
 						exProduk.printStackTrace();
 						ais.common.ErrorAuditUtil.record(exProduk,
 								"auto-audit src/ais/action/servlet/api/KantinHelper.java:produkTerjualBlock");
+					}
+
+					// Ledger shadow penjualan. Qty digabung per produk agar satu dokumen
+					// menghasilkan satu baris idempoten per SKU walau keranjang mengandung
+					// beberapa baris produk yang sama. Kegagalan ledger dicatat keras tetapi
+					// belum menggagalkan checkout selama masa transisi/rekonsiliasi.
+					try {
+						java.util.Map<Long, Double> qtyTerjual = new java.util.LinkedHashMap<Long, Double>();
+						for (int i = 0; i < transaksiRata.length(); i++) {
+							JSONObject t = transaksiRata.getJSONObject(i);
+							if (t.isNull("id")) continue;
+							Long produkId = Long.valueOf((t.get("id") + "").trim());
+							double qty = t.optDouble("jumlah", t.optDouble("qty", 0d));
+							Double lama = qtyTerjual.get(produkId);
+							qtyTerjual.put(produkId, Double.valueOf((lama == null ? 0d : lama.doubleValue()) + qty));
+						}
+						session.beginTransaction();
+						for (java.util.Map.Entry<Long, Double> entry : qtyTerjual.entrySet()) {
+							ais.action.master.inventory.InventoryLedgerUtil.catatDariSaldoAkhir(session,
+									"SALE", String.valueOf(pembelianAnggotaKoperasi.getId()), kodeUnik,
+									entry.getKey(), null, toko == null ? null : toko.getId(), null,
+									"SALE_OUT", -entry.getValue().doubleValue(), 0d, currentWaktu,
+									kasirLoginNamaVal, namaMesinVal, jsonObject.optString("keterangan", ""), null);
+						}
+						session.getTransaction().commit();
+					} catch (Exception exLedger) {
+						try {
+							if (session.getTransaction() != null && session.getTransaction().isActive()) {
+								session.getTransaction().rollback();
+							}
+						} catch (Exception exRollback) {
+							ais.common.ErrorAuditUtil.record(exRollback,
+									"auto-audit KantinHelper.bayar-ledger-rollback");
+						}
+						exLedger.printStackTrace();
+						ais.common.ErrorAuditUtil.record(exLedger, "auto-audit KantinHelper.bayar-ledger");
 					}
 
 					// === FASE 2 (opsional, gerbang konfigurasi): penjualan kantin -> stok KELUAR aset
@@ -2070,7 +2108,23 @@ public class KantinHelper {
 			deposit.setOleh(idKasir[0]);
 			deposit.setOlehId(idKasir[1]);
 			session.beginTransaction();
+			String idempotencyKey = request.optString("idempotency_key", "").trim();
+			JSONObject responsLama = RetailIdempotencyUtil.mulai(session, "topup_saldo", idempotencyKey,
+					anggota.getId() + ":" + nominal + ":"
+							+ request.optString("waktu", "SERVER_DEFAULT").trim() + ":"
+							+ request.optString("tanggal_expired", "").trim());
+			if (responsLama != null) {
+				RetailIdempotencyUtil.salin(responsLama, hasil);
+				session.getTransaction().rollback();
+				return;
+			}
 			session.saveOrUpdate(deposit);
+			session.flush();
+			JSONObject responsTopup = new JSONObject();
+			responsTopup.put("status", "00");
+			responsTopup.put("id", deposit.getId());
+			RetailIdempotencyUtil.selesai(session, "topup_saldo", idempotencyKey,
+					String.valueOf(deposit.getId()), responsTopup);
 			session.getTransaction().commit();
 			hasil.put("status", "00");
 			hasil.put("id", deposit.getId());
@@ -9174,6 +9228,107 @@ public class KantinHelper {
 	 *                (array {@code {tanggal,masuk,keluar}}, dikelompokkan per hari atau per bulan
 	 *                tergantung {@code periode}), {@code top5Keluar} (array {@code {nama,qty}}).
 	 */
+	/**
+	 * Rekonsiliasi stok cache {@code produk.stok} dengan ledger baru. Hanya
+	 * produk yang sudah mempunyai saldo awal ledger yang dinilai; jumlah produk
+	 * belum tercakup dikembalikan terpisah agar rollout dapat dipantau tanpa
+	 * menghasilkan alarm palsu untuk histori lama.
+	 */
+	public static void produkRekonsiliasiLedger(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		Long tokoId = soResolveTokoId(tbmuser, request);
+		if (tokoId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko tidak diketahui.");
+			return;
+		}
+		String keyword = request.optString("keyword", "").trim();
+		int page = Math.max(1, request.optInt("page", 1));
+		int pageSize = Math.min(100, Math.max(1, request.optInt("page_size", 15)));
+		int offset = (page - 1) * pageSize;
+		boolean hanyaSelisih = request.optBoolean("hanya_selisih", true);
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			String kwCond = keyword.isEmpty() ? "" : " AND (p.nama ILIKE ? OR p.kode ILIKE ? OR p.barcode ILIKE ?)";
+			String diffCond = hanyaSelisih ? " AND ABS(COALESCE(l.saldo_ledger,0)-COALESCE(p.stok,0)) > 0.000001" : "";
+			String cte = "WITH ledger AS (SELECT produk,SUM(quantity) saldo_ledger,MAX(occurred_at) mutasi_terakhir,COUNT(*) jumlah_mutasi "
+					+ "FROM koperasi.inventory_movement WHERE status='POSTED' GROUP BY produk) ";
+			String base = " FROM koperasi.produk p LEFT JOIN ledger l ON l.produk=p.id WHERE p.toko=?" + kwCond;
+
+			PreparedStatement coveragePs = session.connection().prepareStatement(cte
+					+ "SELECT COUNT(*),COUNT(l.produk),COUNT(*)-COUNT(l.produk)" + base);
+			int ci = 1;
+			coveragePs.setLong(ci++, tokoId.longValue());
+			if (!keyword.isEmpty()) {
+				String kw = "%" + keyword + "%";
+				coveragePs.setString(ci++, kw);
+				coveragePs.setString(ci++, kw);
+				coveragePs.setString(ci++, kw);
+			}
+			ResultSet coverageRs = coveragePs.executeQuery();
+			long jumlahProduk = 0, tercakup = 0, belumTercakup = 0;
+			if (coverageRs.next()) {
+				jumlahProduk = coverageRs.getLong(1);
+				tercakup = coverageRs.getLong(2);
+				belumTercakup = coverageRs.getLong(3);
+			}
+			coverageRs.close();
+			coveragePs.close();
+
+			PreparedStatement ps = session.connection().prepareStatement(cte
+					+ "SELECT p.id,COALESCE(p.kode,''),COALESCE(p.barcode,''),COALESCE(p.nama,''),COALESCE(p.stok,0),"
+					+ "COALESCE(l.saldo_ledger,0),COALESCE(l.saldo_ledger,0)-COALESCE(p.stok,0),l.mutasi_terakhir,"
+					+ "COALESCE(l.jumlah_mutasi,0),COUNT(*) OVER(),"
+					+ "COALESCE(SUM(ABS(COALESCE(l.saldo_ledger,0)-COALESCE(p.stok,0))) OVER(),0)"
+					+ base + " AND l.produk IS NOT NULL" + diffCond + " ORDER BY ABS(COALESCE(l.saldo_ledger,0)-COALESCE(p.stok,0)) DESC,p.nama LIMIT ? OFFSET ?");
+			int i = 1;
+			ps.setLong(i++, tokoId.longValue());
+			if (!keyword.isEmpty()) {
+				String kw = "%" + keyword + "%";
+				ps.setString(i++, kw);
+				ps.setString(i++, kw);
+				ps.setString(i++, kw);
+			}
+			ps.setInt(i++, pageSize);
+			ps.setInt(i++, offset);
+			ResultSet rs = ps.executeQuery();
+			JSONArray data = new JSONArray();
+			long total = 0;
+			double totalSelisihAbsolut = 0d;
+			while (rs.next()) {
+				JSONObject row = new JSONObject();
+				row.put("id", rs.getLong(1));
+				row.put("kode", rs.getString(2));
+				row.put("barcode", rs.getString(3));
+				row.put("nama", rs.getString(4));
+				row.put("stokTersimpan", rs.getDouble(5));
+				row.put("stokLedger", rs.getDouble(6));
+				row.put("selisih", rs.getDouble(7));
+				java.sql.Timestamp last = rs.getTimestamp(8);
+				row.put("mutasiTerakhir", last == null ? JSONObject.NULL : last.toString());
+				row.put("jumlahMutasi", rs.getLong(9));
+				total = rs.getLong(10);
+				totalSelisihAbsolut = rs.getDouble(11);
+				data.put(row);
+			}
+			rs.close();
+			ps.close();
+
+			hasil.put("status", "00");
+			hasil.put("data", data);
+			hasil.put("page", page);
+			hasil.put("pageSize", pageSize);
+			hasil.put("total", total);
+			hasil.put("jumlahProduk", jumlahProduk);
+			hasil.put("produkTercakupLedger", tercakup);
+			hasil.put("produkBelumTercakup", belumTercakup);
+			hasil.put("totalSelisihAbsolut", totalSelisihAbsolut);
+			hasil.put("mode", "SHADOW_AUDIT");
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
 	public static void stokDashboard(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		Long tokoId = soResolveTokoId(tbmuser, request);
 		if (tokoId == null) {
@@ -11104,6 +11259,98 @@ public class KantinHelper {
 	 *                Desktop main.js), {@code baris} (array {@code {waktu,sumber,tingkat,pesan,detail,layar}}).
 	 * @param hasil   diisi {@code status="00"} + {@code tersimpan} (jumlah baris berhasil disimpan).
 	 */
+	/** Ringkasan operasional untuk menu Error Log (server-side, tidak untuk kasir biasa). */
+	public static void errorLogHealth(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			Number error24 = (Number) session.createSQLQuery(
+					"SELECT COUNT(*) FROM public.error_log WHERE tanggal_dirubah >= now() - interval '24 hours'")
+					.uniqueResult();
+			Number error7 = (Number) session.createSQLQuery(
+					"SELECT COUNT(*) FROM public.error_log WHERE tanggal_dirubah >= now() - interval '7 days'")
+					.uniqueResult();
+			hasil.put("error24Jam", error24 == null ? 0 : error24.longValue());
+			hasil.put("error7Hari", error7 == null ? 0 : error7.longValue());
+
+			JSONArray aktivitas = new JSONArray();
+			@SuppressWarnings("unchecked")
+			java.util.List<Object[]> aktif = session.createSQLQuery(
+					"SELECT pid, usename, application_name, state, "
+					+ "round(extract(epoch from (clock_timestamp()-query_start))::numeric,2) durasi_detik, "
+					+ "left(regexp_replace(coalesce(query,''),'[[:space:]]+',' ','g'),500) "
+					+ "FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid() "
+					+ "AND state<>'idle' ORDER BY query_start ASC LIMIT 30").list();
+			for (Object[] row : aktif) {
+				JSONObject item = new JSONObject();
+				item.put("pid", row[0]);
+				item.put("user", row[1]);
+				item.put("aplikasi", row[2]);
+				item.put("status", row[3]);
+				item.put("durasiDetik", row[4]);
+				item.put("query", row[5]);
+				aktivitas.put(item);
+			}
+			hasil.put("aktivitasDatabase", aktivitas);
+			JSONArray sampel = new JSONArray();
+			@SuppressWarnings("unchecked")
+			java.util.List<Object[]> sampleRows = session.createSQLQuery(
+					"SELECT query_fingerprint,MAX(duration_ms),COUNT(*),MAX(captured_at),MAX(detail) "
+					+ "FROM public.database_performance_sample WHERE captured_at>=now()-interval '24 hours' "
+					+ "GROUP BY query_fingerprint ORDER BY MAX(duration_ms) DESC LIMIT 20").list();
+			for (Object[] row : sampleRows) {
+				JSONObject item = new JSONObject();
+				item.put("fingerprint", row[0]);
+				item.put("durasiTerburukMs", row[1]);
+				item.put("jumlahTerlihat", row[2]);
+				item.put("terakhirTerlihat", row[3]);
+				item.put("query", row[4]);
+				sampel.put(item);
+			}
+			hasil.put("queryLambatSampel24Jam", sampel);
+
+			JSONArray lambat = new JSONArray();
+			Object kolomWaktuObj = session.createSQLQuery(
+					"SELECT CASE "
+					+ "WHEN EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='pg_stat_statements' AND column_name='mean_exec_time') THEN 'exec' "
+					+ "WHEN EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='pg_stat_statements' AND column_name='mean_time') THEN 'legacy' "
+					+ "ELSE NULL END").uniqueResult();
+			String varianStatistik = kolomWaktuObj == null ? null : String.valueOf(kolomWaktuObj);
+			boolean statistikTersedia = varianStatistik != null;
+			try {
+				String meanColumn = "legacy".equals(varianStatistik) ? "mean_time" : "mean_exec_time";
+				String totalColumn = "legacy".equals(varianStatistik) ? "total_time" : "total_exec_time";
+				@SuppressWarnings("unchecked")
+				java.util.List<Object[]> rows = statistikTersedia ? session.createSQLQuery(
+						"SELECT calls, round(" + meanColumn + "::numeric,2), round(" + totalColumn + "::numeric,2), "
+						+ "left(regexp_replace(query,'[[:space:]]+',' ','g'),500) "
+						+ "FROM pg_stat_statements WHERE dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) "
+						+ "ORDER BY " + meanColumn + " DESC LIMIT 20").list()
+						: java.util.Collections.<Object[]>emptyList();
+				for (Object[] row : rows) {
+					JSONObject item = new JSONObject();
+					item.put("jumlahPanggilan", row[0]);
+					item.put("rataRataMs", row[1]);
+					item.put("totalMs", row[2]);
+					item.put("query", row[3]);
+					lambat.put(item);
+				}
+			} catch (Exception statistikTidakTersedia) {
+				statistikTersedia = false;
+				// Query pg_stat_statements dapat menggagalkan transaksi PostgreSQL. Bersihkan
+				// session baca ini lalu buka kembali hanya bila perlu di pemanggilan berikutnya.
+				try { session.clear(); } catch (Exception ignored) { }
+			}
+			hasil.put("queryLambat", lambat);
+			hasil.put("statistikQueryTersedia", statistikTersedia);
+			if (!statistikTersedia) {
+				hasil.put("saranStatistik", "Aktifkan ekstensi pg_stat_statements pada server database untuk melihat query historis paling lambat.");
+			}
+			hasil.put("status", "00");
+		} finally {
+			try { session.close(); } catch (Exception ignored) { }
+		}
+	}
+
 	public static void errorLogKirim(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		JSONArray baris = request.has("baris") && !request.isNull("baris") ? request.getJSONArray("baris") : new JSONArray();
 		String platform = request.optString("platform", "POS");
@@ -11711,7 +11958,15 @@ public class KantinHelper {
 			session.flush();
 			tambahPenerimaanBatch(session, produk, request, qty, hargaBeliSatuan,
 					"KULAKAN-" + pg.getId(), tbmuser == null ? "kulakan" : tbmuser.getUserId());
-			ais.action.master.inventory.StokKantinUtil.recomputeStokProduk(produkId);
+			// Pengadaan dan rekalkulasi harus berada dalam transaksi/session yang sama,
+			// agar baris yang baru di-flush ikut terbaca dan ledger tidak merekam saldo lama.
+			ais.action.master.inventory.StokKantinUtil.recomputeStokProdukNative(session, produkId);
+			ais.action.master.inventory.InventoryLedgerUtil.catatDariSaldoAkhir(session,
+					"PURCHASE", String.valueOf(pg.getId()), request.optString("idempotency_key", ""),
+					produkId, null, null, produk.getToko() == null ? null : produk.getToko().getId(),
+					"PURCHASE_IN", qty, hargaBeliSatuan, pg.getWaktuPengadaan(),
+					tbmuser == null ? "kulakan" : tbmuser.getUserId(), request.optString("device_id", ""),
+					pg.getKeterangan(), null);
 			session.getTransaction().commit();
 
 			hasil.put("status", "00");
@@ -11882,6 +12137,14 @@ public class KantinHelper {
 			AnggotaKoperasi anggota = idAnggota == null ? null : (AnggotaKoperasi) session.get(AnggotaKoperasi.class, idAnggota);
 
 			session.beginTransaction();
+			String idempotencyKey = request.optString("idempotency_key", "").trim();
+			JSONObject responsLama = RetailIdempotencyUtil.mulai(session, "retur_penjualan_simpan",
+					idempotencyKey, pembelianAnggotaKoperasiId + ":" + items.toString());
+			if (responsLama != null) {
+				RetailIdempotencyUtil.salin(responsLama, hasil);
+				session.getTransaction().rollback();
+				return;
+			}
 			JSONArray ids = new JSONArray();
 			double totalNilaiRetur = 0;
 			for (int i = 0; i < items.length(); i++) {
@@ -11927,16 +12190,25 @@ public class KantinHelper {
 				rp.setOleh(tbmuser == null ? "retur_penjualan" : tbmuser.getUserId());
 
 				session.save(rp);
-				ais.action.master.inventory.StokKantinUtil.recomputeStokProduk(produkId);
+				session.flush();
+				ais.action.master.inventory.StokKantinUtil.recomputeStokProdukNative(session, produkId);
+				if (Boolean.TRUE.equals(rp.getKembalikanKeStok())) {
+					ais.action.master.inventory.InventoryLedgerUtil.catatDariSaldoAkhir(session,
+							"SALE_RETURN", String.valueOf(rp.getId()), idempotencyKey, produkId, null,
+							null, tokoProduk, "SALE_RETURN_IN", qty, hargaSatuan, rp.getWaktu(),
+							tbmuser == null ? "retur_penjualan" : tbmuser.getUserId(),
+							request.optString("device_id", ""), rp.getAlasan(), null);
+				}
 
 				ids.put(rp.getId());
 				totalNilaiRetur += rp.getTotalNilai();
 			}
-			session.getTransaction().commit();
-
 			hasil.put("status", "00");
 			hasil.put("ids", ids);
 			hasil.put("totalNilaiRetur", totalNilaiRetur);
+			RetailIdempotencyUtil.selesai(session, "retur_penjualan_simpan", idempotencyKey,
+					ids.toString(), hasil);
+			session.getTransaction().commit();
 		} catch (Exception e) {
 			try {
 				if (session.getTransaction() != null && session.getTransaction().isActive()) {
@@ -12233,6 +12505,12 @@ public class KantinHelper {
 				tambahPenerimaanBatch(session, produk, it, qty, hargaBeliSatuan,
 						"FAKTUR-" + header.getId() + "-PENGADAAN-" + pg.getId(), oleh);
 				ais.action.master.inventory.StokKantinUtil.recomputeStokProdukNative(session, produkId);
+				ais.action.master.inventory.InventoryLedgerUtil.catatDariSaldoAkhir(session,
+						"PURCHASE_INVOICE", header.getId() + "-" + pg.getId(),
+						request.optString("idempotency_key", ""), produkId, null, null,
+						produk.getToko() == null ? null : produk.getToko().getId(), "PURCHASE_IN", qty,
+						hargaBeliSatuan, header.getTanggalFaktur(), oleh, request.optString("device_id", ""),
+						it.optString("keterangan", ""), null);
 			}
 			session.getTransaction().commit();
 
@@ -12639,6 +12917,14 @@ public class KantinHelper {
 			}
 
 			session.beginTransaction();
+			String idempotencyKey = request.optString("idempotency_key", "").trim();
+			JSONObject responsLama = RetailIdempotencyUtil.mulai(session, "retur_pembelian_simpan",
+					idempotencyKey, fakturPengadaanId + ":" + items.toString());
+			if (responsLama != null) {
+				RetailIdempotencyUtil.salin(responsLama, hasil);
+				session.getTransaction().rollback();
+				return;
+			}
 			JSONArray ids = new JSONArray();
 			double totalNilaiRetur = 0;
 			for (int i = 0; i < items.length(); i++) {
@@ -12680,16 +12966,24 @@ public class KantinHelper {
 				rb.setOleh(tbmuser == null ? "retur_pembelian" : tbmuser.getUserId());
 
 				session.save(rb);
-				ais.action.master.inventory.StokKantinUtil.recomputeStokProduk(produkId);
+				session.flush();
+				ais.action.master.inventory.StokKantinUtil.recomputeStokProdukNative(session, produkId);
+				ais.action.master.inventory.InventoryLedgerUtil.catatDariSaldoAkhir(session,
+						"PURCHASE_RETURN", String.valueOf(rb.getId()), idempotencyKey, produkId, null,
+						null, produk.getToko() == null ? null : produk.getToko().getId(),
+						"PURCHASE_RETURN_OUT", -qty, hargaSatuan, rb.getWaktu(),
+						tbmuser == null ? "retur_pembelian" : tbmuser.getUserId(),
+						request.optString("device_id", ""), rb.getAlasan(), null);
 
 				ids.put(rb.getId());
 				totalNilaiRetur += rb.getTotalNilai();
 			}
-			session.getTransaction().commit();
-
 			hasil.put("status", "00");
 			hasil.put("ids", ids);
 			hasil.put("totalNilaiRetur", totalNilaiRetur);
+			RetailIdempotencyUtil.selesai(session, "retur_pembelian_simpan", idempotencyKey,
+					ids.toString(), hasil);
+			session.getTransaction().commit();
 		} catch (Exception e) {
 			try {
 				if (session.getTransaction() != null && session.getTransaction().isActive()) {
@@ -12904,6 +13198,15 @@ public class KantinHelper {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		org.hibernate.Transaction tx = null;
 		try {
+			tx = session.beginTransaction();
+			String idempotencyKey = request.optString("idempotency_key", "").trim();
+			JSONObject responsLama = RetailIdempotencyUtil.mulai(session, "batalkan_transaksi",
+					idempotencyKey, idTransaksi + ":" + alasan);
+			if (responsLama != null) {
+				RetailIdempotencyUtil.salin(responsLama, hasil);
+				tx.rollback();
+				return;
+			}
 			PembelianAnggotaKoperasi trx = (PembelianAnggotaKoperasi) session.get(PembelianAnggotaKoperasi.class, idTransaksi);
 
 			if (trx == null) {
@@ -12926,11 +13229,24 @@ public class KantinHelper {
 					hasil.put("description", "Transaksi ini bukan milik toko yang sedang login.");
 					return;
 				}
-				tx = session.beginTransaction();
+				Long legacyProdukId = legacy.getProduk() == null ? null : legacy.getProduk().getId();
+				double legacyQty = legacy.getQty() == null ? 0d : legacy.getQty().doubleValue();
+				double legacyHarga = legacy.getHargaJual() == null ? 0d : legacy.getHargaJual().doubleValue();
+				Long legacyTokoId = legacy.getToko() == null ? null : legacy.getToko().getId();
 				session.delete(legacy);
-				tx.commit();
+				session.flush();
+				if (legacyProdukId != null && legacyQty > 0d) {
+					ais.action.master.inventory.StokKantinUtil.recomputeStokProdukNative(session, legacyProdukId);
+					ais.action.master.inventory.InventoryLedgerUtil.catatDariSaldoAkhir(session,
+							"SALE_CANCEL", "LEGACY-" + idTransaksi, idempotencyKey, legacyProdukId,
+							null, null, legacyTokoId, "SALE_CANCEL_IN", legacyQty, legacyHarga,
+							new Date(), tbmuser.getUserId(), request.optString("device_id", ""), alasan, null);
+				}
 				hasil.put("status", "00");
 				hasil.put("description", "Transaksi lama tanpa header berhasil dibatalkan.");
+				RetailIdempotencyUtil.selesai(session, "batalkan_transaksi", idempotencyKey,
+						String.valueOf(idTransaksi), hasil);
+				tx.commit();
 				return;
 			}
 
@@ -12946,12 +13262,29 @@ public class KantinHelper {
 				return;
 			}
 
-			tx = session.beginTransaction();
+			@SuppressWarnings("unchecked")
+			java.util.List<Object[]> itemDibatalkan = session.createSQLQuery(
+					"SELECT produk,COALESCE(SUM(qty),0),COALESCE(MAX(hargajual),0) "
+					+ "FROM koperasi.pembelian WHERE pembelian_anggota_koperasi=:id AND produk IS NOT NULL GROUP BY produk")
+					.setLong("id", idTransaksi.longValue()).list();
+			Long tokoPembatalanId = trx.getToko() == null ? null : trx.getToko().getId();
 			ais.action.master.koperasi.helper.PembatalanTransaksiUtil.batalkan(session, trx, alasan);
-			tx.commit();
-
+			session.flush();
+			for (Object[] item : itemDibatalkan) {
+				Long produkId = Long.valueOf(((Number) item[0]).longValue());
+				double qty = ((Number) item[1]).doubleValue();
+				double harga = ((Number) item[2]).doubleValue();
+				ais.action.master.inventory.StokKantinUtil.recomputeStokProdukNative(session, produkId);
+				ais.action.master.inventory.InventoryLedgerUtil.catatDariSaldoAkhir(session,
+						"SALE_CANCEL", String.valueOf(idTransaksi), idempotencyKey, produkId,
+						null, null, tokoPembatalanId, "SALE_CANCEL_IN", qty, harga, new Date(),
+						tbmuser.getUserId(), request.optString("device_id", ""), alasan, null);
+			}
 			hasil.put("status", "00");
 			hasil.put("description", "Transaksi berhasil dibatalkan dan tercatat di arsip pembatalan.");
+			RetailIdempotencyUtil.selesai(session, "batalkan_transaksi", idempotencyKey,
+					String.valueOf(idTransaksi), hasil);
+			tx.commit();
 		} catch (Exception e) {
 			try {
 				if (tx != null && tx.isActive()) {

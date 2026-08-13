@@ -110,6 +110,8 @@ public class AppStartupListener implements ServletContextListener {
 				System.err.println(
 						"Warm-up SessionFactory gagal (lanjut, akan dibangun on-demand): " + e.getMessage());
 			}
+			// Migrasi retail berversi dijalankan sebelum seeder/index ad-hoc.
+			RetailDatabaseMigrations.migrate();
 			// Migrasi kecil dan idempoten ini harus dijalankan segera setelah
 			// SessionFactory tersedia, sebelum init data/menu yang berat. Dengan
 			// demikian promo "Semua Produk" tidak perlu menunggu seluruh maintenance
@@ -272,6 +274,7 @@ public class AppStartupListener implements ServletContextListener {
 
 		if (startupSukses && !contextStopping) {
 			startBackgroundMaintenance();
+			DatabasePerformanceSampler.mulai();
 		}
 
 		// SEED penanda dedup ErrorAudit SEKALI dari DB (tabel error_log) supaya error di lokasi yang sama
@@ -319,6 +322,10 @@ public class AppStartupListener implements ServletContextListener {
 		try {
 			PerformaSnapshotUtil.stopScheduler();
 		} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "auto-audit(empty-catch) src/ais/common/AppStartupListener.java:249");
+		}
+		try {
+			DatabasePerformanceSampler.berhenti();
+		} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "AppStartupListener.stopDatabasePerformanceSampler");
 		}
 		closeHibernateSessionQuietly();
 		closeStreamingSessionQuietly();
