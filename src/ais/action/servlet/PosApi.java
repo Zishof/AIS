@@ -147,6 +147,15 @@ public class PosApi extends HttpServlet {
 				return;
 			}
 
+			// Pelaporan best-effort dari POS Flutter. Diletakkan sebelum gerbang token
+			// agar kegagalan pada layar login juga tercatat. Endpoint hanya menerima
+			// metadata kesalahan yang dibatasi/disanitasi, bukan password atau body bisnis.
+			if ("client_error_log".equals(action)) {
+				hasil = ais.action.servlet.api.ClientErrorLogApi.catat(payload, request);
+				tulisJson(response, hasil);
+				return;
+			}
+
 			if ("logout".equals(action)) {
 				String tokenHeader = request.getHeader("Authorization");
 				if (tokenHeader != null && tokenHeader.startsWith("Bearer ")) {
