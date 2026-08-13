@@ -128,7 +128,12 @@ public final class GenericCrudAutoDefinitionFactory {
         // selain itu gunakan metadata adapter yang tetap menegakkan RBAC, scope, tipe,
         // nullability, natural key, dan transaksi. Ini juga membuat hasil deterministik,
         // tidak berubah hanya karena bytecode Action kebetulan belum masuk build cache.
-        boolean metadataBacked = !restrictedClass && !actionBacked;
+        // Metadata lifecycle hanya sah bila benar-benar tidak ada Action existing.
+        // Bila Action ditemukan tetapi kontrak headless belum didukung, jangan
+        // melewati validasi/efek bisnisnya dengan menyimpan entity langsung.
+        // Adapter hasil review dapat mengambil alih lewat factory di bawah.
+        boolean reviewedAdapter = GenericCrudReviewedAdapterFactory.isReviewed(entityClass);
+        boolean metadataBacked = !restrictedClass && sourceActionClass == null;
 
         GenericCrudDefinition definition = new GenericCrudDefinition();
         definition.setEntityClass(entityClass);
@@ -143,8 +148,8 @@ public final class GenericCrudAutoDefinitionFactory {
         // Jangan percaya daftar nama hasil scanner sebagai otorisasi mutasi.
         // Invoker di atas sudah memverifikasi class, constructor, entity init, dan
         // signature boolean onSave(Event) pada bytecode Action yang benar-benar dimuat.
-        boolean actionCreate = actionCreateBacked || metadataBacked;
-        boolean actionUpdate = actionBacked || metadataBacked;
+        boolean actionCreate = actionCreateBacked || metadataBacked || reviewedAdapter;
+        boolean actionUpdate = actionBacked || metadataBacked || reviewedAdapter;
         // Delete lama sering bergantung pada row renderer/checkbox/konfirmasi dan
         // tidak mempunyai kontrak entity tunggal. Jangan menebak soft-delete dari
         // nama metode; adapter eksplisit wajib disediakan sebelum tombol diaktifkan.

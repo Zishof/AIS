@@ -20,27 +20,33 @@ mempunyai lifecycle yang jelas untuk setiap model.
 5. Model user, role, privilege, credential, token, pembayaran, audit, file,
    log, dan kelompok sensitif lain tetap dibatasi oleh allow-list keamanan.
 
-## Hasil audit awal
+## Hasil audit strict terbaru
 
 - Model Hibernate: 1.489
 - Terdaftar untuk baca/filter/ekspor: 1.489
 - Model sensitif/restricted: 132
-- Lifecycle Action existing: 607
-- Lifecycle metadata untuk model tanpa Action: 709
-- Definition route eksplisit: 5
-- Action kompleks yang tetap fail-closed: 64
-- Create aktif: 1.289
-- Update aktif: 1.294
-- Delete/soft-delete aktif: 244
+- Lifecycle Action existing yang dapat dipanggil headless: 746
+- Lifecycle metadata hanya untuk model tanpa Action: 572
+- Definition/adapter eksplisit: 35
+- Action kompleks yang tetap fail-closed dan perlu review: 40
+- Create aktif: 1.298
+- Update aktif: 1.306
+- Delete/soft-delete aktif: 186
 
 Audit keamanan tambahan memperlakukan model yang mempunyai field password,
 credential, token, secret, PIN, path/blob sensitif, atau data sejenis sebagai
 restricted walaupun nama class-nya terlihat umum. Field wajib yang sengaja
 disembunyikan juga otomatis mematikan create agar constraint tidak dilewati.
 
-Angka di atas dihasilkan oleh `GenericCrudModelCoverageAudit`; audit berikutnya
-akan memisahkan definition eksplisit dan Action kompleks yang masih memerlukan
-adapter khusus.
+Angka di atas dihasilkan oleh `GenericCrudModelCoverageAudit` setelah kebijakan
+strict diterapkan. Empat puluh Action kompleks bukan dianggap selesai: mutation
+ditolak sampai Action tersebut diklasifikasikan sebagai read-only atau memperoleh
+adapter/service native yang mempertahankan validasi dan efek bisnis existing.
+
+Perubahan penting dari audit awal adalah `metadataBacked` tidak lagi digunakan
+bila class Action existing ditemukan. Sebelumnya kondisi tersebut dapat membuat
+entity tersimpan langsung ketika pola Action tidak didukung invoker, sehingga
+business rule Action berpotensi terlewati. Sekarang kondisi itu fail-closed.
 
 Audit menghitung definition route eksplisit sebagai lifecycle utama untuk entity
 yang sama. Model tersebut tidak lagi dilabel `UNBOUND` hanya karena browser

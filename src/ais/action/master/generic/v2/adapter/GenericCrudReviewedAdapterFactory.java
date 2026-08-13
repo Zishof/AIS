@@ -7,6 +7,11 @@ import ais.database.model.koperasi.ModalPenyertaanKoperasi;
 public final class GenericCrudReviewedAdapterFactory {
     private GenericCrudReviewedAdapterFactory() { }
 
+    public static boolean isReviewed(Class entityClass) {
+        return AnggaranKasKoperasi.class.equals(entityClass)
+                || ModalPenyertaanKoperasi.class.equals(entityClass);
+    }
+
     public static GenericCrudAutoEntityAdapter create(Class entityClass, boolean softDelete,
             Class sourceActionClass, boolean metadataLifecycle) {
         if (AnggaranKasKoperasi.class.equals(entityClass)) return new AnggaranKasKoperasiGenericCrudAdapter();
