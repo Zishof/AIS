@@ -93,10 +93,11 @@
 
 										<vbox width="100%" pack="end" align="end" sclass="main-responsive-header-right">
 											<hbox id="headerHboxButton" width="100%" pack="end" align="right">
-												<toolbarbutton id="desktopDownloadButton"
-													use="ais.ui.util.MyToolbarbuttonKecilConfig"
-													forward="onClick=onDownloadDesktop"
-													sclass="main-responsive-desktop-download-button"
+											<toolbarbutton id="desktopDownloadButton"
+												use="ais.ui.util.MyToolbarbuttonKecilConfig"
+												href="https://github.com/Zishof/ecampus-eschool-releases/releases/latest"
+												target="_blank"
+												sclass="main-responsive-desktop-download-button"
 													image="/img/svg/desktop-light.svg"
 													label="Versi Desktop"
 													tooltiptext="Unduh aplikasi desktop versi terbaru" />

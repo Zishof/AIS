@@ -163,10 +163,12 @@ public class MainAction extends GenericAutowireComposer {
 
 	private static final long serialVersionUID = 2446397351568124278L;
 	private static final int MODERN_PENGUMUMAN_PAGE_SIZE = 5;
+	// Binary publik dipisahkan dari repository source agar pengguna dapat
+	// mengunduh installer tanpa diberi akses ke source AIS yang bersifat privat.
 	private static final String DESKTOP_RELEASE_API =
-			"https://api.github.com/repos/asroboy/ais_mobile/releases?per_page=20";
+			"https://api.github.com/repos/Zishof/ecampus-eschool-releases/releases?per_page=20";
 	private static final String DESKTOP_RELEASE_FALLBACK =
-			"https://github.com/asroboy/ais_mobile/releases/latest";
+			"https://github.com/Zishof/ecampus-eschool-releases/releases/latest";
 	private static final long DESKTOP_RELEASE_CACHE_TTL_MS = 10L * 60L * 1000L;
 	private static final Map<String, String> desktopReleaseUrlCache =
 			Collections.synchronizedMap(new HashMap<String, String>());
@@ -358,7 +360,7 @@ public class MainAction extends GenericAutowireComposer {
 						String downloadUrl = asset.optString("browser_download_url", "");
 						if (name.startsWith(safeProduct + "-Setup-")
 								&& name.toLowerCase().endsWith(".exe")
-								&& downloadUrl.startsWith("https://github.com/asroboy/ais_mobile/")) {
+								&& downloadUrl.startsWith("https://github.com/Zishof/ecampus-eschool-releases/")) {
 							desktopReleaseUrlCache.put(safeProduct, downloadUrl);
 							desktopReleaseTimeCache.put(safeProduct, Long.valueOf(now));
 							return downloadUrl;
