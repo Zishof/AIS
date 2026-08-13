@@ -3515,6 +3515,7 @@ public class KantinHelper {
 		if (tokoId == null) return;
 
 		JSONArray barisArr = request.optJSONArray("baris");
+		boolean hanyaStokBerbeda = request.optBoolean("hanya_stok_berbeda", false);
 		if (barisArr == null || barisArr.length() == 0) {
 			hasil.put("status", "91");
 			hasil.put("description", "Tidak ada baris untuk disimpan.");
@@ -3629,6 +3630,34 @@ public class KantinHelper {
 						bh.put("aksiStok", "-");
 						barisHasilArr.put(bh);
 						continue;
+					}
+
+					// Mode rekonsiliasi stok dari klien terbaru: jangan menyentuh metadata,
+					// membuat kategori, ataupun menulis produk/opname bila stok Excel sama
+					// dengan stok aktual server. produkId hanya petunjuk dari preview dan
+					// tetap divalidasi harus milik toko aktif agar tidak mempercayai klien.
+					if (hanyaStokBerbeda) {
+						double stokExcel = b.optDouble("stokBaru", 0);
+						Long idPreview = b.isNull("produkId") ? null : Long.valueOf(b.optLong("produkId"));
+						double stokAktual = 0;
+						boolean identitasValid = idPreview == null;
+						if (idPreview != null) {
+							Produk produkPreview = (Produk) session.get(Produk.class, idPreview);
+							identitasValid = produkPreview != null && produkPreview.getToko() != null
+									&& tokoId.equals(produkPreview.getToko().getId());
+							if (identitasValid && produkPreview.getStok() != null) stokAktual = produkPreview.getStok();
+						}
+						if (identitasValid && Math.abs(stokExcel - stokAktual) <= 0.000001d) {
+							dilewati++;
+							bh.put("status", "dilewati");
+							bh.put("pesan", "Dilewati otomatis: stok Excel sama dengan stok saat ini.");
+							bh.put("stokLama", stokAktual);
+							bh.put("stokBaru", stokExcel);
+							bh.put("selisih", 0);
+							bh.put("aksiStok", "tidak_ada_perubahan");
+							barisHasilArr.put(bh);
+							continue;
+						}
 					}
 
 					// Savepoint SETELAH gerbang kode/nama kosong (baris kosong tak pernah menyentuh DB,
