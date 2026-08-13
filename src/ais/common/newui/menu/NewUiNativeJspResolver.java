@@ -79,6 +79,23 @@ public final class NewUiNativeJspResolver {
         values.put("/pages/master/pegawai.zul", ROOT+"root/uiux/pegawai.jsp");
         values.put("/pages/master/jenis_pembayaran.zul", ROOT+"root/uiux/jenis_pembayaran.jsp");
         values.put("/pages/master/alumni/mahasiswa.zul", ROOT+"alumni/uiux/mahasiswa.jsp");
+        values.put("/pages/master/rab/satuan_kerja.zul", ROOT+"rab/uiux/satuan_kerja.jsp");
+        values.put("/pages/master/antarjemput/antar_jemput.zul", ROOT+"antarjemput/uiux/antar_jemput.jsp");
+        values.put("/pages/master/repository.zul", ROOT+"repository/uiux/repository.jsp");
+        values.put("/pages/master/library/saldo_awal.zul", ROOT+"library/uiux/saldo_awal.jsp");
+        values.put("/pages/master/library/jenis_item.zul", ROOT+"library/uiux/jenis_item.jsp");
+        values.put("/pages/master/inventory/penyedia.zul", ROOT+"library/uiux/penyedia.jsp");
+        values.put("/pages/master/library/penyedia.zul", ROOT+"library/uiux/penyedia.jsp");
+        values.put("/pages/master/pertemuan.zul", ROOT+"root/uiux/pertemuan.jsp");
+        values.put("/pages/master/absensi.zul", ROOT+"root/uiux/absensi.jsp");
+        values.put("/pages/main/menu.zul", ROOT+"root/maintenance/uiux/menu.jsp");
+        values.put("/pages/master/library/monitor_stok_item.zul", ROOT+"library/uiux/monitor_stok_item.jsp");
+        values.put("/pages/master/paket.zul", ROOT+"root/pmb/uiux/paket.jsp");
+        values.put("ais.action.report.format1.payroll.laporanabsensipegawai", ROOT+"root/report/uiux/format1/payroll/laporan_absensi_pegawai.jsp");
+        values.put("ais.action.report.format1.payroll.laporanabsensipegawaiperorang", ROOT+"root/report/uiux/format1/payroll/laporan_absensi_pegawai_per_orang.jsp");
+        values.put("ais.action.report.helper.asset.laporansaldoawal", ROOT+"root/report/uiux/helper/asset/laporan_saldo_awal.jsp");
+        values.put("ais.action.report.format1.library.laporansaldoawal", ROOT+"root/report/uiux/format1/library/laporan_saldo_awal.jsp");
+        values.put("ais.action.report.format1.library.laporantrackingstokitem", ROOT+"root/report/uiux/format1/library/laporan_tracking_stok_item.jsp");
         return Collections.unmodifiableMap(values);
     }
 

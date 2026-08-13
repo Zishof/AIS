@@ -7,6 +7,12 @@ public final class NewUiNativeJspExplicitRouteSelfTest {
         check("/WEB-INF/new/root/uiux/pegawai.jsp", "/pages/master/pegawai.zul", false);
         check("/WEB-INF/new/root/uiux/jenis_pembayaran.jsp", "/pages/master/jenis_pembayaran.zul", false);
         check("/WEB-INF/new/alumni/uiux/mahasiswa.jsp", "/pages/master/alumni/mahasiswa.zul", false);
+        check("/WEB-INF/new/repository/uiux/repository.jsp", "/pages/master/repository.zul?tab=item", false);
+        check("/WEB-INF/new/rab/uiux/satuan_kerja.jsp", "/pages/master/rab/satuan_kerja.zul", false);
+        check("/WEB-INF/new/library/uiux/penyedia.jsp", "/pages/master/inventory/penyedia.zul", false);
+        check("/WEB-INF/new/root/maintenance/uiux/menu.jsp", "/pages/main/menu.zul", false);
+        check("/WEB-INF/new/root/pmb/uiux/paket.jsp", "/pages/master/paket.zul", false);
+        check("/WEB-INF/new/root/report/uiux/format1/payroll/laporan_absensi_pegawai.jsp", "ais.action.report.format1.payroll.LaporanAbsensiPegawai", false);
         if(NewUiNativeJspResolver.explicitFromRoute("/pages/other/mahasiswa.zul",false)!=null)throw new IllegalStateException("Route yang tidak terdaftar tidak boleh ditebak eksplisit.");
         System.out.println("NewUiNativeJspExplicitRouteSelfTest OK");
     }

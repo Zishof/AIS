@@ -10,6 +10,11 @@ Resolver route memakai identitas path lengkap untuk nama yang muncul di lebih
 dari satu modul. Route master `mahasiswa`, `pegawai`, dan `jenis_pembayaran`
 dipatok ke modul `root`, sedangkan `alumni/mahasiswa` dipatok ke modul `alumni`;
 resolver tidak lagi memilih berdasarkan nama file yang ambigu.
+Audit role `demo` menemukan 26 assignment dengan nama JSP non-unik. Seluruh
+identitas route tersebut kini mempunyai pemetaan path-aware, termasuk RAB,
+antar-jemput, repository, pustaka, pertemuan, absensi, paket PMB, konfigurasi
+menu, serta laporan payroll/library/asset. Target mapping diverifikasi ada di
+`WEB-INF/new`, termasuk pasangan service-nya ketika endpoint dipanggil.
 
 ## Hasil inventarisasi
 
