@@ -122,7 +122,12 @@ public final class GenericCrudAutoDefinitionFactory {
         Class sourceActionClass = resolveSourceAction(sourcePackage, sourceAction);
         boolean actionBacked = GenericCrudExistingActionInvoker.supports(sourceActionClass, entityClass);
         boolean actionCreateBacked = GenericCrudExistingActionInvoker.supportsCreate(sourceActionClass, entityClass);
-        boolean metadataBacked = sourceActionClass == null && !restrictedClass;
+        // Kehadiran screen/report Action tidak boleh mematikan CRUD scalar. Action hanya
+        // mengambil alih lifecycle bila kontrak headless-nya benar-benar lolos verifikasi;
+        // selain itu gunakan metadata adapter yang tetap menegakkan RBAC, scope, tipe,
+        // nullability, natural key, dan transaksi. Ini juga membuat hasil deterministik,
+        // tidak berubah hanya karena bytecode Action kebetulan belum masuk build cache.
+        boolean metadataBacked = !restrictedClass && !actionBacked;
 
         GenericCrudDefinition definition = new GenericCrudDefinition();
         definition.setEntityClass(entityClass);
