@@ -17,6 +17,7 @@ import org.hibernate.metadata.ClassMetadata;
 import ais.common.Common;
 import ais.action.master.generic.v2.adapter.GenericCrudPhotoAdapter;
 import ais.action.master.generic.v2.adapter.GenericCrudApprovalAdapter;
+import ais.action.master.generic.v2.adapter.GenericCrudAttachmentAdapter;
 
 /** Dispatcher Java; JSP hanya binding dan forwarding. */
 @SuppressWarnings({ "rawtypes", "unchecked" })
@@ -36,6 +37,12 @@ public final class GenericCrudHttpController {
             GenericCrudFacade facade = new GenericCrudFacade();
             GenericCrudRequestContext context = facade.context(request, entity, module, page);
             String action = value(request.getParameter("action"), "meta");
+            if ("attachment_download".equals(action)) {
+                new GenericCrudAttachmentService().download(context,
+                        requiredLong(request.getParameter("attachmentId"), "ATTACHMENT_ID_REQUIRED", "ID lampiran wajib valid."),
+                        attachmentAdapter(context), response);
+                return;
+            }
             if ("export_xlsx".equals(action)) {
                 new GenericCrudExportService().writeXlsx(context, request.getParameter("q"), filters(request), sort(request), response);
                 return;
@@ -103,6 +110,21 @@ public final class GenericCrudHttpController {
                 payload = new GenericCrudApprovalService().reject(context,
                         identifier(context, request.getParameter("id")), request.getParameter("reason"),
                         approvalAdapter(context));
+            } else if ("attachment_list".equals(action)) {
+                payload = GenericCrudResult.ok("Lampiran berhasil dimuat.",
+                        new GenericCrudAttachmentService().list(context,
+                                identifier(context, request.getParameter("id")), attachmentAdapter(context)));
+            } else if ("attachment_upload".equals(action)) {
+                GenericCrudCsrf.requireMutation(request);
+                FileItem attachment = attachmentPart(request);
+                payload = new GenericCrudAttachmentService().upload(context,
+                        identifier(context, request.getParameter("id")), attachment.getName(), attachment.getContentType(),
+                        attachment.get(), attachmentAdapter(context));
+            } else if ("attachment_delete".equals(action)) {
+                GenericCrudCsrf.requireMutation(request);
+                payload = new GenericCrudAttachmentService().remove(context,
+                        requiredLong(request.getParameter("attachmentId"), "ATTACHMENT_ID_REQUIRED", "ID lampiran wajib valid."),
+                        attachmentAdapter(context));
             } else if ("revisions".equals(action)) {
                 payload = GenericCrudResult.ok("Riwayat berhasil dimuat.", facade.revisions(context,
                         identifier(context, request.getParameter("id")), number(request.getParameter("page"), 1),
@@ -194,6 +216,26 @@ public final class GenericCrudHttpController {
             throw new GenericCrudException(403, "APPROVAL_DISABLED", "Approval tidak tersedia untuk entity ini.");
         }
         return (GenericCrudApprovalAdapter) context.getDefinition().getAdapter();
+    }
+
+    private static GenericCrudAttachmentAdapter attachmentAdapter(GenericCrudRequestContext context) throws GenericCrudException {
+        if (!(context.getDefinition().getAdapter() instanceof GenericCrudAttachmentAdapter)) {
+            throw new GenericCrudException(403, "ATTACHMENT_DISABLED", "Lampiran tidak tersedia untuk entity ini.");
+        }
+        return (GenericCrudAttachmentAdapter) context.getDefinition().getAdapter();
+    }
+
+    private static FileItem attachmentPart(HttpServletRequest request) throws Exception {
+        if (!ServletFileUpload.isMultipartContent(request))
+            throw new GenericCrudException(400, "ATTACHMENT_REQUIRED", "Berkas lampiran wajib dipilih.");
+        ServletFileUpload upload = new ServletFileUpload(new DiskFileItemFactory());
+        upload.setFileSizeMax(20L * 1024L * 1024L); upload.setSizeMax(21L * 1024L * 1024L);
+        List parts = upload.parseRequest(request);
+        for (int i = 0; i < parts.size(); i++) {
+            FileItem item = (FileItem) parts.get(i);
+            if (!item.isFormField() && "attachment".equals(item.getFieldName()) && item.getSize() > 0) return item;
+        }
+        throw new GenericCrudException(400, "ATTACHMENT_REQUIRED", "Berkas lampiran wajib dipilih.");
     }
 
     private static FileItem photoPart(HttpServletRequest request) throws Exception {

@@ -41,6 +41,7 @@ public class GenericCrudDefinition implements Serializable {
     private boolean savedViewEnabled = true;
     private boolean bulkEditEnabled;
     private boolean photoEnabled;
+    private boolean attachmentEnabled;
     private boolean auditEnabled = true;
     private boolean globalAuditEnabled;
     private boolean rowAuditEnabled = true;
@@ -112,6 +113,8 @@ public class GenericCrudDefinition implements Serializable {
     public void setBulkEditEnabled(boolean value) { bulkEditEnabled = value; }
     public boolean isPhotoEnabled() { return photoEnabled; }
     public void setPhotoEnabled(boolean value) { photoEnabled = value; }
+    public boolean isAttachmentEnabled() { return attachmentEnabled; }
+    public void setAttachmentEnabled(boolean value) { attachmentEnabled = value; }
     public boolean isAuditEnabled() { return auditEnabled; }
     public void setAuditEnabled(boolean value) { auditEnabled = value; }
     public boolean isGlobalAuditEnabled() { return globalAuditEnabled; }

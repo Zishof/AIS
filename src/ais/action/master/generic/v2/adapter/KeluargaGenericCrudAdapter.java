@@ -25,7 +25,9 @@ import ais.database.model.employ.Keluarga;
  */
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public class KeluargaGenericCrudAdapter extends AbstractGenericCrudEntityAdapter<Keluarga>
-        implements GenericCrudScopeAdapter, GenericCrudApprovalAdapter {
+        implements GenericCrudScopeAdapter, GenericCrudApprovalAdapter, GenericCrudAttachmentAdapter {
+
+    public Class getAttachmentOwnerClass() { return Keluarga.class; }
 
     public Keluarga createNew(GenericCrudRequestContext context) throws Exception {
         Keluarga value = new Keluarga();

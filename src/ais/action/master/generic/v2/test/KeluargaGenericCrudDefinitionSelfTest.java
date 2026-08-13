@@ -6,6 +6,7 @@ import ais.action.master.generic.v2.GenericCrudDefinition;
 import ais.action.master.generic.v2.GenericCrudDefinitionRegistry;
 import ais.action.master.generic.v2.adapter.KeluargaGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.GenericCrudApprovalAdapter;
+import ais.action.master.generic.v2.adapter.GenericCrudAttachmentAdapter;
 import ais.database.model.employ.Keluarga;
 
 /** Structural test tanpa bootstrap database. */
@@ -24,6 +25,8 @@ public final class KeluargaGenericCrudDefinitionSelfTest {
         check(found.getAdapter() instanceof KeluargaGenericCrudAdapter, "Adapter keluarga salah");
         check(found.getScopeAdapter() == found.getAdapter(), "Scope keluarga tidak terpasang");
         check(found.getAdapter() instanceof GenericCrudApprovalAdapter, "Approval keluarga tidak terpasang");
+        check(found.isAttachmentEnabled() && found.getAdapter() instanceof GenericCrudAttachmentAdapter,
+                "Lampiran keluarga tidak terpasang");
         check(found.getField("pegawai") != null && found.getField("hubungan") != null
                 && found.getField("status") != null, "Field inti keluarga belum lengkap");
         check(!found.getField("status").isCreateable() && !found.getField("status").isUpdateable(),

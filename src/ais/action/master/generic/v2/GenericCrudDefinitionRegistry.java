@@ -373,6 +373,7 @@ public final class GenericCrudDefinitionRegistry {
         d.setUpdateEnabled(true);
         d.setDeleteEnabled(true);
         d.setImportEnabled(false);
+        d.setAttachmentEnabled(true);
         d.setExportPdfEnabled(true);
         d.setExportDocxEnabled(true);
         d.setExportPptxEnabled(true);

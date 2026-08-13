@@ -258,6 +258,7 @@
     query('form-title').textContent = (editing ? (meta.canUpdate ? 'Ubah ' : 'Detail ') : 'Tambah ') + meta.displayName; query('form-mode').textContent = meta.formMode;
     buildFormTabs(container);
     if (meta.photoEnabled) buildPhotoEditor(container, rowData, editing);
+    if (meta.attachmentEnabled && editing) buildAttachmentEditor(container, rowData);
     formFields().forEach(function (field) {
       var wrap = node('div', {'class': 'gc-field' + (field.editorType === 'textarea' ? ' gc-field-wide' : '')}), label = node('label', {'for': 'gc-' + field.property}, field.label + (field.required ? ' *' : '')), input, relationUi = null;
       if (field.editorType === 'textarea') input = node('textarea', {rows: '4'});
@@ -323,6 +324,35 @@
     body.appendChild(preview); body.appendChild(input);
     if (editing && meta.canUpdate) { var remove = node('button', {type: 'button', 'class': 'gc-btn'}, 'Hapus Foto'); remove.addEventListener('click', function () { if (window.confirm('Hapus foto mahasiswa ini?')) removePhoto(state.editing); }); body.appendChild(remove); }
     wrap.appendChild(label); wrap.appendChild(body); container.appendChild(wrap);
+  }
+  function buildAttachmentEditor(container, rowData) {
+    var wrap = node('section', {'class': 'gc-attachments'}), head = node('div', {'class': 'gc-attachment-head'}), list = node('div', {'class': 'gc-attachment-list'}, 'Memuat lampiran…');
+    head.appendChild(node('strong', null, 'Lampiran (PDF/JPG/PNG, maks. 20 MB)'));
+    if (meta.canUpdate) {
+      var label = node('label', {'class': 'gc-btn gc-file'}, '+ Tambah Lampiran'), input = node('input', {type: 'file', accept: 'application/pdf,image/jpeg,image/png'});
+      input.addEventListener('change', function () { var file = input.files && input.files[0]; if (!file) return; uploadAttachment(state.editing, file).then(function () { input.value = ''; loadAttachments(state.editing, list); }).catch(function (error) { notify(error.message); input.value = ''; }); });
+      label.appendChild(input); head.appendChild(label);
+    }
+    wrap.appendChild(head); wrap.appendChild(list); container.appendChild(wrap); loadAttachments(rowData[meta.identifierProperty], list);
+  }
+  function loadAttachments(ownerId, list) {
+    list.textContent = 'Memuat lampiran…';
+    return api('attachment_list', {id: ownerId}).then(function (items) {
+      list.textContent = '';
+      if (!items || !items.length) { list.appendChild(node('div', {'class': 'gc-empty'}, 'Belum ada lampiran.')); return; }
+      items.forEach(function (item) {
+        var row = node('div', {'class': 'gc-attachment-row'}), info = node('span'), actions = node('div', {'class': 'gc-attachment-actions'});
+        info.appendChild(node('strong', null, item.name || 'Lampiran')); info.appendChild(document.createTextNode(' · ' + (item.contentType || 'file')));
+        var download = node('a', {'class': 'gc-btn', href: url('attachment_download', {attachmentId: item.id})}, 'Unduh'); actions.appendChild(download);
+        if (meta.canUpdate) { var remove = node('button', {type: 'button', 'class': 'gc-btn'}, 'Hapus'); remove.addEventListener('click', function () { if (window.confirm('Hapus lampiran ini?')) api('attachment_delete', {attachmentId: item.id, nui_csrf: meta.csrf}, 'POST').then(function () { return loadAttachments(ownerId, list); }).catch(function (error) { notify(error.message); }); }); actions.appendChild(remove); }
+        row.appendChild(info); row.appendChild(actions); list.appendChild(row);
+      });
+    }).catch(function (error) { list.textContent = error.message; });
+  }
+  function uploadAttachment(ownerId, file) {
+    var data = new FormData(); data.append('attachment', file, file.name);
+    var target = endpoint + (endpoint.indexOf('?') < 0 ? '?' : '&') + pairs({action: 'attachment_upload', id: ownerId, nui_csrf: meta.csrf});
+    return fetch(target, {method: 'POST', credentials: 'same-origin', headers: {'Accept': 'application/json'}, body: data}).then(function (response) { return response.json().then(function (body) { if (!response.ok || body.success === false) { var error = new Error(body.message || 'Upload lampiran gagal.'); error.payload = body; throw error; } return body.data; }); });
   }
   function bindRelationLookup(field, valueInput, picker, rowData) {
     var relationTimer = null, requestNumber = 0, loaded = false;

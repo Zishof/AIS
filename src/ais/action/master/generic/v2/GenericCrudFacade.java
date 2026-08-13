@@ -56,6 +56,7 @@ public class GenericCrudFacade {
         result.put("exportPptx", Boolean.valueOf(d.isExportPptxEnabled()));
         result.put("savedViewEnabled", Boolean.valueOf(d.isSavedViewEnabled()));
         result.put("photoEnabled", Boolean.valueOf(d.isPhotoEnabled()));
+        result.put("attachmentEnabled", Boolean.valueOf(d.isAttachmentEnabled()));
         boolean approval = d.getAdapter() instanceof GenericCrudApprovalAdapter;
         result.put("approvalEnabled", Boolean.valueOf(approval));
         result.put("canApprove", Boolean.valueOf(approval && context.isCanApprove()));
