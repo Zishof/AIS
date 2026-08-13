@@ -35,15 +35,22 @@ public class GenericCrudAutoEntityAdapter extends AbstractGenericCrudEntityAdapt
     private final Class entityClass;
     private final boolean softDelete;
     private final Class sourceActionClass;
+    private final boolean metadataLifecycle;
 
     public GenericCrudAutoEntityAdapter(Class entityClass, boolean softDelete) {
-        this(entityClass, softDelete, null);
+        this(entityClass, softDelete, null, false);
     }
 
     public GenericCrudAutoEntityAdapter(Class entityClass, boolean softDelete, Class sourceActionClass) {
+        this(entityClass, softDelete, sourceActionClass, false);
+    }
+
+    public GenericCrudAutoEntityAdapter(Class entityClass, boolean softDelete, Class sourceActionClass,
+            boolean metadataLifecycle) {
         this.entityClass = entityClass;
         this.softDelete = softDelete;
         this.sourceActionClass = sourceActionClass;
+        this.metadataLifecycle = metadataLifecycle;
     }
 
     public GeneralValueObject createNew(GenericCrudRequestContext context) throws Exception {
@@ -79,6 +86,7 @@ public class GenericCrudAutoEntityAdapter extends AbstractGenericCrudEntityAdapt
             GenericCrudRequestContext context) throws Exception {
         authorize(context);
         if (sourceActionClass == null) {
+            if (metadataLifecycle) return;
             throw new GenericCrudException(501, "EXISTING_ACTION_NOT_BOUND",
                     "Operasi perubahan belum diaktifkan karena lifecycle Action existing belum terhubung.");
         }
