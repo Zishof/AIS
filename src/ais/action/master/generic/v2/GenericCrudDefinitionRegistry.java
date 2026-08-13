@@ -21,6 +21,7 @@ import ais.action.master.generic.v2.adapter.NomorSuratAlurKeuanganGenericCrudAda
 import ais.action.master.generic.v2.adapter.NomorSuratAlurPengadaanGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.MemoryInfoGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.FormatItemGajiGenericCrudAdapter;
+import ais.action.master.generic.v2.adapter.ProdukPesertaGenericCrudAdapter;
 import ais.database.model.Agama;
 import ais.database.model.BadanHukum;
 import ais.database.model.Jenjang;
@@ -56,6 +57,10 @@ import ais.database.model.payroll.Cabang;
 import ais.database.model.payroll.Departemen;
 import ais.database.model.payroll.LevelJabatan;
 import ais.database.model.rab.SatuanKerja;
+import ais.database.model.kursus.ProdukPeserta;
+import ais.database.model.kursus.PesertaKursus;
+import ais.database.model.kursus.ProdukKursus;
+import ais.database.model.kursus.PesertaPunyaProdukKursus;
 
 /**
  * Registry allow-list. Scanner menghasilkan kandidat disabled; hanya entity yang
@@ -77,6 +82,7 @@ public final class GenericCrudDefinitionRegistry {
         register(buildNomorSuratAlurPengadaan());
         register(buildMemoryInfo());
         register(buildFormatItemGaji());
+        register(buildProdukPeserta());
         register(buildEmployeeHistory(RiwayatTandaJasaPegawai.class, "riwayat_tanda_jasa_pegawai", "Riwayat Tanda Jasa Pegawai"));
         register(buildEmployeeHistory(RiwayatPendidikanPegawai.class, "riwayat_pendidikan_pegawai", "Riwayat Pendidikan Pegawai"));
         register(buildEmployeeHistory(RiwayatPelatihanPegawai.class, "riwayat_pelatihan_pegawai", "Riwayat Pelatihan Pegawai"));
@@ -674,6 +680,33 @@ public final class GenericCrudDefinitionRegistry {
         d.addField(relationField("levelJabatan", "Level Jabatan", LevelJabatan.class, true, true, true, false, 60));
         d.addField(field("keterangan", "Keterangan", String.class, "textarea", true, true, true, false, true, true, 70));
         d.addField(field("aktif", "Aktif", Boolean.class, "checkbox", true, true, true, false, true, true, 80));
+        return d;
+    }
+
+    private static GenericCrudDefinition buildProdukPeserta() {
+        GenericCrudDefinition d = new GenericCrudDefinition(); d.setEntityClass(ProdukPeserta.class);
+        d.setModuleKey("kursus"); d.setPageKey("produk_peserta"); d.setDisplayName("Peserta Produk Kursus");
+        d.setSourceActionClassName("ais.action.master.kursus.ProdukPesertaAction");
+        d.setExistingActionLifecycleBound(false); d.setLifecycleStatus(GenericCrudDefinition.READ_ONLY);
+        d.setEnabled(true); d.setCreateEnabled(false); d.setUpdateEnabled(false); d.setDeleteEnabled(false);
+        d.setImportEnabled(false); d.setExportPdfEnabled(true); d.setExportDocxEnabled(true); d.setExportPptxEnabled(true);
+        d.setSavedViewEnabled(true); d.setAuditEnabled(true); d.setRowAuditEnabled(true);
+        d.setGlobalAuditEnabled(false); d.setRestoreEnabled(false); d.setAdminDeleteEnabled(false);
+        d.setDefaultSortProperty("id"); d.setDefaultSortAscending(false); d.setDefaultPageSize(10); d.setMaxPageSize(100);
+        ProdukPesertaGenericCrudAdapter adapter = new ProdukPesertaGenericCrudAdapter();
+        d.setAdapter(adapter); d.setScopeAdapter(adapter);
+        d.addField(field("id", "ID", Long.class, "number", false, false, false, false, true, false, 10));
+        d.addField(field("kode", "Kode Produk Peserta", String.class, "text", true, false, false, false, true, true, 20));
+        GenericCrudFieldDefinition peserta = relationField("pesertaKursus", "Peserta Kursus", PesertaKursus.class,
+                true, false, false, false, 30); peserta.setRelationDisplayProperty("nama");
+        peserta.setRelationSearchProperties("kodeIdentitas,nama,email"); d.addField(peserta);
+        GenericCrudFieldDefinition produk = relationField("produkKursus", "Produk Kursus", ProdukKursus.class,
+                true, false, false, false, 40); produk.setRelationDisplayProperty("nama");
+        produk.setRelationSearchProperties("kode,nama"); d.addField(produk);
+        GenericCrudFieldDefinition pembelian = relationField("pesertaPunyaProdukKursus", "Transaksi Pembelian",
+                PesertaPunyaProdukKursus.class, true, false, false, false, 50);
+        pembelian.setRelationDisplayProperty("waktuBeli"); d.addField(pembelian);
+        d.addField(field("keterangan", "Keterangan", String.class, "textarea", true, false, false, false, true, true, 60));
         return d;
     }
 
