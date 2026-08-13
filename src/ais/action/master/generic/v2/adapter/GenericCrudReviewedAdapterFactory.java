@@ -33,6 +33,9 @@ import ais.database.model.Perkuliahan;
 import ais.database.model.Detailperkuliahan;
 import ais.database.model.Pertemuan;
 import ais.database.model.KrsMahasiswa;
+import ais.database.model.Kegiatan;
+import ais.database.model.KegiatanTemporary;
+import ais.database.model.PembayaranMahasiswa;
 
 /** Memilih adapter hasil review untuk model yang mempunyai rule Action khusus. */
 public final class GenericCrudReviewedAdapterFactory {
@@ -71,7 +74,10 @@ public final class GenericCrudReviewedAdapterFactory {
                 || Perkuliahan.class.equals(entityClass)
                 || Detailperkuliahan.class.equals(entityClass)
                 || Pertemuan.class.equals(entityClass)
-                || KrsMahasiswa.class.equals(entityClass);
+                || KrsMahasiswa.class.equals(entityClass)
+                || Kegiatan.class.equals(entityClass)
+                || KegiatanTemporary.class.equals(entityClass)
+                || PembayaranMahasiswa.class.equals(entityClass);
     }
 
     public static GenericCrudAutoEntityAdapter create(Class entityClass, boolean softDelete,
@@ -117,6 +123,9 @@ public final class GenericCrudReviewedAdapterFactory {
         if (Detailperkuliahan.class.equals(entityClass)) return new DetailPerkuliahanWorkflowGenericCrudAdapter();
         if (Pertemuan.class.equals(entityClass)) return new PertemuanWorkflowGenericCrudAdapter();
         if (KrsMahasiswa.class.equals(entityClass)) return new KrsMahasiswaWorkflowGenericCrudAdapter();
+        if (Kegiatan.class.equals(entityClass)) return new BillingChargeWorkflowGenericCrudAdapter();
+        if (KegiatanTemporary.class.equals(entityClass)) return new BillingCartWorkflowGenericCrudAdapter();
+        if (PembayaranMahasiswa.class.equals(entityClass)) return new StudentPaymentWorkflowGenericCrudAdapter();
         return new GenericCrudAutoEntityAdapter(entityClass, softDelete, sourceActionClass, metadataLifecycle);
     }
 }
