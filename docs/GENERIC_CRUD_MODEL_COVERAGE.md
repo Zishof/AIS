@@ -26,11 +26,12 @@ mempunyai lifecycle yang jelas untuk setiap model.
 - Terdaftar untuk baca/filter/ekspor: 1.489
 - Model sensitif/restricted: 132
 - Lifecycle Action existing: 607
-- Lifecycle metadata untuk model tanpa Action: 710
-- Action kompleks yang tetap fail-closed: 66
-- Create aktif: 1.286
-- Update aktif: 1.291
-- Soft-delete aktif: 241
+- Lifecycle metadata untuk model tanpa Action: 709
+- Definition route eksplisit: 5
+- Action kompleks yang tetap fail-closed: 64
+- Create aktif: 1.289
+- Update aktif: 1.294
+- Delete/soft-delete aktif: 244
 
 Audit keamanan tambahan memperlakukan model yang mempunyai field password,
 credential, token, secret, PIN, path/blob sensitif, atau data sejenis sebagai
@@ -40,6 +41,10 @@ disembunyikan juga otomatis mematikan create agar constraint tidak dilewati.
 Angka di atas dihasilkan oleh `GenericCrudModelCoverageAudit`; audit berikutnya
 akan memisahkan definition eksplisit dan Action kompleks yang masih memerlukan
 adapter khusus.
+
+Audit menghitung definition route eksplisit sebagai lifecycle utama untuk entity
+yang sama. Model tersebut tidak lagi dilabel `UNBOUND` hanya karena browser
+administratif mempunyai definition terpisah.
 
 ## Adapter kompleks yang sudah dipindahkan
 
