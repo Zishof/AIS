@@ -3346,10 +3346,10 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 
 		int i = 1;
 		boolean laporanNilaiBanyakKolom = formatNilais.size() >= 9;
-		StringBuilder[] namaKolom = laporanNilaiBanyakKolom ? new StringBuilder[14] : null;
-		StringBuilder[] persenKolom = laporanNilaiBanyakKolom ? new StringBuilder[14] : null;
+		StringBuilder[] namaKolom = laporanNilaiBanyakKolom ? new StringBuilder[25] : null;
+		StringBuilder[] persenKolom = laporanNilaiBanyakKolom ? new StringBuilder[25] : null;
 		for (FormatNilai formatNilai : formatNilais) {
-			int nomorKolom = laporanNilaiBanyakKolom ? ((i - 1) % 14) + 1 : i;
+			int nomorKolom = laporanNilaiBanyakKolom ? ((i - 1) % 25) + 1 : i;
 			if (laporanNilaiBanyakKolom) {
 				int bucket = nomorKolom - 1;
 				if (namaKolom[bucket] == null) {
@@ -3371,7 +3371,7 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 			i++;
 		}
 		if (laporanNilaiBanyakKolom) {
-			for (int kolom = 1; kolom <= 14; kolom++) {
+			for (int kolom = 1; kolom <= 25; kolom++) {
 				parameters.put("col_nama_" + kolom, namaKolom[kolom - 1] == null ? "" : namaKolom[kolom - 1].toString());
 				parameters.put("col_persen_" + kolom,
 						persenKolom[kolom - 1] == null ? "" : persenKolom[kolom - 1].toString());
@@ -3395,8 +3395,8 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 				Common.insertProperty(Detailperkuliahan.class, detailperkuliahan, map, "detailperkuliahan");
 
 				i = 1;
-				StringBuilder[] nilaiKolom = laporanNilaiBanyakKolom ? new StringBuilder[14] : null;
-				StringBuilder[] bobotKolom = laporanNilaiBanyakKolom ? new StringBuilder[14] : null;
+				StringBuilder[] nilaiKolom = laporanNilaiBanyakKolom ? new StringBuilder[25] : null;
+				StringBuilder[] bobotKolom = laporanNilaiBanyakKolom ? new StringBuilder[25] : null;
 				for (FormatNilai formatNilai : formatNilais) {
 					Double nilai;
 					if (perkuliahan != null && perkuliahan.getSembunyikanNilaiJikaBelumDiverifikasi()
@@ -3406,7 +3406,7 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 						nilai = detailperkuliahan.retreiveDetailNilai(formatNilai);
 					}
 					if (laporanNilaiBanyakKolom) {
-						int bucket = (i - 1) % 14;
+						int bucket = (i - 1) % 25;
 						if (nilaiKolom[bucket] == null) {
 							nilaiKolom[bucket] = new StringBuilder();
 							bobotKolom[bucket] = new StringBuilder();
@@ -3424,7 +3424,7 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 					i++;
 				}
 				if (laporanNilaiBanyakKolom) {
-					for (int kolom = 1; kolom <= 14; kolom++) {
+					for (int kolom = 1; kolom <= 25; kolom++) {
 						map.put("nilai_" + kolom,
 								nilaiKolom[kolom - 1] == null ? "" : nilaiKolom[kolom - 1].toString());
 						map.put("nilai_bobot_" + kolom,
@@ -3555,14 +3555,14 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		}
 
 		try {
-			// Sediakan sampai 14 komponen sebagai kolom terpisah pada halaman landscape.
-			// Jika kelak melebihi 14, komponen berikutnya tetap ditampilkan dengan
+			// Sediakan sampai 25 komponen sebagai kolom terpisah pada halaman landscape.
+			// Jika kelak melebihi 25, komponen berikutnya tetap ditampilkan dengan
 			// pengelompokan per kolom, bukan dibuang.
 			// selain itu → Daftar_Nilai_<size>. Size 0 WAJIB dijabarkan eksplisit karena
 			// Daftar_Nilai_0 tidak pernah ada sebagai berkas template.
 			String namaTemplateDaftarNilai = (formatNilais.size() == 0
 					|| perkuliahan.getHanyaInputNilaiHuruf()) ? "Daftar_Nilai_1"
-							: formatNilais.size() >= 9 ? "Daftar_Nilai_" + Math.min(formatNilais.size(), 14)
+							: formatNilais.size() >= 9 ? "Daftar_Nilai_" + Math.min(formatNilais.size(), 25)
 							: formatNilais.size() == 3 ? "Daftar_Nilai"
 									: "Daftar_Nilai_" + formatNilais.size();
 			Report.generatePDFReport(Report.PDF, parameters, namaTemplateDaftarNilai,
