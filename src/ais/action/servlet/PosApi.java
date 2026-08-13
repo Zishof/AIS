@@ -1238,58 +1238,13 @@ public class PosApi extends HttpServlet {
 	 */
 	private void prosesPesananList(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
+		int page = Math.max(1, payload.optInt("page", 1));
+		int pageSize = Math.min(100, Math.max(1, payload.optInt("page_size", payload.optInt("limit", 15))));
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
-			Criteria c = session.createCriteria(DraftPembelianAnggotaKoperasi.class).addOrder(Order.desc("id"));
-			boolean butuhAliasToko = tokoId != null || !payload.optString("pedagang", "").trim().isEmpty();
-			if (butuhAliasToko) {
-				c.createAlias("toko", "tk");
-			}
-			if (tokoId != null) {
-				c.add(Restrictions.eq("tk.id", tokoId));
-			}
-
-			// Filter tambahan (gap-closure -- padanan filter Mulai/Akhir/Kode/Pembeli/Pedagang di JSP
-			// _draft_pesanan_anggota.jsp) -- SEMUA opsional, TIDAK mengubah perilaku lama saat kosong
-			// (aplikasi lama yg belum di-update tetap dapat 100 baris terbaru tanpa filter apa pun).
-			String sejak = payload.optString("sejak", "").trim();
-			String sampai = payload.optString("sampai", "").trim();
-			if (!sejak.isEmpty() || !sampai.isEmpty()) {
-				java.text.SimpleDateFormat fmtTgl = new java.text.SimpleDateFormat("yyyy-MM-dd");
-				if (!sejak.isEmpty()) {
-					c.add(Restrictions.ge("tanggalPembayaran", fmtTgl.parse(sejak)));
-				}
-				if (!sampai.isEmpty()) {
-					java.util.Calendar akhirHari = java.util.Calendar.getInstance();
-					akhirHari.setTime(fmtTgl.parse(sampai));
-					akhirHari.set(java.util.Calendar.HOUR_OF_DAY, 23);
-					akhirHari.set(java.util.Calendar.MINUTE, 59);
-					akhirHari.set(java.util.Calendar.SECOND, 59);
-					c.add(Restrictions.le("tanggalPembayaran", akhirHari.getTime()));
-				}
-			}
-			String kode = payload.optString("kode", "").trim();
-			if (!kode.isEmpty()) {
-				c.add(Restrictions.ilike("kode", kode, org.hibernate.criterion.MatchMode.ANYWHERE));
-			}
-			String pembeli = payload.optString("pembeli", "").trim();
-			if (!pembeli.isEmpty()) {
-				c.createAlias("anggotaKoperasi", "ak").add(Restrictions.ilike("ak.nama", pembeli, org.hibernate.criterion.MatchMode.ANYWHERE));
-			}
-			String pedagang = payload.optString("pedagang", "").trim();
-			if (!pedagang.isEmpty()) {
-				c.add(Restrictions.ilike("tk.nama", pedagang, org.hibernate.criterion.MatchMode.ANYWHERE));
-			}
-			if (payload.optBoolean("hanya_belum_lunas", false)) {
-				c.add(Restrictions.isNull("lunas"));
-			}
-
-			int batas = payload.optInt("limit", 100);
-			if (batas <= 0 || batas > 500) {
-				batas = 100;
-			}
-			c.setMaxResults(batas);
+			Criteria c = buatCriteriaPesanan(session, tokoId, payload).addOrder(Order.desc("id"));
+			c.setFirstResult((page - 1) * pageSize).setMaxResults(pageSize);
 
 			JSONArray arr = new JSONArray();
 			java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
@@ -1353,9 +1308,84 @@ public class PosApi extends HttpServlet {
 
 			hasil.put("status", "success");
 			hasil.put("pesanan", arr);
+			Object total = buatCriteriaPesanan(session, tokoId, payload)
+					.setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult();
+			hasil.put("total", total instanceof Number ? ((Number) total).longValue() : 0L);
+			hasil.put("page", page);
+			hasil.put("pageSize", pageSize);
+			// KPI dihitung oleh DB dengan agregasi, bukan dengan mengambil semua baris ke JVM.
+			JSONObject ringkasanPayload = new JSONObject(payload.toString());
+			ringkasanPayload.remove("asal");
+			Criteria semuaKpi = buatCriteriaPesanan(session, tokoId, ringkasanPayload);
+			Object jumlahSemua = semuaKpi.setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult();
+			Criteria lunasKpi = buatCriteriaPesanan(session, tokoId, ringkasanPayload)
+					.add(Restrictions.isNotNull("lunas"));
+			Object jumlahLunas = lunasKpi.setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult();
+			Criteria belumKpi = buatCriteriaPesanan(session, tokoId, ringkasanPayload)
+					.add(Restrictions.isNull("lunas"));
+			Object jumlahBelum = belumKpi.setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult();
+			Criteria onlineKpi = buatCriteriaPesanan(session, tokoId, ringkasanPayload)
+					.add(Restrictions.isNull("lunas"))
+					.createAlias("tbmuser", "kpu", org.hibernate.sql.JoinFragment.LEFT_OUTER_JOIN)
+					.createAlias("kpu.anggotaKoperasi", "kpak", org.hibernate.sql.JoinFragment.LEFT_OUTER_JOIN)
+					.add(Restrictions.isNotNull("kpak.id"));
+			Object jumlahOnline = onlineKpi.setProjection(org.hibernate.criterion.Projections.rowCount()).uniqueResult();
+			Criteria nilaiKpi = buatCriteriaPesanan(session, tokoId, ringkasanPayload)
+					.add(Restrictions.isNull("lunas"));
+			Object nilaiMenunggu = nilaiKpi.setProjection(org.hibernate.criterion.Projections.sum("totalBiaya")).uniqueResult();
+			long nSemua = jumlahSemua instanceof Number ? ((Number) jumlahSemua).longValue() : 0L;
+			long nLunas = jumlahLunas instanceof Number ? ((Number) jumlahLunas).longValue() : 0L;
+			long nBelum = jumlahBelum instanceof Number ? ((Number) jumlahBelum).longValue() : 0L;
+			long nOnline = jumlahOnline instanceof Number ? ((Number) jumlahOnline).longValue() : 0L;
+			JSONObject ringkasan = new JSONObject();
+			ringkasan.put("total", nSemua);
+			ringkasan.put("online", nOnline);
+			ringkasan.put("tertahan", Math.max(0L, nBelum - nOnline));
+			ringkasan.put("terbayar", nLunas);
+			ringkasan.put("nilaiMenunggu", nilaiMenunggu instanceof Number ? ((Number) nilaiMenunggu).doubleValue() : 0D);
+			hasil.put("ringkasan", ringkasan);
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);
 		}
+	}
+
+	/** Criteria tunggal agar filter data dan COUNT paging selalu identik. */
+	private static Criteria buatCriteriaPesanan(Session session, Long tokoId, JSONObject payload) throws Exception {
+		Criteria c = session.createCriteria(DraftPembelianAnggotaKoperasi.class);
+		boolean butuhAliasToko = tokoId != null || !payload.optString("pedagang", "").trim().isEmpty();
+		if (butuhAliasToko) c.createAlias("toko", "tk");
+		if (tokoId != null) c.add(Restrictions.eq("tk.id", tokoId));
+		String sejak = payload.optString("sejak", "").trim();
+		String sampai = payload.optString("sampai", "").trim();
+		if (!sejak.isEmpty() || !sampai.isEmpty()) {
+			java.text.SimpleDateFormat fmtTgl = new java.text.SimpleDateFormat("yyyy-MM-dd");
+			if (!sejak.isEmpty()) c.add(Restrictions.ge("tanggalPembayaran", fmtTgl.parse(sejak)));
+			if (!sampai.isEmpty()) {
+				java.util.Calendar akhirHari = java.util.Calendar.getInstance();
+				akhirHari.setTime(fmtTgl.parse(sampai));
+				akhirHari.set(java.util.Calendar.HOUR_OF_DAY, 23);
+				akhirHari.set(java.util.Calendar.MINUTE, 59);
+				akhirHari.set(java.util.Calendar.SECOND, 59);
+				c.add(Restrictions.le("tanggalPembayaran", akhirHari.getTime()));
+			}
+		}
+		String kode = payload.optString("kode", "").trim();
+		if (!kode.isEmpty()) c.add(Restrictions.ilike("kode", kode, org.hibernate.criterion.MatchMode.ANYWHERE));
+		String pembeli = payload.optString("pembeli", "").trim();
+		if (!pembeli.isEmpty()) {
+			c.createAlias("anggotaKoperasi", "ak")
+					.add(Restrictions.ilike("ak.nama", pembeli, org.hibernate.criterion.MatchMode.ANYWHERE));
+		}
+		String pedagang = payload.optString("pedagang", "").trim();
+		if (!pedagang.isEmpty()) c.add(Restrictions.ilike("tk.nama", pedagang, org.hibernate.criterion.MatchMode.ANYWHERE));
+		if (payload.optBoolean("hanya_belum_lunas", false)) c.add(Restrictions.isNull("lunas"));
+		String asal = payload.optString("asal", "").trim().toLowerCase();
+		if ("online".equals(asal) || "tertahan".equals(asal)) {
+			c.createAlias("tbmuser", "pu", org.hibernate.sql.JoinFragment.LEFT_OUTER_JOIN)
+					.createAlias("pu.anggotaKoperasi", "pak", org.hibernate.sql.JoinFragment.LEFT_OUTER_JOIN);
+			c.add("online".equals(asal) ? Restrictions.isNotNull("pak.id") : Restrictions.isNull("pak.id"));
+		}
+		return c;
 	}
 
 	/**
