@@ -10,6 +10,7 @@ import ais.database.model.KehadiranPegawaiBulanan;
 import ais.database.model.Dashboard;
 import ais.database.model.Pegawai;
 import ais.database.model.employ.Pensiun;
+import ais.database.model.NilaiKegiatanKemahasiswaan;
 
 /** Memilih adapter hasil review untuk model yang mempunyai rule Action khusus. */
 public final class GenericCrudReviewedAdapterFactory {
@@ -25,7 +26,8 @@ public final class GenericCrudReviewedAdapterFactory {
                 || KehadiranPegawaiBulanan.class.equals(entityClass)
                 || Dashboard.class.equals(entityClass)
                 || Pegawai.class.equals(entityClass)
-                || Pensiun.class.equals(entityClass);
+                || Pensiun.class.equals(entityClass)
+                || NilaiKegiatanKemahasiswaan.class.equals(entityClass);
     }
 
     public static GenericCrudAutoEntityAdapter create(Class entityClass, boolean softDelete,
@@ -38,8 +40,17 @@ public final class GenericCrudReviewedAdapterFactory {
         if (SertifikatKursus.class.equals(entityClass)) return new SertifikatKursusGenericCrudAdapter();
         if (KehadiranPegawaiBulanan.class.equals(entityClass)) return new KehadiranPegawaiBulananGenericCrudAdapter();
         if (Dashboard.class.equals(entityClass)) return new DashboardCatalogGenericCrudAdapter();
-        if (Pegawai.class.equals(entityClass)) return new PegawaiPensiunGenericCrudAdapter();
+        if (Pegawai.class.equals(entityClass)) {
+            String actionName = sourceActionClass == null ? "" : sourceActionClass.getName();
+            if ("ais.action.master.employ.PensiunAction".equals(actionName)
+                    || "ais.action.master.employ.PegawaiPensiunAction".equals(actionName))
+                return new PegawaiPensiunGenericCrudAdapter();
+            // PegawaiAction mempunyai workspace biodata yang jauh lebih luas;
+            // route umum tetap fail-closed dan tidak boleh mewarisi filter pensiun.
+            return new GenericCrudAutoEntityAdapter(entityClass, softDelete, sourceActionClass, metadataLifecycle);
+        }
         if (Pensiun.class.equals(entityClass)) return new PensiunRecordGenericCrudAdapter();
+        if (NilaiKegiatanKemahasiswaan.class.equals(entityClass)) return new NilaiKegiatanKemahasiswaanGenericCrudAdapter();
         return new GenericCrudAutoEntityAdapter(entityClass, softDelete, sourceActionClass, metadataLifecycle);
     }
 }

@@ -27,10 +27,10 @@ mempunyai lifecycle yang jelas untuk setiap model.
 - Model sensitif/restricted: 132
 - Lifecycle Action existing yang dapat dipanggil headless: 746
 - Lifecycle metadata hanya untuk model tanpa Action: 572
-- Definition/adapter eksplisit: 45
-- Action kompleks yang tetap fail-closed dan perlu review: 32
-- Create aktif: 1.299
-- Update aktif: 1.310
+- Definition/adapter eksplisit: 46
+- Action kompleks yang tetap fail-closed dan perlu review: 31
+- Create aktif: 1.300
+- Update aktif: 1.312
 - Delete/soft-delete aktif: 186
 
 Audit keamanan tambahan memperlakukan model yang mempunyai field password,
@@ -39,7 +39,7 @@ restricted walaupun nama class-nya terlihat umum. Field wajib yang sengaja
 disembunyikan juga otomatis mematikan create agar constraint tidak dilewati.
 
 Angka di atas dihasilkan oleh `GenericCrudModelCoverageAudit` setelah kebijakan
-strict diterapkan. Tiga puluh dua Action kompleks bukan dianggap selesai: mutation
+strict diterapkan. Tiga puluh satu Action kompleks bukan dianggap selesai: mutation
 ditolak sampai Action tersebut diklasifikasikan sebagai read-only atau memperoleh
 adapter/service native yang mempertahankan validasi dan efek bisnis existing.
 
@@ -92,6 +92,14 @@ menyediakan aksi UPDATE “Ubah ke Aktif” yang menyelaraskan status `Pegawai`,
 `Dosen`, atau `Guru` dalam satu transaksi. Entity rekam pengajuan
 `employ.Pensiun` dipertahankan read-only karena lifecycle mutasinya tidak terdapat
 pada `PensiunAction`; sistem tidak lagi menebak CRUD dari kemiripan nama class.
+
+`NilaiKegiatanKemahasiswaanAction` kini terikat ke entity nilai yang benar,
+bukan kandidat pertama `SkalaKegiatanKemahasiswaan`. New UI hanya mengizinkan
+perubahan angka nilai; relasi rincian, skala, jabatan, serta kode unik immutable.
+Validasi server memastikan kombinasi relasi memang terdapat dalam konfigurasi
+detail. Aksi “Lengkapi Matriks Nilai” mempertahankan perilaku renderer existing
+dengan membuat hanya sel kombinasi yang belum ada secara transaksional; create,
+delete, dan import generik tetap ditutup.
 
 Perubahan penting dari audit awal adalah `metadataBacked` tidak lagi digunakan
 bila class Action existing ditemukan. Sebelumnya kondisi tersebut dapat membuat

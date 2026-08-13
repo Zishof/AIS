@@ -10,7 +10,7 @@ request.setAttribute("nuiModuleLabel", "Modul Inti");
 request.setAttribute("nuiPage", "nilai_kegiatan_kemahasiswaan");
 request.setAttribute("nuiPageTitle", "Nilai Kegiatan Kemahasiswaan");
 request.setAttribute("nuiPageType", "academic");
-request.setAttribute("nuiPageDescription", "Akademik untuk Modul Inti. Data akademik, jadwal, capaian, dan status proses pendidikan.");
+request.setAttribute("nuiPageDescription", "Matriks angka kredit kegiatan mahasiswa berdasarkan rincian, jabatan/status, dan skala kegiatan.");
 request.setAttribute("nuiSourceClass", "NilaiKegiatanKemahasiswaanAction");
 request.setAttribute("nuiSourcePackage", "ais.action.master");
 request.setAttribute("nuiSourcePath", "src/ais/action/master/NilaiKegiatanKemahasiswaanAction.java");
@@ -18,6 +18,6 @@ request.setAttribute("nuiSourceKind", "class");
 request.setAttribute("nuiSourceExtends", "GenericAutowireComposer");
 request.setAttribute("nuiSourceImplements", "DataCriteria, DataSearchDefault");
 request.setAttribute("nuiSourceMethods", new String[]{"doBeforeCompose", "doAfterCompose", "onEvent", "run", "render", "initCriteria", "onSearchDefault"});
-request.setAttribute("nuiEntityCandidates", new String[]{"SkalaKegiatanKemahasiswaan", "NilaiKegiatanKemahasiswaan", "DetailKelompokKegiatanKemahasiswaan", "JabatanKegiatanKemahasiswaan"});
+request.setAttribute("nuiEntityCandidates", new String[]{"ais.database.model.NilaiKegiatanKemahasiswaan"});
 %>
 <jsp:include page="/WEB-INF/new/_shared/ui/page.jsp" />
