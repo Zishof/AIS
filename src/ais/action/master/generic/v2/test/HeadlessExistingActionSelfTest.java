@@ -4,6 +4,7 @@ import ais.action.master.AgamaAction;
 import ais.action.master.AlatTransportasiMahasiswaAction;
 import ais.action.master.KurikulumAction;
 import ais.action.master.SkripsiAction;
+import ais.action.master.BuktiPembayaranAction;
 import ais.action.master.payroll.ItemGajiPegawaiAction;
 import ais.action.master.rab.ChecklistLaporanDetailAction;
 import ais.action.master.rab.ChecklistLaporanDetailDefaultAction;
@@ -22,6 +23,7 @@ import ais.database.model.Agama;
 import ais.database.model.AlatTransportasiMahasiswa;
 import ais.database.model.Kurikulum;
 import ais.database.model.Skripsi;
+import ais.database.model.BuktiPembayaran;
 import ais.database.model.payroll.ItemGajiPegawai;
 import ais.database.model.rab.ChecklistLaporanDetail;
 import ais.database.model.rab.ChecklistLaporanDetailDefault;
@@ -109,6 +111,8 @@ public final class HeadlessExistingActionSelfTest {
                 PembelianAnggotaKoperasi.class), "Tabpanel form Pembelian Anggota belum terhubung.");
         check(GenericCrudExistingActionInvoker.supportsCreate(TransaksiReturAction.class,
                 TransaksiRetur.class), "Tabpanel form Transaksi Retur belum terhubung.");
+        check(GenericCrudExistingActionInvoker.supportsCreate(BuktiPembayaranAction.class,
+                BuktiPembayaran.class), "Lifecycle kontekstual Bukti Pembayaran belum terhubung.");
         check(!HeadlessActionContext.isActive(), "Konteks headless bocor setelah Action selesai.");
         System.out.println("PASS existing Action headless validation self-test");
         // Hibernate/c3p0 aplikasi mempertahankan worker non-daemon pada eksekusi CLI.

@@ -173,6 +173,8 @@ public final class GenericCrudExistingActionInvoker {
             current = current.getSuperclass();
         }
         if (fallback != null) return fallback;
+        Method contextual = configuredContextInit(type, entityClass);
+        if (contextual != null) return contextual;
         Boolean configured = configuredBooleanInit(type);
         boolean listenerConfigured = configuredListenerInit(type);
         if (configured == null && !listenerConfigured) return null;
@@ -194,6 +196,8 @@ public final class GenericCrudExistingActionInvoker {
 
     private static Object[] initArguments(Class actionClass, Method init, GeneralValueObject target) {
         if (init.getParameterTypes().length == 1) return new Object[] { target };
+        if (init.getParameterTypes().length == 4)
+            return new Object[] { target, null, null, null };
         if (EventListener.class.isAssignableFrom(init.getParameterTypes()[1]))
             return new Object[] { target, null };
         return new Object[] { target, configuredBooleanInit(actionClass) };
@@ -214,6 +218,22 @@ public final class GenericCrudExistingActionInvoker {
         return "ais.action.master.rab.ChecklistLaporanDetailAction".equals(name)
                 || "ais.action.master.rab.ChecklistLaporanDetailDefaultAction".equals(name)
                 || "ais.action.master.payroll.ItemGajiPegawaiAction".equals(name);
+    }
+
+    private static Method configuredContextInit(Class actionClass, Class entityClass) {
+        if (actionClass == null || entityClass == null
+                || !"ais.action.master.BuktiPembayaranAction".equals(actionClass.getName())) return null;
+        Class current = actionClass;
+        while (current != null && current != Object.class) {
+            Method[] methods = current.getDeclaredMethods();
+            for (int i = 0; i < methods.length; i++) {
+                Class[] parameters = methods[i].getParameterTypes();
+                if ("init".equals(methods[i].getName()) && parameters.length == 4
+                        && parameters[0].isAssignableFrom(entityClass)) return methods[i];
+            }
+            current = current.getSuperclass();
+        }
+        return null;
     }
 
     /**
