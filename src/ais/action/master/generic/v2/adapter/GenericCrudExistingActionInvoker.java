@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.zkoss.zk.ui.event.Event;
+import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zul.Window;
 
@@ -168,7 +169,8 @@ public final class GenericCrudExistingActionInvoker {
         }
         if (fallback != null) return fallback;
         Boolean configured = configuredBooleanInit(type);
-        if (configured == null) return null;
+        boolean listenerConfigured = configuredListenerInit(type);
+        if (configured == null && !listenerConfigured) return null;
         current = type;
         while (current != null && current != Object.class) {
             Method[] methods = current.getDeclaredMethods();
@@ -176,7 +178,9 @@ public final class GenericCrudExistingActionInvoker {
                 Class[] parameters = methods[i].getParameterTypes();
                 if (!"init".equals(methods[i].getName()) || parameters.length != 2
                         || !parameters[0].isAssignableFrom(entityClass)) continue;
-                if (parameters[1] == Boolean.TYPE || parameters[1] == Boolean.class) return methods[i];
+                if (configured != null && (parameters[1] == Boolean.TYPE || parameters[1] == Boolean.class))
+                    return methods[i];
+                if (listenerConfigured && EventListener.class.isAssignableFrom(parameters[1])) return methods[i];
             }
             current = current.getSuperclass();
         }
@@ -185,6 +189,8 @@ public final class GenericCrudExistingActionInvoker {
 
     private static Object[] initArguments(Class actionClass, Method init, GeneralValueObject target) {
         if (init.getParameterTypes().length == 1) return new Object[] { target };
+        if (EventListener.class.isAssignableFrom(init.getParameterTypes()[1]))
+            return new Object[] { target, null };
         return new Object[] { target, configuredBooleanInit(actionClass) };
     }
 
@@ -195,6 +201,14 @@ public final class GenericCrudExistingActionInvoker {
         if ("ais.action.master.KurikulumAction".equals(name)) return Boolean.FALSE; // copy=false
         if ("ais.action.master.SkripsiAction".equals(name)) return Boolean.TRUE; // tampilkanSimpan=true
         return null;
+    }
+
+    private static boolean configuredListenerInit(Class actionClass) {
+        if (actionClass == null) return false;
+        String name = actionClass.getName();
+        return "ais.action.master.rab.ChecklistLaporanDetailAction".equals(name)
+                || "ais.action.master.rab.ChecklistLaporanDetailDefaultAction".equals(name)
+                || "ais.action.master.payroll.ItemGajiPegawaiAction".equals(name);
     }
 
     /**
