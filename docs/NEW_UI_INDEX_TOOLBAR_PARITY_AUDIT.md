@@ -6,6 +6,11 @@ Dokumen ini mencatat kontrak migrasi toolbar utama. Sumber kebenaran tetap
 New UI tidak menjalankan atau menyertakan `.zul`; class existing dipakai untuk
 memahami aturan, konteks pengguna, sumber data, dan target operasionalnya.
 
+Resolver route memakai identitas path lengkap untuk nama yang muncul di lebih
+dari satu modul. Route master `mahasiswa`, `pegawai`, dan `jenis_pembayaran`
+dipatok ke modul `root`, sedangkan `alumni/mahasiswa` dipatok ke modul `alumni`;
+resolver tidak lagi memilih berdasarkan nama file yang ambigu.
+
 ## Hasil inventarisasi
 
 - Seluruh 29 `toolbarbutton` terdaftar: 24 modul dan 5 utility shell.

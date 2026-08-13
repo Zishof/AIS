@@ -27,6 +27,7 @@ public final class NewUiNativeJspResolver {
     private static final String CACHE_KEY = NewUiNativeJspResolver.class.getName() + ".paths";
     private static final String ROOT = "/WEB-INF/new/";
     private static final Pattern COMPOSER = Pattern.compile("(?:apply|use)\\s*=\\s*[\\\"']([^\\\"']+)[\\\"']", Pattern.CASE_INSENSITIVE);
+    private static final Map<String, String> EXPLICIT_ROUTES = explicitRoutes();
 
     public static final class Result {
         private final String target;
@@ -45,6 +46,11 @@ public final class NewUiNativeJspResolver {
 
     public static Result resolve(ServletContext context, String existingRoute, boolean service) {
         if (context == null) return null;
+        Result explicit = explicitFromRoute(existingRoute, service);
+        if (explicit != null) {
+            try { if (context.getResource(explicit.getTarget()) != null) return explicit; }
+            catch (Exception ignored) { }
+        }
         Set<String> paths = cachedUiPaths(context);
         Result result = resolveFromPaths(existingRoute, service, paths);
         if (result == null) {
@@ -56,6 +62,31 @@ public final class NewUiNativeJspResolver {
             URL found = context.getResource(result.getTarget());
             return found == null ? null : result;
         } catch (Exception e) { return null; }
+    }
+
+    static Result explicitFromRoute(String existingRoute, boolean service) {
+        String route = normalizeRoute(existingRoute); String ui = EXPLICIT_ROUTES.get(route);
+        if (ui == null) return null;
+        String target = service ? ui.replace("/uiux/", "/services/").replace(".jsp", "_service.jsp") : ui;
+        int moduleStart = ROOT.length(), moduleEnd = ui.indexOf('/', moduleStart), uiux = ui.indexOf("/uiux/");
+        if (moduleEnd < 0 || uiux < 0) return null;
+        return new Result(target, ui.substring(moduleStart,moduleEnd), ui.substring(uiux+6,ui.length()-4));
+    }
+
+    private static Map<String, String> explicitRoutes() {
+        Map<String, String> values = new HashMap<String, String>();
+        values.put("/pages/master/mahasiswa.zul", ROOT+"root/uiux/mahasiswa.jsp");
+        values.put("/pages/master/pegawai.zul", ROOT+"root/uiux/pegawai.jsp");
+        values.put("/pages/master/jenis_pembayaran.zul", ROOT+"root/uiux/jenis_pembayaran.jsp");
+        values.put("/pages/master/alumni/mahasiswa.zul", ROOT+"alumni/uiux/mahasiswa.jsp");
+        return Collections.unmodifiableMap(values);
+    }
+
+    private static String normalizeRoute(String route) {
+        if (route == null) return ""; String value=route.trim().replace('\\','/');
+        int query=value.indexOf('?');if(query>=0)value=value.substring(0,query);
+        int hash=value.indexOf('#');if(hash>=0)value=value.substring(0,hash);
+        return value.toLowerCase();
     }
 
     static Result resolveFromPaths(String existingRoute, boolean service, Set<String> uiPaths) {
