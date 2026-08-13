@@ -27,10 +27,10 @@ mempunyai lifecycle yang jelas untuk setiap model.
 - Model sensitif/restricted: 132
 - Lifecycle Action existing yang dapat dipanggil headless: 746
 - Lifecycle metadata hanya untuk model tanpa Action: 572
-- Definition/adapter eksplisit: 38
-- Action kompleks yang tetap fail-closed dan perlu review: 39
+- Definition/adapter eksplisit: 39
+- Action kompleks yang tetap fail-closed dan perlu review: 38
 - Create aktif: 1.299
-- Update aktif: 1.307
+- Update aktif: 1.308
 - Delete/soft-delete aktif: 186
 
 Audit keamanan tambahan memperlakukan model yang mempunyai field password,
@@ -39,7 +39,7 @@ restricted walaupun nama class-nya terlihat umum. Field wajib yang sengaja
 disembunyikan juga otomatis mematikan create agar constraint tidak dilewati.
 
 Angka di atas dihasilkan oleh `GenericCrudModelCoverageAudit` setelah kebijakan
-strict diterapkan. Tiga puluh sembilan Action kompleks bukan dianggap selesai: mutation
+strict diterapkan. Tiga puluh delapan Action kompleks bukan dianggap selesai: mutation
 ditolak sampai Action tersebut diklasifikasikan sebagai read-only atau memperoleh
 adapter/service native yang mempertahankan validasi dan efek bisnis existing.
 
@@ -53,6 +53,13 @@ Guard institusi generik sekarang juga mengikat properti `perguruanTinggi` dari
 user aktif. Sebelumnya property tenant tersebut belum ikut pada criteria baca,
 count, create default, dan validasi object; kondisi itu telah ditutup tanpa
 memanggil atau merender komponen ZK.
+
+`PenugasanDosenMengajarAction` kini memakai adapter native hasil review. New UI
+hanya mengizinkan edit-inline pada kode SK, tanggal surat, TMT, dan keterangan;
+create/delete manual tetap dimatikan. Aksi “Generate No. SK Berdasarkan Jadwal”
+tersedia sebagai custom action ber-CSRF dan privilege UPDATE, memproses tahun
+akademik/semester secara transaksional, mempertahankan natural key existing,
+memperbarui SKS, audit user, dan membatasi jadwal ke perguruan tinggi pengguna.
 
 Perubahan penting dari audit awal adalah `metadataBacked` tidak lagi digunakan
 bila class Action existing ditemukan. Sebelumnya kondisi tersebut dapat membuat

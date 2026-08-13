@@ -3,6 +3,7 @@ package ais.action.master.generic.v2.adapter;
 import ais.database.model.koperasi.AnggaranKasKoperasi;
 import ais.database.model.koperasi.ModalPenyertaanKoperasi;
 import ais.database.model.PenumumanWebsite;
+import ais.database.model.PenugasanDosenMengajar;
 
 /** Memilih adapter hasil review untuk model yang mempunyai rule Action khusus. */
 public final class GenericCrudReviewedAdapterFactory {
@@ -11,7 +12,8 @@ public final class GenericCrudReviewedAdapterFactory {
     public static boolean isReviewed(Class entityClass) {
         return AnggaranKasKoperasi.class.equals(entityClass)
                 || ModalPenyertaanKoperasi.class.equals(entityClass)
-                || PenumumanWebsite.class.equals(entityClass);
+                || PenumumanWebsite.class.equals(entityClass)
+                || PenugasanDosenMengajar.class.equals(entityClass);
     }
 
     public static GenericCrudAutoEntityAdapter create(Class entityClass, boolean softDelete,
@@ -19,6 +21,7 @@ public final class GenericCrudReviewedAdapterFactory {
         if (AnggaranKasKoperasi.class.equals(entityClass)) return new AnggaranKasKoperasiGenericCrudAdapter();
         if (ModalPenyertaanKoperasi.class.equals(entityClass)) return new ModalPenyertaanKoperasiGenericCrudAdapter();
         if (PenumumanWebsite.class.equals(entityClass)) return new PenumumanWebsiteGenericCrudAdapter();
+        if (PenugasanDosenMengajar.class.equals(entityClass)) return new PenugasanDosenMengajarGenericCrudAdapter();
         return new GenericCrudAutoEntityAdapter(entityClass, softDelete, sourceActionClass, metadataLifecycle);
     }
 }
