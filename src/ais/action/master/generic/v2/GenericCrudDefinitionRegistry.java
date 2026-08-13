@@ -27,6 +27,7 @@ import ais.action.master.generic.v2.adapter.CicilanPembayaranGagalGenericCrudAda
 import ais.action.master.generic.v2.adapter.BerkasGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.CimbRequestGenericCrudAdapter;
 import ais.action.master.generic.v2.adapter.IpaymuRequestGenericCrudAdapter;
+import ais.action.master.generic.v2.adapter.WorkspaceGenericCrudAdapter;
 import ais.database.model.Agama;
 import ais.database.model.BadanHukum;
 import ais.database.model.Jenjang;
@@ -79,6 +80,13 @@ import ais.database.model.cimb.CimbRequest;
 import ais.database.model.cimb.CimbResponse;
 import ais.database.model.ipaymu.IpaymuRequest;
 import ais.database.model.ipaymu.IpaymuResponse;
+import ais.database.model.rab.Workspace;
+import ais.database.model.rab.SumberDana;
+import ais.database.model.rab.Satuan;
+import ais.database.model.rab.JenisWorkspace;
+import ais.database.model.rab.UnitOrganisasi;
+import ais.database.model.rab.MetodePengadaan;
+import ais.database.model.akunting.Akun;
 
 /**
  * Registry allow-list. Scanner menghasilkan kandidat disabled; hanya entity yang
@@ -106,6 +114,7 @@ public final class GenericCrudDefinitionRegistry {
         register(buildBerkas());
         register(buildCimbRequest());
         register(buildIpaymuRequest());
+        register(buildWorkspace());
         register(buildEmployeeHistory(RiwayatTandaJasaPegawai.class, "riwayat_tanda_jasa_pegawai", "Riwayat Tanda Jasa Pegawai"));
         register(buildEmployeeHistory(RiwayatPendidikanPegawai.class, "riwayat_pendidikan_pegawai", "Riwayat Pendidikan Pegawai"));
         register(buildEmployeeHistory(RiwayatPelatihanPegawai.class, "riwayat_pelatihan_pegawai", "Riwayat Pelatihan Pegawai"));
@@ -830,6 +839,42 @@ public final class GenericCrudDefinitionRegistry {
         d.addField(field("comments", "Komentar", String.class, "textarea", true, false, false, false, true, true, 50));
         d.addField(field("amount", "Nominal", Double.class, "number", true, false, false, false, true, false, 60));
         d.addField(relationField("ipaymuResponse", "Respons iPaymu", IpaymuResponse.class, true, false, false, false, 120));
+        return d;
+    }
+
+    private static GenericCrudDefinition buildWorkspace() {
+        GenericCrudDefinition d = new GenericCrudDefinition(); d.setEntityClass(Workspace.class);
+        d.setModuleKey("rab"); d.setPageKey("workspace"); d.setDisplayName("Workspace Anggaran");
+        d.setSourceActionClassName("ais.action.master.rab.WorkspaceAction"); d.setExistingActionLifecycleBound(false);
+        d.setLifecycleStatus(GenericCrudDefinition.FULL_CRUD); d.setEnabled(true);
+        d.setCreateEnabled(true); d.setUpdateEnabled(true); d.setDeleteEnabled(false); d.setImportEnabled(false);
+        d.setExportPdfEnabled(true); d.setExportDocxEnabled(true); d.setExportPptxEnabled(true);
+        d.setSavedViewEnabled(true); d.setAuditEnabled(true); d.setRowAuditEnabled(true);
+        d.setGlobalAuditEnabled(false); d.setRestoreEnabled(false); d.setAdminDeleteEnabled(false);
+        d.setDefaultSortProperty("kode"); d.setDefaultSortAscending(true); d.setDefaultPageSize(25); d.setMaxPageSize(100);
+        WorkspaceGenericCrudAdapter adapter = new WorkspaceGenericCrudAdapter(); d.setAdapter(adapter); d.setScopeAdapter(adapter);
+        d.addField(field("id", "ID", Long.class, "number", false, false, false, false, true, false, 10));
+        d.addField(field("kode", "Kode", String.class, "text", true, true, true, false, true, true, 20));
+        d.addField(field("nama", "Item Perencanaan Anggaran", String.class, "text", true, true, true, true, true, true, 30));
+        d.addField(field("parentId", "ID Induk", Long.class, "number", true, true, true, true, true, false, 40));
+        d.addField(field("tahunWorkspace", "Tahun Anggaran", Integer.class, "number", true, true, true, true, true, false, 50));
+        d.addField(field("revisi", "Revisi", Integer.class, "number", true, true, true, true, true, false, 60));
+        d.addField(relationField("satuanKerja", "Satuan Kerja", SatuanKerja.class, true, true, true, true, 70));
+        d.addField(relationField("sumberDana", "Sumber Dana", SumberDana.class, true, true, true, false, 80));
+        d.addField(field("volume", "Volume", Double.class, "number", true, true, true, false, true, false, 90));
+        d.addField(relationField("satuan", "Satuan", Satuan.class, true, true, true, false, 100));
+        d.addField(field("hargaSatuan", "Harga Satuan", Double.class, "number", true, true, true, false, true, false, 110));
+        d.addField(field("hargaTotal", "Anggaran", Double.class, "number", true, false, false, false, true, false, 120));
+        d.addField(relationField("akun", "Akun", Akun.class, true, true, true, false, 130));
+        d.addField(relationField("jenisWorkspace", "Jenis Workspace", JenisWorkspace.class, true, true, true, false, 140));
+        d.addField(relationField("unitOrganisasi", "Unit Organisasi", UnitOrganisasi.class, true, true, true, false, 150));
+        d.addField(relationField("metodePengadaan", "Metode Pengadaan", MetodePengadaan.class, true, true, true, false, 160));
+        d.addField(field("mulai", "Mulai", java.util.Date.class, "date", true, true, true, false, true, false, 170));
+        d.addField(field("selesai", "Selesai", java.util.Date.class, "date", true, true, true, false, true, false, 180));
+        d.addField(field("persenKomplit", "Persen Selesai", Double.class, "number", true, true, true, false, true, false, 190));
+        d.addField(field("carryOver", "Carry Over", Boolean.class, "checkbox", true, true, true, false, true, false, 200));
+        d.addField(field("aktifManual", "Aktif Manual", Boolean.class, "checkbox", true, true, true, false, true, false, 210));
+        d.addField(field("keterangan", "Keterangan", String.class, "textarea", true, true, true, false, true, true, 220));
         return d;
     }
 
