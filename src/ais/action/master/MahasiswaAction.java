@@ -1414,8 +1414,7 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 								.add(Restrictions.between("mahasiswa.tahunangkatan", mulai.getValue(),
 										sampai.getValue()))
 								.add(Restrictions.eq("tahunAkademik", tahunAkademik.getSelectedItem().getValue()))
-								.add(Restrictions.sqlRestriction(
-										"this_.semester%2=" + (jenisSmtStatus.equals(Perkuliahan.GANJIL) ? "1" : "0")));
+								.add(Restrictions.eq("ganjilGenap", jenisSmtStatus));
 					}
 				}, "Download Status Mahasiswa", "/img/print.png", columnHeadersAdding, dataAdding, false, null, "",
 				contents);

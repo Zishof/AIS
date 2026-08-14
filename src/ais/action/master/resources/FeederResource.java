@@ -1096,7 +1096,7 @@ public class FeederResource {
 						+ "' \n"
 						+ (semesterPendek != null && semesterPendek.equals(Perkuliahan.SEMESTER_PENDEK)
 								? "\tand bb.status_semesterpendek=" + semesterPendek + " "
-								: "\tand bb.semester % 2 = " + (semesters.equals(Perkuliahan.GENAP) ? "0" : "1"))
+								: "\tand bb.ganjil_genap='" + semesters.replace("'", "''") + "'")
 						+ "\n" + "\tgroup by perkuliahan\n" + ") a\n" + "left join jurusan b on (a.jurusan = b.id) \n"
 						+ "left join fakultas c on (b.fakultas = c.id) \n"
 						+ "left join matakuliah d on (a.matakuliah = d.id)   \n" + "group by b.fakultas, a.jurusan";
@@ -1160,8 +1160,7 @@ public class FeederResource {
 							.add(tahunAkademik == null ? Restrictions.sqlRestriction("true")
 									: Restrictions.eq("tahunAjaran", tahunAkademik))
 							.add(semesters == null ? Restrictions.sqlRestriction("true")
-									: Restrictions.sqlRestriction("this_.semester % 2 = "
-											+ (semesters.equals(Perkuliahan.GANJIL) ? "1" : "0")))
+									: Restrictions.eq("ganjilGenap", semesters))
 							.add(Restrictions.isNotNull("matakuliah.feeder"))
 							.add(Restrictions.ne("matakuliah.feeder", ""))
 
@@ -1266,8 +1265,7 @@ public class FeederResource {
 							? Restrictions.eq("statusSemesterPendek", semesterPendek)
 							: (semesters == null ? Restrictions.sqlRestriction("true")
 									: Restrictions.or(Restrictions.eq("masaPerkuliahan.nama", ta),
-											Restrictions.sqlRestriction("this_.semester % 2 = "
-													+ (semesters.equals(Perkuliahan.GANJIL) ? "1" : "0")))))
+											Restrictions.eq("ganjilGenap", semesters))))
 
 					.add(kelas == null || kelas.trim().isEmpty() ? Restrictions.sqlRestriction("true")
 							: Restrictions.ilike("kelas", kelas, MatchMode.ANYWHERE))

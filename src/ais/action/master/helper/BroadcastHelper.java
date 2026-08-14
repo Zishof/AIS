@@ -41,6 +41,7 @@ import ais.database.model.Mahasiswa;
 import ais.database.model.ParameterTambahan;
 import ais.database.model.ParameterTambahanCatatanAdministrasi;
 import ais.database.model.PendaftaranCutiMahasiswa;
+import ais.database.model.Perkuliahan;
 import ais.database.model.PengumumanAkademis;
 import ais.database.model.Tbmuser;
 import ais.database.model.asset.JenisPerbaikanAsset;
@@ -231,7 +232,8 @@ public class BroadcastHelper {
 
 						if (pengumumanAkademis.getBroadcastKeMahasiswaCuti()) {
 							List<Object[]> results = session.createCriteria(PendaftaranCutiMahasiswa.class)
-									.add(Restrictions.sqlRestriction("this_.semester % 2 = " + (Common.isNowSemensterGanjil() ? "1" : "0")))
+									.add(Restrictions.eq("ganjilGenap", Common.isNowSemensterGanjil()
+											? Perkuliahan.GANJIL : Perkuliahan.GENAP))
 									.add(Restrictions.eq("tahunAkademik", Common.getCurrentTahunAkademik()))
 									.add(Restrictions.eq("persetujuan", true)).createAlias("mahasiswa", "mahasiswa").createAlias("mahasiswa.jurusan", "jurusan")
 									.add(pengumumanAkademis.getFakultas() == null ? Restrictions.sqlRestriction("1=1") : Restrictions.eq("jurusan.fakultas", pengumumanAkademis.getFakultas()))

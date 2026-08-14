@@ -296,8 +296,7 @@ public class DownloadKelas extends MyWindow {
 						.add(searchsemester.getSelectedItem() == null
 								|| searchsemester.getSelectedItem().getValue() == null
 										? Restrictions.sqlRestriction("1=1")
-										: Restrictions.sqlRestriction("this_.semester % 2 = " + (searchsemester
-												.getSelectedItem().getValue().equals(Perkuliahan.GANJIL) ? "1" : "0")))
+										: Restrictions.eq("ganjilGenap", searchsemester.getSelectedItem().getValue()))
 
 						.add(!kel.trim().isEmpty() ? Restrictions.ilike("kelas", kel.trim(), MatchMode.ANYWHERE)
 								: Restrictions.sqlRestriction("true"))

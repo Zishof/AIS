@@ -581,8 +581,7 @@ public class AmbilDataPerkuliahanBandbox extends Bandbox {
 
 				.add(semesterBox.getSelectedItem() == null || semesterBox.getSelectedItem().getValue() == null
 						? Restrictions.sqlRestriction("1=1")
-						: Restrictions.sqlRestriction("this_.semester % 2 = "
-								+ (semesterBox.getSelectedItem().getValue().equals(Perkuliahan.GANJIL) ? "1" : "0")))
+						: Restrictions.eq("ganjilGenap", semesterBox.getSelectedItem().getValue()))
 
 				.add(tahunAjaran.getSelectedItem() == null || tahunAjaran.getSelectedItem().getValue() == null
 						? Restrictions.sqlRestriction("1=1")

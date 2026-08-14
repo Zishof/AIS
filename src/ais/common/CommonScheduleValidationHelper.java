@@ -541,9 +541,7 @@ public class CommonScheduleValidationHelper extends Common {
 										.add(semesterpendek == null ? Restrictions.isNull("statusSemesterPendek")
 												: Restrictions.eq("statusSemesterPendek", semesterpendek))
 
-										.add(jenisSemester.toString().equalsIgnoreCase(Perkuliahan.GENAP)
-												? Restrictions.in("semester", Common.genap)
-												: Restrictions.in("semester", Common.ganjil))
+										.add(Restrictions.eq("ganjilGenap", jenisSemester.toString()))
 										.add(Restrictions.eq("tahunAjaran", tahunAjaran))
 
 										.add(ruang == null ? Restrictions.isNull("ruang") : Restrictions.eq("ruang", ruang))
@@ -569,9 +567,7 @@ public class CommonScheduleValidationHelper extends Common {
 												: Restrictions.eq("statusSemesterPendek", semesterpendek))
 
 										.add(Restrictions.ne("id", id))
-										.add(jenisSemester.toString().equalsIgnoreCase(Perkuliahan.GENAP)
-												? Restrictions.in("semester", Common.genap)
-												: Restrictions.in("semester", Common.ganjil))
+										.add(Restrictions.eq("ganjilGenap", jenisSemester.toString()))
 										.add(Restrictions.eq("tahunAjaran", tahunAjaran))
 
 										.add(ruang == null ? Restrictions.isNull("ruang") : Restrictions.eq("ruang", ruang))
@@ -643,9 +639,7 @@ public class CommonScheduleValidationHelper extends Common {
 										.add(semesterpendek == null ? Restrictions.isNull("statusSemesterPendek")
 												: Restrictions.eq("statusSemesterPendek", semesterpendek))
 
-										.add(jenisSemester.toString().equalsIgnoreCase(Perkuliahan.GENAP)
-												? Restrictions.in("semester", Common.genap)
-												: Restrictions.in("semester", Common.ganjil))
+										.add(Restrictions.eq("ganjilGenap", jenisSemester.toString()))
 										.add(Restrictions.eq("tahunAjaran", tahunAjaran))
 
 										.add(dosen == null
@@ -705,9 +699,7 @@ public class CommonScheduleValidationHelper extends Common {
 												: Restrictions.eq("statusSemesterPendek", semesterpendek))
 
 										.add(Restrictions.ne("id", id))
-										.add(jenisSemester.toString().equalsIgnoreCase(Perkuliahan.GENAP)
-												? Restrictions.in("semester", Common.genap)
-												: Restrictions.in("semester", Common.ganjil))
+										.add(Restrictions.eq("ganjilGenap", jenisSemester.toString()))
 										.add(Restrictions.eq("tahunAjaran", tahunAjaran))
 
 										.add(dosen == null

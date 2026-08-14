@@ -3846,8 +3846,7 @@ public class PenjadwalanUtil {
 									.add(sp == null ? Restrictions.isNull("statusSemesterPendek")
 											: Restrictions.eq("statusSemesterPendek", sp))
 									.add(smt == null ? Restrictions.sqlRestriction("1=1")
-											: Restrictions.sqlRestriction("this_.semester % 2 = "
-													+ (smt.equals(Perkuliahan.GANJIL) ? "1" : "0")))
+											: Restrictions.eq("ganjilGenap", smt))
 									.add(mp == null ? Restrictions.sqlRestriction("1=1")
 											: Restrictions.eq("masaPerkuliahan", mp))
 									.list();

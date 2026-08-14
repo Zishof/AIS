@@ -204,9 +204,7 @@ public class CalendarJadwalAjarDosenComposer extends GenericForwardComposer {
 
 				.add(Restrictions.or(Restrictions.eq("dosen1", myDosen), Restrictions.eq("dosen2", myDosen)))
 				.add(Restrictions.eq("tahunAjaran", tahunAkademik))
-				.add(isSp ? Restrictions.sqlRestriction("1=1")
-						: (jenisSemester.equalsIgnoreCase(Perkuliahan.GENAP) ? Restrictions.in("semester", Common.genap)
-								: Restrictions.in("semester", Common.ganjil)))
+				.add(isSp ? Restrictions.sqlRestriction("1=1") : Restrictions.eq("ganjilGenap", jenisSemester))
 				.list();
 
 		// fill the events' data

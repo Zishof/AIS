@@ -136,8 +136,7 @@ public class LaporanProfileDosen_A_4_3_4 extends SaptoBaseWindow {
                                 : Restrictions.eq("tahunAjaran", tahunAjaran.getSelectedItem().getValue()))
                             .add(semester.getSelectedItem() == null || semester.getSelectedItem().getValue() == null
                                 ? Restrictions.sqlRestriction("1=1")
-                                : Restrictions.sqlRestriction("this_.semester % 2 = "
-                                    + (semester.getSelectedItem().getValue().equals(Perkuliahan.GANJIL) ? "1" : "0")))
+                                : Restrictions.eq("ganjilGenap", semester.getSelectedItem().getValue()))
                             .add(Restrictions.isNull("perkuliahan_paralel")).list();
 
                         for (Perkuliahan perkuliahan : perkuliahans) {

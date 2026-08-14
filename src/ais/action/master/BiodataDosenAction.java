@@ -3949,8 +3949,7 @@ public class BiodataDosenAction extends MyWindow {
 										+ tahun + "' \n" + "\tand "
 										+ (jenisSemester.equals(Perkuliahan.SP)
 												? "bb.status_semesterpendek=" + Perkuliahan.SEMESTER_PENDEK
-												: " bb.semester % 2 = "
-														+ (jenisSemester.equals(Perkuliahan.GENAP) ? "0" : "1"))
+														: " bb.ganjil_genap = '" + jenisSemester.replace("'", "''") + "'")
 										+ "\n" + "\tgroup by bb.id\n" + ") a\n"
 										+ "left join jurusan b on (a.jurusan = b.id) \n"
 										+ "left join fakultas c on (b.fakultas = c.id) \n"
@@ -4164,9 +4163,7 @@ public class BiodataDosenAction extends MyWindow {
 													+ "\tand bb.tahun_ajaran = '" + tahun + "' \n" + "\tand "
 													+ (jenisSemester.equals(Perkuliahan.SP)
 															? "bb.status_semesterpendek=" + Perkuliahan.SEMESTER_PENDEK
-															: " bb.semester % 2 = "
-																	+ (jenisSemester.equals(Perkuliahan.GENAP) ? "0"
-																			: "1"))
+																	: " bb.ganjil_genap = '" + jenisSemester.replace("'", "''") + "'")
 													+ "\n" + "\tgroup by bb.id\n" + ") a\n"
 													+ "left join jurusan b on (a.jurusan = b.id) \n"
 													+ "left join fakultas c on (b.fakultas = c.id) \n"
@@ -4276,9 +4273,7 @@ public class BiodataDosenAction extends MyWindow {
 																		+ (jenisSemester.equals(Perkuliahan.SP)
 																				? "bb.status_semesterpendek="
 																						+ Perkuliahan.SEMESTER_PENDEK
-																				: " bb.semester % 2 = " + (jenisSemester
-																						.equals(Perkuliahan.GENAP) ? "0"
-																								: "1"))
+																						: " bb.ganjil_genap = '" + jenisSemester.replace("'", "''") + "'")
 																		+ "\n" + "\tgroup by bb.id\n" + ") a\n"
 																		+ "left join jurusan b on (a.jurusan = b.id) \n"
 																		+ "left join fakultas c on (b.fakultas = c.id) \n"

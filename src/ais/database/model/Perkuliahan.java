@@ -617,8 +617,7 @@ public class Perkuliahan extends VOPembelajaran {
 							: Restrictions.eq("tahunAjaran", tahunAkademik))
 
 					.add(semester == null ? Restrictions.sqlRestriction("false")
-							: Restrictions.sqlRestriction(
-									"this_.semester % 2 = " + (semester.equals(Perkuliahan.GANJIL) ? "1" : "0")))
+							: Restrictions.eq("ganjilGenap", semester))
 
 					.createAlias("matakuliah", "matakuliah").setProjection(Projections.projectionList()
 							.add(Projections.sum("matakuliah.sks")).add(Projections.rowCount()))

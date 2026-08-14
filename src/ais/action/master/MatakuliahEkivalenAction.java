@@ -477,10 +477,8 @@ public class MatakuliahEkivalenAction extends GenericAutowireComposer implements
 												+ (genapGanjil.getSelectedItem() == null
 														|| genapGanjil.getSelectedItem().getValue() == null
 																? ""
-																: " and a.semester % 2 = "
-																		+ (genapGanjil.getSelectedItem().getValue()
-																				.equals(Perkuliahan.GANJIL) ? "1"
-																						: "0"))
+																: " and b.ganjil_genap = '"
+																		+ genapGanjil.getSelectedItem().getValue().toString().replace("'", "''") + "'")
 												+ " order by a.mahasiswa"
 												+ (utamakanDosen ? ",b.dosen1 desc" : ",a.total_nilai")
 												+ (utamakanDosen ? ",a.total_nilai" : ",b.dosen1 desc");

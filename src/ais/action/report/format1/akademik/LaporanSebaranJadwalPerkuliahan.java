@@ -176,8 +176,7 @@ public class LaporanSebaranJadwalPerkuliahan extends MyWindow {
                 Session session = HibernateUtil.currentSession();
 
                 Criterion criterionSmt = genapGanjil == null ? Restrictions.sqlRestriction("true")
-                        : Restrictions.sqlRestriction("(this_.semester % 2) = (case '" + genapGanjil + "' when '"
-                                + Perkuliahan.GANJIL + "' then 1 when '" + Perkuliahan.GENAP + "' then 0 end)");
+                        : Restrictions.eq("ganjilGenap", genapGanjil);
 
                 List perkuliahans = session.createCriteria(Perkuliahan.class)
                         .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))

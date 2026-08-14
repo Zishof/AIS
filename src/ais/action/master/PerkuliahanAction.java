@@ -3485,8 +3485,7 @@ public class PerkuliahanAction extends GenericAutowireComposer
 						.add(myJurusan == null ? Restrictions.sqlRestriction("1=1")
 								: Restrictions.eq("jurusan", myJurusan))
 						.add(Restrictions.eq("program", myProgram)).add(Restrictions.eq("tahunAjaran", tahunAkademik1))
-						.add(Restrictions.sqlRestriction(semester.equals(Perkuliahan.GANJIL) ? "this_.semester % 2 = 1"
-								: "this_.semester % 2 = 0")),
+						.add(Restrictions.eq("ganjilGenap", semester)),
 						Perkuliahan.class);
 
 				MyMessageboxConfig.show(
@@ -3518,9 +3517,7 @@ public class PerkuliahanAction extends GenericAutowireComposer
 												.add(myJurusan == null ? Restrictions.sqlRestriction("1=1")
 														: Restrictions.eq("jurusan", myJurusan))
 												.add(Restrictions.eq("tahunAjaran", tahunAkademik2))
-												.add(Restrictions.sqlRestriction(
-														semester.equals(Perkuliahan.GANJIL) ? "this_.semester % 2 = 1"
-																: "this_.semester % 2 = 0"))
+												.add(Restrictions.eq("ganjilGenap", semester))
 												.add(perkuliahan.getDosen1() == null
 														? Restrictions.sqlRestriction("1=1")
 														: Restrictions.eq("dosen1", perkuliahan.getDosen1()))
@@ -3729,8 +3726,7 @@ public class PerkuliahanAction extends GenericAutowireComposer
 						.add(myJurusan == null ? Restrictions.sqlRestriction("1=1")
 								: Restrictions.eq("jurusan", myJurusan))
 						.add(Restrictions.eq("tahunAjaran", tahunAkademik1)).add(Restrictions.eq("program", myProgram))
-						.add(Restrictions.sqlRestriction(semester.equals(Perkuliahan.GANJIL) ? "this_.semester % 2 = 1"
-								: "this_.semester % 2 = 0")),
+						.add(Restrictions.eq("ganjilGenap", semester)),
 						Perkuliahan.class);
 
 				// Htm peringatan = "";

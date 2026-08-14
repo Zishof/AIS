@@ -1387,10 +1387,7 @@ public class PenjadwalanUjianAction extends GenericAutowireComposer implements D
 						|| searchJenisSemester.getSelectedItem().getValue() == null
 						|| Perkuliahan.SP.equals(searchJenisSemester.getSelectedItem().getValue())
 								? Restrictions.sqlRestriction("1=1")
-								: Restrictions.sqlRestriction("this_.semester % 2 = "
-										+ (searchJenisSemester.getSelectedItem().getValue().equals(Perkuliahan.GANJIL)
-												? "1"
-												: "0")))
+								: Restrictions.eq("ganjilGenap", searchJenisSemester.getSelectedItem().getValue()))
 
 				.add(searchsemester.getSelectedItem() == null || searchsemester.getSelectedItem().getValue() == null
 						? Restrictions.sqlRestriction("1=1")

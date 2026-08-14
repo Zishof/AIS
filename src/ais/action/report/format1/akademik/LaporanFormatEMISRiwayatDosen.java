@@ -300,9 +300,7 @@ public class LaporanFormatEMISRiwayatDosen extends MyWindow implements DataCrite
 									.add(ganjilGenap.getSelectedItem() == null
 											|| ganjilGenap.getSelectedItem().getValue() == null
 													? Restrictions.sqlRestriction("1=1")
-													: Restrictions.sqlRestriction("this_.semester % 2 = "
-															+ (ganjilGenap.getSelectedItem().getValue()
-																	.equals(Perkuliahan.GANJIL) ? "1" : "0")))
+													: Restrictions.eq("ganjilGenap", ganjilGenap.getSelectedItem().getValue()))
 
 									.add(program.getSelectedItem() == null
 											|| program.getSelectedItem().getValue() == null

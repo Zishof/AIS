@@ -498,8 +498,7 @@ public class DosenMengajarHelper implements DataLoader {
 
 		List<Perkuliahan> perkuliahans = HibernateUtil.currentSession().createCriteria(Perkuliahan.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).add(criterion)
 				.add(Restrictions.eq("tahunAjaran", tahunAjaran)).add(Restrictions.eq("program", program))
-				.add(Restrictions.eq("jurusan", jurusan)).add(Restrictions.sqlRestriction(
-						jenisSemester.equals(Perkuliahan.GENAP) ? "this_.semester%2=0" : "this_.semester%2=1"))
+				.add(Restrictions.eq("jurusan", jurusan)).add(Restrictions.eq("ganjilGenap", jenisSemester))
 				.list();
 
 		DetailMahasiswaRenderer detailMahasiswaRenderer = new DetailMahasiswaRenderer();

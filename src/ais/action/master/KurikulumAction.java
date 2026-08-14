@@ -2177,9 +2177,7 @@ public class KurikulumAction extends GenericAutowireComposer implements DataCrit
 							List<Perkuliahan> perkuliahans = session.createCriteria(Perkuliahan.class)
 									.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 									.add(Restrictions.eq("tahunAjaran", tahunAkademik.getSelectedItem().getValue()))
-									.add(Restrictions.sqlRestriction("this_.semester%2="
-											+ (genapGanjil.getSelectedItem().getValue().equals(Perkuliahan.GANJIL) ? "1"
-													: "0")))
+									.add(Restrictions.eq("ganjilGenap", genapGanjil.getSelectedItem().getValue()))
 									.add(kurikulum == null ? Restrictions.sqlRestriction("true")
 											: Restrictions.eq("kurikulum", kurikulum))
 									.add(Restrictions.isNotNull("kurikulumPunyaMatakuliah")).addOrder(Order.asc("id"))

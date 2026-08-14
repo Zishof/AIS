@@ -310,7 +310,8 @@ public class DashboardRekapTidakAmbilKRSPerSmt extends MyWindow {
 				if (statusMahasiswa != null) {
 					sqlStatus = " and a.id in (select mahasiswa from history_status_mahasiswa where status_mahasiswa="
 							+ statusMahasiswa.getId() + " and tahunakademik = '" + Common.getCurrentTahunAkademik()
-							+ "' and semester%2=" + (Common.isNowSemensterGanjil() ? 1 : 0) + ") ";
+							+ "' and ganjil_genap='"
+							+ (Common.isNowSemensterGanjil() ? Perkuliahan.GANJIL : Perkuliahan.GENAP) + "') ";
 					System.out.println("sqlStatus=>" + sqlStatus);
 				}
 

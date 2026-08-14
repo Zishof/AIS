@@ -227,9 +227,7 @@ public class CalendarPerkuliahanComposer extends GenericForwardComposer implemen
 						: (semesterPendek == null ? Restrictions.isNull("statusSemesterPendek")
 								: Restrictions.eq("statusSemesterPendek", semesterPendek)))
 				.add(Restrictions.eq("ruang", myRuang)).add(Restrictions.eq("tahunAjaran", tahunAkademik))
-				.add(isSp ? Restrictions.sqlRestriction("1=1")
-						: (jenisSemester.equalsIgnoreCase(Perkuliahan.GENAP) ? Restrictions.in("semester", Common.genap)
-								: Restrictions.in("semester", Common.ganjil)))
+				.add(isSp ? Restrictions.sqlRestriction("1=1") : Restrictions.eq("ganjilGenap", jenisSemester))
 				.list();
 		System.out.println("perkuliahan " + perkuliahan.size());
 

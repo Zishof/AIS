@@ -2807,10 +2807,8 @@ public class MonitorKRSMahasiswaAction extends GenericAutowireComposer implement
 												+ (genapGanjil.getSelectedItem() == null
 														|| genapGanjil.getSelectedItem().getValue() == null
 																? ""
-																: " and a.semester % 2 = "
-																		+ (genapGanjil.getSelectedItem().getValue()
-																				.equals(Perkuliahan.GANJIL) ? "1"
-																						: "0"))
+																: " and b.ganjil_genap = '"
+																		+ genapGanjil.getSelectedItem().getValue().toString().replace("'", "''") + "'")
 												+ " \ngroup by a.mahasiswa," + (cariBerdasarID ? "c.id" : "c.kode")
 												+ (abaikanBedaSmt ? "" : ",a.semester")
 												+ (abaikanBedaTA ? "" : ",a.tahunakademik") + " \n"

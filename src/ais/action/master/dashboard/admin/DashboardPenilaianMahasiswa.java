@@ -595,9 +595,7 @@ public class DashboardPenilaianMahasiswa extends MyWindow {
 								.add(semester == null ? Restrictions.sqlRestriction("1=1")
 										: (semester.equals(Perkuliahan.SP)
 												? Restrictions.eq("statusSemesterPendek", Perkuliahan.SEMESTER_PENDEK)
-												: semester.equals(Perkuliahan.GANJIL)
-														? Restrictions.in("semester", Common.ganjil)
-														: Restrictions.in("semester", Common.genap)))
+												: Restrictions.eq("ganjilGenap", semester)))
 
 								.list();
 

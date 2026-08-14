@@ -564,8 +564,7 @@ public class DashboardGradePenilaianMahasiswa extends MyWindow {
 						.add(tahunAkademik == null ? Restrictions.sqlRestriction("1=1")
 								: Restrictions.eq("tahunAjaran", tahunAkademik))
 
-						.add(semester.equals(Perkuliahan.GANJIL) ? Restrictions.in("semester", Common.ganjil)
-								: Restrictions.in("semester", Common.genap))
+						.add(Restrictions.eq("ganjilGenap", semester))
 
 						.list();
 

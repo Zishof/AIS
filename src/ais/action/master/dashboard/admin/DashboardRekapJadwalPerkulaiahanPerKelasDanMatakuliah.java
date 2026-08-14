@@ -352,8 +352,8 @@ public class DashboardRekapJadwalPerkulaiahanPerKelasDanMatakuliah extends MyWin
 				String sqlStatus = "";
 				if (statusMahasiswa != null) {
 					sqlStatus = " and a.id in (select mahasiswa from history_status_mahasiswa where status_mahasiswa="
-							+ statusMahasiswa.getId() + " and tahunakademik = '" + tahunAkademik + "' and semester%2="
-							+ (semester.equals(Perkuliahan.GANJIL) ? 1 : 0) + ") ";
+							+ statusMahasiswa.getId() + " and tahunakademik = '" + tahunAkademik + "' and ganjil_genap='"
+							+ semester.replace("'", "''") + "') ";
 					System.out.println("sqlStatus=>" + sqlStatus);
 				}
 

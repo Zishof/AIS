@@ -1198,12 +1198,12 @@ public class AmbilDataPerkuliahanHelper {
 
 						(semesterBox.getSelectedItem() != null && semesterBox.getSelectedItem().getLabel() != null
 								&& semesterBox.getSelectedItem().getLabel().equalsIgnoreCase("Semua Genap")
-										? Restrictions.sqlRestriction("this_.semester % 2 = 0")
+										? Restrictions.eq("ganjilGenap", Perkuliahan.GENAP)
 										: semesterBox.getSelectedItem() != null
 												&& semesterBox.getSelectedItem().getLabel() != null
 												&& semesterBox.getSelectedItem().getLabel()
 														.equalsIgnoreCase("Semua Ganjil")
-																? Restrictions.sqlRestriction("this_.semester % 2 = 1")
+														? Restrictions.eq("ganjilGenap", Perkuliahan.GANJIL)
 																: Restrictions.sqlRestriction("1=1"))
 
 						: Restrictions.eq("semester", semesterBox.getSelectedItem().getValue()))

@@ -6691,8 +6691,7 @@ public class Common {
 		List<Perkuliahan> perkuliahans = HibernateUtil.currentSession().createCriteria(Perkuliahan.class)
 				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 				.add(Restrictions.ilike("tahunAjaran", tahunAjaran, MatchMode.ANYWHERE))
-				.add(ganjilGenap.equalsIgnoreCase(Perkuliahan.GENAP) ? Restrictions.in("semester", Common.genap)
-						: Restrictions.in("semester", Common.ganjil))
+				.add(Restrictions.eq("ganjilGenap", ganjilGenap))
 				.add(Restrictions.eq("ruang", ruang)).add(Restrictions.ne("id", idperkuliahan))
 
 				.list();
@@ -6918,8 +6917,7 @@ public class Common {
 		List<Perkuliahan> perkuliahans = HibernateUtil.currentSession().createCriteria(Perkuliahan.class)
 				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 				.add(Restrictions.ilike("tahunAjaran", tahunAjaran, MatchMode.ANYWHERE))
-				.add(ganjilGenap.equalsIgnoreCase(Perkuliahan.GENAP) ? Restrictions.in("semester", Common.genap)
-						: Restrictions.in("semester", Common.ganjil))
+				.add(Restrictions.eq("ganjilGenap", ganjilGenap))
 				.add(Restrictions.eq("dosen1", dosen)).add(Restrictions.ne("id", idperkuliahan))
 
 				.list();
