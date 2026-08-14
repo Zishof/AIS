@@ -1313,6 +1313,8 @@
 		<mapping class="ais.database.model.library.JenisAnggota"></mapping>
 		<mapping class="ais.database.model.library.Anggota"></mapping>
 		<mapping class="ais.database.model.library.Penyedia"></mapping>
+		<mapping class="ais.database.model.library.SeleksiVendor"></mapping>
+		<mapping class="ais.database.model.library.SeleksiVendorDetail"></mapping>
 		<mapping class="ais.database.model.library.PesananAnggota"></mapping>
 		<mapping class="ais.database.model.library.ItemFavoritAnggota"></mapping>
 		<mapping class="ais.database.model.library.KunjunganAnggota"></mapping>
