@@ -7,6 +7,7 @@ import static javax.persistence.GenerationType.IDENTITY;
 import java.io.File;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
@@ -19,14 +20,19 @@ import javax.persistence.ManyToOne;
 import javax.persistence.Table;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
+import javax.persistence.Transient;
 
+import org.hibernate.Session;
 import org.hibernate.annotations.Fetch;
 import org.hibernate.annotations.FetchMode;
+import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Restrictions;
 import org.hibernate.envers.Audited;
 import org.json.JSONObject;
 
 import ais.common.BarcodeCommon;
 import ais.common.Common;
+import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Fakultas;
 import ais.database.model.Jabatan;
 import ais.database.model.Jurusan;
@@ -521,6 +527,47 @@ public class SuratMasuk extends VoKunci {
 
 	public void setCatatanDisposisi(String catatanDisposisi) {
 		this.catatanDisposisi = catatanDisposisi;
+	}
+
+	@Transient
+	public String getIsiDisposisiPimpinan() {
+		return getCatatanDisposisi() == null ? "" : getCatatanDisposisi();
+	}
+
+	@SuppressWarnings("unchecked")
+	@Transient
+	public String getJawabanPenerimaDisposisi() {
+		if (getId() == null) return "";
+		try {
+			Session session = HibernateUtil.currentSession();
+			List<AlurPersetujuanSuratMasukStatus> daftar = session
+					.createCriteria(AlurPersetujuanSuratMasukStatus.class)
+					.add(Restrictions.isNotNull("kodeUnik")).add(Restrictions.eq("suratMasuk", this))
+					.addOrder(Order.asc("id")).list();
+			StringBuilder hasil = new StringBuilder();
+			String instruksi = getCatatanDisposisi() == null ? "" : getCatatanDisposisi().trim();
+			for (AlurPersetujuanSuratMasukStatus jawaban : daftar) {
+				String catatan = jawaban.getKeterangan() == null ? "" : jawaban.getKeterangan().trim();
+				if (!catatan.isEmpty() && catatan.equals(instruksi)) continue;
+				String penerima = ais.action.master.surat.SuratMasukAction.namaPenerimaDisposisiMasuk(jawaban);
+				String jabatan = jawaban.getJenisJabatan() == null ? "" : jawaban.getJenisJabatan().getNama();
+				String statusJawaban = Boolean.TRUE.equals(jawaban.getDisetujui()) ? "Disetujui"
+						: Boolean.TRUE.equals(jawaban.getDitolak()) ? "Ditolak" : "Menunggu Persetujuan";
+				Date waktuStatus = Boolean.TRUE.equals(jawaban.getDitolak()) ? jawaban.getWaktuDitolak()
+						: jawaban.getWaktuPersetujuan();
+				if (hasil.length() > 0) hasil.append("\n");
+				hasil.append(jabatan == null ? "" : jabatan);
+				if (penerima != null && !penerima.isEmpty())
+					hasil.append(jabatan == null || jabatan.isEmpty() ? "" : " - ").append(penerima);
+				hasil.append(" | ").append(statusJawaban);
+				if (waktuStatus != null) hasil.append(" | ").append(Common.dateFormat3.get().format(waktuStatus));
+				if (!catatan.isEmpty()) hasil.append(" | ").append(catatan.replace('\n', ' '));
+			}
+			return hasil.toString();
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit SuratMasuk.getJawabanPenerimaDisposisi");
+			return "";
+		}
 	}
 
 	public String getStatus() {

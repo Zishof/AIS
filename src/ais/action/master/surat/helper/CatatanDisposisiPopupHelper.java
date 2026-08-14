@@ -118,7 +118,7 @@ public final class CatatanDisposisiPopupHelper {
 				b.pWaktu = fmtTgl(waktu);
 				baris.add(b);
 			}
-			tampilTabel(owner, "Catatan Disposisi — " + nz(nomor), nz(surat.getKepada()), nz(nomor), baris);
+			tampilTabel(owner, "Catatan Disposisi — " + nz(nomor), nz(surat.getKepada()), nz(nomor), baris, null);
 		} catch (Exception e) {
 			Common.tampilErrorJikaAdmin(e);
 		}
@@ -149,7 +149,9 @@ public final class CatatanDisposisiPopupHelper {
 						: (Boolean.TRUE.equals(s.getDisetujui()) ? s.getWaktuPersetujuan() : null);
 				b.nomorTgl = nomorTglHtml(nomor, waktu != null ? waktu : surat.getTanggalSurat());
 				b.klasifikasi = klasifikasi;
-				b.jabatan = s.getJenisJabatan() == null ? "" : s.getJenisJabatan().getNama();
+				String jabatan = s.getJenisJabatan() == null ? "" : s.getJenisJabatan().getNama();
+				String penerima = ais.action.master.surat.SuratMasukAction.namaPenerimaDisposisiMasuk(s);
+				b.jabatan = jabatan + (penerima.isEmpty() ? "" : (jabatan.isEmpty() ? penerima : " — " + penerima));
 				b.cardHtml = DasboardSurat.buildAlurMasukStatusHtmlV20(s);
 				b.lampiranRef = s.getId();
 				b.lampiranJenis = AlurPersetujuanSuratMasukStatus.class.getName();
@@ -160,7 +162,15 @@ public final class CatatanDisposisiPopupHelper {
 				b.pWaktu = fmtTgl(waktu);
 				baris.add(b);
 			}
-			tampilTabel(owner, "Catatan Disposisi — " + nz(nomor), nz(surat.getAsal()), nz(nomor), baris);
+			final AlurPersetujuanSuratMasukStatus statusFinal = status;
+			final Tbmuser userFinal = tbmuser;
+			org.zkoss.zk.ui.event.EventListener cetakDisposisi = new org.zkoss.zk.ui.event.EventListener() {
+				public void onEvent(org.zkoss.zk.ui.event.Event event) throws Exception {
+					ais.action.master.surat.SuratMasukAction.cetakDisposisi(statusFinal, userFinal);
+				}
+			};
+			tampilTabel(owner, "Catatan Disposisi — " + nz(nomor), nz(surat.getAsal()), nz(nomor), baris,
+					cetakDisposisi);
 		} catch (Exception e) {
 			Common.tampilErrorJikaAdmin(e);
 		}
@@ -168,7 +178,8 @@ public final class CatatanDisposisiPopupHelper {
 
 	// ── Render modal + tabel (generik) ──────────────────────────────────────────────────────
 	private static void tampilTabel(Component owner, final String judul, final String diperuntukkanHeader,
-			final String nomorFile, final List<Baris> baris) throws Exception {
+			final String nomorFile, final List<Baris> baris,
+			final org.zkoss.zk.ui.event.EventListener cetakDisposisiListener) throws Exception {
 		boolean mobile = Common.isMobile();
 
 		final Window window = new Window();
@@ -200,6 +211,18 @@ public final class CatatanDisposisiPopupHelper {
 		bar.setPack("end");
 		bar.setStyle("margin-bottom:6px;");
 		bar.setParent(root);
+
+		if (cetakDisposisiListener != null) {
+			MyToolbarbuttonConfig btnDisposisi = new MyToolbarbuttonConfig("Cetak Disposisi", "/img/print.png");
+			btnDisposisi.setTooltiptext("Cetak atau simpan lembar disposisi resmi ke PDF");
+			btnDisposisi.setParent(bar);
+			btnDisposisi.addEventListener(org.zkoss.zk.ui.event.Events.ON_CLICK,
+					new org.zkoss.zk.ui.event.EventListener() {
+						public void onEvent(org.zkoss.zk.ui.event.Event event) throws Exception {
+							cetakDisposisiListener.onEvent(event);
+						}
+					});
+		}
 		MyToolbarbuttonConfig btnPdf = new MyToolbarbuttonConfig("Cetak PDF", "/img/print.png");
 		btnPdf.setTooltiptext("Unduh catatan disposisi ke format PDF");
 		btnPdf.setParent(bar);

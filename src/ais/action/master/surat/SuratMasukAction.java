@@ -214,8 +214,8 @@ public class SuratMasukAction extends GenericAutowireComposer implements DataCri
 			"perihal", "tanggalDiteruskan", "alurPersetujuanSuratMasuk", "fakultas", "jurusan", "yayasan", "sekolah",
 			"satuanKerja", "simpan", "balas", "perbanyak", "teliti", "ikutiPerkembangan", "harapPenjelasanMasalah",
 			"untukDiproses", "saranSaran", "pakaiSebagaiPedoman", "bicarakanDenganSaya", "fotocopyUntukSaya",
-			"ringkasan", "koreksi", "pejabatBerwenang", "namaPejabatBerwenang", "isi", "catatanDisposisi",
-			"keterangan" };
+			"ringkasan", "koreksi", "pejabatBerwenang", "namaPejabatBerwenang", "isi", "isiDisposisiPimpinan",
+			"jawabanPenerimaDisposisi", "keterangan" };
 	private String tipe = "surat";
 
 	@Override
@@ -444,6 +444,27 @@ public class SuratMasukAction extends GenericAutowireComposer implements DataCri
 				}
 
 			}, false);
+
+			MyToolbarbuttonConfig catatanDisposisi = new MyToolbarbuttonConfig("", "/img/print.png");
+			catatanDisposisi.setTooltiptext("Catatan / Cetak / Simpan Disposisi");
+			catatanDisposisi.setVisible(tbmuser != null && tbmuser.getMahasiswa() == null
+					&& tbmuser.getSiswa() == null && tbmuser.getBiodataCalonMahasiswa() == null);
+			catatanDisposisi.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					AlurPersetujuanSuratMasukStatus status = (AlurPersetujuanSuratMasukStatus) HibernateUtil
+							.currentSession().createCriteria(AlurPersetujuanSuratMasukStatus.class)
+							.add(Restrictions.isNotNull("kodeUnik")).add(Restrictions.eq("suratMasuk", suratMasuk))
+							.addOrder(Order.asc("id")).setMaxResults(1).uniqueResult();
+					if (status == null) {
+						MyMessageboxConfig.show("Surat ini belum memiliki data disposisi.");
+						return;
+					}
+					ais.action.master.surat.helper.CatatanDisposisiPopupHelper.showMasuk(status, tbmuser,
+							(org.zkoss.zk.ui.Component) event.getTarget());
+				}
+			});
+			catatanDisposisi.setParent(toolbar);
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("",
 					suratMasuk.getDikunci() == null ? "/img/svg/edit-box-line.svg" : "/img/svg/eye.svg");
@@ -2515,6 +2536,8 @@ public class SuratMasukAction extends GenericAutowireComposer implements DataCri
 	private static final class DisposisiMasukChip {
 		int nomor;
 		String label;
+		String penerima;
+		String catatan;
 		String status;
 		String warna;
 		String latar;
@@ -2547,6 +2570,8 @@ public class SuratMasukAction extends GenericAutowireComposer implements DataCri
 			DisposisiMasukChip chip = new DisposisiMasukChip();
 			chip.nomor = nomor;
 			chip.label = labelDisposisiMasuk(s, jenisJabatan);
+			chip.penerima = namaPenerimaDisposisiMasuk(s);
+			chip.catatan = s == null ? "" : s.getKeterangan();
 			isiStatusChipMasuk(chip, s);
 			chip.tooltip = tooltipDisposisiMasuk(s, chip.label, chip.status);
 			chips.add(chip);
@@ -2604,6 +2629,16 @@ public class SuratMasukAction extends GenericAutowireComposer implements DataCri
 						.append(";background:#fff;border:1px solid ").append(chip.warna)
 						.append("33;border-radius:999px;padding:1px 7px;'>")
 						.append(ais.ui.util.DashboardUiKit.esc(chip.status)).append("</span>");
+				if (chip.penerima != null && !chip.penerima.trim().isEmpty()) {
+					sb.append("<span style='font-size:9px;font-weight:700;color:#334155;line-height:1.35;"
+							+ "word-break:break-word;'>Tujuan: ")
+							.append(ais.ui.util.DashboardUiKit.esc(chip.penerima)).append("</span>");
+				}
+				if (chip.catatan != null && !chip.catatan.trim().isEmpty()) {
+					sb.append("<span style='font-size:9px;color:#475569;line-height:1.4;word-break:break-word;"
+							+ "border-top:1px dashed #cbd5e1;padding-top:3px;'>Catatan: ")
+							.append(ais.ui.util.DashboardUiKit.esc(chip.catatan.trim())).append("</span>");
+				}
 				sb.append("</span>");
 			}
 			sb.append("</div></div>");
@@ -2709,6 +2744,43 @@ public class SuratMasukAction extends GenericAutowireComposer implements DataCri
 			return String.valueOf(status.getAlurPersetujuanSuratMasuk());
 		}
 		return "Disposisi";
+	}
+
+	public static String namaPenerimaDisposisiMasuk(AlurPersetujuanSuratMasukStatus status) {
+		if (status == null || status.getPejabat() == null) {
+			return "";
+		}
+		Pejabat pejabat = status.getPejabat();
+		if (pejabat.getDosen() != null && pejabat.getDosen().getNama() != null) {
+			return pejabat.getDosen().getNama();
+		}
+		if (pejabat.getPegawai() != null && pejabat.getPegawai().getNama() != null) {
+			return pejabat.getPegawai().getNama();
+		}
+		if (pejabat.getGuru() != null && pejabat.getGuru().getNama() != null) {
+			return pejabat.getGuru().getNama();
+		}
+		return pejabat.getNama() == null ? "" : pejabat.getNama();
+	}
+
+	@SuppressWarnings("unchecked")
+	public static String catatanPimpinanDisposisiMasuk(AlurPersetujuanSuratMasukStatus status) {
+		if (status == null || status.getSuratMasuk() == null) {
+			return "";
+		}
+		String catatanSurat = status.getSuratMasuk().getCatatanDisposisi();
+		List<AlurPersetujuanSuratMasukStatus> sebelumnya = HibernateUtil.currentSession()
+				.createCriteria(AlurPersetujuanSuratMasukStatus.class)
+				.add(Restrictions.isNotNull("kodeUnik")).add(Restrictions.eq("suratMasuk", status.getSuratMasuk()))
+				.add(status.getId() == null ? Restrictions.sqlRestriction("1=1") : Restrictions.lt("id", status.getId()))
+				.addOrder(Order.desc("id")).list();
+		for (AlurPersetujuanSuratMasukStatus sebelum : sebelumnya) {
+			String catatan = sebelum.getKeterangan();
+			if (catatan != null && !catatan.trim().isEmpty()) {
+				return catatan.trim();
+			}
+		}
+		return catatanSurat == null ? "" : catatanSurat.trim();
 	}
 
 	private static void isiStatusChipMasuk(DisposisiMasukChip chip, AlurPersetujuanSuratMasukStatus status) {
