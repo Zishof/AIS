@@ -7,6 +7,7 @@ public class InitIndex {
 
 	private static final java.util.Set<String> SIGNATURE_INDEX_SUDAH_DIPROSES = java.util.Collections
 			.synchronizedSet(new java.util.HashSet<String>());
+	private static final Object KEBIJAKAN_RETUR_PRODUK_LOCK = new Object();
 
 	// ── Eksekusi DDL PARALEL (best performance) ──────────────────────────────
 	// Saat initEksekusiQueryIndex() berjalan, DDL_POOL aktif sehingga setiap eksekusiSql*
@@ -1845,8 +1846,21 @@ public class InitIndex {
 		}
 	}
 
+	/** Menambahkan penanda cara bayar hutang pada instalasi lama secara idempoten. */
+	static void initCaraPembayaranMasukSebagaiHutang() {
+		try {
+			ais.common.Common.updateSql("ALTER TABLE koperasi.cara_pembayaran_koperasi "
+					+ "ADD COLUMN IF NOT EXISTS masuk_sebagai_hutang boolean DEFAULT false");
+		} catch (Exception e) {
+			e.printStackTrace();
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit InitIndex.initCaraPembayaranMasukSebagaiHutang");
+		}
+	}
+
 	/** Membuat master Kebijakan Retur dan relasinya ke Produk secara idempoten. */
 	static void initKebijakanReturProduk() {
+		synchronized (KEBIJAKAN_RETUR_PRODUK_LOCK) {
 		try {
 			ais.common.Common.updateSql("CREATE TABLE IF NOT EXISTS koperasi.kebijakan_retur ("
 					+ "id bigserial PRIMARY KEY, nama varchar(255) NOT NULL, keterangan text, "
@@ -1856,22 +1870,51 @@ public class InitIndex {
 			ais.common.Common.updateSql("ALTER TABLE koperasi.produk ADD COLUMN IF NOT EXISTS kebijakan_retur bigint");
 			ais.common.Common.updateSql("UPDATE koperasi.produk SET kebijakan_retur=(SELECT id FROM koperasi.kebijakan_retur WHERE lower(btrim(nama))=lower('Tanpa Kebijakan Retur') ORDER BY id LIMIT 1) WHERE kebijakan_retur IS NULL");
 			ais.common.Common.updateSql("CREATE INDEX IF NOT EXISTS produk_kebijakan_retur_idx ON koperasi.produk(kebijakan_retur)");
-			java.util.List<Object[]> constraint = ais.common.Common.ambilSql(
-					"SELECT 1 FROM pg_constraint WHERE conname='produk_kebijakan_retur_fk' AND conrelid='koperasi.produk'::regclass");
-			if (constraint == null || constraint.isEmpty()) {
-				ais.common.Common.updateSql(
-						"ALTER TABLE koperasi.produk ADD CONSTRAINT produk_kebijakan_retur_fk FOREIGN KEY (kebijakan_retur) REFERENCES koperasi.kebijakan_retur(id)");
+			if (!constraintKebijakanReturSudahAda()) {
+				try {
+					ais.common.Common.updateSql(
+							"ALTER TABLE koperasi.produk ADD CONSTRAINT produk_kebijakan_retur_fk FOREIGN KEY (kebijakan_retur) REFERENCES koperasi.kebijakan_retur(id)");
+				} catch (Exception eAlter) {
+					if (!constraintKebijakanReturSudahAda(eAlter)) {
+						throw eAlter;
+					}
+				}
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 			ais.common.ErrorAuditUtil.record(e, "auto-audit InitIndex.initKebijakanReturProduk");
 		}
+		}
+	}
+
+	private static boolean constraintKebijakanReturSudahAda() {
+		java.util.List constraint = ais.common.Common.ambilSql(
+				"SELECT 1 FROM information_schema.table_constraints WHERE constraint_schema='koperasi' AND table_schema='koperasi' AND table_name='produk' AND constraint_name='produk_kebijakan_retur_fk'");
+		return constraint != null && !constraint.isEmpty();
+	}
+
+	private static boolean constraintKebijakanReturSudahAda(Throwable e) {
+		Throwable t = e;
+		while (t != null) {
+			String pesan = t.getMessage();
+			if (pesan != null) {
+				String lower = pesan.toLowerCase(java.util.Locale.ENGLISH);
+				if (lower.indexOf("produk_kebijakan_retur_fk") >= 0
+						&& (lower.indexOf("already exists") >= 0 || lower.indexOf("duplicate") >= 0
+								|| lower.indexOf("sudah ada") >= 0)) {
+					return true;
+				}
+			}
+			t = t.getCause();
+		}
+		return false;
 	}
 
 	public static void initEksekusiQueryIndex() {
 		// Migrasi kompatibilitas skema harus selesai secara sinkron sebelum pool
 		// pekerjaan index paralel diaktifkan.
 		initAturanDiskonProdukNullable();
+		initCaraPembayaranMasukSebagaiHutang();
 		initKebijakanReturProduk();
 
 		// 1. EKSTENSI TRIGRAM (WAJIB) — dijalankan SINKRON (sebelum pool paralel aktif) karena

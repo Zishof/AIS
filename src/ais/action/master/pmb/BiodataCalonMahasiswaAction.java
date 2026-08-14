@@ -265,7 +265,9 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/pmb/BiodataCalonMahasiswaAction.java:265");
 		}
 		try {
-			session.disconnect();
+			if (session.isOpen() && session.isConnected()) {
+				session.disconnect();
+			}
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/pmb/BiodataCalonMahasiswaAction.java:269");
 		}
 		try {

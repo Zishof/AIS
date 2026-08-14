@@ -12577,7 +12577,7 @@ public class Common {
 	 * @param koperasi koperasi tujuan; null → langsung return null
 	 * @return entitas {@code AnggotaKoperasi} yang dibuat/diperbarui, atau null bila siswa/NIS-NISN/koperasi tidak valid
 	 */
-	public static AnggotaKoperasi checkApakahSiswaOtomatisMenjadiAnggotaKoperasi(Siswa siswa, Koperasi koperasi) {
+	public static synchronized AnggotaKoperasi checkApakahSiswaOtomatisMenjadiAnggotaKoperasi(Siswa siswa, Koperasi koperasi) {
 
 		if (siswa == null || koperasi == null) {
 			return null;

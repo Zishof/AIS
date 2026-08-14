@@ -739,7 +739,8 @@ public class AnggotaKoperasi extends VOSiswa {
 				}
 			} else if (this.satuanKerja == null && this.id == null) {
 				try {
-					SatuanKerja satuanKerja = Common.getCurrentUser().ambilSatuanKerja();
+					Tbmuser currentUser = Common.getCurrentUser();
+					SatuanKerja satuanKerja = currentUser == null ? null : currentUser.ambilSatuanKerja();
 					Perpustakaan currentPerpustakaan = Common.getCurrentPerpustakaan();
 					if (satuanKerja == null && currentPerpustakaan != null) {
 						satuanKerja = currentPerpustakaan.getSatuanKerja();

@@ -2307,6 +2307,9 @@ public class Pertemuan extends Tugas {
 	// ------ PENGAJUAN IZIN
 
 	public String ambilLokasiPertemuanPunyaDiskusi() {
+		if (getId() == null) {
+			return VOMahasiswa.dataJSON;
+		}
 		File file = Common.getFileLocation(this, "pertemuan_punya_diskusi_" + getId().toString());
 		try {
 			String data = BacaTulisUtil.baca(file);
@@ -2390,6 +2393,9 @@ public class Pertemuan extends Tugas {
 
 	@SuppressWarnings("unchecked")
 	public int ambilJumlahPertemuanPunyaDiskusi(Mahasiswa mahasiswa, Dosen dosen) {
+		if (getId() == null) {
+			return 0;
+		}
 		int jumlah = 0;
 		List<Long> idsBelumAda = new ArrayList<Long>();
 		try {
@@ -2846,18 +2852,25 @@ public class Pertemuan extends Tugas {
 
 	@SuppressWarnings("unchecked")
 	public TreeMap<Long, PertemuanPunyaUjian> ambilPertemuanPunyaUjianTotal(String nama, Tbmuser tbmuser) {
+		TreeMap<Long, PertemuanPunyaUjian> pertemuanPunyaUjiansa = new TreeMap<Long, PertemuanPunyaUjian>();
+		if (getId() == null) {
+			return pertemuanPunyaUjiansa;
+		}
 		if (!udah("pertemuan_punya_Ujian")) {
 			Session session = HibernateUtil.currentNativeSession();
-			reInitPertemuanPunyaUjian(session);
-			// session.disconnect();
-			if (session.isOpen()) {
-				session.disconnect();
-				session.close();
+			try {
+				reInitPertemuanPunyaUjian(session);
+			} finally {
+				if (session != null && session.isOpen()) {
+					session.clear();
+					if (session.isConnected()) {
+						session.disconnect();
+					}
+					session.close();
+				}
 			}
-			HibernateUtil.closeSession();
 		}
 
-		TreeMap<Long, PertemuanPunyaUjian> pertemuanPunyaUjiansa = new TreeMap<Long, PertemuanPunyaUjian>();
 		try {
 			Date sekarang = WaktuUtil.getDate();
 			JSONObject c = new JSONObject(ambilLokasiPertemuanPunyaUjian());
@@ -2934,6 +2947,9 @@ public class Pertemuan extends Tugas {
 	}
 
 	public static String ambilLokasiPertemuanFileContent(Serializable id) {
+		if (id == null) {
+			return VOMahasiswa.dataJSON;
+		}
 		File file = Common.getFileLocation(Pertemuan.class, id, "pertemuan_file_content_" + id.toString());
 		try {
 
@@ -3034,6 +3050,9 @@ public class Pertemuan extends Tugas {
 
 	@SuppressWarnings("unchecked")
 	public int ambilJumlahPertemuanFileContent() {
+		if (getId() == null) {
+			return 0;
+		}
 		if (!udah("pertemuan_file_content")) {
 			Session session = StreamingHibernateUtil.getInstance().currentSession();
 			try {
@@ -3042,7 +3061,6 @@ public class Pertemuan extends Tugas {
 				// TODO Auto-generated catch block
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/Pertemuan.java:2973");
 			}
-			StreamingHibernateUtil.getInstance().closeSession();
 		}
 		int jumlah = 0;
 		try {
@@ -3180,6 +3198,9 @@ public class Pertemuan extends Tugas {
 	// }
 
 	public static String ambilLokasiVideoPertemuan(Serializable id) {
+		if (id == null) {
+			return VOMahasiswa.dataJSON;
+		}
 		File file = Common.getFileLocation(Pertemuan.class, id, "video_pertemuan_" + id.toString());
 		try {
 
@@ -3272,6 +3293,9 @@ public class Pertemuan extends Tugas {
 
 	@SuppressWarnings("unchecked")
 	public int ambilJumlahVideoPertemuan() {
+		if (getId() == null) {
+			return 0;
+		}
 		if (!udah("video_pertemuan")) {
 			Session session = StreamingHibernateUtil.getInstance().currentSession();
 			try {
@@ -3280,7 +3304,6 @@ public class Pertemuan extends Tugas {
 				// TODO Auto-generated catch block
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/Pertemuan.java:3211");
 			}
-			StreamingHibernateUtil.getInstance().closeSession();
 		}
 		int jumlah = 0;
 		try {
@@ -3407,6 +3430,9 @@ public class Pertemuan extends Tugas {
 	}
 
 	public static String ambilLokasiAudioPertemuan(Serializable id) {
+		if (id == null) {
+			return VOMahasiswa.dataJSON;
+		}
 		File file = Common.getFileLocation(Pertemuan.class, id, "audio_pertemuan_" + id.toString());
 		try {
 
@@ -3498,6 +3524,9 @@ public class Pertemuan extends Tugas {
 
 	@SuppressWarnings("unchecked")
 	public int ambilJumlahAudioPertemuan() {
+		if (getId() == null) {
+			return 0;
+		}
 		if (!udah("audio_pertemuan")) {
 			Session session = StreamingHibernateUtil.getInstance().currentSession();
 			try {
@@ -3506,7 +3535,6 @@ public class Pertemuan extends Tugas {
 				// TODO Auto-generated catch block
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/Pertemuan.java:3437");
 			}
-			StreamingHibernateUtil.getInstance().closeSession();
 		}
 		int jumlah = 0;
 		try {
@@ -3655,6 +3683,9 @@ public class Pertemuan extends Tugas {
 	}
 
 	public String ambilLokasiTugasPertemuan() {
+		if (getId() == null) {
+			return VOMahasiswa.dataJSON;
+		}
 		File file = Common.getFileLocation(this, "pertemuan_tugas_" + getId().toString());
 		try {
 
@@ -3718,12 +3749,24 @@ public class Pertemuan extends Tugas {
 
 	@SuppressWarnings("unchecked")
 	public TreeMap<Long, TugasPertemuan> ambilTugasPertemuanTotal() {
+		TreeMap<Long, TugasPertemuan> tugasPertemuansa = new TreeMap<Long, TugasPertemuan>();
+		if (getId() == null) {
+			return tugasPertemuansa;
+		}
 		if (!udah("pertemuan_tugas")) {
 			Session session = HibernateUtil.currentNativeSession();
-			reInitTugasPertemuan(session);
-			HibernateUtil.closeSession();
+			try {
+				reInitTugasPertemuan(session);
+			} finally {
+				if (session != null && session.isOpen()) {
+					session.clear();
+					if (session.isConnected()) {
+						session.disconnect();
+					}
+					session.close();
+				}
+			}
 		}
-		TreeMap<Long, TugasPertemuan> tugasPertemuansa = new TreeMap<Long, TugasPertemuan>();
 		try {
 			JSONObject c = new JSONObject(ambilLokasiTugasPertemuan());
 			Iterator<String> keys = c.keys();
