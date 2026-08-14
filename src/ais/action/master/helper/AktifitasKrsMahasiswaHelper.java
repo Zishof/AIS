@@ -522,36 +522,16 @@ public class AktifitasKrsMahasiswaHelper {
 			}
 		});
 
-		// PEMICU ANDAL (pasca-attach): di konteks popup ini tabbox berada JAUH di dalam
-		// Window→Borderlayout→Grid→Detail; klik tab TIDAK selalu memicu onSelect/onClick ke server
-		// (ZK 5.5) sehingga sub-tab lazy "Rencana Studi / Cetak Agenda Konsultasi / Cetak Transkrip"
-		// KOSONG. Alih-alih hanya bergantung pada onSelect, bangun SEMUA sub-tab (kecuali tab pertama
-		// "Agenda" yang sudah eager) lewat timer pasca-render dengan mengirim onClick ke tiap tab —
-		// jadi kontennya "diangsur" tampil sendiri tanpa menunggu klik. Idempoten: tiap onClick dijaga
-		// getChildren().size()==0. try/catch per-tab agar kegagalan satu tab (mis. data mahasiswa
-		// kosong) tidak memblokir tab lain.
-		Common.createDefaultTimerNoBusy(new EventListener() {
-			@Override
-			public void onEvent(Event arg0) throws Exception {
-				try {
-					Tabs tabsSemua = tabbox.getTabs();
-					if (tabsSemua == null) {
-						return;
-					}
-					java.util.List<Component> anak = new java.util.ArrayList<Component>(tabsSemua.getChildren());
-					for (int i = 1; i < anak.size(); i++) { // lewati index 0 (tab "Agenda", eager)
-						Component t = anak.get(i);
-						try {
-							org.zkoss.zk.ui.event.Events.sendEvent(new Event("onClick", t));
-						} catch (Throwable satu) {
-							Common.tampilErrorJikaAdmin(
-									satu instanceof Exception ? (Exception) satu : new Exception(satu));
-						}
-					}
-				} catch (Exception e) {
-					Common.tampilErrorJikaAdmin(e);
-				}
-			}
-		});
+		// GANTI (2026-08-14) -- SEBELUMNYA di sini ada timer pasca-render yang mengirim onClick
+		// otomatis ke SEMUA sub-tab (kecuali "Agenda") beberapa saat setelah halaman terbuka, sebagai
+		// akal-akalan utk masalah "klik tab tidak selalu sampai ke server di popup bersarang dalam
+		// (Window→Borderlayout→Grid→Detail)". Efek sampingnya: tab "Cetak Transkrip" (dan "Rencana
+		// Studi"/"Cetak Agenda Konsultasi") ikut ke-generate/tercetak OTOMATIS begitu menu ini dibuka,
+		// walau pengguna belum klik tab tsb sama sekali -- persis keluhan pengguna. gantiTabboxNative
+		// menyelesaikan akar masalahnya (bukan menyamarkannya): tab native diganti tombol MyButtonTabbox
+		// yang memicu onClick tab asli lewat Events.sendEvent SECARA LANGSUNG saat tombolnya benar-benar
+		// diklik (bukan tebakan client-side yang kadang tak sampai), sehingga tiap sub-tab (termasuk
+		// Cetak Transkrip) baru dibangun/dicetak saat pengguna benar-benar mengklik tab itu.
+		ais.ui.util.MyButtonTabbox.gantiTabboxNative(tabbox, null);
 	}
 }
