@@ -1794,7 +1794,30 @@ public class InitIndex {
 		});
 	}
 
+	/**
+	 * Menyamakan ukuran kolom tabel idempotensi pada instalasi lama. Jalur DDL
+	 * tepercaya dipakai agar migrasi startup tidak dianggap sebagai SQL injection,
+	 * sedangkan IF EXISTS membuatnya aman pada instalasi tanpa modul retail.
+	 */
+	static void initRetailRequestIdempotencyColumns() {
+		try {
+			eksekusiSqlAmanDdl("ALTER TABLE IF EXISTS public.retail_request_idempotency "
+					+ "ALTER COLUMN action TYPE varchar(80), "
+					+ "ALTER COLUMN idempotency_key TYPE varchar(160), "
+					+ "ALTER COLUMN request_hash TYPE varchar(64), "
+					+ "ALTER COLUMN result_reference TYPE varchar(160)");
+		} catch (Exception e) {
+			e.printStackTrace();
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit InitIndex.initRetailRequestIdempotencyColumns");
+		}
+	}
+
 	public static void initEksekusiQueryIndex() {
+		// Migrasi kompatibilitas skema harus selesai secara sinkron sebelum pool
+		// pekerjaan index paralel diaktifkan.
+		initRetailRequestIdempotencyColumns();
+
 		// 1. EKSTENSI TRIGRAM (WAJIB) — dijalankan SINKRON (sebelum pool paralel aktif) karena
 		// seluruh index GIN trigram bergantung pada ekstensi ini; harus tersedia lebih dulu.
 		try {
