@@ -2140,8 +2140,13 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 			// tidak perlu ditampilkan (kegiatan "Daftar Ulang" dst. yang ter-generate otomatis
 			// melewati semester kelulusan). Hanya berlaku untuk mahasiswa, bukan calMhs.
 			Integer smtLulus = null;
+			Integer smtBerjalan = null;
 			if (calMhs == null && mahasiswa != null) {
 				try {
+					Integer sb = mahasiswa.currentSemester();
+					if (sb != null && sb > 0) {
+						smtBerjalan = sb;
+					}
 					Integer sl = mahasiswa.getSemesterLulus();
 					if (sl != null && sl > 0) {
 						smtLulus = sl;
@@ -2155,6 +2160,13 @@ public class InformasiPembayaranMahasiswaAction extends GenericAutowireComposer 
 					Integer smt = kegiatan.getSemster();
 
 					if (smt == null) {
+						continue;
+					}
+
+					// Tagihan semester masa depan belum boleh tampil sebelum semester itu
+					// menjadi semester berjalan. Data tidak dihapus agar tetap aman untuk audit;
+					// ketika waktunya tiba, baris akan muncul otomatis.
+					if (smtBerjalan != null && smt > smtBerjalan) {
 						continue;
 					}
 

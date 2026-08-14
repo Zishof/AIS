@@ -1845,10 +1845,11 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 			statusKeluar = getKelompokStatusKeluarMahasiswa().getStatusKeluar();
 		} else {
 			statusKeluar = check(statusKeluar);
+			// Mahasiswa boleh lulus lebih cepat dari semester nominal jenjang. Jangan
+			// membatalkan status Lulus hanya karena semesterLulus lebih kecil; bila status
+			// hilang, pengaman tagihan setelah semester lulus tidak pernah dijalankan.
 			if (statusKeluar != null && statusKeluar.getId() != null && statusKeluar.getId().equals(1L)
-					&& (semesterLulus == null || (semesterLulus != null && getJenjang() != null
-							&& !getMerupakanPindahan() && !getMerupakanAlihProdi()
-							&& getJenjang().getJumlahSemesterLulus() > semesterLulus))) {
+					&& semesterLulus == null) {
 				statusKeluar = null;
 			}
 		}
