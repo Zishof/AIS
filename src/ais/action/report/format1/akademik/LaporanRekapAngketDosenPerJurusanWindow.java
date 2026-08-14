@@ -422,7 +422,10 @@ public class LaporanRekapAngketDosenPerJurusanWindow extends MyWindow {
 			session = ais.action.report.Report.openNativeSession();
 			return session.createCriteria(ChecklistBaruPenilaianDosenOlehMahasiswa.class)
 					.setProjection(Projections.property("id")).createAlias("perkuliahan", "perkuliahan")
-					.add(Restrictions.eq("perkuliahan.tahunAjaran", tahunAkademik)).list();
+					.add(Restrictions.eq("perkuliahan.tahunAjaran", tahunAkademik))
+					.add(Restrictions.or(Restrictions.isNull("perkuliahan.aktif"),
+							Restrictions.eq("perkuliahan.aktif", true)))
+					.list();
 		} catch (Exception e) {
 			Common.tampilErrorJikaAdmin(e);
 			return new ArrayList<Long>();

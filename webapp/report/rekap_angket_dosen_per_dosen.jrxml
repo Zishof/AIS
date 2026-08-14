@@ -91,6 +91,8 @@ and case when $P{jurusan}=-1 then true else c.jurusan=$P{jurusan} end
 and case when $P{fakultas}=-1 then true else d.fakultas=$P{fakultas} end
 and case when $P{dosen}=-1 then true else x.dosen=$P{dosen} end
 and case when $P{program}='-1' then true else c.program=$P{program} end
+and (c.aktif=true or c.aktif is null)
+and x.dosen in (c.dosen1,c.dosen2,c.dosen3,c.dosen4,c.dosen5,c.dosen6,c.dosen7,c.dosen8,c.dosen9,c.dosen10)
 and case when $P{aktif} then (a.aktif=true or a.aktif is null) else true end
 and case when $P{aktif} then (b.aktif=true or b.aktif is null) else true end
 and case $P{masa_perkuliahan} when -1 then true else c.masa_perkuliahan = $P{masa_perkuliahan} end
