@@ -278,7 +278,7 @@ public class DisposisiSop extends GeneralValueObject {
 				"asset.penghapusan_master_asset", "asset.perbaikan_asset", "asset.perjanjian_kerjasama_master_asset",
 				"asset.permintaan_pengadaan_master_asset", "sekolah.kelompok_pendaftaran_psb", "disposisi_alur_sop",
 				"surat.surat_keluar", "surat.surat_masuk", "catatan_administrasi", "pengaduan", "pengajuan_mahasiswa",
-				"pengajuan_pegawai", "ruang_pmb", "disposisi_alur_sop" };
+				"pengajuan_pegawai", "ruang_pmb", "library.seleksi_vendor", "disposisi_alur_sop" };
 
 		for (String c : hps) {
 
