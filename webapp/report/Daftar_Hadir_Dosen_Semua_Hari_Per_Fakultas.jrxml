@@ -112,9 +112,9 @@ left join perkuliahan z on (z.perkuliahan_paralel=a.id)
 left join (select count(*) as peserta, zz.perkuliahan from detailperkuliahan zz where zz.perkuliahan is not null group by zz.perkuliahan) as zz on (zz.perkuliahan = a.id or zz.perkuliahan = z.id)
 where
 case when $P{dosen} = -1 then true else c.id = $P{dosen} end
-and CASE $P{genapGanjil} when 'Semua' then true else ((a.semester % 2) = (CASE $P{genapGanjil} when 'Genap' then 0 else 1 end)) end
+and CASE $P{genapGanjil} when 'Semua' then true else a.ganjil_genap = $P{genapGanjil} end
 and case when  $P{program} = 'Semua' then true else a.program = $P{program} end
-and case when $P{jenis_semester} = 'Semua' then true else a.semester % 2 = (case $P{jenis_semester} when 'Genap' then 0 else 1 end) end
+and case when $P{jenis_semester} = 'Semua' then true else a.ganjil_genap = $P{jenis_semester} end
 and a.tahun_ajaran=$P{tahun_ajaran}
 and case when $P{jurusan} = -1 then true else d.id = $P{jurusan} end
 and case when $P{fakultas} = -1 then true else e.id = $P{fakultas} end

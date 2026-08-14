@@ -76,7 +76,7 @@ left join (
 	where persetujuan = 1
 	group by perkuliahan
 ) i on (i.perkuliahan = a.id)
-where a.tahun_ajaran=$P{tahun_akademik} and a.semester%2= (case when $P{semester} = 'Ganjil' then 1 else 0 end) and case when $P{fakultas} = -1 then true else f.fakultas=$P{fakultas} end
+where a.tahun_ajaran=$P{tahun_akademik} and a.ganjil_genap = $P{semester} and case when $P{fakultas} = -1 then true else f.fakultas=$P{fakultas} end
 and case when $P{kelas} = '-1' then true else a.kelas ilike $P{kelas} end
 order by hari_ke,a.waktu_mulai_d,a.waktu_selesai_d,d.nama]]>
 	</queryString>

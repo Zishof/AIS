@@ -64,7 +64,7 @@ masukan
 				inner join dosen e on (e.id = cc.dosen)
 				inner join mahasiswa f on (f.id = cc.mahasiswa)
 				where b.tahun_ajaran=$P{tahun_akademik}
-				and b.semester%2 = (case $P{genapGanjil} when 'Semua' then b.semester%2 when 'Ganjil' then 1 else 0 end)
+				and b.ganjil_genap = (case $P{genapGanjil} when 'Semua' then b.ganjil_genap else $P{genapGanjil} end)
 				and case when $P{jurusan}=-1 then true else b.jurusan=$P{jurusan} end
 				and case when $P{fakultas}=-1 then true else d.fakultas=$P{fakultas} end
 				and case when $P{dosen}=-1 then true else cc.dosen=$P{dosen} end

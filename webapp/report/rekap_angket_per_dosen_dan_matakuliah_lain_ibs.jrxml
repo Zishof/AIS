@@ -69,7 +69,7 @@ inner join matakuliah c1 on (c.matakuliah=c1.id)
 inner join jurusan d on (c.jurusan=d.id)
 inner join dosen e on (x.dosen=e.id)
 where c.tahun_ajaran=$P{tahun_akademik}
-and c.semester%2 = (case $P{genapGanjil} when 'Semua' then c.semester%2 when 'Ganjil' then 1 else 0 end)
+and c.ganjil_genap = (case $P{genapGanjil} when 'Semua' then c.ganjil_genap else $P{genapGanjil} end)
 and case when $P{jurusan}=-1 then true else c.jurusan=$P{jurusan} end
 and case when $P{fakultas}=-1 then true else d.fakultas=$P{fakultas} end
 and case when $P{program}='-1' then true else c.program=$P{program} end
