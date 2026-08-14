@@ -90,6 +90,13 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
 public class MainHelper {
+	/**
+	 * Halaman unduhan publik untuk APK Android dan installer Windows. URL latest
+	 * menjaga dialog selalu mengarah ke rilis terbaru tanpa membuka repository
+	 * sumber AIS yang bersifat privat.
+	 */
+	private static final String PUBLIC_APPLICATION_RELEASE =
+			"https://github.com/Zishof/ecampus-eschool-releases/releases/latest";
 
 	public static Map<Long, Long> logins = Collections.synchronizedMap(new HashMap<Long, Long>());
 
@@ -1433,6 +1440,20 @@ public class MainHelper {
 				a.setStyle("font-size:9px;color: blue;");
 				a.setTarget("_blank");
 				a.setHref(linkIphone);
+				vbox.appendChild(a);
+
+				// Satukan akses aplikasi mobile dan desktop di dialog ini. Tombol yang
+				// sebelumnya berada di header dihapus agar header tetap ringkas dan
+				// pengguna hanya mempunyai satu pintu unduhan yang konsisten.
+				vbox.appendChild(new MyLabelAgakKecil(
+						"* Untuk APK Android UAT dan installer desktop Windows terbaru:"));
+				a = new ais.ui.util.MyToolbarbuttonConfig(
+						Common.getBahasa("Download aplikasi Android dan Desktop"),
+						"/img/svg/desktop-light.svg");
+				a.setStyle("font-size:9px;color: blue;");
+				a.setTarget("_blank");
+				a.setHref(PUBLIC_APPLICATION_RELEASE);
+				a.setTooltiptext("Buka halaman unduhan publik eCampus dan eSchool");
 				vbox.appendChild(a);
 
 				vbox.appendChild(aa = new Label("ATAU MASUKKAN KODE INSTALL : " + jsonObject.getString("code")));
