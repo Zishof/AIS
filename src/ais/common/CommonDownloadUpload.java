@@ -52,6 +52,7 @@ import ais.database.model.CicilanPembayaran;
 import ais.database.model.GeneralValueObject;
 import ais.database.model.HistoryStatusMahasiswa;
 import ais.database.model.Konfigurasi;
+import ais.database.model.LabelBahasa;
 import ais.database.model.Mahasiswa;
 import ais.database.model.Matakuliah;
 import ais.database.model.Pegawai;
@@ -356,6 +357,7 @@ public class CommonDownloadUpload {
 									String kelasAsli = null;
 									KelasSiswa kelasSiswa = null;
 									if (valueObject == null && !clazz.getName().equals(Matakuliah.class.getName())
+											&& !clazz.getName().equals(LabelBahasa.class.getName())
 											&& !clazz.getName().equals(GajiTabahan.class.getName())
 											&& !clazz.getName().equals(Produk.class.getName())) {
 										try {
@@ -456,6 +458,27 @@ public class CommonDownloadUpload {
 												valueObject = (GeneralValueObject) clazz.newInstance();
 											}
 
+										} catch (Exception e) {
+											Common.tampilErrorJikaAdmin(e);
+										}
+									}
+
+									else if (valueObject == null && clazz.getName().equals(LabelBahasa.class.getName())) {
+										try {
+											String kunciBahasa = null;
+											int indexCol = 0;
+											for (String col : columns) {
+												if (col != null && col.equals("nama")) {
+													kunciBahasa = Common.getSheetContentAsString(sheet, indexCol, i);
+													break;
+												}
+												indexCol++;
+											}
+											if (kunciBahasa != null && !kunciBahasa.trim().isEmpty()) {
+												valueObject = (GeneralValueObject) session.createCriteria(clazz)
+														.add(Restrictions.eq("nama", kunciBahasa.trim())).setMaxResults(1)
+														.uniqueResult();
+											}
 										} catch (Exception e) {
 											Common.tampilErrorJikaAdmin(e);
 										}
@@ -686,10 +709,12 @@ public class CommonDownloadUpload {
 									}
 
 									if (apakahSimpan.isEmpty()) {
+										boolean berhasilSimpan = false;
 										try {
 											session.getTransaction().begin();
 											session.saveOrUpdate(valueObject);
 											session.getTransaction().commit();
+											berhasilSimpan = true;
 											laporan.catatBerhasil(i, kunciLaporan(valueObject, sheet, i),
 												String.valueOf(valueObject));
 										} catch (Exception e) {
@@ -701,7 +726,7 @@ public class CommonDownloadUpload {
 										label.setValue("Upload data \"" + valueObject.toString() + "\" ("
 												+ Common.numberFormat.get().format(i * 100.0 / rowCount) + " %)");
 
-										if (uploadListenerAfterSimpan != null) {
+										if (berhasilSimpan && uploadListenerAfterSimpan != null) {
 											uploadListenerAfterSimpan.onEvent(new Event("", upload, new Object[] {
 													valueObject, session, datumBaru, apakahSimpan, warnings }));
 
