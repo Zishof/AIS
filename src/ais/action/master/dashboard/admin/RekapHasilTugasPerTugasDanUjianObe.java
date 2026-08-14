@@ -47,11 +47,6 @@ import org.zkoss.zul.Html;
 import org.zkoss.zul.Intbox;
 import org.zkoss.zul.Label;
 import org.zkoss.zul.North;
-import org.zkoss.zul.Tab;
-import org.zkoss.zul.Tabbox;
-import org.zkoss.zul.Tabpanel;
-import org.zkoss.zul.Tabpanels;
-import org.zkoss.zul.Tabs;
 import org.zkoss.zul.Toolbar;
 import org.zkoss.zul.Window;
 
@@ -417,16 +412,8 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 		tabContainer.setWidth("100%");
 		tabContainer.setParent(masterContainer); // Masukkan ke masterContainer
 
-		final Tabbox tabbox = new Tabbox();
-		tabbox.setHeight("100%");
-		tabbox.setWidth("100%");
-		tabbox.setParent(tabContainer);
-
-		final Tabs tabs = new Tabs();
-		tabs.setParent(tabbox);
-
-		final Tabpanels tabpanels = new Tabpanels();
-		tabpanels.setParent(tabbox);
+		final ais.ui.util.MyButtonTabbox tabbox = ais.ui.util.MyButtonTabbox.buat(
+				tabContainer, "100%", new int[] { 1 });
 
 		final String filename = Sessions.getCurrent().getWebApp().getRealPath("/tmp/data_obe_"
 				+ URLEncoder.encode(Common.datetimeFormat2s.get().format(ais.ui.util.WaktuUtil.getDate()), "UTF-8")
@@ -877,7 +864,7 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 					}
 
 					// -> TAB 1: RENDER LANGSUNG DARI SHEET "DATA" DI MEMORI
-					addTabFromMemorySheet(desktop, tabs, tabpanels, sheet);
+					addTabFromMemorySheet(desktop, tabbox, sheet);
 
 					// -> TAB SELANJUTNYA DIBUAT BERSAMAAN DENGAN PEMBUATAN EXCEL SHEET DI MEMORI
 
@@ -890,34 +877,32 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 						}
 					}
 					generateSheetRangkuman(workbook, "Rangkuman Sub-CPMK", "RANGKUMAN KETERCAPAIAN SUB-CPMK",
-							listSubCpmk, mapMhsSubCpmk, targetMinimal, hlink_style, dataStyle, desktop, tabs,
-							tabpanels);
+							listSubCpmk, mapMhsSubCpmk, targetMinimal, hlink_style, dataStyle, desktop, tabbox);
 
 					generateSheetPenilaian(workbook, "Penilaian CPMK", "EVALUASI KETERCAPAIAN CPMK",
 							hasilUjianMahasiswas, listCpmkUnique, mapMhsCpmk, mapMhsTotalAkhir, targetMinimal,
-							hlink_style, dataStyle, desktop, tabs, tabpanels);
+							hlink_style, dataStyle, desktop, tabbox);
 					generateSheetHasil(workbook, "Hasil CPMK", "Rekap Penilaian OBE", listCpmkUnique, mapMhsCpmk,
-							targetMinimal, hlink_style, dataStyle, desktop, tabs, tabpanels);
+							targetMinimal, hlink_style, dataStyle, desktop, tabbox);
 					generateSheetRangkuman(workbook, "Rangkuman CPMK", "RANGKUMAN KETERCAPAIAN CPMK", listCpmkUnique,
-							mapMhsCpmk, targetMinimal, hlink_style, dataStyle, desktop, tabs, tabpanels);
+							mapMhsCpmk, targetMinimal, hlink_style, dataStyle, desktop, tabbox);
 					generateSheetPenilaian(workbook, "Penilaian CPL", "EVALUASI KETERCAPAIAN CPL", hasilUjianMahasiswas,
-							listCpl, mapMhsCpl, mapMhsTotalAkhir, targetMinimal, hlink_style, dataStyle, desktop, tabs,
-							tabpanels);
+							listCpl, mapMhsCpl, mapMhsTotalAkhir, targetMinimal, hlink_style, dataStyle, desktop, tabbox);
 					generateSheetHasil(workbook, "Hasil CPL", "Rekap Outcome OBE", listCpl, mapMhsCpl, targetMinimal,
-							hlink_style, dataStyle, desktop, tabs, tabpanels);
+							hlink_style, dataStyle, desktop, tabbox);
 					generateSheetRangkuman(workbook, "Rangkuman CPL", "RANGKUMAN KETERCAPAIAN CPL", listCpl, mapMhsCpl,
-							targetMinimal, hlink_style, dataStyle, desktop, tabs, tabpanels);
+							targetMinimal, hlink_style, dataStyle, desktop, tabbox);
 					generateSheetPenilaian(workbook, "Penilaian PL", "EVALUASI KETERCAPAIAN PROFIL LULUSAN (PL)",
 							hasilUjianMahasiswas, listPL, mapMhsPl, mapMhsTotalAkhir, targetMinimal, hlink_style,
-							dataStyle, desktop, tabs, tabpanels);
+							dataStyle, desktop, tabbox);
 					generateSheetHasil(workbook, "Hasil PL", "Rekap Outcome OBE PL", listPL, mapMhsPl, targetMinimal,
-							hlink_style, dataStyle, desktop, tabs, tabpanels);
+							hlink_style, dataStyle, desktop, tabbox);
 					generateSheetRangkuman(workbook, "Rangkuman PL", "RANGKUMAN KETERCAPAIAN PROFIL LULUSAN", listPL,
-							mapMhsPl, targetMinimal, hlink_style, dataStyle, desktop, tabs, tabpanels);
+							mapMhsPl, targetMinimal, hlink_style, dataStyle, desktop, tabbox);
 
 					// Sheet CQI: ringkasan analisis dosen per CPMK (jika ada data)
 					generateSheetCqiSummary(workbook, perkuliahan, hlink_style, hlink_styleFooter,
-							dataStyle, desktop, tabs, tabpanels);
+							dataStyle, desktop, tabbox);
 
 					sizedataCol.setValue(100);
 					sizedata.setValue(100);
@@ -969,7 +954,7 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 	// HELPER UI: RENDER TABS LANGSUNG DARI OBJEK SHEET DI MEMORI
 	// =========================================================================
 
-	private void addTabFromMemorySheet(Desktop desktop, Tabs tabs, Tabpanels tabpanels, XSSFSheet sheet) {
+	private void addTabFromMemorySheet(Desktop desktop, ais.ui.util.MyButtonTabbox tabbox, XSSFSheet sheet) {
 		final String sheetName = sheet == null ? "Sheet" : sheet.getSheetName();
 		final String tablePreview = convertSheetToModernPreviewTable(sheet);
 		final String excelPreview = convertSheetToHtmlTable(sheet);
@@ -981,12 +966,8 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 		try {
 			Executions.activate(desktop);
 			try {
-				Tab tab = new Tab(sheetName);
-				tab.setParent(tabs);
-
-				Tabpanel tabpanel = new ais.ui.util.MyTabpanel();
+				org.zkoss.zul.Div tabpanel = tabbox.tambahTab(sheetName, null);
 				tabpanel.setStyle("overflow:auto; padding:12px; background:#f8fafc; box-sizing:border-box;");
-				tabpanel.setParent(tabpanels);
 
 				Html htmlObj = new Html(tablePreview);
 				htmlObj.setParent(tabpanel);
@@ -2345,8 +2326,8 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 
 	private void generateSheetPenilaian(XSSFWorkbook wb, String sheetName, String titleStr, List<Mahasiswa> listMhs,
 			List<? extends Object> items, Map<Long, Map<Long, Double>> scores, Map<Long, Double> finalScores,
-			double target, XSSFCellStyle hStyle, XSSFCellStyle dStyle, Desktop desktop, Tabs tabs,
-			Tabpanels tabpanels) {
+			double target, XSSFCellStyle hStyle, XSSFCellStyle dStyle, Desktop desktop,
+			ais.ui.util.MyButtonTabbox tabbox) {
 		XSSFSheet sheet = wb.createSheet(sheetName);
 		int rIdx = 0;
 
@@ -2444,12 +2425,12 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 		}
 
 		// LANGSUNG RENDER TAB DARI OBJEK SHEET DI MEMORI INI
-		addTabFromMemorySheet(desktop, tabs, tabpanels, sheet);
+		addTabFromMemorySheet(desktop, tabbox, sheet);
 	}
 
 	private void generateSheetHasil(XSSFWorkbook wb, String sheetName, String titleStr, List<? extends Object> items,
 			Map<Long, Map<Long, Double>> scores, double target, XSSFCellStyle hStyle, XSSFCellStyle dStyle,
-			Desktop desktop, Tabs tabs, Tabpanels tabpanels) {
+			Desktop desktop, ais.ui.util.MyButtonTabbox tabbox) {
 		XSSFSheet sheet = wb.createSheet(sheetName);
 		int rIdx = 0;
 
@@ -2507,7 +2488,7 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 		}
 
 		// LANGSUNG RENDER TAB DARI OBJEK SHEET DI MEMORI INI
-		addTabFromMemorySheet(desktop, tabs, tabpanels, sheet);
+		addTabFromMemorySheet(desktop, tabbox, sheet);
 	}
 
 	/**
@@ -2551,7 +2532,7 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 
 	private void generateSheetRangkuman(XSSFWorkbook wb, String sheetName, String titleStr,
 			List<? extends Object> items, Map<Long, Map<Long, Double>> scores, double target, XSSFCellStyle hStyle,
-			XSSFCellStyle dStyle, Desktop desktop, Tabs tabs, Tabpanels tabpanels) {
+			XSSFCellStyle dStyle, Desktop desktop, ais.ui.util.MyButtonTabbox tabbox) {
 		XSSFSheet sheet = wb.createSheet(sheetName);
 		int rIdx = 0;
 
@@ -2616,7 +2597,7 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 		}
 
 		// LANGSUNG RENDER TAB DARI OBJEK SHEET DI MEMORI INI
-		addTabFromMemorySheet(desktop, tabs, tabpanels, sheet);
+		addTabFromMemorySheet(desktop, tabbox, sheet);
 	}
 
 	// =========================================================================
@@ -2629,7 +2610,7 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 	 */
 	private void generateSheetCqiSummary(XSSFWorkbook wb, Perkuliahan perk,
 			XSSFCellStyle hStyle, XSSFCellStyle hFooterStyle,
-			XSSFCellStyle dStyle, Desktop desktop, Tabs tabs, Tabpanels tabpanels) {
+			XSSFCellStyle dStyle, Desktop desktop, ais.ui.util.MyButtonTabbox tabbox) {
 		try {
 			String cqiRaw = perk == null ? null : perk.getCqiData();
 			if (cqiRaw == null || cqiRaw.trim().isEmpty()) return;
@@ -2670,7 +2651,7 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 				try { sheet.autoSizeColumn(i); } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/dashboard/admin/RekapHasilTugasPerTugasDanUjianObe.java:2498");}
 			}
 
-			addTabFromMemorySheet(desktop, tabs, tabpanels, sheet);
+			addTabFromMemorySheet(desktop, tabbox, sheet);
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/dashboard/admin/RekapHasilTugasPerTugasDanUjianObe.java:2503");
 		}
