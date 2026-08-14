@@ -329,6 +329,7 @@ public class CalonSiswa extends VOSiswa {
 	private Pegawai orangTuaPegawai;
 	private Keluarga keluarga;
 	private Siswa siswaSibling;
+	private String fieldsGeneric;
 
 	public String toString() {
 		return id + "-" + nomorInduk + "-" + namaSiswa;
@@ -2793,6 +2794,16 @@ public class CalonSiswa extends VOSiswa {
 
 	public void setOrangTuaPegawai(Pegawai orangTuaPegawai) {
 		this.orangTuaPegawai = orangTuaPegawai;
+	}
+
+	@javax.persistence.Column(name = "fields_generic")
+	@org.hibernate.annotations.Type(type = "text")
+	public String getFieldsGeneric() {
+		return fieldsGeneric;
+	}
+
+	public void setFieldsGeneric(String fieldsGeneric) {
+		this.fieldsGeneric = fieldsGeneric;
 	}
 
 	public Set<String> ambilTelp() {
