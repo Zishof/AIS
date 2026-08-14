@@ -9329,6 +9329,140 @@ public class KantinHelper {
 		}
 	}
 
+	/**
+	 * Buku Besar Pembantu Piutang per anggota/customer. Laporan ini merangkum dua ledger yang
+	 * memang terpisah: (1) hutang transaksi POS lama dan (2) invoice AR Sales & Inventory.
+	 * Pemisahan sumber mencegah invoice AR dihitung ulang sebagai transaksi POS. Rumus baku:
+	 * saldo akhir = saldo awal + faktur - pembayaran - retur - uang muka + jurnal umum.
+	 *
+	 * <p>Paging dilakukan di database (default 15), sedangkan {@code page_size} sampai 5000 hanya
+	 * dipakai klien ketika membuat XLSX/PDF seluruh hasil filter.</p>
+	 */
+	public static void pembantuPiutangList(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		String dari = request.optString("dari", "").trim();
+		String sampai = request.optString("sampai", "").trim();
+		if (!dari.matches("\\d{4}-\\d{2}-\\d{2}") || !sampai.matches("\\d{4}-\\d{2}-\\d{2}")) {
+			hasil.put("status", "91");
+			hasil.put("description", "Tanggal Mulai dan Tanggal Akhir wajib diisi dengan format yang benar.");
+			return;
+		}
+		int page = Math.max(1, request.optInt("page", 1));
+		int pageSize = Math.min(5000, Math.max(1, request.optInt("page_size", 15)));
+		String q = request.optString("q", "").trim().toLowerCase();
+		Long idAnggota = request.isNull("id_anggota") ? null
+				: Long.valueOf((request.get("id_anggota") + "").trim());
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			String n1 = "GREATEST(0, COALESCE(h.total_biaya,0) - COALESCE(h.nominal_bayar_2,0)"
+					+ " - COALESCE(h.nominal_bayar_3,0) - COALESCE(h.nominal_bayar_4,0)"
+					+ " - COALESCE(h.nominal_bayar_5,0))";
+			String hutangPos = "(CASE WHEN COALESCE(c1.masuk_sebagai_hutang,false) THEN " + n1
+					+ " ELSE 0 END + CASE WHEN COALESCE(c2.masuk_sebagai_hutang,false) THEN COALESCE(h.nominal_bayar_2,0) ELSE 0 END"
+					+ " + CASE WHEN COALESCE(c3.masuk_sebagai_hutang,false) THEN COALESCE(h.nominal_bayar_3,0) ELSE 0 END"
+					+ " + CASE WHEN COALESCE(c4.masuk_sebagai_hutang,false) THEN COALESCE(h.nominal_bayar_4,0) ELSE 0 END"
+					+ " + CASE WHEN COALESCE(c5.masuk_sebagai_hutang,false) THEN COALESCE(h.nominal_bayar_5,0) ELSE 0 END)";
+
+			StringBuilder sql = new StringBuilder();
+			sql.append("WITH events AS (")
+				.append(" SELECT h.anggota_koperasi AS id_anggota, a.kode, a.nama, h.tanggal_pembayaran AS tanggal,")
+				.append(hutangPos).append("::numeric AS faktur, 0::numeric AS pembayaran, 0::numeric AS retur,")
+				.append(" 0::numeric AS uang_muka, 0::numeric AS jurnal_umum")
+				.append(" FROM koperasi.pembelian_anggota_koperasi h")
+				.append(" JOIN koperasi.anggota_koperasi a ON a.id=h.anggota_koperasi")
+				.append(" LEFT JOIN koperasi.cara_pembayaran_koperasi c1 ON c1.id=h.cara_pembayaran_koperasi")
+				.append(" LEFT JOIN koperasi.cara_pembayaran_koperasi c2 ON c2.id=h.cara_pembayaran_koperasi_2")
+				.append(" LEFT JOIN koperasi.cara_pembayaran_koperasi c3 ON c3.id=h.cara_pembayaran_koperasi_3")
+				.append(" LEFT JOIN koperasi.cara_pembayaran_koperasi c4 ON c4.id=h.cara_pembayaran_koperasi_4")
+				.append(" LEFT JOIN koperasi.cara_pembayaran_koperasi c5 ON c5.id=h.cara_pembayaran_koperasi_5")
+				.append(" WHERE h.anggota_koperasi IS NOT NULL AND ").append(hutangPos).append(" > 0")
+				.append(" UNION ALL SELECT ph.anggota_koperasi,a.kode,a.nama,ph.waktu,0,COALESCE(ph.nominal,0),0,0,0")
+				.append(" FROM koperasi.pembayaran_hutang ph JOIN koperasi.anggota_koperasi a ON a.id=ph.anggota_koperasi")
+				.append(" WHERE ph.anggota_koperasi IS NOT NULL")
+				.append(" UNION ALL SELECT rp.anggota_koperasi,a.kode,a.nama,rp.waktu,0,0,COALESCE(rp.total_nilai,0),0,0")
+				.append(" FROM koperasi.retur_penjualan rp JOIN koperasi.anggota_koperasi a ON a.id=rp.anggota_koperasi")
+				.append(" WHERE rp.anggota_koperasi IS NOT NULL AND rp.pembelian_anggota_koperasi_id IS NOT NULL")
+				.append(" AND EXISTS (SELECT 1 FROM koperasi.pembelian_anggota_koperasi hr")
+				.append(" LEFT JOIN koperasi.cara_pembayaran_koperasi rc1 ON rc1.id=hr.cara_pembayaran_koperasi")
+				.append(" LEFT JOIN koperasi.cara_pembayaran_koperasi rc2 ON rc2.id=hr.cara_pembayaran_koperasi_2")
+				.append(" LEFT JOIN koperasi.cara_pembayaran_koperasi rc3 ON rc3.id=hr.cara_pembayaran_koperasi_3")
+				.append(" LEFT JOIN koperasi.cara_pembayaran_koperasi rc4 ON rc4.id=hr.cara_pembayaran_koperasi_4")
+				.append(" LEFT JOIN koperasi.cara_pembayaran_koperasi rc5 ON rc5.id=hr.cara_pembayaran_koperasi_5")
+				.append(" WHERE hr.id=rp.pembelian_anggota_koperasi_id AND (COALESCE(rc1.masuk_sebagai_hutang,false)")
+				.append(" OR COALESCE(rc2.masuk_sebagai_hutang,false) OR COALESCE(rc3.masuk_sebagai_hutang,false)")
+				.append(" OR COALESCE(rc4.masuk_sebagai_hutang,false) OR COALESCE(rc5.masuk_sebagai_hutang,false)))")
+				.append(" UNION ALL SELECT d.customer,a.kode,a.nama,d.tanggal,COALESCE(d.total_faktur,0),0,0,")
+				.append(" COALESCE(d.dibayar_awal,0),0 FROM koperasi.piutang_customer_doc d")
+				.append(" JOIN koperasi.anggota_koperasi a ON a.id=d.customer WHERE COALESCE(d.status,'AKTIF')='AKTIF'")
+				.append(" UNION ALL SELECT p.customer,a.kode,a.nama,p.tanggal,0,")
+				.append(" CASE WHEN COALESCE(p.metode,'TUNAI')='RETUR' THEN 0 ELSE COALESCE(p.nominal,0) END,")
+				.append(" CASE WHEN COALESCE(p.metode,'TUNAI')='RETUR' THEN COALESCE(p.nominal,0) ELSE 0 END,0,0")
+				.append(" FROM koperasi.penerimaan_piutang_customer p JOIN koperasi.anggota_koperasi a ON a.id=p.customer")
+				.append(" WHERE COALESCE(p.status_dok,'AKTIF')<>'DIBATALKAN'")
+				.append("), rekap AS (SELECT id_anggota,kode,nama,")
+				.append(" SUM(CASE WHEN tanggal < ?::date THEN faktur-pembayaran-retur-uang_muka+jurnal_umum ELSE 0 END) saldo_awal,")
+				.append(" SUM(CASE WHEN tanggal>=?::date AND tanggal<(?::date+interval '1 day') THEN faktur ELSE 0 END) faktur,")
+				.append(" SUM(CASE WHEN tanggal>=?::date AND tanggal<(?::date+interval '1 day') THEN pembayaran ELSE 0 END) pembayaran,")
+				.append(" SUM(CASE WHEN tanggal>=?::date AND tanggal<(?::date+interval '1 day') THEN retur ELSE 0 END) retur,")
+				.append(" SUM(CASE WHEN tanggal>=?::date AND tanggal<(?::date+interval '1 day') THEN uang_muka ELSE 0 END) uang_muka,")
+				.append(" SUM(CASE WHEN tanggal>=?::date AND tanggal<(?::date+interval '1 day') THEN jurnal_umum ELSE 0 END) jurnal_umum")
+				.append(" FROM events GROUP BY id_anggota,kode,nama), filtered AS (SELECT *,")
+				.append(" saldo_awal+faktur-pembayaran-retur-uang_muka+jurnal_umum AS saldo_akhir FROM rekap WHERE")
+				.append(" (ABS(saldo_awal)+ABS(faktur)+ABS(pembayaran)+ABS(retur)+ABS(uang_muka)+ABS(jurnal_umum))>0.009");
+			if (idAnggota != null) sql.append(" AND id_anggota=?");
+			if (!q.isEmpty()) sql.append(" AND (LOWER(COALESCE(kode,'')) LIKE ? OR LOWER(COALESCE(nama,'')) LIKE ?)");
+			sql.append(") SELECT id_anggota,kode,nama,saldo_awal,faktur,pembayaran,retur,uang_muka,jurnal_umum,saldo_akhir,")
+				.append(" COUNT(*) OVER() total_data,SUM(saldo_awal) OVER() total_saldo_awal,SUM(faktur) OVER() total_faktur,")
+				.append(" SUM(pembayaran) OVER() total_pembayaran,SUM(retur) OVER() total_retur,SUM(uang_muka) OVER() total_uang_muka,")
+				.append(" SUM(jurnal_umum) OVER() total_jurnal_umum,SUM(saldo_akhir) OVER() total_saldo_akhir")
+				.append(" FROM filtered ORDER BY nama,kode LIMIT ").append(pageSize)
+				.append(" OFFSET ").append((page - 1) * pageSize);
+
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(sql.toString());
+			int ix = 1;
+			ps.setString(ix++, dari);
+			for (int i = 0; i < 5; i++) { ps.setString(ix++, dari); ps.setString(ix++, sampai); }
+			if (idAnggota != null) ps.setLong(ix++, idAnggota.longValue());
+			if (!q.isEmpty()) { ps.setString(ix++, "%" + q + "%"); ps.setString(ix++, "%" + q + "%"); }
+
+			java.sql.ResultSet rs = ps.executeQuery();
+			JSONArray data = new JSONArray();
+			JSONObject total = new JSONObject();
+			long totalData = 0;
+			while (rs.next()) {
+				JSONObject j = new JSONObject();
+				j.put("idAnggota", rs.getLong(1));
+				j.put("kodeAnggota", rs.getString(2));
+				j.put("namaAnggota", rs.getString(3));
+				j.put("saldoAwal", rs.getDouble(4));
+				j.put("faktur", rs.getDouble(5));
+				j.put("pembayaran", rs.getDouble(6));
+				j.put("retur", rs.getDouble(7));
+				j.put("uangMuka", rs.getDouble(8));
+				j.put("jurnalUmum", rs.getDouble(9));
+				j.put("saldoAkhir", rs.getDouble(10));
+				data.put(j);
+				totalData = rs.getLong(11);
+				if (total.length() == 0) {
+					total.put("saldoAwal", rs.getDouble(12)); total.put("faktur", rs.getDouble(13));
+					total.put("pembayaran", rs.getDouble(14)); total.put("retur", rs.getDouble(15));
+					total.put("uangMuka", rs.getDouble(16)); total.put("jurnalUmum", rs.getDouble(17));
+					total.put("saldoAkhir", rs.getDouble(18));
+				}
+			}
+			rs.close(); ps.close();
+			if (total.length() == 0) {
+				total.put("saldoAwal", 0); total.put("faktur", 0); total.put("pembayaran", 0);
+				total.put("retur", 0); total.put("uangMuka", 0); total.put("jurnalUmum", 0); total.put("saldoAkhir", 0);
+			}
+			hasil.put("status", "00"); hasil.put("data", data); hasil.put("total", total);
+			hasil.put("totalData", totalData); hasil.put("page", page); hasil.put("pageSize", pageSize);
+			hasil.put("totalPages", Math.max(1, (totalData + pageSize - 1) / pageSize));
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
 	public static void stokDashboard(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		Long tokoId = soResolveTokoId(tbmuser, request);
 		if (tokoId == null) {

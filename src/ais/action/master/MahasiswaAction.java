@@ -6226,7 +6226,7 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 			stringsStatusAwal.add(s.trim());
 		}
 
-		boolean bolehUbahStatusAwal = statusAwalMahasiswaHanyaBolehDiubahOleh.isEmpty() || (tbmuser != null
+		final boolean bolehUbahStatusAwal = statusAwalMahasiswaHanyaBolehDiubahOleh.isEmpty() || (tbmuser != null
 				&& tbmuser.hakAkses() != null && stringsStatusAwal.contains(tbmuser.hakAkses().getRoleId()));
 
 		row = new MyFormRow();

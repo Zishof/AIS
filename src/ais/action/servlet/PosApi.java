@@ -577,6 +577,9 @@ public class PosApi extends HttpServlet {
 			} else if ("mutasi_hutang_list".equals(action)) {
 				KantinHelper.mutasiHutangList(payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "mutasi_hutang_list");
+			} else if ("pembantu_piutang_list".equals(action)) {
+				KantinHelper.pembantuPiutangList(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "pembantu_piutang_list");
 			} else if ("hutang_bayar_simpan".equals(action)) {
 				KantinHelper.hutangBayarSimpan(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "hutang_bayar_simpan");
