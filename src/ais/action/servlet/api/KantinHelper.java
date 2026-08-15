@@ -13517,7 +13517,9 @@ public class KantinHelper {
 			hasil.put("status", "91"); hasil.put("description", "Modal awal harus berupa angka nol atau lebih."); return;
 		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
+		org.hibernate.Transaction tx = null;
 		try {
+			tx = session.beginTransaction();
 			SesiKasKasir sesi = (SesiKasKasir) session.get(SesiKasKasir.class, idSesi);
 			if (sesi == null) { hasil.put("status", "91"); hasil.put("description", "Sesi kas tidak ditemukan."); return; }
 			Long tokoSesi = sesi.getToko() == null ? null : sesi.getToko().getId();
@@ -13537,7 +13539,6 @@ public class KantinHelper {
 					return;
 				}
 			}
-			session.beginTransaction();
 			sesi.setModalAwal(Double.valueOf(modal));
 			String pelaku = tbmuser == null ? "admin" : tbmuser.getUserId();
 			String audit = "[KOREKSI SUPERVISOR " + pelaku + "] Status " + statusLama + " menjadi "
@@ -13561,11 +13562,31 @@ public class KantinHelper {
 				sesi.setSelisih(Double.valueOf(0));
 				sesi.setLaporanTutupJson(null);
 				sesi.setKeterangan(catatan);
-				Common.refreshSaveOrUpdate(session, sesi);
 			}
-			session.getTransaction().commit();
+			// `sesi` berasal dari session.get(), sehingga perubahan setter otomatis dipersist oleh
+			// dirty checking. Flush dan baca balik langsung dari DB mencegah respons sukses palsu.
+			session.flush();
+			Object statusTersimpan = session.createSQLQuery(
+					"select status as status_sesi from koperasi.sesi_kas_kasir where id=:id")
+					.addScalar("status_sesi", org.hibernate.Hibernate.STRING)
+					.setParameter("id", idSesi).uniqueResult();
+			if (statusTersimpan == null || !statusBaru.equals(statusTersimpan.toString())) {
+				throw new IllegalStateException("Status sesi kas gagal disimpan. Perubahan dibatalkan agar data tidak setengah tersimpan.");
+			}
+			tx.commit();
 			hasil.put("status", "00");
 			hasil.put("description", "Koreksi sesi kas berhasil disimpan.");
+			hasil.put("statusSesi", statusBaru);
+			hasil.put("modalAwal", sesi.getModalAwal());
+			hasil.put("penjualanTunai", sesi.getTotalTunai());
+			hasil.put("uangFisik", sesi.getUangFisik());
+		} catch (Exception e) {
+			try {
+				if (tx != null && tx.isActive()) tx.rollback();
+			} catch (Exception eRollback) {
+				ais.common.ErrorAuditUtil.record(eRollback, "sesiKasKoreksi-rollback");
+			}
+			throw e;
 		} finally {
 			tutupSessionPolaB(session);
 		}

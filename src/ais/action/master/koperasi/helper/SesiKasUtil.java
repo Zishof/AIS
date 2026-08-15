@@ -556,7 +556,13 @@ public final class SesiKasUtil {
 		if (keterangan != null && keterangan.trim().length() > 0) {
 			sesi.setKeterangan(keterangan);
 		}
-		Common.refreshSaveOrUpdate(session, sesi);
+		// Sesi yang dimuat melalui session.get()/criteria sudah berada dalam persistence context.
+		// Memanggil update() lagi melalui helper generik dapat memicu recovery/rollback internal dan
+		// membuat pemanggil mengirim respons sukses walaupun perubahan status tidak pernah ter-commit.
+		// Entity managed cukup diubah lewat setter; flush/commit dilakukan oleh pemilik transaksi.
+		if (!session.contains(sesi)) {
+			Common.refreshSaveOrUpdate(session, sesi);
+		}
 		return selisih;
 	}
 }
