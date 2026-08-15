@@ -270,9 +270,9 @@ public class TokoAction extends GenericAutowireComposer {
 		row = new MyFormRow();
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Transaksi saat stok habis"));
-		bolehTransaksiStokHabis = new MyCheckboxConfig("Izinkan untuk toko ini");
+		bolehTransaksiStokHabis = new MyCheckboxConfig("Paksa semua produk boleh stok minus");
 		bolehTransaksiStokHabis.setChecked(Boolean.TRUE.equals(toko.getBolehTransaksiStokHabis()));
-		bolehTransaksiStokHabis.setTooltiptext("Default OFF. Bila ON, stok nol/minus boleh dijual; produk kedaluwarsa tetap ditolak.");
+		bolehTransaksiStokHabis.setTooltiptext("OFF: ikuti izin stok minus pada masing-masing produk. ON: seluruh produk toko ini boleh dijual saat stok nol/minus.");
 		row.appendChild(bolehTransaksiStokHabis);
 
 		row = new MyFormRow();
