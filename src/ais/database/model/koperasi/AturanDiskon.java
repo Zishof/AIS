@@ -52,6 +52,11 @@ public class AturanDiskon extends VoKunci {
 	private Double persentase; // Persentase diskon (Contoh: 10.0 untuk 10%)
 	private Double maksimalPotongan; // Batas maksimal potongan rupiah jika pakai persentase
 	private Double nominal; // Diskon fix rupiah (Contoh: Rp 2.000)
+	// Konflik promo: angka lebih besar dihitung lebih dahulu. Default aman tidak ditumpuk.
+	private Integer prioritas;
+	private Boolean dapatDigabung;
+	private String dasarPerhitungan; // SETELAH_DISKON atau HARGA_AWAL
+	private String grupEksklusif; // aturan dengan kode sama tidak boleh dipakai bersamaan
 
 	// --- 4. LOGIKA PENERAPAN (POTONG HARGA vs SALDO/CASHBACK) ---
 	private Boolean potonganLangsung; // TRUE = Potong harga di struk. FALSE = Masuk ke saldo diskon (Pencairan)
@@ -226,6 +231,43 @@ public class AturanDiskon extends VoKunci {
 
 	public void setNominal(Double nominal) {
 		this.nominal = nominal;
+	}
+
+	@Column(name = "prioritas", nullable = false)
+	public Integer getPrioritas() {
+		return prioritas == null ? 100 : prioritas;
+	}
+
+	public void setPrioritas(Integer prioritas) {
+		this.prioritas = prioritas;
+	}
+
+	@Column(name = "dapat_digabung", nullable = false)
+	public Boolean getDapatDigabung() {
+		return dapatDigabung == null ? false : dapatDigabung;
+	}
+
+	public void setDapatDigabung(Boolean dapatDigabung) {
+		this.dapatDigabung = dapatDigabung;
+	}
+
+	@Column(name = "dasar_perhitungan", nullable = false, length = 30)
+	public String getDasarPerhitungan() {
+		return dasarPerhitungan == null || dasarPerhitungan.trim().isEmpty()
+				? "SETELAH_DISKON" : dasarPerhitungan;
+	}
+
+	public void setDasarPerhitungan(String dasarPerhitungan) {
+		this.dasarPerhitungan = dasarPerhitungan;
+	}
+
+	@Column(name = "grup_eksklusif", length = 100)
+	public String getGrupEksklusif() {
+		return grupEksklusif;
+	}
+
+	public void setGrupEksklusif(String grupEksklusif) {
+		this.grupEksklusif = grupEksklusif;
 	}
 
 	// Menentukan proses eksekusi (Langsung potong nota ATAU masuk tabungan saldo)

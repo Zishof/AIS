@@ -2435,7 +2435,7 @@ public class PosApi extends HttpServlet {
 
 			JSONArray omzetKategori = new JSONArray();
 			java.sql.PreparedStatement psKategori = conn.prepareStatement(
-					"SELECT COALESCE(jp.nama,'Lainnya') lbl, COALESCE(SUM(p.total),0) nilai FROM koperasi.pembelian p "
+					"SELECT COALESCE(jp.nama,'Lainnya') lbl, COALESCE(SUM(p.total),0) nilai, COALESCE(SUM(p.qty),0) qty FROM koperasi.pembelian p "
 							+ "LEFT JOIN koperasi.produk c ON c.id = p.produk LEFT JOIN koperasi.jenis_produk jp ON jp.id = c.jenis_produk "
 							+ "WHERE " + kondisiChart + " GROUP BY 1 ORDER BY 2 DESC LIMIT 8");
 			idx = 1;
@@ -2445,9 +2445,67 @@ public class PosApi extends HttpServlet {
 				JSONObject o = new JSONObject();
 				o.put("label", str(rsKategori.getString(1)));
 				o.put("nilai", rsKategori.getDouble(2));
+				o.put("qty", rsKategori.getDouble(3));
 				omzetKategori.put(o);
 			}
 			rsKategori.close(); psKategori.close();
+
+			// Kartu keputusan tambahan memakai periode dan scope toko yang SAMA dengan chart.
+			// Nilai per kasir/toko/produk dijumlahkan dari baris item (p.total), sedangkan jumlah
+			// transaksi memakai id header agar satu nota berisi banyak item tetap dihitung sekali.
+			JSONArray omzetKasir = new JSONArray();
+			java.sql.PreparedStatement psKasir = conn.prepareStatement(
+					"SELECT COALESCE(NULLIF(TRIM(CAST(p.oleh AS varchar)),''),'Tidak diketahui') lbl, "
+							+ "COALESCE(SUM(p.total),0) nilai, COUNT(DISTINCT COALESCE(p.pembelian_anggota_koperasi,p.id)) trx "
+							+ "FROM koperasi.pembelian p WHERE " + kondisiChart + " GROUP BY 1 ORDER BY 2 DESC LIMIT 8");
+			idx = 1;
+			for (Object p : paramsChart) ikatParam(psKasir, idx++, p);
+			java.sql.ResultSet rsKasir = psKasir.executeQuery();
+			while (rsKasir.next()) {
+				JSONObject o = new JSONObject();
+				o.put("label", str(rsKasir.getString(1)));
+				o.put("nilai", rsKasir.getDouble(2));
+				o.put("trx", rsKasir.getLong(3));
+				omzetKasir.put(o);
+			}
+			rsKasir.close(); psKasir.close();
+
+			JSONArray produkTerlaris = new JSONArray();
+			java.sql.PreparedStatement psProduk = conn.prepareStatement(
+					"SELECT COALESCE(NULLIF(TRIM(c.nama),''),'Produk dihapus') lbl, COALESCE(SUM(p.total),0) nilai, "
+							+ "COALESCE(SUM(p.qty),0) qty FROM koperasi.pembelian p LEFT JOIN koperasi.produk c ON c.id=p.produk "
+							+ "WHERE " + kondisiChart + " GROUP BY 1 ORDER BY 3 DESC,2 DESC LIMIT 8");
+			idx = 1;
+			for (Object p : paramsChart) ikatParam(psProduk, idx++, p);
+			java.sql.ResultSet rsProduk = psProduk.executeQuery();
+			while (rsProduk.next()) {
+				JSONObject o = new JSONObject();
+				o.put("label", str(rsProduk.getString(1)));
+				o.put("nilai", rsProduk.getDouble(2));
+				o.put("qty", rsProduk.getDouble(3));
+				produkTerlaris.put(o);
+			}
+			rsProduk.close(); psProduk.close();
+
+			JSONArray omzetToko = new JSONArray();
+			if (semuaToko) {
+				java.sql.PreparedStatement psToko = conn.prepareStatement(
+						"SELECT COALESCE(NULLIF(TRIM(t.nama),''),'Toko tidak diketahui') lbl, COALESCE(SUM(p.total),0) nilai, "
+								+ "COUNT(DISTINCT COALESCE(p.pembelian_anggota_koperasi,p.id)) trx FROM koperasi.pembelian p "
+								+ "LEFT JOIN koperasi.toko t ON t.id=p.toko WHERE " + kondisiChart
+								+ " GROUP BY 1 ORDER BY 2 DESC LIMIT 8");
+				idx = 1;
+				for (Object p : paramsChart) ikatParam(psToko, idx++, p);
+				java.sql.ResultSet rsToko = psToko.executeQuery();
+				while (rsToko.next()) {
+					JSONObject o = new JSONObject();
+					o.put("label", str(rsToko.getString(1)));
+					o.put("nilai", rsToko.getDouble(2));
+					o.put("trx", rsToko.getLong(3));
+					omzetToko.put(o);
+				}
+				rsToko.close(); psToko.close();
+			}
 
 			JSONArray jamSibuk = new JSONArray();
 			java.sql.PreparedStatement psJam = conn.prepareStatement(
@@ -2470,6 +2528,9 @@ public class PosApi extends HttpServlet {
 			hasil.put("tren", tren);
 			hasil.put("metodeBayar", metodeBayar);
 			hasil.put("omzetKategori", omzetKategori);
+			hasil.put("omzetKasir", omzetKasir);
+			hasil.put("produkTerlaris", produkTerlaris);
+			hasil.put("omzetToko", omzetToko);
 			hasil.put("jamSibuk", jamSibuk);
 			JSONObject transaksiObj = new JSONObject();
 			transaksiObj.put("data", transaksiArr);

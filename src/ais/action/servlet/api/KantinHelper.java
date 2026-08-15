@@ -7260,7 +7260,8 @@ public class KantinHelper {
 			java.sql.PreparedStatement ps = conn.prepareStatement(
 					"SELECT a.id, a.nama_aturan, COALESCE(p.nama,''), COALESCE(t.nama,''), "
 							+ "COALESCE(a.persentase,0), COALESCE(a.nominal,0), COALESCE(a.potongan_langsung,true), COALESCE(a.aktif,true), "
-							+ "a.tanggal_mulai, a.tanggal_selesai, a.hari_aktif, COALESCE(a.aktivasi_manual,false) "
+							+ "a.tanggal_mulai, a.tanggal_selesai, a.hari_aktif, COALESCE(a.aktivasi_manual,false), "
+							+ "COALESCE(a.prioritas,100),COALESCE(a.dapat_digabung,false),COALESCE(a.dasar_perhitungan,'SETELAH_DISKON'),COALESCE(a.grup_eksklusif,'') "
 							+ "FROM koperasi.aturan_diskon a "
 							+ "LEFT JOIN koperasi.produk p ON a.produk = p.id "
 							+ "LEFT JOIN koperasi.toko t ON a.toko = t.id "
@@ -7290,6 +7291,10 @@ public class KantinHelper {
 				j.put("tanggalSelesai", ts == null ? "" : fmt.format(ts));
 				j.put("hariAktif", rs.getString(11) == null ? "" : rs.getString(11));
 				j.put("aktivasiManual", rs.getBoolean(12));
+				j.put("prioritas", rs.getInt(13));
+				j.put("dapatDigabung", rs.getBoolean(14));
+				j.put("dasarPerhitungan", rs.getString(15));
+				j.put("grupEksklusif", rs.getString(16));
 				arr.put(j);
 			}
 			rs.close();
@@ -7400,6 +7405,11 @@ public class KantinHelper {
 			a.setPersentase(request.optDouble("persentase", 0));
 			a.setMaksimalPotongan(request.optDouble("maksimal_potongan", 0));
 			a.setNominal(request.optDouble("nominal", 0));
+			a.setPrioritas(Math.max(0, request.optInt("prioritas", 100)));
+			a.setDapatDigabung(request.optBoolean("dapat_digabung", false));
+			String dasarPerhitungan = request.optString("dasar_perhitungan", "SETELAH_DISKON").toUpperCase();
+			a.setDasarPerhitungan("HARGA_AWAL".equals(dasarPerhitungan) ? dasarPerhitungan : "SETELAH_DISKON");
+			a.setGrupEksklusif(request.optString("grup_eksklusif", "").trim());
 			a.setPotonganLangsung(request.optBoolean("potongan_langsung", true));
 			a.setBerlakuPerHariDanPerToko(request.optBoolean("berlaku_per_hari_dan_per_toko", false));
 			a.setAktif(request.optBoolean("aktif", true));
@@ -13678,7 +13688,8 @@ public class KantinHelper {
 				"SELECT id, produk, toko, COALESCE(berlaku_semua_member,false), jenis_anggota, tipe_anggota, "
 						+ "persentase, maksimal_potongan, nominal, COALESCE(potongan_langsung,true), "
 						+ "COALESCE(berlaku_per_hari_dan_per_toko,false), hari_aktif, COALESCE(aktivasi_manual,false), "
-						+ "nama_aturan, keterangan FROM koperasi.aturan_diskon "
+						+ "nama_aturan, keterangan,COALESCE(prioritas,100),COALESCE(dapat_digabung,false),"
+						+ "COALESCE(dasar_perhitungan,'SETELAH_DISKON'),COALESCE(grup_eksklusif,'') FROM koperasi.aturan_diskon "
 						+ "WHERE aktif = true AND (produk IS NULL OR produk IN (" + inKlausa + ")) "
 						+ "AND (toko IS NULL OR toko = ?) "
 						+ "AND (tanggal_mulai IS NULL OR tanggal_mulai <= now()) "
@@ -13706,6 +13717,10 @@ public class KantinHelper {
 			r.put("aktivasiManual", rsRule.getBoolean(13));
 			r.put("namaAturan", rsRule.getString(14));
 			r.put("keterangan", rsRule.getString(15));
+			r.put("prioritas", Integer.valueOf(rsRule.getInt(16)));
+			r.put("dapatDigabung", Boolean.valueOf(rsRule.getBoolean(17)));
+			r.put("dasarPerhitungan", rsRule.getString(18));
+			r.put("grupEksklusif", rsRule.getString(19));
 			r.put("terpakaiHariIni", Double.valueOf(0d));
 			r.put("terpakaiDiKeranjang", Double.valueOf(0d));
 			rules.add(r);
@@ -13721,7 +13736,8 @@ public class KantinHelper {
 				"SELECT g.id,d.produk,g.toko,COALESCE(g.berlaku_semua_member,NOT COALESCE(g.khusus_member,false)), "
 						+ "g.jenis_anggota,g.tipe_anggota,g.persentase,g.maksimal_potongan,g.nominal,COALESCE(g.potongan_langsung,true), "
 						+ "g.hari_aktif,g.nama_grup,g.keterangan,COALESCE(g.khusus_member,false),COALESCE(g.jenis_member_json,'[]'), "
-						+ "COALESCE(g.tipe_member_json,'[]'),COALESCE(g.cashback,0) "
+						+ "COALESCE(g.tipe_member_json,'[]'),COALESCE(g.cashback,0),COALESCE(g.prioritas,100),"
+						+ "COALESCE(g.dapat_digabung,false),COALESCE(g.dasar_perhitungan,'SETELAH_DISKON'),COALESCE(g.grup_eksklusif,'') "
 						+ "FROM koperasi.grup_aturan_diskon g JOIN koperasi.grup_aturan_diskon_detail d ON d.grup_aturan_diskon=g.id AND COALESCE(d.aktif,true) "
 						+ "WHERE COALESCE(g.aktif,true) AND d.produk IN (" + inKlausa + ") AND (g.toko IS NULL OR g.toko=?) "
 						+ "AND (g.tanggal_mulai IS NULL OR g.tanggal_mulai<=now()) AND (g.tanggal_selesai IS NULL OR g.tanggal_selesai>=now()) ORDER BY g.id ASC");
@@ -13739,11 +13755,34 @@ public class KantinHelper {
 			r.put("berlakuPerHariDanPerToko",Boolean.FALSE); r.put("hariAktif",rsGroup.getString(11)); r.put("aktivasiManual",Boolean.FALSE);
 			r.put("namaAturan",rsGroup.getString(12)); r.put("keterangan",rsGroup.getString(13)); r.put("khususMember",Boolean.valueOf(rsGroup.getBoolean(14)));
 			r.put("jenisMemberJson",rsGroup.getString(15)); r.put("tipeMemberJson",rsGroup.getString(16)); r.put("cashbackTetap",Double.valueOf(rsGroup.getDouble(17)));
+			r.put("prioritas",Integer.valueOf(rsGroup.getInt(18))); r.put("dapatDigabung",Boolean.valueOf(rsGroup.getBoolean(19)));
+			r.put("dasarPerhitungan",rsGroup.getString(20)); r.put("grupEksklusif",rsGroup.getString(21));
 			r.put("sumberGrup",Boolean.TRUE); r.put("terpakaiHariIni",Double.valueOf(0d)); r.put("terpakaiDiKeranjang",Double.valueOf(0d));
 			groupRules.add(r);
 		}
-		rsGroup.close(); psGroup.close(); rules.addAll(0, groupRules);
+		rsGroup.close(); psGroup.close(); rules.addAll(groupRules);
+		java.util.Collections.sort(rules, new java.util.Comparator<java.util.Map<String,Object>>() {
+			public int compare(java.util.Map<String,Object> a, java.util.Map<String,Object> b) {
+				int pa=((Integer)a.get("prioritas")).intValue(), pb=((Integer)b.get("prioritas")).intValue();
+				if(pa!=pb) return pa>pb?-1:1;
+				boolean sa=a.get("produk")!=null, sb=b.get("produk")!=null;
+				if(sa!=sb) return sa?-1:1;
+				double da=((Double)a.get("persentase")).doubleValue(), db=((Double)b.get("persentase")).doubleValue();
+				if(da!=db) return da>db?-1:1;
+				double na=((Double)a.get("nominal")).doubleValue(), nb=((Double)b.get("nominal")).doubleValue();
+				if(na!=nb) return na>nb?-1:1;
+				return ((Long)a.get("id")).compareTo((Long)b.get("id"));
+			}
+		});
 		return rules;
+	}
+
+	private static double nilaiPotensialAturan(java.util.Map<String,Object> r,double dasar,double jumlah) {
+		double persen=((Double)r.get("persentase")).doubleValue();
+		double nominal=((Double)r.get("nominal")).doubleValue();
+		double nilai=persen>0?dasar*(persen/100d):Math.min(dasar,nominal*jumlah);
+		double maks=((Double)r.get("maksimalPotongan")).doubleValue();
+		return maks>0?Math.min(nilai,maks):nilai;
 	}
 
 	/**
@@ -13880,17 +13919,17 @@ public class KantinHelper {
 			for (int i = 0; i < items.length(); i++) {
 				JSONObject it = items.getJSONObject(i);
 				Long produkId = it.isNull("id") ? null : Long.valueOf((it.get("id") + "").trim());
-				double harga = it.optDouble("harga", 0);
-				double jumlah = it.optDouble("jumlah", 0);
-				double itemTotal = harga * jumlah;
+				final double harga = it.optDouble("harga", 0);
+				final double jumlah = it.optDouble("jumlah", 0);
+				final double itemTotal = harga * jumlah;
 				Long hanyaAturanIdItem = it.isNull("hanya_aturan_id")
 						? hanyaAturanIdDefault
 						: Long.valueOf((it.get("hanya_aturan_id") + "").trim());
 
-				java.util.Map<String, Object> applied = null;
+				java.util.List<java.util.Map<String,Object>> eligible = new java.util.ArrayList<java.util.Map<String,Object>>();
 				for (java.util.Map<String, Object> r : rules) {
 					if (hanyaAturanIdItem != null) {
-						if (!hanyaAturanIdItem.equals(r.get("id"))) {
+						if (Boolean.TRUE.equals(r.get("sumberGrup")) || !hanyaAturanIdItem.equals(r.get("id"))) {
 							continue;
 						}
 					} else if (Boolean.TRUE.equals(r.get("aktivasiManual"))) {
@@ -13900,25 +13939,44 @@ public class KantinHelper {
 							memberTipe)) {
 						continue;
 					}
-					applied = r;
-					break;
+					eligible.add(r);
 				}
+				java.util.Collections.sort(eligible,new java.util.Comparator<java.util.Map<String,Object>>(){
+					public int compare(java.util.Map<String,Object> a,java.util.Map<String,Object> b){
+						int pa=((Integer)a.get("prioritas")).intValue(),pb=((Integer)b.get("prioritas")).intValue();
+						if(pa!=pb)return pa>pb?-1:1;
+						double va=nilaiPotensialAturan(a,itemTotal,jumlah),vb=nilaiPotensialAturan(b,itemTotal,jumlah);
+						if(va!=vb)return va>vb?-1:1;
+						return ((Long)a.get("id")).compareTo((Long)b.get("id"));
+					}
+				});
 
 				double diskon = 0;
 				double cashback = 0;
 				Long aturanDiskonId = null;
+				Long grupAturanDiskonId = null;
 				boolean berlakuPerHari = false;
-				if (applied != null) {
+				java.util.List<String> namaPromoDiterapkan=new java.util.ArrayList<String>();
+				java.util.Set<String> grupEksklusifTerpakai=new java.util.HashSet<String>();
+				java.util.Map<String,Object> pertama=eligible.isEmpty()?null:eligible.get(0);
+				for(int ri=0;ri<eligible.size();ri++) {
+					java.util.Map<String,Object> applied=eligible.get(ri);
+					if(ri>0 && (hanyaAturanIdItem!=null || !Boolean.TRUE.equals(pertama.get("dapatDigabung"))
+							|| !Boolean.TRUE.equals(applied.get("dapatDigabung")))) break;
+					String eks=String.valueOf(applied.get("grupEksklusif")==null?"":applied.get("grupEksklusif")).trim();
+					if(!eks.isEmpty() && grupEksklusifTerpakai.contains(eks)) continue;
+					if(!eks.isEmpty()) grupEksklusifTerpakai.add(eks);
+					double dasar="HARGA_AWAL".equals(applied.get("dasarPerhitungan"))?itemTotal:Math.max(0,itemTotal-diskon);
 					double persen = ((Double) applied.get("persentase")).doubleValue();
 					double nominal = ((Double) applied.get("nominal")).doubleValue();
 					double maksimalPotongan = ((Double) applied.get("maksimalPotongan")).doubleValue();
 					double discountValue = 0;
 					if (persen > 0) {
-						discountValue = itemTotal * (persen / 100);
+						discountValue = dasar * (persen / 100);
 					} else if (nominal > 0) {
 						discountValue = nominal * jumlah;
-						if (discountValue > itemTotal) {
-							discountValue = itemTotal;
+						if (discountValue > dasar) {
+							discountValue = dasar;
 						}
 					}
 					berlakuPerHari = Boolean.TRUE.equals(applied.get("berlakuPerHariDanPerToko"));
@@ -13937,9 +13995,9 @@ public class KantinHelper {
 					}
 					boolean potonganLangsung = Boolean.TRUE.equals(applied.get("potonganLangsung"));
 					if (potonganLangsung) {
-						diskon = discountValue;
+						diskon += Math.min(Math.max(0,itemTotal-diskon),discountValue);
 					} else {
-						cashback = discountValue;
+						cashback += discountValue;
 					}
 					// Grup dapat memberi potongan dan cashback sekaligus. Cashback eksplisit
 					// dihitung per unit dan tidak mengurangi total tagihan.
@@ -13948,17 +14006,24 @@ public class KantinHelper {
 					if (cashbackTetap > 0) cashback += Math.min(itemTotal, cashbackTetap * jumlah);
 					// FK pembelian.aturan_diskon menunjuk aturan lama, bukan header grup.
 					// Nilai finansial tetap tersimpan di diskon/cashback; id grup dikirim terpisah.
-					aturanDiskonId = Boolean.TRUE.equals(applied.get("sumberGrup")) ? null : (Long) applied.get("id");
+					if(Boolean.TRUE.equals(applied.get("sumberGrup"))) {
+						if(grupAturanDiskonId==null) grupAturanDiskonId=(Long)applied.get("id");
+					} else if(aturanDiskonId==null) aturanDiskonId=(Long)applied.get("id");
+					namaPromoDiterapkan.add(String.valueOf(applied.get("namaAturan")));
 				}
+				cashback=Math.min(itemTotal,cashback);
 
 				JSONObject out = new JSONObject();
 				out.put("id", produkId);
 				out.put("diskon", diskon);
 				out.put("cashback", cashback);
 				out.put("aturanDiskon", aturanDiskonId == null ? JSONObject.NULL : aturanDiskonId);
-				out.put("grupAturanDiskon", applied != null && Boolean.TRUE.equals(applied.get("sumberGrup"))
-						? applied.get("id") : JSONObject.NULL);
-				out.put("namaPromo", applied == null ? "" : applied.get("namaAturan"));
+				out.put("grupAturanDiskon", grupAturanDiskonId == null ? JSONObject.NULL : grupAturanDiskonId);
+				StringBuilder namaPromoGabung=new StringBuilder();
+				JSONArray promoJson=new JSONArray();
+				for(String nama:namaPromoDiterapkan){if(namaPromoGabung.length()>0)namaPromoGabung.append(" + ");namaPromoGabung.append(nama);promoJson.put(nama);}
+				out.put("namaPromo", namaPromoGabung.toString());
+				out.put("promoDiterapkan", promoJson);
 				out.put("berlakuPerHariDanPerToko", berlakuPerHari);
 				outArr.put(out);
 			}

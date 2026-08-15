@@ -19,8 +19,10 @@ import ais.database.model.GeneralValueObject;
 public class GrupAturanDiskon extends GeneralValueObject {
     private static final long serialVersionUID = 1L;
     private Long id, toko, jenisAnggota, tipeAnggota;
-    private String namaGrup, keterangan, hariAktif, detailJson, jenisMemberJson, tipeMemberJson, oleh, olehId;
-    private Boolean berlakuSemuaMember, khususMember, potonganLangsung, aktif;
+    private String namaGrup, keterangan, hariAktif, detailJson, jenisMemberJson, tipeMemberJson, oleh, olehId,
+            dasarPerhitungan, grupEksklusif;
+    private Boolean berlakuSemuaMember, khususMember, potonganLangsung, aktif, dapatDigabung;
+    private Integer prioritas;
     private Double persentase, maksimalPotongan, nominal, cashback;
     private Date tanggalMulai, tanggalSelesai, tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
@@ -50,6 +52,14 @@ public class GrupAturanDiskon extends GeneralValueObject {
     public void setNominal(Double v){ nominal=v; }
     @Column(name="cashback") public Double getCashback(){ return cashback == null ? 0D : cashback; }
     public void setCashback(Double v){ cashback=v; }
+    @Column(name="prioritas", nullable=false) public Integer getPrioritas(){ return prioritas == null ? 100 : prioritas; }
+    public void setPrioritas(Integer v){ prioritas=v; }
+    @Column(name="dapat_digabung", nullable=false) public Boolean getDapatDigabung(){ return dapatDigabung == null ? Boolean.FALSE : dapatDigabung; }
+    public void setDapatDigabung(Boolean v){ dapatDigabung=v; }
+    @Column(name="dasar_perhitungan", nullable=false, length=30) public String getDasarPerhitungan(){ return dasarPerhitungan == null || dasarPerhitungan.trim().isEmpty() ? "SETELAH_DISKON" : dasarPerhitungan; }
+    public void setDasarPerhitungan(String v){ dasarPerhitungan=v; }
+    @Column(name="grup_eksklusif", length=100) public String getGrupEksklusif(){ return grupEksklusif; }
+    public void setGrupEksklusif(String v){ grupEksklusif=v; }
     @Column(name="potongan_langsung") public Boolean getPotonganLangsung(){ return potonganLangsung == null ? Boolean.TRUE : potonganLangsung; }
     public void setPotonganLangsung(Boolean v){ potonganLangsung=v; }
     @Temporal(TemporalType.TIMESTAMP) @Column(name="tanggal_mulai") public Date getTanggalMulai(){ return tanggalMulai; }

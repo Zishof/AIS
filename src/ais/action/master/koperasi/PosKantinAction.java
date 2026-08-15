@@ -1,8 +1,12 @@
 package ais.action.master.koperasi;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.hibernate.SQLQuery;
 import org.hibernate.Session;
@@ -207,6 +211,10 @@ public class PosKantinAction extends GenericAutowireComposer {
         String jenisMemberJson;
         String tipeMemberJson;
         double cashbackTetap;
+        int prioritas = 100;
+        boolean dapatDigabung;
+        String dasarPerhitungan = "SETELAH_DISKON";
+        String grupEksklusif;
         // State pembatasan "berlaku per hari & per toko": pemakaian hari ini (dari DB)
         // dan akumulasi sementara di keranjang saat ini.
         double terpakaiHariIni;
@@ -437,7 +445,8 @@ public class PosKantinAction extends GenericAutowireComposer {
         try {
             String sql = "SELECT id, produk, toko, jenis_anggota, tipe_anggota, berlaku_semua_member, "
                     + "persentase, maksimal_potongan, nominal, potongan_langsung, berlaku_per_hari_dan_per_toko, "
-                    + "tanggal_mulai, tanggal_selesai, hari_aktif, aktivasi_manual FROM koperasi.aturan_diskon "
+                    + "tanggal_mulai, tanggal_selesai, hari_aktif, aktivasi_manual,COALESCE(prioritas,100),"
+                    + "COALESCE(dapat_digabung,false),COALESCE(dasar_perhitungan,'SETELAH_DISKON'),COALESCE(grup_eksklusif,'') FROM koperasi.aturan_diskon "
                     + "WHERE aktif = true";
             for (Object[] r : rows(sql)) {
                 Rule x = new Rule();
@@ -456,13 +465,16 @@ public class PosKantinAction extends GenericAutowireComposer {
                 x.tglSelesai = date(r[12]);
                 x.hariAktif = str(r[13]);
                 x.aktivasiManual = bool(r[14]);
+                x.prioritas = ((Number)r[15]).intValue(); x.dapatDigabung=bool(r[16]);
+                x.dasarPerhitungan=str(r[17]); x.grupEksklusif=str(r[18]);
                 list.add(x);
             }
             String sqlGrup = "SELECT g.id,d.produk,g.toko,g.jenis_anggota,g.tipe_anggota,"
                     + "COALESCE(g.berlaku_semua_member,NOT COALESCE(g.khusus_member,false)),"
                     + "g.persentase,g.maksimal_potongan,g.nominal,COALESCE(g.potongan_langsung,true),"
                     + "g.tanggal_mulai,g.tanggal_selesai,g.hari_aktif,COALESCE(g.khusus_member,false),"
-                    + "COALESCE(g.jenis_member_json,'[]'),COALESCE(g.tipe_member_json,'[]'),COALESCE(g.cashback,0) "
+                    + "COALESCE(g.jenis_member_json,'[]'),COALESCE(g.tipe_member_json,'[]'),COALESCE(g.cashback,0),"
+                    + "COALESCE(g.prioritas,100),COALESCE(g.dapat_digabung,false),COALESCE(g.dasar_perhitungan,'SETELAH_DISKON'),COALESCE(g.grup_eksklusif,'') "
                     + "FROM koperasi.grup_aturan_diskon g JOIN koperasi.grup_aturan_diskon_detail d "
                     + "ON d.grup_aturan_diskon=g.id AND COALESCE(d.aktif,true) WHERE COALESCE(g.aktif,true)";
             for (Object[] r : rows(sqlGrup)) {
@@ -474,8 +486,19 @@ public class PosKantinAction extends GenericAutowireComposer {
                 x.hariAktif = str(r[12]); x.khususMember = bool(r[13]);
                 x.jenisMemberJson = str(r[14]); x.tipeMemberJson = str(r[15]);
                 x.cashbackTetap = num(r[16]); x.sumberGrup = true;
-                list.add(0, x);
+                x.prioritas=((Number)r[17]).intValue(); x.dapatDigabung=bool(r[18]);
+                x.dasarPerhitungan=str(r[19]); x.grupEksklusif=str(r[20]);
+                list.add(x);
             }
+			Collections.sort(list,new Comparator<Rule>(){
+				public int compare(Rule a,Rule b){
+					if(a.prioritas!=b.prioritas)return a.prioritas>b.prioritas?-1:1;
+					if((a.produkId!=null)!=(b.produkId!=null))return a.produkId!=null?-1:1;
+					if(a.persen!=b.persen)return a.persen>b.persen?-1:1;
+					if(a.nominal!=b.nominal)return a.nominal>b.nominal?-1:1;
+					return a.aturanId.compareTo(b.aturanId);
+				}
+			});
         } catch (Exception ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/koperasi/PosKantinAction.java:364");
         }
         rules = list;
@@ -1781,7 +1804,7 @@ public class PosKantinAction extends GenericAutowireComposer {
             return;
         }
         Date now = new Date();
-        Rule applied = null;
+		List<Rule> eligible=new ArrayList<Rule>();
         for (Rule r : rules) {
             if (r.aktivasiManual) {
                 continue; // dikecualikan dari auto-apply -- ZK belum punya picker "Promo" manual
@@ -1816,23 +1839,29 @@ public class PosKantinAction extends GenericAutowireComposer {
                     continue;
                 }
             }
-            applied = r;
-            break;
+			eligible.add(r);
         }
-        if (applied == null) {
+        if (eligible.isEmpty()) {
             return;
         }
         double itemTotal = it.harga * it.jumlah;
-        double disc = 0;
-        if (applied.persen > 0) {
-            disc = itemTotal * (applied.persen / 100.0);
-        } else if (applied.nominal > 0) {
-            disc = applied.nominal * it.jumlah;
-            if (disc > itemTotal) {
-                disc = itemTotal;
-            }
-        }
-        if (applied.berlakuPerHari && applied.maxPot > 0) {
+		Rule pertama=eligible.get(0);
+		Set<String> eksklusif=new HashSet<String>();
+		for(int ri=0;ri<eligible.size();ri++){
+			Rule applied=eligible.get(ri);
+			if(ri>0 && (!pertama.dapatDigabung || !applied.dapatDigabung))break;
+			String eks=applied.grupEksklusif==null?"":applied.grupEksklusif.trim();
+			if(eks.length()>0 && eksklusif.contains(eks))continue;
+			if(eks.length()>0)eksklusif.add(eks);
+			double dasar="HARGA_AWAL".equals(applied.dasarPerhitungan)?itemTotal:Math.max(0,itemTotal-it.diskon);
+			double disc = 0;
+			if (applied.persen > 0) {
+				disc = dasar * (applied.persen / 100.0);
+			} else if (applied.nominal > 0) {
+				disc = applied.nominal * it.jumlah;
+				if (disc > dasar) disc = dasar;
+			}
+		if (applied.berlakuPerHari && applied.maxPot > 0) {
             // Batas maksimal potongan dihitung kumulatif: pemakaian hari ini + akumulasi keranjang.
             double sisa = applied.maxPot - applied.terpakaiHariIni - applied.terpakaiKeranjang;
             if (sisa <= 0) {
@@ -1845,15 +1874,17 @@ public class PosKantinAction extends GenericAutowireComposer {
             disc = applied.maxPot;
         }
         if (applied.potonganLangsung) {
-            it.diskon = disc;
+            it.diskon += Math.min(Math.max(0,itemTotal-it.diskon),disc);
         } else {
-            it.cashback = disc;
+            it.cashback += disc;
         }
         if (applied.cashbackTetap > 0) {
             it.cashback += Math.min(itemTotal, applied.cashbackTetap * it.jumlah);
         }
-        it.aturanDiskonId = applied.sumberGrup ? null : applied.aturanId;
-        it.berlakuPerHari = applied.berlakuPerHari;
+		if(it.aturanDiskonId==null && !applied.sumberGrup)it.aturanDiskonId=applied.aturanId;
+		it.berlakuPerHari = it.berlakuPerHari || applied.berlakuPerHari;
+		}
+		it.cashback=Math.min(itemTotal,it.cashback);
     }
 
     private static boolean jsonIdMemuat(String json, Long nilai) {

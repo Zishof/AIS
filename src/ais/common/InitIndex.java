@@ -3408,12 +3408,20 @@ public class InitIndex {
 		// kriteria multi jenis/tipe member dalam JSON. DDL sengaja idempoten agar
 		// instalasi lama dan instalasi baru bergerak ke skema yang sama.
 		String[] DDL_GRUP_ATURAN_DISKON = new String[] {
-				"CREATE TABLE IF NOT EXISTS koperasi.grup_aturan_diskon (id bigserial PRIMARY KEY, nama_grup varchar(255) NOT NULL, keterangan text, toko bigint, jenis_anggota bigint, tipe_anggota bigint, berlaku_semua_member boolean DEFAULT true, khusus_member boolean DEFAULT false, jenis_member_json text, tipe_member_json text, persentase double precision DEFAULT 0, maksimal_potongan double precision DEFAULT 0, nominal double precision DEFAULT 0, cashback double precision DEFAULT 0, potongan_langsung boolean DEFAULT true, tanggal_mulai timestamp, tanggal_selesai timestamp, hari_aktif varchar(20), aktif boolean DEFAULT true, detail_json text, oleh varchar(255), oleh_id varchar(255), tanggal_dirubah timestamp DEFAULT now())",
+				"CREATE TABLE IF NOT EXISTS koperasi.grup_aturan_diskon (id bigserial PRIMARY KEY, nama_grup varchar(255) NOT NULL, keterangan text, toko bigint, jenis_anggota bigint, tipe_anggota bigint, berlaku_semua_member boolean DEFAULT true, khusus_member boolean DEFAULT false, jenis_member_json text, tipe_member_json text, persentase double precision DEFAULT 0, maksimal_potongan double precision DEFAULT 0, nominal double precision DEFAULT 0, cashback double precision DEFAULT 0, prioritas integer DEFAULT 100, dapat_digabung boolean DEFAULT false, dasar_perhitungan varchar(30) DEFAULT 'SETELAH_DISKON', grup_eksklusif varchar(100), potongan_langsung boolean DEFAULT true, tanggal_mulai timestamp, tanggal_selesai timestamp, hari_aktif varchar(20), aktif boolean DEFAULT true, detail_json text, oleh varchar(255), oleh_id varchar(255), tanggal_dirubah timestamp DEFAULT now())",
 				"CREATE TABLE IF NOT EXISTS koperasi.grup_aturan_diskon_detail (id bigserial PRIMARY KEY, grup_aturan_diskon bigint NOT NULL, produk bigint NOT NULL, aktif boolean DEFAULT true, oleh varchar(255), oleh_id varchar(255), tanggal_dirubah timestamp DEFAULT now())",
 				"ALTER TABLE koperasi.grup_aturan_diskon ADD COLUMN IF NOT EXISTS khusus_member boolean DEFAULT false",
 				"ALTER TABLE koperasi.grup_aturan_diskon ADD COLUMN IF NOT EXISTS jenis_member_json text",
 				"ALTER TABLE koperasi.grup_aturan_diskon ADD COLUMN IF NOT EXISTS tipe_member_json text",
 				"ALTER TABLE koperasi.grup_aturan_diskon ADD COLUMN IF NOT EXISTS cashback double precision DEFAULT 0",
+				"ALTER TABLE koperasi.grup_aturan_diskon ADD COLUMN IF NOT EXISTS prioritas integer DEFAULT 100",
+				"ALTER TABLE koperasi.grup_aturan_diskon ADD COLUMN IF NOT EXISTS dapat_digabung boolean DEFAULT false",
+				"ALTER TABLE koperasi.grup_aturan_diskon ADD COLUMN IF NOT EXISTS dasar_perhitungan varchar(30) DEFAULT 'SETELAH_DISKON'",
+				"ALTER TABLE koperasi.grup_aturan_diskon ADD COLUMN IF NOT EXISTS grup_eksklusif varchar(100)",
+				"ALTER TABLE koperasi.aturan_diskon ADD COLUMN IF NOT EXISTS prioritas integer DEFAULT 100",
+				"ALTER TABLE koperasi.aturan_diskon ADD COLUMN IF NOT EXISTS dapat_digabung boolean DEFAULT false",
+				"ALTER TABLE koperasi.aturan_diskon ADD COLUMN IF NOT EXISTS dasar_perhitungan varchar(30) DEFAULT 'SETELAH_DISKON'",
+				"ALTER TABLE koperasi.aturan_diskon ADD COLUMN IF NOT EXISTS grup_eksklusif varchar(100)",
 				"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_grup_diskon_detail_header') THEN ALTER TABLE koperasi.grup_aturan_diskon_detail ADD CONSTRAINT fk_grup_diskon_detail_header FOREIGN KEY (grup_aturan_diskon) REFERENCES koperasi.grup_aturan_diskon(id) ON DELETE CASCADE; END IF; END $$",
 				"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_grup_diskon_detail_produk') THEN ALTER TABLE koperasi.grup_aturan_diskon_detail ADD CONSTRAINT fk_grup_diskon_detail_produk FOREIGN KEY (produk) REFERENCES koperasi.produk(id) ON DELETE CASCADE; END IF; END $$",
 				"CREATE UNIQUE INDEX IF NOT EXISTS uq_grup_diskon_produk ON koperasi.grup_aturan_diskon_detail (grup_aturan_diskon, produk)",
