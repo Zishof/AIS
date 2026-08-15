@@ -257,6 +257,9 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
 					<button class="btn btn-sm btn-outline-info rounded-circle d-flex align-items-center justify-content-center" style="width:34px;height:34px;padding:0;" data-bs-toggle="modal" data-bs-target="#modalBantuanPOS<%=rnd%>" title="<%=Common.getBahasaConfig("Bantuan POS lengkap (F1)")%>">
 						<i class="fas fa-question"></i>
 					</button>
+					<button class="btn btn-sm btn-outline-success rounded-circle d-flex align-items-center justify-content-center" style="width:34px;height:34px;padding:0;" data-bs-toggle="modal" data-bs-target="#modalQAPOS<%=rnd%>" onclick="siapkanQAPOS<%=rnd%>()" title="<%=Common.getBahasaConfig("Tanya Jawab sesuai halaman POS")%>">
+						<i class="fas fa-comments"></i>
+					</button>
 					<button class="btn btn-sm btn-outline-secondary rounded-circle position-relative d-flex align-items-center justify-content-center" style="width:34px;height:34px;padding:0;" data-bs-toggle="modal" data-bs-target="#modalKeranjangTertahan<%=rnd%>" onclick="loadDaftarTertahan<%=rnd%>()" title="<%=Common.getBahasaConfig("Keranjang Tertahan")%>">
 						<i class="fas fa-inbox"></i>
 						<span class="badge bg-danger rounded-pill d-none" id="badgeTertahan<%=rnd%>" style="font-size:8px;position:absolute;top:-3px;right:-3px;">0</span>
@@ -1151,10 +1154,29 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
     // sesi_kas_tutup. Status TERAKHIR disimpan di sesiKasInfo<%=rnd%> supaya form Buka/Tutup bisa
     // dibangun tanpa panggilan server tambahan tiap kali toggle dibuka.
     // ==========================================
-    let sesiKasInfo<%=rnd%> = { terbuka: false };
+	let sesiKasInfo<%=rnd%> = { terbuka: false };
+	// Identitas instalasi browser stabil. Disimpan lokal agar sesi kas tetap terikat
+	// ke mesin/browser yang sama setelah halaman dimuat ulang atau pengguna login lagi.
+	const idPerangkatSesiKas<%=rnd%> = (() => {
+		const kunci = 'ais-pos-id-perangkat';
+		let nilai = localStorage.getItem(kunci);
+		if (!nilai) {
+			nilai = (window.crypto && window.crypto.randomUUID)
+				? window.crypto.randomUUID()
+				: 'web-' + Date.now() + '-' + Math.random().toString(36).substring(2, 14);
+			localStorage.setItem(kunci, nilai);
+		}
+		return nilai;
+	})();
+	const namaPerangkatSesiKas<%=rnd%> = 'Browser ' + (navigator.platform || 'Web');
 
-    const panggilSesiKas<%=rnd%> = async (action, extra) => {
-        let payload = Object.assign({ action: action, id_toko: document.getElementById('idTokoSelected<%=rnd%>').value || null }, extra || {});
+	const panggilSesiKas<%=rnd%> = async (action, extra) => {
+		let payload = Object.assign({
+			action: action,
+			id_toko: document.getElementById('idTokoSelected<%=rnd%>').value || null,
+			id_perangkat: idPerangkatSesiKas<%=rnd%>,
+			nama_perangkat: namaPerangkatSesiKas<%=rnd%>
+		}, extra || {});
         if (posTanpaLogin<%=rnd%>) payload.tanpaLogin = "true";
         const res = await fetch('<%=Common.ROOT%>/Data', {
             method: 'POST',
@@ -2057,14 +2079,18 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
 
-        const payload = {
+		const payload = {
             action: "draft_bayar",
             id: currentDraftId<%=rnd%>,
             kodeUnik: "DRAFT-" + generateUniqueCode50(),
             idToko: idToko,
             waktu: getFormattedDate<%=rnd%>(),
             id_member: document.getElementById('idMemberSelected<%=rnd%>').value,
-            caraBayar: idCaraBayar,
+			caraBayar: idCaraBayar,
+			id_perangkat: idPerangkatSesiKas<%=rnd%>,
+			nama_perangkat: namaPerangkatSesiKas<%=rnd%>,
+			nama_mesin: namaPerangkatSesiKas<%=rnd%>,
+			kode_sesi_kas: sesiKasInfo<%=rnd%>.kodeSesiKas || null,
             transaksi: cart<%=rnd%>.map(item => ({
                 id: item.id, kode: item.kode, nama: item.nama, harga: item.harga, jumlah: item.jumlah,
                 diskon: item.diskon, aturanDiskon: item.aturanDiskon, cashback: item.cashback,

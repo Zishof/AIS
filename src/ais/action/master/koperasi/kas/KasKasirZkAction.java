@@ -65,6 +65,18 @@ public class KasKasirZkAction extends MyWindow {
 	private Div panel;
 	private MyGrid grid;
 
+	private String idPerangkat() {
+		try {
+			Object nativeSession = org.zkoss.zk.ui.Sessions.getCurrent().getNativeSession();
+			if (nativeSession instanceof javax.servlet.http.HttpSession) {
+				return "zk-" + ((javax.servlet.http.HttpSession) nativeSession).getId();
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit KasKasirZkAction.idPerangkat");
+		}
+		return "zk-" + Executions.getCurrent().getDesktop().getId();
+	}
+
 	public KasKasirZkAction() {
 		super();
 		try {
@@ -132,7 +144,11 @@ public class KasKasirZkAction extends MyWindow {
 	private void render() throws Exception {
 		panel.getChildren().clear();
 		Session session = HibernateUtil.currentSession();
-		final SesiKasKasir sesi = SesiKasUtil.sesiTerbuka(session, oleh, olehId, tokoId);
+		final String perangkat = idPerangkat();
+		final SesiKasKasir sesi = SesiKasUtil.sesiTerbukaPerangkat(session, oleh, olehId, tokoId, perangkat);
+		if (sesi != null && SesiKasUtil.ikatPerangkatJikaLama(sesi, perangkat, "ZK Web / " + perangkat)) {
+			Common.refreshSaveOrUpdate(session, sesi);
+		}
 
 		if (sesi == null) {
 			Label l = new Label(ais.common.Common.getBahasaConfig("Kas Tertutup"));
@@ -158,14 +174,26 @@ public class KasKasirZkAction extends MyWindow {
 			buka.addEventListener(Events.ON_CLICK, new EventListener() {
 				public void onEvent(Event e) throws Exception {
 					double m = modal.getValue() == null ? 0 : modal.getValue().doubleValue();
-					SesiKasUtil.buka(HibernateUtil.currentSession(), lockToko ? toko : null, oleh, olehId, m, ket.getValue());
+					Session aktif = HibernateUtil.currentSession();
+					SesiKasKasir akunLain = SesiKasUtil.sesiTerbuka(aktif, oleh, olehId, null);
+					SesiKasKasir perangkatLain = SesiKasUtil.sesiTerbukaPadaPerangkat(aktif, null, perangkat);
+					if (akunLain != null || perangkatLain != null) {
+						MyMessageboxConfig.show(
+								akunLain != null
+										? "Akun ini masih mempunyai sesi kas terbuka. Tutup sesi tersebut sebelum membuka sesi baru."
+										: "Perangkat ini masih dipakai oleh sesi kas lain. Tutup sesi tersebut sebelum berganti kasir.",
+								"Sesi Kas Masih Aktif", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+						return;
+					}
+					SesiKasUtil.buka(aktif, lockToko ? toko : null, oleh, olehId, m, ket.getValue(),
+							null, null, perangkat, "ZK Web / " + perangkat);
 					render();
 					muatRiwayat();
 				}
 			});
 			buka.setParent(h);
 		} else {
-			double[] jual = SesiKasUtil.hitungPenjualan(session, oleh, olehId, tokoId, sesi.getWaktuBuka(), new Date());
+			double[] jual = SesiKasUtil.hitungPenjualan(session, sesi, new Date());
 			final double seharusnya = (sesi.getModalAwal() == null ? 0.0 : sesi.getModalAwal().doubleValue()) + jual[0];
 			Label l = new Label("Kas Terbuka sejak " + DF.format(sesi.getWaktuBuka()));
 			l.setStyle("font-weight:700;color:#16a34a;display:block;margin-bottom:8px");

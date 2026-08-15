@@ -472,21 +472,39 @@ public class KantinHelper {
 					// duplikasi logika. Sengaja TIDAK dipasang di draft_bayar() -- "Simpan/Tahan Keranjang"
 					// bukan komitmen finansial, jadi tidak perlu sesi kas terbuka.
 					//
-					// WAJIB PERMANEN utk SEMUA toko (2026-08-11, permintaan eksplisit user) -- sebelumnya
-					// gerbang ini opt-in per-toko lewat Konfigurasi.KANTIN_POS_WAJIB_SESI_KAS (default
-					// TIDAK_AKTIF/OFF), SEKARANG tanpa syarat, opsi mematikannya DIHAPUS (bukan sekadar
-					// diubah default-nya) -- toko manapun yg belum pernah membuka kas hari itu TIDAK BISA
-					// checkout, harus Buka Kas dulu. Memakai session POLA B yang SUDAH dibuka di atas
-					// (BUKAN HibernateUtil.currentSession() -- lihat javadoc kelas).
-					SesiKasKasir sesiKasAktif;
-					{
+					// Sakelar terpusat DEFAULT AKTIF. Unit tanpa laci/shift kas boleh menonaktifkannya
+					// secara eksplisit; ketika aktif, validasi akun+toko+perangkat+sesi tetap wajib.
+					boolean wajibSesiKas = Common.bolehKonfigurasi(
+							ais.database.model.Konfigurasi.KANTIN_POS_WAJIB_SESI_KAS,
+							ais.database.model.Konfigurasi.AKTIF);
+					SesiKasKasir sesiKasAktif = null;
+					String idPerangkatTransaksi = idPerangkat(jsonObject);
+					if (wajibSesiKas) {
 						String[] idKasir = identitasKasir(tbmuser);
-						sesiKasAktif = ais.action.master.koperasi.helper.SesiKasUtil.sesiTerbuka(session,
-								idKasir[0], idKasir[1], toko.getId());
-						if (sesiKasAktif == null) {
+						if (idPerangkatTransaksi == null) {
 							hasil.put("status", "91");
-							hasil.put("description",
-									"Belum ada Sesi Kas Kasir yang terbuka. Buka kas terlebih dahulu sebelum memproses pembayaran.");
+							hasil.put("description", "Perangkat kasir belum dikenali. Perbarui aplikasi atau muat ulang halaman, lalu buka sesi kas kembali.");
+							return;
+						}
+						sesiKasAktif = ais.action.master.koperasi.helper.SesiKasUtil.sesiTerbukaPerangkat(session,
+								idKasir[0], idKasir[1], toko.getId(), idPerangkatTransaksi);
+						if (sesiKasAktif == null) {
+							SesiKasKasir sesiLain = ais.action.master.koperasi.helper.SesiKasUtil.sesiTerbuka(session,
+									idKasir[0], idKasir[1], null);
+							hasil.put("status", "91");
+							hasil.put("description", sesiLain == null
+									? "Belum ada Sesi Kas Kasir yang terbuka pada perangkat ini. Buka kas terlebih dahulu sebelum memproses pembayaran."
+									: "Akun ini masih memiliki sesi kas pada perangkat lain ("
+											+ (sesiLain.getNamaPerangkat() == null ? sesiLain.getIdPerangkat() : sesiLain.getNamaPerangkat())
+											+ "). Tutup sesi tersebut atau minta supervisor melakukan penutupan resmi.");
+							return;
+						}
+						ais.action.master.koperasi.helper.SesiKasUtil.ikatPerangkatJikaLama(
+								sesiKasAktif, idPerangkatTransaksi, namaPerangkat(jsonObject));
+						String kodeSesiDiminta = jsonObject.optString("kode_sesi_kas", "").trim();
+						if (kodeSesiDiminta.length() > 0 && !kodeSesiDiminta.equals(sesiKasAktif.getKode())) {
+							hasil.put("status", "91");
+							hasil.put("description", "Transaksi berasal dari sesi kas yang berbeda. Sinkronkan transaksi pada sesi asal dan jangan membuka sesi baru sebelum antrean selesai.");
 							return;
 						}
 					}
@@ -667,6 +685,7 @@ public class KantinHelper {
 						pembelianAnggotaKoperasi.setNamaMesin(namaMesinVal);
 						pembelianAnggotaKoperasi.setToko(toko);
 						pembelianAnggotaKoperasi.setSesiKasKasir(sesiKasAktif);
+						pembelianAnggotaKoperasi.setIdPerangkat(idPerangkatTransaksi);
 						pembelianAnggotaKoperasi.setPajak(jsonObject.isNull("pajak") ? 0.0 : Math.max(0.0, Double.parseDouble((jsonObject.get("pajak") + "").trim())));
 						pembelianAnggotaKoperasi.setDraftPembelianAnggotaKoperasi(draftPembelianAnggotaKoperasi);
 						session.getTransaction().begin();
@@ -700,6 +719,7 @@ public class KantinHelper {
 						pembelianAnggotaKoperasi.setNamaMesin(namaMesinVal);
 						pembelianAnggotaKoperasi.setToko(toko);
 						pembelianAnggotaKoperasi.setSesiKasKasir(sesiKasAktif);
+						pembelianAnggotaKoperasi.setIdPerangkat(idPerangkatTransaksi);
 						pembelianAnggotaKoperasi.setPajak(jsonObject.isNull("pajak") ? 0.0 : Math.max(0.0, Double.parseDouble((jsonObject.get("pajak") + "").trim())));
 						pembelianAnggotaKoperasi.setDraftPembelianAnggotaKoperasi(draftPembelianAnggotaKoperasi);
 						session.getTransaction().begin();
@@ -865,7 +885,8 @@ public class KantinHelper {
 	 * {@code Produk.stok} yang bisa saja basi) sebelum membandingkannya dengan qty yang diminta.</p>
 	 *
 	 * <p><b>Gerbang konfigurasi:</b> hanya aktif bila {@code Konfigurasi.KANTIN_POS_CEGAH_OVERSELL}
-	 * AKTIF -- default TIDAK_AKTIF (OFF), sama seperti {@code KANTIN_POS_WAJIB_SESI_KAS}. Sebab: rumus
+	 * AKTIF -- default TIDAK_AKTIF (OFF). Berbeda dari {@code KANTIN_POS_WAJIB_SESI_KAS}
+	 * yang default-nya AKTIF. Sebab: rumus
 	 * stok LIVE di sini hanya mengakui item masuk lewat {@code koperasi.pengadaan_produk}/{@code
 	 * stok_opname}; banyak toko existing tidak pernah mencatat stok masuk lewat modul Pengadaan (form
 	 * Produk kantin tidak punya kolom stok yang bisa diisi manual) sehingga stok LIVE hasil hitungan
@@ -1440,6 +1461,20 @@ public class KantinHelper {
 		return new String[] { oleh, olehId };
 	}
 
+	/** Identitas instalasi POS wajib untuk operasi sesi kas dan pembayaran final. */
+	private static String idPerangkat(JSONObject request) {
+		return ais.action.master.koperasi.helper.SesiKasUtil.normalisasiIdPerangkat(
+				request == null ? null : request.optString("id_perangkat", null));
+	}
+
+	private static String namaPerangkat(JSONObject request) {
+		String nama = request == null ? null : request.optString("nama_perangkat", null);
+		if (nama == null || nama.trim().length() == 0) nama = request == null ? null : request.optString("nama_mesin", null);
+		if (nama == null) return null;
+		nama = nama.trim();
+		return nama.length() > 150 ? nama.substring(0, 150) : nama;
+	}
+
 	/**
 	 * Fitur "Sesi Kasir" (versi JSP) -- status sesi kas TERBUKA milik kasir saat ini untuk toko
 	 * tertentu: dipanggil saat {@code _pos.jsp} dimuat (dan tiap kali toko berpindah) untuk
@@ -1455,6 +1490,13 @@ public class KantinHelper {
 	public static void sesiKasStatus(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		String[] id = identitasKasir(tbmuser);
 		Long tokoId = request.isNull("id_toko") ? null : Long.valueOf(request.get("id_toko").toString());
+		String perangkat = idPerangkat(request);
+		if (perangkat == null) {
+			hasil.put("status", "91");
+			hasil.put("terbuka", false);
+			hasil.put("description", "Perangkat belum dikenali. Muat ulang halaman atau perbarui aplikasi sebelum membuka kas.");
+			return;
+		}
 		// Logging diagnostik (SAMA gaya dgn [SESI-KAS-BUKA]) -- ditambahkan setelah laporan lapangan
 		// "sesi_kas_buka membalas sukses+commit terbukti di log, tapi sesi_kas_status BERULANG KALI
 		// (bukan sekadar sesaat, dicoba ulang beberapa kali dgn jeda beberapa detik s/d menit) tetap
@@ -1467,7 +1509,13 @@ public class KantinHelper {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			ais.database.model.inventory.SesiKasKasir sesi = ais.action.master.koperasi.helper.SesiKasUtil
-					.sesiTerbuka(session, id[0], id[1], tokoId);
+					.sesiTerbukaPerangkat(session, id[0], id[1], tokoId, perangkat);
+			if (sesi != null && ais.action.master.koperasi.helper.SesiKasUtil.ikatPerangkatJikaLama(
+					sesi, perangkat, namaPerangkat(request))) {
+				session.beginTransaction();
+				Common.refreshSaveOrUpdate(session, sesi);
+				session.getTransaction().commit();
+			}
 			System.out.println("[SESI-KAS-STATUS] hasil query -- " + (sesi == null ? "TIDAK DITEMUKAN (null)"
 					: ("DITEMUKAN id=" + sesi.getId() + ", kasirNama=" + sesi.getKasirNama() + ", kasirUserId=" + sesi.getKasirUserId()
 							+ ", toko=" + (sesi.getToko() == null ? "null" : sesi.getToko().getId()) + ", status=" + sesi.getStatus())));
@@ -1487,6 +1535,13 @@ public class KantinHelper {
 			hasil.put("status", "00");
 			if (sesi == null) {
 				hasil.put("terbuka", false);
+				SesiKasKasir sesiLain = ais.action.master.koperasi.helper.SesiKasUtil.sesiTerbuka(session, id[0], id[1], null);
+				if (sesiLain != null) {
+					hasil.put("sesiDiPerangkatLain", true);
+					hasil.put("namaPerangkatLain", sesiLain.getNamaPerangkat());
+					hasil.put("description", "Sesi kas akun ini sedang terbuka pada perangkat lain: "
+							+ (sesiLain.getNamaPerangkat() == null ? sesiLain.getIdPerangkat() : sesiLain.getNamaPerangkat()) + ".");
+				}
 			} else {
 				double[] jual = ais.action.master.koperasi.helper.SesiKasUtil.hitungPenjualan(session, sesi, new Date());
 				double modalAwal = sesi.getModalAwal() == null ? 0.0 : sesi.getModalAwal().doubleValue();
@@ -1496,6 +1551,13 @@ public class KantinHelper {
 				hasil.put("totalTunai", jual[0]);
 				hasil.put("totalNonTunai", jual[1]);
 				hasil.put("kasSaatIni", modalAwal + jual[0]);
+				hasil.put("idSesiKas", sesi.getId());
+				hasil.put("kodeSesiKas", sesi.getKode());
+				hasil.put("kasirNama", sesi.getKasirNama());
+				hasil.put("kasirUserId", sesi.getKasirUserId());
+				hasil.put("tokoId", sesi.getToko() == null ? JSONObject.NULL : sesi.getToko().getId());
+				hasil.put("idPerangkat", sesi.getIdPerangkat());
+				hasil.put("namaPerangkat", sesi.getNamaPerangkat());
 			}
 		} finally {
 			tutupSessionPolaB(session);
@@ -1577,6 +1639,13 @@ public class KantinHelper {
 		String[] id = identitasKasir(tbmuser);
 		Long tokoId = request.isNull("id_toko") ? null : Long.valueOf(request.get("id_toko").toString());
 		String kode = request.isNull("kode") ? null : request.optString("kode", null);
+		String perangkat = idPerangkat(request);
+		String namaPerangkatNilai = namaPerangkat(request);
+		if (perangkat == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Perangkat belum dikenali. Muat ulang halaman atau perbarui aplikasi sebelum membuka kas.");
+			return;
+		}
 		System.out.println("[SESI-KAS-BUKA] mulai -- kasir(kasirNama=" + id[0] + ", kasirUserId=" + id[1] + "), toko=" + tokoId
 				+ ", kode=" + kode + ", payload=" + request.toString());
 		Session session = HibernateUtil.getSessionFactory().openSession();
@@ -1615,6 +1684,18 @@ public class KantinHelper {
 			ais.database.model.inventory.SesiKasKasir sudahAda = kode == null ? null
 					: ais.action.master.koperasi.helper.SesiKasUtil.cariByKode(session, kode);
 			if (sudahAda != null) {
+				if ((sudahAda.getIdPerangkat() != null && !perangkat.equals(sudahAda.getIdPerangkat())) ||
+						(!id[1].equals(sudahAda.getKasirUserId()) && !id[0].equals(sudahAda.getKasirNama()))) {
+					hasil.put("status", "91");
+					hasil.put("description", "Kode sesi ini dimiliki akun atau perangkat lain dan tidak dapat digunakan kembali.");
+					return;
+				}
+				if (ais.action.master.koperasi.helper.SesiKasUtil.ikatPerangkatJikaLama(
+						sudahAda, perangkat, namaPerangkatNilai)) {
+					session.beginTransaction();
+					Common.refreshSaveOrUpdate(session, sudahAda);
+					session.getTransaction().commit();
+				}
 				System.out.println("[SESI-KAS-BUKA] idempotensi -- kode=" + kode + " SUDAH ada, id=" + sudahAda.getId()
 						+ " -- balas sukses apa adanya (bukan retry gagal, bukan duplikat).");
 				hasil.put("status", "00");
@@ -1622,12 +1703,20 @@ public class KantinHelper {
 				return;
 			}
 
-			Long idTerbuka = ais.action.master.koperasi.helper.SesiKasUtil.idSesiTerbuka(session, id[0], id[1], tokoId);
+			Long idTerbuka = ais.action.master.koperasi.helper.SesiKasUtil.idSesiTerbuka(session, id[0], id[1], null);
 			if (idTerbuka != null) {
 				System.out.println("[SESI-KAS-BUKA] ditolak -- sudah ada sesi terbuka id=" + idTerbuka
 						+ " utk kasir/toko yg sama.");
 				hasil.put("status", "91");
 				hasil.put("description", "Sesi kas sudah terbuka. Tutup kas yang sedang berjalan sebelum membuka sesi baru.");
+				return;
+			}
+			SesiKasKasir sesiPerangkat = ais.action.master.koperasi.helper.SesiKasUtil
+					.sesiTerbukaPadaPerangkat(session, null, perangkat);
+			if (sesiPerangkat != null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Perangkat ini masih memiliki sesi kas milik "
+						+ sesiPerangkat.getKasirNama() + ". Tutup sesi tersebut sebelum pengguna lain membuka kas.");
 				return;
 			}
 			Toko toko = tokoId == null ? null : (Toko) session.get(Toko.class, tokoId);
@@ -1650,7 +1739,8 @@ public class KantinHelper {
 			ais.database.model.inventory.SesiKasKasir baru;
 			try {
 				baru = ais.action.master.koperasi.helper.SesiKasUtil.buka(session,
-						toko, id[0], id[1], modalAwal, keterangan, kode, waktuBukaKlien);
+						toko, id[0], id[1], modalAwal, keterangan, kode, waktuBukaKlien,
+						perangkat, namaPerangkatNilai);
 				System.out.println("[SESI-KAS-BUKA] SesiKasUtil.buka() selesai -- id baris (sebelum commit)="
 						+ (baru == null ? "null" : baru.getId()));
 				session.getTransaction().commit();
@@ -1768,6 +1858,12 @@ public class KantinHelper {
 		String[] id = identitasKasir(tbmuser);
 		Long tokoId = request.isNull("id_toko") ? null : Long.valueOf(request.get("id_toko").toString());
 		String kode = request.isNull("kode") ? null : request.optString("kode", null);
+		String perangkat = idPerangkat(request);
+		if (perangkat == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Perangkat belum dikenali. Tutup kas harus dilakukan dari perangkat yang membuka sesi.");
+			return;
+		}
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			// Cari lewat kode dulu (lebih presisi, sesi PASTI yg dimaksud klien) -- jatuh ke pencarian
@@ -1775,6 +1871,12 @@ public class KantinHelper {
 			// sempat tersinkron -- lihat javadoc method).
 			ais.database.model.inventory.SesiKasKasir sesi = kode == null ? null
 					: ais.action.master.koperasi.helper.SesiKasUtil.cariByKode(session, kode);
+			if (sesi != null && ((sesi.getIdPerangkat() != null && !perangkat.equals(sesi.getIdPerangkat()))
+					|| (!id[1].equals(sesi.getKasirUserId()) && !id[0].equals(sesi.getKasirNama())))) {
+				hasil.put("status", "91");
+				hasil.put("description", "Sesi kas hanya dapat ditutup oleh akun dan perangkat yang membukanya. Hubungi supervisor jika perangkat asal tidak tersedia.");
+				return;
+			}
 			if (sesi != null && ais.database.model.inventory.SesiKasKasir.STATUS_TUTUP.equals(sesi.getStatus())) {
 				// Idempotensi: sesi ini SUDAH ditutup sebelumnya (retry sinkron krn respons hilang) --
 				// balas hasil yg SUDAH tercatat apa adanya, JANGAN hitung ulang (waktu "sekarang" sudah
@@ -1785,13 +1887,15 @@ public class KantinHelper {
 				return;
 			}
 			if (sesi == null) {
-				sesi = ais.action.master.koperasi.helper.SesiKasUtil.sesiTerbuka(session, id[0], id[1], tokoId);
+				sesi = ais.action.master.koperasi.helper.SesiKasUtil.sesiTerbukaPerangkat(session, id[0], id[1], tokoId, perangkat);
 			}
 			if (sesi == null) {
 				hasil.put("status", "91");
 				hasil.put("description", "Tidak ada sesi kas yang terbuka untuk ditutup.");
 				return;
 			}
+			ais.action.master.koperasi.helper.SesiKasUtil.ikatPerangkatJikaLama(
+					sesi, perangkat, namaPerangkat(request));
 			double uangFisik = request.optDouble("uang_fisik", 0);
 			String keterangan = request.optString("keterangan", "");
 			java.util.Date waktuTutupKlien = null;

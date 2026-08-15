@@ -969,14 +969,15 @@ public class PosKantinAction extends GenericAutowireComposer {
         }
         try {
             ais.database.model.inventory.SesiKasKasir sesi = ais.action.master.koperasi.helper.SesiKasUtil
-                    .sesiTerbuka(HibernateUtil.currentSession(), oleh, olehId, tokoIdAktif);
+                    .sesiTerbukaPerangkat(HibernateUtil.currentSession(), oleh, olehId, tokoIdAktif,
+							idPerangkatZk());
             if (sesi == null) {
                 lblSesiKas.setValue(Common.getBahasaConfig("Kas: Tertutup"));
                 lblSesiKas.setStyle("font-size:11.5px;font-weight:700;color:#dc2626;");
                 btnSesiKas.setValue(Common.getBahasaConfig("Buka Kas"));
             } else {
                 double[] jual = ais.action.master.koperasi.helper.SesiKasUtil.hitungPenjualan(
-                        HibernateUtil.currentSession(), oleh, olehId, tokoIdAktif, sesi.getWaktuBuka(), new Date());
+                        HibernateUtil.currentSession(), sesi, new Date());
                 double kasSaatIni = (sesi.getModalAwal() == null ? 0.0 : sesi.getModalAwal().doubleValue()) + jual[0];
                 String waktu = new java.text.SimpleDateFormat("dd-MM HH:mm").format(sesi.getWaktuBuka());
                 lblSesiKas.setValue(Common.getBahasaConfig("Kas") + ": Rp " + DashboardUiKit.money(kasSaatIni)
@@ -1000,7 +1001,7 @@ public class PosKantinAction extends GenericAutowireComposer {
         sesiKasFormBox.getChildren().clear();
         Session session = HibernateUtil.currentSession();
         final ais.database.model.inventory.SesiKasKasir sesi = ais.action.master.koperasi.helper.SesiKasUtil
-                .sesiTerbuka(session, oleh, olehId, tokoIdAktif);
+                .sesiTerbukaPerangkat(session, oleh, olehId, tokoIdAktif, idPerangkatZk());
 
         if (sesi == null) {
             Label l = new Label(Common.getBahasaConfig("Kas belum dibuka. Isi modal awal untuk memulai sesi kas."));
@@ -1034,8 +1035,18 @@ public class PosKantinAction extends GenericAutowireComposer {
                     }
                     double m = modal.getValue() == null ? 0 : modal.getValue().doubleValue();
                     Toko t = (Toko) HibernateUtil.currentSession().get(Toko.class, tokoIdAktif);
+					if (ais.action.master.koperasi.helper.SesiKasUtil.sesiTerbuka(
+							HibernateUtil.currentSession(), oleh, olehId, null) != null
+							|| ais.action.master.koperasi.helper.SesiKasUtil.sesiTerbukaPadaPerangkat(
+									HibernateUtil.currentSession(), null, idPerangkatZk()) != null) {
+						MyMessageboxConfig.show(
+								"Akun atau perangkat ini masih mempunyai sesi kas terbuka. Tutup sesi lama sebelum membuka sesi baru.",
+								"Sesi Kas Masih Aktif", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+						return;
+					}
                     ais.action.master.koperasi.helper.SesiKasUtil.buka(
-                            HibernateUtil.currentSession(), t, oleh, olehId, m, ket.getValue());
+                            HibernateUtil.currentSession(), t, oleh, olehId, m, ket.getValue(), null, null,
+							idPerangkatZk(), "ZK Web / " + idPerangkatZk());
                     renderSesiKasChip();
                     sesiKasFormBox.setStyle("display:none;");
                 }
@@ -1043,7 +1054,7 @@ public class PosKantinAction extends GenericAutowireComposer {
             buka.setParent(h);
         } else {
             double[] jual = ais.action.master.koperasi.helper.SesiKasUtil.hitungPenjualan(
-                    session, oleh, olehId, tokoIdAktif, sesi.getWaktuBuka(), new Date());
+                    session, sesi, new Date());
             final double seharusnya = (sesi.getModalAwal() == null ? 0.0 : sesi.getModalAwal().doubleValue()) + jual[0];
 
             Label l = new Label(Common.getBahasaConfig("Kas Terbuka sejak")
@@ -1814,7 +1825,7 @@ public class PosKantinAction extends GenericAutowireComposer {
      * <ol>
      *   <li><b>Gerbang toko dipilih</b> — tanpa {@code tokoIdAktif}, tidak ada transaksi yang punya
      *       arti (setiap baris penjualan wajib terikat ke satu toko).</li>
-     *   <li><b>Gerbang Sesi Kas Kasir</b> (opsional, default MATI —
+     *   <li><b>Gerbang Sesi Kas Kasir</b> (dapat dikonfigurasi, default AKTIF —
      *       {@code Konfigurasi.KANTIN_POS_WAJIB_SESI_KAS}) — toko yang mengaktifkannya mewajibkan
      *       kasir membuka sesi kas dulu; pencocokan identitas ({@code oleh}/{@code olehId}) memakai
      *       pola yang SAMA dengan {@code KasKasirZkAction} supaya
@@ -1857,12 +1868,9 @@ public class PosKantinAction extends GenericAutowireComposer {
                     MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
             return;
         }
-        // Fase 1: gerbang Sesi Kas Kasir -- WAJIB PERMANEN utk SEMUA toko (2026-08-11, permintaan
-        // eksplisit user; sebelumnya opt-in per-toko lewat Konfigurasi.KANTIN_POS_WAJIB_SESI_KAS,
-        // default OFF -- opsi mematikannya SEKARANG dihapus, bukan sekadar default-nya diubah).
-        // Kecocokan sesi terbuka memakai pola identitas (oleh/olehId) yang SAMA dengan KasKasirZkAction
-        // agar SesiKasUtil.hitungPenjualan() nanti mencocokkan transaksi ke sesi yang benar.
-        {
+		// Fase 1: default WAJIB, tetapi unit tanpa laci/shift kas dapat mematikannya melalui
+		// konfigurasi server yang sama dengan seluruh kanal POS.
+		if (Common.bolehKonfigurasi(Konfigurasi.KANTIN_POS_WAJIB_SESI_KAS, Konfigurasi.AKTIF)) {
             Long sesiTerbukaId = ais.action.master.koperasi.helper.SesiKasUtil.idSesiTerbuka(
                     HibernateUtil.currentSession(), oleh, olehId, tokoIdAktif);
             if (sesiTerbukaId == null) {
@@ -1923,6 +1931,8 @@ public class PosKantinAction extends GenericAutowireComposer {
         payload.put("idToko", tokoIdAktif);
         payload.put("waktu", Common.dateFormat3.get().format(new Date()));
         payload.put("caraBayar", caraBayarId);
+		payload.put("id_perangkat", idPerangkatZk());
+		payload.put("nama_perangkat", "ZK Web / " + idPerangkatZk());
         if (grandPajak > 0) {
             payload.put("pajak", grandPajak);
         }
@@ -1992,6 +2002,20 @@ public class PosKantinAction extends GenericAutowireComposer {
             eksekusiBayar(payload, cara.getNama(), total);
         }
     }
+
+	/** Identitas stabil selama sesi login browser untuk mengisolasi sesi kas ZK per perangkat. */
+	private String idPerangkatZk() {
+		try {
+			Object nativeSession = org.zkoss.zk.ui.Sessions.getCurrent().getNativeSession();
+			if (nativeSession instanceof javax.servlet.http.HttpSession) {
+				return "zk-" + ((javax.servlet.http.HttpSession) nativeSession).getId();
+			}
+		} catch (Exception ignore) {
+			ais.common.ErrorAuditUtil.record(ignore,
+					"auto-audit PosKantinAction.idPerangkatZk");
+		}
+		return "zk-" + org.zkoss.zk.ui.Executions.getCurrent().getDesktop().getId();
+	}
 
     /** Total keranjang saat ini (subtotal setiap baris dikurangi diskon baris itu) -- dipakai
      *  ulang oleh {@link #onBayar()} dan {@link #tahanTransaksi()} agar rumus totalnya SATU

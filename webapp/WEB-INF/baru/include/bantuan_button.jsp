@@ -18,7 +18,13 @@
     if (__ada) {
         String __ctx = request.getContextPath();
 %>
-<div id="kbjspFab" onclick="kbjspOpen()" title="Panduan penggunaan halaman ini"
+<div id="kbjspQaFab" onclick="kbjspOpenMode('qa')" title="Tanya jawab sesuai halaman ini"
+     style="position:fixed;right:16px;bottom:62px;z-index:99990;cursor:pointer;background:#15803d;color:#fff;
+     border-radius:22px;padding:9px 15px;box-shadow:0 4px 14px rgba(21,128,61,.35);
+     font:600 13px 'Segoe UI',Arial,sans-serif;display:inline-flex;align-items:center;gap:6px;">
+  <span style="font-size:15px;line-height:1;">&#128172;</span><span>Tanya Jawab</span>
+</div>
+<div id="kbjspFab" onclick="kbjspOpenMode('help')" title="Panduan penggunaan halaman ini"
      style="position:fixed;right:16px;bottom:16px;z-index:99990;cursor:pointer;background:#1d4ed8;color:#fff;
      border-radius:22px;padding:9px 15px;box-shadow:0 4px 14px rgba(29,78,216,.35);
      font:600 13px 'Segoe UI',Arial,sans-serif;display:inline-flex;align-items:center;gap:6px;">
@@ -31,16 +37,19 @@
        display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.35);">
     <div style="flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;background:#eef2f7;
          border-bottom:1px solid #d7dee8;padding:9px 14px;font:600 14px 'Segoe UI',Arial,sans-serif;color:#0f172a;">
-      <span>Pusat Bantuan</span>
+      <span id="kbjspTitle">Pusat Bantuan</span>
       <span onclick="kbjspClose()" style="cursor:pointer;font-size:22px;line-height:1;color:#64748b;padding:0 4px;">&times;</span>
     </div>
     <iframe id="kbjspFrame" src="about:blank" style="flex:1 1 auto;border:0;width:100%;height:100%;"></iframe>
   </div>
 </div>
 <script type="text/javascript">
-function kbjspOpen(){
+function kbjspOpen(){ kbjspOpenMode('help'); }
+function kbjspOpenMode(mode){
   var f=document.getElementById('kbjspFrame');
-  if(!f.getAttribute('data-loaded')){ f.src='<%= __ctx %>/bantuan?key=<%= __key %>'; f.setAttribute('data-loaded','1'); }
+  var qa=mode==='qa', url='<%= __ctx %>/bantuan?key=<%= __key %>'+(qa?'&mode=qa':'');
+  if(f.getAttribute('data-mode')!==mode){ f.src=url; f.setAttribute('data-mode',mode); }
+  document.getElementById('kbjspTitle').textContent=qa?'Tanya Jawab Halaman':'Pusat Bantuan';
   document.getElementById('kbjspOverlay').style.display='block';
 }
 function kbjspClose(){ document.getElementById('kbjspOverlay').style.display='none'; }

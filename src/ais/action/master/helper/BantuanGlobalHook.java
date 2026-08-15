@@ -139,13 +139,13 @@ public class BantuanGlobalHook implements UiLifeCycle {
 				return;
 			}
 			final String key = keyDariPage(page);
-			if (key == null || !KEYS.contains(key)) {
+			if (key == null) {
 				return;
 			}
 			if (!fileBantuanAda(desktop, key)) {
 				return;
 			}
-			buatFab(key).setPage(page);
+			buatFab(key, KEYS.contains(key)).setPage(page);
 		} catch (Throwable ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/helper/BantuanGlobalHook.java:149");
 			// JANGAN pernah mengganggu render halaman
 		}
@@ -172,7 +172,7 @@ public class BantuanGlobalHook implements UiLifeCycle {
 				return;
 			}
 			final String key = keyDariSrc(((MyInclude) comp).getSrc());
-			if (key == null || !KEYS.contains(key)) {
+			if (key == null) {
 				return;
 			}
 			Desktop desktop = page != null ? page.getDesktop() : comp.getDesktop();
@@ -187,7 +187,7 @@ public class BantuanGlobalHook implements UiLifeCycle {
 			if (induk != null && sudahAdaFab(induk)) {
 				return;
 			}
-			Div fab = buatFab(key);
+			Div fab = buatFab(key, KEYS.contains(key));
 			if (induk != null) {
 				fab.setParent(induk);
 			} else {
@@ -213,23 +213,40 @@ public class BantuanGlobalHook implements UiLifeCycle {
 	}
 
 	/** Bangun tombol Bantuan mengambang (belum dipasang ke parent/page). */
-	private static Div buatFab(final String key) {
-		final Div fab = new Div();
-		fab.setSclass("kb-fab-global");
-		fab.setStyle("position:fixed;right:16px;bottom:78px;z-index:99990;cursor:pointer;"
-				+ "background:#1d4ed8;color:#ffffff;border-radius:22px;padding:9px 15px;"
-				+ "box-shadow:0 4px 14px rgba(29,78,216,.35);font-size:13px;font-weight:600;"
-				+ "display:inline-flex;align-items:center;gap:6px;"
-				+ "font-family:'Segoe UI',Arial,sans-serif;");
-		fab.setTooltiptext("Panduan penggunaan halaman ini");
-		new Html("<span style='font-size:15px;line-height:1;'>&#63;</span><span>Bantuan</span>").setParent(fab);
-		fab.addEventListener("onClick", new EventListener() {
+	private static Div buatFab(final String key, boolean sertakanBantuan) {
+		final Div wrapper = new Div();
+		wrapper.setSclass("kb-fab-global");
+		wrapper.setStyle("position:fixed;right:16px;bottom:78px;z-index:99990;display:flex;"
+				+ "flex-direction:column;align-items:flex-end;gap:8px;font-family:'Segoe UI',Arial,sans-serif;");
+
+		final Div qa = new Div();
+		qa.setStyle("cursor:pointer;background:#15803d;color:#ffffff;border-radius:22px;padding:9px 15px;"
+				+ "box-shadow:0 4px 14px rgba(21,128,61,.35);font-size:13px;font-weight:600;");
+		qa.setTooltiptext("Tanya jawab lengkap sesuai halaman ini");
+		new Html("<span style='font-size:15px;line-height:1;'>&#128172;</span><span style='margin-left:6px;'>Tanya Jawab</span>").setParent(qa);
+		qa.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
-				BantuanHelper.tampilkanDariResource(fab, key, "Bantuan");
+				BantuanHelper.tampilkanTanyaJawabDariResource(qa, key, "Tanya Jawab");
 			}
 		});
-		return fab;
+		qa.setParent(wrapper);
+
+		if (sertakanBantuan) {
+			final Div bantuan = new Div();
+			bantuan.setStyle("cursor:pointer;background:#1d4ed8;color:#ffffff;border-radius:22px;padding:9px 15px;"
+					+ "box-shadow:0 4px 14px rgba(29,78,216,.35);font-size:13px;font-weight:600;");
+			bantuan.setTooltiptext("Panduan penggunaan halaman ini");
+			new Html("<span style='font-size:15px;line-height:1;'>&#63;</span><span style='margin-left:6px;'>Bantuan</span>").setParent(bantuan);
+			bantuan.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					BantuanHelper.tampilkanDariResource(bantuan, key, "Bantuan");
+				}
+			});
+			bantuan.setParent(wrapper);
+		}
+		return wrapper;
 	}
 
 	/** Turunkan key dari src include (mis. "/WEB-INF/z/x/y/mahasiswa.zul" -> "mahasiswa"). */

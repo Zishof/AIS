@@ -162,6 +162,7 @@ public class PembelianAnggotaKoperasi extends GeneralValueObject {
 	private String namaMesin;
 
 	private SesiKasKasir sesiKasKasir;
+	private String idPerangkat;
 
 	@SuppressWarnings("unchecked")
 	public JSONArray simpanRinci(Session session, JSONArray transaksi, String kodeUnik, Date currentWaktu, Toko toko,
@@ -679,6 +680,16 @@ public class PembelianAnggotaKoperasi extends GeneralValueObject {
 
 	public void setSesiKasKasir(SesiKasKasir sesiKasKasir) {
 		this.sesiKasKasir = sesiKasKasir;
+	}
+
+	/** Snapshot perangkat asal transaksi untuk audit dan rekonsiliasi offline. */
+	@Column(name = "id_perangkat", nullable = true, length = 128)
+	public String getIdPerangkat() {
+		return idPerangkat;
+	}
+
+	public void setIdPerangkat(String idPerangkat) {
+		this.idPerangkat = idPerangkat;
 	}
 
 	public void setRetur(Double retur) {

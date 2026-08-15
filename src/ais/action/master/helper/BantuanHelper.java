@@ -86,6 +86,27 @@ public class BantuanHelper {
 	}
 
 	/**
+	 * Tampilkan tanya jawab kontekstual untuk halaman aktif. Materi khusus halaman
+	 * ditempatkan sebagai jawaban pertama, kemudian dilengkapi FAQ operasional umum
+	 * yang panjangnya minimal 2.000 kata dan dapat dipakai tanpa pengetahuan teknis.
+	 */
+	public static void tampilkanTanyaJawabDariResource(Component self, String key, String judul) {
+		String khusus = muatKontenFile(key);
+		if (khusus == null || khusus.trim().isEmpty()) {
+			khusus = bangunOtomatis(self);
+		}
+		String umum = muatKontenFile("_qa_umum");
+		if (umum == null) {
+			umum = "";
+		}
+		String html = "<details open style='border:1px solid #bbf7d0;border-radius:10px;padding:0 14px;margin-bottom:10px;'>"
+				+ "<summary style='cursor:pointer;color:#166534;font-weight:700;padding:12px 0;'>"
+				+ "Apa fungsi dan petunjuk khusus halaman ini?</summary><div style='padding-bottom:12px;'>"
+				+ khusus + "</div></details>" + umum;
+		tampilkan(self, judul == null || judul.trim().isEmpty() ? "Tanya Jawab" : judul, html, null);
+	}
+
+	/**
 	 * Tampilkan panduan dengan konten HTML yang sudah disiapkan.
 	 *
 	 * @param self        komponen pemicu untuk konteks halaman; boleh null
@@ -130,9 +151,22 @@ public class BantuanHelper {
 			Toolbar toolbar = new Toolbar();
 			toolbar.setStyle("flex:0 0 auto;background:#eef2f7;border-bottom:1px solid #d7dee8;");
 			toolbar.setParent(box);
-
 			final String judulCetak = judul == null || judul.trim().isEmpty() ? "Bantuan" : judul;
 			final String isiCetak = htmlKonten == null ? "" : htmlKonten;
+
+			if (key != null && !key.trim().isEmpty()) {
+				final String qaKey = key;
+				MyToolbarbuttonConfig qa = new MyToolbarbuttonConfig("Tanya Jawab", "/img/svg/info.svg");
+				qa.setTooltiptext("Buka tanya jawab lengkap sesuai halaman ini");
+				qa.addEventListener("onClick", new EventListener() {
+					@Override
+					public void onEvent(Event event) throws Exception {
+						tampilkanTanyaJawabDariResource(self, qaKey, "Tanya Jawab — " + judulCetak);
+					}
+				});
+				qa.setParent(toolbar);
+			}
+
 			MyToolbarbuttonConfig cetak = new MyToolbarbuttonConfig("Cetak", "/img/svg/printer.svg");
 			cetak.setTooltiptext("Cetak panduan ini");
 			cetak.addEventListener("onClick", new EventListener() {

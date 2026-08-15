@@ -34,6 +34,7 @@ public class Bantuan extends HttpServlet {
 
 		String key = request.getParameter("key");
 		key = key == null ? "" : key.trim().toLowerCase();
+		boolean modeTanyaJawab = "qa".equalsIgnoreCase(request.getParameter("mode"));
 
 		PrintWriter out = response.getWriter();
 
@@ -74,7 +75,19 @@ public class Bantuan extends HttpServlet {
 					+ "bila Anda memerlukan penjelasan lebih lanjut.</p>";
 		}
 
-		out.write(bungkus("Bantuan", isi));
+		if (modeTanyaJawab) {
+			String qaUmum = bacaResource("_qa_umum");
+			if (qaUmum == null) {
+				qaUmum = "";
+			}
+			isi = "<div class='kb-qa-tools'><input id='kbQaCari' type='search' "
+					+ "placeholder='Cari pertanyaan: simpan, stok, kas, transaksi, jaringan…' "
+					+ "oninput='kbCariQa(this.value)'><span id='kbQaJumlah'></span></div>"
+					+ "<details class='kb-qa-item' open><summary>Apa fungsi dan petunjuk khusus halaman ini?</summary>"
+					+ "<div>" + isi + "</div></details>" + qaUmum;
+		}
+
+		out.write(bungkus(modeTanyaJawab ? "Tanya Jawab" : "Bantuan", isi, modeTanyaJawab));
 	}
 
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
@@ -100,7 +113,27 @@ public class Bantuan extends HttpServlet {
 		}
 	}
 
+	private String bacaResource(String key) {
+		try {
+			String path = getServletContext().getRealPath("/WEB-INF/bantuan/" + key + ".html");
+			if (path != null) {
+				File f = new File(path);
+				if (f.isFile()) {
+					return baca(f);
+				}
+			}
+		} catch (Exception ignore) {
+			ais.common.ErrorAuditUtil.record(ignore,
+					"auto-audit(empty-catch) src/ais/action/servlet/Bantuan.java:bacaResource");
+		}
+		return null;
+	}
+
 	private static String bungkus(String judul, String isi) {
+		return bungkus(judul, isi, false);
+	}
+
+	private static String bungkus(String judul, String isi, boolean modeTanyaJawab) {
 		return "<!doctype html><html lang='id'><head><meta charset='UTF-8'>"
 				+ "<meta name='viewport' content='width=device-width,initial-scale=1'>"
 				+ "<title>" + judul + "</title><style>"
@@ -111,10 +144,17 @@ public class Bantuan extends HttpServlet {
 				+ "color:#1d4ed8;font-weight:600;padding:6px 12px;font-size:13px;}"
 				+ ".kb-wrap{max-width:900px;margin:0 auto;padding:16px 22px;font-size:13px;line-height:1.7;}"
 				+ ".kb-wrap h2{color:#1d4ed8;} .kb-wrap h3{color:#0f172a;}"
+				+ ".kb-qa-tools{position:sticky;top:47px;z-index:2;background:#fff;padding:8px 0 12px;display:flex;gap:12px;align-items:center;}"
+				+ ".kb-qa-tools input{flex:1;border:1px solid #cbd5e1;border-radius:9px;padding:10px 12px;font:inherit;}"
+				+ ".kb-qa-tools span{color:#15803d;font-weight:600;white-space:nowrap;}"
+				+ "details{border:1px solid #dbe5df;border-radius:10px;padding:0 14px;margin:0 0 10px;background:#fff;}"
+				+ "summary{cursor:pointer;color:#166534;font-weight:700;padding:12px 0;} details>div{padding:0 0 12px;}"
 				+ "@media print{.kb-bar{display:none;}}"
 				+ "</style></head><body>"
 				+ "<div class='kb-bar'><button class='kb-print' onclick='window.print()'>"
 				+ "&#128424; Cetak</button></div>"
-				+ "<div class='kb-wrap'>" + isi + "</div></body></html>";
+				+ "<div class='kb-wrap'>" + isi + "</div>"
+				+ (modeTanyaJawab ? "<script>function kbCariQa(q){q=(q||'').toLowerCase().trim();var a=document.querySelectorAll('details');var n=0;a.forEach(function(x){var ok=!q||x.textContent.toLowerCase().indexOf(q)>=0;x.style.display=ok?'block':'none';if(ok)n++;});document.getElementById('kbQaJumlah').textContent=n+' pertanyaan';}kbCariQa('');</script>" : "")
+				+ "</body></html>";
 	}
 }

@@ -41,7 +41,7 @@
 <% if (isMob) { %><%= MobileHubHelper.buildMobCss() %><% } %>
 <%= MobileHubHelper.buildHeader("eMedik", "Pendaftaran, pelayanan, dan pembayaran pasien", "clinic-medical", "linear-gradient(135deg,#059669,#0891b2)") %>
 <div class="container-fluid pb-3">
-    <% if (firstHelpMenu != null) { %><div class="text-end mb-3"><a class="btn btn-warning" href="<%=ctx%>/baru?p=emedik&amp;s=help&amp;menu=<%=firstHelpMenu%>"><i class="fas fa-question-circle"></i> Bantuan</a></div><% } %>
+    <% if (firstHelpMenu != null) { %><div class="text-end mb-3"><a class="btn btn-success me-2" href="<%=ctx%>/baru?p=emedik&amp;s=help&amp;mode=qa&amp;menu=<%=firstHelpMenu%>"><i class="fas fa-comments"></i> Tanya Jawab</a><a class="btn btn-warning" href="<%=ctx%>/baru?p=emedik&amp;s=help&amp;menu=<%=firstHelpMenu%>"><i class="fas fa-question-circle"></i> Bantuan</a></div><% } %>
     <% if (jumlahMenu == 0) { %>
     <div class="alert alert-warning border-0 shadow-sm">Role ini belum memiliki hak akses menu eMedik. Atur hak akses eBisnis pada Grup Pengguna.</div>
     <% } else { %>

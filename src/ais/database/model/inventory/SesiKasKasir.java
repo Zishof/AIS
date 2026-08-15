@@ -73,6 +73,8 @@ public class SesiKasKasir extends GeneralValueObject {
 	private String olehId;
 	private String kasirNama;
 	private String kasirUserId;
+	private String idPerangkat;
+	private String namaPerangkat;
 	private Date waktuBuka;
 	private Date waktuTutup;
 	private Double modalAwal;
@@ -159,6 +161,30 @@ public class SesiKasKasir extends GeneralValueObject {
 
 	public void setKasirUserId(String kasirUserId) {
 		this.kasirUserId = kasirUserId;
+	}
+
+	/**
+	 * Identitas instalasi/perangkat yang membuka sesi. Nilai ini dibuat sekali oleh aplikasi POS
+	 * dan tetap sama setelah aplikasi dibuka ulang. Sesi kas baru wajib terikat ke perangkat agar
+	 * akun yang sama pada mesin lain tidak dapat memakai sesi ini secara tidak sengaja.
+	 */
+	@Column(name = "id_perangkat", nullable = true, length = 128)
+	public String getIdPerangkat() {
+		return idPerangkat;
+	}
+
+	public void setIdPerangkat(String idPerangkat) {
+		this.idPerangkat = idPerangkat;
+	}
+
+	/** Nama perangkat saat sesi dibuka; snapshot untuk informasi operator dan audit. */
+	@Column(name = "nama_perangkat", nullable = true, length = 150)
+	public String getNamaPerangkat() {
+		return namaPerangkat;
+	}
+
+	public void setNamaPerangkat(String namaPerangkat) {
+		this.namaPerangkat = namaPerangkat;
 	}
 
 	@Temporal(TemporalType.TIMESTAMP)

@@ -3379,8 +3379,17 @@ public class InitIndex {
 		// Relasi transaksi ke sesi kas membuat rekonsiliasi akurat, termasuk saat nama
 		// kasir sama atau ada beberapa perangkat. Semua DDL idempoten untuk instalasi lama.
 		String[] DDL_RELASI_TRANSAKSI_SESI_KAS = new String[] {
+				"ALTER TABLE koperasi.sesi_kas_kasir ADD COLUMN IF NOT EXISTS id_perangkat varchar(128)",
+				"ALTER TABLE koperasi.sesi_kas_kasir ADD COLUMN IF NOT EXISTS nama_perangkat varchar(150)",
 				"ALTER TABLE koperasi.pembelian_anggota_koperasi ADD COLUMN IF NOT EXISTS sesi_kas_kasir bigint",
-				"CREATE INDEX IF NOT EXISTS idx_pak_sesi_kas ON koperasi.pembelian_anggota_koperasi (sesi_kas_kasir, tanggal_pembayaran)" };
+				"ALTER TABLE koperasi.pembelian_anggota_koperasi ADD COLUMN IF NOT EXISTS id_perangkat varchar(128)",
+				"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_pak_sesi_kas') THEN ALTER TABLE koperasi.pembelian_anggota_koperasi ADD CONSTRAINT fk_pak_sesi_kas FOREIGN KEY (sesi_kas_kasir) REFERENCES koperasi.sesi_kas_kasir(id) ON DELETE SET NULL; END IF; END $$",
+				"CREATE INDEX IF NOT EXISTS idx_pak_sesi_kas ON koperasi.pembelian_anggota_koperasi (sesi_kas_kasir, tanggal_pembayaran)",
+				"CREATE INDEX IF NOT EXISTS idx_pak_perangkat_waktu ON koperasi.pembelian_anggota_koperasi (id_perangkat, tanggal_pembayaran DESC) WHERE id_perangkat IS NOT NULL",
+				"DROP INDEX IF EXISTS koperasi.uq_sesi_kas_akun_toko_buka",
+				"DROP INDEX IF EXISTS koperasi.uq_sesi_kas_perangkat_toko_buka",
+				"CREATE UNIQUE INDEX IF NOT EXISTS uq_sesi_kas_akun_buka ON koperasi.sesi_kas_kasir (COALESCE(kasir_user_id,kasir_nama)) WHERE status='BUKA' OR status IS NULL",
+				"CREATE UNIQUE INDEX IF NOT EXISTS uq_sesi_kas_perangkat_buka ON koperasi.sesi_kas_kasir (id_perangkat) WHERE id_perangkat IS NOT NULL AND (status='BUKA' OR status IS NULL)" };
 		for (String sql : DDL_RELASI_TRANSAKSI_SESI_KAS) {
 			try { eksekusiSqlAmanDdl(sql); }
 			catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "init relasi transaksi sesi kas"); }

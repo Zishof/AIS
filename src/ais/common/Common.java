@@ -4130,21 +4130,23 @@ public class Common {
 	public static void clear(Component comp, String nama, int index) {
 		if (comp == null || comp.getChildren() == null)
 			return;
-		int list = comp.getChildren().size();
-		for (int i = 0; i < list; i++) {
+		int posisi = index < 0 ? 0 : index;
+		while (posisi < comp.getChildren().size()) {
 			try {
-				if (nama == null || comp.getAttribute(nama) != null) {
-					Component child = (Component) comp.getChildren().get(index);
-					if (child instanceof Paging) {
-						// ZK (mis. Grid dengan mold paging) mengelola Paging secara otomatis;
-						// detach manual akan memicu IllegalStateException ("cannot be removed
-						// manually"). Lewati saja, biarkan ZK yang mengurus siklus hidupnya.
-						continue;
-					}
-					child.detach();
+				Component child = (Component) comp.getChildren().get(posisi);
+				if (child instanceof Paging || (nama != null && child.getAttribute(nama) == null)) {
+					// Paging dikelola ZK. Anak yang tidak cocok filter juga dipertahankan;
+					// cursor harus maju agar loop tidak terus membaca anak yang sama.
+					posisi++;
+					continue;
 				}
+				// Setelah detach, anak berikutnya bergeser ke posisi yang sama. Jangan
+				// menaikkan cursor. Ini menghindari IndexOutOfBounds pada clear(..., 1).
+				child.detach();
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/Common.java:4065");
-
+				// Struktur dapat berubah dari listener ZK ketika detach. Maju satu posisi
+				// agar satu anak bermasalah tidak membuat loop tanpa akhir.
+				posisi++;
 			}
 		}
 	}

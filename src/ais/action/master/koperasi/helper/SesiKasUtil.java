@@ -96,6 +96,56 @@ public final class SesiKasUtil {
 	}
 
 	/**
+	 * Memuat sesi terbuka milik akun, toko, DAN perangkat yang sama. Jalur API POS baru wajib
+	 * memakai method ini; overload lama dipertahankan hanya untuk kompatibilitas layar ZK/JSP lama.
+	 */
+	public static SesiKasKasir sesiTerbukaPerangkat(Session session, String kasirNama, String kasirUserId,
+			Long tokoId, String idPerangkat) {
+		String perangkat = normalisasiIdPerangkat(idPerangkat);
+		if (perangkat == null) return null;
+		Criteria c = session.createCriteria(SesiKasKasir.class)
+				.add(Restrictions.or(Restrictions.eq("kasirNama", kasirNama), Restrictions.eq("kasirUserId", kasirUserId)))
+				.add(Restrictions.or(Restrictions.eq("status", SesiKasKasir.STATUS_BUKA), Restrictions.isNull("status")))
+				// Baris lama (sebelum identitas perangkat tersedia) boleh diklaim satu kali oleh
+				// akun pemiliknya. Pemanggil wajib menyimpan id perangkat segera setelah ditemukan.
+				.add(Restrictions.or(Restrictions.eq("idPerangkat", perangkat), Restrictions.isNull("idPerangkat")))
+				.addOrder(Order.desc("id"))
+				.setMaxResults(1);
+		if (tokoId != null) c.add(Restrictions.eq("toko", session.load(Toko.class, tokoId)));
+		return (SesiKasKasir) c.uniqueResult();
+	}
+
+	/** Sesi terbuka apa pun pada perangkat/toko, untuk mencegah satu mesin dipakai dua kasir. */
+	public static SesiKasKasir sesiTerbukaPadaPerangkat(Session session, Long tokoId, String idPerangkat) {
+		String perangkat = normalisasiIdPerangkat(idPerangkat);
+		if (perangkat == null) return null;
+		Criteria c = session.createCriteria(SesiKasKasir.class)
+				.add(Restrictions.eq("idPerangkat", perangkat))
+				.add(Restrictions.or(Restrictions.eq("status", SesiKasKasir.STATUS_BUKA), Restrictions.isNull("status")))
+				.addOrder(Order.desc("id"))
+				.setMaxResults(1);
+		if (tokoId != null) c.add(Restrictions.eq("toko", session.load(Toko.class, tokoId)));
+		return (SesiKasKasir) c.uniqueResult();
+	}
+
+	public static String normalisasiIdPerangkat(String nilai) {
+		if (nilai == null) return null;
+		String hasil = nilai.trim();
+		if (hasil.length() == 0) return null;
+		return hasil.length() > 128 ? hasil.substring(0, 128) : hasil;
+	}
+
+	/** Mengikat satu sesi warisan ke perangkat pertama yang dibuka oleh akun pemiliknya. */
+	public static boolean ikatPerangkatJikaLama(SesiKasKasir sesi, String idPerangkat, String namaPerangkat) {
+		if (sesi == null || sesi.getIdPerangkat() != null) return false;
+		sesi.setIdPerangkat(normalisasiIdPerangkat(idPerangkat));
+		String nama = namaPerangkat == null ? null : namaPerangkat.trim();
+		if (nama != null && nama.length() > 150) nama = nama.substring(0, 150);
+		sesi.setNamaPerangkat(nama == null || nama.length() == 0 ? null : nama);
+		return sesi.getIdPerangkat() != null;
+	}
+
+	/**
 	 * Mengembalikan id sesi kas yang masih TERBUKA milik kasir tertentu (opsional dibatasi toko),
 	 * atau {@code null} bila tidak ada. Tipis di atas {@link #sesiTerbuka} -- SATU query, bukan dua
 	 * (dulu method ini query sendiri lalu {@link #sesiTerbuka} query ULANG + {@code session.get}).
@@ -199,7 +249,7 @@ public final class SesiKasUtil {
 	 * Pemanggil sebaiknya memastikan belum ada sesi terbuka (lihat {@link #idSesiTerbuka}).
 	 */
 	public static SesiKasKasir buka(Session session, Toko toko, String kasirNama, String kasirUserId, double modalAwal, String keterangan) {
-		return buka(session, toko, kasirNama, kasirUserId, modalAwal, keterangan, null, null);
+		return buka(session, toko, kasirNama, kasirUserId, modalAwal, keterangan, null, null, null, null);
 	}
 
 	/**
@@ -221,6 +271,12 @@ public final class SesiKasUtil {
 	 */
 	public static SesiKasKasir buka(Session session, Toko toko, String kasirNama, String kasirUserId, double modalAwal,
 			String keterangan, String kode, Date waktuBukaKlien) {
+		return buka(session, toko, kasirNama, kasirUserId, modalAwal, keterangan, kode, waktuBukaKlien, null, null);
+	}
+
+	/** Membuka sesi yang terikat pada instalasi POS tertentu. */
+	public static SesiKasKasir buka(Session session, Toko toko, String kasirNama, String kasirUserId, double modalAwal,
+			String keterangan, String kode, Date waktuBukaKlien, String idPerangkat, String namaPerangkat) {
 		SesiKasKasir o = new SesiKasKasir();
 		o.setToko(toko);
 		o.setKasirNama(kasirNama);
@@ -230,6 +286,10 @@ public final class SesiKasUtil {
 		o.setStatus(SesiKasKasir.STATUS_BUKA);
 		o.setKeterangan(keterangan);
 		o.setKode(kode);
+		o.setIdPerangkat(normalisasiIdPerangkat(idPerangkat));
+		String nama = namaPerangkat == null ? null : namaPerangkat.trim();
+		if (nama != null && nama.length() > 150) nama = nama.substring(0, 150);
+		o.setNamaPerangkat(nama == null || nama.length() == 0 ? null : nama);
 		Common.refreshSaveOrUpdate(session, o);
 		return o;
 	}
