@@ -278,37 +278,21 @@ public class KonfigurasiKalenderAkademikProcessor extends TimerTask {
 
 			transaction = session.beginTransaction();
 
-			// FIX HibernateException "More than one row with the given identifier was found":
-			// session.get(id) mengasumsikan id unik dan MELEMPAR exception bila tabel konfigurasi
-			// ternyata punya lebih dari satu baris fisik dengan id yang sama (anomali data --
-			// idealnya id primary key, tapi baris duplikat bisa terjadi mis. akibat insert manual
-			// dgn id eksplisit yang bentrok sequence). Pakai Criteria dgn setMaxResults(1) supaya
-			// SQL yang dikirim membatasi ke SATU baris (LIMIT 1) sebelum Hibernate sempat
-			// mengeluh soal duplikat -- job batch ini tetap jalan lanjut ke perubahan berikutnya
-			// alih-alih gagal total utk satu id yang datanya bermasalah.
-			Konfigurasi konfigurasi = (Konfigurasi) session.createCriteria(Konfigurasi.class)
-					.add(Restrictions.idEq(change.konfigurasiId)).setMaxResults(1).uniqueResult();
-			if (konfigurasi != null) {
-				String nilaiLama = konfigurasi.getNilai();
-				if (!equalsString(nilaiLama, change.nilaiBaru)) {
-					konfigurasi.setNilai(change.nilaiBaru);
-					// Konfigurasi dimuat dari session yang sama → sudah MANAGED → dirty-check
-					// Hibernate akan menghasilkan UPDATE otomatis saat commit/flush, TANPA perlu
-					// memanggil session.update() secara eksplisit. Memanggil Common.refreshUpdate
-					// (yang memanggil session.update()) pada entity persistent dapat memicu
-					// NonUniqueObjectException → recoverWithMerge → session.save() → INSERT duplikat
-					// → ConstraintViolationException "duplicate key konfigurasi_pkey".
-				}
-			}
+			// Update hanya kolom nilai berdasarkan primary key. Entity Konfigurasi tidak
+			// di-attach kembali, sehingga identity-map/canonical object dari thread lain tidak
+			// dapat mengubah id saat flush dan Hibernate tidak mungkin menghasilkan INSERT.
+			// Ini menghilangkan akar duplicate key konfigurasi_pkey pada job latar.
+			session.createQuery("update Konfigurasi set nilai = :nilai where id = :id")
+					.setParameter("nilai", change.nilaiBaru)
+					.setParameter("id", change.konfigurasiId)
+					.executeUpdate();
 
 			transaction.commit();
 		} catch (Exception e) {
 			rollbackQuietly(transaction);
 			clearSessionQuietly(session);
-			if (bolehRetry && isConstraintViolation(e)) {
-				applyOneChangeWithRetry(session, change, fase, false);
-				return;
-			}
+			// Constraint bukan kontensi sementara. Mengulang transaksi rusak dengan entity
+			// yang sama justru mengulang INSERT; laporkan sekali dengan penyebab asli.
 			Common.tampilErrorJikaAdmin(new Exception("Gagal update konfigurasi kalender akademik fase " + fase
 					+ " untuk konfigurasi_id=" + (change == null ? null : change.konfigurasiId), e));
 		} finally {

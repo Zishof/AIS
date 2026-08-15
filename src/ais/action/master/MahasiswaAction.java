@@ -6733,13 +6733,8 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 			return false;
 		}
 		try {
-			return Boolean.TRUE.equals(mahasiswa.getMerupakanPindahan())
-					|| mahasiswa.getPindahanDari() != null
-					|| (mahasiswa.getPindahanDariKampus() != null
-							&& mahasiswa.getPindahanDariKampus().trim().length() > 0)
-					|| (mahasiswa.getNimPindahan() != null && mahasiswa.getNimPindahan().trim().length() > 0)
-					|| mahasiswa.getTanggalPindah() != null
-					|| (mahasiswa.getSksYangDiakui() != null && mahasiswa.getSksYangDiakui().intValue() > 0);
+			StatusAwalMahasiswa statusAwal = mahasiswa.getStatusAwalMahasiswa();
+			return statusAwal != null && Boolean.TRUE.equals(statusAwal.getPindahan());
 		} catch (Exception e) {
 			ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) MahasiswaAction.tampilkanTabPindahan");
 			return false;
@@ -6751,16 +6746,8 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 			return false;
 		}
 		try {
-			return Boolean.TRUE.equals(mahasiswa.getMerupakanAlihProdi())
-					|| mahasiswa.getAlihProdiMahasiswa() != null
-					|| (mahasiswa.getNimBaruPindah() != null && mahasiswa.getNimBaruPindah().trim().length() > 0)
-					|| mahasiswa.getTanggalPindahProdi() != null
-					|| (mahasiswa.getKeteranganPindahProdi() != null
-							&& mahasiswa.getKeteranganPindahProdi().trim().length() > 0)
-					|| (mahasiswa.getPindahKeProdiIniMasukSemester() != null
-							&& mahasiswa.getPindahKeProdiIniMasukSemester().intValue() > 0)
-					|| (mahasiswa.getSksYangDiakuiPindahProdi() != null
-							&& mahasiswa.getSksYangDiakuiPindahProdi().intValue() > 0);
+			StatusAwalMahasiswa statusAwal = mahasiswa.getStatusAwalMahasiswa();
+			return statusAwal != null && Boolean.TRUE.equals(statusAwal.getAlihProdi());
 		} catch (Exception e) {
 			ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) MahasiswaAction.tampilkanTabAlihProdi");
 			return false;

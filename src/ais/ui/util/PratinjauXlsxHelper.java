@@ -374,6 +374,9 @@ public class PratinjauXlsxHelper {
 		try {
 			if (spreadsheet == null)
 				return;
+			if (spreadsheet instanceof MySpreadsheet) {
+				((MySpreadsheet) spreadsheet).pasangSekarangJikaTertunda();
+			}
 			Component parent = spreadsheet.getParent();
 			if (parent == null)
 				return;
