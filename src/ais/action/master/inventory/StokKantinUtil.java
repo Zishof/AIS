@@ -177,7 +177,12 @@ public final class StokKantinUtil {
      * kedua varian, supaya keduanya dijamin selalu sinkron tanpa perlu diingat-ingat manual saat
      * rumus berubah di masa depan.
      */
-    private static String formulaStokSql(Long produkId) {
+    /**
+     * Ekspresi SQL stok kanonik untuk satu produk. Diekspos agar validasi checkout dapat membaca
+     * saldo live dengan rumus yang persis sama seperti proses recompute/monitor; jangan menyalin
+     * sebagian sukunya ke query lain karena akan membuat monitor dan pembayaran berbeda.
+     */
+    public static String formulaStokSql(Long produkId) {
         return "COALESCE((SELECT SUM(qty) FROM koperasi.pengadaan_produk WHERE produk = " + produkId + "),0)"
                 + " + COALESCE((SELECT SUM(selisih) FROM koperasi.stok_opname WHERE produk = " + produkId + "),0)"
                 + " - COALESCE((SELECT SUM(qty) FROM koperasi.pembelian WHERE produk = " + produkId + "),0)"

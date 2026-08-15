@@ -1136,6 +1136,10 @@ public class KantinHelper {
 			double ada = tersedia == null ? 0.0 : tersedia.doubleValue();
 			if (ada + 0.000001 < en.getValue().doubleValue()) {
 				Produk p = (Produk) session.get(Produk.class, en.getKey());
+				// Override produk berlaku sampai lapisan batch. Sebelumnya validasi agregat sudah
+				// melewatkan produk ini, tetapi validasi batch tetap menolaknya sehingga pilihan
+				// "Selalu Boleh Dijual Walau Stok Minus" tampak tidak bekerja.
+				if (p != null && Boolean.TRUE.equals(p.getIzinkanJualMinusStok())) continue;
 				hasil.add((p == null ? ("#" + en.getKey()) : p.getNama()) + " (batch layak jual " + ada
 						+ ", diminta " + en.getValue() + ")");
 			}
@@ -1170,7 +1174,13 @@ public class KantinHelper {
 				for(ProdukBatch b:batches){if(sisa<=0)break;double ambil=Math.min(sisa,b.getStok().doubleValue());
 					b.setStok(Double.valueOf(b.getStok().doubleValue()-ambil));session.saveOrUpdate(b);session.flush();
 					catatMutasiBatch(session,b,"PENJUALAN",0,ambil,"PENJUALAN-"+penjualanId,"Alokasi otomatis FEFO",oleh);sisa-=ambil;}
-				if(sisa>0.000001)throw new IllegalStateException("Stok batch berubah saat checkout untuk produk #"+en.getKey());
+				if(sisa>0.000001){
+					Produk p=(Produk)session.get(Produk.class,en.getKey());
+					if(p==null||!Boolean.TRUE.equals(p.getIzinkanJualMinusStok()))
+						throw new IllegalStateException("Stok batch berubah saat checkout untuk produk #"+en.getKey());
+					// Kekurangan sengaja dibiarkan pada stok agregat (hasil recompute penjualan),
+					// sedangkan batch fisik yang ada tidak dipaksa menjadi negatif.
+				}
 			}
 			if(mulai)session.getTransaction().commit();
 		}catch(RuntimeException e){if(mulai&&session.getTransaction().isActive())session.getTransaction().rollback();throw e;}
@@ -1276,11 +1286,8 @@ public class KantinHelper {
 			for (java.util.Map.Entry<Long, Double> en : diminta.entrySet()) {
 				Long pid = en.getKey();
 				double qtyDiminta = en.getValue().doubleValue();
-				Object[] row = (Object[]) lockSession.createSQLQuery("SELECT nama, "
-						+ "COALESCE((SELECT SUM(qty) FROM koperasi.pengadaan_produk WHERE produk=p.id),0)"
-						+ " + COALESCE((SELECT SUM(selisih) FROM koperasi.stok_opname WHERE produk=p.id),0)"
-						+ " - COALESCE((SELECT SUM(qty) FROM koperasi.pembelian WHERE produk=p.id),0)"
-						+ " - COALESCE((SELECT SUM(qty) FROM koperasi.pemakaian_bahan_baku WHERE produk=p.id),0),"
+				Object[] row = (Object[]) lockSession.createSQLQuery("SELECT nama, ("
+						+ ais.action.master.inventory.StokKantinUtil.formulaStokSql(pid) + "),"
 						+ " izinkan_jual_minus_stok"
 						+ " FROM koperasi.produk p WHERE p.id = " + pid + " FOR UPDATE").uniqueResult();
 				if (row == null) {

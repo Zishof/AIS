@@ -1329,6 +1329,22 @@ public class PosApi extends HttpServlet {
 			hasil.put("total", total instanceof Number ? ((Number) total).longValue() : 0L);
 			hasil.put("page", page);
 			hasil.put("pageSize", pageSize);
+			// Pilihan kasir berasal dari draft existing pada toko aktif. Identitas yang dikirim
+			// adalah nilai kasir tersimpan, sehingga dropdown tidak bergantung pada nama akun
+			// yang sedang login dan tetap dapat menelusuri transaksi shift sebelumnya.
+			JSONArray daftarKasir = new JSONArray();
+			Criteria ck = session.createCriteria(DraftPembelianAnggotaKoperasi.class)
+					.add(Restrictions.isNotNull("kasirLoginNama"));
+			if (tokoId != null) {
+				ck.createAlias("toko", "tkk").add(Restrictions.eq("tkk.id", tokoId));
+			}
+			ck.setProjection(org.hibernate.criterion.Projections.distinct(
+					org.hibernate.criterion.Projections.property("kasirLoginNama")));
+			for (Object namaKasir : ck.list()) {
+				String nama = str(namaKasir).trim();
+				if (!nama.isEmpty()) daftarKasir.put(nama);
+			}
+			hasil.put("daftarKasir", daftarKasir);
 			// KPI dihitung oleh DB dengan agregasi, bukan dengan mengambil semua baris ke JVM.
 			JSONObject ringkasanPayload = new JSONObject(payload.toString());
 			ringkasanPayload.remove("asal");
@@ -1394,6 +1410,8 @@ public class PosApi extends HttpServlet {
 		}
 		String pedagang = payload.optString("pedagang", "").trim();
 		if (!pedagang.isEmpty()) c.add(Restrictions.ilike("tk.nama", pedagang, org.hibernate.criterion.MatchMode.ANYWHERE));
+		String kasir = payload.optString("kasir", "").trim();
+		if (!kasir.isEmpty()) c.add(Restrictions.eq("kasirLoginNama", kasir));
 		if (payload.optBoolean("hanya_belum_lunas", false)) c.add(Restrictions.isNull("lunas"));
 		String asal = payload.optString("asal", "").trim().toLowerCase();
 		if ("online".equals(asal) || "tertahan".equals(asal)) {
