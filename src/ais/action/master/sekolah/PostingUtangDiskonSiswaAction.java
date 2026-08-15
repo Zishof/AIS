@@ -530,13 +530,13 @@ public class PostingUtangDiskonSiswaAction extends GenericAutowireComposer {
 				}
 			} else {
 				// Debet dari Akun Diskon, kredit dari Akun Utang Diskon — keduanya kolom ItemBiayaSekolah.
-				new Label(CommonAkunting.jelaskanTransaksiTidakValid(akunDebet, akunKredit,
+				ais.action.master.helper.AnalisisPemetaanAkunHelper.tampilkanInvalid(arg0, CommonAkunting.jelaskanTransaksiTidakValid(akunDebet, akunKredit,
 						CommonAkunting.langkahLengkapiKolomAkun("Item Biaya Sekolah",
 								"item biaya sekolah \"" + tagihan.getItemBiayaSekolah().getNama() + "\"",
 								"Akun Diskon"),
 						CommonAkunting.langkahLengkapiKolomAkun("Item Biaya Sekolah",
 								"item biaya sekolah \"" + tagihan.getItemBiayaSekolah().getNama() + "\"",
-								"Akun Utang Diskon"))).setParent(arg0);
+								"Akun Utang Diskon")));
 			}
 
 			new Label(tagihan.getPostingHistoryDiskon() == null ? Common.getBahasaConfig("Belum diposting")

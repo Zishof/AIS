@@ -502,12 +502,11 @@ public class PostingDepositSiswaAction extends GenericAutowireComposer {
 				// Debet & kredit sama-sama dari Akun Pembayaran Siswa yang sama (Akun & Akun Deposit).
 				String namaAkunPembayaran = depositSiswa.getAkunPembayaranSiswa() == null ? "yang dipakai"
 						: "\"" + depositSiswa.getAkunPembayaranSiswa().getNama() + "\"";
-				new Label(CommonAkunting.jelaskanTransaksiTidakValid(akunDebet, akunKredit,
+				ais.action.master.helper.AnalisisPemetaanAkunHelper.tampilkanInvalid(arg0, CommonAkunting.jelaskanTransaksiTidakValid(akunDebet, akunKredit,
 						CommonAkunting.langkahLengkapiKolomAkun("Akun Pembayaran Siswa",
 								"Akun Pembayaran Siswa " + namaAkunPembayaran, "Akun"),
 						CommonAkunting.langkahLengkapiKolomAkun("Akun Pembayaran Siswa",
-								"Akun Pembayaran Siswa " + namaAkunPembayaran, "Akun Deposit")))
-						.setParent(arg0);
+								"Akun Pembayaran Siswa " + namaAkunPembayaran, "Akun Deposit")));
 			}
 
 			new Label(depositSiswa.getPostingHistory() == null ? Common.getBahasaConfig("Belum diposting")

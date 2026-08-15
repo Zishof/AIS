@@ -510,12 +510,11 @@ public class PostingDepositSiswaAction extends GenericAutowireComposer {
 				GrupTransaksi.tampilkanJurnal(akunDebet, nilai, akunKredit, nilai).setParent(arg0);
 			} else {
 				// Tabungan: debet dari Jenis Pembayaran, kredit dari Jenis Tabungan — bukan ItemBiaya.
-				new Label(CommonAkunting.jelaskanTransaksiTidakValid(akunDebet, akunKredit,
+				ais.action.master.helper.AnalisisPemetaanAkunHelper.tampilkanInvalid(arg0, CommonAkunting.jelaskanTransaksiTidakValid(akunDebet, akunKredit,
 						CommonAkunting.langkahLengkapiKolomAkun("Jenis Pembayaran",
 								"Jenis Pembayaran \"" + deposit.getJenisPembayaran().getNama() + "\"", "Akun"),
 						CommonAkunting.langkahLengkapiKolomAkun("Jenis Tabungan",
-								"Jenis Tabungan \"" + deposit.getJenisTabungan().getNama() + "\"", "Akun")))
-						.setParent(arg0);
+								"Jenis Tabungan \"" + deposit.getJenisTabungan().getNama() + "\"", "Akun")));
 			}
 
 			String bukti = "";

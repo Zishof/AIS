@@ -536,7 +536,7 @@ public class PostingDibayarDimukaSiswaAction extends GenericAutowireComposer {
 				GrupTransaksi.tampilkanJurnal(akunDebet, nilai, akunKredit, nilai).setParent(arg0);
 			} else {
 				// Debet dari Akun Pembayaran Siswa/kanal VA, kredit dari Akun Dibayar Dimuka ItemBiayaSekolah.
-				new Label(CommonAkunting.jelaskanTransaksiTidakValid(akunDebet, akunKredit,
+				ais.action.master.helper.AnalisisPemetaanAkunHelper.tampilkanInvalid(arg0, CommonAkunting.jelaskanTransaksiTidakValid(akunDebet, akunKredit,
 						"Langkah perbaikan: (1) Buka menu \"Akun Pembayaran Siswa\", cari Akun Pembayaran Siswa yang "
 								+ "dipakai transaksi ini, lengkapi kolom \"Akun\" atau \"Akun Deposit\". (2) Bila "
 								+ "pembayaran lewat Virtual Account, buka menu \"Kanal Pembayaran Virtual Account\", "
@@ -544,7 +544,7 @@ public class PostingDibayarDimukaSiswaAction extends GenericAutowireComposer {
 								+ "muat ulang (refresh) halaman Posting ini — transaksi akan otomatis terhitung valid.",
 						CommonAkunting.langkahLengkapiKolomAkun("Item Biaya Sekolah",
 								"item biaya sekolah \"" + tagihan.getItemBiayaSekolah().getNama() + "\"",
-								"Akun Dibayar Dimuka"))).setParent(arg0);
+								"Akun Dibayar Dimuka")));
 			}
 
 			new Label(tagihan.getPostingHistoryUangMuka() == null ? Common.getBahasaConfig("Belum diposting")

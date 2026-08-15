@@ -550,12 +550,11 @@ public class PostingBiayaAdministrasiPembayaranMahasiswaAction extends GenericAu
 						: logPembayaran.getBniRequest() != null ? "kode_akun_bni_biaya_administrasi"
 						: logPembayaran.getJatelindoRequest() != null ? "kode_akun_jatelindo_biaya_administrasi"
 						: "kode_akun_manual_biaya_administrasi";
-				new Label(CommonAkunting.jelaskanTransaksiTidakValid(akunDebet, akunKredit,
+				ais.action.master.helper.AnalisisPemetaanAkunHelper.tampilkanInvalid(arg0, CommonAkunting.jelaskanTransaksiTidakValid(akunDebet, akunKredit,
 						CommonAkunting.langkahLengkapiKolomAkun("Jenis Pembayaran",
 								"Jenis Pembayaran default (atau sesuai gateway yang dipakai)", "Akun"),
 						CommonAkunting.langkahIsiKonfigurasiAkun(kodeParamKredit,
-								"kode Akun kredit utk biaya administrasi transaksi ini")))
-						.setParent(arg0);
+								"kode Akun kredit utk biaya administrasi transaksi ini")));
 			}
 
 			new Label(logPembayaran.getPostingHistory() == null ? Common.getBahasaConfig("Belum diposting")

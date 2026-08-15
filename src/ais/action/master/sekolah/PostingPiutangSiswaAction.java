@@ -637,13 +637,13 @@ public class PostingPiutangSiswaAction extends GenericAutowireComposer {
 					GrupTransaksi.tampilkanJurnal(akunDebet, nilai, akunKredit, nilai).setParent(arg0);
 				} else {
 					// Debet dari Akun Piutang, kredit dari Akun — keduanya kolom ItemBiayaSekolah.
-					new Label(CommonAkunting.jelaskanTransaksiTidakValid(akunDebet, akunKredit,
+					ais.action.master.helper.AnalisisPemetaanAkunHelper.tampilkanInvalid(arg0, CommonAkunting.jelaskanTransaksiTidakValid(akunDebet, akunKredit,
 							CommonAkunting.langkahLengkapiKolomAkun("Item Biaya Sekolah",
 									"item biaya sekolah \"" + tagihan.getItemBiayaSekolah().getNama() + "\"",
 									"Akun Piutang"),
 							CommonAkunting.langkahLengkapiKolomAkun("Item Biaya Sekolah",
 									"item biaya sekolah \"" + tagihan.getItemBiayaSekolah().getNama() + "\"",
-									"Akun"))).setParent(arg0);
+									"Akun")));
 				}
 			}
 

@@ -539,12 +539,12 @@ public class PostingCicilanSiswaAction extends GenericAutowireComposer {
 				}
 			} else {
 				// Sekolah: debet dari Akun Pembayaran Siswa, kredit dari Akun Piutang ItemBiayaSekolah.
-				new Label(CommonAkunting.jelaskanTransaksiTidakValid(akunDebet, akunKredit,
+				ais.action.master.helper.AnalisisPemetaanAkunHelper.tampilkanInvalid(arg0, CommonAkunting.jelaskanTransaksiTidakValid(akunDebet, akunKredit,
 						CommonAkunting.langkahLengkapiKolomAkun("Akun Pembayaran Siswa",
 								"Akun Pembayaran Siswa yang dipakai", "Akun"),
 						CommonAkunting.langkahLengkapiKolomAkun("Item Biaya Sekolah",
 								"item biaya sekolah \"" + pembayaranSiswaDetail.getItemBiayaSekolah().getNama() + "\"",
-								"Akun Piutang"))).setParent(arg0);
+								"Akun Piutang")));
 			}
 
 			new Label(pembayaranSiswaDetail.getPostingHistory() == null ? Common.getBahasaConfig("Belum diposting") : pembayaranSiswaDetail.getPostingHistory().toString()).setParent(arg0);
