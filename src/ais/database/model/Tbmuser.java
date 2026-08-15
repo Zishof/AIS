@@ -2169,11 +2169,11 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pedagang", nullable = true)
 	public Pedagang getPedagang() {
-		if (getAnggotaKoperasi() != null) {
-			pedagang = null;
-		} else {
-			pedagang = check(pedagang);
-		}
+		// Akun dapat sekaligus menjadi anggota koperasi dan petugas/pedagang toko.
+		// Versi lama mengosongkan relasi ini setiap kali anggotaKoperasi terisi. Akibatnya
+		// FK pedagang yang baru disimpan tampak hilang saat entity dimuat ulang, hanya pada
+		// sebagian pengguna (yaitu pengguna yang juga anggota koperasi).
+		pedagang = check(pedagang);
 		return pedagang;
 	}
 
