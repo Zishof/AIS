@@ -664,17 +664,24 @@ public class KantinHelper {
 								sesiKasAktif, idPerangkatTransaksi, namaPerangkat(jsonObject));
 						String kodeSesiDiminta = jsonObject.optString("kode_sesi_kas", "").trim();
 						if (kodeSesiDiminta.length() > 0 && !kodeSesiDiminta.equals(sesiKasAktif.getKode())) {
+							// Pembayaran langsung selalu diikat ke sesi server yang sedang aktif. Kode sesi
+							// dari perangkat hanya menjadi batas audit yang keras ketika request merupakan
+							// pengiriman ulang transaksi pending/offline.
+							boolean pengirimanPending = jsonObject.optBoolean("pengiriman_pending", true);
 							boolean draftKasirSama = false;
 							if (draftPembelianAnggotaKoperasi != null) {
 								Tbmuser kasirDraft = draftPembelianAnggotaKoperasi.getTbmuser();
 								draftKasirSama = kasirDraft != null && idKasir[1].equals(kasirDraft.getUserId());
-								if (!draftKasirSama && kasirDraft == null
-										&& draftPembelianAnggotaKoperasi.getKasirLoginNama() != null) {
+								if (!draftKasirSama && draftPembelianAnggotaKoperasi.getKasirLoginNama() != null) {
 									draftKasirSama = idKasir[0].equalsIgnoreCase(
 											draftPembelianAnggotaKoperasi.getKasirLoginNama().trim());
 								}
+								if (!draftKasirSama && draftPembelianAnggotaKoperasi.getOlehId() != null) {
+									draftKasirSama = idKasir[1].equals(draftPembelianAnggotaKoperasi.getOlehId().trim());
+								}
 							}
-							if (!draftKasirSama) {
+							boolean transaksiLangsung = !pengirimanPending && draftPembelianAnggotaKoperasi == null;
+							if (!draftKasirSama && !transaksiLangsung) {
 								hasil.put("status", "91");
 								hasil.put("description", "Transaksi berasal dari sesi kas yang berbeda dan bukan transaksi tertahan milik kasir yang sedang login.");
 								return;
