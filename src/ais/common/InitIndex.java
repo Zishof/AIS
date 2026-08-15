@@ -3376,6 +3376,16 @@ public class InitIndex {
 			}
 		}
 
+		// Relasi transaksi ke sesi kas membuat rekonsiliasi akurat, termasuk saat nama
+		// kasir sama atau ada beberapa perangkat. Semua DDL idempoten untuk instalasi lama.
+		String[] DDL_RELASI_TRANSAKSI_SESI_KAS = new String[] {
+				"ALTER TABLE koperasi.pembelian_anggota_koperasi ADD COLUMN IF NOT EXISTS sesi_kas_kasir bigint",
+				"CREATE INDEX IF NOT EXISTS idx_pak_sesi_kas ON koperasi.pembelian_anggota_koperasi (sesi_kas_kasir, tanggal_pembayaran)" };
+		for (String sql : DDL_RELASI_TRANSAKSI_SESI_KAS) {
+			try { eksekusiSqlAmanDdl(sql); }
+			catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "init relasi transaksi sesi kas"); }
+		}
+
 		} finally {
 			// Tunggu SEMUA DDL paralel selesai, lalu tutup pool & reset state (idempoten,
 			// aman bila dipanggil ulang). Eksekusi DB kembali sinkron di luar metode ini.

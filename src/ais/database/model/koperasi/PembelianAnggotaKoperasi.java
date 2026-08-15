@@ -38,6 +38,7 @@ import ais.database.model.asset.Lokasi;
 import ais.database.model.inventory.DraftPembelian;
 import ais.database.model.inventory.Pembelian;
 import ais.database.model.inventory.Produk;
+import ais.database.model.inventory.SesiKasKasir;
 import ais.database.model.inventory.Toko;
 
 /**
@@ -159,6 +160,8 @@ public class PembelianAnggotaKoperasi extends GeneralValueObject {
 	private String kasirLoginNama;
 
 	private String namaMesin;
+
+	private SesiKasKasir sesiKasKasir;
 
 	@SuppressWarnings("unchecked")
 	public JSONArray simpanRinci(Session session, JSONArray transaksi, String kodeUnik, Date currentWaktu, Toko toko,
@@ -665,6 +668,17 @@ public class PembelianAnggotaKoperasi extends GeneralValueObject {
 
 	public void setNamaMesin(String namaMesin) {
 		this.namaMesin = namaMesin;
+	}
+
+	/** Sesi kas aktif yang menerima transaksi ini; menjadi sumber utama rekonsiliasi kas. */
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "sesi_kas_kasir", nullable = true)
+	public SesiKasKasir getSesiKasKasir() {
+		return sesiKasKasir;
+	}
+
+	public void setSesiKasKasir(SesiKasKasir sesiKasKasir) {
+		this.sesiKasKasir = sesiKasKasir;
 	}
 
 	public void setRetur(Double retur) {

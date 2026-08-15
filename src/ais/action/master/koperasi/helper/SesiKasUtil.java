@@ -38,6 +38,33 @@ public final class SesiKasUtil {
 	private SesiKasUtil() {
 	}
 
+	private static String joinCaraPembayaran() {
+		return " from koperasi.pembelian_anggota_koperasi h"
+				+ " left join koperasi.cara_pembayaran_koperasi c1 on c1.id=h.cara_pembayaran_koperasi"
+				+ " left join koperasi.cara_pembayaran_koperasi c2 on c2.id=h.cara_pembayaran_koperasi_2"
+				+ " left join koperasi.cara_pembayaran_koperasi c3 on c3.id=h.cara_pembayaran_koperasi_3"
+				+ " left join koperasi.cara_pembayaran_koperasi c4 on c4.id=h.cara_pembayaran_koperasi_4"
+				+ " left join koperasi.cara_pembayaran_koperasi c5 on c5.id=h.cara_pembayaran_koperasi_5";
+	}
+
+	private static String nilaiPembayaran(boolean tunai) {
+		String cocok = tunai ? "" : "not ";
+		String n1 = "greatest(0,coalesce(h.total_biaya,0)-coalesce(h.nominal_bayar_2,0)"
+				+ "-coalesce(h.nominal_bayar_3,0)-coalesce(h.nominal_bayar_4,0)-coalesce(h.nominal_bayar_5,0))";
+		StringBuilder jumlah = new StringBuilder();
+		for (int slot = 1; slot <= 5; slot++) {
+			if (slot > 1) jumlah.append("+");
+			String nominal = slot == 1 ? n1 : "coalesce(h.nominal_bayar_" + slot + ",0)";
+			jumlah.append("case when not coalesce(c").append(slot).append(".masuk_sebagai_hutang,false) and ")
+					.append(cocok).append("coalesce(c").append(slot)
+					.append(".ada_kembalian,c").append(slot).append(".nama ilike '%tunai%') then ")
+					.append(nominal).append(" else 0 end");
+		}
+		String tersimpan = tunai ? "h.bayar_tunai" : "h.bayar_non_tunai";
+		return "case when coalesce(h.bayar_tunai,0)=0 and coalesce(h.bayar_non_tunai,0)=0"
+				+ " then (" + jumlah + ") else coalesce(" + tersimpan + ",0) end";
+	}
+
 	/**
 	 * Memuat objek sesi kas yang masih TERBUKA milik kasir tertentu (opsional dibatasi toko), atau
 	 * {@code null} bila tidak ada.
@@ -102,12 +129,13 @@ public final class SesiKasUtil {
 	 */
 	public static double[] hitungPenjualan(Session session, String oleh, String olehId, Long tokoId, Date dari, Date sampai) {
 		try {
-			StringBuilder sb = new StringBuilder(
-					"select coalesce(sum(coalesce(bayar_tunai,0)),0), coalesce(sum(coalesce(bayar_non_tunai,0)),0) "
-							+ " from koperasi.pembelian_anggota_koperasi where (oleh=:o or oleh=:i or kasir_login_nama=:o) "
-							+ " and tanggal_pembayaran >= :dari and tanggal_pembayaran <= :sampai ");
+			StringBuilder sb = new StringBuilder("select coalesce(sum(")
+					.append(nilaiPembayaran(true)).append("),0),coalesce(sum(")
+					.append(nilaiPembayaran(false)).append("),0)").append(joinCaraPembayaran())
+					.append(" where (h.oleh=:o or h.oleh=:i or h.kasir_login_nama=:o or h.kasir_login_nama=:i)")
+					.append(" and h.tanggal_pembayaran>=:dari and h.tanggal_pembayaran<=:sampai ");
 			if (tokoId != null) {
-				sb.append(" and toko=:t ");
+				sb.append(" and h.toko=:t ");
 			}
 			SQLQuery q = session.createSQLQuery(sb.toString());
 			q.setParameter("o", oleh);
@@ -120,7 +148,33 @@ public final class SesiKasUtil {
 			Object[] r = (Object[]) q.uniqueResult();
 			return new double[] { ((Number) r[0]).doubleValue(), ((Number) r[1]).doubleValue() };
 		} catch (Exception e) {
-			return new double[] { 0, 0 };
+			ais.common.ErrorAuditUtil.record(e, "gagal menghitung penjualan sesi kas (fallback identitas)");
+			throw new IllegalStateException("Ringkasan penjualan sesi kas belum dapat dihitung. Data transaksi tidak diubah; coba muat ulang atau hubungi admin dengan Informasi Teknis.", e);
+		}
+	}
+
+	/** Jalur utama: transaksi baru memakai FK sesi; transaksi lama tetap dihitung lewat identitas. */
+	public static double[] hitungPenjualan(Session session, SesiKasKasir sesi, Date sampai) {
+		try {
+			StringBuilder sb = new StringBuilder("select coalesce(sum(")
+					.append(nilaiPembayaran(true)).append("),0),coalesce(sum(")
+					.append(nilaiPembayaran(false)).append("),0)").append(joinCaraPembayaran())
+					.append(" where (h.sesi_kas_kasir=:s or (h.sesi_kas_kasir is null")
+					.append(" and (h.oleh=:o or h.oleh=:i or h.kasir_login_nama=:o or h.kasir_login_nama=:i)")
+					.append(" and h.tanggal_pembayaran>=:dari and h.tanggal_pembayaran<=:sampai)) ");
+			if (sesi.getToko() != null) sb.append(" and h.toko=:t ");
+			SQLQuery q = session.createSQLQuery(sb.toString());
+			q.setParameter("s", sesi.getId());
+			q.setParameter("o", sesi.getKasirNama());
+			q.setParameter("i", sesi.getKasirUserId());
+			q.setParameter("dari", sesi.getWaktuBuka());
+			q.setParameter("sampai", sampai);
+			if (sesi.getToko() != null) q.setParameter("t", sesi.getToko().getId());
+			Object[] r = (Object[]) q.uniqueResult();
+			return new double[] { ((Number) r[0]).doubleValue(), ((Number) r[1]).doubleValue() };
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "gagal menghitung penjualan sesi kas id=" + sesi.getId());
+			throw new IllegalStateException("Ringkasan penjualan sesi kas belum dapat dihitung. Data transaksi tidak diubah; coba muat ulang atau hubungi admin dengan Informasi Teknis.", e);
 		}
 	}
 
@@ -199,8 +253,7 @@ public final class SesiKasUtil {
 	 */
 	public static double tutup(Session session, SesiKasKasir sesi, double uangFisik, String keterangan, Date waktuTutupKlien) {
 		Date sampai = waktuTutupKlien != null ? waktuTutupKlien : new Date();
-		double[] jual = hitungPenjualan(session, sesi.getKasirNama(), sesi.getKasirUserId(),
-				sesi.getToko() == null ? null : sesi.getToko().getId(), sesi.getWaktuBuka(), sampai);
+		double[] jual = hitungPenjualan(session, sesi, sampai);
 		double seharusnya = sesi.getModalAwal().doubleValue() + jual[0];
 		double selisih = uangFisik - seharusnya;
 		sesi.setTotalTunai(Double.valueOf(jual[0]));

@@ -36,6 +36,7 @@ import ais.database.model.inventory.MutasiProdukBatch;
 import ais.database.model.inventory.ReturPembelian;
 import ais.database.model.inventory.ReturPenjualan;
 import ais.database.model.inventory.SatuanProduk;
+import ais.database.model.inventory.SesiKasKasir;
 import ais.database.model.inventory.SesiStokOpname;
 import ais.database.model.inventory.StokOpname;
 import ais.database.model.inventory.Toko;
@@ -328,7 +329,7 @@ public class KantinHelper {
 		Double nominal2 = 0.0, nominal3 = 0.0, nominal4 = 0.0, nominal5 = 0.0;
 		String pesanError;
 
-		void terapkanKe(PembelianAnggotaKoperasi p) {
+		void terapkanKe(PembelianAnggotaKoperasi p, CaraPembayaranKoperasi caraUtama, Double totalBiaya) {
 			p.setCaraPembayaranKoperasi2(cara2);
 			p.setNominalBayar2(nominal2);
 			p.setCaraPembayaranKoperasi3(cara3);
@@ -337,6 +338,34 @@ public class KantinHelper {
 			p.setNominalBayar4(nominal4);
 			p.setCaraPembayaranKoperasi5(cara5);
 			p.setNominalBayar5(nominal5);
+
+			double n2 = nominalPositif(nominal2);
+			double n3 = nominalPositif(nominal3);
+			double n4 = nominalPositif(nominal4);
+			double n5 = nominalPositif(nominal5);
+			double n1 = Math.max(0.0, nominalPositif(totalBiaya) - n2 - n3 - n4 - n5);
+			double tunai = nominalTunai(caraUtama, n1) + nominalTunai(cara2, n2)
+					+ nominalTunai(cara3, n3) + nominalTunai(cara4, n4) + nominalTunai(cara5, n5);
+			double nonTunai = nominalNonTunai(caraUtama, n1) + nominalNonTunai(cara2, n2)
+					+ nominalNonTunai(cara3, n3) + nominalNonTunai(cara4, n4) + nominalNonTunai(cara5, n5);
+			p.setBayarTunai(Double.valueOf(tunai));
+			p.setBayarNonTunai(Double.valueOf(nonTunai));
+		}
+
+		private static double nominalPositif(Double nilai) {
+			return nilai == null ? 0.0 : Math.max(0.0, nilai.doubleValue());
+		}
+
+		private static boolean dibayar(CaraPembayaranKoperasi cara) {
+			return cara != null && !Boolean.TRUE.equals(cara.getMasukSebagaiHutang());
+		}
+
+		private static double nominalTunai(CaraPembayaranKoperasi cara, double nominal) {
+			return dibayar(cara) && Boolean.TRUE.equals(cara.getAdaKembalian()) ? nominal : 0.0;
+		}
+
+		private static double nominalNonTunai(CaraPembayaranKoperasi cara, double nominal) {
+			return dibayar(cara) && !Boolean.TRUE.equals(cara.getAdaKembalian()) ? nominal : 0.0;
 		}
 	}
 
@@ -449,10 +478,12 @@ public class KantinHelper {
 					// diubah default-nya) -- toko manapun yg belum pernah membuka kas hari itu TIDAK BISA
 					// checkout, harus Buka Kas dulu. Memakai session POLA B yang SUDAH dibuka di atas
 					// (BUKAN HibernateUtil.currentSession() -- lihat javadoc kelas).
+					SesiKasKasir sesiKasAktif;
 					{
 						String[] idKasir = identitasKasir(tbmuser);
-						if (ais.action.master.koperasi.helper.SesiKasUtil.idSesiTerbuka(session,
-								idKasir[0], idKasir[1], toko.getId()) == null) {
+						sesiKasAktif = ais.action.master.koperasi.helper.SesiKasUtil.sesiTerbuka(session,
+								idKasir[0], idKasir[1], toko.getId());
+						if (sesiKasAktif == null) {
 							hasil.put("status", "91");
 							hasil.put("description",
 									"Belum ada Sesi Kas Kasir yang terbuka. Buka kas terlebih dahulu sebelum memproses pembayaran.");
@@ -629,12 +660,13 @@ public class KantinHelper {
 						pembelianAnggotaKoperasi.setCaraPembayaranKoperasi(caraPembayaranKoperasiOnline);
 						pembelianAnggotaKoperasi.setTotalBiaya(total);
 						pembelianAnggotaKoperasi.setBiaya(total);
-						split.terapkanKe(pembelianAnggotaKoperasi);
+						split.terapkanKe(pembelianAnggotaKoperasi, caraPembayaranKoperasiOnline, total);
 						pembelianAnggotaKoperasi.setLokasi(lokasi);
 						pembelianAnggotaKoperasi.setTbmuser(tbmuser);
 						pembelianAnggotaKoperasi.setKasirLoginNama(kasirLoginNamaVal);
 						pembelianAnggotaKoperasi.setNamaMesin(namaMesinVal);
 						pembelianAnggotaKoperasi.setToko(toko);
+						pembelianAnggotaKoperasi.setSesiKasKasir(sesiKasAktif);
 						pembelianAnggotaKoperasi.setPajak(jsonObject.isNull("pajak") ? 0.0 : Math.max(0.0, Double.parseDouble((jsonObject.get("pajak") + "").trim())));
 						pembelianAnggotaKoperasi.setDraftPembelianAnggotaKoperasi(draftPembelianAnggotaKoperasi);
 						session.getTransaction().begin();
@@ -661,12 +693,13 @@ public class KantinHelper {
 						pembelianAnggotaKoperasi.setCaraPembayaranKoperasi(caraPembayaranKoperasiOnline);
 						pembelianAnggotaKoperasi.setTotalBiaya(total);
 						pembelianAnggotaKoperasi.setBiaya(total);
-						split.terapkanKe(pembelianAnggotaKoperasi);
+						split.terapkanKe(pembelianAnggotaKoperasi, caraPembayaranKoperasiOnline, total);
 						pembelianAnggotaKoperasi.setLokasi(lokasi);
 						pembelianAnggotaKoperasi.setTbmuser(tbmuser);
 						pembelianAnggotaKoperasi.setKasirLoginNama(kasirLoginNamaVal);
 						pembelianAnggotaKoperasi.setNamaMesin(namaMesinVal);
 						pembelianAnggotaKoperasi.setToko(toko);
+						pembelianAnggotaKoperasi.setSesiKasKasir(sesiKasAktif);
 						pembelianAnggotaKoperasi.setPajak(jsonObject.isNull("pajak") ? 0.0 : Math.max(0.0, Double.parseDouble((jsonObject.get("pajak") + "").trim())));
 						pembelianAnggotaKoperasi.setDraftPembelianAnggotaKoperasi(draftPembelianAnggotaKoperasi);
 						session.getTransaction().begin();
@@ -1455,8 +1488,7 @@ public class KantinHelper {
 			if (sesi == null) {
 				hasil.put("terbuka", false);
 			} else {
-				double[] jual = ais.action.master.koperasi.helper.SesiKasUtil.hitungPenjualan(session, id[0], id[1],
-						tokoId, sesi.getWaktuBuka(), new Date());
+				double[] jual = ais.action.master.koperasi.helper.SesiKasUtil.hitungPenjualan(session, sesi, new Date());
 				double modalAwal = sesi.getModalAwal() == null ? 0.0 : sesi.getModalAwal().doubleValue();
 				hasil.put("terbuka", true);
 				hasil.put("waktuBuka", Common.dateFormatInput.get().format(sesi.getWaktuBuka()));
