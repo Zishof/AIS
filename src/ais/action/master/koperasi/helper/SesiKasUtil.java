@@ -294,16 +294,36 @@ public final class SesiKasUtil {
 			Long tokoId, String idPerangkat) {
 		String perangkat = normalisasiIdPerangkat(idPerangkat);
 		if (perangkat == null) return null;
-		Criteria c = session.createCriteria(SesiKasKasir.class)
+		// Dahulukan kecocokan perangkat yang PERSIS. Query lama menyatukan kondisi
+		// `(idPerangkat = ? OR idPerangkat IS NULL)` lalu mengambil id terbaru. Jika
+		// akun masih mempunyai sesi warisan tanpa perangkat yang id-nya lebih baru,
+		// sesi warisan itu terpilih walaupun perangkat ini SUDAH memiliki sesi aktif.
+		// Saat sesi warisan kemudian diikat, unique index perangkat aktif menolaknya.
+		Criteria tepat = session.createCriteria(SesiKasKasir.class)
 				.add(Restrictions.or(Restrictions.eq("kasirNama", kasirNama), Restrictions.eq("kasirUserId", kasirUserId)))
 				.add(Restrictions.or(Restrictions.eq("status", SesiKasKasir.STATUS_BUKA), Restrictions.isNull("status")))
-				// Baris lama (sebelum identitas perangkat tersedia) boleh diklaim satu kali oleh
-				// akun pemiliknya. Pemanggil wajib menyimpan id perangkat segera setelah ditemukan.
-				.add(Restrictions.or(Restrictions.eq("idPerangkat", perangkat), Restrictions.isNull("idPerangkat")))
+				.add(Restrictions.eq("idPerangkat", perangkat))
 				.addOrder(Order.desc("id"))
 				.setMaxResults(1);
-		if (tokoId != null) c.add(Restrictions.eq("toko", session.load(Toko.class, tokoId)));
-		return (SesiKasKasir) c.uniqueResult();
+		if (tokoId != null) tepat.add(Restrictions.eq("toko", session.load(Toko.class, tokoId)));
+		SesiKasKasir hasil = (SesiKasKasir) tepat.uniqueResult();
+		if (hasil != null) return hasil;
+
+		// Bila perangkat sudah dipakai sesi akun lain, jangan pernah mengklaim sesi
+		// warisan akun ini. Pemanggil akan menampilkan bahwa kas berada di perangkat
+		// lain, tanpa menyebabkan status HTTP/API gagal karena constraint database.
+		if (sesiTerbukaPadaPerangkat(session, tokoId, perangkat) != null) return null;
+
+		// Hanya ketika perangkat benar-benar bebas, satu sesi warisan milik akun ini
+		// boleh diklaim untuk kompatibilitas data sebelum kolom perangkat tersedia.
+		Criteria lama = session.createCriteria(SesiKasKasir.class)
+				.add(Restrictions.or(Restrictions.eq("kasirNama", kasirNama), Restrictions.eq("kasirUserId", kasirUserId)))
+				.add(Restrictions.or(Restrictions.eq("status", SesiKasKasir.STATUS_BUKA), Restrictions.isNull("status")))
+				.add(Restrictions.isNull("idPerangkat"))
+				.addOrder(Order.desc("id"))
+				.setMaxResults(1);
+		if (tokoId != null) lama.add(Restrictions.eq("toko", session.load(Toko.class, tokoId)));
+		return (SesiKasKasir) lama.uniqueResult();
 	}
 
 	/** Sesi terbuka apa pun pada perangkat/toko, untuk mencegah satu mesin dipakai dua kasir. */

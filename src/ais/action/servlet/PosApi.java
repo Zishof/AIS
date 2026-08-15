@@ -250,8 +250,16 @@ public class PosApi extends HttpServlet {
 				KantinHelper.sesiKasBuka(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "sesi_kas");
 			} else if ("sesi_kas_tutup".equals(action)) {
-				KantinHelper.sesiKasTutup(tbmuser, payload, hasil);
-				normalisasiStatusKantinHelper(hasil, "sesi_kas");
+				// Koreksi modal awal adalah kewenangan supervisor/admin. Gerbang ini
+				// wajib berada di server agar tidak dapat dilewati dengan memanggil API
+				// secara langsung dari klien yang dimodifikasi.
+				if (!payload.isNull("modal_awal_koreksi") && !bolehSupervisorAtauAdmin(tbmuser)) {
+					hasil.put("status", "91");
+					hasil.put("description", "Koreksi nominal sesi kas hanya dapat dilakukan oleh supervisor.");
+				} else {
+					KantinHelper.sesiKasTutup(tbmuser, payload, hasil);
+					normalisasiStatusKantinHelper(hasil, "sesi_kas");
+				}
 			} else if ("topup_saldo".equals(action)) {
 				KantinHelper.topupSaldo(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "topup_saldo");
