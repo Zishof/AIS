@@ -120,6 +120,7 @@ public class SeleksiVendorAction extends GenericAutowireComposer implements Form
 	private MyTextbox vendorPembanding2;
 	private MyTextbox vendorPembanding3;
 	private MyTextbox alasanDipilih;
+	private final java.util.List<org.zkoss.zk.ui.Component> barisPembanding = new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 	// Section D
 	private Combobox rekomendasi;
@@ -250,14 +251,38 @@ public class SeleksiVendorAction extends GenericAutowireComposer implements Form
 
 		// ---- Section C ----
 		headerSeksi(rows, "C. Ringkasan Perbandingan / Catatan");
+		// Tombol toggle "Vendor Pembanding": input pembanding hanya tampil bila ditekan / sudah ada isi.
+		MyFormRow rowBtn = new MyFormRow();
+		rowBtn.setParent(rows);
+		rowBtn.appendChild(new MyLabelConfig("Vendor Pembanding"));
+		final org.zkoss.zul.Button btnPembanding = new org.zkoss.zul.Button("+ Vendor Pembanding");
+		btnPembanding.setStyle("background:#4f46e5; color:#fff; border:none; padding:4px 10px; border-radius:6px; cursor:pointer;");
+		rowBtn.appendChild(btnPembanding);
+
 		vendorPembanding1 = teksNilai(seleksiVendor.getVendorPembanding1());
-		rowKV(rows, "Vendor Pembanding I", edit ? vendorPembanding1 : new Label(nilaiStr(vendorPembanding1)));
+		barisPembanding.add(rowKVret(rows, "Vendor Pembanding I", edit ? vendorPembanding1 : new Label(nilaiStr(vendorPembanding1))));
 		vendorPembanding2 = teksNilai(seleksiVendor.getVendorPembanding2());
-		rowKV(rows, "Vendor Pembanding II", edit ? vendorPembanding2 : new Label(nilaiStr(vendorPembanding2)));
+		barisPembanding.add(rowKVret(rows, "Vendor Pembanding II", edit ? vendorPembanding2 : new Label(nilaiStr(vendorPembanding2))));
 		vendorPembanding3 = teksNilai(seleksiVendor.getVendorPembanding3());
-		rowKV(rows, "Vendor Pembanding III", edit ? vendorPembanding3 : new Label(nilaiStr(vendorPembanding3)));
+		barisPembanding.add(rowKVret(rows, "Vendor Pembanding III", edit ? vendorPembanding3 : new Label(nilaiStr(vendorPembanding3))));
 		alasanDipilih = teksArea(seleksiVendor.getAlasanDipilih());
-		rowKV(rows, "Alasan dipilih dibanding lain", edit ? alasanDipilih : new Label(nilaiStr(alasanDipilih)));
+		barisPembanding.add(rowKVret(rows, "Alasan dipilih dibanding lain", edit ? alasanDipilih : new Label(nilaiStr(alasanDipilih))));
+
+		final boolean adaPembanding = !isBlank(seleksiVendor.getVendorPembanding1())
+				|| !isBlank(seleksiVendor.getVendorPembanding2()) || !isBlank(seleksiVendor.getVendorPembanding3())
+				|| !isBlank(seleksiVendor.getAlasanDipilih());
+		for (org.zkoss.zk.ui.Component br : barisPembanding) {
+			br.setVisible(adaPembanding);
+		}
+		btnPembanding.addEventListener(Events.ON_CLICK, new EventListener() {
+			@Override
+			public void onEvent(Event ev) throws Exception {
+				boolean show = !barisPembanding.get(0).isVisible();
+				for (org.zkoss.zk.ui.Component br : barisPembanding) {
+					br.setVisible(show);
+				}
+			}
+		});
 
 		// ---- Section D ----
 		headerSeksi(rows, "D. Rekomendasi Pemilihan");
@@ -796,11 +821,16 @@ public class SeleksiVendorAction extends GenericAutowireComposer implements Form
 	// ================= util kecil =================
 
 	private void rowKV(Rows rows, String label, org.zkoss.zk.ui.Component control) {
+		rowKVret(rows, label, control);
+	}
+
+	private MyFormRow rowKVret(Rows rows, String label, org.zkoss.zk.ui.Component control) {
 		MyFormRow r = new MyFormRow();
 		r.setValign("top");
 		r.setParent(rows);
 		r.appendChild(new MyLabelConfig(label));
 		r.appendChild(control);
+		return r;
 	}
 
 	private void headerSeksi(Rows rows, String judul) {
