@@ -618,6 +618,14 @@ public class KantinHelper {
 				Session session = HibernateUtil.getSessionFactory().openSession();
 
 				try {
+					Long iddraftPembelianAnggotaKoperasi = (jsonObject.isNull("draftPembelianAnggotaKoperasi")
+							|| !Common.isNumber((jsonObject.get("draftPembelianAnggotaKoperasi") + "").trim())) ? null
+									: Long.parseLong((jsonObject.get("draftPembelianAnggotaKoperasi") + "").trim());
+					DraftPembelianAnggotaKoperasi draftPembelianAnggotaKoperasi = (iddraftPembelianAnggotaKoperasi == null
+							? null
+							: (DraftPembelianAnggotaKoperasi) session
+									.createCriteria(DraftPembelianAnggotaKoperasi.class)
+									.add(Restrictions.idEq(iddraftPembelianAnggotaKoperasi)).uniqueResult());
 					// Fitur "Sesi Kasir": gerbang SERVER-SIDE (belt-and-suspenders) di titik SATU-SATUNYA
 					// tempat checkout FINAL ditulis -- JSP dan Desktop (PosApi) sebelumnya TIDAK punya
 					// gerbang sama sekali (hanya ZK PosKantinAction.onBayar() yg mengecek client-side
@@ -656,19 +664,23 @@ public class KantinHelper {
 								sesiKasAktif, idPerangkatTransaksi, namaPerangkat(jsonObject));
 						String kodeSesiDiminta = jsonObject.optString("kode_sesi_kas", "").trim();
 						if (kodeSesiDiminta.length() > 0 && !kodeSesiDiminta.equals(sesiKasAktif.getKode())) {
-							hasil.put("status", "91");
-							hasil.put("description", "Transaksi berasal dari sesi kas yang berbeda. Sinkronkan transaksi pada sesi asal dan jangan membuka sesi baru sebelum antrean selesai.");
-							return;
+							boolean draftKasirSama = false;
+							if (draftPembelianAnggotaKoperasi != null) {
+								Tbmuser kasirDraft = draftPembelianAnggotaKoperasi.getTbmuser();
+								draftKasirSama = kasirDraft != null && idKasir[1].equals(kasirDraft.getUserId());
+								if (!draftKasirSama && kasirDraft == null
+										&& draftPembelianAnggotaKoperasi.getKasirLoginNama() != null) {
+									draftKasirSama = idKasir[0].equalsIgnoreCase(
+											draftPembelianAnggotaKoperasi.getKasirLoginNama().trim());
+								}
+							}
+							if (!draftKasirSama) {
+								hasil.put("status", "91");
+								hasil.put("description", "Transaksi berasal dari sesi kas yang berbeda dan bukan transaksi tertahan milik kasir yang sedang login.");
+								return;
+							}
 						}
 					}
-					Long iddraftPembelianAnggotaKoperasi = (jsonObject.isNull("draftPembelianAnggotaKoperasi")
-							|| !Common.isNumber((jsonObject.get("draftPembelianAnggotaKoperasi") + "").trim())) ? null
-									: Long.parseLong((jsonObject.get("draftPembelianAnggotaKoperasi") + "").trim());
-					DraftPembelianAnggotaKoperasi draftPembelianAnggotaKoperasi = (iddraftPembelianAnggotaKoperasi == null
-							? null
-							: (DraftPembelianAnggotaKoperasi) session
-									.createCriteria(DraftPembelianAnggotaKoperasi.class)
-									.add(Restrictions.idEq(iddraftPembelianAnggotaKoperasi)).uniqueResult());
 					JSONArray transaksi = jsonObject.getJSONArray("transaksi");
 					// Hitung promo sekali lagi di SERVER sebelum penyimpanan. Dengan demikian POS
 					// Desktop, Android, JSP, ZK dan pemanggil API lain memperoleh aturan grup,
