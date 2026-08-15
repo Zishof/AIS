@@ -36,6 +36,7 @@ public class PengaturanKantinAction extends GenericAutowireComposer {
             { "Jenis Produk", "/pages/master/inventory/jenis_produk.zul" },
             { "Harga / Kulakan", "/pages/master/inventory/pengajuan_perubahan_harga_produk.zul" },
             { "Diskon", "/pages/master/koperasi/aturan_diskon.zul" },
+            { "Diskon Grup", "/pages/master/koperasi/grup_aturan_diskon.zul" },
             { "Pencairan Diskon", "/pages/master/koperasi/pencairan_diskon.zul" },
             { "Metode Bayar", "/pages/master/koperasi/cara_pembayaran_koperasi.zul" },
             { "Meja", "/pages/master/koperasi/meja_kantin.zul" },

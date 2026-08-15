@@ -1,0 +1,4 @@
+<%@ page language="java" contentType="application/json; charset=UTF-8" pageEncoding="UTF-8" %>
+<%
+request.setAttribute("nuiServiceModule","koperasi");request.setAttribute("nuiServicePage","grup_aturan_diskon");request.setAttribute("nuiServiceTitle","Grup Aturan Diskon");request.setAttribute("nuiServiceType","finance");request.setAttribute("nuiServiceSourceClass","GrupAturanDiskonAction");request.setAttribute("nuiServiceSourcePackage","ais.action.master.koperasi");request.setAttribute("nuiServiceSourcePath","src/ais/action/master/koperasi/GrupAturanDiskonAction.java");request.setAttribute("nuiServiceMethods",new String[]{"initCriteria","onSave","render"});request.setAttribute("nuiServiceEntities",new String[]{"GrupAturanDiskon","GrupAturanDiskonDetail"});
+%><jsp:include page="/WEB-INF/new/_shared/services/dispatcher.jsp" />

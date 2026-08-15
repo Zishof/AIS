@@ -14011,7 +14011,9 @@ public class KantinHelper {
 					} else if(aturanDiskonId==null) aturanDiskonId=(Long)applied.get("id");
 					namaPromoDiterapkan.add(String.valueOf(applied.get("namaAturan")));
 				}
-				cashback=Math.min(itemTotal,cashback);
+				// Total manfaat tidak boleh melebihi nilai barang: diskon 100% tidak
+				// boleh masih menghasilkan cashback tambahan.
+				cashback=Math.min(Math.max(0,itemTotal-diskon),cashback);
 
 				JSONObject out = new JSONObject();
 				out.put("id", produkId);

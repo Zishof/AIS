@@ -1844,7 +1844,9 @@ public class PosKantinAction extends GenericAutowireComposer {
         if (eligible.isEmpty()) {
             return;
         }
-        double itemTotal = it.harga * it.jumlah;
+        final double itemTotal = it.harga * it.jumlah;
+        final int jumlahItem = it.jumlah;
+		Collections.sort(eligible,new Comparator<Rule>(){public int compare(Rule a,Rule b){if(a.prioritas!=b.prioritas)return a.prioritas>b.prioritas?-1:1;double va=nilaiPotensial(a,itemTotal,jumlahItem),vb=nilaiPotensial(b,itemTotal,jumlahItem);if(va!=vb)return va>vb?-1:1;return a.aturanId.compareTo(b.aturanId);}});
 		Rule pertama=eligible.get(0);
 		Set<String> eksklusif=new HashSet<String>();
 		for(int ri=0;ri<eligible.size();ri++){
@@ -1884,8 +1886,10 @@ public class PosKantinAction extends GenericAutowireComposer {
 		if(it.aturanDiskonId==null && !applied.sumberGrup)it.aturanDiskonId=applied.aturanId;
 		it.berlakuPerHari = it.berlakuPerHari || applied.berlakuPerHari;
 		}
-		it.cashback=Math.min(itemTotal,it.cashback);
+		it.cashback=Math.min(Math.max(0,itemTotal-it.diskon),it.cashback);
     }
+
+	private static double nilaiPotensial(Rule r,double total,int jumlah){double v=r.persen>0?total*(r.persen/100d):r.nominal*Math.max(1,jumlah);if(r.maxPot>0&&v>r.maxPot)v=r.maxPot;return Math.max(0,v)+Math.max(0,r.cashbackTetap*Math.max(1,jumlah));}
 
     private static boolean jsonIdMemuat(String json, Long nilai) {
         if (json == null || json.trim().length() == 0 || "[]".equals(json.trim())) return true;

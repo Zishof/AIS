@@ -16,6 +16,7 @@ import org.zkoss.zul.Datebox;
 import org.zkoss.zul.Div;
 import org.zkoss.zul.Grid;
 import org.zkoss.zul.Hbox;
+import org.zkoss.zul.Intbox;
 import org.zkoss.zul.Label;
 import org.zkoss.zul.Row;
 import org.zkoss.zul.Rows;
@@ -67,6 +68,10 @@ public class AturanDiskonAction extends GenericCrudAction<AturanDiskon> {
     private MyDoublebox persentase;
     private MyDoublebox maksimalPotongan;
     private MyDoublebox nominal;
+    private Intbox prioritas;
+    private Checkbox chkDapatDigabung;
+    private Combobox dasarPerhitungan;
+    private org.zkoss.zul.Textbox grupEksklusif;
     private Datebox tglMulai;
     private Datebox tglSelesai;
     private Checkbox[] chkHari; // gap-closure "Hari Aktif" -- indeks 0..6 = ISO weekday 1..7 (Senin..Minggu)
@@ -231,6 +236,34 @@ public class AturanDiskonAction extends GenericCrudAction<AturanDiskon> {
         nominal = new MyDoublebox(ad.getNominal());
         fb.addRow("Diskon Nominal (Rp)", nominal, "Potongan tetap dalam rupiah (alternatif dari persen)");
 
+        fb.addSectionHeader("Prioritas & Benturan Promo");
+
+        prioritas = new Intbox(ad.getPrioritas());
+        prioritas.setConstraint("no negative");
+        prioritas.setWidth("100%");
+        fb.addRow("Prioritas Perhitungan", prioritas,
+                "Angka lebih besar dihitung lebih dahulu. Nilai bawaan 100.");
+
+        chkDapatDigabung = new Checkbox();
+        chkDapatDigabung.setChecked(Boolean.TRUE.equals(ad.getDapatDigabung()));
+        fb.addRow("Boleh Digabung dengan Promo Lain", chkDapatDigabung,
+                "Secara bawaan tidak dicentang agar potongan tidak bertumpuk tanpa sengaja. Kedua promo harus mengizinkan penggabungan.");
+
+        dasarPerhitungan = new Combobox();
+        dasarPerhitungan.setReadonly(true);
+        dasarPerhitungan.setWidth("100%");
+        dasarPerhitungan.appendItem("Setelah diskon sebelumnya").setValue("SETELAH_DISKON");
+        dasarPerhitungan.appendItem("Harga awal").setValue("HARGA_AWAL");
+        String dasarTerpilih = ad.getDasarPerhitungan();
+        dasarPerhitungan.setSelectedIndex("HARGA_AWAL".equals(dasarTerpilih) ? 1 : 0);
+        fb.addRow("Dasar Perhitungan", dasarPerhitungan,
+                "Disarankan Setelah diskon sebelumnya. Contoh 50% lalu 20% menghasilkan potongan efektif 60%.");
+
+        grupEksklusif = new org.zkoss.zul.Textbox(ad.getGrupEksklusif());
+        grupEksklusif.setWidth("100%");
+        fb.addRow("Grup Eksklusif", grupEksklusif,
+                "Promo dengan kode grup sama tidak dapat dipakai bersamaan, misalnya PROMO-AKHIR-TAHUN.");
+
         chkPotonganLangsung = new Checkbox();
         chkPotonganLangsung.setChecked(Boolean.TRUE.equals(ad.getPotonganLangsung()));
         fb.addRow("Potong Langsung di Struk", chkPotonganLangsung,
@@ -356,6 +389,12 @@ public class AturanDiskonAction extends GenericCrudAction<AturanDiskon> {
         ad.setPersentase(persentase.getValue());
         ad.setMaksimalPotongan(maksimalPotongan.getValue());
         ad.setNominal(nominal.getValue());
+        ad.setPrioritas(prioritas.getValue() == null ? Integer.valueOf(100) : prioritas.getValue());
+        ad.setDapatDigabung(Boolean.valueOf(chkDapatDigabung.isChecked()));
+        ad.setDasarPerhitungan(dasarPerhitungan.getSelectedItem() == null
+                ? "SETELAH_DISKON" : String.valueOf(dasarPerhitungan.getSelectedItem().getValue()));
+        String kodeEksklusif = grupEksklusif.getValue() == null ? "" : grupEksklusif.getValue().trim();
+        ad.setGrupEksklusif(kodeEksklusif.length() == 0 ? null : kodeEksklusif);
         ad.setPotonganLangsung(chkPotonganLangsung.isChecked());
         ad.setBerlakuPerHariDanPerToko(chkBatas1x.isChecked());
         ad.setTanggalMulai(tglMulai.getValue());
@@ -391,6 +430,7 @@ public class AturanDiskonAction extends GenericCrudAction<AturanDiskon> {
             new Label(ad.getToko() == null ? "Semua Toko" : ad.getToko().getNama()).setParent(arg0);
             new Label(deskripsiDiskon(ad)).setParent(arg0);
             new Label(deskripsiPeriode(ad)).setParent(arg0);
+            new Label(deskripsiKonflik(ad)).setParent(arg0);
 
             final MyCheckboxConfig checkbox = new MyCheckboxConfig("Aktif");
             checkbox.setDisabled(!edit);
@@ -425,6 +465,17 @@ public class AturanDiskonAction extends GenericCrudAction<AturanDiskon> {
             sb.append("-");
         }
         sb.append(ad.getPotonganLangsung() ? " · potong harga" : " · cashback");
+        return sb.toString();
+    }
+
+    private static String deskripsiKonflik(AturanDiskon ad) {
+        StringBuilder sb = new StringBuilder("Prioritas ").append(ad.getPrioritas());
+        sb.append(Boolean.TRUE.equals(ad.getDapatDigabung()) ? " · Dapat digabung" : " · Tunggal");
+        sb.append(" · ").append("HARGA_AWAL".equals(ad.getDasarPerhitungan())
+                ? "Harga awal" : "Setelah diskon");
+        if (ad.getGrupEksklusif() != null && !ad.getGrupEksklusif().trim().isEmpty()) {
+            sb.append(" · Grup ").append(ad.getGrupEksklusif().trim());
+        }
         return sb.toString();
     }
 

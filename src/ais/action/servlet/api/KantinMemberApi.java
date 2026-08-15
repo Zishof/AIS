@@ -452,7 +452,8 @@ public final class KantinMemberApi {
 
     // ── 6. ATURAN DISKON ──────────────────────────────────────────────────────
     /**
-     * Semua aturan diskon aktif (digunakan Flutter untuk menghitung diskon client-side).
+     * Semua aturan diskon aktif. Nilai ini untuk pratinjau klien; keputusan akhir dan
+     * perhitungan ulang tetap dilakukan server pada endpoint evaluasi/finalisasi pembayaran.
      * Response: { status:"00", list:[{ id, produk, toko, berlaku_semua_member, jenis_anggota,
      *   tipe_anggota, persentase, maksimal_potongan, nominal, potongan_langsung,
      *   berlaku_per_hari_dan_per_toko, tanggal_mulai, tanggal_selesai }] }
@@ -465,7 +466,9 @@ public final class KantinMemberApi {
             List<Object[]> rows = s.createSQLQuery(
                 "SELECT id, produk, toko, berlaku_semua_member, jenis_anggota, tipe_anggota, " +
                 "persentase, maksimal_potongan, nominal, potongan_langsung, " +
-                "berlaku_per_hari_dan_per_toko, tanggal_mulai, tanggal_selesai " +
+                "berlaku_per_hari_dan_per_toko, tanggal_mulai, tanggal_selesai, hari_aktif, " +
+                "COALESCE(prioritas,100), COALESCE(dapat_digabung,false), " +
+                "COALESCE(dasar_perhitungan,'SETELAH_DISKON'), COALESCE(grup_eksklusif,'') " +
                 "FROM koperasi.aturan_diskon WHERE aktif=true"
             ).list();
             JSONArray arr = new JSONArray();
@@ -484,6 +487,42 @@ public final class KantinMemberApi {
                 o.put("berlaku_per_hari_dan_per_toko", r[10]);
                 o.put("tanggal_mulai",              r[11] != null ? r[11].toString() : null);
                 o.put("tanggal_selesai",            r[12] != null ? r[12].toString() : null);
+                o.put("hari_aktif",                 r[13]);
+                o.put("prioritas",                  r[14]);
+                o.put("dapat_digabung",             r[15]);
+                o.put("dasar_perhitungan",          r[16]);
+                o.put("grup_eksklusif",             r[17]);
+                o.put("sumber",                     "ATURAN");
+                arr.put(o);
+            }
+            @SuppressWarnings("unchecked")
+            List<Object[]> groups = s.createSQLQuery(
+                "SELECT g.id,d.produk,g.toko,COALESCE(g.berlaku_semua_member,NOT COALESCE(g.khusus_member,false)), " +
+                "g.jenis_anggota,g.tipe_anggota,g.persentase,g.maksimal_potongan,g.nominal, " +
+                "COALESCE(g.potongan_langsung,true),g.tanggal_mulai,g.tanggal_selesai,g.hari_aktif, " +
+                "COALESCE(g.prioritas,100),COALESCE(g.dapat_digabung,false), " +
+                "COALESCE(g.dasar_perhitungan,'SETELAH_DISKON'),COALESCE(g.grup_eksklusif,''), " +
+                "COALESCE(g.cashback,0),COALESCE(g.khusus_member,false), " +
+                "COALESCE(g.jenis_member_json,'[]'),COALESCE(g.tipe_member_json,'[]'),g.nama_grup " +
+                "FROM koperasi.grup_aturan_diskon g " +
+                "JOIN koperasi.grup_aturan_diskon_detail d ON d.grup_aturan_diskon=g.id AND COALESCE(d.aktif,true) " +
+                "WHERE COALESCE(g.aktif,true)"
+            ).list();
+            for (Object[] r : groups) {
+                JSONObject o = new JSONObject();
+                o.put("id", r[0]); o.put("produk", r[1]); o.put("toko", r[2]);
+                o.put("berlaku_semua_member", r[3]); o.put("jenis_anggota", r[4]);
+                o.put("tipe_anggota", r[5]); o.put("persentase", r[6]);
+                o.put("maksimal_potongan", r[7]); o.put("nominal", r[8]);
+                o.put("potongan_langsung", r[9]);
+                o.put("tanggal_mulai", r[10] != null ? r[10].toString() : null);
+                o.put("tanggal_selesai", r[11] != null ? r[11].toString() : null);
+                o.put("hari_aktif", r[12]); o.put("prioritas", r[13]);
+                o.put("dapat_digabung", r[14]); o.put("dasar_perhitungan", r[15]);
+                o.put("grup_eksklusif", r[16]); o.put("cashback", r[17]);
+                o.put("khusus_member", r[18]); o.put("jenis_member_json", r[19]);
+                o.put("tipe_member_json", r[20]); o.put("nama_grup", r[21]);
+                o.put("sumber", "GRUP");
                 arr.put(o);
             }
             JSONObject hasil = new JSONObject();
