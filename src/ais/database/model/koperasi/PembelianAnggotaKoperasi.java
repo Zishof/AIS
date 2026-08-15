@@ -457,7 +457,7 @@ public class PembelianAnggotaKoperasi extends GeneralValueObject {
 		this.kode = kode;
 	}
 
-	@Column(name = "keterangan", nullable = true)
+	@Column(name = "keterangan", nullable = true, columnDefinition = "text")
 	public String getKeterangan() {
 		return this.keterangan;
 	}

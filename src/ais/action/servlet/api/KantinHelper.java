@@ -1707,12 +1707,10 @@ public class KantinHelper {
 		try {
 			ais.database.model.inventory.SesiKasKasir sesi = ais.action.master.koperasi.helper.SesiKasUtil
 					.sesiTerbukaPerangkat(session, id[0], id[1], tokoId, perangkat);
-			if (sesi != null && ais.action.master.koperasi.helper.SesiKasUtil.ikatPerangkatJikaLama(
-					sesi, perangkat, namaPerangkat(request))) {
-				session.beginTransaction();
-				Common.refreshSaveOrUpdate(session, sesi);
-				session.getTransaction().commit();
-			}
+			// Endpoint status harus murni baca. Mengikat sesi warisan di sini membuat polling
+			// status melakukan UPDATE dan dapat berbenturan dengan unique index perangkat bila
+			// perangkat baru saja diklaim sesi lain. Pengikatan tetap dilakukan secara eksplisit
+			// pada alur Buka/Tutup Kas yang memiliki transaksi dan penanganan konflik sendiri.
 			System.out.println("[SESI-KAS-STATUS] hasil query -- " + (sesi == null ? "TIDAK DITEMUKAN (null)"
 					: ("DITEMUKAN id=" + sesi.getId() + ", kasirNama=" + sesi.getKasirNama() + ", kasirUserId=" + sesi.getKasirUserId()
 							+ ", toko=" + (sesi.getToko() == null ? "null" : sesi.getToko().getId()) + ", status=" + sesi.getStatus())));
@@ -13431,6 +13429,11 @@ public class KantinHelper {
 		if (alasan.length() < 5 || itemRequest == null || itemRequest.length() == 0 || request.isNull("id")) {
 			hasil.put("status", "91");
 			hasil.put("description", "Alasan minimal 5 karakter dan sedikitnya satu barang wajib diisi.");
+			return;
+		}
+		if (alasan.length() > 1000) {
+			hasil.put("status", "91");
+			hasil.put("description", "Alasan koreksi maksimal 1000 karakter.");
 			return;
 		}
 		Long transaksiId;
