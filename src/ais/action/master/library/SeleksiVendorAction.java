@@ -216,7 +216,16 @@ public class SeleksiVendorAction extends GenericAutowireComposer implements Form
 		rows.setParent(grid);
 
 		// ---- Header ----
-		kode = new Label(seleksiVendor.getKode() == null ? "(otomatis saat simpan)" : seleksiVendor.getKode());
+		// Kode ditampilkan SEBELUM simpan: preview nomor berikutnya (tanpa menaikkan counter).
+		String kodeTampil = seleksiVendor.getKode();
+		if (kodeTampil == null) {
+			try {
+				kodeTampil = generateCode(false);
+			} catch (Exception e) {
+				kodeTampil = "(otomatis saat simpan)";
+			}
+		}
+		kode = new Label(kodeTampil);
 		rowKV(rows, "Kode Pengajuan", kode);
 
 		nama = new MyTextbox();
@@ -321,7 +330,10 @@ public class SeleksiVendorAction extends GenericAutowireComposer implements Form
 		wrap.setParent(parent);
 		wrap.setStyle("overflow-x:auto;");
 
-		MyGrid g = new MyGrid();
+		// PENTING: pakai Grid biasa, BUKAN MyGrid — MyGrid nested (setVisible(false)+Timer)
+		// akan dipaksa tetap hidden oleh logika re-hide descendant grid induk (matriks jadi hilang).
+		org.zkoss.zul.Grid g = new org.zkoss.zul.Grid();
+		g.setSclass("dgrid");
 		g.setWidth("100%");
 		Columns cols = new Columns();
 		cols.setParent(g);
