@@ -1956,7 +1956,12 @@ public class InitIndex {
 	 */
 	private static void bersihkanAccessedUsersSaatStartup() {
 		try {
-			ais.common.Common.updateSql(
+			/*
+			 * Ini DDL maintenance internal dengan SQL konstan, bukan SQL dari request.
+			 * Jalankan melalui pintu khusus InitIndex agar filter SQL publik tetap ketat
+			 * dan tidak perlu mengizinkan TRUNCATE secara global.
+			 */
+			eksekusiSqlAmanDdl(
 					"TRUNCATE TABLE public.online_users, public.accessed_users");
 		} catch (Exception e) {
 			e.printStackTrace();
