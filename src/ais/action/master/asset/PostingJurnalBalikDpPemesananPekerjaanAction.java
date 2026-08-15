@@ -1309,8 +1309,12 @@ public class PostingJurnalBalikDpPemesananPekerjaanAction extends GenericAutowir
 						: Restrictions.eq("ruang", searchruang.getAttribute("ruang"))))
 
 				.add(searchkode.getValue().trim().isEmpty() ? Restrictions.sqlRestriction("1=1")
+						// FIX (ERROR QueryException "could not resolve property: nama"):
+						// PemesananPengadaanMasterAsset tidak punya field "nama", yang ada
+						// "keterangan" -- salah nama properti (kemungkinan copy-paste dari
+						// Action lain yang entity-nya punya field "nama").
 						: Restrictions.or(Restrictions.ilike("kode", searchkode.getValue(), MatchMode.ANYWHERE),
-								Restrictions.ilike("nama", searchkode.getValue(), MatchMode.ANYWHERE)));
+								Restrictions.ilike("keterangan", searchkode.getValue(), MatchMode.ANYWHERE)));
 
 		if (order)
 			criteria.addOrder(Order.desc("id"));

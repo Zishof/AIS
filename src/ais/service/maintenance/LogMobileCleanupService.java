@@ -83,18 +83,55 @@ public final class LogMobileCleanupService {
 		}
 	}
 
-	/** Hapus baris {@code log_mobile} lebih tua dari ambang retensi. Buka/tutup session sendiri. */
+	/** Ambang jumlah baris tiap batch delete -- lihat javadoc {@link #bersihkanSekali()}. */
+	private static final int UKURAN_BATCH_HAPUS = 5000;
+
+	/** Batas jumlah iterasi batch per pemanggilan -- jaga-jaga agar tidak berjalan tanpa henti
+	 * bila tabel sangat besar; sisanya akan dilanjutkan pada jadwal cleanup berikutnya. */
+	private static final int MAKS_BATCH_PER_JALAN = 200;
+
+	/**
+	 * Hapus baris {@code log_mobile} lebih tua dari ambang retensi. Buka/tutup session sendiri.
+	 *
+	 * <p>Gap-closure "canceling statement due to statement timeout": SEBELUMNYA satu DELETE HQL
+	 * tunggal tanpa batas menghapus SELURUH baris kedaluwarsa sekaligus -- pada tabel log_mobile
+	 * yang tumbuh terus (dicatat tiap request mobile), jumlah baris yang cocok bisa jutaan,
+	 * membuat satu statement DELETE berjalan lebih lama dari statement_timeout server dan
+	 * dibatalkan paksa (transaksi gagal total, TIDAK ADA baris yang berhasil terhapus walau
+	 * prosesnya sudah berjalan lama). Sekarang dihapus per-batch (native SQL + ctid, idiom umum
+	 * Postgres utk "DELETE ... LIMIT") dalam transaksi kecil terpisah per batch -- tiap statement
+	 * jauh lebih cepat drpd batas timeout, dan progres yang sudah terhapus tetap tersimpan walau
+	 * batch berikutnya gagal/dibatalkan.</p>
+	 */
 	private static void bersihkanSekali() {
 		Date cutoff = new Date(System.currentTimeMillis() - retensiHari() * 24L * 60L * 60L * 1000L);
+		int totalDihapus = 0;
+		int batchKe = 0;
+		while (batchKe < MAKS_BATCH_PER_JALAN) {
+			batchKe++;
+			int dihapusBatch = hapusSatuBatch(cutoff);
+			totalDihapus += dihapusBatch;
+			if (dihapusBatch < UKURAN_BATCH_HAPUS) {
+				// Batch terakhir (baris tersisa lebih sedikit dari ukuran batch, atau 0) -> selesai.
+				break;
+			}
+		}
+		System.out.println("[LogMobileCleanup] " + totalDihapus + " baris log_mobile lebih tua dari "
+				+ retensiHari() + " hari dihapus dalam " + batchKe + " batch (cutoff=" + cutoff + ")");
+	}
+
+	/** Hapus SATU batch (maks {@link #UKURAN_BATCH_HAPUS} baris) dalam transaksi tersendiri. */
+	private static int hapusSatuBatch(Date cutoff) {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		Transaction tx = null;
 		try {
 			tx = session.beginTransaction();
-			int dihapus = session.createQuery("delete from LogMobile lm where lm.login < :cutoff")
-					.setTimestamp("cutoff", cutoff).executeUpdate();
+			int dihapus = session.createSQLQuery(
+					"delete from public.log_mobile where ctid in ("
+							+ "select ctid from public.log_mobile where login < :cutoff limit :batchSize)")
+					.setTimestamp("cutoff", cutoff).setInteger("batchSize", UKURAN_BATCH_HAPUS).executeUpdate();
 			tx.commit();
-			System.out.println("[LogMobileCleanup] " + dihapus + " baris log_mobile lebih tua dari "
-					+ retensiHari() + " hari dihapus (cutoff=" + cutoff + ")");
+			return dihapus;
 		} catch (Exception e) {
 			try {
 				if (tx != null && tx.isActive()) {
@@ -104,6 +141,7 @@ public final class LogMobileCleanupService {
 				ErrorAuditUtil.record(rollbackEx, "auto-audit(empty-catch) LogMobileCleanupService.rollback");
 			}
 			ErrorAuditUtil.record(e, "auto-audit LogMobileCleanupService.bersihkanSekali");
+			return 0;
 		} finally {
 			try {
 				session.clear();

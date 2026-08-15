@@ -236,6 +236,16 @@ public class AmbilDataTugasFileContent extends MyWindow {
 	}
 
 	public static boolean checkFile(Media media) throws Exception {
+		// FIX (ERROR NullPointerException): UploadEvent.getMedia() bisa mengembalikan null
+		// bila proses upload di sisi browser gagal/dibatalkan (mis. koneksi terputus,
+		// berkas kosong 0 byte pada beberapa browser) -- dipakai di 170+ titik upload di
+		// seluruh aplikasi, jadi digerbangi di sini sekali agar seluruh pemanggil aman.
+		if (media == null || media.getName() == null) {
+			MyMessageboxConfig.show(
+					"Mohon maaf, berkas gagal terbaca saat diunggah. Silakan coba unggah ulang berkas tersebut.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return false;
+		}
 		String name = media.getName();
 		if (name.toLowerCase().endsWith(".jsp") || name.toLowerCase().endsWith(".jspx")
 				|| name.toLowerCase().endsWith(".zul") || name.toLowerCase().endsWith(".html")

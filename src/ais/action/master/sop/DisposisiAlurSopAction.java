@@ -1598,7 +1598,22 @@ public class DisposisiAlurSopAction extends GenericAutowireComposer
 			}
 
 			if (disposisiAlurSop != null && disposisiAlurSop.getId() != null) {
-				disposisiAlurSop = (DisposisiAlurSop) sessionUtama.load(DisposisiAlurSop.class, disposisiAlurSop.getId());
+				// FIX (ERROR ObjectNotFoundException "No row with the given identifier exists"):
+				// session.load() mengembalikan PROXY tanpa memverifikasi baris masih ada -- baru
+				// gagal belakangan (mis. saat setUsernamePengguna() di bawah memicu inisialisasi
+				// lazy) bila baris sudah terhapus (mis. dibatalkan pengguna lain). session.get()
+				// langsung query & mengembalikan null bila baris sudah tidak ada, sehingga bisa
+				// ditangani dengan pesan yang jelas alih-alih ObjectNotFoundException mentah.
+				DisposisiAlurSop disposisiAlurSopDb = (DisposisiAlurSop) sessionUtama.get(DisposisiAlurSop.class,
+						disposisiAlurSop.getId());
+				if (disposisiAlurSopDb == null) {
+					MyMessageboxConfig.show(
+							"Data disposisi ini sudah tidak ada (mungkin sudah dibatalkan/dihapus pengguna lain). "
+									+ "Silakan muat ulang halaman.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+					return false;
+				}
+				disposisiAlurSop = disposisiAlurSopDb;
 			} else {
 				baru = true;
 				disposisiAlurSop = new DisposisiAlurSop(hboxAktor.getAttribute("usernamePengguna"));

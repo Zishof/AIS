@@ -408,7 +408,7 @@ public class AmbilDataKelasSiswaBanbox extends Bandbox implements GetEventListen
 
 				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 				.addOrder(Order.asc("sekolah")).addOrder(Order.asc("tingkat")).addOrder(Order.asc("nama"))
-				.add(nama.getText().trim().isEmpty() ? Restrictions.sqlRestriction("1=1")
+				.add(nama.getText() == null || nama.getText().trim().isEmpty() ? Restrictions.sqlRestriction("1=1")
 						: Restrictions.ilike("nama", nama.getText().trim(), MatchMode.ANYWHERE))
 
 				.add(tahunAkademik.getSelectedItem() == null || tahunAkademik.getSelectedItem().getValue() == null

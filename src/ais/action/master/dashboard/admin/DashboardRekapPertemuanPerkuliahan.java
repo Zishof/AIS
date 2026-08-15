@@ -1727,8 +1727,21 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 			return;
 		}
 		try {
+			// FIX (ERROR IllegalStateException "Server Push cannot be started without
+			// execution"): safeRenderRekap() dipanggil dari Thread latar murni (bukan
+			// event ZK), sehingga tidak ada "execution" aktif di thread ini -- padahal
+			// Desktop.enableServerPush(true) mensyaratkan execution aktif. Bungkus dengan
+			// Executions.activate/deactivate (pola sama dengan AsyncTaskManager) supaya
+			// pemeriksaan/pengaktifan server push dilakukan dalam konteks yang sah.
 			if (!desktop.isServerPushEnabled()) {
-				desktop.enableServerPush(true);
+				Executions.activate(desktop);
+				try {
+					if (!desktop.isServerPushEnabled()) {
+						desktop.enableServerPush(true);
+					}
+				} finally {
+					Executions.deactivate(desktop);
+				}
 			}
 			Executions.schedule(desktop, new EventListener() {
 				@Override

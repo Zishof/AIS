@@ -4425,7 +4425,7 @@ public class SiswaAction extends GenericAutowireComposer implements DataCriteria
 						|| searchagama.getSelectedItem().getValue() == null ? Restrictions.sqlRestriction("1=1")
 								: Restrictions.eq("agama", searchagama.getSelectedItem().getValue()))
 
-				.add(searchtahunMulai.getValue() == null ? Restrictions.sqlRestriction("true")
+				.add(searchtahunMulai == null || searchtahunMulai.getValue() == null ? Restrictions.sqlRestriction("true")
 						: Restrictions.ge("tahunMasuk", searchtahunMulai.getValue().intValue()))
 
 				.add(searchtahunSampai == null || searchtahunSampai.getValue() == null ? Restrictions.sqlRestriction("true")

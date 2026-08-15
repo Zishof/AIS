@@ -2453,6 +2453,12 @@ public class DasboardAnalisisVendor extends MyPortallayout {
 			try {
 				Method m = target.getClass().getMethod(methods[i], new Class[0]);
 				return m.invoke(target, new Object[0]);
+			} catch (NoSuchMethodException eTidakAda) {
+				// BUKAN error: invokeAny SENGAJA mencoba beberapa kemungkinan nama getter
+				// berurutan (entity lama/baru bisa beda nama field) -- kandidat yang tidak
+				// ada di kelas ini adalah hal wajar, lanjut coba nama berikutnya tanpa
+				// mencatat ke log error (sebelumnya tiap percobaan gagal ikut tercatat,
+				// membanjiri log error dgn kejadian yg memang diharapkan/normal).
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/asset/helper/DasboardAnalisisVendor.java:2456");
 			}
 		}

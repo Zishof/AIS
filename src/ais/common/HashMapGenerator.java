@@ -18,15 +18,28 @@ public class HashMapGenerator {
 		/**
 		 * Override method put() bawaan.
 		 * Jika ada kode lama yang mencoba memasukkan key=null atau value=null,
-		 * proses ini akan diabaikan secara diam-diam.
+		 * proses ini akan diabaikan secara diam-diam (key=null), atau diperlakukan
+		 * sebagai penghapusan key (value=null) -- lihat catatan di bawah.
 		 */
 		@Override
 		public V put(K key, V value) {
-			if (key == null || value == null) {
-				// Di JasperReports, jika parameter tidak ditemukan di Map, nilainya otomatis null.
-				// Jadi, mengabaikan proses put() di sini akan memberikan hasil akhir yang sama
-				// nyamannya dengan menaruh null di HashMap biasa, namun 100% aman dari NPE.
-				return null; 
+			if (key == null) {
+				return null;
+			}
+			if (value == null) {
+				// FIX: put(key, null) SEBELUMNYA no-op total (key existing TIDAK berubah).
+				// Ini secara diam-diam mematahkan pola "null-kan parameter gambar yang rusak
+				// lalu render ulang" yang dipakai al. oleh
+				// Report.kosongkanParameterGambarTidakValid() (percobaan ulang ekspor PDF
+				// setelah JasperReports/iText gagal dgn "byte array is not a recognized
+				// imageformat"): pada Map hasil HashMapGenerator.getRand(), pemanggilan
+				// parameters.put(key, null) di sana tidak benar-benar menghapus path gambar
+				// rusak, sehingga percobaan ulang gagal lagi dgn error yang SAMA persis.
+				// Di JasperReports, key yang TIDAK ADA di parameters map == parameter null,
+				// jadi remove(key) di sini memberi hasil akhir yang setara dengan menaruh
+				// null di HashMap biasa, namun tetap 100% aman dari NPE ConcurrentHashMap
+				// (yang melarang value null pada put()).
+				return super.remove(key);
 			}
 			return super.put(key, value);
 		}

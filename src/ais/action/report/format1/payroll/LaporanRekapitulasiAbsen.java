@@ -357,7 +357,12 @@ public class LaporanRekapitulasiAbsen extends MyWindow {
 		int i = 0;
 		for (MyCheckboxConfig checkbox : haris) {
 			Integer hari = (Integer) checkbox.getAttribute("hari");
-			parameters.put("hari" + i, checkbox.isChecked() ? hari : -1);
+			// FIX (ERROR NullPointerException): ternary "checkbox.isChecked() ? hari : -1"
+			// mencampur Integer dengan int primitif -- Java memaksa unboxing hari di KEDUA
+			// cabang (bukan hanya cabang yang dipilih), jadi NPE tetap terjadi walau
+			// checkbox tidak dicentang bila hari null. -1 dijadikan Integer.valueOf agar
+			// kedua cabang tetap objek, tidak memaksa unboxing.
+			parameters.put("hari" + i, checkbox.isChecked() ? hari : Integer.valueOf(-1));
 			i++;
 		}
 		if (maps != null) {

@@ -55,7 +55,10 @@ public abstract class VoKelasPunyaSiswa extends GeneralValueObject {
 			String[] nilais = getDetailNilai() == null ? new String[] {} : getDetailNilai().split(";");
 			for (String nn : nilais) {
 				try {
-					String[] s = StringUtils.split(nn, "|");
+					String[] s = splitNilai(nn);
+					if (s == null) {
+						continue;
+					}
 					Long formatId = Long.parseLong(s[0]);
 					Long matpelId = Long.parseLong(s[1]);
 					Integer smtId = Integer.parseInt(s[6]);
@@ -83,7 +86,10 @@ public abstract class VoKelasPunyaSiswa extends GeneralValueObject {
 			String[] nilais = getDetailNilai() == null ? new String[] {} : getDetailNilai().split(";");
 			for (String nn : nilais) {
 				try {
-					String[] s = StringUtils.split(nn, "|");
+					String[] s = splitNilai(nn);
+					if (s == null) {
+						continue;
+					}
 					Long formatId = Long.parseLong(s[0]);
 					Long matpelId = Long.parseLong(s[1]);
 					Integer smtId = Integer.parseInt(s[6]);
@@ -124,7 +130,10 @@ public abstract class VoKelasPunyaSiswa extends GeneralValueObject {
 
 			for (String nn : nilais) {
 				try {
-					String[] s = StringUtils.split(nn, "|");
+					String[] s = splitNilai(nn);
+					if (s == null) {
+						continue;
+					}
 
 					Long matpelId = Long.parseLong(s[1]);
 
@@ -134,7 +143,7 @@ public abstract class VoKelasPunyaSiswa extends GeneralValueObject {
 
 					if ((hanyaValid == null || hanyaValid.equals(valid)) && matapelajaran.getId().equals(matpelId)
 							&& smtId.equals(smt) && grupId.equals(grupKategoriItemPenilaianSiswa.getId())) {
-						String n = s[2];
+						String n = nilaiUntukFormula(s[2]);
 						JenisItemPenilaianSiswa jenisItemPenilaianSiswa = (JenisItemPenilaianSiswa) ConstantValues
 								.ambil(JenisItemPenilaianSiswa.class.getName(), Long.parseLong(s[0]));
 						data.put(jenisItemPenilaianSiswa.getKode(), n);
@@ -162,6 +171,7 @@ public abstract class VoKelasPunyaSiswa extends GeneralValueObject {
 		if (jumlah != null && jumlah.trim().isEmpty()) {
 			verify = false;
 		}
+		jumlah = jumlah == null ? "" : jumlah;
 		jumlah = org.apache.commons.lang3.StringUtils.replace(jumlah, "|", " ");
 		jumlah = org.apache.commons.lang3.StringUtils.replace(jumlah, ";", ",");
 		if (jenisItemPenilaianSiswa != null) {
@@ -171,7 +181,10 @@ public abstract class VoKelasPunyaSiswa extends GeneralValueObject {
 			for (String nn : nilais) {
 				try {
 					String aformatBaru = "";
-					String[] s = StringUtils.split(nn, "|");
+					String[] s = splitNilai(nn);
+					if (s == null) {
+						continue;
+					}
 					if (!s[0].trim().isEmpty()) {
 						Long formatId = Long.parseLong(s[0]);
 						Long matpelId = Long.parseLong(s[1]);
@@ -210,7 +223,10 @@ public abstract class VoKelasPunyaSiswa extends GeneralValueObject {
 			String[] nilais = getDetailNilaiTotal() == null ? new String[] {} : getDetailNilaiTotal().split(";");
 			for (String nn : nilais) {
 				try {
-					String[] s = StringUtils.split(nn, "|");
+					String[] s = splitNilai(nn);
+					if (s == null) {
+						continue;
+					}
 					Long matpelId = Long.parseLong(s[1]);
 					Integer smtId = Integer.parseInt(s[6]);
 					Long grupId = Long.parseLong(s[7]);
@@ -242,7 +258,10 @@ public abstract class VoKelasPunyaSiswa extends GeneralValueObject {
 
 			for (String nn : nilais) {
 				try {
-					String[] s = StringUtils.split(nn, "|");
+					String[] s = splitNilai(nn);
+					if (s == null) {
+						continue;
+					}
 
 					Long matpelId = Long.parseLong(s[1]);
 
@@ -250,7 +269,7 @@ public abstract class VoKelasPunyaSiswa extends GeneralValueObject {
 					Long grupId = Long.parseLong(s[7]);
 
 					if (matapelajaran.getId().equals(matpelId) && smtId.equals(smt)) {
-						String n = s[2];
+						String n = nilaiUntukFormula(s[2]);
 						GrupKategoriItemPenilaianSiswa grupKategoriItemPenilaianSiswa = (GrupKategoriItemPenilaianSiswa) ConstantValues
 								.ambil(GrupKategoriItemPenilaianSiswa.class.getName(), grupId);
 						data.put(grupKategoriItemPenilaianSiswa.getKode(), n);
@@ -282,7 +301,10 @@ public abstract class VoKelasPunyaSiswa extends GeneralValueObject {
 			for (String nn : nilais) {
 				try {
 					String aformatBaru = "";
-					String[] s = StringUtils.split(nn, "|");
+					String[] s = splitNilai(nn);
+					if (s == null) {
+						continue;
+					}
 					if (!s[0].trim().isEmpty()) {
 						Long matpelId = Long.parseLong(s[1]);
 						Integer smtId = Integer.parseInt(s[6]);
@@ -310,6 +332,43 @@ public abstract class VoKelasPunyaSiswa extends GeneralValueObject {
 			}
 
 			setDetailNilaiTotal(formatBaru);
+		}
+	}
+
+	private String[] splitNilai(String nilai) {
+		String[] s = StringUtils.splitPreserveAllTokens(nilai, "|");
+		if (s == null || s.length < 8) {
+			return null;
+		}
+		for (int i = 0; i < 8; i++) {
+			if (s[i] == null) {
+				s[i] = "";
+			}
+		}
+		return s;
+	}
+
+	private String nilaiUntukFormula(String nilai) {
+		if (nilai == null || nilai.trim().isEmpty()) {
+			return "0.0";
+		}
+		try {
+			Double.parseDouble(nilai.trim());
+			return nilai.trim();
+		} catch (Exception e) {
+			String[] pasangan = StringUtils.split(nilai, ":");
+			if (pasangan != null && pasangan.length > 1) {
+				try {
+					Double.parseDouble(pasangan[1].trim());
+					return pasangan[1].trim();
+				} catch (Exception ex) {
+					ais.common.ErrorAuditUtil.record(ex,
+							"auto-audit(nilai pilihan bukan angka) src/ais/database/model/sekolah/VoKelasPunyaSiswa.java:nilaiUntukFormula");
+				}
+			}
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit(nilai non angka dianggap 0 untuk formula) src/ais/database/model/sekolah/VoKelasPunyaSiswa.java:nilaiUntukFormula");
+			return "0.0";
 		}
 	}
 

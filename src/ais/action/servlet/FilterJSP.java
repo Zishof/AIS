@@ -88,6 +88,13 @@ public class FilterJSP implements Filter {
 			// membuat 500 yang menakut-nakuti / mengotori log error.
 			System.out.println("FilterJSP: diabaikan IllegalStateException (race logout/invalidate session): "
 					+ ise.getMessage());
+		} catch (org.zkoss.zk.ui.DesktopUnavailableException due) {
+			// Race condition normal yang SEJENIS dengan IllegalStateException di atas: request
+			// AU/ZK async (mis. polling server push) sampai persis setelah desktop-nya sudah
+			// dihancurkan (tab ditutup pengguna / sesi timeout). Ini BUKAN bug aplikasi -- jangan
+			// dicatat sebagai error mencolok, cukup info/debug spt penanganan IllegalStateException.
+			System.out.println("FilterJSP: diabaikan DesktopUnavailableException (tab ditutup/desktop sudah tidak aktif): "
+					+ due.getMessage());
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/FilterJSP.java:82");
 

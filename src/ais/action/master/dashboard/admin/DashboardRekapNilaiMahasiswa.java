@@ -18,6 +18,7 @@ import org.zkoss.poi.xssf.usermodel.XSSFCell;
 import org.zkoss.poi.xssf.usermodel.XSSFRow;
 import org.zkoss.poi.xssf.usermodel.XSSFSheet;
 import org.zkoss.poi.xssf.usermodel.XSSFWorkbook;
+import org.zkoss.zk.ui.Executions;
 import org.zkoss.zk.ui.Sessions;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
@@ -493,6 +494,13 @@ public class DashboardRekapNilaiMahasiswa extends MyWindow {
 		final Intbox sizedata = new Intbox(30);
 		final Label label = Common.displayLoadBar(this, file, gridHost, sizedata);
 
+		// FIX (ERROR IllegalStateException "Components can be accessed only in event
+		// listeners"): Thread di bawah ini murni latar (bukan event ZK) tapi menyentuh
+		// komponen ZK (chartPanel.setContent via renderChartRingkasan, label.setValue)
+		// langsung tanpa Executions.activate(desktop) -- Desktop diambil di sini, SEBELUM
+		// thread dimulai, selagi masih dalam konteks event yang sah.
+		final org.zkoss.zk.ui.Desktop desktopUntukChart = chartPanel.getDesktop();
+
 		new Thread(new Runnable() {
 
 			@Override
@@ -762,15 +770,31 @@ public class DashboardRekapNilaiMahasiswa extends MyWindow {
 				// -- Render panel grafik (HTML/CSS, BUKAN JFreeChart) dari ringkasan yang sudah
 				// dihitung di loop di atas. Kegagalan menggambar grafik tidak boleh mengganggu
 				// Excel/grid yang sudah berhasil ditulis. --
-				try {
-					renderChartRingkasan(chartPanel, jumlahValid, akumulasiIpk, akumulasiIps, jumlahPerStatus,
-							ipkPerJurusan, sebaranIpk, totalIpsPerSmt, totalIpkPerSmt, jumlahPerSmt, semesterKeAman,
-							tiapSemester.isChecked());
-				} catch (Exception exChart) { ais.common.ErrorAuditUtil.record(exChart,
-						"auto-guard(chart) src/ais/action/master/dashboard/admin/DashboardRekapNilaiMahasiswa.java"); }
+				// FIX (ERROR IllegalStateException "Components can be accessed only in event
+				// listeners"): chartPanel.setContent(...) di dalam renderChartRingkasan() dan
+				// label.setValue(...) di bawah ini WAJIB dieksekusi dalam execution ZK yang
+				// aktif karena thread ini murni latar. Bungkus dengan Executions.activate/
+				// deactivate (pola sama dengan AsyncTaskManager.createDefaultTimer).
+				if (desktopUntukChart != null && desktopUntukChart.isAlive()) {
+					try {
+						Executions.activate(desktopUntukChart);
+						try {
+							try {
+								renderChartRingkasan(chartPanel, jumlahValid, akumulasiIpk, akumulasiIps,
+										jumlahPerStatus, ipkPerJurusan, sebaranIpk, totalIpsPerSmt, totalIpkPerSmt,
+										jumlahPerSmt, semesterKeAman, tiapSemester.isChecked());
+							} catch (Exception exChart) { ais.common.ErrorAuditUtil.record(exChart,
+									"auto-guard(chart) src/ais/action/master/dashboard/admin/DashboardRekapNilaiMahasiswa.java"); }
+							label.setValue("");
+						} finally {
+							Executions.deactivate(desktopUntukChart);
+						}
+					} catch (org.zkoss.zk.ui.DesktopUnavailableException due) { ais.common.ErrorAuditUtil.record(due,
+							"auto-audit(empty-catch) src/ais/action/master/dashboard/admin/DashboardRekapNilaiMahasiswa.java:activate");
+					}
+				}
 
 				mahasiswas.clear();
-				label.setValue("");
 
 				} catch (Exception exProses) {
 					// Kegagalan proses (mis. query bermasalah) tidak boleh membuat indikator "sedang

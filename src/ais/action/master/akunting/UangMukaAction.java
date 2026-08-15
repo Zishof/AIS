@@ -1678,16 +1678,22 @@ public class UangMukaAction extends GenericAutowireComposer
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				rowSatker.setVisible(tanpaAnggaran.isChecked() || ambilDariPr.isChecked());
-				unit.getParent().setVisible(!tanpaAnggaran.isChecked() && !ambilDariPr.isChecked());
-				saldo.getParent().setVisible(!tanpaAnggaran.isChecked() && !ambilDariPr.isChecked());
-				uangMukaDalamProses.getParent().setVisible(!tanpaAnggaran.isChecked() && !ambilDariPr.isChecked());
-				tgl.getParent().setVisible(!tanpaAnggaran.isChecked() && !ambilDariPr.isChecked());
-				akun.getParent().setVisible(!tanpaAnggaran.isChecked() && !ambilDariPr.isChecked());
-				uangMukaDalamProsesDetail.getParent()
-						.setVisible(!tanpaAnggaran.isChecked() && !ambilDariPr.isChecked());
-				tgl.getParent().setVisible(!tanpaAnggaran.isChecked() && !ambilDariPr.isChecked());
+				// FIX (ERROR NullPointerException): dalam mode persetujuan/setujui/viewOnly,
+				// komponen berikut TIDAK selalu di-appendChild ke row (diganti Label seperti
+				// tanpaAnggaran di bawah), sehingga getParent() null -- sama seperti alasan
+				// tanpaAnggaran.getParent() sudah digerbangi lebih dulu. Digerbangi juga di
+				// sini agar konsisten, bukan cuma menunggu tertangkap di try/catch di bawah.
+				boolean visibleAnggaran = !tanpaAnggaran.isChecked() && !ambilDariPr.isChecked();
+				if (unit.getParent() != null) unit.getParent().setVisible(visibleAnggaran);
+				if (saldo.getParent() != null) saldo.getParent().setVisible(visibleAnggaran);
+				if (uangMukaDalamProses.getParent() != null) uangMukaDalamProses.getParent().setVisible(visibleAnggaran);
+				if (tgl.getParent() != null) tgl.getParent().setVisible(visibleAnggaran);
+				if (akun.getParent() != null) akun.getParent().setVisible(visibleAnggaran);
+				if (uangMukaDalamProsesDetail.getParent() != null) {
+					uangMukaDalamProsesDetail.getParent().setVisible(visibleAnggaran);
+				}
 				rowAkunPilih.setVisible(tanpaAnggaran.isChecked() && !ambilDariPr.isChecked());
-				sisaAnggaran.getParent().setVisible(!tanpaAnggaran.isChecked() && !ambilDariPr.isChecked());
+				if (sisaAnggaran.getParent() != null) sisaAnggaran.getParent().setVisible(visibleAnggaran);
 
 				try {
 					workspace.getParent().setVisible(!tanpaAnggaran.isChecked() && !ambilDariPr.isChecked());

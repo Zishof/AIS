@@ -664,10 +664,21 @@ public class SuratUtilHelper {
 		try {
 			personEntity.getClass().getMethod("putPhoto", Map.class).invoke(personEntity, parameters);
 			Long id = (Long) personEntity.getClass().getMethod("getId").invoke(personEntity);
+			String ttdPath = "";
 			if (id != null) {
 				LampiranLain lampiranLain = LampiranLain.ambil(id, tipeLampiran);
-				parameters.put(prefix + ".ttd", lampiranLain != null ? lampiranLain.ambilFile().getAbsolutePath() : "");
+				if (lampiranLain != null) {
+					// GATE (sama seperti SuratUtil.putTtdPath): jangan taruh path gambar TTD yang
+					// rusak/kosong/bukan format gambar ke parameter laporan -- kalau lolos, JasperReports/
+					// iText melempar "The byte array is not a recognized imageformat" saat export PDF
+					// (Report$ReportGenerationException) dan membatalkan seluruh pembuatan laporan.
+					File fileTtd = lampiranLain.ambilFile();
+					if (Common.isGambarLaporanValid(fileTtd)) {
+						ttdPath = fileTtd.getAbsolutePath();
+					}
+				}
 			}
+			parameters.put(prefix + ".ttd", ttdPath);
 		} catch (Exception e) {
 			parameters.put(prefix + ".ttd", "");
 		}

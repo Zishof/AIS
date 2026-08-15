@@ -476,12 +476,12 @@ public class Pegawai extends Karyawan {
 			org.hibernate.Transaction txGuru = null;
 			try {
 				txGuru = session.beginTransaction();
-				Guru guruDb = (Guru) session.get(Guru.class, guru.getId());
-				if (guruDb != null) {
-					guruDb.setPegawai(pegawai);
-					session.update(guruDb);
-				}
+				session.createSQLQuery("SET LOCAL statement_timeout = '60s'").executeUpdate();
+				session.createSQLQuery("UPDATE sekolah.guru SET pegawai = :pegawaiId "
+						+ "WHERE id = :guruId AND (pegawai IS NULL OR pegawai <> :pegawaiId)")
+						.setLong("pegawaiId", pegawai.getId()).setLong("guruId", guru.getId()).executeUpdate();
 				txGuru.commit();
+				guru.setPegawai(pegawai);
 			} catch (Exception exGuru) {
 				if (txGuru != null && txGuru.isActive()) {
 					try {

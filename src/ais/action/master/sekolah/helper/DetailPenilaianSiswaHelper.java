@@ -2174,18 +2174,26 @@ public class DetailPenilaianSiswaHelper {
 																				final Component component;
 																				final MyCheckboxConfig verify = new MyCheckboxConfig();
 
-																				String val = kelasSiswaPunyaSiswa
-																						.retreiveDetailNilai(
-																								jenisItemPenilaianSiswa,
-																								grupKategoriItemPenilaianSiswa,
-																								matapelajaran, smt,
-																								hanyaValid);
-
-																				final Boolean sesuai = kelasSiswaPunyaSiswa
-																						.retreiveDetailVerify(
-																								jenisItemPenilaianSiswa,
-																								grupKategoriItemPenilaianSiswa,
-																								matapelajaran, smt);
+																				// FIX "popup Ubah Nilai tampil blank": SEBELUMNYA baris ini TIDAK
+																				// dibungkus try/catch -- bila data nilai satu item saja rusak/tak
+																				// terduga (lihat VoKelasPunyaSiswa.retreiveDetailNilai/Verify),
+																				// exception merambat ke luar SELURUH loop tampilDataPenilaian,
+																				// meninggalkan myWindow yang sudah terlanjur tampil (setVisible di
+																				// atas) TANPA isi sama sekali -- persis gejala popup kosong putih.
+																				// Satu item bermasalah kini pakai nilai fallback & loop lanjut,
+																				// bukan menggagalkan seluruh daftar item penilaian.
+																				String val = "";
+																				Boolean sesuaiTemp = false;
+																				try {
+																					val = kelasSiswaPunyaSiswa.retreiveDetailNilai(jenisItemPenilaianSiswa,
+																							grupKategoriItemPenilaianSiswa, matapelajaran, smt, hanyaValid);
+																					sesuaiTemp = kelasSiswaPunyaSiswa.retreiveDetailVerify(jenisItemPenilaianSiswa,
+																							grupKategoriItemPenilaianSiswa, matapelajaran, smt);
+																				} catch (Exception eNilaiItem) {
+																					ais.common.ErrorAuditUtil.record(eNilaiItem,
+																							"auto-guard(ubah-nilai-item) src/ais/action/master/sekolah/helper/DetailPenilaianSiswaHelper.java:tampilDataPenilaian");
+																				}
+																				final Boolean sesuai = sesuaiTemp;
 
 																				verify.setChecked(sesuai);
 

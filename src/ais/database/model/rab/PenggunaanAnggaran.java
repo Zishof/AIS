@@ -724,6 +724,28 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 		return false;
 	}
 
+	/**
+	 * Gap-closure "StaleStateException: Batch update returned unexpected row count ...
+	 * actual row count: 0; expected: 1": findPenggunaanAnggaranByRef() memakai
+	 * session.get(id) yang bisa mengembalikan objek CACHE (first-level cache) milik
+	 * baris yang baru saja dihapus lewat native SQL DELETE di tempat lain (mis.
+	 * prosesKasKecil menghapus semua baris ref sebelum menulis ulang) -- Hibernate
+	 * tidak tahu baris itu sudah hilang sampai UPDATE-nya dieksekusi & affected-row=0.
+	 * Diperlakukan sama seperti konflik ref duplikat: retry SEKALI, memakai session
+	 * yang sudah di-clear() oleh clearQuietly() di catch di bawah (persistence context
+	 * kosong -> query berikutnya pasti fresh dari DB, bukan cache basi).
+	 */
+	private static boolean isStaleStateException(Throwable throwable) {
+		Throwable t = throwable;
+		while (t != null) {
+			if (t instanceof org.hibernate.StaleStateException) {
+				return true;
+			}
+			t = t.getCause();
+		}
+		return false;
+	}
+
 	private static void lockRef(Session session, String ref) {
 		if (!hasText(ref)) {
 			return;
@@ -934,7 +956,7 @@ public class PenggunaanAnggaran extends GeneralValueObject {
 			 * biarkan session berada pada kondisi transaction aborted. Rollback, clear,
 			 * lalu ulangi sekali dengan re-query berdasarkan ref.
 			 */
-			if (retryWhenDuplicate && isDuplicateRefException(e)) {
+			if (retryWhenDuplicate && (isDuplicateRefException(e) || isStaleStateException(e))) {
 				saveOrUpdateByRef(session, source, ref, false);
 			} else {
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/rab/PenggunaanAnggaran.java:931");

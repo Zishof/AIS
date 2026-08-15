@@ -520,10 +520,14 @@ public class ProfileImageUtil {
 				if (request == null) {
 					request = RequestContext.get();
 				}
-				u = (Common.isSecure(request) ? "https://" : "http://") + request.getServerName()
-						+ (request.getServerPort() == 80 || request.getServerPort() == 443 ? ""
-								: ":" + request.getServerPort())
-						+ "/media/" + file.getName();
+				if (request != null && file != null) {
+					u = (Common.isSecure(request) ? "https://" : "http://") + request.getServerName()
+							+ (request.getServerPort() == 80 || request.getServerPort() == 443 ? ""
+									: ":" + request.getServerPort())
+							+ "/media/" + file.getName();
+				} else {
+					u = "";
+				}
 
 				if (file != null && file.exists()) {
 					u = LampiranLain.ambilLinkLampiranLain(file);
@@ -555,6 +559,9 @@ public class ProfileImageUtil {
 		File file = new File(Common.REAL_PATH + "/img/administrator-icon.png");
 
 		try {
+			if (tbmuser == null) {
+				return file.getAbsolutePath();
+			}
 			if (tbmuser.getMahasiswa() != null && tbmuser.getMahasiswa().getId() != null) {
 				FileFotoLain fileFotoLain = FileFotoLain.ambil(tbmuser.getMahasiswa().getId(),
 						FotoMahasiswa.DEFAULT_JENIS, FotoMahasiswa.class);
@@ -630,14 +637,15 @@ public class ProfileImageUtil {
 				}
 			}
 
-			if (berupaGambar && !Common.isImage(file)) {
+			if (file == null || !file.exists() || (berupaGambar && !Common.isImage(file))) {
 				return new File(Common.REAL_PATH + "/img/administrator-icon.png").getAbsolutePath();
 			}
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/ProfileImageUtil.java:463");
 			// Handle silent fallback
 		}
 
-		return file.getAbsolutePath();
+		return file == null ? new File(Common.REAL_PATH + "/img/administrator-icon.png").getAbsolutePath()
+				: file.getAbsolutePath();
 	}
 
 	public static Image loadFotoPenggunaLangsung(Tbmuser tbmuser, Image foto, Integer height, Integer width)

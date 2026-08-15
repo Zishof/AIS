@@ -106,8 +106,12 @@ public class AlurSop extends GeneralValueObject {
 	public int compareTo(GeneralValueObject arg0) {
 		try {
 			AlurSop alurSop = (AlurSop) arg0;
+			// FIX (ERROR NullPointerException): cabang ini memeriksa getNomor() tapi salah
+			// ketik memanggil getNomorUrut() di nilai baliknya -- bila Nomor terisi namun
+			// NomorUrut kosong (dua field independen), getNomorUrut() null lalu di-compareTo
+			// -> NPE. Baris balik disamakan dengan field yang benar-benar diperiksa.
 			if (getNomor() != null && alurSop.getNomor() != null) {
-				return getNomorUrut().compareTo(arg0.getNomorUrut());
+				return getNomor().compareTo(alurSop.getNomor());
 			} else if (getNomorUrut() != null && arg0.getNomorUrut() != null) {
 				return getNomorUrut().compareTo(arg0.getNomorUrut());
 			} else if (getNim() != null && arg0.getNim() != null) {
