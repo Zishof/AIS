@@ -2774,13 +2774,24 @@ public class PosApi extends HttpServlet {
 		Long tokoId = resolveTokoId(tbmuser, payload);
 		if (tokoId == null) { hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return; }
 
+		JSONObject payloadAman = new JSONObject(payload.toString());
+		if (!bolehSupervisorAtauAdmin(tbmuser)) {
+			String namaKasirLogin = tbmuser == null ? "" : str(tbmuser.getUserNama()).trim();
+			if (namaKasirLogin.length() == 0 && tbmuser != null && tbmuser.getPedagang() != null)
+				namaKasirLogin = str(tbmuser.getPedagang().getNama()).trim();
+			if (namaKasirLogin.length() == 0 && tbmuser != null)
+				namaKasirLogin = str(tbmuser.getUserId()).trim();
+			payloadAman.put("kasirExact", namaKasirLogin.length() == 0
+					? "__AKUN_KASIR_TIDAK_DIKENAL__" : namaKasirLogin);
+		}
+
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			Toko toko = (Toko) session.get(Toko.class, tokoId);
 			String tokoKode = toko == null || toko.getKode() == null || toko.getKode().trim().isEmpty()
 					? ("toko" + tokoId) : toko.getKode().trim();
 
-			JSONObject hasilQuery = daftarOrderDenganSesi(session, tokoId, tokoKode, payload);
+			JSONObject hasilQuery = daftarOrderDenganSesi(session, tokoId, tokoKode, payloadAman);
 			hasil.put("status", "success");
 			hasil.put("data", hasilQuery.getJSONArray("data"));
 			hasil.put("total", hasilQuery.getLong("total"));
@@ -3152,7 +3163,17 @@ public class PosApi extends HttpServlet {
 		String tglSampai = payload.optString("tglSampai", "");
 		String cariPembeli = payload.optString("cariPembeli", payload.optString("keyword", "")).trim();
 		String kasirExact = payload.optString("kasirExact", "").trim();
+		String kasir = payload.optString("kasir", "").trim();
+		String mesin = payload.optString("mesin", "").trim();
+		String nomorNota = payload.optString("nomorNota", "").trim();
+		String produk = payload.optString("produk", "").trim();
+		String waktuMulai = payload.optString("waktuMulai", "").trim();
+		String waktuSampai = payload.optString("waktuSampai", "").trim();
 		String metodeExact = payload.optString("metodeExact", "").trim();
+		double totalMinimal = Math.max(0, payload.optDouble("totalMinimal", 0));
+		double totalMaksimal = Math.max(0, payload.optDouble("totalMaksimal", 0));
+		double qtyMinimal = Math.max(0, payload.optDouble("qtyMinimal", 0));
+		double qtyMaksimal = Math.max(0, payload.optDouble("qtyMaksimal", 0));
 		boolean transaksiTidakValid = payload.optBoolean("transaksiTidakValid", false)
 				|| "true".equalsIgnoreCase(payload.optString("transaksiTidakValid", ""))
 				|| "1".equals(payload.optString("transaksiTidakValid", ""));
@@ -3165,20 +3186,42 @@ public class PosApi extends HttpServlet {
 		StringBuilder whereTrx = new StringBuilder("a.toko = ? AND COALESCE(a.aktif,true)=true");
 		java.util.List<Object> paramsTrx = new java.util.ArrayList<Object>();
 		paramsTrx.add(tokoId);
-		if (tglMulai.length() > 0) { whereTrx.append(" AND DATE(a.waktu) >= ?"); paramsTrx.add(tglMulai); }
-		if (tglSampai.length() > 0) { whereTrx.append(" AND DATE(a.waktu) <= ?"); paramsTrx.add(tglSampai); }
+		if (tglMulai.length() > 0) { whereTrx.append(" AND DATE(a.waktu) >= CAST(? AS date)"); paramsTrx.add(tglMulai); }
+		if (tglSampai.length() > 0) { whereTrx.append(" AND DATE(a.waktu) <= CAST(? AS date)"); paramsTrx.add(tglSampai); }
+		if (waktuMulai.matches("[0-2][0-9]:[0-5][0-9]")) { whereTrx.append(" AND a.waktu::time >= CAST(? AS time)"); paramsTrx.add(waktuMulai); }
+		if (waktuSampai.matches("[0-2][0-9]:[0-5][0-9]")) { whereTrx.append(" AND a.waktu::time <= CAST(? AS time)"); paramsTrx.add(waktuSampai); }
 		if (kasirExact.length() > 0) {
 			whereTrx.append(" AND LOWER(NULLIF(TRIM(pak.kasir_login_nama),'')) = LOWER(?)");
 			paramsTrx.add(kasirExact);
 		}
+		if (kasirExact.length() == 0 && kasir.length() > 0) {
+			whereTrx.append(" AND COALESCE(pak.kasir_login_nama,'') ILIKE ?");
+			paramsTrx.add("%" + kasir + "%");
+		}
+		if (mesin.length() > 0) { whereTrx.append(" AND COALESCE(pak.nama_mesin,'') ILIKE ?"); paramsTrx.add("%" + mesin + "%"); }
+		if (nomorNota.length() > 0) { whereTrx.append(" AND COALESCE(pak.kode,'') ILIKE ?"); paramsTrx.add("%" + nomorNota + "%"); }
 		if (metodeExact.length() > 0) {
-			whereTrx.append(" AND LOWER(COALESCE(NULLIF(TRIM(a.carabayar),''),'-')) = LOWER(?)");
-			paramsTrx.add(metodeExact);
+			whereTrx.append(" AND COALESCE(a.carabayar,'') ILIKE ?");
+			paramsTrx.add("%" + metodeExact + "%");
+		}
+		if (produk.length() > 0) {
+			whereTrx.append(" AND EXISTS (SELECT 1 FROM koperasi.pembelian af LEFT JOIN koperasi.produk pf ON pf.id=af.produk "
+					+ "WHERE COALESCE(af.pembelian_anggota_koperasi,af.id)=COALESCE(a.pembelian_anggota_koperasi,a.id) "
+					+ "AND (COALESCE(af.nama,'') ILIKE ? OR COALESCE(pf.kode,'') ILIKE ? OR COALESCE(pf.barcode,'') ILIKE ?))");
+			String kwProduk = "%" + produk + "%";
+			paramsTrx.add(kwProduk); paramsTrx.add(kwProduk); paramsTrx.add(kwProduk);
 		}
 		StringBuilder syaratHaving = new StringBuilder();
+		java.util.List<Object> paramsHaving = new java.util.ArrayList<Object>();
 		if (cariPembeli.length() > 0) {
 			syaratHaving.append("(MAX(a.member) ILIKE ? OR COALESCE(MAX(pak.kode),'') ILIKE ?)");
+			String kw = "%" + cariPembeli + "%";
+			paramsHaving.add(kw); paramsHaving.add(kw);
 		}
+		if (totalMinimal > 0) { if (syaratHaving.length() > 0) syaratHaving.append(" AND "); syaratHaving.append("COALESCE(MAX(pak.total_biaya),SUM(a.total)) >= ?"); paramsHaving.add(Double.valueOf(totalMinimal)); }
+		if (totalMaksimal > 0) { if (syaratHaving.length() > 0) syaratHaving.append(" AND "); syaratHaving.append("COALESCE(MAX(pak.total_biaya),SUM(a.total)) <= ?"); paramsHaving.add(Double.valueOf(totalMaksimal)); }
+		if (qtyMinimal > 0) { if (syaratHaving.length() > 0) syaratHaving.append(" AND "); syaratHaving.append("COALESCE(SUM(a.qty),0) >= ?"); paramsHaving.add(Double.valueOf(qtyMinimal)); }
+		if (qtyMaksimal > 0) { if (syaratHaving.length() > 0) syaratHaving.append(" AND "); syaratHaving.append("COALESCE(SUM(a.qty),0) <= ?"); paramsHaving.add(Double.valueOf(qtyMaksimal)); }
 		if (transaksiTidakValid) {
 			if (syaratHaving.length() > 0) syaratHaving.append(" AND ");
 			// Hanya bandingkan transaksi yang mempunyai header/master. Selisih di atas
@@ -3196,11 +3239,7 @@ public class PosApi extends HttpServlet {
 						+ whereTrx + " GROUP BY 1" + havingFilter + ") x");
 		int idx = 1;
 		for (Object p : paramsTrx) ikatParam(psCount, idx++, p);
-		if (cariPembeli.length() > 0) {
-			String kw = "%" + cariPembeli + "%";
-			psCount.setString(idx++, kw);
-			psCount.setString(idx++, kw);
-		}
+		for (Object p : paramsHaving) ikatParam(psCount, idx++, p);
 		java.sql.ResultSet rsCount = psCount.executeQuery();
 		long total = 0; double totalNilai = 0; double totalQty = 0;
 		if (rsCount.next()) { total = rsCount.getLong(1); totalNilai = rsCount.getDouble(2); totalQty = rsCount.getDouble(3); }
@@ -3247,11 +3286,7 @@ public class PosApi extends HttpServlet {
 		idx = 1;
 		psData.setLong(idx++, tokoId.longValue()); // sesi_bertingkat.toko
 		for (Object p : paramsTrx) ikatParam(psData, idx++, p); // order_dasar WHERE (termasuk a.toko lagi)
-		if (cariPembeli.length() > 0) {
-			String kw = "%" + cariPembeli + "%";
-			psData.setString(idx++, kw);
-			psData.setString(idx++, kw);
-		}
+		for (Object p : paramsHaving) ikatParam(psData, idx++, p);
 		psData.setInt(idx++, pageSize);
 		psData.setInt(idx++, offset);
 		java.sql.ResultSet rs = psData.executeQuery();
