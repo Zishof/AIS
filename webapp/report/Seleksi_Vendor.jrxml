@@ -1,0 +1,375 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Report Seleksi Vendor (Pemilihan Penilaian Vendor / Pra-Pembelian).
+     Parameter = field form SeleksiVendorAction; detail 9 kriteria via maps (List<Map>). -->
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Seleksi_Vendor" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="b1a2c3d4-0000-0000-0000-000000000001">
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="barcode" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="label_universitas" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="alamat_kampus" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="kode" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="perihal" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="jenis_pengadaan" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="tanggal" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="keterangan" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="nama_vendor_1" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="nama_vendor_2" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="nama_vendor_3" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="skor_1" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="skor_2" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="skor_3" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="peringkat_1" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="peringkat_2" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="peringkat_3" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="pembanding_1" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="pembanding_2" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="pembanding_3" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="alasan_dipilih" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="rekomendasi" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="rekomendasi_nomor" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="alasan_utama" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="nama_penilai" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="jabatan_penilai" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="tanggal_penilaian" class="java.lang.String" isForPrompting="false"/>
+	<field name="no" class="java.lang.Integer"/>
+	<field name="kriteria" class="java.lang.String"/>
+	<field name="pertanyaan" class="java.lang.String"/>
+	<field name="bobot" class="java.lang.String"/>
+	<field name="nilai_1" class="java.lang.String"/>
+	<field name="nilai_2" class="java.lang.String"/>
+	<field name="nilai_3" class="java.lang.String"/>
+	<field name="ket" class="java.lang.String"/>
+	<title>
+		<band height="150" splitType="Stretch">
+			<image onErrorType="Blank">
+				<reportElement x="0" y="0" width="60" height="55" uuid="b1a2c3d4-0000-0000-0000-000000000010"/>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<textField isBlankWhenNull="true">
+				<reportElement x="65" y="0" width="490" height="20" uuid="b1a2c3d4-0000-0000-0000-000000000011"/>
+				<textElement textAlignment="Center"><font size="11" isBold="true"/></textElement>
+				<textFieldExpression><![CDATA[$P{label_universitas}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="65" y="20" width="490" height="14" uuid="b1a2c3d4-0000-0000-0000-000000000012"/>
+				<textElement textAlignment="Center"><font size="7"/></textElement>
+				<textFieldExpression><![CDATA[$P{alamat_kampus}]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="0" y="57" width="555" height="1" uuid="b1a2c3d4-0000-0000-0000-000000000013"/>
+			</line>
+			<staticText>
+				<reportElement x="0" y="62" width="555" height="18" uuid="b1a2c3d4-0000-0000-0000-000000000014"/>
+				<textElement textAlignment="Center"><font size="12" isBold="true"/></textElement>
+				<text><![CDATA[FORM PENILAIAN PEMILIHAN VENDOR (PRA-PEMBELIAN)]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="0" y="86" width="70" height="13" uuid="b1a2c3d4-0000-0000-0000-000000000015"/>
+				<textElement><font size="8" isBold="true"/></textElement>
+				<text><![CDATA[Kode]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="72" y="86" width="200" height="13" uuid="b1a2c3d4-0000-0000-0000-000000000016"/>
+				<textElement><font size="8"/></textElement>
+				<textFieldExpression><![CDATA[": " + ($P{kode} == null ? "-" : $P{kode})]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="290" y="86" width="70" height="13" uuid="b1a2c3d4-0000-0000-0000-000000000017"/>
+				<textElement><font size="8" isBold="true"/></textElement>
+				<text><![CDATA[Tanggal]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="362" y="86" width="193" height="13" uuid="b1a2c3d4-0000-0000-0000-000000000018"/>
+				<textElement><font size="8"/></textElement>
+				<textFieldExpression><![CDATA[": " + ($P{tanggal} == null ? "-" : $P{tanggal})]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="0" y="99" width="70" height="13" uuid="b1a2c3d4-0000-0000-0000-000000000019"/>
+				<textElement><font size="8" isBold="true"/></textElement>
+				<text><![CDATA[Perihal]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="72" y="99" width="483" height="13" uuid="b1a2c3d4-0000-0000-0000-00000000001a"/>
+				<textElement><font size="8"/></textElement>
+				<textFieldExpression><![CDATA[": " + ($P{perihal} == null ? "-" : $P{perihal})]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="0" y="112" width="70" height="13" uuid="b1a2c3d4-0000-0000-0000-00000000001b"/>
+				<textElement><font size="8" isBold="true"/></textElement>
+				<text><![CDATA[Jenis Barang/Jasa]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="72" y="112" width="483" height="13" uuid="b1a2c3d4-0000-0000-0000-00000000001c"/>
+				<textElement><font size="8"/></textElement>
+				<textFieldExpression><![CDATA[": " + ($P{jenis_pengadaan} == null ? "-" : $P{jenis_pengadaan})]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="0" y="125" width="70" height="13" uuid="b1a2c3d4-0000-0000-0000-00000000001d"/>
+				<textElement><font size="8" isBold="true"/></textElement>
+				<text><![CDATA[Latar Belakang]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true" isStretchWithOverflow="true">
+				<reportElement x="72" y="125" width="483" height="13" uuid="b1a2c3d4-0000-0000-0000-00000000001e"/>
+				<textElement><font size="8"/></textElement>
+				<textFieldExpression><![CDATA[": " + ($P{keterangan} == null ? "-" : $P{keterangan})]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<pageHeader>
+		<band height="40" splitType="Stretch">
+			<staticText>
+				<reportElement x="0" y="2" width="555" height="14" uuid="b1a2c3d4-0000-0000-0000-000000000020"/>
+				<textElement><font size="9" isBold="true"/></textElement>
+				<text><![CDATA[A. DATA VENDOR]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="0" y="16" width="185" height="12" uuid="b1a2c3d4-0000-0000-0000-000000000021"/>
+				<textElement><font size="8"/></textElement>
+				<textFieldExpression><![CDATA["Vendor I: " + ($P{nama_vendor_1} == null ? "-" : $P{nama_vendor_1})]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="185" y="16" width="185" height="12" uuid="b1a2c3d4-0000-0000-0000-000000000022"/>
+				<textElement><font size="8"/></textElement>
+				<textFieldExpression><![CDATA["Vendor II: " + ($P{nama_vendor_2} == null ? "-" : $P{nama_vendor_2})]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="370" y="16" width="185" height="12" uuid="b1a2c3d4-0000-0000-0000-000000000023"/>
+				<textElement><font size="8"/></textElement>
+				<textFieldExpression><![CDATA["Vendor III: " + ($P{nama_vendor_3} == null ? "-" : $P{nama_vendor_3})]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="0" y="28" width="555" height="12" uuid="b1a2c3d4-0000-0000-0000-000000000024"/>
+				<textElement><font size="9" isBold="true"/></textElement>
+				<text><![CDATA[B. PENILAIAN (skor 1 - 5)]]></text>
+			</staticText>
+		</band>
+	</pageHeader>
+	<columnHeader>
+		<band height="16" splitType="Stretch">
+			<staticText>
+				<reportElement mode="Opaque" x="0" y="0" width="25" height="16" backcolor="#E0E7FF" uuid="b1a2c3d4-0000-0000-0000-000000000030"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font size="7" isBold="true"/></textElement>
+				<text><![CDATA[No]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="25" y="0" width="180" height="16" backcolor="#E0E7FF" uuid="b1a2c3d4-0000-0000-0000-000000000031"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement verticalAlignment="Middle"><font size="7" isBold="true"/></textElement>
+				<text><![CDATA[ Kriteria / Pertanyaan]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="205" y="0" width="40" height="16" backcolor="#E0E7FF" uuid="b1a2c3d4-0000-0000-0000-000000000032"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font size="7" isBold="true"/></textElement>
+				<text><![CDATA[Bobot%]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="245" y="0" width="65" height="16" backcolor="#E0E7FF" uuid="b1a2c3d4-0000-0000-0000-000000000033"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font size="7" isBold="true"/></textElement>
+				<text><![CDATA[Vendor I]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="310" y="0" width="65" height="16" backcolor="#E0E7FF" uuid="b1a2c3d4-0000-0000-0000-000000000034"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font size="7" isBold="true"/></textElement>
+				<text><![CDATA[Vendor II]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="375" y="0" width="65" height="16" backcolor="#E0E7FF" uuid="b1a2c3d4-0000-0000-0000-000000000035"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font size="7" isBold="true"/></textElement>
+				<text><![CDATA[Vendor III]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="440" y="0" width="115" height="16" backcolor="#E0E7FF" uuid="b1a2c3d4-0000-0000-0000-000000000036"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font size="7" isBold="true"/></textElement>
+				<text><![CDATA[Ket.]]></text>
+			</staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="30" splitType="Stretch">
+			<textField>
+				<reportElement x="0" y="0" width="25" height="30" uuid="b1a2c3d4-0000-0000-0000-000000000040"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font size="7"/></textElement>
+				<textFieldExpression><![CDATA[$F{no}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement x="25" y="0" width="180" height="30" uuid="b1a2c3d4-0000-0000-0000-000000000041"/>
+				<box leftPadding="3"><pen lineWidth="0.5"/></box>
+				<textElement verticalAlignment="Middle"><font size="7"/></textElement>
+				<textFieldExpression><![CDATA[$F{kriteria} + "\n" + ($F{pertanyaan} == null ? "" : $F{pertanyaan})]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="205" y="0" width="40" height="30" uuid="b1a2c3d4-0000-0000-0000-000000000042"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font size="7"/></textElement>
+				<textFieldExpression><![CDATA[$F{bobot}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="245" y="0" width="65" height="30" uuid="b1a2c3d4-0000-0000-0000-000000000043"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font size="8" isBold="true"/></textElement>
+				<textFieldExpression><![CDATA[$F{nilai_1}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="310" y="0" width="65" height="30" uuid="b1a2c3d4-0000-0000-0000-000000000044"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font size="8" isBold="true"/></textElement>
+				<textFieldExpression><![CDATA[$F{nilai_2}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="375" y="0" width="65" height="30" uuid="b1a2c3d4-0000-0000-0000-000000000045"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font size="8" isBold="true"/></textElement>
+				<textFieldExpression><![CDATA[$F{nilai_3}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement x="440" y="0" width="115" height="30" uuid="b1a2c3d4-0000-0000-0000-000000000046"/>
+				<box leftPadding="3"><pen lineWidth="0.5"/></box>
+				<textElement verticalAlignment="Middle"><font size="7"/></textElement>
+				<textFieldExpression><![CDATA[$F{ket}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<summary>
+		<band height="260" splitType="Stretch">
+			<staticText>
+				<reportElement mode="Opaque" x="0" y="0" width="245" height="16" backcolor="#F0FDF4" uuid="b1a2c3d4-0000-0000-0000-000000000050"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement verticalAlignment="Middle"><font size="7" isBold="true"/></textElement>
+				<text><![CDATA[ SKOR TERTIMBANG (0 - 100)]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement mode="Opaque" x="245" y="0" width="65" height="16" backcolor="#F0FDF4" uuid="b1a2c3d4-0000-0000-0000-000000000051"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font size="8" isBold="true"/></textElement>
+				<textFieldExpression><![CDATA[$P{skor_1}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement mode="Opaque" x="310" y="0" width="65" height="16" backcolor="#F0FDF4" uuid="b1a2c3d4-0000-0000-0000-000000000052"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font size="8" isBold="true"/></textElement>
+				<textFieldExpression><![CDATA[$P{skor_2}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement mode="Opaque" x="375" y="0" width="65" height="16" backcolor="#F0FDF4" uuid="b1a2c3d4-0000-0000-0000-000000000053"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font size="8" isBold="true"/></textElement>
+				<textFieldExpression><![CDATA[$P{skor_3}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement mode="Opaque" x="440" y="0" width="115" height="16" backcolor="#F0FDF4" uuid="b1a2c3d4-0000-0000-0000-000000000054"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement/>
+				<text><![CDATA[]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="0" y="16" width="245" height="16" backcolor="#FEFCE8" uuid="b1a2c3d4-0000-0000-0000-000000000055"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement verticalAlignment="Middle"><font size="7" isBold="true"/></textElement>
+				<text><![CDATA[ PERINGKAT]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement mode="Opaque" x="245" y="16" width="65" height="16" backcolor="#FEFCE8" uuid="b1a2c3d4-0000-0000-0000-000000000056"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font size="8" isBold="true"/></textElement>
+				<textFieldExpression><![CDATA[$P{peringkat_1}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement mode="Opaque" x="310" y="16" width="65" height="16" backcolor="#FEFCE8" uuid="b1a2c3d4-0000-0000-0000-000000000057"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font size="8" isBold="true"/></textElement>
+				<textFieldExpression><![CDATA[$P{peringkat_2}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement mode="Opaque" x="375" y="16" width="65" height="16" backcolor="#FEFCE8" uuid="b1a2c3d4-0000-0000-0000-000000000058"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font size="8" isBold="true"/></textElement>
+				<textFieldExpression><![CDATA[$P{peringkat_3}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement mode="Opaque" x="440" y="16" width="115" height="16" backcolor="#FEFCE8" uuid="b1a2c3d4-0000-0000-0000-000000000059"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement/>
+				<text><![CDATA[]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="0" y="40" width="555" height="14" uuid="b1a2c3d4-0000-0000-0000-00000000005a"/>
+				<textElement><font size="9" isBold="true"/></textElement>
+				<text><![CDATA[C. Ringkasan Perbandingan / Catatan]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="0" y="54" width="555" height="12" uuid="b1a2c3d4-0000-0000-0000-00000000005b"/>
+				<textElement><font size="8"/></textElement>
+				<textFieldExpression><![CDATA["Vendor Pembanding I: " + ($P{pembanding_1} == null ? "-" : $P{pembanding_1})]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="0" y="66" width="555" height="12" uuid="b1a2c3d4-0000-0000-0000-00000000005c"/>
+				<textElement><font size="8"/></textElement>
+				<textFieldExpression><![CDATA["Vendor Pembanding II: " + ($P{pembanding_2} == null ? "-" : $P{pembanding_2})]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="0" y="78" width="555" height="12" uuid="b1a2c3d4-0000-0000-0000-00000000005d"/>
+				<textElement><font size="8"/></textElement>
+				<textFieldExpression><![CDATA["Vendor Pembanding III: " + ($P{pembanding_3} == null ? "-" : $P{pembanding_3})]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement x="0" y="90" width="555" height="12" uuid="b1a2c3d4-0000-0000-0000-00000000005e"/>
+				<textElement><font size="8"/></textElement>
+				<textFieldExpression><![CDATA["Alasan dipilih dibanding lain: " + ($P{alasan_dipilih} == null ? "-" : $P{alasan_dipilih})]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="0" y="112" width="555" height="14" uuid="b1a2c3d4-0000-0000-0000-00000000005f"/>
+				<textElement><font size="9" isBold="true"/></textElement>
+				<text><![CDATA[D. Rekomendasi Pemilihan]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="0" y="126" width="555" height="12" uuid="b1a2c3d4-0000-0000-0000-000000000060"/>
+				<textElement><font size="8"/></textElement>
+				<textFieldExpression><![CDATA["Rekomendasi: " + ($P{rekomendasi} == null ? "-" : $P{rekomendasi}) + ($P{rekomendasi_nomor} == null || $P{rekomendasi_nomor}.trim().length()==0 ? "" : " (Vendor Nomor " + $P{rekomendasi_nomor} + ")")]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement x="0" y="138" width="555" height="12" uuid="b1a2c3d4-0000-0000-0000-000000000061"/>
+				<textElement><font size="8"/></textElement>
+				<textFieldExpression><![CDATA["Alasan utama memilih: " + ($P{alasan_utama} == null ? "-" : $P{alasan_utama})]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="0" y="160" width="555" height="14" uuid="b1a2c3d4-0000-0000-0000-000000000062"/>
+				<textElement><font size="9" isBold="true"/></textElement>
+				<text><![CDATA[E. Penilai]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="0" y="174" width="277" height="12" uuid="b1a2c3d4-0000-0000-0000-000000000063"/>
+				<textElement><font size="8"/></textElement>
+				<textFieldExpression><![CDATA["Nama Penilai: " + ($P{nama_penilai} == null ? "-" : $P{nama_penilai})]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="277" y="174" width="278" height="12" uuid="b1a2c3d4-0000-0000-0000-000000000064"/>
+				<textElement><font size="8"/></textElement>
+				<textFieldExpression><![CDATA["Jabatan: " + ($P{jabatan_penilai} == null ? "-" : $P{jabatan_penilai})]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="0" y="186" width="277" height="12" uuid="b1a2c3d4-0000-0000-0000-000000000065"/>
+				<textElement><font size="8"/></textElement>
+				<textFieldExpression><![CDATA["Tanggal: " + ($P{tanggal_penilaian} == null ? "-" : $P{tanggal_penilaian})]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="340" y="200" width="215" height="12" uuid="b1a2c3d4-0000-0000-0000-000000000066"/>
+				<textElement textAlignment="Center"><font size="8"/></textElement>
+				<text><![CDATA[Tanda Tangan Penilai,]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="340" y="240" width="215" height="12" uuid="b1a2c3d4-0000-0000-0000-000000000067"/>
+				<textElement textAlignment="Center"><font size="8" isBold="true" isUnderline="true"/></textElement>
+				<textFieldExpression><![CDATA[$P{nama_penilai} == null ? "(...................)" : $P{nama_penilai}]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
+</jasperReport>

@@ -664,6 +664,11 @@ public class SeleksiVendorAction extends GenericAutowireComposer implements Form
 		return true;
 	}
 
+	/**
+	 * Cetak report via JasperReports (webapp/report/Seleksi_Vendor.jrxml). Parameter = field form
+	 * (header + Section C/D/E) dan detail 9 kriteria dikirim sebagai {@code maps} (List&lt;Map&gt;).
+	 * Engine {@code Report} otomatis meng-compile jrxml→jasper + inject logo/kop/barcode.
+	 */
 	@Override
 	public File cetakData(GeneralValueObject generalValueObject) throws Exception {
 		SeleksiVendor sv = (SeleksiVendor) generalValueObject;
@@ -672,118 +677,72 @@ public class SeleksiVendorAction extends GenericAutowireComposer implements Form
 			details = HibernateUtil.currentSession().createCriteria(SeleksiVendorDetail.class)
 					.add(Restrictions.eq("seleksiVendor", sv)).addOrder(Order.asc("urutan")).list();
 		}
-
-		File file = File.createTempFile("seleksi_vendor_" + (sv.getId() == null ? "baru" : sv.getId()), ".pdf");
-		Document doc = new Document(PageSize.A4.rotate(), 24, 24, 28, 28);
-		PdfWriter.getInstance(doc, new FileOutputStream(file));
-		doc.open();
-
-		Font fJudul = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
-		Font fSub = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
-		Font fN = FontFactory.getFont(FontFactory.HELVETICA, 9);
-		Font fNb = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-
-		Paragraph judul = new Paragraph("FORM PENILAIAN PEMILIHAN VENDOR (PRA-PEMBELIAN)", fJudul);
-		judul.setAlignment(Element.ALIGN_CENTER);
-		doc.add(judul);
-		Paragraph info = new Paragraph(
-				"Kode: " + (sv.getKode() == null ? "-" : sv.getKode()) + "    Perihal: "
-						+ (sv.getNama() == null ? "-" : sv.getNama()) + "    Tanggal: "
-						+ Common.dateFormat.get().format(sv.getTanggal()),
-				fN);
-		info.setAlignment(Element.ALIGN_CENTER);
-		info.setSpacingAfter(8);
-		doc.add(info);
-
-		// A. Data Vendor + B. Penilaian (matriks)
-		int nCol = 2 + details.size() + 1; // Kriteria, Bobot, per vendor, Ket
-		if (details.isEmpty()) {
-			nCol = 3;
+		SeleksiVendorDetail[] d = new SeleksiVendorDetail[JML_VENDOR];
+		for (int v = 0; v < JML_VENDOR; v++) {
+			d[v] = v < details.size() ? details.get(v) : null;
 		}
-		PdfPTable t = new PdfPTable(nCol);
-		t.setWidthPercentage(100);
 
-		t.addCell(selHead("Kriteria / Data Vendor", fNb));
-		t.addCell(selHead("Bobot%", fNb));
-		for (int v = 0; v < details.size(); v++) {
-			t.addCell(selHead("Vendor " + romawi(v + 1), fNb));
+		java.util.Map<String, Object> parameters = new java.util.HashMap<String, Object>();
+		parameters.put("kode", sv.getKode());
+		parameters.put("perihal", sv.getNama());
+		parameters.put("jenis_pengadaan", sv.getJenisPengadaan());
+		parameters.put("tanggal", sv.getTanggal() == null ? null : Common.dateFormat.get().format(sv.getTanggal()));
+		parameters.put("keterangan", sv.getKeterangan());
+
+		double[] skor = new double[JML_VENDOR];
+		for (int v = 0; v < JML_VENDOR; v++) {
+			String nm = d[v] == null ? null
+					: (d[v].getNamaVendor() != null && !d[v].getNamaVendor().trim().isEmpty() ? d[v].getNamaVendor()
+							: (d[v].getPenyedia() == null ? null : d[v].getPenyedia().getNama()));
+			parameters.put("nama_vendor_" + (v + 1), nm);
+			skor[v] = d[v] == null || d[v].getSkorTertimbang() == null ? 0 : d[v].getSkorTertimbang();
+			parameters.put("skor_" + (v + 1), d[v] == null ? "-" : "" + skor[v]);
 		}
-		t.addCell(selHead("Ket.", fNb));
-
-		// Data vendor (Section A)
-		String[] labelA = { "Nama Vendor", "Alamat / Kontak", "Jenis Barang/Jasa", "PIC Vendor" };
-		for (int f = 0; f < labelA.length; f++) {
-			t.addCell(selCell(labelA[f], fN));
-			t.addCell(selCell("", fN));
-			for (SeleksiVendorDetail d : details) {
-				String val = f == 0 ? d.getNamaVendor()
-						: f == 1 ? d.getAlamatKontak() : f == 2 ? d.getJenisBarangJasa() : d.getPicVendor();
-				t.addCell(selCell(val == null ? "" : val, fN));
+		for (int v = 0; v < JML_VENDOR; v++) {
+			if (d[v] == null || skor[v] <= 0) {
+				parameters.put("peringkat_" + (v + 1), "-");
+				continue;
 			}
-			t.addCell(selCell("", fN));
-		}
-
-		// Penilaian (Section B)
-		for (int k = 0; k < JML_KRITERIA; k++) {
-			t.addCell(selCell((k + 1) + ". " + KRITERIA[k], fN));
-			t.addCell(selCell("" + getBobot(sv, k), fN));
-			for (SeleksiVendorDetail d : details) {
-				Integer n = getNilai(d, k);
-				t.addCell(selCell(n == null ? "-" : "" + n, fN));
-			}
-			t.addCell(selCell(getKet(sv, k) == null ? "" : getKet(sv, k), fN));
-		}
-
-		// Skor tertimbang + peringkat
-		t.addCell(selCell("SKOR TERTIMBANG (0-100)", fNb));
-		t.addCell(selCell("", fNb));
-		double[] skor = new double[details.size()];
-		for (int v = 0; v < details.size(); v++) {
-			skor[v] = details.get(v).getSkorTertimbang() == null ? 0 : details.get(v).getSkorTertimbang();
-			t.addCell(selCell("" + skor[v], fNb));
-		}
-		t.addCell(selCell("", fNb));
-
-		t.addCell(selCell("PERINGKAT", fNb));
-		t.addCell(selCell("", fNb));
-		for (int v = 0; v < details.size(); v++) {
 			int rank = 1;
-			for (int w = 0; w < details.size(); w++) {
+			for (int w = 0; w < JML_VENDOR; w++) {
 				if (skor[w] > skor[v]) {
 					rank++;
 				}
 			}
-			t.addCell(selCell(skor[v] > 0 ? ("#" + rank) : "-", fNb));
+			parameters.put("peringkat_" + (v + 1), "#" + rank);
 		}
-		t.addCell(selCell("", fNb));
-		doc.add(t);
 
-		// C. Ringkasan
-		doc.add(new Paragraph(" ", fN));
-		doc.add(new Paragraph("C. Ringkasan Perbandingan / Catatan", fSub));
-		doc.add(new Paragraph("Vendor Pembanding I: " + nvl(sv.getVendorPembanding1()), fN));
-		doc.add(new Paragraph("Vendor Pembanding II: " + nvl(sv.getVendorPembanding2()), fN));
-		doc.add(new Paragraph("Vendor Pembanding III: " + nvl(sv.getVendorPembanding3()), fN));
-		doc.add(new Paragraph("Alasan dipilih dibanding lain: " + nvl(sv.getAlasanDipilih()), fN));
+		parameters.put("pembanding_1", sv.getVendorPembanding1());
+		parameters.put("pembanding_2", sv.getVendorPembanding2());
+		parameters.put("pembanding_3", sv.getVendorPembanding3());
+		parameters.put("alasan_dipilih", sv.getAlasanDipilih());
+		parameters.put("rekomendasi", sv.getRekomendasi());
+		parameters.put("rekomendasi_nomor", sv.getRekomendasiNomor() == null ? null : "" + sv.getRekomendasiNomor());
+		parameters.put("alasan_utama", sv.getAlasanUtama());
+		parameters.put("nama_penilai", sv.getNamaPenilai());
+		parameters.put("jabatan_penilai", sv.getJabatanPenilai());
+		parameters.put("tanggal_penilaian", sv.getTanggalPenilaian() == null ? null
+				: Common.dateFormat.get().format(sv.getTanggalPenilaian()));
 
-		// D. Rekomendasi
-		doc.add(new Paragraph(" ", fN));
-		doc.add(new Paragraph("D. Rekomendasi Pemilihan", fSub));
-		doc.add(new Paragraph("Rekomendasi: " + nvl(sv.getRekomendasi())
-				+ (sv.getRekomendasiNomor() == null ? "" : " (Vendor Nomor " + sv.getRekomendasiNomor() + ")"), fN));
-		doc.add(new Paragraph("Alasan utama memilih: " + nvl(sv.getAlasanUtama()), fN));
+		// Detail 9 kriteria (Section B) → List<Map>
+		List<java.util.Map<String, Object>> maps = new ArrayList<java.util.Map<String, Object>>();
+		for (int k = 0; k < JML_KRITERIA; k++) {
+			java.util.Map<String, Object> m = new java.util.HashMap<String, Object>();
+			m.put("no", k + 1);
+			m.put("kriteria", KRITERIA[k]);
+			m.put("pertanyaan", PERTANYAAN[k]);
+			m.put("bobot", "" + (getBobot(sv, k) == null ? 0 : getBobot(sv, k)));
+			for (int v = 0; v < JML_VENDOR; v++) {
+				Integer nn = d[v] == null ? null : getNilai(d[v], k);
+				m.put("nilai_" + (v + 1), nn == null ? "-" : "" + nn);
+			}
+			m.put("ket", getKet(sv, k));
+			maps.add(m);
+		}
+		parameters.put("maps", maps);
 
-		// E. Penilai
-		doc.add(new Paragraph(" ", fN));
-		doc.add(new Paragraph("E. Penilai", fSub));
-		doc.add(new Paragraph("Nama Penilai: " + nvl(sv.getNamaPenilai()), fN));
-		doc.add(new Paragraph("Jabatan: " + nvl(sv.getJabatanPenilai()), fN));
-		doc.add(new Paragraph("Tanggal: "
-				+ (sv.getTanggalPenilaian() == null ? "-" : Common.dateFormat.get().format(sv.getTanggalPenilaian())),
-				fN));
-
-		doc.close();
-		return file;
+		return ais.action.report.Report.generateFileReportSimple(ais.action.report.Report.PDF, parameters,
+				"Seleksi_Vendor");
 	}
 
 	// ================= Nomor Surat =================
