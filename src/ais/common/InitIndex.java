@@ -7,6 +7,7 @@ public class InitIndex {
 
 	private static final java.util.Set<String> SIGNATURE_INDEX_SUDAH_DIPROSES = java.util.Collections
 			.synchronizedSet(new java.util.HashSet<String>());
+	private static final Object KEBIJAKAN_RETUR_PRODUK_LOCK = new Object();
 
 	// ── Eksekusi DDL PARALEL (best performance) ──────────────────────────────
 	// Saat initEksekusiQueryIndex() berjalan, DDL_POOL aktif sehingga setiap eksekusiSql*
@@ -1845,8 +1846,55 @@ public class InitIndex {
 		}
 	}
 
+	/**
+	 * Menyamakan lebar kolom varchar {@code public.retail_request_idempotency} pada
+	 * instalasi lama dengan skema resmi di {@link RetailDatabaseMigrations} (versi
+	 * 20260814.001). Tabel baru sudah otomatis punya lebar yang benar sejak dibuat oleh
+	 * migrasi tsb (dijalankan lebih dulu di {@code AppStartupListener}); method ini
+	 * HANYA relevan bila tabel itu sudah pernah dibuat sebelumnya dengan lebar kolom
+	 * berbeda (mis. draf ad-hoc sebelum migrasi resmi ada). ALTER COLUMN TYPE ke lebar
+	 * yang sama bersifat no-op aman di Postgres, jadi method ini idempoten dan boleh
+	 * dipanggil berkali-kali tanpa membuat index/kolom baru.
+	 */
+	static void initRetailRequestIdempotencyColumns() {
+		try {
+			java.util.List tabelAda = ais.common.Common.ambilSql(
+					"SELECT 1 FROM information_schema.tables WHERE table_schema='public' "
+							+ "AND table_name='retail_request_idempotency'");
+			if (tabelAda == null || tabelAda.isEmpty()) {
+				return;
+			}
+			ais.common.Common.updateSql(
+					"ALTER TABLE public.retail_request_idempotency ALTER COLUMN action TYPE varchar(80)");
+			ais.common.Common.updateSql(
+					"ALTER TABLE public.retail_request_idempotency ALTER COLUMN idempotency_key TYPE varchar(160)");
+			ais.common.Common.updateSql(
+					"ALTER TABLE public.retail_request_idempotency ALTER COLUMN request_hash TYPE varchar(64)");
+			ais.common.Common.updateSql(
+					"ALTER TABLE public.retail_request_idempotency ALTER COLUMN status TYPE varchar(20)");
+			ais.common.Common.updateSql(
+					"ALTER TABLE public.retail_request_idempotency ALTER COLUMN result_reference TYPE varchar(160)");
+		} catch (Exception e) {
+			e.printStackTrace();
+			ais.common.ErrorAuditUtil.record(e, "auto-audit InitIndex.initRetailRequestIdempotencyColumns");
+		}
+	}
+
+	/** Menambahkan penanda cara bayar hutang pada instalasi lama secara idempoten. */
+	static void initCaraPembayaranMasukSebagaiHutang() {
+		try {
+			ais.common.Common.updateSql("ALTER TABLE koperasi.cara_pembayaran_koperasi "
+					+ "ADD COLUMN IF NOT EXISTS masuk_sebagai_hutang boolean DEFAULT false");
+		} catch (Exception e) {
+			e.printStackTrace();
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit InitIndex.initCaraPembayaranMasukSebagaiHutang");
+		}
+	}
+
 	/** Membuat master Kebijakan Retur dan relasinya ke Produk secara idempoten. */
 	static void initKebijakanReturProduk() {
+		synchronized (KEBIJAKAN_RETUR_PRODUK_LOCK) {
 		try {
 			ais.common.Common.updateSql("CREATE TABLE IF NOT EXISTS koperasi.kebijakan_retur ("
 					+ "id bigserial PRIMARY KEY, nama varchar(255) NOT NULL, keterangan text, "
@@ -1856,22 +1904,51 @@ public class InitIndex {
 			ais.common.Common.updateSql("ALTER TABLE koperasi.produk ADD COLUMN IF NOT EXISTS kebijakan_retur bigint");
 			ais.common.Common.updateSql("UPDATE koperasi.produk SET kebijakan_retur=(SELECT id FROM koperasi.kebijakan_retur WHERE lower(btrim(nama))=lower('Tanpa Kebijakan Retur') ORDER BY id LIMIT 1) WHERE kebijakan_retur IS NULL");
 			ais.common.Common.updateSql("CREATE INDEX IF NOT EXISTS produk_kebijakan_retur_idx ON koperasi.produk(kebijakan_retur)");
-			java.util.List<Object[]> constraint = ais.common.Common.ambilSql(
-					"SELECT 1 FROM pg_constraint WHERE conname='produk_kebijakan_retur_fk' AND conrelid='koperasi.produk'::regclass");
-			if (constraint == null || constraint.isEmpty()) {
-				ais.common.Common.updateSql(
-						"ALTER TABLE koperasi.produk ADD CONSTRAINT produk_kebijakan_retur_fk FOREIGN KEY (kebijakan_retur) REFERENCES koperasi.kebijakan_retur(id)");
+			if (!constraintKebijakanReturSudahAda()) {
+				try {
+					ais.common.Common.updateSql(
+							"ALTER TABLE koperasi.produk ADD CONSTRAINT produk_kebijakan_retur_fk FOREIGN KEY (kebijakan_retur) REFERENCES koperasi.kebijakan_retur(id)");
+				} catch (Exception eAlter) {
+					if (!constraintKebijakanReturSudahAda(eAlter)) {
+						throw eAlter;
+					}
+				}
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 			ais.common.ErrorAuditUtil.record(e, "auto-audit InitIndex.initKebijakanReturProduk");
 		}
+		}
+	}
+
+	private static boolean constraintKebijakanReturSudahAda() {
+		java.util.List constraint = ais.common.Common.ambilSql(
+				"SELECT 1 FROM information_schema.table_constraints WHERE constraint_schema='koperasi' AND table_schema='koperasi' AND table_name='produk' AND constraint_name='produk_kebijakan_retur_fk'");
+		return constraint != null && !constraint.isEmpty();
+	}
+
+	private static boolean constraintKebijakanReturSudahAda(Throwable e) {
+		Throwable t = e;
+		while (t != null) {
+			String pesan = t.getMessage();
+			if (pesan != null) {
+				String lower = pesan.toLowerCase(java.util.Locale.ENGLISH);
+				if (lower.indexOf("produk_kebijakan_retur_fk") >= 0
+						&& (lower.indexOf("already exists") >= 0 || lower.indexOf("duplicate") >= 0
+								|| lower.indexOf("sudah ada") >= 0)) {
+					return true;
+				}
+			}
+			t = t.getCause();
+		}
+		return false;
 	}
 
 	public static void initEksekusiQueryIndex() {
 		// Migrasi kompatibilitas skema harus selesai secara sinkron sebelum pool
 		// pekerjaan index paralel diaktifkan.
 		initAturanDiskonProdukNullable();
+		initCaraPembayaranMasukSebagaiHutang();
 		initKebijakanReturProduk();
 
 		// 1. EKSTENSI TRIGRAM (WAJIB) — dijalankan SINKRON (sebelum pool paralel aktif) karena
@@ -3331,6 +3408,54 @@ public class InitIndex {
 				eksekusiSql10Menit(sql);
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/InitIndex.java:koperasi-produk-duplikat-analyze");
 			}
+		}
+
+		// Relasi transaksi ke sesi kas membuat rekonsiliasi akurat, termasuk saat nama
+		// kasir sama atau ada beberapa perangkat. Semua DDL idempoten untuk instalasi lama.
+		String[] DDL_RELASI_TRANSAKSI_SESI_KAS = new String[] {
+				"ALTER TABLE koperasi.sesi_kas_kasir ADD COLUMN IF NOT EXISTS id_perangkat varchar(128)",
+				"ALTER TABLE koperasi.sesi_kas_kasir ADD COLUMN IF NOT EXISTS nama_perangkat varchar(150)",
+				"ALTER TABLE koperasi.sesi_kas_kasir ADD COLUMN IF NOT EXISTS laporan_tutup_json text",
+				"ALTER TABLE koperasi.pembelian_anggota_koperasi ADD COLUMN IF NOT EXISTS sesi_kas_kasir bigint",
+				"ALTER TABLE koperasi.pembelian_anggota_koperasi ADD COLUMN IF NOT EXISTS id_perangkat varchar(128)",
+				"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_pak_sesi_kas') THEN ALTER TABLE koperasi.pembelian_anggota_koperasi ADD CONSTRAINT fk_pak_sesi_kas FOREIGN KEY (sesi_kas_kasir) REFERENCES koperasi.sesi_kas_kasir(id) ON DELETE SET NULL; END IF; END $$",
+				"CREATE INDEX IF NOT EXISTS idx_pak_sesi_kas ON koperasi.pembelian_anggota_koperasi (sesi_kas_kasir, tanggal_pembayaran)",
+				"CREATE INDEX IF NOT EXISTS idx_pak_perangkat_waktu ON koperasi.pembelian_anggota_koperasi (id_perangkat, tanggal_pembayaran DESC) WHERE id_perangkat IS NOT NULL",
+				"DROP INDEX IF EXISTS koperasi.uq_sesi_kas_akun_toko_buka",
+				"DROP INDEX IF EXISTS koperasi.uq_sesi_kas_perangkat_toko_buka",
+				"CREATE UNIQUE INDEX IF NOT EXISTS uq_sesi_kas_akun_buka ON koperasi.sesi_kas_kasir (COALESCE(kasir_user_id,kasir_nama)) WHERE status='BUKA' OR status IS NULL",
+				"CREATE UNIQUE INDEX IF NOT EXISTS uq_sesi_kas_perangkat_buka ON koperasi.sesi_kas_kasir (id_perangkat) WHERE id_perangkat IS NOT NULL AND (status='BUKA' OR status IS NULL)" };
+		for (String sql : DDL_RELASI_TRANSAKSI_SESI_KAS) {
+			try { eksekusiSqlAmanDdl(sql); }
+			catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "init relasi transaksi sesi kas"); }
+		}
+
+		// Alasan keranjang ditahan disimpan per toko sebagai JSON. Kolom TEXT
+		// menjaga konfigurasi mudah ditambah tanpa membuat dua puluh kolom tetap.
+		try {
+			eksekusiSqlAmanDdl("ALTER TABLE koperasi.toko ADD COLUMN IF NOT EXISTS alasan_tahan_json text");
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "init alasan transaksi tahan");
+		}
+
+		// Promo grup: satu header, banyak produk, snapshot JSON untuk audit, serta
+		// kriteria multi jenis/tipe member dalam JSON. DDL sengaja idempoten agar
+		// instalasi lama dan instalasi baru bergerak ke skema yang sama.
+		String[] DDL_GRUP_ATURAN_DISKON = new String[] {
+				"CREATE TABLE IF NOT EXISTS koperasi.grup_aturan_diskon (id bigserial PRIMARY KEY, nama_grup varchar(255) NOT NULL, keterangan text, toko bigint, jenis_anggota bigint, tipe_anggota bigint, berlaku_semua_member boolean DEFAULT true, khusus_member boolean DEFAULT false, jenis_member_json text, tipe_member_json text, persentase double precision DEFAULT 0, maksimal_potongan double precision DEFAULT 0, nominal double precision DEFAULT 0, cashback double precision DEFAULT 0, potongan_langsung boolean DEFAULT true, tanggal_mulai timestamp, tanggal_selesai timestamp, hari_aktif varchar(20), aktif boolean DEFAULT true, detail_json text, oleh varchar(255), oleh_id varchar(255), tanggal_dirubah timestamp DEFAULT now())",
+				"CREATE TABLE IF NOT EXISTS koperasi.grup_aturan_diskon_detail (id bigserial PRIMARY KEY, grup_aturan_diskon bigint NOT NULL, produk bigint NOT NULL, aktif boolean DEFAULT true, oleh varchar(255), oleh_id varchar(255), tanggal_dirubah timestamp DEFAULT now())",
+				"ALTER TABLE koperasi.grup_aturan_diskon ADD COLUMN IF NOT EXISTS khusus_member boolean DEFAULT false",
+				"ALTER TABLE koperasi.grup_aturan_diskon ADD COLUMN IF NOT EXISTS jenis_member_json text",
+				"ALTER TABLE koperasi.grup_aturan_diskon ADD COLUMN IF NOT EXISTS tipe_member_json text",
+				"ALTER TABLE koperasi.grup_aturan_diskon ADD COLUMN IF NOT EXISTS cashback double precision DEFAULT 0",
+				"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_grup_diskon_detail_header') THEN ALTER TABLE koperasi.grup_aturan_diskon_detail ADD CONSTRAINT fk_grup_diskon_detail_header FOREIGN KEY (grup_aturan_diskon) REFERENCES koperasi.grup_aturan_diskon(id) ON DELETE CASCADE; END IF; END $$",
+				"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_grup_diskon_detail_produk') THEN ALTER TABLE koperasi.grup_aturan_diskon_detail ADD CONSTRAINT fk_grup_diskon_detail_produk FOREIGN KEY (produk) REFERENCES koperasi.produk(id) ON DELETE CASCADE; END IF; END $$",
+				"CREATE UNIQUE INDEX IF NOT EXISTS uq_grup_diskon_produk ON koperasi.grup_aturan_diskon_detail (grup_aturan_diskon, produk)",
+				"CREATE INDEX IF NOT EXISTS idx_grup_diskon_aktif_toko_periode ON koperasi.grup_aturan_diskon (toko, tanggal_mulai, tanggal_selesai) WHERE aktif=true",
+				"CREATE INDEX IF NOT EXISTS idx_grup_diskon_detail_produk_aktif ON koperasi.grup_aturan_diskon_detail (produk, grup_aturan_diskon) WHERE aktif=true" };
+		for (String sql : DDL_GRUP_ATURAN_DISKON) {
+			try { eksekusiSqlAmanDdl(sql); }
+			catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "init grup aturan diskon"); }
 		}
 
 		} finally {

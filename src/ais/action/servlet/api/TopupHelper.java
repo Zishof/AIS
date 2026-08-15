@@ -364,24 +364,41 @@ public class TopupHelper {
 													.setCaraPembayaranKoperasi(caraPembayaranKoperasiOnline);
 											pembelianAnggotaKoperasi.setTotalBiaya(total);
 											pembelianAnggotaKoperasi.setBiaya(total);
+											JSONObject cadanganRincian = new JSONObject();
+											cadanganRincian.put("versiSkema", 1);
+											cadanganRincian.put("kodeTransaksi", kodePembayaranOnline.getKode());
+											cadanganRincian.put("jumlahBarisKeranjang", transaksi.length());
+											cadanganRincian.put("totalTransaksi", total);
+											cadanganRincian.put("item", new JSONArray(transaksi.toString()));
+											pembelianAnggotaKoperasi.setDetailPembelianCadangan(cadanganRincian.toString());
 											pembelianAnggotaKoperasi.setLokasi(lokasi);
 											pembelianAnggotaKoperasi.setTbmuser(kodePembayaranOnline.getTbmuser());
 											pembelianAnggotaKoperasi.setToko(toko);
 											session.getTransaction().begin();
 											session.save(pembelianAnggotaKoperasi);
-											session.getTransaction().commit();
+											session.flush();
 
 											JSONArray arrayTransaksi = pembelianAnggotaKoperasi.simpanRinci(session,
 													transaksi, kodeUnik, currentWaktu, toko, kodePembayaranOnline,
 													draftPembelianAnggotaKoperasi);
+											int jumlahRincianDiharapkan = transaksi.length();
+											for (int indeks = 0; indeks < transaksi.length(); indeks++) {
+												JSONArray ekstra = transaksi.getJSONObject(indeks).optJSONArray("ekstra");
+												if (ekstra != null) jumlahRincianDiharapkan += ekstra.length();
+											}
+											if (arrayTransaksi.length() != jumlahRincianDiharapkan) {
+												throw new IllegalStateException("Validasi rincian pembayaran online gagal: "
+														+ arrayTransaksi.length() + " dari " + jumlahRincianDiharapkan
+														+ " baris tersimpan");
+											}
 
 											if (draftPembelianAnggotaKoperasi != null
 													&& draftPembelianAnggotaKoperasi.getId() != null) {
 												draftPembelianAnggotaKoperasi.setLunas(pembelianAnggotaKoperasi);
-												session.getTransaction().begin();
 												session.update(draftPembelianAnggotaKoperasi);
-												session.getTransaction().commit();
 											}
+											session.flush();
+											session.getTransaction().commit();
 
 											JSONObject data = new JSONObject();
 											Common.insertProperty(KodePembayaranOnline.class, kodePembayaranOnline,
@@ -396,6 +413,16 @@ public class TopupHelper {
 													"KOde kodeUnik " + kodeUnik + " tidak ditemukan");
 										}
 									} catch (Exception e) {
+										if (session.getTransaction() != null && session.getTransaction().isActive()) {
+											try { session.getTransaction().rollback(); } catch (Exception rollbackError) {
+												ais.common.ErrorAuditUtil.record(rollbackError,
+														"auto-audit(rollback) src/ais/action/servlet/api/TopupHelper.java:pembayaranOnline");
+											}
+										}
+										jsonObject.put("status", "91");
+										jsonObject.put("description",
+												"Pembayaran tidak disimpan karena header atau rincian transaksi gagal divalidasi. Seluruh perubahan telah dibatalkan; silakan periksa data lalu coba kembali.");
+										jsonObject.put("technical", e.getClass().getName() + ": " + e.getMessage());
 										e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/api/TopupHelper.java:395");
 									} finally {
 										closeSessionSafely(session);
