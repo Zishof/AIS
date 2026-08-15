@@ -1057,6 +1057,8 @@ public class PosApi extends HttpServlet {
 		hasil.put("wajibSesiKas", Common.bolehKonfigurasi(
 				Konfigurasi.KANTIN_POS_WAJIB_SESI_KAS, Konfigurasi.AKTIF));
 		hasil.put("cegahOversell", Common.bolehKonfigurasi(Konfigurasi.KANTIN_POS_CEGAH_OVERSELL, Konfigurasi.TIDAK_AKTIF));
+		hasil.put("bolehTransaksiStokHabis", toko != null
+				&& Boolean.TRUE.equals(toko.getBolehTransaksiStokHabis()));
 		hasil.put("isAdmin", toko == null);
 		hasil.put("tokoId", toko == null ? JSONObject.NULL : toko.getId());
 		hasil.put("tokoNama", toko == null ? "" : str(toko.getNama()));
@@ -2804,7 +2806,7 @@ public class PosApi extends HttpServlet {
 		// identitas login lama ternyata kosong/tidak konsisten.
 		if (!bolehSemuaKasir && namaKasirLogin.length() == 0) namaKasirLogin = "__AKUN_KASIR_TIDAK_DIKENAL__";
 		String batasKasir = bolehSemuaKasir ? "" :
-				" AND LOWER(COALESCE(NULLIF(TRIM(pak.kasir_login_nama),''),TRIM(a.oleh)))=LOWER(?)";
+				" AND LOWER(NULLIF(TRIM(pak.kasir_login_nama),''))=LOWER(?)";
 		java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("yyyy-MM-dd");
 		fmt.setLenient(false);
 		java.util.Date akhir;
@@ -2833,9 +2835,9 @@ public class PosApi extends HttpServlet {
 					+ " COALESCE(MAX(pak.total_diskon),SUM(COALESCE(a.diskon,0)),0) total_diskon,"
 					+ " COALESCE(MAX(pak.totalcashback),SUM(COALESCE(a.cashback,0)),0) total_cashback,"
 					+ " COALESCE(NULLIF(TRIM(MAX(a.carabayar)),''),'-') metode,"
-					+ " COALESCE(NULLIF(TRIM(MAX(pak.kasir_login_nama)),''),NULLIF(TRIM(MAX(a.oleh)),''),'Tanpa Nama') kasir,"
+					+ " COALESCE(NULLIF(TRIM(MAX(pak.kasir_login_nama)),''),'Kasir tidak tercatat') kasir,"
 					+ " MAX(a.member) member FROM koperasi.pembelian a LEFT JOIN koperasi.pembelian_anggota_koperasi pak"
-					+ " ON pak.id=a.pembelian_anggota_koperasi WHERE a.toko=? AND COALESCE(a.aktif,true)=true AND DATE(a.waktu)>=? AND DATE(a.waktu)<=?"
+					+ " ON pak.id=a.pembelian_anggota_koperasi WHERE a.toko=? AND COALESCE(a.aktif,true)=true AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date"
 					+ batasKasir + " GROUP BY 1";
 
 			java.sql.PreparedStatement pk = conn.prepareStatement("SELECT COUNT(*),COALESCE(SUM(total_nilai),0),COALESCE(AVG(total_nilai),0),"
@@ -2904,7 +2906,7 @@ public class PosApi extends HttpServlet {
 					+ "COALESCE(SUM(a.qty),0),COALESCE(SUM(a.total),0),COUNT(DISTINCT COALESCE(a.pembelian_anggota_koperasi,a.id))"
 					+ " FROM koperasi.pembelian a LEFT JOIN koperasi.produk p ON p.id=a.produk"
 					+ " LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON pak.id=a.pembelian_anggota_koperasi"
-					+ " WHERE a.toko=? AND COALESCE(a.aktif,true)=true AND DATE(a.waktu)>=? AND DATE(a.waktu)<=?" + batasKasir
+					+ " WHERE a.toko=? AND COALESCE(a.aktif,true)=true AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date" + batasKasir
 					+ " GROUP BY a.produk ORDER BY 3 DESC LIMIT 15";
 			java.sql.PreparedStatement pProduk = conn.prepareStatement(sqlProduk);
 			pProduk.setLong(1, tokoId.longValue()); pProduk.setString(2, mulai); pProduk.setString(3, sampai);
@@ -2915,8 +2917,8 @@ public class PosApi extends HttpServlet {
 
 			String sqlRetur = "SELECT COUNT(DISTINCT rp.pembelian_anggota_koperasi_id),COALESCE(SUM(rp.qty),0),COALESCE(SUM(rp.totalnilai),0)"
 					+ " FROM koperasi.retur_penjualan rp LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON pak.id=rp.pembelian_anggota_koperasi_id"
-					+ " WHERE rp.toko=? AND DATE(rp.waktu)>=? AND DATE(rp.waktu)<=?";
-			if (!bolehSemuaKasir) sqlRetur += " AND LOWER(COALESCE(NULLIF(TRIM(pak.kasir_login_nama),''),TRIM(rp.oleh)))=LOWER(?)";
+					+ " WHERE rp.toko=? AND DATE(rp.waktu)>=?::date AND DATE(rp.waktu)<=?::date";
+			if (!bolehSemuaKasir) sqlRetur += " AND LOWER(NULLIF(TRIM(pak.kasir_login_nama),''))=LOWER(?)";
 			java.sql.PreparedStatement pRetur = conn.prepareStatement(sqlRetur);
 			pRetur.setLong(1, tokoId.longValue()); pRetur.setString(2, mulai); pRetur.setString(3, sampai);
 			if (!bolehSemuaKasir) pRetur.setString(4, namaKasirLogin);
@@ -2968,9 +2970,9 @@ public class PosApi extends HttpServlet {
 			JSONObject daftar = daftarOrderDenganSesi(session, tokoId, tokoKode, aman);
 			java.sql.Connection conn = session.connection();
 			String dasar = " FROM koperasi.pembelian a LEFT JOIN koperasi.pembelian_anggota_koperasi pak"
-					+ " ON pak.id=a.pembelian_anggota_koperasi WHERE a.toko=? AND DATE(a.waktu)>=? AND DATE(a.waktu)<=?";
+					+ " ON pak.id=a.pembelian_anggota_koperasi WHERE a.toko=? AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date";
 			String sub = "SELECT COALESCE(a.pembelian_anggota_koperasi,a.id) id_trx,"
-					+ " COALESCE(NULLIF(TRIM(MAX(pak.kasir_login_nama)),''),NULLIF(TRIM(MAX(a.oleh)),''),'Tanpa Nama') kasir,"
+					+ " COALESCE(NULLIF(TRIM(MAX(pak.kasir_login_nama)),''),'Kasir tidak tercatat') kasir,"
 					+ " COALESCE(MAX(pak.total_biaya),SUM(a.total)) nilai" + dasar + " GROUP BY 1";
 			String batasKasir = kasirDipilih.length() == 0 ? "" : " WHERE LOWER(TRIM(kasir))=LOWER(?)";
 			java.sql.PreparedStatement ps = conn.prepareStatement(
@@ -3013,7 +3015,7 @@ public class PosApi extends HttpServlet {
 			try {
 				java.sql.PreparedStatement ps = cek.connection().prepareStatement(
 						"SELECT COUNT(*) FROM koperasi.pembelian a LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON pak.id=a.pembelian_anggota_koperasi "
-						+ "WHERE COALESCE(a.pembelian_anggota_koperasi,a.id)=? AND a.toko=? AND LOWER(COALESCE(NULLIF(TRIM(pak.kasir_login_nama),''),TRIM(a.oleh)))=LOWER(?)");
+						+ "WHERE COALESCE(a.pembelian_anggota_koperasi,a.id)=? AND a.toko=? AND LOWER(NULLIF(TRIM(pak.kasir_login_nama),''))=LOWER(?)");
 				ps.setLong(1, Long.parseLong(String.valueOf(payload.get("id")))); ps.setLong(2, tokoId.longValue()); ps.setString(3, namaLogin);
 				java.sql.ResultSet rs = ps.executeQuery(); boolean milik = rs.next() && rs.getLong(1) > 0; rs.close(); ps.close();
 				if (!milik) { hasil.put("status", "error"); hasil.put("message", "Kasir hanya boleh melihat rincian penjualan miliknya sendiri."); return; }
@@ -3042,11 +3044,11 @@ public class PosApi extends HttpServlet {
 		try {
 			java.sql.Connection conn = session.connection();
 			String trx = "SELECT COALESCE(a.pembelian_anggota_koperasi,a.id) id_trx,DATE(MAX(a.waktu)) tanggal,"
-					+ " COALESCE(NULLIF(TRIM(MAX(pak.kasir_login_nama)),''),NULLIF(TRIM(MAX(a.oleh)),''),'Tanpa Nama') kasir,"
+					+ " COALESCE(NULLIF(TRIM(MAX(pak.kasir_login_nama)),''),'Kasir tidak tercatat') kasir,"
 					+ " COALESCE(NULLIF(TRIM(MAX(a.carabayar)),''),'-') metode,"
 					+ " COALESCE(MAX(pak.total_biaya),SUM(a.total)) nilai"
 					+ " FROM koperasi.pembelian a LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON pak.id=a.pembelian_anggota_koperasi"
-					+ " WHERE a.toko=? AND DATE(a.waktu)>=? AND DATE(a.waktu)<=? GROUP BY 1";
+					+ " WHERE a.toko=? AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date GROUP BY 1";
 			String filter = kasir.length() == 0 ? "" : " WHERE LOWER(TRIM(kasir))=LOWER(?)";
 			String group = " SELECT tanggal,kasir,metode,COUNT(*) jumlah,COALESCE(SUM(nilai),0) total FROM (" + trx + ") t" + filter
 					+ " GROUP BY tanggal,kasir,metode";
@@ -3161,7 +3163,7 @@ public class PosApi extends HttpServlet {
 		if (tglMulai.length() > 0) { whereTrx.append(" AND DATE(a.waktu) >= ?"); paramsTrx.add(tglMulai); }
 		if (tglSampai.length() > 0) { whereTrx.append(" AND DATE(a.waktu) <= ?"); paramsTrx.add(tglSampai); }
 		if (kasirExact.length() > 0) {
-			whereTrx.append(" AND LOWER(COALESCE(NULLIF(TRIM(pak.kasir_login_nama),''),TRIM(a.oleh))) = LOWER(?)");
+			whereTrx.append(" AND LOWER(NULLIF(TRIM(pak.kasir_login_nama),'')) = LOWER(?)");
 			paramsTrx.add(kasirExact);
 		}
 		if (metodeExact.length() > 0) {
@@ -3207,14 +3209,10 @@ public class PosApi extends HttpServlet {
 				+ "), order_dasar AS ("
 				+ "  SELECT COALESCE(a.pembelian_anggota_koperasi, a.id) AS id_transaksi,"
 				+ "         MAX(pak.kode) AS kode_nota, MAX(a.waktu) AS waktu, MAX(a.member) AS pembeli,"
-				// Gap-closure "kolom KASIR selalu 'external_update'": a.oleh/a.olehid adalah metadata
-				// audit generik yang SELALU ditimpa AuditTimestampInterceptor ke "external_update" utk
-				// permintaan lewat PosApi (tak ada sesi HttpServletRequest standar) -- lihat JavaDoc
-				// PembelianAnggotaKoperasi.getKasirLoginNama(). Field baru itu (pak.kasir_login_nama)
-				// dipakai lebih dulu; fallback ke a.oleh HANYA utk baris transaksi LAMA (sebelum kolom
-				// ini ada) supaya histori lama tidak mendadak kosong.
-				+ "         COALESCE(MAX(pak.kasir_login_nama), MAX(a.oleh)) AS kasir,"
-				+ "         MAX(a.olehid) AS kasir_id, MAX(pak.nama_mesin) AS nama_mesin, MAX(a.carabayar) AS metode,"
+				// Snapshot kasir transaksi adalah satu-satunya sumber identitas. oleh/olehId
+				// merupakan metadata audit dan dapat berisi external_update.
+				+ "         COALESCE(NULLIF(TRIM(MAX(pak.kasir_login_nama)),''),'Kasir tidak tercatat') AS kasir,"
+				+ "         MAX(pak.sesi_kas_kasir) AS sesi_kas_kasir_id, MAX(pak.nama_mesin) AS nama_mesin, MAX(a.carabayar) AS metode,"
 				+ "         SUM(a.qty) AS qty, SUM(a.total) AS subtotal_barang,"
 				+ "         COALESCE(MAX(pak.total_diskon), SUM(COALESCE(a.diskon,0))) AS total_diskon,"
 				+ "         COALESCE(MAX(pak.pajak),0) AS pajak,"
@@ -3230,7 +3228,7 @@ public class PosApi extends HttpServlet {
 				+ "  SELECT od.*, sb.id AS sesi_id, sb.nomor_sesi FROM order_dasar od"
 				+ "  LEFT JOIN LATERAL ("
 				+ "    SELECT * FROM sesi_bertingkat s"
-				+ "    WHERE (s.kasir_nama = od.kasir OR s.kasir_user_id = od.kasir_id)"
+				+ "    WHERE (s.id = od.sesi_kas_kasir_id OR (od.sesi_kas_kasir_id IS NULL AND s.kasir_nama = od.kasir))"
 				+ "      AND od.waktu >= s.waktubuka AND od.waktu <= COALESCE(s.waktututup, NOW())"
 				+ "    ORDER BY s.waktubuka DESC LIMIT 1"
 				+ "  ) sb ON true"
@@ -3346,18 +3344,15 @@ public class PosApi extends HttpServlet {
 			long total = rsCount.next() ? rsCount.getLong(1) : 0;
 			rsCount.close(); psCount.close();
 
-			// Gap-closure (2026-08-12): sk.oleh/olehid diganti sk.kasir_nama/kasir_user_id (oleh/olehid
-			// murni audit generik, lihat javadoc SesiKasKasir.getKasirNama()). Subquery pencocokan
-			// pak.oleh/olehid diberi tambahan OR pak.kasir_login_nama -- pak.oleh SELALU "external_update"
-			// utk transaksi lewat PosApi (lihat javadoc PembelianAnggotaKoperasi.getKasirLoginNama() +
-			// SesiKasUtil.hitungPenjualan), jadi tanpa ini "Total Tunai/Non-Tunai Live" selalu nol utk
-			// sesi kasir Electron/Flutter.
+			// Hubungkan transaksi ke sesi melalui foreign key sesi yang disimpan saat
+			// checkout. Fallback hanya memakai snapshot kasir transaksi, tidak pernah
+			// memakai oleh/olehId karena keduanya metadata audit.
 			String sql = "SELECT sk.id, sk.kasir_nama, sk.waktubuka, sk.waktututup, sk.modalawal, sk.uangfisik, sk.status,"
 					+ "       COALESCE((SELECT SUM(COALESCE(pak.bayar_tunai,0)) FROM koperasi.pembelian_anggota_koperasi pak"
-					+ "                 WHERE pak.toko = sk.toko AND (pak.oleh = sk.kasir_nama OR pak.olehid = sk.kasir_user_id OR pak.kasir_login_nama = sk.kasir_nama)"
+					+ "                 WHERE pak.toko = sk.toko AND (pak.sesi_kas_kasir = sk.id OR (pak.sesi_kas_kasir IS NULL AND pak.kasir_login_nama = sk.kasir_nama))"
 					+ "                 AND pak.tanggal_pembayaran >= sk.waktubuka AND pak.tanggal_pembayaran <= COALESCE(sk.waktututup, NOW())),0) AS total_tunai_live,"
 					+ "       COALESCE((SELECT SUM(COALESCE(pak.bayar_non_tunai,0)) FROM koperasi.pembelian_anggota_koperasi pak"
-					+ "                 WHERE pak.toko = sk.toko AND (pak.oleh = sk.kasir_nama OR pak.olehid = sk.kasir_user_id OR pak.kasir_login_nama = sk.kasir_nama)"
+					+ "                 WHERE pak.toko = sk.toko AND (pak.sesi_kas_kasir = sk.id OR (pak.sesi_kas_kasir IS NULL AND pak.kasir_login_nama = sk.kasir_nama))"
 					+ "                 AND pak.tanggal_pembayaran >= sk.waktubuka AND pak.tanggal_pembayaran <= COALESCE(sk.waktututup, NOW())),0) AS total_nontunai_live,"
 					+ "       ROW_NUMBER() OVER (ORDER BY sk.waktubuka) AS nomor_sesi"
 					+ " FROM koperasi.sesi_kas_kasir sk WHERE " + where + " ORDER BY sk.waktubuka DESC LIMIT ? OFFSET ?";

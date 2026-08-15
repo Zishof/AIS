@@ -290,6 +290,10 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
 						<span class="text-secondary fw-semibold"><%=Common.getBahasaConfig("Diskon Promo")%></span>
 						<span class="text-danger fw-bold" id="cartDiskon<%=rnd%>">- Rp 0</span>
 					</div>
+					<div class="d-flex justify-content-between align-items-center mb-1">
+						<button type="button" class="btn btn-link btn-sm p-0 text-warning fw-semibold" onclick="aturDiskonFaktur<%=rnd%>()"><i class="fas fa-percent me-1"></i><%=Common.getBahasaConfig("Potongan Faktur")%></button>
+						<span class="text-danger fw-bold" id="cartDiskonFaktur<%=rnd%>">- Rp 0</span>
+					</div>
                     <div class="d-flex justify-content-between mb-1">
 						<span class="text-secondary fw-semibold"><%=Common.getBahasaConfig("Cashback Didapat")%></span>
 						<span class="text-info fw-bold" id="cartCashback<%=rnd%>">+ Rp 0</span>
@@ -422,6 +426,9 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
     const posTanpaLogin<%=rnd%> = <%=posTanpaLogin%>;
     let cart<%=rnd%> = [];
     let grandTotalValue<%=rnd%> = 0;
+    let diskonFakturTipe<%=rnd%> = 'NOMINAL';
+    let diskonFakturNilai<%=rnd%> = 0;
+    let diskonFakturTerhitung<%=rnd%> = 0;
     
     let arrDataToko<%=rnd%> = [];
     let arrDataMember<%=rnd%> = [];
@@ -440,6 +447,23 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
     // besar disembunyikan (lihat lanjutkanPembayaranSetelahPin) karena tidak jelas dibayar via metode
     // mana yang harusnya menampilkan QR/kembalian saat displit.
     let splitSelectedMetodeBayar<%=rnd%> = [];
+
+    window.aturDiskonFaktur<%=rnd%> = () => {
+        if (!cart<%=rnd%>.length) return;
+        const tipe = prompt('Jenis potongan: ketik NOMINAL atau PERSEN', diskonFakturTipe<%=rnd%>);
+        if (tipe === null) return;
+        const normal = String(tipe).trim().toUpperCase();
+        if (normal !== 'NOMINAL' && normal !== 'PERSEN') {
+            alert('Jenis potongan harus NOMINAL atau PERSEN.'); return;
+        }
+        const nilai = prompt(normal === 'PERSEN' ? 'Masukkan persentase (0-100)' : 'Masukkan nominal potongan Rupiah', String(diskonFakturNilai<%=rnd%> || ''));
+        if (nilai === null) return;
+        diskonFakturTipe<%=rnd%> = normal;
+        diskonFakturNilai<%=rnd%> = Math.max(0, parseFloat(String(nilai).replace(/\./g, '').replace(',', '.')) || 0);
+        if (normal === 'PERSEN') diskonFakturNilai<%=rnd%> = Math.min(100, diskonFakturNilai<%=rnd%>);
+        splitSelectedMetodeBayar<%=rnd%> = [];
+        renderCart<%=rnd%>();
+    };
     
     // Variabel state untuk QR Code Polling
     let qrCheckInterval<%=rnd%> = null;
@@ -1826,7 +1850,7 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             // Gap-closure "Aktivasi Manual" -- baris yg promonya dipilih manual kasir (item.promoManual)
             // TETAP dihitung ulang (bukan dibekukan) supaya batas maksimal_potongan tetap akurat, tapi
             // dgn onlyRuleId terkunci ke promo itu saja -- bukan ikut auto-apply biasa.
-            evaluateDiscount<%=rnd%>(item, item.promoManual ? item.aturanDiskon : null);
+            evaluateDiscount<%=rnd%>(item, item.promoManual ? item.promoManualAturanId : null);
         });
         renderCart<%=rnd%>();
     };
@@ -1836,17 +1860,29 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
      * utk MINIMAL SATU baris keranjang saat ini (reuse aturanEligibleUntukItem, sama predikat yg
      * dipakai auto-apply, cuma dibalik: hanya ambil yang manual, bukan yang di-skip).
      */
-    const bukaPickerPromoManual<%=rnd%> = () => {
+    let indexItemPromoManual<%=rnd%> = null;
+    const bukaPickerPromoManual<%=rnd%> = (indexItem) => {
         const body = document.getElementById('bodyModalPromoManual<%=rnd%>');
         if (cart<%=rnd%>.length === 0) {
             body.innerHTML = '<p class="text-muted text-center py-3 mb-0"><%=Common.getBahasaConfig("Keranjang masih kosong.")%></p>';
             return;
         }
+        if (indexItem === undefined || indexItem === null) {
+            indexItemPromoManual<%=rnd%> = null;
+            body.innerHTML = '<div class="list-group">' + cart<%=rnd%>.map((item, index) =>
+                '<button type="button" class="list-group-item list-group-item-action" onclick="bukaPickerPromoManual<%=rnd%>(' + index + ')">' +
+                '<div class="fw-bold">' + item.nama + '</div><div class="small text-muted">Pilih promo khusus untuk item ini</div></button>'
+            ).join('') + '</div>';
+            return;
+        }
+        indexItemPromoManual<%=rnd%> = indexItem;
+        const targetItem = cart<%=rnd%>[indexItem];
+        if (!targetItem) return;
         const selectedMember = memberTerpilihSaatIni<%=rnd%>();
         const promoEligible = arrAturanDiskon<%=rnd%>.filter(rule => {
             const isManual = (rule.aktivasi_manual === true || rule.aktivasi_manual === 'true' || rule.aktivasi_manual === 't');
             if (!isManual) return false;
-            return cart<%=rnd%>.some(item => aturanEligibleUntukItem<%=rnd%>(rule, item, selectedMember));
+            return aturanEligibleUntukItem<%=rnd%>(rule, targetItem, selectedMember);
         });
 
         if (promoEligible.length === 0) {
@@ -1856,7 +1892,7 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
 
         let html = '<div class="list-group">';
         promoEligible.forEach(rule => {
-            const aktifSekarang = cart<%=rnd%>.some(item => item.promoManual && item.aturanDiskon == rule.id);
+            const aktifSekarang = targetItem.promoManual && targetItem.promoManualAturanId == rule.id;
             const persen = parseFloat(rule.persentase) || 0;
             const nominal = parseFloat(rule.nominal) || 0;
             const isPotongLsg = (rule.potongan_langsung === 'true' || rule.potongan_langsung === true || rule.potongan_langsung === 't');
@@ -1873,27 +1909,23 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         body.innerHTML = html;
     };
 
-    /** Kasir memilih 1 promo manual dari picker -- terapkan ke SEMUA baris keranjang yang eligible. */
+    /** Kasir memilih satu promo manual untuk satu baris keranjang yang sedang dipilih. */
     window.pilihPromoManual<%=rnd%> = (aturanId) => {
         const selectedMember = memberTerpilihSaatIni<%=rnd%>();
-        let adaYangDapat = false;
-        cart<%=rnd%>.forEach(item => {
-            const rule = arrAturanDiskon<%=rnd%>.find(r => r.id == aturanId);
-            if (rule && aturanEligibleUntukItem<%=rnd%>(rule, item, selectedMember)) {
-                item.promoManual = true;
-                adaYangDapat = true;
-            }
-        });
-        if (!adaYangDapat) {
+        const item = cart<%=rnd%>[indexItemPromoManual<%=rnd%>];
+        const rule = arrAturanDiskon<%=rnd%>.find(r => r.id == aturanId);
+        if (!item || !rule || !aturanEligibleUntukItem<%=rnd%>(rule, item, selectedMember)) {
             const pesan = '<%=Common.getBahasaConfigJS("Promo ini tidak berlaku untuk produk di keranjang saat ini.")%>';
             if (typeof tampilkanToast === "function") tampilkanToast(pesan, 'bg-warning text-dark'); else alert(pesan);
             return;
         }
+        item.promoManual = true;
+        item.promoManualAturanId = aturanId;
         recalculateCart<%=rnd%>();
         const modalEl = document.getElementById('modalPromoManual<%=rnd%>');
         const modal = modalEl && window.bootstrap ? bootstrap.Modal.getInstance(modalEl) : null;
         if (modal) modal.hide();
-        const pesanSukses = '<%=Common.getBahasaConfigJS("Promo diterapkan.")%>';
+        const pesanSukses = '<%=Common.getBahasaConfigJS("Promo diterapkan pada item yang dipilih.")%>';
         if (typeof tampilkanToast === "function") tampilkanToast(pesanSukses, 'bg-success text-white');
     };
 
@@ -2040,6 +2072,9 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
     const kosongkanKeranjang<%=rnd%> = () => {
         cart<%=rnd%> = [];
         currentDraftId<%=rnd%> = null;
+        diskonFakturTipe<%=rnd%> = 'NOMINAL';
+        diskonFakturNilai<%=rnd%> = 0;
+        diskonFakturTerhitung<%=rnd%> = 0;
         splitSelectedMetodeBayar<%=rnd%> = [];
         renderSplitPanel<%=rnd%>();
         recalculateCart<%=rnd%>();
@@ -2328,6 +2363,7 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
                             '<div class="text-muted" style="font-size:11px;">' + formatRp<%=rnd%>(item.harga) + '</div>' +
                             ekstraHtmlBaris +
                             (notePromo ? '<div class="mt-1">' + notePromo + '</div>' : '') +
+                            '<button type="button" class="btn btn-link btn-sm p-0 mt-1 text-warning" data-bs-toggle="modal" data-bs-target="#modalPromoManual<%=rnd%>" onclick="bukaPickerPromoManual<%=rnd%>(' + index + ')"><i class="fas fa-tags me-1"></i>' + (item.promoManual ? 'Ubah promo item' : 'Pilih promo item') + '</button>' +
                         '</div>' +
                         '<div class="qty-pill-<%=rnd%>">' +
                             '<span class="qty-btn-<%=rnd%>" onclick="updateQty<%=rnd%>(' + index + ', -1)">-</span>' +
@@ -2340,14 +2376,19 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
                     '</div>';
             });
             container.innerHTML = htmlCart;
-            const basePajak = subtotal - totalDiskon;
+            const dasarDiskonFaktur = Math.max(0, subtotal - totalDiskon);
+            diskonFakturTerhitung<%=rnd%> = diskonFakturTipe<%=rnd%> === 'PERSEN'
+                ? dasarDiskonFaktur * Math.min(100, diskonFakturNilai<%=rnd%>) / 100
+                : Math.min(dasarDiskonFaktur, diskonFakturNilai<%=rnd%>);
+            const basePajak = dasarDiskonFaktur - diskonFakturTerhitung<%=rnd%>;
             grandPajakValue<%=rnd%> = pajakPersenPOS<%=rnd%> > 0 ? (basePajak * pajakPersenPOS<%=rnd%> / 100) : 0;
             grandTotalValue<%=rnd%> = basePajak + grandPajakValue<%=rnd%>;
         }
-        if (cart<%=rnd%>.length === 0) { grandPajakValue<%=rnd%> = 0; }
+        if (cart<%=rnd%>.length === 0) { grandPajakValue<%=rnd%> = 0; diskonFakturTerhitung<%=rnd%> = 0; }
 
         document.getElementById('cartSubtotal<%=rnd%>').innerText = formatRp<%=rnd%>(subtotal);
         document.getElementById('cartDiskon<%=rnd%>').innerText = "- " + formatRp<%=rnd%>(totalDiskon);
+        document.getElementById('cartDiskonFaktur<%=rnd%>').innerText = "- " + formatRp<%=rnd%>(diskonFakturTerhitung<%=rnd%>);
         document.getElementById('cartCashback<%=rnd%>').innerText = "+ " + formatRp<%=rnd%>(totalCashback);
         const rowPajakEl = document.getElementById('rowPajak<%=rnd%>');
         if (pajakPersenPOS<%=rnd%> > 0) {
@@ -2450,6 +2491,13 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         
         if (totalDiskonStruk > 0) {
             htmlStruk += '<tr><td>Total Diskon</td><td class="text-right">-' + formatRp<%=rnd%>(totalDiskonStruk) + '</td></tr>';
+        }
+        const dasarPotonganFakturStruk = Math.max(0, subtotalAwal - totalDiskonStruk);
+        const potonganFakturStruk = payload.diskon_faktur_tipe === 'PERSEN'
+            ? dasarPotonganFakturStruk * Math.min(100, parseFloat(payload.diskon_faktur_nilai) || 0) / 100
+            : Math.min(dasarPotonganFakturStruk, parseFloat(payload.diskon_faktur_nilai) || 0);
+        if (potonganFakturStruk > 0) {
+            htmlStruk += '<tr><td>Potongan Faktur' + (payload.diskon_faktur_tipe === 'PERSEN' ? ' (' + payload.diskon_faktur_nilai + '%)' : '') + '</td><td class="text-right">-' + formatRp<%=rnd%>(potonganFakturStruk) + '</td></tr>';
         }
 
         if (payload.pajak > 0) {
@@ -2621,6 +2669,8 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             log:"true",
             draftPembelianAnggotaKoperasi: currentDraftId<%=rnd%>, // bila keranjang ini hasil "Muat" dr Tertahan, tuntaskan draft yg SAMA (bukan duplikat)
             pajak: grandPajakValue<%=rnd%>, // nominal Rp -- KantinHelper.bayar() menjumlahkan field ini LANGSUNG ke total tersimpan
+            diskon_faktur_tipe: diskonFakturTipe<%=rnd%>,
+            diskon_faktur_nilai: diskonFakturNilai<%=rnd%>,
             transaksi: cart<%=rnd%>.map(item => ({
             	id: item.id,
                 kode: item.kode,

@@ -1910,9 +1910,27 @@ public class InitIndex {
 		return false;
 	}
 
+	/**
+	 * Membersihkan penanda pengguna aktif saat aplikasi baru menyala. Kedua
+	 * tabel wajib di-TRUNCATE dalam satu statement karena online_users memiliki
+	 * foreign key ke accessed_users. Tidak memakai CASCADE agar tabel lain di
+	 * luar dua cache sesi ini tidak ikut terhapus tanpa sengaja.
+	 */
+	private static void bersihkanAccessedUsersSaatStartup() {
+		try {
+			ais.common.Common.updateSql(
+					"TRUNCATE TABLE public.online_users, public.accessed_users");
+		} catch (Exception e) {
+			e.printStackTrace();
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit InitIndex.bersihkanAccessedUsersSaatStartup");
+		}
+	}
+
 	public static void initEksekusiQueryIndex() {
 		// Migrasi kompatibilitas skema harus selesai secara sinkron sebelum pool
 		// pekerjaan index paralel diaktifkan.
+		bersihkanAccessedUsersSaatStartup();
 		initAturanDiskonProdukNullable();
 		initCaraPembayaranMasukSebagaiHutang();
 		initKebijakanReturProduk();
@@ -3402,6 +3420,15 @@ public class InitIndex {
 			eksekusiSqlAmanDdl("ALTER TABLE koperasi.toko ADD COLUMN IF NOT EXISTS alasan_tahan_json text");
 		} catch (Exception e) {
 			ais.common.ErrorAuditUtil.record(e, "init alasan transaksi tahan");
+		}
+		// Kebijakan oversell harus terisolasi per toko. NULL dari instalasi lama diperlakukan
+		// OFF oleh entity; DEFAULT false memastikan toko baru juga aman tanpa konfigurasi manual.
+		try {
+			eksekusiSqlAmanDdl("ALTER TABLE koperasi.toko ADD COLUMN IF NOT EXISTS boleh_transaksi_stok_habis boolean DEFAULT false");
+			eksekusiSqlAmanDdl("UPDATE koperasi.toko SET boleh_transaksi_stok_habis=false WHERE boleh_transaksi_stok_habis IS NULL");
+			eksekusiSqlAmanDdl("DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='new_audit' AND table_name='toko__audit') THEN ALTER TABLE new_audit.toko__audit ADD COLUMN IF NOT EXISTS boleh_transaksi_stok_habis boolean; END IF; END $$");
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "init kebijakan stok habis per toko");
 		}
 
 		// Promo grup: satu header, banyak produk, snapshot JSON untuk audit, serta

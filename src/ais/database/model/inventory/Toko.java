@@ -94,6 +94,7 @@ public class Toko extends GeneralValueObject {
 	private String jamOperasional;
 	private String pesanTerimaKasih;
 	private String alasanTahanJson;
+	private Boolean bolehTransaksiStokHabis;
 
 	public Toko() {
 	}
@@ -279,6 +280,21 @@ public class Toko extends GeneralValueObject {
 
 	public void setAlasanTahanJson(String alasanTahanJson) {
 		this.alasanTahanJson = alasanTahanJson;
+	}
+
+	/**
+	 * Kebijakan stok PER TOKO. Default {@code false}: checkout wajib menolak produk yang stok
+	 * live/batch-nya tidak cukup, kecuali produk tersebut memang diberi override
+	 * {@code Produk.izinkanJualMinusStok=true}. Bila {@code true}, seluruh produk toko ini boleh
+	 * tetap ditransaksikan saat stok nol/minus; toko lain tidak ikut berubah.
+	 */
+	@Column(name = "boleh_transaksi_stok_habis", nullable = true)
+	public Boolean getBolehTransaksiStokHabis() {
+		return bolehTransaksiStokHabis == null ? Boolean.FALSE : bolehTransaksiStokHabis;
+	}
+
+	public void setBolehTransaksiStokHabis(Boolean bolehTransaksiStokHabis) {
+		this.bolehTransaksiStokHabis = bolehTransaksiStokHabis;
 	}
 
 	private Gudang gudangPemasok;

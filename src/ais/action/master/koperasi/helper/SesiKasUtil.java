@@ -103,7 +103,7 @@ public final class SesiKasUtil {
 
 	private static String cakupanTransaksi(SesiKasKasir sesi) {
 		String sql = "(h.sesi_kas_kasir=? or (h.sesi_kas_kasir is null and "
-				+ "(h.oleh=? or h.oleh=? or h.kasir_login_nama=? or h.kasir_login_nama=?) "
+				+ "(h.kasir_login_nama=? or h.kasir_login_nama=?) "
 				+ "and h.tanggal_pembayaran>=? and h.tanggal_pembayaran<=?))";
 		if (sesi.getToko() != null) sql += " and h.toko=?";
 		return sql;
@@ -111,8 +111,6 @@ public final class SesiKasUtil {
 
 	private static int ikatCakupan(PreparedStatement ps, int p, SesiKasKasir sesi, Date sampai) throws Exception {
 		ps.setLong(p++, sesi.getId().longValue());
-		ps.setString(p++, sesi.getKasirNama());
-		ps.setString(p++, sesi.getKasirUserId());
 		ps.setString(p++, sesi.getKasirNama());
 		ps.setString(p++, sesi.getKasirUserId());
 		ps.setTimestamp(p++, new Timestamp(sesi.getWaktuBuka().getTime()));
@@ -370,19 +368,19 @@ public final class SesiKasUtil {
 	 *
 	 * @return array {@code [tunai, nonTunai]}.
 	 */
-	public static double[] hitungPenjualan(Session session, String oleh, String olehId, Long tokoId, Date dari, Date sampai) {
+	public static double[] hitungPenjualan(Session session, String kasirNama, String kasirUserId, Long tokoId, Date dari, Date sampai) {
 		try {
 			StringBuilder sb = new StringBuilder("select coalesce(sum(")
 					.append(nilaiPembayaran(true)).append("),0),coalesce(sum(")
 					.append(nilaiPembayaran(false)).append("),0)").append(joinCaraPembayaran())
-					.append(" where (h.oleh=:o or h.oleh=:i or h.kasir_login_nama=:o or h.kasir_login_nama=:i)")
+					.append(" where (h.kasir_login_nama=:o or h.kasir_login_nama=:i)")
 					.append(" and h.tanggal_pembayaran>=:dari and h.tanggal_pembayaran<=:sampai ");
 			if (tokoId != null) {
 				sb.append(" and h.toko=:t ");
 			}
 			SQLQuery q = session.createSQLQuery(sb.toString());
-			q.setParameter("o", oleh);
-			q.setParameter("i", olehId);
+			q.setParameter("o", kasirNama);
+			q.setParameter("i", kasirUserId);
 			q.setParameter("dari", dari);
 			q.setParameter("sampai", sampai);
 			if (tokoId != null) {
@@ -403,7 +401,7 @@ public final class SesiKasUtil {
 					.append(nilaiPembayaran(true)).append("),0),coalesce(sum(")
 					.append(nilaiPembayaran(false)).append("),0)").append(joinCaraPembayaran())
 					.append(" where (h.sesi_kas_kasir=:s or (h.sesi_kas_kasir is null")
-					.append(" and (h.oleh=:o or h.oleh=:i or h.kasir_login_nama=:o or h.kasir_login_nama=:i)")
+					.append(" and (h.kasir_login_nama=:o or h.kasir_login_nama=:i)")
 					.append(" and h.tanggal_pembayaran>=:dari and h.tanggal_pembayaran<=:sampai)) ");
 			if (sesi.getToko() != null) sb.append(" and h.toko=:t ");
 			SQLQuery q = session.createSQLQuery(sb.toString());

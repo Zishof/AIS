@@ -98,6 +98,7 @@ public class PosKantinAction extends GenericAutowireComposer {
     private Label lblPajak;
     private Label lblSubtotal;
     private Label lblDiskon;
+    private Label lblDiskonFaktur;
     private Label lblCashback;
     private Label lblTotal;
     private Label lblInfoToko;
@@ -105,6 +106,8 @@ public class PosKantinAction extends GenericAutowireComposer {
     private Label lblMemberSaldo;
     private Label lblBayar;
     private MyDoublebox dbUangBayar;
+    private MyDoublebox dbDiskonFaktur;
+    private Radiogroup rgTipeDiskonFaktur;
 
     // Sesi Kas Kasir (Buka/Tutup Kas) -- widget ringkas di header POS, mesin sama dgn KasKasirZkAction
     // (SesiKasUtil), sehingga kasir tak perlu berpindah menu utk buka/tutup kas & lihat saldo kasnya.
@@ -135,6 +138,7 @@ public class PosKantinAction extends GenericAutowireComposer {
     // State
     private Long tokoIdAktif;
     private String namaTokoAktif;
+    private boolean bolehTransaksiStokHabis;
     private double grandTotal;
     private double grandCashback;
     private Long memberId;
@@ -174,14 +178,17 @@ public class PosKantinAction extends GenericAutowireComposer {
         double diskon;
         double cashback;
         Long aturanDiskonId;
+        Long promoManualAturanId;
         boolean berlakuPerHari;
+        final boolean izinkanJualMinusStok;
 
-        Item(Long id, String kode, String nama, double harga, double stok) {
+        Item(Long id, String kode, String nama, double harga, double stok, boolean izinkanJualMinusStok) {
             this.id = id;
             this.kode = kode;
             this.nama = nama;
             this.harga = harga;
             this.stok = stok;
+            this.izinkanJualMinusStok = izinkanJualMinusStok;
             this.jumlah = 1;
         }
     }
@@ -433,6 +440,8 @@ public class PosKantinAction extends GenericAutowireComposer {
                     scopeToko = ct;
                     tokoIdAktif = ct.getId();
                     namaTokoAktif = ct.getNama();
+                    bolehTransaksiStokHabis = Boolean.TRUE.equals(
+                            ct.getBolehTransaksiStokHabis());
                     adminBolehPilihToko = false;
                 }
             }
@@ -574,6 +583,8 @@ public class PosKantinAction extends GenericAutowireComposer {
                             : (Toko) cboToko.getSelectedItem().getValue();
                     tokoIdAktif = t == null ? null : t.getId();
                     namaTokoAktif = t == null ? "" : t.getNama();
+                    bolehTransaksiStokHabis = t != null
+                            && Boolean.TRUE.equals(t.getBolehTransaksiStokHabis());
                     loadKategori();
                     loadProduk();
                     updateUsageDiskon();
@@ -710,6 +721,7 @@ public class PosKantinAction extends GenericAutowireComposer {
             @Override
             public void onEvent(Event e) throws Exception {
                 cart.clear();
+                resetDiskonFaktur();
                 draftIdAktif = null;
                 recompute();
             }
@@ -732,11 +744,30 @@ public class PosKantinAction extends GenericAutowireComposer {
         sumBox.setParent(right);
         lblSubtotal = barisTotal(sumBox, "Subtotal", false);
         lblDiskon = barisTotal(sumBox, "Diskon Promo", false);
+        lblDiskonFaktur = barisTotal(sumBox, "Potongan Faktur", false);
         lblCashback = barisTotal(sumBox, "Cashback Didapat", false);
         if (pajakPersen > 0) {
             lblPajak = barisTotal(sumBox, "Pajak (" + fmtPersen(pajakPersen) + "%)", false);
         }
         lblTotal = barisTotal(sumBox, "Total", true);
+
+        Div diskonFakturBox = new Div();
+        diskonFakturBox.setStyle("display:flex;gap:6px;align-items:center;margin-top:7px;");
+        diskonFakturBox.setParent(sumBox);
+        rgTipeDiskonFaktur = new Radiogroup();
+        Radio nominalFaktur = new Radio("Rp"); nominalFaktur.setValue("NOMINAL"); nominalFaktur.setChecked(true);
+        Radio persenFaktur = new Radio("%"); persenFaktur.setValue("PERSEN");
+        rgTipeDiskonFaktur.appendChild(nominalFaktur); rgTipeDiskonFaktur.appendChild(persenFaktur);
+        rgTipeDiskonFaktur.setParent(diskonFakturBox);
+        dbDiskonFaktur = new MyDoublebox(Double.valueOf(0));
+        dbDiskonFaktur.setWidth("120px"); dbDiskonFaktur.setTooltiptext("Potongan langsung untuk seluruh faktur");
+        dbDiskonFaktur.setParent(diskonFakturBox);
+        Button terapkanDiskonFaktur = new Button("Terapkan Potongan");
+        terapkanDiskonFaktur.setSclass("btn btn-sm btn-outline-warning");
+        terapkanDiskonFaktur.addEventListener("onClick", new EventListener() {
+            @Override public void onEvent(Event e) throws Exception { recompute(); }
+        });
+        terapkanDiskonFaktur.setParent(diskonFakturBox);
 
         tunaiBox = new Div();
         tunaiBox.setStyle("display:none;margin-top:8px;padding:10px;border:1px dashed #cbd5e1;border-radius:10px;");
@@ -1460,7 +1491,7 @@ public class PosKantinAction extends GenericAutowireComposer {
         // menghilangkan seluruh katalog lama dari Kasir -- lihat JavaDoc Produk.getJenisItem().
         // Catatan: picker "Pilih Ekstra" (mis. JSP/Electron/Flutter Kasir) belum dibangun di layar
         // ZK ini pada batch ini -- produk berekstra tetap bisa dijual di sini TANPA opsi ekstra.
-        StringBuilder sql = new StringBuilder("SELECT id, kode, nama, COALESCE(hargajual,0), COALESCE(stok,0) "
+        StringBuilder sql = new StringBuilder("SELECT id, kode, nama, COALESCE(hargajual,0), COALESCE(stok,0), COALESCE(izinkan_jual_minus_stok,false) "
                 + "FROM koperasi.produk WHERE aktif = true AND toko = " + tokoIdAktif
                 + " AND (jenis_item IS NULL OR jenis_item NOT IN ('BAHAN','EKSTRA'))");
         if (kategoriFilterId != null) {
@@ -1483,6 +1514,7 @@ public class PosKantinAction extends GenericAutowireComposer {
             final String nama = str(r[2]);
             final double harga = num(r[3]);
             final double stok = num(r[4]);
+            final boolean izinkanJualMinusStok = bool(r[5]);
 
             final Div card = new Div();
             card.setSclass("psk-card");
@@ -1501,7 +1533,7 @@ public class PosKantinAction extends GenericAutowireComposer {
             card.addEventListener("onClick", new EventListener() {
                 @Override
                 public void onEvent(Event e) throws Exception {
-                    tambahKeKeranjang(pid, kode, nama, harga, stok);
+                    tambahKeKeranjang(pid, kode, nama, harga, stok, izinkanJualMinusStok);
                 }
             });
             card.setParent(produkBox);
@@ -1567,11 +1599,12 @@ public class PosKantinAction extends GenericAutowireComposer {
 
     // ======================== Keranjang & diskon ========================
 
-    private void tambahKeKeranjang(Long id, String kode, String nama, double harga, double stok) {
+    private void tambahKeKeranjang(Long id, String kode, String nama, double harga, double stok,
+            boolean izinkanJualMinusStok) {
         for (int posisi = 0; posisi < cart.size(); posisi++) {
             Item it = cart.get(posisi);
             if (it.id.equals(id)) {
-                if (!lolosCekStok(nama, stok, it.jumlah + 1)) {
+                if (!lolosCekStok(nama, stok, it.jumlah + 1, it.izinkanJualMinusStok)) {
                     return;
                 }
                 it.jumlah += 1;
@@ -1583,10 +1616,10 @@ public class PosKantinAction extends GenericAutowireComposer {
                 return;
             }
         }
-        if (!lolosCekStok(nama, stok, 1)) {
+        if (!lolosCekStok(nama, stok, 1, izinkanJualMinusStok)) {
             return;
         }
-        cart.add(0, new Item(id, kode, nama, harga, stok));
+        cart.add(0, new Item(id, kode, nama, harga, stok, izinkanJualMinusStok));
         recompute();
     }
 
@@ -1597,7 +1630,10 @@ public class PosKantinAction extends GenericAutowireComposer {
      * {@code true} bila boleh ditambah; bila tidak, menampilkan peringatan dan mengembalikan
      * {@code false}.
      */
-    private boolean lolosCekStok(String nama, double stok, int qtyBaru) {
+    private boolean lolosCekStok(String nama, double stok, int qtyBaru, boolean izinkanJualMinusStok) {
+        if (bolehTransaksiStokHabis || izinkanJualMinusStok) {
+            return true;
+        }
         if (!Common.bolehKonfigurasi(Konfigurasi.KANTIN_POS_CEGAH_OVERSELL, Konfigurasi.AKTIF)) {
             return true;
         }
@@ -1653,7 +1689,16 @@ public class PosKantinAction extends GenericAutowireComposer {
             totalDiskon += it.diskon;
             totalCashback += it.cashback;
         }
-        double basePajak = subtotal - totalDiskon;
+        double dasarDiskonFaktur = Math.max(0, subtotal - totalDiskon);
+        double nilaiDiskonFaktur = dbDiskonFaktur == null || dbDiskonFaktur.getValue() == null
+                ? 0 : Math.max(0, dbDiskonFaktur.getValue().doubleValue());
+        boolean diskonFakturPersen = rgTipeDiskonFaktur != null && rgTipeDiskonFaktur.getSelectedItem() != null
+                && "PERSEN".equals(rgTipeDiskonFaktur.getSelectedItem().getValue());
+        if (diskonFakturPersen) nilaiDiskonFaktur = Math.min(100, nilaiDiskonFaktur);
+        double potonganFaktur = diskonFakturPersen
+                ? dasarDiskonFaktur * nilaiDiskonFaktur / 100.0
+                : Math.min(dasarDiskonFaktur, nilaiDiskonFaktur);
+        double basePajak = dasarDiskonFaktur - potonganFaktur;
         grandPajak = pajakPersen > 0 ? basePajak * pajakPersen / 100.0 : 0;
         grandTotal = basePajak + grandPajak;
         grandCashback = totalCashback;
@@ -1674,7 +1719,7 @@ public class PosKantinAction extends GenericAutowireComposer {
             }
             bcKeranjang.put("items", bcItems);
             bcKeranjang.put("subtotal", subtotal);
-            bcKeranjang.put("totalDiskon", totalDiskon);
+            bcKeranjang.put("totalDiskon", totalDiskon + potonganFaktur);
             bcKeranjang.put("totalCashback", totalCashback);
             bcKeranjang.put("totalPajak", grandPajak);
             bcKeranjang.put("grandTotal", grandTotal);
@@ -1689,6 +1734,9 @@ public class PosKantinAction extends GenericAutowireComposer {
         }
         if (lblDiskon != null) {
             lblDiskon.setValue("- Rp " + DashboardUiKit.money(totalDiskon));
+        }
+        if (lblDiskonFaktur != null) {
+            lblDiskonFaktur.setValue("- Rp " + DashboardUiKit.money(potonganFaktur));
         }
         if (lblCashback != null) {
             lblCashback.setValue("+ Rp " + DashboardUiKit.money(totalCashback));
@@ -1764,7 +1812,7 @@ public class PosKantinAction extends GenericAutowireComposer {
             plus.addEventListener("onClick", new EventListener() {
                 @Override
                 public void onEvent(Event e) throws Exception {
-                    if (!lolosCekStok(it.nama, it.stok, it.jumlah + 1)) {
+                    if (!lolosCekStok(it.nama, it.stok, it.jumlah + 1, it.izinkanJualMinusStok)) {
                         return;
                     }
                     it.jumlah += 1;
@@ -1777,6 +1825,18 @@ public class PosKantinAction extends GenericAutowireComposer {
             Label sub = new Label("Rp " + DashboardUiKit.money(it.harga * it.jumlah - it.diskon));
             sub.setSclass("psk-csub");
             sub.setParent(row);
+
+            Label promo = new Label(it.promoManualAturanId == null ? "Promo item" : "Ubah promo");
+            promo.setSclass("psk-link");
+            promo.setStyle("color:#d97706;font-size:10px;white-space:nowrap;");
+            promo.setTooltiptext("Pilih promo/cashback manual hanya untuk item ini");
+            promo.addEventListener("onClick", new EventListener() {
+                @Override
+                public void onEvent(Event e) throws Exception {
+                    bukaPromoManualItem(it);
+                }
+            });
+            promo.setParent(row);
 
             Label del = new Label("×");
             del.setSclass("psk-cdel");
@@ -1806,39 +1866,12 @@ public class PosKantinAction extends GenericAutowireComposer {
         Date now = new Date();
 		List<Rule> eligible=new ArrayList<Rule>();
         for (Rule r : rules) {
-            if (r.aktivasiManual) {
-                continue; // dikecualikan dari auto-apply -- ZK belum punya picker "Promo" manual
-            }
-            if (r.produkId != null && !r.produkId.equals(it.id)) {
+            if (it.promoManualAturanId != null) {
+                if (!r.aktivasiManual || !it.promoManualAturanId.equals(r.aturanId)) continue;
+            } else if (r.aktivasiManual) {
                 continue;
             }
-            if (r.tokoId != null && !r.tokoId.equals(tokoIdAktif)) {
-                continue;
-            }
-            if (r.tglMulai != null && r.tglMulai.after(now)) {
-                continue;
-            }
-            if (r.tglSelesai != null && r.tglSelesai.before(now)) {
-                continue;
-            }
-            if (!ais.common.HariAktifUtil.aktifPadaHari(r.hariAktif, now)) {
-                continue;
-            }
-            if (!r.berlakuSemua || r.khususMember) {
-                if (memberId == null) {
-                    continue;
-                }
-                if (!jsonIdMemuat(r.jenisMemberJson, memberJenisId)
-                        || !jsonIdMemuat(r.tipeMemberJson, memberTipeId)) {
-                    continue;
-                }
-                if (r.jenisId != null && !r.jenisId.equals(memberJenisId)) {
-                    continue;
-                }
-                if (r.tipeId != null && !r.tipeId.equals(memberTipeId)) {
-                    continue;
-                }
-            }
+            if (!aturanCocokUntukItem(r, it, now)) continue;
 			eligible.add(r);
         }
         if (eligible.isEmpty()) {
@@ -1887,6 +1920,68 @@ public class PosKantinAction extends GenericAutowireComposer {
 		it.berlakuPerHari = it.berlakuPerHari || applied.berlakuPerHari;
 		}
 		it.cashback=Math.min(Math.max(0,itemTotal-it.diskon),it.cashback);
+    }
+
+    private boolean aturanCocokUntukItem(Rule r, Item it, Date now) {
+        if (r.produkId != null && !r.produkId.equals(it.id)) return false;
+        if (r.tokoId != null && !r.tokoId.equals(tokoIdAktif)) return false;
+        if (r.tglMulai != null && r.tglMulai.after(now)) return false;
+        if (r.tglSelesai != null && r.tglSelesai.before(now)) return false;
+        if (!ais.common.HariAktifUtil.aktifPadaHari(r.hariAktif, now)) return false;
+        if (!r.berlakuSemua || r.khususMember) {
+            if (memberId == null) return false;
+            if (!jsonIdMemuat(r.jenisMemberJson, memberJenisId)
+                    || !jsonIdMemuat(r.tipeMemberJson, memberTipeId)) return false;
+            if (r.jenisId != null && !r.jenisId.equals(memberJenisId)) return false;
+            if (r.tipeId != null && !r.tipeId.equals(memberTipeId)) return false;
+        }
+        return true;
+    }
+
+    /** Picker promo manual ZK per baris; pilihan tidak pernah diterapkan ke item lain. */
+    private void bukaPromoManualItem(final Item it) throws Exception {
+        final org.zkoss.zul.Window w = new org.zkoss.zul.Window("Promo untuk " + it.nama,
+                "normal", true);
+        w.setWidth("420px");
+        w.setClosable(true);
+        w.setBorder("normal");
+        Vlayout daftar = new Vlayout();
+        daftar.setSpacing("6px");
+        daftar.setParent(w);
+
+        Button otomatis = new Button("Gunakan promo otomatis / hapus promo manual");
+        otomatis.setWidth("100%");
+        otomatis.addEventListener("onClick", new EventListener() {
+            @Override public void onEvent(Event e) throws Exception {
+                it.promoManualAturanId = null;
+                w.detach();
+                recompute();
+            }
+        });
+        otomatis.setParent(daftar);
+
+        int jumlah = 0;
+        Date now = new Date();
+        for (final Rule r : rules) {
+            if (!r.aktivasiManual || !aturanCocokUntukItem(r, it, now)) continue;
+            jumlah++;
+            String nilai = r.persen > 0 ? (r.persen + "%") : ("Rp " + DashboardUiKit.money(r.nominal));
+            Button pilih = new Button((r.potonganLangsung ? "Diskon " : "Cashback ") + nilai);
+            pilih.setWidth("100%");
+            pilih.addEventListener("onClick", new EventListener() {
+                @Override public void onEvent(Event e) throws Exception {
+                    it.promoManualAturanId = r.aturanId;
+                    w.detach();
+                    recompute();
+                }
+            });
+            pilih.setParent(daftar);
+        }
+        if (jumlah == 0) {
+            new Label("Tidak ada promo manual yang berlaku untuk item ini.").setParent(daftar);
+        }
+        w.setParent(posHost);
+        w.doModal();
     }
 
 	private static double nilaiPotensial(Rule r,double total,int jumlah){double v=r.persen>0?total*(r.persen/100d):r.nominal*Math.max(1,jumlah);if(r.maxPot>0&&v>r.maxPot)v=r.maxPot;return Math.max(0,v)+Math.max(0,r.cashbackTetap*Math.max(1,jumlah));}
@@ -2032,6 +2127,8 @@ public class PosKantinAction extends GenericAutowireComposer {
         if (grandPajak > 0) {
             payload.put("pajak", grandPajak);
         }
+        payload.put("diskon_faktur_tipe", tipeDiskonFaktur());
+        payload.put("diskon_faktur_nilai", nilaiDiskonFaktur());
         if (memberId != null) {
             payload.put("id_member", memberId);
         }
@@ -2117,11 +2214,24 @@ public class PosKantinAction extends GenericAutowireComposer {
      *  ulang oleh {@link #onBayar()} dan {@link #tahanTransaksi()} agar rumus totalnya SATU
      *  sumber kebenaran, tak dobel-tulis di dua tempat. */
     private double totalTransaksiSaatIni() {
-        double total = 0;
-        for (Item it : cart) {
-            total += it.harga * it.jumlah - it.diskon;
-        }
-        return total;
+        return grandTotal;
+    }
+
+    private String tipeDiskonFaktur() {
+        return rgTipeDiskonFaktur != null && rgTipeDiskonFaktur.getSelectedItem() != null
+                && "PERSEN".equals(rgTipeDiskonFaktur.getSelectedItem().getValue()) ? "PERSEN" : "NOMINAL";
+    }
+
+    private double nilaiDiskonFaktur() {
+        double nilai = dbDiskonFaktur == null || dbDiskonFaktur.getValue() == null
+                ? 0 : Math.max(0, dbDiskonFaktur.getValue().doubleValue());
+        return "PERSEN".equals(tipeDiskonFaktur()) ? Math.min(100, nilai) : nilai;
+    }
+
+    private void resetDiskonFaktur() {
+        if (dbDiskonFaktur != null) dbDiskonFaktur.setValue(Double.valueOf(0));
+        if (rgTipeDiskonFaktur != null && rgTipeDiskonFaktur.getItemCount() > 0)
+            rgTipeDiskonFaktur.setSelectedIndex(0);
     }
 
     /** Ubah {@link #cart} jadi {@link JSONArray} sesuai kontrak {@code transaksi} yang dipakai
@@ -2286,6 +2396,8 @@ public class PosKantinAction extends GenericAutowireComposer {
         payload.put("idToko", tokoIdAktif);
         payload.put("waktu", Common.dateFormat3.get().format(new Date()));
         payload.put("caraBayar", caraBayarId);
+        payload.put("diskon_faktur_tipe", tipeDiskonFaktur());
+        payload.put("diskon_faktur_nilai", nilaiDiskonFaktur());
         if (memberId != null) {
             payload.put("id_member", memberId);
         }
@@ -2310,6 +2422,7 @@ public class PosKantinAction extends GenericAutowireComposer {
         String status = hasil.optString("status", "");
         if ("00".equals(status) || "success".equalsIgnoreCase(status)) {
             cart.clear();
+            resetDiskonFaktur();
             draftIdAktif = null;
             // Sebelumnya HANYA menyetel memberId/memberNama ke null (2 dari 7 field) -- bug nyata:
             // memberSaldo/memberMinSaldo/memberJenisId/memberTipeId/memberWajibPin dari member SEBELUM
@@ -2376,7 +2489,8 @@ public class PosKantinAction extends GenericAutowireComposer {
     /** Muat balik keranjang tertahan {@code idDraft} ke layar Kasir (item+member+metode bayar). */
     private void muatDraftTertahan(Long idDraft) throws Exception {
         List<Object[]> items = rows("SELECT p.id, p.kode, COALESCE(p.nama, d.nama), d.hargasatuan, d.qty, "
-                + "COALESCE(d.diskon,0), COALESCE(d.cashback,0), d.aturan_diskon, COALESCE(p.stok,0) "
+                + "COALESCE(d.diskon,0), COALESCE(d.cashback,0), d.aturan_diskon, COALESCE(p.stok,0), "
+                + "COALESCE(p.izinkan_jual_minus_stok,false) "
                 + "FROM koperasi.draft_pembelian d LEFT JOIN koperasi.produk p ON d.produk = p.id "
                 + "WHERE d.draft_pembelian_anggota_koperasi = " + idDraft);
         if (items.isEmpty()) {
@@ -2385,8 +2499,9 @@ public class PosKantinAction extends GenericAutowireComposer {
             return;
         }
         cart.clear();
+        resetDiskonFaktur();
         for (Object[] r : items) {
-            Item it = new Item(lng(r[0]), str(r[1]), str(r[2]), num(r[3]), num(r[8]));
+            Item it = new Item(lng(r[0]), str(r[1]), str(r[2]), num(r[3]), num(r[8]), bool(r[9]));
             it.jumlah = (int) Math.round(num(r[4]));
             it.diskon = num(r[5]);
             it.cashback = num(r[6]);
@@ -2444,6 +2559,7 @@ public class PosKantinAction extends GenericAutowireComposer {
             broadcastKeLayarPelanggan(bcSukses);
 
             cart.clear();
+            resetDiskonFaktur();
             draftIdAktif = null;
             resetMemberState();
             if (txtCatatan != null) {

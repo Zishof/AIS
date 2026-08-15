@@ -59,6 +59,7 @@ public class TokoAction extends GenericAutowireComposer {
 	private org.zkoss.zul.Combobox gudangPemasok;
 
 	private Textbox keterangan;
+	private MyCheckboxConfig bolehTransaksiStokHabis;
 
 	private boolean edit = false;
 	private boolean delete = false;
@@ -142,6 +143,18 @@ public class TokoAction extends GenericAutowireComposer {
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					toko.setBolehMelihatTokolain(bolehMelihatTokolain.isChecked());
+					Common.refreshSaveOrUpdate(toko);
+				}
+			});
+
+			final MyCheckboxConfig bolehStokHabis = new MyCheckboxConfig("Boleh jual stok habis");
+			bolehStokHabis.setDisabled(!edit);
+			bolehStokHabis.setChecked(Boolean.TRUE.equals(toko.getBolehTransaksiStokHabis()));
+			bolehStokHabis.setTooltiptext("Kebijakan per toko; default mati. Produk kedaluwarsa tetap ditolak.");
+			bolehStokHabis.setParent(arg0);
+			bolehStokHabis.addEventListener("onCheck", new EventListener() {
+				@Override public void onEvent(Event event) throws Exception {
+					toko.setBolehTransaksiStokHabis(bolehStokHabis.isChecked());
 					Common.refreshSaveOrUpdate(toko);
 				}
 			});
@@ -256,6 +269,14 @@ public class TokoAction extends GenericAutowireComposer {
 
 		row = new MyFormRow();
 		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Transaksi saat stok habis"));
+		bolehTransaksiStokHabis = new MyCheckboxConfig("Izinkan untuk toko ini");
+		bolehTransaksiStokHabis.setChecked(Boolean.TRUE.equals(toko.getBolehTransaksiStokHabis()));
+		bolehTransaksiStokHabis.setTooltiptext("Default OFF. Bila ON, stok nol/minus boleh dijual; produk kedaluwarsa tetap ditolak.");
+		row.appendChild(bolehTransaksiStokHabis);
+
+		row = new MyFormRow();
+		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Gudang Pemasok"));
 		gudangPemasok = new org.zkoss.zul.Combobox();
 		// Gudang cabang yang bertanggung jawab memasok toko ini -- dipakai StokThresholdScheduler utk
@@ -346,6 +367,7 @@ public class TokoAction extends GenericAutowireComposer {
 		toko.setKode(kode.getValue());
 		toko.setNama(nama.getValue());
 		toko.setKeterangan(keterangan.getValue());
+		toko.setBolehTransaksiStokHabis(bolehTransaksiStokHabis.isChecked());
 		toko.setGudangPemasok(gudangPemasok.getSelectedIndex() > 0
 				&& gudangPemasok.getSelectedItem().getValue() instanceof ais.database.model.sirs.Gudang
 						? (ais.database.model.sirs.Gudang) gudangPemasok.getSelectedItem().getValue()

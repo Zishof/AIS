@@ -117,11 +117,18 @@ public class KantinHelper {
 		final double total;
 		final double totalDiskon;
 		final double totalCashback;
+		final double diskonFaktur;
+		final double nilaiDiskonFaktur;
+		final boolean diskonFakturPersen;
 
-		TotalHitung(double total, double totalDiskon, double totalCashback) {
+		TotalHitung(double total, double totalDiskon, double totalCashback,
+				double diskonFaktur, double nilaiDiskonFaktur, boolean diskonFakturPersen) {
 			this.total = total;
 			this.totalDiskon = totalDiskon;
 			this.totalCashback = totalCashback;
+			this.diskonFaktur = diskonFaktur;
+			this.nilaiDiskonFaktur = nilaiDiskonFaktur;
+			this.diskonFakturPersen = diskonFakturPersen;
 		}
 	}
 
@@ -213,8 +220,9 @@ public class KantinHelper {
 
 	private static TotalHitung hitungTotalDiskonCashback(JSONObject jsonObject, JSONArray transaksi,
 			String auditTagSuffix) throws Exception {
-		double total = jsonObject.isNull("pajak") ? 0.0
+		double pajak = jsonObject.isNull("pajak") ? 0.0
 				: Math.max(0.0, Double.parseDouble((jsonObject.get("pajak") + "").trim()));
+		double total = pajak;
 		double totalDiskon = 0.0;
 		double totalCashback = 0.0;
 		for (int i = 0; i < transaksi.length(); i++) {
@@ -237,7 +245,24 @@ public class KantinHelper {
 						"auto-audit src/ais/action/servlet/api/KantinHelper.java:" + auditTagSuffix);
 			}
 		}
-		return new TotalHitung(total, totalDiskon, totalCashback);
+		// Potongan faktur dimasukkan langsung oleh kasir dan diterapkan SETELAH seluruh
+		// diskon item. Server menghitung ulang nilainya agar klien tidak dapat mengirim
+		// total akhir buatan. Nilai persen dibatasi 0..100 dan nominal tidak boleh
+		// melampaui nilai barang setelah diskon; pajak tidak pernah ikut dipotong.
+		String tipeDiskonFaktur = jsonObject.optString("diskon_faktur_tipe", "NOMINAL").trim();
+		boolean diskonFakturPersen = "PERSEN".equalsIgnoreCase(tipeDiskonFaktur)
+				|| "PERCENT".equalsIgnoreCase(tipeDiskonFaktur);
+		double nilaiDiskonFaktur = jsonObject.isNull("diskon_faktur_nilai") ? 0.0
+				: Math.max(0.0, Double.parseDouble((jsonObject.get("diskon_faktur_nilai") + "").trim()));
+		if (diskonFakturPersen) nilaiDiskonFaktur = Math.min(100.0, nilaiDiskonFaktur);
+		double dasarDiskonFaktur = Math.max(0.0, total - pajak);
+		double diskonFaktur = diskonFakturPersen
+				? dasarDiskonFaktur * nilaiDiskonFaktur / 100.0
+				: Math.min(dasarDiskonFaktur, nilaiDiskonFaktur);
+		total = Math.max(0.0, total - diskonFaktur);
+		totalDiskon += diskonFaktur;
+		return new TotalHitung(total, totalDiskon, totalCashback, diskonFaktur,
+				nilaiDiskonFaktur, diskonFakturPersen);
 	}
 
 	private static boolean dimintaLangsungTerlayani(JSONObject jsonObject) {
@@ -666,12 +691,21 @@ public class KantinHelper {
 					// data stok historis blm bersih. Field ini sudah ada (dipakai laporan "akan/sudah
 					// kadaluarsa" di LaporanKantinUtil) tapi SEBELUM INI tidak pernah dicek sama sekali di
 					// jalur checkout -- kasir bisa saja menjual produk kadaluarsa tanpa peringatan apa pun.
+					boolean bolehStokHabisToko = Boolean.TRUE.equals(toko.getBolehTransaksiStokHabis());
 					List<String> produkKadaluarsa = cekProdukKadaluarsa(session, transaksiRata);
-					produkKadaluarsa.addAll(cekKetersediaanBatchFefo(session, transaksiRata));
 					if (!produkKadaluarsa.isEmpty()) {
 						hasil.put("status", "91");
 						hasil.put("description", "Produk berikut sudah melewati tanggal kadaluarsa dan tidak boleh dijual: "
 								+ String.join(", ", produkKadaluarsa) + ". Segera pisahkan dari stok jual.");
+						return;
+					}
+					List<String> batchKurang = cekKetersediaanBatchFefo(
+							session, transaksiRata, bolehStokHabisToko);
+					if (!batchKurang.isEmpty()) {
+						hasil.put("status", "91");
+						hasil.put("description", "Stok batch aktif yang belum kedaluwarsa tidak mencukupi: "
+								+ String.join(", ", batchKurang)
+								+ ". Periksa stok fisik atau aktifkan izin transaksi stok habis pada toko ini.");
 						return;
 					}
 
@@ -680,19 +714,12 @@ public class KantinHelper {
 					// PosKantinAction, yang bisa dilewati sepenuhnya lewat panggilan langsung ke
 					// /Data?action=bayar).
 					//
-					// Per instruksi user 2026-07-20: SEMENTARA jangan blokir transaksi walau kekurangan
-					// stok genuinely terdeteksi (banyak toko punya baseline stok historis yang belum
-					// direkonsiliasi -- lihat [[cegah-oversell-default-blokir-toko-belum-opname]] --
-					// sehingga blokir keras di sini menolak transaksi pelanggan yang sah). Kekurangan tetap
-					// DICATAT ke audit log (agar tetap terlihat & bisa ditindaklanjuti stok opname), tapi
-					// transaksi tetap diteruskan (fail-open). Fail-safe bila mekanisme cek itu sendiri
-					// error tetap dipertahankan (validasiStokCukupDenganLock kembalikan null).
-					//
-					// PENGECUALIAN (2026-07-24, spesifikasi "dashboard kasir" butir 8): produk dengan
-					// override per-produk Produk.izinkanJualMinusStok=false WAJIB diblokir keras di sini
-					// -- admin sengaja mengunci produk itu, kekurangannya TIDAK boleh diam-diam dilewati
-					// spt gerbang toko default.
-					HasilValidasiStok stokKurang = validasiStokCukupDenganLock(transaksiRata);
+					// Kebijakan stok bersifat per toko dan default OFF. Bila toko mengaktifkan
+					// bolehTransaksiStokHabis, validasi stok agregat/batch dilewati untuk toko itu saja.
+					// Saat OFF, hanya produk dengan override izinkanJualMinusStok=true yang boleh lanjut.
+					// Produk kedaluwarsa tetap selalu diblokir pada fase sebelumnya.
+					HasilValidasiStok stokKurang = validasiStokCukupDenganLock(
+							transaksiRata, toko.getId(), bolehStokHabisToko);
 					if (stokKurang != null && stokKurang.wajibBlokir != null && !stokKurang.wajibBlokir.isEmpty()) {
 						StringBuilder pesanWajibBlokir = new StringBuilder();
 						for (String s : stokKurang.wajibBlokir) {
@@ -705,18 +732,10 @@ public class KantinHelper {
 						hasil.put("description", "Stok tidak mencukupi utk produk yang dikunci admin (tidak boleh dijual minus): " + pesanWajibBlokir);
 						return;
 					}
-					if (stokKurang != null && stokKurang.semuaKurang != null && !stokKurang.semuaKurang.isEmpty()) {
-						StringBuilder pesanKurang = new StringBuilder();
-						for (String s : stokKurang.semuaKurang) {
-							if (pesanKurang.length() > 0) {
-								pesanKurang.append(", ");
-							}
-							pesanKurang.append(s);
-						}
-						ais.common.ErrorAuditUtil.record(
-								new RuntimeException("Stok tidak mencukupi (transaksi TETAP diproses): " + pesanKurang),
-								"auto-audit src/ais/action/servlet/api/KantinHelper.java:stokKurangDilewati");
-					}
+					// Kekurangan yang memang diizinkan oleh kebijakan toko atau override produk bukan
+					// exception. Jangan membuat RuntimeException buatan karena akan tampil sebagai ERROR
+					// produksi walaupun transaksi berhasil. Audit transaksi dan mutasi stok normal sudah
+					// cukup untuk menelusuri penjualan dengan saldo stok nol/minus.
 
 					TotalHitung th = hitungTotalDiskonCashback(jsonObject, transaksiRata, "bayarHitungTotal");
 					Double total = Double.valueOf(th.total);
@@ -813,6 +832,8 @@ public class KantinHelper {
 								: (jsonObject.get("keterangan") + "").trim());
 						pembelianAnggotaKoperasi.setMejaKantin(mejaKantin);
 						pembelianAnggotaKoperasi.setTotalDiskon(totalDiskon);
+						pembelianAnggotaKoperasi.setDiskon(Double.valueOf(th.nilaiDiskonFaktur));
+						pembelianAnggotaKoperasi.setDiskonDalamPersen(Boolean.valueOf(th.diskonFakturPersen));
 						pembelianAnggotaKoperasi.setTotalCashback(totalCashback);
 						pembelianAnggotaKoperasi.setKodePembayaranOnline(kodePembayaranOnline);
 						pembelianAnggotaKoperasi.setKode(kodeUnik);
@@ -847,6 +868,8 @@ public class KantinHelper {
 								: (jsonObject.get("keterangan") + "").trim());
 						pembelianAnggotaKoperasi.setMejaKantin(mejaKantin);
 						pembelianAnggotaKoperasi.setTotalDiskon(totalDiskon);
+						pembelianAnggotaKoperasi.setDiskon(Double.valueOf(th.nilaiDiskonFaktur));
+						pembelianAnggotaKoperasi.setDiskonDalamPersen(Boolean.valueOf(th.diskonFakturPersen));
 						pembelianAnggotaKoperasi.setTotalCashback(totalCashback);
 						pembelianAnggotaKoperasi.setKodePembayaranOnline(kodePembayaranOnline);
 						pembelianAnggotaKoperasi.setKode(kodeUnik);
@@ -911,7 +934,7 @@ public class KantinHelper {
 					// lebih dahulu). Produk legacy tanpa lot tetap memakai perhitungan stok lama.
 					try {
 						konsumsiBatchFefo(session, transaksiRata, pembelianAnggotaKoperasi.getId(),
-								tbmuser == null ? "pos" : tbmuser.getUserId());
+								tbmuser == null ? "pos" : tbmuser.getUserId(), bolehStokHabisToko);
 					} catch (Exception exBatch) {
 						exBatch.printStackTrace();
 						ais.common.ErrorAuditUtil.record(exBatch,
@@ -994,6 +1017,9 @@ public class KantinHelper {
 					hasil.put("data", arrayTransaksi);
 					hasil.put("pembelianAnggotaKoperasi", pembelianAnggotaKoperasi.getId());
 					hasil.put("idTransaksi", pembelianAnggotaKoperasi.getId());
+					hasil.put("total", total.doubleValue());
+					hasil.put("totalDiskon", totalDiskon.doubleValue());
+					hasil.put("diskonFaktur", th.diskonFaktur);
 					hasil.put("terlayani", dimintaLangsungTerlayani(jsonObject));
 					hasil.put("status", "00");
 
@@ -1123,8 +1149,10 @@ public class KantinHelper {
 	}
 
 	/** Validasi keras stok batch aktif dan belum kedaluwarsa untuk produk yang sudah dikelola per lot. */
-	private static List<String> cekKetersediaanBatchFefo(Session session, JSONArray transaksi) {
+	private static List<String> cekKetersediaanBatchFefo(Session session, JSONArray transaksi,
+			boolean bolehStokHabisToko) {
 		List<String> hasil = new java.util.ArrayList<String>();
+		if (bolehStokHabisToko) return hasil;
 		Map<Long, Double> diminta = kelompokkanQtyProduk(transaksi);
 		for (Map.Entry<Long, Double> en : diminta.entrySet()) {
 			Long totalBatch = (Long) session.createQuery("select count(*) from ProdukBatch where produk.id=:pid")
@@ -1159,7 +1187,8 @@ public class KantinHelper {
 	}
 
 	@SuppressWarnings("unchecked")
-	private static void konsumsiBatchFefo(Session session, JSONArray transaksi, Long penjualanId, String oleh) {
+	private static void konsumsiBatchFefo(Session session, JSONArray transaksi, Long penjualanId, String oleh,
+			boolean bolehStokHabisToko) {
 		Map<Long, Double> diminta=kelompokkanQtyProduk(transaksi); if(diminta.isEmpty())return;
 		boolean mulai=!session.getTransaction().isActive(); if(mulai)session.beginTransaction();
 		try {
@@ -1176,7 +1205,7 @@ public class KantinHelper {
 					catatMutasiBatch(session,b,"PENJUALAN",0,ambil,"PENJUALAN-"+penjualanId,"Alokasi otomatis FEFO",oleh);sisa-=ambil;}
 				if(sisa>0.000001){
 					Produk p=(Produk)session.get(Produk.class,en.getKey());
-					if(p==null||!Boolean.TRUE.equals(p.getIzinkanJualMinusStok()))
+					if(!bolehStokHabisToko && (p==null||!Boolean.TRUE.equals(p.getIzinkanJualMinusStok())))
 						throw new IllegalStateException("Stok batch berubah saat checkout untuk produk #"+en.getKey());
 					// Kekurangan sengaja dibiarkan pada stok agregat (hasil recompute penjualan),
 					// sedangkan batch fisik yang ada tidak dipaksa menjadi negatif.
@@ -1226,10 +1255,12 @@ public class KantinHelper {
 				"Stok batch yang aktif dan belum kedaluwarsa tidak cukup untuk ditransfer (kurang " + sisa + ").");
 	}
 
-	private static HasilValidasiStok validasiStokCukupDenganLock(JSONArray transaksi) {
+	private static HasilValidasiStok validasiStokCukupDenganLock(JSONArray transaksi, Long tokoId,
+			boolean bolehStokHabisToko) {
 		if (transaksi == null || transaksi.length() == 0) {
 			return null;
 		}
+		if (bolehStokHabisToko) return null;
 		java.util.Map<Long, Double> diminta = new java.util.TreeMap<Long, Double>();
 		for (int i = 0; i < transaksi.length(); i++) {
 			try {
@@ -1253,31 +1284,6 @@ public class KantinHelper {
 			return null;
 		}
 
-		boolean gerbangToko = Common.bolehKonfigurasi(ais.database.model.Konfigurasi.KANTIN_POS_CEGAH_OVERSELL,
-				ais.database.model.Konfigurasi.TIDAK_AKTIF);
-
-		// Jalur cepat existing (gerbang toko OFF, kasus DEFAULT/paling umum): kalau tak satu pun produk
-		// di transaksi ini punya override wajib-blokir, lewati SELURUH pengecekan (termasuk row lock)
-		// spt sebelum fitur override ada -- TIDAK ada tambahan biaya performa utk toko yg tak memakainya.
-		if (!gerbangToko) {
-			Session cekSession = HibernateUtil.getSessionFactory().openSession();
-			try {
-				Long adaOverride = (Long) cekSession
-						.createSQLQuery("SELECT COUNT(*) FROM koperasi.produk WHERE id IN ("
-								+ idsDipisahKoma(diminta.keySet()) + ") AND izinkan_jual_minus_stok = false")
-						.uniqueResult();
-				if (adaOverride == null || adaOverride.longValue() == 0) {
-					return null;
-				}
-			} catch (Exception ePreCek) {
-				ais.common.ErrorAuditUtil.record(ePreCek,
-						"auto-audit src/ais/action/servlet/api/KantinHelper.java:validasiStokPreCekOverride");
-				return null; // gagal-aman: jangan blokir penjualan krn pre-cek ini sendiri error
-			} finally {
-				HibernateUtil.closeSessionQuietly(cekSession);
-			}
-		}
-
 		java.util.List<String> kurang = new java.util.ArrayList<String>();
 		java.util.List<String> wajibBlokir = new java.util.ArrayList<String>();
 		Session lockSession = HibernateUtil.getSessionFactory().openSession();
@@ -1289,19 +1295,18 @@ public class KantinHelper {
 				Object[] row = (Object[]) lockSession.createSQLQuery("SELECT nama, ("
 						+ ais.action.master.inventory.StokKantinUtil.formulaStokSql(pid) + "),"
 						+ " izinkan_jual_minus_stok"
-						+ " FROM koperasi.produk p WHERE p.id = " + pid + " FOR UPDATE").uniqueResult();
+						+ " FROM koperasi.produk p WHERE p.id = " + pid
+						+ " AND p.toko = " + tokoId + " FOR UPDATE").uniqueResult();
 				if (row == null) {
 					continue;
 				}
 				String nama = row[0] == null ? ("#" + pid) : row[0].toString();
 				double stokLive = row[1] == null ? 0.0 : ((Number) row[1]).doubleValue();
 				Boolean overridePerItem = (row[2] instanceof Boolean) ? (Boolean) row[2] : null;
-				if (stokLive < qtyDiminta) {
+				if (stokLive < qtyDiminta && !Boolean.TRUE.equals(overridePerItem)) {
 					String deskripsi = nama + " (sisa " + stokLive + ", diminta " + qtyDiminta + ")";
 					kurang.add(deskripsi);
-					if (Boolean.FALSE.equals(overridePerItem)) {
-						wajibBlokir.add(deskripsi);
-					}
+					wajibBlokir.add(deskripsi);
 				}
 			}
 			lockSession.getTransaction().commit();
@@ -1453,6 +1458,8 @@ public class KantinHelper {
 							: (jsonObject.get("keterangan") + "").trim());
 					pembelianAnggotaKoperasi.setMejaKantin(mejaKantin);
 					pembelianAnggotaKoperasi.setTotalDiskon(totalDiskon);
+					pembelianAnggotaKoperasi.setDiskon(Double.valueOf(th.nilaiDiskonFaktur));
+					pembelianAnggotaKoperasi.setDiskonDalamPersen(Boolean.valueOf(th.diskonFakturPersen));
 					pembelianAnggotaKoperasi.setTotalCashback(totalCashback);
 					pembelianAnggotaKoperasi.setKodePembayaranOnline(kodePembayaranOnline);
 					pembelianAnggotaKoperasi.setKode(kodeUnik);
@@ -4672,6 +4679,7 @@ public class KantinHelper {
 			data.put("keterangan", toko.getKeterangan() == null ? "" : toko.getKeterangan());
 			data.put("pesanTerimaKasih", toko.getPesanTerimaKasih());
 			data.put("alasanTahan", alasanTahanUntukToko(toko));
+			data.put("bolehTransaksiStokHabis", Boolean.TRUE.equals(toko.getBolehTransaksiStokHabis()));
 			hasil.put("status", "00");
 			hasil.put("data", data);
 			hasil.put("bolehUbah", bolehUbah);
@@ -4737,6 +4745,10 @@ public class KantinHelper {
 			if (request.has("jam_operasional")) toko.setJamOperasional(request.optString("jam_operasional", ""));
 			if (request.has("keterangan")) toko.setKeterangan(request.optString("keterangan", ""));
 			if (request.has("pesan_terima_kasih")) toko.setPesanTerimaKasih(request.optString("pesan_terima_kasih", ""));
+			if (request.has("boleh_transaksi_stok_habis")) {
+				toko.setBolehTransaksiStokHabis(Boolean.valueOf(
+						request.optBoolean("boleh_transaksi_stok_habis", false)));
+			}
 			if (request.has("alasan_tahan") && !request.isNull("alasan_tahan")) {
 				JSONArray sumber = request.getJSONArray("alasan_tahan");
 				JSONArray bersih = new JSONArray();
@@ -6025,11 +6037,11 @@ public class KantinHelper {
 					+ "), mutasi AS ( "
 					+ "  SELECT * FROM semua_mutasi WHERE waktu >= ?::date AND waktu < (?::date + interval '1 day') "
 					+ ") "
-					+ "SELECT waktu, baris_id, nama_anggota, id_anggota, jenis_mutasi, keterangan, masuk, keluar, "
-					+ "  COALESCE(sa.saldo_awal,0) + SUM(masuk - keluar) OVER (PARTITION BY m.id_anggota ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_per_penabung, "
-					+ "  (SELECT COALESCE(SUM(saldo_awal),0) FROM saldo_awal) + SUM(masuk - keluar) OVER (ORDER BY waktu, baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_total, "
+					+ "SELECT m.waktu, m.baris_id, m.nama_anggota, m.id_anggota, m.jenis_mutasi, m.keterangan, m.masuk, m.keluar, "
+					+ "  COALESCE(sa.saldo_awal,0) + SUM(m.masuk - m.keluar) OVER (PARTITION BY m.id_anggota ORDER BY m.waktu, m.baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_per_penabung, "
+					+ "  (SELECT COALESCE(SUM(saldo_awal),0) FROM saldo_awal) + SUM(m.masuk - m.keluar) OVER (ORDER BY m.waktu, m.baris_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_total, "
 					+ "  COALESCE(sa.saldo_awal,0) AS saldo_awal "
-					+ "FROM mutasi m LEFT JOIN saldo_awal sa ON sa.id_anggota=m.id_anggota ORDER BY waktu ASC, baris_id ASC LIMIT 3000";
+					+ "FROM mutasi m LEFT JOIN saldo_awal sa ON sa.id_anggota=m.id_anggota ORDER BY m.waktu ASC, m.baris_id ASC LIMIT 3000";
 
 			java.sql.PreparedStatement ps = session.connection().prepareStatement(sql);
 			int idx = 1;
@@ -10595,8 +10607,9 @@ public class KantinHelper {
 	 * POS dan siapa entry/login") -- KPI hari-ini &amp; 30-hari, plus breakdown omzet per KASIR dan
 	 * per MESIN (30 hari terakhir). Sumber data DISATUKAN lewat CTE {@code trx} yang meng-groupkan
 	 * baris item {@code koperasi.pembelian} ke level SATU-TRANSAKSI (via {@code pembelian_anggota_koperasi})
-	 * -- pola SAMA PERSIS dgn {@code PosApi.daftarOrderDenganSesi} (kasir_login_nama/nama_mesin
-	 * diutamakan, fallback ke {@code a.oleh} utk transaksi lama sebelum kolom itu ada).
+	 * -- pola SAMA PERSIS dgn {@code PosApi.daftarOrderDenganSesi}. Identitas kasir hanya diambil
+	 * dari snapshot {@code kasir_login_nama} pada master transaksi; kolom audit {@code oleh/olehId}
+	 * tidak boleh dipakai sebagai kasir karena dapat berisi akun integrasi seperti external_update.
 	 */
 	public static void transaksiStatistik(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		Long tokoId = soResolveTokoId(tbmuser, request);
@@ -10612,7 +10625,7 @@ public class KantinHelper {
 			String withTrx = "WITH trx AS ("
 					+ "  SELECT COALESCE(a.pembelian_anggota_koperasi, a.id) AS id_transaksi, MAX(a.waktu) AS waktu, "
 					+ "         COALESCE(MAX(pak.total_biaya), SUM(a.total)) AS total_biaya, "
-					+ "         COALESCE(MAX(pak.kasir_login_nama), MAX(a.oleh)) AS kasir, MAX(pak.nama_mesin) AS mesin "
+					+ "         COALESCE(NULLIF(TRIM(MAX(pak.kasir_login_nama)),''),'Kasir tidak tercatat') AS kasir, MAX(pak.nama_mesin) AS mesin "
 					+ "  FROM koperasi.pembelian a LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON pak.id = a.pembelian_anggota_koperasi "
 					+ "  WHERE a.toko = ? GROUP BY 1"
 					+ ") ";

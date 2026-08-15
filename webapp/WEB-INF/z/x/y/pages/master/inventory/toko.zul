@@ -79,6 +79,8 @@
 						<column use="ais.ui.util.MyColumnConfig"
 						label="Boleh Melihat Toko lain" width="12%" />
 						<column use="ais.ui.util.MyColumnConfig"
+						label="Jual Saat Stok Habis" width="12%" />
+						<column use="ais.ui.util.MyColumnConfig"
 						width="10%" label="" />
 
 					</columns>
