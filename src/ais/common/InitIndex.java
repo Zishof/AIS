@@ -1954,9 +1954,9 @@ public class InitIndex {
 	 * <p>Gap-closure insiden 15-08-2026: autovacuum crash-loop di tabel ini
 	 * ("uncommitted xmin ... needs to be frozen" -- korupsi baris, bukan bug aplikasi)
 	 * membuat proses vacuum otomatis gagal berulang tiap ~1.4 detik. TRUNCATE
-	 * menghapus baris yang rusak (baris lama tak berguna pula), dan autovacuum
-	 * dimatikan khusus tabel ini agar tidak kena masalah yang sama lagi -- lewati/skip
-	 * jika gagal (mis. lock sedang dipegang proses lain) supaya startup tetap lanjut.</p>
+	 * menghapus baris yang rusak (baris lama tak berguna pula) -- lewati/skip jika
+	 * gagal (mis. lock sedang dipegang proses lain) supaya startup tetap lanjut.
+	 * (autovacuum_enabled tidak diubah -- dilepas atas permintaan, biarkan default.)</p>
 	 */
 	private static void bersihkanAccessedUsersSaatStartup() {
 		try {
@@ -1964,13 +1964,6 @@ public class InitIndex {
 		} catch (Throwable e) {
 			ais.common.ErrorAuditUtil.record(e,
 					"auto-audit(empty-catch) src/ais/common/InitIndex.java:bersihkanAccessedUsersSaatStartup");
-		}
-		try {
-			ais.common.Common.updateSql(
-					"ALTER TABLE public.accessed_users SET (autovacuum_enabled = false)", 600, true);
-		} catch (Throwable e) {
-			ais.common.ErrorAuditUtil.record(e,
-					"auto-audit(empty-catch) src/ais/common/InitIndex.java:bersihkanAccessedUsersSaatStartup:autovacuum");
 		}
 	}
 
