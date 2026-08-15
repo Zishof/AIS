@@ -3395,6 +3395,14 @@ public class InitIndex {
 			catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "init relasi transaksi sesi kas"); }
 		}
 
+		// Alasan keranjang ditahan disimpan per toko sebagai JSON. Kolom TEXT
+		// menjaga konfigurasi mudah ditambah tanpa membuat dua puluh kolom tetap.
+		try {
+			eksekusiSqlAmanDdl("ALTER TABLE koperasi.toko ADD COLUMN IF NOT EXISTS alasan_tahan_json text");
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "init alasan transaksi tahan");
+		}
+
 		// Promo grup: satu header, banyak produk, snapshot JSON untuk audit, serta
 		// kriteria multi jenis/tipe member dalam JSON. DDL sengaja idempoten agar
 		// instalasi lama dan instalasi baru bergerak ke skema yang sama.

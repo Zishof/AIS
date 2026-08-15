@@ -27,6 +27,8 @@ import org.zkoss.zul.Label;
 import org.zkoss.zul.Listbox;
 import org.zkoss.zul.Listcell;
 import org.zkoss.zul.Listitem;
+import org.zkoss.zul.Radio;
+import org.zkoss.zul.Radiogroup;
 import org.zkoss.zul.Row;
 import org.zkoss.zul.Rows;
 import org.zkoss.zul.Textbox;
@@ -2135,6 +2137,85 @@ public class PosKantinAction extends GenericAutowireComposer {
                     MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
             return;
         }
+        bukaDialogAlasanTahan();
+    }
+
+    /**
+     * Meminta alasan operasional sebelum park sale disimpan. Daftar mengikuti konfigurasi toko;
+     * opsi "Lainnya" tetap tersedia supaya kondisi lapangan yang belum tercakup tidak menghambat
+     * kasir. Penyimpanan baru dijalankan setelah satu alasan valid dipilih.
+     */
+    private void bukaDialogAlasanTahan() throws Exception {
+        Toko toko = (Toko) HibernateUtil.currentSession().get(Toko.class, tokoIdAktif);
+        JSONArray daftar = KantinHelper.alasanTahanUntukToko(toko);
+        final ais.ui.util.MyWindow dialog = new ais.ui.util.MyWindow("Alasan Transaksi Ditahan", "normal", true);
+        dialog.setWidth("620px");
+        dialog.setClosable(true);
+
+        Vlayout isi = new Vlayout();
+        isi.setSpacing("8px");
+        isi.appendChild(new Label("Pilih satu alasan agar transaksi mudah ditindaklanjuti oleh kasir berikutnya."));
+        final Radiogroup grup = new Radiogroup();
+        grup.setOrient("vertical");
+        for (int i = 0; i < daftar.length(); i++) {
+            Radio radio = new Radio(daftar.optString(i));
+            radio.setValue(daftar.optString(i));
+            grup.appendChild(radio);
+            if (i == 0) radio.setChecked(true);
+        }
+        final Radio lainnya = new Radio("Lainnya (tulis alasan sendiri)");
+        lainnya.setValue("__LAINNYA__");
+        grup.appendChild(lainnya);
+        isi.appendChild(grup);
+
+        final Textbox alasanLain = new Textbox();
+        alasanLain.setRows(3);
+        alasanLain.setMaxlength(200);
+        alasanLain.setWidth("100%");
+        alasanLain.setTooltiptext("Tuliskan alasan secara singkat dan jelas");
+        alasanLain.setVisible(false);
+        isi.appendChild(alasanLain);
+        grup.addEventListener("onCheck", new EventListener() {
+            @Override
+            public void onEvent(Event event) throws Exception {
+                boolean tampil = grup.getSelectedItem() != null
+                        && "__LAINNYA__".equals(grup.getSelectedItem().getValue());
+                alasanLain.setVisible(tampil);
+                if (tampil) alasanLain.focus();
+            }
+        });
+
+        Hlayout tombol = new Hlayout();
+        tombol.setStyle("margin-top:12px;justify-content:flex-end;");
+        Button batal = new Button("Batal");
+        Button simpan = new Button("Tahan Transaksi");
+        simpan.setSclass("btn btn-primary");
+        batal.addEventListener("onClick", new EventListener() {
+            @Override public void onEvent(Event event) throws Exception { dialog.detach(); }
+        });
+        simpan.addEventListener("onClick", new EventListener() {
+            @Override
+            public void onEvent(Event event) throws Exception {
+                String alasan = grup.getSelectedItem() == null ? "" : String.valueOf(grup.getSelectedItem().getValue());
+                if ("__LAINNYA__".equals(alasan)) alasan = alasanLain.getValue() == null ? "" : alasanLain.getValue().trim();
+                if (alasan.length() > 200) alasan = alasan.substring(0, 200).trim();
+                if (alasan.isEmpty()) {
+                    MyMessageboxConfig.show("Alasan transaksi ditahan wajib diisi.", "Peringatan",
+                            MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+                    return;
+                }
+                dialog.detach();
+                simpanTransaksiTertahan(alasan);
+            }
+        });
+        tombol.appendChild(batal);
+        tombol.appendChild(simpan);
+        isi.appendChild(tombol);
+        dialog.appendChild(isi);
+        dialog.doModal();
+    }
+
+    private void simpanTransaksiTertahan(String alasanTahan) throws Exception {
         // caraBayar WAJIB diisi oleh KantinHelper.draft_bayar -- pakai yg sedang dipilih kasir,
         // atau cara pertama yg aktif bila belum dipilih (murni penanda administratif; tak ada
         // penagihan apa pun sampai keranjang ini benar-benar di-"Bayar").
@@ -2166,9 +2247,8 @@ public class PosKantinAction extends GenericAutowireComposer {
         // "antar ke meja 5") lalu menekan "Tahan" kehilangan catatannya diam-diam -- draft_bayar()
         // di KantinHelper.java SUDAH mendukung field ini (sama seperti onBayar() di bawah), hanya
         // belum pernah dikirim dari jalur "Tahan".
-        if (txtCatatan != null && txtCatatan.getValue() != null && !txtCatatan.getValue().trim().isEmpty()) {
-            payload.put("keterangan", txtCatatan.getValue().trim());
-        }
+        String catatan = txtCatatan == null || txtCatatan.getValue() == null ? "" : txtCatatan.getValue().trim();
+        payload.put("keterangan", catatan.isEmpty() ? alasanTahan : alasanTahan + " | Catatan: " + catatan);
         payload.put("transaksi", buildTransaksiArray());
 
         JSONObject hasil = new JSONObject();
@@ -2217,6 +2297,7 @@ public class PosKantinAction extends GenericAutowireComposer {
         List<Object[]> res = rows("SELECT a.id, TO_CHAR(a.tanggal_pembayaran,'DD-MM HH24:MI'), b.nama, "
                 + "COALESCE(a.total_biaya,0), (SELECT COUNT(*) FROM koperasi.draft_pembelian d "
                 + "WHERE d.draft_pembelian_anggota_koperasi = a.id) "
+                + ", COALESCE(a.keterangan,'') "
                 + "FROM koperasi.draft_pembelian_anggota_koperasi a "
                 + "LEFT JOIN koperasi.anggota_koperasi b ON a.anggota_koperasi = b.id "
                 + "WHERE a.lunas IS NULL AND a.toko = " + tokoIdAktif + " ORDER BY a.tanggal_pembayaran DESC LIMIT 30");
@@ -2231,7 +2312,8 @@ public class PosKantinAction extends GenericAutowireComposer {
             row.setSclass("psk-tertahan-row");
             row.appendChild(DashboardUiKit.html("<div><b>" + DashboardUiKit.esc(pemesan) + "</b><br>"
                     + "<span style='color:#64748b;'>" + DashboardUiKit.esc(str(r[1])) + " &bull; " + str(r[4])
-                    + " item &bull; Rp " + DashboardUiKit.money(num(r[3])) + "</span></div>"));
+                    + " item &bull; Rp " + DashboardUiKit.money(num(r[3])) + "</span><br>"
+                    + "<span style='color:#92400e;'><b>Alasan:</b> " + DashboardUiKit.esc(str(r[5]).isEmpty() ? "-" : str(r[5])) + "</span></div>"));
             Label muat = new Label(ais.common.Common.getBahasaConfig("Muat"));
             muat.setSclass("psk-tertahan-muat");
             muat.addEventListener("onClick", new EventListener() {

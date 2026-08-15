@@ -633,6 +633,29 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
           </div>
         </div>
 
+        <div class="modal fade" id="modalAlasanTahan<%=rnd%>" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 rounded-4 shadow">
+              <div class="modal-header border-bottom-0 pb-1">
+                <h5 class="modal-title fw-bold text-dark"><i class="fas fa-pause-circle me-2"></i><%=Common.getBahasaConfig("Mengapa transaksi ditahan?")%></h5>
+                <button type="button" class="btn-close" onclick="batalkanAlasanTahan<%=rnd%>()" aria-label="Close"></button>
+              </div>
+              <div class="modal-body pt-2 pb-3">
+                <p class="text-muted small mb-3"><%=Common.getBahasaConfig("Pilih satu alasan agar transaksi tertahan mudah ditindaklanjuti oleh kasir berikutnya.")%></p>
+                <div id="pilihanAlasanTahan<%=rnd%>" class="row g-2" style="max-height:48vh;overflow-y:auto;"></div>
+                <div class="mt-3 d-none" id="wrapAlasanLain<%=rnd%>">
+                  <label class="form-label small fw-bold"><%=Common.getBahasaConfig("Alasan lainnya")%></label>
+                  <textarea class="form-control" maxlength="200" rows="3" id="inputAlasanLain<%=rnd%>" placeholder="<%=Common.getBahasaConfig("Tuliskan alasan secara singkat dan jelas")%>"></textarea>
+                </div>
+              </div>
+              <div class="modal-footer border-top-0 pt-0">
+                <button type="button" class="btn btn-light rounded-pill" onclick="batalkanAlasanTahan<%=rnd%>()"><%=Common.getBahasaConfig("Batal")%></button>
+                <button type="button" class="btn btn-primary rounded-pill fw-bold px-4" onclick="konfirmasiAlasanTahan<%=rnd%>()"><i class="fas fa-pause me-1"></i><%=Common.getBahasaConfig("Tahan Transaksi")%></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Gap-closure "Produk Ekstra" -- modal picker topping/tambahan, dibuka dari addToCart<%=rnd%> bila produk yg ditap punya ekstra_pilihan terisi. -->
         <div class="modal fade" id="modalEkstraPilihan<%=rnd%>" tabindex="-1" aria-hidden="true">
           <div class="modal-dialog modal-dialog-centered">
@@ -1997,7 +2020,7 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             return;
         }
         const sql = "SELECT a.id, TO_CHAR(a.tanggal_pembayaran,'DD-MM HH24:MI') as waktu, a.kode, " +
-                    "b.nama as pemesan, COALESCE(a.total_biaya,0) as total, " +
+                    "b.nama as pemesan, COALESCE(a.total_biaya,0) as total, COALESCE(a.keterangan,'') as alasan_tahan, " +
                     "(SELECT COUNT(*) FROM koperasi.draft_pembelian d WHERE d.draft_pembelian_anggota_koperasi = a.id) as jml_item " +
                     "FROM koperasi.draft_pembelian_anggota_koperasi a " +
                     "LEFT JOIN koperasi.anggota_koperasi b ON a.anggota_koperasi = b.id " +
@@ -2014,10 +2037,12 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
 
         let html = '';
         res.forEach(r => {
+            const aman = (nilai) => String(nilai == null ? '' : nilai).replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
             html += '<div class="d-flex justify-content-between align-items-center border rounded-3 p-3 mb-2">' +
                         '<div>' +
-                            '<div class="fw-bold text-dark" style="font-size:13px;">' + (r.pemesan || '<%=Common.getBahasaConfigJS("Walk-in Customer")%>') + '</div>' +
+                            '<div class="fw-bold text-dark" style="font-size:13px;">' + aman(r.pemesan || '<%=Common.getBahasaConfigJS("Walk-in Customer")%>') + '</div>' +
                             '<div class="text-muted small">' + r.waktu + ' &bull; ' + r.jml_item + ' <%=Common.getBahasaConfig("item")%> &bull; ' + formatRp<%=rnd%>(r.total) + '</div>' +
+                            '<div class="small text-warning-emphasis mt-1"><i class="fas fa-circle-pause me-1"></i><b><%=Common.getBahasaConfig("Alasan")%>:</b> ' + aman(r.alasan_tahan || '-') + '</div>' +
                         '</div>' +
                         '<button class="btn btn-sm btn-primary rounded-pill" onclick="muatKeranjangTertahan<%=rnd%>(' + r.id + ')" data-bs-dismiss="modal"><%=Common.getBahasaConfig("Muat")%></button>' +
                     '</div>';
@@ -2083,6 +2108,63 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         if (typeof tampilkanToast === "function") tampilkanToast('<%=Common.getBahasaConfigJS("Keranjang tertahan dimuat, silakan lanjutkan.")%>', 'bg-success text-white');
     };
 
+    let alasanTahanResolve<%=rnd%> = null;
+    const alasanTahanDefault<%=rnd%> = [
+        'Pelanggan masih memilih barang','Pelanggan sedang mengambil uang','Pelanggan sedang mengambil kartu pembayaran',
+        'Pelanggan sedang membuka aplikasi pembayaran','Menunggu konfirmasi harga','Menunggu pengecekan stok',
+        'Menunggu persetujuan supervisor','Menunggu data member pelanggan','Pelanggan ingin mengubah metode pembayaran',
+        'Menunggu pembayaran tunai','Menunggu pembayaran QRIS','Menunggu bukti transfer','Menunggu saldo member tersedia',
+        'Pesanan belum lengkap','Barang perlu ditimbang ulang','Barcode atau produk perlu diperiksa','Antrean dialihkan ke kasir lain',
+        'Pelanggan akan kembali','Perlu konfirmasi ulang kepada pelanggan','Kendala jaringan atau perangkat kasir'
+    ];
+
+    const pilihAlasanTahan<%=rnd%> = async () => {
+        let daftar = alasanTahanDefault<%=rnd%>;
+        try {
+            const payload = { action: 'toko_profil_ambil', toko_id: document.getElementById('idTokoSelected<%=rnd%>').value };
+            if (posTanpaLogin<%=rnd%>) payload.tanpaLogin = 'true';
+            const response = await fetch('<%=Common.ROOT%>/Data', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+            const json = await response.json();
+            if (json && json.status === '00' && json.data && Array.isArray(json.data.alasanTahan) && json.data.alasanTahan.length) daftar = json.data.alasanTahan;
+        } catch (e) { console.warn('Konfigurasi alasan tahan tidak dapat dimuat, memakai daftar baku.', e); }
+
+        const body = document.getElementById('pilihanAlasanTahan<%=rnd%>');
+        body.innerHTML = daftar.map((alasan, index) => {
+            const aman = String(alasan).replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
+            return '<div class="col-12 col-md-6"><label class="border rounded-3 p-2 w-100 h-100 d-flex gap-2 align-items-start">' +
+                '<input class="form-check-input mt-1" type="radio" name="alasanTahan<%=rnd%>" value="' + aman + '"' + (index === 0 ? ' checked' : '') + ' onchange="ubahPilihanAlasanTahan<%=rnd%>()">' +
+                '<span class="small">' + aman + '</span></label></div>';
+        }).join('') + '<div class="col-12"><label class="border rounded-3 p-2 w-100 d-flex gap-2 align-items-start">' +
+            '<input class="form-check-input mt-1" type="radio" name="alasanTahan<%=rnd%>" value="__LAINNYA__" onchange="ubahPilihanAlasanTahan<%=rnd%>()">' +
+            '<span class="small fw-bold"><%=Common.getBahasaConfig("Lainnya (tulis alasan sendiri)")%></span></label></div>';
+        document.getElementById('inputAlasanLain<%=rnd%>').value = '';
+        document.getElementById('wrapAlasanLain<%=rnd%>').classList.add('d-none');
+        new bootstrap.Modal(document.getElementById('modalAlasanTahan<%=rnd%>')).show();
+        return await new Promise(resolve => { alasanTahanResolve<%=rnd%> = resolve; });
+    };
+
+    window.ubahPilihanAlasanTahan<%=rnd%> = () => {
+        const dipilih = document.querySelector('input[name="alasanTahan<%=rnd%>"]:checked');
+        const lainnya = dipilih && dipilih.value === '__LAINNYA__';
+        document.getElementById('wrapAlasanLain<%=rnd%>').classList.toggle('d-none', !lainnya);
+        if (lainnya) setTimeout(() => document.getElementById('inputAlasanLain<%=rnd%>').focus(), 100);
+    };
+    window.batalkanAlasanTahan<%=rnd%> = () => {
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAlasanTahan<%=rnd%>')).hide();
+        if (alasanTahanResolve<%=rnd%>) { const resolve = alasanTahanResolve<%=rnd%>; alasanTahanResolve<%=rnd%> = null; resolve(null); }
+    };
+    window.konfirmasiAlasanTahan<%=rnd%> = () => {
+        const dipilih = document.querySelector('input[name="alasanTahan<%=rnd%>"]:checked');
+        let alasan = dipilih ? dipilih.value : '';
+        if (alasan === '__LAINNYA__') alasan = document.getElementById('inputAlasanLain<%=rnd%>').value.trim();
+        if (!alasan) {
+            if (typeof tampilkanToast === 'function') tampilkanToast('<%=Common.getBahasaConfigJS("Alasan transaksi ditahan wajib diisi.")%>', 'bg-warning text-dark');
+            return;
+        }
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAlasanTahan<%=rnd%>')).hide();
+        if (alasanTahanResolve<%=rnd%>) { const resolve = alasanTahanResolve<%=rnd%>; alasanTahanResolve<%=rnd%> = null; resolve(alasan.substring(0, 200)); }
+    };
+
     const simpanKeranjangTertahan<%=rnd%> = async () => {
         if (cart<%=rnd%>.length === 0) {
             if (typeof tampilkanToast === "function") tampilkanToast('<%=Common.getBahasaConfigJS("Keranjang masih kosong, tidak ada yang disimpan.")%>', 'bg-warning text-dark');
@@ -2106,6 +2188,9 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             return;
         }
 
+        const alasanTahan = await pilihAlasanTahan<%=rnd%>();
+        if (!alasanTahan) return;
+
         const btn = document.getElementById('btnSimpanTertahan<%=rnd%>');
         const oriHtml = btn.innerHTML;
         btn.disabled = true;
@@ -2123,6 +2208,7 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
 			nama_perangkat: namaPerangkatSesiKas<%=rnd%>,
 			nama_mesin: namaPerangkatSesiKas<%=rnd%>,
 			kode_sesi_kas: sesiKasInfo<%=rnd%>.kodeSesiKas || null,
+            keterangan: alasanTahan,
             transaksi: cart<%=rnd%>.map(item => ({
                 id: item.id, kode: item.kode, nama: item.nama, harga: item.harga, jumlah: item.jumlah,
                 diskon: item.diskon, aturanDiskon: item.aturanDiskon, cashback: item.cashback,

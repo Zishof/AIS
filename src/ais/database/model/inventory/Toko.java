@@ -93,6 +93,7 @@ public class Toko extends GeneralValueObject {
 	private String npwp;
 	private String jamOperasional;
 	private String pesanTerimaKasih;
+	private String alasanTahanJson;
 
 	public Toko() {
 	}
@@ -269,6 +270,15 @@ public class Toko extends GeneralValueObject {
 
 	public void setPesanTerimaKasih(String pesanTerimaKasih) {
 		this.pesanTerimaKasih = pesanTerimaKasih;
+	}
+
+	@Column(name = "alasan_tahan_json", nullable = true, columnDefinition = "text")
+	public String getAlasanTahanJson() {
+		return alasanTahanJson;
+	}
+
+	public void setAlasanTahanJson(String alasanTahanJson) {
+		this.alasanTahanJson = alasanTahanJson;
 	}
 
 	private Gudang gudangPemasok;

@@ -1059,6 +1059,7 @@ public class PosApi extends HttpServlet {
 		// Ucapan penutup struk & Layar Pelanggan (fitur "Konfigurasi", per-toko) -- toko==null (admin
 		// global, tanpa toko) memakai teks formal default yg sama, lihat Toko.PESAN_TERIMA_KASIH_DEFAULT.
 		hasil.put("pesanTerimaKasih", toko == null ? Toko.PESAN_TERIMA_KASIH_DEFAULT : str(toko.getPesanTerimaKasih()));
+		hasil.put("alasanTahan", KantinHelper.alasanTahanUntukToko(toko));
 		hasil.put("userId", str(tbmuser.getUserId()));
 		// Fitur "Akun Pedagang"/"Konfigurasi" (menu Konfigurasi Kasir Desktop): kasir toko berstatus
 		// SUPERVISOR (Pedagang.getSupervisor()) boleh kelola akun pedagang lain + ubah profil toko di

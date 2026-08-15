@@ -4415,6 +4415,34 @@ public class KantinHelper {
 	 * @param hasil diisi {@code status="00"}, {@code data} (seluruh field profil Toko), dan
 	 *              {@code bolehUbah} (boolean, sama makna dgn {@code bolehKelola} di {@link #pedagangList}).
 	 */
+	private static final String[] ALASAN_TAHAN_DEFAULT = new String[] {
+			"Pelanggan masih memilih barang", "Pelanggan mengambil uang", "Pelanggan mengambil kartu pembayaran",
+			"Pelanggan membuka aplikasi pembayaran", "Menunggu konfirmasi harga", "Menunggu pengecekan stok",
+			"Menunggu persetujuan supervisor", "Menunggu data member", "Menunggu perubahan metode pembayaran",
+			"Menunggu pembayaran tunai", "Menunggu pembayaran QRIS", "Menunggu pembayaran transfer",
+			"Menunggu saldo member mencukupi", "Menunggu pesanan dilengkapi", "Barang perlu ditimbang ulang",
+			"Barcode atau produk perlu diperiksa", "Antrean dialihkan sementara", "Pelanggan akan kembali",
+			"Pesanan perlu dikonfirmasi ulang", "Kendala jaringan atau perangkat sementara" };
+
+	/** Daftar alasan tahan per toko; konfigurasi kosong selalu kembali ke 20 alasan operasional bawaan. */
+	public static JSONArray alasanTahanUntukToko(Toko toko) {
+		JSONArray hasil = new JSONArray();
+		String mentah = toko == null ? null : toko.getAlasanTahanJson();
+		if (mentah != null && !mentah.trim().isEmpty()) {
+			try {
+				JSONArray tersimpan = new JSONArray(mentah);
+				for (int i = 0; i < tersimpan.length(); i++) {
+					String nilai = tersimpan.optString(i, "").trim();
+					if (!nilai.isEmpty()) hasil.put(nilai);
+				}
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e, "baca konfigurasi alasan transaksi tahan");
+			}
+		}
+		if (hasil.length() == 0) for (String nilai : ALASAN_TAHAN_DEFAULT) hasil.put(nilai);
+		return hasil;
+	}
+
 	public static void tokoProfilAmbil(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		ais.database.model.inventory.Pedagang pemanggil = tbmuser == null ? null : tbmuser.getPedagang();
 		Long tokoId;
@@ -4453,6 +4481,7 @@ public class KantinHelper {
 			data.put("jamOperasional", toko.getJamOperasional() == null ? "" : toko.getJamOperasional());
 			data.put("keterangan", toko.getKeterangan() == null ? "" : toko.getKeterangan());
 			data.put("pesanTerimaKasih", toko.getPesanTerimaKasih());
+			data.put("alasanTahan", alasanTahanUntukToko(toko));
 			hasil.put("status", "00");
 			hasil.put("data", data);
 			hasil.put("bolehUbah", bolehUbah);
@@ -4518,6 +4547,22 @@ public class KantinHelper {
 			if (request.has("jam_operasional")) toko.setJamOperasional(request.optString("jam_operasional", ""));
 			if (request.has("keterangan")) toko.setKeterangan(request.optString("keterangan", ""));
 			if (request.has("pesan_terima_kasih")) toko.setPesanTerimaKasih(request.optString("pesan_terima_kasih", ""));
+			if (request.has("alasan_tahan") && !request.isNull("alasan_tahan")) {
+				JSONArray sumber = request.getJSONArray("alasan_tahan");
+				JSONArray bersih = new JSONArray();
+				java.util.Set<String> unik = new java.util.LinkedHashSet<String>();
+				for (int i = 0; i < sumber.length() && bersih.length() < 100; i++) {
+					String nilai = sumber.optString(i, "").trim();
+					if (nilai.length() > 200) nilai = nilai.substring(0, 200).trim();
+					if (!nilai.isEmpty() && unik.add(nilai.toLowerCase(java.util.Locale.ENGLISH))) bersih.put(nilai);
+				}
+				if (bersih.length() == 0) {
+					hasil.put("status", "91");
+					hasil.put("description", "Daftar alasan transaksi ditahan tidak boleh kosong.");
+					return;
+				}
+				toko.setAlasanTahanJson(bersih.toString());
+			}
 
 			session.beginTransaction();
 			session.saveOrUpdate(toko);
