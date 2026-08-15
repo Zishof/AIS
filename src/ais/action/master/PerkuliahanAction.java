@@ -3019,6 +3019,26 @@ public class PerkuliahanAction extends GenericAutowireComposer
 			Common.tampilErrorJikaAdmin(e);
 		}
 
+		Object periodeTerpilih = searchJenisSemester.getSelectedItem() == null ? null
+				: searchJenisSemester.getSelectedItem().getValue();
+		boolean semesterPendekTerpilih = Perkuliahan.SP.equals(periodeTerpilih);
+		String jenisSemester = semesterPendekTerpilih ? Perkuliahan.SP
+				: (Perkuliahan.GANJIL.equals(periodeTerpilih) || Perkuliahan.GENAP.equals(periodeTerpilih)
+						? (String) periodeTerpilih
+						: (perkuliahan.getSemester() != null && perkuliahan.getSemester() % 2 == 0
+								? Perkuliahan.GENAP
+								: Perkuliahan.GANJIL));
+		Integer statusSemesterPendek = semesterPendekTerpilih ? Perkuliahan.SEMESTER_PENDEK : semesterPendek;
+		if (CommonPenjadwalan.apakahPenjadwalanTidakAktif(perkuliahan.getTahunAjaran(), jenisSemester,
+				statusSemesterPendek, perkuliahan)) {
+			MyMessageboxConfig.showFormat(
+					"Mohon maaf, Tambah Berdasar Kurikulum tidak dapat dilakukan karena penjadwalan Tahun Akademik "
+							+ "\"{V1}\" semester \"{V2}\" tidak aktif untuk fakultas/prodi yang dipilih.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION,
+					perkuliahan.getTahunAjaran(), jenisSemester);
+			return;
+		}
+
 		new PenjadwalanUtil(this).initJadwalKurikulum(perkuliahan, semesterPendek, ekstrakurikuler, merupakanRemedial);
 	}
 

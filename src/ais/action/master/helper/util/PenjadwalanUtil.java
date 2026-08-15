@@ -3531,10 +3531,14 @@ public class PenjadwalanUtil {
 					boolean cekSpKur = Perkuliahan.SP.equals(nilaiPeriodeCekKur);
 					Integer semesterPendekCekKur = cekSpKur ? Perkuliahan.SEMESTER_PENDEK : semesterPendek;
 					String sem = cekSpKur ? Perkuliahan.SP
-							: (((Integer) semester.getSelectedItem().getValue()) % 2 == 0 ? Perkuliahan.GENAP
-									: Perkuliahan.GANJIL);
+							: (Perkuliahan.GANJIL.equals(nilaiPeriodeCekKur)
+									|| Perkuliahan.GENAP.equals(nilaiPeriodeCekKur)
+											? nilaiPeriodeCekKur.toString()
+											: (((Integer) semester.getSelectedItem().getValue()) % 2 == 0
+													? Perkuliahan.GENAP
+													: Perkuliahan.GANJIL));
 
-					if (CommonPenjadwalan.apakahPenjadwalanTidakAktif(ta, sem, semesterPendekCekKur)) {
+					if (apakahPenjadwalanKurikulumTidakAktif(ta, sem, semesterPendekCekKur)) {
 						MyMessageboxConfig.showFormat(
 								"Mohon maaf, jadwal belum dapat dibuat karena penjadwalan untuk Tahun Akademik \"{V1}\" "
 										+ "semester \"{V2}\" saat ini BELUM diaktifkan. Langkah yang dapat Bapak/Ibu lakukan: "
@@ -3603,10 +3607,14 @@ public class PenjadwalanUtil {
 					boolean cekSpKur = Perkuliahan.SP.equals(nilaiPeriodeCekKur);
 					Integer semesterPendekCekKur = cekSpKur ? Perkuliahan.SEMESTER_PENDEK : semesterPendek;
 					String sem = cekSpKur ? Perkuliahan.SP
-							: (((Integer) semester.getSelectedItem().getValue()) % 2 == 0 ? Perkuliahan.GENAP
-									: Perkuliahan.GANJIL);
+							: (Perkuliahan.GANJIL.equals(nilaiPeriodeCekKur)
+									|| Perkuliahan.GENAP.equals(nilaiPeriodeCekKur)
+											? nilaiPeriodeCekKur.toString()
+											: (((Integer) semester.getSelectedItem().getValue()) % 2 == 0
+													? Perkuliahan.GENAP
+													: Perkuliahan.GANJIL));
 
-					if (CommonPenjadwalan.apakahPenjadwalanTidakAktif(ta, sem, semesterPendekCekKur)) {
+					if (apakahPenjadwalanKurikulumTidakAktif(ta, sem, semesterPendekCekKur)) {
 						MyMessageboxConfig.showFormat(
 								"Mohon maaf, jadwal belum dapat dibuat karena penjadwalan untuk Tahun Akademik \"{V1}\" "
 										+ "semester \"{V2}\" saat ini BELUM diaktifkan. Langkah yang dapat Bapak/Ibu lakukan: "
@@ -3685,8 +3693,9 @@ public class PenjadwalanUtil {
 																+ perkuliahan.getProgram() + " prodi "
 																+ perkuliahan.getJurusan().getNama()
 																+ " sudah ada di kelas " + kelas.getNama() + ".\n\n";
-													}
-												}
+		}
+	}
+
 											}
 										}
 									}
@@ -3714,6 +3723,23 @@ public class PenjadwalanUtil {
 		}
 
 		window.onModal();
+	}
+
+	private boolean apakahPenjadwalanKurikulumTidakAktif(String tahunAkademik, String jenisSemester,
+			Integer semesterPendek) {
+		Jurusan jurusanTujuan = jurusan == null || jurusan.getSelectedItem() == null
+				|| jurusan.getSelectedItem().getValue() == null ? null
+						: (Jurusan) jurusan.getSelectedItem().getValue();
+		Fakultas fakultasTujuan = jurusanTujuan == null ? null : jurusanTujuan.getFakultas();
+		if (fakultasTujuan == null && fakultas != null && fakultas.getSelectedItem() != null
+				&& fakultas.getSelectedItem().getValue() != null) {
+			fakultasTujuan = (Fakultas) fakultas.getSelectedItem().getValue();
+		}
+		String programTujuan = program == null || program.getSelectedItem() == null
+				|| program.getSelectedItem().getValue() == null ? null
+						: program.getSelectedItem().getValue().toString();
+		return CommonPenjadwalan.apakahPenjadwalanTidakAktif(tahunAkademik, jenisSemester, semesterPendek,
+				fakultasTujuan, jurusanTujuan, programTujuan);
 	}
 
 	public static void lihatJadwalBentrok() throws Exception {
