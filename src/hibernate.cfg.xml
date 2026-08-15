@@ -111,6 +111,7 @@
 		<property name="hibernate.c3p0.idle_test_period">60</property>
 		<property name="hibernate.c3p0.preferredTestQuery">SELECT 1</property>
 		<property name="hibernate.c3p0.testConnectionOnCheckin">true</property>
+		<property name="hibernate.c3p0.testConnectionOnCheckout">true</property>
 		<!-- REBUT koneksi ter-checkout > 30 menit (kebocoran nyata 6-10 JAM pasti
 		     terjaring; operasi sah < 30 mnt aman). Jaring pengaman TETAP menyala. -->
 		<property name="hibernate.c3p0.unreturnedConnectionTimeout">1800</property>

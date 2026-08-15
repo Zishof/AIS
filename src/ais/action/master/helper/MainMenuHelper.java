@@ -44,7 +44,7 @@ public class MainMenuHelper {
 
 		Long detailLogLoginId = login == null || login.getId() == null ? null : MainHelper.logins.get(login.getId());
 
-		if (detailLogLoginId == null) {
+		if (detailLogLoginId == null && login != null && login.getId() != null) {
 
 			// Pencatatan DetailLogLogin bersifat best-effort: kegagalannya TIDAK boleh
 			// merusak pemuatan menu. Bila save gagal (mis. sequence detail_log_login_id_seq
@@ -53,17 +53,19 @@ public class MainMenuHelper {
 			// (mencegah cascade "current transaction is aborted ... menu tidak muncul").
 			org.hibernate.Session session1 = null;
 			try {
-				DetailLogLogin detailLogLogin = new DetailLogLogin();
-				detailLogLogin.setKeterangan("Login");
-				detailLogLogin.setWaktu(ais.ui.util.WaktuUtil.getDate());
-				detailLogLogin.setLogLogin(login);
-
 				session1 = HibernateUtil.currentNativeSession();
-				session1.getTransaction().begin();
-				session1.save(detailLogLogin);
-				session1.getTransaction().commit();
+				LogLogin loginPersisten = (LogLogin) session1.get(LogLogin.class, login.getId());
+				if (loginPersisten != null) {
+					DetailLogLogin detailLogLogin = new DetailLogLogin();
+					detailLogLogin.setKeterangan("Login");
+					detailLogLogin.setWaktu(ais.ui.util.WaktuUtil.getDate());
+					detailLogLogin.setLogLogin(loginPersisten);
+					session1.getTransaction().begin();
+					session1.save(detailLogLogin);
+					session1.getTransaction().commit();
 
-				MainHelper.logins.put(login.getId(), detailLogLogin.getId());
+					MainHelper.logins.put(login.getId(), detailLogLogin.getId());
+				}
 			} catch (Exception e) {
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/MainMenuHelper.java:67");
 				try {
@@ -75,25 +77,7 @@ public class MainMenuHelper {
 					eRoll.printStackTrace(); ais.common.ErrorAuditUtil.record(eRoll, "auto-audit src/ais/action/master/helper/MainMenuHelper.java:74");
 				}
 			} finally {
-				try {
-					if (session1 != null) {
-						session1.disconnect();
-					}
-				} catch (Exception eDis) { ais.common.ErrorAuditUtil.record(eDis, "auto-audit(empty-catch) src/ais/action/master/helper/MainMenuHelper.java:81");
-					// abaikan
-				}
-				try {
-					if (session1 != null) {
-						session1.close();
-					}
-				} catch (Exception eClose) { ais.common.ErrorAuditUtil.record(eClose, "auto-audit(empty-catch) src/ais/action/master/helper/MainMenuHelper.java:88");
-					// abaikan
-				}
-				try {
-					HibernateUtil.closeSession();
-				} catch (Exception eCs) { ais.common.ErrorAuditUtil.record(eCs, "auto-audit(empty-catch) src/ais/action/master/helper/MainMenuHelper.java:93");
-					// abaikan
-				}
+				HibernateUtil.closeSessionQuietly(session1);
 			}
 		}
 
@@ -238,7 +222,7 @@ public class MainMenuHelper {
 
 		Long detailLogLoginId = login == null || login.getId() == null ? null : MainHelper.logins.get(login.getId());
 
-		if (detailLogLoginId == null) {
+		if (detailLogLoginId == null && login != null && login.getId() != null) {
 
 			// Pencatatan DetailLogLogin bersifat best-effort: kegagalannya TIDAK boleh
 			// merusak pemuatan menu. Bila save gagal (mis. sequence detail_log_login_id_seq
@@ -247,17 +231,19 @@ public class MainMenuHelper {
 			// (mencegah cascade "current transaction is aborted ... menu tidak muncul").
 			org.hibernate.Session session1 = null;
 			try {
-				DetailLogLogin detailLogLogin = new DetailLogLogin();
-				detailLogLogin.setKeterangan("Login");
-				detailLogLogin.setWaktu(ais.ui.util.WaktuUtil.getDate());
-				detailLogLogin.setLogLogin(login);
-
 				session1 = HibernateUtil.currentNativeSession();
-				session1.getTransaction().begin();
-				session1.save(detailLogLogin);
-				session1.getTransaction().commit();
+				LogLogin loginPersisten = (LogLogin) session1.get(LogLogin.class, login.getId());
+				if (loginPersisten != null) {
+					DetailLogLogin detailLogLogin = new DetailLogLogin();
+					detailLogLogin.setKeterangan("Login");
+					detailLogLogin.setWaktu(ais.ui.util.WaktuUtil.getDate());
+					detailLogLogin.setLogLogin(loginPersisten);
+					session1.getTransaction().begin();
+					session1.save(detailLogLogin);
+					session1.getTransaction().commit();
 
-				MainHelper.logins.put(login.getId(), detailLogLogin.getId());
+					MainHelper.logins.put(login.getId(), detailLogLogin.getId());
+				}
 			} catch (Exception e) {
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/MainMenuHelper.java:263");
 				try {
@@ -269,25 +255,7 @@ public class MainMenuHelper {
 					eRoll.printStackTrace(); ais.common.ErrorAuditUtil.record(eRoll, "auto-audit src/ais/action/master/helper/MainMenuHelper.java:270");
 				}
 			} finally {
-				try {
-					if (session1 != null) {
-						session1.disconnect();
-					}
-				} catch (Exception eDis) { ais.common.ErrorAuditUtil.record(eDis, "auto-audit(empty-catch) src/ais/action/master/helper/MainMenuHelper.java:277");
-					// abaikan
-				}
-				try {
-					if (session1 != null) {
-						session1.close();
-					}
-				} catch (Exception eClose) { ais.common.ErrorAuditUtil.record(eClose, "auto-audit(empty-catch) src/ais/action/master/helper/MainMenuHelper.java:284");
-					// abaikan
-				}
-				try {
-					HibernateUtil.closeSession();
-				} catch (Exception eCs) { ais.common.ErrorAuditUtil.record(eCs, "auto-audit(empty-catch) src/ais/action/master/helper/MainMenuHelper.java:289");
-					// abaikan
-				}
+				HibernateUtil.closeSessionQuietly(session1);
 			}
 		}
 

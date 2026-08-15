@@ -1836,13 +1836,20 @@ public class InitIndex {
 	 * inisialisasi startup dilanjutkan.
 	 */
 	static void initAturanDiskonProdukNullable() {
-		try {
-			ais.common.Common.updateSql(
-					"ALTER TABLE koperasi.aturan_diskon ALTER COLUMN produk DROP NOT NULL");
-		} catch (Exception e) {
-			e.printStackTrace();
-			ais.common.ErrorAuditUtil.record(e,
-					"auto-audit InitIndex.initAturanDiskonProdukNullable");
+		String[] migrasi = new String[] {
+				"ALTER TABLE koperasi.aturan_diskon ALTER COLUMN produk DROP NOT NULL",
+				"ALTER TABLE koperasi.aturan_diskon ADD COLUMN IF NOT EXISTS prioritas integer DEFAULT 100",
+				"ALTER TABLE koperasi.aturan_diskon ADD COLUMN IF NOT EXISTS dapat_digabung boolean DEFAULT false",
+				"ALTER TABLE koperasi.aturan_diskon ADD COLUMN IF NOT EXISTS dasar_perhitungan varchar(30) DEFAULT 'SETELAH_DISKON'",
+				"ALTER TABLE koperasi.aturan_diskon ADD COLUMN IF NOT EXISTS grup_eksklusif varchar(100)" };
+		for (int i = 0; i < migrasi.length; i++) {
+			try {
+				ais.common.Common.updateSql(migrasi[i]);
+			} catch (Exception e) {
+				e.printStackTrace();
+				ais.common.ErrorAuditUtil.record(e,
+						"auto-audit InitIndex.initAturanDiskonProdukNullable");
+			}
 		}
 	}
 

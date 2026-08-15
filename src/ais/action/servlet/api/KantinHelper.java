@@ -696,7 +696,7 @@ public class KantinHelper {
 					if (!produkKadaluarsa.isEmpty()) {
 						hasil.put("status", "91");
 						hasil.put("description", "Produk berikut sudah melewati tanggal kadaluarsa dan tidak boleh dijual: "
-								+ String.join(", ", produkKadaluarsa) + ". Segera pisahkan dari stok jual.");
+								+ gabungkanDenganKoma(produkKadaluarsa) + ". Segera pisahkan dari stok jual.");
 						return;
 					}
 					List<String> batchKurang = cekKetersediaanBatchFefo(
@@ -704,7 +704,7 @@ public class KantinHelper {
 					if (!batchKurang.isEmpty()) {
 						hasil.put("status", "91");
 						hasil.put("description", "Stok batch aktif yang belum kedaluwarsa tidak mencukupi: "
-								+ String.join(", ", batchKurang)
+								+ gabungkanDenganKoma(batchKurang)
 								+ ". Periksa stok fisik atau aktifkan izin transaksi stok habis pada toko ini.");
 						return;
 					}
@@ -1321,12 +1321,7 @@ public class KantinHelper {
 			ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/api/KantinHelper.java:validasiStokCek");
 			return null; // gagal-aman: jangan blokir penjualan krn util cek ini sendiri error
 		} finally {
-			try {
-				lockSession.close();
-			} catch (Exception ignoreClose) {
-				ais.common.ErrorAuditUtil.record(ignoreClose,
-						"auto-audit(empty-catch) src/ais/action/servlet/api/KantinHelper.java:validasiStokClose");
-			}
+			tutupSessionPolaB(lockSession);
 		}
 		if (kurang.isEmpty()) {
 			return null;
@@ -1341,6 +1336,16 @@ public class KantinHelper {
 	private static class HasilValidasiStok {
 		java.util.List<String> semuaKurang;
 		java.util.List<String> wajibBlokir;
+	}
+
+	private static String gabungkanDenganKoma(java.util.List<String> nilai) {
+		StringBuilder hasil = new StringBuilder();
+		if (nilai == null) return "";
+		for (int i = 0; i < nilai.size(); i++) {
+			if (i > 0) hasil.append(", ");
+			hasil.append(nilai.get(i));
+		}
+		return hasil.toString();
 	}
 
 	/** Menggabungkan sekumpulan id produk jadi daftar angka dipisah koma siap ditempel ke klausa {@code IN (...)}. */
@@ -7461,15 +7466,15 @@ public class KantinHelper {
 			if (berlakuSemuaProduk) {
 				a.setProduk(null);
 			} else {
-				Object[] rowProduk = (Object[]) session
+				Number idProduk = (Number) session
 						.createSQLQuery("SELECT id FROM koperasi.produk WHERE kode = :k")
 						.setParameter("k", kodeProduk).uniqueResult();
-				if (rowProduk == null) {
+				if (idProduk == null) {
 					hasil.put("status", "91");
 					hasil.put("description", "Produk dengan kode \"" + kodeProduk + "\" tidak ditemukan.");
 					return;
 				}
-				a.setProduk((Produk) session.get(Produk.class, ((Number) rowProduk[0]).longValue()));
+				a.setProduk((Produk) session.get(Produk.class, idProduk.longValue()));
 			}
 
 			// Resolusi toko: kasir toko WAJIB terkunci ke tokonya sendiri, admin bebas (termasuk kosong/global)

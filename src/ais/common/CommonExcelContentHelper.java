@@ -563,7 +563,21 @@ public class CommonExcelContentHelper extends Common {
 			Date data = null;
 			String content = "";
 			try {
-				content = Common.getCellContent(Common.getCell(sheet, col, row));
+				XSSFCell cell = Common.getCell(sheet, col, row);
+				if (cell == null) {
+					return null;
+				}
+				int tipe = cell.getCellType();
+				if (tipe == XSSFCell.CELL_TYPE_FORMULA) {
+					tipe = cell.getCachedFormulaResultType();
+				}
+				if (tipe == XSSFCell.CELL_TYPE_NUMERIC) {
+					if (org.zkoss.poi.ss.usermodel.DateUtil.isCellDateFormatted(cell)) {
+						return cell.getDateCellValue();
+					}
+					return null;
+				}
+				content = Common.getCellContent(cell);
 				if (content == null || content.trim().length() == 0) {
 					return null;
 				}
@@ -583,11 +597,9 @@ public class CommonExcelContentHelper extends Common {
 				} else {
 					data = Common.dateFormat1.get().parse(trimmed);
 				}
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/CommonExcelContentHelper.java:545");
-
+			} catch (Exception e) {
+				data = null;
 			}
-
-			System.out.println("data -> " + data + " content " + content);
 
 			return data;
 		}

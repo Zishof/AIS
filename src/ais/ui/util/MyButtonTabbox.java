@@ -103,7 +103,24 @@ public class MyButtonTabbox {
 		if (tinggi == null || tinggi.trim().isEmpty()) {
 			tinggi = "100%";
 		}
-		final MyButtonTabbox pengganti = buat(tabbox.getParent(), tinggi, tabAktif);
+		Component parentAsli = tabbox.getParent();
+		Component saudaraBerikut = tabbox.getNextSibling();
+		Div penampung = new Div();
+		penampung.setWidth("100%");
+		penampung.setHeight(tinggi);
+		penampung.setStyle("display:flex;flex-direction:column;min-height:0;overflow:hidden;");
+		tabbox.setParent(null);
+		parentAsli.insertBefore(penampung, saudaraBerikut);
+		tabbox.setParent(penampung);
+		final MyButtonTabbox pengganti;
+		try {
+			pengganti = buat(penampung, tinggi, tabAktif);
+		} catch (RuntimeException e) {
+			tabbox.setParent(null);
+			penampung.setParent(null);
+			parentAsli.insertBefore(tabbox, saudaraBerikut);
+			throw e;
+		}
 		tabbox.setAttribute("myButtonTabboxPengganti", pengganti);
 
 		Tabs tabs = tabbox.getTabs();

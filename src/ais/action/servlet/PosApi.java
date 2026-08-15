@@ -2043,7 +2043,7 @@ public class PosApi extends HttpServlet {
 	}
 
 	/**
-	 * ⚠️ Menyeragamkan balasan {@link KantinHelper#bayar}/{@code draft_bayar}/{@code checkBayar}/
+	 * Menyeragamkan balasan {@link KantinHelper#bayar}/{@code draft_bayar}/{@code checkBayar}/
 	 * {@code tabungan} -- SEMUA method itu diwarisi apa adanya dari servlet {@code /Data} yang jauh
 	 * lebih lama, memakai konvensi kode angka ({@code "00"}=sukses, {@code "91"}/{@code "90"}=exception,
 	 * {@code "01"}=tidak ditemukan/parameter kurang, field pesan bernama {@code description}) -- BUKAN
@@ -2486,9 +2486,12 @@ public class PosApi extends HttpServlet {
 			// transaksi memakai id header agar satu nota berisi banyak item tetap dihitung sekali.
 			JSONArray omzetKasir = new JSONArray();
 			java.sql.PreparedStatement psKasir = conn.prepareStatement(
-					"SELECT COALESCE(NULLIF(TRIM(CAST(p.oleh AS varchar)),''),'Tidak diketahui') lbl, "
+					"SELECT COALESCE(NULLIF(TRIM(pak.kasir_login_nama),''),NULLIF(TRIM(u.usernama),''),'Tidak diketahui') lbl, "
 							+ "COALESCE(SUM(p.total),0) nilai, COUNT(DISTINCT COALESCE(p.pembelian_anggota_koperasi,p.id)) trx "
-							+ "FROM koperasi.pembelian p WHERE " + kondisiChart + " GROUP BY 1 ORDER BY 2 DESC LIMIT 8");
+							+ "FROM koperasi.pembelian p "
+							+ "LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON pak.id=p.pembelian_anggota_koperasi "
+							+ "LEFT JOIN public.tbmuser u ON u.userid=pak.tbmuser "
+							+ "WHERE " + kondisiChart + " GROUP BY 1 ORDER BY 2 DESC LIMIT 8");
 			idx = 1;
 			for (Object p : paramsChart) ikatParam(psKasir, idx++, p);
 			java.sql.ResultSet rsKasir = psKasir.executeQuery();

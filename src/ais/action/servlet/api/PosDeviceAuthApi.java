@@ -151,9 +151,12 @@ public final class PosDeviceAuthApi {
 				if (entitas == null) return null;
 				if (entitas.getKedaluwarsaPada() == null || entitas.getKedaluwarsaPada().before(new Date())) return null;
 
-				entitas.setTerakhirDipakaiPada(new Date());
+				Date waktuDipakai = new Date();
 				dbSession.beginTransaction();
-				dbSession.update(entitas);
+				dbSession.createSQLQuery("update koperasi.pos_device_token "
+						+ "set terakhir_dipakai_pada = :waktu where id = :id")
+						.setTimestamp("waktu", waktuDipakai)
+						.setLong("id", entitas.getId().longValue()).executeUpdate();
 				dbSession.getTransaction().commit();
 
 				Criteria cUser = dbSession.createCriteria(Tbmuser.class).add(Restrictions.eq("userId", entitas.getUserId()));
