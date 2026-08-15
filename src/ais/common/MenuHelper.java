@@ -1864,31 +1864,35 @@ public class MenuHelper {
     }
 
     /**
-     * Memastikan tiga menu reimbursement berada tepat setelah Pengajuan Uang Muka
-     * pada grup yang sama dan otomatis terlihat untuk role am serta keu.
+     * Memastikan satu menu reimbursement berada tepat setelah Pengajuan Uang Muka
+     * dan otomatis terlihat untuk role am serta keu. Dashboard dan laporan
+     * disajikan sebagai tab internal, bukan menu terpisah.
      * Dijalankan setiap startup dan idempoten.
      */
     public static void ensureReimbursementMenus() {
         final Long ROOT_UANG_MUKA = 400000009L;
-        final Long[] ids = { 260815001L, 260815002L, 260815003L };
+        final Long id = 260815001L;
         Session session = null;
         Transaction tx = null;
         try {
             session = HibernateUtil.currentNativeSession();
             tx = session.beginTransaction();
+            // Bersihkan dua menu versi lama; isinya tetap dipakai sebagai tab include.
+            session.createSQLQuery("DELETE FROM public.role_privilage WHERE menu IN (260815002,260815003)")
+                    .executeUpdate();
+            session.createSQLQuery("DELETE FROM public.job_has_menu WHERE menu IN (260815002,260815003)")
+                    .executeUpdate();
+            session.createSQLQuery("DELETE FROM public.menu WHERE id IN (260815002,260815003)")
+                    .executeUpdate();
             Menu[] menus = new Menu[] {
-                ensureMenu(session, ids[0], ROOT_UANG_MUKA, 600000002L, "Reimbursement Pegawai",
-                        "/pages/master/akunting/reimbursement_pegawai.zul", "fas fa-receipt", 0, Boolean.FALSE),
-                ensureMenu(session, ids[1], ROOT_UANG_MUKA, 600000003L, "Dashboard Reimbursement",
-                        "/pages/master/akunting/dashboard_reimbursement_pegawai.zul", "fas fa-chart-pie", 0, Boolean.FALSE),
-                ensureMenu(session, ids[2], ROOT_UANG_MUKA, 600000004L, "Laporan Reimbursement",
-                        "/pages/master/akunting/laporan_reimbursement_pegawai.zul", "fas fa-file-excel", 0, Boolean.FALSE)
+                ensureMenu(session, id, ROOT_UANG_MUKA, 600000002L, "Reimbursement Pegawai",
+                        "/pages/master/akunting/reimbursement_pegawai.zul", "fas fa-receipt", 0, Boolean.FALSE)
             };
             tx.commit(); tx = null;
 
             session = HibernateUtil.currentNativeSession();
             tx = session.beginTransaction();
-            String idList = ids[0] + "," + ids[1] + "," + ids[2];
+            String idList = String.valueOf(id);
             session.createSQLQuery(
                     "INSERT INTO public.job_has_menu (job, menu) "
                   + "SELECT r.roleid, m.id FROM public.tbmrole r CROSS JOIN public.menu m "

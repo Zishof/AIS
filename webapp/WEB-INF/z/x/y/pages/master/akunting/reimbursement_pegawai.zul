@@ -1,136 +1,28 @@
 <?page title="Reimbursement Pegawai" cacheable="false" language="xul/html" contentType="text/html;charset=UTF-8"?>
-<zk xmlns="http://www.zkoss.org/2005/zul" xmlns:h="http://www.w3.org/1999/xhtml">
-  <window use="ais.ui.util.MyWindow" id="window" apply="ais.action.master.akunting.ReimbursementPegawaiAction"
-          width="100%" height="100%" border="none">
+<zk xmlns="http://www.zkoss.org/2005/zul">
+  <window use="ais.ui.util.MyWindow" width="100%" height="100%" border="none">
     <style>
-      .rmb-hero { background:linear-gradient(120deg,#183b70,#087f8c); color:#fff; padding:18px 22px; border-radius:12px; margin:8px; }
-      .rmb-title { font-size:22px; font-weight:bold; }
-      .rmb-subtitle { color:#d8f3f5; margin-top:4px; }
-      .rmb-card { background:#fff; border:1px solid #dce5ef; border-radius:10px; margin:8px; padding:12px; }
-      .rmb-note { color:#587087; font-size:12px; }
-      .rmb-status { background:#eef6ff; border-left:4px solid #1677c8; padding:8px; }
+      .rmb-shell{background:#f4f7fb;padding:8px}.rmb-shell-hero{background:linear-gradient(120deg,#17396b,#087d8b);color:#fff;padding:16px 20px;border-radius:12px;margin-bottom:8px}
+      .rmb-shell-title{font-size:22px;font-weight:bold}.rmb-shell-subtitle{color:#d8f3f5}.rmb-main-tabs .z-tabs{background:#fff;border:1px solid #dfe7ef;border-radius:10px 10px 0 0;padding:5px}
     </style>
-
-    <div sclass="rmb-hero">
-      <label sclass="rmb-title" value="Reimbursement Pegawai"/>
-      <separator/>
-      <label sclass="rmb-subtitle" value="Pengajuan biaya pribadi, persetujuan atasan, jurnal pengeluaran, dan pembayaran dalam satu alur terkontrol."/>
+    <div sclass="rmb-shell">
+      <div sclass="rmb-shell-hero">
+        <label sclass="rmb-shell-title" value="Reimbursement Pegawai"/>
+        <separator/>
+        <label sclass="rmb-shell-subtitle" value="Dashboard, proses reimbursement, dan laporan berada dalam satu pusat kerja."/>
+      </div>
+      <tabbox sclass="rmb-main-tabs" width="100%" height="92%">
+        <tabs>
+          <tab label="Dashboard" selected="true" image="/img/Graph-icon.png"/>
+          <tab label="Reimbursement" image="/img/svg/money-bills.svg"/>
+          <tab label="Laporan" image="/img/report-icon.png"/>
+        </tabs>
+        <tabpanels>
+          <tabpanel style="padding:0"><include src="dashboard_reimbursement_pegawai.zul"/></tabpanel>
+          <tabpanel style="padding:0"><include src="reimbursement_transaksi_pegawai.zul"/></tabpanel>
+          <tabpanel style="padding:0"><include src="laporan_reimbursement_pegawai.zul"/></tabpanel>
+        </tabpanels>
+      </tabbox>
     </div>
-
-    <tabbox width="100%" height="88%">
-      <tabs>
-        <tab label="Pengajuan Baru" selected="true"/>
-        <tab label="Pengajuan Saya"/>
-        <tab id="approvalTab" label="Persetujuan Atasan"/>
-        <tab id="financeTab" label="Pembayaran Finance"/>
-      </tabs>
-      <tabpanels>
-        <tabpanel>
-          <div sclass="rmb-card">
-            <hbox width="100%" pack="stretch">
-              <label id="formMode" sclass="rmb-status" width="100%" value="Pengajuan baru"/>
-              <button label="Form Baru" forward="onClick=onNew"/>
-            </hbox>
-            <separator/>
-            <grid fixedLayout="true" width="100%">
-              <columns><column width="190px"/><column/></columns>
-              <rows>
-                <row><label value="Deskripsi Pengajuan *"/><textbox id="deskripsi" rows="3" width="98%"/></row>
-                <row><label value="Kategori Pengeluaran *"/><combobox id="kategori" readonly="true" width="280px"/></row>
-                <row><label value="Total Nominal *"/><doublebox use="ais.ui.util.MyDoublebox" id="nominal" width="280px"/></row>
-                <row><label value="Pajak (opsional)"/><combobox id="pajak" readonly="true" width="160px"/></row>
-                <row><label value="Nama Pegawai *"/><bandbox use="ais.action.master.akunting.helper.AmbilDataPegawaiBanbox" id="pegawai" width="420px"/></row>
-                <row><label value="Sumber Dana"/><checkbox id="dibayarPegawai" label="Telah dibayar lebih dahulu menggunakan uang pribadi pegawai"/></row>
-                <row><label value="Tanggal Pengeluaran *"/><datebox use="ais.ui.util.MyDatebox" id="tanggalPengeluaran" format="dd/MM/yyyy" width="180px"/></row>
-                <row><label value="Atasan Langsung *"/><bandbox use="ais.action.master.akunting.helper.AmbilDataPegawaiBanbox" id="atasan" width="420px"/></row>
-                <row><label value="Catatan"/><textbox id="catatanPengaju" rows="3" width="98%"/></row>
-                <row><label value="Nota/Kuitansi *"/><hbox id="attachmentBox" width="98%"/></row>
-              </rows>
-            </grid>
-            <separator/>
-            <hbox pack="end" width="100%">
-              <label sclass="rmb-note" value="Tanda * wajib diisi. Data langsung masuk ke daftar atasan yang dipilih."/>
-              <button label="Serahkan Pengajuan" image="/img/save.gif" forward="onClick=onSubmit"/>
-            </hbox>
-          </div>
-        </tabpanel>
-
-        <tabpanel>
-          <div sclass="rmb-card">
-            <hbox width="100%" pack="end"><button label="Muat Ulang" image="/img/refresh.gif" forward="onClick=onRefresh"/></hbox>
-            <label sclass="rmb-note" value="Daftar ini hanya memuat pengajuan milik akun yang sedang login."/>
-            <grid id="gridSaya" fixedLayout="true" width="100%">
-              <columns>
-                <column label="Kode" width="12%"/><column label="Pegawai" width="15%"/><column label="Deskripsi" width="23%"/>
-                <column label="Kategori" width="11%"/><column label="Tanggal" width="10%"/><column label="Nominal" width="11%"/>
-                <column label="Status" width="9%"/><column label="Aksi" width="9%"/>
-              </columns>
-            </grid>
-          </div>
-        </tabpanel>
-
-        <tabpanel>
-          <div sclass="rmb-card">
-            <hbox width="100%" pack="end"><button label="Muat Ulang" image="/img/refresh.gif" forward="onClick=onRefresh"/></hbox>
-            <label sclass="rmb-note" value="Menampilkan pengajuan aktif yang ditujukan kepada atasan yang sedang login."/>
-            <grid id="gridAtasan" fixedLayout="true" width="100%">
-              <columns>
-                <column label="Kode" width="12%"/><column label="Pegawai" width="15%"/><column label="Deskripsi" width="23%"/>
-                <column label="Kategori" width="11%"/><column label="Tanggal" width="10%"/><column label="Nominal" width="11%"/>
-                <column label="Status" width="9%"/><column label="Aksi" width="9%"/>
-              </columns>
-            </grid>
-          </div>
-        </tabpanel>
-
-        <tabpanel>
-          <div sclass="rmb-card">
-            <hbox width="100%" pack="end"><button label="Muat Ulang" image="/img/refresh.gif" forward="onClick=onRefresh"/></hbox>
-            <label sclass="rmb-note" value="Finance hanya menerima pengajuan yang telah disetujui dan sudah memiliki jurnal pengeluaran."/>
-            <grid id="gridFinance" fixedLayout="true" width="100%">
-              <columns>
-                <column label="Kode" width="12%"/><column label="Pegawai" width="15%"/><column label="Deskripsi" width="23%"/>
-                <column label="Kategori" width="11%"/><column label="Tanggal" width="10%"/><column label="Nominal" width="11%"/>
-                <column label="Status" width="9%"/><column label="Aksi" width="9%"/>
-              </columns>
-            </grid>
-          </div>
-        </tabpanel>
-      </tabpanels>
-    </tabbox>
-
-    <window use="ais.ui.util.MyWindow" id="approvalWindow" title="Keputusan Atasan &amp; Entri Jurnal"
-            visible="false" mode="popup" position="center,center" border="normal" width="680px">
-      <vbox width="100%">
-        <label id="approvalInfo" pre="true" sclass="rmb-status" width="96%"/>
-        <grid fixedLayout="true" width="100%"><columns><column width="190px"/><column/></columns><rows>
-          <row><label value="Catatan Keputusan *"/><textbox id="catatanAtasan" rows="3" width="96%"/></row>
-          <row><label value="Akun Biaya *"/><bandbox use="ais.action.master.akunting.helper.AmbilDataAkunBanbox" id="akunBiaya" width="420px"/></row>
-          <row><label value="Tanggal Akuntansi *"/><datebox use="ais.ui.util.MyDatebox" id="tanggalAkuntansi" format="dd/MM/yyyy" width="180px"/></row>
-        </rows></grid>
-        <label sclass="rmb-note" value="Setujui akan langsung membentuk jurnal biaya lawan akun utang reimbursement dari konfigurasi."/>
-        <hbox pack="end" width="100%">
-          <button label="Revisi" forward="onClick=onRevision"/><button label="Tolak" forward="onClick=onReject"/>
-          <button label="Setujui &amp; Post Pengeluaran" forward="onClick=onApprove"/>
-        </hbox>
-      </vbox>
-    </window>
-
-    <window use="ais.ui.util.MyWindow" id="paymentWindow" title="Pembayaran Reimbursement"
-            visible="false" mode="popup" position="center,center" border="normal" width="680px">
-      <vbox width="100%">
-        <label id="paymentInfo" sclass="rmb-status" width="96%"/>
-        <grid fixedLayout="true" width="100%"><columns><column width="190px"/><column/></columns><rows>
-          <row><label value="Metode Pembayaran *"/><combobox id="metodePembayaran" readonly="true" width="180px"/></row>
-          <row><label value="Bank Penerima"/><textbox id="bankPenerima" width="96%"/></row>
-          <row><label value="No. Rekening Penerima"/><textbox id="rekeningPenerima" width="96%"/></row>
-          <row><label value="Jumlah Nominal"/><doublebox use="ais.ui.util.MyDoublebox" id="jumlahPembayaran" width="220px"/></row>
-          <row><label value="Tanggal Pembayaran *"/><datebox use="ais.ui.util.MyDatebox" id="tanggalPembayaran" format="dd/MM/yyyy" width="180px"/></row>
-          <row><label value="Akun Kas/Bank *"/><bandbox use="ais.action.master.akunting.helper.AmbilDataAkunBanbox" id="akunPembayaran" width="420px"/></row>
-          <row><label value="Catatan Pembayaran"/><textbox id="catatanPembayaran" rows="3" width="96%"/></row>
-        </rows></grid>
-        <hbox pack="end" width="100%"><button label="Bayarkan &amp; Post Jurnal" forward="onClick=onPay"/></hbox>
-      </vbox>
-    </window>
   </window>
 </zk>
