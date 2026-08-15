@@ -182,6 +182,36 @@ public class KelompokParameterTambahanAlurSop extends GeneralValueObject {
 
 	@Override
 	public int compareTo(GeneralValueObject arg0) {
-		return getNomorUrut().compareTo(((KelompokParameterTambahanAlurSop) arg0).getNomorUrut());
+		if (arg0 == null) {
+			return 1;
+		}
+		if (this == arg0) {
+			return 0;
+		}
+		KelompokParameterTambahanAlurSop lainnya = (KelompokParameterTambahanAlurSop) arg0;
+		if (getId() != null && lainnya.getId() != null && getId().equals(lainnya.getId())) {
+			return 0;
+		}
+
+		int hasil = getNomorUrut().compareTo(lainnya.getNomorUrut());
+		if (hasil != 0) {
+			return hasil;
+		}
+		String namaIni = getNama() == null ? "" : getNama();
+		String namaLain = lainnya.getNama() == null ? "" : lainnya.getNama();
+		hasil = namaIni.compareToIgnoreCase(namaLain);
+		if (hasil != 0) {
+			return hasil;
+		}
+		if (getId() == null && lainnya.getId() == null) {
+			return 0;
+		}
+		if (getId() == null) {
+			return -1;
+		}
+		if (lainnya.getId() == null) {
+			return 1;
+		}
+		return getId().compareTo(lainnya.getId());
 	}
 }

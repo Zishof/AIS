@@ -9,7 +9,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
@@ -2075,9 +2074,14 @@ public class AlurSopAction extends GenericAutowireComposer implements DataCriter
 			Session session = HibernateUtil.currentSession();
 			AlurSop alurSop = (AlurSop) session.createCriteria(AlurSop.class)
 					.add(Restrictions.idEq(this.alurSop.getId())).uniqueResult();
-			selectedKelompokParameterTambahanAlurSop = alurSop.getKelompokParameterTambahanAlurSops();
+			// Gunakan salinan berbasis ID. Jangan memakai TreeSet/PersistentSet secara
+			// langsung karena beberapa kelompok boleh mempunyai nomor urut yang sama.
+			// Selain mencegah pilihan kedua dianggap duplikat, salinan ini memastikan
+			// tombol Batal tidak ikut mengubah koleksi entity yang sedang dikelola session.
+			selectedKelompokParameterTambahanAlurSop = new HashSet<KelompokParameterTambahanAlurSop>(
+					alurSop.getKelompokParameterTambahanAlurSops());
 		} else {
-			selectedKelompokParameterTambahanAlurSop = new TreeSet<KelompokParameterTambahanAlurSop>();
+			selectedKelompokParameterTambahanAlurSop = new HashSet<KelompokParameterTambahanAlurSop>();
 		}
 
 		Set<Long> ids = new HashSet<Long>();
