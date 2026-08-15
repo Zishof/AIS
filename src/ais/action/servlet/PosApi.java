@@ -668,6 +668,9 @@ public class PosApi extends HttpServlet {
 			} else if ("batalkan_transaksi".equals(action)) {
 				KantinHelper.batalkanTransaksi(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "batalkan_transaksi");
+			} else if ("edit_transaksi".equals(action)) {
+				KantinHelper.editTransaksi(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "edit_transaksi");
 			} else if ("diskon_evaluasi".equals(action)) {
 				KantinHelper.diskonEvaluasi(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "diskon_evaluasi");
@@ -1558,7 +1561,7 @@ public class PosApi extends HttpServlet {
 		// prosesPesananList/prosesRingkasan) -- gap-closure: sebelumnya HANYA dicek via menu "laporan",
 		// jadi kasir/pedagang yang punya akses "ringkasan" tapi bukan "laporan" bisa MELIHAT transaksi
 		// di dasbor Ringkasan tapi ditolak server begitu menekan "Cetak Struk" pada baris yang sama.
-		if ("detail_transaksi".equals(action)) {
+		if ("detail_transaksi".equals(action) || "edit_transaksi".equals(action)) {
 			return menu.optBoolean("laporan", true) || menu.optBoolean("ringkasan", true)
 					|| menu.optBoolean("returpenjualan", true);
 		}
@@ -2668,7 +2671,7 @@ public class PosApi extends HttpServlet {
 				// klien (struk/riwayat) cukup render indent saat indukId != null, tanpa perlu grouping
 				// sendiri.
 				java.sql.PreparedStatement psItem = conn.prepareStatement(
-						"SELECT COALESCE(pr.nama,''), p.qty, COALESCE(p.hargasatuan, (p.total / NULLIF(p.qty,0)), 0), COALESCE(p.diskon,0), COALESCE(p.cashback,0), p.produk, p.induk_id "
+						"SELECT COALESCE(pr.nama,''), p.qty, COALESCE(p.hargasatuan, (p.total / NULLIF(p.qty,0)), 0), COALESCE(p.diskon,0), COALESCE(p.cashback,0), p.produk, p.induk_id, p.id "
 								+ "FROM koperasi.pembelian p LEFT JOIN koperasi.produk pr ON p.produk = pr.id "
 								+ "WHERE p.pembelian_anggota_koperasi = ? AND p.toko = ? "
 								+ "ORDER BY COALESCE(p.induk_id, p.id) ASC, p.id ASC");
@@ -2687,6 +2690,7 @@ public class PosApi extends HttpServlet {
 					j.put("produkId", rsItem.wasNull() ? JSONObject.NULL : produkIdItem);
 					long indukIdItem = rsItem.getLong(7);
 					j.put("indukId", rsItem.wasNull() ? JSONObject.NULL : indukIdItem);
+					j.put("pembelianId", rsItem.getLong(8));
 					item.put(j);
 				}
 				rsItem.close(); psItem.close();
@@ -2740,6 +2744,7 @@ public class PosApi extends HttpServlet {
 				hasil.put("item", item);
 			}
 
+			hasil.put("bolehEditTransaksi", KantinHelper.bolehEditTransaksi(tbmuser) && punyaHeaderKelompok);
 			hasil.put("status", "success");
 		} finally {
 			HibernateUtil.closeSessionQuietly(session);

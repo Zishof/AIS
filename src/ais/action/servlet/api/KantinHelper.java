@@ -13335,15 +13335,149 @@ public class KantinHelper {
 		}
 	}
 
+	/** Hanya admin global atau supervisor toko yang boleh mengoreksi transaksi lunas. */
+	public static boolean bolehEditTransaksi(Tbmuser tbmuser) {
+		if (tbmuser == null) return false;
+		ais.database.model.inventory.Pedagang pedagang = tbmuser.getPedagang();
+		if (pedagang == null || Boolean.TRUE.equals(pedagang.getSupervisor())) return true;
+		ais.database.model.Tbmrole role = tbmuser.hakAkses();
+		org.json.JSONObject menuRole = ais.common.EbisnisMenuKatalog.urai(
+				role == null ? null : role.getEbisnisMenu());
+		return menuRole.optBoolean("supervisor", false);
+	}
+
+	/**
+	 * Koreksi transaksi oleh supervisor. Semua perubahan dilakukan atomik, dicatat oleh Hibernate
+	 * Envers, dan alasan koreksi ikut disimpan pada keterangan header agar mudah ditelusuri.
+	 */
+	@SuppressWarnings("unchecked")
+	public static void editTransaksi(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehEditTransaksi(tbmuser)) {
+			hasil.put("status", "91");
+			hasil.put("description", "Hanya supervisor atau admin yang dapat mengubah transaksi yang sudah selesai.");
+			return;
+		}
+		String alasan = request.optString("alasan", "").trim();
+		JSONArray itemRequest = request.optJSONArray("item");
+		if (alasan.length() < 5 || itemRequest == null || itemRequest.length() == 0 || request.isNull("id")) {
+			hasil.put("status", "91");
+			hasil.put("description", "Alasan minimal 5 karakter dan sedikitnya satu barang wajib diisi.");
+			return;
+		}
+		Long transaksiId;
+		try { transaksiId = Long.valueOf((request.get("id") + "").trim()); }
+		catch (Exception e) {
+			hasil.put("status", "91"); hasil.put("description", "ID transaksi tidak valid."); return;
+		}
+		Date waktuBaru = null;
+		String waktuTeks = request.optString("waktu", "").trim();
+		String[] polaWaktu = new String[] { "yyyy-MM-dd'T'HH:mm:ss.SSS", "yyyy-MM-dd'T'HH:mm:ss", "dd-MM-yyyy HH:mm:ss", "dd-MM-yyyy HH:mm" };
+		for (int i = 0; waktuBaru == null && i < polaWaktu.length; i++) {
+			try { SimpleDateFormat f = new SimpleDateFormat(polaWaktu[i]); f.setLenient(false); waktuBaru = f.parse(waktuTeks); }
+			catch (Exception abaikan) { }
+		}
+		if (waktuBaru == null || waktuBaru.after(new Date(System.currentTimeMillis() + 60000L))) {
+			hasil.put("status", "91"); hasil.put("description", "Tanggal dan jam transaksi tidak valid atau berada di masa depan."); return;
+		}
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		org.hibernate.Transaction tx = null;
+		try {
+			PembelianAnggotaKoperasi trx = (PembelianAnggotaKoperasi) session.get(PembelianAnggotaKoperasi.class, transaksiId);
+			if (trx == null) throw new IllegalStateException("Transaksi tidak ditemukan atau merupakan transaksi lama yang tidak dapat dikoreksi.");
+			Toko tokoLogin = tbmuser.getPedagang() == null ? null : tbmuser.getPedagang().getToko();
+			if (tokoLogin != null && (trx.getToko() == null || !tokoLogin.getId().equals(trx.getToko().getId())))
+				throw new IllegalStateException("Transaksi ini bukan milik toko yang sedang login.");
+			if (trx.getPostingHistory() != null)
+				throw new IllegalStateException("Transaksi sudah diposting ke jurnal sehingga tidak dapat diedit.");
+			Number retur = (Number) session.createSQLQuery("select count(*) from koperasi.retur_penjualan where pembelian_anggota_koperasi_id=:id")
+					.setParameter("id", transaksiId).uniqueResult();
+			if (retur != null && retur.longValue() > 0)
+				throw new IllegalStateException("Transaksi sudah memiliki retur sehingga tidak dapat diedit.");
+
+			List<Pembelian> lama = session.createCriteria(Pembelian.class)
+					.add(Restrictions.eq("pembelianAnggotaKoperasi", trx)).list();
+			Map<Long, Pembelian> lamaById = new HashMap<Long, Pembelian>();
+			java.util.Set<Long> produkTerdampak = new java.util.HashSet<Long>();
+			double diskonItemLama = 0.0;
+			for (Pembelian p : lama) {
+				lamaById.put(p.getId(), p);
+				if (p.getProduk() != null) produkTerdampak.add(p.getProduk().getId());
+				diskonItemLama += p.getDiskon() == null ? 0.0 : p.getDiskon().doubleValue();
+			}
+			double diskonFakturTetap = Math.max(0.0, (trx.getTotalDiskon() == null ? 0.0 : trx.getTotalDiskon().doubleValue()) - diskonItemLama);
+			java.util.Set<Long> dipakai = new java.util.HashSet<Long>();
+			tx = session.beginTransaction();
+			double jumlahRincian = 0.0, diskonItemBaru = 0.0, cashbackBaru = 0.0;
+			for (int i = 0; i < itemRequest.length(); i++) {
+				JSONObject j = itemRequest.getJSONObject(i);
+				double qty = j.optDouble("qty", 0.0);
+				if (qty <= 0) throw new IllegalStateException("Jumlah barang pada baris " + (i + 1) + " harus lebih dari nol.");
+				Long pembelianId = null;
+				if (!j.isNull("pembelian_id") && Common.isNumber(j.optString("pembelian_id", ""))) pembelianId = Long.valueOf(j.optString("pembelian_id"));
+				Pembelian p = pembelianId == null ? null : lamaById.get(pembelianId);
+				if (pembelianId != null && p == null) throw new IllegalStateException("Rincian transaksi tidak sesuai dengan transaksi yang dipilih.");
+				Long produkId = Common.isNumber(j.optString("produk_id", "")) ? Long.valueOf(j.optString("produk_id")) : null;
+				Produk produk = produkId == null ? null : (Produk) session.get(Produk.class, produkId);
+				if (produk == null || produk.getToko() == null || trx.getToko() == null || !trx.getToko().getId().equals(produk.getToko().getId()))
+					throw new IllegalStateException("Produk pada baris " + (i + 1) + " tidak ditemukan di toko transaksi.");
+				if (p == null) {
+					p = new Pembelian();
+					p.setPembelianAnggotaKoperasi(trx); p.setAnggotaKoperasi(trx.getAnggotaKoperasi());
+					p.setToko(trx.getToko()); p.setProduk(produk); p.setKode(trx.getKode() + "-" + produk.getKode());
+					p.setHargaSatuan(produk.getHargaJual()); p.setDiskon(Double.valueOf(0)); p.setCashback(Double.valueOf(0));
+					p.setCaraPembayaranKoperasi(trx.getCaraPembayaranKoperasi()); p.setTbmuser(trx.getTbmuser());
+					p.setOleh(tbmuser.getUserNama()); p.setOlehId(tbmuser.getId() + "");
+					session.save(p);
+				} else {
+					dipakai.add(p.getId());
+					double qtyLama = p.getQty() == null ? 0.0 : p.getQty().doubleValue();
+					double diskonLama = p.getDiskon() == null ? 0.0 : p.getDiskon().doubleValue();
+					p.setDiskon(Double.valueOf(qtyLama <= 0 ? 0.0 : diskonLama * qty / qtyLama));
+				}
+				p.setProduk(produk); p.setQty(Double.valueOf(qty)); p.setWaktu(waktuBaru);
+				p.setTotal(Double.valueOf((p.getHargaSatuan() * qty) - p.getDiskon())); session.saveOrUpdate(p);
+				produkTerdampak.add(produk.getId());
+				jumlahRincian += Math.max(0.0, (p.getHargaSatuan() * qty) - p.getDiskon());
+				diskonItemBaru += p.getDiskon() == null ? 0.0 : p.getDiskon().doubleValue();
+				cashbackBaru += p.getCashback() == null ? 0.0 : p.getCashback().doubleValue();
+			}
+			for (Pembelian p : lama) if (!dipakai.contains(p.getId())) session.delete(p);
+
+			double pajak = trx.getHargaPpn() == null ? 0.0 : trx.getHargaPpn().doubleValue();
+			double totalBaru = Math.max(0.0, jumlahRincian - diskonFakturTetap + pajak);
+			double tunaiLama = trx.getBayarTunai() == null ? 0.0 : trx.getBayarTunai().doubleValue();
+			double nonTunaiLama = trx.getBayarNonTunai() == null ? 0.0 : trx.getBayarNonTunai().doubleValue();
+			double komposisi = tunaiLama + nonTunaiLama;
+			if (komposisi > 0) {
+				double tunaiBaru = totalBaru * tunaiLama / komposisi;
+				trx.setBayarTunai(Double.valueOf(tunaiBaru)); trx.setBayarNonTunai(Double.valueOf(totalBaru - tunaiBaru));
+			}
+			trx.setKembalian(Double.valueOf(0)); trx.setTanggalPembayaran(waktuBaru);
+			trx.setTotalDiskon(Double.valueOf(diskonItemBaru + diskonFakturTetap));
+			trx.setTotalCashback(Double.valueOf(cashbackBaru)); trx.setTotalBiaya(Double.valueOf(totalBaru)); trx.setBiaya(Double.valueOf(totalBaru));
+			String catatanLama = trx.getKeterangan() == null ? "" : trx.getKeterangan().trim();
+			trx.setKeterangan((catatanLama.isEmpty() ? "" : catatanLama + " | ") + "KOREKSI SUPERVISOR " + new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").format(new Date()) + ": " + alasan);
+			trx.setOleh(tbmuser.getUserNama()); trx.setOlehId(tbmuser.getId() + ""); session.update(trx); session.flush();
+			for (Long produkId : produkTerdampak) ais.action.master.inventory.StokKantinUtil.recomputeStokProdukNative(session, produkId);
+			tx.commit();
+			hasil.put("status", "00"); hasil.put("description", "Transaksi berhasil dikoreksi. Total pembayaran dan stok sudah dihitung ulang.");
+			hasil.put("totalBiaya", totalBaru);
+		} catch (Exception e) {
+			if (tx != null && tx.isActive()) try { tx.rollback(); } catch (Exception rollback) { ais.common.ErrorAuditUtil.record(rollback, "editTransaksi-rollback"); }
+			hasil.put("status", "91"); hasil.put("description", e instanceof IllegalStateException ? e.getMessage() : Common.tampilErrorJikaAdmin(e));
+		} finally { tutupSessionPolaB(session); }
+	}
+
 	/**
 	 * <h3>Kasir (Desktop/Android) -- evaluasi Aturan Diskon otomatis utk isi keranjang saat ini.</h3>
 	 *
 	 * <p>MURNI MENGHITUNG, tidak menyimpan apa pun -- Desktop/Android dipanggil ulang setiap kali
 	 * keranjang berubah (tambah/qty/hapus/pilih member/pilih toko), lalu memasukkan angka {@code
 	 * diskon}/{@code cashback}/{@code aturanDiskon} hasilnya ke payload {@code transaksi[]} yang SAMA
-	 * dikirim ke aksi {@code bayar} -- {@link #bayar} TIDAK menghitung ulang diskon, ia hanya
-	 * menjumlahkan angka yang sudah dikirim klien lewat {@link #hitungTotalDiskonCashback} (SAMA
-	 * perilakunya dgn JSP/ZK selama ini, lihat catatan di method itu).</p>
+	 * dikirim ke aksi {@code bayar}. Saat checkout, {@link #bayar} mengevaluasi ulang aturan tersebut
+	 * di server melalui {@link #terapkanEvaluasiDiskonServer}; angka dari klien hanya untuk pratinjau
+	 * dan bukan sumber kebenaran finansial.</p>
 	 *
 	 * <p>Logika PORTING 1:1 dari mesin evaluasi client-side yang SUDAH ADA -- JSP {@code _pos.jsp}
 	 * (fungsi {@code evaluateDiscount}/{@code recalculateCart}/{@code loadAturanDiskon}/{@code
@@ -13753,7 +13887,7 @@ public class KantinHelper {
 		// terlihat di seluruh kanal tanpa perlu menduplikasi logika di tiap klien.
 		java.util.List<java.util.Map<String, Object>> groupRules = new java.util.ArrayList<java.util.Map<String, Object>>();
 		java.sql.PreparedStatement psGroup = conn.prepareStatement(
-				"SELECT g.id,d.produk,g.toko,COALESCE(g.berlaku_semua_member,NOT COALESCE(g.khusus_member,false)), "
+				"SELECT g.id,d.produk,g.toko,NOT COALESCE(g.khusus_member,false), "
 						+ "g.jenis_anggota,g.tipe_anggota,g.persentase,g.maksimal_potongan,g.nominal,COALESCE(g.potongan_langsung,true), "
 						+ "g.hari_aktif,g.nama_grup,g.keterangan,COALESCE(g.khusus_member,false),COALESCE(g.jenis_member_json,'[]'), "
 						+ "COALESCE(g.tipe_member_json,'[]'),COALESCE(g.cashback,0),COALESCE(g.prioritas,100),"
