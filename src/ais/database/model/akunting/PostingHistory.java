@@ -55,6 +55,7 @@ public class PostingHistory extends GeneralValueObject {
 	public static final String JENIS_PENGAJUAN_TRANSFER = "Daftar pengajuan transfer";
 	public static final String PENGAJUAN_TRANSITORI = "Pengajuan transitori";
 	public static final String JENIS_PERTANGGUNGJAWABAN_UANG_MUKA = "Pertanggungjawaban Uang Muka";
+	public static final String JENIS_REIMBURSEMENT_PEGAWAI = "Reimbursement Pegawai";
 	public static final String JENIS_PERTANGGUNGJAWABAN_KAS_BESAR = "Pertanggungjawaban Kas Besar";
 	public static final String JENIS_PERTANGGUNGJAWABAN_PAJAK = "Pajak";
 	public static final String JENIS_PENGEMBALIAN_UANG_MUKA = "Pengembalian uang muka";
