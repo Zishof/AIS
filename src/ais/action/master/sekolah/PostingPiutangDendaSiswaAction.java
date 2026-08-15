@@ -481,13 +481,13 @@ public class PostingPiutangDendaSiswaAction extends GenericAutowireComposer {
 				GrupTransaksi.tampilkanJurnal(akunDebet, nilai, akunKredit, nilai).setParent(arg0);
 			} else {
 				// Debet dari Akun Piutang Denda, kredit dari Akun Denda — keduanya kolom ItemBiayaSekolah.
-				new Label(CommonAkunting.jelaskanTransaksiTidakValid(akunDebet, akunKredit,
+				ais.action.master.helper.AnalisisPemetaanAkunHelper.tampilkanInvalid(arg0, CommonAkunting.jelaskanTransaksiTidakValid(akunDebet, akunKredit,
 						CommonAkunting.langkahLengkapiKolomAkun("Item Biaya Sekolah",
 								"item biaya sekolah \"" + tagihan.getItemBiayaSekolah().getNama() + "\"",
 								"Akun Piutang Denda"),
 						CommonAkunting.langkahLengkapiKolomAkun("Item Biaya Sekolah",
 								"item biaya sekolah \"" + tagihan.getItemBiayaSekolah().getNama() + "\"",
-								"Akun Denda"))).setParent(arg0);
+								"Akun Denda")));
 			}
 
 			new Label(tagihan.getPostingHistoryDenda() == null ? Common.getBahasaConfig("Belum diposting")

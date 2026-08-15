@@ -689,12 +689,11 @@ public class PostingCicilanDibayarDimukaMahasiswaAction extends GenericAutowireC
 				// Dibayar Dimuka utk debet, Akun Piutang/Pendapatan utk kredit) — BUKAN pola
 				// debet=Jenis Pembayaran seperti overload (Akun,Akun,ItemBiaya,Kegiatan), jadi
 				// pakai overload generik dengan hint sendiri utk kedua sisi.
-				new Label(CommonAkunting.jelaskanTransaksiTidakValid(akunDebet, akunKredit,
+				ais.action.master.helper.AnalisisPemetaanAkunHelper.tampilkanInvalid(arg0, CommonAkunting.jelaskanTransaksiTidakValid(akunDebet, akunKredit,
 						CommonAkunting.hintPemetaanItemBiaya(cicilanPembayaran.getItemBiaya(),
 								cicilanPembayaran.getKegiatan(), "Akun Pendapatan Dibayar Dimuka"),
 						CommonAkunting.hintPemetaanItemBiaya(cicilanPembayaran.getItemBiaya(),
-								cicilanPembayaran.getKegiatan(), "Akun Pendapatan\" atau \"Akun Piutang")))
-						.setParent(arg0);
+								cicilanPembayaran.getKegiatan(), "Akun Pendapatan\" atau \"Akun Piutang")), cicilanPembayaran.getItemBiaya(), cicilanPembayaran.getKegiatan());
 			}
 
 			String bukti = "";

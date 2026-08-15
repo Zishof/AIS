@@ -690,12 +690,11 @@ public class PostingDetailKegiatanAction extends GenericAutowireComposer {
 			} else {
 				// Jurnal akrual: debet = Akun Piutang, kredit = Akun Pendapatan — keduanya
 				// dari pemetaan ItemBiaya (bukan Jenis Pembayaran seperti Posting Pembayaran).
-				new Label(CommonAkunting.jelaskanTransaksiTidakValid(akunDebet, akunKredit,
+				ais.action.master.helper.AnalisisPemetaanAkunHelper.tampilkanInvalid(arg0, CommonAkunting.jelaskanTransaksiTidakValid(akunDebet, akunKredit,
 						CommonAkunting.hintPemetaanItemBiaya(detailKegiatan.getItemBiaya(), detailKegiatan.getKegiatan(),
 								"Akun Piutang"),
 						CommonAkunting.hintPemetaanItemBiaya(detailKegiatan.getItemBiaya(), detailKegiatan.getKegiatan(),
-								"Akun Pendapatan")))
-						.setParent(arg0);
+								"Akun Pendapatan")), detailKegiatan.getItemBiaya(), detailKegiatan.getKegiatan());
 			}
 
 			String bukti = "";
@@ -938,8 +937,16 @@ public class PostingDetailKegiatanAction extends GenericAutowireComposer {
 
 				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 
-				.add(Restrictions.sqlRestriction(
-						"this_.item_biaya in (select item_biaya from item_biaya_punya_piutang where akun is not null and item_biaya is not null group by item_biaya)"))
+				// CATATAN: dulu ada sqlRestriction "item_biaya in (select item_biaya from
+				// item_biaya_punya_piutang where akun is not null ...)" di sini -- efeknya
+				// SELURUH DetailKegiatan dari suatu Item Biaya yang belum PERNAH dikonfigurasi
+				// Akun Piutang-nya (di jurusan/prodi mana pun) langsung HILANG dari daftar ini
+				// tanpa keterangan, bukan tampil dengan hint "Transaksi tidak valid" seperti tab
+				// sejenis (Dibayar Dimuka). Akibatnya piutang riil bisa tak pernah terlihat/ke-
+				// posting, dan admin tidak tahu ada yang hilang. Dihapus supaya perilakunya
+				// konsisten dgn PostingCicilanDibayarDimukaMahasiswaAction: baris tetap tampil,
+				// baris yg akunnya belum lengkap tampil dgn hint perbaikan (lihat DetailKegiatanRenderer
+				// baris ~690 CommonAkunting.jelaskanTransaksiTidakValid), bukan disembunyikan diam-diam.
 
 				.add(Restrictions.isNotNull("tanggal"))
 				.add(Restrictions.or(Restrictions.isNotNull("postingHistory"), Restrictions.ne("biaya", 0.0)))

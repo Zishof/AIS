@@ -775,9 +775,8 @@ public class PostingCicilanMahasiswaAction extends GenericAutowireComposer {
 					GrupTransaksi.tampilkanJurnal(akunsDebets, nilaiDebets, akunsKredits, nilaiKredits).setParent(arg0);
 				}
 			} else {
-				new Label(CommonAkunting.jelaskanTransaksiTidakValid(akunDebet, akunKredit,
-						cicilanPembayaran.getItemBiaya(), cicilanPembayaran.getKegiatan()))
-						.setParent(arg0);
+				ais.action.master.helper.AnalisisPemetaanAkunHelper.tampilkanInvalid(arg0, CommonAkunting.jelaskanTransaksiTidakValid(akunDebet, akunKredit,
+						cicilanPembayaran.getItemBiaya(), cicilanPembayaran.getKegiatan()), cicilanPembayaran.getItemBiaya(), cicilanPembayaran.getKegiatan());
 			}
 
 			String bukti = "";
@@ -1002,9 +1001,7 @@ public class PostingCicilanMahasiswaAction extends GenericAutowireComposer {
 		Criteria criteria = session.createCriteria(CicilanPembayaran.class).add(ais.action.master.helper.PostingJurnalHelper.restriksiPosting("postingHistory", sudahPostingDasbor))
 				.add(Restrictions.ne("nilai", 0.0))
 				.add(Restrictions.isNotNull("nilai"))
-				.add((tglMulai == null || tglSampai == null) ? org.hibernate.criterion.Restrictions.sqlRestriction("1=1") : (Restrictions.sqlRestriction(
-						"date(this_.tanggal) between date('" + Common.databaseDateFormat.get().format(tglMulai.getValue())
-								+ "') and  date('" + Common.databaseDateFormat.get().format(tglSampai.getValue()) + "')")))
+				.add(restriksiTanggalPosting())
 				.add(searchitembiaya.getSelectedItem() == null || searchitembiaya.getSelectedItem().getValue() == null
 						? Restrictions.sqlRestriction("1=1")
 						: Restrictions.eq("itemBiaya", searchitembiaya.getSelectedItem().getValue()))
@@ -1058,6 +1055,17 @@ public class PostingCicilanMahasiswaAction extends GenericAutowireComposer {
 								Restrictions.ilike("calonMahasiswa.noUjian", searchnama.getValue().trim())));
 
 		return criteria;
+	}
+
+	private org.hibernate.criterion.Criterion restriksiTanggalPosting() {
+		if (tglMulai == null || tglSampai == null || tglMulai.getValue() == null || tglSampai.getValue() == null) {
+			return Restrictions.sqlRestriction("1=1");
+		}
+		String mulai = Common.databaseDateFormat.get().format(tglMulai.getValue());
+		String sampai = Common.databaseDateFormat.get().format(tglSampai.getValue());
+		return Restrictions.sqlRestriction("(date(coalesce(this_.tanggal_tagihan, this_.tanggal)) between date('" + mulai
+				+ "') and date('" + sampai + "') or date(this_.tanggal) between date('" + mulai + "') and date('"
+				+ sampai + "'))");
 	}
 
 	@SuppressWarnings("unchecked")

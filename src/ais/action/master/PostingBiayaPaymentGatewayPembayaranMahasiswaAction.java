@@ -542,12 +542,11 @@ public class PostingBiayaPaymentGatewayPembayaranMahasiswaAction extends Generic
 						: logPembayaran.getBniRequest() != null ? "kode_akun_bni_biaya_payment_gateway"
 						: logPembayaran.getJatelindoRequest() != null ? "kode_akun_jatelindo_biaya_payment_gateway"
 						: "kode_akun_manual_biaya_payment_gateway";
-				new Label(CommonAkunting.jelaskanTransaksiTidakValid(akunDebet, akunKredit,
+				ais.action.master.helper.AnalisisPemetaanAkunHelper.tampilkanInvalid(arg0, CommonAkunting.jelaskanTransaksiTidakValid(akunDebet, akunKredit,
 						CommonAkunting.langkahIsiKonfigurasiAkun(kodeParamDebet,
 								"kode Akun debet utk biaya payment gateway transaksi ini"),
 						CommonAkunting.langkahLengkapiKolomAkun("Jenis Pembayaran",
-								"Jenis Pembayaran default (atau sesuai gateway yang dipakai)", "Akun")))
-						.setParent(arg0);
+								"Jenis Pembayaran default (atau sesuai gateway yang dipakai)", "Akun")));
 			}
 
 			new Label(logPembayaran.getPostingHistoryPaymentGateway() == null ? Common.getBahasaConfig("Belum diposting")

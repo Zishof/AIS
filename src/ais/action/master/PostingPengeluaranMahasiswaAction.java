@@ -553,15 +553,14 @@ public class PostingPengeluaranMahasiswaAction extends GenericAutowireComposer {
 				GrupTransaksi.tampilkanJurnal(akunDebet, nilai, akunKredit, nilai).setParent(arg0);
 			} else {
 				// Pengeluaran: debet dari Jenis Pembayaran, kredit dari Jenis Pengeluaran Mahasiswa — bukan ItemBiaya.
-				new Label(CommonAkunting.jelaskanTransaksiTidakValid(akunDebet, akunKredit,
+				ais.action.master.helper.AnalisisPemetaanAkunHelper.tampilkanInvalid(arg0, CommonAkunting.jelaskanTransaksiTidakValid(akunDebet, akunKredit,
 						CommonAkunting.langkahLengkapiKolomAkun("Jenis Pembayaran",
 								"Jenis Pembayaran \"" + pengeluaranMahasiswa.getJenisPembayaran().getNama() + "\"",
 								"Akun"),
 						CommonAkunting.langkahLengkapiKolomAkun("Jenis Pengeluaran Mahasiswa",
 								"Jenis Pengeluaran Mahasiswa \""
 										+ pengeluaranMahasiswa.getJenisPengeluaranMahasiswa().getNama() + "\"",
-								"Akun")))
-						.setParent(arg0);
+								"Akun")));
 			}
 
 			String bukti = "";
