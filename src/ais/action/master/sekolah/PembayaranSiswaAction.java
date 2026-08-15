@@ -50,6 +50,7 @@ import ais.action.master.helper.RevisiDetailPembayaranSiswaHelper;
 import ais.action.master.helper.RevisiHelper;
 import ais.action.master.sekolah.helper.AmbilDataCalonSiswaBanbox;
 import ais.action.master.sekolah.helper.AmbilDataSiswaBanbox;
+import ais.action.master.sekolah.helper.AnalisisTagihanSekolahHelper;
 import ais.action.master.sekolah.helper.DetailTagihanSiswaHelper;
 import ais.action.master.sekolah.helper.RevisiPembayaranSiswaHelper;
 import ais.action.master.sekolah.helper.TagihanUtil;
@@ -1361,6 +1362,31 @@ public class PembayaranSiswaAction extends GenericAutowireComposer
 
 			rowsDetailBiaya = new Rows();
 			rowsDetailBiaya.setParent(gridDetailBiaya);
+
+			if (tagihans == null || tagihans.isEmpty()) {
+				Row infoKosong = new Row();
+				infoKosong.setSpans("4");
+				infoKosong.setStyle("background:#fff7ed;border-left:4px solid #f59e0b;padding:8px");
+				Vbox panduan = new Vbox();
+				panduan.setWidth("100%");
+				panduan.appendChild(new Label("Belum ada tagihan yang dapat ditampilkan. Gunakan Analisis Data untuk mengetahui kriteria Pengaturan Biaya yang belum cocok."));
+				final JenisBiayaSekolah jenisBiayaAnalisis = jenisBiaya;
+				MyToolbarbuttonConfig analisis = new MyToolbarbuttonConfig("Analisis Data", "/img/svg/search.svg");
+				analisis.setTooltiptext("Periksa sekolah, jenis pengguna, angkatan, kelas, asrama, jurusan, status awal, gelombang, item biaya, dan hasil proses tagihan");
+				analisis.setParent(panduan);
+				analisis.addEventListener("onClick", new EventListener() {
+					@Override
+					public void onEvent(Event event) throws Exception {
+						Integer bln = PembayaranSiswaAction.this.bulan.getSelectedItem() == null ? null
+								: (Integer) PembayaranSiswaAction.this.bulan.getSelectedItem().getValue();
+						Integer thn = PembayaranSiswaAction.this.tahun.getSelectedItem() == null ? null
+								: (Integer) PembayaranSiswaAction.this.tahun.getSelectedItem().getValue();
+						AnalisisTagihanSekolahHelper.buka(s, cs, jenisBiayaAnalisis, bln, thn);
+					}
+				});
+				panduan.setParent(infoKosong);
+				infoKosong.setParent(rowsDetailBiaya);
+			}
 
 			final EventListener hitungNominalBiaya = new EventListener() {
 
