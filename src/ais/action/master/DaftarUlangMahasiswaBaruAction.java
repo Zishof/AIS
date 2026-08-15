@@ -2946,15 +2946,18 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 		private final boolean gagalPertama;
 		private final String nilaiTersedia;
 		private final String tindakan;
+		private final Criterion criterion;
+		private int jumlahJikaDilewati = -1;
 
 		private TahapAnalisisTagihanBaru(String nama, String nilai, int jumlah, boolean gagalPertama,
-				String nilaiTersedia, String tindakan) {
+				String nilaiTersedia, String tindakan, Criterion criterion) {
 			this.nama = nama;
 			this.nilai = nilai;
 			this.jumlah = jumlah;
 			this.gagalPertama = gagalPertama;
 			this.nilaiTersedia = nilaiTersedia;
 			this.tindakan = tindakan;
+			this.criterion = criterion;
 		}
 	}
 
@@ -2973,7 +2976,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 			int semua = hitungSettingBiayaBaru(sessionAnalisis, filter);
 			tahap.add(new TahapAnalisisTagihanBaru("Semua data Setting Biaya", "Tanpa kriteria", semua, semua == 0,
 					semua == 0 ? "Database Setting Biaya masih kosong" : semua + " baris ditemukan",
-					semua == 0 ? tindakanKriteriaTagihanBaru("Semua data Setting Biaya", "-") : ""));
+					semua == 0 ? tindakanKriteriaTagihanBaru("Semua data Setting Biaya", "-") : "", null));
 			boolean sudahGagal = semua == 0;
 
 			sudahGagal = tambahTahapTagihanBaru(sessionAnalisis, filter, tahap, "Jenis pembayaran",
@@ -3027,6 +3030,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 			sudahGagal = tambahTahapTagihanBaru(sessionAnalisis, filter, tahap, "Afiliasi",
 					namaObjekAnalisisBaru(calonMahasiswa.getAfiliasiCalonMahasiswa()),
 					kriteriaWildcardBaru("afiliasiCalonMahasiswa", calonMahasiswa.getAfiliasiCalonMahasiswa()), sudahGagal);
+			hitungUjiKriteriaDilewatiBaru(sessionAnalisis, tahap);
 
 			Criteria akhirCriteria = sessionAnalisis.createCriteria(SettingBiaya.class);
 			for (Criterion c : filter) akhirCriteria.add(c);
@@ -3079,7 +3083,7 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 		String tersedia = gagal ? nilaiTersediaTagihanBaru(session, filter, nama) : "";
 		String tindakan = gagal ? tindakanKriteriaTagihanBaru(nama, nilai) : "";
 		tahap.add(new TahapAnalisisTagihanBaru(nama, nilai == null || nilai.trim().isEmpty() ? "-" : nilai,
-				jumlah, gagal, tersedia, tindakan));
+				jumlah, gagal, tersedia, tindakan, criterion));
 		return sudahGagal || gagal;
 	}
 
@@ -3088,6 +3092,18 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 		for (Criterion c : filter) criteria.add(c);
 		Number n = (Number) criteria.setProjection(Projections.rowCount()).uniqueResult();
 		return n == null ? 0 : n.intValue();
+	}
+
+	private void hitungUjiKriteriaDilewatiBaru(Session session, List<TahapAnalisisTagihanBaru> tahap) {
+		for (TahapAnalisisTagihanBaru yangDilewati : tahap) {
+			if (yangDilewati.criterion == null) continue;
+			Criteria criteria = session.createCriteria(SettingBiaya.class);
+			for (TahapAnalisisTagihanBaru t : tahap) {
+				if (t.criterion != null && t != yangDilewati) criteria.add(t.criterion);
+			}
+			Number n = (Number) criteria.setProjection(Projections.rowCount()).uniqueResult();
+			yangDilewati.jumlahJikaDilewati = n == null ? 0 : n.intValue();
+		}
 	}
 
 	private Criterion kriteriaWildcardBaru(String properti, Object nilai) {
@@ -3233,6 +3249,17 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 	private String kesimpulanAnalisisTagihanBaru(List<TahapAnalisisTagihanBaru> tahap, int khusus,
 			int kandidat, int detail, int bulanan, int smt) {
 		if (khusus > 0) return "Ditemukan setting khusus calon mahasiswa. Periksa rentang semester dan Item Biaya di setting khusus tersebut.";
+		List<String> penghambat = new ArrayList<String>();
+		for (TahapAnalisisTagihanBaru t : tahap)
+			if (kandidat == 0 && t.jumlahJikaDilewati > 0) penghambat.add(t.nama + " harus cocok dengan " + t.nilai);
+		if (!penghambat.isEmpty()) {
+			StringBuffer sb = new StringBuffer("Uji pengecualian membuktikan kriteria penghambat: ");
+			for (int i = 0; i < penghambat.size(); i++) {
+				if (i > 0) sb.append("; ");
+				sb.append(penghambat.get(i));
+			}
+			return sb.append(". Buat atau perbaiki varian Setting Biaya sesuai nilai tersebut.").toString();
+		}
 		for (TahapAnalisisTagihanBaru t : tahap) {
 			if (t.gagalPertama) {
 				return "Kandidat menjadi kosong pada kriteria '" + t.nama + "'. Sistem mencari '" + t.nilai
@@ -3247,6 +3274,15 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 
 	private String tindakanUtamaTagihanBaru(List<TahapAnalisisTagihanBaru> tahap, int khusus,
 			int kandidat, int detail, int bulanan, int smt) {
+		StringBuffer terbukti = new StringBuffer();
+		for (TahapAnalisisTagihanBaru t : tahap) {
+			if (kandidat == 0 && t.jumlahJikaDilewati > 0 && t.tindakan != null && !t.tindakan.trim().isEmpty()) {
+				if (terbukti.length() > 0) terbukti.append("\n");
+				terbukti.append("Prioritas ").append(t.nama).append(": ").append(t.nilai).append(".")
+						.append("\n").append(t.tindakan);
+			}
+		}
+		if (terbukti.length() > 0) return terbukti.toString();
 		for (TahapAnalisisTagihanBaru t : tahap) if (t.gagalPertama) return t.tindakan;
 		if (khusus > 0) return "Buka setting khusus calon mahasiswa ini.\nPastikan rentang semester mencakup semester " + smt + ".\nPastikan Item Biaya aktif dan nominal telah diisi.";
 		if (kandidat == 0) return "Buat Setting Biaya sesuai seluruh data calon pada tabel analisis.\nTambahkan Item Biaya dan nominal tagihan.";
@@ -3286,23 +3322,28 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 				.append(" &nbsp;|&nbsp; Semester: ").append(smt)
 				.append(" &nbsp;|&nbsp; Angkatan: ").append(calonMahasiswa.getTahun())
 				.append(" &nbsp;|&nbsp; Prodi: ").append(escHtmlTagihan(namaObjekAnalisisBaru(jurusan))).append("</div>")
-				.append("<p>Query dimulai tanpa kriteria, kemudian data calon mahasiswa dimasukkan satu per satu. Baris merah adalah titik pertama yang membuat kandidat kosong.</p>")
+				.append("<p>Query diuji dua arah: dimasukkan berurutan dan dilewati satu per satu. Kolom <b>Jika dilewati</b> yang berubah menjadi lebih dari nol membuktikan penyebab utama.</p>")
 				.append("<table style='width:100%;border-collapse:collapse;font-size:12px'>")
 				.append("<tr style='background:#e5e7eb'><th style='padding:7px;border:1px solid #d1d5db'>No.</th>")
 				.append("<th style='padding:7px;border:1px solid #d1d5db;text-align:left'>Kriteria</th>")
 				.append("<th style='padding:7px;border:1px solid #d1d5db;text-align:left'>Data calon</th>")
 				.append("<th style='padding:7px;border:1px solid #d1d5db'>Kandidat</th>")
+				.append("<th style='padding:7px;border:1px solid #d1d5db'>Jika dilewati</th>")
 				.append("<th style='padding:7px;border:1px solid #d1d5db;text-align:left'>Data tersedia saat gagal</th>")
 				.append("<th style='padding:7px;border:1px solid #d1d5db'>Status</th></tr>");
 		for (int i = 0; i < tahap.size(); i++) {
 			TahapAnalisisTagihanBaru t = tahap.get(i);
 			String bg = t.gagalPertama ? "#fee2e2" : (t.jumlah > 0 ? "#f0fdf4" : "#f9fafb");
-			String status = t.gagalPertama ? "&#10060; TITIK GAGAL" : (t.jumlah > 0 ? "&#10004; Cocok" : "- Tetap kosong");
+			boolean terbukti = kandidat == 0 && t.jumlahJikaDilewati > 0;
+			String status = terbukti ? "&#9888; PENYEBAB TERBUKTI"
+					: (t.gagalPertama ? "&#10060; TITIK GAGAL" : (t.jumlah > 0 ? "&#10004; Cocok" : "- Tetap kosong"));
 			html.append("<tr style='background:").append(bg).append("'><td style='padding:6px;border:1px solid #d1d5db;text-align:center'>")
 					.append(i + 1).append("</td><td style='padding:6px;border:1px solid #d1d5db'><b>")
 					.append(escHtmlTagihan(t.nama)).append("</b></td><td style='padding:6px;border:1px solid #d1d5db'>")
 					.append(escHtmlTagihan(t.nilai)).append("</td><td style='padding:6px;border:1px solid #d1d5db;text-align:center'>")
-					.append(t.jumlah).append("</td><td style='padding:6px;border:1px solid #d1d5db'>")
+					.append(t.jumlah).append("</td><td style='padding:6px;border:1px solid #d1d5db;text-align:center'>")
+					.append(t.criterion == null ? "-" : String.valueOf(t.jumlahJikaDilewati))
+					.append("</td><td style='padding:6px;border:1px solid #d1d5db'>")
 					.append(escHtmlTagihan(t.nilaiTersedia)).append("</td><td style='padding:6px;border:1px solid #d1d5db;text-align:center'>")
 					.append(status).append("</td></tr>");
 		}
