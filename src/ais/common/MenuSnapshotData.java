@@ -956,6 +956,8 @@ public final class MenuSnapshotData {
             "180678|400000009|600000000|Pengajuan Uang Muka|/pages/master/akunting/uang_muka.zul|/img/svg/money-bills.svg|0",
             "135678121|400000009|600000001|Persetujuan Uang Muka|/pages/master/akunting/persetujuan_uang_muka.zul|/img/svg/money-bills.svg|0",
             "260815001|400000009|600000002|Reimbursement Pegawai|/pages/master/akunting/reimbursement_pegawai.zul|/img/svg/money-bills.svg|0",
+            "260815002|400000009|600000003|Dashboard Reimbursement|/pages/master/akunting/dashboard_reimbursement_pegawai.zul|/img/Graph-icon.png|0",
+            "260815003|400000009|600000004|Laporan Reimbursement|/pages/master/akunting/laporan_reimbursement_pegawai.zul|/img/report-icon.png|0",
             "363822656|400000009|600000006|Persetujuan Pajak|/pages/master/akunting/pertangungjawaban_pajak.zul|/img/Invoice-icon_.png|0",
             "74342|400000009|600000012|Pengembalian Sisa Uang Muka|/pages/master/akunting/pertangungjawaban_pengembalian.zul|/img/svg/money-bills.svg|0",
             "14474448|400000009|600000012|Pertanggungjawaban Uang Muka|/pages/master/akunting/pertangungjawaban.zul|/img/svg/money-bills.svg|0",

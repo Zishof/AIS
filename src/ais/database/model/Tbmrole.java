@@ -40,6 +40,7 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 
 	public static final String Presensi = "Presensi";
 	public static final String ADMINISTRATOR = "am";
+	public static final String KEUANGAN = "keu";
 	public static final String AKADEMIK = "Akademik";
 	public static final String DOSEN = "Dosen";
 	/** Role tenaga medis RS/Klinik — mencakup kategori Dokter, Perawat, dan Bidan (satu data {@code sirs.dokter}). */

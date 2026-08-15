@@ -1,0 +1,30 @@
+<?page title="Dashboard Reimbursement" cacheable="false" language="xul/html" contentType="text/html;charset=UTF-8"?>
+<zk xmlns="http://www.zkoss.org/2005/zul">
+  <window apply="ais.action.master.akunting.ReimbursementDashboardAction" width="100%" height="100%" border="none">
+    <style>
+      .rdb-wrap{padding:10px;background:#f4f7fb}.rdb-hero{background:linear-gradient(120deg,#17396b,#087d8b);color:white;padding:18px;border-radius:12px}
+      .rdb-title{font-size:22px;font-weight:bold}.rdb-muted{color:#d8f3f5}.rdb-card{background:white;border:1px solid #dfe7ef;border-radius:10px;padding:12px;margin-top:10px}
+      .rdb-kpi{background:white;border:1px solid #dfe7ef;border-radius:10px;padding:12px;margin:5px}.rdb-kpi-title{color:#61768a;font-size:11px}.rdb-kpi-value{font-size:20px;font-weight:bold;color:#17396b}
+    </style>
+    <div sclass="rdb-wrap">
+      <div sclass="rdb-hero"><label sclass="rdb-title" value="Dashboard Reimbursement Pegawai"/><separator/><label sclass="rdb-muted" value="Pantau volume, nilai, SLA persetujuan, pencairan, tren, dan antrean tindak lanjut."/></div>
+      <div sclass="rdb-card"><hbox align="center" spacing="8px"><label value="Mulai"/><datebox use="ais.ui.util.MyDatebox" id="start" format="dd/MM/yyyy"/><label value="Sampai"/><datebox use="ais.ui.util.MyDatebox" id="end" format="dd/MM/yyyy"/><label value="Status"/><combobox id="status" readonly="true"/><button label="Tampilkan" image="/img/refresh.gif" forward="onClick=onRefresh"/><label id="lastRefresh"/></hbox></div>
+      <hbox width="100%" pack="stretch">
+        <vbox sclass="rdb-kpi" width="19%"><label sclass="rdb-kpi-title" value="TOTAL PENGAJUAN"/><label id="kpiTotal" sclass="rdb-kpi-value"/></vbox>
+        <vbox sclass="rdb-kpi" width="19%"><label sclass="rdb-kpi-title" value="TOTAL NOMINAL"/><label id="kpiNominal" sclass="rdb-kpi-value"/></vbox>
+        <vbox sclass="rdb-kpi" width="19%"><label sclass="rdb-kpi-title" value="DALAM PROSES"/><label id="kpiMenunggu" sclass="rdb-kpi-value"/></vbox>
+        <vbox sclass="rdb-kpi" width="19%"><label sclass="rdb-kpi-title" value="SUDAH DIBAYAR"/><label id="kpiLunas" sclass="rdb-kpi-value"/></vbox>
+        <vbox sclass="rdb-kpi" width="22%"><label sclass="rdb-kpi-title" value="SLA &amp; CYCLE TIME"/><label id="kpiSla" sclass="rdb-kpi-value"/></vbox>
+      </hbox>
+      <hbox width="100%" pack="stretch">
+        <vbox sclass="rdb-card" width="50%"><label value="Distribusi Status" style="font-weight:bold"/><grid id="gridStatus" width="100%"><columns><column label="Status"/><column label="Dokumen" width="80px"/><column label="Nominal"/><column label="Proporsi" width="90px"/></columns></grid></vbox>
+        <vbox sclass="rdb-card" width="50%"><label value="Kategori Pengeluaran" style="font-weight:bold"/><grid id="gridKategori" width="100%"><columns><column label="Kategori"/><column label="Dokumen" width="80px"/><column label="Nominal"/><column label="Proporsi" width="90px"/></columns></grid></vbox>
+      </hbox>
+      <hbox width="100%" pack="stretch">
+        <vbox sclass="rdb-card" width="50%"><label value="Aging Pengajuan Terbuka" style="font-weight:bold"/><grid id="gridAging" width="100%"><columns><column label="Umur"/><column label="Dokumen" width="80px"/><column label="Nominal"/><column label="Proporsi" width="90px"/></columns></grid></vbox>
+        <vbox sclass="rdb-card" width="50%"><label value="Tren Bulanan" style="font-weight:bold"/><grid id="gridBulanan" width="100%"><columns><column label="Bulan"/><column label="Dokumen" width="80px"/><column label="Nominal"/><column label="Proporsi" width="90px"/></columns></grid></vbox>
+      </hbox>
+      <vbox sclass="rdb-card" width="98%"><label value="20 Antrean Terlama yang Perlu Ditindaklanjuti" style="font-weight:bold"/><grid id="gridAntrean" width="100%"><columns><column label="Kode"/><column label="Pegawai"/><column label="Status"/><column label="Umur"/><column label="Nominal"/><column label="Atasan"/></columns></grid></vbox>
+    </div>
+  </window>
+</zk>
