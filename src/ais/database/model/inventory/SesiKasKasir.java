@@ -85,6 +85,7 @@ public class SesiKasKasir extends GeneralValueObject {
 	private String status;
 	private String keterangan;
 	private String kode;
+	private String laporanTutupJson;
 
 	@javax.persistence.PreUpdate
 	protected void onUpdate() {
@@ -280,6 +281,20 @@ public class SesiKasKasir extends GeneralValueObject {
 
 	public void setKode(String kode) {
 		this.kode = kode;
+	}
+
+	/**
+	 * Snapshot laporan saat kas ditutup. Disimpan sebagai JSON agar cetak ulang selalu memakai
+	 * angka yang telah direkonsiliasi pada saat penutupan, bukan menghitung ulang data yang mungkin
+	 * sudah berubah karena retur atau koreksi setelah shift berakhir.
+	 */
+	@Column(name = "laporan_tutup_json", columnDefinition = "text")
+	public String getLaporanTutupJson() {
+		return laporanTutupJson;
+	}
+
+	public void setLaporanTutupJson(String laporanTutupJson) {
+		this.laporanTutupJson = laporanTutupJson;
 	}
 
 	@Temporal(TemporalType.TIMESTAMP)

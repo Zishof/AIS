@@ -1318,6 +1318,38 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         }
     };
 
+    const escapeLaporanKas<%=rnd%> = (v) => String(v == null ? '' : v)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const isiLaporanKas<%=rnd%> = (l) => {
+        const barisMetode = (l.metodePembayaran || []).map(m =>
+            '<div class="mt-2 fw-bold">' + escapeLaporanKas<%=rnd%>(m.nama) + '</div>' +
+            '<div class="d-flex justify-content-between"><span>' + (m.jumlahTransaksi || 0) + 'x Penerimaan</span><span>' + formatRp<%=rnd%>(m.penerimaan || 0) + '</span></div>' +
+            '<div class="d-flex justify-content-between"><span>Retur</span><span>' + formatRp<%=rnd%>(m.retur || 0) + '</span></div>' +
+            '<div class="d-flex justify-content-between fw-bold"><span>Total ' + escapeLaporanKas<%=rnd%>(m.nama) + '</span><span>' + formatRp<%=rnd%>(m.total || 0) + '</span></div>'
+        ).join('');
+        return '<div class="font-monospace small" style="max-width:420px;margin:auto">' +
+          '<div class="text-center fw-bold fs-5">LAPORAN TUTUP KAS</div><div class="text-center">' + escapeLaporanKas<%=rnd%>(l.namaToko) + '</div><hr class="border-dashed">' +
+          '<div>Nama Kasir : ' + escapeLaporanKas<%=rnd%>(l.namaKasir) + '</div><div>Buka : ' + escapeLaporanKas<%=rnd%>(l.waktuBuka) + '</div><div>Tutup : ' + escapeLaporanKas<%=rnd%>(l.waktuTutup) + '</div><hr>' +
+          '<div class="d-flex justify-content-between"><span>Modal Awal</span><span>' + formatRp<%=rnd%>(l.modalAwal || 0) + '</span></div>' +
+          '<div class="d-flex justify-content-between"><span>Penjualan Tunai</span><span>' + formatRp<%=rnd%>(l.penjualanTunai || 0) + '</span></div>' +
+          '<div class="d-flex justify-content-between"><span>Kas Seharusnya</span><span>' + formatRp<%=rnd%>(l.kasSeharusnya || 0) + '</span></div>' +
+          '<div class="d-flex justify-content-between"><span>Jumlah Kas Tunai</span><span>' + formatRp<%=rnd%>(l.jumlahKasTunai || 0) + '</span></div>' +
+          '<div class="d-flex justify-content-between fw-bold"><span>Selisih</span><span>' + formatRp<%=rnd%>(l.selisih || 0) + '</span></div><hr>' +
+          '<div class="d-flex justify-content-between"><span>Retur Penjualan</span><span>' + formatRp<%=rnd%>(l.returPenjualan || 0) + '</span></div>' +
+          '<div class="d-flex justify-content-between"><span>Biaya (' + (l.jumlahBiaya || 0) + 'x)</span><span>' + formatRp<%=rnd%>(l.biaya || 0) + '</span></div><hr>' +
+          '<div class="d-flex justify-content-between"><span>Piutang (' + (l.jumlahTransaksiPiutang || 0) + 'x transaksi)</span><span>' + formatRp<%=rnd%>(l.piutang || 0) + '</span></div><hr>' + barisMetode + '<hr>' +
+          '<div class="d-flex justify-content-between fw-bold"><span>Jumlah Transaksi</span><span>' + (l.jumlahTransaksi || 0) + '</span></div>' +
+          '<div class="d-flex justify-content-between fw-bold fs-6"><span>Total Transaksi</span><span>' + formatRp<%=rnd%>(l.totalTransaksi || 0) + '</span></div></div>';
+    };
+    const tampilkanLaporanKas<%=rnd%> = (laporan) => {
+        let el = document.getElementById('modalLaporanKas<%=rnd%>');
+        if (!el) { el = document.createElement('div'); el.id='modalLaporanKas<%=rnd%>'; el.className='modal fade'; document.body.appendChild(el); }
+        const isi = isiLaporanKas<%=rnd%>(laporan || {});
+        el.innerHTML = '<div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Laporan Tutup Kas</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">'+isi+'</div><div class="modal-footer"><button class="btn btn-outline-success" id="cetakLaporanKas<%=rnd%>"><i class="bi bi-printer"></i> Cetak Laporan</button><button class="btn btn-success" data-bs-dismiss="modal">Selesai</button></div></div></div>';
+        document.getElementById('cetakLaporanKas<%=rnd%>').onclick = () => { const w=window.open('','_blank','width=480,height=720'); if(!w)return; w.document.write('<!doctype html><html><head><title>Laporan Tutup Kas</title><style>@page{size:80mm auto;margin:4mm}body{font:11px monospace;margin:0}.d-flex{display:flex}.justify-content-between{justify-content:space-between}.text-center{text-align:center}.fw-bold{font-weight:bold}hr{border:0;border-top:1px dashed #000}.mt-2{margin-top:8px}</style></head><body>'+isi+'<script>window.onload=function(){window.print()}<\/script></body></html>'); w.document.close(); };
+        bootstrap.Modal.getOrCreateInstance(el).show();
+    };
+
     const submitTutupKas<%=rnd%> = async () => {
         const yakin = confirm('<%=Common.getBahasaConfigJS("Apakah Bapak/Ibu yakin ingin menutup kas kasir sekarang? Selisih terhadap kas seharusnya akan dicatat secara permanen.")%>');
         if (!yakin) return;
@@ -1332,6 +1364,7 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
                 await muatStatusSesiKas<%=rnd%>();
                 const selisih = Number(r.selisih) || 0;
                 if (typeof tampilkanToast === "function") tampilkanToast('<%=Common.getBahasaConfigJS("Kas ditutup. Selisih")%>: ' + formatRp<%=rnd%>(selisih), selisih < 0 ? 'bg-danger text-white' : 'bg-success text-white');
+                tampilkanLaporanKas<%=rnd%>(r.laporanTutupKas || {});
             } else {
                 const pesan = (r && r.description) || '<%=Common.getBahasaConfigJS("Gagal menutup kas.")%>';
                 if (typeof tampilkanToast === "function") tampilkanToast(pesan, 'bg-danger text-white'); else alert(pesan);
@@ -1579,7 +1612,10 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             "AND (d.tanggal_mulai IS NULL OR d.tanggal_mulai <= now()) AND (d.tanggal_selesai IS NULL OR d.tanggal_selesai >= now()) " +
             "AND COALESCE(d.berlaku_semua_member,false) = true AND COALESCE(d.potongan_langsung,true) = true " +
             "AND COALESCE(d.aktivasi_manual,false) = false " +
-            "AND (d.hari_aktif IS NULL OR d.hari_aktif = '' OR (',' || d.hari_aktif || ',') LIKE ('%,' || EXTRACT(ISODOW FROM now())::int || ',%'))";
+            // Jangan memakai operator cast dua-titik PostgreSQL di native SQL yang lewat
+            // Hibernate: parser Hibernate menganggap `:int` sebagai named
+            // parameter. CAST standar menghasilkan SQL yang sama tanpa bentrok.
+            "AND (d.hari_aktif IS NULL OR d.hari_aktif = '' OR (',' || d.hari_aktif || ',') LIKE ('%,' || CAST(EXTRACT(ISODOW FROM now()) AS integer) || ',%'))";
         let sqlQuery = "SELECT a.id, a.kode, a.nama, a.hargajual, COALESCE(a.stok,0) AS stok, a.ekstra_pilihan, " +
                        "(SELECT MAX(d.persentase) FROM koperasi.aturan_diskon d WHERE " + kondisiDiskonAktif<%=rnd%> + " AND COALESCE(d.persentase,0) > 0) AS diskon_persen, " +
                        "(SELECT MAX(d.maksimal_potongan) FROM koperasi.aturan_diskon d WHERE " + kondisiDiskonAktif<%=rnd%> + " AND COALESCE(d.persentase,0) > 0) AS diskon_maks_potongan, " +
@@ -1905,9 +1941,16 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         const existingItem = cart<%=rnd%>.find(item => item.id === id && sameEkstraSelection<%=rnd%>(item.ekstra, ekstra));
         if (existingItem) {
             existingItem.jumlah += 1;
+            // Item yang baru dipindai ulang kembali ke urutan pertama agar
+            // qty-nya dapat langsung diperiksa/dikoreksi oleh kasir.
+            const posisiLama = cart<%=rnd%>.indexOf(existingItem);
+            if (posisiLama > 0) {
+                cart<%=rnd%>.splice(posisiLama, 1);
+                cart<%=rnd%>.unshift(existingItem);
+            }
         } else {
             let newItem = { id: id, kode: kode, nama: nama, harga: harga, jumlah: 1, diskon: 0, cashback: 0, aturanDiskon: null, berlakuPerHariDanPerToko: false, ekstra: ekstra };
-            cart<%=rnd%>.push(newItem);
+            cart<%=rnd%>.unshift(newItem);
         }
         recalculateCart<%=rnd%>();
     };
@@ -2874,20 +2917,25 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
                 document.getElementById('idMemberSelected<%=rnd%>').value = '';
                 document.getElementById('minSaldoMemberSelected<%=rnd%>').value = '0';
             } else {
-                if (typeof tampilkanToast === "function") {
-            	    tampilkanToast(result.description || "Gagal menyimpan transaksi.", 'bg-danger text-white');
-                } else {
-                    alert(result.description || "Gagal menyimpan transaksi.");
-                }
+                tampilkanPesanGagalFormal(
+                    "pembayaran transaksi POS",
+                    {
+                        judul: result.judul || "Pembayaran belum berhasil",
+                        message: result.message || "Pembayaran dihentikan agar tidak ada data yang tersimpan sebagian.",
+                        solusi: result.solusi || [],
+                        teknis: result.teknis || result.technical || result.description || JSON.stringify(result),
+                        referensi: result.referensi || result.traceId
+                    }
+                );
             }
             
         } catch (error) {
             console.error("Save Tx Error:", error);
-            if (typeof tampilkanToast === "function") {
-                tampilkanToast('<%=Common.getBahasaConfigJS("Koneksi terputus saat menyimpan.")%>', 'bg-danger text-white');
-            } else {
-                alert('<%=Common.getBahasaConfigJS("Koneksi terputus saat menyimpan.")%>');
-            }
+            tampilkanPesanGagalFormal(
+                "pembayaran transaksi POS",
+                { judul: "Server belum dapat dihubungi", message: "Aplikasi belum memperoleh jawaban dari server. Transaksi belum dinyatakan berhasil.", teknis: (error && error.stack) ? error.stack : String(error) },
+                ["Periksa koneksi jaringan.", "Periksa riwayat transaksi sebelum menekan Bayar lagi.", "Jika belum tercatat, coba kembali setelah koneksi stabil."]
+            );
         } finally {
             btnBayar.innerHTML = oriBtnHtml;
             btnBayar.disabled = false;

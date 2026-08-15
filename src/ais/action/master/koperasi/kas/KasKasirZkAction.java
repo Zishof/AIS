@@ -247,6 +247,11 @@ public class KasKasirZkAction extends MyWindow {
 								public void onEvent(Event ev) throws Exception {
 									if (new Integer(ev.getData().toString()).intValue() == MyMessageboxConfig.OK) {
 										SesiKasUtil.tutup(HibernateUtil.currentSession(), sesi, uang, keter);
+										org.json.JSONObject laporan = SesiKasUtil.laporanTersimpanAtauHitung(
+												HibernateUtil.currentSession(), sesi);
+										MyMessageboxConfig.show(SesiKasUtil.laporanTeks(laporan),
+												"Laporan Tutup Kas", MyMessageboxConfig.OK,
+												MyMessageboxConfig.INFORMATION);
 										render();
 										muatRiwayat();
 									}

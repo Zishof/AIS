@@ -3381,6 +3381,7 @@ public class InitIndex {
 		String[] DDL_RELASI_TRANSAKSI_SESI_KAS = new String[] {
 				"ALTER TABLE koperasi.sesi_kas_kasir ADD COLUMN IF NOT EXISTS id_perangkat varchar(128)",
 				"ALTER TABLE koperasi.sesi_kas_kasir ADD COLUMN IF NOT EXISTS nama_perangkat varchar(150)",
+				"ALTER TABLE koperasi.sesi_kas_kasir ADD COLUMN IF NOT EXISTS laporan_tutup_json text",
 				"ALTER TABLE koperasi.pembelian_anggota_koperasi ADD COLUMN IF NOT EXISTS sesi_kas_kasir bigint",
 				"ALTER TABLE koperasi.pembelian_anggota_koperasi ADD COLUMN IF NOT EXISTS id_perangkat varchar(128)",
 				"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_pak_sesi_kas') THEN ALTER TABLE koperasi.pembelian_anggota_koperasi ADD CONSTRAINT fk_pak_sesi_kas FOREIGN KEY (sesi_kas_kasir) REFERENCES koperasi.sesi_kas_kasir(id) ON DELETE SET NULL; END IF; END $$",

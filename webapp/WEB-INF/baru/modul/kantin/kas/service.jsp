@@ -82,15 +82,12 @@ try {
             result.put("status","03"); result.put("message","Anda tidak memiliki izin untuk menutup kas."); out.print(result.toString()); return;
         }
         if (sesi == null) { result.put("status","02"); result.put("message","Tidak ada kas terbuka."); out.print(result.toString()); return; }
-        double[] jual = hitungPenjualan(session, oleh, olehId, tokoId, sesi.getWaktuBuka(), new Date());
         double uangFisik = d(request.getParameter("uangFisik"));
-        double seharusnya = sesi.getModalAwal().doubleValue() + jual[0];
-        sesi.setTotalTunai(Double.valueOf(jual[0])); sesi.setTotalNonTunai(Double.valueOf(jual[1]));
-        sesi.setUangFisik(Double.valueOf(uangFisik)); sesi.setSelisih(Double.valueOf(uangFisik - seharusnya));
-        sesi.setWaktuTutup(new Date()); sesi.setStatus(SesiKasKasir.STATUS_TUTUP);
         String ket = request.getParameter("keterangan"); if (ada(ket)) sesi.setKeterangan(ket);
-        Common.refreshSaveOrUpdate(session, sesi);
-        result.put("status","00"); result.put("message","Kas ditutup. Selisih: " + (uangFisik - seharusnya));
+        double selisih = ais.action.master.koperasi.helper.SesiKasUtil.tutup(session, sesi, uangFisik, ket);
+        result.put("status","00"); result.put("message","Kas ditutup. Selisih: " + selisih);
+        result.put("selisih", selisih);
+        result.put("laporanTutupKas", ais.action.master.koperasi.helper.SesiKasUtil.laporanTersimpanAtauHitung(session, sesi));
 
     } else if ("list".equals(aksi)) {
         StringBuilder w = new StringBuilder(" where 1=1 ");
@@ -115,11 +112,12 @@ try {
         JSONObject s = new JSONObject();
         if (sesi == null) { s.put("buka", false); }
         else {
-            double[] jual = hitungPenjualan(session, oleh, olehId, tokoId, sesi.getWaktuBuka(), new Date());
+            JSONObject ringkasan = ais.action.master.koperasi.helper.SesiKasUtil.laporanTutupKas(session, sesi, new Date(), 0);
             s.put("buka", true); s.put("id", sesi.getId());
             s.put("waktuBuka", DF.format(sesi.getWaktuBuka())); s.put("modal", sesi.getModalAwal());
-            s.put("tunai", jual[0]); s.put("nontunai", jual[1]);
-            s.put("seharusnya", sesi.getModalAwal().doubleValue() + jual[0]);
+            s.put("tunai", ringkasan.optDouble("penjualanTunai")); s.put("nontunai", ringkasan.optDouble("penjualanNonTunai"));
+            s.put("seharusnya", ringkasan.optDouble("kasSeharusnya"));
+            s.put("ringkasan", ringkasan);
         }
         result.put("status","00"); result.put("sesi", s);
     }

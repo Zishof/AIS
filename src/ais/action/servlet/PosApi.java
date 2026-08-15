@@ -746,7 +746,14 @@ public class PosApi extends HttpServlet {
 			hasil = new JSONObject();
 			try {
 				hasil.put("status", "error");
-				hasil.put("message", "Terjadi kesalahan pada sistem. Silakan hubungi administrator.");
+				hasil.put("judul", "Proses belum dapat diselesaikan");
+				hasil.put("message", "Data belum berubah. Silakan muat ulang halaman, periksa kembali data yang diisi, lalu coba sekali lagi.");
+				hasil.put("kode", "KESALAHAN_SISTEM");
+				hasil.put("teknis", detailTeknis(e));
+				hasil.put("solusi", new JSONArray()
+						.put("Muat ulang halaman dan periksa kembali data yang akan diproses.")
+						.put("Jangan mengulangi pembayaran sebelum memastikan transaksi sebelumnya belum tercatat.")
+						.put("Jika kendala berulang, buka Detail Error lalu salin informasinya untuk admin/developer."));
 			} catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) PosApi.proses"); }
 		}
 		tulisJson(response, hasil);
@@ -2052,29 +2059,76 @@ public class PosApi extends HttpServlet {
 		}
 
 		String desc = hasil.optString("description", "");
+		String teknis = hasil.optString("teknis", "");
+		if (teknis.trim().length() == 0 && desc.trim().length() > 0) teknis = desc;
 		String pesan;
 		String kode;
+		String judul = "Proses belum berhasil";
+		JSONArray solusi = new JSONArray();
 
 		if (asli.length() == 0) {
 			kode = "DATA_TIDAK_LENGKAP";
-			pesan = "Data transaksi yang dikirim tidak lengkap atau toko tidak valid -- transaksi TIDAK diproses sama sekali (tidak ada perubahan di database).";
+			judul = "Data belum lengkap";
+			pesan = "Beberapa data yang dibutuhkan belum tersedia. Tidak ada perubahan yang disimpan.";
+			solusi.put("Periksa toko, produk, jumlah, dan metode pembayaran yang dipilih.")
+					.put("Muat ulang halaman, lalu ulangi proses setelah seluruh data tampil.");
 		} else if ("checkBayar".equals(konteks) && "01".equals(asli)) {
 			kode = "TIDAK_DITEMUKAN";
 			pesan = desc.length() > 0 ? desc : "Pembayaran belum terkonfirmasi.";
 		} else {
-			String descLower = desc.toLowerCase();
-			if (descLower.indexOf("duplicate key") >= 0 || descLower.indexOf("unique constraint") >= 0) {
+			// Gunakan detail teknis juga untuk klasifikasi. KantinHelper sengaja
+			// menyimpan pesan kasir yang aman di description dan exception asli di
+			// teknis, sehingga pemetaan tetap akurat tanpa membocorkan stack trace.
+			String descLower = (desc + "\n" + teknis).toLowerCase();
+			if ((descLower.indexOf("rincian pesanan") >= 0 && descLower.indexOf("keranjang") >= 0)
+					|| descLower.indexOf("produk rincian pesanan tidak sama") >= 0) {
+				kode = "PESANAN_PERLU_DIMUAT_ULANG";
+				judul = "Pesanan perlu dimuat ulang";
+				pesan = "Isi pesanan di server berbeda dengan keranjang yang sedang tampil. Pembayaran dihentikan agar barang atau jumlah yang salah tidak tersimpan.";
+				solusi.put("Tutup jendela pembayaran, lalu muat ulang daftar pesanan.")
+						.put("Buka kembali pesanan tersebut dan periksa nama produk serta jumlahnya.")
+						.put("Jika masih berbeda, jangan membuat transaksi pengganti. Salin Detail Error dan hubungi supervisor/admin.");
+			} else if (descLower.indexOf("duplicate key") >= 0 || descLower.indexOf("unique constraint") >= 0) {
 				kode = "DUPLIKAT_KODE_TRANSAKSI";
-				pesan = "Kode transaksi ini SUDAH tercatat sebelumnya di server -- kemungkinan besar transaksi ini SUDAH BERHASIL pada percobaan sebelumnya.";
+				judul = "Transaksi mungkin sudah tercatat";
+				pesan = "Kode transaksi yang sama sudah ada di server. Pembayaran tidak diulang untuk mencegah transaksi ganda.";
+				solusi.put("Periksa Riwayat Penjualan dan Riwayat Sinkronisasi.")
+						.put("Jangan menekan Bayar kembali jika transaksi sudah tercatat.");
+			} else if (descLower.indexOf("stok") >= 0 || descLower.indexOf("kadaluarsa") >= 0) {
+				kode = descLower.indexOf("kadaluarsa") >= 0 ? "PRODUK_KADALUARSA" : "STOK_TIDAK_CUKUP";
+				judul = descLower.indexOf("kadaluarsa") >= 0 ? "Produk tidak boleh dijual" : "Stok belum mencukupi";
+				pesan = desc;
+				solusi.put("Periksa produk dan jumlah di keranjang.")
+						.put("Minta petugas stok melakukan pemeriksaan fisik atau stok opname bila jumlah di layar tidak sesuai.");
 			} else {
 				kode = "SERVER_ERROR";
-				pesan = desc.length() > 0 ? desc : ("Transaksi ditolak server (kode status internal: " + asli + ").");
+				pesan = "Server belum dapat menyelesaikan proses ini. Tidak ada perubahan parsial yang dipertahankan.";
+				solusi.put("Muat ulang halaman dan periksa kembali data yang diisi.")
+						.put("Coba sekali lagi setelah beberapa saat.")
+						.put("Jika berulang, buka Detail Error lalu salin informasinya untuk admin/developer.");
 			}
 		}
 
 		hasil.put("status", "error");
+		hasil.put("judul", judul);
 		hasil.put("message", pesan);
 		hasil.put("kode", kode);
+		hasil.put("solusi", solusi);
+		if (hasil.optString("referensi", "").trim().length() == 0) {
+			hasil.put("referensi", "API-" + Long.toString(System.currentTimeMillis(), 36).toUpperCase());
+		}
+		hasil.put("teknis", teknis.length() == 0
+				? "konteks=" + konteks + "; statusInternal=" + asli
+				: teknis);
+	}
+
+	private static String detailTeknis(Throwable error) {
+		if (error == null) return "Tidak ada detail exception.";
+		java.io.StringWriter sw = new java.io.StringWriter();
+		java.io.PrintWriter pw = new java.io.PrintWriter(sw);
+		error.printStackTrace(pw);
+		pw.flush();
+		return sw.toString();
 	}
 
 	/**
@@ -2697,6 +2751,8 @@ public class PosApi extends HttpServlet {
 			String trx = "SELECT COALESCE(a.pembelian_anggota_koperasi,a.id) id_trx,DATE(MAX(a.waktu)) tanggal,"
 					+ " EXTRACT(HOUR FROM MAX(a.waktu)) jam,COALESCE(MAX(pak.total_biaya),SUM(a.total)) total_nilai,"
 					+ " SUM(COALESCE(a.qty,0)) qty,MAX(pak.total_biaya) total_master,COALESCE(SUM(a.total),0) total_detail,"
+					+ " COALESCE(MAX(pak.total_diskon),SUM(COALESCE(a.diskon,0)),0) total_diskon,"
+					+ " COALESCE(MAX(pak.totalcashback),SUM(COALESCE(a.cashback,0)),0) total_cashback,"
 					+ " COALESCE(NULLIF(TRIM(MAX(a.carabayar)),''),'-') metode,"
 					+ " COALESCE(NULLIF(TRIM(MAX(pak.kasir_login_nama)),''),NULLIF(TRIM(MAX(a.oleh)),''),'Tanpa Nama') kasir,"
 					+ " MAX(a.member) member FROM koperasi.pembelian a LEFT JOIN koperasi.pembelian_anggota_koperasi pak"
@@ -2705,11 +2761,14 @@ public class PosApi extends HttpServlet {
 
 			java.sql.PreparedStatement pk = conn.prepareStatement("SELECT COUNT(*),COALESCE(SUM(total_nilai),0),COALESCE(AVG(total_nilai),0),"
 					+ "COALESCE(SUM(qty),0),COALESCE(SUM(CASE WHEN total_master IS NOT NULL AND ABS(total_master-total_detail)>0.01 THEN 1 ELSE 0 END),0),"
-					+ "COALESCE(SUM(CASE WHEN NULLIF(TRIM(member),'') IS NOT NULL THEN 1 ELSE 0 END),0) FROM (" + trx + ") x");
+					+ "COALESCE(SUM(CASE WHEN NULLIF(TRIM(member),'') IS NOT NULL THEN 1 ELSE 0 END),0),"
+					+ "COALESCE(SUM(total_diskon),0),COALESCE(SUM(total_cashback),0),"
+					+ "COALESCE(SUM(CASE WHEN total_master IS NOT NULL AND ABS(total_master-total_detail)>0.01 THEN ABS(total_master-total_detail) ELSE 0 END),0)"
+					+ " FROM (" + trx + ") x");
 			pk.setLong(1, tokoId.longValue()); pk.setString(2, mulai); pk.setString(3, sampai);
 			if (!bolehSemuaKasir) pk.setString(4, namaKasirLogin);
 			java.sql.ResultSet rk = pk.executeQuery(); JSONObject kpi = new JSONObject();
-			if (rk.next()) { kpi.put("transaksi", rk.getLong(1)); kpi.put("omzet", rk.getDouble(2)); kpi.put("rataRata", rk.getDouble(3)); kpi.put("qty", rk.getDouble(4)); kpi.put("tidakValid", rk.getLong(5)); kpi.put("transaksiMember", rk.getLong(6)); }
+			if (rk.next()) { kpi.put("transaksi", rk.getLong(1)); kpi.put("omzet", rk.getDouble(2)); kpi.put("rataRata", rk.getDouble(3)); kpi.put("qty", rk.getDouble(4)); kpi.put("tidakValid", rk.getLong(5)); kpi.put("transaksiMember", rk.getLong(6)); kpi.put("diskon", rk.getDouble(7)); kpi.put("cashback", rk.getDouble(8)); kpi.put("nilaiTidakValid", rk.getDouble(9)); }
 			rk.close(); pk.close();
 
 			java.sql.PreparedStatement pp = conn.prepareStatement("SELECT COUNT(*),COALESCE(SUM(total_nilai),0),COALESCE(AVG(total_nilai),0),COALESCE(SUM(qty),0) FROM (" + trx + ") x");
@@ -2740,6 +2799,21 @@ public class PosApi extends HttpServlet {
 			while (rj.next()) { JSONObject o = new JSONObject(); o.put("jam", rj.getInt(1)); o.put("transaksi", rj.getLong(2)); o.put("omzet", rj.getDouble(3)); jam.put(o); }
 			rj.close(); pj.close();
 
+			java.sql.PreparedStatement pHari = conn.prepareStatement("SELECT EXTRACT(ISODOW FROM tanggal)::integer,COUNT(*),COALESCE(SUM(total_nilai),0),COALESCE(AVG(total_nilai),0) FROM (" + trx + ") x GROUP BY 1 ORDER BY 1");
+			pHari.setLong(1, tokoId.longValue()); pHari.setString(2, mulai); pHari.setString(3, sampai);
+			if (!bolehSemuaKasir) pHari.setString(4, namaKasirLogin);
+			java.sql.ResultSet rHari = pHari.executeQuery(); JSONArray hari = new JSONArray();
+			String[] namaHari = { "", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu" };
+			while (rHari.next()) { JSONObject o = new JSONObject(); int nomorHari = rHari.getInt(1); o.put("nomor", nomorHari); o.put("nama", nomorHari >= 1 && nomorHari <= 7 ? namaHari[nomorHari] : "-"); o.put("transaksi", rHari.getLong(2)); o.put("omzet", rHari.getDouble(3)); o.put("rataRata", rHari.getDouble(4)); hari.put(o); }
+			rHari.close(); pHari.close();
+
+			java.sql.PreparedStatement pKeranjang = conn.prepareStatement("SELECT CASE WHEN total_nilai<25000 THEN '< Rp25 ribu' WHEN total_nilai<50000 THEN 'Rp25–50 ribu' WHEN total_nilai<100000 THEN 'Rp50–100 ribu' WHEN total_nilai<250000 THEN 'Rp100–250 ribu' ELSE '>= Rp250 ribu' END rentang,COUNT(*),COALESCE(SUM(total_nilai),0),MIN(total_nilai),MAX(total_nilai) FROM (" + trx + ") x GROUP BY 1 ORDER BY MIN(total_nilai)");
+			pKeranjang.setLong(1, tokoId.longValue()); pKeranjang.setString(2, mulai); pKeranjang.setString(3, sampai);
+			if (!bolehSemuaKasir) pKeranjang.setString(4, namaKasirLogin);
+			java.sql.ResultSet rKeranjang = pKeranjang.executeQuery(); JSONArray keranjang = new JSONArray();
+			while (rKeranjang.next()) { JSONObject o = new JSONObject(); o.put("rentang", rKeranjang.getString(1)); o.put("transaksi", rKeranjang.getLong(2)); o.put("omzet", rKeranjang.getDouble(3)); o.put("minimum", rKeranjang.getDouble(4)); o.put("maksimum", rKeranjang.getDouble(5)); keranjang.put(o); }
+			rKeranjang.close(); pKeranjang.close();
+
 			java.sql.PreparedStatement pKasir = conn.prepareStatement("SELECT kasir,COUNT(*),COALESCE(SUM(total_nilai),0),COALESCE(AVG(total_nilai),0) FROM (" + trx + ") x GROUP BY kasir ORDER BY 3 DESC LIMIT 10");
 			pKasir.setLong(1, tokoId.longValue()); pKasir.setString(2, mulai); pKasir.setString(3, sampai);
 			if (!bolehSemuaKasir) pKasir.setString(4, namaKasirLogin);
@@ -2760,10 +2834,22 @@ public class PosApi extends HttpServlet {
 			while (rProduk.next()) { JSONObject o = new JSONObject(); o.put("nama", rProduk.getString(1)); o.put("qty", rProduk.getDouble(2)); o.put("omzet", rProduk.getDouble(3)); o.put("transaksi", rProduk.getLong(4)); produk.put(o); }
 			rProduk.close(); pProduk.close();
 
+			String sqlRetur = "SELECT COUNT(DISTINCT rp.pembelian_anggota_koperasi_id),COALESCE(SUM(rp.qty),0),COALESCE(SUM(rp.total_nilai),0)"
+					+ " FROM koperasi.retur_penjualan rp LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON pak.id=rp.pembelian_anggota_koperasi_id"
+					+ " WHERE rp.toko=? AND DATE(rp.waktu)>=? AND DATE(rp.waktu)<=?";
+			if (!bolehSemuaKasir) sqlRetur += " AND LOWER(COALESCE(NULLIF(TRIM(pak.kasir_login_nama),''),TRIM(rp.oleh)))=LOWER(?)";
+			java.sql.PreparedStatement pRetur = conn.prepareStatement(sqlRetur);
+			pRetur.setLong(1, tokoId.longValue()); pRetur.setString(2, mulai); pRetur.setString(3, sampai);
+			if (!bolehSemuaKasir) pRetur.setString(4, namaKasirLogin);
+			java.sql.ResultSet rRetur = pRetur.executeQuery(); JSONObject retur = new JSONObject();
+			if (rRetur.next()) { retur.put("transaksi", rRetur.getLong(1)); retur.put("qty", rRetur.getDouble(2)); retur.put("nilai", rRetur.getDouble(3)); }
+			rRetur.close(); pRetur.close();
+
 			hasil.put("status", "success"); hasil.put("tglMulai", mulai); hasil.put("tglSampai", sampai);
 			hasil.put("tglMulaiPembanding", mulaiLalu); hasil.put("tglSampaiPembanding", sampaiLalu);
 			hasil.put("kpi", kpi); hasil.put("pembanding", pembanding); hasil.put("tren", tren);
-			hasil.put("metode", metode); hasil.put("jam", jam); hasil.put("kasir", kasir); hasil.put("produk", produk);
+			hasil.put("metode", metode); hasil.put("jam", jam); hasil.put("hari", hari); hasil.put("keranjang", keranjang);
+			hasil.put("kasir", kasir); hasil.put("produk", produk); hasil.put("retur", retur);
 			hasil.put("cakupan", bolehSemuaKasir ? "TOKO" : "KASIR");
 			hasil.put("kasirAktif", bolehSemuaKasir ? "" : namaKasirLogin);
 		} finally { HibernateUtil.closeSessionQuietly(session); }

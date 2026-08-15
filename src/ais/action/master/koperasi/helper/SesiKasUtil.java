@@ -2,11 +2,17 @@ package ais.action.master.koperasi.helper;
 
 import java.util.Date;
 
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Timestamp;
+
 import org.hibernate.Criteria;
 import org.hibernate.SQLQuery;
 import org.hibernate.Session;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import ais.common.Common;
 import ais.database.model.inventory.SesiKasKasir;
@@ -93,6 +99,193 @@ public final class SesiKasUtil {
 			c.add(Restrictions.eq("toko", session.load(Toko.class, tokoId)));
 		}
 		return (SesiKasKasir) c.uniqueResult();
+	}
+
+	private static String cakupanTransaksi(SesiKasKasir sesi) {
+		String sql = "(h.sesi_kas_kasir=? or (h.sesi_kas_kasir is null and "
+				+ "(h.oleh=? or h.oleh=? or h.kasir_login_nama=? or h.kasir_login_nama=?) "
+				+ "and h.tanggal_pembayaran>=? and h.tanggal_pembayaran<=?))";
+		if (sesi.getToko() != null) sql += " and h.toko=?";
+		return sql;
+	}
+
+	private static int ikatCakupan(PreparedStatement ps, int p, SesiKasKasir sesi, Date sampai) throws Exception {
+		ps.setLong(p++, sesi.getId().longValue());
+		ps.setString(p++, sesi.getKasirNama());
+		ps.setString(p++, sesi.getKasirUserId());
+		ps.setString(p++, sesi.getKasirNama());
+		ps.setString(p++, sesi.getKasirUserId());
+		ps.setTimestamp(p++, new Timestamp(sesi.getWaktuBuka().getTime()));
+		ps.setTimestamp(p++, new Timestamp(sampai.getTime()));
+		if (sesi.getToko() != null) ps.setLong(p++, sesi.getToko().getId().longValue());
+		return p;
+	}
+
+	private static String teks(String s) { return s == null ? "" : s; }
+
+	/** Membentuk laporan shift lengkap dari satu sumber data transaksi yang sama dengan tutup kas. */
+	public static JSONObject laporanTutupKas(Session session, SesiKasKasir sesi, Date sampai,
+			double uangFisik) {
+		PreparedStatement ps = null;
+		ResultSet rs = null;
+		try {
+			JSONObject laporan = new JSONObject();
+			laporan.put("idSesi", sesi.getId());
+			laporan.put("kodeSesi", teks(sesi.getKode()));
+			laporan.put("namaKasir", teks(sesi.getKasirNama()));
+			laporan.put("userIdKasir", teks(sesi.getKasirUserId()));
+			laporan.put("namaToko", sesi.getToko() == null ? "" : teks(sesi.getToko().getNama()));
+			laporan.put("namaPerangkat", teks(sesi.getNamaPerangkat()));
+			laporan.put("waktuBuka", Common.dateFormatInput.get().format(sesi.getWaktuBuka()));
+			laporan.put("waktuTutup", Common.dateFormatInput.get().format(sampai));
+			laporan.put("modalAwal", sesi.getModalAwal());
+
+			String scope = cakupanTransaksi(sesi);
+			ps = session.connection().prepareStatement("select count(*),coalesce(sum(h.total_biaya),0) "
+					+ "from koperasi.pembelian_anggota_koperasi h where " + scope);
+			ikatCakupan(ps, 1, sesi, sampai);
+			rs = ps.executeQuery(); rs.next();
+			int jumlahTransaksi = rs.getInt(1);
+			double totalTransaksi = rs.getDouble(2);
+			rs.close(); ps.close(); rs = null; ps = null;
+
+			String n1 = "greatest(0,coalesce(h.total_biaya,0)-coalesce(h.nominal_bayar_2,0)-coalesce(h.nominal_bayar_3,0)-coalesce(h.nominal_bayar_4,0)-coalesce(h.nominal_bayar_5,0))";
+			StringBuilder union = new StringBuilder();
+			for (int slot = 1; slot <= 5; slot++) {
+				if (slot > 1) union.append(" union all ");
+				String fk = slot == 1 ? "h.cara_pembayaran_koperasi" : "h.cara_pembayaran_koperasi_" + slot;
+				String nominal = slot == 1 ? n1 : "coalesce(h.nominal_bayar_" + slot + ",0)";
+				union.append("select h.id transaksi_id,coalesce(c.nama,'Tanpa Metode') metode,")
+						.append("coalesce(c.masuk_sebagai_hutang,false) hutang,")
+						.append("coalesce(c.ada_kembalian,c.nama ilike '%tunai%') tunai,")
+						.append(nominal).append(" nominal from koperasi.pembelian_anggota_koperasi h ")
+						.append("left join koperasi.cara_pembayaran_koperasi c on c.id=").append(fk)
+						.append(" where ").append(scope).append(" and ").append(fk)
+						.append(" is not null and ").append(nominal).append(">0");
+			}
+			ps = session.connection().prepareStatement("select metode,hutang,tunai,count(distinct transaksi_id),sum(nominal) "
+					+ "from (" + union + ") x group by metode,hutang,tunai order by metode");
+			int p = 1;
+			for (int slot = 1; slot <= 5; slot++) p = ikatCakupan(ps, p, sesi, sampai);
+			rs = ps.executeQuery();
+			JSONArray metode = new JSONArray();
+			double tunai = 0, nonTunai = 0, piutang = 0;
+			java.util.HashSet<String> metodeTerpakai = new java.util.HashSet<String>();
+			while (rs.next()) {
+				JSONObject m = new JSONObject();
+				boolean hutang = rs.getBoolean(2), metodeTunai = rs.getBoolean(3);
+				double nilai = rs.getDouble(5);
+				m.put("nama", rs.getString(1)); m.put("jumlahTransaksi", rs.getInt(4));
+				m.put("penerimaan", nilai); m.put("retur", 0); m.put("total", nilai);
+				m.put("piutang", hutang); m.put("tunai", metodeTunai);
+				metode.put(m);
+				metodeTerpakai.add(rs.getString(1) == null ? "" : rs.getString(1).trim().toLowerCase());
+				if (hutang) piutang += nilai; else if (metodeTunai) tunai += nilai; else nonTunai += nilai;
+			}
+			rs.close(); ps.close(); rs = null; ps = null;
+			// Struk shift menampilkan seluruh metode yang aktif, termasuk yang nihil pada shift ini,
+			// agar kasir dapat melakukan pemeriksaan satu per satu seperti laporan kas retail baku.
+			ps = session.connection().prepareStatement("select nama,coalesce(masuk_sebagai_hutang,false),"
+					+ "coalesce(ada_kembalian,nama ilike '%tunai%') from koperasi.cara_pembayaran_koperasi "
+					+ "where coalesce(aktif,true)=true order by nama");
+			rs = ps.executeQuery();
+			while (rs.next()) {
+				String nama = rs.getString(1) == null ? "Tanpa Metode" : rs.getString(1);
+				if (metodeTerpakai.contains(nama.trim().toLowerCase())) continue;
+				JSONObject m = new JSONObject(); m.put("nama", nama); m.put("jumlahTransaksi", 0);
+				m.put("penerimaan", 0); m.put("retur", 0); m.put("total", 0);
+				m.put("piutang", rs.getBoolean(2)); m.put("tunai", rs.getBoolean(3)); metode.put(m);
+			}
+			rs.close(); ps.close(); rs = null; ps = null;
+
+			// Jumlah transaksi piutang dihitung terpisah agar satu transaksi multi-metode tidak dobel.
+			ps = session.connection().prepareStatement("select count(distinct h.id) " + joinCaraPembayaran()
+					+ " where " + scope + " and (coalesce(c1.masuk_sebagai_hutang,false) or coalesce(c2.masuk_sebagai_hutang,false)"
+					+ " or coalesce(c3.masuk_sebagai_hutang,false) or coalesce(c4.masuk_sebagai_hutang,false) or coalesce(c5.masuk_sebagai_hutang,false))");
+			ikatCakupan(ps, 1, sesi, sampai); rs = ps.executeQuery(); rs.next();
+			int jumlahPiutang = rs.getInt(1); rs.close(); ps.close(); rs = null; ps = null;
+
+			JSONArray metodeRetur = new JSONArray();
+			double totalRetur = 0, returTunai = 0;
+			String returSql = "select coalesce(nullif(trim(metodepengembalian),''),'Tanpa Pengembalian'),count(*),coalesce(sum(totalnilai),0)"
+					+ " from koperasi.retur_penjualan where waktu>=? and waktu<=? and (oleh=? or oleh=?)";
+			if (sesi.getToko() != null) returSql += " and toko=?";
+			returSql += " group by 1 order by 1";
+			ps = session.connection().prepareStatement(returSql);
+			p = 1; ps.setTimestamp(p++, new Timestamp(sesi.getWaktuBuka().getTime()));
+			ps.setTimestamp(p++, new Timestamp(sampai.getTime())); ps.setString(p++, sesi.getKasirNama());
+			ps.setString(p++, sesi.getKasirUserId()); if (sesi.getToko()!=null) ps.setLong(p++, sesi.getToko().getId());
+			rs = ps.executeQuery();
+			while (rs.next()) {
+				JSONObject r = new JSONObject(); String nama = rs.getString(1); double nilai = rs.getDouble(3);
+				r.put("nama", nama); r.put("jumlah", rs.getInt(2)); r.put("nilai", nilai); metodeRetur.put(r);
+				totalRetur += nilai; if (nama != null && nama.toLowerCase().contains("tunai")) returTunai += nilai;
+				for (int i=0;i<metode.length();i++) { JSONObject m=metode.getJSONObject(i);
+					if (nama != null && nama.equalsIgnoreCase(m.optString("nama"))) { m.put("retur", nilai); m.put("total", m.optDouble("penerimaan")-nilai); }
+				}
+			}
+			if (rs != null) rs.close(); if (ps != null) ps.close(); rs = null; ps = null;
+
+			double biaya = 0; // Belum ada ledger biaya kas yang memiliki relasi sesi; tetap ditampilkan eksplisit.
+			double kasSeharusnya = sesi.getModalAwal().doubleValue() + tunai - returTunai - biaya;
+			double selisih = uangFisik - kasSeharusnya;
+			laporan.put("jumlahKasTunai", uangFisik); laporan.put("uangFisik", uangFisik);
+			laporan.put("penjualanTunai", tunai); laporan.put("penjualanNonTunai", nonTunai);
+			laporan.put("kasSeharusnya", kasSeharusnya); laporan.put("selisih", selisih);
+			laporan.put("returPenjualan", totalRetur); laporan.put("returTunai", returTunai);
+			laporan.put("biaya", biaya); laporan.put("jumlahBiaya", 0);
+			laporan.put("piutang", piutang); laporan.put("jumlahTransaksiPiutang", jumlahPiutang);
+			laporan.put("jumlahTransaksi", jumlahTransaksi); laporan.put("totalTransaksi", totalTransaksi);
+			laporan.put("metodePembayaran", metode); laporan.put("metodeRetur", metodeRetur);
+			return laporan;
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "gagal membuat laporan tutup kas id=" + sesi.getId());
+			throw new IllegalStateException("Laporan tutup kas belum dapat dibuat. Sesi belum ditutup dan data transaksi tidak diubah.", e);
+		} finally {
+			try { if (rs != null) rs.close(); } catch (Exception ignored) {}
+			try { if (ps != null) ps.close(); } catch (Exception ignored) {}
+		}
+	}
+
+	public static JSONObject laporanTersimpanAtauHitung(Session session, SesiKasKasir sesi) {
+		try {
+			if (sesi.getLaporanTutupJson() != null && sesi.getLaporanTutupJson().trim().length() > 0)
+				return new JSONObject(sesi.getLaporanTutupJson());
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "snapshot laporan tutup kas rusak id=" + sesi.getId()); }
+		Date sampai = sesi.getWaktuTutup() == null ? new Date() : sesi.getWaktuTutup();
+		return laporanTutupKas(session, sesi, sampai, sesi.getUangFisik());
+	}
+
+	/** Versi teks monospasi untuk layar ZK lama dan printer teks/thermal. */
+	public static String laporanTeks(JSONObject l) {
+		StringBuilder s = new StringBuilder();
+		s.append("LAPORAN TUTUP KAS\n").append(l.optString("namaToko", "")).append("\n")
+				.append("--------------------------------\n")
+				.append("Nama Kasir : ").append(l.optString("namaKasir", "-")).append("\n")
+				.append("Buka       : ").append(l.optString("waktuBuka", "-")).append("\n")
+				.append("Tutup      : ").append(l.optString("waktuTutup", "-")).append("\n")
+				.append("--------------------------------\n")
+				.append("Modal Awal          Rp ").append(Math.round(l.optDouble("modalAwal"))).append("\n")
+				.append("Penjualan Tunai     Rp ").append(Math.round(l.optDouble("penjualanTunai"))).append("\n")
+				.append("Kas Seharusnya      Rp ").append(Math.round(l.optDouble("kasSeharusnya"))).append("\n")
+				.append("Jumlah Kas Tunai    Rp ").append(Math.round(l.optDouble("jumlahKasTunai"))).append("\n")
+				.append("Selisih             Rp ").append(Math.round(l.optDouble("selisih"))).append("\n")
+				.append("--------------------------------\n")
+				.append("Retur Penjualan     Rp ").append(Math.round(l.optDouble("returPenjualan"))).append("\n")
+				.append("Biaya               Rp ").append(Math.round(l.optDouble("biaya"))).append("\n")
+				.append("Piutang ").append(l.optInt("jumlahTransaksiPiutang")).append("x         Rp ")
+				.append(Math.round(l.optDouble("piutang"))).append("\n--------------------------------\n");
+		JSONArray metode = l.optJSONArray("metodePembayaran");
+		if (metode != null) for (int i=0;i<metode.length();i++) {
+			JSONObject m=metode.optJSONObject(i); if (m==null) continue;
+			s.append(m.optString("nama", "-")).append("\n  ").append(m.optInt("jumlahTransaksi"))
+					.append("x Penerimaan  Rp ").append(Math.round(m.optDouble("penerimaan")))
+					.append("\n  Retur          Rp ").append(Math.round(m.optDouble("retur")))
+					.append("\n  Total          Rp ").append(Math.round(m.optDouble("total"))).append("\n");
+		}
+		s.append("--------------------------------\nJumlah Transaksi : ").append(l.optInt("jumlahTransaksi"))
+				.append("\nTotal Transaksi  : Rp ").append(Math.round(l.optDouble("totalTransaksi")));
+		return s.toString();
 	}
 
 	/**
@@ -313,15 +506,15 @@ public final class SesiKasUtil {
 	 */
 	public static double tutup(Session session, SesiKasKasir sesi, double uangFisik, String keterangan, Date waktuTutupKlien) {
 		Date sampai = waktuTutupKlien != null ? waktuTutupKlien : new Date();
-		double[] jual = hitungPenjualan(session, sesi, sampai);
-		double seharusnya = sesi.getModalAwal().doubleValue() + jual[0];
-		double selisih = uangFisik - seharusnya;
-		sesi.setTotalTunai(Double.valueOf(jual[0]));
-		sesi.setTotalNonTunai(Double.valueOf(jual[1]));
+		JSONObject laporan = laporanTutupKas(session, sesi, sampai, uangFisik);
+		double selisih = laporan.optDouble("selisih", 0);
+		sesi.setTotalTunai(Double.valueOf(laporan.optDouble("penjualanTunai", 0)));
+		sesi.setTotalNonTunai(Double.valueOf(laporan.optDouble("penjualanNonTunai", 0)));
 		sesi.setUangFisik(Double.valueOf(uangFisik));
 		sesi.setSelisih(Double.valueOf(selisih));
 		sesi.setWaktuTutup(sampai);
 		sesi.setStatus(SesiKasKasir.STATUS_TUTUP);
+		sesi.setLaporanTutupJson(laporan.toString());
 		if (keterangan != null && keterangan.trim().length() > 0) {
 			sesi.setKeterangan(keterangan);
 		}

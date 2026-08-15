@@ -1129,6 +1129,12 @@ public class PosKantinAction extends GenericAutowireComposer {
                                     if (new Integer(ev.getData().toString()).intValue() == MyMessageboxConfig.OK) {
                                         ais.action.master.koperasi.helper.SesiKasUtil.tutup(
                                                 HibernateUtil.currentSession(), sesi, uang, keter);
+                                        org.json.JSONObject laporan = ais.action.master.koperasi.helper.SesiKasUtil
+                                                .laporanTersimpanAtauHitung(HibernateUtil.currentSession(), sesi);
+                                        MyMessageboxConfig.show(
+                                                ais.action.master.koperasi.helper.SesiKasUtil.laporanTeks(laporan),
+                                                "Laporan Tutup Kas", MyMessageboxConfig.OK,
+                                                MyMessageboxConfig.INFORMATION);
                                         renderSesiKasChip();
                                         sesiKasFormBox.setStyle("display:none;");
                                     }
@@ -1539,12 +1545,17 @@ public class PosKantinAction extends GenericAutowireComposer {
     // ======================== Keranjang & diskon ========================
 
     private void tambahKeKeranjang(Long id, String kode, String nama, double harga, double stok) {
-        for (Item it : cart) {
+        for (int posisi = 0; posisi < cart.size(); posisi++) {
+            Item it = cart.get(posisi);
             if (it.id.equals(id)) {
                 if (!lolosCekStok(nama, stok, it.jumlah + 1)) {
                     return;
                 }
                 it.jumlah += 1;
+                // Produk yang dipindai ulang harus langsung terlihat di atas.
+                // Pindahkan objek yang sama supaya seluruh state diskon tetap utuh.
+                cart.remove(posisi);
+                cart.add(0, it);
                 recompute();
                 return;
             }
@@ -1552,7 +1563,7 @@ public class PosKantinAction extends GenericAutowireComposer {
         if (!lolosCekStok(nama, stok, 1)) {
             return;
         }
-        cart.add(new Item(id, kode, nama, harga, stok));
+        cart.add(0, new Item(id, kode, nama, harga, stok));
         recompute();
     }
 
@@ -2371,8 +2382,13 @@ public class PosKantinAction extends GenericAutowireComposer {
             KantinHelper.bayar(Common.getCurrentUser(), payload, hasil);
         } catch (Exception e) {
             Common.tampilErrorJikaAdmin(e);
-            MyMessageboxConfig.show("Gagal memproses pembayaran: " + e.getMessage(), "Kesalahan",
-                    MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+            ais.common.PesanFormalHelper.tampilkanGagalException(
+                    "pembayaran transaksi POS",
+                    "Pembayaran belum dapat diselesaikan. Data transaksi tidak diubah agar tetap aman.",
+                    e,
+                    new String[] { "Periksa kembali isi keranjang dan metode pembayaran.",
+                            "Muat ulang pesanan sebelum mencoba kembali.",
+                            "Jika kendala berulang, buka Detail Error lalu salin informasinya untuk admin/developer." });
             return;
         }
 
@@ -2410,8 +2426,14 @@ public class PosKantinAction extends GenericAutowireComposer {
             loadAnalitikKasir(); // segarkan donut+radar analitik kasir
             loadDaftarTertahan(); // segarkan daftar tertahan (draft ini mungkin baru saja dituntaskan)
         } else {
-            String pesan = hasil.optString("description", "Pembayaran gagal diproses.");
-            MyMessageboxConfig.show(pesan, "Gagal", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+            String pesan = hasil.optString("message",
+                    "Pembayaran belum dapat diselesaikan. Data transaksi tidak diubah agar tetap aman.");
+            String teknis = hasil.optString("teknis", hasil.optString("description", "status=" + status));
+            ais.common.PesanFormalHelper.tampilkanGagalException(
+                    "pembayaran transaksi POS", pesan, new IllegalStateException(teknis),
+                    new String[] { "Periksa kembali isi keranjang dan metode pembayaran.",
+                            "Muat ulang pesanan sebelum mencoba kembali.",
+                            "Jika kendala berulang, buka Detail Error lalu salin informasinya untuk admin/developer." });
         }
     }
 

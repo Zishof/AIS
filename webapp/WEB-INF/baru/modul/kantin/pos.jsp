@@ -42,6 +42,13 @@ String rnd = Common.getGeneratedBarCode(7);
 					<i class="fas fa-rotate me-2"></i><%=Common.getBahasaConfig("Sinkronisasi POS")%>
 				</button>
 			</li>
+			<li class="nav-item flex-fill text-center" role="presentation">
+				<button class="nav-link rounded-pill fw-bold"
+					id="tab-analitik-<%=rnd%>" data-bs-toggle="pill"
+					data-bs-target="#pane-analitik-<%=rnd%>" type="button" role="tab">
+					<i class="fas fa-chart-line me-2"></i><%=Common.getBahasaConfig("Analisis Penjualan")%>
+				</button>
+			</li>
 		</ul>
 	</div>
 </div>
@@ -68,5 +75,9 @@ String rnd = Common.getGeneratedBarCode(7);
 			page="/WEB-INF/baru/modul/kantin/pos/_riwayat_sinkronisasi.jsp">
 			<jsp:param name="rnd" value="<%=rnd%>" />
 		</jsp:include>
+	</div>
+
+	<div class="tab-pane fade" id="pane-analitik-<%=rnd%>" role="tabpanel">
+		<jsp:include page="/WEB-INF/baru/modul/kantin/_analisis_riwayat_penjualan.jsp" />
 	</div>
 </div>
