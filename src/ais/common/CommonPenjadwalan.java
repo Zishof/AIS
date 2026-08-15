@@ -8,8 +8,13 @@ import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 
 import ais.database.hibernate.HibernateUtil;
+import ais.database.model.Fakultas;
+import ais.database.model.Jurusan;
 import ais.database.model.Konfigurasi;
 import ais.database.model.KonfigurasiKalenderAkademik;
+import ais.database.model.Perkuliahan;
+import ais.database.model.Program;
+import ais.database.model.Tbmuser;
 
 public class CommonPenjadwalan {
 
@@ -58,16 +63,60 @@ public class CommonPenjadwalan {
 	 */
 	public static boolean apakahPenjadwalanTidakAktif(String tahunAkademik, String jenisSemester,
 			Integer semesterPendek) {
+		Tbmuser pengguna = Common.getCurrentUser();
+		Fakultas fakultas = null;
+		Jurusan jurusan = null;
+		String program = null;
+		try {
+			if (pengguna != null) {
+				fakultas = pengguna.ambilFakultas();
+				jurusan = pengguna.ambilJurusan();
+				Program programPengguna = pengguna.ambilProgram();
+				program = programPengguna == null ? null : programPengguna.getNama();
+			}
+		} catch (Exception e) {
+			// Relasi pengguna yang belum lengkap diperlakukan tanpa lingkup, sehingga kalender
+			// fakultas/prodi tidak pernah terbuka secara tidak sengaja.
+		}
+		return apakahPenjadwalanTidakAktif(tahunAkademik, jenisSemester, semesterPendek, fakultas, jurusan,
+				program);
+	}
+
+	/**
+	 * Memeriksa periode penjadwalan terhadap fakultas/prodi/program tujuan. Kalender
+	 * yang dibatasi ke Fakultas A tidak boleh membuka konfigurasi global bagi
+	 * Fakultas B. Bila ada kalender terbatas yang menaut ke konfigurasi, kalender
+	 * tersebut menjadi sumber kebenaran meskipun processor lama sudah telanjur
+	 * mengubah nilai konfigurasi global menjadi AKTIF.
+	 */
+	public static boolean apakahPenjadwalanTidakAktif(String tahunAkademik, String jenisSemester,
+			Integer semesterPendek, Fakultas fakultas, Jurusan jurusan, String program) {
 		Konfigurasi konfigurasi = getKonfigurasi(tahunAkademik, jenisSemester, semesterPendek);
-		if (konfigurasi == null || !Konfigurasi.TIDAK_AKTIF.equals(konfigurasi.getNilai())) {
-			// Aktif (atau default aktif) → tidak diblokir.
+		if (konfigurasi == null) {
+			return true;
+		}
+
+		LingkupKalender lingkup = statusLingkupKalenderAkademik(konfigurasi, fakultas, jurusan, program);
+		if (lingkup.gagalMembaca) {
+			return true;
+		}
+		if (lingkup.dikelolaKalenderTerbatas) {
+			return !lingkup.adaKalenderAktifYangSesuai;
+		}
+		if (lingkup.adaKalenderAktifYangSesuai) {
 			return false;
 		}
-		// Nilai konfigurasi TIDAK_AKTIF; beri kesempatan Kalender Akademik membukanya.
-		if (konfigurasi.getId() != null && dibukaOlehKalenderAkademik(konfigurasi)) {
-			return false;
-		}
-		return true;
+		return Konfigurasi.TIDAK_AKTIF.equals(konfigurasi.getNilai());
+	}
+
+	/** Memakai lingkup jurusan/program dari jadwal yang sedang ditambah atau diedit. */
+	public static boolean apakahPenjadwalanTidakAktif(String tahunAkademik, String jenisSemester,
+			Integer semesterPendek, Perkuliahan perkuliahan) {
+		Jurusan jurusan = perkuliahan == null ? null : perkuliahan.getJurusan();
+		Fakultas fakultas = jurusan == null ? null : jurusan.getFakultas();
+		String program = perkuliahan == null ? null : perkuliahan.getProgram();
+		return apakahPenjadwalanTidakAktif(tahunAkademik, jenisSemester, semesterPendek, fakultas, jurusan,
+				program);
 	}
 
 	/**
@@ -76,7 +125,12 @@ public class CommonPenjadwalan {
 	 * Batas tanggal mengikuti pola {@code KonfigurasiKalenderAkademikProcessor} agar
 	 * konsisten (tanggalMulai &le; hari ini &le; tanggalSelesai).
 	 */
-	private static boolean dibukaOlehKalenderAkademik(Konfigurasi konfigurasi) {
+	private static LingkupKalender statusLingkupKalenderAkademik(Konfigurasi konfigurasi, Fakultas fakultas,
+			Jurusan jurusan, String program) {
+		LingkupKalender hasil = new LingkupKalender();
+		if (konfigurasi == null || konfigurasi.getId() == null) {
+			return hasil;
+		}
 		try {
 			Calendar c = ais.ui.util.WaktuUtil.getCalendar();
 			c.set(Calendar.HOUR_OF_DAY, 0);
@@ -85,25 +139,53 @@ public class CommonPenjadwalan {
 			c.set(Calendar.MILLISECOND, 0);
 			Date awalHariIni = c.getTime();
 
-			c.set(Calendar.HOUR_OF_DAY, 23);
-			c.set(Calendar.MINUTE, 59);
-			c.set(Calendar.SECOND, 59);
-			c.set(Calendar.MILLISECOND, 999);
-			Date akhirHariIni = c.getTime();
+			Object jmlTerbatas = HibernateUtil.currentSession().createCriteria(KonfigurasiKalenderAkademik.class)
+					.add(Restrictions.eq("konfigurasi", konfigurasi))
+					.add(Restrictions.eq("padaSaatMulaiBerubahMenjadi", Konfigurasi.AKTIF))
+					.createAlias("kalenderAkademik", "ka")
+					.add(Restrictions.disjunction().add(Restrictions.isNotNull("ka.fakultas"))
+							.add(Restrictions.isNotNull("ka.jurusan")).add(Restrictions.isNotNull("ka.jenjang"))
+							.add(Restrictions.isNotNull("ka.program")))
+					.setProjection(Projections.rowCount()).uniqueResult();
+			hasil.dikelolaKalenderTerbatas = jumlah(jmlTerbatas) > 0;
 
-			Object jml = HibernateUtil.currentSession().createCriteria(KonfigurasiKalenderAkademik.class)
+			org.hibernate.Criteria berlaku = HibernateUtil.currentSession()
+					.createCriteria(KonfigurasiKalenderAkademik.class)
 					.add(Restrictions.eq("konfigurasi", konfigurasi))
 					.add(Restrictions.eq("padaSaatMulaiBerubahMenjadi", Konfigurasi.AKTIF))
 					.createAlias("kalenderAkademik", "ka")
 					.add(Restrictions.le("ka.tanggalMulai", awalHariIni))
-					.add(Restrictions.ge("ka.tanggalSelesai", akhirHariIni))
-					.add(Restrictions.or(Restrictions.isNull("ka.aktif"), Restrictions.eq("ka.aktif", Boolean.TRUE)))
-					.setProjection(Projections.rowCount()).uniqueResult();
-			return jml != null && ((Number) jml).longValue() > 0;
+					.add(Restrictions.ge("ka.tanggalSelesai", awalHariIni))
+					.add(Restrictions.or(Restrictions.isNull("ka.aktif"), Restrictions.eq("ka.aktif", Boolean.TRUE)));
+
+			berlaku.add(fakultas == null ? Restrictions.isNull("ka.fakultas")
+					: Restrictions.or(Restrictions.isNull("ka.fakultas"), Restrictions.eq("ka.fakultas", fakultas)));
+			berlaku.add(jurusan == null ? Restrictions.isNull("ka.jurusan")
+					: Restrictions.or(Restrictions.isNull("ka.jurusan"), Restrictions.eq("ka.jurusan", jurusan)));
+			berlaku.add(jurusan == null || jurusan.getJenjang() == null ? Restrictions.isNull("ka.jenjang")
+					: Restrictions.or(Restrictions.isNull("ka.jenjang"),
+							Restrictions.eq("ka.jenjang", jurusan.getJenjang())));
+			berlaku.add(program == null || program.trim().isEmpty() ? Restrictions.isNull("ka.program")
+					: Restrictions.or(Restrictions.isNull("ka.program"), Restrictions.eq("ka.program", program.trim())));
+
+			Object jmlBerlaku = berlaku.setProjection(Projections.rowCount()).uniqueResult();
+			hasil.adaKalenderAktifYangSesuai = jumlah(jmlBerlaku) > 0;
 		} catch (Exception e) {
-			// Jangan sampai kendala pengecekan kalender menghentikan gate; ikuti nilai konfigurasi apa adanya.
-			return false;
+			// Fail closed untuk kalender terbatas: jangan membuka fakultas lain ketika relasi
+			// lingkup gagal dibaca.
+			hasil.gagalMembaca = true;
 		}
+		return hasil;
+	}
+
+	private static long jumlah(Object nilai) {
+		return nilai instanceof Number ? ((Number) nilai).longValue() : 0L;
+	}
+
+	private static final class LingkupKalender {
+		private boolean dikelolaKalenderTerbatas;
+		private boolean adaKalenderAktifYangSesuai;
+		private boolean gagalMembaca;
 	}
 
 }

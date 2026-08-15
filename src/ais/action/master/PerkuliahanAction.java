@@ -2476,8 +2476,7 @@ public class PerkuliahanAction extends GenericAutowireComposer
 
 					String ta = perkuliahan.getTahunAjaran();
 					String sem = perkuliahan.getGanjilGenap();
-					if (CommonPenjadwalan.getKonfigurasi(ta, sem, semesterPendek).getNilai()
-							.equals(Konfigurasi.TIDAK_AKTIF)) {
+					if (CommonPenjadwalan.apakahPenjadwalanTidakAktif(ta, sem, semesterPendek, perkuliahan)) {
 						MyMessageboxConfig.show(
 								"Penjadwalan tahun akademik \"" + ta + "\" semester \"" + sem + "\" tidak diaktifkan",
 								"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
@@ -2505,8 +2504,7 @@ public class PerkuliahanAction extends GenericAutowireComposer
 
 					String ta = perkuliahan.getTahunAjaran();
 					String sem = perkuliahan.getGanjilGenap();
-					if (CommonPenjadwalan.getKonfigurasi(ta, sem, semesterPendek).getNilai()
-							.equals(Konfigurasi.TIDAK_AKTIF)) {
+					if (CommonPenjadwalan.apakahPenjadwalanTidakAktif(ta, sem, semesterPendek, perkuliahan)) {
 						MyMessageboxConfig.show(
 								"Penjadwalan tahun akademik \"" + ta + "\" semester \"" + sem + "\" tidak diaktifkan",
 								"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
@@ -2528,8 +2526,7 @@ public class PerkuliahanAction extends GenericAutowireComposer
 
 					String ta = perkuliahan.getTahunAjaran();
 					String sem = perkuliahan.getGanjilGenap();
-					if (CommonPenjadwalan.getKonfigurasi(ta, sem, semesterPendek).getNilai()
-							.equals(Konfigurasi.TIDAK_AKTIF)) {
+					if (CommonPenjadwalan.apakahPenjadwalanTidakAktif(ta, sem, semesterPendek, perkuliahan)) {
 						MyMessageboxConfig.show(
 								"Penjadwalan tahun akademik \"" + ta + "\" semester \"" + sem + "\" tidak diaktifkan",
 								"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);

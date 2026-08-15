@@ -383,7 +383,7 @@ public class PenjadwalanUtil {
 					&& perkuliahan.getStatusSemesterPendek().equals(Perkuliahan.SEMESTER_PENDEK);
 			Integer semesterPendekCek = cekSp ? Perkuliahan.SEMESTER_PENDEK : semesterPendek;
 			String sem = cekSp ? Perkuliahan.SP : perkuliahan.getGanjilGenap();
-			if (CommonPenjadwalan.apakahPenjadwalanTidakAktif(ta, sem, semesterPendekCek)) {
+			if (CommonPenjadwalan.apakahPenjadwalanTidakAktif(ta, sem, semesterPendekCek, perkuliahan)) {
 				MyMessageboxConfig.showFormat(
 						"Mohon maaf, penjadwalan untuk Tahun Akademik \"{V1}\" semester \"{V2}\" saat ini belum diaktifkan sehingga proses tidak dapat dilanjutkan. Langkah yang dapat dilakukan: (1) hubungi bagian Akademik atau Administrator untuk mengaktifkan periode penjadwalan tersebut; (2) setelah diaktifkan, silakan Bapak/Ibu mengulangi proses ini.",
 						"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, ta, sem);
@@ -2134,7 +2134,7 @@ public class PenjadwalanUtil {
 				: (((Integer) semester.getSelectedItem().getValue()) % 2 == 0 ? Perkuliahan.GENAP
 						: Perkuliahan.GANJIL);
 
-		if (CommonPenjadwalan.apakahPenjadwalanTidakAktif(ta, sem, semesterPendekCek)) {
+		if (CommonPenjadwalan.apakahPenjadwalanTidakAktif(ta, sem, semesterPendekCek, perkuliahan)) {
 			MyMessageboxConfig.showFormat(
 					"Mohon maaf, jadwal belum dapat disimpan karena penjadwalan untuk Tahun Akademik \"{V1}\" "
 							+ "semester \"{V2}\" saat ini BELUM diaktifkan. Langkah yang dapat Bapak/Ibu lakukan: "

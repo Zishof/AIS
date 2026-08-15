@@ -322,7 +322,7 @@ public class CalendarPerkuliahanComposer extends GenericForwardComposer implemen
 
 		String ta = perkuliahan.getTahunAjaran();
 		String sem = perkuliahan.getGanjilGenap();
-		if (CommonPenjadwalan.apakahPenjadwalanTidakAktif(ta, sem, semesterPendek)) {
+		if (CommonPenjadwalan.apakahPenjadwalanTidakAktif(ta, sem, semesterPendek, perkuliahan)) {
 			MyMessageboxConfig.show(
 					"Penjadwalan tahun akademik \"" + ta + "\" semester \"" + sem + "\" tidak diaktifkan", "Peringatan",
 					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
