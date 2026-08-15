@@ -3395,6 +3395,26 @@ public class InitIndex {
 			catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "init relasi transaksi sesi kas"); }
 		}
 
+		// Promo grup: satu header, banyak produk, snapshot JSON untuk audit, serta
+		// kriteria multi jenis/tipe member dalam JSON. DDL sengaja idempoten agar
+		// instalasi lama dan instalasi baru bergerak ke skema yang sama.
+		String[] DDL_GRUP_ATURAN_DISKON = new String[] {
+				"CREATE TABLE IF NOT EXISTS koperasi.grup_aturan_diskon (id bigserial PRIMARY KEY, nama_grup varchar(255) NOT NULL, keterangan text, toko bigint, jenis_anggota bigint, tipe_anggota bigint, berlaku_semua_member boolean DEFAULT true, khusus_member boolean DEFAULT false, jenis_member_json text, tipe_member_json text, persentase double precision DEFAULT 0, maksimal_potongan double precision DEFAULT 0, nominal double precision DEFAULT 0, cashback double precision DEFAULT 0, potongan_langsung boolean DEFAULT true, tanggal_mulai timestamp, tanggal_selesai timestamp, hari_aktif varchar(20), aktif boolean DEFAULT true, detail_json text, oleh varchar(255), oleh_id varchar(255), tanggal_dirubah timestamp DEFAULT now())",
+				"CREATE TABLE IF NOT EXISTS koperasi.grup_aturan_diskon_detail (id bigserial PRIMARY KEY, grup_aturan_diskon bigint NOT NULL, produk bigint NOT NULL, aktif boolean DEFAULT true, oleh varchar(255), oleh_id varchar(255), tanggal_dirubah timestamp DEFAULT now())",
+				"ALTER TABLE koperasi.grup_aturan_diskon ADD COLUMN IF NOT EXISTS khusus_member boolean DEFAULT false",
+				"ALTER TABLE koperasi.grup_aturan_diskon ADD COLUMN IF NOT EXISTS jenis_member_json text",
+				"ALTER TABLE koperasi.grup_aturan_diskon ADD COLUMN IF NOT EXISTS tipe_member_json text",
+				"ALTER TABLE koperasi.grup_aturan_diskon ADD COLUMN IF NOT EXISTS cashback double precision DEFAULT 0",
+				"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_grup_diskon_detail_header') THEN ALTER TABLE koperasi.grup_aturan_diskon_detail ADD CONSTRAINT fk_grup_diskon_detail_header FOREIGN KEY (grup_aturan_diskon) REFERENCES koperasi.grup_aturan_diskon(id) ON DELETE CASCADE; END IF; END $$",
+				"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_grup_diskon_detail_produk') THEN ALTER TABLE koperasi.grup_aturan_diskon_detail ADD CONSTRAINT fk_grup_diskon_detail_produk FOREIGN KEY (produk) REFERENCES koperasi.produk(id) ON DELETE CASCADE; END IF; END $$",
+				"CREATE UNIQUE INDEX IF NOT EXISTS uq_grup_diskon_produk ON koperasi.grup_aturan_diskon_detail (grup_aturan_diskon, produk)",
+				"CREATE INDEX IF NOT EXISTS idx_grup_diskon_aktif_toko_periode ON koperasi.grup_aturan_diskon (toko, tanggal_mulai, tanggal_selesai) WHERE aktif=true",
+				"CREATE INDEX IF NOT EXISTS idx_grup_diskon_detail_produk_aktif ON koperasi.grup_aturan_diskon_detail (produk, grup_aturan_diskon) WHERE aktif=true" };
+		for (String sql : DDL_GRUP_ATURAN_DISKON) {
+			try { eksekusiSqlAmanDdl(sql); }
+			catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "init grup aturan diskon"); }
+		}
+
 		} finally {
 			// Tunggu SEMUA DDL paralel selesai, lalu tutup pool & reset state (idempoten,
 			// aman bila dipanggil ulang). Eksekusi DB kembali sinkron di luar metode ini.

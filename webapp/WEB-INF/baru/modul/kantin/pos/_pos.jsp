@@ -1155,6 +1155,7 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
     // dibangun tanpa panggilan server tambahan tiap kali toggle dibuka.
     // ==========================================
 	let sesiKasInfo<%=rnd%> = { terbuka: false };
+	const wajibSesiKas<%=rnd%> = <%=Common.bolehKonfigurasi(ais.common.Konfigurasi.KANTIN_POS_WAJIB_SESI_KAS, ais.common.Konfigurasi.AKTIF)%>;
 	// Identitas instalasi browser stabil. Disimpan lokal agar sesi kas tetap terikat
 	// ke mesin/browser yang sama setelah halaman dimuat ulang atau pengguna login lagi.
 	const idPerangkatSesiKas<%=rnd%> = (() => {
@@ -1204,9 +1205,15 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             btn.className = 'btn btn-sm btn-danger';
         } else {
             lbl.className = 'fw-bold small text-danger';
-            lbl.textContent = '<%=Common.getBahasaConfigJS("Kas")%>: <%=Common.getBahasaConfigJS("Tertutup")%>';
-            btn.textContent = '<%=Common.getBahasaConfigJS("Buka Kas")%>';
-            btn.className = 'btn btn-sm btn-success';
+            if (sesiKasInfo<%=rnd%>.sesiDiPerangkatLain) {
+                lbl.textContent = '<%=Common.getBahasaConfigJS("Kas aktif di perangkat lain")%>';
+                btn.textContent = '<%=Common.getBahasaConfigJS("Periksa Status")%>';
+                btn.className = 'btn btn-sm btn-warning';
+            } else {
+                lbl.textContent = '<%=Common.getBahasaConfigJS("Kas")%>: <%=Common.getBahasaConfigJS("Tertutup")%>';
+                btn.textContent = '<%=Common.getBahasaConfigJS("Buka Kas")%>';
+                btn.className = 'btn btn-sm btn-success';
+            }
         }
         // Form yang sedang terbuka (bila ada) dibangun ulang supaya konsisten dgn status terbaru.
         const wrap = document.getElementById('formSesiKasWrap<%=rnd%>');
@@ -1225,7 +1232,14 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
 
     const renderFormSesiKas<%=rnd%> = () => {
         const wrap = document.getElementById('formSesiKasWrap<%=rnd%>');
-        if (!sesiKasInfo<%=rnd%>.terbuka) {
+        if (wajibSesiKas<%=rnd%> && !sesiKasInfo<%=rnd%>.terbuka) {
+            if (sesiKasInfo<%=rnd%>.sesiDiPerangkatLain) {
+                wrap.innerHTML = '<div class="alert alert-danger mb-0"><strong><%=Common.getBahasaConfigJS("Transaksi dikunci pada perangkat ini.")%></strong><br>' +
+                    (sesiKasInfo<%=rnd%>.description || '<%=Common.getBahasaConfigJS("Tutup sesi kas di perangkat lain, kemudian periksa status kembali.")%>') +
+                    '<div class="mt-2"><button type="button" class="btn btn-warning btn-sm" id="btnPeriksaSesiKas<%=rnd%>"><%=Common.getBahasaConfigJS("Periksa Ulang Status Kas")%></button></div></div>';
+                document.getElementById('btnPeriksaSesiKas<%=rnd%>').addEventListener('click', muatStatusSesiKas<%=rnd%>);
+                return;
+            }
             wrap.innerHTML =
                 '<div class="row g-2 align-items-end">' +
                 '<div class="col-sm-4"><label class="form-label small fw-bold text-secondary mb-1"><%=Common.getBahasaConfigJS("Modal Awal (Rp)")%></label>' +
@@ -1415,9 +1429,16 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
     const loadAturanDiskon<%=rnd%> = async () => {
         // Jangan ubah type date jadi _iso langsung di sql, biar action:"sql" yang tambahin otomatis
         const sqlAturan = "SELECT id, produk, toko, berlaku_semua_member, jenis_anggota, tipe_anggota, persentase, maksimal_potongan, nominal, potongan_langsung, berlaku_per_hari_dan_per_toko, tanggal_mulai, tanggal_selesai, hari_aktif, COALESCE(aktivasi_manual,false) AS aktivasi_manual, nama_aturan, keterangan FROM koperasi.aturan_diskon WHERE aktif = true";
-        const res = await fetchData<%=rnd%>(sqlAturan);
-        if(res) {
-            arrAturanDiskon<%=rnd%> = res;
+        const sqlGrup = "SELECT g.id, d.produk, g.toko, COALESCE(g.berlaku_semua_member,NOT COALESCE(g.khusus_member,false)) AS berlaku_semua_member, " +
+            "g.jenis_anggota, g.tipe_anggota, g.persentase, g.maksimal_potongan, g.nominal, COALESCE(g.potongan_langsung,true) AS potongan_langsung, " +
+            "false AS berlaku_per_hari_dan_per_toko, g.tanggal_mulai, g.tanggal_selesai, g.hari_aktif, false AS aktivasi_manual, " +
+            "g.nama_grup AS nama_aturan, g.keterangan, COALESCE(g.khusus_member,false) AS khusus_member, " +
+            "COALESCE(g.jenis_member_json,'[]') AS jenis_member_json, COALESCE(g.tipe_member_json,'[]') AS tipe_member_json, " +
+            "COALESCE(g.cashback,0) AS cashback_tetap, true AS sumber_grup FROM koperasi.grup_aturan_diskon g " +
+            "JOIN koperasi.grup_aturan_diskon_detail d ON d.grup_aturan_diskon=g.id AND COALESCE(d.aktif,true) WHERE COALESCE(g.aktif,true)";
+        const hasil = await Promise.all([fetchData<%=rnd%>(sqlAturan), fetchData<%=rnd%>(sqlGrup)]);
+        if(hasil) {
+            arrAturanDiskon<%=rnd%> = (hasil[1] || []).concat(hasil[0] || []);
             await updateUsageDiskonMember<%=rnd%>();
         }
     };
@@ -1646,8 +1667,16 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         if (!hariAktifSekarang<%=rnd%>(rule.hari_aktif)) return false;
 
         const isAllMember = (rule.berlaku_semua_member === 'true' || rule.berlaku_semua_member === true || rule.berlaku_semua_member === 't');
-        if (!isAllMember) {
+        const khususMember = (rule.khusus_member === 'true' || rule.khusus_member === true || rule.khusus_member === 't');
+        if (!isAllMember || khususMember) {
             if (!selectedMember) return false; // Butuh member spesifik tapi kasir belum pilih member
+            const memuatId = (json, id) => {
+                if (!json || json === '[]') return true;
+                try { const a = Array.isArray(json) ? json : JSON.parse(json); return a.length === 0 || a.map(String).includes(String(id)); }
+                catch (e) { console.error('Kriteria member grup diskon tidak valid', e); return false; }
+            };
+            if (!memuatId(rule.jenis_member_json, selectedMember.jenis_anggota)) return false;
+            if (!memuatId(rule.tipe_member_json, selectedMember.tipe_anggota)) return false;
             if (rule.jenis_anggota && rule.jenis_anggota !== '' && rule.jenis_anggota != selectedMember.jenis_anggota) return false;
             if (rule.tipe_anggota && rule.tipe_anggota !== '' && rule.tipe_anggota != selectedMember.tipe_anggota) return false;
         }
@@ -1720,8 +1749,11 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             const isPotongLsg = (appliedRule.potongan_langsung === 'true' || appliedRule.potongan_langsung === true || appliedRule.potongan_langsung === 't');
             if (isPotongLsg) item.diskon = discountValue;
             else item.cashback = discountValue;
+            const cashbackTetap = parseFloat(appliedRule.cashback_tetap) || 0;
+            if (cashbackTetap > 0) item.cashback += Math.min(itemTotalBeforeDisc, cashbackTetap * item.jumlah);
             
-            item.aturanDiskon = appliedRule.id;
+            const sumberGrup = (appliedRule.sumber_grup === true || appliedRule.sumber_grup === 'true' || appliedRule.sumber_grup === 't');
+            item.aturanDiskon = sumberGrup ? null : appliedRule.id;
             item.berlakuPerHariDanPerToko = isBerlaku1x;
         }
     };
@@ -2326,6 +2358,13 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
     // LOGIKA PEMBAYARAN & QR CODE
     // ==========================================
     const initiatePembayaran<%=rnd%> = async () => {
+        if (wajibSesiKas<%=rnd%> && !sesiKasInfo<%=rnd%>.terbuka) {
+            const pesan = sesiKasInfo<%=rnd%>.sesiDiPerangkatLain
+                ? (sesiKasInfo<%=rnd%>.description || '<%=Common.getBahasaConfigJS("Sesi kas akun ini aktif di perangkat lain. Tutup sesi tersebut sebelum bertransaksi di sini.")%>')
+                : '<%=Common.getBahasaConfigJS("Kas masih tertutup. Buka kas terlebih dahulu sebelum memproses transaksi.")%>';
+            if (typeof tampilkanToast === 'function') tampilkanToast(pesan, 'bg-danger text-white'); else alert(pesan);
+            return;
+        }
         if (cart<%=rnd%>.length === 0) {
             if (typeof tampilkanToast === "function") {
                 tampilkanToast('<%=Common.getBahasaConfigJS("Keranjang belanja kosong! Silakan pilih produk.")%>', 'bg-warning text-dark');

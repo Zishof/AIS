@@ -25,6 +25,11 @@ String rndDash = Common.getGeneratedBarCode(5);
                 <i class="fas fa-users me-2"></i><%=Common.getBahasaConfig("Perilaku Pelanggan")%>
             </button>
         </li>
+        <li class="nav-item flex-fill text-center" role="presentation">
+            <button class="nav-link w-100 rounded-pill fw-bold" id="tab-sales-analysis<%=rndDash%>" data-bs-toggle="pill" data-bs-target="#pane-sales-analysis<%=rndDash%>" type="button" role="tab" aria-selected="false">
+                <i class="fas fa-chart-line me-2"></i><%=Common.getBahasaConfig("Analisis Penjualan")%>
+            </button>
+        </li>
     </ul>
 </div>
 
@@ -70,6 +75,10 @@ String rndDash = Common.getGeneratedBarCode(5);
         <jsp:include page="/WEB-INF/baru/modul/kantin/_peak_hour.jsp" />
         
         <jsp:include page="/WEB-INF/baru/modul/kantin/_rekap_pelanggan_terloyal.jsp" />
+    </div>
+
+    <div class="tab-pane fade" id="pane-sales-analysis<%=rndDash%>" role="tabpanel" aria-labelledby="tab-sales-analysis<%=rndDash%>">
+        <jsp:include page="/WEB-INF/baru/modul/kantin/_analisis_riwayat_penjualan.jsp" />
     </div>
 
 </div>

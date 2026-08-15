@@ -382,7 +382,7 @@ public class DashboardKantinAction extends GenericAutowireComposer {
         String[] judulTab = { "Ringkasan", "Peringkat Mitra/Toko", "Keuangan & Laba", "Produk & Stok", "Pelanggan",
                 "Transaksi & Pesanan", "Resep, HPP & Margin", "Laporan-Laporan", "Kepatuhan Operasional",
                 "Ramalan Penjualan", "Monitor Promo & Cashback", "Stok & Mutasi (Inventory)", "Kas Kasir",
-                "Laporan Keuangan" };
+                "Laporan Keuangan", "Analisis Keputusan" };
         Tabpanel[] panels = new Tabpanel[judulTab.length];
         for (int i = 0; i < judulTab.length; i++) {
             Tab t = new Tab(judulTab[i]);
@@ -435,6 +435,7 @@ public class DashboardKantinAction extends GenericAutowireComposer {
                 // milik toko SI PENGGUNA yang login, bukan laporan lintas-toko yang boleh disaring admin.
                 case 12: muatDasborLain(panel, "/pages/master/kantin/kas_kasir.zul", false); break;
                 case 13: buildLaporanKeuangan(panel); break;
+                case 14: buildAnalisisKeputusan(panel); break;
                 default: break;
             }
         } catch (Exception e) {
@@ -442,6 +443,102 @@ public class DashboardKantinAction extends GenericAutowireComposer {
             panel.appendChild(DashboardUiKit.html(
                     "<div style='font-size:12px;color:#dc2626;padding:14px;'>Maaf, data tidak dapat dimuat saat ini.</div>"));
         }
+    }
+
+    /**
+     * Analisis keputusan native ZKoss. Angka berasal dari agregasi database pada
+     * periode dan cakupan toko yang sama dengan tab lain. Aturannya sengaja
+     * transparan: setiap saran menjelaskan indikator yang memicunya, sehingga
+     * pengguna tidak menganggap rekomendasi sebagai keputusan otomatis.
+     */
+    private void buildAnalisisKeputusan(Tabpanel panel) {
+        final String where = wherePembelian();
+        Object[] kini = first(q("decision_summary",
+                "SELECT COALESCE(SUM(p.total),0),COUNT(DISTINCT COALESCE(p.pembelian_anggota_koperasi,p.id)),"
+                + "COALESCE(SUM(p.qty),0),COUNT(DISTINCT NULLIF(TRIM(p.member),'')) "
+                + "FROM koperasi.pembelian p WHERE " + where));
+        double omzet = kini == null ? 0 : num(kini[0]);
+        long transaksi = kini == null ? 0 : (long) num(kini[1]);
+        double qty = kini == null ? 0 : num(kini[2]);
+        long member = kini == null ? 0 : (long) num(kini[3]);
+        Object[] lalu = first(q("decision_previous",
+                "SELECT COALESCE(SUM(p.total),0),COUNT(DISTINCT COALESCE(p.pembelian_anggota_koperasi,p.id)) "
+                + "FROM koperasi.pembelian p WHERE p.aktif=true AND p.waktu >= ((" + periodeSinceCache
+                + ")-(NOW()-(" + periodeSinceCache + "))) AND p.waktu < (" + periodeSinceCache + ")"
+                + andToko("p")));
+        double omzetLalu = lalu == null ? 0 : num(lalu[0]);
+        double pertumbuhan = omzetLalu > 0 ? (omzet - omzetLalu) * 100.0 / omzetLalu : (omzet > 0 ? 100 : 0);
+
+        Object[] invalid = first(q("decision_invalid",
+                "SELECT COUNT(*) FROM (SELECT COALESCE(p.pembelian_anggota_koperasi,p.id),MAX(h.total_biaya),SUM(p.total) "
+                + "FROM koperasi.pembelian p LEFT JOIN koperasi.pembelian_anggota_koperasi h ON h.id=p.pembelian_anggota_koperasi "
+                + "WHERE " + where + " GROUP BY 1 HAVING MAX(h.id) IS NOT NULL "
+                + "AND ABS(COALESCE(MAX(h.total_biaya),0)-COALESCE(SUM(p.total),0))>0.01) x"));
+        long jumlahInvalid = invalid == null ? 0 : (long) num(invalid[0]);
+
+        List<DashboardUiKit.Stat> kartu = new ArrayList<DashboardUiKit.Stat>();
+        kartu.add(new DashboardUiKit.Stat("Omzet", "Rp " + DashboardUiKit.money(omzet), periodeLabelCache,
+                DashboardUiKit.PRIMARY));
+        kartu.add(new DashboardUiKit.Stat("Transaksi", DashboardUiKit.money(transaksi), "nota",
+                DashboardUiKit.ACCENT));
+        kartu.add(new DashboardUiKit.Stat("Barang Terjual", DashboardUiKit.money(qty), "item",
+                DashboardUiKit.GOOD));
+        kartu.add(new DashboardUiKit.Stat("Pertumbuhan",
+                (pertumbuhan >= 0 ? "▲ " : "▼ ") + Math.round(Math.abs(pertumbuhan)) + "%",
+                "vs periode sebelumnya", pertumbuhan >= 0 ? DashboardUiKit.GOOD : DashboardUiKit.BAD));
+        kartu.add(new DashboardUiKit.Stat("Transaksi Tidak Valid", DashboardUiKit.money(jumlahInvalid),
+                "selisih master-detail", jumlahInvalid == 0 ? DashboardUiKit.GOOD : DashboardUiKit.BAD));
+        panel.appendChild(DashboardUiKit.html(DashboardUiKit.descChip(
+                "Ringkasan untuk membantu keputusan. Angka dihitung dari seluruh transaksi pada "
+                        + periodeLabelCache + ", bukan hanya data yang terlihat di satu halaman.")));
+        panel.appendChild(DashboardUiKit.html(DashboardUiKit.cards(kartu)));
+
+        StringBuilder saran = new StringBuilder();
+        saran.append("<div style='margin:16px 0;padding:16px;border:1px solid #dbeafe;border-radius:14px;background:#f8fafc'>")
+                .append("<div style='font-size:16px;font-weight:800;color:#0f172a;margin-bottom:10px'>Analisis Cerdas dan Tindakan yang Disarankan</div>")
+                .append("<div style='font-size:12px;color:#64748b;margin-bottom:12px'>Saran memakai aturan yang dapat diperiksa. Supervisor tetap perlu mencocokkan kondisi stok, petugas, dan kegiatan toko.</div><ol style='line-height:1.7;color:#334155'>");
+        if (jumlahInvalid > 0) {
+            saran.append("<li><b>Ada ").append(jumlahInvalid).append(" transaksi tidak valid.</b> Aktifkan filter Transaksi tidak valid di Riwayat Penjualan, lalu cocokkan total header, rincian, dan struk sebelum koreksi.</li>");
+        } else {
+            saran.append("<li><b>Integritas transaksi baik.</b> Tidak ditemukan selisih total master dan rincian pada periode ini. Pertahankan pemeriksaan harian.</li>");
+        }
+        if (pertumbuhan < 0) {
+            saran.append("<li><b>Omzet turun ").append(Math.round(Math.abs(pertumbuhan))).append("%.</b> Periksa produk yang turun, ketersediaan stok, jam operasional, dan perubahan jumlah pelanggan sebelum menambah pembelian.</li>");
+        } else {
+            saran.append("<li><b>Omzet tumbuh ").append(Math.round(pertumbuhan)).append("%.</b> Siapkan stok dan petugas agar pertumbuhan tidak menimbulkan kehabisan barang atau antrean.</li>");
+        }
+        if (transaksi > 0 && member * 100.0 / transaksi < 30) {
+            saran.append("<li><b>Identifikasi member masih rendah.</b> Kasir dapat menanyakan nomor telepon secara sopan dan wajib memakai data yang sudah ada agar tidak terbentuk member ganda.</li>");
+        }
+        saran.append("<li><b>Gunakan grafik jam sibuk, metode pembayaran, dan produk terlaris di bawah.</b> Jadwalkan petugas sebelum jam puncak, siapkan kanal pembayaran cadangan, dan tetapkan stok minimum produk utama.</li></ol></div>");
+        panel.appendChild(DashboardUiKit.html(saran.toString()));
+
+        LinkedHashMap<String, Double> jam = new LinkedHashMap<String, Double>();
+        for (Object[] r : q("decision_hours", "SELECT CAST(EXTRACT(HOUR FROM p.waktu) AS integer),"
+                + "COUNT(DISTINCT COALESCE(p.pembelian_anggota_koperasi,p.id)) FROM koperasi.pembelian p WHERE "
+                + where + " GROUP BY 1 ORDER BY 1")) {
+            jam.put(String.format("%02d:00", (int) num(r[0])), num(r[1]));
+        }
+        panel.appendChild(DashboardUiKit.html(DashboardUiKit.barList("Jam Ramai",
+                "Gunakan untuk pembagian jadwal petugas dan persiapan rak.", jam, DashboardUiKit.ACCENT,
+                "transaksi", false, "Belum ada transaksi.")));
+
+        LinkedHashMap<String, Double> bayar = new LinkedHashMap<String, Double>();
+        for (Object[] r : q("decision_payments", "SELECT COALESCE(NULLIF(TRIM(p.carabayar),''),'Lainnya'),"
+                + "COALESCE(SUM(p.total),0) FROM koperasi.pembelian p WHERE " + where + " GROUP BY 1 ORDER BY 2 DESC")) {
+            bayar.put(str(r[0]), num(r[1]));
+        }
+        panel.appendChild(DashboardUiKit.html(DashboardUiKit.donut("Komposisi Pembayaran",
+                "Proporsi kanal pembayaran dan kebutuhan jalur cadangan.", bayar, true, "Belum ada transaksi.")));
+
+        List<Object[]> dasar = new ArrayList<Object[]>();
+        dasar.add(new Object[] { "Omzet periode", omzet, "Omzet periode sebelumnya", omzetLalu });
+        dasar.add(new Object[] { "Jumlah transaksi", transaksi, "Barang terjual", qty });
+        dasar.add(new Object[] { "Transaksi tidak valid", jumlahInvalid, "Member berbeda", member });
+        appendRekapTable(panel, "Dasar Angka Rekomendasi",
+                "Tabel audit ringkas yang dapat dicetak ke PDF atau Excel sebagai bahan rapat dan tindak lanjut.",
+                "Dasar Analisis Keputusan", new String[] { "Indikator A", "Nilai A", "Indikator B", "Nilai B" },
+                new int[] { 0, 1, 0, 1 }, dasar);
     }
 
     // ---------- TAB 1: RINGKASAN ----------

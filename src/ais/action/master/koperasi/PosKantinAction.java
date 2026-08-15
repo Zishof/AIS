@@ -200,6 +200,11 @@ public class PosKantinAction extends GenericAutowireComposer {
         Date tglSelesai;
         String hariAktif; // gap-closure "Promo Pilih Hari" -- lihat ais.common.HariAktifUtil
         boolean aktivasiManual; // TRUE = dikecualikan dari auto-apply, hanya lewat picker "Promo" manual
+        boolean khususMember;
+        boolean sumberGrup;
+        String jenisMemberJson;
+        String tipeMemberJson;
+        double cashbackTetap;
         // State pembatasan "berlaku per hari & per toko": pemakaian hari ini (dari DB)
         // dan akumulasi sementara di keranjang saat ini.
         double terpakaiHariIni;
@@ -450,6 +455,24 @@ public class PosKantinAction extends GenericAutowireComposer {
                 x.hariAktif = str(r[13]);
                 x.aktivasiManual = bool(r[14]);
                 list.add(x);
+            }
+            String sqlGrup = "SELECT g.id,d.produk,g.toko,g.jenis_anggota,g.tipe_anggota,"
+                    + "COALESCE(g.berlaku_semua_member,NOT COALESCE(g.khusus_member,false)),"
+                    + "g.persentase,g.maksimal_potongan,g.nominal,COALESCE(g.potongan_langsung,true),"
+                    + "g.tanggal_mulai,g.tanggal_selesai,g.hari_aktif,COALESCE(g.khusus_member,false),"
+                    + "COALESCE(g.jenis_member_json,'[]'),COALESCE(g.tipe_member_json,'[]'),COALESCE(g.cashback,0) "
+                    + "FROM koperasi.grup_aturan_diskon g JOIN koperasi.grup_aturan_diskon_detail d "
+                    + "ON d.grup_aturan_diskon=g.id AND COALESCE(d.aktif,true) WHERE COALESCE(g.aktif,true)";
+            for (Object[] r : rows(sqlGrup)) {
+                Rule x = new Rule();
+                x.aturanId = lng(r[0]); x.produkId = lng(r[1]); x.tokoId = lng(r[2]);
+                x.jenisId = lng(r[3]); x.tipeId = lng(r[4]); x.berlakuSemua = bool(r[5]);
+                x.persen = num(r[6]); x.maxPot = num(r[7]); x.nominal = num(r[8]);
+                x.potonganLangsung = bool(r[9]); x.tglMulai = date(r[10]); x.tglSelesai = date(r[11]);
+                x.hariAktif = str(r[12]); x.khususMember = bool(r[13]);
+                x.jenisMemberJson = str(r[14]); x.tipeMemberJson = str(r[15]);
+                x.cashbackTetap = num(r[16]); x.sumberGrup = true;
+                list.add(0, x);
             }
         } catch (Exception ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/koperasi/PosKantinAction.java:364");
         }
@@ -1765,8 +1788,12 @@ public class PosKantinAction extends GenericAutowireComposer {
             if (!ais.common.HariAktifUtil.aktifPadaHari(r.hariAktif, now)) {
                 continue;
             }
-            if (!r.berlakuSemua) {
+            if (!r.berlakuSemua || r.khususMember) {
                 if (memberId == null) {
+                    continue;
+                }
+                if (!jsonIdMemuat(r.jenisMemberJson, memberJenisId)
+                        || !jsonIdMemuat(r.tipeMemberJson, memberTipeId)) {
                     continue;
                 }
                 if (r.jenisId != null && !r.jenisId.equals(memberJenisId)) {
@@ -1809,8 +1836,24 @@ public class PosKantinAction extends GenericAutowireComposer {
         } else {
             it.cashback = disc;
         }
-        it.aturanDiskonId = applied.aturanId;
+        if (applied.cashbackTetap > 0) {
+            it.cashback += Math.min(itemTotal, applied.cashbackTetap * it.jumlah);
+        }
+        it.aturanDiskonId = applied.sumberGrup ? null : applied.aturanId;
         it.berlakuPerHari = applied.berlakuPerHari;
+    }
+
+    private static boolean jsonIdMemuat(String json, Long nilai) {
+        if (json == null || json.trim().length() == 0 || "[]".equals(json.trim())) return true;
+        if (nilai == null) return false;
+        try {
+            JSONArray daftar = new JSONArray(json);
+            for (int i = 0; i < daftar.length(); i++)
+                if (String.valueOf(nilai).equals(String.valueOf(daftar.get(i)))) return true;
+        } catch (Exception e) {
+            ais.common.ErrorAuditUtil.record(e, "filter member grup aturan diskon ZK");
+        }
+        return false;
     }
 
     // ======================== Bayar ========================
@@ -1871,15 +1914,20 @@ public class PosKantinAction extends GenericAutowireComposer {
 		// Fase 1: default WAJIB, tetapi unit tanpa laci/shift kas dapat mematikannya melalui
 		// konfigurasi server yang sama dengan seluruh kanal POS.
 		if (Common.bolehKonfigurasi(Konfigurasi.KANTIN_POS_WAJIB_SESI_KAS, Konfigurasi.AKTIF)) {
-            Long sesiTerbukaId = ais.action.master.koperasi.helper.SesiKasUtil.idSesiTerbuka(
-                    HibernateUtil.currentSession(), oleh, olehId, tokoIdAktif);
-            if (sesiTerbukaId == null) {
-                MyMessageboxConfig.show(
-                        "Belum ada Sesi Kas Kasir yang terbuka. Buka kas terlebih dahulu (tombol \"Buka Kas\" "
-                                + "di bagian atas layar Kasir) sebelum memproses pembayaran.",
-                        "Sesi Kas Belum Dibuka", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
-                return;
-            }
+			ais.database.model.inventory.SesiKasKasir sesiPerangkat =
+					ais.action.master.koperasi.helper.SesiKasUtil.sesiTerbukaPerangkat(
+							HibernateUtil.currentSession(), oleh, olehId, tokoIdAktif, idPerangkatZk());
+			if (sesiPerangkat == null) {
+				ais.database.model.inventory.SesiKasKasir sesiLain =
+						ais.action.master.koperasi.helper.SesiKasUtil.sesiTerbuka(
+								HibernateUtil.currentSession(), oleh, olehId, null);
+				MyMessageboxConfig.show(
+						sesiLain == null
+								? "Belum ada Sesi Kas Kasir yang terbuka pada perangkat ini. Buka kas terlebih dahulu sebelum memproses pembayaran."
+								: "Sesi kas akun ini sedang aktif pada perangkat lain. Tutup kas pada perangkat tersebut; transaksi pada perangkat ini dikunci untuk mencegah pencampuran penerimaan kasir.",
+						"Sesi Kas Belum Dibuka", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				return;
+			}
         }
         if (cart.isEmpty()) {
             MyMessageboxConfig.show("Mohon maaf, keranjang belanja masih kosong. Langkah yang dapat dilakukan: (1) pilih produk dari daftar produk dengan menekan tombol produk; (2) scan barcode produk jika tersedia scanner; (3) ulangi pembayaran setelah menambah produk.", "Peringatan",
@@ -2582,11 +2630,12 @@ public class PosKantinAction extends GenericAutowireComposer {
                     .append(DashboardUiKit.esc(memberNama)).append("</div>");
         }
         s.append("<div style='border-top:1px dashed #94a3b8;margin:6px 0;'></div>");
-        double subtotal = 0, totDisk = 0;
+        double subtotal = 0, totDisk = 0, totCashback = 0;
         for (Item it : cart) {
             double sub = it.harga * it.jumlah;
             subtotal += sub;
             totDisk += it.diskon;
+            totCashback += it.cashback;
             s.append("<div style='margin:3px 0;'><div>").append(DashboardUiKit.esc(it.nama)).append("</div>");
             s.append("<div style='display:flex;justify-content:space-between;'><span>").append(it.jumlah)
                     .append(" x ").append(DashboardUiKit.money(it.harga)).append("</span><span>")
@@ -2595,12 +2644,19 @@ public class PosKantinAction extends GenericAutowireComposer {
                 s.append("<div style='display:flex;justify-content:space-between;color:#dc2626;'>")
                         .append("<span>diskon</span><span>-").append(DashboardUiKit.money(it.diskon)).append("</span></div>");
             }
+            if (it.cashback > 0) {
+                s.append("<div style='display:flex;justify-content:space-between;color:#16a34a;'>")
+                        .append("<span>cashback</span><span>+").append(DashboardUiKit.money(it.cashback)).append("</span></div>");
+            }
             s.append("</div>");
         }
         s.append("<div style='border-top:1px dashed #94a3b8;margin:6px 0;'></div>");
         s.append(barisStruk("Subtotal", DashboardUiKit.money(subtotal), false));
         if (totDisk > 0) {
             s.append(barisStruk("Diskon", "-" + DashboardUiKit.money(totDisk), false));
+        }
+        if (totCashback > 0) {
+            s.append(barisStruk("Cashback", "+" + DashboardUiKit.money(totCashback), false));
         }
         if (grandPajak > 0) {
             s.append(barisStruk("Pajak (" + fmtPersen(pajakPersen) + "%)", DashboardUiKit.money(grandPajak), false));

@@ -517,6 +517,12 @@ public class KantinHelper {
 									.createCriteria(DraftPembelianAnggotaKoperasi.class)
 									.add(Restrictions.idEq(iddraftPembelianAnggotaKoperasi)).uniqueResult());
 					JSONArray transaksi = jsonObject.getJSONArray("transaksi");
+					// Hitung promo sekali lagi di SERVER sebelum penyimpanan. Dengan demikian POS
+					// Desktop, Android, JSP, ZK dan pemanggil API lain memperoleh aturan grup,
+					// potongan, serta cashback yang sama walaupun versi UI berbeda atau cache
+					// katalognya belum segar. Nilai dari klien tidak dijadikan sumber kebenaran.
+					terapkanEvaluasiDiskonServer(session.connection(), toko.getId(),
+							anggotaKoperasi == null ? null : anggotaKoperasi.getId(), transaksi);
 					// Gap-closure "Produk Ekstra" -- versi RATA dipakai oleh SEMUA logic generic per-baris
 					// di bawah (cek kadaluarsa, lock stok, hitung total, konsumsi bahan baku, recompute
 					// stok) supaya ekstra ikut tervalidasi/terhitung/terdekremen persis spt baris biasa
@@ -13478,6 +13484,37 @@ public class KantinHelper {
 		}
 		rsRule.close();
 		psRule.close();
+
+		// Grup Diskon memakai mesin hitung yang SAMA dengan aturan per-produk. Kandidat
+		// grup diletakkan di depan agar aturan massal yang sengaja dibuat admin langsung
+		// terlihat di seluruh kanal tanpa perlu menduplikasi logika di tiap klien.
+		java.util.List<java.util.Map<String, Object>> groupRules = new java.util.ArrayList<java.util.Map<String, Object>>();
+		java.sql.PreparedStatement psGroup = conn.prepareStatement(
+				"SELECT g.id,d.produk,g.toko,COALESCE(g.berlaku_semua_member,NOT COALESCE(g.khusus_member,false)), "
+						+ "g.jenis_anggota,g.tipe_anggota,g.persentase,g.maksimal_potongan,g.nominal,COALESCE(g.potongan_langsung,true), "
+						+ "g.hari_aktif,g.nama_grup,g.keterangan,COALESCE(g.khusus_member,false),COALESCE(g.jenis_member_json,'[]'), "
+						+ "COALESCE(g.tipe_member_json,'[]'),COALESCE(g.cashback,0) "
+						+ "FROM koperasi.grup_aturan_diskon g JOIN koperasi.grup_aturan_diskon_detail d ON d.grup_aturan_diskon=g.id AND COALESCE(d.aktif,true) "
+						+ "WHERE COALESCE(g.aktif,true) AND d.produk IN (" + inKlausa + ") AND (g.toko IS NULL OR g.toko=?) "
+						+ "AND (g.tanggal_mulai IS NULL OR g.tanggal_mulai<=now()) AND (g.tanggal_selesai IS NULL OR g.tanggal_selesai>=now()) ORDER BY g.id ASC");
+		psGroup.setLong(1, tokoId);
+		java.sql.ResultSet rsGroup = psGroup.executeQuery();
+		while (rsGroup.next()) {
+			java.util.Map<String,Object> r = new java.util.HashMap<String,Object>();
+			r.put("id", rsGroup.getLong(1)); r.put("produk", Long.valueOf(rsGroup.getLong(2)));
+			long tg=rsGroup.getLong(3); r.put("toko",rsGroup.wasNull()?null:Long.valueOf(tg));
+			r.put("berlakuSemuaMember",rsGroup.getBoolean(4));
+			long ja=rsGroup.getLong(5); r.put("jenisAnggota",rsGroup.wasNull()?null:Long.valueOf(ja));
+			long ta=rsGroup.getLong(6); r.put("tipeAnggota",rsGroup.wasNull()?null:Long.valueOf(ta));
+			r.put("persentase",Double.valueOf(rsGroup.getDouble(7))); r.put("maksimalPotongan",Double.valueOf(rsGroup.getDouble(8)));
+			r.put("nominal",Double.valueOf(rsGroup.getDouble(9))); r.put("potonganLangsung",Boolean.valueOf(rsGroup.getBoolean(10)));
+			r.put("berlakuPerHariDanPerToko",Boolean.FALSE); r.put("hariAktif",rsGroup.getString(11)); r.put("aktivasiManual",Boolean.FALSE);
+			r.put("namaAturan",rsGroup.getString(12)); r.put("keterangan",rsGroup.getString(13)); r.put("khususMember",Boolean.valueOf(rsGroup.getBoolean(14)));
+			r.put("jenisMemberJson",rsGroup.getString(15)); r.put("tipeMemberJson",rsGroup.getString(16)); r.put("cashbackTetap",Double.valueOf(rsGroup.getDouble(17)));
+			r.put("sumberGrup",Boolean.TRUE); r.put("terpakaiHariIni",Double.valueOf(0d)); r.put("terpakaiDiKeranjang",Double.valueOf(0d));
+			groupRules.add(r);
+		}
+		rsGroup.close(); psGroup.close(); rules.addAll(0, groupRules);
 		return rules;
 	}
 
@@ -13501,8 +13538,13 @@ public class KantinHelper {
 			return false;
 		}
 		boolean semuaMember = Boolean.TRUE.equals(r.get("berlakuSemuaMember"));
-		if (!semuaMember) {
+		boolean khususMember = Boolean.TRUE.equals(r.get("khususMember"));
+		if (!semuaMember || khususMember) {
 			if (memberId == null) {
+				return false;
+			}
+			if (!jsonIdMemuat((String) r.get("jenisMemberJson"), memberJenis)
+					|| !jsonIdMemuat((String) r.get("tipeMemberJson"), memberTipe)) {
 				return false;
 			}
 			Long jenisRule = (Long) r.get("jenisAnggota");
@@ -13515,6 +13557,16 @@ public class KantinHelper {
 			}
 		}
 		return true;
+	}
+
+	private static boolean jsonIdMemuat(String json, Long nilai) {
+		if (json == null || json.trim().isEmpty() || "[]".equals(json.trim())) return true;
+		if (nilai == null) return false;
+		try {
+			JSONArray a=new JSONArray(json);
+			for(int i=0;i<a.length();i++) if(String.valueOf(nilai).equals(String.valueOf(a.get(i)))) return true;
+			return false;
+		} catch(Exception e) { return false; }
 	}
 
 	/**
@@ -13661,7 +13713,14 @@ public class KantinHelper {
 					} else {
 						cashback = discountValue;
 					}
-					aturanDiskonId = (Long) applied.get("id");
+					// Grup dapat memberi potongan dan cashback sekaligus. Cashback eksplisit
+					// dihitung per unit dan tidak mengurangi total tagihan.
+					double cashbackTetap = applied.get("cashbackTetap") instanceof Double
+							? ((Double) applied.get("cashbackTetap")).doubleValue() : 0d;
+					if (cashbackTetap > 0) cashback += Math.min(itemTotal, cashbackTetap * jumlah);
+					// FK pembelian.aturan_diskon menunjuk aturan lama, bukan header grup.
+					// Nilai finansial tetap tersimpan di diskon/cashback; id grup dikirim terpisah.
+					aturanDiskonId = Boolean.TRUE.equals(applied.get("sumberGrup")) ? null : (Long) applied.get("id");
 				}
 
 				JSONObject out = new JSONObject();
@@ -13669,11 +13728,35 @@ public class KantinHelper {
 				out.put("diskon", diskon);
 				out.put("cashback", cashback);
 				out.put("aturanDiskon", aturanDiskonId == null ? JSONObject.NULL : aturanDiskonId);
+				out.put("grupAturanDiskon", applied != null && Boolean.TRUE.equals(applied.get("sumberGrup"))
+						? applied.get("id") : JSONObject.NULL);
+				out.put("namaPromo", applied == null ? "" : applied.get("namaAturan"));
 				out.put("berlakuPerHariDanPerToko", berlakuPerHari);
 				outArr.put(out);
 			}
 
 			return outArr;
+		}
+	}
+
+	private static void terapkanEvaluasiDiskonServer(java.sql.Connection conn, Long tokoId, Long memberId,
+			JSONArray transaksi) throws Exception {
+		JSONArray input=new JSONArray();
+		for(int i=0;i<transaksi.length();i++){
+			JSONObject asal=transaksi.getJSONObject(i), item=new JSONObject();
+			item.put("id",asal.get("id")); item.put("harga",asal.optDouble("harga",0));
+			item.put("jumlah",asal.optDouble("jumlah",1));
+			if(!asal.isNull("aturanDiskon")) item.put("hanya_aturan_id",asal.get("aturanDiskon"));
+			input.put(item);
+		}
+		JSONArray hasil=evaluasiDiskonItems(conn,tokoId,memberId,input,null);
+		for(int i=0;i<transaksi.length()&&i<hasil.length();i++){
+			JSONObject asal=transaksi.getJSONObject(i), hitung=hasil.getJSONObject(i);
+			asal.put("diskon",hitung.optDouble("diskon",0));
+			asal.put("cashback",hitung.optDouble("cashback",0));
+			asal.put("aturanDiskon",hitung.isNull("aturanDiskon")?JSONObject.NULL:hitung.get("aturanDiskon"));
+			asal.put("grupAturanDiskon",hitung.isNull("grupAturanDiskon")?JSONObject.NULL:hitung.get("grupAturanDiskon"));
+			asal.put("namaPromo",hitung.optString("namaPromo",""));
 		}
 	}
 }
