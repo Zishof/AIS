@@ -2834,7 +2834,7 @@ public class PosApi extends HttpServlet {
 			while (rProduk.next()) { JSONObject o = new JSONObject(); o.put("nama", rProduk.getString(1)); o.put("qty", rProduk.getDouble(2)); o.put("omzet", rProduk.getDouble(3)); o.put("transaksi", rProduk.getLong(4)); produk.put(o); }
 			rProduk.close(); pProduk.close();
 
-			String sqlRetur = "SELECT COUNT(DISTINCT rp.pembelian_anggota_koperasi_id),COALESCE(SUM(rp.qty),0),COALESCE(SUM(rp.total_nilai),0)"
+			String sqlRetur = "SELECT COUNT(DISTINCT rp.pembelian_anggota_koperasi_id),COALESCE(SUM(rp.qty),0),COALESCE(SUM(rp.totalnilai),0)"
 					+ " FROM koperasi.retur_penjualan rp LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON pak.id=rp.pembelian_anggota_koperasi_id"
 					+ " WHERE rp.toko=? AND DATE(rp.waktu)>=? AND DATE(rp.waktu)<=?";
 			if (!bolehSemuaKasir) sqlRetur += " AND LOWER(COALESCE(NULLIF(TRIM(pak.kasir_login_nama),''),TRIM(rp.oleh)))=LOWER(?)";
