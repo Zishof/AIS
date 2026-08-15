@@ -1853,6 +1853,37 @@ public class InitIndex {
 		}
 	}
 
+	/** Menyamakan lebar kolom tabel idempotensi instalasi lama secara aman. */
+	static void initRetailRequestIdempotencyColumns() {
+		org.hibernate.Session session = null; org.hibernate.Transaction tx = null;
+		java.sql.PreparedStatement cek = null; java.sql.ResultSet rs = null; java.sql.Statement ddl = null;
+		try {
+			session = ais.database.hibernate.HibernateUtil.getSessionFactory().openSession(); tx = session.beginTransaction();
+			cek = session.connection().prepareStatement("SELECT 1 FROM information_schema.tables WHERE table_schema=? AND table_name=?");
+			cek.setString(1, "public"); cek.setString(2, "retail_request_idempotency"); rs = cek.executeQuery();
+			if (!rs.next()) { tx.commit(); return; }
+			ddl = session.connection().createStatement();
+			ddl.executeUpdate("ALTER TABLE public.retail_request_idempotency ALTER COLUMN action TYPE varchar(80)");
+			ddl.executeUpdate("ALTER TABLE public.retail_request_idempotency ALTER COLUMN idempotency_key TYPE varchar(160)");
+			ddl.executeUpdate("ALTER TABLE public.retail_request_idempotency ALTER COLUMN request_hash TYPE varchar(64)");
+			ddl.executeUpdate("ALTER TABLE public.retail_request_idempotency ALTER COLUMN status TYPE varchar(20)");
+			ddl.executeUpdate("ALTER TABLE public.retail_request_idempotency ALTER COLUMN result_reference TYPE varchar(160)");
+			tx.commit();
+		} catch (Exception e) {
+			if (tx != null && tx.isActive()) try { tx.rollback(); } catch (Exception rollback) { ErrorAuditUtil.record(rollback, "initRetailRequestIdempotencyColumns-rollback"); }
+			ErrorAuditUtil.record(e, "auto-audit InitIndex.initRetailRequestIdempotencyColumns");
+		} finally {
+			try { if (rs != null) rs.close(); } catch (Exception e) { ErrorAuditUtil.record(e, "initRetailRequestIdempotencyColumns-rs-close"); }
+			try { if (cek != null) cek.close(); } catch (Exception e) { ErrorAuditUtil.record(e, "initRetailRequestIdempotencyColumns-cek-close"); }
+			try { if (ddl != null) ddl.close(); } catch (Exception e) { ErrorAuditUtil.record(e, "initRetailRequestIdempotencyColumns-ddl-close"); }
+			if (session != null) {
+				try { session.clear(); } catch (Exception e) { ErrorAuditUtil.record(e, "initRetailRequestIdempotencyColumns-clear"); }
+				try { session.disconnect(); } catch (Exception e) { ErrorAuditUtil.record(e, "initRetailRequestIdempotencyColumns-disconnect"); }
+				try { session.close(); } catch (Exception e) { ErrorAuditUtil.record(e, "initRetailRequestIdempotencyColumns-close"); }
+			}
+		}
+	}
+
 	/** Menambahkan penanda cara bayar hutang pada instalasi lama secara idempoten. */
 	static void initCaraPembayaranMasukSebagaiHutang() {
 		try {

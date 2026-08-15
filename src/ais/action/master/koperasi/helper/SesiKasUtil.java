@@ -523,8 +523,28 @@ public final class SesiKasUtil {
 	 * drpd waktu tutup sungguhan) akan keliru menyertakan transaksi-transaksi itu.
 	 */
 	public static double tutup(Session session, SesiKasKasir sesi, double uangFisik, String keterangan, Date waktuTutupKlien) {
+		return tutup(session, sesi, uangFisik, keterangan, waktuTutupKlien, null);
+	}
+
+	/** Menutup sesi dengan penyesuaian penjualan tunai supervisor yang tetap tersimpan di snapshot audit. */
+	public static double tutup(Session session, SesiKasKasir sesi, double uangFisik, String keterangan,
+			Date waktuTutupKlien, Double penjualanTunaiKoreksi) {
 		Date sampai = waktuTutupKlien != null ? waktuTutupKlien : new Date();
 		JSONObject laporan = laporanTutupKas(session, sesi, sampai, uangFisik);
+		if (penjualanTunaiKoreksi != null) {
+			double tunaiAsli = laporan.optDouble("penjualanTunai", 0);
+			double kasSeharusnya = sesi.getModalAwal().doubleValue() + penjualanTunaiKoreksi.doubleValue()
+					- laporan.optDouble("returTunai", 0) - laporan.optDouble("biaya", 0);
+			try {
+				laporan.put("penjualanTunaiSebelumKoreksi", tunaiAsli);
+				laporan.put("penjualanTunai", penjualanTunaiKoreksi.doubleValue());
+				laporan.put("koreksiPenjualanTunai", penjualanTunaiKoreksi.doubleValue() - tunaiAsli);
+				laporan.put("kasSeharusnya", kasSeharusnya);
+				laporan.put("selisih", uangFisik - kasSeharusnya);
+			} catch (org.json.JSONException e) {
+				throw new IllegalStateException("Snapshot koreksi penjualan tunai tidak dapat dibentuk.", e);
+			}
+		}
 		double selisih = laporan.optDouble("selisih", 0);
 		sesi.setTotalTunai(Double.valueOf(laporan.optDouble("penjualanTunai", 0)));
 		sesi.setTotalNonTunai(Double.valueOf(laporan.optDouble("penjualanNonTunai", 0)));

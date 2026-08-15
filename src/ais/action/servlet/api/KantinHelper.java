@@ -2144,8 +2144,10 @@ public class KantinHelper {
 			}
 			String keterangan = request.optString("keterangan", "");
 			boolean adaKoreksiModal = !request.isNull("modal_awal_koreksi");
+			boolean adaKoreksiTunai = !request.isNull("penjualan_tunai_koreksi");
 			double modalAwalLama = sesi.getModalAwal() == null ? 0.0 : sesi.getModalAwal().doubleValue();
 			double modalAwalKoreksi = modalAwalLama;
+			Double penjualanTunaiKoreksi = null;
 			String alasanKoreksi = request.optString("alasan_koreksi", "").trim();
 			if (adaKoreksiModal) {
 				modalAwalKoreksi = request.optDouble("modal_awal_koreksi", -1);
@@ -2155,12 +2157,13 @@ public class KantinHelper {
 					hasil.put("description", "Nominal modal awal hasil koreksi harus berupa angka nol atau lebih.");
 					return;
 				}
-				if (alasanKoreksi.length() < 5) {
-					hasil.put("status", "91");
-					hasil.put("description", "Alasan koreksi nominal wajib diisi minimal 5 karakter untuk kebutuhan audit.");
-					return;
-				}
 			}
+			if (adaKoreksiTunai) {
+				double nilai = request.optDouble("penjualan_tunai_koreksi", -1);
+				if (Double.isNaN(nilai) || Double.isInfinite(nilai) || nilai < 0) { hasil.put("status", "91"); hasil.put("description", "Penjualan tunai hasil koreksi harus berupa angka nol atau lebih."); return; }
+				penjualanTunaiKoreksi = Double.valueOf(nilai);
+			}
+			if ((adaKoreksiModal || adaKoreksiTunai) && alasanKoreksi.length() < 5) { hasil.put("status", "91"); hasil.put("description", "Alasan koreksi nominal wajib diisi minimal 5 karakter untuk kebutuhan audit."); return; }
 			java.util.Date waktuTutupKlien = null;
 			if (!request.isNull("waktu_tutup")) {
 				try {
@@ -2179,7 +2182,13 @@ public class KantinHelper {
 				keterangan = keterangan == null || keterangan.trim().length() == 0
 						? catatanAudit : keterangan.trim() + "\n" + catatanAudit;
 			}
-			double selisih = ais.action.master.koperasi.helper.SesiKasUtil.tutup(session, sesi, uangFisik, keterangan, waktuTutupKlien);
+			if (adaKoreksiTunai) {
+				JSONObject sebelum = ais.action.master.koperasi.helper.SesiKasUtil.laporanTutupKas(session, sesi, waktuTutupKlien == null ? new Date() : waktuTutupKlien, uangFisik);
+				String pelaku = tbmuser == null ? "admin" : tbmuser.getUserId();
+				String catatanAudit = "[KOREKSI SUPERVISOR " + pelaku + "] Penjualan tunai Rp " + Math.round(sebelum.optDouble("penjualanTunai")) + " menjadi Rp " + Math.round(penjualanTunaiKoreksi.doubleValue()) + ". Alasan: " + alasanKoreksi;
+				keterangan = keterangan == null || keterangan.trim().length() == 0 ? catatanAudit : keterangan.trim() + "\n" + catatanAudit;
+			}
+			double selisih = ais.action.master.koperasi.helper.SesiKasUtil.tutup(session, sesi, uangFisik, keterangan, waktuTutupKlien, penjualanTunaiKoreksi);
 			session.getTransaction().commit();
 			hasil.put("status", "00");
 			hasil.put("selisih", selisih);
@@ -13407,6 +13416,149 @@ public class KantinHelper {
 		}
 	}
 
+	/** Daftar sesi kas pada toko aktif untuk tab supervisor di Konfigurasi. */
+	@SuppressWarnings("unchecked")
+	public static void sesiKasDaftar(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		Long tokoId = request.isNull("id_toko") ? null : Long.valueOf(request.get("id_toko").toString());
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			if (!bolehAksesTokoSesiKas(session, tbmuser, tokoId)) {
+				hasil.put("status", "91");
+				hasil.put("description", "Toko sesi kas tidak termasuk toko yang boleh diakses akun ini.");
+				return;
+			}
+			org.hibernate.Criteria c = session.createCriteria(SesiKasKasir.class);
+			if (tokoId != null) c.createAlias("toko", "t").add(Restrictions.eq("t.id", tokoId));
+			c.addOrder(Order.desc("waktuBuka")).setMaxResults(200);
+			java.util.List<SesiKasKasir> daftar = c.list();
+			JSONArray rows = new JSONArray();
+			for (SesiKasKasir sesi : daftar) {
+				Date sampai = SesiKasKasir.STATUS_TUTUP.equals(sesi.getStatus()) && sesi.getWaktuTutup() != null
+						? sesi.getWaktuTutup() : new Date();
+				JSONObject laporan;
+				if (SesiKasKasir.STATUS_TUTUP.equals(sesi.getStatus())) {
+					try {
+						laporan = sesi.getLaporanTutupJson() == null ? new JSONObject()
+								: new JSONObject(sesi.getLaporanTutupJson());
+					} catch (Exception eSnapshot) {
+						laporan = new JSONObject();
+					}
+					if (!laporan.has("penjualanTunai")) laporan.put("penjualanTunai", sesi.getTotalTunai());
+					if (!laporan.has("penjualanNonTunai")) laporan.put("penjualanNonTunai", sesi.getTotalNonTunai());
+					if (!laporan.has("kasSeharusnya")) laporan.put("kasSeharusnya", sesi.getModalAwal() + sesi.getTotalTunai());
+				} else {
+					laporan = ais.action.master.koperasi.helper.SesiKasUtil.laporanTutupKas(session, sesi, sampai, 0);
+				}
+				JSONObject row = new JSONObject();
+				row.put("id", sesi.getId());
+				row.put("kode", sesi.getKode() == null ? JSONObject.NULL : sesi.getKode());
+				row.put("kasirNama", sesi.getKasirNama() == null ? "" : sesi.getKasirNama());
+				row.put("kasirUserId", sesi.getKasirUserId() == null ? "" : sesi.getKasirUserId());
+				row.put("tokoId", sesi.getToko() == null ? JSONObject.NULL : sesi.getToko().getId());
+				row.put("tokoNama", sesi.getToko() == null ? "" : sesi.getToko().getNama());
+				row.put("perangkat", sesi.getNamaPerangkat() == null || sesi.getNamaPerangkat().trim().length() == 0
+						? (sesi.getIdPerangkat() == null ? "" : sesi.getIdPerangkat()) : sesi.getNamaPerangkat());
+				row.put("waktuBuka", Common.dateFormatInput.get().format(sesi.getWaktuBuka()));
+				row.put("waktuTutup", sesi.getWaktuTutup() == null ? JSONObject.NULL
+						: Common.dateFormatInput.get().format(sesi.getWaktuTutup()));
+				row.put("statusSesi", sesi.getStatus());
+				row.put("modalAwal", sesi.getModalAwal());
+				row.put("penjualanTunai", laporan.optDouble("penjualanTunai", sesi.getTotalTunai()));
+				row.put("penjualanNonTunai", laporan.optDouble("penjualanNonTunai", sesi.getTotalNonTunai()));
+				row.put("kasSeharusnya", laporan.optDouble("kasSeharusnya", 0));
+				row.put("uangFisik", SesiKasKasir.STATUS_TUTUP.equals(sesi.getStatus()) ? sesi.getUangFisik() : JSONObject.NULL);
+				row.put("selisih", SesiKasKasir.STATUS_TUTUP.equals(sesi.getStatus()) ? sesi.getSelisih() : JSONObject.NULL);
+				row.put("jumlahTransaksi", laporan.optInt("jumlahTransaksi", 0));
+				row.put("keterangan", sesi.getKeterangan() == null ? "" : sesi.getKeterangan());
+				rows.put(row);
+			}
+			hasil.put("status", "00");
+			hasil.put("sesi", rows);
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	private static boolean bolehAksesTokoSesiKas(Session session, Tbmuser tbmuser, Long tokoId) {
+		if (tbmuser == null || tbmuser.getPedagang() == null) return true;
+		if (tokoId == null) return false;
+		java.util.List<Toko> daftar = daftarTokoBolehDiakses(session, tbmuser);
+		for (Toko toko : daftar) if (toko != null && tokoId.equals(toko.getId())) return true;
+		return false;
+	}
+
+	/** Koreksi status dan nominal sesi; pemanggil wajib sudah lolos gerbang supervisor di PosApi. */
+	public static void sesiKasKoreksi(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		Long idSesi = request.isNull("id_sesi") ? null : Long.valueOf(request.get("id_sesi").toString());
+		String statusBaru = request.optString("status_sesi", "").trim().toUpperCase();
+		String alasan = request.optString("alasan_koreksi", "").trim();
+		if (idSesi == null || (!SesiKasKasir.STATUS_BUKA.equals(statusBaru) && !SesiKasKasir.STATUS_TUTUP.equals(statusBaru))) {
+			hasil.put("status", "91"); hasil.put("description", "Sesi dan status koreksi wajib dipilih."); return;
+		}
+		if (alasan.length() < 5) {
+			hasil.put("status", "91"); hasil.put("description", "Alasan koreksi wajib diisi minimal 5 karakter."); return;
+		}
+		double modal = request.optDouble("modal_awal", -1);
+		double tunai = request.optDouble("penjualan_tunai", -1);
+		double uangFisik = request.optDouble("uang_fisik", -1);
+		if (modal < 0 || Double.isNaN(modal) || Double.isInfinite(modal)) {
+			hasil.put("status", "91"); hasil.put("description", "Modal awal harus berupa angka nol atau lebih."); return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			SesiKasKasir sesi = (SesiKasKasir) session.get(SesiKasKasir.class, idSesi);
+			if (sesi == null) { hasil.put("status", "91"); hasil.put("description", "Sesi kas tidak ditemukan."); return; }
+			Long tokoSesi = sesi.getToko() == null ? null : sesi.getToko().getId();
+			if (!bolehAksesTokoSesiKas(session, tbmuser, tokoSesi)) {
+				hasil.put("status", "91"); hasil.put("description", "Sesi kas berada di toko yang tidak boleh diakses akun ini."); return;
+			}
+			String statusLama = sesi.getStatus();
+			if (SesiKasKasir.STATUS_BUKA.equals(statusBaru)) {
+				SesiKasKasir sesiAkun = ais.action.master.koperasi.helper.SesiKasUtil.sesiTerbuka(
+						session, sesi.getKasirNama(), sesi.getKasirUserId(), null);
+				SesiKasKasir sesiPerangkat = ais.action.master.koperasi.helper.SesiKasUtil.sesiTerbukaPadaPerangkat(
+						session, null, sesi.getIdPerangkat());
+				if ((sesiAkun != null && !sesiAkun.getId().equals(sesi.getId()))
+						|| (sesiPerangkat != null && !sesiPerangkat.getId().equals(sesi.getId()))) {
+					hasil.put("status", "91");
+					hasil.put("description", "Sesi tidak dapat dibuka kembali karena kasir atau perangkat masih memiliki sesi terbuka lain.");
+					return;
+				}
+			}
+			session.beginTransaction();
+			sesi.setModalAwal(Double.valueOf(modal));
+			String pelaku = tbmuser == null ? "admin" : tbmuser.getUserId();
+			String audit = "[KOREKSI SUPERVISOR " + pelaku + "] Status " + statusLama + " menjadi "
+					+ statusBaru + ", modal Rp " + Math.round(modal) + ". Alasan: " + alasan;
+			String catatan = sesi.getKeterangan();
+			catatan = catatan == null || catatan.trim().length() == 0 ? audit : catatan.trim() + "\n" + audit;
+			if (SesiKasKasir.STATUS_TUTUP.equals(statusBaru)) {
+				if (tunai < 0 || uangFisik < 0 || Double.isNaN(tunai) || Double.isInfinite(tunai)
+						|| Double.isNaN(uangFisik) || Double.isInfinite(uangFisik)) {
+					throw new IllegalArgumentException("Penjualan tunai dan uang fisik harus berupa angka nol atau lebih.");
+				}
+				Date waktuTutup = sesi.getWaktuTutup() == null ? new Date() : sesi.getWaktuTutup();
+				ais.action.master.koperasi.helper.SesiKasUtil.tutup(session, sesi, uangFisik, catatan,
+						waktuTutup, Double.valueOf(tunai));
+			} else {
+				sesi.setStatus(SesiKasKasir.STATUS_BUKA);
+				sesi.setWaktuTutup(null);
+				sesi.setTotalTunai(Double.valueOf(0));
+				sesi.setTotalNonTunai(Double.valueOf(0));
+				sesi.setUangFisik(Double.valueOf(0));
+				sesi.setSelisih(Double.valueOf(0));
+				sesi.setLaporanTutupJson(null);
+				sesi.setKeterangan(catatan);
+				Common.refreshSaveOrUpdate(session, sesi);
+			}
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("description", "Koreksi sesi kas berhasil disimpan.");
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
 	/** Hanya admin global atau supervisor toko yang boleh mengoreksi transaksi lunas. */
 	public static boolean bolehEditTransaksi(Tbmuser tbmuser) {
 		if (tbmuser == null) return false;
@@ -13416,6 +13568,32 @@ public class KantinHelper {
 		org.json.JSONObject menuRole = ais.common.EbisnisMenuKatalog.urai(
 				role == null ? null : role.getEbisnisMenu());
 		return menuRole.optBoolean("supervisor", false);
+	}
+
+	/** Mencari akun kasir aktif langsung dari public.tbmuser untuk koreksi transaksi. */
+	public static void editTransaksiKasirCari(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehEditTransaksi(tbmuser)) {
+			hasil.put("status", "91"); hasil.put("description", "Hanya supervisor atau admin yang dapat mencari kasir untuk koreksi transaksi."); return;
+		}
+		String kata = request.optString("keyword", "").trim();
+		if (kata.length() < 2) {
+			hasil.put("status", "91"); hasil.put("description", "Ketik sedikitnya 2 karakter ID atau nama kasir."); return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		java.sql.PreparedStatement ps = null; java.sql.ResultSet rs = null;
+		try {
+			ps = session.connection().prepareStatement("select userid,coalesce(nullif(trim(usernama),''),userid) from public.tbmuser "
+					+ "where coalesce(aktif,true)=true and (userid ilike ? or coalesce(usernama,'') ilike ?) "
+					+ "order by coalesce(nullif(trim(usernama),''),userid),userid limit 20");
+			String pola = "%" + kata + "%"; ps.setString(1, pola); ps.setString(2, pola); rs = ps.executeQuery();
+			JSONArray data = new JSONArray();
+			while (rs.next()) { JSONObject akun = new JSONObject(); akun.put("userId", rs.getString(1)); akun.put("nama", rs.getString(2)); data.put(akun); }
+			hasil.put("status", "00"); hasil.put("data", data);
+		} finally {
+			try { if (rs != null) rs.close(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "editTransaksiKasirCari-rs-close"); }
+			try { if (ps != null) ps.close(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "editTransaksiKasirCari-ps-close"); }
+			tutupSessionPolaB(session);
+		}
 	}
 
 	/**
@@ -13471,6 +13649,12 @@ public class KantinHelper {
 					.setParameter("id", transaksiId).uniqueResult();
 			if (retur != null && retur.longValue() > 0)
 				throw new IllegalStateException("Transaksi sudah memiliki retur sehingga tidak dapat diedit.");
+			Tbmuser kasirBaru = null;
+			String kasirUserIdBaru = request.optString("kasir_user_id", "").trim();
+			if (kasirUserIdBaru.length() > 0) {
+				kasirBaru = (Tbmuser) session.get(Tbmuser.class, kasirUserIdBaru);
+				if (kasirBaru == null || !Boolean.TRUE.equals(kasirBaru.getAktif())) throw new IllegalStateException("Akun kasir yang dipilih tidak ditemukan atau sudah tidak aktif.");
+			}
 
 			List<Pembelian> lama = session.createCriteria(Pembelian.class)
 					.add(Restrictions.eq("pembelianAnggotaKoperasi", trx)).list();
@@ -13503,7 +13687,7 @@ public class KantinHelper {
 					p.setPembelianAnggotaKoperasi(trx); p.setAnggotaKoperasi(trx.getAnggotaKoperasi());
 					p.setToko(trx.getToko()); p.setProduk(produk); p.setKode(trx.getKode() + "-" + produk.getKode());
 					p.setHargaSatuan(produk.getHargaJual()); p.setDiskon(Double.valueOf(0)); p.setCashback(Double.valueOf(0));
-					p.setCaraPembayaranKoperasi(trx.getCaraPembayaranKoperasi()); p.setTbmuser(trx.getTbmuser());
+					p.setCaraPembayaranKoperasi(trx.getCaraPembayaranKoperasi()); p.setTbmuser(kasirBaru == null ? trx.getTbmuser() : kasirBaru);
 					p.setOleh(tbmuser.getUserNama()); p.setOlehId(tbmuser.getId() + "");
 					session.save(p);
 				} else {
@@ -13513,6 +13697,7 @@ public class KantinHelper {
 					p.setDiskon(Double.valueOf(qtyLama <= 0 ? 0.0 : diskonLama * qty / qtyLama));
 				}
 				p.setProduk(produk); p.setQty(Double.valueOf(qty)); p.setWaktu(waktuBaru);
+				if (kasirBaru != null) p.setTbmuser(kasirBaru);
 				p.setTotal(Double.valueOf((p.getHargaSatuan() * qty) - p.getDiskon())); session.saveOrUpdate(p);
 				produkTerdampak.add(produk.getId());
 				jumlahRincian += Math.max(0.0, (p.getHargaSatuan() * qty) - p.getDiskon());
@@ -13531,10 +13716,28 @@ public class KantinHelper {
 				trx.setBayarTunai(Double.valueOf(tunaiBaru)); trx.setBayarNonTunai(Double.valueOf(totalBaru - tunaiBaru));
 			}
 			trx.setKembalian(Double.valueOf(0)); trx.setTanggalPembayaran(waktuBaru);
+			Tbmuser kasirEfektif = kasirBaru == null ? trx.getTbmuser() : kasirBaru;
+			String namaKasirEfektif = trx.getKasirLoginNama();
+			if (kasirBaru != null) {
+				namaKasirEfektif = kasirBaru.getUserNama();
+				if (namaKasirEfektif == null || namaKasirEfektif.trim().length() == 0) namaKasirEfektif = kasirBaru.getUserId();
+				trx.setTbmuser(kasirBaru); trx.setKasirLoginNama(namaKasirEfektif);
+			}
+			org.hibernate.Criteria kriteriaSesi = session.createCriteria(SesiKasKasir.class)
+					.add(Restrictions.eq("toko", trx.getToko())).add(Restrictions.le("waktuBuka", waktuBaru))
+					.add(Restrictions.or(Restrictions.isNull("waktuTutup"), Restrictions.ge("waktuTutup", waktuBaru)));
+			if (kasirEfektif != null && kasirEfektif.getUserId() != null) kriteriaSesi.add(Restrictions.or(Restrictions.eq("kasirUserId", kasirEfektif.getUserId()), Restrictions.eq("kasirNama", namaKasirEfektif)));
+			else if (namaKasirEfektif != null && namaKasirEfektif.trim().length() > 0) kriteriaSesi.add(Restrictions.eq("kasirNama", namaKasirEfektif));
+			else kriteriaSesi.add(Restrictions.sqlRestriction("1=0"));
+			trx.setSesiKasKasir((SesiKasKasir) kriteriaSesi.addOrder(Order.desc("waktuBuka")).setMaxResults(1).uniqueResult());
 			trx.setTotalDiskon(Double.valueOf(diskonItemBaru + diskonFakturTetap));
 			trx.setTotalCashback(Double.valueOf(cashbackBaru)); trx.setTotalBiaya(Double.valueOf(totalBaru)); trx.setBiaya(Double.valueOf(totalBaru));
 			String catatanLama = trx.getKeterangan() == null ? "" : trx.getKeterangan().trim();
-			trx.setKeterangan((catatanLama.isEmpty() ? "" : catatanLama + " | ") + "KOREKSI SUPERVISOR " + new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").format(new Date()) + ": " + alasan);
+			String catatanKoreksi = "KOREKSI SUPERVISOR " + new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").format(new Date()) + ": " + alasan;
+			String catatanGabung = (catatanLama.length() == 0 ? "" : catatanLama + " | ") + catatanKoreksi;
+			if (catatanGabung.length() > 255) catatanGabung = catatanKoreksi;
+			if (catatanGabung.length() > 255) catatanGabung = catatanGabung.substring(0, 255);
+			trx.setKeterangan(catatanGabung);
 			trx.setOleh(tbmuser.getUserNama()); trx.setOlehId(tbmuser.getId() + ""); session.update(trx); session.flush();
 			for (Long produkId : produkTerdampak) ais.action.master.inventory.StokKantinUtil.recomputeStokProdukNative(session, produkId);
 			tx.commit();
@@ -14278,6 +14481,19 @@ public class KantinHelper {
 		JSONArray hasil=evaluasiDiskonItems(conn,tokoId,memberId,input,null);
 		for(int i=0;i<transaksi.length()&&i<hasil.length();i++){
 			JSONObject asal=transaksi.getJSONObject(i), hitung=hasil.getJSONObject(i);
+			if (asal.optBoolean("diskon_bebas", false)) {
+				double harga = asal.optDouble("harga", 0), jumlah = asal.optDouble("jumlah", 1);
+				double nilaiBaris = harga * jumlah;
+				String tipe = asal.optString("diskon_bebas_tipe", "NOMINAL").trim().toUpperCase();
+				double nilai = asal.optDouble("diskon_bebas_nilai", -1);
+				if (harga < 0 || jumlah <= 0 || Double.isNaN(nilai) || Double.isInfinite(nilai) || nilai < 0
+						|| ("PERSEN".equals(tipe) && nilai > 100) || (!"PERSEN".equals(tipe) && nilai > nilaiBaris)) throw new IllegalStateException("Diskon bebas pada item ke-" + (i + 1) + " tidak valid atau melebihi nilai barang.");
+				double diskonBebas = "PERSEN".equals(tipe) ? nilaiBaris * nilai / 100.0 : nilai;
+				asal.put("diskon", Math.min(nilaiBaris, Math.max(0, diskonBebas)));
+				asal.put("cashback", 0); asal.put("aturanDiskon", JSONObject.NULL);
+				asal.put("grupAturanDiskon", JSONObject.NULL); asal.put("namaPromo", "Diskon Bebas");
+				continue;
+			}
 			asal.put("diskon",hitung.optDouble("diskon",0));
 			asal.put("cashback",hitung.optDouble("cashback",0));
 			asal.put("aturanDiskon",hitung.isNull("aturanDiskon")?JSONObject.NULL:hitung.get("aturanDiskon"));

@@ -246,6 +246,17 @@ public class PosApi extends HttpServlet {
 			} else if ("sesi_kas_status".equals(action)) {
 				KantinHelper.sesiKasStatus(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "sesi_kas");
+			} else if ("sesi_kas_list".equals(action)) {
+				KantinHelper.sesiKasDaftar(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "sesi_kas");
+			} else if ("sesi_kas_koreksi".equals(action)) {
+				if (!bolehSupervisorAtauAdmin(tbmuser)) {
+					hasil.put("status", "91");
+					hasil.put("description", "Koreksi sesi kas hanya dapat dilakukan oleh supervisor.");
+				} else {
+					KantinHelper.sesiKasKoreksi(tbmuser, payload, hasil);
+					normalisasiStatusKantinHelper(hasil, "sesi_kas");
+				}
 			} else if ("sesi_kas_buka".equals(action)) {
 				KantinHelper.sesiKasBuka(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "sesi_kas");
@@ -253,7 +264,7 @@ public class PosApi extends HttpServlet {
 				// Koreksi modal awal adalah kewenangan supervisor/admin. Gerbang ini
 				// wajib berada di server agar tidak dapat dilewati dengan memanggil API
 				// secara langsung dari klien yang dimodifikasi.
-				if (!payload.isNull("modal_awal_koreksi") && !bolehSupervisorAtauAdmin(tbmuser)) {
+				if ((!payload.isNull("modal_awal_koreksi") || !payload.isNull("penjualan_tunai_koreksi")) && !bolehSupervisorAtauAdmin(tbmuser)) {
 					hasil.put("status", "91");
 					hasil.put("description", "Koreksi nominal sesi kas hanya dapat dilakukan oleh supervisor.");
 				} else {
@@ -679,6 +690,9 @@ public class PosApi extends HttpServlet {
 			} else if ("edit_transaksi".equals(action)) {
 				KantinHelper.editTransaksi(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "edit_transaksi");
+			} else if ("edit_transaksi_kasir_cari".equals(action)) {
+				KantinHelper.editTransaksiKasirCari(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "edit_transaksi_kasir_cari");
 			} else if ("diskon_evaluasi".equals(action)) {
 				KantinHelper.diskonEvaluasi(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "diskon_evaluasi");
@@ -1569,7 +1583,7 @@ public class PosApi extends HttpServlet {
 		// prosesPesananList/prosesRingkasan) -- gap-closure: sebelumnya HANYA dicek via menu "laporan",
 		// jadi kasir/pedagang yang punya akses "ringkasan" tapi bukan "laporan" bisa MELIHAT transaksi
 		// di dasbor Ringkasan tapi ditolak server begitu menekan "Cetak Struk" pada baris yang sama.
-		if ("detail_transaksi".equals(action) || "edit_transaksi".equals(action)) {
+		if ("detail_transaksi".equals(action) || "edit_transaksi".equals(action) || "edit_transaksi_kasir_cari".equals(action)) {
 			return menu.optBoolean("laporan", true) || menu.optBoolean("ringkasan", true)
 					|| menu.optBoolean("returpenjualan", true);
 		}
@@ -2653,7 +2667,7 @@ public class PosApi extends HttpServlet {
 			java.sql.PreparedStatement psHeader = conn.prepareStatement(
 					"SELECT pak.kode, pak.tanggal_pembayaran, COALESCE(pak.bayar_tunai,0), COALESCE(pak.bayar_non_tunai,0), "
 							+ "COALESCE(pak.kembalian,0), COALESCE(pak.total_biaya,0), COALESCE(pak.total_diskon,0), COALESCE(pak.totalcashback,0), "
-							+ "COALESCE(t.nama,''), COALESCE(NULLIF(t.pesan_terima_kasih,''), ?) "
+							+ "COALESCE(t.nama,''), COALESCE(NULLIF(t.pesan_terima_kasih,''), ?), pak.tbmuser, pak.kasir_login_nama "
 							+ "FROM koperasi.pembelian_anggota_koperasi pak LEFT JOIN koperasi.toko t ON pak.toko = t.id "
 							+ "WHERE pak.id = ? AND pak.toko = ?");
 			psHeader.setString(1, Toko.PESAN_TERIMA_KASIH_DEFAULT);
@@ -2672,6 +2686,8 @@ public class PosApi extends HttpServlet {
 				hasil.put("totalCashback", rsHeader.getDouble(8));
 				hasil.put("tokoNama", str(rsHeader.getString(9)));
 				hasil.put("pesanTerimaKasih", str(rsHeader.getString(10)));
+				hasil.put("kasirUserId", rsHeader.getString(11) == null ? JSONObject.NULL : rsHeader.getString(11));
+				hasil.put("kasirNama", rsHeader.getString(12) == null ? "" : rsHeader.getString(12));
 			}
 			rsHeader.close(); psHeader.close();
 
