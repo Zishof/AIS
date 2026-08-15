@@ -13727,6 +13727,24 @@ public class KantinHelper {
 				double tunaiBaru = totalBaru * tunaiLama / komposisi;
 				trx.setBayarTunai(Double.valueOf(tunaiBaru)); trx.setBayarNonTunai(Double.valueOf(totalBaru - tunaiBaru));
 			}
+			/*
+			 * Header transaksi yang berasal dari pesanan tertahan tetap membaca tanggal dan kasir
+			 * dari draft asal (lihat getter PembelianAnggotaKoperasi). Karena itu koreksi harus
+			 * diterapkan ke kedua entity dalam transaksi database yang sama. Jika hanya header
+			 * yang diubah, Hibernate akan membaca getter saat flush dan mengembalikan nilai lama
+			 * dari draft; rincian Pembelian kemudian ikut memakai tanggal lama tersebut.
+			 */
+			DraftPembelianAnggotaKoperasi draftAsal = trx.getDraftPembelianAnggotaKoperasi();
+			if (draftAsal != null) {
+				draftAsal.setTanggalPembayaran(waktuBaru);
+				if (kasirBaru != null) {
+					draftAsal.setTbmuser(kasirBaru);
+					draftAsal.setKasirLoginNama(kasirBaru.getUserNama() == null
+							|| kasirBaru.getUserNama().trim().length() == 0
+									? kasirBaru.getUserId() : kasirBaru.getUserNama());
+				}
+				session.update(draftAsal);
+			}
 			trx.setKembalian(Double.valueOf(0)); trx.setTanggalPembayaran(waktuBaru);
 			Tbmuser kasirEfektif = kasirBaru == null ? trx.getTbmuser() : kasirBaru;
 			String namaKasirEfektif = trx.getKasirLoginNama();
