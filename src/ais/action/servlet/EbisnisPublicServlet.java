@@ -68,6 +68,15 @@ public class EbisnisPublicServlet extends HttpServlet {
 
 		if (subAksi != null) {
 			// Aksi dashboard (butuh sesi Pendaftar aktif) -- SELALU balas JSON.
+			if (!ais.common.ebisnis.EBisnisCsrf.valid(request)) {
+				response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+				JSONObject ditolak = new JSONObject();
+				ditolak.put("status", "91");
+				ditolak.put("code", "CSRF_INVALID");
+				ditolak.put("description", "Token keamanan tidak valid. Muat ulang halaman.");
+				tulisJson(response, ditolak);
+				return;
+			}
 			tulisJson(response, prosesDashboard(session, subAksi, request));
 			return;
 		}
@@ -80,7 +89,7 @@ public class EbisnisPublicServlet extends HttpServlet {
 			// tenant, sehingga "delegasi diam-diam" akan MEMALSUKAN consent yang tidak pernah
 			// dicentang pengguna (dilarang §14.5). Respons tetap kompatibel kontrak lama:
 			// AJAX menerima {status:"00", redirect:...} -> JS lama otomatis berpindah halaman.
-			String tujuanWizard = request.getContextPath() + "/pendaftaran";
+			String tujuanWizard = request.getContextPath() + "/ebisnis/auth/daftar";
 			if (ajax) {
 				JSONObject j = new JSONObject();
 				j.put("status", "00");
@@ -119,6 +128,15 @@ public class EbisnisPublicServlet extends HttpServlet {
 				return;
 			}
 		} else if ("logout".equals(aksi)) {
+			if (!ais.common.ebisnis.EBisnisCsrf.valid(request)) {
+				response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+				JSONObject ditolak = new JSONObject();
+				ditolak.put("status", "91");
+				ditolak.put("code", "CSRF_INVALID");
+				ditolak.put("description", "Token keamanan tidak valid. Muat ulang halaman.");
+				tulisJson(response, ditolak);
+				return;
+			}
 			session.removeAttribute(SESSION_PENDAFTAR);
 			session.removeAttribute(ais.common.security.PendaftarSessionPrincipal.SESSION_KEY);
 			if (ajax) {
@@ -129,7 +147,7 @@ public class EbisnisPublicServlet extends HttpServlet {
 			}
 		}
 
-		response.sendRedirect(request.getContextPath() + "/ebisnis.jsp");
+		response.sendRedirect(request.getContextPath() + "/ebisnis/");
 	}
 
 	@Override
@@ -140,7 +158,7 @@ public class EbisnisPublicServlet extends HttpServlet {
 			request.getRequestDispatcher("/WEB-INF/baru/dashboard_ebisnis.jsp").forward(request, response);
 			return;
 		}
-		response.sendRedirect(request.getContextPath() + "/ebisnis.jsp");
+		response.sendRedirect(request.getContextPath() + "/ebisnis/");
 	}
 
 	private JSONObject prosesDashboard(HttpSession session, String subAksi, HttpServletRequest request)
@@ -237,7 +255,7 @@ public class EbisnisPublicServlet extends HttpServlet {
 		j.put("status", hasil.sukses ? "00" : "91");
 		j.put("description", hasil.pesan);
 		if (hasil.sukses) {
-			j.put("redirect", request.getContextPath() + "/EbisnisPublic");
+			j.put("redirect", request.getContextPath() + "/ebisnis/dashboard");
 		}
 		return j;
 	}

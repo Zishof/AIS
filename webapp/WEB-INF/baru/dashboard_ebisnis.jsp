@@ -1,6 +1,7 @@
 <%@page import="ais.database.model.Pendaftar"%>
 <%@page import="ais.common.Common"%>
 <%@page import="ais.action.servlet.EbisnisPublicServlet"%>
+<%@page import="ais.common.ebisnis.EBisnisCsrf"%>
 <%@page import="org.apache.commons.lang.StringEscapeUtils"%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%
@@ -13,10 +14,11 @@
 // ============================================================================================
 Pendaftar pendaftar = (Pendaftar) session.getAttribute(EbisnisPublicServlet.SESSION_PENDAFTAR);
 if (pendaftar == null) {
-	response.sendRedirect(request.getContextPath() + "/ebisnis.jsp");
+	response.sendRedirect(request.getContextPath() + "/ebisnis/");
 	return;
 }
 String namaBisnis = StringEscapeUtils.escapeHtml(pendaftar.getNama());
+String ebisnisCsrfToken = EBisnisCsrf.ensure(session);
 %>
 <!DOCTYPE html>
 <html lang="id">
@@ -49,9 +51,10 @@ String namaBisnis = StringEscapeUtils.escapeHtml(pendaftar.getNama());
             ebisnis.id -- <%=namaBisnis%>
         </span>
         <div>
-            <a href="<%=request.getContextPath()%>/ebisnis.jsp" class="btn btn-sm btn-outline-light me-2"><i class="fas fa-house me-1"></i><%= Common.getBahasaConfig("Beranda") %></a>
-            <form method="post" action="<%=request.getContextPath()%>/EbisnisPublic" class="d-inline">
+            <a href="<%=request.getContextPath()%>/ebisnis/" class="btn btn-sm btn-outline-light me-2"><i class="fas fa-house me-1"></i><%= Common.getBahasaConfig("Beranda") %></a>
+            <form method="post" action="<%=request.getContextPath()%>/ebisnis/auth/logout" class="d-inline">
                 <input type="hidden" name="aksi" value="logout">
+                <input type="hidden" name="_csrf" value="<%=ebisnisCsrfToken%>">
                 <button type="submit" class="btn btn-sm btn-outline-light"><i class="fas fa-right-from-bracket me-1"></i><%= Common.getBahasaConfig("Keluar") %></button>
             </form>
         </div>
@@ -69,7 +72,7 @@ String namaBisnis = StringEscapeUtils.escapeHtml(pendaftar.getNama());
                     <div class="small" id="tenantModul"></div>
                     <div class="small text-warning" id="tenantModulRencana"></div>
                 </div>
-                <a class="btn btn-outline-primary btn-sm" href="<%= request.getContextPath() %>/pendaftaran?mode=tenant-baru">
+                <a class="btn btn-outline-primary btn-sm" href="<%= request.getContextPath() %>/ebisnis/auth/daftar?mode=tenant-baru">
                     <i class="fas fa-plus me-1"></i><%= Common.getBahasaConfig("Buat Tenant Baru") %>
                 </a>
             </div>
@@ -264,6 +267,7 @@ String namaBisnis = StringEscapeUtils.escapeHtml(pendaftar.getNama());
     <script>
     (function () {
         var CTX = '<%=request.getContextPath()%>';
+        var CSRF = '<%=ebisnisCsrfToken%>';
 
         function escapeHtml(s) {
             var d = document.createElement('div');
@@ -274,9 +278,9 @@ String namaBisnis = StringEscapeUtils.escapeHtml(pendaftar.getNama());
         function panggil(s, data) {
             var payload = new URLSearchParams(data || {});
             payload.append('s', s);
-            return fetch(CTX + '/EbisnisPublic', {
+            return fetch(CTX + '/ebisnis/auth/session', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'X-CSRF-Token': CSRF },
                 credentials: 'include',
                 body: payload.toString()
             }).then(function (r) { return r.json(); });

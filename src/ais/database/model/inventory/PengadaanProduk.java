@@ -38,6 +38,9 @@ public class PengadaanProduk extends GeneralValueObject {
 	private PengadaanFaktur fakturPengadaan; // Header Kulakan-per-Faktur (gap-closure 2026-08-11) -- nullable, data lama tetap null selamanya
 	private Double qty; // Jumlah barang yang masuk
 	private Double hargaBeliSatuan;
+	private Double diskonPersen1;
+	private Double diskonPersen2;
+	private Double hargaBeliNeto;
 	private Double totalHarga;
 
 	private Date waktuPengadaan;
@@ -117,9 +120,40 @@ public class PengadaanProduk extends GeneralValueObject {
 		this.hargaBeliSatuan = hargaBeliSatuan;
 	}
 
+	@Column(name = "diskon_persen_1")
+	public Double getDiskonPersen1() {
+		return diskonPersen1 == null ? 0.0 : diskonPersen1;
+	}
+
+	public void setDiskonPersen1(Double diskonPersen1) {
+		this.diskonPersen1 = diskonPersen1;
+	}
+
+	@Column(name = "diskon_persen_2")
+	public Double getDiskonPersen2() {
+		return diskonPersen2 == null ? 0.0 : diskonPersen2;
+	}
+
+	public void setDiskonPersen2(Double diskonPersen2) {
+		this.diskonPersen2 = diskonPersen2;
+	}
+
+	@Column(name = "harga_beli_neto")
+	public Double getHargaBeliNeto() {
+		if (hargaBeliNeto == null) {
+			double setelahDiskon1 = getHargaBeliSatuan() * (1.0 - getDiskonPersen1() / 100.0);
+			return setelahDiskon1 * (1.0 - getDiskonPersen2() / 100.0);
+		}
+		return hargaBeliNeto;
+	}
+
+	public void setHargaBeliNeto(Double hargaBeliNeto) {
+		this.hargaBeliNeto = hargaBeliNeto;
+	}
+
 	public Double getTotalHarga() {
 		if (totalHarga == null || totalHarga == 0.0) {
-			totalHarga = getQty() * getHargaBeliSatuan();
+			totalHarga = getQty() * getHargaBeliNeto();
 		}
 		return totalHarga;
 	}

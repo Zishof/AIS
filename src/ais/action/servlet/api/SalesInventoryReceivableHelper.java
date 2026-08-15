@@ -197,7 +197,10 @@ public final class SalesInventoryReceivableHelper {
 				so = new SalesOrderLapangan();
 				so.setToko(toko);
 				so.setCustomer(cust);
-				so.setStatus(SalesOrderLapangan.STATUS_DRAFT);
+				/* Keputusan bisnis 2026-08-15: order baru langsung disetujui/PESAN.
+				 * Draft tetap tersedia hanya jika klien memintanya secara eksplisit. */
+				so.setStatus(request.optBoolean("simpan_draft", false)
+						? SalesOrderLapangan.STATUS_DRAFT : SalesOrderLapangan.STATUS_PESAN);
 				so.setKodeUnik(kodeUnik.isEmpty() ? null : kodeUnik);
 				so.setDibuatOleh(tbmuser);
 				// Sales: aktor sales = dirinya (paksa); Pemilik/Admin boleh memilih.
@@ -273,6 +276,7 @@ public final class SalesInventoryReceivableHelper {
 			hasil.put("id", so.getId());
 			hasil.put("nomor", str(so.getNomor()));
 			hasil.put("total", total.doubleValue());
+			hasil.put("orderStatus", so.getStatus());
 		} catch (org.hibernate.exception.ConstraintViolationException dup) {
 			try { if (tx != null && tx.isActive()) tx.rollback(); } catch (Exception ignore) { }
 			hasil.put("status", "00");

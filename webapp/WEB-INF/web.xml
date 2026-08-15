@@ -921,6 +921,13 @@
 		<servlet-class>ais.action.servlet.ApiEBisnis</servlet-class>
 	</servlet>
 	<servlet>
+		<description>Front controller seluruh pengalaman Web eBisnis di namespace /ebisnis/*.</description>
+		<display-name>EBisnisFrontController</display-name>
+		<servlet-name>EBisnisFrontController</servlet-name>
+		<servlet-class>ais.action.servlet.EBisnisFrontController</servlet-class>
+		<load-on-startup>21</load-on-startup>
+	</servlet>
+	<servlet>
 		<description>Form handler Daftar/Masuk landing page publik ebisnis.jsp. Lihat JavaDoc ais.action.servlet.EbisnisPublicServlet.</description>
 		<display-name>EbisnisPublicServlet</display-name>
 		<servlet-name>EbisnisPublicServlet</servlet-name>
@@ -1746,6 +1753,10 @@
 	<servlet-mapping>
 		<servlet-name>ApiEBisnis</servlet-name>
 		<url-pattern>/Api_eBisnis</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>EBisnisFrontController</servlet-name>
+		<url-pattern>/ebisnis/*</url-pattern>
 	</servlet-mapping>
 	<servlet-mapping>
 		<servlet-name>EbisnisPublicServlet</servlet-name>

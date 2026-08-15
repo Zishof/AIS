@@ -32,7 +32,7 @@
 <style><%@ include file="inventory.css" %></style>
 <style>@media(max-width:520px){.si-toolbar-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible}.si-toolbar-actions .si-button{width:100%;padding:0 8px}}</style>
 <body class="si-body">
-<div id="siApp" class="si-app" data-api="<%=ctx%>/Api_eBisnis" data-user="<%=pengguna.getUserId()%>" data-initial="<%=request.getAttribute("inventoryInitialScreen") == null ? "01" : request.getAttribute("inventoryInitialScreen")%>">
+<div id="siApp" class="si-app" data-api="<%=ctx%>/ebisnis/api/v1" data-user="<%=pengguna.getUserId()%>" data-initial="<%=request.getAttribute("inventoryInitialScreen") == null ? "01" : request.getAttribute("inventoryInitialScreen")%>">
     <aside class="si-sidebar" id="siSidebar">
         <div class="si-brand">
             <span class="si-brand-mark"><i class="fas fa-boxes"></i></span>

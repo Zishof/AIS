@@ -21,6 +21,10 @@
 		<intercept-url pattern="/dashboard" access="IS_AUTHENTICATED_REMEMBERED" />
 		<intercept-url pattern="/common/tampilan_dashboard.zul" access="IS_AUTHENTICATED_REMEMBERED" />
 		<intercept-url pattern="/main/**" access="IS_AUTHENTICATED_REMEMBERED" />
+		<!-- Front controller eBisnis melakukan guard route/aksi sendiri. Route
+			 publik (landing/daftar/login/API token) harus dapat mencapai servlet;
+			 route tenant tetap fail-closed di controller dan JSP/service RBAC. -->
+		<intercept-url pattern="/ebisnis/**" access="IS_AUTHENTICATED_ANONYMOUSLY" />
 		<intercept-url pattern="/AmbilFile*" access="IS_AUTHENTICATED_REMEMBERED" />
 		<intercept-url pattern="/AmbilFile" access="IS_AUTHENTICATED_REMEMBERED" />
 		<intercept-url pattern="*reset_password*" access="IS_AUTHENTICATED_REMEMBERED" />

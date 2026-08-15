@@ -2,7 +2,9 @@ package ais.action.servlet.api;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -46,6 +48,7 @@ import ais.database.model.koperasi.DraftPembelianAnggotaKoperasi;
 import ais.database.model.koperasi.JenisAnggotaKoperasi;
 import ais.database.model.koperasi.KodePembayaranOnline;
 import ais.database.model.koperasi.MejaKantin;
+import ais.database.model.koperasi.PayableFakturInfo;
 import ais.database.model.koperasi.PembelianAnggotaKoperasi;
 import ais.database.model.koperasi.TipeAnggotaKoperasi;
 import ais.ui.util.WaktuUtil;
@@ -12155,6 +12158,25 @@ public class KantinHelper {
 		}
 		Long supplierId = request.isNull("supplier_id") ? null : Long.valueOf((request.get("supplier_id") + "").trim());
 		Double totalManual = request.isNull("total_faktur_manual") ? null : request.getDouble("total_faktur_manual");
+		String jenisPembayaran = request.optString("jenis_pembayaran", "").trim().toUpperCase();
+		if (!jenisPembayaran.isEmpty() && !PayableFakturInfo.JENIS_CASH.equals(jenisPembayaran)
+				&& !PayableFakturInfo.JENIS_DP.equals(jenisPembayaran)
+				&& !PayableFakturInfo.JENIS_CREDIT.equals(jenisPembayaran)) {
+			hasil.put("status", "91");
+			hasil.put("description", "Jenis pembayaran harus CASH, DP, atau CREDIT.");
+			return;
+		}
+		int terminHari = Math.max(0, request.optInt("termin_hari", 0));
+		BigDecimal dibayarAwal = null;
+		if (!request.isNull("dibayar_awal")) {
+			try {
+				dibayarAwal = new BigDecimal(String.valueOf(request.get("dibayar_awal")));
+			} catch (Exception e) {
+				hasil.put("status", "91");
+				hasil.put("description", "Nilai dibayar awal tidak valid.");
+				return;
+			}
+		}
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -12170,10 +12192,44 @@ public class KantinHelper {
 			double totalHitung = 0;
 			for (int i = 0; i < items.length(); i++) {
 				JSONObject it = items.getJSONObject(i);
-				totalHitung += it.optDouble("qty", 0) * it.optDouble("harga_beli_satuan", 0);
+				double qty = it.optDouble("qty", 0);
+				double harga = it.optDouble("harga_beli_satuan", 0);
+				double diskon1 = it.optDouble("diskon_1_persen", 0);
+				double diskon2 = it.optDouble("diskon_2_persen", 0);
+				if (qty <= 0 || harga <= 0) {
+					hasil.put("status", "91");
+					hasil.put("description", "Jumlah dan harga beli baris ke-" + (i + 1) + " harus lebih dari 0.");
+					return;
+				}
+				if (diskon1 < 0 || diskon1 > 100 || diskon2 < 0 || diskon2 > 100) {
+					hasil.put("status", "91");
+					hasil.put("description", "Diskon 1/2 baris ke-" + (i + 1) + " harus antara 0 sampai 100 persen.");
+					return;
+				}
+				double hargaNeto = harga * (1.0 - diskon1 / 100.0) * (1.0 - diskon2 / 100.0);
+				totalHitung += qty * hargaNeto;
+			}
+			if (totalManual != null && (totalManual.doubleValue() <= 0
+					|| totalManual.doubleValue() > totalHitung + 0.01)) {
+				hasil.put("status", "91");
+				hasil.put("description", "Total faktur setelah diskon harus lebih dari 0 dan tidak boleh melebihi total item neto.");
+				return;
 			}
 			double totalFinal = totalManual == null ? totalHitung : totalManual;
 			double diskon = totalManual == null ? 0 : Math.max(0, totalHitung - totalManual);
+			if (!jenisPembayaran.isEmpty()) {
+				if (PayableFakturInfo.JENIS_DP.equals(jenisPembayaran)
+						&& (dibayarAwal == null || dibayarAwal.signum() <= 0)) {
+					hasil.put("status", "91");
+					hasil.put("description", "Pembelian DP wajib mempunyai nilai dibayar awal lebih dari 0.");
+					return;
+				}
+				if (dibayarAwal != null && dibayarAwal.doubleValue() > totalFinal + 0.01) {
+					hasil.put("status", "91");
+					hasil.put("description", "Nilai dibayar awal melebihi total faktur.");
+					return;
+				}
+			}
 
 			session.beginTransaction();
 			PengadaanFaktur header = new PengadaanFaktur();
@@ -12190,6 +12246,30 @@ public class KantinHelper {
 			header.setWaktu(new Date());
 			session.save(header);
 
+			/* Bila layar Pembelian Baru mengirim termin, header AP disimpan dalam
+			 * transaksi yang sama dengan faktur dan penerimaan stok. Pemanggil lama
+			 * yang tidak mengirim jenis_pembayaran tetap 100% kompatibel. */
+			if (!jenisPembayaran.isEmpty()) {
+				PayableFakturInfo info = new PayableFakturInfo();
+				info.setPengadaanFaktur(header);
+				info.setJenisPembayaran(jenisPembayaran);
+				info.setTerminHari(Integer.valueOf(terminHari));
+				if (PayableFakturInfo.JENIS_CASH.equals(jenisPembayaran)) {
+					info.setDibayarAwal(new BigDecimal(String.valueOf(totalFinal)));
+				} else {
+					info.setDibayarAwal(dibayarAwal == null ? BigDecimal.ZERO : dibayarAwal);
+				}
+				Calendar jatuhTempo = Calendar.getInstance();
+				jatuhTempo.setTime(header.getTanggalFaktur());
+				jatuhTempo.add(Calendar.DAY_OF_MONTH, terminHari);
+				info.setJatuhTempo(jatuhTempo.getTime());
+				info.setKeterangan(request.optString("keterangan", ""));
+				info.setOleh(tbmuser == null ? "kulakan_faktur" : tbmuser.getUserId());
+				info.setOlehId(tbmuser == null ? "kulakan_faktur" : tbmuser.getUserId());
+				info.setWaktu(new Date());
+				session.save(info);
+			}
+
 			String oleh = tbmuser == null ? "kulakan_faktur" : tbmuser.getUserId();
 			for (int i = 0; i < items.length(); i++) {
 				JSONObject it = items.getJSONObject(i);
@@ -12205,6 +12285,10 @@ public class KantinHelper {
 				if (hargaBeliSatuan <= 0) {
 					throw new IllegalArgumentException("Harga beli baris ke-" + (i + 1) + " harus lebih dari 0.");
 				}
+				double diskon1 = it.optDouble("diskon_1_persen", 0);
+				double diskon2 = it.optDouble("diskon_2_persen", 0);
+				double hargaBeliNeto = hargaBeliSatuan * (1.0 - diskon1 / 100.0)
+						* (1.0 - diskon2 / 100.0);
 				Produk produk = (Produk) session.get(Produk.class, produkId);
 				if (produk == null) {
 					throw new IllegalArgumentException("Produk baris ke-" + (i + 1) + " tidak ditemukan.");
@@ -12224,13 +12308,16 @@ public class KantinHelper {
 				pg.setNamaSupplier(supplier == null ? "" : supplier.getNama());
 				pg.setQty(qty);
 				pg.setHargaBeliSatuan(hargaBeliSatuan);
-				pg.setTotalHarga(qty * hargaBeliSatuan);
+				pg.setDiskonPersen1(Double.valueOf(diskon1));
+				pg.setDiskonPersen2(Double.valueOf(diskon2));
+				pg.setHargaBeliNeto(Double.valueOf(hargaBeliNeto));
+				pg.setTotalHarga(qty * hargaBeliNeto);
 				pg.setWaktuPengadaan(header.getTanggalFaktur());
 				pg.setKeterangan(it.optString("keterangan", ""));
 				pg.setOleh(oleh);
 				session.save(pg);
 				session.flush();
-				tambahPenerimaanBatch(session, produk, it, qty, hargaBeliSatuan,
+				tambahPenerimaanBatch(session, produk, it, qty, hargaBeliNeto,
 						"FAKTUR-" + header.getId() + "-PENGADAAN-" + pg.getId(), oleh);
 				ais.action.master.inventory.StokKantinUtil.recomputeStokProdukNative(session, produkId);
 			}

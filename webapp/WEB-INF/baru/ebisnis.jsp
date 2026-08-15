@@ -2,6 +2,7 @@
 <%@page import="ais.database.model.Pendaftar"%>
 <%@page import="ais.common.Common"%>
 <%@page import="ais.action.servlet.EbisnisPublicServlet"%>
+<%@page import="ais.common.ebisnis.EBisnisCsrf"%>
 <%@page import="org.apache.commons.lang.StringEscapeUtils"%>
 <%@ page import="java.util.Calendar" %>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
@@ -31,6 +32,7 @@ String flashPesan = (String) session.getAttribute(EbisnisPublicServlet.SESSION_F
 String flashJenis = (String) session.getAttribute(EbisnisPublicServlet.SESSION_FLASH_JENIS);
 session.removeAttribute(EbisnisPublicServlet.SESSION_FLASH);
 session.removeAttribute(EbisnisPublicServlet.SESSION_FLASH_JENIS);
+String ebisnisCsrfToken = EBisnisCsrf.ensure(session);
 %>
 <!DOCTYPE html>
 <html lang="id">
@@ -1764,7 +1766,7 @@ session.removeAttribute(EbisnisPublicServlet.SESSION_FLASH_JENIS);
                     <%= Common.getBahasaConfig("Selamat datang kembali,") %> <br>
                     <span class="text-warning fs-4 fw-bold"><%=StringEscapeUtils.escapeHtml(sesiPendaftarNama)%></span>
                     <div class="mt-2">
-                        <a href="<%=request.getContextPath()%>/EbisnisPublic" class="btn btn-hero-outline btn-sm">
+                        <a href="<%=request.getContextPath()%>/ebisnis/dashboard" class="btn btn-hero-outline btn-sm">
                             <i class="fas fa-gauge me-2"></i><%= Common.getBahasaConfig("Buka Dashboard") %>
                         </a>
                     </div>
@@ -2998,11 +3000,12 @@ session.removeAttribute(EbisnisPublicServlet.SESSION_FLASH_JENIS);
                             <i class="fas fa-circle-check fa-4x text-success mb-3"></i>
                             <h4 class="fw-bold"><%= Common.getBahasaConfig("Anda sudah masuk sebagai") %> <%= StringEscapeUtils.escapeHtml(sesiPendaftarNama) %></h4>
                             <p class="text-secondary"><%= Common.getBahasaConfig("Kelola Brand, Toko, Mesin POS, Investor, dan Manajemen dari Dashboard Anda.") %></p>
-                            <a href="<%=request.getContextPath()%>/EbisnisPublic" class="btn btn-primary px-5 py-2 fw-bold me-2">
+                            <a href="<%=request.getContextPath()%>/ebisnis/dashboard" class="btn btn-primary px-5 py-2 fw-bold me-2">
                                 <i class="fas fa-gauge me-2"></i><%= Common.getBahasaConfig("Buka Dashboard") %>
                             </a>
-                            <form method="post" action="<%=request.getContextPath()%>/EbisnisPublic" class="d-inline">
+                            <form method="post" action="<%=request.getContextPath()%>/ebisnis/auth/logout" class="d-inline">
                                 <input type="hidden" name="aksi" value="logout">
+                                <input type="hidden" name="_csrf" value="<%=ebisnisCsrfToken%>">
                                 <button type="submit" class="btn btn-outline-secondary"><i class="fas fa-right-from-bracket me-2"></i><%= Common.getBahasaConfig("Keluar") %></button>
                             </form>
                         </div>
@@ -3019,7 +3022,7 @@ session.removeAttribute(EbisnisPublicServlet.SESSION_FLASH_JENIS);
                                          Modal #modalDaftarEbisnis lama dipertahankan di DOM utk kompatibilitas
                                          tautan lama, tetapi submit aksi=daftar kini dijawab redirect ke wizard
                                          (lihat EbisnisPublicServlet -- deprecation §4.5 opsi transisi). --%>
-                                    <a class="btn btn-primary px-5 py-2 fw-bold" href="<%= Common.ROOT %>/pendaftaran">
+                                    <a class="btn btn-primary px-5 py-2 fw-bold" href="<%= request.getContextPath() %>/ebisnis/auth/daftar">
                                         <i class="fas fa-rocket me-2"></i><%= Common.getBahasaConfig("Daftar Sekarang") %>
                                     </a>
                                 </div>
@@ -3167,7 +3170,7 @@ session.removeAttribute(EbisnisPublicServlet.SESSION_FLASH_JENIS);
                 payload.append('aksi', form.getAttribute('data-aksi'));
                 payload.append('ajax', '1');
 
-                fetch('<%=request.getContextPath()%>/EbisnisPublic', {
+                fetch('<%=request.getContextPath()%>/ebisnis/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
                     credentials: 'include',
@@ -3177,7 +3180,7 @@ session.removeAttribute(EbisnisPublicServlet.SESSION_FLASH_JENIS);
                     tombol.innerHTML = teksAsli;
                     if (hasil.status === '00') {
                         tampilkanAlert(modalBody, 'sukses', hasil.description);
-                        window.location.href = hasil.redirect || '<%=request.getContextPath()%>/EbisnisPublic';
+                        window.location.href = hasil.redirect || '<%=request.getContextPath()%>/ebisnis/dashboard';
                     } else {
                         tampilkanAlert(modalBody, 'error', hasil.description);
                     }
