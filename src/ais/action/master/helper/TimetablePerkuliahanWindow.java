@@ -343,6 +343,9 @@ public class TimetablePerkuliahanWindow extends MyWindow {
         btn(bar, "Periksa Konflik", "btn btn-warning btn-sm", new EventListener() {
             public void onEvent(Event e) throws Exception { doCheckConflict(); }
         });
+        btn(bar, "Penjadwalan Pintar", "btn btn-info btn-sm", new EventListener() {
+            public void onEvent(Event e) throws Exception { bukaPenjadwalanPintar(); }
+        });
         btn(bar, "Reset", "btn btn-default btn-sm", new EventListener() {
             public void onEvent(Event e) throws Exception {
                 changes.clear(); locked.clear(); conflictIds.clear(); doLoad();
@@ -877,6 +880,292 @@ public class TimetablePerkuliahanWindow extends MyWindow {
                 + "Klik Tampilkan untuk melihat kartu berkonflik (ditandai garis merah).",
                 "Konflik Ditemukan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
         }
+    }
+
+    // ── Penjadwalan pintar ───────────────────────────────────────────────────
+
+    /** Menampilkan analisis kesiapan sebelum pengguna memilih strategi otomatis. */
+    @SuppressWarnings({"rawtypes","unchecked"})
+    private void bukaPenjadwalanPintar() throws Exception {
+        if (viewMode != 0 || cbTA.getSelectedItem() == null || cbSmt.getSelectedItem() == null
+                || cbJurusan.getSelectedItem() == null) {
+            msgbox("Pilih tampilan Per Jurusan, Tahun Akademik, Semester, dan Program Studi terlebih dahulu.",
+                    "Data Belum Lengkap", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+            return;
+        }
+        Session session = HibernateUtil.currentSession();
+        List<Perkuliahan> data = ambilPerkuliahanTerpilih(session,
+                (String) cbTA.getSelectedItem().getValue(),
+                ((Integer) cbSmt.getSelectedItem().getValue()).intValue());
+        List<JamPerkuliahan> jam = loadJamList(session);
+        buildConflictIds((String) cbTA.getSelectedItem().getValue(),
+                ((Integer) cbSmt.getSelectedItem().getValue()).intValue(), session);
+        final AnalisisJadwal analisis = analisisJadwal(data, jam);
+
+        final MyWindow window = new MyWindow("Penjadwalan Pintar", "normal", true);
+        window.setParent(getPage().getFirstRoot());
+        window.setWidth("900px");
+        window.setHeight("680px");
+        window.setContentStyle("padding:12px;overflow:auto;");
+        Html dashboard = new Html();
+        dashboard.setContent(htmlAnalisis(analisis));
+        dashboard.setParent(window);
+
+        Div tombol = new Div();
+        tombol.setStyle("display:flex;gap:8px;justify-content:flex-end;margin-top:12px;padding-top:10px;border-top:1px solid #e2e8f0;");
+        tombol.setParent(window);
+        Button tutup = new Button("Tutup");
+        tutup.setSclass("btn btn-default btn-sm");
+        tutup.addEventListener("onClick", new EventListener() {
+            public void onEvent(Event event) throws Exception { window.detach(); }
+        });
+        tutup.setParent(tombol);
+        Button riwayat = new Button("Susun dari Riwayat Tahun Lalu");
+        riwayat.setSclass("btn btn-primary btn-sm");
+        riwayat.setDisabled(analisis.belumTerjadwal == 0 || analisis.jumlahJam == 0);
+        riwayat.addEventListener("onClick", new EventListener() {
+            public void onEvent(Event event) throws Exception {
+                window.detach();
+                jalankanPenjadwalan(true);
+            }
+        });
+        riwayat.setParent(tombol);
+        Button pintar = new Button("Susun dengan Analisis Pintar");
+        pintar.setSclass("btn btn-success btn-sm");
+        pintar.setDisabled(analisis.belumTerjadwal == 0 || analisis.jumlahJam == 0);
+        pintar.addEventListener("onClick", new EventListener() {
+            public void onEvent(Event event) throws Exception {
+                window.detach();
+                jalankanPenjadwalan(false);
+            }
+        });
+        pintar.setParent(tombol);
+        window.setVisible(true);
+        window.onModal();
+    }
+
+    @SuppressWarnings({"rawtypes","unchecked"})
+    private List<Perkuliahan> ambilPerkuliahanTerpilih(Session session, String ta, int smt) {
+        org.hibernate.Criteria kriteria = session.createCriteria(Perkuliahan.class)
+                .add(Restrictions.eq("tahunAjaran", ta))
+                .add(Restrictions.ne("merupakan_tanpa_jadwal_perkuliahan", Boolean.TRUE));
+        applySmt(kriteria, smt);
+        batasiKriteriaKeLingkupPengguna(kriteria);
+        Long jurusanId = (Long) cbJurusan.getSelectedItem().getValue();
+        if (jurusanPengguna != null) jurusanId = jurusanPengguna.getId();
+        if (jurusanId != null) {
+            Jurusan jurusan = (Jurusan) session.get(Jurusan.class, jurusanId);
+            if (jurusan != null) kriteria.add(Restrictions.eq("jurusan", jurusan));
+        }
+        return kriteria.list();
+    }
+
+    private AnalisisJadwal analisisJadwal(List<Perkuliahan> data, List<JamPerkuliahan> jam) {
+        AnalisisJadwal hasil = new AnalisisJadwal();
+        hasil.total = data.size();
+        hasil.jumlahJam = jam.size();
+        for (Perkuliahan p : data) {
+            boolean terjadwal = p.getHari() != null && !p.getHari().trim().isEmpty()
+                    && (p.getJamPerkuliahan() != null || matchJam(p.getWaktuMulai(), jam) != null);
+            if (terjadwal) hasil.terjadwal++; else hasil.belumTerjadwal++;
+            if (p.getDosen1() == null) hasil.tanpaDosen++;
+            if (p.getRuang() == null) hasil.tanpaRuang++;
+        }
+        hasil.konflik = conflictIds.size();
+        return hasil;
+    }
+
+    private String htmlAnalisis(AnalisisJadwal a) {
+        StringBuilder h = new StringBuilder();
+        h.append("<div style='font-family:Arial,sans-serif;color:#334155'>")
+         .append("<div style='font-size:16px;font-weight:bold;color:#1e3a5f'>Analisis Kesiapan Penjadwalan</div>")
+         .append("<div style='font-size:11px;color:#64748b;margin:4px 0 12px'>Sistem hanya mengisi perkuliahan yang belum terjadwal. Jadwal yang sudah ada tidak diubah.</div>")
+         .append("<div style='display:grid;grid-template-columns:repeat(6,1fr);gap:8px'>");
+        kartuAnalisis(h, "Total Kelas", a.total, "#2563eb");
+        kartuAnalisis(h, "Terjadwal", a.terjadwal, "#059669");
+        kartuAnalisis(h, "Belum Terjadwal", a.belumTerjadwal, "#dc2626");
+        kartuAnalisis(h, "Tanpa Dosen", a.tanpaDosen, "#d97706");
+        kartuAnalisis(h, "Tanpa Ruang", a.tanpaRuang, "#7c3aed");
+        kartuAnalisis(h, "Konflik", a.konflik, "#be123c");
+        h.append("</div><div style='display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px'>")
+         .append("<div style='border:1px solid #dbe4ee;border-radius:8px;padding:12px'><b>Data yang perlu disiapkan</b><ul style='line-height:1.8;margin:8px 0 0 18px'>");
+        if (a.jumlahJam == 0) h.append("<li><b>Wajib:</b> buat Jam Perkuliahan melalui tombol Buat Waktu Default atau Kelola Jam.</li>");
+        if (a.tanpaDosen > 0) h.append("<li>Lengkapi dosen pengampu pada ").append(a.tanpaDosen).append(" kelas agar bentrok dosen dapat dicegah.</li>");
+        if (a.tanpaRuang > 0) h.append("<li>Lengkapi ruang pada ").append(a.tanpaRuang).append(" kelas agar bentrok ruang dapat dianalisis.</li>");
+        if (a.belumTerjadwal == 0) h.append("<li>Semua kelas sudah memiliki jadwal. Gunakan Periksa Konflik untuk validasi akhir.</li>");
+        h.append("</ul></div><div style='border:1px solid #dbe4ee;border-radius:8px;padding:12px'><b>Cara kerja rekomendasi</b>")
+         .append("<ol style='line-height:1.8;margin:8px 0 0 18px'><li><b>Riwayat:</b> mencocokkan mata kuliah dan kelas dengan tahun akademik sebelumnya.</li>")
+         .append("<li><b>Analisis pintar:</b> memilih hari dan jam dengan beban paling rendah serta menghindari bentrok dosen dan ruang.</li>")
+         .append("<li>Periode aktif dan lingkup program studi tetap diperiksa sebelum data disimpan.</li></ol></div></div>")
+         .append("<div style='margin-top:12px;padding:10px;border-radius:6px;background:#eff6ff;color:#1e40af'><b>Langkah berikutnya:</b> pilih salah satu strategi di bawah. Setelah selesai, periksa hasil pada timetable dan jalankan Periksa Konflik.</div></div>");
+        return h.toString();
+    }
+
+    private void kartuAnalisis(StringBuilder h, String label, int nilai, String warna) {
+        h.append("<div style='border:1px solid #dbe4ee;border-radius:7px;padding:9px;background:#fff'><div style='font-size:10px;color:#64748b'>")
+         .append(label).append("</div><div style='font-size:22px;font-weight:bold;color:").append(warna).append("'>")
+         .append(nilai).append("</div></div>");
+    }
+
+    @SuppressWarnings({"rawtypes","unchecked"})
+    private void jalankanPenjadwalan(boolean dariRiwayat) {
+        try {
+            if (viewMode != 0 || cbTA.getSelectedItem() == null || cbSmt.getSelectedItem() == null) return;
+            String ta = (String) cbTA.getSelectedItem().getValue();
+            int smt = ((Integer) cbSmt.getSelectedItem().getValue()).intValue();
+            Session session = HibernateUtil.currentSession();
+            List<Perkuliahan> target = ambilPerkuliahanTerpilih(session, ta, smt);
+            List<JamPerkuliahan> jam = loadJamList(session);
+            if (jam.isEmpty()) {
+                msgbox("Jam Perkuliahan belum tersedia. Buat waktu default atau kelola jam terlebih dahulu.",
+                        "Data Belum Lengkap", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+                return;
+            }
+            Map<String, Perkuliahan> riwayat = dariRiwayat ? ambilPolaRiwayat(session, ta, smt) : new HashMap<String, Perkuliahan>();
+            Map<String, Integer> beban = new HashMap<String, Integer>();
+            Set<String> dosenTerpakai = new HashSet<String>();
+            Set<String> ruangTerpakai = new HashSet<String>();
+            isiPemakaianSlot(session, ta, smt, jam, beban, dosenTerpakai, ruangTerpakai);
+            int tersimpan = 0, tanpaPola = 0, tanpaSlot = 0;
+            for (Perkuliahan p : target) {
+                if (p.getHari() != null && !p.getHari().trim().isEmpty()) continue;
+                if (!bolehMengubahJadwal(p, true)) return;
+                if (p.getDosen1() == null) { tanpaSlot++; continue; }
+                SlotJadwal slot = null;
+                if (dariRiwayat) {
+                    Perkuliahan lama = riwayat.get(kunciRiwayat(p));
+                    if (lama != null) {
+                        JamPerkuliahan jamCocok = matchJam(lama.getWaktuMulai(), jam);
+                        if (jamCocok != null && slotTersedia(p, lama.getHari(), jamCocok, dosenTerpakai, ruangTerpakai))
+                            slot = new SlotJadwal(lama.getHari(), jamCocok);
+                    }
+                    if (slot == null) { tanpaPola++; continue; }
+                } else {
+                    slot = pilihSlotTerbaik(p, jam, beban, dosenTerpakai, ruangTerpakai);
+                    if (slot == null) { tanpaSlot++; continue; }
+                }
+                p.setHari(slot.hari);
+                p.setJamPerkuliahan(slot.jam);
+                p.setWaktuMulai(slot.jam.getWaktuMulai());
+                p.setWaktuSelesai(slot.jam.getWaktuSelesai());
+                session.saveOrUpdate(p);
+                tandaiPemakaian(p, slot.hari, slot.jam, beban, dosenTerpakai, ruangTerpakai);
+                tersimpan++;
+            }
+            session.flush();
+            doLoad();
+            String tambahan = dariRiwayat && tanpaPola > 0 ? "\n" + tanpaPola + " kelas tidak memiliki pola riwayat yang aman."
+                    : (!dariRiwayat && tanpaSlot > 0 ? "\n" + tanpaSlot + " kelas belum memperoleh slot bebas." : "");
+            msgbox(tersimpan + " kelas berhasil dijadwalkan otomatis." + tambahan
+                    + "\n\nSilakan periksa hasil dan jalankan Periksa Konflik.",
+                    "Penjadwalan Selesai", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+        } catch (Exception e) {
+            Common.tampilErrorJikaAdmin(e);
+            PesanFormalHelper.tampilkanGagalException("menjalankan penjadwalan pintar", e,
+                    new String[] { "Periksa kelengkapan dosen, ruang, dan jam perkuliahan.",
+                            "Muat ulang halaman lalu coba kembali." });
+        }
+    }
+
+    @SuppressWarnings({"rawtypes","unchecked"})
+    private Map<String, Perkuliahan> ambilPolaRiwayat(Session session, String ta, int smt) {
+        Map<String, Perkuliahan> hasil = new HashMap<String, Perkuliahan>();
+        String sebelumnya = tahunSebelumnya(ta);
+        if (sebelumnya == null) return hasil;
+        org.hibernate.Criteria c = session.createCriteria(Perkuliahan.class)
+                .add(Restrictions.eq("tahunAjaran", sebelumnya))
+                .add(Restrictions.ne("merupakan_tanpa_jadwal_perkuliahan", Boolean.TRUE));
+        applySmt(c, smt);
+        batasiKriteriaKeLingkupPengguna(c);
+        if (cbJurusan != null && cbJurusan.getSelectedItem() != null
+                && cbJurusan.getSelectedItem().getValue() != null) {
+            Jurusan jurusan = (Jurusan) session.get(Jurusan.class,
+                    (Long) cbJurusan.getSelectedItem().getValue());
+            if (jurusan != null) c.add(Restrictions.eq("jurusan", jurusan));
+        }
+        for (Object object : c.list()) {
+            Perkuliahan p = (Perkuliahan) object;
+            if (p.getHari() != null && !p.getHari().trim().isEmpty() && p.getWaktuMulai() != null)
+                hasil.put(kunciRiwayat(p), p);
+        }
+        return hasil;
+    }
+
+    private String tahunSebelumnya(String ta) {
+        try {
+            String[] bagian = ta.split("/");
+            return (Integer.parseInt(bagian[0]) - 1) + "/" + (Integer.parseInt(bagian[1]) - 1);
+        } catch (Exception e) { return null; }
+    }
+
+    private String kunciRiwayat(Perkuliahan p) {
+        String mk = p.getMatakuliah() == null || p.getMatakuliah().getId() == null ? "-" : p.getMatakuliah().getId().toString();
+        String kelas = p.getKelas() == null ? "" : p.getKelas().trim().toLowerCase();
+        return mk + "|" + kelas;
+    }
+
+    @SuppressWarnings({"rawtypes","unchecked"})
+    private void isiPemakaianSlot(Session session, String ta, int smt, List<JamPerkuliahan> jam,
+            Map<String, Integer> beban, Set<String> dosen, Set<String> ruang) {
+        org.hibernate.Criteria c = session.createCriteria(Perkuliahan.class)
+                .add(Restrictions.eq("tahunAjaran", ta))
+                .add(Restrictions.ne("merupakan_tanpa_jadwal_perkuliahan", Boolean.TRUE));
+        applySmt(c, smt);
+        for (Object object : c.list()) {
+            Perkuliahan p = (Perkuliahan) object;
+            JamPerkuliahan jp = p.getJamPerkuliahan() != null ? p.getJamPerkuliahan() : matchJam(p.getWaktuMulai(), jam);
+            if (jp != null && p.getHari() != null && !p.getHari().trim().isEmpty())
+                tandaiPemakaian(p, p.getHari(), jp, beban, dosen, ruang);
+        }
+    }
+
+    private SlotJadwal pilihSlotTerbaik(Perkuliahan p, List<JamPerkuliahan> jam,
+            Map<String, Integer> beban, Set<String> dosen, Set<String> ruang) {
+        SlotJadwal terbaik = null;
+        int nilaiTerbaik = Integer.MAX_VALUE;
+        for (String hari : HARI) for (JamPerkuliahan jp : jam) {
+            if (!slotTersedia(p, hari, jp, dosen, ruang)) continue;
+            Integer nilai = beban.get(kunciSlot(hari, jp));
+            int skor = nilai == null ? 0 : nilai.intValue();
+            if (skor < nilaiTerbaik) { nilaiTerbaik = skor; terbaik = new SlotJadwal(hari, jp); }
+        }
+        return terbaik;
+    }
+
+    private boolean slotTersedia(Perkuliahan p, String hari, JamPerkuliahan jam,
+            Set<String> dosen, Set<String> ruang) {
+        if (hari == null || jam == null) return false;
+        String slot = kunciSlot(hari, jam);
+        return (p.getDosen1() == null || !dosen.contains(slot + "|" + p.getDosen1().getId()))
+                && (p.getRuang() == null || !ruang.contains(slot + "|" + p.getRuang().getId()));
+    }
+
+    private void tandaiPemakaian(Perkuliahan p, String hari, JamPerkuliahan jam,
+            Map<String, Integer> beban, Set<String> dosen, Set<String> ruang) {
+        String slot = kunciSlot(hari, jam);
+        Integer jumlah = beban.get(slot);
+        beban.put(slot, Integer.valueOf(jumlah == null ? 1 : jumlah.intValue() + 1));
+        if (p.getDosen1() != null) dosen.add(slot + "|" + p.getDosen1().getId());
+        if (p.getRuang() != null) ruang.add(slot + "|" + p.getRuang().getId());
+    }
+
+    private String kunciSlot(String hari, JamPerkuliahan jam) {
+        return hari.trim().toLowerCase() + "|" + normalisasiJam(jam.getWaktuMulai())
+                + "|" + normalisasiJam(jam.getWaktuSelesai());
+    }
+
+    private String normalisasiJam(String jam) {
+        return jam == null ? "" : jam.trim().replace('.', ':');
+    }
+
+    private static final class AnalisisJadwal {
+        int total, terjadwal, belumTerjadwal, tanpaDosen, tanpaRuang, konflik, jumlahJam;
+    }
+
+    private static final class SlotJadwal {
+        final String hari;
+        final JamPerkuliahan jam;
+        SlotJadwal(String hari, JamPerkuliahan jam) { this.hari = hari; this.jam = jam; }
     }
 
     // ── Simpan ────────────────────────────────────────────────────────────────

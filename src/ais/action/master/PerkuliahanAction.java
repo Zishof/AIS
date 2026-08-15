@@ -2,6 +2,7 @@ package ais.action.master;
 
 
 import ais.common.CommonSearchFilterHelper;
+import ais.action.master.helper.AngketPerkuliahanHelper;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -2408,6 +2409,16 @@ public class PerkuliahanAction extends GenericAutowireComposer
 										iframe.setParent(panel);
 									}
 								});
+
+								btnTab.tambahTabLazy(4, "Angket", "/img/svg/dashboard-chart.svg", new ais.ui.util.MyButtonTabbox.PemuatTab() {
+									@Override
+									public void muat(org.zkoss.zul.Div panel) throws Exception {
+										panel.setHeight("900px");
+										panel.setWidth("100%");
+										AngketPerkuliahanHelper.display(panel, perkuliahan);
+									}
+								});
+								btnTab.setVisibleTombol(4, tbmuser == null || tbmuser.getMahasiswa() == null);
 
 							}
 						});
