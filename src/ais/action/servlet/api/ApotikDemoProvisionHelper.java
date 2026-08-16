@@ -1,6 +1,7 @@
 package ais.action.servlet.api;
 
 import java.util.Date;
+import java.util.Map;
 
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -168,7 +169,11 @@ public final class ApotikDemoProvisionHelper {
 			// 2) Data uji item/resep -- HANYA bila item_medis masih kosong (server nyata dilewati).
 			long jumlahItem = ((Number) session.createQuery("select count(i) from ItemMedis i")
 					.uniqueResult()).longValue();
-			if (jumlahItem > 0) {
+			long penandaDemo = ((Number) session.createQuery("select count(i) from ItemMedis i "
+					+ "where i.kode = :kodeUji or i.kode like :kodeDemo")
+					.setString("kodeUji", "UJI-PCT").setString("kodeDemo", "DEMO-OBT-%")
+					.uniqueResult()).longValue();
+			if (jumlahItem > 0 && penandaDemo == 0) {
 				ringkas.put("dataUji", "DILEWATI -- sirs.item_medis sudah berisi " + jumlahItem
 						+ " item (server ber-SIRS nyata, tidak disentuh)");
 				tx.commit();
@@ -176,12 +181,22 @@ public final class ApotikDemoProvisionHelper {
 				hasil.put("ringkasan", ringkas);
 				return;
 			}
+			Map<String, Tbmrole> roleDemo = ApotikEmedikSeedHelper.pastikanRoleDemo(session);
+			seedAkunOperasionalDemo(session, roleDemo, ringkas);
 
 			// Dataset tenaga medis demo berada pada gerbang keamanan yang sama dengan
 			// dataset apotik: hanya dibuat ketika item_medis benar-benar kosong. Seluruh
 			// tenaga ditulis ke public.pegawai, direlasikan ke sirs.dokter, lalu ke
 			// public.tbmuser. Kategori pada sirs.dokter membedakan dokter/bidan/perawat.
 			seedTenagaMedis(session, ringkas);
+			if (jumlahItem > 0) {
+				ringkas.put("dataUji", "Katalog demo sudah tersedia (" + jumlahItem
+						+ " item); role dan akun uji dipastikan tanpa menggandakan katalog");
+				tx.commit();
+				hasil.put("status", "00");
+				hasil.put("ringkasan", ringkas);
+				return;
+			}
 
 			// Master pendukung (satuan + jenis item), idempoten by nama/kode.
 			SatuanItem satuan = (SatuanItem) session.createCriteria(SatuanItem.class)
@@ -308,7 +323,21 @@ public final class ApotikDemoProvisionHelper {
 			roleMedis = new Tbmrole();
 			roleMedis.setRoleId(Tbmrole.DOKTER);
 			roleMedis.setRoleName("Tenaga Medis");
+			roleMedis.setAktif(Boolean.TRUE);
+			roleMedis.setEmedic(Boolean.TRUE);
+			roleMedis.setHalamanUtama(Tbmrole.HALAMAN_UTAMA_EMEDIK);
+			roleMedis.setEbisnisMenu(ApotikEmedikSeedHelper.menuRoleTenagaMedisDemo());
 			session.save(roleMedis);
+		} else {
+			roleMedis.setAktif(Boolean.TRUE);
+			roleMedis.setEmedic(Boolean.TRUE);
+			if (roleMedis.getHalamanUtama() == null || roleMedis.getHalamanUtama().trim().isEmpty()) {
+				roleMedis.setHalamanUtama(Tbmrole.HALAMAN_UTAMA_EMEDIK);
+			}
+			if (roleMedis.getEbisnisMenu() == null || roleMedis.getEbisnisMenu().trim().isEmpty()) {
+				roleMedis.setEbisnisMenu(ApotikEmedikSeedHelper.menuRoleTenagaMedisDemo());
+			}
+			session.saveOrUpdate(roleMedis);
 		}
 		int dibuat = 0;
 		dibuat += buatTenagaMedis(session, roleMedis, "DOK", "Dokter", Dokter.UMUM, 100);
@@ -317,6 +346,74 @@ public final class ApotikDemoProvisionHelper {
 		dibuat += buatTenagaMedis(session, roleMedis, "MED", "Tenaga Medis", Dokter.LAIN, 100);
 		ringkas.put("tenagaMedis", "800 data dipastikan (baru " + dibuat
 				+ "): 100 dokter, 100 bidan, 500 perawat, 100 tenaga medis lain");
+		seedAliasTenagaMedis(session, roleMedis, ringkas);
+	}
+
+	private static void seedAkunOperasionalDemo(Session session, Map<String, Tbmrole> roleDemo,
+			JSONObject ringkas) throws Exception {
+		JSONArray akun = new JSONArray();
+		buatAkunDemo(session, "demo_apoteker", "Apoteker Demo",
+				roleDemo.get(ApotikEmedikSeedHelper.ROLE_APOTIK), null, null);
+		akun.put(akunJson("demo_apoteker", "Apoteker", "Akses penuh apotik dan kasir eMedik"));
+		buatAkunDemo(session, "demo_kasir_apotik", "Kasir Apotik Demo",
+				roleDemo.get(ApotikEmedikSeedHelper.ROLE_APOTIK_KASIR_DEMO), null, null);
+		akun.put(akunJson("demo_kasir_apotik", "Kasir Apotik", "Penjualan, resep, dan tagihan"));
+		buatAkunDemo(session, "demo_gudang_apotik", "Gudang Apotik Demo",
+				roleDemo.get(ApotikEmedikSeedHelper.ROLE_APOTIK_GUDANG_DEMO), null, null);
+		akun.put(akunJson("demo_gudang_apotik", "Gudang Apotik",
+				"Formularium, batch, pengadaan, opname, dan retur"));
+		buatAkunDemo(session, "demo_pendaftaran", "Pendaftaran eMedik Demo",
+				roleDemo.get(ApotikEmedikSeedHelper.ROLE_EMEDIK_PENDAFTARAN_DEMO), null, null);
+		akun.put(akunJson("demo_pendaftaran", "Pendaftaran eMedik",
+				"Pendaftaran, tagihan, deposit, dan penjamin"));
+		ringkas.put("akunOperasional", akun);
+	}
+
+	private static void seedAliasTenagaMedis(Session session, Tbmrole roleMedis, JSONObject ringkas)
+			throws Exception {
+		JSONArray akun = ringkas.optJSONArray("akunOperasional");
+		if (akun == null) akun = new JSONArray();
+		buatAliasTenagaMedis(session, roleMedis, "demo_dokter", "DEMO-DOK-0001", "Dokter");
+		akun.put(akunJson("demo_dokter", "Dokter", "Layanan eMedik; terhubung ke dokter demo"));
+		buatAliasTenagaMedis(session, roleMedis, "demo_bidan", "DEMO-BDN-0001", "Bidan");
+		akun.put(akunJson("demo_bidan", "Bidan", "Layanan eMedik; terhubung ke bidan demo"));
+		buatAliasTenagaMedis(session, roleMedis, "demo_perawat", "DEMO-PRW-0001", "Perawat");
+		akun.put(akunJson("demo_perawat", "Perawat", "Layanan eMedik; terhubung ke perawat demo"));
+		ringkas.put("akunDemo", akun);
+		ringkas.put("passwordAkunDemo", "Password setiap akun sama dengan username; khusus server demo/UAT");
+	}
+
+	private static void buatAliasTenagaMedis(Session session, Tbmrole role, String userId,
+			String kode, String label) throws Exception {
+		Pegawai pegawai = (Pegawai) session.createCriteria(Pegawai.class)
+				.add(Restrictions.eq("code", kode)).setMaxResults(1).uniqueResult();
+		Dokter dokter = (Dokter) session.createCriteria(Dokter.class)
+				.add(Restrictions.eq("kode", kode)).setMaxResults(1).uniqueResult();
+		buatAkunDemo(session, userId, label + " Demo", role, pegawai, dokter);
+	}
+
+	private static void buatAkunDemo(Session session, String userId, String nama, Tbmrole role,
+			Pegawai pegawai, Dokter dokter) throws Exception {
+		Tbmuser user = (Tbmuser) session.get(Tbmuser.class, userId);
+		if (user == null) {
+			user = new Tbmuser();
+			user.setUserId(userId);
+		}
+		user.setUserNama(nama);
+		user.setUserPassword(Common.desEncrypter.get().encrypt(userId));
+		user.setIs_encripted(Boolean.TRUE);
+		user.setAktif(Boolean.TRUE);
+		user.setRoot(Boolean.FALSE);
+		user.setUserShow(Integer.valueOf(1));
+		user.setUserRole(role);
+		if (pegawai != null) user.setPegawai(pegawai);
+		if (dokter != null) user.setDokter(dokter);
+		session.saveOrUpdate(user);
+	}
+
+	private static JSONObject akunJson(String username, String peran, String akses) throws Exception {
+		return new JSONObject().put("username", username).put("password", username)
+				.put("peran", peran).put("akses", akses);
 	}
 
 	private static int buatTenagaMedis(Session session, Tbmrole roleMedis, String prefix,
@@ -354,6 +451,9 @@ public final class ApotikDemoProvisionHelper {
 				user.setUserId(userId);
 				user.setUserNama(nama);
 				user.setUserPassword(Common.desEncrypter.get().encrypt(userId));
+				user.setIs_encripted(Boolean.TRUE);
+				user.setRoot(Boolean.FALSE);
+				user.setUserShow(Integer.valueOf(1));
 				user.setUserRole(roleMedis);
 				user.setAktif(Boolean.TRUE);
 				user.setPegawai(pegawai);

@@ -36,6 +36,9 @@ public final class ApotikEmedikSeedHelper {
 
 	/** roleId grup apoteker -- PK teks {@link Tbmrole}, pola sama ROLE_PEMILIK/ROLE_SALES_KELILING. */
 	public static final String ROLE_APOTIK = "apotik";
+	public static final String ROLE_APOTIK_KASIR_DEMO = "apotik_kasir_demo";
+	public static final String ROLE_APOTIK_GUDANG_DEMO = "apotik_gudang_demo";
+	public static final String ROLE_EMEDIK_PENDAFTARAN_DEMO = "emedik_pendaftaran_demo";
 
 	private static final String[] KUNCI_APOTIK = { "apotik_kasir", "apotik_resep", "apotik_racikan",
 			"apotik_formularium", "apotik_batch", "apotik_pengadaan", "apotik_stok_opname",
@@ -164,5 +167,88 @@ public final class ApotikEmedikSeedHelper {
 			crudAktif.put(crudPenuh[i], SalesInventoryHelper.SEMUA_AKSI_CRUD);
 		}
 		return SalesInventoryHelper.bungkusMenuRole(menuAktif, crudAktif);
+	}
+
+	/**
+	 * Pastikan role khusus akun sample tersedia di transaksi pemanggil. Method ini sengaja
+	 * package-visible dan hanya dipanggil provisioning yang sudah dilindungi konfigurasi
+	 * {@code data_sample_ebisnis}; seed menu normal tidak membuat akun demo.
+	 */
+	/* package */ static java.util.Map<String, Tbmrole> pastikanRoleDemo(Session session)
+			throws Exception {
+		java.util.Map<String, Tbmrole> hasil = new java.util.LinkedHashMap<String, Tbmrole>();
+		Tbmrole apoteker = pastikanRole(session, ROLE_APOTIK, "Apoteker (Akses Penuh)",
+				menuRoleApotikJson(), Tbmrole.HALAMAN_UTAMA_APOTIK, false, false);
+		hasil.put(ROLE_APOTIK, apoteker);
+
+		Tbmrole kasir = pastikanRole(session, ROLE_APOTIK_KASIR_DEMO, "Kasir Apotik",
+				menuRoleTerbatas(new String[] { "apotik_kasir", "apotik_resep", "apotik_batch",
+						"emedik_kasir", "emedik_tagihan" },
+						new String[] { "apotik_kasir", "emedik_kasir", "emedik_tagihan" }),
+				Tbmrole.HALAMAN_UTAMA_APOTIK, false, true);
+		hasil.put(ROLE_APOTIK_KASIR_DEMO, kasir);
+
+		Tbmrole gudang = pastikanRole(session, ROLE_APOTIK_GUDANG_DEMO, "Gudang dan Pengadaan Apotik",
+				menuRoleTerbatas(new String[] { "apotik_formularium", "apotik_batch",
+						"apotik_pengadaan", "apotik_stok_opname", "apotik_retur", "apotik_laporan" },
+						new String[] { "apotik_formularium", "apotik_pengadaan",
+								"apotik_stok_opname", "apotik_retur" }),
+				Tbmrole.HALAMAN_UTAMA_APOTIK, false, true);
+		hasil.put(ROLE_APOTIK_GUDANG_DEMO, gudang);
+
+		Tbmrole pendaftaran = pastikanRole(session, ROLE_EMEDIK_PENDAFTARAN_DEMO,
+				"Pendaftaran dan Administrasi eMedik",
+				menuRoleTerbatas(new String[] { "emedik_pendaftaran", "emedik_tagihan",
+						"emedik_deposit", "emedik_penjamin", "emedik_laporan" },
+						new String[] { "emedik_pendaftaran", "emedik_tagihan",
+								"emedik_deposit", "emedik_penjamin" }),
+				Tbmrole.HALAMAN_UTAMA_EMEDIK, true, true);
+		hasil.put(ROLE_EMEDIK_PENDAFTARAN_DEMO, pendaftaran);
+		return hasil;
+	}
+
+	private static Tbmrole pastikanRole(Session session, String roleId, String nama, String menu,
+			String halamanUtama, boolean emedic, boolean perbaruiMenu) {
+		Tbmrole role = (Tbmrole) session.get(Tbmrole.class, roleId);
+		if (role == null) {
+			role = new Tbmrole();
+			role.setRoleId(roleId);
+			role.setRoleName(nama);
+			role.setAktif(Boolean.TRUE);
+			role.setEbisnisMenu(menu);
+			role.setHalamanUtama(halamanUtama);
+			role.setEmedic(Boolean.valueOf(emedic));
+			session.save(role);
+		} else {
+			role.setAktif(Boolean.TRUE);
+			if (role.getHalamanUtama() == null || role.getHalamanUtama().trim().isEmpty()) {
+				role.setHalamanUtama(halamanUtama);
+			}
+			if (emedic) role.setEmedic(Boolean.TRUE);
+			// Role berakhiran _demo dikelola provisioning, sehingga aman dibuat deterministik.
+			// Role apotik lama tetap mempertahankan suntingan admin.
+			if (perbaruiMenu) role.setEbisnisMenu(menu);
+			session.saveOrUpdate(role);
+		}
+		return role;
+	}
+
+	private static String menuRoleTerbatas(String[] menu, String[] crudPenuh) throws Exception {
+		java.util.Set<String> menuAktif = SalesInventoryHelper.set();
+		for (int i = 0; i < menu.length; i++) menuAktif.add(menu[i]);
+		menuAktif.add("konfigurasi");
+		menuAktif.add("logerror");
+		menuAktif.add("riwayatsinkronisasi");
+		java.util.Map<String, java.util.Set<String>> crudAktif =
+				new java.util.LinkedHashMap<String, java.util.Set<String>>();
+		for (int i = 0; i < crudPenuh.length; i++) {
+			crudAktif.put(crudPenuh[i], SalesInventoryHelper.SEMUA_AKSI_CRUD);
+		}
+		return SalesInventoryHelper.bungkusMenuRole(menuAktif, crudAktif);
+	}
+
+	/* package */ static String menuRoleTenagaMedisDemo() throws Exception {
+		return menuRoleTerbatas(new String[] { "emedik_kasir", "emedik_pendaftaran",
+				"emedik_laporan" }, new String[] { "emedik_kasir", "emedik_pendaftaran" });
 	}
 }
