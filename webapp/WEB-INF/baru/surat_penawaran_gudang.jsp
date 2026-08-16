@@ -642,7 +642,9 @@ String nomorSurat = (paramNomorSurat != null && !paramNomorSurat.trim().isEmpty(
 
         .btn-print {
             position: fixed;
-            bottom: 2rem;
+            /* 7.5rem supaya lolos dari tombol "Tanya Jawab" (bantuan_button.jsp:
+               right:16px; bottom:62px). */
+            bottom: 7.5rem;
             right: 2rem;
             z-index: 1000;
             border-radius: 999px;

@@ -475,7 +475,9 @@ String masaKontrak = (paramMasaKontrak != null && !paramMasaKontrak.trim().isEmp
 
         .print-toolbar {
             position: fixed;
-            bottom: 2rem;
+            /* 7.5rem supaya lolos dari tombol "Tanya Jawab" (bantuan_button.jsp:
+               right:16px; bottom:62px), yang tanpa ini tertutup toolbar cetak ini. */
+            bottom: 7.5rem;
             right: 2rem;
             z-index: 1000;
             display: flex;
@@ -508,7 +510,7 @@ String masaKontrak = (paramMasaKontrak != null && !paramMasaKontrak.trim().isEmp
             .doc-meta-grid, .summary-card-grid, .value-grid, .deliverable-grid { grid-template-columns: 1fr; }
             .signature-section { flex-direction: column; }
             .signature-box { width: 100%; }
-            .print-toolbar { left: 1rem; right: 1rem; bottom: 1rem; justify-content: center; }
+            .print-toolbar { left: 1rem; right: 1rem; bottom: 7.5rem; justify-content: center; }
             .toolbar-hint { display: none; }
         }
 

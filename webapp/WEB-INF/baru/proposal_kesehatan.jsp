@@ -92,7 +92,8 @@ String logo_PerguruanTinggi = (paramLogo != null && !paramLogo.trim().isEmpty())
         .pricing-header { text-align: center; margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px dashed var(--border-color); }
         .pricing-price { font-size: 2rem; font-weight: 800; color: var(--primary-color); }
 
-        .btn-print { position: fixed; bottom: 2rem; right: 2rem; z-index: 1000; border-radius: 50px; padding: 1rem 2rem; box-shadow: 0 10px 20px rgba(2, 132, 199, 0.3); font-size: 1.1rem;}
+        /* bottom:7.5rem supaya lolos dari tombol "Tanya Jawab" (bantuan_button.jsp: right:16px; bottom:62px). */
+        .btn-print { position: fixed; bottom: 7.5rem; right: 2rem; z-index: 1000; border-radius: 50px; padding: 1rem 2rem; box-shadow: 0 10px 20px rgba(2, 132, 199, 0.3); font-size: 1.1rem;}
 
         .proposal-watermark { position: absolute; right: -70px; top: 180px; font-size: 7rem; font-weight: 900; color: rgba(2,132,199,0.035); transform: rotate(-18deg); pointer-events: none; user-select: none; letter-spacing: 2px; }
         .cover-badge { display: inline-flex; align-items: center; gap: 8px; padding: 0.65rem 1.1rem; border-radius: 999px; background: #ffffff; color: var(--primary-dark); border: 1px solid rgba(2,132,199,0.25); box-shadow: 0 8px 24px rgba(2,132,199,0.12); font-weight: 800; text-transform: uppercase; font-size: 0.82rem; letter-spacing: .08em; margin-bottom: 1.4rem; }

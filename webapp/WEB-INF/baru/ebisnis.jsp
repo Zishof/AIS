@@ -800,8 +800,12 @@ session.removeAttribute(EbisnisPublicServlet.SESSION_FLASH_JENIS);
         }
         .sticky-cta-floating {
             position: fixed;
-            right: 20px;
-            bottom: 90px /* ditumpuk di atas tombol Bantuan agar tak bertindih */;
+            right: 16px;
+            /* Ditumpuk di atas tombol "Tanya Jawab" (bantuan_button.jsp: right:16px;
+               bottom:62px, tinggi ~33px -> tepi atas ~95px) supaya tidak bertindih.
+               90px sebelumnya masih tumpang tindih krn tombol ini sendiri lebih
+               tinggi (~48px) dan box-shadow-nya melebar ke bawah. */
+            bottom: 122px;
             z-index: 1060;
             display: flex;
             align-items: center;
