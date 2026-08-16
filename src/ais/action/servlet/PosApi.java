@@ -2899,6 +2899,112 @@ public class PosApi extends HttpServlet {
 	 * pembanding periode sebelumnya yang panjang harinya sama. Rentang dibatasi
 	 * maksimum 366 hari agar grafik tetap responsif dan aman utk database toko.
 	 */
+	private static JSONObject hitungAnalitikLabaKotor(java.sql.Connection conn,
+			java.util.Map<Long, Double> petaHpp, Long tokoId, String mulai, String sampai,
+			String batasKasir, boolean bolehSemuaKasir, String namaKasirLogin, boolean sertakanRincian)
+			throws Exception {
+		String sql = "SELECT COALESCE(a.pembelian_anggota_koperasi,a.id),DATE(a.waktu),MAX(a.waktu),"
+				+ "a.produk,COALESCE(NULLIF(TRIM(MAX(a.nama)),''),NULLIF(TRIM(MAX(p.nama)),''),'Produk tanpa nama'),"
+				+ "COALESCE(SUM(a.qty),0),COALESCE(SUM(a.total),0) FROM koperasi.pembelian a "
+				+ "LEFT JOIN koperasi.produk p ON p.id=a.produk LEFT JOIN koperasi.pembelian_anggota_koperasi pak "
+				+ "ON pak.id=a.pembelian_anggota_koperasi WHERE a.toko=? AND COALESCE(a.aktif,true)=true "
+				+ "AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date" + batasKasir
+				+ " GROUP BY 1,2,a.produk ORDER BY 2,3,1";
+		java.sql.PreparedStatement ps = conn.prepareStatement(sql);
+		ps.setLong(1, tokoId.longValue()); ps.setString(2, mulai); ps.setString(3, sampai);
+		if (!bolehSemuaKasir) ps.setString(4, namaKasirLogin);
+		java.sql.ResultSet rs = ps.executeQuery();
+		java.util.Map<String, double[]> perHari = new java.util.TreeMap<String, double[]>();
+		java.util.Map<String, Object[]> perProduk = new java.util.LinkedHashMap<String, Object[]>();
+		java.util.Map<String, Object[]> perTransaksi = new java.util.LinkedHashMap<String, Object[]>();
+		double omzet = 0, hpp = 0, qtyTanpaHpp = 0;
+		java.util.Set<String> produkTanpaHpp = new java.util.HashSet<String>();
+		while (rs.next()) {
+			String idTransaksi = rs.getString(1), tanggal = rs.getDate(2).toString();
+			java.sql.Timestamp waktu = rs.getTimestamp(3);
+			long produkId = rs.getLong(4); boolean produkNull = rs.wasNull();
+			String namaProduk = rs.getString(5);
+			double qty = rs.getDouble(6), penjualan = rs.getDouble(7);
+			Double hppUnit = produkNull ? null : petaHpp.get(Long.valueOf(produkId));
+			double modal = hppUnit == null ? 0 : qty * hppUnit.doubleValue();
+			if (hppUnit == null || hppUnit.doubleValue() <= 0) {
+				qtyTanpaHpp += qty; produkTanpaHpp.add(produkNull ? namaProduk : String.valueOf(produkId));
+			}
+			omzet += penjualan; hpp += modal;
+			double[] hari = perHari.get(tanggal);
+			if (hari == null) { hari = new double[] { 0, 0 }; perHari.put(tanggal, hari); }
+			hari[0] += penjualan; hari[1] += modal;
+			String kunciProduk = produkNull ? ("N:" + namaProduk) : ("I:" + produkId);
+			Object[] produk = perProduk.get(kunciProduk);
+			if (produk == null) {
+				produk = new Object[] { namaProduk, Double.valueOf(0), Double.valueOf(0), Double.valueOf(0) };
+				perProduk.put(kunciProduk, produk);
+			}
+			produk[1] = Double.valueOf(((Double) produk[1]).doubleValue() + qty);
+			produk[2] = Double.valueOf(((Double) produk[2]).doubleValue() + penjualan);
+			produk[3] = Double.valueOf(((Double) produk[3]).doubleValue() + modal);
+			Object[] transaksi = perTransaksi.get(idTransaksi);
+			if (transaksi == null) {
+				transaksi = new Object[] { tanggal, Long.valueOf(waktu == null ? 0 : waktu.getTime()),
+						Double.valueOf(0), Double.valueOf(0) };
+				perTransaksi.put(idTransaksi, transaksi);
+			}
+			transaksi[2] = Double.valueOf(((Double) transaksi[2]).doubleValue() + penjualan);
+			transaksi[3] = Double.valueOf(((Double) transaksi[3]).doubleValue() + modal);
+		}
+		rs.close(); ps.close();
+		double laba = omzet - hpp;
+		JSONObject ringkasan = new JSONObject();
+		ringkasan.put("omzet", omzet); ringkasan.put("hpp", hpp); ringkasan.put("labaKotor", laba);
+		ringkasan.put("marginPersen", omzet == 0 ? 0 : laba / omzet * 100.0);
+		ringkasan.put("qtyTanpaHpp", qtyTanpaHpp); ringkasan.put("produkTanpaHpp", produkTanpaHpp.size());
+		java.util.List<JSONObject> daftarProduk = new java.util.ArrayList<JSONObject>();
+		int produkMarginNegatif = 0;
+		for (Object[] p : perProduk.values()) {
+			double penjualan = ((Double) p[2]).doubleValue(), modal = ((Double) p[3]).doubleValue();
+			double labaProduk = penjualan - modal; if (labaProduk < 0) produkMarginNegatif++;
+			JSONObject o = new JSONObject(); o.put("nama", p[0]); o.put("qty", p[1]); o.put("omzet", penjualan);
+			o.put("hpp", modal); o.put("labaKotor", labaProduk);
+			o.put("marginPersen", penjualan == 0 ? 0 : labaProduk / penjualan * 100.0); daftarProduk.add(o);
+		}
+		ringkasan.put("produkMarginNegatif", produkMarginNegatif);
+		JSONObject hasilLaba = new JSONObject(); hasilLaba.put("ringkasan", ringkasan);
+		if (!sertakanRincian) return hasilLaba;
+		java.util.Collections.sort(daftarProduk, new java.util.Comparator<JSONObject>() {
+			public int compare(JSONObject a, JSONObject b) {
+				return Double.compare(b.optDouble("labaKotor", 0), a.optDouble("labaKotor", 0));
+			}
+		});
+		JSONArray produkJson = new JSONArray();
+		for (int i = 0; i < Math.min(15, daftarProduk.size()); i++) produkJson.put(daftarProduk.get(i));
+		hasilLaba.put("produk", produkJson);
+		JSONArray tren = new JSONArray();
+		for (java.util.Map.Entry<String, double[]> e : perHari.entrySet()) {
+			double penjualan = e.getValue()[0], modal = e.getValue()[1], labaHari = penjualan - modal;
+			JSONObject o = new JSONObject(); o.put("tanggal", e.getKey()); o.put("omzet", penjualan);
+			o.put("hpp", modal); o.put("labaKotor", labaHari);
+			o.put("marginPersen", penjualan == 0 ? 0 : labaHari / penjualan * 100.0); tren.put(o);
+		}
+		hasilLaba.put("tren", tren);
+		java.util.Map<String, java.util.List<Double>> nilaiHari =
+				new java.util.TreeMap<String, java.util.List<Double>>();
+		for (Object[] transaksi : perTransaksi.values()) {
+			String tanggal = (String) transaksi[0]; java.util.List<Double> nilai = nilaiHari.get(tanggal);
+			if (nilai == null) { nilai = new java.util.ArrayList<Double>(); nilaiHari.put(tanggal, nilai); }
+			nilai.add(Double.valueOf(((Double) transaksi[2]).doubleValue() - ((Double) transaksi[3]).doubleValue()));
+		}
+		JSONArray candle = new JSONArray();
+		for (java.util.Map.Entry<String, java.util.List<Double>> e : nilaiHari.entrySet()) {
+			java.util.List<Double> nilai = e.getValue(); if (nilai.isEmpty()) continue;
+			double tinggi = -Double.MAX_VALUE, rendah = Double.MAX_VALUE;
+			for (Double n : nilai) { tinggi = Math.max(tinggi, n.doubleValue()); rendah = Math.min(rendah, n.doubleValue()); }
+			JSONObject o = new JSONObject(); o.put("tanggal", e.getKey()); o.put("open", nilai.get(0));
+			o.put("high", tinggi); o.put("low", rendah); o.put("close", nilai.get(nilai.size() - 1));
+			o.put("transaksi", nilai.size()); candle.put(o);
+		}
+		hasilLaba.put("candle", candle); return hasilLaba;
+	}
+
 	private void prosesLaporanRiwayatPenjualanAnalitik(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
 		if (tokoId == null) { hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return; }
@@ -2934,6 +3040,7 @@ public class PosApi extends HttpServlet {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			java.sql.Connection conn = session.connection();
+			java.util.Map<Long, Double> petaHppAnalitik = petaHargaPokok(conn, tokoId);
 			String trx = "SELECT COALESCE(a.pembelian_anggota_koperasi,a.id) id_trx,DATE(MAX(a.waktu)) tanggal,"
 					+ " EXTRACT(HOUR FROM MAX(a.waktu)) jam,COALESCE(MAX(pak.total_biaya),SUM(a.total)) total_nilai,"
 					+ " SUM(COALESCE(a.qty,0)) qty,MAX(pak.total_biaya) total_master,COALESCE(SUM(a.total),0) total_detail,"
@@ -3030,12 +3137,18 @@ public class PosApi extends HttpServlet {
 			java.sql.ResultSet rRetur = pRetur.executeQuery(); JSONObject retur = new JSONObject();
 			if (rRetur.next()) { retur.put("transaksi", rRetur.getLong(1)); retur.put("qty", rRetur.getDouble(2)); retur.put("nilai", rRetur.getDouble(3)); }
 			rRetur.close(); pRetur.close();
+			JSONObject labaKotor = hitungAnalitikLabaKotor(conn, petaHppAnalitik, tokoId, mulai, sampai,
+					batasKasir, bolehSemuaKasir, namaKasirLogin, true);
+			JSONObject labaKotorLalu = hitungAnalitikLabaKotor(conn, petaHppAnalitik, tokoId, mulaiLalu, sampaiLalu,
+					batasKasir, bolehSemuaKasir, namaKasirLogin, false);
 
 			hasil.put("status", "success"); hasil.put("tglMulai", mulai); hasil.put("tglSampai", sampai);
 			hasil.put("tglMulaiPembanding", mulaiLalu); hasil.put("tglSampaiPembanding", sampaiLalu);
 			hasil.put("kpi", kpi); hasil.put("pembanding", pembanding); hasil.put("tren", tren);
 			hasil.put("metode", metode); hasil.put("jam", jam); hasil.put("hari", hari); hasil.put("keranjang", keranjang);
 			hasil.put("kasir", kasir); hasil.put("produk", produk); hasil.put("retur", retur);
+			hasil.put("labaKotor", labaKotor);
+			hasil.put("labaKotorPembanding", labaKotorLalu.getJSONObject("ringkasan"));
 			hasil.put("cakupan", bolehSemuaKasir ? "TOKO" : "KASIR");
 			hasil.put("kasirAktif", bolehSemuaKasir ? "" : namaKasirLogin);
 		} finally { HibernateUtil.closeSessionQuietly(session); }

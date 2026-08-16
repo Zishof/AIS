@@ -313,7 +313,8 @@ boolean otomatisVerifikasiBayarSetelahJam24 = Common.getKonfigurasi("otomatis_ve
                         </div>
                         <div class="modal-footer bg-white border-top">
                             <button type="button" class="btn btn-light rounded-pill px-4 fw-bold border" data-bs-dismiss="modal"><i class="fas fa-times me-1"></i><%=Common.getBahasaConfig("Tutup")%></button>
-                            <button type="button" class="btn btn-outline-primary rounded-pill px-4 fw-bold" onclick="cetakDetailPesanan<%=rnd%>()"><i class="fas fa-print me-2"></i><%=Common.getBahasaConfig("Cetak Detail")%></button>
+                            <button type="button" class="btn btn-outline-success rounded-pill px-4 fw-bold" onclick="excelDetailPesanan<%=rnd%>()"><i class="fas fa-file-excel me-2"></i><%=Common.getBahasaConfig("Download Excel")%></button>
+                            <button type="button" class="btn btn-outline-primary rounded-pill px-4 fw-bold" onclick="cetakDetailPesanan<%=rnd%>()"><i class="fas fa-file-pdf me-2"></i><%=Common.getBahasaConfig("Download PDF")%></button>
                         </div>
                     </div>
                 </div>
@@ -342,6 +343,7 @@ boolean otomatisVerifikasiBayarSetelahJam24 = Common.getKonfigurasi("otomatis_ve
     var modalLayaniSemuaInstance<%=rnd%> = null;
     var modalDetailInstance<%=rnd%> = null;
     var detailPesananData<%=rnd%> = null; // Cache data terakhir utk tombol Cetak
+    var detailClockInterval<%=rnd%> = null;
     
     var arrAturanDiskon<%=rnd%> = []; // Untuk Kalkulasi Diskon
 
@@ -970,6 +972,7 @@ boolean otomatisVerifikasiBayarSetelahJam24 = Common.getKonfigurasi("otomatis_ve
         html += infoCell('fa-user', '<%=Common.getBahasaConfigJS("Pemesan")%>', (h.kode_member ? '<span class="text-secondary">' + h.kode_member + '</span> ' : '') + (h.pemesan || '-'));
         html += infoCell('fa-store', '<%=Common.getBahasaConfigJS("Toko / Pedagang")%>', h.nama_toko || '-');
         html += infoCell('fa-clock', '<%=Common.getBahasaConfigJS("Waktu Pesan")%>', h.waktu || '-');
+        html += infoCell('fa-stopwatch', '<%=Common.getBahasaConfigJS("Waktu Sekarang")%>', '<span id="detailClock<%=rnd%>">-</span>');
         html += infoCell('fa-wallet', '<%=Common.getBahasaConfigJS("Metode Bayar")%>', h.cara_bayar || '-');
         html += '</div>';
         if (h.keterangan && h.keterangan.trim() !== '') {
@@ -1029,7 +1032,7 @@ boolean otomatisVerifikasiBayarSetelahJam24 = Common.getKonfigurasi("otomatis_ve
         detailPesananData<%=rnd%> = null;
         modalDetailInstance<%=rnd%>.show();
 
-        const sqlHeader = "SELECT a.kode, TO_CHAR(a.tanggal_pembayaran, 'DD-MM-YYYY HH24:MI') as waktu, " +
+        const sqlHeader = "SELECT a.kode, TO_CHAR(a.tanggal_pembayaran, 'DD-MM-YYYY HH24:MI:SS') as waktu, " +
             "COALESCE(b.nama,'-') as pemesan, COALESCE(b.kode_identitas,'') as kode_member, COALESCE(t.nama,'-') as nama_toko, " +
             "a.lunas, COALESCE(a.keterangan,'') as keterangan, COALESCE(a.total_biaya,0) as total_biaya, " +
             "COALESCE(a.total_diskon,0) as total_diskon, COALESCE(a.totalcashback,0) as totalcashback, COALESCE(cpk.nama,'-') as cara_bayar " +
@@ -1057,10 +1060,27 @@ boolean otomatisVerifikasiBayarSetelahJam24 = Common.getKonfigurasi("otomatis_ve
             }
             detailPesananData<%=rnd%> = { header: h, items: items };
             body.innerHTML = buildDetailHtml<%=rnd%>(h, items);
+            if (detailClockInterval<%=rnd%>) clearInterval(detailClockInterval<%=rnd%>);
+            const tickDetailClock<%=rnd%> = () => {
+                const el = document.getElementById('detailClock<%=rnd%>');
+                if (el) el.textContent = new Intl.DateTimeFormat('id-ID', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(new Date());
+            };
+            tickDetailClock<%=rnd%>();
+            detailClockInterval<%=rnd%> = setInterval(tickDetailClock<%=rnd%>, 1000);
         } catch (e) {
             console.error("Gagal memuat detail pesanan:", e);
             body.innerHTML = '<div class="text-center text-danger py-5"><i class="fas fa-exclamation-triangle fa-2x mb-3"></i><br><%=Common.getBahasaConfig("Gagal memuat rincian pesanan.")%></div>';
         }
+    };
+
+    window.excelDetailPesanan<%=rnd%> = function() {
+        if (!detailPesananData<%=rnd%>) return;
+        const h = detailPesananData<%=rnd%>.header, items = detailPesananData<%=rnd%>.items || [];
+        let table = '<table><thead><tr><th>Produk</th><th>Kode</th><th>Qty</th><th>Harga</th><th>Diskon</th><th>Cashback</th><th>Subtotal</th></tr></thead><tbody>';
+        items.forEach(it => { const harga=Number(it.harga||0),qty=Number(it.jumlah||0),diskon=Number(it.diskon||0); table += '<tr><td>'+escapeHtmlDetail<%=rnd%>(it.nama||'')+'</td><td>'+escapeHtmlDetail<%=rnd%>(it.kode||'')+'</td><td>'+qty+'</td><td>'+harga+'</td><td>'+diskon+'</td><td>'+Number(it.cashback||0)+'</td><td>'+(harga*qty-diskon)+'</td></tr>'; });
+        table += '</tbody></table>';
+        const blob = new Blob(['<html><meta charset="UTF-8"><body><h2>Detail Pesanan '+escapeHtmlDetail<%=rnd%>(h.kode||'')+'</h2><p>Waktu transaksi: '+escapeHtmlDetail<%=rnd%>(h.waktu||'')+'</p>'+table+'</body></html>'], {type:'application/vnd.ms-excel;charset=utf-8'});
+        const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='detail-pesanan-'+String(h.kode||'').replace(/[^a-z0-9_-]+/gi,'-')+'.xls';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
     };
 
     window.cetakDetailPesanan<%=rnd%> = function() {

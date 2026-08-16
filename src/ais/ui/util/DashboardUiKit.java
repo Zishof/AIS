@@ -271,9 +271,14 @@ public final class DashboardUiKit {
 		sb.append("<div style='display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;'>");
 		if (stats != null) {
 			for (Stat s : stats) {
-				sb.append("<div style='flex:1 1 150px;min-width:140px;background:#ffffff;border:1px solid ").append(LINE)
+				sb.append("<div class='ais-dashboard-clickable' tabindex='0' data-ais-title='")
+						.append(esc(s.label)).append("' data-ais-value='").append(esc(s.value))
+						.append("' data-ais-hint='").append(esc(s.hint == null ? "" : s.hint))
+						.append("' onclick='if(window.aisDashboardCardDetail){window.aisDashboardCardDetail(this,event);}' " )
+						.append("onkeydown='if((event.keyCode==13||event.keyCode==32)&amp;&amp;window.aisDashboardCardDetail){window.aisDashboardCardDetail(this,event);}' ")
+						.append("style='cursor:pointer;flex:1 1 150px;min-width:140px;background:#ffffff;border:1px solid ").append(LINE)
 						.append(";border-top:3px solid ").append(s.accent)
-						.append(";border-radius:12px;padding:11px 12px;box-shadow:0 2px 8px rgba(15,23,42,.05);'>")
+						.append(";border-radius:12px;padding:11px 12px;box-shadow:0 2px 8px rgba(15,23,42,.05);transition:transform .15s ease,box-shadow .15s ease;'>")
 						.append("<div style='font-size:10px;color:").append(MUTED)
 						.append(";text-transform:uppercase;letter-spacing:.04em;font-weight:800;'>").append(esc(s.label))
 						.append("</div>").append("<div style='font-size:19px;font-weight:800;color:").append(s.accent)
@@ -1024,7 +1029,12 @@ public final class DashboardUiKit {
 
 	private static String cardOpen(String title, String desc) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("<div style='background:#fff;border:1px solid ").append(LINE)
+		sb.append("<div class='ais-dashboard-clickable' tabindex='0' data-ais-title='")
+				.append(esc(title == null ? "Detail Analitik" : title)).append("' data-ais-hint='")
+				.append(esc(desc == null ? "" : desc))
+				.append("' onclick='if(window.aisDashboardCardDetail){window.aisDashboardCardDetail(this,event);}' ")
+				.append("onkeydown='if((event.keyCode==13||event.keyCode==32)&amp;&amp;window.aisDashboardCardDetail){window.aisDashboardCardDetail(this,event);}' ")
+				.append("style='cursor:pointer;background:#fff;border:1px solid ").append(LINE)
 				.append(";border-radius:12px;padding:12px;height:100%;box-sizing:border-box;'>");
 		if (title != null && title.trim().length() > 0) {
 			sb.append("<div style='font-weight:800;color:").append(INK).append(";font-size:13px;'>").append(esc(title))

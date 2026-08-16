@@ -140,9 +140,23 @@ public class DashboardKantinAction extends GenericAutowireComposer {
                     + desc;
         }
         DashboardUiKit.attachIntro(comp, judul, desc);
+        pasangDrilldownAnalitik();
 
         isiPeriode();
         buildDashboard();
+    }
+
+    /**
+     * Mengaktifkan drill-down ringan untuk seluruh kartu/grafik HTML dari DashboardUiKit.
+     * Popup menyalin informasi yang benar-benar sedang terlihat, lalu menyediakan unduhan
+     * tabel Excel dan cetak PDF tanpa mengubah query atau aturan bisnis dasbor.
+     */
+    private void pasangDrilldownAnalitik() {
+        Clients.evalJavaScript("(function(){if(window.aisDashboardCardDetail)return;"
+                + "function e(s){return String(s==null?'':s).replace(/[&<>\\\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\\\"':'&quot;',\"'\":'&#39;'}[c];});}"
+                + "function table(t,v,h,lines){var rows=v?[['Nilai',v],['Keterangan',h||'-']]:lines.map(function(x,i){return [i+1,x];});return '<table style=\"width:100%;border-collapse:collapse\"><thead><tr><th style=\"border:1px solid #cbd5e1;padding:7px\">No/Ukuran</th><th style=\"border:1px solid #cbd5e1;padding:7px\">Data</th></tr></thead><tbody>'+rows.map(function(r){return '<tr><td style=\"border:1px solid #cbd5e1;padding:7px\">'+e(r[0])+'</td><td style=\"border:1px solid #cbd5e1;padding:7px\">'+e(r[1])+'</td></tr>';}).join('')+'</tbody></table>';}"
+                + "window.aisDashboardCardDetail=function(el,ev){if(ev){ev.preventDefault();ev.stopPropagation();}var t=el.getAttribute('data-ais-title')||'Detail Analitik',v=el.getAttribute('data-ais-value')||'',h=el.getAttribute('data-ais-hint')||'',lines=(el.innerText||'').split(/\\n+/).map(function(x){return x.trim();}).filter(function(x){return x&&x!==t&&x!==v&&x!==h;});var tb=table(t,v,h,lines),o=document.createElement('div');o.id='ais-dashboard-detail-overlay';o.style.cssText='position:fixed;z-index:2147483000;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:20px';o.innerHTML='<div style=\"background:#fff;border-radius:14px;max-width:900px;width:100%;max-height:90vh;overflow:auto;padding:18px;box-shadow:0 24px 60px rgba(0,0,0,.3)\"><div style=\"display:flex;justify-content:space-between;gap:12px;align-items:center\"><h2 style=\"margin:0;font-size:18px\">'+e(t)+'</h2><button data-close style=\"border:0;background:#eef2f7;padding:7px 12px;border-radius:8px;cursor:pointer\">Tutup</button></div><div data-table style=\"margin-top:14px\">'+tb+'</div><div style=\"display:flex;justify-content:flex-end;gap:8px;margin-top:14px\"><button data-xls style=\"padding:8px 12px\">Download Excel</button><button data-pdf style=\"padding:8px 12px\">Download PDF</button></div></div>';var old=document.getElementById(o.id);if(old)old.parentNode.removeChild(old);document.body.appendChild(o);o.querySelector('[data-close]').onclick=function(){o.parentNode.removeChild(o);};o.onclick=function(x){if(x.target===o)o.parentNode.removeChild(o);};o.querySelector('[data-xls]').onclick=function(){var a=document.createElement('a'),b=new Blob(['<html><meta charset=\\\"UTF-8\\\"><body><h2>'+e(t)+'</h2>'+tb+'</body></html>'],{type:'application/vnd.ms-excel'});a.href=URL.createObjectURL(b);a.download=t.replace(/[^a-z0-9]+/gi,'-')+'.xls';a.click();setTimeout(function(){URL.revokeObjectURL(a.href);},1000);};o.querySelector('[data-pdf]').onclick=function(){var w=window.open('','_blank');if(!w)return;w.document.write('<html><head><title>'+e(t)+'</title><style>@page{size:A4 landscape}body{font:11px Arial}</style></head><body><h2>'+e(t)+'</h2>'+tb+'</body></html>');w.document.close();setTimeout(function(){w.print();},250);};};"
+                + "})();");
     }
 
     /**
