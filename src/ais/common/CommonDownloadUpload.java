@@ -1256,14 +1256,22 @@ public class CommonDownloadUpload {
 									}
 								}
 
+								boolean fileWritten = false;
+								FileOutputStream fileOut = null;
 								try {
-									FileOutputStream fileOut = new FileOutputStream(fileLabel.getValue());
+									File outputFile = new File(fileLabel.getValue());
+									CommonFileUtil.ensureWritableFile(outputFile, 50L * 1024L * 1024L);
+									fileOut = new FileOutputStream(outputFile);
 									workbook.write(fileOut);
-									fileOut.close();
+									fileWritten = true;
 								} catch (IOException e) {
 									if (debug)
 										e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/CommonDownloadUpload.java:1218");
 									Common.tampilErrorJikaAdmin(e);
+								} finally {
+									if (fileOut != null) try { fileOut.close(); } catch (IOException closeError) {
+										ais.common.ErrorAuditUtil.record(closeError, "auto-audit src/ais/common/CommonDownloadUpload.java:close-xlsx");
+									}
 								}
 
 								if (d instanceof Criteria) {
@@ -1271,7 +1279,7 @@ public class CommonDownloadUpload {
 								}
 
 								// Sinyal Selesai ke Timer UI
-								label.setValue("");
+								label.setValue(fileWritten ? "" : "-");
 
 							} catch (Exception e) {
 								if (debug)

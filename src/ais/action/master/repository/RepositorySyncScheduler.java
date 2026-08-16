@@ -62,20 +62,30 @@ public final class RepositorySyncScheduler {
 
 	public static RepositorySyncService.SyncSummary jalankanSekali() {
 		Session session = null;
-		Transaction transaction = null;
 		try {
 			session = HibernateUtil.openSession();
-			transaction = session.beginTransaction();
+			session.beginTransaction();
 			RepositorySyncService.SyncSummary summary = RepositorySyncService.synchronizeAll(session, false, true, null);
-			transaction.commit();
-			transaction = null;
+			/* synchronizeAll dapat me-rollback transaksi per item lalu membuka transaksi
+			 * pengganti. Selalu commit transaksi AKTIF milik session saat ini. */
+			Transaction current = session.getTransaction();
+			if (summary.isConnectionLost()) {
+				if (current != null && current.isActive()) {
+					current.rollback();
+				}
+			} else if (current != null && current.isActive()) {
+				current.commit();
+			}
 			System.out.println("[Repository] Sinkron otomatis selesai: dipindai=" + summary.getScanned()
 					+ ", berhasil=" + summary.getSynced() + ", gagal=" + summary.getFailed());
 			return summary;
 		} catch (RuntimeException error) {
-			if (transaction != null) {
+			if (session != null) {
 				try {
-					transaction.rollback();
+					Transaction current = session.getTransaction();
+					if (current != null && current.isActive()) {
+						current.rollback();
+					}
 				} catch (Throwable ignored) {
 					ErrorAuditUtil.record(ignored,
 							"auto-audit(empty-catch) src/ais/action/master/repository/RepositorySyncScheduler.java:rollback");

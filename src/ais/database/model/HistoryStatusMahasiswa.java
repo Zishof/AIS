@@ -186,6 +186,7 @@ public class HistoryStatusMahasiswa extends GeneralValueObject {
 							getSp() != null && getSp().equals(Perkuliahan.SEMESTER_PENDEK));
 
 					if (pendaftaranCutiMahasiswa != null && Boolean.TRUE.equals(pendaftaranCutiMahasiswa.getPersetujuan())
+							&& pendaftaranCutiMahasiswa.getSemester() != null
 							&& pendaftaranCutiMahasiswa.getSemester().equals(semester)) {
 						statusMahasiswa = ConstantValues.CUTI;
 					} else {
@@ -219,7 +220,8 @@ public class HistoryStatusMahasiswa extends GeneralValueObject {
 							else if (semester >= jumlah_semester && mahasiswa.getStatusKeluar() != null
 									&& mahasiswa.getStatusKeluar().getNama() != null) {
 								statusMahasiswa = ConstantValues.KELUAR;
-							} else if (semester != null && !mahasiswa.getBatasStudi().isEmpty()) {
+							} else if (semester != null && mahasiswa.getBatasStudi() != null
+									&& !mahasiswa.getBatasStudi().isEmpty()) {
 
 								for (String s : mahasiswa.getBatasStudi().split(",")) {
 									if (s.trim().equalsIgnoreCase(semester.toString())) {
@@ -236,14 +238,11 @@ public class HistoryStatusMahasiswa extends GeneralValueObject {
 								statusMahasiswa = ConstantValues.TIDAK_AKTIF;
 							} else if (semester != null && semester < jumlah_semester
 									&& mahasiswa.getStatusKeluar() == null
-									&& ((ConstantValues.LULUS != null
-											&& statusMahasiswa.getId().equals(ConstantValues.LULUS.getId()))
-											|| (ConstantValues.KELUAR != null
-													&& statusMahasiswa.getId().equals(ConstantValues.KELUAR.getId()))
-											|| (ConstantValues.DROP_OUT != null
-													&& statusMahasiswa.getId().equals(ConstantValues.DROP_OUT.getId())))
-									|| (ConstantValues.CUTI != null
-											&& statusMahasiswa.getId().equals(ConstantValues.CUTI.getId()))) {
+									&& statusMahasiswa != null && statusMahasiswa.getId() != null
+									&& (statusSama(statusMahasiswa, ConstantValues.LULUS)
+											|| statusSama(statusMahasiswa, ConstantValues.KELUAR)
+											|| statusSama(statusMahasiswa, ConstantValues.DROP_OUT)
+											|| statusSama(statusMahasiswa, ConstantValues.CUTI))) {
 								statusMahasiswa = ConstantValues.AKTIF;
 							}
 
@@ -264,7 +263,7 @@ public class HistoryStatusMahasiswa extends GeneralValueObject {
 							if (statusMahasiswa != null && ConstantValues.CUTI != null
 									&& statusMahasiswa.getId().equals(ConstantValues.CUTI.getId())
 									&& (pendaftaranCutiMahasiswa == null
-											|| !pendaftaranCutiMahasiswa.getPersetujuan())) {
+											|| !Boolean.TRUE.equals(pendaftaranCutiMahasiswa.getPersetujuan()))) {
 								statusMahasiswa = ConstantValues.AKTIF;
 							}
 
@@ -277,6 +276,11 @@ public class HistoryStatusMahasiswa extends GeneralValueObject {
 		}
 
 		return statusMahasiswa;
+	}
+
+	private static boolean statusSama(StatusMahasiswa kiri, StatusMahasiswa kanan) {
+		return kiri != null && kiri.getId() != null && kanan != null && kanan.getId() != null
+				&& kiri.getId().equals(kanan.getId());
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)

@@ -318,6 +318,10 @@ public class PratinjauXlsxHelper {
 		print.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
+				if (!file.isFile() || file.length() <= 0L) {
+					org.zkoss.zul.Messagebox.show("Berkas Excel belum berhasil dibuat. Periksa ruang penyimpanan server lalu proses kembali.");
+					return;
+				}
 				try {
 					Filedownload.save(new FileInputStream(file),
 							"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", file.getName());

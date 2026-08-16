@@ -346,7 +346,8 @@ public class RepositorySyncService {
 				item.setSyncStatus(STATUS_SYNCED);
 				item.setSyncMessage("Ditarik otomatis karena sumber tidak lagi aktif/layak publik.");
 				item.setLastSyncAt(new Date());
-				Common.refreshSaveOrUpdate(session, item);
+				/* item berasal dari findRepoItem sehingga sudah managed; perubahan akan
+				 * di-flush bersama batch tanpa helper yang menangkap error persistence. */
 			}
 			return item;
 		}
@@ -409,7 +410,11 @@ public class RepositorySyncService {
 			item.setSyncMessage("Sinkron lokal berhasil. Push DSpace tidak dijalankan.");
 		}
 		item.setLastSyncAt(new Date());
-		Common.refreshSaveOrUpdate(session, item);
+		session.saveOrUpdate(item);
+		/* ID RepoItem wajib sudah material sebelum metadata dibaca/ditulis. Flush di
+		 * sini juga memastikan kegagalan insert keluar ke caller agar session segera
+		 * di-rollback dan tidak dipakai lagi dalam keadaan poisoned. */
+		session.flush();
 		syncMetadata(session, item);
 		return item;
 	}
@@ -425,7 +430,8 @@ public class RepositorySyncService {
 		collection.setDeskripsi("Koleksi otomatis dari " + source.label);
 		collection.setSourceSystem("AIS");
 		collection.setTipe("COLLECTION");
-		Common.refreshSaveOrUpdate(session, collection);
+		session.saveOrUpdate(collection);
+		session.flush();
 		return collection;
 	}
 
@@ -467,7 +473,7 @@ public class RepositorySyncService {
 		metadata.setMetadataValue(value);
 		metadata.setLanguage("id");
 		metadata.setPlace(Integer.valueOf(place));
-		Common.refreshSaveOrUpdate(session, metadata);
+		session.save(metadata);
 	}
 
 	private static DspaceInformation invokeDspace(String actionClassName, String cookie, Object obj, boolean update)

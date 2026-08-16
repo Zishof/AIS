@@ -55,6 +55,7 @@ import ais.action.master.surat.util.SuratUtil;
 import ais.action.report.helper.CommonReport;
 import ais.action.report.helper.ParameterListener;
 import ais.common.Common;
+import ais.common.CommonFileUtil;
 import ais.common.ConstantValues;
 import ais.common.MemoryDbUtil;
 import ais.common.ResponseContext;
@@ -1484,7 +1485,25 @@ public class Report extends GenericAutowireComposer {
 					if (!fileJrxml.exists()) {
 						throw new Exception("File .jrxml tidak ditemukan untuk recompile: " + jrxmlPath, ucve);
 					}
-					JasperCompileManager.compileReportToFile(fileJrxml.getAbsolutePath(), fileJasper.getAbsolutePath());
+					compileJasperAtomically(fileJrxml, fileJasper);
+					normalisasiDataJasper(parameters, maps);
+					if (maps != null) {
+						JRMapCollectionDataSource dataSource = new JRMapCollectionDataSource(maps);
+						parameters.put("REPORT_CONNECTION", conn);
+						jp = JasperFillManager.fillReport(fileJasper.getAbsolutePath(), parameters, dataSource);
+					} else {
+						parameters.put("REPORT_CONNECTION", conn);
+						jp = JasperFillManager.fillReport(fileJasper.getAbsolutePath(), parameters, conn);
+					}
+				} catch (Exception loadError) {
+					if (!isCorruptJasper(loadError)) {
+						throw loadError;
+					}
+					File fileJrxml = pasanganJrxml(fileJasper);
+					if (fileJrxml == null || !fileJrxml.exists()) {
+						throw loadError;
+					}
+					compileJasperAtomically(fileJrxml, fileJasper);
 					normalisasiDataJasper(parameters, maps);
 					if (maps != null) {
 						JRMapCollectionDataSource dataSource = new JRMapCollectionDataSource(maps);
@@ -1541,13 +1560,51 @@ public class Report extends GenericAutowireComposer {
 				return;
 			}
 			if (fileJrxml.lastModified() > fileJasper.lastModified()) {
-				JasperCompileManager.compileReportToFile(fileJrxml.getAbsolutePath(), fileJasper.getAbsolutePath());
+				compileJasperAtomically(fileJrxml, fileJasper);
 			}
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/Report.java:recompileJasperJikaJrxmlLebihBaru");
 			// Gagal recompile proaktif -> biarkan lanjut pakai .jasper lama; jalur
 			// UnsupportedClassVersionError di fillJasperReport tetap jadi jaring pengaman
 			// terakhir utk kasus JDK mismatch, dan error lain (mis. jrxml rusak) akan
 			// tetap muncul lewat fillReport seperti biasa (tidak disembunyikan).
+		}
+	}
+
+	private static File pasanganJrxml(File fileJasper) {
+		if (fileJasper == null) return null;
+		String path = fileJasper.getAbsolutePath();
+		if (!path.toLowerCase().endsWith(".jasper")) return null;
+		return new File(path.substring(0, path.length() - ".jasper".length()) + ".jrxml");
+	}
+
+	private static boolean isCorruptJasper(Throwable error) {
+		Throwable current = error;
+		while (current != null) {
+			String name = current.getClass().getName();
+			String message = current.getMessage() == null ? "" : current.getMessage().toLowerCase();
+			if (name.indexOf("EOFException") >= 0 || name.indexOf("StreamCorruptedException") >= 0
+					|| message.indexOf("error loading object from file") >= 0) return true;
+			current = current.getCause();
+		}
+		return false;
+	}
+
+	private static void compileJasperAtomically(File jrxml, File jasper) throws Exception {
+		CommonFileUtil.ensureWritableFile(jasper, 20L * 1024L * 1024L);
+		File temp = new File(jasper.getAbsolutePath() + ".tmp");
+		try {
+			JasperCompileManager.compileReportToFile(jrxml.getAbsolutePath(), temp.getAbsolutePath());
+			if (!temp.isFile() || temp.length() <= 0L) {
+				throw new java.io.IOException("Hasil kompilasi template Jasper kosong: " + jrxml);
+			}
+			if (jasper.exists() && !jasper.delete()) {
+				throw new java.io.IOException("Template Jasper lama tidak dapat diganti: " + jasper);
+			}
+			if (!temp.renameTo(jasper)) {
+				org.apache.commons.io.FileUtils.copyFile(temp, jasper);
+			}
+		} finally {
+			if (temp.exists()) temp.delete();
 		}
 	}
 
@@ -1860,8 +1917,7 @@ public class Report extends GenericAutowireComposer {
 					File fileJasper = new File(fileD.replaceAll(".jrxml", "") + ".jasper");
 					if (fileJrxml.exists()) {
 						try {
-							JasperCompileManager.compileReportToFile(fileJrxml.getAbsolutePath(),
-									fileJasper.getAbsolutePath());
+							compileJasperAtomically(fileJrxml, fileJasper);
 							fileD = fileJasper.getAbsolutePath();
 						} catch (Exception e) {
 							if (isReportErrorLogConsoleEnabled()) {
@@ -1894,10 +1950,11 @@ public class Report extends GenericAutowireComposer {
 			String reportPath = Common.ambilREAL_PATH_REPORT();
 
 			myFile = new File(reportPath + "/" + bar + "." + formatLaporan);
-			myFile.getParentFile().mkdirs();
+			CommonFileUtil.ensureWritableFile(myFile, 50L * 1024L * 1024L);
 			myFile.createNewFile();
 
 			File myfilebarcode = new File(reportPath + "/barcode_" + bar + ".png");
+			CommonFileUtil.ensureWritableFile(myfilebarcode, 64L * 1024L);
 
 			// FIX: Pencegahan NullPointerException dari Barbecue
 			try {
@@ -2055,8 +2112,7 @@ public class Report extends GenericAutowireComposer {
 									fileJrxml.getAbsolutePath().replaceAll(".jrxml", "") + ".jasper");
 							if (!fileJasper.exists()) {
 								fileJasper.getParentFile().mkdirs();
-								JasperCompileManager.compileReportToFile(fileJrxml.getAbsolutePath(),
-										fileJasper.getAbsolutePath());
+								compileJasperAtomically(fileJrxml, fileJasper);
 							}
 							parameters.put(subReport.getKode(), fileJasper.getAbsolutePath());
 						}

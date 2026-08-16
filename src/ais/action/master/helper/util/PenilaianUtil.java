@@ -262,12 +262,14 @@ public class PenilaianUtil {
 						+ URLEncoder.encode(Common.dateFormat62.get().format(ais.ui.util.WaktuUtil.getDate()), "UTF-8")
 						+ ".xlsx");
 
+		File outputFile = new File(fn);
+		ais.common.CommonFileUtil.ensureWritableFile(outputFile, Math.max(20L * 1024L * 1024L, bout.size() * 2L));
+		FileOutputStream fileOut = null;
 		try {
-			FileOutputStream fileOut = new FileOutputStream(fn);
+			fileOut = new FileOutputStream(outputFile);
 			fileOut.write(bout.toByteArray());
-			fileOut.close();
-		} catch (IOException e) {
-			Common.tampilErrorJikaAdmin(e);
+		} finally {
+			if (fileOut != null) fileOut.close();
 		}
 
 		Common.displayXlsx(fn, new Intbox(rowIndex), 20);
@@ -392,12 +394,14 @@ public class PenilaianUtil {
 		String fn = Sessions.getCurrent().getWebApp().getRealPath("/tmp/krs_sks_"
 				+ URLEncoder.encode(Common.dateFormat62.get().format(ais.ui.util.WaktuUtil.getDate()), "UTF-8") + ".xlsx");
 
+		File outputFile = new File(fn);
+		ais.common.CommonFileUtil.ensureWritableFile(outputFile, Math.max(20L * 1024L * 1024L, bout.size() * 2L));
+		FileOutputStream fileOut = null;
 		try {
-			FileOutputStream fileOut = new FileOutputStream(fn);
+			fileOut = new FileOutputStream(outputFile);
 			fileOut.write(bout.toByteArray());
-			fileOut.close();
-		} catch (IOException e) {
-			Common.tampilErrorJikaAdmin(e);
+		} finally {
+			if (fileOut != null) fileOut.close();
 		}
 
 		Common.displayXlsx(fn, new Intbox(rowIndex), 19);

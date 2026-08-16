@@ -174,11 +174,16 @@ public class HasilUjianMahasiswaDetail extends GeneralValueObject {
 
 		try {
 
-			if ((bankSoal.getJenisPilihanGanda().equals(BankSoal.JAWABAN_SINGKAT)
-					|| bankSoal.getJenisPilihanGanda().equals(BankSoal.RUMPANG)) && !getJawaban().isEmpty()) {
+			if (bankSoal != null && bankSoal.getJenisPilihanGanda() != null
+					&& (bankSoal.getJenisPilihanGanda().equals(BankSoal.JAWABAN_SINGKAT)
+					|| bankSoal.getJenisPilihanGanda().equals(BankSoal.RUMPANG))
+					&& getJawaban() != null && !getJawaban().isEmpty()) {
 
-				try {
-					JSONObject tempJawab = new JSONObject(getJawaban());
+				String jawabanJson = getJawaban().trim();
+				/* Data lama dapat berupa teks/scalar, bukan JSONObject. Nilai tersimpan tetap
+				 * dipakai untuk bentuk legacy; hitung ulang hanya untuk payload object valid. */
+				if (jawabanJson.startsWith("{") && jawabanJson.endsWith("}")) try {
+					JSONObject tempJawab = new JSONObject(jawabanJson);
 					Iterator<String> iterator = tempJawab.keys();
 					int banyak = 0;
 					int benar = 0;
@@ -193,7 +198,9 @@ public class HasilUjianMahasiswaDetail extends GeneralValueObject {
 						}
 					}
 
-					nilai = (benar * 100.0) / banyak;
+					if (banyak > 0) {
+						nilai = (benar * 100.0) / banyak;
+					}
 					iterator = null;
 					tempJawab = null;
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/HasilUjianMahasiswaDetail.java:199");
@@ -202,7 +209,8 @@ public class HasilUjianMahasiswaDetail extends GeneralValueObject {
 
 			}
 
-			if (bankSoal.getJenisPilihanGanda().equals(BankSoal.JAWABAN_SINGKAT) && getJawaban().isEmpty()) {
+			if (bankSoal != null && BankSoal.JAWABAN_SINGKAT.equals(bankSoal.getJenisPilihanGanda())
+					&& (getJawaban() == null || getJawaban().isEmpty())) {
 				nilai = 0.0;
 			}
 
