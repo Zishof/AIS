@@ -20,13 +20,13 @@ import org.zkoss.zul.Row;
 import org.zkoss.zul.Rows;
 import org.zkoss.zul.Vbox;
 
-import ais.action.master.helper.util.PenilaianUtil;
 import ais.common.Common;
 import ais.database.model.Detailperkuliahan;
 import ais.database.model.GeneralValueObject;
 import ais.database.model.ItemBiaya;
 import ais.database.model.Mahasiswa;
 import ais.database.model.Matakuliah;
+import ais.ui.util.EcampusUtil;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
@@ -93,7 +93,6 @@ public class RincianPerkuliahanTagihanHelper {
 	private static void bukaPopup(Component ref, final Mahasiswa mahasiswa, final Integer semester, ItemBiaya itemBiaya)
 			throws Exception {
 		final List<Detailperkuliahan> rows = ambilPerkuliahan(mahasiswa, semester);
-		final String csvIds = csvIds(rows);
 		int totalSks = totalSks(rows);
 
 		MyWindow w = new MyWindow();
@@ -129,8 +128,7 @@ public class RincianPerkuliahanTagihanHelper {
 		btnXls.addEventListener(Events.ON_CLICK, new EventListener() {
 			@Override
 			public void onEvent(Event e) throws Exception {
-				// reuse ekspor KRS→xlsx yang sudah teruji (kolom lengkap KODE/NAMA/SKS/SEMESTER/…)
-				PenilaianUtil.downloadSemuaKRS(csvIds == null ? "" : csvIds, mahasiswa);
+				unduhExcel(rows, mahasiswa, semester);
 			}
 		});
 		btnXls.setParent(tools);
@@ -235,14 +233,47 @@ public class RincianPerkuliahanTagihanHelper {
 		return t;
 	}
 
-	private static String csvIds(List<Detailperkuliahan> rows) {
-		StringBuilder sb = new StringBuilder();
+	// ================= Excel (xlsx, download langsung — konsisten dgn grid & PDF) =================
+
+	private static void unduhExcel(List<Detailperkuliahan> rows, Mahasiswa mahasiswa, Integer semester)
+			throws Exception {
+		org.zkoss.zss.ui.Spreadsheet spreadsheet = new ais.ui.util.MySpreadsheet();
+		spreadsheet.setSrc("../../WEB-INF/rowcolumn.xlsx");
+		spreadsheet.setMaxcolumns(6);
+		spreadsheet.setMaxrows(rows.size() + 3);
+		org.zkoss.zss.model.Worksheet sheet = spreadsheet.getSelectedSheet();
+
+		int r = 0;
+		EcampusUtil.setCellValue(sheet, r, 0, "No");
+		EcampusUtil.setCellValue(sheet, r, 1, "Kode MK");
+		EcampusUtil.setCellValue(sheet, r, 2, "Nama Matakuliah");
+		EcampusUtil.setCellValue(sheet, r, 3, "SKS");
+		EcampusUtil.setCellValue(sheet, r, 4, "Semester");
+		EcampusUtil.setCellValue(sheet, r, 5, "T.A.");
+
+		r = 1;
+		int no = 1;
+		int total = 0;
 		for (Detailperkuliahan d : rows) {
-			if (d != null && d.getId() != null) {
-				sb.append(sb.length() == 0 ? "" : ",").append(d.getId());
-			}
+			Matakuliah mk = ambilMatakuliah(d);
+			int sks = mk == null || mk.getSks() == null ? 0 : mk.getSks();
+			total += sks;
+			EcampusUtil.setCellValue(sheet, r, 0, Integer.valueOf(no++));
+			EcampusUtil.setCellValue(sheet, r, 1, mk == null || mk.getKode() == null ? "-" : mk.getKode());
+			EcampusUtil.setCellValue(sheet, r, 2, mk == null || mk.getNama() == null ? "-" : mk.getNama());
+			EcampusUtil.setCellValue(sheet, r, 3, Integer.valueOf(sks));
+			EcampusUtil.setCellValue(sheet, r, 4, d.getSemester() == null ? "-" : "" + d.getSemester());
+			EcampusUtil.setCellValue(sheet, r, 5, d.getTahunAkademik() == null ? "-" : d.getTahunAkademik());
+			r++;
 		}
-		return sb.toString();
+		EcampusUtil.setCellValue(sheet, r, 2, "TOTAL SKS");
+		EcampusUtil.setCellValue(sheet, r, 3, Integer.valueOf(total));
+
+		java.io.ByteArrayOutputStream bout = new java.io.ByteArrayOutputStream();
+		spreadsheet.getBook().write(bout);
+		bout.close();
+		Filedownload.save(bout.toByteArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+				"rincian_perkuliahan_" + (mahasiswa == null ? "" : mahasiswa.getNim()) + ".xlsx");
 	}
 
 	// ================= PDF (iText) =================
