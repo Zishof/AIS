@@ -1415,8 +1415,36 @@ public class KantinHelper {
 
 			// Sama seperti bayar(): validasi Common.isNumber() dulu sebelum parseLong, supaya nilai
 			// bukan-angka tidak melempar exception di luar try/catch method ini.
-			Long id = (jsonObject.isNull("id") || !Common.isNumber((jsonObject.get("id") + "").trim())) ? null
-					: Long.parseLong((jsonObject.get("id") + "").trim());
+			/*
+			 * ID draft edit. Klien POS lintas versi pernah memakai beberapa nama
+			 * field. Endpoint lama hanya membaca "id", sehingga ID resume sebenarnya
+			 * terabaikan dan Tahan kedua selalu INSERT header baru. Terima seluruh
+			 * alias lama, tetapi bedakan "tidak mengirim ID" (draft baru) dengan
+			 * "mengirim ID yang sudah tidak ada" (edit gagal, jangan insert baru).
+			 */
+			String[] kunciIdDraft = new String[] { "id", "draftPembelianAnggotaKoperasi",
+					"draftPembelianAnggotaKoperasiId", "idDraftPembelianAnggotaKoperasi",
+					"draft_pembelian_anggota_koperasi", "draft_pembelian_anggota_koperasi_id",
+					"id_draft_pembelian_anggota_koperasi", "draftPembelianId",
+					"draft_pembelian_id", "draftId", "draft_id", "idDraft" };
+			String idDraftMentah = null;
+			for (int iKunci = 0; iKunci < kunciIdDraft.length; iKunci++) {
+				String kunci = kunciIdDraft[iKunci];
+				if (jsonObject.has(kunci) && !jsonObject.isNull(kunci)) {
+					String nilai = (jsonObject.get(kunci) + "").trim();
+					if (!nilai.isEmpty()) {
+						idDraftMentah = nilai;
+						break;
+					}
+				}
+			}
+			if (idDraftMentah != null && !Common.isNumber(idDraftMentah)) {
+				hasil.put("status", "91");
+				hasil.put("description", "ID transaksi tertahan tidak valid.");
+				return;
+			}
+			Long id = idDraftMentah == null ? null : Long.valueOf(idDraftMentah);
+			boolean permintaanEditDraft = id != null;
 			Long kodePembayaranOnlineId = (jsonObject.isNull("kodePembayaranOnline")
 					|| !Common.isNumber((jsonObject.get("kodePembayaranOnline") + "").trim())) ? null
 							: Long.parseLong((jsonObject.get("kodePembayaranOnline") + "").trim());
@@ -1474,6 +1502,23 @@ public class KantinHelper {
 							? null
 							: session.createCriteria(DraftPembelianAnggotaKoperasi.class).add(Restrictions.idEq(id))
 									.uniqueResult());
+					if (permintaanEditDraft && pembelianAnggotaKoperasi == null) {
+						hasil.put("status", "91");
+						hasil.put("description", "Transaksi tertahan asal sudah tidak ditemukan. Muat ulang daftar Pesanan sebelum mencoba kembali.");
+						return;
+					}
+					if (pembelianAnggotaKoperasi != null && pembelianAnggotaKoperasi.getToko() != null
+							&& pembelianAnggotaKoperasi.getToko().getId() != null
+							&& !pembelianAnggotaKoperasi.getToko().getId().equals(toko.getId())) {
+						hasil.put("status", "91");
+						hasil.put("description", "Transaksi tertahan berasal dari toko yang berbeda.");
+						return;
+					}
+					if (pembelianAnggotaKoperasi != null && pembelianAnggotaKoperasi.getLunas() != null) {
+						hasil.put("status", "91");
+						hasil.put("description", "Transaksi tertahan sudah dibayar dan tidak dapat ditahan ulang.");
+						return;
+					}
 					boolean draftBaru = pembelianAnggotaKoperasi == null;
 					if (pembelianAnggotaKoperasi == null) {
 						pembelianAnggotaKoperasi = new DraftPembelianAnggotaKoperasi();
@@ -1558,6 +1603,7 @@ public class KantinHelper {
 					}
 					hasil.put("data", arrayTransaksi);
 					hasil.put("pembelianAnggotaKoperasi", pembelianAnggotaKoperasi.getId());
+					hasil.put("draftDiperbarui", Boolean.valueOf(!draftBaru));
 					hasil.put("status", "00");
 				} catch (Exception e) {
 					hasil.put("status", "91");
