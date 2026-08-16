@@ -14,6 +14,7 @@ public class ParameterTambahanHtmlHelper {
         ParameterTambahan.PILIHAN_DOSEN, 
         ParameterTambahan.PILIHAN_GURU, 
         ParameterTambahan.PILIHAN_PEGAWAI, 
+        ParameterTambahan.PILIHAN_PENYEDIA,
         ParameterTambahan.PILIHAN_KELAS_SISWA
     );
 

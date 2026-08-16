@@ -48,6 +48,7 @@ import org.zkoss.zul.Toolbarbutton;
 import org.zkoss.zul.Vbox;
 
 import ais.action.master.akunting.helper.AmbilDataPegawaiBanbox;
+import ais.action.master.asset.helper.AmbilDataPenyediaAssetBanbox;
 import ais.action.master.helper.AmbilDataDosenBanbox;
 import ais.action.master.helper.AmbilDataMahasiswaBanbox;
 import ais.action.master.helper.AmbilDataSemuaMahasiswaBanbox;
@@ -59,6 +60,7 @@ import ais.common.ConstantValues;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.file.FileFotoLain;
 import ais.database.model.file.LampiranLain;
+import ais.database.model.asset.PenyediaAsset;
 import ais.database.model.sekolah.Guru;
 import ais.database.model.sekolah.KelasSiswa;
 import ais.database.model.sekolah.Siswa;
@@ -99,6 +101,7 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 	public static final String PILIHAN_DOSEN = "Berupa data dosen";
 	public static final String PILIHAN_GURU = "Berupa data guru";
 	public static final String PILIHAN_PEGAWAI = "Berupa data pegawai";
+	public static final String PILIHAN_PENYEDIA = "Berupa data penyedia";
 	public static final String PILIHAN_KELAS_SISWA = "Berupa data kelas siswa";
 
 	public static final List<String> CUSTOM_PILIHAN = new ArrayList<String>();
@@ -108,6 +111,7 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 		CUSTOM_PILIHAN.add(PILIHAN_DOSEN);
 		CUSTOM_PILIHAN.add(PILIHAN_GURU);
 		CUSTOM_PILIHAN.add(PILIHAN_PEGAWAI);
+		CUSTOM_PILIHAN.add(PILIHAN_PENYEDIA);
 		CUSTOM_PILIHAN.add(PILIHAN_KELAS_SISWA);
 	}
 
@@ -131,7 +135,11 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 			});
 			button.setParent(vbox2);
 		} else {
-			if (parameterTambahan.getTipeDataInputan().equals(ParameterTambahanAstract.ANGKA)
+			if (parameterTambahan.getTipeDataInputan().equals(ParameterTambahanAstract.PILIHAN_PENYEDIA)
+					&& vall != null && vall.contains("->")) {
+				String[] bagian = vall.split("->", 2);
+				vbox2.appendChild(new MyLabelKecil(bagian.length > 1 ? bagian[1] : vall));
+			} else if (parameterTambahan.getTipeDataInputan().equals(ParameterTambahanAstract.ANGKA)
 					|| parameterTambahan.getTipeDataInputan().equals(ParameterTambahanAstract.TEXT_ANGKA)) {
 				try {
 					Double nilai = vall.trim().isEmpty() ? 0.0 : Double.parseDouble(vall);
@@ -1324,6 +1332,17 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 			if (eventListener != null) {
 				((AmbilDataPegawaiBanbox) component).setEventListener(eventListener);
 			}
+		} else if (parameterTambahan.getTipeDataInputan().equals(ParameterTambahanAstract.PILIHAN_PENYEDIA)) {
+			component = new AmbilDataPenyediaAssetBanbox();
+			PenyediaAsset penyedia = (PenyediaAsset) (val == null || val.isEmpty() || !Common.isNumber(val) ? null
+					: ConstantValues.ambil(PenyediaAsset.class.getName(), Long.parseLong(val)));
+			component.setAttribute("penyediaAsset", penyedia);
+			component.setAttribute("myValue", penyedia);
+			((AmbilDataPenyediaAssetBanbox) component).setValue(penyedia == null ? "" : penyedia.getNama());
+			((AmbilDataPenyediaAssetBanbox) component).setWidth("90%");
+			if (eventListener != null) {
+				((AmbilDataPenyediaAssetBanbox) component).setEventListener(eventListener);
+			}
 		} else if (parameterTambahan.getTipeDataInputan().equals(ParameterTambahanAstract.PILIHAN_KELAS_SISWA)) {
 			component = new AmbilDataKelasSiswaBanbox();
 			KelasSiswa kelasSiswa = (KelasSiswa) (val == null || val.isEmpty() || !Common.isNumber(val) ? null
@@ -1489,6 +1508,12 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 					Pegawai pegawai = ((Pegawai) component.getAttribute("pegawai"));
 					val = pegawai == null ? ""
 							: pegawai.getId().toString() + "->" + (pegawai.getMycode() + " " + pegawai.getNama()).trim();
+				}
+			} else if (parameterTambahan.getTipeDataInputan().equals(ParameterTambahanAstract.PILIHAN_PENYEDIA)) {
+				if (component instanceof AmbilDataPenyediaAssetBanbox) {
+					PenyediaAsset penyedia = ((PenyediaAsset) component.getAttribute("penyediaAsset"));
+					val = penyedia == null ? "" : penyedia.getId().toString() + "->"
+							+ (penyedia.getNama() == null ? "" : penyedia.getNama().trim());
 				}
 			} else if (parameterTambahan.getTipeDataInputan().equals(ParameterTambahanAstract.PILIHAN_KELAS_SISWA)) {
 				if (component instanceof AmbilDataKelasSiswaBanbox) {
