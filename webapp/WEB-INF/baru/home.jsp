@@ -626,9 +626,11 @@ boolean adaSistemPendukung = tampilkanModuleKantin || tampilkanModuleAnjungan ||
         </div>
     </footer>
 
-    <a href="<%= linkLoginEcampus %>" target="_blank" class="floating-login-home" title="<%= homeText("home_text_masuk_ke_sistem", "Masuk ke Sistem") %>">
-        <i class="fas fa-right-to-bracket"></i><span><%= homeText("home_text_login", "Login") %></span>
-    </a>
+    <%-- Tombol "Masuk ke Sistem" mengambang DIHAPUS (2026-08-16): posisinya (right:18px;
+         bottom:18px, lihat .floating-login-home di css/baru/base-theme.css) nyaris
+         persis bertumpuk dgn tombol "Bantuan" (bantuan_button.jsp: right:16px;
+         bottom:16px). Aksi login sudah tersedia jelas di tombol hero "Masuk ke Sistem"
+         di bagian atas halaman, jadi duplikat mengambang ini dibuang, bukan digeser. --%>
 
     <script data-cfasync="false" src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <jsp:include page="/WEB-INF/baru/include/bantuan_button.jsp" />
