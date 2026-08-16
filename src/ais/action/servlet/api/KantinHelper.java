@@ -13637,6 +13637,99 @@ public class KantinHelper {
 	}
 
 	/**
+	 * Pendaftaran member ringkas dari dialog pembayaran POS. Aksi ini sengaja tersedia bagi
+	 * kasir yang sudah login karena hanya menerima nama dan nomor telepon; pengelolaan atribut
+	 * member lainnya tetap melalui {@link #anggotaSimpan} dan tetap memerlukan hak supervisor.
+	 * Nomor dinormalisasi lebih dahulu dan member lama dipakai kembali agar retry jaringan atau
+	 * penulisan format 08/628 tidak membuat data ganda.
+	 */
+	public static synchronized void anggotaSimpanCepat(Tbmuser tbmuser, JSONObject request,
+			JSONObject hasil) throws Exception {
+		if (tbmuser == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Sesi login kasir tidak ditemukan. Silakan masuk kembali.");
+			return;
+		}
+
+		String nama = request.optString("nama", "").trim();
+		String hpAsli = request.optString("hp", "").trim();
+		String hpDigit = hpAsli.replaceAll("[^0-9]", "");
+		if (nama.isEmpty()) {
+			hasil.put("status", "91");
+			hasil.put("description", "Nama member wajib diisi.");
+			return;
+		}
+		if (hpDigit.length() < 9 || hpDigit.length() > 16) {
+			hasil.put("status", "91");
+			hasil.put("description", "Nomor telepon belum valid.");
+			return;
+		}
+		if (hpDigit.startsWith("62")) {
+			hpDigit = "0" + hpDigit.substring(2);
+		} else if (hpDigit.startsWith("8")) {
+			hpDigit = "0" + hpDigit;
+		}
+
+		String hpTanpaNol = hpDigit.startsWith("0") ? hpDigit.substring(1) : hpDigit;
+		String hpKodeNegara = "62" + hpTanpaNol;
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			session.beginTransaction();
+			SQLQuery query = session.createSQLQuery(
+					"SELECT a.id FROM koperasi.anggota_koperasi a "
+					+ "WHERE COALESCE(a.aktif,true)=true AND ("
+					+ "regexp_replace(COALESCE(a.hp,''),'[^0-9]','','g') IN (:hp0,:hp8,:hp62) OR "
+					+ "regexp_replace(COALESCE(a.telp,''),'[^0-9]','','g') IN (:hp0,:hp8,:hp62)) "
+					+ "ORDER BY a.id ASC LIMIT 1");
+			query.setParameter("hp0", hpDigit);
+			query.setParameter("hp8", hpTanpaNol);
+			query.setParameter("hp62", hpKodeNegara);
+			Object idLamaRaw = query.uniqueResult();
+			AnggotaKoperasi anggota;
+			boolean pakaiYangSudahAda = idLamaRaw != null;
+			if (pakaiYangSudahAda) {
+				long idLama = ((Number) idLamaRaw).longValue();
+				anggota = (AnggotaKoperasi) session.get(AnggotaKoperasi.class, Long.valueOf(idLama));
+				if (anggota == null) {
+					throw new IllegalStateException("Member terdaftar tidak dapat dimuat kembali.");
+				}
+			} else {
+				anggota = new AnggotaKoperasi();
+				anggota.setNama(nama);
+				anggota.setHp(hpDigit);
+				anggota.setAktif(Boolean.TRUE);
+				anggota.setKode(anggota.generateKodeMember(session, new Date()));
+				session.save(anggota);
+				session.flush();
+			}
+			session.getTransaction().commit();
+
+			hasil.put("status", "00");
+			hasil.put("dipakaiYangSudahAda", pakaiYangSudahAda);
+			hasil.put("member", anggotaCepatJson(anggota));
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	private static JSONObject anggotaCepatJson(AnggotaKoperasi anggota) throws Exception {
+		JSONObject member = new JSONObject();
+		member.put("id", anggota.getId());
+		member.put("nama", anggota.getNama() == null ? "" : anggota.getNama());
+		member.put("kode", anggota.getKode() == null ? "" : anggota.getKode());
+		member.put("kodeIdentitas", anggota.getKodeIdentitas() == null ? "" : anggota.getKodeIdentitas());
+		member.put("hp", anggota.getHp() == null ? "" : anggota.getHp());
+		member.put("telp", anggota.getTelp() == null ? "" : anggota.getTelp());
+		member.put("email", anggota.getEmail() == null ? "" : anggota.getEmail());
+		member.put("keterangan", anggota.getKeterangan() == null ? "" : anggota.getKeterangan());
+		member.put("wajibPin", false);
+		member.put("aktif", anggota.getAktif() == null || Boolean.TRUE.equals(anggota.getAktif()));
+		member.put("minSaldo", 0);
+		member.put("userid", anggota.getUserid() == null ? "" : anggota.getUserid());
+		return member;
+	}
+
+	/**
 	 * Audit read-only stok tersimpan terhadap saldo yang dibentuk seluruh sumber
 	 * mutasi kanonik. Query UNION dihitung sekali per produk agar layar tidak
 	 * menjalankan delapan subquery untuk setiap baris produk.
