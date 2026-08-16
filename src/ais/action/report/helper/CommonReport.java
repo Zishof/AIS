@@ -396,6 +396,9 @@ public class CommonReport {
             if (Common.getApakahAdmin() && Common.bolehKonfigurasi("report_tombol_reset")) {
                 tambahTombolResetJrxml(toolbar, nama);
             }
+            if (Common.getApakahAdmin()) {
+                tambahTombolExport(toolbar, "Default PDF", "pdf", Report.PDF, localeCombobox, parameters, nama, map, true);
+            }
         }
         return toolbar;
     }

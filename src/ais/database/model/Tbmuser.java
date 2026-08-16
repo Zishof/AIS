@@ -111,6 +111,7 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 
 	public static Tbmuser ambilBerdasarEmail(String emailAddress) {
 		if (emailAddress != null && !emailAddress.trim().isEmpty()) {
+			Tbmuser hasil = null;
 			for (Object o : ConstantValues.ambilBerdasarClass(Tbmuser.class).values()) {
 				try {
 					Tbmuser tbmuserD = (Tbmuser) o;
@@ -120,7 +121,12 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 							String eml = tbmuserD.getEmail().trim();
 							for (String e : eml.split(",")) {
 								if (emailAddress.trim().equalsIgnoreCase(e.trim())) {
-									return tbmuserD;
+									// jika ada lebih dari satu akun dengan email sama, pilih yang paling baru
+									if (hasil == null || (tbmuserD.getTanggal_dirubah() != null
+											&& (hasil.getTanggal_dirubah() == null
+											|| tbmuserD.getTanggal_dirubah().after(hasil.getTanggal_dirubah())))) {
+										hasil = tbmuserD;
+									}
 								}
 							}
 						}
@@ -129,6 +135,7 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 					e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/Tbmuser.java:129");
 				}
 			}
+			return hasil;
 		}
 		return null;
 	}
@@ -2099,6 +2106,60 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		}
 	}
 
+	/**
+	 * Membaca hak entri topup dari role AKTIF yang paling baru di database.
+	 *
+	 * <p>Token API dan HttpSession menyimpan objek {@link Tbmuser}/{@link Tbmrole}
+	 * selama pengguna login. Setelah administrator mengubah Grup Pengguna, objek
+	 * tersebut dapat tetap membawa nilai lama walaupun baris {@code tbmrole} sudah
+	 * benar. Akibatnya Flutter Desktop/Android, JSP, dan ZK dapat menampilkan mode
+	 * hanya-baca sampai pengguna login ulang. Method ini sengaja hanya memuat ulang
+	 * role yang sedang aktif (bukan menggabungkan hak userRole2..userRole5), sehingga
+	 * aturan pemilih role dan prinsip least privilege tetap dipertahankan.</p>
+	 */
+	@Transient
+	public boolean bolehEntryTopupAktif() {
+		Tbmrole aktif = null;
+		try {
+			aktif = hakAkses();
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "Tbmuser.bolehEntryTopupAktif.hakAkses");
+		}
+		if (aktif == null || aktif.getRoleId() == null) {
+			return false;
+		}
+
+		org.hibernate.Session session = null;
+		try {
+			session = ais.database.hibernate.HibernateUtil.getSessionFactory().openSession();
+			Tbmrole terbaru = (Tbmrole) session.get(Tbmrole.class, aktif.getRoleId());
+			if (terbaru != null) {
+				// Paksa baca baris database, bukan nilai second-level cache Hibernate.
+				session.refresh(terbaru);
+				// Perbarui pula cache role aktif supaya pemeriksaan/menu berikutnya pada
+				// sesi yang sama langsung konsisten tanpa menunggu login ulang.
+				synchronized (getUserRoleYgDipakai) {
+					getUserRoleYgDipakai.put(getUserId(), terbaru);
+				}
+				return Boolean.TRUE.equals(terbaru.getBolehEntryTopup());
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "Tbmuser.bolehEntryTopupAktif.muatRoleTerbaru");
+		} finally {
+			if (session != null) {
+				try {
+					session.close();
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "Tbmuser.bolehEntryTopupAktif.close");
+				}
+			}
+		}
+
+		// Fail-safe untuk instalasi lama/ketika koneksi pemeriksaan ulang sedang
+		// bermasalah: jangan mengubah perilaku getter role yang sebelumnya berlaku.
+		return Boolean.TRUE.equals(aktif.getBolehEntryTopup());
+	}
+
 	@Transient
 	public Penduduk getPenduduk() {
 		return penduduk;
@@ -2169,11 +2230,11 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pedagang", nullable = true)
 	public Pedagang getPedagang() {
-		if (getAnggotaKoperasi() != null) {
-			pedagang = null;
-		} else {
-			pedagang = check(pedagang);
-		}
+		// Akun dapat sekaligus menjadi anggota koperasi dan petugas/pedagang toko.
+		// Versi lama mengosongkan relasi ini setiap kali anggotaKoperasi terisi. Akibatnya
+		// FK pedagang yang baru disimpan tampak hilang saat entity dimuat ulang, hanya pada
+		// sebagian pengguna (yaitu pengguna yang juga anggota koperasi).
+		pedagang = check(pedagang);
 		return pedagang;
 	}
 

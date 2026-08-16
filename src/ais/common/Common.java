@@ -14962,6 +14962,7 @@ public class Common {
 					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 					.add(Restrictions.or(Restrictions.ilike("email", emailAddress, MatchMode.START),
 							Restrictions.sqlRestriction(sql)))
+					.addOrder(Order.desc("tanggal_dirubah"))
 					.setMaxResults(1), Tbmuser.class);
 			if (tbmuser != null) {
 				System.out.println("[SOCIAL-LOGIN] COCOK (" + property + "=" + id + ", email=" + emailAddress
