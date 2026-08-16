@@ -1202,7 +1202,7 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
     // dibangun tanpa panggilan server tambahan tiap kali toggle dibuka.
     // ==========================================
 	let sesiKasInfo<%=rnd%> = { terbuka: false };
-	const wajibSesiKas<%=rnd%> = <%=Common.bolehKonfigurasi(ais.common.Konfigurasi.KANTIN_POS_WAJIB_SESI_KAS, ais.common.Konfigurasi.AKTIF)%>;
+	const wajibSesiKas<%=rnd%> = <%=Common.bolehKonfigurasi(ais.database.model.Konfigurasi.KANTIN_POS_WAJIB_SESI_KAS, ais.database.model.Konfigurasi.AKTIF)%>;
 	// Identitas instalasi browser stabil. Disimpan lokal agar sesi kas tetap terikat
 	// ke mesin/browser yang sama setelah halaman dimuat ulang atau pengguna login lagi.
 	const idPerangkatSesiKas<%=rnd%> = (() => {

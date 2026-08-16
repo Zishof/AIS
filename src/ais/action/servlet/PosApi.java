@@ -402,6 +402,9 @@ public class PosApi extends HttpServlet {
 			} else if ("stok_mutasi_ledger".equals(action)) {
 				KantinHelper.stokMutasiLedger(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "stok_mutasi_ledger");
+			} else if ("produk_rekonsiliasi_ledger".equals(action)) {
+				KantinHelper.produkRekonsiliasiLedger(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "produk_rekonsiliasi_ledger");
 			} else if ("produk_mutasi_ringkasan".equals(action)) {
 				KantinHelper.produkMutasiRingkasan(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "produk_mutasi_ringkasan");
@@ -740,6 +743,26 @@ public class PosApi extends HttpServlet {
 			} else if ("laporan_keuangan_katalog".equals(action)) {
 				hasil.put("status", "success");
 				hasil.put("kategori", ais.action.master.koperasi.helper.LaporanKatalogData.katalogKeuangan());
+				JSONArray pendukung = new JSONArray();
+				JSONObject akun = new JSONObject();
+				akun.put("id", "akun_perkiraan");
+				akun.put("judul", "Akun / Perkiraan");
+				akun.put("keterangan", "Bagan akun berjenjang dalam bentuk pohon.");
+				akun.put("url", Common.ROOT + "/pages/master/akunting/akun.zul");
+				pendukung.put(akun);
+				JSONObject hpp = new JSONObject();
+				hpp.put("id", "posting_hpp");
+				hpp.put("judul", "Posting HPP");
+				hpp.put("keterangan", "Pratinjau dan posting beban pokok penjualan ke jurnal.");
+				hpp.put("url", Common.ROOT + "/pages/master/koperasi/posting_hpp_kantin.zul");
+				pendukung.put(hpp);
+				JSONObject penjualan = new JSONObject();
+				penjualan.put("id", "posting_penjualan");
+				penjualan.put("judul", "Posting Penjualan");
+				penjualan.put("keterangan", "Pratinjau dan posting pendapatan penjualan ke jurnal.");
+				penjualan.put("url", Common.ROOT + "/pages/master/koperasi/posting_penjualan_kantin.zul");
+				pendukung.put(penjualan);
+				hasil.put("pendukung", pendukung);
 			} else if ("laporan_jalankan".equals(action)) {
 				prosesLaporanJalankan(request, tbmuser, payload, hasil);
 			} else if ("laporan_pdf".equals(action)) {
@@ -762,6 +785,8 @@ public class PosApi extends HttpServlet {
 				prosesLaporanPenerimaanKasirList(tbmuser, payload, hasil);
 			} else if ("laporan_penerimaan_kasir_detail".equals(action)) {
 				prosesLaporanPenerimaanKasirDetail(tbmuser, payload, hasil);
+			} else if ("laporan_transaksi_per_kasir".equals(action)) {
+				prosesLaporanTransaksiPerKasir(tbmuser, payload, hasil);
 			} else if (!prosesAksiTambahan(action, tbmuser, payload, hasil, request, response)) {
 				hasil.put("status", "error");
 				hasil.put("message", "Aksi tidak dikenal: " + action);
@@ -2372,9 +2397,16 @@ public class PosApi extends HttpServlet {
 			if ("bulanan".equals(periodeTren)) { intervalSql = "12 months"; groupSql = "DATE_TRUNC('month', waktu)"; labelFmt = "Mon YYYY"; }
 			else if ("mingguan".equals(periodeTren)) { intervalSql = "8 weeks"; groupSql = "DATE_TRUNC('week', waktu)"; labelFmt = "DD Mon"; }
 			else { intervalSql = "14 days"; groupSql = "DATE(waktu)"; labelFmt = "DD Mon"; }
+			String subTren = "SELECT COALESCE(a.pembelian_anggota_koperasi,a.id) id_trx,MAX(a.waktu) waktu,"
+					+ "COALESCE(MAX(h.total_biaya),SUM(a.total)) nilai FROM koperasi.pembelian a "
+					+ "LEFT JOIN koperasi.pembelian_anggota_koperasi h ON h.id=a.pembelian_anggota_koperasi "
+					+ "WHERE COALESCE(a.aktif,true)=true AND a.waktu>=NOW()-INTERVAL '" + intervalSql + "'"
+					+ (semuaToko ? "" : " AND a.toko=?") + " GROUP BY 1";
 			java.sql.PreparedStatement psTren = conn.prepareStatement(
-					"SELECT TO_CHAR(" + groupSql + ",'" + labelFmt + "') AS lbl, COUNT(*) FROM koperasi.pembelian "
-							+ "WHERE waktu >= NOW() - INTERVAL '" + intervalSql + "'" + kondisiToko + " GROUP BY " + groupSql + " ORDER BY " + groupSql + " ASC");
+					"SELECT TO_CHAR(" + groupSql + ",'" + labelFmt + "') AS lbl,COUNT(*),COALESCE(SUM(nilai),0),"
+							+ "COALESCE(AVG(nilai),0),COALESCE(MIN(nilai),0),COALESCE(MAX(nilai),0),"
+							+ "COALESCE((ARRAY_AGG(nilai ORDER BY waktu ASC))[1],0),COALESCE((ARRAY_AGG(nilai ORDER BY waktu DESC))[1],0) "
+							+ "FROM (" + subTren + ") tren GROUP BY " + groupSql + " ORDER BY " + groupSql + " ASC");
 			if (!semuaToko) psTren.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsTren = psTren.executeQuery();
 			JSONArray tren = new JSONArray();
@@ -2382,6 +2414,13 @@ public class PosApi extends HttpServlet {
 				JSONObject t = new JSONObject();
 				t.put("label", str(rsTren.getString(1)));
 				t.put("jumlah", rsTren.getLong(2));
+				t.put("transaksi", rsTren.getLong(2));
+				t.put("omzet", rsTren.getDouble(3));
+				t.put("rataRata", rsTren.getDouble(4));
+				t.put("low", rsTren.getDouble(5));
+				t.put("high", rsTren.getDouble(6));
+				t.put("open", rsTren.getDouble(7));
+				t.put("close", rsTren.getDouble(8));
 				tren.put(t);
 			}
 			rsTren.close();
@@ -2570,6 +2609,25 @@ public class PosApi extends HttpServlet {
 			}
 			rsJam.close(); psJam.close();
 
+			// Heatmap hari x jam memakai SATU baris per nota, bukan per item, agar
+			// kepadatan operasional tidak bias pada transaksi yang banyak produknya.
+			String subHeatmap = "SELECT COALESCE(p.pembelian_anggota_koperasi,p.id) id_trx,MAX(p.waktu) waktu,"
+					+ "COALESCE(MAX(h.total_biaya),SUM(p.total)) nilai FROM koperasi.pembelian p "
+					+ "LEFT JOIN koperasi.pembelian_anggota_koperasi h ON h.id=p.pembelian_anggota_koperasi "
+					+ "WHERE " + kondisiChart + " GROUP BY 1";
+			java.sql.PreparedStatement psHeatmap = conn.prepareStatement(
+					"SELECT CAST(EXTRACT(ISODOW FROM waktu) AS integer),CAST(EXTRACT(HOUR FROM waktu) AS integer),"
+							+ "COUNT(*),COALESCE(SUM(nilai),0) FROM (" + subHeatmap + ") trx GROUP BY 1,2 ORDER BY 1,2");
+			idx = 1;
+			for (Object p : paramsChart) ikatParam(psHeatmap, idx++, p);
+			java.sql.ResultSet rsHeatmap = psHeatmap.executeQuery();
+			JSONArray heatmap = new JSONArray();
+			while (rsHeatmap.next()) {
+				JSONObject o = new JSONObject(); o.put("hari", rsHeatmap.getInt(1)); o.put("jam", rsHeatmap.getInt(2));
+				o.put("transaksi", rsHeatmap.getLong(3)); o.put("omzet", rsHeatmap.getDouble(4)); heatmap.put(o);
+			}
+			rsHeatmap.close(); psHeatmap.close();
+
 			hasil.put("status", "success");
 			hasil.put("semuaToko", semuaToko);
 			hasil.put("kpi", kpi);
@@ -2580,6 +2638,7 @@ public class PosApi extends HttpServlet {
 			hasil.put("produkTerlaris", produkTerlaris);
 			hasil.put("omzetToko", omzetToko);
 			hasil.put("jamSibuk", jamSibuk);
+			hasil.put("heatmap", heatmap);
 			JSONObject transaksiObj = new JSONObject();
 			transaksiObj.put("data", transaksiArr);
 			transaksiObj.put("total", totalTrx);
@@ -3136,6 +3195,98 @@ public class PosApi extends HttpServlet {
 			JSONObject q = daftarOrderDenganSesi(session, tokoId, kode, aman);
 			hasil.put("status", "success"); hasil.put("data", q.getJSONArray("data")); hasil.put("total", q.getLong("total"));
 		} finally { HibernateUtil.closeSessionQuietly(session); }
+	}
+
+	/**
+	 * Laporan rekonsiliasi transaksi per kasir: modal buka, penerimaan per metode,
+	 * kas closing, dan selisih. Transaksi dikelompokkan dari master pembayaran agar
+	 * satu nota yang memiliki banyak rincian produk tidak dihitung berulang.
+	 */
+	private void prosesLaporanTransaksiPerKasir(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
+		Long tokoId = resolveTokoId(tbmuser, payload);
+		if (tokoId == null) { hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return; }
+		boolean bolehSemua = bolehSupervisorAtauAdmin(tbmuser);
+		String hariIni = new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date());
+		String mulai = payload.optString("tglMulai", "").trim(); if (mulai.length() == 0) mulai = hariIni;
+		String sampai = payload.optString("tglSampai", "").trim(); if (sampai.length() == 0) sampai = hariIni;
+		String namaLogin = tbmuser == null ? "" : str(tbmuser.getUserNama()).trim();
+		if (namaLogin.length() == 0 && tbmuser != null && tbmuser.getPedagang() != null) namaLogin = str(tbmuser.getPedagang().getNama()).trim();
+		if (namaLogin.length() == 0 && tbmuser != null) namaLogin = str(tbmuser.getUserId()).trim();
+		String kasirDipilih = bolehSemua ? payload.optString("kasir", "").trim() : namaLogin;
+
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			java.sql.Connection conn = session.connection();
+			java.util.Map<String, JSONObject> perKasir = new java.util.LinkedHashMap<String, JSONObject>();
+			String transaksi = "SELECT COALESCE(a.pembelian_anggota_koperasi,a.id) id_trx,"
+					+ " COALESCE(NULLIF(TRIM(MAX(pak.kasir_login_nama)),''),'Kasir tidak tercatat') kasir,"
+					+ " COALESCE(NULLIF(TRIM(MAX(a.carabayar)),''),'-') metode,"
+					+ " COALESCE(MAX(pak.total_biaya),SUM(a.total)) nilai,"
+					+ " COALESCE(MAX(pak.bayar_tunai),0) tunai,COALESCE(MAX(pak.bayar_non_tunai),0) non_tunai"
+					+ " FROM koperasi.pembelian a LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON pak.id=a.pembelian_anggota_koperasi"
+					+ " WHERE a.toko=? AND COALESCE(a.aktif,true)=true AND DATE(a.waktu)>=?::date AND DATE(a.waktu)<=?::date GROUP BY 1";
+			String filterKasir = kasirDipilih.length() == 0 ? "" : " WHERE LOWER(TRIM(kasir))=LOWER(?)";
+			java.sql.PreparedStatement pt = conn.prepareStatement("SELECT kasir,metode,COUNT(*),COALESCE(SUM(nilai),0),COALESCE(SUM(tunai),0),COALESCE(SUM(non_tunai),0) FROM (" + transaksi + ") trx" + filterKasir + " GROUP BY kasir,metode ORDER BY kasir,metode");
+			int ix = 1; pt.setLong(ix++, tokoId.longValue()); pt.setString(ix++, mulai); pt.setString(ix++, sampai); if (kasirDipilih.length() > 0) pt.setString(ix++, kasirDipilih);
+			java.sql.ResultSet rt = pt.executeQuery();
+			while (rt.next()) {
+				String namaKasir = rt.getString(1);
+				JSONObject kasir = perKasir.get(namaKasir);
+				if (kasir == null) {
+					kasir = laporanTransaksiKasirBaru(namaKasir);
+					perKasir.put(namaKasir, kasir);
+				}
+				JSONObject metode = new JSONObject();
+				metode.put("nama", rt.getString(2)); metode.put("jumlahTransaksi", rt.getLong(3)); metode.put("total", rt.getDouble(4));
+				kasir.getJSONArray("metodePembayaran").put(metode);
+				kasir.put("jumlahTransaksi", kasir.getLong("jumlahTransaksi") + rt.getLong(3));
+				kasir.put("totalTransaksi", kasir.getDouble("totalTransaksi") + rt.getDouble(4));
+				kasir.put("totalTunai", kasir.getDouble("totalTunai") + rt.getDouble(5));
+				kasir.put("totalNonTunai", kasir.getDouble("totalNonTunai") + rt.getDouble(6));
+			}
+			rt.close(); pt.close();
+
+			String filterSesi = kasirDipilih.length() == 0 ? "" : " AND LOWER(TRIM(sk.kasir_nama))=LOWER(?)";
+			String sesiSql = "SELECT COALESCE(NULLIF(TRIM(sk.kasir_nama),''),'Kasir tidak tercatat'),COUNT(*),COALESCE(SUM(sk.modalawal),0),"
+					+ " COALESCE(SUM(CASE WHEN sk.status='TUTUP' THEN COALESCE(sk.uangfisik,0) ELSE COALESCE(sk.modalawal,0)+COALESCE((SELECT SUM(COALESCE(pak.bayar_tunai,0)) FROM koperasi.pembelian_anggota_koperasi pak WHERE pak.toko=sk.toko AND (pak.sesi_kas_kasir=sk.id OR (pak.sesi_kas_kasir IS NULL AND pak.kasir_login_nama=sk.kasir_nama)) AND pak.tanggal_pembayaran>=sk.waktubuka AND pak.tanggal_pembayaran<=NOW()),0) END),0),"
+					+ " COALESCE(SUM(CASE WHEN sk.status='TUTUP' THEN 1 ELSE 0 END),0)"
+					+ " FROM koperasi.sesi_kas_kasir sk WHERE sk.toko=? AND DATE(sk.waktubuka)>=?::date AND DATE(sk.waktubuka)<=?::date" + filterSesi + " GROUP BY 1 ORDER BY 1";
+			java.sql.PreparedStatement ps = conn.prepareStatement(sesiSql);
+			ix = 1; ps.setLong(ix++, tokoId.longValue()); ps.setString(ix++, mulai); ps.setString(ix++, sampai); if (kasirDipilih.length() > 0) ps.setString(ix++, kasirDipilih);
+			java.sql.ResultSet rs = ps.executeQuery();
+			while (rs.next()) {
+				String namaKasir = rs.getString(1);
+				JSONObject kasir = perKasir.get(namaKasir);
+				if (kasir == null) {
+					kasir = laporanTransaksiKasirBaru(namaKasir);
+					perKasir.put(namaKasir, kasir);
+				}
+				kasir.put("jumlahSesi", rs.getLong(2)); kasir.put("modalAwal", rs.getDouble(3)); kasir.put("kasClosing", rs.getDouble(4));
+				kasir.put("closingDikonfirmasi", rs.getLong(5) == rs.getLong(2) && rs.getLong(2) > 0);
+			}
+			rs.close(); ps.close();
+
+			JSONArray data = new JSONArray(); double totalTransaksi = 0; double totalSelisih = 0; long jumlahTransaksi = 0;
+			java.util.Iterator<JSONObject> it = perKasir.values().iterator();
+			while (it.hasNext()) {
+				JSONObject kasir = it.next();
+				double kasSeharusnya = kasir.getDouble("modalAwal") + kasir.getDouble("totalTunai");
+				double selisih = kasir.getDouble("kasClosing") - kasSeharusnya;
+				kasir.put("kasSeharusnya", kasSeharusnya); kasir.put("selisih", selisih);
+				totalTransaksi += kasir.getDouble("totalTransaksi"); totalSelisih += selisih; jumlahTransaksi += kasir.getLong("jumlahTransaksi"); data.put(kasir);
+			}
+
+			hasil.put("status", "success"); hasil.put("data", data); hasil.put("tglMulai", mulai); hasil.put("tglSampai", sampai);
+			hasil.put("totalTransaksi", totalTransaksi); hasil.put("totalSelisih", totalSelisih); hasil.put("jumlahTransaksi", jumlahTransaksi);
+			hasil.put("bolehFilterKasir", bolehSemua); hasil.put("kasirAktif", kasirDipilih);
+		} finally { HibernateUtil.closeSessionQuietly(session); }
+	}
+
+	private JSONObject laporanTransaksiKasirBaru(String namaKasir) throws Exception {
+		JSONObject o = new JSONObject(); o.put("kasir", namaKasir == null ? "Kasir tidak tercatat" : namaKasir);
+		o.put("jumlahSesi", 0); o.put("jumlahTransaksi", 0); o.put("modalAwal", 0); o.put("totalTransaksi", 0);
+		o.put("totalTunai", 0); o.put("totalNonTunai", 0); o.put("kasClosing", 0); o.put("kasSeharusnya", 0);
+		o.put("selisih", 0); o.put("closingDikonfirmasi", false); o.put("metodePembayaran", new JSONArray()); return o;
 	}
 
 	/**

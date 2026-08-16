@@ -14,6 +14,7 @@ import org.zkoss.poi.xssf.usermodel.XSSFRow;
 import org.zkoss.poi.xssf.usermodel.XSSFSheet;
 import org.zkoss.poi.xssf.usermodel.XSSFWorkbook;
 import org.zkoss.zk.ui.Component;
+import org.zkoss.zk.ui.util.Clients;
 import org.zkoss.zk.ui.Sessions;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
@@ -445,6 +446,14 @@ public class DashboardKantinAction extends GenericAutowireComposer {
         }
     }
 
+    /** Cetak tampilan analitik aktif; CSS cetak browser mempertahankan grafik SVG. */
+    public void onDownloadPdf(Event event) throws Exception {
+        Clients.evalJavaScript("(function(){var s=document.getElementById('ais-dashboard-print-style');"
+                + "if(!s){s=document.createElement('style');s.id='ais-dashboard-print-style';"
+                + "s.innerHTML='@media print{@page{size:A4 landscape;margin:6mm}body{zoom:.58} .ais-crud-filter-actions{display:none!important} .z-panel{break-inside:avoid}}';"
+                + "document.head.appendChild(s);}window.print();})();");
+    }
+
     /**
      * Analisis keputusan native ZKoss. Angka berasal dari agregasi database pada
      * periode dan cakupan toko yang sama dengan tab lain. Aturannya sengaja
@@ -690,6 +699,25 @@ public class DashboardKantinAction extends GenericAutowireComposer {
                             "Kotak makin pekat = jam & hari paling ramai transaksi. Berguna untuk mengatur jadwal petugas dan stok.",
                             hari, jamLbl, mat, DashboardUiKit.PRIMARY, "Belum ada transaksi."));
                 }
+
+				List<Object[]> candle = q("candle", "SELECT TO_CHAR(DATE(p.waktu),'DD Mon'), "
+						+ "(ARRAY_AGG(p.total ORDER BY p.waktu ASC))[1], MAX(p.total), MIN(p.total), "
+						+ "(ARRAY_AGG(p.total ORDER BY p.waktu DESC))[1] "
+						+ "FROM koperasi.pembelian p WHERE " + where
+						+ " GROUP BY DATE(p.waktu) ORDER BY DATE(p.waktu)");
+				if (!candle.isEmpty()) {
+					int cn = candle.size();
+					String[] cl = new String[cn];
+					double[] co = new double[cn], ch = new double[cn], cw = new double[cn], cc = new double[cn];
+					for (int ci = 0; ci < cn; ci++) {
+						Object[] cr = candle.get(ci);
+						cl[ci] = str(cr[0]); co[ci] = num(cr[1]); ch[ci] = num(cr[2]);
+						cw[ci] = num(cr[3]); cc[ci] = num(cr[4]);
+					}
+					sb.append(DashboardUiKit.candlestick("Candlestick Nilai Transaksi",
+							"Badan menunjukkan transaksi pertama/terakhir; garis menunjukkan nilai terendah/tertinggi per hari.",
+							cl, co, ch, cw, cc));
+				}
                 return sb.toString();
             }
         });

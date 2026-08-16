@@ -104,6 +104,21 @@ if (!lockTokoLap) {
     </div>
   </div>
 
+  <div class="d-flex flex-wrap gap-2 mb-3" aria-label="Data pendukung laporan akuntansi">
+    <a class="btn btn-outline-primary" target="_blank" rel="noopener"
+       href="<%=Common.ROOT%>/pages/master/akunting/akun.zul">
+      <i class="fas fa-sitemap me-1"></i><%=Common.getBahasaConfig("Akun / Perkiraan")%>
+    </a>
+    <a class="btn btn-outline-primary" target="_blank" rel="noopener"
+       href="<%=Common.ROOT%>/pages/master/koperasi/posting_hpp_kantin.zul">
+      <i class="fas fa-boxes-stacked me-1"></i><%=Common.getBahasaConfig("Posting HPP")%>
+    </a>
+    <a class="btn btn-outline-primary" target="_blank" rel="noopener"
+       href="<%=Common.ROOT%>/pages/master/koperasi/posting_penjualan_kantin.zul">
+      <i class="fas fa-file-invoice-dollar me-1"></i><%=Common.getBahasaConfig("Posting Penjualan")%>
+    </a>
+  </div>
+
   <div id="listView<%=rndLap%>">
     <input type="text" class="form-control shadow-sm mb-2" id="cari<%=rndLap%>" placeholder="<%=Common.getBahasaConfig("Cari laporan...")%>" oninput="lkFilterList<%=rndLap%>()">
     <div id="katWrap<%=rndLap%>"></div>

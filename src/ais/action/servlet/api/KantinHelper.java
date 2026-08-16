@@ -13637,6 +13637,89 @@ public class KantinHelper {
 	}
 
 	/**
+	 * Audit read-only stok tersimpan terhadap saldo yang dibentuk seluruh sumber
+	 * mutasi kanonik. Query UNION dihitung sekali per produk agar layar tidak
+	 * menjalankan delapan subquery untuk setiap baris produk.
+	 */
+	public static void produkRekonsiliasiLedger(Tbmuser tbmuser, JSONObject request, JSONObject hasil)
+			throws Exception {
+		Long tokoId = soResolveTokoId(tbmuser, request);
+		if (tokoId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Toko tidak diketahui.");
+			return;
+		}
+		int page = Math.max(1, request.optInt("page", 1));
+		int pageSize = Math.min(100, Math.max(1, request.optInt("page_size", 15)));
+		String keyword = request.optString("keyword", "").trim().toLowerCase();
+		boolean hanyaSelisih = request.optBoolean("hanya_selisih", true);
+		String mutasi = "SELECT produk AS produk_id, qty, waktupengadaan AS waktu FROM koperasi.pengadaan_produk"
+				+ " UNION ALL SELECT produk, selisih, waktuopname FROM koperasi.stok_opname"
+				+ " UNION ALL SELECT produk, -qty, waktu FROM koperasi.pembelian"
+				+ " UNION ALL SELECT produk, -qty, waktu FROM koperasi.pemakaian_bahan_baku"
+				+ " UNION ALL SELECT produk, qty, waktu FROM koperasi.retur_penjualan WHERE kembalikan_ke_stok=true"
+				+ " UNION ALL SELECT produk_tujuan, qty, waktu FROM koperasi.mutasi_stok_toko WHERE produk_tujuan IS NOT NULL"
+				+ " UNION ALL SELECT produk_asal, -qty, waktu FROM koperasi.mutasi_stok_toko WHERE produk_asal IS NOT NULL"
+				+ " UNION ALL SELECT produk, -qty, waktu FROM koperasi.retur_pembelian";
+		String cte = "WITH mutasi AS (" + mutasi + "), ledger AS (SELECT produk_id,COALESCE(SUM(qty),0) stok_ledger,MAX(waktu) terakhir FROM mutasi GROUP BY produk_id) ";
+		String filter = " WHERE p.toko=:tokoId";
+		if (keyword.length() > 0) {
+			filter += " AND (LOWER(COALESCE(p.nama,'')) LIKE :keyword OR LOWER(COALESCE(p.kode,'')) LIKE :keyword OR LOWER(COALESCE(p.barcode,'')) LIKE :keyword)";
+		}
+		if (hanyaSelisih) {
+			filter += " AND l.produk_id IS NOT NULL AND ABS(COALESCE(p.stok,0)-COALESCE(l.stok_ledger,0))>0.000001";
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			SQLQuery stats = session.createSQLQuery(cte
+					+ "SELECT COUNT(*),SUM(CASE WHEN l.produk_id IS NOT NULL THEN 1 ELSE 0 END),"
+					+ "SUM(CASE WHEN l.produk_id IS NULL THEN 1 ELSE 0 END),"
+					+ "COALESCE(SUM(CASE WHEN l.produk_id IS NOT NULL THEN ABS(COALESCE(p.stok,0)-COALESCE(l.stok_ledger,0)) ELSE 0 END),0)"
+					+ " FROM koperasi.produk p LEFT JOIN ledger l ON l.produk_id=p.id WHERE p.toko=:tokoId");
+			stats.setLong("tokoId", tokoId.longValue());
+			Object[] s = (Object[]) stats.uniqueResult();
+			hasil.put("jumlahProduk", s == null || s[0] == null ? 0 : ((Number) s[0]).longValue());
+			hasil.put("produkTercakupLedger", s == null || s[1] == null ? 0 : ((Number) s[1]).longValue());
+			hasil.put("produkBelumTercakup", s == null || s[2] == null ? 0 : ((Number) s[2]).longValue());
+			hasil.put("totalSelisihAbsolut", s == null || s[3] == null ? 0 : ((Number) s[3]).doubleValue());
+
+			SQLQuery count = session.createSQLQuery(cte + "SELECT COUNT(*) FROM koperasi.produk p LEFT JOIN ledger l ON l.produk_id=p.id" + filter);
+			count.setLong("tokoId", tokoId.longValue());
+			if (keyword.length() > 0) count.setString("keyword", "%" + keyword + "%");
+			Number total = (Number) count.uniqueResult();
+			hasil.put("total", total == null ? 0 : total.longValue());
+
+			SQLQuery list = session.createSQLQuery(cte
+					+ "SELECT p.id,p.nama,p.kode,p.barcode,COALESCE(p.stok,0),COALESCE(l.stok_ledger,0),"
+					+ "COALESCE(p.stok,0)-COALESCE(l.stok_ledger,0),l.terakhir"
+					+ " FROM koperasi.produk p LEFT JOIN ledger l ON l.produk_id=p.id" + filter
+					+ " ORDER BY ABS(COALESCE(p.stok,0)-COALESCE(l.stok_ledger,0)) DESC,p.nama ASC");
+			list.setLong("tokoId", tokoId.longValue());
+			if (keyword.length() > 0) list.setString("keyword", "%" + keyword + "%");
+			list.setFirstResult((page - 1) * pageSize);
+			list.setMaxResults(pageSize);
+			@SuppressWarnings("unchecked")
+			java.util.List<Object[]> rows = list.list();
+			JSONArray data = new JSONArray();
+			java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm");
+			for (Object[] r : rows) {
+				JSONObject o = new JSONObject();
+				o.put("id", r[0]); o.put("nama", r[1] == null ? "-" : r[1].toString());
+				o.put("kode", r[2] == null ? "" : r[2].toString()); o.put("barcode", r[3] == null ? "" : r[3].toString());
+				o.put("stokTersimpan", r[4] == null ? 0 : ((Number) r[4]).doubleValue());
+				o.put("stokLedger", r[5] == null ? 0 : ((Number) r[5]).doubleValue());
+				o.put("selisih", r[6] == null ? 0 : ((Number) r[6]).doubleValue());
+				o.put("mutasiTerakhir", r[7] == null ? null : fmt.format((java.util.Date) r[7]));
+				data.put(o);
+			}
+			hasil.put("data", data);
+			hasil.put("status", "00");
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
 	 * Koreksi transaksi oleh supervisor. Semua perubahan dilakukan atomik, dicatat oleh Hibernate
 	 * Envers, dan alasan koreksi ikut disimpan pada keterangan header agar mudah ditelusuri.
 	 */

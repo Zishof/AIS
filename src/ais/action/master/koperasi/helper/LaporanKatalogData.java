@@ -109,6 +109,7 @@ public final class LaporanKatalogData {
         k.items.add(item("pos_kasir_harian", "Penjualan per Kasir per Hari", "Rekap penjualan tiap kasir dirinci per tanggal.", false, false, true, null));
         k.items.add(item("pos_harian", "Penjualan Harian (Semua Kasir)", "Total penjualan seluruh kasir per tanggal.", false, false, true, null));
         k.items.add(item("pos_per_kasir", "Laporan Penerimaan Per Kasir", "Penerimaan kas per kasir/operator (akumulasi).", false, false, true, null));
+        k.items.add(item("transaksi_per_kasir", "Transaksi Per Kasir", "Rekonsiliasi modal, tunai, non-tunai, kas closing, dan selisih per kasir.", false, false, true, null));
         k.items.add(item("pos_per_akun_bank", "Penerimaan Per Akun (Bank/Tunai/E-Money/Voucher)", "Penerimaan per metode/akun pembayaran.", false, false, true, null));
         semua.add(k);
 
