@@ -546,6 +546,9 @@ public class AmbilDataPerkuliahanHelper {
 					detailperkuliahan.setPerkuliahan(perkuliahan);
 					detailperkuliahan.setTahap(tahapan);
 					detailperkuliahan.setSemester(AmbilDataPerkuliahanHelper.this.semester);
+					if (Common.bolehKonfigurasi("saat_ambil_krs_langsung_disetujui", Konfigurasi.TIDAK_AKTIF)) {
+						detailperkuliahan.setPersetujuan(Detailperkuliahan.DISETUJUI);
+					}
 					mySession.getTransaction().begin();
 					Common.refreshSaveOrUpdate(mySession, detailperkuliahan);
 					mySession.getTransaction().commit();
@@ -1198,12 +1201,12 @@ public class AmbilDataPerkuliahanHelper {
 
 						(semesterBox.getSelectedItem() != null && semesterBox.getSelectedItem().getLabel() != null
 								&& semesterBox.getSelectedItem().getLabel().equalsIgnoreCase("Semua Genap")
-										? Restrictions.sqlRestriction("this_.semester % 2 = 0")
+										? Restrictions.eq("ganjilGenap", Perkuliahan.GENAP)
 										: semesterBox.getSelectedItem() != null
 												&& semesterBox.getSelectedItem().getLabel() != null
 												&& semesterBox.getSelectedItem().getLabel()
 														.equalsIgnoreCase("Semua Ganjil")
-																? Restrictions.sqlRestriction("this_.semester % 2 = 1")
+														? Restrictions.eq("ganjilGenap", Perkuliahan.GANJIL)
 																: Restrictions.sqlRestriction("1=1"))
 
 						: Restrictions.eq("semester", semesterBox.getSelectedItem().getValue()))

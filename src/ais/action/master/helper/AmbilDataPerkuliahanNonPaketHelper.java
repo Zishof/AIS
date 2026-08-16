@@ -39,6 +39,7 @@ import org.zkoss.zul.Vbox;
 
 import ais.action.master.MatakuliahPrasyaratAction;
 import ais.common.Common;
+import ais.database.model.Konfigurasi;
 import ais.common.listener.DataLoader;
 import ais.database.dao.DaoFactory;
 import ais.database.dao.PerkuliahanDao;
@@ -402,6 +403,9 @@ public class AmbilDataPerkuliahanNonPaketHelper {
 					detailperkuliahan.setMahasiswa(mahasiswa);
 					detailperkuliahan.setPerkuliahan(perkuliahan);
 					detailperkuliahan.setSemester(AmbilDataPerkuliahanNonPaketHelper.this.semester);
+					if (Common.bolehKonfigurasi("saat_ambil_krs_langsung_disetujui", Konfigurasi.TIDAK_AKTIF)) {
+						detailperkuliahan.setPersetujuan(Detailperkuliahan.DISETUJUI);
+					}
 					session.saveOrUpdate(detailperkuliahan);
 
 				}
