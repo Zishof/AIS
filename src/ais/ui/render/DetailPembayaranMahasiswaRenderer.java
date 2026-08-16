@@ -924,6 +924,11 @@ public class DetailPembayaranMahasiswaRenderer extends ais.ui.util.MyRowRenderer
 								: " " + detailKegiatan.getUraian())))
 						.setParent(vbox);
 
+				// Ikon "mata": untuk item biaya yang nominalnya dihitung dari SKS/matakuliah diambil,
+				// tampilkan rincian perkuliahan (grid + download PDF/Excel).
+				ais.action.master.helper.RincianPerkuliahanTagihanHelper.tambahIkonMata(vbox, mahasiswa, semester,
+						detailBiaya.getItemBiaya());
+
 				if (detailBiaya.getDefaultTanggalDeadline() != null) {
 					new MyLabelAgakKecilBoldMerah(
 							"Deadline : " + Common.dateFormat4.get().format(detailBiaya.getDefaultTanggalDeadline()))
