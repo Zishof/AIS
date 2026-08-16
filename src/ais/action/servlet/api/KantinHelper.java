@@ -10725,7 +10725,8 @@ public class KantinHelper {
 			String withTrx = "WITH trx AS ("
 					+ "  SELECT COALESCE(a.pembelian_anggota_koperasi, a.id) AS id_transaksi, MAX(a.waktu) AS waktu, "
 					+ "         COALESCE(MAX(pak.total_biaya), SUM(a.total)) AS total_biaya, "
-					+ "         COALESCE(NULLIF(TRIM(MAX(pak.kasir_login_nama)),''),'Kasir tidak tercatat') AS kasir, MAX(pak.nama_mesin) AS mesin "
+					+ "         COALESCE(NULLIF(TRIM(MAX(pak.kasir_login_nama)),''),'Kasir tidak tercatat') AS kasir, MAX(pak.nama_mesin) AS mesin, "
+					+ "         COALESCE(NULLIF(TRIM(MAX(a.carabayar)),''),'Tidak tercatat') AS metode "
 					+ "  FROM koperasi.pembelian a LEFT JOIN koperasi.pembelian_anggota_koperasi pak ON pak.id = a.pembelian_anggota_koperasi "
 					+ "  WHERE a.toko = ? GROUP BY 1"
 					+ ") ";
@@ -10775,6 +10776,61 @@ public class KantinHelper {
 			}
 			rsMesin.close(); psMesin.close();
 
+			JSONArray trenHarian = new JSONArray();
+			java.sql.PreparedStatement psTren = conn.prepareStatement(withTrx
+					+ "SELECT DATE(waktu),COUNT(*),COALESCE(SUM(total_biaya),0),COALESCE(MIN(total_biaya),0),"
+					+ "COALESCE(MAX(total_biaya),0),COALESCE((ARRAY_AGG(total_biaya ORDER BY waktu ASC))[1],0),"
+					+ "COALESCE((ARRAY_AGG(total_biaya ORDER BY waktu DESC))[1],0) FROM trx "
+					+ "WHERE waktu >= CURRENT_DATE - INTERVAL '29 days' GROUP BY DATE(waktu) ORDER BY DATE(waktu)");
+			psTren.setLong(1, tokoId.longValue());
+			java.sql.ResultSet rsTren = psTren.executeQuery();
+			while (rsTren.next()) {
+				JSONObject o = new JSONObject();
+				o.put("tanggal", rsTren.getDate(1).toString());
+				o.put("transaksi", rsTren.getLong(2));
+				o.put("omzet", rsTren.getDouble(3));
+				o.put("low", rsTren.getDouble(4));
+				o.put("high", rsTren.getDouble(5));
+				o.put("open", rsTren.getDouble(6));
+				o.put("close", rsTren.getDouble(7));
+				trenHarian.put(o);
+			}
+			rsTren.close(); psTren.close();
+
+			JSONArray byMetode = new JSONArray();
+			java.sql.PreparedStatement psMetode = conn.prepareStatement(withTrx
+					+ "SELECT metode,COUNT(*),COALESCE(SUM(total_biaya),0) FROM trx "
+					+ "WHERE waktu >= NOW() - INTERVAL '30 days' GROUP BY metode ORDER BY 3 DESC");
+			psMetode.setLong(1, tokoId.longValue());
+			java.sql.ResultSet rsMetode = psMetode.executeQuery();
+			while (rsMetode.next()) {
+				JSONObject o = new JSONObject();
+				o.put("label", rsMetode.getString(1));
+				o.put("transaksi", rsMetode.getLong(2));
+				o.put("nilai", rsMetode.getDouble(3));
+				byMetode.put(o);
+			}
+			rsMetode.close(); psMetode.close();
+
+			JSONArray radarKasir = new JSONArray();
+			java.sql.PreparedStatement psRadar = conn.prepareStatement(withTrx
+					+ "SELECT kasir,COUNT(*),COALESCE(SUM(total_biaya),0),COALESCE(AVG(total_biaya),0),"
+					+ "COUNT(DISTINCT DATE(waktu)),COALESCE(SUM(CASE WHEN metode ILIKE '%tunai%' THEN total_biaya ELSE 0 END),0) "
+					+ "FROM trx WHERE waktu >= NOW() - INTERVAL '30 days' GROUP BY kasir ORDER BY 3 DESC LIMIT 8");
+			psRadar.setLong(1, tokoId.longValue());
+			java.sql.ResultSet rsRadar = psRadar.executeQuery();
+			while (rsRadar.next()) {
+				JSONObject o = new JSONObject();
+				o.put("label", rsRadar.getString(1));
+				o.put("transaksi", rsRadar.getLong(2));
+				o.put("omzet", rsRadar.getDouble(3));
+				o.put("rataRata", rsRadar.getDouble(4));
+				o.put("hariAktif", rsRadar.getLong(5));
+				o.put("tunai", rsRadar.getDouble(6));
+				radarKasir.put(o);
+			}
+			rsRadar.close(); psRadar.close();
+
 			hasil.put("status", "00");
 			hasil.put("trxHariIni", trxHariIni);
 			hasil.put("omzetHariIni", omzetHariIni);
@@ -10782,6 +10838,9 @@ public class KantinHelper {
 			hasil.put("omzet30Hari", omzet30Hari);
 			hasil.put("byKasir", byKasir);
 			hasil.put("byMesin", byMesin);
+			hasil.put("trenHarian", trenHarian);
+			hasil.put("byMetode", byMetode);
+			hasil.put("radarKasir", radarKasir);
 		} finally {
 			tutupSessionPolaB(session);
 		}
