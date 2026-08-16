@@ -498,16 +498,19 @@ public class PerformaLog extends GeneralValueObject {
 	}
 
 	/** Ambang jumlah thread yang menumpuk pada SATU lock yang sama (di luar worker idle). */
-	private static final int AMBANG_KONTENSI_PERHATIAN = 8;
-	private static final int AMBANG_KONTENSI_KRITIS = 50;
+	public static final int AMBANG_KONTENSI_PERHATIAN = 8;
+	public static final int AMBANG_KONTENSI_KRITIS = 50;
 
 	/**
 	 * Ambang jumlah thread BLOCKED (rebutan monitor). SATU-DUA thread BLOCKED itu transien &amp;
 	 * normal (menunggu sesaat masuk blok synchronized) — bukan indikasi masalah. Masalah nyata =
 	 * BANYAK thread BLOCKED (lock convoy). Karena itu 1-2 dianggap Normal.
 	 */
-	private static final int AMBANG_BLOCKED_PERHATIAN = 3;
-	private static final int AMBANG_BLOCKED_KRITIS = 10;
+	public static final int AMBANG_BLOCKED_PERHATIAN = 3;
+	public static final int AMBANG_BLOCKED_KRITIS = 10;
+	public static final int AMBANG_MEMORI_PERHATIAN = 85;
+	public static final int AMBANG_MEMORI_KRITIS = 95;
+	public static final int AMBANG_THREAD_PERHATIAN = 800;
 
 	/**
 	 * Status kesehatan sederhana berdasarkan ambang batas default:
@@ -540,11 +543,14 @@ public class PerformaLog extends GeneralValueObject {
 		int kontensi = nz(maxThreadSatuLock);
 		int blocked = nz(jumlahBlocked);
 
-		if (nz(jumlahDeadlock) > 0 || (heap >= 0 && heap >= 95) || (meta >= 0 && meta >= 95)
+		if (nz(jumlahDeadlock) > 0 || (heap >= 0 && heap >= AMBANG_MEMORI_KRITIS)
+				|| (meta >= 0 && meta >= AMBANG_MEMORI_KRITIS)
 				|| blocked >= AMBANG_BLOCKED_KRITIS || kontensi >= AMBANG_KONTENSI_KRITIS) {
 			return "Kritis";
 		}
-		if ((heap >= 0 && heap >= 85) || (meta >= 0 && meta >= 85) || total > 800
+		if ((heap >= 0 && heap >= AMBANG_MEMORI_PERHATIAN)
+				|| (meta >= 0 && meta >= AMBANG_MEMORI_PERHATIAN)
+				|| total > AMBANG_THREAD_PERHATIAN
 				|| blocked >= AMBANG_BLOCKED_PERHATIAN || kontensi >= AMBANG_KONTENSI_PERHATIAN) {
 			return "Perhatian";
 		}
