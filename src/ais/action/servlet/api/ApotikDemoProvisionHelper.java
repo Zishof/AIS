@@ -1,6 +1,7 @@
 package ais.action.servlet.api;
 
 import java.util.Date;
+import java.util.Calendar;
 import java.util.Map;
 
 import org.hibernate.Session;
@@ -18,9 +19,11 @@ import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
 import ais.database.model.sirs.ApotikItemProfile;
 import ais.database.model.sirs.ItemMedis;
+import ais.database.model.sirs.Kadaluarsa;
 import ais.database.model.sirs.JenisItemMedis;
 import ais.database.model.sirs.KodeTransaksiMedis;
 import ais.database.model.sirs.Dokter;
+import ais.database.model.sirs.DetailTransaksiPasien;
 import ais.database.model.sirs.Resep;
 import ais.database.model.sirs.ResepDetail;
 import ais.database.model.sirs.SatuanItem;
@@ -138,7 +141,9 @@ public final class ApotikDemoProvisionHelper {
 			}, "AIS-Demo-Apotik-Seed");
 			pekerja.setDaemon(true);
 			pekerja.start();
-			hasil.put("status", "01");
+			// Status 00 = permintaan DITERIMA. Flag `berjalan` membedakan job latar;
+			// klien Api_eBisnis menganggap status selain 00 sebagai kegagalan.
+			hasil.put("status", "00");
 			hasil.put("description", "Provisioning 10.000 obat/racikan dan tenaga medis dimulai di latar.");
 			hasil.put("berjalan", true);
 			return;
@@ -173,6 +178,9 @@ public final class ApotikDemoProvisionHelper {
 					+ "where i.kode = :kodeUji or i.kode like :kodeDemo")
 					.setString("kodeUji", "UJI-PCT").setString("kodeDemo", "DEMO-OBT-%")
 					.uniqueResult()).longValue();
+			Map<String, Tbmrole> roleDemo = ApotikEmedikSeedHelper.pastikanRoleDemo(session);
+			seedAkunOperasionalDemo(session, roleDemo, ringkas);
+			seedTenagaMedis(session, ringkas);
 			if (jumlahItem > 0 && penandaDemo == 0) {
 				ringkas.put("dataUji", "DILEWATI -- sirs.item_medis sudah berisi " + jumlahItem
 						+ " item (server ber-SIRS nyata, tidak disentuh)");
@@ -181,17 +189,11 @@ public final class ApotikDemoProvisionHelper {
 				hasil.put("ringkasan", ringkas);
 				return;
 			}
-			Map<String, Tbmrole> roleDemo = ApotikEmedikSeedHelper.pastikanRoleDemo(session);
-			seedAkunOperasionalDemo(session, roleDemo, ringkas);
-
-			// Dataset tenaga medis demo berada pada gerbang keamanan yang sama dengan
-			// dataset apotik: hanya dibuat ketika item_medis benar-benar kosong. Seluruh
-			// tenaga ditulis ke public.pegawai, direlasikan ke sirs.dokter, lalu ke
-			// public.tbmuser. Kategori pada sirs.dokter membedakan dokter/bidan/perawat.
-			seedTenagaMedis(session, ringkas);
 			if (jumlahItem > 0) {
+				int batchDibuat = ensureBatchKatalogDemo(session);
 				ringkas.put("dataUji", "Katalog demo sudah tersedia (" + jumlahItem
-						+ " item); role dan akun uji dipastikan tanpa menggandakan katalog");
+						+ " item); role, akun, serta stok demo dipastikan tanpa menggandakan katalog");
+				ringkas.put("batchStokBaru", batchDibuat);
 				tx.commit();
 				hasil.put("status", "00");
 				hasil.put("ringkasan", ringkas);
@@ -220,6 +222,8 @@ public final class ApotikDemoProvisionHelper {
 			// Dua ItemMedis uji: satu LASA (bebas), satu terkendali (narkotika).
 			ItemMedis obatA = buatItem(session, "UJI-PCT", "Paracetamol 500mg (UJI)", satuan, jenis, 3000, 1500);
 			ItemMedis obatB = buatItem(session, "UJI-CDN", "Codein 10mg (UJI, Narkotika)", satuan, jenis, 8000, 4000);
+			ensureBatchDemo(session, obatA, 250, 720);
+			ensureBatchDemo(session, obatB, 120, 540);
 
 			// Profil apotik: A = LASA/bebas, B = narkotika (agar apotik_bayar wajib register).
 			ensureProfil(session, obatA, ApotikItemProfile.GOLONGAN_BEBAS, true);
@@ -247,6 +251,7 @@ public final class ApotikDemoProvisionHelper {
 				String golongan = (i % 250 == 0) ? ApotikItemProfile.GOLONGAN_NARKOTIKA
 						: ApotikItemProfile.GOLONGAN_BEBAS;
 				ensureProfil(session, item, golongan, i % 37 == 0);
+				ensureBatchDemo(session, item, 30 + (i % 170), 120 + (i % 900));
 				if (i % 250 == 0) {
 					session.flush();
 				}
@@ -297,8 +302,7 @@ public final class ApotikDemoProvisionHelper {
 			ringkas.put("jumlahRacikan", JUMLAH_RACIKAN_DEMO);
 			ringkas.put("items", items);
 			ringkas.put("resepId", resep.getId());
-			ringkas.put("catatan", "Stok/batch belum ada -- gunakan apotik_terima_barang (ED lampau & depan) "
-					+ "untuk membuat batch kedaluwarsa & valid, lalu uji apotik_bayar.");
+			ringkas.put("catatan", "Setiap obat demo dilengkapi batch dan stok awal; gunakan Penerimaan PBF/Opname untuk menguji mutasi berikutnya.");
 			hasil.put("status", "00");
 			hasil.put("ringkasan", ringkas);
 		} catch (Exception e) {
@@ -315,6 +319,69 @@ public final class ApotikDemoProvisionHelper {
 			hasil = "0" + hasil;
 		}
 		return hasil;
+	}
+
+	private static void ensureBatchDemo(Session session, ItemMedis item, int qty,
+			int hariKedaluwarsa) {
+		ensureStokDemo(session, item, qty);
+		Kadaluarsa batch = (Kadaluarsa) session.createCriteria(Kadaluarsa.class)
+				.add(Restrictions.eq("item", item))
+				.add(Restrictions.eq("keterangan", "BATCH-DEMO-" + item.getKode()))
+				.setMaxResults(1).uniqueResult();
+		if (batch != null) return;
+		Calendar kalender = Calendar.getInstance();
+		kalender.add(Calendar.DAY_OF_YEAR, hariKedaluwarsa);
+		batch = new Kadaluarsa();
+		batch.setItem(item);
+		batch.setQty(Double.valueOf(qty));
+		batch.setTanggalKadaluarsa(kalender.getTime());
+		batch.setKeterangan("BATCH-DEMO-" + item.getKode());
+		batch.setOlehId("seed_demo");
+		batch.setOleh("Provisioning data sample eBisnis");
+		session.save(batch);
+	}
+
+	private static void ensureStokDemo(Session session, ItemMedis item, int qty) {
+		String penanda = "STOK-DEMO-" + item.getKode();
+		long ada = ((Number) session.createQuery(
+				"select count(d) from DetailTransaksiPasien d where d.item = :item and d.keterangan = :penanda")
+				.setParameter("item", item).setString("penanda", penanda)
+				.uniqueResult()).longValue();
+		if (ada > 0) return;
+		DetailTransaksiPasien ledger = new DetailTransaksiPasien();
+		ledger.setKodeTransaksi(ConstantValues.beliMasuk);
+		ledger.setItem(item);
+		ledger.setQty(Double.valueOf(qty));
+		ledger.setAmount(item.getDefaultHargaBeli() == null
+				? Double.valueOf(0) : item.getDefaultHargaBeli());
+		ledger.setHasilPenghitunganTotal(Double.valueOf(qty
+				* (item.getDefaultHargaBeli() == null ? 0 : item.getDefaultHargaBeli().doubleValue())));
+		ledger.setTanggal(new Date());
+		ledger.setKeterangan(penanda);
+		ledger.setOleh("seed_demo");
+		ledger.setOlehId("seed_demo");
+		session.save(ledger);
+	}
+
+	@SuppressWarnings("unchecked")
+	private static int ensureBatchKatalogDemo(Session session) {
+		java.util.List<ItemMedis> items = session.createQuery(
+				"from ItemMedis i where i.kode = :ujiA or i.kode = :ujiB or i.kode like :demo")
+				.setString("ujiA", "UJI-PCT").setString("ujiB", "UJI-CDN")
+				.setString("demo", "DEMO-OBT-%").list();
+		int sebelum = ((Number) session.createQuery(
+				"select count(k) from Kadaluarsa k where k.keterangan like :demo")
+				.setString("demo", "BATCH-DEMO-%").uniqueResult()).intValue();
+		int nomor = 0;
+		for (ItemMedis item : items) {
+			nomor++;
+			ensureBatchDemo(session, item, 30 + (nomor % 170), 120 + (nomor % 900));
+			if (nomor % 250 == 0) session.flush();
+		}
+		int sesudah = ((Number) session.createQuery(
+				"select count(k) from Kadaluarsa k where k.keterangan like :demo")
+				.setString("demo", "BATCH-DEMO-%").uniqueResult()).intValue();
+		return Math.max(0, sesudah - sebelum);
 	}
 
 	private static void seedTenagaMedis(Session session, JSONObject ringkas) throws Exception {
