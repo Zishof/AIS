@@ -12684,6 +12684,7 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		rows.appendChild(createRowNilai("Akreditasi content — dipakai di: DashboardAction", "akreditasi_content", ""));
 		rows.appendChild(createRowActiveDefault("Akses ke dashboard tanpa login tidak diizinkan — dipakai di: Dashboard", "akses_ke_dashboard_tanpa_login_tidak_diizinkan", Konfigurasi.AKTIF));
 		rows.appendChild(createRowActiveDefault("Aktifkan akun demo — dipakai di: InitDataHelper", "aktifkan_akun_demo", Konfigurasi.TIDAK_AKTIF));
+		rows.appendChild(createRowActiveDefault("Data sample eBisnis — mengizinkan provisioning data contoh apotik, tenaga medis, inventory, dan unit usaha (DEFAULT NONAKTIF)", Konfigurasi.DATA_SAMPLE_EBISNIS, Konfigurasi.TIDAK_AKTIF));
 		rows.appendChild(createRowActiveDefault("Aktifkan chatbot — dipakai di: Wa", "aktifkan_chatbot", Konfigurasi.AKTIF));
 		rows.appendChild(createRowActiveDefault("Aktifkan chek ulang bank online — dipakai di: VirtualAccountBankAction", "aktifkan_chek_ulang_bank_online", Konfigurasi.TIDAK_AKTIF));
 		rows.appendChild(createRowActiveDefault("Aktifkan chek ulang semua mandiri — dipakai di: LogHostToHostAction", "aktifkan_chek_ulang_semua_mandiri", Konfigurasi.TIDAK_AKTIF));
