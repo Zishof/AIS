@@ -1452,6 +1452,8 @@ public class PosApi extends HttpServlet {
 	private static void ikatParam(java.sql.PreparedStatement ps, int idx, Object v) throws Exception {
 		if (v instanceof Long) ps.setLong(idx, ((Long) v).longValue());
 		else if (v instanceof Integer) ps.setInt(idx, ((Integer) v).intValue());
+		else if (v instanceof java.math.BigDecimal) ps.setBigDecimal(idx, (java.math.BigDecimal) v);
+		else if (v instanceof Number) ps.setDouble(idx, ((Number) v).doubleValue());
 		else if (v instanceof java.util.Date) ps.setDate(idx, new java.sql.Date(((java.util.Date) v).getTime()));
 		else {
 			String s = String.valueOf(v);
