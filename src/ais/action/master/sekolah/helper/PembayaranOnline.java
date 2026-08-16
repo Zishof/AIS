@@ -837,7 +837,8 @@ public class PembayaranOnline extends GenericAutowireComposer {
 						: (Integer) bulan.getSelectedItem().getValue();
 				Integer thn = tahun == null || tahun.getSelectedItem() == null ? null
 						: (Integer) tahun.getSelectedItem().getValue();
-				AnalisisTagihanSekolahHelper.buka(getSiswaLokal(), getCalonSiswaLokal(), null, bln, thn);
+				AnalisisTagihanSekolahHelper.buka(getSiswaLokal(), getCalonSiswaLokal(), null, bln, thn,
+						pilihan == null ? 0 : pilihan.size());
 			}
 		});
 

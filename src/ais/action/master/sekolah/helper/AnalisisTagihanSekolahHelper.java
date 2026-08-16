@@ -2,6 +2,7 @@ package ais.action.master.sekolah.helper;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -19,11 +20,13 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.sekolah.CalonSiswa;
 import ais.database.model.sekolah.GelombangPendaftaranPsb;
 import ais.database.model.sekolah.JenisBiayaSekolah;
+import ais.database.model.sekolah.NominalBiaya;
 import ais.database.model.sekolah.PengaturanBiaya;
 import ais.database.model.sekolah.PengaturanBiayaItemBiaya;
 import ais.database.model.sekolah.PengaturanBiayaPunyaSiswa;
 import ais.database.model.sekolah.Siswa;
 import ais.database.model.sekolah.Tagihan;
+import ais.common.Common;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyWindow;
 
@@ -52,8 +55,27 @@ public final class AnalisisTagihanSekolahHelper {
 		}
 	}
 
+	private static class Hilir {
+		int nominalBiaya;
+		int tagihanSemua;
+		int tagihanAktif;
+		int tagihanNonaktif;
+		int tagihanTerbayar;
+		int tagihanBelumTerbayar;
+		int tagihanSampaiPeriode;
+		int barisLayar;
+		double nilaiTagihan;
+		double nilaiDibayar;
+		String sumber = "-";
+	}
+
 	public static void buka(Siswa siswa, CalonSiswa calonSiswa, JenisBiayaSekolah jenisBiaya,
 			Integer bulan, Integer tahun) throws Exception {
+		buka(siswa, calonSiswa, jenisBiaya, bulan, tahun, -1);
+	}
+
+	public static void buka(Siswa siswa, CalonSiswa calonSiswa, JenisBiayaSekolah jenisBiaya,
+			Integer bulan, Integer tahun, int barisLayar) throws Exception {
 		if (siswa == null && calonSiswa == null) {
 			MyMessageboxConfig.show("Pilih siswa atau calon siswa terlebih dahulu, lalu jalankan Analisis Data kembali.",
 					"Analisis Data", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
@@ -78,9 +100,9 @@ public final class AnalisisTagihanSekolahHelper {
 			List<Long> ids = ambilIdPengaturanCocok(session, tahap);
 			int item = hitungItem(session, ids);
 			int settingKhusus = hitungSettingKhusus(session, siswa, calonSiswa);
-			int tagihan = hitungTagihan(session, siswa, calonSiswa, jenisBiaya, bulan, tahun);
+			Hilir hilir = analisisHilir(session, siswa, calonSiswa, jenisBiaya, bulan, tahun, ids, barisLayar);
 			tampilkan(siswa, calonSiswa, jenisBiaya, bulan, tahun, tahap, kandidat, item,
-					settingKhusus, tagihan);
+					settingKhusus, hilir);
 		} catch (Exception e) {
 			ais.common.ErrorAuditUtil.record(e, "AnalisisTagihanSekolahHelper:buka");
 			MyMessageboxConfig.show("Analisis belum dapat diselesaikan: " + aman(e.getMessage()), "Analisis Data",
@@ -241,24 +263,87 @@ public final class AnalisisTagihanSekolahHelper {
 		return n == null ? 0 : n.intValue();
 	}
 
-	private static int hitungTagihan(Session session, Siswa siswa, CalonSiswa calon, JenisBiayaSekolah jenis,
-			Integer bulan, Integer tahun) {
+	@SuppressWarnings("unchecked")
+	private static Hilir analisisHilir(Session session, Siswa siswa, CalonSiswa calon, JenisBiayaSekolah jenis,
+			Integer bulan, Integer tahun, List<Long> pengaturanIds, int barisLayar) {
+		Hilir h = new Hilir();
+		h.barisLayar = barisLayar;
+		Criteria nb = session.createCriteria(NominalBiaya.class);
+		nb.add(siswa != null ? Restrictions.eq("siswa", siswa) : Restrictions.eq("calonSiswa", calon));
+		if (pengaturanIds != null && !pengaturanIds.isEmpty())
+			nb.add(Restrictions.in("pengaturanBiaya.id", pengaturanIds));
+		else nb.add(Restrictions.sqlRestriction("1=0"));
+		Number nominal = (Number) nb.setProjection(Projections.rowCount()).uniqueResult();
+		h.nominalBiaya = nominal == null ? 0 : nominal.intValue();
+
+		h.tagihanSemua = hitungTagihanSekolah(session, siswa, calon, jenis, bulan, tahun, null, false);
+		h.tagihanAktif = hitungTagihanSekolah(session, siswa, calon, jenis, bulan, tahun, aktifAtauNull("aktif"), false);
+		h.tagihanNonaktif = hitungTagihanSekolah(session, siswa, calon, jenis, bulan, tahun,
+				Restrictions.eq("aktif", false), false);
+		h.tagihanTerbayar = hitungTagihanSekolah(session, siswa, calon, jenis, bulan, tahun,
+				Restrictions.isNotNull("pembayaranSiswaDetail"), false);
+		h.tagihanBelumTerbayar = hitungTagihanSekolah(session, siswa, calon, jenis, bulan, tahun,
+				Restrictions.isNull("pembayaranSiswaDetail"), false);
+		h.tagihanSampaiPeriode = hitungTagihanSekolah(session, siswa, calon, jenis, bulan, tahun,
+				aktifAtauNull("aktif"), true);
+		Number nilaiTagihan = (Number) criteriaTagihanSekolah(session, siswa, calon, jenis, bulan, tahun, null, false)
+				.setProjection(Projections.sum("nominal")).uniqueResult();
+		h.nilaiTagihan = nilaiTagihan == null ? 0.0 : nilaiTagihan.doubleValue();
+		Number nilaiDibayar = (Number) criteriaTagihanSekolah(session, siswa, calon, jenis, bulan, tahun,
+				Restrictions.isNotNull("pembayaranSiswaDetail"), false)
+				.setProjection(Projections.sum("dibayar")).uniqueResult();
+		h.nilaiDibayar = nilaiDibayar == null ? 0.0 : nilaiDibayar.doubleValue();
+
+		List<Tagihan> data = criteriaTagihanSekolah(session, siswa, calon, jenis, bulan, tahun, null, false)
+				.setMaxResults(15).list();
+		LinkedHashSet<String> sumber = new LinkedHashSet<String>();
+		for (Tagihan t : data) {
+			if (t == null) continue;
+			String item = t.getItemBiayaSekolah() == null ? "Item tanpa nama" : String.valueOf(t.getItemBiayaSekolah());
+			String setting = t.getPengaturanBiaya() == null || t.getPengaturanBiaya().getId() == null ? "tanpa PengaturanBiaya"
+					: "PengaturanBiaya #" + t.getPengaturanBiaya().getId();
+			sumber.add(item + " (Tagihan #" + t.getId() + ", " + setting + ", periode "
+					+ (t.getTahunbulan() == null ? "-" : t.getTahunbulan()) + ", "
+					+ (t.getPembayaranSiswaDetail() == null ? "belum dibayar" : "sudah dibayar") + ")");
+		}
+		h.sumber = gabung(sumber);
+		return h;
+	}
+
+	private static int hitungTagihanSekolah(Session session, Siswa siswa, CalonSiswa calon,
+			JenisBiayaSekolah jenis, Integer bulan, Integer tahun, Criterion tambahan, boolean batasiPeriode) {
+		Number n = (Number) criteriaTagihanSekolah(session, siswa, calon, jenis, bulan, tahun, tambahan, batasiPeriode)
+				.setProjection(Projections.rowCount()).uniqueResult();
+		return n == null ? 0 : n.intValue();
+	}
+
+	private static Criteria criteriaTagihanSekolah(Session session, Siswa siswa, CalonSiswa calon,
+			JenisBiayaSekolah jenis, Integer bulan, Integer tahun, Criterion tambahan, boolean batasiPeriode) {
 		Criteria c = session.createCriteria(Tagihan.class);
 		c.add(siswa != null ? Restrictions.eq("siswa", siswa) : Restrictions.eq("calonSiswa", calon));
-		c.add(aktifAtauNull("aktif"));
 		if (jenis != null) {
 			c.createAlias("pengaturanBiaya", "pengaturanBiayaAnalisis");
 			c.add(Restrictions.eq("pengaturanBiayaAnalisis.jenisBiayaSekolah", jenis));
 		}
-		if (bulan != null && tahun != null)
+		if (batasiPeriode && bulan != null && tahun != null)
 			c.add(Restrictions.or(Restrictions.isNull("tahunbulan"),
 					Restrictions.le("tahunbulan", Integer.valueOf(tahun.intValue() * 100 + bulan.intValue()))));
-		Number n = (Number) c.setProjection(Projections.rowCount()).uniqueResult();
-		return n == null ? 0 : n.intValue();
+		if (tambahan != null) c.add(tambahan);
+		return c;
+	}
+
+	private static String gabung(LinkedHashSet<String> nilai) {
+		if (nilai == null || nilai.isEmpty()) return "Tidak ada sumber Tagihan yang ditemukan";
+		StringBuffer sb = new StringBuffer();
+		for (String s : nilai) {
+			if (sb.length() > 0) sb.append("; ");
+			sb.append(s);
+		}
+		return sb.toString();
 	}
 
 	private static void tampilkan(Siswa siswa, CalonSiswa calon, JenisBiayaSekolah jenis, Integer bulan,
-			Integer tahun, List<Tahap> tahap, int kandidat, int item, int khusus, int tagihan) throws InterruptedException {
+			Integer tahun, List<Tahap> tahap, int kandidat, int item, int khusus, Hilir hilir) throws InterruptedException {
 		MyWindow w = new MyWindow("Analisis Data Tagihan Siswa", "none", true);
 		w.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
 		w.setWidth("950px");
@@ -290,11 +375,24 @@ public final class AnalisisTagihanSekolahHelper {
 					.append("</td><td style='border:1px solid #ccc;padding:6px;text-align:center'>").append(t.criterion == null ? "-" : t.jikaDilewati)
 					.append("</td><td style='border:1px solid #ccc;padding:6px;text-align:center'>").append(status).append("</td></tr>");
 		}
-		h.append("</table><div style='margin-top:10px;padding:10px;background:#f8fafc;border:1px solid #cbd5e1'>Setting cocok: <b>")
+		h.append("</table><div style='margin-top:12px;padding:9px;background:#ecfeff;border-left:4px solid #0891b2'><b>Asal-usul tagihan yang diperiksa</b><br>")
+				.append("PengaturanBiaya &rarr; PengaturanBiayaItemBiaya &rarr; NominalBiaya &rarr; Tagihan &rarr; PembayaranSiswaDetail/PembayaranSiswa &rarr; layar pembayaran.</div>")
+				.append("<div style='margin-top:9px;padding:10px;background:#f8fafc;border:1px solid #cbd5e1'>Setting cocok: <b>")
 				.append(kandidat).append("</b> &nbsp;|&nbsp; Item biaya: <b>").append(item)
 				.append("</b> &nbsp;|&nbsp; Setting khusus siswa: <b>").append(khusus)
-				.append("</b> &nbsp;|&nbsp; Tagihan aktif sampai periode pilihan: <b>").append(tagihan).append("</b></div>")
-				.append(kesimpulan(tahap, kandidat, item, tagihan))
+				.append("</b> &nbsp;|&nbsp; NominalBiaya: <b>").append(hilir.nominalBiaya)
+				.append("</b> &nbsp;|&nbsp; Tagihan seluruhnya: <b>").append(hilir.tagihanSemua)
+				.append("</b> &nbsp;|&nbsp; Aktif: <b>").append(hilir.tagihanAktif)
+				.append("</b> &nbsp;|&nbsp; Nonaktif: <b>").append(hilir.tagihanNonaktif)
+				.append("</b> &nbsp;|&nbsp; Sudah dibayar: <b>").append(hilir.tagihanTerbayar)
+				.append("</b> &nbsp;|&nbsp; Belum dibayar: <b>").append(hilir.tagihanBelumTerbayar)
+				.append("</b> &nbsp;|&nbsp; Aktif sampai periode pilihan: <b>").append(hilir.tagihanSampaiPeriode)
+				.append("</b> &nbsp;|&nbsp; Baris layar: <b>").append(hilir.barisLayar < 0 ? "tidak dihitung" : hilir.barisLayar)
+				.append("</b></div><div style='margin-top:8px;padding:9px;background:#fafafa;border:1px solid #e5e7eb'><b>Nilai yang terlacak:</b> Tagihan ")
+				.append(Common.numberFormat.get().format(hilir.nilaiTagihan)).append("; dibayar ")
+				.append(Common.numberFormat.get().format(hilir.nilaiDibayar)).append(".<br><b>Sumber tagihan:</b><br>")
+				.append(esc(hilir.sumber)).append("</div>")
+				.append(kesimpulan(tahap, kandidat, item, hilir))
 				.append("<div style='margin-top:10px;padding:11px;background:#eff6ff;border-left:4px solid #2563eb'><b>Langkah perbaikan:</b><ol style='margin:6px 0 0 20px'>")
 				.append("<li>Buka menu Pembayaran &gt; Pengaturan Biaya.</li><li>Buat atau ubah setting sesuai jenis biaya, sekolah, angkatan, kelas, jurusan, status awal, asrama, dan gelombang yang ditandai gagal.</li>")
 				.append("<li>Tambahkan Item Biaya beserta nominalnya jika jumlah item masih nol.</li><li>Simpan, lalu jalankan Proses/Sinkronkan Tagihan dan klik Refresh.</li><li>Jalankan Analisis Data kembali sampai semua tahap cocok dan tagihan terbentuk.</li></ol></div>")
@@ -303,7 +401,7 @@ public final class AnalisisTagihanSekolahHelper {
 		w.onModal();
 	}
 
-	private static String kesimpulan(List<Tahap> tahap, int kandidat, int item, int tagihan) {
+	private static String kesimpulan(List<Tahap> tahap, int kandidat, int item, Hilir hilir) {
 		String pesan;
 		if (kandidat == 0) {
 			Tahap sebab = null;
@@ -313,8 +411,18 @@ public final class AnalisisTagihanSekolahHelper {
 					: "Tagihan berhenti pada kriteria <b>" + esc(sebab.nama) + "</b> dengan nilai <b>" + esc(sebab.nilai) + "</b>.";
 		} else if (item == 0) {
 			pesan = "Pengaturan Biaya sudah cocok, tetapi belum mempunyai Item Biaya. Tambahkan item dan nominalnya.";
-		} else if (tagihan == 0) {
-			pesan = "Pengaturan dan Item Biaya sudah cocok, tetapi baris Tagihan belum terbentuk untuk periode ini. Jalankan proses/sinkronisasi tagihan lalu Refresh.";
+		} else if (hilir.nominalBiaya == 0) {
+			pesan = "Pengaturan dan Item Biaya sudah cocok, tetapi NominalBiaya siswa belum terbentuk. Jalankan Proses/Sinkronkan Tagihan agar nominal per siswa dibuat.";
+		} else if (hilir.tagihanSemua == 0) {
+			pesan = "NominalBiaya sudah terbentuk, tetapi belum menghasilkan baris Tagihan. Jalankan Proses/Sinkronkan Tagihan lalu Refresh.";
+		} else if (hilir.tagihanAktif == 0 && hilir.tagihanNonaktif > 0) {
+			pesan = "Tagihan ditemukan tetapi seluruhnya nonaktif. Periksa alasan nonaktif/manual dan masa berlaku sebelum mengaktifkannya kembali.";
+		} else if (hilir.tagihanSampaiPeriode == 0 && hilir.tagihanAktif > 0) {
+			pesan = "Tagihan aktif ditemukan, tetapi periodenya berada setelah bulan/tahun yang dipilih. Ubah filter periode hanya bila memang ingin melihat tagihan tersebut.";
+		} else if (hilir.tagihanBelumTerbayar == 0 && hilir.tagihanTerbayar > 0) {
+			pesan = "Seluruh tagihan yang ditemukan sudah memiliki relasi pembayaran. Layar kosong adalah kondisi normal; periksa History/Bukti Pembayaran untuk rinciannya.";
+		} else if (hilir.barisLayar == 0 && hilir.tagihanSampaiPeriode > 0) {
+			pesan = "Tagihan aktif dan sesuai periode tersedia di database, tetapi belum terlihat di layar. Klik Refresh; jika tetap kosong periksa filter tampilan dan cache sesi.";
 		} else {
 			pesan = "Setting dan tagihan ditemukan. Bila layar masih kosong, periksa apakah tagihan sudah lunas, tidak aktif, di luar bulan berlaku, atau tidak dipilih oleh filter tampilan.";
 		}
