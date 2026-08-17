@@ -12415,7 +12415,10 @@ a.ais-adv-search-toggle,
 	display: contents !important;
 }
 .ais-row-actions td {
-	display: inline-flex !important;
+	/* TANPA !important agar style="display:none" dari ZK setVisible(false) tetap berefek.
+	   Bila !important dipasang di sini, ia mengoverride inline style ZK dan tombol tersembunyi
+	   tetap tampil (kedua ikon kunci muncul bersamaan). */
+	display: inline-flex;
 	align-items: center !important;
 	justify-content: center !important;
 	padding: 0 !important;
