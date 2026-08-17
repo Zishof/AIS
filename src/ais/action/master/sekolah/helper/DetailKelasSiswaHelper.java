@@ -819,9 +819,10 @@ public class DetailKelasSiswaHelper implements DataLoader, DataCriteria {
 
 	public void uploadDataSiswa(final File file, final EventListener eventListener) throws Exception {
 
-		final Label peringatan = new Label("");
+		final StringBuilder laporan = new StringBuilder();
+		final int[] jumlah = {0, 0}; // [0]=berhasil, [1]=gagal/dilewati
 
-		final Label label = new Label(ais.common.Common.getBahasaConfig("Proses upload data data .."));
+		final Label label = new Label(ais.common.Common.getBahasaConfig("Proses upload data siswa.."));
 		Clients.showBusy(label.getValue());
 		final Timer timer = new Timer(200);
 		timer.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
@@ -832,15 +833,23 @@ public class DetailKelasSiswaHelper implements DataLoader, DataCriteria {
 			public void onEvent(Event arg0) throws Exception {
 				Clients.showBusy(label.getValue());
 				if (label.getValue().isEmpty()) {
-					System.out.println("loading file " + file.getAbsolutePath());
-					MyMessageboxConfig.show(
-							"Upload data siswa berhasil dilakukan."
-									+ (peringatan.getValue().isEmpty() ? "" : "\n" + peringatan.getValue()),
-							"Pemberitahuan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, eventListener);
-					Clients.clearBusy();
 					timer.detach();
+					Clients.clearBusy();
+					String isi = "Laporan Upload Siswa ke Kelas\n"
+							+ "==============================\n"
+							+ "Berhasil : " + jumlah[0] + " siswa\n"
+							+ "Gagal    : " + jumlah[1] + " baris\n\n"
+							+ laporan.toString();
+					try {
+						org.zkoss.zul.Filedownload.save(isi.getBytes("UTF-8"), "text/plain", "laporan_upload_siswa_kelas.txt");
+					} catch (Exception ex) {
+						ex.printStackTrace();
+					}
+					MyMessageboxConfig.show(
+							"Upload selesai.\nBerhasil: " + jumlah[0] + " siswa, Gagal/Dilewati: " + jumlah[1]
+									+ " baris.\nLaporan rinci telah diunduh.",
+							"Pemberitahuan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, eventListener);
 				}
-
 			}
 		});
 		timer.start();
@@ -856,14 +865,9 @@ public class DetailKelasSiswaHelper implements DataLoader, DataCriteria {
 					XSSFWorkbook workbook = new XSSFWorkbook(file.getAbsolutePath());
 					XSSFSheet sheet = workbook.getSheetAt(0);
 
-					// PENTING: gunakan session KHUSUS thread ini lewat openSession(), BUKAN
-					// currentNativeSession(). Sebab Common.getSheetContentAsObject() di dalam loop
-					// memanggil ObjectHelper.getContentAsObject yang MENUTUP native session ThreadLocal
-					// (HibernateUtil.closeSession()). Bila session di-cache dari currentNativeSession,
-					// pemanggilan createCriteria berikutnya memakai session yang sudah tertutup ->
-					// "org.hibernate.SessionException: Session is closed!". Session hasil openSession()
-					// tidak disimpan di ThreadLocal sehingga aman dari penutupan helper tsb; ditutup
-					// sendiri di blok finally.
+					// Gunakan openSession() bukan currentNativeSession(): Common.getSheetContentAsObject()
+					// memanggil HibernateUtil.closeSession() yang menutup native session ThreadLocal.
+					// openSession() tidak disimpan di ThreadLocal sehingga aman; ditutup di finally.
 					session = HibernateUtil.openSession();
 
 					int rowCount = (sheet.getLastRowNum() + 1);
@@ -873,52 +877,69 @@ public class DetailKelasSiswaHelper implements DataLoader, DataCriteria {
 							Siswa siswa = (Siswa) Common.getSheetContentAsObject(sheet, 0, i, Siswa.class);
 							Integer nomorUrut = Common.getSheetContentAsInteger(sheet, 3, i);
 							if (siswa != null && siswa.getId() != null) {
+								// Reload ke session khusus thread agar tidak ada cross-session cascade error.
+								// KelasSiswaPunyaSiswa.kelasSiswa dan .siswa punya cascade=PERSIST,MERGE;
+								// meng-set entitas dari session lain memicu TransientObjectException yang
+								// ditelan diam-diam oleh CommonHibernateHelper.isStaleOrMissingRow().
+								Siswa siswaSafe = (Siswa) session.get(Siswa.class, siswa.getId());
+								KelasSiswa kelasSiswaSafe = (KelasSiswa) session.get(KelasSiswa.class, kelasSiswa.getId());
+								if (siswaSafe == null || kelasSiswaSafe == null) {
+									laporan.append("Baris ").append(i).append(": GAGAL - siswa/kelas tidak ditemukan di DB\n");
+									jumlah[1]++;
+									continue;
+								}
 
-								KelasSiswaPunyaSiswa kelasSiswaPunyaSiswa = (KelasSiswaPunyaSiswa) session
+								KelasSiswaPunyaSiswa ksps = (KelasSiswaPunyaSiswa) session
 										.createCriteria(KelasSiswaPunyaSiswa.class)
 										.createAlias("kelasSiswa", "kelasSiswa")
-										.add(Restrictions.eq("kelasSiswa.tahunAjaran", kelasSiswa.getTahunAjaran()))
-										.add(Restrictions.eq("siswa", siswa)).setMaxResults(1).uniqueResult();
-								if (kelasSiswaPunyaSiswa == null) {
-									kelasSiswaPunyaSiswa = new KelasSiswaPunyaSiswa();
+										.add(Restrictions.eq("kelasSiswa.tahunAjaran", kelasSiswaSafe.getTahunAjaran()))
+										.add(Restrictions.eq("siswa", siswaSafe)).setMaxResults(1).uniqueResult();
+								if (ksps == null) {
+									ksps = new KelasSiswaPunyaSiswa();
 								}
-								kelasSiswaPunyaSiswa.setNomorUrut(nomorUrut);
-								kelasSiswaPunyaSiswa.setKelasSiswa(kelasSiswa);
-								kelasSiswaPunyaSiswa.setSiswa(siswa);
+								ksps.setNomorUrut(nomorUrut);
+								ksps.setKelasSiswa(kelasSiswaSafe);
+								ksps.setSiswa(siswaSafe);
 								session.getTransaction().begin();
-								Common.refreshSaveOrUpdate(session, kelasSiswaPunyaSiswa);
+								Common.refreshSaveOrUpdate(session, ksps);
 								session.getTransaction().commit();
 
-								if (kelasSiswa.getTahunAjaran().equals(Common.getCurrentTahunAkademik())) {
-									// PERBAIKAN: batasi hanya siswa yang bersangkutan. Sebelumnya query
-									// TANPA klausa WHERE sehingga menimpa current_kelas_id SELURUH baris
-									// sekolah.siswa setiap kali satu baris diimpor (merusak data). Juga
-									// dibungkus transaksi agar pasti ter-commit (autocommit dimatikan).
+								if (kelasSiswaSafe.getTahunAjaran().equals(Common.getCurrentTahunAkademik())) {
 									session.getTransaction().begin();
 									session.createSQLQuery(
-											"update sekolah.siswa set current_kelas_id=" + kelasSiswa.getId()
-													+ " where id=" + siswa.getId())
+											"update sekolah.siswa set current_kelas_id=" + kelasSiswaSafe.getId()
+													+ " where id=" + siswaSafe.getId())
 											.executeUpdate();
 									session.getTransaction().commit();
 								}
 
-								label.setValue("Upload data \"" + siswa.getNim() + " - " + siswa.getNama() + "\" ("
+								laporan.append("Baris ").append(i).append(": OK - ")
+										.append(siswaSafe.getNim()).append(" ").append(siswaSafe.getNama()).append("\n");
+								jumlah[0]++;
+								label.setValue("Upload \"" + siswaSafe.getNim() + " - " + siswaSafe.getNama() + "\" ("
 										+ Common.numberFormat.get().format(i * 100.0 / rowCount) + " %)");
+							} else {
+								String cellVal = Common.getCellContent(Common.getCell(sheet, 0, i));
+								if (cellVal != null && !cellVal.trim().isEmpty()) {
+									laporan.append("Baris ").append(i).append(": DILEWATI - NIS '")
+											.append(cellVal).append("' tidak ditemukan\n");
+									jumlah[1]++;
+								}
 							}
 
 						} catch (Exception e) {
+							laporan.append("Baris ").append(i).append(": ERROR - ").append(e.getMessage()).append("\n");
+							jumlah[1]++;
 							Common.tampilErrorJikaAdmin(e);
 						}
 
 					}
 				} catch (Exception e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace(); ais.common.ErrorAuditUtil.record(e1, "auto-audit src/ais/action/master/sekolah/helper/DetailKelasSiswaHelper.java:916");
+					laporan.append("ERROR FATAL: ").append(e1.getMessage()).append("\n");
+					e1.printStackTrace();
+					ais.common.ErrorAuditUtil.record(e1, "auto-audit src/ais/action/master/sekolah/helper/DetailKelasSiswaHelper.java:uploadDataSiswa");
 				} finally {
-					// Tutup session khusus thread ini secara tuntas (rollback transaksi/koneksi yang
-					// menggantung -> disconnect -> close) agar koneksi tidak "idle in transaction".
 					HibernateUtil.closeSessionQuietly(session);
-					// Bersihkan pula native session ThreadLocal sisa pemanggilan helper Excel.
 					HibernateUtil.closeSession();
 				}
 

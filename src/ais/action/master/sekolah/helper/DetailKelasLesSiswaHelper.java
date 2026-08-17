@@ -929,9 +929,10 @@ public class DetailKelasLesSiswaHelper implements DataLoader, DataCriteria {
 
 	public void uploadDataSiswa(final File file, final EventListener eventListener) throws Exception {
 
-		final Label peringatan = new Label("");
+		final StringBuilder laporan = new StringBuilder();
+		final int[] jumlah = {0, 0}; // [0]=berhasil, [1]=gagal/dilewati
 
-		final Label label = new Label(ais.common.Common.getBahasaConfig("Proses upload data data .."));
+		final Label label = new Label(ais.common.Common.getBahasaConfig("Proses upload data siswa.."));
 		Clients.showBusy(label.getValue());
 		final Timer timer = new Timer(200);
 		timer.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
@@ -942,15 +943,23 @@ public class DetailKelasLesSiswaHelper implements DataLoader, DataCriteria {
 			public void onEvent(Event arg0) throws Exception {
 				Clients.showBusy(label.getValue());
 				if (label.getValue().isEmpty()) {
-					System.out.println("loading file " + file.getAbsolutePath());
-					MyMessageboxConfig.show(
-							"Upload data siswa berhasil dilakukan."
-									+ (peringatan.getValue().isEmpty() ? "" : "\n" + peringatan.getValue()),
-							"Pemberitahuan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, eventListener);
-					Clients.clearBusy();
 					timer.detach();
+					Clients.clearBusy();
+					String isi = "Laporan Upload Siswa ke Kelas Les\n"
+							+ "==================================\n"
+							+ "Berhasil : " + jumlah[0] + " siswa\n"
+							+ "Gagal    : " + jumlah[1] + " baris\n\n"
+							+ laporan.toString();
+					try {
+						org.zkoss.zul.Filedownload.save(isi.getBytes("UTF-8"), "text/plain", "laporan_upload_siswa_kelas_les.txt");
+					} catch (Exception ex) {
+						ex.printStackTrace();
+					}
+					MyMessageboxConfig.show(
+							"Upload selesai.\nBerhasil: " + jumlah[0] + " siswa, Gagal/Dilewati: " + jumlah[1]
+									+ " baris.\nLaporan rinci telah diunduh.",
+							"Pemberitahuan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION, eventListener);
 				}
-
 			}
 		});
 		timer.start();
@@ -959,14 +968,16 @@ public class DetailKelasLesSiswaHelper implements DataLoader, DataCriteria {
 
 			@Override
 			public void run() {
-				try {
-
+				Session session = null;
 				try {
 
 					XSSFWorkbook workbook = new XSSFWorkbook(file.getAbsolutePath());
 					XSSFSheet sheet = workbook.getSheetAt(0);
 
-					Session session = HibernateUtil.currentNativeSession();
+					// Gunakan openSession() bukan currentNativeSession(): getSheetContentAsObject()
+					// menutup native session ThreadLocal di dalam loop, sehingga session yang
+					// diperoleh dari currentNativeSession() menjadi invalid setelah iterasi pertama.
+					session = HibernateUtil.openSession();
 
 					int rowCount = (sheet.getLastRowNum() + 1);
 					for (int i = 1; i < rowCount; i++) {
@@ -975,41 +986,58 @@ public class DetailKelasLesSiswaHelper implements DataLoader, DataCriteria {
 							Siswa siswa = (Siswa) Common.getSheetContentAsObject(sheet, 0, i, Siswa.class);
 							Integer nomorUrut = Common.getSheetContentAsInteger(sheet, 3, i);
 							if (siswa != null && siswa.getId() != null) {
+								Siswa siswaSafe = (Siswa) session.get(Siswa.class, siswa.getId());
+								if (siswaSafe == null) {
+									laporan.append("Baris ").append(i).append(": GAGAL - siswa tidak ditemukan di DB\n");
+									jumlah[1]++;
+									continue;
+								}
 
-								KelasLesSiswaPunyaSiswa kelasLesSiswaPunyaSiswa = (KelasLesSiswaPunyaSiswa) session
+								KelasLesSiswaPunyaSiswa ksps = (KelasLesSiswaPunyaSiswa) session
 										.createCriteria(KelasLesSiswaPunyaSiswa.class)
 										.add(Restrictions.eq("kelasLesSiswa", kelasLesSiswa))
-										.add(Restrictions.eq("siswa", siswa)).setMaxResults(1).uniqueResult();
-								if (kelasLesSiswaPunyaSiswa == null) {
-									kelasLesSiswaPunyaSiswa = new KelasLesSiswaPunyaSiswa();
+										.add(Restrictions.eq("siswa", siswaSafe)).setMaxResults(1).uniqueResult();
+								if (ksps == null) {
+									ksps = new KelasLesSiswaPunyaSiswa();
 								}
-								kelasLesSiswaPunyaSiswa.setNomorUrut(nomorUrut);
-								kelasLesSiswaPunyaSiswa.setKelasLesSiswa(kelasLesSiswa);
-								kelasLesSiswaPunyaSiswa.setSiswa(siswa);
+								ksps.setNomorUrut(nomorUrut);
+								ksps.setKelasLesSiswa(kelasLesSiswa);
+								ksps.setSiswa(siswaSafe);
 								session.getTransaction().begin();
-								Common.refreshSaveOrUpdate(session, kelasLesSiswaPunyaSiswa);
+								Common.refreshSaveOrUpdate(session, ksps);
 								session.getTransaction().commit();
 
-								label.setValue("Upload data \"" + siswa.getNim() + " - " + siswa.getNama() + "\" ("
+								laporan.append("Baris ").append(i).append(": OK - ")
+										.append(siswaSafe.getNim()).append(" ").append(siswaSafe.getNama()).append("\n");
+								jumlah[0]++;
+								label.setValue("Upload \"" + siswaSafe.getNim() + " - " + siswaSafe.getNama() + "\" ("
 										+ Common.numberFormat.get().format(i * 100.0 / rowCount) + " %)");
+							} else {
+								String cellVal = Common.getCellContent(Common.getCell(sheet, 0, i));
+								if (cellVal != null && !cellVal.trim().isEmpty()) {
+									laporan.append("Baris ").append(i).append(": DILEWATI - NIS '")
+											.append(cellVal).append("' tidak ditemukan\n");
+									jumlah[1]++;
+								}
 							}
 
 						} catch (Exception e) {
+							laporan.append("Baris ").append(i).append(": ERROR - ").append(e.getMessage()).append("\n");
+							jumlah[1]++;
 							Common.tampilErrorJikaAdmin(e);
 						}
 
 					}
 				} catch (Exception e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace(); ais.common.ErrorAuditUtil.record(e1, "auto-audit src/ais/action/master/sekolah/helper/DetailKelasLesSiswaHelper.java:1004");
+					laporan.append("ERROR FATAL: ").append(e1.getMessage()).append("\n");
+					e1.printStackTrace();
+					ais.common.ErrorAuditUtil.record(e1, "auto-audit src/ais/action/master/sekolah/helper/DetailKelasLesSiswaHelper.java:uploadDataSiswa");
+				} finally {
+					HibernateUtil.closeSessionQuietly(session);
+					HibernateUtil.closeSession();
 				}
-
-				HibernateUtil.closeSession();
 
 				label.setValue("");
-							} finally {
-					ais.database.hibernate.HibernateUtil.closeSession();
-				}
 			}
 		}).start();
 	}
