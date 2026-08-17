@@ -1,0 +1,53 @@
+<?page id="kategoriCplZul" cacheable="false" language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+<zk xmlns="http://www.zkoss.org/2005/zul">
+    <window use="ais.ui.util.MyWindow" border="none" id="window"
+        apply="ais.action.master.obe.KategoriCplAction" width="100%" height="100%">
+        <div sclass="ais-crud-portal">
+            <div sclass="ais-crud-filter-card">
+                <div sclass="ais-crud-filter-head">
+                    <span sclass="ais-crud-filter-title">Kategori Capaian Lulusan</span>
+                    <div sclass="ais-crud-filter-actions">
+                        <toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="add" label="Tambah" image="/img/new.gif" forward="onClick=onAdd"/>
+                        <toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="find" label="Cari" image="/img/search.gif" forward="onClick=onSearchDefault"/>
+                    </div>
+                </div>
+                <div sclass="ais-crud-filter-body">
+                    <grid use="ais.ui.util.MyGrid" fixedLayout="true" sclass="ais-crud-filter-grid">
+                        <columns>
+                            <column use="ais.ui.util.MyColumnConfig" width="150px"/>
+                            <column use="ais.ui.util.MyColumnConfig"/>
+                            <column use="ais.ui.util.MyColumnConfig" width="150px"/>
+                            <column use="ais.ui.util.MyColumnConfig"/>
+                            <column use="ais.ui.util.MyColumnConfig" width="150px"/>
+                            <column use="ais.ui.util.MyColumnConfig"/>
+                        </columns>
+                        <rows><row>
+                            <label use="ais.ui.util.MyLabelConfig" value="Kode"/>
+                            <textbox id="searchkode" forward="onOK=onSearchDefault" width="95%"/>
+                            <label use="ais.ui.util.MyLabelConfig" value="Nama Kategori"/>
+                            <textbox id="searchnama" forward="onOK=onSearchDefault" width="95%"/>
+                            <label use="ais.ui.util.MyLabelConfig" value=""/>
+                            <checkbox use="ais.ui.util.MyCheckboxConfig" id="searchaktif" label="Hanya yang aktif" checked="true" forward="onClick=onSearchDefault"/>
+                        </row></rows>
+                    </grid>
+                </div>
+            </div>
+            <div sclass="ais-crud-data-card">
+                <paging use="ais.ui.util.MyPagingKembar" visible="false" id="paging" detailed="true"/>
+                <grid use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true" id="grid">
+                    <columns>
+                        <column use="ais.ui.util.MyColumnConfig" label="Kode" width="15%" sort="auto(kode)"/>
+                        <column use="ais.ui.util.MyColumnConfig" label="Nama Kategori" width="30%" sort="auto(nama)"/>
+                        <column use="ais.ui.util.MyColumnConfig" label="Keterangan"/>
+                        <column use="ais.ui.util.MyColumnConfig" width="8%" label=""/>
+                        <column use="ais.ui.util.MyColumnConfig" width="12%" label=""/>
+                    </columns>
+                </grid>
+                <paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>
+            </div>
+        </div>
+        <window use="ais.ui.util.MyWindow" id="addWindow" title="Kategori CPL" visible="false"
+            mode="popup" position="center,center" border="normal" width="580px" height="70%"/>
+        <zscript><![CDATA[ addWindow.setVisible(false); ]]></zscript>
+    </window>
+</zk>

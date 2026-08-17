@@ -11,6 +11,7 @@ import ais.database.model.Jurusan;
 import ais.database.model.Matakuliah;
 import ais.database.model.obe.BahanKajian;
 import ais.database.model.obe.CapaianLulusan;
+import ais.database.model.obe.KategoriCpl;
 import ais.database.model.obe.ProfilLulusan;
 import ais.database.model.obe.ReferensiLulusan;
 import ais.ui.util.MyCheckboxConfig;
@@ -43,10 +44,6 @@ import java.util.List;
 public class CapaianLulusanAction extends ObeBaseAction {
 
     private static final long serialVersionUID = -5779730267402400328L;
-
-    private static final String[] KATEGORI_CPL = {
-        "", "Sikap", "Pengetahuan", "Keterampilan Umum", "Keterampilan Khusus"
-    };
 
     // Form fields
     private Textbox  kode;
@@ -159,15 +156,33 @@ public class CapaianLulusanAction extends ObeBaseAction {
         cbKategori = new Combobox();
         cbKategori.setReadonly(true);
         cbKategori.setWidth("90%");
-        for (String k : KATEGORI_CPL) {
-            Comboitem ci = new Comboitem(k.isEmpty() ? "- Pilih Kategori -" : k);
-            ci.setValue(k);
+        Comboitem emptyCategory = new Comboitem("- Pilih Kategori -");
+        emptyCategory.setValue("");
+        cbKategori.appendChild(emptyCategory);
+        List<KategoriCpl> categories = KategoriCplAction.activeCategories(
+                HibernateUtil.currentSession(), perguruanTinggi);
+        for (KategoriCpl category : categories) {
+            Comboitem ci = new Comboitem(category.getNama());
+            ci.setValue(category.getNama());
             cbKategori.appendChild(ci);
         }
         String curKat = cl.getKategori();
         int katIdx = 0;
-        for (int i = 0; i < KATEGORI_CPL.length; i++) {
-            if (KATEGORI_CPL[i].equals(curKat)) { katIdx = i; break; }
+        boolean currentFound = curKat == null || curKat.trim().isEmpty();
+        for (int i = 0; i < cbKategori.getItemCount(); i++) {
+            Object value = cbKategori.getItemAtIndex(i).getValue();
+            if (curKat.equals(value)) {
+                katIdx = i;
+                currentFound = true;
+                break;
+            }
+        }
+        // Data lama tetap dapat diedit walaupun kategorinya sudah dinonaktifkan/dihapus.
+        if (!currentFound) {
+            Comboitem legacy = new Comboitem(curKat);
+            legacy.setValue(curKat);
+            cbKategori.appendChild(legacy);
+            katIdx = cbKategori.getItemCount() - 1;
         }
         cbKategori.setSelectedIndex(katIdx);
         addFormRow(rows, "Kategori CPL (SN-Dikti)", cbKategori);

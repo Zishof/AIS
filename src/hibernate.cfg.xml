@@ -224,6 +224,7 @@
 		<mapping class="ais.database.model.obe.ProfesiLulusan" />
 		<mapping class="ais.database.model.obe.CapaianLulusan" />
 		<mapping class="ais.database.model.obe.ReferensiLulusan" />
+		<mapping class="ais.database.model.obe.KategoriCpl" />
 		<mapping class="ais.database.model.obe.BahanKajian" />
 		<mapping class="ais.database.model.obe.CapaianPembelajaranLulusan" />
 		<mapping class="ais.database.model.obe.IndikatorKinerja" />

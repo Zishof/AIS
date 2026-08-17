@@ -16,6 +16,7 @@
                 <tab use="ais.ui.util.MyTabConfig" forward="onClick=onProfil">CPL vs Profil</tab>
                 <tab use="ais.ui.util.MyTabConfig" forward="onClick=onBahanKajian">CPL vs Bahan Kajian</tab>
                 <tab use="ais.ui.util.MyTabConfig" forward="onClick=onCpmk">CPL vs CPMK</tab>
+                <tab use="ais.ui.util.MyTabConfig">Kategori CPL</tab>
             </tabs>
 
 			<tabpanels>
@@ -111,6 +112,9 @@
                 <tabpanel use="ais.ui.util.MyTabpanel" id="manajemenProfil" />
                 <tabpanel use="ais.ui.util.MyTabpanel" id="manajemenBahanKajian" />
                 <tabpanel use="ais.ui.util.MyTabpanel" id="manajemenCpmk" />
+                <tabpanel use="ais.ui.util.MyTabpanel">
+                    <include src="/WEB-INF/z/x/y/pages/master/obe/kategori_cpl.zul"/>
+                </tabpanel>
 
             
 			</tabpanels>
