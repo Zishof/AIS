@@ -11,6 +11,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import ais.common.ConstantValues;
+import ais.common.Common;
 import ais.common.EbisnisMenuKatalog;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmrole;
@@ -85,6 +86,9 @@ public final class ApotikApiHelper {
 	/** Aksi granular menu apotik -- fail-closed: crud kunci apotik default FALSE (lihat
 	 *  EbisnisMenuKatalog.defaultObj + KUNCI_DEFAULT_NONAKTIF). Admin global (tanpa role) boleh. */
 	private static boolean bolehAksi(Tbmuser tbmuser, String kunciMenu, String aksi) {
+		if (Common.getApakahAdminLain(tbmuser)) {
+			return true;
+		}
 		Tbmrole role = tbmuser == null ? null : tbmuser.hakAkses();
 		if (role == null) {
 			return true;

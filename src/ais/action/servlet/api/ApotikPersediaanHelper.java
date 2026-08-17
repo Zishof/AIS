@@ -11,6 +11,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import ais.common.ConstantValues;
+import ais.common.Common;
 import ais.common.EbisnisMenuKatalog;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmrole;
@@ -56,6 +57,9 @@ public final class ApotikPersediaanHelper {
 	}
 
 	private static boolean bolehAksi(Tbmuser tbmuser, String kunciMenu, String aksi) {
+		if (Common.getApakahAdminLain(tbmuser)) {
+			return true;
+		}
 		Tbmrole role = tbmuser == null ? null : tbmuser.hakAkses();
 		if (role == null) {
 			return true;

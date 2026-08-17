@@ -1112,7 +1112,11 @@ public class PosApi extends HttpServlet {
 		hasil.put("cegahOversell", Common.bolehKonfigurasi(Konfigurasi.KANTIN_POS_CEGAH_OVERSELL, Konfigurasi.TIDAK_AKTIF));
 		hasil.put("bolehTransaksiStokHabis", toko != null
 				&& Boolean.TRUE.equals(toko.getBolehTransaksiStokHabis()));
-		hasil.put("isAdmin", toko == null);
+		// Jangan menyimpulkan admin dari scope toko. Administrator tetap dapat terikat ke
+		// Pedagang/Toko (mis. akun demo Apotik) dan harus tetap menerima seluruh menu.
+		// Sumber kebenaran yang sama dipakai modul ZK/JSP: role ADMINISTRATOR aktif.
+		final boolean admin = Common.getApakahAdminLain(tbmuser);
+		hasil.put("isAdmin", admin);
 		hasil.put("tokoId", toko == null ? JSONObject.NULL : toko.getId());
 		hasil.put("tokoNama", toko == null ? "" : str(toko.getNama()));
 		hasil.put("tokoAktifId", toko == null ? JSONObject.NULL : toko.getId());
@@ -1146,7 +1150,7 @@ public class PosApi extends HttpServlet {
 		// lihat ais.common.EbisnisMenuKatalog). roleAksesMenu==null (admin global/tanpa role) -> semua
 		// menu default true (perilaku sama spt sebelumnya, EbisnisMenuKatalog.urai(null) sudah begitu).
 		org.json.JSONObject ebisnisMenuRole = ais.common.EbisnisMenuKatalog
-				.urai(roleAksesMenu == null ? null : roleAksesMenu.getEbisnisMenu());
+				.urai(admin || roleAksesMenu == null ? null : roleAksesMenu.getEbisnisMenu());
 		org.json.JSONObject menuTersimpan = ebisnisMenuRole.getJSONObject("menu");
 		JSONObject aksesMenu = new JSONObject();
 		aksesMenu.put("supervisor", ebisnisMenuRole.optBoolean("supervisor", false));
@@ -1198,7 +1202,7 @@ public class PosApi extends HttpServlet {
 		// hadir di respons ini bernilai false bila role belum pernah menyimpannya. Kunci varian
 		// baru berikutnya otomatis ikut tanpa menambah baris manual di sini.
 		for (String kunciVarian : ais.common.EbisnisMenuKatalog.KUNCI_DEFAULT_NONAKTIF) {
-			aksesMenu.put(kunciVarian, menuTersimpan.optBoolean(kunciVarian, false));
+			aksesMenu.put(kunciVarian, admin || menuTersimpan.optBoolean(kunciVarian, false));
 		}
 		hasil.put("aksesMenu", aksesMenu);
 		JSONObject aksesMenuCrud = new JSONObject();
@@ -1207,7 +1211,7 @@ public class PosApi extends HttpServlet {
 			JSONObject baris = new JSONObject();
 			JSONObject barisTersimpan = crudTersimpan == null ? null : crudTersimpan.optJSONObject(kunciCrud);
 			for (String aksiCrud : ais.common.EbisnisMenuKatalog.AKSI_CRUD) {
-				baris.put(aksiCrud, barisTersimpan == null || barisTersimpan.optBoolean(aksiCrud, true));
+				baris.put(aksiCrud, admin || barisTersimpan == null || barisTersimpan.optBoolean(aksiCrud, true));
 			}
 			aksesMenuCrud.put(kunciCrud, baris);
 		}
@@ -1289,7 +1293,8 @@ public class PosApi extends HttpServlet {
 			return;
 		}
 		Tbmrole role = tbmuser == null ? null : tbmuser.hakAkses();
-		JSONObject roleEbisnisMenu = ais.common.EbisnisMenuKatalog.urai(role == null ? null : role.getEbisnisMenu());
+		JSONObject roleEbisnisMenu = Common.getApakahAdminLain(tbmuser) ? null
+				: ais.common.EbisnisMenuKatalog.urai(role == null ? null : role.getEbisnisMenu());
 		hasil.put("status", "00");
 		hasil.put("tree", ais.common.EbisnisMenuKatalog.treeUntukKlien(platform, roleEbisnisMenu));
 	}
@@ -1540,6 +1545,9 @@ public class PosApi extends HttpServlet {
 
 	private static boolean bolehAksesActionKantin(Tbmuser tbmuser, String action) {
 		if (action == null || action.length() == 0) return true;
+		// Administrator resmi selalu boleh mengakses seluruh permukaan menu/API,
+		// sekalipun akun tersebut juga terikat ke Pedagang/Toko.
+		if (Common.getApakahAdminLain(tbmuser)) return true;
 		Tbmrole role = tbmuser == null ? null : tbmuser.hakAkses();
 		if (role == null) return true;
 		// Sumber tunggal: JSON konsolidasi Tbmrole.ebisnisMenu -- lihat ais.common.EbisnisMenuKatalog
