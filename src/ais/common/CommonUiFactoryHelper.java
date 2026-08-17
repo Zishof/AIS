@@ -1635,19 +1635,11 @@ public static ParameterUmum getParameterUmum(String nama, String defaultValue) {
 		toolbar.setSpacing("4px");
 		toolbar.setAlign("center");
 		toolbar.setSclass("ais-row-actions");
-		// FIX (kolom aksi berantakan): display:inline-flex sebelumnya membuat kontainer ini
-		// hanya selebar ikon-ikonnya sendiri, sehingga CSS ".ais-row-actions{justify-content:
-		// center}" tak pernah berefek (tak ada ruang kosong di dalam flex-box utk dijustify) --
-		// ikon menempel di kiri kolom lebar, menyisakan gap kosong di kanan. width:100% +
-		// display:flex membuat kontainer melebar penuh ke lebar kolom, baru justify-content:
-		// center benar-benar menengahkan grup ikon di dalam kolom.
-		// FIX (tombol aksi terpotong bila >3): white-space:nowrap DIBUANG dan flex-wrap:wrap
-		// DIPASANG supaya tombol yang tak muat melipat ke baris kedua, bukan meluber keluar
-		// kolom. Catatan penting: pada ZK 5.0.13 Hbox dirender sebagai TABEL BERSARANG
-		// (<table><tr><td> per tombol) sehingga flex-wrap saja tidak cukup -- markup tabelnya
-		// dinetralkan lewat blok ".ais-row-actions" di css_utama.css (display:contents).
-		toolbar.setStyle("display:flex;flex-wrap:wrap;width:100%;align-items:center;"
-				+ "justify-content:flex-end;gap:4px;");
+		// flex-wrap:nowrap + tombol kecil (28px) agar semua tombol aksi tampil dalam 1 baris.
+		// ZK 5.0.13 merender Hbox sebagai tabel bersarang; lapisan tabel dinetralkan via
+		// display:contents di .ais-row-actions (css_utama.css) sehingga flex bekerja langsung.
+		toolbar.setStyle("display:flex;flex-wrap:nowrap;width:100%;align-items:center;"
+				+ "justify-content:flex-end;gap:2px;");
 
 		final String smallButtonStyle = "font-size:9px;border-radius:6px;padding:2px 5px;";
 

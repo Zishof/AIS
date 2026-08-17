@@ -1547,9 +1547,6 @@ public abstract class GeneralValueObject extends DataUtil
 
 		if (tbmuser.getSiswa() == null && voKunci != null) {
 
-			toolbar.appendChild(bukaKunci);
-			toolbar.appendChild(kunci);
-
 			kunci.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
