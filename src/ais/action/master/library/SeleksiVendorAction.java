@@ -258,67 +258,9 @@ public class SeleksiVendorAction extends GenericAutowireComposer implements Form
 		cellMatrix.setParent(rowMatrix);
 		buildMatriks(cellMatrix, edit);
 
-		// ---- Section C ----
-		headerSeksi(rows, "C. Ringkasan Perbandingan / Catatan");
-		// Tombol toggle "Vendor Pembanding": input pembanding hanya tampil bila ditekan / sudah ada isi.
-		MyFormRow rowBtn = new MyFormRow();
-		rowBtn.setParent(rows);
-		rowBtn.appendChild(new MyLabelConfig("Vendor Pembanding"));
-		final org.zkoss.zul.Button btnPembanding = new org.zkoss.zul.Button("+ Vendor Pembanding");
-		btnPembanding.setStyle("background:#4f46e5; color:#fff; border:none; padding:4px 10px; border-radius:6px; cursor:pointer;");
-		rowBtn.appendChild(btnPembanding);
-
-		vendorPembanding1 = teksNilai(seleksiVendor.getVendorPembanding1());
-		barisPembanding.add(rowKVret(rows, "Vendor Pembanding I", edit ? vendorPembanding1 : new Label(nilaiStr(vendorPembanding1))));
-		vendorPembanding2 = teksNilai(seleksiVendor.getVendorPembanding2());
-		barisPembanding.add(rowKVret(rows, "Vendor Pembanding II", edit ? vendorPembanding2 : new Label(nilaiStr(vendorPembanding2))));
-		vendorPembanding3 = teksNilai(seleksiVendor.getVendorPembanding3());
-		barisPembanding.add(rowKVret(rows, "Vendor Pembanding III", edit ? vendorPembanding3 : new Label(nilaiStr(vendorPembanding3))));
-		alasanDipilih = teksArea(seleksiVendor.getAlasanDipilih());
-		barisPembanding.add(rowKVret(rows, "Alasan dipilih dibanding lain", edit ? alasanDipilih : new Label(nilaiStr(alasanDipilih))));
-
-		final boolean adaPembanding = !isBlank(seleksiVendor.getVendorPembanding1())
-				|| !isBlank(seleksiVendor.getVendorPembanding2()) || !isBlank(seleksiVendor.getVendorPembanding3())
-				|| !isBlank(seleksiVendor.getAlasanDipilih());
-		for (org.zkoss.zk.ui.Component br : barisPembanding) {
-			br.setVisible(adaPembanding);
-		}
-		btnPembanding.addEventListener(Events.ON_CLICK, new EventListener() {
-			@Override
-			public void onEvent(Event ev) throws Exception {
-				boolean show = !barisPembanding.get(0).isVisible();
-				for (org.zkoss.zk.ui.Component br : barisPembanding) {
-					br.setVisible(show);
-				}
-			}
-		});
-
-		// ---- Section D ----
-		headerSeksi(rows, "D. Rekomendasi Pemilihan");
-		rekomendasi = new Combobox();
-		rekomendasi.setReadonly(true);
-		rekomendasi.setWidth("280px");
-		String[] opsi = { SeleksiVendor.REKOM_DIREKOMENDASIKAN, SeleksiVendor.REKOM_PERTIMBANGAN_ULANG,
-				SeleksiVendor.REKOM_TIDAK };
-		for (String o : opsi) {
-			Comboitem it = new Comboitem(o);
-			it.setValue(o);
-			it.setParent(rekomendasi);
-			if (o.equals(seleksiVendor.getRekomendasi())) {
-				rekomendasi.setSelectedItem(it);
-			}
-		}
-		rowKV(rows, "Rekomendasi", edit ? rekomendasi
-				: new Label(seleksiVendor.getRekomendasi() == null ? "" : seleksiVendor.getRekomendasi()));
-
-		rekomendasiNomor = new MyIntbox();
-		rekomendasiNomor.setWidth("60px");
-		rekomendasiNomor.setValue(seleksiVendor.getRekomendasiNomor());
-		rowKV(rows, "Direkomendasikan Vendor Nomor", edit ? rekomendasiNomor
-				: new Label(seleksiVendor.getRekomendasiNomor() == null ? "" : "" + seleksiVendor.getRekomendasiNomor()));
-
-		alasanUtama = teksArea(seleksiVendor.getAlasanUtama());
-		rowKV(rows, "Alasan Utama Memilih", edit ? alasanUtama : new Label(nilaiStr(alasanUtama)));
+		// Section C (Ringkasan Perbandingan / Vendor Pembanding) & Section D (Rekomendasi Pemilihan)
+		// SENGAJA DIHILANGKAN dari form atas permintaan: field-nya tidak lagi ditampilkan/diisi.
+		// Kolom entity dibiarkan (kompatibilitas data lama); controls tidak dibangun -> onSave tidak menyentuhnya.
 
 		recomputeTotals();
 		return grid;
@@ -397,8 +339,9 @@ public class SeleksiVendorAction extends GenericAutowireComposer implements Form
 		barisVendorTeks(rs, "Jenis Barang/Jasa", edit, 2);
 		barisVendorTeks(rs, "PIC Vendor", edit, 3);
 
-		// --- Section B: Penilaian ---
-		barisSeksiMatriks(rs, "B. PENILAIAN (skor 1 - 5)");
+		// --- Section B: Alasan Pemilihan Vendor ---
+		barisSeksiMatriks(rs, "B. ALASAN PEMILIHAN VENDOR (skor 1 - 5)");
+		barisInfoMatriks(rs, "Isi berdasarkan informasi penawaran vendor sebelum digunakan.");
 		for (int k = 0; k < JML_KRITERIA; k++) {
 			final int kk = k;
 			Row r = new Row();
@@ -535,6 +478,17 @@ public class SeleksiVendorAction extends GenericAutowireComposer implements Form
 		}
 	}
 
+	private void barisInfoMatriks(Rows rs, String info) {
+		Row r = new Row();
+		r.setParent(rs);
+		r.setStyle("background:#f8fafc; color:#64748b; font-size:11px;");
+		Label l = new Label(info);
+		l.setParent(r);
+		for (int i = 0; i < JML_VENDOR + 3; i++) {
+			new Label("").setParent(r);
+		}
+	}
+
 	/** Hitung ulang skor tertimbang & peringkat (dipanggil saat nilai/bobot berubah). */
 	private void recomputeTotals() {
 		if (totalLabel[0] == null) {
@@ -604,19 +558,7 @@ public class SeleksiVendorAction extends GenericAutowireComposer implements Form
 			setBobot(seleksiVendor, k, bobot[k].getValue());
 			setKet(seleksiVendor, k, ket[k].getValue());
 		}
-		seleksiVendor.setVendorPembanding1(vendorPembanding1.getValue());
-		seleksiVendor.setVendorPembanding2(vendorPembanding2.getValue());
-		seleksiVendor.setVendorPembanding3(vendorPembanding3.getValue());
-		seleksiVendor.setAlasanDipilih(alasanDipilih.getValue());
-		seleksiVendor.setRekomendasi(rekomendasi.getSelectedItem() == null ? null
-				: (String) rekomendasi.getSelectedItem().getValue());
-		seleksiVendor.setRekomendasiNomor(rekomendasiNomor.getValue());
-		if (rekomendasiNomor.getValue() != null && rekomendasiNomor.getValue() >= 1
-				&& rekomendasiNomor.getValue() <= JML_VENDOR) {
-			Penyedia pr = (Penyedia) penyedia[rekomendasiNomor.getValue() - 1].getAttribute("penyedia");
-			seleksiVendor.setRekomendasiPenyedia(pr);
-		}
-		seleksiVendor.setAlasanUtama(alasanUtama.getValue());
+		// Section C (Vendor Pembanding / alasan) & D (Rekomendasi) dihilangkan dari form -> tidak diisi di sini.
 		// Penilai = pengguna yang menindaklanjuti (mengisi skor)
 		if (tbmuser != null) {
 			seleksiVendor.setNamaPenilai(tbmuser.getUserNama());
@@ -695,6 +637,9 @@ public class SeleksiVendorAction extends GenericAutowireComposer implements Form
 					: (d[v].getNamaVendor() != null && !d[v].getNamaVendor().trim().isEmpty() ? d[v].getNamaVendor()
 							: (d[v].getPenyedia() == null ? null : d[v].getPenyedia().getNama()));
 			parameters.put("nama_vendor_" + (v + 1), nm);
+			parameters.put("alamat_vendor_" + (v + 1), d[v] == null ? null : d[v].getAlamatKontak());
+			parameters.put("jenis_vendor_" + (v + 1), d[v] == null ? null : d[v].getJenisBarangJasa());
+			parameters.put("pic_vendor_" + (v + 1), d[v] == null ? null : d[v].getPicVendor());
 			skor[v] = d[v] == null || d[v].getSkorTertimbang() == null ? 0 : d[v].getSkorTertimbang();
 			parameters.put("skor_" + (v + 1), d[v] == null ? "-" : "" + skor[v]);
 		}
