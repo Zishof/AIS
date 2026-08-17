@@ -73,7 +73,7 @@
     %>
     <%= MobileHubHelper.buildCard(
         Common.getBahasaConfig(m[3]),
-        ctx+"/baru?p="+m[0],
+        "kas".equals(m[5]) ? ctx+"/baru?p=kantin&s=kas" : ctx+"/baru?p="+m[0],
         m[1], m[2],
         Common.getBahasaConfig(m[4])) %>
     <% } %>
