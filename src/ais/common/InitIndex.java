@@ -3449,6 +3449,11 @@ public class InitIndex {
 				"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_pak_sesi_kas') THEN ALTER TABLE koperasi.pembelian_anggota_koperasi ADD CONSTRAINT fk_pak_sesi_kas FOREIGN KEY (sesi_kas_kasir) REFERENCES koperasi.sesi_kas_kasir(id) ON DELETE SET NULL; END IF; END $$",
 				"CREATE INDEX IF NOT EXISTS idx_pak_sesi_kas ON koperasi.pembelian_anggota_koperasi (sesi_kas_kasir, tanggal_pembayaran)",
 				"CREATE INDEX IF NOT EXISTS idx_pak_perangkat_waktu ON koperasi.pembelian_anggota_koperasi (id_perangkat, tanggal_pembayaran DESC) WHERE id_perangkat IS NOT NULL",
+				// Nama indeks/constraint generasi awal memakai aturan "aktif" yang tidak lagi
+				// sama dengan status BUKA/TUTUP saat ini. Hapus keduanya sebelum memasang
+				// indeks kanonik agar pemeriksaan aplikasi dan database selalu identik.
+				"ALTER TABLE koperasi.sesi_kas_kasir DROP CONSTRAINT IF EXISTS uk_sesi_kas_satu_aktif_per_user",
+				"DROP INDEX IF EXISTS koperasi.uk_sesi_kas_satu_aktif_per_user",
 				"DROP INDEX IF EXISTS koperasi.uq_sesi_kas_akun_toko_buka",
 				"DROP INDEX IF EXISTS koperasi.uq_sesi_kas_perangkat_toko_buka",
 				"CREATE UNIQUE INDEX IF NOT EXISTS uq_sesi_kas_akun_buka ON koperasi.sesi_kas_kasir (COALESCE(kasir_user_id,kasir_nama)) WHERE status='BUKA' OR status IS NULL",

@@ -2062,12 +2062,32 @@ public class KantinHelper {
 				ais.database.model.inventory.SesiKasKasir menang = kode == null ? null
 						: ais.action.master.koperasi.helper.SesiKasUtil.cariByKode(session, kode);
 				if (menang == null) {
-					throw eDup; // bukan soal duplikat `kode` -- constraint lain, tetap gagal apa adanya.
+					// Race juga dapat terjadi pada batas unik satu sesi aktif per akun: dua
+					// permintaan dengan kode BERBEDA sama-sama lolos pre-check, lalu hanya satu
+					// INSERT yang menang. Setelah rollback, ambil pemenangnya dan tangani sebagai
+					// pemulihan sesi, bukan error database generik yang memicu retry tanpa akhir.
+					menang = ais.action.master.koperasi.helper.SesiKasUtil.sesiTerbuka(
+							session, id[0], id[1], null);
+				}
+				if (menang == null) {
+					throw eDup; // Constraint lain yang memang bukan idempotensi sesi kas.
+				}
+				String perangkatMenang = ais.action.master.koperasi.helper.SesiKasUtil
+						.normalisasiIdPerangkat(menang.getIdPerangkat());
+				if (perangkatMenang != null && !perangkat.equals(perangkatMenang)) {
+					hasil.put("status", "91");
+					hasil.put("description", "Sesi kas akun ini sudah terbuka pada perangkat "
+							+ (menang.getNamaPerangkat() == null ? perangkatMenang : menang.getNamaPerangkat())
+							+ ". Tutup sesi tersebut sebelum membuka sesi baru.");
+					return;
 				}
 				System.out.println("[SESI-KAS-BUKA] idempotensi (race dideteksi via ConstraintViolationException) -- "
-						+ "kode=" + kode + " SUDAH ada (dibuat request lain), id=" + menang.getId());
+						+ "sesi aktif SUDAH ada (dibuat request lain), id=" + menang.getId());
 				hasil.put("status", "00");
+				hasil.put("dipulihkan", true);
 				hasil.put("id_server", menang.getId());
+				hasil.put("kode", menang.getKode());
+				hasil.put("modalAwal", menang.getModalAwal());
 				return;
 			}
 			System.out.println("[SESI-KAS-BUKA] session.getTransaction().commit() SUKSES -- baris id="
