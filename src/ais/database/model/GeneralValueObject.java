@@ -667,7 +667,29 @@ public abstract class GeneralValueObject extends DataUtil
 		}
 	}
 
-	private static Map<String, JSONObject> datatemporary = new HashMap<String, JSONObject>();
+	// THREAD-SAFETY (lihat ConcurrentModificationException & "Unterminated string" audit
+	// KRS/elearning, GeneralValueObject.putBaru/tulisPutBaru dipanggil dari AuditListener.
+	// prosesUntukElearning): map ini di-share OLEH SELURUH THREAD/REQUEST dalam satu JVM
+	// (bukan per-request), sengaja — dipakai sebagai akumulator "batch" ketika satu proses
+	// sinkronisasi (mis. Dosen.singkronkanKrsMahasiswa) memanggil putBaru() berkali-kali
+	// untuk entity yang sama (dosen/mahasiswa) SEBELUM tulisPutBaru() dipanggil sekali di
+	// akhir (lihat voMahasiswaDosens di Dosen.java). Karena map & JSONObject di dalamnya
+	// bukan thread-safe (HashMap biasa), DUA request BERBEDA yang kebetulan menyentuh
+	// dosen/mahasiswa YANG SAMA secara bersamaan bisa saling mem-mutasi & men-serialize
+	// JSONObject yang SAMA di saat bersamaan, menyebabkan:
+	//  - ConcurrentModificationException saat toString() meng-iterasi HashMap yang sedang
+	//    dimutasi thread lain, ATAU
+	//  - file .json di disk tertimpa dua tulisan yang beririsan (masing-masing dari
+	//    FileUtils.writeStringToFile terpisah tanpa penguncian) sehingga isinya terpotong
+	//    di tengah string ("Unterminated string ...") saat dibaca ulang oleh putBaru().
+	// Fix: ConcurrentHashMap (agar operasi get/put/remove pada map sendiri aman) DITAMBAH
+	// synchronized(key.intern()) di kedua method supaya seluruh rangkaian get-or-create +
+	// mutasi + serialize + tulis-berkas untuk SATU key (id+kelas+tambahan) tidak pernah
+	// tumpang tindih antar-thread, sementara key BERBEDA (entity lain) tetap berjalan
+	// paralel tanpa saling menunggu. ConcurrentHashMap TIDAK mengizinkan value null,
+	// sehingga "penanda sudah ditulis" di tulisPutBaru() memakai remove(key), bukan
+	// put(key, null) seperti sebelumnya.
+	private static final Map<String, JSONObject> datatemporary = new java.util.concurrent.ConcurrentHashMap<String, JSONObject>();
 
 	public void putBaru(String data, String tambahan) {
 		try {
@@ -680,20 +702,22 @@ public abstract class GeneralValueObject extends DataUtil
 			if (!id.isEmpty()) {
 
 				String key = id + "_" + getClass().getSimpleName() + "_" + tambahan;
-				JSONObject jsonObject = datatemporary.get(key);
-				if (jsonObject == null) {
-					try {
-						File file = Common.getFileLocation(this, getClass().getSimpleName() + "_" + tambahan + "_put");
-						String fileContent = ais.common.BacaTulisUtil.baca(file);
-						jsonObject = fileContent == null || fileContent.trim().isEmpty() ? new JSONObject()
-								: new JSONObject(fileContent);
-					} catch (Exception e) {
-						e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/GeneralValueObject.java:691");
-						jsonObject = new JSONObject();
+				synchronized (key.intern()) {
+					JSONObject jsonObject = datatemporary.get(key);
+					if (jsonObject == null) {
+						try {
+							File file = Common.getFileLocation(this, getClass().getSimpleName() + "_" + tambahan + "_put");
+							String fileContent = ais.common.BacaTulisUtil.baca(file);
+							jsonObject = fileContent == null || fileContent.trim().isEmpty() ? new JSONObject()
+									: new JSONObject(fileContent);
+						} catch (Exception e) {
+							e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/GeneralValueObject.java:691");
+							jsonObject = new JSONObject();
+						}
+						datatemporary.put(key, jsonObject);
 					}
-					datatemporary.put(key, jsonObject);
+					jsonObject.put(data, "");
 				}
-				jsonObject.put(data, "");
 
 			}
 		} catch (Exception e) {
@@ -710,14 +734,16 @@ public abstract class GeneralValueObject extends DataUtil
 		}
 		if (!id.isEmpty()) {
 			String key = id + "_" + getClass().getSimpleName() + "_" + tambahan;
-			JSONObject jsonObject = datatemporary.get(key);
-			if (jsonObject != null) {
-				try {
-					File file = Common.getFileLocation(this, getClass().getSimpleName() + "_" + tambahan + "_put");
-					ais.common.BacaTulisUtil.tulis(file, jsonObject.toString());
-					datatemporary.put(key, null);
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/GeneralValueObject.java:719");
-//					e.printStackTrace();
+			synchronized (key.intern()) {
+				JSONObject jsonObject = datatemporary.get(key);
+				if (jsonObject != null) {
+					try {
+						File file = Common.getFileLocation(this, getClass().getSimpleName() + "_" + tambahan + "_put");
+						ais.common.BacaTulisUtil.tulis(file, jsonObject.toString());
+						datatemporary.remove(key);
+					} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/GeneralValueObject.java:719");
+//						e.printStackTrace();
+					}
 				}
 			}
 		}

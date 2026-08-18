@@ -565,11 +565,12 @@ public class LaporanPembayaranSiswa extends MyWindow {
 		parameters.put("sekolah", mySekolah == null || mySekolah.getId() == null ? -1L : mySekolah.getId());
 		parameters.put("tahun", tahun == null ? -1 : tahun);
 		parameters.put("bulan", bulan == null ? -1 : bulan);
-		try {
-			parameters.put("nama_bulan", Common.BULAN[bulan == null ? -1 : bulan - 1]);
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/format1/sekolah/LaporanPembayaranSiswa.java:569");
-			// TODO: handle exception
-		}
+		// KE-FIX (ArrayIndexOutOfBoundsException: -1): bulan null/di luar rentang 1..12
+		// sebelumnya membuat index "bulan - 1" jadi -1 (atau > panjang array) dan melempar
+		// exception saat mengakses Common.BULAN[]. Cek batas dulu sebelum indexing, bukan
+		// menangkap exception setelah kejadian.
+		parameters.put("nama_bulan",
+				bulan == null || bulan < 1 || bulan > Common.BULAN.length ? "" : Common.BULAN[bulan - 1]);
 		parameters.put("angkatan", angkatan == null ? -1 : angkatan);
 
 		parameters.put("mulai", Common.databaseDateFormat.get().format(mulai.getValue()));

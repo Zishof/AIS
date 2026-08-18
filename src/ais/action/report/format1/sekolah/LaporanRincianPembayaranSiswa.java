@@ -487,7 +487,21 @@ public class LaporanRincianPembayaranSiswa extends MyWindow {
 
 			@Override
 			public void onEvent(Event arg0) throws Exception {
-				((EventListener) label.getAttribute("downloadExcel")).onEvent(arg0);
+				// KE-FIX (NPE): atribut "downloadExcel" tidak pernah di-set di layar ini (hanya
+				// "datas" yang diisi oleh generatePerItem*/SaptoUtil.displayWorksheet, yang sudah
+				// menyediakan tab "Tampilan Excel" dengan tombol unduhnya sendiri) -> sebelumnya
+				// tombol ini SELALU melempar NullPointerException saat diklik. Jaga agar tidak
+				// crash & arahkan pengguna ke tempat unduh yang benar.
+				Object downloadListener = label == null ? null : label.getAttribute("downloadExcel");
+				if (downloadListener instanceof EventListener) {
+					((EventListener) downloadListener).onEvent(arg0);
+				} else {
+					PesanFormalHelper.tampilkanGagal("pengunduhan Excel dari tombol ini",
+							"Tombol ini sudah tidak terhubung ke data laporan.",
+							new String[] {
+									"Silakan klik \"Tampilkan\" terlebih dahulu.",
+									"Gunakan tombol unduh pada tab \"Tampilan Excel\" di hasil laporan yang tampil." });
+				}
 			}
 		});
 
