@@ -100,7 +100,7 @@
     </tabbox>
 
     <window use="ais.ui.util.MyWindow" id="approvalWindow" title="Keputusan Atasan &amp; Entri Jurnal"
-            visible="false" position="center,center" border="normal" width="680px">
+            visible="false" mode="popup" position="center,center" border="normal" width="680px">
       <vbox width="100%">
         <label id="approvalInfo" pre="true" sclass="rmb-status" width="96%"/>
         <grid fixedLayout="true" width="100%"><columns><column width="190px"/><column/></columns><rows>
@@ -117,7 +117,7 @@
     </window>
 
     <window use="ais.ui.util.MyWindow" id="paymentWindow" title="Pembayaran Reimbursement"
-            visible="false" position="center,center" border="normal" width="680px">
+            visible="false" mode="popup" position="center,center" border="normal" width="680px">
       <vbox width="100%">
         <label id="paymentInfo" sclass="rmb-status" width="96%"/>
         <grid fixedLayout="true" width="100%"><columns><column width="190px"/><column/></columns><rows>
