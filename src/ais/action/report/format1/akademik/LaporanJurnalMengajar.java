@@ -106,7 +106,7 @@ public class LaporanJurnalMengajar extends MyWindow {
 			org.zkoss.zk.ui.util.Clients.evalJavaScript(
 				"(function(){" +
 				"var w=window.open('','_blank','width=1200,height=860,scrollbars=yes,resizable=yes');" +
-				"if(!w){alert('Popup diblokir browser. Izinkan popup untuk situs ini lalu coba lagi.');return;}" +
+				"if(!w){var d=document.createElement('div');d.style.cssText='position:fixed;z-index:2147483647;left:50%;top:18px;transform:translateX(-50%);max-width:640px;background:#fff7ed;color:#7c2d12;border:1px solid #fdba74;border-radius:10px;padding:12px 16px;box-shadow:0 12px 30px rgba(15,23,42,.22);font:13px/1.45 Arial,sans-serif;';d.innerHTML='<b>Pratinjau belum terbuka</b><br/>Browser memblokir tab baru. Izinkan popup untuk situs ini, lalu klik Cetak HTML lagi.';document.body.appendChild(d);setTimeout(function(){try{if(d.parentNode)d.parentNode.removeChild(d);}catch(e){}},9000);return;}" +
 				"w.document.open('text/html','replace');" +
 				"w.document.write(`" + escaped + "`);" +
 				"w.document.close();" +

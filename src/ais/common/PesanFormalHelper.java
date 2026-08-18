@@ -206,12 +206,34 @@ public final class PesanFormalHelper {
     }
 
     /**
+     * Menampilkan kendala laporan langsung di area laporan. Ini dipakai agar layar PDF/preview
+     * tidak tertutup popup browser yang panjang dan sulit dibaca end user.
+     */
+    public static void tampilkanGagalLaporan(org.zkoss.zk.ui.Component parent, String aktivitas,
+            String penjelasanBisnis, Throwable exception, String[] langkahSolusi) {
+        String pesan = pesanGagalLaporanRingkas(aktivitas, penjelasanBisnis, langkahSolusi);
+        if (parent != null) {
+            try {
+                tempelPesanLaporan(parent, "Laporan belum dapat ditampilkan", pesan);
+                return;
+            } catch (Throwable t) {
+                ais.common.ErrorAuditUtil.record(t, "PesanFormalHelper.tampilkanGagalLaporan-tempel");
+            }
+        }
+        tampilkanToastRingkas("Laporan belum dapat ditampilkan", pesan);
+    }
+
+    /**
      * Pada layar ZK, gunakan dialog web bersama yang menyediakan Detail Error dan Copy Error.
      * Bila halaman lama belum memuat pesan-formal.js, tetap jatuh aman ke Messagebox biasa.
      */
     private static void tampilkanGagalDenganDetail(String aktivitas, String penjelasanBisnis,
             Throwable exception, String[] langkahSolusi) {
         try {
+            if (adalahKonteksLaporan(aktivitas, penjelasanBisnis)) {
+                tampilkanGagalLaporan(null, aktivitas, penjelasanBisnis, exception, langkahSolusi);
+                return;
+            }
             org.json.JSONObject data = new org.json.JSONObject();
             data.put("judul", "Ada kendala");
             data.put("message", (penjelasanBisnis == null || penjelasanBisnis.trim().length() == 0)
@@ -229,13 +251,12 @@ public final class PesanFormalHelper {
             org.zkoss.zk.ui.util.Clients.evalJavaScript(
                     "if(typeof tampilkanPesanGagalFormal==='function'){tampilkanPesanGagalFormal("
                     + org.json.JSONObject.quote(kosongKe(aktivitas, "proses aplikasi")) + ","
-                    + data.toString() + ");}else{alert("
-                    + org.json.JSONObject.quote(pesanGagalException(aktivitas, penjelasanBisnis, exception, langkahSolusi))
-                    + ");}");
+                    + data.toString() + ");}else{"
+                    + jsToast("Ada kendala", pesanGagalRingkas(penjelasanBisnis))
+                    + "}");
         } catch (Throwable t) {
             ais.common.ErrorAuditUtil.record(t, "PesanFormalHelper.tampilkanGagalDenganDetail");
-            tampilkanAman(pesanGagalException(aktivitas, penjelasanBisnis, exception, langkahSolusi),
-                    "Terjadi Kesalahan", MyMessageboxConfig.EXCLAMATION);
+            tampilkanToastRingkas("Ada kendala", pesanGagalRingkas(penjelasanBisnis));
         }
     }
 
@@ -254,6 +275,134 @@ public final class PesanFormalHelper {
 
     private static String kosongKe(String s, String pengganti) {
         return (s == null || s.trim().length() == 0) ? pengganti : s.trim();
+    }
+
+    private static boolean adalahKonteksLaporan(String aktivitas, String penjelasanBisnis) {
+        String teks = (kosongKe(aktivitas, "") + " " + kosongKe(penjelasanBisnis, "")).toLowerCase();
+        return teks.indexOf("laporan") >= 0 || teks.indexOf("report") >= 0 || teks.indexOf("pdf") >= 0
+                || teks.indexOf("jasper") >= 0 || teks.indexOf("cetak") >= 0;
+    }
+
+    private static String pesanGagalRingkas(String penjelasanBisnis) {
+        if (penjelasanBisnis != null && penjelasanBisnis.trim().length() > 0) {
+            return penjelasanBisnis.trim();
+        }
+        return "Proses belum dapat diselesaikan. Silakan coba lagi. Jika masih terjadi, hubungi admin sistem.";
+    }
+
+    private static String pesanGagalLaporanRingkas(String aktivitas, String penjelasanBisnis,
+            String[] langkahSolusi) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Laporan belum bisa ditampilkan saat ini.");
+        if (penjelasanBisnis != null && penjelasanBisnis.trim().length() > 0) {
+            sb.append(" ").append(sederhanakanPesanLaporan(penjelasanBisnis.trim()));
+        } else {
+            sb.append(" Biasanya ini terjadi karena filter/periode belum sesuai, data sumber laporan belum lengkap, atau sistem sedang sibuk.");
+        }
+        sb.append(" Silakan periksa kembali pilihan filter/periode, lalu klik Tampilkan atau Cetak lagi.");
+        if (langkahSolusi != null && langkahSolusi.length > 0) {
+            String tambahan = langkahRingkas(langkahSolusi);
+            if (tambahan.length() > 0) {
+                sb.append(" ").append(tambahan);
+            }
+        }
+        sb.append(" Jika masih muncul, hubungi admin sistem dan lampirkan screenshot layar ini.");
+        return sb.toString();
+    }
+
+    private static String sederhanakanPesanLaporan(String pesan) {
+        String teks = pesan;
+        teks = teks.replace("Sistem mengalami kendala teknis saat menyusun berkas PDF laporan ini, kemungkinan karena", "Kemungkinan penyebabnya:");
+        teks = teks.replace("Sistem mengalami kendala teknis saat memproses permintaan pada layar laporan ini, kemungkinan disebabkan oleh", "Kemungkinan penyebabnya:");
+        teks = teks.replace("Bapak/Ibu", "Anda");
+        return teks;
+    }
+
+    private static String langkahRingkas(String[] langkahSolusi) {
+        StringBuilder sb = new StringBuilder();
+        int nomor = 1;
+        for (int i = 0; i < langkahSolusi.length && nomor <= 2; i++) {
+            if (langkahSolusi[i] == null || langkahSolusi[i].trim().length() == 0) {
+                continue;
+            }
+            if (nomor == 1) {
+                sb.append("Yang bisa dicoba: ");
+            } else {
+                sb.append(" ");
+            }
+            sb.append(nomor).append(". ").append(langkahSolusi[i].trim().replace("Bapak/Ibu", "Anda"));
+            nomor++;
+        }
+        return sb.toString();
+    }
+
+    private static void tempelPesanLaporan(org.zkoss.zk.ui.Component parent, String judul, String pesan) {
+        java.util.List anak = new java.util.ArrayList(parent.getChildren());
+        for (int i = 0; i < anak.size(); i++) {
+            Object obj = anak.get(i);
+            if (obj instanceof org.zkoss.zk.ui.Component) {
+                org.zkoss.zk.ui.Component child = (org.zkoss.zk.ui.Component) obj;
+                if (Boolean.TRUE.equals(child.getAttribute("aisInlineReportMessage"))) {
+                    child.detach();
+                }
+            }
+        }
+
+        org.zkoss.zul.Div box = new org.zkoss.zul.Div();
+        box.setAttribute("aisInlineReportMessage", Boolean.TRUE);
+        box.setSclass("ais-inline-report-message");
+        box.setStyle("margin:8px 10px;padding:10px 12px;border:1px solid #fdba74;"
+                + "border-radius:8px;background:#fff7ed;color:#7c2d12;font-size:12px;"
+                + "line-height:1.45;box-shadow:0 1px 3px rgba(15,23,42,.10);");
+        box.appendChild(new org.zkoss.zul.Html("<div style='font-weight:700;margin-bottom:4px;'>"
+                + html(judul) + "</div><div>" + html(pesan) + "</div>"));
+        if (parent.getFirstChild() != null) {
+            parent.insertBefore(box, parent.getFirstChild());
+        } else {
+            box.setParent(parent);
+        }
+        try {
+            org.zkoss.zk.ui.util.Clients.scrollIntoView(box);
+        } catch (Throwable t) {
+            ais.common.ErrorAuditUtil.record(t, "PesanFormalHelper.tempelPesanLaporan-scroll");
+        }
+    }
+
+    private static void tampilkanToastRingkas(String judul, String pesan) {
+        try {
+            org.zkoss.zk.ui.util.Clients.evalJavaScript(jsToast(judul, pesan));
+        } catch (Throwable t) {
+            ais.common.ErrorAuditUtil.record(t, "PesanFormalHelper.tampilkanToastRingkas");
+            tampilkanAman(judul + "\n\n" + pesan, "Informasi", MyMessageboxConfig.EXCLAMATION);
+        }
+    }
+
+    private static String jsToast(String judul, String pesan) {
+        return "(function(t,m){try{var esc=function(s){return String(s).replace(/&/g,'&amp;')"
+                + ".replace(/</g,'&lt;').replace(/>/g,'&gt;');};"
+                + "var d=document.createElement('div');"
+                + "d.style.cssText='position:fixed;z-index:2147483647;left:50%;top:18px;"
+                + "transform:translateX(-50%);max-width:720px;background:#fff7ed;color:#7c2d12;"
+                + "border:1px solid #fdba74;border-radius:10px;padding:12px 16px;"
+                + "box-shadow:0 12px 30px rgba(15,23,42,.22);font:13px/1.45 Arial,sans-serif;';"
+                + "d.innerHTML='<b>'+esc(t)+'</b><br/>'+esc(m);document.body.appendChild(d);"
+                + "setTimeout(function(){try{if(d.parentNode)d.parentNode.removeChild(d);}catch(e){}},9000);"
+                + "}catch(e){}})(" + org.json.JSONObject.quote(kosongKe(judul, "Informasi")) + ","
+                + org.json.JSONObject.quote(kosongKe(pesan, "Proses belum dapat diselesaikan.")) + ");";
+    }
+
+    private static String html(String s) {
+        if (s == null) {
+            return "";
+        }
+        String r = s;
+        r = r.replace("&", "&amp;");
+        r = r.replace("<", "&lt;");
+        r = r.replace(">", "&gt;");
+        r = r.replace("\"", "&quot;");
+        r = r.replace("'", "&#39;");
+        r = r.replace("\n", "<br/>");
+        return r;
     }
 
     /** Tampilkan via {@link MyMessageboxConfig}, gagal-aman (tidak pernah melempar ke pemanggil). */

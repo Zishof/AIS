@@ -530,7 +530,7 @@ public class Report extends GenericAutowireComposer {
 					progress.box.setVisible(false);
 					progress.box.detach();
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/Report.java:459");
-					PesanFormalHelper.tampilkanGagalException("pembuatan berkas PDF Report", "Sistem mengalami kendala teknis saat menyusun berkas PDF laporan ini, kemungkinan karena salah satu data sumber laporan tidak lengkap, format datanya tidak sesuai dengan yang diharapkan oleh template laporan, atau terjadi gangguan sementara pada proses pembuatan berkas.", e,
+					PesanFormalHelper.tampilkanGagalLaporan(center, "pembuatan berkas PDF Report", "Sistem mengalami kendala teknis saat menyusun berkas PDF laporan ini, kemungkinan karena salah satu data sumber laporan tidak lengkap, format datanya tidak sesuai dengan yang diharapkan oleh template laporan, atau terjadi gangguan sementara pada proses pembuatan berkas.", e,
 						new String[] {
 							"Periksa kembali filter/kriteria/periode yang Bapak/Ibu pilih sebelum mencetak laporan ini.",
 							"Pastikan data yang menjadi sumber laporan ini sudah lengkap dan benar, kemudian coba cetak ulang.",
@@ -541,7 +541,7 @@ public class Report extends GenericAutowireComposer {
 			CommonReport.tampilkanReportPDF(center, file);
 		} catch (Exception e) {
 			Common.tampilErrorJikaAdmin(e);
-			PesanFormalHelper.tampilkanGagalException("pembuatan berkas PDF Report", "Sistem mengalami kendala teknis saat menyusun berkas PDF laporan ini, kemungkinan karena salah satu data sumber laporan tidak lengkap, format datanya tidak sesuai dengan yang diharapkan oleh template laporan, atau terjadi gangguan sementara pada proses pembuatan berkas.", e,
+			PesanFormalHelper.tampilkanGagalLaporan(center, "pembuatan berkas PDF Report", "Sistem mengalami kendala teknis saat menyusun berkas PDF laporan ini, kemungkinan karena salah satu data sumber laporan tidak lengkap, format datanya tidak sesuai dengan yang diharapkan oleh template laporan, atau terjadi gangguan sementara pada proses pembuatan berkas.", e,
 					new String[] {
 						"Periksa kembali filter/kriteria/periode yang Bapak/Ibu pilih sebelum mencetak laporan ini.",
 						"Pastikan data yang menjadi sumber laporan ini (mis. data akademik/keuangan/pegawai terkait) sudah lengkap dan benar, kemudian coba cetak ulang.",
