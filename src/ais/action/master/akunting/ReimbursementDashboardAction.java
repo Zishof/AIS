@@ -218,10 +218,17 @@ public class ReimbursementDashboardAction extends GenericAutowireComposer {
         Tbmuser user = Common.getCurrentUser();
         if (user == null) return false;
         Set roles = user.ambilRolesId();
-        if (roles == null) return false;
-        for (Object role : roles) {
-            String id = String.valueOf(role);
-            if (Tbmrole.ADMINISTRATOR.equalsIgnoreCase(id) || Tbmrole.KEUANGAN.equalsIgnoreCase(id)) return true;
+        if (roles != null) {
+            for (Object role : roles) {
+                String id = String.valueOf(role);
+                if (Tbmrole.ADMINISTRATOR.equalsIgnoreCase(id) || Tbmrole.KEUANGAN.equalsIgnoreCase(id)) return true;
+            }
+        }
+        // Hormati setelan per-role "Tampilkan Dashboard Keuangan" (TbmroleAction -> Tbmrole.getKeuangan()),
+        // sehingga akses bisa di-SETUP admin tanpa harus role ber-id "keu".
+        for (Tbmrole tr : new Tbmrole[] { user.getUserRole(), user.getUserRole2(), user.getUserRole3(),
+                user.getUserRole4(), user.getUserRole5() }) {
+            if (tr != null && Boolean.TRUE.equals(tr.getKeuangan())) return true;
         }
         return false;
     }

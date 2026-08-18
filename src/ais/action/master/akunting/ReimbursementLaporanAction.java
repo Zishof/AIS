@@ -235,7 +235,7 @@ public class ReimbursementLaporanAction extends GenericAutowireComposer {
     private Date startOfDay(Date date){ Calendar c=ais.ui.util.WaktuUtil.getCalendar();c.setTime(date);c.set(Calendar.HOUR_OF_DAY,0);c.set(Calendar.MINUTE,0);c.set(Calendar.SECOND,0);c.set(Calendar.MILLISECOND,0);return c.getTime(); }
     private Date nextDay(Date date){ Calendar c=ais.ui.util.WaktuUtil.getCalendar();c.setTime(startOfDay(date));c.add(Calendar.DAY_OF_MONTH,1);return c.getTime(); }
     private int days(Date from,Date to){ return from==null||to==null?0:(int)Math.max(0,(to.getTime()-from.getTime())/86400000L); }
-    private boolean isFinance(){ Tbmuser u=Common.getCurrentUser();if(u==null)return false;Set roles=u.ambilRolesId();if(roles==null)return false;for(Object role:roles){String id=String.valueOf(role);if(Tbmrole.ADMINISTRATOR.equalsIgnoreCase(id)||Tbmrole.KEUANGAN.equalsIgnoreCase(id))return true;}return false; }
+    private boolean isFinance(){ Tbmuser u=Common.getCurrentUser();if(u==null)return false;Set roles=u.ambilRolesId();if(roles!=null){for(Object role:roles){String id=String.valueOf(role);if(Tbmrole.ADMINISTRATOR.equalsIgnoreCase(id)||Tbmrole.KEUANGAN.equalsIgnoreCase(id))return true;}}for(Tbmrole tr:new Tbmrole[]{u.getUserRole(),u.getUserRole2(),u.getUserRole3(),u.getUserRole4(),u.getUserRole5()}){if(tr!=null&&Boolean.TRUE.equals(tr.getKeuangan()))return true;}return false; }
 
     private static class Summary { String label; int count; double amount; Summary(String label){this.label=label;} }
     private static class Aging { ReimbursementPegawai data; int age; Aging(ReimbursementPegawai data,int age){this.data=data;this.age=age;} }
