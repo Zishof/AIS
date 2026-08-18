@@ -885,6 +885,50 @@ public final class HotelApiHelper {
 		}
 	}
 
+	/** Daftar stay per properti (filter status opsional, default IN_HOUSE) -- utk layar check-out/folio. */
+	public static void menginapList(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!boleh(tbmuser, "hotel_checkin", null)) {
+			tolak(hasil, "Anda tidak memiliki akses menu Check-in/Check-out.");
+			return;
+		}
+		Long propertiId = idDari(request, "properti_id");
+		if (propertiId == null) {
+			tolak(hasil, "properti_id wajib diisi.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			String status = request.optString("status", ais.database.model.hotel.MenginapTamu.STATUS_IN_HOUSE).trim();
+			org.hibernate.Criteria c = session.createCriteria(ais.database.model.hotel.MenginapTamu.class)
+					.add(Restrictions.eq("properti", session.load(PropertiHotel.class, propertiId)));
+			if (!status.isEmpty() && !"SEMUA".equalsIgnoreCase(status)) {
+				c.add(Restrictions.eq("status", status));
+			}
+			c.addOrder(Order.desc("id")).setMaxResults(300);
+			@SuppressWarnings("unchecked")
+			List<ais.database.model.hotel.MenginapTamu> daftar = c.list();
+			JSONArray arr = new JSONArray();
+			for (ais.database.model.hotel.MenginapTamu m : daftar) {
+				ais.database.model.hotel.Folio folio = folioDariStay(session, m);
+				JSONObject o = new JSONObject();
+				o.put("id", m.getId());
+				o.put("tamu_nama", m.getTamu().getNama());
+				o.put("kamar_nomor", m.getKamar().getNomor());
+				o.put("checkin_pada", String.valueOf(m.getCheckinPada()));
+				o.put("checkout_pada", m.getCheckoutPada() == null ? "" : String.valueOf(m.getCheckoutPada()));
+				o.put("harga_per_malam", m.getHargaPerMalam() == null ? JSONObject.NULL : m.getHargaPerMalam());
+				o.put("status", m.getStatus());
+				o.put("folio_id", folio == null ? JSONObject.NULL : folio.getId());
+				o.put("saldo_folio", folio == null ? JSONObject.NULL : saldoFolio(session, folio));
+				arr.put(o);
+			}
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
 	private static ais.database.model.hotel.Folio folioDariStay(Session session,
 			ais.database.model.hotel.MenginapTamu stay) {
 		return (ais.database.model.hotel.Folio) session
@@ -944,6 +988,7 @@ public final class HotelApiHelper {
 		if ("hotel_reservasi_list".equals(action)) { reservasiList(tbmuser, request, hasil); return true; }
 		if ("hotel_reservasi_buat".equals(action)) { reservasiBuat(tbmuser, request, hasil); return true; }
 		if ("hotel_reservasi_batalkan".equals(action)) { reservasiBatalkan(tbmuser, request, hasil); return true; }
+		if ("hotel_menginap_list".equals(action)) { menginapList(tbmuser, request, hasil); return true; }
 		if ("hotel_checkin".equals(action)) { checkin(tbmuser, request, hasil); return true; }
 		if ("hotel_checkout".equals(action)) { checkout(tbmuser, request, hasil); return true; }
 		if ("hotel_pindah_kamar".equals(action)) { pindahKamar(tbmuser, request, hasil); return true; }

@@ -1656,6 +1656,7 @@ public class PosApi extends HttpServlet {
 			if (action.startsWith("hotel_tipe_kamar_") || action.startsWith("hotel_kamar_")) return menu.optBoolean("hotel_kamar", false);
 			if (action.startsWith("hotel_tamu_") || action.startsWith("hotel_reservasi_")) return menu.optBoolean("hotel_reservasi", false);
 			if ("hotel_checkin".equals(action) || "hotel_checkout".equals(action) || "hotel_pindah_kamar".equals(action)) return menu.optBoolean("hotel_checkin", false);
+			if (action.startsWith("hotel_menginap_")) return menu.optBoolean("hotel_checkin", false);
 			if (action.startsWith("hotel_folio_")) return menu.optBoolean("hotel_folio", false);
 			return false;
 		}
