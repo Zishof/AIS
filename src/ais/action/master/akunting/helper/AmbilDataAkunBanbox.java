@@ -740,6 +740,14 @@ public class AmbilDataAkunBanbox extends Bandbox implements GetEventListener {
 				criteria.add(criterion);
 			}
 
+			// LEAF-ONLY: selaras aturan "tidak boleh pilih Akun Induk" — akun yang masih
+			// memiliki sub-akun TIDAK DITAMPILKAN di tab Daftar Akun (bukan hanya ditolak
+			// saat diklik), sehingga daftar hanya berisi akun level paling bawah (leaf).
+			if (!bisaDipilihSemua) {
+				criteria.add(Restrictions.sqlRestriction(
+						"not exists (select 1 from akunting.akun anak where anak.parent = {alias}.id)"));
+			}
+
 			if (order) {
 				criteria.addOrder(Order.asc("kode"));
 			}
