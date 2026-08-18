@@ -698,7 +698,7 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         column = new MyColumnConfig();
         column.setParent(columns);
         column.setLabel("Aksi");
-        column.setWidth("8%");
+        column.setWidth(ais.ui.util.GridKolomHelper.LEBAR_KOLOM_AKSI);
         column = new MyColumnConfig();
         column.setParent(columns);
         column.setLabel("Ringkasan Data");
@@ -714,7 +714,7 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         column = new MyColumnConfig();
         column.setParent(columns);
         column.setLabel("Aksi Data");
-        column.setWidth("14%");
+        column.setWidth(ais.ui.util.GridKolomHelper.LEBAR_KOLOM_AKSI);
         return result;
     }
 
@@ -3210,7 +3210,7 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
         column = new MyColumnConfig();
         column.setParent(columns);
         column.setLabel("Aksi");
-        column.setWidth("10%");
+        column.setWidth(ais.ui.util.GridKolomHelper.LEBAR_KOLOM_AKSI);
         Rows rows = new Rows();
         rows.setParent(detailGrid);
 

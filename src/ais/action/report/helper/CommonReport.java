@@ -925,7 +925,7 @@ public class CommonReport {
             column.setWidth("160px");
             column.setParent(columns);
             column = new MyColumnConfig("Aksi");
-            column.setWidth("110px");
+            column.setWidth(ais.ui.util.GridKolomHelper.LEBAR_KOLOM_AKSI);
             column.setParent(columns);
 
             Rows rows = new Rows();

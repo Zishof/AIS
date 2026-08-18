@@ -236,8 +236,8 @@
 									use="ais.ui.util.MyColumnConfig" width="20%"
 									label="Keterangan" />
 									<column
-									use="ais.ui.util.MyColumnConfig" width="120px"
-									label="Aksi" />
+									use="ais.ui.util.MyColumnConfig" width="56px"
+									label="Aksi" align="center" />
 
 								</columns>
 							</grid>

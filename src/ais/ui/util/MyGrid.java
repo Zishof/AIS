@@ -12,6 +12,7 @@ import org.zkoss.zul.Groupbox;
 import org.zkoss.zul.ListModel;
 import org.zkoss.zul.North;
 import org.zkoss.zul.Row;
+import org.zkoss.zul.RowRenderer;
 
 import ais.action.master.helper.util.PerguruanTinggiUtil;
 import ais.action.master.sekolah.util.SekolahUtil;
@@ -40,6 +41,27 @@ public class MyGrid extends Grid {
 		initBg();
 		setSclass("dgrid");
 		init();
+	}
+
+	/**
+	 * Normalisasi seluruh renderer grid lama maupun baru. ZK versi lama memanggil
+	 * {@code RowRenderer.render(Row,Object)}, jadi mengandalkan overload tiga argumen
+	 * pada {@link MyRowRenderer} saja tidak cukup. Wrapper ini memastikan sel tombol
+	 * terakhir selalu diserap ke menu kebab dan kolomnya diperkecil.
+	 */
+	@Override
+	public void setRowRenderer(final RowRenderer renderer) {
+		if (renderer == null) {
+			super.setRowRenderer((RowRenderer) null);
+			return;
+		}
+		super.setRowRenderer(new RowRenderer() {
+			@Override
+			public void render(Row row, Object data) throws Exception {
+				renderer.render(row, data);
+				UIHelper.absorptionKebab(row);
+			}
+		});
 	}
 
 	public void initBg() {

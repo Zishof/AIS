@@ -34,7 +34,7 @@
 					<column use="ais.ui.util.MyColumnConfig" label="Gerbang" />
 					<column use="ais.ui.util.MyColumnConfig" label="Penjemput" />
 					<column use="ais.ui.util.MyColumnConfig" label="Status"    width="145px" />
-					<column use="ais.ui.util.MyColumnConfig" label="Aksi"      width="240px" />
+					<column use="ais.ui.util.MyColumnConfig" label="Aksi"      width="56px" align="center" />
 				</columns>
 			</grid>
 		</center>

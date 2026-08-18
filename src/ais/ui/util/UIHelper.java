@@ -77,7 +77,14 @@ public class UIHelper {
         vbox.setAlign("center");
         vbox.setStyle("width:100%;");
         toolbar.setParent(vbox);
-        if (parent != null) vbox.setParent(parent);
+        if (parent != null) {
+            vbox.setParent(parent);
+            // ZK 5 memanggil overload renderer dua argumen, sehingga hook normalisasi
+            // pasca-render tidak selalu berjalan. Kecilkan langsung saat kebab dibuat.
+            if (parent instanceof Row) {
+                kecilkanKolomAksi((Row) parent, toolbar);
+            }
+        }
         return vbox;
     }
 
@@ -372,8 +379,8 @@ public class UIHelper {
             Object col = cols.get(idx);
             if (col instanceof Column) {
                 Column column = (Column) col;
-                if (!"56px".equals(column.getWidth())) {
-                    column.setWidth("56px");
+                if (!GridKolomHelper.LEBAR_KOLOM_AKSI.equals(column.getWidth())) {
+                    column.setWidth(GridKolomHelper.LEBAR_KOLOM_AKSI);
                     column.setAlign("center");
                 }
             }

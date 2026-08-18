@@ -63,7 +63,7 @@
               <columns>
                 <column label="Kode" width="12%"/><column label="Pegawai" width="15%"/><column label="Deskripsi" width="23%"/>
                 <column label="Kategori" width="11%"/><column label="Tanggal" width="10%"/><column label="Nominal" width="11%"/>
-                <column label="Status" width="9%"/><column label="Aksi" width="9%"/>
+                <column label="Status" width="9%"/><column label="Aksi" width="56px" align="center"/>
               </columns>
             </grid>
           </div>
@@ -77,7 +77,7 @@
               <columns>
                 <column label="Kode" width="12%"/><column label="Pegawai" width="15%"/><column label="Deskripsi" width="23%"/>
                 <column label="Kategori" width="11%"/><column label="Tanggal" width="10%"/><column label="Nominal" width="11%"/>
-                <column label="Status" width="9%"/><column label="Aksi" width="9%"/>
+                <column label="Status" width="9%"/><column label="Aksi" width="56px" align="center"/>
               </columns>
             </grid>
           </div>
@@ -91,7 +91,7 @@
               <columns>
                 <column label="Kode" width="12%"/><column label="Pegawai" width="15%"/><column label="Deskripsi" width="23%"/>
                 <column label="Kategori" width="11%"/><column label="Tanggal" width="10%"/><column label="Nominal" width="11%"/>
-                <column label="Status" width="9%"/><column label="Aksi" width="9%"/>
+                <column label="Status" width="9%"/><column label="Aksi" width="56px" align="center"/>
               </columns>
             </grid>
           </div>

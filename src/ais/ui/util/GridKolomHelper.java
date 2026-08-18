@@ -39,9 +39,9 @@ import org.zkoss.zul.Grid;
  *       kolom berisi nilai, lebarnya dinyatakan dalam persen. Jumlah seluruh kolom data + kolom aksi
  *       sebaiknya = 100. Bila perlu pengurutan klik-header, sertakan {@code sortField}.</li>
  *   <li><b>Kolom aksi</b> — {@link #kolomAksi()}: kolom terakhir tempat tombol Ubah/Copy/Hapus
- *       (dari {@code CommonUiFactoryHelper.copyEditDeleteButtons}) diletakkan. Lebar baku
- *       {@link #LEBAR_KOLOM_AKSI} sengaja cukup lega agar tiga tombol berikon besar tampil rapi dan
- *       di tengah.</li>
+ *       (dari {@code CommonUiFactoryHelper.copyEditDeleteButtons}) diletakkan. Seluruh tombol
+ *       ditampilkan melalui menu kebab, sehingga lebar baku {@link #LEBAR_KOLOM_AKSI} cukup
+ *       menampung satu pemicu {@code ⋯} secara rapi dan di tengah.</li>
  *   <li><b>Kolom detail</b> — {@link #kolomDetail()}: kolom sempit selebar {@link #LEBAR_KOLOM_DETAIL}
  *       untuk tombol "+" pembuka baris detail. Lebar piksel tetap (bukan persen) karena ikonnya
  *       berukuran tetap; sisa lebar dibagi ke kolom persen.</li>
@@ -78,7 +78,7 @@ import org.zkoss.zul.Grid;
  *         GridKolomHelper.kolomData("Nama", 38, "nama"),
  *         GridKolomHelper.kolomData("Prodi", 25),
  *         GridKolomHelper.kolomData("SKS", 15, "sks"),
- *         GridKolomHelper.kolomAksi());   // 12+38+25+15+10 = 100
+ *         GridKolomHelper.kolomAksi());   // kolom aksi memakai lebar piksel tetap
  * }</pre>
  *
  * @author e-Campus UI Team
@@ -88,8 +88,8 @@ public final class GridKolomHelper {
 	/** Sclass standar grid data CRUD; menghubungkan grid ke aturan tata letak terpusat di css_utama.css. */
 	public static final String SCLASS_GRID_DATA = "dgrid";
 
-	/** Lebar baku kolom aksi (Ubah/Copy/Hapus) — cukup lega untuk tiga tombol berikon besar. */
-	public static final String LEBAR_KOLOM_AKSI = "10%";
+	/** Lebar baku kolom aksi compact; seluruh perintah berada di menu kebab (⋯). */
+	public static final String LEBAR_KOLOM_AKSI = "56px";
 
 	/** Lebar baku kolom "+" pembuka detail baris (piksel tetap karena ikon berukuran tetap). */
 	public static final String LEBAR_KOLOM_DETAIL = "50px";

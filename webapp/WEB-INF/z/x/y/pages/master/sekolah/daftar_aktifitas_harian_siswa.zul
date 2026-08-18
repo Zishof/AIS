@@ -60,7 +60,7 @@
 									<column use="ais.ui.util.MyColumnConfig" label="NIS" width="100px" sort="auto(nomorInduk)" />
 									<column use="ais.ui.util.MyColumnConfig" label="Nama Siswa" sort="auto(namaSiswa)" />
 									<column use="ais.ui.util.MyColumnConfig" label="Kelas" width="150px" />
-									<column use="ais.ui.util.MyColumnConfig" label="Aksi" width="120px" align="center" />
+									<column use="ais.ui.util.MyColumnConfig" label="Aksi" width="56px" align="center" />
 								</columns>
 							</grid>
 						</row>

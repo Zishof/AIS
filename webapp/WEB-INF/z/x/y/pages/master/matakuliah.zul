@@ -104,7 +104,7 @@
 												<column use="ais.ui.util.MyColumnConfig" width="5%" label="UTS/UAS" />
 												<column use="ais.ui.util.MyColumnConfig" width="8%" label="Keterangan" />
 												<column use="ais.ui.util.MyColumnConfig" label="Aktif" width="5%" />
-												<column use="ais.ui.util.MyColumnConfig" width="10%" label="Aksi" />
+												<column use="ais.ui.util.MyColumnConfig" width="56px" label="Aksi" align="center" />
 											</columns>
 										</grid>
 										<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>

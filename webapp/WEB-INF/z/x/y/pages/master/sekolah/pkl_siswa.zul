@@ -49,7 +49,7 @@
 						<column use="ais.ui.util.MyColumnConfig" width="20%" label="Sekolah" />
 						<column use="ais.ui.util.MyColumnConfig" width="18%" label="Tanggal" />
 						<column use="ais.ui.util.MyColumnConfig" width="12%" label="Anggota" />
-						<column use="ais.ui.util.MyColumnConfig" label="Aksi" />
+						<column use="ais.ui.util.MyColumnConfig" label="Aksi" width="56px" align="center" />
 					</columns>
 				</grid>
 				<paging visible="false" id="paging2" detailed="true" use="ais.ui.util.MyPagingKembar"/>

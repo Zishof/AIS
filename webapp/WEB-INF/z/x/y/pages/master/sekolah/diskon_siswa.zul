@@ -92,8 +92,8 @@
 						label="Aktif" />
 						<column use="ais.ui.util.MyColumnConfig" width="8%"
 						label="Memotong Tagihan" />
-						<column use="ais.ui.util.MyColumnConfig" width="8%"
-						label="Aksi" />
+						<column use="ais.ui.util.MyColumnConfig" width="56px"
+						label="Aksi" align="center" />
 
 					</columns>
 				</grid>

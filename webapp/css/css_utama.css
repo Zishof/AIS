@@ -12514,6 +12514,15 @@ a.ais-adv-search-toggle,
    ════════════════════════════════════════════════════════════════════════ */
 
 /* Popup kontainer — paksa putih agar teks selalu kontras */
+.ais-action-column,
+th.ais-action-column,
+td.ais-action-column {
+	width: 56px !important;
+	min-width: 56px !important;
+	max-width: 56px !important;
+	text-align: center !important;
+}
+
 .z-popup.ais-row-popup {
 	min-width: 180px;
 	padding: 4px;

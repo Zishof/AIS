@@ -38,7 +38,7 @@
 					<column use="ais.ui.util.MyColumnConfig" label="Titik Jemput" />
 					<column use="ais.ui.util.MyColumnConfig" label="Titik Turun" />
 					<column use="ais.ui.util.MyColumnConfig" label="Aktif"        width="70px"  align="center" />
-					<column use="ais.ui.util.MyColumnConfig" label="Aksi"         width="140px" />
+					<column use="ais.ui.util.MyColumnConfig" label="Aksi"         width="56px" align="center" />
 				</columns>
 			</grid>
 		</center>

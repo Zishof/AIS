@@ -92,7 +92,7 @@
 									<column use="ais.ui.util.MyColumnConfig" width="9%" label="Tipe" />
 									<column use="ais.ui.util.MyColumnConfig" width="19%" label="Waktu &amp; Oleh" />
 									<column use="ais.ui.util.MyColumnConfig" width="51%" label="Ringkasan Data" />
-									<column use="ais.ui.util.MyColumnConfig" width="8%" label="Aksi" />
+									<column use="ais.ui.util.MyColumnConfig" width="56px" label="Aksi" align="center" />
 									<column use="ais.ui.util.MyColumnConfig" width="8%" label="Hapus" />
 								</columns>
 							</grid>
