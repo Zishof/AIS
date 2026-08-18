@@ -303,6 +303,9 @@ public class ReimbursementPegawai extends DataSop {
     public void setTanpaAnggaran(Boolean tanpaAnggaran) { this.tanpaAnggaran = tanpaAnggaran; }
 
     /** Jenis reimbursement yang dipilih pengaju (menentukan wajib-anggaran vs akun tetap). */
+    // targetAuditMode NOT_AUDITED WAJIB: JenisReimbursement tidak @Audited, sedangkan
+    // entitas ini @Audited -- tanpa ini Envers menolak boot ("could not init listeners").
+    @Audited(targetAuditMode = org.hibernate.envers.RelationTargetAuditMode.NOT_AUDITED)
     @ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
     @JoinColumn(name = "jenis_reimbursement", nullable = true)
     public JenisReimbursement getJenisReimbursement() { jenisReimbursement = check(jenisReimbursement); return jenisReimbursement; }
