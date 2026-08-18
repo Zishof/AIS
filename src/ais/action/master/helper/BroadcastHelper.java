@@ -41,6 +41,7 @@ import ais.database.model.Mahasiswa;
 import ais.database.model.ParameterTambahan;
 import ais.database.model.ParameterTambahanCatatanAdministrasi;
 import ais.database.model.PendaftaranCutiMahasiswa;
+import ais.database.model.Perkuliahan;
 import ais.database.model.PengumumanAkademis;
 import ais.database.model.Tbmuser;
 import ais.database.model.asset.JenisPerbaikanAsset;
@@ -231,7 +232,8 @@ public class BroadcastHelper {
 
 						if (pengumumanAkademis.getBroadcastKeMahasiswaCuti()) {
 							List<Object[]> results = session.createCriteria(PendaftaranCutiMahasiswa.class)
-									.add(Restrictions.sqlRestriction("this_.semester % 2 = " + (Common.isNowSemensterGanjil() ? "1" : "0")))
+									.add(Restrictions.eq("ganjilGenap", Common.isNowSemensterGanjil()
+											? Perkuliahan.GANJIL : Perkuliahan.GENAP))
 									.add(Restrictions.eq("tahunAkademik", Common.getCurrentTahunAkademik()))
 									.add(Restrictions.eq("persetujuan", true)).createAlias("mahasiswa", "mahasiswa").createAlias("mahasiswa.jurusan", "jurusan")
 									.add(pengumumanAkademis.getFakultas() == null ? Restrictions.sqlRestriction("1=1") : Restrictions.eq("jurusan.fakultas", pengumumanAkademis.getFakultas()))
@@ -528,6 +530,22 @@ public class BroadcastHelper {
 		}
 	}
 
+	/** Tambah userId ke JSONArray penerima notifikasi HANYA bila belum ada (dedup, case-insensitive). */
+	private static void tambahUserIdUnik(JSONArray userIds, String userId) {
+		if (userId == null || userId.trim().isEmpty()) {
+			return;
+		}
+		try {
+			for (int i = 0; i < userIds.length(); i++) {
+				if (userId.trim().equalsIgnoreCase(String.valueOf(userIds.get(i)))) {
+					return;
+				}
+			}
+			userIds.put(userId.trim());
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/BroadcastHelper.java:tambahUserIdUnik");
+		}
+	}
+
 	public static void kirimEmailDisposisi(DisposisiAlurSop disposisiAlurSopSetelah) throws Exception {
 		Set<String> emails = new HashSet<String>();
 		JSONArray userIds = new JSONArray();
@@ -577,6 +595,47 @@ public class BroadcastHelper {
 							"kirimEmailDisposisi: penerima email (setelah) dilewati karena data aktor SOP tidak lengkap - src/ais/action/master/helper/BroadcastHelper.java:551");
 				}
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/BroadcastHelper.java:560");}
+		}
+
+		// FIX MULTI-USER: konfigurasi statis AktorSop.usernamePengguna sering KOSONG untuk
+		// aktor berbasis ROLE/jabatan/atasan/kaprodi/dekan — akibatnya penerima langkah
+		// berikutnya tidak menerima notifikasi lonceng/email sama sekali (hanya tercatat
+		// "dilewati" di audit). Resolusi dinamis di bawah memakai logika yang SAMA dengan
+		// tampilan daftar aktor (SopUtil.resolveAktor) sehingga notifikasi selalu sampai
+		// ke SEMUA aktor langkah berikutnya, apa pun basis penentuan aktornya.
+		try {
+			ais.database.model.sop.AlurSop alurSetelah = disposisiAlurSopSetelah.getAlurSop();
+			if (alurSetelah != null) {
+				ais.action.master.sop.helper.SopUtil.AktorResolusi resolusi =
+						ais.action.master.sop.helper.SopUtil.resolveAktor(null, alurSetelah.getKhususUsername(),
+								alurSetelah.getAktorSop() != null ? alurSetelah.getAktorSop().getJenisPengguna() : "",
+								disposisiAlurSopSetelah.getDisposisiSop(), alurSetelah);
+				for (Tbmuser aktor : resolusi.aktors) {
+					tambahUserIdUnik(userIds, aktor.getUserId());
+					if (aktor.getEmail() != null && !aktor.getEmail().trim().isEmpty()) {
+						emails.add(aktor.getEmail());
+					}
+				}
+			}
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/BroadcastHelper.java:resolveAktorSetelah");
+		}
+
+		// Sertakan pula PELAKU NYATA langkah-langkah sebelumnya (DiajukanOleh) — lebih
+		// akurat daripada seluruh aktor terkonfigurasi, agar pengaju/pemroses sebelumnya
+		// ikut mengetahui disposisi berjalan.
+		try {
+			DisposisiAlurSop s = disposisiAlurSopSetelah.getSebelumnya();
+			while (s != null) {
+				Tbmuser pelaku = s.getDiajukanOleh();
+				if (pelaku != null) {
+					tambahUserIdUnik(userIds, pelaku.getUserId());
+					if (pelaku.getEmail() != null && !pelaku.getEmail().trim().isEmpty()) {
+						emails.add(pelaku.getEmail());
+					}
+				}
+				s = s.getSebelumnya();
+			}
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/BroadcastHelper.java:pelakuSebelumnya");
 		}
 
 		StringBuilder emailUserBuilder = new StringBuilder();

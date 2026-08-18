@@ -1028,23 +1028,23 @@ public class DisposisiAlurSopAction extends GenericAutowireComposer
 							kembaliData = null;
 							setujuiData = null;
 
-							Common.clear(hboxAktor);
+							SopUtil.resetAktor(hboxAktor);
 							if(hboxAktor.getParent() != null) hboxAktor.getParent().setVisible(false);
 
 							if (((Radio) arg0.getTarget()).isChecked()) {
 								if (alurSop2.getKembaliKePengaju()) {
 									Tbmuser tbPengaju = disposisiSop.getDiajukanOleh();
-									renderAktorUI(tbPengaju, disposisiSop.getMahasiswa(), disposisiSop.getSiswa(), hboxAktor);
+									SopUtil.renderAktorTunggal(tbPengaju, disposisiSop.getMahasiswa(), disposisiSop.getSiswa(), hboxAktor);
 								} else {
-									if (alurSop2.getKhususUsername() != null) {
-										for (String username : alurSop2.getKhususUsername().split(",")) {
-											Tbmuser tbUser = (Tbmuser) ConstantValues.ambil(Tbmuser.class.getName(), username.trim());
-											if (tbUser != null) {
-												renderAktorUI(tbUser, null, null, hboxAktor);
-											}
-										}
-									}
+									// FIX MULTI-USER: sebelumnya hanya khususUsername yang dirender —
+									// aktor berbasis ROLE/jabatan/atasan tidak tampil sama sekali dan
+									// baris Aktor SOP tetap tersembunyi. tampilAktor mencakup khusus
+									// username DAN seluruh resolusi role (sama dengan jalur checkbox).
+									SopUtil.tampilAktor(null, alurSop2.getKhususUsername(),
+											alurSop2.getAktorSop() != null ? alurSop2.getAktorSop().getJenisPengguna() : "",
+											disposisiAlurSop.getDisposisiSop(), alurSop2, hboxAktor);
 								}
+								if (hboxAktor.getParent() != null) hboxAktor.getParent().setVisible(true);
 							}
 						}
 					});
@@ -1092,24 +1092,31 @@ public class DisposisiAlurSopAction extends GenericAutowireComposer
 							kembaliData = null;
 							setujuiData = null;
 
-							Common.clear(hboxAktor);
+							SopUtil.resetAktor(hboxAktor);
 							if(hboxAktor.getParent() != null) hboxAktor.getParent().setVisible(false);
 
 							List<Component> components = vboxPilihan.getChildren();
 							for (Component component : components) {
 								if (component instanceof Checkbox && ((Checkbox) component).isChecked()) {
-									if (alurSop2.getKembaliKePengaju()) {
-										Tbmuser tbPengaju = disposisiSop.getDiajukanOleh();
-										renderAktorUI(tbPengaju, disposisiSop.getMahasiswa(), disposisiSop.getSiswa(), hboxAktor);
-									} else {
-										AlurSop alur = (AlurSop) component.getAttribute("alurSop");
-										if (alur != null) {
-											SopUtil.tampilAktor(null, alur.getKhususUsername(),
-													alur.getAktorSop() != null ? alur.getAktorSop().getJenisPengguna() : "",
-													disposisiAlurSop.getDisposisiSop(), alur, hboxAktor);
-											if(hboxAktor != null && hboxAktor.getParent() != null) hboxAktor.getParent().setVisible(true);
-										}
+									// FIX MULTI-USER: dahulu cabang kembali-ke-pengaju memeriksa
+									// alurSop2 (checkbox yang DIKLIK), bukan alur milik MASING-MASING
+									// checkbox tercentang — saat multi-pilih, preview penerima salah
+									// (semua ikut cabang milik checkbox terakhir diklik). Kini setiap
+									// checkbox dievaluasi berdasarkan alur-nya sendiri. Kontrol tanpa
+									// alurSop ("Kembali ke sebelumnya"/"Setujui dan Selesai") dilewati.
+									AlurSop alur = (AlurSop) component.getAttribute("alurSop");
+									if (alur == null) {
+										continue;
 									}
+									if (alur.getKembaliKePengaju()) {
+										Tbmuser tbPengaju = disposisiSop.getDiajukanOleh();
+										SopUtil.renderAktorTunggal(tbPengaju, disposisiSop.getMahasiswa(), disposisiSop.getSiswa(), hboxAktor);
+									} else {
+										SopUtil.tampilAktor(null, alur.getKhususUsername(),
+												alur.getAktorSop() != null ? alur.getAktorSop().getJenisPengguna() : "",
+												disposisiAlurSop.getDisposisiSop(), alur, hboxAktor);
+									}
+									if(hboxAktor != null && hboxAktor.getParent() != null) hboxAktor.getParent().setVisible(true);
 								}
 							}
 						}
@@ -1163,16 +1170,14 @@ public class DisposisiAlurSopAction extends GenericAutowireComposer
 			if (alurSopData != null) {
 				if (alurSopData.getKembaliKePengaju()) {
 					Tbmuser tbPengaju = disposisiSop.getDiajukanOleh();
-					renderAktorUI(tbPengaju, disposisiSop.getMahasiswa(), disposisiSop.getSiswa(), hboxAktor);
+					SopUtil.renderAktorTunggal(tbPengaju, disposisiSop.getMahasiswa(), disposisiSop.getSiswa(), hboxAktor);
 				} else {
-					if (alurSopData.getKhususUsername() != null) {
-						for (String username : alurSopData.getKhususUsername().split(",")) {
-							Tbmuser tbUser = (Tbmuser) ConstantValues.ambil(Tbmuser.class.getName(), username.trim());
-							if (tbUser != null) {
-								renderAktorUI(tbUser, null, null, hboxAktor);
-							}
-						}
-					}
+					// FIX MULTI-USER: pre-select dahulu hanya merender khususUsername —
+					// aktor berbasis ROLE/jabatan tidak tampil saat form dibuka ulang.
+					// tampilAktor mencakup keduanya (konsisten dengan listener checkbox).
+					SopUtil.tampilAktor(null, alurSopData.getKhususUsername(),
+							alurSopData.getAktorSop() != null ? alurSopData.getAktorSop().getJenisPengguna() : "",
+							disposisiSop, alurSopData, hboxAktor);
 				}
 			}
 		}
