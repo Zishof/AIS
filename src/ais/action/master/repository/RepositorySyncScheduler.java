@@ -79,9 +79,10 @@ public final class RepositorySyncScheduler {
 			try {
 				Transaction current = session.isOpen() ? session.getTransaction() : null;
 				if (summary.isConnectionLost()) {
-					if (current != null && current.isActive()) {
-						current.rollback();
-					}
+					/* Jangan panggil rollback pada koneksi fisik yang sudah terbukti mati.
+					 * Hibernate/c3p0 akan mencoba PgConnection.rollback() dan menghasilkan
+					 * rangkaian warning "PooledConnection ... still in use". Session dibuang
+					 * oleh finally; siklus scheduler berikutnya membuka koneksi yang baru. */
 				} else if (current != null && current.isActive()) {
 					current.commit();
 				}
@@ -99,7 +100,10 @@ public final class RepositorySyncScheduler {
 					+ ", berhasil=" + summary.getSynced() + ", gagal=" + summary.getFailed());
 			return summary;
 		} catch (RuntimeException error) {
-			if (session != null) {
+			// Untuk koneksi mati, rollback pada session yang sama tidak mungkin memulihkan
+			// transaksi dan justru menambah exception sekunder. Langsung buang session.
+			boolean koneksiMati = Common.isTransientKoneksiError(error);
+			if (!koneksiMati && session != null) {
 				try {
 					if (session.isOpen()) {
 						Transaction current = session.getTransaction();
