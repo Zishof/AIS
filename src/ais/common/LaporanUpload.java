@@ -105,7 +105,12 @@ public class LaporanUpload {
 		tambah(nomorBaris, kunci, GAGAL, sebab);
 	}
 
-	/** Varian yang mengambil pesan dari exception (memakai nama kelas bila pesannya null). */
+	/**
+	 * Varian yang mengambil pesan dari exception. Selain pesan exception terluar, baris laporan
+	 * kini SELALU menyertakan PENYEBAB AKAR (cause paling dalam — mis. pesan asli PostgreSQL)
+	 * dan SARAN SOLUSI otomatis berdasarkan pola kegagalan yang umum, sehingga pengguna tahu
+	 * apa yang harus dilakukan agar upload berikutnya berhasil.
+	 */
 	public synchronized void catatGagal(int nomorBaris, String kunci, Throwable t) {
 		String sebab;
 		if (t == null) {
@@ -115,7 +120,106 @@ public class LaporanUpload {
 		} else {
 			sebab = t.getClass().getSimpleName() + ": " + t.getMessage().trim();
 		}
+		if (t != null) {
+			Throwable akar = akarPenyebab(t);
+			if (akar != null && akar != t && akar.getMessage() != null && !akar.getMessage().trim().isEmpty()
+					&& (t.getMessage() == null || !t.getMessage().contains(akar.getMessage().trim()))) {
+				sebab += " | Penyebab akar: " + akar.getClass().getSimpleName() + ": "
+						+ ringkas(akar.getMessage().trim(), 220);
+			}
+			String solusi = saranSolusi(t);
+			if (!solusi.isEmpty()) {
+				sebab += " | " + solusi;
+			}
+		}
 		catatGagal(nomorBaris, kunci, sebab);
+	}
+
+	/** Potong teks panjang agar baris laporan tetap terbaca. */
+	private static String ringkas(String s, int maks) {
+		if (s == null) {
+			return "";
+		}
+		String satuBaris = s.replace('\r', ' ').replace('\n', ' ');
+		return satuBaris.length() <= maks ? satuBaris : satuBaris.substring(0, maks) + "...";
+	}
+
+	/** Telusuri rantai cause sampai yang paling dalam (maks 8 tingkat). */
+	private static Throwable akarPenyebab(Throwable t) {
+		Throwable a = t;
+		int guard = 0;
+		while (a != null && a.getCause() != null && a.getCause() != a && guard++ < 8) {
+			a = a.getCause();
+		}
+		return a;
+	}
+
+	/**
+	 * SARAN SOLUSI otomatis berdasarkan pola exception yang paling sering terjadi di proses
+	 * upload Excel. Mengembalikan string kosong bila polanya tidak dikenali (laporan tetap
+	 * menampilkan pesan exception + penyebab akar).
+	 */
+	public static String saranSolusi(Throwable t) {
+		if (t == null) {
+			return "";
+		}
+		String semua = "";
+		Throwable a = t;
+		int guard = 0;
+		while (a != null && guard++ < 8) {
+			semua += a.getClass().getName().toLowerCase() + " "
+					+ (a.getMessage() == null ? "" : a.getMessage().toLowerCase()) + " ";
+			Throwable next = a.getCause();
+			if (next == a) {
+				break;
+			}
+			a = next;
+		}
+		if (semua.contains("session is closed")) {
+			return "Solusi: kendala internal aplikasi (koneksi database tertutup di tengah proses) -- "
+					+ "sudah diperbaiki pada versi aplikasi terbaru; minta Administrator melakukan "
+					+ "update/redeploy aplikasi, lalu ulangi upload file yang sama.";
+		}
+		if (semua.contains("value too long") || semua.contains("terlalu panjang")) {
+			return "Solusi: isi salah satu kolom pada baris ini MELEBIHI batas panjang kolom database -- "
+					+ "persingkat isi sel yang panjang (lihat pesan akar utk tipe kolomnya), lalu upload ulang "
+					+ "baris ini.";
+		}
+		if (semua.contains("null id in") && semua.contains("flush")) {
+			return "Solusi: baris ini gagal sebagai EFEK dari baris gagal SEBELUMNYA (session tercemar). "
+					+ "Perbaiki baris gagal pertama pada laporan ini, lalu upload ulang -- baris yang sudah "
+					+ "berhasil aman diikutkan lagi (tidak dobel).";
+		}
+		if (semua.contains("lock timeout") || semua.contains("could not obtain lock") || semua.contains("55p03")) {
+			return "Solusi: data baris ini sedang dikunci/diproses pengguna lain -- tunggu 1-2 menit lalu "
+					+ "upload ulang baris yang gagal.";
+		}
+		if (semua.contains("duplicate key") || semua.contains("unique constraint")) {
+			return "Solusi: data yang sama sudah ada di sistem (bentrok data unik) -- periksa duplikat pada "
+					+ "baris ini (nomor/kode yang harus unik), perbaiki di Excel, lalu upload ulang.";
+		}
+		if (semua.contains("numberformatexception") || semua.contains("for input string")) {
+			return "Solusi: ada kolom ANGKA pada baris ini yang berisi teks/format salah -- pastikan sel "
+					+ "angka hanya berisi angka (tanpa huruf/spasi/karakter lain), lalu upload ulang.";
+		}
+		if (semua.contains("unparseable date") || semua.contains("parseexception")) {
+			return "Solusi: format TANGGAL pada baris ini salah -- gunakan format dd-MM-yyyy (mis. "
+					+ "27-07-2026) atau format sel Date di Excel, lalu upload ulang.";
+		}
+		if (semua.contains("transientobject") || semua.contains("unsaved transient")) {
+			return "Solusi: kendala internal aplikasi (referensi data belum tersimpan) -- minta Administrator "
+					+ "update aplikasi ke versi terbaru, lalu ulangi upload.";
+		}
+		if (semua.contains("permission denied")) {
+			return "Solusi: user database aplikasi tidak punya hak akses objek yang dibutuhkan -- hubungi "
+					+ "Administrator/DBA (pesan akar menyebut schema/tabel yang ditolak).";
+		}
+		if (semua.contains("could not open connection") || semua.contains("connections could not be acquired")
+				|| semua.contains("connection has been closed") || semua.contains("i/o error")) {
+			return "Solusi: gangguan koneksi database (sibuk/putus) -- tunggu beberapa saat lalu ulangi "
+					+ "seluruh proses upload.";
+		}
+		return "";
 	}
 
 	public synchronized void catatDilewati(int nomorBaris, String kunci, String sebab) {

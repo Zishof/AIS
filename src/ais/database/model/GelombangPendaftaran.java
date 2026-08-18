@@ -91,13 +91,51 @@ public class GelombangPendaftaran extends GeneralValueObject {
 				pakets == null ? Collections.<Paket>emptyList() : new ArrayList<Paket>(pakets));
 	}
 
-	/** Baca cache paket yang diizinkan utk satu gelombang. Tidak pernah query DB/session. */
+	/**
+	 * Baca cache paket yang diizinkan utk satu gelombang. Bila gelombang ini BELUM pernah dimuat
+	 * sejak server start (cache miss), daftar paket dimuat SEKALI dari DB memakai session dedikasi
+	 * (openSession -- aman dipanggil dari konteks tanpa session ZK aktif) lalu disimpan ke cache
+	 * (termasuk hasil kosong = gelombang memang tidak membatasi paket), sehingga penegakan
+	 * konsistensi paket vs gelombang di {@link BiodataCalonMahasiswa#getPaket()} langsung bekerja
+	 * tanpa menunggu admin membuka layar Gelombang Pendaftaran terlebih dahulu.
+	 */
 	public static List<Paket> ambilCachePaketDiizinkan(Long gelombangId) {
 		if (gelombangId == null) {
 			return Collections.emptyList();
 		}
 		List<Paket> cached = cachePaketDiizinkanPerGelombang.get(gelombangId);
-		return cached == null ? Collections.<Paket>emptyList() : cached;
+		if (cached != null) {
+			return cached;
+		}
+
+		List<Paket> hasil = new ArrayList<Paket>();
+		org.hibernate.Session sessionD = null;
+		try {
+			sessionD = ais.database.hibernate.HibernateUtil.getSessionFactory().openSession();
+			List<?> list = sessionD.createQuery(
+					"select p.paket from PaketPunyaGelombangPendaftaran p where p.gelombangPendaftaran.id = :gid")
+					.setParameter("gid", gelombangId).list();
+			for (Object o : list) {
+				if (o instanceof Paket) {
+					hasil.add((Paket) o);
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "GelombangPendaftaran.ambilCachePaketDiizinkan lazy-load");
+			// Gagal memuat -> JANGAN disimpan ke cache supaya dicoba lagi di panggilan berikutnya;
+			// sementara diperlakukan sebagai tanpa batasan (perilaku lama).
+			return Collections.emptyList();
+		} finally {
+			if (sessionD != null && sessionD.isOpen()) {
+				try {
+					sessionD.close();
+				} catch (Exception e2) {
+					ais.common.ErrorAuditUtil.record(e2, "GelombangPendaftaran.ambilCachePaketDiizinkan close");
+				}
+			}
+		}
+		cachePaketDiizinkanPerGelombang.put(gelombangId, hasil);
+		return hasil;
 	}
 
 	public String getOlehId() {

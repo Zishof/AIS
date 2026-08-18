@@ -872,7 +872,10 @@ public class KelompokStatusKeluarMahasiswaDetailAction extends MyDetail implemen
 							}
 
 						} catch (Exception e) {
-							laporan.catatGagal(i, nimBaris, e);
+							// catatGagalDetail: selain baris ringkas (+penyebab akar & saran solusi),
+							// rincian teknis lengkap (rantai cause + titik kode) masuk ke seksi
+							// CATATAN TEKNIS TAMBAHAN di akhir berkas laporan.
+							laporan.catatGagalDetail(i, nimBaris, e);
 							Common.tampilErrorJikaAdmin(e);
 						}
 
