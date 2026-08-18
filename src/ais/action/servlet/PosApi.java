@@ -306,6 +306,11 @@ public class PosApi extends HttpServlet {
 				// bolehAksesActionKantin + aksi CRUD granular di helper (dua lapis).
 				ais.action.servlet.api.GrupProdukApiHelper.proses(action, tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, action);
+			} else if (action.startsWith("toko_kelola_") || "unit_usaha_katalog".equals(action)) {
+				// CRUD Toko utk Desktop/Android + katalog unit usaha -- admin-only,
+				// self-guarded di TokoApiHelper (padanan gate isAdmin JSP / admin ZK).
+				ais.action.servlet.api.TokoApiHelper.proses(action, tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, action);
 			} else if ("pos_demo_status".equals(action)) {
 				PosDemoProvisionHelper.status(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "pos_demo_status");

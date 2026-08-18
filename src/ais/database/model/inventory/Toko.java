@@ -306,6 +306,27 @@ public class Toko extends GeneralValueObject {
 		this.tokoDemo = tokoDemo;
 	}
 
+	private String unitUsahaJson;
+
+	/**
+	 * Unit usaha toko ini -- JSON array kode dari {@code ais.common.UnitUsahaKatalog}
+	 * (mis. {@code ["BENGKEL_MOTOR","SPAREPART_MOTOR","CUCI_MOTOR"]}); satu toko boleh
+	 * memiliki LEBIH DARI SATU unit usaha. {@code null}/kosong = belum dipilih -- generator
+	 * data contoh produk akan menanyakan unit usaha lewat popup checkbox pada kasus itu.
+	 * Diedit dari keempat kanal CRUD Toko (ZK/JSP/Desktop/Android).
+	 * <p><b>Kolom BARU pada entitas ber-{@code @Audited}</b>: WAJIB jalankan
+	 * {@code webapp/sql/migrasi_toko_unit_usaha_audit.sql} SEBELUM deploy (gotcha Envers
+	 * yang sama dengan kolom profil di atas, lihat javadoc kelas).</p>
+	 */
+	@Column(name = "unit_usaha_json", nullable = true, columnDefinition = "text")
+	public String getUnitUsahaJson() {
+		return unitUsahaJson;
+	}
+
+	public void setUnitUsahaJson(String unitUsahaJson) {
+		this.unitUsahaJson = unitUsahaJson;
+	}
+
 	private Gudang gudangPemasok;
 
 	/**

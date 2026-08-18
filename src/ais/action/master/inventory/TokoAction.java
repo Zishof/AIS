@@ -70,6 +70,8 @@ public class TokoAction extends GenericAutowireComposer implements DataCriteria,
 	private Textbox keterangan;
 	private MyCheckboxConfig bolehTransaksiStokHabis;
 	private MyCheckboxConfig tokoDemo;
+	/** kode unit usaha -> checkbox; diisi ulang tiap init() (lihat UnitUsahaKatalog). */
+	private java.util.Map<String, MyCheckboxConfig> unitUsahaCek;
 
 	private boolean edit = false;
 	private boolean delete = false;
@@ -291,6 +293,30 @@ public class TokoAction extends GenericAutowireComposer implements DataCriteria,
 		tokoDemo.setTooltiptext("Default OFF. Hanya administrator dapat mengaktifkan toko khusus demo/UAT.");
 		row.appendChild(tokoDemo);
 
+		// Unit usaha toko (boleh lebih dari satu) -- katalog terpusat UnitUsahaKatalog;
+		// dipakai generator data contoh produk utk memilih katalog sesuai jenis usahanya.
+		java.util.Set<String> unitTerpilih = ais.common.UnitUsahaKatalog.urai(toko.getUnitUsahaJson());
+		unitUsahaCek = new java.util.LinkedHashMap<String, MyCheckboxConfig>();
+		row = new MyFormRow();
+		row.setValign("top");
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Unit Usaha (boleh lebih dari satu)"));
+		org.zkoss.zul.Vbox unitWadah = new org.zkoss.zul.Vbox();
+		String grupTerakhir = null;
+		for (ais.common.UnitUsahaKatalog.Entri entri : ais.common.UnitUsahaKatalog.DAFTAR) {
+			if (!entri.grup.equals(grupTerakhir)) {
+				grupTerakhir = entri.grup;
+				org.zkoss.zul.Label judulGrup = new org.zkoss.zul.Label(entri.grup);
+				judulGrup.setStyle("font-weight:bold;margin-top:6px;display:block;");
+				unitWadah.appendChild(judulGrup);
+			}
+			MyCheckboxConfig cek = new MyCheckboxConfig(entri.label);
+			cek.setChecked(unitTerpilih.contains(entri.kode));
+			unitWadah.appendChild(cek);
+			unitUsahaCek.put(entri.kode, cek);
+		}
+		row.appendChild(unitWadah);
+
 		row = new MyFormRow();
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Gudang Pemasok"));
@@ -385,6 +411,13 @@ public class TokoAction extends GenericAutowireComposer implements DataCriteria,
 		toko.setKeterangan(keterangan.getValue());
 		toko.setBolehTransaksiStokHabis(bolehTransaksiStokHabis.isChecked());
 		if (Common.getApakahAdminLain()) toko.setTokoDemo(tokoDemo.isChecked());
+		if (unitUsahaCek != null) {
+			java.util.Set<String> terpilih = new java.util.LinkedHashSet<String>();
+			for (java.util.Map.Entry<String, MyCheckboxConfig> e : unitUsahaCek.entrySet()) {
+				if (e.getValue().isChecked()) terpilih.add(e.getKey());
+			}
+			toko.setUnitUsahaJson(ais.common.UnitUsahaKatalog.keJson(terpilih));
+		}
 		toko.setGudangPemasok(gudangPemasok.getSelectedIndex() > 0
 				&& gudangPemasok.getSelectedItem().getValue() instanceof ais.database.model.sirs.Gudang
 						? (ais.database.model.sirs.Gudang) gudangPemasok.getSelectedItem().getValue()

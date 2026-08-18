@@ -483,6 +483,10 @@ public class Data extends HttpServlet {
 				// Grup Produk (harga terpusat lintas toko) -- handler self-guard menu key +
 				// aksi CRUD granular, lihat GrupProdukApiHelper.
 				ais.action.servlet.api.GrupProdukApiHelper.proses(action, tbmuser, jsonObject, hasil);
+			} else if (action != null && (action.startsWith("toko_kelola_") || "unit_usaha_katalog".equals(action))) {
+				// CRUD Toko + katalog unit usaha (JSP memakai aksi yang sama dgn
+				// Desktop/Android) -- admin-only, self-guarded di TokoApiHelper.
+				ais.action.servlet.api.TokoApiHelper.proses(action, tbmuser, jsonObject, hasil);
 			} else if ("draft_bayar".equals(action)) {
 				KantinHelper.draft_bayar(tbmuser, jsonObject, hasil);
 			} else if ("checkBayar".equals(action)) {
