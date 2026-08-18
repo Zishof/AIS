@@ -37,7 +37,15 @@ import nl.captcha.Captcha;
 
 public class SecurityFilter extends GenericFilterBean {
 
-	public static Map<String, Object[]> dataLogin = new HashMap<String, Object[]>();
+	// synchronizedMap (bukan HashMap polos): dibaca/ditulis dari banyak thread
+	// (FilterLoginAis saat login, UserDetailsServiceImpl saat autentikasi Spring,
+	// SecurityFilter.getUser sebagai fallback identitas, LogoutListener dan
+	// SessionCounter saat pembersihan). HashMap polos berisiko korupsi struktur
+	// saat resize bersamaan. Tetap mengizinkan key/value null seperti perilaku lama.
+	// Entri milik user yang seluruh sesinya sudah mati dibersihkan terpusat oleh
+	// SessionCounter.sessionDestroyed (optimasi RAM Fase 1).
+	public static Map<String, Object[]> dataLogin = java.util.Collections
+			.synchronizedMap(new HashMap<String, Object[]>());
 	// ConcurrentHashMap (bukan HashMap): dataOnline dibaca/diubah dari BANYAK
 	// thread bersamaan — request handler (FilterJSP/LogoutListener/SessionCounter
 	// menulis saat login/logout) dan Timer thread UserOnlineCounter.check() yang

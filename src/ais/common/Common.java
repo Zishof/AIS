@@ -15771,7 +15771,25 @@ public class Common {
 		CommonSecurityLoginHelper.setLogin(request, res, biodataCalonMahasiswa);
 	}
 
-	private static Map<String, GeneralValueObject> mapSession = new HashMap<String, GeneralValueObject>();
+	// synchronizedMap (BUKAN ConcurrentHashMap): jalur lama mengizinkan key
+	// requestedSessionId null dan value null — ConcurrentHashMap menolak keduanya.
+	// Entri dibersihkan terpusat oleh SessionCounter.sessionDestroyed via
+	// hapusSessionById() agar form PMB/PPDB yang ditinggalkan tidak bocor permanen.
+	private static Map<String, GeneralValueObject> mapSession = java.util.Collections
+			.synchronizedMap(new HashMap<String, GeneralValueObject>());
+
+	/**
+	 * Menghapus entri {@code mapSession} milik satu session ID. Dipanggil terpusat dari
+	 * {@code SessionCounter.sessionDestroyed} (logout, timeout, invalidation) supaya data
+	 * sesi yang ditinggalkan tidak tertahan selamanya di static map.
+	 *
+	 * @param sessionId ID sesi HTTP yang sudah dihancurkan; boleh null (diabaikan)
+	 */
+	public static void hapusSessionById(String sessionId) {
+		if (sessionId != null) {
+			mapSession.remove(sessionId);
+		}
+	}
 
 	/**
 	 * Menyimpan entitas {@code GeneralValueObject} ke dalam map sesi internal ({@code mapSession})

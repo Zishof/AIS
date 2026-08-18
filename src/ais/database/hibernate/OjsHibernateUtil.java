@@ -39,7 +39,10 @@ public class OjsHibernateUtil {
 			// Create the SessionFactory
 			Configuration configuration = new AnnotationConfiguration();
 			URL url = OjsHibernateUtil.class.getResource(config);
-			sessionFactory = configuration.configure(url).buildSessionFactory();
+			configuration.configure(url);
+			// P0 keamanan: kredensial dari berkas eksternal (bila ada) menimpa nilai cfg.xml.
+			DbCredentialOverride.terapkan(configuration, "ojs");
+			sessionFactory = configuration.buildSessionFactory();
 		} catch (Throwable ex) {
 			// Make sure you log the exception, as it might be swallowed
 			System.err.println("Initial SessionFactory creation failed." + ex);

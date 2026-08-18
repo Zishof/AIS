@@ -130,6 +130,60 @@ public class SessionCounter implements HttpSessionListener {
 		SESSION_POOL.execute(new SessionDeleter(session.getId()));
 	}
 
+	/**
+	 * Pembersihan terpusat registry statis ber-key user saat sebuah sesi dihancurkan
+	 * (optimasi RAM Fase 1 — sebelumnya entri-entri ini tidak pernah dihapus dan tumbuh
+	 * monoton sepanjang umur JVM).
+	 *
+	 * <p>{@code MainHelper.logins} ber-key ID {@code LogLogin} yang unik per event login,
+	 * jadi aman dihapus tanpa syarat. {@code dataLogin} dan map UI per-user hanya dihapus
+	 * bila TIDAK ADA sesi aktif lain milik username yang sama (dukungan multi-perangkat):
+	 * {@code dataLogin} masih dipakai sebagai fallback identitas oleh
+	 * {@code SecurityFilter.getUser} selama sesi lain hidup.</p>
+	 */
+	private static void bersihkanRegistryPerUser(OnlineUsers onlineUsers) {
+		LogLogin login = onlineUsers.getLogin();
+		if (login != null && login.getId() != null) {
+			ais.action.master.helper.MainHelper.logins.remove(login.getId());
+		}
+
+		String username = login == null ? null : login.getNama();
+		if (username == null) {
+			return;
+		}
+		for (OnlineUsers lain : SecurityFilter.dataOnline.values()) {
+			LogLogin loginLain = lain.getLogin();
+			if (loginLain != null && username.equals(loginLain.getNama())) {
+				// Masih ada sesi aktif lain milik user ini — jangan sentuh registry per-user.
+				return;
+			}
+		}
+
+		SecurityFilter.dataLogin.remove(username);
+
+		String userId = onlineUsers.getTbmuser() == null ? null : onlineUsers.getTbmuser().getUserId();
+		if (userId != null) {
+			ais.action.maintenance.MainAction.desktopWidths.remove(userId);
+			ais.action.maintenance.MainAction.desktopHeights.remove(userId);
+			ais.action.maintenance.MainAction2.desktopWidths.remove(userId);
+			ais.action.maintenance.MainAction2.desktopHeights.remove(userId);
+			ais.ui.util.ChatThread chat = ais.action.maintenance.MainAction.mapChat.remove(userId);
+			if (chat != null) {
+				try {
+					chat.onExit();
+				} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "SessionCounter.hentikanChatThread");
+				}
+			}
+			ais.ui.util.ChatThread chat2 = ais.action.maintenance.MainAction2.mapChat.remove(userId);
+			if (chat2 != null) {
+				try {
+					chat2.onExit();
+				} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "SessionCounter.hentikanChatThread2");
+				}
+			}
+		}
+	}
+
 	private class SessionDeleter implements Runnable {
 
 		private String sessionId;
@@ -147,9 +201,22 @@ public class SessionCounter implements HttpSessionListener {
 							+ sessionId
 							+ " ====================================================================== ");
 
+			// PEMBERSIHAN TERPUSAT registry in-memory ber-key session (optimasi RAM Fase 1).
+			// Common.mapSession dipakai juga oleh sesi ANONIM (form PMB/PPDB) yang tidak
+			// terdaftar di dataOnline — jadi harus dibersihkan SEBELUM cek onlineUsers null.
+			try {
+				Common.hapusSessionById(sessionId);
+			} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "SessionCounter.bersihkanMapSession");
+			}
+
 			OnlineUsers onlineUsers = SecurityFilter.dataOnline.remove(sessionId);
 			if (onlineUsers == null) {
 				return;
+			}
+
+			try {
+				bersihkanRegistryPerUser(onlineUsers);
+			} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "SessionCounter.bersihkanRegistryPerUser");
 			}
 
 			logSesi(

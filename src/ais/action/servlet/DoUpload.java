@@ -70,8 +70,29 @@ public class DoUpload extends HttpServlet {
 	public static Map<String, File> filesPending = new ConcurrentHashMap<String, File>();
 
 	// === RETRY QUEUE: file diterima tapi DB gagal → coba ulang 10 menit kemudian ===
+	// Thread DAEMON + bernama: versi lama memakai factory default (non-daemon, tanpa
+	// shutdown) sehingga thread scheduler menahan classloader webapp saat redeploy.
 	private static final ScheduledExecutorService RETRY_SCHEDULER =
-		Executors.newSingleThreadScheduledExecutor();
+		Executors.newSingleThreadScheduledExecutor(new java.util.concurrent.ThreadFactory() {
+			@Override
+			public Thread newThread(Runnable r) {
+				Thread t = new Thread(r, "doupload-retry");
+				t.setDaemon(true);
+				return t;
+			}
+		});
+
+	/**
+	 * Menghentikan scheduler retry upload saat webapp stop/redeploy. Dipanggil dari
+	 * {@code AppStartupListener.contextDestroyed}. Antrian retry yang belum tereksekusi
+	 * memang hangus — file fisiknya sudah tersimpan dan aman diproses ulang manual.
+	 */
+	public static void hentikanRetryScheduler() {
+		try {
+			RETRY_SCHEDULER.shutdownNow();
+		} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "DoUpload.hentikanRetryScheduler");
+		}
+	}
 
 	private static final ConcurrentHashMap<String, PendingUpload> RETRY_QUEUE =
 		new ConcurrentHashMap<String, PendingUpload>();

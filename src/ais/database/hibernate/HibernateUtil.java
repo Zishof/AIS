@@ -278,11 +278,14 @@ public class HibernateUtil {
             //     gagal → ExceptionInInitializerError yang meracuni class permanen. Pola DCL lazy ini benar.
             SessionFactory sf;
             try {
-                sf = new org.hibernate.cfg.AnnotationConfiguration().configure()
-                        .setInterceptor(AuditTimestampInterceptor.instance).buildSessionFactory();
+                org.hibernate.cfg.Configuration cfgUtama = new org.hibernate.cfg.AnnotationConfiguration().configure();
+                // P0 keamanan: kredensial dari berkas eksternal (bila ada) menimpa nilai cfg.xml.
+                DbCredentialOverride.terapkan(cfgUtama, "utama");
+                sf = cfgUtama.setInterceptor(AuditTimestampInterceptor.instance).buildSessionFactory();
             } catch (Throwable t) {
-                sf = new org.hibernate.cfg.Configuration().configure()
-                        .setInterceptor(AuditTimestampInterceptor.instance).buildSessionFactory();
+                org.hibernate.cfg.Configuration cfgUtama = new org.hibernate.cfg.Configuration().configure();
+                DbCredentialOverride.terapkan(cfgUtama, "utama");
+                sf = cfgUtama.setInterceptor(AuditTimestampInterceptor.instance).buildSessionFactory();
             }
             // zkplus tak punya setter -> set field statik privat _factory via refleksi (dikonfirmasi via
             // javap: private static SessionFactory _factory). Tutup factory zkplus lama bila sudah
@@ -314,8 +317,10 @@ public class HibernateUtil {
         } catch (Throwable e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/hibernate/HibernateUtil.java:310");
             // zkplus tidak tersedia (ZK 9/10 CE) - bangun sendiri di bawah (tetap dgn interceptor).
         }
-        return new org.hibernate.cfg.Configuration().configure()
-                .setInterceptor(AuditTimestampInterceptor.instance).buildSessionFactory();
+        org.hibernate.cfg.Configuration cfgUtama = new org.hibernate.cfg.Configuration().configure();
+        // P0 keamanan: kredensial dari berkas eksternal (bila ada) menimpa nilai cfg.xml.
+        DbCredentialOverride.terapkan(cfgUtama, "utama");
+        return cfgUtama.setInterceptor(AuditTimestampInterceptor.instance).buildSessionFactory();
     }
 
     // DEFAULT OFF (DIKEMBALIKAN 07-13). Escape hatch: -Dais.zk.factory_interceptor=true untuk

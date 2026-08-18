@@ -543,6 +543,20 @@ public class AppStartupListener implements ServletContextListener {
 			ais.action.master.repository.RepositorySyncScheduler.hentikan();
 		} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "auto-audit(empty-catch) src/ais/common/AppStartupListener.java:repository-sync-stop");
 		}
+		// Optimasi RAM Fase 1: tiga executor berikut sebelumnya TIDAK pernah dihentikan
+		// sehingga menahan classloader webapp lama saat redeploy.
+		try {
+			StokThresholdScheduler.hentikan();
+		} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "AppStartupListener.stopStokThresholdScheduler");
+		}
+		try {
+			AsyncTaskManager.shutdown();
+		} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "AppStartupListener.stopAsyncTaskManager");
+		}
+		try {
+			ais.action.servlet.DoUpload.hentikanRetryScheduler();
+		} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "AppStartupListener.stopDoUploadRetryScheduler");
+		}
 	}
 
 	/**

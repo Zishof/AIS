@@ -19,7 +19,41 @@ public class AsyncTaskManager {
 	// jauh di bawah c3p0 max_size. SEBELUMNYA 250 -> bisa meminta 250 koneksi sekaligus dan
 	// MENGHABISKAN pool c3p0 sehingga seluruh thread AJP/HTTP menunggu koneksi (Tomcat hang).
 	// Tugas berlebih ANTRE dengan rapi (bukan gagal).
-	private static final ExecutorService EXECUTOR = Executors.newFixedThreadPool(ais.common.DbThreadPool.safe(250));
+	// Thread DAEMON + bernama (ais-async-task-N): pool ini tidak pernah di-shutdown pada
+	// versi lama sehingga thread non-daemon default menahan classloader webapp lama saat
+	// redeploy (warning "appears to have started a thread ... failed to stop it" Tomcat).
+	// Daemon juga memastikan JVM bisa exit walau ada task menggantung. Shutdown deterministik
+	// tetap dipanggil dari AppStartupListener.contextDestroyed (lihat shutdown() di bawah).
+	private static final ExecutorService EXECUTOR = Executors.newFixedThreadPool(
+			ais.common.DbThreadPool.safe(250), new java.util.concurrent.ThreadFactory() {
+				private final java.util.concurrent.atomic.AtomicInteger urutan = new java.util.concurrent.atomic.AtomicInteger(1);
+
+				@Override
+				public Thread newThread(Runnable r) {
+					Thread t = new Thread(r, "ais-async-task-" + urutan.getAndIncrement());
+					t.setDaemon(true);
+					return t;
+				}
+			});
+
+	/**
+	 * Menghentikan pool async global saat webapp stop/redeploy. Dipanggil dari
+	 * {@code AppStartupListener.contextDestroyed}. Memberi waktu singkat bagi task yang
+	 * sedang berjalan untuk selesai, lalu memaksa interrupt — task di kelas ini sudah
+	 * defensif terhadap desktop mati (DesktopUnavailableException/isAlive check).
+	 */
+	public static void shutdown() {
+		try {
+			EXECUTOR.shutdown();
+			if (!EXECUTOR.awaitTermination(5, TimeUnit.SECONDS)) {
+				EXECUTOR.shutdownNow();
+			}
+		} catch (InterruptedException e) {
+			EXECUTOR.shutdownNow();
+			Thread.currentThread().interrupt();
+		} catch (Throwable e) { ais.common.ErrorAuditUtil.record(e, "AsyncTaskManager.shutdown");
+		}
+	}
 
 	// Interfaces
 	public interface BackgroundTask {
