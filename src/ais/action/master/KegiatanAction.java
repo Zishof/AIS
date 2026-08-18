@@ -528,10 +528,8 @@ public class KegiatanAction extends GenericAutowireComposer implements DataCrite
 					}
 				});
 
-				Vbox buttonVbox = new Vbox();
-				buttonVbox.setParent(arg0);
-				Hbox toolbar = new Hbox();
-				toolbar.setParent(buttonVbox);
+				final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+						new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 				MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Hitung Ulang", "/img/options.png");
 				button.setOrient("vertical");
@@ -577,12 +575,12 @@ public class KegiatanAction extends GenericAutowireComposer implements DataCrite
 					}
 
 				});
-				toolbar.appendChild(button);
+				aksiButtons.add(button);
 
 				if (kegiatan.getCalonMahasiswa() != null) {
 					button = new MyToolbarbuttonConfig("Tagihan", "/img/Finance-Invoice-icon.png");
 					button.setOrient("vertical");
-					button.setParent(toolbar);
+					aksiButtons.add(button);
 					button.addEventListener("onClick", new EventListener() {
 
 						@Override
@@ -600,7 +598,7 @@ public class KegiatanAction extends GenericAutowireComposer implements DataCrite
 
 					button = new MyToolbarbuttonConfig("Tagihan", "/img/Finance-Invoice-icon.png");
 					button.setOrient("vertical");
-					button.setParent(toolbar);
+					aksiButtons.add(button);
 					button.addEventListener("onClick", new EventListener() {
 
 						@Override
@@ -615,9 +613,6 @@ public class KegiatanAction extends GenericAutowireComposer implements DataCrite
 						}
 					});
 				}
-
-				toolbar = new Hbox();
-				toolbar.setParent(buttonVbox);
 
 				button = new MyToolbarbuttonConfig("Cetak", "/img/print.png");
 				button.setTooltiptext("Cetak");
@@ -634,7 +629,7 @@ public class KegiatanAction extends GenericAutowireComposer implements DataCrite
 						}
 					}
 				});
-				button.setParent(toolbar);
+				aksiButtons.add(button);
 
 				button = new MyToolbarbuttonConfig("Reversal", "/img/svg/warning-outline.svg");
 				button.setTooltiptext("Reversal");
@@ -721,7 +716,9 @@ public class KegiatanAction extends GenericAutowireComposer implements DataCrite
 					}
 
 				});
-				button.setParent(toolbar);
+				aksiButtons.add(button);
+
+				ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 			} catch (Exception e) {
 				ais.common.Common.tampilErrorJikaAdmin(e);
 				arg0.setVisible(false);

@@ -1673,13 +1673,12 @@ public class CalonSiswaAction extends GenericAutowireComposer
 				}
 			});
 
-			Vbox myVbox = new Vbox();
-			myVbox.setParent(arg0);
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
-			Common.copyEditDeleteButtons(edit, edit, delete, calonSiswa, CalonSiswaAction.this, true).setParent(myVbox);
-
-			Hbox toolbar = new Hbox();
-			toolbar.setParent(myVbox);
+			Hbox tempEditDelete = Common.copyEditDeleteButtons(edit, edit, delete, calonSiswa, CalonSiswaAction.this,
+					true);
+			aksiButtons.addAll(new java.util.ArrayList<org.zkoss.zk.ui.Component>(tempEditDelete.getChildren()));
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("No Reg.", "/img/print.png");
 			button.setOrient("vertical");
@@ -1692,7 +1691,7 @@ public class CalonSiswaAction extends GenericAutowireComposer
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Notif.", "/img/print.png");
 			button.setOrient("vertical");
@@ -1705,7 +1704,7 @@ public class CalonSiswaAction extends GenericAutowireComposer
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Print", "/img/print.png");
 			button.setOrient("vertical");
@@ -1717,7 +1716,7 @@ public class CalonSiswaAction extends GenericAutowireComposer
 					CommonReportPsb.onCetakCalonSiswa(calonSiswa);
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Ujian", "/img/print.png");
 			button.setOrient("vertical");
@@ -1741,10 +1740,7 @@ public class CalonSiswaAction extends GenericAutowireComposer
 
 				}
 			});
-			button.setParent(toolbar);
-
-			toolbar = new Hbox();
-			toolbar.setParent(myVbox);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("NIS", "/img/svg/user-circle.svg");
 			button.setOrient("vertical");
@@ -1764,7 +1760,7 @@ public class CalonSiswaAction extends GenericAutowireComposer
 
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Ket. Lulus", "/img/svg/check-circled-outline.svg");
 			button.setVisible(calonSiswa.getTelahDiterima());
@@ -1778,7 +1774,7 @@ public class CalonSiswaAction extends GenericAutowireComposer
 
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Perny. Ortu.", "/img/print.png");
 			button.setOrient("vertical");
@@ -1791,7 +1787,7 @@ public class CalonSiswaAction extends GenericAutowireComposer
 					CommonReportPsb.onCetakPernyataanOrtu(calonSiswa);
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Perny. Siswa.", "/img/print.png");
 			button.setOrient("vertical");
@@ -1804,7 +1800,9 @@ public class CalonSiswaAction extends GenericAutowireComposer
 					CommonReportPsb.onCetakPernyataanSiswa(calonSiswa);
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 
 	}

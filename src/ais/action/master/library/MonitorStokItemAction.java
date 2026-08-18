@@ -269,11 +269,9 @@ public class MonitorStokItemAction extends GenericAutowireComposer {
 
 			new Label(perpustakaan).setParent(arg0);
 
-			Vbox vbox = new Vbox();
-			vbox.setParent(arg0);
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
-			Hbox toolbar = new Hbox();
-			toolbar.setParent(vbox);
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Stok", "/img/print.png");
 			button.setOrient("vertical");
 			button.setTooltiptext("Cetak Stok");
@@ -292,7 +290,7 @@ public class MonitorStokItemAction extends GenericAutowireComposer {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Track", "/img/print.png");
 			button.setOrient("vertical");
@@ -312,9 +310,7 @@ public class MonitorStokItemAction extends GenericAutowireComposer {
 				}
 
 			});
-			button.setParent(toolbar);
-
-			toolbar = new Hbox();
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Google", "/img/Apps-Google-Play-Books-icon.png");
 			button.setOrient("vertical");
@@ -334,7 +330,7 @@ public class MonitorStokItemAction extends GenericAutowireComposer {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 			button.setVisible(item.getGoogleBookId() != null && !item.getGoogleBookId().trim().isEmpty());
 
 			button = new MyToolbarbuttonConfig("Baca", "/img/Book-icon.png");
@@ -356,7 +352,7 @@ public class MonitorStokItemAction extends GenericAutowireComposer {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 			Session mysession = StreamingHibernateUtil.getInstance().currentSession();
 
 			int qty = ((Number) mysession.createCriteria(FotoImagePerHalamanItem.class)
@@ -366,7 +362,8 @@ public class MonitorStokItemAction extends GenericAutowireComposer {
 			StreamingHibernateUtil.getInstance().closeSession();
 
 			button.setVisible(qty > 0);
-			toolbar.setParent(vbox);
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 
 		}
 

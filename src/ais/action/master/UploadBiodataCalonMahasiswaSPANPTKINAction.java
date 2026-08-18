@@ -149,11 +149,12 @@ public class UploadBiodataCalonMahasiswaSPANPTKINAction extends GenericAutowireC
 
 			new Label(uploadBiodataCalonMahasiswa.getKeterangan()).setParent(arg0);
 
-			Hbox toolbar = new Hbox();
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			MyToolbarbuttonConfig toolbarbutton = new MyToolbarbuttonConfig("Download", FileFoto.icon(null));
 			toolbarbutton.setOrient("vertical");
-			toolbarbutton.setParent(toolbar);
+			aksiButtons.add(toolbarbutton);
 			toolbarbutton.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
@@ -188,7 +189,7 @@ public class UploadBiodataCalonMahasiswaSPANPTKINAction extends GenericAutowireC
 
 			toolbarbutton = new MyToolbarbuttonConfig("Ulangi", "/img/options.png");
 			toolbarbutton.setOrient("vertical");
-			toolbarbutton.setParent(toolbar);
+			aksiButtons.add(toolbarbutton);
 			toolbarbutton.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
@@ -274,7 +275,7 @@ public class UploadBiodataCalonMahasiswaSPANPTKINAction extends GenericAutowireC
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Edit", "/img/svg/edit-box-line.svg");
 			button.setTooltiptext("Ubah Data");
@@ -288,7 +289,7 @@ public class UploadBiodataCalonMahasiswaSPANPTKINAction extends GenericAutowireC
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Hapus", "/img/svg/trash.svg");
 			button.setTooltiptext("Hapus Data");
@@ -329,8 +330,9 @@ public class UploadBiodataCalonMahasiswaSPANPTKINAction extends GenericAutowireC
 
 				}
 			});
-			button.setParent(toolbar);
-			toolbar.setParent(arg0);
+			aksiButtons.add(button);
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 	}
 

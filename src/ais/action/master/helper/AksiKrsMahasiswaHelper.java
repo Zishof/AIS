@@ -141,6 +141,11 @@ public final class AksiKrsMahasiswaHelper {
 			});
 		}
 
+		// Kolom aksi rapi (pola MahasiswaAction): badge ringkasan TETAP tampil di sel,
+		// seluruh tombol aksi dibungkus kebab popup (⋯) via UIHelper.buatBarisAksi
+		// sehingga kolom Aksi menjadi kecil.
+		final java.util.List<Component> aksiButtons = new java.util.ArrayList<Component>();
+
 		// Aksi PERSETUJUAN cepat untuk dosen wali/admin: menyetujui SELURUH KRS mahasiswa ini pada
 		// semester yang sedang ditinjau dalam satu klik (tanpa membuka rincian mata kuliah satu per
 		// satu). Hanya tampil bila pengguna berhak menyunting (edit).
@@ -148,7 +153,7 @@ public final class AksiKrsMahasiswaHelper {
 			final Button btnSetujui = new Button("Setujui KRS");
 			btnSetujui.setSclass("ais-krs-btn ais-krs-btn--setujui");
 			btnSetujui.setTooltiptext("Setujui seluruh mata kuliah KRS mahasiswa ini pada semester yang ditinjau");
-			btnSetujui.setParent(wadah);
+			aksiButtons.add(btnSetujui);
 			btnSetujui.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
@@ -159,7 +164,7 @@ public final class AksiKrsMahasiswaHelper {
 			final Button btnBatal = new Button("Batalkan");
 			btnBatal.setSclass("ais-krs-btn ais-krs-btn--batal");
 			btnBatal.setTooltiptext("Batalkan persetujuan seluruh KRS mahasiswa ini pada semester yang ditinjau");
-			btnBatal.setParent(wadah);
+			aksiButtons.add(btnBatal);
 			btnBatal.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
@@ -171,7 +176,7 @@ public final class AksiKrsMahasiswaHelper {
 		final Button btnDasbor = new Button("Dasbor");
 		btnDasbor.setSclass("ais-krs-btn ais-krs-btn--dasbor");
 		btnDasbor.setTooltiptext("Lihat rangkuman/dasbor akademik & KRS mahasiswa ini");
-		btnDasbor.setParent(wadah);
+		aksiButtons.add(btnDasbor);
 		btnDasbor.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
@@ -182,7 +187,7 @@ public final class AksiKrsMahasiswaHelper {
 		final Button btnKrs = new Button("Daftar KRS");
 		btnKrs.setSclass("ais-krs-btn ais-krs-btn--krs");
 		btnKrs.setTooltiptext("Lihat rincian Kartu Rencana Studi mahasiswa ini");
-		btnKrs.setParent(wadah);
+		aksiButtons.add(btnKrs);
 		btnKrs.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
@@ -193,13 +198,15 @@ public final class AksiKrsMahasiswaHelper {
 		final Button btnKomentar = new Button("Komentar");
 		btnKomentar.setSclass("ais-krs-btn ais-krs-btn--komentar");
 		btnKomentar.setTooltiptext("Lihat catatan/komentar untuk mahasiswa ini");
-		btnKomentar.setParent(wadah);
+		aksiButtons.add(btnKomentar);
 		btnKomentar.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
 				bukaKomentar(mahasiswa);
 			}
 		});
+
+		ais.ui.util.UIHelper.buatBarisAksi(wadah, 3, aksiButtons);
 
 		return wadah;
 	}

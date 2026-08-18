@@ -451,8 +451,8 @@ public class AlurPersetujuanSuratKeluarStatusAction extends GenericAutowireCompo
 						}
 					});
 
-			Hbox hbox2 = new Hbox();
-			hbox2.setParent(arg0);
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Catatan Disposisi", "/img/print.png");
 			button.setOrient("vertical");
@@ -465,7 +465,7 @@ public class AlurPersetujuanSuratKeluarStatusAction extends GenericAutowireCompo
 				}
 
 			});
-			button.setParent(hbox2);
+			aksiButtons.add(button);
 
 			JenisJabatan jenisJabatan = alurPersetujuanSuratKeluarStatus.getJenisJabatan();
 
@@ -504,7 +504,7 @@ public class AlurPersetujuanSuratKeluarStatusAction extends GenericAutowireCompo
 						}
 
 					});
-					button.setParent(hbox2);
+					aksiButtons.add(button);
 
 					button = new MyToolbarbuttonConfig("Batalkan", "/img/Check-icon.png");
 					button.setOrient("vertical");
@@ -542,7 +542,7 @@ public class AlurPersetujuanSuratKeluarStatusAction extends GenericAutowireCompo
 						}
 
 					});
-					button.setParent(hbox2);
+					aksiButtons.add(button);
 				}
 
 			} else {
@@ -560,7 +560,7 @@ public class AlurPersetujuanSuratKeluarStatusAction extends GenericAutowireCompo
 						}
 
 					});
-					button.setParent(hbox2);
+					aksiButtons.add(button);
 				}
 
 				button = new MyToolbarbuttonConfig("Lihat", "/img/eye-icon.png");
@@ -574,9 +574,11 @@ public class AlurPersetujuanSuratKeluarStatusAction extends GenericAutowireCompo
 						addWindow.onModal();
 					}
 				});
-				button.setParent(hbox2);
+				aksiButtons.add(button);
 
 			}
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 
 	}

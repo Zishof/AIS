@@ -322,8 +322,11 @@ public class HasilSPMIAction extends BaseSPMIAction implements FormSop {
 
             boolean canEdit   = edit   && !persetujuan && !item.getStatus().equals(HasilSPMI.DISETUJU);
             boolean canDelete = delete && !persetujuan && !item.getStatus().equals(HasilSPMI.DISETUJU);
+            final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+                    new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+
             Hbox actionHbox = Common.copyEditDeleteButtons(canEdit, canEdit, canDelete, item, HasilSPMIAction.this);
-            actionHbox.setParent(row);
+            aksiButtons.addAll(new java.util.ArrayList<org.zkoss.zk.ui.Component>(actionHbox.getChildren()));
 
             MyToolbarbuttonConfig downloadAmi = new MyToolbarbuttonConfig("Unduh AMI", "/img/excel.png");
             downloadAmi.setTooltiptext("Unduh format umum AMI satu XLSX: petunjuk, identitas, satu tabel seluruh indikator, ringkasan, dan referensi pilihan");
@@ -345,7 +348,7 @@ public class HasilSPMIAction extends BaseSPMIAction implements FormSop {
                     }
                 }
             });
-            downloadAmi.setParent(actionHbox);
+            aksiButtons.add(downloadAmi);
 
             MyToolbarbuttonConfig uploadAmi = new MyToolbarbuttonConfig("Upload AMI", "/img/upload.png");
             uploadAmi.setTooltiptext("Upload format AMI V2 atau format lama V1; ID teknis boleh kosong jika teks indikator dan bukti cocok unik dengan master aktif");
@@ -381,7 +384,7 @@ public class HasilSPMIAction extends BaseSPMIAction implements FormSop {
                     }
                 }
             });
-            uploadAmi.setParent(actionHbox);
+            aksiButtons.add(uploadAmi);
 
             MyToolbarbuttonConfig printBtn = new MyToolbarbuttonConfig("", "/img/print.png");
             printBtn.setTooltiptext("Cetak");
@@ -392,7 +395,7 @@ public class HasilSPMIAction extends BaseSPMIAction implements FormSop {
                     cetak(item);
                 }
             });
-            printBtn.setParent(actionHbox);
+            aksiButtons.add(printBtn);
 
             // ── Pelaksanaan SPMI: Sasaran Mutu (PPEPP P-2) ──────────────────
             MyToolbarbuttonConfig sasaranBtn = new MyToolbarbuttonConfig("Sasaran", null);
@@ -419,7 +422,7 @@ public class HasilSPMIAction extends BaseSPMIAction implements FormSop {
                         item.getTa(), item.getSemester(), jnId, namaJenis, ed, e.getTarget());
                 }
             });
-            sasaranBtn.setParent(actionHbox);
+            aksiButtons.add(sasaranBtn);
 
             // ── Peningkatan SPMI (PPEPP P-5) ────────────────────────────────
             MyToolbarbuttonConfig peningkatanBtn = new MyToolbarbuttonConfig("Peningkatan", null);
@@ -432,7 +435,9 @@ public class HasilSPMIAction extends BaseSPMIAction implements FormSop {
                     PeningkatanSPMIAction.openForHasilSPMI(item, isAdm, e.getTarget());
                 }
             });
-            peningkatanBtn.setParent(actionHbox);
+            aksiButtons.add(peningkatanBtn);
+
+            ais.ui.util.UIHelper.buatBarisAksi(row, 3, aksiButtons);
         }
     }
 

@@ -222,11 +222,9 @@ public class RuangPegawaiAction extends GenericAutowireComposer {
 			new Label(ruangPegawai.getUjianPegawai() == null ? "" : ruangPegawai.getUjianPegawai().getNama())
 					.setParent(arg0);
 
-			Vbox vbox = new Vbox();
-			vbox.setParent(arg0);
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
-			Hbox toolbar = new Hbox();
-			toolbar.setParent(vbox);
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Ubah", "/img/svg/edit-box-line.svg");
 			button.setOrient("vertical");
 			button.setTooltiptext("Ubah Data");
@@ -240,7 +238,7 @@ public class RuangPegawaiAction extends GenericAutowireComposer {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Hapus", "/img/svg/trash.svg");
 			button.setOrient("vertical");
@@ -275,7 +273,7 @@ public class RuangPegawaiAction extends GenericAutowireComposer {
 				}
 			});
 
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Absensi", "/img/print.png");
 			button.setOrient("vertical");
@@ -287,7 +285,7 @@ public class RuangPegawaiAction extends GenericAutowireComposer {
 					CommonReportPegawai.onCetakAbsensiPegawai(ruangPegawai);
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Verifikasi", "/img/print.png");
 			button.setOrient("vertical");
@@ -299,10 +297,8 @@ public class RuangPegawaiAction extends GenericAutowireComposer {
 					CommonReportPegawai.onCetakVerifikasiPegawai(ruangPegawai);
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
-			toolbar = new Hbox();
-			toolbar.setParent(vbox);
 			button = new MyToolbarbuttonConfig("Berita Acara", "/img/album.png");
 			button.setOrient("vertical");
 			button.setTooltiptext("Berita Acara Ujian");
@@ -314,7 +310,7 @@ public class RuangPegawaiAction extends GenericAutowireComposer {
 					onCetakBau(ruangPegawai);
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Cover Album", "/img/album_pmb.png");
 			button.setOrient("vertical");
@@ -328,7 +324,7 @@ public class RuangPegawaiAction extends GenericAutowireComposer {
 				}
 			});
 
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Album Absensi", "/img/absensi_pmb.png");
 			button.setOrient("vertical");
@@ -340,7 +336,9 @@ public class RuangPegawaiAction extends GenericAutowireComposer {
 					onCetakAlbum(ruangPegawai);
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 
 		}
 

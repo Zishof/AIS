@@ -440,10 +440,9 @@ public class PengajuanMahasiswaAction extends GenericAutowireComposer
 			).setParent(arg0);
 			new Label(pengajuanMahasiswa.getPersetujuan() ? "Sudah" : "Belum").setParent(arg0);
 
-			Vbox vbox = new Vbox();
-			vbox.setParent(arg0);
-			Hbox toolbar = new Hbox();
-			toolbar.setParent(vbox);
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Permohonan", "/img/print.png");
 			button.setOrient("vertical");
 			button.setTooltiptext("Cetak Permohonan");
@@ -460,7 +459,7 @@ public class PengajuanMahasiswaAction extends GenericAutowireComposer
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Edit", "/img/svg/edit-box-line.svg");
 			button.setOrient("vertical");
@@ -478,10 +477,7 @@ public class PengajuanMahasiswaAction extends GenericAutowireComposer
 				}
 
 			});
-			button.setParent(toolbar);
-
-			toolbar = new Hbox();
-			toolbar.setParent(vbox);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Persetujuan", "/img/print.png");
 			button.setVisible(pengajuanMahasiswa.getPersetujuan());
@@ -507,7 +503,7 @@ public class PengajuanMahasiswaAction extends GenericAutowireComposer
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Hapus", "/img/svg/trash.svg");
 			button.setOrient("vertical");
@@ -550,7 +546,7 @@ public class PengajuanMahasiswaAction extends GenericAutowireComposer
 
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Cetak", "/img/print.png");
 			button.setStyle("font-size:9px;");
@@ -563,7 +559,9 @@ public class PengajuanMahasiswaAction extends GenericAutowireComposer
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 
 		}
 

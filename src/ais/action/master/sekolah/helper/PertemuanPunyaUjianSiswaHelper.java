@@ -1885,10 +1885,8 @@ public class PertemuanPunyaUjianSiswaHelper implements DataLoader {
 					}
 				});
 
-				Vbox vb = new Vbox();
-				vb.setParent(arg0);
-				Hbox hb = new Hbox();
-				hb.setParent(vb);
+				final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+						new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 				MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Sertifikat", "/img/certificate-icon.png");
 				button.setOrient("vertical");
 
@@ -1901,7 +1899,7 @@ public class PertemuanPunyaUjianSiswaHelper implements DataLoader {
 						SertifikatAction.cetakSertifikat(hasilUjianMahasiswa);
 					}
 				});
-				button.setParent(hb);
+				aksiButtons.add(button);
 
 				if (pertemuanPunyaUjian != null) {
 					button = new MyToolbarbuttonConfig("Hasil", "/img/album.png");
@@ -1922,7 +1920,7 @@ public class PertemuanPunyaUjianSiswaHelper implements DataLoader {
 							window.onModal();
 						}
 					});
-					button.setParent(hb);
+					aksiButtons.add(button);
 				}
 
 				button = new MyToolbarbuttonConfig("Preview", "/img/eye-icon.png");
@@ -1944,10 +1942,7 @@ public class PertemuanPunyaUjianSiswaHelper implements DataLoader {
 								});
 					}
 				});
-				button.setParent(hb);
-
-				hb = new Hbox();
-				hb.setParent(vb);
+				aksiButtons.add(button);
 
 				button = new MyToolbarbuttonConfig("Ubah", "/img/svg/edit-box-line.svg");
 				button.setOrient("vertical");
@@ -1973,7 +1968,7 @@ public class PertemuanPunyaUjianSiswaHelper implements DataLoader {
 						}, ujian, pertemuan == null ? null : pertemuan.untuk());
 					}
 				});
-				button.setParent(hb);
+				aksiButtons.add(button);
 
 				button = new MyToolbarbuttonConfig("Hapus", "/img/svg/trash.svg");
 				button.setOrient("vertical");
@@ -2026,7 +2021,9 @@ public class PertemuanPunyaUjianSiswaHelper implements DataLoader {
 					}
 
 				});
-				button.setParent(hb);
+				aksiButtons.add(button);
+
+				ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 
 			}
 
