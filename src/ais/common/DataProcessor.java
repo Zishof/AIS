@@ -219,6 +219,13 @@ public class DataProcessor { // Ganti nama class sesuai file Anda
 				fileZip = fileSourceFallback;
 			}
 
+			if (fileZip != null && fileZip.exists() && fileZip.length() == 0L) {
+				// Berkas ada tapi kosong (0 byte) -- placeholder/upload terputus, bukan zip
+				// valid. new ZipFile() dijamin gagal (ZipException), jadi lewati lebih awal
+				// tanpa membanjiri log dengan stack trace yang sudah pasti terjadi.
+				return;
+			}
+
 			if (fileZip != null && fileZip.exists()) {
 				String folderName = fileZip.getName().replace(".zip", "").replaceAll(" ", "_");
 				String fullPath = Common.REAL_PATH + SCORM_BASE_PATH + folderName;
