@@ -2672,10 +2672,8 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 					}
 				});
 
-				Vbox vb = new Vbox();
-				vb.setParent(arg0);
-				Hbox hb = new Hbox();
-				hb.setParent(vb);
+				final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+						new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 				MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Sertifikat", "/img/certificate-icon.png");
 				button.setOrient("vertical");
 

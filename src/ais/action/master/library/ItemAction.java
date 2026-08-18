@@ -2106,10 +2106,7 @@ public class ItemAction extends GenericAutowireComposer implements DataCriteria 
 				}
 			}
 
-			Vbox vbox = new Vbox();
-			vbox.setParent(arg0);
-			Hbox toolbar = new Hbox();
-			toolbar.setParent(vbox);
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons = new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Barcode", "/img/Ecommerce-Barcode-icon.png");
 			button.setOrient("vertical");
@@ -2162,7 +2159,7 @@ public class ItemAction extends GenericAutowireComposer implements DataCriteria 
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Cetak", "/img/print.png");
 			button.setOrient("vertical");
@@ -2200,7 +2197,7 @@ public class ItemAction extends GenericAutowireComposer implements DataCriteria 
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Google", "/img/Apps-Google-Play-Books-icon.png");
 			button.setOrient("vertical");
@@ -2220,7 +2217,7 @@ public class ItemAction extends GenericAutowireComposer implements DataCriteria 
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 			button.setVisible(item.getGoogleBookId() != null && !item.getGoogleBookId().trim().isEmpty());
 
 			button = new MyToolbarbuttonConfig("Baca", "/img/Book-icon.png");
@@ -2243,7 +2240,7 @@ public class ItemAction extends GenericAutowireComposer implements DataCriteria 
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			Session session = StreamingHibernateUtil.getInstance().currentSession();
 
@@ -2255,9 +2252,6 @@ public class ItemAction extends GenericAutowireComposer implements DataCriteria 
 
 			button.setVisible(qty > 0);
 
-			toolbar = new Hbox();
-			toolbar.setParent(vbox);
-
 			button = new MyToolbarbuttonConfig("Kutipan", "/img/eye-icon.png");
 			button.setOrient("vertical");
 			button.setTooltiptext("Kutipan Data");
@@ -2268,7 +2262,7 @@ public class ItemAction extends GenericAutowireComposer implements DataCriteria 
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Ubah", "/img/svg/edit-box-line.svg");
 			button.setOrient("vertical");
@@ -2283,7 +2277,7 @@ public class ItemAction extends GenericAutowireComposer implements DataCriteria 
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Hapus", "/img/svg/trash.svg");
 			button.setTooltiptext("Hapus Data");
@@ -2318,7 +2312,9 @@ public class ItemAction extends GenericAutowireComposer implements DataCriteria 
 				}
 			});
 
-			button.setParent(toolbar);
+			aksiButtons.add(button);
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 
 	}

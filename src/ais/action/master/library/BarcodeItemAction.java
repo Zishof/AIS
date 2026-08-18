@@ -444,10 +444,7 @@ public class BarcodeItemAction extends GenericAutowireComposer implements DataCr
 								+ " - " + DetailTransaksiHelper.dapatkanInfo(detailTransaksi)))
 						.setParent(arg0);
 
-				Vbox vbox = new Vbox();
-				vbox.setParent(arg0);
-				Hbox toolbar = new Hbox();
-				toolbar.setParent(vbox);
+				final java.util.List<org.zkoss.zk.ui.Component> aksiButtons = new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 				MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Cetak", "/img/print.png");
 				button.setOrient("vertical");
@@ -485,7 +482,7 @@ public class BarcodeItemAction extends GenericAutowireComposer implements DataCr
 					}
 
 				});
-				button.setParent(toolbar);
+				aksiButtons.add(button);
 
 				button = new MyToolbarbuttonConfig("Google", "/img/Apps-Google-Play-Books-icon.png");
 				button.setOrient("vertical");
@@ -505,7 +502,7 @@ public class BarcodeItemAction extends GenericAutowireComposer implements DataCr
 					}
 
 				});
-				button.setParent(toolbar);
+				aksiButtons.add(button);
 				button.setVisible(item.getGoogleBookId() != null && !item.getGoogleBookId().trim().isEmpty());
 
 				button = new MyToolbarbuttonConfig("Baca", "/img/Book-icon.png");
@@ -528,10 +525,7 @@ public class BarcodeItemAction extends GenericAutowireComposer implements DataCr
 					}
 
 				});
-				button.setParent(toolbar);
-
-				toolbar = new Hbox();
-				toolbar.setParent(vbox);
+				aksiButtons.add(button);
 
 				button = new MyToolbarbuttonConfig("Ubah", "/img/svg/edit-box-line.svg");
 				button.setOrient("vertical");
@@ -546,7 +540,7 @@ public class BarcodeItemAction extends GenericAutowireComposer implements DataCr
 					}
 
 				});
-				button.setParent(toolbar);
+				aksiButtons.add(button);
 
 				button = new MyToolbarbuttonConfig("Hapus", "/img/svg/trash.svg");
 				button.setTooltiptext("Hapus Data");
@@ -581,7 +575,9 @@ public class BarcodeItemAction extends GenericAutowireComposer implements DataCr
 					}
 				});
 
-				button.setParent(toolbar);
+				aksiButtons.add(button);
+
+				ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 			}
 		}
 
