@@ -45,6 +45,10 @@ public class GrupProduk extends GeneralValueObject {
 	private String keterangan;
 	private Double hargaBeli;
 	private Double hargaJual;
+	private String bahanBaku;
+	private Boolean ikutHpp;
+	private Boolean ikutHargaJual;
+	private ais.database.model.koperasi.AturanDiskon aturanDiskon;
 	private Boolean aktif;
 	private String oleh;
 	private String olehId;
