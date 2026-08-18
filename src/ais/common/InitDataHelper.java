@@ -3122,18 +3122,21 @@ public class InitDataHelper {
 				handleAlurSop(session, clazz);
 			} else if (className.equals(JenisCatatanSiswa.class.getName())) {
 				handleJenisCatatanSiswa(session, clazz);
-			} else if (className.equals(Pegawai.class.getName())) {
-				handlePegawai(session, clazz);
 			}
 
-			// Tabel BESAR (Tbmuser/Dosen): JANGAN full-load saat bootstrap — menyebabkan
+			// Tabel BESAR (Tbmuser/Dosen/Pegawai): JANGAN full-load saat bootstrap — menyebabkan
 			// startup menggantung (criteria.list() seluruh baris). Lewati preload penuh;
 			// data dimuat on-demand dari DB (konsisten dgn cabang "terlalu banyak" di bawah).
 			// KECUALI ada riwayat akses nyata 3-hari-terakhir (EntityAccessCache) dari proses
 			// sebelum restart — warm-start HANYA id yang benar-benar pernah dipakai, tetap
 			// jauh lebih murah daripada full-load tabel besar.
+			// PEGAWAI ditambahkan ke pola ini (optimasi RAM Fase 3): handler lama mem-paging
+			// SELURUH tabel pegawai (50/halaman TANPA batas atas) ke cache — ribuan entity
+			// graph tertahan permanen. Aman karena miss jatuh ke fallback DB milik
+			// ConstantValues.ambil (map kosong tetap dibuat → classExist true).
 			else if (className.equals(ais.database.model.Tbmuser.class.getName())
-					|| className.equals(ais.database.model.Dosen.class.getName())) {
+					|| className.equals(ais.database.model.Dosen.class.getName())
+					|| className.equals(Pegawai.class.getName())) {
 				List<Long> idTerakhirBesar = EntityAccessCache.ambilIdTerakhir(clazz);
 				if (!idTerakhirBesar.isEmpty()) {
 					System.out.println("Warm-start " + className + " dari riwayat akses 3 hari: "
@@ -3197,8 +3200,11 @@ public class InitDataHelper {
 				if (c != null) {
 					loadAndInitWithCriteria(c, clazz);
 				}
-				// Fallback: Default load jika data sedikit atau ditandai 'jangan dibersihkan'
-				else if (GeneralValueObject.merupakanJanganDibersihkan(clazz) || jumlah.intValue() < 100) {
+				// Fallback: Default load jika data sedikit atau ditandai 'jangan dibersihkan'.
+				// Ambang "data sedikit" configurable via "preload_maks_baris_kecil" (default 100,
+				// perilaku lama) — set 0 untuk mematikan full-load kelas kecil sama sekali.
+				else if (GeneralValueObject.merupakanJanganDibersihkan(clazz)
+						|| jumlah.intValue() < ambilBatasBarisKecil()) {
 					loadAndInitStandardData(session, clazz);
 				}
 				// Data terlalu banyak dan tidak ada penanganan khusus
@@ -3247,6 +3253,20 @@ public class InitDataHelper {
 	// ---------------------------------------------------------
 	// HELPER METHODS (Refactoring)
 	// ---------------------------------------------------------
+
+	/**
+	 * Ambang jumlah baris maksimum sebuah kelas TANPA penanganan khusus boleh di-full-load
+	 * ke cache saat preload startup. Configurable via konfigurasi
+	 * {@code preload_maks_baris_kecil} (default 100 = perilaku lama); 0 mematikan
+	 * full-load kelas kecil (semua on-demand).
+	 */
+	private static int ambilBatasBarisKecil() {
+		try {
+			return Integer.parseInt(Common.getKonfigurasi("preload_maks_baris_kecil", "100").getNilai().trim());
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) InitDataHelper.ambilBatasBarisKecil");
+			return 100;
+		}
+	}
 
 	@SuppressWarnings("rawtypes")
 	private static void loadAndInitStandardData(Session session, Class clazz) {
@@ -3423,30 +3443,10 @@ public class InitDataHelper {
 		}
 	}
 
-	@SuppressWarnings({ "unchecked", "rawtypes" })
-	private static void handlePegawai(Session session, Class clazz) {
-		System.out.println("MULAI load " + clazz.getName() + " ...");
-		int size = 1;
-		int mulai = 0;
-		while (size > 0) {
-			Criteria c = session.createCriteria(clazz).setFirstResult(mulai).setMaxResults(50);
-			List<GeneralValueObject> d = c.list();
-			size = d.size();
-			mulai += 50;
-			System.out.println("loading data " + clazz.getName() + " sebanyak " + size + ", mulai -> " + mulai);
-			for (GeneralValueObject dd : d) {
-				try {
-					reInitDataBaru(dd);
-				} catch (Exception e) {
-					e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/InitDataHelper.java:3440");
-				}
-			}
-			try {
-				session.clear();
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/InitDataHelper.java:3445");
-			}
-		}
-	}
+	// handlePegawai DIHAPUS (optimasi RAM Fase 3): dahulu mem-paging SELURUH tabel Pegawai
+	// (50/halaman tanpa batas atas) ke cache memory. Pegawai kini mengikuti pola tabel besar
+	// Tbmuser/Dosen di doInitData: warm-start dari riwayat akses EntityAccessCache, sisanya
+	// on-demand via fallback DB ConstantValues.ambil.
 
 	// ---------------------------------------------------------
 	// UTILITY METHODS (Cache Management)
