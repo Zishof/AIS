@@ -1657,6 +1657,11 @@ public class PosApi extends HttpServlet {
 		if (action.startsWith("hotel_")) {
 			// MitraInap fail-closed per-area (default false semua). Aksi granular
 			// create/update tetap dicek lapis kedua di HotelApiHelper.boleh().
+			//
+			// KECUALI lookup room-charge: gerbang menu "kasir" (LANGKAH 4) -- kasir
+			// OUTLET perlu memilih tamu in-house utk menagih penjualan ke folio tanpa
+			// diberi menu front-desk; datanya minimal (nama tamu, nomor kamar).
+			if ("hotel_room_charge_lookup".equals(action)) return menu.optBoolean("kasir", true);
 			if (action.startsWith("hotel_properti_")) return menu.optBoolean("hotel_properti", false);
 			if (action.startsWith("hotel_tipe_kamar_") || action.startsWith("hotel_kamar_")) return menu.optBoolean("hotel_kamar", false);
 			if (action.startsWith("hotel_tamu_") || action.startsWith("hotel_reservasi_")) return menu.optBoolean("hotel_reservasi", false);
