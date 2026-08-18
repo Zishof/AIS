@@ -295,7 +295,13 @@ public class UploadAjarDosen extends MyWindow {
 
 					int rowIndex = 1;
 					for (int i = 1; i < size; i++) {
-						Session session = HibernateUtil.currentNativeSession();
+						/*
+						 * WAJIB openSession(), BUKAN currentNativeSession(). Pola currentNativeSession()
+						 * yang ditutup manual di akhir tiap iterasi rentan terhadap "Session is closed!"
+						 * bila helper Excel lain (mis. Common.getSheetContentAsObject) ikut menutup
+						 * native session ThreadLocal di tengah pemrosesan baris ini.
+						 */
+						Session session = HibernateUtil.openSession();
 						try {
 
 							if (Common.getSheetContentAsString(sheetUpload, 0, i) == null) {
@@ -394,9 +400,11 @@ public class UploadAjarDosen extends MyWindow {
 						} catch (Exception e) {
 							Common.tampilErrorJikaAdmin(e);
 							report.gagal(i, "baris-" + i, e, "Periksa data NIDN/MK pada baris ini");
+						} finally {
+							// Tutup session khusus baris ini + bersihkan ThreadLocal sisa helper Excel.
+							HibernateUtil.closeSessionQuietly(session);
+							HibernateUtil.closeSession();
 						}
-
-						HibernateUtil.closeSession();
 					}
 
 					Common.setStyled(sheet);sizedata.setValue(rowIndex + 1);
@@ -493,8 +501,22 @@ public class UploadAjarDosen extends MyWindow {
 			perkuliahan.setPerkuliahanDimulai(mulai);
 			perkuliahan.setPerkuliahanSampai(selesai);
 			session.getTransaction().begin();
-			session.save(perkuliahan);
-			session.getTransaction().commit();
+			try {
+				session.save(perkuliahan);
+				session.getTransaction().commit();
+			} catch (RuntimeException eSimpan) {
+				/*
+				 * WAJIB rollback. Tanpa ini transaksi tetap AKTIF, sehingga begin() pada
+				 * baris berikutnya melempar "Transaction already active".
+				 */
+				try {
+					session.getTransaction().rollback();
+				} catch (Exception eRoll) {
+					ais.common.ErrorAuditUtil.record(eRoll, "rollback-gagal-upload "
+						+ "src/ais/action/master/feeder/integrator/helper/UploadAjarDosen.java");
+				}
+				throw eSimpan;
+			}
 		}
 
 		perkuliahan.setKurikulumPunyaMatakuliah(kurikulumPunyaMatakuliah);
@@ -529,8 +551,22 @@ public class UploadAjarDosen extends MyWindow {
 		}
 
 		session.getTransaction().begin();
-		Common.refreshSaveOrUpdate(session, perkuliahan);
-		session.getTransaction().commit();
+		try {
+			Common.refreshSaveOrUpdate(session, perkuliahan);
+			session.getTransaction().commit();
+		} catch (Exception eSimpan) {
+			/*
+			 * WAJIB rollback. Tanpa ini transaksi tetap AKTIF, sehingga begin() pada
+			 * baris berikutnya melempar "Transaction already active".
+			 */
+			try {
+				session.getTransaction().rollback();
+			} catch (Exception eRoll) {
+				ais.common.ErrorAuditUtil.record(eRoll, "rollback-gagal-upload "
+					+ "src/ais/action/master/feeder/integrator/helper/UploadAjarDosen.java");
+			}
+			throw new RuntimeException(eSimpan);
+		}
 
 		return perkuliahan;
 	}

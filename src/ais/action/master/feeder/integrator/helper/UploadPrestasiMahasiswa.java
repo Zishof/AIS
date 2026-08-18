@@ -231,15 +231,27 @@ public class UploadPrestasiMahasiswa extends MyWindow {
 
 					int rowIndex = 1;
 					for (int i = 1; i < size; i++) {
-						Session session = HibernateUtil.currentNativeSession();
+						/*
+						 * WAJIB openSession(), BUKAN currentNativeSession(). Common.getSheetContentAsObject()
+						 * di dalam pemrosesan baris menutup native session ThreadLocal
+						 * (HibernateUtil.closeSession()), sehingga session hasil currentNativeSession()
+						 * sudah TERTUTUP saat getTransaction().begin() dipanggil -> "Session is closed!"
+						 * di SETIAP baris.
+						 */
+						Session session = HibernateUtil.openSession();
 						try {
 
 							if (Common.getSheetContentAsString(sheetUpload, 0, i) == null) {
 								continue;
 							}
 
-							Mahasiswa mahasiswa = (Mahasiswa) Common.getSheetContentAsObject(sheetUpload, 0, i,
+							Mahasiswa mahasiswaMentah = (Mahasiswa) Common.getSheetContentAsObject(sheetUpload, 0, i,
 									Mahasiswa.class);
+
+							// Reload ke session khusus baris ini agar entitas managed (bukan detached
+							// dari session lain yang sudah tertutup) -> akses lazy field & simpan aman.
+							Mahasiswa mahasiswa = mahasiswaMentah == null ? null
+									: (Mahasiswa) session.get(Mahasiswa.class, mahasiswaMentah.getId());
 
 							if (mahasiswa != null) {
 								String nama = Common.getSheetContentAsString(sheetUpload, 4, i);
@@ -290,8 +302,22 @@ public class UploadPrestasiMahasiswa extends MyWindow {
 									prestasiMahasiswa.setOlehId(olehId);
 
 									session.getTransaction().begin();
-									Common.refreshSaveOrUpdate(session, prestasiMahasiswa);
-									session.getTransaction().commit();
+									try {
+										Common.refreshSaveOrUpdate(session, prestasiMahasiswa);
+										session.getTransaction().commit();
+									} catch (Exception eSimpan) {
+										/*
+										 * WAJIB rollback. Tanpa ini transaksi tetap AKTIF, sehingga begin() pada
+										 * baris berikutnya melempar "Transaction already active".
+										 */
+										try {
+											session.getTransaction().rollback();
+										} catch (Exception eRoll) {
+											ais.common.ErrorAuditUtil.record(eRoll, "rollback-gagal-upload "
+												+ "src/ais/action/master/feeder/integrator/helper/UploadPrestasiMahasiswa.java");
+										}
+										throw eSimpan;
+									}
 
 									XSSFRow row = sheet.createRow(rowIndex);
 
@@ -323,9 +349,11 @@ public class UploadPrestasiMahasiswa extends MyWindow {
 						} catch (Exception e) {
 							Common.tampilErrorJikaAdmin(e);
 							report.gagal(i, "baris-" + i, e, "Periksa data NIM/Prestasi pada baris ini");
+						} finally {
+							// Tutup session khusus baris ini + bersihkan ThreadLocal sisa helper Excel.
+							HibernateUtil.closeSessionQuietly(session);
+							HibernateUtil.closeSession();
 						}
-
-						HibernateUtil.closeSession();
 					}
 
 					Common.setStyled(sheet);sizedata.setValue(rowIndex + 1);

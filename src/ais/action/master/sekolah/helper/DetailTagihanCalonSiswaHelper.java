@@ -2294,6 +2294,7 @@ public class DetailTagihanCalonSiswaHelper implements DataLoader, DataCriteria {
 
 			@Override
 			public void run() {
+				Session session = null;
 				try {
 
 				try {
@@ -2321,7 +2322,13 @@ public class DetailTagihanCalonSiswaHelper implements DataLoader, DataCriteria {
 
 					final int bulanTahunAkhir = PembayaranSiswa.convert(tahunSampai, bulanSampai);
 
-					Session session = HibernateUtil.currentNativeSession();
+					/*
+					 * WAJIB openSession(), BUKAN currentNativeSession(). Common.getSheetContentAsObject()
+					 * dan getSheetContentAsString/Double/Boolean di dalam loop menutup native session
+					 * ThreadLocal (HibernateUtil.closeSession()), sehingga session hasil
+					 * currentNativeSession() sudah TERTUTUP saat dipakai -> "Session is closed!".
+					 */
+					session = HibernateUtil.openSession();
 					int rowCount = (sheet.getLastRowNum() + 1);
 					for (int i = 1; i < rowCount; i++) {
 						try {
@@ -2706,10 +2713,9 @@ public class DetailTagihanCalonSiswaHelper implements DataLoader, DataCriteria {
 					e1.printStackTrace(); ais.common.ErrorAuditUtil.record(e1, "auto-audit src/ais/action/master/sekolah/helper/DetailTagihanCalonSiswaHelper.java:2706");
 				}
 
-				HibernateUtil.closeSession();
-
 				label.setValue("");
 							} finally {
+					HibernateUtil.closeSessionQuietly(session);
 					ais.database.hibernate.HibernateUtil.closeSession();
 				}
 			}

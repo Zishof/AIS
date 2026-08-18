@@ -264,7 +264,14 @@ public class UploadKelas extends MyWindow {
 
 					int rowIndex = 1;
 					for (int i = 1; i < size; i++) {
-						Session session = HibernateUtil.currentNativeSession();
+						/*
+						 * WAJIB openSession(), BUKAN currentNativeSession(). Common.getSheetContentAsObject()
+						 * di dalam pemrosesan baris menutup native session ThreadLocal
+						 * (HibernateUtil.closeSession()), sehingga session hasil currentNativeSession()
+						 * sudah TERTUTUP saat dipakai lagi (createCriteria/begin) -> "Session is closed!"
+						 * di SETIAP baris.
+						 */
+						Session session = HibernateUtil.openSession();
 						try {
 
 							if (Common.getSheetContentAsString(sheetUpload, 0, i) == null) {
@@ -326,6 +333,23 @@ public class UploadKelas extends MyWindow {
 								Dosen dosen8 = (Dosen) Common.getSheetContentAsObject(sheetUpload, 19, i, Dosen.class);
 								Dosen dosen9 = (Dosen) Common.getSheetContentAsObject(sheetUpload, 20, i, Dosen.class);
 								Dosen dosen10 = (Dosen) Common.getSheetContentAsObject(sheetUpload, 21, i, Dosen.class);
+
+								/*
+								 * Reload ke session baris ini agar entitas managed (bukan detached dari
+								 * session lain milik helper Excel yang sudah tertutup) sebelum dipakai
+								 * sebagai relasi Perkuliahan yang disimpan.
+								 */
+								ruang = ruang == null ? null : (Ruang) session.get(Ruang.class, ruang.getId());
+								dosen1 = dosen1 == null ? null : (Dosen) session.get(Dosen.class, dosen1.getId());
+								dosen2 = dosen2 == null ? null : (Dosen) session.get(Dosen.class, dosen2.getId());
+								dosen3 = dosen3 == null ? null : (Dosen) session.get(Dosen.class, dosen3.getId());
+								dosen4 = dosen4 == null ? null : (Dosen) session.get(Dosen.class, dosen4.getId());
+								dosen5 = dosen5 == null ? null : (Dosen) session.get(Dosen.class, dosen5.getId());
+								dosen6 = dosen6 == null ? null : (Dosen) session.get(Dosen.class, dosen6.getId());
+								dosen7 = dosen7 == null ? null : (Dosen) session.get(Dosen.class, dosen7.getId());
+								dosen8 = dosen8 == null ? null : (Dosen) session.get(Dosen.class, dosen8.getId());
+								dosen9 = dosen9 == null ? null : (Dosen) session.get(Dosen.class, dosen9.getId());
+								dosen10 = dosen10 == null ? null : (Dosen) session.get(Dosen.class, dosen10.getId());
 
 								String program = Common.getSheetContentAsString(sheetUpload, 22, i);
 								if (program == null || program.trim().isEmpty()) {
@@ -530,9 +554,11 @@ public class UploadKelas extends MyWindow {
 						} catch (Exception e) {
 							Common.tampilErrorJikaAdmin(e);
 							report.gagal(i, "baris-" + i, e, "Periksa data kelas pada baris ini");
+						} finally {
+							// Tutup session khusus baris ini + bersihkan ThreadLocal sisa helper Excel.
+							HibernateUtil.closeSessionQuietly(session);
+							HibernateUtil.closeSession();
 						}
-
-						HibernateUtil.closeSession();
 					}
 
 					Common.setStyled(sheet);
@@ -652,8 +678,22 @@ public class UploadKelas extends MyWindow {
 			perkuliahan.setStatusSemesterPendek(statusSemesterPendek);
 
 			session.getTransaction().begin();
-			session.saveOrUpdate(perkuliahan);
-			session.getTransaction().commit();
+			try {
+				session.saveOrUpdate(perkuliahan);
+				session.getTransaction().commit();
+			} catch (RuntimeException eSimpan) {
+				/*
+				 * WAJIB rollback. Tanpa ini transaksi tetap AKTIF, sehingga begin() pada
+				 * baris berikutnya melempar "Transaction already active".
+				 */
+				try {
+					session.getTransaction().rollback();
+				} catch (Exception eRoll) {
+					ais.common.ErrorAuditUtil.record(eRoll, "rollback-gagal-upload "
+						+ "src/ais/action/master/feeder/integrator/helper/UploadKelas.java");
+				}
+				throw eSimpan;
+			}
 		} else if (perkuliahan == null) {
 			perkuliahan = new Perkuliahan();
 			perkuliahan.setOleh(tbmuser.getUserNama());
@@ -693,8 +733,22 @@ public class UploadKelas extends MyWindow {
 			perkuliahan.setStatusSemesterPendek(statusSemesterPendek);
 
 			session.getTransaction().begin();
-			session.save(perkuliahan);
-			session.getTransaction().commit();
+			try {
+				session.save(perkuliahan);
+				session.getTransaction().commit();
+			} catch (RuntimeException eSimpan) {
+				/*
+				 * WAJIB rollback. Tanpa ini transaksi tetap AKTIF, sehingga begin() pada
+				 * baris berikutnya melempar "Transaction already active".
+				 */
+				try {
+					session.getTransaction().rollback();
+				} catch (Exception eRoll) {
+					ais.common.ErrorAuditUtil.record(eRoll, "rollback-gagal-upload "
+						+ "src/ais/action/master/feeder/integrator/helper/UploadKelas.java");
+				}
+				throw eSimpan;
+			}
 
 		}
 		return perkuliahan;

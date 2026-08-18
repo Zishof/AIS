@@ -298,8 +298,18 @@ public class UploadKrs extends MyWindow {
 					kurikulum.setJenisSemester(Common.isNowSemensterGanjil() ? Perkuliahan.GANJIL : Perkuliahan.GENAP);
 					kurikulum.setTahunAkademik(Common.getCurrentTahunAkademik());
 					session.getTransaction().begin();
-					session.saveOrUpdate(kurikulum);
-					session.getTransaction().commit();
+					try {
+						session.saveOrUpdate(kurikulum);
+						session.getTransaction().commit();
+					} catch (RuntimeException eSimpan) {
+						try {
+							session.getTransaction().rollback();
+						} catch (Exception eRoll) {
+							ais.common.ErrorAuditUtil.record(eRoll, "rollback-gagal-upload "
+								+ "src/ais/action/master/feeder/integrator/helper/UploadKrs.java");
+						}
+						throw eSimpan;
+					}
 				}
 
 				kurikulumPunyaMatakuliah = new KurikulumPunyaMatakuliah();
@@ -307,8 +317,22 @@ public class UploadKrs extends MyWindow {
 				kurikulumPunyaMatakuliah.setSemester(semester);
 				kurikulumPunyaMatakuliah.setKurikulum(kurikulum);
 				session.getTransaction().begin();
-				session.saveOrUpdate(kurikulumPunyaMatakuliah);
-				session.getTransaction().commit();
+				try {
+					session.saveOrUpdate(kurikulumPunyaMatakuliah);
+					session.getTransaction().commit();
+				} catch (RuntimeException eSimpan) {
+					/*
+					 * WAJIB rollback. Tanpa ini transaksi tetap AKTIF, sehingga begin() pada
+					 * baris berikutnya melempar "Transaction already active".
+					 */
+					try {
+						session.getTransaction().rollback();
+					} catch (Exception eRoll) {
+						ais.common.ErrorAuditUtil.record(eRoll, "rollback-gagal-upload "
+							+ "src/ais/action/master/feeder/integrator/helper/UploadKrs.java");
+					}
+					throw eSimpan;
+				}
 			}
 
 			if (detailperkuliahan == null) {
@@ -333,8 +357,22 @@ public class UploadKrs extends MyWindow {
 		detailperkuliahan.setOlehId(olehId);
 
 		session.getTransaction().begin();
-		session.saveOrUpdate(detailperkuliahan);
-		session.getTransaction().commit();
+		try {
+			session.saveOrUpdate(detailperkuliahan);
+			session.getTransaction().commit();
+		} catch (RuntimeException eSimpan) {
+			/*
+			 * WAJIB rollback. Tanpa ini transaksi tetap AKTIF, sehingga begin() pada
+			 * baris berikutnya melempar "Transaction already active".
+			 */
+			try {
+				session.getTransaction().rollback();
+			} catch (Exception eRoll) {
+				ais.common.ErrorAuditUtil.record(eRoll, "rollback-gagal-upload "
+					+ "src/ais/action/master/feeder/integrator/helper/UploadKrs.java");
+			}
+			throw eSimpan;
+		}
 
 		System.out.println("TA detailperkuliahan = " + detailperkuliahan.getTahunAkademik() + ", semester = "
 				+ detailperkuliahan.getSemester() + ", detailperkuliahan.id = " + detailperkuliahan.getId());
@@ -396,7 +434,13 @@ public class UploadKrs extends MyWindow {
 
 					int rowIndex = 1;
 					for (int i = 1; i < size; i++) {
-						Session session = HibernateUtil.currentNativeSession();
+						/*
+						 * WAJIB openSession(), BUKAN currentNativeSession(). Pola currentNativeSession()
+						 * yang ditutup manual di akhir tiap iterasi rentan terhadap "Session is closed!"
+						 * bila helper Excel lain (mis. Common.getSheetContentAsObject) ikut menutup
+						 * native session ThreadLocal di tengah pemrosesan baris ini.
+						 */
+						Session session = HibernateUtil.openSession();
 						try {
 
 							if (Common.getSheetContentAsString(sheetUpload, 0, i) == null) {
@@ -484,9 +528,11 @@ public class UploadKrs extends MyWindow {
 						} catch (Exception e) {
 							Common.tampilErrorJikaAdmin(e);
 							report.gagal(i, "baris-" + i, e, "Periksa data NIM/MK KRS pada baris ini");
+						} finally {
+							// Tutup session khusus baris ini + bersihkan ThreadLocal sisa helper Excel.
+							HibernateUtil.closeSessionQuietly(session);
+							HibernateUtil.closeSession();
 						}
-
-						HibernateUtil.closeSession();
 					}
 
 					Common.setStyled(sheet);

@@ -360,7 +360,13 @@ public class UploadCicilanCalonMahasiswa extends MyWindow {
 						CicilanPembayaran cicilanPembayaran = null;
 						String data = "";
 						List<String> errorStatus = new ArrayList<String>();
-						Session session = HibernateUtil.currentNativeSession();
+						/*
+						 * WAJIB openSession(), BUKAN currentNativeSession(). Common.getSheetContentAsObject()/
+						 * getSheetContentAsString()/getCellContent() di bawah menutup native session ThreadLocal,
+						 * sehingga session hasil currentNativeSession() sudah TERTUTUP saat dipakai -> "Session
+						 * is closed!". Session ini dedikasi utk baris ini.
+						 */
+						Session session = HibernateUtil.openSession();
 						try {
 
 							Long id = Common.getSheetContentAsLong(sheetUpload, 0, i);
@@ -575,8 +581,8 @@ public class UploadCicilanCalonMahasiswa extends MyWindow {
 
 										Double nilaiBiayaHarusDiBayars = 0.0;
 										for (DetailBiaya detailBiaya : map.values()) {
-											Double n = detailBiaya.hitungTotalKegiatan(kegiatan, session);
-											nilaiBiayaHarusDiBayars += (n);
+											nilaiBiayaHarusDiBayars += Kegiatan.ambilJumlahTagihan(kegiatan,
+													detailBiaya);
 										}
 
 										kegiatan.setAmountTerhutang(nilaiBiayaHarusDiBayars - (amountTotal - denda));
@@ -747,6 +753,8 @@ public class UploadCicilanCalonMahasiswa extends MyWindow {
 							cell.setCellValue("Sukses, " + data + ", " + errorStatus);
 						}
 
+						// Tutup session dedikasi baris ini + bersihkan ThreadLocal sisa helper Excel.
+						HibernateUtil.closeSessionQuietly(session);
 						HibernateUtil.closeSession();
 					}
 

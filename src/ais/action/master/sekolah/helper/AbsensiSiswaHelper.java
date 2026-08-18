@@ -1500,14 +1500,19 @@ public class AbsensiSiswaHelper {
 
 									@Override
 									public void run() {
-										try {
-
+										Session session = null;
 										try {
 
 											XSSFWorkbook workbook = new XSSFWorkbook(file.getAbsolutePath());
 											XSSFSheet sheet = workbook.getSheetAt(0);
 
-											Session session = HibernateUtil.currentNativeSession();
+											/*
+											 * WAJIB openSession(), BUKAN currentNativeSession(). Common.getSheetContentAsObject()
+											 * dan getSheetContentAsString() di dalam loop menutup native session ThreadLocal
+											 * (HibernateUtil.closeSession()), sehingga session hasil currentNativeSession()
+											 * sudah TERTUTUP saat dipakai -> "Session is closed!" di SETIAP baris.
+											 */
+											session = HibernateUtil.openSession();
 											int rowCount = (sheet.getLastRowNum() + 1);
 											for (int i = 1; i < rowCount; i++) {
 												@SuppressWarnings("rawtypes")
@@ -1531,33 +1536,43 @@ public class AbsensiSiswaHelper {
 
 													Statusabsensi statusabsensi = (Statusabsensi) Common
 															.getSheetContentAsObject(sheet, 1, i, Statusabsensi.class);
-													session.refresh(pertemuan);
-													pertemuan.populate(siswa.getId(), statusabsensi, keterangan, null,
+
+													// Reload ke session khusus thread ini agar entitas managed (bukan
+													// detached dari cache/session lain) -> update pasti ter-flush.
+													Pertemuan pertemuanSafe = (Pertemuan) session.get(Pertemuan.class,
+															pertemuan.getId());
+													if (pertemuanSafe == null) {
+														continue;
+													}
+													pertemuanSafe.populate(siswa.getId(), statusabsensi, keterangan, null,
 															waktuMulai, waktuSelesai, "Siswa");
 													session.getTransaction().begin();
-													Common.refreshUpdate(session, pertemuan);
-													session.getTransaction().commit();
+													try {
+														Common.refreshUpdate(session, pertemuanSafe);
+														session.getTransaction().commit();
+													} catch (Exception eSimpan) {
+														try {
+															session.getTransaction().rollback();
+														} catch (Exception eRoll) { ais.common.ErrorAuditUtil.record(eRoll,
+																"rollback-gagal-upload src/ais/action/master/sekolah/helper/AbsensiSiswaHelper.java");
+														}
+														throw eSimpan;
+													}
 
 												} catch (Exception e) {
 													System.out.println("error --> datum=>" + datum);
 													Common.tampilErrorJikaAdmin(e);
-													try {
-														HibernateUtil.rollbackTransaction();
-													} catch (Exception ee) { ais.common.ErrorAuditUtil.record(ee, "auto-audit(empty-catch) src/ais/action/master/sekolah/helper/AbsensiSiswaHelper.java:1546");
-
-													}
 												}
 											}
-											HibernateUtil.closeSession();
 										} catch (Exception e1) {
 											// TODO Auto-generated catch block
 											e1.printStackTrace(); ais.common.ErrorAuditUtil.record(e1, "auto-audit src/ais/action/master/sekolah/helper/AbsensiSiswaHelper.java:1554");
+										} finally {
+											HibernateUtil.closeSessionQuietly(session);
+											HibernateUtil.closeSession();
 										}
 
 										label.setValue("");
-																			} finally {
-											ais.database.hibernate.HibernateUtil.closeSession();
-										}
 									}
 								}).start();
 

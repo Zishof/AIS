@@ -357,7 +357,13 @@ public class UploadCicilanMahasiswa extends MyWindow {
 					int i = 1;
 					for (; i < size; i++) {
 						XSSFRow row = sheet.createRow(i);
-						Session session = HibernateUtil.currentNativeSession();
+						/*
+						 * WAJIB openSession(), BUKAN currentNativeSession(). Common.getSheetContentAsObject()/
+						 * getSheetContentAsString()/getSheetContentAsInteger()/getSheetContentAsDouble() di
+						 * bawah menutup native session ThreadLocal, sehingga session hasil currentNativeSession()
+						 * sudah TERTUTUP saat dipakai -> "Session is closed!". Session ini dedikasi utk baris ini.
+						 */
+						Session session = HibernateUtil.openSession();
 						CicilanPembayaran cicilanPembayaran = null;
 						String data = "";
 						List<String> errorStatus = new ArrayList<String>();
@@ -529,17 +535,10 @@ public class UploadCicilanMahasiswa extends MyWindow {
 
 									}
 
-									// FIX "Session is closed!" pada session.getTransaction() (KE-1): antara
-									// pengambilan `session` di awal iterasi (atas) dan titik ini, baris ini sudah
-									// melewati banyak pekerjaan (query PembayaranUtil, dsb) yang bisa memakan
-									// waktu -- pada proses upload panjang (banyak baris Excel berturutan dalam
-									// satu Thread latar), koneksi c3p0 bisa dievict (idle/unreturned-connection
-									// timeout) di tengah jalan walau `session` masih menunjuk objek yang sama.
-									// Cek ulang & re-acquire bila perlu sebelum benar-benar dipakai, sama seperti
-									// pola yang sudah dipakai di titik-titik serupa lain pada codebase ini.
-									if (session == null || !session.isOpen()) {
-										session = HibernateUtil.currentNativeSession();
-									}
+									// CATATAN: `session` di sini adalah session dedikasi (openSession()) milik baris
+									// ini, TIDAK terpengaruh oleh penutupan native session ThreadLocal yang dilakukan
+									// helper Excel (Common.getSheetContentAsX) di titik-titik lain -- jadi tidak perlu
+									// (dan tidak boleh) di-re-acquire lewat currentNativeSession() di sini.
 									session.getTransaction().begin();
 									Common.refreshSaveOrUpdate(session, kegiatan);
 									session.getTransaction().commit();
@@ -590,8 +589,8 @@ public class UploadCicilanMahasiswa extends MyWindow {
 
 										Double nilaiBiayaHarusDiBayars = 0.0;
 										for (DetailBiaya detailBiaya : map.values()) {
-											Double n = detailBiaya.hitungTotalKegiatan(kegiatan, session);
-											nilaiBiayaHarusDiBayars += (n);
+											nilaiBiayaHarusDiBayars += Kegiatan.ambilJumlahTagihan(kegiatan,
+													detailBiaya);
 										}
 
 										kegiatan.setAmountTerhutang(nilaiBiayaHarusDiBayars - (amountTotal - denda));
@@ -757,6 +756,8 @@ public class UploadCicilanMahasiswa extends MyWindow {
 							cell.setCellValue("Sukses, " + data + ", " + errorStatus);
 						}
 
+						// Tutup session dedikasi baris ini + bersihkan ThreadLocal sisa helper Excel.
+						HibernateUtil.closeSessionQuietly(session);
 						HibernateUtil.closeSession();
 					}
 

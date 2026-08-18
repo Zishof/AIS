@@ -322,6 +322,7 @@ public class UploadNilaiMahasiswaFormatEpsbed extends MyWindow {
 
 			@Override
 			public void run() {
+				Session sessionThread = null;
 				try {
 
 				XSSFWorkbook workbook = new XSSFWorkbook();
@@ -363,8 +364,17 @@ public class UploadNilaiMahasiswaFormatEpsbed extends MyWindow {
 					int size = sheetUpload.getLastRowNum() + 1;
 
 					int rowIndex = 1;
+					/*
+					 * WAJIB openSession() SATU KALI SEBELUM LOOP, BUKAN currentNativeSession() yang
+					 * di-re-acquire tiap baris. Common.getSheetContentAsString()/getSheetContentAsLong()
+					 * di dalam loop menutup native session ThreadLocal, sehingga currentNativeSession()
+					 * yang dipanggil ulang tiap baris bisa mengembalikan session yang baru saja tertutup
+					 * di baris sebelumnya -> "Session is closed!". Pakai satu session dedikasi milik
+					 * thread ini yang tidak terpengaruh penutupan ThreadLocal oleh helper Excel.
+					 */
+					Session session = HibernateUtil.openSession();
+					sessionThread = session;
 					for (int i = 1; i < size; i++) {
-						Session session = HibernateUtil.currentNativeSession();
 						try {
 
 							if (Common.getSheetContentAsString(sheetUpload, 0, i) == null) {
@@ -573,6 +583,8 @@ public class UploadNilaiMahasiswaFormatEpsbed extends MyWindow {
 									"Ulangi proses upload data. Jika kegagalan berulang, hubungi Administrator/Developer disertai tangkapan layar (screenshot) pesan ini." })
 							.replace("\n", " "));
 				} finally {
+					// Tutup session khusus thread ini + bersihkan ThreadLocal sisa helper Excel.
+					ais.database.hibernate.HibernateUtil.closeSessionQuietly(sessionThread);
 					ais.database.hibernate.HibernateUtil.closeSession();
 				}
 			}

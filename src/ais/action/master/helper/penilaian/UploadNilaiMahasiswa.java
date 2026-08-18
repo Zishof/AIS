@@ -308,6 +308,7 @@ public class UploadNilaiMahasiswa extends MyWindow {
 
 			@Override
 			public void run() {
+				Session sessionThread = null;
 				try {
 
 				XSSFWorkbook workbook = new XSSFWorkbook();
@@ -347,7 +348,13 @@ public class UploadNilaiMahasiswa extends MyWindow {
 
 					XSSFSheet sheetUpload = workbookUpload.getSheetAt(0);
 					int size = sheetUpload.getLastRowNum() + 1;
-					Session session = HibernateUtil.currentNativeSession();
+					/*
+					 * WAJIB openSession(), BUKAN currentNativeSession(). Common.getSheetContentAsString()/
+					 * getSheetContentAsLong() di dalam loop menutup native session ThreadLocal, sehingga
+					 * session hasil currentNativeSession() sudah TERTUTUP saat dipakai -> "Session is closed!".
+					 */
+					Session session = HibernateUtil.openSession();
+					sessionThread = session;
 					int rowIndex = 1;
 					for (int i = 1; i < (sheet.getLastRowNum() + 1); i++) {
 
@@ -557,6 +564,8 @@ public class UploadNilaiMahasiswa extends MyWindow {
 									"Ulangi proses upload data. Jika kegagalan berulang, hubungi Administrator/Developer disertai tangkapan layar (screenshot) pesan ini." })
 							.replace("\n", " "));
 				} finally {
+					// Tutup session khusus thread ini + bersihkan ThreadLocal sisa helper Excel.
+					ais.database.hibernate.HibernateUtil.closeSessionQuietly(sessionThread);
 					ais.database.hibernate.HibernateUtil.closeSession();
 				}
 			}

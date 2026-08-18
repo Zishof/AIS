@@ -272,14 +272,19 @@ public class DetailJadwalMatapelajaranHelper implements DataLoader, DataCriteria
 
 			@Override
 			public void run() {
-				try {
-
+				Session session = null;
 				try {
 
 					XSSFWorkbook workbook = new XSSFWorkbook(file.getAbsolutePath());
 					XSSFSheet sheet = workbook.getSheetAt(0);
 
-					Session session = HibernateUtil.currentNativeSession();
+					/*
+					 * WAJIB openSession(), BUKAN currentNativeSession(). Common.getSheetContentAsObject()
+					 * di dalam loop menutup native session ThreadLocal (HibernateUtil.closeSession()),
+					 * sehingga session hasil currentNativeSession() sudah TERTUTUP saat dipakai ->
+					 * "Session is closed!" di SETIAP baris.
+					 */
+					session = HibernateUtil.openSession();
 
 					int rowCount = (sheet.getLastRowNum() + 1);
 					for (int i = 1; i < rowCount; i++) {
@@ -288,13 +293,30 @@ public class DetailJadwalMatapelajaranHelper implements DataLoader, DataCriteria
 							Siswa siswa = (Siswa) Common.getSheetContentAsObject(sheet, 0, i, Siswa.class);
 							if (siswa != null && siswa.getId() != null) {
 
-								siswa.setKelas(kelasSiswa);
+								// Reload ke session khusus thread ini agar entitas managed.
+								Siswa siswaSafe = (Siswa) session.get(Siswa.class, siswa.getId());
+								KelasSiswa kelasSiswaSafe = (KelasSiswa) session.get(KelasSiswa.class,
+										kelasSiswa.getId());
+								if (siswaSafe == null || kelasSiswaSafe == null) {
+									continue;
+								}
+
+								siswaSafe.setKelas(kelasSiswaSafe);
 
 								session.getTransaction().begin();
-								Common.refreshUpdate(session, siswa);
-								session.getTransaction().commit();
+								try {
+									Common.refreshUpdate(session, siswaSafe);
+									session.getTransaction().commit();
+								} catch (Exception eSimpan) {
+									try {
+										session.getTransaction().rollback();
+									} catch (Exception eRoll) { ais.common.ErrorAuditUtil.record(eRoll,
+											"rollback-gagal-upload src/ais/action/master/sekolah/helper/DetailJadwalMatapelajaranHelper.java");
+									}
+									throw eSimpan;
+								}
 
-								label.setValue("Upload data \"" + siswa.getNim() + " - " + siswa.getNama() + "\" ("
+								label.setValue("Upload data \"" + siswaSafe.getNim() + " - " + siswaSafe.getNama() + "\" ("
 										+ Common.numberFormat.get().format(i * 100.0 / rowCount) + " %)");
 							}
 
@@ -306,14 +328,12 @@ public class DetailJadwalMatapelajaranHelper implements DataLoader, DataCriteria
 				} catch (Exception e1) {
 					// TODO Auto-generated catch block
 					e1.printStackTrace(); ais.common.ErrorAuditUtil.record(e1, "auto-audit src/ais/action/master/sekolah/helper/DetailJadwalMatapelajaranHelper.java:308");
+				} finally {
+					HibernateUtil.closeSessionQuietly(session);
+					HibernateUtil.closeSession();
 				}
-
-				HibernateUtil.closeSession();
 
 				label.setValue("");
-							} finally {
-					ais.database.hibernate.HibernateUtil.closeSession();
-				}
 			}
 		}).start();
 	}
