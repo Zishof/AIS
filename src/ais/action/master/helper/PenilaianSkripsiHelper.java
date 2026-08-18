@@ -856,7 +856,13 @@ public class PenilaianSkripsiHelper implements DataLoader {
 
 						@Override
 						public void onEvent(Event arg0) throws Exception {
-							HibernateUtil.currentSession().refresh(skripsi);
+							// KE-FIX (HibernateException "refresh is not valid without active
+							// transaction"): pastikan transaksi aktif sebelum refresh().
+							Session sessionRefresh = HibernateUtil.currentSession();
+							if (sessionRefresh.getTransaction() == null || !sessionRefresh.getTransaction().isActive()) {
+								sessionRefresh.beginTransaction();
+							}
+							sessionRefresh.refresh(skripsi);
 							skripsi.populateDetailNilai(parent, dosen, nilai.getValue(), true);
 							hitungUlang.onEvent(arg0);
 						}
@@ -905,7 +911,13 @@ public class PenilaianSkripsiHelper implements DataLoader {
 
 							@Override
 							public void onEvent(Event arg0) throws Exception {
-								HibernateUtil.currentSession().refresh(skripsi);
+								// KE-FIX (HibernateException "refresh is not valid without active
+								// transaction"): pastikan transaksi aktif sebelum refresh().
+								Session sessionRefresh = HibernateUtil.currentSession();
+								if (sessionRefresh.getTransaction() == null || !sessionRefresh.getTransaction().isActive()) {
+									sessionRefresh.beginTransaction();
+								}
+								sessionRefresh.refresh(skripsi);
 								skripsi.populateDetailNilai(komponenPenilaianSkripsi, dosen, nilai.getValue(), true);
 								hitungUlang.onEvent(arg0);
 							}
@@ -1498,7 +1510,29 @@ public class PenilaianSkripsiHelper implements DataLoader {
 
 						Session session = HibernateUtil.currentSession();
 						skripsi.setFormatNilai(fn);
-						Common.refreshUpdate(session, (skripsi));
+						try {
+							Common.refreshUpdate(session, (skripsi));
+						} catch (Exception eSimpan) {
+							// FIX akar masalah ConstraintViolationException (pola sama dgn
+							// TugasMandiriHelper): format nilai yang dipilih bisa saja sudah
+							// dihapus admin lain sesaat sebelum combobox ini disimpan (race
+							// condition lintas sesi) -- sebelumnya meledak mentah tanpa pesan
+							// yang bisa dipahami user. Tangkap, rollback, catat, beri tahu user.
+							try {
+								if (session.getTransaction() != null && session.getTransaction().isActive()) {
+									session.getTransaction().rollback();
+								}
+							} catch (Exception eRollback) { ais.common.ErrorAuditUtil.record(eRollback,
+									"auto-audit(rollback-gagal) src/ais/action/master/helper/PenilaianSkripsiHelper.java onFormatNilaiChange"); }
+							ais.common.ErrorAuditUtil.record(eSimpan,
+									"PenilaianSkripsiHelper: gagal simpan format nilai untuk Skripsi id="
+											+ (skripsi == null ? "null" : skripsi.getId()));
+							MyMessageboxConfig.show(
+									"Mohon maaf, gagal menyimpan format nilai karena ada data terkait yang tidak konsisten. "
+											+ "Silakan muat ulang (refresh) halaman ini dan coba lagi. Jika masih gagal, hubungi Administrator.",
+									"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+							return;
+						}
 					}
 
 				});

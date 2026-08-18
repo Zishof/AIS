@@ -2610,7 +2610,29 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 
 								Session session = HibernateUtil.currentSession();
 								pertemuanPunyaUjian.setFormatNilai(fn);
-								Common.refreshUpdate(session, (pertemuanPunyaUjian));
+								try {
+									Common.refreshUpdate(session, (pertemuanPunyaUjian));
+								} catch (Exception eSimpan) {
+									// FIX akar masalah ConstraintViolationException (pola sama dgn
+									// TugasMandiriHelper): format nilai yang dipilih bisa saja sudah
+									// dihapus admin lain sesaat sebelum combobox ini disimpan (race
+									// condition lintas sesi) -- sebelumnya meledak mentah tanpa pesan
+									// yang bisa dipahami user. Tangkap, rollback, catat, beri tahu user.
+									try {
+										if (session.getTransaction() != null && session.getTransaction().isActive()) {
+											session.getTransaction().rollback();
+										}
+									} catch (Exception eRollback) { ais.common.ErrorAuditUtil.record(eRollback,
+											"auto-audit(rollback-gagal) src/ais/action/master/helper/PertemuanPunyaUjianHelper.java onFormatNilaiChange"); }
+									ais.common.ErrorAuditUtil.record(eSimpan,
+											"PertemuanPunyaUjianHelper: gagal simpan format nilai untuk PertemuanPunyaUjian id="
+													+ (pertemuanPunyaUjian == null ? "null" : pertemuanPunyaUjian.getId()));
+									MyMessageboxConfig.show(
+											"Mohon maaf, gagal menyimpan format nilai karena ada data terkait yang tidak konsisten. "
+													+ "Silakan muat ulang (refresh) halaman ini dan coba lagi. Jika masih gagal, hubungi Administrator.",
+											"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+									return;
+								}
 								prosentase.setVisible(pertemuanPunyaUjian.getFormatNilai() != null);
 								button.setVisible(pertemuanPunyaUjian.getFormatNilai() != null);
 								labelbobot.setVisible(pertemuanPunyaUjian.getFormatNilai() != null);
