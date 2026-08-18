@@ -62,9 +62,18 @@ public class ReimbursementLaporanAction extends GenericAutowireComposer {
     public void doAfterCompose(Component comp) throws Exception {
         super.doAfterCompose(comp);
         if (!isFinance()) {
-            MyMessageboxConfig.show("Laporan reimbursement hanya dapat diakses Admin dan Keuangan.",
-                    "Akses ditolak", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
-            comp.setVisible(false); return;
+            // Tanpa popup: cukup sembunyikan tab Laporan untuk non-Keuangan (pegawai tetap bisa tab Reimbursement).
+            try {
+                Component c = comp;
+                while (c != null && !(c instanceof org.zkoss.zul.Tabpanel)) {
+                    c = c.getParent();
+                }
+                if (c != null && ((org.zkoss.zul.Tabpanel) c).getLinkedTab() != null) {
+                    ((org.zkoss.zul.Tabpanel) c).getLinkedTab().setVisible(false);
+                }
+            } catch (Exception ignore) { }
+            comp.setVisible(false);
+            return;
         }
         initFilters();
         gridDetail.setRowRenderer(new DetailRenderer());

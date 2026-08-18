@@ -56,8 +56,9 @@ public class ReimbursementDashboardAction extends GenericAutowireComposer {
     public void doAfterCompose(Component comp) throws Exception {
         super.doAfterCompose(comp);
         if (!isFinance()) {
-            MyMessageboxConfig.show("Dashboard reimbursement hanya dapat diakses Admin dan Keuangan.",
-                    "Akses ditolak", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+            // Jangan blokir dengan popup (mengganggu pegawai yang hanya ingin tab "Reimbursement" utk
+            // mengajukan). Cukup sembunyikan tab Dashboard, lalu arahkan ke tab "Reimbursement".
+            sembunyikanTabDanPilihReimbursement(comp);
             comp.setVisible(false);
             return;
         }
@@ -190,6 +191,27 @@ public class ReimbursementDashboardAction extends GenericAutowireComposer {
         double result = 0;
         for (Metric metric : map.values()) result += metric.amount;
         return result;
+    }
+
+    /** Non-Keuangan: sembunyikan tab Dashboard (composer ini), lalu pilih tab "Reimbursement" agar pegawai
+     *  langsung bisa mengajukan tanpa popup akses. */
+    private void sembunyikanTabDanPilihReimbursement(Component comp) {
+        try {
+            Component c = comp;
+            while (c != null && !(c instanceof org.zkoss.zul.Tabpanel)) {
+                c = c.getParent();
+            }
+            if (c == null) return;
+            org.zkoss.zul.Tabpanel tp = (org.zkoss.zul.Tabpanel) c;
+            if (tp.getLinkedTab() != null) tp.getLinkedTab().setVisible(false);
+            org.zkoss.zul.Tabbox tb = tp.getTabbox();
+            if (tb != null && tb.getTabs() != null) {
+                java.util.List<?> tabs = tb.getTabs().getChildren();
+                if (tabs.size() > 1 && tabs.get(1) instanceof org.zkoss.zul.Tab) {
+                    ((org.zkoss.zul.Tab) tabs.get(1)).setSelected(true);
+                }
+            }
+        } catch (Exception e) { /* kosmetik, abaikan */ }
     }
 
     private boolean isFinance() {
