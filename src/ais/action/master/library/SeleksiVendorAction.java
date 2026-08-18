@@ -525,18 +525,8 @@ public class SeleksiVendorAction extends GenericAutowireComposer implements Form
 					MyMessageboxConfig.EXCLAMATION);
 			return false;
 		}
-		boolean adaVendor = false;
-		for (int v = 0; v < JML_VENDOR; v++) {
-			if (penyedia[v].getAttribute("penyedia") != null || !isBlank(namaVendor[v].getValue())) {
-				adaVendor = true;
-				break;
-			}
-		}
-		if (!adaVendor) {
-			MyMessageboxConfig.show("Minimal satu vendor harus diisi (pilih Penyedia atau ketik Nama Vendor).",
-					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
-			return false;
-		}
+		// Penguncian "Minimal satu vendor harus diisi" DIHILANGKAN atas permintaan: pengajuan tidak lagi
+		// diblokir walau vendor belum lengkap (validasi vendor diabaikan).
 
 		Session session = HibernateUtil.currentSession();
 		if (seleksiVendor.getId() != null) {
