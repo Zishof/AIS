@@ -317,6 +317,9 @@ public class PosApi extends HttpServlet {
 			} else if ("pos_demo_seed_products".equals(action)) {
 				PosDemoProvisionHelper.mulaiProduk(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "pos_demo_seed_products");
+			} else if ("pos_demo_seed_products_unit_usaha".equals(action)) {
+				PosDemoProvisionHelper.mulaiProdukUnitUsaha(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "pos_demo_seed_products_unit_usaha");
 			} else if ("pos_demo_seed_transactions".equals(action)) {
 				PosDemoProvisionHelper.mulaiTransaksi(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "pos_demo_seed_transactions");

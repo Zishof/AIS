@@ -487,6 +487,12 @@ public class Data extends HttpServlet {
 				// CRUD Toko + katalog unit usaha (JSP memakai aksi yang sama dgn
 				// Desktop/Android) -- admin-only, self-guarded di TokoApiHelper.
 				ais.action.servlet.api.TokoApiHelper.proses(action, tbmuser, jsonObject, hasil);
+			} else if ("pos_demo_status".equals(action)) {
+				// Generator data contoh utk JSP/ZK -- tiga gerbang self-guarded di
+				// helper (konfigurasi data_sample_ebisnis + admin + toko_demo).
+				ais.action.servlet.api.PosDemoProvisionHelper.status(tbmuser, jsonObject, hasil);
+			} else if ("pos_demo_seed_products_unit_usaha".equals(action)) {
+				ais.action.servlet.api.PosDemoProvisionHelper.mulaiProdukUnitUsaha(tbmuser, jsonObject, hasil);
 			} else if ("draft_bayar".equals(action)) {
 				KantinHelper.draft_bayar(tbmuser, jsonObject, hasil);
 			} else if ("checkBayar".equals(action)) {

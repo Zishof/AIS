@@ -2,14 +2,18 @@ package ais.action.servlet.api;
 
 import java.util.Date;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import ais.common.Common;
+import ais.common.ProdukContohKatalog;
+import ais.common.UnitUsahaKatalog;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Konfigurasi;
 import ais.database.model.Tbmuser;
@@ -32,6 +36,9 @@ public final class PosDemoProvisionHelper {
 	private static final int TARGET_PRODUK = 50000;
 	private static final int TARGET_TRANSAKSI = 200000;
 	private static final int TARGET_PELANGGAN = 100000;
+	/** Batas jumlah produk contoh PER unit usaha (permintaan bisnis: 250 s.d. 100.000). */
+	private static final int UNIT_USAHA_MIN = 250;
+	private static final int UNIT_USAHA_MAX = 100000;
 	private static final int UKURAN_BATCH = 500;
 	private static final Object LOCK = new Object();
 	private static volatile boolean berjalan;
@@ -98,6 +105,111 @@ public final class PosDemoProvisionHelper {
 
 	public static void mulaiTransaksi(final Tbmuser user, final JSONObject request, JSONObject hasil) throws Exception {
 		mulai(user, request, hasil, "SEED-DEMO-TRANSAKSI-200000", false);
+	}
+
+	/**
+	 * Generate produk contoh BERDASARKAN unit usaha toko ({@link UnitUsahaKatalog}).
+	 * Urutan resolusi unit usaha: (1) param {@code unit_usaha} (JSON array kode, dari popup
+	 * checkbox klien), (2) kolom {@code Toko.unitUsahaJson}. Bila keduanya kosong, respons
+	 * berisi {@code perlu_pilih_unit_usaha=true} + katalog lengkap supaya SEMUA kanal klien
+	 * (Android/Desktop/JSP/ZK) menampilkan popup checkbox pemilihan unit usaha, lalu
+	 * memanggil ulang aksi ini dengan pilihan pengguna.
+	 *
+	 * <p>Param {@code jumlah_per_unit} di-clamp {@link #UNIT_USAHA_MIN}..{@link #UNIT_USAHA_MAX}
+	 * per unit usaha. Kode produk deterministik {@code DEMO-U-<KODE_UNIT>-<nomor>} menjadikan
+	 * proses idempoten per unit -- aman diulang atau dilanjutkan setelah terputus.</p>
+	 */
+	public static void mulaiProdukUnitUsaha(final Tbmuser user, final JSONObject request,
+			JSONObject hasil) throws Exception {
+		final Toko toko = validasi(user, request, hasil);
+		if (toko == null) return;
+		final Set<String> unit = new LinkedHashSet<String>();
+		JSONArray minta = request == null ? null : request.optJSONArray("unit_usaha");
+		if (minta != null) {
+			for (int i = 0; i < minta.length(); i++) {
+				String kode = minta.optString(i, "").trim();
+				if (UnitUsahaKatalog.dikenal(kode)) unit.add(kode);
+			}
+		}
+		if (unit.isEmpty()) unit.addAll(bacaUnitUsahaToko(toko.getId()));
+		if (unit.isEmpty()) {
+			// Bukan kegagalan: toko belum memilih unit usaha, klien harus menampilkan
+			// popup checkbox lalu memanggil ulang dengan param unit_usaha terisi.
+			hasil.put("status", "00");
+			hasil.put("perlu_pilih_unit_usaha", true);
+			hasil.put("description",
+					"Toko belum memiliki unit usaha. Pilih unit usaha yang produk contohnya akan diimpor.");
+			JSONArray katalog = new JSONArray();
+			for (UnitUsahaKatalog.Entri e : UnitUsahaKatalog.DAFTAR) {
+				katalog.put(new JSONObject().put("kode", e.kode)
+						.put("label", e.label).put("grup", e.grup));
+			}
+			hasil.put("katalog", katalog);
+			return;
+		}
+		if (!"SEED-DEMO-PRODUK-UNIT-USAHA".equals(request.optString("konfirmasi", ""))) {
+			tolak(hasil, "Konfirmasi provisioning tidak valid.");
+			return;
+		}
+		int diminta = request.optInt("jumlah_per_unit", UNIT_USAHA_MIN);
+		if (diminta < UNIT_USAHA_MIN) diminta = UNIT_USAHA_MIN;
+		if (diminta > UNIT_USAHA_MAX) diminta = UNIT_USAHA_MAX;
+		final int jumlahPerUnit = diminta;
+		final int jumlahKelompok = 4;
+		synchronized (LOCK) {
+			if (berjalan) {
+				hasil.put("status", "00");
+				hasil.put("description", "Job data sample sedang berjalan: " + tahap);
+				hasil.put("berjalan", true);
+				return;
+			}
+			berjalan = true;
+			tahap = "Produk contoh per unit usaha";
+			selesai = 0;
+			target = unit.size() * (jumlahKelompok + jumlahPerUnit);
+			ringkasan = "Dimulai " + new Date();
+		}
+		Thread pekerja = new Thread(new Runnable() {
+			@Override public void run() {
+				try {
+					int offset = 0;
+					for (String kode : unit) {
+						tahap = "Produk contoh " + UnitUsahaKatalog.labelDari(kode);
+						seedJenisProdukUnit(kode);
+						offset += jumlahKelompok;
+						seedProdukUnit(toko.getId(), kode, jumlahPerUnit, offset);
+						offset += jumlahPerUnit;
+						selesai = offset;
+					}
+					tahap = "Produk contoh per unit usaha";
+					ringkasan = tahap + " selesai: " + unit.size() + " unit usaha x "
+							+ jumlahPerUnit + " produk.";
+				} catch (Throwable e) {
+					ringkasan = "GAGAL pada " + tahap + ": " + e.getMessage();
+					try { ais.common.ErrorAuditUtil.record(e, "pos-demo-produk-unit-usaha-background"); }
+					catch (Throwable abaikan) { abaikan.printStackTrace(); }
+				} finally { berjalan = false; }
+			}
+		}, "AIS-Demo-Produk-UnitUsaha");
+		pekerja.setDaemon(true);
+		pekerja.start();
+		hasil.put("status", "00");
+		hasil.put("berjalan", true);
+		hasil.put("unit_usaha_diproses", new JSONArray(unit));
+		hasil.put("jumlah_per_unit", jumlahPerUnit);
+		hasil.put("description", tahap + " dimulai di latar; halaman tetap dapat digunakan.");
+	}
+
+	/** Baca ulang pilihan unit usaha toko dari DB (validasi() hanya mengembalikan id). */
+	private static Set<String> bacaUnitUsahaToko(Long tokoId) throws Exception {
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			Toko toko = (Toko) session.get(Toko.class, tokoId);
+			return toko == null ? new LinkedHashSet<String>()
+					: UnitUsahaKatalog.urai(toko.getUnitUsahaJson());
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
 	}
 
 	public static void mulaiPelanggan(final Tbmuser user, final JSONObject request, JSONObject hasil) throws Exception {
@@ -347,6 +459,119 @@ public final class PosDemoProvisionHelper {
 			if (tx != null && tx.isActive()) tx.rollback();
 			throw e;
 		} finally { HibernateUtil.closeSessionQuietly(session); }
+	}
+
+	/**
+	 * Jenis produk per unit usaha: 4 kelompok turunan grup katalog (mis. "Bengkel Mobil -
+	 * Jasa"). Penanda idempotensi di keterangan: {@code DEMO-JPU-<KODE_UNIT>-<n>}.
+	 */
+	@SuppressWarnings("unchecked")
+	private static void seedJenisProdukUnit(String kodeUnit) throws Exception {
+		String label = UnitUsahaKatalog.labelDari(kodeUnit);
+		String grup = grupDariKode(kodeUnit);
+		String[] kelompok = ProdukContohKatalog.kelompokJenis(grup);
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		Transaction tx = null;
+		try {
+			List<String> daftar = session.createQuery(
+					"select j.keterangan from JenisProduk j where j.keterangan like :prefix")
+					.setString("prefix", "DEMO-JPU-" + kodeUnit + "-%").list();
+			Set<String> ada = new HashSet<String>(daftar);
+			tx = session.beginTransaction();
+			for (int i = 1; i <= kelompok.length; i++) {
+				String penanda = "DEMO-JPU-" + kodeUnit + "-" + i;
+				if (!ada.contains(penanda)) {
+					JenisProduk jenis = new JenisProduk();
+					jenis.setNama(label + " - " + kelompok[i - 1]);
+					jenis.setKeterangan(penanda);
+					jenis.setAktif(Boolean.TRUE);
+					jenis.setDefaultProduk(Boolean.FALSE);
+					jenis.setMaksimalHarian(Double.valueOf(100000000.0));
+					session.save(jenis);
+				}
+			}
+			tx.commit();
+		} catch (Exception e) {
+			if (tx != null && tx.isActive()) tx.rollback();
+			throw e;
+		} finally { HibernateUtil.closeSessionQuietly(session); }
+	}
+
+	/**
+	 * Produk contoh satu unit usaha. Kode {@code DEMO-U-<KODE_UNIT>-<nomor>} deterministik =
+	 * kunci idempotensi per unit; barcode dibedakan lewat indeks unit di katalog sehingga
+	 * tidak bentrok antar-unit maupun dengan seed minimarket lama (prefix 89988).
+	 */
+	@SuppressWarnings("unchecked")
+	private static void seedProdukUnit(Long tokoId, String kodeUnit, int jumlah,
+			int offsetProgres) throws Exception {
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		Transaction tx = null;
+		try {
+			List<Long> jenisIds = session.createQuery(
+					"select j.id from JenisProduk j where j.keterangan like :prefix order by j.id")
+					.setString("prefix", "DEMO-JPU-" + kodeUnit + "-%").list();
+			if (jenisIds.isEmpty()) {
+				throw new IllegalStateException("Jenis produk unit usaha " + kodeUnit + " belum dibuat.");
+			}
+			List<String> daftar = session.createQuery(
+					"select p.kode from Produk p where p.toko.id=:toko and p.kode like :prefix")
+					.setLong("toko", tokoId.longValue())
+					.setString("prefix", "DEMO-U-" + kodeUnit + "-%").list();
+			Set<String> ada = new HashSet<String>(daftar);
+			String keterangan = "Katalog contoh " + UnitUsahaKatalog.labelDari(kodeUnit);
+			int indeksUnit = indeksUnit(kodeUnit);
+			tx = session.beginTransaction();
+			Toko toko = (Toko) session.load(Toko.class, tokoId);
+			int sejakCommit = 0;
+			for (int i = 1; i <= jumlah; i++) {
+				String kode = "DEMO-U-" + kodeUnit + "-" + pad(i, 6);
+				if (!ada.contains(kode)) {
+					double beli = ProdukContohKatalog.hargaBeli(kodeUnit, i);
+					double jual = Math.ceil((beli * (1.12 + ((i % 18) / 100.0))) / 100.0) * 100.0;
+					Produk p = new Produk();
+					p.setKode(kode);
+					p.setBarcode("8990" + pad(indeksUnit, 2) + pad(i, 7));
+					p.setNama(ProdukContohKatalog.namaProduk(kodeUnit, i));
+					p.setKeterangan(keterangan);
+					p.setJenisProduk((JenisProduk) session.load(JenisProduk.class,
+							jenisIds.get((i - 1) % jenisIds.size())));
+					p.setHargaBeli(Double.valueOf(beli));
+					p.setHargaJual(Double.valueOf(jual));
+					p.setStok(Double.valueOf(10 + (i % 990)));
+					p.setStokMinimum(Double.valueOf(5 + (i % 25)));
+					p.setAktif(Boolean.TRUE);
+					p.setIzinkanJualMinusStok(Boolean.FALSE);
+					p.setToko(toko);
+					session.save(p);
+					sejakCommit++;
+				}
+				selesai = offsetProgres + i;
+				if (sejakCommit >= UKURAN_BATCH) {
+					tx.commit(); session.clear(); tx = session.beginTransaction();
+					toko = (Toko) session.load(Toko.class, tokoId); sejakCommit = 0;
+				}
+			}
+			if (tx.isActive()) tx.commit();
+		} catch (Exception e) {
+			if (tx != null && tx.isActive()) tx.rollback();
+			throw e;
+		} finally { HibernateUtil.closeSessionQuietly(session); }
+	}
+
+	private static String grupDariKode(String kodeUnit) {
+		for (UnitUsahaKatalog.Entri e : UnitUsahaKatalog.DAFTAR) {
+			if (e.kode.equals(kodeUnit)) return e.grup;
+		}
+		return UnitUsahaKatalog.GRUP_LAINNYA;
+	}
+
+	/** Posisi kode di katalog (0-based) -- dipakai membedakan blok barcode antar-unit. */
+	private static int indeksUnit(String kodeUnit) {
+		for (int i = 0; i < UnitUsahaKatalog.DAFTAR.size(); i++) {
+			if (UnitUsahaKatalog.DAFTAR.get(i).kode.equals(kodeUnit)) return i;
+		}
+		return 99;
 	}
 
 	private static int nomorDariKode(String kode, String prefix) {
