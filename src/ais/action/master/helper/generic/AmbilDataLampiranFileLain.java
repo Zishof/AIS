@@ -303,7 +303,20 @@ public class AmbilDataLampiranFileLain extends MyWindow {
 
 	}
 
-	public static Map<Long, Map<String, Object>> fotoDrive = new HashMap<Long, Map<String, Object>>();
+	// Slot handoff upload foto/GDrive: servlet mengisi, ZK Timer polling per rand.
+	// LRU BER-BATAS (bukan HashMap polos): key = Long acak BARU per dialog upload dan
+	// entri lama tidak pernah dihapus — sebelumnya tumbuh monoton seumur JVM
+	// (optimasi RAM Fase 1). 500 slot upload aktif bersamaan lebih dari cukup;
+	// entri tertua otomatis tersingkir.
+	public static Map<Long, Map<String, Object>> fotoDrive = java.util.Collections
+			.synchronizedMap(new java.util.LinkedHashMap<Long, Map<String, Object>>(16, 0.75f, true) {
+				private static final long serialVersionUID = 1L;
+
+				@Override
+				protected boolean removeEldestEntry(java.util.Map.Entry<Long, Map<String, Object>> eldest) {
+					return size() > 500;
+				}
+			});
 
 	public MyToolbarbuttonConfig createScanFoto() {
 
