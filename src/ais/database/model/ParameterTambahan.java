@@ -1633,6 +1633,78 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 				// TODO: handle exception
 			}
 		}
+
+		// PILIHAN_OBJECT (generic entity picker): expand SELURUH property objek terpilih ke map
+		// laporan, sama seperti tipe PENYEDIA/MAHASISWA/dll. Nilai tersimpan = id objek; kelas
+		// entitasnya tersimpan sebagai FQCN di nilaiDataInputan.
+		if (parameterTambahan.getTipeDataInputan().equals(ParameterTambahan.PILIHAN_OBJECT)) {
+			try {
+				Class clazz = Class.forName(parameterTambahan.getNilaiDataInputan().trim());
+				Object o = ConstantValues.ambil(clazz.getName(), Long.parseLong(vall.trim().split("->")[0]));
+				if (o != null) {
+					Common.insertProperty(clazz, (java.io.Serializable) o, map, jenis_id);
+				}
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e, "ParameterTambahan: masukkan data pilihan object");
+			}
+		}
+	}
+
+	/**
+	 * Expand SELURUH nilai parameter tambahan (format kolom {@code parameterTambahanInds}:
+	 * satu baris per parameter, {@code kelId->ptId<=>val<=>url<=>keterangan}) ke map parameter
+	 * laporan. Untuk tiap parameter dimasukkan: {@code param.id.<ptId>}, {@code param.nama.<nama>},
+	 * {@code param.kode.<kode>}, {@code <kelId>_<ptId>} (nilai mentah), serta — untuk tipe pilihan
+	 * entitas (Penyedia/Mahasiswa/Dosen/Guru/Siswa/KelasSiswa/Pilihan Object) — SEMUA property
+	 * objek terpilih via {@link #masukkanData(String, String, Map)} dengan prefix
+	 * {@code <kelId>_<ptId>.<field>} dan {@code param.kode.<kode>.<field>}.
+	 */
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	public static void masukkanSemuaParameterKeMap(String parameterTambahanInds, Map map) {
+		if (parameterTambahanInds == null || parameterTambahanInds.trim().isEmpty() || map == null) {
+			return;
+		}
+		for (String baris : parameterTambahanInds.split("\n")) {
+			try {
+				if (baris == null || baris.trim().isEmpty()) {
+					continue;
+				}
+				String[] kolom = baris.split("<=>");
+				if (kolom.length < 2) {
+					continue;
+				}
+				String[] ids = kolom[0].trim().split("->");
+				if (ids.length < 2) {
+					continue;
+				}
+				String val = kolom[1] == null ? "" : kolom[1];
+				Long ptId = Long.parseLong(ids[1].trim());
+				ParameterTambahan pt = (ParameterTambahan) ConstantValues.ambil(ParameterTambahan.class.getName(),
+						ptId);
+				if (pt == null) {
+					continue;
+				}
+				String jenisId = ids[0].trim() + "_" + ids[1].trim();
+				map.put("param.id." + ptId, val);
+				if (pt.getNama() != null && !pt.getNama().trim().isEmpty()) {
+					map.put("param.nama." + pt.getNama().trim().toLowerCase(), val);
+				}
+				String kodeParam = pt.getKode();
+				if (kodeParam != null && !kodeParam.trim().isEmpty()) {
+					map.put("param.kode." + kodeParam.trim(), val);
+				}
+				map.put(jenisId, val);
+				if (kolom.length > 2 && kolom[2] != null && !kolom[2].trim().isEmpty()) {
+					map.put(jenisId + "_url", kolom[2].trim());
+				}
+				pt.masukkanData(val, jenisId, map);
+				if (kodeParam != null && !kodeParam.trim().isEmpty()) {
+					pt.masukkanData(val, "param.kode." + kodeParam.trim(), map);
+				}
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e, "ParameterTambahan.masukkanSemuaParameterKeMap");
+			}
+		}
 	}
 
 	public Boolean getNilaiTidakBolehDiubah() {

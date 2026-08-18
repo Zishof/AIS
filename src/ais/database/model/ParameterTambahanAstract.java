@@ -182,6 +182,168 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 				eventListener, readonly, componenName);
 	}
 
+	/** null-safe trim untuk perakit teks penyedia. */
+	private static String nzp(String s) {
+		return s == null ? "" : s.trim();
+	}
+
+	/** Rangkai alamat lengkap penyedia (alamat, kec/kota/prop, kode pos, telp, fax, kontak, email). */
+	private static String rangkaiAlamatPenyedia(ais.database.model.asset.PenyediaAsset p) {
+		String alamat = nzp(p.getAlamat());
+		if (p.getKecamatan() != null) {
+			String c = "Kec." + p.getKecamatan().getNama();
+			alamat += alamat.isEmpty() ? c : ", " + c;
+		}
+		if (p.getKota() != null) {
+			String c = "Kab/Kota." + p.getKota().getNama();
+			alamat += alamat.isEmpty() ? c : ", " + c;
+		}
+		if (p.getPropinsi() != null) {
+			String c = "Prop." + p.getPropinsi().getNama();
+			alamat += alamat.isEmpty() ? c : ", " + c;
+		}
+		if (!nzp(p.getKodePos()).isEmpty()) {
+			String c = "Kode Pos " + p.getKodePos();
+			alamat += alamat.isEmpty() ? c : ", " + c;
+		}
+		if (!nzp(p.getTelp()).isEmpty()) {
+			String c = "Telp. " + p.getTelp();
+			alamat += alamat.isEmpty() ? c : ", " + c;
+		}
+		if (!nzp(p.getFax()).isEmpty()) {
+			String c = "Fax. " + p.getFax();
+			alamat += alamat.isEmpty() ? c : ", " + c;
+		}
+		if (!nzp(p.getKontak()).isEmpty()) {
+			String c = "Kontak. " + p.getKontak();
+			alamat += alamat.isEmpty() ? c : ", " + c;
+		}
+		if (!nzp(p.getEmail()).isEmpty()) {
+			String c = "Email. " + p.getEmail();
+			alamat += alamat.isEmpty() ? c : ", " + c;
+		}
+		return alamat;
+	}
+
+	/** Rangkai daftar jenis pekerjaan/barang-jasa penyedia (slot 1-5, dipisah koma). */
+	private static String rangkaiJenisPekerjaanPenyedia(ais.database.model.asset.PenyediaAsset p) {
+		String jenis = "";
+		ais.database.model.asset.JenisPekerjaanPenyedia[] slots = new ais.database.model.asset.JenisPekerjaanPenyedia[] {
+				p.getJenisPekerjaanPenyedia1(), p.getJenisPekerjaanPenyedia2(), p.getJenisPekerjaanPenyedia3(),
+				p.getJenisPekerjaanPenyedia4(), p.getJenisPekerjaanPenyedia5() };
+		for (int i = 0; i < slots.length; i++) {
+			if (slots[i] != null) {
+				jenis += jenis.isEmpty() ? slots[i].getNama() : ", " + slots[i].getNama();
+			}
+		}
+		if (jenis.isEmpty() && p.getJenisPenyediaAsset() != null) {
+			jenis = p.getJenisPenyediaAsset().getNama();
+		}
+		return jenis;
+	}
+
+	/** Tentukan nilai isian otomatis dari penyedia berdasarkan kata kunci pada label parameter. */
+	private static String nilaiPenyediaUntukLabel(String labelLower, ais.database.model.asset.PenyediaAsset p) {
+		if (labelLower.contains("alamat")) {
+			return rangkaiAlamatPenyedia(p);
+		}
+		if (labelLower.contains("jenis") || labelLower.contains("barang") || labelLower.contains("jasa")
+				|| labelLower.contains("pekerjaan")) {
+			return rangkaiJenisPekerjaanPenyedia(p);
+		}
+		if (labelLower.contains("pic") || labelLower.contains("penanggung jawab")
+				|| labelLower.contains("contact person") || labelLower.contains("narahubung")) {
+			String pic = nzp(p.getKontak());
+			return pic.isEmpty() ? nzp(p.getPemilik()) : pic;
+		}
+		if (labelLower.contains("email") || labelLower.contains("e-mail")) {
+			return nzp(p.getEmail());
+		}
+		if (labelLower.contains("telp") || labelLower.contains("telepon") || labelLower.contains("hp")) {
+			return nzp(p.getTelp());
+		}
+		if (labelLower.contains("fax")) {
+			return nzp(p.getFax());
+		}
+		if (labelLower.contains("npwp")) {
+			return nzp(p.getNpwp());
+		}
+		if (labelLower.contains("kontak")) {
+			return nzp(p.getKontak());
+		}
+		return null; // label tidak dikenali -> jangan diisi
+	}
+
+	/**
+	 * KORELASI ANTAR-PARAMETER: setelah pengguna memilih Penyedia (vendor) pada parameter bertipe
+	 * {@link #PILIHAN_PENYEDIA}, isi otomatis parameter teks lain yang SE-KONTEKS. Konteks diambil dari
+	 * label parameter vendor dengan membuang kata pengantar umum di depannya ("Nama Vendor I" →
+	 * konteks "vendor i"); parameter lain dianggap se-konteks bila label-nya BERAKHIRAN konteks itu
+	 * (endsWith, agar "Vendor I" tidak menular ke "Vendor II"). Nilai isian ditentukan dari kata kunci
+	 * label (alamat / jenis barang-jasa / pic / telp / email / fax / npwp / kontak).
+	 */
+	public static void isiOtomatisParameterTerkaitPenyedia(ParameterTambahan ptVendor, Component komponenVendor,
+			List<Row> parameterRows) {
+		try {
+			if (ptVendor == null || komponenVendor == null || parameterRows == null) {
+				return;
+			}
+			Object data = komponenVendor.getAttribute("penyediaAsset");
+			if (!(data instanceof ais.database.model.asset.PenyediaAsset)) {
+				return;
+			}
+			ais.database.model.asset.PenyediaAsset penyedia = (ais.database.model.asset.PenyediaAsset) data;
+
+			String konteks = nzp(ptVendor.getLabelInputan()).toLowerCase();
+			String[] prefixBuang = new String[] { "nama", "pilih", "pilihan", "data" };
+			boolean berubah = true;
+			while (berubah) {
+				berubah = false;
+				for (int i = 0; i < prefixBuang.length; i++) {
+					if (konteks.startsWith(prefixBuang[i] + " ")) {
+						konteks = konteks.substring(prefixBuang[i].length() + 1).trim();
+						berubah = true;
+					}
+				}
+			}
+			if (konteks.isEmpty()) {
+				return;
+			}
+
+			for (Row r : parameterRows) {
+				try {
+					if (r == null) {
+						continue;
+					}
+					Object ptO = r.getAttribute("parameterTambahan");
+					Object cO = r.getAttribute("component");
+					if (!(ptO instanceof ParameterTambahan) || !(cO instanceof Component) || cO == komponenVendor) {
+						continue;
+					}
+					ParameterTambahan pt = (ParameterTambahan) ptO;
+					String label = nzp(pt.getLabelInputan()).toLowerCase();
+					if (label.isEmpty() || !label.endsWith(konteks)) {
+						continue;
+					}
+					String nilai = nilaiPenyediaUntukLabel(label, penyedia);
+					if (nilai == null) {
+						continue;
+					}
+					Component c = (Component) cO;
+					if (c instanceof org.zkoss.zul.impl.InputElement) {
+						((org.zkoss.zul.impl.InputElement) c).setText(nilai);
+						org.zkoss.zk.ui.event.Events.postEvent("onChange", c, null);
+					}
+				} catch (Throwable tRow) {
+					ais.common.ErrorAuditUtil.record(tRow,
+							"auto-audit korelasi-vendor per-baris ParameterTambahanAstract");
+				}
+			}
+		} catch (Throwable t) {
+			ais.common.ErrorAuditUtil.record(t, "auto-audit isiOtomatisParameterTerkaitPenyedia");
+		}
+	}
+
 	public static boolean initComponent(Row row, Rows rows, final String jenis, List<Row> parameterRows,
 			final Map<String, LampiranLain> lampiranLains, Long ref, String val, String ket,
 			ParameterTambahan parameterTambahan, EventListener eventListener, boolean readonly, String componenName) {
@@ -217,6 +379,33 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 					component.addEventListener("onSelect", reEvalSkip);
 				}
 			} catch (Throwable tSkip) { ais.common.ErrorAuditUtil.record(tSkip, "auto-audit(empty-catch) src/ais/database/model/ParameterTambahanAstract.java:211");
+			}
+			// KORELASI ANTAR-PARAMETER (vendor/penyedia): saat sebuah parameter bertipe
+			// PILIHAN_PENYEDIA dipilih (mis. "Nama Vendor I"), parameter TEKS lain yang
+			// se-konteks (label berakhiran sama, mis. "Alamat / Kontak Vendor I",
+			// "Jenis Barang/Jasa Vendor I", "PIC Vendor I", "Telp Vendor I", "Email Vendor I")
+			// otomatis terisi dari data PenyediaAsset terpilih.
+			try {
+				if (parameterTambahan != null && parameterRows != null && !readonly
+						&& ParameterTambahanAstract.PILIHAN_PENYEDIA.equals(parameterTambahan.getTipeDataInputan())
+						&& component instanceof ais.action.master.asset.helper.AmbilDataPenyediaAssetBanbox) {
+					final ais.action.master.asset.helper.AmbilDataPenyediaAssetBanbox banboxPenyedia =
+							(ais.action.master.asset.helper.AmbilDataPenyediaAssetBanbox) component;
+					final ParameterTambahan ptVendor = parameterTambahan;
+					final java.util.List<Row> prVendor = parameterRows;
+					final EventListener listenerLama = banboxPenyedia.getEventListener();
+					banboxPenyedia.setEventListener(new EventListener() {
+						@Override
+						public void onEvent(Event evVendor) throws Exception {
+							isiOtomatisParameterTerkaitPenyedia(ptVendor, banboxPenyedia, prVendor);
+							if (listenerLama != null) {
+								listenerLama.onEvent(evVendor);
+							}
+						}
+					});
+				}
+			} catch (Throwable tVendor) {
+				ais.common.ErrorAuditUtil.record(tVendor, "auto-audit korelasi-vendor ParameterTambahanAstract.initComponent");
 			}
 			if (parameterTambahan.getTampilkanIsianKeterangan()) {
 				MyFormRow rowKeterangan = new MyFormRow();

@@ -966,6 +966,18 @@ public class TampilanAlurSopAction extends GenericAutowireComposer {
 				Common.insertProperty(DisposisiAlurSop.class, disposisiAlurSop, map, "", 3, "");
 				maps.add(map);
 
+				// Expand SEMUA nilai parameter tambahan alur ini ke parameter laporan — termasuk
+				// SELURUH property objek terpilih (mis. PenyediaAsset utk parameter vendor).
+				// Key yang tersedia di JRXML: param.id.<ptId>, param.nama.<nama>, param.kode.<kode>,
+				// <kelId>_<ptId>, dan <kelId>_<ptId>.<field> / param.kode.<kode>.<field>.
+				try {
+					ParameterTambahan.masukkanSemuaParameterKeMap(disposisiAlurSop.getParameterTambahanInds(),
+							parameters);
+					ParameterTambahan.masukkanSemuaParameterKeMap(disposisiAlurSop.getParameterTambahanInds(), map);
+				} catch (Exception ePar) {
+					ais.common.ErrorAuditUtil.record(ePar, "cetakDisposisi: expand parameter tambahan");
+				}
+
 				try {
 					if (disposisiAlurSop.getMahasiswa() != null) {
 						userIds.put(disposisiAlurSop.getMahasiswa().getNim());
