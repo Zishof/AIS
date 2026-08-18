@@ -147,6 +147,7 @@ public final class ApiRouteRegistry {
         register(routes, "ta", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return ElearningApiUtil.ta(req, json); } });
 
         register(routes, "linimasa", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return LinimasaApi.linimasa(json, req); } });
+        register(routes, "rekap_kehadiran_mahasiswa", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return LinimasaApi.rekapKehadiranMahasiswa(json, req); } });
         register(routes, "daftar_ujian", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return LinimasaApi.daftar_ujian(json, req); } });
         register(routes, "daftar_tugas", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return LinimasaApi.daftar_tugas(json, req); } });
         register(routes, "daftar_materi", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return LinimasaApi.daftar_materi(json, req); } });

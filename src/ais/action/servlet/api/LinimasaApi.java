@@ -90,6 +90,115 @@ public class LinimasaApi {
 		return bawaan;
 	}
 
+
+	/// Rekap kehadiran seorang mahasiswa lintas seluruh perkuliahan yang
+	/// KRS-nya disetujui, untuk donat "Rekap Kehadiran" dasbor studi.
+	///
+	/// Absensi tersimpan sebagai string terserialisasi per pertemuan
+	/// ("mhsId,statusId,...;..."), jadi agregasi dilakukan dengan satu
+	/// query kolom `absensi` lalu diurai di memori — bukan N query per
+	/// pertemuan. Status di luar Hadir/Izin/Sakit/Alpa dilaporkan apa
+	/// adanya di ember `lainnya`; tidak ada angka yang dikarang.
+	public static JSONObject rekapKehadiranMahasiswa(JSONObject request, HttpServletRequest servletRequest) {
+		JSONObject jsonObject = new JSONObject();
+		try {
+			Tbmuser tbmuser = ApiUtil.currentUser(request, servletRequest);
+			if (tbmuser == null || tbmuser.getUserId() == null) {
+				jsonObject.put("status", "97");
+				jsonObject.put("description", "Token tidak sesuai");
+				return jsonObject;
+			}
+			Mahasiswa mahasiswa = tbmuser.getMahasiswa();
+			if (mahasiswa == null || mahasiswa.getId() == null) {
+				jsonObject.put("status", "96");
+				jsonObject.put("description", "Rekap kehadiran hanya untuk akun mahasiswa");
+				return jsonObject;
+			}
+
+			long hadir = 0, izin = 0, sakit = 0, alpa = 0, belum = 0, lainnya = 0;
+			int totalPertemuan = 0;
+			Long mhsId = mahasiswa.getId();
+			Long idHadir = ConstantValues.MASUK == null ? null : ConstantValues.MASUK.getId();
+			Long idIzin = ConstantValues.IZIN == null ? null : ConstantValues.IZIN.getId();
+			Long idSakit = ConstantValues.SAKIT == null ? null : ConstantValues.SAKIT.getId();
+			Long idAlpa = ConstantValues.TIDAK_ADA_ALASAN == null ? null : ConstantValues.TIDAK_ADA_ALASAN.getId();
+			Long idBelum = ConstantValues.BELUM_ABSEN == null ? null : ConstantValues.BELUM_ABSEN.getId();
+
+			Session session = HibernateUtil.openSession();
+			try {
+				org.hibernate.criterion.DetachedCriteria perkuliahanMahasiswa =
+						org.hibernate.criterion.DetachedCriteria.forClass(Detailperkuliahan.class)
+								.add(Restrictions.eq("mahasiswa", mahasiswa))
+								.add(Restrictions.eq("persetujuan", Detailperkuliahan.DISETUJUI))
+								.setProjection(Projections.property("perkuliahan"));
+				@SuppressWarnings("unchecked")
+				List<Object> absensis = session.createCriteria(Pertemuan.class)
+						.add(org.hibernate.criterion.Subqueries.propertyIn("perkuliahan", perkuliahanMahasiswa))
+						.setProjection(Projections.property("absensi"))
+						.list();
+
+				for (Object raw : absensis) {
+					totalPertemuan++;
+					if (raw == null) {
+						belum++;
+						continue;
+					}
+					Long statusId = null;
+					for (String entri : raw.toString().split(";")) {
+						try {
+							String[] kolom = entri.split(",");
+							if (kolom.length < 2 || kolom[0].trim().isEmpty()) {
+								continue;
+							}
+							if (mhsId.equals(Long.parseLong(kolom[0].trim()))) {
+								statusId = Long.parseLong(kolom[1].trim());
+								break;
+							}
+						} catch (Exception abaikan) {
+							// Entri korup pada string absensi dilewati.
+						}
+					}
+					if (statusId == null || statusId.longValue() < 0
+							|| (idBelum != null && idBelum.equals(statusId))) {
+						belum++;
+					} else if (idHadir != null && idHadir.equals(statusId)) {
+						hadir++;
+					} else if (idIzin != null && idIzin.equals(statusId)) {
+						izin++;
+					} else if (idSakit != null && idSakit.equals(statusId)) {
+						sakit++;
+					} else if (idAlpa != null && idAlpa.equals(statusId)) {
+						alpa++;
+					} else {
+						lainnya++;
+					}
+				}
+			} finally {
+				HibernateUtil.closeSessionQuietly(session);
+			}
+
+			JSONObject data = new JSONObject();
+			data.put("hadir", hadir);
+			data.put("izin", izin);
+			data.put("sakit", sakit);
+			data.put("alpa", alpa);
+			data.put("belum", belum);
+			data.put("lainnya", lainnya);
+			data.put("total_pertemuan", totalPertemuan);
+			jsonObject.put("status", "00");
+			jsonObject.put("data", data);
+		} catch (Exception e) {
+			e.printStackTrace();
+			try {
+				jsonObject.put("status", "99");
+				jsonObject.put("description", "Rekap kehadiran gagal dihitung");
+			} catch (Exception abaikan) {
+				// Tidak ada lagi yang bisa dilaporkan.
+			}
+		}
+		return jsonObject;
+	}
+
 	public static JSONObject masukkanInfoKePertemuan(JSONObject request, HttpServletRequest servletRequest) {
 		JSONObject jsonObject = new JSONObject();
 		try {
