@@ -14881,6 +14881,60 @@ public class KantinHelper {
 		rsRule.close();
 		psRule.close();
 
+		// Sumber KETIGA: aturan diskon yang ditautkan lewat GRUP PRODUK (grup_produk.
+		// aturan_diskon) -- aturan terpilih otomatis berlaku utk SEMUA produk anggota
+		// grup, dievaluasi dinamis (tidak disalin per-produk). Baris dimaterialisasi
+		// per item (produk = p.id) persis pola grup_aturan_diskon di bawah. Aturan
+		// ber-produk NULL dikecualikan (sudah berlaku global lewat blok pertama) dan
+		// produk milik aturan itu sendiri dikecualikan (sudah tercakup blok pertama)
+		// supaya tidak ada aturan terhitung dua kali utk item yang sama.
+		java.sql.PreparedStatement psGrupProduk = conn.prepareStatement(
+				"SELECT a.id, p.id, a.toko, COALESCE(a.berlaku_semua_member,false), a.jenis_anggota, a.tipe_anggota, "
+						+ "a.persentase, a.maksimal_potongan, a.nominal, COALESCE(a.potongan_langsung,true), "
+						+ "COALESCE(a.berlaku_per_hari_dan_per_toko,false), a.hari_aktif, COALESCE(a.aktivasi_manual,false), "
+						+ "a.nama_aturan, a.keterangan, COALESCE(a.prioritas,100), COALESCE(a.dapat_digabung,false), "
+						+ "COALESCE(a.dasar_perhitungan,'SETELAH_DISKON'), COALESCE(a.grup_eksklusif,'') "
+						+ "FROM koperasi.grup_produk gp "
+						+ "JOIN koperasi.aturan_diskon a ON a.id = gp.aturan_diskon "
+						+ "JOIN koperasi.produk p ON p.grup_produk = gp.id AND p.id IN (" + inKlausa + ") "
+						+ "WHERE COALESCE(gp.aktif,true) AND a.aktif = true "
+						+ "AND a.produk IS DISTINCT FROM p.id "
+						+ "AND (a.toko IS NULL OR a.toko = ?) "
+						+ "AND (a.tanggal_mulai IS NULL OR a.tanggal_mulai <= now()) "
+						+ "AND (a.tanggal_selesai IS NULL OR a.tanggal_selesai >= now()) ORDER BY a.id ASC");
+		psGrupProduk.setLong(1, tokoId);
+		java.sql.ResultSet rsGp = psGrupProduk.executeQuery();
+		while (rsGp.next()) {
+			java.util.Map<String, Object> r = new java.util.HashMap<String, Object>();
+			r.put("id", rsGp.getLong(1));
+			r.put("produk", Long.valueOf(rsGp.getLong(2)));
+			long tokoRuleGp = rsGp.getLong(3);
+			r.put("toko", rsGp.wasNull() ? null : Long.valueOf(tokoRuleGp));
+			r.put("berlakuSemuaMember", rsGp.getBoolean(4));
+			long jenisGp = rsGp.getLong(5);
+			r.put("jenisAnggota", rsGp.wasNull() ? null : Long.valueOf(jenisGp));
+			long tipeGp = rsGp.getLong(6);
+			r.put("tipeAnggota", rsGp.wasNull() ? null : Long.valueOf(tipeGp));
+			r.put("persentase", rsGp.getDouble(7));
+			r.put("maksimalPotongan", rsGp.getDouble(8));
+			r.put("nominal", rsGp.getDouble(9));
+			r.put("potonganLangsung", rsGp.getBoolean(10));
+			r.put("berlakuPerHariDanPerToko", rsGp.getBoolean(11));
+			r.put("hariAktif", rsGp.getString(12));
+			r.put("aktivasiManual", rsGp.getBoolean(13));
+			r.put("namaAturan", rsGp.getString(14));
+			r.put("keterangan", rsGp.getString(15));
+			r.put("prioritas", Integer.valueOf(rsGp.getInt(16)));
+			r.put("dapatDigabung", Boolean.valueOf(rsGp.getBoolean(17)));
+			r.put("dasarPerhitungan", rsGp.getString(18));
+			r.put("grupEksklusif", rsGp.getString(19));
+			r.put("terpakaiHariIni", Double.valueOf(0d));
+			r.put("terpakaiDiKeranjang", Double.valueOf(0d));
+			rules.add(r);
+		}
+		rsGp.close();
+		psGrupProduk.close();
+
 		// Grup Diskon memakai mesin hitung yang SAMA dengan aturan per-produk. Kandidat
 		// grup diletakkan di depan agar aturan massal yang sengaja dibuat admin langsung
 		// terlihat di seluruh kanal tanpa perlu menduplikasi logika di tiap klien.

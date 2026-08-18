@@ -102,6 +102,16 @@ public final class GrupProdukApiHelper {
 				o.put("keterangan", g.getKeterangan() == null ? "" : g.getKeterangan());
 				o.put("harga_beli", g.getHargaBeli() == null ? JSONObject.NULL : g.getHargaBeli());
 				o.put("harga_jual", g.getHargaJual() == null ? JSONObject.NULL : g.getHargaJual());
+				// Toggle NULL (baris lama) dilaporkan mengikuti derivasi legacy yang sama
+				// dgn logika penyalinan server, supaya UI menampilkan perilaku sebenarnya.
+				o.put("ikut_hpp", GrupProdukUtil.ikutHpp(g));
+				o.put("ikut_harga_jual", GrupProdukUtil.ikutHargaJual(g));
+				String bahan = g.getBahanBaku();
+				o.put("bahan_baku", bahan == null || bahan.trim().isEmpty()
+						? new JSONArray() : new JSONArray(bahan));
+				ais.database.model.koperasi.AturanDiskon ad = g.getAturanDiskon();
+				o.put("aturan_diskon", ad == null ? JSONObject.NULL : ad.getId());
+				o.put("aturan_diskon_nama", ad == null ? "" : ad.getNamaAturan());
 				o.put("aktif", Boolean.TRUE.equals(g.getAktif()));
 				o.put("jumlah_anggota", GrupProdukUtil.jumlahAnggota(session, g));
 				arr.put(o);
@@ -157,6 +167,26 @@ public final class GrupProdukApiHelper {
 			g.setKeterangan(request.optString("keterangan", "").trim());
 			g.setHargaBeli(request.isNull("harga_beli") ? null : Double.valueOf(request.getDouble("harga_beli")));
 			g.setHargaJual(request.isNull("harga_jual") ? null : Double.valueOf(request.getDouble("harga_jual")));
+			// Field baru dikirim klien versi terbaru saja -- klien lama tidak mengirim
+			// kuncinya sama sekali sehingga nilai tersimpan TIDAK tersentuh (kompat mundur).
+			if (request.has("ikut_hpp")) {
+				g.setIkutHpp(request.isNull("ikut_hpp") ? null
+						: Boolean.valueOf(request.optBoolean("ikut_hpp", false)));
+			}
+			if (request.has("ikut_harga_jual")) {
+				g.setIkutHargaJual(request.isNull("ikut_harga_jual") ? null
+						: Boolean.valueOf(request.optBoolean("ikut_harga_jual", false)));
+			}
+			if (request.has("bahan_baku")) {
+				JSONArray resep = request.isNull("bahan_baku") ? null : request.optJSONArray("bahan_baku");
+				g.setBahanBaku(resep == null || resep.length() == 0 ? null : resep.toString());
+			}
+			if (request.has("aturan_diskon")) {
+				g.setAturanDiskon(request.isNull("aturan_diskon") ? null
+						: (ais.database.model.koperasi.AturanDiskon) session.get(
+								ais.database.model.koperasi.AturanDiskon.class,
+								Long.valueOf((request.get("aturan_diskon") + "").trim())));
+			}
 			if (!request.isNull("aktif")) {
 				g.setAktif(Boolean.valueOf(request.optBoolean("aktif", true)));
 			}
@@ -167,12 +197,49 @@ public final class GrupProdukApiHelper {
 
 			session.beginTransaction();
 			session.saveOrUpdate(g);
+			// Set keanggotaan penuh (kunci "produk" berisi [{id}...]) -- pola replace ala
+			// DiskonGrupHelper.simpan, tapi per-baris via session supaya ter-audit Envers.
+			int anggotaDitambah = 0;
+			int anggotaDilepas = 0;
+			if (request.has("produk") && !request.isNull("produk")) {
+				JSONArray target = request.optJSONArray("produk");
+				java.util.Set<Long> targetId = new java.util.LinkedHashSet<Long>();
+				for (int i = 0; target != null && i < target.length(); i++) {
+					JSONObject x = target.optJSONObject(i);
+					if (x != null && !x.isNull("id")) {
+						targetId.add(Long.valueOf((x.get("id") + "").trim()));
+					}
+				}
+				@SuppressWarnings("unchecked")
+				List<ais.database.model.inventory.Produk> anggotaKini = session
+						.createCriteria(ais.database.model.inventory.Produk.class)
+						.add(Restrictions.eq("grupProduk", g)).list();
+				for (ais.database.model.inventory.Produk p : anggotaKini) {
+					if (!targetId.remove(p.getId())) {
+						p.setGrupProduk(null);
+						session.saveOrUpdate(p);
+						anggotaDilepas++;
+					}
+				}
+				for (Long pid : targetId) {
+					ais.database.model.inventory.Produk p = (ais.database.model.inventory.Produk) session
+							.get(ais.database.model.inventory.Produk.class, pid);
+					if (p != null) {
+						p.setGrupProduk(g);
+						session.saveOrUpdate(p);
+						anggotaDitambah++;
+					}
+				}
+				session.flush();
+			}
 			int diterapkan = GrupProdukUtil.terapkanHargaKeAnggota(session, g);
 			session.getTransaction().commit();
 
 			hasil.put("status", "00");
 			hasil.put("id", g.getId());
 			hasil.put("diterapkan", diterapkan);
+			hasil.put("anggota_ditambah", anggotaDitambah);
+			hasil.put("anggota_dilepas", anggotaDilepas);
 		} catch (Exception e) {
 			try {
 				if (session.getTransaction() != null && session.getTransaction().isActive()) {
@@ -231,6 +298,160 @@ public final class GrupProdukApiHelper {
 		}
 	}
 
+	/** Daftar produk anggota satu grup (utk panel anggota + unduh Excel). Param: {@code id}. */
+	public static void anggotaDaftar(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehLihat(tbmuser)) {
+			tolak(hasil, "Menu Grup Produk tidak diaktifkan untuk grup pengguna Anda.");
+			return;
+		}
+		Long id = (request == null || request.isNull("id")) ? null
+				: Long.valueOf((request.get("id") + "").trim());
+		if (id == null) {
+			tolak(hasil, "Parameter id wajib diisi.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			java.sql.Connection conn = session.connection();
+			java.sql.PreparedStatement ps = conn.prepareStatement(
+					"SELECT p.id, COALESCE(p.kode,''), COALESCE(p.barcode,''), p.nama, COALESCE(t.nama,''), "
+							+ "COALESCE(p.hargabeli,0), COALESCE(p.hargajual,0) "
+							+ "FROM koperasi.produk p LEFT JOIN koperasi.toko t ON t.id = p.toko "
+							+ "WHERE p.grup_produk = ? ORDER BY t.nama, p.nama");
+			ps.setLong(1, id.longValue());
+			java.sql.ResultSet rs = ps.executeQuery();
+			JSONArray arr = new JSONArray();
+			while (rs.next()) {
+				JSONObject o = new JSONObject();
+				o.put("id", rs.getLong(1));
+				o.put("kode", rs.getString(2));
+				o.put("barcode", rs.getString(3));
+				o.put("nama", rs.getString(4));
+				o.put("tokoNama", rs.getString(5));
+				o.put("harga_beli", rs.getDouble(6));
+				o.put("harga_jual", rs.getDouble(7));
+				arr.put(o);
+			}
+			rs.close();
+			ps.close();
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Cari produk LINTAS toko utk dipilih jadi anggota grup -- beda dari
+	 * {@code diskon_grup_produk_cari} (per-toko): grup produk memang lintas outlet.
+	 * Param: {@code keyword}.
+	 */
+	public static void cariProduk(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehLihat(tbmuser)) {
+			tolak(hasil, "Menu Grup Produk tidak diaktifkan untuk grup pengguna Anda.");
+			return;
+		}
+		String q = request == null ? "" : request.optString("keyword", "").trim().toLowerCase();
+		// Filter opsional jenis item (mis. "BAHAN" utk picker resep grup) -- nilai
+		// dibatasi whitelist supaya aman disisipkan (bukan dari input bebas).
+		String jenisItem = request == null ? "" : request.optString("jenis_item", "").trim().toUpperCase();
+		if (!"BAHAN".equals(jenisItem) && !"JUAL".equals(jenisItem) && !"EKSTRA".equals(jenisItem)) {
+			jenisItem = "";
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			java.sql.Connection conn = session.connection();
+			java.sql.PreparedStatement ps = conn.prepareStatement(
+					"SELECT p.id, COALESCE(p.kode,''), COALESCE(p.barcode,''), p.nama, COALESCE(t.nama,''), p.grup_produk "
+							+ "FROM koperasi.produk p LEFT JOIN koperasi.toko t ON t.id = p.toko "
+							+ "WHERE COALESCE(p.aktif,true) AND (?='' OR LOWER(COALESCE(p.kode,'')||' '||COALESCE(p.barcode,'')||' '||COALESCE(p.nama,'')) LIKE ?) "
+							+ (jenisItem.isEmpty() ? ""
+									: "AND UPPER(COALESCE(NULLIF(TRIM(p.jenis_item),''),'JUAL')) = '" + jenisItem + "' ")
+							+ "ORDER BY p.nama, t.nama LIMIT 100");
+			ps.setString(1, q);
+			ps.setString(2, "%" + q + "%");
+			java.sql.ResultSet rs = ps.executeQuery();
+			JSONArray arr = new JSONArray();
+			while (rs.next()) {
+				JSONObject o = new JSONObject();
+				o.put("id", rs.getLong(1));
+				o.put("kode", rs.getString(2));
+				o.put("barcode", rs.getString(3));
+				o.put("nama", rs.getString(4));
+				o.put("tokoNama", rs.getString(5));
+				long gid = rs.getLong(6);
+				o.put("grup_produk", rs.wasNull() ? JSONObject.NULL : Long.valueOf(gid));
+				arr.put(o);
+			}
+			rs.close();
+			ps.close();
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * Resolve kode/barcode hasil unggah Excel jadi produk -- LINTAS toko dan SEMUA yang
+	 * cocok ikut (satu kode di 90 outlet = 90 baris produk, memang itu tujuannya grup).
+	 * Param: {@code kunci} (array string kode/barcode). Respons: {@code data} + {@code tidakDitemukan}.
+	 */
+	public static void resolveProduk(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!bolehLihat(tbmuser)) {
+			tolak(hasil, "Menu Grup Produk tidak diaktifkan untuk grup pengguna Anda.");
+			return;
+		}
+		JSONArray keys = request == null ? null : request.optJSONArray("kunci");
+		if (keys == null) {
+			tolak(hasil, "Daftar kode/barcode tidak valid.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			java.sql.Connection conn = session.connection();
+			java.sql.PreparedStatement ps = conn.prepareStatement(
+					"SELECT p.id, COALESCE(p.kode,''), COALESCE(p.barcode,''), p.nama, COALESCE(t.nama,'') "
+							+ "FROM koperasi.produk p LEFT JOIN koperasi.toko t ON t.id = p.toko "
+							+ "WHERE p.kode = ? OR p.barcode = ? ORDER BY p.id");
+			JSONArray found = new JSONArray();
+			JSONArray missing = new JSONArray();
+			java.util.Set<Long> seen = new java.util.LinkedHashSet<Long>();
+			for (int i = 0; i < keys.length(); i++) {
+				String k = String.valueOf(keys.get(i)).trim();
+				if (k.isEmpty()) {
+					continue;
+				}
+				ps.setString(1, k);
+				ps.setString(2, k);
+				java.sql.ResultSet rs = ps.executeQuery();
+				boolean ada = false;
+				while (rs.next()) {
+					ada = true;
+					if (seen.add(Long.valueOf(rs.getLong(1)))) {
+						JSONObject o = new JSONObject();
+						o.put("id", rs.getLong(1));
+						o.put("kode", rs.getString(2));
+						o.put("barcode", rs.getString(3));
+						o.put("nama", rs.getString(4));
+						o.put("tokoNama", rs.getString(5));
+						found.put(o);
+					}
+				}
+				rs.close();
+				if (!ada) {
+					missing.put(k);
+				}
+			}
+			ps.close();
+			hasil.put("status", "00");
+			hasil.put("data", found);
+			hasil.put("tidakDitemukan", missing);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
 	/** Dipakai dispatcher: setiap aksi berawalan {@code grup_produk_} diarahkan ke sini. */
 	public static boolean proses(String action, Tbmuser tbmuser, JSONObject request, JSONObject hasil)
 			throws Exception {
@@ -246,6 +467,18 @@ public final class GrupProdukApiHelper {
 		}
 		if ("grup_produk_hapus".equals(action)) {
 			hapus(tbmuser, request, hasil);
+			return true;
+		}
+		if ("grup_produk_anggota_daftar".equals(action)) {
+			anggotaDaftar(tbmuser, request, hasil);
+			return true;
+		}
+		if ("grup_produk_produk_cari".equals(action)) {
+			cariProduk(tbmuser, request, hasil);
+			return true;
+		}
+		if ("grup_produk_produk_resolve".equals(action)) {
+			resolveProduk(tbmuser, request, hasil);
 			return true;
 		}
 		return false;

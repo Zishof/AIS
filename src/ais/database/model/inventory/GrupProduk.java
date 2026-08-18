@@ -125,6 +125,61 @@ public class GrupProduk extends GeneralValueObject {
 		this.hargaJual = hargaJual;
 	}
 
+	/**
+	 * Resep/bahan baku terpusat -- JSON array format SAMA dgn {@link Produk#getBahanBaku()}
+	 * ({@code [{produk_id, nama, qty, harga}, ...]}); disalin apa adanya ke produk anggota
+	 * saat {@link #getIkutHpp()} aktif. Snapshot per-baris tetap termaterialisasi di Produk
+	 * sehingga jalur baca POS/laporan tidak berubah.
+	 */
+	@Column(name = "bahan_baku", columnDefinition = "text", nullable = true)
+	public String getBahanBaku() {
+		return bahanBaku;
+	}
+
+	public void setBahanBaku(String bahanBaku) {
+		this.bahanBaku = bahanBaku;
+	}
+
+	/**
+	 * "HPP selalu mengikuti Grup Produk": bila TRUE, {@code hargaBeli} + {@code bahanBaku}
+	 * disalin ke seluruh anggota tiap grup disimpan; bila FALSE grup hanya pengelompokan.
+	 * NULL = baris lama sebelum kolom ini ada -- diperlakukan mengikuti perilaku lama
+	 * (salin bila {@code hargaBeli} terisi), lihat {@code GrupProdukUtil.ikutHpp}.
+	 */
+	@Column(name = "ikut_hpp", nullable = true)
+	public Boolean getIkutHpp() {
+		return ikutHpp;
+	}
+
+	public void setIkutHpp(Boolean ikutHpp) {
+		this.ikutHpp = ikutHpp;
+	}
+
+	/** "Harga Jual selalu sama dengan Grup Produk" -- padanan {@link #getIkutHpp()} utk harga jual. */
+	@Column(name = "ikut_harga_jual", nullable = true)
+	public Boolean getIkutHargaJual() {
+		return ikutHargaJual;
+	}
+
+	public void setIkutHargaJual(Boolean ikutHargaJual) {
+		this.ikutHargaJual = ikutHargaJual;
+	}
+
+	/**
+	 * Aturan diskon yang berlaku utk SEMUA produk anggota grup ini -- dievaluasi dinamis
+	 * oleh mesin diskon POS ({@code KantinHelper.loadAturanDiskonKandidat} sumber ketiga),
+	 * TIDAK disalin per-produk.
+	 */
+	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "aturan_diskon", nullable = true)
+	public ais.database.model.koperasi.AturanDiskon getAturanDiskon() {
+		return aturanDiskon;
+	}
+
+	public void setAturanDiskon(ais.database.model.koperasi.AturanDiskon aturanDiskon) {
+		this.aturanDiskon = aturanDiskon;
+	}
+
 	public Boolean getAktif() {
 		return aktif == null ? true : aktif;
 	}
