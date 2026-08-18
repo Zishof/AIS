@@ -175,13 +175,19 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer {
         pegawai.setDisabled(!(isAdministrator() || canPay));
         attachmentBox.getChildren().clear();
         final Long existingLampiran = data == null ? null : data.getLampiranId();
-        // usingId=false (arg ke-10): untuk pengajuan baru (id null) file di-key via kolom ref sintetis, sehingga
-        // baris yang BARU diunggah ketemu saat refresh & tampil (usingId=true membuatnya dicari via primary id
-        // yang belum ada → tidak tampil).
+        // usingId=true (arg ke-10) + tampilUpload=true (arg ke-11): tombol upload muncul. Setelah unggah, refresh
+        // internal (by-id) belum menemukan row baru sehingga preview tak tampil -> tampilkan konfirmasi eksplisit.
         LampiranLain.createDownloadUploadFileLain(attachmentBox, data == null ? null : data.getId(), JENIS_LAMPIRAN,
                 "Nota/kuitansi reimbursement", false, new EventListener() {
-                    public void onEvent(Event event) throws Exception { uploadedLampiran = (LampiranLain) event.getData(); }
-                }, null, false, false, false, true);
+                    public void onEvent(Event event) throws Exception {
+                        uploadedLampiran = (LampiranLain) event.getData();
+                        if (uploadedLampiran != null) {
+                            Label ok = new Label("✓ Nota/kuitansi berhasil terunggah.");
+                            ok.setStyle("color:#059669; font-weight:bold; margin-left:6px;");
+                            ok.setParent(attachmentBox);
+                        }
+                    }
+                }, null, false, false, true, true);
         if (existingLampiran != null) {
             Button lihat = new Button("Lihat lampiran tersimpan");
             lihat.setParent(attachmentBox);
