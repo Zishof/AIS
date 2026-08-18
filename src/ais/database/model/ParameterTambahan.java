@@ -1641,8 +1641,8 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 			try {
 				Class clazz = Class.forName(parameterTambahan.getNilaiDataInputan().trim());
 				Object o = ConstantValues.ambil(clazz.getName(), Long.parseLong(vall.trim().split("->")[0]));
-				if (o != null) {
-					Common.insertProperty(clazz, (java.io.Serializable) o, map, jenis_id);
+				if (o instanceof GeneralValueObject) {
+					Common.insertProperty(clazz, (GeneralValueObject) o, map, jenis_id);
 				}
 			} catch (Exception e) {
 				ais.common.ErrorAuditUtil.record(e, "ParameterTambahan: masukkan data pilihan object");

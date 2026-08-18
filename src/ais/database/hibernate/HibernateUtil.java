@@ -190,6 +190,10 @@ public class HibernateUtil {
             synchronized (HibernateUtil.class) {
                 if (FACTORY == null) {
                     FACTORY = ambilFactoryZkplusAtauBangunSendiri();
+                    // hbm2ddl=update tidak andal menambah kolom baru ke tabel audit di
+                    // schema new_audit (lihat catatan ENVERS di hibernate.cfg.xml) --
+                    // selisihnya disinkron otomatis di sini, fail-soft, sekali per boot.
+                    AuditSchemaSyncUtil.sinkronKolomAudit(FACTORY);
                 }
             }
         }
