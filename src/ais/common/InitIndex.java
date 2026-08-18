@@ -1956,6 +1956,68 @@ public class InitIndex {
 		}
 	}
 
+	/**
+	 * Seed master "Jenis Pengeluaran" reimbursement saat bootstrap Tomcat: ±55 jenis
+	 * pengeluaran yang lazim di-reimburse di lapangan. Akun biaya per jenis
+	 * dilengkapi admin lewat tab "Jenis Pengeluaran" (tidak di-seed karena kode akun
+	 * berbeda-beda per tenant). Idempoten: tabel dibuat bila belum ada dan seed
+	 * hanya berjalan saat tabel masih KOSONG.
+	 */
+	static void initDefaultJenisPengeluaran() {
+		org.hibernate.Session session = null;
+		org.hibernate.Transaction tx = null;
+		java.sql.Statement ddl = null;
+		try {
+			session = ais.database.hibernate.HibernateUtil.getSessionFactory().openSession();
+			tx = session.beginTransaction();
+			ddl = session.connection().createStatement();
+			ddl.executeUpdate("CREATE TABLE IF NOT EXISTS akunting.jenis_pengeluaran ("
+					+ "id bigserial PRIMARY KEY, nama varchar(255), keterangan text, "
+					+ "akun int8, jenis_asset int8, aktif boolean, "
+					+ "tanggal_dirubah timestamp without time zone)");
+
+			String[] jenis = new String[] {
+					"BBM / Bensin", "Parkir", "Tol", "Transportasi Online (Ojek/Taksi Online)", "Taksi / Angkutan Umum",
+					"Tiket Kereta Api", "Tiket Pesawat", "Tiket Bus / Travel", "Penginapan / Hotel", "Uang Makan Perjalanan Dinas",
+					"Konsumsi Rapat", "Snack / Kudapan Rapat", "Konsumsi Tamu", "Air Minum / Galon", "Gas LPG",
+					"ATK (Alat Tulis Kantor)", "Fotokopi / Penggandaan", "Penjilidan / Cetak Dokumen", "Materai", "Kertas",
+					"Toner / Tinta Printer", "Pengiriman Dokumen / Kurir / Ekspedisi", "Pulsa / Paket Data", "Langganan Internet", "Token / Tagihan Listrik",
+					"Perbaikan Kendaraan Dinas", "Servis Rutin Kendaraan", "Oli / Ban Kendaraan", "Perbaikan AC", "Perbaikan Komputer / Laptop",
+					"Sparepart Komputer / Aksesoris", "Perbaikan Printer", "Perbaikan Instalasi Listrik", "Perbaikan Ledeng / Sanitasi", "Perbaikan Gedung Minor",
+					"Cat / Bahan Bangunan Minor", "Lampu / Alat Listrik", "Kunci / Duplikat Kunci", "Peralatan Kebersihan", "Peralatan Dapur",
+					"Perkakas / Tools", "Obat-obatan / P3K", "Biaya Medis Ringan", "Seragam / Atribut", "Spanduk / Banner / Percetakan",
+					"Dekorasi Acara", "Sewa Sound System / Proyektor", "Sewa Kendaraan", "Sewa Tempat / Ruangan", "Karangan Bunga / Bingkisan",
+					"Sumbangan Duka / Sosial", "Biaya Pelatihan / Workshop", "Biaya Seminar / Pendaftaran", "Buku / Referensi", "Langganan Software / Lisensi",
+					"Domain / Hosting", "Notaris / Legalisir", "Perizinan / Administrasi Pemerintah", "Biaya Bank / Admin Transfer", "Retribusi / Iuran Lingkungan" };
+
+			StringBuilder values = new StringBuilder();
+			for (int i = 0; i < jenis.length; i++) {
+				if (values.length() > 0) {
+					values.append(", ");
+				}
+				values.append("('").append(jenis[i].replace("'", "''")).append("')");
+			}
+			ddl.executeUpdate("INSERT INTO akunting.jenis_pengeluaran (nama, aktif, tanggal_dirubah) "
+					+ "SELECT x.nama, true, now() FROM (VALUES " + values + ") AS x(nama) "
+					+ "WHERE NOT EXISTS (SELECT 1 FROM akunting.jenis_pengeluaran)");
+			tx.commit();
+		} catch (Exception e) {
+			if (tx != null && tx.isActive()) try { tx.rollback(); } catch (Exception rollback) {
+				ErrorAuditUtil.record(rollback, "initDefaultJenisPengeluaran-rollback");
+			}
+			ErrorAuditUtil.record(e, "auto-audit InitIndex.initDefaultJenisPengeluaran");
+		} finally {
+			try { if (ddl != null) ddl.close(); } catch (Exception e) {
+				ErrorAuditUtil.record(e, "initDefaultJenisPengeluaran-ddl-close");
+			}
+			if (session != null) {
+				try { session.clear(); } catch (Exception e) { ErrorAuditUtil.record(e, "initDefaultJenisPengeluaran-clear"); }
+				try { session.disconnect(); } catch (Exception e) { ErrorAuditUtil.record(e, "initDefaultJenisPengeluaran-disconnect"); }
+				try { session.close(); } catch (Exception e) { ErrorAuditUtil.record(e, "initDefaultJenisPengeluaran-close"); }
+			}
+		}
+	}
+
 	static void initTransaksiBackupAck() {
 		org.hibernate.Session session = null;
 		org.hibernate.Transaction tx = null;
@@ -2086,6 +2148,7 @@ public class InitIndex {
 		initKebijakanReturProduk();
 		initTransaksiBackupAck();
 		initDefaultJenisReimbursement();
+		initDefaultJenisPengeluaran();
 
 		// 1. EKSTENSI TRIGRAM (WAJIB) — dijalankan SINKRON (sebelum pool paralel aktif) karena
 		// seluruh index GIN trigram bergantung pada ekstensi ini; harus tersedia lebih dulu.
