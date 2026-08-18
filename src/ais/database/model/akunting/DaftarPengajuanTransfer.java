@@ -125,6 +125,7 @@ public class DaftarPengajuanTransfer extends DataSop {
 	// reference
 	private Pertangungjawaban pertangungjawaban;
 	private UangMuka uangMuka;
+	private ReimbursementPegawai reimbursementPegawai;
 	private DanaTalangan danaTalangan;
 	private PenggantianKasKecil penggantianKasKecil;
 	private KasBesar kasBesar;
@@ -609,6 +610,46 @@ public class DaftarPengajuanTransfer extends DataSop {
 		closeNativeSessionSafely(session);
 	}
 
+	/**
+	 * Masukkan reimbursement yang telah DISETUJUI ke daftar DPC (transfer pool).
+	 * Idempoten: hanya membuat satu baris DaftarPengajuanTransfer per dokumen dan
+	 * menautkan balik lewat {@code daftar_pengajuan_transfer}. Klon
+	 * {@link #simpanUangMuka} untuk pola yang identik.
+	 */
+	public static void simpanReimbursement(ReimbursementPegawai reimbursementPegawai) {
+
+		if (reimbursementPegawai != null && reimbursementPegawai.getDaftarPengajuanTransfer() != null) {
+			return;
+		}
+
+		Session session = HibernateUtil.currentNativeSession();
+		DaftarPengajuanTransfer daftarPengajuanTransfer = (DaftarPengajuanTransfer) session
+				.createCriteria(DaftarPengajuanTransfer.class)
+				.add(Restrictions.eq("reimbursementPegawai", reimbursementPegawai)).setMaxResults(1).uniqueResult();
+		if (daftarPengajuanTransfer == null) {
+			daftarPengajuanTransfer = new DaftarPengajuanTransfer();
+		}
+		daftarPengajuanTransfer.setReimbursementPegawai(reimbursementPegawai);
+		daftarPengajuanTransfer.setNama("Pembayaran reimbursement "
+				+ (reimbursementPegawai.getNama() == null ? reimbursementPegawai.getKode()
+						: reimbursementPegawai.getNama())
+				+ " " + (reimbursementPegawai.getPegawai() == null ? ""
+						: reimbursementPegawai.getPegawai().getNama()));
+
+		session.getTransaction().begin();
+		Common.refreshSaveOrUpdate(session, daftarPengajuanTransfer);
+		session.getTransaction().commit();
+
+		reimbursementPegawai.setDaftarPengajuanTransfer(daftarPengajuanTransfer);
+
+		session.getTransaction().begin();
+		Common.refreshSaveOrUpdate(session, reimbursementPegawai);
+		session.getTransaction().commit();
+
+		// currentNativeSession ditutup manual karena bukan currentSession request.
+		closeNativeSessionSafely(session);
+	}
+
 	public static void simpanJenisKasKecil(JenisKasKecil jenisKasKecil) {
 
 		if (jenisKasKecil != null && jenisKasKecil.getDaftarPengajuanTransfer() != null) {
@@ -770,6 +811,8 @@ public class DaftarPengajuanTransfer extends DataSop {
 				kode = getSaldoAwalMasterAsset().getKode();
 			} else if (getUangMuka() != null) {
 				kode = getUangMuka().getKode();
+			} else if (getReimbursementPegawai() != null) {
+				kode = getReimbursementPegawai().getKode();
 			} else if (getPertangungjawaban() != null) {
 				kode = getPertangungjawaban().getKode();
 			} else if (getPertangungjawabanKasBesar() != null) {
@@ -897,6 +940,18 @@ public class DaftarPengajuanTransfer extends DataSop {
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@NotFound(action = NotFoundAction.IGNORE)
 	@Fetch(FetchMode.SELECT)
+	@JoinColumn(name = "reimbursement_pegawai", nullable = true)
+	public ReimbursementPegawai getReimbursementPegawai() {
+		return reimbursementPegawai;
+	}
+
+	public void setReimbursementPegawai(ReimbursementPegawai reimbursementPegawai) {
+		this.reimbursementPegawai = reimbursementPegawai;
+	}
+
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
+	@NotFound(action = NotFoundAction.IGNORE)
+	@Fetch(FetchMode.SELECT)
 	@JoinColumn(name = "penggantian_kas_kecil", nullable = true)
 	public PenggantianKasKecil getPenggantianKasKecil() {
 		return penggantianKasKecil;
@@ -964,6 +1019,10 @@ public class DaftarPengajuanTransfer extends DataSop {
 
 		else if (getUangMuka() != null && getUangMuka().getNilai() != null) {
 			nominal = getUangMuka().getNilai();
+		}
+
+		else if (getReimbursementPegawai() != null && getReimbursementPegawai().getNominal() != null) {
+			nominal = getReimbursementPegawai().getNominal();
 		}
 
 		else if (getPertangungjawaban() != null && getPertangungjawaban().getDikembalikan() != null) {
@@ -1039,6 +1098,12 @@ public class DaftarPengajuanTransfer extends DataSop {
 		} else if (getUangMuka() != null && getUangMuka().getJenisUangMuka() != null
 				&& getUangMuka().getJenisUangMuka().getAkun() != null) {
 			bankSumber = getUangMuka().getJenisUangMuka().getAkun().getBank();
+		}
+
+		else if (getReimbursementPegawai() != null && getReimbursementPegawai().getAkunPembayaran() != null) {
+			bankSumber = getReimbursementPegawai().getAkunPembayaran().getBank();
+		} else if (getReimbursementPegawai() != null && getReimbursementPegawai().getAkun() != null) {
+			bankSumber = getReimbursementPegawai().getAkun().getBank();
 		}
 
 		else if (getPertangungjawaban() != null && getPertangungjawaban().getUangMuka().getJenisUangMuka() != null
