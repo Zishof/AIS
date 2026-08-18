@@ -118,17 +118,14 @@ public class RepositorySyncService {
 
 	/**
 	 * Mencegah dua node/thread menjalankan sinkron repository pada database yang sama.
-	 * Lock transaksi PostgreSQL otomatis dilepas saat commit/rollback. Bila database
-	 * bukan PostgreSQL, sinkronisasi tetap berjalan seperti sebelumnya.
+	 * Lock transaksi PostgreSQL otomatis dilepas saat commit/rollback. Aplikasi utama
+	 * memang memakai PostgreSQL; kegagalan query lock sengaja diteruskan karena biasanya
+	 * menandakan koneksi sudah tidak sehat dan sinkronisasi tidak boleh dipaksakan lanjut.
 	 */
 	private static boolean cobaKunciSinkronisasi(Session session) {
-		try {
-			Object result = session.createSQLQuery("select pg_try_advisory_xact_lock(" + REPOSITORY_SYNC_LOCK_ID + ")")
-					.uniqueResult();
-			return Boolean.TRUE.equals(result) || "true".equalsIgnoreCase(String.valueOf(result));
-		} catch (Exception bukanPostgreSql) {
-			return true;
-		}
+		Object result = session.createSQLQuery("select pg_try_advisory_xact_lock(" + REPOSITORY_SYNC_LOCK_ID + ")")
+				.uniqueResult();
+		return Boolean.TRUE.equals(result) || "true".equalsIgnoreCase(String.valueOf(result));
 	}
 
 	private static List<SourceDescriptor> getDefaultSources() {

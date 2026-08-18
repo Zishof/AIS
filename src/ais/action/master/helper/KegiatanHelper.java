@@ -252,7 +252,8 @@ public class KegiatanHelper {
 						// SessionException, method boleh lanjut idempoten pada pemanggilan berikutnya).
 						ais.common.ErrorAuditUtil.record(mergeEx,
 								"KegiatanHelper.updateEntitySafe: gagal merge entity pada sesi isolasi recovery (SessionException) - entity="
-										+ (entity == null ? "null" : entity.getClass().getName()));
+								+ (entity == null ? "null" : entity.getClass().getName()));
+						return;
 					} finally {
 						if (isoSession2 != null && isoSession2.isOpen()) {
 							closeOpenedSessionQuietly(isoSession2);
