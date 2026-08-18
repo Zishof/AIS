@@ -46,6 +46,7 @@ import ais.database.model.Pegawai;
 import ais.database.model.Tbmuser;
 import ais.database.model.akunting.Akun;
 import ais.database.model.akunting.DaftarPengajuanTransfer;
+import ais.database.model.akunting.JenisPengeluaran;
 import ais.database.model.akunting.JenisReimbursement;
 import ais.database.model.akunting.ReimbursementPegawai;
 import ais.database.model.rab.SatuanKerja;
@@ -98,7 +99,8 @@ import com.itextpdf.text.pdf.PdfWriter;
  * </ul>
  */
 @SuppressWarnings({ "rawtypes", "unchecked", "serial" })
-public class ReimbursementPegawaiAction extends GenericAutowireComposer implements FormSop {
+public class ReimbursementPegawaiAction extends GenericAutowireComposer
+		implements FormSop, ais.ui.util.DataInitDefault {
 
 	// ===== komponen halaman (autowire reimbursement_pegawai.zul) =====
 	private MyWindow window;
@@ -132,6 +134,8 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer implemen
 	private MyFormRow rowAkunInfo;
 	private Label akunInfo;
 	private Tabpanel jenisPanel;
+	private Tabpanel jenisPengeluaranPanel;
+	private List jenisPengeluaranList;
 	private Label kode;
 	private Textbox nama;
 	private AmbilDataPegawaiBanbox pegawaiPenerima;
@@ -162,7 +166,25 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer implemen
 	// Halaman daftar (klon layout uang_muka.zul)
 	// =====================================================================
 
-	public void onSearchDefault(Event event) throws Exception {
+	/** Kontrak DataInitDefault: tombol Ubah baris (Common.copyEditDeleteButtons) membuka form ini. */
+	@Override
+	public void init(GeneralValueObject obj) throws Exception {
+		persetujuan = false;
+		ReimbursementPegawai d = (ReimbursementPegawai) obj;
+		bukaForm(d, d.getDisposisiSop(), false);
+	}
+
+	@Override
+	public void onSearchDefault(Event event) {
+		try {
+			cariData();
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit ReimbursementPegawaiAction.onSearchDefault");
+			Common.tampilErrorJikaAdmin(e);
+		}
+	}
+
+	private void cariData() throws Exception {
 		if (grid == null) {
 			return;
 		}
@@ -561,6 +583,212 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer implemen
 	}
 
 	// =====================================================================
+	// Tab CRUD Jenis Pengeluaran (akun dipetakan admin; pegawai tinggal pilih)
+	// =====================================================================
+
+	public void onJenisPengeluaran(Event event) throws Exception {
+		if (jenisPengeluaranPanel == null) {
+			return;
+		}
+		jenisPengeluaranPanel.getChildren().clear();
+
+		final boolean bolehKelola = bolehKelolaJenis();
+		Vbox v = new Vbox();
+		v.setWidth("100%");
+		v.setParent(jenisPengeluaranPanel);
+
+		if (bolehKelola) {
+			Toolbar toolbar = new Toolbar();
+			toolbar.setHeight("32px");
+			toolbar.setParent(v);
+			MyToolbarbuttonConfig tambah = new MyToolbarbuttonConfig("Tambah Jenis Pengeluaran", "/img/new.gif");
+			tambah.setParent(toolbar);
+			tambah.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					bukaFormJenisPengeluaran(new JenisPengeluaran());
+				}
+			});
+		} else {
+			tulis(v, "Hanya administrator yang dapat menambah/mengubah Jenis Pengeluaran.");
+		}
+
+		Grid g = new Grid();
+		g.setWidth("100%");
+		g.setParent(v);
+		Columns columns = new Columns();
+		columns.setParent(g);
+		String[] judul = new String[] { "Nama", "Akun", "Jenis Asset", "Keterangan", "Aktif", "" };
+		String[] lebar = new String[] { "22%", "26%", "16%", "22%", "6%", "8%" };
+		for (int i = 0; i < judul.length; i++) {
+			MyColumnConfig col = new MyColumnConfig();
+			col.setLabel(judul[i]);
+			col.setWidth(lebar[i]);
+			col.setParent(columns);
+		}
+		Rows rowsJp = new Rows();
+		rowsJp.setParent(g);
+
+		List list = HibernateUtil.currentSession().createCriteria(JenisPengeluaran.class)
+				.addOrder(Order.asc("nama")).list();
+		for (int i = 0; i < list.size(); i++) {
+			final JenisPengeluaran jp = (JenisPengeluaran) list.get(i);
+			Row r = new Row();
+			r.setValign("top");
+			r.setParent(rowsJp);
+			Label nm = new Label(jp.getNama());
+			nm.setStyle("font-weight:bold;");
+			nm.setParent(r);
+			Label ak = new Label(jp.getAkun() == null ? "(belum dipetakan)" : jp.getAkun().toString());
+			if (jp.getAkun() == null) {
+				ak.setStyle("color:#dc2626;");
+			}
+			ak.setParent(r);
+			new Label(jp.getJenisAsset() == null ? "-" : jp.getJenisAsset().getNama()).setParent(r);
+			new Label(jp.getKeterangan() == null ? "" : jp.getKeterangan()).setParent(r);
+			new Label(Boolean.TRUE.equals(jp.getAktif()) ? "Ya" : "Tidak").setParent(r);
+			Hbox aksi = new Hbox();
+			aksi.setParent(r);
+			if (bolehKelola) {
+				Button ubah = new Button("Ubah");
+				ubah.setParent(aksi);
+				ubah.addEventListener("onClick", new EventListener() {
+					@Override
+					public void onEvent(Event arg0) throws Exception {
+						bukaFormJenisPengeluaran(jp);
+					}
+				});
+			}
+		}
+		if (list.isEmpty()) {
+			tulis(v, "(belum ada Jenis Pengeluaran — dibuat otomatis saat restart, atau tambah manual)");
+		}
+	}
+
+	/** Form tambah/ubah Jenis Pengeluaran — memakai addWindow yang sama. */
+	private void bukaFormJenisPengeluaran(final JenisPengeluaran jp) throws Exception {
+		if (addWindow == null || !bolehKelolaJenis()) {
+			return;
+		}
+		addWindow.getChildren().clear();
+
+		Vbox isi = new Vbox();
+		isi.setWidth("100%");
+		isi.setParent(addWindow);
+
+		Toolbar toolbar = new Toolbar();
+		toolbar.setHeight("32px");
+		toolbar.setParent(isi);
+		MyToolbarbuttonConfig simpan = new MyToolbarbuttonConfig("Simpan Jenis Pengeluaran", "/img/save.gif");
+		simpan.setParent(toolbar);
+
+		MyGrid f = new MyGrid();
+		f.setWidth("100%");
+		Columns columns = new Columns();
+		columns.setParent(f);
+		MyColumnConfig c1 = new MyColumnConfig();
+		c1.setWidth("32%");
+		c1.setParent(columns);
+		MyColumnConfig c2 = new MyColumnConfig();
+		c2.setParent(columns);
+		Rows rowsF = new Rows();
+		rowsF.setParent(f);
+		f.setParent(isi);
+
+		MyFormRow row = new MyFormRow();
+		row.setParent(rowsF);
+		row.appendChild(new MyLabelConfig("Nama Jenis Pengeluaran *"));
+		final Textbox namaJp = new Textbox(jp.getNama() == null ? "" : jp.getNama());
+		namaJp.setWidth("90%");
+		row.appendChild(namaJp);
+
+		row = new MyFormRow();
+		row.setParent(rowsF);
+		row.appendChild(new MyLabelConfig("Akun Biaya *"));
+		final AmbilDataAkunBanbox akunJp = new AmbilDataAkunBanbox(false);
+		akunJp.setWidth("90%");
+		if (jp.getAkun() != null) {
+			akunJp.setAttribute("akun", jp.getAkun());
+			akunJp.setValue(jp.getAkun().toString());
+		}
+		row.appendChild(akunJp);
+
+		row = new MyFormRow();
+		row.setParent(rowsF);
+		row.appendChild(new MyLabelConfig("Jenis Asset (opsional)"));
+		final Combobox jaCombo = new Combobox();
+		jaCombo.setReadonly(true);
+		jaCombo.setWidth("90%");
+		org.zkoss.zul.Comboitem tanpaAsset = jaCombo.appendItem("(tanpa mapping asset)");
+		tanpaAsset.setValue(null);
+		jaCombo.setSelectedItem(tanpaAsset);
+		try {
+			List assets = HibernateUtil.currentSession()
+					.createCriteria(ais.database.model.asset.JenisAsset.class).addOrder(Order.asc("nama")).list();
+			for (int i = 0; i < assets.size(); i++) {
+				ais.database.model.asset.JenisAsset ja = (ais.database.model.asset.JenisAsset) assets.get(i);
+				org.zkoss.zul.Comboitem item = jaCombo.appendItem(ja.getNama());
+				item.setValue(ja);
+				if (jp.getJenisAsset() != null && jp.getJenisAsset().getId() != null
+						&& jp.getJenisAsset().getId().equals(ja.getId())) {
+					jaCombo.setSelectedItem(item);
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ReimbursementPegawaiAction.bukaFormJenisPengeluaran-asset");
+		}
+		row.appendChild(jaCombo);
+
+		row = new MyFormRow();
+		row.setParent(rowsF);
+		row.appendChild(new MyLabelConfig("Keterangan"));
+		final Textbox ketJp = new Textbox(jp.getKeterangan() == null ? "" : jp.getKeterangan());
+		ketJp.setRows(2);
+		ketJp.setWidth("90%");
+		row.appendChild(ketJp);
+
+		row = new MyFormRow();
+		row.setParent(rowsF);
+		row.appendChild(new MyLabelConfig("Aktif"));
+		final Checkbox aktifJp = new Checkbox("");
+		aktifJp.setChecked(Boolean.TRUE.equals(jp.getAktif()));
+		row.appendChild(aktifJp);
+
+		simpan.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				if (namaJp.getValue() == null || namaJp.getValue().trim().isEmpty()) {
+					MyMessageboxConfig.show("Nama jenis pengeluaran wajib diisi.", "Peringatan", MyMessageboxConfig.OK,
+							MyMessageboxConfig.EXCLAMATION);
+					return;
+				}
+				Session session = HibernateUtil.currentSession();
+				JenisPengeluaran data = jp.getId() == null ? jp
+						: (JenisPengeluaran) session.load(JenisPengeluaran.class, jp.getId());
+				data.setNama(namaJp.getValue().trim());
+				data.setAkun(akunJp.getAttribute("akun") instanceof Akun ? (Akun) akunJp.getAttribute("akun") : null);
+				data.setJenisAsset(jaCombo.getSelectedItem() == null ? null
+						: (ais.database.model.asset.JenisAsset) jaCombo.getSelectedItem().getValue());
+				data.setKeterangan(ketJp.getValue());
+				data.setAktif(Boolean.valueOf(aktifJp.isChecked()));
+				if (data.getId() == null) {
+					session.save(data);
+				} else {
+					session.update(data);
+				}
+				session.flush();
+				jenisPengeluaranList = null; // segarkan cache combo di form pengajuan
+				addWindow.setVisible(false);
+				onJenisPengeluaran(null);
+			}
+		});
+
+		addWindow.setTitle(jp.getId() == null ? "Tambah Jenis Pengeluaran" : "Ubah Jenis Pengeluaran");
+		addWindow.setVisible(true);
+		addWindow.doHighlighted();
+	}
+
+	// =====================================================================
 	// FormSop — form() dipanggil mesin SOP DAN halaman daftar (addWindow)
 	// =====================================================================
 
@@ -572,6 +800,7 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer implemen
 		if (tbmuser == null) {
 			tbmuser = Common.getCurrentUser();
 		}
+		jenisPengeluaranList = null; // muat ulang master jenis pengeluaran tiap buka form
 
 		array = new JSONArray();
 		try {
@@ -826,6 +1055,21 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer implemen
 		return f;
 	}
 
+	/** Daftar Jenis Pengeluaran aktif (dimuat sekali per siklus form/render). */
+	private List ambilJenisPengeluaran() {
+		if (jenisPengeluaranList == null) {
+			try {
+				jenisPengeluaranList = HibernateUtil.currentSession().createCriteria(JenisPengeluaran.class)
+						.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
+						.addOrder(Order.asc("nama")).list();
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ReimbursementPegawaiAction.ambilJenisPengeluaran");
+				jenisPengeluaranList = new java.util.ArrayList();
+			}
+		}
+		return jenisPengeluaranList;
+	}
+
 	private JenisReimbursement jenisTerpilih() {
 		if (jenisReimbursementCombo == null || jenisReimbursementCombo.getSelectedItem() == null) {
 			return null;
@@ -887,7 +1131,7 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer implemen
 		g.setParent(itemBox);
 		Columns columns = new Columns();
 		columns.setParent(g);
-		String[] judul = new String[] { "Uraian Biaya/Barang", "Akun", "Tanggal", "Qty", "Harga", "Jumlah", "" };
+		String[] judul = new String[] { "Uraian Biaya/Barang", "Jenis Pengeluaran", "Tanggal", "Qty", "Harga", "Jumlah", "" };
 		String[] lebar = new String[] { "24%", "22%", "13%", "8%", "14%", "14%", "5%" };
 		for (int i = 0; i < judul.length; i++) {
 			MyColumnConfig col = new MyColumnConfig();
@@ -912,22 +1156,41 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer implemen
 			uraian.setReadonly(!editable);
 			uraian.setParent(r);
 
-			final AmbilDataAkunBanbox akunB = new AmbilDataAkunBanbox(false);
-			akunB.setWidth("95%");
+			// Pegawai cukup memilih JENIS PENGELUARAN — akun biaya sudah dipetakan admin
+			// pada master Jenis Pengeluaran (tab "Jenis Pengeluaran"), tidak perlu
+			// memilih kode akun yang rumit per baris.
+			final Combobox jpCombo = new Combobox();
+			jpCombo.setReadonly(true);
+			jpCombo.setWidth("95%");
+			long jpTerpilih = o.optLong("jenisPengeluaran", 0);
+			try {
+				for (int k = 0; k < ambilJenisPengeluaran().size(); k++) {
+					JenisPengeluaran jp = (JenisPengeluaran) ambilJenisPengeluaran().get(k);
+					org.zkoss.zul.Comboitem item = jpCombo.appendItem(jp.getNama()
+							+ (jp.getAkun() == null ? " (akun belum dipetakan)" : ""));
+					item.setValue(jp);
+					if (jpTerpilih > 0 && jp.getId() != null && jp.getId().longValue() == jpTerpilih) {
+						jpCombo.setSelectedItem(item);
+					}
+				}
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ReimbursementPegawaiAction.reloadItems-jp");
+			}
+			// baris lama (tersimpan langsung dengan akun, sebelum ada master jenis):
+			// tampilkan info akun agar tetap terbaca meski combo tidak terpilih
 			long akunId = o.optLong("akun", 0);
-			if (akunId > 0) {
+			if (jpTerpilih <= 0 && akunId > 0) {
 				try {
 					Akun a = (Akun) ConstantValues.ambil(Akun.class.getName(), Long.valueOf(akunId));
 					if (a != null) {
-						akunB.setAttribute("akun", a);
-						akunB.setValue(a.toString());
+						jpCombo.setValue(a.toString());
 					}
 				} catch (Exception e) {
-					ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ReimbursementPegawaiAction.reloadItems-akun");
+					ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ReimbursementPegawaiAction.reloadItems-akunLama");
 				}
 			}
-			akunB.setDisabled(!editable);
-			akunB.setParent(r);
+			jpCombo.setDisabled(!editable);
+			jpCombo.setParent(r);
 
 			final MyDatebox tgl = new MyDatebox();
 			tgl.setFormat("dd/MM/yyyy");
@@ -953,9 +1216,16 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer implemen
 			EventListener tulisBalik = new EventListener() {
 				@Override
 				public void onEvent(Event arg0) throws Exception {
-					Object data = arg0 == null ? null : arg0.getData();
-					if (data instanceof Akun) {
-						o.put("akun", ((Akun) data).getId().longValue());
+					// jenis pengeluaran terpilih -> simpan id jenis + akun turunannya
+					if (jpCombo.getSelectedItem() != null
+							&& jpCombo.getSelectedItem().getValue() instanceof JenisPengeluaran) {
+						JenisPengeluaran jp = (JenisPengeluaran) jpCombo.getSelectedItem().getValue();
+						o.put("jenisPengeluaran", jp.getId().longValue());
+						if (jp.getAkun() != null && jp.getAkun().getId() != null) {
+							o.put("akun", jp.getAkun().getId().longValue());
+						} else {
+							o.put("akun", 0L);
+						}
 					}
 					o.put("nama", uraian.getValue() == null ? "" : uraian.getValue().trim());
 					double q = qty.getValue() == null ? 0.0 : qty.getValue().doubleValue();
@@ -977,7 +1247,7 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer implemen
 			qty.addEventListener("onChange", tulisBalik);
 			harga.addEventListener("onChange", tulisBalik);
 			tgl.addEventListener("onChange", tulisBalik);
-			akunB.setEventListener(tulisBalik);
+			jpCombo.addEventListener("onSelect", tulisBalik);
 
 			if (editable) {
 				MyToolbarbuttonConfig hapus = new MyToolbarbuttonConfig("", "/img/delete.gif");
@@ -1072,8 +1342,15 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer implemen
 				continue;
 			}
 			if (o.optLong("akun", 0) <= 0) {
-				MyMessageboxConfig.show("Setiap baris rincian wajib memilih Akun biaya/barang.", "Peringatan",
-						MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				if (o.optLong("jenisPengeluaran", 0) > 0) {
+					MyMessageboxConfig.show(
+							"Akun untuk Jenis Pengeluaran pada rincian item belum dipetakan oleh administrator. "
+									+ "Mohon admin melengkapi akun pada tab \"Jenis Pengeluaran\" terlebih dahulu.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				} else {
+					MyMessageboxConfig.show("Setiap baris rincian wajib memilih Jenis Pengeluaran.", "Peringatan",
+							MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				}
 				return false;
 			}
 			double jml = o.optDouble("jumlah", 0.0);
@@ -1156,7 +1433,6 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer implemen
 	}
 
 	private String generateCode(boolean tambah) {
-		String prefix = "RMB-" + new SimpleDateFormat("yyyyMM").format(WaktuUtil.getDate()) + "-";
 		long count = 0;
 		try {
 			Number n = (Number) HibernateUtil.currentSession().createCriteria(ReimbursementPegawai.class)
@@ -1165,6 +1441,28 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer implemen
 		} catch (Exception e) {
 			ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ReimbursementPegawaiAction.generateCode");
 		}
+
+		// PENGKODEAN KUSTOM (pola UangMuka): admin dapat mengatur format nomor lewat
+		// layar "Nomor Surat Proses Pengadaan Barang/Jasa" pada entri "Reimbursement
+		// Pegawai" (NomorSuratAlurKeuangan). Bila belum disetel, pakai format bawaan
+		// RMB-yyyyMM-urut.
+		try {
+			if (ais.database.model.akunting.NomorSuratAlurKeuangan.REIMBURSEMENT_DATA != null
+					&& ais.database.model.akunting.NomorSuratAlurKeuangan.REIMBURSEMENT_DATA.getNomorSurat() != null) {
+				ais.database.model.surat.NomorSurat ns =
+						ais.database.model.akunting.NomorSuratAlurKeuangan.REIMBURSEMENT_DATA.getNomorSurat();
+				Long index = ns.getGunakanIndexUrut() ? ns.getNomorIndex() : Long.valueOf(count + 1);
+				if (tambah) {
+					ais.database.model.surat.NomorSurat.tambahIndexNomorSurat(ns);
+				}
+				String noAgenda = ns.format(index, WaktuUtil.getDate());
+				return ais.action.master.KodeUnikUtil.pastikanUnik(ReimbursementPegawai.class, noAgenda);
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ReimbursementPegawaiAction.generateCode-kustom");
+		}
+
+		String prefix = "RMB-" + new SimpleDateFormat("yyyyMM").format(WaktuUtil.getDate()) + "-";
 		return ais.action.master.KodeUnikUtil.pastikanUnik(ReimbursementPegawai.class, prefix + (count + 1));
 	}
 
@@ -1232,7 +1530,7 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer implemen
 		PdfPTable t = new PdfPTable(new float[] { 6, 32, 22, 8, 16, 16 });
 		t.setWidthPercentage(100);
 		for (int i = 0; i < 6; i++) {
-			String h = new String[] { "No", "Uraian", "Akun", "Qty", "Harga", "Jumlah" }[i];
+			String h = new String[] { "No", "Uraian", "Jenis Pengeluaran", "Qty", "Harga", "Jumlah" }[i];
 			PdfPCell c = new PdfPCell(new Paragraph(h, fNb));
 			c.setBackgroundColor(new BaseColor(224, 231, 255));
 			c.setHorizontalAlignment(Element.ALIGN_CENTER);
@@ -1376,10 +1674,18 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer implemen
 
 			new Label(Boolean.TRUE.equals(d.getAktif()) ? "Ya" : "Tidak").setParent(row);
 
-			Hbox aksi = new Hbox();
+			// Tombol baris SERAGAM dengan UangMuka: ikon standar Ubah/Hapus dari
+			// Common.copyEditDeleteButtons (Hapus kini MUNCUL untuk pengajuan yang
+			// masih bisa dihapus) + ikon Cetak print.png + ikon Lihat.
+			boolean bolehUbahHapus = !ReimbursementPegawai.DISETUJUI.equals(st)
+					&& !ReimbursementPegawai.LUNAS.equals(st);
+			Hbox aksi = Common.copyEditDeleteButtons(bolehUbahHapus, false, bolehUbahHapus, d,
+					ReimbursementPegawaiAction.this);
 			aksi.setParent(row);
-			Button lihat = new Button("Lihat");
-			lihat.setParent(aksi);
+
+			MyToolbarbuttonConfig lihat = new MyToolbarbuttonConfig("", "/img/search.gif");
+			lihat.setTooltiptext("Lihat Rincian");
+			lihat.setOrient("vertical");
 			lihat.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event arg0) throws Exception {
@@ -1387,19 +1693,11 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer implemen
 					bukaForm(d, d.getDisposisiSop(), true);
 				}
 			});
-			if (ReimbursementPegawai.DIAJUKAN.equals(st) && d.getDisposisiSop() == null) {
-				Button ubah = new Button("Ubah");
-				ubah.setParent(aksi);
-				ubah.addEventListener("onClick", new EventListener() {
-					@Override
-					public void onEvent(Event arg0) throws Exception {
-						persetujuan = false;
-						bukaForm(d, null, false);
-					}
-				});
-			}
-			Button cetak = new Button("Cetak");
-			cetak.setParent(aksi);
+			lihat.setParent(aksi);
+
+			MyToolbarbuttonConfig cetak = new MyToolbarbuttonConfig("", "/img/print.png");
+			cetak.setTooltiptext("Cetak");
+			cetak.setOrient("vertical");
 			cetak.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event arg0) throws Exception {
@@ -1409,6 +1707,7 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer implemen
 					}
 				}
 			});
+			cetak.setParent(aksi);
 		}
 	}
 }
