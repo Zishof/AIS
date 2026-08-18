@@ -957,6 +957,15 @@ public class LinimasaApi {
 						+ pertemuan.getPertemuanPunyaGrupPertemuan().getGrupPertemuan().getDosen().getNama();
 			}
 			da.put("rinci", rinci);
+			// Identitas periode perkuliahan untuk filter global TA+Semester di
+			// klien; hanya ada bila pertemuan milik perkuliahan kampus.
+			if (pertemuan.getPerkuliahan() != null) {
+				da.put("tahun_ajaran", pertemuan.getPerkuliahan().getTahunAjaran());
+				da.put("ganjil_genap", pertemuan.getPerkuliahan().getGanjilGenap());
+				if (pertemuan.getPerkuliahan().getStatusSemesterPendek() != null) {
+					da.put("semester_pendek", pertemuan.getPerkuliahan().getStatusSemesterPendek());
+				}
+			}
 			List<Dosen> map = pertemuan.ambilDosen();
 
 			if (pertemuan.getDosenPengganti() != null) {

@@ -841,6 +841,20 @@ public class KantinHelper {
 							: session.createCriteria(KodePembayaranOnline.class)
 									.add(Restrictions.idEq(kodePembayaranOnlineId)).uniqueResult());
 
+					// === MitraInap LANGKAH 4: transaksi outlet yang diminta ditagihkan ke kamar
+					// (payload hotel_menginap_id) divalidasi DI SINI, sebelum tulisan pertama --
+					// tamu harus in-house dan folio masih OPEN. Ditolak utuh (91, non-retryable
+					// di outbox klien) lebih aman daripada penjualan tersimpan tapi bebannya
+					// gagal masuk folio. Posting sendiri terjadi SETELAH commit final di bawah.
+					if (!jsonObject.isNull("hotel_menginap_id")) {
+						String tolakRoomCharge = HotelApiHelper.periksaRoomChargePenjualan(session, jsonObject);
+						if (tolakRoomCharge != null) {
+							hasil.put("status", "91");
+							hasil.put("description", tolakRoomCharge);
+							return;
+						}
+					}
+
 					// Keranjang kasir boleh berubah setelah draft tertahan dimuat (tambah/hapus produk,
 					// koreksi qty, maupun promo). Build lama membandingkan jumlah rincian lalu selalu
 					// menolak jika berbeda, sehingga draft parsial 1/5 tidak pernah dapat diselesaikan.
@@ -1049,6 +1063,24 @@ public class KantinHelper {
 								pembelianAnggotaKoperasi, currentWaktu);
 					} catch (Exception exAset) {
 						exAset.printStackTrace(); ais.common.ErrorAuditUtil.record(exAset, "auto-audit src/ais/action/servlet/api/KantinHelper.java:192");
+					}
+
+					// === MitraInap LANGKAH 4: room charge POS -> folio tamu. Fail-safe pola blok
+					// aset di atas (penjualan SUDAH final; kegagalan di sini tidak membatalkannya)
+					// tapi TIDAK diam: hasil.hotel_room_charge memuat statusnya utk klien/log, dan
+					// kegagalan tercatat ErrorAuditUtil (layar Log Error). Idempoten per bill lewat
+					// referensi POSSALE-<kodeUnik>; karena payload sudah divalidasi sebelum tulisan
+					// pertama, kegagalan di sini praktis hanya race folio ditutup di tengah proses.
+					if (!jsonObject.isNull("hotel_menginap_id")) {
+						try {
+							HotelApiHelper.rekamRoomChargePenjualan(session, jsonObject, kodeUnik,
+									total.doubleValue(), kasirTransaksi, hasil);
+						} catch (Exception exHotel) {
+							exHotel.printStackTrace();
+							hasil.put("hotel_room_charge", "GAGAL: " + exHotel.getMessage());
+							ais.common.ErrorAuditUtil.record(exHotel,
+									"auto-audit src/ais/action/servlet/api/KantinHelper.java:roomChargeFolio");
+						}
 					}
 
 					if (draftPembelianAnggotaKoperasi != null && draftPembelianAnggotaKoperasi.getId() != null) {

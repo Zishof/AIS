@@ -158,6 +158,14 @@ String idTokoAktif = toko != null ? String.valueOf(toko.getId()) : "";
                                 <small class="text-muted fst-italic"><%=Common.getBahasaConfig("*OFF: ikuti izin stok minus pada masing-masing produk. ON: seluruh produk toko ini boleh dijual saat stok nol/minus.")%></small>
                             </div>
 
+                            <div class="col-md-12 pt-2">
+                                <label class="form-label small fw-semibold text-secondary mb-1"><%=Common.getBahasaConfig("Unit Usaha (boleh pilih lebih dari satu)")%></label>
+                                <small class="text-muted fst-italic d-block mb-2"><%=Common.getBahasaConfig("*Dipakai generator Data Contoh untuk memilih katalog produk sesuai jenis usaha toko.")%></small>
+                                <div class="border rounded-3 p-2" style="max-height:220px;overflow-y:auto;" id="wadahUnitUsaha<%=rnd%>">
+                                    <div class="text-muted small"><span class="spinner-border spinner-border-sm me-1"></span><%=Common.getBahasaConfig("Memuat katalog unit usaha...")%></div>
+                                </div>
+                            </div>
+
                             <div class="col-12 mt-3">
                                 <label class="form-label small fw-semibold text-secondary"><%=Common.getBahasaConfig("Keterangan Tambahan")%></label>
                                 <textarea class="form-control text-muted shadow-sm" id="inputKeterangan<%=rnd%>" rows="3" placeholder="<%=Common.getBahasaConfig("Lokasi, PIC, dll...")%>"></textarea>
@@ -215,6 +223,45 @@ String idTokoAktif = toko != null ? String.valueOf(toko.getId()) : "";
             alert(msg);
         }
     };
+
+    // Katalog unit usaha -- dimuat sekali dari server (aksi unit_usaha_katalog,
+    // TokoApiHelper), dirender sebagai grid checkbox ber-grup di form.
+    let katalogUnitUsaha<%=rnd%> = [];
+    const muatKatalogUnitUsaha<%=rnd%> = async () => {
+        const wadah = document.getElementById('wadahUnitUsaha<%=rnd%>');
+        if (!wadah) return;
+        try {
+            const res = await fetch('<%=Common.ROOT%>/Data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'unit_usaha_katalog' })
+            });
+            const hasil = await res.json();
+            if (hasil.status !== '00') throw new Error(hasil.description || 'gagal');
+            katalogUnitUsaha<%=rnd%> = hasil.data || [];
+            let html = '';
+            let grupTerakhir = null;
+            katalogUnitUsaha<%=rnd%>.forEach((u) => {
+                if (u.grup !== grupTerakhir) {
+                    grupTerakhir = u.grup;
+                    html += '<div class="fw-bold small text-primary mt-2 mb-1">' + u.grup + '</div>';
+                }
+                html += '<div class="form-check form-check-inline">' +
+                    '<input class="form-check-input cek-unit-usaha-<%=rnd%>" type="checkbox" value="' + u.kode + '" id="uu<%=rnd%>' + u.kode + '">' +
+                    '<label class="form-check-label small" for="uu<%=rnd%>' + u.kode + '">' + u.label + '</label></div>';
+            });
+            wadah.innerHTML = html || '<span class="text-muted small"><%=Common.getBahasaConfigJS("Katalog kosong.")%></span>';
+        } catch (e) {
+            wadah.innerHTML = '<span class="text-danger small"><%=Common.getBahasaConfigJS("Gagal memuat katalog unit usaha.")%></span>';
+        }
+    };
+    const setUnitUsahaTerpilih<%=rnd%> = (daftarKode) => {
+        document.querySelectorAll('.cek-unit-usaha-<%=rnd%>').forEach((c) => {
+            c.checked = (daftarKode || []).includes(c.value);
+        });
+    };
+    const ambilUnitUsahaTerpilih<%=rnd%> = () =>
+        [...document.querySelectorAll('.cek-unit-usaha-<%=rnd%>:checked')].map((c) => c.value);
 
     // Label UI Switch Status Aktif
     const uiStatusAktif<%=rnd%> = document.getElementById('inputStatusAktif<%=rnd%>');
@@ -360,6 +407,7 @@ String idTokoAktif = toko != null ? String.valueOf(toko.getId()) : "";
         document.getElementById('inputStatusAktif<%=rnd%>').dispatchEvent(new Event('change'));
         document.getElementById('inputBolehMelihatTokoLain<%=rnd%>').checked = false;
         document.getElementById('inputBolehTransaksiStokHabis<%=rnd%>').checked = false;
+        setUnitUsahaTerpilih<%=rnd%>([]);
         
         document.getElementById('formTitle<%=rnd%>').innerHTML = '<i class="fas fa-store text-primary me-2"></i><%=Common.getBahasaConfig("Tambah Toko Baru")%>';
         
@@ -391,6 +439,7 @@ String idTokoAktif = toko != null ? String.valueOf(toko.getId()) : "";
             keterangan: document.getElementById('inputKeterangan<%=rnd%>').value.trim(),
             bolehMelihatTokolain: document.getElementById('inputBolehMelihatTokoLain<%=rnd%>').checked,
             bolehTransaksiStokHabis: document.getElementById('inputBolehTransaksiStokHabis<%=rnd%>').checked,
+            unitUsahaJson: JSON.stringify(ambilUnitUsahaTerpilih<%=rnd%>()),
             aktif: document.getElementById('inputStatusAktif<%=rnd%>').checked
         };
         
@@ -435,7 +484,7 @@ String idTokoAktif = toko != null ? String.valueOf(toko.getId()) : "";
     const editToko<%=rnd%> = async (id) => {
         if (!isAdmin<%=rnd%>) return;
         
-        const sql = 'SELECT id, kode, nama, keterangan, bolehmelihattokolain, boleh_transaksi_stok_habis, aktif FROM koperasi.toko WHERE id = ' + id;
+        const sql = 'SELECT id, kode, nama, keterangan, bolehmelihattokolain, boleh_transaksi_stok_habis, unit_usaha_json, aktif FROM koperasi.toko WHERE id = ' + id;
         const res = await fetchData<%=rnd%>(sql);
 
         if (res.length > 0) {
@@ -452,6 +501,10 @@ String idTokoAktif = toko != null ? String.valueOf(toko.getId()) : "";
 
             const isStokHabis = (data.boleh_transaksi_stok_habis === true || data.boleh_transaksi_stok_habis === 'true' || data.boleh_transaksi_stok_habis === 't');
             document.getElementById('inputBolehTransaksiStokHabis<%=rnd%>').checked = isStokHabis;
+
+            let unitTerpilih = [];
+            try { unitTerpilih = JSON.parse(data.unit_usaha_json || '[]'); } catch (e) { unitTerpilih = []; }
+            setUnitUsahaTerpilih<%=rnd%>(unitTerpilih);
 
             const isAktif = (data.aktif === null || data.aktif === true || data.aktif === 'true' || data.aktif === 't');
             const chkAktif = document.getElementById('inputStatusAktif<%=rnd%>');
@@ -522,5 +575,6 @@ String idTokoAktif = toko != null ? String.valueOf(toko.getId()) : "";
             }
         });
         loadDataToko<%=rnd%>();
+        muatKatalogUnitUsaha<%=rnd%>();
     });
 </script>

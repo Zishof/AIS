@@ -929,6 +929,143 @@ public final class HotelApiHelper {
 		}
 	}
 
+	/**
+	 * LANGKAH 4 (integrasi POS outlet): lookup ringan utk KASIR outlet -- gerbang
+	 * menu "kasir" di PosApi, BUKAN kunci hotel_* (least privilege: kasir cukup
+	 * bisa memilih tamu in-house utk menagih penjualan ke folio, tanpa diberi
+	 * menu front-desk). Data yang dibuka minimal: nama tamu, nomor kamar,
+	 * properti. {@code properti_id} opsional utk memfilter.
+	 */
+	public static void roomChargeLookup(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			Long propertiId = idDari(request, "properti_id");
+			JSONArray properti = new JSONArray();
+			List daftarProperti = session.createCriteria(PropertiHotel.class)
+					.add(Restrictions.eq("aktif", Boolean.TRUE)).addOrder(Order.asc("nama")).list();
+			for (int i = 0; i < daftarProperti.size(); i++) {
+				PropertiHotel p = (PropertiHotel) daftarProperti.get(i);
+				JSONObject o = new JSONObject();
+				o.put("id", p.getId());
+				o.put("nama", p.getNama());
+				properti.put(o);
+			}
+			org.hibernate.Criteria kriteria = session
+					.createCriteria(ais.database.model.hotel.MenginapTamu.class)
+					.add(Restrictions.eq("status", ais.database.model.hotel.MenginapTamu.STATUS_IN_HOUSE))
+					.addOrder(Order.desc("id")).setMaxResults(300);
+			if (propertiId != null) {
+				PropertiHotel p = (PropertiHotel) session.createCriteria(PropertiHotel.class)
+						.add(Restrictions.idEq(propertiId)).uniqueResult();
+				if (p == null) {
+					tolak(hasil, "Properti tidak ditemukan.");
+					return;
+				}
+				kriteria.add(Restrictions.eq("properti", p));
+			}
+			JSONArray stay = new JSONArray();
+			List daftarStay = kriteria.list();
+			for (int i = 0; i < daftarStay.size(); i++) {
+				ais.database.model.hotel.MenginapTamu m = (ais.database.model.hotel.MenginapTamu) daftarStay.get(i);
+				JSONObject o = new JSONObject();
+				o.put("id", m.getId());
+				o.put("tamu_nama", m.getTamu() == null ? null : m.getTamu().getNama());
+				o.put("kamar_nomor", m.getKamar() == null ? null : m.getKamar().getNomor());
+				o.put("properti_id", m.getProperti() == null ? null : m.getProperti().getId());
+				o.put("properti_nama", m.getProperti() == null ? null : m.getProperti().getNama());
+				stay.put(o);
+			}
+			hasil.put("status", "00");
+			hasil.put("properti", properti);
+			hasil.put("stay", stay);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * LANGKAH 4: validasi payload "bayar" yang meminta room charge (field
+	 * {@code hotel_menginap_id}) -- dipanggil KantinHelper.bayar SEBELUM tulisan
+	 * pertama transaksi. Mengembalikan null bila boleh lanjut (termasuk bila
+	 * payload tidak meminta room charge); selain itu pesan penolakan status 91.
+	 * Menolak utuh lebih awal jauh lebih aman daripada penjualan tersimpan tapi
+	 * bebannya gagal masuk folio.
+	 */
+	public static String periksaRoomChargePenjualan(Session session, JSONObject payload) {
+		Long menginapId = idDari(payload, "hotel_menginap_id");
+		if (menginapId == null) return null;
+		ais.database.model.hotel.MenginapTamu stay = (ais.database.model.hotel.MenginapTamu) session
+				.createCriteria(ais.database.model.hotel.MenginapTamu.class)
+				.add(Restrictions.idEq(menginapId)).uniqueResult();
+		if (stay == null) {
+			return "Tagihan kamar ditolak: data menginap tidak ditemukan (hotel_menginap_id=" + menginapId + ").";
+		}
+		if (!ais.database.model.hotel.MenginapTamu.STATUS_IN_HOUSE.equals(stay.getStatus())) {
+			return "Tagihan kamar ditolak: tamu sudah check-out. Pilih tamu in-house atau pakai pembayaran biasa.";
+		}
+		Long propertiId = idDari(payload, "hotel_properti_id");
+		if (propertiId != null && stay.getProperti() != null
+				&& !propertiId.equals(stay.getProperti().getId())) {
+			return "Tagihan kamar ditolak: tamu bukan milik properti yang dipilih.";
+		}
+		ais.database.model.hotel.Folio folio = folioDariStay(session, stay);
+		if (folio == null || !ais.database.model.hotel.Folio.STATUS_OPEN.equals(folio.getStatus())) {
+			return "Tagihan kamar ditolak: folio tamu sudah ditutup.";
+		}
+		return null;
+	}
+
+	/**
+	 * LANGKAH 4: posting POS_CHARGE ke folio SETELAH penjualan final tersimpan --
+	 * dipanggil KantinHelper.bayar pada titik side-effect yang sama dengan
+	 * KantinAssetSyncUtil (penjualan sudah commit; kegagalan di sini tidak
+	 * membatalkannya, pemanggil yang memutuskan pelaporannya). Idempoten per bill
+	 * lewat {@code referensi} "POSSALE-"+kodeUnik -- retry pengiriman transaksi
+	 * outbox tidak menggandakan beban. Transaksi DB dikelola sendiri pada session
+	 * pemanggil (pola blok draft-update bayar).
+	 */
+	public static void rekamRoomChargePenjualan(Session session, JSONObject payload, String kodeUnik,
+			double total, Tbmuser kasir, JSONObject hasil) throws Exception {
+		Long menginapId = idDari(payload, "hotel_menginap_id");
+		if (menginapId == null) return;
+		ais.database.model.hotel.MenginapTamu stay = (ais.database.model.hotel.MenginapTamu) session
+				.createCriteria(ais.database.model.hotel.MenginapTamu.class)
+				.add(Restrictions.idEq(menginapId)).uniqueResult();
+		if (stay == null) {
+			throw new IllegalStateException("Room charge gagal: menginap " + menginapId + " tidak ditemukan.");
+		}
+		ais.database.model.hotel.Folio folio = folioDariStay(session, stay);
+		if (folio == null || !ais.database.model.hotel.Folio.STATUS_OPEN.equals(folio.getStatus())) {
+			throw new IllegalStateException(
+					"Room charge gagal: folio tamu sudah ditutup (menginap " + menginapId + ").");
+		}
+		String referensi = "POSSALE-" + kodeUnik;
+		ais.database.model.hotel.FolioTransaksi ada = (ais.database.model.hotel.FolioTransaksi) session
+				.createCriteria(ais.database.model.hotel.FolioTransaksi.class)
+				.add(Restrictions.eq("folio", folio))
+				.add(Restrictions.eq("referensi", referensi))
+				.setMaxResults(1).uniqueResult();
+		if (ada != null) {
+			hasil.put("hotel_room_charge", "IDEMPOTENT");
+			hasil.put("hotel_folio_id", folio.getId());
+			return;
+		}
+		boolean kelola = !session.getTransaction().isActive();
+		if (kelola) session.getTransaction().begin();
+		try {
+			tambahTransaksiFolio(session, folio,
+					ais.database.model.hotel.FolioTransaksi.JENIS_POS_CHARGE,
+					"Penjualan POS " + kodeUnik, total, referensi,
+					ais.ui.util.WaktuUtil.getDate(), kasir);
+			if (kelola) session.getTransaction().commit();
+		} catch (RuntimeException e) {
+			if (kelola && session.getTransaction().isActive()) session.getTransaction().rollback();
+			throw e;
+		}
+		hasil.put("hotel_room_charge", "TERCATAT");
+		hasil.put("hotel_folio_id", folio.getId());
+	}
+
 	private static ais.database.model.hotel.Folio folioDariStay(Session session,
 			ais.database.model.hotel.MenginapTamu stay) {
 		return (ais.database.model.hotel.Folio) session
@@ -994,6 +1131,7 @@ public final class HotelApiHelper {
 		if ("hotel_pindah_kamar".equals(action)) { pindahKamar(tbmuser, request, hasil); return true; }
 		if ("hotel_folio_get".equals(action)) { folioGet(tbmuser, request, hasil); return true; }
 		if ("hotel_folio_transaksi_tambah".equals(action)) { folioTransaksiTambah(tbmuser, request, hasil); return true; }
+		if ("hotel_room_charge_lookup".equals(action)) { roomChargeLookup(tbmuser, request, hasil); return true; }
 		return false;
 	}
 }
