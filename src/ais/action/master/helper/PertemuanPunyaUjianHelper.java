@@ -2686,7 +2686,7 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 						SertifikatAction.cetakSertifikat(hasilUjianMahasiswa);
 					}
 				});
-				button.setParent(hb);
+				aksiButtons.add(button);
 
 				if (pertemuanPunyaUjian != null) {
 					button = new MyToolbarbuttonConfig("Hasil", "/img/album.png");
@@ -2709,7 +2709,7 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 							window.onModal();
 						}
 					});
-					button.setParent(hb);
+					aksiButtons.add(button);
 				}
 
 				button = new MyToolbarbuttonConfig("Preview", "/img/eye-icon.png");
@@ -2726,10 +2726,7 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 								tbmuser.getCalonSiswa(), pertemuanPunyaUjian, hasilUjianMahasiswa, true, eventListener);
 					}
 				});
-				button.setParent(hb);
-
-				hb = new Hbox();
-				hb.setParent(vb);
+				aksiButtons.add(button);
 
 				button = new MyToolbarbuttonConfig("Ubah", "/img/svg/edit-box-line.svg");
 				button.setOrient("vertical");
@@ -2750,7 +2747,7 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 						}, ujian, pertemuan.untuk());
 					}
 				});
-				button.setParent(hb);
+				aksiButtons.add(button);
 
 				button = new MyToolbarbuttonConfig("Hapus", "/img/svg/trash.svg");
 				button.setOrient("vertical");
@@ -2802,8 +2799,9 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 					}
 
 				});
-				button.setParent(hb);
+				aksiButtons.add(button);
 
+				ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 			}
 
 			if (hasilUjianMahasiswa != null
