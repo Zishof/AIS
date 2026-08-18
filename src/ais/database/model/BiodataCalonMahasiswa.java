@@ -1689,24 +1689,24 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 				return;
 			}
 
-			List<Paket> paketDiizinkan = GelombangPendaftaran.ambilCachePaketDiizinkan(gelombangId);
+			List<Long> idPaketDiizinkan = GelombangPendaftaran.ambilIdPaketDiizinkan(gelombangId);
 
-			if (paketDiizinkan.isEmpty()) {
+			if (idPaketDiizinkan.isEmpty()) {
 				return;
 			}
-			if (paketDiizinkan.size() == 1) {
-				paket = paketDiizinkan.get(0);
-				return;
-			}
-			boolean cocok = false;
-			if (paket != null && paket.getId() != null) {
-				for (Paket p : paketDiizinkan) {
-					if (p.getId() != null && p.getId().equals(paket.getId())) {
-						cocok = true;
-						break;
-					}
+			if (idPaketDiizinkan.size() == 1) {
+				// TEPAT SATU paket: langsung resolve objek kanonik via ConstantValues.ambil dan
+				// kembalikan -- tanpa perlu membangun List<Paket>. Bila resolve gagal (null),
+				// paket lama dibiarkan apa adanya (jangan dikosongkan hanya karena cache belum siap).
+				Paket tunggal = (Paket) ais.common.ConstantValues.ambil(Paket.class.getName(),
+						idPaketDiizinkan.get(0));
+				if (tunggal != null) {
+					paket = tunggal;
 				}
+				return;
 			}
+			boolean cocok = paket != null && paket.getId() != null
+					&& idPaketDiizinkan.contains(paket.getId());
 			if (!cocok) {
 				paket = null;
 			}

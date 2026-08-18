@@ -80,38 +80,44 @@ public class GelombangPendaftaran extends GeneralValueObject {
 	 * layar tsb sejak server terakhir start -- diperlakukan sama: tidak ada batasan yang bisa
 	 * ditegakkan).
 	 */
-	private static final java.util.concurrent.ConcurrentHashMap<Long, List<Paket>> cachePaketDiizinkanPerGelombang = new java.util.concurrent.ConcurrentHashMap<Long, List<Paket>>();
+	private static final java.util.concurrent.ConcurrentHashMap<Long, List<Long>> cachePaketDiizinkanPerGelombang = new java.util.concurrent.ConcurrentHashMap<Long, List<Long>>();
 
 	/** Perbarui cache paket yang diizinkan utk satu gelombang. Panggil dari GelombangPendaftaranAction. */
 	public static void perbaruiCachePaketDiizinkan(Long gelombangId, java.util.Collection<Paket> pakets) {
 		if (gelombangId == null) {
 			return;
 		}
-		cachePaketDiizinkanPerGelombang.put(gelombangId,
-				pakets == null ? Collections.<Paket>emptyList() : new ArrayList<Paket>(pakets));
+		List<Long> ids = new ArrayList<Long>();
+		if (pakets != null) {
+			for (Paket p : pakets) {
+				if (p != null && p.getId() != null) {
+					ids.add(p.getId());
+				}
+			}
+		}
+		cachePaketDiizinkanPerGelombang.put(gelombangId, ids);
 	}
 
 	/**
-	 * Baca cache paket yang diizinkan utk satu gelombang. Bila gelombang ini BELUM pernah dimuat
-	 * sejak server start (cache miss), daftar paket dimuat SEKALI dari DB memakai session dedikasi
-	 * (openSession -- aman dipanggil dari konteks tanpa session ZK aktif) lalu disimpan ke cache
-	 * (termasuk hasil kosong = gelombang memang tidak membatasi paket), sehingga penegakan
-	 * konsistensi paket vs gelombang di {@link BiodataCalonMahasiswa#getPaket()} langsung bekerja
-	 * tanpa menunggu admin membuka layar Gelombang Pendaftaran terlebih dahulu.
+	 * Daftar ID paket yang diizinkan utk satu gelombang (cache menyimpan ID saja -- ringan;
+	 * objek Paket di-resolve pembaca via {@code ConstantValues.ambil} hanya bila diperlukan).
+	 * Bila gelombang ini BELUM pernah dimuat sejak server start (cache miss), daftar id dimuat
+	 * SEKALI dari DB memakai session dedikasi (openSession -- aman dipanggil dari konteks tanpa
+	 * session ZK aktif) lalu disimpan ke cache (termasuk hasil kosong = gelombang memang tidak
+	 * membatasi paket), sehingga penegakan konsistensi paket vs gelombang di
+	 * {@link BiodataCalonMahasiswa#getPaket()} langsung bekerja tanpa menunggu admin membuka
+	 * layar Gelombang Pendaftaran terlebih dahulu.
 	 */
-	public static List<Paket> ambilCachePaketDiizinkan(Long gelombangId) {
+	public static List<Long> ambilIdPaketDiizinkan(Long gelombangId) {
 		if (gelombangId == null) {
 			return Collections.emptyList();
 		}
-		List<Paket> cached = cachePaketDiizinkanPerGelombang.get(gelombangId);
+		List<Long> cached = cachePaketDiizinkanPerGelombang.get(gelombangId);
 		if (cached != null) {
 			return cached;
 		}
 
-		// Muat HANYA id paket (ringan), lalu resolve objeknya via ConstantValues.ambil --
-		// mengembalikan instance KANONIK dari cache identitas aplikasi (bukan entitas detached
-		// hasil openSession), aman disimpan di cache JVM & di-assign ke field entity lain.
-		List<Paket> hasil = new ArrayList<Paket>();
+		List<Long> hasil = new ArrayList<Long>();
 		org.hibernate.Session sessionD = null;
 		try {
 			sessionD = ais.database.hibernate.HibernateUtil.getSessionFactory().openSession();
@@ -119,21 +125,12 @@ public class GelombangPendaftaran extends GeneralValueObject {
 					"select p.paket.id from PaketPunyaGelombangPendaftaran p where p.gelombangPendaftaran.id = :gid")
 					.setParameter("gid", gelombangId).list();
 			for (Object o : ids) {
-				if (!(o instanceof Number)) {
-					continue;
-				}
-				Long idPaket = Long.valueOf(((Number) o).longValue());
-				Paket paket = (Paket) ais.common.ConstantValues.ambil(Paket.class.getName(), idPaket);
-				if (paket == null) {
-					// Belum ada di cache identitas -> muat langsung dari session dedikasi ini.
-					paket = (Paket) sessionD.get(Paket.class, idPaket);
-				}
-				if (paket != null) {
-					hasil.add(paket);
+				if (o instanceof Number) {
+					hasil.add(Long.valueOf(((Number) o).longValue()));
 				}
 			}
 		} catch (Exception e) {
-			ais.common.ErrorAuditUtil.record(e, "GelombangPendaftaran.ambilCachePaketDiizinkan lazy-load");
+			ais.common.ErrorAuditUtil.record(e, "GelombangPendaftaran.ambilIdPaketDiizinkan lazy-load");
 			// Gagal memuat -> JANGAN disimpan ke cache supaya dicoba lagi di panggilan berikutnya;
 			// sementara diperlakukan sebagai tanpa batasan (perilaku lama).
 			return Collections.emptyList();
@@ -142,7 +139,7 @@ public class GelombangPendaftaran extends GeneralValueObject {
 				try {
 					sessionD.close();
 				} catch (Exception e2) {
-					ais.common.ErrorAuditUtil.record(e2, "GelombangPendaftaran.ambilCachePaketDiizinkan close");
+					ais.common.ErrorAuditUtil.record(e2, "GelombangPendaftaran.ambilIdPaketDiizinkan close");
 				}
 			}
 		}
