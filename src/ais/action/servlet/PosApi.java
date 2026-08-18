@@ -4383,7 +4383,8 @@ public class PosApi extends HttpServlet {
 			java.sql.PreparedStatement psBahan = conn.prepareStatement(
 					"SELECT COALESCE(pr.nama,'-'), COALESCE(SUM(pb.qty),0), COALESCE(SUM(pb.qty * COALESCE(pr.hargabeli,0)),0) "
 							+ "FROM koperasi.pemakaian_bahan_baku pb LEFT JOIN koperasi.produk pr ON pr.id = pb.produk "
-							+ "WHERE pb.toko = ? AND pb.waktu >= CURRENT_DATE - INTERVAL '30 days' GROUP BY pr.nama ORDER BY 2 DESC");
+							+ "WHERE pb.toko = ? AND pb.waktu >= " + acuanSql + " - INTERVAL '30 days'"
+							+ " AND DATE(pb.waktu) <= " + acuanSql + " GROUP BY pr.nama ORDER BY 2 DESC");
 			psBahan.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsBahan = psBahan.executeQuery();
 			JSONArray rekapBahan = new JSONArray();
@@ -4412,11 +4413,12 @@ public class PosApi extends HttpServlet {
 			resepHpp.put("rekapBahan", rekapBahan);
 
 			JSONObject performaToko = new JSONObject();
-			performaToko.put("harian", performaPeriode(conn, tokoId, "DATE(a.waktu)=CURRENT_DATE"));
-			performaToko.put("mingguan", performaPeriode(conn, tokoId, "DATE(a.waktu) BETWEEN CURRENT_DATE - INTERVAL '7 days' AND CURRENT_DATE"));
-			performaToko.put("bulanan", performaPeriode(conn, tokoId, "DATE(a.waktu) BETWEEN CURRENT_DATE - INTERVAL '1 month' AND CURRENT_DATE"));
+			performaToko.put("harian", performaPeriode(conn, tokoId, "DATE(a.waktu)=" + acuanSql));
+			performaToko.put("mingguan", performaPeriode(conn, tokoId, "DATE(a.waktu) BETWEEN " + acuanSql + " - INTERVAL '7 days' AND " + acuanSql));
+			performaToko.put("bulanan", performaPeriode(conn, tokoId, "DATE(a.waktu) BETWEEN " + acuanSql + " - INTERVAL '1 month' AND " + acuanSql));
 
 			hasil.put("status", "success");
+			hasil.put("tanggalAcuan", tanggalAcuan);
 			hasil.put("laba", laba);
 			hasil.put("resepHpp", resepHpp);
 			hasil.put("performaToko", performaToko);
@@ -4435,8 +4437,10 @@ public class PosApi extends HttpServlet {
 	private void prosesDashboardProduk(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
 		if (tokoId == null) { hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return; }
+		String tanggalAcuan = tanggalAcuanDariPayload(payload);
+		String acuanSql = "DATE '" + tanggalAcuan + "'";
 		String periode = payload.optString("periode", "bulanan");
-		String intervalRekap = petaIntervalPeriode(periode);
+		String intervalRekap = petaIntervalPeriode(periode, acuanSql);
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -4461,7 +4465,8 @@ public class PosApi extends HttpServlet {
 			java.sql.PreparedStatement psBahan = conn.prepareStatement(
 					"SELECT COALESCE(pr.nama,'-'), COALESCE(pr.stok,0), COALESCE(SUM(pb.qty),0) "
 							+ "FROM koperasi.pemakaian_bahan_baku pb LEFT JOIN koperasi.produk pr ON pr.id = pb.produk "
-							+ "WHERE pb.toko = ? AND pb.waktu >= CURRENT_DATE - INTERVAL '30 days' GROUP BY pr.id, pr.nama, pr.stok ORDER BY 3 DESC");
+							+ "WHERE pb.toko = ? AND pb.waktu >= " + acuanSql + " - INTERVAL '30 days'"
+							+ " AND DATE(pb.waktu) <= " + acuanSql + " GROUP BY pr.id, pr.nama, pr.stok ORDER BY 3 DESC");
 			psBahan.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsBahan = psBahan.executeQuery();
 			JSONArray bahanList = new JSONArray();
@@ -4549,7 +4554,8 @@ public class PosApi extends HttpServlet {
 
 			java.sql.PreparedStatement psTerlaris = conn.prepareStatement(
 					"SELECT c.nama, SUM(a.qty) FROM koperasi.pembelian a INNER JOIN koperasi.produk c ON a.produk = c.id "
-							+ "WHERE DATE(a.waktu) >= CURRENT_DATE - INTERVAL '1 month' AND a.toko = ? GROUP BY c.id, c.nama ORDER BY 2 DESC LIMIT 10");
+							+ "WHERE DATE(a.waktu) >= " + acuanSql + " - INTERVAL '1 month' AND DATE(a.waktu) <= " + acuanSql
+							+ " AND a.toko = ? GROUP BY c.id, c.nama ORDER BY 2 DESC LIMIT 10");
 			psTerlaris.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsTerlaris = psTerlaris.executeQuery();
 			JSONArray produkTerlaris = new JSONArray();
@@ -4564,7 +4570,8 @@ public class PosApi extends HttpServlet {
 
 			java.sql.PreparedStatement psMetode = conn.prepareStatement(
 					"SELECT COALESCE(a.carabayar,'-'), SUM(a.total) FROM koperasi.pembelian a "
-							+ "WHERE DATE(a.waktu) >= CURRENT_DATE - INTERVAL '1 month' AND a.toko = ? GROUP BY a.carabayar ORDER BY 2 DESC");
+							+ "WHERE DATE(a.waktu) >= " + acuanSql + " - INTERVAL '1 month' AND DATE(a.waktu) <= " + acuanSql
+							+ " AND a.toko = ? GROUP BY a.carabayar ORDER BY 2 DESC");
 			psMetode.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsMetode = psMetode.executeQuery();
 			JSONArray metodeBayar = new JSONArray();
@@ -4599,8 +4606,9 @@ public class PosApi extends HttpServlet {
 			java.sql.PreparedStatement psJamSibukProduk = conn.prepareStatement(
 					"SELECT c.id, c.nama, EXTRACT(HOUR FROM a.waktu) AS jam, SUM(a.qty) "
 							+ "FROM koperasi.pembelian a INNER JOIN koperasi.produk c ON a.produk = c.id "
-							+ "WHERE a.toko = ? AND DATE(a.waktu) >= CURRENT_DATE - INTERVAL '30 days' "
-							+ "AND c.id IN (SELECT produk FROM koperasi.pembelian WHERE toko = ? AND DATE(waktu) >= CURRENT_DATE - INTERVAL '30 days' "
+							+ "WHERE a.toko = ? AND DATE(a.waktu) >= " + acuanSql + " - INTERVAL '30 days' AND DATE(a.waktu) <= " + acuanSql + " "
+							+ "AND c.id IN (SELECT produk FROM koperasi.pembelian WHERE toko = ? AND DATE(waktu) >= " + acuanSql
+							+ " - INTERVAL '30 days' AND DATE(waktu) <= " + acuanSql + " "
 							+ "GROUP BY produk ORDER BY SUM(qty) DESC LIMIT 5) "
 							+ "GROUP BY c.id, c.nama, jam ORDER BY c.nama, jam");
 			psJamSibukProduk.setLong(1, tokoId.longValue());
@@ -4658,7 +4666,7 @@ public class PosApi extends HttpServlet {
 			// JavaDoc entity SurveyKepuasanPos), rata-rata + jumlah responden 30 hari terakhir.
 			java.sql.PreparedStatement psKepuasan = conn.prepareStatement(
 					"SELECT COALESCE(AVG(rating),0), COUNT(*) FROM koperasi.survey_kepuasan_pos "
-							+ "WHERE toko = ? AND waktu >= CURRENT_DATE - INTERVAL '30 days'");
+							+ "WHERE toko = ? AND waktu >= " + acuanSql + " - INTERVAL '30 days' AND DATE(waktu) <= " + acuanSql);
 			psKepuasan.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsKepuasan = psKepuasan.executeQuery();
 			JSONObject kepuasanPelanggan = new JSONObject();
@@ -4674,7 +4682,8 @@ public class PosApi extends HttpServlet {
 
 			java.sql.PreparedStatement psKurang = conn.prepareStatement(
 					"SELECT c.nama, COALESCE(SUM(a.qty),0) FROM koperasi.produk c "
-							+ "LEFT JOIN koperasi.pembelian a ON (a.produk = c.id AND DATE(a.waktu) >= CURRENT_DATE - INTERVAL '30 days') "
+							+ "LEFT JOIN koperasi.pembelian a ON (a.produk = c.id AND DATE(a.waktu) >= " + acuanSql
+							+ " - INTERVAL '30 days' AND DATE(a.waktu) <= " + acuanSql + ") "
 							+ "WHERE (c.aktif = true OR c.aktif IS NULL) AND c.toko = ? GROUP BY c.id, c.nama HAVING COALESCE(SUM(a.qty),0) <= 5 ORDER BY 2 ASC, c.nama ASC LIMIT 20");
 			psKurang.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsKurang = psKurang.executeQuery();
@@ -4689,6 +4698,7 @@ public class PosApi extends HttpServlet {
 			psKurang.close();
 
 			hasil.put("status", "success");
+			hasil.put("tanggalAcuan", tanggalAcuan);
 			hasil.put("stok", stokArr);
 			hasil.put("bahanBaku", bahanBaku);
 			hasil.put("rekonsiliasiAset", rekonsiliasiAset);
@@ -4710,8 +4720,10 @@ public class PosApi extends HttpServlet {
 	private void prosesDashboardPelanggan(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
 		if (tokoId == null) { hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return; }
+		String tanggalAcuan = tanggalAcuanDariPayload(payload);
+		String acuanSql = "DATE '" + tanggalAcuan + "'";
 		String periode = payload.optString("periode", "bulanan");
-		String intervalRekap = petaIntervalPeriode(periode);
+		String intervalRekap = petaIntervalPeriode(periode, acuanSql);
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -4719,7 +4731,8 @@ public class PosApi extends HttpServlet {
 
 			java.sql.PreparedStatement psJam = conn.prepareStatement(
 					"SELECT EXTRACT(HOUR FROM a.waktu), COUNT(a.id) FROM koperasi.pembelian a "
-							+ "WHERE DATE(a.waktu) >= CURRENT_DATE - INTERVAL '1 month' AND a.toko = ? GROUP BY 1 ORDER BY 1");
+							+ "WHERE DATE(a.waktu) >= " + acuanSql + " - INTERVAL '1 month' AND DATE(a.waktu) <= " + acuanSql
+							+ " AND a.toko = ? GROUP BY 1 ORDER BY 1");
 			psJam.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsJam = psJam.executeQuery();
 			JSONArray jamSibuk = new JSONArray();
@@ -4735,7 +4748,8 @@ public class PosApi extends HttpServlet {
 			java.sql.PreparedStatement psLoyal = conn.prepareStatement(
 					"SELECT b.nama, COUNT(a.id), SUM(a.total) FROM koperasi.pembelian a "
 							+ "INNER JOIN koperasi.anggota_koperasi b ON a.anggota_koperasi = b.id "
-							+ "WHERE DATE(a.waktu) >= CURRENT_DATE - INTERVAL '1 month' AND a.anggota_koperasi IS NOT NULL AND a.toko = ? "
+							+ "WHERE DATE(a.waktu) >= " + acuanSql + " - INTERVAL '1 month' AND DATE(a.waktu) <= " + acuanSql
+							+ " AND a.anggota_koperasi IS NOT NULL AND a.toko = ? "
 							+ "GROUP BY b.id, b.nama ORDER BY 3 DESC LIMIT 10");
 			psLoyal.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsLoyal = psLoyal.executeQuery();
@@ -4768,6 +4782,7 @@ public class PosApi extends HttpServlet {
 			psRekapLoyal.close();
 
 			hasil.put("status", "success");
+			hasil.put("tanggalAcuan", tanggalAcuan);
 			hasil.put("jamSibuk", jamSibuk);
 			hasil.put("pembeliTerloyal", pembeliTerloyal);
 			hasil.put("rekapPelangganTerloyal", rekapPelangganTerloyal);
