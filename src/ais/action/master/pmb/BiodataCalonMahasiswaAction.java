@@ -5686,6 +5686,25 @@ public class BiodataCalonMahasiswaAction extends MyWindow {
 										// TODO: handle exception
 									}
 
+									// PROSES TAGIHAN otomatis setelah simpan: buat/segarkan Kegiatan
+									// pembayaran Registrasi & Daftar Ulang calon (pola sama dengan tombol
+									// "Proses Tagihan") agar kolom "Pemb. Registrasi" dan "Pemb. Daftar
+									// Ulang" langsung terisi di tabel tanpa menunggu proses manual.
+									// chekPembayaran* membuka session sendiri dan aman dipanggil berulang
+									// (idempoten: kegiatan yang sudah ada tidak dibuat ganda).
+									try {
+										biodataCalonMahasiswa.chekPembayaranRegistrasi();
+									} catch (Exception eTagihan) {
+										ais.common.ErrorAuditUtil.record(eTagihan,
+												"onSave: proses tagihan registrasi calon");
+									}
+									try {
+										biodataCalonMahasiswa.chekPembayaranDaftarUlang();
+									} catch (Exception eTagihan) {
+										ais.common.ErrorAuditUtil.record(eTagihan,
+												"onSave: proses tagihan daftar ulang calon");
+									}
+
 									if (Common.bolehKonfigurasi("integrasi_pmb_arkatama", Konfigurasi.TIDAK_AKTIF) && !update) {
 										PmbArkatama.doPost(biodataCalonMahasiswa, new ArrayList<String>());
 
