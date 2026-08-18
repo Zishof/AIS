@@ -1890,6 +1890,12 @@ public class Report extends GenericAutowireComposer {
 					+ "foto, atau tanda tangan) rusak/kosong atau bukan format gambar yang dikenali. "
 					+ "Mohon hubungi administrator untuk memeriksa berkas gambar tersebut.";
 		}
+		// Pesan throttle antrean cetak (ReportThrottle) sudah ramah pengguna — teruskan apa adanya
+		// agar pengguna tahu cukup mencoba ulang, bukan menganggap laporannya rusak.
+		String pesanAsli = e == null ? null : e.getMessage();
+		if (pesanAsli != null && (pesanAsli.contains("antrean cetak") || pesanAsli.contains("banyak laporan secara bersamaan"))) {
+			return pesanAsli;
+		}
 		return "Laporan belum dapat dibuat. Detail error sudah disiapkan untuk admin.";
 	}
 
@@ -1987,6 +1993,17 @@ public class Report extends GenericAutowireComposer {
 
 			File lastFileJasper = null;
 			JasperPrint jasperPrint = null;
+
+			// OPTIMASI RAM FASE 6: (1) batas jumlah laporan paralel per JVM via semaphore —
+			// sebelumnya tak terbatas sehingga N request cetak bersamaan = N JasperPrint penuh
+			// di heap; (2) virtualizer swap-file agar halaman laporan besar tidak seluruhnya
+			// ditahan di heap. Keduanya WAJIB dilepas di finally di bawah (virtualizer baru
+			// boleh cleanup SETELAH export karena halaman dibaca ulang dari swap saat export).
+			boolean izinReportDiperoleh = ReportThrottle.ambilIzin();
+			net.sf.jasperreports.engine.fill.JRSwapFileVirtualizer virtualizerReport = ReportThrottle
+					.pasangVirtualizer(parameters);
+			try {
+
 			try {
 				updateProgress(progress, 50, "Membaca template Jasper", "Membuka file desain laporan");
 				File fileJasper = CommonReport.generateFileJasper(fileD, namaAsli);
@@ -2019,6 +2036,11 @@ public class Report extends GenericAutowireComposer {
 			}
 			updateProgress(progress, 96, "Menyimpan riwayat laporan", "Mencatat riwayat file laporan yang dibuat");
 			saveReportHistory(bar, formatLaporan, myFile.getName());
+
+			} finally {
+				ReportThrottle.bersihkanVirtualizer(virtualizerReport, parameters);
+				ReportThrottle.lepasIzin(izinReportDiperoleh);
+			}
 
 		} catch (Exception e) {
 				if (isReportErrorLogConsoleEnabled()) e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/report/Report.java:1463");
@@ -2591,6 +2613,9 @@ public class Report extends GenericAutowireComposer {
 		File finalJpg = new File(myFile.getAbsolutePath().replace(".pdf", ".jpg"));
 		FileOutputStream out = null;
 		Connection conn = null;
+		// OPTIMASI RAM FASE 6: jalur render-gambar juga dihitung sebagai satu job laporan
+		// (fill kedua + hingga 100 BufferedImage halaman penuh di heap).
+		boolean izinReportDiperoleh = ReportThrottle.ambilIzin();
 		Session session = openNativeSession();
 		try {
 			File fileJasper = CommonReport.generateFileJasper(fileD, fileD);
@@ -2660,6 +2685,7 @@ public class Report extends GenericAutowireComposer {
 
 			closeNativeSession(session);
 			parameters.remove("REPORT_CONNECTION");
+			ReportThrottle.lepasIzin(izinReportDiperoleh);
 		}
 		return finalJpg;
 	}
