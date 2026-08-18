@@ -72,6 +72,8 @@ public final class RevisiApiHelper {
 		ENTITAS.put("hotel_properti", ais.database.model.hotel.PropertiHotel.class);
 		ENTITAS.put("hotel_kontrak", ais.database.model.hotel.KontrakPemilik.class);
 		ENTITAS.put("hotel_tamu", ais.database.model.hotel.Tamu.class);
+		ENTITAS.put("hotel_tipe_kamar", ais.database.model.hotel.TipeKamar.class);
+		ENTITAS.put("hotel_kamar", ais.database.model.hotel.Kamar.class);
 	}
 
 	private static void tolak(JSONObject hasil, String pesan) throws Exception {
