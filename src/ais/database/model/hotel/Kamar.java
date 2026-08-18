@@ -23,8 +23,13 @@ import ais.database.model.GeneralValueObject;
  * Kamar fisik per {@link PropertiHotel}. {@link #getStatusHunian()} adalah PROYEKSI operasional
  * (VACANT/OCCUPIED/DIRTY/OUT_OF_ORDER) -- sumber kebenaran hunian sesungguhnya adalah
  * MenginapTamu/reservasi (fase berikutnya); kolom ini dipelihara servis, bukan diedit bebas klien.
+ * <p>
+ * Nama entity WAJIB "HotelKamar" (bukan default "Kamar") -- auto-import Hibernate menolak dua
+ * entity bernama sama dan {@code ais.database.model.sirs.Kamar} sudah memakai "Kamar"; tanpa ini
+ * SessionFactory gagal build di deployment yang memuat sirs (ecampus). HQL lama "from Kamar"
+ * tetap menunjuk sirs; akses entity ini via Criteria/class ({@code HotelApiHelper} sudah begitu).
  */
-@Entity
+@Entity(name = "HotelKamar")
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Audited
 @Table(name = "hotel_kamar")
