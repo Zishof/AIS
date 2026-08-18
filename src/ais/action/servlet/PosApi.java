@@ -1216,6 +1216,8 @@ public class PosApi extends HttpServlet {
 		aksesMenu.put("barang", menuTersimpan.optBoolean("produk", true));
 		// Fail-closed (default false) -- lihat gate grup_produk_ di bolehAksesActionKantin.
 		aksesMenu.put("grup_produk", menuTersimpan.optBoolean("grup_produk", false));
+		aksesMenu.put("hotel_properti", menuTersimpan.optBoolean("hotel_properti", false));
+		aksesMenu.put("hotel_kamar", menuTersimpan.optBoolean("hotel_kamar", false));
 		aksesMenu.put("stokopname", menuTersimpan.optBoolean("stokopname", true));
 		aksesMenu.put("stok", menuTersimpan.optBoolean("stokopname", true));
 		aksesMenu.put("kulakan", menuTersimpan.optBoolean("kulakan", true));
@@ -1643,6 +1645,10 @@ public class PosApi extends HttpServlet {
 				|| "ramalan_penjualan".equals(action) || "monitor_promo_cashback".equals(action)
 				|| "kepatuhan_operasional".equals(action)) {
 			return menu.optBoolean("ringkasan", true);
+		}
+		if (action.startsWith("hotel_")) {
+			// MitraInap fail-closed: kunci per-area (properti vs kamar), default false.
+			return menu.optBoolean("hotel_properti", false) || menu.optBoolean("hotel_kamar", false);
 		}
 		if (action.startsWith("grup_produk_")) {
 			// FAIL-CLOSED (default false, selaras KUNCI_DEFAULT_NONAKTIF): menyimpan grup

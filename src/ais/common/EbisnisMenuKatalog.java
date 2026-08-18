@@ -75,6 +75,8 @@ public final class EbisnisMenuKatalog {
 	/** Varian "POS eMedik" -- kasir layanan fasilitas kesehatan (pendaftaran/tagihan/deposit/penjamin),
 	 *  BUKAN penjual obat: pemisahan wewenang apoteker vs tenaga medis disengaja (lihat seed role). */
 	public static final String MODUL_EMEDIK = "Menu POS eMedik (varian layanan medis)";
+	/** Varian "MitraInap" (hotel/penginapan) -- mengisi slot HOTEL_PENGINAPAN JenisUsahaTenantSeedService. */
+	public static final String MODUL_MITRAINAP = "Menu MitraInap (varian hotel/penginapan)";
 
 	/**
 	 * Daftar lengkap menu yang dikenal versi kode ini. Menambah menu baru = tambah baris di sini --
@@ -160,6 +162,9 @@ public final class EbisnisMenuKatalog {
 		DAFTAR.add(new Entri(MODUL_EMEDIK, "emedik_deposit", "Deposit Pasien", "desktop", "android")); // sirs/DepositAction
 		DAFTAR.add(new Entri(MODUL_EMEDIK, "emedik_penjamin", "Penjamin & Asuransi", "desktop", "android")); // sirs/AsuransiAction + util/PenjaminResolver
 		DAFTAR.add(new Entri(MODUL_EMEDIK, "emedik_laporan", "Laporan Kasir Medis", "desktop", "android")); // sirs/chart/PendapatanDashboard + PendaftaranOverviewDashboard
+		// MitraInap MVP langkah 2 (master); reservasi/checkin/folio menyusul fase berikutnya.
+		DAFTAR.add(new Entri(MODUL_MITRAINAP, "hotel_properti", "Properti Hotel", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_MITRAINAP, "hotel_kamar", "Tipe Kamar & Kamar", "desktop", "android"));
 	}
 
 	/**
@@ -173,6 +178,8 @@ public final class EbisnisMenuKatalog {
 	public static final java.util.Set<String> KUNCI_DEFAULT_NONAKTIF = new java.util.LinkedHashSet<String>(java.util.Arrays.asList(
 			// Grup Produk: perubahan harga massal lintas outlet -- fail-closed, nyala hanya via admin.
 			"grup_produk",
+			// MitraInap: vertikal baru -- role POS existing tidak boleh mendadak melihatnya.
+			"hotel_properti", "hotel_kamar",
 			"master_supplier", "master_customer", "master_sales", "persediaan", "harga", "hutang",
 			"penjualan_sales", "piutang", "surat_perintah_sales", "nota_sales", "biaya_sales",
 			"pembelian_sales", "rekonsiliasi_sales", "kas_jurnal", "laba_rugi", "laporan_inventory_sales",
@@ -194,7 +201,7 @@ public final class EbisnisMenuKatalog {
 	 * disertakan (Approve/Reject/Create/Update/Delete tidak berarti apa pun di sana).
 	 */
 	public static final java.util.Set<String> KUNCI_CRUD = new java.util.LinkedHashSet<String>(java.util.Arrays.asList(
-			"produk", "grup_produk", "anggota", "diskon", "kulakan", "returpenjualan", "riwayatpenjualan", "stokopname", "pesanan",
+			"produk", "grup_produk", "hotel_properti", "hotel_kamar", "anggota", "diskon", "kulakan", "returpenjualan", "riwayatpenjualan", "stokopname", "pesanan",
 			"pembayaran", "pedagang", "penyedia", "limitkredit", "kaskasir", "setorantenant",
 			"jadwalopname", "mutasirekening", "produksi",
 			// varian Inventory & Sales (default aksi ikut KUNCI_DEFAULT_NONAKTIF: false)

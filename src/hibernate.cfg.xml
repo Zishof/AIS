@@ -2263,6 +2263,10 @@
 		<mapping class="ais.database.model.inventory.SatuanProduk"></mapping>
 		<mapping class="ais.database.model.inventory.Produk"></mapping>
 		<mapping class="ais.database.model.inventory.GrupProduk"></mapping>
+		<!-- Vertikal MitraInap (hotel) - MVP langkah 2, tabel hotel_* di schema public -->
+		<mapping class="ais.database.model.hotel.PropertiHotel"></mapping>
+		<mapping class="ais.database.model.hotel.TipeKamar"></mapping>
+		<mapping class="ais.database.model.hotel.Kamar"></mapping>
 		<mapping class="ais.database.model.inventory.ProdukBatch"></mapping>
 		<mapping class="ais.database.model.inventory.MutasiProdukBatch"></mapping>
 		<mapping class="ais.database.model.inventory.PengajuanPerubahanHargaProduk"></mapping>
