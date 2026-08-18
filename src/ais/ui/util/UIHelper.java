@@ -6,7 +6,9 @@ import java.util.List;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
+import org.zkoss.zul.Column;
 import org.zkoss.zul.Div;
+import org.zkoss.zul.Grid;
 import org.zkoss.zul.Hbox;
 import org.zkoss.zul.Popup;
 import org.zkoss.zul.Row;
@@ -327,6 +329,45 @@ public class UIHelper {
         for (Toolbarbutton tb : orphanBtns) {
             addToKebab(popupContent, tb);
         }
+
+        // ── Fase 8: kecilkan kolom Aksi — set lebar Column grid ke 56px ──────
+        kecilkanKolomAksi(row, kebabHbox);
+    }
+
+    /**
+     * Set lebar Column grid yang menampung kebab menjadi 56px (seragam di
+     * semua CRUD). Aman di-skip bila struktur tidak sesuai (bukan Grid, index
+     * kolom tidak cocok, dsb).
+     */
+    private static void kecilkanKolomAksi(Row row, Hbox kebabHbox) {
+        if (kebabHbox == null) return;
+        try {
+            // Naik ke anak langsung Row (kebab bisa terbungkus Vbox)
+            Component cell = kebabHbox;
+            while (cell.getParent() != null && cell.getParent() != row) {
+                cell = cell.getParent();
+            }
+            if (cell.getParent() != row) return;
+
+            int idx = row.getChildren().indexOf(cell);
+            if (idx < 0) return;
+
+            Component rows = row.getParent();
+            if (rows == null || !(rows.getParent() instanceof Grid)) return;
+            Grid grid = (Grid) rows.getParent();
+            if (grid.getColumns() == null) return;
+
+            List<Object> cols = new ArrayList<Object>(grid.getColumns().getChildren());
+            if (idx >= cols.size()) return;
+            Object col = cols.get(idx);
+            if (col instanceof Column) {
+                Column column = (Column) col;
+                if (!"56px".equals(column.getWidth())) {
+                    column.setWidth("56px");
+                    column.setAlign("center");
+                }
+            }
+        } catch (Exception ignore) { }
     }
 
     // ─────────────────────────────────────────────────────────────────────────

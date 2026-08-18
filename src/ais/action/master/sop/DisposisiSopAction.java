@@ -1213,7 +1213,7 @@ public class DisposisiSopAction extends GenericAutowireComposer
 
 									@Override
 									public void onEvent(Event arg0) throws Exception {
-										Common.clear(hboxAktor);
+										SopUtil.resetAktor(hboxAktor);
 										hboxAktor.getParent().setVisible(false);
 										if (((Radio) arg0.getTarget()).isChecked()) {
 											AlurSop alur = (AlurSop) ((Radio) arg0.getTarget()).getAttribute("alurSop");
@@ -1253,7 +1253,10 @@ public class DisposisiSopAction extends GenericAutowireComposer
 
 									@Override
 									public void onEvent(Event arg0) throws Exception {
-										Common.clear(hboxAktor);
+										// resetAktor (bukan sekadar clear): attribute "usernamePengguna"
+										// kini DIGABUNG lintas pemanggilan tampilAktor agar multi-centang
+										// menyimpan SEMUA penerima — reset eksplisit mencegah sisa lama.
+										SopUtil.resetAktor(hboxAktor);
 										hboxAktor.getParent().setVisible(false);
 
 										List<Component> components = vboxPilihan.getChildren();

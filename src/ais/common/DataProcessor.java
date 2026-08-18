@@ -6,9 +6,11 @@ import java.io.FileOutputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.zip.ZipException;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
+import org.apache.log4j.Logger;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.hibernate.criterion.MatchMode;
@@ -26,6 +28,8 @@ import ais.ui.util.UIUtil;
 // Pastikan import class entity Anda sesuai (LampiranLain, dll)
 
 public class DataProcessor { // Ganti nama class sesuai file Anda
+
+	private static final Logger log = Logger.getLogger(DataProcessor.class);
 
 	private static boolean hasEncript = false;
 	// Konstanta untuk path panjang agar lebih rapi
@@ -247,6 +251,11 @@ public class DataProcessor { // Ganti nama class sesuai file Anda
 
 				Common.unzipFolder(source, target);
 			}
+		} catch (ZipException zipRusak) {
+			// Berkas non-kosong tapi bukan struktur zip valid (data legacy korup) --
+			// kondisi yang sudah diketahui dan tak bisa diperbaiki di sini. Log ringkas
+			// tanpa stack trace/audit-DB penuh agar batch besar tak membanjiri log.
+			log.warn("Lewati unzip, bukan berkas zip valid: " + lokasiFisik + " (" + zipRusak.getMessage() + ")");
 		} catch (Exception e) {
 			// Log error tapi jangan stop loop
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/DataProcessor.java:223");

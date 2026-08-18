@@ -321,18 +321,13 @@ public class SopUtil {
 
 	private static void renderAktor(LinkedHashMap<String, Tbmuser> datasAktor, Component hbox) {
 		StringBuilder usernamePengguna = new StringBuilder();
+		Component wadah = hbox == null ? null : wadahAktor(hbox);
 		for (Tbmuser tbmuser : datasAktor.values()) {
 			if (!isAktif(tbmuser)) {
 				continue;
 			}
-			if (hbox != null) {
-				Vbox vbox1 = new Vbox();
-				vbox1.setParent(hbox);
-				try {
-					CommonMedia.tampilkanGambarKecil(tbmuser).setParent(vbox1);
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/sop/helper/SopUtil.java:333");
-				}
-				vbox1.appendChild(new Label(nullSafe(tbmuser.getUserNama())));
+			if (wadah != null) {
+				buatKartuAktor(wadah, tbmuser, null, null);
 			}
 			if (hasText(tbmuser.getUserId())) {
 				if (usernamePengguna.length() > 0) {
@@ -342,7 +337,152 @@ public class SopUtil {
 			}
 		}
 		if (hbox != null) {
-			hbox.setAttribute("usernamePengguna", usernamePengguna.toString());
+			// GABUNG (bukan timpa): saat beberapa alur berikutnya dicentang sekaligus,
+			// tampilAktor dipanggil per alur ke komponen yang sama — daftar penerima
+			// yang tersimpan harus mencakup SEMUA langkah terpilih, bukan hanya yang
+			// terakhir. Reset dilakukan lewat resetAktor() oleh pemanggil.
+			gabungUsernamePengguna(hbox, usernamePengguna.toString());
+			perbaruiJumlahAktor(hbox);
+		}
+	}
+
+	/**
+	 * Wadah daftar penerima disposisi: container flex-wrap yang DIPAKAI ULANG lintas
+	 * pemanggilan tampilAktor pada komponen induk yang sama, sehingga foto penerima
+	 * membungkus ke bawah (wrap) dengan tinggi terbatas + scroll — tidak lagi
+	 * memanjang horizontal dan terpotong saat penerima sangat banyak.
+	 */
+	public static Component wadahAktor(Component induk) {
+		if (induk == null) {
+			return null;
+		}
+		Object ada = induk.getAttribute("wadahAktor");
+		if (ada instanceof Component && ((Component) ada).getParent() != null) {
+			return (Component) ada;
+		}
+		Vbox bungkus = new Vbox();
+		bungkus.setWidth("100%");
+		bungkus.setParent(induk);
+		Label jumlah = new Label("");
+		jumlah.setStyle("font-size:11px;color:#64748b;font-weight:bold;");
+		jumlah.setParent(bungkus);
+		org.zkoss.zul.Div wadah = new org.zkoss.zul.Div();
+		wadah.setStyle("display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start;width:100%;"
+				+ "max-height:240px;overflow-y:auto;padding:4px;border:1px solid #e2e8f0;"
+				+ "border-radius:6px;background:#f8fafc;");
+		wadah.setParent(bungkus);
+		induk.setAttribute("wadahAktor", wadah);
+		induk.setAttribute("lblJumlahAktor", jumlah);
+		return wadah;
+	}
+
+	/** Kartu satu penerima (foto + nama) di dalam wadah flex-wrap. */
+	private static void buatKartuAktor(Component wadah, Tbmuser tbmuser, Object mahasiswa, Object siswa) {
+		Vbox vbox1 = new Vbox();
+		vbox1.setWidth("78px");
+		vbox1.setStyle("text-align:center;");
+		vbox1.setParent(wadah);
+		String namaTampil = "";
+		try {
+			if (tbmuser != null) {
+				CommonMedia.tampilkanGambarKecil(tbmuser).setParent(vbox1);
+				namaTampil = nullSafe(tbmuser.getUserNama());
+			} else if (mahasiswa instanceof ais.database.model.Mahasiswa) {
+				CommonMedia.tampilkanGambarKecil((ais.database.model.Mahasiswa) mahasiswa).setParent(vbox1);
+				namaTampil = nullSafe(((ais.database.model.Mahasiswa) mahasiswa).getNama());
+			} else if (siswa instanceof ais.database.model.sekolah.Siswa) {
+				CommonMedia.tampilkanGambarKecil((ais.database.model.sekolah.Siswa) siswa).setParent(vbox1);
+				namaTampil = nullSafe(((ais.database.model.sekolah.Siswa) siswa).getNama());
+			}
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/sop/helper/SopUtil.java:buatKartuAktor");
+		}
+		Label nmLbl = new Label(namaTampil);
+		nmLbl.setStyle("font-size:10px;white-space:normal;word-wrap:break-word;width:74px;display:block;");
+		vbox1.appendChild(nmLbl);
+	}
+
+	/**
+	 * Render SATU penerima (pengaju/khusus) ke wadah yang sama dengan tampilAktor,
+	 * sekaligus ikut menyumbang ke attribute "usernamePengguna" (sebelumnya kartu
+	 * kembali-ke-pengaju TIDAK terhitung sebagai penerima tersimpan).
+	 */
+	public static void renderAktorTunggal(Tbmuser user, ais.database.model.Mahasiswa mahasiswa,
+			ais.database.model.sekolah.Siswa siswa, Component induk) {
+		if (induk == null) {
+			return;
+		}
+		Component wadah = wadahAktor(induk);
+		buatKartuAktor(wadah, user, mahasiswa, siswa);
+		String username = null;
+		try {
+			if (user != null) {
+				username = user.getUserId();
+			} else if (mahasiswa != null) {
+				username = mahasiswa.getNim();
+			} else if (siswa != null) {
+				username = siswa.getNomorIndukNasional();
+			}
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/sop/helper/SopUtil.java:renderAktorTunggal");
+		}
+		if (username != null && !username.trim().isEmpty()) {
+			gabungUsernamePengguna(induk, username.trim());
+		}
+		perbaruiJumlahAktor(induk);
+		if (induk.getParent() != null) {
+			induk.getParent().setVisible(true);
+		}
+	}
+
+	/** Kosongkan wadah aktor + attribute penerima — dipanggil listener sebelum render ulang. */
+	public static void resetAktor(Component induk) {
+		if (induk == null) {
+			return;
+		}
+		try {
+			java.util.List<Component> anak = new java.util.ArrayList<Component>(induk.getChildren());
+			for (Component component : anak) {
+				component.detach();
+			}
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/sop/helper/SopUtil.java:resetAktor");
+		}
+		induk.setAttribute("wadahAktor", null);
+		induk.setAttribute("lblJumlahAktor", null);
+		induk.setAttribute("usernamePengguna", "");
+	}
+
+	private static void gabungUsernamePengguna(Component induk, String tambahan) {
+		java.util.LinkedHashSet<String> gabungan = new java.util.LinkedHashSet<String>();
+		Object lama = induk.getAttribute("usernamePengguna");
+		if (lama != null) {
+			for (String u : lama.toString().split(";")) {
+				if (!u.trim().isEmpty()) {
+					gabungan.add(u.trim());
+				}
+			}
+		}
+		if (tambahan != null) {
+			for (String u : tambahan.split(";")) {
+				if (!u.trim().isEmpty()) {
+					gabungan.add(u.trim());
+				}
+			}
+		}
+		StringBuilder sb = new StringBuilder();
+		for (String u : gabungan) {
+			if (sb.length() > 0) {
+				sb.append(';');
+			}
+			sb.append(u);
+		}
+		induk.setAttribute("usernamePengguna", sb.toString());
+	}
+
+	private static void perbaruiJumlahAktor(Component induk) {
+		Object wadah = induk.getAttribute("wadahAktor");
+		Object lbl = induk.getAttribute("lblJumlahAktor");
+		if (wadah instanceof Component && lbl instanceof Label) {
+			int n = ((Component) wadah).getChildren().size();
+			((Label) lbl).setValue(n + " penerima disposisi");
 		}
 	}
 
