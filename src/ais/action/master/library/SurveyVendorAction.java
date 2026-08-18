@@ -458,26 +458,54 @@ public class SurveyVendorAction extends GenericAutowireComposer {
 	private void aktifkan(SurveyVendor sv) throws Exception {
 		Session s = HibernateUtil.currentSession();
 		Transaction tx = s.beginTransaction();
+		List<Tbmuser> penilai = new ArrayList<Tbmuser>();
+		SurveyVendor db;
 		try {
-			SurveyVendor db = (SurveyVendor) s.get(SurveyVendor.class, sv.getId());
+			db = (SurveyVendor) s.get(SurveyVendor.class, sv.getId());
 			db.setStatus(SurveyVendor.AKTIF);
 			s.update(db);
-			int n = 0;
 			for (SurveyVendorPengguna p : (List<SurveyVendorPengguna>) s.createCriteria(SurveyVendorPengguna.class)
 					.add(Restrictions.eq("surveyVendor", db)).list()) {
 				p.setSudahNotifikasi(true);
 				s.update(p);
-				n++;
+				if (p.getPengguna() != null && SurveyVendorPengguna.PENILAI.equals(p.getPeran())) {
+					penilai.add(p.getPengguna());
+				}
 			}
 			tx.commit();
-			info("Survey diaktifkan. " + n + " penilai dinotifikasi.");
-			buildSetup();
-			buildPenilaian();
 		} catch (Exception ex) {
 			if (tx != null && tx.isActive()) {
 				tx.rollback();
 			}
 			warn("Gagal: " + ex.getMessage());
+			return;
+		}
+		// Notifikasi NYATA ke penilai (setelah commit; util membuka sesi sendiri) -> masuk lonceng "Info".
+		kirimNotifikasi(db, penilai);
+		info("Survey diaktifkan. " + penilai.size() + " penilai dinotifikasi.");
+		buildSetup();
+		buildPenilaian();
+	}
+
+	/** Terbitkan pemberitahuan ke daftar penilai lewat mekanisme notifikasi app (CommonNotifikasi). */
+	private void kirimNotifikasi(SurveyVendor sv, List<Tbmuser> penilai) {
+		try {
+			if (penilai == null || penilai.isEmpty()) {
+				return;
+			}
+			java.util.LinkedHashMap<String, String> r = new java.util.LinkedHashMap<String, String>();
+			r.put("Jenis Pemberitahuan", "Survey Penilaian Vendor");
+			r.put("Judul Survey", nvl(sv.getJudul()));
+			r.put("Jenis Barang/Jasa", nvl(sv.getJenisBarangJasa()));
+			r.put("Kode", nvl(sv.getKode()));
+			String[] p = new String[] {
+					"Anda ditugaskan sebagai penilai pada survey pemilihan vendor.",
+					"Silakan buka menu \"Survey Penilaian Vendor\" -> tab \"Penilaian Saya\" untuk mengisi skor tiap vendor." };
+			ais.common.CommonNotifikasi.terbitkanKeBanyak(penilai, "Tugas Penilaian Vendor: " + nvl(sv.getJudul()),
+					"Anda diminta menilai vendor pada survey \"" + nvl(sv.getJudul()) + "\".", r, p, sv,
+					"/pages/master/library/survey_vendor.zul", null, "Penilaian Vendor");
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit SurveyVendorAction.kirimNotifikasi");
 		}
 	}
 
