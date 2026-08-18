@@ -1229,6 +1229,9 @@ public class PosApi extends HttpServlet {
 		aksesMenu.put("hotel_reservasi", menuTersimpan.optBoolean("hotel_reservasi", false));
 		aksesMenu.put("hotel_checkin", menuTersimpan.optBoolean("hotel_checkin", false));
 		aksesMenu.put("hotel_folio", menuTersimpan.optBoolean("hotel_folio", false));
+		aksesMenu.put("hotel_tiket_dapur", menuTersimpan.optBoolean("hotel_tiket_dapur", false));
+		aksesMenu.put("hotel_kontrak_pemilik", menuTersimpan.optBoolean("hotel_kontrak_pemilik", false));
+		aksesMenu.put("hotel_laporan_pemilik", menuTersimpan.optBoolean("hotel_laporan_pemilik", false));
 		aksesMenu.put("stokopname", menuTersimpan.optBoolean("stokopname", true));
 		aksesMenu.put("stok", menuTersimpan.optBoolean("stokopname", true));
 		aksesMenu.put("kulakan", menuTersimpan.optBoolean("kulakan", true));
@@ -1671,6 +1674,10 @@ public class PosApi extends HttpServlet {
 			if ("hotel_checkin".equals(action) || "hotel_checkout".equals(action) || "hotel_pindah_kamar".equals(action)) return menu.optBoolean("hotel_checkin", false);
 			if (action.startsWith("hotel_menginap_")) return menu.optBoolean("hotel_checkin", false);
 			if (action.startsWith("hotel_folio_")) return menu.optBoolean("hotel_folio", false);
+			// LANGKAH 5: layar dapur & kontrak/laporan pemilik -- fail-closed per-kunci.
+			if (action.startsWith("hotel_kitchen_ticket_")) return menu.optBoolean("hotel_tiket_dapur", false);
+			if (action.startsWith("hotel_kontrak_pemilik_")) return menu.optBoolean("hotel_kontrak_pemilik", false);
+			if (action.startsWith("hotel_laporan_pemilik_")) return menu.optBoolean("hotel_laporan_pemilik", false);
 			return false;
 		}
 		if (action.startsWith("grup_produk_")) {

@@ -168,6 +168,10 @@ public final class EbisnisMenuKatalog {
 		DAFTAR.add(new Entri(MODUL_MITRAINAP, "hotel_reservasi", "Tamu & Reservasi", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_MITRAINAP, "hotel_checkin", "Check-in / Check-out", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_MITRAINAP, "hotel_folio", "Folio Tamu", "desktop", "android"));
+		// MitraInap langkah 5: dapur outlet + kontrak/statement pemilik kamar (kondotel).
+		DAFTAR.add(new Entri(MODUL_MITRAINAP, "hotel_tiket_dapur", "Tiket Dapur", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_MITRAINAP, "hotel_kontrak_pemilik", "Kontrak Pemilik", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_MITRAINAP, "hotel_laporan_pemilik", "Laporan Pemilik", "desktop", "android"));
 	}
 
 	/**
@@ -183,6 +187,7 @@ public final class EbisnisMenuKatalog {
 			"grup_produk",
 			// MitraInap: vertikal baru -- role POS existing tidak boleh mendadak melihatnya.
 			"hotel_properti", "hotel_kamar", "hotel_reservasi", "hotel_checkin", "hotel_folio",
+			"hotel_tiket_dapur", "hotel_kontrak_pemilik", "hotel_laporan_pemilik",
 			"master_supplier", "master_customer", "master_sales", "persediaan", "harga", "hutang",
 			"penjualan_sales", "piutang", "surat_perintah_sales", "nota_sales", "biaya_sales",
 			"pembelian_sales", "rekonsiliasi_sales", "kas_jurnal", "laba_rugi", "laporan_inventory_sales",
@@ -204,7 +209,8 @@ public final class EbisnisMenuKatalog {
 	 * disertakan (Approve/Reject/Create/Update/Delete tidak berarti apa pun di sana).
 	 */
 	public static final java.util.Set<String> KUNCI_CRUD = new java.util.LinkedHashSet<String>(java.util.Arrays.asList(
-			"produk", "grup_produk", "hotel_properti", "hotel_kamar", "hotel_reservasi", "hotel_checkin", "hotel_folio", "anggota", "diskon", "kulakan", "returpenjualan", "riwayatpenjualan", "stokopname", "pesanan",
+			"produk", "grup_produk", "hotel_properti", "hotel_kamar", "hotel_reservasi", "hotel_checkin", "hotel_folio",
+			"hotel_tiket_dapur", "hotel_kontrak_pemilik", "hotel_laporan_pemilik", "anggota", "diskon", "kulakan", "returpenjualan", "riwayatpenjualan", "stokopname", "pesanan",
 			"pembayaran", "pedagang", "penyedia", "limitkredit", "kaskasir", "setorantenant",
 			"jadwalopname", "mutasirekening", "produksi",
 			// varian Inventory & Sales (default aksi ikut KUNCI_DEFAULT_NONAKTIF: false)

@@ -2273,6 +2273,10 @@
 		<mapping class="ais.database.model.hotel.MenginapTamu"></mapping>
 		<mapping class="ais.database.model.hotel.Folio"></mapping>
 		<mapping class="ais.database.model.hotel.FolioTransaksi"></mapping>
+		<!-- MitraInap langkah 5: tiket dapur + kontrak/statement pemilik kamar -->
+		<mapping class="ais.database.model.hotel.TiketDapur"></mapping>
+		<mapping class="ais.database.model.hotel.KontrakPemilik"></mapping>
+		<mapping class="ais.database.model.hotel.LaporanPemilik"></mapping>
 		<mapping class="ais.database.model.inventory.ProdukBatch"></mapping>
 		<mapping class="ais.database.model.inventory.MutasiProdukBatch"></mapping>
 		<mapping class="ais.database.model.inventory.PengajuanPerubahanHargaProduk"></mapping>

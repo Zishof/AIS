@@ -1066,6 +1066,501 @@ public final class HotelApiHelper {
 		hasil.put("hotel_folio_id", folio.getId());
 	}
 
+	// ------------------------------------------------------------------ langkah 5: tiket dapur
+
+	/**
+	 * Transisi status tiket dapur yang SAH (LANGKAH 5) -- QUEUED -&gt; PREPARING -&gt; READY -&gt;
+	 * SERVED; pembatalan hanya dari QUEUED/PREPARING. Urutan mengikuti KITCHEN_TRANSITIONS
+	 * versi Node, tapi DIVALIDASI DI SERVER (Node melakukan upsert tanpa validasi -- celah
+	 * yang sengaja ditutup di port ini; jangan percaya klien).
+	 */
+	private static boolean transisiDapurBoleh(String dari, String ke) {
+		if (ais.database.model.hotel.TiketDapur.STATUS_QUEUED.equals(dari)) {
+			return ais.database.model.hotel.TiketDapur.STATUS_PREPARING.equals(ke)
+					|| ais.database.model.hotel.TiketDapur.STATUS_CANCELLED.equals(ke);
+		}
+		if (ais.database.model.hotel.TiketDapur.STATUS_PREPARING.equals(dari)) {
+			return ais.database.model.hotel.TiketDapur.STATUS_READY.equals(ke)
+					|| ais.database.model.hotel.TiketDapur.STATUS_CANCELLED.equals(ke);
+		}
+		if (ais.database.model.hotel.TiketDapur.STATUS_READY.equals(dari)) {
+			return ais.database.model.hotel.TiketDapur.STATUS_SERVED.equals(ke);
+		}
+		return false; // SERVED / CANCELLED = terminal
+	}
+
+	private static String formatWaktu(java.util.Date d) {
+		if (d == null) return null;
+		return new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(d);
+	}
+
+	/**
+	 * LANGKAH 5: buat tiket dapur QUEUED utk satu nota POS -- dipanggil KantinHelper.bayar
+	 * (payload {@code hotel_tiket_dapur=true}) pada titik side-effect fail-safe yang sama
+	 * dengan room charge. Idempoten per nota lewat kolom unik {@code pembelian} -- retry
+	 * pengiriman outbox tidak menggandakan tiket. Tanpa gerbang kunci hotel_: pembuatan
+	 * menumpang izin kasir atas penjualan itu sendiri; kunci {@code hotel_tiket_dapur}
+	 * hanya utk layar dapur (list/update).
+	 */
+	public static void rekamTiketDapurPenjualan(Session session, JSONObject payload,
+			ais.database.model.koperasi.PembelianAnggotaKoperasi pembelian, Tbmuser kasir, JSONObject hasil)
+			throws Exception {
+		if (pembelian == null || pembelian.getId() == null) return;
+		ais.database.model.hotel.TiketDapur ada = (ais.database.model.hotel.TiketDapur) session
+				.createCriteria(ais.database.model.hotel.TiketDapur.class)
+				.add(Restrictions.eq("pembelian", pembelian)).setMaxResults(1).uniqueResult();
+		if (ada != null) {
+			hasil.put("hotel_tiket_dapur", "IDEMPOTENT");
+			hasil.put("hotel_tiket_dapur_id", ada.getId());
+			return;
+		}
+		ais.database.model.hotel.TiketDapur t = new ais.database.model.hotel.TiketDapur();
+		Long propertiId = idDari(payload, "hotel_properti_id");
+		if (propertiId != null) {
+			t.setProperti((PropertiHotel) session.get(PropertiHotel.class, propertiId));
+		}
+		t.setPembelian(pembelian);
+		t.setStatus(ais.database.model.hotel.TiketDapur.STATUS_QUEUED);
+		String catatan = payload.optString("hotel_tiket_dapur_catatan", "").trim();
+		if (catatan.length() > 0) t.setCatatan(catatan);
+		if (kasir != null) {
+			t.setOlehId(kasir.getUserId());
+			t.setOleh(kasir.getUserNama());
+		}
+		boolean kelola = !session.getTransaction().isActive();
+		if (kelola) session.getTransaction().begin();
+		try {
+			session.save(t);
+			if (kelola) session.getTransaction().commit();
+		} catch (RuntimeException e) {
+			if (kelola && session.getTransaction().isActive()) session.getTransaction().rollback();
+			throw e;
+		}
+		hasil.put("hotel_tiket_dapur", "DIBUAT");
+		hasil.put("hotel_tiket_dapur_id", t.getId());
+	}
+
+	/**
+	 * {@code hotel_kitchen_ticket_list {properti_id?, status? = AKTIF(default)|SEMUA|<status>}}.
+	 * AKTIF = belum SERVED/CANCELLED (antrean layar dapur). Menyertakan rincian item nota
+	 * (nama + qty dari koperasi.pembelian) supaya dapur tahu apa yang dimasak.
+	 */
+	public static void kitchenTicketList(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!boleh(tbmuser, "hotel_tiket_dapur", null)) {
+			tolak(hasil, "Anda tidak memiliki akses menu Tiket Dapur.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			org.hibernate.Criteria c = session.createCriteria(ais.database.model.hotel.TiketDapur.class)
+					.addOrder(Order.asc("id")).setMaxResults(300);
+			Long propertiId = idDari(request, "properti_id");
+			if (propertiId != null) {
+				PropertiHotel p = (PropertiHotel) session.get(PropertiHotel.class, propertiId);
+				if (p == null) {
+					tolak(hasil, "Properti tidak ditemukan.");
+					return;
+				}
+				c.add(Restrictions.eq("properti", p));
+			}
+			String status = request.optString("status", "AKTIF").trim();
+			if ("AKTIF".equalsIgnoreCase(status)) {
+				c.add(Restrictions.not(Restrictions.in("status", new String[] {
+						ais.database.model.hotel.TiketDapur.STATUS_SERVED,
+						ais.database.model.hotel.TiketDapur.STATUS_CANCELLED })));
+			} else if (!"SEMUA".equalsIgnoreCase(status) && status.length() > 0) {
+				c.add(Restrictions.eq("status", status));
+			}
+			JSONArray arr = new JSONArray();
+			List daftar = c.list();
+			for (int i = 0; i < daftar.size(); i++) {
+				ais.database.model.hotel.TiketDapur t = (ais.database.model.hotel.TiketDapur) daftar.get(i);
+				JSONObject o = new JSONObject();
+				o.put("id", t.getId());
+				o.put("status", t.getStatus());
+				o.put("catatan", t.getCatatan());
+				o.put("mulai_pada", formatWaktu(t.getMulaiPada()));
+				o.put("siap_pada", formatWaktu(t.getSiapPada()));
+				o.put("disajikan_pada", formatWaktu(t.getDisajikanPada()));
+				ais.database.model.koperasi.PembelianAnggotaKoperasi nota = t.getPembelian();
+				if (nota != null) {
+					o.put("pembelian_id", nota.getId());
+					o.put("kode_nota", nota.getKode());
+					o.put("waktu_nota", formatWaktu(nota.getTanggalPembayaran()));
+					JSONArray item = new JSONArray();
+					List rinci = session.createCriteria(ais.database.model.inventory.Pembelian.class)
+							.add(Restrictions.eq("pembelianAnggotaKoperasi", nota)).addOrder(Order.asc("id")).list();
+					for (int j = 0; j < rinci.size(); j++) {
+						ais.database.model.inventory.Pembelian r = (ais.database.model.inventory.Pembelian) rinci.get(j);
+						JSONObject ri = new JSONObject();
+						ri.put("nama", r.getNama());
+						ri.put("qty", r.getQty());
+						item.put(ri);
+					}
+					o.put("item", item);
+				}
+				o.put("properti_id", t.getProperti() == null ? null : t.getProperti().getId());
+				arr.put(o);
+			}
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** {@code hotel_kitchen_ticket_update {id*, status*}} -- transisi divalidasi {@link #transisiDapurBoleh}. */
+	public static void kitchenTicketUpdate(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!boleh(tbmuser, "hotel_tiket_dapur", "update")) {
+			tolak(hasil, "Anda tidak memiliki hak memperbarui Tiket Dapur.");
+			return;
+		}
+		Long id = idDari(request, "id");
+		String ke = request.optString("status", "").trim().toUpperCase();
+		if (id == null || ke.isEmpty()) {
+			tolak(hasil, "id dan status tujuan wajib diisi.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.hotel.TiketDapur t = (ais.database.model.hotel.TiketDapur) session
+					.get(ais.database.model.hotel.TiketDapur.class, id);
+			if (t == null) {
+				tolak(hasil, "Tiket dapur tidak ditemukan.");
+				return;
+			}
+			String dari = t.getStatus();
+			if (!transisiDapurBoleh(dari, ke)) {
+				tolak(hasil, "Transisi status " + dari + " -> " + ke + " tidak diizinkan.");
+				return;
+			}
+			java.util.Date kini = ais.ui.util.WaktuUtil.getDate();
+			t.setStatus(ke);
+			// Timestamp fase diisi SEKALI (pola COALESCE Node) -- tidak ditimpa bila sudah ada.
+			if (ais.database.model.hotel.TiketDapur.STATUS_PREPARING.equals(ke) && t.getMulaiPada() == null) t.setMulaiPada(kini);
+			if (ais.database.model.hotel.TiketDapur.STATUS_READY.equals(ke) && t.getSiapPada() == null) t.setSiapPada(kini);
+			if (ais.database.model.hotel.TiketDapur.STATUS_SERVED.equals(ke) && t.getDisajikanPada() == null) t.setDisajikanPada(kini);
+			if (ais.database.model.hotel.TiketDapur.STATUS_CANCELLED.equals(ke) && t.getDibatalkanPada() == null) t.setDibatalkanPada(kini);
+			if (tbmuser != null) {
+				t.setOlehId(tbmuser.getUserId());
+				t.setOleh(tbmuser.getUserNama());
+			}
+			session.beginTransaction();
+			session.saveOrUpdate(t);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("id", t.getId());
+			hasil.put("status_tiket", t.getStatus());
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	// ------------------------------------------------------------------ langkah 5: kontrak & laporan pemilik
+
+	/** {@code hotel_kontrak_pemilik_list {properti_id*}}. */
+	public static void kontrakPemilikList(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!boleh(tbmuser, "hotel_kontrak_pemilik", null)) {
+			tolak(hasil, "Anda tidak memiliki akses menu Kontrak Pemilik.");
+			return;
+		}
+		Long propertiId = idDari(request, "properti_id");
+		if (propertiId == null) {
+			tolak(hasil, "properti_id wajib diisi.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			PropertiHotel p = (PropertiHotel) session.get(PropertiHotel.class, propertiId);
+			if (p == null) {
+				tolak(hasil, "Properti tidak ditemukan.");
+				return;
+			}
+			JSONArray arr = new JSONArray();
+			List daftar = session.createCriteria(ais.database.model.hotel.KontrakPemilik.class)
+					.add(Restrictions.eq("properti", p)).addOrder(Order.desc("berlakuDari")).setMaxResults(300).list();
+			java.text.SimpleDateFormat tgl = new java.text.SimpleDateFormat("yyyy-MM-dd");
+			for (int i = 0; i < daftar.size(); i++) {
+				ais.database.model.hotel.KontrakPemilik k = (ais.database.model.hotel.KontrakPemilik) daftar.get(i);
+				JSONObject o = new JSONObject();
+				o.put("id", k.getId());
+				o.put("kamar_id", k.getKamar() == null ? null : k.getKamar().getId());
+				o.put("kamar_nomor", k.getKamar() == null ? null : k.getKamar().getNomor());
+				o.put("nama_pemilik", k.getNamaPemilik());
+				o.put("referensi_pemilik", k.getReferensiPemilik());
+				o.put("persen_komisi", k.getPersenKomisi());
+				o.put("berlaku_dari", k.getBerlakuDari() == null ? null : tgl.format(k.getBerlakuDari()));
+				o.put("berlaku_sampai", k.getBerlakuSampai() == null ? null : tgl.format(k.getBerlakuSampai()));
+				o.put("aktif", k.getAktif());
+				arr.put(o);
+			}
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * {@code hotel_kontrak_pemilik_simpan {id?, properti_id*, kamar_id*, nama_pemilik*,
+	 * referensi_pemilik?, persen_komisi* (0..100), berlaku_dari* (yyyy-MM-dd), berlaku_sampai?, aktif?}}.
+	 */
+	public static void kontrakPemilikSimpan(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		Long id = idDari(request, "id");
+		if (!boleh(tbmuser, "hotel_kontrak_pemilik", id == null ? "create" : "update")) {
+			tolak(hasil, "Anda tidak memiliki hak mengelola Kontrak Pemilik.");
+			return;
+		}
+		Long propertiId = idDari(request, "properti_id");
+		Long kamarId = idDari(request, "kamar_id");
+		String namaPemilik = request.optString("nama_pemilik", "").trim();
+		java.util.Date berlakuDari = tanggalDari(request, "berlaku_dari");
+		double persen = request.optDouble("persen_komisi", -1);
+		if (propertiId == null || kamarId == null || namaPemilik.isEmpty() || berlakuDari == null) {
+			tolak(hasil, "properti_id, kamar_id, nama_pemilik, dan berlaku_dari wajib diisi.");
+			return;
+		}
+		if (persen < 0 || persen > 100) {
+			tolak(hasil, "persen_komisi wajib 0..100.");
+			return;
+		}
+		java.util.Date berlakuSampai = tanggalDari(request, "berlaku_sampai");
+		if (berlakuSampai != null && berlakuSampai.before(berlakuDari)) {
+			tolak(hasil, "berlaku_sampai tidak boleh sebelum berlaku_dari.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			PropertiHotel p = (PropertiHotel) session.get(PropertiHotel.class, propertiId);
+			Kamar kamar = (Kamar) session.get(Kamar.class, kamarId);
+			if (p == null || kamar == null) {
+				tolak(hasil, "Properti / kamar tidak ditemukan.");
+				return;
+			}
+			if (kamar.getProperti() == null || !p.getId().equals(kamar.getProperti().getId())) {
+				tolak(hasil, "Kamar bukan milik properti yang dipilih.");
+				return;
+			}
+			ais.database.model.hotel.KontrakPemilik k;
+			if (id == null) {
+				k = new ais.database.model.hotel.KontrakPemilik();
+			} else {
+				k = (ais.database.model.hotel.KontrakPemilik) session
+						.get(ais.database.model.hotel.KontrakPemilik.class, id);
+				if (k == null) {
+					tolak(hasil, "Kontrak tidak ditemukan.");
+					return;
+				}
+			}
+			k.setProperti(p);
+			k.setKamar(kamar);
+			k.setNamaPemilik(namaPemilik);
+			k.setReferensiPemilik(request.optString("referensi_pemilik", "").trim());
+			k.setPersenKomisi(Double.valueOf(persen));
+			k.setBerlakuDari(berlakuDari);
+			k.setBerlakuSampai(berlakuSampai);
+			k.setAktif(Boolean.valueOf(!request.has("aktif") || request.optBoolean("aktif", true)));
+			if (tbmuser != null) {
+				k.setOlehId(tbmuser.getUserId());
+				k.setOleh(tbmuser.getUserNama());
+			}
+			session.beginTransaction();
+			session.saveOrUpdate(k);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("id", k.getId());
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/**
+	 * {@code hotel_laporan_pemilik_generate {kontrak_id*, periode_mulai*, periode_selesai*
+	 * (yyyy-MM-dd, inklusif), biaya?}} -- SELURUH angka dihitung server dari baris ROOM_CHARGE
+	 * {@link ais.database.model.hotel.FolioTransaksi} stay kamar kontrak dalam periode (beda
+	 * disengaja dari Node yang menerima angka klien). Snapshot JSON + SHA-256 disimpan sebagai
+	 * bukti dokumen. Idempoten per (kontrak, periode): generate ulang periode yang sama
+	 * mengembalikan baris yang sudah ada ({@code idempotent:true}) -- pakai periode berbeda
+	 * atau hapus manual bila memang perlu terbit ulang.
+	 */
+	public static void laporanPemilikGenerate(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!boleh(tbmuser, "hotel_laporan_pemilik", "create")) {
+			tolak(hasil, "Anda tidak memiliki hak menerbitkan Laporan Pemilik.");
+			return;
+		}
+		Long kontrakId = idDari(request, "kontrak_id");
+		java.util.Date mulai = tanggalDari(request, "periode_mulai");
+		java.util.Date selesai = tanggalDari(request, "periode_selesai");
+		if (kontrakId == null || mulai == null || selesai == null) {
+			tolak(hasil, "kontrak_id, periode_mulai, dan periode_selesai wajib diisi (yyyy-MM-dd).");
+			return;
+		}
+		if (selesai.before(mulai)) {
+			tolak(hasil, "periode_selesai tidak boleh sebelum periode_mulai.");
+			return;
+		}
+		double biaya = Math.max(0, request.optDouble("biaya", 0));
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.hotel.KontrakPemilik k = (ais.database.model.hotel.KontrakPemilik) session
+					.get(ais.database.model.hotel.KontrakPemilik.class, kontrakId);
+			if (k == null) {
+				tolak(hasil, "Kontrak tidak ditemukan.");
+				return;
+			}
+			ais.database.model.hotel.LaporanPemilik lama = (ais.database.model.hotel.LaporanPemilik) session
+					.createCriteria(ais.database.model.hotel.LaporanPemilik.class)
+					.add(Restrictions.eq("kontrak", k))
+					.add(Restrictions.eq("periodeMulai", mulai))
+					.add(Restrictions.eq("periodeSelesai", selesai))
+					.setMaxResults(1).uniqueResult();
+			if (lama != null) {
+				hasil.put("status", "00");
+				hasil.put("idempotent", true);
+				hasil.put("id", lama.getId());
+				hasil.put("dokumen_hash", lama.getDokumenHash());
+				return;
+			}
+			// Batas akhir eksklusif = selesai + 1 hari (periode inklusif harian).
+			java.util.Calendar cal = java.util.Calendar.getInstance();
+			cal.setTime(selesai);
+			cal.add(java.util.Calendar.DAY_OF_MONTH, 1);
+			java.util.Date batasEksklusif = cal.getTime();
+			List trx = session.createCriteria(ais.database.model.hotel.FolioTransaksi.class)
+					.createAlias("folio", "f")
+					.createAlias("f.menginap", "m")
+					.add(Restrictions.eq("m.kamar", k.getKamar()))
+					.add(Restrictions.eq("jenis", ais.database.model.hotel.FolioTransaksi.JENIS_ROOM_CHARGE))
+					.add(Restrictions.ge("waktu", mulai))
+					.add(Restrictions.lt("waktu", batasEksklusif))
+					.addOrder(Order.asc("waktu")).list();
+			double kotor = 0;
+			JSONArray rincian = new JSONArray();
+			for (int i = 0; i < trx.size(); i++) {
+				ais.database.model.hotel.FolioTransaksi t = (ais.database.model.hotel.FolioTransaksi) trx.get(i);
+				kotor += t.getJumlah() == null ? 0 : t.getJumlah().doubleValue();
+				JSONObject r = new JSONObject();
+				r.put("transaksi_id", t.getId());
+				r.put("waktu", formatWaktu(t.getWaktu()));
+				r.put("jumlah", t.getJumlah());
+				r.put("referensi", t.getReferensi());
+				r.put("folio_id", t.getFolio() == null ? null : t.getFolio().getId());
+				rincian.put(r);
+			}
+			double persen = k.getPersenKomisi() == null ? 0 : k.getPersenKomisi().doubleValue();
+			double komisi = kotor * persen / 100.0;
+			double bersih = kotor - komisi - biaya;
+			java.text.SimpleDateFormat tgl = new java.text.SimpleDateFormat("yyyy-MM-dd");
+			JSONObject snapshot = new JSONObject();
+			snapshot.put("kontrak_id", k.getId());
+			snapshot.put("kamar_id", k.getKamar() == null ? null : k.getKamar().getId());
+			snapshot.put("kamar_nomor", k.getKamar() == null ? null : k.getKamar().getNomor());
+			snapshot.put("nama_pemilik", k.getNamaPemilik());
+			snapshot.put("persen_komisi", persen);
+			snapshot.put("periode_mulai", tgl.format(mulai));
+			snapshot.put("periode_selesai", tgl.format(selesai));
+			snapshot.put("pendapatan_kotor", kotor);
+			snapshot.put("komisi", komisi);
+			snapshot.put("biaya", biaya);
+			snapshot.put("bersih_dibayarkan", bersih);
+			snapshot.put("transaksi", rincian);
+			snapshot.put("dihitung_pada", formatWaktu(ais.ui.util.WaktuUtil.getDate()));
+			String snap = snapshot.toString();
+			ais.database.model.hotel.LaporanPemilik lp = new ais.database.model.hotel.LaporanPemilik();
+			lp.setKontrak(k);
+			lp.setPeriodeMulai(mulai);
+			lp.setPeriodeSelesai(selesai);
+			lp.setPendapatanKotor(Double.valueOf(kotor));
+			lp.setKomisi(Double.valueOf(komisi));
+			lp.setBiaya(Double.valueOf(biaya));
+			lp.setBersihDibayarkan(Double.valueOf(bersih));
+			lp.setSnapshot(snap);
+			lp.setDokumenHash(sha256Hex(snap));
+			if (tbmuser != null) {
+				lp.setOlehId(tbmuser.getUserId());
+				lp.setOleh(tbmuser.getUserNama());
+			}
+			session.beginTransaction();
+			session.save(lp);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("id", lp.getId());
+			hasil.put("pendapatan_kotor", kotor);
+			hasil.put("komisi", komisi);
+			hasil.put("biaya", biaya);
+			hasil.put("bersih_dibayarkan", bersih);
+			hasil.put("jumlah_transaksi", rincian.length());
+			hasil.put("dokumen_hash", lp.getDokumenHash());
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** {@code hotel_laporan_pemilik_list {kontrak_id | properti_id}}. */
+	public static void laporanPemilikList(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!boleh(tbmuser, "hotel_laporan_pemilik", null)) {
+			tolak(hasil, "Anda tidak memiliki akses menu Laporan Pemilik.");
+			return;
+		}
+		Long kontrakId = idDari(request, "kontrak_id");
+		Long propertiId = idDari(request, "properti_id");
+		if (kontrakId == null && propertiId == null) {
+			tolak(hasil, "kontrak_id atau properti_id wajib diisi.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			org.hibernate.Criteria c = session.createCriteria(ais.database.model.hotel.LaporanPemilik.class)
+					.createAlias("kontrak", "k")
+					.addOrder(Order.desc("id")).setMaxResults(300);
+			if (kontrakId != null) {
+				c.add(Restrictions.eq("k.id", kontrakId));
+			} else {
+				PropertiHotel p = (PropertiHotel) session.get(PropertiHotel.class, propertiId);
+				if (p == null) {
+					tolak(hasil, "Properti tidak ditemukan.");
+					return;
+				}
+				c.add(Restrictions.eq("k.properti", p));
+			}
+			java.text.SimpleDateFormat tgl = new java.text.SimpleDateFormat("yyyy-MM-dd");
+			JSONArray arr = new JSONArray();
+			List daftar = c.list();
+			for (int i = 0; i < daftar.size(); i++) {
+				ais.database.model.hotel.LaporanPemilik lp = (ais.database.model.hotel.LaporanPemilik) daftar.get(i);
+				JSONObject o = new JSONObject();
+				o.put("id", lp.getId());
+				o.put("kontrak_id", lp.getKontrak() == null ? null : lp.getKontrak().getId());
+				o.put("nama_pemilik", lp.getKontrak() == null ? null : lp.getKontrak().getNamaPemilik());
+				o.put("kamar_nomor", lp.getKontrak() == null || lp.getKontrak().getKamar() == null
+						? null : lp.getKontrak().getKamar().getNomor());
+				o.put("periode_mulai", lp.getPeriodeMulai() == null ? null : tgl.format(lp.getPeriodeMulai()));
+				o.put("periode_selesai", lp.getPeriodeSelesai() == null ? null : tgl.format(lp.getPeriodeSelesai()));
+				o.put("pendapatan_kotor", lp.getPendapatanKotor());
+				o.put("komisi", lp.getKomisi());
+				o.put("biaya", lp.getBiaya());
+				o.put("bersih_dibayarkan", lp.getBersihDibayarkan());
+				o.put("dokumen_hash", lp.getDokumenHash());
+				o.put("snapshot", lp.getSnapshot());
+				arr.put(o);
+			}
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
+	/** SHA-256 hex 64 char -- bukti snapshot laporan tidak berubah (pola fingerprint RetailIdempotencyUtil). */
+	private static String sha256Hex(String nilai) throws Exception {
+		byte[] digest = java.security.MessageDigest.getInstance("SHA-256").digest(nilai.getBytes("UTF-8"));
+		StringBuilder sb = new StringBuilder(64);
+		for (int i = 0; i < digest.length; i++) {
+			sb.append(String.format("%02x", Integer.valueOf(digest[i] & 0xff)));
+		}
+		return sb.toString();
+	}
+
 	private static ais.database.model.hotel.Folio folioDariStay(Session session,
 			ais.database.model.hotel.MenginapTamu stay) {
 		return (ais.database.model.hotel.Folio) session
@@ -1132,6 +1627,12 @@ public final class HotelApiHelper {
 		if ("hotel_folio_get".equals(action)) { folioGet(tbmuser, request, hasil); return true; }
 		if ("hotel_folio_transaksi_tambah".equals(action)) { folioTransaksiTambah(tbmuser, request, hasil); return true; }
 		if ("hotel_room_charge_lookup".equals(action)) { roomChargeLookup(tbmuser, request, hasil); return true; }
+		if ("hotel_kitchen_ticket_list".equals(action)) { kitchenTicketList(tbmuser, request, hasil); return true; }
+		if ("hotel_kitchen_ticket_update".equals(action)) { kitchenTicketUpdate(tbmuser, request, hasil); return true; }
+		if ("hotel_kontrak_pemilik_list".equals(action)) { kontrakPemilikList(tbmuser, request, hasil); return true; }
+		if ("hotel_kontrak_pemilik_simpan".equals(action)) { kontrakPemilikSimpan(tbmuser, request, hasil); return true; }
+		if ("hotel_laporan_pemilik_generate".equals(action)) { laporanPemilikGenerate(tbmuser, request, hasil); return true; }
+		if ("hotel_laporan_pemilik_list".equals(action)) { laporanPemilikList(tbmuser, request, hasil); return true; }
 		return false;
 	}
 }

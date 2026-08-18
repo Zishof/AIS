@@ -1083,6 +1083,21 @@ public class KantinHelper {
 						}
 					}
 
+					// === MitraInap LANGKAH 5: tiket dapur outlet (payload hotel_tiket_dapur=true).
+					// Fail-safe pola blok room charge di atas; idempoten per nota lewat kolom unik
+					// hotel_tiket_dapur.pembelian, jadi retry outbox tidak menggandakan tiket.
+					if (jsonObject.optBoolean("hotel_tiket_dapur", false)) {
+						try {
+							HotelApiHelper.rekamTiketDapurPenjualan(session, jsonObject,
+									pembelianAnggotaKoperasi, kasirTransaksi, hasil);
+						} catch (Exception exDapur) {
+							exDapur.printStackTrace();
+							hasil.put("hotel_tiket_dapur", "GAGAL: " + exDapur.getMessage());
+							ais.common.ErrorAuditUtil.record(exDapur,
+									"auto-audit src/ais/action/servlet/api/KantinHelper.java:tiketDapur");
+						}
+					}
+
 					if (draftPembelianAnggotaKoperasi != null && draftPembelianAnggotaKoperasi.getId() != null) {
 						draftPembelianAnggotaKoperasi.setLunas(pembelianAnggotaKoperasi);
 						session.getTransaction().begin();
