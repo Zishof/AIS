@@ -709,6 +709,11 @@ public class PosApi extends HttpServlet {
 			} else if ("kulakan_faktur_list".equals(action)) {
 				KantinHelper.kulakanFakturList(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "kulakan_faktur_list");
+			} else if ("kulakan_faktur_batal".equals(action)) {
+				// Pembatalan faktur kulakan -- supervisor / hak hapus kulakan
+				// (self-guarded bolehAksiCrud di helper); stok & batch dibalikkan.
+				KantinHelper.kulakanFakturBatal(tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, "kulakan_faktur_batal");
 			} else if ("kulakan_faktur_detail".equals(action)) {
 				KantinHelper.kulakanFakturDetail(tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, "kulakan_faktur_detail");

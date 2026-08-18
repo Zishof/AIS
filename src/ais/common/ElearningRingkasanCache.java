@@ -120,6 +120,24 @@ public final class ElearningRingkasanCache {
     }
 
     private static final ConcurrentHashMap<Long, Agg> CACHE = new ConcurrentHashMap<Long, Agg>();
+
+    // Katup pengaman kapasitas (optimasi RAM Fase 2): cache ber-key pertemuanId tumbuh
+    // mengikuti jumlah pertemuan yang pernah disentuh dan tidak punya batas. Pada batas
+    // ini seluruh cache di-reset (entry panas terbentuk ulang on-demand via hitungAgg) —
+    // kejadian yang diharapkan SANGAT jarang; batas sengaja jauh di atas pemakaian wajar.
+    private static final int MAKS_ENTRI_CACHE = 200000;
+
+    /** Reset cache bila mencapai katup pengaman kapasitas; return true bila reset terjadi. */
+    private static boolean resetJikaPenuh() {
+        if (CACHE.size() < MAKS_ENTRI_CACHE) {
+            return false;
+        }
+        System.out.println("ElearningRingkasanCache: katup pengaman kapasitas tercapai ("
+                + MAKS_ENTRI_CACHE + " entri) — cache di-reset, agregat dibangun ulang on-demand.");
+        CACHE.clear();
+        return true;
+    }
+
     public static volatile boolean siap = false;
     public static volatile long dibangunPada = 0L;
 
@@ -136,6 +154,10 @@ public final class ElearningRingkasanCache {
         }
         for (java.util.Map.Entry<Long, Agg> e : data.entrySet()) {
             if (e.getKey() != null && e.getValue() != null) {
+                if (CACHE.size() >= MAKS_ENTRI_CACHE) {
+                    // Muat dari persisten berhenti di katup pengaman; sisanya on-demand.
+                    break;
+                }
                 CACHE.put(e.getKey(), e.getValue());
             }
         }
@@ -395,6 +417,7 @@ public final class ElearningRingkasanCache {
             return null;
         }
         Agg a = hitungAgg(p);
+        resetJikaPenuh();
         CACHE.put(p.getId(), a);
         return a;
     }

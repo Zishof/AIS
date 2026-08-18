@@ -1,14 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Optimasi Fase 2 (2026-08-19):
+     - updateCheck=false : matikan phone-home cek versi Ehcache saat startup.
+     - statistics=false  : statistik per-akses mahal, tidak ada konsumennya di aplikasi.
+     - maxEntriesLocalDisk 10.000.000 -> 100.000 : batas swap disk yang realistis
+       (sebelumnya praktis tanpa batas — risiko disk penuh di temp). -->
 <ehcache xmlns:xsi="https://www.w3.org/2001/XMLSchema-instance"
-	xsi:noNamespaceSchemaLocation="ehcache.xsd" updateCheck="true"
+	xsi:noNamespaceSchemaLocation="ehcache.xsd" updateCheck="false"
 	monitoring="autodetect" dynamicConfig="true">
 
 	<diskStore path="java.io.tmpdir/ehcache" />
 
 	<defaultCache maxEntriesLocalHeap="10000" eternal="false"
 		timeToIdleSeconds="120" timeToLiveSeconds="120" diskSpoolBufferSizeMB="30"
-		maxEntriesLocalDisk="10000000" diskExpiryThreadIntervalSeconds="120"
-		memoryStoreEvictionPolicy="LRU" statistics="true">
+		maxEntriesLocalDisk="100000" diskExpiryThreadIntervalSeconds="120"
+		memoryStoreEvictionPolicy="LRU" statistics="false">
 		<persistence strategy="localTempSwap" />
 	</defaultCache>
 

@@ -99,8 +99,18 @@ public class GenericRevisiHelper<T extends Serializable> extends MyWindow {
     private static final int DEFAULT_ALL_DATA_LIMIT = 1500;
     private static final int DEFAULT_DASHBOARD_ANALYSIS_LIMIT = 350;
     private static final long COUNT_CACHE_TTL_MS = 120000L;
+    // LRU BER-BATAS (optimasi RAM Fase 2): TTL hanya dicek saat READ key yang sama —
+    // entry kadaluarsa milik kombinasi filter yang tidak pernah diakses lagi sebelumnya
+    // menumpuk selamanya. Batas 2000 kombinasi filter terakhir (value hanya 2 long).
     private static final Map<String, CountCacheEntry> COUNT_CACHE = java.util.Collections
-            .synchronizedMap(new HashMap<String, CountCacheEntry>());
+            .synchronizedMap(new java.util.LinkedHashMap<String, CountCacheEntry>(16, 0.75f, true) {
+                private static final long serialVersionUID = 1L;
+
+                @Override
+                protected boolean removeEldestEntry(java.util.Map.Entry<String, CountCacheEntry> eldest) {
+                    return size() > 2000;
+                }
+            });
 
     private static class CountCacheEntry {
         private long value;

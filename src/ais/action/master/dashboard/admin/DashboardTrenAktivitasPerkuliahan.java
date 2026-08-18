@@ -104,6 +104,26 @@ public class DashboardTrenAktivitasPerkuliahan extends MyWindow {
 	private static final ConcurrentHashMap<String, Long>          DASH_EXPIRY = new ConcurrentHashMap<String, Long>();
 	private static final long DASH_CACHE_TTL_MS = 5L * 60 * 1000;
 
+	/**
+	 * Buang entry kadaluarsa dari kedua map cache (optimasi RAM Fase 2): TTL sebelumnya
+	 * hanya dicek saat READ key yang sama, sehingga kombinasi filter user yang tidak
+	 * diakses lagi menumpuk selamanya (value DashboardData berisi agregat besar).
+	 * Dipanggil saat put (jarang). Race dengan put paralel key sama hanya berakibat
+	 * cache-miss sekali — bukan masalah correctness.
+	 */
+	private static void purgeExpiredDashCache() {
+		long sekarang = System.currentTimeMillis();
+		for (java.util.Iterator<java.util.Map.Entry<String, Long>> it = DASH_EXPIRY.entrySet().iterator(); it
+				.hasNext();) {
+			java.util.Map.Entry<String, Long> e = it.next();
+			Long kadaluarsa = e.getValue();
+			if (kadaluarsa == null || kadaluarsa <= sekarang) {
+				it.remove();
+				DASH_CACHE.remove(e.getKey());
+			}
+		}
+	}
+
 	private TreeMap<String, Long> pertemuansa = new TreeMap<String, Long>();
 	private transient Html dashboardLoadingHtml;
 
@@ -492,6 +512,7 @@ public class DashboardTrenAktivitasPerkuliahan extends MyWindow {
 
 					FastAggregateData fastAggregateData = loadFastAggregateData(rows);
 					processDashboardRows(desktop, rows, dashboardData, fastAggregateData);
+					purgeExpiredDashCache();
 					DASH_CACHE.put(cacheKey, dashboardData);
 					DASH_EXPIRY.put(cacheKey, System.currentTimeMillis() + DASH_CACHE_TTL_MS);
 					renderDashboardDataOnUi(desktop, currentUser, dashboardData);

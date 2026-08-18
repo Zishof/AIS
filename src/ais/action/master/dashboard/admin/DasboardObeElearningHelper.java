@@ -641,9 +641,30 @@ public class DasboardObeElearningHelper extends Div {
         if (exp != null && exp > System.currentTimeMillis() && DATA_CACHE.containsKey(key))
             return DATA_CACHE.get(key);
         ObeData d = loadData();
+        purgeExpiredCache();
         DATA_CACHE.put(key, d);
         CACHE_EXPIRY.put(key, System.currentTimeMillis() + CACHE_TTL_MS);
         return d;
+    }
+
+    /**
+     * Buang entry kadaluarsa dari kedua map cache (optimasi RAM Fase 2): TTL sebelumnya
+     * hanya dicek saat READ key yang sama, sehingga kombinasi filter yang tidak diakses
+     * lagi menumpuk selamanya (value ObeData berisi agregat besar). Dipanggil saat put
+     * (jarang — maksimal sekali per key per TTL). Race dengan put paralel key sama hanya
+     * berakibat cache-miss sekali (dimuat ulang) — bukan masalah correctness.
+     */
+    private static void purgeExpiredCache() {
+        long sekarang = System.currentTimeMillis();
+        for (java.util.Iterator<java.util.Map.Entry<String, Long>> it = CACHE_EXPIRY.entrySet().iterator(); it
+                .hasNext();) {
+            java.util.Map.Entry<String, Long> e = it.next();
+            Long kadaluarsa = e.getValue();
+            if (kadaluarsa == null || kadaluarsa <= sekarang) {
+                it.remove();
+                DATA_CACHE.remove(e.getKey());
+            }
+        }
     }
 
     private List<Object[]> filteredRekapMk(ObeData d) {

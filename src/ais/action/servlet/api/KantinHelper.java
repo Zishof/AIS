@@ -12987,6 +12987,115 @@ public class KantinHelper {
 	}
 
 	/**
+	 * <h3>Batalkan satu faktur Kulakan (permintaan bisnis: tombol Batalkan di
+	 * Detail Faktur, hanya supervisor / pemegang hak akses HAPUS kulakan).</h3>
+	 *
+	 * <p>Membalikkan seluruh efek {@link #kulakanFakturSimpan}: stok batch yang
+	 * diterima faktur ini dikurangi lagi (dgn mutasi PEMBATALAN sbg jejak),
+	 * baris {@link PengadaanProduk} + header {@link PengadaanFaktur} DIHAPUS
+	 * per-baris (ketiganya @Audited -- jejak lengkap tetap ada di Envers dan
+	 * tampil di dialog Riwayat Data sbg revisi HAPUS), lalu stok tiap produk
+	 * dihitung ulang. DITOLAK bila stok batch sudah terpakai transaksi lain
+	 * (mengurangi di bawah nol) -- user diarahkan membereskan transaksinya
+	 * dulu, bukan merusak saldo diam-diam.</p>
+	 */
+	public static void kulakanFakturBatal(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		ais.database.model.inventory.Pedagang pemanggilKb = tbmuser == null ? null : tbmuser.getPedagang();
+		boolean adminGlobalKb = pemanggilKb == null;
+		boolean supervisorKb = pemanggilKb != null && Boolean.TRUE.equals(pemanggilKb.getSupervisor());
+		if (!bolehAksiCrud(tbmuser, pemanggilKb, adminGlobalKb, supervisorKb, "kulakan", "delete")) {
+			hasil.put("status", "91");
+			hasil.put("description",
+					"Hanya supervisor atau pemegang hak akses hapus Kulakan yang dapat membatalkan faktur.");
+			return;
+		}
+		Long fakturId = request.isNull("faktur_id") ? null
+				: Long.valueOf((request.get("faktur_id") + "").trim());
+		if (fakturId == null) {
+			hasil.put("status", "91");
+			hasil.put("description", "Parameter faktur_id wajib diisi.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			PengadaanFaktur header = (PengadaanFaktur) session.get(PengadaanFaktur.class, fakturId);
+			if (header == null) {
+				hasil.put("status", "91");
+				hasil.put("description", "Faktur tidak ditemukan (mungkin sudah dibatalkan).");
+				return;
+			}
+			if (!adminGlobalKb) {
+				Long tokoFaktur = header.getToko() == null ? null : header.getToko().getId();
+				Long tokoPemanggil = pemanggilKb.getToko() == null ? null : pemanggilKb.getToko().getId();
+				if (tokoFaktur == null || !tokoFaktur.equals(tokoPemanggil)) {
+					hasil.put("status", "91");
+					hasil.put("description", "Faktur ini bukan milik toko Anda.");
+					return;
+				}
+			}
+			@SuppressWarnings("unchecked")
+			List<PengadaanProduk> barisFaktur = session.createCriteria(PengadaanProduk.class)
+					.add(Restrictions.eq("fakturPengadaan", header)).list();
+			String oleh = tbmuser == null ? "kulakan_faktur_batal" : tbmuser.getUserId();
+
+			session.beginTransaction();
+			java.util.Set<Long> produkTerdampak = new java.util.LinkedHashSet<Long>();
+			for (int i = 0; i < barisFaktur.size(); i++) {
+				PengadaanProduk pg = barisFaktur.get(i);
+				if (pg.getProduk() != null) produkTerdampak.add(pg.getProduk().getId());
+				String referensi = "FAKTUR-" + header.getId() + "-PENGADAAN-" + pg.getId();
+				// Balikkan penerimaan batch (bila baris ini dulu ber-batch).
+				@SuppressWarnings("unchecked")
+				List<MutasiProdukBatch> mutasiMasuk = session.createCriteria(MutasiProdukBatch.class)
+						.add(Restrictions.eq("referensi", referensi))
+						.add(Restrictions.eq("jenis", "KULAKAN")).list();
+				for (int m = 0; m < mutasiMasuk.size(); m++) {
+					MutasiProdukBatch masuk = mutasiMasuk.get(m);
+					ProdukBatch batch = masuk.getBatch();
+					if (batch == null) continue;
+					double qtyMasuk = masuk.getMasuk() == null ? 0 : masuk.getMasuk().doubleValue();
+					double sisa = batch.getStok() == null ? 0 : batch.getStok().doubleValue();
+					if (sisa < qtyMasuk) {
+						throw new IllegalStateException("Batch " + batch.getNomorBatch()
+								+ " sudah terpakai transaksi lain (sisa " + sisa + " dari " + qtyMasuk
+								+ "). Bereskan transaksi terkait dulu sebelum membatalkan faktur.");
+					}
+					batch.setStok(Double.valueOf(sisa - qtyMasuk));
+					session.saveOrUpdate(batch);
+					session.flush();
+					catatMutasiBatch(session, batch, "PEMBATALAN", 0.0, qtyMasuk,
+							"BATAL-" + referensi, "Pembatalan faktur kulakan " + header.getNomorFaktur(), oleh);
+				}
+				session.delete(pg);
+			}
+			session.delete(header);
+			session.flush();
+			for (java.util.Iterator<Long> it = produkTerdampak.iterator(); it.hasNext();) {
+				ais.action.master.inventory.StokKantinUtil.recomputeStokProdukNative(session, it.next());
+			}
+			session.getTransaction().commit();
+
+			hasil.put("status", "00");
+			hasil.put("jumlahItem", barisFaktur.size());
+			hasil.put("produkTerdampak", produkTerdampak.size());
+			hasil.put("description", "Faktur " + header.getNomorFaktur() + " dibatalkan ("
+					+ barisFaktur.size() + " barang, stok dihitung ulang).");
+		} catch (Exception e) {
+			try {
+				if (session.getTransaction() != null && session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
+			} catch (Exception eRollback) {
+				ais.common.ErrorAuditUtil.record(eRollback, "kulakanFakturBatal rollback");
+			}
+			hasil.put("status", "91");
+			hasil.put("description", Common.tampilErrorJikaAdmin(e));
+		} finally {
+			tutupSessionPolaB(session);
+		}
+	}
+
+	/**
 	 * <h3>Kulakan per-Faktur -- riwayat header (paginated, per toko).</h3> Satu baris hasil = satu
 	 * faktur (bukan satu produk) -- {@code jumlahItem}/{@code totalHitung} dihitung agregat dari
 	 * {@link PengadaanProduk} yg menunjuk header ybs.
