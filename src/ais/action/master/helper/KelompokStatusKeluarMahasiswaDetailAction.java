@@ -778,14 +778,20 @@ public class KelompokStatusKeluarMahasiswaDetailAction extends MyDetail implemen
 
 			@Override
 			public void run() {
-				try {
-
+				Session session = null;
 				try {
 
 					XSSFWorkbook workbook = new XSSFWorkbook(file.getAbsolutePath());
 					XSSFSheet sheet = workbook.getSheetAt(0);
 
-					Session session = HibernateUtil.currentNativeSession();
+					/*
+					 * WAJIB openSession(), BUKAN currentNativeSession(). Common.getSheetContentAsObject()
+					 * dan getSheetContentAsString() di dalam loop menutup native session ThreadLocal
+					 * (HibernateUtil.closeSession()), sehingga session hasil currentNativeSession()
+					 * sudah TERTUTUP saat getTransaction().begin() dipanggil -> "Session is closed!"
+					 * di SETIAP baris -> seluruh baris tercatat gagal.
+					 */
+					session = HibernateUtil.openSession();
 
 					int rowCount = (sheet.getLastRowNum() + 1);
 					for (int i = 1; i < rowCount; i++) {
@@ -812,20 +818,30 @@ public class KelompokStatusKeluarMahasiswaDetailAction extends MyDetail implemen
 
 							if (mahasiswa != null && mahasiswa.getId() != null) {
 
-								mahasiswa.setNoAkta1(noAkta1);
-								mahasiswa.setNoAkta2(noAkta2);
-								mahasiswa.setNoIjazah1(noIjazah1);
-								mahasiswa.setNoIjazah2(noIjazah2);
-								mahasiswa.setSkDo(skDo);
-								mahasiswa.setNomorSkpi(nomorSkpi);
-								mahasiswa.setTanggalWisuda(tanggalWisuda);
-								mahasiswa.setTanggalSkRektor(tanggalSkRektor);
-								mahasiswa.setTanggalYudisium(tanggalYudisium);
-								mahasiswa.setKelompokStatusKeluarMahasiswa(kelompokStatusKeluarMahasiswa);
+								// Reload ke session khusus thread ini agar entitas managed (bukan
+								// detached dari cache/session lain) -> update pasti ter-flush.
+								Mahasiswa mahasiswaSafe = (Mahasiswa) session.get(Mahasiswa.class, mahasiswa.getId());
+								KelompokStatusKeluarMahasiswa kelompokSafe = (KelompokStatusKeluarMahasiswa) session
+										.get(KelompokStatusKeluarMahasiswa.class, kelompokStatusKeluarMahasiswa.getId());
+								if (mahasiswaSafe == null || kelompokSafe == null) {
+									laporan.catatDilewati(i, nimBaris, "Data mahasiswa/kelompok tidak ditemukan di database");
+									continue;
+								}
+
+								mahasiswaSafe.setNoAkta1(noAkta1);
+								mahasiswaSafe.setNoAkta2(noAkta2);
+								mahasiswaSafe.setNoIjazah1(noIjazah1);
+								mahasiswaSafe.setNoIjazah2(noIjazah2);
+								mahasiswaSafe.setSkDo(skDo);
+								mahasiswaSafe.setNomorSkpi(nomorSkpi);
+								mahasiswaSafe.setTanggalWisuda(tanggalWisuda);
+								mahasiswaSafe.setTanggalSkRektor(tanggalSkRektor);
+								mahasiswaSafe.setTanggalYudisium(tanggalYudisium);
+								mahasiswaSafe.setKelompokStatusKeluarMahasiswa(kelompokSafe);
 
 								session.getTransaction().begin();
 								try {
-									Common.refreshUpdate(session, mahasiswa);
+									Common.refreshUpdate(session, mahasiswaSafe);
 									session.getTransaction().commit();
 								} catch (Exception eSimpan) {
 									/*
@@ -843,9 +859,9 @@ public class KelompokStatusKeluarMahasiswaDetailAction extends MyDetail implemen
 									throw eSimpan;
 								}
 
-								laporan.catatBerhasil(i, mahasiswa.getNim(), mahasiswa.getNama());
+								laporan.catatBerhasil(i, mahasiswaSafe.getNim(), mahasiswaSafe.getNama());
 
-								label.setValue("Upload data \"" + mahasiswa.getNim() + " - " + mahasiswa.getNama()
+								label.setValue("Upload data \"" + mahasiswaSafe.getNim() + " - " + mahasiswaSafe.getNama()
 										+ "\" (" + Common.numberFormat.get().format(i * 100.0 / rowCount) + " %)");
 							} else if (nimBaris == null || nimBaris.trim().isEmpty()) {
 								laporan.catatDilewati(i, "", "Kolom NIM/NPM kosong");
@@ -862,16 +878,14 @@ public class KelompokStatusKeluarMahasiswaDetailAction extends MyDetail implemen
 
 					}
 				} catch (Exception e1) {
-					// TODO Auto-generated catch block
 					e1.printStackTrace(); ais.common.ErrorAuditUtil.record(e1, "auto-audit src/ais/action/master/helper/KelompokStatusKeluarMahasiswaDetailAction.java:836");
+				} finally {
+					// Tutup session khusus thread ini + bersihkan ThreadLocal sisa helper Excel.
+					HibernateUtil.closeSessionQuietly(session);
+					HibernateUtil.closeSession();
 				}
-
-				HibernateUtil.closeSession();
 
 				label.setValue("");
-							} finally {
-					ais.database.hibernate.HibernateUtil.closeSession();
-				}
 			}
 		}).start();
 	}
