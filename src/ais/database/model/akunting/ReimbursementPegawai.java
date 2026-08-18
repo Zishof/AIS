@@ -88,6 +88,7 @@ public class ReimbursementPegawai extends DataSop {
     private Tbmuser disetujuiOleh;
     private Date tanggalPersetujuan;
 
+    private Boolean aktif;
     private String catatanAtasan;
     private Tbmuser diputuskanOleh;
     private Date tanggalKeputusan;
@@ -404,7 +405,7 @@ public class ReimbursementPegawai extends DataSop {
 
     /** Aktif kecuali disposisi non-aktif atau ditolak di titik akhir (pola UangMuka). */
     public Boolean getAktif() {
-        Boolean aktif = Boolean.TRUE;
+        aktif = Boolean.TRUE;
         DisposisiSop d = getDisposisiSop();
         if (d != null && !d.getAktif()) {
             aktif = false;
@@ -414,6 +415,10 @@ public class ReimbursementPegawai extends DataSop {
             aktif = false;
         }
         return aktif;
+    }
+
+    public void setAktif(Boolean aktif) {
+        this.aktif = aktif;
     }
 
     @ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
