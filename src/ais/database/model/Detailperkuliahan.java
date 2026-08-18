@@ -228,10 +228,10 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 				if (kunciFormat != null) {
 					if (!sembunyikanNilaiJikaBelumDiverifikasi
 							|| (sembunyikanNilaiJikaBelumDiverifikasi && verify)) {
-						aformatBaru = kunciFormat + "," + jumlah + ",0," + formatNilai.getPersen() + ","
+						aformatBaru = kunciFormat + "," + jumlah + ",0," + persenAman(formatNilai) + ","
 								+ verify + "," + jumlahBelum;
 					} else {
-						aformatBaru = kunciFormat + ",0,0," + formatNilai.getPersen() + "," + verify + ","
+						aformatBaru = kunciFormat + ",0,0," + persenAman(formatNilai) + "," + verify + ","
 								+ jumlahBelum;
 					}
 				}
@@ -343,7 +343,10 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 				try {
 					String[] sss = StringUtils.split(ss, ",");
 					Long idFormatNilai = Long.parseLong(sss[0].trim());
-					Double persen = sss.length > 3 ? Double.parseDouble(sss[3].trim()) : null;
+					// Guard non-angka (mis. literal "null" dari bobot persen kosong versi lama):
+					// tanpa guard, parseDouble melempar dan SELURUH baris di-skip diam-diam.
+					Double persen = sss.length > 3 && Common.isNumber(sss[3].trim())
+							? Double.parseDouble(sss[3].trim()) : null;
 					if (persen != null) {
 						Double n = !Common.isNumber(sss[1].trim()) ? 0.0 : Double.parseDouble(sss[1].trim());
 
@@ -431,11 +434,93 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Detailperkuliahan.java:417");
 			}
 		}
+		// (E) Komponen TERKUNCI dengan snapshot bernilai 0 padahal nilai live sudah terisi —
+		// terjadi bila nilai dikunci SEBELUM diisi: sumber kebenaran pindah ke snapshot
+		// detailNilaiKunci (berisi 0), sehingga Hitung Ulang berapa kali pun tetap 0 walau
+		// grid menampilkan nilai ketikan. Ini penyebab paling sering "total 0 membandel".
+		String alasanKunci = deteksiKunciSnapshotNol(formatNilais);
+		if (!alasanKunci.isEmpty()) {
+			return alasanKunci;
+		}
+		// (D) Total bobot persen komponen = 0/kosong → pembagi nol, nilai tidak pernah bisa
+		// dihitung; Hitung Ulang tidak akan menolong karena bobot ditulis ulang tetap 0.
+		if (hitungTotalPersenDetailNilai() <= 0.1) {
+			return "Nilai akhir 0: total bobot persen komponen Format Nilai masih 0/kosong sehingga nilai "
+					+ "tidak bisa dihitung. Perbaiki bobot komponen lewat tombol \"Ubah Format\", lalu klik \"Hitung Ulang\".";
+		}
 		// (C) Komponen SUDAH terisi tetapi Total tetap 0 dan TIDAK ada aturan (A/B) yang memicunya.
 		// Berarti Total tersimpan BASI / belum dihitung ulang (desync antara detailNilai vs totalNilai
 		// tersimpan — mis. nilai baru diketik tetapi total belum direkalkulasi/tersimpan). Method ini
 		// hanya dipanggil saat Total tampil = 0, jadi sampai di sini = anomali yang perlu Hitung Ulang.
 		return "Total 0 padahal komponen sudah terisi — klik \"Hitung Ulang\" untuk memperbarui nilai.";
+	}
+
+	/**
+	 * Deteksi kasus "komponen terkunci membawa snapshot 0": komponen dikunci ketika nilainya
+	 * masih 0/kosong, lalu dosen mengisi nilai — jalur baca terkunci tetap memakai snapshot 0
+	 * sehingga total selamanya 0. Return teks peringatan siap-tampil, atau string kosong.
+	 */
+	private String deteksiKunciSnapshotNol(List<FormatNilai> formatNilais) {
+		if (formatNilais == null) {
+			return "";
+		}
+		for (FormatNilai formatNilai : formatNilais) {
+			try {
+				if (!apakahNilaiDikunci(formatNilai)) {
+					continue;
+				}
+				Long kunciFormat = ambilKunciFormatNilai(formatNilai);
+				String entriTerkunci = ambilEntriDetailNilai(detailNilaiKunci, kunciFormat);
+				String entriLive = ambilEntriDetailNilai(detailNilai, kunciFormat);
+				if (entriTerkunci != null && ambilNilaiDariEntri(entriTerkunci) < 0.01
+						&& ambilNilaiDariEntri(entriLive) > 0.1) {
+					return "Nilai akhir 0: komponen \"" + (formatNilai.getNama() == null ? "" : formatNilai.getNama())
+							+ "\" TERKUNCI dengan snapshot nilai 0 (dikunci sebelum nilai diisi). "
+							+ "Buka kunci nilai, klik \"Hitung Ulang\", lalu kunci kembali.";
+				}
+			} catch (Throwable t) { ais.common.ErrorAuditUtil.record(t, "Detailperkuliahan.deteksiKunciSnapshotNol id=" + getId());
+			}
+		}
+		return "";
+	}
+
+	/** Nilai efektif sebuah entri detailNilai: kolom nilai final (idx 1), fallback nilai belum-verify (idx 5). */
+	private static double ambilNilaiDariEntri(String entri) {
+		if (entri == null) {
+			return 0.0;
+		}
+		String[] s = entri.split(",");
+		double v = 0.0;
+		if (s.length > 1 && Common.isNumber(s[1].trim())) {
+			v = Double.parseDouble(s[1].trim());
+		}
+		if (v < 0.01 && s.length > 5 && Common.isNumber(s[5].trim())) {
+			v = Double.parseDouble(s[5].trim());
+		}
+		return v;
+	}
+
+	/** Jumlah seluruh bobot persen (kolom idx 3) pada string detailNilai; non-angka dihitung 0. */
+	private double hitungTotalPersenDetailNilai() {
+		double totalPersen = 0.0;
+		String str = getDetailNilai();
+		if (str != null && !str.trim().isEmpty()) {
+			for (String ss : StringUtils.split(str, ";")) {
+				try {
+					String[] sss = StringUtils.split(ss, ",");
+					if (sss.length > 3 && Common.isNumber(sss[3].trim())) {
+						totalPersen += Double.parseDouble(sss[3].trim());
+					}
+				} catch (Throwable t) { ais.common.ErrorAuditUtil.record(t, "Detailperkuliahan.hitungTotalPersenDetailNilai id=" + getId());
+				}
+			}
+		}
+		return totalPersen;
+	}
+
+	/** Bobot persen sebuah FormatNilai dengan pengaman null (cegah literal "null" merusak baris detailNilai). */
+	private static Double persenAman(FormatNilai formatNilai) {
+		return formatNilai == null || formatNilai.getPersen() == null ? Double.valueOf(0.0) : formatNilai.getPersen();
 	}
 
 	public Double hitungTotalNilaiSementara(Boolean gunakanFormatNilaiDariDatabase, List<FormatNilai> formatNilais) {
@@ -472,7 +557,10 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 				try {
 					String[] sss = StringUtils.split(ss, ",");
 					Long idFormatNilai = Long.parseLong(sss[0].trim());
-					Double persen = sss.length > 3 ? Double.parseDouble(sss[3].trim()) : null;
+					// Guard non-angka (mis. literal "null" dari bobot persen kosong versi lama):
+					// tanpa guard, parseDouble melempar dan SELURUH baris di-skip diam-diam.
+					Double persen = sss.length > 3 && Common.isNumber(sss[3].trim())
+							? Double.parseDouble(sss[3].trim()) : null;
 					if (persen != null) {
 						Double n = !Common.isNumber(sss[5].trim()) ? 0.0 : Double.parseDouble(sss[5].trim());
 
@@ -617,10 +705,10 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 							if (!sembunyikanNilaiJikaBelumDiverifikasi
 									|| (sembunyikanNilaiJikaBelumDiverifikasi && verify)) {
 								aformatBaru = kunciFormat + "," + jumlah + ",0,"
-										+ formatNilai.getPersen() + "," + verify + "," + jumlah;
+										+ persenAman(formatNilai) + "," + verify + "," + jumlah;
 							} else {
 								aformatBaru = kunciFormat + ",0,0,"
-										+ formatNilai.getPersen() + "," + verify + "," + jumlah;
+										+ persenAman(formatNilai) + "," + verify + "," + jumlah;
 							}
 							ada = true;
 						} else {
@@ -639,9 +727,9 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 				String aformatBaru;
 				if (!sembunyikanNilaiJikaBelumDiverifikasi || (sembunyikanNilaiJikaBelumDiverifikasi && verify)) {
 					aformatBaru = kunciFormat + "," + jumlah + ",0,"
-							+ formatNilai.getPersen() + "," + verify + "," + jumlah;
+							+ persenAman(formatNilai) + "," + verify + "," + jumlah;
 				} else {
-					aformatBaru = kunciFormat + ",0,0," + formatNilai.getPersen() + ","
+					aformatBaru = kunciFormat + ",0,0," + persenAman(formatNilai) + ","
 							+ verify + "," + jumlah;
 				}
 				formatBaru += formatBaru.isEmpty() ? aformatBaru : ";" + aformatBaru;
@@ -926,7 +1014,7 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 			for (FormatNilai formatNilai : formatNilais) {
 				Long kunciFormat = ambilKunciFormatNilai(formatNilai);
 				if (kunciFormat != null) {
-					String aformatBaru = kunciFormat + "," + totalNilai + ",0," + formatNilai.getPersen()
+					String aformatBaru = kunciFormat + "," + totalNilai + ",0," + persenAman(formatNilai)
 							+ ",false," + totalNilai;
 					formatbaru += formatbaru.isEmpty() ? aformatBaru : ";" + aformatBaru;
 				}

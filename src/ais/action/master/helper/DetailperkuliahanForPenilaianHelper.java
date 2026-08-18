@@ -756,11 +756,17 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 							+ detailperkuliahan.getNilaiHuruf() + ")");
 				}
 
-				label.setParent(row);
+				// SEL TOTAL: label nilai + (bila perlu) peringatan merah digabung dalam SATU sel.
+				// Sebelumnya peringatan di-setParent(row) sebagai SEL TAMBAHAN di ujung baris —
+				// jatuh ke kolom sempit sehingga teks berdesakan tak terbaca (laporan dosen 19-08).
+				org.zkoss.zul.Vbox selTotal = new org.zkoss.zul.Vbox();
+				selTotal.setStyle("width:100%;");
+				label.setParent(selTotal);
 
 				// PERINGATAN MERAH: bila Nilai Total = 0 PADAHAL komponen sudah di-entry, jelaskan
-				// penyebabnya (kehadiran di bawah minimal, atau ada komponen bernilai 0 dgn aturan
-				// "nilai 0 tak dihitung"). Membantu dosen paham kenapa nilai akhir "tidak sesuai".
+				// penyebabnya (komponen terkunci ber-snapshot 0, bobot persen 0/kosong, kehadiran
+				// di bawah minimal, atau aturan "nilai 0 tak dihitung"). Membantu dosen paham
+				// kenapa nilai akhir "tidak sesuai" dan APA tindakannya.
 				try {
 					double totalTampil = (perkuliahan != null
 							&& perkuliahan.getSembunyikanNilaiJikaBelumDiverifikasi()
@@ -773,13 +779,15 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 							org.zkoss.zul.Label peringatan = new org.zkoss.zul.Label(alasan);
 							peringatan.setMultiline(true);
 							peringatan.setStyle(
-									"color:#c62828;font-weight:bold;font-size:10px;line-height:1.2;display:block;margin-top:3px;");
-							peringatan.setParent(row);
+									"color:#c62828;font-weight:bold;font-size:10px;line-height:1.35;display:block;"
+											+ "margin-top:3px;white-space:normal;word-wrap:break-word;max-width:230px;");
+							peringatan.setParent(selTotal);
 						}
 					}
 				} catch (Exception eWarn) {
 					Common.tampilErrorJikaAdmin(eWarn);
 				}
+				selTotal.setParent(row);
 			}
 
 			if (perkuliahan.getNilai_0_tidak_masuk_dalam_perhitungan_nilai_akhir() == null) {
