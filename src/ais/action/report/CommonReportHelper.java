@@ -9515,8 +9515,12 @@ public class CommonReportHelper {
 					continue;
 				}
 
-				Collection<Long> detailperkuliahans = perkuliahan.ambilDetailperkuliahan(null, null, "",
-						!absensi_urut_berdasarkan_nim, false);
+				// KE-FIX (NPE potensial): perkuliahan bisa null di sini (detailperkuliahan yatim yang
+				// hanya punya matakuliahKonversi -- lihat catatan guard "matakuliah == null" di atas).
+				// perkuliahan.ambilDetailperkuliahan(...) sebelumnya dipanggil tanpa jaga-jaga; noUrut
+				// default 1 (sama seperti perlakuan "periode" null di bawah) bila perkuliahan null.
+				Collection<Long> detailperkuliahans = perkuliahan == null ? new ArrayList<Long>()
+						: perkuliahan.ambilDetailperkuliahan(null, null, "", !absensi_urut_berdasarkan_nim, false);
 				int noUrut = 1;
 				for (Long detailperkuliahanidAbsen : detailperkuliahans) {
 					if (detailperkuliahanidAbsen.equals(detailperkuliahanid)) {

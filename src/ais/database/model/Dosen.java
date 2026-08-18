@@ -1943,15 +1943,20 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 						if (generalValueObject != null) {
 							Pertemuan pertemuan = (Pertemuan) generalValueObject;
 
-							String keyPert = Common.dateFormat8.get().format(pertemuan.getTanggal());
+							// KE-FIX (NPE Calendar.setTime/SimpleDateFormat.format): pertemuan.getTanggal()
+							// null (data tak lengkap) sebelumnya langsung diformat tanpa jaga-jaga. Lewati
+							// baris ini (sama seperti perlakuan "belum ada" di bawah), bukan biarkan NPE.
+							if (pertemuan.getTanggal() != null) {
+								String keyPert = Common.dateFormat8.get().format(pertemuan.getTanggal());
 
-							keyPert += ("_" + (pertemuan.getWaktuMulai() == null && pertemuan.getWaktuSelesai() == null
-									? "00.00-00.00"
-									: (pertemuan.getWaktuMulai() == null ? "00.00" : pertemuan.getWaktuMulai()) + "-"
-											+ (pertemuan.getWaktuSelesai() == null ? "00.00"
-													: pertemuan.getWaktuSelesai())));
+								keyPert += ("_" + (pertemuan.getWaktuMulai() == null && pertemuan.getWaktuSelesai() == null
+										? "00.00-00.00"
+										: (pertemuan.getWaktuMulai() == null ? "00.00" : pertemuan.getWaktuMulai()) + "-"
+												+ (pertemuan.getWaktuSelesai() == null ? "00.00"
+														: pertemuan.getWaktuSelesai())));
 
-							pertemuansa.put(keyPert + "_" + pertemuan.getId(), pertemuan.getId());
+								pertemuansa.put(keyPert + "_" + pertemuan.getId(), pertemuan.getId());
+							}
 						} else {
 							idsBelumAda.add(Long.parseLong(key));
 						}
@@ -1972,6 +1977,11 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 				if (pertemuan.getAktif()) {
 					masukkanData(Pertemuan.class, pertemuan);
 					try {
+						// KE-FIX (NPE Calendar.setTime/SimpleDateFormat.format): lihat catatan di atas —
+						// pertemuan.getTanggal() null harus melewati baris ini, bukan memformat null.
+						if (pertemuan.getTanggal() == null) {
+							continue;
+						}
 						String keyPert = Common.dateFormat8.get().format(pertemuan.getTanggal());
 
 						keyPert += ("_" + (pertemuan.getWaktuMulai() == null && pertemuan.getWaktuSelesai() == null

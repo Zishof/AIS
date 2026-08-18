@@ -205,6 +205,15 @@ public class NewNilaiMahasiswaAction extends GenericAutowireComposer {
 
 	private void load(final boolean keDatabase) {
 
+		// KE-FIX (NPE mahasiswa.currentSemester()): onSearchDefault/onSearchDefaultKeDatabase adalah
+		// event handler publik yang bisa terpicu dari komponen ZUL yang sudah terlanjur ter-render
+		// walau doAfterCompose berhenti lebih awal (mis. tbmuser bukan mahasiswa -> alert & return
+		// tanpa pernah mengisi field mahasiswa). Tanpa jaga-jaga ini, klik pada komponen tsb
+		// melempar NullPointerException di baris mahasiswa.currentSemester() di bawah.
+		if (mahasiswa == null) {
+			return;
+		}
+
 		final Integer semesterPendekEfektif = (cariSemesterPendek != null && cariSemesterPendek.isChecked())
 				? Perkuliahan.SEMESTER_PENDEK
 				: semesterPendek;

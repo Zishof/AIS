@@ -230,11 +230,9 @@ public class FormatPenilaianHelper {
 				// menambah anak ber-id "window" yang sama ke idspace "window" (addWindow) ini dan
 				// meledak. Jaga idempoten: lepas fellow "window" lama (jika masih ada) sebelum
 				// membuat yang baru, alih-alih mengandalkan clear() saja.
-				if (window instanceof org.zkoss.zk.ui.IdSpace) {
-					org.zkoss.zk.ui.Component existing = ((org.zkoss.zk.ui.IdSpace) window).getFellowIfAny("window");
-					if (existing != null) {
-						existing.detach();
-					}
+				org.zkoss.zk.ui.Component existing = window.getFellowIfAny("window");
+				if (existing != null) {
+					existing.detach();
 				}
 				org.zkoss.zk.ui.Executions.createComponents(
 						"/WEB-INF/z/x/y/pages/master/rps_obe.zul", window, argRps);
