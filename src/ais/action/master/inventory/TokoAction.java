@@ -31,6 +31,7 @@ import org.zkoss.zul.Toolbar;
 
 import ais.action.master.helper.RevisiHelper;
 import ais.action.master.inventory.helper.PedagangAction;
+import ais.action.servlet.api.PosDemoProvisionHelper;
 import ais.common.Common;
 import ais.common.CommonPrivilages;
 import ais.database.hibernate.HibernateUtil;
@@ -169,6 +170,20 @@ public class TokoAction extends GenericAutowireComposer implements DataCriteria,
 			});
 
 			Hbox toolbar = new Hbox();
+
+			// Generate produk contoh per unit usaha -- hanya toko demo (gerbang yang
+			// sama dgn PosDemoProvisionHelper: konfigurasi data_sample + admin + demo).
+			MyToolbarbuttonConfig tombolGenerate = new MyToolbarbuttonConfig("", "/img/svg/boxes.svg");
+			tombolGenerate.setTooltiptext("Generate produk contoh sesuai unit usaha");
+			tombolGenerate.setVisible(edit && Boolean.TRUE.equals(toko.getTokoDemo()));
+			tombolGenerate.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					bukaGenerateProduk(toko);
+				}
+			});
+			tombolGenerate.setParent(toolbar);
+
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/svg/edit-box-line.svg");
 			button.setTooltiptext("Ubah Data");
 			button.setVisible(edit);
@@ -226,6 +241,142 @@ public class TokoAction extends GenericAutowireComposer implements DataCriteria,
 		init(new Toko());
 		addWindow.setVisible(true);
 		addWindow.onModal();
+	}
+
+	/**
+	 * Jendela "Generate Produk Contoh" per unit usaha (padanan popup JSP toko.jsp dan
+	 * layar Flutter Kelola Toko). Checkbox pre-check dari {@code toko.unitUsahaJson};
+	 * bila toko belum memilih, admin wajib mencentang di sini -- jawaban sisi-ZK utk
+	 * kontrak {@code perlu_pilih_unit_usaha}. Job berjalan di latar server
+	 * ({@code PosDemoProvisionHelper}); progres di-poll {@link org.zkoss.zul.Timer}
+	 * tiap 2 detik lewat aksi status yang sama dgn kanal lain.
+	 */
+	private void bukaGenerateProduk(final Toko toko) throws Exception {
+		final MyWindow win = new MyWindow("Generate Produk Contoh - " + toko.getNama(), "normal", true);
+		win.setWidth("640px");
+		org.zkoss.zul.Vbox isi = new org.zkoss.zul.Vbox();
+		isi.setStyle("padding:8px;");
+
+		java.util.Set<String> unitTerpilih = ais.common.UnitUsahaKatalog.urai(toko.getUnitUsahaJson());
+		if (unitTerpilih.isEmpty()) {
+			Label info = new Label("Toko ini belum memiliki unit usaha. Centang jenis usaha "
+					+ "yang produk contohnya akan diimpor.");
+			info.setStyle("color:#8a6d3b;font-weight:bold;display:block;margin-bottom:6px;");
+			isi.appendChild(info);
+		}
+
+		Hbox barisJumlah = new Hbox();
+		barisJumlah.setAlign("center");
+		barisJumlah.appendChild(new Label("Jumlah produk per unit usaha (250 - 100.000): "));
+		final org.zkoss.zul.Intbox jumlahBox = new org.zkoss.zul.Intbox(250);
+		jumlahBox.setWidth("110px");
+		barisJumlah.appendChild(jumlahBox);
+		isi.appendChild(barisJumlah);
+
+		final java.util.Map<String, MyCheckboxConfig> cekGen =
+				new java.util.LinkedHashMap<String, MyCheckboxConfig>();
+		org.zkoss.zul.Vbox wadahCek = new org.zkoss.zul.Vbox();
+		String grupTerakhir = null;
+		for (ais.common.UnitUsahaKatalog.Entri entri : ais.common.UnitUsahaKatalog.DAFTAR) {
+			if (!entri.grup.equals(grupTerakhir)) {
+				grupTerakhir = entri.grup;
+				Label judulGrup = new Label(entri.grup);
+				judulGrup.setStyle("font-weight:bold;margin-top:6px;display:block;");
+				wadahCek.appendChild(judulGrup);
+			}
+			MyCheckboxConfig cek = new MyCheckboxConfig(entri.label);
+			cek.setChecked(unitTerpilih.contains(entri.kode));
+			wadahCek.appendChild(cek);
+			cekGen.put(entri.kode, cek);
+		}
+		org.zkoss.zul.Div gulir = new org.zkoss.zul.Div();
+		gulir.setStyle("max-height:280px;overflow-y:auto;border:1px solid #ddd;padding:6px;margin:6px 0;");
+		gulir.appendChild(wadahCek);
+		isi.appendChild(gulir);
+
+		final Label tahapLabel = new Label("");
+		tahapLabel.setStyle("display:block;margin-top:4px;");
+		final org.zkoss.zul.Progressmeter meter = new org.zkoss.zul.Progressmeter(0);
+		meter.setWidth("100%");
+		meter.setVisible(false);
+		isi.appendChild(tahapLabel);
+		isi.appendChild(meter);
+
+		final org.zkoss.zul.Timer pollTimer = new org.zkoss.zul.Timer(2000);
+		pollTimer.setRepeats(true);
+		pollTimer.setRunning(false);
+		pollTimer.setParent(win);
+		pollTimer.addEventListener("onTimer", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				org.json.JSONObject minta = new org.json.JSONObject().put("toko_id", toko.getId());
+				org.json.JSONObject st = new org.json.JSONObject();
+				PosDemoProvisionHelper.status(Common.getTbmuser(), minta, st);
+				int target = st.optInt("target", 0);
+				int selesai = st.optInt("selesai", 0);
+				tahapLabel.setValue(st.optString("tahap", "") + "  (" + selesai + " / " + target + ")");
+				if (target > 0) meter.setValue(Math.min(100, (int) (selesai * 100L / target)));
+				if (!st.optBoolean("berjalan", false)) {
+					pollTimer.setRunning(false);
+					meter.setValue(100);
+					tahapLabel.setValue(st.optString("ringkasan", "Selesai."));
+				}
+			}
+		});
+
+		Hbox tombol = new Hbox();
+		tombol.setStyle("margin-top:8px;");
+		org.zkoss.zul.Button batal = new org.zkoss.zul.Button("Tutup");
+		batal.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				pollTimer.setRunning(false);
+				win.detach();
+			}
+		});
+		final org.zkoss.zul.Button mulai = new org.zkoss.zul.Button("Generate");
+		mulai.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				org.json.JSONArray unit = new org.json.JSONArray();
+				for (java.util.Map.Entry<String, MyCheckboxConfig> e : cekGen.entrySet()) {
+					if (e.getValue().isChecked()) unit.put(e.getKey());
+				}
+				if (unit.length() == 0) {
+					MyMessageboxConfig.show("Pilih minimal satu unit usaha.");
+					return;
+				}
+				int jumlah = jumlahBox.getValue() == null ? 250 : jumlahBox.getValue().intValue();
+				// Server tetap meng-clamp 250..100000; samakan di klien supaya angka
+				// yang tampil = angka yang dijalankan.
+				if (jumlah < 250) jumlah = 250;
+				if (jumlah > 100000) jumlah = 100000;
+				org.json.JSONObject minta = new org.json.JSONObject();
+				minta.put("toko_id", toko.getId());
+				minta.put("unit_usaha", unit);
+				minta.put("jumlah_per_unit", jumlah);
+				minta.put("konfirmasi", "SEED-DEMO-PRODUK-UNIT-USAHA");
+				org.json.JSONObject hasil = new org.json.JSONObject();
+				PosDemoProvisionHelper.mulaiProdukUnitUsaha(Common.getTbmuser(), minta, hasil);
+				if (!"00".equals(hasil.optString("status"))
+						|| hasil.optBoolean("perlu_pilih_unit_usaha", false)) {
+					MyMessageboxConfig.show(hasil.optString("description", "Gagal memulai generate."));
+					return;
+				}
+				mulai.setDisabled(true);
+				meter.setVisible(true);
+				tahapLabel.setValue("Memulai...");
+				pollTimer.setRunning(true);
+			}
+		});
+		tombol.appendChild(batal);
+		tombol.appendChild(mulai);
+		isi.appendChild(tombol);
+
+		win.appendChild(isi);
+		win.setParent(self);
+		win.setVisible(true);
+		win.onModal();
 	}
 
 	private void init(Toko toko) throws Exception {

@@ -312,7 +312,7 @@ String idTokoAktif = toko != null ? String.valueOf(toko.getId()) : "";
         // Query Total Baris untuk Paginasi
         const sqlCount = "SELECT COUNT(*) AS jumlah FROM koperasi.toko " + sqlFilters + ";";
         
-        const sqlData = "SELECT id, kode, nama, keterangan, bolehmelihattokolain, aktif FROM koperasi.toko " + sqlFilters + " ORDER BY nama ASC LIMIT " + limitPerPage<%=rnd%> + " OFFSET " + offset + ";";
+        const sqlData = "SELECT id, kode, nama, keterangan, bolehmelihattokolain, aktif, toko_demo, unit_usaha_json FROM koperasi.toko " + sqlFilters + " ORDER BY nama ASC LIMIT " + limitPerPage<%=rnd%> + " OFFSET " + offset + ";";
 
         try {
             const [resCount, resData] = await Promise.all([
@@ -349,7 +349,10 @@ String idTokoAktif = toko != null ? String.valueOf(toko.getId()) : "";
                     
                     // Render kolom aksi hanya jika user adalah admin
                     if (isAdmin<%=rnd%>) {
+                        const isTokoDemo = (row.toko_demo === true || row.toko_demo === 't' || row.toko_demo === 'true');
+                        petaUnitUsahaToko<%=rnd%>[row.id] = row.unit_usaha_json || '[]';
                         htmlList += '<td class="text-center text-nowrap">' +
+                                        (isTokoDemo ? '<button class="btn btn-sm btn-outline-success shadow-sm px-2 me-1 fw-bold" onclick="bukaGenerateProduk<%=rnd%>(' + row.id + ', \'' + safeNama + '\')" title="<%=Common.getBahasaConfig("Generate produk contoh sesuai unit usaha")%>"><i class="fas fa-magic"></i></button>' : '') +
                                         '<button class="btn btn-sm btn-outline-warning text-dark shadow-sm px-2 me-1 fw-bold" onclick="editToko<%=rnd%>(' + row.id + ')" title="<%=Common.getBahasaConfig("Ubah Data")%>"><i class="fas fa-edit"></i></button>' +
                                         '<button class="btn btn-sm btn-outline-danger shadow-sm px-2 fw-bold" onclick="hapusToko<%=rnd%>(' + row.id + ', \'' + safeNama + '\')" title="<%=Common.getBahasaConfig("Hapus Data")%>"><i class="fas fa-trash-alt"></i></button>' +
                                     '</td>';
@@ -561,6 +564,138 @@ String idTokoAktif = toko != null ? String.valueOf(toko.getId()) : "";
             } catch (error) {
                 showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Gagal terhubung ke peladen.")%>', 'bg-danger text-white');
             }
+        }
+    };
+
+    // ==========================================
+    // BAGIAN 5: GENERATE PRODUK CONTOH PER UNIT USAHA (ADMIN + TOKO DEMO)
+    // ==========================================
+    // Popup checkbox unit usaha (pre-check dari unit_usaha_json toko; bila toko
+    // belum memilih, admin WAJIB mencentang di sini -- padanan respons
+    // perlu_pilih_unit_usaha server) + jumlah per unit (clamp server 250..100000),
+    // lalu poll pos_demo_status sampai job latar selesai.
+    let petaUnitUsahaToko<%=rnd%> = {};
+    let pollGenerate<%=rnd%> = null;
+
+    const tutupGenerateProduk<%=rnd%> = () => {
+        if (pollGenerate<%=rnd%>) { clearInterval(pollGenerate<%=rnd%>); pollGenerate<%=rnd%> = null; }
+        const ov = document.getElementById('overlayGenerate<%=rnd%>');
+        if (ov) ov.remove();
+    };
+
+    const bukaGenerateProduk<%=rnd%> = (idToko, namaToko) => {
+        if (!isAdmin<%=rnd%>) return;
+        tutupGenerateProduk<%=rnd%>();
+        let terpilih = [];
+        try { terpilih = JSON.parse(petaUnitUsahaToko<%=rnd%>[idToko] || '[]'); } catch (e) { terpilih = []; }
+
+        let cek = '';
+        let grupTerakhir = null;
+        katalogUnitUsaha<%=rnd%>.forEach((u) => {
+            if (u.grup !== grupTerakhir) {
+                grupTerakhir = u.grup;
+                cek += '<div class="fw-bold small text-secondary mt-2 mb-1">' + u.grup + '</div>';
+            }
+            const checked = terpilih.indexOf(u.kode) >= 0 ? ' checked' : '';
+            cek += '<div class="form-check form-check-inline">' +
+                   '<input class="form-check-input cek-gen-unit-<%=rnd%>" type="checkbox" value="' + u.kode + '" id="cekGen<%=rnd%>' + u.kode + '"' + checked + '>' +
+                   '<label class="form-check-label small" for="cekGen<%=rnd%>' + u.kode + '">' + u.label + '</label>' +
+                   '</div>';
+        });
+
+        const ov = document.createElement('div');
+        ov.id = 'overlayGenerate<%=rnd%>';
+        ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1055;display:flex;align-items:center;justify-content:center;';
+        ov.innerHTML =
+            '<div class="bg-white rounded-4 shadow-lg p-4" style="width:640px;max-width:95vw;max-height:90vh;overflow-y:auto;">' +
+            '  <h5 class="fw-bold mb-1"><i class="fas fa-magic text-success me-2"></i><%=Common.getBahasaConfigJS("Generate Produk Contoh")%> &mdash; ' + namaToko + '</h5>' +
+            (terpilih.length === 0
+                ? '  <div class="alert alert-warning py-2 small mb-2"><%=Common.getBahasaConfigJS("Toko ini belum memiliki unit usaha. Centang jenis usaha yang produk contohnya akan diimpor.")%></div>'
+                : '  <div class="text-muted small mb-2"><%=Common.getBahasaConfigJS("Produk contoh dibuat sesuai unit usaha terpilih.")%></div>') +
+            '  <div class="mb-2">' +
+            '    <label class="form-label small fw-semibold mb-1"><%=Common.getBahasaConfigJS("Jumlah produk per unit usaha (250 - 100.000)")%></label>' +
+            '    <input type="number" min="250" max="100000" value="250" class="form-control form-control-sm" id="inputJumlahGen<%=rnd%>" style="width:180px;">' +
+            '  </div>' +
+            '  <div class="border rounded-3 p-2 mb-3" style="max-height:280px;overflow-y:auto;" id="isiGenerate<%=rnd%>">' + cek + '</div>' +
+            '  <div id="progressGenerate<%=rnd%>" class="d-none mb-3">' +
+            '    <div class="small fw-semibold mb-1" id="tahapGenerate<%=rnd%>">...</div>' +
+            '    <div class="progress" style="height:10px;"><div class="progress-bar progress-bar-striped progress-bar-animated" id="barGenerate<%=rnd%>" style="width:0%"></div></div>' +
+            '    <div class="small text-muted mt-1" id="angkaGenerate<%=rnd%>"></div>' +
+            '  </div>' +
+            '  <div class="text-end">' +
+            '    <button class="btn btn-light border rounded-pill px-4 me-2 fw-semibold" id="btnBatalGen<%=rnd%>" onclick="tutupGenerateProduk<%=rnd%>()"><%=Common.getBahasaConfigJS("Batal")%></button>' +
+            '    <button class="btn btn-success rounded-pill px-4 fw-bold" id="btnMulaiGen<%=rnd%>" onclick="mulaiGenerateProduk<%=rnd%>(' + idToko + ')"><i class="fas fa-play me-2"></i><%=Common.getBahasaConfigJS("Generate")%></button>' +
+            '  </div>' +
+            '</div>';
+        document.body.appendChild(ov);
+    };
+
+    const mulaiGenerateProduk<%=rnd%> = async (idToko) => {
+        if (!isAdmin<%=rnd%>) return;
+        const unit = Array.from(document.querySelectorAll('.cek-gen-unit-<%=rnd%>:checked')).map((c) => c.value);
+        if (unit.length === 0) {
+            showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Pilih minimal satu unit usaha.")%>', 'bg-danger text-white');
+            return;
+        }
+        let jumlah = parseInt(document.getElementById('inputJumlahGen<%=rnd%>').value, 10) || 250;
+        jumlah = Math.min(100000, Math.max(250, jumlah));
+        const btn = document.getElementById('btnMulaiGen<%=rnd%>');
+        btn.disabled = true;
+        try {
+            const res = await fetch('<%=Common.ROOT%>/Data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'pos_demo_seed_products_unit_usaha',
+                    toko_id: idToko,
+                    unit_usaha: unit,
+                    jumlah_per_unit: jumlah,
+                    konfirmasi: 'SEED-DEMO-PRODUK-UNIT-USAHA'
+                })
+            });
+            const hasil = await res.json();
+            if (hasil.perlu_pilih_unit_usaha === true) {
+                showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Pilih minimal satu unit usaha dahulu.")%>', 'bg-danger text-white');
+                btn.disabled = false;
+                return;
+            }
+            if (hasil.status !== '00') {
+                showToast<%=rnd%>(hasil.description || '<%=Common.getBahasaConfigJS("Gagal memulai generate.")%>', 'bg-danger text-white');
+                btn.disabled = false;
+                return;
+            }
+            document.getElementById('progressGenerate<%=rnd%>').classList.remove('d-none');
+            document.getElementById('btnBatalGen<%=rnd%>').classList.add('d-none');
+            pollGenerate<%=rnd%> = setInterval(async () => {
+                try {
+                    const r = await fetch('<%=Common.ROOT%>/Data', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'pos_demo_status', toko_id: idToko })
+                    });
+                    const st = await r.json();
+                    const target = parseInt(st.target, 10) || 0;
+                    const selesai = parseInt(st.selesai, 10) || 0;
+                    document.getElementById('tahapGenerate<%=rnd%>').innerText = st.tahap || '...';
+                    document.getElementById('angkaGenerate<%=rnd%>').innerText = selesai + ' / ' + (target || '...');
+                    document.getElementById('barGenerate<%=rnd%>').style.width = (target ? Math.min(100, Math.round(selesai * 100 / target)) : 0) + '%';
+                    if (st.berjalan === false) {
+                        clearInterval(pollGenerate<%=rnd%>); pollGenerate<%=rnd%> = null;
+                        document.getElementById('tahapGenerate<%=rnd%>').innerText = st.ringkasan || '<%=Common.getBahasaConfigJS("Selesai.")%>';
+                        document.getElementById('barGenerate<%=rnd%>').style.width = '100%';
+                        document.getElementById('barGenerate<%=rnd%>').classList.remove('progress-bar-animated');
+                        btn.innerHTML = '<i class="fas fa-check me-2"></i><%=Common.getBahasaConfigJS("Tutup")%>';
+                        btn.disabled = false;
+                        btn.onclick = () => tutupGenerateProduk<%=rnd%>();
+                    }
+                } catch (e) {
+                    // Sekali gagal poll bukan kegagalan job (job jalan di server).
+                }
+            }, 2000);
+        } catch (e) {
+            console.error(e);
+            showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Terjadi kesalahan koneksi.")%>', 'bg-danger text-white');
+            btn.disabled = false;
         }
     };
 
