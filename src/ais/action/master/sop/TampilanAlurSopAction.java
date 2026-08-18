@@ -1158,7 +1158,13 @@ public class TampilanAlurSopAction extends GenericAutowireComposer {
 					}
 				}
 			} else {
-				Report.tampil(fileHasil, parameters);
+				// Admin melihat toolbar khusus: Parameter, Download/Upload JRXML, History —
+				// untuk merawat format layout laporan disposisi SOP ini tanpa keluar dari popup.
+				if (Common.getApakahAdmin()) {
+					Report.tampil(fileHasil, parameters, buatToolbarAdminLaporan(disposisiSop, parameters));
+				} else {
+					Report.tampil(fileHasil, parameters);
+				}
 			}
 
 		} catch (Exception e) {
@@ -1174,6 +1180,112 @@ public class TampilanAlurSopAction extends GenericAutowireComposer {
 		}
 
 		return fileHasil;
+	}
+
+	/**
+	 * Toolbar khusus ADMIN pada popup Laporan disposisi SOP: tombol <b>Parameter</b> (daftar seluruh
+	 * parameter yang dipakai laporan), <b>Download/Upload JRXML</b> (format layout per-SOP, penyimpanan
+	 * sama dengan menu SOP), dan <b>History</b> (info format layout yang sedang aktif). Hanya dipasang
+	 * bila {@code Common.getApakahAdmin()}.
+	 */
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	private static Toolbar buatToolbarAdminLaporan(final DisposisiSop disposisiSop, Map parameters) {
+		// Salin map: pemanggil MENG-CLEAR parameters di blok finally setelah popup tampil,
+		// sementara tombol Parameter baru dibaca saat diklik.
+		final Map paramSnapshot = new java.util.LinkedHashMap(parameters == null ? new HashMap() : parameters);
+
+		Toolbar toolbar = new Toolbar();
+		toolbar.setAlign("end");
+		toolbar.setStyle("border:0;background:transparent;padding:2px 6px;");
+
+		MyToolbarbuttonConfig btnParam = new MyToolbarbuttonConfig("Parameter", "/img/svg/search.svg");
+		btnParam.setTooltiptext("Lihat seluruh parameter yang dipakai laporan ini");
+		btnParam.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				MyWindow win = new MyWindow("Parameter Laporan", "none", true);
+				win.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
+				win.setWidth("700px");
+				win.setHeight("70%");
+
+				MyGrid grid = new MyGrid();
+				grid.setWidth("100%");
+				grid.setHeight("100%");
+				grid.setParent(win);
+
+				Columns columns = new Columns();
+				columns.setParent(grid);
+				MyColumnConfig col = new MyColumnConfig();
+				col.setLabel("Parameter");
+				col.setWidth("35%");
+				col.setParent(columns);
+				col = new MyColumnConfig();
+				col.setLabel("Nilai");
+				col.setParent(columns);
+
+				Rows rows = new Rows();
+				rows.setParent(grid);
+				for (Object key : paramSnapshot.keySet()) {
+					Object val = paramSnapshot.get(key);
+					String teks = val == null ? "" : String.valueOf(val);
+					if (teks.length() > 300) {
+						teks = teks.substring(0, 300) + "...";
+					}
+					Row row = new Row();
+					row.setParent(rows);
+					row.appendChild(new MyLabelConfig(String.valueOf(key)));
+					row.appendChild(new Label(teks));
+				}
+
+				win.setVisible(true);
+				win.onModal();
+			}
+		});
+		toolbar.appendChild(btnParam);
+
+		MyToolbarbuttonConfig btnHistory = new MyToolbarbuttonConfig("History", "/img/jadwal.png");
+		btnHistory.setTooltiptext("Info format layout JRXML yang sedang aktif untuk SOP ini");
+		btnHistory.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				LampiranLain aktif = LampiranLain.ambil(disposisiSop.getSop().getId(),
+						LampiranLain.FILE_JRXML_LAYOUT_DISPOSISI_ALUR_SOP, true);
+				String pesan;
+				if (aktif != null && aktif.getId() != null) {
+					pesan = "Laporan ini memakai format layout JRXML KUSTOM yang diunggah untuk SOP \""
+							+ disposisiSop.getSop().getNama() + "\".\n"
+							+ "Nama file : " + (aktif.getNama() == null ? "-" : aktif.getNama()) + "\n"
+							+ "Terakhir diubah : " + (aktif.getTanggal_dirubah() == null ? "-"
+									: Common.dateFormat.get().format(aktif.getTanggal_dirubah())) + "\n"
+							+ "Oleh : " + (aktif.getOleh() == null || aktif.getOleh().trim().isEmpty()
+									? (aktif.getOlehId() == null ? "-" : aktif.getOlehId()) : aktif.getOleh());
+				} else {
+					pesan = "Laporan ini memakai format layout BAWAAN sistem (report/disposisi_sop.jrxml). "
+							+ "Belum ada file JRXML kustom yang diunggah untuk SOP \""
+							+ disposisiSop.getSop().getNama() + "\".";
+				}
+				MyMessageboxConfig.show(pesan, "History Format Layout", MyMessageboxConfig.OK,
+						MyMessageboxConfig.INFORMATION);
+			}
+		});
+		toolbar.appendChild(btnHistory);
+
+		// Download + Upload JRXML per-SOP — widget & penyimpanan SAMA dengan menu SOP
+		// (SopAction: LampiranLain ref=sop.id jenis=FILE_JRXML_LAYOUT_DISPOSISI_ALUR_SOP),
+		// sehingga file yang diunggah dari sini langsung dipakai cetakDisposisi berikutnya.
+		LampiranLain.createDownloadUploadFileLain(toolbar, disposisiSop.getSop().getId(),
+				LampiranLain.FILE_JRXML_LAYOUT_DISPOSISI_ALUR_SOP, "File format disposisi jrxml", false,
+				new EventListener() {
+					@Override
+					public void onEvent(Event arg0) throws Exception {
+						MyMessageboxConfig.show(
+								"File format JRXML tersimpan. Tutup lalu buka kembali laporan ini untuk melihat "
+										+ "hasil dengan format baru.",
+								"Pemberitahuan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+					}
+				}, null, false, false, false, true);
+
+		return toolbar;
 	}
 
 	@SuppressWarnings({ "unchecked", "deprecation" })
