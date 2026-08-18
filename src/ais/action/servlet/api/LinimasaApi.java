@@ -69,8 +69,31 @@ import ais.ui.util.SmartDateTimeUtil;
 import ais.ui.util.WaktuUtil;
 
 public class LinimasaApi {
-	private static Map<String, TreeMap<String, Long>> mapsLinimasa = new HashMap<String, TreeMap<String, Long>>();
-	private static Map<String, PagingApi> mapsPaging = new HashMap<String, PagingApi>();
+	// LRU BER-BATAS (bukan HashMap polos): key per token API mobile dan entri tidak
+	// pernah dihapus — sebelumnya tumbuh monoton seumur JVM (optimasi RAM Fase 1).
+	// Eviksi entri tertua hanya berarti posisi linimasa dihitung ulang saat akses
+	// berikutnya. Juga aman dari race (synchronizedMap).
+	private static Map<String, TreeMap<String, Long>> mapsLinimasa = java.util.Collections
+			.synchronizedMap(new java.util.LinkedHashMap<String, TreeMap<String, Long>>(16, 0.75f, true) {
+				private static final long serialVersionUID = 1L;
+
+				@Override
+				protected boolean removeEldestEntry(java.util.Map.Entry<String, TreeMap<String, Long>> eldest) {
+					return size() > 1000;
+				}
+			});
+	// LRU BER-BATAS (bukan HashMap polos): state paging per token API mobile, di-put di
+	// 7 titik tanpa pernah dihapus — sebelumnya tumbuh monoton seumur JVM (optimasi RAM
+	// Fase 1). Eviksi entri tertua hanya berarti paging dimulai ulang dari awal.
+	private static Map<String, PagingApi> mapsPaging = java.util.Collections
+			.synchronizedMap(new java.util.LinkedHashMap<String, PagingApi>(16, 0.75f, true) {
+				private static final long serialVersionUID = 1L;
+
+				@Override
+				protected boolean removeEldestEntry(java.util.Map.Entry<String, PagingApi> eldest) {
+					return size() > 1000;
+				}
+			});
 
 	/**
 	 * Baca attribute PagingApi sebagai int. Di jalur API, objek {@link PagingApi} hanya dipakai sebagai WADAH

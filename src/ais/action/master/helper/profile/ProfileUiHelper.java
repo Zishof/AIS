@@ -123,7 +123,13 @@ public final class ProfileUiHelper {
 	 *              {@code false} untuk menampilkan seperti biasa
 	 */
 	public static void setSembunyikanPegawai(boolean nilai) {
-		sembunyikanPegawai.set(Boolean.valueOf(nilai));
+		if (nilai) {
+			sembunyikanPegawai.set(Boolean.TRUE);
+		} else {
+			// remove() alih-alih set(false): entri ThreadLocal ikut dilepas dari worker
+			// thread (pembacanya memakai Boolean.TRUE.equals sehingga semantik identik).
+			sembunyikanPegawai.remove();
+		}
 	}
 
 	/**

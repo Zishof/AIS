@@ -120,7 +120,7 @@ public class ErrorAuditUtil {
             RECORDING.set(Boolean.TRUE);
             return recordGuarded(throwable, info, request);
         } finally {
-            RECORDING.set(null);
+            RECORDING.remove();
         }
     }
 
@@ -179,6 +179,16 @@ public class ErrorAuditUtil {
 
     public static ErrorAuditResult getLastResult() {
         return LAST_RESULT.get();
+    }
+
+    /**
+     * Melepas hasil audit terakhir dari worker thread saat ini. Dipanggil terpusat di
+     * {@code finally} FilterJSP pada akhir setiap request — tanpa ini, setiap worker
+     * thread Tomcat menahan {@code ErrorAuditResult} terakhirnya (content bisa sampai
+     * {@link #DEFAULT_MAX_CONTENT_LENGTH} karakter) selama hidup thread.
+     */
+    public static void clearLastResult() {
+        LAST_RESULT.remove();
     }
 
     /**

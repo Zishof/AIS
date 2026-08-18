@@ -233,7 +233,19 @@ public class UserOnlineCounter extends TimerTask {
 
 	private long index = 0L;
 
-	public static Map<String, TanyaJawab> mapTanyaJawab = new HashMap<String, TanyaJawab>();
+	// LRU BER-BATAS (bukan HashMap polos): key = nomor WhatsApp masuk dan entri tidak
+	// pernah dihapus — sebelumnya tumbuh monoton per nomor distinct seumur JVM
+	// (optimasi RAM Fase 1). 2000 percakapan aktif terakhir dipertahankan; nomor lama
+	// yang tersingkir memulai alur tanya-jawab dari awal.
+	public static Map<String, TanyaJawab> mapTanyaJawab = java.util.Collections
+			.synchronizedMap(new java.util.LinkedHashMap<String, TanyaJawab>(16, 0.75f, true) {
+				private static final long serialVersionUID = 1L;
+
+				@Override
+				protected boolean removeEldestEntry(java.util.Map.Entry<String, TanyaJawab> eldest) {
+					return size() > 2000;
+				}
+			});
 
 	private void chekWarmingUp() {
 		try {

@@ -126,6 +126,13 @@ public class FilterJSP implements Filter {
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/FilterJSP.java:109");
 			}
 
+			// Lepas hasil audit error terakhir milik thread ini (bisa berisi content besar).
+			try {
+				ais.common.ErrorAuditUtil.clearLastResult();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+
 			// Cleanup Context
 			RequestContext.remove();
 			ResponseContext.remove();

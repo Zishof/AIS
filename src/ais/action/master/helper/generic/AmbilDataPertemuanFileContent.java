@@ -1320,7 +1320,18 @@ public class AmbilDataPertemuanFileContent extends MyWindow {
 		return relativeLocation;
 	}
 
-	public static Map<String, File> mapFileUpload = new HashMap<String, File>();
+	// LRU BER-BATAS (bukan HashMap polos): entri diisi DoUpload per file konten dan
+	// tidak pernah dihapus — sebelumnya tumbuh monoton seumur JVM (optimasi RAM Fase 1).
+	// Value hanya handle java.io.File (ringan); 1000 file terbaru dipertahankan.
+	public static Map<String, File> mapFileUpload = java.util.Collections
+			.synchronizedMap(new java.util.LinkedHashMap<String, File>(16, 0.75f, true) {
+				private static final long serialVersionUID = 1L;
+
+				@Override
+				protected boolean removeEldestEntry(java.util.Map.Entry<String, File> eldest) {
+					return size() > 1000;
+				}
+			});
 
 	public static MyToolbarbuttonConfig createScorm(final Pertemuan pertemuan,
 			final KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah,

@@ -37,6 +37,37 @@ public class EntityIdentityMap {
     private static final ConcurrentHashMap<String, WeakReference<Object>> REGISTRY =
             new ConcurrentHashMap<String, WeakReference<Object>>();
 
+    // ReferenceQueue untuk me-reap entry yang referent-nya sudah di-GC (optimasi RAM Fase 1).
+    // Tanpa ini, value memang weak tapi KEY String + wrapper WeakReference tetap strong dan
+    // tidak pernah dihapus → registry tumbuh permanen ±100 byte per entity yang pernah
+    // dikanonikalisasi sekali lalu tidak diakses lagi.
+    private static final java.lang.ref.ReferenceQueue<Object> QUEUE =
+            new java.lang.ref.ReferenceQueue<Object>();
+
+    /** WeakReference yang mengingat key registry-nya sendiri agar bisa di-reap dari QUEUE. */
+    private static final class KeyedWeakReference extends WeakReference<Object> {
+        private final String kunci;
+
+        KeyedWeakReference(String kunci, Object referent, java.lang.ref.ReferenceQueue<Object> queue) {
+            super(referent, queue);
+            this.kunci = kunci;
+        }
+    }
+
+    /**
+     * Buang entry yang referent-nya sudah di-GC. Murah (poll non-blocking), dipanggil di
+     * awal setiap operasi publik. remove(key, value) dua-argumen menjamin canonical BARU
+     * dengan key sama tidak ikut terhapus.
+     */
+    private static void reapStaleEntries() {
+        java.lang.ref.Reference<?> ref;
+        while ((ref = QUEUE.poll()) != null) {
+            if (ref instanceof KeyedWeakReference) {
+                REGISTRY.remove(((KeyedWeakReference) ref).kunci, ref);
+            }
+        }
+    }
+
     // ── public API ────────────────────────────────────────────────────────────
 
     /**
@@ -82,6 +113,8 @@ public class EntityIdentityMap {
         Long id = fresh.getId();
         if (id == null) return fresh;
 
+        reapStaleEntries();
+
         String key = keyForObject(fresh, id);
 
         WeakReference<Object> existingRef = REGISTRY.get(key);
@@ -89,7 +122,7 @@ public class EntityIdentityMap {
 
         if (existing == null || existing == fresh) {
             // Tidak ada canonical atau sudah GC — fresh menjadi canonical baru
-            REGISTRY.put(key, new WeakReference<Object>(fresh));
+            REGISTRY.put(key, new KeyedWeakReference(key, fresh, QUEUE));
             return fresh;
         }
 
@@ -105,6 +138,7 @@ public class EntityIdentityMap {
     @SuppressWarnings("unchecked")
     public static <T extends GeneralValueObject> T get(Class<T> clazz, Long id) {
         if (id == null) return null;
+        reapStaleEntries();
         WeakReference<Object> ref = REGISTRY.get(key(clazz, id));
         return ref == null ? null : (T) ref.get();
     }
@@ -113,6 +147,7 @@ public class EntityIdentityMap {
      * Hapus entry dari registry (setelah entity dihapus dari DB).
      */
     public static void evict(Class<? extends GeneralValueObject> clazz, Long id) {
+        reapStaleEntries();
         if (id != null) REGISTRY.remove(key(clazz, id));
     }
 
