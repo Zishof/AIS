@@ -476,6 +476,11 @@ public class LinimasaApi {
 				jsonObject.put("boleh_upload", !readonly && upload);
 				jsonObject.put("ubah_nilai", !peserta);
 
+				// §13.7: epoch mentah agar klien dapat menandai keterlambatan
+				// tanpa mengurai string tanggal berformat lokal.
+				if (tgs.getUploadDate() != null) {
+					jsonObject.put("tgl_upload_epoch", tgs.getUploadDate().getTime());
+				}
 				jsonObject.put("tgl_upload",
 						tgs.getUploadDate() == null ? ""
 								: SmartDateTimeUtil.getDayString(tgs.getUploadDate(), null)
@@ -512,6 +517,9 @@ public class LinimasaApi {
 				(tugas.getMulai() == null ? "(tidak ada waktu mulai)"
 						: (SmartDateTimeUtil.getDayString(tugas.getMulai(), null)
 								+ Common.dateFormat5.get().format(tugas.getMulai()))));
+		if (tugas.getSelesai() != null) {
+			jsonObjectTugas.put("selesai_epoch", tugas.getSelesai().getTime());
+		}
 		jsonObjectTugas.put("sampai",
 				(tugas.getSelesai() == null ? "(tidak ada waktu selesai)"
 						: (SmartDateTimeUtil.getDayString(tugas.getSelesai(), null)

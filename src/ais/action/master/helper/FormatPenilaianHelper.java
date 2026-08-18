@@ -223,6 +223,19 @@ public class FormatPenilaianHelper {
 				if (!argRps.containsKey("mk") && perkuliahan.getMatakuliah() != null) {
 					argRps.put("mk", String.valueOf(perkuliahan.getMatakuliah().getId()));
 				}
+				// KE-FIX (UiException "Not unique in ID space <MyWindow addWindow>: window"):
+				// rps_obe.zul mendeklarasikan root <window id="window">. Bila tombol "Format Nilai"
+				// terklik dobel (race dua request onClick beruntun) sebelum Common.clear(window) di
+				// atas benar-benar melepas hasil createComponents sebelumnya, percobaan kedua
+				// menambah anak ber-id "window" yang sama ke idspace "window" (addWindow) ini dan
+				// meledak. Jaga idempoten: lepas fellow "window" lama (jika masih ada) sebelum
+				// membuat yang baru, alih-alih mengandalkan clear() saja.
+				if (window instanceof org.zkoss.zk.ui.IdSpace) {
+					org.zkoss.zk.ui.Component existing = ((org.zkoss.zk.ui.IdSpace) window).getFellowIfAny("window");
+					if (existing != null) {
+						existing.detach();
+					}
+				}
 				org.zkoss.zk.ui.Executions.createComponents(
 						"/WEB-INF/z/x/y/pages/master/rps_obe.zul", window, argRps);
 				try {
