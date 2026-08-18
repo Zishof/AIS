@@ -869,7 +869,7 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 							urls.add(statuskehadiranKaryawanHarian.getLokasiAbsenDatang());
 						}
 						if (!statuskehadiranKaryawanHarian.getFotoAbsenDatang().isEmpty()) {
-							urls.add(statuskehadiranKaryawanHarian.getFotoAbsenDatang());
+							urls.add(toRelativeFotoUrl(statuskehadiranKaryawanHarian.getFotoAbsenDatang()));
 						}
 
 						List<String> urlsPulang = new ArrayList<String>();
@@ -877,7 +877,7 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 							urlsPulang.add(statuskehadiranKaryawanHarian.getLokasiAbsenPulang());
 						}
 						if (!statuskehadiranKaryawanHarian.getFotoAbsenPulang().isEmpty()) {
-							urlsPulang.add(statuskehadiranKaryawanHarian.getFotoAbsenPulang());
+							urlsPulang.add(toRelativeFotoUrl(statuskehadiranKaryawanHarian.getFotoAbsenPulang()));
 						}
 
 						String sebelumnya = statuskehadiranKaryawanHarian.retreive("sejarah");
@@ -911,7 +911,7 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 											"<iframe style=\"width:100%;height:200px\" frameborder=\"0\" scrolling=\"no\" marginheight=\"0\"  marginwidth=\"0\" src=\""
 													+ u + "&amp;output=embed\"></iframe>");
 									box.appendChild(myHtml);
-								} else if (u.contains("download")) {
+								} else if (u.contains("download") || u.contains("/al?d=")) {
 									MyHtml myHtml = new MyHtml("<a onclick=\"popupCenter({url: '" + u
 											+ "', title: 'Foto', w: 1200, h: 600});\" ><image style=\"height:200px;\" src=\""
 											+ u + "\"></image></a>");
@@ -934,7 +934,7 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 											"<iframe style=\"width:100%;height:200px\" frameborder=\"0\" scrolling=\"no\" marginheight=\"0\"  marginwidth=\"0\" src=\""
 													+ u + "&amp;output=embed\"></iframe>");
 									box.appendChild(myHtml);
-								} else if (u.contains("download")) {
+								} else if (u.contains("download") || u.contains("/al?d=")) {
 									MyHtml myHtml = new MyHtml("<a onclick=\"popupCenter({url: '" + u
 											+ "', title: 'Foto', w: 1200, h: 600});\" ><image style=\"height:200px;\" src=\""
 											+ u + "\"></image></a>");
@@ -1613,5 +1613,14 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 			}
 		});
 
+	}
+
+	/** Strip protocol+host dari URL foto lokal (/al?d=) agar tetap bekerja saat IP server berubah. */
+	private static String toRelativeFotoUrl(String url) {
+		if (url == null || url.isEmpty()) return url;
+		if (!url.startsWith("http")) return url;
+		int idx = url.indexOf("/al?d=");
+		if (idx >= 0) return url.substring(idx);
+		return url;
 	}
 }

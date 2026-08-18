@@ -295,7 +295,7 @@ public class ScanBerhasilAction extends GenericAutowireComposer {
 					FileFotoLain a = FileFotoLain.createFileFotoLain(tbmuser, session, LampiranLain.class, usingId, ref,
 							LampiranLain.ABSEN_ONLINE, null, target, null);
 
-					String urlFoto = a.createLinkUri(false);
+					String urlFoto = a.createLinkUri(true);
 					proses(pertemuan, mahasiswa, dosen, siswa, guru, biodataCalonMahasiswa, pegawai, pert, urlFoto,
 							urlFoto, lat, lng, http, asli, a.getId(), rand, keterangan, a, stateAbsen);
 
@@ -438,7 +438,7 @@ public class ScanBerhasilAction extends GenericAutowireComposer {
 					FileFotoLain a = FileFotoLain.createFileFotoLain(tbmuser, session, LampiranLain.class, usingId, ref,
 							LampiranLain.ABSEN_ONLINE, null, target, null);
 
-					String urlFoto = a.createLinkUri(false);
+					String urlFoto = a.createLinkUri(true);
 					proses(pertemuan, mahasiswa, dosen, siswa, guru, biodataCalonMahasiswa, pegawai, pert, urlFoto,
 							urlFoto, lat, lng, http, asli, a.getId(), rand, keterangan, a, stateAbsen);
 
@@ -540,7 +540,7 @@ public class ScanBerhasilAction extends GenericAutowireComposer {
 						FileFotoLain a = FileFotoLain.createFileFotoLain(tbmuser, session, LampiranLain.class, usingId,
 								ref, LampiranLain.ABSEN_ONLINE, null, target, null);
 
-						String urlFoto = a.createLinkUri(false);
+						String urlFoto = a.createLinkUri(true);
 						proses(pertemuan, mahasiswa, dosen, siswa, guru, biodataCalonMahasiswa, pegawai, pert, urlFoto,
 								urlFoto, lat, lng, http, asli, a.getId(), rand, keterangan, a, stateAbsen);
 

@@ -23,6 +23,19 @@
 <%
     try { out.clear(); out.clearBuffer(); } catch (Exception ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) webapp/WEB-INF/baru/modul/presensi/_service_presensi_harian.jsp:24");}
     response.setContentType("application/json"); response.setCharacterEncoding("UTF-8");
+%><%!
+    /** Konversi URL foto absolut ke relatif agar tidak rusak saat IP/host server berubah.
+     *  Hanya memproses URL /al?d= (endpoint lampiran lokal); Google Drive dll dibiarkan. */
+    private static String toRelativeFotoUrl(String url) {
+        if (url == null || url.isEmpty()) return url;
+        if (!url.startsWith("http")) return url;
+        int idx = url.indexOf("/al?d=");
+        if (idx >= 0) return url.substring(idx); // "/al?d=..."
+        idx = url.indexOf("/ais/al?d=");
+        if (idx >= 0) return url.substring(idx);
+        return url;
+    }
+%><%
     
     Tbmuser currentUser = Common.getCurrentUser(request);
     if (currentUser == null) { 
@@ -206,7 +219,7 @@
                 datang.put("status", Common.getBahasaConfig("Tepat Waktu"));
                 datang.put("css", "text-success");
             }
-            datang.put("foto", sk.getFotoAbsenDatang());
+            datang.put("foto", toRelativeFotoUrl(sk.getFotoAbsenDatang()));
             datang.put("lokasi", sk.getLokasiAbsenDatang());
 
             JSONObject pulang = new JSONObject();
@@ -223,7 +236,7 @@
                     pulang.put("css", "text-info");
                 }
             }
-            pulang.put("foto", sk.getFotoAbsenPulang());
+            pulang.put("foto", toRelativeFotoUrl(sk.getFotoAbsenPulang()));
             pulang.put("lokasi", sk.getLokasiAbsenPulang());
 
             obj.put("nama", nama);
