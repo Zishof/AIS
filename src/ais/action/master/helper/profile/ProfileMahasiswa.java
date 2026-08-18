@@ -424,6 +424,65 @@ public class ProfileMahasiswa {
 						krsMahasiswa.getSemesterPendek(), krsMahasiswa, false)
 				+ "</div>"));
 
+		// Penjelasan otomatis ke mahasiswa saat status Nonaktif (permintaan user 2026-08-18):
+		// mahasiswa berulang kali tanya-tanya alasan Nonaktif ke admin padahal penyebabnya
+		// sudah bisa dijelaskan sistem sendiri -- tagihan syarat-keaktifan (JenisKegiatan dgn
+		// checkbox "Digunakan sebagai syarat untuk mengaktifkan status mahasiswa") semester ini
+		// belum lunas. HANYA tampil kalau memang itu penyebabnya (dicek per-item, bukan cuma
+		// "status != Aktif") supaya TIDAK menyesatkan mahasiswa yang Nonaktif krn alasan lain
+		// (cuti/DO/dsb) dengan pesan seolah2 soal tagihan.
+		try {
+			ais.database.model.HistoryStatusMahasiswa statusSaatIni = ais.action.master.helper.HistoryStatusMahasiswaUtil
+					.currentStatus(krsMahasiswa, false);
+			boolean statusAktif = statusSaatIni != null && statusSaatIni.getStatusMahasiswa() != null
+					&& ais.common.ConstantValues.AKTIF != null && ais.common.ConstantValues.AKTIF.getId() != null
+					&& ais.common.ConstantValues.AKTIF.getId().equals(statusSaatIni.getStatusMahasiswa().getId());
+
+			if (!statusAktif) {
+				if (ais.common.CommonHelperClass.jenisKegiatansUntukSyaratAktif == null) {
+					try {
+						ais.common.CommonHelperClass.reloadJenisKegiatans();
+					} catch (Exception eReload) {
+						ais.common.ErrorAuditUtil.record(eReload,
+								"auto-audit(empty-catch) ProfileMahasiswa penjelasan nonaktif: reloadJenisKegiatans");
+					}
+				}
+				List<String> belumLunas = new ArrayList<String>();
+				if (ais.common.CommonHelperClass.jenisKegiatansUntukSyaratAktif != null) {
+					for (ais.database.model.JenisKegiatan jk : ais.common.CommonHelperClass.jenisKegiatansUntukSyaratAktif) {
+						ais.database.model.Kegiatan keg = mahasiswa.ambilKegiatans(krsMahasiswa.getSemester(), jk);
+						if (keg == null || keg.getAmountTerhutang() == null || keg.getAmountTerhutang() > 0.1) {
+							belumLunas.add(jk.getNamaKegiatan());
+						}
+					}
+				}
+				if (!belumLunas.isEmpty()) {
+					StringBuilder daftarBelumLunas = new StringBuilder();
+					for (int i = 0; i < belumLunas.size(); i++) {
+						if (i > 0) {
+							daftarBelumLunas.append(", ");
+						}
+						daftarBelumLunas.append(ProfileUiHelper.esc(belumLunas.get(i)));
+					}
+					String pesanNonaktif = "<div style=\"padding:10px;background-color:#fef9c3;border-radius:8px;"
+							+ "border:1px solid #fde68a;color:#854d0e;margin-top:5px;line-height:1.5;\">"
+							+ "<b>&#9888; Status Anda saat ini Nonaktif</b><br>"
+							+ "Penyebabnya: tagihan wajib berikut untuk semester ini belum lunas &mdash; <b>"
+							+ daftarBelumLunas + "</b>.<br>Status akan <b>otomatis kembali Aktif dengan "
+							+ "sendirinya</b> begitu tagihan tersebut lunas (dibayar penuh maupun lewat skema "
+							+ "cicilan yang tersedia) &mdash; tidak perlu menghubungi admin untuk mengubah status "
+							+ "secara manual. Setelah membayar, tekan tombol \"Refresh Status &amp; Tagihan\" di "
+							+ "bawah untuk melihat status terbaru.</div>";
+					row = new MyRowStyled();
+					row.setParent(rows);
+					ais.ui.util.ZkCompat.setSpans(row, "2");
+					row.appendChild(new ais.ui.util.MyHtml(pesanNonaktif));
+				}
+			}
+		} catch (Exception eJelaskan) {
+			ais.common.ErrorAuditUtil.record(eJelaskan, "auto-audit(empty-catch) ProfileMahasiswa penjelasan nonaktif");
+		}
+
 		// Tombol refresh mandiri utk mahasiswa (permintaan user 2026-08-06, kasus ICHLAS
 		// NUR A'MAL/UIN Bukittinggi, status tetap Nonaktif walau sudah bayar): status
 		// Aktif/Non-Aktif & tagihan Kegiatan HANYA dihitung ulang saat ada aksi refresh=true
