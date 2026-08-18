@@ -269,6 +269,88 @@ public class LabelBahasaAction extends GenericAutowireComposer implements DataCr
 			}
 		});
 		Common.appendKeToolbar(hapusTakBermakna, add, comp);
+
+		// Tombol "Reset" — mengembalikan Bahasa Indonesia/English/Arab baris SESUAI FILTER ke nilai
+		// BAHASA DEFAULT dari file seed (WEB-INF/DEFAULT_*.conf). Kolom yang tidak punya nilai default
+		// di seed dikosongkan (Mandarin selalu dikosongkan karena tidak ada seed-nya), sehingga label
+		// kembali ke kondisi bawaan sebelum disunting/diterjemahkan.
+		MyToolbarbuttonConfig resetDefault = new MyToolbarbuttonConfig("Reset", "/img/svg/refresh.svg");
+		resetDefault.setTooltiptext("Kembalikan teks Bahasa Indonesia/English/Arab baris sesuai filter ke nilai "
+				+ "BAHASA DEFAULT bawaan sistem (file seed). Suntingan/terjemahan manual pada baris tersebut akan "
+				+ "ditimpa nilai default.");
+		resetDefault.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				onResetKeDefault(arg0);
+			}
+		});
+		Common.appendKeToolbar(resetDefault, add, comp);
+	}
+
+	/**
+	 * <b>Reset</b>: kembalikan seluruh baris sesuai filter ke nilai <i>bahasa default</i> dari file seed
+	 * ({@link ais.common.DefaultBahasaSeed}). Key yang tidak ada di seed dikembalikan ke kondisi belum
+	 * diterjemahkan (English/Arab/Mandarin dikosongkan, Indonesia dibiarkan). Hasil disimpan ke DB dan
+	 * cache memori, lalu grid disegarkan.
+	 */
+	@SuppressWarnings("unchecked")
+	public void onResetKeDefault(final Event event) throws Exception {
+		MyMessageboxConfig.show(
+				"Proses \"Reset\" akan MENGEMBALIKAN teks label untuk seluruh baris sesuai filter ke nilai "
+						+ "BAHASA DEFAULT bawaan sistem. Suntingan dan terjemahan manual pada baris tersebut akan "
+						+ "DITIMPA nilai default (kolom tanpa nilai default akan dikosongkan). Lanjutkan?",
+				"Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
+				new EventListener() {
+					@Override
+					public void onEvent(Event e) throws Exception {
+						if (Integer.parseInt(e.getData().toString()) != MyMessageboxConfig.OK) {
+							return;
+						}
+						Common.createDefaultTimer(new EventListener() {
+							@Override
+							public void onEvent(Event arg0) throws Exception {
+								jalankanResetKeDefault();
+							}
+						}, "Harap tunggu.. sedang mengembalikan label ke bahasa default..");
+					}
+				});
+	}
+
+	private void jalankanResetKeDefault() throws Exception {
+		Session session = HibernateUtil.currentSession(); // dikelola ZK, JANGAN ditutup manual
+		List<LabelBahasa> daftar = initCriteria(true).list();
+		int diproses = 0;
+		for (LabelBahasa lb : daftar) {
+			try {
+				if (lb == null || lb.getNama() == null) {
+					continue;
+				}
+				String defIndonesia = ais.common.DefaultBahasaSeed.getIndonesia(lb.getNama());
+				String defEnglish = ais.common.DefaultBahasaSeed.getEnglish(lb.getNama());
+				String defArab = ais.common.DefaultBahasaSeed.getArab(lb.getNama());
+
+				if (defIndonesia != null && !defIndonesia.trim().isEmpty()) {
+					lb.setIndonesia(defIndonesia);
+				}
+				lb.setEnglish(defEnglish == null ? "" : defEnglish);
+				lb.setArab(defArab == null ? "" : defArab);
+				lb.setMandarin(""); // tidak ada seed default Mandarin
+
+				Common.refreshUpdate(session, lb);
+
+				MemoryDbUtil.getBahasaIndonesias().put(lb.getNama(), lb.getIndonesia());
+				MemoryDbUtil.getBahasaEnglishs().put(lb.getNama(), lb.getEnglish());
+				MemoryDbUtil.getBahasaArabs().put(lb.getNama(), lb.getArab());
+				MemoryDbUtil.getBahasaMandarins().put(lb.getNama(), lb.getMandarin());
+				diproses++;
+			} catch (Exception ex) {
+				Common.tampilErrorJikaAdmin(ex);
+			}
+		}
+		onSearchDefault(null);
+		MyMessageboxConfig.show(
+				Common.pesan("Reset ke bahasa default selesai. {V1} baris dikembalikan ke nilai default.", diproses),
+				"Pemberitahuan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
 	}
 
 	/** Konfirmasi lalu jalankan hapus label tak bermakna (berbantuan Ollama, paralel + progres). */

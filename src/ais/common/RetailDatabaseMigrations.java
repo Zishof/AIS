@@ -148,6 +148,91 @@ public final class RetailDatabaseMigrations {
 		}
 	}
 
+	/**
+	 * Deteksi (bukan perbaiki) skema database yang TIDAK bisa diakses user DB tenant saat ini.
+	 * Akar masalah produksi /albahjah: user DB tenant tidak punya GRANT pada schema "rab" (POS
+	 * login gagal simpan LogLogin) maupun "library" (RepositorySyncScheduler gagal baca modul
+	 * Perpustakaan). Memberi GRANT butuh privilege owner/superuser yang TIDAK dimiliki koneksi
+	 * aplikasi ini, jadi kelas ini hanya MENDETEKSI lewat has_schema_privilege() lalu mencatat
+	 * peringatan berisi perintah GRANT yang harus dijalankan manual oleh DBA. Dipanggil sekali
+	 * saat startup (lihat AppStartupListener), gagal-aman: exception apa pun di sini TIDAK BOLEH
+	 * menggagalkan startup aplikasi.
+	 */
+	public static void checkSchemaPrivileges() {
+		String[] schemas = { "rab", "library" };
+		Session session = null;
+		try {
+			session = HibernateUtil.getSessionFactory().openSession();
+			Connection connection = session.connection();
+			List<String> kurangAkses = new ArrayList<String>();
+			for (String schema : schemas) {
+				try {
+					PreparedStatement ps = connection
+							.prepareStatement("SELECT has_schema_privilege(current_user, ?, 'USAGE')");
+					try {
+						ps.setString(1, schema);
+						ResultSet rs = ps.executeQuery();
+						try {
+							if (rs.next() && !rs.getBoolean(1)) {
+								kurangAkses.add(schema);
+							}
+						} finally {
+							rs.close();
+						}
+					} finally {
+						ps.close();
+					}
+				} catch (Exception exSchema) {
+					// Query cek privilege sendiri gagal (mis. schema tidak ada sama sekali) --
+					// jangan sampai menggagalkan pengecekan schema lain.
+					ErrorAuditUtil.record(exSchema,
+							"RetailDatabaseMigrations.checkSchemaPrivileges:cek-schema-" + schema);
+				}
+			}
+			if (!kurangAkses.isEmpty()) {
+				String daftarSchema = joinComma(kurangAkses);
+				String pesan = "[PERINGATAN DBA] User database aplikasi TIDAK punya hak akses (USAGE) pada schema: "
+						+ daftarSchema + ". Ini akan membuat operasi yang menyentuh schema tsb gagal dengan"
+						+ " \"permission denied for schema " + kurangAkses.get(0) + "\" (aplikasi sudah menangani ini"
+						+ " secara best-effort agar login/scheduler tidak berhenti, tetapi data terkait schema"
+						+ " tsb TIDAK akan tersinkron/tercatat). Jalankan sebagai superuser/owner database:\n"
+						+ "GRANT USAGE ON SCHEMA " + daftarSchema + " TO " + currentDbUser(connection) + ";\n"
+						+ "GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA " + daftarSchema + " TO "
+						+ currentDbUser(connection) + ";\n"
+						+ "ALTER DEFAULT PRIVILEGES IN SCHEMA " + daftarSchema + " GRANT SELECT,INSERT,UPDATE,DELETE ON TABLES TO "
+						+ currentDbUser(connection) + ";";
+				System.err.println(pesan);
+				ErrorAuditUtil.record(null, pesan);
+			}
+		} catch (Throwable t) {
+			ErrorAuditUtil.record(t, "RetailDatabaseMigrations.checkSchemaPrivileges");
+		} finally {
+			if (session != null) {
+				try {
+					session.close();
+				} catch (Throwable ignored) {
+				}
+			}
+		}
+	}
+
+	private static String currentDbUser(Connection connection) {
+		try {
+			return connection.getMetaData().getUserName();
+		} catch (Throwable ignored) {
+			return "<user>";
+		}
+	}
+
+	private static String joinComma(List<String> values) {
+		StringBuilder sb = new StringBuilder();
+		for (int i = 0; i < values.size(); i++) {
+			if (i > 0) sb.append(", ");
+			sb.append(values.get(i));
+		}
+		return sb.toString();
+	}
+
 	private static String sha256(String value) throws Exception {
 		byte[] digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(Charset.forName("UTF-8")));
 		StringBuilder result = new StringBuilder();

@@ -74,7 +74,13 @@ public class AfiliasiCalonMahasiswaKeMahasiswaAction extends GenericAutowireComp
 			"beratBadan", "teleponRumah", "suratIzinMengemudi", "kendaraanKuliah", "pernahMemimpinOrganisasi",
 			"namaOrganisasi", "hobi", "minatSeni", "kemampuanBahasa1", "kemampuanBahasa2", "kemampuanBahasa3",
 			"asalSma", "alamatAsalSma", "asalSmp", "alamatAsalSmp", "asalSd", "alamatAsalSd", "golonganDarah",
-			"statusNikah", "jenisKuliah", "statusPembayaran", "nim", "mahasiswa", "merupakanPindahan",
+			// CATATAN: "jenisKuliah" bukan properti Hibernate BiodataCalonMahasiswa
+			// (nilainya sebenarnya berasal dari getProgram()) -- memicu QueryException
+			// "could not resolve property: jenisKuliah" (tertangkap & dilewati, tapi
+			// jadi noise di audit tiap upload). Dialihkan ke "program" yang sudah ada
+			// lebih dulu di array ini sehingga otomatis dilewati aman via dedup
+			// colomSudahMasuk; posisi kolom Excel tidak berubah.
+			"statusNikah", "program", "statusPembayaran", "nim", "mahasiswa", "merupakanPindahan",
 			"pindahanDariKampus", "pindahanDariProdi", "nimLamaSebelumPindah", "pindahDariKampusLamaDiSemester",
 			"tanggalPindah", "keteranganPindah", "infoKampusDariMana", "namaTemanInfoKampusDariMana",
 			"keteranganInfoKampusDariMana", "pinPassword", "parameterTambahan", "parameterTambahanInds",

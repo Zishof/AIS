@@ -28,6 +28,16 @@ import ais.database.model.Mahasiswa;
 
 public class ObjectHelper {
 
+	/**
+	 * KE-FIX (noise audit): properti Excel/form yang tidak dikenal Hibernate
+	 * memang sengaja DILEWATI dengan aman (lihat setObjectValues di bawah),
+	 * tapi sebelumnya tetap dicatat sebagai auto-audit SETIAP kali dipanggil --
+	 * bisa membanjiri log/audit kalau upload berulang (mis. QueryException
+	 * "could not resolve property: jenisKuliah" per baris Excel). Catat hanya
+	 * SEKALI per nama properti per JVM; pencatatan pertama tetap terjadi.
+	 */
+	private static final Set<String> PROPERTI_TAK_DIKENAL_SUDAH_DILAPORKAN = new HashSet<String>();
+
 	@SuppressWarnings("rawtypes")
 	public static Object getContentAsObject(String data, Class clazz, Criterion criterion) {
 		return getContentAsObject(data, clazz, criterion, true);
@@ -389,9 +399,19 @@ public class ObjectHelper {
 				// kolom yang tidak bisa dipetakan.
 				propertyType = classMetadata.getPropertyType(property);
 			} catch (Exception e) {
-				ais.common.ErrorAuditUtil.record(e,
-						"auto-audit(kolom tak dikenal Hibernate, dilewati) src/ais/common/ObjectHelper.java:363 properti="
-								+ property);
+				// Catat hanya sekali per nama properti per JVM supaya tidak membanjiri
+				// audit log saat properti yang sama dilewati berulang kali (mis. upload
+				// Excel banyak baris). synchronized karena Set ini bisa diakses paralel
+				// dari beberapa thread upload sekaligus.
+				boolean sudahDilaporkan;
+				synchronized (PROPERTI_TAK_DIKENAL_SUDAH_DILAPORKAN) {
+					sudahDilaporkan = !PROPERTI_TAK_DIKENAL_SUDAH_DILAPORKAN.add(property);
+				}
+				if (!sudahDilaporkan) {
+					ais.common.ErrorAuditUtil.record(e,
+							"auto-audit(kolom tak dikenal Hibernate, dilewati -- hanya dilaporkan sekali per properti per JVM) src/ais/common/ObjectHelper.java:363 properti="
+									+ property);
+				}
 				continue;
 			}
 

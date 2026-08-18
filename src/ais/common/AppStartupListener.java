@@ -114,6 +114,15 @@ public class AppStartupListener implements ServletContextListener {
 			// versi dicatat beserta checksum dan dilindungi advisory lock agar aman
 			// ketika beberapa node Tomcat start pada waktu yang hampir bersamaan.
 			RetailDatabaseMigrations.migrate();
+			// Deteksi (non-blocking) schema DB yang tak boleh diakses user tenant saat ini
+			// (mis. "rab"/"library" pada insiden /albahjah: permission denied for schema).
+			// Hanya mencatat peringatan berisi perintah GRANT untuk DBA -- TIDAK menggagalkan
+			// startup. Lihat RetailDatabaseMigrations.checkSchemaPrivileges().
+			try {
+				RetailDatabaseMigrations.checkSchemaPrivileges();
+			} catch (Throwable e) {
+				System.err.println("Cek privilege schema DB gagal (lanjut): " + e.getMessage());
+			}
 			// Sinkronkan lebar kolom tabel idempotensi instalasi lama sebelum API
 			// checkout mulai menerima request. Method idempoten dan tidak membuat
 			// index baru/redundan.

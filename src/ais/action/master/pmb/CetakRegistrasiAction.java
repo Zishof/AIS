@@ -222,7 +222,15 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 			"pernahMenetapDiLuarNegeri", "beratBadan", "teleponRumah", "suratIzinMengemudi", "kendaraanKuliah",
 			"pernahMemimpinOrganisasi", "namaOrganisasi", "hobi", "minatSeni", "kemampuanBahasa1", "kemampuanBahasa2",
 			"kemampuanBahasa3", "asalSma", "alamatAsalSma", "asalSmp", "alamatAsalSmp", "asalSd", "alamatAsalSd",
-			"golonganDarah", "statusNikah", "jenisKuliah", "statusPembayaran", "nim", "mahasiswa", "merupakanPindahan",
+			// CATATAN: "jenisKuliah" BUKAN properti Hibernate BiodataCalonMahasiswa
+			// (lihat DaftarUlangMahasiswaBaruAction: label "Jenis Kuliah" diisi dari
+			// getProgram()) -- sebelumnya memicu QueryException "could not resolve
+			// property: jenisKuliah" tiap upload (tertangkap & dilewati, tapi jadi
+			// noise di audit). Dialihkan ke "program" (properti asli) yang SUDAH ada
+			// lebih dulu di array ini, jadi otomatis dilewati aman lewat mekanisme
+			// dedup colomSudahMasuk di ObjectHelper.setObjectValues -- posisi kolom
+			// Excel TIDAK berubah.
+			"golonganDarah", "statusNikah", "program", "statusPembayaran", "nim", "mahasiswa", "merupakanPindahan",
 			"pindahanDariKampus", "pindahanDariProdi", "nimLamaSebelumPindah", "pindahDariKampusLamaDiSemester",
 			"tanggalPindah", "keteranganPindah", "infoKampusDariMana", "namaTemanInfoKampusDariMana",
 			"keteranganInfoKampusDariMana", "dariNamaDosenKaryawan", "pinPassword", "parameterTambahan",

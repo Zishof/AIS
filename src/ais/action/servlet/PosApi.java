@@ -2306,6 +2306,14 @@ public class PosApi extends HttpServlet {
 	private static void ikatParam(java.sql.PreparedStatement ps, int idx, Object v) throws Exception {
 		if (v instanceof Long) ps.setLong(idx, ((Long) v).longValue());
 		else if (v instanceof Integer) ps.setInt(idx, ((Integer) v).intValue());
+		// Double/Float/BigDecimal WAJIB dibind numerik (setDouble), bukan lewat cabang String di bawah --
+		// kalau lewat situ, angka spt 5000.0 terkirim sbg VARCHAR dan PostgreSQL menolak dgn error
+		// "operator does not exist: double precision >= character varying" (lihat totalMinimal/
+		// totalMaksimal/qtyMinimal/qtyMaksimal di daftarOrderDenganSesi -- keduanya dikirim ke sini
+		// sbg Double.valueOf(...), jadi HARUS tertangkap di cabang ini, bukan jatuh ke setString()).
+		else if (v instanceof java.math.BigDecimal) ps.setBigDecimal(idx, (java.math.BigDecimal) v);
+		else if (v instanceof Double) ps.setDouble(idx, ((Double) v).doubleValue());
+		else if (v instanceof Float) ps.setDouble(idx, ((Float) v).doubleValue());
 		else if (v instanceof java.util.Date) ps.setDate(idx, new java.sql.Date(((java.util.Date) v).getTime()));
 		else {
 			String s = String.valueOf(v);

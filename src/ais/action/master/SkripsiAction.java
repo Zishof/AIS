@@ -5087,6 +5087,24 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 						Restrictions.eq("formatNilaiProposalSkripsi.formatNilaiSkripsi", formatNilaiSkripsi)))
 				.setMaxResults(1).uniqueResult();
 
+		// FIX WrongValueException "You must specify a date. Format: dd-MM-yyyy":
+		// Datebox.getValue() melempar exception mentah bila teks yang diketik pengguna
+		// tak bisa di-parse sbg tanggal. Baca SEMUA nilai Datebox di sini -- SEBELUM
+		// entity skripsi (managed, hasil session.load di bawah) disentuh -- agar bila
+		// gagal kita bisa return false tanpa meninggalkan field lama tertimpa/dirty.
+		java.util.Date tanggalSidangVal, tglSkVal, awalBimbinganVal, akhirBimbinganVal;
+		try {
+			tanggalSidangVal = tanggalSidang.getValue();
+			tglSkVal = tglSk.getValue();
+			awalBimbinganVal = awalBimbingan.getValue();
+			akhirBimbinganVal = akhirBimbingan.getValue();
+		} catch (org.zkoss.zk.ui.WrongValueException wve) {
+			MyMessageboxConfig.show(
+					"Format tanggal tidak valid. Mohon isi tanggal dengan format dd-MM-yyyy.", "Peringatan",
+					MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return false;
+		}
+
 		if (skripsi.getId() != null) {
 			skripsi = (Skripsi) session.load(Skripsi.class, skripsi.getId());
 		}
@@ -5118,16 +5136,16 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 		skripsi.setPenguji4((Dosen) penguji4.getAttribute("myValue"));
 		skripsi.setPenguji5((Dosen) penguji5.getAttribute("myValue"));
 		sinkronkanDosenDariFormKeSkripsi();
-		skripsi.setTanggalSidang(tanggalSidang.getValue());
+		skripsi.setTanggalSidang(tanggalSidangVal);
 		skripsi.setTelahSidang(telahSidang.isChecked() ? 1 : 0);
 		skripsi.setLokasiUjian(lokasiUjian.getValue());
 		// skripsi.setNilaikomprehensif(nilaikomprehensif.getValue());
 
-		skripsi.setTglSk(tglSk.getValue());
+		skripsi.setTglSk(tglSkVal);
 		skripsi.setNomorSk(nomorSk.getValue());
 
-		skripsi.setAwalBimbingan(awalBimbingan.getValue());
-		skripsi.setAkhirBimbingan(akhirBimbingan.getValue());
+		skripsi.setAwalBimbingan(awalBimbinganVal);
+		skripsi.setAkhirBimbingan(akhirBimbinganVal);
 		skripsi.setLulusToefl(lulusToefl.isChecked());
 		skripsi.setLulusToafl(lulusToafl.isChecked());
 

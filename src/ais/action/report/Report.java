@@ -1900,8 +1900,17 @@ public class Report extends GenericAutowireComposer {
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static File generateFileReportCore(String formatLaporan, Map parameters, String fileD, Date t, List maps,
 			String bar, Locale locale) throws Exception {
-		if (parameters == null)
+		if (parameters == null) {
+			// Diagnostik: sebelumnya method ini diam-diam mengembalikan null tanpa
+			// jejak apapun -- caller (generateDownloadReport) hanya melihat "Berkas
+			// hasil laporan tidak ditemukan" tanpa tahu ini sebabnya. Catat agar
+			// audit/log punya konteks nama laporan yang diminta.
+			ais.common.ErrorAuditUtil.record(
+					new IllegalArgumentException("parameters null saat generateFileReportCore, laporan=" + fileD
+							+ ", format=" + formatLaporan),
+					"auto-audit(parameters null, laporan tidak dibuat) src/ais/action/report/Report.java:generateFileReportCore");
 			return null;
+		}
 
 		ProgressContext progress = getProgressContext(parameters);
 		updateProgress(progress, 10, "Membaca konfigurasi laporan", "Menyiapkan template dan parameter dasar");
@@ -2445,8 +2454,21 @@ public class Report extends GenericAutowireComposer {
 			// Filedownload.save pada kondisi ini -- lempar ReportGenerationException supaya
 			// caller menampilkan pesan error yang konsisten ke user, bukan NPE mentah.
 			if (myFile == null || !myFile.exists() || myFile.length() <= 0L) {
+				// Diagnostik (tanpa ubah logika): sebelumnya pesan ini tidak menyertakan
+				// konteks apapun sehingga sulit ditelusuri laporan/jrxml mana yang gagal
+				// dan kenapa. Sertakan nama laporan yang diminta, format, dan path/kondisi
+				// berkas yang dicek supaya admin bisa langsung menelusuri.
+				String kondisiBerkas = myFile == null
+						? "berkas hasil tidak pernah dibuat (kemungkinan parameter laporan kosong/null atau template tidak ditemukan -- lihat auto-audit generateFileReportCore)"
+						: (!myFile.exists() ? "berkas hasil tidak ditemukan di path yang dicek"
+								: "berkas hasil ditemukan tapi kosong (0 byte)");
+				String pathDicek = myFile != null ? myFile.getAbsolutePath() : "(tidak diketahui -- berkas belum sempat dibuat)";
 				throw new ReportGenerationException(
-						"Laporan gagal dibuat. Berkas hasil laporan tidak ditemukan.", null, null);
+						"Laporan gagal dibuat. Berkas hasil laporan tidak ditemukan. Laporan diminta=" + fileD
+								+ (namaAsli != null && !namaAsli.equals(fileD) ? " (" + namaAsli + ")" : "")
+								+ "; format=" + formatLaporan + "; kondisi=" + kondisiBerkas + "; path dicek="
+								+ pathDicek + ".",
+						null, null);
 			}
 
 			String currentDateTime = t == null ? "" : new SimpleDateFormat("dd_MMMMM_yyyy", Common.locale).format(t);

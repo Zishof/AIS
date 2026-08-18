@@ -479,16 +479,16 @@ public class CommonDownloadUpload {
 															Common.refreshDelete(session, valueObject);
 															session.getTransaction().commit();
 														} catch (Exception e) {
-															session.getTransaction().rollback();
+															session = pulihkanSessionSetelahGagal(session);
 															warnings.add("Kesalahan hapus data " + valueObject
-																	+ ", error sbb " + e.getMessage());
+																	+ ", error sbb " + sebabGagalLengkap(e));
 														}
 
 														continue;
 													}
 												} catch (Exception e) {
 													e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/CommonDownloadUpload.java:497");
-													rollbackQuietly(session);
+													session = pulihkanSessionSetelahGagal(session);
 												}
 
 											}
@@ -618,9 +618,9 @@ public class CommonDownloadUpload {
 													session.save(kelasSiswa);
 													session.getTransaction().commit();
 												} catch (Exception e) {
-													session.getTransaction().rollback();
+													session = pulihkanSessionSetelahGagal(session);
 													warnings.add("Kesalahan simpan data " + kelasSiswa + ", error sbb "
-															+ e.getMessage() + ". Data sbb : " + datum);
+															+ sebabGagalLengkap(e) + ". Data sbb : " + datum);
 												}
 
 											}
@@ -693,10 +693,18 @@ public class CommonDownloadUpload {
 											laporan.catatBerhasil(i, kunciLaporan(valueObject, sheet, i),
 												String.valueOf(valueObject));
 										} catch (Exception e) {
-											session.getTransaction().rollback();
+											// PENTING: rollback SAJA tidak cukup -- entitas gagal-insert (id masih
+											// null) tetap tertinggal di persistence context session ini. Baris
+											// berikutnya yang mem-flush session yang sama akan ikut gagal beruntun
+											// dengan "AssertionFailure: null id ... (don't flush the Session after
+											// an exception occurs)". pulihkanSessionSetelahGagal() membuang entitas
+											// beracun via clear(), atau membuka session baru bila session ini sudah
+											// tak bisa dipakai lagi.
+											session = pulihkanSessionSetelahGagal(session);
+											String sebab = sebabGagalLengkap(e);
 											warnings.add("Kesalahan simpan data " + valueObject + ", error sbb "
-													+ e.getMessage() + ". Data sbb : " + datum);
-											laporan.catatGagal(i, kunciLaporan(valueObject, sheet, i), e);
+													+ sebab + ". Data sbb : " + datum);
+											laporan.catatGagal(i, kunciLaporan(valueObject, sheet, i), sebab);
 										}
 										label.setValue("Upload data \"" + valueObject.toString() + "\" ("
 												+ Common.numberFormat.get().format(i * 100.0 / rowCount) + " %)");
@@ -747,16 +755,24 @@ public class CommonDownloadUpload {
 												session.save(kelasSiswaPunyaSiswa);
 												session.getTransaction().commit();
 											} catch (Exception e) {
-												session.getTransaction().rollback();
+												session = pulihkanSessionSetelahGagal(session);
 												warnings.add("Kesalahan simpan data " + kelasSiswaPunyaSiswa
-														+ ", error sbb " + e.getMessage() + ". Data sbb : " + datum);
+														+ ", error sbb " + sebabGagalLengkap(e) + ". Data sbb : " + datum);
 											}
 										}
 
 									}
 
 								} catch (Exception e) {
-									laporan.catatGagal(i, kunciLaporan(null, sheet, i), e);
+									// Exception di luar blok simpan/hapus terlokalisir (mis. gagal saat
+									// membaca sel/menyusun properti) bisa saja terjadi SETELAH transaksi
+									// sempat dimulai tanpa sempat di-commit/rollback secara eksplisit
+									// (mis. exception dilempar tepat di antara begin() dan commit() pada
+									// bagian kode lain di baris ini). Pulihkan session di sini juga supaya
+									// baris berikutnya tidak ikut gagal beruntun akibat session yang
+									// tercemar/transaksi menggantung.
+									session = pulihkanSessionSetelahGagal(session);
+									laporan.catatGagal(i, kunciLaporan(null, sheet, i), sebabGagalLengkap(e));
 									Common.tampilErrorJikaAdmin(e);
 								}
 
@@ -865,6 +881,74 @@ public class CommonDownloadUpload {
 			}
 		} catch (Throwable e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/CommonDownloadUpload.java:825");
 		}
+	}
+
+	/**
+	 * Pemulihan session Hibernate SETELAH gagal simpan/hapus di tengah perulangan upload Excel.
+	 *
+	 * <p>Akar masalah produksi: ketika satu baris gagal insert (mis. {@code DataException} karena
+	 * nilai kolom kelewat panjang), entitas gagal (id masih null) TETAP tersimpan di persistence
+	 * context sesi bila hanya di-rollback tanpa {@code clear()}. Flush berikutnya (baris upload
+	 * berikutnya) ikut memuat entitas beracun itu sehingga Hibernate melempar
+	 * {@code AssertionFailure: null id ... (don't flush the Session after an exception occurs)}
+	 * dan SEMUA baris sesudahnya ikut gagal beruntun.</p>
+	 *
+	 * <p>Urutan pemulihan: (1) rollback transaksi aktif bila ada; (2) {@code session.clear()} untuk
+	 * membuang entitas beracun bila session masih terbuka; (3) bila session sudah tertutup atau
+	 * {@code clear()} sendiri gagal, tutup paksa lalu buka session baru supaya baris berikutnya
+	 * tetap bisa diproses.</p>
+	 *
+	 * @return session yang sudah bersih dan siap dipakai lagi (bisa jadi session BARU, bukan yang
+	 *         dioper masuk) — caller WAJIB menampung nilai kembaliannya, mis.
+	 *         {@code session = pulihkanSessionSetelahGagal(session);}
+	 */
+	private static Session pulihkanSessionSetelahGagal(Session session) {
+		rollbackQuietly(session);
+		try {
+			if (session != null && session.isOpen()) {
+				session.clear();
+				return session;
+			}
+		} catch (Throwable eClear) {
+			ais.common.ErrorAuditUtil.record(eClear,
+					"auto-audit(pulihkan-session-clear-gagal) src/ais/common/CommonDownloadUpload.java:pulihkanSessionSetelahGagal");
+		}
+		try {
+			if (session != null && session.isOpen()) {
+				session.close();
+			}
+		} catch (Throwable eClose) {
+			ais.common.ErrorAuditUtil.record(eClose,
+					"auto-audit(empty-catch) src/ais/common/CommonDownloadUpload.java:pulihkanSessionSetelahGagal-close");
+		}
+		return HibernateUtil.getSessionFactory().openSession();
+	}
+
+	/**
+	 * Susun keterangan gagal LENGKAP dengan rantai {@code cause} (maks 3 tingkat) supaya baris
+	 * yang gagal karena mis. {@code DataException} (truncation nilai kolom) langsung menyebut
+	 * pesan SQL aslinya (biasanya menyebut nama kolom/batas panjang), bukan sekadar
+	 * "could not insert: [...]" yang generik.
+	 */
+	private static String sebabGagalLengkap(Throwable e) {
+		if (e == null) {
+			return "(tanpa keterangan)";
+		}
+		StringBuilder sb = new StringBuilder();
+		sb.append(e.getClass().getSimpleName());
+		if (e.getMessage() != null && !e.getMessage().trim().isEmpty()) {
+			sb.append(": ").append(e.getMessage().trim());
+		}
+		Throwable cause = e.getCause();
+		int guard = 0;
+		while (cause != null && cause != e && guard++ < 3) {
+			sb.append(" | disebabkan oleh ").append(cause.getClass().getSimpleName());
+			if (cause.getMessage() != null && !cause.getMessage().trim().isEmpty()) {
+				sb.append(": ").append(cause.getMessage().trim());
+			}
+			cause = cause.getCause();
+		}
+		return sb.toString();
 	}
 
 	private static void closeCurrentSessionQuietly(boolean debug) {

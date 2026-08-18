@@ -68,13 +68,32 @@ public final class RepositorySyncScheduler {
 			RepositorySyncService.SyncSummary summary = RepositorySyncService.synchronizeAll(session, false, true, null);
 			/* synchronizeAll dapat me-rollback transaksi per item lalu membuka transaksi
 			 * pengganti. Selalu commit transaksi AKTIF milik session saat ini. */
-			Transaction current = session.getTransaction();
-			if (summary.isConnectionLost()) {
-				if (current != null && current.isActive()) {
-					current.rollback();
+			// KE-FIX: bila summary.isConnectionLost() true, session/koneksi sudah terbukti tidak
+			// sehat (lihat javadoc SyncSummary.connectionLost & KE-FIX item/flush-catch di
+			// RepositorySyncService) -- rollback() di sini BISA IKUT GAGAL (mis. koneksi sudah
+			// tertutup) dan sebelumnya melempar TransactionException baru yg tidak informatif
+			// ("JDBC rollback failed / This connection has been closed"). Bungkus aman: cek
+			// session.isOpen() & transaksi masih aktif dulu, dan jangan biarkan kegagalan rollback
+			// sekunder ini menghentikan method (session akan tetap ditutup di finally lewat
+			// closeSessionQuietly, dan siklus berikutnya membuka session baru).
+			try {
+				Transaction current = session.isOpen() ? session.getTransaction() : null;
+				if (summary.isConnectionLost()) {
+					if (current != null && current.isActive()) {
+						current.rollback();
+					}
+				} else if (current != null && current.isActive()) {
+					current.commit();
 				}
-			} else if (current != null && current.isActive()) {
-				current.commit();
+			} catch (Exception commitEx) {
+				if (!summary.isConnectionLost()) {
+					// Jalur normal (bukan connection-lost yg sudah tercatat) -- catat supaya
+					// kegagalan commit/rollback tetap terlihat di audit.
+					ErrorAuditUtil.record(commitEx,
+							"auto-audit src/ais/action/master/repository/RepositorySyncScheduler.java:commit-or-rollback");
+				}
+				// connection-lost sudah tercatat oleh RepositorySyncService; jangan duplikasi log
+				// dgn exception sekunder yg cuma menegaskan koneksi sudah mati.
 			}
 			System.out.println("[Repository] Sinkron otomatis selesai: dipindai=" + summary.getScanned()
 					+ ", berhasil=" + summary.getSynced() + ", gagal=" + summary.getFailed());
@@ -82,9 +101,11 @@ public final class RepositorySyncScheduler {
 		} catch (RuntimeException error) {
 			if (session != null) {
 				try {
-					Transaction current = session.getTransaction();
-					if (current != null && current.isActive()) {
-						current.rollback();
+					if (session.isOpen()) {
+						Transaction current = session.getTransaction();
+						if (current != null && current.isActive()) {
+							current.rollback();
+						}
 					}
 				} catch (Throwable ignored) {
 					ErrorAuditUtil.record(ignored,

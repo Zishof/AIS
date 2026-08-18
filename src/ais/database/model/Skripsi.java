@@ -1238,10 +1238,18 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 			for (String nn : nilais) {
 				try {
 					String[] s = nn.split(",");
-					Long formatId = Long.parseLong(s[0]);
-					Long dosenId = Long.parseLong(s[1]);
+					// GUARD NumberFormatException "For input string: \"\"": token bisa kosong
+					// (mis. detailNilai berformat "id,,nilai,..." atau entri belum lengkap).
+					// trim+isEmpty dulu sebelum parseLong/parseDouble -- token kosong DILEWATI
+					// (continue ke entri berikutnya di "nilais"), tanpa merusak parsing entri lain.
+					if (s.length < 3 || s[0] == null || s[0].trim().isEmpty() || s[1] == null
+							|| s[1].trim().isEmpty() || s[2] == null || s[2].trim().isEmpty()) {
+						continue;
+					}
+					Long formatId = Long.parseLong(s[0].trim());
+					Long dosenId = Long.parseLong(s[1].trim());
 					if (formatIdSource.getId().equals(formatId) && dosen.getId().equals(dosenId)) {
-						return Double.parseDouble(s[2]);
+						return Double.parseDouble(s[2].trim());
 					}
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Skripsi.java:1185");
 
@@ -1261,13 +1269,18 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 			for (String nn : nilais) {
 				try {
 					String[] s = nn.split(",");
-					Long formatId = Long.parseLong(s[0]);
-					Long dosenId = Long.parseLong(s[1]);
+					// token kosong/tak lengkap dilewati agar tidak NumberFormatException (pola sama dgn retreiveDetailNilai)
+					if (s.length < 3 || s[0] == null || s[0].trim().isEmpty() || s[1] == null
+							|| s[1].trim().isEmpty() || s[2] == null || s[2].trim().isEmpty()) {
+						continue;
+					}
+					Long formatId = Long.parseLong(s[0].trim());
+					Long dosenId = Long.parseLong(s[1].trim());
 					if (formatIdSource.getId().equals(formatId) && dosen.getId().equals(dosenId)) {
-						if (Double.parseDouble(s[2]) < 0.01) {
+						if (Double.parseDouble(s[2].trim()) < 0.01) {
 							return false;
 						}
-						return Boolean.parseBoolean(s[5]);
+						return s.length > 5 && Boolean.parseBoolean(s[5]);
 					}
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Skripsi.java:1211");
 

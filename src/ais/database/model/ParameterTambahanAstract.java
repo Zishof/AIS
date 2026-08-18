@@ -1426,7 +1426,20 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 				val = sb.toString();
 			} else if (parameterTambahan.getTipeDataInputan().equals(ParameterTambahanAstract.TANGGAL_DAN_WAKTU)) {
 				if (component instanceof MyDatebox) {
-					Date nilai = (((MyDatebox) component).getValue());
+					Date nilai;
+					try {
+						nilai = (((MyDatebox) component).getValue());
+					} catch (org.zkoss.zk.ui.WrongValueException wve) {
+						// FIX WrongValueException "You must specify a date. Format: dd-MM-yyyy HH:mm":
+						// JANGAN dibiarkan tertelan diam-diam oleh catch(Exception) di bawah --
+						// itu akan membuat val="" lalu menimpa nilai lama parameter tambahan
+						// dengan string kosong tanpa sepengetahuan pengguna. Lempar ulang dgn
+						// pesan yg menyebut LABEL parameter agar ZK menampilkan balloon merah
+						// tepat di komponen ybs dan proses simpan berhenti.
+						throw new org.zkoss.zk.ui.WrongValueException(component,
+								"Format tanggal & waktu untuk \"" + parameterTambahan.getLabelInputan()
+										+ "\" tidak valid. Format: dd-MM-yyyy HH:mm");
+					}
 					val = nilai == null ? "" : Common.dateFormat.get().format(nilai);
 				}
 			} else if (parameterTambahan.getTipeDataInputan().equals(ParameterTambahanAstract.WAKTU)) {
@@ -1436,7 +1449,16 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 				}
 			} else if (parameterTambahan.getTipeDataInputan().equals(ParameterTambahanAstract.TANGGAL)) {
 				if (component instanceof MyDatebox) {
-					Date nilai = (((MyDatebox) component).getValue());
+					Date nilai;
+					try {
+						nilai = (((MyDatebox) component).getValue());
+					} catch (org.zkoss.zk.ui.WrongValueException wve) {
+						// FIX WrongValueException "You must specify a date. Format: dd-MM-yyyy":
+						// sama seperti TANGGAL_DAN_WAKTU di atas -- lempar ulang, jangan ditelan.
+						throw new org.zkoss.zk.ui.WrongValueException(component,
+								"Format tanggal untuk \"" + parameterTambahan.getLabelInputan()
+										+ "\" tidak valid. Format: dd-MM-yyyy");
+					}
 					val = nilai == null ? "" : Common.dateFormat1.get().format(nilai);
 				}
 			} else if (parameterTambahan.getTipeDataInputan().equals(ParameterTambahanAstract.ANGKA)) {
@@ -1521,6 +1543,13 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 					val = kelasSiswa == null ? "" : kelasSiswa.getId().toString() + "->" + (kelasSiswa.getNama()).trim();
 				}
 			}
+		} catch (org.zkoss.zk.ui.WrongValueException wve) {
+			// JANGAN ditelan di sini: ini lemparan ulang sengaja dari cabang TANGGAL /
+			// TANGGAL_DAN_WAKTU di atas (pesan sudah menyebut label parameter). Biarkan
+			// naik ke pemanggil agar ZK menampilkan balloon merah & proses simpan
+			// berhenti, bukan diam-diam menimpa nilai lama dgn val="".
+			ais.common.ErrorAuditUtil.record(wve, "WrongValueException ambilValComponent (rethrow) - " + wve.getMessage());
+			throw wve;
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/ParameterTambahanAstract.java:1466");
 		}

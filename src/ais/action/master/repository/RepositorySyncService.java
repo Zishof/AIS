@@ -97,6 +97,24 @@ public class RepositorySyncService {
 		return false;
 	}
 
+	/**
+	 * SET LOCAL lock_timeout best-effort supaya sync yang kalah rebutan row lock dengan user
+	 * (mis. user sedang mengedit Item/Mahasiswa/Skripsi yang SAMA lewat UI, entitas yang juga
+	 * disentuh syncOne di sini) GAGAL CEPAT drpd menggantung sampai statement_timeout menahan
+	 * koneksi c3p0. Item yang kena skip di siklus ini akan otomatis tersinkron di siklus
+	 * berikutnya (lihat item-catch/flush-catch di synchronizeSource). Diam bila bukan
+	 * PostgreSQL / tanpa transaksi aktif -- pola sama seperti
+	 * KunciEntityHelper.pasangStatementTimeout / KegiatanHelper.terapkanLockTimeout.
+	 */
+	private static void terapkanLockTimeout(Session session) {
+		try {
+			session.createSQLQuery("SET LOCAL lock_timeout = '3s'").executeUpdate();
+		} catch (Exception ignore) {
+			ais.common.ErrorAuditUtil.record(ignore,
+					"auto-audit(empty-catch) src/ais/action/master/repository/RepositorySyncService.java:lock-timeout");
+		}
+	}
+
 	private static List<SourceDescriptor> getDefaultSources() {
 		List<SourceDescriptor> sources = new ArrayList<SourceDescriptor>();
 		sources.add(new SourceDescriptor("Skripsi/Tugas Akhir", "SKRIPSI", "Skripsi, Thesis, Disertasi, dan Tugas Akhir",
@@ -142,6 +160,10 @@ public class RepositorySyncService {
 			}
 		}
 
+		// KE-FIX (lock_timeout): terapkan di awal siklus juga -- kalau session datang dari
+		// scheduler dgn transaksi yg sudah dibuka sebelum synchronizeAll dipanggil, SET LOCAL
+		// perlu dipasang ulang di sini krn baru berlaku pada transaksi yg SEDANG aktif.
+		terapkanLockTimeout(session);
 		int[] baris = new int[] { 0 };
 		List<SourceDescriptor> sources = getDefaultSources();
 		for (SourceDescriptor source : sources) {
@@ -228,18 +250,38 @@ public class RepositorySyncService {
 						// otomatis ikut gagal dgn exception generik yg membingungkan. Pulihkan sesi di
 						// sini (pola sama seperti catch flush-batch & catch per-source di bawah) supaya
 						// item/batch/source berikutnya tetap bisa diproses dari kondisi bersih.
+						boolean rollbackOk = true;
+						boolean clearOk = true;
 						try {
 							if (session.getTransaction() != null && session.getTransaction().isActive()) {
 								session.getTransaction().rollback();
 							}
-						} catch (Exception rbEx) { ais.common.ErrorAuditUtil.record(rbEx, "auto-audit(empty-catch) src/ais/action/master/repository/RepositorySyncService.java:item-rollback"); }
+						} catch (Exception rbEx) { rollbackOk = false; ais.common.ErrorAuditUtil.record(rbEx, "auto-audit(empty-catch) src/ais/action/master/repository/RepositorySyncService.java:item-rollback"); }
 						try {
-							session.clear();
-						} catch (Exception clEx) { ais.common.ErrorAuditUtil.record(clEx, "auto-audit(empty-catch) src/ais/action/master/repository/RepositorySyncService.java:item-clear"); }
+							if (session.isOpen()) {
+								session.clear();
+							}
+						} catch (Exception clEx) { clearOk = false; ais.common.ErrorAuditUtil.record(clEx, "auto-audit(empty-catch) src/ais/action/master/repository/RepositorySyncService.java:item-clear"); }
+						if (!session.isOpen() || (!rollbackOk && !clearOk)) {
+							// KE-FIX: rollback DAN clear sama-sama gagal (atau session sudah tertutup) --
+							// tanda session/koneksi tidak sehat lagi, bukan sekadar 1 item bermasalah.
+							// beginTransaction() di bawah ini kemungkinan besar akan ikut gagal lagi lalu
+							// membanjiri log dgn exception yg berbeda-beda tiap item berikutnya (lihat
+							// javadoc SyncSummary.connectionLost). Hentikan source ini SEKARANG; scheduler
+							// akan menutup session ini & membuka yg baru pada siklus berikutnya
+							// (RepositorySyncScheduler.jalankanSekali membuka session baru tiap panggilan).
+							if (laporan != null) {
+								laporan.tambahCatatan("Sumber " + source.label
+										+ " - session tidak sehat setelah rollback/clear gagal, sisa item dilewati (akan dicoba lagi di siklus berikutnya).");
+							}
+							summary.connectionLost = true;
+							break outerBatch;
+						}
 						try {
 							if (session.getTransaction() == null || !session.getTransaction().isActive()) {
 								session.beginTransaction();
 							}
+							terapkanLockTimeout(session);
 						} catch (Exception txEx) { ais.common.ErrorAuditUtil.record(txEx, "auto-audit(empty-catch) src/ais/action/master/repository/RepositorySyncService.java:item-retx"); }
 					}
 					baris[0]++;
@@ -276,18 +318,35 @@ public class RepositorySyncService {
 						laporan.tambahCatatan("Sumber " + source.label + " - flush batch gagal, dilewati: "
 								+ ais.common.LaporanUpload.detailTeknisException(flushEx));
 					}
+					boolean rollbackOk = true;
+					boolean clearOk = true;
 					try {
 						if (session.getTransaction() != null && session.getTransaction().isActive()) {
 							session.getTransaction().rollback();
 						}
-					} catch (Exception rbEx) { ais.common.ErrorAuditUtil.record(rbEx, "auto-audit(empty-catch) src/ais/action/master/repository/RepositorySyncService.java:flush-rollback"); }
+					} catch (Exception rbEx) { rollbackOk = false; ais.common.ErrorAuditUtil.record(rbEx, "auto-audit(empty-catch) src/ais/action/master/repository/RepositorySyncService.java:flush-rollback"); }
 					try {
-						session.clear();
-					} catch (Exception clEx) { ais.common.ErrorAuditUtil.record(clEx, "auto-audit(empty-catch) src/ais/action/master/repository/RepositorySyncService.java:flush-clear"); }
+						if (session.isOpen()) {
+							session.clear();
+						}
+					} catch (Exception clEx) { clearOk = false; ais.common.ErrorAuditUtil.record(clEx, "auto-audit(empty-catch) src/ais/action/master/repository/RepositorySyncService.java:flush-clear"); }
+					if (!session.isOpen() || (!rollbackOk && !clearOk)) {
+						// KE-FIX: sama seperti item-catch di atas -- rollback DAN clear sama-sama
+						// gagal berarti session sudah tidak sehat, bukan cuma 1 batch bermasalah.
+						// connectionLost sudah true di sini lewat jalur lain (return terjadi di bawah);
+						// tandai eksplisit supaya scheduler tahu harus menutup & buka session baru.
+						if (laporan != null) {
+							laporan.tambahCatatan("Sumber " + source.label
+									+ " - session tidak sehat setelah rollback/clear gagal pasca flush, sisa batch dilewati.");
+						}
+						summary.connectionLost = true;
+						return summary;
+					}
 					try {
 						if (session.getTransaction() == null || !session.getTransaction().isActive()) {
 							session.beginTransaction();
 						}
+						terapkanLockTimeout(session);
 					} catch (Exception txEx) { ais.common.ErrorAuditUtil.record(txEx, "auto-audit(empty-catch) src/ais/action/master/repository/RepositorySyncService.java:flush-retx"); }
 					return summary;
 				}
@@ -323,8 +382,11 @@ public class RepositorySyncService {
 				}
 			} catch (Exception clEx) { ais.common.ErrorAuditUtil.record(clEx, "auto-audit(empty-catch) src/ais/action/master/repository/RepositorySyncService.java:source-clear"); }
 			try {
-				if (session.isOpen() && (session.getTransaction() == null || !session.getTransaction().isActive())) {
-					session.beginTransaction();
+				if (session.isOpen()) {
+					if (session.getTransaction() == null || !session.getTransaction().isActive()) {
+						session.beginTransaction();
+					}
+					terapkanLockTimeout(session);
 				}
 			} catch (Exception txEx) { ais.common.ErrorAuditUtil.record(txEx, "auto-audit(empty-catch) src/ais/action/master/repository/RepositorySyncService.java:source-retx"); }
 		}

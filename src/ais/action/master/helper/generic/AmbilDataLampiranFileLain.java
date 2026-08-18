@@ -112,21 +112,60 @@ public class AmbilDataLampiranFileLain extends MyWindow {
 	 * (mis. unicode panjang) tanpa batas ditambah timestamp+URLEncoder.encode() bisa
 	 * melebihi batas panjang nama file filesystem. Potong bagian nama (bukan
 	 * ekstensi) agar aman, sebelum di-encode & dipakai membangun File tujuan.
+	 *
+	 * CATATAN (perbaikan lanjutan): pemotongan HANYA berdasar jumlah karakter
+	 * (150) tidak cukup -- caller membungkus hasil fungsi ini dengan
+	 * URLEncoder.encode(..., "UTF-8") sebelum dipakai sebagai nama file fisik di
+	 * ext4 (batas 255 BYTE). Karakter non-ASCII (multibyte UTF-8) dan bahkan
+	 * spasi/simbol biasa membengkak jadi "%XX" (3 byte ASCII) per byte aslinya
+	 * saat di-encode, jadi 150 karakter unicode bisa menghasilkan nama fisik
+	 * >255 byte walau lolos batas karakter. Di sini kita potong berdasarkan
+	 * PANJANG HASIL ENCODE, bukan panjang karakter mentah, dan juga membuang
+	 * karakter berbahaya untuk path lebih dulu.
 	 */
+	private static final int MAX_ENCODED_BASE_EXT_BYTES = 200;
+
 	private static String namaFileAmanUntukFilesystem(String namaAsli) {
 		if (namaAsli == null) {
 			return "file";
 		}
-		int dot = namaAsli.lastIndexOf('.');
-		String ext = dot >= 0 ? namaAsli.substring(dot) : "";
-		String base = dot >= 0 ? namaAsli.substring(0, dot) : namaAsli;
-		int maxBase = 150 - ext.length();
-		if (maxBase < 1) {
-			maxBase = 1;
+		// Buang karakter yang berbahaya untuk path (separator, karakter kontrol)
+		// sebelum diproses lebih lanjut -- jaga-jaga bila belum tersaring di hulu.
+		String bersih = namaAsli.replaceAll("[\\\\/:*?\"<>|\\x00-\\x1F]", "_");
+
+		int dot = bersih.lastIndexOf('.');
+		String ext = dot >= 0 ? bersih.substring(dot) : "";
+		String base = dot >= 0 ? bersih.substring(0, dot) : bersih;
+
+		// Batas kasar berbasis karakter dulu (menghindari loop pemangkasan yang
+		// terlalu panjang untuk nama yang memang sudah sangat panjang).
+		if (base.length() > 150) {
+			base = base.substring(0, 150);
 		}
-		if (base.length() > maxBase) {
-			base = base.substring(0, maxBase);
+
+		try {
+			String extEncoded = URLEncoder.encode(ext, "UTF-8");
+			int budget = MAX_ENCODED_BASE_EXT_BYTES - extEncoded.length();
+			if (budget < 1) {
+				budget = 1;
+			}
+			while (base.length() > 0) {
+				String baseEncoded = URLEncoder.encode(base, "UTF-8");
+				if (baseEncoded.length() <= budget) {
+					break;
+				}
+				base = base.substring(0, base.length() - 1);
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit(empty-catch) src/ais/action/master/helper/generic/AmbilDataLampiranFileLain.java:namaFileAmanUntukFilesystem");
+			// Encoding UTF-8 semestinya selalu tersedia; sebagai jaga-jaga saja
+			// potong sangat konservatif berbasis karakter.
+			if (base.length() > 50) {
+				base = base.substring(0, 50);
+			}
 		}
+
 		return base + ext;
 	}
 
