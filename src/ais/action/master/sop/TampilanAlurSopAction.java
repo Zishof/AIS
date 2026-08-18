@@ -1215,9 +1215,21 @@ public class TampilanAlurSopAction extends GenericAutowireComposer {
 				win.setWidth("700px");
 				win.setHeight("70%");
 
+				// Searchbox filter: cocokkan ke NAMA parameter DAN NILAI-nya (live saat
+				// mengetik), case-insensitive — memudahkan mencari di daftar yang panjang.
+				Hbox barisCari = new Hbox();
+				barisCari.setAlign("center");
+				barisCari.setWidth("100%");
+				barisCari.setStyle("padding:4px 6px;");
+				barisCari.setParent(win);
+				barisCari.appendChild(new MyLabelConfig("Cari"));
+				final org.zkoss.zul.Textbox cari = new org.zkoss.zul.Textbox();
+				cari.setWidth("92%");
+				barisCari.appendChild(cari);
+
 				MyGrid grid = new MyGrid();
 				grid.setWidth("100%");
-				grid.setHeight("100%");
+				grid.setHeight("92%");
 				grid.setParent(win);
 
 				Columns columns = new Columns();
@@ -1230,19 +1242,38 @@ public class TampilanAlurSopAction extends GenericAutowireComposer {
 				col.setLabel("Nilai");
 				col.setParent(columns);
 
-				Rows rows = new Rows();
+				final Rows rows = new Rows();
 				rows.setParent(grid);
-				for (Object key : paramSnapshot.keySet()) {
-					Object val = paramSnapshot.get(key);
-					String teks = val == null ? "" : String.valueOf(val);
-					if (teks.length() > 300) {
-						teks = teks.substring(0, 300) + "...";
+
+				final EventListener render = new EventListener() {
+					@Override
+					public void onEvent(Event ev) throws Exception {
+						String saring = cari.getValue() == null ? "" : cari.getValue().trim().toLowerCase();
+						if (ev instanceof org.zkoss.zk.ui.event.InputEvent) {
+							String v = ((org.zkoss.zk.ui.event.InputEvent) ev).getValue();
+							saring = v == null ? "" : v.trim().toLowerCase();
+						}
+						Common.clear(rows);
+						for (Object key : paramSnapshot.keySet()) {
+							Object val = paramSnapshot.get(key);
+							String namaParam = String.valueOf(key);
+							String teksPenuh = val == null ? "" : String.valueOf(val);
+							if (!saring.isEmpty() && namaParam.toLowerCase().indexOf(saring) < 0
+									&& teksPenuh.toLowerCase().indexOf(saring) < 0) {
+								continue;
+							}
+							String teks = teksPenuh.length() > 300 ? teksPenuh.substring(0, 300) + "..." : teksPenuh;
+							Row row = new Row();
+							row.setParent(rows);
+							row.appendChild(new MyLabelConfig(namaParam));
+							row.appendChild(new Label(teks));
+						}
 					}
-					Row row = new Row();
-					row.setParent(rows);
-					row.appendChild(new MyLabelConfig(String.valueOf(key)));
-					row.appendChild(new Label(teks));
-				}
+				};
+				render.onEvent(null);
+				cari.addEventListener("onChanging", render);
+				cari.addEventListener("onChange", render);
+				cari.addEventListener("onOK", render);
 
 				win.setVisible(true);
 				win.onModal();
