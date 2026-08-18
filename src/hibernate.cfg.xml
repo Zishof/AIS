@@ -1001,6 +1001,7 @@
 		<mapping class="ais.database.model.HasilUjianMahasiswa"></mapping>
 		<mapping class="ais.database.model.HasilUjianMahasiswaDetail"></mapping>
 		<mapping class="ais.database.model.PertemuanPunyaDiskusi"></mapping>
+		<mapping class="ais.database.model.MutasiIdempoten" />
 		<mapping class="ais.database.model.TugasKelompok"></mapping>
 		<mapping class="ais.database.model.NamaTugasKelompok"></mapping>
 		<mapping
@@ -1202,6 +1203,7 @@
 		<mapping class="ais.database.model.akunting.JenisUangMuka" />
 		<mapping class="ais.database.model.akunting.UangMuka" />
 		<mapping class="ais.database.model.akunting.ReimbursementPegawai" />
+		<mapping class="ais.database.model.akunting.JenisReimbursement" />
 		<mapping class="ais.database.model.akunting.AcaraHasTransaksi"></mapping>
 		<mapping class="ais.database.model.akunting.Akun"></mapping>
 		<mapping class="ais.database.model.akunting.Devisi"></mapping>
@@ -2262,6 +2264,20 @@
 		<mapping class="ais.database.model.inventory.PemasokProduk"></mapping>
 		<mapping class="ais.database.model.inventory.SatuanProduk"></mapping>
 		<mapping class="ais.database.model.inventory.Produk"></mapping>
+		<mapping class="ais.database.model.inventory.GrupProduk"></mapping>
+		<!-- Vertikal MitraInap (hotel) - MVP langkah 2, tabel hotel_* di schema public -->
+		<mapping class="ais.database.model.hotel.PropertiHotel"></mapping>
+		<mapping class="ais.database.model.hotel.TipeKamar"></mapping>
+		<mapping class="ais.database.model.hotel.Kamar"></mapping>
+		<mapping class="ais.database.model.hotel.Tamu"></mapping>
+		<mapping class="ais.database.model.hotel.ReservasiKamar"></mapping>
+		<mapping class="ais.database.model.hotel.MenginapTamu"></mapping>
+		<mapping class="ais.database.model.hotel.Folio"></mapping>
+		<mapping class="ais.database.model.hotel.FolioTransaksi"></mapping>
+		<!-- MitraInap langkah 5: tiket dapur + kontrak/statement pemilik kamar -->
+		<mapping class="ais.database.model.hotel.TiketDapur"></mapping>
+		<mapping class="ais.database.model.hotel.KontrakPemilik"></mapping>
+		<mapping class="ais.database.model.hotel.LaporanPemilik"></mapping>
 		<mapping class="ais.database.model.inventory.ProdukBatch"></mapping>
 		<mapping class="ais.database.model.inventory.MutasiProdukBatch"></mapping>
 		<mapping class="ais.database.model.inventory.PengajuanPerubahanHargaProduk"></mapping>

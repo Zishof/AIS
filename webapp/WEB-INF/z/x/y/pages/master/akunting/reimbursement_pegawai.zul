@@ -22,6 +22,10 @@
 				<tab use="ais.ui.util.MyTabConfig" forward="onClick=onMonitor">
 					Monitor
 				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onJenisReimbursement">
+					Jenis Reimbursement
+				</tab>
 			</tabs>
 
 			<tabpanels>
@@ -159,6 +163,7 @@
 
 				<tabpanel use="ais.ui.util.MyTabpanel" id="statistik"></tabpanel>
 				<tabpanel use="ais.ui.util.MyTabpanel" id="monitor"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="jenisPanel"></tabpanel>
 
 			</tabpanels>
 		</tabbox>

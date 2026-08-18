@@ -46,6 +46,7 @@ import ais.database.model.Pegawai;
 import ais.database.model.Tbmuser;
 import ais.database.model.akunting.Akun;
 import ais.database.model.akunting.DaftarPengajuanTransfer;
+import ais.database.model.akunting.JenisReimbursement;
 import ais.database.model.akunting.ReimbursementPegawai;
 import ais.database.model.rab.SatuanKerja;
 import ais.database.model.rab.Workspace;
@@ -126,10 +127,11 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer implemen
 	// kontrol form
 	private AmbilDataSatuanKerjaBanbox satuanKerja;
 	private AmbilDataWorkspaceBanbox workspace;
-	private Checkbox tanpaAnggaran;
-	private AmbilDataAkunBanbox akunTanpa;
+	private Combobox jenisReimbursementCombo;
 	private MyFormRow rowAnggaran;
-	private MyFormRow rowAkunPilih;
+	private MyFormRow rowAkunInfo;
+	private Label akunInfo;
+	private Tabpanel jenisPanel;
 	private Label kode;
 	private Textbox nama;
 	private AmbilDataPegawaiBanbox pegawaiPenerima;
@@ -344,6 +346,221 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer implemen
 	}
 
 	// =====================================================================
+	// Tab CRUD Jenis Reimbursement (setelah tab Monitor)
+	// =====================================================================
+
+	private boolean bolehKelolaJenis() {
+		Tbmuser u = tbmuser != null ? tbmuser : Common.getCurrentUser();
+		try {
+			return u != null && u.ambilRolesId().contains(ais.database.model.Tbmrole.ADMINISTRATOR);
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ReimbursementPegawaiAction.bolehKelolaJenis");
+			return false;
+		}
+	}
+
+	public void onJenisReimbursement(Event event) throws Exception {
+		if (jenisPanel == null) {
+			return;
+		}
+		jenisPanel.getChildren().clear();
+
+		final boolean bolehKelola = bolehKelolaJenis();
+		Vbox v = new Vbox();
+		v.setWidth("100%");
+		v.setParent(jenisPanel);
+
+		if (bolehKelola) {
+			Toolbar toolbar = new Toolbar();
+			toolbar.setHeight("32px");
+			toolbar.setParent(v);
+			MyToolbarbuttonConfig tambah = new MyToolbarbuttonConfig("Tambah Jenis", "/img/new.gif");
+			tambah.setParent(toolbar);
+			tambah.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					bukaFormJenis(new JenisReimbursement());
+				}
+			});
+		} else {
+			tulis(v, "Hanya administrator yang dapat menambah/mengubah Jenis Reimbursement.");
+		}
+
+		Grid g = new Grid();
+		g.setWidth("100%");
+		g.setParent(v);
+		Columns columns = new Columns();
+		columns.setParent(g);
+		String[] judul = new String[] { "Nama", "Menggunakan Anggaran", "Akun", "Satuan Kerja", "Keterangan", "Aktif", "" };
+		String[] lebar = new String[] { "18%", "14%", "20%", "16%", "18%", "6%", "8%" };
+		for (int i = 0; i < judul.length; i++) {
+			MyColumnConfig col = new MyColumnConfig();
+			col.setLabel(judul[i]);
+			col.setWidth(lebar[i]);
+			col.setParent(columns);
+		}
+		Rows rowsJenis = new Rows();
+		rowsJenis.setParent(g);
+
+		List list = HibernateUtil.currentSession().createCriteria(JenisReimbursement.class)
+				.addOrder(Order.asc("id")).list();
+		for (int i = 0; i < list.size(); i++) {
+			final JenisReimbursement j = (JenisReimbursement) list.get(i);
+			Row r = new Row();
+			r.setValign("top");
+			r.setParent(rowsJenis);
+			Label nm = new Label(j.getNama());
+			nm.setStyle("font-weight:bold;");
+			nm.setParent(r);
+			new Label(Boolean.TRUE.equals(j.getMenggunakanAnggaran())
+					? "Ya — wajib pilih Anggaran" : "Tidak — akun tetap").setParent(r);
+			new Label(j.getAkun() == null ? "-" : j.getAkun().toString()).setParent(r);
+			new Label(j.getSatuanKerja() == null ? "(semua)" : j.getSatuanKerja().getNama()).setParent(r);
+			new Label(j.getKeterangan() == null ? "" : j.getKeterangan()).setParent(r);
+			new Label(Boolean.TRUE.equals(j.getAktif()) ? "Ya" : "Tidak").setParent(r);
+			Hbox aksi = new Hbox();
+			aksi.setParent(r);
+			if (bolehKelola) {
+				Button ubah = new Button("Ubah");
+				ubah.setParent(aksi);
+				ubah.addEventListener("onClick", new EventListener() {
+					@Override
+					public void onEvent(Event arg0) throws Exception {
+						bukaFormJenis(j);
+					}
+				});
+			}
+		}
+		if (list.isEmpty()) {
+			tulis(v, "(belum ada Jenis Reimbursement — akan dibuat otomatis saat restart, atau tambah manual)");
+		}
+	}
+
+	/** Form tambah/ubah Jenis Reimbursement — memakai addWindow yang sama. */
+	private void bukaFormJenis(final JenisReimbursement j) throws Exception {
+		if (addWindow == null || !bolehKelolaJenis()) {
+			return;
+		}
+		addWindow.getChildren().clear();
+
+		Vbox isi = new Vbox();
+		isi.setWidth("100%");
+		isi.setParent(addWindow);
+
+		MyGrid f = new MyGrid();
+		f.setWidth("100%");
+		Columns columns = new Columns();
+		columns.setParent(f);
+		MyColumnConfig c1 = new MyColumnConfig();
+		c1.setWidth("32%");
+		c1.setParent(columns);
+		MyColumnConfig c2 = new MyColumnConfig();
+		c2.setParent(columns);
+		Rows rowsF = new Rows();
+		rowsF.setParent(f);
+
+		MyFormRow row = new MyFormRow();
+		row.setParent(rowsF);
+		row.appendChild(new MyLabelConfig("Nama *"));
+		final Textbox namaJenis = new Textbox(j.getNama() == null ? "" : j.getNama());
+		namaJenis.setWidth("90%");
+		row.appendChild(namaJenis);
+
+		row = new MyFormRow();
+		row.setParent(rowsF);
+		row.appendChild(new MyLabelConfig("Menggunakan Anggaran"));
+		final Checkbox pakaiAnggaran = new Checkbox("Pengaju wajib memilih Anggaran (Workspace)");
+		pakaiAnggaran.setChecked(Boolean.TRUE.equals(j.getMenggunakanAnggaran()));
+		row.appendChild(pakaiAnggaran);
+
+		row = new MyFormRow();
+		row.setParent(rowsF);
+		row.appendChild(new MyLabelConfig("Akun (wajib bila TANPA anggaran)"));
+		final AmbilDataAkunBanbox akunJenis = new AmbilDataAkunBanbox(false);
+		akunJenis.setWidth("90%");
+		if (j.getAkun() != null) {
+			akunJenis.setAttribute("akun", j.getAkun());
+			akunJenis.setValue(j.getAkun().toString());
+		}
+		row.appendChild(akunJenis);
+
+		row = new MyFormRow();
+		row.setParent(rowsF);
+		row.appendChild(new MyLabelConfig("Satuan Kerja (opsional)"));
+		final AmbilDataSatuanKerjaBanbox skJenis = new AmbilDataSatuanKerjaBanbox(true);
+		skJenis.setWidth("90%");
+		if (j.getSatuanKerja() != null) {
+			skJenis.setAttribute("satuanKerja", j.getSatuanKerja());
+			skJenis.setValue(j.getSatuanKerja().getNama());
+		}
+		skJenis.setDisabled(false);
+		row.appendChild(skJenis);
+
+		row = new MyFormRow();
+		row.setParent(rowsF);
+		row.appendChild(new MyLabelConfig("Keterangan"));
+		final Textbox ketJenis = new Textbox(j.getKeterangan() == null ? "" : j.getKeterangan());
+		ketJenis.setRows(2);
+		ketJenis.setWidth("90%");
+		row.appendChild(ketJenis);
+
+		row = new MyFormRow();
+		row.setParent(rowsF);
+		row.appendChild(new MyLabelConfig("Aktif"));
+		final Checkbox aktifJenis = new Checkbox("");
+		aktifJenis.setChecked(Boolean.TRUE.equals(j.getAktif()));
+		row.appendChild(aktifJenis);
+
+		Toolbar toolbar = new Toolbar();
+		toolbar.setHeight("32px");
+		toolbar.setParent(isi);
+		MyToolbarbuttonConfig simpan = new MyToolbarbuttonConfig("Simpan Jenis", "/img/save.gif");
+		simpan.setParent(toolbar);
+		f.setParent(isi);
+
+		simpan.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				if (namaJenis.getValue() == null || namaJenis.getValue().trim().isEmpty()) {
+					MyMessageboxConfig.show("Nama jenis wajib diisi.", "Peringatan", MyMessageboxConfig.OK,
+							MyMessageboxConfig.EXCLAMATION);
+					return;
+				}
+				Akun akunPilihan = akunJenis.getAttribute("akun") instanceof Akun
+						? (Akun) akunJenis.getAttribute("akun") : null;
+				if (!pakaiAnggaran.isChecked() && (akunPilihan == null || akunPilihan.getId() == null)) {
+					MyMessageboxConfig.show(
+							"Akun wajib dipilih untuk Jenis Reimbursement TANPA anggaran — akun inilah yang dipakai semua pengajuan jenis ini.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+					return;
+				}
+				Session session = HibernateUtil.currentSession();
+				JenisReimbursement data = j.getId() == null ? j
+						: (JenisReimbursement) session.load(JenisReimbursement.class, j.getId());
+				data.setNama(namaJenis.getValue().trim());
+				data.setMenggunakanAnggaran(Boolean.valueOf(pakaiAnggaran.isChecked()));
+				data.setAkun(akunPilihan);
+				data.setSatuanKerja(skJenis.getAttribute("satuanKerja") instanceof SatuanKerja
+						? (SatuanKerja) skJenis.getAttribute("satuanKerja") : null);
+				data.setKeterangan(ketJenis.getValue());
+				data.setAktif(Boolean.valueOf(aktifJenis.isChecked()));
+				if (data.getId() == null) {
+					session.save(data);
+				} else {
+					session.update(data);
+				}
+				session.flush();
+				addWindow.setVisible(false);
+				onJenisReimbursement(null);
+			}
+		});
+
+		addWindow.setTitle(j.getId() == null ? "Tambah Jenis Reimbursement" : "Ubah Jenis Reimbursement");
+		addWindow.setVisible(true);
+		addWindow.doHighlighted();
+	}
+
+	// =====================================================================
 	// FormSop — form() dipanggil mesin SOP DAN halaman daftar (addWindow)
 	// =====================================================================
 
@@ -392,15 +609,46 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer implemen
 		satuanKerja.setDisabled(!editable);
 		row.appendChild(satuanKerja);
 
-		// ---- Tanpa anggaran (opsional, ikut konfigurasi seperti uang muka) ----
-		tanpaAnggaran = new Checkbox("Merupakan tanpa anggaran");
-		tanpaAnggaran.setChecked(Boolean.TRUE.equals(reimbursement.getTanpaAnggaran()));
-		MyFormRow rowTanpa = new MyFormRow();
-		rowTanpa.setParent(rows);
-		rowTanpa.appendChild(new MyLabelConfig(""));
-		rowTanpa.appendChild(tanpaAnggaran);
-		rowTanpa.setVisible(Common.bolehKonfigurasi("tampilkan_tanpa_anggaran"));
-		tanpaAnggaran.setDisabled(!editable);
+		// ---- Jenis Reimbursement (menentukan wajib-anggaran vs akun tetap) ----
+		MyFormRow rowJenis = new MyFormRow();
+		rowJenis.setParent(rows);
+		rowJenis.appendChild(new MyLabelConfig("Jenis Reimbursement *"));
+		jenisReimbursementCombo = new Combobox();
+		jenisReimbursementCombo.setReadonly(true);
+		jenisReimbursementCombo.setWidth("90%");
+		rowJenis.appendChild(jenisReimbursementCombo);
+		try {
+			List jenises = HibernateUtil.currentSession().createCriteria(JenisReimbursement.class)
+					.addOrder(Order.asc("id")).list();
+			JenisReimbursement terpilih = reimbursement.getJenisReimbursement();
+			for (int i = 0; i < jenises.size(); i++) {
+				JenisReimbursement j = (JenisReimbursement) jenises.get(i);
+				if (!Boolean.TRUE.equals(j.getAktif())) {
+					continue;
+				}
+				org.zkoss.zul.Comboitem item = jenisReimbursementCombo.appendItem(j.toString());
+				item.setValue(j);
+				if (terpilih != null && terpilih.getId() != null && terpilih.getId().equals(j.getId())) {
+					jenisReimbursementCombo.setSelectedItem(item);
+				}
+			}
+			if (jenisReimbursementCombo.getSelectedItem() == null && jenisReimbursementCombo.getItemCount() > 0) {
+				// default ikut dokumen: tanpaAnggaran lama -> jenis tanpa-anggaran; selain itu jenis ber-anggaran
+				int pilih = 0;
+				for (int i = 0; i < jenisReimbursementCombo.getItemCount(); i++) {
+					JenisReimbursement j = (JenisReimbursement) jenisReimbursementCombo.getItemAtIndex(i).getValue();
+					boolean pakaiAnggaran = Boolean.TRUE.equals(j.getMenggunakanAnggaran());
+					if (Boolean.TRUE.equals(reimbursement.getTanpaAnggaran()) ? !pakaiAnggaran : pakaiAnggaran) {
+						pilih = i;
+						break;
+					}
+				}
+				jenisReimbursementCombo.setSelectedIndex(pilih);
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ReimbursementPegawaiAction.form-jenis");
+		}
+		jenisReimbursementCombo.setDisabled(!editable);
 
 		// ---- Anggaran (Pemilihan Anggaran — pola UangMuka) ----
 		rowAnggaran = new MyFormRow();
@@ -415,20 +663,14 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer implemen
 		workspace.setDisabled(!editable);
 		rowAnggaran.appendChild(workspace);
 
-		// ---- Akun manual saat tanpa anggaran ----
-		rowAkunPilih = new MyFormRow();
-		rowAkunPilih.setParent(rows);
-		rowAkunPilih.appendChild(new MyLabelConfig("Akun *"));
-		akunTanpa = new AmbilDataAkunBanbox(false);
-		akunTanpa.setWidth("90%");
-		if (reimbursement.getAkun() != null) {
-			akunTanpa.setAttribute("akun", reimbursement.getAkun());
-			akunTanpa.setValue(reimbursement.getAkun().toString());
-		}
-		akunTanpa.setDisabled(!editable);
-		rowAkunPilih.appendChild(akunTanpa);
+		// ---- Akun tetap (dari Jenis Reimbursement tanpa-anggaran) — hanya info ----
+		rowAkunInfo = new MyFormRow();
+		rowAkunInfo.setParent(rows);
+		rowAkunInfo.appendChild(new MyLabelConfig("Akun (dari Jenis)"));
+		akunInfo = new Label("-");
+		rowAkunInfo.appendChild(akunInfo);
 		aturBarisAnggaran();
-		tanpaAnggaran.addEventListener("onCheck", new EventListener() {
+		jenisReimbursementCombo.addEventListener("onSelect", new EventListener() {
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				aturBarisAnggaran();
@@ -584,13 +826,36 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer implemen
 		return f;
 	}
 
-	private void aturBarisAnggaran() {
-		boolean tanpa = tanpaAnggaran != null && tanpaAnggaran.isChecked();
-		if (rowAnggaran != null) {
-			rowAnggaran.setVisible(!tanpa);
+	private JenisReimbursement jenisTerpilih() {
+		if (jenisReimbursementCombo == null || jenisReimbursementCombo.getSelectedItem() == null) {
+			return null;
 		}
-		if (rowAkunPilih != null) {
-			rowAkunPilih.setVisible(tanpa);
+		return (JenisReimbursement) jenisReimbursementCombo.getSelectedItem().getValue();
+	}
+
+	private void aturBarisAnggaran() {
+		JenisReimbursement j = jenisTerpilih();
+		boolean pakaiAnggaran = j == null || Boolean.TRUE.equals(j.getMenggunakanAnggaran());
+		if (rowAnggaran != null) {
+			rowAnggaran.setVisible(pakaiAnggaran);
+		}
+		if (rowAkunInfo != null) {
+			rowAkunInfo.setVisible(!pakaiAnggaran);
+			if (akunInfo != null) {
+				akunInfo.setValue(j == null || j.getAkun() == null
+						? "(admin belum menentukan akun pada Jenis Reimbursement ini)"
+						: j.getAkun().toString());
+			}
+		}
+		// prefill Satuan Kerja dari jenis (bila jenis menetapkan dan belum terisi)
+		try {
+			if (j != null && j.getSatuanKerja() != null && satuanKerja != null
+					&& satuanKerja.getAttribute("satuanKerja") == null) {
+				satuanKerja.setAttribute("satuanKerja", j.getSatuanKerja());
+				satuanKerja.setValue(j.getSatuanKerja().getNama());
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ReimbursementPegawaiAction.aturBarisAnggaran");
 		}
 	}
 
@@ -756,23 +1021,31 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer implemen
 			return false;
 		}
 
-		boolean tanpa = tanpaAnggaran != null && tanpaAnggaran.isChecked();
+		JenisReimbursement jenis = jenisTerpilih();
+		boolean tanpa = jenis != null && !Boolean.TRUE.equals(jenis.getMenggunakanAnggaran());
 		Workspace w = workspace == null ? null : (Workspace) workspace.getAttribute("workspace");
 		SatuanKerja sk = satuanKerja == null ? null : (SatuanKerja) satuanKerja.getAttribute("satuanKerja");
 
+		if (jenis == null) {
+			MyMessageboxConfig.show("Jenis Reimbursement wajib dipilih.", "Peringatan", MyMessageboxConfig.OK,
+					MyMessageboxConfig.EXCLAMATION);
+			return false;
+		}
 		if (nama.getValue() == null || nama.getValue().trim().isEmpty()) {
 			MyMessageboxConfig.show("Judul pengajuan wajib diisi.", "Peringatan", MyMessageboxConfig.OK,
 					MyMessageboxConfig.EXCLAMATION);
 			return false;
 		}
 		if (!tanpa && (w == null || w.getId() == null)) {
-			MyMessageboxConfig.show("Anggaran wajib dipilih dari daftar.", "Peringatan", MyMessageboxConfig.OK,
+			MyMessageboxConfig.show("Anggaran wajib dipilih dari daftar untuk Jenis Reimbursement \""
+					+ jenis.getNama() + "\".", "Peringatan", MyMessageboxConfig.OK,
 					MyMessageboxConfig.EXCLAMATION);
 			return false;
 		}
-		if (tanpa && !(akunTanpa.getAttribute("akun") instanceof Akun)) {
-			MyMessageboxConfig.show("Akun wajib dipilih ketika tanpa anggaran.", "Peringatan", MyMessageboxConfig.OK,
-					MyMessageboxConfig.EXCLAMATION);
+		if (tanpa && (jenis.getAkun() == null || jenis.getAkun().getId() == null)) {
+			MyMessageboxConfig.show("Akun pada Jenis Reimbursement \"" + jenis.getNama()
+					+ "\" belum ditentukan. Mohon administrator melengkapi akun pada tab Jenis Reimbursement terlebih dahulu.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
 			return false;
 		}
 		Pegawai p = pegawaiPenerima == null ? null : (Pegawai) pegawaiPenerima.getAttribute("pegawai");
@@ -829,11 +1102,14 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer implemen
 		if (disposisiSop != null && disposisiSop.getId() != null) {
 			reimbursement.setDisposisiSop(disposisiSop);
 		}
+		reimbursement.setJenisReimbursement(jenis);
 		reimbursement.setTanpaAnggaran(Boolean.valueOf(tanpa));
 		reimbursement.setWorkspace(tanpa ? null : w);
-		reimbursement.setSatuanKerja(sk != null ? sk : (w == null ? null : w.getSatuanKerja()));
+		reimbursement.setSatuanKerja(sk != null ? sk
+				: (w != null ? w.getSatuanKerja() : jenis.getSatuanKerja()));
 		if (tanpa) {
-			reimbursement.setAkun((Akun) akunTanpa.getAttribute("akun"));
+			// akun tetap dari Jenis Reimbursement — pengaju tidak memilih akun per pengajuan
+			reimbursement.setAkun(jenis.getAkun());
 		}
 		reimbursement.setNama(nama.getValue().trim());
 		reimbursement.setDeskripsi(nama.getValue().trim());
