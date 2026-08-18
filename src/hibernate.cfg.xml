@@ -2267,6 +2267,11 @@
 		<mapping class="ais.database.model.hotel.PropertiHotel"></mapping>
 		<mapping class="ais.database.model.hotel.TipeKamar"></mapping>
 		<mapping class="ais.database.model.hotel.Kamar"></mapping>
+		<mapping class="ais.database.model.hotel.Tamu"></mapping>
+		<mapping class="ais.database.model.hotel.ReservasiKamar"></mapping>
+		<mapping class="ais.database.model.hotel.MenginapTamu"></mapping>
+		<mapping class="ais.database.model.hotel.Folio"></mapping>
+		<mapping class="ais.database.model.hotel.FolioTransaksi"></mapping>
 		<mapping class="ais.database.model.inventory.ProdukBatch"></mapping>
 		<mapping class="ais.database.model.inventory.MutasiProdukBatch"></mapping>
 		<mapping class="ais.database.model.inventory.PengajuanPerubahanHargaProduk"></mapping>

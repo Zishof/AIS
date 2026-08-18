@@ -1218,6 +1218,9 @@ public class PosApi extends HttpServlet {
 		aksesMenu.put("grup_produk", menuTersimpan.optBoolean("grup_produk", false));
 		aksesMenu.put("hotel_properti", menuTersimpan.optBoolean("hotel_properti", false));
 		aksesMenu.put("hotel_kamar", menuTersimpan.optBoolean("hotel_kamar", false));
+		aksesMenu.put("hotel_reservasi", menuTersimpan.optBoolean("hotel_reservasi", false));
+		aksesMenu.put("hotel_checkin", menuTersimpan.optBoolean("hotel_checkin", false));
+		aksesMenu.put("hotel_folio", menuTersimpan.optBoolean("hotel_folio", false));
 		aksesMenu.put("stokopname", menuTersimpan.optBoolean("stokopname", true));
 		aksesMenu.put("stok", menuTersimpan.optBoolean("stokopname", true));
 		aksesMenu.put("kulakan", menuTersimpan.optBoolean("kulakan", true));
@@ -1647,8 +1650,14 @@ public class PosApi extends HttpServlet {
 			return menu.optBoolean("ringkasan", true);
 		}
 		if (action.startsWith("hotel_")) {
-			// MitraInap fail-closed: kunci per-area (properti vs kamar), default false.
-			return menu.optBoolean("hotel_properti", false) || menu.optBoolean("hotel_kamar", false);
+			// MitraInap fail-closed per-area (default false semua). Aksi granular
+			// create/update tetap dicek lapis kedua di HotelApiHelper.boleh().
+			if (action.startsWith("hotel_properti_")) return menu.optBoolean("hotel_properti", false);
+			if (action.startsWith("hotel_tipe_kamar_") || action.startsWith("hotel_kamar_")) return menu.optBoolean("hotel_kamar", false);
+			if (action.startsWith("hotel_tamu_") || action.startsWith("hotel_reservasi_")) return menu.optBoolean("hotel_reservasi", false);
+			if ("hotel_checkin".equals(action) || "hotel_checkout".equals(action) || "hotel_pindah_kamar".equals(action)) return menu.optBoolean("hotel_checkin", false);
+			if (action.startsWith("hotel_folio_")) return menu.optBoolean("hotel_folio", false);
+			return false;
 		}
 		if (action.startsWith("grup_produk_")) {
 			// FAIL-CLOSED (default false, selaras KUNCI_DEFAULT_NONAKTIF): menyimpan grup
