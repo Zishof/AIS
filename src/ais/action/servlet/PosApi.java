@@ -194,6 +194,12 @@ public class PosApi extends HttpServlet {
 				return;
 			}
 
+			// Audit oleh/olehId: klien POS Desktop/Android tidak punya sesi web, sehingga
+			// AuditTimestampInterceptor tadinya mencatat "external_update". Identitas hasil
+			// autentikasi token perangkat ditaruh sebagai atribut request agar SEMUA
+			// simpanan pada permintaan ini tercatat atas nama kasir yang sedang login.
+			request.setAttribute(ais.database.hibernate.AuditTimestampInterceptor.ATTR_PENGGUNA_POS, tbmuser);
+
 			// Idempotensi antrean master offline (eBisnis Flutter): client_mutation_id
 			// hanya disertakan MasterOffline pada mutasi master yang diantre saat offline.
 			// Kiriman ulang mengembalikan respons tersimpan -- create yang di-replay tidak

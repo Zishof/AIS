@@ -228,12 +228,34 @@ public class AuditTimestampInterceptor extends EmptyInterceptor {
 		}
 	}
 
+	/**
+	 * Identitas pengguna utk permintaan PosApi (Desktop/Android). Klien POS tidak
+	 * lewat sesi web ZK/JSP sehingga {@code Common.getCurrentUser} selalu null dan
+	 * audit jatuh ke "external_update"; PosApi menaruh Tbmuser hasil autentikasi
+	 * token perangkat sebagai atribut request supaya oleh/olehId mencatat kasir
+	 * yang sedang login di aplikasi. Atribut mati bersama request (tanpa risiko
+	 * bocor antar-thread pool seperti ThreadLocal).
+	 */
+	public static final String ATTR_PENGGUNA_POS = "ais.pos.tbmuser";
+
+	private static Tbmuser penggunaPosApi(HttpServletRequest request) {
+		try {
+			Object o = request == null ? null : request.getAttribute(ATTR_PENGGUNA_POS);
+			return o instanceof Tbmuser ? (Tbmuser) o : null;
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
 	public static String oleh() {
 		Tbmuser tbmuser = null;
 		try {
 			HttpServletRequest request = currentRequest();
 			if (request != null) {
 				tbmuser = Common.getCurrentUser(request);
+				if (tbmuser == null) {
+					tbmuser = penggunaPosApi(request);
+				}
 			}
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/hibernate/AuditTimestampInterceptor.java:224");
 			// Abaikan agar proses audit tidak mengganggu proses simpan data.
@@ -267,6 +289,9 @@ public class AuditTimestampInterceptor extends EmptyInterceptor {
 					tbmuser = Common.getCurrentUser(request);
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/hibernate/AuditTimestampInterceptor.java:254");
 					// Abaikan agar proses audit tidak mengganggu proses simpan data.
+				}
+				if (tbmuser == null) {
+					tbmuser = penggunaPosApi(request);
 				}
 			}
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/hibernate/AuditTimestampInterceptor.java:258");
