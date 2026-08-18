@@ -80,6 +80,13 @@ public class TagihanUtilCalonSiswa {
 
 		int bulanTahunUtama = PembayaranSiswa.convert(tahunSampai, bulanSampai);
 		Session session = null;
+		// PERBAIKAN (session closed): currentNativeSession() thread-local, bukan call-scoped -- bila
+		// pemanggil (mis. doSinkronkanTagihanCalonSiswa yang memegang batchSession di thread pool yang
+		// sama) SUDAH membuka native session lebih dulu, panggilan di sini akan MEMINJAM (bukan membuka
+		// baru) session ancestor tsb. Tutup paksa di finally seperti sebelumnya membuat ancestor melihat
+		// "Session is closed!" saat lanjut memakainya (batchSession.update(...)). Hanya tutup bila
+		// method INI yang benar-benar membuka baru.
+		boolean sessionSudahTerbukaSebelumnya = HibernateUtil.isNativeSessionOpenForCurrentThread();
 		try {
 			session = HibernateUtil.currentNativeSession();
 			List<PengaturanBiayaItemBiaya> daftarBiayas = ConstantValues
@@ -153,7 +160,9 @@ public class TagihanUtilCalonSiswa {
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/sekolah/helper/TagihanUtilCalonSiswa.java:154");
 		} finally {
-			closeSessionAndDisconnect(session);
+			if (!sessionSudahTerbukaSebelumnya) {
+				closeSessionAndDisconnect(session);
+			}
 		}
 
 		return saring(tagihans);
@@ -169,6 +178,9 @@ public class TagihanUtilCalonSiswa {
 		}
 
 		Session session = null;
+		// PERBAIKAN (session closed): lihat catatan sama di doGenerateTagihanBulanan() -- jangan tutup
+		// session ancestor yang dipinjam via currentNativeSession() dari thread yang sama.
+		boolean sessionSudahTerbukaSebelumnya = HibernateUtil.isNativeSessionOpenForCurrentThread();
 		try {
 			session = HibernateUtil.currentNativeSession();
 			List<PengaturanBiayaItemBiaya> daftarBiayas = ConstantValues
@@ -284,7 +296,9 @@ public class TagihanUtilCalonSiswa {
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/sekolah/helper/TagihanUtilCalonSiswa.java:285");
 		} finally {
-			closeSessionAndDisconnect(session);
+			if (!sessionSudahTerbukaSebelumnya) {
+				closeSessionAndDisconnect(session);
+			}
 		}
 
 		return saring(tagihans);
@@ -328,6 +342,9 @@ public class TagihanUtilCalonSiswa {
 		}
 
 		Session session = null;
+		// PERBAIKAN (session closed): lihat catatan sama di doGenerateTagihanBulanan() -- jangan tutup
+		// session ancestor yang dipinjam via currentNativeSession() dari thread yang sama.
+		boolean sessionSudahTerbukaSebelumnya = HibernateUtil.isNativeSessionOpenForCurrentThread();
 		try {
 			session = HibernateUtil.currentNativeSession();
 			List<PengaturanBiayaItemBiaya> daftarBiayas = ConstantValues
@@ -379,7 +396,9 @@ public class TagihanUtilCalonSiswa {
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/sekolah/helper/TagihanUtilCalonSiswa.java:380");
 		} finally {
-			closeSessionAndDisconnect(session);
+			if (!sessionSudahTerbukaSebelumnya) {
+				closeSessionAndDisconnect(session);
+			}
 		}
 
 		return saring(tagihans);

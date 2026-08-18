@@ -1001,6 +1001,15 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 					Long kunciFormat = formatIdSource.getStatusPertemuan() != null
 							? formatIdSource.getStatusPertemuan().getId() : formatIdSource.getId();
 					if (kunciFormat.equals(formatId)) {
+						// FIX ArrayIndexOutOfBoundsException: baris detailNilai rusak/pendek (kurang
+						// dari 2 kolom, s[1]="nilai" tak ada) -- lewati baris ini, bukan error (sama
+						// seperti guard s[0] di atas). Sebelumnya s[1] diakses langsung tanpa cek
+						// panjang; hasil AIOOBE tertangkap catch generik di bawah lalu dicatat ke
+						// ErrorAuditUtil berulang-ulang (noise), padahal perilakunya sama saja dengan
+						// continue: baris ini dilewati dan method jatuh ke fallback di akhir.
+						if (s.length <= 1 || s[1] == null) {
+							continue;
+						}
 						Double n = !Common.isNumber(s[1].trim()) ? 0.0 : Double.parseDouble(s[1].trim());
 						n = batasiNilaiMaksimal100(n);
 						if (n.intValue() == 0 && check) {
@@ -1044,7 +1053,19 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 					Long kunciFormat = formatIdSource.getStatusPertemuan() != null
 							? formatIdSource.getStatusPertemuan().getId() : formatIdSource.getId();
 					if (kunciFormat.equals(formatId)) {
-						Double n = batasiNilaiMaksimal100(Double.parseDouble(s[5]));
+						// FIX ArrayIndexOutOfBoundsException: 5 -- baris detailNilai rusak/pendek
+						// (kurang dari 6 kolom, s[5]="nilai belum verify" tak ada; mis. baris lama
+						// sebelum kolom ini ditambahkan, atau data korup) -- lewati baris ini, bukan
+						// error, sama seperti guard s[0] di atas. Sebelumnya s[5] diakses langsung
+						// (mirip pola aman sss[5] yang sudah dicek panjangnya di
+						// semuaKomponenDetailNilaiNol()) sehingga AIOOBE tertangkap catch generik di
+						// bawah lalu dicatat berulang ke ErrorAuditUtil (noise); perilaku akhirnya
+						// tetap sama: baris dilewati dan method jatuh ke
+						// retreiveDetailNilai(formatIdSource, false) di akhir.
+						if (s.length <= 5 || s[5] == null || !Common.isNumber(s[5].trim())) {
+							continue;
+						}
+						Double n = batasiNilaiMaksimal100(Double.parseDouble(s[5].trim()));
 						if (n.intValue() == 0 && check) {
 							Double temp = retreiveDetailNilai(formatIdSource, false);
 							if (temp > 0.1) {

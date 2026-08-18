@@ -757,7 +757,7 @@ public class SurveyVendorAction extends GenericAutowireComposer {
 		hasil.setParent(panelDashboard);
 	}
 
-	private void renderHasil(Div wrap, final SurveyVendor svArg) throws Exception {
+	private void renderHasil(final Div wrap, final SurveyVendor svArg) throws Exception {
 		Common.clear(wrap);
 		Session s = HibernateUtil.currentSession();
 		final SurveyVendor sv = (SurveyVendor) s.get(SurveyVendor.class, svArg.getId());

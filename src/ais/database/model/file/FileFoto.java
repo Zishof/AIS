@@ -830,26 +830,52 @@ public abstract class FileFoto extends GeneralValueObject {
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/file/FileFoto.java:666");
 		}
 
-		FileFoto sumber = copyDari == null ? this : copyDari;
-		enterBlobExtraction();
-		try {
-			/*
-			 * PostgreSQL large object/Blob harus dibaca dalam transaction aktif, tetapi
-			 * transaction baca ini tidak boleh di-commit karena commit akan memicu flush dan
-			 * AuditListener lagi pada Hibernate 3.6. Gunakan rollback read-only setelah stream
-			 * selesai dibaca.
-			 */
-			if (writeBlobFromManagedEntity(target, sumber)) {
+		/*
+		 * GUARD CACHE STAMPEDE. Kedua pemanggil (getPathfile()/ambilFile()) hanya mengecek
+		 * "apakah target sudah ada di disk" SEKALI sebelum memanggil method ini -- pengecekan
+		 * itu tidak atomik lintas thread. Ketika berkas belum pernah dibangun dan BANYAK
+		 * request bersamaan meminta baris yang SAMA (mis. logo/pengumuman/foto yang tampil di
+		 * banyak klien sekaligus lewat AmbilLampiran), seluruh thread lolos pengecekan "belum
+		 * ada" pada saat bersamaan dan SEMUA membuka session+transaction baru
+		 * (writeBlobFromManagedEntity -> Session.beginTransaction()) untuk baris identik di
+		 * saat yang sama -- inilah akar N thread yang macet di
+		 * BasicResourcePool.awaitAvailable pada thread-dump 17-08-2026 (seluruhnya identik:
+		 * AmbilLampiran -> ambilFile -> getPathfile -> writeBlobToFileSafely ->
+		 * writeBlobFromManagedEntity), yang lalu memicu "Session is closed"/"connection could
+		 * not be acquired" di tempat lain karena pool c3p0 kehabisan koneksi.
+		 *
+		 * Serialisasi per target file (kunci di-intern, pola sama
+		 * PublicRegistrationRateLimiter.kunciIntern) supaya hanya SATU thread yang benar-benar
+		 * membangun berkas dari blob; thread lain menunggu lock lalu langsung memakai berkas
+		 * yang baru ditulis TANPA membuka koneksi DB sama sekali.
+		 */
+		String kunciCacheBerkas = ("FileFoto.writeBlobToFileSafely|" + target.getAbsolutePath()).intern();
+		synchronized (kunciCacheBerkas) {
+			if (target.exists() && target.length() > 0L) {
 				return;
 			}
 
-			/*
-			 * Fallback untuk kondisi khusus, misalnya Blob baru dibuat di memory dan belum
-			 * bisa dibaca ulang dari database.
-			 */
-			writeBlobFromCurrentObject(target, sumber);
-		} finally {
-			exitBlobExtraction();
+			FileFoto sumber = copyDari == null ? this : copyDari;
+			enterBlobExtraction();
+			try {
+				/*
+				 * PostgreSQL large object/Blob harus dibaca dalam transaction aktif, tetapi
+				 * transaction baca ini tidak boleh di-commit karena commit akan memicu flush dan
+				 * AuditListener lagi pada Hibernate 3.6. Gunakan rollback read-only setelah stream
+				 * selesai dibaca.
+				 */
+				if (writeBlobFromManagedEntity(target, sumber)) {
+					return;
+				}
+
+				/*
+				 * Fallback untuk kondisi khusus, misalnya Blob baru dibuat di memory dan belum
+				 * bisa dibaca ulang dari database.
+				 */
+				writeBlobFromCurrentObject(target, sumber);
+			} finally {
+				exitBlobExtraction();
+			}
 		}
 	}
 
