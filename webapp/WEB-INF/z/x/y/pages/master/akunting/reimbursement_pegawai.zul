@@ -1,29 +1,176 @@
-<?page title="Reimbursement Pegawai" cacheable="false" language="xul/html" contentType="text/html;charset=UTF-8"?>
-<zk xmlns="http://www.zkoss.org/2005/zul">
-  <window use="ais.ui.util.MyWindow" width="100%" height="100%" border="none">
-    <style>
-      .rmb-shell{background:#f4f7fb;padding:8px}.rmb-shell-hero{background:linear-gradient(120deg,#17396b,#087d8b);color:#fff;padding:16px 20px;border-radius:12px;margin-bottom:8px}
-      .rmb-shell-title{font-size:22px;font-weight:bold}.rmb-shell-subtitle{color:#d8f3f5}.rmb-main-tabs .z-tabs{background:#fff;border:1px solid #dfe7ef;border-radius:10px 10px 0 0;padding:5px}
-      .rmb-main-tabs .z-tab img,.rmb-main-tabs .z-tab-image{width:18px!important;height:18px!important;max-width:18px!important;max-height:18px!important;object-fit:contain;vertical-align:middle;margin-right:5px}
-    </style>
-    <div sclass="rmb-shell">
-      <div sclass="rmb-shell-hero">
-        <label sclass="rmb-shell-title" value="Reimbursement Pegawai"/>
-        <separator/>
-        <label sclass="rmb-shell-subtitle" value="Dashboard, proses reimbursement, dan laporan berada dalam satu pusat kerja."/>
-      </div>
-      <tabbox sclass="rmb-main-tabs" width="100%" height="92%">
-        <tabs>
-          <tab label="Dashboard" selected="true" image="/img/Graph-icon.png"/>
-          <tab label="Reimbursement" image="/img/svg/money-bills.svg"/>
-          <tab label="Laporan" image="/img/report-icon.png"/>
-        </tabs>
-        <tabpanels>
-          <tabpanel style="padding:0"><include src="/WEB-INF/z/x/y/pages/master/akunting/dashboard_reimbursement_pegawai.zul"/></tabpanel>
-          <tabpanel style="padding:0"><include src="/WEB-INF/z/x/y/pages/master/akunting/reimbursement_transaksi_pegawai.zul"/></tabpanel>
-          <tabpanel style="padding:0"><include src="/WEB-INF/z/x/y/pages/master/akunting/laporan_reimbursement_pegawai.zul"/></tabpanel>
-        </tabpanels>
-      </tabbox>
-    </div>
-  </window>
+<?page id="testZul" title=" New ZUL Title" cacheable="false"
+	language="xul/html" zscriptLanguage="Java" contentType="text/html;charset=UTF-8"?>
+
+<zk xmlns="http://www.zkoss.org/2005/zul"
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.zkoss.org/2005/zul http://www.zkoss.org/2005/zul/zul.xsd">
+
+	<window use="ais.ui.util.MyWindow" border="none" id="window"
+		apply="ais.action.master.akunting.ReimbursementPegawaiAction" width="100%" height="100%">
+
+		<tabbox width="100%" height="100%">
+
+			<tabs>
+				<tab use="ais.ui.util.MyTabConfig" selected="true">
+					Reimbursement
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onStatistik">
+					Statistik
+				</tab>
+				<tab use="ais.ui.util.MyTabConfig" forward="onClick=onMonitor">
+					Monitor
+				</tab>
+			</tabs>
+
+			<tabpanels>
+
+				<tabpanel use="ais.ui.util.MyTabpanel">
+					<div sclass="ais-crud-portal">
+
+						<!-- ═══ KARTU FILTER ═══ -->
+						<div sclass="ais-crud-filter-card">
+							<div sclass="ais-crud-filter-head">
+								<span sclass="ais-crud-filter-title">Pencarian &amp; Filter</span>
+								<div sclass="ais-crud-filter-actions">
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="add" label="Tambah" image="/img/new.gif" tooltiptext="Tambah pengajuan reimbursement" forward="onClick=onAdd"/>
+									<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" id="find" label="Cari" image="/img/search.gif" tooltiptext="Cari data" forward="onClick=onSearchDefault"/>
+								<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;reimbursement_pegawai&quot;, &quot;Bantuan&quot;);"/></div>
+							</div>
+							<div sclass="ais-crud-filter-body">
+								<grid use="ais.ui.util.MyGrid" fixedLayout="true" sclass="ais-crud-filter-grid">
+									<columns>
+
+									<column
+									use="ais.ui.util.MyColumnConfig" width="150px">
+									</column>
+									<column
+									use="ais.ui.util.MyColumnConfig">
+									</column>
+									<column
+									use="ais.ui.util.MyColumnConfig" width="150px">
+									</column>
+									<column
+									use="ais.ui.util.MyColumnConfig">
+									</column>
+									<column
+									use="ais.ui.util.MyColumnConfig" width="150px">
+									</column>
+									<column
+									use="ais.ui.util.MyColumnConfig">
+									</column>
+									<column
+									use="ais.ui.util.MyColumnConfig" width="150px">
+									</column>
+									<column
+									use="ais.ui.util.MyColumnConfig">
+									</column>
+
+									</columns>
+									<rows>
+									<row>
+									<label
+									use="ais.ui.util.MyLabelConfig" value="Judul Pengajuan" />
+									<textbox
+									forward="onOK=onSearchDefault" id="serachnama" width="95%" />
+									<label
+									use="ais.ui.util.MyLabelConfig" value="Kode Pengajuan" />
+									<textbox
+									forward="onOK=onSearchDefault" id="serachkode" width="95%" />
+									<label
+									use="ais.ui.util.MyLabelConfig" value="Status" />
+									<combobox
+									forward="onChange=onSearchDefault" id="searchstatus"
+									width="95%" />
+
+									<label
+									use="ais.ui.util.MyLabelConfig" value="Anggaran" />
+									<bandbox
+									use="ais.action.master.rab.helper.AmbilDataWorkspaceBanbox"
+									id="searchAnggaran" width="95%" />
+									</row>
+
+									<row spans="1,1,1,1,4">
+									<label
+									use="ais.ui.util.MyLabelConfig" value="Satuan Kerja" />
+									<bandbox
+									use="ais.action.master.rab.helper.AmbilDataSatuanKerjaBanbox"
+									id="searchparent" width="95%">
+									</bandbox>
+									<label use="ais.ui.util.MyLabelConfig" value="Dari Tanggal" />
+									<datebox use="ais.ui.util.MyDatebox" id="start" format="dd/MM/yyyy" forward="onChange=onSearchDefault" width="95%" />
+									<hbox>
+									<checkbox id="searchaktif"
+									label="Hanya yang aktif" checked="true"
+									forward="onClick=onSearchDefault" width="95%" />
+									<checkbox
+									id="searchtelahDpc" label="Hanya DPC"
+									forward="onClick=onSearchDefault" width="95%" />
+									</hbox>
+									</row>
+									<row>
+									<label use="ais.ui.util.MyLabelConfig" value="Sampai Tanggal" />
+									<datebox use="ais.ui.util.MyDatebox" id="end" format="dd/MM/yyyy" forward="onChange=onSearchDefault" width="95%" />
+									</row>
+									</rows>
+								</grid>
+							</div>
+						</div>
+
+						<!-- ═══ KARTU DATA ═══ -->
+						<div sclass="ais-crud-data-card">
+							<grid use="ais.ui.util.MyGrid" sclass="dgrid" fixedLayout="true" id="grid">
+								<columns>
+
+									<column width="16%"
+									use="ais.ui.util.MyColumnConfig" label="Kode/Nama" />
+									<column
+									use="ais.ui.util.MyColumnConfig" width="9%" align="right"
+									label="Nilai Pengajuan" />
+									<column
+									use="ais.ui.util.MyColumnConfig" width="8%"
+									label="Tgl Pengeluaran" />
+									<column
+									use="ais.ui.util.MyColumnConfig" width="11%"
+									label="Pengajuan" />
+									<column
+									use="ais.ui.util.MyColumnConfig" width="12%"
+									label="Persetujuan" />
+									<column
+									use="ais.ui.util.MyColumnConfig" width="14%"
+									label="Keterangan" />
+									<column
+									use="ais.ui.util.MyColumnConfig" width="13%"
+									label="Status DPC" />
+									<column
+									use="ais.ui.util.MyColumnConfig" width="5%" label="Aktif" />
+									<column
+									use="ais.ui.util.MyColumnConfig" width="12%" label="" />
+
+								</columns>
+							</grid>
+						</div>
+
+					</div>
+
+				</tabpanel>
+
+
+				<tabpanel use="ais.ui.util.MyTabpanel" id="statistik"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="monitor"></tabpanel>
+
+			</tabpanels>
+		</tabbox>
+
+		<window use="ais.ui.util.MyWindow" id="addWindow" title="Tambah Reimbursement" visible="false" mode="popup" position="center,center" border="normal" width="700px" height="95%">
+		</window>
+
+		<zscript><![CDATA[
+	addWindow.setVisible(false);
+]]></zscript>
+
+	</window>
+
+
 </zk>
