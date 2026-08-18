@@ -113,6 +113,16 @@ window.FontAwesomeConfig.observeMutations = false;
 <% } %>
 
 <script>
+window.showLoadingPMB = function() {
+    var loader = document.getElementById('globalLoaderPMB');
+    if(loader) { loader.classList.remove('d-none'); loader.classList.add('d-flex'); }
+};
+
+window.hideLoadingPMB = function() {
+    var loader = document.getElementById('globalLoaderPMB');
+    if(loader) { loader.classList.remove('d-flex'); loader.classList.add('d-none'); }
+};
+
 (function() {
     if (typeof window.pmbEscapeHtml !== 'function') {
         window.pmbEscapeHtml = function(value) {
@@ -261,55 +271,3 @@ window.FontAwesomeConfig.observeMutations = false;
         </p>
     </div>
 </div>
-
-<%
-// Teks terjemahan untuk modal logout — di-escape agar aman di dalam string JS
-// (escape apostrof → \' dan </ → <\/ agar </script> tidak diinterpretasi browser sebagai akhir blok script)
-String _pmbLogoutJudul  = Common.getBahasaConfig("Konfirmasi Keluar").replace("\\", "\\\\").replace("'", "\\'").replace("</", "<\\/");
-String _pmbLogoutPesan  = Common.getBahasaConfig("Apakah Anda yakin ingin keluar dari sesi saat ini?").replace("\\", "\\\\").replace("'", "\\'").replace("</", "<\\/");
-String _pmbLogoutBatal  = Common.getBahasaConfig("Batal").replace("\\", "\\\\").replace("'", "\\'").replace("</", "<\\/");
-String _pmbLogoutKeluar = Common.getBahasaConfig("Ya, Keluar").replace("\\", "\\\\").replace("'", "\\'").replace("</", "<\\/");
-%>
-<script>
-window.showLoadingPMB = function() {
-    var loader = document.getElementById('globalLoaderPMB');
-    if(loader) { loader.classList.remove('d-none'); loader.classList.add('d-flex'); }
-};
-
-window.hideLoadingPMB = function() {
-    var loader = document.getElementById('globalLoaderPMB');
-    if(loader) { loader.classList.remove('d-flex'); loader.classList.add('d-none'); }
-};
-
-window.konfirmasiLogoutPMB = function() {
-    var modalId = 'modalLogoutPMBGlobal';
-    var exist = document.getElementById(modalId);
-    if(exist) exist.remove();
-
-    var modalHtml =
-    '<div class="modal fade" id="' + modalId + '" tabindex="-1" aria-hidden="true" style="z-index: 1080;">' +
-        '<div class="modal-dialog modal-dialog-centered">' +
-            '<div class="modal-content border-0 rounded-4 shadow-lg">' +
-                '<div class="modal-body p-4 text-center">' +
-                    '<i class="fas fa-right-from-bracket fa-3x text-danger mb-3 mt-2"></i>' +
-                    '<h5 class="fw-bold text-dark"><%= _pmbLogoutJudul %></h5>' +
-                    '<p class="text-muted mb-4"><%= _pmbLogoutPesan %></p>' +
-                    '<div class="d-flex justify-content-center gap-2">' +
-                        '<button type="button" class="btn btn-light rounded-pill px-4 fw-bold shadow-sm" data-bs-dismiss="modal"><%= _pmbLogoutBatal %></button>' +
-                        '<button type="button" class="btn btn-danger rounded-pill px-4 fw-bold shadow-sm" onclick="window.location.href=\'<%=Common.ROOT%>/pmb?hanya_tampil_jsp=true&p=pmb&s=landing_page&auth_action=logout\'"><%= _pmbLogoutKeluar %></button>' +
-                    '</div>' +
-                '</div>' +
-            '</div>' +
-        '</div>' +
-    '</div>';
-
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-    var modalEl = document.getElementById(modalId);
-    if (window.bootstrap && bootstrap.Modal) {
-        new bootstrap.Modal(modalEl).show();
-        modalEl.addEventListener('hidden.bs.modal', function () { this.remove(); });
-    } else {
-        window.location.href = '<%=Common.ROOT%>/pmb?hanya_tampil_jsp=true&p=pmb&s=landing_page&auth_action=logout';
-    }
-};
-</script>

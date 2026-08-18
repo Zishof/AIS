@@ -172,6 +172,8 @@ public final class PsbApi {
 					Common.bolehKonfigurasi("tampilkan_informasiPembayaran_psb"));
 			ApiHelperSupport.put(data, "tampil_info_kelulusan",
 					Common.bolehKonfigurasi("tampilkan_informasiKelulusan_psb"));
+			ApiHelperSupport.put(data, "tampil_login_calon",
+					Common.bolehKonfigurasi("tampilkan_loginCalonMhs_psb"));
 
 			hasil.put("data", data);
 			ApiHelperSupport.putSuccess(hasil, "Info portal PSB berhasil diambil");
@@ -501,8 +503,9 @@ public final class PsbApi {
 		return hasil;
 	}
 
-	/** Ringkasan CalonSiswa yang dikembalikan action daftar & cek status (bentuk konsisten, reusable). */
-	private static JSONObject buatRingkasanCalonSiswa(HttpServletRequest request, CalonSiswa calonSiswa)
+	/** Ringkasan CalonSiswa yang dikembalikan action daftar & cek status (bentuk konsisten,
+	 * reusable — juga dipakai {@link PsbCalonApi} untuk profil calon yang login). */
+	static JSONObject buatRingkasanCalonSiswa(HttpServletRequest request, CalonSiswa calonSiswa)
 			throws Exception {
 		JSONObject data = new JSONObject();
 		SimpleDateFormat df = formatTanggal();

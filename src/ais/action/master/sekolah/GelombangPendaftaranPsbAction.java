@@ -1453,8 +1453,17 @@ public class GelombangPendaftaranPsbAction extends GenericAutowireComposer
 					HibernateUtil.currentSession().refresh(GelombangPendaftaranPsbAction.this.gelombangPendaftaranPsb);
 				}
 				try {
-					selectedVerifikasiKelengkapanCalonSiswa = GelombangPendaftaranPsbAction.this.gelombangPendaftaranPsb
+					/*
+					 * Jangan gunakan PersistentSet milik Hibernate langsung sebagai state checkbox.
+					 * Refresh/load ulang entitas dapat mengembalikan isi koleksi ke snapshot DB dan
+					 * membuang pilihan pengguna sebelum flush. Salin ke Set biasa seperti alur PMB.
+					 */
+					selectedVerifikasiKelengkapanCalonSiswa = new HashSet<VerifikasiKelengkapanCalonSiswa>();
+					Set<VerifikasiKelengkapanCalonSiswa> tersimpan = GelombangPendaftaranPsbAction.this.gelombangPendaftaranPsb
 							.getVerifikasiKelengkapanCalonSiswas();
+					if (tersimpan != null) {
+						selectedVerifikasiKelengkapanCalonSiswa.addAll(tersimpan);
+					}
 
 					subGrid.setVisible(!selectedVerifikasiKelengkapanCalonSiswa.isEmpty());
 					formulirVerifikasi.setChecked(!selectedVerifikasiKelengkapanCalonSiswa.isEmpty());
@@ -1478,8 +1487,15 @@ public class GelombangPendaftaranPsbAction extends GenericAutowireComposer
 				for (final VerifikasiKelengkapanCalonSiswa verifikasiKelengkapanCalonSiswa : verifikasiKelengkapanCalonSiswas) {
 					final Checkbox checkbox = new Checkbox(verifikasiKelengkapanCalonSiswa.getNama());
 					checkbox.setParent(vboxSkala);
-					checkbox.setChecked(
-							selectedVerifikasiKelengkapanCalonSiswa.contains(verifikasiKelengkapanCalonSiswa));
+					boolean sudahDipilih = false;
+					for (VerifikasiKelengkapanCalonSiswa pilihan : selectedVerifikasiKelengkapanCalonSiswa) {
+						if (pilihan != null && pilihan.getId() != null
+								&& pilihan.getId().equals(verifikasiKelengkapanCalonSiswa.getId())) {
+							sudahDipilih = true;
+							break;
+						}
+					}
+					checkbox.setChecked(sudahDipilih);
 					checkbox.addEventListener("onClick", new EventListener() {
 
 						@Override
@@ -1487,7 +1503,17 @@ public class GelombangPendaftaranPsbAction extends GenericAutowireComposer
 							if (checkbox.isChecked()) {
 								selectedVerifikasiKelengkapanCalonSiswa.add(verifikasiKelengkapanCalonSiswa);
 							} else {
-								selectedVerifikasiKelengkapanCalonSiswa.remove(verifikasiKelengkapanCalonSiswa);
+								VerifikasiKelengkapanCalonSiswa pilihanDihapus = null;
+								for (VerifikasiKelengkapanCalonSiswa pilihan : selectedVerifikasiKelengkapanCalonSiswa) {
+									if (pilihan != null && pilihan.getId() != null
+											&& pilihan.getId().equals(verifikasiKelengkapanCalonSiswa.getId())) {
+										pilihanDihapus = pilihan;
+										break;
+									}
+								}
+								if (pilihanDihapus != null) {
+									selectedVerifikasiKelengkapanCalonSiswa.remove(pilihanDihapus);
+								}
 							}
 						}
 					});
@@ -1558,7 +1584,11 @@ public class GelombangPendaftaranPsbAction extends GenericAutowireComposer
 		gelombangPendaftaranPsb.setSampai(sampai.getValue());
 		gelombangPendaftaranPsb.setSekolah((Sekolah) sekolah.getSelectedItem().getValue());
 		gelombangPendaftaranPsb.setYayasan((Yayasan) yayasan.getSelectedItem().getValue());
-		gelombangPendaftaranPsb.setVerifikasiKelengkapanCalonSiswas(selectedVerifikasiKelengkapanCalonSiswa);
+		if (selectedVerifikasiKelengkapanCalonSiswa == null) {
+			selectedVerifikasiKelengkapanCalonSiswa = new HashSet<VerifikasiKelengkapanCalonSiswa>();
+		}
+		gelombangPendaftaranPsb.setVerifikasiKelengkapanCalonSiswas(
+				new HashSet<VerifikasiKelengkapanCalonSiswa>(selectedVerifikasiKelengkapanCalonSiswa));
 		gelombangPendaftaranPsb.setKeterangan(keterangan.getValue());
 		gelombangPendaftaranPsb.setInformasi(informasi.getValue());
 		gelombangPendaftaranPsb.setKelasVerifikasiRapor(kelasVerifikasiRapor.getValue());
@@ -1637,6 +1667,8 @@ public class GelombangPendaftaranPsbAction extends GenericAutowireComposer
 		gelombangPendaftaranPsb.setTerdapatVerifikasiDenganNikSibling(terdapatVerifikasiDenganNikSibling.isChecked());
 
 		Common.refreshSaveOrUpdate(session, gelombangPendaftaranPsb);
+		// Pastikan perubahan join-table tersimpan sebelum grid di-refresh dan dialog ditutup.
+		session.flush();
 
 		try {
 			session.createSQLQuery(

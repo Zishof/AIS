@@ -271,9 +271,14 @@ public final class DashboardUiKit {
 		sb.append("<div style='display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;'>");
 		if (stats != null) {
 			for (Stat s : stats) {
-				sb.append("<div style='flex:1 1 150px;min-width:140px;background:#ffffff;border:1px solid ").append(LINE)
+				sb.append("<div class='ais-dashboard-clickable' tabindex='0' data-ais-title='")
+						.append(esc(s.label)).append("' data-ais-value='").append(esc(s.value))
+						.append("' data-ais-hint='").append(esc(s.hint == null ? "" : s.hint))
+						.append("' onclick='if(window.aisDashboardCardDetail){window.aisDashboardCardDetail(this,event);}' " )
+						.append("onkeydown='if((event.keyCode==13||event.keyCode==32)&amp;&amp;window.aisDashboardCardDetail){window.aisDashboardCardDetail(this,event);}' ")
+						.append("style='cursor:pointer;flex:1 1 150px;min-width:140px;background:#ffffff;border:1px solid ").append(LINE)
 						.append(";border-top:3px solid ").append(s.accent)
-						.append(";border-radius:12px;padding:11px 12px;box-shadow:0 2px 8px rgba(15,23,42,.05);'>")
+						.append(";border-radius:12px;padding:11px 12px;box-shadow:0 2px 8px rgba(15,23,42,.05);transition:transform .15s ease,box-shadow .15s ease;'>")
 						.append("<div style='font-size:10px;color:").append(MUTED)
 						.append(";text-transform:uppercase;letter-spacing:.04em;font-weight:800;'>").append(esc(s.label))
 						.append("</div>").append("<div style='font-size:19px;font-weight:800;color:").append(s.accent)
@@ -540,6 +545,53 @@ public final class DashboardUiKit {
 
 	private static int clampPct(int v) {
 		return v < 0 ? 0 : (v > 100 ? 100 : v);
+	}
+
+	/**
+	 * Candlestick nilai transaksi per periode. Bukan grafik saham: badan lilin
+	 * menunjukkan nilai transaksi pertama/terakhir, sedangkan sumbu menunjukkan
+	 * transaksi terendah/tertinggi pada periode yang sama.
+	 */
+	public static String candlestick(String title, String desc, String[] labels,
+			double[] open, double[] high, double[] low, double[] close) {
+		StringBuilder sb = new StringBuilder();
+		sb.append(cardOpen(title, desc));
+		int n = labels == null ? 0 : labels.length;
+		if (n == 0 || open == null || high == null || low == null || close == null
+				|| open.length != n || high.length != n || low.length != n || close.length != n) {
+			sb.append(emptyBox("Belum ada data transaksi untuk candlestick."));
+			sb.append(cardClose());
+			return sb.toString();
+		}
+		double max = 0, min = Double.MAX_VALUE;
+		for (int i = 0; i < n; i++) {
+			max = Math.max(max, high[i]);
+			min = Math.min(min, low[i]);
+		}
+		if (min == Double.MAX_VALUE) min = 0;
+		if (max <= min) max = min + 1;
+		double w = 640, h = 210, pad = 24, step = (w - pad * 2) / n;
+		sb.append("<svg viewBox='0 0 640 210' style='width:100%;height:auto;max-height:230px;'>");
+		for (int i = 0; i < n; i++) {
+			double x = pad + step * (i + .5);
+			double yh = h - 28 - (high[i] - min) * (h - 48) / (max - min);
+			double yl = h - 28 - (low[i] - min) * (h - 48) / (max - min);
+			double yo = h - 28 - (open[i] - min) * (h - 48) / (max - min);
+			double yc = h - 28 - (close[i] - min) * (h - 48) / (max - min);
+			String warna = close[i] >= open[i] ? GOOD : BAD;
+			double top = Math.min(yo, yc), tinggi = Math.max(3, Math.abs(yo - yc));
+			sb.append("<line x1='").append(fmt1(x)).append("' y1='").append(fmt1(yh))
+					.append("' x2='").append(fmt1(x)).append("' y2='").append(fmt1(yl))
+					.append("' stroke='").append(warna).append("' stroke-width='2'/>");
+			sb.append("<rect x='").append(fmt1(x - Math.min(9, step * .25))).append("' y='")
+					.append(fmt1(top)).append("' width='").append(fmt1(Math.min(18, step * .5)))
+					.append("' height='").append(fmt1(tinggi)).append("' rx='2' fill='").append(warna).append("'/>");
+			sb.append("<text x='").append(fmt1(x)).append("' y='201' font-size='8' fill='").append(MUTED)
+					.append("' text-anchor='middle'>").append(esc(shorten(labels[i], 8))).append("</text>");
+		}
+		sb.append("</svg>");
+		sb.append(cardClose());
+		return sb.toString();
 	}
 
 	// ============================================================
@@ -977,7 +1029,12 @@ public final class DashboardUiKit {
 
 	private static String cardOpen(String title, String desc) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("<div style='background:#fff;border:1px solid ").append(LINE)
+		sb.append("<div class='ais-dashboard-clickable' tabindex='0' data-ais-title='")
+				.append(esc(title == null ? "Detail Analitik" : title)).append("' data-ais-hint='")
+				.append(esc(desc == null ? "" : desc))
+				.append("' onclick='if(window.aisDashboardCardDetail){window.aisDashboardCardDetail(this,event);}' ")
+				.append("onkeydown='if((event.keyCode==13||event.keyCode==32)&amp;&amp;window.aisDashboardCardDetail){window.aisDashboardCardDetail(this,event);}' ")
+				.append("style='cursor:pointer;background:#fff;border:1px solid ").append(LINE)
 				.append(";border-radius:12px;padding:12px;height:100%;box-sizing:border-box;'>");
 		if (title != null && title.trim().length() > 0) {
 			sb.append("<div style='font-weight:800;color:").append(INK).append(";font-size:13px;'>").append(esc(title))

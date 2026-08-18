@@ -1150,7 +1150,6 @@ public class SuratKeluarAction extends GenericAutowireComposer implements DataCr
 
 		Map<String, List<DisposisiKeluarChip>> perGrup = new LinkedHashMap<String, List<DisposisiKeluarChip>>();
 		int nomor = 1;
-		// Lacak chip sebelumnya (jabatan pendisposisi + waktu ia mendisposisikan) untuk tooltip.
 		String prevLabel = null;
 		Date prevWaktu = null;
 		for (AlurPersetujuanSuratKeluarStatus s : list) {
@@ -1173,8 +1172,6 @@ public class SuratKeluarAction extends GenericAutowireComposer implements DataCr
 			chip.tooltip = tooltipDisposisiKeluar(s, chip.label, chip.status, prevLabel, prevWaktu);
 			chips.add(chip);
 			nomor++;
-
-			// Chip ini menjadi "pendisposisi sebelumnya" untuk chip berikutnya.
 			prevLabel = chip.label;
 			prevWaktu = waktuDisposisiKeluar(s);
 		}
@@ -1369,18 +1366,17 @@ public class SuratKeluarAction extends GenericAutowireComposer implements DataCr
 		}
 	}
 
-	/** Waktu suatu status "mendisposisikan" (waktu persetujuan; bila ditolak pakai waktu penolakan). */
 	private static Date waktuDisposisiKeluar(AlurPersetujuanSuratKeluarStatus status) {
 		if (status == null) {
 			return null;
 		}
-		if (Boolean.TRUE.equals(status.getDisetujui())) {
+		if (Boolean.TRUE.equals(status.getDisetujui()) && status.getWaktuPersetujuan() != null) {
 			return status.getWaktuPersetujuan();
 		}
-		if (Boolean.TRUE.equals(status.getDitolak())) {
+		if (Boolean.TRUE.equals(status.getDitolak()) && status.getWaktuDitolak() != null) {
 			return status.getWaktuDitolak();
 		}
-		return null;
+		return status.getTanggal_dirubah();
 	}
 
 	private static String tooltipDisposisiKeluar(AlurPersetujuanSuratKeluarStatus status, String label,
@@ -1406,14 +1402,83 @@ public class SuratKeluarAction extends GenericAutowireComposer implements DataCr
 		if (status.getKeterangan() != null && status.getKeterangan().trim().length() > 0) {
 			sb.append(" - ").append(status.getKeterangan().replace('\n', ' '));
 		}
-		// Info pendisposisi sebelumnya (jabatan + tanggal & waktu ia mendisposisikan) pada baris baru.
-		if (prevLabel != null && prevLabel.trim().length() > 0) {
-			sb.append("\nJabatan yang mendisposisikan : ").append(prevLabel);
-			if (prevWaktu != null) {
-				sb.append("\nTanggal & Waktu : ").append(Common.dateFormat3.get().format(prevWaktu));
+		String konseptor = ringkasanKonseptorKeluar(status.getKonseptor());
+		if (konseptor != null && konseptor.trim().length() > 0) {
+			sb.append("\nJabatan yang mendisposisikan : ").append(konseptor);
+			Date waktuDisposisi = waktuDisposisiKeluar(status);
+			if (waktuDisposisi != null) {
+				sb.append("\nTanggal & Waktu : ").append(Common.dateFormat3.get().format(waktuDisposisi));
 			}
 		}
 		return sb.toString();
+	}
+
+	private static String ringkasanKonseptorKeluar(Tbmuser konseptor) {
+		if (konseptor == null) {
+			return "";
+		}
+		String ringkasan = String.valueOf(konseptor);
+		return bersihkanKeteranganKurungKonseptorKeluar(ringkasan);
+	}
+
+	private static String bersihkanKeteranganKurungKonseptorKeluar(String ringkasan) {
+		if (ringkasan == null || "null".equalsIgnoreCase(ringkasan.trim())) {
+			return "";
+		}
+		return ringkasan.trim().replaceAll("\\s*\\([^)]*\\)\\s*$", "").trim();
+	}
+
+	private static String labelJabatanKonseptorKeluar(Tbmuser konseptor) {
+		JenisJabatan jenisJabatan = jenisJabatanKonseptorKeluar(konseptor);
+		if (jenisJabatan != null && jenisJabatan.getNama() != null && jenisJabatan.getNama().trim().length() > 0) {
+			return jenisJabatan.getNama();
+		}
+		return "";
+	}
+
+	private static JenisJabatan jenisJabatanKonseptorKeluar(Tbmuser konseptor) {
+		if (konseptor == null) {
+			return null;
+		}
+		try {
+			Tbmrole role = konseptor.hakAkses();
+			if (role != null && role.getJenisJabatan() != null) {
+				return role.getJenisJabatan();
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit src/ais/action/master/surat/SuratKeluarAction.java:jenisJabatanKonseptorKeluar-role");
+		}
+		try {
+			List<Pejabat> pejabats = ConstantValues.simpleList(
+					HibernateUtil.currentSession().createCriteria(Pejabat.class)
+							.add(Restrictions.or(
+									Restrictions.ilike("usernamePengguna", "," + konseptor.getUserId() + ",",
+											MatchMode.ANYWHERE),
+									Restrictions.or(Restrictions.eq("pegawai", konseptor.getPegawai()),
+											Restrictions.or(Restrictions.eq("dosen", konseptor.getDosen()),
+													Restrictions.eq("guru", konseptor.getGuru())))))
+							.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+							.setMaxResults(1),
+					Pejabat.class);
+			if (!pejabats.isEmpty() && pejabats.get(0).getJenisJabatan() != null) {
+				return pejabats.get(0).getJenisJabatan();
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit src/ais/action/master/surat/SuratKeluarAction.java:jenisJabatanKonseptorKeluar-pejabat");
+		}
+		return null;
+	}
+
+	private static String namaKonseptorKeluar(Tbmuser konseptor) {
+		if (konseptor == null) {
+			return "";
+		}
+		if (konseptor.getUserNama() != null && konseptor.getUserNama().trim().length() > 0) {
+			return konseptor.getUserNama();
+		}
+		return konseptor.getUserId() == null ? "" : konseptor.getUserId();
 	}
 
 	public void onAdd(Event event) throws Exception {
@@ -3711,7 +3776,18 @@ public class SuratKeluarAction extends GenericAutowireComposer implements DataCr
 
 		Session session = HibernateUtil.currentSession();
 		if (suratKeluar.getId() != null) {
-			suratKeluar = (SuratKeluar) session.load(SuratKeluar.class, suratKeluar.getId());
+			// KE-FIX (NullPointerException / ObjectNotFoundException): session.load() mengembalikan
+			// proxy TANPA query ke DB; bila baris ini sudah dihapus pengguna lain, dereference
+			// pertama (getAlurDitolak() di bawah) baru melempar ObjectNotFoundException. Pakai
+			// session.get() (langsung query, null bila tak ada) supaya bisa ditangani dgn pesan jelas.
+			SuratKeluar suratKeluarTerbaru = (SuratKeluar) session.get(SuratKeluar.class, suratKeluar.getId());
+			if (suratKeluarTerbaru == null) {
+				MyMessageboxConfig.show(
+						"Mohon maaf, data surat ini sudah tidak ditemukan (kemungkinan telah dihapus pihak lain). Silakan muat ulang halaman.",
+						"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				return false;
+			}
+			suratKeluar = suratKeluarTerbaru;
 
 		}
 
@@ -4589,6 +4665,12 @@ public class SuratKeluarAction extends GenericAutowireComposer implements DataCr
 		}
 
 		Session session = HibernateUtil.currentSession();
+		// KE-FIX (HibernateException "createCriteria is not valid without active transaction"):
+		// dipanggil dari callback tombol dialog konfirmasi (MessageboxDlg onClick) yang bisa
+		// berjalan setelah transaksi sebelumnya (mis. hapus) sudah commit/tidak aktif lagi.
+		if (session.getTransaction() == null || !session.getTransaction().isActive()) {
+			session.beginTransaction();
+		}
 		Criteria criteria = session.createCriteria(SuratKeluar.class)
 				.createAlias("klasifikasiSuratKeluar", "klasifikasiSuratKeluar")
 				.add(Restrictions.or(Restrictions.isNull("tipe"), Restrictions.eq("tipe", tipe)))

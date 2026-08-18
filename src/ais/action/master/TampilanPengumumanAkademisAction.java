@@ -285,6 +285,32 @@ public class TampilanPengumumanAkademisAction extends GenericAutowireComposer {
 		return total;
 	}
 
+	private static Double hitungBiayaDaftarUlangCalonMahasiswa(BiodataCalonMahasiswa calon) {
+		if (calon == null || calon.getProdiLulus() == null) {
+			return null;
+		}
+		try {
+			java.util.Collection<DetailBiaya> detailBiayas = PembayaranUtilHelper
+					.getDetailBiayaCalonMahasiswa(calon, ConstantValues.PENDAFTARAN_ULANG_MAHASISWA_BARU,
+							calon.getProdiLulus(), true);
+			if (detailBiayas == null || detailBiayas.isEmpty()) {
+				return null;
+			}
+			double total = 0.0;
+			for (DetailBiaya detailBiaya : detailBiayas) {
+				if (detailBiaya != null) {
+					total += safeDouble(detailBiaya.getNilaiBiayaBaru() == null
+							? detailBiaya.getNilaiBiaya() : detailBiaya.getNilaiBiayaBaru());
+				}
+			}
+			return Double.valueOf(total);
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"TampilanPengumumanAkademisAction.hitungBiayaDaftarUlangCalonMahasiswa");
+			return null;
+		}
+	}
+
 	/**
 	 * Jadwal pembayaran adalah sumber kebenaran untuk membuka pembayaran daftar
 	 * ulang. Batas daftar ulang pada gelombang hanya dipakai sebagai fallback untuk
@@ -1866,9 +1892,11 @@ public class TampilanPengumumanAkademisAction extends GenericAutowireComposer {
 				String teksBayarReg2 = "";  // warna untuk HTML
 				String teksBayarDaftarUlang = "";
 				String teksBayarDU2 = "";   // warna untuk HTML
+				Double totalDaftarUlangSetting = null;
 				if (tampilkanInformasiPembyaranDiPMB) {
 					kegiatan = biodataCalonMahasiswa.chekPembayaranRegistrasi();
 					kegiatanDaftarUlang = biodataCalonMahasiswa.chekPembayaranDaftarUlang();
+					totalDaftarUlangSetting = hitungBiayaDaftarUlangCalonMahasiswa(biodataCalonMahasiswa);
 
 					double dibayarRegistrasi = kegiatan == null ? 0.0 : safeDouble(kegiatan.getAmount());
 					double persentaseRegistrasi = kegiatan == null ? 0.0 : safeDouble(kegiatan.getPersentaseLunas());
@@ -1899,28 +1927,32 @@ public class TampilanPengumumanAkademisAction extends GenericAutowireComposer {
 					if (biodataCalonMahasiswa.getProdiLulus() == null) {
 						teksBayarDaftarUlang = "Menunggu hasil seleksi";
 						teksBayarDU2 = "<span style='color:#92400e;'>" + htmlEscape(teksBayarDaftarUlang) + "</span>";
-					} else if (kegiatanDaftarUlang == null) {
-						teksBayarDaftarUlang = "Belum ada informasi";
+					} else if (totalDaftarUlangSetting == null) {
+						double sudahDibayar = kegiatanDaftarUlang == null ? 0.0
+								: safeDouble(kegiatanDaftarUlang.getAmount());
+						teksBayarDaftarUlang = sudahDibayar < 0.01 ? "Belum ada tagihan untuk prodi ini"
+								: "Pembayaran tercatat " + Common.numberFormat.get().format(sudahDibayar)
+										+ ", tetapi setting tagihan prodi tidak ditemukan";
 						teksBayarDU2 = "<span style='color:#64748b;'>" + htmlEscape(teksBayarDaftarUlang) + "</span>";
-					} else if ((kegiatanDaftarUlang.getAmount() + kegiatanDaftarUlang.getAmountTerhutang()) < 0.01) {
+					} else if (totalDaftarUlangSetting.doubleValue() < 0.01) {
 						teksBayarDaftarUlang = Common.getBahasaConfig("Bebas") + " "
 								+ Common.getBahasaConfig("Pembayaran Daftar Ulang") + " "
 								+ Common.getBahasaConfig("(Gratis)");
 						teksBayarDU2 = "<span style='color:#16a34a;'>" + htmlEscape(teksBayarDaftarUlang) + "</span>";
-					} else if (kegiatanDaftarUlang.getAmount() < 0.01
-							&& kegiatanDaftarUlang.getPersentaseLunas() < 0.01) {
+					} else if (kegiatanDaftarUlang == null || safeDouble(kegiatanDaftarUlang.getAmount()) < 0.01) {
 						teksBayarDaftarUlang = "Belum Bayar " + Common.numberFormat.get()
-								.format(kegiatanDaftarUlang.getAmount() + kegiatanDaftarUlang.getAmountTerhutang());
+								.format(totalDaftarUlangSetting);
 						teksBayarDU2 = "<span style='color:#dc2626;'>" + htmlEscape(teksBayarDaftarUlang) + "</span>";
-					} else if (kegiatanDaftarUlang.getPersentaseLunas().intValue() == 100) {
-						teksBayarDaftarUlang = "Lunas " + Common.numberFormat.get().format(kegiatanDaftarUlang.getAmount());
+					} else if (safeDouble(kegiatanDaftarUlang.getAmount()) + 0.01 >= totalDaftarUlangSetting.doubleValue()) {
+						teksBayarDaftarUlang = "Lunas " + Common.numberFormat.get().format(totalDaftarUlangSetting);
 						teksBayarDU2 = "<span style='color:#16a34a;'>&#10003; " + htmlEscape(teksBayarDaftarUlang) + "</span>";
 					} else {
 						teksBayarDaftarUlang = "Bayar " + Common.numberFormat.get().format(kegiatanDaftarUlang.getAmount())
 								+ " dari tagihan "
-								+ Common.numberFormat.get().format(
-										kegiatanDaftarUlang.getAmount() + kegiatanDaftarUlang.getAmountTerhutang())
-								+ " atau " + Common.numberFormat.get().format(kegiatanDaftarUlang.getPersentaseLunas()) + "%";
+								+ Common.numberFormat.get().format(totalDaftarUlangSetting)
+								+ " atau " + Common.numberFormat.get().format(
+										100.0 * safeDouble(kegiatanDaftarUlang.getAmount()) / totalDaftarUlangSetting.doubleValue())
+								+ "%";
 						teksBayarDU2 = "<span style='color:#d97706;'>" + htmlEscape(teksBayarDaftarUlang) + "</span>";
 					}
 				}
@@ -2040,9 +2072,10 @@ public class TampilanPengumumanAkademisAction extends GenericAutowireComposer {
 						&& kegiatan.getPersentaseLunas() >= 100;
 				boolean sudahSeleksiPrg = biodataCalonMahasiswa.getProdiLulus() != null
 						|| biodataCalonMahasiswa.getDitolak() || biodataCalonMahasiswa.getMundur();
-				boolean sudahDaftarUlangPrg = kegiatanDaftarUlang != null
-						&& kegiatanDaftarUlang.getPersentaseLunas() != null
-						&& kegiatanDaftarUlang.getPersentaseLunas() >= 100;
+				boolean sudahDaftarUlangPrg = totalDaftarUlangSetting != null
+						&& (totalDaftarUlangSetting.doubleValue() < 0.01
+								|| (kegiatanDaftarUlang != null && safeDouble(kegiatanDaftarUlang.getAmount()) + 0.01
+										>= totalDaftarUlangSetting.doubleValue()));
 				htmlBuilder.append(buildProgressTrackerPmb(true, sudahBayarPrg, sudahSeleksiPrg, sudahDaftarUlangPrg));
 				htmlBuilder.append("</div>"); // tutup div wrapper font-family
 				groupboxStyled.appendChild(new Html(htmlBuilder.toString()));

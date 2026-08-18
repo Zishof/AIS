@@ -155,6 +155,11 @@ public class PenjadwalanPklHelper {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
+					// KE-FIX (NullPointerException): getSelectedItem() bisa null (mis. combobox
+					// readonly sempat kosong sesaat/onChange terpicu sebelum seleksi settle).
+					if (ujian.getSelectedItem() == null) {
+						return;
+					}
 					pertemuan.setStatusPertemuan((StatusPertemuan) ujian.getSelectedItem().getValue());
 					Session session = HibernateUtil.currentSession();
 					Common.refreshUpdate(session, (pertemuan));

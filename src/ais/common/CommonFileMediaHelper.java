@@ -23,7 +23,6 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.sql.Blob;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
@@ -47,6 +46,7 @@ import java.util.TreeSet;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
 import javax.crypto.Mac;
@@ -1327,57 +1327,40 @@ public class CommonFileMediaHelper extends Common {
 
 
 	public static void unzipFolder(Path source, Path target) throws IOException {
-
+		/* ZipInputStream membaca local header dan pada beberapa ZIP lama gagal untuk
+		 * entry STORED yang memakai extended data descriptor. ZipFile memakai central
+		 * directory sehingga kedua variasi (STORED/DEFLATED) dapat dibaca dengan benar. */
+		ZipFile zip = null;
 		try {
-			ZipInputStream zis = new ZipInputStream(new FileInputStream(source.toFile()));
-			// list files in zip
-			ZipEntry zipEntry = zis.getNextEntry();
-
-			while (zipEntry != null) {
-
-				boolean isDirectory = false;
-				// example 1.1
-				// some zip stored files and folders separately
-				// e.g data/
-				// data/folder/
-				// data/folder/file.txt
-				if (zipEntry.getName().endsWith(File.separator)) {
-					isDirectory = true;
-				}
-
+			zip = new ZipFile(source.toFile());
+			Enumeration<? extends ZipEntry> entries = zip.entries();
+			while (entries.hasMoreElements()) {
+				ZipEntry zipEntry = entries.nextElement();
 				Path newPath = zipSlipProtect(zipEntry, target);
-
-				if (isDirectory) {
+				if (zipEntry.isDirectory() || zipEntry.getName().endsWith("/")) {
 					Files.createDirectories(newPath);
-				} else {
-
-					// example 1.2
-					// some zip stored file path only, need create parent directories
-					// e.g data/folder/file.txt
-					if (newPath.getParent() != null) {
-						if (Files.notExists(newPath.getParent())) {
-							Files.createDirectories(newPath.getParent());
-						}
-					}
-
-					// copy files, nio
-					Files.copy(zis, newPath, StandardCopyOption.REPLACE_EXISTING);
-
-					// copy files, classic
-					/*
-					 * try (FileOutputStream fos = new FileOutputStream(newPath.toFile())) { byte[]
-					 * buffer = new byte[1024]; int len; while ((len = zis.read(buffer)) > 0) {
-					 * fos.write(buffer, 0, len); } }
-					 */
+					continue;
 				}
-
-				zipEntry = zis.getNextEntry();
-
+				if (newPath.getParent() != null) {
+					Files.createDirectories(newPath.getParent());
+				}
+				InputStream in = null;
+				FileOutputStream out = null;
+				try {
+					in = zip.getInputStream(zipEntry);
+					out = new FileOutputStream(newPath.toFile());
+					byte[] buffer = new byte[16384];
+					int read;
+					while ((read = in.read(buffer)) != -1) {
+						out.write(buffer, 0, read);
+					}
+				} finally {
+					if (out != null) try { out.close(); } catch (IOException ignored) { }
+					if (in != null) try { in.close(); } catch (IOException ignored) { }
+				}
 			}
-			zis.closeEntry();
-
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/CommonFileMediaHelper.java:1297");
-//			tampilErrorJikaAdmin(e);
+		} finally {
+			if (zip != null) try { zip.close(); } catch (IOException ignored) { }
 		}
 
 	}
@@ -1388,12 +1371,13 @@ public class CommonFileMediaHelper extends Common {
 		// test zip slip vulnerability
 		// Path targetDirResolved = targetDir.resolve("../../" + zipEntry.getName());
 
-		Path targetDirResolved = targetDir.resolve(zipEntry.getName());
+		Path normalizedTarget = targetDir.toAbsolutePath().normalize();
+		Path targetDirResolved = normalizedTarget.resolve(zipEntry.getName());
 
 		// make sure normalized file still has targetDir as its prefix
 		// else throws exception
 		Path normalizePath = targetDirResolved.normalize();
-		if (!normalizePath.startsWith(targetDir)) {
+		if (!normalizePath.startsWith(normalizedTarget)) {
 			throw new IOException("Bad zip entry: " + zipEntry.getName());
 		}
 

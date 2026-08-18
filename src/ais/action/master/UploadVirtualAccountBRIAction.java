@@ -1149,7 +1149,7 @@ public class UploadVirtualAccountBRIAction extends GenericAutowireComposer {
 														session.getTransaction().commit();
 													}
 
-													totalBiaya += biaya;
+													totalBiaya += Kegiatan.ambilJumlahTagihan(kegiatan, detailBiaya);
 
 												}
 

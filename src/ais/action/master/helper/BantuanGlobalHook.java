@@ -126,6 +126,9 @@ public class BantuanGlobalHook implements UiLifeCycle {
 	/** Penanda pada komponen include agar tombol tidak disisipkan dua kali. */
 	private static final String ATTR_DONE = "_kbFabInjected";
 
+	/** Penanda pada Page agar tombol tidak disisipkan dua kali per halaman. */
+	private static final String ATTR_PAGE_DONE = "_kbFabPageInjected";
+
 	/**
 	 * Halaman yang dibuka sebagai <b>Page tersendiri</b> (full-page / defer-include).
 	 * Untuk mayoritas halaman yang dibuka via tab, ZK memakai include mode "instant"
@@ -139,13 +142,13 @@ public class BantuanGlobalHook implements UiLifeCycle {
 				return;
 			}
 			final String key = keyDariPage(page);
-			if (key == null || !KEYS.contains(key)) {
+			if (key == null) {
 				return;
 			}
 			if (!fileBantuanAda(desktop, key)) {
 				return;
 			}
-			buatFab(key).setPage(page);
+			buatFab(key, KEYS.contains(key)).setPage(page);
 		} catch (Throwable ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/helper/BantuanGlobalHook.java:149");
 			// JANGAN pernah mengganggu render halaman
 		}
@@ -172,7 +175,7 @@ public class BantuanGlobalHook implements UiLifeCycle {
 				return;
 			}
 			final String key = keyDariSrc(((MyInclude) comp).getSrc());
-			if (key == null || !KEYS.contains(key)) {
+			if (key == null) {
 				return;
 			}
 			Desktop desktop = page != null ? page.getDesktop() : comp.getDesktop();
@@ -181,17 +184,28 @@ public class BantuanGlobalHook implements UiLifeCycle {
 			}
 			comp.setAttribute(ATTR_DONE, Boolean.TRUE);
 
-			Component induk = comp.getParent();
-			// Guard tombol ganda: jika wadah yang sama sudah punya FAB (mis. dua include
-			// halaman-whitelist tampil bersamaan dalam satu container), jangan tambah lagi.
-			if (induk != null && sudahAdaFab(induk)) {
-				return;
-			}
-			Div fab = buatFab(key);
-			if (induk != null) {
-				fab.setParent(induk);
+			// KE-FIX (UiException "Only one child is allowed: <Center ...>"): comp.getParent()
+			// sering adalah region Borderlayout (Center/North/South/East/West) yang HANYA
+			// boleh punya satu anak, dan comp sendiri sudah jadi anak tunggalnya -- menambah
+			// fab sbg anak kedua via fab.setParent(induk) melempar exception ini. FAB bersifat
+			// overlay (position:fixed) sehingga tidak perlu nested di layout sama sekali;
+			// pasang langsung ke Page bila tersedia (jalur normal), induk hanya sbg fallback.
+			if (page != null) {
+				if (page.getAttribute(ATTR_PAGE_DONE) != null) {
+					return;
+				}
+				buatFab(key, KEYS.contains(key)).setPage(page);
+				page.setAttribute(ATTR_PAGE_DONE, Boolean.TRUE);
 			} else {
-				fab.setPage(page);
+				Component induk = comp.getParent();
+				// Guard tombol ganda: jika wadah yang sama sudah punya FAB (mis. dua include
+				// halaman-whitelist tampil bersamaan dalam satu container), jangan tambah lagi.
+				if (induk != null && sudahAdaFab(induk)) {
+					return;
+				}
+				if (induk != null) {
+					buatFab(key, KEYS.contains(key)).setParent(induk);
+				}
 			}
 		} catch (Throwable ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/helper/BantuanGlobalHook.java:196");
 			// JANGAN pernah mengganggu render halaman
@@ -213,23 +227,40 @@ public class BantuanGlobalHook implements UiLifeCycle {
 	}
 
 	/** Bangun tombol Bantuan mengambang (belum dipasang ke parent/page). */
-	private static Div buatFab(final String key) {
-		final Div fab = new Div();
-		fab.setSclass("kb-fab-global");
-		fab.setStyle("position:fixed;right:16px;bottom:78px;z-index:99990;cursor:pointer;"
-				+ "background:#1d4ed8;color:#ffffff;border-radius:22px;padding:9px 15px;"
-				+ "box-shadow:0 4px 14px rgba(29,78,216,.35);font-size:13px;font-weight:600;"
-				+ "display:inline-flex;align-items:center;gap:6px;"
-				+ "font-family:'Segoe UI',Arial,sans-serif;");
-		fab.setTooltiptext("Panduan penggunaan halaman ini");
-		new Html("<span style='font-size:15px;line-height:1;'>&#63;</span><span>Bantuan</span>").setParent(fab);
-		fab.addEventListener("onClick", new EventListener() {
+	private static Div buatFab(final String key, boolean sertakanBantuan) {
+		final Div wrapper = new Div();
+		wrapper.setSclass("kb-fab-global");
+		wrapper.setStyle("position:fixed;right:16px;bottom:78px;z-index:99990;display:flex;"
+				+ "flex-direction:column;align-items:flex-end;gap:8px;font-family:'Segoe UI',Arial,sans-serif;");
+
+		final Div qa = new Div();
+		qa.setStyle("cursor:pointer;background:#15803d;color:#ffffff;border-radius:22px;padding:9px 15px;"
+				+ "box-shadow:0 4px 14px rgba(21,128,61,.35);font-size:13px;font-weight:600;");
+		qa.setTooltiptext("Tanya jawab lengkap sesuai halaman ini");
+		new Html("<span style='font-size:15px;line-height:1;'>&#128172;</span><span style='margin-left:6px;'>Tanya Jawab</span>").setParent(qa);
+		qa.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
-				BantuanHelper.tampilkanDariResource(fab, key, "Bantuan");
+				BantuanHelper.tampilkanTanyaJawabDariResource(qa, key, "Tanya Jawab");
 			}
 		});
-		return fab;
+		qa.setParent(wrapper);
+
+		if (sertakanBantuan) {
+			final Div bantuan = new Div();
+			bantuan.setStyle("cursor:pointer;background:#1d4ed8;color:#ffffff;border-radius:22px;padding:9px 15px;"
+					+ "box-shadow:0 4px 14px rgba(29,78,216,.35);font-size:13px;font-weight:600;");
+			bantuan.setTooltiptext("Panduan penggunaan halaman ini");
+			new Html("<span style='font-size:15px;line-height:1;'>&#63;</span><span style='margin-left:6px;'>Bantuan</span>").setParent(bantuan);
+			bantuan.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					BantuanHelper.tampilkanDariResource(bantuan, key, "Bantuan");
+				}
+			});
+			bantuan.setParent(wrapper);
+		}
+		return wrapper;
 	}
 
 	/** Turunkan key dari src include (mis. "/WEB-INF/z/x/y/mahasiswa.zul" -> "mahasiswa"). */

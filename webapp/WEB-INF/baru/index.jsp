@@ -316,6 +316,13 @@ try {
     if (!hasText(s)) {
         s = safeModuleSegment((String) request.getAttribute("default_s"));
     }
+    // Kompatibilitas menu Kas Kasir lama. Route ini sudah memiliki UI JSP native,
+    // jadi arahkan nama menu ZUL historis ke modul/screen baru tanpa melonggarkan
+    // pemeriksaan yang tetap menolak route ZK lain.
+    if ("pagesmasterkantinkaskasirzul".equals(p) && !hasText(s)) {
+        p = "kantin";
+        s = "kas";
+    }
     String urlLama = request.getParameter("urlLama") == null ? "" : request.getParameter("urlLama").trim();
     logIndex(__trace, __start, "PARAM hanya_tampil_jsp=" + hanya_tampil_jsp + " p=" + p + " s=" + s
             + " urlLamaAda=" + hasText(urlLama));

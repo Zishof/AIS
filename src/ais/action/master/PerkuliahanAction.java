@@ -2,6 +2,7 @@ package ais.action.master;
 
 
 import ais.common.CommonSearchFilterHelper;
+import ais.action.master.helper.AngketPerkuliahanHelper;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -2418,6 +2419,16 @@ public class PerkuliahanAction extends GenericAutowireComposer
 									}
 								});
 
+								btnTab.tambahTabLazy(4, "Angket", "/img/svg/dashboard-chart.svg", new ais.ui.util.MyButtonTabbox.PemuatTab() {
+									@Override
+									public void muat(org.zkoss.zul.Div panel) throws Exception {
+										panel.setHeight("900px");
+										panel.setWidth("100%");
+										AngketPerkuliahanHelper.display(panel, perkuliahan);
+									}
+								});
+								btnTab.setVisibleTombol(4, tbmuser == null || tbmuser.getMahasiswa() == null);
+
 							}
 						});
 
@@ -2485,8 +2496,7 @@ public class PerkuliahanAction extends GenericAutowireComposer
 
 					String ta = perkuliahan.getTahunAjaran();
 					String sem = perkuliahan.getGanjilGenap();
-					if (CommonPenjadwalan.getKonfigurasi(ta, sem, semesterPendek).getNilai()
-							.equals(Konfigurasi.TIDAK_AKTIF)) {
+					if (CommonPenjadwalan.apakahPenjadwalanTidakAktif(ta, sem, semesterPendek, perkuliahan)) {
 						MyMessageboxConfig.show(
 								"Penjadwalan tahun akademik \"" + ta + "\" semester \"" + sem + "\" tidak diaktifkan",
 								"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
@@ -2514,8 +2524,7 @@ public class PerkuliahanAction extends GenericAutowireComposer
 
 					String ta = perkuliahan.getTahunAjaran();
 					String sem = perkuliahan.getGanjilGenap();
-					if (CommonPenjadwalan.getKonfigurasi(ta, sem, semesterPendek).getNilai()
-							.equals(Konfigurasi.TIDAK_AKTIF)) {
+					if (CommonPenjadwalan.apakahPenjadwalanTidakAktif(ta, sem, semesterPendek, perkuliahan)) {
 						MyMessageboxConfig.show(
 								"Penjadwalan tahun akademik \"" + ta + "\" semester \"" + sem + "\" tidak diaktifkan",
 								"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
@@ -2537,8 +2546,7 @@ public class PerkuliahanAction extends GenericAutowireComposer
 
 					String ta = perkuliahan.getTahunAjaran();
 					String sem = perkuliahan.getGanjilGenap();
-					if (CommonPenjadwalan.getKonfigurasi(ta, sem, semesterPendek).getNilai()
-							.equals(Konfigurasi.TIDAK_AKTIF)) {
+					if (CommonPenjadwalan.apakahPenjadwalanTidakAktif(ta, sem, semesterPendek, perkuliahan)) {
 						MyMessageboxConfig.show(
 								"Penjadwalan tahun akademik \"" + ta + "\" semester \"" + sem + "\" tidak diaktifkan",
 								"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
@@ -3031,6 +3039,26 @@ public class PerkuliahanAction extends GenericAutowireComposer
 			Common.tampilErrorJikaAdmin(e);
 		}
 
+		Object periodeTerpilih = searchJenisSemester.getSelectedItem() == null ? null
+				: searchJenisSemester.getSelectedItem().getValue();
+		boolean semesterPendekTerpilih = Perkuliahan.SP.equals(periodeTerpilih);
+		String jenisSemester = semesterPendekTerpilih ? Perkuliahan.SP
+				: (Perkuliahan.GANJIL.equals(periodeTerpilih) || Perkuliahan.GENAP.equals(periodeTerpilih)
+						? (String) periodeTerpilih
+						: (perkuliahan.getSemester() != null && perkuliahan.getSemester() % 2 == 0
+								? Perkuliahan.GENAP
+								: Perkuliahan.GANJIL));
+		Integer statusSemesterPendek = semesterPendekTerpilih ? Perkuliahan.SEMESTER_PENDEK : semesterPendek;
+		if (CommonPenjadwalan.apakahPenjadwalanTidakAktif(perkuliahan.getTahunAjaran(), jenisSemester,
+				statusSemesterPendek, perkuliahan)) {
+			MyMessageboxConfig.showFormat(
+					"Mohon maaf, Tambah Berdasar Kurikulum tidak dapat dilakukan karena penjadwalan Tahun Akademik "
+							+ "\"{V1}\" semester \"{V2}\" tidak aktif untuk fakultas/prodi yang dipilih.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION,
+					perkuliahan.getTahunAjaran(), jenisSemester);
+			return;
+		}
+
 		new PenjadwalanUtil(this).initJadwalKurikulum(perkuliahan, semesterPendek, ekstrakurikuler, merupakanRemedial);
 	}
 
@@ -3494,8 +3522,7 @@ public class PerkuliahanAction extends GenericAutowireComposer
 						.add(myJurusan == null ? Restrictions.sqlRestriction("1=1")
 								: Restrictions.eq("jurusan", myJurusan))
 						.add(Restrictions.eq("program", myProgram)).add(Restrictions.eq("tahunAjaran", tahunAkademik1))
-						.add(Restrictions.sqlRestriction(semester.equals(Perkuliahan.GANJIL) ? "this_.semester % 2 = 1"
-								: "this_.semester % 2 = 0")),
+						.add(Restrictions.eq("ganjilGenap", semester)),
 						Perkuliahan.class);
 
 				MyMessageboxConfig.show(
@@ -3527,9 +3554,7 @@ public class PerkuliahanAction extends GenericAutowireComposer
 												.add(myJurusan == null ? Restrictions.sqlRestriction("1=1")
 														: Restrictions.eq("jurusan", myJurusan))
 												.add(Restrictions.eq("tahunAjaran", tahunAkademik2))
-												.add(Restrictions.sqlRestriction(
-														semester.equals(Perkuliahan.GANJIL) ? "this_.semester % 2 = 1"
-																: "this_.semester % 2 = 0"))
+												.add(Restrictions.eq("ganjilGenap", semester))
 												.add(perkuliahan.getDosen1() == null
 														? Restrictions.sqlRestriction("1=1")
 														: Restrictions.eq("dosen1", perkuliahan.getDosen1()))
@@ -3738,8 +3763,7 @@ public class PerkuliahanAction extends GenericAutowireComposer
 						.add(myJurusan == null ? Restrictions.sqlRestriction("1=1")
 								: Restrictions.eq("jurusan", myJurusan))
 						.add(Restrictions.eq("tahunAjaran", tahunAkademik1)).add(Restrictions.eq("program", myProgram))
-						.add(Restrictions.sqlRestriction(semester.equals(Perkuliahan.GANJIL) ? "this_.semester % 2 = 1"
-								: "this_.semester % 2 = 0")),
+						.add(Restrictions.eq("ganjilGenap", semester)),
 						Perkuliahan.class);
 
 				// Htm peringatan = "";

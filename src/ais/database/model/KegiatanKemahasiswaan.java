@@ -133,6 +133,12 @@ public class KegiatanKemahasiswaan extends GeneralValueObject {
 	}
 
 	public void setNama(String nama) {
+		// KE-FIX (DataException "value too long for type character varying(255)"): kolom DB
+		// nama varchar(255), tapi field UI Textbox bebas tanpa batas panjang. Potong aman di
+		// sini (bukan mengubah skema) supaya simpan tetap jalan.
+		if (nama != null && nama.length() > 255) {
+			nama = nama.substring(0, 255);
+		}
 		this.nama = nama;
 	}
 

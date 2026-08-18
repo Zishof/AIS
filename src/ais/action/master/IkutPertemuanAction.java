@@ -205,9 +205,7 @@ public class IkutPertemuanAction extends GenericAutowireComposer implements Data
 					.add(tahunAkademik == null ? Restrictions.sqlRestriction("1=1")
 							: Restrictions.eq("tahunAjaran", tahunAkademik))
 					.add(jenisSemester == null ? Restrictions.sqlRestriction("1=1")
-							: jenisSemester.equalsIgnoreCase(Perkuliahan.GENAP)
-									? Restrictions.in("semester", Common.genap)
-									: Restrictions.in("semester", Common.ganjil))
+							: Restrictions.eq("ganjilGenap", jenisSemester))
 
 					.add(searchhari.getSelectedItem() == null || searchhari.getSelectedItem().getValue() == null
 							? Restrictions.sqlRestriction("1=1")
@@ -249,9 +247,7 @@ public class IkutPertemuanAction extends GenericAutowireComposer implements Data
 					.add(tahunAkademik == null ? Restrictions.sqlRestriction("1=1")
 							: Restrictions.eq("tahunAjaran", tahunAkademik))
 					.add(jenisSemester == null ? Restrictions.sqlRestriction("1=1")
-							: jenisSemester.equalsIgnoreCase(Perkuliahan.GENAP)
-									? Restrictions.in("semester", Common.genap)
-									: Restrictions.in("semester", Common.ganjil))
+							: Restrictions.eq("ganjilGenap", jenisSemester))
 
 					.add(dosen == null ? Restrictions.sqlRestriction("1=1")
 							: Restrictions.or(Restrictions.eq("dosen1", dosen), Restrictions.eq("dosen2", dosen)))

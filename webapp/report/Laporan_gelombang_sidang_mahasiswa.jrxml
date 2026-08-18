@@ -70,7 +70,7 @@ d5.nama as dosen5,
 j.nama as jur,
 f.nama as fak,
 m.tahunangkatan,
-a.nilai_ketua_sidang status,
+a.nilai_ketua_sidang status_sidang,
 a.judul,
 m.kelamin
 
@@ -105,8 +105,8 @@ order by a.pembimbing,j.nama,m.nim]]>
 	<field name="dosen_id" class="java.lang.Long"/>
 	<field name="id_jadwal" class="java.lang.Long"/>
 	<field name="nama" class="java.lang.String"/>
-	<field name="mulai" class="java.sql.Date"/>
-	<field name="sampai" class="java.sql.Date"/>
+	<field name="mulai" class="java.util.Date"/>
+	<field name="sampai" class="java.util.Date"/>
 	<field name="nim" class="java.lang.String"/>
 	<field name="nama_mhs" class="java.lang.String"/>
 	<field name="dosen1" class="java.lang.String"/>
@@ -117,7 +117,6 @@ order by a.pembimbing,j.nama,m.nim]]>
 	<field name="jur" class="java.lang.String"/>
 	<field name="fak" class="java.lang.String"/>
 	<field name="tahunangkatan" class="java.lang.Integer"/>
-	<field name="status" class="java.lang.Double"/>
 	<field name="judul" class="java.lang.String"/>
 	<field name="kelamin" class="java.lang.String"/>
 	<field name="status_sidang" class="java.lang.String"/>

@@ -21,6 +21,7 @@ import org.zkoss.zul.Hlayout;
 import org.zkoss.zul.Label;
 import org.zkoss.zul.Row;
 import org.zkoss.zul.Rows;
+import org.zkoss.zul.Timer;
 import org.zkoss.zul.Vlayout;
 
 import ais.action.servlet.api.KantinHelper;
@@ -28,6 +29,7 @@ import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.inventory.Toko;
 import ais.ui.util.DashboardUiKit;
+import ais.ui.util.DashboardGridExportHelper;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
@@ -362,7 +364,7 @@ public class PesananKantinAction extends GenericAutowireComposer {
         box.setStyle("padding:12px;");
         box.setParent(w);
 
-        List<Object[]> hd = rows("SELECT COALESCE(a.kode,'-'), TO_CHAR(a.tanggal_pembayaran,'dd-MM-yyyy HH24:MI'), "
+        List<Object[]> hd = rows("SELECT COALESCE(a.kode,'-'), TO_CHAR(a.tanggal_pembayaran,'dd-MM-yyyy HH24:MI:SS'), "
                 + "COALESCE(ak.nama,'-'), COALESCE(ak.kode_identitas,''), COALESCE(t.nama,'-'), "
                 + "COALESCE(a.keterangan,''), COALESCE(a.total_biaya,0), COALESCE(a.total_diskon,0), "
                 + "COALESCE(a.totalcashback,0), COALESCE(cpk.nama,'-'), a.lunas "
@@ -402,6 +404,22 @@ public class PesananKantinAction extends GenericAutowireComposer {
             sb.append("<div style='white-space:pre-wrap;color:#0f172a;'>").append(DashboardUiKit.esc(ket)).append("</div></div>");
         }
         box.appendChild(DashboardUiKit.html(sb.toString()));
+
+        final Label waktuSekarang = new Label();
+        waktuSekarang.setStyle("font-size:12px;font-weight:700;color:#0f766e;margin-top:8px;");
+        waktuSekarang.setValue("Waktu sekarang: "
+                + new java.text.SimpleDateFormat("dd-MM-yyyy HH:mm:ss").format(new Date()));
+        waktuSekarang.setParent(box);
+        final Timer jam = new Timer(1000);
+        jam.setRepeats(true);
+        jam.addEventListener("onTimer", new EventListener() {
+            @Override
+            public void onEvent(Event e) throws Exception {
+                waktuSekarang.setValue("Waktu sekarang: "
+                        + new java.text.SimpleDateFormat("dd-MM-yyyy HH:mm:ss").format(new Date()));
+            }
+        });
+        jam.setParent(box);
 
         List<Object[]> items = rows("SELECT COALESCE(p.nama,d.nama), COALESCE(p.kode,''), COALESCE(d.hargasatuan,0), "
                 + "COALESCE(d.qty,0), COALESCE(d.diskon,0), COALESCE(d.cashback,0) "
@@ -470,6 +488,7 @@ public class PesananKantinAction extends GenericAutowireComposer {
         Hlayout btns = new Hlayout();
         btns.setStyle("gap:8px;justify-content:flex-end;margin-top:12px;");
         btns.setParent(box);
+        DashboardGridExportHelper.pasangTombol(btns, gi, "Detail Pesanan " + str(h[0]));
         Button tutup = new Button("Tutup");
         tutup.addEventListener("onClick", new EventListener() {
             @Override

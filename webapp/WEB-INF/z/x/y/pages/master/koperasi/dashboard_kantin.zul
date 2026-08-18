@@ -23,6 +23,10 @@
 							id="download" label="Unduh Semua Rekap" image="/img/excel.png"
 							tooltiptext="Unduh seluruh rekap (produk, pelanggan, pedagang, stok) dalam satu berkas Excel"
 							forward="onClick=onDownload"/>
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+							id="downloadPdf" label="Cetak Analitik PDF" image="/img/pdf.gif"
+							tooltiptext="Cetak seluruh grafik analitik aktif dalam satu halaman PDF landscape"
+							forward="onClick=onDownloadPdf"/>
 					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;dashboard_kantin&quot;, &quot;Bantuan&quot;);"/></div>
 				</div>
 				<div sclass="ais-crud-filter-body">

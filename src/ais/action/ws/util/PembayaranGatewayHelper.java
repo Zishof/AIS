@@ -132,7 +132,7 @@ public class PembayaranGatewayHelper {
 
 			Double nilaiBiayaHarusDiBayars = 0.0;
 			for (DetailBiaya detailBiaya : detailBiayas) {
-				nilaiBiayaHarusDiBayars += detailBiaya.hitungTotalKegiatan(kegiatan, session);
+				nilaiBiayaHarusDiBayars += Kegiatan.ambilJumlahTagihan(kegiatan, detailBiaya);
 			}
 
 			// 3. Proses Rincian dari Cicilan String ATAU Parse dari JSON Request (Jika
@@ -624,8 +624,7 @@ public class PembayaranGatewayHelper {
 			}
 
 			for (DetailBiaya detailBiaya : map.values()) {
-				Double nilai = detailBiaya.hitungTotalKegiatan(kegiatan, sessionLocalKeg);
-				nilaiBiayaHarusDiBayars += (nilai);
+				nilaiBiayaHarusDiBayars += Kegiatan.ambilJumlahTagihan(kegiatan, detailBiaya);
 			}
 
 			kegiatan.setAmountTerhutang(nilaiBiayaHarusDiBayars - amountTotal);

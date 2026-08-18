@@ -32,7 +32,7 @@
 	</parameter>
 	<queryString>
 		<![CDATA[select
-case when a.status_semesterpendek is not null then 'Semester Pendek' else (case a.semester%2 when 1 then 'Ganjil' else 'Genap' end) end as jenis_semester,
+case when a.status_semesterpendek is not null then 'Semester Pendek' else a.ganjil_genap end as jenis_semester,
 a.tahun_ajaran,
 e.nama as fakultas,
 (case when b.nama is not null then b.nama else '' end)

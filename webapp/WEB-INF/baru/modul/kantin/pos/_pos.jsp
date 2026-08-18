@@ -257,6 +257,9 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
 					<button class="btn btn-sm btn-outline-info rounded-circle d-flex align-items-center justify-content-center" style="width:34px;height:34px;padding:0;" data-bs-toggle="modal" data-bs-target="#modalBantuanPOS<%=rnd%>" title="<%=Common.getBahasaConfig("Bantuan POS lengkap (F1)")%>">
 						<i class="fas fa-question"></i>
 					</button>
+					<button class="btn btn-sm btn-outline-success rounded-circle d-flex align-items-center justify-content-center" style="width:34px;height:34px;padding:0;" data-bs-toggle="modal" data-bs-target="#modalQAPOS<%=rnd%>" onclick="siapkanQAPOS<%=rnd%>()" title="<%=Common.getBahasaConfig("Tanya Jawab sesuai halaman POS")%>">
+						<i class="fas fa-comments"></i>
+					</button>
 					<button class="btn btn-sm btn-outline-secondary rounded-circle position-relative d-flex align-items-center justify-content-center" style="width:34px;height:34px;padding:0;" data-bs-toggle="modal" data-bs-target="#modalKeranjangTertahan<%=rnd%>" onclick="loadDaftarTertahan<%=rnd%>()" title="<%=Common.getBahasaConfig("Keranjang Tertahan")%>">
 						<i class="fas fa-inbox"></i>
 						<span class="badge bg-danger rounded-pill d-none" id="badgeTertahan<%=rnd%>" style="font-size:8px;position:absolute;top:-3px;right:-3px;">0</span>
@@ -286,6 +289,10 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
 					<div class="d-flex justify-content-between mb-1">
 						<span class="text-secondary fw-semibold"><%=Common.getBahasaConfig("Diskon Promo")%></span>
 						<span class="text-danger fw-bold" id="cartDiskon<%=rnd%>">- Rp 0</span>
+					</div>
+					<div class="d-flex justify-content-between align-items-center mb-1">
+						<button type="button" class="btn btn-link btn-sm p-0 text-warning fw-semibold" onclick="aturDiskonFaktur<%=rnd%>()"><i class="fas fa-percent me-1"></i><%=Common.getBahasaConfig("Potongan Faktur")%></button>
+						<span class="text-danger fw-bold" id="cartDiskonFaktur<%=rnd%>">- Rp 0</span>
 					</div>
                     <div class="d-flex justify-content-between mb-1">
 						<span class="text-secondary fw-semibold"><%=Common.getBahasaConfig("Cashback Didapat")%></span>
@@ -419,6 +426,9 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
     const posTanpaLogin<%=rnd%> = <%=posTanpaLogin%>;
     let cart<%=rnd%> = [];
     let grandTotalValue<%=rnd%> = 0;
+    let diskonFakturTipe<%=rnd%> = 'NOMINAL';
+    let diskonFakturNilai<%=rnd%> = 0;
+    let diskonFakturTerhitung<%=rnd%> = 0;
     
     let arrDataToko<%=rnd%> = [];
     let arrDataMember<%=rnd%> = [];
@@ -437,6 +447,23 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
     // besar disembunyikan (lihat lanjutkanPembayaranSetelahPin) karena tidak jelas dibayar via metode
     // mana yang harusnya menampilkan QR/kembalian saat displit.
     let splitSelectedMetodeBayar<%=rnd%> = [];
+
+    window.aturDiskonFaktur<%=rnd%> = () => {
+        if (!cart<%=rnd%>.length) return;
+        const tipe = prompt('Jenis potongan: ketik NOMINAL atau PERSEN', diskonFakturTipe<%=rnd%>);
+        if (tipe === null) return;
+        const normal = String(tipe).trim().toUpperCase();
+        if (normal !== 'NOMINAL' && normal !== 'PERSEN') {
+            alert('Jenis potongan harus NOMINAL atau PERSEN.'); return;
+        }
+        const nilai = prompt(normal === 'PERSEN' ? 'Masukkan persentase (0-100)' : 'Masukkan nominal potongan Rupiah', String(diskonFakturNilai<%=rnd%> || ''));
+        if (nilai === null) return;
+        diskonFakturTipe<%=rnd%> = normal;
+        diskonFakturNilai<%=rnd%> = Math.max(0, parseFloat(String(nilai).replace(/\./g, '').replace(',', '.')) || 0);
+        if (normal === 'PERSEN') diskonFakturNilai<%=rnd%> = Math.min(100, diskonFakturNilai<%=rnd%>);
+        splitSelectedMetodeBayar<%=rnd%> = [];
+        renderCart<%=rnd%>();
+    };
     
     // Variabel state untuk QR Code Polling
     let qrCheckInterval<%=rnd%> = null;
@@ -625,6 +652,29 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
                 <div id="listKeranjangTertahan<%=rnd%>">
                     <div class="text-center text-muted py-3"><div class="spinner-border spinner-border-sm text-primary"></div></div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal fade" id="modalAlasanTahan<%=rnd%>" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 rounded-4 shadow">
+              <div class="modal-header border-bottom-0 pb-1">
+                <h5 class="modal-title fw-bold text-dark"><i class="fas fa-pause-circle me-2"></i><%=Common.getBahasaConfig("Mengapa transaksi ditahan?")%></h5>
+                <button type="button" class="btn-close" onclick="batalkanAlasanTahan<%=rnd%>()" aria-label="Close"></button>
+              </div>
+              <div class="modal-body pt-2 pb-3">
+                <p class="text-muted small mb-3"><%=Common.getBahasaConfig("Pilih satu alasan agar transaksi tertahan mudah ditindaklanjuti oleh kasir berikutnya.")%></p>
+                <div id="pilihanAlasanTahan<%=rnd%>" class="row g-2" style="max-height:48vh;overflow-y:auto;"></div>
+                <div class="mt-3 d-none" id="wrapAlasanLain<%=rnd%>">
+                  <label class="form-label small fw-bold"><%=Common.getBahasaConfig("Alasan lainnya")%></label>
+                  <textarea class="form-control" maxlength="200" rows="3" id="inputAlasanLain<%=rnd%>" placeholder="<%=Common.getBahasaConfig("Tuliskan alasan secara singkat dan jelas")%>"></textarea>
+                </div>
+              </div>
+              <div class="modal-footer border-top-0 pt-0">
+                <button type="button" class="btn btn-light rounded-pill" onclick="batalkanAlasanTahan<%=rnd%>()"><%=Common.getBahasaConfig("Batal")%></button>
+                <button type="button" class="btn btn-primary rounded-pill fw-bold px-4" onclick="konfirmasiAlasanTahan<%=rnd%>()"><i class="fas fa-pause me-1"></i><%=Common.getBahasaConfig("Tahan Transaksi")%></button>
               </div>
             </div>
           </div>
@@ -1151,10 +1201,30 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
     // sesi_kas_tutup. Status TERAKHIR disimpan di sesiKasInfo<%=rnd%> supaya form Buka/Tutup bisa
     // dibangun tanpa panggilan server tambahan tiap kali toggle dibuka.
     // ==========================================
-    let sesiKasInfo<%=rnd%> = { terbuka: false };
+	let sesiKasInfo<%=rnd%> = { terbuka: false };
+	const wajibSesiKas<%=rnd%> = <%=Common.bolehKonfigurasi(Konfigurasi.KANTIN_POS_WAJIB_SESI_KAS, Konfigurasi.TIDAK_AKTIF)%>;
+	// Identitas instalasi browser stabil. Disimpan lokal agar sesi kas tetap terikat
+	// ke mesin/browser yang sama setelah halaman dimuat ulang atau pengguna login lagi.
+	const idPerangkatSesiKas<%=rnd%> = (() => {
+		const kunci = 'ais-pos-id-perangkat';
+		let nilai = localStorage.getItem(kunci);
+		if (!nilai) {
+			nilai = (window.crypto && window.crypto.randomUUID)
+				? window.crypto.randomUUID()
+				: 'web-' + Date.now() + '-' + Math.random().toString(36).substring(2, 14);
+			localStorage.setItem(kunci, nilai);
+		}
+		return nilai;
+	})();
+	const namaPerangkatSesiKas<%=rnd%> = 'Browser ' + (navigator.platform || 'Web');
 
-    const panggilSesiKas<%=rnd%> = async (action, extra) => {
-        let payload = Object.assign({ action: action, id_toko: document.getElementById('idTokoSelected<%=rnd%>').value || null }, extra || {});
+	const panggilSesiKas<%=rnd%> = async (action, extra) => {
+		let payload = Object.assign({
+			action: action,
+			id_toko: document.getElementById('idTokoSelected<%=rnd%>').value || null,
+			id_perangkat: idPerangkatSesiKas<%=rnd%>,
+			nama_perangkat: namaPerangkatSesiKas<%=rnd%>
+		}, extra || {});
         if (posTanpaLogin<%=rnd%>) payload.tanpaLogin = "true";
         const res = await fetch('<%=Common.ROOT%>/Data', {
             method: 'POST',
@@ -1182,9 +1252,15 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             btn.className = 'btn btn-sm btn-danger';
         } else {
             lbl.className = 'fw-bold small text-danger';
-            lbl.textContent = '<%=Common.getBahasaConfigJS("Kas")%>: <%=Common.getBahasaConfigJS("Tertutup")%>';
-            btn.textContent = '<%=Common.getBahasaConfigJS("Buka Kas")%>';
-            btn.className = 'btn btn-sm btn-success';
+            if (sesiKasInfo<%=rnd%>.sesiDiPerangkatLain) {
+                lbl.textContent = '<%=Common.getBahasaConfigJS("Kas aktif di perangkat lain")%>';
+                btn.textContent = '<%=Common.getBahasaConfigJS("Periksa Status")%>';
+                btn.className = 'btn btn-sm btn-warning';
+            } else {
+                lbl.textContent = '<%=Common.getBahasaConfigJS("Kas")%>: <%=Common.getBahasaConfigJS("Tertutup")%>';
+                btn.textContent = '<%=Common.getBahasaConfigJS("Buka Kas")%>';
+                btn.className = 'btn btn-sm btn-success';
+            }
         }
         // Form yang sedang terbuka (bila ada) dibangun ulang supaya konsisten dgn status terbaru.
         const wrap = document.getElementById('formSesiKasWrap<%=rnd%>');
@@ -1203,7 +1279,14 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
 
     const renderFormSesiKas<%=rnd%> = () => {
         const wrap = document.getElementById('formSesiKasWrap<%=rnd%>');
-        if (!sesiKasInfo<%=rnd%>.terbuka) {
+        if (wajibSesiKas<%=rnd%> && !sesiKasInfo<%=rnd%>.terbuka) {
+            if (sesiKasInfo<%=rnd%>.sesiDiPerangkatLain) {
+                wrap.innerHTML = '<div class="alert alert-danger mb-0"><strong><%=Common.getBahasaConfigJS("Transaksi dikunci pada perangkat ini.")%></strong><br>' +
+                    (sesiKasInfo<%=rnd%>.description || '<%=Common.getBahasaConfigJS("Tutup sesi kas di perangkat lain, kemudian periksa status kembali.")%>') +
+                    '<div class="mt-2"><button type="button" class="btn btn-warning btn-sm" id="btnPeriksaSesiKas<%=rnd%>"><%=Common.getBahasaConfigJS("Periksa Ulang Status Kas")%></button></div></div>';
+                document.getElementById('btnPeriksaSesiKas<%=rnd%>').addEventListener('click', muatStatusSesiKas<%=rnd%>);
+                return;
+            }
             wrap.innerHTML =
                 '<div class="row g-2 align-items-end">' +
                 '<div class="col-sm-4"><label class="form-label small fw-bold text-secondary mb-1"><%=Common.getBahasaConfigJS("Modal Awal (Rp)")%></label>' +
@@ -1259,6 +1342,38 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         }
     };
 
+    const escapeLaporanKas<%=rnd%> = (v) => String(v == null ? '' : v)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const isiLaporanKas<%=rnd%> = (l) => {
+        const barisMetode = (l.metodePembayaran || []).map(m =>
+            '<div class="mt-2 fw-bold">' + escapeLaporanKas<%=rnd%>(m.nama) + '</div>' +
+            '<div class="d-flex justify-content-between"><span>' + (m.jumlahTransaksi || 0) + 'x Penerimaan</span><span>' + formatRp<%=rnd%>(m.penerimaan || 0) + '</span></div>' +
+            '<div class="d-flex justify-content-between"><span>Retur</span><span>' + formatRp<%=rnd%>(m.retur || 0) + '</span></div>' +
+            '<div class="d-flex justify-content-between fw-bold"><span>Total ' + escapeLaporanKas<%=rnd%>(m.nama) + '</span><span>' + formatRp<%=rnd%>(m.total || 0) + '</span></div>'
+        ).join('');
+        return '<div class="font-monospace small" style="max-width:420px;margin:auto">' +
+          '<div class="text-center fw-bold fs-5">LAPORAN TUTUP KAS</div><div class="text-center">' + escapeLaporanKas<%=rnd%>(l.namaToko) + '</div><hr class="border-dashed">' +
+          '<div>Nama Kasir : ' + escapeLaporanKas<%=rnd%>(l.namaKasir) + '</div><div>Buka : ' + escapeLaporanKas<%=rnd%>(l.waktuBuka) + '</div><div>Tutup : ' + escapeLaporanKas<%=rnd%>(l.waktuTutup) + '</div><hr>' +
+          '<div class="d-flex justify-content-between"><span>Modal Awal</span><span>' + formatRp<%=rnd%>(l.modalAwal || 0) + '</span></div>' +
+          '<div class="d-flex justify-content-between"><span>Penjualan Tunai</span><span>' + formatRp<%=rnd%>(l.penjualanTunai || 0) + '</span></div>' +
+          '<div class="d-flex justify-content-between"><span>Kas Seharusnya</span><span>' + formatRp<%=rnd%>(l.kasSeharusnya || 0) + '</span></div>' +
+          '<div class="d-flex justify-content-between"><span>Jumlah Kas Tunai</span><span>' + formatRp<%=rnd%>(l.jumlahKasTunai || 0) + '</span></div>' +
+          '<div class="d-flex justify-content-between fw-bold"><span>Selisih</span><span>' + formatRp<%=rnd%>(l.selisih || 0) + '</span></div><hr>' +
+          '<div class="d-flex justify-content-between"><span>Retur Penjualan</span><span>' + formatRp<%=rnd%>(l.returPenjualan || 0) + '</span></div>' +
+          '<div class="d-flex justify-content-between"><span>Biaya (' + (l.jumlahBiaya || 0) + 'x)</span><span>' + formatRp<%=rnd%>(l.biaya || 0) + '</span></div><hr>' +
+          '<div class="d-flex justify-content-between"><span>Piutang (' + (l.jumlahTransaksiPiutang || 0) + 'x transaksi)</span><span>' + formatRp<%=rnd%>(l.piutang || 0) + '</span></div><hr>' + barisMetode + '<hr>' +
+          '<div class="d-flex justify-content-between fw-bold"><span>Jumlah Transaksi</span><span>' + (l.jumlahTransaksi || 0) + '</span></div>' +
+          '<div class="d-flex justify-content-between fw-bold fs-6"><span>Total Transaksi</span><span>' + formatRp<%=rnd%>(l.totalTransaksi || 0) + '</span></div></div>';
+    };
+    const tampilkanLaporanKas<%=rnd%> = (laporan) => {
+        let el = document.getElementById('modalLaporanKas<%=rnd%>');
+        if (!el) { el = document.createElement('div'); el.id='modalLaporanKas<%=rnd%>'; el.className='modal fade'; document.body.appendChild(el); }
+        const isi = isiLaporanKas<%=rnd%>(laporan || {});
+        el.innerHTML = '<div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Laporan Tutup Kas</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">'+isi+'</div><div class="modal-footer"><button class="btn btn-outline-success" id="cetakLaporanKas<%=rnd%>"><i class="bi bi-printer"></i> Cetak Laporan</button><button class="btn btn-success" data-bs-dismiss="modal">Selesai</button></div></div></div>';
+        document.getElementById('cetakLaporanKas<%=rnd%>').onclick = () => { const w=window.open('','_blank','width=480,height=720'); if(!w)return; w.document.write('<!doctype html><html><head><title>Laporan Tutup Kas</title><style>@page{size:80mm auto;margin:4mm}body{font:11px monospace;margin:0}.d-flex{display:flex}.justify-content-between{justify-content:space-between}.text-center{text-align:center}.fw-bold{font-weight:bold}hr{border:0;border-top:1px dashed #000}.mt-2{margin-top:8px}</style></head><body>'+isi+'<script>window.onload=function(){window.print()}<\/script></body></html>'); w.document.close(); };
+        bootstrap.Modal.getOrCreateInstance(el).show();
+    };
+
     const submitTutupKas<%=rnd%> = async () => {
         const yakin = confirm('<%=Common.getBahasaConfigJS("Apakah Bapak/Ibu yakin ingin menutup kas kasir sekarang? Selisih terhadap kas seharusnya akan dicatat secara permanen.")%>');
         if (!yakin) return;
@@ -1273,6 +1388,7 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
                 await muatStatusSesiKas<%=rnd%>();
                 const selisih = Number(r.selisih) || 0;
                 if (typeof tampilkanToast === "function") tampilkanToast('<%=Common.getBahasaConfigJS("Kas ditutup. Selisih")%>: ' + formatRp<%=rnd%>(selisih), selisih < 0 ? 'bg-danger text-white' : 'bg-success text-white');
+                tampilkanLaporanKas<%=rnd%>(r.laporanTutupKas || {});
             } else {
                 const pesan = (r && r.description) || '<%=Common.getBahasaConfigJS("Gagal menutup kas.")%>';
                 if (typeof tampilkanToast === "function") tampilkanToast(pesan, 'bg-danger text-white'); else alert(pesan);
@@ -1393,9 +1509,16 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
     const loadAturanDiskon<%=rnd%> = async () => {
         // Jangan ubah type date jadi _iso langsung di sql, biar action:"sql" yang tambahin otomatis
         const sqlAturan = "SELECT id, produk, toko, berlaku_semua_member, jenis_anggota, tipe_anggota, persentase, maksimal_potongan, nominal, potongan_langsung, berlaku_per_hari_dan_per_toko, tanggal_mulai, tanggal_selesai, hari_aktif, COALESCE(aktivasi_manual,false) AS aktivasi_manual, nama_aturan, keterangan FROM koperasi.aturan_diskon WHERE aktif = true";
-        const res = await fetchData<%=rnd%>(sqlAturan);
-        if(res) {
-            arrAturanDiskon<%=rnd%> = res;
+        const sqlGrup = "SELECT g.id, d.produk, g.toko, COALESCE(g.berlaku_semua_member,NOT COALESCE(g.khusus_member,false)) AS berlaku_semua_member, " +
+            "g.jenis_anggota, g.tipe_anggota, g.persentase, g.maksimal_potongan, g.nominal, COALESCE(g.potongan_langsung,true) AS potongan_langsung, " +
+            "false AS berlaku_per_hari_dan_per_toko, g.tanggal_mulai, g.tanggal_selesai, g.hari_aktif, false AS aktivasi_manual, " +
+            "g.nama_grup AS nama_aturan, g.keterangan, COALESCE(g.khusus_member,false) AS khusus_member, " +
+            "COALESCE(g.jenis_member_json,'[]') AS jenis_member_json, COALESCE(g.tipe_member_json,'[]') AS tipe_member_json, " +
+            "COALESCE(g.cashback,0) AS cashback_tetap, true AS sumber_grup FROM koperasi.grup_aturan_diskon g " +
+            "JOIN koperasi.grup_aturan_diskon_detail d ON d.grup_aturan_diskon=g.id AND COALESCE(d.aktif,true) WHERE COALESCE(g.aktif,true)";
+        const hasil = await Promise.all([fetchData<%=rnd%>(sqlAturan), fetchData<%=rnd%>(sqlGrup)]);
+        if(hasil) {
+            arrAturanDiskon<%=rnd%> = (hasil[1] || []).concat(hasil[0] || []);
             await updateUsageDiskonMember<%=rnd%>();
         }
     };
@@ -1513,7 +1636,10 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             "AND (d.tanggal_mulai IS NULL OR d.tanggal_mulai <= now()) AND (d.tanggal_selesai IS NULL OR d.tanggal_selesai >= now()) " +
             "AND COALESCE(d.berlaku_semua_member,false) = true AND COALESCE(d.potongan_langsung,true) = true " +
             "AND COALESCE(d.aktivasi_manual,false) = false " +
-            "AND (d.hari_aktif IS NULL OR d.hari_aktif = '' OR (',' || d.hari_aktif || ',') LIKE ('%,' || EXTRACT(ISODOW FROM now())::int || ',%'))";
+            // Jangan memakai operator cast dua-titik PostgreSQL di native SQL yang lewat
+            // Hibernate: parser Hibernate menganggap `:int` sebagai named
+            // parameter. CAST standar menghasilkan SQL yang sama tanpa bentrok.
+            "AND (d.hari_aktif IS NULL OR d.hari_aktif = '' OR (',' || d.hari_aktif || ',') LIKE ('%,' || CAST(EXTRACT(ISODOW FROM now()) AS integer) || ',%'))";
         let sqlQuery = "SELECT a.id, a.kode, a.nama, a.hargajual, COALESCE(a.stok,0) AS stok, a.ekstra_pilihan, " +
                        "(SELECT MAX(d.persentase) FROM koperasi.aturan_diskon d WHERE " + kondisiDiskonAktif<%=rnd%> + " AND COALESCE(d.persentase,0) > 0) AS diskon_persen, " +
                        "(SELECT MAX(d.maksimal_potongan) FROM koperasi.aturan_diskon d WHERE " + kondisiDiskonAktif<%=rnd%> + " AND COALESCE(d.persentase,0) > 0) AS diskon_maks_potongan, " +
@@ -1624,8 +1750,16 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         if (!hariAktifSekarang<%=rnd%>(rule.hari_aktif)) return false;
 
         const isAllMember = (rule.berlaku_semua_member === 'true' || rule.berlaku_semua_member === true || rule.berlaku_semua_member === 't');
-        if (!isAllMember) {
+        const khususMember = (rule.khusus_member === 'true' || rule.khusus_member === true || rule.khusus_member === 't');
+        if (!isAllMember || khususMember) {
             if (!selectedMember) return false; // Butuh member spesifik tapi kasir belum pilih member
+            const memuatId = (json, id) => {
+                if (!json || json === '[]') return true;
+                try { const a = Array.isArray(json) ? json : JSON.parse(json); return a.length === 0 || a.map(String).includes(String(id)); }
+                catch (e) { console.error('Kriteria member grup diskon tidak valid', e); return false; }
+            };
+            if (!memuatId(rule.jenis_member_json, selectedMember.jenis_anggota)) return false;
+            if (!memuatId(rule.tipe_member_json, selectedMember.tipe_anggota)) return false;
             if (rule.jenis_anggota && rule.jenis_anggota !== '' && rule.jenis_anggota != selectedMember.jenis_anggota) return false;
             if (rule.tipe_anggota && rule.tipe_anggota !== '' && rule.tipe_anggota != selectedMember.tipe_anggota) return false;
         }
@@ -1698,8 +1832,11 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             const isPotongLsg = (appliedRule.potongan_langsung === 'true' || appliedRule.potongan_langsung === true || appliedRule.potongan_langsung === 't');
             if (isPotongLsg) item.diskon = discountValue;
             else item.cashback = discountValue;
+            const cashbackTetap = parseFloat(appliedRule.cashback_tetap) || 0;
+            if (cashbackTetap > 0) item.cashback += Math.min(itemTotalBeforeDisc, cashbackTetap * item.jumlah);
             
-            item.aturanDiskon = appliedRule.id;
+            const sumberGrup = (appliedRule.sumber_grup === true || appliedRule.sumber_grup === 'true' || appliedRule.sumber_grup === 't');
+            item.aturanDiskon = sumberGrup ? null : appliedRule.id;
             item.berlakuPerHariDanPerToko = isBerlaku1x;
         }
     };
@@ -1713,7 +1850,7 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             // Gap-closure "Aktivasi Manual" -- baris yg promonya dipilih manual kasir (item.promoManual)
             // TETAP dihitung ulang (bukan dibekukan) supaya batas maksimal_potongan tetap akurat, tapi
             // dgn onlyRuleId terkunci ke promo itu saja -- bukan ikut auto-apply biasa.
-            evaluateDiscount<%=rnd%>(item, item.promoManual ? item.aturanDiskon : null);
+            evaluateDiscount<%=rnd%>(item, item.promoManual ? item.promoManualAturanId : null);
         });
         renderCart<%=rnd%>();
     };
@@ -1723,17 +1860,29 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
      * utk MINIMAL SATU baris keranjang saat ini (reuse aturanEligibleUntukItem, sama predikat yg
      * dipakai auto-apply, cuma dibalik: hanya ambil yang manual, bukan yang di-skip).
      */
-    const bukaPickerPromoManual<%=rnd%> = () => {
+    let indexItemPromoManual<%=rnd%> = null;
+    const bukaPickerPromoManual<%=rnd%> = (indexItem) => {
         const body = document.getElementById('bodyModalPromoManual<%=rnd%>');
         if (cart<%=rnd%>.length === 0) {
             body.innerHTML = '<p class="text-muted text-center py-3 mb-0"><%=Common.getBahasaConfig("Keranjang masih kosong.")%></p>';
             return;
         }
+        if (indexItem === undefined || indexItem === null) {
+            indexItemPromoManual<%=rnd%> = null;
+            body.innerHTML = '<div class="list-group">' + cart<%=rnd%>.map((item, index) =>
+                '<button type="button" class="list-group-item list-group-item-action" onclick="bukaPickerPromoManual<%=rnd%>(' + index + ')">' +
+                '<div class="fw-bold">' + item.nama + '</div><div class="small text-muted">Pilih promo khusus untuk item ini</div></button>'
+            ).join('') + '</div>';
+            return;
+        }
+        indexItemPromoManual<%=rnd%> = indexItem;
+        const targetItem = cart<%=rnd%>[indexItem];
+        if (!targetItem) return;
         const selectedMember = memberTerpilihSaatIni<%=rnd%>();
         const promoEligible = arrAturanDiskon<%=rnd%>.filter(rule => {
             const isManual = (rule.aktivasi_manual === true || rule.aktivasi_manual === 'true' || rule.aktivasi_manual === 't');
             if (!isManual) return false;
-            return cart<%=rnd%>.some(item => aturanEligibleUntukItem<%=rnd%>(rule, item, selectedMember));
+            return aturanEligibleUntukItem<%=rnd%>(rule, targetItem, selectedMember);
         });
 
         if (promoEligible.length === 0) {
@@ -1743,7 +1892,7 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
 
         let html = '<div class="list-group">';
         promoEligible.forEach(rule => {
-            const aktifSekarang = cart<%=rnd%>.some(item => item.promoManual && item.aturanDiskon == rule.id);
+            const aktifSekarang = targetItem.promoManual && targetItem.promoManualAturanId == rule.id;
             const persen = parseFloat(rule.persentase) || 0;
             const nominal = parseFloat(rule.nominal) || 0;
             const isPotongLsg = (rule.potongan_langsung === 'true' || rule.potongan_langsung === true || rule.potongan_langsung === 't');
@@ -1760,27 +1909,23 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         body.innerHTML = html;
     };
 
-    /** Kasir memilih 1 promo manual dari picker -- terapkan ke SEMUA baris keranjang yang eligible. */
+    /** Kasir memilih satu promo manual untuk satu baris keranjang yang sedang dipilih. */
     window.pilihPromoManual<%=rnd%> = (aturanId) => {
         const selectedMember = memberTerpilihSaatIni<%=rnd%>();
-        let adaYangDapat = false;
-        cart<%=rnd%>.forEach(item => {
-            const rule = arrAturanDiskon<%=rnd%>.find(r => r.id == aturanId);
-            if (rule && aturanEligibleUntukItem<%=rnd%>(rule, item, selectedMember)) {
-                item.promoManual = true;
-                adaYangDapat = true;
-            }
-        });
-        if (!adaYangDapat) {
+        const item = cart<%=rnd%>[indexItemPromoManual<%=rnd%>];
+        const rule = arrAturanDiskon<%=rnd%>.find(r => r.id == aturanId);
+        if (!item || !rule || !aturanEligibleUntukItem<%=rnd%>(rule, item, selectedMember)) {
             const pesan = '<%=Common.getBahasaConfigJS("Promo ini tidak berlaku untuk produk di keranjang saat ini.")%>';
             if (typeof tampilkanToast === "function") tampilkanToast(pesan, 'bg-warning text-dark'); else alert(pesan);
             return;
         }
+        item.promoManual = true;
+        item.promoManualAturanId = aturanId;
         recalculateCart<%=rnd%>();
         const modalEl = document.getElementById('modalPromoManual<%=rnd%>');
         const modal = modalEl && window.bootstrap ? bootstrap.Modal.getInstance(modalEl) : null;
         if (modal) modal.hide();
-        const pesanSukses = '<%=Common.getBahasaConfigJS("Promo diterapkan.")%>';
+        const pesanSukses = '<%=Common.getBahasaConfigJS("Promo diterapkan pada item yang dipilih.")%>';
         if (typeof tampilkanToast === "function") tampilkanToast(pesanSukses, 'bg-success text-white');
     };
 
@@ -1828,9 +1973,16 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         const existingItem = cart<%=rnd%>.find(item => item.id === id && sameEkstraSelection<%=rnd%>(item.ekstra, ekstra));
         if (existingItem) {
             existingItem.jumlah += 1;
+            // Item yang baru dipindai ulang kembali ke urutan pertama agar
+            // qty-nya dapat langsung diperiksa/dikoreksi oleh kasir.
+            const posisiLama = cart<%=rnd%>.indexOf(existingItem);
+            if (posisiLama > 0) {
+                cart<%=rnd%>.splice(posisiLama, 1);
+                cart<%=rnd%>.unshift(existingItem);
+            }
         } else {
             let newItem = { id: id, kode: kode, nama: nama, harga: harga, jumlah: 1, diskon: 0, cashback: 0, aturanDiskon: null, berlakuPerHariDanPerToko: false, ekstra: ekstra };
-            cart<%=rnd%>.push(newItem);
+            cart<%=rnd%>.unshift(newItem);
         }
         recalculateCart<%=rnd%>();
     };
@@ -1920,6 +2072,9 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
     const kosongkanKeranjang<%=rnd%> = () => {
         cart<%=rnd%> = [];
         currentDraftId<%=rnd%> = null;
+        diskonFakturTipe<%=rnd%> = 'NOMINAL';
+        diskonFakturNilai<%=rnd%> = 0;
+        diskonFakturTerhitung<%=rnd%> = 0;
         splitSelectedMetodeBayar<%=rnd%> = [];
         renderSplitPanel<%=rnd%>();
         recalculateCart<%=rnd%>();
@@ -1943,7 +2098,7 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             return;
         }
         const sql = "SELECT a.id, TO_CHAR(a.tanggal_pembayaran,'DD-MM HH24:MI') as waktu, a.kode, " +
-                    "b.nama as pemesan, COALESCE(a.total_biaya,0) as total, " +
+                    "b.nama as pemesan, COALESCE(a.total_biaya,0) as total, COALESCE(a.keterangan,'') as alasan_tahan, " +
                     "(SELECT COUNT(*) FROM koperasi.draft_pembelian d WHERE d.draft_pembelian_anggota_koperasi = a.id) as jml_item " +
                     "FROM koperasi.draft_pembelian_anggota_koperasi a " +
                     "LEFT JOIN koperasi.anggota_koperasi b ON a.anggota_koperasi = b.id " +
@@ -1960,10 +2115,12 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
 
         let html = '';
         res.forEach(r => {
+            const aman = (nilai) => String(nilai == null ? '' : nilai).replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
             html += '<div class="d-flex justify-content-between align-items-center border rounded-3 p-3 mb-2">' +
                         '<div>' +
-                            '<div class="fw-bold text-dark" style="font-size:13px;">' + (r.pemesan || '<%=Common.getBahasaConfigJS("Walk-in Customer")%>') + '</div>' +
+                            '<div class="fw-bold text-dark" style="font-size:13px;">' + aman(r.pemesan || '<%=Common.getBahasaConfigJS("Walk-in Customer")%>') + '</div>' +
                             '<div class="text-muted small">' + r.waktu + ' &bull; ' + r.jml_item + ' <%=Common.getBahasaConfig("item")%> &bull; ' + formatRp<%=rnd%>(r.total) + '</div>' +
+                            '<div class="small text-warning-emphasis mt-1"><i class="fas fa-circle-pause me-1"></i><b><%=Common.getBahasaConfig("Alasan")%>:</b> ' + aman(r.alasan_tahan || '-') + '</div>' +
                         '</div>' +
                         '<button class="btn btn-sm btn-primary rounded-pill" onclick="muatKeranjangTertahan<%=rnd%>(' + r.id + ')" data-bs-dismiss="modal"><%=Common.getBahasaConfig("Muat")%></button>' +
                     '</div>';
@@ -2029,6 +2186,63 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         if (typeof tampilkanToast === "function") tampilkanToast('<%=Common.getBahasaConfigJS("Keranjang tertahan dimuat, silakan lanjutkan.")%>', 'bg-success text-white');
     };
 
+    let alasanTahanResolve<%=rnd%> = null;
+    const alasanTahanDefault<%=rnd%> = [
+        'Pelanggan masih memilih barang','Pelanggan sedang mengambil uang','Pelanggan sedang mengambil kartu pembayaran',
+        'Pelanggan sedang membuka aplikasi pembayaran','Menunggu konfirmasi harga','Menunggu pengecekan stok',
+        'Menunggu persetujuan supervisor','Menunggu data member pelanggan','Pelanggan ingin mengubah metode pembayaran',
+        'Menunggu pembayaran tunai','Menunggu pembayaran QRIS','Menunggu bukti transfer','Menunggu saldo member tersedia',
+        'Pesanan belum lengkap','Barang perlu ditimbang ulang','Barcode atau produk perlu diperiksa','Antrean dialihkan ke kasir lain',
+        'Pelanggan akan kembali','Perlu konfirmasi ulang kepada pelanggan','Kendala jaringan atau perangkat kasir'
+    ];
+
+    const pilihAlasanTahan<%=rnd%> = async () => {
+        let daftar = alasanTahanDefault<%=rnd%>;
+        try {
+            const payload = { action: 'toko_profil_ambil', toko_id: document.getElementById('idTokoSelected<%=rnd%>').value };
+            if (posTanpaLogin<%=rnd%>) payload.tanpaLogin = 'true';
+            const response = await fetch('<%=Common.ROOT%>/Data', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+            const json = await response.json();
+            if (json && json.status === '00' && json.data && Array.isArray(json.data.alasanTahan) && json.data.alasanTahan.length) daftar = json.data.alasanTahan;
+        } catch (e) { console.warn('Konfigurasi alasan tahan tidak dapat dimuat, memakai daftar baku.', e); }
+
+        const body = document.getElementById('pilihanAlasanTahan<%=rnd%>');
+        body.innerHTML = daftar.map((alasan, index) => {
+            const aman = String(alasan).replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
+            return '<div class="col-12 col-md-6"><label class="border rounded-3 p-2 w-100 h-100 d-flex gap-2 align-items-start">' +
+                '<input class="form-check-input mt-1" type="radio" name="alasanTahan<%=rnd%>" value="' + aman + '"' + (index === 0 ? ' checked' : '') + ' onchange="ubahPilihanAlasanTahan<%=rnd%>()">' +
+                '<span class="small">' + aman + '</span></label></div>';
+        }).join('') + '<div class="col-12"><label class="border rounded-3 p-2 w-100 d-flex gap-2 align-items-start">' +
+            '<input class="form-check-input mt-1" type="radio" name="alasanTahan<%=rnd%>" value="__LAINNYA__" onchange="ubahPilihanAlasanTahan<%=rnd%>()">' +
+            '<span class="small fw-bold"><%=Common.getBahasaConfig("Lainnya (tulis alasan sendiri)")%></span></label></div>';
+        document.getElementById('inputAlasanLain<%=rnd%>').value = '';
+        document.getElementById('wrapAlasanLain<%=rnd%>').classList.add('d-none');
+        new bootstrap.Modal(document.getElementById('modalAlasanTahan<%=rnd%>')).show();
+        return await new Promise(resolve => { alasanTahanResolve<%=rnd%> = resolve; });
+    };
+
+    window.ubahPilihanAlasanTahan<%=rnd%> = () => {
+        const dipilih = document.querySelector('input[name="alasanTahan<%=rnd%>"]:checked');
+        const lainnya = dipilih && dipilih.value === '__LAINNYA__';
+        document.getElementById('wrapAlasanLain<%=rnd%>').classList.toggle('d-none', !lainnya);
+        if (lainnya) setTimeout(() => document.getElementById('inputAlasanLain<%=rnd%>').focus(), 100);
+    };
+    window.batalkanAlasanTahan<%=rnd%> = () => {
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAlasanTahan<%=rnd%>')).hide();
+        if (alasanTahanResolve<%=rnd%>) { const resolve = alasanTahanResolve<%=rnd%>; alasanTahanResolve<%=rnd%> = null; resolve(null); }
+    };
+    window.konfirmasiAlasanTahan<%=rnd%> = () => {
+        const dipilih = document.querySelector('input[name="alasanTahan<%=rnd%>"]:checked');
+        let alasan = dipilih ? dipilih.value : '';
+        if (alasan === '__LAINNYA__') alasan = document.getElementById('inputAlasanLain<%=rnd%>').value.trim();
+        if (!alasan) {
+            if (typeof tampilkanToast === 'function') tampilkanToast('<%=Common.getBahasaConfigJS("Alasan transaksi ditahan wajib diisi.")%>', 'bg-warning text-dark');
+            return;
+        }
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAlasanTahan<%=rnd%>')).hide();
+        if (alasanTahanResolve<%=rnd%>) { const resolve = alasanTahanResolve<%=rnd%>; alasanTahanResolve<%=rnd%> = null; resolve(alasan.substring(0, 200)); }
+    };
+
     const simpanKeranjangTertahan<%=rnd%> = async () => {
         if (cart<%=rnd%>.length === 0) {
             if (typeof tampilkanToast === "function") tampilkanToast('<%=Common.getBahasaConfigJS("Keranjang masih kosong, tidak ada yang disimpan.")%>', 'bg-warning text-dark');
@@ -2052,19 +2266,27 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             return;
         }
 
+        const alasanTahan = await pilihAlasanTahan<%=rnd%>();
+        if (!alasanTahan) return;
+
         const btn = document.getElementById('btnSimpanTertahan<%=rnd%>');
         const oriHtml = btn.innerHTML;
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
 
-        const payload = {
+		const payload = {
             action: "draft_bayar",
             id: currentDraftId<%=rnd%>,
             kodeUnik: "DRAFT-" + generateUniqueCode50(),
             idToko: idToko,
             waktu: getFormattedDate<%=rnd%>(),
             id_member: document.getElementById('idMemberSelected<%=rnd%>').value,
-            caraBayar: idCaraBayar,
+			caraBayar: idCaraBayar,
+			id_perangkat: idPerangkatSesiKas<%=rnd%>,
+			nama_perangkat: namaPerangkatSesiKas<%=rnd%>,
+			nama_mesin: namaPerangkatSesiKas<%=rnd%>,
+			kode_sesi_kas: sesiKasInfo<%=rnd%>.kodeSesiKas || null,
+            keterangan: alasanTahan,
             transaksi: cart<%=rnd%>.map(item => ({
                 id: item.id, kode: item.kode, nama: item.nama, harga: item.harga, jumlah: item.jumlah,
                 diskon: item.diskon, aturanDiskon: item.aturanDiskon, cashback: item.cashback,
@@ -2141,6 +2363,7 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
                             '<div class="text-muted" style="font-size:11px;">' + formatRp<%=rnd%>(item.harga) + '</div>' +
                             ekstraHtmlBaris +
                             (notePromo ? '<div class="mt-1">' + notePromo + '</div>' : '') +
+                            '<button type="button" class="btn btn-link btn-sm p-0 mt-1 text-warning" data-bs-toggle="modal" data-bs-target="#modalPromoManual<%=rnd%>" onclick="bukaPickerPromoManual<%=rnd%>(' + index + ')"><i class="fas fa-tags me-1"></i>' + (item.promoManual ? 'Ubah promo item' : 'Pilih promo item') + '</button>' +
                         '</div>' +
                         '<div class="qty-pill-<%=rnd%>">' +
                             '<span class="qty-btn-<%=rnd%>" onclick="updateQty<%=rnd%>(' + index + ', -1)">-</span>' +
@@ -2153,14 +2376,19 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
                     '</div>';
             });
             container.innerHTML = htmlCart;
-            const basePajak = subtotal - totalDiskon;
+            const dasarDiskonFaktur = Math.max(0, subtotal - totalDiskon);
+            diskonFakturTerhitung<%=rnd%> = diskonFakturTipe<%=rnd%> === 'PERSEN'
+                ? dasarDiskonFaktur * Math.min(100, diskonFakturNilai<%=rnd%>) / 100
+                : Math.min(dasarDiskonFaktur, diskonFakturNilai<%=rnd%>);
+            const basePajak = dasarDiskonFaktur - diskonFakturTerhitung<%=rnd%>;
             grandPajakValue<%=rnd%> = pajakPersenPOS<%=rnd%> > 0 ? (basePajak * pajakPersenPOS<%=rnd%> / 100) : 0;
             grandTotalValue<%=rnd%> = basePajak + grandPajakValue<%=rnd%>;
         }
-        if (cart<%=rnd%>.length === 0) { grandPajakValue<%=rnd%> = 0; }
+        if (cart<%=rnd%>.length === 0) { grandPajakValue<%=rnd%> = 0; diskonFakturTerhitung<%=rnd%> = 0; }
 
         document.getElementById('cartSubtotal<%=rnd%>').innerText = formatRp<%=rnd%>(subtotal);
         document.getElementById('cartDiskon<%=rnd%>').innerText = "- " + formatRp<%=rnd%>(totalDiskon);
+        document.getElementById('cartDiskonFaktur<%=rnd%>').innerText = "- " + formatRp<%=rnd%>(diskonFakturTerhitung<%=rnd%>);
         document.getElementById('cartCashback<%=rnd%>').innerText = "+ " + formatRp<%=rnd%>(totalCashback);
         const rowPajakEl = document.getElementById('rowPajak<%=rnd%>');
         if (pajakPersenPOS<%=rnd%> > 0) {
@@ -2264,6 +2492,13 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
         if (totalDiskonStruk > 0) {
             htmlStruk += '<tr><td>Total Diskon</td><td class="text-right">-' + formatRp<%=rnd%>(totalDiskonStruk) + '</td></tr>';
         }
+        const dasarPotonganFakturStruk = Math.max(0, subtotalAwal - totalDiskonStruk);
+        const potonganFakturStruk = payload.diskon_faktur_tipe === 'PERSEN'
+            ? dasarPotonganFakturStruk * Math.min(100, parseFloat(payload.diskon_faktur_nilai) || 0) / 100
+            : Math.min(dasarPotonganFakturStruk, parseFloat(payload.diskon_faktur_nilai) || 0);
+        if (potonganFakturStruk > 0) {
+            htmlStruk += '<tr><td>Potongan Faktur' + (payload.diskon_faktur_tipe === 'PERSEN' ? ' (' + payload.diskon_faktur_nilai + '%)' : '') + '</td><td class="text-right">-' + formatRp<%=rnd%>(potonganFakturStruk) + '</td></tr>';
+        }
 
         if (payload.pajak > 0) {
             htmlStruk += '<tr><td>Pajak (' + pajakPersenPOS<%=rnd%> + '%)</td><td class="text-right">' + formatRp<%=rnd%>(payload.pajak) + '</td></tr>';
@@ -2300,6 +2535,13 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
     // LOGIKA PEMBAYARAN & QR CODE
     // ==========================================
     const initiatePembayaran<%=rnd%> = async () => {
+        if (wajibSesiKas<%=rnd%> && !sesiKasInfo<%=rnd%>.terbuka) {
+            const pesan = sesiKasInfo<%=rnd%>.sesiDiPerangkatLain
+                ? (sesiKasInfo<%=rnd%>.description || '<%=Common.getBahasaConfigJS("Sesi kas akun ini aktif di perangkat lain. Tutup sesi tersebut sebelum bertransaksi di sini.")%>')
+                : '<%=Common.getBahasaConfigJS("Kas masih tertutup. Buka kas terlebih dahulu sebelum memproses transaksi.")%>';
+            if (typeof tampilkanToast === 'function') tampilkanToast(pesan, 'bg-danger text-white'); else alert(pesan);
+            return;
+        }
         if (cart<%=rnd%>.length === 0) {
             if (typeof tampilkanToast === "function") {
                 tampilkanToast('<%=Common.getBahasaConfigJS("Keranjang belanja kosong! Silakan pilih produk.")%>', 'bg-warning text-dark');
@@ -2427,6 +2669,8 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
             log:"true",
             draftPembelianAnggotaKoperasi: currentDraftId<%=rnd%>, // bila keranjang ini hasil "Muat" dr Tertahan, tuntaskan draft yg SAMA (bukan duplikat)
             pajak: grandPajakValue<%=rnd%>, // nominal Rp -- KantinHelper.bayar() menjumlahkan field ini LANGSUNG ke total tersimpan
+            diskon_faktur_tipe: diskonFakturTipe<%=rnd%>,
+            diskon_faktur_nilai: diskonFakturNilai<%=rnd%>,
             transaksi: cart<%=rnd%>.map(item => ({
             	id: item.id,
                 kode: item.kode,
@@ -2723,20 +2967,25 @@ String logo_PerguruanTinggi = ais.action.master.helper.util.PerguruanTinggiUtil.
                 document.getElementById('idMemberSelected<%=rnd%>').value = '';
                 document.getElementById('minSaldoMemberSelected<%=rnd%>').value = '0';
             } else {
-                if (typeof tampilkanToast === "function") {
-            	    tampilkanToast(result.description || "Gagal menyimpan transaksi.", 'bg-danger text-white');
-                } else {
-                    alert(result.description || "Gagal menyimpan transaksi.");
-                }
+                tampilkanPesanGagalFormal(
+                    "pembayaran transaksi POS",
+                    {
+                        judul: result.judul || "Pembayaran belum berhasil",
+                        message: result.message || "Pembayaran dihentikan agar tidak ada data yang tersimpan sebagian.",
+                        solusi: result.solusi || [],
+                        teknis: result.teknis || result.technical || result.description || JSON.stringify(result),
+                        referensi: result.referensi || result.traceId
+                    }
+                );
             }
             
         } catch (error) {
             console.error("Save Tx Error:", error);
-            if (typeof tampilkanToast === "function") {
-                tampilkanToast('<%=Common.getBahasaConfigJS("Koneksi terputus saat menyimpan.")%>', 'bg-danger text-white');
-            } else {
-                alert('<%=Common.getBahasaConfigJS("Koneksi terputus saat menyimpan.")%>');
-            }
+            tampilkanPesanGagalFormal(
+                "pembayaran transaksi POS",
+                { judul: "Server belum dapat dihubungi", message: "Aplikasi belum memperoleh jawaban dari server. Transaksi belum dinyatakan berhasil.", teknis: (error && error.stack) ? error.stack : String(error) },
+                ["Periksa koneksi jaringan.", "Periksa riwayat transaksi sebelum menekan Bayar lagi.", "Jika belum tercatat, coba kembali setelah koneksi stabil."]
+            );
         } finally {
             btnBayar.innerHTML = oriBtnHtml;
             btnBayar.disabled = false;

@@ -635,7 +635,7 @@ public class BCA extends HttpServlet {
 									for (DetailBiaya detailBiaya : detailBiayas) {
 										Double biaya = detailBiaya.hitungTotalKegiatan(kegiatan, session);
 
-										nilaiBiayaHarusDiBayars += biaya;
+										nilaiBiayaHarusDiBayars += Kegiatan.ambilJumlahTagihan(kegiatan, detailBiaya);
 
 									}
 
@@ -1473,3 +1473,4 @@ public class BCA extends HttpServlet {
 	private static Map<String, JSONObject> unikId = new HashMap<String, JSONObject>();
 
 }
+

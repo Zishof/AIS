@@ -1010,6 +1010,16 @@ public class CommonReportHelper {
 		Session sessionLocal = null;
 		Transaction tx = null;
 		File file = null;
+		// KE-FIX (TransientObjectException / ConstraintViolationException FK pembayaran_daftar_ulang):
+		// kegiatan bisa datang dari simpanPembayaranCalonMahasiswa() yang gagal tersimpan (id masih
+		// null) -- melanjutkan ke bawah akan menulis FK yang menunjuk baris kegiatan yang belum/tidak
+		// ada di DB. Hentikan di sini drpd membiarkan exception generik yang membingungkan.
+		if (kegiatan == null || kegiatan.getId() == null) {
+			ais.common.ErrorAuditUtil.record(
+					new IllegalStateException("cetakBuktipembayaranCalonMahasiswa dipanggil dengan kegiatan null/belum tersimpan"),
+					"auto-audit src/ais/action/report/CommonReportHelper.java:cetakBuktipembayaranCalonMahasiswa-guard");
+			return null;
+		}
 		// FASE 1: UPDATE STATUS PEMBAYARAN DAN GENERATE NIM
 		try {
 			BiodataCalonMahasiswa bio = kegiatan.getCalonMahasiswa();
@@ -10224,26 +10234,33 @@ public class CommonReportHelper {
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static void mapLaporanBeritaAcara(Pertemuan pertemuan, KelasPertemuan kelasPertemuan,
 			List<Map<String, Serializable>> maps, Map parameters, Label label) {
+		if (pertemuan == null || maps == null || parameters == null) {
+			return;
+		}
 		Perkuliahan p = pertemuan.getPerkuliahan();
 		if (p == null) {
 			return;
 		}
 		Perkuliahan perkuliahan = p.getPerkuliahan_paralel() == null ? p : p.getPerkuliahan_paralel();
+		Session session = null;
 
 		try {
+			Jurusan jurusan = perkuliahan.getJurusan();
+			Fakultas fakultas = jurusan == null ? null : jurusan.getFakultas();
+			PerguruanTinggi perguruanTinggi = fakultas == null ? null : fakultas.getPerguruanTinggi();
+			Matakuliah matakuliah = perkuliahan.getMatakuliah();
 
 			if (perkuliahan != null) {
 				Common.insertProperty(Perkuliahan.class, perkuliahan, parameters, "perkuliahan");
 
-				if (perkuliahan.getJurusan() != null) {
-					Common.insertProperty(Jurusan.class, perkuliahan.getJurusan(), parameters, "jur");
+				if (jurusan != null) {
+					Common.insertProperty(Jurusan.class, jurusan, parameters, "jur");
 				}
-				if (perkuliahan.getJurusan().getFakultas() != null) {
-					Common.insertProperty(Fakultas.class, perkuliahan.getJurusan().getFakultas(), parameters, "fak");
+				if (fakultas != null) {
+					Common.insertProperty(Fakultas.class, fakultas, parameters, "fak");
 				}
-				if (perkuliahan.getJurusan().getFakultas().getPerguruanTinggi() != null) {
-					Common.insertProperty(PerguruanTinggi.class,
-							perkuliahan.getJurusan().getFakultas().getPerguruanTinggi(), parameters, "pt");
+				if (perguruanTinggi != null) {
+					Common.insertProperty(PerguruanTinggi.class, perguruanTinggi, parameters, "pt");
 				}
 
 			}
@@ -10255,21 +10272,21 @@ public class CommonReportHelper {
 					: perkuliahan.getSemester() + " " + (perkuliahan.getKelas() == null ? "" : perkuliahan.getKelas()));
 
 			parameters.put("program", perkuliahan.getProgram());
-			parameters.put("jurusan", perkuliahan.getJurusan() == null ? "" : perkuliahan.getJurusan().getNama());
+			parameters.put("jurusan", jurusan == null ? "" : jurusan.getNama());
 			parameters.put("semester", perkuliahan.getSemester());
-			parameters.put("sks", perkuliahan.getMatakuliah().getSks());
+			parameters.put("sks", matakuliah == null ? 0 : matakuliah.getSks());
 
 			parameters.put("tanggal_dibuat", Common.dateFormat2.get().format(ais.ui.util.WaktuUtil.getDate()));
 			parameters.put("tampil_nilai", 1);
-			parameters.put("fakultas",
-					perkuliahan.getJurusan() == null ? "" : perkuliahan.getJurusan().getFakultas().getNama());
-			parameters.put("jenis_semester",
-					((Integer) perkuliahan.getSemester()) % 2 == 0 ? Perkuliahan.GENAP : Perkuliahan.GANJIL);
+			parameters.put("fakultas", fakultas == null ? "" : fakultas.getNama());
+			parameters.put("jenis_semester", perkuliahan.getGanjilGenap() == null ? ""
+					: perkuliahan.getGanjilGenap());
 			parameters.put("tahun_ajaran", perkuliahan.getTahunAjaran());
-			parameters.put("kode_matakuliah", perkuliahan.getMatakuliah().getKode());
-			parameters.put("nama_matakuliah", perkuliahan.getMatakuliah().getNama());
+			parameters.put("kode_matakuliah", matakuliah == null ? "" : matakuliah.getKode());
+			parameters.put("nama_matakuliah", matakuliah == null ? "" : matakuliah.getNama());
 
 			List<Dosen> dataDosens = p.populateDosenBuNama();
+			if (dataDosens == null) dataDosens = new ArrayList<Dosen>();
 			if (dataDosens.size() > 1) {
 				String dosenPengampu = "";
 				for (Dosen dosen : dataDosens) {
@@ -10287,7 +10304,7 @@ public class CommonReportHelper {
 			}
 
 			parameters.put("nip_dosen", perkuliahan.getDosen1() == null ? "" : perkuliahan.getDosen1().getCode());
-			parameters.put("jurusan", perkuliahan.getKurikulum() == null ? "" : perkuliahan.getJurusan().getNama());
+			parameters.put("jurusan", perkuliahan.getKurikulum() == null || jurusan == null ? "" : jurusan.getNama());
 
 			if (perkuliahan.getKurikulum() != null && perkuliahan.getJurusan() != null
 					&& perkuliahan.getJurusan().getGrupJurusan() != null
@@ -10298,7 +10315,7 @@ public class CommonReportHelper {
 						: perkuliahan.getJurusan().getGrupJurusan().getKajur().getCode());
 			}
 
-			Session session = ais.action.report.Report.openNativeSession();
+			session = ais.action.report.Report.openNativeSession();
 
 			Pegawai petugas = kelasPertemuan != null
 					? (Pegawai) ConstantValues.ambil(Pegawai.class.getName(), kelasPertemuan.getPetugas())
@@ -11030,13 +11047,13 @@ public class CommonReportHelper {
 					Common.dateFormatHari.get().format(pertemuan.getTanggalRealisasi() == null ? pertemuan.getTanggal()
 							: pertemuan.getTanggalRealisasi()));
 
-			ais.action.report.Report.closeCurrentSessionQuietly();
-
 			String tahunAkademik = perkuliahan.getTahunAjaran();
 
 			parameters.put("bar", "3-" + tahunAkademik + "-" + perkuliahan.getSemester() + "-" + perkuliahan.getId());
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/report/CommonReportHelper.java:10329");
+		} finally {
+			ais.action.report.Report.closeNativeSession(session);
 		}
 
 	}
@@ -11045,6 +11062,9 @@ public class CommonReportHelper {
 	public static void onLaporanBeritaAcara(final Pertemuan pertemuan, final KelasPertemuan kelasPertemuan)
 			throws Exception {
 
+		if (pertemuan == null) {
+			return;
+		}
 		final Perkuliahan p = pertemuan.getPerkuliahan();
 		if (p == null) {
 			return;

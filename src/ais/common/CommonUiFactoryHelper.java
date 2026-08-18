@@ -1631,167 +1631,184 @@ public static ParameterUmum getParameterUmum(String nama, String defaultValue) {
 			}
 		}
 
+		// === KEBAB MENU PATTERN ===
+		// Hbox container tipis — hanya menampung satu tombol pemicu "⋮" (three-dots).
+		// Semua item aksi (Ubah/Salin/Hapus + item tambahan dari tampilKunci dan caller)
+		// ada di dalam Popup agar kolom grid tidak penuh dan layout rapi di semua layar.
 		Hbox toolbar = new Hbox();
-		toolbar.setSpacing("4px");
+		toolbar.setSpacing("0px");
 		toolbar.setAlign("center");
 		toolbar.setSclass("ais-row-actions");
-		// flex-wrap:nowrap + tombol kecil (28px) agar semua tombol aksi tampil dalam 1 baris.
-		// ZK 5.0.13 merender Hbox sebagai tabel bersarang; lapisan tabel dinetralkan via
-		// display:contents di .ais-row-actions (css_utama.css) sehingga flex bekerja langsung.
-		toolbar.setStyle("display:flex;flex-wrap:nowrap;width:100%;align-items:center;"
-				+ "justify-content:flex-end;gap:2px;");
+		toolbar.setStyle("display:flex;flex-wrap:nowrap;width:auto;align-items:center;"
+				+ "justify-content:flex-end;gap:0;");
 
-		final String smallButtonStyle = "font-size:9px;border-radius:6px;padding:2px 5px;";
+		// Popup yang muncul saat "⋮" diklik — berisi daftar item aksi vertikal.
+		final org.zkoss.zul.Popup popup = new org.zkoss.zul.Popup();
+		popup.setSclass("ais-row-popup");
+		popup.setParent(toolbar);
 
-		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig(label ? "Ubah" : "", "/img/svg/edit-box-line.svg");
-		button.setSclass("ais-row-action-btn ais-row-action-edit");
-		if (label) {
-			button.setOrient("vertical");
-			button.setStyle(smallButtonStyle);
-		}
-		button.setTooltiptext("Ubah Data");
-		button.setVisible(bolehEdit);
-		button.addEventListener("onClick", new EventListener() {
-			@Override
-			public void onEvent(Event event) throws Exception {
-				try {
-					if (obj != null && dataInitDefault != null) {
-						dataInitDefault.init(obj);
+		// Div konten popup (flex column) — item Toolbarbutton ditambahkan ke sini.
+		final org.zkoss.zul.Div popupContent = new org.zkoss.zul.Div();
+		popupContent.setSclass("ais-row-popup-content");
+		popupContent.setParent(popup);
+
+		// Simpan referensi popupContent agar tampilKunci() dan caller lain dapat
+		// menambah item ke daftar aksi yang sama tanpa mengubah tiap halaman.
+		toolbar.setAttribute("ais_row_actions_popup", popupContent);
+
+		// --- Item Ubah ---
+		if (bolehEdit) {
+			MyToolbarbuttonConfig editItem = new MyToolbarbuttonConfig("Ubah Data", "/img/svg/edit-box-line.svg");
+			editItem.setSclass("ais-row-popup-item ais-row-action-edit");
+			editItem.setTooltiptext("Ubah Data");
+			editItem.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					try {
+						if (obj != null && dataInitDefault != null) {
+							dataInitDefault.init(obj);
+						}
+					} catch (Exception e) {
+						tampilCrudError(e, "Data tidak dapat dibuka untuk proses ubah.");
 					}
-				} catch (Exception e) {
-					tampilCrudError(e, "Data tidak dapat dibuka untuk proses ubah.");
 				}
-			}
-
-		});
-		button.setParent(toolbar);
-
-		button = new MyToolbarbuttonConfig(label ? "Copy" : "", "/img/svg/edit-copy.svg");
-		button.setSclass("ais-row-action-btn ais-row-action-copy");
-		if (label) {
-			button.setOrient("vertical");
-			button.setStyle(smallButtonStyle);
+			});
+			editItem.setParent(popupContent);
 		}
-		button.setTooltiptext("Copy Data");
-		button.setVisible(bolehCopy);
-		button.addEventListener("onClick", new EventListener() {
-			@Override
-			public void onEvent(Event event) throws Exception {
-				try {
+
+		// --- Item Salin ---
+		if (bolehCopy) {
+			MyToolbarbuttonConfig copyItem = new MyToolbarbuttonConfig("Salin Data", "/img/svg/edit-copy.svg");
+			copyItem.setSclass("ais-row-popup-item ais-row-action-copy");
+			copyItem.setTooltiptext("Salin Data");
+			copyItem.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					try {
+						if (obj == null || dataInitDefault == null) {
+							return;
+						}
+						GeneralValueObject copyObjt = obj.clone();
+						if (copyObjt == null) {
+							throw new Exception("Clone object menghasilkan nilai kosong.");
+						}
+						copyObjt.setId(null);
+						copyObjt.setCopyDari(obj);
+						dataInitDefault.init(copyObjt);
+					} catch (Exception e) {
+						tampilCrudError(e, "Data tidak dapat dicopy.");
+					}
+				}
+			});
+			copyItem.setParent(popupContent);
+		}
+
+		// --- Pemisah sebelum Hapus ---
+		if (bolehDelete && (bolehEdit || bolehCopy)) {
+			org.zkoss.zul.Div divider = new org.zkoss.zul.Div();
+			divider.setSclass("ais-row-popup-divider");
+			divider.setParent(popupContent);
+		}
+
+		// --- Item Hapus ---
+		if (bolehDelete) {
+			MyToolbarbuttonConfig deleteItem = new MyToolbarbuttonConfig("Hapus Data", "/img/svg/trash.svg");
+			deleteItem.setSclass("ais-row-popup-item ais-row-popup-item-danger ais-row-action-delete");
+			deleteItem.setTooltiptext("Hapus Data");
+			deleteItem.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
 					if (obj == null || dataInitDefault == null) {
 						return;
 					}
-					GeneralValueObject copyObjt = obj.clone();
-					if (copyObjt == null) {
-						throw new Exception("Clone object menghasilkan nilai kosong.");
-					}
-					copyObjt.setId(null);
-					copyObjt.setCopyDari(obj);
-					dataInitDefault.init(copyObjt);
-				} catch (Exception e) {
-					tampilCrudError(e, "Data tidak dapat dicopy.");
-				}
-			}
+					MyMessageboxConfig.show("Apakah yakin ingin menghapus data ini ?", "Pertanyaan",
+							MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
+							new EventListener() {
 
-		});
-		button.setParent(toolbar);
-
-		button = new MyToolbarbuttonConfig(label ? "Hapus" : "", "/img/svg/trash.svg");
-		button.setSclass("ais-row-action-btn ais-row-action-delete");
-		if (label) {
-			button.setOrient("vertical");
-			button.setStyle(smallButtonStyle);
-		}
-		button.setTooltiptext("Hapus Data");
-		button.setVisible(bolehDelete);
-		button.addEventListener("onClick", new EventListener() {
-			@Override
-			public void onEvent(Event event) throws Exception {
-				if (obj == null || dataInitDefault == null) {
-					return;
-				}
-				MyMessageboxConfig.show("Apakah yakin ingin menghapus data ini ?", "Pertanyaan",
-						MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
-						new EventListener() {
-
-							@Override
-							public void onEvent(Event event) throws Exception {
-								int i = MyMessageboxConfig.CANCEL;
-								try {
-									i = Integer.parseInt(String.valueOf(event.getData()));
-								} catch (Exception e) {
-									i = MyMessageboxConfig.CANCEL;
-								}
-								if (i == MyMessageboxConfig.OK) {
+								@Override
+								public void onEvent(Event event) throws Exception {
+									int i = MyMessageboxConfig.CANCEL;
 									try {
+										i = Integer.parseInt(String.valueOf(event.getData()));
+									} catch (Exception e) {
+										i = MyMessageboxConfig.CANCEL;
+									}
+									if (i == MyMessageboxConfig.OK) {
+										try {
 
-										if (obj instanceof DataSop) {
-											DataSop dataSop = (DataSop) obj;
-											Session session = HibernateUtil.currentSession();
-											if (SopUtil.hapusDisposisi(session, dataSop.getDisposisiSop())) {
-												Common.refreshDelete(session, obj);
+											if (obj instanceof DataSop) {
+												DataSop dataSop = (DataSop) obj;
+												Session session = HibernateUtil.currentSession();
+												if (SopUtil.hapusDisposisi(session, dataSop.getDisposisiSop())) {
+													Common.refreshDelete(session, obj);
+												}
+											} else if (obj instanceof ais.database.model.DiskonMahasiswa) {
+												// FK detail_kegiatan.diskon_mahasiswa_data[_2|_3] → diskon_mahasiswa.id
+												// Harus di-null-kan dahulu sebelum hapus agar tidak melanggar constraint
+												ais.database.model.DiskonMahasiswa dm =
+														(ais.database.model.DiskonMahasiswa) obj;
+												org.hibernate.Session sHapus = HibernateUtil.currentSession();
+												try {
+													sHapus.createSQLQuery(
+														"UPDATE detail_kegiatan SET diskon_mahasiswa_data=NULL WHERE diskon_mahasiswa_data=:id")
+														.setParameter("id", dm.getId()).executeUpdate();
+													sHapus.createSQLQuery(
+														"UPDATE detail_kegiatan SET diskon_mahasiswa_data_2=NULL WHERE diskon_mahasiswa_data_2=:id")
+														.setParameter("id", dm.getId()).executeUpdate();
+													sHapus.createSQLQuery(
+														"UPDATE detail_kegiatan SET diskon_mahasiswa_data_3=NULL WHERE diskon_mahasiswa_data_3=:id")
+														.setParameter("id", dm.getId()).executeUpdate();
+												} catch (Exception eClearDk) {
+													System.err.println("[hapusDiskonMahasiswa] gagal clear detail_kegiatan: "
+															+ eClearDk.getMessage());
+												}
+												Common.refreshDelete(sHapus, obj);
+											} else {
+												Common.refreshDelete(obj);
 											}
-										} else if (obj instanceof ais.database.model.DiskonMahasiswa) {
-											// FK detail_kegiatan.diskon_mahasiswa_data[_2|_3] → diskon_mahasiswa.id
-											// Harus di-null-kan dahulu sebelum hapus agar tidak melanggar constraint
-											ais.database.model.DiskonMahasiswa dm =
-													(ais.database.model.DiskonMahasiswa) obj;
-											org.hibernate.Session sHapus = HibernateUtil.currentSession();
-											try {
-												sHapus.createSQLQuery(
-													"UPDATE detail_kegiatan SET diskon_mahasiswa_data=NULL WHERE diskon_mahasiswa_data=:id")
-													.setParameter("id", dm.getId()).executeUpdate();
-												sHapus.createSQLQuery(
-													"UPDATE detail_kegiatan SET diskon_mahasiswa_data_2=NULL WHERE diskon_mahasiswa_data_2=:id")
-													.setParameter("id", dm.getId()).executeUpdate();
-												sHapus.createSQLQuery(
-													"UPDATE detail_kegiatan SET diskon_mahasiswa_data_3=NULL WHERE diskon_mahasiswa_data_3=:id")
-													.setParameter("id", dm.getId()).executeUpdate();
-											} catch (Exception eClearDk) {
-												System.err.println("[hapusDiskonMahasiswa] gagal clear detail_kegiatan: "
-														+ eClearDk.getMessage());
-											}
-											Common.refreshDelete(sHapus, obj);
-										} else {
-											Common.refreshDelete(obj);
+
+											Common.createDefaultTimer(new EventListener() {
+
+												@Override
+												public void onEvent(Event arg0) throws Exception {
+													try {
+														dataInitDefault.onSearchDefault(arg0);
+													} catch (Exception e) {
+														tampilCrudError(e,
+																"Data sudah dihapus, namun tampilan daftar gagal direfresh.");
+													}
+												}
+											});
+										} catch (Exception e) {
+											tampilCrudError(e,
+													"Data ini tidak dapat dihapus, karena kemungkinan masih berelasi dengan data lainnya.");
 										}
 
-										Common.createDefaultTimer(new EventListener() {
-
-											@Override
-											public void onEvent(Event arg0) throws Exception {
-												try {
-													dataInitDefault.onSearchDefault(arg0);
-												} catch (Exception e) {
-													tampilCrudError(e,
-															"Data sudah dihapus, namun tampilan daftar gagal direfresh.");
-												}
-											}
-										});
-									} catch (Exception e) {
-										/*
-										 * TIDAK memanggil currentSession().clear() manual di sini (pernah ada,
-										 * dihapus) -- POLA A: currentSession() dikelola container/ZK, tidak boleh
-										 * ditutup/dibersihkan manual. Terbukti di produksi: setelah delete gagal
-										 * krn FK constraint (mis. baris masih dipakai relasi lain), transaksi
-										 * currentSession() sudah otomatis rollback, dan clear() manual di titik ini
-										 * melempar HibernateException "clear is not valid without active
-										 * transaction" -- error KEDUA yang tak perlu, tanpa memperbaiki apa pun
-										 * (permintaan berikutnya tetap dapat transaksi baru dari container seperti
-										 * biasa). Pesan error asli tetap ditampilkan ke user apa adanya.
-										 */
-										tampilCrudError(e,
-												"Data ini tidak dapat dihapus, karena kemungkinan masih berelasi dengan data lainnya.");
 									}
 
 								}
+							});
 
-							}
-						});
+				}
+			});
+			deleteItem.setParent(popupContent);
+		}
 
+		// --- Tombol pemicu "⋮" (three-dots) ---
+		boolean adaAksi = bolehEdit || bolehCopy || bolehDelete;
+		final MyToolbarbuttonConfig triggerBtn = new MyToolbarbuttonConfig("", "/img/svg/three-dots.svg");
+		triggerBtn.setSclass("ais-row-action-btn ais-row-action-kebab");
+		triggerBtn.setTooltiptext("Aksi");
+		triggerBtn.setVisible(adaAksi);
+		final org.zkoss.zul.Popup finalPopup = popup;
+		triggerBtn.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				finalPopup.open(triggerBtn, "after_end");
 			}
 		});
-		button.setParent(toolbar);
+		triggerBtn.setParent(toolbar);
+
 		return toolbar;
 	}
 

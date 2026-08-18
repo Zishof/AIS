@@ -251,7 +251,7 @@ public final class LaporanKunjunganPenggunaHelper {
 							+ "from log_login a " + d.where + " group by 1 order by 1");
 					break;
 				case 3:
-					d.perJam = sql("select extract(hour from a.\"login\")::int, count(*) "
+				d.perJam = sql("select CAST(extract(hour from a.\"login\") AS integer), count(*) "
 							+ "from log_login a " + d.where + " group by 1 order by 1");
 					break;
 				case 4:

@@ -150,6 +150,14 @@ String idTokoAktif = toko != null ? String.valueOf(toko.getId()) : "";
                                 <small class="text-muted fst-italic"><%=Common.getBahasaConfig("*Berguna jika toko ini adalah cabang utama/supervisor.")%></small>
                             </div>
 
+                            <div class="col-md-12 pt-2">
+                                <div class="form-check form-switch fs-6">
+                                    <input class="form-check-input" type="checkbox" id="inputBolehTransaksiStokHabis<%=rnd%>" style="cursor: pointer;">
+                                    <label class="form-check-label fw-semibold text-dark" for="inputBolehTransaksiStokHabis<%=rnd%>"><%=Common.getBahasaConfig("Paksa Semua Produk Boleh Stok Minus")%></label>
+                                </div>
+                                <small class="text-muted fst-italic"><%=Common.getBahasaConfig("*OFF: ikuti izin stok minus pada masing-masing produk. ON: seluruh produk toko ini boleh dijual saat stok nol/minus.")%></small>
+                            </div>
+
                             <div class="col-12 mt-3">
                                 <label class="form-label small fw-semibold text-secondary"><%=Common.getBahasaConfig("Keterangan Tambahan")%></label>
                                 <textarea class="form-control text-muted shadow-sm" id="inputKeterangan<%=rnd%>" rows="3" placeholder="<%=Common.getBahasaConfig("Lokasi, PIC, dll...")%>"></textarea>
@@ -351,6 +359,7 @@ String idTokoAktif = toko != null ? String.valueOf(toko.getId()) : "";
         document.getElementById('inputStatusAktif<%=rnd%>').checked = true;
         document.getElementById('inputStatusAktif<%=rnd%>').dispatchEvent(new Event('change'));
         document.getElementById('inputBolehMelihatTokoLain<%=rnd%>').checked = false;
+        document.getElementById('inputBolehTransaksiStokHabis<%=rnd%>').checked = false;
         
         document.getElementById('formTitle<%=rnd%>').innerHTML = '<i class="fas fa-store text-primary me-2"></i><%=Common.getBahasaConfig("Tambah Toko Baru")%>';
         
@@ -381,6 +390,7 @@ String idTokoAktif = toko != null ? String.valueOf(toko.getId()) : "";
             nama: document.getElementById('inputNama<%=rnd%>').value.trim(),
             keterangan: document.getElementById('inputKeterangan<%=rnd%>').value.trim(),
             bolehMelihatTokolain: document.getElementById('inputBolehMelihatTokoLain<%=rnd%>').checked,
+            bolehTransaksiStokHabis: document.getElementById('inputBolehTransaksiStokHabis<%=rnd%>').checked,
             aktif: document.getElementById('inputStatusAktif<%=rnd%>').checked
         };
         
@@ -425,20 +435,23 @@ String idTokoAktif = toko != null ? String.valueOf(toko.getId()) : "";
     const editToko<%=rnd%> = async (id) => {
         if (!isAdmin<%=rnd%>) return;
         
-        const sql = 'SELECT id, kode, nama, keterangan, bolehmelihattokolain, aktif FROM koperasi.toko WHERE id = ' + id;
+        const sql = 'SELECT id, kode, nama, keterangan, bolehmelihattokolain, boleh_transaksi_stok_habis, aktif FROM koperasi.toko WHERE id = ' + id;
         const res = await fetchData<%=rnd%>(sql);
-        
+
         if (res.length > 0) {
             const data = res[0];
-            
+
             // Set Form Data
             document.getElementById('inputIdToko<%=rnd%>').value = data.id;
             document.getElementById('inputKode<%=rnd%>').value = data.kode || '';
             document.getElementById('inputNama<%=rnd%>').value = data.nama || '';
             document.getElementById('inputKeterangan<%=rnd%>').value = data.keterangan || '';
-            
+
             const isBolehMelihat = (data.bolehmelihattokolain === true || data.bolehmelihattokolain === 'true' || data.bolehmelihattokolain === 't');
             document.getElementById('inputBolehMelihatTokoLain<%=rnd%>').checked = isBolehMelihat;
+
+            const isStokHabis = (data.boleh_transaksi_stok_habis === true || data.boleh_transaksi_stok_habis === 'true' || data.boleh_transaksi_stok_habis === 't');
+            document.getElementById('inputBolehTransaksiStokHabis<%=rnd%>').checked = isStokHabis;
 
             const isAktif = (data.aktif === null || data.aktif === true || data.aktif === 'true' || data.aktif === 't');
             const chkAktif = document.getElementById('inputStatusAktif<%=rnd%>');

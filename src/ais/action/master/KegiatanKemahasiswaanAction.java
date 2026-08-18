@@ -1132,6 +1132,7 @@ public class KegiatanKemahasiswaanAction extends GenericAutowireComposer impleme
 		row.appendChild(nama = new Textbox(kegiatanKemahasiswaan.getNama()));
 		nama.setWidth("90%");
 		nama.setRows(2);
+		nama.setMaxlength(255);
 
 		row = new MyFormRow();
 		row.setParent(rows);

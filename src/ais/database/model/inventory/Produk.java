@@ -120,8 +120,30 @@ public class Produk extends GeneralValueObject {
 	private PemasokProduk pemasok;
 	private SatuanProduk satuan;
 	private KebijakanRetur kebijakanRetur;
+	private GrupProduk grupProduk;
 
 	public Produk() {
+	}
+
+	/**
+	 * Grup harga terpusat lintas toko (opsional, {@code null} = harga dikelola per toko seperti
+	 * sebelumnya -- SEMUA baris lama otomatis null, perilaku tidak berubah). Bila diisi, HPP dan
+	 * harga jual produk ini akan DITIMPA setiap kali grupnya disimpan (lihat javadoc
+	 * {@link GrupProduk}).
+	 * <p><b>Kolom BARU pada entitas ber-{@code @Audited}</b>: {@code hbm2ddl.auto=update} menambah
+	 * kolomnya ke tabel utama {@code koperasi.produk} otomatis, tetapi TIDAK ke tabel audit Envers
+	 * -- WAJIB jalankan {@code webapp/sql/migrasi_grup_produk_audit.sql} SEBELUM deploy (kalau
+	 * tidak, UPDATE apa pun pada produk gagal menulis baris auditnya). Pola gotcha sama dgn
+	 * kolom profil {@link Toko} (lihat javadoc di sana).</p>
+	 */
+	@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.LAZY)
+	@javax.persistence.JoinColumn(name = "grup_produk", nullable = true)
+	public GrupProduk getGrupProduk() {
+		return grupProduk;
+	}
+
+	public void setGrupProduk(GrupProduk grupProduk) {
+		this.grupProduk = grupProduk;
 	}
 
 	public Produk(Long id) {

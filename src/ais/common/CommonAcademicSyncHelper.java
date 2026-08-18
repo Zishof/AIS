@@ -519,9 +519,7 @@ public class CommonAcademicSyncHelper extends Common {
 											+ minggu2 + " or minggu3 = " + minggu3 + " or minggu4 = " + minggu4
 											+ " or minggu5 = " + minggu5 + ")"))
 
-									.add(jenisSemester.toString().equalsIgnoreCase(Perkuliahan.GENAP)
-											? Restrictions.in("semester", Common.genap)
-											: Restrictions.in("semester", Common.ganjil))
+									.add(Restrictions.eq("ganjilGenap", jenisSemester.toString()))
 
 									.add(semesterpendek == null ? Restrictions.isNull("statusSemesterPendek")
 											: Restrictions.eq("statusSemesterPendek", semesterpendek))
@@ -550,9 +548,7 @@ public class CommonAcademicSyncHelper extends Common {
 
 							.add(Common.getMulaiSampaiCriterion(perkuliahanDimulai, perkuliahanSampai))
 
-							.add(jenisSemester.toString().equalsIgnoreCase(Perkuliahan.GENAP)
-									? Restrictions.in("semester", Common.genap)
-									: Restrictions.in("semester", Common.ganjil))
+							.add(Restrictions.eq("ganjilGenap", jenisSemester.toString()))
 
 							.add(Restrictions.sqlRestriction(
 									"(minggu1 = " + minggu1 + " or minggu2 = " + minggu2 + " or minggu3 = " + minggu3

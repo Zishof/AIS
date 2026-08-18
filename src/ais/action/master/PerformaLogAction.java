@@ -9,6 +9,7 @@ import java.util.List;
 import org.hibernate.Criteria;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.hibernate.criterion.Disjunction;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Projections;
@@ -189,7 +190,7 @@ public class PerformaLogAction extends GenericAutowireComposer implements DataCr
         ais.action.master.helper.DashboardReportKit.pasangTombol(find.getParent(), self, buatSumberLaporanPerforma());
 
         hanyaBermasalah = new Checkbox("Hanya yang bermasalah");
-        hanyaBermasalah.setTooltiptext("Jika aktif, hanya menampilkan snapshot dengan deadlock atau thread terblokir (BLOCKED).");
+        hanyaBermasalah.setTooltiptext("Jika aktif, hanya menampilkan snapshot berstatus Perhatian atau Kritis; status Normal disembunyikan.");
         hanyaBermasalah.setStyle("font-size:11px;font-weight:bold;margin-left:8px;margin-right:8px;color:#0f172a;");
         hanyaBermasalah.addEventListener("onCheck", new EventListener() {
             @Override
@@ -684,6 +685,29 @@ public class PerformaLogAction extends GenericAutowireComposer implements DataCr
         }
     }
 
+    /**
+     * Kriteria ini harus selalu sejalan dengan {@link PerformaLog#getStatusKesehatan()}.
+     * Satu atau dua thread BLOCKED merupakan kejadian transien dan masih berstatus Normal,
+     * sehingga tidak boleh ikut saat pengguna meminta hanya data yang bermasalah.
+     */
+    private Disjunction buatKriteriaBermasalah() {
+        Disjunction masalah = Restrictions.disjunction();
+        masalah.add(Restrictions.gt("jumlahDeadlock", Integer.valueOf(0)));
+        masalah.add(Restrictions.ge("jumlahBlocked",
+                Integer.valueOf(PerformaLog.AMBANG_BLOCKED_PERHATIAN)));
+        masalah.add(Restrictions.ge("maxThreadSatuLock",
+                Integer.valueOf(PerformaLog.AMBANG_KONTENSI_PERHATIAN)));
+        masalah.add(Restrictions.gt("jumlahThread",
+                Integer.valueOf(PerformaLog.AMBANG_THREAD_PERHATIAN)));
+        masalah.add(Restrictions.sqlRestriction(
+                "(COALESCE(heap_maksimum,0)>0 AND COALESCE(heap_dipakai,0)*100"
+              + ">=heap_maksimum*" + PerformaLog.AMBANG_MEMORI_PERHATIAN + ")"));
+        masalah.add(Restrictions.sqlRestriction(
+                "(COALESCE(metaspace_maksimum,0)>0 AND COALESCE(metaspace_dipakai,0)*100"
+              + ">=metaspace_maksimum*" + PerformaLog.AMBANG_MEMORI_PERHATIAN + ")"));
+        return masalah;
+    }
+
     public Criteria initCriteria(boolean order) {
         return initCriteria(HibernateUtil.currentSession(), order);
     }
@@ -701,8 +725,7 @@ public class PerformaLogAction extends GenericAutowireComposer implements DataCr
             criteria.add(Restrictions.not(Restrictions.ilike("keterangan", tidak, MatchMode.ANYWHERE)));
         }
         if (isHanyaBermasalah()) {
-            criteria.add(Restrictions.or(Restrictions.gt("jumlahDeadlock", Integer.valueOf(0)),
-                    Restrictions.gt("jumlahBlocked", Integer.valueOf(0))));
+            criteria.add(buatKriteriaBermasalah());
         }
 
         Date tanggalMulai = getFilterTanggalMulai();

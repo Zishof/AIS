@@ -189,45 +189,32 @@ public class SessionCounter implements HttpSessionListener {
 				try {
 					tx = mySession.beginTransaction();
 
+					/*
+					 * Objek di SecurityFilter.dataOnline adalah entity DETACHED dari sesi
+					 * request yang membuatnya. sessionDestroyed juga dapat terpanggil dua
+					 * kali/race dengan pembersihan startup. delete/update entity detached
+					 * mengharuskan tepat satu baris berubah; bila baris sudah hilang Hibernate
+					 * melempar StaleStateException (expected 1, actual 0). Gunakan bulk SQL
+					 * idempoten: 0 baris berarti pekerjaan sudah dilakukan thread lain.
+					 */
 					LogLogin login = onlineUsers.getLogin();
-					if (login != null) {
-						login.setLogout(ais.ui.util.WaktuUtil.getDate());
-						Common.refreshUpdate(mySession, login);
+					if (login != null && login.getId() != null) {
+						mySession.createSQLQuery("UPDATE public.log_login SET logout=:logout WHERE id=:id")
+								.setParameter("logout", ais.ui.util.WaktuUtil.getDate())
+								.setParameter("id", login.getId()).executeUpdate();
 					}
 
 					AccessedUsers accessedUsers = onlineUsers.getAccessedUsers();
 					logSesi("Remove User Online " + onlineUsers.getNama());
-					mySession.delete(onlineUsers);
-					// Flush dulu supaya baris online_users ini benar2 hilang dari DB sebelum
-					// kita cek sisa referensi (lihat penjelasan di bawah).
-					mySession.flush();
-
-					if (accessedUsers != null) {
-						// accessed_users.nama adalah PRIMARY KEY (natural key) yg BISA
-						// dipakai bersama oleh > 1 baris online_users (mis. user yg sama
-						// login dari beberapa tab/device sekaligus -> beberapa sesi HTTP,
-						// masing2 dgn baris online_users sendiri, tapi merujuk ke SATU
-						// baris accessed_users yg sama via kolom accessed_users(nama)).
-						// Versi lama menghapus accessedUsers begitu saja setiap kali salah
-						// satu sesi berakhir -> ConstraintViolationException
-						// (fk59b25d1c86625d3c) ketika sesi lain milik user yg sama masih
-						// aktif dan baris online_users miliknya masih merujuk ke
-						// accessed_users tsb. Sekarang: hapus accessedUsers HANYA bila
-						// sudah tidak ada lagi baris online_users yg merujuk ke nama yg
-						// sama (mis. semua sesi user tsb sudah berakhir).
-						Long sisaOnlineUntukNama = (Long) mySession
-								.createQuery("select count(*) from OnlineUsers o where o.accessedUsers.nama = :nama")
-								.setParameter("nama", accessedUsers.getNama()).uniqueResult();
-						if (sisaOnlineUntukNama == null || sisaOnlineUntukNama.longValue() == 0L) {
-							mySession.delete(accessedUsers);
-						} else {
-							logSesi("Lewati hapus AccessedUsers " + accessedUsers.getNama()
-									+ ": masih ada " + sisaOnlineUntukNama
-									+ " baris online_users lain yg merujuk (sesi lain masih aktif).");
-						}
+					if (onlineUsers.getId() != null) {
+						mySession.createSQLQuery("DELETE FROM public.online_users WHERE id=:id")
+								.setParameter("id", onlineUsers.getId()).executeUpdate();
 					}
-
-					mySession.flush();
+					if (accessedUsers != null && accessedUsers.getNama() != null) {
+						mySession.createSQLQuery("DELETE FROM public.accessed_users au WHERE au.nama=:nama "
+								+ "AND NOT EXISTS (SELECT 1 FROM public.online_users ou WHERE ou.accessed_users=au.nama)")
+								.setParameter("nama", accessedUsers.getNama()).executeUpdate();
+					}
 					tx.commit();
 					sukses = true;
 				} catch (Exception e) {

@@ -10,6 +10,8 @@ import java.util.Map;
 import org.hibernate.Session;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
@@ -585,6 +587,125 @@ public class PostingPenjualanKantinAction extends GenericAutowireComposer {
 		} else {
 			MyMessageboxConfig.show("Posting dibatalkan (kemungkinan tanggal melewati periode closing).", "Informasi",
 					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+		}
+	}
+
+	/** Adapter headless POS; memakai kalkulasi dan transaksi jurnal yang sama dengan layar ZK. */
+	public JSONObject prosesApi(Date mulai, Date sampai, boolean posting) throws Exception {
+		if (mulai == null || sampai == null || mulai.after(sampai)) {
+			throw new IllegalArgumentException("Periode posting penjualan tidak valid.");
+		}
+		dpMulai = new Datebox();
+		dpMulai.setValue(mulai);
+		dpSampai = new Datebox();
+		dpSampai.setValue(sampai);
+		previewBox = new Div();
+		hitungPreview();
+
+		JSONObject hasil = new JSONObject();
+		hasil.put("jenis", "penjualan");
+		hasil.put("total", totalDebit);
+		hasil.put("totalPendapatan", totalNet);
+		hasil.put("totalPpn", totalPpn);
+		hasil.put("siap", !headerTerposting.isEmpty() && totalDebit > 0 && belumDipetakan.isEmpty());
+		hasil.put("jumlahTransaksi", headerTerposting.size());
+		hasil.put("belumDipetakan", new JSONArray(belumDipetakan));
+		hasil.put("jurnal", jurnalApi());
+		Date terakhir = lastPostedEnd();
+		hasil.put("terakhir", terakhir == null ? JSONObject.NULL : Common.databaseDateFormat.get().format(terakhir));
+		if (!posting) {
+			return hasil;
+		}
+		if (headerTerposting.isEmpty() || totalDebit <= 0) {
+			throw new IllegalStateException("Tidak ada penjualan yang siap diposting pada periode ini.");
+		}
+		if (!belumDipetakan.isEmpty()) {
+			throw new IllegalStateException("Masih ada " + belumDipetakan.size()
+					+ " transaksi dengan pemetaan akun yang belum lengkap.");
+		}
+
+		Session session = HibernateUtil.currentSession();
+		List<Akun> akunDebet = akunApi(debitKasPerAkun);
+		List<Double> nilaiDebet = nilaiApi(debitKasPerAkun);
+		Map<Long, Double> kreditGabungan = new LinkedHashMap<Long, Double>();
+		gabungApi(kreditGabungan, pendapatanPerAkun);
+		gabungApi(kreditGabungan, ppnPerAkun);
+		List<Akun> akunKredit = akunApi(kreditGabungan);
+		List<Double> nilaiKredit = nilaiApi(kreditGabungan);
+		if (akunDebet.isEmpty() || akunKredit.isEmpty()) {
+			throw new IllegalStateException("Akun debit/kredit penjualan tidak lengkap.");
+		}
+		String ket = "Penjualan Kantin " + Common.dateFormat.get().format(mulai) + " s.d "
+				+ Common.dateFormat.get().format(sampai);
+		PostingHistory ph = new PostingHistory(JENIS);
+		ph.setTanggal(sampai);
+		ph.setTbmuser(Common.getCurrentUser());
+		ph.setKeterangan(ket);
+		boolean ok = false;
+		session.getTransaction().begin();
+		try {
+			session.save(ph);
+			ok = CommonAkunting.saveTransaksi(akunDebet.toArray(new Akun[] {}), akunKredit.toArray(new Akun[] {}),
+					null, null, ph, true, ket, sampai, nilaiDebet.toArray(new Double[] {}),
+					nilaiKredit.toArray(new Double[] {}), Double.valueOf(0.0), null, satkerKantin(), session);
+			if (ok) {
+				tandaiHeaderTerposting(session, ph);
+				session.getTransaction().commit();
+			} else {
+				session.getTransaction().rollback();
+			}
+		} catch (Exception ex) {
+			try {
+				session.getTransaction().rollback();
+			} catch (Exception rollbackError) {
+				ais.common.ErrorAuditUtil.record(rollbackError, "rollback PostingPenjualanKantinAction.prosesApi");
+			}
+			throw ex;
+		}
+		if (!ok) {
+			throw new IllegalStateException("Posting penjualan dibatalkan oleh aturan periode closing.");
+		}
+		hasil.put("diposting", true);
+		return hasil;
+	}
+
+	private JSONArray jurnalApi() throws Exception {
+		JSONArray rows = new JSONArray();
+		tambahJurnalApi(rows, debitKasPerAkun, "DEBIT Kas/Bank");
+		tambahJurnalApi(rows, pendapatanPerAkun, "KREDIT Pendapatan");
+		tambahJurnalApi(rows, ppnPerAkun, "KREDIT PPN Keluaran");
+		return rows;
+	}
+
+	private void tambahJurnalApi(JSONArray rows, Map<Long, Double> sumber, String posisi) throws Exception {
+		for (Map.Entry<Long, Double> en : sumber.entrySet()) {
+			JSONObject row = new JSONObject();
+			row.put("akunId", en.getKey());
+			row.put("akun", akunNama.get(en.getKey()));
+			row.put("posisi", posisi);
+			row.put("nominal", en.getValue());
+			rows.put(row);
+		}
+	}
+
+	private List<Akun> akunApi(Map<Long, Double> sumber) {
+		List<Akun> list = new ArrayList<Akun>();
+		for (Long id : sumber.keySet()) {
+			Akun akun = (Akun) ConstantValues.ambil(Akun.class.getName(), id);
+			if (akun != null) {
+				list.add(akun);
+			}
+		}
+		return list;
+	}
+
+	private List<Double> nilaiApi(Map<Long, Double> sumber) {
+		return new ArrayList<Double>(sumber.values());
+	}
+
+	private void gabungApi(Map<Long, Double> target, Map<Long, Double> sumber) {
+		for (Map.Entry<Long, Double> en : sumber.entrySet()) {
+			add(target, en.getKey(), en.getValue().doubleValue());
 		}
 	}
 

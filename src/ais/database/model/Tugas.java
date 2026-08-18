@@ -112,6 +112,9 @@ public abstract class Tugas extends GeneralValueObject {
 
 	@SuppressWarnings("rawtypes")
 	public static String ambilLokasiTugasFileContent(Serializable id, Class clazz) {
+		if (id == null || clazz == null) {
+			return VOMahasiswa.dataJSON;
+		}
 		File file = Common.getFileLocation(clazz, id, "tugas_file_content_" + id.toString());
 		try {
 
@@ -262,10 +265,12 @@ public abstract class Tugas extends GeneralValueObject {
 	}
 
 	public int ambilJumlahTugasFileContent(boolean refresh) {
+		if (getId() == null) {
+			return 0;
+		}
 		if (refresh || !udah("tugas_file_content_" + getClass().getName())) {
 			Session session = StreamingHibernateUtil.getInstance().currentSession();
 			reInitTugasFileContent(session);
-			StreamingHibernateUtil.getInstance().closeSession();
 		}
 		TreeMap<Long, TugasFileContent> tugasFileContentsa = ambilTugasFileContentTotal();
 		int jumlah = tugasFileContentsa.size();
@@ -306,6 +311,9 @@ public abstract class Tugas extends GeneralValueObject {
 	public TreeMap<Long, TugasFileContent> ambilTugasFileContentTotal() {
 		currentUser = null;
 		TreeMap<Long, TugasFileContent> treemap = new TreeMap<Long, TugasFileContent>();
+		if (getId() == null) {
+			return treemap;
+		}
 		TreeMap<Long, TugasFileContent> d = ambilTugasFileContentTotal(treemap, "", null, 1000);
 		treemap = null;
 		return d;
@@ -330,9 +338,11 @@ public abstract class Tugas extends GeneralValueObject {
 	        treemap = new TreeMap<Long, TugasFileContent>();
 	    }
 	    if (!udah("tugas_file_content_" + getClass().getName()) || refresh) {
+	        if (getId() == null) {
+	            return treemap;
+	        }
 	        Session session = StreamingHibernateUtil.getInstance().currentSession();
 	        reInitTugasFileContent(session);
-	        StreamingHibernateUtil.getInstance().closeSession();
 	    }
 	    TreeMap<Long, TugasFileContent> tugasFileContentsa = new TreeMap<Long, TugasFileContent>(
 	            Collections.reverseOrder());

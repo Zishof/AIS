@@ -25,6 +25,18 @@
 						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
 							id="calk" label="CALK" image="/img/Books-1-icon.png"
 							tooltiptext="Catatan atas Laporan Keuangan" forward="onClick=onCalk"/>
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+							label="Akun / Perkiraan" image="/img/Book-icon.png"
+							tooltiptext="Buka bagan akun dalam bentuk pohon"
+							href="/pages/master/akunting/akun.zul" target="_blank"/>
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+							label="Posting HPP" image="/img/save.gif"
+							tooltiptext="Pratinjau dan posting HPP penjualan kantin"
+							href="/pages/master/koperasi/posting_hpp_kantin.zul" target="_blank"/>
+						<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig"
+							label="Posting Penjualan" image="/img/save.gif"
+							tooltiptext="Pratinjau dan posting pendapatan penjualan kantin"
+							href="/pages/master/koperasi/posting_penjualan_kantin.zul" target="_blank"/>
 					<toolbarbutton use="ais.ui.util.MyToolbarbuttonConfig" label="Bantuan" image="/img/help.gif" tooltiptext="Panduan penggunaan halaman ini" onClick="ais.action.master.helper.BantuanHelper.tampilkanDariResource(self, &quot;laporan_keuangan_koperasi&quot;, &quot;Bantuan&quot;);"/></div>
 				</div>
 				<div sclass="ais-crud-filter-body">

@@ -11,6 +11,8 @@ import org.json.JSONObject;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmuser;
 import ais.database.model.inventory.Produk;
+import ais.database.model.inventory.Pembelian;
+import ais.database.model.inventory.PengadaanProduk;
 import ais.database.model.inventory.SatuanProduk;
 import ais.database.model.inventory.StokOpname;
 import ais.database.model.inventory.Toko;
@@ -92,7 +94,8 @@ public final class SalesInventoryDbfImportHelper {
 		JSONArray exceptions = new JSONArray();
 		try {
 			Toko toko = tokoId == null ? null : (Toko) session.get(Toko.class, tokoId);
-			if (("produk".equals(jenis) || "sales".equals(jenis)) && toko == null) {
+			if (("produk".equals(jenis) || "sales".equals(jenis)
+					|| "pembelian_legacy".equals(jenis) || "penjualan_legacy".equals(jenis)) && toko == null) {
 				hasil.put("status", "91");
 				hasil.put("description", "Toko aktif wajib diketahui untuk impor " + jenis
 						+ " (akun Pemilik harus terikat/memilih toko).");
@@ -115,6 +118,10 @@ public final class SalesInventoryDbfImportHelper {
 						status = importHargaBeli(session, tbmuser, r, toko);
 					} else if ("harga_jual".equals(jenis)) {
 						status = importHargaJual(session, tbmuser, r, toko);
+					} else if ("pembelian_legacy".equals(jenis)) {
+						status = importPembelianLegacy(session, tbmuser, r, toko);
+					} else if ("penjualan_legacy".equals(jenis)) {
+						status = importPenjualanLegacy(session, tbmuser, r, toko);
 					} else {
 						tx.rollback();
 						hasil.put("status", "91");
@@ -395,6 +402,84 @@ public final class SalesInventoryDbfImportHelper {
 		}
 		return (Produk) session.createCriteria(Produk.class)
 				.add(Restrictions.eq("kode", kode)).setMaxResults(1).uniqueResult();
+	}
+
+	private static int importPembelianLegacy(Session session, Tbmuser tbmuser, JSONObject r,
+			Toko toko) throws Exception {
+		String faktur = s(r, "nomor_faktur");
+		String kodeProduk = s(r, "kode_produk");
+		java.util.Date tanggal = tgl(r, "tanggal");
+		Double qty = d(r, "qty");
+		Double harga = d(r, "harga_beli");
+		if (faktur.isEmpty() || kodeProduk.isEmpty() || tanggal == null || qty == null || harga == null) {
+			throw new Exception("nomor_faktur/kode_produk/tanggal/qty/harga_beli tidak lengkap");
+		}
+		Produk produk = cariProduk(session, kodeProduk, toko);
+		if (produk == null) throw new Exception("produk " + kodeProduk + " belum ada (impor STOK.DBF dulu)");
+		PengadaanProduk ada = (PengadaanProduk) session.createCriteria(PengadaanProduk.class)
+				.add(Restrictions.eq("nomorFaktur", faktur))
+				.add(Restrictions.eq("produk", produk))
+				.add(Restrictions.eq("toko", toko))
+				.add(Restrictions.eq("waktuPengadaan", tanggal))
+				.setMaxResults(1).uniqueResult();
+		if (ada != null) return 0;
+		PengadaanProduk pengadaan = new PengadaanProduk();
+		pengadaan.setNomorFaktur(faktur);
+		pengadaan.setProduk(produk);
+		pengadaan.setToko(toko);
+		pengadaan.setQty(qty);
+		pengadaan.setHargaBeliSatuan(harga);
+		pengadaan.setTotalHarga(Double.valueOf(qty.doubleValue() * harga.doubleValue()));
+		pengadaan.setWaktuPengadaan(tanggal);
+		pengadaan.setNamaSupplier(s(r, "kode_supplier"));
+		pengadaan.setKeterangan("Migrasi BELI.DBF; batch=" + s(r, "nomor_batch")
+				+ "; ED=" + s(r, "tanggal_expired"));
+		pengadaan.setOleh(tbmuser.getUserId());
+		session.save(pengadaan);
+		return 1;
+	}
+
+	private static int importPenjualanLegacy(Session session, Tbmuser tbmuser, JSONObject r,
+			Toko toko) throws Exception {
+		String faktur = s(r, "nomor_faktur");
+		String kodeProduk = s(r, "kode_produk");
+		java.util.Date tanggal = tgl(r, "tanggal");
+		Double qty = d(r, "qty");
+		Double harga = d(r, "harga_jual");
+		if (faktur.isEmpty() || kodeProduk.isEmpty() || tanggal == null || qty == null || harga == null) {
+			throw new Exception("nomor_faktur/kode_produk/tanggal/qty/harga_jual tidak lengkap");
+		}
+		Produk produk = cariProduk(session, kodeProduk, toko);
+		if (produk == null) throw new Exception("produk " + kodeProduk + " belum ada (impor STOK.DBF dulu)");
+		String kodeLegacy = potong("LEGACY-JUAL-" + faktur + "-" + kodeProduk + "-"
+				+ s(r, "nomor_batch") + "-" + new java.text.SimpleDateFormat("yyyyMMdd").format(tanggal), 250);
+		Pembelian ada = (Pembelian) session.createCriteria(Pembelian.class)
+				.add(Restrictions.eq("kode", kodeLegacy))
+				.add(Restrictions.eq("toko", toko)).setMaxResults(1).uniqueResult();
+		if (ada != null) return 0;
+		Pembelian penjualan = new Pembelian();
+		penjualan.setKode(kodeLegacy);
+		penjualan.setNama(s(r, "nama_produk"));
+		penjualan.setProduk(produk);
+		penjualan.setToko(toko);
+		penjualan.setQty(qty);
+		penjualan.setHargaSatuan(harga);
+		penjualan.setHargaJual(Double.valueOf(qty.doubleValue() * harga.doubleValue()));
+		penjualan.setTotal(Double.valueOf(qty.doubleValue() * harga.doubleValue()));
+		penjualan.setWaktu(tanggal);
+		penjualan.setAktif(Boolean.TRUE);
+		penjualan.setTbmuser(tbmuser);
+		penjualan.setKeterangan("Migrasi JUAL.DBF faktur " + faktur + "; customer="
+				+ s(r, "kode_customer") + "; sales=" + s(r, "kode_sales") + "; batch="
+				+ s(r, "nomor_batch"));
+		penjualan.setOleh(tbmuser.getUserId());
+		penjualan.setOlehId(tbmuser.getUserId());
+		session.save(penjualan);
+		return 1;
+	}
+
+	private static String potong(String nilai, int maksimum) {
+		return nilai == null || nilai.length() <= maksimum ? nilai : nilai.substring(0, maksimum);
 	}
 
 	private static boolean isiBilaKosong(String nilaiSekarang, String nilaiBaru) {

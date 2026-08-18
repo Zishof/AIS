@@ -106,6 +106,30 @@ public class AmbilDataLampiranFileLain extends MyWindow {
 	 * 
 	 */
 	private static final long serialVersionUID = 6452461056684904810L;
+
+	/**
+	 * KE-FIX (UiException/IOException "File name too long"): nama file asli upload
+	 * (mis. unicode panjang) tanpa batas ditambah timestamp+URLEncoder.encode() bisa
+	 * melebihi batas panjang nama file filesystem. Potong bagian nama (bukan
+	 * ekstensi) agar aman, sebelum di-encode & dipakai membangun File tujuan.
+	 */
+	private static String namaFileAmanUntukFilesystem(String namaAsli) {
+		if (namaAsli == null) {
+			return "file";
+		}
+		int dot = namaAsli.lastIndexOf('.');
+		String ext = dot >= 0 ? namaAsli.substring(dot) : "";
+		String base = dot >= 0 ? namaAsli.substring(0, dot) : namaAsli;
+		int maxBase = 150 - ext.length();
+		if (maxBase < 1) {
+			maxBase = 1;
+		}
+		if (base.length() > maxBase) {
+			base = base.substring(0, maxBase);
+		}
+		return base + ext;
+	}
+
 	private MyGrid grid;
 	private EventListener eventListener;
 
@@ -1008,7 +1032,7 @@ public class AmbilDataLampiranFileLain extends MyWindow {
 
 						File f = new File(folder.getAbsolutePath() + "/"
 								+ URLEncoder.encode(ais.ui.util.WaktuUtil.getCalendar().getTimeInMillis() + "_"
-										+ uploadEvent.getMedia().getName(), "UTF-8"));
+										+ namaFileAmanUntukFilesystem(uploadEvent.getMedia().getName()), "UTF-8"));
 
 						f.createNewFile();
 						FileOutputStream fileOutputStream = new FileOutputStream(f);
@@ -1089,7 +1113,7 @@ public class AmbilDataLampiranFileLain extends MyWindow {
 
 					File f = new File(folder.getAbsolutePath() + "/"
 							+ URLEncoder.encode(ais.ui.util.WaktuUtil.getCalendar().getTimeInMillis() + "_"
-									+ uploadEvent.getMedia().getName(), "UTF-8"));
+									+ namaFileAmanUntukFilesystem(uploadEvent.getMedia().getName()), "UTF-8"));
 
 					f.createNewFile();
 					FileOutputStream fileOutputStream = new FileOutputStream(f);
@@ -1190,7 +1214,7 @@ public class AmbilDataLampiranFileLain extends MyWindow {
 
 					File f = new File(folder.getAbsolutePath() + "/"
 							+ URLEncoder.encode(ais.ui.util.WaktuUtil.getCalendar().getTimeInMillis() + "_"
-									+ uploadEvent.getMedia().getName(), "UTF-8"));
+									+ namaFileAmanUntukFilesystem(uploadEvent.getMedia().getName()), "UTF-8"));
 
 					f.createNewFile();
 					FileOutputStream fileOutputStream = new FileOutputStream(f);

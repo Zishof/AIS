@@ -1398,8 +1398,6 @@ public class OrangTuaAction extends GenericAutowireComposer
 		row.appendChild(tanggalLahirAyah = new MyDatebox(orangTua.getTanggalLahirAyah()));
 
 		row = new MyFormRow();
-
-		row.setVisible(!jenisPekerjaanAyah.getChildren().isEmpty());
 		row.setParent(rows);
 
 		row.appendChild(new ais.ui.util.MyLabelConfig("Jenis Pekerjaan Ayah"));
@@ -1408,10 +1406,9 @@ public class OrangTuaAction extends GenericAutowireComposer
 		Common.selectComboItem(jenisPekerjaanAyah, orangTua.getJenisPekerjaanAyah());
 		jenisPekerjaanAyah.setWidth("90%");
 		jenisPekerjaanAyah.setReadonly(true);
+		row.setVisible(!jenisPekerjaanAyah.getChildren().isEmpty());
 
 		row = new MyFormRow();
-
-		row.setVisible(!jenisPenghasilanAyah.getChildren().isEmpty());
 		row.setParent(rows);
 
 		row.appendChild(new Label(ais.common.Common.getBahasaConfig("Rata-rata penghasilan ayah")));
@@ -1420,6 +1417,7 @@ public class OrangTuaAction extends GenericAutowireComposer
 		Common.selectComboItem(jenisPenghasilanAyah, orangTua.getJenisPenghasilanAyah());
 		jenisPenghasilanAyah.setWidth("90%");
 		jenisPenghasilanAyah.setReadonly(true);
+		row.setVisible(!jenisPenghasilanAyah.getChildren().isEmpty());
 
 		row = new MyFormRow();
 
@@ -1478,8 +1476,6 @@ public class OrangTuaAction extends GenericAutowireComposer
 		row.appendChild(tanggalLahirIbu = new MyDatebox(orangTua.getTanggalLahirIbu()));
 
 		row = new MyFormRow();
-
-		row.setVisible(!jenisPekerjaanIbu.getChildren().isEmpty());
 		row.setParent(rows);
 
 		row.appendChild(new ais.ui.util.MyLabelConfig("Jenis Pekerjaan Ibu"));
@@ -1488,9 +1484,9 @@ public class OrangTuaAction extends GenericAutowireComposer
 		Common.selectComboItem(jenisPekerjaanIbu, orangTua.getJenisPekerjaanIbu());
 		jenisPekerjaanIbu.setWidth("90%");
 		jenisPekerjaanIbu.setReadonly(true);
+		row.setVisible(!jenisPekerjaanIbu.getChildren().isEmpty());
 
 		row = new MyFormRow();
-		row.setVisible(!jenisPenghasilanIbu.getChildren().isEmpty());
 		row.setParent(rows);
 
 		row.appendChild(new Label(ais.common.Common.getBahasaConfig("Rata-rata penghasilan ibu")));
@@ -1499,6 +1495,7 @@ public class OrangTuaAction extends GenericAutowireComposer
 		Common.selectComboItem(jenisPenghasilanIbu, orangTua.getJenisPenghasilanIbu());
 		jenisPenghasilanIbu.setWidth("90%");
 		jenisPenghasilanIbu.setReadonly(true);
+		row.setVisible(!jenisPenghasilanIbu.getChildren().isEmpty());
 
 		row = new MyFormRow();
 		row.setParent(rows);
@@ -1556,8 +1553,6 @@ public class OrangTuaAction extends GenericAutowireComposer
 		row.appendChild(tanggalLahirWali = new MyDatebox(orangTua.getTanggalLahirWali()));
 
 		row = new MyFormRow();
-
-		row.setVisible(!jenisPekerjaanWali.getChildren().isEmpty());
 		row.setParent(rows);
 
 		row.appendChild(new ais.ui.util.MyLabelConfig("Jenis Pekerjaan Wali"));
@@ -1566,9 +1561,9 @@ public class OrangTuaAction extends GenericAutowireComposer
 		Common.selectComboItem(jenisPekerjaanWali, orangTua.getJenisPekerjaanWali());
 		jenisPekerjaanWali.setWidth("90%");
 		jenisPekerjaanWali.setReadonly(true);
+		row.setVisible(!jenisPekerjaanWali.getChildren().isEmpty());
 
 		row = new MyFormRow();
-		row.setVisible(!jenisPenghasilanWali.getChildren().isEmpty());
 		row.setParent(rows);
 
 		row.appendChild(new Label(ais.common.Common.getBahasaConfig("Rata-rata penghasilan wali")));
@@ -1577,6 +1572,7 @@ public class OrangTuaAction extends GenericAutowireComposer
 		Common.selectComboItem(jenisPenghasilanWali, orangTua.getJenisPenghasilanWali());
 		jenisPenghasilanWali.setWidth("90%");
 		jenisPenghasilanWali.setReadonly(true);
+		row.setVisible(!jenisPenghasilanWali.getChildren().isEmpty());
 
 		row = new MyFormRow();
 		row.setParent(rows);

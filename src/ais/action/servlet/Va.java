@@ -1109,7 +1109,7 @@ public class Va extends HttpServlet {
 
 			Double nilaiBiayaHarusDiBayars = 0.0;
 			for (DetailBiaya detailBiaya : detailBiayas) {
-				nilaiBiayaHarusDiBayars += detailBiaya.hitungTotalKegiatan(kegiatan, session);
+				nilaiBiayaHarusDiBayars += Kegiatan.ambilJumlahTagihan(kegiatan, detailBiaya);
 			}
 
 			boolean checkCicilanLama = !Common.bolehKonfigurasi("ngakUsahCheckCicilanLama", Konfigurasi.TIDAK_AKTIF);
@@ -1208,7 +1208,7 @@ public class Va extends HttpServlet {
 					ItemBiaya itemBiaya = detailBiaya.getItemBiaya();
 					if (itemBiaya != null) {
 						String ref = "ntt-" + kegiatan.getId() + "-" + detailBiaya.getId() + "-" + vaNtt.getId();
-						Double subtotal = detailBiaya.hitungTotalKegiatan(kegiatan, session);
+						Double subtotal = Kegiatan.ambilJumlahTagihan(kegiatan, detailBiaya);
 						if (itemBiaya.getPenghitungan().equals(ItemBiaya.DIKALI_NILAI_MINUS))
 							subtotal = 0.0 - subtotal;
 
@@ -1369,7 +1369,7 @@ public class Va extends HttpServlet {
 			detailKegiatan.setKeterangan(detailBiaya.getKeterangan());
 			detailKegiatan.setKegiatan(kegiatan);
 
-			nilaiBiayaHarusDiBayars += biaya;
+			nilaiBiayaHarusDiBayars += Kegiatan.ambilJumlahTagihan(detailKegiatan, kegiatan, detailBiaya, false);
 		}
 
 		System.out.println("[VA Servlet - Reversal] Menghapus cicilan pembayaran di DB...");

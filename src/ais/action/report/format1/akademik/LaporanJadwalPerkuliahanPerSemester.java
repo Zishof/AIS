@@ -255,8 +255,7 @@ public class LaporanJadwalPerkuliahanPerSemester extends MyWindow {
 				Session session = HibernateUtil.currentSession();
 
 				Criterion criterion = genapGanjil == null ? Restrictions.sqlRestriction("true")
-						: Restrictions.sqlRestriction("(this_.semester % 2) = (case '" + genapGanjil + "' when '"
-								+ Perkuliahan.GANJIL + "' then 1 when '" + Perkuliahan.GENAP + "' then 0 end)");
+						: Restrictions.eq("ganjilGenap", genapGanjil);
 
 				MasaPerkuliahan masaPerkuliahan = (MasaPerkuliahan) LaporanJadwalPerkuliahanPerSemester.this.masaPerkuliahan
 						.getAttribute("masaPerkuliahan");
@@ -415,8 +414,7 @@ public class LaporanJadwalPerkuliahanPerSemester extends MyWindow {
 				Session session = HibernateUtil.currentSession();
 
 				Criterion criterion = genapGanjil == null ? Restrictions.sqlRestriction("true")
-						: Restrictions.sqlRestriction("(this_.semester % 2) = (case '" + genapGanjil + "' when '"
-								+ Perkuliahan.GANJIL + "' then 1 when '" + Perkuliahan.GENAP + "' then 0 end)");
+						: Restrictions.eq("ganjilGenap", genapGanjil);
 
 				MasaPerkuliahan masaPerkuliahan = (MasaPerkuliahan) LaporanJadwalPerkuliahanPerSemester.this.masaPerkuliahan
 						.getAttribute("masaPerkuliahan");

@@ -302,9 +302,7 @@ try {
             if (harusLulusSblmDaftarUlang && (cama.getProdiLulus() == null || cama.getProdiLulus().getId() == null)) {
                 showBtnBayarDU = jadwalDaftarUlangMasihBerlangsung && showBtnBayarDU;
             }
-            if (showBtnBayarDU && punyaJadwalPembayaranDaftarUlang) {
-                showBtnBayarDU = jadwalDaftarUlangMasihBerlangsung;
-            } else if (showBtnBayarDU && cama.getGelombangPendaftaran() != null
+            if (showBtnBayarDU && !punyaJadwalPembayaranDaftarUlang && cama.getGelombangPendaftaran() != null
                     && cama.getGelombangPendaftaran().getTanggalDaftarUlangBerakhir() != null) {
                 Date tglBerakhirDU = cama.getGelombangPendaftaran().getTanggalDaftarUlangBerakhir();
                 Date sekarang = WaktuUtil.getDate();
@@ -434,7 +432,7 @@ try {
                             <button type="button" class="btn btn-outline-dark" onclick="window.bukaModalCetakPDFAIS<%=rnd%>('_cetak_kartu_ujian')"><i class="fas fa-id-card me-2 text-info"></i><%= Common.getBahasaConfig("Cetak Kartu Ujian") %></button>
                         <% } %>
 
-                       <% if (cama.getProdiLulus() != null && tampilkanBuktiDiterima) { 
+                       <% if (cama.getProdiLulus() != null) { 
 						    // Evaluasi kelengkapan berkas langsung dari server
 						    boolean isBerkasLengkap = true;
 						    try { isBerkasLengkap = ais.action.master.pmb.BiodataCalonMahasiswaAction.lengkap(cama); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) webapp/WEB-INF/baru/modul/pmb/_sukses_login.jsp:374");}
@@ -458,7 +456,7 @@ try {
 						<% } %>
 
                         <% if (tbmuser != null && tbmuser.getBiodataCalonMahasiswa() != null) { %>
-                            <button type="button" class="btn btn-danger" onclick="if(typeof window.konfirmasiLogoutPMB === 'function') window.konfirmasiLogoutPMB();"><i class="fas fa-power-off me-2"></i><%= Common.getBahasaConfig("Keluar") %></button>
+                            <button type="button" class="btn btn-danger" onclick="if(window.confirm('<%= Common.getBahasaConfigJS("Apakah Anda yakin ingin keluar dari sesi saat ini?") %>')) window.location.href='<%=Common.ROOT%>/pmb?hanya_tampil_jsp=true&p=pmb&s=landing_page&auth_action=logout';"><i class="fas fa-power-off me-2"></i><%= Common.getBahasaConfig("Keluar") %></button>
                         <% } %>
                     </div>
                 </div>

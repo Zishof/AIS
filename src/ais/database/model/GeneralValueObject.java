@@ -1534,17 +1534,6 @@ public abstract class GeneralValueObject extends DataUtil
 		bukaKunci.setTooltiptext("Buka kunci");
 		kunci.setTooltiptext("Tutup kunci");
 
-		// sclass ais-row-action-btn: menyamakan ukuran ikon, padding, dan efek hover dengan
-		// tombol Ubah/Copy/Hapus dari CommonUiFactoryHelper.copyEditDeleteButtons, karena
-		// tombol ini dipasang ke Hbox aksi baris yang sama.
-		bukaKunci.setSclass("ais-row-action-btn ais-row-action-kunci");
-		bukaKunci.setOrient("vertical");
-		bukaKunci.setStyle("font-size:9px;");
-
-		kunci.setSclass("ais-row-action-btn ais-row-action-kunci");
-		kunci.setOrient("vertical");
-		kunci.setStyle("font-size:9px;");
-
 		if (tbmuser.getSiswa() == null && voKunci != null) {
 
 			kunci.addEventListener("onClick", new EventListener() {
@@ -1583,9 +1572,6 @@ public abstract class GeneralValueObject extends DataUtil
 
 			kunci.setVisible(voKunci.getDikunci() == null);
 			kunci.setDisabled(!Common.getApakahAdminBolehKunci());
-
-			kunci.setParent(toolbar);
-//			kunci.setOrient("vertical");
 
 			bukaKunci.addEventListener("onClick", new EventListener() {
 				@Override
@@ -1626,7 +1612,34 @@ public abstract class GeneralValueObject extends DataUtil
 
 					|| !Common.getApakahAdminBolehKunci());
 
-			bukaKunci.setParent(toolbar);
+			// Tambahkan ke popup kebab jika tersedia; fallback ke toolbar langsung.
+			Object popupAttrKunci = toolbar.getAttribute("ais_row_actions_popup");
+			if (popupAttrKunci instanceof org.zkoss.zul.Div) {
+				org.zkoss.zul.Div popupContent = (org.zkoss.zul.Div) popupAttrKunci;
+				org.zkoss.zul.Div divider = new org.zkoss.zul.Div();
+				divider.setSclass("ais-row-popup-divider");
+				divider.setParent(popupContent);
+				kunci.setSclass("ais-row-popup-item ais-row-popup-item-kunci");
+				bukaKunci.setSclass("ais-row-popup-item ais-row-popup-item-kunci");
+				// Pastikan label selalu tampil di menu popup
+				if (voKunci.getDikunci() != null) {
+					bukaKunci.setLabel("Buka Kunci (" + voKunci.getDikunci().getUserNama() + ")");
+				} else {
+					bukaKunci.setLabel("Buka Kunci");
+				}
+				kunci.setLabel("Kunci Data");
+				kunci.setParent(popupContent);
+				bukaKunci.setParent(popupContent);
+			} else {
+				kunci.setSclass("ais-row-action-btn ais-row-action-kunci");
+				kunci.setOrient("vertical");
+				kunci.setStyle("font-size:9px;");
+				bukaKunci.setSclass("ais-row-action-btn ais-row-action-kunci");
+				bukaKunci.setOrient("vertical");
+				bukaKunci.setStyle("font-size:9px;");
+				kunci.setParent(toolbar);
+				bukaKunci.setParent(toolbar);
+			}
 
 		}
 	}

@@ -93,6 +93,10 @@ public class Toko extends GeneralValueObject {
 	private String npwp;
 	private String jamOperasional;
 	private String pesanTerimaKasih;
+	private String alasanTahanJson;
+	private Boolean bolehTransaksiStokHabis;
+	/** Penanda toko khusus demo/UAT. Default false agar data sample mustahil muncul di toko produksi. */
+	private Boolean tokoDemo;
 
 	public Toko() {
 	}
@@ -269,6 +273,37 @@ public class Toko extends GeneralValueObject {
 
 	public void setPesanTerimaKasih(String pesanTerimaKasih) {
 		this.pesanTerimaKasih = pesanTerimaKasih;
+	}
+
+	@Column(name = "alasan_tahan_json", nullable = true, columnDefinition = "text")
+	public String getAlasanTahanJson() {
+		return alasanTahanJson;
+	}
+
+	public void setAlasanTahanJson(String alasanTahanJson) {
+		this.alasanTahanJson = alasanTahanJson;
+	}
+
+	/**
+	 * Kebijakan stok per toko. Default {@code false} mengikuti izin pada tiap produk; bila
+	 * {@code true}, seluruh produk toko ini boleh dijual saat stok nol atau minus.
+	 */
+	@Column(name = "boleh_transaksi_stok_habis", nullable = true)
+	public Boolean getBolehTransaksiStokHabis() {
+		return bolehTransaksiStokHabis == null ? Boolean.FALSE : bolehTransaksiStokHabis;
+	}
+
+	public void setBolehTransaksiStokHabis(Boolean bolehTransaksiStokHabis) {
+		this.bolehTransaksiStokHabis = bolehTransaksiStokHabis;
+	}
+
+	@Column(name = "toko_demo", nullable = true)
+	public Boolean getTokoDemo() {
+		return tokoDemo == null ? Boolean.FALSE : tokoDemo;
+	}
+
+	public void setTokoDemo(Boolean tokoDemo) {
+		this.tokoDemo = tokoDemo;
 	}
 
 	private Gudang gudangPemasok;

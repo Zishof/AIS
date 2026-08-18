@@ -554,8 +554,17 @@ public class PaymentLogic {
 			session.getTransaction().begin();
 			session.save(logHostToHost);
 
-			biodataCalonMahasiswa.setPembayaranDaftarUlang(kegiatan);
-			Common.refreshUpdate(session, biodataCalonMahasiswa);
+			// KE-FIX (ConstraintViolationException FK pembayaran_daftar_ulang -> kegiatan): jangan
+			// hubungkan biodataCalonMahasiswa ke kegiatan yang belum/gagal tersimpan (id null),
+			// akan melanggar FK saat update di bawah.
+			if (kegiatan != null && kegiatan.getId() != null) {
+				biodataCalonMahasiswa.setPembayaranDaftarUlang(kegiatan);
+				Common.refreshUpdate(session, biodataCalonMahasiswa);
+			} else {
+				ais.common.ErrorAuditUtil.record(
+						new IllegalStateException("kegiatan belum tersimpan (id null), pembayaranDaftarUlang tidak dihubungkan"),
+						"auto-audit src/ais/action/ws/logic/PaymentLogic.java:pembayaranDaftarUlang-guard");
+			}
 
 			session.getTransaction().commit();
 

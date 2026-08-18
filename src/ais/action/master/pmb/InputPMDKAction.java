@@ -413,7 +413,9 @@ public class InputPMDKAction extends GenericAutowireComposer {
 		grid.setRowRenderer(new BiodataCalonRenderer());
 		grid.setModelCheckMobile(strset);
 
-		jumlahPendaftar.setValue("Jumlah : " + biodataCalonMahasiswa.size());
+		if (jumlahPendaftar != null) {
+			jumlahPendaftar.setValue("Jumlah : " + biodataCalonMahasiswa.size());
+		}
 
 	}
 

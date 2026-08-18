@@ -522,16 +522,9 @@ public class AktifitasKrsMahasiswaHelper {
 			}
 		});
 
-		// GANTI (2026-08-14) -- SEBELUMNYA di sini ada timer pasca-render yang mengirim onClick
-		// otomatis ke SEMUA sub-tab (kecuali "Agenda") beberapa saat setelah halaman terbuka, sebagai
-		// akal-akalan utk masalah "klik tab tidak selalu sampai ke server di popup bersarang dalam
-		// (Window→Borderlayout→Grid→Detail)". Efek sampingnya: tab "Cetak Transkrip" (dan "Rencana
-		// Studi"/"Cetak Agenda Konsultasi") ikut ke-generate/tercetak OTOMATIS begitu menu ini dibuka,
-		// walau pengguna belum klik tab tsb sama sekali -- persis keluhan pengguna. gantiTabboxNative
-		// menyelesaikan akar masalahnya (bukan menyamarkannya): tab native diganti tombol MyButtonTabbox
-		// yang memicu onClick tab asli lewat Events.sendEvent SECARA LANGSUNG saat tombolnya benar-benar
-		// diklik (bukan tebakan client-side yang kadang tak sampai), sehingga tiap sub-tab (termasuk
-		// Cetak Transkrip) baru dibangun/dicetak saat pengguna benar-benar mengklik tab itu.
-		ais.ui.util.MyButtonTabbox.gantiTabboxNative(tabbox, null);
+		// gantiTabboxNative DIPINDAH ke StudiMahasiswaHelper (pemanggil) agar dieksekusi
+		// SETELAH konten Tab-1 (Rencana Studi) selesai dibangun ke dalam tabpanelUtama.
+		// Bila dipanggil di sini, pindahkanIsiPanel dipanggil saat tabpanelUtama masih
+		// kosong → isi Tab-1 tertinggal di Tabpanel tersembunyi → harus klik dulu.
 	}
 }

@@ -9,9 +9,12 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
@@ -349,6 +352,100 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		}
 	}
 
+	private Map<Long, Object[]> saringMapUntukSettingIni(Map<Long, Object[]> map) {
+		if (map == null) {
+			return null;
+		}
+		Map<Long, Object[]> mapUntukSettingIni = null;
+		for (Map.Entry<Long, Object[]> entry : map.entrySet()) {
+			Object obj = entry.getValue()[0];
+			DetailBiaya detailBiayaCek = (obj instanceof PengaturanPembayaranBulanan)
+					? ((PengaturanPembayaranBulanan) obj).getDetailBiaya()
+					: (obj instanceof DetailBiaya ? (DetailBiaya) obj : null);
+			if (detailBiayaCek != null && detailBiayaCek.getSettingBiaya() != null
+					&& detailBiayaCek.getSettingBiaya().getId() != null && settingBiaya.getId() != null
+					&& detailBiayaCek.getSettingBiaya().getId().equals(settingBiaya.getId())) {
+				if (mapUntukSettingIni == null) {
+					mapUntukSettingIni = new HashMap<Long, Object[]>();
+				}
+				mapUntukSettingIni.put(entry.getKey(), entry.getValue());
+			}
+		}
+		return mapUntukSettingIni;
+	}
+
+	private Date ambilTanggalTagihanEfektif(Object[] data, Kegiatan kegiatan,
+			Collection<DetailKegiatan> detailKegiatans, boolean refresh) {
+		if (data == null || data.length == 0 || data[0] == null) {
+			return null;
+		}
+		DetailBiaya detailBiaya = null;
+		PengaturanPembayaranBulanan pengaturanPembayaranBulanan = null;
+		if (data[0] instanceof PengaturanPembayaranBulanan) {
+			pengaturanPembayaranBulanan = (PengaturanPembayaranBulanan) data[0];
+			detailBiaya = pengaturanPembayaranBulanan.getDetailBiaya();
+		} else if (data[0] instanceof DetailBiaya) {
+			detailBiaya = (DetailBiaya) data[0];
+		}
+		if (detailBiaya == null) {
+			return null;
+		}
+
+		DetailKegiatan detailKegiatan = kegiatan == null || kegiatan.getId() == null ? null
+				: (pengaturanPembayaranBulanan != null
+						? kegiatan.ambilSatuDetailKegiatan(pengaturanPembayaranBulanan, detailKegiatans)
+						: kegiatan.ambilSatuDetailKegiatan(detailBiaya, refresh));
+		if (detailKegiatan != null && detailKegiatan.getTanggal() != null) {
+			return detailKegiatan.getTanggal();
+		}
+
+		if (kegiatan != null) {
+			DetailKegiatan detailKegiatanDefault = new DetailKegiatan();
+			detailKegiatanDefault.setKegiatan(kegiatan);
+			detailKegiatanDefault.setDetailBiaya(detailBiaya);
+			detailKegiatanDefault.setPengaturanPembayaranBulanan(pengaturanPembayaranBulanan);
+			Date tanggal = detailKegiatanDefault.getTanggal();
+			if (tanggal != null) {
+				return tanggal;
+			}
+		}
+		return detailBiaya.getDefaultTanggalTagihan();
+	}
+
+	private void renderTanggalTagihan(Row row, Kegiatan kegiatan, Collection<DetailKegiatan> detailKegiatans,
+			Map<Long, Map<Long, Object[]>> datas, boolean refresh, boolean saringSetting) {
+		Vbox vbox = new Vbox();
+		vbox.setWidth("99%");
+		vbox.setParent(row);
+		Set<String> tanggalLabels = new LinkedHashSet<String>();
+		boolean tampilkanNamaItem = selectedItemBiaya != null && selectedItemBiaya.size() > 1;
+		if (selectedItemBiaya != null) {
+			for (ItemBiaya itemBiaya : selectedItemBiaya) {
+				Map<Long, Object[]> map = datas == null ? null : datas.get(itemBiaya.getId());
+				if (saringSetting) {
+					map = saringMapUntukSettingIni(map);
+				}
+				if (map == null || map.isEmpty()) {
+					continue;
+				}
+				for (Object[] value : map.values()) {
+					Date tanggal = ambilTanggalTagihanEfektif(value, kegiatan, detailKegiatans, refresh);
+					if (tanggal != null) {
+						String label = Common.dateFormat1.get().format(tanggal);
+						tanggalLabels.add(tampilkanNamaItem ? itemBiaya.getNama() + ": " + label : label);
+					}
+				}
+			}
+		}
+		if (tanggalLabels.isEmpty()) {
+			vbox.appendChild(new Label("-"));
+		} else {
+			for (String label : tanggalLabels) {
+				vbox.appendChild(new Label(label));
+			}
+		}
+	}
+
 	class MahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
 		private boolean refresh;
@@ -396,34 +493,11 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 				new Label(mahasiswa.getProgram()).setParent(a);
 				new Label("Smt:" + smt + "").setParent(a);
 
+				renderTanggalTagihan(arg0, kegiatan, detailKegiatans, datas, refresh, true);
+
 				for (final ItemBiaya itemBiaya : selectedItemBiaya) {
 
-					Map<Long, Object[]> map = datas.get(itemBiaya.getId());
-
-					// PERBAIKAN "mahasiswa tampil ganda di Setting Biaya berbeda": map di atas dicari
-					// HANYA berdasarkan ItemBiaya id, tanpa memeriksa apakah DetailBiaya/
-					// PengaturanPembayaranBulanan yang ditemukan itu benar milik SettingBiaya BARIS
-					// INI. Bila satu ItemBiaya (mis. "Uang Pendaftaran S1") dipakai bersama di lebih
-					// dari satu SettingBiaya (mis. Reguler & RPL), tagihan mahasiswa yang sebenarnya
-					// milik Setting Biaya LAIN ikut tampil seolah aktif di sini juga. Saring ulang di
-					// sini agar hanya entri yang SettingBiaya-nya benar-benar sama dengan baris ini.
-					Map<Long, Object[]> mapUntukSettingIni = null;
-					if (map != null) {
-						for (Map.Entry<Long, Object[]> entry : map.entrySet()) {
-							Object obj = entry.getValue()[0];
-							DetailBiaya detailBiayaCek = (obj instanceof PengaturanPembayaranBulanan)
-									? ((PengaturanPembayaranBulanan) obj).getDetailBiaya()
-									: (obj instanceof DetailBiaya ? (DetailBiaya) obj : null);
-							if (detailBiayaCek != null && detailBiayaCek.getSettingBiaya() != null
-									&& detailBiayaCek.getSettingBiaya().getId() != null && settingBiaya.getId() != null
-									&& detailBiayaCek.getSettingBiaya().getId().equals(settingBiaya.getId())) {
-								if (mapUntukSettingIni == null) {
-									mapUntukSettingIni = new HashMap<Long, Object[]>();
-								}
-								mapUntukSettingIni.put(entry.getKey(), entry.getValue());
-							}
-						}
-					}
+					Map<Long, Object[]> mapUntukSettingIni = saringMapUntukSettingIni(datas.get(itemBiaya.getId()));
 
 					if (mapUntukSettingIni != null) {
 						Vbox vbox = new Vbox();
@@ -537,6 +611,9 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 				});
 
 				final JSONObject jsonObject = new JSONObject(settingBiayaDetail.getBiayas());
+
+				renderTanggalTagihan(arg0, kegiatanAktifFinal, detailKegiatansAktifFinal, datasAktifFinal, refresh,
+						true);
 
 				for (final ItemBiaya itemBiaya : selectedItemBiaya) {
 
@@ -708,6 +785,9 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 				});
 
 				final JSONObject jsonObject = new JSONObject(settingBiayaDetail.getBiayas());
+
+				renderTanggalTagihan(arg0, kegiatanAktifFinal, detailKegiatansAktifFinal, datasAktifFinal, refresh,
+						true);
 
 				for (final ItemBiaya itemBiaya : selectedItemBiaya) {
 
@@ -930,34 +1010,11 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 				new Label(biodataCalonMahasiswa.getProgram()).setParent(a);
 				new Label("Smt:" + smt + "").setParent(a);
 
+				renderTanggalTagihan(arg0, kegiatan, detailKegiatans, datas, refresh, true);
+
 				for (final ItemBiaya itemBiaya : selectedItemBiaya) {
 
-					Map<Long, Object[]> map = datas.get(itemBiaya.getId());
-
-					// PERBAIKAN "mahasiswa tampil ganda di Setting Biaya berbeda": map di atas dicari
-					// HANYA berdasarkan ItemBiaya id, tanpa memeriksa apakah DetailBiaya/
-					// PengaturanPembayaranBulanan yang ditemukan itu benar milik SettingBiaya BARIS
-					// INI. Bila satu ItemBiaya (mis. "Uang Pendaftaran S1") dipakai bersama di lebih
-					// dari satu SettingBiaya (mis. Reguler & RPL), tagihan mahasiswa yang sebenarnya
-					// milik Setting Biaya LAIN ikut tampil seolah aktif di sini juga. Saring ulang di
-					// sini agar hanya entri yang SettingBiaya-nya benar-benar sama dengan baris ini.
-					Map<Long, Object[]> mapUntukSettingIni = null;
-					if (map != null) {
-						for (Map.Entry<Long, Object[]> entry : map.entrySet()) {
-							Object obj = entry.getValue()[0];
-							DetailBiaya detailBiayaCek = (obj instanceof PengaturanPembayaranBulanan)
-									? ((PengaturanPembayaranBulanan) obj).getDetailBiaya()
-									: (obj instanceof DetailBiaya ? (DetailBiaya) obj : null);
-							if (detailBiayaCek != null && detailBiayaCek.getSettingBiaya() != null
-									&& detailBiayaCek.getSettingBiaya().getId() != null && settingBiaya.getId() != null
-									&& detailBiayaCek.getSettingBiaya().getId().equals(settingBiaya.getId())) {
-								if (mapUntukSettingIni == null) {
-									mapUntukSettingIni = new HashMap<Long, Object[]>();
-								}
-								mapUntukSettingIni.put(entry.getKey(), entry.getValue());
-							}
-						}
-					}
+					Map<Long, Object[]> mapUntukSettingIni = saringMapUntukSettingIni(datas.get(itemBiaya.getId()));
 
 					if (mapUntukSettingIni != null) {
 						Vbox vbox = new Vbox();
@@ -1830,6 +1887,10 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 				column.setLabel("Mahasiswa");
 			}
 		}
+
+		column = new MyColumnConfig("Tanggal Tagihan");
+		column.setParent(columns);
+		column.setWidth("14%");
 
 		for (ItemBiaya itemBiaya : selectedItemBiaya) {
 			column = new MyColumnConfig();

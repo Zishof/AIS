@@ -1424,6 +1424,18 @@ public class GelombangPendaftaranAction extends GenericAutowireComposer implemen
 
 				}
 
+				// Panaskan cache paket-diizinkan (dibaca BiodataCalonMahasiswa.getPaket() tanpa
+				// query session) begitu data pengaturan paket gelombang ini dimuat -- tak perlu
+				// menunggu tombol Simpan supaya gelombang lama yg belum pernah disimpan ulang
+				// lewat layar ini pun ikut ter-cache saat admin membukanya.
+				if (gelombangPendaftaran.getId() != null) {
+					List<Paket> paketUntukCache = new ArrayList<Paket>();
+					for (PaketPunyaGelombangPendaftaran p : selectedPaketPunyaGelombangPendaftaran.values()) {
+						paketUntukCache.add(p.getPaket());
+					}
+					GelombangPendaftaran.perbaruiCachePaketDiizinkan(gelombangPendaftaran.getId(), paketUntukCache);
+				}
+
 				rowJp.setVisible(hanyapaket.isChecked());
 				Common.clear(rowJp);
 				MyGrid vboxSkala = new MyGrid();
@@ -1954,6 +1966,17 @@ public class GelombangPendaftaranAction extends GenericAutowireComposer implemen
 					sessionData.flush();
 				}
 			}
+
+			// Perbarui cache paket-diizinkan (dibaca BiodataCalonMahasiswa.getPaket() tanpa query
+			// session) supaya konsistensi paket vs gelombang langsung ikut ter-update begitu admin
+			// menyimpan perubahan pengaturan paket di sini -- bukan menunggu server restart/reload.
+			List<Paket> paketUntukCache = new ArrayList<Paket>();
+			if (selectedPaketPunyaGelombangPendaftaran != null) {
+				for (PaketPunyaGelombangPendaftaran p : selectedPaketPunyaGelombangPendaftaran.values()) {
+					paketUntukCache.add(p.getPaket());
+				}
+			}
+			GelombangPendaftaran.perbaruiCachePaketDiizinkan(gelombangPendaftaran.getId(), paketUntukCache);
 		} catch (Exception e) {
 			ais.common.Common.tampilErrorJikaAdmin(e);
 		}

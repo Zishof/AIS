@@ -531,7 +531,7 @@ public class OcbcNisp extends HttpServlet {
 										for (DetailBiaya detailBiaya : detailBiayas) {
 											Double biaya = detailBiaya.hitungTotalKegiatan(kegiatan, session);
 
-											nilaiBiayaHarusDiBayars += biaya;
+											nilaiBiayaHarusDiBayars += Kegiatan.ambilJumlahTagihan(kegiatan, detailBiaya);
 
 										}
 
@@ -828,7 +828,7 @@ public class OcbcNisp extends HttpServlet {
 
 												} else if (idPemBul != null && idPemBul.startsWith("Keranjang-")) {
 													// Pembayaran Keranjang Belanja (multi jenis / KegiatanTemporary): konversi draf
-													// menjadi Kegiatan+Cicilan nyata — pemroses terpusat yang sama dengan Esmartlink.
+													// menjadi Kegiatan+Cicilan nyata â€” pemroses terpusat yang sama dengan Esmartlink.
 													if (!reversal) {
 														ais.action.ws.util.PembayaranGatewayHelper.prosesSatuTokenKeranjang(session, idPemBul,
 																virtualAccountBankNtt, inquery, bank, bankHost, tanggal, data, null);
@@ -1151,3 +1151,4 @@ public class OcbcNisp extends HttpServlet {
 	}
 
 }
+

@@ -135,6 +135,11 @@ public class MenuInitializer {
 		createMenu(session, 23887726L, "Pendataan", "/img/Document-icon.png", 5301L, 53L, null, true);
 		createMenu(session, 23834227L, "Produk", "/img/Document-icon.png", 53010L, 5301L,
 				"/pages/master/inventory/produk.zul", true);
+		// Menu terpisah persis di bawah Produk (sibling dlm grup Pendataan yg sama; SENGAJA bukan
+		// anak dari node Produk -- nilai child 53010 milik Produk TABRAKAN dgn "Penjualan ke Siswa"
+		// [data lama], menyarangkan di bawahnya membuat menu ini muncul ganda di dua cabang).
+		createMenu(session, 23834228L, "Grup Produk", "/img/Mimetypes-x-office-calendar-icon.png", 53011L, 5301L,
+				"/pages/master/inventory/grup_produk.zul", true);
 		createMenu(session, 238854326L, "Transaksi", "/img/Document-icon.png", 5302L, 53L, null, true);
 		createMenu(session, 238854316L, "Penjualan ke Siswa", "/img/Document-icon.png", 53010L, 5302L,
 				"/pages/master/inventory/pembelian.zul", true);

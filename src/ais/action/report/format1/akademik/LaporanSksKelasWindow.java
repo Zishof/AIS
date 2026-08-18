@@ -190,8 +190,7 @@ public class LaporanSksKelasWindow extends MyWindow {
 								: Restrictions.eq("tahunAjaran", searchTahunAjaran.getSelectedItem().getValue()))
 
 				.add(jenis_semester.getSelectedItem() == null ? Restrictions.sqlRestriction("1=1")
-						: Restrictions.sqlRestriction("this_.semester % 2 = "
-								+ (jenis_semester.getSelectedItem().getValue().equals(Perkuliahan.GANJIL) ? "1" : "0")))
+						: Restrictions.eq("ganjilGenap", jenis_semester.getSelectedItem().getValue()))
 
 				.add(CommonSearchFilterHelper.eqSelectedWithId("jurusan", jurusan, false))
 

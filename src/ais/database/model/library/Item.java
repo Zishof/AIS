@@ -841,7 +841,6 @@ public class Item extends GeneralValueObject {
 
 	@Column(name = "image_url", columnDefinition = "text", nullable = true)
 	public String getImageUrl() {
-		checkApakahGambarSudahTersimpanDiLocal();
 		return imageUrl;
 	}
 
@@ -854,8 +853,11 @@ public class Item extends GeneralValueObject {
 				File folder = new File(
 						Common.getKonfigurasi("lokasi_penyimpanan_lampiran_perpustakaan", "/opt/gambar_perpus")
 								.getNilai() + "/");
-				if (!folder.exists()) {
-					folder.mkdirs();
+				if (!folder.exists() && !folder.mkdirs()) {
+					return "";
+				}
+				if (!folder.isDirectory() || !folder.canWrite()) {
+					return "";
 				}
 
 				File f = new File(folder.getAbsolutePath() + "/"
@@ -876,7 +878,11 @@ public class Item extends GeneralValueObject {
 						img = ais.common.CommonFileMediaHelper.bacaGambarAman(conn.getInputStream());
 
 						if (img != null) {
-							f.getParentFile().mkdirs();
+							File parentFile = f.getParentFile();
+							if (parentFile == null || (!parentFile.exists() && !parentFile.mkdirs())
+									|| !parentFile.canWrite()) {
+								return "";
+							}
 							// JPEG tidak mendukung alpha channel; menulis BufferedImage
 							// ARGB/indexed (mis. sampul PNG) langsung via ImageIO.write ke
 							// format JPEG bisa memicu NullPointerException internal pada

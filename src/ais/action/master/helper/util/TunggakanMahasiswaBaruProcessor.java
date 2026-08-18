@@ -190,8 +190,7 @@ public class TunggakanMahasiswaBaruProcessor extends TimerTask {
 
 						Double totalBiaya = 0.0;
 						for (DetailBiaya detailBiaya : detailBiayas) {
-							Double nilai = detailBiaya.hitungTotalKegiatan(kegiatan, session);
-							totalBiaya += nilai;
+							totalBiaya += Kegiatan.ambilJumlahTagihan(kegiatan, detailBiaya);
 						}
 
 						if (kegiatan != null && kegiatan.getAmount() != null && detailBiayas.size() != 0) {
@@ -242,8 +241,7 @@ public class TunggakanMahasiswaBaruProcessor extends TimerTask {
 
 							Double totalBiaya = 0.0;
 							for (DetailBiaya detailBiaya : detailBiayas) {
-								Double nilai = detailBiaya.hitungTotalKegiatan(kegiatan, session);
-								totalBiaya += nilai;
+								totalBiaya += Kegiatan.ambilJumlahTagihan(kegiatan, detailBiaya);
 							}
 
 							if (kegiatan != null && kegiatan.getAmount() != null && detailBiayas.size() != 0) {

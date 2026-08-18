@@ -90,6 +90,10 @@ public final class EbisnisMenuKatalog {
 		DAFTAR.add(new Entri(MODUL_POS, "pesanan", "Pesanan Online", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "anggota", "Anggota / Member", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "produk", "Produk / Barang", "desktop", "android"));
+		// Kendali HPP/harga jual terpusat lintas outlet (lihat GrupProduk/GrupProdukAction).
+		// Fail-closed via KUNCI_DEFAULT_NONAKTIF: perubahan harga massal lintas outlet TIDAK
+		// boleh mendadak tersedia utk role existing -- nyala hanya lewat grid CRUD TbmroleAction.
+		DAFTAR.add(new Entri(MODUL_POS, "grup_produk", "Grup Produk (Harga Terpusat)", "desktop", "android", "jsp"));
 		DAFTAR.add(new Entri(MODUL_POS, "stokopname", "Stok Opname", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "kulakan", "Kulakan", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "diskon", "Aturan Diskon", "desktop", "android"));
@@ -167,6 +171,8 @@ public final class EbisnisMenuKatalog {
 	 * {@code sales_keliling} sudah menyimpan nilai eksplisit sendiri).
 	 */
 	public static final java.util.Set<String> KUNCI_DEFAULT_NONAKTIF = new java.util.LinkedHashSet<String>(java.util.Arrays.asList(
+			// Grup Produk: perubahan harga massal lintas outlet -- fail-closed, nyala hanya via admin.
+			"grup_produk",
 			"master_supplier", "master_customer", "master_sales", "persediaan", "harga", "hutang",
 			"penjualan_sales", "piutang", "surat_perintah_sales", "nota_sales", "biaya_sales",
 			"pembelian_sales", "rekonsiliasi_sales", "kas_jurnal", "laba_rugi", "laporan_inventory_sales",
@@ -188,7 +194,7 @@ public final class EbisnisMenuKatalog {
 	 * disertakan (Approve/Reject/Create/Update/Delete tidak berarti apa pun di sana).
 	 */
 	public static final java.util.Set<String> KUNCI_CRUD = new java.util.LinkedHashSet<String>(java.util.Arrays.asList(
-			"produk", "anggota", "diskon", "kulakan", "returpenjualan", "riwayatpenjualan", "stokopname", "pesanan",
+			"produk", "grup_produk", "anggota", "diskon", "kulakan", "returpenjualan", "riwayatpenjualan", "stokopname", "pesanan",
 			"pembayaran", "pedagang", "penyedia", "limitkredit", "kaskasir", "setorantenant",
 			"jadwalopname", "mutasirekening", "produksi",
 			// varian Inventory & Sales (default aksi ikut KUNCI_DEFAULT_NONAKTIF: false)

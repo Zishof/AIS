@@ -141,11 +141,23 @@ public class AmbilDataMatakuliahKurikulumHelper {
 			new Label(matakuliah.getJurusan() == null ? "" : matakuliah.getJurusan().getNama()).setParent(arg0);
 
 			Vbox vbox = new Vbox();
-			@SuppressWarnings("unchecked")
-			List<KurikulumPunyaMatakuliah> kurikulumPunyaMatakuliahs = session
-					.createCriteria(KurikulumPunyaMatakuliah.class)
-					.add(Restrictions.or(Restrictions.eq("aktif", true), Restrictions.isNull("aktif")))
-					.add(Restrictions.isNotNull("kurikulum")).add(Restrictions.eq("matakuliah", matakuliah)).list();
+			List<KurikulumPunyaMatakuliah> kurikulumPunyaMatakuliahs;
+			try {
+				// KE-FIX (GenericJDBCException "canceling statement due to lock timeout"):
+				// .list() di sini bisa memicu auto-flush dari perubahan tertunda di session
+				// (mis. dari save() sebelumnya) yang bentrok dgn baris kurikulum_punya_matakuliah
+				// sedang dikunci pengguna lain -- render satu baris grid tidak boleh menggagalkan
+				// seluruh grid, cukup lewati badge kurikulum baris ini & lanjut render baris lain.
+				@SuppressWarnings("unchecked")
+				List<KurikulumPunyaMatakuliah> hasil = session.createCriteria(KurikulumPunyaMatakuliah.class)
+						.add(Restrictions.or(Restrictions.eq("aktif", true), Restrictions.isNull("aktif")))
+						.add(Restrictions.isNotNull("kurikulum")).add(Restrictions.eq("matakuliah", matakuliah)).list();
+				kurikulumPunyaMatakuliahs = hasil;
+			} catch (Exception eLock) {
+				ais.common.ErrorAuditUtil.record(eLock,
+						"auto-audit src/ais/action/master/helper/AmbilDataMatakuliahKurikulumHelper.java:MatakuliahRenderer-lock");
+				kurikulumPunyaMatakuliahs = java.util.Collections.emptyList();
+			}
 			int i = 1;
 			for (KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah : kurikulumPunyaMatakuliahs) {
 				new MyLabelKecil(i + "." + kurikulumPunyaMatakuliah.getKurikulum().getNama() + ", smt : "
@@ -179,6 +191,7 @@ public class AmbilDataMatakuliahKurikulumHelper {
 		KurikulumPunyaMatakuliahDao kurikulumPunyaMatakuliahDao = DaoFactory.getInstance()
 				.getKurikulumPunyaMatakuliahDao();
 		Session session = kurikulumPunyaMatakuliahDao.getCurrentSession();
+		StringBuilder gagalDihapus = new StringBuilder();
 
 		Rows rows = grid.getRows();
 		List<Row> list = rows.getChildren();
@@ -213,8 +226,9 @@ public class AmbilDataMatakuliahKurikulumHelper {
 								.add(Restrictions.eq("matakuliah", matakuliah))
 								.add(Restrictions.eq("kurikulum", kurikulum)).add(Restrictions.eq("semester", semester))
 								.setMaxResults(1).uniqueResult();
-						if (kurikulumPunyaMatakuliah != null) {
-							session.delete(kurikulumPunyaMatakuliah);
+						if (kurikulumPunyaMatakuliah != null && !hapusJikaTidakDipakaiPerkuliahan(session,
+								kurikulumPunyaMatakuliah)) {
+							gagalDihapus.append(gagalDihapus.length() == 0 ? "" : ", ").append(matakuliah.getNama());
 						}
 
 					}
@@ -228,11 +242,55 @@ public class AmbilDataMatakuliahKurikulumHelper {
 
 		if (deletedMatakuliahs != null) {
 			for (KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah : deletedMatakuliahs.values()) {
-				session.delete(kurikulumPunyaMatakuliah);
+				if (!hapusJikaTidakDipakaiPerkuliahan(session, kurikulumPunyaMatakuliah)) {
+					String nama = kurikulumPunyaMatakuliah.getMatakuliah() == null ? ""
+							: kurikulumPunyaMatakuliah.getMatakuliah().getNama();
+					if (gagalDihapus.indexOf(nama) < 0) {
+						gagalDihapus.append(gagalDihapus.length() == 0 ? "" : ", ").append(nama);
+					}
+				}
 			}
 
 		}
 
+		if (gagalDihapus.length() > 0) {
+			try {
+				org.zkoss.zul.Messagebox.show(
+						"Mata kuliah berikut tidak dihapus dari kurikulum karena sudah dipakai pada perkuliahan yang berjalan: "
+								+ gagalDihapus.toString(),
+						"Perhatian", org.zkoss.zul.Messagebox.OK, org.zkoss.zul.Messagebox.EXCLAMATION);
+			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/AmbilDataMatakuliahKurikulumHelper.java:save-warn"); }
+		}
+
+	}
+
+	/**
+	 * KE-FIX (GenericJDBCException "could not delete ... KurikulumPunyaMatakuliah",
+	 * FK "perkuliahan" masih mereferensikan baris ini): sebelumnya session.delete()
+	 * langsung dipanggil di sini, tapi Hibernate MENUNDA eksekusi DELETE-nya sampai
+	 * flush berikutnya -- yang justru terjadi di MatakuliahKurikulumHelper.loadData()
+	 * (query .list() lain, saat refresh grid) sehingga pelanggaran FK muncul di
+	 * tempat yang sama sekali tidak terkait & TIDAK tertangkap oleh try/catch di
+	 * save(). Cek dulu apakah masih dipakai Perkuliahan sebelum menghapus, supaya
+	 * baris yang masih dipakai dilewati dgn pesan yang jelas alih-alih membuat
+	 * transaksi Postgres macet ("current transaction is aborted") utk sisa request.
+	 */
+	private boolean hapusJikaTidakDipakaiPerkuliahan(Session session,
+			KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah) {
+		try {
+			Number jml = (Number) session.createCriteria(ais.database.model.Perkuliahan.class)
+					.setProjection(Projections.rowCount())
+					.add(Restrictions.eq("kurikulumPunyaMatakuliah", kurikulumPunyaMatakuliah)).uniqueResult();
+			if (jml != null && jml.longValue() > 0) {
+				return false;
+			}
+			session.delete(kurikulumPunyaMatakuliah);
+			return true;
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit src/ais/action/master/helper/AmbilDataMatakuliahKurikulumHelper.java:hapusJikaTidakDipakaiPerkuliahan");
+			return false;
+		}
 	}
 
 	public void display(final Kurikulum kurikulum, final DataLoader dataLoader, final Integer semester,

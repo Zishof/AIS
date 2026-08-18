@@ -443,6 +443,8 @@ public class DetailKegiatan extends GeneralValueObject {
 				&& kegiatan.getMahasiswa().getKelompokMahasiswa().getSmtSampai() >= kegiatan.getSemster()
 
 				&& kegiatan.getMahasiswa().getKelompokMahasiswa().getJenisDiskonMahasiswa() != null && !(adaDiskon())
+				&& kegiatan.getMahasiswa().getKelompokMahasiswa().getJenisDiskonMahasiswa()
+						.cocokUntukKegiatan(kegiatan, detailBiaya)
 				&& !kegiatan.getMahasiswa().getKelompokMahasiswa().getJenisDiskonMahasiswa().ambilItemBiayaIds()
 						.isEmpty()
 				&& kegiatan.getMahasiswa().getKelompokMahasiswa().getJenisDiskonMahasiswa().ambilItemBiayaIds()
@@ -452,11 +454,13 @@ public class DetailKegiatan extends GeneralValueObject {
 		} else {
 
 			if (kegiatan != null && kegiatan.getCalonMahasiswa() != null
-					&& kegiatan.getCalonMahasiswa().getJenisSeleksi() != null
-					&& kegiatan.getCalonMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa() != null
-					&& !(adaDiskon())
-					&& !kegiatan.getCalonMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa().ambilItemBiayaIds()
-							.isEmpty()
+				&& kegiatan.getCalonMahasiswa().getJenisSeleksi() != null
+				&& kegiatan.getCalonMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa() != null
+				&& !(adaDiskon())
+				&& kegiatan.getCalonMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa()
+						.cocokUntukKegiatan(kegiatan, detailBiaya)
+				&& !kegiatan.getCalonMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa().ambilItemBiayaIds()
+						.isEmpty()
 					&& kegiatan.getCalonMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa().ambilItemBiayaIds()
 							.contains(detailBiaya.getItemBiaya().getId())
 
@@ -493,6 +497,8 @@ public class DetailKegiatan extends GeneralValueObject {
 			else if (kegiatan != null && kegiatan.getMahasiswa() != null
 					&& kegiatan.getMahasiswa().getJenisSeleksi() != null
 					&& kegiatan.getMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa() != null && !(adaDiskon())
+					&& kegiatan.getMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa()
+							.cocokUntukKegiatan(kegiatan, detailBiaya)
 					&& !kegiatan.getMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa().ambilItemBiayaIds()
 							.isEmpty()
 					&& kegiatan.getMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa().ambilItemBiayaIds()
@@ -536,17 +542,17 @@ public class DetailKegiatan extends GeneralValueObject {
 
 				try {
 
-					if (diskonMahasiswaData != null && adaDiskon()) {
+					if (diskonCocok(diskonMahasiswaData)) {
 						return diskonMahasiswaData.getJenisDiskonMahasiswa();
 
 					}
 
-					if (diskonMahasiswaData2 != null && adaDiskon()) {
-						return diskonMahasiswaData3.getJenisDiskonMahasiswa();
+					if (diskonCocok(diskonMahasiswaData2)) {
+						return diskonMahasiswaData2.getJenisDiskonMahasiswa();
 
 					}
 
-					if (diskonMahasiswaData3 != null && adaDiskon()) {
+					if (diskonCocok(diskonMahasiswaData3)) {
 						return diskonMahasiswaData3.getJenisDiskonMahasiswa();
 
 					}
@@ -571,6 +577,8 @@ public class DetailKegiatan extends GeneralValueObject {
 				&& kegiatan.getMahasiswa().getKelompokMahasiswa().getSmtSampai() >= kegiatan.getSemster()
 
 				&& kegiatan.getMahasiswa().getKelompokMahasiswa().getJenisDiskonMahasiswa() != null && !(adaDiskon())
+				&& kegiatan.getMahasiswa().getKelompokMahasiswa().getJenisDiskonMahasiswa()
+						.cocokUntukKegiatan(kegiatan, detailBiaya)
 				&& !kegiatan.getMahasiswa().getKelompokMahasiswa().getJenisDiskonMahasiswa().ambilItemBiayaIds()
 						.isEmpty()
 				&& kegiatan.getMahasiswa().getKelompokMahasiswa().getJenisDiskonMahasiswa().ambilItemBiayaIds()
@@ -585,11 +593,13 @@ public class DetailKegiatan extends GeneralValueObject {
 		} else {
 
 			if (kegiatan != null && kegiatan.getCalonMahasiswa() != null
-					&& kegiatan.getCalonMahasiswa().getJenisSeleksi() != null
-					&& kegiatan.getCalonMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa() != null
-					&& !(adaDiskon())
-					&& !kegiatan.getCalonMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa().ambilItemBiayaIds()
-							.isEmpty()
+				&& kegiatan.getCalonMahasiswa().getJenisSeleksi() != null
+				&& kegiatan.getCalonMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa() != null
+				&& !(adaDiskon())
+				&& kegiatan.getCalonMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa()
+						.cocokUntukKegiatan(kegiatan, detailBiaya)
+				&& !kegiatan.getCalonMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa().ambilItemBiayaIds()
+						.isEmpty()
 					&& kegiatan.getCalonMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa().ambilItemBiayaIds()
 							.contains(detailBiaya.getItemBiaya().getId())
 
@@ -630,6 +640,8 @@ public class DetailKegiatan extends GeneralValueObject {
 			else if (kegiatan != null && kegiatan.getMahasiswa() != null
 					&& kegiatan.getMahasiswa().getJenisSeleksi() != null
 					&& kegiatan.getMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa() != null && !(adaDiskon())
+					&& kegiatan.getMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa()
+							.cocokUntukKegiatan(kegiatan, detailBiaya)
 					&& !kegiatan.getMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa().ambilItemBiayaIds()
 							.isEmpty()
 					&& kegiatan.getMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa().ambilItemBiayaIds()
@@ -677,21 +689,21 @@ public class DetailKegiatan extends GeneralValueObject {
 
 				try {
 
-					if (diskonMahasiswaData != null && adaDiskon()) {
+					if (diskonMahasiswaData != null && diskonCocok(diskonMahasiswaData)) {
 						diskon += (diskonMahasiswaData.getJenisDiskonMahasiswa().getBerupaPersen()
 								? (jumlahDiskon * (diskonMahasiswaData.getJenisDiskonMahasiswa().getDiskon() / 100.0))
 								: diskonMahasiswaData.getJenisDiskonMahasiswa().getDiskon());
 
 					}
 
-					if (diskonMahasiswaData2 != null && adaDiskon()) {
+					if (diskonMahasiswaData2 != null && diskonCocok(diskonMahasiswaData2)) {
 						diskon += (diskonMahasiswaData2.getJenisDiskonMahasiswa().getBerupaPersen()
 								? (jumlahDiskon * (diskonMahasiswaData2.getJenisDiskonMahasiswa().getDiskon() / 100.0))
 								: diskonMahasiswaData2.getJenisDiskonMahasiswa().getDiskon());
 
 					}
 
-					if (diskonMahasiswaData3 != null && adaDiskon()) {
+					if (diskonMahasiswaData3 != null && diskonCocok(diskonMahasiswaData3)) {
 						diskon += (diskonMahasiswaData3.getJenisDiskonMahasiswa().getBerupaPersen()
 								? (jumlahDiskon * (diskonMahasiswaData3.getJenisDiskonMahasiswa().getDiskon() / 100.0))
 								: diskonMahasiswaData3.getJenisDiskonMahasiswa().getDiskon());
@@ -719,12 +731,15 @@ public class DetailKegiatan extends GeneralValueObject {
 		diskonMahasiswaData = check(diskonMahasiswaData);
 		diskonMahasiswaData2 = check(diskonMahasiswaData2);
 		diskonMahasiswaData3 = check(diskonMahasiswaData3);
-		return (diskonMahasiswaData != null && diskonMahasiswaData.getAktif()
-				&& diskonMahasiswaData.getJenisDiskonMahasiswa().getAktif())
-				|| (diskonMahasiswaData2 != null && diskonMahasiswaData2.getAktif()
-						&& diskonMahasiswaData2.getJenisDiskonMahasiswa().getAktif())
-				|| (diskonMahasiswaData3 != null && diskonMahasiswaData3.getAktif()
-						&& diskonMahasiswaData3.getJenisDiskonMahasiswa().getAktif());
+		return diskonCocok(diskonMahasiswaData) || diskonCocok(diskonMahasiswaData2)
+				|| diskonCocok(diskonMahasiswaData3);
+	}
+
+	private boolean diskonCocok(DiskonMahasiswa diskonMahasiswa) {
+		return diskonMahasiswa != null && diskonMahasiswa.getAktif()
+				&& diskonMahasiswa.getJenisDiskonMahasiswa() != null
+				&& diskonMahasiswa.getJenisDiskonMahasiswa().getAktif()
+				&& diskonMahasiswa.getJenisDiskonMahasiswa().cocokUntukKegiatan(getKegiatan(), getDetailBiaya());
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)

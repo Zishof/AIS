@@ -85,7 +85,14 @@ public class PenilaianPklHelper implements DataLoader {
 			Detailperkuliahan detailperkuliahan = mahasiswaDapatKelompokPkl.getDetailperkuliahan();
 
 			if (detailperkuliahan == null) {
-				detailperkuliahan = (Detailperkuliahan) HibernateUtil.currentSession()
+				Session sessionRender = HibernateUtil.currentSession();
+				// KE-FIX (HibernateException "createCriteria is not valid without active
+				// transaction"): dipanggil dari Grid renderer (Grid.doInitRenderer), yang bisa
+				// jalan tanpa transaksi aktif pada session request ini.
+				if (sessionRender.getTransaction() == null || !sessionRender.getTransaction().isActive()) {
+					sessionRender.beginTransaction();
+				}
+				detailperkuliahan = (Detailperkuliahan) sessionRender
 						.createCriteria(Detailperkuliahan.class).add(Restrictions.eq("mahasiswa", mahasiswa))
 						.add(Restrictions.eq("persetujuan", Detailperkuliahan.DISETUJUI))
 						.createAlias("perkuliahan", "perkuliahan", Criteria.LEFT_JOIN)

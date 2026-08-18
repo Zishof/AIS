@@ -55,6 +55,7 @@ import ais.action.master.surat.util.SuratUtil;
 import ais.action.report.helper.CommonReport;
 import ais.action.report.helper.ParameterListener;
 import ais.common.Common;
+import ais.common.CommonFileUtil;
 import ais.common.ConstantValues;
 import ais.common.MemoryDbUtil;
 import ais.common.ResponseContext;
@@ -76,7 +77,6 @@ import it.businesslogic.ireport.export.JRTxtExporter;
 import net.sf.jasperreports.engine.DefaultJasperReportsContext;
 import net.sf.jasperreports.engine.JRAbstractExporter;
 import net.sf.jasperreports.engine.JRExporterParameter;
-import net.sf.jasperreports.engine.JRParameter;
 import net.sf.jasperreports.engine.JRPropertiesUtil;
 import net.sf.jasperreports.engine.JasperCompileManager;
 import net.sf.jasperreports.engine.JasperExportManager;
@@ -93,7 +93,6 @@ import net.sf.jasperreports.engine.export.oasis.JROdsExporter;
 import net.sf.jasperreports.engine.export.oasis.JROdtExporter;
 import net.sf.jasperreports.engine.export.ooxml.JRDocxExporter;
 import net.sf.jasperreports.engine.export.ooxml.JRPptxExporter;
-import net.sf.jasperreports.engine.fill.JRFileVirtualizer;
 import net.sf.jasperreports.export.SimpleExporterInput;
 import net.sf.jasperreports.export.SimpleOutputStreamExporterOutput;
 import net.sourceforge.barbecue.Barcode;
@@ -125,12 +124,6 @@ public class Report extends GenericAutowireComposer {
 	// Lock di-scope PER NAMA FILE .jasper (bukan lock global) supaya laporan LAIN tetap bisa
 	// diproses paralel tanpa saling menunggu.
 	private static final ConcurrentMap<String, Object> lockKompilasiJasperPerNama = new ConcurrentHashMap<String, Object>();
-	private static final String PARAM_VIRTUALIZER_DIBUAT_REPORT = "_AIS_REPORT_VIRTUALIZER_DIBUAT";
-	private static final int REPORT_VIRTUALIZER_MAX_PAGES_IN_MEMORY = 12;
-	private static final String KONFIG_BUAT_HTML_PENDAMPING_REPORT = "buat_html_pendamping_report_pdf";
-	private static final int REPORT_MAKSIMAL_PARALEL = ambilMaksimalReportParalel();
-	private static final java.util.concurrent.Semaphore REPORT_FILL_EXPORT_SEMAPHORE =
-			new java.util.concurrent.Semaphore(REPORT_MAKSIMAL_PARALEL, true);
 
 	private static Object ambilLockJasper(File fileJasper) {
 		String key = fileJasper == null ? "" : fileJasper.getAbsolutePath();
@@ -141,89 +134,6 @@ public class Report extends GenericAutowireComposer {
 			lock = sebelumnya == null ? baru : sebelumnya;
 		}
 		return lock;
-	}
-
-	@SuppressWarnings({ "rawtypes", "unchecked" })
-	private static JRFileVirtualizer pasangVirtualizerReportJikaPerlu(Map parameters) {
-		if (parameters == null || parameters.get(JRParameter.REPORT_VIRTUALIZER) != null) {
-			return null;
-		}
-		try {
-			File dir = new File(System.getProperty("java.io.tmpdir"), "ais-jasper-virtualizer");
-			if (!dir.exists()) {
-				dir.mkdirs();
-			}
-			JRFileVirtualizer virtualizer = new JRFileVirtualizer(REPORT_VIRTUALIZER_MAX_PAGES_IN_MEMORY,
-					dir.getAbsolutePath());
-			parameters.put(JRParameter.REPORT_VIRTUALIZER, virtualizer);
-			parameters.put(PARAM_VIRTUALIZER_DIBUAT_REPORT, Boolean.TRUE);
-			return virtualizer;
-		} catch (Exception e) {
-			ais.common.ErrorAuditUtil.record(e,
-					"auto-audit src/ais/action/report/Report.java:pasangVirtualizerReportJikaPerlu");
-			return null;
-		}
-	}
-
-	@SuppressWarnings({ "rawtypes" })
-	private static void bersihkanVirtualizerReport(Map parameters, JRFileVirtualizer virtualizer) {
-		try {
-			if (virtualizer != null) {
-				virtualizer.cleanup();
-			}
-		} catch (Exception e) {
-			ais.common.ErrorAuditUtil.record(e,
-					"auto-audit(empty-catch) src/ais/action/report/Report.java:bersihkanVirtualizerReport");
-		} finally {
-			if (parameters != null && Boolean.TRUE.equals(parameters.get(PARAM_VIRTUALIZER_DIBUAT_REPORT))) {
-				parameters.remove(JRParameter.REPORT_VIRTUALIZER);
-				parameters.remove(PARAM_VIRTUALIZER_DIBUAT_REPORT);
-			}
-		}
-	}
-
-	private static int ambilMaksimalReportParalel() {
-		int nilai = Runtime.getRuntime().availableProcessors() >= 8 ? 2 : 1;
-		try {
-			String prop = System.getProperty("ais.report.max.parallel");
-			if (prop != null && prop.trim().length() > 0) {
-				nilai = Integer.parseInt(prop.trim());
-			}
-		} catch (Exception e) {
-			nilai = Runtime.getRuntime().availableProcessors() >= 8 ? 2 : 1;
-		}
-		if (nilai < 1) {
-			nilai = 1;
-		}
-		if (nilai > 4) {
-			nilai = 4;
-		}
-		return nilai;
-	}
-
-	private static boolean ambilIzinReportBerat(ProgressContext progress) throws InterruptedException {
-		if (REPORT_FILL_EXPORT_SEMAPHORE.tryAcquire()) {
-			return true;
-		}
-		updateProgress(progress, 35, "Menunggu antrean cetak laporan",
-				"Membatasi proses Jasper bersamaan agar memori server tetap aman");
-		REPORT_FILL_EXPORT_SEMAPHORE.acquire();
-		return true;
-	}
-
-	private static void lepasIzinReportBerat(boolean didapat) {
-		if (didapat) {
-			try {
-				REPORT_FILL_EXPORT_SEMAPHORE.release();
-			} catch (Exception e) {
-				ais.common.ErrorAuditUtil.record(e,
-						"auto-audit(empty-catch) src/ais/action/report/Report.java:lepasIzinReportBerat");
-			}
-		}
-	}
-
-	private static boolean bolehBuatHtmlPendampingReport() {
-		return Common.bolehKonfigurasi(KONFIG_BUAT_HTML_PENDAMPING_REPORT, Konfigurasi.TIDAK_AKTIF);
 	}
 
 	private static List<String> tetapDimasukkan = new ArrayList<String>();
@@ -1240,10 +1150,9 @@ public class Report extends GenericAutowireComposer {
 			if (Boolean.TRUE.equals(MODE_UNDUH.get())) {
 				return;
 			}
-			// Produksi default hemat memori: PDF tampil langsung lewat servlet. HTML
-			// pendamping hanya dibuat jika konfigurasi berikut diaktifkan khusus.
-			// Catatan: mode HTML pendamping kini tidak otomatis mengikuti mobile/previewHtmlAktif.
-			if (!bolehBuatHtmlPendampingReport()) {
+			// HTML pendamping dibuat bila konfigurasi aktif ATAU pengguna mobile (browser HP tak bisa
+			// menampilkan PDF dalam iframe → pratinjau WAJIB punya versi HTML untuk ditampilkan/dicetak).
+			if (!previewHtmlAktif() && !isMobileAman()) {
 				return;
 			}
 			try {
@@ -1540,20 +1449,71 @@ public class Report extends GenericAutowireComposer {
 		Connection conn = null;
 		Session session = openNativeSession();
 		try {
-			// Kunci hanya dipakai saat compile/recompile .jasper. Proses fill laporan bisa
-			// memakan memori besar dan lama, jadi jangan ditahan dalam synchronized agar
-			// cetak Surat Keluar besar tidak membuat request lain BLOCKED.
-			recompileJasperJikaJrxmlLebihBaru(fileJasper);
-			conn = session.connection();
-			normalisasiDataJasper(parameters, maps);
-			try {
-				jp = isiJasperReport(fileJasper, parameters, maps, conn);
-			} catch (UnsupportedClassVersionError ucve) {
-				// .jasper dikompilasi JDK lebih baru dari server; hapus dan kompilasi ulang
-				// dari .jrxml di dalam lock, lalu fill ulang di luar lock.
-				compileUlangJasperPaksa(fileJasper, ucve);
+			// FIX RACE CONDITION: recompile (tulis file .jasper) dan fillReport (baca +
+			// class-load bytecode ekspresi dari file .jasper yang SAMA) DIKUNCI per-nama-file
+			// supaya dua thread yang mencetak laporan bernama sama tidak saling tabrakan
+			// (salah satu menimpa file selagi yang lain masih memuat kelas dari isi lama).
+			// Kunci di-scope per-nama file (bukan global) -- laporan LAIN tetap paralel.
+			Object lockJasper = ambilLockJasper(fileJasper);
+			synchronized (lockJasper) {
+				// FIX (.jasper basi): kalau .jrxml sumber lebih baru dari .jasper terkompilasi
+				// (mis. jrxml baru saja diperbaiki tapi belum ada yang kompilasi ulang manual),
+				// .jasper lama TETAP bisa dimuat JVM (tidak melempar UnsupportedClassVersionError)
+				// tapi berisi bytecode ekspresi LAMA yang bisa salah tipe (mis. field yang dulu
+				// java.lang.Boolean lalu diubah ke java.lang.Object/String di jrxml) -> exception
+				// rutin di runtime (ClassCastException dsb) padahal sumbernya sudah benar.
+				// Recompile proaktif berdasar mtime supaya .jasper selalu sinkron dgn .jrxml,
+				// bukan cuma reaktif menunggu UnsupportedClassVersionError seperti di bawah.
+				recompileJasperJikaJrxmlLebihBaru(fileJasper);
+				conn = session.connection();
 				normalisasiDataJasper(parameters, maps);
-				jp = isiJasperReport(fileJasper, parameters, maps, conn);
+				try {
+					if (maps != null) {
+						JRMapCollectionDataSource dataSource = new JRMapCollectionDataSource(maps);
+						parameters.put("REPORT_CONNECTION", conn);
+						jp = JasperFillManager.fillReport(fileJasper.getAbsolutePath(), parameters, dataSource);
+					} else {
+						parameters.put("REPORT_CONNECTION", conn);
+						jp = JasperFillManager.fillReport(fileJasper.getAbsolutePath(), parameters, conn);
+					}
+				} catch (UnsupportedClassVersionError ucve) {
+					// .jasper dikompilasi JDK lebih baru dari server; hapus dan kompilasi ulang dari .jrxml
+					String jasperPath = fileJasper.getAbsolutePath();
+					String jrxmlPath = jasperPath.substring(0, jasperPath.length() - ".jasper".length()) + ".jrxml";
+					File fileJrxml = new File(jrxmlPath);
+					if (fileJasper.exists()) fileJasper.delete();
+					if (!fileJrxml.exists()) {
+						throw new Exception("File .jrxml tidak ditemukan untuk recompile: " + jrxmlPath, ucve);
+					}
+					compileJasperAtomically(fileJrxml, fileJasper);
+					normalisasiDataJasper(parameters, maps);
+					if (maps != null) {
+						JRMapCollectionDataSource dataSource = new JRMapCollectionDataSource(maps);
+						parameters.put("REPORT_CONNECTION", conn);
+						jp = JasperFillManager.fillReport(fileJasper.getAbsolutePath(), parameters, dataSource);
+					} else {
+						parameters.put("REPORT_CONNECTION", conn);
+						jp = JasperFillManager.fillReport(fileJasper.getAbsolutePath(), parameters, conn);
+					}
+				} catch (Exception loadError) {
+					if (!isCorruptJasper(loadError)) {
+						throw loadError;
+					}
+					File fileJrxml = pasanganJrxml(fileJasper);
+					if (fileJrxml == null || !fileJrxml.exists()) {
+						throw loadError;
+					}
+					compileJasperAtomically(fileJrxml, fileJasper);
+					normalisasiDataJasper(parameters, maps);
+					if (maps != null) {
+						JRMapCollectionDataSource dataSource = new JRMapCollectionDataSource(maps);
+						parameters.put("REPORT_CONNECTION", conn);
+						jp = JasperFillManager.fillReport(fileJasper.getAbsolutePath(), parameters, dataSource);
+					} else {
+						parameters.put("REPORT_CONNECTION", conn);
+						jp = JasperFillManager.fillReport(fileJasper.getAbsolutePath(), parameters, conn);
+					}
+				}
 			}
 		} finally {
 			// SANGAT PENTING UNTUK MEMORI: Mengembalikan koneksi ke pool!
@@ -1573,33 +1533,6 @@ public class Report extends GenericAutowireComposer {
 			closeNativeSession(session);
 		}
 		return jp;
-	}
-
-	@SuppressWarnings({ "rawtypes", "unchecked" })
-	private static JasperPrint isiJasperReport(File fileJasper, Map parameters, List maps, Connection conn)
-			throws Exception {
-		parameters.put("REPORT_CONNECTION", conn);
-		if (maps != null) {
-			JRMapCollectionDataSource dataSource = new JRMapCollectionDataSource(maps);
-			return JasperFillManager.fillReport(fileJasper.getAbsolutePath(), parameters, dataSource);
-		}
-		return JasperFillManager.fillReport(fileJasper.getAbsolutePath(), parameters, conn);
-	}
-
-	private static void compileUlangJasperPaksa(File fileJasper, Throwable sebab) throws Exception {
-		String jasperPath = fileJasper.getAbsolutePath();
-		String jrxmlPath = jasperPath.substring(0, jasperPath.length() - ".jasper".length()) + ".jrxml";
-		File fileJrxml = new File(jrxmlPath);
-		if (!fileJrxml.exists()) {
-			throw new Exception("File .jrxml tidak ditemukan untuk recompile: " + jrxmlPath, sebab);
-		}
-		Object lockJasper = ambilLockJasper(fileJasper);
-		synchronized (lockJasper) {
-			if (fileJasper.exists()) {
-				fileJasper.delete();
-			}
-			JasperCompileManager.compileReportToFile(fileJrxml.getAbsolutePath(), fileJasper.getAbsolutePath());
-		}
 	}
 
 	/**
@@ -1627,18 +1560,51 @@ public class Report extends GenericAutowireComposer {
 				return;
 			}
 			if (fileJrxml.lastModified() > fileJasper.lastModified()) {
-				Object lockJasper = ambilLockJasper(fileJasper);
-				synchronized (lockJasper) {
-					if (fileJrxml.lastModified() > fileJasper.lastModified()) {
-						JasperCompileManager.compileReportToFile(fileJrxml.getAbsolutePath(), fileJasper.getAbsolutePath());
-					}
-				}
+				compileJasperAtomically(fileJrxml, fileJasper);
 			}
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/report/Report.java:recompileJasperJikaJrxmlLebihBaru");
 			// Gagal recompile proaktif -> biarkan lanjut pakai .jasper lama; jalur
 			// UnsupportedClassVersionError di fillJasperReport tetap jadi jaring pengaman
 			// terakhir utk kasus JDK mismatch, dan error lain (mis. jrxml rusak) akan
 			// tetap muncul lewat fillReport seperti biasa (tidak disembunyikan).
+		}
+	}
+
+	private static File pasanganJrxml(File fileJasper) {
+		if (fileJasper == null) return null;
+		String path = fileJasper.getAbsolutePath();
+		if (!path.toLowerCase().endsWith(".jasper")) return null;
+		return new File(path.substring(0, path.length() - ".jasper".length()) + ".jrxml");
+	}
+
+	private static boolean isCorruptJasper(Throwable error) {
+		Throwable current = error;
+		while (current != null) {
+			String name = current.getClass().getName();
+			String message = current.getMessage() == null ? "" : current.getMessage().toLowerCase();
+			if (name.indexOf("EOFException") >= 0 || name.indexOf("StreamCorruptedException") >= 0
+					|| message.indexOf("error loading object from file") >= 0) return true;
+			current = current.getCause();
+		}
+		return false;
+	}
+
+	private static void compileJasperAtomically(File jrxml, File jasper) throws Exception {
+		CommonFileUtil.ensureWritableFile(jasper, 20L * 1024L * 1024L);
+		File temp = new File(jasper.getAbsolutePath() + ".tmp");
+		try {
+			JasperCompileManager.compileReportToFile(jrxml.getAbsolutePath(), temp.getAbsolutePath());
+			if (!temp.isFile() || temp.length() <= 0L) {
+				throw new java.io.IOException("Hasil kompilasi template Jasper kosong: " + jrxml);
+			}
+			if (jasper.exists() && !jasper.delete()) {
+				throw new java.io.IOException("Template Jasper lama tidak dapat diganti: " + jasper);
+			}
+			if (!temp.renameTo(jasper)) {
+				org.apache.commons.io.FileUtils.copyFile(temp, jasper);
+			}
+		} finally {
+			if (temp.exists()) temp.delete();
 		}
 	}
 
@@ -1942,7 +1908,6 @@ public class Report extends GenericAutowireComposer {
 
 		String namaAsli = fileD;
 		File myFile = null;
-		JRFileVirtualizer virtualizerReport = null;
 
 		try {
 			if (parameters.get("nama_laporan") != null) {
@@ -1952,8 +1917,7 @@ public class Report extends GenericAutowireComposer {
 					File fileJasper = new File(fileD.replaceAll(".jrxml", "") + ".jasper");
 					if (fileJrxml.exists()) {
 						try {
-							JasperCompileManager.compileReportToFile(fileJrxml.getAbsolutePath(),
-									fileJasper.getAbsolutePath());
+							compileJasperAtomically(fileJrxml, fileJasper);
 							fileD = fileJasper.getAbsolutePath();
 						} catch (Exception e) {
 							if (isReportErrorLogConsoleEnabled()) {
@@ -1986,10 +1950,11 @@ public class Report extends GenericAutowireComposer {
 			String reportPath = Common.ambilREAL_PATH_REPORT();
 
 			myFile = new File(reportPath + "/" + bar + "." + formatLaporan);
-			myFile.getParentFile().mkdirs();
+			CommonFileUtil.ensureWritableFile(myFile, 50L * 1024L * 1024L);
 			myFile.createNewFile();
 
 			File myfilebarcode = new File(reportPath + "/barcode_" + bar + ".png");
+			CommonFileUtil.ensureWritableFile(myfilebarcode, 64L * 1024L);
 
 			// FIX: Pencegahan NullPointerException dari Barbecue
 			try {
@@ -2010,51 +1975,38 @@ public class Report extends GenericAutowireComposer {
 			initDefaultParameter(parameters, locale);
 			setlogo(parameters);
 			parameters.put("REPORT_LOCALE", locale);
-			virtualizerReport = pasangVirtualizerReportJikaPerlu(parameters);
 
 			File lastFileJasper = null;
 			JasperPrint jasperPrint = null;
-			boolean izinReportBerat = false;
 			try {
-				izinReportBerat = ambilIzinReportBerat(progress);
-				try {
-					updateProgress(progress, 50, "Membaca template Jasper", "Membuka file desain laporan");
-					File fileJasper = CommonReport.generateFileJasper(fileD, namaAsli);
-					lastFileJasper = fileJasper;
-					updateProgress(progress, 70, "Mengisi data laporan", "Menggabungkan data dengan template laporan");
-					jasperPrint = fillJasperReport(fileJasper, parameters, maps);
-				} catch (Exception e) {
-						if (isReportErrorLogConsoleEnabled()) e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/report/Report.java:1436");
-					updateProgress(progress, 55, "Membaca template cadangan", "Template utama gagal, mencoba template laporan cadangan");
-					File fileJasper = CommonReport.generateFileJasper(fileSebelumnya, namaAsli);
-					lastFileJasper = fileJasper;
-					updateProgress(progress, 72, "Mengisi data laporan", "Menggabungkan data dengan template cadangan");
-					jasperPrint = fillJasperReport(fileJasper, parameters, maps);
-				}
+				updateProgress(progress, 50, "Membaca template Jasper", "Membuka file desain laporan");
+				File fileJasper = CommonReport.generateFileJasper(fileD, namaAsli);
+				lastFileJasper = fileJasper;
+				updateProgress(progress, 70, "Mengisi data laporan", "Menggabungkan data dengan template laporan");
+				jasperPrint = fillJasperReport(fileJasper, parameters, maps);
+			} catch (Exception e) {
+					if (isReportErrorLogConsoleEnabled()) e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/report/Report.java:1436");
+				updateProgress(progress, 55, "Membaca template cadangan", "Template utama gagal, mencoba template laporan cadangan");
+				File fileJasper = CommonReport.generateFileJasper(fileSebelumnya, namaAsli);
+				lastFileJasper = fileJasper;
+				updateProgress(progress, 72, "Mengisi data laporan", "Menggabungkan data dengan template cadangan");
+				jasperPrint = fillJasperReport(fileJasper, parameters, maps);
+			}
 
-				updateProgress(progress, 88, "Membentuk file " + formatLaporan, "Menyimpan hasil laporan ke file");
-				try {
-					exportJasperPrint(jasperPrint, formatLaporan, myFile);
-				} catch (Exception exportEx) {
-					// Jika gagal karena foto tidak valid (URL eksternal kembalikan bukan gambar),
-					// hapus foto dan coba ulang agar laporan tetap tercetak tanpa foto.
-					if (isImageFormatError(exportEx) && lastFileJasper != null
-							&& kosongkanParameterGambarTidakValid(parameters)) {
-						if (isReportErrorLogConsoleEnabled()) exportEx.printStackTrace(); ais.common.ErrorAuditUtil.record(exportEx, "auto-audit src/ais/action/report/Report.java:1452");
-						JasperPrint jasperPrintRetry = null;
-						try {
-							jasperPrintRetry = fillJasperReport(lastFileJasper, parameters, maps);
-							exportJasperPrint(jasperPrintRetry, formatLaporan, myFile);
-						} finally {
-							jasperPrintRetry = null;
-						}
-					} else {
-						throw exportEx;
-					}
+			updateProgress(progress, 88, "Membentuk file " + formatLaporan, "Menyimpan hasil laporan ke file");
+			try {
+				exportJasperPrint(jasperPrint, formatLaporan, myFile);
+			} catch (Exception exportEx) {
+				// Jika gagal karena foto tidak valid (URL eksternal kembalikan bukan gambar),
+				// hapus foto dan coba ulang agar laporan tetap tercetak tanpa foto.
+				if (isImageFormatError(exportEx) && lastFileJasper != null
+						&& kosongkanParameterGambarTidakValid(parameters)) {
+					if (isReportErrorLogConsoleEnabled()) exportEx.printStackTrace(); ais.common.ErrorAuditUtil.record(exportEx, "auto-audit src/ais/action/report/Report.java:1452");
+					JasperPrint jasperPrintRetry = fillJasperReport(lastFileJasper, parameters, maps);
+					exportJasperPrint(jasperPrintRetry, formatLaporan, myFile);
+				} else {
+					throw exportEx;
 				}
-			} finally {
-				jasperPrint = null;
-				lepasIzinReportBerat(izinReportBerat);
 			}
 			updateProgress(progress, 96, "Menyimpan riwayat laporan", "Mencatat riwayat file laporan yang dibuat");
 			saveReportHistory(bar, formatLaporan, myFile.getName());
@@ -2064,8 +2016,6 @@ public class Report extends GenericAutowireComposer {
 				try { if (myFile != null && myFile.exists() && myFile.length() == 0) myFile.delete(); } catch (Exception deleteError) { ais.common.ErrorAuditUtil.record(deleteError, "auto-audit(empty-catch) src/ais/action/report/Report.java:1464"); }
 				File detailFile = createReportErrorDetailFile(formatLaporan, fileD, namaAsli, e, parameters);
 				throw new ReportGenerationException(pesanErrorLaporan(e), e, detailFile);
-			} finally {
-				bersihkanVirtualizerReport(parameters, virtualizerReport);
 			}
 		if (myFile != null) {
 			System.out.println("cetak di -> " + myFile.getAbsolutePath() + ", ada -> " + myFile.exists());
@@ -2162,8 +2112,7 @@ public class Report extends GenericAutowireComposer {
 									fileJrxml.getAbsolutePath().replaceAll(".jrxml", "") + ".jasper");
 							if (!fileJasper.exists()) {
 								fileJasper.getParentFile().mkdirs();
-								JasperCompileManager.compileReportToFile(fileJrxml.getAbsolutePath(),
-										fileJasper.getAbsolutePath());
+								compileJasperAtomically(fileJrxml, fileJasper);
 							}
 							parameters.put(subReport.getKode(), fileJasper.getAbsolutePath());
 						}
@@ -2264,20 +2213,9 @@ public class Report extends GenericAutowireComposer {
 				parameters.put("label_email_kampus", perguruanTinggi.getEmail());
 				parameters.put("label_website_kampus", perguruanTinggi.getWebsite());
 
-				// GATE (pola sama dengan Fakultas.putFile/Sekolah.putFile/SuratUtil.putTtdPath):
-				// logo di sini disuntikkan OTOMATIS ke SEMUA laporan (dipanggil dari
-				// generateFileReportCore utk setiap cetak PDF). Sebelumnya hanya dicek
-				// "file != null" (bukan validitas ISI-nya) -- kalau berkas logo yang
-				// diupload admin rusak/kosong/bukan format gambar, path-nya tetap lolos
-				// ke parameter "logo" dan JasperReports/iText melempar "The byte array is
-				// not a recognized imageformat" (Report$ReportGenerationException) saat
-				// export PDF, membatalkan SELURUH laporan (bukan cuma logonya).
-				// Common.isGambarLaporanValid() memvalidasi isi berkas (bukan cuma exists()),
-				// dan bila tidak valid otomatis fallback ke logo bawaan sistem seperti semula.
 				LampiranLain logo = LampiranLain.ambil(perguruanTinggi.getId(), LampiranLain.LOGO_PT);
-				File fileLogo = logo == null ? null : logo.ambilFile();
-				if (Common.isGambarLaporanValid(fileLogo)) {
-					parameters.put("logo", fileLogo.getAbsolutePath());
+				if (logo != null && logo.ambilFile() != null) {
+					parameters.put("logo", logo.ambilFile().getAbsolutePath());
 				} else {
 					parameters.put("logo", Common.REAL_PATH + "/img/logo.png");
 				}

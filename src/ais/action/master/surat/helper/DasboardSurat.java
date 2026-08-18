@@ -101,6 +101,7 @@ import ais.action.master.surat.SuratKeluarAction;
 import ais.action.master.surat.SuratMasukAction;
 import ais.action.master.surat.util.SuratUtil;
 import ais.common.Common;
+import ais.common.ConstantValues;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.hibernate.StreamingHibernateUtil;
 import ais.database.model.Tbmuser;
@@ -1339,26 +1340,33 @@ public class DasboardSurat extends MyPortallayout {
 													@Override
 													public void onEvent(Event event) throws Exception {
 
-														Session sessions = StreamingHibernateUtil.getInstance()
-																.currentSession();
+														Session sessions = null;
+														try {
+															sessions = StreamingHibernateUtil.getInstance()
+																	.currentSession();
 
-														FotoGambarSuratKeluar fotoGambarSuratKeluar = (FotoGambarSuratKeluar) sessions
-																.createCriteria(FotoGambarSuratKeluar.class)
-																.add(Restrictions.idEq(id)).uniqueResult();
+															FotoGambarSuratKeluar fotoGambarSuratKeluar = (FotoGambarSuratKeluar) sessions
+																	.createCriteria(FotoGambarSuratKeluar.class)
+																	.add(Restrictions.idEq(id)).uniqueResult();
 
-														if (fotoGambarSuratKeluar.getGdrive() != null
-																&& !fotoGambarSuratKeluar.getGdrive().isEmpty()) {
-															ExecutionsCtrl.getCurrent().sendRedirect(
-																	fotoGambarSuratKeluar.downloadGDriveUrl(),
-																	"_blank");
-														} else if (fotoGambarSuratKeluar != null) {
-
-															Common.display(fotoGambarSuratKeluar);
+															if (fotoGambarSuratKeluar == null) {
+																return;
+															}
+															if (fotoGambarSuratKeluar.getGdrive() != null
+																	&& !fotoGambarSuratKeluar.getGdrive().isEmpty()) {
+																ExecutionsCtrl.getCurrent().sendRedirect(
+																		fotoGambarSuratKeluar.downloadGDriveUrl(),
+																		"_blank");
+															} else {
+																Common.display(fotoGambarSuratKeluar);
+															}
+														} finally {
+															Common.closeOpenedSession(sessions);
+															try {
+																StreamingHibernateUtil.getInstance().closeSession();
+															} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/surat/helper/DasboardSurat.java:1358");
+															}
 														}
-
-														sessions.disconnect();
-														sessions.close();
-														StreamingHibernateUtil.getInstance().closeSession();
 
 													}
 
@@ -3629,6 +3637,8 @@ private Criterion createSuratKeluarOrPejabatAccessCriterion(String suratPrefix, 
 		sb.append("<div style='display:flex; align-items:center; gap:5px; flex-wrap:wrap; line-height:1.1; padding:1px 0;'>");
 		int no = 1;
 		int tampil = 0;
+		String prevLabel = null;
+		Date prevWaktu = null;
 		for (int i = 0; i < alurs.size(); i++) {
 			Object alur = alurs.get(i);
 			if (!isAlurSudahDilewatiV14(alur) && !isAlurMenungguTargetLoginV20(alur)) {
@@ -3641,8 +3651,14 @@ private Criterion createSuratKeluarOrPejabatAccessCriterion(String suratPrefix, 
 			String color = getAlurStatusColorV14(alur);
 			String status = getAlurStatusTextV14(alur);
 			String waktu = getAlurWaktuV14(alur);
+			String konseptor = getAlurKonseptorRingkasanV14(alur);
+			Date waktuDisposisi = getAlurWaktuDateV14(alur);
 			String title = safeHtml(getAlurLabelV14(alur) + " | " + getAlurActorV14(alur) + " | " + status
-					+ (waktu == null || waktu.trim().isEmpty() ? "" : " | " + waktu));
+					+ (waktu == null || waktu.trim().isEmpty() ? "" : " | " + waktu)
+					+ (konseptor == null || konseptor.trim().isEmpty() ? ""
+							: " | Jabatan yang mendisposisikan : " + konseptor)
+					+ (konseptor == null || konseptor.trim().isEmpty() || waktuDisposisi == null ? ""
+							: " | Tanggal & Waktu : " + Common.dateFormat3.get().format(waktuDisposisi)));
 			sb.append("<span title='").append(title)
 					.append("' style='display:inline-flex; align-items:center; gap:5px; max-width:250px; padding:4px 8px; border-radius:999px; background:")
 					.append(getAlurStatusBgV14(alur)).append("; border:1px solid #e2e8f0; color:#0f172a; font-size:10px; font-weight:900; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;'>")
@@ -3656,6 +3672,8 @@ private Criterion createSuratKeluarOrPejabatAccessCriterion(String suratPrefix, 
 					.append(safeHtml(status)).append("</span>")
 					.append("</span>");
 			no++;
+			prevLabel = getAlurLabelV14(alur);
+			prevWaktu = getAlurWaktuDateV14(alur);
 		}
 		if (tampil <= 0) {
 			sb.append("<span style='padding:6px 9px; border-radius:999px; background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; font-size:10px; font-weight:900;'>Belum ada alur persetujuan yang perlu ditampilkan</span>");
@@ -3743,6 +3761,82 @@ private Criterion createSuratKeluarOrPejabatAccessCriterion(String suratPrefix, 
 			debugError("getAlurActorV14", e);
 		}
 		return "Pelaku belum terbaca";
+	}
+
+	private String getAlurKonseptorJabatanV14(Object alur) {
+		try {
+			Tbmuser konseptor = null;
+			if (alur instanceof AlurPersetujuanSuratKeluarStatus) {
+				konseptor = ((AlurPersetujuanSuratKeluarStatus) alur).getKonseptor();
+			} else if (alur instanceof AlurPersetujuanSuratMasukStatus) {
+				konseptor = ((AlurPersetujuanSuratMasukStatus) alur).getKonseptor();
+			}
+			JenisJabatan jenisJabatan = getJenisJabatanKonseptorV14(konseptor);
+			if (jenisJabatan != null && jenisJabatan.getNama() != null && jenisJabatan.getNama().trim().length() > 0) {
+				return jenisJabatan.getNama();
+			}
+		} catch (Exception e) {
+			debugError("getAlurKonseptorJabatanV14", e);
+		}
+		return "";
+	}
+
+	private String getAlurKonseptorRingkasanV14(Object alur) {
+		try {
+			Tbmuser konseptor = null;
+			if (alur instanceof AlurPersetujuanSuratKeluarStatus) {
+				konseptor = ((AlurPersetujuanSuratKeluarStatus) alur).getKonseptor();
+			} else if (alur instanceof AlurPersetujuanSuratMasukStatus) {
+				konseptor = ((AlurPersetujuanSuratMasukStatus) alur).getKonseptor();
+			}
+			if (konseptor != null) {
+				String ringkasan = String.valueOf(konseptor);
+				return bersihkanKeteranganKurungKonseptorV14(ringkasan);
+			}
+		} catch (Exception e) {
+			debugError("getAlurKonseptorRingkasanV14", e);
+		}
+		return "";
+	}
+
+	private String bersihkanKeteranganKurungKonseptorV14(String ringkasan) {
+		if (ringkasan == null || "null".equalsIgnoreCase(ringkasan.trim())) {
+			return "";
+		}
+		return ringkasan.trim().replaceAll("\\s*\\([^)]*\\)\\s*$", "").trim();
+	}
+
+	private JenisJabatan getJenisJabatanKonseptorV14(Tbmuser konseptor) {
+		if (konseptor == null) {
+			return null;
+		}
+		try {
+			Tbmrole role = konseptor.hakAkses();
+			if (role != null && role.getJenisJabatan() != null) {
+				return role.getJenisJabatan();
+			}
+		} catch (Exception e) {
+			debugError("getJenisJabatanKonseptorV14-role", e);
+		}
+		try {
+			List<Pejabat> pejabats = ConstantValues.simpleList(
+					HibernateUtil.currentSession().createCriteria(Pejabat.class)
+							.add(Restrictions.or(
+									Restrictions.ilike("usernamePengguna", "," + konseptor.getUserId() + ",",
+											MatchMode.ANYWHERE),
+									Restrictions.or(Restrictions.eq("pegawai", konseptor.getPegawai()),
+											Restrictions.or(Restrictions.eq("dosen", konseptor.getDosen()),
+													Restrictions.eq("guru", konseptor.getGuru())))))
+							.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+							.setMaxResults(1),
+					Pejabat.class);
+			if (!pejabats.isEmpty() && pejabats.get(0).getJenisJabatan() != null) {
+				return pejabats.get(0).getJenisJabatan();
+			}
+		} catch (Exception e) {
+			debugError("getJenisJabatanKonseptorV14-pejabat", e);
+		}
+		return null;
 	}
 
 	private String getPelakuAlurV14(Tbmuser konseptor, Object mahasiswa, Object siswa, Pejabat pejabat) {
@@ -3843,30 +3937,38 @@ private Criterion createSuratKeluarOrPejabatAccessCriterion(String suratPrefix, 
 
 	private String getAlurWaktuV14(Object alur) {
 		try {
-			Date waktu = null;
-			if (alur instanceof AlurPersetujuanSuratKeluarStatus) {
-				AlurPersetujuanSuratKeluarStatus s = (AlurPersetujuanSuratKeluarStatus) alur;
-				if (Boolean.TRUE.equals(s.getDisetujui())) {
-					waktu = s.getWaktuPersetujuan();
-				} else if (Boolean.TRUE.equals(s.getDitolak())) {
-					waktu = s.getWaktuDitolak();
-				} else {
-					waktu = s.getTanggal_dirubah();
-				}
-			} else if (alur instanceof AlurPersetujuanSuratMasukStatus) {
-				AlurPersetujuanSuratMasukStatus s = (AlurPersetujuanSuratMasukStatus) alur;
-				if (Boolean.TRUE.equals(s.getDisetujui())) {
-					waktu = s.getWaktuPersetujuan();
-				} else if (Boolean.TRUE.equals(s.getDitolak())) {
-					waktu = s.getWaktuDitolak();
-				} else {
-					waktu = s.getTanggal_dirubah();
-				}
-			}
+			Date waktu = getAlurWaktuDateV14(alur);
 			return waktu == null ? "" : Common.dateFormat3.get().format(waktu);
 		} catch (Exception e) {
 			return "";
 		}
+	}
+
+	private Date getAlurWaktuDateV14(Object alur) {
+		try {
+			if (alur instanceof AlurPersetujuanSuratKeluarStatus) {
+				AlurPersetujuanSuratKeluarStatus s = (AlurPersetujuanSuratKeluarStatus) alur;
+				if (Boolean.TRUE.equals(s.getDisetujui()) && s.getWaktuPersetujuan() != null) {
+					return s.getWaktuPersetujuan();
+				}
+				if (Boolean.TRUE.equals(s.getDitolak()) && s.getWaktuDitolak() != null) {
+					return s.getWaktuDitolak();
+				}
+				return s.getTanggal_dirubah();
+			} else if (alur instanceof AlurPersetujuanSuratMasukStatus) {
+				AlurPersetujuanSuratMasukStatus s = (AlurPersetujuanSuratMasukStatus) alur;
+				if (Boolean.TRUE.equals(s.getDisetujui()) && s.getWaktuPersetujuan() != null) {
+					return s.getWaktuPersetujuan();
+				}
+				if (Boolean.TRUE.equals(s.getDitolak()) && s.getWaktuDitolak() != null) {
+					return s.getWaktuDitolak();
+				}
+				return s.getTanggal_dirubah();
+			}
+		} catch (Exception e) {
+			debugError("getAlurWaktuDateV14", e);
+		}
+		return null;
 	}
 
 	private String buildAlurRingkasanHtmlV14(List alurs) {
@@ -4274,7 +4376,7 @@ private Criterion createSuratKeluarOrPejabatAccessCriterion(String suratPrefix, 
 		String html = "<div style='display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; margin-top:14px;'>"
 				+ metricCardHtml("Pengajuan Surat", data.totalPengajuanKeluar, "Surat keluar sesuai hak akses", "#2563eb",
 						"✉")
-				+ metricCardHtml("Menunggu Tindak Lanjut", totalAntrian, "Approval/disposisi belum selesai", "#f59e0b", "⏳")
+				+ metricCardHtml("Menunggu Tindak Lanjut", totalAntrian, "Approval/disposisi belum selesai", "#f59e0b", "&#9203;")
 				+ metricCardHtml("Disetujui / Diproses", totalSelesai, "Rasio selesai " + rasioSelesai, "#16a34a", "✓")
 				+ metricCardHtml("Ditolak", totalDitolak, "Butuh perhatian & evaluasi", "#dc2626", "!")
 				+ metricCardHtml("Revisi", totalRevisi, "Sudah/harus revisi berkas", "#7c3aed", "↻")
@@ -5537,7 +5639,7 @@ private Criterion createSuratKeluarOrPejabatAccessCriterion(String suratPrefix, 
 			return "<span style='font-size:10px; color:#94a3b8;'>—</span>";
 		return "<span style='display:inline-block; padding:2px 7px; border-radius:6px; background:#f0f9ff;"
 				+ " color:#0369a1; font-size:10px; font-weight:700; border:1px solid #bae6fd;'>"
-				+ "← " + escHtml(parentNama) + "</span>";
+				+ "&larr; " + escHtml(parentNama) + "</span>";
 	}
 
 	public static String buildKeteranganHtmlV20(String keterangan) {

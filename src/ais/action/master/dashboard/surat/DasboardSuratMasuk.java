@@ -52,10 +52,12 @@ import ais.common.Common;
 import ais.common.ConstantValues;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.hibernate.StreamingHibernateUtil;
+import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
 import ais.database.model.file.FotoGambarSuratMasuk;
 import ais.database.model.employ.JenisJabatan;
 import ais.database.model.rab.SatuanKerja;
+import ais.database.model.rab.Pejabat;
 import ais.database.model.sirkulasisurat.KembaliSuratItemDetail;
 import ais.database.model.sirkulasisurat.PeminjamSurat;
 import ais.database.model.sirkulasisurat.PeminjamanSuratItemDetail;
@@ -118,6 +120,8 @@ public class DasboardSuratMasuk extends MyWindow {
 
 		Map<String, List<DisposisiChip>> perGrup = new LinkedHashMap<String, List<DisposisiChip>>();
 		int nomor = 1;
+		String prevLabel = null;
+		Date prevWaktu = null;
 		for (AlurPersetujuanSuratMasukStatus status : statusList) {
 			JenisJabatan jenisJabatan = jenisJabatanDariStatus(status);
 			if (jenisJabatan == null && (status == null || status.getAlurPersetujuanSuratMasuk() == null)) {
@@ -136,9 +140,11 @@ public class DasboardSuratMasuk extends MyWindow {
 			chip.nomor = nomor;
 			chip.label = labelDisposisi(status, jenisJabatan);
 			isiStatusChip(chip, status);
-			chip.tooltip = tooltipDisposisi(status, chip.label, chip.status);
+			chip.tooltip = tooltipDisposisi(status, chip.label, chip.status, prevLabel, prevWaktu);
 			chips.add(chip);
 			nomor++;
+			prevLabel = chip.label;
+			prevWaktu = waktuDisposisi(status);
 		}
 
 		if (perGrup.isEmpty()) {
@@ -303,7 +309,21 @@ public class DasboardSuratMasuk extends MyWindow {
 		}
 	}
 
-	private String tooltipDisposisi(AlurPersetujuanSuratMasukStatus status, String label, String statusText) {
+	private Date waktuDisposisi(AlurPersetujuanSuratMasukStatus status) {
+		if (status == null) {
+			return null;
+		}
+		if (Boolean.TRUE.equals(status.getDisetujui()) && status.getWaktuPersetujuan() != null) {
+			return status.getWaktuPersetujuan();
+		}
+		if (Boolean.TRUE.equals(status.getDitolak()) && status.getWaktuDitolak() != null) {
+			return status.getWaktuDitolak();
+		}
+		return status.getTanggal_dirubah();
+	}
+
+	private String tooltipDisposisi(AlurPersetujuanSuratMasukStatus status, String label, String statusText,
+			String prevLabel, Date prevWaktu) {
 		StringBuilder sb = new StringBuilder();
 		sb.append(label).append(" - ").append(statusText);
 		if (status == null) {
@@ -325,7 +345,83 @@ public class DasboardSuratMasuk extends MyWindow {
 		if (status.getKeterangan() != null && status.getKeterangan().trim().length() > 0) {
 			sb.append(" - ").append(status.getKeterangan().replace('\n', ' '));
 		}
+		String konseptor = ringkasanKonseptor(status.getKonseptor());
+		if (konseptor != null && konseptor.trim().length() > 0) {
+			sb.append("\nJabatan yang mendisposisikan : ").append(konseptor);
+			Date waktuDisposisi = waktuDisposisi(status);
+			if (waktuDisposisi != null) {
+				sb.append("\nTanggal & Waktu : ").append(Common.dateFormat3.get().format(waktuDisposisi));
+			}
+		}
 		return sb.toString();
+	}
+
+	private String ringkasanKonseptor(Tbmuser konseptor) {
+		if (konseptor == null) {
+			return "";
+		}
+		String ringkasan = String.valueOf(konseptor);
+		return bersihkanKeteranganKurungKonseptor(ringkasan);
+	}
+
+	private String bersihkanKeteranganKurungKonseptor(String ringkasan) {
+		if (ringkasan == null || "null".equalsIgnoreCase(ringkasan.trim())) {
+			return "";
+		}
+		return ringkasan.trim().replaceAll("\\s*\\([^)]*\\)\\s*$", "").trim();
+	}
+
+	private String labelJabatanKonseptor(Tbmuser konseptor) {
+		JenisJabatan jenisJabatan = jenisJabatanKonseptor(konseptor);
+		if (jenisJabatan != null && jenisJabatan.getNama() != null && jenisJabatan.getNama().trim().length() > 0) {
+			return jenisJabatan.getNama();
+		}
+		return "";
+	}
+
+	private JenisJabatan jenisJabatanKonseptor(Tbmuser konseptor) {
+		if (konseptor == null) {
+			return null;
+		}
+		try {
+			Tbmrole role = konseptor.hakAkses();
+			if (role != null && role.getJenisJabatan() != null) {
+				return role.getJenisJabatan();
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit src/ais/action/master/dashboard/surat/DasboardSuratMasuk.java:jenisJabatanKonseptor-role");
+		}
+		try {
+			List<Pejabat> pejabats = ConstantValues.simpleList(
+					HibernateUtil.currentSession().createCriteria(Pejabat.class)
+							.add(Restrictions.or(
+									Restrictions.ilike("usernamePengguna", "," + konseptor.getUserId() + ",",
+											MatchMode.ANYWHERE),
+									Restrictions.or(Restrictions.eq("pegawai", konseptor.getPegawai()),
+											Restrictions.or(Restrictions.eq("dosen", konseptor.getDosen()),
+													Restrictions.eq("guru", konseptor.getGuru())))))
+							.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+							.setMaxResults(1),
+					Pejabat.class);
+			if (!pejabats.isEmpty() && pejabats.get(0).getJenisJabatan() != null) {
+				return pejabats.get(0).getJenisJabatan();
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit src/ais/action/master/dashboard/surat/DasboardSuratMasuk.java:jenisJabatanKonseptor-pejabat");
+		}
+		return null;
+	}
+
+	private String namaKonseptor(Tbmuser konseptor) {
+		if (konseptor == null) {
+			return "";
+		}
+		if (konseptor.getUserNama() != null && konseptor.getUserNama().trim().length() > 0) {
+			return konseptor.getUserNama();
+		}
+		return konseptor.getUserId() == null ? "" : konseptor.getUserId();
 	}
 
 	private void pengajuanBaru(final Tabpanel panelchildren) throws Exception {

@@ -98,6 +98,7 @@ public class ProdukAction extends GenericAutowireComposer implements DataCriteri
 	private MyDoublebox hargaJual;
 	private Combobox metodeHpp;
 	private Combobox izinkanJualMinusStok;
+	private Combobox grupProduk;
 	private Toko currentToko;
 	private Textbox imageUrl;
 	private MyGrid gridGambar;
@@ -440,6 +441,20 @@ public class ProdukAction extends GenericAutowireComposer implements DataCriteri
 			toko.setDisabled(!currentToko.getBolehMelihatTokolain());
 		}
 
+		// Grup harga terpusat lintas toko (opsional) -- lihat javadoc GrupProduk. Bila diisi,
+		// HPP/harga jual produk ini akan DITIMPA setiap kali grupnya disimpan dari layar
+		// Grup Produk; kosong = harga tetap dikelola per toko seperti sebelumnya.
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Grup Produk (Harga Terpusat)"));
+		row.appendChild(grupProduk = new Combobox());
+		Common.insertComboDanSemua(grupProduk, new String[] { "nama" }, "kode",
+				ais.database.model.inventory.GrupProduk.class, "== Tanpa Grup ==",
+				Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
+		Common.selectComboItem(true, grupProduk, produk.getGrupProduk());
+		grupProduk.setWidth("90%");
+		grupProduk.setReadonly(true);
+
 		row = new MyFormRow();
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Harga Beli"));
@@ -691,6 +706,10 @@ public class ProdukAction extends GenericAutowireComposer implements DataCriteri
 		}
 		produk.setKeterangan(keterangan.getValue());
 		produk.setToko((Toko) (toko.getSelectedItem() == null ? null : toko.getSelectedItem().getValue()));
+		produk.setGrupProduk(grupProduk.getSelectedIndex() > 0
+				&& grupProduk.getSelectedItem().getValue() instanceof ais.database.model.inventory.GrupProduk
+						? (ais.database.model.inventory.GrupProduk) grupProduk.getSelectedItem().getValue()
+						: null);
 		// Diset EKSPLISIT (bukan diandalkan dari @PrePersist/@PreUpdate entity) -- hook JPA lifecycle
 		// tidak terjamin terpasang di setup Hibernate 3.6 native project ini (AnnotationConfiguration
 		// polos, bukan bootstrap JPA EntityManager) -- lihat JavaDoc gap-closure di

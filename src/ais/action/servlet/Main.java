@@ -231,6 +231,14 @@ public class Main extends HttpServlet {
 		String page = defaultPage;
 		try {
 			Tbmuser user = checkAndSetUserSession(request, true);
+			// Role dasar Kantin harus membuka shell JSP Kantin lengkap (header,
+			// sidebar dan dashboard Ringkasan), sebelum halamanUtama atau flag
+			// Inventory/Pergudangan pada role dievaluasi.
+			if (isKantinUser(user)) {
+				request.setAttribute("default_p", "kantin");
+				request.setAttribute("default_s", "ringkasan");
+				return "/WEB-INF/baru/index.jsp";
+			}
 			// Pilihan eksplisit pada Tbmrole harus menjadi sumber utama landing page.
 			// Sebelumnya flag landingInventory/landingKantin dan role Kantin dievaluasi
 			// lebih dulu, sehingga pilihan POS Apotik/eMedik yang baru disimpan dapat
@@ -246,11 +254,6 @@ public class Main extends HttpServlet {
 				request.setAttribute("default_p", "kantin");
 				request.setAttribute("default_s", "ringkasan");
 				request.setAttribute("kantinMemberLanding", Boolean.TRUE);
-				return "/WEB-INF/baru/index.jsp";
-			}
-			if (isKantinUser(user)) {
-				request.setAttribute("default_p", "kantin");
-				request.setAttribute("default_s", "ringkasan");
 				return "/WEB-INF/baru/index.jsp";
 			}
 			if (isKoperasiMemberLandingEnabled(user)) {

@@ -5,6 +5,7 @@ package ais.database.model;
 import static javax.persistence.GenerationType.IDENTITY;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
@@ -22,6 +23,8 @@ import javax.persistence.TemporalType;
 
 import org.hibernate.envers.Audited;
 
+import ais.action.master.helper.HistoryStatusMahasiswaUtil;
+import ais.common.Common;
 import ais.database.model.akunting.Akun;
 
 /**
@@ -90,6 +93,13 @@ public class JenisDiskonMahasiswa extends GeneralValueObject {
 	private Boolean aktif;
 	private Integer semesterMulai;
 	private Integer semesterSampai;
+	private Date tanggalMulaiBerlaku;
+	private Date tanggalSampaiBerlaku;
+	private Boolean berlakuUntukSemuaMahasiswa;
+	private Fakultas fakultas;
+	private Jurusan jurusan;
+	private String program;
+	private StatusAwalMahasiswa statusAwalMahasiswa;
 
 	public JenisDiskonMahasiswa() {
 	}
@@ -193,6 +203,168 @@ public class JenisDiskonMahasiswa extends GeneralValueObject {
 
 	public void setSemesterSampai(Integer semesterSampai) {
 		this.semesterSampai = semesterSampai;
+	}
+
+	@Temporal(TemporalType.DATE)
+	@Column(name = "tanggal_mulai_berlaku")
+	public Date getTanggalMulaiBerlaku() {
+		return tanggalMulaiBerlaku;
+	}
+
+	public void setTanggalMulaiBerlaku(Date tanggalMulaiBerlaku) {
+		this.tanggalMulaiBerlaku = tanggalMulaiBerlaku;
+	}
+
+	@Temporal(TemporalType.DATE)
+	@Column(name = "tanggal_sampai_berlaku")
+	public Date getTanggalSampaiBerlaku() {
+		return tanggalSampaiBerlaku;
+	}
+
+	public void setTanggalSampaiBerlaku(Date tanggalSampaiBerlaku) {
+		this.tanggalSampaiBerlaku = tanggalSampaiBerlaku;
+	}
+
+	@Column(name = "berlaku_untuk_semua_mahasiswa")
+	public Boolean getBerlakuUntukSemuaMahasiswa() {
+		return berlakuUntukSemuaMahasiswa == null ? false : berlakuUntukSemuaMahasiswa;
+	}
+
+	public void setBerlakuUntukSemuaMahasiswa(Boolean berlakuUntukSemuaMahasiswa) {
+		this.berlakuUntukSemuaMahasiswa = berlakuUntukSemuaMahasiswa;
+	}
+
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
+	@JoinColumn(name = "fakultas", nullable = true)
+	public Fakultas getFakultas() {
+		fakultas = check(fakultas);
+		return fakultas;
+	}
+
+	public void setFakultas(Fakultas fakultas) {
+		this.fakultas = fakultas;
+	}
+
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
+	@JoinColumn(name = "jurusan", nullable = true)
+	public Jurusan getJurusan() {
+		jurusan = check(jurusan);
+		return jurusan;
+	}
+
+	public void setJurusan(Jurusan jurusan) {
+		this.jurusan = jurusan;
+	}
+
+	@Column(name = "program", length = 50)
+	public String getProgram() {
+		return program == null ? null : program.trim();
+	}
+
+	public void setProgram(String program) {
+		this.program = program;
+	}
+
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
+	@JoinColumn(name = "status_awal_mahasiswa", nullable = true)
+	public StatusAwalMahasiswa getStatusAwalMahasiswa() {
+		statusAwalMahasiswa = check(statusAwalMahasiswa);
+		return statusAwalMahasiswa;
+	}
+
+	public void setStatusAwalMahasiswa(StatusAwalMahasiswa statusAwalMahasiswa) {
+		this.statusAwalMahasiswa = statusAwalMahasiswa;
+	}
+
+	public boolean cocokUntukKegiatan(Kegiatan kegiatan, DetailBiaya detailBiaya) {
+		if (!cocokTanggalBerlaku(kegiatan)) {
+			return false;
+		}
+		if (!getBerlakuUntukSemuaMahasiswa()) {
+			return true;
+		}
+		if (kegiatan == null || kegiatan.getMahasiswa() == null) {
+			return true;
+		}
+
+		HistoryStatusMahasiswa historyStatusMahasiswa = ambilHistoryStatusMahasiswa(kegiatan);
+		Jurusan jurusanAcuan = kegiatan.getJurusan();
+		if (jurusanAcuan == null && detailBiaya != null) {
+			jurusanAcuan = detailBiaya.getJurusan();
+		}
+		if (getJurusan() != null && (jurusanAcuan == null || jurusanAcuan.getId() == null
+				|| !getJurusan().getId().equals(jurusanAcuan.getId()))) {
+			return false;
+		}
+		if (getFakultas() != null) {
+			Fakultas fakultasAcuan = jurusanAcuan == null ? null : jurusanAcuan.getFakultas();
+			if (fakultasAcuan == null && detailBiaya != null) {
+				fakultasAcuan = detailBiaya.getFakultas();
+			}
+			if (fakultasAcuan == null || fakultasAcuan.getId() == null
+					|| !getFakultas().getId().equals(fakultasAcuan.getId())) {
+				return false;
+			}
+		}
+		if (getProgram() != null && !getProgram().trim().isEmpty()) {
+			String programAcuan = historyStatusMahasiswa == null ? kegiatan.getProgram() : historyStatusMahasiswa.getProgram();
+			if (programAcuan == null || !getProgram().trim().equalsIgnoreCase(programAcuan.trim())) {
+				return false;
+			}
+		}
+		if (getStatusAwalMahasiswa() != null) {
+			StatusAwalMahasiswa statusAwalAcuan = historyStatusMahasiswa == null ? kegiatan.getMahasiswa().getStatusAwalMahasiswa()
+					: historyStatusMahasiswa.getStatusAwalMahasiswa();
+			if (statusAwalAcuan == null || statusAwalAcuan.getId() == null
+					|| !getStatusAwalMahasiswa().getId().equals(statusAwalAcuan.getId())) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private boolean cocokTanggalBerlaku(Kegiatan kegiatan) {
+		Date tanggalAcuan = kegiatan == null || kegiatan.getTanggal() == null ? ais.ui.util.WaktuUtil.getDate()
+				: kegiatan.getTanggal();
+		if (getTanggalMulaiBerlaku() != null && tanggalAcuan.before(awalHari(getTanggalMulaiBerlaku()))) {
+			return false;
+		}
+		if (getTanggalSampaiBerlaku() != null && tanggalAcuan.after(akhirHari(getTanggalSampaiBerlaku()))) {
+			return false;
+		}
+		return true;
+	}
+
+	private Date awalHari(Date tanggal) {
+		Calendar calendar = Calendar.getInstance();
+		calendar.setTime(tanggal);
+		calendar.set(Calendar.HOUR_OF_DAY, 0);
+		calendar.set(Calendar.MINUTE, 0);
+		calendar.set(Calendar.SECOND, 0);
+		calendar.set(Calendar.MILLISECOND, 0);
+		return calendar.getTime();
+	}
+
+	private Date akhirHari(Date tanggal) {
+		Calendar calendar = Calendar.getInstance();
+		calendar.setTime(tanggal);
+		calendar.set(Calendar.HOUR_OF_DAY, 23);
+		calendar.set(Calendar.MINUTE, 59);
+		calendar.set(Calendar.SECOND, 59);
+		calendar.set(Calendar.MILLISECOND, 999);
+		return calendar.getTime();
+	}
+
+	private HistoryStatusMahasiswa ambilHistoryStatusMahasiswa(Kegiatan kegiatan) {
+		try {
+			KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(kegiatan.getMahasiswa(), kegiatan.getSemster(),
+					null, null, false);
+			return HistoryStatusMahasiswaUtil.getHistoryStatusMahasiswa(krsMahasiswa, false);
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"JenisDiskonMahasiswa.ambilHistoryStatusMahasiswa");
+			return null;
+		}
 	}
 
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)

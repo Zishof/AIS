@@ -100,7 +100,7 @@ inner join matakuliah mk on (pk.matakuliah = mk.id)
 left join dosen d on (pk.dosen1 = d.id)
 left join dosen e on (pk.dosen2 = e.id)
 where pk.tahun_ajaran=$P{tahun_akademik}
-and pk.semester%2=(case when $P{jenis_semester}='Ganjil' then 1 else 0 end)
+and pk.ganjil_genap=$P{jenis_semester}
 and case when $P{dosen}=-1 then true else $P{dosen} in (pk.dosen1, pk.dosen2, pk.dosen3, pk.dosen4, pk.dosen5, pk.dosen6, pk.dosen7, pk.dosen8, pk.dosen9, pk.dosen10) end
 and case when $P{semester_pendek} is null then pk.status_semesterpendek is null else pk.status_semesterpendek = $P{semester_pendek} end
 order by waktu.tanggal,waktu.waktu) a]]>

@@ -255,8 +255,7 @@ public class DashboardStatistikStatusMahasiswaPerJurusan extends MyWindow {
 												angkatansd.getSelectedItem().getValue()))
 										.add(Restrictions.eq("tahunAkademik",
 												tahunAkademik.getSelectedItem().getValue()))
-										.add(Restrictions.sqlRestriction("this_.semester%2=" + (searchsemester
-												.getSelectedItem().getValue().equals(Perkuliahan.GANJIL) ? "1" : "0")));
+										.add(Restrictions.eq("ganjilGenap", searchsemester.getSelectedItem().getValue()));
 
 								String[] contents = new String[] { "mahasiswa.nim", "mahasiswa.nama",
 										"mahasiswa.jurusan.nama", "statusMahasiswa.nama", "tahunAkademik",
@@ -301,8 +300,8 @@ public class DashboardStatistikStatusMahasiswaPerJurusan extends MyWindow {
 				+ " where (a.aktif or a.aktif is null)  "
 				+ (perguruanTinggi == null || perguruanTinggi.getId() == null ? ""
 						: " and c.perguruan_tinggi=" + perguruanTinggi.getId())
-				+ " and b.aktif and c.aktif and a1.tahunakademik='" + tahunAkademik + "' and a1.semester%2="
-				+ (smt.equals(Perkuliahan.GANJIL) ? "1" : "0") + " " + " and a.tahunangkatan between " + angkatan
+				+ " and b.aktif and c.aktif and a1.tahunakademik='" + tahunAkademik + "' and a1.ganjil_genap='"
+				+ smt.replace("'", "''") + "' " + " and a.tahunangkatan between " + angkatan
 				+ " and " + angkatansd + " and (a1.tahap = 0 or a1.tahap is null) group by b.id order by b.nama";
 
 		System.out.println(sql);

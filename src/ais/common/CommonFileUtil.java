@@ -18,10 +18,52 @@ import org.hibernate.Transaction;
 import ais.database.hibernate.StreamingHibernateUtil;
 
 public class CommonFileUtil {
+	private static final long MINIMUM_FREE_BYTES = 20L * 1024L * 1024L;
 
 	// Menggunakan AtomicLong agar aman (thread-safe) saat diakses banyak user
 	// bersamaan
 	private static final AtomicLong increments = new AtomicLong(0);
+
+	/** Pastikan direktori tujuan ada dan filesystem masih mempunyai ruang kerja.
+	 * Pemeriksaan dilakukan sebelum file kosong dibuat supaya kegagalan disk penuh
+	 * tidak meninggalkan artefak 0-byte yang kemudian dianggap sebagai hasil valid. */
+	public static void ensureWritableFile(File file, long estimatedBytes) throws IOException {
+		if (file == null) {
+			throw new IOException("Lokasi file keluaran tidak tersedia.");
+		}
+		File parent = file.getAbsoluteFile().getParentFile();
+		if (parent == null) {
+			throw new IOException("Direktori file keluaran tidak tersedia: " + file);
+		}
+		if (!parent.exists() && !parent.mkdirs() && !parent.exists()) {
+			throw new IOException("Direktori file keluaran tidak dapat dibuat: " + parent);
+		}
+		if ("tmp".equalsIgnoreCase(parent.getName())) {
+			cleanupStaleTempFiles(parent, 24L * 60L * 60L * 1000L);
+		}
+		long required = estimatedBytes > MINIMUM_FREE_BYTES ? estimatedBytes : MINIMUM_FREE_BYTES;
+		long usable = parent.getUsableSpace();
+		if (usable < required) {
+			throw new IOException("Ruang penyimpanan server tidak mencukupi. Tersedia "
+					+ (usable / (1024L * 1024L)) + " MB, diperlukan sedikitnya "
+					+ (required / (1024L * 1024L)) + " MB.");
+		}
+	}
+
+	/** Hapus hanya file biasa yang sudah kedaluwarsa dari direktori temporary.
+	 * Tidak rekursif dan tidak pernah menyentuh subdirektori/template aplikasi. */
+	public static void cleanupStaleTempFiles(File directory, long maximumAgeMillis) {
+		if (directory == null || !directory.isDirectory()) return;
+		File[] files = directory.listFiles();
+		if (files == null) return;
+		long cutoff = System.currentTimeMillis() - maximumAgeMillis;
+		for (int i = 0; i < files.length; i++) {
+			File candidate = files[i];
+			if (candidate != null && candidate.isFile() && candidate.lastModified() < cutoff) {
+				try { candidate.delete(); } catch (SecurityException ignored) { }
+			}
+		}
+	}
 
 	/**
 	 * Menyalin data antar channel dengan buffer direct. Disederhanakan menggunakan

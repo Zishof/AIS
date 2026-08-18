@@ -114,6 +114,8 @@ public final class PmbApi {
 					Common.bolehKonfigurasi("tampilkan_informasiPembayaran_pmb"));
 			ApiHelperSupport.put(data, "tampil_info_kelulusan",
 					Common.bolehKonfigurasi("tampilkan_informasiKelulusan_pmb"));
+			ApiHelperSupport.put(data, "tampil_login_calon",
+					Common.bolehKonfigurasi("tampilkan_loginCalonMhs_pmb"));
 
 			hasil.put("data", data);
 			ApiHelperSupport.putSuccess(hasil, "Info portal PMB berhasil diambil");
@@ -571,8 +573,9 @@ public final class PmbApi {
 	}
 
 	/** Ringkasan BiodataCalonMahasiswa untuk action daftar & cek status (bentuk
-	 * konsisten dgn ringkasan {@link PsbApi} agar widget mobile bisa dipakai ulang). */
-	private static JSONObject buatRingkasan(HttpServletRequest request, BiodataCalonMahasiswa biodata)
+	 * konsisten dgn ringkasan {@link PsbApi} agar widget mobile bisa dipakai ulang —
+	 * juga dipakai {@link PmbCalonApi} untuk profil calon yang login). */
+	static JSONObject buatRingkasan(HttpServletRequest request, BiodataCalonMahasiswa biodata)
 			throws Exception {
 		JSONObject data = new JSONObject();
 		SimpleDateFormat df = formatTanggal();

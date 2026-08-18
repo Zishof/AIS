@@ -1633,11 +1633,92 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 			paket = check(paket);
 		}
 
+		terapkanKonsistensiPaketGelombang();
+
 		return paket;
+	}
+
+	/**
+	 * Guard supaya query konsistensi di {@link #terapkanKonsistensiPaketGelombang()} tak diulang
+	 * di SETIAP panggilan {@link #getPaket()} (getter ini dipanggil sangat sering saat merender
+	 * daftar/grid calon mahasiswa) -- hanya diulang kalau id gelombang berbeda dari validasi
+	 * terakhir. Sentinel -1L = "belum pernah divalidasi". Direset di {@link #setPaket(Paket)} dan
+	 * {@link #setGelombangPendaftaran(GelombangPendaftaran)} supaya perubahan manual tetap
+	 * tervalidasi ulang, bukan dilewati gara-gara id gelombang kebetulan sama seperti sebelumnya.
+	 */
+	private transient Long paketDivalidasiUntukGelombangId = -1L;
+
+	/**
+	 * Tegakkan konsistensi Paket vs Gelombang Pendaftaran -- dipanggil dari {@link #getPaket()}
+	 * supaya data LAMA yang sudah terlanjur salah (paket tersimpan tidak termasuk daftar paket
+	 * gelombangnya) otomatis terkoreksi setiap kali dibaca, tanpa perlu dibuka-simpan ulang manual
+	 * lewat form. Kasus nyata pemicu: Gelombang "Reguler Gel 2" dibatasi hanya paket "Mandiri
+	 * Reguler 2", tapi calon tersimpan dengan paket "Mandiri Reguler" -> tagihan di Setting Biaya
+	 * tak pernah cocok karena kombinasi paket/gelombangnya sendiri sudah tidak valid.
+	 *
+	 * <p>
+	 * SENGAJA membaca dari {@link GelombangPendaftaran#ambilCachePaketDiizinkan(Long)} (cache
+	 * JVM-wide, diisi oleh {@code GelombangPendaftaranAction} saat admin memuat/menyimpan
+	 * pengaturan paket gelombang), BUKAN query session di sini -- getter ini dipanggil sangat
+	 * sering (tiap baris grid dsb.) dan bisa saja dipanggil dari konteks tanpa session ZK aktif,
+	 * jadi {@code HibernateUtil.currentSession()} di sini berpotensi error.
+	 *
+	 * <p>
+	 * Aturan:
+	 * <ol>
+	 * <li>Gelombang TIDAK membatasi paket (cache kosong utk gelombang ini -- baik karena memang
+	 * tidak dibatasi, maupun karena pengaturannya belum pernah dibuka/disimpan lewat layar
+	 * Gelombang Pendaftaran sejak server terakhir start) -> tidak diberlakukan apa pun.</li>
+	 * <li>Gelombang membatasi ke TEPAT SATU paket -> paket DIPAKSA (override) ke paket itu.</li>
+	 * <li>Gelombang membatasi ke LEBIH dari satu paket -> paket yang tersimpan harus salah satu
+	 * dari daftar itu; kalau tidak cocok (termasuk kosong), paket dikosongkan (bukan dibiarkan
+	 * salah secara diam-diam) supaya WAJIB dipilih ulang secara eksplisit dari opsi yang valid.</li>
+	 * </ol>
+	 */
+	private void terapkanKonsistensiPaketGelombang() {
+		try {
+			GelombangPendaftaran gelombang = getGelombangPendaftaran();
+			Long gelombangId = gelombang == null ? null : gelombang.getId();
+
+			if (gelombangId != null && gelombangId.equals(paketDivalidasiUntukGelombangId)) {
+				return;
+			}
+			paketDivalidasiUntukGelombangId = gelombangId;
+
+			if (gelombangId == null) {
+				return;
+			}
+
+			List<Paket> paketDiizinkan = GelombangPendaftaran.ambilCachePaketDiizinkan(gelombangId);
+
+			if (paketDiizinkan.isEmpty()) {
+				return;
+			}
+			if (paketDiizinkan.size() == 1) {
+				paket = paketDiizinkan.get(0);
+				return;
+			}
+			boolean cocok = false;
+			if (paket != null && paket.getId() != null) {
+				for (Paket p : paketDiizinkan) {
+					if (p.getId() != null && p.getId().equals(paket.getId())) {
+						cocok = true;
+						break;
+					}
+				}
+			}
+			if (!cocok) {
+				paket = null;
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"BiodataCalonMahasiswa.getPaket: terapkanKonsistensiPaketGelombang");
+		}
 	}
 
 	public void setPaket(Paket paket) {
 		this.paket = paket;
+		paketDivalidasiUntukGelombangId = -1L;
 	}
 
 	@Column(name = "nama_wali", length = 255)
@@ -2112,6 +2193,7 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 
 	public void setGelombangPendaftaran(GelombangPendaftaran gelombangPendaftaran) {
 		this.gelombangPendaftaran = gelombangPendaftaran;
+		paketDivalidasiUntukGelombangId = -1L;
 	}
 
 	public Date getTanggalPendaftaran() {

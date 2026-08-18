@@ -289,7 +289,8 @@ public class DepositAction extends GenericAutowireComposer implements DataCriter
 			setVisibleTabpanel(tabPenggunaanDeposit, false);
 		}
 		Tbmrole tbmrole = tbmuser == null ? null : tbmuser.hakAkses();
-		if (tbmrole != null && !tbmrole.getBolehEntryTopup()) {
+		if (tbmrole != null && (Common.getCurrentUser() == null
+				|| !Common.getCurrentUser().bolehEntryTopupAktif())) {
 			if (add != null) {
 				add.setVisible(false);
 			}

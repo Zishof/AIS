@@ -65,6 +65,7 @@ import ais.common.CommonMedia;
 import ais.common.CommonPrivilages;
 import ais.common.ConstantValues;
 import ais.common.DesEncrypter;
+import ais.common.ErrorAuditUtil;
 import ais.common.MD5;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.hibernate.OjsHibernateUtil;
@@ -1738,23 +1739,40 @@ public class TbmuserAction extends GenericAutowireComposer implements DataCriter
 
 		Toko dataToko = (Toko) (toko.getSelectedItem() == null ? null : toko.getSelectedItem().getValue());
 		if (dataToko != null) {
-			Pedagang pedagang = (Pedagang) sessionData.createCriteria(Pedagang.class)
-					.add(Restrictions.eq("tbmuser", tbmuser)).setMaxResults(1).uniqueResult();
-			if (pedagang == null) {
-				pedagang = new Pedagang();
-				pedagang.setTbmuser(tbmuser);
-				sessionData.save(pedagang);
+			try {
 				sessionData.flush();
-			}
-			pedagang.setToko(dataToko);
-			// Checkbox "Supervisor" (lihat javadoc di titik pembuatannya) -- disimpan di sini SEKALIAN
-			// saat admin menyimpan akun pedagang, TIDAK perlu lagi langkah terpisah lewat layar
-			// Konfigurasi Desktop (yg TETAP berfungsi spt biasa -- kedua jalur menulis field yg SAMA).
-			pedagang.setSupervisor(Boolean.valueOf(supervisor != null && supervisor.isChecked()));
-			Common.refreshSaveOrUpdate(sessionData, pedagang);
+				Pedagang pedagang = tbmuser.getPedagang();
+				if (pedagang == null) {
+					pedagang = (Pedagang) sessionData.createCriteria(Pedagang.class)
+							.add(Restrictions.eq("tbmuser", tbmuser))
+							.add(Restrictions.eq("toko", dataToko)).setMaxResults(1).uniqueResult();
+				}
+				boolean pedagangBaru = pedagang == null;
+				if (pedagangBaru) pedagang = new Pedagang();
+				pedagang.setTbmuser(tbmuser);
+				pedagang.setToko(dataToko);
+				pedagang.setSupervisor(Boolean.valueOf(supervisor != null && supervisor.isChecked()));
+				if (pedagangBaru) sessionData.save(pedagang); else sessionData.saveOrUpdate(pedagang);
+				sessionData.flush();
 
-			tbmuser.setPedagang(pedagang);
-			Common.refreshUpdate(tbmuser);
+				tbmuser.setPedagang(pedagang);
+				sessionData.flush();
+			} catch (Exception e) {
+				try {
+					if (sessionData.getTransaction() != null && sessionData.getTransaction().isActive()) {
+						sessionData.getTransaction().rollback();
+					}
+				} catch (Exception rollbackError) {
+					ErrorAuditUtil.record(rollbackError,
+							"Gagal rollback penyimpanan Toko / Penjual pada TbmuserAction.onSave");
+				}
+				Common.tampilErrorJikaAdmin(e);
+				PesanFormalHelper.tampilkanGagalException("penyimpanan Toko / Penjual pada akun pengguna", e,
+						new String[] { "Pastikan toko masih aktif dan belum dihapus.",
+								"Periksa tabel audit Pedagang bila struktur database baru saja diperbarui.",
+								"Data tidak dinyatakan berhasil agar transaksi database dapat dibatalkan dengan aman." });
+				return false;
+			}
 		} else if (dataToko == null && tbmuser.getPedagang() != null) {
 			tbmuser.setPedagang(null);
 			Common.refreshUpdate(tbmuser);

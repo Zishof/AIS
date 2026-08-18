@@ -354,10 +354,8 @@ public class LaporanSksDosenWindow extends MyWindow {
 				.add(jenis_semester.getSelectedItem() == null ? Restrictions.sqlRestriction("1=1")
 						: jenis_semester.getSelectedItem().getValue().equals(Perkuliahan.SP)
 								? Restrictions.eq("statusSemesterPendek", Perkuliahan.SEMESTER_PENDEK)
-								: Restrictions
-										.sqlRestriction("this_.status_semesterpendek is null and  this_.semester % 2 = "
-												+ (jenis_semester.getSelectedItem().getValue()
-														.equals(Perkuliahan.GANJIL) ? "1" : "0")))
+								: Restrictions.and(Restrictions.isNull("statusSemesterPendek"),
+										Restrictions.eq("ganjilGenap", jenis_semester.getSelectedItem().getValue())))
 
 				.add(searchprogram.getSelectedItem() == null || searchprogram.getSelectedItem().getValue() == null
 						? Restrictions.sqlRestriction("1=1")

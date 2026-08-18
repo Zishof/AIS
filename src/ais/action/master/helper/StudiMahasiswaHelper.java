@@ -1016,11 +1016,14 @@ public class StudiMahasiswaHelper implements DataLoader {
 
 		Common.clear(component);
 		Component tabpanelUtama;
-		
+		// Dideklarasikan di luar if-else agar gantiTabboxNative bisa dipanggil setelah
+		// semua konten Tab-1 selesai dibangun (lihat akhir method).
+		Tabbox tabbox = null;
+
 		if (component instanceof Tabpanel) {
 			tabpanelUtama = component;
 		} else {
-			Tabbox tabbox = new Tabbox();
+			tabbox = new Tabbox();
 			tabbox.setParent(component);
 			tabbox.setHeight("5500px");
 			tabbox.setWidth("100%");
@@ -2129,6 +2132,13 @@ public class StudiMahasiswaHelper implements DataLoader {
 			} catch (Exception e) {
 				Common.tampilErrorJikaAdmin(e);
 			}
+		}
+
+		// Dipanggil DI SINI (bukan di AktifitasKrsMahasiswaHelper.initCetak) agar
+		// pindahkanIsiPanel memindahkan konten Tab-1 yang sudah terisi ke atas,
+		// sehingga Tab pertama langsung tampil tanpa harus diklik dulu.
+		if (tabbox != null) {
+			ais.ui.util.MyButtonTabbox.gantiTabboxNative(tabbox, null);
 		}
 	}
 

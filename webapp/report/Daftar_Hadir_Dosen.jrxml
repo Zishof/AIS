@@ -130,7 +130,7 @@ and a.dosen1 is not null
 and case when  $P{hari} = 'Semua' then true else a.hari = $P{hari} end
 and case when  $P{program} = 'Semua' then true else a.program = $P{program} end
 and case when  $P{tahun_akademik} = 'Semua' then true else a.tahun_ajaran = $P{tahun_akademik} end
-and case when $P{jenis_semester} = 'Semua' then true else a.semester % 2 = (case $P{jenis_semester} when 'Genap' then 0 else 1 end) end
+and case when $P{jenis_semester} = 'Semua' then true else a.ganjil_genap = $P{jenis_semester} end
 and case when $P{jurusan} = -1 then true else d.id = $P{jurusan} end
 and case when $P{fakultas} = -1 then true else e.id = $P{fakultas} end
 and case when $P{kelas} = '-1' then true else a.kelas ilike $P{kelas} end

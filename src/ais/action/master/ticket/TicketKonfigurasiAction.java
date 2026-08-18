@@ -107,11 +107,33 @@ public class TicketKonfigurasiAction extends MyWindow {
 		}
 	}
 
+	/** Layar konfigurasi — dua tab: "Ticketing" (asli) dan "CRM" (digabung, lihat {@link CrmKonfigurasiHelper}). */
 	public static void display(Component parent) {
 		if (parent == null) {
 			return;
 		}
 		Common.clear(parent);
+
+		org.zkoss.zul.Tabbox tabbox = new org.zkoss.zul.Tabbox();
+		tabbox.setHeight("100%");
+		tabbox.setWidth("100%");
+		tabbox.setParent(parent);
+		org.zkoss.zul.Tabs tabs = new org.zkoss.zul.Tabs();
+		tabs.setParent(tabbox);
+		new org.zkoss.zul.Tab("Ticketing").setParent(tabs);
+		new org.zkoss.zul.Tab("CRM").setParent(tabs);
+		org.zkoss.zul.Tabpanels tabpanels = new org.zkoss.zul.Tabpanels();
+		tabpanels.setParent(tabbox);
+		org.zkoss.zul.Tabpanel panelTiket = new org.zkoss.zul.Tabpanel();
+		panelTiket.setParent(tabpanels);
+		org.zkoss.zul.Tabpanel panelCrm = new org.zkoss.zul.Tabpanel();
+		panelCrm.setParent(tabpanels);
+
+		displayTiket(panelTiket);
+		CrmKonfigurasiHelper.display(panelCrm);
+	}
+
+	private static void displayTiket(Component parent) {
 		MyDiv root = new MyDiv();
 		root.setStyle("padding:10px;box-sizing:border-box;");
 		root.setParent(parent);

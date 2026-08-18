@@ -47,6 +47,7 @@ public final class FlagAccessCache {
 
 	/** Scheduler penyimpanan berkala (disimpan agar bisa di-shutdown saat webapp berhenti). */
 	private static volatile ScheduledExecutorService penyimpan;
+	private static volatile long kegagalanTulisTerakhirDicatat;
 
 	private static ThreadFactory daemonFactory(final String nama) {
 		return new ThreadFactory() {
@@ -91,10 +92,12 @@ public final class FlagAccessCache {
 
 	/** Simpan kunci yang diakses &le; 1 minggu ke berkas (tulis temp lalu rename). Auto-prune memori. */
 	public static synchronized void simpanKeFile() {
+		File tmp = null;
 		try {
 			long batas = System.currentTimeMillis() - SEMINGGU_MS;
 			File f = berkasCache();
-			File tmp = new File(f.getAbsolutePath() + ".tmp");
+			tmp = new File(f.getAbsolutePath() + ".tmp");
+			CommonFileUtil.ensureWritableFile(tmp, 20L * 1024L * 1024L);
 			BufferedWriter w = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(tmp), "UTF-8"));
 			try {
 				for (Map.Entry<String, Long> e : akses.entrySet()) {
@@ -122,7 +125,13 @@ public final class FlagAccessCache {
 					akses.remove(e.getKey(), ts);
 				}
 			}
-		} catch (Throwable t) { ais.common.ErrorAuditUtil.record(t, "auto-audit(empty-catch) src/ais/common/FlagAccessCache.java:125");
+		} catch (Throwable t) {
+			if (tmp != null && tmp.exists()) tmp.delete();
+			long now = System.currentTimeMillis();
+			if (now - kegagalanTulisTerakhirDicatat >= 60L * 60L * 1000L) {
+				kegagalanTulisTerakhirDicatat = now;
+				ais.common.ErrorAuditUtil.record(t, "auto-audit src/ais/common/FlagAccessCache.java:125");
+			}
 			// gagal-diam: cache berkas hanya pendukung.
 		}
 	}

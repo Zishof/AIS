@@ -306,8 +306,7 @@ public class Briresponse extends HttpServlet {
 								}
 
 								for (DetailBiaya detailBiaya : map.values()) {
-									Double nilai = detailBiaya.hitungTotalKegiatan(kegiatan, sessionLocalKeg);
-									nilaiBiayaHarusDiBayars += (nilai);
+									nilaiBiayaHarusDiBayars += Kegiatan.ambilJumlahTagihan(kegiatan, detailBiaya);
 								}
 
 								kegiatan.setAmountTerhutang(nilaiBiayaHarusDiBayars - amountTotal);

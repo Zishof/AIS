@@ -4194,8 +4194,15 @@ public class AbsensiHelper {
 				: perkuliahan.getSemester();
 
 		Session session = HibernateUtil.currentSession();
-		List<KelasPertemuan> kelasPertemuans = session.createCriteria(KelasPertemuan.class)
-				.add(Restrictions.eq("pertemuan", pertemuan)).addOrder(Order.asc("nama")).list();
+		List<KelasPertemuan> kelasPertemuans = new ArrayList<KelasPertemuan>();
+		// Pertemuan baru belum memiliki id. Menjadikannya parameter Criteria membuat
+		// Hibernate mencoba menyimpan referensi transient dan melempar
+		// TransientObjectException. Pada kondisi ini memang belum mungkin ada kelas
+		// pertemuan tersimpan, sehingga daftar kosong adalah hasil yang benar.
+		if (pertemuan != null && pertemuan.getId() != null) {
+			kelasPertemuans = session.createCriteria(KelasPertemuan.class)
+					.add(Restrictions.eq("pertemuan.id", pertemuan.getId())).addOrder(Order.asc("nama")).list();
+		}
 
 		if (kelasPertemuans.isEmpty()) {
 

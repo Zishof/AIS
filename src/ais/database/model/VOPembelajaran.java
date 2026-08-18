@@ -572,6 +572,17 @@ public abstract class VOPembelajaran extends VoKunci {
 					if (pembelajaran != null && pembelajaran.getUrutkanotomatis() != null && pembelajaran.getUrutkanotomatis()) {
 						if (pertemuan.getPertemuanKe() == null || !pertemuan.getPertemuanKe().equals(pertemuanKe)) {
 							pertemuan.setPertemuanKe(pertemuanKe);
+							// KE-FIX (NonUniqueObjectException "a different object with the same
+							// identifier value was already associated with the session"): pertemuan
+							// bisa saja bukan instance yang sama dgn yang sudah managed session utk
+							// id yang sama (mis. termuat via ambilVOPembelajaran()/populatePertemuan()
+							// sebelumnya). Evict instance lama dulu sebelum update() bila beda instance.
+							if (!session.contains(pertemuan)) {
+								Object existing = session.get(Pertemuan.class, pertemuan.getId());
+								if (existing != null && existing != pertemuan) {
+									session.evict(existing);
+								}
+							}
 							session.update(pertemuan);
 						}
 					}

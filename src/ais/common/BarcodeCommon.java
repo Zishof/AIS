@@ -155,8 +155,9 @@ public class BarcodeCommon {
 
 	public static File generateCRCode(String code, File file, int h, int w) {
 		try {
-			if (code == null) {
-				// tidak ada data untuk di-encode, tidak perlu lanjut generate QR
+			if (code == null || code.trim().length() == 0 || file == null) {
+				// KE-FIX (IllegalArgumentException "Found empty contents"): QRCodeWriter.encode()
+				// menolak string kosong -- tidak ada data untuk di-encode, tidak perlu lanjut generate QR
 				return file;
 			}
 
@@ -197,11 +198,16 @@ public class BarcodeCommon {
 				System.out.println(e.getMessage());
 			}
 
+			if (matrix == null) {
+				throw new IOException("QR code tidak dapat dibentuk dari data yang diberikan.");
+			}
+			CommonFileUtil.ensureWritableFile(file, 64L * 1024L);
 			try {
 				MatrixToImageWriter.writeToFile(matrix, "PNG", file);
 				//System.out.println("printing to " + file.getAbsolutePath());
 			} catch (IOException e) {
-				System.out.println(e.getMessage());
+				if (file.exists() && file.length() == 0L) file.delete();
+				throw e;
 			}
 			//System.out.println("cr code file = " + file.getAbsolutePath());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/BarcodeCommon.java:193");

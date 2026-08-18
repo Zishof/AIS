@@ -136,6 +136,7 @@ public class AppStartupListener implements ServletContextListener {
 			// Pulihkan baris menu yang HILANG dari snapshot resmi Menu_260712042919.xlsx
 			// (1.210 baris) — hanya INSERT id yang belum ada, tidak menimpa yang ada.
 			MenuHelper.ensureMenusDariSnapshot();
+			MenuHelper.ensureReimbursementMenus();
 			MenuHelper.ensureAkreditasiMenus();
 			MenuHelper.ensureAntarJemputMenus();
 			MenuHelper.ensureKantinMenus();

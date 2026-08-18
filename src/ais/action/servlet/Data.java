@@ -479,6 +479,10 @@ public class Data extends HttpServlet {
 				processGenericLinimasaItem(request, tbmuser, jsonObject, action, hasil);
 			} else if ("bayar".equals(action)) {
 				KantinHelper.bayar(tbmuser, jsonObject, hasil);
+			} else if (action != null && action.startsWith("grup_produk_")) {
+				// Grup Produk (harga terpusat lintas toko) -- handler self-guard menu key +
+				// aksi CRUD granular, lihat GrupProdukApiHelper.
+				ais.action.servlet.api.GrupProdukApiHelper.proses(action, tbmuser, jsonObject, hasil);
 			} else if ("draft_bayar".equals(action)) {
 				KantinHelper.draft_bayar(tbmuser, jsonObject, hasil);
 			} else if ("checkBayar".equals(action)) {

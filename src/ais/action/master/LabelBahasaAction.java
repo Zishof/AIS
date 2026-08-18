@@ -71,7 +71,8 @@ public class LabelBahasaAction extends GenericAutowireComposer implements DataCr
 	private Textbox arab;
 	private Textbox mandarin;
 
-	public static String[] contents = new String[] { "id", "nama", "indonesia", "english", "arab", "keterangan" };
+	public static String[] contents = new String[] { "id", "nama", "indonesia", "english", "arab", "mandarin",
+			"keterangan" };
 
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
@@ -191,21 +192,21 @@ public class LabelBahasaAction extends GenericAutowireComposer implements DataCr
 		MyToolbarbuttonConfig cetakToolbarbutton = Common.cetakData(this, contents);
 		Common.appendKeToolbar(cetakToolbarbutton, add, comp);
 
-		MyToolbarbuttonConfig upload = Common.uploadData(this, LabelBahasa.class, new EventListener() {
+		MyToolbarbuttonConfig upload = Common.uploadData(this, LabelBahasa.class, null, new EventListener() {
 
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 
-				@SuppressWarnings("unchecked")
-				List<LabelBahasa> labelBahasas = HibernateUtil.currentSession().createCriteria(LabelBahasa.class)
-						.list();
-				for (LabelBahasa labelBahasa : labelBahasas) {
-					MemoryDbUtil.getBahasaIndonesias().put(labelBahasa.getNama(), labelBahasa.getIndonesia());
-					MemoryDbUtil.getBahasaEnglishs().put(labelBahasa.getNama(), labelBahasa.getEnglish());
-					MemoryDbUtil.getBahasaArabs().put(labelBahasa.getNama(), labelBahasa.getArab());
-					MemoryDbUtil.getBahasaMandarins().put(labelBahasa.getNama(), labelBahasa.getMandarin());
+				Object[] data = arg0 == null || !(arg0.getData() instanceof Object[])
+						? null : (Object[]) arg0.getData();
+				LabelBahasa hasilUpload = data == null || data.length == 0 || !(data[0] instanceof LabelBahasa)
+						? null : (LabelBahasa) data[0];
+				if (hasilUpload != null && hasilUpload.getNama() != null) {
+					MemoryDbUtil.getBahasaIndonesias().put(hasilUpload.getNama(), hasilUpload.getIndonesia());
+					MemoryDbUtil.getBahasaEnglishs().put(hasilUpload.getNama(), hasilUpload.getEnglish());
+					MemoryDbUtil.getBahasaArabs().put(hasilUpload.getNama(), hasilUpload.getArab());
+					MemoryDbUtil.getBahasaMandarins().put(hasilUpload.getNama(), hasilUpload.getMandarin());
 				}
-				labelBahasas = null;
 			}
 
 		}, contents);

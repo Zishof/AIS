@@ -8,6 +8,7 @@ import java.util.Map;
 
 import org.apache.commons.lang.StringUtils;
 import org.hibernate.Session;
+import org.hibernate.Transaction;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.json.JSONArray;
@@ -211,29 +212,41 @@ public class FeederExporterHelper {
 	}
 
 	/**
-	 * Simpan entity Feeder (idRegPd mahasiswa / idRegPtk dosen) via native session yang DI-ACQUIRE ULANG.
+	 * Simpan entity Feeder (idRegPd mahasiswa / idRegPtk dosen) lewat session khusus milik method ini.
 	 * Referensi session yang dibawa dari atas method mahasiswa_pt bisa sudah DITUTUP oleh panggilan
 	 * Feeder bersarang (convertRiwayatMahasiswa / getData / insertOrUpdateRecordBaru memanggil
 	 * HibernateUtil.closeSession()), sehingga session.getTransaction() melempar "Session is closed!".
-	 * mahasiswa yang detached di-reattach oleh Common.refreshUpdate. Session TIDAK ditutup di sini:
-	 * pemilik lifecycle (FeederExporter.mahasiswa_pt) yang menutup, dan currentNativeSession() akan
-	 * membuka ulang sendiri bila sudah tertutup.
+	 * Entity detached digabungkan dengan merge. Session khusus selalu dibersihkan dan ditutup di
+	 * finally sehingga tidak bergantung pada currentNativeSession milik thread lain.
 	 */
 	private static void simpanFeederIdDenganNativeSession(GeneralValueObject o) {
-		Session s = HibernateUtil.currentNativeSession();
+		Session s = null;
+		Transaction transaction = null;
 		try {
-			s.getTransaction().begin();
-			Common.refreshUpdate(s, o);
-			s.getTransaction().commit();
+			s = HibernateUtil.getSessionFactory().openSession();
+			transaction = s.beginTransaction();
+			s.merge(o);
+			transaction.commit();
 		} catch (Exception e) {
 			try {
-				if (s != null && s.getTransaction() != null && s.getTransaction().isActive()) {
-					s.getTransaction().rollback();
+				if (transaction != null && transaction.isActive()) {
+					transaction.rollback();
 				}
 			} catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/feeder/util/FeederExporterHelper.java:233");
 			}
 			Common.tampilErrorJikaAdmin(e);
+		} finally {
+			tutupSessionKhusus(s);
 		}
+	}
+
+	private static void tutupSessionKhusus(Session session) {
+		if (session == null) {
+			return;
+		}
+		try { session.clear(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) FeederExporterHelper.clear"); }
+		try { if (session.isConnected()) session.disconnect(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) FeederExporterHelper.disconnect"); }
+		try { if (session.isOpen()) session.close(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) FeederExporterHelper.close"); }
 	}
 
 	public static void mahasiswa_pt(Session session, FeederConnector feederConnector, String token, Mahasiswa mahasiswa,

@@ -2316,10 +2316,9 @@ public class DasborPerguruanTinggiTerpadu extends MyPortallayout {
         }
         if (Perkuliahan.SP.equals(semester)) {
             criteria.add(Restrictions.sqlRestriction("{alias}.status_semesterpendek=" + Perkuliahan.SEMESTER_PENDEK));
-        } else if (Perkuliahan.GENAP.equals(semester)) {
-            criteria.add(Restrictions.sqlRestriction("{alias}.semester%2=0 and {alias}.status_semesterpendek is null"));
         } else {
-            criteria.add(Restrictions.sqlRestriction("{alias}.semester%2=1 and {alias}.status_semesterpendek is null"));
+			criteria.add(Restrictions.and(Restrictions.isNull("statusSemesterPendek"),
+					Restrictions.eq("ganjilGenap", semester)));
         }
     }
 

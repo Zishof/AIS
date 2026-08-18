@@ -957,7 +957,11 @@ public class Pegawai extends Karyawan {
 				}
 			} else if (this.satuanKerja == null && this.id == null) {
 				try {
-					SatuanKerja satuanKerja = Common.getCurrentUser().ambilSatuanKerja();
+					SatuanKerja satuanKerja = null;
+					Tbmuser currentUser = Common.getCurrentUser();
+					if (currentUser != null) {
+						satuanKerja = currentUser.ambilSatuanKerja();
+					}
 					Perpustakaan currentPerpustakaan = Common.getCurrentPerpustakaan();
 					if (satuanKerja == null && currentPerpustakaan != null) {
 						satuanKerja = currentPerpustakaan.getSatuanKerja();

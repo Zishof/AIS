@@ -821,6 +821,8 @@ public class BiodataPegawaiAction extends MyWindow {
 			Common.displaySocialMedia(tabSosial, tabpanel, null, null, null, pegawai);
 		}
 
+		ais.ui.util.MyButtonTabbox.gantiTabboxNative(tabbox, new int[] { 1 });
+
 		South south = new South();
 		south.setVisible(tampilSave);
 		south.setParent(borderlayout);
@@ -2703,6 +2705,8 @@ public class BiodataPegawaiAction extends MyWindow {
 					}
 				}
 			});
+
+			ais.ui.util.MyButtonTabbox.gantiTabboxNative(tabbox, new int[] { 1 });
 
 			West west = new West();
 			west.setStyle("border:0px;");

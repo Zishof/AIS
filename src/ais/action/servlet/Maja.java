@@ -235,7 +235,7 @@ public class Maja extends HttpServlet {
 								for (DetailBiaya detailBiaya : detailBiayas) {
 									Double biaya = detailBiaya.hitungTotalKegiatan(kegiatan, session);
 
-									nilaiBiayaHarusDiBayars += biaya;
+									nilaiBiayaHarusDiBayars += Kegiatan.ambilJumlahTagihan(kegiatan, detailBiaya);
 
 								}
 
@@ -516,9 +516,8 @@ public class Maja extends HttpServlet {
 														}
 
 														for (DetailBiaya detailBiaya : map.values()) {
-															Double nilai = detailBiaya.hitungTotalKegiatan(kegiatan,
-																	sessionLocalKeg);
-															nilaiBiayaHarusDiBayars += (nilai);
+															nilaiBiayaHarusDiBayars += Kegiatan
+																	.ambilJumlahTagihan(kegiatan, detailBiaya);
 														}
 
 														kegiatan.setAmountTerhutang(
@@ -705,3 +704,4 @@ public class Maja extends HttpServlet {
 	}
 
 }
+

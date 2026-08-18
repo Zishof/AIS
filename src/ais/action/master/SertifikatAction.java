@@ -1,10 +1,13 @@
 package ais.action.master;
 
 import java.io.File;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.lang.StringUtils;
 import org.hibernate.Criteria;
@@ -70,6 +73,7 @@ import ais.database.model.KegiatanKemahasiswaanPunyaMahasiswa;
 import ais.database.model.Mahasiswa;
 import ais.database.model.MahasiswaDapatKelompokKkn;
 import ais.database.model.MahasiswaDapatKelompokPkl;
+import ais.database.model.PendukungReport;
 import ais.database.model.PerguruanTinggi;
 import ais.database.model.Sertifikat;
 import ais.database.model.Tbmuser;
@@ -89,6 +93,7 @@ import ais.database.model.sekolah.KelasLesSiswaPunyaSiswa;
 import ais.database.model.sekolah.Siswa;
 import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyGrid;
+import ais.ui.util.MyInclude;
 import ais.ui.util.MyLabelKecil;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
@@ -224,47 +229,88 @@ public class SertifikatAction extends GenericAutowireComposer {
 		List<LampiranLain> lampiranLains = new ArrayList<LampiranLain>();
 
 		if (sertifikat != null && sertifikat.getId() != null) {
-			try {
-				Session streamingSession = StreamingHibernateUtil.getInstance().currentSession();
-				lampiranLains = streamingSession.createCriteria(LampiranLain.class)
-						.addOrder(Order.asc("id")).add(Restrictions.eq("ref", sertifikat.getId()))
-						.add(Restrictions.ilike("jenis", "Galery_Sertifikat_", MatchMode.START)).list();
-				int index = 0;
-				for (LampiranLain pendukung : lampiranLains) {
-					try {
-						parameters.put("pendukung_" + index, pendukung.getGdrive() != null ? pendukung.exportGDriveUrl()
-								: pendukung.ambilFile().getAbsolutePath());
-					} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/SertifikatAction.java:241");
-						// TODO: handle exception
-					}
-					index++;
-				}
-
-				StreamingHibernateUtil.getInstance().closeSession();
-
-			} catch (Exception e1) {
-				StreamingHibernateUtil.getInstance().rollbackTransaction();
-				e1.printStackTrace(); ais.common.ErrorAuditUtil.record(e1, "auto-audit src/ais/action/master/SertifikatAction.java:251");
-			}
+			lampiranLains = ambilGambarPendukungSertifikat(sertifikat);
+			isiParameterGambarPendukungSertifikat(parameters, lampiranLains);
 		}
 
 		// KE-FIX (tab "Gambar Pendukung" hilang): overload lama membuang lampiranLains
 		// yang sudah di-query di atas lalu memanggil overload Map 3-argumen (yang cuma
 		// tahu 2 tab). Teruskan lampiranLains ke overload 4-argumen di bawah supaya tab
 		// pratinjau galeri gambar pendukung bisa dibangun.
-		generateReport(east, lainMahasiswa, parameters, lampiranLains);
+		generateReport(east, lainMahasiswa, parameters, lampiranLains,
+				sertifikat == null ? null : sertifikat.getNama());
 	}
 
 	public static void generateReport(Component east, LampiranLain lainMahasiswa,
 			final Map<String, Object> parameters) {
 		// Dipertahankan untuk pemanggil lama (mis. proses cetak sertifikat ujian) yang
 		// tidak punya daftar lampiran galeri -- tab "Gambar Pendukung" dilewati (null).
-		generateReport(east, lainMahasiswa, parameters, null);
+		generateReport(east, lainMahasiswa, parameters, null, null);
+	}
+
+	@SuppressWarnings("unchecked")
+	private static List<LampiranLain> ambilGambarPendukungSertifikat(Sertifikat sertifikat) {
+		List<LampiranLain> hasil = new ArrayList<LampiranLain>();
+		Set<Long> sudahMasuk = new HashSet<Long>();
+		if (sertifikat == null || sertifikat.getId() == null) {
+			return hasil;
+		}
+
+		try {
+			Session streamingSession = StreamingHibernateUtil.getInstance().currentSession();
+			List<LampiranLain> lampiranLains = streamingSession.createCriteria(LampiranLain.class)
+					.addOrder(Order.asc("id")).add(Restrictions.eq("ref", sertifikat.getId()))
+					.add(Restrictions.ilike("jenis", "Galery_Sertifikat_", MatchMode.START)).list();
+			for (LampiranLain lampiranLain : lampiranLains) {
+				if (lampiranLain != null && lampiranLain.getId() != null && sudahMasuk.add(lampiranLain.getId())) {
+					hasil.add(lampiranLain);
+				}
+			}
+
+			if (sertifikat.getNama() != null && !sertifikat.getNama().trim().isEmpty()) {
+				List<PendukungReport> pendukungReports = streamingSession.createCriteria(PendukungReport.class)
+						.addOrder(Order.asc("id"))
+						.add(Restrictions.eq("nama", sertifikat.getNama().trim()))
+						.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))).list();
+				for (PendukungReport pendukungReport : pendukungReports) {
+					LampiranLain lampiranLain = LampiranLain.ambil(pendukungReport.getId(),
+							PendukungReport.class.getName());
+					if (lampiranLain != null && lampiranLain.getId() != null && sudahMasuk.add(lampiranLain.getId())) {
+						hasil.add(lampiranLain);
+					}
+				}
+			}
+
+			StreamingHibernateUtil.getInstance().closeSession();
+		} catch (Exception e) {
+			StreamingHibernateUtil.getInstance().rollbackTransaction();
+			Common.tampilErrorJikaAdmin(e);
+		}
+		return hasil;
+	}
+
+	private static void isiParameterGambarPendukungSertifikat(Map<String, Object> parameters,
+			List<LampiranLain> lampiranLains) {
+		if (parameters == null || lampiranLains == null) {
+			return;
+		}
+		int index = 0;
+		for (LampiranLain pendukung : lampiranLains) {
+			try {
+				parameters.put("pendukung_" + index, pendukung.getGdrive() != null ? pendukung.exportGDriveUrl()
+						: pendukung.ambilFile().getAbsolutePath());
+				index++;
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e,
+						"auto-audit(empty-catch) src/ais/action/master/SertifikatAction.java:ambilGambarPendukungSertifikat");
+			}
+		}
 	}
 
 	@SuppressWarnings("deprecation")
 	private static void generateReport(Component east, LampiranLain lainMahasiswa,
-			final Map<String, Object> parameters, final List<LampiranLain> lampiranLains) {
+			final Map<String, Object> parameters, final List<LampiranLain> lampiranLains,
+			final String namaSertifikat) {
 		Common.clear(east);
 		if (lainMahasiswa != null && lainMahasiswa.getId() != null) {
 			try {
@@ -391,56 +437,19 @@ public class SertifikatAction extends GenericAutowireComposer {
 						Common.tampilErrorJikaAdmin(e);
 					}
 
-					if (lampiranLains != null && !lampiranLains.isEmpty()) {
-						org.zkoss.zul.Div panelGambar = mtabs.tambahTab(2, "Gambar Pendukung");
-
-						Borderlayout borderlayoutGambar = new Borderlayout();
-						borderlayoutGambar.setHeight("100%");
-						borderlayoutGambar.setParent(panelGambar);
-
-						Center centerGambar = new Center();
-						centerGambar.setParent(borderlayoutGambar);
-						ais.ui.util.ZkCompat.setFlex(centerGambar, true);
-
-						MyGrid gridGambar = new MyGrid();
-						gridGambar.setWidth("100%");
-						gridGambar.setParent(centerGambar);
-
-						Rows rowsGambar = new Rows();
-						gridGambar.appendChild(rowsGambar);
-
-						for (LampiranLain pendukung : lampiranLains) {
-							String link = FileFotoLain.ambilLinkLampiranLain(pendukung, false, false,
-									LampiranLain.class, false);
-							MyFormRow rowGambar = new MyFormRow();
-							rowGambar.setParent(rowsGambar);
-
-							Vbox vbox = new Vbox();
-							vbox.setParent(rowGambar);
-
-							Image image = new Image(link);
-							image.setStyle(
-									"max-width: 256px !important;min-width: 60px !important;min-height: 300px !important;");
-							image.setSclass("gambar_profile");
-							image.setWidth("90%");
-							image.setParent(vbox);
-
-							A a = new A(link);
-							a.setStyle("font-size:10px");
-							a.setParent(vbox);
-							a.setTarget("_blank");
-							a.setHref(link);
-
-							if (pendukung.getDeskripsi() != null && !pendukung.getDeskripsi().trim().isEmpty()) {
-								Label deskripsi = new Label(pendukung.getDeskripsi());
-								deskripsi.setParent(vbox);
-							}
-						}
-
-						mtabs.pulihkanSeleksi(3);
+					org.zkoss.zul.Div panelGambar = mtabs.tambahTab(2, "Gambar Pendukung");
+					panelGambar.setStyle("padding:0;overflow:auto;");
+					if (namaSertifikat != null && !namaSertifikat.trim().isEmpty()) {
+						MyInclude iframe = new MyInclude("/pages/master/pendukung_report.zul?namaStr="
+								+ URLEncoder.encode(namaSertifikat.trim(), "UTF-8"));
+						iframe.setWidth("100%");
+						iframe.setHeight("100%");
+						iframe.setParent(panelGambar);
 					} else {
-						mtabs.pulihkanSeleksi(2);
+						new Label("Isi dan simpan Nama Sertifikat terlebih dahulu sebelum menambahkan gambar pendukung.")
+								.setParent(panelGambar);
 					}
+					mtabs.pulihkanSeleksi(3);
 
 				} else {
 
@@ -519,24 +528,6 @@ public class SertifikatAction extends GenericAutowireComposer {
 		keterangan.setWidth("90%");
 		keterangan.setRows(3);
 
-		row = new MyFormRow();
-		row.setParent(rows);
-		row.appendChild(new ais.ui.util.MyLabelConfig("Gambar / Background Pendukung"));
-
-		Hbox myHbox = new Hbox();
-		myHbox.setParent(row);
-		myHbox.setHeight("30px");
-
-		Hbox hboxGambar = new Hbox();
-		hboxGambar.setParent(myHbox);
-		tampilkanButton(hboxGambar);
-
-		row = new MyFormRow();
-		row.setParent(rows);
-		ais.ui.util.ZkCompat.setSpans(row, "2");
-		myGridGaleri = new MyGrid();
-		myGridGaleri.setParent(row);
-
 		South south = new South();
 		ais.ui.util.ZkCompat.setFlex(south, true);
 		south.setParent(borderlayout);
@@ -570,14 +561,6 @@ public class SertifikatAction extends GenericAutowireComposer {
 		lampiran = LampiranLain.ambil(sertifikat.getId(), LampiranLain.FILE_JRXML_LAYOUT_SERTIFIKAT);
 
 		generateReport(east, lampiran, sertifikat);
-
-		try {
-
-			reloadDataGambar();
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			ais.common.Common.tampilErrorJikaAdmin(e);
-		}
 
 	}
 
@@ -886,6 +869,8 @@ public class SertifikatAction extends GenericAutowireComposer {
 				prosesUjianHelper.setWidth("90%");
 				prosesUjianHelper.setClosable(true);
 				prosesUjianHelper.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
+				isiParameterGambarPendukungSertifikat(parameters,
+						ambilGambarPendukungSertifikat(kelompokPkl.getSertifikat()));
 				SertifikatAction.generateReport(prosesUjianHelper, lampiran, parameters);
 				prosesUjianHelper.onModal();
 			}
@@ -1066,6 +1051,8 @@ public class SertifikatAction extends GenericAutowireComposer {
 				prosesUjianHelper.setWidth("90%");
 				prosesUjianHelper.setClosable(true);
 				prosesUjianHelper.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
+				isiParameterGambarPendukungSertifikat(parameters,
+						ambilGambarPendukungSertifikat(kelompokKkn.getSertifikat()));
 				SertifikatAction.generateReport(prosesUjianHelper, lampiran, parameters);
 				prosesUjianHelper.onModal();
 			}
@@ -1514,6 +1501,8 @@ public class SertifikatAction extends GenericAutowireComposer {
 				prosesUjianHelper.setHeight("95%");
 				prosesUjianHelper.setWidth("90%");
 				prosesUjianHelper.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
+				isiParameterGambarPendukungSertifikat(parameters,
+						ambilGambarPendukungSertifikat(formulirKegiatanPeserta.getFormulirKegiatan().getSertifikat()));
 				SertifikatAction.generateReport(prosesUjianHelper, lampiran, parameters);
 				prosesUjianHelper.onModal();
 			}
@@ -1689,6 +1678,8 @@ public class SertifikatAction extends GenericAutowireComposer {
 				prosesUjianHelper.setHeight("95%");
 				prosesUjianHelper.setWidth("90%");
 				prosesUjianHelper.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
+				isiParameterGambarPendukungSertifikat(parameters,
+						ambilGambarPendukungSertifikat(kegiatanKedosenan.getSertifikat()));
 				SertifikatAction.generateReport(prosesUjianHelper, lampiran, parameters);
 				prosesUjianHelper.onModal();
 			}
@@ -1882,6 +1873,8 @@ public class SertifikatAction extends GenericAutowireComposer {
 				prosesUjianHelper.setWidth("90%");
 				prosesUjianHelper.setClosable(true);
 				prosesUjianHelper.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
+				isiParameterGambarPendukungSertifikat(parameters,
+						ambilGambarPendukungSertifikat(kegiatanKemahasiswaan.getSertifikat()));
 				SertifikatAction.generateReport(prosesUjianHelper, lampiran, parameters);
 				prosesUjianHelper.onModal();
 			}
@@ -2015,6 +2008,8 @@ public class SertifikatAction extends GenericAutowireComposer {
 				prosesUjianHelper.setWidth("90%");
 				prosesUjianHelper.setClosable(true);
 				prosesUjianHelper.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
+				isiParameterGambarPendukungSertifikat(parameters,
+						ambilGambarPendukungSertifikat(kegiatanKesiswaan.getSertifikat()));
 				SertifikatAction.generateReport(prosesUjianHelper, lampiran, parameters);
 				prosesUjianHelper.onModal();
 			}
@@ -2118,6 +2113,8 @@ public class SertifikatAction extends GenericAutowireComposer {
 				prosesUjianHelper.setWidth("90%");
 				prosesUjianHelper.setClosable(true);
 				prosesUjianHelper.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
+				isiParameterGambarPendukungSertifikat(parameters,
+						ambilGambarPendukungSertifikat(kelasLesSiswa.getSertifikat()));
 				SertifikatAction.generateReport(prosesUjianHelper, lampiran, parameters);
 				prosesUjianHelper.onModal();
 			}
@@ -2378,6 +2375,7 @@ public class SertifikatAction extends GenericAutowireComposer {
 				prosesUjianHelper.setHeight("95%");
 				prosesUjianHelper.setWidth("90%");
 				prosesUjianHelper.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
+				isiParameterGambarPendukungSertifikat(parameters, ambilGambarPendukungSertifikat(ujian.getSertifikat()));
 				SertifikatAction.generateReport(prosesUjianHelper, lampiran, parameters);
 				prosesUjianHelper.onModal();
 			}

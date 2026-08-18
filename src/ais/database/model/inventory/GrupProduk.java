@@ -1,0 +1,162 @@
+package ais.database.model.inventory;
+
+import static javax.persistence.GenerationType.IDENTITY;
+
+import java.util.Date;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Table;
+import javax.persistence.Temporal;
+import javax.persistence.TemporalType;
+
+import org.hibernate.envers.Audited;
+
+import ais.database.model.GeneralValueObject;
+
+/**
+ * <h3>Grup Produk -- kendali HPP dan harga jual TERPUSAT lintas toko/outlet.</h3>
+ *
+ * <p>Latar (permintaan pelanggan waralaba ~90 outlet, 2026-08-18): {@link Produk} terikat SATU
+ * {@link Toko}, sehingga produk yang sama (mis. "Ayam Marinasi") ada sebagai ~90 baris terpisah
+ * dan perubahan HPP/harga jual harus diulang 90 kali. Grup ini menjadi induk lintas-toko:
+ * produk dari toko mana pun boleh menunjuk satu grup ({@link Produk#getGrupProduk()}), dan
+ * penyimpanan harga pada grup MENYALIN {@code hargaBeli}/{@code hargaJual} ke seluruh produk
+ * anggota (lihat {@code GrupProdukAction.onSave}) -- harga tetap termaterialisasi di tiap baris
+ * {@code Produk} sehingga TIDAK ADA jalur baca (POS kasir, struk, laporan, sinkronisasi
+ * Desktop/Android) yang berubah perilakunya.</p>
+ *
+ * <p>Konsekuensi yang disengaja: suntingan harga lokal per-outlet tetap mungkin, tetapi akan
+ * TERTIMPA pada penyimpanan grup berikutnya -- grup adalah sumber kebenaran harga anggotanya.</p>
+ */
+@Entity
+@org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
+@Audited
+@Table(schema = "koperasi", name = "grup_produk")
+public class GrupProduk extends GeneralValueObject {
+
+	private static final long serialVersionUID = 7268413577548439811L;
+
+	private Long id;
+	private String kode;
+	private String nama;
+	private String keterangan;
+	private Double hargaBeli;
+	private Double hargaJual;
+	private Boolean aktif;
+	private String oleh;
+	private String olehId;
+
+	@javax.persistence.PreUpdate
+	protected void onUpdate() {
+		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
+	}
+
+	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
+
+	public GrupProduk() {
+	}
+
+	public String toString() {
+		return (id == null ? "" : id) + "-" + (nama == null ? "" : nama);
+	}
+
+	@Id
+	@GeneratedValue(strategy = IDENTITY)
+	@Column(name = "id", insertable = false, unique = true, nullable = false)
+	public Long getId() {
+		return this.id;
+	}
+
+	public void setId(Long id) {
+		this.id = id;
+	}
+
+	@Column(name = "kode", nullable = true, length = 100)
+	public String getKode() {
+		return kode;
+	}
+
+	public void setKode(String kode) {
+		this.kode = kode;
+	}
+
+	@Column(name = "nama", nullable = false, length = 255)
+	public String getNama() {
+		return this.nama == null ? null : this.nama.trim();
+	}
+
+	public void setNama(String nama) {
+		this.nama = nama;
+	}
+
+	@Column(name = "keterangan", nullable = true)
+	public String getKeterangan() {
+		return keterangan;
+	}
+
+	public void setKeterangan(String keterangan) {
+		this.keterangan = keterangan;
+	}
+
+	/** HPP/harga beli terpusat; disalin ke seluruh {@link Produk} anggota saat grup disimpan. */
+	@Column(name = "harga_beli", nullable = true)
+	public Double getHargaBeli() {
+		return hargaBeli;
+	}
+
+	public void setHargaBeli(Double hargaBeli) {
+		this.hargaBeli = hargaBeli;
+	}
+
+	/** Harga jual terpusat; disalin ke seluruh {@link Produk} anggota saat grup disimpan. */
+	@Column(name = "harga_jual", nullable = true)
+	public Double getHargaJual() {
+		return hargaJual;
+	}
+
+	public void setHargaJual(Double hargaJual) {
+		this.hargaJual = hargaJual;
+	}
+
+	public Boolean getAktif() {
+		return aktif == null ? true : aktif;
+	}
+
+	public void setAktif(Boolean aktif) {
+		this.aktif = aktif;
+	}
+
+	public String getOleh() {
+		return oleh;
+	}
+
+	public void setOleh(String oleh) {
+		if (oleh == null || oleh.trim().isEmpty()) {
+			return;
+		}
+		this.oleh = oleh;
+	}
+
+	public String getOlehId() {
+		return olehId;
+	}
+
+	public void setOlehId(String olehId) {
+		if (olehId == null || olehId.trim().isEmpty()) {
+			return;
+		}
+		this.olehId = olehId;
+	}
+
+	@Temporal(TemporalType.TIMESTAMP)
+	public Date getTanggal_dirubah() {
+		return tanggal_dirubah;
+	}
+
+	public void setTanggal_dirubah(Date tanggal_dirubah) {
+		this.tanggal_dirubah = tanggal_dirubah;
+	}
+}

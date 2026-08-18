@@ -176,7 +176,16 @@ public class KelompokPklAction extends GenericAutowireComposer implements DataSe
 	private Combobox lokasi;
 	private MyDoublebox jarak;
 
-	private static AktifitasPklHelper aktifitasPklHelper = new AktifitasPklHelper();
+	// KE-FIX (IllegalStateException "Access denied: component ... belongs to another desktop"):
+	// field ini dulu SATU-SATUNYA yang static di kelas ini -- membuat AktifitasPklHelper (dan
+	// PenjadwalanPklHelper di dalamnya, yg menyimpan field grid/dataLoader/kelompokPkl per
+	// instance) jadi singleton SELURUH JVM yang dipakai bersama oleh SEMUA user/desktop
+	// sekaligus. Saat user B membuka popup Agenda PKL, field grid/dataLoader milik user A
+	// tertimpa, dan aksi user A (simpan/refresh timer) berikutnya mengoperasikan komponen ZK
+	// milik desktop user B -> "Access denied: component ... belongs to another desktop". SATU2NYA
+	// pemakainya (displayRow(Row,...) di bawah) adalah method static, jadi field instance ini
+	// tak pernah bisa dijangkau -- diganti instansiasi LOKAL per pemanggilan (lihat displayRow),
+	// yang justru lebih aman lagi (terisolasi per panggilan, bukan cuma per desktop).
 
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
@@ -1281,7 +1290,7 @@ public class KelompokPklAction extends GenericAutowireComposer implements DataSe
 
 									ais.ui.util.MyDiv groupbox = new ais.ui.util.MyDiv();
 									groupbox.setStyle("min-height: 200px;");
-									aktifitasPklHelper.initDetail(kelompokPkl, groupbox);
+									new AktifitasPklHelper().initDetail(kelompokPkl, groupbox);
 									jurusanTabpanel.appendChild(groupbox);
 
 								}
@@ -1290,7 +1299,7 @@ public class KelompokPklAction extends GenericAutowireComposer implements DataSe
 					} else {
 						ais.ui.util.MyDiv groupbox = new ais.ui.util.MyDiv();
 						groupbox.setStyle("min-height: 200px;");
-						aktifitasPklHelper.initDetail(kelompokPkl, groupbox);
+						new AktifitasPklHelper().initDetail(kelompokPkl, groupbox);
 						detail.appendChild(groupbox);
 					}
 				}

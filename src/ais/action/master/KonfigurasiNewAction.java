@@ -889,9 +889,28 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		rows.appendChild(createRowActiveDefault(
 				"Cegah Oversell Kasir — blokir penambahan item melebihi stok pada POS (default MATI; aktifkan setelah toko rutin mencatat stok masuk lewat Pengadaan/Stok Opname, jika belum akan memblokir seluruh penjualan produk yang stoknya belum pernah tercatat)",
 				Konfigurasi.KANTIN_POS_CEGAH_OVERSELL, Konfigurasi.TIDAK_AKTIF));
-		// Gap-closure (2026-08-11): "Wajibkan Sesi Kas Kasir" TIDAK LAGI opsional -- toggle ini
-		// dihapus dari layar Konfigurasi supaya admin tidak salah kira bisa mematikannya (gerbangnya
-		// sekarang tanpa syarat di KantinHelper.bayar()/PosKantinAction.onBayar(), lihat catatan di sana).
+		rows.appendChild(createRowActiveDefault(
+				"Wajibkan Sesi Kas Kasir sebelum pembayaran (default MATI; aktifkan hanya untuk toko yang benar-benar memakai buka-tutup kas per shift -- bila aktif, verifikasi pesanan otomatis H+1 di halaman Pesanan ikut menuntut sesi kas terbuka)",
+				Konfigurasi.KANTIN_POS_WAJIB_SESI_KAS, Konfigurasi.TIDAK_AKTIF));
+
+
+		createSpan("Price Tag / Label Harga", rows);
+		rows.appendChild(createRowNilai(
+				"URL logo default Price Tag jika belum ada upload khusus",
+				"kantin_price_tag_logo_default_url", "/img/logo.png"));
+		rows.appendChild(createRowNilai(
+				"Margin tiap kotak Price Tag (mm). Default 0 = sama seperti tampilan saat ini",
+				"kantin_price_tag_margin_kotak_mm", "0"));
+
+		MyFormRow rowLogoPriceTag = new MyFormRow();
+		rowLogoPriceTag.setParent(rows);
+		Groupbox groupboxLogoPriceTag = new Groupbox();
+		groupboxLogoPriceTag.setParent(rowLogoPriceTag);
+		groupboxLogoPriceTag.appendChild(new Caption(LampiranLain.LOGO_PRICE_TAG_STR));
+		Hbox hboxLogoPriceTag = new Hbox();
+		LampiranLain.createDownloadUploadFileLain(hboxLogoPriceTag, LampiranLain.LOGO_PRICE_TAG,
+				LampiranLain.LOGO_PRICE_TAG_STR, LampiranLain.LOGO_PRICE_TAG_STR, false, null);
+		hboxLogoPriceTag.setParent(groupboxLogoPriceTag);
 	}
 
 	/**
@@ -12684,6 +12703,7 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 		rows.appendChild(createRowNilai("Akreditasi content — dipakai di: DashboardAction", "akreditasi_content", ""));
 		rows.appendChild(createRowActiveDefault("Akses ke dashboard tanpa login tidak diizinkan — dipakai di: Dashboard", "akses_ke_dashboard_tanpa_login_tidak_diizinkan", Konfigurasi.AKTIF));
 		rows.appendChild(createRowActiveDefault("Aktifkan akun demo — dipakai di: InitDataHelper", "aktifkan_akun_demo", Konfigurasi.TIDAK_AKTIF));
+		rows.appendChild(createRowActiveDefault("Data sample eBisnis — mengizinkan provisioning data contoh apotik, tenaga medis, inventory, dan unit usaha (DEFAULT NONAKTIF)", Konfigurasi.DATA_SAMPLE_EBISNIS, Konfigurasi.TIDAK_AKTIF));
 		rows.appendChild(createRowActiveDefault("Aktifkan chatbot — dipakai di: Wa", "aktifkan_chatbot", Konfigurasi.AKTIF));
 		rows.appendChild(createRowActiveDefault("Aktifkan chek ulang bank online — dipakai di: VirtualAccountBankAction", "aktifkan_chek_ulang_bank_online", Konfigurasi.TIDAK_AKTIF));
 		rows.appendChild(createRowActiveDefault("Aktifkan chek ulang semua mandiri — dipakai di: LogHostToHostAction", "aktifkan_chek_ulang_semua_mandiri", Konfigurasi.TIDAK_AKTIF));

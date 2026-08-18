@@ -69,6 +69,37 @@ public class GelombangPendaftaran extends GeneralValueObject {
 	private String oleh;
 	private String olehId;
 
+	/**
+	 * Cache JVM-wide (bukan per-session) daftar Paket yang diizinkan per Gelombang Pendaftaran --
+	 * dibaca oleh {@link BiodataCalonMahasiswa#getPaket()} untuk menegakkan konsistensi paket vs
+	 * gelombang TANPA membuka/memakai session Hibernate di dalam getter tersebut (getter dipanggil
+	 * sangat sering & bisa dari konteks tanpa session ZK aktif -- berpotensi error). Diisi oleh
+	 * {@code GelombangPendaftaranAction} setiap kali data pengaturan paket gelombang dimuat atau
+	 * disimpan, jadi otomatis ikut terbarui saat admin mengubah pengaturan tsb. List kosong/tidak
+	 * ada entri = gelombang ini tidak membatasi paket (atau belum pernah dimuat/disimpan lewat
+	 * layar tsb sejak server terakhir start -- diperlakukan sama: tidak ada batasan yang bisa
+	 * ditegakkan).
+	 */
+	private static final java.util.concurrent.ConcurrentHashMap<Long, List<Paket>> cachePaketDiizinkanPerGelombang = new java.util.concurrent.ConcurrentHashMap<Long, List<Paket>>();
+
+	/** Perbarui cache paket yang diizinkan utk satu gelombang. Panggil dari GelombangPendaftaranAction. */
+	public static void perbaruiCachePaketDiizinkan(Long gelombangId, java.util.Collection<Paket> pakets) {
+		if (gelombangId == null) {
+			return;
+		}
+		cachePaketDiizinkanPerGelombang.put(gelombangId,
+				pakets == null ? Collections.<Paket>emptyList() : new ArrayList<Paket>(pakets));
+	}
+
+	/** Baca cache paket yang diizinkan utk satu gelombang. Tidak pernah query DB/session. */
+	public static List<Paket> ambilCachePaketDiizinkan(Long gelombangId) {
+		if (gelombangId == null) {
+			return Collections.emptyList();
+		}
+		List<Paket> cached = cachePaketDiizinkanPerGelombang.get(gelombangId);
+		return cached == null ? Collections.<Paket>emptyList() : cached;
+	}
+
 	public String getOlehId() {
 		return olehId;
 	}

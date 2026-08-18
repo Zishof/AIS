@@ -194,6 +194,8 @@ public class BiodataPegawaiAccountAction extends MyWindow {
 		tabpanels.appendChild(tabpanelPegawai);
 		tabpanels.appendChild(tabpanelBiodataPegawai);
 
+		ais.ui.util.MyButtonTabbox.gantiTabboxNative(tabbox, new int[] { 1 });
+
 		South south = new South();
 		south.setParent(borderlayout);
 		ais.ui.util.ZkCompat.setFlex(south, true);

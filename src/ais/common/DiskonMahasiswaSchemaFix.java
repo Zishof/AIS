@@ -38,6 +38,23 @@ public final class DiskonMahasiswaSchemaFix {
 
             addColumnIfMissing("public", "kelompok_mahasiswa", "jenis_diskon_mahasiswa", "bigint");
             addColumnIfMissing("new_audit", "kelompok_mahasiswa__audit", "jenis_diskon_mahasiswa", "bigint");
+
+            addColumnIfMissing("public", "jenis_diskon_mahasiswa", "tanggal_mulai_berlaku", "date");
+            addColumnIfMissing("public", "jenis_diskon_mahasiswa", "tanggal_sampai_berlaku", "date");
+            addColumnIfMissing("public", "jenis_diskon_mahasiswa", "berlaku_untuk_semua_mahasiswa", "boolean");
+            addColumnIfMissing("public", "jenis_diskon_mahasiswa", "fakultas", "bigint");
+            addColumnIfMissing("public", "jenis_diskon_mahasiswa", "jurusan", "bigint");
+            addColumnIfMissing("public", "jenis_diskon_mahasiswa", "program", "varchar(50)");
+            addColumnIfMissing("public", "jenis_diskon_mahasiswa", "status_awal_mahasiswa", "bigint");
+
+            addColumnIfMissing("new_audit", "jenis_diskon_mahasiswa__audit", "tanggal_mulai_berlaku", "date");
+            addColumnIfMissing("new_audit", "jenis_diskon_mahasiswa__audit", "tanggal_sampai_berlaku", "date");
+            addColumnIfMissing("new_audit", "jenis_diskon_mahasiswa__audit", "berlaku_untuk_semua_mahasiswa",
+                    "boolean");
+            addColumnIfMissing("new_audit", "jenis_diskon_mahasiswa__audit", "fakultas", "bigint");
+            addColumnIfMissing("new_audit", "jenis_diskon_mahasiswa__audit", "jurusan", "bigint");
+            addColumnIfMissing("new_audit", "jenis_diskon_mahasiswa__audit", "program", "varchar(50)");
+            addColumnIfMissing("new_audit", "jenis_diskon_mahasiswa__audit", "status_awal_mahasiswa", "bigint");
         } catch (Exception e) {
             try {
                 Common.tampilErrorJikaAdmin(e);

@@ -136,6 +136,8 @@ public class DraftPembelianAnggotaKoperasi extends GeneralValueObject {
 	public JSONArray simpanRinci(Session session, JSONArray transaksi, String kodeUnik, Date currentWaktu, Toko toko,
 			KodePembayaranOnline kodePembayaranOnline) {
 		JSONArray arrayTransaksi = new JSONArray();
+		final boolean transaksiDikelolaPemanggil = session.getTransaction() != null
+				&& session.getTransaction().isActive();
 		for (int i = 0; i < transaksi.length(); i++) {
 			try {
 				JSONObject objectTransaksi = transaksi.getJSONObject(i);
@@ -171,9 +173,9 @@ public class DraftPembelianAnggotaKoperasi extends GeneralValueObject {
 				pembelian.setProduk(produk);
 				pembelian.setToko(toko);
 				pembelian.setWaktu(currentWaktu);
-				session.getTransaction().begin();
+				if (!transaksiDikelolaPemanggil) session.getTransaction().begin();
 				session.save(pembelian);
-				session.getTransaction().commit();
+				if (!transaksiDikelolaPemanggil) session.getTransaction().commit();
 
 				JSONObject data = new JSONObject();
 				Common.insertProperty(DraftPembelian.class, pembelian, data, "", 1, "siswa", "calonSiswa", "mahasiswa",
@@ -214,9 +216,9 @@ public class DraftPembelianAnggotaKoperasi extends GeneralValueObject {
 							pembelianEkstra.setToko(toko);
 							pembelianEkstra.setWaktu(currentWaktu);
 							pembelianEkstra.setIndukId(pembelian.getId());
-							session.getTransaction().begin();
+							if (!transaksiDikelolaPemanggil) session.getTransaction().begin();
 							session.save(pembelianEkstra);
-							session.getTransaction().commit();
+							if (!transaksiDikelolaPemanggil) session.getTransaction().commit();
 
 							JSONObject dataEkstra = new JSONObject();
 							Common.insertProperty(DraftPembelian.class, pembelianEkstra, dataEkstra, "", 1, "siswa",
@@ -224,6 +226,9 @@ public class DraftPembelianAnggotaKoperasi extends GeneralValueObject {
 									"tbmuser", "kodePembayaranOnline", "toko");
 							arrayTransaksi.put(dataEkstra);
 						} catch (Exception eEkstra) {
+							if (transaksiDikelolaPemanggil) {
+								throw new RuntimeException("Gagal menyimpan produk ekstra draft baris " + (k + 1), eEkstra);
+							}
 							ais.common.ErrorAuditUtil.record(eEkstra,
 									"auto-audit src/ais/database/model/koperasi/DraftPembelianAnggotaKoperasi.java:simpanRinci:ekstra");
 							try {
@@ -239,6 +244,9 @@ public class DraftPembelianAnggotaKoperasi extends GeneralValueObject {
 				}
 
 			} catch (Exception e) {
+				if (transaksiDikelolaPemanggil) {
+					throw new RuntimeException("Gagal menyimpan rincian draft baris " + (i + 1), e);
+				}
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/koperasi/DraftPembelianAnggotaKoperasi.java:200");
 				// Gap-closure "Muat ke Keranjang kosong walau toast sukses": tanpa rollback di sini,
 				// transaction Hibernate yg SUDAH di-begin() di atas (session.save(produk)/session.save

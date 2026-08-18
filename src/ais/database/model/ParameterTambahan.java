@@ -1562,6 +1562,16 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 	public void masukkanData(String vall, String jenis_id, Map map) {
 		ParameterTambahan parameterTambahan = this;
 
+		if (parameterTambahan.getTipeDataInputan().equals(ParameterTambahan.PILIHAN_PENYEDIA)) {
+			try {
+				ais.database.model.asset.PenyediaAsset penyedia = (ais.database.model.asset.PenyediaAsset) ConstantValues.ambil(
+						ais.database.model.asset.PenyediaAsset.class.getName(), Long.parseLong(vall.split("->")[0]));
+				if (penyedia != null) Common.insertProperty(ais.database.model.asset.PenyediaAsset.class, penyedia, map, jenis_id);
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e, "ParameterTambahan: masukkan data penyedia");
+			}
+		}
+
 		if (parameterTambahan.getTipeDataInputan().equals(ParameterTambahan.PILIHAN_KELAS_SISWA)) {
 			try {
 				KelasSiswa kelasSiswa = (KelasSiswa) ConstantValues.ambil(KelasSiswa.class.getName(),

@@ -9,6 +9,8 @@ import java.util.Map;
 import org.hibernate.Session;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
@@ -560,6 +562,123 @@ public class PostingHppKantinAction extends GenericAutowireComposer {
 			MyMessageboxConfig.show("Posting dibatalkan (kemungkinan tanggal melewati periode closing).", "Informasi",
 					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
 		}
+	}
+
+	/**
+	 * Adapter headless untuk POS Desktop/Android. Perhitungan tetap memakai satu
+	 * sumber yang sama dengan layar ZK sehingga pratinjau dan jurnal tidak dapat
+	 * menyimpang. Tidak membuat komponen halaman atau melakukan redirect.
+	 */
+	public JSONObject prosesApi(Date mulai, Date sampai, boolean posting) throws Exception {
+		if (mulai == null || sampai == null || mulai.after(sampai)) {
+			throw new IllegalArgumentException("Periode posting HPP tidak valid.");
+		}
+		dpMulai = new Datebox();
+		dpMulai.setValue(mulai);
+		dpSampai = new Datebox();
+		dpSampai.setValue(sampai);
+		previewBox = new Div();
+		hitungPreview();
+
+		JSONObject hasil = new JSONObject();
+		hasil.put("jenis", "hpp");
+		hasil.put("total", totalCogs);
+		hasil.put("siap", totalCogs > 0 && !debitPerAkun.isEmpty() && belumDipetakan.isEmpty());
+		hasil.put("belumDipetakan", new JSONArray(belumDipetakan));
+		hasil.put("jurnal", jurnalApi(debitPerAkun, kreditPerAkun, "HPP", "Persediaan"));
+		Date terakhir = lastPostedEnd();
+		hasil.put("terakhir", terakhir == null ? JSONObject.NULL : Common.databaseDateFormat.get().format(terakhir));
+		if (!posting) {
+			return hasil;
+		}
+		if (terakhir != null && !mulai.after(terakhir)) {
+			throw new IllegalStateException("Periode tumpang tindih; posting terakhir sampai "
+					+ Common.dateFormat.get().format(terakhir) + ".");
+		}
+		if (totalCogs <= 0 || debitPerAkun.isEmpty()) {
+			throw new IllegalStateException("Tidak ada HPP yang siap diposting pada periode ini.");
+		}
+		if (!belumDipetakan.isEmpty()) {
+			throw new IllegalStateException("Masih ada " + belumDipetakan.size()
+					+ " barang tanpa pemetaan akun HPP/persediaan.");
+		}
+
+		Session session = HibernateUtil.currentSession();
+		List<Akun> akunDebet = akunApi(debitPerAkun);
+		List<Double> nilaiDebet = nilaiApi(debitPerAkun);
+		List<Akun> akunKredit = akunApi(kreditPerAkun);
+		List<Double> nilaiKredit = nilaiApi(kreditPerAkun);
+		if (akunDebet.isEmpty() || akunKredit.isEmpty()) {
+			throw new IllegalStateException("Akun HPP/persediaan tidak lengkap.");
+		}
+		String ket = "HPP Penjualan Kantin " + Common.dateFormat.get().format(mulai) + " s.d "
+				+ Common.dateFormat.get().format(sampai);
+		PostingHistory ph = new PostingHistory(JENIS);
+		ph.setTanggal(sampai);
+		ph.setTbmuser(Common.getCurrentUser());
+		ph.setKeterangan(ket);
+		boolean ok = false;
+		session.getTransaction().begin();
+		try {
+			session.save(ph);
+			ok = CommonAkunting.saveTransaksi(akunDebet.toArray(new Akun[] {}), akunKredit.toArray(new Akun[] {}),
+					null, null, ph, true, ket, sampai, nilaiDebet.toArray(new Double[] {}),
+					nilaiKredit.toArray(new Double[] {}), Double.valueOf(0.0), null, satkerKantin(), session);
+			if (ok) {
+				session.getTransaction().commit();
+			} else {
+				session.getTransaction().rollback();
+			}
+		} catch (Exception ex) {
+			try {
+				session.getTransaction().rollback();
+			} catch (Exception rollbackError) {
+				ais.common.ErrorAuditUtil.record(rollbackError, "rollback PostingHppKantinAction.prosesApi");
+			}
+			throw ex;
+		}
+		if (!ok) {
+			throw new IllegalStateException("Posting HPP dibatalkan oleh aturan periode closing.");
+		}
+		hasil.put("diposting", true);
+		return hasil;
+	}
+
+	private JSONArray jurnalApi(Map<Long, Double> debit, Map<Long, Double> kredit, String labelDebit,
+			String labelKredit) throws Exception {
+		JSONArray rows = new JSONArray();
+		for (Map.Entry<Long, Double> en : debit.entrySet()) {
+			JSONObject row = new JSONObject();
+			row.put("akunId", en.getKey());
+			row.put("akun", akunNama.get(en.getKey()));
+			row.put("posisi", "DEBIT " + labelDebit);
+			row.put("nominal", en.getValue());
+			rows.put(row);
+		}
+		for (Map.Entry<Long, Double> en : kredit.entrySet()) {
+			JSONObject row = new JSONObject();
+			row.put("akunId", en.getKey());
+			row.put("akun", akunNama.get(en.getKey()));
+			row.put("posisi", "KREDIT " + labelKredit);
+			row.put("nominal", en.getValue());
+			rows.put(row);
+		}
+		return rows;
+	}
+
+	private List<Akun> akunApi(Map<Long, Double> sumber) {
+		List<Akun> list = new ArrayList<Akun>();
+		for (Long id : sumber.keySet()) {
+			Akun akun = (Akun) ConstantValues.ambil(Akun.class.getName(), id);
+			if (akun != null) {
+				list.add(akun);
+			}
+		}
+		return list;
+	}
+
+	private List<Double> nilaiApi(Map<Long, Double> sumber) {
+		return new ArrayList<Double>(sumber.values());
 	}
 
 	// ---------------- util ----------------

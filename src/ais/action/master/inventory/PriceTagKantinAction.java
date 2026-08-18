@@ -30,6 +30,7 @@ import org.zkoss.zul.Vlayout;
 
 import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
+import ais.database.model.file.LampiranLain;
 import ais.database.model.inventory.Produk;
 import ais.database.model.inventory.Toko;
 import ais.ui.util.DashboardUiKit;
@@ -86,6 +87,7 @@ public class PriceTagKantinAction extends GenericAutowireComposer {
 	private Combobox cboPer;
 	private Combobox cboTpl;
 	private Intbox inCopies;
+	private Intbox inTagMarginMm;
 	private Textbox txtPromo;
 	private Checkbox cbBc;
 	private Checkbox cbKode;
@@ -248,6 +250,15 @@ public class PriceTagKantinAction extends GenericAutowireComposer {
 		cCopies.appendChild(inCopies);
 		opt.appendChild(cCopies);
 
+		Vlayout cMargin = new Vlayout();
+		cMargin.setSpacing("0");
+		cMargin.appendChild(labelMini("Margin kotak (mm)"));
+		inTagMarginMm = new Intbox(Integer.valueOf(defaultMarginKotakMm()));
+		inTagMarginMm.setWidth("90px");
+		inTagMarginMm.setTooltiptext("0 = sama seperti layout saat ini; isi manual untuk memberi jarak dalam tiap kotak label.");
+		cMargin.appendChild(inTagMarginMm);
+		opt.appendChild(cMargin);
+
 		Vlayout cPromo = new Vlayout();
 		cPromo.setSpacing("0");
 		cPromo.appendChild(labelMini("Label promo (opsional)"));
@@ -398,6 +409,9 @@ public class PriceTagKantinAction extends GenericAutowireComposer {
 		data.put("showToko", cbToko != null && cbToko.isChecked());
 		data.put("namaToko", namaToko());
 		data.put("promo", txtPromo == null ? "" : txtPromo.getValue());
+		data.put("logoUrl", priceTagLogoUrl());
+		data.put("tagMarginMm", inTagMarginMm == null || inTagMarginMm.getValue() == null ? defaultMarginKotakMm()
+				: inTagMarginMm.getValue().intValue());
 
 		Clients.evalJavaScript("if(window.aisCetakPriceTag){aisCetakPriceTag(" + data.toString()
 				+ ");}else{alert('Modul cetak belum termuat, coba lagi.');}");
@@ -407,6 +421,51 @@ public class PriceTagKantinAction extends GenericAutowireComposer {
 		MyMessageboxConfig.show(pesan, "Info", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
 	}
 
+	private int defaultMarginKotakMm() {
+		return intKonfigurasi("kantin_price_tag_margin_kotak_mm", 0);
+	}
+
+	private int intKonfigurasi(String key, int defaultValue) {
+		try {
+			String v = Common.getKonfigurasi(key, String.valueOf(defaultValue)).getNilai();
+			return Integer.parseInt(v == null ? String.valueOf(defaultValue) : v.trim());
+		} catch (Exception e) {
+			return defaultValue;
+		}
+	}
+
+	private String priceTagLogoUrl() {
+		try {
+			LampiranLain logo = LampiranLain.ambil(LampiranLain.LOGO_PRICE_TAG, LampiranLain.LOGO_PRICE_TAG_STR);
+			if (logo != null && logo.getId() != null) {
+				String uri = logo.createLinkUri();
+				if (uri != null && uri.trim().length() > 0) {
+					return uri;
+				}
+			}
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+		}
+		return rootUrl(Common.getKonfigurasi("kantin_price_tag_logo_default_url", "/img/logo.png").getNilai());
+	}
+
+	private String rootUrl(String url) {
+		if (url == null || url.trim().length() == 0) {
+			url = "/img/logo.png";
+		}
+		url = url.trim();
+		String lower = url.toLowerCase();
+		if (lower.startsWith("http://") || lower.startsWith("https://") || lower.startsWith("data:")) {
+			return url;
+		}
+		if (url.startsWith(Common.ROOT + "/")) {
+			return url;
+		}
+		if (url.startsWith("/")) {
+			return Common.ROOT + url;
+		}
+		return Common.ROOT + "/" + url;
+	}
 	// ===================== pembantu kecil =====================
 
 	private Button tombol(String teks, EventListener onClick) {

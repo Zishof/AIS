@@ -12504,6 +12504,79 @@ a.ais-adv-search-toggle,
 }
 
 /* ════════════════════════════════════════════════════════════════════════
+   KEBAB MENU — popup daftar aksi baris (⋮)
+   .z-popup.ais-row-popup   : kontainer popup (ZK merender sebagai div absolut)
+   .ais-row-popup-content   : kolom flex berisi item
+   .ais-row-popup-item      : tiap baris aksi (Ubah/Salin/Hapus/Kunci dll)
+   .ais-row-popup-item-danger: gaya merah untuk Hapus
+   .ais-row-popup-divider   : pemisah horizontal tipis
+   ════════════════════════════════════════════════════════════════════════ */
+.z-popup.ais-row-popup {
+	min-width: 180px;
+	padding: 4px;
+	border-radius: 8px;
+	box-shadow: 0 4px 16px rgba(0,0,0,.15);
+	border: 1px solid #e2e8f0;
+	background: #fff;
+}
+.ais-row-popup-content {
+	display: flex !important;
+	flex-direction: column !important;
+	gap: 2px !important;
+}
+.ais-row-popup-item,
+.ais-row-popup-item .z-toolbarbutton-cnt {
+	display: flex !important;
+	align-items: center !important;
+	gap: 8px !important;
+	width: 100% !important;
+	min-height: 36px !important;
+	padding: 6px 10px !important;
+	border-radius: 6px !important;
+	font-size: 13px !important;
+	color: #1e293b !important;
+	cursor: pointer !important;
+	transition: background .12s !important;
+	box-sizing: border-box !important;
+	white-space: nowrap !important;
+}
+.ais-row-popup-item:hover,
+.ais-row-popup-item .z-toolbarbutton-cnt:hover {
+	background: #f1f5f9 !important;
+}
+.ais-row-popup-item img {
+	width: 18px !important;
+	height: 18px !important;
+	flex-shrink: 0 !important;
+}
+.ais-row-popup-item-danger,
+.ais-row-popup-item-danger .z-toolbarbutton-cnt {
+	color: #ef4444 !important;
+}
+.ais-row-popup-item-danger:hover,
+.ais-row-popup-item-danger .z-toolbarbutton-cnt:hover {
+	background: #fef2f2 !important;
+}
+.ais-row-popup-divider {
+	height: 1px !important;
+	background: #e2e8f0 !important;
+	margin: 2px 4px !important;
+}
+/* Tombol pemicu "⋮" */
+.ais-row-action-kebab img { opacity: .6; }
+.ais-row-action-kebab:hover { background: rgba(100,116,139,.12) !important; }
+.ais-row-action-kebab:hover img { opacity: 1; }
+/* Mobile: area tap lebih besar */
+@media only screen and (max-width: 820px) {
+	.ais-row-popup-item,
+	.ais-row-popup-item .z-toolbarbutton-cnt {
+		min-height: 44px !important;
+		font-size: 14px !important;
+	}
+	.z-popup.ais-row-popup { min-width: 200px !important; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
    Sel "Kurikulum" pada daftar Matakuliah — sebelumnya menumpuk panjang &
    sesak. Kini: kontainer ber-scroll (tinggi dibatasi), diawali ringkasan
    jumlah, lalu tiap kurikulum tampil sebagai chip rapi dengan jarak.

@@ -867,7 +867,7 @@ public class VirtualAccountBank extends GeneralValueObject {
 
 				Double nilaiBiayaHarusDiBayars = 0.0;
 				for (DetailBiaya detailBiaya : detailBiayas) {
-					nilaiBiayaHarusDiBayars += detailBiaya.hitungTotalKegiatan(kegiatan, session);
+					nilaiBiayaHarusDiBayars += Kegiatan.ambilJumlahTagihan(kegiatan, detailBiaya);
 				}
 
 				if (virtualAccountBankNtt.getCicilan() != null && !virtualAccountBankNtt.getCicilan().isEmpty()) {
@@ -1018,7 +1018,7 @@ public class VirtualAccountBank extends GeneralValueObject {
 
 									Double nHarusDibayar = 0.0;
 									for (DetailBiaya db : map.values())
-										nHarusDibayar += db.hitungTotalKegiatan(kegLocal, sessionLocalKeg);
+										nHarusDibayar += Kegiatan.ambilJumlahTagihan(kegLocal, db);
 
 									kegLocal.setAmountTerhutang(nHarusDibayar - amountTotal);
 									kegLocal.setAmount(amountTotal);

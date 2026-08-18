@@ -1062,8 +1062,7 @@ public final class ProfileAdminPerguruanTinggiAkademikDashboard {
 				: ais.common.ConstantValues.TIDAK_AKTIF.getId();
 
 		String taAman = selTA == null ? "" : selTA.replace("'", "''");
-		boolean genap = Perkuliahan.GENAP.equalsIgnoreCase(selSem);
-		int perkuliahanParity = genap ? 0 : 1; // perkuliahan.semester % 2 (Ganjil=1/odd, Genap=0/even)
+		String semesterAman = selSem == null ? "" : selSem.replace("'", "''");
 
 		StringBuilder sql = new StringBuilder();
 		// WAJIB alias UNIK tiap kolom: Common.ambilSql memetakan hasil native query per NAMA kolom;
@@ -1099,11 +1098,11 @@ public final class ProfileAdminPerguruanTinggiAkademikDashboard {
 		// Dosen yang punya JADWAL (perkuliahan) di TA+semester terpilih -> per jurusan home dosen.
 		sql.append("LEFT JOIN (SELECT d.jurusan, COUNT(DISTINCT d.id) jumlah FROM dosen d WHERE d.id IN (");
 		sql.append("SELECT dosen1 FROM perkuliahan WHERE tahun_ajaran = '").append(taAman)
-				.append("' AND (semester % 2) = ").append(perkuliahanParity).append(" AND dosen1 IS NOT NULL ");
+				.append("' AND ganjil_genap = '").append(semesterAman).append("' AND dosen1 IS NOT NULL ");
 		sql.append("UNION SELECT dosen2 FROM perkuliahan WHERE tahun_ajaran = '").append(taAman)
-				.append("' AND (semester % 2) = ").append(perkuliahanParity).append(" AND dosen2 IS NOT NULL ");
+				.append("' AND ganjil_genap = '").append(semesterAman).append("' AND dosen2 IS NOT NULL ");
 		sql.append("UNION SELECT dosen3 FROM perkuliahan WHERE tahun_ajaran = '").append(taAman)
-				.append("' AND (semester % 2) = ").append(perkuliahanParity).append(" AND dosen3 IS NOT NULL");
+				.append("' AND ganjil_genap = '").append(semesterAman).append("' AND dosen3 IS NOT NULL");
 		sql.append(") GROUP BY d.jurusan) dos ON (dos.jurusan = j.id) ");
 		// Calon mahasiswa pada TA terpilih.
 		sql.append("LEFT JOIN (SELECT prodi_lulus, COUNT(*) jumlah FROM biodata_calon_mahasiswa WHERE (aktif = true OR aktif IS NULL) AND tahunakademik = '")

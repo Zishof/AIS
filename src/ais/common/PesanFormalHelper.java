@@ -186,33 +186,66 @@ public final class PesanFormalHelper {
     public static String pesanGagalException(String aktivitas, String penjelasanBisnis, Throwable exception,
             String[] langkahSolusi) {
         String penyebab;
-        String detailTeknis = (exception == null) ? null : exception.getMessage();
         if (penjelasanBisnis != null && penjelasanBisnis.trim().length() > 0) {
             penyebab = penjelasanBisnis.trim();
-            if (detailTeknis != null && detailTeknis.trim().length() > 0) {
-                penyebab += " " + t("Keterangan teknis dari sistem:") + " \"" + detailTeknis.trim() + "\".";
-            }
-        } else if (detailTeknis != null && detailTeknis.trim().length() > 0) {
-            penyebab = t("Sistem mencatat keterangan teknis sebagai berikut:") + " \"" + detailTeknis.trim()
-                    + "\". Keterangan ini dapat membantu Administrator Sistem maupun Pengembang Sistem "
-                    + "dalam menelusuri akar permasalahan.";
         } else {
-            penyebab = null;
+            penyebab = t("Proses belum dapat diselesaikan. Data tidak diubah agar tetap aman dan konsisten.");
         }
         return pesanGagal(aktivitas, penyebab, langkahSolusi);
     }
 
     /** Menampilkan pesan gagal-karena-exception (lihat {@link #pesanGagalException}) via {@link MyMessageboxConfig}. */
     public static void tampilkanGagalException(String aktivitas, Throwable exception, String[] langkahSolusi) {
-        tampilkanAman(pesanGagalException(aktivitas, null, exception, langkahSolusi), "Terjadi Kesalahan",
-                MyMessageboxConfig.EXCLAMATION);
+        tampilkanGagalDenganDetail(aktivitas, null, exception, langkahSolusi);
     }
 
     /** Sama seperti {@link #tampilkanGagalException(String, Throwable, String[])} dengan tambahan penjelasan bisnis. */
     public static void tampilkanGagalException(String aktivitas, String penjelasanBisnis, Throwable exception,
             String[] langkahSolusi) {
-        tampilkanAman(pesanGagalException(aktivitas, penjelasanBisnis, exception, langkahSolusi), "Terjadi Kesalahan",
-                MyMessageboxConfig.EXCLAMATION);
+        tampilkanGagalDenganDetail(aktivitas, penjelasanBisnis, exception, langkahSolusi);
+    }
+
+    /**
+     * Pada layar ZK, gunakan dialog web bersama yang menyediakan Detail Error dan Copy Error.
+     * Bila halaman lama belum memuat pesan-formal.js, tetap jatuh aman ke Messagebox biasa.
+     */
+    private static void tampilkanGagalDenganDetail(String aktivitas, String penjelasanBisnis,
+            Throwable exception, String[] langkahSolusi) {
+        try {
+            org.json.JSONObject data = new org.json.JSONObject();
+            data.put("judul", "Ada kendala");
+            data.put("message", (penjelasanBisnis == null || penjelasanBisnis.trim().length() == 0)
+                    ? "Proses belum dapat diselesaikan. Data tidak diubah agar tetap aman dan konsisten."
+                    : penjelasanBisnis.trim());
+            org.json.JSONArray solusi = new org.json.JSONArray();
+            if (langkahSolusi != null) {
+                for (int i = 0; i < langkahSolusi.length; i++) {
+                    if (langkahSolusi[i] != null && langkahSolusi[i].trim().length() > 0) solusi.put(langkahSolusi[i].trim());
+                }
+            }
+            data.put("solusi", solusi);
+            data.put("teknis", detailTeknis(exception));
+            data.put("referensi", "ZK-" + Long.toString(System.currentTimeMillis(), 36).toUpperCase());
+            org.zkoss.zk.ui.util.Clients.evalJavaScript(
+                    "if(typeof tampilkanPesanGagalFormal==='function'){tampilkanPesanGagalFormal("
+                    + org.json.JSONObject.quote(kosongKe(aktivitas, "proses aplikasi")) + ","
+                    + data.toString() + ");}else{alert("
+                    + org.json.JSONObject.quote(pesanGagalException(aktivitas, penjelasanBisnis, exception, langkahSolusi))
+                    + ");}");
+        } catch (Throwable t) {
+            ais.common.ErrorAuditUtil.record(t, "PesanFormalHelper.tampilkanGagalDenganDetail");
+            tampilkanAman(pesanGagalException(aktivitas, penjelasanBisnis, exception, langkahSolusi),
+                    "Terjadi Kesalahan", MyMessageboxConfig.EXCLAMATION);
+        }
+    }
+
+    private static String detailTeknis(Throwable error) {
+        if (error == null) return "Tidak ada detail exception.";
+        java.io.StringWriter sw = new java.io.StringWriter();
+        java.io.PrintWriter pw = new java.io.PrintWriter(sw);
+        error.printStackTrace(pw);
+        pw.flush();
+        return sw.toString();
     }
 
     // =========================================================

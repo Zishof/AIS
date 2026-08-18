@@ -595,9 +595,7 @@ public class DashboardPenilaianMahasiswa extends MyWindow {
 								.add(semester == null ? Restrictions.sqlRestriction("1=1")
 										: (semester.equals(Perkuliahan.SP)
 												? Restrictions.eq("statusSemesterPendek", Perkuliahan.SEMESTER_PENDEK)
-												: semester.equals(Perkuliahan.GANJIL)
-														? Restrictions.in("semester", Common.ganjil)
-														: Restrictions.in("semester", Common.genap)))
+												: Restrictions.eq("ganjilGenap", semester)))
 
 								.list();
 
@@ -802,18 +800,16 @@ public class DashboardPenilaianMahasiswa extends MyWindow {
 				// Excel/grid yang sudah berhasil ditulis. --
 				Desktop desktopChart = chartPanel == null ? null : chartPanel.getDesktop();
 				boolean chartActivated = false;
-				boolean serverPushDiaktifkanOlehChart = false;
 				try {
-					if (desktopChart != null && desktopChart.isAlive()) {
-						if (!desktopChart.isServerPushEnabled()) {
-							desktopChart.enableServerPush(true);
-							serverPushDiaktifkanOlehChart = true;
-						}
+					// enableServerPush hanya sah dari execution/UI thread. Thread laporan ini
+					// tidak boleh menyalakannya sendiri; render grafik hanya bila fasilitas itu
+					// memang sudah aktif pada desktop.
+					if (desktopChart != null && desktopChart.isAlive() && desktopChart.isServerPushEnabled()) {
 						Executions.activate(desktopChart);
 						chartActivated = true;
+						renderChartRingkasan(chartPanel, jumlahKelasDitampilkan, totalSudahDinilaiMhs,
+								totalBelumDinilaiMhs, akumulasiPersentase, statusKelas, sebaranPersentase);
 					}
-					renderChartRingkasan(chartPanel, jumlahKelasDitampilkan, totalSudahDinilaiMhs,
-							totalBelumDinilaiMhs, akumulasiPersentase, statusKelas, sebaranPersentase);
 				} catch (org.zkoss.zk.ui.DesktopUnavailableException due) {
 					// User menutup halaman saat proses latar selesai. Ini kondisi normal, bukan error data.
 				} catch (Exception exChart) {
@@ -826,15 +822,6 @@ public class DashboardPenilaianMahasiswa extends MyWindow {
 						} catch (Exception exDeactivate) {
 							ais.common.ErrorAuditUtil.record(exDeactivate,
 									"auto-audit(empty-catch) src/ais/action/master/dashboard/admin/DashboardPenilaianMahasiswa.java:chart-deactivate");
-						}
-					}
-					if (serverPushDiaktifkanOlehChart && desktopChart != null && desktopChart.isAlive()
-							&& desktopChart.isServerPushEnabled()) {
-						try {
-							desktopChart.enableServerPush(false);
-						} catch (Exception exServerPush) {
-							ais.common.ErrorAuditUtil.record(exServerPush,
-									"auto-audit(empty-catch) src/ais/action/master/dashboard/admin/DashboardPenilaianMahasiswa.java:chart-serverpush-off");
 						}
 					}
 				}

@@ -10,7 +10,7 @@ request.setAttribute("nuiModuleLabel", "Persediaan");
 request.setAttribute("nuiPage", "toko");
 request.setAttribute("nuiPageTitle", "Toko");
 request.setAttribute("nuiPageType", "inventory");
-request.setAttribute("nuiPageDescription", "Operasional untuk Persediaan. Stok/aset, pergerakan, status, dan tindakan operasional.");
+request.setAttribute("nuiPageDescription", "CRUD toko untuk Persediaan, termasuk flag Toko Demo/UAT (default nonaktif dan hanya dapat diubah administrator). Stok/aset, pergerakan, status, dan tindakan operasional.");
 request.setAttribute("nuiSourceClass", "TokoAction");
 request.setAttribute("nuiSourcePackage", "ais.action.master.inventory");
 request.setAttribute("nuiSourcePath", "src/ais/action/master/inventory/TokoAction.java");

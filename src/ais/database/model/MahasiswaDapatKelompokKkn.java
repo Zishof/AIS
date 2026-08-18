@@ -260,6 +260,12 @@ public class MahasiswaDapatKelompokKkn extends GeneralValueObject implements VOP
 		if (jumlah != null && jumlah < 0.01) {
 			verify = false;
 		}
+		// KE-FIX (NumberFormatException "For input string: \"null\"" saat hitungTotalNilai()):
+		// jumlah null (komponen belum dinilai) sebelumnya ikut ditulis mentah via string
+		// concat ("," + jumlah + ",") sehingga literal teks "null" tersimpan di kolom
+		// detailNilai, lalu gagal di-parseDouble saat dibaca kembali. Default-kan ke 0 di sini
+		// supaya teks "null" tidak pernah tertulis ke DB.
+		Double jumlahAman = jumlah == null ? Double.valueOf(0.0) : jumlah;
 		if (komponenPenilaianKkn != null) {
 			String formatBaru = "";
 			String[] nilais = detailNilai == null ? new String[] {} : detailNilai.split(";");
@@ -271,7 +277,7 @@ public class MahasiswaDapatKelompokKkn extends GeneralValueObject implements VOP
 					if (!s[0].trim().isEmpty()) {
 						Long formatId = Long.parseLong(s[0]);
 						if (komponenPenilaianKkn.getId().equals(formatId)) {
-							aformatBaru = komponenPenilaianKkn.getId() + "," + jumlah + ",0,"
+							aformatBaru = komponenPenilaianKkn.getId() + "," + jumlahAman + ",0,"
 									+ komponenPenilaianKkn.getBobot() + "," + verify;
 							ada = true;
 						} else {
@@ -287,7 +293,7 @@ public class MahasiswaDapatKelompokKkn extends GeneralValueObject implements VOP
 			}
 
 			if (!ada) {
-				String aformatBaru = komponenPenilaianKkn.getId() + "," + jumlah + ",0,"
+				String aformatBaru = komponenPenilaianKkn.getId() + "," + jumlahAman + ",0,"
 						+ komponenPenilaianKkn.getBobot() + "," + verify;
 				formatBaru += formatBaru.isEmpty() ? aformatBaru : ";" + aformatBaru;
 			}
@@ -322,13 +328,19 @@ public class MahasiswaDapatKelompokKkn extends GeneralValueObject implements VOP
 
 			List<Long> idKknPunyaKomponenPenilaianKkns = new ArrayList<Long>();
 			for (String ss : s) {
-				String[] sss = StringUtils.split(ss, ",");
-				Long idKknPunyaKomponenPenilaianKkn = Long.parseLong(sss[0].trim());
-				if (!idKknPunyaKomponenPenilaianKkns.contains(idKknPunyaKomponenPenilaianKkn)) {
-					idKknPunyaKomponenPenilaianKkns.add(idKknPunyaKomponenPenilaianKkn);
-					if (ids.contains(idKknPunyaKomponenPenilaianKkn)) {
-						formatbaru += formatbaru.isEmpty() ? ss : ";" + ss;
+				try {
+					String[] sss = StringUtils.split(ss, ",");
+					Long idKknPunyaKomponenPenilaianKkn = Long.parseLong(sss[0].trim());
+					if (!idKknPunyaKomponenPenilaianKkns.contains(idKknPunyaKomponenPenilaianKkn)) {
+						idKknPunyaKomponenPenilaianKkns.add(idKknPunyaKomponenPenilaianKkn);
+						if (ids.contains(idKknPunyaKomponenPenilaianKkn)) {
+							formatbaru += formatbaru.isEmpty() ? ss : ";" + ss;
+						}
 					}
+				} catch (Exception e) {
+					// KE-FIX: satu entri detailNilai yang korup/tak terparse tidak boleh
+					// menggagalkan pembersihan entri-entri lain yang valid.
+					Common.tampilErrorJikaAdmin(e);
 				}
 			}
 

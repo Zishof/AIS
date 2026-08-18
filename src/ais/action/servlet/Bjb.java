@@ -196,7 +196,7 @@ public class Bjb extends HttpServlet {
 							for (DetailBiaya detailBiaya : detailBiayas) {
 								Double biaya = detailBiaya.hitungTotalKegiatan(kegiatan, session);
 
-								nilaiBiayaHarusDiBayars += biaya;
+								nilaiBiayaHarusDiBayars += Kegiatan.ambilJumlahTagihan(kegiatan, detailBiaya);
 
 							}
 
@@ -497,3 +497,4 @@ public class Bjb extends HttpServlet {
 	}
 
 }
+

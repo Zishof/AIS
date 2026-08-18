@@ -1409,9 +1409,7 @@ public class Kegiatan extends GeneralValueObject {
 							detailKegiatan.setDiskonMahasiswaData2(d2);
 							detailKegiatan.setDiskonMahasiswaData3(d3);
 
-							session.getTransaction().begin();
-							Common.refreshUpdate(session, detailKegiatan);
-							session.getTransaction().commit();
+							simpanDiskonDenganRetry(detailKegiatan.getId(), diskon, d1, d2, d3);
 						}
 					}
 					} finally {
@@ -1429,6 +1427,52 @@ public class Kegiatan extends GeneralValueObject {
 			diskonTerhitung = detailKegiatan.getDiskon();
 		}
 		return diskonTerhitung == null ? 0.0 : diskonTerhitung;
+	}
+
+	private static void simpanDiskonDenganRetry(Long detailId, Double diskon, DiskonMahasiswa d1,
+			DiskonMahasiswa d2, DiskonMahasiswa d3) throws Exception {
+		if (detailId == null) return;
+		Exception last = null;
+		for (int attempt = 0; attempt < 3; attempt++) {
+			Session updateSession = null;
+			org.hibernate.Transaction tx = null;
+			try {
+				updateSession = HibernateUtil.openSession();
+				tx = updateSession.beginTransaction();
+				DetailKegiatan managed = (DetailKegiatan) updateSession.get(DetailKegiatan.class, detailId);
+				if (managed == null) return;
+				managed.setDiskon(diskon);
+				managed.setDiskonMahasiswaData(d1);
+				managed.setDiskonMahasiswaData2(d2);
+				managed.setDiskonMahasiswaData3(d3);
+				updateSession.flush();
+				tx.commit();
+				return;
+			} catch (Exception error) {
+				last = error;
+				try { if (tx != null && tx.isActive()) tx.rollback(); } catch (Exception ignored) {
+					ais.common.ErrorAuditUtil.record(ignored, "auto-audit src/ais/database/model/Kegiatan.java:diskon-rollback");
+				}
+				if (!isLockTimeout(error) || attempt == 2) throw error;
+				try { Thread.sleep(150L * (attempt + 1)); } catch (InterruptedException interrupted) {
+					Thread.currentThread().interrupt();
+					throw interrupted;
+				}
+			} finally {
+				HibernateUtil.closeSessionQuietly(updateSession);
+			}
+		}
+		if (last != null) throw last;
+	}
+
+	private static boolean isLockTimeout(Throwable error) {
+		Throwable current = error;
+		while (current != null) {
+			String message = current.getMessage() == null ? "" : current.getMessage().toLowerCase();
+			if (message.indexOf("lock timeout") >= 0 || message.indexOf("could not obtain lock") >= 0) return true;
+			current = current.getCause();
+		}
+		return false;
 	}
 
 	public Boolean getAktif() {

@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.hibernate.Session;
+import org.hibernate.Transaction;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
@@ -2897,23 +2898,83 @@ public class FeederExporter {
 				JSONObject a = feederConnector.insertOrUpdateRecordBaru(token, null,
 						"InsertNilaiTransferPendidikanMahasiswa", jsonObject, errorLog, detailperkuliahan);
 
-				id_transfer = a.isNull("data") ? null : a.getJSONObject("data").getString("id_transfer").trim();
+				JSONObject data = ambilDataObject(a, errorLog,
+						"InsertNilaiTransferPendidikanMahasiswa");
+				id_transfer = data == null ? null : trimKeNull(data.optString("id_transfer", null));
 			}
 
 			System.out.println("id_transfer = " + id_transfer);
 
 			if (id_transfer != null
 					&& (detailperkuliahan.getFeeder() == null || !detailperkuliahan.getFeeder().equals(id_transfer))) {
-				Session session = HibernateUtil.currentNativeSession();
+				Session session = null;
+				Transaction transaction = null;
 				detailperkuliahan.setFeeder(id_transfer);
-				session.getTransaction().begin();
-				Common.refreshUpdate(session, detailperkuliahan);
-				session.getTransaction().commit();
-				HibernateUtil.closeSession();
+				try {
+					session = HibernateUtil.getSessionFactory().openSession();
+					transaction = session.beginTransaction();
+					session.merge(detailperkuliahan);
+					transaction.commit();
+				} catch (Exception e) {
+					try { if (transaction != null && transaction.isActive()) transaction.rollback(); }
+					catch (Exception rollbackError) { ais.common.ErrorAuditUtil.record(rollbackError, "auto-audit(empty-catch) FeederExporter.nilaiTransfer.rollback"); }
+					throw e;
+				} finally {
+					tutupSessionKhusus(session);
+				}
 			}
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/feeder/util/FeederExporter.java:2723");
 		}
+	}
+
+	/** Respons Neo Feeder tidak selalu mengembalikan data sebagai JSONObject. */
+	private static JSONObject ambilDataObject(JSONObject response, List<String> errorLog, String operasi) {
+		if (response == null || response.isNull("data")) {
+			return null;
+		}
+		try {
+			Object data = response.opt("data");
+			if (data instanceof JSONObject) {
+				return (JSONObject) data;
+			}
+			if (data instanceof JSONArray) {
+				JSONArray array = (JSONArray) data;
+				return array.length() > 0 && array.opt(0) instanceof JSONObject
+						? (JSONObject) array.opt(0) : null;
+			}
+			if (data instanceof String) {
+				String teks = ((String) data).trim();
+				if (teks.startsWith("{")) {
+					return new JSONObject(teks);
+				}
+				if (teks.startsWith("[")) {
+					JSONArray array = new JSONArray(teks);
+					return array.length() > 0 && array.opt(0) instanceof JSONObject
+							? (JSONObject) array.opt(0) : null;
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit FeederExporter.ambilDataObject");
+		}
+		if (errorLog != null) {
+			errorLog.add(operasi + " gagal: format field data dari Neo Feeder tidak dikenali. Respons: "
+					+ response.toString());
+		}
+		return null;
+	}
+
+	private static String trimKeNull(String value) {
+		if (value == null) return null;
+		value = value.trim();
+		return value.length() == 0 ? null : value;
+	}
+
+	private static void tutupSessionKhusus(Session session) {
+		if (session == null) return;
+		try { session.clear(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) FeederExporter.clear"); }
+		try { if (session.isConnected()) session.disconnect(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) FeederExporter.disconnect"); }
+		try { if (session.isOpen()) session.close(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) FeederExporter.close"); }
 	}
 
 	public void nilai() {

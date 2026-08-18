@@ -285,7 +285,7 @@ public class Briva extends HttpServlet {
 											detailKegiatan.setKeterangan(detailBiaya.getKeterangan());
 											detailKegiatan.setKegiatan(kegiatan);
 
-											nilaiBiayaHarusDiBayars += biaya;
+											nilaiBiayaHarusDiBayars += Kegiatan.ambilJumlahTagihan(kegiatan, detailBiaya);
 
 										}
 
@@ -350,7 +350,7 @@ public class Briva extends HttpServlet {
 										for (DetailBiaya detailBiaya : detailBiayas) {
 											Double biaya = detailBiaya.hitungTotalKegiatan(kegiatan, session);
 
-											nilaiBiayaHarusDiBayars += biaya;
+											nilaiBiayaHarusDiBayars += Kegiatan.ambilJumlahTagihan(kegiatan, detailBiaya);
 
 										}
 
@@ -848,3 +848,4 @@ public class Briva extends HttpServlet {
 		return jsonObjectResponse.toString();
 	}
 }
+

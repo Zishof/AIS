@@ -322,7 +322,7 @@ public class LaporanAngketPerbandinganDosenWindow extends MyWindow {
 				+ "inner join grup_checklist_penilaian_dosen b on (a.grup_checklist_penilaian_dosen=b.id) "
 				+ "inner join perkuliahan c on (x.perkuliahan=c.id) "
 				+ "inner join jurusan d on (c.jurusan=d.id) where c.tahun_ajaran='" + tahunAkademik + "' "
-				+ "and c.semester%2 = " + (genapGanjil.equalsIgnoreCase(Perkuliahan.GANJIL) ? "1" : "0") + " "
+				+ "and c.ganjil_genap = '" + genapGanjil.replace("'", "''") + "' "
 				+ "and (a.aktif or a.aktif is null) and (b.aktif or b.aktif is null)  and a.aktif=true "
 				+ "and b.aktif=true " + (f.equals(-1L) ? "" : " and d.fakultas=" + f)
 				+ (j.equals(-1L) ? "" : " and c.jurusan=" + j) + "    GROUP BY b.id,a.id  order by b.id,a.id";

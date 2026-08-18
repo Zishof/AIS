@@ -376,8 +376,8 @@ order by j.nama,m.nim
 	<field name="dosen_id" class="java.lang.Long"/>
 	<field name="id_jadwal" class="java.lang.Long"/>
 	<field name="nama" class="java.lang.String"/>
-	<field name="mulai" class="java.sql.Date"/>
-	<field name="sampai" class="java.sql.Date"/>
+	<field name="mulai" class="java.util.Date"/>
+	<field name="sampai" class="java.util.Date"/>
 	<field name="nim" class="java.lang.String"/>
 	<field name="nama_mhs" class="java.lang.String"/>
 	<field name="dosen" class="java.lang.String"/>

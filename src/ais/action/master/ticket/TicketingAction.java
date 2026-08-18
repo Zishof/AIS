@@ -183,12 +183,39 @@ public class TicketingAction extends MyWindow {
 	// Layar utama
 	// ==================================================================================
 
+	/**
+	 * Layar utama modul — dua tab: "Tiket Dukungan" (konten asli modul Ticketing) dan
+	 * "Pipeline CRM" (digabung sesuai keputusan produk: CRM adalah perluasan modul ini, bukan
+	 * modul/menu terpisah — lihat {@link CrmPipelineHelper}).
+	 */
 	public static void display(Component parent, final Tbmuser tbmuser) {
 		if (parent == null) {
 			return;
 		}
 		Common.clear(parent);
 
+		org.zkoss.zul.Tabbox tabbox = new org.zkoss.zul.Tabbox();
+		tabbox.setHeight("100%");
+		tabbox.setWidth("100%");
+		tabbox.setParent(parent);
+		org.zkoss.zul.Tabs tabs = new org.zkoss.zul.Tabs();
+		tabs.setParent(tabbox);
+		new org.zkoss.zul.Tab("Tiket Dukungan").setParent(tabs);
+		new org.zkoss.zul.Tab("Pipeline CRM").setParent(tabs);
+		org.zkoss.zul.Tabpanels tabpanels = new org.zkoss.zul.Tabpanels();
+		tabpanels.setParent(tabbox);
+		org.zkoss.zul.Tabpanel panelTiket = new org.zkoss.zul.Tabpanel();
+		ais.ui.util.ZkCompat.setFlex(panelTiket, true);
+		panelTiket.setParent(tabpanels);
+		org.zkoss.zul.Tabpanel panelCrm = new org.zkoss.zul.Tabpanel();
+		ais.ui.util.ZkCompat.setFlex(panelCrm, true);
+		panelCrm.setParent(tabpanels);
+
+		displayTiket(panelTiket, tbmuser);
+		CrmPipelineHelper.display(panelCrm, tbmuser);
+	}
+
+	private static void displayTiket(Component parent, final Tbmuser tbmuser) {
 		final MyDiv root = new MyDiv();
 		root.setStyle("min-height:200px;padding:6px;box-sizing:border-box;");
 		root.setParent(parent);

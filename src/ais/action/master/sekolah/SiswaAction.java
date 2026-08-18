@@ -1702,8 +1702,7 @@ public class SiswaAction extends GenericAutowireComposer implements DataCriteria
 			// padding/hover tombol ke-4 ini konsisten dgn 3 tombol lain -- sebelumnya tombol ini polos
 			// tanpa class sehingga tampil beda ukuran & merusak kerapian kolom aksi.
 			Hbox aksiSiswa = Common.copyEditDeleteButtons(edit, delete, siswa, SiswaAction.this);
-			MyToolbarbuttonConfig dasborSiswaBtn = new MyToolbarbuttonConfig("", "/img/upload.gif");
-			dasborSiswaBtn.setSclass("ais-row-action-btn ais-row-action-dasbor");
+			MyToolbarbuttonConfig dasborSiswaBtn = new MyToolbarbuttonConfig("Dasbor Studi", "/img/upload.gif");
 			dasborSiswaBtn.setTooltiptext("Dasbor Studi Siswa (nilai, kehadiran, riwayat pembelajaran per semester)");
 			dasborSiswaBtn.addEventListener("onClick", new EventListener() {
 				@Override
@@ -1716,7 +1715,29 @@ public class SiswaAction extends GenericAutowireComposer implements DataCriteria
 					});
 				}
 			});
-			dasborSiswaBtn.setParent(aksiSiswa);
+			// Tambahkan ke popup kebab jika tersedia, atau langsung ke toolbar.
+			Object popupAttr = aksiSiswa.getAttribute("ais_row_actions_popup");
+			if (popupAttr instanceof org.zkoss.zul.Div) {
+				org.zkoss.zul.Div popupContent = (org.zkoss.zul.Div) popupAttr;
+				org.zkoss.zul.Div divider = new org.zkoss.zul.Div();
+				divider.setSclass("ais-row-popup-divider");
+				divider.setParent(popupContent);
+				dasborSiswaBtn.setSclass("ais-row-popup-item ais-row-action-dasbor");
+				dasborSiswaBtn.setParent(popupContent);
+				// Pastikan tombol pemicu tetap terlihat (popup ada item tambahan)
+				for (Object child : aksiSiswa.getChildren()) {
+					if (child instanceof org.zkoss.zul.Toolbarbutton) {
+						org.zkoss.zul.Toolbarbutton tb = (org.zkoss.zul.Toolbarbutton) child;
+						if ("ais-row-action-btn ais-row-action-kebab".equals(tb.getSclass())) {
+							tb.setVisible(true);
+							break;
+						}
+					}
+				}
+			} else {
+				dasborSiswaBtn.setSclass("ais-row-action-btn ais-row-action-dasbor");
+				dasborSiswaBtn.setParent(aksiSiswa);
+			}
 			aksiSiswa.setParent(arg0);
 
 		}

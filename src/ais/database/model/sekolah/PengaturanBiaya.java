@@ -60,6 +60,9 @@ import ais.ui.util.WaktuUtil;
 @Table(name = "pengaturan_biaya", schema = "sekolah")
 public class PengaturanBiaya extends GeneralValueObject {
 
+	private static final long JEDA_LOG_KONEKSI_NOTIFIKASI = 10L * 60L * 1000L;
+	private static long terakhirLogKoneksiNotifikasi = 0L;
+
 	/**
 	 * PUBLIC FACADE: Method tunggal yang dipanggil dari luar (misal dari
 	 * tampilPembayaran). Akan mengakumulasi semua filter kompleks ke dalam object
@@ -1343,6 +1346,7 @@ public class PengaturanBiaya extends GeneralValueObject {
 		Session session = null;
 		try {
 			session = HibernateUtil.getSessionFactory().openSession();
+			session.setFlushMode(org.hibernate.FlushMode.MANUAL);
 			Criteria criteria = session.createCriteria(PengaturanBiaya.class)
 					.setFetchMode("jenisBiayaSekolah", FetchMode.JOIN)
 					.createAlias("jenisBiayaSekolah", "jenisBiayaSekolah", Criteria.LEFT_JOIN)
@@ -1351,6 +1355,7 @@ public class PengaturanBiaya extends GeneralValueObject {
 					.add(Restrictions.isNotNull("templateNotifikasi"))
 					.add(Restrictions.ne("templateNotifikasi", ""))
 					.add(Restrictions.isNotNull("waktuNotifikasi"));
+			criteria.setReadOnly(true);
 
 			List<PengaturanBiaya> pengaturanBiayas = criteria.list();
 
@@ -1386,6 +1391,10 @@ public class PengaturanBiaya extends GeneralValueObject {
 				}
 			}
 		} catch (Exception e) {
+			if (koneksiNotifikasiTidakTersedia(e)) {
+				logKoneksiNotifikasiTerbatas(e);
+				return;
+			}
 			try {
 				Common.tampilErrorJikaAdmin(e);
 			} catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/database/model/sekolah/PengaturanBiaya.java:1360");
@@ -1393,6 +1402,32 @@ public class PengaturanBiaya extends GeneralValueObject {
 		} finally {
 			closeOpenedSessionQuietly(session);
 		}
+	}
+
+	private static boolean koneksiNotifikasiTidakTersedia(Throwable e) {
+		Throwable t = e;
+		while (t != null) {
+			String nama = t.getClass() == null ? "" : t.getClass().getName();
+			String pesan = t.getMessage();
+			String lower = (nama + " " + (pesan == null ? "" : pesan)).toLowerCase(java.util.Locale.ENGLISH);
+			if (lower.indexOf("cannot open connection") >= 0 || lower.indexOf("cannotacquireresource") >= 0
+					|| lower.indexOf("connections could not be acquired") >= 0
+					|| lower.indexOf("checkout a connection has timed out") >= 0) {
+				return true;
+			}
+			t = t.getCause();
+		}
+		return false;
+	}
+
+	private static void logKoneksiNotifikasiTerbatas(Throwable e) {
+		long now = System.currentTimeMillis();
+		if (now - terakhirLogKoneksiNotifikasi < JEDA_LOG_KONEKSI_NOTIFIKASI) {
+			return;
+		}
+		terakhirLogKoneksiNotifikasi = now;
+		System.err.println("Notifikasi tagihan sekolah dilewati sementara karena pool koneksi database penuh: "
+				+ (e == null ? "" : e.getMessage()));
 	}
 
 	public void kirimTemplate(Integer tahunCurrent, Integer bulanCurrent) {

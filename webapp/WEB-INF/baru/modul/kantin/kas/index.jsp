@@ -46,6 +46,15 @@ String R = Common.getGeneratedBarCode(6);
     return await r.json();
   };
   var panel=document.getElementById("panel<%=R%>");
+  var esc=function(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+  var tampilLaporan=function(l){
+    l=l||{}; var metode=(l.metodePembayaran||[]).map(function(m){return '<b>'+esc(m.nama)+'</b><div class="d-flex justify-content-between"><span>'+Number(m.jumlahTransaksi||0)+'x Penerimaan</span><span>Rp '+rp(m.penerimaan)+'</span></div><div class="d-flex justify-content-between"><span>Retur</span><span>Rp '+rp(m.retur)+'</span></div><div class="d-flex justify-content-between fw-bold"><span>Total '+esc(m.nama)+'</span><span>Rp '+rp(m.total)+'</span></div><br>';}).join('');
+    var isi='<div class="font-monospace small" style="max-width:390px;margin:auto"><div class="text-center fw-bold fs-5">LAPORAN TUTUP KAS</div><div class="text-center">'+esc(l.namaToko)+'</div><hr><div>Nama Kasir : '+esc(l.namaKasir)+'</div><div>Buka : '+esc(l.waktuBuka)+'</div><div>Tutup : '+esc(l.waktuTutup)+'</div><hr>'+
+      '<div class="d-flex justify-content-between"><span>Modal Awal</span><span>Rp '+rp(l.modalAwal)+'</span></div><div class="d-flex justify-content-between"><span>Penjualan Tunai</span><span>Rp '+rp(l.penjualanTunai)+'</span></div><div class="d-flex justify-content-between"><span>Kas Seharusnya</span><span>Rp '+rp(l.kasSeharusnya)+'</span></div><div class="d-flex justify-content-between"><span>Jumlah Kas Tunai</span><span>Rp '+rp(l.jumlahKasTunai)+'</span></div><div class="d-flex justify-content-between fw-bold"><span>Selisih</span><span>Rp '+rp(l.selisih)+'</span></div><hr>'+
+      '<div class="d-flex justify-content-between"><span>Retur Penjualan</span><span>Rp '+rp(l.returPenjualan)+'</span></div><div class="d-flex justify-content-between"><span>Biaya</span><span>Rp '+rp(l.biaya)+'</span></div><div class="d-flex justify-content-between"><span>Piutang ('+Number(l.jumlahTransaksiPiutang||0)+'x)</span><span>Rp '+rp(l.piutang)+'</span></div><hr>'+metode+'<hr><div class="d-flex justify-content-between fw-bold"><span>Jumlah Transaksi</span><span>'+Number(l.jumlahTransaksi||0)+'</span></div><div class="d-flex justify-content-between fw-bold fs-6"><span>Total Transaksi</span><span>Rp '+rp(l.totalTransaksi)+'</span></div></div>';
+    var el=document.getElementById('lapKas<%=R%>'); if(!el){el=document.createElement('div');el.id='lapKas<%=R%>';el.className='modal fade';document.body.appendChild(el);} el.innerHTML='<div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5>Laporan Tutup Kas</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">'+isi+'</div><div class="modal-footer"><button id="printKas<%=R%>" class="btn btn-outline-success">Cetak Laporan</button><button class="btn btn-success" data-bs-dismiss="modal">Selesai</button></div></div></div>';
+    document.getElementById('printKas<%=R%>').onclick=function(){var w=window.open('','_blank','width=480,height=720');if(!w)return;w.document.write('<style>@page{size:80mm auto;margin:4mm}body{font:11px monospace}.d-flex{display:flex}.justify-content-between{justify-content:space-between}.text-center{text-align:center}.fw-bold{font-weight:bold}hr{border:0;border-top:1px dashed}</style>'+isi+'<script>onload=function(){print()}<\/script>');w.document.close();}; bootstrap.Modal.getOrCreateInstance(el).show();
+  };
 
   var render=async function(){
     var j=await post({aksi:"status"});
@@ -84,7 +93,7 @@ String R = Common.getGeneratedBarCode(6);
       document.getElementById("btnTutup<%=R%>").onclick=async function(){
         if(!confirm("<%=Common.getBahasaConfig("Tutup kas sekarang?")%>"))return;
         var r=await post({aksi:"tutup",uangFisik:document.getElementById("uf<%=R%>").value||0,keterangan:document.getElementById("kt<%=R%>").value||""});
-        if(r && r.status==="00"){ tampilkanPesanSuksesFormal("penutupan kas", r.message||""); } else { tampilkanPesanGagalFormal("penutupan kas", (r&&r.message)||"Peladen menolak permintaan tanpa keterangan rinci.", ["Periksa kembali nominal uang fisik yang dimasukkan.", "Ulangi proses penutupan kas beberapa saat lagi."]); }
+        if(r && r.status==="00"){ tampilkanPesanSuksesFormal("penutupan kas", r.message||""); tampilLaporan(r.laporanTutupKas); } else { tampilkanPesanGagalFormal("penutupan kas", (r&&r.message)||"Peladen menolak permintaan tanpa keterangan rinci.", ["Periksa kembali nominal uang fisik yang dimasukkan.", "Ulangi proses penutupan kas beberapa saat lagi."]); }
         render(); loadList();
       };
     }

@@ -1415,8 +1415,7 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 								.add(Restrictions.between("mahasiswa.tahunangkatan", mulai.getValue(),
 										sampai.getValue()))
 								.add(Restrictions.eq("tahunAkademik", tahunAkademik.getSelectedItem().getValue()))
-								.add(Restrictions.sqlRestriction(
-										"this_.semester%2=" + (jenisSmtStatus.equals(Perkuliahan.GANJIL) ? "1" : "0")));
+								.add(Restrictions.eq("ganjilGenap", jenisSmtStatus));
 					}
 				}, "Download Status Mahasiswa", "/img/print.png", columnHeadersAdding, dataAdding, false, null, "",
 				contents);
@@ -6226,7 +6225,7 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 			stringsStatusAwal.add(s.trim());
 		}
 
-		boolean bolehUbahStatusAwal = statusAwalMahasiswaHanyaBolehDiubahOleh.isEmpty() || (tbmuser != null
+		final boolean bolehUbahStatusAwal = statusAwalMahasiswaHanyaBolehDiubahOleh.isEmpty() || (tbmuser != null
 				&& tbmuser.hakAkses() != null && stringsStatusAwal.contains(tbmuser.hakAkses().getRoleId()));
 
 		row = new MyFormRow();
@@ -6349,7 +6348,7 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 			gridCols.setSizable(true);
 			gridCols.setParent(gridStatusAwal);
 			org.zkoss.zul.Column colTa = new org.zkoss.zul.Column("TA"); colTa.setWidth("90px"); colTa.setParent(gridCols);
-			org.zkoss.zul.Column colSmt = new org.zkoss.zul.Column("Smt (s.d. " + smtMaxFinal + ")"); colSmt.setWidth("80px"); colSmt.setParent(gridCols);
+			org.zkoss.zul.Column colSmt = new org.zkoss.zul.Column("Smt"); colSmt.setWidth("80px"); colSmt.setParent(gridCols);
 			org.zkoss.zul.Column colStatus = new org.zkoss.zul.Column("Status"); colStatus.setWidth("85px"); colStatus.setParent(gridCols);
 			org.zkoss.zul.Column colStatusAwal = new org.zkoss.zul.Column("Status Awal (UKT)"); colStatusAwal.setParent(gridCols);
 			org.zkoss.zul.Column colProgram = new org.zkoss.zul.Column("Program"); colProgram.setWidth("75px"); colProgram.setParent(gridCols);
@@ -6374,108 +6373,8 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 			final Rows rowsStatusAwal = new Rows();
 			rowsStatusAwal.setParent(gridStatusAwal);
 
-			// Load data dari HistoryStatusMahasiswa
-
-			java.util.List<HistoryStatusMahasiswa> histList = new java.util.ArrayList<HistoryStatusMahasiswa>();
-			Session sessionGrid = null;
-			try {
-				sessionGrid = HibernateUtil.openSession();
-				sessionGrid.setFlushMode(org.hibernate.FlushMode.MANUAL);
-				@SuppressWarnings("unchecked")
-				java.util.List<HistoryStatusMahasiswa> raw = sessionGrid.createCriteria(HistoryStatusMahasiswa.class)
-						.add(Restrictions.eq("mahasiswa", mahasiswa))
-						.add(Restrictions.isNull("sp"))
-						.add(Restrictions.le("semester", smtMaxFinal))
-						.addOrder(Order.asc("semester"))
-						.list();
-				histList.addAll(raw);
-			} catch (Exception e) {
-				Common.tampilErrorJikaAdmin(e);
-			} finally {
-				if (sessionGrid != null && sessionGrid.isOpen()) sessionGrid.close();
-			}
-
-			for (HistoryStatusMahasiswa hist : histList) {
-				Row rowGrid = new Row();
-				rowGrid.setParent(rowsStatusAwal);
-				new Label(hist.getTahunAkademik() != null ? hist.getTahunAkademik() : "").setParent(rowGrid);
-				new Label(hist.getSemester() != null ? "Smt " + hist.getSemester() : "").setParent(rowGrid);
-				new Label(hist.getStatusMahasiswa() != null ? hist.getStatusMahasiswa().getNama() : "").setParent(rowGrid);
-				// Deteksi ketidaksesuaian status awal dengan aturan Mahasiswa
-				int smtData = hist.getSemester() != null ? hist.getSemester() : 0;
-				StatusAwalMahasiswa harusnya = HistoryStatusMahasiswa.ambilStatusAwal(mahasiswa, smtData, null);
-				String namaStatusAwal = hist.getStatusAwalMahasiswa() != null ? hist.getStatusAwalMahasiswa().getNama() : "(kosong)";
-				final Label lblStatusAwal = new Label(namaStatusAwal);
-				boolean tidakSesuai = harusnya != null && hist.getStatusAwalMahasiswa() != null
-						&& !harusnya.getId().equals(hist.getStatusAwalMahasiswa().getId());
-				boolean kosong = hist.getStatusAwalMahasiswa() == null && harusnya != null;
-				if (tidakSesuai || kosong) {
-					lblStatusAwal.setStyle("color:#dc2626;font-weight:bold");
-					lblStatusAwal.setTooltiptext("Seharusnya: " + (harusnya != null ? harusnya.getNama() : "-"));
-				}
-				if (bolehUbahStatusAwal) {
-					final Long histId = hist.getId();
-					final Long existingId = hist.getStatusAwalMahasiswa() != null ? hist.getStatusAwalMahasiswa().getId() : null;
-					final org.zkoss.zul.Combobox cbSA = new org.zkoss.zul.Combobox();
-					cbSA.setWidth("95%"); cbSA.setReadonly(true); cbSA.setVisible(false);
-					for (StatusAwalMahasiswa sa : statusAwalOpts) {
-						org.zkoss.zul.Comboitem ci = cbSA.appendItem(sa.getNama());
-						ci.setValue(sa.getId());
-						if (sa.getId().equals(existingId)) cbSA.setSelectedItem(ci);
-					}
-					org.zkoss.zul.Div divSA = new org.zkoss.zul.Div(); divSA.setWidth("100%");
-					lblStatusAwal.setParent(divSA); cbSA.setParent(divSA); divSA.setParent(rowGrid);
-					new Label(hist.getProgram() != null ? hist.getProgram() : "").setParent(rowGrid);
-					final org.zkoss.zul.Button btnSimpan = new org.zkoss.zul.Button("Simpan");
-					btnSimpan.setDisabled(true); btnSimpan.setStyle("font-size:11px");
-					final org.zkoss.zul.Checkbox chkPaksa = new org.zkoss.zul.Checkbox("Paksa");
-					chkPaksa.addEventListener("onClick", new EventListener() {
-						@Override public void onEvent(Event ev) throws Exception {
-							boolean c = chkPaksa.isChecked();
-							lblStatusAwal.setVisible(!c); cbSA.setVisible(c); btnSimpan.setDisabled(!c);
-						}
-					});
-					btnSimpan.addEventListener("onClick", new EventListener() {
-						@Override public void onEvent(Event ev) throws Exception {
-							org.zkoss.zul.Comboitem sel = cbSA.getSelectedItem();
-							if (sel == null) {
-								MyMessageboxConfig.show("Pilih Status Awal (UKT) terlebih dahulu.", "Peringatan",
-										MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
-								return;
-							}
-							Long newSaId = (Long) sel.getValue();
-							Session sp = null;
-							try {
-								sp = HibernateUtil.openSession();
-								sp.setFlushMode(org.hibernate.FlushMode.MANUAL);
-								HistoryStatusMahasiswa hp = (HistoryStatusMahasiswa) sp.get(HistoryStatusMahasiswa.class, histId);
-								if (hp == null) return;
-								StatusAwalMahasiswa ns = (StatusAwalMahasiswa) sp.get(StatusAwalMahasiswa.class, newSaId);
-								hp.setStatusAwalMahasiswa(ns);
-								sp.getTransaction().begin(); sp.update(hp); sp.getTransaction().commit();
-								lblStatusAwal.setValue(sel.getLabel()); lblStatusAwal.setStyle(""); lblStatusAwal.setTooltiptext(""); lblStatusAwal.setVisible(true);
-								cbSA.setVisible(false); chkPaksa.setChecked(false); btnSimpan.setDisabled(true);
-							} catch (Exception ex) {
-								if (sp != null && sp.isOpen() && sp.getTransaction() != null && sp.getTransaction().isActive()) sp.getTransaction().rollback();
-								Common.tampilErrorJikaAdmin(ex);
-							} finally {
-								if (sp != null && sp.isOpen()) sp.close();
-							}
-						}
-					});
-					org.zkoss.zul.Hbox hPaksa = new org.zkoss.zul.Hbox(); hPaksa.setAlign("center"); hPaksa.setSpacing("4px");
-					chkPaksa.setParent(hPaksa); btnSimpan.setParent(hPaksa); hPaksa.setParent(rowGrid);
-				} else {
-					lblStatusAwal.setParent(rowGrid);
-					new Label(hist.getProgram() != null ? hist.getProgram() : "").setParent(rowGrid);
-				}
-			}
-			if (histList.isEmpty()) {
-				Row rowGrid = new Row();
-				rowGrid.setParent(rowsStatusAwal);
-				org.zkoss.zul.Cell cell = new org.zkoss.zul.Cell(); cell.setColspan(bolehUbahStatusAwal ? 6 : 5); cell.setParent(rowGrid);
-				new Label("Belum ada data riwayat status per-semester.").setParent(cell);
-			}
+			tampilkanRiwayatStatusAwalDariKrsReguler(rowsStatusAwal, mahasiswa, smtMaxFinal,
+					bolehUbahStatusAwal, statusAwalOpts, false);
 			gridStatusAwal.setParent(vboxRiwayat);
 
 			// Tombol Sinkronkan Status Awal - terapkan ulang aturan (I)/(II) ke semua semester
@@ -6515,91 +6414,10 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 							MyMessageboxConfig.show(
 									updated + " semester diperbarui status awal (UKT)-nya.",
 									"Sinkronisasi Selesai", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
-							// Refresh tampilan grid
+							// Refresh tampilan grid dari sumber yang sama dengan tab KRS reguler.
 							rowsStatusAwal.getChildren().clear();
-							Session sessionRefresh = null;
-							try {
-								sessionRefresh = HibernateUtil.openSession();
-								sessionRefresh.setFlushMode(org.hibernate.FlushMode.MANUAL);
-								@SuppressWarnings("unchecked")
-								java.util.List<HistoryStatusMahasiswa> refreshed = sessionRefresh
-										.createCriteria(HistoryStatusMahasiswa.class)
-										.add(Restrictions.eq("mahasiswa", mahasiswa))
-										.add(Restrictions.isNull("sp"))
-										.add(Restrictions.le("semester", smtMaxFinal))
-										.addOrder(Order.asc("semester"))
-										.list();
-								for (HistoryStatusMahasiswa histR : refreshed) {
-									Row rowGrid = new Row();
-									rowGrid.setParent(rowsStatusAwal);
-									new Label(histR.getTahunAkademik() != null ? histR.getTahunAkademik() : "").setParent(rowGrid);
-									new Label(histR.getSemester() != null ? "Smt " + histR.getSemester() : "").setParent(rowGrid);
-									new Label(histR.getStatusMahasiswa() != null ? histR.getStatusMahasiswa().getNama() : "").setParent(rowGrid);
-									String nama = histR.getStatusAwalMahasiswa() != null ? histR.getStatusAwalMahasiswa().getNama() : "(kosong)";
-									final Label lblR = new Label(nama);
-									final Long histIdR = histR.getId();
-									final Long existIdR = histR.getStatusAwalMahasiswa() != null ? histR.getStatusAwalMahasiswa().getId() : null;
-									final org.zkoss.zul.Combobox cbR = new org.zkoss.zul.Combobox();
-									cbR.setWidth("95%"); cbR.setReadonly(true); cbR.setVisible(false);
-									for (StatusAwalMahasiswa sa : statusAwalOpts) {
-										org.zkoss.zul.Comboitem ci = cbR.appendItem(sa.getNama());
-										ci.setValue(sa.getId());
-										if (sa.getId().equals(existIdR)) cbR.setSelectedItem(ci);
-									}
-									org.zkoss.zul.Div divR = new org.zkoss.zul.Div(); divR.setWidth("100%");
-									lblR.setParent(divR); cbR.setParent(divR); divR.setParent(rowGrid);
-									new Label(histR.getProgram() != null ? histR.getProgram() : "").setParent(rowGrid);
-									final org.zkoss.zul.Button btnR = new org.zkoss.zul.Button("Simpan");
-									btnR.setDisabled(true); btnR.setStyle("font-size:11px");
-									final org.zkoss.zul.Checkbox chkR = new org.zkoss.zul.Checkbox("Paksa");
-									chkR.addEventListener("onClick", new EventListener() {
-										@Override public void onEvent(Event ev) throws Exception {
-											boolean c = chkR.isChecked();
-											lblR.setVisible(!c); cbR.setVisible(c); btnR.setDisabled(!c);
-										}
-									});
-									btnR.addEventListener("onClick", new EventListener() {
-										@Override public void onEvent(Event ev) throws Exception {
-											org.zkoss.zul.Comboitem sel = cbR.getSelectedItem();
-											if (sel == null) {
-												MyMessageboxConfig.show("Pilih Status Awal (UKT) terlebih dahulu.", "Peringatan",
-														MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
-												return;
-											}
-											Long newSaId = (Long) sel.getValue();
-											Session sp2 = null;
-											try {
-												sp2 = HibernateUtil.openSession();
-												sp2.setFlushMode(org.hibernate.FlushMode.MANUAL);
-												HistoryStatusMahasiswa hp2 = (HistoryStatusMahasiswa) sp2.get(HistoryStatusMahasiswa.class, histIdR);
-												if (hp2 == null) return;
-												StatusAwalMahasiswa ns2 = (StatusAwalMahasiswa) sp2.get(StatusAwalMahasiswa.class, newSaId);
-												hp2.setStatusAwalMahasiswa(ns2);
-												sp2.getTransaction().begin(); sp2.update(hp2); sp2.getTransaction().commit();
-												lblR.setValue(sel.getLabel()); lblR.setStyle(""); lblR.setTooltiptext(""); lblR.setVisible(true);
-												cbR.setVisible(false); chkR.setChecked(false); btnR.setDisabled(true);
-											} catch (Exception ex) {
-												if (sp2 != null && sp2.isOpen() && sp2.getTransaction() != null && sp2.getTransaction().isActive()) sp2.getTransaction().rollback();
-												Common.tampilErrorJikaAdmin(ex);
-											} finally {
-												if (sp2 != null && sp2.isOpen()) sp2.close();
-											}
-										}
-									});
-									org.zkoss.zul.Hbox hR = new org.zkoss.zul.Hbox(); hR.setAlign("center"); hR.setSpacing("4px");
-									chkR.setParent(hR); btnR.setParent(hR); hR.setParent(rowGrid);
-								}
-								if (refreshed.isEmpty()) {
-									Row rowGrid = new Row();
-									rowGrid.setParent(rowsStatusAwal);
-									org.zkoss.zul.Cell cell = new org.zkoss.zul.Cell(); cell.setColspan(6); cell.setParent(rowGrid);
-									new Label("Belum ada data riwayat status per-semester.").setParent(cell);
-								}
-							} catch (Exception e2) {
-								Common.tampilErrorJikaAdmin(e2);
-							} finally {
-								if (sessionRefresh != null && sessionRefresh.isOpen()) sessionRefresh.close();
-							}
+							tampilkanRiwayatStatusAwalDariKrsReguler(rowsStatusAwal, mahasiswa, smtMaxFinal,
+									bolehUbahStatusAwal, statusAwalOpts, true);
 						} catch (Exception e) {
 							Common.tampilErrorJikaAdmin(e);
 							MyMessageboxConfig.show("Gagal sinkronisasi: " + e.getMessage(),
@@ -6733,13 +6551,8 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 			return false;
 		}
 		try {
-			return Boolean.TRUE.equals(mahasiswa.getMerupakanPindahan())
-					|| mahasiswa.getPindahanDari() != null
-					|| (mahasiswa.getPindahanDariKampus() != null
-							&& mahasiswa.getPindahanDariKampus().trim().length() > 0)
-					|| (mahasiswa.getNimPindahan() != null && mahasiswa.getNimPindahan().trim().length() > 0)
-					|| mahasiswa.getTanggalPindah() != null
-					|| (mahasiswa.getSksYangDiakui() != null && mahasiswa.getSksYangDiakui().intValue() > 0);
+			StatusAwalMahasiswa statusAwal = mahasiswa.getStatusAwalMahasiswa();
+			return statusAwal != null && Boolean.TRUE.equals(statusAwal.getPindahan());
 		} catch (Exception e) {
 			ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) MahasiswaAction.tampilkanTabPindahan");
 			return false;
@@ -6751,16 +6564,8 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 			return false;
 		}
 		try {
-			return Boolean.TRUE.equals(mahasiswa.getMerupakanAlihProdi())
-					|| mahasiswa.getAlihProdiMahasiswa() != null
-					|| (mahasiswa.getNimBaruPindah() != null && mahasiswa.getNimBaruPindah().trim().length() > 0)
-					|| mahasiswa.getTanggalPindahProdi() != null
-					|| (mahasiswa.getKeteranganPindahProdi() != null
-							&& mahasiswa.getKeteranganPindahProdi().trim().length() > 0)
-					|| (mahasiswa.getPindahKeProdiIniMasukSemester() != null
-							&& mahasiswa.getPindahKeProdiIniMasukSemester().intValue() > 0)
-					|| (mahasiswa.getSksYangDiakuiPindahProdi() != null
-							&& mahasiswa.getSksYangDiakuiPindahProdi().intValue() > 0);
+			StatusAwalMahasiswa statusAwal = mahasiswa.getStatusAwalMahasiswa();
+			return statusAwal != null && Boolean.TRUE.equals(statusAwal.getAlihProdi());
 		} catch (Exception e) {
 			ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) MahasiswaAction.tampilkanTabAlihProdi");
 			return false;
@@ -6921,6 +6726,8 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 			tabpanel = new ais.ui.util.MyTabpanel();
 			tabpanel.setParent(tabpanels);
 			tabpanel.appendChild(initLoginOrtu(mahasiswa));
+
+			ais.ui.util.MyButtonTabbox.gantiTabboxNative(tabbox, new int[] { 1 });
 
 			South south = new South();
 			ais.ui.util.ZkCompat.setFlex(south, true);
@@ -7607,6 +7414,196 @@ public class MahasiswaAction extends GenericAutowireComposer implements DataLoad
 			return satu == dua;
 		}
 		return satu.getId().equals(dua.getId());
+	}
+
+	private static void tampilkanRiwayatStatusAwalDariKrsReguler(final Rows rowsStatusAwal,
+			final Mahasiswa mahasiswa, Integer smtMaxFinal, final boolean bolehUbahStatusAwal,
+			final java.util.List<StatusAwalMahasiswa> statusAwalOpts, boolean refreshHistory) {
+		java.util.List<KrsMahasiswa> krsReguler = ambilKrsRegulerUntukRiwayatStatusAwal(mahasiswa, smtMaxFinal);
+		for (KrsMahasiswa krs : krsReguler) {
+			HistoryStatusMahasiswa hist = null;
+			try {
+				hist = HistoryStatusMahasiswaUtil.getHistoryStatusMahasiswa(krs, refreshHistory);
+			} catch (Exception e) {
+				Common.tampilErrorJikaAdmin(e);
+			}
+			tambahBarisRiwayatStatusAwal(rowsStatusAwal, mahasiswa, krs, hist, bolehUbahStatusAwal, statusAwalOpts);
+		}
+		if (krsReguler.isEmpty()) {
+			Row rowGrid = new Row();
+			rowGrid.setParent(rowsStatusAwal);
+			org.zkoss.zul.Cell cell = new org.zkoss.zul.Cell();
+			cell.setColspan(bolehUbahStatusAwal ? 6 : 5);
+			cell.setParent(rowGrid);
+			new Label("Belum ada data KRS reguler untuk riwayat status per-semester.").setParent(cell);
+		}
+	}
+
+	private static java.util.List<KrsMahasiswa> ambilKrsRegulerUntukRiwayatStatusAwal(Mahasiswa mahasiswa,
+			Integer smtMaxFinal) {
+		java.util.List<KrsMahasiswa> hasil = new java.util.ArrayList<KrsMahasiswa>();
+		if (mahasiswa == null || mahasiswa.getId() == null) {
+			return hasil;
+		}
+		Session session = null;
+		try {
+			session = HibernateUtil.openSession();
+			session.setFlushMode(org.hibernate.FlushMode.MANUAL);
+			@SuppressWarnings("unchecked")
+			java.util.List<KrsMahasiswa> raw = session.createCriteria(KrsMahasiswa.class)
+					.add(Restrictions.eq("mahasiswa", mahasiswa))
+					.add(Restrictions.isNull("semesterPendek"))
+					.add(Restrictions.gt("semester", Integer.valueOf(0)))
+					.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", Boolean.TRUE)))
+					.addOrder(Order.asc("semester"))
+					.addOrder(Order.asc("id"))
+					.list();
+			java.util.LinkedHashMap<Integer, KrsMahasiswa> perSemester =
+					new java.util.LinkedHashMap<Integer, KrsMahasiswa>();
+			for (KrsMahasiswa krs : raw) {
+				if (krs == null || krs.getSemester() == null || krs.getSemester() <= 0) {
+					continue;
+				}
+				if (smtMaxFinal != null && smtMaxFinal > 0 && krs.getSemester() > smtMaxFinal) {
+					continue;
+				}
+				if (!perSemester.containsKey(krs.getSemester())) {
+					krs.setMahasiswa(mahasiswa);
+					perSemester.put(krs.getSemester(), krs);
+				}
+			}
+			hasil.addAll(perSemester.values());
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+		} finally {
+			if (session != null && session.isOpen()) {
+				session.close();
+			}
+		}
+		return hasil;
+	}
+
+	private static void tambahBarisRiwayatStatusAwal(final Rows rowsStatusAwal, final Mahasiswa mahasiswa,
+			final KrsMahasiswa krs, HistoryStatusMahasiswa hist, boolean bolehUbahStatusAwal,
+			final java.util.List<StatusAwalMahasiswa> statusAwalOpts) {
+		Row rowGrid = new Row();
+		rowGrid.setParent(rowsStatusAwal);
+		Integer semesterKrs = krs == null ? null : krs.getSemester();
+		String tahunAkademikKrs = krs == null ? "" : krs.getTahunAkademik();
+		new Label(tahunAkademikKrs != null ? tahunAkademikKrs : "").setParent(rowGrid);
+		new Label(semesterKrs != null ? "Smt " + semesterKrs : "").setParent(rowGrid);
+		new Label(hist != null && hist.getStatusMahasiswa() != null ? hist.getStatusMahasiswa().getNama() : "")
+				.setParent(rowGrid);
+
+		int smtData = semesterKrs != null ? semesterKrs : 0;
+		StatusAwalMahasiswa harusnya = HistoryStatusMahasiswa.ambilStatusAwal(mahasiswa, smtData, null);
+		String namaStatusAwal = hist != null && hist.getStatusAwalMahasiswa() != null
+				? hist.getStatusAwalMahasiswa().getNama() : "(kosong)";
+		final Label lblStatusAwal = new Label(namaStatusAwal);
+		boolean tidakSesuai = harusnya != null && hist != null && hist.getStatusAwalMahasiswa() != null
+				&& !harusnya.getId().equals(hist.getStatusAwalMahasiswa().getId());
+		boolean kosong = hist != null && hist.getStatusAwalMahasiswa() == null && harusnya != null;
+		if (tidakSesuai || kosong) {
+			lblStatusAwal.setStyle("color:#dc2626;font-weight:bold");
+			lblStatusAwal.setTooltiptext("Seharusnya: " + (harusnya != null ? harusnya.getNama() : "-"));
+		}
+		if (bolehUbahStatusAwal) {
+			final Long histId = hist != null ? hist.getId() : null;
+			final Long krsId = krs != null ? krs.getId() : null;
+			final Long existingId = hist != null && hist.getStatusAwalMahasiswa() != null
+					? hist.getStatusAwalMahasiswa().getId() : null;
+			final org.zkoss.zul.Combobox cbSA = new org.zkoss.zul.Combobox();
+			cbSA.setWidth("95%");
+			cbSA.setReadonly(true);
+			cbSA.setVisible(false);
+			for (StatusAwalMahasiswa sa : statusAwalOpts) {
+				org.zkoss.zul.Comboitem ci = cbSA.appendItem(sa.getNama());
+				ci.setValue(sa.getId());
+				if (sa.getId().equals(existingId)) {
+					cbSA.setSelectedItem(ci);
+				}
+			}
+			org.zkoss.zul.Div divSA = new org.zkoss.zul.Div();
+			divSA.setWidth("100%");
+			lblStatusAwal.setParent(divSA);
+			cbSA.setParent(divSA);
+			divSA.setParent(rowGrid);
+			new Label(hist != null && hist.getProgram() != null ? hist.getProgram()
+					: (mahasiswa != null ? mahasiswa.getProgram() : "")).setParent(rowGrid);
+			final org.zkoss.zul.Button btnSimpan = new org.zkoss.zul.Button("Simpan");
+			btnSimpan.setDisabled(true);
+			btnSimpan.setStyle("font-size:11px");
+			final org.zkoss.zul.Checkbox chkPaksa = new org.zkoss.zul.Checkbox("Paksa");
+			chkPaksa.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event ev) throws Exception {
+					boolean c = chkPaksa.isChecked();
+					lblStatusAwal.setVisible(!c);
+					cbSA.setVisible(c);
+					btnSimpan.setDisabled(!c);
+				}
+			});
+			btnSimpan.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event ev) throws Exception {
+					org.zkoss.zul.Comboitem sel = cbSA.getSelectedItem();
+					if (sel == null) {
+						MyMessageboxConfig.show("Pilih Status Awal (UKT) terlebih dahulu.", "Peringatan",
+								MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+						return;
+					}
+					Long newSaId = (Long) sel.getValue();
+					Session sp = null;
+					org.hibernate.Transaction tx = null;
+					try {
+						sp = HibernateUtil.openSession();
+						sp.setFlushMode(org.hibernate.FlushMode.MANUAL);
+						HistoryStatusMahasiswa hp = histId == null ? null
+								: (HistoryStatusMahasiswa) sp.get(HistoryStatusMahasiswa.class, histId);
+						if (hp == null && krsId != null) {
+							KrsMahasiswa krsReload = (KrsMahasiswa) sp.get(KrsMahasiswa.class, krsId);
+							if (krsReload != null) {
+								hp = HistoryStatusMahasiswaUtil.getHistoryStatusMahasiswa(krsReload, true);
+							}
+						}
+						if (hp == null) {
+							return;
+						}
+						StatusAwalMahasiswa ns = (StatusAwalMahasiswa) sp.get(StatusAwalMahasiswa.class, newSaId);
+						hp.setStatusAwalMahasiswa(ns);
+						tx = sp.beginTransaction();
+						sp.saveOrUpdate(hp);
+						tx.commit();
+						lblStatusAwal.setValue(sel.getLabel());
+						lblStatusAwal.setStyle("");
+						lblStatusAwal.setTooltiptext("");
+						lblStatusAwal.setVisible(true);
+						cbSA.setVisible(false);
+						chkPaksa.setChecked(false);
+						btnSimpan.setDisabled(true);
+					} catch (Exception ex) {
+						if (tx != null && tx.isActive()) {
+							tx.rollback();
+						}
+						Common.tampilErrorJikaAdmin(ex);
+					} finally {
+						if (sp != null && sp.isOpen()) {
+							sp.close();
+						}
+					}
+				}
+			});
+			org.zkoss.zul.Hbox hPaksa = new org.zkoss.zul.Hbox();
+			hPaksa.setAlign("center");
+			hPaksa.setSpacing("4px");
+			chkPaksa.setParent(hPaksa);
+			btnSimpan.setParent(hPaksa);
+			hPaksa.setParent(rowGrid);
+		} else {
+			lblStatusAwal.setParent(rowGrid);
+			new Label(hist != null && hist.getProgram() != null ? hist.getProgram()
+					: (mahasiswa != null ? mahasiswa.getProgram() : "")).setParent(rowGrid);
+		}
 	}
 
 	public static void uploadDataMahasiswa(final File file, final EventListener eventListener, final String[] contents)

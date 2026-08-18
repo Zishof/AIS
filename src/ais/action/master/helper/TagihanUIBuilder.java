@@ -202,9 +202,17 @@ public class TagihanUIBuilder {
 					.parseInt(Common.getKonfigurasi("max_semester_pilihan", "25").getNilai().trim());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/TagihanUIBuilder.java:202");
 		}
+		int batasSemesterPilihan = maxSemesterPilihan;
+		if (mahasiswa instanceof Mahasiswa) {
+			Integer semesterBerjalan = ((Mahasiswa) mahasiswa).currentSemester();
+			if (semesterBerjalan != null && semesterBerjalan > 0) {
+				// Batas loop bersifat eksklusif; +1 agar semester berjalan tetap tersedia.
+				batasSemesterPilihan = Math.min(maxSemesterPilihan, semesterBerjalan + 1);
+			}
+		}
 
 		if (mahasiswa instanceof Mahasiswa) {
-			for (int i = 1; i < maxSemesterPilihan; i++) {
+			for (int i = 1; i < batasSemesterPilihan; i++) {
 				Comboitem ci = new Comboitem(String.valueOf(i));
 				ci.setValue(i);
 				semesterMulai.appendChild(ci);
@@ -230,14 +238,18 @@ public class TagihanUIBuilder {
 		final Combobox semesterSampai = new Combobox();
 		row.appendChild(semesterSampai);
 
-		for (int i = 1; i < maxSemesterPilihan; i++) {
+		for (int i = 1; i < batasSemesterPilihan; i++) {
 			Comboitem ci = new Comboitem(String.valueOf(i));
 			ci.setValue(i);
 			semesterSampai.appendChild(ci);
 		}
 
 		if (actionInstance != null && actionInstance.getLastSelectedSmtSampai() != null) {
-			Common.selectComboItem(semesterSampai, actionInstance.getLastSelectedSmtSampai());
+			Integer smtTerakhir = actionInstance.getLastSelectedSmtSampai();
+			if (mahasiswa instanceof Mahasiswa) {
+				smtTerakhir = Math.min(smtTerakhir, ((Mahasiswa) mahasiswa).currentSemester());
+			}
+			Common.selectComboItem(semesterSampai, smtTerakhir);
 		} else {
 			Common.selectComboItem(semesterSampai,
 					(mahasiswa instanceof Mahasiswa) ? ((Mahasiswa) mahasiswa).currentSemester() : 1);
@@ -260,6 +272,13 @@ public class TagihanUIBuilder {
 			@SuppressWarnings({ "unchecked", "rawtypes" })
 			private void load() throws Exception {
 				final boolean gateway = TampilanPaymentGateway.adaPaymentGatewayYangAktif();
+				if (mahasiswa instanceof Mahasiswa && SMT != null
+						&& SMT > ((Mahasiswa) mahasiswa).currentSemester()) {
+					// Parameter langsung dari pemanggil juga tidak boleh membuka rincian tagihan
+					// semester masa depan sebelum semester tersebut menjadi semester berjalan.
+					Common.clear(myDiv);
+					return;
+				}
 				final String label = (jenisKegiatan.getSelectedItem() == null ? ""
 						: jenisKegiatan.getSelectedItem().getLabel()).trim();
 				final JenisKegiatan jenisKegiatanData = (JenisKegiatan) (jenisKegiatan.getSelectedItem() == null ? null

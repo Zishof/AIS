@@ -1339,20 +1339,57 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 
 	public Integer getTahun() {
 		String tahunAkademikAktif = getTahunAkademik();
-		if (tahunAkademikAktif != null) {
-			String[] bagian = StringUtils.split(tahunAkademikAktif.trim(), "/");
-			if (bagian != null && bagian.length > 0 && bagian[0] != null && !bagian[0].trim().isEmpty()) {
-				try {
-					tahun = Integer.valueOf(bagian[0].trim());
-				} catch (Exception e) {
-					ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/Skripsi.java:getTahun");
-				}
-			}
+		Integer tahunDariTahunAkademik = ekstrakTahunAkademik(tahunAkademikAktif);
+		if (tahunDariTahunAkademik != null) {
+			tahun = tahunDariTahunAkademik;
 		}
 		if (tahun == null) {
 			tahun = ais.ui.util.WaktuUtil.getCalendar().get(Calendar.YEAR);
 		}
 		return tahun;
+	}
+
+	private Integer ekstrakTahunAkademik(String tahunAkademikAktif) {
+		if (tahunAkademikAktif == null) {
+			return null;
+		}
+		String nilai = tahunAkademikAktif.trim();
+		if (nilai.length() == 0) {
+			return null;
+		}
+		String[] bagian = StringUtils.split(nilai, "/");
+		Integer tahunAwal = parseTahunAkademik(bagian != null && bagian.length > 0 ? bagian[0] : nilai);
+		if (tahunAwal != null) {
+			return tahunAwal;
+		}
+		for (int i = 0; i <= nilai.length() - 4; i++) {
+			String kandidat = nilai.substring(i, i + 4);
+			tahunAwal = parseTahunAkademik(kandidat);
+			if (tahunAwal != null) {
+				return tahunAwal;
+			}
+		}
+		return null;
+	}
+
+	private Integer parseTahunAkademik(String nilai) {
+		if (nilai == null) {
+			return null;
+		}
+		nilai = nilai.trim();
+		if (nilai.length() != 4) {
+			return null;
+		}
+		for (int i = 0; i < nilai.length(); i++) {
+			if (!Character.isDigit(nilai.charAt(i))) {
+				return null;
+			}
+		}
+		int tahunParsed = Integer.valueOf(nilai).intValue();
+		if (tahunParsed < 1900 || tahunParsed > 2200) {
+			return null;
+		}
+		return Integer.valueOf(tahunParsed);
 	}
 
 	public void setTahun(Integer tahun) {

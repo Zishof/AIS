@@ -70,10 +70,38 @@ public class TicketDashboardAction extends MyWindow {
 		}
 	}
 
-	@SuppressWarnings("unchecked")
+	/** Dashboard — dua tab: "Ticketing" (asli) dan "CRM" (digabung, lihat {@link CrmDashboardHelper}). */
 	private static void render(Component parent, Tbmuser tbmuser) {
 		try {
 			Common.clear(parent);
+
+			org.zkoss.zul.Tabbox tabbox = new org.zkoss.zul.Tabbox();
+			tabbox.setHeight("100%");
+			tabbox.setWidth("100%");
+			tabbox.setParent(parent);
+			org.zkoss.zul.Tabs tabs = new org.zkoss.zul.Tabs();
+			tabs.setParent(tabbox);
+			new org.zkoss.zul.Tab("Ticketing").setParent(tabs);
+			new org.zkoss.zul.Tab("CRM").setParent(tabs);
+			org.zkoss.zul.Tabpanels tabpanels = new org.zkoss.zul.Tabpanels();
+			tabpanels.setParent(tabbox);
+			org.zkoss.zul.Tabpanel panelTiket = new org.zkoss.zul.Tabpanel();
+			ais.ui.util.ZkCompat.setFlex(panelTiket, true);
+			panelTiket.setParent(tabpanels);
+			org.zkoss.zul.Tabpanel panelCrm = new org.zkoss.zul.Tabpanel();
+			ais.ui.util.ZkCompat.setFlex(panelCrm, true);
+			panelCrm.setParent(tabpanels);
+
+			renderTiket(panelTiket, tbmuser);
+			CrmDashboardHelper.display(panelCrm, tbmuser);
+		} catch (Exception e) {
+			Common.tampilErrorJikaAdmin(e);
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	private static void renderTiket(Component parent, Tbmuser tbmuser) {
+		try {
 			MyDiv root = new MyDiv();
 			root.setStyle("padding:12px;box-sizing:border-box;");
 			root.setParent(parent);

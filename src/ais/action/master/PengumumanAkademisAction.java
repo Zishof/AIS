@@ -1687,7 +1687,8 @@ public class PengumumanAkademisAction extends GenericAutowireComposer implements
 		sb.append(".kh-modal-x{cursor:pointer;border:none;border-radius:9px;padding:7px 13px;font-size:13px;"
 				+ "font-weight:800;background:rgba(255,255,255,.22);color:#fff;}");
 		sb.append(".kh-modal-x:hover{background:rgba(255,255,255,.4);}");
-		sb.append(".kh-modal-frame{flex:1 1 auto;width:100%;height:100%;border:none;background:#fff;}");
+		sb.append(".kh-modal-frame{display:block;flex:1 1 auto;min-height:0;width:100%;height:100%;border:none;"
+				+ "background:#fff;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;}");
 		sb.append("</style>");
 
 		sb.append("<div class=\"kh-wrap\" id=\"khwrap").append(r).append("\">");
@@ -1772,7 +1773,7 @@ public class PengumumanAkademisAction extends GenericAutowireComposer implements
 		jsKh.append("khm.id='khmodal").append(r).append("';khm.className='kh-modal';");
 		jsKh.append("khm.innerHTML='<div class=\"kh-modal-box\"><div class=\"kh-modal-bar\"><span>\\uD83D\\uDCC5 Detail Pertemuan</span>"
 				+ "<button type=\"button\" class=\"kh-modal-x\" id=\"khcls").append(r).append("\">\\u2715 Tutup</button></div>"
-				+ "<iframe id=\"khframe").append(r).append("\" class=\"kh-modal-frame\" frameborder=\"0\"></iframe></div>';");
+				+ "<iframe id=\"khframe").append(r).append("\" class=\"kh-modal-frame\" frameborder=\"0\" scrolling=\"yes\"></iframe></div>';");
 		jsKh.append("khm.onclick=function(ev){var e=ev||window.event;if((e.target||e.srcElement)===khm){window.khClose").append(r).append("&&window.khClose").append(r).append("();}};");
 		jsKh.append("document.body.appendChild(khm);");
 		jsKh.append("var xb=document.getElementById('khcls").append(r).append("');");

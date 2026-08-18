@@ -2651,10 +2651,8 @@ public class KegiatanHelper {
 															.add(j != null && j.getUntukBayarSP()
 																	? Restrictions.eq("sp", Perkuliahan.SEMESTER_PENDEK)
 																	: Restrictions.isNull("sp"))
-															.add(Restrictions.eq("tahunAkademik", taStatus))
-															.add(Restrictions.sqlRestriction("this_.semester%2="
-																	+ (jenisSmtStatus.equals(Perkuliahan.GANJIL) ? "1"
-																			: "0")))
+																	.add(Restrictions.eq("tahunAkademik", taStatus))
+																	.add(Restrictions.eq("ganjilGenap", jenisSmtStatus))
 															.setProjection(Projections.groupProperty("mahasiswa"))
 															.createCriteria("mahasiswa");
 												}

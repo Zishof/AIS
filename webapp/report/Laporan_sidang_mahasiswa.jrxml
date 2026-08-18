@@ -70,7 +70,7 @@ d5.nama as dosen5,
 j.nama as jur,
 f.nama as fak,
 m.tahunangkatan,
-a.nilai_ketua_sidang status,
+a.nilai_ketua_sidang status_sidang,
 a.judul,
 m.kelamin,
 a.total_nilai as totalnilai,
@@ -119,7 +119,6 @@ order by a.pembimbing,j.nama,m.nim]]>
 	<field name="jur" class="java.lang.String"/>
 	<field name="fak" class="java.lang.String"/>
 	<field name="tahunangkatan" class="java.lang.Integer"/>
-	<field name="status" class="java.lang.Double"/>
 	<field name="judul" class="java.lang.String"/>
 	<field name="kelamin" class="java.lang.String"/>
 	<field name="totalnilai" class="java.lang.Double"/>

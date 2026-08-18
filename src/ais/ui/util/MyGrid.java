@@ -109,6 +109,19 @@ public class MyGrid extends Grid {
 					// tetap bisa non-null walau sudah terlepas dari Page -- cek getPage() secara
 					// eksplisit, skip diam-diam kalau sudah detached (bukan kondisi error).
 					if (MyGrid.this.getPage() == null) {
+						/*
+						 * Grid yang memang belum pernah ditempel ke halaman (misalnya isi dialog
+						 * yang dibangun secara lazy) masih memiliki parent == null. Timer boleh
+						 * mengembalikan state visible-nya tanpa menyentuh UI engine. Tanpa ini,
+						 * grid tetap hidden selamanya dan dialog hanya menampilkan area putih.
+						 *
+						 * Jika parent masih ada tetapi page sudah null, komponen berarti baru saja
+						 * terlepas dari desktop; kondisi tersebut tetap dilewati untuk mencegah NPE
+						 * getAttachedUiEngine yang menjadi alasan guard ini ditambahkan.
+						 */
+						if (MyGrid.this.getParent() == null) {
+							MyGrid.this.setVisible(true);
+						}
 						return;
 					}
 					if (MyGrid.this.getParent() != null && MyGrid.this.getParent() instanceof North) {

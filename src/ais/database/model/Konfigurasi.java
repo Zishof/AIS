@@ -69,10 +69,12 @@ public class Konfigurasi extends GeneralValueObject {
 	// Matikan bila koperasi menjual jasa/produk tanpa pelacakan stok (mencegah blokir salah).
 	public static final String KANTIN_POS_CEGAH_OVERSELL = "kantin_pos_cegah_oversell";
 	// Wajibkan Sesi Kas Kasir (buka kas) terbuka sebelum kasir bisa memproses pembayaran di POS.
-	// Default TIDAK_AKTIF (OFF) -- banyak toko existing belum pernah membuka sesi kas sama sekali;
-	// mengaktifkan paksa secara default akan langsung memblokir seluruh kasir yang belum terbiasa
-	// dengan alur buka-kas. Admin toko yang siap memakai shift kasir mengaktifkan sendiri per instalasi.
+	// Default AKTIF (ON). Unit yang secara operasional tidak memakai laci/shift kas dapat memilih
+	// "tidak aktif" secara eksplisit. Semua kanal membaca sakelar server yang sama.
 	public static final String KANTIN_POS_WAJIB_SESI_KAS = "kantin_pos_wajib_sesi_kas";
+	// Izinkan provisioning data contoh eBisnis. Fail-closed: tanpa baris konfigurasi
+	// atau bila nilainya bukan "aktif", seluruh seed data contoh harus ditolak.
+	public static final String DATA_SAMPLE_EBISNIS = "data_sample_ebisnis";
 
 	// ==== On/Off tiap tab halaman "Posting Jurnal" (mis. "posting_jurnal_tab_pajak"). Kunci konfigurasi
 	//      = POSTING_JURNAL_TAB_PREFIX + "<slug>". Semua DEFAULT AKTIF (tampil). Diatur admin di

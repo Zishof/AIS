@@ -18,6 +18,7 @@ import org.zkoss.poi.xssf.usermodel.XSSFCell;
 import org.zkoss.poi.xssf.usermodel.XSSFRow;
 import org.zkoss.poi.xssf.usermodel.XSSFSheet;
 import org.zkoss.poi.xssf.usermodel.XSSFWorkbook;
+import org.zkoss.zk.ui.Desktop;
 import org.zkoss.zk.ui.Executions;
 import org.zkoss.zk.ui.Sessions;
 import org.zkoss.zk.ui.event.Event;
@@ -41,6 +42,7 @@ import org.zkoss.zul.Vlayout;
 
 import ais.action.master.helper.AmbilDataDosenBanbox;
 import ais.common.Common;
+import ais.common.CommonFileUtil;
 import ais.common.ConstantValues;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Dosen;
@@ -112,7 +114,7 @@ import ais.ui.util.MyWindow;
  *
  * <h2>Sesi Hibernate</h2>
  * <p>
- * Thread latar belakang mengambil sesi lewat {@code HibernateUtil.currentNativeSession()} (sesi native,
+ * Thread latar belakang mengambil sesi lewat {@code HibernateUtil.openSession()} (sesi native,
  * BUKAN sesi ber-scope permintaan/{@code currentSession()}), sehingga wajib ditutup secara eksplisit;
  * penutupan dilakukan tepat satu kali di blok {@code finally} agar sesi selalu tertutup baik proses
  * berhasil maupun gagal, dan tidak dipanggil berulang di banyak tempat.
@@ -461,6 +463,7 @@ public class DashboardRekapNilaiMahasiswa extends MyWindow {
 		final String mahasiswa = this.mahasiswa.getValue().trim();
 
 		final boolean hitungUlang = ambilDariDatabase.isChecked();
+		final boolean tampilPerSemester = tiapSemester.isChecked();
 
 		if (tahunAkademik == null) {
 			return;
@@ -473,7 +476,9 @@ public class DashboardRekapNilaiMahasiswa extends MyWindow {
 		final String filename = Sessions.getCurrent().getWebApp().getRealPath("/tmp/data_"
 				+ URLEncoder.encode(Common.datetimeFormat2s.get().format(ais.ui.util.WaktuUtil.getDate()), "UTF-8") + ".xlsx");
 
-		(file = new File(filename)).createNewFile();
+		file = new File(filename);
+		CommonFileUtil.ensureWritableFile(file, 50L * 1024L * 1024L);
+		file.createNewFile();
 
 		// Center hanya boleh 1 anak -> bungkus dlm Vlayout: panel grafik ringkasan di atas, wadah
 		// grid/Excel di bawah lewat Div terpisah (gridHost) supaya saat Common.displayLoadBar(...)
@@ -493,18 +498,16 @@ public class DashboardRekapNilaiMahasiswa extends MyWindow {
 
 		final Intbox sizedata = new Intbox(30);
 		final Label label = Common.displayLoadBar(this, file, gridHost, sizedata);
-
-		// FIX (ERROR IllegalStateException "Components can be accessed only in event
-		// listeners"): Thread di bawah ini murni latar (bukan event ZK) tapi menyentuh
-		// komponen ZK (chartPanel.setContent via renderChartRingkasan, label.setValue)
-		// langsung tanpa Executions.activate(desktop) -- Desktop diambil di sini, SEBELUM
-		// thread dimulai, selagi masih dalam konteks event yang sah.
-		final org.zkoss.zk.ui.Desktop desktopUntukChart = chartPanel.getDesktop();
+		final Desktop desktop = Executions.getCurrent().getDesktop();
+		if (!desktop.isServerPushEnabled()) {
+			desktop.enableServerPush(true);
+		}
 
 		new Thread(new Runnable() {
 
 			@Override
 			public void run() {
+				Session session = null;
 				try {
 
 				System.out.println("tahunAkademik = " + tahunAkademik);
@@ -527,7 +530,7 @@ public class DashboardRekapNilaiMahasiswa extends MyWindow {
 				rowhead.createCell(8).setCellValue("STATUS AWAL");
 				rowhead.createCell(9).setCellValue("DOSEN PA");
 
-				if (tiapSemester.isChecked()) {
+				if (tampilPerSemester) {
 					for (int i = 1; i <= semesterKe; i++) {
 						rowhead.createCell(9 + i).setCellValue("IPS SMT " + i);
 						rowhead.createCell(semesterKe + 9 + i).setCellValue("IPK SMT " + i);
@@ -550,7 +553,7 @@ public class DashboardRekapNilaiMahasiswa extends MyWindow {
 					rowhead.createCell(15).setCellValue("SKSK LULUS");
 				}
 
-				Session session = HibernateUtil.currentNativeSession();
+				session = HibernateUtil.openSession();
 
 				List<Mahasiswa> mahasiswas = ConstantValues.simpleList(session.createCriteria(Mahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 
@@ -607,7 +610,7 @@ public class DashboardRekapNilaiMahasiswa extends MyWindow {
 							mahasiswa.reInitDetailperkuliahan(session);
 						}
 
-						label.setValue("Sedang memproses data " + mahasiswa.toString() + " ("
+						safeSetLabel(desktop, label, "Sedang memproses data " + mahasiswa.toString() + " ("
 								+ Common.numberFormat.get().format(rowIndexAda * 100.0 / size) + " %)");
 						rowIndexAda++;
 
@@ -660,7 +663,7 @@ public class DashboardRekapNilaiMahasiswa extends MyWindow {
 						cell = row.createCell(9);
 						cell.setCellValue(krsMahasiswa.getDosenPa() == null ? "" : krsMahasiswa.getDosenPa().getNama());
 
-						if (tiapSemester.isChecked()) {
+						if (tampilPerSemester) {
 							for (int i = 1; i <= semesterKe; i++) {
 
 								krsMahasiswa = Common.singkronkanKrsMahasiswa(mahasiswa, i, null, null, hitungUlang);
@@ -757,9 +760,10 @@ public class DashboardRekapNilaiMahasiswa extends MyWindow {
 				}
 
 				Common.setStyled(sheet);
-				sizedata.setValue(rowIndex + 1);
+				final int jumlahBaris = rowIndex + 1;
 
 				try {
+					CommonFileUtil.ensureWritableFile(file, 50L * 1024L * 1024L);
 					FileOutputStream fileOut = new FileOutputStream(filename);
 					workbook.write(fileOut);
 					fileOut.close();
@@ -770,45 +774,53 @@ public class DashboardRekapNilaiMahasiswa extends MyWindow {
 				// -- Render panel grafik (HTML/CSS, BUKAN JFreeChart) dari ringkasan yang sudah
 				// dihitung di loop di atas. Kegagalan menggambar grafik tidak boleh mengganggu
 				// Excel/grid yang sudah berhasil ditulis. --
-				// FIX (ERROR IllegalStateException "Components can be accessed only in event
-				// listeners"): chartPanel.setContent(...) di dalam renderChartRingkasan() dan
-				// label.setValue(...) di bawah ini WAJIB dieksekusi dalam execution ZK yang
-				// aktif karena thread ini murni latar. Bungkus dengan Executions.activate/
-				// deactivate (pola sama dengan AsyncTaskManager.createDefaultTimer).
-				if (desktopUntukChart != null && desktopUntukChart.isAlive()) {
-					try {
-						Executions.activate(desktopUntukChart);
-						try {
-							try {
-								renderChartRingkasan(chartPanel, jumlahValid, akumulasiIpk, akumulasiIps,
-										jumlahPerStatus, ipkPerJurusan, sebaranIpk, totalIpsPerSmt, totalIpkPerSmt,
-										jumlahPerSmt, semesterKeAman, tiapSemester.isChecked());
-							} catch (Exception exChart) { ais.common.ErrorAuditUtil.record(exChart,
-									"auto-guard(chart) src/ais/action/master/dashboard/admin/DashboardRekapNilaiMahasiswa.java"); }
+				final int jumlahValidFinal = jumlahValid;
+				final double akumulasiIpkFinal = akumulasiIpk;
+				final double akumulasiIpsFinal = akumulasiIps;
+				try {
+					Executions.schedule(desktop, new EventListener() {
+						@Override
+						public void onEvent(Event event) throws Exception {
+							sizedata.setValue(jumlahBaris);
+							renderChartRingkasan(chartPanel, jumlahValidFinal, akumulasiIpkFinal,
+									akumulasiIpsFinal, jumlahPerStatus, ipkPerJurusan, sebaranIpk,
+									totalIpsPerSmt, totalIpkPerSmt, jumlahPerSmt, semesterKeAman,
+									tampilPerSemester);
 							label.setValue("");
-						} finally {
-							Executions.deactivate(desktopUntukChart);
 						}
-					} catch (org.zkoss.zk.ui.DesktopUnavailableException due) { ais.common.ErrorAuditUtil.record(due,
-							"auto-audit(empty-catch) src/ais/action/master/dashboard/admin/DashboardRekapNilaiMahasiswa.java:activate");
-					}
-				}
+					}, new Event("onRekapNilaiSelesai"));
+				} catch (Exception exChart) { ais.common.ErrorAuditUtil.record(exChart,
+						"auto-guard(chart) src/ais/action/master/dashboard/admin/DashboardRekapNilaiMahasiswa.java"); }
 
 				mahasiswas.clear();
-
 				} catch (Exception exProses) {
 					// Kegagalan proses (mis. query bermasalah) tidak boleh membuat indikator "sedang
 					// memproses" menggantung selamanya di sisi pengguna.
 					ais.common.ErrorAuditUtil.record(exProses,
 							"src/ais/action/master/dashboard/admin/DashboardRekapNilaiMahasiswa.java:initSpreadsheet-thread");
 					Common.tampilErrorJikaAdmin(exProses);
-					label.setValue("");
+					safeSetLabel(desktop, label, "");
 				} finally {
-					ais.database.hibernate.HibernateUtil.closeSession();
+					HibernateUtil.closeSessionQuietly(session);
 				}
 			}
 		}).start();
 
+	}
+
+	private static void safeSetLabel(Desktop desktop, final Label label, final String value) {
+		if (desktop == null || !desktop.isAlive()) return;
+		try {
+			Executions.schedule(desktop, new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					label.setValue(value);
+				}
+			}, new Event("onRekapNilaiProgress"));
+		} catch (Exception error) {
+			ais.common.ErrorAuditUtil.record(error,
+					"auto-audit src/ais/action/master/dashboard/admin/DashboardRekapNilaiMahasiswa.java:schedule-ui");
+		}
 	}
 
 	/** Mengembalikan nilai {@code double} aman dari {@link Double} yang mungkin {@code null} (mis. IPS/IPK

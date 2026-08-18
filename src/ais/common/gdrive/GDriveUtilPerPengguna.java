@@ -618,18 +618,20 @@ public class GDriveUtilPerPengguna {
 					+ file.getName() + "): Drive API menolak (HTTP " + e.getStatusCode() + ")"
 					+ (butuhOtorisasiUlang ? " - user perlu klik 'Hubungkan ke Drive' lagi." : ".");
 			System.err.println(pesan);
-			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/gdrive/GDriveUtilPerPengguna.java:474 - " + pesan);
+			/* 401 setelah token ditandai revoked adalah status akun yang perlu tindakan
+			 * pengguna, bukan error aplikasi berulang per file. Pesan dan flag reauth di
+			 * atas tetap dipertahankan. */
 		} catch (TokenResponseException e) {
 			// mis. POST oauth2.googleapis.com/token -> 400 invalid_grant: refresh token/kode otorisasi
 			// ditolak Google. Tandai user butuh otorisasi ulang supaya scheduler tidak diam-diam terus
 			// mencoba kredensial yang sudah pasti mati di setiap run backup berikutnya.
 			if (label != null) label.setValue("Error");
 			tandaiCredentialButuhOtorisasiUlang(username, "OAuth token ditolak Google (" + e.getMessage() + ")");
+			this.drive = null;
 			String pesan = "Backup GDrive gagal untuk user '" + username + "' (folder: " + folderName + ", file: "
 					+ file.getName() + "): refresh token/kode otorisasi Google Drive sudah dicabut/kadaluarsa - "
 					+ "user perlu klik 'Hubungkan ke Drive' lagi.";
 			System.err.println(pesan);
-			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/gdrive/GDriveUtilPerPengguna.java:474 - " + pesan);
 		} catch (Exception e) {
 			if (label != null) label.setValue("Error");
 

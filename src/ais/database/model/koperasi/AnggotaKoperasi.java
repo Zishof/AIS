@@ -120,6 +120,7 @@ public class AnggotaKoperasi extends VOSiswa {
 	private String keterangan;
 	private String telp;
 	private String hp;
+	private String nomorHpNormalisasi;
 	private String email;
 	private JenisIdentitasAnggotaKoperasi jenisIdentitasAnggotaKoperasi;
 	private TipeAnggotaKoperasi tipeAnggotaKoperasi;
@@ -538,6 +539,16 @@ public class AnggotaKoperasi extends VOSiswa {
 		this.hp = hp;
 	}
 
+	/** Nomor seluler kanonik (62xxxxxxxxxx) untuk identitas unik member POS. */
+	@Column(name = "nomor_hp_normalisasi", length = 32)
+	public String getNomorHpNormalisasi() {
+		return nomorHpNormalisasi;
+	}
+
+	public void setNomorHpNormalisasi(String nomorHpNormalisasi) {
+		this.nomorHpNormalisasi = nomorHpNormalisasi;
+	}
+
 	@Column(name = "email_nasabah")
 	public String getEmail() {
 		return email;
@@ -739,7 +750,8 @@ public class AnggotaKoperasi extends VOSiswa {
 				}
 			} else if (this.satuanKerja == null && this.id == null) {
 				try {
-					SatuanKerja satuanKerja = Common.getCurrentUser().ambilSatuanKerja();
+					Tbmuser currentUser = Common.getCurrentUser();
+					SatuanKerja satuanKerja = currentUser == null ? null : currentUser.ambilSatuanKerja();
 					Perpustakaan currentPerpustakaan = Common.getCurrentPerpustakaan();
 					if (satuanKerja == null && currentPerpustakaan != null) {
 						satuanKerja = currentPerpustakaan.getSatuanKerja();

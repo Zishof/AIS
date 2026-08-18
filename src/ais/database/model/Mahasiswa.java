@@ -1845,10 +1845,20 @@ public class Mahasiswa extends VOMahasiswa implements SocialMediaCommonModel, VO
 			statusKeluar = getKelompokStatusKeluarMahasiswa().getStatusKeluar();
 		} else {
 			statusKeluar = check(statusKeluar);
+			// FIX (ERROR tagihan semester lanjutan tergenerate lagi utk mahasiswa yang sudah
+			// Lulus lebih cepat dari nominal jenjang, mis. mahasiswa S2 lulus di semester 4):
+			// kondisi lama menganulir status Lulus (id=1) yang sudah direkam eksplisit hanya
+			// karena semesterLulus tersimpan < jenjang.getJumlahSemesterLulus() (nilai ini bisa
+			// salah bila data master jenjang belum mengisi jumlah semester, sehingga jatuh ke
+			// default S1=8). Akibatnya getSemesterLulus() ikut mengembalikan null, dan guard
+			// "smt > smtLulusMhs" di proses generate tagihan (KegiatanHelper,
+			// TunggakanMahasiswaDaftarUlangProcessor, dst) tidak pernah aktif -- tagihan
+			// semester berikutnya terus tergenerate sampai jenjang.getJumlahSemesterMaksimal()
+			// meski mahasiswa sudah lulus. Lulus lebih cepat dari nominal jenjang itu SAH,
+			// bukan indikasi data salah -- jangan dianulir. Anulir hanya bila semesterLulus
+			// memang belum terisi sama sekali (data kelulusan belum lengkap).
 			if (statusKeluar != null && statusKeluar.getId() != null && statusKeluar.getId().equals(1L)
-					&& (semesterLulus == null || (semesterLulus != null && getJenjang() != null
-							&& !getMerupakanPindahan() && !getMerupakanAlihProdi()
-							&& getJenjang().getJumlahSemesterLulus() > semesterLulus))) {
+					&& semesterLulus == null) {
 				statusKeluar = null;
 			}
 		}

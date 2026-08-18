@@ -513,8 +513,8 @@ public class DashboardPencapaianPerkuliahan extends MyWindow {
 
 						.add(smt.equalsIgnoreCase(Perkuliahan.SP)
 								? Restrictions.eq("statusSemesterPendek", Perkuliahan.SEMESTER_PENDEK)
-								: Restrictions
-										.sqlRestriction("semester%2=" + (smt.equals(Perkuliahan.GENAP) ? "0" : "1")))
+								: Restrictions.and(Restrictions.isNull("statusSemesterPendek"),
+										Restrictions.eq("ganjilGenap", smt)))
 
 						.add(jur == null ? Restrictions.sqlRestriction("1=1") : Restrictions.eq("jurusan", jur))
 

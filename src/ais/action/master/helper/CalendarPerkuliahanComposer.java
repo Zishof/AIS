@@ -227,9 +227,7 @@ public class CalendarPerkuliahanComposer extends GenericForwardComposer implemen
 						: (semesterPendek == null ? Restrictions.isNull("statusSemesterPendek")
 								: Restrictions.eq("statusSemesterPendek", semesterPendek)))
 				.add(Restrictions.eq("ruang", myRuang)).add(Restrictions.eq("tahunAjaran", tahunAkademik))
-				.add(isSp ? Restrictions.sqlRestriction("1=1")
-						: (jenisSemester.equalsIgnoreCase(Perkuliahan.GENAP) ? Restrictions.in("semester", Common.genap)
-								: Restrictions.in("semester", Common.ganjil)))
+				.add(isSp ? Restrictions.sqlRestriction("1=1") : Restrictions.eq("ganjilGenap", jenisSemester))
 				.list();
 		System.out.println("perkuliahan " + perkuliahan.size());
 
@@ -306,6 +304,17 @@ public class CalendarPerkuliahanComposer extends GenericForwardComposer implemen
 		Perkuliahan perkuliahan = (Perkuliahan) HibernateUtil.currentSession().createCriteria(Perkuliahan.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 				.add(Restrictions.idEq(Long.parseLong(ce.getTitle()))).setMaxResults(1).uniqueResult();
 
+		// KE-FIX (NullPointerException): jadwal perkuliahan bisa saja sudah
+		// dinonaktifkan/dihapus setelah kalender dirender tapi sebelum user klik edit
+		// -- uniqueResult() di atas jadi null, dan dereference perkuliahan.getJurusan()
+		// di bawah melempar NPE. Hentikan lebih awal dengan pesan yang jelas.
+		if (perkuliahan == null) {
+			MyMessageboxConfig.show(
+					"Jadwal perkuliahan ini sudah tidak aktif/terhapus. Silakan muat ulang kalender.", "Peringatan",
+					MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return;
+		}
+
 		Fakultas userFakultas = tbmuser.ambilFakultas();
 		Jurusan jurusan = tbmuser.ambilJurusan();
 		if (userFakultas != null && !userFakultas.getId().equals(perkuliahan.getJurusan().getFakultas().getId())) {
@@ -324,7 +333,7 @@ public class CalendarPerkuliahanComposer extends GenericForwardComposer implemen
 
 		String ta = perkuliahan.getTahunAjaran();
 		String sem = perkuliahan.getGanjilGenap();
-		if (CommonPenjadwalan.apakahPenjadwalanTidakAktif(ta, sem, semesterPendek)) {
+		if (CommonPenjadwalan.apakahPenjadwalanTidakAktif(ta, sem, semesterPendek, perkuliahan)) {
 			MyMessageboxConfig.show(
 					"Penjadwalan tahun akademik \"" + ta + "\" semester \"" + sem + "\" tidak diaktifkan", "Peringatan",
 					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);

@@ -164,7 +164,7 @@ public class KomunitasAction extends GenericCrudAction<Komunitas> {
             return false;
         }
         if (checkNamaKomunitas()) {
-            MyMessageboxConfig.show("Mohon maaf, Nama Komunitas yang Bapak/Ibu masukkan sudah terdaftar sebelumnya. Langkah yang dapat dilakukan: (1) gunakan nama komunitas yang berbeda; (2) periksa kembali data yang telah ada melalui pencarian; (3) lakukan perubahan pada data yang sudah ada apabila diperlukan.", "Peringatan",
+            MyMessageboxConfig.show("Nama Komunitas sudah ada di database", "Peringatan",
                     MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
             return false;
         }

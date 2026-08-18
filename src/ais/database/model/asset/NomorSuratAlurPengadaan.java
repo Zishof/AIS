@@ -63,6 +63,7 @@ public class NomorSuratAlurPengadaan extends GeneralValueObject {
 	public static final String PEMAKAIAN_BARANG = "Pemakaian Barang";
 
 	public static final String PENYEDIA = "Penyedia";
+	public static final String PEMILIHAN_PENILAIAN_VENDOR = "Pemilihan Penilaian Vendor";
 
 	public static final String[] S = new String[] { "001;" + PERMINTAAN_PEMBELIAN + ";Purchase Request",
 			"002;" + PEMESANAN_PEMBELIAN + ";Purchase Order", "003;" + PENERIMAAN_PEMBELIAN + ";Receipt Order",
@@ -73,7 +74,8 @@ public class NomorSuratAlurPengadaan extends GeneralValueObject {
 			"011;" + PEMBAYARAN_TERMIN_PEKERJAAN + ";Pembayaran Termin Pekerjaan",
 			"012;" + GAJI_PEGAWAI + ";Pembayaran Gaji Pegawai", "013;" + PENGAJUAN_KPI + ";Pengajuan KPI",
 			"014;" + PEMAKAIAN_BARANG + ";Pemakaian Barang", "015;" + PINJAMAN_PEGAWAI + ";Pinjaman Pegawai",
-			"016;" + PENYEDIA + ";" + PENYEDIA };
+			"016;" + PENYEDIA + ";" + PENYEDIA,
+			"017;" + PEMILIHAN_PENILAIAN_VENDOR + ";" + PEMILIHAN_PENILAIAN_VENDOR };
 
 	public static NomorSuratAlurPengadaan PERMINTAAN_PEMBELIAN_DATA;
 	public static NomorSuratAlurPengadaan PEMESANAN_PEMBELIAN_DATA;
@@ -96,6 +98,7 @@ public class NomorSuratAlurPengadaan extends GeneralValueObject {
 	public static NomorSuratAlurPengadaan PENGAJUAN_KPI_PEGAWAI;
 
 	public static NomorSuratAlurPengadaan PENGAJUAN_PENYEDIA;
+	public static NomorSuratAlurPengadaan PEMILIHAN_PENILAIAN_VENDOR_DATA;
 
 	public static void reloadDefault() {
 		Session session = HibernateUtil.currentNativeSession();
@@ -262,6 +265,19 @@ public class NomorSuratAlurPengadaan extends GeneralValueObject {
 			PEMAKAIAN_BARANG_DATA.setKeterangan(PEMAKAIAN_BARANG);
 			session.getTransaction().begin();
 			session.save(PEMAKAIAN_BARANG_DATA);
+			session.getTransaction().commit();
+		}
+
+		PEMILIHAN_PENILAIAN_VENDOR_DATA = (NomorSuratAlurPengadaan) session
+				.createCriteria(NomorSuratAlurPengadaan.class).add(Restrictions.eq("nama", PEMILIHAN_PENILAIAN_VENDOR))
+				.setMaxResults(1).uniqueResult();
+		if (PEMILIHAN_PENILAIAN_VENDOR_DATA == null) {
+			PEMILIHAN_PENILAIAN_VENDOR_DATA = new NomorSuratAlurPengadaan();
+			PEMILIHAN_PENILAIAN_VENDOR_DATA.setKode("017");
+			PEMILIHAN_PENILAIAN_VENDOR_DATA.setNama(PEMILIHAN_PENILAIAN_VENDOR);
+			PEMILIHAN_PENILAIAN_VENDOR_DATA.setKeterangan(PEMILIHAN_PENILAIAN_VENDOR);
+			session.getTransaction().begin();
+			session.save(PEMILIHAN_PENILAIAN_VENDOR_DATA);
 			session.getTransaction().commit();
 		}
 

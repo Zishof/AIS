@@ -1888,6 +1888,9 @@ public class Dosen extends Karyawan implements VOMahasiswaDosen {
 	}
 
 	public void removePertemuan(Serializable id) {
+		if (id == null) {
+			return;
+		}
 		try {
 			JSONObject c;
 			try {

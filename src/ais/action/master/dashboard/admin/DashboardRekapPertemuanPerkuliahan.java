@@ -473,6 +473,11 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 
 		final List<List> data = new ArrayList<List>();
 		final Desktop desktop = Executions.getCurrent().getDesktop();
+		/* enableServerPush wajib dipanggil ketika execution/event ZK masih aktif,
+		 * bukan dari Thread pekerja. */
+		if (!desktop.isServerPushEnabled()) {
+			desktop.enableServerPush(true);
+		}
 		final Map<Long, Map<String, String>> dokumenCache = loadDokumenPerkuliahanBatch(jurusans);
 
 		final String headerText = buildHeaderText(tahunAkd, fak, jur, prog, smstr, dsn);
@@ -1727,22 +1732,6 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 			return;
 		}
 		try {
-			// FIX (ERROR IllegalStateException "Server Push cannot be started without
-			// execution"): safeRenderRekap() dipanggil dari Thread latar murni (bukan
-			// event ZK), sehingga tidak ada "execution" aktif di thread ini -- padahal
-			// Desktop.enableServerPush(true) mensyaratkan execution aktif. Bungkus dengan
-			// Executions.activate/deactivate (pola sama dengan AsyncTaskManager) supaya
-			// pemeriksaan/pengaktifan server push dilakukan dalam konteks yang sah.
-			if (!desktop.isServerPushEnabled()) {
-				Executions.activate(desktop);
-				try {
-					if (!desktop.isServerPushEnabled()) {
-						desktop.enableServerPush(true);
-					}
-				} finally {
-					Executions.deactivate(desktop);
-				}
-			}
 			Executions.schedule(desktop, new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
@@ -1773,10 +1762,7 @@ public class DashboardRekapPertemuanPerkuliahan extends MyWindow {
 				}
 			}, new Event("onUpdateLabel"));
 		} catch (Exception e) {
-			// Fallback if Server Push/schedule isn't configured for background threads
-			try {
-				label.setValue(message);
-			} catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/action/master/dashboard/admin/DashboardRekapPertemuanPerkuliahan.java:1733");}
+			ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/dashboard/admin/DashboardRekapPertemuanPerkuliahan.java:schedule-label");
 		}
 	}
 }

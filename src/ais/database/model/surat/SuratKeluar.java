@@ -755,9 +755,11 @@ public class SuratKeluar extends DataSop {
 
 		}
 
+		FileOutputStream fosMerge = null;
 		try {
 			File filePdfBaru = new File(Common.ambilREAL_PATH_REPORT() + "/" + Common.getGeneratedBarCode() + ".pdf");
-			ut.setDestinationStream(new FileOutputStream(filePdfBaru));
+			fosMerge = new FileOutputStream(filePdfBaru);
+			ut.setDestinationStream(fosMerge);
 			ut.mergeDocuments();
 			// Salin HTML companion agar toggle pratinjau HTML/PDF muncul setelah merge
 			if (htmlCompanionSrc != null) {
@@ -779,6 +781,15 @@ public class SuratKeluar extends DataSop {
 			Report.tampil(filePdfBaru);
 		} catch (Exception e) {
 			Common.tampilErrorJikaAdmin(e);
+		} finally {
+			if (fosMerge != null) {
+				try {
+					fosMerge.close();
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e,
+							"auto-audit(empty-catch) src/ais/database/model/surat/SuratKeluar.java:cetak-close-merge-stream");
+				}
+			}
 		}
 	}
 }

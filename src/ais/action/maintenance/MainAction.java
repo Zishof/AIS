@@ -1,10 +1,6 @@
 package ais.action.maintenance;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.net.URLEncoder;
 import java.sql.Blob;
 import java.util.ArrayList;
@@ -26,7 +22,6 @@ import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
-import org.json.JSONArray;
 import org.json.JSONObject;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.Executions;
@@ -163,15 +158,6 @@ public class MainAction extends GenericAutowireComposer {
 
 	private static final long serialVersionUID = 2446397351568124278L;
 	private static final int MODERN_PENGUMUMAN_PAGE_SIZE = 5;
-	private static final String DESKTOP_RELEASE_API =
-			"https://api.github.com/repos/asroboy/ais_mobile/releases?per_page=20";
-	private static final String DESKTOP_RELEASE_FALLBACK =
-			"https://github.com/asroboy/ais_mobile/releases/latest";
-	private static final long DESKTOP_RELEASE_CACHE_TTL_MS = 10L * 60L * 1000L;
-	private static final Map<String, String> desktopReleaseUrlCache =
-			Collections.synchronizedMap(new HashMap<String, String>());
-	private static final Map<String, Long> desktopReleaseTimeCache =
-			Collections.synchronizedMap(new HashMap<String, Long>());
 	Tabbox iframe;
 	private Borderlayout tinggiFrame;
 	private Center centerTinggiFrame;
@@ -226,7 +212,6 @@ public class MainAction extends GenericAutowireComposer {
 			eInfoKegiatanButton;
 	private MyToolbarbuttonKecilConfig eFeederButton;
 	private MyToolbarbuttonKecilConfig eSisterButton;
-	private MyToolbarbuttonKecilConfig desktopDownloadButton;
 
 	Tab tabSinkronisasiFeeder;
 	Tab tabSinkronisasiSister;
@@ -286,101 +271,6 @@ public class MainAction extends GenericAutowireComposer {
 
 	static String clean(String value) {
 		return value == null ? "" : value.trim();
-	}
-
-	private String desktopInstallerProduct() {
-		try {
-			boolean[] jenisInstansi = Common.chekPtAtauSekolah();
-			if (jenisInstansi != null && jenisInstansi.length > 1 && jenisInstansi[1]) {
-				return "eSchool";
-			}
-		} catch (Exception e) {
-			ais.common.ErrorAuditUtil.record(e, "resolve desktop installer product MainAction.java");
-		}
-		return "eCampus";
-	}
-
-	private String resolveLatestDesktopDownloadUrl(String product) {
-		String safeProduct = "eSchool".equalsIgnoreCase(product) ? "eSchool" : "eCampus";
-		Long cacheTime = desktopReleaseTimeCache.get(safeProduct);
-		String cacheUrl = desktopReleaseUrlCache.get(safeProduct);
-		long now = System.currentTimeMillis();
-		if (cacheTime != null && cacheUrl != null
-				&& now - cacheTime.longValue() < DESKTOP_RELEASE_CACHE_TTL_MS) {
-			return cacheUrl;
-		}
-
-		HttpURLConnection connection = null;
-		try {
-			connection = (HttpURLConnection) new URL(DESKTOP_RELEASE_API).openConnection();
-			connection.setRequestMethod("GET");
-			connection.setConnectTimeout(3500);
-			connection.setReadTimeout(3500);
-			connection.setRequestProperty("Accept", "application/vnd.github+json");
-			connection.setRequestProperty("User-Agent", "eCampus-ZKoss-Desktop-Downloader");
-			int responseCode = connection.getResponseCode();
-			if (responseCode >= 200 && responseCode < 300) {
-				StringBuilder json = new StringBuilder();
-				BufferedReader reader = null;
-				try {
-					reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), "UTF-8"));
-					String line;
-					while ((line = reader.readLine()) != null) {
-						json.append(line);
-					}
-				} finally {
-					if (reader != null) {
-						try {
-							reader.close();
-						} catch (Exception ignored) {
-							ais.common.ErrorAuditUtil.record(ignored,
-									"auto-audit(empty-catch) src/ais/action/maintenance/MainAction.java:resolveLatestDesktopDownloadUrl-close");
-						}
-					}
-				}
-				JSONArray releases = new JSONArray(json.toString());
-				for (int releaseIndex = 0; releaseIndex < releases.length(); releaseIndex++) {
-					JSONObject release = releases.optJSONObject(releaseIndex);
-					if (release == null || release.optBoolean("draft", false)
-							|| release.optBoolean("prerelease", false)) {
-						continue;
-					}
-					JSONArray assets = release.optJSONArray("assets");
-					if (assets == null) {
-						continue;
-					}
-					for (int i = 0; i < assets.length(); i++) {
-						JSONObject asset = assets.optJSONObject(i);
-						if (asset == null) {
-							continue;
-						}
-						String name = asset.optString("name", "");
-						String downloadUrl = asset.optString("browser_download_url", "");
-						if (name.startsWith(safeProduct + "-Setup-")
-								&& name.toLowerCase().endsWith(".exe")
-								&& downloadUrl.startsWith("https://github.com/asroboy/ais_mobile/")) {
-							desktopReleaseUrlCache.put(safeProduct, downloadUrl);
-							desktopReleaseTimeCache.put(safeProduct, Long.valueOf(now));
-							return downloadUrl;
-						}
-					}
-				}
-			}
-		} catch (Exception e) {
-			ais.common.ErrorAuditUtil.record(e, "resolve latest desktop release MainAction.java");
-		} finally {
-			if (connection != null) {
-				connection.disconnect();
-			}
-		}
-		return DESKTOP_RELEASE_FALLBACK;
-	}
-
-	public void onDownloadDesktop(Event event) {
-		String url = resolveLatestDesktopDownloadUrl(desktopInstallerProduct());
-		String safeUrl = url.replace("'", "%27");
-		Clients.evalJavaScript("window.open('" + safeUrl
-				+ "', '_blank', 'noopener,noreferrer');");
 	}
 
 	int safeDesktopHeight() {
@@ -2829,14 +2719,14 @@ public class MainAction extends GenericAutowireComposer {
 				toolbarbuttons.add(menuitemBantuan);
 
 				if (!mobileAndroid) {
-					MyMenuitem menuitemVersi = new MyMenuitem("Versi Mobile", "/img/svg/android-logo-thin.svg");
+					MyMenuitem menuitemVersi = new MyMenuitem("Versi Mobile dan Desktop", "/img/svg/android-logo-thin.svg");
 					menuitemVersi.addEventListener("onClick", new EventListener() {
 						public void onEvent(Event arg0) throws Exception {
 							MyWindow w = new MyWindow();
 							w.setHeight("99%");
 							w.setWidth("400px");
 							w.setClosable(true);
-							w.setTitle("Aplikasi Versi Mobile");
+							w.setTitle("Aplikasi Versi Mobile dan Desktop");
 							w.setBorder("none");
 							ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(w);
 							MainHelper.onDapatkanKode(w, true);
@@ -3233,13 +3123,6 @@ public class MainAction extends GenericAutowireComposer {
 			Common.clear(headerHboxButton);
 			/* Penyelaras tombol kanan header: css_utama.css blok "HEADER KANAN RAPI". */
 			MainStyleHelper.appendSclassOnce(headerHboxButton, "ais-header-kanan");
-			/* Resolver memilih aset eCampus/eSchool dari GitHub Release terbaru. */
-			if (desktopDownloadButton != null) {
-				desktopDownloadButton.setVisible(!mobile && !mobileAndroid);
-				if (desktopDownloadButton.isVisible()) {
-					headerHboxButton.appendChild(desktopDownloadButton);
-				}
-			}
 			/* Pemilih Bahasa (Indonesia/English/Arab) — paling kiri pada bilah kanan header. */
 			try {
 				headerHboxButton.appendChild(ais.ui.util.BahasaSwitchHelper.buatComboBahasa());
@@ -3280,13 +3163,13 @@ public class MainAction extends GenericAutowireComposer {
 			});
 			treeitem.appendChild(menuBantuan);
 
-			MyMenuitem menuVersi = new MyMenuitem("Versi Mobile", "/img/svg/android-logo-thin.svg");
+			MyMenuitem menuVersi = new MyMenuitem("Versi Mobile dan Desktop", "/img/svg/android-logo-thin.svg");
 			menuVersi.addEventListener("onClick", new EventListener() {
 				public void onEvent(Event arg0) throws Exception {
 					MyWindow w = new MyWindow();
 					w.setHeight("99%");
 					w.setWidth("400px");
-					w.setTitle("Aplikasi Versi Mobile");
+					w.setTitle("Aplikasi Versi Mobile dan Desktop");
 					w.setBorder("none");
 					w.setClosable(true);
 					ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(w);

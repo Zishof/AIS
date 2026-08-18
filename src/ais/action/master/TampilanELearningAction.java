@@ -1461,12 +1461,12 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 			}
 
 			sqltambahan = "this_.matakuliah in (select matakuliah from perkuliahan where tahun_ajaran='"
-					+ Common.getCurrentTahunAkademik() + "' and semester % 2 = "
-					+ (Common.isNowSemensterGanjil() ? "1" : "0") + " " + sqlDosen + ")";
+					+ Common.getCurrentTahunAkademik() + "' and ganjil_genap='"
+					+ (Common.isNowSemensterGanjil() ? Perkuliahan.GANJIL : Perkuliahan.GENAP) + "' " + sqlDosen + ")";
 		} else {
 			sqltambahan = "this_.matakuliah in (select b.matakuliah from detailperkuliahan a inner join perkuliahan b on (a.perkuliahan=b.id) where a.tahunakademik='"
-					+ Common.getCurrentTahunAkademik() + "' and a.semester % 2 = "
-					+ (Common.isNowSemensterGanjil() ? "1" : "0") + " and a.mahasiswa=" + mahasiswa.getId()
+					+ Common.getCurrentTahunAkademik() + "' and b.ganjil_genap='"
+					+ (Common.isNowSemensterGanjil() ? Perkuliahan.GANJIL : Perkuliahan.GENAP) + "' and a.mahasiswa=" + mahasiswa.getId()
 					+ " group by b.matakuliah)";
 		}
 		System.out.println("sqltambahan => " + sqltambahan);
@@ -1782,8 +1782,7 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 							: semester.equals(Perkuliahan.SP)
 									? Restrictions.eq("statusSemesterPendek", Perkuliahan.SEMESTER_PENDEK)
 									: Restrictions.and(Restrictions.isNull("statusSemesterPendek"),
-											Restrictions.sqlRestriction("this_.semester % 2 = "
-													+ (semester.equals(Perkuliahan.GANJIL) ? "1" : "0"))))
+											Restrictions.eq("ganjilGenap", semester)))
 
 					.add(hari == null ? Restrictions.sqlRestriction("1=1") : Restrictions.eq("hari", hari));
 

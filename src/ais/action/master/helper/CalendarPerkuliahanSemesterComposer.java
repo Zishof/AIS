@@ -335,8 +335,9 @@ public class CalendarPerkuliahanSemesterComposer extends GenericForwardComposer 
 			return;
 		}
 
-		if (CommonPenjadwalan.apakahPenjadwalanTidakAktif(tahunAkademik, semester % 2 == 0 ? Perkuliahan.GENAP : Perkuliahan.GANJIL,
-				semesterPendek)) {
+		if (CommonPenjadwalan.apakahPenjadwalanTidakAktif(tahunAkademik,
+				semester % 2 == 0 ? Perkuliahan.GENAP : Perkuliahan.GANJIL, semesterPendek, fakultas, jurusan,
+				program)) {
 			MyMessageboxConfig.show(
 					"Penjadwalan tahun akademik \"" + tahunAkademik + "\" semester \""
 							+ (semester % 2 == 0 ? Perkuliahan.GENAP : Perkuliahan.GANJIL) + "\" tidak diaktifkan",
@@ -415,7 +416,7 @@ public class CalendarPerkuliahanSemesterComposer extends GenericForwardComposer 
 
 		String ta = perkuliahan.getTahunAjaran();
 		String sem = perkuliahan.getGanjilGenap();
-		if (CommonPenjadwalan.apakahPenjadwalanTidakAktif(ta, sem, semesterPendek)) {
+		if (CommonPenjadwalan.apakahPenjadwalanTidakAktif(ta, sem, semesterPendek, perkuliahan)) {
 			MyMessageboxConfig.show(
 					"Penjadwalan tahun akademik \"" + ta + "\" semester \"" + sem + "\" tidak diaktifkan", "Peringatan",
 					MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);

@@ -1084,8 +1084,9 @@ public abstract class FileFoto extends GeneralValueObject {
 
 	private File createTempFileNearTarget(File target) throws Exception {
 		File parent = target == null ? null : target.getParentFile();
-		if (parent != null && !parent.exists()) {
-			parent.mkdirs();
+		ais.common.CommonFileUtil.ensureWritableFile(target, 20L * 1024L * 1024L);
+		if (parent == null || !parent.isDirectory()) {
+			throw new java.io.IOException("Direktori tujuan foto tidak tersedia: " + target);
 		}
 		String suffix = ".tmp_" + System.currentTimeMillis() + "_" + Math.abs(Common.randLong());
 		// FIX FileNotFoundException "File name too long": nama berkas asli (dari nama upload yang
@@ -1160,7 +1161,14 @@ public abstract class FileFoto extends GeneralValueObject {
 		}
 		try {
 			closeable.close();
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/file/FileFoto.java:986");
+		} catch (Exception e) {
+			/* Driver PostgreSQL dapat melaporkan descriptor sudah invalid ketika stream
+			 * large-object ditutup setelah EOF/rollback. Bila penyalinan sudah selesai,
+			 * ini hanya kondisi cleanup; transaksi dan session tetap ditutup di finally. */
+			String message = e.getMessage() == null ? "" : e.getMessage().toLowerCase();
+			if (message.indexOf("invalid large-object descriptor") < 0) {
+				ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/file/FileFoto.java:986");
+			}
 		}
 	}
 

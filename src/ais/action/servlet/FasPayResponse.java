@@ -291,8 +291,7 @@ public class FasPayResponse extends HttpServlet {
 								}
 
 								for (DetailBiaya detailBiaya : map.values()) {
-									Double nilai = detailBiaya.hitungTotalKegiatan(kegiatan, sessionLocalKeg);
-									nilaiBiayaHarusDiBayars += (nilai);
+									nilaiBiayaHarusDiBayars += Kegiatan.ambilJumlahTagihan(kegiatan, detailBiaya);
 								}
 
 								kegiatan.setAmountTerhutang(nilaiBiayaHarusDiBayars - amountTotal);
@@ -543,7 +542,7 @@ public class FasPayResponse extends HttpServlet {
 				Double nilaiBiayaHarusDiBayars = 0.0;
 				for (DetailBiaya detailBiaya : map.values()) {
 					Double nilai = detailBiaya.hitungTotalKegiatan(kegiatan, session);
-					nilaiBiayaHarusDiBayars += (nilai);
+					nilaiBiayaHarusDiBayars += Kegiatan.ambilJumlahTagihan(kegiatan, detailBiaya);
 				}
 
 				System.out

@@ -1,0 +1,29 @@
+<?page title="Reimbursement Pegawai" cacheable="false" language="xul/html" contentType="text/html;charset=UTF-8"?>
+<zk xmlns="http://www.zkoss.org/2005/zul">
+  <window use="ais.ui.util.MyWindow" width="100%" height="100%" border="none">
+    <style>
+      .rmb-shell{background:#f4f7fb;padding:8px}.rmb-shell-hero{background:linear-gradient(120deg,#17396b,#087d8b);color:#fff;padding:16px 20px;border-radius:12px;margin-bottom:8px}
+      .rmb-shell-title{font-size:22px;font-weight:bold}.rmb-shell-subtitle{color:#d8f3f5}.rmb-main-tabs .z-tabs{background:#fff;border:1px solid #dfe7ef;border-radius:10px 10px 0 0;padding:5px}
+      .rmb-main-tabs .z-tab img,.rmb-main-tabs .z-tab-image{width:18px!important;height:18px!important;max-width:18px!important;max-height:18px!important;object-fit:contain;vertical-align:middle;margin-right:5px}
+    </style>
+    <div sclass="rmb-shell">
+      <div sclass="rmb-shell-hero">
+        <label sclass="rmb-shell-title" value="Reimbursement Pegawai"/>
+        <separator/>
+        <label sclass="rmb-shell-subtitle" value="Dashboard, proses reimbursement, dan laporan berada dalam satu pusat kerja."/>
+      </div>
+      <tabbox sclass="rmb-main-tabs" width="100%" height="92%">
+        <tabs>
+          <tab label="Dashboard" selected="true" image="/img/Graph-icon.png"/>
+          <tab label="Reimbursement" image="/img/svg/money-bills.svg"/>
+          <tab label="Laporan" image="/img/report-icon.png"/>
+        </tabs>
+        <tabpanels>
+          <tabpanel style="padding:0"><include src="/WEB-INF/z/x/y/pages/master/akunting/dashboard_reimbursement_pegawai.zul"/></tabpanel>
+          <tabpanel style="padding:0"><include src="/WEB-INF/z/x/y/pages/master/akunting/reimbursement_transaksi_pegawai.zul"/></tabpanel>
+          <tabpanel style="padding:0"><include src="/WEB-INF/z/x/y/pages/master/akunting/laporan_reimbursement_pegawai.zul"/></tabpanel>
+        </tabpanels>
+      </tabbox>
+    </div>
+  </window>
+</zk>

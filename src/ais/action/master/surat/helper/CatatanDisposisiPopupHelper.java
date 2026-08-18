@@ -163,7 +163,9 @@ public final class CatatanDisposisiPopupHelper {
 						: (Boolean.TRUE.equals(s.getDisetujui()) ? s.getWaktuPersetujuan() : null);
 				b.nomorTgl = nomorTglHtml(nomor, waktu != null ? waktu : surat.getTanggalSurat());
 				b.klasifikasi = klasifikasi;
-				b.jabatan = s.getJenisJabatan() == null ? "" : s.getJenisJabatan().getNama();
+				String jabatan = s.getJenisJabatan() == null ? "" : s.getJenisJabatan().getNama();
+				String penerima = ais.action.master.surat.SuratMasukAction.namaPenerimaDisposisiMasuk(s);
+				b.jabatan = jabatan + (penerima.isEmpty() ? "" : (jabatan.isEmpty() ? penerima : " — " + penerima));
 				b.cardHtml = DasboardSurat.buildAlurMasukStatusHtmlV20(s);
 				b.lampiranRef = s.getId();
 				b.lampiranJenis = AlurPersetujuanSuratMasukStatus.class.getName();

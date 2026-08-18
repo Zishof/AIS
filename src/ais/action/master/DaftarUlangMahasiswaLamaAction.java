@@ -10,13 +10,16 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
 import org.hibernate.Criteria;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.hibernate.criterion.Criterion;
 import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.event.Event;
@@ -95,11 +98,13 @@ import ais.common.IpaymuCommon;
 import ais.common.JatelindoCommon;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.BankHost;
+import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.BiodataMahasiswa;
 import ais.database.model.BuktiPembayaran;
 import ais.database.model.CicilanPembayaran;
 import ais.database.model.DetailBiaya;
 import ais.database.model.DetailKegiatan;
+import ais.database.model.DetailSettingBiaya;
 import ais.database.model.HistoryStatusMahasiswa;
 import ais.database.model.ItemBiaya;
 import ais.database.model.JadwalPembayaran;
@@ -116,6 +121,8 @@ import ais.database.model.PengaturanPembayaranBulanan;
 import ais.database.model.PerguruanTinggi;
 import ais.database.model.Perkuliahan;
 import ais.database.model.StatusMahasiswa;
+import ais.database.model.SettingBiaya;
+import ais.database.model.SettingBiayaDetail;
 import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
 import ais.database.model.TunggakanMahasiswa;
@@ -1938,10 +1945,759 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 					+ diagnosa
 					+ "</div>");
 			chip.setParent(wadah);
+			if (penggunaAdalahPetugasKeuangan()) {
+				// Gaya diterapkan pada Div pembungkus (BUKAN pada Toolbarbutton langsung) --
+				// pada ZK 5, style inline di Toolbarbutton ikut diduplikasi ke elemen internal
+				// .z-toolbarbutton-cnt (lihat javadoc MyToolbarbuttonConfig), yang bisa membuat
+				// area klik sebenarnya bergeser dari yang terlihat sehingga tombol tampak diam
+				// saat diklik. Pola sama seperti PanelToolHelper.pasangBantuanDanLayarPenuh.
+				org.zkoss.zul.Div analisisWrap = new org.zkoss.zul.Div();
+				analisisWrap.setStyle("display:inline-block;margin:4px 0 6px 8px;vertical-align:top;");
+				analisisWrap.setParent(wadah);
+				Button analisis = new MyToolbarbuttonConfig("Analisis Data", "/img/svg/search.svg");
+				analisis.setTooltiptext("Telusuri kriteria Setting Biaya satu per satu untuk menemukan penyebab tagihan tidak tampil");
+				analisis.setParent(analisisWrap);
+				final int semesterAnalisis = smt;
+				analisis.addEventListener("onClick", new EventListener() {
+					@Override
+					public void onEvent(Event event) throws Exception {
+						tampilkanAnalisisTagihan(semesterAnalisis);
+					}
+				});
+			}
 		} catch (Exception e) {
 			ais.common.ErrorAuditUtil.record(e, "DaftarUlangMahasiswaLamaAction: gagal render info mode tagihan;"
 					+ " mahasiswa=" + (mahasiswa == null ? null : mahasiswa.getNim()) + ", smt=" + smt);
 		}
+	}
+
+	private boolean penggunaAdalahPetugasKeuangan() {
+		return tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null;
+	}
+
+	/** Satu baris hasil audit query Setting Biaya. */
+	private static class TahapAnalisisTagihan {
+		private final String nama;
+		private final String nilai;
+		private final int jumlah;
+		private final boolean gagalPertama;
+		private final String nilaiTersedia;
+		private final String tindakan;
+		private final Criterion criterion;
+		private int jumlahJikaDilewati = -1;
+
+		private TahapAnalisisTagihan(String nama, String nilai, int jumlah, boolean gagalPertama,
+				String nilaiTersedia, String tindakan, Criterion criterion) {
+			this.nama = nama;
+			this.nilai = nilai;
+			this.jumlah = jumlah;
+			this.gagalPertama = gagalPertama;
+			this.nilaiTersedia = nilaiTersedia;
+			this.tindakan = tindakan;
+			this.criterion = criterion;
+		}
+	}
+
+	/** Audit lapis kedua pada template DetailBiaya yang benar-benar dibaca mesin tagihan. */
+	private static class TahapAnalisisDetailLama {
+		private final String nama;
+		private final String nilai;
+		private final Criterion criterion;
+		private final boolean parameterDinamis;
+		private int jumlah;
+		private int jumlahJikaDilewati = -1;
+		private boolean gagalPertama;
+
+		private TahapAnalisisDetailLama(String nama, String nilai, Criterion criterion, boolean parameterDinamis) {
+			this.nama = nama;
+			this.nilai = nilai;
+			this.criterion = criterion;
+			this.parameterDinamis = parameterDinamis;
+		}
+	}
+
+	/** Ringkasan rantai sumber tagihan sampai transaksi dan baris yang terlihat. */
+	private static class AnalisisHilirTagihanLama {
+		private List<TahapAnalisisDetailLama> tahap = new ArrayList<TahapAnalisisDetailLama>();
+		private int templateAkhir;
+		private int hasilQueryProduksi;
+		private int kegiatan;
+		private int cicilan;
+		private double nilaiDibayar;
+		private int barisLayar;
+		private String sumberItem = "-";
+		private String mode = "NONBULANAN";
+	}
+
+	/**
+	 * Audit baca-saja untuk menjawab secara pasti mengapa tagihan mahasiswa tidak muncul.
+	 * Query dimulai tanpa filter, kemudian kriteria produksi ditambahkan satu per satu.
+	 * Dengan demikian baris pertama yang berubah menjadi nol adalah titik kegagalannya;
+	 * bukan lagi sekadar dugaan gabungan beberapa kriteria.
+	 */
+	@SuppressWarnings("unchecked")
+	private void tampilkanAnalisisTagihan(int smt) throws Exception {
+		Session sessionAnalisis = null;
+		try {
+			if (mahasiswa == null || jenisKegiatan == null) {
+				MyMessageboxConfig.show("Mahasiswa atau jenis pembayaran belum dipilih.", "Analisis Data",
+						MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				return;
+			}
+
+			sessionAnalisis = HibernateUtil.openSession();
+			List<Criterion> filter = new ArrayList<Criterion>();
+			List<TahapAnalisisTagihan> tahap = new ArrayList<TahapAnalisisTagihan>();
+			int sebelum = hitungSettingBiaya(sessionAnalisis, filter);
+			tahap.add(new TahapAnalisisTagihan("Semua data Setting Biaya", "Tanpa kriteria", sebelum, sebelum == 0,
+					sebelum == 0 ? "Database Setting Biaya masih kosong" : sebelum + " baris ditemukan",
+					sebelum == 0 ? tindakanUntukKriteriaAnalisis("Semua data Setting Biaya", "-", "-") : "", null));
+			boolean sudahGagal = sebelum == 0;
+
+			sudahGagal = tambahTahapAnalisis(sessionAnalisis, filter, tahap, "Jenis pembayaran",
+					namaObjekAnalisis(jenisKegiatan), Restrictions.eq("jenisKegiatan", jenisKegiatan), sudahGagal);
+
+			Integer tahunAkademikMulai = Common.getTahunAkademik(smt, mahasiswa.getTahunangkatan(),
+					mahasiswa.getPindahKeKampusIniMasukSemester(), mahasiswa.getSemesterMulai());
+			int ta = Integer.parseInt(String.valueOf(tahunAkademikMulai)
+					+ (smt % 2 == 0 ? "2" : "1"));
+			sudahGagal = tambahTahapAnalisis(sessionAnalisis, filter, tahap, "Periode setting",
+					"TA <= " + ta, Restrictions.le("ta", ta), sudahGagal);
+			sudahGagal = tambahTahapAnalisis(sessionAnalisis, filter, tahap, "Cakupan mahasiswa",
+					"Setting umum (bukan khusus satu mahasiswa)", Restrictions.or(
+							Restrictions.isNull("khususBuatMahasiswaTertentu"),
+							Restrictions.eq("khususBuatMahasiswaTertentu", false)), sudahGagal);
+
+			int minJenis = jenisKegiatan.getMinSmt() == null ? 0 : jenisKegiatan.getMinSmt().intValue();
+			int maxJenis = jenisKegiatan.getMaxSmt() == null ? 30 : jenisKegiatan.getMaxSmt().intValue();
+			Criterion rentangSetting = Restrictions.sqlRestriction(smt + " between minsmt and maxsmt");
+			Criterion semesterCocok = Restrictions.or(
+					Restrictions.and(Restrictions.eq("smtIkutiSettinganDisini", Boolean.TRUE), rentangSetting),
+					Restrictions.and(Restrictions.or(Restrictions.isNull("smtIkutiSettinganDisini"),
+							Restrictions.eq("smtIkutiSettinganDisini", Boolean.FALSE)),
+							Restrictions.and(rentangSetting, smt >= minJenis && smt <= maxJenis
+									? Restrictions.sqlRestriction("1=1") : Restrictions.sqlRestriction("1=0"))));
+			sudahGagal = tambahTahapAnalisis(sessionAnalisis, filter, tahap, "Semester",
+					"Semester " + smt + " berada dalam rentang setting", semesterCocok, sudahGagal);
+
+			Object jenjang = mahasiswa.getJurusan() == null ? mahasiswa.getJenjang() : mahasiswa.getJurusan().getJenjang();
+			Object statusAwal = tempHistoryStatusMahasiswa == null ? mahasiswa.getStatusAwalMahasiswa()
+					: tempHistoryStatusMahasiswa.getStatusAwalMahasiswa();
+			Object status = statusmahasiswa;
+			String program = tempHistoryStatusMahasiswa == null ? mahasiswa.getProgram()
+					: tempHistoryStatusMahasiswa.getProgram();
+			BiodataCalonMahasiswa biodata = null;
+			try { biodata = mahasiswa.getBiodataCalonMahasiswaData(); } catch (Exception ignored) {
+				ais.common.ErrorAuditUtil.record(ignored, "AnalisisTagihan: biodata calon mahasiswa");
+			}
+
+			sudahGagal = tambahTahapAnalisis(sessionAnalisis, filter, tahap, "Angkatan",
+					String.valueOf(mahasiswa.getTahunangkatan()), kriteriaWildcardAnalisis("angkatan",
+							mahasiswa.getTahunangkatan()), sudahGagal);
+			sudahGagal = tambahTahapAnalisis(sessionAnalisis, filter, tahap, "Jenjang",
+					namaObjekAnalisis(jenjang), kriteriaWildcardAnalisis("jenjang", jenjang), sudahGagal);
+			sudahGagal = tambahTahapAnalisis(sessionAnalisis, filter, tahap, "Status awal",
+					namaObjekAnalisis(statusAwal), kriteriaWildcardAnalisis("statusAwalMahasiswa", statusAwal), sudahGagal);
+			sudahGagal = tambahTahapAnalisis(sessionAnalisis, filter, tahap, "Status mahasiswa",
+					namaObjekAnalisis(status), kriteriaWildcardAnalisis("statusMahasiswa", status), sudahGagal);
+			sudahGagal = tambahTahapAnalisis(sessionAnalisis, filter, tahap, "Jenis seleksi",
+					namaObjekAnalisis(mahasiswa.getJenisSeleksi()),
+					kriteriaWildcardAnalisis("jenisSeleksi", mahasiswa.getJenisSeleksi()), sudahGagal);
+			sudahGagal = tambahTahapAnalisis(sessionAnalisis, filter, tahap, "Gelombang",
+					namaObjekAnalisis(mahasiswa.getGelombangPendaftaran()),
+					kriteriaWildcardAnalisis("gelombangPendaftaran", mahasiswa.getGelombangPendaftaran()), sudahGagal);
+			sudahGagal = tambahTahapAnalisis(sessionAnalisis, filter, tahap, "Paket",
+					namaObjekAnalisis(biodata == null ? null : biodata.getPaket()),
+					kriteriaWildcardAnalisis("paket", biodata == null ? null : biodata.getPaket()), sudahGagal);
+			sudahGagal = tambahTahapAnalisis(sessionAnalisis, filter, tahap, "Program",
+					program, kriteriaWildcardStringAnalisis("program", program), sudahGagal);
+			sudahGagal = tambahTahapAnalisis(sessionAnalisis, filter, tahap, "Prodi/Jurusan",
+					namaObjekAnalisis(mahasiswa.getJurusan()),
+					kriteriaWildcardAnalisis("jurusan", mahasiswa.getJurusan()), sudahGagal);
+			sudahGagal = tambahTahapAnalisis(sessionAnalisis, filter, tahap, "Jenis kelamin",
+					mahasiswa.getKelamin(), kriteriaWildcardStringAnalisis("kelamin", mahasiswa.getKelamin()), sudahGagal);
+			sudahGagal = tambahTahapAnalisis(sessionAnalisis, filter, tahap, "Afiliasi",
+					namaObjekAnalisis(biodata == null ? null : biodata.getAfiliasiCalonMahasiswa()),
+					kriteriaWildcardAnalisis("afiliasiCalonMahasiswa",
+							biodata == null ? null : biodata.getAfiliasiCalonMahasiswa()), sudahGagal);
+			hitungUjiKriteriaDilewati(sessionAnalisis, tahap);
+
+			Criteria criteriaKandidatAkhir = sessionAnalisis.createCriteria(SettingBiaya.class);
+			for (Criterion criterion : filter) criteriaKandidatAkhir.add(criterion);
+			List<SettingBiaya> kandidatAkhir = criteriaKandidatAkhir.addOrder(Order.desc("ta")).list();
+			int detailSetting = 0;
+			int pengaturanBulanan = 0;
+			if (!kandidatAkhir.isEmpty()) {
+				detailSetting = ((Number) sessionAnalisis.createCriteria(DetailSettingBiaya.class)
+						.createAlias("itemBiaya", "itemBiaya")
+						.add(Restrictions.in("settingBiaya", kandidatAkhir))
+						.add(Restrictions.or(Restrictions.isNull("itemBiaya.aktif"), Restrictions.eq("itemBiaya.aktif", true)))
+						.add(Restrictions.or(Restrictions.isNull("itemBiaya.minSmt"), Restrictions.le("itemBiaya.minSmt", smt)))
+						.add(Restrictions.or(Restrictions.isNull("itemBiaya.maxSmt"), Restrictions.ge("itemBiaya.maxSmt", smt)))
+						.setProjection(Projections.rowCount()).uniqueResult()).intValue();
+				try {
+					pengaturanBulanan = ((Number) sessionAnalisis.createCriteria(PengaturanPembayaranBulanan.class)
+							.createAlias("detailBiaya", "detailBiaya")
+							.add(Restrictions.in("detailBiaya.settingBiaya", kandidatAkhir))
+							.add(Restrictions.eq("detailBiaya.semester", smt))
+							.setProjection(Projections.rowCount()).uniqueResult()).intValue();
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "AnalisisTagihan: hitung pengaturan bulanan");
+				}
+			}
+
+			int settingKhususAngkatan = ((Number) sessionAnalisis.createCriteria(SettingBiaya.class)
+					.add(Restrictions.eq("jenisKegiatan", jenisKegiatan))
+					.add(Restrictions.eq("angkatan", mahasiswa.getTahunangkatan()))
+					.add(Restrictions.or(Restrictions.isNull("khususBuatMahasiswaTertentu"),
+							Restrictions.eq("khususBuatMahasiswaTertentu", false)))
+					.setProjection(Projections.rowCount()).uniqueResult()).intValue();
+			List<SettingBiaya> settingKhususData = sessionAnalisis.createCriteria(SettingBiayaDetail.class)
+					.createAlias("settingBiaya", "settingBiaya")
+					.add(Restrictions.eq("mahasiswa", mahasiswa))
+					.add(Restrictions.eq("settingBiaya.jenisKegiatan", jenisKegiatan))
+					.add(Restrictions.eq("settingBiaya.khususBuatMahasiswaTertentu", true))
+					.add(Restrictions.le("settingBiaya.ta", ta))
+					.add(Restrictions.or(Restrictions.isNull("settingBiaya.minSmt"), Restrictions.le("settingBiaya.minSmt", smt)))
+					.add(Restrictions.or(Restrictions.isNull("settingBiaya.maxSmt"), Restrictions.ge("settingBiaya.maxSmt", smt)))
+					.add(Restrictions.or(Restrictions.isNull("minSmt"), Restrictions.le("minSmt", smt)))
+					.add(Restrictions.or(Restrictions.isNull("maxSmt"), Restrictions.ge("maxSmt", smt)))
+					.setProjection(Projections.distinct(Projections.property("settingBiaya"))).list();
+			int settingKhususMahasiswa = settingKhususData.size();
+			List<SettingBiaya> kandidatSumber = new ArrayList<SettingBiaya>(kandidatAkhir);
+			for (SettingBiaya khusus : settingKhususData)
+				if (khusus != null && !kandidatSumber.contains(khusus)) kandidatSumber.add(khusus);
+			if (!settingKhususData.isEmpty()) {
+				detailSetting = ((Number) sessionAnalisis.createCriteria(DetailSettingBiaya.class)
+						.createAlias("itemBiaya", "itemBiayaKhusus")
+						.add(Restrictions.in("settingBiaya", kandidatSumber))
+						.add(Restrictions.or(Restrictions.isNull("itemBiayaKhusus.aktif"), Restrictions.eq("itemBiayaKhusus.aktif", true)))
+						.add(Restrictions.or(Restrictions.isNull("itemBiayaKhusus.minSmt"), Restrictions.le("itemBiayaKhusus.minSmt", smt)))
+						.add(Restrictions.or(Restrictions.isNull("itemBiayaKhusus.maxSmt"), Restrictions.ge("itemBiayaKhusus.maxSmt", smt)))
+						.setProjection(Projections.rowCount()).uniqueResult()).intValue();
+				pengaturanBulanan = ((Number) sessionAnalisis.createCriteria(PengaturanPembayaranBulanan.class)
+						.createAlias("detailBiaya", "detailBiayaKhusus")
+						.add(Restrictions.in("detailBiayaKhusus.settingBiaya", kandidatSumber))
+						.add(Restrictions.eq("detailBiayaKhusus.semester", smt))
+						.setProjection(Projections.rowCount()).uniqueResult()).intValue();
+			}
+			AnalisisHilirTagihanLama hilir = analisisHilirTagihanLama(sessionAnalisis, kandidatSumber, smt,
+					pengaturanBulanan, settingKhususMahasiswa > 0, tahunAkademikMulai);
+
+			String rekomendasi = rekomendasiAnalisisTagihan(tahap, settingKhususAngkatan,
+					settingKhususMahasiswa, kandidatAkhir.size(), detailSetting, pengaturanBulanan, smt, hilir);
+			tampilkanJendelaAnalisisTagihan(tahap, rekomendasi, settingKhususMahasiswa,
+					kandidatAkhir.size(), detailSetting, pengaturanBulanan, smt, hilir);
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "DaftarUlangMahasiswaLamaAction: analisis data tagihan");
+			MyMessageboxConfig.show("Analisis belum dapat diselesaikan: " + e.getMessage(), "Analisis Data",
+					MyMessageboxConfig.OK, MyMessageboxConfig.ERROR);
+		} finally {
+			HibernateUtil.closeSessionQuietly(sessionAnalisis);
+		}
+	}
+
+	private boolean tambahTahapAnalisis(Session session, List<Criterion> filter,
+			List<TahapAnalisisTagihan> tahap, String nama, String nilai, Criterion criterion, boolean sudahGagal) {
+		filter.add(criterion);
+		int jumlah = hitungSettingBiaya(session, filter);
+		boolean gagalPertama = !sudahGagal && jumlah == 0;
+		String tersedia = gagalPertama ? nilaiTersediaSebelumKriteria(session, filter, nama) : "";
+		String tindakan = gagalPertama ? tindakanUntukKriteriaAnalisis(nama, nilai, tersedia) : "";
+		tahap.add(new TahapAnalisisTagihan(nama, nilai == null || nilai.trim().isEmpty() ? "-" : nilai,
+				jumlah, gagalPertama, tersedia, tindakan, criterion));
+		return sudahGagal || gagalPertama;
+	}
+
+	@SuppressWarnings("unchecked")
+	private String nilaiTersediaSebelumKriteria(Session session, List<Criterion> filter, String namaTahap) {
+		try {
+			Criteria criteria = session.createCriteria(SettingBiaya.class);
+			for (int i = 0; i < filter.size() - 1; i++) criteria.add(filter.get(i));
+			if ("Semester".equals(namaTahap)) {
+				List<SettingBiaya> data = criteria.addOrder(Order.desc("ta")).setMaxResults(20).list();
+				LinkedHashSet<String> nilai = new LinkedHashSet<String>();
+				for (SettingBiaya sb : data) {
+					nilai.add("semester " + sb.getMinSmt() + " s.d. " + sb.getMaxSmt());
+				}
+				return gabungkanNilaiAnalisis(nilai);
+			}
+			String properti = propertiUntukTahapAnalisis(namaTahap);
+			if (properti == null) return "Tidak dapat diringkas otomatis";
+			List data = criteria.setProjection(Projections.distinct(Projections.property(properti)))
+					.setMaxResults(15).list();
+			LinkedHashSet<String> nilai = new LinkedHashSet<String>();
+			for (Object o : data) {
+				if ("khususBuatMahasiswaTertentu".equals(properti)) {
+					nilai.add(Boolean.TRUE.equals(o) ? "Khusus satu mahasiswa" : "Umum");
+				} else {
+					nilai.add(o == null ? "Semua" : namaObjekAnalisis(o));
+				}
+			}
+			return gabungkanNilaiAnalisis(nilai);
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "AnalisisTagihan: nilai tersedia " + namaTahap);
+			return "Gagal membaca pilihan yang tersedia";
+		}
+	}
+
+	private String propertiUntukTahapAnalisis(String namaTahap) {
+		if ("Jenis pembayaran".equals(namaTahap)) return "jenisKegiatan";
+		if ("Periode setting".equals(namaTahap)) return "ta";
+		if ("Cakupan mahasiswa".equals(namaTahap)) return "khususBuatMahasiswaTertentu";
+		if ("Angkatan".equals(namaTahap)) return "angkatan";
+		if ("Jenjang".equals(namaTahap)) return "jenjang";
+		if ("Status awal".equals(namaTahap)) return "statusAwalMahasiswa";
+		if ("Status mahasiswa".equals(namaTahap)) return "statusMahasiswa";
+		if ("Jenis seleksi".equals(namaTahap)) return "jenisSeleksi";
+		if ("Gelombang".equals(namaTahap)) return "gelombangPendaftaran";
+		if ("Paket".equals(namaTahap)) return "paket";
+		if ("Program".equals(namaTahap)) return "program";
+		if ("Prodi/Jurusan".equals(namaTahap)) return "jurusan";
+		if ("Jenis kelamin".equals(namaTahap)) return "kelamin";
+		if ("Afiliasi".equals(namaTahap)) return "afiliasiCalonMahasiswa";
+		return null;
+	}
+
+	private String gabungkanNilaiAnalisis(LinkedHashSet<String> nilai) {
+		if (nilai == null || nilai.isEmpty()) return "Tidak ada nilai yang tersedia";
+		StringBuffer sb = new StringBuffer();
+		for (String s : nilai) {
+			if (sb.length() > 0) sb.append(", ");
+			sb.append(s == null || s.trim().isEmpty() ? "Kosong/Semua" : s);
+		}
+		return sb.toString();
+	}
+
+	private String tindakanUntukKriteriaAnalisis(String nama, String nilaiDicari, String nilaiTersedia) {
+		String buka = "Buka menu Pembayaran > Pengaturan Billing Pembayaran > Setting Biaya.";
+		if ("Semua data Setting Biaya".equals(nama)) {
+			return buka + "\nKlik Tambah dan buat konfigurasi biaya pertama.\nPilih Jenis Pembayaran, rentang semester, lalu masukkan Item Biaya dan nominalnya.";
+		}
+		if ("Jenis pembayaran".equals(nama)) {
+			return buka + "\nKlik Tambah, kemudian pilih Jenis Pembayaran: " + nilaiDicari
+					+ ".\nAtur kriteria mahasiswa dan tambahkan Item Biaya beserta nominal tagihannya.";
+		}
+		if ("Periode setting".equals(nama)) {
+			return buka + "\nBuat atau duplikasi setting untuk periode " + nilaiDicari
+					+ ".\nJangan mengubah periode lama apabila masih dipakai mahasiswa lain.";
+		}
+		if ("Cakupan mahasiswa".equals(nama)) {
+			return buka + "\nBuat setting umum, atau tambahkan mahasiswa ini pada setting khusus mahasiswa."
+					+ "\nPastikan pilihan 'Khusus Mahasiswa Tertentu' sesuai tujuan tagihan.";
+		}
+		if ("Semester".equals(nama)) {
+			return buka + "\nUbah Min Semester dan Max Semester agar mencakup " + nilaiDicari
+					+ ".\nPeriksa juga pilihan apakah rentang semester mengikuti Jenis Pembayaran atau diatur di Setting Biaya.";
+		}
+		if ("Angkatan".equals(nama)) {
+			return buka + "\nDuplikasi setting angkatan terdekat, lalu ubah kolom Angkatan menjadi " + nilaiDicari
+					+ ".\nPeriksa kembali Item Biaya dan nominal sebelum menyimpan; jangan hanya mengganti setting angkatan lama.";
+		}
+		if ("Jenjang".equals(nama)) return buka + "\nBuat varian setting dengan Jenjang " + nilaiDicari + ", atau pilih Semua bila tarif memang sama untuk seluruh jenjang.";
+		if ("Status awal".equals(nama)) return buka + "\nBuat varian Status Awal " + nilaiDicari + ", atau pilih Semua bila tidak perlu dibedakan.";
+		if ("Status mahasiswa".equals(nama)) return buka + "\nBuat varian Status Mahasiswa " + nilaiDicari + ".\nUbah status mahasiswa hanya jika data akademiknya memang salah; jangan mengubahnya sekadar agar tagihan muncul.";
+		if ("Jenis seleksi".equals(nama)) return buka + "\nBuat varian Jenis Seleksi " + nilaiDicari + ", atau pilih Semua bila tarifnya sama.";
+		if ("Gelombang".equals(nama)) return buka + "\nBuat varian Gelombang " + nilaiDicari + ", atau pilih Semua bila tarifnya sama.";
+		if ("Paket".equals(nama)) return buka + "\nBuat varian Paket " + nilaiDicari + ", atau pilih Semua bila paket tidak memengaruhi tarif.";
+		if ("Program".equals(nama)) return buka + "\nBuat varian Program/Jenis Kuliah " + nilaiDicari + ", atau pilih Semua bila tarifnya sama.";
+		if ("Prodi/Jurusan".equals(nama)) return buka + "\nBuat varian Prodi/Jurusan " + nilaiDicari + ", atau pilih Semua bila tarif berlaku lintas prodi.";
+		if ("Jenis kelamin".equals(nama)) return buka + "\nPilih Jenis Kelamin " + nilaiDicari + ", atau Semua bila tidak memengaruhi tarif.";
+		if ("Afiliasi".equals(nama)) return buka + "\nBuat varian Afiliasi " + nilaiDicari + ", atau pilih Semua bila afiliasi tidak memengaruhi tarif.";
+		return buka + "\nSamakan kriteria setting dengan data mahasiswa yang dicari: " + nilaiDicari + ".";
+	}
+
+	private int hitungSettingBiaya(Session session, List<Criterion> filter) {
+		Criteria criteria = session.createCriteria(SettingBiaya.class);
+		if (filter != null && !filter.isEmpty()) {
+			for (Criterion criterion : filter) criteria.add(criterion);
+		}
+		Number n = (Number) criteria.setProjection(Projections.rowCount()).uniqueResult();
+		return n == null ? 0 : n.intValue();
+	}
+
+	/**
+	 * Uji sensitivitas: setiap kriteria dilepas satu per satu sementara seluruh kriteria
+	 * lain tetap aktif. Jika hasil berubah dari nol menjadi lebih dari nol, kriteria itu
+	 * terbukti sebagai penghambat independen, bukan sekadar dugaan karena urutan filter.
+	 */
+	private void hitungUjiKriteriaDilewati(Session session, List<TahapAnalisisTagihan> tahap) {
+		for (TahapAnalisisTagihan yangDilewati : tahap) {
+			if (yangDilewati.criterion == null) continue;
+			Criteria criteria = session.createCriteria(SettingBiaya.class);
+			for (TahapAnalisisTagihan t : tahap) {
+				if (t.criterion != null && t != yangDilewati) criteria.add(t.criterion);
+			}
+			Number n = (Number) criteria.setProjection(Projections.rowCount()).uniqueResult();
+			yangDilewati.jumlahJikaDilewati = n == null ? 0 : n.intValue();
+		}
+	}
+
+	private Criterion kriteriaWildcardAnalisis(String properti, Object nilai) {
+		return nilai == null ? Restrictions.isNull(properti)
+				: Restrictions.or(Restrictions.isNull(properti), Restrictions.eq(properti, nilai));
+	}
+
+	private Criterion kriteriaWildcardStringAnalisis(String properti, String nilai) {
+		if (nilai == null || nilai.trim().isEmpty()) {
+			return Restrictions.or(Restrictions.isNull(properti), Restrictions.eq(properti, ""));
+		}
+		return Restrictions.or(Restrictions.or(Restrictions.isNull(properti), Restrictions.eq(properti, "")),
+				Restrictions.ilike(properti, nilai.trim(), org.hibernate.criterion.MatchMode.EXACT));
+	}
+
+	private String namaObjekAnalisis(Object o) {
+		if (o == null) return "Semua / tidak diisi";
+		try {
+			java.lang.reflect.Method m = o.getClass().getMethod("getNama");
+			Object nama = m.invoke(o);
+			if (nama != null) return nama.toString();
+		} catch (Exception ignored) { /* fallback toString */ }
+		return o.toString();
+	}
+
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	private AnalisisHilirTagihanLama analisisHilirTagihanLama(Session session, List<SettingBiaya> setting,
+			int smt, int pengaturanBulanan, boolean settingKhusus, Integer tahunAkademikMulai) {
+		AnalisisHilirTagihanLama hasil = new AnalisisHilirTagihanLama();
+		hasil.barisLayar = dataTagihanData == null ? 0 : dataTagihanData.size();
+		hasil.mode = pengaturanBulanan > 0 ? "BULANAN / ANGSURAN" : "NONBULANAN / SEKALI TAGIH";
+		if (settingKhusus) hasil.mode += " (SETTING KHUSUS MAHASISWA)";
+
+		List<ItemBiaya> itemSetting = new ArrayList<ItemBiaya>();
+		if (setting != null && !setting.isEmpty()) {
+			itemSetting = session.createCriteria(DetailSettingBiaya.class)
+					.createAlias("itemBiaya", "itemBiayaAnalisis")
+					.add(Restrictions.in("settingBiaya", setting))
+					.add(Restrictions.or(Restrictions.isNull("itemBiayaAnalisis.aktif"),
+							Restrictions.eq("itemBiayaAnalisis.aktif", true)))
+					.setProjection(Projections.distinct(Projections.property("itemBiaya"))).list();
+		}
+		Object jenjang = mahasiswa.getJurusan() == null ? mahasiswa.getJenjang() : mahasiswa.getJurusan().getJenjang();
+		Object statusAwal = tempHistoryStatusMahasiswa == null ? mahasiswa.getStatusAwalMahasiswa()
+				: tempHistoryStatusMahasiswa.getStatusAwalMahasiswa();
+		Object status = statusmahasiswa;
+		String program = tempHistoryStatusMahasiswa == null ? mahasiswa.getProgram() : tempHistoryStatusMahasiswa.getProgram();
+		String tahunAkademik = tahunAkademikMulai + "/" + (tahunAkademikMulai + 1);
+
+		List<TahapAnalisisDetailLama> tahap = hasil.tahap;
+		tahap.add(new TahapAnalisisDetailLama("Semua template Detail Biaya", "Tanpa kriteria", null, false));
+		tahap.add(new TahapAnalisisDetailLama("Template aktif", "Aktif atau belum ditentukan",
+				Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)), false));
+		tahap.add(new TahapAnalisisDetailLama("Item dari Setting Biaya", itemSetting.size() + " item aktif",
+				itemSetting.isEmpty() ? Restrictions.sqlRestriction("1=0") : Restrictions.in("itemBiaya", itemSetting), false));
+		tahap.add(new TahapAnalisisDetailLama("Bukan catatan pembayaran", "Template tagihan",
+				Restrictions.or(Restrictions.isNull("merupakanPembayaran"), Restrictions.eq("merupakanPembayaran", false)), false));
+		tahap.add(new TahapAnalisisDetailLama("Tahun akademik template", tahunAkademik,
+				kriteriaCabangKhususLama(settingKhusus, Restrictions.eq("tahunAkademik", tahunAkademik)), false));
+		tahap.add(new TahapAnalisisDetailLama("Semester template", "Semester " + smt,
+				Restrictions.eq("semester", smt), false));
+		tahap.add(new TahapAnalisisDetailLama("Status awal template", namaObjekAnalisis(statusAwal),
+				kriteriaCabangKhususLama(settingKhusus, kriteriaTepatDetailLama("statusAwalMahasiswa", statusAwal)), false));
+		tahap.add(new TahapAnalisisDetailLama("Status mahasiswa template", namaObjekAnalisis(status),
+				kriteriaCabangKhususLama(settingKhusus, kriteriaTepatDetailLama("statusMahasiswa", status)), false));
+		tahap.add(new TahapAnalisisDetailLama("Semester mulai", mahasiswa.getSemesterMulai(),
+				kriteriaCabangKhususLama(settingKhusus, kriteriaTepatStringDetailLama("mulaiBelajarDiSemester", mahasiswa.getSemesterMulai())), false));
+		tahap.add(new TahapAnalisisDetailLama("Jenis pembayaran template", namaObjekAnalisis(jenisKegiatan),
+				Restrictions.eq("jenisKegiatan", jenisKegiatan), false));
+		tahap.add(new TahapAnalisisDetailLama("Kewarganegaraan", mahasiswa.getWarganegara(),
+				kriteriaCabangKhususLama(settingKhusus, kriteriaTepatStringDetailLama("wnaAtauWni", mahasiswa.getWarganegara())), false));
+		tahap.add(new TahapAnalisisDetailLama("Jenjang template", namaObjekAnalisis(jenjang),
+				kriteriaCabangKhususLama(settingKhusus, kriteriaTepatDetailLama("jenjang", jenjang)), false));
+		tahap.add(new TahapAnalisisDetailLama("Prodi/Jurusan template", namaObjekAnalisis(mahasiswa.getJurusan()),
+				kriteriaCabangKhususLama(settingKhusus, kriteriaTepatDetailLama("jurusan", mahasiswa.getJurusan())), false));
+		tahap.add(new TahapAnalisisDetailLama("Program template", program,
+				kriteriaCabangKhususLama(settingKhusus, kriteriaTepatStringDetailLama("program", program)), false));
+		tahap.add(new TahapAnalisisDetailLama("Angkatan template", String.valueOf(mahasiswa.getTahunangkatan()),
+				kriteriaCabangKhususLama(settingKhusus, Restrictions.eq("angkatan", mahasiswa.getTahunangkatan())), false));
+		tahap.add(new TahapAnalisisDetailLama("Parameter tambahan dinamis", "Parameter mahasiswa ikut diperiksa",
+				null, !settingKhusus));
+
+		boolean gagal = false;
+		for (int i = 0; i < tahap.size(); i++) {
+			TahapAnalisisDetailLama t = tahap.get(i);
+			t.jumlah = hitungDetailBiayaTahapanLama(session, tahap, i, -1);
+			t.gagalPertama = !gagal && t.jumlah == 0;
+			if (t.gagalPertama) gagal = true;
+		}
+		for (int i = 0; i < tahap.size(); i++)
+			tahap.get(i).jumlahJikaDilewati = hitungDetailBiayaTahapanLama(session, tahap, tahap.size() - 1, i);
+
+		List<DetailBiaya> detailAkhir = criteriaDetailBiayaTahapanLama(session, tahap, tahap.size() - 1, -1)
+				.addOrder(Order.desc("id")).list();
+		hasil.templateAkhir = detailAkhir.size();
+		LinkedHashSet<String> sumber = new LinkedHashSet<String>();
+		for (DetailBiaya db : detailAkhir) {
+			if (db == null || sumber.size() >= 12) continue;
+			String item = db.getItemBiaya() == null ? "Item tanpa nama" : db.getItemBiaya().getNama();
+			String asal = db.getSettingBiaya() == null || db.getSettingBiaya().getId() == null ? "template langsung"
+					: "SettingBiaya #" + db.getSettingBiaya().getId();
+			sumber.add(item + " (DetailBiaya #" + db.getId() + ", " + asal + ")");
+		}
+		hasil.sumberItem = gabungkanNilaiAnalisis(sumber);
+		try {
+			Collection produksi = PembayaranUtilHelper.getDetailBiayaMahasiswa(mahasiswa, smt, jenisKegiatan, true);
+			hasil.hasilQueryProduksi = produksi == null ? 0 : produksi.size();
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "AnalisisTagihanLama: query produksi");
+		}
+		Number kegiatanN = (Number) session.createCriteria(Kegiatan.class)
+				.add(Restrictions.eq("mahasiswa", mahasiswa)).add(Restrictions.eq("jenisKegiatan", jenisKegiatan))
+				.add(Restrictions.eq("semster", smt))
+				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+				.setProjection(Projections.rowCount()).uniqueResult();
+		hasil.kegiatan = kegiatanN == null ? 0 : kegiatanN.intValue();
+		Criteria cicilan = session.createCriteria(CicilanPembayaran.class).createAlias("kegiatan", "kegiatanAnalisis")
+				.add(Restrictions.eq("kegiatanAnalisis.mahasiswa", mahasiswa))
+				.add(Restrictions.eq("kegiatanAnalisis.jenisKegiatan", jenisKegiatan))
+				.add(Restrictions.eq("kegiatanAnalisis.semster", smt));
+		Number cicilanN = (Number) cicilan.setProjection(Projections.rowCount()).uniqueResult();
+		hasil.cicilan = cicilanN == null ? 0 : cicilanN.intValue();
+		Number nilai = (Number) session.createCriteria(CicilanPembayaran.class).createAlias("kegiatan", "kegiatanNilai")
+				.add(Restrictions.eq("kegiatanNilai.mahasiswa", mahasiswa))
+				.add(Restrictions.eq("kegiatanNilai.jenisKegiatan", jenisKegiatan))
+				.add(Restrictions.eq("kegiatanNilai.semster", smt))
+				.setProjection(Projections.sum("nilai")).uniqueResult();
+		hasil.nilaiDibayar = nilai == null ? 0.0 : nilai.doubleValue();
+		return hasil;
+	}
+
+	private Criterion kriteriaTepatDetailLama(String properti, Object nilai) {
+		return nilai == null ? Restrictions.isNull(properti) : Restrictions.eq(properti, nilai);
+	}
+
+	private Criterion kriteriaCabangKhususLama(boolean khusus, Criterion normal) {
+		return khusus ? Restrictions.sqlRestriction("1=1") : normal;
+	}
+
+	private Criterion kriteriaTepatStringDetailLama(String properti, String nilai) {
+		return nilai == null || nilai.trim().isEmpty() ? Restrictions.sqlRestriction("1=1")
+				: Restrictions.ilike(properti, nilai.trim(), org.hibernate.criterion.MatchMode.EXACT);
+	}
+
+	private int hitungDetailBiayaTahapanLama(Session session, List<TahapAnalisisDetailLama> tahap,
+			int batas, int dilewati) {
+		Number n = (Number) criteriaDetailBiayaTahapanLama(session, tahap, batas, dilewati)
+				.setProjection(Projections.rowCount()).uniqueResult();
+		return n == null ? 0 : n.intValue();
+	}
+
+	private Criteria criteriaDetailBiayaTahapanLama(Session session, List<TahapAnalisisDetailLama> tahap,
+			int batas, int dilewati) {
+		Criteria criteria = session.createCriteria(DetailBiaya.class);
+		boolean dinamis = false;
+		for (int i = 0; i <= batas && i < tahap.size(); i++) {
+			if (i == dilewati) continue;
+			TahapAnalisisDetailLama t = tahap.get(i);
+			if (t.criterion != null) criteria.add(t.criterion);
+			if (t.parameterDinamis) dinamis = true;
+		}
+		if (dinamis) PembayaranUtilHelper.filterCriteriaDenganNilaiTambahan(criteria, session, mahasiswa, null);
+		return criteria;
+	}
+
+	private String rekomendasiAnalisisTagihan(List<TahapAnalisisTagihan> tahap, int settingKhususAngkatan,
+			int settingKhususMahasiswa, int kandidatAkhir, int detailSetting, int pengaturanBulanan, int smt,
+			AnalisisHilirTagihanLama hilir) {
+		List<String> penghambatTerbukti = new ArrayList<String>();
+		for (TahapAnalisisTagihan t : tahap) {
+			if (kandidatAkhir == 0 && settingKhususMahasiswa == 0 && t.jumlahJikaDilewati > 0) penghambatTerbukti.add(t.nama + " harus cocok dengan " + t.nilai);
+		}
+		if (!penghambatTerbukti.isEmpty()) {
+			StringBuffer sb = new StringBuffer("Uji pengecualian membuktikan kriteria penghambat: ");
+			for (int i = 0; i < penghambatTerbukti.size(); i++) {
+				if (i > 0) sb.append("; ");
+				sb.append(penghambatTerbukti.get(i));
+			}
+			return sb.append(". Isi atau buat varian Setting Biaya sesuai nilai tersebut.").toString();
+		}
+		for (TahapAnalisisTagihan t : tahap) {
+			if (settingKhususMahasiswa > 0) break;
+			if (t.gagalPertama) {
+				if ("Angkatan".equals(t.nama)) {
+					return "Setting Biaya untuk angkatan " + mahasiswa.getTahunangkatan()
+							+ " belum dibuat dan tidak ada baris 'Semua' yang dapat dipakai. "
+							+ "Data angkatan yang tersedia sebelum kriteria ini: " + t.nilaiTersedia + ".";
+				}
+				return "Kandidat menjadi kosong saat kriteria '" + t.nama + "' diterapkan. "
+						+ "Sistem mencari '" + t.nilai + "', sedangkan data yang tersedia sebelum kriteria ini: "
+						+ t.nilaiTersedia + "."
+						+ (settingKhususAngkatan == 0 && !"Jenis pembayaran".equals(t.nama)
+								? " Catatan: setting khusus angkatan " + mahasiswa.getTahunangkatan()
+										+ " juga belum tersedia; kandidat sebelumnya hanya mengandalkan baris 'Semua'."
+								: "");
+			}
+		}
+		if (kandidatAkhir == 0 && settingKhususMahasiswa == 0) return "Tidak ada Setting Biaya yang cocok untuk kombinasi data mahasiswa ini.";
+		if (detailSetting == 0) return "Setting Biaya ditemukan, tetapi Item Biaya aktif untuk semester " + smt
+				+ " belum diisi atau berada di luar rentang semester.";
+		if (hilir != null && hilir.templateAkhir == 0) {
+			for (TahapAnalisisDetailLama t : hilir.tahap)
+				if (t.jumlahJikaDilewati > 0) return "Setting dan Item Biaya ditemukan, tetapi template DetailBiaya ditolak oleh kriteria '"
+						+ t.nama + "' (data mahasiswa: " + t.nilai + ").";
+			for (TahapAnalisisDetailLama t : hilir.tahap)
+				if (t.gagalPertama) return "Rantai sumber tagihan berhenti pada '" + t.nama + "' (" + t.nilai + ").";
+		}
+		if (pengaturanBulanan == 0 && countPengaturanBulanan > 0) return "Setting dan item biaya ditemukan, tetapi Pengaturan Tagihan Bulanan belum terbentuk untuk semester ini.";
+		if (hilir != null && hilir.hasilQueryProduksi > 0 && hilir.barisLayar == 0 && hilir.cicilan > 0)
+			return "Sumber tagihan ditemukan, tetapi tidak tampil karena sudah ada " + hilir.cicilan
+					+ " cicilan/pembayaran senilai " + Common.numberFormat.get().format(hilir.nilaiDibayar)
+					+ ". Periksa History untuk memastikan status lunas atau sisa tagihan.";
+		if (hilir != null && hilir.templateAkhir > 0 && hilir.hasilQueryProduksi == 0)
+			return "Template DetailBiaya cocok, tetapi query produksi tidak mengembalikan baris. Periksa status lulus/keluar, semester pindahan, kelas/tempat tinggal, mode angsuran, dan parameter tambahan mahasiswa.";
+		return "Setting dan item biaya ditemukan. Jika layar tetap kosong, tagihan mungkin sudah lunas atau Detail Biaya belum tergenerasi; tekan Refresh/Proses Tagihan.";
+	}
+
+	private String tindakanUtamaAnalisisTagihan(List<TahapAnalisisTagihan> tahap, int settingKhususMahasiswa,
+			int kandidatAkhir, int detailSetting, int pengaturanBulanan, int smt) {
+		StringBuffer penghambat = new StringBuffer();
+		for (TahapAnalisisTagihan t : tahap) {
+			if (kandidatAkhir == 0 && t.jumlahJikaDilewati > 0 && t.tindakan != null && !t.tindakan.trim().isEmpty()) {
+				if (penghambat.length() > 0) penghambat.append("\n");
+				penghambat.append("Prioritas ").append(t.nama).append(": ").append(t.nilai).append(".")
+						.append("\n").append(t.tindakan);
+			}
+		}
+		if (penghambat.length() > 0) return penghambat.toString();
+		for (TahapAnalisisTagihan t : tahap) {
+			if (t.gagalPertama && t.tindakan != null && !t.tindakan.trim().isEmpty()) return t.tindakan;
+		}
+		if (settingKhususMahasiswa > 0) {
+			return "Buka Setting Biaya khusus mahasiswa ini.\nPastikan rentang semester mencakup semester " + smt
+					+ ".\nPastikan Item Biaya aktif dan nominalnya sudah diisi.";
+		}
+		if (kandidatAkhir == 0) {
+			return "Buka menu Pembayaran > Pengaturan Billing Pembayaran > Setting Biaya."
+					+ "\nBuat konfigurasi baru yang sama dengan seluruh data mahasiswa pada tabel analisis."
+					+ "\nMasukkan Item Biaya dan nominal tagihan.";
+		}
+		if (detailSetting == 0) {
+			return "Buka Setting Biaya yang cocok, lalu klik Ubah."
+					+ "\nTambahkan Item Biaya yang akan ditagihkan dan isi nominalnya."
+					+ "\nAktifkan item serta atur Min/Max Semester agar mencakup semester " + smt + ".";
+		}
+		if (pengaturanBulanan == 0 && countPengaturanBulanan > 0) {
+			return "Buka Pengaturan Tagihan/Pembayaran Bulanan untuk Setting Biaya tersebut."
+					+ "\nBuat baris bulan atau tahap pembayaran semester " + smt + " dan isi nominalnya."
+					+ "\nPastikan total nominal bulanan sama dengan ketentuan Item Biaya.";
+		}
+		return "Klik Refresh untuk membuang cache tagihan lama."
+				+ "\nJika masih kosong, jalankan Proses Tagihan agar Detail Biaya dibuat."
+				+ "\nPeriksa riwayat pembayaran karena tagihan yang sudah lunas memang tidak ditampilkan sebagai tunggakan.";
+	}
+
+	private String htmlDaftarLangkahAnalisis(String langkah) {
+		StringBuffer html = new StringBuffer("<ol style='margin:6px 0 0 20px;padding:0'>");
+		String[] baris = langkah == null ? new String[0] : langkah.split("\\n");
+		for (String s : baris) {
+			if (s != null && !s.trim().isEmpty()) html.append("<li style='margin-bottom:4px'>")
+					.append(escHtmlTagihan(s.trim())).append("</li>");
+		}
+		return html.append("</ol>").toString();
+	}
+
+	private void tampilkanJendelaAnalisisTagihan(List<TahapAnalisisTagihan> tahap, String rekomendasi,
+			int settingKhususMahasiswa, int kandidatAkhir, int detailSetting, int pengaturanBulanan, int smt,
+			AnalisisHilirTagihanLama hilir) {
+		MyWindow window = new MyWindow("Analisis Data Tagihan", "none", true);
+		window.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
+		window.setWidth("920px");
+		window.setHeight("82%");
+		window.setSizable(true);
+
+		Vbox isi = new Vbox();
+		isi.setWidth("100%");
+		isi.setHeight("100%");
+		isi.setStyle("overflow:auto;padding:12px;box-sizing:border-box;");
+		isi.setParent(window);
+		StringBuffer html = new StringBuffer();
+		String tindakanUtama = tindakanUtamaAnalisisTagihan(tahap, settingKhususMahasiswa,
+				kandidatAkhir, detailSetting, pengaturanBulanan, smt);
+		html.append("<div style='font-family:Segoe UI,Arial,sans-serif;color:#1f2937'>")
+				.append("<div style='padding:10px 12px;background:#eff6ff;border-left:4px solid #2563eb;margin-bottom:10px'>")
+				.append("<b>").append(escHtmlTagihan(mahasiswa.getNim())).append(" - ")
+				.append(escHtmlTagihan(mahasiswa.getNama())).append("</b><br>")
+				.append("Jenis pembayaran: ").append(escHtmlTagihan(namaObjekAnalisis(jenisKegiatan)))
+				.append(" &nbsp;|&nbsp; Semester: ").append(smt)
+				.append(" &nbsp;|&nbsp; Angkatan: ").append(mahasiswa.getTahunangkatan()).append("</div>")
+				.append("<p>Query diuji dua arah: dimasukkan berurutan dan dilewati satu per satu. Nilai pada kolom <b>Jika dilewati</b> yang berubah menjadi lebih dari nol membuktikan kriteria tersebut sebagai penyebab utama.</p>")
+				.append("<table style='width:100%;border-collapse:collapse;font-size:12px'>")
+				.append("<tr style='background:#e5e7eb'><th style='padding:7px;border:1px solid #d1d5db'>No.</th>")
+				.append("<th style='padding:7px;border:1px solid #d1d5db;text-align:left'>Kriteria yang ditambahkan</th>")
+				.append("<th style='padding:7px;border:1px solid #d1d5db;text-align:left'>Nilai mahasiswa</th>")
+				.append("<th style='padding:7px;border:1px solid #d1d5db'>Kandidat tersisa</th>")
+				.append("<th style='padding:7px;border:1px solid #d1d5db'>Jika dilewati</th>")
+				.append("<th style='padding:7px;border:1px solid #d1d5db;text-align:left'>Data tersedia saat gagal</th>")
+				.append("<th style='padding:7px;border:1px solid #d1d5db'>Status</th></tr>");
+		for (int i = 0; i < tahap.size(); i++) {
+			TahapAnalisisTagihan t = tahap.get(i);
+			String bg = t.gagalPertama ? "#fee2e2" : (t.jumlah > 0 ? "#f0fdf4" : "#f9fafb");
+			boolean terbukti = kandidatAkhir == 0 && t.jumlahJikaDilewati > 0;
+			String status = terbukti ? "&#9888; PENYEBAB TERBUKTI"
+					: (t.gagalPertama ? "&#10060; TITIK GAGAL" : (t.jumlah > 0 ? "&#10004; Cocok" : "- Tetap kosong"));
+			html.append("<tr style='background:").append(bg).append("'><td style='padding:6px;border:1px solid #d1d5db;text-align:center'>")
+					.append(i + 1).append("</td><td style='padding:6px;border:1px solid #d1d5db'><b>")
+					.append(escHtmlTagihan(t.nama)).append("</b></td><td style='padding:6px;border:1px solid #d1d5db'>")
+					.append(escHtmlTagihan(t.nilai)).append("</td><td style='padding:6px;border:1px solid #d1d5db;text-align:center'>")
+					.append(t.jumlah).append("</td><td style='padding:6px;border:1px solid #d1d5db;text-align:center'>")
+					.append(t.criterion == null ? "-" : String.valueOf(t.jumlahJikaDilewati))
+					.append("</td><td style='padding:6px;border:1px solid #d1d5db'>")
+					.append(escHtmlTagihan(t.nilaiTersedia)).append("</td><td style='padding:6px;border:1px solid #d1d5db;text-align:center'>")
+					.append(status).append("</td></tr>");
+		}
+		html.append("</table>")
+				.append(htmlAnalisisHilirTagihanLama(hilir))
+				.append("<div style='margin-top:10px;padding:9px;background:#f8fafc;border:1px solid #cbd5e1'>")
+				.append("Setting khusus mahasiswa: <b>").append(settingKhususMahasiswa).append("</b> &nbsp;|&nbsp; ")
+				.append("Setting akhir cocok: <b>").append(kandidatAkhir).append("</b> &nbsp;|&nbsp; ")
+				.append("Item biaya aktif: <b>").append(detailSetting).append("</b> &nbsp;|&nbsp; ")
+				.append("Pengaturan bulanan: <b>").append(pengaturanBulanan).append("</b></div>")
+				.append("<div style='margin-top:10px;padding:11px;background:#fff7ed;border-left:4px solid #f97316'><b>Kesimpulan dan tindakan:</b><br>")
+				.append(escHtmlTagihan(rekomendasi)).append("</div>")
+				.append("<div style='margin-top:10px;padding:11px;background:#eff6ff;border-left:4px solid #2563eb'><b>Yang perlu diisi atau dilakukan:</b>")
+				.append(htmlDaftarLangkahAnalisis(tindakanUtama)).append("</div>")
+				.append("<div style='margin-top:10px;padding:11px;background:#f0fdf4;border-left:4px solid #16a34a'><b>Setelah diperbaiki, lakukan verifikasi:</b>")
+				.append("<ol style='margin:6px 0 0 20px;padding:0'><li>Simpan konfigurasi dan pastikan tidak ada kolom wajib yang kosong.</li>")
+				.append("<li>Kembali ke Pembayaran Mahasiswa, lalu klik Refresh atau Proses Tagihan.</li>")
+				.append("<li>Jalankan Analisis Data kembali; seluruh tahap seharusnya tetap memiliki kandidat.</li>")
+				.append("<li>Periksa nama item, nominal, semester, dan sisa tagihan sebelum memproses pembayaran.</li></ol></div>")
+				.append("<div style='margin-top:8px;color:#7c2d12;font-size:11px'><b>Penting:</b> jangan mengubah data akademik mahasiswa hanya agar cocok dengan setting. Ubah data mahasiswa hanya bila datanya memang salah; selain itu buat varian Setting Biaya yang benar.</div></div>");
+		new Html(html.toString()).setParent(isi);
+	}
+
+	private String htmlAnalisisHilirTagihanLama(AnalisisHilirTagihanLama hilir) {
+		if (hilir == null) return "";
+		StringBuffer html = new StringBuffer();
+		html.append("<div style='margin-top:14px;padding:9px;background:#ecfeff;border-left:4px solid #0891b2'><b>Asal-usul tagihan yang diperiksa</b><br>")
+				.append("SettingBiaya &rarr; DetailSettingBiaya/ItemBiaya &rarr; DetailBiaya &rarr; ")
+				.append(escHtmlTagihan(hilir.mode)).append(" &rarr; Kegiatan/Cicilan Pembayaran &rarr; layar pembayaran.</div>")
+				.append("<h4 style='margin:12px 0 6px'>Audit template DetailBiaya (kriteria produksi)</h4>")
+				.append("<table style='width:100%;border-collapse:collapse;font-size:12px'><tr style='background:#e5e7eb'>")
+				.append("<th style='padding:6px;border:1px solid #d1d5db'>No.</th><th style='padding:6px;border:1px solid #d1d5db;text-align:left'>Kriteria template</th>")
+				.append("<th style='padding:6px;border:1px solid #d1d5db;text-align:left'>Nilai mahasiswa</th><th style='padding:6px;border:1px solid #d1d5db'>Tersisa</th>")
+				.append("<th style='padding:6px;border:1px solid #d1d5db'>Jika dilewati</th><th style='padding:6px;border:1px solid #d1d5db'>Status</th></tr>");
+		for (int i = 0; i < hilir.tahap.size(); i++) {
+			TahapAnalisisDetailLama t = hilir.tahap.get(i);
+			boolean terbukti = hilir.templateAkhir == 0 && t.jumlahJikaDilewati > 0;
+			String status = terbukti ? "&#9888; PENYEBAB TERBUKTI" : t.gagalPertama ? "&#10060; TITIK GAGAL"
+					: t.jumlah > 0 ? "&#10004; Cocok" : "- Tetap kosong";
+			html.append("<tr style='background:").append(terbukti || t.gagalPertama ? "#fee2e2" : t.jumlah > 0 ? "#f0fdf4" : "#f9fafb")
+					.append("'><td style='padding:6px;border:1px solid #d1d5db;text-align:center'>").append(i + 1)
+					.append("</td><td style='padding:6px;border:1px solid #d1d5db'><b>").append(escHtmlTagihan(t.nama))
+					.append("</b></td><td style='padding:6px;border:1px solid #d1d5db'>").append(escHtmlTagihan(t.nilai))
+					.append("</td><td style='padding:6px;border:1px solid #d1d5db;text-align:center'>").append(t.jumlah)
+					.append("</td><td style='padding:6px;border:1px solid #d1d5db;text-align:center'>").append(i == 0 ? "-" : String.valueOf(t.jumlahJikaDilewati))
+					.append("</td><td style='padding:6px;border:1px solid #d1d5db;text-align:center'>").append(status).append("</td></tr>");
+		}
+		html.append("</table><div style='margin-top:9px;padding:9px;background:#f8fafc;border:1px solid #cbd5e1'>Mode: <b>")
+				.append(escHtmlTagihan(hilir.mode)).append("</b> &nbsp;|&nbsp; Template akhir: <b>").append(hilir.templateAkhir)
+				.append("</b> &nbsp;|&nbsp; Hasil query produksi: <b>").append(hilir.hasilQueryProduksi)
+				.append("</b> &nbsp;|&nbsp; Kegiatan: <b>").append(hilir.kegiatan).append("</b> &nbsp;|&nbsp; Cicilan/transaksi: <b>")
+				.append(hilir.cicilan).append("</b> &nbsp;|&nbsp; Nilai dibayar: <b>").append(Common.numberFormat.get().format(hilir.nilaiDibayar))
+				.append("</b> &nbsp;|&nbsp; Baris layar: <b>").append(hilir.barisLayar).append("</b></div>")
+				.append("<div style='margin-top:8px;padding:9px;background:#fafafa;border:1px solid #e5e7eb'><b>Sumber item yang ditemukan:</b><br>")
+				.append(escHtmlTagihan(hilir.sumberItem)).append("</div>");
+		return html.toString();
 	}
 
 	private String diagnosaTagihanTidakMuncul(int smt, int jumlahBaris) {

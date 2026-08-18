@@ -202,17 +202,28 @@ public class KegiatanPersistenceHelper {
 		Session session = null;
 		try {
 			if (refresh || (keyData.isEmpty() && !kegiatan.udah("ambilDetailKegiatanSaja"))) {
-				session = HibernateUtil.getSessionFactory().openSession();
-				Criteria criteria = session.createCriteria(DetailKegiatan.class);
-				criteria.setProjection(Projections.property("id"));
-				criteria.add(Restrictions.eq("kegiatan", kegiatan));
-				criteria.addOrder(Order.asc("id"));
-				criteria.setTimeout(600);
-
-				List<Long> dbKeys = criteria.list();
-				if (dbKeys != null && !dbKeys.isEmpty()) {
-					keyData.addAll(dbKeys);
+				Exception last = null;
+				for (int attempt = 0; attempt < 2; attempt++) {
+					try {
+						session = HibernateUtil.getSessionFactory().openSession();
+						Criteria criteria = session.createCriteria(DetailKegiatan.class);
+						criteria.setProjection(Projections.property("id"));
+						criteria.add(Restrictions.eq("kegiatan", kegiatan));
+						criteria.addOrder(Order.asc("id"));
+						criteria.setTimeout(600);
+						List<Long> dbKeys = criteria.list();
+						if (dbKeys != null && !dbKeys.isEmpty()) keyData.addAll(dbKeys);
+						last = null;
+						break;
+					} catch (Exception queryError) {
+						last = queryError;
+						if (!isConnectionFailure(queryError) || attempt > 0) throw queryError;
+					} finally {
+						closeOpenedSession(session);
+						session = null;
+					}
 				}
+				if (last != null) throw last;
 			}
 		} catch (Exception e) {
 			Common.tampilErrorJikaAdmin(e);
@@ -228,6 +239,19 @@ public class KegiatanPersistenceHelper {
 
 		updateDetailKegiatan(hasilDetailKegiatan, kegiatan, refresh);
 		return hasilDetailKegiatan;
+	}
+
+	private static boolean isConnectionFailure(Throwable error) {
+		Throwable current = error;
+		while (current != null) {
+			String name = current.getClass().getName();
+			String message = current.getMessage() == null ? "" : current.getMessage().toLowerCase();
+			if (name.indexOf("JDBCConnectionException") >= 0 || name.indexOf("EOFException") >= 0
+					|| name.indexOf("SocketException") >= 0 || message.indexOf("connection has been closed") >= 0
+					|| message.indexOf("i/o error") >= 0) return true;
+			current = current.getCause();
+		}
+		return false;
 	}
 
 	// ========================================================================

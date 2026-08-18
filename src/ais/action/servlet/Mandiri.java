@@ -126,9 +126,9 @@ public class Mandiri extends HttpServlet {
 			String h2hStackTrace = null;
 
 			// JEJAK LANGKAH-DEMI-LANGKAH: setiap tahap penting alur inquiry/pembayaran
-			// dicatat di sini (murah — sekadar List<String> di memori). SELALU diisi,
+			// dicatat di sini (murah â€” sekadar List<String> di memori). SELALU diisi,
 			// tapi HANYA dicetak penuh ke konsol + disimpan ke kolom stackTrace pada
-			// Log Host-to-Host ketika status akhir berupa ERROR (lihat blok finally) —
+			// Log Host-to-Host ketika status akhir berupa ERROR (lihat blok finally) â€”
 			// supaya lalu-lintas H2H yang sukses (volume tinggi) tidak membanjiri
 			// konsol/DB, sementara SETIAP kegagalan langsung punya jejak lengkap dari
 			// request masuk sampai response keluar, tanpa perlu reproduksi manual.
@@ -148,7 +148,7 @@ public class Mandiri extends HttpServlet {
 					status.put("isError", "true");
 					status.put("errorCode", "B5"); // Atau kode error khusus invalid VA
 					status.put("statusDescription", "Invalid Virtual Account");
-					jejakLangkah.add("2. VALIDASI VA: GAGAL — parameter va kosong/null.");
+					jejakLangkah.add("2. VALIDASI VA: GAGAL â€” parameter va kosong/null.");
 
 				} else {
 					// 2. Ambil konfigurasi dengan aman (Safe check)
@@ -178,7 +178,7 @@ public class Mandiri extends HttpServlet {
 						status.put("isError", "true");
 						status.put("errorCode", "B5");
 						status.put("statusDescription", "Bill not found");
-						jejakLangkah.add("   → DITOLAK: VA '" + va + "' tidak memenuhi aturan prefix konfigurasi.");
+						jejakLangkah.add("   â†’ DITOLAK: VA '" + va + "' tidak memenuhi aturan prefix konfigurasi.");
 					} else {
 						virtualAccountBankNtt = VirtualAccountBank.ambilVa(va, nominalP, bankHost);
 						try {
@@ -215,7 +215,7 @@ public class Mandiri extends HttpServlet {
 							status.put("isError", "true");
 							status.put("errorCode", "C0");
 							status.put("statusDescription", "Bill suspend");
-							jejakLangkah.add("4. CEK KADALUARSA: DITOLAK — VA sudah lewat batas waktu bayar (msk="
+							jejakLangkah.add("4. CEK KADALUARSA: DITOLAK â€” VA sudah lewat batas waktu bayar (msk="
 									+ msk + ", tanggalTrx=" + tanggal + ").");
 						} else {
 							jejakLangkah.add("4. CEK KADALUARSA: OK (msk=" + msk + ", tanggalTrx=" + tanggal + ").");
@@ -225,7 +225,7 @@ public class Mandiri extends HttpServlet {
 								status.put("isError", "true");
 								status.put("errorCode", "B8");
 								status.put("statusDescription", "Bill has been Already Paid");
-								jejakLangkah.add("5. CEK SUDAH TERBAYAR: DITOLAK — VA " + va + " sudah lunas.");
+								jejakLangkah.add("5. CEK SUDAH TERBAYAR: DITOLAK â€” VA " + va + " sudah lunas.");
 							}
 
 							else if (!chek && virtualAccountBankNtt != null && virtualAccountBankNtt.getTotal() > 0.1
@@ -234,7 +234,7 @@ public class Mandiri extends HttpServlet {
 								status.put("isError", "true");
 								status.put("errorCode", "B8");
 								status.put("statusDescription", "Bill has been Already Paid");
-								jejakLangkah.add("5. CEK SUDAH TERBAYAR: DITOLAK — VA " + va
+								jejakLangkah.add("5. CEK SUDAH TERBAYAR: DITOLAK â€” VA " + va
 										+ " sudah tertaut kegiatan/pembayaran (kegiatan="
 										+ virtualAccountBankNtt.getKegiatan() + ", pembayaran="
 										+ virtualAccountBankNtt.getPembayaran() + ").");
@@ -251,7 +251,7 @@ public class Mandiri extends HttpServlet {
 										status.put("isError", "true");
 										status.put("errorCode", "B5");
 										status.put("statusDescription", "Bill not found");
-										jejakLangkah.add("6. VALIDASI NOMINAL (payment): DITOLAK — nominal dari bank="
+										jejakLangkah.add("6. VALIDASI NOMINAL (payment): DITOLAK â€” nominal dari bank="
 												+ nominal.intValue() + " != totalBiaya seharusnya="
 												+ virtualAccountBankNtt.totalBiaya());
 									} else {
@@ -508,7 +508,7 @@ public class Mandiri extends HttpServlet {
 											for (DetailBiaya detailBiaya : detailBiayas) {
 												Double biaya = detailBiaya.hitungTotalKegiatan(kegiatan, session);
 
-												nilaiBiayaHarusDiBayars += biaya;
+												nilaiBiayaHarusDiBayars += Kegiatan.ambilJumlahTagihan(kegiatan, detailBiaya);
 
 											}
 
@@ -809,12 +809,12 @@ public class Mandiri extends HttpServlet {
 														}
 													} else if (idPemBul != null && idPemBul.startsWith("Keranjang-")) {
 														// Pembayaran Keranjang Belanja (multi jenis / KegiatanTemporary): konversi draf
-														// menjadi Kegiatan+Cicilan nyata — pemroses terpusat yang sama dengan Esmartlink.
+														// menjadi Kegiatan+Cicilan nyata â€” pemroses terpusat yang sama dengan Esmartlink.
 														jejakLangkah.add("   token '" + idPemBul + "': jalur Keranjang Belanja (prosesSatuTokenKeranjang).");
 														ais.action.ws.util.PembayaranGatewayHelper.prosesSatuTokenKeranjang(session, idPemBul,
 																virtualAccountBankNtt, inquery, bank, bankHost, tanggal, data, null);
 													} else {
-														jejakLangkah.add("   token '" + idPemBul + "': format token TIDAK DIKENALI (tidak masuk kategori manapun — numerik/Bulanan-/Item-/Keranjang-).");
+														jejakLangkah.add("   token '" + idPemBul + "': format token TIDAK DIKENALI (tidak masuk kategori manapun â€” numerik/Bulanan-/Item-/Keranjang-).");
 													}
 												}
 											}
@@ -903,14 +903,14 @@ public class Mandiri extends HttpServlet {
 					if (h2hStackTrace == null && status != null && "87".equals(status.optString("errorCode"))) {
 						ais.common.ErrorAuditUtil.record(new Exception(
 								"Mandiri H2H berakhir errorCode=87 (Provider Database Problem) TANPA exception"
-										+ " — alur tidak mencapai cabang sukses. va=" + va + ", nominal=" + nominalP
+										+ " â€” alur tidak mencapai cabang sukses. va=" + va + ", nominal=" + nominalP
 										+ ", inquiry=" + inquery + ", vaDitemukan=" + (virtualAccountBankNtt != null)
 										+ ", data=" + data),
 								"Mandiri H2H silent-87", request);
 					}
 				} catch (Exception exAudit) { ais.common.ErrorAuditUtil.record(exAudit, "auto-audit(empty-catch) src/ais/action/servlet/Mandiri.java:812"); /* jangan ganggu respons ke bank */ }
 
-				// PERMINTAAN USER: tampilkan SEMUA — mulai request sampai response — bila
+				// PERMINTAAN USER: tampilkan SEMUA â€” mulai request sampai response â€” bila
 				// terdapat error, plus jejak detail tiap langkah alur. Dieksekusi SELALU
 				// (bukan hanya saat chek==true) karena tujuannya justru menangkap kegagalan
 				// pada transaksi H2H SUNGGUHAN yang masuk dari bank, bukan hanya saat admin
@@ -920,7 +920,7 @@ public class Mandiri extends HttpServlet {
 					boolean adaError = status != null && "true".equalsIgnoreCase(status.optString("isError"));
 					if (adaError) {
 						StringBuilder dump = new StringBuilder();
-						dump.append("\n========== MANDIRI H2H GAGAL — JEJAK LENGKAP REQUEST s.d. RESPONSE ==========\n");
+						dump.append("\n========== MANDIRI H2H GAGAL â€” JEJAK LENGKAP REQUEST s.d. RESPONSE ==========\n");
 						dump.append("Waktu   : ").append(new Date()).append("\n");
 						dump.append("Bank    : ").append(bank).append("\n");
 						dump.append("VA      : ").append(va).append("\n");
@@ -942,7 +942,7 @@ public class Mandiri extends HttpServlet {
 						dump.append("================================================================================\n");
 
 						String dumpStr = dump.toString();
-						// 1) SELALU cetak penuh ke konsol Tomcat — tak dibatasi chek==true, karena
+						// 1) SELALU cetak penuh ke konsol Tomcat â€” tak dibatasi chek==true, karena
 						// ini KHUSUS kasus error (permintaan eksplisit: "tampilkan semua jika error").
 						System.out.println(dumpStr);
 						// 2) Simpan jejak lengkap sebagai stackTrace pada Log Host-to-Host (menu
@@ -954,9 +954,9 @@ public class Mandiri extends HttpServlet {
 					ais.common.ErrorAuditUtil.record(exDump, "Mandiri H2H: gagal menyusun/menampilkan jejak lengkap error");
 				}
 
-				// LOG DETAIL KONSOL TOMCAT — HANYA untuk CEK ULANG manual dari menu Log
+				// LOG DETAIL KONSOL TOMCAT â€” HANYA untuk CEK ULANG manual dari menu Log
 				// Host-to-Host (chek==true, request==null/dipicu admin), BUKAN dari
-				// request pembayaran asli via URL bank (chek==false) — supaya konsol
+				// request pembayaran asli via URL bank (chek==false) â€” supaya konsol
 				// tidak dibanjiri log tiap kali ada transaksi H2H sungguhan masuk.
 				if (chek) {
 					try {
@@ -984,7 +984,7 @@ public class Mandiri extends HttpServlet {
 	 * jauh lebih tinggi daripada cek ulang manual.
 	 *
 	 * @param jejakLangkah jejak langkah-demi-langkah alur {@code doProcess} (boleh
-	 *                     null/kosong) — dicetak setelahnya agar cek ulang manual
+	 *                     null/kosong) â€” dicetak setelahnya agar cek ulang manual
 	 *                     selalu punya rincian tiap tahap, bukan hanya ringkasan.
 	 */
 	@SuppressWarnings("unchecked")
@@ -1053,7 +1053,7 @@ public class Mandiri extends HttpServlet {
 		log.append("nama             : ").append(nama).append("\n");
 		log.append("---- Jejak langkah-demi-langkah ----\n");
 		if (jejakLangkah == null || jejakLangkah.isEmpty()) {
-			log.append("(tidak ada jejak — kemungkinan gagal sebelum jejak sempat tercatat)\n");
+			log.append("(tidak ada jejak â€” kemungkinan gagal sebelum jejak sempat tercatat)\n");
 		} else {
 			for (String langkah : jejakLangkah) {
 				log.append(langkah).append("\n");
@@ -1154,7 +1154,7 @@ public class Mandiri extends HttpServlet {
 					InquiryRequest != null, chek).toString();
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/Mandiri.java:869");
-			// Catat ke tabel ErrorLog (menu Error Log) — penyebab respons errorCode=87
+			// Catat ke tabel ErrorLog (menu Error Log) â€” penyebab respons errorCode=87
 			// "Provider Database Problem" selama ini hanya tercetak di console sehingga
 			// sulit diaudit. Kegagalan pencatatan tidak boleh mengganggu respons ke bank.
 			try {
@@ -1266,3 +1266,4 @@ public class Mandiri extends HttpServlet {
 		return jsonObjectResponse.toString();
 	}
 }
+

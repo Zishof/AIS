@@ -43,6 +43,7 @@ import ais.database.model.BiodataCalonMahasiswa;
 import ais.database.model.Detailperkuliahan;
 import ais.database.model.Dosen;
 import ais.database.model.GeneralValueObject;
+import ais.database.model.PertemuanPunyaDiskusi;
 import ais.database.model.HasilUjianMahasiswa;
 import ais.database.model.Mahasiswa;
 import ais.database.model.Perkuliahan;
@@ -992,6 +993,38 @@ public class LinimasaApi {
 
 			da.put("diskusi", diskusi);
 
+			// Tidak ada tabel pelacak baca per pengguna, jadi server tidak
+			// mengklaim jumlah "belum dibaca". Yang dikirim adalah stempel
+			// aktivitas diskusi terakhir (thread maupun balasan) supaya klien
+			// bisa menandai "diskusi baru" relatif terhadap kunjungan lokalnya.
+			if (diskusi != null && diskusi.intValue() > 0) {
+				Session sesiDiskusi = HibernateUtil.openSession();
+				try {
+					Object diskusiTerakhir = sesiDiskusi
+							.createCriteria(PertemuanPunyaDiskusi.class)
+							.add(Restrictions.eq("pertemuan", pertemuan))
+							.setProjection(Projections.max("tanggal_dirubah"))
+							.uniqueResult();
+					if (diskusiTerakhir instanceof Date) {
+						da.put("diskusi_terakhir", ((Date) diskusiTerakhir).getTime());
+					}
+				} catch (Exception eDiskusi) {
+					// Stempel opsional; kegagalan tidak boleh menggagalkan linimasa.
+				} finally {
+					HibernateUtil.closeSessionQuietly(sesiDiskusi);
+				}
+			}
+
+			// §14.11: deadline terdekat, progres pengumpulan tugas, dan aktivitas
+			// diskusi terakhir untuk kartu e-Learning. Semua nilai dihitung dari
+			// data yang memang ada; klien tidak boleh mengarang angka.
+			Date waktuSekarang = ais.ui.util.WaktuUtil.getCalendar().getTime();
+			Date deadlineTerdekat = null;
+			int tugasTotal14 = 0;
+			int tugasDikumpul14 = 0;
+			boolean pesertaProgres = tbmuser != null && (tbmuser.getMahasiswa() != null
+					|| tbmuser.getSiswa() != null || tbmuser.getBiodataCalonMahasiswa() != null);
+
 			if (tampilUjian) {
 				TreeMap<Long, PertemuanPunyaUjian> ujiandata = pertemuan.ambilPertemuanPunyaUjianTotal(tbmuser);
 				int ujian = ujiandata.size();
@@ -1004,6 +1037,12 @@ public class LinimasaApi {
 
 						JSONObject jsonObjectUjian = new JSONObject();
 						diplayUjian(pertemuanPunyaUjian, jsonObjectUjian, pertemuan, tbmuser);
+						if (pertemuanPunyaUjian.getMulaiUjian() != null
+								&& pertemuanPunyaUjian.getMulaiUjian().after(waktuSekarang)
+								&& (deadlineTerdekat == null
+										|| pertemuanPunyaUjian.getMulaiUjian().before(deadlineTerdekat))) {
+							deadlineTerdekat = pertemuanPunyaUjian.getMulaiUjian();
+						}
 						ujians.put(jsonObjectUjian);
 
 						int tg = pertemuanPunyaUjian.ambilJumlahHasilUjianMahasiswaTelahIkut(false);
@@ -1024,6 +1063,14 @@ public class LinimasaApi {
 					Tugas tugas = pertemuan;
 					JSONObject jsonObjectTugas = new JSONObject();
 					diplayTugas(tugas, jsonObjectTugas, pertemuan, tbmuser);
+					if (tugas.currentTugasFileContent != null) {
+						tugasDikumpul14++;
+					}
+					tugasTotal14++;
+					if (tugas.getSelesai() != null && tugas.getSelesai().after(waktuSekarang)
+							&& (deadlineTerdekat == null || tugas.getSelesai().before(deadlineTerdekat))) {
+						deadlineTerdekat = tugas.getSelesai();
+					}
 					tugases.put(jsonObjectTugas);
 				}
 
@@ -1032,6 +1079,14 @@ public class LinimasaApi {
 						Tugas tugas = tugasPertemuan;
 						JSONObject jsonObjectTugas = new JSONObject();
 						diplayTugas(tugas, jsonObjectTugas, pertemuan, tbmuser);
+					if (tugas.currentTugasFileContent != null) {
+						tugasDikumpul14++;
+					}
+					tugasTotal14++;
+					if (tugas.getSelesai() != null && tugas.getSelesai().after(waktuSekarang)
+							&& (deadlineTerdekat == null || tugas.getSelesai().before(deadlineTerdekat))) {
+						deadlineTerdekat = tugas.getSelesai();
+					}
 						tugases.put(jsonObjectTugas);
 					}
 				}
@@ -1046,6 +1101,20 @@ public class LinimasaApi {
 				da.put("audio", audio);
 				da.put("video", video);
 			}
+			if (deadlineTerdekat != null) {
+				da.put("deadline_terdekat", deadlineTerdekat.getTime());
+				da.put("deadline_terdekat_label",
+						SmartDateTimeUtil.getDayString(deadlineTerdekat, null)
+								+ Common.dateFormat5.get().format(deadlineTerdekat));
+			}
+			// Progres hanya untuk peserta; pengajar mempunyai sudut pandang
+			// berbeda (jumlah pengumpul) yang belum dihitung di sini.
+			if (pesertaProgres && tugasTotal14 > 0) {
+				da.put("tugas_total", tugasTotal14);
+				da.put("tugas_dikumpul", tugasDikumpul14);
+				da.put("progres", (int) Math.round(tugasDikumpul14 * 100.0 / tugasTotal14));
+			}
+
 			TreeMap<String, String> akses = pertemuan.ambilData("akses", null);
 			da.put("akses", akses.size());
 			akses.clear();

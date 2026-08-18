@@ -697,6 +697,17 @@ public class AlurPersetujuanSuratMasukStatusAction extends GenericAutowireCompos
 			}
 		}
 
+		String catatanPimpinan = SuratMasukAction.catatanPimpinanDisposisiMasuk(alurPersetujuanSuratMasukStatus);
+		if (catatanPimpinan != null && !catatanPimpinan.trim().isEmpty()) {
+			row = new MyFormRow();
+			row.setValign("top");
+			row.setParent(rows);
+			row.appendChild(new ais.ui.util.MyLabelConfig("Catatan / Instruksi Pimpinan"));
+			MyLabelAgakKecil catatanPimpinanLabel = new MyLabelAgakKecil(catatanPimpinan);
+			catatanPimpinanLabel.setStyle("white-space:pre-wrap;font-weight:600;color:#334155;");
+			row.appendChild(catatanPimpinanLabel);
+		}
+
 		row = new MyFormRow();
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig(""));

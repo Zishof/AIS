@@ -205,6 +205,7 @@ if (!lockTokoLap) {
       {id:"pos_kasir_harian", judul:"Penjualan per Kasir per Hari", ket:"Rekap penjualan tiap kasir dirinci per tanggal.", perToko:true},
       {id:"pos_harian", judul:"Penjualan Harian (Semua Kasir)", ket:"Total penjualan seluruh kasir per tanggal.", perToko:true},
       {id:"pos_per_kasir", judul:"Laporan Penerimaan Per Kasir", ket:"Penerimaan kas per kasir/operator (akumulasi).", perToko:true},
+      {id:"transaksi_per_kasir", judul:"Transaksi Per Kasir", ket:"Rekonsiliasi modal, penerimaan, kas closing, dan selisih per kasir.", perToko:true},
       {id:"pos_per_akun_bank", judul:"Penerimaan Per Akun (Bank/Tunai/E-Money/Voucher)", ket:"Penerimaan per metode/akun pembayaran.", perToko:true}
     ]},
     {kat:"Kasir & Kas", items:[

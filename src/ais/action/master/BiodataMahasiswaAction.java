@@ -1438,6 +1438,7 @@ public class BiodataMahasiswaAction extends GenericAutowireComposer {
 		row.appendChild(golonganDarah = new Textbox(
 				biodataMahasiswa.getGolonganDarah() == null ? "" : biodataMahasiswa.getGolonganDarah()));
 		golonganDarah.setWidth("90%");
+		golonganDarah.setMaxlength(10);
 
 		row = new MyFormRow();
 
@@ -3227,6 +3228,8 @@ public class BiodataMahasiswaAction extends GenericAutowireComposer {
 		if (mahasiswa.getDikunci() != null) {
 			Common.freezeGanti(center, true);
 		}
+
+		ais.ui.util.MyButtonTabbox.gantiTabboxNative(tabbox, new int[] { 1 });
 
 		return borderlayout;
 	}

@@ -299,12 +299,7 @@ public class TransaksiMengajarDosen extends MyWindow {
 								"jurusan.fakultas", searchfakultas
 										.getSelectedItem().getValue()))
 
-						.add(Restrictions
-								.sqlRestriction("this_.semester % 2 = "
-										+ (jenisSemester.getSelectedItem()
-												.getValue()
-												.equals(Perkuliahan.GANJIL) ? "1"
-												: "0")))
+						.add(Restrictions.eq("ganjilGenap", jenisSemester.getSelectedItem().getValue()))
 						.add(Restrictions.eq("tahunAjaran", tahunakademik
 								.getSelectedItem().getValue()))
 

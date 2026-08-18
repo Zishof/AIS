@@ -1,5 +1,6 @@
 <%@ page language="java" contentType="application/json; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="java.util.*"%>
+<%@ page import="javax.servlet.http.HttpServletResponse"%>
 <%@ page import="org.hibernate.Session"%>
 <%@ page import="org.hibernate.criterion.*"%>
 <%@ page import="ais.database.hibernate.HibernateUtil"%>

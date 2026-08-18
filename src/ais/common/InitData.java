@@ -122,6 +122,7 @@ import ais.database.model.lkp.SatuanKegiatanTugasJabatan;
 import ais.database.model.lkp.TargetKerjaPegawai;
 import ais.database.model.obe.BahanKajian;
 import ais.database.model.obe.CapaianLulusan;
+import ais.database.model.obe.KategoriCpl;
 import ais.database.model.obe.CapaianPembelajaranLulusan;
 import ais.database.model.obe.ProfesiLulusan;
 import ais.database.model.obe.ProfilLulusan;
@@ -503,6 +504,7 @@ public class InitData {
 				SatuanMasterAsset.class, Anggota.class);
 
 		initClasses(JenisPembayaranBarang.class, ProfesiLulusan.class, ProfilLulusan.class, ReferensiLulusan.class,
+				KategoriCpl.class,
 				CapaianLulusan.class, PembayaranItemGajiPegawai.class, CapaianPembelajaranLulusan.class,
 				BahanKajian.class, JenisPengajuanPegawai.class, GrupParameterTambahan.class,
 				KelompokParameterTambahanKegiatan.class, KelompokParameterTambahanCalonSiswa.class,

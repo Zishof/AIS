@@ -9,6 +9,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import ais.common.EbisnisMenuKatalog;
+import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
@@ -163,8 +164,14 @@ public final class EbisnisActorContextResolver {
 			ctx.salesNama = profil.getNama();
 		}
 
-		// -- actorType, urutan sesuai JavaDoc kelas --
-		if (ROLE_SALES_KELILING.equals(ctx.activeRoleId) || profil != null) {
+		// Administrator resmi selalu menang atas relasi Sales/Pedagang/Toko. Relasi bisnis
+		// menentukan scope data, bukan menurunkan hak administrator menjadi aktor biasa.
+		if (Common.getApakahAdminLain(tbmuser)) {
+			ctx.actorType = ACTOR_ADMIN;
+			ctx.admin = true;
+			isiTokoDariPedagangAtauMultiToko(ctx, tbmuser, pedagang);
+		// -- actorType lain, urutan sesuai JavaDoc kelas --
+		} else if (ROLE_SALES_KELILING.equals(ctx.activeRoleId) || profil != null) {
 			ctx.actorType = ACTOR_SALES;
 			Toko tokoSales = profil == null ? null : profil.getToko();
 			if (tokoSales != null) {

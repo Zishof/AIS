@@ -61,6 +61,10 @@ public final class ApiRouteRegistry {
         register(routes, "simpanPengguna", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PenggunaApi.simpan(req, json); } });
         register(routes, "hapusPengguna", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PenggunaApi.hapus(req, json); } });
         register(routes, "simpanProfilSaya", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PenggunaApi.simpanProfilSaya(req, json); } });
+        register(routes, "ubahPasswordMahasiswa", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PasswordSayaApi.ubahMahasiswa(req, json); } });
+        register(routes, "repositoryMahasiswa", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return RepositoryMahasiswaApi.daftar(req, json); } });
+        register(routes, "pengaduanMahasiswa", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PengaduanMahasiswaApi.proses(req, json); } });
+        register(routes, "kpiMahasiswa", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return KpiMahasiswaApi.daftar(req, json); } });
         register(routes, "pengumuman", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return ApiUtil.pengumuman(req, json, pt); } });
         register(routes, "konfigurasi", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return ApiUtil.konfigurasi(req, json); } });
         register(routes, "tema", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return ThemeApi.tema(req, json); } });
@@ -206,6 +210,13 @@ public final class ApiRouteRegistry {
         register(routes, "pmb_gelombang", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PmbApi.gelombang(req, json); } });
         register(routes, "pmb_daftar", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PmbApi.daftar(req, json); } });
         register(routes, "pmb_cek_status", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PmbApi.cekStatus(req, json); } });
+        // Login calon siswa (portal PSB) & calon mahasiswa (portal PMB) -- publik, kredensial identitas + tanggal lahir.
+        register(routes, "psb_login", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PsbCalonApi.login(req, json); } });
+        register(routes, "psb_calon_profil", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PsbCalonApi.profil(req, json); } });
+        register(routes, "psb_update_biodata", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PsbCalonApi.updateBiodata(req, json); } });
+        register(routes, "pmb_login", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PmbCalonApi.login(req, json); } });
+        register(routes, "pmb_calon_profil", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PmbCalonApi.profil(req, json); } });
+        register(routes, "pmb_update_biodata", new ApiRoute() { public JSONObject execute(HttpServletRequest req, JSONObject json, PerguruanTinggi pt) throws Exception { return PmbCalonApi.updateBiodata(req, json); } });
     }
 
     /**

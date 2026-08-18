@@ -37,7 +37,7 @@ public class MainTreeMenuHelper {
 
 		Long detailLogLoginId = login == null || login.getId() == null ? null : MainHelper.logins.get(login.getId());
 
-		if (detailLogLoginId == null) {
+		if (detailLogLoginId == null && login != null) {
 
 			org.hibernate.Session session1 = null;
 			try {
@@ -46,8 +46,15 @@ public class MainTreeMenuHelper {
 				detailLogLogin.setWaktu(ais.ui.util.WaktuUtil.getDate());
 				detailLogLogin.setLogLogin(login);
 
-				session1 = HibernateUtil.currentNativeSession();
-				session1.getTransaction().begin();
+				session1 = HibernateUtil.openSession();
+				session1.beginTransaction();
+				/* DetailLogLogin mempunyai FK ke LogLogin. Pada login yang baru dibuat,
+				 * objek induk kadang belum di-flush sehingga masih transient. Persist dan
+				 * flush induk lebih dulu dalam transaksi terisolasi. */
+				if (login.getId() == null) {
+					session1.save(login);
+					session1.flush();
+				}
 				session1.save(detailLogLogin);
 				session1.getTransaction().commit();
 
@@ -69,15 +76,7 @@ public class MainTreeMenuHelper {
 				} catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/helper/MainTreeMenuHelper.java:68");
 				}
 			} finally {
-				try {
-					if (session1 != null && session1.isOpen()) {
-						session1.disconnect();
-						session1.close();
-					}
-				} catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/helper/MainTreeMenuHelper.java:76");
-				}
-				// Lepas sesi thread-bound supaya currentNativeSession() berikutnya bersih.
-				HibernateUtil.closeSession();
+				HibernateUtil.closeSessionQuietly(session1);
 			}
 		}
 
@@ -86,7 +85,7 @@ public class MainTreeMenuHelper {
 		List<Menu> menus = (List<Menu>) Sessions.getCurrent().getAttribute("current_menus");
 
 		if (menus == null) {
-			Session session = HibernateUtil.currentNativeSession();
+			Session session = HibernateUtil.openSession();
 			try {
 				session.refresh(tbmrole);
 				menus = new ArrayList<Menu>(tbmrole.getMenus());
@@ -95,17 +94,7 @@ public class MainTreeMenuHelper {
 			} catch (Exception e) {
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/MainTreeMenuHelper.java:95");
 			} finally {
-				try {
-					session.disconnect();
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/MainTreeMenuHelper.java:99");
-					// TODO: handle exception
-				}
-				try {
-					session.close();
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/MainTreeMenuHelper.java:104");
-					// TODO: handle exception
-				}
-				HibernateUtil.closeSession();
+				HibernateUtil.closeSessionQuietly(session);
 			}
 
 		}
@@ -196,21 +185,19 @@ public class MainTreeMenuHelper {
 									detailLogLogin.setKeterangan(menu.getLabel());
 									detailLogLogin.setWaktu(ais.ui.util.WaktuUtil.getDate());
 									detailLogLogin.setLogLogin(login);
-									Session session = HibernateUtil.currentNativeSession();
+									Session session = HibernateUtil.openSession();
+									org.hibernate.Transaction tx = null;
 									try {
-										session.getTransaction().begin();
+										tx = session.beginTransaction();
 										session.save(detailLogLogin);
-										session.getTransaction().commit();
-										// session.disconnect();
-										if (session.isOpen()) {
-											session.disconnect();
-											session.close();
-										}
+										tx.commit();
 										Sessions.getCurrent().setAttribute("detailLogLogin", detailLogLogin);
 									} catch (Exception e) {
+										try { if (tx != null && tx.isActive()) tx.rollback(); } catch (Exception ignored) { }
 										e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/MainTreeMenuHelper.java:210");
+									} finally {
+										HibernateUtil.closeSessionQuietly(session);
 									}
-									HibernateUtil.closeSession();
 
 									Sessions.getCurrent().setAttribute("treeitem", treeitem);
 									Common.insertToTab(navigasi, menuService, iframe, menu, login);
@@ -284,21 +271,19 @@ public class MainTreeMenuHelper {
 								detailLogLogin.setLogLogin(login);
 								detailLogLogin.setHalaman(menu.getUrl());
 
-								Session session = HibernateUtil.currentNativeSession();
+								Session session = HibernateUtil.openSession();
+								org.hibernate.Transaction tx = null;
 								try {
-									session.getTransaction().begin();
+									tx = session.beginTransaction();
 									session.save(detailLogLogin);
-									session.getTransaction().commit();
-									// session.disconnect();
-									if (session.isOpen()) {
-										session.disconnect();
-										session.close();
-									}
+									tx.commit();
 									Sessions.getCurrent().setAttribute("detailLogLogin", detailLogLogin);
 								} catch (Exception e) {
+									try { if (tx != null && tx.isActive()) tx.rollback(); } catch (Exception ignored) { }
 									e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/MainTreeMenuHelper.java:300");
+								} finally {
+									HibernateUtil.closeSessionQuietly(session);
 								}
-								HibernateUtil.closeSession();
 
 								Common.launchMenu(navigasi, menuService, iframe, menu, login);
 

@@ -217,8 +217,11 @@ public class JadwalSidangTugasAkhir extends GeneralValueObject {
 		keterangan = org.apache.commons.lang3.StringUtils
 				.replace(org.apache.commons.lang3.StringUtils.replace(keterangan, "||", " "), "<>", " ").trim();
 
-		String gabungan = nama + "<>" + Common.datetimeFormat1s.get().format(tanggalMulai) + "<>"
-				+ Common.datetimeFormat1s.get().format(tanggalSampai) + "<>" + keterangan;
+		// KE-FIX (NullPointerException): tanggalMulai/tanggalSampai bisa null bila Datebox
+		// dikosongkan user -- SimpleDateFormat.format(null) melempar NPE via Calendar.setTime(null).
+		String gabungan = nama + "<>" + (tanggalMulai == null ? "" : Common.datetimeFormat1s.get().format(tanggalMulai))
+				+ "<>" + (tanggalSampai == null ? "" : Common.datetimeFormat1s.get().format(tanggalSampai)) + "<>"
+				+ keterangan;
 
 		boolean ada = false;
 		String[] spl = StringUtils.split(getJadwalRinci(), "||");

@@ -1019,6 +1019,28 @@ public class InitIndex {
 		}
 	}
 
+	/**
+	 * Role bawaan fitur Grup Produk (harga terpusat lintas toko). Kunci {@code grup_produk}
+	 * fail-closed ({@code EbisnisMenuKatalog.KUNCI_DEFAULT_NONAKTIF}) sehingga TIDAK ADA role
+	 * existing yang otomatis mendapatkannya -- role ini disediakan agar admin tinggal menugaskan
+	 * pengguna kantor pusat tanpa merakit JSON menu manual. {@code menu.produk=true} hanya untuk
+	 * MELIHAT katalog (tanpa CRUD produk); seluruh aksi CRUD {@code grup_produk} dinyalakan.
+	 * INSERT idempoten (WHERE NOT EXISTS) dan role yang sudah ada tidak pernah ditimpa --
+	 * suntingan admin lewat TbmroleAction dihormati.
+	 */
+	private static void initRoleGrupProduk() {
+		try {
+			String json = ("{\"supervisor\":false,"
+					+ "\"menu\":{\"grup_produk\":true,\"produk\":true},"
+					+ "\"crud\":{\"grup_produk\":{\"create\":true,\"update\":true,\"delete\":true,"
+					+ "\"approve\":true,\"reject\":true}}}").replace("'", "''");
+			eksekusiSql("INSERT INTO public.tbmrole (roleid, rolename, aktif, ebisnis_menu) "
+					+ "SELECT 'manajemen_harga_pusat', 'Manajemen Harga Pusat (Grup Produk)', true, '" + json + "' "
+					+ "WHERE NOT EXISTS (SELECT 1 FROM public.tbmrole WHERE roleid = 'manajemen_harga_pusat')");
+		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit InitIndex.initRoleGrupProduk");
+		}
+	}
+
 
 	private static void initFkCascadeDiskonSiswaItemBiaya() {
 		// FK ON DELETE CASCADE diskon_siswa_item_biaya tidak lagi di-ALTER di sini —
@@ -1836,47 +1858,91 @@ public class InitIndex {
 	 * inisialisasi startup dilanjutkan.
 	 */
 	static void initAturanDiskonProdukNullable() {
+		String[] migrasi = new String[] {
+				"ALTER TABLE koperasi.aturan_diskon ALTER COLUMN produk DROP NOT NULL",
+				"ALTER TABLE koperasi.aturan_diskon ADD COLUMN IF NOT EXISTS prioritas integer DEFAULT 100",
+				"ALTER TABLE koperasi.aturan_diskon ADD COLUMN IF NOT EXISTS dapat_digabung boolean DEFAULT false",
+				"ALTER TABLE koperasi.aturan_diskon ADD COLUMN IF NOT EXISTS dasar_perhitungan varchar(30) DEFAULT 'SETELAH_DISKON'",
+				"ALTER TABLE koperasi.aturan_diskon ADD COLUMN IF NOT EXISTS grup_eksklusif varchar(100)" };
+		for (int i = 0; i < migrasi.length; i++) {
+			try {
+				ais.common.Common.updateSql(migrasi[i]);
+			} catch (Exception e) {
+				e.printStackTrace();
+				ais.common.ErrorAuditUtil.record(e,
+						"auto-audit InitIndex.initAturanDiskonProdukNullable");
+			}
+		}
+	}
+
+	/** Menyamakan lebar kolom tabel idempotensi instalasi lama secara aman. */
+	static void initRetailRequestIdempotencyColumns() {
+		org.hibernate.Session session = null; org.hibernate.Transaction tx = null;
+		java.sql.PreparedStatement cek = null; java.sql.ResultSet rs = null; java.sql.Statement ddl = null;
 		try {
-			ais.common.Common.updateSql(
-					"ALTER TABLE koperasi.aturan_diskon ALTER COLUMN produk DROP NOT NULL");
+			session = ais.database.hibernate.HibernateUtil.getSessionFactory().openSession(); tx = session.beginTransaction();
+			cek = session.connection().prepareStatement("SELECT 1 FROM information_schema.tables WHERE table_schema=? AND table_name=?");
+			cek.setString(1, "public"); cek.setString(2, "retail_request_idempotency"); rs = cek.executeQuery();
+			if (!rs.next()) { tx.commit(); return; }
+			ddl = session.connection().createStatement();
+			ddl.executeUpdate("ALTER TABLE public.retail_request_idempotency ALTER COLUMN action TYPE varchar(80)");
+			ddl.executeUpdate("ALTER TABLE public.retail_request_idempotency ALTER COLUMN idempotency_key TYPE varchar(160)");
+			ddl.executeUpdate("ALTER TABLE public.retail_request_idempotency ALTER COLUMN request_hash TYPE varchar(64)");
+			ddl.executeUpdate("ALTER TABLE public.retail_request_idempotency ALTER COLUMN status TYPE varchar(20)");
+			ddl.executeUpdate("ALTER TABLE public.retail_request_idempotency ALTER COLUMN result_reference TYPE varchar(160)");
+			tx.commit();
 		} catch (Exception e) {
-			e.printStackTrace();
-			ais.common.ErrorAuditUtil.record(e,
-					"auto-audit InitIndex.initAturanDiskonProdukNullable");
+			if (tx != null && tx.isActive()) try { tx.rollback(); } catch (Exception rollback) { ErrorAuditUtil.record(rollback, "initRetailRequestIdempotencyColumns-rollback"); }
+			ErrorAuditUtil.record(e, "auto-audit InitIndex.initRetailRequestIdempotencyColumns");
+		} finally {
+			try { if (rs != null) rs.close(); } catch (Exception e) { ErrorAuditUtil.record(e, "initRetailRequestIdempotencyColumns-rs-close"); }
+			try { if (cek != null) cek.close(); } catch (Exception e) { ErrorAuditUtil.record(e, "initRetailRequestIdempotencyColumns-cek-close"); }
+			try { if (ddl != null) ddl.close(); } catch (Exception e) { ErrorAuditUtil.record(e, "initRetailRequestIdempotencyColumns-ddl-close"); }
+			if (session != null) {
+				try { session.clear(); } catch (Exception e) { ErrorAuditUtil.record(e, "initRetailRequestIdempotencyColumns-clear"); }
+				try { session.disconnect(); } catch (Exception e) { ErrorAuditUtil.record(e, "initRetailRequestIdempotencyColumns-disconnect"); }
+				try { session.close(); } catch (Exception e) { ErrorAuditUtil.record(e, "initRetailRequestIdempotencyColumns-close"); }
+			}
 		}
 	}
 
 	/**
-	 * Menyamakan lebar kolom varchar {@code public.retail_request_idempotency} pada
-	 * instalasi lama dengan skema resmi di {@link RetailDatabaseMigrations} (versi
-	 * 20260814.001). Tabel baru sudah otomatis punya lebar yang benar sejak dibuat oleh
-	 * migrasi tsb (dijalankan lebih dulu di {@code AppStartupListener}); method ini
-	 * HANYA relevan bila tabel itu sudah pernah dibuat sebelumnya dengan lebar kolom
-	 * berbeda (mis. draf ad-hoc sebelum migrasi resmi ada). ALTER COLUMN TYPE ke lebar
-	 * yang sama bersifat no-op aman di Postgres, jadi method ini idempoten dan boleh
-	 * dipanggil berkali-kali tanpa membuat index/kolom baru.
+	 * Menyimpan acknowledgement bahwa transaksi toko sudah benar-benar disalin
+	 * oleh perangkat POS lain. Tabel ini terpisah dari transaksi penjualan agar
+	 * proses audit cadangan tidak mengubah data finansial maupun idempotensi nota.
 	 */
-	static void initRetailRequestIdempotencyColumns() {
+	static void initTransaksiBackupAck() {
+		org.hibernate.Session session = null;
+		org.hibernate.Transaction tx = null;
+		java.sql.Statement ddl = null;
 		try {
-			java.util.List tabelAda = ais.common.Common.ambilSql(
-					"SELECT 1 FROM information_schema.tables WHERE table_schema='public' "
-							+ "AND table_name='retail_request_idempotency'");
-			if (tabelAda == null || tabelAda.isEmpty()) {
-				return;
-			}
-			ais.common.Common.updateSql(
-					"ALTER TABLE public.retail_request_idempotency ALTER COLUMN action TYPE varchar(80)");
-			ais.common.Common.updateSql(
-					"ALTER TABLE public.retail_request_idempotency ALTER COLUMN idempotency_key TYPE varchar(160)");
-			ais.common.Common.updateSql(
-					"ALTER TABLE public.retail_request_idempotency ALTER COLUMN request_hash TYPE varchar(64)");
-			ais.common.Common.updateSql(
-					"ALTER TABLE public.retail_request_idempotency ALTER COLUMN status TYPE varchar(20)");
-			ais.common.Common.updateSql(
-					"ALTER TABLE public.retail_request_idempotency ALTER COLUMN result_reference TYPE varchar(160)");
+			session = ais.database.hibernate.HibernateUtil.getSessionFactory().openSession();
+			tx = session.beginTransaction();
+			ddl = session.connection().createStatement();
+			ddl.executeUpdate("CREATE TABLE IF NOT EXISTS koperasi.transaksi_backup_ack ("
+					+ "id bigserial PRIMARY KEY, toko bigint NOT NULL, kode_transaksi varchar(160) NOT NULL, "
+					+ "id_perangkat varchar(255) NOT NULL, nama_mesin varchar(255), "
+					+ "kasir_user_id varchar(255), kasir_nama varchar(255), "
+					+ "waktu timestamp without time zone NOT NULL DEFAULT now())");
+			ddl.executeUpdate("CREATE UNIQUE INDEX IF NOT EXISTS transaksi_backup_ack_uq "
+					+ "ON koperasi.transaksi_backup_ack(toko, lower(kode_transaksi), id_perangkat)");
+			ddl.executeUpdate("CREATE INDEX IF NOT EXISTS transaksi_backup_ack_kode_idx "
+					+ "ON koperasi.transaksi_backup_ack(toko, lower(kode_transaksi), waktu DESC)");
+			tx.commit();
 		} catch (Exception e) {
-			e.printStackTrace();
-			ais.common.ErrorAuditUtil.record(e, "auto-audit InitIndex.initRetailRequestIdempotencyColumns");
+			if (tx != null && tx.isActive()) try { tx.rollback(); } catch (Exception rollback) {
+				ErrorAuditUtil.record(rollback, "initTransaksiBackupAck-rollback");
+			}
+			ErrorAuditUtil.record(e, "auto-audit InitIndex.initTransaksiBackupAck");
+		} finally {
+			try { if (ddl != null) ddl.close(); } catch (Exception e) {
+				ErrorAuditUtil.record(e, "initTransaksiBackupAck-ddl-close");
+			}
+			if (session != null) {
+				try { session.clear(); } catch (Exception e) { ErrorAuditUtil.record(e, "initTransaksiBackupAck-clear"); }
+				try { session.disconnect(); } catch (Exception e) { ErrorAuditUtil.record(e, "initTransaksiBackupAck-disconnect"); }
+				try { session.close(); } catch (Exception e) { ErrorAuditUtil.record(e, "initTransaksiBackupAck-close"); }
+			}
 		}
 	}
 
@@ -1945,25 +2011,24 @@ public class InitIndex {
 	}
 
 	/**
-	 * Bersihkan {@code public.accessed_users} tiap startup aplikasi -- pola sama dengan
-	 * {@code online_users}: tabel ini hanya menyimpan state TERKINI (satu baris per
-	 * {@code nama}, PRIMARY KEY, terus di-UPSERT via {@code waktu} akses terakhir; lihat
-	 * {@link ais.database.model.AccessedUsers}), BUKAN log riwayat -- jadi baris lama sisa
-	 * dari sebelum restart sudah tidak bermakna dan aman dikosongkan.
-	 *
-	 * <p>Gap-closure insiden 15-08-2026: autovacuum crash-loop di tabel ini
-	 * ("uncommitted xmin ... needs to be frozen" -- korupsi baris, bukan bug aplikasi)
-	 * membuat proses vacuum otomatis gagal berulang tiap ~1.4 detik. TRUNCATE
-	 * menghapus baris yang rusak (baris lama tak berguna pula) -- lewati/skip jika
-	 * gagal (mis. lock sedang dipegang proses lain) supaya startup tetap lanjut.
-	 * (autovacuum_enabled tidak diubah -- dilepas atas permintaan, biarkan default.)</p>
+	 * Membersihkan penanda pengguna aktif saat aplikasi baru menyala. Kedua
+	 * tabel wajib di-TRUNCATE dalam satu statement karena online_users memiliki
+	 * foreign key ke accessed_users. Tidak memakai CASCADE agar tabel lain di
+	 * luar dua cache sesi ini tidak ikut terhapus tanpa sengaja.
 	 */
 	private static void bersihkanAccessedUsersSaatStartup() {
 		try {
-			ais.common.Common.updateSql("TRUNCATE TABLE public.accessed_users", 600, true);
-		} catch (Throwable e) {
+			/*
+			 * Ini DDL maintenance internal dengan SQL konstan, bukan SQL dari request.
+			 * Jalankan melalui pintu khusus InitIndex agar filter SQL publik tetap ketat
+			 * dan tidak perlu mengizinkan TRUNCATE secara global.
+			 */
+			eksekusiSqlAmanDdl(
+					"TRUNCATE TABLE public.online_users, public.accessed_users");
+		} catch (Exception e) {
+			e.printStackTrace();
 			ais.common.ErrorAuditUtil.record(e,
-					"auto-audit(empty-catch) src/ais/common/InitIndex.java:bersihkanAccessedUsersSaatStartup");
+					"auto-audit InitIndex.bersihkanAccessedUsersSaatStartup");
 		}
 	}
 
@@ -1974,6 +2039,7 @@ public class InitIndex {
 		initAturanDiskonProdukNullable();
 		initCaraPembayaranMasukSebagaiHutang();
 		initKebijakanReturProduk();
+		initTransaksiBackupAck();
 
 		// 1. EKSTENSI TRIGRAM (WAJIB) — dijalankan SINKRON (sebelum pool paralel aktif) karena
 		// seluruh index GIN trigram bergantung pada ekstensi ini; harus tersedia lebih dulu.
@@ -2004,6 +2070,7 @@ public class InitIndex {
 			initFkCascadeDiskonSiswaItemBiaya();
 			initKonsolidasiEbisnisMenuTbmrole();
 			initDefaultMenuKantin();
+			initRoleGrupProduk();
 		initIndexPerpustakaanCoverDanPmbKuota();
 		initIndexPmbPortalDanNomorUjianSuperFast();
 		initIndexDashboardStatistikPmbSuperFast();
@@ -3440,11 +3507,17 @@ public class InitIndex {
 				"ALTER TABLE koperasi.sesi_kas_kasir ADD COLUMN IF NOT EXISTS id_perangkat varchar(128)",
 				"ALTER TABLE koperasi.sesi_kas_kasir ADD COLUMN IF NOT EXISTS nama_perangkat varchar(150)",
 				"ALTER TABLE koperasi.sesi_kas_kasir ADD COLUMN IF NOT EXISTS laporan_tutup_json text",
+				"ALTER TABLE koperasi.pembelian_anggota_koperasi ALTER COLUMN keterangan TYPE text",
 				"ALTER TABLE koperasi.pembelian_anggota_koperasi ADD COLUMN IF NOT EXISTS sesi_kas_kasir bigint",
 				"ALTER TABLE koperasi.pembelian_anggota_koperasi ADD COLUMN IF NOT EXISTS id_perangkat varchar(128)",
 				"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_pak_sesi_kas') THEN ALTER TABLE koperasi.pembelian_anggota_koperasi ADD CONSTRAINT fk_pak_sesi_kas FOREIGN KEY (sesi_kas_kasir) REFERENCES koperasi.sesi_kas_kasir(id) ON DELETE SET NULL; END IF; END $$",
 				"CREATE INDEX IF NOT EXISTS idx_pak_sesi_kas ON koperasi.pembelian_anggota_koperasi (sesi_kas_kasir, tanggal_pembayaran)",
 				"CREATE INDEX IF NOT EXISTS idx_pak_perangkat_waktu ON koperasi.pembelian_anggota_koperasi (id_perangkat, tanggal_pembayaran DESC) WHERE id_perangkat IS NOT NULL",
+				// Nama indeks/constraint generasi awal memakai aturan "aktif" yang tidak lagi
+				// sama dengan status BUKA/TUTUP saat ini. Hapus keduanya sebelum memasang
+				// indeks kanonik agar pemeriksaan aplikasi dan database selalu identik.
+				"ALTER TABLE koperasi.sesi_kas_kasir DROP CONSTRAINT IF EXISTS uk_sesi_kas_satu_aktif_per_user",
+				"DROP INDEX IF EXISTS koperasi.uk_sesi_kas_satu_aktif_per_user",
 				"DROP INDEX IF EXISTS koperasi.uq_sesi_kas_akun_toko_buka",
 				"DROP INDEX IF EXISTS koperasi.uq_sesi_kas_perangkat_toko_buka",
 				"CREATE UNIQUE INDEX IF NOT EXISTS uq_sesi_kas_akun_buka ON koperasi.sesi_kas_kasir (COALESCE(kasir_user_id,kasir_nama)) WHERE status='BUKA' OR status IS NULL",
@@ -3460,6 +3533,24 @@ public class InitIndex {
 			eksekusiSqlAmanDdl("ALTER TABLE koperasi.toko ADD COLUMN IF NOT EXISTS alasan_tahan_json text");
 		} catch (Exception e) {
 			ais.common.ErrorAuditUtil.record(e, "init alasan transaksi tahan");
+		}
+		// Kebijakan oversell harus terisolasi per toko. NULL dari instalasi lama diperlakukan
+		// OFF oleh entity; DEFAULT false memastikan toko baru juga aman tanpa konfigurasi manual.
+		try {
+			eksekusiSqlAmanDdl("ALTER TABLE koperasi.toko ADD COLUMN IF NOT EXISTS boleh_transaksi_stok_habis boolean DEFAULT false");
+			eksekusiSqlAmanDdl("UPDATE koperasi.toko SET boleh_transaksi_stok_habis=false WHERE boleh_transaksi_stok_habis IS NULL");
+			eksekusiSqlAmanDdl("DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='new_audit' AND table_name='toko__audit') THEN ALTER TABLE new_audit.toko__audit ADD COLUMN IF NOT EXISTS boleh_transaksi_stok_habis boolean; END IF; END $$");
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "init kebijakan stok habis per toko");
+		}
+		// Gerbang eksplisit toko demo. Default false menjaga seluruh toko lama/produksi
+		// tetap tidak pernah menampilkan maupun menjalankan provisioning data beban.
+		try {
+			eksekusiSqlAmanDdl("ALTER TABLE koperasi.toko ADD COLUMN IF NOT EXISTS toko_demo boolean DEFAULT false");
+			eksekusiSqlAmanDdl("UPDATE koperasi.toko SET toko_demo=false WHERE toko_demo IS NULL");
+			eksekusiSqlAmanDdl("DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='new_audit' AND table_name='toko__audit') THEN ALTER TABLE new_audit.toko__audit ADD COLUMN IF NOT EXISTS toko_demo boolean; END IF; END $$");
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "init penanda toko demo");
 		}
 
 		// Promo grup: satu header, banyak produk, snapshot JSON untuk audit, serta

@@ -35,13 +35,22 @@ import ais.common.Common;
 import ais.common.CommonPrivilages;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.inventory.Toko;
+import ais.ui.util.DataCriteria;
+import ais.ui.util.DataSearchDefault;
 import ais.ui.util.MyCheckboxConfig;
 import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
-public class TokoAction extends GenericAutowireComposer {
+/**
+ * TokoAction TIDAK extends GenericCrudAction (komposer manual, mendahului
+ * refactor generic CRUD) -- download/upload di sini dipasang langsung lewat
+ * {@link Common#appendDownloadUploadButtons} (mekanisme sama yang dipakai
+ * GenericCrudAction.getDownloadUploadContents(), lihat contoh AgamaAction),
+ * bukan lewat override, karena kelas ini bukan turunan base class tsb.
+ */
+public class TokoAction extends GenericAutowireComposer implements DataCriteria, DataSearchDefault {
 
 	/**
 	 * 
@@ -59,6 +68,8 @@ public class TokoAction extends GenericAutowireComposer {
 	private org.zkoss.zul.Combobox gudangPemasok;
 
 	private Textbox keterangan;
+	private MyCheckboxConfig bolehTransaksiStokHabis;
+	private MyCheckboxConfig tokoDemo;
 
 	private boolean edit = false;
 	private boolean delete = false;
@@ -92,6 +103,15 @@ public class TokoAction extends GenericAutowireComposer {
 
 		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
 		delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
+
+		// Download/upload Excel (pola sama AgamaAction, lihat javadoc kelas ini).
+		if (add != null) {
+			Common.appendDownloadUploadButtons(add, Toko.class, this, this,
+					add.isVisible() && edit && delete,
+					"id", "kode", "nama", "keterangan", "aktif",
+					"bolehMelihatTokolain", "bolehTransaksiStokHabis", "tokoDemo");
+		}
+
 		onSearchDefault(null);
 		Common.initPaging(paging, new EventListener() {
 
@@ -256,6 +276,23 @@ public class TokoAction extends GenericAutowireComposer {
 
 		row = new MyFormRow();
 		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Transaksi saat stok habis"));
+		bolehTransaksiStokHabis = new MyCheckboxConfig("Paksa semua produk boleh stok minus");
+		bolehTransaksiStokHabis.setChecked(Boolean.TRUE.equals(toko.getBolehTransaksiStokHabis()));
+		bolehTransaksiStokHabis.setTooltiptext("OFF: ikuti izin stok minus pada masing-masing produk. ON: seluruh produk toko ini boleh dijual saat stok nol/minus.");
+		row.appendChild(bolehTransaksiStokHabis);
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Toko Demo / UAT"));
+		tokoDemo = new MyCheckboxConfig("Izinkan generator data contoh bervolume besar");
+		tokoDemo.setChecked(Boolean.TRUE.equals(toko.getTokoDemo()));
+		tokoDemo.setDisabled(!Common.getApakahAdminLain());
+		tokoDemo.setTooltiptext("Default OFF. Hanya administrator dapat mengaktifkan toko khusus demo/UAT.");
+		row.appendChild(tokoDemo);
+
+		row = new MyFormRow();
+		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Gudang Pemasok"));
 		gudangPemasok = new org.zkoss.zul.Combobox();
 		// Gudang cabang yang bertanggung jawab memasok toko ini -- dipakai StokThresholdScheduler utk
@@ -346,6 +383,8 @@ public class TokoAction extends GenericAutowireComposer {
 		toko.setKode(kode.getValue());
 		toko.setNama(nama.getValue());
 		toko.setKeterangan(keterangan.getValue());
+		toko.setBolehTransaksiStokHabis(bolehTransaksiStokHabis.isChecked());
+		if (Common.getApakahAdminLain()) toko.setTokoDemo(tokoDemo.isChecked());
 		toko.setGudangPemasok(gudangPemasok.getSelectedIndex() > 0
 				&& gudangPemasok.getSelectedItem().getValue() instanceof ais.database.model.sirs.Gudang
 						? (ais.database.model.sirs.Gudang) gudangPemasok.getSelectedItem().getValue()

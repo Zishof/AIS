@@ -56,7 +56,7 @@ max(a.tetap) as tetap,
 max(a.kelamin) as kelamin
 from perkuliahan aa
 inner join dosen a on (aa.dosen1 = a.id or aa.dosen2 = a.id  or aa.dosen3 = a.id  or aa.dosen4 = a.id  or aa.dosen5 = a.id  or aa.dosen6 = a.id  or aa.dosen7 = a.id  or aa.dosen8 = a.id  or aa.dosen9 = a.id or aa.dosen10 = a.id)
-where case  $P{semester} when '-1' then true when 'Ganjil' then aa.semester%2 = 1 else aa.semester%2 = 0 end
+where case $P{semester} when '-1' then true when 'Ganjil' then aa.ganjil_genap = 'Ganjil' else aa.ganjil_genap = 'Genap' end
 and case $P{tahun_akademik} when '-1' then true else aa.tahun_ajaran = $P{tahun_akademik} end
 group by a.id
 ) a

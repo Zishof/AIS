@@ -323,7 +323,69 @@ public class AssetDetailAction extends GenericAutowireComposer implements DataCr
 
 		String[] contents = new String[] { "id", "nama", "assetDetail.hargaBeli", "assetDetail.tanggalBeli",
 				"perTanggal", "tahunKe", "nilaiPenyusutan", "nilaiBuku", "keterangan", "assetDetail" };
-		MyToolbarbuttonConfig cetakToolbarbutton = Common.cetakData(this, contents);
+		// PENTING: "contents" di atas adalah properti PenyusutanAsset (perTanggal/tahunKe/
+		// nilaiPenyusutan/nilaiBuku/assetDetail.*), TAPI grid tab ini (initCriteria/onSearchDefault)
+		// meng-query AssetDetail -- entitas yg TIDAK PUNYA properti-properti itu. Kalau dulu
+		// Common.cetakData(this, contents) dipakai langsung, tiap kolom penyusutan gagal diresolve
+		// (ditangkap diam-diam jadi null oleh CommonDownloadUpload) -> Excel ter-download tapi
+		// kolom nilainya kosong semua, terlihat seperti "tidak ada data". Di sini dibuatkan
+		// DataCriteria KHUSUS utk tombol Download yg benar2 meng-query PenyusutanAsset (mirror
+		// filter initCriteria() di atas, tapi berbasis PenyusutanAsset+alias assetDetail), supaya
+		// kolom "contents" cocok dgn entitas barisnya.
+		DataCriteria dataCriteriaPenyusutan = new DataCriteria() {
+			@Override
+			public Object initCriteria(boolean order) {
+				SatuanKerja parent = (SatuanKerja) searchparent.getAttribute("satuanKerja");
+				Set<SatuanKerja> satuanKerjas = ais.action.master.sekolah.util.SekolahUtil.ambilSatuanKerjas();
+				if (parent != null) {
+					satuanKerjas.clear();
+					satuanKerjas.add(parent);
+					satuanKerjaTreeModel.getChildsSet(parent, satuanKerjas);
+				}
+
+				Session session = HibernateUtil.currentSession();
+				Criteria criteria = session.createCriteria(PenyusutanAsset.class)
+						.createAlias("assetDetail", "assetDetail").createAlias("assetDetail.asset", "asset")
+						.createAlias("asset.masterAsset", "masterAsset")
+
+						.add(Restrictions.or(Restrictions.isNull("assetDetail.satuanKerja"),
+								satuanKerjas.size() == 0 ? Restrictions.sqlRestriction("1=1")
+										: Restrictions.or(
+												parent == null ? Restrictions.isNull("assetDetail.satuanKerja")
+														: Restrictions.sqlRestriction("false"),
+												Restrictions.in("assetDetail.satuanKerja", satuanKerjas))));
+
+				if (order)
+					criteria.addOrder(Order.desc("perTanggal")).addOrder(Order.desc("id"));
+
+				criteria
+
+						.add((start == null || end == null || start.getValue() == null || end.getValue() == null)
+								? Restrictions.sqlRestriction("1=1")
+								: (Restrictions.sqlRestriction("date(assetDetail.tanggalbeli) between date('"
+										+ Common.databaseDateFormat.get().format(start.getValue()) + "') and date('"
+										+ Common.databaseDateFormat.get().format(end.getValue()) + "')")))
+
+						.add(searchnama.getValue().trim().isEmpty() ? Restrictions.sqlRestriction("true")
+								: Restrictions.ilike("assetDetail.nama", searchnama.getValue().trim(),
+										MatchMode.ANYWHERE))
+
+						.add(searchmerk.getValue().trim().isEmpty() ? Restrictions.sqlRestriction("1=1")
+								: Restrictions.ilike("masterAsset.merk", searchmerk.getValue(), MatchMode.ANYWHERE))
+
+						.add(searchjenisAsset.getSelectedItem() == null
+								|| searchjenisAsset.getSelectedItem().getValue() == null
+										? Restrictions.sqlRestriction("1=1")
+										: Restrictions.eq("masterAsset.jenisAsset",
+												searchjenisAsset.getSelectedItem().getValue()))
+
+						.add((searchruang == null) ? Restrictions.sqlRestriction("1=1")
+								: (searchruang.getAttribute("ruang") == null ? Restrictions.sqlRestriction("1=1")
+										: Restrictions.eq("asset.ruang", searchruang.getAttribute("ruang"))));
+				return criteria;
+			}
+		};
+		MyToolbarbuttonConfig cetakToolbarbutton = Common.cetakData(dataCriteriaPenyusutan, contents);
 		Common.appendKeToolbar(cetakToolbarbutton, find, comp);
 
 		MyToolbarbuttonConfig singkron = new MyToolbarbuttonConfig("Singkronkan Penyusutan", "/img/excel.png");

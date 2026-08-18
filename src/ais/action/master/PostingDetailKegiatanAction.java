@@ -40,6 +40,7 @@ import ais.common.PesanFormalHelper;
 import ais.common.CommonPrivilages;
 import ais.common.ConstantValues;
 import ais.database.hibernate.HibernateUtil;
+import ais.database.model.CicilanPembayaran;
 import ais.database.model.DetailKegiatan;
 import ais.database.model.Fakultas;
 import ais.database.model.ItemBiaya;
@@ -501,17 +502,18 @@ public class PostingDetailKegiatanAction extends GenericAutowireComposer {
 																}
 
 																session.getTransaction().begin();
+																Date tanggalPosting = ambilTanggalPostingPiutang(detailKegiatan, session);
 																if (nilai > 0.1) {
 																	CommonAkunting.saveTransaksi(akunDebet, akunKredit,
 																			akunDenda, akunPiutangDenda, postingHistory,
 																			apakahUangMasuk, ket,
-																			detailKegiatan.getTanggal(), nilai, denda,
+																			tanggalPosting, nilai, denda,
 																			detailKegiatan, satuanKerja, session);
 																} else {
 																	CommonAkunting.saveTransaksi(akunKredit, akunDebet,
 																			akunDenda, akunPiutangDenda, postingHistory,
 																			apakahUangMasuk, ket,
-																			detailKegiatan.getTanggal(), nilai, denda,
+																			tanggalPosting, nilai, denda,
 																			detailKegiatan, satuanKerja, session);
 																}
 																session.getTransaction().commit();
@@ -854,13 +856,14 @@ public class PostingDetailKegiatanAction extends GenericAutowireComposer {
 										satuanKerja = tbmuser.ambilSatuanKerja();
 									}
 
+									Date tanggalPosting = ambilTanggalPostingPiutang(detailKegiatan, session);
 									if (nilai > 0.1) {
 										CommonAkunting.saveTransaksi(akunDebet, akunKredit, akunDenda, akunPiutangDenda,
-												postingHistory, apakahUangMasuk, ket, detailKegiatan.getTanggal(),
+												postingHistory, apakahUangMasuk, ket, tanggalPosting,
 												nilai, denda, detailKegiatan, satuanKerja, session);
 									} else {
 										CommonAkunting.saveTransaksi(akunKredit, akunDebet, akunDenda, akunPiutangDenda,
-												postingHistory, apakahUangMasuk, ket, detailKegiatan.getTanggal(),
+												postingHistory, apakahUangMasuk, ket, tanggalPosting,
 												nilai, denda, detailKegiatan, satuanKerja, session);
 									}
 
@@ -920,6 +923,37 @@ public class PostingDetailKegiatanAction extends GenericAutowireComposer {
 			}
 
 		}
+	}
+
+	private Date ambilTanggalPostingPiutang(DetailKegiatan detailKegiatan, Session session) {
+		Date tanggal = detailKegiatan == null ? null : detailKegiatan.getTanggal();
+		if (detailKegiatan == null || detailKegiatan.getKegiatan() == null || session == null) {
+			return tanggal;
+		}
+		try {
+			Criteria criteria = session.createCriteria(CicilanPembayaran.class)
+					.add(Restrictions.eq("kegiatan", detailKegiatan.getKegiatan()))
+					.add(Restrictions.gt("nilai", 0.1))
+					.setProjection(Projections.min("tanggal"));
+
+			if (detailKegiatan.getPengaturanPembayaranBulanan() != null) {
+				criteria.add(Restrictions.eq("pengaturanPembayaranBulanan",
+						detailKegiatan.getPengaturanPembayaranBulanan()));
+			} else if (detailKegiatan.getDetailBiaya() != null) {
+				criteria.add(Restrictions.eq("detailBiaya", detailKegiatan.getDetailBiaya()));
+			} else if (detailKegiatan.getItemBiaya() != null) {
+				criteria.add(Restrictions.eq("itemBiaya", detailKegiatan.getItemBiaya()));
+			}
+
+			Date tanggalBayar = (Date) criteria.uniqueResult();
+			if (tanggalBayar != null) {
+				return tanggalBayar;
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit(empty-catch) src/ais/action/master/PostingDetailKegiatanAction.java:ambilTanggalPostingPiutang");
+		}
+		return tanggal;
 	}
 
 	public Criteria initCriteria(boolean order) {

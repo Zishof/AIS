@@ -4,7 +4,6 @@ import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -135,13 +134,22 @@ public class FeederConnector {
 	static {
 		File file = new File("/opt/.g/.h/xxyxyx.txt");
 		file.getParentFile().mkdirs();
-		Properties properties = System.getProperties();
-		try {
-			properties.load(new FileInputStream(file));
-		} catch (FileNotFoundException e) {
-			Common.tampilErrorJikaAdmin(e);
-		} catch (IOException e) {
-			Common.tampilErrorJikaAdmin(e);
+		// FIX (ERROR FileNotFoundException /opt/.g/.h/xxyxyx.txt berulang tiap kelas ini dimuat):
+		// berkas lisensi/konfigurasi lokal ini OPSIONAL -- pada deployment yang tidak memilikinya,
+		// FileInputStream(file) SELALU gagal dengan FileNotFoundException, sehingga setiap pemuatan
+		// kelas (tiap restart aplikasi / classloader baru) menghasilkan notifikasi error admin utk
+		// kondisi yang sebenarnya normal & diketahui, bukan kegagalan tak terduga. Cek keberadaan
+		// berkas lebih dulu: bila memang tak ada, lewati secara senyap (properti tambahan opsional
+		// ini sekadar tak termuat, tanpa menggagalkan pemuatan kelas). IOException lain (mis. berkas
+		// ADA tapi tak terbaca / rusak) tetap dilaporkan ke admin seperti sebelumnya karena itu
+		// kondisi tak terduga yang layak diperiksa.
+		if (file.exists()) {
+			Properties properties = System.getProperties();
+			try {
+				properties.load(new FileInputStream(file));
+			} catch (IOException e) {
+				Common.tampilErrorJikaAdmin(e);
+			}
 		}
 	}
 

@@ -36,14 +36,18 @@ import ais.common.Common;
 import ais.common.PesanFormalHelper;
 import ais.common.CommonPrivilages;
 import ais.database.hibernate.HibernateUtil;
+import ais.database.model.Fakultas;
 import ais.database.model.GeneralValueObject;
 import ais.database.model.ItemBiaya;
 import ais.database.model.JenisDiskonMahasiswa;
+import ais.database.model.Jurusan;
+import ais.database.model.StatusAwalMahasiswa;
 import ais.ui.util.DataCriteria;
 import ais.ui.util.DataInitDefault;
 import ais.ui.util.DataSearchDefault;
 import ais.ui.util.MyCheckboxConfig;
 import ais.ui.util.MyColumnConfig;
+import ais.ui.util.MyDatebox;
 import ais.ui.util.MyDoublebox;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyMessageboxConfig;
@@ -82,6 +86,13 @@ public class JenisDiskonMahasiswaAction extends GenericAutowireComposer
 	private Combobox itemBiaya3;
 	private Combobox itemBiaya4;
 	private Combobox itemBiaya5;
+	private MyDatebox tanggalMulaiBerlaku;
+	private MyDatebox tanggalSampaiBerlaku;
+	private MyCheckboxConfig berlakuUntukSemuaMahasiswa;
+	private Combobox fakultas;
+	private Combobox jurusan;
+	private Combobox program;
+	private Combobox statusAwalMahasiswa;
 
 	@Override
 	public org.zkoss.zk.ui.metainfo.ComponentInfo doBeforeCompose(org.zkoss.zk.ui.Page page,
@@ -113,7 +124,8 @@ public class JenisDiskonMahasiswaAction extends GenericAutowireComposer
 		});
 
 		String[] contents = new String[] { "id", "kode", "nama", "keterangan", "aktif", "diskon", "itemBiaya",
-				"berupaPersen", "semesterMulai", "semesterSampai" };
+				"berupaPersen", "semesterMulai", "semesterSampai", "tanggalMulaiBerlaku", "tanggalSampaiBerlaku",
+				"berlakuUntukSemuaMahasiswa", "fakultas", "jurusan", "program", "statusAwalMahasiswa" };
 		MyToolbarbuttonConfig cetakToolbarbutton = Common.cetakData(JenisDiskonMahasiswa.class, this, contents);
 		Common.appendKeToolbar(cetakToolbarbutton, add, comp);
 
@@ -151,6 +163,12 @@ public class JenisDiskonMahasiswaAction extends GenericAutowireComposer
 					+ " sd " + (jenisDiskonMahasiswa.getSemesterSampai() == null ? ""
 							: jenisDiskonMahasiswa.getSemesterSampai()))
 					.setParent(arg0);
+			new Label((jenisDiskonMahasiswa.getTanggalMulaiBerlaku() == null ? ""
+					: Common.dateFormat1.get().format(jenisDiskonMahasiswa.getTanggalMulaiBerlaku())) + " sd "
+					+ (jenisDiskonMahasiswa.getTanggalSampaiBerlaku() == null ? ""
+							: Common.dateFormat1.get().format(jenisDiskonMahasiswa.getTanggalSampaiBerlaku())))
+					.setParent(arg0);
+			new Label(keteranganFilterMahasiswa(jenisDiskonMahasiswa)).setParent(arg0);
 
 			new Label(jenisDiskonMahasiswa.getKeterangan()).setParent(arg0);
 
@@ -297,6 +315,77 @@ public class JenisDiskonMahasiswaAction extends GenericAutowireComposer
 
 		row = new MyFormRow();
 		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Tanggal Mulai Berlaku"));
+		row.appendChild(tanggalMulaiBerlaku = new MyDatebox(jenisDiskonMahasiswa.getTanggalMulaiBerlaku()));
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Tanggal Sampai Berlaku"));
+		row.appendChild(tanggalSampaiBerlaku = new MyDatebox(jenisDiskonMahasiswa.getTanggalSampaiBerlaku()));
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig(""));
+		row.appendChild(berlakuUntukSemuaMahasiswa = new MyCheckboxConfig("Berlaku Untuk Semua Mahasiswa"));
+		berlakuUntukSemuaMahasiswa.setChecked(jenisDiskonMahasiswa.getBerlakuUntukSemuaMahasiswa());
+
+		final MyFormRow rowFakultas = new MyFormRow();
+		rowFakultas.setParent(rows);
+		rowFakultas.appendChild(new ais.ui.util.MyLabelConfig("Fakultas"));
+		fakultas = new Combobox();
+		jurusan = new Combobox();
+		Common.initFakultasDanJurusanDanSemua(fakultas, jurusan, null, null);
+		rowFakultas.appendChild(fakultas);
+		fakultas.setReadonly(true);
+		fakultas.setWidth("90%");
+		Common.selectComboItem(fakultas, jenisDiskonMahasiswa.getFakultas());
+
+		final MyFormRow rowJurusan = new MyFormRow();
+		rowJurusan.setParent(rows);
+		rowJurusan.appendChild(new ais.ui.util.MyLabelConfig("Jurusan"));
+		rowJurusan.appendChild(jurusan);
+		jurusan.setReadonly(true);
+		jurusan.setWidth("90%");
+		Common.selectComboItem(jurusan, jenisDiskonMahasiswa.getJurusan());
+
+		final MyFormRow rowProgram = new MyFormRow();
+		rowProgram.setParent(rows);
+		rowProgram.appendChild(new ais.ui.util.MyLabelConfig("Program"));
+		program = Common.initPrograms(program);
+		rowProgram.appendChild(program);
+		program.setReadonly(true);
+		program.setWidth("90%");
+		Common.selectComboItem(program, jenisDiskonMahasiswa.getProgram());
+
+		final MyFormRow rowStatusAwal = new MyFormRow();
+		rowStatusAwal.setParent(rows);
+		rowStatusAwal.appendChild(new ais.ui.util.MyLabelConfig("Status Awal"));
+		Common.insertComboDanSemua(statusAwalMahasiswa = new Combobox(), "nama", StatusAwalMahasiswa.class,
+				Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)));
+		Common.selectComboItem(statusAwalMahasiswa, jenisDiskonMahasiswa.getStatusAwalMahasiswa());
+		rowStatusAwal.appendChild(statusAwalMahasiswa);
+		statusAwalMahasiswa.setReadonly(true);
+		statusAwalMahasiswa.setWidth("90%");
+
+		EventListener tampilkanFilterMahasiswa = new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				boolean tampil = berlakuUntukSemuaMahasiswa.isChecked();
+				rowFakultas.setVisible(tampil);
+				rowJurusan.setVisible(tampil);
+				rowProgram.setVisible(tampil);
+				rowStatusAwal.setVisible(tampil);
+			}
+		};
+		berlakuUntukSemuaMahasiswa.addEventListener("onCheck", tampilkanFilterMahasiswa);
+		try {
+			tampilkanFilterMahasiswa.onEvent(null);
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "JenisDiskonMahasiswaAction.toggleFilterMahasiswa");
+		}
+
+		row = new MyFormRow();
+		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Keterangan"));
 		row.appendChild(keterangan = new Textbox(jenisDiskonMahasiswa.getKeterangan()));
 		keterangan.setWidth("90%");
@@ -378,10 +467,48 @@ public class JenisDiskonMahasiswaAction extends GenericAutowireComposer
 				.setSemesterMulai(semesterMulai.getValue() == null ? null : semesterMulai.getValue().intValue());
 		jenisDiskonMahasiswa
 				.setSemesterSampai(semesterSampai.getValue() == null ? null : semesterSampai.getValue().intValue());
+		jenisDiskonMahasiswa.setTanggalMulaiBerlaku(tanggalMulaiBerlaku.getValue());
+		jenisDiskonMahasiswa.setTanggalSampaiBerlaku(tanggalSampaiBerlaku.getValue());
+		jenisDiskonMahasiswa.setBerlakuUntukSemuaMahasiswa(berlakuUntukSemuaMahasiswa.isChecked());
+		if (berlakuUntukSemuaMahasiswa.isChecked()) {
+			jenisDiskonMahasiswa.setFakultas(
+					(Fakultas) (fakultas.getSelectedItem() == null ? null : fakultas.getSelectedItem().getValue()));
+			jenisDiskonMahasiswa.setJurusan(
+					(Jurusan) (jurusan.getSelectedItem() == null ? null : jurusan.getSelectedItem().getValue()));
+			jenisDiskonMahasiswa.setProgram(
+					(String) (program.getSelectedItem() == null ? null : program.getSelectedItem().getValue()));
+			jenisDiskonMahasiswa.setStatusAwalMahasiswa((StatusAwalMahasiswa) (statusAwalMahasiswa
+					.getSelectedItem() == null ? null : statusAwalMahasiswa.getSelectedItem().getValue()));
+		} else {
+			jenisDiskonMahasiswa.setFakultas(null);
+			jenisDiskonMahasiswa.setJurusan(null);
+			jenisDiskonMahasiswa.setProgram(null);
+			jenisDiskonMahasiswa.setStatusAwalMahasiswa(null);
+		}
 
 		Common.refreshSaveOrUpdate(session, jenisDiskonMahasiswa);
 
 		return true;
+	}
+
+	private String keteranganFilterMahasiswa(JenisDiskonMahasiswa jenisDiskonMahasiswa) {
+		if (!jenisDiskonMahasiswa.getBerlakuUntukSemuaMahasiswa()) {
+			return "";
+		}
+		String keterangan = "Semua mahasiswa";
+		if (jenisDiskonMahasiswa.getFakultas() != null) {
+			keterangan += ", Fakultas: " + jenisDiskonMahasiswa.getFakultas().getNama();
+		}
+		if (jenisDiskonMahasiswa.getJurusan() != null) {
+			keterangan += ", Jurusan: " + jenisDiskonMahasiswa.getJurusan().getNama();
+		}
+		if (jenisDiskonMahasiswa.getProgram() != null && !jenisDiskonMahasiswa.getProgram().trim().isEmpty()) {
+			keterangan += ", Program: " + jenisDiskonMahasiswa.getProgram();
+		}
+		if (jenisDiskonMahasiswa.getStatusAwalMahasiswa() != null) {
+			keterangan += ", Status Awal: " + jenisDiskonMahasiswa.getStatusAwalMahasiswa().getNama();
+		}
+		return keterangan;
 	}
 
 	public Criteria initCriteria(boolean order) {

@@ -253,6 +253,7 @@ public class LampiranLain extends FileFotoLain {
 	public static final Long LOGO_DEPAN_DASHBOARD = -300062L;
 	public static final Long BANNER_DEPAN_ALUMNI = -300042L;
 	public static final Long BANNER_DEPAN_DASHBOARD = -300072L;
+public static final Long LOGO_PRICE_TAG = -300083L;
 	public static final Long FAVICON = -30004L;
 
 	public static final String BACKGROUND_DEPAN_PESANTREN_STR = "Background Depan";
@@ -272,6 +273,7 @@ public class LampiranLain extends FileFotoLain {
 	public static final String BANNER_DEPAN_ALUMNI_STR = "Banner Depan Alumni";
 	public static final String LOGO_DEPAN_DASHBOARD_STR = "Logo Depan Dashboard";
 	public static final String BANNER_DEPAN_DASHBOARD_STR = "Banner Depan Dashboard";
+public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 	public static final String FAVICON_STR = "Favicon";
 
 	public static final Long TANDA_TANGAN_KARTU_ALUMNI_PERPUSTAKAAN = -31L;

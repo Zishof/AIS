@@ -3232,11 +3232,22 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 
 							int myIndex = index / 2;
 							String tahunAjaran = "";
-							try {
-								tahunAjaran = arrTahunAjars[myIndex];
-								onSaveRinci(semester, tahunAjaran);
-							} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/NewDetailBiayaExcelAction.java:3114");
-//						Common.tampilErrorJikaAdmin(e);
+							// KE-FIX (ArrayIndexOutOfBoundsException, terselubung oleh catch kosong
+							// sebelumnya): dulu index di luar batas arrTahunAjars diam-dilewati oleh
+							// catch, sehingga baris tagihan semester ekor rentang yang diminta HILANG
+							// tanpa jejak (tak pernah tersimpan). Cek batas eksplisit & catat kalau
+							// tahun ajaran tersedia memang tidak cukup utk rentang semester ini.
+							if (myIndex >= 0 && myIndex < arrTahunAjars.length) {
+								try {
+									tahunAjaran = arrTahunAjars[myIndex];
+									onSaveRinci(semester, tahunAjaran);
+								} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/NewDetailBiayaExcelAction.java:3114");
+//							Common.tampilErrorJikaAdmin(e);
+								}
+							} else {
+								ais.common.ErrorAuditUtil.record(
+										new ArrayIndexOutOfBoundsException("myIndex=" + myIndex + " arrTahunAjars.length=" + arrTahunAjars.length),
+										"NewDetailBiayaExcelAction: tahun ajaran tidak cukup utk semester " + semester);
 							}
 							index++;
 
@@ -3586,12 +3597,16 @@ public class NewDetailBiayaExcelAction extends GenericAutowireComposer {
 		strings.add(setTahunAjar);
 		String[] arr = Common.tahunAngkatans.toArray(new String[] {});
 		for (int i = startSemester; i < finishSemester; i++) {
-			try {
-				index++;
-				strings.add(arr[index]);
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/NewDetailBiayaExcelAction.java:3489");
-				// TODO: handle exception
+			index++;
+			// KE-FIX (ArrayIndexOutOfBoundsException, terselubung oleh catch kosong sebelumnya):
+			// dahulu index melebihi batas arr hanya diam-dilewati oleh catch, tapi akibatnya
+			// tahun ajaran ekor rentang semester yang diminta HILANG dari strings tanpa jejak
+			// (baris tagihan utk semester itu ikut tak pernah tersimpan). Hentikan loop begitu
+			// index kehabisan data alih-alih melanjutkan percobaan yang pasti gagal lagi.
+			if (index < 0 || index >= arr.length) {
+				break;
 			}
+			strings.add(arr[index]);
 		}
 		return strings;
 	}

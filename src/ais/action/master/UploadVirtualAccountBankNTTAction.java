@@ -823,7 +823,8 @@ public class UploadVirtualAccountBankNTTAction extends GenericAutowireComposer {
 												session.getTransaction().commit();
 											}
 
-											nilaiBiayaHarusDiBayars += biaya;
+											nilaiBiayaHarusDiBayars += Kegiatan.ambilJumlahTagihan(kegiatan,
+													detailBiaya);
 
 										}
 

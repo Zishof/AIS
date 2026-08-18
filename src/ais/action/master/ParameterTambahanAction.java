@@ -656,6 +656,10 @@ public class ParameterTambahanAction extends GenericAutowireComposer
 		comboitem.setValue(ParameterTambahan.PILIHAN_PEGAWAI);
 		tipeDataInputan.appendChild(comboitem);
 
+		comboitem = new MyComboitemConfig(ParameterTambahan.PILIHAN_PENYEDIA);
+		comboitem.setValue(ParameterTambahan.PILIHAN_PENYEDIA);
+		tipeDataInputan.appendChild(comboitem);
+
 		Common.selectComboItem(tipeDataInputan, parameterTambahan.getTipeDataInputan());
 		if (tipeDataInputan.getSelectedItem() == null) {
 			tipeDataInputan.setSelectedIndex(0);

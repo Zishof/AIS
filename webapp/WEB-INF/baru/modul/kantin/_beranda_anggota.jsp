@@ -1136,7 +1136,9 @@ String channelTopup = Common.getKonfigurasi("cannel_va_e_smartlink", "VA_BNI:250
 
     const loadAturanDiskon<%=rnd%> = async () => {
         // Jangan ubah type date jadi _iso langsung di sql, biar action:"sql" yang tambahin otomatis
-        const sqlAturan = "SELECT id, produk, toko, berlaku_semua_member, jenis_anggota, tipe_anggota, persentase, maksimal_potongan, nominal, potongan_langsung, berlaku_per_hari_dan_per_toko, tanggal_mulai, tanggal_selesai FROM koperasi.aturan_diskon WHERE aktif = true";
+        const sqlAturan = "SELECT id,produk,toko,berlaku_semua_member,jenis_anggota,tipe_anggota,persentase,maksimal_potongan,nominal,potongan_langsung,berlaku_per_hari_dan_per_toko,tanggal_mulai,tanggal_selesai FROM (" +
+                "SELECT id,produk,toko,berlaku_semua_member,jenis_anggota,tipe_anggota,persentase,maksimal_potongan,nominal,potongan_langsung,berlaku_per_hari_dan_per_toko,tanggal_mulai,tanggal_selesai,CASE WHEN produk IS NULL THEN 2 ELSE 0 END prioritas FROM koperasi.aturan_diskon WHERE aktif=true " +
+                "UNION ALL SELECT NULL::bigint,d.produk,g.toko,COALESCE(g.berlaku_semua_member,true),g.jenis_anggota,g.tipe_anggota,COALESCE(g.persentase,0),COALESCE(g.maksimal_potongan,0),COALESCE(g.nominal,0),COALESCE(g.potongan_langsung,true),false,g.tanggal_mulai,g.tanggal_selesai,1 FROM koperasi.grup_aturan_diskon g JOIN koperasi.grup_aturan_diskon_detail d ON d.grup_aturan_diskon=g.id WHERE g.aktif=true AND d.aktif=true) semua_aturan ORDER BY prioritas,id NULLS LAST";
         const res = await fetchDataAPI<%=rnd%>({ action: "sql", sql: sqlAturan });
         if(res.data) {
             arrAturanDiskon<%=rnd%> = res.data;
@@ -1316,7 +1318,11 @@ String channelTopup = Common.getKonfigurasi("cannel_va_e_smartlink", "VA_BNI:250
             if ((isSpecificToko == true || isSpecificToko == 'true') && rule.toko != item.idToko) continue;
 
             if (rule.tanggal_mulai_iso && rule.tanggal_mulai_iso !== '' && new Date(rule.tanggal_mulai_iso) > now) continue;
-            if (rule.tanggal_selesai_iso && rule.tanggal_selesai_iso !== '' && new Date(rule.tanggal_selesai_iso) < now) continue;
+            if (rule.tanggal_selesai_iso && rule.tanggal_selesai_iso !== '') {
+                const batasSelesai = new Date(rule.tanggal_selesai_iso);
+                batasSelesai.setHours(23, 59, 59, 999);
+                if (batasSelesai < now) continue;
+            }
 
             // Evaluasi Member
             const isAllMember = (rule.berlaku_semua_member === 'true' || rule.berlaku_semua_member === true || rule.berlaku_semua_member === 't');
@@ -1325,6 +1331,8 @@ String channelTopup = Common.getKonfigurasi("cannel_va_e_smartlink", "VA_BNI:250
                 if (rule.jenis_anggota && rule.jenis_anggota !== '' && rule.jenis_anggota != selectedMember.jenis_anggota) continue;
                 if (rule.tipe_anggota && rule.tipe_anggota !== '' && rule.tipe_anggota != selectedMember.tipe_anggota) continue;
             }
+
+            if ((parseFloat(rule.persentase) || 0) <= 0 && (parseFloat(rule.nominal) || 0) <= 0) continue;
 
             appliedRule = rule;
             break;
@@ -1640,6 +1648,7 @@ String channelTopup = Common.getKonfigurasi("cannel_va_e_smartlink", "VA_BNI:250
                 idToko: tId,
                 waktu: curWaktu,
                 id_member: idMemberAktif<%=rnd%>,
+                kanalCheckout: "anggota_online",
                 caraBayar: idCaraBayar,
                 keterangan: komentarKeranjang,
                 transaksi: transaksiToko.map(item => ({

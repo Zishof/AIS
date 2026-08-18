@@ -184,13 +184,13 @@ public class Bankaltimtara extends HttpServlet {
 
 	/**
 	 * Cek status pembayaran Bankaltimtara dengan FALLBACK ke kanal lain: coba dulu kanal
-	 * yang tercatat di VA ({@link VirtualAccountBank#getPakaiva()} — VA atau QRIS), lalu
+	 * yang tercatat di VA ({@link VirtualAccountBank#getPakaiva()} â€” VA atau QRIS), lalu
 	 * bila kanal itu gagal (exception apa pun dari bank, mis. "code: 04; message: not
 	 * found"), coba kanal SATUNYA sebelum menyerah. Diminta karena "Cek Ulang" yang cuma
 	 * mengecek satu kanal sering gagal walau bank sebenarnya sudah mencatat pembayaran di
 	 * kanal lainnya (kd_tagihan/kode VA yang sama dipakai bank utk kedua kanal).
 	 *
-	 * @throws Exception bila KEDUA kanal gagal — pesan memuat rincian error dari keduanya.
+	 * @throws Exception bila KEDUA kanal gagal â€” pesan memuat rincian error dari keduanya.
 	 */
 	public static JSONObject checkPakaivaAtauQris(final VirtualAccountBank virtualAccountBankReadOnly)
 			throws Exception {
@@ -313,7 +313,7 @@ public class Bankaltimtara extends HttpServlet {
 			// bermasalah/berubah dan membalas HTML 404 alih-alih JSON, sehingga new JSONObject(hasil)
 			// gagal parse). Daripada berhenti dengan hasil kosong, olah ULANG notifikasi TERAKHIR yang
 			// sudah tersimpan di kolom notif (hasil pengecekan/notifikasi bank sebelumnya yang valid),
-			// SEOLAH-OLAH baru saja diterima — tapi diproses langsung secara lokal, tanpa panggilan
+			// SEOLAH-OLAH baru saja diterima â€” tapi diproses langsung secara lokal, tanpa panggilan
 			// jaringan baru ke bank. Ini murni fallback pemulihan data yang SUDAH ADA; bila tidak ada
 			// notifikasi tersimpan sama sekali, error LIVE asli tetap dilempar apa adanya agar admin
 			// melihat akar masalah sebenarnya (mis. endpoint bank yang berubah/error).
@@ -341,10 +341,10 @@ public class Bankaltimtara extends HttpServlet {
 	 *
 	 * <p>Format LIVE membungkus nominal di {@code data.amount}; format notifikasi tersimpan (hasil
 	 * webhook H2H sebelumnya, mis. {@code {"inst_id":...,"number":...,"amount":...,"reff":...,"date":...}})
-	 * menaruh {@code amount} langsung di root — keduanya ditangani di sini.</p>
+	 * menaruh {@code amount} langsung di root â€” keduanya ditangani di sini.</p>
 	 *
 	 * @param dariNotifTersimpan true bila {@code hasil} berasal dari fallback notif tersimpan (bukan
-	 *                           pengecekan live baru) — ditandai di JSON balikan agar admin tahu sumber datanya.
+	 *                           pengecekan live baru) â€” ditandai di JSON balikan agar admin tahu sumber datanya.
 	 */
 	private static JSONObject prosesHasilCekVaBankaltimtara(VirtualAccountBank virtualAccountBankReadOnly,
 			String hasil, boolean dariNotifTersimpan) throws Exception {
@@ -775,7 +775,7 @@ public class Bankaltimtara extends HttpServlet {
 										detailKegiatan.setKeterangan(detailBiaya.getKeterangan());
 										detailKegiatan.setKegiatan(kegiatan);
 
-										nilaiBiayaHarusDiBayars += biaya;
+										nilaiBiayaHarusDiBayars += Kegiatan.ambilJumlahTagihan(kegiatan, detailBiaya);
 
 									}
 
@@ -839,7 +839,7 @@ public class Bankaltimtara extends HttpServlet {
 									for (DetailBiaya detailBiaya : detailBiayas) {
 										Double biaya = detailBiaya.hitungTotalKegiatan(kegiatan, session);
 
-										nilaiBiayaHarusDiBayars += biaya;
+										nilaiBiayaHarusDiBayars += Kegiatan.ambilJumlahTagihan(kegiatan, detailBiaya);
 
 									}
 
@@ -1114,7 +1114,7 @@ public class Bankaltimtara extends HttpServlet {
 												}
 											} else if (idPemBul != null && idPemBul.startsWith("Keranjang-")) {
 												// Pembayaran Keranjang Belanja (multi jenis / KegiatanTemporary): konversi draf
-												// menjadi Kegiatan+Cicilan nyata — pemroses terpusat yang sama dengan Esmartlink.
+												// menjadi Kegiatan+Cicilan nyata â€” pemroses terpusat yang sama dengan Esmartlink.
 												ais.action.ws.util.PembayaranGatewayHelper.prosesSatuTokenKeranjang(session, idPemBul,
 														virtualAccountBankNtt, inquery, bank, bankHost, tanggal, data, null);
 											}
@@ -1310,3 +1310,4 @@ public class Bankaltimtara extends HttpServlet {
 		return jsonObjectResponse.toString();
 	}
 }
+

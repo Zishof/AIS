@@ -706,13 +706,10 @@ public class CommonMenuAccessHelper extends Common {
 		}
 
 	public static AccessedUsers setUserAccess(HttpServletRequest request) {
-		Session session = null;
-		try {
-			session = HibernateUtil.openSession();
-			return setUserAccess(session, request);
-		} finally {
-			HibernateUtil.closeSessionQuietly(session);
-		}
+		/* Jalur ini tidak mempunyai entity caller yang perlu di-attach. Membuka session
+		 * tambahan hanya untuk session.get() menggandakan peluang mendapat koneksi pool
+		 * yang sudah EOF. ensureAccessedUsersExists sudah memakai session terisolasi. */
+		return setUserAccess(null, request);
 	}
 
 	/**

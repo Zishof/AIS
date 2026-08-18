@@ -2232,8 +2232,7 @@ public class PembayaranUtil {
 
 						Double nilaiBiayaHarusDiBayars = 0.0;
 						for (DetailBiaya detailBiaya : map.values()) {
-							Double nilai = detailBiaya.hitungTotalKegiatan(kegiatan, session);
-							nilaiBiayaHarusDiBayars += (nilai);
+							nilaiBiayaHarusDiBayars += Kegiatan.ambilJumlahTagihan(kegiatan, detailBiaya);
 						}
 
 						kegiatan.setAmountTerhutang(nilaiBiayaHarusDiBayars - amountTotal);
@@ -2766,7 +2765,7 @@ public class PembayaranUtil {
 
 				for (DetailBiaya detailBiaya : detailBiayas) {
 					Double nilai = detailBiaya.hitungTotalKegiatan(kegiatan, session);
-					nilaiBiayaHarusDiBayars += (nilai);
+					nilaiBiayaHarusDiBayars += Kegiatan.ambilJumlahTagihan(kegiatan, detailBiaya);
 				}
 				kegiatan.setAmountTerhutang(nilaiBiayaHarusDiBayars - amountTotal);
 				kegiatan.setAmount(amountTotal);

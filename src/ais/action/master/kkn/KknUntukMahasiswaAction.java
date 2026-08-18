@@ -870,7 +870,7 @@ public class KknUntukMahasiswaAction extends GenericAutowireComposer {
 								});
 						return;
 					} else if (component instanceof Combobox && ((Combobox) component).getSelectedItem() == null) {
-						MyMessageboxConfig.show("Mohon maaf, masih terdapat persyaratan KKN yang belum diisi. Langkah yang dapat dilakukan: (1) pastikan semua kolom persyaratan KKN telah diisi dengan lengkap dan benar; (2) periksa setiap kolom pilihan/dropdown yang masih kosong; (3) ulangi proses pendaftaran. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Informasi", MyMessageboxConfig.OK,
+						MyMessageboxConfig.show("Semua persyaratan harus diisi", "Informasi", MyMessageboxConfig.OK,
 								MyMessageboxConfig.INFORMATION, new EventListener() {
 
 									@Override

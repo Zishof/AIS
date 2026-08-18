@@ -825,6 +825,23 @@ public class PembayaranOnline extends GenericAutowireComposer {
 			}
 		});
 
+		MyToolbarbuttonConfig btnAnalisis = new MyToolbarbuttonConfig("Analisis Data", "/img/svg/search.svg");
+		btnAnalisis.setTooltiptext("Telusuri Pengaturan Biaya satu per satu untuk menemukan penyebab tagihan tidak tampil");
+		btnAnalisis.setVisible(tbmuser != null && tbmuser.getSiswa() == null && tbmuser.getCalonSiswa() == null
+				&& tbmuser.getOrangTua() == null);
+		btnAnalisis.setParent(toolbar);
+		btnAnalisis.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				Integer bln = bulan == null || bulan.getSelectedItem() == null ? null
+						: (Integer) bulan.getSelectedItem().getValue();
+				Integer thn = tahun == null || tahun.getSelectedItem() == null ? null
+						: (Integer) tahun.getSelectedItem().getValue();
+				AnalisisTagihanSekolahHelper.buka(getSiswaLokal(), getCalonSiswaLokal(), null, bln, thn,
+						pilihan == null ? 0 : pilihan.size());
+			}
+		});
+
 		MyToolbarbuttonConfig btnTagihan = new MyToolbarbuttonConfig("Surat Tagihan", "/img/svg/money-bills.svg");
 		btnTagihan.setVisible(tbmuser != null && tbmuser.getCalonSiswa() == null);
 		btnTagihan.setParent(toolbar);

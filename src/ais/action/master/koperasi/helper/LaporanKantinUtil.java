@@ -462,6 +462,29 @@ public final class LaporanKantinUtil {
                 tipe = new String[]{"text","num","num","num","num"};
                 kolom.add(new Kolom("Kasir","text")); kolom.add(new Kolom("Jml Transaksi","num")); kolom.add(new Kolom("Tunai","num")); kolom.add(new Kolom("Non Tunai","num")); kolom.add(new Kolom("Total","num"));
 
+            } else if ("transaksi_per_kasir".equals(r)) { tokoIdCol = "h.toko";
+                judul = "Transaksi Per Kasir";
+                catatan = "Rekonsiliasi transaksi dan sesi: modal awal + tunai dibandingkan dengan uang fisik saat closing.";
+                String filterH = " where 1=1 " + kondToko("h.toko", tokoId, prm)
+                        + klausaTanggal("h.tanggal_pembayaran", tglMulai, tglSampai, prm);
+                String filterK = " where 1=1 " + kondToko("k.toko", tokoId, prm)
+                        + klausaTanggal("k.waktubuka", tglMulai, tglSampai, prm);
+                sql = "with trx as (select coalesce(nullif(trim(h.kasir_login_nama),''),nullif(trim(h.oleh),''),'-') kasir,"
+                    + " count(distinct h.id) jml,sum(coalesce(h.bayar_tunai,0)) tunai,sum(coalesce(h.bayar_non_tunai,0)) nontunai,sum(coalesce(h.total_biaya,0)) total"
+                    + " from koperasi.pembelian_anggota_koperasi h " + filterH + " group by 1),"
+                    + " sesi as (select coalesce(nullif(trim(k.kasir_nama),''),'-') kasir,sum(coalesce(k.modalawal,0)) modal,"
+                    + " sum(case when coalesce(k.status,'BUKA')='TUTUP' then coalesce(k.uangfisik,0) else coalesce(k.modalawal,0)+coalesce(k.totaltunai,0) end) closing"
+                    + " from koperasi.sesi_kas_kasir k " + filterK + " group by 1)"
+                    + " select coalesce(t.kasir,s.kasir),coalesce(t.jml,0),coalesce(s.modal,0),coalesce(t.tunai,0),coalesce(t.nontunai,0),coalesce(t.total,0),"
+                    + " coalesce(s.modal,0)+coalesce(t.tunai,0),coalesce(s.closing,0),coalesce(s.closing,0)-(coalesce(s.modal,0)+coalesce(t.tunai,0))"
+                    + " from trx t full outer join sesi s on lower(trim(s.kasir))=lower(trim(t.kasir)) order by 6 desc";
+                tipe = new String[]{"text","num","num","num","num","num","num","num","num"};
+                kolom.add(new Kolom("Kasir","text")); kolom.add(new Kolom("Jml Transaksi","num"));
+                kolom.add(new Kolom("Modal Awal","num")); kolom.add(new Kolom("Tunai","num"));
+                kolom.add(new Kolom("Non Tunai","num")); kolom.add(new Kolom("Total Transaksi","num"));
+                kolom.add(new Kolom("Kas Seharusnya","num")); kolom.add(new Kolom("Kas Closing","num"));
+                kolom.add(new Kolom("Selisih","num"));
+
             } else if ("pos_per_akun_bank".equals(r)) { tokoIdCol = "h.toko";
                 judul = "Penerimaan Penjualan Per Metode / Akun Bank";
                 StringBuilder w = new StringBuilder(" where 1=1 ");

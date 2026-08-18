@@ -86,6 +86,34 @@ public class BantuanHelper {
 	}
 
 	/**
+	 * Tampilkan tanya jawab kontekstual untuk halaman aktif. Materi khusus halaman
+	 * ditempatkan sebagai jawaban pertama, kemudian dilengkapi FAQ operasional umum
+	 * yang panjangnya minimal 2.000 kata dan dapat dipakai tanpa pengetahuan teknis.
+	 */
+	public static void tampilkanTanyaJawabDariResource(Component self, String key, String judul) {
+		String khusus = muatKontenFile(key);
+		if (khusus == null || khusus.trim().isEmpty()) {
+			khusus = bangunOtomatis(self);
+		}
+		// FAQ khusus per halaman (<key>_qa.html); bila belum ada, pakai FAQ umum bersama.
+		String faq = key == null ? null : muatKontenFile(key.trim() + "_qa");
+		if (faq == null || faq.trim().isEmpty()) {
+			faq = muatKontenFile("_qa_umum");
+		}
+		if (faq == null) {
+			faq = "";
+		}
+		String html = "<details open style='border:1px solid #bbf7d0;border-radius:10px;padding:0 14px;margin-bottom:10px;'>"
+				+ "<summary style='cursor:pointer;color:#166534;font-weight:700;padding:12px 0;'>"
+				+ "Apa fungsi dan petunjuk khusus halaman ini?</summary><div style='padding-bottom:12px;'>"
+				+ khusus + "</div></details>" + faq;
+		// Buka dengan KEY FAQ (<key>_qa) agar tombol Ubah/Share/Terjemah tersedia seperti pada
+		// panduan biasa — sehingga FAQ juga dapat disunting dan diterjemahkan ke 4 bahasa.
+		String keyFaq = key == null || key.trim().isEmpty() ? null : key.trim() + "_qa";
+		tampilkan(self, judul == null || judul.trim().isEmpty() ? "Tanya Jawab" : judul, html, keyFaq);
+	}
+
+	/**
 	 * Tampilkan panduan dengan konten HTML yang sudah disiapkan.
 	 *
 	 * @param self        komponen pemicu untuk konteks halaman; boleh null
@@ -130,9 +158,22 @@ public class BantuanHelper {
 			Toolbar toolbar = new Toolbar();
 			toolbar.setStyle("flex:0 0 auto;background:#eef2f7;border-bottom:1px solid #d7dee8;");
 			toolbar.setParent(box);
-
 			final String judulCetak = judul == null || judul.trim().isEmpty() ? "Bantuan" : judul;
 			final String isiCetak = htmlKonten == null ? "" : htmlKonten;
+
+			if (key != null && !key.trim().isEmpty() && !key.trim().endsWith("_qa")) {
+				final String qaKey = key;
+				MyToolbarbuttonConfig qa = new MyToolbarbuttonConfig("Tanya Jawab", "/img/svg/info.svg");
+				qa.setTooltiptext("Buka tanya jawab lengkap sesuai halaman ini");
+				qa.addEventListener("onClick", new EventListener() {
+					@Override
+					public void onEvent(Event event) throws Exception {
+						tampilkanTanyaJawabDariResource(self, qaKey, "Tanya Jawab — " + judulCetak);
+					}
+				});
+				qa.setParent(toolbar);
+			}
+
 			MyToolbarbuttonConfig cetak = new MyToolbarbuttonConfig("Cetak", "/img/svg/printer.svg");
 			cetak.setTooltiptext("Cetak panduan ini");
 			cetak.addEventListener("onClick", new EventListener() {
@@ -1412,6 +1453,7 @@ public class BantuanHelper {
 								continue;
 							}
 							String key = nama.substring(0, nama.length() - 5).toLowerCase();
+								if (key.startsWith("_") || key.endsWith("_qa")) { continue; }
 							if (map.containsKey(key)) {
 								continue;
 							}

@@ -399,9 +399,7 @@ public class LaporanDaftarPrestasiBelajarWindow extends MyWindow {
 							.add(semesterAbsensi.getSelectedItem() == null
 									|| semesterAbsensi.getSelectedItem().getValue() == null
 											? Restrictions.sqlRestriction("1=1")
-											: Restrictions.sqlRestriction(
-													"this_.semester % 2 = " + (semesterAbsensi.getSelectedItem()
-															.getValue().equals(Perkuliahan.GANJIL) ? "1" : "0")))
+											: Restrictions.eq("ganjilGenap", semesterAbsensi.getSelectedItem().getValue()))
 
 							.add(searchsemester.getSelectedItem() == null
 									|| searchsemester.getSelectedItem().getValue() == null

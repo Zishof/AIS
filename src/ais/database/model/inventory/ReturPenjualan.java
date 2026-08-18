@@ -54,6 +54,8 @@ public class ReturPenjualan extends GeneralValueObject {
 	private Toko toko;
 
 	private Long pembelianAnggotaKoperasiId;
+	/** ID baris koperasi.pembelian yang benar-benar dikembalikan. */
+	private Long pembelianId;
 	private String kodeTransaksiAsal;
 	private AnggotaKoperasi anggotaKoperasi;
 	private String namaPembeli;
@@ -115,6 +117,15 @@ public class ReturPenjualan extends GeneralValueObject {
 
 	public void setPembelianAnggotaKoperasiId(Long pembelianAnggotaKoperasiId) {
 		this.pembelianAnggotaKoperasiId = pembelianAnggotaKoperasiId;
+	}
+
+	@Column(name = "pembelian_id", nullable = true)
+	public Long getPembelianId() {
+		return pembelianId;
+	}
+
+	public void setPembelianId(Long pembelianId) {
+		this.pembelianId = pembelianId;
 	}
 
 	public String getKodeTransaksiAsal() {
