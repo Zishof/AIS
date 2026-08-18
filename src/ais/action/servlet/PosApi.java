@@ -2473,6 +2473,16 @@ public class PosApi extends HttpServlet {
 		String periodeTren = payload.optString("periodeTren", "harian");
 		String tglMulai = payload.optString("tglMulai", "");
 		String tglSampai = payload.optString("tglSampai", "");
+		// Tanggal Acuan: SELURUH kartu KPI dihitung SAMPAI tanggal ini (bukan
+		// selalu CURRENT_DATE) -- sebelumnya param ini diabaikan sehingga mundur
+		// ke kemarin menampilkan omzet 0 (kartu berlabel acuan, angka hari ini).
+		// Divalidasi regex ketat lalu disisipkan sbg literal DATE agar urutan
+		// binding param toko yang sudah ada tidak berubah.
+		String tanggalAcuan = payload.optString("tanggalAcuan", "").trim();
+		if (!tanggalAcuan.matches("\\d{4}-\\d{2}-\\d{2}")) {
+			tanggalAcuan = new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date());
+		}
+		String acuanSql = "DATE '" + tanggalAcuan + "'";
 		String cariPembeli = payload.optString("cariPembeli", "").trim();
 		String kodeTransaksi = payload.optString("kodeTransaksi", "").trim();
 		if (kodeTransaksi.length() == 0) kodeTransaksi = payload.optString("kode", "").trim();
@@ -2493,16 +2503,23 @@ public class PosApi extends HttpServlet {
 					+ "COALESCE(MAX(h.total_biaya),SUM(a.total)) total_nota FROM koperasi.pembelian a "
 					+ "LEFT JOIN koperasi.pembelian_anggota_koperasi h ON h.id=a.pembelian_anggota_koperasi "
 					+ "WHERE COALESCE(a.aktif,true)=true" + (semuaToko ? "" : " AND a.toko=?") + " GROUP BY 1";
+			// Semua jendela dihitung SAMPAI tanggal acuan (hari = acuan itu sendiri;
+			// minggu/bulan = awal periode acuan s.d. acuan; 6 bulan = acuan-6bln s.d.
+			// acuan) -- selaras teks UI "dihitung sampai tanggal ini".
+			String hariAcuan = "DATE(waktu)=" + acuanSql;
+			String mingguAcuan = "DATE(waktu)>=DATE_TRUNC('week'," + acuanSql + ") AND DATE(waktu)<=" + acuanSql;
+			String bulanAcuan = "DATE(waktu)>=DATE_TRUNC('month'," + acuanSql + ") AND DATE(waktu)<=" + acuanSql;
+			String semesterAcuan = "waktu>=" + acuanSql + "-INTERVAL '6 months' AND DATE(waktu)<=" + acuanSql;
 			java.sql.PreparedStatement psKpi = conn.prepareStatement(
 					"SELECT "
-							+ "COALESCE(SUM(CASE WHEN DATE(waktu)=CURRENT_DATE THEN total_nota ELSE 0 END),0), "
-							+ "COALESCE(SUM(CASE WHEN DATE(waktu)=CURRENT_DATE THEN 1 ELSE 0 END),0), "
-							+ "COALESCE(SUM(CASE WHEN DATE(waktu)>=DATE_TRUNC('week',CURRENT_DATE) THEN total_nota ELSE 0 END),0), "
-							+ "COALESCE(SUM(CASE WHEN DATE(waktu)>=DATE_TRUNC('week',CURRENT_DATE) THEN 1 ELSE 0 END),0), "
-							+ "COALESCE(SUM(CASE WHEN DATE(waktu)>=DATE_TRUNC('month',CURRENT_DATE) THEN total_nota ELSE 0 END),0), "
-							+ "COALESCE(SUM(CASE WHEN DATE(waktu)>=DATE_TRUNC('month',CURRENT_DATE) THEN 1 ELSE 0 END),0), "
-							+ "COALESCE(SUM(CASE WHEN waktu>=NOW()-INTERVAL '6 months' THEN total_nota ELSE 0 END),0), "
-							+ "COALESCE(SUM(CASE WHEN waktu>=NOW()-INTERVAL '6 months' THEN 1 ELSE 0 END),0) "
+							+ "COALESCE(SUM(CASE WHEN " + hariAcuan + " THEN total_nota ELSE 0 END),0), "
+							+ "COALESCE(SUM(CASE WHEN " + hariAcuan + " THEN 1 ELSE 0 END),0), "
+							+ "COALESCE(SUM(CASE WHEN " + mingguAcuan + " THEN total_nota ELSE 0 END),0), "
+							+ "COALESCE(SUM(CASE WHEN " + mingguAcuan + " THEN 1 ELSE 0 END),0), "
+							+ "COALESCE(SUM(CASE WHEN " + bulanAcuan + " THEN total_nota ELSE 0 END),0), "
+							+ "COALESCE(SUM(CASE WHEN " + bulanAcuan + " THEN 1 ELSE 0 END),0), "
+							+ "COALESCE(SUM(CASE WHEN " + semesterAcuan + " THEN total_nota ELSE 0 END),0), "
+							+ "COALESCE(SUM(CASE WHEN " + semesterAcuan + " THEN 1 ELSE 0 END),0) "
 							+ "FROM (" + subKpi + ") trx");
 			if (!semuaToko) psKpi.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsKpi = psKpi.executeQuery();
@@ -2515,6 +2532,40 @@ public class PosApi extends HttpServlet {
 			}
 			rsKpi.close();
 			psKpi.close();
+
+			// ---- Rekap 7 hari terakhir s.d. tanggal acuan ----
+			// Klien (tab_umum "Rekap 7 Hari Terakhir") merender field rekap7Hari:
+			// [{tanggal:'yyyy-MM-dd', trx, rp, tanggalAcuan:bool}] -- SEMUA 7 hari
+			// dikirim (hari tanpa transaksi = 0) supaya grid-nya utuh.
+			java.sql.PreparedStatement psRekap = conn.prepareStatement(
+					"SELECT TO_CHAR(DATE(waktu),'YYYY-MM-DD'),COUNT(*),COALESCE(SUM(total_nota),0) "
+							+ "FROM (" + subKpi + ") r WHERE DATE(waktu)>" + acuanSql + "-INTERVAL '7 days'"
+							+ " AND DATE(waktu)<=" + acuanSql + " GROUP BY 1");
+			if (!semuaToko) psRekap.setLong(1, tokoId.longValue());
+			java.sql.ResultSet rsRekap = psRekap.executeQuery();
+			java.util.Map<String, double[]> rekapPerTanggal = new java.util.HashMap<String, double[]>();
+			while (rsRekap.next()) {
+				rekapPerTanggal.put(rsRekap.getString(1),
+						new double[] { rsRekap.getLong(2), rsRekap.getDouble(3) });
+			}
+			rsRekap.close();
+			psRekap.close();
+			JSONArray rekap7Hari = new JSONArray();
+			java.text.SimpleDateFormat fmtRekap = new java.text.SimpleDateFormat("yyyy-MM-dd");
+			java.util.Calendar kalRekap = java.util.Calendar.getInstance();
+			kalRekap.setTime(fmtRekap.parse(tanggalAcuan));
+			kalRekap.add(java.util.Calendar.DAY_OF_MONTH, -6);
+			for (int i = 0; i < 7; i++) {
+				String tgl = fmtRekap.format(kalRekap.getTime());
+				double[] nilai = rekapPerTanggal.get(tgl);
+				JSONObject baris = new JSONObject();
+				baris.put("tanggal", tgl);
+				baris.put("trx", nilai == null ? 0 : (long) nilai[0]);
+				baris.put("rp", nilai == null ? 0.0 : nilai[1]);
+				baris.put("tanggalAcuan", tgl.equals(tanggalAcuan));
+				rekap7Hari.put(baris);
+				kalRekap.add(java.util.Calendar.DAY_OF_MONTH, 1);
+			}
 
 			// ---- Tren transaksi (harian/mingguan/bulanan) ----
 			String intervalSql, groupSql, labelFmt;
@@ -2622,7 +2673,10 @@ public class PosApi extends HttpServlet {
 				if (tglMulai.length() > 0) { whereChart.append(" AND DATE(p.waktu) >= ?"); paramsChart.add(tglMulai); }
 				if (tglSampai.length() > 0) { whereChart.append(" AND DATE(p.waktu) <= ?"); paramsChart.add(tglSampai); }
 			} else {
-				whereChart.append(" AND p.waktu >= NOW() - INTERVAL '30 days'");
+				// Default 30 hari mengikuti TANGGAL ACUAN (bukan selalu hari ini) --
+				// selaras kartu KPI; mundur acuan = seluruh rekap detail ikut mundur.
+				whereChart.append(" AND DATE(p.waktu) > " + acuanSql + " - INTERVAL '30 days'"
+						+ " AND DATE(p.waktu) <= " + acuanSql);
 			}
 			String kondisiChart = whereChart.toString();
 
@@ -2755,6 +2809,8 @@ public class PosApi extends HttpServlet {
 			hasil.put("status", "success");
 			hasil.put("semuaToko", semuaToko);
 			hasil.put("kpi", kpi);
+			hasil.put("tanggalAcuan", tanggalAcuan);
+			hasil.put("rekap7Hari", rekap7Hari);
 			hasil.put("tren", tren);
 			hasil.put("metodeBayar", metodeBayar);
 			hasil.put("omzetKategori", omzetKategori);
