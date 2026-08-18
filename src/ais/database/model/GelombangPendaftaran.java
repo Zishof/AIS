@@ -108,16 +108,28 @@ public class GelombangPendaftaran extends GeneralValueObject {
 			return cached;
 		}
 
+		// Muat HANYA id paket (ringan), lalu resolve objeknya via ConstantValues.ambil --
+		// mengembalikan instance KANONIK dari cache identitas aplikasi (bukan entitas detached
+		// hasil openSession), aman disimpan di cache JVM & di-assign ke field entity lain.
 		List<Paket> hasil = new ArrayList<Paket>();
 		org.hibernate.Session sessionD = null;
 		try {
 			sessionD = ais.database.hibernate.HibernateUtil.getSessionFactory().openSession();
-			List<?> list = sessionD.createQuery(
-					"select p.paket from PaketPunyaGelombangPendaftaran p where p.gelombangPendaftaran.id = :gid")
+			List<?> ids = sessionD.createQuery(
+					"select p.paket.id from PaketPunyaGelombangPendaftaran p where p.gelombangPendaftaran.id = :gid")
 					.setParameter("gid", gelombangId).list();
-			for (Object o : list) {
-				if (o instanceof Paket) {
-					hasil.add((Paket) o);
+			for (Object o : ids) {
+				if (!(o instanceof Number)) {
+					continue;
+				}
+				Long idPaket = Long.valueOf(((Number) o).longValue());
+				Paket paket = (Paket) ais.common.ConstantValues.ambil(Paket.class.getName(), idPaket);
+				if (paket == null) {
+					// Belum ada di cache identitas -> muat langsung dari session dedikasi ini.
+					paket = (Paket) sessionD.get(Paket.class, idPaket);
+				}
+				if (paket != null) {
+					hasil.add(paket);
 				}
 			}
 		} catch (Exception e) {
