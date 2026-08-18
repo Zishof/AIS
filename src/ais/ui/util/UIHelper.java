@@ -193,8 +193,9 @@ public class UIHelper {
      * <ol>
      *   <li>Toolbarbutton anak langsung dari Hbox ais-row-actions (bukan trigger)
      *       — contoh: {@code button.setParent(hbx)} setelah {@code copyEditDeleteButtons}</li>
-     *   <li>Hbox non-kebab berisi Toolbarbutton — konversi ke kebab atau gabungkan</li>
-     *   <li>Toolbarbutton anak langsung dari Row (standalone) — gabungkan ke kebab</li>
+     *   <li>Sel trailing (paling belakang baris) yang murni tombol —
+     *       konversi/serap ke kebab; sel campuran atau di tengah baris
+     *       TIDAK disentuh agar konten dan keselarasan kolom aman</li>
      * </ol>
      */
     public static void absorptionKebab(Row row) {
@@ -249,89 +250,98 @@ public class UIHelper {
             }
         }
 
-        // ── Fase 3: kumpulkan Hbox non-kebab dan standalone Toolbarbutton ────
-        List<Hbox> orphanHboxes = new ArrayList<Hbox>();
-        List<Toolbarbutton> orphanBtns = new ArrayList<Toolbarbutton>();
-
+        // ── Fase 3: kumpulkan "trailing run" — sel paling belakang baris yang
+        //    murni berisi tombol. HANYA sel trailing yang boleh diserap:
+        //    • mencabut sel di tengah baris menggeser keselarasan kolom;
+        //    • Hbox campuran (Label + tombol) adalah konten sel fungsional,
+        //      BUKAN toolbar aksi — jangan pernah disentuh.
+        //    Sel kebab (atau Vbox pembungkusnya) ikut dilewati dalam run.
         rowKids = new ArrayList<Object>(row.getChildren());
-        for (Object child : rowKids) {
-            if (child == kebabHbox) continue;
+        List<Component> trailingRun = new ArrayList<Component>();
+        for (int i = rowKids.size() - 1; i >= 0; i--) {
+            Object child = rowKids.get(i);
+            if (isKebabContainer(child, kebabHbox)) continue; // batas aman, lanjut mundur
             if (child instanceof Toolbarbutton) {
-                orphanBtns.add((Toolbarbutton) child);
-            } else if (child instanceof Hbox) {
-                Hbox hbox = (Hbox) child;
-                String sc = hbox.getSclass() == null ? "" : hbox.getSclass();
-                if (sc.contains("ais-row-actions")) continue;
-                for (Object k : hbox.getChildren()) {
-                    if (k instanceof Toolbarbutton) {
-                        orphanHboxes.add(hbox);
-                        break;
-                    }
-                }
+                trailingRun.add(0, (Toolbarbutton) child);
+            } else if (child instanceof Hbox && isAllButtonHbox((Hbox) child)) {
+                trailingRun.add(0, (Hbox) child);
+            } else {
+                break; // sel non-aksi → stop; sel sebelum ini tidak disentuh
             }
         }
 
-        if (kebabHbox == null && orphanHboxes.isEmpty() && orphanBtns.isEmpty()) return;
+        if (kebabHbox == null && trailingRun.isEmpty()) return;
 
-        // ── Fase 4: jika belum ada kebab, konversi Hbox pertama yang
-        //           semua anaknya Toolbarbutton ──────────────────────────────
-        if (kebabHbox == null && !orphanHboxes.isEmpty()) {
-            for (int i = 0; i < orphanHboxes.size(); i++) {
-                Hbox hbox = orphanHboxes.get(i);
-                List<Object> kids = new ArrayList<Object>(hbox.getChildren());
-                boolean allBtns = !kids.isEmpty();
-                for (Object k : kids) {
-                    if (!(k instanceof Toolbarbutton)) { allBtns = false; break; }
+        // ── Fase 4: belum ada kebab → jadikan elemen PERTAMA trailing run
+        //    sebagai kebab, secara in-place (posisi sel tidak berubah) ─────────
+        if (kebabHbox == null) {
+            Component first = trailingRun.remove(0);
+            if (first instanceof Hbox) {
+                Hbox hbox = (Hbox) first;
+                wrapKebab(hbox);
+                Object attr = hbox.getAttribute("ais_row_actions_popup");
+                if (attr instanceof Div) {
+                    kebabHbox = hbox;
+                    popupContent = (Div) attr;
                 }
-                if (allBtns) {
-                    wrapKebab(hbox);
-                    Object attr = hbox.getAttribute("ais_row_actions_popup");
-                    if (attr instanceof Div) {
-                        kebabHbox = hbox;
-                        popupContent = (Div) attr;
-                        orphanHboxes.remove(i);
-                        break;
-                    }
-                }
-            }
-        }
-
-        // ── Fase 5: masih belum ada kebab → buat dari orphan standalone ──────
-        if (kebabHbox == null && !orphanBtns.isEmpty()) {
-            List<Component> btns = new ArrayList<Component>(orphanBtns);
-            for (Toolbarbutton tb : orphanBtns) tb.detach();
-            orphanBtns.clear();
-            Vbox vbox = buatBarisAksi(row, btns);
-            if (!vbox.getChildren().isEmpty()) {
-                Object first = vbox.getChildren().get(0);
-                if (first instanceof Hbox) {
-                    kebabHbox = (Hbox) first;
-                    Object attr = kebabHbox.getAttribute("ais_row_actions_popup");
-                    if (attr instanceof Div) popupContent = (Div) attr;
+            } else if (first instanceof Toolbarbutton) {
+                // Tombol standalone → sisipkan Hbox kebab tepat di posisinya
+                Hbox hbox = new Hbox();
+                row.insertBefore(hbox, first);
+                first.setParent(hbox);
+                wrapKebab(hbox);
+                Object attr = hbox.getAttribute("ais_row_actions_popup");
+                if (attr instanceof Div) {
+                    kebabHbox = hbox;
+                    popupContent = (Div) attr;
                 }
             }
         }
 
         if (popupContent == null) return;
 
-        // ── Fase 6: gabungkan sisa Hbox orphan ke dalam popup ────────────────
-        for (Hbox hbox : orphanHboxes) {
-            List<Object> kids = new ArrayList<Object>(hbox.getChildren());
-            for (Object k : kids) {
-                if (k instanceof Toolbarbutton) {
-                    addToKebab(popupContent, (Toolbarbutton) k);
+        // ── Fase 5: serap sisa trailing run ke dalam popup ───────────────────
+        for (Component comp : trailingRun) {
+            if (comp instanceof Toolbarbutton) {
+                addToKebab(popupContent, (Toolbarbutton) comp);
+            } else if (comp instanceof Hbox) {
+                Hbox hbox = (Hbox) comp;
+                List<Object> kids = new ArrayList<Object>(hbox.getChildren());
+                for (Object k : kids) {
+                    if (k instanceof Toolbarbutton) {
+                        addToKebab(popupContent, (Toolbarbutton) k);
+                    }
                 }
+                hbox.detach();
             }
-            hbox.detach();
         }
 
-        // ── Fase 7: gabungkan orphan standalone buttons ke dalam popup ────────
-        for (Toolbarbutton tb : orphanBtns) {
-            addToKebab(popupContent, tb);
-        }
-
-        // ── Fase 8: kecilkan kolom Aksi — set lebar Column grid ke 56px ──────
+        // ── Fase 6: kecilkan kolom Aksi — set lebar Column grid ke 56px ──────
         kecilkanKolomAksi(row, kebabHbox);
+    }
+
+    /** True bila child adalah sel kebab itu sendiri atau Vbox pembungkusnya. */
+    private static boolean isKebabContainer(Object child, Hbox kebabHbox) {
+        if (kebabHbox == null) return false;
+        if (child == kebabHbox) return true;
+        if (child instanceof Vbox) {
+            for (Object v : ((Vbox) child).getChildren()) {
+                if (v == kebabHbox) return true;
+            }
+        }
+        return false;
+    }
+
+    /** True bila hbox punya >=1 anak dan SEMUA anaknya Toolbarbutton. */
+    private static boolean isAllButtonHbox(Hbox hbox) {
+        List<Object> kids = new ArrayList<Object>(hbox.getChildren());
+        if (kids.isEmpty()) return false;
+        String sc = hbox.getSclass() == null ? "" : hbox.getSclass();
+        if (sc.contains("ais-row-actions")) return false; // kebab lain, jangan dobel
+        for (Object k : kids) {
+            if (!(k instanceof Toolbarbutton)) return false;
+        }
+        return true;
     }
 
     /**
