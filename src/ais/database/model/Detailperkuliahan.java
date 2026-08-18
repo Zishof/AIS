@@ -1106,6 +1106,9 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 					Long kunciFormat = formatIdSource.getStatusPertemuan() != null
 							? formatIdSource.getStatusPertemuan().getId() : formatIdSource.getId();
 					if (kunciFormat.equals(formatId)) {
+						if (s.length <= 4 || s[4] == null) {
+							continue;
+						}
 						return Boolean.parseBoolean(s[4]);
 					}
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Detailperkuliahan.java:858");
@@ -1131,7 +1134,10 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 					}
 					Long formatId = Long.parseLong(s[0]);
 					if (formatIdSource.getId().equals(formatId)) {
-						return Double.parseDouble(s[1]);
+						if (s.length <= 1 || s[1] == null || !Common.isNumber(s[1].trim())) {
+							continue;
+						}
+						return Double.parseDouble(s[1].trim());
 					}
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Detailperkuliahan.java:878");
 

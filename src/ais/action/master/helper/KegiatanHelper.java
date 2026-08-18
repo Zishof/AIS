@@ -696,6 +696,23 @@ public class KegiatanHelper {
 							jenisKegiatan, session, kegiatan, rst, hitungUlang, null);
 					kegiatan.setAmountTerhutang(totalTagihan);
 
+					// FIX "Illegal attempt to associate a collection with two open sessions":
+					// dataTagihanCalonMahasiswa() bisa menutup LALU membuka ulang native session
+					// ThreadLocal secara internal (helper bersarang di dalamnya, mis.
+					// PembayaranUtilHelper.getDetailBiayaCalonMahasiswa/countBulanan, kadang menutup
+					// currentNativeSession() sebelum selesai) -- reassignment `session` di dalam method
+					// itu HANYA lokal (Java pass-by-value), jadi variabel `session` DI SINI tetap
+					// menunjuk sesi LAMA yang sudah tertutup, padahal koleksi kegiatan
+					// (kegiatan.ambilDetailKegiatan()/DetailKegiatan) yang disentuh di dalam
+					// dataTagihanCalonMahasiswa sudah terikat ke sesi BARU. Kalau updateEntitySafe di
+					// bawah lalu membuka sesi KETIGA (openIsolatedSession, karena `session` lokal ini
+					// closed), entity & koleksinya jadi "dimiliki" dua sesi terbuka sekaligus ->
+					// HibernateException dari WrapVisitor. Samakan `session` dengan sesi yang benar-benar
+					// aktif sekarang sebelum dipakai lagi -- no-op bila `session` masih usable (mis.
+					// konteks ZK yang mengoper currentSession()), fallback ke currentNativeSession() bila
+					// sudah closed (konteks JSP/native thread yang ditutup nested helper di atas).
+					session = HibernateUtil.ensureOpenSession(session);
+
 					updateEntitySafe(session, kegiatan);
 				} catch (Exception e) {
 					// FIX (23505 kegiatan_kodeunik_key): kodeunik dihasilkan deterministik dari
@@ -778,6 +795,14 @@ public class KegiatanHelper {
 					Double totalTagihan = dataTagihanCalonMahasiswa(biodataCalonMahasiswa, kegiatan.getSemster(),
 							jenisKegiatan, session, kegiatan, rst, hitungUlang, cicilanPembayarans);
 					kegiatan.setAmountTerhutang(totalTagihan - amountTotal);
+
+					// FIX "Illegal attempt to associate a collection with two open sessions": lihat
+					// catatan sama di cabang (kegiatan==null) di atas -- dataTagihanCalonMahasiswa() bisa
+					// mengganti native session ThreadLocal secara internal; sinkronkan kembali `session`
+					// lokal di sini (no-op bila masih usable) sebelum dipakai lagi di bawah
+					// (updateEntitySafe(session, kegiatan)), supaya tidak berujung entity yang koleksinya
+					// sudah terikat sesi lain diserahkan ke sesi ketiga yang berbeda lagi.
+					session = HibernateUtil.ensureOpenSession(session);
 
 					// KE-17/18: cegah FK violation "kegiatan.mahasiswa not present". Bila FK mahasiswa menunjuk
 					// baris yang sudah tidak ada (calon yang mahasiswanya stale/dihapus), null-kan agar update tak
