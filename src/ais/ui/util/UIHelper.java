@@ -153,7 +153,7 @@ public class UIHelper {
         for (int i = existing.size() - 1; i >= 0; i--) {
             Component c = existing.get(i);
             if (c instanceof Toolbarbutton) {
-                String sc = c.getSclass() == null ? "" : c.getSclass();
+                String sc = ((Toolbarbutton) c).getSclass() == null ? "" : ((Toolbarbutton) c).getSclass();
                 if (sc.contains("danger") || sc.contains("delete")) prevGroup = "danger";
                 else if (sc.contains("kunci")) prevGroup = "kunci";
                 else prevGroup = "normal";
@@ -214,6 +214,23 @@ public class UIHelper {
                         break;
                     }
                 }
+            } else if (child instanceof Vbox) {
+                // buatBarisAksi wraps Hbox in a Vbox — cek satu level dalam
+                for (Object vChild : ((Vbox) child).getChildren()) {
+                    if (vChild instanceof Hbox) {
+                        Hbox hbox = (Hbox) vChild;
+                        String sc = hbox.getSclass() == null ? "" : hbox.getSclass();
+                        if (sc.contains("ais-row-actions")) {
+                            Object attr = hbox.getAttribute("ais_row_actions_popup");
+                            if (attr instanceof Div) {
+                                kebabHbox = hbox;
+                                popupContent = (Div) attr;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (kebabHbox != null) break;
             }
         }
 
