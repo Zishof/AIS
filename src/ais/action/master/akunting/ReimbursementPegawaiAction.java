@@ -1131,8 +1131,9 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer
 		g.setParent(itemBox);
 		Columns columns = new Columns();
 		columns.setParent(g);
-		String[] judul = new String[] { "Uraian Biaya/Barang", "Jenis Pengeluaran", "Tanggal", "Qty", "Harga", "Jumlah", "" };
-		String[] lebar = new String[] { "24%", "22%", "13%", "8%", "14%", "14%", "5%" };
+		String[] judul = new String[] { "Uraian Biaya/Barang", "Jenis Pengeluaran", "Barang/Asset (opsional)",
+				"Tanggal", "Qty", "Harga", "Jumlah", "" };
+		String[] lebar = new String[] { "19%", "17%", "15%", "10%", "6%", "13%", "14%", "6%" };
 		for (int i = 0; i < judul.length; i++) {
 			MyColumnConfig col = new MyColumnConfig();
 			col.setLabel(judul[i]);
@@ -1191,6 +1192,37 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer
 			}
 			jpCombo.setDisabled(!editable);
 			jpCombo.setParent(r);
+
+			// Barang/Asset OPSIONAL: isi hanya bila baris ini berupa BARANG yang akan
+			// diterima lewat BAST (PenerimaanPengadaanMasterAsset) setelah disetujui —
+			// baris tanpa mapping tetap sah sebagai biaya murni.
+			final ais.action.master.asset.helper.AmbilDataMasterAssetBanbox barangB =
+					new ais.action.master.asset.helper.AmbilDataMasterAssetBanbox(null);
+			barangB.setWidth("95%");
+			long barangId = o.optLong("masterAsset", 0);
+			if (barangId > 0) {
+				try {
+					ais.database.model.asset.MasterAsset ma = (ais.database.model.asset.MasterAsset) HibernateUtil
+							.currentSession().get(ais.database.model.asset.MasterAsset.class, Long.valueOf(barangId));
+					if (ma != null) {
+						barangB.setAttribute("masterAsset", ma);
+						barangB.setValue(ma.toString());
+					}
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ReimbursementPegawaiAction.reloadItems-barang");
+				}
+			}
+			barangB.setDisabled(!editable);
+			barangB.setParent(r);
+			barangB.setEventListener(new EventListener() {
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					Object ma = barangB.getAttribute("masterAsset");
+					if (ma instanceof ais.database.model.asset.MasterAsset) {
+						o.put("masterAsset", ((ais.database.model.asset.MasterAsset) ma).getId().longValue());
+					}
+				}
+			});
 
 			final MyDatebox tgl = new MyDatebox();
 			tgl.setFormat("dd/MM/yyyy");
@@ -1418,7 +1450,14 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer
 		}
 		session.flush();
 
-		// DPC: bila (sudah) DISETUJUI oleh alur SOP, masukkan ke daftar transfer
+		// DPC: bila (sudah) DISETUJUI oleh alur SOP, masukkan ke daftar transfer.
+		// DITUNDA 3,5 detik: timer mesin SOP (KunciEntityHelper FOR UPDATE NOWAIT pada
+		// disposisi_sop + update dokumen ini) berjalan tepat setelah onSave — bila
+		// simpanReimbursement jalan BERSAMAAN, kedua transaksi saling menunggu baris
+		// yang sama -> popup "data disposisi sedang diproses pengguna lain". Jeda ini
+		// membiarkan update mesin SOP selesai dulu (sekaligus mencegah FK
+		// daftar_pengajuan_transfer tertimpa update detached engine). Bila tetap
+		// terlewat, safety-net di renderer akan membuatkan baris DPC saat daftar dirender.
 		final ReimbursementPegawai fin = reimbursement;
 		Common.createDefaultTimer(new EventListener() {
 			@Override
@@ -1427,7 +1466,7 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer
 					DaftarPengajuanTransfer.simpanReimbursement(fin);
 				}
 			}
-		});
+		}, "", false, 3500);
 
 		return true;
 	}

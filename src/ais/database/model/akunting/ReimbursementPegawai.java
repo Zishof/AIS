@@ -86,6 +86,7 @@ public class ReimbursementPegawai extends DataSop {
     // --- SOP + DPC ---
     private DisposisiSop disposisiSop;
     private DaftarPengajuanTransfer daftarPengajuanTransfer;
+    private ais.database.model.asset.PenerimaanPengadaanMasterAsset penerimaanPengadaanMasterAsset;
     private Tbmuser disetujuiOleh;
     private Date tanggalPersetujuan;
 
@@ -303,6 +304,9 @@ public class ReimbursementPegawai extends DataSop {
     public void setTanpaAnggaran(Boolean tanpaAnggaran) { this.tanpaAnggaran = tanpaAnggaran; }
 
     /** Jenis reimbursement yang dipilih pengaju (menentukan wajib-anggaran vs akun tetap). */
+    // targetAuditMode NOT_AUDITED WAJIB: JenisReimbursement tidak @Audited, sedangkan
+    // entitas ini @Audited -- tanpa ini Envers menolak boot ("could not init listeners").
+    @Audited(targetAuditMode = org.hibernate.envers.RelationTargetAuditMode.NOT_AUDITED)
     @ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
     @JoinColumn(name = "jenis_reimbursement", nullable = true)
     public JenisReimbursement getJenisReimbursement() { jenisReimbursement = check(jenisReimbursement); return jenisReimbursement; }
@@ -434,6 +438,18 @@ public class ReimbursementPegawai extends DataSop {
     public DaftarPengajuanTransfer getDaftarPengajuanTransfer() { return daftarPengajuanTransfer; }
     public void setDaftarPengajuanTransfer(DaftarPengajuanTransfer daftarPengajuanTransfer) {
         this.daftarPengajuanTransfer = daftarPengajuanTransfer;
+    }
+
+    /** BAST penerimaan barang untuk reimbursement ini (klon pola UangMuka) — terisi saat barang diterima. */
+    @ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
+    @Fetch(FetchMode.SELECT)
+    @JoinColumn(name = "penerimaan_pengadaan_master_asset", nullable = true)
+    public ais.database.model.asset.PenerimaanPengadaanMasterAsset getPenerimaanPengadaanMasterAsset() {
+        return penerimaanPengadaanMasterAsset;
+    }
+    public void setPenerimaanPengadaanMasterAsset(
+            ais.database.model.asset.PenerimaanPengadaanMasterAsset penerimaanPengadaanMasterAsset) {
+        this.penerimaanPengadaanMasterAsset = penerimaanPengadaanMasterAsset;
     }
 
     @Temporal(TemporalType.TIMESTAMP)

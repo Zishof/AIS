@@ -1502,6 +1502,97 @@ public class PenerimaanPengadaanMasterAssetAction extends GenericAutowireCompose
 	 * hanya saat save pertama, bukan saat update, agar nomor urut tidak boros.
 	 */
 	@SuppressWarnings("unchecked")
+	/**
+	 * Bangun baris detail BAST dari rincian item REIMBURSEMENT (formula JSON) —
+	 * klon pola cabang UangMuka pada {@link #generateDetail}: hanya baris item yang
+	 * DIPETAKAN ke Barang (key "masterAsset" pada JSON) yang menjadi baris BAST;
+	 * baris biaya murni (tanpa barang) dilewati. Untuk BAST tersimpan (id != null),
+	 * baris yang sudah ada dirender ulang tanpa membuat duplikat.
+	 */
+	public void generateDetailReimbursement(ais.database.model.akunting.ReimbursementPegawai reimb) {
+		if (reimb == null || gridMasterAsset == null) {
+			return;
+		}
+		Session session = HibernateUtil.currentSession();
+
+		try {
+			penerimaanPengadaanMasterAssetHelper.columnsData(null, persetujuan);
+		} catch (Exception e) {
+			ais.common.Common.tampilErrorJikaAdmin(e);
+		}
+
+		Rows rows = gridMasterAsset.getRows() == null ? new Rows() : gridMasterAsset.getRows();
+		rows.setParent(gridMasterAsset);
+		Common.clear(rows);
+
+		// BAST sudah tersimpan: render baris yang ada saja (idempoten, tanpa duplikat).
+		if (penerimaanPengadaanMasterAsset.getId() != null) {
+			List<PenerimaanPengadaanMasterAssetDetail> details = session
+					.createCriteria(PenerimaanPengadaanMasterAssetDetail.class)
+					.add(Restrictions.eq("penerimaanPengadaanMasterAsset", penerimaanPengadaanMasterAsset)).list();
+			for (PenerimaanPengadaanMasterAssetDetail detail : details) {
+				try {
+					MyFormRow row = new MyFormRow();
+					row.setValign("top");
+					row.setParent(rows);
+					penerimaanPengadaanMasterAssetHelper.initRow(row, detail);
+				} catch (Exception e) {
+					ais.common.Common.tampilErrorJikaAdmin(e);
+				}
+			}
+			return;
+		}
+
+		int dibuat = 0;
+		try {
+			JSONArray array = new JSONArray(reimb.getFormula() == null || reimb.getFormula().trim().isEmpty() ? "[]"
+					: reimb.getFormula());
+			for (int i = 0; i < array.length(); i++) {
+				JSONObject o = array.optJSONObject(i);
+				if (o == null || o.length() == 0) {
+					continue;
+				}
+				long masterAssetId = o.optLong("masterAsset", 0);
+				if (masterAssetId <= 0) {
+					continue; // baris biaya murni — bukan barang
+				}
+				ais.database.model.asset.MasterAsset masterAsset = (ais.database.model.asset.MasterAsset) session
+						.get(ais.database.model.asset.MasterAsset.class, Long.valueOf(masterAssetId));
+				if (masterAsset == null) {
+					continue;
+				}
+
+				PenerimaanPengadaanMasterAssetDetail detail = new PenerimaanPengadaanMasterAssetDetail();
+				detail.setMasterAsset(masterAsset);
+				double qty = o.optDouble("qty", 1.0);
+				detail.setJumlah(Double.valueOf(qty));
+				detail.setDiterima(Double.valueOf(qty));
+				detail.setHargaBeli(Double.valueOf(o.optDouble("harga", 0.0)));
+				detail.setKeterangan(o.optString("nama", "") + " (Reimbursement " + reimb.getKode() + ")");
+
+				MyFormRow row = new MyFormRow();
+				row.setValign("top");
+				row.setParent(rows);
+				penerimaanPengadaanMasterAssetHelper.initRow(row, detail);
+				dibuat++;
+			}
+		} catch (Exception e) {
+			ais.common.Common.tampilErrorJikaAdmin(e);
+		}
+
+		if (dibuat == 0) {
+			try {
+				MyMessageboxConfig.show(
+						"Tidak ada baris rincian reimbursement yang dipetakan ke Barang (Master Asset). "
+								+ "Langkah yang dapat dilakukan: (1) buka pengajuan reimbursement lalu pilih Barang (Asset) pada baris item yang berupa barang; "
+								+ "(2) atau tambahkan baris barang secara manual dengan mencentang 'Tanpa Pemesanan'.",
+						"Informasi", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION);
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) generateDetailReimbursement-info");
+			}
+		}
+	}
+
 	public boolean onSave(Event event) throws Exception {
 
 		if (workspace.getAttribute("workspace") == null && !tanpaAnggaran.isChecked() && tampaPemesanan.isChecked()) {
@@ -1523,11 +1614,13 @@ public class PenerimaanPengadaanMasterAssetAction extends GenericAutowireCompose
 		}
 
 		UangMuka uangMukaD = (UangMuka) uangMuka.getAttribute("uangMuka");
+		ais.database.model.akunting.ReimbursementPegawai reimbursementD = (ais.database.model.akunting.ReimbursementPegawai) reimbursement
+				.getAttribute("reimbursementPegawai");
 		PemesananPengadaanMasterAsset mypemesananPengadaanMasterAsset = (PemesananPengadaanMasterAsset) pemesananPengadaanMasterAsset
 				.getAttribute("pemesananPengadaanMasterAsset");
 
 		if (!tampaPemesanan.isChecked()) {
-			if (mypemesananPengadaanMasterAsset == null && uangMukaD == null) {
+			if (mypemesananPengadaanMasterAsset == null && uangMukaD == null && reimbursementD == null) {
 				MyMessageboxConfig.show("Mohon maaf, Pemesanan Pengadaan (PO) atau Uang Muka (UM) belum dipilih. Langkah yang dapat dilakukan: (1) Pilih nomor PO dari daftar pemesanan yang sudah disetujui; (2) Atau pilih Uang Muka yang relevan jika penerimaan berdasarkan UM; (3) Jika tanpa PO/UM, centang opsi 'Tanpa Pemesanan'. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.", "Peringatan",
 						MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
 				return false;
@@ -1610,6 +1703,7 @@ public class PenerimaanPengadaanMasterAssetAction extends GenericAutowireCompose
 		penerimaanPengadaanMasterAsset.setTanggalPersetujuanManual(tanggalPersetujuanManual.getValue());
 
 		penerimaanPengadaanMasterAsset.setUangMuka(uangMukaD);
+		penerimaanPengadaanMasterAsset.setReimbursementPegawai(reimbursementD);
 
 		if (penerimaanPengadaanMasterAsset.getId() != null) {
 			session.update(penerimaanPengadaanMasterAsset);
@@ -1659,6 +1753,14 @@ public class PenerimaanPengadaanMasterAssetAction extends GenericAutowireCompose
 			session.refresh(uangMukaD);
 			uangMukaD.setPenerimaanPengadaanMasterAsset(penerimaanPengadaanMasterAsset);
 			Common.refreshUpdate(session, uangMukaD);
+		}
+
+		// Tautkan balik reimbursement -> BAST (klon pola uang muka) sehingga
+		// reimbursement yang sudah diterima tidak muncul lagi di picker.
+		if (reimbursementD != null) {
+			session.refresh(reimbursementD);
+			reimbursementD.setPenerimaanPengadaanMasterAsset(penerimaanPengadaanMasterAsset);
+			Common.refreshUpdate(session, reimbursementD);
 		}
 
 		Common.createDefaultTimer(new EventListener() {
@@ -1944,6 +2046,7 @@ public class PenerimaanPengadaanMasterAssetAction extends GenericAutowireCompose
 	private Combobox searchStatusPersetujuan;
 	private MyDatebox tanggalPersetujuanManual;
 	private AmbilDataUangMukaBanbox uangMuka;
+	private ais.action.master.akunting.helper.AmbilDataReimbursementBanbox reimbursement;
 
 	/**
 	 * Membangun objek {@link Criteria} Hibernate untuk query daftar penerimaan pengadaan sesuai filter aktif.
@@ -2273,6 +2376,28 @@ public class PenerimaanPengadaanMasterAssetAction extends GenericAutowireCompose
 			rowUangMuka.appendChild(uangMuka);
 		}
 
+		// BAST dari REIMBURSEMENT pegawai (klon pola uang muka): pilih reimbursement
+		// DISETUJUI yang belum diterima; rincian barang diambil dari baris item
+		// reimbursement yang dipetakan ke Barang (MasterAsset).
+		final MyFormRow rowReimbursement = new MyFormRow();
+		rowReimbursement.setParent(rows);
+		rowReimbursement.appendChild(new ais.ui.util.MyLabelConfig("Ambil dari reimbursement"));
+
+		reimbursement = new ais.action.master.akunting.helper.AmbilDataReimbursementBanbox();
+		reimbursement.setAttribute("reimbursementPegawai", penerimaanPengadaanMasterAsset.getReimbursementPegawai());
+		reimbursement.setValue(penerimaanPengadaanMasterAsset.getReimbursementPegawai() == null ? ""
+				: penerimaanPengadaanMasterAsset.getReimbursementPegawai().getKode());
+		reimbursement.setReadonly(true);
+		reimbursement.setWidth("90%");
+
+		if (persetujuan) {
+			rowReimbursement.appendChild(new Label(penerimaanPengadaanMasterAsset.getReimbursementPegawai() == null
+					? ""
+					: penerimaanPengadaanMasterAsset.getReimbursementPegawai().getKode()));
+		} else {
+			rowReimbursement.appendChild(reimbursement);
+		}
+
 		MyFormRow row = new MyFormRow();
 		row.setValign("top");
 		row.setVisible(Common.bolehKonfigurasi("tampilkan_penerimaan_langsung_di_po"));
@@ -2328,13 +2453,19 @@ public class PenerimaanPengadaanMasterAssetAction extends GenericAutowireCompose
 			public void onEvent(Event arg0) throws Exception {
 
 				UangMuka uangMukaD = (UangMuka) uangMuka.getAttribute("uangMuka");
+				ais.database.model.akunting.ReimbursementPegawai reimbD = (ais.database.model.akunting.ReimbursementPegawai) reimbursement
+						.getAttribute("reimbursementPegawai");
 
-				rowPemesanan.setVisible(!tampaPemesanan.isChecked() && uangMukaD == null);
-				rowtanpaAnggaran.setVisible(Common.bolehKonfigurasi("tampilkan_tanpa_anggaran") && tampaPemesanan.isChecked() && uangMukaD == null);
-				rowAnggaran.setVisible(tampaPemesanan.isChecked() && !tanpaAnggaran.isChecked() && uangMukaD == null);
+				rowPemesanan.setVisible(!tampaPemesanan.isChecked() && uangMukaD == null && reimbD == null);
+				rowtanpaAnggaran.setVisible(Common.bolehKonfigurasi("tampilkan_tanpa_anggaran") && tampaPemesanan.isChecked() && uangMukaD == null && reimbD == null);
+				rowAnggaran.setVisible(tampaPemesanan.isChecked() && !tanpaAnggaran.isChecked() && uangMukaD == null && reimbD == null);
 
 				rowUangMuka.setVisible(
-						pemesananPengadaanMasterAsset.getAttribute("pemesananPengadaanMasterAsset") == null);
+						pemesananPengadaanMasterAsset.getAttribute("pemesananPengadaanMasterAsset") == null
+								&& reimbD == null);
+				rowReimbursement.setVisible(
+						pemesananPengadaanMasterAsset.getAttribute("pemesananPengadaanMasterAsset") == null
+								&& uangMukaD == null);
 			}
 
 		};
@@ -2713,6 +2844,16 @@ public class PenerimaanPengadaanMasterAssetAction extends GenericAutowireCompose
 
 		pemesananPengadaanMasterAsset.setEventListener(eventListener);
 		uangMuka.setEventListener(eventListener);
+
+		reimbursement.setEventListener(new EventListener() {
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				eventListenerPesanan.onEvent(null);
+				ais.database.model.akunting.ReimbursementPegawai reimbD = (ais.database.model.akunting.ReimbursementPegawai) reimbursement
+						.getAttribute("reimbursementPegawai");
+				generateDetailReimbursement(reimbD);
+			}
+		});
 
 		EventListener eventListenerTermin = new EventListener() {
 

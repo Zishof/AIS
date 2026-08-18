@@ -122,6 +122,7 @@ public class PenerimaanPengadaanMasterAsset extends DataSop {
 	private PenyediaAsset penyedia;
 	private PemesananPengadaanMasterAsset pemesananPengadaanMasterAsset;
 	private UangMuka uangMuka;
+	private ais.database.model.akunting.ReimbursementPegawai reimbursementPegawai;
 	private Date tanggalPembuatan;
 	private Date tanggalPersetujuan;
 	private Tbmuser dibuatOleh;
@@ -976,5 +977,21 @@ public class PenerimaanPengadaanMasterAsset extends DataSop {
 
 	public void setUangMuka(UangMuka uangMuka) {
 		this.uangMuka = uangMuka;
+	}
+
+	/**
+	 * BAST dari REIMBURSEMENT pegawai (non-PO) — klon pola {@link #getUangMuka()}:
+	 * barang yang dibeli lewat reimbursement DISETUJUI dapat diterima lewat BAST
+	 * ini lalu dijadikan inventaris/stok seperti jalur pengadaan biasa.
+	 */
+	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
+	@Fetch(FetchMode.SELECT)
+	@JoinColumn(name = "reimbursement_pegawai", nullable = true)
+	public ais.database.model.akunting.ReimbursementPegawai getReimbursementPegawai() {
+		return reimbursementPegawai;
+	}
+
+	public void setReimbursementPegawai(ais.database.model.akunting.ReimbursementPegawai reimbursementPegawai) {
+		this.reimbursementPegawai = reimbursementPegawai;
 	}
 }
