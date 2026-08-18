@@ -61,6 +61,14 @@ public class TipeAnggotaKoperasiAction extends GenericAutowireComposer
 
 	private Textbox nama;
 	private Textbox keterangan;
+	private MyCheckboxConfig wajibHp;
+	private MyCheckboxConfig wajibEmail;
+	/**
+	 * true bila admin sudah menyentuh checkbox "Wajib No. HP" secara manual pada sesi
+	 * form ini; dipakai agar default per nama (lihat {@link TipeAnggotaKoperasi#defaultWajibHp(String)})
+	 * berhenti mengikuti ketikan kolom Nama begitu admin menentukan pilihannya sendiri.
+	 */
+	private boolean wajibHpDiubahManual = false;
 
 	private boolean edit = false;
 	private boolean delete = false;
@@ -201,6 +209,45 @@ public class TipeAnggotaKoperasiAction extends GenericAutowireComposer
 		keterangan.setWidth("90%");
 		keterangan.setRows(3);
 
+		// Kebijakan kontak member: getter entitas sudah menerapkan default saat nilai DB
+		// masih null (wajib HP mengikuti nama Pegawai/Dosen/Guru/Umum, email tidak wajib).
+		row = new MyFormRow();
+		row.setValign("top");
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig("Kebijakan Kontak Member"));
+		org.zkoss.zul.Vbox kontakWadah = new org.zkoss.zul.Vbox();
+		wajibHp = new MyCheckboxConfig("Wajib Memasukkan No. HP");
+		wajibHp.setChecked(Boolean.TRUE.equals(tipeAnggotaKoperasi.getWajibHp()));
+		wajibHp.setTooltiptext(
+				"Bila aktif, Nomor HP wajib diisi saat menyimpan data member tipe ini. Default mengikuti nama tipe: Pegawai/Dosen/Guru/Umum aktif, tipe lain (mis. Mahasiswa/Siswa) tidak.");
+		kontakWadah.appendChild(wajibHp);
+		wajibEmail = new MyCheckboxConfig("Wajib Memasukkan Email");
+		wajibEmail.setChecked(Boolean.TRUE.equals(tipeAnggotaKoperasi.getWajibEmail()));
+		wajibEmail.setTooltiptext(
+				"Bila aktif, Email wajib diisi saat menyimpan data member tipe ini. Default tidak aktif untuk semua tipe.");
+		kontakWadah.appendChild(wajibEmail);
+		row.appendChild(kontakWadah);
+
+		wajibHpDiubahManual = false;
+		wajibHp.addEventListener("onCheck", new EventListener() {
+			@Override
+			public void onEvent(Event event) throws Exception {
+				wajibHpDiubahManual = true;
+			}
+		});
+		if (tipeAnggotaKoperasi.getId() == null) {
+			// Tipe baru: selama admin belum menyentuh checkbox-nya, default wajib HP
+			// mengikuti nama yang sedang diketik agar aturan per nama tetap terlihat.
+			nama.addEventListener("onChange", new EventListener() {
+				@Override
+				public void onEvent(Event event) throws Exception {
+					if (!wajibHpDiubahManual) {
+						wajibHp.setChecked(TipeAnggotaKoperasi.defaultWajibHp(nama.getValue()));
+					}
+				}
+			});
+		}
+
 		South south = new South();
 		ais.ui.util.ZkCompat.setFlex(south, true);
 		south.setParent(borderlayout);
@@ -256,6 +303,8 @@ public class TipeAnggotaKoperasiAction extends GenericAutowireComposer
 		tipeAnggotaKoperasi.setKode(kode.getValue());
 		tipeAnggotaKoperasi.setNama(nama.getValue());
 		tipeAnggotaKoperasi.setKeterangan(keterangan.getValue());
+		tipeAnggotaKoperasi.setWajibHp(Boolean.valueOf(wajibHp.isChecked()));
+		tipeAnggotaKoperasi.setWajibEmail(Boolean.valueOf(wajibEmail.isChecked()));
 
 		Common.refreshSaveOrUpdate(session, tipeAnggotaKoperasi);
 

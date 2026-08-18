@@ -5624,13 +5624,23 @@ public class KantinHelper {
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
 			java.sql.PreparedStatement ps = session.connection().prepareStatement(
-					"SELECT id, nama FROM koperasi.tipe_anggota_koperasi WHERE COALESCE(aktif,true) = true ORDER BY nama ASC");
+					"SELECT id, nama, wajib_hp, wajib_email FROM koperasi.tipe_anggota_koperasi "
+							+ "WHERE COALESCE(aktif,true) = true ORDER BY nama ASC");
 			java.sql.ResultSet rs = ps.executeQuery();
 			JSONArray arr = new JSONArray();
 			while (rs.next()) {
 				JSONObject j = new JSONObject();
 				j.put("id", rs.getLong(1));
 				j.put("nama", rs.getString(2));
+				// Kebijakan kontak per tipe utk form member klien: null (belum pernah
+				// disetel admin) memakai default nama tipe -- lihat
+				// TipeAnggotaKoperasi.defaultWajibHp (Pegawai/Dosen/Guru/Umum wajib).
+				Object wajibHp = rs.getObject(3);
+				j.put("wajibHp", wajibHp == null
+						? ais.database.model.koperasi.TipeAnggotaKoperasi.defaultWajibHp(rs.getString(2))
+						: rs.getBoolean(3));
+				Object wajibEmail = rs.getObject(4);
+				j.put("wajibEmail", wajibEmail != null && rs.getBoolean(4));
 				arr.put(j);
 			}
 			rs.close();
@@ -5919,7 +5929,7 @@ public class KantinHelper {
 			java.sql.PreparedStatement ps = conn.prepareStatement(
 					"SELECT t.id, COALESCE(t.kode,''), t.nama, COALESCE(t.keterangan,''), COALESCE(t.aktif,true), "
 							+ "(SELECT COUNT(*) FROM koperasi.anggota_koperasi a WHERE a.tipe_anggota_koperasi = t.id), "
-							+ "COALESCE(t.maksimal_boleh_utang,0) "
+							+ "COALESCE(t.maksimal_boleh_utang,0), t.wajib_hp, t.wajib_email "
 							+ "FROM koperasi.tipe_anggota_koperasi t" + where + " ORDER BY t.nama ASC LIMIT ? OFFSET ?");
 			int idx = 1;
 			if (!keyword.isEmpty()) {
@@ -5940,6 +5950,14 @@ public class KantinHelper {
 				j.put("aktif", rs.getBoolean(5));
 				j.put("jumlahAnggota", rs.getLong(6));
 				j.put("maksimalBolehUtang", rs.getDouble(7));
+				// null = belum disetel -> default per nama tipe (Pegawai/Dosen/Guru/
+				// Umum wajib HP; email tidak wajib semua) -- lihat entitasnya.
+				Object wajibHpTa = rs.getObject(8);
+				j.put("wajibHp", wajibHpTa == null
+						? ais.database.model.koperasi.TipeAnggotaKoperasi.defaultWajibHp(rs.getString(3))
+						: rs.getBoolean(8));
+				Object wajibEmailTa = rs.getObject(9);
+				j.put("wajibEmail", wajibEmailTa != null && rs.getBoolean(9));
 				arr.put(j);
 			}
 			rs.close();
@@ -5994,6 +6012,14 @@ public class KantinHelper {
 			tipe.setAktif(!request.has("aktif") || request.optBoolean("aktif", true));
 			if (request.has("maksimalBolehUtang") && !request.isNull("maksimalBolehUtang")) {
 				tipe.setMaksimalBolehUtang(request.optDouble("maksimalBolehUtang", 0.0));
+			}
+			// Kebijakan kontak per tipe (kolom baru): hanya di-set bila klien
+			// mengirimnya -- klien lama tetap memakai default per nama tipe.
+			if (request.has("wajibHp") && !request.isNull("wajibHp")) {
+				tipe.setWajibHp(Boolean.valueOf(request.optBoolean("wajibHp", false)));
+			}
+			if (request.has("wajibEmail") && !request.isNull("wajibEmail")) {
+				tipe.setWajibEmail(Boolean.valueOf(request.optBoolean("wajibEmail", false)));
 			}
 
 			session.beginTransaction();

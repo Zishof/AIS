@@ -82,6 +82,8 @@ public class TipeAnggotaKoperasi extends GeneralValueObject {
 	private String keterangan;
 	private Boolean aktif;
 	private Double maksimalBolehUtang;
+	private Boolean wajibHp;
+	private Boolean wajibEmail;
 
 	public TipeAnggotaKoperasi() {
 	}
@@ -143,5 +145,38 @@ public class TipeAnggotaKoperasi extends GeneralValueObject {
 
 	public void setMaksimalBolehUtang(Double maksimalBolehUtang) {
 		this.maksimalBolehUtang = maksimalBolehUtang;
+	}
+
+	/**
+	 * Default kebijakan "wajib No. HP" diturunkan dari NAMA tipe (permintaan bisnis):
+	 * Pegawai/Dosen/Guru/Umum wajib mengisi nomor HP saat data member disimpan,
+	 * Mahasiswa/Siswa (dan tipe lain) tidak. Berlaku hanya selama kolom belum pernah
+	 * diisi eksplisit (nilai DB null) -- begitu admin menyetel lewat form Tipe Member,
+	 * nilai eksplisitlah yang menang. Pola null->default sama dgn {@link #getAktif()}.
+	 */
+	public static boolean defaultWajibHp(String nama) {
+		if (nama == null) return false;
+		String n = nama.trim().toLowerCase();
+		return n.contains("pegawai") || n.contains("dosen") || n.contains("guru")
+				|| n.contains("umum");
+	}
+
+	@Column(name = "wajib_hp")
+	public Boolean getWajibHp() {
+		return wajibHp == null ? Boolean.valueOf(defaultWajibHp(getNama())) : wajibHp;
+	}
+
+	public void setWajibHp(Boolean wajibHp) {
+		this.wajibHp = wajibHp;
+	}
+
+	/** Email TIDAK wajib utk semua tipe secara default (permintaan bisnis). */
+	@Column(name = "wajib_email")
+	public Boolean getWajibEmail() {
+		return wajibEmail == null ? Boolean.FALSE : wajibEmail;
+	}
+
+	public void setWajibEmail(Boolean wajibEmail) {
+		this.wajibEmail = wajibEmail;
 	}
 }

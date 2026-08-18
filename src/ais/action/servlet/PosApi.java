@@ -194,6 +194,22 @@ public class PosApi extends HttpServlet {
 				return;
 			}
 
+			// Idempotensi antrean master offline (eBisnis Flutter): client_mutation_id
+			// hanya disertakan MasterOffline pada mutasi master yang diantre saat offline.
+			// Kiriman ulang mengembalikan respons tersimpan -- create yang di-replay tidak
+			// menciptakan data ganda. Fail-open (lihat MutasiIdempotenEBisnisUtil).
+			String clientMutationId = payload.optString("client_mutation_id", "").trim();
+			boolean mutasiIdempoten = clientMutationId.length() > 0
+					&& ais.action.servlet.api.MutasiIdempotenEBisnisUtil.aksiMasterAntrean(action);
+			if (mutasiIdempoten) {
+				JSONObject replay = ais.action.servlet.api.MutasiIdempotenEBisnisUtil.ambil(tbmuser, action,
+						clientMutationId);
+				if (replay != null) {
+					tulisJson(response, replay);
+					return;
+				}
+			}
+
 			if ("katalog".equals(action)) {
 				prosesKatalog(tbmuser, payload, hasil, request);
 			} else if ("konfigurasi".equals(action)) {
@@ -837,6 +853,11 @@ public class PosApi extends HttpServlet {
 			} else if (!prosesAksiTambahan(action, tbmuser, payload, hasil, request, response)) {
 				hasil.put("status", "error");
 				hasil.put("message", "Aksi tidak dikenal: " + action);
+			}
+
+			// Eksekusi pertama sukses -> simpan responsnya utk replay kiriman ulang.
+			if (mutasiIdempoten && ais.action.servlet.api.MutasiIdempotenEBisnisUtil.responsSukses(hasil)) {
+				ais.action.servlet.api.MutasiIdempotenEBisnisUtil.simpan(tbmuser, action, clientMutationId, hasil);
 			}
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit PosApi.proses");

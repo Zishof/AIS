@@ -58,6 +58,7 @@ boolean isAdmin = (toko == null);
                                     <th class="text-start fw-semibold text-uppercase small px-3"><i class="fas fa-font me-1"></i><%=Common.getBahasaConfig("Nama Tipe Anggota")%></th>
                                     <th class="text-start fw-semibold text-uppercase small px-3"><i class="fas fa-align-left me-1"></i><%=Common.getBahasaConfig("Keterangan")%></th>
                                     <th class="text-end fw-semibold text-uppercase small px-3" style="width: 160px;"><i class="fas fa-hand-holding-usd me-1"></i><%=Common.getBahasaConfig("Maks. Boleh Utang")%></th>
+                                    <th class="fw-semibold text-uppercase small px-3 text-center" style="width: 140px;"><i class="fas fa-address-book me-1"></i><%=Common.getBahasaConfig("Kontak Wajib")%></th>
                                     <th class="fw-semibold text-uppercase small px-3" style="width: 120px;"><i class="fas fa-toggle-on me-1"></i><%=Common.getBahasaConfig("Status")%></th>
                                     <% if (isAdmin) { %>
                                     <th class="fw-semibold text-uppercase small px-3 text-center" style="width: 100px;"><i class="fas fa-cogs"></i></th>
@@ -65,7 +66,7 @@ boolean isAdmin = (toko == null);
                                 </tr>
                             </thead>
                             <tbody id="tabelDataTipe<%=rnd%>">
-                                <tr><td colspan="<%= isAdmin ? 7 : 6 %>" class="text-center py-5"><div class="spinner-border text-primary mb-3"></div><br><span class="text-muted fw-medium"><%=Common.getBahasaConfig("Memuat data tipe anggota...")%></span></td></tr>
+                                <tr><td colspan="<%= isAdmin ? 8 : 7 %>" class="text-center py-5"><div class="spinner-border text-primary mb-3"></div><br><span class="text-muted fw-medium"><%=Common.getBahasaConfig("Memuat data tipe anggota...")%></span></td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -150,6 +151,19 @@ boolean isAdmin = (toko == null);
                                 <small class="text-muted"><%=Common.getBahasaConfig("Batas maksimal hutang (piutang toko) yang boleh ditumpuk anggota tipe ini. 0 = tidak boleh berhutang sama sekali.")%></small>
                             </div>
 
+                            <div class="col-md-12">
+                                <label class="form-label small fw-semibold text-secondary"><i class="fas fa-address-book text-primary me-1"></i><%=Common.getBahasaConfig("Kontak Wajib Anggota")%></label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="inputWajibHp<%=rnd%>">
+                                    <label class="form-check-label small fw-medium" for="inputWajibHp<%=rnd%>"><%=Common.getBahasaConfig("Wajib Memasukkan No. HP")%></label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="inputWajibEmail<%=rnd%>">
+                                    <label class="form-check-label small fw-medium" for="inputWajibEmail<%=rnd%>"><%=Common.getBahasaConfig("Wajib Memasukkan Email")%></label>
+                                </div>
+                                <small class="text-muted"><%=Common.getBahasaConfig("Anggota tipe ini tidak dapat disimpan tanpa kontak yang ditandai wajib.")%></small>
+                            </div>
+
                             <div class="col-12 mt-4 text-end border-top pt-3">
                                 <button type="button" class="btn btn-light px-4 me-2 rounded-pill fw-semibold border shadow-sm" onclick="tutupForm<%=rnd%>()">
                                     <i class="fas fa-times text-danger me-2"></i><%=Common.getBahasaConfig("Batal")%>
@@ -175,7 +189,7 @@ boolean isAdmin = (toko == null);
     
     // Inject status Admin dari Java ke JavaScript
     const isAdmin<%=rnd%> = <%=isAdmin%>;
-    const colSpan<%=rnd%> = isAdmin<%=rnd%> ? 7 : 6;
+    const colSpan<%=rnd%> = isAdmin<%=rnd%> ? 8 : 7;
 
     // Variabel Paging
     let currentPage<%=rnd%> = 1;
@@ -203,6 +217,18 @@ boolean isAdmin = (toko == null);
         } else {
             alert(msg);
         }
+    };
+
+    // Cermin TipeAnggotaKoperasi.defaultWajibHp: saat kolom wajib_hp NULL,
+    // wajib HP dianggap true bila nama tipe mengandung pegawai/dosen/guru/umum
+    // (selain itu false, mis. Mahasiswa/Siswa). wajib_email NULL -> false utk semua.
+    const defaultWajibHp<%=rnd%> = (nama) => {
+        const n = (nama || '').toLowerCase();
+        return n.includes('pegawai') || n.includes('dosen') || n.includes('guru') || n.includes('umum');
+    };
+    const bacaBool<%=rnd%> = (val, defVal) => {
+        if (val === null || val === undefined || val === '') return defVal;
+        return (val === true || val === 't' || val === 'true');
     };
 
     // Label UI Switch Status Aktif
@@ -245,7 +271,7 @@ boolean isAdmin = (toko == null);
         const sqlCount = "SELECT COUNT(*) AS jumlah FROM koperasi.tipe_anggota_koperasi " + sqlFilters + ";";
         
         // Query Data Spesifik per Halaman
-        const sqlData = "SELECT id, kode, nama, keterangan, aktif, maksimal_boleh_utang FROM koperasi.tipe_anggota_koperasi " + sqlFilters + " ORDER BY id DESC LIMIT " + limitPerPage<%=rnd%> + " OFFSET " + offset + ";";
+        const sqlData = "SELECT id, kode, nama, keterangan, aktif, maksimal_boleh_utang, wajib_hp, wajib_email FROM koperasi.tipe_anggota_koperasi " + sqlFilters + " ORDER BY id DESC LIMIT " + limitPerPage<%=rnd%> + " OFFSET " + offset + ";";
 
         try {
             const [resCount, resData] = await Promise.all([
@@ -272,12 +298,25 @@ boolean isAdmin = (toko == null);
                         ? '<span class="fw-bold text-danger">Rp ' + maksUtang.toLocaleString('id-ID') + '</span>'
                         : '<span class="text-muted small"><%=Common.getBahasaConfigJS("Tidak boleh")%></span>';
 
+                    // Ringkasan kontak wajib (NULL -> default per nama tipe)
+                    const isWajibHp = bacaBool<%=rnd%>(row.wajib_hp, defaultWajibHp<%=rnd%>(row.nama));
+                    const isWajibEmail = bacaBool<%=rnd%>(row.wajib_email, false);
+                    let kontakWajibHtml = '<span class="text-muted">-</span>';
+                    if (isWajibHp && isWajibEmail) {
+                        kontakWajibHtml = '<span class="badge bg-primary bg-opacity-10 text-primary border border-primary px-2 py-1"><%=Common.getBahasaConfigJS("No. HP + Email")%></span>';
+                    } else if (isWajibHp) {
+                        kontakWajibHtml = '<span class="badge bg-primary bg-opacity-10 text-primary border border-primary px-2 py-1"><%=Common.getBahasaConfigJS("No. HP")%></span>';
+                    } else if (isWajibEmail) {
+                        kontakWajibHtml = '<span class="badge bg-primary bg-opacity-10 text-primary border border-primary px-2 py-1"><%=Common.getBahasaConfigJS("Email")%></span>';
+                    }
+
                     htmlList += '<tr>' +
                             '<td class="text-center text-muted fw-medium">' + (no++) + '</td>' +
                             '<td class="text-start fw-bold text-secondary">' + (row.kode || '-') + '</td>' +
                             '<td class="text-start fw-bold text-dark">' + (row.nama || '-') + '</td>' +
                             '<td class="text-start text-muted small">' + (row.keterangan || '-') + '</td>' +
                             '<td class="text-end">' + maksUtangText + '</td>' +
+                            '<td class="text-center">' + kontakWajibHtml + '</td>' +
                             '<td class="text-center">' + badgeStatus + '</td>';
                     
                     // Render kolom aksi hanya jika user adalah admin
@@ -336,6 +375,8 @@ boolean isAdmin = (toko == null);
         document.getElementById('inputIdTipe<%=rnd%>').value = '';
         document.getElementById('formTipeAnggota<%=rnd%>').reset();
         document.getElementById('inputMaksimalBolehUtang<%=rnd%>').value = 0;
+        document.getElementById('inputWajibHp<%=rnd%>').checked = false;
+        document.getElementById('inputWajibEmail<%=rnd%>').checked = false;
 
         const chkStatus = document.getElementById('inputStatusAktif<%=rnd%>');
         chkStatus.checked = true;
@@ -369,7 +410,9 @@ boolean isAdmin = (toko == null);
             nama: document.getElementById('inputNama<%=rnd%>').value,
             keterangan: document.getElementById('inputKeterangan<%=rnd%>').value,
             aktif: document.getElementById('inputStatusAktif<%=rnd%>').checked,
-            maksimalBolehUtang: parseFloat(document.getElementById('inputMaksimalBolehUtang<%=rnd%>').value || 0)
+            maksimalBolehUtang: parseFloat(document.getElementById('inputMaksimalBolehUtang<%=rnd%>').value || 0),
+            wajibHp: document.getElementById('inputWajibHp<%=rnd%>').checked,
+            wajibEmail: document.getElementById('inputWajibEmail<%=rnd%>').checked
         };
         
         const payload = { 
@@ -415,7 +458,7 @@ boolean isAdmin = (toko == null);
         
         isEditMode<%=rnd%> = true; 
         
-        const sql = 'SELECT id, kode, nama, keterangan, aktif, maksimal_boleh_utang FROM koperasi.tipe_anggota_koperasi WHERE id = ' + id;
+        const sql = 'SELECT id, kode, nama, keterangan, aktif, maksimal_boleh_utang, wajib_hp, wajib_email FROM koperasi.tipe_anggota_koperasi WHERE id = ' + id;
         const res = await fetchData<%=rnd%>(sql);
 
         if (res.length > 0) {
@@ -427,6 +470,10 @@ boolean isAdmin = (toko == null);
             document.getElementById('inputNama<%=rnd%>').value = data.nama || '';
             document.getElementById('inputKeterangan<%=rnd%>').value = data.keterangan || '';
             document.getElementById('inputMaksimalBolehUtang<%=rnd%>').value = parseFloat(data.maksimal_boleh_utang || 0);
+
+            // Kontak wajib: NULL -> default per nama tipe (lihat defaultWajibHp di atas)
+            document.getElementById('inputWajibHp<%=rnd%>').checked = bacaBool<%=rnd%>(data.wajib_hp, defaultWajibHp<%=rnd%>(data.nama));
+            document.getElementById('inputWajibEmail<%=rnd%>').checked = bacaBool<%=rnd%>(data.wajib_email, false);
 
             const isAktif = (data.aktif === null || data.aktif === true || data.aktif === 'true' || data.aktif === 't');
             const chkAktif = document.getElementById('inputStatusAktif<%=rnd%>');

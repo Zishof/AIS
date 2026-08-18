@@ -387,7 +387,7 @@ String urlQr = Common.ROOT + "/baru?hanya_tampil_jsp=true&p=kantin%2Fmember&s=qr
                                 </div>
                                 
                                 <div class="col-md-6">
-                                    <label class="form-label small fw-bold text-secondary"><i class="fab fa-whatsapp me-1 text-success"></i><%=Common.getBahasaConfig("Nomor HP / WhatsApp Aktif")%></label>
+                                    <label class="form-label small fw-bold text-secondary"><i class="fab fa-whatsapp me-1 text-success"></i><%=Common.getBahasaConfig("Nomor HP / WhatsApp Aktif")%> <span class="text-danger" id="tandaWajibHp<%=rnd%>" style="display: none;">*</span></label>
                                     <div class="input-group shadow-sm">
                                         <span class="input-group-text bg-light border-end-0"><i class="fas fa-mobile-alt text-success"></i></span>
                                         <input type="tel" class="form-control border-start-0 fw-bolder" id="inputHp<%=rnd%>" placeholder="<%=Common.getBahasaConfig("Contoh: 08123456789")%>">
@@ -395,7 +395,7 @@ String urlQr = Common.ROOT + "/baru?hanya_tampil_jsp=true&p=kantin%2Fmember&s=qr
                                 </div>
 
                                 <div class="col-md-6">
-                                    <label class="form-label small fw-bold text-secondary"><i class="fas fa-envelope me-1 text-muted"></i><%=Common.getBahasaConfig("Alamat Surel (Email)")%></label>
+                                    <label class="form-label small fw-bold text-secondary"><i class="fas fa-envelope me-1 text-muted"></i><%=Common.getBahasaConfig("Alamat Surel (Email)")%> <span class="text-danger" id="tandaWajibEmail<%=rnd%>" style="display: none;">*</span></label>
                                     <div class="input-group shadow-sm">
                                         <span class="input-group-text bg-light border-end-0"><i class="fas fa-at text-muted"></i></span>
                                         <input type="email" class="form-control border-start-0 fw-medium" id="inputEmail<%=rnd%>" placeholder="<%=Common.getBahasaConfig("nama.pengguna@email.com")%>">
@@ -552,7 +552,42 @@ String urlQr = Common.ROOT + "/baru?hanya_tampil_jsp=true&p=kantin%2Fmember&s=qr
             alert(msg);
         }
     };
-    
+
+    // ==========================================
+    // KEBIJAKAN KONTAK WAJIB PER TIPE ANGGOTA
+    // ==========================================
+    // Peta id tipe -> { wajibHp, wajibEmail }, diisi saat loadComboMasterAnggota.
+    let mapKebijakanTipe<%=rnd%> = {};
+
+    // Cermin TipeAnggotaKoperasi.defaultWajibHp: saat kolom wajib_hp NULL,
+    // wajib HP dianggap true bila nama tipe mengandung pegawai/dosen/guru/umum
+    // (selain itu false, mis. Mahasiswa/Siswa). wajib_email NULL -> false utk semua.
+    const defaultWajibHp<%=rnd%> = (nama) => {
+        const n = (nama || '').toLowerCase();
+        return n.includes('pegawai') || n.includes('dosen') || n.includes('guru') || n.includes('umum');
+    };
+    const bacaBool<%=rnd%> = (val, defVal) => {
+        if (val === null || val === undefined || val === '') return defVal;
+        return (val === true || val === 't' || val === 'true');
+    };
+
+    // Ambil kebijakan tipe terpilih; fallback default per nama bila peta belum termuat
+    const kebijakanTipe<%=rnd%> = (idTipe) => {
+        if (!idTipe) return { wajibHp: false, wajibEmail: false };
+        if (mapKebijakanTipe<%=rnd%>[idTipe]) return mapKebijakanTipe<%=rnd%>[idTipe];
+        const elKategori = document.getElementById('inputKategori<%=rnd%>');
+        const opt = elKategori.options[elKategori.selectedIndex];
+        const nama = opt ? (opt.getAttribute('data-nama') || '') : '';
+        return { wajibHp: defaultWajibHp<%=rnd%>(nama), wajibEmail: false };
+    };
+
+    // Tanda * dinamis pada label HP/Email mengikuti kebijakan tipe terpilih
+    const perbaruiTandaKontakWajib<%=rnd%> = () => {
+        const kebijakan = kebijakanTipe<%=rnd%>(document.getElementById('inputKategori<%=rnd%>').value);
+        document.getElementById('tandaWajibHp<%=rnd%>').style.display = kebijakan.wajibHp ? 'inline' : 'none';
+        document.getElementById('tandaWajibEmail<%=rnd%>').style.display = kebijakan.wajibEmail ? 'inline' : 'none';
+    };
+
     // ==========================================
     // KIRIM NOTIFIKASI MANUAL & LIHAT KREDENSIAL
     // ==========================================
@@ -869,14 +904,19 @@ String urlQr = Common.ROOT + "/baru?hanya_tampil_jsp=true&p=kantin%2Fmember&s=qr
         resJenis.forEach(item => { optFilterJenis += '<option value="' + item.id + '">' + item.nama + '</option>'; });
         document.getElementById('filterJenisAnggota<%=rnd%>').innerHTML = optFilterJenis;
 
-        // Tipe Anggota
-        const sqlTipe = "SELECT id, nama, kode FROM koperasi.tipe_anggota_koperasi WHERE aktif = true ORDER BY nama ASC";
+        // Tipe Anggota (sekalian memuat kebijakan kontak wajib per tipe)
+        const sqlTipe = "SELECT id, nama, kode, wajib_hp, wajib_email FROM koperasi.tipe_anggota_koperasi WHERE aktif = true ORDER BY nama ASC";
         const resTipe = await fetchData<%=rnd%>(sqlTipe);
-        
+
         let optHtmlTipe = '<option value="" data-nama="UMUM"><%=Common.getBahasaConfig("- Pilih Tipe/Kategori -")%></option>';
+        mapKebijakanTipe<%=rnd%> = {};
         resTipe.forEach(item => {
             const safeNama = item.nama ? item.nama.toUpperCase() : 'UMUM';
             optHtmlTipe += '<option value="' + item.id + '" data-nama="' + safeNama + '">' + item.nama + '</option>';
+            mapKebijakanTipe<%=rnd%>[item.id] = {
+                wajibHp: bacaBool<%=rnd%>(item.wajib_hp, defaultWajibHp<%=rnd%>(item.nama)),
+                wajibEmail: bacaBool<%=rnd%>(item.wajib_email, false)
+            };
         });
         document.getElementById('inputKategori<%=rnd%>').innerHTML = optHtmlTipe;
         
@@ -1152,6 +1192,9 @@ String urlQr = Common.ROOT + "/baru?hanya_tampil_jsp=true&p=kantin%2Fmember&s=qr
             }
             document.getElementById('inputNama<%=rnd%>').readOnly = false;
         }
+
+        // Segarkan tanda * kontak wajib setiap kali tipe/kategori berubah
+        perbaruiTandaKontakWajib<%=rnd%>();
     };
 
     document.getElementById('inputJenisAnggota<%=rnd%>').addEventListener('change', () => {
@@ -1297,6 +1340,19 @@ String urlQr = Common.ROOT + "/baru?hanya_tampil_jsp=true&p=kantin%2Fmember&s=qr
         if (!isEditMode<%=rnd%> && internalCat !== 'UMUM' && idRef === '' && wajibRefMaster<%=rnd%>) {
             showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Silakan pilih data referensi master sivitas dari daftar pencarian yang tersedia!")%>', 'bg-warning text-dark');
             document.getElementById('inputCariReferensi<%=rnd%>').focus();
+            return;
+        }
+
+        // Validasi kontak wajib sesuai kebijakan tipe anggota terpilih
+        const kebijakanKontak = kebijakanTipe<%=rnd%>(idTipeAnggota);
+        if (kebijakanKontak.wajibHp && document.getElementById('inputHp<%=rnd%>').value.trim() === '') {
+            showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Nomor HP wajib diisi untuk tipe member ini")%>', 'bg-danger text-white');
+            document.getElementById('inputHp<%=rnd%>').focus();
+            return;
+        }
+        if (kebijakanKontak.wajibEmail && document.getElementById('inputEmail<%=rnd%>').value.trim() === '') {
+            showToast<%=rnd%>('<%=Common.getBahasaConfigJS("Email wajib diisi untuk tipe member ini")%>', 'bg-danger text-white');
+            document.getElementById('inputEmail<%=rnd%>').focus();
             return;
         }
 

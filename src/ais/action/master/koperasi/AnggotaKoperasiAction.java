@@ -1399,6 +1399,22 @@ public class AnggotaKoperasiAction extends GenericAutowireComposer
 			return false;
 		}
 
+		// Kebijakan kontak per tipe member (TipeAnggotaKoperasi.getWajibHp/getWajibEmail;
+		// getter sudah menerapkan default per nama tipe saat kolom DB masih null).
+		TipeAnggotaKoperasi tipeKontak = (TipeAnggotaKoperasi) tipe.getSelectedItem().getValue();
+		if (tipeKontak != null && Boolean.TRUE.equals(tipeKontak.getWajibHp()) && hp.getValue().trim().isEmpty()) {
+			MyMessageboxConfig.show("Mohon maaf, Nomor HP wajib diisi untuk tipe member " + tipeKontak.getNama()
+					+ ". Langkah yang dapat dilakukan: (1) isi kolom HP dengan nomor yang dapat dihubungi; (2) ulangi penyimpanan.", "Peringatan", MyMessageboxConfig.OK,
+					MyMessageboxConfig.INFORMATION);
+			return false;
+		}
+		if (tipeKontak != null && Boolean.TRUE.equals(tipeKontak.getWajibEmail()) && email.getValue().trim().isEmpty()) {
+			MyMessageboxConfig.show("Mohon maaf, Email wajib diisi untuk tipe member " + tipeKontak.getNama()
+					+ ". Langkah yang dapat dilakukan: (1) isi kolom Email dengan alamat email yang aktif; (2) ulangi penyimpanan.", "Peringatan", MyMessageboxConfig.OK,
+					MyMessageboxConfig.INFORMATION);
+			return false;
+		}
+
 		if (!email.getValue().trim().isEmpty() && !Common.isValidEmailAddress(email.getValue().trim())) {
 			MyMessageboxConfig.show("Mohon maaf, format email tidak valid. Langkah yang dapat dilakukan: (1) periksa kembali alamat email (contoh: nama@domain.com); (2) hapus spasi atau karakter tidak valid; (3) ulangi penyimpanan.", "Informasi", MyMessageboxConfig.OK,
 					MyMessageboxConfig.INFORMATION);
