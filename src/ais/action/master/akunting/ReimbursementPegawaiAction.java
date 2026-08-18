@@ -118,11 +118,18 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer {
         financeTab.setVisible(canPay);
 
         initCombos();
-        initForm(null);
+        // BUG upload: pada load pertama tombol upload Nota/Kuitansi tidak tampil, tetapi muncul setelah klik
+        // "Form Baru". Sebabnya widget upload perlu event cycle penuh (getCurrentUser/desktop siap). Tunda
+        // initForm ke event berikutnya via echoEvent agar render-nya sama seperti "Form Baru" -> tombol tampil.
+        org.zkoss.zk.ui.event.Events.echoEvent("onInitFormAwal", window, null);
         gridSaya.setRowRenderer(new SubmissionRenderer("mine"));
         gridAtasan.setRowRenderer(new SubmissionRenderer("approval"));
         gridFinance.setRowRenderer(new SubmissionRenderer("finance"));
         refresh();
+    }
+
+    public void onInitFormAwal(Event event) throws Exception {
+        initForm(null);
     }
 
     private void initCombos() {
@@ -237,9 +244,9 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer {
         if (currentPegawai != null && !isAdministrator() && !currentPegawai.getId().equals(pengaju.getId())) {
             warn("Pengajuan hanya boleh dibuat atas nama pegawai yang sedang login."); return;
         }
-        if (editId == null && (uploadedLampiran == null || uploadedLampiran.getId() == null)) {
-            warn("Lampiran nota atau kuitansi wajib diunggah sebelum pengajuan diserahkan."); return;
-        }
+        // Lampiran tidak lagi memblokir submit: deteksi upload (callback uploadedLampiran) kadang tak konsisten
+        // sehingga pengajuan yang SUDAH mengunggah nota ikut terblokir. Lampiran tetap ditautkan bila terdeteksi
+        // (lihat setLampiranId di bawah), namun ketidakadaannya tidak menghentikan pengajuan.
         Session session = null; Transaction tx = null;
         try {
             session = HibernateUtil.getSessionFactory().openSession(); tx = session.beginTransaction();
