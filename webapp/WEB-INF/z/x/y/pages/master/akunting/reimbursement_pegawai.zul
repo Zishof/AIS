@@ -26,6 +26,10 @@
 					forward="onClick=onJenisReimbursement">
 					Jenis Reimbursement
 				</tab>
+				<tab use="ais.ui.util.MyTabConfig"
+					forward="onClick=onJenisPengeluaran">
+					Jenis Pengeluaran
+				</tab>
 			</tabs>
 
 			<tabpanels>
@@ -164,11 +168,12 @@
 				<tabpanel use="ais.ui.util.MyTabpanel" id="statistik"></tabpanel>
 				<tabpanel use="ais.ui.util.MyTabpanel" id="monitor"></tabpanel>
 				<tabpanel use="ais.ui.util.MyTabpanel" id="jenisPanel"></tabpanel>
+				<tabpanel use="ais.ui.util.MyTabpanel" id="jenisPengeluaranPanel"></tabpanel>
 
 			</tabpanels>
 		</tabbox>
 
-		<window use="ais.ui.util.MyWindow" id="addWindow" title="Tambah Reimbursement" visible="false" mode="popup" position="center,center" border="normal" width="700px" height="95%">
+		<window use="ais.ui.util.MyWindow" id="addWindow" title="Tambah Reimbursement" visible="false" mode="popup" position="center,center" border="normal" width="1050px" height="95%">
 		</window>
 
 		<zscript><![CDATA[

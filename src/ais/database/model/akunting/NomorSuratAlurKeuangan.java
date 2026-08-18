@@ -49,6 +49,7 @@ public class NomorSuratAlurKeuangan extends GeneralValueObject {
 	public static final String STANDING_INSTRUCTION = "Standing Instruction";
 	public static final String KAS_BESAR = "Kas Besar";
 	public static final String TRANSAKSI_KOPERASI = "Transaksi Koperasi";
+	public static final String REIMBURSEMENT = "Reimbursement Pegawai";
 
 	public static final String[] S = new String[] { "001;" + UANG_MUKA + ";Kas Advance",
 			"002;" + DANA_TALANGAN + ";Kas Besar", "003;" + PERTANGGUNGJAWABAN + ";Pertanggungjawaban",
@@ -56,7 +57,8 @@ public class NomorSuratAlurKeuangan extends GeneralValueObject {
 			"006;" + DAFTAR_PENGAJUAN_CHEK + ";DPC", "007;" + KAS_BESAR + ";Kas Besar",
 			"008;" + PERTANGGUNGJAWABAN_KAS_BESAR + ";Pertanggungjawaban Kas Besar",
 			"009;" + TRANSAKSI_KOPERASI + ";Transaksi Koperasi",
-			"010;" + STANDING_INSTRUCTION + ";Standing Instruction" };
+			"010;" + STANDING_INSTRUCTION + ";Standing Instruction",
+			"011;" + REIMBURSEMENT + ";Reimbursement Pegawai" };
 
 	public static NomorSuratAlurKeuangan UANG_MUKA_DATA;
 	public static NomorSuratAlurKeuangan DANA_TALANGAN_DATA;
@@ -68,6 +70,7 @@ public class NomorSuratAlurKeuangan extends GeneralValueObject {
 	public static NomorSuratAlurKeuangan PENGGANTIAN_KAS_KECIL_DATA;
 	public static NomorSuratAlurKeuangan SI;
 	public static NomorSuratAlurKeuangan DPC;
+	public static NomorSuratAlurKeuangan REIMBURSEMENT_DATA;
 
 	public static void reloadDefault() {
 		Session session = HibernateUtil.currentNativeSession();
@@ -112,6 +115,19 @@ public class NomorSuratAlurKeuangan extends GeneralValueObject {
 			DPC.setKeterangan(DAFTAR_PENGAJUAN_CHEK);
 			session.getTransaction().begin();
 			session.save(DPC);
+			session.getTransaction().commit();
+		}
+
+		REIMBURSEMENT_DATA = (NomorSuratAlurKeuangan) session.createCriteria(NomorSuratAlurKeuangan.class)
+				.add(Restrictions.eq("nama", REIMBURSEMENT)).setMaxResults(1).uniqueResult();
+
+		if (REIMBURSEMENT_DATA == null) {
+			REIMBURSEMENT_DATA = new NomorSuratAlurKeuangan();
+			REIMBURSEMENT_DATA.setKode("011");
+			REIMBURSEMENT_DATA.setNama(REIMBURSEMENT);
+			REIMBURSEMENT_DATA.setKeterangan("Reimbursement Pegawai");
+			session.getTransaction().begin();
+			session.save(REIMBURSEMENT_DATA);
 			session.getTransaction().commit();
 		}
 
