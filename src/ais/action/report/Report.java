@@ -3110,6 +3110,51 @@ public class Report extends GenericAutowireComposer {
 		window.onModal();
 	}
 
+	/**
+	 * Sama dengan {@link #tampil(File, Map, String...)} tanpa tab tambahan, namun dengan
+	 * TOOLBAR TAMBAHAN di sisi atas (North) — dipakai layar pemanggil untuk menyisipkan
+	 * tombol khusus (mis. Parameter/Download JRXML/Upload JRXML/History untuk admin di
+	 * laporan disposisi SOP) tanpa mengubah viewer bawaan.
+	 */
+	@SuppressWarnings("rawtypes")
+	public static void tampil(File filePdfBaru, final Map par, final org.zkoss.zul.Toolbar toolbarTambahan)
+			throws Exception {
+		if (toolbarTambahan == null) {
+			tampil(filePdfBaru, par);
+			return;
+		}
+		if (ExecutionsCtrl.getCurrentCtrl() == null || ExecutionsCtrl.getCurrentCtrl().getCurrentPage() == null) {
+			ais.common.ErrorAuditUtil.record(
+					new IllegalStateException("Report.tampil(toolbar) dipanggil tanpa konteks Execution/Page ZK aktif"),
+					"Report.tampil: tidak ada konteks UI aktif, lewati tampilan popup");
+			return;
+		}
+
+		MyWindow window = new MyWindow("Laporan", "none", true);
+		window.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
+		window.setHeight("90%");
+		window.setWidth("900px");
+
+		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
+		borderlayout.setWidth("100%");
+		borderlayout.setHeight("100%");
+		borderlayout.setParent(window);
+
+		org.zkoss.zul.North north = new org.zkoss.zul.North();
+		north.setParent(borderlayout);
+		north.appendChild(toolbarTambahan);
+
+		Center centerUtama = new Center();
+		ais.ui.util.ZkCompat.setFlex(centerUtama, true);
+		centerUtama.setAutoscroll(true);
+		centerUtama.setParent(borderlayout);
+
+		Report.tampil(filePdfBaru, centerUtama);
+
+		window.setVisible(true);
+		window.onModal();
+	}
+
 	public static void tampil(final File myfile) throws Exception {
 		MyWindow window = new MyWindow("Laporan", "none", true);
 		window.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
