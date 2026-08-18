@@ -3509,10 +3509,10 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 				}
 			});
 
-			Vbox myVbox = new Vbox();
-			myVbox.setParent(arg0);
-			Hbox toolbar = new Hbox();
-			toolbar.setParent(myVbox);
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dikumpulkan lalu dibungkus
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Edit", "/img/svg/edit-box-line.svg");
 			button.setOrient("vertical");
@@ -3525,7 +3525,7 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 					CetakRegistrasiAction.onEdit(calonMahasiswa, CetakRegistrasiAction.this);
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Reg dan Email", "/img/print.png");
 			button.setStyle("font-size:9px;");
@@ -3536,7 +3536,7 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 					BiodataCalonMahasiswaAction.onCetakKartu(calonMahasiswa, true);
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Biodata", "/img/online-icon_access.png");
 			button.setStyle("font-size:9px;");
@@ -3547,7 +3547,7 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 					CommonReportHelper.onCetakBiodataCalonMahasiswa(calonMahasiswa, true);
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Kartu Ujian", "/img/print.png");
 			button.setVisible(tampilkanInformasiUjianDiPMB);
@@ -3560,7 +3560,7 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 							calonMahasiswa.getNoUjian());
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Interview", "/img/svg/user-business.svg");
 			try {
@@ -3577,10 +3577,7 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 					InterviewCalonMahasiswaAction.tampilkanInterview(calonMahasiswa);
 				}
 			});
-			button.setParent(toolbar);
-
-			toolbar = new Hbox();
-			toolbar.setParent(myVbox);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Copy", "/img/svg/edit-copy.svg");
 			button.setOrient("vertical");
@@ -3598,7 +3595,7 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("No. Ujian", "/img/Configure.gif");
 			button.setStyle("font-size:9px;");
@@ -3639,7 +3636,7 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 					return;
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Bukti Diterima", "/img/svg/check2.svg");
 			button.setStyle("font-size:9px;");
@@ -3650,7 +3647,7 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 					CommonReportHelper.onCetakSuratKeteranganLulus(calonMahasiswa, false);
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("KTM", "/img/svg/file.svg");
 			button.setStyle("font-size:9px;");
@@ -3670,7 +3667,7 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 					kartuMahasiswa.onModal();
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("NIM", "/img/svg/file.svg");
 			button.setStyle("font-size:9px;");
@@ -3685,7 +3682,7 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 					CommonPMB.onGenerateNim(calonMahasiswa, nimGenerator);
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Hapus", "/img/svg/trash.svg");
 			button.setStyle("font-size:9px;");
@@ -3729,14 +3726,20 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 							});
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
-			GeneralValueObject.tampilKunci(toolbar, calonMahasiswa, tbmuser, new EventListener() {
+			// Tombol Kunci / Buka Kunci via container sementara lalu pindah ke daftar aksi
+			// (pola sama dengan MahasiswaAction).
+			Hbox tempKunci = new Hbox();
+			GeneralValueObject.tampilKunci(tempKunci, calonMahasiswa, tbmuser, new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
 					onSearchDefault(event);
 				}
 			}, true);
+			aksiButtons.addAll(new java.util.ArrayList<org.zkoss.zk.ui.Component>(tempKunci.getChildren()));
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 
 		private void pasangCellTagihan(final Component parent, Kegiatan kegiatan,
