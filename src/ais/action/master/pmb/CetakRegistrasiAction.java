@@ -2959,7 +2959,9 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 				// berantai. Rollback eksplisit dulu supaya PostgreSQL benar-benar menutup transaksi lama
 				// sebelum session.clear()+beginTransaction() memulai yang baru.
 				try { if (tx != null && tx.isActive()) tx.rollback(); } catch (Exception rbEx) { ais.common.ErrorAuditUtil.record(rbEx, "auto-audit(empty-catch) src/ais/action/master/pmb/CetakRegistrasiAction.java:2494-rollback");}
-				try { session.clear(); tx = session.beginTransaction(); } catch (Exception recoverEx) { ais.common.ErrorAuditUtil.record(recoverEx, "auto-audit(empty-catch) src/ais/action/master/pmb/CetakRegistrasiAction.java:2494");}
+				// Jangan lanjut menulis FK null/hasil parsial lalu melaporkan sinkronisasi
+				// sebagai berhasil. Biarkan eksekutor mencatat calon ini sebagai gagal.
+				throw kegEx instanceof RuntimeException ? (RuntimeException) kegEx : new RuntimeException(kegEx);
 			}
 
 			jenisKegiatan = ConstantValues.PENDAFTARAN_ULANG_MAHASISWA_BARU;
@@ -2986,7 +2988,8 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 				// tetap rusak sampai beginTransaction() berikutnya, membuat tx.commit() di akhir method
 				// ikut gagal berantai. Rollback eksplisit dulu sebelum memulai transaksi baru.
 				try { if (tx != null && tx.isActive()) tx.rollback(); } catch (Exception rbEx) { ais.common.ErrorAuditUtil.record(rbEx, "auto-audit(empty-catch) src/ais/action/master/pmb/CetakRegistrasiAction.java:2505-rollback");}
-				try { session.clear(); tx = session.beginTransaction(); } catch (Exception recoverEx) { ais.common.ErrorAuditUtil.record(recoverEx, "auto-audit(empty-catch) src/ais/action/master/pmb/CetakRegistrasiAction.java:2505");}
+				// Jangan menimpa pembayaran_daftar_ulang menjadi null bila kalkulasi gagal.
+				throw kegEx instanceof RuntimeException ? (RuntimeException) kegEx : new RuntimeException(kegEx);
 			}
 
 			if (tx == null || !tx.isActive()) {
@@ -3026,6 +3029,17 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 			}
 			tx.commit();
 			berhasilKomit = true;
+
+			// Data calon ditampilkan melalui ConstantValues (cache JVM). Tanpa invalidasi,
+			// Refresh/grid tetap membaca relasi Kegiatan dan angka tagihan sebelum sinkron.
+			// Hapus hanya entitas yang baru diubah; request berikutnya memuat nilai fresh DB.
+			ConstantValues.hapus(BiodataCalonMahasiswa.class.getName(), id);
+			if (pembayaranRegistrasi != null && pembayaranRegistrasi.getId() != null) {
+				ConstantValues.hapus(Kegiatan.class.getName(), pembayaranRegistrasi.getId());
+			}
+			if (kegiatanDaftarUlang != null && kegiatanDaftarUlang.getId() != null) {
+				ConstantValues.hapus(Kegiatan.class.getName(), kegiatanDaftarUlang.getId());
+			}
 
 		} catch (Exception e) {
 			if (tx != null && tx.isActive()) {
@@ -4111,6 +4125,11 @@ public class CetakRegistrasiAction extends GenericAutowireComposer implements Da
 		List<Long> newcalonMahasiswa = null;
 		if (calonMahasiswa != null) {
 			newcalonMahasiswa = new ArrayList<Long>(new java.util.LinkedHashSet<Long>(calonMahasiswa));
+			// Tombol Refresh harus benar-benar merefresh data, bukan sekadar merender ulang
+			// object lama dari MemoryCacheUtil. Batasi invalidasi pada baris halaman aktif.
+			for (Long calonId : newcalonMahasiswa) {
+				ConstantValues.hapus(BiodataCalonMahasiswa.class.getName(), calonId);
+			}
 		}
 
 		ListModel strset = new SimpleListModel(newcalonMahasiswa);

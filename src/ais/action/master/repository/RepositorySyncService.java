@@ -25,6 +25,7 @@ public class RepositorySyncService {
 	public static final String STATUS_DRAFT = "DRAFT";
 
 	private static final int DEFAULT_BATCH_SIZE = 25;
+	private static final long REPOSITORY_SYNC_LOCK_ID = 130720260819L;
 
 	private static class SourceDescriptor {
 		private String label;
@@ -115,6 +116,21 @@ public class RepositorySyncService {
 		}
 	}
 
+	/**
+	 * Mencegah dua node/thread menjalankan sinkron repository pada database yang sama.
+	 * Lock transaksi PostgreSQL otomatis dilepas saat commit/rollback. Bila database
+	 * bukan PostgreSQL, sinkronisasi tetap berjalan seperti sebelumnya.
+	 */
+	private static boolean cobaKunciSinkronisasi(Session session) {
+		try {
+			Object result = session.createSQLQuery("select pg_try_advisory_xact_lock(" + REPOSITORY_SYNC_LOCK_ID + ")")
+					.uniqueResult();
+			return Boolean.TRUE.equals(result) || "true".equalsIgnoreCase(String.valueOf(result));
+		} catch (Exception bukanPostgreSql) {
+			return true;
+		}
+	}
+
 	private static List<SourceDescriptor> getDefaultSources() {
 		List<SourceDescriptor> sources = new ArrayList<SourceDescriptor>();
 		sources.add(new SourceDescriptor("Skripsi/Tugas Akhir", "SKRIPSI", "Skripsi, Thesis, Disertasi, dan Tugas Akhir",
@@ -144,8 +160,12 @@ public class RepositorySyncService {
 
 	/** Sinkronisasi dengan session milik pemanggil (dipakai scheduler/background). */
 	public static SyncSummary synchronizeAll(Session session, boolean pushToDspace, boolean updateDspace,
-			ais.common.LaporanUpload laporan) {
+			 ais.common.LaporanUpload laporan) {
 		SyncSummary summary = new SyncSummary();
+		if (!cobaKunciSinkronisasi(session)) {
+			summary.message = "Sinkronisasi repository lain masih berjalan; permintaan ini dilewati dan akan dicoba pada siklus berikutnya.";
+			return summary;
+		}
 		String cookie = "";
 		if (pushToDspace) {
 			try {
@@ -200,9 +220,13 @@ public class RepositorySyncService {
 			outerBatch:
 			for (int first = 0; first < total; first += DEFAULT_BATCH_SIZE) {
 				Criteria criteria = session.createCriteria(modelClass).setFirstResult(first)
-						.setMaxResults(DEFAULT_BATCH_SIZE);
+						.setMaxResults(DEFAULT_BATCH_SIZE).setReadOnly(true);
 				List<Object> data = criteria.list();
 				for (Object obj : data) {
+					/* Entitas sumber hanya dibaca untuk membentuk metadata. Tanpa read-only,
+					 * getter legacy yang menormalisasi field dapat dianggap perubahan oleh
+					 * dirty-check Hibernate dan flush RepoItem ikut meng-UPDATE tabel sumber. */
+					session.setReadOnly(obj, true);
 					summary.scanned++;
 					String kunci = "[" + source.label + "] " + String.valueOf(obj);
 					try {
@@ -446,8 +470,11 @@ public class RepositorySyncService {
 			item.setOaiIdentifier(buildOaiIdentifier(source, sourceId));
 		}
 		item.setLanguage(firstNotEmpty(invokeString(obj, "getBahasa"), "id"));
-		item.setAccessPolicy(Common.getKonfigurasi(session, "repository_default_access_policy", "OPEN_ACCESS").getNilai());
-		item.setTurnitinIndexed(Common.getKonfigurasi(session, "repository_turnitin_index_default", "Aktif").getNilai()
+		/* Konfigurasi dibaca melalui cache/sesi isolasi. Jangan membuat Konfigurasi baru
+		 * di transaksi sinkronisasi karena kegagalan koneksi dapat meninggalkan entity
+		 * null-id dan merusak flush RepoItem berikutnya. */
+		item.setAccessPolicy(Common.getKonfigurasi("repository_default_access_policy", "OPEN_ACCESS").getNilai());
+		item.setTurnitinIndexed(Common.getKonfigurasi("repository_turnitin_index_default", "Aktif").getNilai()
 				.equalsIgnoreCase("Aktif"));
 		if (item.getTurnitinIndexed() && item.getTurnitinIndexedAt() == null) {
 			item.setTurnitinIndexedAt(new Date());

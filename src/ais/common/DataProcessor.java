@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.zip.ZipException;
+import java.util.zip.ZipFile;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
@@ -231,6 +232,17 @@ public class DataProcessor { // Ganti nama class sesuai file Anda
 			}
 
 			if (fileZip != null && fileZip.exists()) {
+				/* Validasi central directory SEBELUM direktori hasil lama dihapus. Ini
+				 * membedakan ZIP valid dari upload terputus/berkas lain berekstensi zip,
+				 * serta mempertahankan hasil ekstraksi lama bila sumber rusak. */
+				ZipFile zipValidasi = null;
+				try {
+					zipValidasi = new ZipFile(fileZip);
+				} finally {
+					if (zipValidasi != null) {
+						try { zipValidasi.close(); } catch (Exception ignored) { }
+					}
+				}
 				String folderName = fileZip.getName().replace(".zip", "").replaceAll(" ", "_");
 				String fullPath = Common.REAL_PATH + SCORM_BASE_PATH + folderName;
 

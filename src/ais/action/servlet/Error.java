@@ -59,13 +59,26 @@ public class Error extends HttpServlet {
 			if (throwable == null) {
 				Object status = request.getAttribute("javax.servlet.error.status_code");
 				Object message = request.getAttribute("javax.servlet.error.message");
-				throwable = new ServletException("HTTP " + status + ": " + message);
+				int statusCode = status instanceof Number ? ((Number) status).intValue() : 500;
+				if (statusCode == HttpServletResponse.SC_SERVICE_UNAVAILABLE || statusCode == 429) {
+					/* Saat server overload jangan membuat exception baru dan menulis audit DB;
+					 * hal itu menambah beban serta membuat halaman /error tampak sebagai akar
+					 * masalah. Tampilkan respons ramah dan pertahankan status HTTP aslinya. */
+					response.setStatus(statusCode);
+					request.setAttribute("ais.error.content",
+							"Layanan sedang sibuk karena terlalu banyak permintaan bersamaan. Silakan tunggu beberapa saat lalu coba kembali.");
+					request.setAttribute("ais.error.log_id", null);
+				} else {
+					throwable = new ServletException("HTTP " + status + ": " + message);
+				}
 			}
-			ErrorAuditUtil.ErrorAuditResult audit = ErrorAuditUtil.recordVisibleFailure(throwable,
-					"Container error page", request, traceId);
-			request.setAttribute("ais.error.content", audit == null ? null : audit.getContent());
-			request.setAttribute("ais.error.log_id", audit == null ? null : audit.getErrorLogId());
-			request.setAttribute("ais.error.throwable", throwable);
+			if (request.getAttribute("ais.error.content") == null) {
+				ErrorAuditUtil.ErrorAuditResult audit = ErrorAuditUtil.recordVisibleFailure(throwable,
+						"Container error page", request, traceId);
+				request.setAttribute("ais.error.content", audit == null ? null : audit.getContent());
+				request.setAttribute("ais.error.log_id", audit == null ? null : audit.getErrorLogId());
+				request.setAttribute("ais.error.throwable", throwable);
+			}
 		}
 		request.setAttribute("ais.error.show_detail", Boolean.valueOf(ErrorAuditUtil.isUiDetailActive()));
 		request.getRequestDispatcher("/WEB-INF/u/error.jsp").forward(request, response);

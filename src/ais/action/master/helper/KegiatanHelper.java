@@ -228,21 +228,16 @@ public class KegiatanHelper {
 				}
 			} catch (org.hibernate.SessionException e) {
 				if (!closeLocalSession) {
-					try { if (isNewTx && tx != null && tx.isActive()) tx.rollback(); } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:217");}
-					try { if (isUsableSession(session)) session.clear(); } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:218");}
-					try { if (isUsableSession(session)) session.close(); } catch (Exception ex) { ais.common.ErrorAuditUtil.record(ex, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:219");}
-					session = openIsolatedSession();
-					closeLocalSession = true;
-					tx = session.beginTransaction();
-					isNewTx = true;
 					Session isoSession2 = null;
 					Transaction isoTx2 = null;
 					try {
 						isoSession2 = openIsolatedSession();
 						isoTx2 = isoSession2.beginTransaction();
+						terapkanLockTimeout(isoSession2);
 						isoSession2.merge(entity);
 						isoSession2.flush();
 						isoTx2.commit();
+						return;
 					} catch (Exception mergeEx) {
 						if (isoTx2 != null && isoTx2.isActive()) {
 							try { isoTx2.rollback(); } catch (Exception ex2) { ais.common.ErrorAuditUtil.record(ex2, "auto-audit(empty-catch) src/ais/action/master/helper/KegiatanHelper.java:234");}

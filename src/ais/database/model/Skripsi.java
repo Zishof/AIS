@@ -25,6 +25,7 @@ import javax.persistence.TemporalType;
 
 import org.apache.commons.lang.StringUtils;
 import org.hibernate.Session;
+import org.hibernate.Hibernate;
 import org.hibernate.annotations.Fetch;
 import org.hibernate.annotations.FetchMode;
 import org.hibernate.criterion.Criterion;
@@ -523,10 +524,24 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 	public String getNilaiHuruf() {
 		totalNilai = getTotalNilai();
 		try {
+			/* Getter entity juga dipanggil Hibernate saat dirty-check dan laporan pada
+			 * object detached. Jangan memaksa proxy mahasiswa/jurusan/fakultas melakukan
+			 * lazy-load tanpa session; gunakan nilai_huruf tersimpan sampai relasi tersedia. */
+			if (mahasiswa != null && !Hibernate.isInitialized(mahasiswa)) {
+				return nilaiHuruf == null ? "-" : nilaiHuruf.trim();
+			}
 			// Skripsi baru (mis. saat onAdd) belum tentu punya mahasiswa/jurusan
 			// terisi -> jangan lanjut hitung nilai huruf, cukup kembalikan "-".
-			if (mahasiswa == null || mahasiswa.getJurusan() == null) {
+			Jurusan jurusanNilai = mahasiswa == null ? null : mahasiswa.getJurusan();
+			if (jurusanNilai == null) {
 				return "-";
+			}
+			if (!Hibernate.isInitialized(jurusanNilai)) {
+				return nilaiHuruf == null ? "-" : nilaiHuruf.trim();
+			}
+			Fakultas fakultasNilai = jurusanNilai.getFakultas();
+			if (fakultasNilai != null && !Hibernate.isInitialized(fakultasNilai)) {
+				return nilaiHuruf == null ? "-" : nilaiHuruf.trim();
 			}
 
 			Matakuliah matakuliah = detailperkuliahan == null ? null
@@ -540,12 +555,12 @@ public class Skripsi extends VOPembelajaran implements VOPesertaPembelajaran {
 			}
 
 			NilaiHuruf a = detailperkuliahan == null
-					? Common.getNilaiHuruf(totalNilai, mahasiswa.getTahunangkatan(), mahasiswa.getJurusan(),
-							mahasiswa.getJurusan().getFakultas(), Common.getCurrentTahunAkademik(),
+					? Common.getNilaiHuruf(totalNilai, mahasiswa.getTahunangkatan(), jurusanNilai,
+							fakultasNilai, Common.getCurrentTahunAkademik(),
 							Common.isNowSemensterGanjil() ? Perkuliahan.GANJIL : Perkuliahan.GENAP,
 							matakuliah == null ? "" : matakuliah.getKode(), jenisNilaiHuruf)
-					: Common.getNilaiHuruf(totalNilai, mahasiswa.getTahunangkatan(), mahasiswa.getJurusan(),
-							mahasiswa.getJurusan().getFakultas(), detailperkuliahan.getTahunAkademik(),
+					: Common.getNilaiHuruf(totalNilai, mahasiswa.getTahunangkatan(), jurusanNilai,
+							fakultasNilai, detailperkuliahan.getTahunAkademik(),
 							detailperkuliahan.getPerkuliahan() == null ? null
 									: detailperkuliahan.getPerkuliahan().getGanjilGenap(),
 							matakuliah == null ? "" : matakuliah.getKode(), jenisNilaiHuruf);

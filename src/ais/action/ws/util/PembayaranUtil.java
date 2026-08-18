@@ -338,16 +338,13 @@ public class PembayaranUtil {
 					.addOrder(Order.desc("id")).setMaxResults(1),
 				JadwalPembayaran.class);
 			if (jadwalLonggar != null) {
-				ais.common.ErrorAuditUtil.record(
-					new Exception(
-						"Jadwal Pembayaran dipakai via pencarian LONGGAR (Jenis Seleksi/Gelombang Pendaftaran/Prodi diabaikan): jadwalId="
+				System.out.println("[Pembayaran] Jadwal dipakai via pencarian LONGGAR (Jenis Seleksi/Gelombang Pendaftaran/Prodi diabaikan): jadwalId="
 							+ jadwalLonggar.getId() + " jenisKegiatan="
 							+ (jenisKegiatan == null ? "null" : jenisKegiatan.getId()) + " jenjang="
 							+ (jenjang == null ? "null" : jenjang.getId()) + " jenisSeleksiDiminta="
 							+ (jenisSeleksi == null ? "null" : jenisSeleksi.getId()) + " gelombangDiminta="
 							+ (gelombangPendaftaran == null ? "null" : gelombangPendaftaran.getId())
-							+ " programDiminta=" + program + " nim=" + nim),
-				"auto-audit(jadwal-pembayaran-fallback-longgar) src/ais/action/ws/util/PembayaranUtil.java:getJadwalPembayaranDanDendaBerdasarkanTahunAkademik");
+							+ " programDiminta=" + program + " nim=" + nim);
 				jadwalPembayaran = jadwalLonggar;
 			}
 		}
