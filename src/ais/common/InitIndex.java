@@ -1911,6 +1911,51 @@ public class InitIndex {
 	 * oleh perangkat POS lain. Tabel ini terpisah dari transaksi penjualan agar
 	 * proses audit cadangan tidak mengubah data finansial maupun idempotensi nota.
 	 */
+	/**
+	 * Seed dua Jenis Reimbursement default saat bootstrap Tomcat:
+	 * (1) "Menggunakan Anggaran" — pengaju wajib memilih Anggaran (Workspace);
+	 * (2) "Tanpa Anggaran" — akun biaya ditentukan admin pada jenis (bukan per
+	 * pengajuan). Idempoten: tabel dibuat bila belum ada (kolom lengkap
+	 * disempurnakan hbm2ddl) dan seed hanya berjalan saat tabel masih KOSONG,
+	 * sehingga perubahan admin tidak pernah tertimpa restart.
+	 */
+	static void initDefaultJenisReimbursement() {
+		org.hibernate.Session session = null;
+		org.hibernate.Transaction tx = null;
+		java.sql.Statement ddl = null;
+		try {
+			session = ais.database.hibernate.HibernateUtil.getSessionFactory().openSession();
+			tx = session.beginTransaction();
+			ddl = session.connection().createStatement();
+			ddl.executeUpdate("CREATE TABLE IF NOT EXISTS akunting.jenis_reimbursement ("
+					+ "id bigserial PRIMARY KEY, nama varchar(255), keterangan text, "
+					+ "menggunakan_anggaran boolean, akun int8, satuan_kerja int8, "
+					+ "aktif boolean, tanggal_dirubah timestamp without time zone)");
+			ddl.executeUpdate("INSERT INTO akunting.jenis_reimbursement "
+					+ "(nama, keterangan, menggunakan_anggaran, aktif, tanggal_dirubah) "
+					+ "SELECT x.nama, x.ket, x.mg, true, now() FROM (VALUES "
+					+ "('Menggunakan Anggaran', 'Pengaju wajib memilih Anggaran (Workspace) pada form pengajuan', true), "
+					+ "('Tanpa Anggaran', 'Akun biaya ditentukan pada jenis ini oleh admin - pengaju tidak memilih akun', false)"
+					+ ") AS x(nama, ket, mg) "
+					+ "WHERE NOT EXISTS (SELECT 1 FROM akunting.jenis_reimbursement)");
+			tx.commit();
+		} catch (Exception e) {
+			if (tx != null && tx.isActive()) try { tx.rollback(); } catch (Exception rollback) {
+				ErrorAuditUtil.record(rollback, "initDefaultJenisReimbursement-rollback");
+			}
+			ErrorAuditUtil.record(e, "auto-audit InitIndex.initDefaultJenisReimbursement");
+		} finally {
+			try { if (ddl != null) ddl.close(); } catch (Exception e) {
+				ErrorAuditUtil.record(e, "initDefaultJenisReimbursement-ddl-close");
+			}
+			if (session != null) {
+				try { session.clear(); } catch (Exception e) { ErrorAuditUtil.record(e, "initDefaultJenisReimbursement-clear"); }
+				try { session.disconnect(); } catch (Exception e) { ErrorAuditUtil.record(e, "initDefaultJenisReimbursement-disconnect"); }
+				try { session.close(); } catch (Exception e) { ErrorAuditUtil.record(e, "initDefaultJenisReimbursement-close"); }
+			}
+		}
+	}
+
 	static void initTransaksiBackupAck() {
 		org.hibernate.Session session = null;
 		org.hibernate.Transaction tx = null;
@@ -2040,6 +2085,7 @@ public class InitIndex {
 		initCaraPembayaranMasukSebagaiHutang();
 		initKebijakanReturProduk();
 		initTransaksiBackupAck();
+		initDefaultJenisReimbursement();
 
 		// 1. EKSTENSI TRIGRAM (WAJIB) — dijalankan SINKRON (sebelum pool paralel aktif) karena
 		// seluruh index GIN trigram bergantung pada ekstensi ini; harus tersedia lebih dulu.

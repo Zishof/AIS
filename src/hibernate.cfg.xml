@@ -1203,6 +1203,7 @@
 		<mapping class="ais.database.model.akunting.JenisUangMuka" />
 		<mapping class="ais.database.model.akunting.UangMuka" />
 		<mapping class="ais.database.model.akunting.ReimbursementPegawai" />
+		<mapping class="ais.database.model.akunting.JenisReimbursement" />
 		<mapping class="ais.database.model.akunting.AcaraHasTransaksi"></mapping>
 		<mapping class="ais.database.model.akunting.Akun"></mapping>
 		<mapping class="ais.database.model.akunting.Devisi"></mapping>

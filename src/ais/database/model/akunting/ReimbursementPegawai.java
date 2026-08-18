@@ -78,6 +78,7 @@ public class ReimbursementPegawai extends DataSop {
     private SatuanKerja satuanKerja;
     private Akun akun;
     private Boolean tanpaAnggaran;
+    private JenisReimbursement jenisReimbursement;
 
     // --- Rincian barang/biaya (pola KasKecil: JSON) ---
     private String formula;
@@ -300,6 +301,12 @@ public class ReimbursementPegawai extends DataSop {
 
     public Boolean getTanpaAnggaran() { return tanpaAnggaran == null ? false : tanpaAnggaran; }
     public void setTanpaAnggaran(Boolean tanpaAnggaran) { this.tanpaAnggaran = tanpaAnggaran; }
+
+    /** Jenis reimbursement yang dipilih pengaju (menentukan wajib-anggaran vs akun tetap). */
+    @ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
+    @JoinColumn(name = "jenis_reimbursement", nullable = true)
+    public JenisReimbursement getJenisReimbursement() { jenisReimbursement = check(jenisReimbursement); return jenisReimbursement; }
+    public void setJenisReimbursement(JenisReimbursement jenisReimbursement) { this.jenisReimbursement = jenisReimbursement; }
 
     @ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
     @JoinColumn(name = "workspace", nullable = true)
