@@ -46,6 +46,10 @@
 			Bila menambah kolom ke entitas @Audited, sinkronkan juga tabel *__audit di new_audit
 			(ALTER TABLE ... ADD COLUMN, atau DROP tabel audit-nya agar dibuat ulang saat startup).
 			Disarankan backup database sebelum start pertama dengan mode "update".
+			MULAI r77609: selisih kolom basis-vs-audit disinkron OTOMATIS saat startup oleh
+			ais.database.hibernate.AuditSchemaSyncUtil (dipanggil HibernateUtil.getSessionFactory,
+			fail-soft) -- ALTER manual per rilis tidak lagi diwajibkan; catatan di atas
+			dipertahankan sebagai konteks sejarah.
 		-->
 		<property name="hbm2ddl.auto">update</property>
 		<!-- PERCEPAT STARTUP: dialect sudah eksplisit (PostgreSQLDialect) di atas, jadi Hibernate

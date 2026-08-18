@@ -937,6 +937,11 @@ public class DaftarPengajuanTransfer extends DataSop {
 		this.uangMuka = uangMuka;
 	}
 
+	// targetAuditMode NOT_AUDITED WAJIB: ReimbursementPegawai tidak @Audited, sedangkan
+	// entity ini @Audited -- tanpa anotasi ini Envers GAGAL init listeners saat build
+	// SessionFactory ("An audited relation ... to a not audited entity") dan SELURUH
+	// aplikasi mati di startup (terbukti di UAT 2026-08-19; pola insiden hotel.Kamar).
+	@Audited(targetAuditMode = org.hibernate.envers.RelationTargetAuditMode.NOT_AUDITED)
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
 	@NotFound(action = NotFoundAction.IGNORE)
 	@Fetch(FetchMode.SELECT)

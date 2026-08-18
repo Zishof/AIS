@@ -934,6 +934,12 @@
 		<load-on-startup>20</load-on-startup>
 	</servlet>
 	<servlet>
+		<description>Portal publik MitraInap (katalog/ketersediaan/booking/status) -- anonim + rate limit, LANGKAH 6. Lihat JavaDoc ais.action.servlet.MitraInapPublikServlet.</description>
+		<display-name>MitraInapPublik</display-name>
+		<servlet-name>MitraInapPublik</servlet-name>
+		<servlet-class>ais.action.servlet.MitraInapPublikServlet</servlet-class>
+	</servlet>
+	<servlet>
 		<description>
 		</description>
 		<display-name>kursus</display-name>
@@ -1754,6 +1760,10 @@
 	<servlet-mapping>
 		<servlet-name>PendaftaranTenant</servlet-name>
 		<url-pattern>/pendaftaran</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>MitraInapPublik</servlet-name>
+		<url-pattern>/mitrainap-publik</url-pattern>
 	</servlet-mapping>
 	<servlet-mapping>
 		<servlet-name>DokuResponse</servlet-name>

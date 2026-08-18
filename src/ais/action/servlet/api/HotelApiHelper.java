@@ -1551,6 +1551,62 @@ public final class HotelApiHelper {
 		}
 	}
 
+	/**
+	 * LANGKAH 6: verifikasi MANUAL pembayaran booking online oleh staf (fallback selama
+	 * webhook kanal bank belum dipilih/terpasang) -- {@code hotel_booking_konfirmasi_bayar
+	 * {reservasi_id*}}. Mengisi logPembayaran tagihan (bukti siapa+kapan) dan mempromosikan
+	 * BOOKED -&gt; CONFIRMED. Gate: kunci hotel_reservasi aksi approve.
+	 */
+	public static void bookingKonfirmasiBayar(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		if (!boleh(tbmuser, "hotel_reservasi", "approve")) {
+			tolak(hasil, "Anda tidak memiliki hak menyetujui pembayaran booking.");
+			return;
+		}
+		Long id = idDari(request, "reservasi_id");
+		if (id == null) {
+			tolak(hasil, "reservasi_id wajib diisi.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			ais.database.model.hotel.ReservasiKamar r = (ais.database.model.hotel.ReservasiKamar) session
+					.get(ais.database.model.hotel.ReservasiKamar.class, id);
+			if (r == null) {
+				tolak(hasil, "Reservasi tidak ditemukan.");
+				return;
+			}
+			if (!ais.database.model.hotel.ReservasiKamar.STATUS_BOOKED.equals(r.getStatus())) {
+				tolak(hasil, "Hanya booking berstatus BOOKED yang bisa dikonfirmasi (sekarang: " + r.getStatus() + ").");
+				return;
+			}
+			ais.database.model.koperasi.KodePembayaranOnline tagihan =
+					(ais.database.model.koperasi.KodePembayaranOnline) session
+							.createCriteria(ais.database.model.koperasi.KodePembayaranOnline.class)
+							.add(Restrictions.eq("keterangan", "MITRAINAP-BOOKING:" + r.getKode()))
+							.setMaxResults(1).uniqueResult();
+			session.beginTransaction();
+			if (tagihan != null && (tagihan.getLogPembayaran() == null
+					|| tagihan.getLogPembayaran().trim().isEmpty())) {
+				tagihan.setLogPembayaran("MANUAL oleh " + (tbmuser == null ? "?" : tbmuser.getUserId())
+						+ " " + formatWaktu(ais.ui.util.WaktuUtil.getDate()));
+				tagihan.setAktif(Boolean.TRUE);
+				session.saveOrUpdate(tagihan);
+			}
+			r.setStatus(ais.database.model.hotel.ReservasiKamar.STATUS_CONFIRMED);
+			if (tbmuser != null) {
+				r.setOlehId(tbmuser.getUserId());
+				r.setOleh(tbmuser.getUserNama());
+			}
+			session.saveOrUpdate(r);
+			session.getTransaction().commit();
+			hasil.put("status", "00");
+			hasil.put("id", r.getId());
+			hasil.put("status_reservasi", r.getStatus());
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
 	/** SHA-256 hex 64 char -- bukti snapshot laporan tidak berubah (pola fingerprint RetailIdempotencyUtil). */
 	private static String sha256Hex(String nilai) throws Exception {
 		byte[] digest = java.security.MessageDigest.getInstance("SHA-256").digest(nilai.getBytes("UTF-8"));
@@ -1633,6 +1689,7 @@ public final class HotelApiHelper {
 		if ("hotel_kontrak_pemilik_simpan".equals(action)) { kontrakPemilikSimpan(tbmuser, request, hasil); return true; }
 		if ("hotel_laporan_pemilik_generate".equals(action)) { laporanPemilikGenerate(tbmuser, request, hasil); return true; }
 		if ("hotel_laporan_pemilik_list".equals(action)) { laporanPemilikList(tbmuser, request, hasil); return true; }
+		if ("hotel_booking_konfirmasi_bayar".equals(action)) { bookingKonfirmasiBayar(tbmuser, request, hasil); return true; }
 		return false;
 	}
 }
