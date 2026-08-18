@@ -105,6 +105,11 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer {
     @Override
     public void doAfterCompose(Component comp) throws Exception {
         super.doAfterCompose(comp);
+        // BUG1: <window mode="popup"> otomatis tampil saat compose (dan mode=popup diperlukan agar field di
+        // dalamnya ter-wire ke composer sebagai fellow page-level). Tutup di sini (server-side, sebelum render)
+        // supaya menu langsung ke Dashboard; window dibuka lagi hanya lewat openPayment()/decide().
+        if (approvalWindow != null) approvalWindow.setVisible(false);
+        if (paymentWindow != null) paymentWindow.setVisible(false);
         user = Common.getCurrentUser();
         currentPegawai = user == null ? null : user.getPegawai();
         canApprove = isAdministrator() || CommonPrivilages.checkPrevilages(CommonPrivilages.APPROVE);
