@@ -1196,7 +1196,14 @@ public class TampilanAlurSopAction extends GenericAutowireComposer {
 
 		Toolbar toolbar = new Toolbar();
 		toolbar.setAlign("end");
-		toolbar.setStyle("border:0;background:transparent;padding:2px 6px;");
+		toolbar.setStyle("border:0;background:transparent;padding:2px 6px;white-space:nowrap;");
+
+		// SATU BARIS HORIZONTAL: semua tombol dirangkai dalam Hbox (tabel satu baris,
+		// tidak pernah wrap) agar toolbar tidak menumpuk vertikal/meninggi.
+		Hbox barisTombol = new Hbox();
+		barisTombol.setAlign("center");
+		barisTombol.setSpacing("10px");
+		barisTombol.setParent(toolbar);
 
 		MyToolbarbuttonConfig btnParam = new MyToolbarbuttonConfig("Parameter", "/img/svg/search.svg");
 		btnParam.setTooltiptext("Lihat seluruh parameter yang dipakai laporan ini");
@@ -1241,7 +1248,7 @@ public class TampilanAlurSopAction extends GenericAutowireComposer {
 				win.onModal();
 			}
 		});
-		toolbar.appendChild(btnParam);
+		barisTombol.appendChild(btnParam);
 
 		MyToolbarbuttonConfig btnHistory = new MyToolbarbuttonConfig("History", "/img/jadwal.png");
 		btnHistory.setTooltiptext("Info format layout JRXML yang sedang aktif untuk SOP ini");
@@ -1268,13 +1275,44 @@ public class TampilanAlurSopAction extends GenericAutowireComposer {
 						MyMessageboxConfig.INFORMATION);
 			}
 		});
-		toolbar.appendChild(btnHistory);
+		barisTombol.appendChild(btnHistory);
 
-		// Download + Upload JRXML per-SOP — widget & penyimpanan SAMA dengan menu SOP
+		// Download *.jrxml — SELALU tampil: unduh file KUSTOM per-SOP bila sudah pernah
+		// diunggah; bila belum, unduh SUMBER BAWAAN FormSop (report/disposisi_sop.jrxml)
+		// sebagai template awal untuk diedit admin.
+		MyToolbarbuttonConfig btnJrxml = new MyToolbarbuttonConfig("Download *.jrxml", "/img/download.png");
+		btnJrxml.setTooltiptext("Unduh format layout JRXML yang sedang aktif (kustom bila ada, bawaan bila belum)");
+		btnJrxml.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				LampiranLain aktif = LampiranLain.ambil(disposisiSop.getSop().getId(),
+						LampiranLain.FILE_JRXML_LAYOUT_DISPOSISI_ALUR_SOP, true);
+				if (aktif != null && aktif.getId() != null && aktif.ambilFile() != null
+						&& aktif.ambilFile().exists()) {
+					org.zkoss.zul.Filedownload.save(aktif.ambilFile(), "text/xml");
+					return;
+				}
+				File sumber = new File(Common.ambilREAL_PATH_REPORT() + "/disposisi_sop.jrxml");
+				if (sumber.exists()) {
+					org.zkoss.zul.Filedownload.save(sumber, "text/xml");
+				} else {
+					MyMessageboxConfig.show(
+							"File sumber report/disposisi_sop.jrxml tidak ditemukan di server. Mohon hubungi tim teknis.",
+							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				}
+			}
+		});
+		barisTombol.appendChild(btnJrxml);
+
+		// Upload JRXML per-SOP — widget & penyimpanan SAMA dengan menu SOP
 		// (SopAction: LampiranLain ref=sop.id jenis=FILE_JRXML_LAYOUT_DISPOSISI_ALUR_SOP),
 		// sehingga file yang diunggah dari sini langsung dipakai cetakDisposisi berikutnya.
-		LampiranLain.createDownloadUploadFileLain(toolbar, disposisiSop.getSop().getId(),
-				LampiranLain.FILE_JRXML_LAYOUT_DISPOSISI_ALUR_SOP, "File format disposisi jrxml", false,
+		// Label dipendekkan + ikut dalam Hbox agar tetap satu baris horizontal.
+		Hbox selUpload = new Hbox();
+		selUpload.setAlign("center");
+		barisTombol.appendChild(selUpload);
+		LampiranLain.createDownloadUploadFileLain(selUpload, disposisiSop.getSop().getId(),
+				LampiranLain.FILE_JRXML_LAYOUT_DISPOSISI_ALUR_SOP, "JRXML", false,
 				new EventListener() {
 					@Override
 					public void onEvent(Event arg0) throws Exception {
