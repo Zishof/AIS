@@ -1,528 +1,1138 @@
 package ais.action.master.akunting;
 
-import java.util.ArrayList;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
-import java.util.Set;
 
 import org.hibernate.Criteria;
-import org.hibernate.Hibernate;
 import org.hibernate.Session;
-import org.hibernate.Transaction;
 import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
-import org.zkoss.zk.ui.util.GenericAutowireComposer;
 import org.zkoss.zul.Button;
 import org.zkoss.zul.Checkbox;
+import org.zkoss.zul.Columns;
 import org.zkoss.zul.Combobox;
-import org.zkoss.zul.Comboitem;
+import org.zkoss.zul.Filedownload;
 import org.zkoss.zul.Grid;
 import org.zkoss.zul.Hbox;
 import org.zkoss.zul.Label;
 import org.zkoss.zul.Row;
 import org.zkoss.zul.RowRenderer;
+import org.zkoss.zul.Rows;
 import org.zkoss.zul.SimpleListModel;
-import org.zkoss.zul.Tab;
+import org.zkoss.zul.Tabpanel;
 import org.zkoss.zul.Textbox;
+import org.zkoss.zul.Toolbar;
+import org.zkoss.zul.Vbox;
+import org.zkoss.zk.ui.util.GenericAutowireComposer;
 
 import ais.action.master.akunting.helper.AmbilDataAkunBanbox;
 import ais.action.master.akunting.helper.AmbilDataPegawaiBanbox;
-import ais.action.master.akunting.util.CommonAkunting;
+import ais.action.master.rab.helper.AmbilDataSatuanKerjaBanbox;
+import ais.action.master.rab.helper.AmbilDataWorkspaceBanbox;
 import ais.common.Common;
-import ais.common.CommonPrivilages;
+import ais.common.ConstantValues;
 import ais.database.hibernate.HibernateUtil;
-import ais.database.model.Konfigurasi;
+import ais.database.model.GeneralValueObject;
 import ais.database.model.Pegawai;
-import ais.database.model.Tbmrole;
 import ais.database.model.Tbmuser;
 import ais.database.model.akunting.Akun;
-import ais.database.model.akunting.PostingHistory;
+import ais.database.model.akunting.DaftarPengajuanTransfer;
 import ais.database.model.akunting.ReimbursementPegawai;
-import ais.database.model.asset.JenisPajakBarang;
-import ais.database.model.file.LampiranLain;
+import ais.database.model.rab.SatuanKerja;
+import ais.database.model.rab.Workspace;
+import ais.database.model.sop.DataSop;
+import ais.database.model.sop.DisposisiSop;
+import ais.ui.util.FormSop;
+import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyDatebox;
 import ais.ui.util.MyDoublebox;
+import ais.ui.util.MyFormRow;
+import ais.ui.util.MyGrid;
+import ais.ui.util.MyLabelConfig;
 import ais.ui.util.MyMessageboxConfig;
+import ais.ui.util.MyTextbox;
+import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
+import ais.ui.util.WaktuUtil;
+
+import com.itextpdf.text.BaseColor;
+import com.itextpdf.text.Document;
+import com.itextpdf.text.Element;
+import com.itextpdf.text.Font;
+import com.itextpdf.text.FontFactory;
+import com.itextpdf.text.PageSize;
+import com.itextpdf.text.Paragraph;
+import com.itextpdf.text.pdf.PdfPCell;
+import com.itextpdf.text.pdf.PdfPTable;
+import com.itextpdf.text.pdf.PdfWriter;
 
 /**
- * Workflow reimbursement pegawai: pengajuan privat, approval atasan, pencatatan
- * biaya, dan pembayaran finance. Seluruh mutasi status dan jurnal dilakukan
- * transaksional serta diperiksa ulang di server.
+ * <h3>Reimbursement Pegawai — pola UangMuka (SOP-driven, persetujuan di AKHIR).</h3>
+ *
+ * <p>Rework total dari versi multi-tab (Pengajuan Baru/Pengajuan Saya/Persetujuan
+ * Atasan/Pembayaran Finance) menjadi klon pola {@link UangMukaAction}:</p>
+ * <ul>
+ *   <li>{@code implements FormSop}: form diinstansiasi mesin SOP
+ *       (TampilanAlurSopAction) via {@code AlurSop.formInputan}; persetujuan
+ *       terjadi di langkah AKHIR disposisi (bukan tombol approve di layar ini).
+ *       Status/penyetuju diturunkan dari {@code DisposisiSop} di entity.</li>
+ *   <li>Pemilihan Anggaran ({@link AmbilDataWorkspaceBanbox}) + Satuan Kerja,
+ *       persis uang muka. TANPA sumber Permintaan Pembelian (PR).</li>
+ *   <li>Rincian barang/biaya meniru {@link KasKecilAction}: baris JSON
+ *       {@code formula} (key/akun/nama/qty/harga/jumlah/tanggal) dengan picker
+ *       {@link AmbilDataAkunBanbox} per baris; total baris = nominal dokumen.</li>
+ *   <li>Integrasi DPC: saat status DISETUJUI, dokumen otomatis masuk daftar DPC
+ *       lewat {@link DaftarPengajuanTransfer#simpanReimbursement} (post-save
+ *       timer + safety-net renderer) sehingga dapat diproses
+ *       {@link ProsesTransferAction}.</li>
+ * </ul>
  */
-@SuppressWarnings({ "rawtypes", "unchecked" })
-public class ReimbursementPegawaiAction extends GenericAutowireComposer {
-    private static final long serialVersionUID = 1L;
-    private static final String JENIS_LAMPIRAN = "Lampiran Reimbursement Pegawai";
+@SuppressWarnings({ "rawtypes", "unchecked", "serial" })
+public class ReimbursementPegawaiAction extends GenericAutowireComposer implements FormSop {
 
-    private MyWindow window;
-    private Grid gridSaya;
-    private Grid gridAtasan;
-    private Grid gridFinance;
-    private Tab approvalTab;
-    private Tab financeTab;
+	// ===== komponen halaman (autowire reimbursement_pegawai.zul) =====
+	private MyWindow window;
+	private MyWindow addWindow;
+	private MyGrid grid;
+	private Textbox serachnama;
+	private Textbox serachkode;
+	private Combobox searchstatus;
+	private AmbilDataWorkspaceBanbox searchAnggaran;
+	private AmbilDataSatuanKerjaBanbox searchparent;
+	private Checkbox searchaktif;
+	private Checkbox searchtelahDpc;
+	private MyDatebox start;
+	private MyDatebox end;
+	private Tabpanel statistik;
+	private Tabpanel monitor;
 
-    private Textbox deskripsi;
-    private Combobox kategori;
-    private MyDoublebox nominal;
-    private Combobox pajak;
-    private AmbilDataPegawaiBanbox pegawai;
-    private Checkbox dibayarPegawai;
-    private MyDatebox tanggalPengeluaran;
-    private AmbilDataPegawaiBanbox atasan;
-    private Textbox catatanPengaju;
-    private Hbox attachmentBox;
-    private Label formMode;
+	// ===== state form (FormSop) =====
+	private ReimbursementPegawai reimbursement;
+	private DisposisiSop disposisiSop;
+	private boolean persetujuan;
+	private boolean viewOnly;
+	private Tbmuser tbmuser;
+	private JSONArray array = new JSONArray();
 
-    private MyWindow approvalWindow;
-    private Label approvalInfo;
-    private Textbox catatanAtasan;
-    private AmbilDataAkunBanbox akunBiaya;
-    private MyDatebox tanggalAkuntansi;
+	// kontrol form
+	private AmbilDataSatuanKerjaBanbox satuanKerja;
+	private AmbilDataWorkspaceBanbox workspace;
+	private Checkbox tanpaAnggaran;
+	private AmbilDataAkunBanbox akunTanpa;
+	private MyFormRow rowAnggaran;
+	private MyFormRow rowAkunPilih;
+	private Label kode;
+	private Textbox nama;
+	private AmbilDataPegawaiBanbox pegawaiPenerima;
+	private MyDatebox tanggalKegiatan;
+	private Textbox keterangan;
+	private Label unit;
+	private Label saldoAnggaran;
+	private Vbox itemBox;
+	private Label footerTotal;
 
-    private MyWindow paymentWindow;
-    private Label paymentInfo;
-    private Combobox metodePembayaran;
-    private Textbox bankPenerima;
-    private Textbox rekeningPenerima;
-    private MyDoublebox jumlahPembayaran;
-    private MyDatebox tanggalPembayaran;
-    private Textbox catatanPembayaran;
-    private AmbilDataAkunBanbox akunPembayaran;
+	@Override
+	public void doAfterCompose(Component comp) throws Exception {
+		super.doAfterCompose(comp);
+		tbmuser = Common.getCurrentUser();
+		if (addWindow != null) {
+			addWindow.setVisible(false);
+		}
+		if (searchstatus != null && searchstatus.getItemCount() == 0) {
+			searchstatus.appendItem("");
+			searchstatus.appendItem(ReimbursementPegawai.DIAJUKAN);
+			searchstatus.appendItem(ReimbursementPegawai.DISETUJUI);
+			searchstatus.appendItem(ReimbursementPegawai.DITOLAK);
+		}
+		onSearchDefault(null);
+	}
 
-    private Tbmuser user;
-    private Pegawai currentPegawai;
-    private LampiranLain uploadedLampiran;
-    private Long editId;
-    private Long approvalId;
-    private Long paymentId;
-    private boolean canApprove;
-    private boolean canPay;
+	// =====================================================================
+	// Halaman daftar (klon layout uang_muka.zul)
+	// =====================================================================
 
-    @Override
-    public void doAfterCompose(Component comp) throws Exception {
-        super.doAfterCompose(comp);
-        // BUG1: <window mode="popup"> otomatis tampil saat compose (dan mode=popup diperlukan agar field di
-        // dalamnya ter-wire ke composer sebagai fellow page-level). Tutup di sini (server-side, sebelum render)
-        // supaya menu langsung ke Dashboard; window dibuka lagi hanya lewat openPayment()/decide().
-        if (approvalWindow != null) approvalWindow.setVisible(false);
-        if (paymentWindow != null) paymentWindow.setVisible(false);
-        user = Common.getCurrentUser();
-        currentPegawai = user == null ? null : user.getPegawai();
-        canApprove = isAdministrator() || CommonPrivilages.checkPrevilages(CommonPrivilages.APPROVE);
-        canPay = isAdministrator() || CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
-        approvalTab.setVisible(canApprove || currentPegawai != null);
-        financeTab.setVisible(canPay);
+	public void onSearchDefault(Event event) throws Exception {
+		if (grid == null) {
+			return;
+		}
+		Session session = HibernateUtil.currentSession();
+		Criteria c = session.createCriteria(ReimbursementPegawai.class);
 
-        initCombos();
-        // BUG upload: pada load pertama tombol upload Nota/Kuitansi tidak tampil, tetapi muncul setelah klik
-        // "Form Baru". Sebabnya widget upload perlu event cycle penuh (getCurrentUser/desktop siap). Tunda
-        // initForm ke event berikutnya via echoEvent agar render-nya sama seperti "Form Baru" -> tombol tampil.
-        org.zkoss.zk.ui.event.Events.echoEvent("onInitFormAwal", window, null);
-        gridSaya.setRowRenderer(new SubmissionRenderer("mine"));
-        gridAtasan.setRowRenderer(new SubmissionRenderer("approval"));
-        gridFinance.setRowRenderer(new SubmissionRenderer("finance"));
-        refresh();
-    }
+		if (serachnama != null && !serachnama.getValue().trim().isEmpty()) {
+			String cari = "%" + serachnama.getValue().trim() + "%";
+			c.add(Restrictions.or(Restrictions.ilike("nama", cari), Restrictions.ilike("deskripsi", cari)));
+		}
+		if (serachkode != null && !serachkode.getValue().trim().isEmpty()) {
+			c.add(Restrictions.ilike("kode", "%" + serachkode.getValue().trim() + "%"));
+		}
+		if (searchAnggaran != null && searchAnggaran.getAttribute("workspace") instanceof Workspace) {
+			c.add(Restrictions.eq("workspace", (Workspace) searchAnggaran.getAttribute("workspace")));
+		}
+		if (searchparent != null && searchparent.getAttribute("satuanKerja") instanceof SatuanKerja) {
+			c.add(Restrictions.eq("satuanKerja", (SatuanKerja) searchparent.getAttribute("satuanKerja")));
+		}
+		if (searchtelahDpc != null && searchtelahDpc.isChecked()) {
+			c.add(Restrictions.isNotNull("daftarPengajuanTransfer"));
+		}
+		if (start != null && start.getValue() != null) {
+			c.add(Restrictions.ge("tanggalPengajuan", start.getValue()));
+		}
+		if (end != null && end.getValue() != null) {
+			java.util.Calendar cal = WaktuUtil.getCalendar();
+			cal.setTime(end.getValue());
+			cal.set(java.util.Calendar.HOUR_OF_DAY, 23);
+			cal.set(java.util.Calendar.MINUTE, 59);
+			cal.set(java.util.Calendar.SECOND, 59);
+			c.add(Restrictions.le("tanggalPengajuan", cal.getTime()));
+		}
+		c.addOrder(Order.desc("id")).setMaxResults(300);
+		List list = c.list();
 
-    public void onInitFormAwal(Event event) throws Exception {
-        initForm(null);
-    }
+		// filter turunan (status & aktif dihitung dari DisposisiSop, bukan kolom murni)
+		String pilihStatus = searchstatus == null || searchstatus.getSelectedItem() == null ? ""
+				: searchstatus.getSelectedItem().getLabel().trim();
+		java.util.List hasil = new java.util.ArrayList();
+		for (int i = 0; i < list.size(); i++) {
+			ReimbursementPegawai d = (ReimbursementPegawai) list.get(i);
+			try {
+				if (!pilihStatus.isEmpty() && !pilihStatus.equalsIgnoreCase(d.getStatus())) {
+					continue;
+				}
+				if (searchaktif != null && searchaktif.isChecked() && !Boolean.TRUE.equals(d.getAktif())) {
+					continue;
+				}
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ReimbursementPegawaiAction.onSearchDefault-filter");
+			}
+			hasil.add(d);
+		}
 
-    private void initCombos() {
-        Konfigurasi kategoriConfig = Common.getKonfigurasi("kategori_reimbursement_pegawai",
-                "Barang,Jasa,Perjalanan Dinas,Konsumsi,Transportasi,Lainnya");
-        String kategoriValue = kategoriConfig == null || kategoriConfig.getNilai() == null
-                ? "Barang,Jasa,Perjalanan Dinas,Konsumsi,Transportasi,Lainnya" : kategoriConfig.getNilai();
-        String[] kategoriData = kategoriValue.split(",");
-        for (int i = 0; i < kategoriData.length; i++) kategori.appendItem(kategoriData[i]);
-        kategori.setSelectedIndex(0);
-        Comboitem tanpaPajak = pajak.appendItem("Tanpa pajak (0%)");
-        tanpaPajak.setValue(Double.valueOf(0));
-        Session session = null;
-        try {
-            session = HibernateUtil.getSessionFactory().openSession();
-            List pajaks = session.createCriteria(JenisPajakBarang.class)
-                    .add(Restrictions.eq("aktif", Boolean.TRUE)).addOrder(Order.asc("nama")).list();
-            for (int i = 0; i < pajaks.size(); i++) {
-                JenisPajakBarang jenis = (JenisPajakBarang) pajaks.get(i);
-                Comboitem item = pajak.appendItem(jenis.getNama() + " (" + jenis.getPersen() + "%)");
-                item.setValue(jenis.getPersen());
-            }
-        } catch (Exception e) { Common.tampilErrorJikaAdmin(e); }
-        finally { HibernateUtil.closeSessionQuietly(session); }
-        pajak.setSelectedIndex(0);
-        metodePembayaran.appendItem("Transfer").setValue("Transfer");
-        metodePembayaran.appendItem("Tunai").setValue("Tunai");
-        metodePembayaran.setSelectedIndex(0);
-    }
+		grid.setRowRenderer(new ReimbursementRenderer());
+		grid.setModelCheckMobile(new SimpleListModel(hasil));
+	}
 
-    private void initForm(final ReimbursementPegawai data) {
-        editId = data == null ? null : data.getId();
-        uploadedLampiran = null;
-        formMode.setValue(data == null ? "Pengajuan baru" : "Perbaiki pengajuan " + data.getKode());
-        deskripsi.setValue(data == null || data.getDeskripsi() == null ? "" : data.getDeskripsi());
-        nominal.setValue(data == null ? Double.valueOf(0) : data.getNominal());
-        dibayarPegawai.setChecked(data == null || data.getDibayarPegawai());
-        tanggalPengeluaran.setValue(data == null ? ais.ui.util.WaktuUtil.getDate() : data.getTanggalPengeluaran());
-        catatanPengaju.setValue(data == null || data.getCatatanPengaju() == null ? "" : data.getCatatanPengaju());
-        selectCombo(kategori, data == null ? "Barang" : data.getKategori());
-        selectTax(data == null ? Double.valueOf(0) : data.getPajakPersen());
-        setPegawaiValue(pegawai, data == null ? currentPegawai : data.getPegawai());
-        Pegawai defaultAtasan = data == null && currentPegawai != null ? currentPegawai.getAtasanlangsung() :
-                (data == null ? null : data.getAtasan());
-        setPegawaiValue(atasan, defaultAtasan);
-        // BUG: bandbox Pegawai/Atasan ter-disable oleh konstruktor AmbilDataPegawaiBanbox (RabUtil.setDefaultPegawai)
-        // sehingga terkunci pada pengajuan pertama. Atasan Langsung SELALU harus bisa dipilih; Nama Pegawai bisa
-        // dipilih bila admin/finance (non-admin tetap dikunci ke diri sendiri sesuai aturan onSubmit).
-        atasan.setDisabled(false);
-        pegawai.setDisabled(!(isAdministrator() || canPay));
-        attachmentBox.getChildren().clear();
-        final Long existingLampiran = data == null ? null : data.getLampiranId();
-        // usingId=true (arg ke-10) + tampilUpload=true (arg ke-11): tombol upload muncul. Setelah unggah, refresh
-        // internal (by-id) belum menemukan row baru sehingga preview tak tampil -> tampilkan konfirmasi eksplisit.
-        LampiranLain.createDownloadUploadFileLain(attachmentBox, data == null ? null : data.getId(), JENIS_LAMPIRAN,
-                "Nota/kuitansi reimbursement", false, new EventListener() {
-                    public void onEvent(Event event) throws Exception {
-                        uploadedLampiran = (LampiranLain) event.getData();
-                        if (uploadedLampiran != null) {
-                            Label ok = new Label("✓ Nota/kuitansi berhasil terunggah.");
-                            ok.setStyle("color:#059669; font-weight:bold; margin-left:6px;");
-                            ok.setParent(attachmentBox);
-                        }
-                    }
-                }, null, false, false, true, true);
-        if (existingLampiran != null) {
-            Button lihat = new Button("Lihat lampiran tersimpan");
-            lihat.setParent(attachmentBox);
-            lihat.addEventListener("onClick", new EventListener() {
-                public void onEvent(Event event) throws Exception {
-                    LampiranLain file = (LampiranLain) LampiranLain.ambil(true, existingLampiran, "id");
-                    if (file != null) Common.display(file);
-                }
-            });
-        }
-    }
+	public void onAdd(Event event) throws Exception {
+		persetujuan = false;
+		viewOnly = false;
+		bukaForm(new ReimbursementPegawai(), null, false);
+	}
 
-    private void setPegawaiValue(AmbilDataPegawaiBanbox box, Pegawai value) {
-        box.setAttribute("pegawai", value);
-        box.setValue(value == null ? "" : value.getNama());
-    }
+	/** Buka addWindow berisi form() — dipakai onAdd, tombol Ubah, dan tombol Lihat. */
+	private void bukaForm(ReimbursementPegawai data, DisposisiSop dispo, boolean readOnly) throws Exception {
+		if (addWindow == null) {
+			return;
+		}
+		viewOnly = readOnly;
+		addWindow.getChildren().clear();
 
-    private void selectCombo(Combobox box, String value) {
-        for (int i = 0; i < box.getItemCount(); i++) {
-            if (box.getItemAtIndex(i).getLabel().equalsIgnoreCase(value == null ? "" : value)) {
-                box.setSelectedIndex(i); return;
-            }
-        }
-    }
+		Vbox isi = new Vbox();
+		isi.setWidth("100%");
+		isi.setParent(addWindow);
 
-    private void selectTax(Double value) {
-        for (int i = 0; i < pajak.getItemCount(); i++) {
-            Double item = (Double) pajak.getItemAtIndex(i).getValue();
-            if (item != null && item.equals(value)) { pajak.setSelectedIndex(i); return; }
-        }
-        pajak.setSelectedIndex(0);
-    }
+		MyToolbarbuttonConfig save = null;
+		if (!readOnly) {
+			Toolbar toolbar = new Toolbar();
+			toolbar.setHeight("32px");
+			toolbar.setParent(isi);
+			save = new MyToolbarbuttonConfig("Simpan / Ajukan", "/img/save.gif");
+			save.setParent(toolbar);
+		}
 
-    public void onNew(Event event) throws Exception { initForm(null); }
+		MyGrid f = form(data, dispo, save, null);
+		f.setParent(isi);
 
-    public void onSubmit(Event event) throws Exception {
-        Pegawai pengaju = (Pegawai) pegawai.getAttribute("pegawai");
-        Pegawai approver = (Pegawai) atasan.getAttribute("pegawai");
-        // Guard id null: cegah Hibernate "id to load is required for loading" saat session.get(...) di bawah,
-        // bila bandbox memegang Pegawai transient/default tanpa id (harus dipilih dari daftar).
-        if (pengaju == null || pengaju.getId() == null || approver == null || approver.getId() == null
-                || deskripsi.getValue().trim().isEmpty() || nominal.getValue() == null
-                || nominal.getValue().doubleValue() <= 0 || tanggalPengeluaran.getValue() == null) {
-            warn("Nama Pegawai & Atasan Langsung wajib dipilih dari daftar; deskripsi, nominal, dan tanggal pengeluaran wajib diisi.");
-            return;
-        }
-        if (currentPegawai != null && !isAdministrator() && !currentPegawai.getId().equals(pengaju.getId())) {
-            warn("Pengajuan hanya boleh dibuat atas nama pegawai yang sedang login."); return;
-        }
-        // Lampiran tidak lagi memblokir submit: deteksi upload (callback uploadedLampiran) kadang tak konsisten
-        // sehingga pengajuan yang SUDAH mengunggah nota ikut terblokir. Lampiran tetap ditautkan bila terdeteksi
-        // (lihat setLampiranId di bawah), namun ketidakadaannya tidak menghentikan pengajuan.
-        Session session = null; Transaction tx = null;
-        try {
-            session = HibernateUtil.getSessionFactory().openSession(); tx = session.beginTransaction();
-            ReimbursementPegawai data = editId == null ? new ReimbursementPegawai() :
-                    (ReimbursementPegawai) session.get(ReimbursementPegawai.class, editId);
-            if (data == null) throw new IllegalStateException("Pengajuan tidak ditemukan.");
-            if (editId != null && !ReimbursementPegawai.REVISI.equals(data.getStatus()))
-                throw new IllegalStateException("Hanya pengajuan berstatus Revisi yang dapat diperbaiki.");
-            if (editId != null && !isOwner(data)) throw new SecurityException("Bukan pemilik pengajuan.");
-            data.setKode(editId == null ? "RMB-" + ais.ui.util.WaktuUtil.getDate().getTime() : data.getKode());
-            data.setDeskripsi(deskripsi.getValue().trim());
-            data.setKategori(kategori.getSelectedItem().getLabel());
-            data.setNominal(nominal.getValue());
-            data.setPajakPersen((Double) pajak.getSelectedItem().getValue());
-            data.setDibayarPegawai(dibayarPegawai.isChecked());
-            data.setTanggalPengeluaran(tanggalPengeluaran.getValue());
-            data.setTanggalPengajuan(ais.ui.util.WaktuUtil.getDate());
-            data.setPegawai((Pegawai) session.get(Pegawai.class, pengaju.getId()));
-            data.setAtasan((Pegawai) session.get(Pegawai.class, approver.getId()));
-            data.setDibuatOleh((Tbmuser) session.get(Tbmuser.class, user.getId()));
-            data.setCatatanPengaju(catatanPengaju.getValue().trim());
-            if (uploadedLampiran != null) data.setLampiranId(uploadedLampiran.getId());
-            data.setStatus(ReimbursementPegawai.DIAJUKAN);
-            data.setCatatanAtasan(null);
-            if (editId == null) session.save(data); else session.update(data);
-            tx.commit();
-            CommonPrivilages.saveActivity(getClass(), editId == null ? CommonPrivilages.CREATE : CommonPrivilages.UPDATE,
-                    data, "Mengajukan reimbursement");
-            info("Pengajuan berhasil diserahkan kepada " + approver.getNama() + ".");
-            initForm(null); refresh();
-        } catch (Exception e) {
-            rollback(tx); Common.tampilErrorJikaAdmin(e); warn("Pengajuan gagal disimpan: " + e.getMessage());
-        } finally { HibernateUtil.closeSessionQuietly(session); }
-    }
+		if (save != null) {
+			save.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					if (onSave(arg0)) {
+						addWindow.setVisible(false);
+						onSearchDefault(null);
+					}
+				}
+			});
+		}
 
-    public void onApprove(Event event) throws Exception { decide(ReimbursementPegawai.DISETUJUI); }
-    public void onReject(Event event) throws Exception { decide(ReimbursementPegawai.DITOLAK); }
-    public void onRevision(Event event) throws Exception { decide(ReimbursementPegawai.REVISI); }
+		addWindow.setTitle(readOnly ? "Rincian Reimbursement"
+				: (data.getId() == null ? "Tambah Reimbursement" : "Ubah Reimbursement"));
+		addWindow.setVisible(true);
+		addWindow.doHighlighted();
+	}
 
-    private void decide(String decision) throws Exception {
-        if (!canApprove || approvalId == null) { warn("Anda tidak memiliki hak persetujuan."); return; }
-        if (catatanAtasan.getValue().trim().isEmpty()) { warn("Catatan keputusan atasan wajib diisi."); return; }
-        Akun expense = (Akun) akunBiaya.getAttribute("akun");
-        if (ReimbursementPegawai.DISETUJUI.equals(decision)
-                && (expense == null || tanggalAkuntansi.getValue() == null)) {
-            warn("Akun biaya dan tanggal akuntansi wajib diisi untuk persetujuan."); return;
-        }
-        Session session = null; Transaction tx = null;
-        try {
-            session = HibernateUtil.getSessionFactory().openSession(); tx = session.beginTransaction();
-            ReimbursementPegawai data = (ReimbursementPegawai) session.get(ReimbursementPegawai.class, approvalId);
-            ensureApprover(data);
-            if (!ReimbursementPegawai.DIAJUKAN.equals(data.getStatus()))
-                throw new IllegalStateException("Pengajuan ini sudah diproses.");
-            data.setCatatanAtasan(catatanAtasan.getValue().trim());
-            data.setDiputuskanOleh((Tbmuser) session.get(Tbmuser.class, user.getId()));
-            data.setTanggalKeputusan(ais.ui.util.WaktuUtil.getDate());
-            data.setStatus(decision);
-            if (ReimbursementPegawai.DISETUJUI.equals(decision)) {
-                Akun liability = resolveLiabilityAccount(session);
-                if (liability == null) throw new IllegalStateException(
-                        "Konfigurasi akun_hutang_reimbursement_pegawai belum menunjuk akun yang valid.");
-                expense = (Akun) session.get(Akun.class, expense.getId());
-                data.setAkunBiaya(expense);
-                data.setTanggalAkuntansi(tanggalAkuntansi.getValue());
-                PostingHistory ph = posting(session, tanggalAkuntansi.getValue(),
-                        "Pengakuan biaya reimbursement " + data.getKode());
-                boolean ok = CommonAkunting.saveTransaksi(expense, liability, null, null, ph, true,
-                        "Pengakuan biaya reimbursement " + data.getKode() + " - " + data.getDeskripsi(),
-                        tanggalAkuntansi.getValue(), data.getNominal(), 0.0, null,
-                        data.getPegawai().getSatuanKerja(), "Reimbursement:" + data.getId(), session);
-                if (!ok) throw new IllegalStateException("Jurnal pengeluaran ditolak oleh validasi akunting.");
-                data.setPostingPengeluaran(ph);
-            }
-            session.update(data); tx.commit();
-            CommonPrivilages.saveActivity(getClass(), ReimbursementPegawai.DISETUJUI.equals(decision)
-                    ? CommonPrivilages.APPROVE : CommonPrivilages.REJECT, data, decision);
-            approvalWindow.setVisible(false); info("Keputusan " + decision + " berhasil disimpan."); refresh();
-        } catch (Exception e) {
-            rollback(tx); Common.tampilErrorJikaAdmin(e); warn("Keputusan gagal: " + e.getMessage());
-        } finally { HibernateUtil.closeSessionQuietly(session); }
-    }
+	public void onStatistik(Event event) throws Exception {
+		if (statistik == null) {
+			return;
+		}
+		statistik.getChildren().clear();
+		List list = HibernateUtil.currentSession().createCriteria(ReimbursementPegawai.class)
+				.addOrder(Order.desc("id")).setMaxResults(1000).list();
+		int aju = 0, setuju = 0, tolak = 0;
+		double total = 0, totalSetuju = 0;
+		for (int i = 0; i < list.size(); i++) {
+			ReimbursementPegawai d = (ReimbursementPegawai) list.get(i);
+			try {
+				String st = d.getStatus();
+				total += d.getNominal() == null ? 0 : d.getNominal().doubleValue();
+				if (ReimbursementPegawai.DISETUJUI.equals(st)) {
+					setuju++;
+					totalSetuju += d.getNominal() == null ? 0 : d.getNominal().doubleValue();
+				} else if (ReimbursementPegawai.DITOLAK.equals(st)) {
+					tolak++;
+				} else {
+					aju++;
+				}
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ReimbursementPegawaiAction.onStatistik");
+			}
+		}
+		Vbox v = new Vbox();
+		v.setParent(statistik);
+		tulis(v, "Total pengajuan: " + list.size() + " (Rp " + Common.numberFormat.get().format(total) + ")");
+		tulis(v, "Dalam proses: " + aju);
+		tulis(v, "Disetujui: " + setuju + " (Rp " + Common.numberFormat.get().format(totalSetuju) + ")");
+		tulis(v, "Ditolak: " + tolak);
+	}
 
-    public void onPay(Event event) throws Exception {
-        if (!canPay || paymentId == null) { warn("Anda tidak memiliki hak pembayaran."); return; }
-        Akun cashBank = (Akun) akunPembayaran.getAttribute("akun");
-        if (cashBank == null || tanggalPembayaran.getValue() == null || metodePembayaran.getSelectedItem() == null) {
-            warn("Akun kas/bank, metode, dan tanggal pembayaran wajib diisi."); return;
-        }
-        if ("Transfer".equals(metodePembayaran.getSelectedItem().getValue())
-                && rekeningPenerima.getValue().trim().isEmpty()) {
-            warn("Nomor rekening penerima wajib diisi untuk transfer."); return;
-        }
-        Session session = null; Transaction tx = null;
-        try {
-            session = HibernateUtil.getSessionFactory().openSession(); tx = session.beginTransaction();
-            ReimbursementPegawai data = (ReimbursementPegawai) session.get(ReimbursementPegawai.class, paymentId);
-            if (!ReimbursementPegawai.DISETUJUI.equals(data.getStatus()) || data.getPostingPembayaran() != null)
-                throw new IllegalStateException("Pengajuan tidak siap dibayar atau sudah dibayar.");
-            Akun liability = resolveLiabilityAccount(session);
-            if (liability == null) throw new IllegalStateException(
-                    "Konfigurasi akun_hutang_reimbursement_pegawai belum menunjuk akun yang valid.");
-            cashBank = (Akun) session.get(Akun.class, cashBank.getId());
-            PostingHistory ph = posting(session, tanggalPembayaran.getValue(), "Pembayaran reimbursement " + data.getKode());
-            boolean ok = CommonAkunting.saveTransaksi(liability, cashBank, null, null, ph, true,
-                    "Pembayaran reimbursement " + data.getKode() + " kepada " + data.getPegawai().getNama(),
-                    tanggalPembayaran.getValue(), data.getNominal(), 0.0, null,
-                    data.getPegawai().getSatuanKerja(), "ReimbursementBayar:" + data.getId(), session);
-            if (!ok) throw new IllegalStateException("Jurnal pembayaran ditolak oleh validasi akunting.");
-            data.setMetodePembayaran((String) metodePembayaran.getSelectedItem().getValue());
-            data.setBankPenerima(bankPenerima.getValue().trim());
-            data.setRekeningPenerima(rekeningPenerima.getValue().trim());
-            data.setTanggalPembayaran(tanggalPembayaran.getValue());
-            data.setCatatanPembayaran(catatanPembayaran.getValue().trim());
-            data.setAkunPembayaran(cashBank);
-            data.setDibayarOleh((Tbmuser) session.get(Tbmuser.class, user.getId()));
-            data.setPostingPembayaran(ph);
-            data.setStatus(ReimbursementPegawai.LUNAS);
-            session.update(data); tx.commit();
-            CommonPrivilages.saveActivity(getClass(), CommonPrivilages.UPDATE, data, "Pembayaran reimbursement");
-            paymentWindow.setVisible(false); info("Pembayaran dan jurnal kas/bank berhasil dicatat."); refresh();
-        } catch (Exception e) {
-            rollback(tx); Common.tampilErrorJikaAdmin(e); warn("Pembayaran gagal: " + e.getMessage());
-        } finally { HibernateUtil.closeSessionQuietly(session); }
-    }
+	public void onMonitor(Event event) throws Exception {
+		if (monitor == null) {
+			return;
+		}
+		monitor.getChildren().clear();
+		Vbox v = new Vbox();
+		v.setParent(monitor);
+		tulis(v, "Reimbursement DISETUJUI dan status DPC-nya:");
+		List list = HibernateUtil.currentSession().createCriteria(ReimbursementPegawai.class)
+				.addOrder(Order.desc("id")).setMaxResults(300).list();
+		int n = 0;
+		for (int i = 0; i < list.size(); i++) {
+			ReimbursementPegawai d = (ReimbursementPegawai) list.get(i);
+			try {
+				if (!ReimbursementPegawai.DISETUJUI.equals(d.getStatus())) {
+					continue;
+				}
+				n++;
+				Vbox baris = new Vbox();
+				baris.setParent(v);
+				tulis(baris, d.getKode() + " — " + (d.getNama() == null ? d.getDeskripsi() : d.getNama()) + " (Rp "
+						+ Common.numberFormat.get().format(d.getNominal()) + ")");
+				if (d.getDaftarPengajuanTransfer() != null) {
+					DaftarPengajuanTransfer.tampilStatus(d.getDaftarPengajuanTransfer(), baris);
+				} else {
+					tulis(baris, "  Status DPC : menunggu dimasukkan ke daftar transfer");
+				}
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ReimbursementPegawaiAction.onMonitor");
+			}
+		}
+		if (n == 0) {
+			tulis(v, "(belum ada)");
+		}
+	}
 
-    private PostingHistory posting(Session session, Date date, String description) {
-        PostingHistory ph = new PostingHistory(PostingHistory.JENIS_REIMBURSEMENT_PEGAWAI);
-        ph.setTbmuser((Tbmuser) session.get(Tbmuser.class, user.getId()));
-        ph.setTanggal(date); ph.setTanggalPosting(ais.ui.util.WaktuUtil.getDate());
-        ph.setKeterangan(description); ph.setPosting(Boolean.TRUE); session.save(ph); return ph;
-    }
+	private void tulis(Component parent, String teks) {
+		Label l = new Label(teks);
+		l.setParent(parent);
+	}
 
-    private Akun resolveLiabilityAccount(Session session) {
-        Konfigurasi cfg = Common.getKonfigurasi("akun_hutang_reimbursement_pegawai", "");
-        String value = cfg == null || cfg.getNilai() == null ? "" : cfg.getNilai().trim();
-        if (value.isEmpty()) return null;
-        try {
-            Akun byId = (Akun) session.get(Akun.class, Long.valueOf(value));
-            if (byId != null) return byId;
-        } catch (Exception ignored) { }
-        return (Akun) session.createCriteria(Akun.class).add(Restrictions.eq("kode", value)).setMaxResults(1).uniqueResult();
-    }
+	// =====================================================================
+	// FormSop — form() dipanggil mesin SOP DAN halaman daftar (addWindow)
+	// =====================================================================
 
-    public void onRefresh(Event event) throws Exception { refresh(); }
+	@Override
+	public MyGrid form(GeneralValueObject generalValueObject, DisposisiSop dispo, MyToolbarbuttonConfig save,
+			EventListener setujuiData) throws Exception {
+		reimbursement = (ReimbursementPegawai) generalValueObject;
+		disposisiSop = dispo;
+		if (tbmuser == null) {
+			tbmuser = Common.getCurrentUser();
+		}
 
-    private void refresh() {
-        Session session = null;
-        try {
-            session = HibernateUtil.getSessionFactory().openSession();
-            List mine = new ArrayList();
-            if (user != null) {
-                Criteria c = session.createCriteria(ReimbursementPegawai.class)
-                        .add(Restrictions.eq("dibuatOleh", user)).addOrder(Order.desc("tanggalPengajuan")).setMaxResults(500);
-                mine = c.list(); initialize(mine);
-            }
-            List approvals = new ArrayList();
-            if (currentPegawai != null || isAdministrator()) {
-                Criteria c = session.createCriteria(ReimbursementPegawai.class)
-                        .add(Restrictions.eq("status", ReimbursementPegawai.DIAJUKAN));
-                if (!isAdministrator()) c.add(Restrictions.eq("atasan", currentPegawai));
-                approvals = c.addOrder(Order.asc("tanggalPengajuan")).setMaxResults(500).list(); initialize(approvals);
-            }
-            List finance = new ArrayList();
-            if (canPay) {
-                finance = session.createCriteria(ReimbursementPegawai.class)
-                        .add(Restrictions.in("status", new String[] { ReimbursementPegawai.DISETUJUI, ReimbursementPegawai.LUNAS }))
-                        .addOrder(Order.asc("tanggalKeputusan")).setMaxResults(500).list(); initialize(finance);
-            }
-            gridSaya.setModel(new SimpleListModel(mine));
-            gridAtasan.setModel(new SimpleListModel(approvals));
-            gridFinance.setModel(new SimpleListModel(finance));
-        } catch (Exception e) { Common.tampilErrorJikaAdmin(e); warn("Data reimbursement gagal dimuat."); }
-        finally { HibernateUtil.closeSessionQuietly(session); }
-    }
+		array = new JSONArray();
+		try {
+			if (reimbursement.getFormula() != null && !reimbursement.getFormula().trim().isEmpty()) {
+				array = new JSONArray(reimbursement.getFormula());
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ReimbursementPegawaiAction.form-parseFormula");
+		}
 
-    private void initialize(List list) {
-        for (int i = 0; i < list.size(); i++) {
-            ReimbursementPegawai d = (ReimbursementPegawai) list.get(i);
-            Hibernate.initialize(d.getPegawai()); Hibernate.initialize(d.getAtasan());
-            if (d.getPegawai() != null) Hibernate.initialize(d.getPegawai().getBank());
-            Hibernate.initialize(d.getAkunBiaya()); Hibernate.initialize(d.getPostingPengeluaran());
-            Hibernate.initialize(d.getPostingPembayaran());
-        }
-    }
+		final boolean editable = !persetujuan && !viewOnly;
 
-    private void openApproval(ReimbursementPegawai data) {
-        approvalId = data.getId();
-        approvalInfo.setValue(data.getKode() + " | " + data.getPegawai().getNama() + " | Rp "
-                + Common.numberFormat.get().format(data.getNominal()) + "\n" + data.getDeskripsi());
-        catatanAtasan.setValue(""); akunBiaya.setValue(""); akunBiaya.setAttribute("akun", null);
-        tanggalAkuntansi.setValue(data.getTanggalPengeluaran());
-        approvalWindow.setVisible(true); approvalWindow.doHighlighted();
-    }
+		MyGrid f = new MyGrid();
+		f.setWidth("100%");
+		Columns columns = new Columns();
+		columns.setParent(f);
+		MyColumnConfig c1 = new MyColumnConfig();
+		c1.setWidth("30%");
+		c1.setParent(columns);
+		MyColumnConfig c2 = new MyColumnConfig();
+		c2.setParent(columns);
+		Rows rows = new Rows();
+		rows.setParent(f);
 
-    private void openPayment(ReimbursementPegawai data) {
-        paymentId = data.getId();
-        paymentInfo.setValue(data.getKode() + " | " + data.getPegawai().getNama() + " | " + data.getDeskripsi());
-        jumlahPembayaran.setValue(data.getNominal()); jumlahPembayaran.setDisabled(true);
-        Pegawai p = data.getPegawai();
-        bankPenerima.setValue(p.getBank() == null ? "" : p.getBank().toString());
-        rekeningPenerima.setValue(p.getNorek() == null ? "" : p.getNorek());
-        tanggalPembayaran.setValue(ais.ui.util.WaktuUtil.getDate()); catatanPembayaran.setValue("");
-        akunPembayaran.setValue(""); akunPembayaran.setAttribute("akun", null);
-        paymentWindow.setVisible(true); paymentWindow.doHighlighted();
-    }
+		// ---- Satuan Kerja ----
+		MyFormRow row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new MyLabelConfig("Satuan Kerja *"));
+		satuanKerja = new AmbilDataSatuanKerjaBanbox(true);
+		satuanKerja.setWidth("90%");
+		if (reimbursement.getSatuanKerja() != null) {
+			satuanKerja.setAttribute("satuanKerja", reimbursement.getSatuanKerja());
+			satuanKerja.setValue(reimbursement.getSatuanKerja().getNama());
+		}
+		satuanKerja.setDisabled(!editable);
+		row.appendChild(satuanKerja);
 
-    private void ensureApprover(ReimbursementPegawai data) {
-        if (data == null) throw new IllegalStateException("Pengajuan tidak ditemukan.");
-        if (!isAdministrator() && (currentPegawai == null || data.getAtasan() == null
-                || !currentPegawai.getId().equals(data.getAtasan().getId())))
-            throw new SecurityException("Pengajuan bukan tanggung jawab atasan yang sedang login.");
-    }
+		// ---- Tanpa anggaran (opsional, ikut konfigurasi seperti uang muka) ----
+		tanpaAnggaran = new Checkbox("Merupakan tanpa anggaran");
+		tanpaAnggaran.setChecked(Boolean.TRUE.equals(reimbursement.getTanpaAnggaran()));
+		MyFormRow rowTanpa = new MyFormRow();
+		rowTanpa.setParent(rows);
+		rowTanpa.appendChild(new MyLabelConfig(""));
+		rowTanpa.appendChild(tanpaAnggaran);
+		rowTanpa.setVisible(Common.bolehKonfigurasi("tampilkan_tanpa_anggaran"));
+		tanpaAnggaran.setDisabled(!editable);
 
-    private boolean isOwner(ReimbursementPegawai data) {
-        return user != null && data.getDibuatOleh() != null && user.getId().equals(data.getDibuatOleh().getId());
-    }
+		// ---- Anggaran (Pemilihan Anggaran — pola UangMuka) ----
+		rowAnggaran = new MyFormRow();
+		rowAnggaran.setParent(rows);
+		rowAnggaran.appendChild(new MyLabelConfig("Anggaran *"));
+		workspace = new AmbilDataWorkspaceBanbox(false);
+		workspace.setWidth("90%");
+		if (reimbursement.getWorkspace() != null) {
+			workspace.setAttribute("workspace", reimbursement.getWorkspace());
+			workspace.setValue(reimbursement.getWorkspace().toString());
+		}
+		workspace.setDisabled(!editable);
+		rowAnggaran.appendChild(workspace);
 
-    private boolean isAdministrator() {
-        if (user == null) return false;
-        Set roles = user.ambilRolesId();
-        return roles != null && roles.contains(Tbmrole.ADMINISTRATOR);
-    }
+		// ---- Akun manual saat tanpa anggaran ----
+		rowAkunPilih = new MyFormRow();
+		rowAkunPilih.setParent(rows);
+		rowAkunPilih.appendChild(new MyLabelConfig("Akun *"));
+		akunTanpa = new AmbilDataAkunBanbox(false);
+		akunTanpa.setWidth("90%");
+		if (reimbursement.getAkun() != null) {
+			akunTanpa.setAttribute("akun", reimbursement.getAkun());
+			akunTanpa.setValue(reimbursement.getAkun().toString());
+		}
+		akunTanpa.setDisabled(!editable);
+		rowAkunPilih.appendChild(akunTanpa);
+		aturBarisAnggaran();
+		tanpaAnggaran.addEventListener("onCheck", new EventListener() {
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				aturBarisAnggaran();
+			}
+		});
 
-    private void rollback(Transaction tx) {
-        try { if (tx != null && tx.isActive()) tx.rollback(); } catch (Exception ignored) { }
-    }
+		// ---- Info anggaran terpilih ----
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new MyLabelConfig("Unit/Satuan Kerja"));
+		unit = new Label();
+		row.appendChild(unit);
 
-    private void warn(String message) {
-        try { MyMessageboxConfig.show(message, "Reimbursement", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION); }
-        catch (Exception ignored) { }
-    }
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new MyLabelConfig("Total Anggaran"));
+		saldoAnggaran = new Label();
+		row.appendChild(saldoAnggaran);
+		isiInfoAnggaran();
+		workspace.setEventListener(new EventListener() {
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				Workspace w = (Workspace) workspace.getAttribute("workspace");
+				if (w != null && w.getSatuanKerja() != null) {
+					satuanKerja.setAttribute("satuanKerja", w.getSatuanKerja());
+					satuanKerja.setValue(w.getSatuanKerja().getNama());
+				}
+				isiInfoAnggaran();
+			}
+		});
 
-    private void info(String message) {
-        try { MyMessageboxConfig.show(message, "Reimbursement", MyMessageboxConfig.OK, MyMessageboxConfig.INFORMATION); }
-        catch (Exception ignored) { }
-    }
+		// ---- Kode ----
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new MyLabelConfig("Kode"));
+		kode = new Label(reimbursement.getKode() == null ? generateCode(false) : reimbursement.getKode());
+		row.appendChild(kode);
 
-    private class SubmissionRenderer implements RowRenderer {
-        private final String mode;
-        SubmissionRenderer(String mode) { this.mode = mode; }
-        public void render(Row row, Object value) throws Exception {
-            final ReimbursementPegawai data = (ReimbursementPegawai) value;
-            new Label(data.getKode()).setParent(row);
-            new Label(data.getPegawai() == null ? "-" : data.getPegawai().getNama()).setParent(row);
-            new Label(data.getDeskripsi()).setParent(row);
-            new Label(data.getKategori()).setParent(row);
-            new Label(Common.dateFormat4.get().format(data.getTanggalPengeluaran())).setParent(row);
-            new Label("Rp " + Common.numberFormat.get().format(data.getNominal())).setParent(row);
-            new Label(data.getStatus()).setParent(row);
-            Hbox actions = new Hbox(); actions.setParent(row);
-            if (data.getLampiranId() != null) {
-                Button lampiran = new Button("Lampiran"); lampiran.setParent(actions);
-                lampiran.addEventListener("onClick", new EventListener() {
-                    public void onEvent(Event event) throws Exception {
-                        LampiranLain file = (LampiranLain) LampiranLain.ambil(true, data.getLampiranId(), "id");
-                        if (file != null) Common.display(file);
-                    }
-                });
-            }
-            if ("mine".equals(mode) && ReimbursementPegawai.REVISI.equals(data.getStatus())) {
-                Button edit = new Button("Perbaiki"); edit.setParent(actions);
-                edit.addEventListener("onClick", new EventListener() {
-                    public void onEvent(Event event) throws Exception { initForm(data); }
-                });
-            } else if ("approval".equals(mode)) {
-                Button process = new Button("Proses"); process.setParent(actions);
-                process.addEventListener("onClick", new EventListener() {
-                    public void onEvent(Event event) throws Exception { openApproval(data); }
-                });
-            } else if ("finance".equals(mode) && ReimbursementPegawai.DISETUJUI.equals(data.getStatus())) {
-                Button pay = new Button("Bayar"); pay.setParent(actions);
-                pay.addEventListener("onClick", new EventListener() {
-                    public void onEvent(Event event) throws Exception { openPayment(data); }
-                });
-            }
-        }
-    }
+		// ---- Judul ----
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new MyLabelConfig("Judul Pengajuan *"));
+		nama = new Textbox(reimbursement.getNama() == null ? "" : reimbursement.getNama());
+		nama.setWidth("90%");
+		nama.setReadonly(!editable);
+		row.appendChild(nama);
+
+		// ---- Pegawai penerima ----
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new MyLabelConfig("Pegawai Penerima *"));
+		pegawaiPenerima = new AmbilDataPegawaiBanbox(true);
+		pegawaiPenerima.setWidth("90%");
+		Pegawai p = reimbursement.getPegawai() != null ? reimbursement.getPegawai()
+				: (tbmuser == null ? null : tbmuser.getPegawai());
+		if (p != null) {
+			pegawaiPenerima.setAttribute("pegawai", p);
+			pegawaiPenerima.setValue(p.getNama());
+		}
+		pegawaiPenerima.setDisabled(!editable);
+		row.appendChild(pegawaiPenerima);
+
+		// ---- Tanggal pengeluaran ----
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new MyLabelConfig("Tanggal Pengeluaran *"));
+		tanggalKegiatan = new MyDatebox();
+		tanggalKegiatan.setFormat("dd/MM/yyyy");
+		tanggalKegiatan.setValue(reimbursement.getTanggalPengeluaran() == null ? WaktuUtil.getDate()
+				: reimbursement.getTanggalPengeluaran());
+		tanggalKegiatan.setDisabled(!editable);
+		row.appendChild(tanggalKegiatan);
+
+		// ---- Rincian barang/biaya (pola KasKecil) ----
+		row = new MyFormRow();
+		row.setValign("top");
+		row.setParent(rows);
+		row.appendChild(new MyLabelConfig("Rincian Barang/Biaya *"));
+		Vbox wadah = new Vbox();
+		wadah.setWidth("100%");
+		if (editable) {
+			MyToolbarbuttonConfig tambah = new MyToolbarbuttonConfig("Tambah Item", "/img/new.gif");
+			tambah.setParent(wadah);
+			tambah.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					JSONObject o = new JSONObject();
+					o.put("key", Math.abs(Common.randLong()));
+					o.put("nama", "");
+					o.put("qty", 1.0);
+					o.put("harga", 0.0);
+					o.put("jumlah", 0.0);
+					array.put(o);
+					reloadItems(editable);
+				}
+			});
+		}
+		itemBox = new Vbox();
+		itemBox.setWidth("100%");
+		itemBox.setParent(wadah);
+		row.appendChild(wadah);
+
+		// ---- Total ----
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new MyLabelConfig("Jumlah Pengajuan"));
+		footerTotal = new Label("0");
+		footerTotal.setStyle("font-weight:bold;");
+		row.appendChild(footerTotal);
+		reloadItems(editable);
+
+		// ---- Keterangan ----
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new MyLabelConfig("Keterangan"));
+		keterangan = new Textbox(reimbursement.getKeterangan() == null ? "" : reimbursement.getKeterangan());
+		keterangan.setRows(3);
+		keterangan.setWidth("90%");
+		keterangan.setReadonly(!editable);
+		row.appendChild(keterangan);
+
+		// ---- Info pengajuan/persetujuan ----
+		if (reimbursement.getId() != null) {
+			row = new MyFormRow();
+			row.setParent(rows);
+			row.appendChild(new MyLabelConfig("Diajukan Oleh"));
+			row.appendChild(new Label((reimbursement.getDibuatOleh() == null ? "-"
+					: reimbursement.getDibuatOleh().getUserNama())
+					+ (reimbursement.getTanggalPengajuan() == null ? ""
+							: " — " + Common.dateFormat4.get().format(reimbursement.getTanggalPengajuan()))));
+
+			row = new MyFormRow();
+			row.setParent(rows);
+			row.appendChild(new MyLabelConfig("Status"));
+			Label st = new Label(reimbursement.getStatus());
+			st.setStyle("font-weight:bold;");
+			row.appendChild(st);
+
+			if (reimbursement.getDisetujuiOleh() != null) {
+				row = new MyFormRow();
+				row.setParent(rows);
+				row.appendChild(new MyLabelConfig("Disetujui Oleh"));
+				row.appendChild(new Label(reimbursement.getDisetujuiOleh().getUserNama()
+						+ (reimbursement.getTanggalPersetujuan() == null ? ""
+								: " — " + Common.dateFormat4.get().format(reimbursement.getTanggalPersetujuan()))));
+			}
+		}
+
+		if (save != null) {
+			save.setLabel(persetujuan ? "Setujui dan Simpan" : "Simpan / Ajukan");
+		}
+
+		return f;
+	}
+
+	private void aturBarisAnggaran() {
+		boolean tanpa = tanpaAnggaran != null && tanpaAnggaran.isChecked();
+		if (rowAnggaran != null) {
+			rowAnggaran.setVisible(!tanpa);
+		}
+		if (rowAkunPilih != null) {
+			rowAkunPilih.setVisible(tanpa);
+		}
+	}
+
+	private void isiInfoAnggaran() {
+		try {
+			Workspace w = workspace == null ? null : (Workspace) workspace.getAttribute("workspace");
+			if (w == null) {
+				unit.setValue("-");
+				saldoAnggaran.setValue("-");
+				return;
+			}
+			unit.setValue(w.getSatuanKerja() == null ? "-" : w.getSatuanKerja().getNama());
+			saldoAnggaran.setValue(Common.numberFormat.get().format(w.getHargaTotal() == null ? 0 : w.getHargaTotal()));
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ReimbursementPegawaiAction.isiInfoAnggaran");
+		}
+	}
+
+	/** Render ulang grid rincian item dari {@link #array} (pola KasKecil, JSON formula). */
+	private void reloadItems(final boolean editable) {
+		if (itemBox == null) {
+			return;
+		}
+		itemBox.getChildren().clear();
+
+		// grid polos (BUKAN MyGrid: MyGrid nested punya bug setVisible+Timer re-hide)
+		Grid g = new Grid();
+		g.setWidth("100%");
+		g.setParent(itemBox);
+		Columns columns = new Columns();
+		columns.setParent(g);
+		String[] judul = new String[] { "Uraian Biaya/Barang", "Akun", "Tanggal", "Qty", "Harga", "Jumlah", "" };
+		String[] lebar = new String[] { "24%", "22%", "13%", "8%", "14%", "14%", "5%" };
+		for (int i = 0; i < judul.length; i++) {
+			MyColumnConfig col = new MyColumnConfig();
+			col.setLabel(judul[i]);
+			col.setWidth(lebar[i]);
+			col.setParent(columns);
+		}
+		Rows rows = new Rows();
+		rows.setParent(g);
+
+		for (int i = 0; i < array.length(); i++) {
+			final JSONObject o = array.optJSONObject(i);
+			if (o == null || o.length() == 0) {
+				continue; // baris terhapus (pola KasKecil: diganti JSONObject kosong)
+			}
+			final int index = i;
+			Row r = new Row();
+			r.setParent(rows);
+
+			final MyTextbox uraian = new MyTextbox(o.optString("nama", ""));
+			uraian.setWidth("95%");
+			uraian.setReadonly(!editable);
+			uraian.setParent(r);
+
+			final AmbilDataAkunBanbox akunB = new AmbilDataAkunBanbox(false);
+			akunB.setWidth("95%");
+			long akunId = o.optLong("akun", 0);
+			if (akunId > 0) {
+				try {
+					Akun a = (Akun) ConstantValues.ambil(Akun.class.getName(), Long.valueOf(akunId));
+					if (a != null) {
+						akunB.setAttribute("akun", a);
+						akunB.setValue(a.toString());
+					}
+				} catch (Exception e) {
+					ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ReimbursementPegawaiAction.reloadItems-akun");
+				}
+			}
+			akunB.setDisabled(!editable);
+			akunB.setParent(r);
+
+			final MyDatebox tgl = new MyDatebox();
+			tgl.setFormat("dd/MM/yyyy");
+			tgl.setWidth("95%");
+			long t = o.optLong("tanggal", 0);
+			tgl.setValue(t > 0 ? new Date(t) : WaktuUtil.getDate());
+			tgl.setDisabled(!editable);
+			tgl.setParent(r);
+
+			final MyDoublebox qty = new MyDoublebox(Double.valueOf(o.optDouble("qty", 1.0)));
+			qty.setWidth("95%");
+			qty.setDisabled(!editable);
+			qty.setParent(r);
+
+			final MyDoublebox harga = new MyDoublebox(Double.valueOf(o.optDouble("harga", 0.0)));
+			harga.setWidth("95%");
+			harga.setDisabled(!editable);
+			harga.setParent(r);
+
+			final Label jumlah = new Label(Common.numberFormat.get().format(o.optDouble("jumlah", 0.0)));
+			jumlah.setParent(r);
+
+			EventListener tulisBalik = new EventListener() {
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					Object data = arg0 == null ? null : arg0.getData();
+					if (data instanceof Akun) {
+						o.put("akun", ((Akun) data).getId().longValue());
+					}
+					o.put("nama", uraian.getValue() == null ? "" : uraian.getValue().trim());
+					double q = qty.getValue() == null ? 0.0 : qty.getValue().doubleValue();
+					double h = harga.getValue() == null ? 0.0 : harga.getValue().doubleValue();
+					o.put("qty", q);
+					o.put("harga", h);
+					o.put("jumlah", q * h);
+					if (tgl.getValue() != null) {
+						o.put("tanggal", tgl.getValue().getTime());
+					}
+					if (!o.has("key")) {
+						o.put("key", Math.abs(Common.randLong()));
+					}
+					jumlah.setValue(Common.numberFormat.get().format(q * h));
+					hitungTotal();
+				}
+			};
+			uraian.addEventListener("onChange", tulisBalik);
+			qty.addEventListener("onChange", tulisBalik);
+			harga.addEventListener("onChange", tulisBalik);
+			tgl.addEventListener("onChange", tulisBalik);
+			akunB.setEventListener(tulisBalik);
+
+			if (editable) {
+				MyToolbarbuttonConfig hapus = new MyToolbarbuttonConfig("", "/img/delete.gif");
+				hapus.setParent(r);
+				hapus.addEventListener("onClick", new EventListener() {
+					@Override
+					public void onEvent(Event arg0) throws Exception {
+						array.put(index, new JSONObject());
+						reloadItems(editable);
+					}
+				});
+			} else {
+				new Label("").setParent(r);
+			}
+		}
+		hitungTotal();
+	}
+
+	private double hitungTotal() {
+		double total = 0;
+		for (int i = 0; i < array.length(); i++) {
+			JSONObject o = array.optJSONObject(i);
+			if (o == null || o.length() == 0) {
+				continue;
+			}
+			total += o.optDouble("jumlah", 0.0);
+		}
+		if (footerTotal != null) {
+			footerTotal.setValue(Common.numberFormat.get().format(total));
+		}
+		return total;
+	}
+
+	// =====================================================================
+	// FormSop — onSave (pola persist UangMukaAction.onSave)
+	// =====================================================================
+
+	@Override
+	public boolean onSave(Event event) throws Exception {
+		if (reimbursement == null) {
+			return false;
+		}
+
+		boolean tanpa = tanpaAnggaran != null && tanpaAnggaran.isChecked();
+		Workspace w = workspace == null ? null : (Workspace) workspace.getAttribute("workspace");
+		SatuanKerja sk = satuanKerja == null ? null : (SatuanKerja) satuanKerja.getAttribute("satuanKerja");
+
+		if (nama.getValue() == null || nama.getValue().trim().isEmpty()) {
+			MyMessageboxConfig.show("Judul pengajuan wajib diisi.", "Peringatan", MyMessageboxConfig.OK,
+					MyMessageboxConfig.EXCLAMATION);
+			return false;
+		}
+		if (!tanpa && (w == null || w.getId() == null)) {
+			MyMessageboxConfig.show("Anggaran wajib dipilih dari daftar.", "Peringatan", MyMessageboxConfig.OK,
+					MyMessageboxConfig.EXCLAMATION);
+			return false;
+		}
+		if (tanpa && !(akunTanpa.getAttribute("akun") instanceof Akun)) {
+			MyMessageboxConfig.show("Akun wajib dipilih ketika tanpa anggaran.", "Peringatan", MyMessageboxConfig.OK,
+					MyMessageboxConfig.EXCLAMATION);
+			return false;
+		}
+		Pegawai p = pegawaiPenerima == null ? null : (Pegawai) pegawaiPenerima.getAttribute("pegawai");
+		if (p == null || p.getId() == null) {
+			p = tbmuser == null ? null : tbmuser.getPegawai();
+		}
+		if (p == null || p.getId() == null) {
+			MyMessageboxConfig.show("Pegawai penerima wajib dipilih dari daftar.", "Peringatan", MyMessageboxConfig.OK,
+					MyMessageboxConfig.EXCLAMATION);
+			return false;
+		}
+		if (tanggalKegiatan.getValue() == null) {
+			MyMessageboxConfig.show("Tanggal pengeluaran wajib diisi.", "Peringatan", MyMessageboxConfig.OK,
+					MyMessageboxConfig.EXCLAMATION);
+			return false;
+		}
+
+		// validasi rincian item (pola KasKecil): tiap baris wajib akun + jumlah
+		double total = 0;
+		int barisValid = 0;
+		for (int i = 0; i < array.length(); i++) {
+			JSONObject o = array.optJSONObject(i);
+			if (o == null || o.length() == 0) {
+				continue;
+			}
+			if (o.optLong("akun", 0) <= 0) {
+				MyMessageboxConfig.show("Setiap baris rincian wajib memilih Akun biaya/barang.", "Peringatan",
+						MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				return false;
+			}
+			double jml = o.optDouble("jumlah", 0.0);
+			if (jml <= 0) {
+				MyMessageboxConfig.show("Jumlah pada rincian item harus lebih dari 0 (isi qty dan harga).",
+						"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				return false;
+			}
+			total += jml;
+			barisValid++;
+		}
+		if (barisValid == 0) {
+			MyMessageboxConfig.show("Rincian barang/biaya minimal satu baris.", "Peringatan", MyMessageboxConfig.OK,
+					MyMessageboxConfig.EXCLAMATION);
+			return false;
+		}
+
+		Session session = HibernateUtil.currentSession();
+		if (reimbursement.getId() != null) {
+			reimbursement = (ReimbursementPegawai) session.load(ReimbursementPegawai.class, reimbursement.getId());
+		}
+
+		if (reimbursement.getDibuatOleh() == null) {
+			reimbursement.setDibuatOleh(tbmuser);
+		}
+		if (disposisiSop != null && disposisiSop.getId() != null) {
+			reimbursement.setDisposisiSop(disposisiSop);
+		}
+		reimbursement.setTanpaAnggaran(Boolean.valueOf(tanpa));
+		reimbursement.setWorkspace(tanpa ? null : w);
+		reimbursement.setSatuanKerja(sk != null ? sk : (w == null ? null : w.getSatuanKerja()));
+		if (tanpa) {
+			reimbursement.setAkun((Akun) akunTanpa.getAttribute("akun"));
+		}
+		reimbursement.setNama(nama.getValue().trim());
+		reimbursement.setDeskripsi(nama.getValue().trim());
+		if (reimbursement.getKategori() == null || reimbursement.getKategori().trim().isEmpty()) {
+			reimbursement.setKategori("Reimbursement");
+		}
+		reimbursement.setKeterangan(keterangan.getValue());
+		reimbursement.setFormula(array.toString());
+		reimbursement.setNominal(Double.valueOf(total));
+		reimbursement.setTanggalPengeluaran(tanggalKegiatan.getValue());
+		if (reimbursement.getTanggalPengajuan() == null) {
+			reimbursement.setTanggalPengajuan(WaktuUtil.getDate());
+		}
+		reimbursement.setPegawai(p);
+		if (reimbursement.getAtasan() == null) {
+			reimbursement.setAtasan(p.getAtasanlangsung() == null ? p : p.getAtasanlangsung());
+		}
+		if (reimbursement.getStatus() == null || reimbursement.getStatus().trim().isEmpty()) {
+			reimbursement.setStatus(ReimbursementPegawai.DIAJUKAN);
+		}
+
+		if (reimbursement.getId() != null) {
+			session.update(reimbursement);
+		} else {
+			String noAgenda = generateCode(true);
+			kode.setValue(noAgenda);
+			reimbursement.setKode(noAgenda);
+			session.save(reimbursement);
+		}
+		session.flush();
+
+		// DPC: bila (sudah) DISETUJUI oleh alur SOP, masukkan ke daftar transfer
+		final ReimbursementPegawai fin = reimbursement;
+		Common.createDefaultTimer(new EventListener() {
+			@Override
+			public void onEvent(Event arg0) throws Exception {
+				if (ReimbursementPegawai.DISETUJUI.equals(fin.getStatus())) {
+					DaftarPengajuanTransfer.simpanReimbursement(fin);
+				}
+			}
+		});
+
+		return true;
+	}
+
+	private String generateCode(boolean tambah) {
+		String prefix = "RMB-" + new SimpleDateFormat("yyyyMM").format(WaktuUtil.getDate()) + "-";
+		long count = 0;
+		try {
+			Number n = (Number) HibernateUtil.currentSession().createCriteria(ReimbursementPegawai.class)
+					.setProjection(Projections.rowCount()).uniqueResult();
+			count = n == null ? 0 : n.longValue();
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ReimbursementPegawaiAction.generateCode");
+		}
+		return ais.action.master.KodeUnikUtil.pastikanUnik(ReimbursementPegawai.class, prefix + (count + 1));
+	}
+
+	// =====================================================================
+	// FormSop — kontrak lain
+	// =====================================================================
+
+	@Override
+	public String istilah() throws Exception {
+		return "Pengajuan Reimbursement Pegawai";
+	}
+
+	@Override
+	public DataSop ambil() throws Exception {
+		return reimbursement;
+	}
+
+	@Override
+	public Class ambilClass() throws Exception {
+		return ReimbursementPegawai.class;
+	}
+
+	@Override
+	public void setPersetujuan(boolean persetujuan) {
+		this.persetujuan = persetujuan;
+	}
+
+	@Override
+	public File cetakData(GeneralValueObject generalValueObject) throws Exception {
+		ReimbursementPegawai d = (ReimbursementPegawai) generalValueObject;
+		File file = File.createTempFile("reimbursement_", ".pdf");
+		FileOutputStream fout = new FileOutputStream(file);
+		Document doc = new Document(PageSize.A4, 28, 28, 30, 30);
+		PdfWriter.getInstance(doc, fout);
+		doc.open();
+
+		Font fJudul = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
+		Font fN = FontFactory.getFont(FontFactory.HELVETICA, 9);
+		Font fNb = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+
+		Paragraph judul = new Paragraph("BUKTI PENGAJUAN REIMBURSEMENT PEGAWAI", fJudul);
+		judul.setAlignment(Element.ALIGN_CENTER);
+		judul.setSpacingAfter(8);
+		doc.add(judul);
+
+		PdfPTable head = new PdfPTable(new float[] { 25, 75 });
+		head.setWidthPercentage(100);
+		tulisHead(head, "Kode", d.getKode(), fN, fNb);
+		tulisHead(head, "Judul", d.getNama() == null ? d.getDeskripsi() : d.getNama(), fN, fNb);
+		tulisHead(head, "Pegawai", d.getPegawai() == null ? "-" : d.getPegawai().getNama(), fN, fNb);
+		tulisHead(head, "Satuan Kerja", d.getSatuanKerja() == null ? "-" : d.getSatuanKerja().getNama(), fN, fNb);
+		tulisHead(head, "Anggaran", d.getWorkspace() == null ? "-" : d.getWorkspace().getNama(), fN, fNb);
+		tulisHead(head, "Tanggal Pengeluaran", d.getTanggalPengeluaran() == null ? "-"
+				: Common.dateFormat4.get().format(d.getTanggalPengeluaran()), fN, fNb);
+		tulisHead(head, "Status", d.getStatus(), fN, fNb);
+		tulisHead(head, "Diajukan Oleh", d.getDibuatOleh() == null ? "-" : d.getDibuatOleh().getUserNama(), fN, fNb);
+		if (d.getDisetujuiOleh() != null) {
+			tulisHead(head, "Disetujui Oleh", d.getDisetujuiOleh().getUserNama()
+					+ (d.getTanggalPersetujuan() == null ? ""
+							: " (" + Common.dateFormat4.get().format(d.getTanggalPersetujuan()) + ")"), fN, fNb);
+		}
+		head.setSpacingAfter(10);
+		doc.add(head);
+
+		PdfPTable t = new PdfPTable(new float[] { 6, 32, 22, 8, 16, 16 });
+		t.setWidthPercentage(100);
+		for (int i = 0; i < 6; i++) {
+			String h = new String[] { "No", "Uraian", "Akun", "Qty", "Harga", "Jumlah" }[i];
+			PdfPCell c = new PdfPCell(new Paragraph(h, fNb));
+			c.setBackgroundColor(new BaseColor(224, 231, 255));
+			c.setHorizontalAlignment(Element.ALIGN_CENTER);
+			c.setPadding(3);
+			t.addCell(c);
+		}
+
+		JSONArray items = new JSONArray();
+		try {
+			if (d.getFormula() != null && !d.getFormula().trim().isEmpty()) {
+				items = new JSONArray(d.getFormula());
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ReimbursementPegawaiAction.cetakData-parse");
+		}
+		int no = 1;
+		double total = 0;
+		for (int i = 0; i < items.length(); i++) {
+			JSONObject o = items.optJSONObject(i);
+			if (o == null || o.length() == 0) {
+				continue;
+			}
+			String namaAkun = "-";
+			try {
+				long akunId = o.optLong("akun", 0);
+				if (akunId > 0) {
+					Akun a = (Akun) ConstantValues.ambil(Akun.class.getName(), Long.valueOf(akunId));
+					if (a != null) {
+						namaAkun = a.toString();
+					}
+				}
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) ReimbursementPegawaiAction.cetakData-akun");
+			}
+			double jml = o.optDouble("jumlah", 0.0);
+			total += jml;
+			t.addCell(sel("" + (no++), fN, Element.ALIGN_CENTER));
+			t.addCell(sel(o.optString("nama", "-"), fN, Element.ALIGN_LEFT));
+			t.addCell(sel(namaAkun, fN, Element.ALIGN_LEFT));
+			t.addCell(sel("" + o.optDouble("qty", 0.0), fN, Element.ALIGN_CENTER));
+			t.addCell(sel(Common.numberFormat.get().format(o.optDouble("harga", 0.0)), fN, Element.ALIGN_RIGHT));
+			t.addCell(sel(Common.numberFormat.get().format(jml), fN, Element.ALIGN_RIGHT));
+		}
+		PdfPCell cTot = new PdfPCell(new Paragraph("TOTAL", fNb));
+		cTot.setColspan(5);
+		cTot.setHorizontalAlignment(Element.ALIGN_RIGHT);
+		cTot.setPadding(3);
+		t.addCell(cTot);
+		t.addCell(sel(Common.numberFormat.get().format(total), fNb, Element.ALIGN_RIGHT));
+		doc.add(t);
+
+		doc.close();
+		fout.close();
+		return file;
+	}
+
+	private void tulisHead(PdfPTable t, String label, String nilai, Font fN, Font fNb) {
+		PdfPCell c = new PdfPCell(new Paragraph(label, fNb));
+		c.setPadding(3);
+		t.addCell(c);
+		PdfPCell v = new PdfPCell(new Paragraph(nilai == null ? "-" : nilai, fN));
+		v.setPadding(3);
+		t.addCell(v);
+	}
+
+	private PdfPCell sel(String s, Font f, int align) {
+		PdfPCell c = new PdfPCell(new Paragraph(s == null ? "" : s, f));
+		c.setHorizontalAlignment(align);
+		c.setPadding(3);
+		return c;
+	}
+
+	// =====================================================================
+	// Renderer daftar (klon kolom uang_muka + status DPC + safety-net)
+	// =====================================================================
+
+	private class ReimbursementRenderer implements RowRenderer {
+		@Override
+		public void render(Row row, Object value) throws Exception {
+			final ReimbursementPegawai d = (ReimbursementPegawai) value;
+			row.setValign("top");
+
+			Vbox v = new Vbox();
+			v.setParent(row);
+			Label k = new Label(d.getKode());
+			k.setStyle("font-weight:bold;");
+			k.setParent(v);
+			new Label(d.getNama() == null ? d.getDeskripsi() : d.getNama()).setParent(v);
+
+			new Label("Rp " + Common.numberFormat.get().format(d.getNominal())).setParent(row);
+
+			new Label(d.getTanggalPengeluaran() == null ? "-"
+					: Common.dateFormat4.get().format(d.getTanggalPengeluaran())).setParent(row);
+
+			Vbox aju = new Vbox();
+			aju.setParent(row);
+			new Label(d.getDibuatOleh() == null ? "-" : d.getDibuatOleh().getUserNama()).setParent(aju);
+			if (d.getTanggalPengajuan() != null) {
+				new Label(Common.dateFormat4.get().format(d.getTanggalPengajuan())).setParent(aju);
+			}
+
+			Vbox setuju = new Vbox();
+			setuju.setParent(row);
+			String st = d.getStatus();
+			Label lst = new Label(st);
+			if (ReimbursementPegawai.DISETUJUI.equals(st)) {
+				lst.setStyle("color:#059669; font-weight:bold;");
+			} else if (ReimbursementPegawai.DITOLAK.equals(st)) {
+				lst.setStyle("color:#dc2626; font-weight:bold;");
+			} else {
+				lst.setStyle("color:#b45309; font-weight:bold;");
+			}
+			lst.setParent(setuju);
+			if (d.getDisetujuiOleh() != null) {
+				new Label(d.getDisetujuiOleh().getUserNama()).setParent(setuju);
+				if (d.getTanggalPersetujuan() != null) {
+					new Label(Common.dateFormat4.get().format(d.getTanggalPersetujuan())).setParent(setuju);
+				}
+			}
+
+			new Label(d.getKeterangan() == null ? "" : d.getKeterangan()).setParent(row);
+
+			// status DPC + safety-net (pola renderer UangMukaAction): bila sudah
+			// disetujui tetapi belum punya baris DPC, buat lewat timer agar
+			// persetujuan yang terjadi di mesin SOP tetap masuk daftar transfer.
+			Vbox dpc = new Vbox();
+			dpc.setParent(row);
+			if (d.getDaftarPengajuanTransfer() != null) {
+				DaftarPengajuanTransfer.tampilStatus(d.getDaftarPengajuanTransfer(), dpc);
+			} else if (d.getDisetujuiOleh() != null) {
+				new Label("Menunggu masuk daftar DPC...").setParent(dpc);
+				Common.createDefaultTimer(new EventListener() {
+					@Override
+					public void onEvent(Event arg0) throws Exception {
+						DaftarPengajuanTransfer.simpanReimbursement(d);
+					}
+				});
+			} else {
+				new Label("-").setParent(dpc);
+			}
+
+			new Label(Boolean.TRUE.equals(d.getAktif()) ? "Ya" : "Tidak").setParent(row);
+
+			Hbox aksi = new Hbox();
+			aksi.setParent(row);
+			Button lihat = new Button("Lihat");
+			lihat.setParent(aksi);
+			lihat.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					persetujuan = false;
+					bukaForm(d, d.getDisposisiSop(), true);
+				}
+			});
+			if (ReimbursementPegawai.DIAJUKAN.equals(st) && d.getDisposisiSop() == null) {
+				Button ubah = new Button("Ubah");
+				ubah.setParent(aksi);
+				ubah.addEventListener("onClick", new EventListener() {
+					@Override
+					public void onEvent(Event arg0) throws Exception {
+						persetujuan = false;
+						bukaForm(d, null, false);
+					}
+				});
+			}
+			Button cetak = new Button("Cetak");
+			cetak.setParent(aksi);
+			cetak.addEventListener("onClick", new EventListener() {
+				@Override
+				public void onEvent(Event arg0) throws Exception {
+					File f = cetakData(d);
+					if (f != null) {
+						Filedownload.save(f, "application/pdf");
+					}
+				}
+			});
+		}
+	}
 }

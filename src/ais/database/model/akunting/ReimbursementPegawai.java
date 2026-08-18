@@ -18,6 +18,7 @@ import javax.persistence.TemporalType;
 
 import org.hibernate.annotations.Fetch;
 import org.hibernate.annotations.FetchMode;
+import org.hibernate.envers.Audited;
 
 import ais.database.model.Pegawai;
 import ais.database.model.Tbmuser;
@@ -42,6 +43,7 @@ import ais.database.model.sop.DisposisiSop;
  */
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
+@Audited
 @Table(schema = "akunting", name = "reimbursement_pegawai")
 public class ReimbursementPegawai extends DataSop {
     private static final long serialVersionUID = 1L;
