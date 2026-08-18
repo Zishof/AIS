@@ -95,7 +95,28 @@ public class Api extends HttpServlet {
             }
 
             PerguruanTinggi selectedPerguruanTinggi = PerguruanTinggiUtil.getPerguruanTinggi(request);
+
+            // Idempotensi mutasi offline-first (Tahap C): retry dari outbox
+            // klien membawa clientMutationId yang sama; eksekusi kedua
+            // mengembalikan respons tersimpan alih-alih menjalankan operasi
+            // bisnis dua kali. Hanya berlaku untuk action mutasi terdaftar.
+            String clientMutationId = ApiHelperSupport.optString(jsonObject, "clientMutationId");
+            boolean pakaiIdempotensi = ApiHelperSupport.hasText(clientMutationId)
+                    && ais.action.servlet.api.MutasiIdempotenUtil.aksiMutasi(action);
+            if (pakaiIdempotensi) {
+                JSONObject tersimpan = ais.action.servlet.api.MutasiIdempotenUtil.ambil(
+                        jsonObject, request, action, clientMutationId.trim());
+                if (tersimpan != null) {
+                    return tersimpan;
+                }
+            }
+
             JSONObject hasilTemp = route.execute(request, jsonObject, selectedPerguruanTinggi);
+            if (pakaiIdempotensi && hasilTemp != null
+                    && "00".equals(hasilTemp.optString("status"))) {
+                ais.action.servlet.api.MutasiIdempotenUtil.simpan(
+                        jsonObject, request, action, clientMutationId.trim(), hasilTemp);
+            }
             return hasilTemp == null ? hasil : hasilTemp;
         } catch (Exception e) {
             try {

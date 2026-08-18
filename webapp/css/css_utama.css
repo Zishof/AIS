@@ -12505,70 +12505,103 @@ a.ais-adv-search-toggle,
 
 /* ════════════════════════════════════════════════════════════════════════
    KEBAB MENU — popup daftar aksi baris (⋮)
-   .z-popup.ais-row-popup   : kontainer popup (ZK merender sebagai div absolut)
-   .ais-row-popup-content   : kolom flex berisi item
-   .ais-row-popup-item      : tiap baris aksi (Ubah/Salin/Hapus/Kunci dll)
-   .ais-row-popup-item-danger: gaya merah untuk Hapus
-   .ais-row-popup-divider   : pemisah horizontal tipis
+   Catatan ZK 5 rendering:
+   • Toolbarbutton dirender sebagai <table class="z-toolbarbutton …"> (bukan div).
+   • setVisible(false) → inline style="display:none;" pada elemen tabel.
+   • Karena itu .ais-row-popup-item TIDAK boleh pakai display:flex!important
+     (akan override display:none dari ZK). Flex diletakkan di .z-toolbarbutton-cnt
+     (inner <td>) sehingga layout icon+text tetap benar.
    ════════════════════════════════════════════════════════════════════════ */
+
+/* Popup kontainer — paksa putih agar teks selalu kontras */
 .z-popup.ais-row-popup {
 	min-width: 180px;
 	padding: 4px;
 	border-radius: 8px;
-	box-shadow: 0 4px 16px rgba(0,0,0,.15);
-	border: 1px solid #e2e8f0;
-	background: #fff;
+	box-shadow: 0 4px 16px rgba(0,0,0,.18);
+	border: 1px solid #cbd5e1;
+	background: #ffffff !important;
 }
+.z-popup.ais-row-popup .z-popup-inner,
+.z-popup.ais-row-popup .z-popup-cnt {
+	background: #ffffff !important;
+}
+
+/* Kolom vertikal item */
 .ais-row-popup-content {
 	display: flex !important;
 	flex-direction: column !important;
-	gap: 2px !important;
+	gap: 0 !important;
 }
-.ais-row-popup-item,
+
+/* Outer <table> yang ZK hasilkan untuk tiap Toolbarbutton.
+   Gunakan display:block (bukan flex) agar display:none dari setVisible() bisa bekerja. */
+.ais-row-popup-item.z-toolbarbutton {
+	display: block !important;
+	width: 100% !important;
+	border-radius: 6px !important;
+	cursor: pointer !important;
+	margin: 1px 0 !important;
+}
+/* Pulihkan display:none ketika ZK menandai komponen sebagai tidak-terlihat.
+   Selector atribut mengalahkan spesifisitas display:block di atas. */
+.ais-row-popup-item[style*="display: none"],
+.ais-row-popup-item[style*="display:none"] {
+	display: none !important;
+}
+
+/* Inner <td> (.z-toolbarbutton-cnt) — di sinilah flex + ikon + teks diatur */
 .ais-row-popup-item .z-toolbarbutton-cnt {
 	display: flex !important;
 	align-items: center !important;
 	gap: 8px !important;
 	width: 100% !important;
 	min-height: 36px !important;
-	padding: 6px 10px !important;
+	padding: 6px 12px !important;
 	border-radius: 6px !important;
 	font-size: 13px !important;
-	color: #1e293b !important;
-	cursor: pointer !important;
-	transition: background .12s !important;
-	box-sizing: border-box !important;
+	font-weight: 400 !important;
+	color: #0f172a !important;   /* slate-900 — kontras tinggi di atas putih */
 	white-space: nowrap !important;
+	box-sizing: border-box !important;
+	background: transparent !important;
+	transition: background .12s !important;
 }
-.ais-row-popup-item:hover,
 .ais-row-popup-item .z-toolbarbutton-cnt:hover {
 	background: #f1f5f9 !important;
 }
+
+/* Ikon di dalam item */
 .ais-row-popup-item img {
 	width: 18px !important;
 	height: 18px !important;
 	flex-shrink: 0 !important;
+	opacity: .7;
 }
-.ais-row-popup-item-danger,
+.ais-row-popup-item:hover img { opacity: 1; }
+
+/* Gaya merah untuk Hapus */
 .ais-row-popup-item-danger .z-toolbarbutton-cnt {
-	color: #ef4444 !important;
+	color: #dc2626 !important;
 }
-.ais-row-popup-item-danger:hover,
 .ais-row-popup-item-danger .z-toolbarbutton-cnt:hover {
 	background: #fef2f2 !important;
 }
+
+/* Pemisah garis tipis */
 .ais-row-popup-divider {
 	height: 1px !important;
 	background: #e2e8f0 !important;
-	margin: 2px 4px !important;
+	margin: 3px 8px !important;
 }
-/* Tombol pemicu "⋮" */
-.ais-row-action-kebab img { opacity: .6; }
-.ais-row-action-kebab:hover { background: rgba(100,116,139,.12) !important; }
-.ais-row-action-kebab:hover img { opacity: 1; }
-/* Mobile: area tap lebih besar */
+
+/* Tombol pemicu "⋯" (three-dots) */
+.ais-row-action-kebab img { opacity: .5; }
+.ais-row-action-kebab:hover { background: rgba(100,116,139,.14) !important; }
+.ais-row-action-kebab:hover img { opacity: .9; }
+
+/* Mobile: area tap lebih besar (≥44px sesuai WCAG) */
 @media only screen and (max-width: 820px) {
-	.ais-row-popup-item,
 	.ais-row-popup-item .z-toolbarbutton-cnt {
 		min-height: 44px !important;
 		font-size: 14px !important;

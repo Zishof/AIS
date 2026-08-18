@@ -1001,6 +1001,7 @@
 		<mapping class="ais.database.model.HasilUjianMahasiswa"></mapping>
 		<mapping class="ais.database.model.HasilUjianMahasiswaDetail"></mapping>
 		<mapping class="ais.database.model.PertemuanPunyaDiskusi"></mapping>
+		<mapping class="ais.database.model.MutasiIdempoten" />
 		<mapping class="ais.database.model.TugasKelompok"></mapping>
 		<mapping class="ais.database.model.NamaTugasKelompok"></mapping>
 		<mapping
