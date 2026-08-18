@@ -642,7 +642,7 @@ public class MenuHelper {
             // Kelompok sub-menu (grup) di dalam "Usaha Koperasi" — url null = grup pengelompok
             // yang dapat dibuka (expandable), leaf-nya diberi root = child-code grup ini.
             final long GRP_TOKO = 671701L, GRP_STOK = 671702L, GRP_PROMO = 671703L, GRP_MEMBER = 671704L;
-            Menu[] all = new Menu[30];
+            Menu[] all = new Menu[40];
             int i = 0;
             // ── Grup fungsional ──────────────────────────────────────────
             all[i++] = ensureMenu(session, 6716001L, ROOT, GRP_TOKO, "Toko / Kantin", null, "fas fa-store", 1,
@@ -684,6 +684,8 @@ public class MenuHelper {
                     "/pages/master/inventory/pedagang_kantin.zul", "fas fa-store", 5, Boolean.FALSE);
             all[i++] = ensureMenu(session, 6715512L, GRP_STOK, 671605L, "Penyedia / Supplier",
                     "/pages/master/inventory/penyedia.zul", "fas fa-truck", 6, Boolean.FALSE);
+            all[i++] = ensureMenu(session, 6715513L, GRP_STOK, 671606L, "Survey Penilaian Vendor",
+                    "/pages/master/library/survey_vendor.zul", "fas fa-poll", 8, Boolean.FALSE);
             all[i++] = ensureMenu(session, 6715525L, GRP_STOK, 671650L, "Ambang Stok & Pengajuan Pembelian",
                     "/pages/master/inventory/pengajuan_pembelian_gudang.zul", "fas fa-exclamation-triangle", 7,
                     Boolean.FALSE);
@@ -1860,6 +1862,80 @@ public class MenuHelper {
                 try { session.close(); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) MenuHelper.ensureSpiMenus:close"); }
             }
             HibernateUtil.closeSession();
+        }
+    }
+
+    /**
+     * Memastikan satu menu reimbursement berada tepat setelah Pengajuan Uang Muka
+     * dan otomatis terlihat untuk role am serta keu. Dashboard dan laporan
+     * disajikan sebagai tab internal, bukan menu terpisah.
+     * Dijalankan setiap startup dan idempoten.
+     */
+    public static void ensureReimbursementMenus() {
+        final Long ROOT_UANG_MUKA = 400000009L;
+        final Long id = 260815001L;
+        Session session = null;
+        Transaction tx = null;
+        try {
+            session = HibernateUtil.currentNativeSession();
+            tx = session.beginTransaction();
+            // Bersihkan dua menu versi lama; isinya tetap dipakai sebagai tab include.
+            session.createSQLQuery("DELETE FROM public.role_privilage WHERE menu IN (260815002,260815003)")
+                    .executeUpdate();
+            session.createSQLQuery("DELETE FROM public.job_has_menu WHERE menu IN (260815002,260815003)")
+                    .executeUpdate();
+            session.createSQLQuery("DELETE FROM public.menu WHERE id IN (260815002,260815003)")
+                    .executeUpdate();
+            Menu[] menus = new Menu[] {
+                ensureMenu(session, id, ROOT_UANG_MUKA, 600000002L, "Reimbursement Pegawai",
+                        "/pages/master/akunting/reimbursement_pegawai.zul", "fas fa-receipt", 0, Boolean.FALSE)
+            };
+            tx.commit(); tx = null;
+
+            session = HibernateUtil.currentNativeSession();
+            tx = session.beginTransaction();
+            String idList = String.valueOf(id);
+            session.createSQLQuery(
+                    "INSERT INTO public.job_has_menu (job, menu) "
+                  + "SELECT r.roleid, m.id FROM public.tbmrole r CROSS JOIN public.menu m "
+                  + "WHERE LOWER(r.roleid) IN ('" + Tbmrole.ADMINISTRATOR.toLowerCase() + "','"
+                  + Tbmrole.KEUANGAN.toLowerCase() + "') AND m.id IN (" + idList + ") "
+                  + "AND NOT EXISTS (SELECT 1 FROM public.job_has_menu x WHERE x.job=r.roleid AND x.menu=m.id)")
+                    .executeUpdate();
+            for (int i = 0; i < menus.length; i++) {
+                ensureReimbursementPrivilege(session, Tbmrole.ADMINISTRATOR, menus[i]);
+                ensureReimbursementPrivilege(session, Tbmrole.KEUANGAN, menus[i]);
+            }
+            tx.commit(); tx = null;
+            ais.common.newui.NewUiCacheInvalidator.invalidateRole(Tbmrole.ADMINISTRATOR);
+            ais.common.newui.NewUiCacheInvalidator.invalidateRole(Tbmrole.KEUANGAN);
+            System.out.println("[MenuHelper] Menu reimbursement dan akses am/keu berhasil dipastikan.");
+        } catch (Exception e) {
+            if (tx != null && tx.isActive()) try { tx.rollback(); } catch (Exception ignored) {
+                ais.common.ErrorAuditUtil.record(ignored, "MenuHelper.ensureReimbursementMenus.rollback");
+            }
+            System.err.println("[MenuHelper] ensureReimbursementMenus gagal: " + e.getMessage());
+            ais.common.ErrorAuditUtil.record(e, "MenuHelper.ensureReimbursementMenus");
+        } finally {
+            if (session != null) {
+                try { session.disconnect(); } catch (Exception ignored) { }
+                try { session.close(); } catch (Exception ignored) { }
+            }
+            HibernateUtil.closeSession();
+        }
+    }
+
+    private static void ensureReimbursementPrivilege(Session session, String roleId, Menu menu) {
+        if (session.get(Tbmrole.class, roleId) == null || menu == null) return;
+        ensurePrivilege(session, roleId, menu);
+        RolePrivilage privilege = (RolePrivilage) session.createCriteria(RolePrivilage.class)
+                .createAlias("role", "r").createAlias("menu", "m")
+                .add(org.hibernate.criterion.Restrictions.eq("r.roleId", roleId))
+                .add(org.hibernate.criterion.Restrictions.eq("m.id", menu.getId()))
+                .setMaxResults(1).uniqueResult();
+        if (privilege != null) {
+            privilege.setRead(1); privilege.setCreate(1); privilege.setUpdate(1); privilege.setDelete(1);
+            privilege.setApprove(1); privilege.setReject(1); session.saveOrUpdate(privilege);
         }
     }
 

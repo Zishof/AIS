@@ -111,6 +111,7 @@
 		<property name="hibernate.c3p0.idle_test_period">60</property>
 		<property name="hibernate.c3p0.preferredTestQuery">SELECT 1</property>
 		<property name="hibernate.c3p0.testConnectionOnCheckin">true</property>
+		<property name="hibernate.c3p0.testConnectionOnCheckout">true</property>
 		<!-- REBUT koneksi ter-checkout > 30 menit (kebocoran nyata 6-10 JAM pasti
 		     terjaring; operasi sah < 30 mnt aman). Jaring pengaman TETAP menyala. -->
 		<property name="hibernate.c3p0.unreturnedConnectionTimeout">1800</property>
@@ -224,6 +225,7 @@
 		<mapping class="ais.database.model.obe.ProfesiLulusan" />
 		<mapping class="ais.database.model.obe.CapaianLulusan" />
 		<mapping class="ais.database.model.obe.ReferensiLulusan" />
+		<mapping class="ais.database.model.obe.KategoriCpl" />
 		<mapping class="ais.database.model.obe.BahanKajian" />
 		<mapping class="ais.database.model.obe.CapaianPembelajaranLulusan" />
 		<mapping class="ais.database.model.obe.IndikatorKinerja" />
@@ -1199,6 +1201,7 @@
 		<mapping class="ais.database.model.akunting.JenisKasBesar" />
 		<mapping class="ais.database.model.akunting.JenisUangMuka" />
 		<mapping class="ais.database.model.akunting.UangMuka" />
+		<mapping class="ais.database.model.akunting.ReimbursementPegawai" />
 		<mapping class="ais.database.model.akunting.AcaraHasTransaksi"></mapping>
 		<mapping class="ais.database.model.akunting.Akun"></mapping>
 		<mapping class="ais.database.model.akunting.Devisi"></mapping>
@@ -1313,8 +1316,6 @@
 		<mapping class="ais.database.model.library.JenisAnggota"></mapping>
 		<mapping class="ais.database.model.library.Anggota"></mapping>
 		<mapping class="ais.database.model.library.Penyedia"></mapping>
-		<mapping class="ais.database.model.library.SeleksiVendor"></mapping>
-		<mapping class="ais.database.model.library.SeleksiVendorDetail"></mapping>
 		<mapping class="ais.database.model.library.PesananAnggota"></mapping>
 		<mapping class="ais.database.model.library.ItemFavoritAnggota"></mapping>
 		<mapping class="ais.database.model.library.KunjunganAnggota"></mapping>
@@ -1394,6 +1395,14 @@
 		<mapping class="ais.database.model.library.KoreksiItemDetail"></mapping>
 		<mapping class="ais.database.model.library.VersiDdcItem"></mapping>
 		<mapping class="ais.database.model.library.SearchHistory"></mapping>
+		<mapping class="ais.database.model.library.SeleksiVendor"></mapping>
+		<mapping class="ais.database.model.library.SeleksiVendorDetail"></mapping>
+		<mapping class="ais.database.model.library.SurveyVendor"></mapping>
+		<mapping class="ais.database.model.library.SurveyVendorVendor"></mapping>
+		<mapping class="ais.database.model.library.SurveyVendorKriteria"></mapping>
+		<mapping class="ais.database.model.library.SurveyVendorPengguna"></mapping>
+		<mapping class="ais.database.model.library.SurveyVendorPenilaian"></mapping>
+		<mapping class="ais.database.model.library.SurveyVendorPenilaianDetail"></mapping>
 		<!--// TABEL YANG TERDAPAT PADA SCHEMA LIBRARY -->
 
 		<!-- TABEL YANG TERDAPAT PADA SCHEMA SURAT -->

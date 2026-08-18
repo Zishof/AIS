@@ -1,0 +1,29 @@
+<?page title="Survey Pemilihan Penilaian Vendor" cacheable="false" language="xul/html" contentType="text/html;charset=UTF-8"?>
+<zk xmlns="http://www.zkoss.org/2005/zul" xmlns:h="http://www.w3.org/1999/xhtml">
+  <window id="window" use="ais.ui.util.MyWindow" apply="ais.action.master.library.SurveyVendorAction"
+          width="100%" height="100%" border="none">
+    <style>
+      .svy-hero { background:linear-gradient(120deg,#4f46e5,#0891b2); color:#fff; padding:16px 20px; border-radius:12px; margin:8px; }
+      .svy-title { font-size:21px; font-weight:bold; }
+      .svy-card { background:#fff; border:1px solid #e5e7eb; border-radius:10px; margin:8px; padding:12px; }
+      .svy-sub { color:#e0f2fe; margin-top:3px; }
+    </style>
+    <div sclass="svy-hero">
+      <label sclass="svy-title" value="Survey Pemilihan Penilaian Vendor"/>
+      <separator/>
+      <label sclass="svy-sub" value="Angket penilaian vendor multi-pengguna (pra-pembelian): setup survey, penilaian per pengguna, dashboard agregat &amp; pemenang."/>
+    </div>
+    <tabbox id="tabbox" width="100%" height="86%">
+      <tabs>
+        <tab label="Daftar Survey" selected="true"/>
+        <tab id="tabPenilaian" label="Penilaian Saya"/>
+        <tab label="Dashboard Hasil"/>
+      </tabs>
+      <tabpanels>
+        <tabpanel><div id="panelSetup" sclass="svy-card" width="98%"/></tabpanel>
+        <tabpanel><div id="panelPenilaian" sclass="svy-card" width="98%"/></tabpanel>
+        <tabpanel><div id="panelDashboard" sclass="svy-card" width="98%"/></tabpanel>
+      </tabpanels>
+    </tabbox>
+  </window>
+</zk>
