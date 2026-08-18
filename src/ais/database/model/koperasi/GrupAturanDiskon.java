@@ -8,6 +8,7 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 import javax.persistence.Table;
+import org.hibernate.envers.Audited;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 import ais.database.model.GeneralValueObject;
@@ -16,6 +17,7 @@ import ais.database.model.GeneralValueObject;
 @Entity
 @org.hibernate.annotations.Entity(dynamicInsert = true, dynamicUpdate = true)
 @Table(schema = "koperasi", name = "grup_aturan_diskon")
+@Audited
 public class GrupAturanDiskon extends GeneralValueObject {
     private static final long serialVersionUID = 1L;
     private Long id, toko, jenisAnggota, tipeAnggota;

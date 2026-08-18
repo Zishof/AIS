@@ -63,7 +63,15 @@ public final class RevisiApiHelper {
 		// Riwayat transaksi (header nota) -- baca-saja utk penelusuran; restore
 		// tetap dimungkinkan admin (kasus salah-void diperiksa manual).
 		ENTITAS.put("transaksi", ais.database.model.koperasi.PembelianAnggotaKoperasi.class);
-		// KebijakanRetur TIDAK terdaftar: entitasnya belum @Audited.
+		// Gelombang 2 (2026-08-19): KebijakanRetur & GrupAturanDiskon kini @Audited
+		// (revisi mulai terekam sejak deploy ini); sisanya sudah lama ter-audit.
+		ENTITAS.put("kebijakan_retur", ais.database.model.inventory.KebijakanRetur.class);
+		ENTITAS.put("diskon_grup", ais.database.model.koperasi.GrupAturanDiskon.class);
+		ENTITAS.put("produk_batch", ais.database.model.inventory.ProdukBatch.class);
+		ENTITAS.put("si_customer", ais.database.model.koperasi.CustomerInventoryProfile.class);
+		ENTITAS.put("hotel_properti", ais.database.model.hotel.PropertiHotel.class);
+		ENTITAS.put("hotel_kontrak", ais.database.model.hotel.KontrakPemilik.class);
+		ENTITAS.put("hotel_tamu", ais.database.model.hotel.Tamu.class);
 	}
 
 	private static void tolak(JSONObject hasil, String pesan) throws Exception {

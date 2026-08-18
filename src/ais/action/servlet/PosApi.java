@@ -2381,12 +2381,25 @@ public class PosApi extends HttpServlet {
 	}
 
 	/** @return fragmen kondisi waktu utk kolom {@code a.waktu} sesuai kode periode dropdown (dipakai rekap produk terlaris/pelanggan terloyal). */
-	private static String petaIntervalPeriode(String periode) {
-		if ("harian".equals(periode)) return "DATE(a.waktu) = CURRENT_DATE";
-		if ("mingguan".equals(periode)) return "DATE(a.waktu) >= CURRENT_DATE - INTERVAL '7 days'";
-		if ("semester".equals(periode)) return "DATE(a.waktu) >= CURRENT_DATE - INTERVAL '6 months'";
-		if ("tahunan".equals(periode)) return "DATE(a.waktu) >= CURRENT_DATE - INTERVAL '1 year'";
-		return "DATE(a.waktu) >= CURRENT_DATE - INTERVAL '1 month'"; // bulanan, default
+	private static String petaIntervalPeriode(String periode, String acuanSql) {
+		if ("harian".equals(periode)) return "DATE(a.waktu) = " + acuanSql;
+		if ("mingguan".equals(periode)) return "DATE(a.waktu) >= " + acuanSql + " - INTERVAL '7 days' AND DATE(a.waktu) <= " + acuanSql;
+		if ("semester".equals(periode)) return "DATE(a.waktu) >= " + acuanSql + " - INTERVAL '6 months' AND DATE(a.waktu) <= " + acuanSql;
+		if ("tahunan".equals(periode)) return "DATE(a.waktu) >= " + acuanSql + " - INTERVAL '1 year' AND DATE(a.waktu) <= " + acuanSql;
+		return "DATE(a.waktu) >= " + acuanSql + " - INTERVAL '1 month' AND DATE(a.waktu) <= " + acuanSql; // bulanan, default
+	}
+
+	/**
+	 * Tanggal acuan dashboard dari payload (yyyy-MM-dd; jatuh ke hari ini bila kosong/
+	 * tidak valid). Divalidasi regex ketat karena nilainya disisipkan sebagai literal
+	 * {@code DATE '...'} supaya urutan binding param toko yang sudah ada tidak berubah.
+	 */
+	private static String tanggalAcuanDariPayload(JSONObject payload) {
+		String tanggalAcuan = payload.optString("tanggalAcuan", "").trim();
+		if (!tanggalAcuan.matches("\\d{4}-\\d{2}-\\d{2}")) {
+			tanggalAcuan = new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date());
+		}
+		return tanggalAcuan;
 	}
 
 	/**
@@ -2509,10 +2522,7 @@ public class PosApi extends HttpServlet {
 		// ke kemarin menampilkan omzet 0 (kartu berlabel acuan, angka hari ini).
 		// Divalidasi regex ketat lalu disisipkan sbg literal DATE agar urutan
 		// binding param toko yang sudah ada tidak berubah.
-		String tanggalAcuan = payload.optString("tanggalAcuan", "").trim();
-		if (!tanggalAcuan.matches("\\d{4}-\\d{2}-\\d{2}")) {
-			tanggalAcuan = new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date());
-		}
+		String tanggalAcuan = tanggalAcuanDariPayload(payload);
 		String acuanSql = "DATE '" + tanggalAcuan + "'";
 		String cariPembeli = payload.optString("cariPembeli", "").trim();
 		String kodeTransaksi = payload.optString("kodeTransaksi", "").trim();
@@ -2606,7 +2616,7 @@ public class PosApi extends HttpServlet {
 			String subTren = "SELECT COALESCE(a.pembelian_anggota_koperasi,a.id) id_trx,MAX(a.waktu) waktu,"
 					+ "COALESCE(MAX(h.total_biaya),SUM(a.total)) nilai FROM koperasi.pembelian a "
 					+ "LEFT JOIN koperasi.pembelian_anggota_koperasi h ON h.id=a.pembelian_anggota_koperasi "
-					+ "WHERE COALESCE(a.aktif,true)=true AND a.waktu>=NOW()-INTERVAL '" + intervalSql + "'"
+					+ "WHERE COALESCE(a.aktif,true)=true AND a.waktu>=" + acuanSql + "-INTERVAL '" + intervalSql + "' AND DATE(a.waktu)<=" + acuanSql
 					+ (semuaToko ? "" : " AND a.toko=?") + " GROUP BY 1";
 			java.sql.PreparedStatement psTren = conn.prepareStatement(
 					"SELECT TO_CHAR(" + groupSql + ",'" + labelFmt + "') AS lbl,COUNT(*),COALESCE(SUM(nilai),0),"
@@ -4285,6 +4295,8 @@ public class PosApi extends HttpServlet {
 	private void prosesDashboardKeuangan(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		Long tokoId = resolveTokoId(tbmuser, payload);
 		if (tokoId == null) { hasil.put("status", "error"); hasil.put("message", "Toko tidak diketahui utk akun ini."); return; }
+		String tanggalAcuan = tanggalAcuanDariPayload(payload);
+		String acuanSql = "DATE '" + tanggalAcuan + "'";
 
 		Session session = HibernateUtil.getSessionFactory().openSession();
 		try {
@@ -4294,7 +4306,8 @@ public class PosApi extends HttpServlet {
 			// ---- Tren laba 14 hari (agregat qty*hpp per produk per hari) ----
 			java.sql.PreparedStatement psLaba = conn.prepareStatement(
 					"SELECT DATE(a.waktu), a.produk, SUM(a.total), SUM(a.qty) FROM koperasi.pembelian a "
-							+ "WHERE a.toko = ? AND DATE(a.waktu) >= CURRENT_DATE - INTERVAL '14 days' GROUP BY DATE(a.waktu), a.produk ORDER BY 1");
+							+ "WHERE a.toko = ? AND DATE(a.waktu) >= " + acuanSql + " - INTERVAL '14 days'"
+							+ " AND DATE(a.waktu) <= " + acuanSql + " GROUP BY DATE(a.waktu), a.produk ORDER BY 1");
 			psLaba.setLong(1, tokoId.longValue());
 			java.sql.ResultSet rsLaba = psLaba.executeQuery();
 			java.util.LinkedHashMap<String, double[]> perHari = new java.util.LinkedHashMap<String, double[]>();
