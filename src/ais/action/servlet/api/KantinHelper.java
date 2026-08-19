@@ -228,14 +228,15 @@ public class KantinHelper {
 		for (int i = 0; i < transaksi.length(); i++) {
 			try {
 				JSONObject objectTransaksi = transaksi.getJSONObject(i);
-				double hargaBarang = objectTransaksi.isNull("harga") ? 1.0
-						: Double.parseDouble((objectTransaksi.get("harga") + "").trim());
-				double jumlahBarang = objectTransaksi.isNull("jumlah") ? 1.0
-						: Double.parseDouble((objectTransaksi.get("jumlah") + "").trim());
-				double diskonBarang = objectTransaksi.isNull("diskon") ? 0.0
-						: Double.parseDouble((objectTransaksi.get("diskon") + "").trim());
-				double cashbackBarang = objectTransaksi.isNull("cashback") ? 0.0
-						: Double.parseDouble((objectTransaksi.get("cashback") + "").trim());
+				// Insiden produksi 2026-08-19: klien mengirim angka sebagai STRING KOSONG utk
+				// field yang tidak diisi. Dulu Double.parseDouble("") melempar dan -- karena
+				// catch di bawah menelan exception -- ITEM INI HILANG DARI TOTAL TAGIHAN tanpa
+				// jejak di layar. angkaKlien() memperlakukan nilai kosong/bukan-angka sebagai
+				// nilai bawaan, sehingga total tetap benar.
+				double hargaBarang = angkaKlien(objectTransaksi, "harga", 1.0);
+				double jumlahBarang = angkaKlien(objectTransaksi, "jumlah", 1.0);
+				double diskonBarang = angkaKlien(objectTransaksi, "diskon", 0.0);
+				double cashbackBarang = angkaKlien(objectTransaksi, "cashback", 0.0);
 				total += (hargaBarang * jumlahBarang) - diskonBarang;
 				totalDiskon += diskonBarang;
 				totalCashback += cashbackBarang;
@@ -578,6 +579,20 @@ public class KantinHelper {
 		session.save(detail);
 		session.flush();
 		return detail;
+	}
+
+	/**
+	 * Angka dari payload klien yang TOLERAN terhadap nilai kosong/bukan angka (mis. JSP
+	 * mengirim {@code "diskon":""} saat item tidak berdiskon). Mengembalikan {@code bawaan}
+	 * alih-alih melempar {@link NumberFormatException} -- lihat insiden 2026-08-19 di mana
+	 * satu string kosong membatalkan SELURUH pembayaran pesanan.
+	 */
+	private static double angkaKlien(JSONObject o, String kunci, double bawaan) throws Exception {
+		if (o == null || o.isNull(kunci)) {
+			return bawaan;
+		}
+		String v = (o.get(kunci) + "").trim();
+		return Common.isNumber(v) ? Double.parseDouble(v) : bawaan;
 	}
 
 	public static void bayar(Tbmuser tbmuser, JSONObject jsonObject, JSONObject hasil) throws Exception {
@@ -15125,13 +15140,20 @@ public class KantinHelper {
 			JSONArray outArr = new JSONArray();
 			for (int i = 0; i < items.length(); i++) {
 				JSONObject it = items.getJSONObject(i);
-				Long produkId = it.isNull("id") ? null : Long.valueOf((it.get("id") + "").trim());
+				// Gap-closure insiden produksi 2026-08-19 (NumberFormatException: For input string: ""):
+				// klien JSP mengirim field angka sebagai STRING KOSONG ketika tidak diisi (mis.
+				// "aturanDiskon":""), sehingga Long.valueOf("") melempar dan MEMBATALKAN seluruh
+				// pembayaran. Semua parsing angka di sini kini lewat Common.isNumber() -- nilai
+				// kosong/bukan-angka diperlakukan SAMA dengan tidak dikirim (null), bukan error.
+				String idItemRaw = it.isNull("id") ? "" : (it.get("id") + "").trim();
+				Long produkId = Common.isNumber(idItemRaw) ? Long.valueOf(idItemRaw) : null;
 				final double harga = it.optDouble("harga", 0);
 				final double jumlah = it.optDouble("jumlah", 0);
 				final double itemTotal = harga * jumlah;
-				Long hanyaAturanIdItem = it.isNull("hanya_aturan_id")
-						? hanyaAturanIdDefault
-						: Long.valueOf((it.get("hanya_aturan_id") + "").trim());
+				String hanyaAturanRaw = it.isNull("hanya_aturan_id") ? "" : (it.get("hanya_aturan_id") + "").trim();
+				Long hanyaAturanIdItem = Common.isNumber(hanyaAturanRaw)
+						? Long.valueOf(hanyaAturanRaw)
+						: hanyaAturanIdDefault;
 
 				java.util.List<java.util.Map<String,Object>> eligible = new java.util.ArrayList<java.util.Map<String,Object>>();
 				for (java.util.Map<String, Object> r : rules) {
@@ -15248,7 +15270,9 @@ public class KantinHelper {
 			JSONObject asal=transaksi.getJSONObject(i), item=new JSONObject();
 			item.put("id",asal.get("id")); item.put("harga",asal.optDouble("harga",0));
 			item.put("jumlah",asal.optDouble("jumlah",1));
-			if(!asal.isNull("aturanDiskon")) item.put("hanya_aturan_id",asal.get("aturanDiskon"));
+			// Hanya teruskan bila BENAR-BENAR angka: klien mengirim "" utk item tanpa aturan diskon.
+			String aturanRaw = asal.isNull("aturanDiskon") ? "" : (asal.get("aturanDiskon") + "").trim();
+			if (Common.isNumber(aturanRaw)) item.put("hanya_aturan_id", aturanRaw);
 			input.put(item);
 		}
 		JSONArray hasil=evaluasiDiskonItems(conn,tokoId,memberId,input,null);
