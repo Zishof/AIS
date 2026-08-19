@@ -134,7 +134,13 @@ public final class GridKolomHelper {
 	/**
 	 * Membuat kolom aksi (kolom terakhir) tempat tombol Ubah/Copy/Hapus diletakkan.
 	 *
-	 * @return kolom aksi berlebar {@link #LEBAR_KOLOM_AKSI}
+	 * <p><b>Judulnya sengaja KOSONG.</b> Isi selnya cuma satu tombol kebab "⋯" selebar
+	 * {@link #LEBAR_KOLOM_AKSI}; judul teks seperti "Aksi" tidak muat, tidak bisa diurutkan,
+	 * dan hanya menambah keramaian di setiap tabel. Jangan diisi lagi - tombolnya sudah
+	 * menjelaskan dirinya sendiri, dan nama untuk pembaca layar diambil dari tooltip
+	 * tombol pemicu (lihat {@code UIHelper.tambahTombolPemicu}).</p>
+	 *
+	 * @return kolom aksi berlebar {@link #LEBAR_KOLOM_AKSI}, tanpa judul
 	 */
 	public static MyColumnConfig kolomAksi() {
 		MyColumnConfig kolom = new MyColumnConfig("");

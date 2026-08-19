@@ -277,13 +277,21 @@ public class LaporanPendidikanLingkunganKampus extends MyWindow {
 		Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
 		borderlayout.setParent(this);
 
+		/* Panel filter kiri HANYA relevan saat layar dibuka tanpa peserta tertentu (dari menu
+		 * laporan). Bila dibuka lewat tombol "Cetak Form" pada daftar Formulir Kegiatan,
+		 * pesertanya sudah pasti sehingga panel disembunyikan.
+		 * FIX 19-08-2026: setVisible(false) saja TIDAK cukup -- Borderlayout ZK tetap
+		 * menyisakan slot selebar 350px, sehingga muncul pita kosong di kiri pratinjau.
+		 * Lebar ikut dinolkan (dan splitter/collapse dimatikan) agar area pratinjau benar-benar
+		 * memakai seluruh lebar jendela. */
+		final boolean tampilkanPanelFilter = (formulirKegiatanPeserta == null);
 		West west = new West();
-		west.setVisible(formulirKegiatanPeserta == null);
+		west.setVisible(tampilkanPanelFilter);
 		west.setTitle("Menu");
-		west.setCollapsible(true);
+		west.setCollapsible(tampilkanPanelFilter);
 		west.setParent(borderlayout);
-		ais.ui.util.ZkCompat.setFlex(west, true);
-		west.setWidth("350px");
+		ais.ui.util.ZkCompat.setFlex(west, tampilkanPanelFilter);
+		west.setWidth(tampilkanPanelFilter ? "350px" : "0px");
 
 		MyGrid grid = new MyGrid();
 		grid.setWidth("100%");
@@ -929,6 +937,37 @@ public class LaporanPendidikanLingkunganKampus extends MyWindow {
 
 		parameters.put("siswa", siswa == null || siswa.getId() == null ? -1L : siswa.getId());
 		parameters.put("guru", guru == null || guru.getId() == null ? -1L : guru.getId());
+
+		/* PARAMETER PESERTA LENGKAP (permintaan 19-08-2026): sebelumnya template HANYA menerima
+		 * ID peserta (baris di atas), sehingga field seperti KELAS / TELP-HP / EMAIL pada
+		 * formulir selalu kosong. Sekarang SELURUH properti peserta ikut dikirim dengan awalan
+		 * nama entitas, mis. mahasiswa.nama, mahasiswa.kelas, mahasiswa.email, dosen.nidn,
+		 * siswa.nomorInduk, guru.nuptk, plus relasi satu tingkat (deep=2) seperti
+		 * mahasiswa.jurusan.nama. Peserta yang tidak dipakai dilewati sehingga tidak ada
+		 * parameter kosong yang mubazir. Awalan dipakai agar tidak bentrok dgn parameter lama
+		 * (kunci "mahasiswa"/"dosen"/"siswa"/"guru" yang berisi ID TETAP dipertahankan supaya
+		 * template yang sudah ada tidak rusak). */
+		if (mahasiswa != null) {
+			Common.insertProperty(ais.database.model.Mahasiswa.class, mahasiswa, parameters, "mahasiswa.", 2);
+		}
+		if (dosen != null) {
+			Common.insertProperty(ais.database.model.Dosen.class, dosen, parameters, "dosen.", 2);
+		}
+		if (siswa != null) {
+			Common.insertProperty(ais.database.model.sekolah.Siswa.class, siswa, parameters, "siswa.", 2);
+		}
+		if (guru != null) {
+			Common.insertProperty(ais.database.model.sekolah.Guru.class, guru, parameters, "guru.", 2);
+		}
+		/* Properti peserta pada kegiatan (nilai, keterangan, acc, kode, dsb) + relasinya. */
+		if (formulirKegiatanPesertamy != null) {
+			Common.insertProperty(ais.database.model.FormulirKegiatanPeserta.class, formulirKegiatanPesertamy,
+					parameters, "peserta.", 2, "formulirKegiatan");
+		}
+		if (myFormulirKegiatan != null) {
+			Common.insertProperty(ais.database.model.FormulirKegiatan.class, myFormulirKegiatan, parameters,
+					"kegiatan.", 2);
+		}
 
 		String code = formulirKegiatanPesertamy.getKode() + "\n" + myFormulirKegiatan.getNama() + "\n" + nim + "\n"
 				+ nama;
