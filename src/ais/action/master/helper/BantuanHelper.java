@@ -1264,19 +1264,25 @@ public class BantuanHelper {
 			daftar.setStyle("max-width:900px;margin:0 auto;padding:16px;");
 			daftar.setParent(scroll);
 
-			renderDaftar(self, daftar, semua, "", info);
+			// Nomor halaman aktif. Array satu unsur dipakai karena nilainya diubah
+			// dari dalam listener anonim (Java 6/7 mensyaratkan variabel efektif final).
+			final int[] halaman = new int[] { 1 };
+
+			renderDaftar(self, daftar, semua, "", info, halaman);
 
 			cari.addEventListener("onChanging", new EventListener() {
 				@Override
 				public void onEvent(Event ev) throws Exception {
 					String q = ev instanceof InputEvent ? ((InputEvent) ev).getValue() : cari.getValue();
-					renderDaftar(self, daftar, semua, q, info);
+					halaman[0] = 1;   // hasil pencarian selalu dimulai dari halaman pertama
+					renderDaftar(self, daftar, semua, q, info, halaman);
 				}
 			});
 			cari.addEventListener("onOK", new EventListener() {
 				@Override
 				public void onEvent(Event ev) throws Exception {
-					renderDaftar(self, daftar, semua, cari.getValue(), info);
+					halaman[0] = 1;
+					renderDaftar(self, daftar, semua, cari.getValue(), info, halaman);
 				}
 			});
 
@@ -1327,7 +1333,105 @@ public class BantuanHelper {
 	 * jumlah buka (terpopuler dulu) lalu judul. Tiap kartu menampilkan tanggal
 	 * pembaruan dan berapa kali panduan itu dibuka.
 	 */
-	private static void renderDaftar(final Component self, Div daftar, List<Entri> semua, String q, Label info) {
+	/** Banyaknya panduan yang ditampilkan per halaman katalog. */
+	private static final int KATALOG_PER_HALAMAN = 50;
+
+	/** Satu tombol angka/arah pada navigasi halaman katalog. */
+	private static void tombolHalaman(final Component self, final Div bar, final Div daftar,
+			final List<Entri> semua, final String q, final Label info, final int[] halaman,
+			String teks, final int tuju, boolean aktif, boolean mati) {
+		final Div b = new Div();
+		String gaya = "display:inline-block;min-width:30px;text-align:center;padding:5px 9px;"
+				+ "margin:0 3px;border-radius:7px;font-size:12px;font-weight:600;"
+				+ "border:1px solid #cbd5e1;";
+		if (mati) {
+			gaya += "color:#cbd5e1;background:#f8fafc;cursor:default;";
+		} else if (aktif) {
+			gaya += "color:#ffffff;background:#1d4ed8;border-color:#1d4ed8;cursor:default;";
+		} else {
+			gaya += "color:#1d4ed8;background:#ffffff;cursor:pointer;";
+		}
+		b.setStyle(gaya);
+		new Html(teks).setParent(b);
+		b.setParent(bar);
+		if (mati || aktif) {
+			return;
+		}
+		b.addEventListener("onClick", new EventListener() {
+			@Override
+			public void onEvent(Event ev) throws Exception {
+				halaman[0] = tuju;
+				renderDaftar(self, daftar, semua, q, info, halaman);
+				try {
+					Clients.scrollIntoView(daftar);
+				} catch (Throwable ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/helper/BantuanHelper.java:tombolHalaman-scroll");
+				}
+			}
+		});
+	}
+
+	/**
+	 * Navigasi halaman katalog. Hanya dipasang bila hasil melebihi satu halaman.
+	 * Nomor halaman ditampilkan dalam jendela geser (maksimal tujuh angka) agar
+	 * baris navigasi tidak ikut memanjang saat panduan berjumlah ribuan.
+	 */
+	private static void pasangPaging(final Component self, final Div daftar, final List<Entri> semua,
+			final String q, final Label info, final int[] halaman, int totalHalaman,
+			int dari, int sampai, int count) {
+		Div bar = new Div();
+		bar.setStyle("text-align:center;padding:16px 8px 6px;");
+		bar.setParent(daftar);
+
+		tombolHalaman(self, bar, daftar, semua, q, info, halaman,
+				"&laquo; Sebelumnya", halaman[0] - 1, false, halaman[0] <= 1);
+
+		int awal = halaman[0] - 3;
+		if (awal < 1) {
+			awal = 1;
+		}
+		int akhir = awal + 6;
+		if (akhir > totalHalaman) {
+			akhir = totalHalaman;
+			awal = akhir - 6;
+			if (awal < 1) {
+				awal = 1;
+			}
+		}
+		if (awal > 1) {
+			tombolHalaman(self, bar, daftar, semua, q, info, halaman, "1", 1, false, false);
+			if (awal > 2) {
+				Div sela = new Div();
+				sela.setStyle("display:inline-block;padding:5px 4px;color:#94a3b8;font-size:12px;");
+				new Html("&hellip;").setParent(sela);
+				sela.setParent(bar);
+			}
+		}
+		for (int i = awal; i <= akhir; i++) {
+			tombolHalaman(self, bar, daftar, semua, q, info, halaman,
+					String.valueOf(i), i, i == halaman[0], false);
+		}
+		if (akhir < totalHalaman) {
+			if (akhir < totalHalaman - 1) {
+				Div sela = new Div();
+				sela.setStyle("display:inline-block;padding:5px 4px;color:#94a3b8;font-size:12px;");
+				new Html("&hellip;").setParent(sela);
+				sela.setParent(bar);
+			}
+			tombolHalaman(self, bar, daftar, semua, q, info, halaman,
+					String.valueOf(totalHalaman), totalHalaman, false, false);
+		}
+
+		tombolHalaman(self, bar, daftar, semua, q, info, halaman,
+				"Berikutnya &raquo;", halaman[0] + 1, false, halaman[0] >= totalHalaman);
+
+		Html ket = new Html("<div style='text-align:center;color:#64748b;font-size:12px;padding:4px 0 10px;'>"
+				+ "Menampilkan " + (dari + 1) + "&ndash;" + sampai + " dari " + count
+				+ " panduan &middot; halaman " + halaman[0] + " dari " + totalHalaman + "</div>");
+		ket.setParent(daftar);
+	}
+
+	private static void renderDaftar(final Component self, final Div daftar, final List<Entri> semua,
+			final String q, final Label info, final int[] halaman) {
 		try {
 			daftar.getChildren().clear();
 		} catch (Throwable ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/helper/BantuanHelper.java:1067");
@@ -1364,25 +1468,61 @@ public class BantuanHelper {
 		}
 
 		int count = tampil.size();
+
+		// Urutkan di dalam tiap kelompok, lalu ratakan menjadi satu urutan tampil
+		// sehingga pemotongan per halaman tidak merusak urutan maupun pengelompokan.
+		List<String> urutKategori = new ArrayList<String>();
+		List<Entri> rata = new ArrayList<Entri>();
+		Comparator<Entri> urutEntri = new Comparator<Entri>() {
+			@Override
+			public int compare(Entri a, Entri b) {
+				if (a.buka != b.buka) {
+					return b.buka - a.buka;
+				}
+				String x = a.judul == null ? "" : a.judul;
+				String y = b.judul == null ? "" : b.judul;
+				return x.compareToIgnoreCase(y);
+			}
+		};
 		for (java.util.Map.Entry<String, List<Entri>> g : grup.entrySet()) {
 			List<Entri> l = g.getValue();
-			Collections.sort(l, new Comparator<Entri>() {
-				@Override
-				public int compare(Entri a, Entri b) {
-					if (a.buka != b.buka) {
-						return b.buka - a.buka;
-					}
-					String x = a.judul == null ? "" : a.judul;
-					String y = b.judul == null ? "" : b.judul;
-					return x.compareToIgnoreCase(y);
-				}
-			});
+			Collections.sort(l, urutEntri);
+			for (int i = 0; i < l.size(); i++) {
+				urutKategori.add(g.getKey());
+				rata.add(l.get(i));
+			}
+		}
 
-			Html hdr = new Html("<div class='kb-grup'>" + esc(g.getKey())
-					+ " <span class='kb-grup-n'>(" + l.size() + ")</span></div>");
-			hdr.setParent(daftar);
+		int totalHalaman = (count + KATALOG_PER_HALAMAN - 1) / KATALOG_PER_HALAMAN;
+		if (totalHalaman < 1) {
+			totalHalaman = 1;
+		}
+		if (halaman[0] < 1) {
+			halaman[0] = 1;
+		}
+		if (halaman[0] > totalHalaman) {
+			halaman[0] = totalHalaman;
+		}
+		int dari = (halaman[0] - 1) * KATALOG_PER_HALAMAN;
+		int sampai = dari + KATALOG_PER_HALAMAN;
+		if (sampai > count) {
+			sampai = count;
+		}
 
-			for (final Entri e : l) {
+		String kategoriTampil = null;
+		for (int idx = dari; idx < sampai; idx++) {
+			String kategoriIni = urutKategori.get(idx);
+			if (!kategoriIni.equals(kategoriTampil)) {
+				kategoriTampil = kategoriIni;
+				// Jumlah pada tajuk adalah jumlah SELURUH kelompok, bukan hanya yang
+				// tampil di halaman ini, agar pembaca tahu ukuran kelompok sebenarnya.
+				int besarKelompok = grup.get(kategoriIni) == null ? 0 : grup.get(kategoriIni).size();
+				Html hdr = new Html("<div class='kb-grup'>" + esc(kategoriIni)
+						+ " <span class='kb-grup-n'>(" + besarKelompok + ")</span></div>");
+				hdr.setParent(daftar);
+			}
+			{
+				final Entri e = rata.get(idx);
 				final Div card = new Div();
 				card.setSclass("kb-card");
 				card.setParent(daftar);
@@ -1414,6 +1554,10 @@ public class BantuanHelper {
 					}
 				});
 			}
+		}
+
+		if (count > KATALOG_PER_HALAMAN) {
+			pasangPaging(self, daftar, semua, q, info, halaman, totalHalaman, dari, sampai, count);
 		}
 
 		if (count == 0) {
