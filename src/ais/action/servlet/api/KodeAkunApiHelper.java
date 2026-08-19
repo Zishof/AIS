@@ -197,6 +197,122 @@ public final class KodeAkunApiHelper {
 		}
 	}
 
+	/**
+	 * Impor/pembaruan akun dari berkas Excel yang sudah diurai klien menjadi
+	 * {@code baris: [{kode, nama, keterangan, posisi, grupAkun, kodeParent}, ...]}.
+	 *
+	 * <p><b>Aturan yang disengaja, karena ini data master akuntansi:</b></p>
+	 * <ul>
+	 * <li>Pencocokan memakai {@code kode} (kolom unik). Kode belum ada = DIBUAT,
+	 *     kode sudah ada = DIPERBARUI. Tidak pernah menghapus apa pun.</li>
+	 * <li>Baris tanpa kode atau tanpa nama DITOLAK dengan alasan, bukan diam-diam dilewati.</li>
+	 * <li>Induk dirujuk lewat KODE induk; bila kodenya tidak ditemukan, baris ditolak
+	 *     supaya hierarki tidak rusak.</li>
+	 * <li>Setiap baris diproses dalam transaksi sendiri: satu baris bermasalah tidak
+	 *     membatalkan baris lain yang sudah benar (pola sama dgn posting per transaksi).</li>
+	 * <li>Penulisan lewat session Hibernate agar tetap ter-audit Envers seperti layar ZK.</li>
+	 * </ul>
+	 */
+	public static void akunImpor(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
+		JSONArray baris = request == null ? null : request.optJSONArray("baris");
+		if (baris == null || baris.length() == 0) {
+			tolak(hasil, "Tidak ada baris untuk diimpor.");
+			return;
+		}
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		int dibuat = 0, diperbarui = 0, ditolak = 0;
+		JSONArray masalah = new JSONArray();
+		try {
+			for (int i = 0; i < baris.length(); i++) {
+				JSONObject b = baris.optJSONObject(i);
+				if (b == null) {
+					continue;
+				}
+				String kode = b.optString("kode", "").trim();
+				String nama = b.optString("nama", "").trim();
+				int nomorBaris = i + 2; // +2: baris 1 = judul kolom di Excel
+				if (kode.isEmpty() || nama.isEmpty()) {
+					ditolak++;
+					masalah.put("Baris " + nomorBaris + ": kode dan nama akun wajib diisi");
+					continue;
+				}
+				try {
+					ais.database.model.akunting.Akun akun = (ais.database.model.akunting.Akun) session
+							.createCriteria(ais.database.model.akunting.Akun.class)
+							.add(org.hibernate.criterion.Restrictions.eq("kode", kode)).uniqueResult();
+					boolean baru = akun == null;
+					if (baru) {
+						akun = new ais.database.model.akunting.Akun();
+						akun.setKode(kode);
+					}
+					akun.setNama(nama);
+					if (b.has("keterangan")) {
+						akun.setKeterangan(b.optString("keterangan", "").trim());
+					}
+					String posisi = b.optString("posisi", "").trim().toLowerCase();
+					if (posisi.startsWith("d")) {
+						akun.setDebetCredit(Integer.valueOf(1));
+					} else if (posisi.startsWith("c") || posisi.startsWith("k")) {
+						akun.setDebetCredit(Integer.valueOf(2));
+					}
+					String kodeParent = b.optString("kodeParent", "").trim();
+					if (!kodeParent.isEmpty()) {
+						if (kodeParent.equals(kode)) {
+							throw new IllegalStateException("induk tidak boleh dirinya sendiri");
+						}
+						ais.database.model.akunting.Akun induk = (ais.database.model.akunting.Akun) session
+								.createCriteria(ais.database.model.akunting.Akun.class)
+								.add(org.hibernate.criterion.Restrictions.eq("kode", kodeParent)).uniqueResult();
+						if (induk == null) {
+							throw new IllegalStateException("kode induk \"" + kodeParent + "\" tidak ditemukan");
+						}
+						akun.setParent(induk);
+					}
+					String grup = b.optString("grupAkun", "").trim();
+					if (!grup.isEmpty()) {
+						ais.database.model.akunting.GrupAkun ga = (ais.database.model.akunting.GrupAkun) session
+								.createCriteria(ais.database.model.akunting.GrupAkun.class)
+								.add(org.hibernate.criterion.Restrictions.eq("nama", grup)).uniqueResult();
+						if (ga != null) {
+							akun.setGrupAkun(ga);
+						}
+					}
+					if (tbmuser != null) {
+						akun.setOleh(tbmuser.getUserNama());
+						akun.setOlehId(tbmuser.getUserId());
+					}
+					session.beginTransaction();
+					session.saveOrUpdate(akun);
+					session.getTransaction().commit();
+					if (baru) {
+						dibuat++;
+					} else {
+						diperbarui++;
+					}
+				} catch (Exception ex) {
+					try {
+						if (session.getTransaction() != null && session.getTransaction().isActive()) {
+							session.getTransaction().rollback();
+						}
+					} catch (Exception eRb) {
+						ais.common.ErrorAuditUtil.record(eRb, "auto-audit KodeAkunApiHelper.akunImpor rollback");
+					}
+					ditolak++;
+					if (masalah.length() < 50) {
+						masalah.put("Baris " + nomorBaris + " (" + kode + "): " + ex.getMessage());
+					}
+				}
+			}
+			hasil.put("status", "00");
+			hasil.put("dibuat", dibuat);
+			hasil.put("diperbarui", diperbarui);
+			hasil.put("ditolak", ditolak);
+			hasil.put("masalah", masalah);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
 	/** Dipakai dispatcher: seluruh aksi berawalan {@code kode_akun_} diarahkan ke sini. */
 	public static boolean proses(String action, Tbmuser tbmuser, JSONObject request, JSONObject hasil)
 			throws Exception {
@@ -214,6 +330,10 @@ public final class KodeAkunApiHelper {
 		}
 		if ("kode_akun_jenis_transaksi".equals(action)) {
 			jenisTransaksiDaftar(request, hasil);
+			return true;
+		}
+		if ("kode_akun_impor".equals(action)) {
+			akunImpor(tbmuser, request, hasil);
 			return true;
 		}
 		return false;
