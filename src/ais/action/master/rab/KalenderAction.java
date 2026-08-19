@@ -51,8 +51,18 @@ public class KalenderAction extends GenericForwardComposer {
 	private static final long serialVersionUID = 2305608876280722903L;
 	private static final String CALENDAR_EVENT = "Caneldar_Event";
 	private static final String CTRL_EVENT = "Ctrl_Event";
-	private static final SimpleDateFormat DefaultDateFormat = new SimpleDateFormat("yyyy/MM/dd");
-	private static final SimpleDateFormat DefaultMonthFormat = new SimpleDateFormat("MMM / yyyy");
+	private static final ThreadLocal<SimpleDateFormat> DefaultDateFormat = new ThreadLocal<SimpleDateFormat>() {
+		@Override
+		protected SimpleDateFormat initialValue() {
+			return new SimpleDateFormat("yyyy/MM/dd");
+		}
+	};
+	private static final ThreadLocal<SimpleDateFormat> DefaultMonthFormat = new ThreadLocal<SimpleDateFormat>() {
+		@Override
+		protected SimpleDateFormat initialValue() {
+			return new SimpleDateFormat("MMM / yyyy");
+		}
+	};
 	private SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm");
 	private MyToolbarbuttonConfig currentDate;
 	private Textbox filter_text;
@@ -103,7 +113,7 @@ public class KalenderAction extends GenericForwardComposer {
 		acaras = null;
 		scm = new KalenderModel(kalenderEvents);
 		if (calendars != null) { calendars.setModel(scm); }
-		if (currentDate != null) { currentDate.setLabel(DefaultMonthFormat.format(ais.ui.util.WaktuUtil.getDate())); }
+		if (currentDate != null) { currentDate.setLabel(DefaultMonthFormat.get().format(ais.ui.util.WaktuUtil.getDate())); }
 		if (timeFormat != null) { timeFormat.setTimeZone(calendars.getDefaultTimeZone()); }
 
 		EventPop$anggaran.setEventListener(new EventListener() {
@@ -377,7 +387,7 @@ public class KalenderAction extends GenericForwardComposer {
 			calendars.previousPage();
 		else
 			calendars.nextPage();
-		currentDate.setLabel(DefaultMonthFormat.format(calendars.getCurrentDate()));
+		currentDate.setLabel(DefaultMonthFormat.get().format(calendars.getCurrentDate()));
 	}
 
 	public void onClick$dateConfirm(ForwardEvent event) {
@@ -387,7 +397,7 @@ public class KalenderAction extends GenericForwardComposer {
 	public void onChange$dateChooser(ForwardEvent event) {
 		InputEvent ie = (InputEvent) event.getOrigin();
 		try {
-			calendars.setCurrentDate(DefaultDateFormat.parse(ie.getValue()));
+			calendars.setCurrentDate(DefaultDateFormat.get().parse(ie.getValue()));
 		} catch (ParseException e) {
 			Common.tampilErrorJikaAdmin(e); 
 		}

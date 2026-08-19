@@ -57,7 +57,12 @@ public class SetoranTenantZkAction extends MyWindow {
 
 	private static final long serialVersionUID = 4419021551123458001L;
 
-	private static final SimpleDateFormat DF = new SimpleDateFormat("dd-MM-yyyy");
+	private static final ThreadLocal<SimpleDateFormat> DF = new ThreadLocal<SimpleDateFormat>() {
+		@Override
+		protected SimpleDateFormat initialValue() {
+			return new SimpleDateFormat("dd-MM-yyyy");
+		}
+	};
 
 	private MyGrid grid;
 	private boolean boleh;
@@ -140,7 +145,7 @@ public class SetoranTenantZkAction extends MyWindow {
 			r.setParent(rows);
 			new Label(s.getToko() != null && s.getToko().getNama() != null ? s.getToko().getNama() : "-").setParent(r);
 			new Label(s.getPeriode() == null ? "-" : s.getPeriode()).setParent(r);
-			new Label(s.getTanggal() == null ? "-" : DF.format(s.getTanggal())).setParent(r);
+			new Label(s.getTanggal() == null ? "-" : DF.get().format(s.getTanggal())).setParent(r);
 			kanan(r, TenantSetoranUtil.nz(s.getOmzet()));
 			kanan(r, kw);
 			kanan(r, TenantSetoranUtil.nz(s.getSetoran()));

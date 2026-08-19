@@ -36,13 +36,17 @@ import ais.database.model.koperasi.PembelianAnggotaKoperasi;
 public final class BahanBakuUtil {
 
 	/**
-	 * {@link SimpleDateFormat} TIDAK thread-safe (state internal kalender dibagi antar-panggilan) —
-	 * dipakai sebagai field statis tunggal murni untuk efisiensi (hindari alokasi objek baru tiap
-	 * panggilan), SELALU diakses lewat blok {@code synchronized (TS)} di {@link #konsumsiBahanBaku}
-	 * supaya aman dipanggil dari banyak thread kasir sekaligus (server memproses beberapa request
-	 * checkout paralel).
+	 * {@link SimpleDateFormat} TIDAK thread-safe (state internal kalender dibagi antar-panggilan) --
+	 * karena itu dibungkus {@link ThreadLocal} sehingga tiap thread kasir memakai instans sendiri
+	 * (aman dipanggil dari banyak thread sekaligus saat server memproses beberapa request checkout
+	 * paralel), tanpa perlu blok {@code synchronized} maupun alokasi objek baru tiap panggilan.
 	 */
-	private static final SimpleDateFormat TS = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	private static final ThreadLocal<SimpleDateFormat> TS = new ThreadLocal<SimpleDateFormat>() {
+		@Override
+		protected SimpleDateFormat initialValue() {
+			return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		}
+	};
 
 	private BahanBakuUtil() {
 	}
@@ -102,10 +106,7 @@ public final class BahanBakuUtil {
 		}
 
 		long billId = bill.getId().longValue();
-		String waktuStr;
-		synchronized (TS) {
-			waktuStr = TS.format(waktu == null ? new Date() : waktu);
-		}
+		String waktuStr = TS.get().format(waktu == null ? new Date() : waktu);
 		String tokoSql = (toko == null || toko.getId() == null) ? "null" : String.valueOf(toko.getId());
 
 		try {

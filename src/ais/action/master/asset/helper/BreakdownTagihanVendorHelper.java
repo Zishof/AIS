@@ -48,9 +48,15 @@ import ais.ui.util.MyWindow;
  */
 public final class BreakdownTagihanVendorHelper {
 
-    private static final NumberFormat NF = NumberFormat.getInstance(new Locale("id", "ID"));
-
-    static { NF.setMaximumFractionDigits(2); NF.setGroupingUsed(true); }
+    private static final ThreadLocal<NumberFormat> NF = new ThreadLocal<NumberFormat>() {
+        @Override
+        protected NumberFormat initialValue() {
+            NumberFormat nf = NumberFormat.getInstance(new Locale("id", "ID"));
+            nf.setMaximumFractionDigits(2);
+            nf.setGroupingUsed(true);
+            return nf;
+        }
+    };
 
     private BreakdownTagihanVendorHelper() {}
 
@@ -1054,7 +1060,7 @@ public final class BreakdownTagihanVendorHelper {
 
     private static String fmtNum(Double v) {
         if (v == null || v == 0.0) return "0";
-        try { return NF.format(v); } catch (Exception e) { return String.valueOf(v); }
+        try { return NF.get().format(v); } catch (Exception e) { return String.valueOf(v); }
     }
 
     private static String fmtQty(Double v) {

@@ -61,7 +61,12 @@ import ais.ui.util.WaktuUtil;
 
 public class CommonAkunting {
 
-	public static SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMDD");
+	public static final ThreadLocal<SimpleDateFormat> dateFormat = new ThreadLocal<SimpleDateFormat>() {
+		@Override
+		protected SimpleDateFormat initialValue() {
+			return new SimpleDateFormat("yyyyMMDD");
+		}
+	};
 
 	/**
 	 * Kunci & penghitung in-memory untuk Nomor Jurnal (kode GrupTransaksi) agar DIJAMIN UNIK
@@ -90,7 +95,7 @@ public class CommonAkunting {
 
 				Calendar calendar = Calendar.getInstance();
 
-				return dateFormat.format(calendar.getTime()) + kode.substring(kode.length() - 8, kode.length());
+				return dateFormat.get().format(calendar.getTime()) + kode.substring(kode.length() - 8, kode.length());
 			}
 		} else if (jenisTransaksi != null && jenisTransaksi.getNomorSurat() != null) {
 			Long index = jenisTransaksi.getNomorSurat().getGunakanIndexUrut()

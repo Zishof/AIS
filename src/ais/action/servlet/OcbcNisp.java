@@ -55,7 +55,12 @@ public class OcbcNisp extends HttpServlet {
 
 	public static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance(); 
 
-	public static SimpleDateFormat dateFormat = new SimpleDateFormat("MMddHHmmss");
+	public static final ThreadLocal<SimpleDateFormat> dateFormat = new ThreadLocal<SimpleDateFormat>() {
+		@Override
+		protected SimpleDateFormat initialValue() {
+			return new SimpleDateFormat("MMddHHmmss");
+		}
+	};
 
 	/**
 	 * @see HttpServlet#HttpServlet()
@@ -170,7 +175,7 @@ public class OcbcNisp extends HttpServlet {
 
 			Date tanggal = ais.ui.util.WaktuUtil.getDate();
 			try {
-				tanggal = dateFormat.parse(tanggalP);
+				tanggal = dateFormat.get().parse(tanggalP);
 			} catch (Exception e) {
 				e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/OcbcNisp.java:175");
 			}
@@ -1082,7 +1087,7 @@ public class OcbcNisp extends HttpServlet {
 
 				}
 
-				String tanggalP = dateFormat.format(new Date());
+				String tanggalP = dateFormat.get().format(new Date());
 
 				String paidStatus = req == null || req.isNull("paidStatus") ? null : req.getString("paidStatus").trim();
 

@@ -28,7 +28,12 @@ import ais.database.model.Tbmuser;
 
 /** HTTP endpoint for the native transfer-request workspace. */
 public final class NewUiTransferWorkflowController {
-    private static final SimpleDateFormat ISO=new SimpleDateFormat("yyyy-MM-dd");
+    private static final ThreadLocal<SimpleDateFormat> ISO=new ThreadLocal<SimpleDateFormat>() {
+        @Override
+        protected SimpleDateFormat initialValue() {
+            return new SimpleDateFormat("yyyy-MM-dd");
+        }
+    };
     private NewUiTransferWorkflowController(){}
     public static void handle(HttpServletRequest q,HttpServletResponse r)throws Exception{
         String action=text(q.getParameter("action"),"list");
@@ -76,8 +81,8 @@ public final class NewUiTransferWorkflowController {
     private static Long id(String v){if(clean(v)==null)return null;try{return Long.valueOf(v.trim());}catch(Exception e){throw new IllegalArgumentException("ID tidak valid.");}}
     private static int integer(String v,int d){try{return Integer.parseInt(v);}catch(Exception e){return d;}}
     private static boolean bool(HttpServletRequest q,String n){return"true".equalsIgnoreCase(q.getParameter(n));}
-    private static synchronized Date date(String v){if(clean(v)==null)return null;try{return ISO.parse(v.trim());}catch(Exception e){throw new IllegalArgumentException("Format tanggal harus yyyy-MM-dd.");}}
-    private static synchronized String format(Date d){return d==null?null:ISO.format(d);}
+    private static synchronized Date date(String v){if(clean(v)==null)return null;try{return ISO.get().parse(v.trim());}catch(Exception e){throw new IllegalArgumentException("Format tanggal harus yyyy-MM-dd.");}}
+    private static synchronized String format(Date d){return d==null?null:ISO.get().format(d);}
     private static String page(HttpServletRequest q){String p=q.getParameter("page");return"proses_transfer".equals(p)||"cara_pembayaran_transfer".equals(p)?p:"daftar_pengajuan_transfer";}
     private static String required(String v,String m){if(clean(v)==null)throw new IllegalArgumentException(m);return v;}
     private static String clean(String v){return v==null||v.trim().length()==0?null:v.trim();}

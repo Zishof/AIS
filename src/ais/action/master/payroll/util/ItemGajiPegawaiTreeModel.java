@@ -91,7 +91,12 @@ public class ItemGajiPegawaiTreeModel extends AbstractTreeModel {
 	// In-memory cache to prevent N+1 Queries during deep recursive formula evaluations
 	private List<Keluarga> cachedKeluargaAktif = null;
 
-	public static DecimalFormat df = (DecimalFormat) NumberFormat.getNumberInstance(Common.locale);
+	public static final ThreadLocal<DecimalFormat> df = new ThreadLocal<DecimalFormat>() {
+		@Override
+		protected DecimalFormat initialValue() {
+			return (DecimalFormat) NumberFormat.getNumberInstance(Common.locale);
+		}
+	};
 
 	/**
 	 * Constructor 1
@@ -1292,7 +1297,7 @@ public class ItemGajiPegawaiTreeModel extends AbstractTreeModel {
 	}
 
 	public static String angka(double hasil) {
-		String string = df.format(hasil);
+		String string = df.get().format(hasil);
 		string = StringUtils.replace(string, ".", "");
 		string = StringUtils.replace(string, ",", ".");
 		return hasil < 0.0 ? "(0 " + string + ")" : string;

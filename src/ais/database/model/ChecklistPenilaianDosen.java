@@ -28,7 +28,12 @@ import org.json.JSONObject;
 public class ChecklistPenilaianDosen extends GeneralValueObject {
 
 	private static final long serialVersionUID = 2463821577548439808L;
-	private static final NumberFormat NF = new DecimalFormat("00000");
+	private static final ThreadLocal<NumberFormat> NF = new ThreadLocal<NumberFormat>() {
+		@Override
+		protected NumberFormat initialValue() {
+			return new DecimalFormat("00000");
+		}
+	};
 	private static final String JSON_KOSONG = new JSONObject().toString();
 
 	private Long id;
@@ -98,7 +103,7 @@ public class ChecklistPenilaianDosen extends GeneralValueObject {
 		Long idGrup = getGrupChecklistPenilaianDosen() == null || getGrupChecklistPenilaianDosen().getId() == null
 				? Long.valueOf(0L)
 				: getGrupChecklistPenilaianDosen().getId();
-		return NF.format(idGrup) + "_" + prefix + "_" + NF.format(idChecklist);
+		return NF.get().format(idGrup) + "_" + prefix + "_" + NF.get().format(idChecklist);
 	}
 
 	@Id

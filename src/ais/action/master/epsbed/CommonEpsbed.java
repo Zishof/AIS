@@ -14,7 +14,12 @@ import ais.database.model.Perkuliahan;
 
 public class CommonEpsbed extends Common {
 
-	public static SimpleDateFormat dateFormatEpsbed = new SimpleDateFormat("yyyyMMdd", new Locale("in", "ID"));
+	public static final ThreadLocal<SimpleDateFormat> dateFormatEpsbed = new ThreadLocal<SimpleDateFormat>() {
+		@Override
+		protected SimpleDateFormat initialValue() {
+			return new SimpleDateFormat("yyyyMMdd", new Locale("in", "ID"));
+		}
+	};
 
 	public static String getTahunSemesterPelaporan(String tahunAkademik, String ganjilgenap) {
 		String tahunSemesterPelaporan = "";

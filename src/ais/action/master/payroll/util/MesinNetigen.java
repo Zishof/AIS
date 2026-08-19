@@ -70,7 +70,12 @@ public class MesinNetigen {
 		System.out.println(maps);
 	}
 
-	private static SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd-HH:mm:ss");
+	private static final ThreadLocal<SimpleDateFormat> dateFormat = new ThreadLocal<SimpleDateFormat>() {
+		@Override
+		protected SimpleDateFormat initialValue() {
+			return new SimpleDateFormat("yyyy/MM/dd-HH:mm:ss");
+		}
+	};
 
 	@SuppressWarnings("rawtypes")
 	public static List<Map> execute(String text) {
@@ -82,7 +87,7 @@ public class MesinNetigen {
 				try {
 					Map<String, Object> values = new HashMap<String, Object>();
 					String[] k1 = StringUtils.split(s.trim(), "]");
-					Date dateTime = dateFormat.parse(org.apache.commons.lang3.StringUtils.replace(org.apache.commons.lang3.StringUtils.replace(k1[0], "[", ""), "]", ""));
+					Date dateTime = dateFormat.get().parse(org.apache.commons.lang3.StringUtils.replace(org.apache.commons.lang3.StringUtils.replace(k1[0], "[", ""), "]", ""));
 					values.put("dateTime", dateTime);
 					String[] data = StringUtils.split(k1[1].trim(), "/");
 					values.put("kode", data[0].trim());

@@ -53,7 +53,12 @@ public class Nagari extends HttpServlet {
 
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
-	private static SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
+	private static final ThreadLocal<SimpleDateFormat> dateFormat = new ThreadLocal<SimpleDateFormat>() {
+		@Override
+		protected SimpleDateFormat initialValue() {
+			return new SimpleDateFormat("yyyyMMddHHmmss");
+		}
+	};
 
 	/**
 	 * @see HttpServlet#HttpServlet()
@@ -192,7 +197,7 @@ public class Nagari extends HttpServlet {
 
 								Date tanggal = ais.ui.util.WaktuUtil.getDate();
 								try {
-									tanggal = dateFormat.parse(Calendar.getInstance().get(Calendar.YEAR) + tanggalP);
+									tanggal = dateFormat.get().parse(Calendar.getInstance().get(Calendar.YEAR) + tanggalP);
 								} catch (Exception e) {
 									e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/Nagari.java:197");
 								}
@@ -805,7 +810,7 @@ public class Nagari extends HttpServlet {
 			reversal = true;
 		}
 
-		String tanggalP = req == null || req.isNull("trxDateTime") ? dateFormat.format(new Date())
+		String tanggalP = req == null || req.isNull("trxDateTime") ? dateFormat.get().format(new Date())
 				: req.getString("trxDateTime");
 
 		String body;

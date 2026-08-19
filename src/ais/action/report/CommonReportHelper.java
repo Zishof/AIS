@@ -219,7 +219,12 @@ import ais.ui.util.WaktuUtil;
 
 public class CommonReportHelper {
 
-	private static SimpleDateFormat dateFormat = new SimpleDateFormat("dd MMMMM yyyy", Common.locale);
+	private static final ThreadLocal<SimpleDateFormat> dateFormat = new ThreadLocal<SimpleDateFormat>() {
+		@Override
+		protected SimpleDateFormat initialValue() {
+			return new SimpleDateFormat("dd MMMMM yyyy", Common.locale);
+		}
+	};
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	private static List<Map> buatParameterBuktiDariRincianLayar(Kegiatan kegiatan,
@@ -9358,7 +9363,7 @@ public class CommonReportHelper {
 		parameters.put("tahapan", tahapan);
 
 		parameters.put("mahasiswa", mahasiswa.getId());
-		parameters.put("tanggal", dateFormat.format(ais.ui.util.WaktuUtil.getDate()));
+		parameters.put("tanggal", dateFormat.get().format(ais.ui.util.WaktuUtil.getDate()));
 
 		if (jenjangProgramStudi != null && jenjangProgramStudi.getNmKaPS() != null
 				&& !jenjangProgramStudi.getNmKaPS().trim().equals("")) {
@@ -12820,7 +12825,7 @@ public class CommonReportHelper {
 		parameters.put("nim_mahasiswa", mahasiswa.getNim());
 		parameters.put("semester_mahasiswa", semester);
 		parameters.put("tahunAkademik_mahasiswa", krsMahasiswa.getTahunAkademik());
-		parameters.put("tanggal", dateFormat.format(ais.ui.util.WaktuUtil.getDate()));
+		parameters.put("tanggal", dateFormat.get().format(ais.ui.util.WaktuUtil.getDate()));
 		mahasiswa.putPhoto(parameters);
 		if (jenjangProgramStudi != null && jenjangProgramStudi.getNmKaPS() != null
 				&& !jenjangProgramStudi.getNmKaPS().trim().equals("")) {
@@ -13059,7 +13064,7 @@ public class CommonReportHelper {
 		parameters.put("nim_mahasiswa", mahasiswa.getNim());
 		parameters.put("semester_mahasiswa", semester);
 		parameters.put("tahunAkademik_mahasiswa", krsMahasiswa.getTahunAkademik());
-		parameters.put("tanggal", dateFormat.format(ais.ui.util.WaktuUtil.getDate()));
+		parameters.put("tanggal", dateFormat.get().format(ais.ui.util.WaktuUtil.getDate()));
 		mahasiswa.putPhoto(parameters);
 
 		if (jenjangProgramStudi != null && jenjangProgramStudi.getNmKaPS() != null

@@ -267,7 +267,7 @@ public class MasterDosen extends MyWindow {
 			ais.ui.util.EcampusUtil.setCellValue(sheet, rowIndex, 7, dosen.getTempatlahir());
 
 			ais.ui.util.EcampusUtil.setCellValue(sheet, rowIndex, 8, dosen.getTanggallahir() == null ? ""
-					: CommonEpsbed.dateFormatEpsbed.format(dosen.getTanggallahir()));
+					: CommonEpsbed.dateFormatEpsbed.get().format(dosen.getTanggallahir()));
 			ais.ui.util.EcampusUtil.setCellValue(sheet, rowIndex, 9,
 					dosen.getKelamin() == null ? "" : dosen.getKelamin().equals("Laki-laki") ? "L" : "P");
 			ais.ui.util.EcampusUtil.setCellValue(sheet, rowIndex, 10,

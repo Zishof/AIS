@@ -31,7 +31,12 @@ import ais.database.model.Tbmuser;
 
 /** JSON/PDF/CSV endpoint for the native general-journal screen. */
 public final class NewUiJournalController {
-    private static final SimpleDateFormat ISO=new SimpleDateFormat("yyyy-MM-dd");
+    private static final ThreadLocal<SimpleDateFormat> ISO=new ThreadLocal<SimpleDateFormat>() {
+        @Override
+        protected SimpleDateFormat initialValue() {
+            return new SimpleDateFormat("yyyy-MM-dd");
+        }
+    };
     private NewUiJournalController(){}
     public static void handle(HttpServletRequest q,HttpServletResponse r)throws Exception{
         String action=text(q.getParameter("action"),"list");
@@ -83,8 +88,8 @@ public final class NewUiJournalController {
     private static Double decimal(String v){if(clean(v)==null)return null;try{return Double.valueOf(v.trim());}catch(Exception e){throw new IllegalArgumentException("Nominal filter tidak valid.");}}
     private static int integer(String v,int d){try{return Integer.parseInt(v);}catch(Exception e){return d;}}
     private static boolean bool(String v){return"true".equalsIgnoreCase(v);}
-    private static synchronized String format(Date d){return d==null?null:ISO.format(d);}
-    private static synchronized Date date(String v){if(clean(v)==null)return null;try{return ISO.parse(v.trim());}catch(Exception e){throw new IllegalArgumentException("Format tanggal harus yyyy-MM-dd.");}}
+    private static synchronized String format(Date d){return d==null?null:ISO.get().format(d);}
+    private static synchronized Date date(String v){if(clean(v)==null)return null;try{return ISO.get().parse(v.trim());}catch(Exception e){throw new IllegalArgumentException("Format tanggal harus yyyy-MM-dd.");}}
     private static synchronized Date dateCompat(String v){if(clean(v)==null)return null;String[]p={"yyyy-MM-dd","dd-MM-yyyy","dd/MM/yyyy","yyyy/MM/dd"};for(String x:p)try{return new SimpleDateFormat(x).parse(v.trim());}catch(Exception ignored){}throw new IllegalArgumentException("Format tanggal tidak valid: "+v);}
     private static Boolean tri(String v){return clean(v)==null?null:Boolean.valueOf(v.trim());}
     private static String first(String a,String b){return clean(a)!=null?a:b;}

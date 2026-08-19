@@ -296,7 +296,7 @@ public class MasterMahasiswa extends MyWindow {
 					row.createCell(5).setCellValue(mahasiswa.getProgram().equalsIgnoreCase("Reguler") ? "R" : "N");
 					row.createCell(6).setCellValue(mahasiswa.getTempatlahir());
 					row.createCell(7).setCellValue(mahasiswa.getTanggallahir() == null ? ""
-							: CommonEpsbed.dateFormatEpsbed.format(mahasiswa.getTanggallahir()));
+							: CommonEpsbed.dateFormatEpsbed.get().format(mahasiswa.getTanggallahir()));
 					BiodataMahasiswa biodataMahasiswa = (BiodataMahasiswa) HibernateUtil.currentSession()
 							.createCriteria(BiodataMahasiswa.class).add(Restrictions.eq("mahasiswa", mahasiswa))
 							.setMaxResults(1).uniqueResult();
@@ -325,9 +325,9 @@ public class MasterMahasiswa extends MyWindow {
 									: biodataCalonMahasiswa.getPropinsiSekolah() == null ? ""
 											: biodataCalonMahasiswa.getPropinsiSekolah().getKodeEpsbed());
 					row.createCell(16).setCellValue(mahasiswa.getTanggalMasuk() == null ? ""
-							: CommonEpsbed.dateFormatEpsbed.format(mahasiswa.getTanggalMasuk()));
+							: CommonEpsbed.dateFormatEpsbed.get().format(mahasiswa.getTanggalMasuk()));
 					row.createCell(17).setCellValue(mahasiswa.getTanggalLulus() == null ? ""
-							: CommonEpsbed.dateFormatEpsbed.format(mahasiswa.getTanggalLulus()));
+							: CommonEpsbed.dateFormatEpsbed.get().format(mahasiswa.getTanggalLulus()));
 
 					StatusMahasiswa statusMahasiswa = ais.action.master.helper.HistoryStatusMahasiswaUtil.currentStatus(mahasiswa).getStatusMahasiswa();
 					row.createCell(18).setCellValue(statusMahasiswa.getKodeEpsbed());

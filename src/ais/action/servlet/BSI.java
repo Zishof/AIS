@@ -50,7 +50,12 @@ public class BSI extends HttpServlet {
 
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
-	private static SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
+	private static final ThreadLocal<SimpleDateFormat> dateFormat = new ThreadLocal<SimpleDateFormat>() {
+		@Override
+		protected SimpleDateFormat initialValue() {
+			return new SimpleDateFormat("yyyyMMddHHmmss");
+		}
+	};
 
 	/**
 	 * @see HttpServlet#HttpServlet()
@@ -187,7 +192,7 @@ public class BSI extends HttpServlet {
 
 							Date tanggal = ais.ui.util.WaktuUtil.getDate();
 							try {
-								tanggal = dateFormat.parse(tanggalP);
+								tanggal = dateFormat.get().parse(tanggalP);
 							} catch (Exception e) {
 								e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/BSI.java:161");
 							}
@@ -852,7 +857,7 @@ public class BSI extends HttpServlet {
 			// TODO: handle exception
 		}
 
-		String tanggalP = req == null || req.isNull("tanggalTransaksi") ? dateFormat.format(new Date())
+		String tanggalP = req == null || req.isNull("tanggalTransaksi") ? dateFormat.get().format(new Date())
 				: req.getString("tanggalTransaksi");
 
 		// 05, request tidak diizinkan

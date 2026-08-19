@@ -57,7 +57,12 @@ public class DepositoAroKoperasiAction extends GenericAutowireComposer {
 
 	private static final long serialVersionUID = 6620370014413771010L;
 
-	private static final SimpleDateFormat SDF = new SimpleDateFormat("dd-MM-yyyy");
+	private static final ThreadLocal<SimpleDateFormat> SDF = new ThreadLocal<SimpleDateFormat>() {
+		@Override
+		protected SimpleDateFormat initialValue() {
+			return new SimpleDateFormat("dd-MM-yyyy");
+		}
+	};
 
 	private MyGrid grid;
 	private Paging paging;
@@ -112,7 +117,7 @@ public class DepositoAroKoperasiAction extends GenericAutowireComposer {
 			new Label(anggota).setParent(arg0);
 			new Label(produk).setParent(arg0);
 			new Label("Rp " + DashboardUiKit.money(nominal)).setParent(arg0);
-			new Label(r.getTanggalJatuhTempo() == null ? "-" : SDF.format(r.getTanggalJatuhTempo())).setParent(arg0);
+			new Label(r.getTanggalJatuhTempo() == null ? "-" : SDF.get().format(r.getTanggalJatuhTempo())).setParent(arg0);
 			new Label(String.valueOf(r.getJumlahPerpanjangan()) + "x").setParent(arg0);
 
 			final MyCheckboxConfig cbAro = new MyCheckboxConfig("ARO");

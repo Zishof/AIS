@@ -299,7 +299,7 @@ public class MasterProgramStudi extends MyWindow {
 					5,
 					jenjangProdi == null ? "" : jenjangProdi
 							.getTanggalBerdiri() == null ? ""
-							: CommonEpsbed.dateFormatEpsbed.format(jenjangProdi
+							: CommonEpsbed.dateFormatEpsbed.get().format(jenjangProdi
 									.getTanggalBerdiri()));
 			ais.ui.util.EcampusUtil.setCellValue(
 					sheet,
@@ -328,7 +328,7 @@ public class MasterProgramStudi extends MyWindow {
 					12,
 					jenjangProdi == null ? "" : jenjangProdi
 							.getTglMulaiSKDikti() == null ? ""
-							: CommonEpsbed.dateFormatEpsbed.format(jenjangProdi
+							: CommonEpsbed.dateFormatEpsbed.get().format(jenjangProdi
 									.getTglMulaiSKDikti()));
 			ais.ui.util.EcampusUtil.setCellValue(
 					sheet,
@@ -336,7 +336,7 @@ public class MasterProgramStudi extends MyWindow {
 					13,
 					jenjangProdi == null ? "" : jenjangProdi
 							.getTglAkhirSKDikti() == null ? ""
-							: CommonEpsbed.dateFormatEpsbed.format(jenjangProdi
+							: CommonEpsbed.dateFormatEpsbed.get().format(jenjangProdi
 									.getTglAkhirSKDikti()));
 			ais.ui.util.EcampusUtil.setCellValue(sheet, rowIndex, 14, jenjangProdi == null ? ""
 					: jenjangProdi.getNoSKAkreditasi());
@@ -346,7 +346,7 @@ public class MasterProgramStudi extends MyWindow {
 					15,
 					jenjangProdi == null ? "" : jenjangProdi
 							.getTglMulaiSKAkreditasi() == null ? ""
-							: CommonEpsbed.dateFormatEpsbed.format(jenjangProdi
+							: CommonEpsbed.dateFormatEpsbed.get().format(jenjangProdi
 									.getTglMulaiSKAkreditasi()));
 			ais.ui.util.EcampusUtil.setCellValue(
 					sheet,
@@ -354,7 +354,7 @@ public class MasterProgramStudi extends MyWindow {
 					16,
 					jenjangProdi == null ? "" : jenjangProdi
 							.getTglAkhirSKAkreditasi() == null ? ""
-							: CommonEpsbed.dateFormatEpsbed.format(jenjangProdi
+							: CommonEpsbed.dateFormatEpsbed.get().format(jenjangProdi
 									.getTglAkhirSKAkreditasi()));
 			ais.ui.util.EcampusUtil.setCellValue(sheet, rowIndex, 17, jenjangProdi == null ? ""
 					: jenjangProdi.getEpsbedStatusAkreditasi() == null ? ""

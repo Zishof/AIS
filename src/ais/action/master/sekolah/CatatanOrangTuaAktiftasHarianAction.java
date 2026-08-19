@@ -54,14 +54,30 @@ public class CatatanOrangTuaAktiftasHarianAction extends GenericAutowireComposer
 
     // ── Format tanggal ──────────────────────────────────────────────────────
     private static final Locale LOC_ID = new Locale("id", "ID");
-    private static final SimpleDateFormat FMT_BULAN =
-            new SimpleDateFormat("MMMM yyyy", LOC_ID);
-    private static final SimpleDateFormat FMT_HARI_PENDEK =
-            new SimpleDateFormat("EEE, dd MMM", LOC_ID);
-    private static final SimpleDateFormat FMT_HARI_LENGKAP =
-            new SimpleDateFormat("EEEE, dd MMMM yyyy", LOC_ID);
-    private static final SimpleDateFormat FMT_TANGGAL =
-            new SimpleDateFormat("dd", LOC_ID);
+    private static final ThreadLocal<SimpleDateFormat> FMT_BULAN = new ThreadLocal<SimpleDateFormat>() {
+        @Override
+        protected SimpleDateFormat initialValue() {
+            return new SimpleDateFormat("MMMM yyyy", LOC_ID);
+        }
+    };
+    private static final ThreadLocal<SimpleDateFormat> FMT_HARI_PENDEK = new ThreadLocal<SimpleDateFormat>() {
+        @Override
+        protected SimpleDateFormat initialValue() {
+            return new SimpleDateFormat("EEE, dd MMM", LOC_ID);
+        }
+    };
+    private static final ThreadLocal<SimpleDateFormat> FMT_HARI_LENGKAP = new ThreadLocal<SimpleDateFormat>() {
+        @Override
+        protected SimpleDateFormat initialValue() {
+            return new SimpleDateFormat("EEEE, dd MMMM yyyy", LOC_ID);
+        }
+    };
+    private static final ThreadLocal<SimpleDateFormat> FMT_TANGGAL = new ThreadLocal<SimpleDateFormat>() {
+        @Override
+        protected SimpleDateFormat initialValue() {
+            return new SimpleDateFormat("dd", LOC_ID);
+        }
+    };
 
     // ── Warna tema ──────────────────────────────────────────────────────────
     private static final String C_PRIMER   = "#0f172a";
@@ -497,7 +513,7 @@ public class CatatanOrangTuaAktiftasHarianAction extends GenericAutowireComposer
     private void renderMonthNav() {
         Calendar cal = Calendar.getInstance();
         cal.set(tahun, bulanIdx, 1);
-        String namaBulan = FMT_BULAN.format(cal.getTime());
+        String namaBulan = FMT_BULAN.get().format(cal.getTime());
         int totalHari    = cal.getActualMaximum(Calendar.DAY_OF_MONTH);
         int hariBerdata  = dataList != null ? dataList.size() : 0;
 
@@ -631,7 +647,7 @@ public class CatatanOrangTuaAktiftasHarianAction extends GenericAutowireComposer
             for (int i = 0; i < d.trendTanggal.size(); i++) {
                 int p  = d.trendPersen.get(i);
                 String warnaTrend = p >= 80 ? C_HIJAU : p >= 50 ? C_KUNING : C_MERAH;
-                String dd = FMT_TANGGAL.format(d.trendTanggal.get(i));
+                String dd = FMT_TANGGAL.get().format(d.trendTanggal.get(i));
                 bars.append("<div class='co-trend-col'>"
                     + "<div class='co-trend-pct' style='font-size:8px;color:" + warnaTrend + ";'>" + p + "</div>"
                     + "<div class='co-trend-bar' style='height:" + p + "%;background:" + warnaTrend + ";opacity:.85;'></div>"
@@ -880,8 +896,8 @@ public class CatatanOrangTuaAktiftasHarianAction extends GenericAutowireComposer
         card.setParent(mainDiv);
 
         // Header hari
-        String tglStr  = akt.getTanggal() != null ? FMT_HARI_LENGKAP.format(akt.getTanggal()) : "—";
-        String tglPendek = akt.getTanggal() != null ? FMT_HARI_PENDEK.format(akt.getTanggal()) : "—";
+        String tglStr  = akt.getTanggal() != null ? FMT_HARI_LENGKAP.get().format(akt.getTanggal()) : "—";
+        String tglPendek = akt.getTanggal() != null ? FMT_HARI_PENDEK.get().format(akt.getTanggal()) : "—";
 
         // Hitung badge
         int ya = 0, total = 0;

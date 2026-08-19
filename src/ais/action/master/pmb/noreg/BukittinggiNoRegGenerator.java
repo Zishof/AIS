@@ -15,7 +15,12 @@ import ais.database.model.BiodataCalonMahasiswa;
 
 public class BukittinggiNoRegGenerator implements NoRegGenerator {
 
-	static SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+	static final ThreadLocal<SimpleDateFormat> format = new ThreadLocal<SimpleDateFormat>() {
+		@Override
+		protected SimpleDateFormat initialValue() {
+			return new SimpleDateFormat("yyyyMMdd");
+		}
+	};
 
 	@Override
 	public String generateNoReg(BiodataCalonMahasiswa biodataCalonMahasiswa) {
@@ -25,7 +30,7 @@ public class BukittinggiNoRegGenerator implements NoRegGenerator {
 	// generate NIM
 	@Override
 	public String generateNoReg(List<String> jumlahPengecualian, BiodataCalonMahasiswa biodataCalonMahasiswa) {
-		String digitPertama = format.format(ais.ui.util.WaktuUtil.getDate());
+		String digitPertama = format.get().format(ais.ui.util.WaktuUtil.getDate());
 
 		Session session = HibernateUtil.currentSession();
 		Long jumlah = ((Number) session.createCriteria(BiodataCalonMahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))

@@ -21,7 +21,12 @@ import ais.ui.util.MyMessageboxConfig;
 
 public class BukittinggiNoUjianGenerator implements NoUjianGenerator {
 
-	static SimpleDateFormat format = new SimpleDateFormat("yyyy");
+	static final ThreadLocal<SimpleDateFormat> format = new ThreadLocal<SimpleDateFormat>() {
+		@Override
+		protected SimpleDateFormat initialValue() {
+			return new SimpleDateFormat("yyyy");
+		}
+	};
 	public static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
 	@Override
@@ -86,7 +91,7 @@ public class BukittinggiNoUjianGenerator implements NoUjianGenerator {
 
 		if (isiRuang < ruangSelected.getKapasitasRuangan()) {
 
-			String digitPertama = format.format(ais.ui.util.WaktuUtil.getDate())
+			String digitPertama = format.get().format(ais.ui.util.WaktuUtil.getDate())
 					+ biodataCalonMahasiswa.getPaket().getKode();
 
 			Long jumlah = ((Number) session.createCriteria(BiodataCalonMahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))

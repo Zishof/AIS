@@ -55,10 +55,18 @@ public class BukuPenghubungSiswa extends Div {
     private static final String[]  NAMA_HARI_SINGKAT = {
         "Ahad","Senin","Selasa","Rabu","Kamis","Jum'at","Sabtu"
     };
-    private static final SimpleDateFormat FMT_HARI_PANJANG =
-            new SimpleDateFormat("EEEE, dd MMMM yyyy", LOC_ID);
-    private static final SimpleDateFormat FMT_PENDEK =
-            new SimpleDateFormat("dd MMM yyyy", LOC_ID);
+    private static final ThreadLocal<SimpleDateFormat> FMT_HARI_PANJANG = new ThreadLocal<SimpleDateFormat>() {
+        @Override
+        protected SimpleDateFormat initialValue() {
+            return new SimpleDateFormat("EEEE, dd MMMM yyyy", LOC_ID);
+        }
+    };
+    private static final ThreadLocal<SimpleDateFormat> FMT_PENDEK = new ThreadLocal<SimpleDateFormat>() {
+        @Override
+        protected SimpleDateFormat initialValue() {
+            return new SimpleDateFormat("dd MMM yyyy", LOC_ID);
+        }
+    };
 
     // ── Komponen UI ──────────────────────────────────────────────────────────
     private AmbilDataSiswaBanbox siswaBanbox;
@@ -328,7 +336,7 @@ public class BukuPenghubungSiswa extends Div {
             + "<button class='bp-cetak-btn' onclick='window.print();'>&#128438; Cetak / Simpan PDF</button>"
             + "<span class='bp-info-label'>"
             +   esc(siswa.getNamaSiswa()) + " &nbsp;|&nbsp; "
-            +   esc(FMT_PENDEK.format(mulai)) + " — " + esc(FMT_PENDEK.format(selesai))
+            +   esc(FMT_PENDEK.get().format(mulai)) + " — " + esc(FMT_PENDEK.get().format(selesai))
             +   " &nbsp;|&nbsp; " + list.size() + " hari"
             + "</span>"
             + "</div>");

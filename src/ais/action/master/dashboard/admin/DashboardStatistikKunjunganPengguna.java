@@ -456,7 +456,12 @@ public class DashboardStatistikKunjunganPengguna extends MyWindow {
 
 class StatistikKunjunganDashboardUtil {
 
-	private static final NumberFormat INT = new DecimalFormat("#,##0");
+	private static final ThreadLocal<NumberFormat> INT = new ThreadLocal<NumberFormat>() {
+		@Override
+		protected NumberFormat initialValue() {
+			return new DecimalFormat("#,##0");
+		}
+	};
 	private static final int TOP_LIMIT = 12;
 
 	static class Filter {
@@ -575,7 +580,7 @@ class StatistikKunjunganDashboardUtil {
 		desc = ais.common.Common.getBahasaConfig(desc);
 		return "<div style='padding:14px;border-radius:16px;background:#fff;border:1px solid #e5e7eb;box-shadow:0 10px 22px rgba(15,23,42,.06);'>"
 				+ "<div style='font-size:11px;color:#64748b;font-weight:900;text-transform:uppercase;letter-spacing:.06em;'>" + safeHtml(title) + "</div>"
-				+ "<div style='font-size:28px;font-weight:900;color:#0f172a;margin-top:7px;'>" + INT.format(value) + "</div>"
+				+ "<div style='font-size:28px;font-weight:900;color:#0f172a;margin-top:7px;'>" + INT.get().format(value) + "</div>"
 				+ "<div style='font-size:11px;color:#64748b;line-height:1.45;margin-top:4px;'>" + safeHtml(desc) + "</div></div>";
 	}
 
@@ -599,10 +604,10 @@ class StatistikKunjunganDashboardUtil {
 				int h = 18 + (int) Math.round((total * 130.0D) / max);
 				sb.append("<div style='min-width:54px;text-align:center;'>")
 						.append("<div style='height:150px;display:flex;align-items:flex-end;justify-content:center;'>")
-						.append("<div title='").append(formatDate(row.tanggal)).append(": ").append(INT.format(total))
+						.append("<div title='").append(formatDate(row.tanggal)).append(": ").append(INT.get().format(total))
 						.append("' style='width:34px;height:").append(h)
 						.append("px;border-radius:12px 12px 5px 5px;background:linear-gradient(180deg,#2563eb,#06b6d4);box-shadow:0 9px 18px rgba(37,99,235,.20);'></div></div>")
-						.append("<div style='font-size:11px;color:#0f172a;font-weight:900;'>").append(INT.format(total)).append("</div>")
+						.append("<div style='font-size:11px;color:#0f172a;font-weight:900;'>").append(INT.get().format(total)).append("</div>")
 						.append("<div style='font-size:10px;color:#64748b;white-space:nowrap;'>").append(formatDay(row.tanggal)).append("</div>")
 						.append("</div>");
 			}
@@ -684,12 +689,12 @@ class StatistikKunjunganDashboardUtil {
 				DailyRow row = rows.get(i);
 				sb.append("<tr>")
 						.append(td(formatDate(row.tanggal)))
-						.append(td(INT.format(row.mahasiswa)))
-						.append(td(INT.format(row.dosen)))
-						.append(td(INT.format(row.siswa)))
-						.append(td(INT.format(row.guru)))
-						.append(td(INT.format(row.admin)))
-						.append(td("<b>" + INT.format(row.total(filter)) + "</b>"))
+						.append(td(INT.get().format(row.mahasiswa)))
+						.append(td(INT.get().format(row.dosen)))
+						.append(td(INT.get().format(row.siswa)))
+						.append(td(INT.get().format(row.guru)))
+						.append(td(INT.get().format(row.admin)))
+						.append(td("<b>" + INT.get().format(row.total(filter)) + "</b>"))
 						.append("</tr>");
 			}
 		}
@@ -750,7 +755,7 @@ class StatistikKunjunganDashboardUtil {
 			for (int i = rows.size() - 1; i >= start; i--) {
 				LabelRow row = rows.get(i);
 				sb.append("<tr>").append(td(formatDate(row.tanggal))).append(td(safeHtml(row.label)))
-						.append(td(INT.format(row.jumlah))).append("</tr>");
+						.append(td(INT.get().format(row.jumlah))).append("</tr>");
 			}
 		}
 		sb.append("</tbody></table></div></div>");
@@ -812,7 +817,7 @@ class StatistikKunjunganDashboardUtil {
 		int pct = percent(value, total);
 		return "<div style='padding:10px;border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0;'>"
 				+ "<div style='display:flex;justify-content:space-between;gap:10px;font-size:12px;font-weight:900;color:#0f172a;'>"
-				+ "<span>" + safeHtml(label) + "</span><span>" + INT.format(value) + " (" + pct + "%)</span></div>"
+				+ "<span>" + safeHtml(label) + "</span><span>" + INT.get().format(value) + " (" + pct + "%)</span></div>"
 				+ "<div style='height:12px;background:#e2e8f0;border-radius:999px;overflow:hidden;margin-top:8px;'>"
 				+ "<div style='height:12px;width:" + pct + "%;background:" + color + ";border-radius:999px;'></div></div></div>";
 	}

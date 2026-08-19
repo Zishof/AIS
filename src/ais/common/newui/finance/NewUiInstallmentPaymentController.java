@@ -23,7 +23,12 @@ import ais.database.model.Tbmuser;
 
 /** Native CicilanPembayaran endpoint with self-scope and configured reversal guard. */
 public final class NewUiInstallmentPaymentController {
-    private static final SimpleDateFormat ISO=new SimpleDateFormat("yyyy-MM-dd");
+    private static final ThreadLocal<SimpleDateFormat> ISO=new ThreadLocal<SimpleDateFormat>() {
+        @Override
+        protected SimpleDateFormat initialValue() {
+            return new SimpleDateFormat("yyyy-MM-dd");
+        }
+    };
     private NewUiInstallmentPaymentController(){}
     public static void handle(HttpServletRequest q,HttpServletResponse r)throws Exception{
         String action=text(q.getParameter("action"),"list");
@@ -52,6 +57,6 @@ public final class NewUiInstallmentPaymentController {
     private static void history(JSONObject j,List<HistoryRow>v)throws Exception{JSONArray a=new JSONArray();for(HistoryRow x:v)a.put(new JSONObject().put("revision",x.revision).put("date",format(x.date)).put("user",x.user).put("type",x.type).put("amount",x.amount).put("deposit",x.deposit).put("note",x.note));j.put("rows",a);}
     private static void options(JSONObject j,NewUiInstallmentPaymentService.Options o)throws Exception{j.put("items",options(o.items)).put("faculties",options(o.faculties)).put("studyPrograms",options(o.studyPrograms));}private static JSONArray options(List<Option>v)throws Exception{JSONArray a=new JSONArray();for(Option x:v)a.put(new JSONObject().put("id",x.id).put("label",x.label).put("parentId",x.parentId));return a;}
     private static List<Long>ids(String[]many,String csv){List<Long>o=new ArrayList<Long>();if(many!=null)for(String v:many)addId(o,v);if(clean(csv)!=null)for(String v:csv.split(","))addId(o,v);return o;}private static void addId(List<Long>o,String v){Long x=id(v);if(x!=null&&!o.contains(x))o.add(x);}
-    private static synchronized String format(Date d){return d==null?null:ISO.format(d);}private static synchronized Date date(String v){if(clean(v)==null)return null;try{return ISO.parse(v);}catch(Exception e){throw new IllegalArgumentException("Format tanggal harus yyyy-MM-dd.");}}
+    private static synchronized String format(Date d){return d==null?null:ISO.get().format(d);}private static synchronized Date date(String v){if(clean(v)==null)return null;try{return ISO.get().parse(v);}catch(Exception e){throw new IllegalArgumentException("Format tanggal harus yyyy-MM-dd.");}}
     private static void csrf(HttpServletRequest q){if(!"POST".equalsIgnoreCase(q.getMethod()))throw new SecurityException("Metode HTTP tidak valid.");Object e=q.getSession().getAttribute("newUiCsrfToken");String v=q.getHeader("X-CSRF-Token");if(e==null||v==null||!String.valueOf(e).equals(v))throw new SecurityException("Token CSRF tidak valid.");}private static Long requiredId(String v){Long x=id(v);if(x==null)throw new IllegalArgumentException("ID wajib diisi.");return x;}private static Long id(String v){if(clean(v)==null)return null;try{return Long.valueOf(v);}catch(Exception e){throw new IllegalArgumentException("ID tidak valid.");}}private static Integer integerObject(String v){return clean(v)==null?null:Integer.valueOf(integer(v,0));}private static int integer(String v,int d){try{return Integer.parseInt(v);}catch(Exception e){return d;}}private static boolean bool(String v){return"true".equalsIgnoreCase(v);}private static String clean(String v){return v==null||v.trim().length()==0?null:v.trim();}private static String text(String v,String d){return clean(v)==null?d:v.trim();}private static void fail(JSONObject j,String c,String m)throws Exception{j.put("ok",false).put("code",c).put("message",m);}private static void write(HttpServletResponse r,JSONObject j)throws Exception{r.getWriter().write(j.toString());}private static final class Scope{Long studentId,candidateId;boolean restricted;}
 }

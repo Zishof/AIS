@@ -55,7 +55,12 @@ import ais.ui.util.WaktuUtil;
 
 public class DownloadTagihanMahasiswaBankBtn {
 
-	public static SimpleDateFormat expiredFormat = new SimpleDateFormat("yyMMddHHmm");
+	public static final ThreadLocal<SimpleDateFormat> expiredFormat = new ThreadLocal<SimpleDateFormat>() {
+		@Override
+		protected SimpleDateFormat initialValue() {
+			return new SimpleDateFormat("yyMMddHHmm");
+		}
+	};
 
 	public static String encode(String key, String data) {
 		try {

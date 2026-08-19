@@ -75,9 +75,24 @@ public final class LaporanKantinZkPanel {
 	private LaporanKantinZkPanel() {
 	}
 
-	private static final NumberFormat NUM = NumberFormat.getNumberInstance(new Locale("id", "ID"));
-	private static final SimpleDateFormat TGL_TAMPIL = new SimpleDateFormat("dd-MM-yyyy");
-	private static final SimpleDateFormat TGL_PARAM = new SimpleDateFormat("yyyy-MM-dd");
+	private static final ThreadLocal<NumberFormat> NUM = new ThreadLocal<NumberFormat>() {
+		@Override
+		protected NumberFormat initialValue() {
+			return NumberFormat.getNumberInstance(new Locale("id", "ID"));
+		}
+	};
+	private static final ThreadLocal<SimpleDateFormat> TGL_TAMPIL = new ThreadLocal<SimpleDateFormat>() {
+		@Override
+		protected SimpleDateFormat initialValue() {
+			return new SimpleDateFormat("dd-MM-yyyy");
+		}
+	};
+	private static final ThreadLocal<SimpleDateFormat> TGL_PARAM = new ThreadLocal<SimpleDateFormat>() {
+		@Override
+		protected SimpleDateFormat initialValue() {
+			return new SimpleDateFormat("yyyy-MM-dd");
+		}
+	};
 
 	/** Titik masuk -- dipanggil {@code DashboardKantinAction.buildLaporanLaporan}. */
 	public static void build(Div panel) {
@@ -391,10 +406,10 @@ public final class LaporanKantinZkPanel {
 		Map<String, String> p = new HashMap<String, String>();
 		p.put("r", idLaporan);
 		if (tglMulai.getValue() != null) {
-			p.put("tglMulai", TGL_PARAM.format(tglMulai.getValue()));
+			p.put("tglMulai", TGL_PARAM.get().format(tglMulai.getValue()));
 		}
 		if (tglSampai.getValue() != null) {
-			p.put("tglSampai", TGL_PARAM.format(tglSampai.getValue()));
+			p.put("tglSampai", TGL_PARAM.get().format(tglSampai.getValue()));
 		}
 		if (txtProduk != null && txtProduk.getValue() != null && !txtProduk.getValue().trim().isEmpty()) {
 			p.put("qProduk", txtProduk.getValue().trim());
@@ -592,7 +607,7 @@ public final class LaporanKantinZkPanel {
 		StringBuilder sb = new StringBuilder();
 		sb.append("<tr style=\"background:#f8fafc;font-weight:700;\">");
 		for (int i = 0; i < H.tipe.length; i++) {
-			String isi = i == 0 ? label : ("num".equals(H.tipe[i]) ? NUM.format(nilai[i]) : "");
+			String isi = i == 0 ? label : ("num".equals(H.tipe[i]) ? NUM.get().format(nilai[i]) : "");
 			sb.append("<td style=\"padding:5px 8px;border-top:2px solid #e2e8f0;text-align:")
 					.append("num".equals(H.tipe[i]) ? "right" : "left").append(";\">").append(esc(isi))
 					.append("</td>");
@@ -606,10 +621,10 @@ public final class LaporanKantinZkPanel {
 			return "";
 		}
 		if ("num".equals(tipe) && v instanceof Number) {
-			return NUM.format(((Number) v).doubleValue());
+			return NUM.get().format(((Number) v).doubleValue());
 		}
 		if ("tgl".equals(tipe) && v instanceof java.util.Date) {
-			return TGL_TAMPIL.format((java.util.Date) v);
+			return TGL_TAMPIL.get().format((java.util.Date) v);
 		}
 		return v.toString();
 	}

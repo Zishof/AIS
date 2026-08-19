@@ -57,7 +57,12 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 	public static boolean debug = false;
 	public static boolean debuh = false;
 
-	private static final NumberFormat NUMBER_FORMAT = NumberFormat.getInstance(new Locale("in", "ID"));
+	private static final ThreadLocal<NumberFormat> NUMBER_FORMAT = new ThreadLocal<NumberFormat>() {
+		@Override
+		protected NumberFormat initialValue() {
+			return NumberFormat.getInstance(new Locale("in", "ID"));
+		}
+	};
 
 	private Tbmuser tbmuser;
 	private AmbilDataSatuanKerjaBanbox filterSatuanKerja;
@@ -955,7 +960,7 @@ public class DasboardUtamaKepegawaian extends MyPortallayout {
 	}
 
 	private String formatNumber(int value) {
-		return NUMBER_FORMAT.format(value);
+		return NUMBER_FORMAT.get().format(value);
 	}
 
 	private void appendHtml(Component parent, String html) {

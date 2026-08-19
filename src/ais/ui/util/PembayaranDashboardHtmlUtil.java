@@ -9,7 +9,12 @@ import java.text.NumberFormat;
  */
 public final class PembayaranDashboardHtmlUtil {
 
-	private static final NumberFormat NUMBER_FORMAT = new DecimalFormat("#,##0.##");
+	private static final ThreadLocal<NumberFormat> NUMBER_FORMAT = new ThreadLocal<NumberFormat>() {
+		@Override
+		protected NumberFormat initialValue() {
+			return new DecimalFormat("#,##0.##");
+		}
+	};
 
 	private PembayaranDashboardHtmlUtil() {
 	}
@@ -140,11 +145,11 @@ public final class PembayaranDashboardHtmlUtil {
 	}
 
 	private static String round(double value) {
-		return NUMBER_FORMAT.format(value).replace(',', '.');
+		return NUMBER_FORMAT.get().format(value).replace(',', '.');
 	}
 
 	private static String format(double value) {
-		return NUMBER_FORMAT.format(value);
+		return NUMBER_FORMAT.get().format(value);
 	}
 
 	private static String escape(String value) {

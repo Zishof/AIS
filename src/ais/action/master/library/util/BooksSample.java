@@ -33,8 +33,18 @@ public class BooksSample {
 	 */
 	private static final String APPLICATION_NAME = "Perpustakaan Online";
 
-	private static final NumberFormat CURRENCY_FORMATTER = NumberFormat.getCurrencyInstance();
-	private static final NumberFormat PERCENT_FORMATTER = NumberFormat.getPercentInstance();
+	private static final ThreadLocal<NumberFormat> CURRENCY_FORMATTER = new ThreadLocal<NumberFormat>() {
+		@Override
+		protected NumberFormat initialValue() {
+			return NumberFormat.getCurrencyInstance();
+		}
+	};
+	private static final ThreadLocal<NumberFormat> PERCENT_FORMATTER = new ThreadLocal<NumberFormat>() {
+		@Override
+		protected NumberFormat initialValue() {
+			return NumberFormat.getPercentInstance();
+		}
+	};
 
 	public static Volumes queryGoogleBooks(JsonFactory jsonFactory, String query, Integer many) throws Exception {
 		return queryGoogleBooks(jsonFactory, query, many, null);
@@ -105,13 +115,13 @@ public class BooksSample {
 			if (saleInfo != null && "FOR_SALE".equals(saleInfo.getSaleability())) {
 				double save = saleInfo.getListPrice().getAmount() - saleInfo.getRetailPrice().getAmount();
 				if (save > 0.0) {
-					System.out.print("List: " + CURRENCY_FORMATTER.format(saleInfo.getListPrice().getAmount()) + "  ");
+					System.out.print("List: " + CURRENCY_FORMATTER.get().format(saleInfo.getListPrice().getAmount()) + "  ");
 				}
 				System.out.print(
-						"Google eBooks Price: " + CURRENCY_FORMATTER.format(saleInfo.getRetailPrice().getAmount()));
+						"Google eBooks Price: " + CURRENCY_FORMATTER.get().format(saleInfo.getRetailPrice().getAmount()));
 				if (save > 0.0) {
-					System.out.print("  You Save: " + CURRENCY_FORMATTER.format(save) + " ("
-							+ PERCENT_FORMATTER.format(save / saleInfo.getListPrice().getAmount()) + ")");
+					System.out.print("  You Save: " + CURRENCY_FORMATTER.get().format(save) + " ("
+							+ PERCENT_FORMATTER.get().format(save / saleInfo.getListPrice().getAmount()) + ")");
 				}
 				
 			}

@@ -22,7 +22,12 @@ import ais.common.newui.asset.NewUiAssetDepreciationService.Snapshot;
 /** JSON endpoint for the native Asset Detail and depreciation page. */
 public final class NewUiAssetDepreciationController {
     private static final Progress JOB=new Progress();
-    private static final SimpleDateFormat ISO=new SimpleDateFormat("yyyy-MM-dd");
+    private static final ThreadLocal<SimpleDateFormat> ISO=new ThreadLocal<SimpleDateFormat>() {
+        @Override
+        protected SimpleDateFormat initialValue() {
+            return new SimpleDateFormat("yyyy-MM-dd");
+        }
+    };
     private NewUiAssetDepreciationController(){}
     public static void handle(HttpServletRequest q,HttpServletResponse r)throws Exception{
         r.setContentType("application/json; charset=UTF-8");r.setHeader("Cache-Control","no-store");JSONObject j=new JSONObject();
@@ -49,7 +54,7 @@ public final class NewUiAssetDepreciationController {
     private static void details(JSONObject j,List<DepreciationRow> rows)throws Exception{JSONArray a=new JSONArray();for(DepreciationRow x:rows)a.put(new JSONObject().put("id",x.id).put("month",x.month).put("date",format(x.date)).put("purchaseValue",x.purchaseValue).put("monthly",x.monthly).put("accumulated",x.accumulated).put("bookValue",x.bookValue).put("note",x.note));j.put("rows",a);}
     private static void options(JSONObject j,Options o)throws Exception{j.put("assetTypes",options(o.assetTypes)).put("rooms",options(o.rooms)).put("workUnits",options(o.workUnits));}private static JSONArray options(List<Option>x)throws Exception{JSONArray a=new JSONArray();for(Option v:x)a.put(new JSONObject().put("id",v.id).put("label",v.label).put("parentId",v.parentId));return a;}
     private static void job(JSONObject j)throws Exception{j.put("job",new JSONObject().put("total",JOB.total).put("done",JOB.done).put("failed",JOB.failed).put("running",JOB.running));}
-    private static synchronized String format(Date d){return d==null?null:ISO.format(d);}private static synchronized Date date(String v){if(clean(v)==null)return null;try{return ISO.parse(v);}catch(Exception e){throw new IllegalArgumentException("Format tanggal harus yyyy-MM-dd.");}}private static Date requiredDate(String v){Date d=date(v);if(d==null)throw new IllegalArgumentException("Tanggal penyusutan wajib diisi.");return d;}
+    private static synchronized String format(Date d){return d==null?null:ISO.get().format(d);}private static synchronized Date date(String v){if(clean(v)==null)return null;try{return ISO.get().parse(v);}catch(Exception e){throw new IllegalArgumentException("Format tanggal harus yyyy-MM-dd.");}}private static Date requiredDate(String v){Date d=date(v);if(d==null)throw new IllegalArgumentException("Tanggal penyusutan wajib diisi.");return d;}
     private static void csrf(HttpServletRequest q){if(!"POST".equalsIgnoreCase(q.getMethod()))throw new SecurityException("Metode HTTP tidak valid.");Object e=q.getSession().getAttribute("newUiCsrfToken");String v=q.getHeader("X-CSRF-Token");if(e==null||v==null||!String.valueOf(e).equals(v))throw new SecurityException("Token CSRF tidak valid.");}
     private static Long requiredId(String v){Long x=id(v);if(x==null)throw new IllegalArgumentException("ID wajib diisi.");return x;}private static Long id(String v){if(clean(v)==null)return null;try{return Long.valueOf(v);}catch(Exception e){throw new IllegalArgumentException("ID tidak valid.");}}private static int integer(String v,int d){try{return Integer.parseInt(v);}catch(Exception e){return d;}}private static String clean(String v){return v==null||v.trim().length()==0?null:v.trim();}private static String text(String v,String d){return clean(v)==null?d:v.trim();}private static void fail(JSONObject j,String c,String m)throws Exception{j.put("ok",false).put("code",c).put("message",m);}private static void write(HttpServletResponse r,JSONObject j)throws Exception{r.getWriter().write(j.toString());}
 }

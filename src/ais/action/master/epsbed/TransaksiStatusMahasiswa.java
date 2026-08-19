@@ -351,7 +351,7 @@ public class TransaksiStatusMahasiswa extends MyWindow {
 
 					row.createCell(5).setCellValue(statusMahasiswa.getKodeEpsbed());
 					row.createCell(6).setCellValue(ipkmhs.getMahasiswa().getTanggalLulus() == null ? ""
-							: CommonEpsbed.dateFormatEpsbed.format(ipkmhs.getMahasiswa().getTanggalLulus()));
+							: CommonEpsbed.dateFormatEpsbed.get().format(ipkmhs.getMahasiswa().getTanggalLulus()));
 
 					row.createCell(7).setCellValue(ipkmhs == null ? "0" : ipkmhs.getSksTotal().toString());
 					@SuppressWarnings("resource")
@@ -360,7 +360,7 @@ public class TransaksiStatusMahasiswa extends MyWindow {
 							.setCellValue(ipkmhs == null ? "0" : format.format("%.2f", ipkmhs.getIpk()).toString());
 					row.createCell(9).setCellValue(ipkmhs.getMahasiswa().getNoAkta1());
 					row.createCell(10).setCellValue(ipkmhs.getMahasiswa().getTanggalYudisium() == null ? ""
-							: CommonEpsbed.dateFormatEpsbed.format(ipkmhs.getMahasiswa().getTanggalYudisium()));
+							: CommonEpsbed.dateFormatEpsbed.get().format(ipkmhs.getMahasiswa().getTanggalYudisium()));
 					row.createCell(11).setCellValue(ipkmhs.getMahasiswa().getNoIjazah1());
 					Skripsi skripsi = (Skripsi) session.createCriteria(Skripsi.class)
 							.add(Restrictions.eq("mahasiswa", ipkmhs.getMahasiswa())).uniqueResult();
@@ -369,11 +369,11 @@ public class TransaksiStatusMahasiswa extends MyWindow {
 					row.createCell(14)
 							.setCellValue(skripsi == null ? ""
 									: skripsi.getAwalBimbingan() == null ? ""
-											: CommonEpsbed.dateFormatEpsbed.format(skripsi.getAwalBimbingan()));
+											: CommonEpsbed.dateFormatEpsbed.get().format(skripsi.getAwalBimbingan()));
 					row.createCell(15)
 							.setCellValue(skripsi == null ? ""
 									: skripsi.getAkhirBimbingan() == null ? ""
-											: CommonEpsbed.dateFormatEpsbed.format(skripsi.getAkhirBimbingan()));
+											: CommonEpsbed.dateFormatEpsbed.get().format(skripsi.getAkhirBimbingan()));
 					row.createCell(16)
 							.setCellValue(skripsi == null ? ""
 									: skripsi.getPembimbing() == null ? ""

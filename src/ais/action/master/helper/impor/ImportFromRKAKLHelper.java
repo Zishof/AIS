@@ -23,8 +23,12 @@ public class ImportFromRKAKLHelper {
 
 	public static String NL = System.getProperty("line.separator");
 
-	public static SimpleDateFormat dateFormat = new SimpleDateFormat(
-			"yyyy-MM-dd");
+	public static final ThreadLocal<SimpleDateFormat> dateFormat = new ThreadLocal<SimpleDateFormat>() {
+		@Override
+		protected SimpleDateFormat initialValue() {
+			return new SimpleDateFormat("yyyy-MM-dd");
+		}
+	};
 
 	public static void main(String[] argv) throws IOException {
 		read("mahasiswa.sql");
@@ -214,7 +218,7 @@ public class ImportFromRKAKLHelper {
 							try {
 								if (!rowobj[i].toString().trim().equals("")) {
 									sqlInsert += "'"
-											+ dateFormat.format(rowobj[i])
+											+ dateFormat.get().format(rowobj[i])
 											+ "'";
 
 								} else {

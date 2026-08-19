@@ -51,7 +51,12 @@ public class Mandiri extends HttpServlet {
 
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
-	private static SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
+	private static final ThreadLocal<SimpleDateFormat> dateFormat = new ThreadLocal<SimpleDateFormat>() {
+		@Override
+		protected SimpleDateFormat initialValue() {
+			return new SimpleDateFormat("yyyyMMddHHmmss");
+		}
+	};
 
 	/**
 	 * @see HttpServlet#HttpServlet()
@@ -200,7 +205,7 @@ public class Mandiri extends HttpServlet {
 						}
 						Date tanggal = ais.ui.util.WaktuUtil.getDate();
 						try {
-							tanggal = dateFormat.parse(Calendar.getInstance().get(Calendar.YEAR) + tanggalP);
+							tanggal = dateFormat.get().parse(Calendar.getInstance().get(Calendar.YEAR) + tanggalP);
 						} catch (Exception e) {
 							e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/Mandiri.java:172");
 							ais.common.ErrorAuditUtil.record(e, "Mandiri H2H: gagal parse tanggal transaksi '" + tanggalP + "'; VA=" + va);
@@ -1140,11 +1145,11 @@ public class Mandiri extends HttpServlet {
 			}
 		}
 
-		String tanggalP = InquiryRequest == null || InquiryRequest.isNull("trxDateTime") ? dateFormat.format(new Date())
+		String tanggalP = InquiryRequest == null || InquiryRequest.isNull("trxDateTime") ? dateFormat.get().format(new Date())
 				: InquiryRequest.getString("trxDateTime");
 
 		if (paymentRequest != null) {
-			tanggalP = paymentRequest == null || paymentRequest.isNull("trxDateTime") ? dateFormat.format(new Date())
+			tanggalP = paymentRequest == null || paymentRequest.isNull("trxDateTime") ? dateFormat.get().format(new Date())
 					: paymentRequest.getString("trxDateTime");
 		}
 		String body;

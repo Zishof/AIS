@@ -2843,13 +2843,18 @@ public class BiodataCalonMahasiswa extends VOMahasiswa {
 	 * "KIP Kuliah (Memiliki KIP/PKH/KKS/KJP)") kembalikan 0 - JANGAN lempar
 	 * exception, dipanggil di jalur Hibernate flush/insertProperty.
 	 */
+	/* OPTIMASI FASE 9: pola regex dikompilasi SEKALI (Pattern immutable & thread-safe),
+	 * bukan tiap kali method dipanggil. Matcher tetap dibuat per panggilan karena
+	 * Matcher TIDAK thread-safe. */
+	private static final java.util.regex.Pattern POLA_ANGKA = java.util.regex.Pattern.compile("-?\\d+");
+
 	private Integer ekstrakSkorDariTeks(String teks) {
 		if (teks == null) {
 			return 0;
 		}
 		String t = teks.trim();
 		try {
-			java.util.regex.Matcher m = java.util.regex.Pattern.compile("-?\\d+").matcher(t);
+			java.util.regex.Matcher m = POLA_ANGKA.matcher(t);
 			if (m.find()) {
 				return Integer.parseInt(m.group());
 			}

@@ -311,9 +311,9 @@ public class MasterRiwayatPendidikanDosen extends MyWindow {
 			ais.ui.util.EcampusUtil.setCellValue(sheet, rowIndex, 14,
 					riwayatPendidikanDosen.getNegara().getNamaNegara());
 			ais.ui.util.EcampusUtil.setCellValue(sheet, rowIndex, 15,
-					CommonEpsbed.dateFormatEpsbed.format(riwayatPendidikanDosen.getTanggalIjazah() == null ? ais.ui.util.WaktuUtil.getDate()
+					CommonEpsbed.dateFormatEpsbed.get().format(riwayatPendidikanDosen.getTanggalIjazah() == null ? ais.ui.util.WaktuUtil.getDate()
 							: riwayatPendidikanDosen.getTanggalIjazah()));
-			ais.ui.util.EcampusUtil.setCellValue(sheet, rowIndex, 16, CommonEpsbed.dateFormatEpsbed.format(
+			ais.ui.util.EcampusUtil.setCellValue(sheet, rowIndex, 16, CommonEpsbed.dateFormatEpsbed.get().format(
 					riwayatPendidikanDosen.getTahunKeluar() == null ? "0" : riwayatPendidikanDosen.getTahunKeluar()));
 			ais.ui.util.EcampusUtil.setCellValue(sheet, rowIndex, 17, "");
 

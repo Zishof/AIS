@@ -54,8 +54,18 @@ import ais.ui.util.MyWindow;
 public class LaporanAngketGuruDashboardWindow extends MyWindow {
 
 	private static final long serialVersionUID = 6409442098743220322L;
-	private static final NumberFormat DECIMAL = new DecimalFormat("#,##0.00");
-	private static final NumberFormat INTEGER = new DecimalFormat("#,##0");
+	private static final ThreadLocal<NumberFormat> DECIMAL = new ThreadLocal<NumberFormat>() {
+		@Override
+		protected NumberFormat initialValue() {
+			return new DecimalFormat("#,##0.00");
+		}
+	};
+	private static final ThreadLocal<NumberFormat> INTEGER = new ThreadLocal<NumberFormat>() {
+		@Override
+		protected NumberFormat initialValue() {
+			return new DecimalFormat("#,##0");
+		}
+	};
 
 	private Combobox tahunAkademik;
 	private Combobox semesterAbsensi;
@@ -435,12 +445,12 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 		Div cards = new Div();
 		cards.setStyle("display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;");
 		cards.setParent(container);
-		cards.appendChild(card("Angket Terisi", INTEGER.format(data.totalAngket), "Jumlah formulir angket yang masuk", data.formRows, new String[] { "Guru", "Siswa", "Jadwal" }));
-		cards.appendChild(card("Siswa Pengisi", INTEGER.format(data.siswaIds.size()), "Responden unik", popupRows(new Object[] { "Siswa Pengisi", INTEGER.format(data.siswaIds.size()) }), new String[] { "Data", "Nilai" }));
-		cards.appendChild(card("Guru Dinilai", INTEGER.format(data.guruIds.size()), "Guru unik", data.getGuruRanking(true), new String[] { "Guru", "Rata-rata", "Jumlah" }));
-		cards.appendChild(card("Jadwal Terkait", INTEGER.format(data.jadwalIds.size()), "Kelas/jadwal yang dinilai", popupRows(new Object[] { "Jadwal Terkait", INTEGER.format(data.jadwalIds.size()) }), new String[] { "Data", "Nilai" }));
-		cards.appendChild(card("Pertanyaan Aktif", INTEGER.format(data.totalPertanyaan), "Butir angket", popupRows(new Object[] { "Pertanyaan Aktif", INTEGER.format(data.totalPertanyaan) }), new String[] { "Data", "Nilai" }));
-		cards.appendChild(card("Rata-rata", DECIMAL.format(data.getAverage()), "Skala 1 sampai 5", data.detailRows, new String[] { "Guru", "Siswa/Pertanyaan", "Nilai", "Catatan" }));
+		cards.appendChild(card("Angket Terisi", INTEGER.get().format(data.totalAngket), "Jumlah formulir angket yang masuk", data.formRows, new String[] { "Guru", "Siswa", "Jadwal" }));
+		cards.appendChild(card("Siswa Pengisi", INTEGER.get().format(data.siswaIds.size()), "Responden unik", popupRows(new Object[] { "Siswa Pengisi", INTEGER.get().format(data.siswaIds.size()) }), new String[] { "Data", "Nilai" }));
+		cards.appendChild(card("Guru Dinilai", INTEGER.get().format(data.guruIds.size()), "Guru unik", data.getGuruRanking(true), new String[] { "Guru", "Rata-rata", "Jumlah" }));
+		cards.appendChild(card("Jadwal Terkait", INTEGER.get().format(data.jadwalIds.size()), "Kelas/jadwal yang dinilai", popupRows(new Object[] { "Jadwal Terkait", INTEGER.get().format(data.jadwalIds.size()) }), new String[] { "Data", "Nilai" }));
+		cards.appendChild(card("Pertanyaan Aktif", INTEGER.get().format(data.totalPertanyaan), "Butir angket", popupRows(new Object[] { "Pertanyaan Aktif", INTEGER.get().format(data.totalPertanyaan) }), new String[] { "Data", "Nilai" }));
+		cards.appendChild(card("Rata-rata", DECIMAL.get().format(data.getAverage()), "Skala 1 sampai 5", data.detailRows, new String[] { "Guru", "Siswa/Pertanyaan", "Nilai", "Catatan" }));
 
 		renderCssVisualizations(container, data);
 
@@ -494,7 +504,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 			int percent = clampPercent(max <= 0 ? 0D : jumlah * 100.0D / max);
 			List detail = data.nilaiDetails.get(Integer.valueOf(i));
 			if (detail == null) {
-				detail = popupRows(new Object[] { "Nilai " + i, INTEGER.format(jumlah), String.valueOf(percent) + "%" });
+				detail = popupRows(new Object[] { "Nilai " + i, INTEGER.get().format(jumlah), String.valueOf(percent) + "%" });
 			}
 			appendCssBar(box, "Nilai " + i, jumlah, percent, "Detail Grafik Nilai " + i,
 					new String[] { "Guru", "Siswa/Pertanyaan", "Nilai", "Catatan" }, detail);
@@ -508,7 +518,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 		for (int i = 0; stats != null && i < stats.size() && added < 8; i++) {
 			Stat stat = stats.get(i);
 			int percent = clampPercent(stat.average() * 20.0D);
-			List detail = stat.details == null || stat.details.isEmpty() ? popupRows(new Object[] { stat.name, DECIMAL.format(stat.average()), INTEGER.format(stat.count) }) : stat.details;
+			List detail = stat.details == null || stat.details.isEmpty() ? popupRows(new Object[] { stat.name, DECIMAL.get().format(stat.average()), INTEGER.get().format(stat.count) }) : stat.details;
 			appendCssBar(box, stat.name, stat.average(), percent, "Detail Trend " + stat.name,
 					new String[] { "Guru", "Siswa/Pertanyaan", "Nilai", "Catatan" }, detail);
 			added++;
@@ -530,7 +540,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 			count++;
 			labels.append("<div style='display:flex;justify-content:space-between;gap:8px;border-bottom:1px dashed #e5e7eb;padding:3px 0;'>")
 					.append("<span>").append(esc(limit(stat.name, 34))).append("</span>")
-					.append("<b>").append(esc(DECIMAL.format(stat.average()))).append("</b></div>");
+					.append("<b>").append(esc(DECIMAL.get().format(stat.average()))).append("</b></div>");
 		}
 		double avg = count <= 0 ? 0D : total / count;
 		int radar = clampPercent(avg * 20.0D);
@@ -539,7 +549,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 				+ "background:radial-gradient(circle,transparent 0 22%,#e5e7eb 23% 24%,transparent 25% 45%,#e5e7eb 46% 47%,transparent 48% 68%,#e5e7eb 69% 70%,transparent 71% 88%,#bbf7d0 89% 90%),"
 				+ "conic-gradient(#16a34a 0 " + radar + "%,#dcfce7 " + radar + "% 100%);border:1px solid #bbf7d0;'>"
 				+ "<div style='position:absolute;left:31px;top:52px;width:88px;text-align:center;background:rgba(255,255,255,.9);border-radius:12px;padding:6px 0;'>"
-				+ "<div style='font-size:11px;color:#64748b;'>Rata-rata</div><div style='font-size:20px;font-weight:bold;color:#15803d;'>" + esc(DECIMAL.format(avg)) + "</div></div></div>"
+				+ "<div style='font-size:11px;color:#64748b;'>Rata-rata</div><div style='font-size:20px;font-weight:bold;color:#15803d;'>" + esc(DECIMAL.get().format(avg)) + "</div></div></div>"
 				+ "<div style='flex:1;font-size:12px;color:#334155;'>" + labels.toString() + "</div></div>").setParent(box);
 	}
 
@@ -564,7 +574,7 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 			}
 		});
 		row.setParent(parent);
-		String nilai = Math.abs(value - Math.round(value)) < 0.0001D ? INTEGER.format(Math.round(value)) : DECIMAL.format(value);
+		String nilai = Math.abs(value - Math.round(value)) < 0.0001D ? INTEGER.get().format(Math.round(value)) : DECIMAL.get().format(value);
 		new Html("<div style='display:flex;justify-content:space-between;font-size:12px;color:#334155;margin-bottom:3px;'>"
 				+ "<span>" + esc(limit(label, 38)) + "</span><b>" + esc(nilai) + "</b></div>"
 				+ "<div style='height:10px;background:#ecfdf5;border-radius:999px;overflow:hidden;'>"
@@ -606,13 +616,13 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 			double pct = data.totalNilai == 0 ? 0.0 : (count * 100.0 / data.totalNilai);
 			List detail = data.nilaiDetails.get(Integer.valueOf(i));
 			if (detail == null) {
-				detail = popupRows(new Object[] { "Nilai " + i, INTEGER.format(count), DECIMAL.format(pct) + "%" });
+				detail = popupRows(new Object[] { "Nilai " + i, INTEGER.get().format(count), DECIMAL.get().format(pct) + "%" });
 			}
 			MyFormRow row = new MyFormRow();
 			row.setParent(rows);
 			clickableLabel("Nilai " + i, "Detail Nilai " + i, new String[] { "Guru", "Siswa/Pertanyaan", "Nilai", "Catatan" }, detail).setParent(row);
-			clickableLabel(INTEGER.format(count), "Detail Nilai " + i, new String[] { "Guru", "Siswa/Pertanyaan", "Nilai", "Catatan" }, detail).setParent(row);
-			clickableLabel(DECIMAL.format(pct) + "%", "Detail Nilai " + i, new String[] { "Guru", "Siswa/Pertanyaan", "Nilai", "Catatan" }, detail).setParent(row);
+			clickableLabel(INTEGER.get().format(count), "Detail Nilai " + i, new String[] { "Guru", "Siswa/Pertanyaan", "Nilai", "Catatan" }, detail).setParent(row);
+			clickableLabel(DECIMAL.get().format(pct) + "%", "Detail Nilai " + i, new String[] { "Guru", "Siswa/Pertanyaan", "Nilai", "Catatan" }, detail).setParent(row);
 		}
 	}
 
@@ -644,10 +654,10 @@ public class LaporanAngketGuruDashboardWindow extends MyWindow {
 			MyFormRow row = new MyFormRow();
 			row.setValign("top");
 			row.setParent(rows);
-			List detail = stat.details == null || stat.details.isEmpty() ? popupRows(new Object[] { stat.name, DECIMAL.format(stat.average()), INTEGER.format(stat.count) }) : stat.details;
+			List detail = stat.details == null || stat.details.isEmpty() ? popupRows(new Object[] { stat.name, DECIMAL.get().format(stat.average()), INTEGER.get().format(stat.count) }) : stat.details;
 			clickableLabel(stat.name, "Detail " + stat.name, new String[] { "Guru", "Siswa/Pertanyaan", "Nilai", "Catatan" }, detail).setParent(row);
-			clickableLabel(DECIMAL.format(stat.average()), "Detail " + stat.name, new String[] { "Guru", "Siswa/Pertanyaan", "Nilai", "Catatan" }, detail).setParent(row);
-			clickableLabel(INTEGER.format(stat.count), "Detail " + stat.name, new String[] { "Guru", "Siswa/Pertanyaan", "Nilai", "Catatan" }, detail).setParent(row);
+			clickableLabel(DECIMAL.get().format(stat.average()), "Detail " + stat.name, new String[] { "Guru", "Siswa/Pertanyaan", "Nilai", "Catatan" }, detail).setParent(row);
+			clickableLabel(INTEGER.get().format(stat.count), "Detail " + stat.name, new String[] { "Guru", "Siswa/Pertanyaan", "Nilai", "Catatan" }, detail).setParent(row);
 			added++;
 		}
 		if (added == 0) {

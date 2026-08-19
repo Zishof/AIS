@@ -59,7 +59,12 @@ public class BCA extends HttpServlet {
 
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 	private static Map<String, Remover> accessTokens = new HashMap<String, Remover>();
-	public static DateFormat dateFormat1 = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+	public static final ThreadLocal<DateFormat> dateFormat1 = new ThreadLocal<DateFormat>() {
+		@Override
+		protected DateFormat initialValue() {
+			return new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+		}
+	};
 
 	/**
 	 * @see HttpServlet#HttpServlet()
@@ -478,7 +483,7 @@ public class BCA extends HttpServlet {
 
 						Date tanggal = ais.ui.util.WaktuUtil.getDate();
 						try {
-							tanggal = dateFormat1.parse(tanggalP);
+							tanggal = dateFormat1.get().parse(tanggalP);
 						} catch (Exception e) {
 							e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/BCA.java:483");
 						}
@@ -1255,7 +1260,7 @@ public class BCA extends HttpServlet {
 
 		boolean berhasil = false;
 		try {
-			dateFormat1.parse(strISOTimeStamp.replaceAll("\\+07:00", ""));
+			dateFormat1.get().parse(strISOTimeStamp.replaceAll("\\+07:00", ""));
 			berhasil = true;
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/BCA.java:1260");
 		}

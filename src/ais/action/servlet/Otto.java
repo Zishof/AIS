@@ -52,7 +52,12 @@ public class Otto extends HttpServlet {
 
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
-	private static SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
+	private static final ThreadLocal<SimpleDateFormat> dateFormat = new ThreadLocal<SimpleDateFormat>() {
+		@Override
+		protected SimpleDateFormat initialValue() {
+			return new SimpleDateFormat("yyyyMMddHHmmss");
+		}
+	};
 
 	/**
 	 * @see HttpServlet#HttpServlet()
@@ -199,7 +204,7 @@ public class Otto extends HttpServlet {
 
 								Date tanggal = ais.ui.util.WaktuUtil.getDate();
 								try {
-									tanggal = dateFormat.parse(tanggalP);
+									tanggal = dateFormat.get().parse(tanggalP);
 								} catch (Exception e) {
 									e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/Otto.java:204");
 								}

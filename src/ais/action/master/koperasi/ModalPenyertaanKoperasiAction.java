@@ -81,7 +81,12 @@ public class ModalPenyertaanKoperasiAction extends GenericAutowireComposer
 
 	private static final long serialVersionUID = 6620270014412991010L;
 
-	private static final SimpleDateFormat SDF = new SimpleDateFormat("dd-MM-yyyy");
+	private static final ThreadLocal<SimpleDateFormat> SDF = new ThreadLocal<SimpleDateFormat>() {
+		@Override
+		protected SimpleDateFormat initialValue() {
+			return new SimpleDateFormat("dd-MM-yyyy");
+		}
+	};
 
 	private MyWindow addWindow;
 	private Paging paging;
@@ -147,8 +152,8 @@ public class ModalPenyertaanKoperasiAction extends GenericAutowireComposer
 					: "Anggota";
 			new Label((m.getNamaPenyerta() == null ? "-" : m.getNamaPenyerta()) + " (" + jenis + ")").setParent(arg0);
 			new Label("Rp " + DashboardUiKit.money(m.getNominal())).setParent(arg0);
-			new Label(m.getTanggalMasuk() == null ? "-" : SDF.format(m.getTanggalMasuk())).setParent(arg0);
-			new Label(m.getTanggalJatuhTempo() == null ? "-" : SDF.format(m.getTanggalJatuhTempo())).setParent(arg0);
+			new Label(m.getTanggalMasuk() == null ? "-" : SDF.get().format(m.getTanggalMasuk())).setParent(arg0);
+			new Label(m.getTanggalJatuhTempo() == null ? "-" : SDF.get().format(m.getTanggalJatuhTempo())).setParent(arg0);
 			new Label(DashboardUiKit.money(m.getImbalHasilPersen()) + " %").setParent(arg0);
 			new Label(labelStatus(m.getStatus())).setParent(arg0);
 

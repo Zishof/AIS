@@ -413,7 +413,12 @@ public class AssetDetail extends GeneralValueObject {
 		this.pemilikAsset = pemilikAsset;
 	}
 
-	public static SimpleDateFormat dateFormat = new SimpleDateFormat("MMyy");
+	public static final ThreadLocal<SimpleDateFormat> dateFormat = new ThreadLocal<SimpleDateFormat>() {
+		@Override
+		protected SimpleDateFormat initialValue() {
+			return new SimpleDateFormat("MMyy");
+		}
+	};
 
 	public static String generateBarcode(AssetDetail assetDetail, Integer nomorUrutManual, boolean tambah) {
 		if (assetDetail != null && assetDetail.getAsset() != null && assetDetail.getAsset().getMasterAsset() != null
@@ -442,7 +447,7 @@ public class AssetDetail extends GeneralValueObject {
 			return (assetDetail.getSatuanKerja() == null ? "" : assetDetail.getSatuanKerja().getKode() + ".")
 					+ (assetDetail.getAsset().getMasterAsset().getKode() == null ? ""
 							: assetDetail.getAsset().getMasterAsset().getKode() + ".")
-					+ kode.substring(kode.length() - 3, kode.length()) + "." + dateFormat.format(calendar.getTime())
+					+ kode.substring(kode.length() - 3, kode.length()) + "." + dateFormat.get().format(calendar.getTime())
 					+ "."
 					+ (assetDetail.getAsset().getMasterAsset().getKelompokAsset() == null ? "0"
 							: assetDetail.getAsset().getMasterAsset().getKelompokAsset().getMerupakanAssetFix() ? "1"

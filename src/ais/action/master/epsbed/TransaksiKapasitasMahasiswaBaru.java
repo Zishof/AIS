@@ -345,18 +345,18 @@ public class TransaksiKapasitasMahasiswaBaru extends MyWindow {
 					: kapasitasMhsBaru.getJumlahPindahan().toString());
 			ais.ui.util.EcampusUtil.setCellValue(sheet, rowIndex, 10,
 					kapasitasMhsBaru.getAwalPerkuliahanGanjil() == null ? ""
-							: CommonEpsbed.dateFormatEpsbed.format(kapasitasMhsBaru.getAwalPerkuliahanGanjil()));
+							: CommonEpsbed.dateFormatEpsbed.get().format(kapasitasMhsBaru.getAwalPerkuliahanGanjil()));
 			ais.ui.util.EcampusUtil.setCellValue(sheet, rowIndex, 11,
 					kapasitasMhsBaru.getAkhirPerkuliahanGanjil() == null ? ""
-							: CommonEpsbed.dateFormatEpsbed.format(kapasitasMhsBaru.getAkhirPerkuliahanGanjil()));
+							: CommonEpsbed.dateFormatEpsbed.get().format(kapasitasMhsBaru.getAkhirPerkuliahanGanjil()));
 			ais.ui.util.EcampusUtil.setCellValue(sheet, rowIndex, 12,
 					kapasitasMhsBaru.getJumlahMingguKuliahGanjil() == null ? ""
 							: kapasitasMhsBaru.getJumlahMingguKuliahGanjil().toString());
 			ais.ui.util.EcampusUtil.setCellValue(sheet, rowIndex, 13, kapasitasMhsBaru.getAwalPerkuliahanGenap() == null
-					? "" : CommonEpsbed.dateFormatEpsbed.format(kapasitasMhsBaru.getAwalPerkuliahanGenap()));
+					? "" : CommonEpsbed.dateFormatEpsbed.get().format(kapasitasMhsBaru.getAwalPerkuliahanGenap()));
 			ais.ui.util.EcampusUtil.setCellValue(sheet, rowIndex, 14,
 					kapasitasMhsBaru.getAkhirPerkuliahanGenap() == null ? ""
-							: CommonEpsbed.dateFormatEpsbed.format(kapasitasMhsBaru.getAkhirPerkuliahanGenap()));
+							: CommonEpsbed.dateFormatEpsbed.get().format(kapasitasMhsBaru.getAkhirPerkuliahanGenap()));
 			ais.ui.util.EcampusUtil.setCellValue(sheet, rowIndex, 15,
 					kapasitasMhsBaru.getJumlahMingguKuliahGenap() == null ? ""
 							: kapasitasMhsBaru.getJumlahMingguKuliahGenap().toString());

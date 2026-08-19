@@ -593,7 +593,7 @@ public class LogHostToHostAction extends GenericAutowireComposer implements Data
 			ais.common.Common.tampilErrorJikaAdmin(e);
 		}
 
-							String tanggalP = OcbcNisp.dateFormat.format(new Date());
+							String tanggalP = OcbcNisp.dateFormat.get().format(new Date());
 							String paidStatus = req == null || req.isNull("paidStatus") ? null : req.getString("paidStatus").trim();
 							BankHost bankHost = logHostToHost.getBankHost();
 
@@ -789,7 +789,7 @@ public class LogHostToHostAction extends GenericAutowireComposer implements Data
 			ais.common.Common.tampilErrorJikaAdmin(e);
 		}
 
-								String tanggalP = OcbcNisp.dateFormat.format(new Date());
+								String tanggalP = OcbcNisp.dateFormat.get().format(new Date());
 								String paidStatus = req == null || req.isNull("paidStatus") ? null : req.getString("paidStatus").trim();
 								BankHost bankHost = logHostToHost.getBankHost();
 

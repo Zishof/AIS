@@ -22,7 +22,12 @@ public final class GudangChartSvg {
 	public static final String[] PALET = { "#0d6efd", "#16a34a", "#f59e0b", "#dc2626", "#7c3aed",
 			"#0891b2", "#db2777", "#65a30d", "#ea580c", "#334155" };
 
-	private static final DecimalFormat NF = new DecimalFormat("#,##0");
+	private static final ThreadLocal<DecimalFormat> NF = new ThreadLocal<DecimalFormat>() {
+		@Override
+		protected DecimalFormat initialValue() {
+			return new DecimalFormat("#,##0");
+		}
+	};
 
 	private GudangChartSvg() {
 	}
@@ -73,7 +78,7 @@ public final class GudangChartSvg {
 			s.append("<rect x='").append(lblW).append("' y='").append(y).append("' width='").append((long) w)
 					.append("' height='16' rx='4' fill='").append(warna(colors, i)).append("'></rect>");
 			s.append("<text x='").append(lblW + (long) w + 5).append("' y='").append(y + 13)
-					.append("' font-size='10.5' fill='#64748b'>").append(NF.format(values[i])).append("</text>");
+					.append("' font-size='10.5' fill='#64748b'>").append(NF.get().format(values[i])).append("</text>");
 		}
 		return s.append("</svg>").toString();
 	}
@@ -110,7 +115,7 @@ public final class GudangChartSvg {
 			a = a2;
 		}
 		s.append("<text x='").append(cx).append("' y='").append(cy - 2)
-				.append("' text-anchor='middle' font-size='12' font-weight='700' fill='#0f172a'>").append(NF.format(tot))
+				.append("' text-anchor='middle' font-size='12' font-weight='700' fill='#0f172a'>").append(NF.get().format(tot))
 				.append("</text><text x='").append(cx).append("' y='").append(cy + 14)
 				.append("' text-anchor='middle' font-size='9' fill='#64748b'>Total</text></svg>");
 		StringBuilder lg = new StringBuilder(

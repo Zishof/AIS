@@ -62,7 +62,12 @@ public class LaporanPergudanganZkAction extends MyWindow {
 
 	private static final long serialVersionUID = 4419021551123456004L;
 
-	private static final DecimalFormat NF = new DecimalFormat("#,##0");
+	private static final ThreadLocal<DecimalFormat> NF = new ThreadLocal<DecimalFormat>() {
+		@Override
+		protected DecimalFormat initialValue() {
+			return new DecimalFormat("#,##0");
+		}
+	};
 
 	private Combobox cbJenis;
 	private Combobox cbLokasi;
@@ -250,9 +255,9 @@ public class LaporanPergudanganZkAction extends MyWindow {
 		h.append("<div class='kp'>");
 		h.append(kartu(String.valueOf(lokSet.size()), "Lokasi"));
 		h.append(kartu(String.valueOf(prdSet.size()), "Jenis Barang"));
-		h.append(kartu(NF.format(totQty), "Total Qty"));
-		h.append(kartu("Rp " + NF.format(totNB), "Nilai (Harga Beli)"));
-		h.append(kartu("Rp " + NF.format(totNA), "Nilai (Rata2 Biaya)"));
+		h.append(kartu(NF.get().format(totQty), "Total Qty"));
+		h.append(kartu("Rp " + NF.get().format(totNB), "Nilai (Harga Beli)"));
+		h.append(kartu("Rp " + NF.get().format(totNA), "Nilai (Rata2 Biaya)"));
 		h.append("</div>");
 
 		h.append("<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px'>");
@@ -347,10 +352,10 @@ public class LaporanPergudanganZkAction extends MyWindow {
 					.append("<td style='padding:6px 8px;font-weight:700'>").append(esc(namaGudang)).append("</td>")
 					.append("<td style='padding:6px 8px'>")
 					.append(indukNama.length() == 0 ? "<span style='color:#cbd5e1'>—</span>" : esc(indukNama))
-					.append("</td>").append("<td style='padding:6px 8px;text-align:right'>").append(NF.format(num(r[3])))
-					.append("</td>").append("<td style='padding:6px 8px;text-align:right'>").append(NF.format(num(r[4])))
+					.append("</td>").append("<td style='padding:6px 8px;text-align:right'>").append(NF.get().format(num(r[3])))
+					.append("</td>").append("<td style='padding:6px 8px;text-align:right'>").append(NF.get().format(num(r[4])))
 					.append("</td>").append("<td style='padding:6px 8px;text-align:right;font-weight:700'>Rp ")
-					.append(NF.format(num(r[5]))).append("</td></tr>");
+					.append(NF.get().format(num(r[5]))).append("</td></tr>");
 		}
 		t.append("</tbody></table></div>");
 		return t.toString();
@@ -389,11 +394,11 @@ public class LaporanPergudanganZkAction extends MyWindow {
 			Row row = new Row();
 			row.setParent(rows);
 			new Label(str(r[7]) + (str(r[6]).length() > 0 ? " (" + str(r[6]) + ")" : "")).setParent(row);
-			kanan(row, NF.format(qty));
-			kanan(row, NF.format(hb));
-			kanan(row, NF.format(nbeli));
-			kanan(row, NF.format(avg));
-			kanan(row, NF.format(navg));
+			kanan(row, NF.get().format(qty));
+			kanan(row, NF.get().format(hb));
+			kanan(row, NF.get().format(nbeli));
+			kanan(row, NF.get().format(avg));
+			kanan(row, NF.get().format(navg));
 			sq += qty;
 			snb += nbeli;
 			sna += navg;
@@ -408,11 +413,11 @@ public class LaporanPergudanganZkAction extends MyWindow {
 		total.setStyle("background:#dbeafe;font-weight:800");
 		total.setParent(rows);
 		new Label(ais.common.Common.getBahasaConfig("TOTAL")).setParent(total);
-		kanan(total, NF.format(gq));
+		kanan(total, NF.get().format(gq));
 		kanan(total, "");
-		kanan(total, NF.format(gnb));
+		kanan(total, NF.get().format(gnb));
 		kanan(total, "");
-		kanan(total, NF.format(gna));
+		kanan(total, NF.get().format(gna));
 	}
 
 	private void subtotal(Rows rows, String nama, double q, double nb, double na) {
@@ -420,11 +425,11 @@ public class LaporanPergudanganZkAction extends MyWindow {
 		r.setStyle("background:#f8fafc;font-weight:600");
 		r.setParent(rows);
 		new Label("Σ " + nama).setParent(r);
-		kanan(r, NF.format(q));
+		kanan(r, NF.get().format(q));
 		kanan(r, "");
-		kanan(r, NF.format(nb));
+		kanan(r, NF.get().format(nb));
 		kanan(r, "");
-		kanan(r, NF.format(na));
+		kanan(r, NF.get().format(na));
 	}
 
 	private void kanan(Row r, String v) {

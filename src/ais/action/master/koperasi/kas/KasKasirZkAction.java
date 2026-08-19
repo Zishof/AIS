@@ -54,7 +54,12 @@ public class KasKasirZkAction extends MyWindow {
 
 	private static final long serialVersionUID = 4419021551123457001L;
 
-	private static final SimpleDateFormat DF = new SimpleDateFormat("dd-MM-yyyy HH:mm");
+	private static final ThreadLocal<SimpleDateFormat> DF = new ThreadLocal<SimpleDateFormat>() {
+		@Override
+		protected SimpleDateFormat initialValue() {
+			return new SimpleDateFormat("dd-MM-yyyy HH:mm");
+		}
+	};
 
 	private String oleh;
 	private String olehId;
@@ -195,7 +200,7 @@ public class KasKasirZkAction extends MyWindow {
 		} else {
 			double[] jual = SesiKasUtil.hitungPenjualan(session, sesi, new Date());
 			final double seharusnya = (sesi.getModalAwal() == null ? 0.0 : sesi.getModalAwal().doubleValue()) + jual[0];
-			Label l = new Label("Kas Terbuka sejak " + DF.format(sesi.getWaktuBuka()));
+			Label l = new Label("Kas Terbuka sejak " + DF.get().format(sesi.getWaktuBuka()));
 			l.setStyle("font-weight:700;color:#16a34a;display:block;margin-bottom:8px");
 			l.setParent(panel);
 			Hlayout info = new Hlayout();
@@ -293,8 +298,8 @@ public class KasKasirZkAction extends MyWindow {
 			Row r = new Row();
 			r.setParent(rows);
 			new Label(a[0] == null ? "-" : a[0].toString()).setParent(r);
-			new Label(a[1] == null ? "" : DF.format((Date) a[1])).setParent(r);
-			new Label(a[2] == null ? "-" : DF.format((Date) a[2])).setParent(r);
+			new Label(a[1] == null ? "" : DF.get().format((Date) a[1])).setParent(r);
+			new Label(a[2] == null ? "-" : DF.get().format((Date) a[2])).setParent(r);
 			kanan(r, num(a[3]));
 			kanan(r, num(a[4]));
 			kanan(r, num(a[5]));

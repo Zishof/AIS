@@ -11,8 +11,18 @@ import java.text.SimpleDateFormat;
 
 public class BRIUtil {
 
-	public static DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS");
-	public static DateFormat dateFormat1 = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+	public static final ThreadLocal<DateFormat> dateFormat = new ThreadLocal<DateFormat>() {
+		@Override
+		protected DateFormat initialValue() {
+			return new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS");
+		}
+	};
+	public static final ThreadLocal<DateFormat> dateFormat1 = new ThreadLocal<DateFormat>() {
+		@Override
+		protected DateFormat initialValue() {
+			return new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+		}
+	};
 
 	private final static String PRIVATE_KEY = "-----BEGIN PRIVATE KEY-----\n"
 			+ "MIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAKNwapOQ6rQJHetP\n"

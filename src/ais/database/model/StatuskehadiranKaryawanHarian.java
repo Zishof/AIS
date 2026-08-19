@@ -287,13 +287,18 @@ public class StatuskehadiranKaryawanHarian extends VoKunci {
 	 * Jika terdapat URL, otomatis diconvert menjadi link HTML "Klik".
 	 * Jika tidak ada URL, di-render sebagai Label biasa (simpleString).
 	 */
+	/* OPTIMASI FASE 9: method ini dipanggil PER BARIS grid; sebelumnya regex dikompilasi
+	 * ulang setiap baris. Pattern immutable & thread-safe sehingga aman jadi konstanta.
+	 * Matcher tetap dibuat per panggilan karena Matcher TIDAK thread-safe. */
+	private static final java.util.regex.Pattern POLA_URL = java.util.regex.Pattern
+			.compile("(https?://[^\\s]+)");
+
 	public void renderKeteranganLink(org.zkoss.zul.Row r) {
 		String ket = getKeterangan();
 		if (ket == null || ket.trim().isEmpty()) {
 			r.appendChild(new org.zkoss.zul.Label("-"));
 		} else {
-			java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(https?://[^\\s]+)");
-			java.util.regex.Matcher matcher = pattern.matcher(ket);
+			java.util.regex.Matcher matcher = POLA_URL.matcher(ket);
 			
 			// Cek apakah ada URL di dalam teks keterangan
 			if (matcher.find()) {

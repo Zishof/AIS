@@ -22,8 +22,18 @@ import ais.database.model.sekolah.Siswa;
 
 public class BRIDataUtil {
 
-	public static DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS");
-	public static DateFormat dateFormat1 = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+	public static final ThreadLocal<DateFormat> dateFormat = new ThreadLocal<DateFormat>() {
+		@Override
+		protected DateFormat initialValue() {
+			return new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS");
+		}
+	};
+	public static final ThreadLocal<DateFormat> dateFormat1 = new ThreadLocal<DateFormat>() {
+		@Override
+		protected DateFormat initialValue() {
+			return new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+		}
+	};
 
 	public static JSONObject post(Mahasiswa mahasiswa, int nominal, String keterangan,
 			VirtualAccountBank virtualAccountBankOnline) throws Exception {
@@ -40,7 +50,7 @@ public class BRIDataUtil {
 		String virtualAccountName = mahasiswa.getNama() + " " + mahasiswa.getNim();
 		Calendar expired = Calendar.getInstance();
 		expired.set(Calendar.DATE, expired.get(Calendar.DATE) + 1);
-		String expiredTimestamp = dateFormat1.format(expired.getTime()) + "+07:00";
+		String expiredTimestamp = dateFormat1.get().format(expired.getTime()) + "+07:00";
 
 		String trxId = Common.getGeneratedBarCode();
 
@@ -83,7 +93,7 @@ public class BRIDataUtil {
 		String virtualAccountName = biodataCalonMahasiswa.getNama() + " " + biodataCalonMahasiswa.getNoRegistrasi();
 		Calendar expired = Calendar.getInstance();
 		expired.set(Calendar.DATE, expired.get(Calendar.DATE) + 1);
-		String expiredTimestamp = dateFormat1.format(expired.getTime()) + "+07:00";
+		String expiredTimestamp = dateFormat1.get().format(expired.getTime()) + "+07:00";
 
 		String trxId = Common.getGeneratedBarCode();
 
@@ -125,7 +135,7 @@ public class BRIDataUtil {
 		String virtualAccountName = siswa.getNama() + " " + siswa.getNomorIndukNasional();
 		Calendar expired = Calendar.getInstance();
 		expired.set(Calendar.DATE, expired.get(Calendar.DATE) + 1);
-		String expiredTimestamp = dateFormat1.format(expired.getTime()) + "+07:00";
+		String expiredTimestamp = dateFormat1.get().format(expired.getTime()) + "+07:00";
 
 		String trxId = Common.getGeneratedBarCode();
 
@@ -167,7 +177,7 @@ public class BRIDataUtil {
 		String virtualAccountName = calonSiswa.getNama() + " " + calonSiswa.getNoRegistrasi();
 		Calendar expired = Calendar.getInstance();
 		expired.set(Calendar.DATE, expired.get(Calendar.DATE) + 1);
-		String expiredTimestamp = dateFormat1.format(expired.getTime()) + "+07:00";
+		String expiredTimestamp = dateFormat1.get().format(expired.getTime()) + "+07:00";
 
 		String trxId = Common.getGeneratedBarCode();
 
@@ -198,7 +208,7 @@ public class BRIDataUtil {
 
 		virtualAccountBankOnline.setRequest(bodyS);
 
-		String currentTimestamp = dateFormat.format(new Date()) + "+07:00";
+		String currentTimestamp = dateFormat.get().format(new Date()) + "+07:00";
 
 		String clientId = Common.getKonfigurasi("BRI_CLIENT_ID", "WAVmwxO0EXUJyW4SDiY4ydUAe3gUvQYD").getNilai();
 		String clientSecret = Common.getKonfigurasi("BRI_CLIENT_SECRET", "IGa7p9oeRJUhfdVR").getNilai();

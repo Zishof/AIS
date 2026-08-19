@@ -12,13 +12,18 @@ public class TestNumber {
 		return Math.round(value * scale) / scale;
 	}
 
-	public static DecimalFormat df = (DecimalFormat) NumberFormat.getNumberInstance(Common.locale);
+	public static final ThreadLocal<DecimalFormat> df = new ThreadLocal<DecimalFormat>() {
+		@Override
+		protected DecimalFormat initialValue() {
+			return (DecimalFormat) NumberFormat.getNumberInstance(Common.locale);
+		}
+	};
 
 	public static void main(String[] args) {
 
 		double number = 0.5;
 //		number = withMathRound(number, 2);
-		String string = df.format(number);
+		String string = df.get().format(number);
 		string = org.apache.commons.lang3.StringUtils.replace(string, ".", "");
 		string = org.apache.commons.lang3.StringUtils.replace(string, ",", ".");
 		System.out.println("string -> " + string);

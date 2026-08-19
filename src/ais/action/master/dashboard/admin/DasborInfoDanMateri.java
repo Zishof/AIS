@@ -58,7 +58,12 @@ public class DasborInfoDanMateri extends Window implements Serializable {
     private static final long serialVersionUID = 202606010058L;
     private static final int CHUNK_SIZE = 700;
     private static final int DETAIL_LIMIT = 600;
-    private static final DecimalFormat NUMBER_FORMAT = new DecimalFormat("#,##0");
+    private static final ThreadLocal<DecimalFormat> NUMBER_FORMAT = new ThreadLocal<DecimalFormat>() {
+        @Override
+        protected DecimalFormat initialValue() {
+            return new DecimalFormat("#,##0");
+        }
+    };
 
     private final Tbmuser tbmuser;
     private Vbox mainContainer;
@@ -606,7 +611,7 @@ public class DasborInfoDanMateri extends Window implements Serializable {
         chip.setStyle("padding:9px 11px; border-radius:14px; background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.24); cursor:pointer; min-height:42px; box-sizing:border-box;");
         chip.setTooltiptext("Klik untuk melihat rincian " + label);
         chip.appendChild(new Html("<div style=\"font-size:11px; opacity:.85; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;\">" + escapeHtml(label) + "</div>"
-                + "<div style=\"font-size:18px; font-weight:800; line-height:1.2;\">" + NUMBER_FORMAT.format(value) + "</div>"));
+                + "<div style=\"font-size:18px; font-weight:800; line-height:1.2;\">" + NUMBER_FORMAT.get().format(value) + "</div>"));
         chip.addEventListener("onClick", new EventListener() {
             @Override
             public void onEvent(Event event) throws Exception {
@@ -628,7 +633,7 @@ public class DasborInfoDanMateri extends Window implements Serializable {
             card.appendChild(new Html("<div style=\"font-size:11px; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;\">"
                     + escapeHtml(s.label) + "</div>"
                     + "<div style=\"font-size:25px; font-weight:800; color:#0f172a; margin-top:4px; line-height:1.15;\">"
-                    + NUMBER_FORMAT.format(s.total) + "</div>"
+                    + NUMBER_FORMAT.get().format(s.total) + "</div>"
                     + "<div style=\"font-size:10.5px; color:" + (s.streaming ? "#0369a1" : "#64748b") + "; margin-top:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;\">"
                     + (s.streaming ? "Database file/streaming" : "Database utama") + "</div>"));
             card.addEventListener("onClick", new EventListener() {
@@ -678,8 +683,8 @@ public class DasborInfoDanMateri extends Window implements Serializable {
                 + "<div style=\"width:" + pctUtama + "% ; background:#0ea5e9;\"></div>"
                 + "<div style=\"width:" + pctStreaming + "% ; background:#22c55e;\"></div></div>"
                 + "<div style=\"display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:12px;\">"
-                + "<div style=\"background:#f0f9ff; border:1px solid #bae6fd; border-radius:12px; padding:9px;\"><div style=\"font-size:10px; color:#0369a1; font-weight:700;\">Database Utama</div><div style=\"font-size:20px; font-weight:800; color:#0f172a;\">" + NUMBER_FORMAT.format(totalUtama) + "</div></div>"
-                + "<div style=\"background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:9px;\"><div style=\"font-size:10px; color:#15803d; font-weight:700;\">File/Streaming</div><div style=\"font-size:20px; font-weight:800; color:#0f172a;\">" + NUMBER_FORMAT.format(totalStreaming) + "</div></div>"
+                + "<div style=\"background:#f0f9ff; border:1px solid #bae6fd; border-radius:12px; padding:9px;\"><div style=\"font-size:10px; color:#0369a1; font-weight:700;\">Database Utama</div><div style=\"font-size:20px; font-weight:800; color:#0f172a;\">" + NUMBER_FORMAT.get().format(totalUtama) + "</div></div>"
+                + "<div style=\"background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:9px;\"><div style=\"font-size:10px; color:#15803d; font-weight:700;\">File/Streaming</div><div style=\"font-size:20px; font-weight:800; color:#0f172a;\">" + NUMBER_FORMAT.get().format(totalStreaming) + "</div></div>"
                 + "</div>"));
 
         Div spider = new Div();
@@ -733,7 +738,7 @@ public class DasborInfoDanMateri extends Window implements Serializable {
         top.setStyle("display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:7px;");
         Html label = new Html("<div style=\"font-size:11px; color:#334155; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;\">" + escapeHtml(s.kode) + "</div>");
         label.setParent(top);
-        Html number = new Html("<div style=\"font-size:12px; font-weight:800; color:#0f172a; white-space:nowrap;\">" + NUMBER_FORMAT.format(s.total) + "</div>");
+        Html number = new Html("<div style=\"font-size:12px; font-weight:800; color:#0f172a; white-space:nowrap;\">" + NUMBER_FORMAT.get().format(s.total) + "</div>");
         number.setParent(top);
 
         Div bar = new Div();
@@ -770,7 +775,7 @@ public class DasborInfoDanMateri extends Window implements Serializable {
 
     private String heroChip(String label, long value) {
         return "<span style=\"display:inline-block; padding:8px 11px; border-radius:999px; background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.22); font-size:12px;\">"
-                + escapeHtml(label) + ": <b>" + NUMBER_FORMAT.format(value) + "</b></span>";
+                + escapeHtml(label) + ": <b>" + NUMBER_FORMAT.get().format(value) + "</b></span>";
     }
 
     private String buildCardsHtml(List<StatItem> stats) {
@@ -782,7 +787,7 @@ public class DasborInfoDanMateri extends Window implements Serializable {
                     .append("<div style=\"font-size:11px; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;\">")
                     .append(escapeHtml(s.label)).append("</div>")
                     .append("<div style=\"font-size:24px; font-weight:800; color:#0f172a; margin-top:4px;\">")
-                    .append(NUMBER_FORMAT.format(s.total)).append("</div>")
+                    .append(NUMBER_FORMAT.get().format(s.total)).append("</div>")
                     .append("<div style=\"font-size:10px; color:").append(s.streaming ? "#0369a1" : "#64748b")
                     .append("; margin-top:4px;\">").append(s.streaming ? "Database file/streaming" : "Database utama")
                     .append("</div></div>");
@@ -811,7 +816,7 @@ public class DasborInfoDanMateri extends Window implements Serializable {
                     .append("<div style=\"flex:1; height:12px; background:#e5e7eb; border-radius:999px; overflow:hidden;\">")
                     .append("<div style=\"width:").append(pct).append("%; height:12px; background:linear-gradient(90deg, var(--ais-theme-primary,#2563eb), var(--ais-theme-accent,#06b6d4)); border-radius:999px;\"></div>")
                     .append("</div><div style=\"width:70px; text-align:right; font-size:11px; font-weight:700; color:#0f172a;\">")
-                    .append(NUMBER_FORMAT.format(s.total)).append("</div></div>");
+                    .append(NUMBER_FORMAT.get().format(s.total)).append("</div></div>");
         }
         bar.append("</div>");
 
@@ -835,8 +840,8 @@ public class DasborInfoDanMateri extends Window implements Serializable {
                 .append("<div style=\"width:").append(pctUtama).append("%; background:#0ea5e9;\"></div>")
                 .append("<div style=\"width:").append(pctStreaming).append("%; background:#22c55e;\"></div>")
                 .append("</div><div style=\"display:flex; justify-content:space-between; font-size:11px; color:#64748b; margin-top:9px;\">")
-                .append("<span>Utama: <b>").append(NUMBER_FORMAT.format(totalUtama)).append("</b></span>")
-                .append("<span>File/Streaming: <b>").append(NUMBER_FORMAT.format(totalStreaming)).append("</b></span>")
+                .append("<span>Utama: <b>").append(NUMBER_FORMAT.get().format(totalUtama)).append("</b></span>")
+                .append("<span>File/Streaming: <b>").append(NUMBER_FORMAT.get().format(totalStreaming)).append("</b></span>")
                 .append("</div></div>")
                 .append("<div style=\"background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:14px; box-shadow:0 4px 14px rgba(15,23,42,.06);\">")
                 .append("<div style=\"font-size:14px; font-weight:800; color:#0f172a; margin-bottom:8px;\">Indeks Aktivitas Materi</div>")
@@ -860,7 +865,7 @@ public class DasborInfoDanMateri extends Window implements Serializable {
         }
         labels.append("</div>");
         return "<div style=\"height:120px; display:flex; align-items:center; justify-content:center; background:radial-gradient(circle,#e0f2fe 0,#e0f2fe 32%,#f8fafc 33%,#f8fafc 100%); border-radius:12px; border:1px dashed #bae6fd;\">"
-                + "<div style=\"text-align:center; color:#0f172a;\"><div style=\"font-size:26px; font-weight:800;\">" + NUMBER_FORMAT.format(total(stats))
+                + "<div style=\"text-align:center; color:#0f172a;\"><div style=\"font-size:26px; font-weight:800;\">" + NUMBER_FORMAT.get().format(total(stats))
                 + "</div><div style=\"font-size:11px; color:#64748b;\">total konten</div></div></div>" + labels.toString();
     }
 
@@ -926,7 +931,7 @@ public class DasborInfoDanMateri extends Window implements Serializable {
             Label label = new Label(s.label);
             label.setStyle("font-weight:bold; color:#0f172a;");
             row.appendChild(label);
-            Label jumlah = new Label(NUMBER_FORMAT.format(s.total));
+            Label jumlah = new Label(NUMBER_FORMAT.get().format(s.total));
             jumlah.setStyle("font-weight:bold; color:#0f172a;");
             row.appendChild(jumlah);
             row.appendChild(new Label(s.source));
@@ -940,16 +945,16 @@ public class DasborInfoDanMateri extends Window implements Serializable {
         if (currentStats != null) {
             for (int i = 0; i < currentStats.size(); i++) {
                 StatItem s = currentStats.get(i);
-                rows.add(new DetailItem(s.kode, s.label, NUMBER_FORMAT.format(s.total) + " data", s.source,
+                rows.add(new DetailItem(s.kode, s.label, NUMBER_FORMAT.get().format(s.total) + " data", s.source,
                         s.streaming ? "File/Streaming" : "Utama"));
             }
         }
         if (currentScope != null) {
-            rows.add(new DetailItem("Scope", "Pertemuan", NUMBER_FORMAT.format(currentScope.pertemuanIds.size()) + " data",
+            rows.add(new DetailItem("Scope", "Pertemuan", NUMBER_FORMAT.get().format(currentScope.pertemuanIds.size()) + " data",
                     "Pertemuan aktif", "Utama"));
-            rows.add(new DetailItem("Scope", "Perkuliahan", NUMBER_FORMAT.format(currentScope.perkuliahanIds.size()) + " data",
+            rows.add(new DetailItem("Scope", "Perkuliahan", NUMBER_FORMAT.get().format(currentScope.perkuliahanIds.size()) + " data",
                     "Relasi perkuliahan", "Utama"));
-            rows.add(new DetailItem("Scope", "Jadwal Pelajaran", NUMBER_FORMAT.format(currentScope.jadwalPelajaranIds.size()) + " data",
+            rows.add(new DetailItem("Scope", "Jadwal Pelajaran", NUMBER_FORMAT.get().format(currentScope.jadwalPelajaranIds.size()) + " data",
                     "Relasi jadwal pelajaran", "Utama"));
         }
         renderDetailWindow("Ringkasan Dasbor Info & Materi", rows, "Klik card/baris lain untuk melihat rincian per kelompok data.");
@@ -1014,7 +1019,7 @@ public class DasborInfoDanMateri extends Window implements Serializable {
         head.setStyle("background:linear-gradient(135deg, rgba(0,0,0,.35), rgba(0,0,0,0) 55%), linear-gradient(135deg, var(--ais-theme-primary,#1d4ed8) 0%, var(--ais-theme-primary,#1d4ed8) 45%, var(--ais-theme-accent,#06b6d4) 100%); color:white; padding:12px 14px; box-sizing:border-box; height:100%;");
         long jumlah = details == null ? 0L : details.size();
         head.appendChild(new Html("<div style=\"font-size:16px; font-weight:800; line-height:1.25;\">" + escapeHtml(title) + "</div>"
-                + "<div style=\"font-size:11px; opacity:.88; margin-top:4px;\">" + NUMBER_FORMAT.format(jumlah)
+                + "<div style=\"font-size:11px; opacity:.88; margin-top:4px;\">" + NUMBER_FORMAT.get().format(jumlah)
                 + " baris ditampilkan</div>"));
 
         Center center = new Center();
