@@ -100,7 +100,7 @@ String rnd = Common.getGeneratedBarCode(7);
         </div>
         <div class="d-flex justify-content-between align-items-center mb-2">
           <b><%=Common.getBahasaConfig("Barang yang Diminta")%></b>
-          <button class="btn btn-sm btn-outline-primary" id="prTambahBaris<%=rnd%>" onclick="prCariProduk<%=rnd%>()">
+          <button class="btn btn-sm btn-outline-primary" id="prTambahBaris<%=rnd%>" onclick="prCariBarang<%=rnd%>()">
             <i class="fas fa-plus me-1"></i><%=Common.getBahasaConfig("Tambah Barang")%>
           </button>
         </div>
@@ -135,8 +135,8 @@ String rnd = Common.getGeneratedBarCode(7);
   </div>
 </div>
 
-<!-- Modal cari produk -->
-<div class="modal fade" id="prProdukModal<%=rnd%>" tabindex="-1" aria-hidden="true">
+<!-- Modal cari barang -->
+<div class="modal fade" id="prBarangModal<%=rnd%>" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
@@ -144,10 +144,10 @@ String rnd = Common.getGeneratedBarCode(7);
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <input type="text" id="prProdukCari<%=rnd%>" class="form-control mb-2"
+        <input type="text" id="prBarangCari<%=rnd%>" class="form-control mb-2"
                placeholder="<%=Common.getBahasaConfig("kode atau nama barang")%>"
-               onkeydown="if(event.key==='Enter')prProdukMuat<%=rnd%>()">
-        <div id="prProdukHasil<%=rnd%>" class="list-group"></div>
+               onkeydown="if(event.key==='Enter')prBarangMuat<%=rnd%>()">
+        <div id="prBarangHasil<%=rnd%>" class="list-group"></div>
       </div>
     </div>
   </div>
@@ -343,31 +343,31 @@ String rnd = Common.getGeneratedBarCode(7);
   };
 
   // ---------- Pencarian produk ----------
-  window["prCariProduk" + RND] = function(){
-    el("prProdukCari").value = "";
-    el("prProdukHasil").innerHTML = "";
-    new bootstrap.Modal(document.getElementById("prProdukModal" + RND)).show();
+  window["prCariBarang" + RND] = function(){
+    el("prBarangCari").value = "";
+    el("prBarangHasil").innerHTML = "";
+    new bootstrap.Modal(document.getElementById("prBarangModal" + RND)).show();
   };
-  window["prProdukMuat" + RND] = function(){
-    var q = el("prProdukCari").value.trim();
+  window["prBarangMuat" + RND] = function(){
+    var q = el("prBarangCari").value.trim();
     api({action:"pengadaan_barang_cari", keyword:q, limit:50}).then(function(d){
       var rows = d.data || [];
-      if (!rows.length){ el("prProdukHasil").innerHTML = '<div class="text-muted small py-2">Tidak ada produk ditemukan.</div>'; return; }
+      if (!rows.length){ el("prBarangHasil").innerHTML = '<div class="text-muted small py-2">Tidak ada produk ditemukan.</div>'; return; }
       var h = "";
       for (var i=0;i<rows.length;i++){
         var p = rows[i];
         h += '<a href="javascript:void(0)" class="list-group-item list-group-item-action"'
-           + ' onclick="prPilihProduk' + RND + '(' + p.id + ',\'' + esc(String(p.nama).replace(/'/g,"")) + '\',' + (p.hargaBeli||0) + ')">'
+           + ' onclick="prPilihBarang' + RND + '(' + p.id + ',\'' + esc(String(p.nama).replace(/'/g,"")) + '\',' + (p.hargaBeli||0) + ')">'
            + '<div class="fw-bold">' + esc(p.nama) + '</div>'
            + '<div class="small text-muted">' + esc(p.kode || "") + ' - Modal ' + rp(p.hargaBeli) + '</div></a>';
       }
-      el("prProdukHasil").innerHTML = h;
+      el("prBarangHasil").innerHTML = h;
     });
   };
-  window["prPilihProduk" + RND] = function(id, nama){
+  window["prPilihBarang" + RND] = function(id, nama){
     baris.push({ barang_id:id, nama:nama, jumlah:1, harga:0 });
     renderBaris(false);
-    bootstrap.Modal.getInstance(document.getElementById("prProdukModal" + RND)).hide();
+    bootstrap.Modal.getInstance(document.getElementById("prBarangModal" + RND)).hide();
   };
 
   // Muat pertama kali

@@ -97,6 +97,7 @@ public class Toko extends GeneralValueObject {
 	private Boolean bolehTransaksiStokHabis;
 	private Boolean semuaBolehUbahHarga;
 	private String userBolehUbahHarga;
+	private String roleBolehUbahHarga;
 	/** Penanda toko khusus demo/UAT. Default false agar data sample mustahil muncul di toko produksi. */
 	private Boolean tokoDemo;
 
@@ -329,6 +330,22 @@ public class Toko extends GeneralValueObject {
 
 	public void setUserBolehUbahHarga(String userBolehUbahHarga) {
 		this.userBolehUbahHarga = userBolehUbahHarga;
+	}
+
+	/**
+	 * Daftar {@code Tbmrole.roleId} (hak akses / grup pengguna) yang boleh mengubah harga
+	 * ketika {@link #getSemuaBolehUbahHarga()} bernilai {@code false}. Bersifat OR terhadap
+	 * {@link #getUserBolehUbahHarga()}: pengguna boleh mengubah harga bila userId-nya
+	 * terdaftar ATAU role-nya terdaftar. Format CSV berpembatas koma dgn koma pembungkus,
+	 * sama seperti daftar pengguna.
+	 */
+	@Column(name = "role_boleh_ubah_harga", columnDefinition = "text", nullable = true)
+	public String getRoleBolehUbahHarga() {
+		return roleBolehUbahHarga;
+	}
+
+	public void setRoleBolehUbahHarga(String roleBolehUbahHarga) {
+		this.roleBolehUbahHarga = roleBolehUbahHarga;
 	}
 
 	@Column(name = "toko_demo", nullable = true)

@@ -2278,8 +2278,6 @@
 		<mapping class="ais.database.model.inventory.SatuanProduk"></mapping>
 		<mapping class="ais.database.model.inventory.Produk"></mapping>
 		<mapping class="ais.database.model.inventory.GrupProduk"></mapping>
-		<mapping class="ais.database.model.koperasi.PengadaanPermintaanPos"></mapping>
-		<mapping class="ais.database.model.koperasi.PengadaanPermintaanPosDetail"></mapping>
 		<!-- Vertikal MitraInap (hotel) - MVP langkah 2, tabel hotel_* di schema public -->
 		<mapping class="ais.database.model.hotel.PropertiHotel"></mapping>
 		<mapping class="ais.database.model.hotel.TipeKamar"></mapping>

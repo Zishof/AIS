@@ -40,13 +40,36 @@ public final class HargaAksesUtil {
 		}
 		String daftar = toko.getUserBolehUbahHarga();
 		if (daftar == null || daftar.trim().length() == 0) {
-			return false;
+			return roleTerdaftar(toko, tbmuser);
 		}
 		String userId = tbmuser.getUserId() == null ? "" : tbmuser.getUserId().trim();
-		if (userId.length() == 0) {
+		if (userId.length() > 0
+				&& normalkan(daftar).indexOf("," + userId.toLowerCase() + ",") >= 0) {
+			return true;
+		}
+		// Selain per-userId, kebijakan juga menerima HAK AKSES (Tbmrole): bila role
+		// pengguna terdaftar, ia boleh mengubah harga. Sifatnya OR -- terdaftar sebagai
+		// pengguna ATAU role-nya terdaftar, salah satu sudah cukup.
+		return roleTerdaftar(toko, tbmuser);
+	}
+
+	/** True bila Tbmrole pengguna termasuk daftar role yang boleh mengubah harga. */
+	private static boolean roleTerdaftar(Toko toko, Tbmuser tbmuser) {
+		String daftarRole = toko == null ? null : toko.getRoleBolehUbahHarga();
+		if (daftarRole == null || daftarRole.trim().length() == 0) {
 			return false;
 		}
-		return normalkan(daftar).indexOf("," + userId.toLowerCase() + ",") >= 0;
+		try {
+			ais.database.model.Tbmrole role = tbmuser.hakAkses();
+			if (role == null || role.getRoleId() == null) {
+				return false;
+			}
+			return normalkan(daftarRole)
+					.indexOf("," + role.getRoleId().trim().toLowerCase() + ",") >= 0;
+		} catch (Exception e) {
+			// Gagal-aman: kalau role tak terbaca, jangan memberi izin.
+			return false;
+		}
 	}
 
 	/** Varian yang memuat toko dari session bila pemanggil hanya memegang id. */

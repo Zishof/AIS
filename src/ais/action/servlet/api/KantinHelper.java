@@ -5013,6 +5013,37 @@ public class KantinHelper {
 		}
 	}
 
+	/**
+	 * Daftar Hak Akses (Tbmrole) utk pemilih "grup pengguna yang boleh mengubah harga".
+	 * Sumbernya tabel {@code public.tbmrole} -- sama dgn yang dipakai layar Hak Akses.
+	 */
+	public static void hakAksesList(JSONObject request, JSONObject hasil) throws Exception {
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			java.sql.PreparedStatement ps = session.connection().prepareStatement(
+					"SELECT roleid, COALESCE(NULLIF(TRIM(rolename),''), roleid) AS nama"
+							+ " FROM public.tbmrole ORDER BY 2");
+			java.sql.ResultSet rs = ps.executeQuery();
+			JSONArray arr = new JSONArray();
+			while (rs.next()) {
+				String rid = rs.getString(1);
+				if (rid == null || rid.trim().length() == 0) {
+					continue;
+				}
+				JSONObject j = new JSONObject();
+				j.put("roleId", rid.trim());
+				j.put("nama", rs.getString(2));
+				arr.put(j);
+			}
+			rs.close();
+			ps.close();
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
+
 	public static void tokoProfilAmbil(Tbmuser tbmuser, JSONObject request, JSONObject hasil) throws Exception {
 		ais.database.model.inventory.Pedagang pemanggil = tbmuser == null ? null : tbmuser.getPedagang();
 		Long tokoId;
@@ -5066,6 +5097,15 @@ public class KantinHelper {
 				}
 			}
 			data.put("userBolehUbahHarga", userHarga);
+			JSONArray roleHarga = new JSONArray();
+			String csvRole = ais.action.master.inventory.HargaAksesUtil.normalkan(toko.getRoleBolehUbahHarga());
+			String[] bagianRole = csvRole.split(",");
+			for (int i = 0; i < bagianRole.length; i++) {
+				if (bagianRole[i].trim().length() > 0) {
+					roleHarga.put(bagianRole[i].trim());
+				}
+			}
+			data.put("roleBolehUbahHarga", roleHarga);
 			data.put("bolehUbahHargaSaya",
 					ais.action.master.inventory.HargaAksesUtil.bolehUbahHarga(toko, tbmuser));
 			data.put("tokoDemo", Boolean.TRUE.equals(toko.getTokoDemo()));
@@ -5153,6 +5193,20 @@ public class KantinHelper {
 				}
 				toko.setUserBolehUbahHarga(
 						ais.action.master.inventory.HargaAksesUtil.normalkan(csvBaru.toString()));
+			}
+			if (request.has("role_boleh_ubah_harga")) {
+				StringBuilder csvRoleBaru = new StringBuilder();
+				JSONArray arrRole = request.optJSONArray("role_boleh_ubah_harga");
+				if (arrRole != null) {
+					for (int i = 0; i < arrRole.length(); i++) {
+						if (csvRoleBaru.length() > 0) { csvRoleBaru.append(","); }
+						csvRoleBaru.append(String.valueOf(arrRole.get(i)).trim());
+					}
+				} else {
+					csvRoleBaru.append(request.optString("role_boleh_ubah_harga", ""));
+				}
+				toko.setRoleBolehUbahHarga(
+						ais.action.master.inventory.HargaAksesUtil.normalkan(csvRoleBaru.toString()));
 			}
 			if (request.has("boleh_transaksi_stok_habis")) {
 				toko.setBolehTransaksiStokHabis(Boolean.valueOf(
