@@ -289,6 +289,23 @@ public final class PostingKantinLanjutanHelper {
                 return;
             }
 
+            // PostingHistory.getNama() membaca tbmuser tanpa penjagaan null, jadi pastikan
+            // penggunanya ada SEBELUM menulis apa pun -- kalau tidak, galatnya muncul sebagai
+            // PropertyAccessException yang membingungkan.
+            Tbmuser pengguna = tbmuser;
+            if (pengguna == null) {
+                try {
+                    pengguna = Common.getCurrentUser();
+                } catch (Exception e) {
+                    pengguna = null;
+                }
+            }
+            if (pengguna == null) {
+                hasil.put("status", "01");
+                hasil.put("message", "Sesi pengguna tidak ditemukan. Silakan masuk kembali sebelum memposting.");
+                return;
+            }
+
             int berhasil = 0;
             JSONArray masalah = new JSONArray();
             for (int i = 0; i < draf.size(); i++) {
@@ -300,7 +317,7 @@ public final class PostingKantinLanjutanHelper {
                     continue;
                 }
                 try {
-                    if (postingSatu(session, d, tbmuser)) {
+                    if (postingSatu(session, d, pengguna)) {
                         berhasil++;
                     } else {
                         masalah.put(d.referensi + ": jurnal ditolak (periode mungkin sudah ditutup).");
@@ -417,9 +434,9 @@ public final class PostingKantinLanjutanHelper {
             Date tanggal = m.tgl(4);
             String noFaktur = m.str(5);
             long idFaktur = m.lng(6);
-            boolean adaFaktur = m.ada(6) && idFaktur > 0;
+            boolean adaFaktur = m.ada(6);
             long idSupplier = m.lng(7);
-            boolean adaSupplier = m.ada(7) && idSupplier > 0;
+            boolean adaSupplier = m.ada(7);
             String noFakturHeader = m.str(8);
             String jenisBayar = m.str(9);
             double dibayarAwal = m.dbl(10);
@@ -550,7 +567,7 @@ public final class PostingKantinLanjutanHelper {
             Mentah m = barisMentah.get(bi);
             long id = m.lng(1);
             long idSupplier = m.lng(2);
-            boolean adaSupplier = m.ada(2) && idSupplier > 0;
+            boolean adaSupplier = m.ada(2);
             double nominal = m.dbl(3);
             Date tanggal = m.tgl(4);
             String metode = m.str(5);
@@ -677,7 +694,7 @@ public final class PostingKantinLanjutanHelper {
             double nilai = m.dbl(3);
             Date tanggal = m.tgl(4);
             long idSupplier = m.lng(5);
-            boolean adaSupplier = m.ada(5) && idSupplier > 0;
+            boolean adaSupplier = m.ada(5);
             String alasan = m.str(6);
             String namaProduk = m.str(7);
             String namaSupplier = m.str(8);
@@ -872,7 +889,7 @@ public final class PostingKantinLanjutanHelper {
             d.keterangan = "Mutasi " + namaProduk + " dari " + tokoAsal + " ke " + tokoTujuan;
 
             Produk pAsal = (Produk) session.get(Produk.class, Long.valueOf(idAsal));
-            Produk pTujuan = idTujuan > 0 ? (Produk) session.get(Produk.class, Long.valueOf(idTujuan)) : null;
+            Produk pTujuan = m.ada(3) ? (Produk) session.get(Produk.class, Long.valueOf(idTujuan)) : null;
             Akun akunAsal = AkunKantinUtil.akunPersediaan(session, pAsal, satker);
             Akun akunTujuan = pTujuan == null ? akunAsal : AkunKantinUtil.akunPersediaan(session, pTujuan, satker);
             double nilai = qty * hargaBeli;
