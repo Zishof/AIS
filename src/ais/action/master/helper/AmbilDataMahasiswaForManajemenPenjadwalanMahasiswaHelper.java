@@ -36,8 +36,10 @@ import org.zkoss.zul.Textbox;
 import org.zkoss.zul.Toolbar;
 
 import ais.common.Common;
+import ais.common.CommonSearchFilterHelper;
 import ais.common.listener.DataLoader;
 import ais.database.hibernate.HibernateUtil;
+import ais.database.model.Fakultas;
 import ais.database.model.Jurusan;
 import ais.database.model.Kelas;
 import ais.database.model.Mahasiswa;
@@ -150,6 +152,7 @@ public class AmbilDataMahasiswaForManajemenPenjadwalanMahasiswaHelper {
 	private final String program;
 	private final Integer semester;
 	private final Jurusan jurusan;
+	private final Fakultas fakultas;
 
 	// ---- Komponen UI + status runtime -------------------------------------------------------------
 
@@ -159,6 +162,8 @@ public class AmbilDataMahasiswaForManajemenPenjadwalanMahasiswaHelper {
 	private Intbox tahunangkatan;
 	private Textbox dariNim;
 	private Textbox sampaiNim;
+	private final Combobox searchfakultas = new Combobox();
+	private final Combobox searchjurusan = new Combobox();
 	private final Combobox searchstatusmahasiswa = new Combobox();
 	private final Paging paging;
 
@@ -186,6 +191,9 @@ public class AmbilDataMahasiswaForManajemenPenjadwalanMahasiswaHelper {
 		this.program = program;
 		this.semester = semester;
 		this.jurusan = jurusan;
+		this.fakultas = jurusan != null ? jurusan.getFakultas() : (kelas == null ? null : kelas.getFakultas());
+
+		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
 
 		paging = new Paging();
 		Common.initPaging(paging, new EventListener() {
@@ -194,6 +202,20 @@ public class AmbilDataMahasiswaForManajemenPenjadwalanMahasiswaHelper {
 				onSearchDefault(null);
 			}
 		});
+	}
+
+	private void pilihFilterKonteksKelas() {
+		if (fakultas != null) {
+			Common.selectComboItem(true, searchfakultas, fakultas);
+			if (jurusan != null) {
+				Common.insertCombo(searchjurusan, "nama", Jurusan.class,
+						Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)),
+						Restrictions.eq("fakultas", fakultas));
+			}
+		}
+		if (jurusan != null) {
+			Common.selectComboItem(true, searchjurusan, jurusan);
+		}
 	}
 
 	/**
@@ -376,6 +398,12 @@ public class AmbilDataMahasiswaForManajemenPenjadwalanMahasiswaHelper {
 		tambahGrupFilter(barisFilter, "Sampai NIM", sampaiNim);
 		nama = new Textbox();
 		tambahGrupFilter(barisFilter, "Nama mahasiswa", nama);
+
+		pilihFilterKonteksKelas();
+		tambahGrupFilter(barisFilter, "Fakultas", searchfakultas);
+		searchfakultas.setDisabled(fakultas != null);
+		tambahGrupFilter(barisFilter, "Prodi", searchjurusan);
+		searchjurusan.setDisabled(jurusan != null);
 
 		int tahunAwal = ais.ui.util.WaktuUtil.getCalendar().get(Calendar.YEAR);
 		if (tahunAjaran != null && !tahunAjaran.trim().isEmpty()) {
@@ -672,11 +700,17 @@ public class AmbilDataMahasiswaForManajemenPenjadwalanMahasiswaHelper {
 				.add(tahunangkatan.getValue() == null ? Restrictions.sqlRestriction("1=1")
 						: Restrictions.eq("tahunangkatan", tahunangkatan.getValue().intValue()))
 				.add(program == null ? Restrictions.sqlRestriction("1=1") : Restrictions.eq("program", program))
-				.add(jurusan == null ? Restrictions.sqlRestriction("1=1") : Restrictions.eq("jurusan", jurusan))
+				.add(searchjurusan.getSelectedItem() == null || searchjurusan.getSelectedItem().getValue() == null
+						? Restrictions.sqlRestriction("1=1")
+						: CommonSearchFilterHelper.eqSelectedWithId("jurusan", searchjurusan, false))
 				.add(teks(dariNim).isEmpty() ? Restrictions.sqlRestriction("1=1")
 						: Restrictions.ge("nim", teks(dariNim)))
 				.add(teks(sampaiNim).isEmpty() ? Restrictions.sqlRestriction("1=1")
-						: Restrictions.le("nim", teks(sampaiNim)));
+						: Restrictions.le("nim", teks(sampaiNim)))
+				.createCriteria("jurusan", Criteria.LEFT_JOIN)
+				.add(searchfakultas.getSelectedItem() == null || searchfakultas.getSelectedItem().getValue() == null
+						? Restrictions.sqlRestriction("1=1")
+						: CommonSearchFilterHelper.eqSelectedWithId("fakultas", searchfakultas, false));
 
 		return criteria;
 	}
