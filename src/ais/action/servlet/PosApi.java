@@ -661,6 +661,12 @@ public class PosApi extends HttpServlet {
 				// terima piutang customer, dan penyesuaian persediaan (retur/opname/mutasi).
 				ais.action.servlet.api.PostingKantinLanjutanHelper.proses(action, tbmuser, payload, hasil);
 				normalisasiStatusKantinHelper(hasil, action);
+			} else if (action.startsWith("jurnal_umum_")) {
+				// Jurnal Umum (jurnal manual) versi POS -- padanan layar ZK GrupTransaksiAction +
+				// TransaksiJurnalUmumHelper, memakai entitas yang sama sehingga bercampur mulus
+				// di satu buku besar.
+				ais.action.servlet.api.JurnalUmumApiHelper.proses(action, tbmuser, payload, hasil);
+				normalisasiStatusKantinHelper(hasil, action);
 			} else if (action.startsWith("pemetaan_akun_")) {
 				// Pemetaan akun -> Kelompok Laporan (pratinjau & terapkan). Menentukan apakah sebuah akun
 				// ikut terhitung di Laba Rugi/Neraca berbasis jurnal.
@@ -859,6 +865,24 @@ public class PosApi extends HttpServlet {
 				penjualan.put("keterangan", "Pratinjau dan posting pendapatan penjualan ke jurnal.");
 				penjualan.put("url", Common.ROOT + "/pages/master/koperasi/posting_penjualan_kantin.zul");
 				pendukung.put(penjualan);
+				// Empat posting penutup rantai pengadaan->pembayaran toko (2026-08-20). Tanpa ini
+				// Persediaan hanya pernah dikredit (oleh HPP) dan Utang Usaha tak pernah terbentuk.
+				String[][] postingToko = new String[][] {
+						{ "posting_kulakan", "Posting Kulakan",
+								"Jurnal pembelian persediaan: debet Persediaan, kredit Utang Supplier/Kas." },
+						{ "posting_bayar_hutang", "Posting Bayar Hutang",
+								"Jurnal pembayaran ke pemasok: debet Utang Supplier, kredit Kas/Bank." },
+						{ "posting_terima_piutang", "Posting Terima Piutang",
+								"Jurnal pelunasan piutang pelanggan: debet Kas/Bank, kredit Piutang." },
+						{ "posting_penyesuaian", "Posting Penyesuaian Persediaan",
+								"Jurnal retur beli/jual, selisih stok opname, dan mutasi antar outlet." } };
+				for (int iPt = 0; iPt < postingToko.length; iPt++) {
+					JSONObject pt = new JSONObject();
+					pt.put("id", postingToko[iPt][0]);
+					pt.put("judul", postingToko[iPt][1]);
+					pt.put("keterangan", postingToko[iPt][2]);
+					pendukung.put(pt);
+				}
 				hasil.put("pendukung", pendukung);
 			} else if ("laporan_keuangan_pendukung".equals(action)) {
 				prosesLaporanKeuanganPendukung(payload, hasil);

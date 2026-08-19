@@ -880,6 +880,17 @@ public final class LaporanKantinUtil {
                     + "   left join library.penyedia s2 on s2.id = pb.supplier "
                     + "   where coalesce(upper(pb.status_dok),'') not like '%BATAL%' "
                     + kondTanggalInline("pb.tanggal", tglMulai, tglSampai)
+                    + "   union all "
+                    // Dibayar di muka melekat pada fakturnya (bukan dokumen pembayaran tersendiri),
+                    // tetapi tetap mengurangi utang -- tanpa baris ini saldo di sini akan berbeda
+                    // dengan laporan Saldo Hutang per Supplier.
+                    + "   select coalesce(s3.nama,'Tanpa Nama Pemasok'), cast(pf2.tanggal_faktur as date), "
+                    + "     coalesce(pf2.nomor_faktur,'-'), 'Dibayar di muka', 0.0, coalesce(i2.dibayar_awal,0), pf2.id "
+                    + "   from koperasi.payable_faktur_info i2 "
+                    + "   join koperasi.pengadaan_faktur pf2 on pf2.id = i2.pengadaan_faktur "
+                    + "   left join library.penyedia s3 on s3.id = pf2.supplier "
+                    + "   where coalesce(i2.dibayar_awal,0) > 0 "
+                    + kondTanggalInline("pf2.tanggal_faktur", tglMulai, tglSampai)
                     + " ) x order by pemasok asc, tgl asc, urut asc ";
                 tipe = new String[]{"text","tgl","text","text","num","num","num"};
                 kolom.add(new Kolom("Pemasok","text")); kolom.add(new Kolom("Tanggal","tgl")); kolom.add(new Kolom("Referensi","text"));

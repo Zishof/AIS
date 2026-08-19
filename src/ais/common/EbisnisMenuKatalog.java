@@ -112,7 +112,18 @@ public final class EbisnisMenuKatalog {
 		DAFTAR.add(new Entri(MODUL_POS, "riwayatpenjualan", "Riwayat Penjualan", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "laporantransaksi", "Laporan Transaksi", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "laporan", "Laporan Katalog", "desktop", "android"));
-		DAFTAR.add(new Entri(MODUL_POS, "laporankeuangan", "Laporan Keuangan", "desktop", "android", "jsp"));
+		// Menu "Akuntansi" (2026-08-20): dulu satu tombol datar "Laporan Keuangan", sekarang
+		// grup yang bisa dibuka-tutup. Kunci "laporankeuangan" SENGAJA dipertahankan sebagai
+		// gerbang grupnya supaya hak akses role yang sudah ada tidak berubah artinya; submenu
+		// di bawahnya punya kuncinya sendiri agar admin bisa membatasi per layar.
+		DAFTAR.add(new Entri(MODUL_POS, "laporankeuangan", "Akuntansi (grup menu)", "desktop", "android", "jsp"));
+		DAFTAR.add(new Entri(MODUL_POS, "jurnal_umum", "Akuntansi: Jurnal Umum", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_POS, "posting_hpp", "Akuntansi: Posting HPP", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_POS, "posting_penjualan", "Akuntansi: Posting Penjualan", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_POS, "kode_akun", "Akuntansi: Kode Akun", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_POS, "grup_akun", "Akuntansi: Grup Akun", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_POS, "jenis_transaksi", "Akuntansi: Jenis Transaksi", "desktop", "android"));
+		DAFTAR.add(new Entri(MODUL_POS, "bank_akun", "Akuntansi: Bank", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "riwayatsinkronisasi", "Riwayat Sinkronisasi", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "logerror", "Log Error", "desktop", "android"));
 		DAFTAR.add(new Entri(MODUL_POS, "konfigurasi", "Konfigurasi (Desktop/Android)", "desktop", "android"));

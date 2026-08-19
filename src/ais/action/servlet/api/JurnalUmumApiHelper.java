@@ -63,6 +63,13 @@ public final class JurnalUmumApiHelper {
     /** Jenis PostingHistory untuk jurnal umum dari POS; dipakai juga sebagai pagar batal-posting. */
     public static final String JENIS_POSTING = "Jurnal Umum POS";
 
+    /** Kontrak tanggal API ini: yyyy-MM-dd (bukan format tampilan Indonesia milik Common). */
+    private static java.text.SimpleDateFormat iso() {
+        java.text.SimpleDateFormat f = new java.text.SimpleDateFormat("yyyy-MM-dd");
+        f.setLenient(false);
+        return f;
+    }
+
     private JurnalUmumApiHelper() {
     }
 
@@ -144,7 +151,7 @@ public final class JurnalUmumApiHelper {
                 j.put("id", rs.getLong(1));
                 j.put("kode", rs.getString(2));
                 j.put("tanggal", rs.getTimestamp(3) == null ? ""
-                        : Common.dateFormat3.get().format(rs.getTimestamp(3)));
+                        : iso().format(rs.getTimestamp(3)));
                 j.put("keterangan", rs.getString(4));
                 j.put("totalDebet", rs.getDouble(5));
                 j.put("totalKredit", rs.getDouble(6));
@@ -195,7 +202,7 @@ public final class JurnalUmumApiHelper {
             kepala.put("id", g.getId());
             kepala.put("kode", g.getKode() == null ? "" : g.getKode());
             kepala.put("tanggal", g.getTanggalTransaksi() == null ? ""
-                    : Common.dateFormat3.get().format(g.getTanggalTransaksi()));
+                    : iso().format(g.getTanggalTransaksi()));
             kepala.put("keterangan", g.getKeterangan() == null ? "" : g.getKeterangan());
             kepala.put("terposting", g.getPostingHistory() != null);
             kepala.put("jenisTransaksiId", g.getJenisTransaksi() == null ? JSONObject.NULL
@@ -261,7 +268,7 @@ public final class JurnalUmumApiHelper {
 
         Date tanggal;
         try {
-            tanggal = Common.dateFormat3.get().parse(tanggalTeks);
+            tanggal = iso().parse(tanggalTeks);
         } catch (Exception e) {
             tolak(hasil, "Format tanggal tidak dikenali (harap yyyy-MM-dd).");
             return;
@@ -307,9 +314,9 @@ public final class JurnalUmumApiHelper {
             Date maxClosing = (Date) session.createCriteria(Closing.class)
                     .setProjection(Projections.max("tanggal")).uniqueResult();
             if (maxClosing != null && tanggal.before(maxClosing)) {
-                tolak(hasil, "Tanggal jurnal (" + Common.dateFormat3.get().format(tanggal)
+                tolak(hasil, "Tanggal jurnal (" + iso().format(tanggal)
                         + ") sudah masuk periode yang ditutup buku sampai "
-                        + Common.dateFormat3.get().format(maxClosing)
+                        + iso().format(maxClosing)
                         + ". Gunakan tanggal setelah itu, atau minta bagian keuangan membuka kembali periodenya.");
                 return;
             }
@@ -613,7 +620,7 @@ public final class JurnalUmumApiHelper {
         try {
             Date maxClosing = (Date) session.createCriteria(Closing.class)
                     .setProjection(Projections.max("tanggal")).uniqueResult();
-            return maxClosing == null ? "" : Common.dateFormat3.get().format(maxClosing);
+            return maxClosing == null ? "" : iso().format(maxClosing);
         } catch (Exception e) {
             return "";
         }
