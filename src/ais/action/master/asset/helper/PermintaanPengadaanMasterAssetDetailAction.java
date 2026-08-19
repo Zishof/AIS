@@ -236,7 +236,10 @@ public class PermintaanPengadaanMasterAssetDetailAction extends MyDetail {
 				}
 			});
 
-			Hbox toolbar = new Hbox();
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dibungkus kebab popup (⋯)
+			// via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten antar layar.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			if (permintaanPengadaanMasterAssetDetail.getUangMuka() != null
 					&& permintaanPengadaanMasterAssetDetail.getUangMuka().getPertangungjawaban() != null
@@ -279,7 +282,7 @@ public class PermintaanPengadaanMasterAssetDetailAction extends MyDetail {
 					}
 
 				});
-				asset.setParent(toolbar);
+				aksiButtons.add(asset);
 
 				hapusAsset.setOrient("vertical");
 				hapusAsset.setDisabled(permintaanPengadaanMasterAssetDetail.getPermintaanPengadaanMasterAsset()
@@ -313,7 +316,7 @@ public class PermintaanPengadaanMasterAssetDetailAction extends MyDetail {
 					}
 
 				});
-				hapusAsset.setParent(toolbar);
+				aksiButtons.add(hapusAsset);
 
 			}
 
@@ -360,9 +363,10 @@ public class PermintaanPengadaanMasterAssetDetailAction extends MyDetail {
 					}
 
 				});
-				button.setParent(toolbar);
+				aksiButtons.add(button);
 			}
-			toolbar.setParent(row);
+
+			ais.ui.util.UIHelper.buatBarisAksi(row, 3, aksiButtons);
 
 		}
 	}

@@ -443,12 +443,11 @@ public class KelasPmbAction extends GenericAutowireComposer {
 				}
 			});
 
-			Vbox vbox = new Vbox();
-			vbox.setParent(arg0);
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dibungkus kebab popup (⋯)
+			// via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten antar layar.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
-			Hbox toolbar = new Hbox();
-			toolbar.setParent(vbox);
-			
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Ubah", "/img/svg/edit-box-line.svg");
 			button.setOrient("vertical");
 			button.setTooltiptext("Ubah Data");
@@ -461,7 +460,7 @@ public class KelasPmbAction extends GenericAutowireComposer {
 					addWindow.onModal();
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Hapus", "/img/svg/trash.svg");
 			button.setOrient("vertical");
@@ -489,7 +488,9 @@ public class KelasPmbAction extends GenericAutowireComposer {
 							});
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 	}
 

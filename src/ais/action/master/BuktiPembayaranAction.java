@@ -225,7 +225,10 @@ public class BuktiPembayaranAction extends GenericAutowireComposer implements Da
 			new Label(Common.numberFormat.get().format(buktiPembayaran.getNilai())).setParent(arg0);
 			new Label(buktiPembayaran.getKeterangan()).setParent(arg0);
 
-			Hbox toolbar = new Hbox();
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dikumpulkan lalu dibungkus
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 			if (buktiPembayaran.getCicilanPembayaran() == null) {
 
 				MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Validasi",
@@ -275,7 +278,7 @@ public class BuktiPembayaranAction extends GenericAutowireComposer implements Da
 						}
 					}
 				});
-				button.setParent(toolbar);
+				aksiButtons.add(button);
 
 				button = new MyToolbarbuttonConfig("Edit", "/img/svg/edit-box-line.svg");
 				button.setTooltiptext("Ubah Data");
@@ -290,7 +293,7 @@ public class BuktiPembayaranAction extends GenericAutowireComposer implements Da
 					}
 
 				});
-				button.setParent(toolbar);
+				aksiButtons.add(button);
 
 				button = new MyToolbarbuttonConfig("Hapus", "/img/svg/trash.svg");
 				button.setTooltiptext("Hapus Data");
@@ -327,7 +330,7 @@ public class BuktiPembayaranAction extends GenericAutowireComposer implements Da
 
 					}
 				});
-				button.setParent(toolbar);
+				aksiButtons.add(button);
 			} else {
 				MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Cetak", "/img/print.png");
 				button.setTooltiptext("Cetak");
@@ -344,9 +347,9 @@ public class BuktiPembayaranAction extends GenericAutowireComposer implements Da
 						}
 					}
 				});
-				button.setParent(toolbar);
+				aksiButtons.add(button);
 			}
-			toolbar.setParent(arg0);
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 
 	}

@@ -1551,8 +1551,9 @@ public class GrupTransaksiAction extends GenericAutowireComposer implements Data
 			}
 			grid.setParent(arg0);
 
-			Hbox toolbar = new Hbox();
-			toolbar.setParent(arg0);
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/print.png");
 			button.setTooltiptext("Cetak");
 			button.setDisabled(!balance);
@@ -1570,7 +1571,7 @@ public class GrupTransaksiAction extends GenericAutowireComposer implements Data
 					buktiPengeluaranKas.onModal();
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			if (!semua) {
 
@@ -1600,7 +1601,7 @@ public class GrupTransaksiAction extends GenericAutowireComposer implements Data
 					}
 
 				});
-				button.setParent(toolbar);
+				aksiButtons.add(button);
 
 				button = new MyToolbarbuttonConfig("", "/img/svg/check2-circle.svg");
 				button.setTooltiptext("Posting Data Jurnal");
@@ -1683,7 +1684,7 @@ public class GrupTransaksiAction extends GenericAutowireComposer implements Data
 					}
 
 				});
-				button.setParent(toolbar);
+				aksiButtons.add(button);
 
 				button = new MyToolbarbuttonConfig("", "/img/svg/edit-box-line.svg");
 				button.setTooltiptext("Ubah Data");
@@ -1704,7 +1705,7 @@ public class GrupTransaksiAction extends GenericAutowireComposer implements Data
 					}
 
 				});
-				button.setParent(toolbar);
+				aksiButtons.add(button);
 
 			}
 
@@ -1745,7 +1746,9 @@ public class GrupTransaksiAction extends GenericAutowireComposer implements Data
 
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 
 			if (delete && edit && grupTransaksi.getPostingHistory() != null) {
 				final MyCheckboxConfig checkbox = new MyCheckboxConfig("Posting");

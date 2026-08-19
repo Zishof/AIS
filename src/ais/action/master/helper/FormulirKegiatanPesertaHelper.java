@@ -302,7 +302,8 @@ public class FormulirKegiatanPesertaHelper implements DataLoader, DataCriteria, 
 			cetakToolbarbuttonSertifikat
 					.setVisible(formulirKegiatanPeserta.getAcc() && formulirKegiatan.getSertifikat() != null);
 
-			final Hbox toolbar = new Hbox();
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			MyToolbarbuttonConfig cetakToolbarbutton = new MyToolbarbuttonConfig("Cetak", "/img/print.png");
 			cetakToolbarbutton.setOrient("vertical");
@@ -320,7 +321,7 @@ public class FormulirKegiatanPesertaHelper implements DataLoader, DataCriteria, 
 					lingkunganKampus.onModal();
 				}
 			});
-			cetakToolbarbutton.setParent(toolbar);
+			aksiButtons.add(cetakToolbarbutton);
 			cetakToolbarbutton
 					.setVisible(tbmuser != null && tbmuser.ambilGuru() == null && tbmuser.ambilDosen() == null);
 
@@ -331,7 +332,7 @@ public class FormulirKegiatanPesertaHelper implements DataLoader, DataCriteria, 
 					SertifikatAction.cetakSertifikat(formulirKegiatanPeserta);
 				}
 			});
-			cetakToolbarbuttonSertifikat.setParent(toolbar);
+			aksiButtons.add(cetakToolbarbuttonSertifikat);
 
 			deleteButton.setVisible(boleh && !formulirKegiatanPeserta.getAcc() && tbmuser != null
 					&& tbmuser.ambilGuru() == null && tbmuser.ambilDosen() == null);
@@ -369,8 +370,9 @@ public class FormulirKegiatanPesertaHelper implements DataLoader, DataCriteria, 
 				}
 
 			});
-			deleteButton.setParent(toolbar);
-			toolbar.setParent(row);
+			aksiButtons.add(deleteButton);
+
+			ais.ui.util.UIHelper.buatBarisAksi(row, 3, aksiButtons);
 
 		}
 

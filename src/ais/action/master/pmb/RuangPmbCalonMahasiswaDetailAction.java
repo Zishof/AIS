@@ -151,6 +151,10 @@ public class RuangPmbCalonMahasiswaDetailAction extends MyDetail implements Data
 			}
 			vbox.setParent(arg0);
 
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Hapus", "/img/svg/trash.svg");
 			button.setOrient("vertical");
 			button.setTooltiptext("Hapus Data");
@@ -193,7 +197,9 @@ public class RuangPmbCalonMahasiswaDetailAction extends MyDetail implements Data
 
 				}
 			});
-			button.setParent(arg0);
+			aksiButtons.add(button);
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 
 	}

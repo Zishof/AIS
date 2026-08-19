@@ -68,13 +68,25 @@ public class AmbilImageItemPerHalaman extends HttpServlet {
 		ServletContext sc = getServletContext();
 
 		String filename = "";
+		org.hibernate.Transaction streamingTx = null;
 		try {
 			streamingSession = StreamingHibernateUtil.getInstance().openSession();
+			/* KE-FIX ("Large Objects may not be used in auto-commit mode"): BLOB foto halaman
+			 * di PostgreSQL adalah Large Object yang HANYA boleh dibaca di dalam transaksi.
+			 * Tanpa transaksi, koneksi berada pada mode auto-commit dan blob.getBinaryStream()
+			 * langsung gagal sehingga gambar tidak pernah tampil. Transaksi ini murni BACA:
+			 * di-commit setelah berkas selesai ditulis, dan di-rollback bila terjadi error. */
+			streamingTx = streamingSession.beginTransaction();
 			filename = loadFile(request, resp, streamingSession)
 					.getAbsolutePath();
+			streamingTx.commit();
+			streamingTx = null;
 		} catch (Exception e) {
 			Common.tampilErrorJikaAdmin(e);
 		} finally {
+			if (streamingTx != null) {
+				try { streamingTx.rollback(); } catch (Exception e2) { ais.common.ErrorAuditUtil.record(e2, "auto-audit(empty-catch) src/ais/action/servlet/AmbilImageItemPerHalaman.java:blob-tx-rollback");}
+			}
 			if (streamingSession != null) {
 				try { streamingSession.clear(); } catch (Exception e2) { ais.common.ErrorAuditUtil.record(e2, "auto-audit(empty-catch) src/ais/action/servlet/AmbilImageItemPerHalaman.java:79");}
 				try { streamingSession.disconnect(); } catch (Exception e2) { ais.common.ErrorAuditUtil.record(e2, "auto-audit(empty-catch) src/ais/action/servlet/AmbilImageItemPerHalaman.java:80");}

@@ -238,7 +238,10 @@ public class PklUntukMahasiswaAction extends GenericAutowireComposer {
 				arg0.appendChild(new Label());
 			}
 
-			Hbox toolbar = new Hbox();
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dikumpulkan lalu dibungkus
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Daftar", "/img/svg/check2-circle.svg");
 			button.setTooltiptext("Daftar");
 			button.setOrient("vertical");
@@ -250,7 +253,7 @@ public class PklUntukMahasiswaAction extends GenericAutowireComposer {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			Calendar calendar = ais.ui.util.WaktuUtil.getCalendar();
 			calendar.set(Calendar.DATE, calendar.get(Calendar.DATE) - 1);
@@ -275,7 +278,7 @@ public class PklUntukMahasiswaAction extends GenericAutowireComposer {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			MyToolbarbuttonConfig cetak = new MyToolbarbuttonConfig("Cetak Bukti", "/img/print.png");
 			cetak.setOrient("vertical");
@@ -295,10 +298,10 @@ public class PklUntukMahasiswaAction extends GenericAutowireComposer {
 							ais.ui.util.WaktuUtil.getDate());
 				}
 			});
-			cetak.setParent(toolbar);
+			aksiButtons.add(cetak);
 			cetak.setVisible(mahasiswaDaftarPkl != null);
 
-			toolbar.setParent(arg0);
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 
 	}

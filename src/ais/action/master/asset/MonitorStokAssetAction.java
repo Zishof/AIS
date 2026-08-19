@@ -337,8 +337,8 @@ public class MonitorStokAssetAction extends GenericAutowireComposer {
 		 *   <li>Mengambil transaksi terakhir per aset via query Hibernate criteria
 		 *       (ORDER BY tanggalDanWaktu DESC, LIMIT 1) dan menampilkannya sebagai
 		 *       Label dengan format: tanggal + kode transaksi + nama transaksi + info detail.</li>
-		 *   <li>Membangun Vbox berisi Hbox toolbar dengan dua tombol per baris:
-		 *       tombol "Stok" untuk cetak {@code LaporanStokItem} dan tombol "Track"
+		 *   <li>Membangun kolom aksi kebab popup (⋯) via {@code UIHelper.buatBarisAksi}
+		 *       berisi tombol "Stok" untuk cetak {@code LaporanStokItem} dan tombol "Track"
 		 *       untuk cetak {@code LaporanTrackingStokItem}.</li>
 		 * </ol>
 		 * <b>Parameter:</b>
@@ -411,11 +411,11 @@ public class MonitorStokAssetAction extends GenericAutowireComposer {
 							+ " - " + DetailTransaksiAssetHelper.dapatkanInfo(detailTransaksi)))
 					.setParent(arg0);
 
-			Vbox vbox = new Vbox();
-			vbox.setParent(arg0);
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dibungkus kebab popup (⋯)
+			// via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten antar layar.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
-			Hbox toolbar = new Hbox();
-			toolbar.setParent(vbox);
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Stok", "/img/print.png");
 			button.setOrient("vertical");
 			button.setTooltiptext("Cetak Stok");
@@ -434,7 +434,7 @@ public class MonitorStokAssetAction extends GenericAutowireComposer {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Track", "/img/print.png");
 			button.setOrient("vertical");
@@ -454,9 +454,9 @@ public class MonitorStokAssetAction extends GenericAutowireComposer {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
-			toolbar.setParent(vbox);
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 
 		}
 

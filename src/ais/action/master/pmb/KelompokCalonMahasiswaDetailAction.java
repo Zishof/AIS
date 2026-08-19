@@ -142,6 +142,10 @@ public class KelompokCalonMahasiswaDetailAction extends MyDetail implements Data
 
 			new Label(calonMahasiswa.getKelompokCalonMahasiswa() == null ? "Tidak" : "Ya").setParent(arg0);
 
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Hapus Manual", "/img/svg/trash.svg");
 			button.setVisible(calonMahasiswa.getKelompokCalonMahasiswa() != null);
 			button.setOrient("vertical");
@@ -182,7 +186,9 @@ public class KelompokCalonMahasiswaDetailAction extends MyDetail implements Data
 
 				}
 			});
-			button.setParent(arg0);
+			aksiButtons.add(button);
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 	}
 

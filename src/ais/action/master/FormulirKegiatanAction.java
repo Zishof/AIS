@@ -818,10 +818,15 @@ public class FormulirKegiatanAction extends GenericAutowireComposer implements D
 			Vbox vbox1 = new Vbox();
 			vbox1.setParent(arg0);
 
-			Hbox toolbar;
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dikumpulkan lalu dibungkus
+			// kebab popup (⋯) via UIHelper.buatBarisAksi. Label status (Acc / feeder) bukan
+			// tombol aksi sehingga tetap ditampilkan langsung di sel, bukan di dalam kebab.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
-			(toolbar = Common.copyEditDeleteButtons(edit, edit, delete, formulirKegiatan, FormulirKegiatanAction.this,
-					true)).setParent(vbox1);
+			Hbox tempCrud = Common.copyEditDeleteButtons(edit, edit, delete, formulirKegiatan,
+					FormulirKegiatanAction.this, true);
+			aksiButtons.addAll(ais.ui.util.UIHelper.ambilItemAksi(tempCrud));
 
 			if (formulirKegiatan.getJenisFormulirKegiatan() != null) {
 				MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Cetak", "/img/print.png");
@@ -843,11 +848,11 @@ public class FormulirKegiatanAction extends GenericAutowireComposer implements D
 					}
 
 				});
-				button.setParent(toolbar);
+				aksiButtons.add(button);
 			}
 
 			if (formulirKegiatanPeserta != null) {
-				toolbar.appendChild(new Label("Acc : " + (formulirKegiatanPeserta.getAcc() ? "YA" : "BELUM")));
+				vbox1.appendChild(new Label("Acc : " + (formulirKegiatanPeserta.getAcc() ? "YA" : "BELUM")));
 
 				MyToolbarbuttonConfig cetakToolbarbutton = new MyToolbarbuttonConfig("Cetak Form", "/img/print.png");
 				cetakToolbarbutton.setOrient("vertical");
@@ -866,7 +871,7 @@ public class FormulirKegiatanAction extends GenericAutowireComposer implements D
 						lingkunganKampus.onModal();
 					}
 				});
-				cetakToolbarbutton.setParent(toolbar);
+				aksiButtons.add(cetakToolbarbutton);
 
 				if (formulirKegiatanPeserta.getAcc()
 						&& formulirKegiatanPeserta.getFormulirKegiatan().getSertifikat() != null) {
@@ -881,7 +886,7 @@ public class FormulirKegiatanAction extends GenericAutowireComposer implements D
 							SertifikatAction.cetakSertifikat(formulirKegiatanPeserta);
 						}
 					});
-					cetakToolbarbuttonSertifikat.setParent(toolbar);
+					aksiButtons.add(cetakToolbarbuttonSertifikat);
 				}
 			}
 
@@ -902,7 +907,7 @@ public class FormulirKegiatanAction extends GenericAutowireComposer implements D
 				MyToolbarbuttonConfig buttonTagihan = new MyToolbarbuttonConfig("Krm ke feeder",
 						"/img/Finance-Invoice-icon.png");
 				buttonTagihan.setStyle("font-size:8px;");
-				buttonTagihan.setParent(vbox1);
+				aksiButtons.add(buttonTagihan);
 				buttonTagihan.addEventListener("onClick", new EventListener() {
 
 					@Override
@@ -1028,6 +1033,8 @@ public class FormulirKegiatanAction extends GenericAutowireComposer implements D
 				});
 
 			}
+
+			ais.ui.util.UIHelper.buatBarisAksi(vbox1, 3, aksiButtons);
 		}
 
 	}

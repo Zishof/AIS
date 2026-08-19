@@ -758,10 +758,15 @@ public class KasBesarAction extends GenericAutowireComposer
 
 			DaftarPengajuanTransfer.tampilStatus(kasBesar.getDaftarPengajuanTransfer(), vbox1);
 
-			Hbox hbx;
-			(hbx = Common.copyEditDeleteButtons(edit, !persetujuan && !kasBesar.getStatus().equals(KasBesar.DISETUJU),
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+
+			Hbox hbx = Common.copyEditDeleteButtons(edit,
+					!persetujuan && !kasBesar.getStatus().equals(KasBesar.DISETUJU),
 					delete && !persetujuan && !kasBesar.getStatus().equals(KasBesar.DISETUJU), kasBesar,
-					KasBesarAction.this)).setParent(arg0);
+					KasBesarAction.this);
+			aksiButtons.addAll(ais.ui.util.UIHelper.ambilItemAksi(hbx));
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/print.png");
 			button.setTooltiptext("Cetak");
@@ -774,7 +779,9 @@ public class KasBesarAction extends GenericAutowireComposer
 				}
 
 			});
-			button.setParent(hbx);
+			aksiButtons.add(button);
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 
 	}

@@ -549,13 +549,13 @@ public class CutiDanIzinAction extends GenericAutowireComposer
 				new Label(cutiData.getMemotongJatahCuti() ? "Ya" : "Tidak").setParent(arg0);
 			}
 
-			Hbox hb;
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+
 			if (!cutiData.getSetujui()) {
-				hb = Common.copyEditDeleteButtons(edit, delete, cutiData, CutiDanIzinAction.this);
-				hb.setParent(arg0);
-			} else {
-				hb = new Hbox();
-				hb.setParent(arg0);
+				Hbox hb = Common.copyEditDeleteButtons(edit, delete, cutiData, CutiDanIzinAction.this);
+				aksiButtons.addAll(ais.ui.util.UIHelper.ambilItemAksi(hb));
 			}
 
 			if (cutiData.getJenisCutiDanIzin() != null) {
@@ -568,8 +568,10 @@ public class CutiDanIzinAction extends GenericAutowireComposer
 						LaporanCutiDanIzin.cetak(cutiData);
 					}
 				});
-				button.setParent(hb);
+				aksiButtons.add(button);
 			}
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 
 		private boolean isBawahanChecker(Pegawai p) {

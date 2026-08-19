@@ -465,12 +465,16 @@ public class TransaksiKoperasiAction extends GenericAutowireComposer
 					.add(Restrictions.isNotNull("pembayaranAnggotaKoperasiDetail"))
 					.setProjection(Projections.rowCount()).uniqueResult()).intValue();
 
-			Hbox hbx;
-			(hbx = Common.copyEditDeleteButtons(edit,
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+
+			Hbox hbx = Common.copyEditDeleteButtons(edit,
 					!persetujuan && !transaksiKoperasi.getStatus().equals(TransaksiKoperasi.DISETUJU),
 					count == 0 && delete && !persetujuan
 							&& !transaksiKoperasi.getStatus().equals(TransaksiKoperasi.DISETUJU),
-					transaksiKoperasi, TransaksiKoperasiAction.this)).setParent(arg0);
+					transaksiKoperasi, TransaksiKoperasiAction.this);
+			aksiButtons.addAll(ais.ui.util.UIHelper.ambilItemAksi(hbx));
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/print.png");
 			button.setTooltiptext("Cetak");
@@ -483,7 +487,9 @@ public class TransaksiKoperasiAction extends GenericAutowireComposer
 				}
 
 			});
-			button.setParent(hbx);
+			aksiButtons.add(button);
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 
 	}

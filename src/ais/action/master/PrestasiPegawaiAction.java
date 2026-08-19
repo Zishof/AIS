@@ -557,7 +557,13 @@ public class PrestasiPegawaiAction extends GenericAutowireComposer implements Da
 			new Label(prestasiPegawai.getCapaian()).setParent(arg0);
 
 			new Label(prestasiPegawai.getNomorSertifikat()).setParent(arg0);
-			final Hbox toolbar = new Hbox();
+
+			// Kolom aksi rapi: semua tombol dibungkus kebab popup (⋯) via UIHelper.buatBarisAksi.
+			// aksiBoxRef menampung Vbox pembungkus supaya visibilitas grup tetap bisa
+			// diubah dari listener Combobox status (perilaku sama dgn Hbox toolbar lama).
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+			final Vbox[] aksiBoxRef = new Vbox[1];
 
 			if (tbmuser != null && tbmuser.getPegawai() != null && prestasiPegawai.getPegawai() != null
 					&& !prestasiPegawai.getPegawai().getId().equals(tbmuser.getPegawai().getId()) && (
@@ -610,7 +616,9 @@ public class PrestasiPegawaiAction extends GenericAutowireComposer implements Da
 								|| status.getSelectedItem().getValue() == null ? null
 										: status.getSelectedItem().getValue()));
 						Common.refreshUpdate(prestasiPegawai);
-						toolbar.setVisible(!prestasiPegawai.getStatus().equals(PrestasiPegawai.DISETUJUI));
+						if (aksiBoxRef[0] != null) {
+							aksiBoxRef[0].setVisible(!prestasiPegawai.getStatus().equals(PrestasiPegawai.DISETUJUI));
+						}
 					}
 				};
 				status.addEventListener("onChange", eventListener);
@@ -620,7 +628,6 @@ public class PrestasiPegawaiAction extends GenericAutowireComposer implements Da
 
 			new Label(prestasiPegawai.getKeterangan()).setParent(arg0);
 
-			toolbar.setVisible(!prestasiPegawai.getStatus().equals(PrestasiPegawai.DISETUJUI) && tbmuser != null);
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/svg/edit-box-line.svg");
 			button.setTooltiptext("Ubah Data");
 			button.addEventListener("onClick", new EventListener() {
@@ -632,7 +639,7 @@ public class PrestasiPegawaiAction extends GenericAutowireComposer implements Da
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 			button.setTooltiptext("Hapus Data");
@@ -670,8 +677,10 @@ public class PrestasiPegawaiAction extends GenericAutowireComposer implements Da
 
 				}
 			});
-			button.setParent(toolbar);
-			toolbar.setParent(arg0);
+			aksiButtons.add(button);
+
+			aksiBoxRef[0] = ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
+			aksiBoxRef[0].setVisible(!prestasiPegawai.getStatus().equals(PrestasiPegawai.DISETUJUI) && tbmuser != null);
 		}
 
 	}

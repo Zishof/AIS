@@ -128,10 +128,10 @@ public class CetakRegistrasiSederhanaAction extends GenericAutowireComposer impl
 			new Label(calonMahasiswa.getGelombangPendaftaran() == null ? ""
 					: calonMahasiswa.getGelombangPendaftaran().getNama()).setParent(arg0);
 
-			Vbox myVbox = new Vbox();
-			myVbox.setParent(arg0);
-			Hbox toolbar = new Hbox();
-			toolbar.setParent(myVbox);
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dibungkus kebab popup (⋯)
+			// via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten antar layar.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Edit", "/img/svg/edit-box-line.svg");
 			button.setOrient("vertical");
@@ -143,7 +143,7 @@ public class CetakRegistrasiSederhanaAction extends GenericAutowireComposer impl
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Hapus", "/img/svg/trash.svg");
 			button.setOrient("vertical");
@@ -184,7 +184,9 @@ public class CetakRegistrasiSederhanaAction extends GenericAutowireComposer impl
 
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 
 		}
 

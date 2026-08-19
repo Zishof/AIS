@@ -166,11 +166,8 @@ public class PembayaranGajiPunyaPegawaiHelper {
 		});
 
 		if (pembayaranGaji.getId() != null) {
-			Vbox vbox2 = new Vbox();
-			vbox2.setParent(row);
-
-			Hbox toolbar = new Hbox();
-			vbox2.appendChild(toolbar);
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			Toolbarbutton button = new MyToolbarbuttonConfig("", "/img/print.png");
 			button.setOrient("vertical");
@@ -193,7 +190,7 @@ public class PembayaranGajiPunyaPegawaiHelper {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/process.svg");
 			button.setTooltiptext("Hitung Ulang");
@@ -256,7 +253,7 @@ public class PembayaranGajiPunyaPegawaiHelper {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			if (pembayaranGaji.getDisetujuiOleh() == null) {
 				button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
@@ -301,10 +298,7 @@ public class PembayaranGajiPunyaPegawaiHelper {
 					}
 
 				});
-				button.setParent(toolbar);
-
-				toolbar = new Hbox();
-				vbox2.appendChild(toolbar);
+				aksiButtons.add(button);
 
 			}
 
@@ -339,7 +333,7 @@ public class PembayaranGajiPunyaPegawaiHelper {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/check2.svg");
 			button.setOrient("vertical");
@@ -376,7 +370,9 @@ public class PembayaranGajiPunyaPegawaiHelper {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
+
+			ais.ui.util.UIHelper.buatBarisAksi(row, 3, aksiButtons);
 		} else {
 			new Label().setParent(row);
 		}

@@ -833,17 +833,14 @@ public class TugasMandiriSiswaHelper {
 
 			}
 
-			Hbox hbox = new Hbox();
-
-			hbox.setVisible(siswa == null || siswa.getId().equals(tugasFileContent.getSiswa()));
-
-			hbox.setParent(arg0);
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			MyToolbarbuttonConfig toolbarbutton = new MyToolbarbuttonConfig("", tugasFileContent.iconDonwload());
 			toolbarbutton.setVisible(tbmuser != null && tbmuser.getSiswa() == null
 					|| (tbmuser.getSiswa() != null && tbmuser.getSiswa().getId().equals(tugasFileContent.getSiswa())));
 			toolbarbutton.setOrient("vertical");
-			toolbarbutton.setParent(hbox);
+			aksiButtons.add(toolbarbutton);
 			toolbarbutton.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
@@ -883,7 +880,7 @@ public class TugasMandiriSiswaHelper {
 				toolbarbutton.setVisible(false);
 			}
 
-			toolbarbutton.setParent(hbox);
+			aksiButtons.add(toolbarbutton);
 			toolbarbutton.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
@@ -919,6 +916,9 @@ public class TugasMandiriSiswaHelper {
 				}
 
 			});
+
+			Vbox aksiBox = ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
+			aksiBox.setVisible(siswa == null || siswa.getId().equals(tugasFileContent.getSiswa()));
 		}
 	}
 }

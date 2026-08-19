@@ -1026,7 +1026,12 @@ public class PrestasiMahasiswaAction extends GenericAutowireComposer implements 
 			new Label(prestasiMahasiswa.getCapaian()).setParent(arg0);
 
 			new Label(prestasiMahasiswa.getNomorSertifikat()).setParent(arg0);
-			final Hbox toolbar = new Hbox();
+			// Kolom aksi rapi: tombol Ubah/Hapus dibungkus kebab popup (⋯) via UIHelper.buatBarisAksi.
+			// aksiBoxRef menampung Vbox pembungkus supaya visibilitas grup tetap bisa
+			// diubah dari listener Combobox status (perilaku sama dgn Hbox toolbar lama).
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+			final Vbox[] aksiBoxRef = new Vbox[1];
 			final MyToolbarbuttonConfig buttonTagihan = new MyToolbarbuttonConfig("Krm ke feeder",
 					"/img/Finance-Invoice-icon.png");
 			final Hbox myHbox = new Hbox();
@@ -1062,7 +1067,9 @@ public class PrestasiMahasiswaAction extends GenericAutowireComposer implements 
 								|| status.getSelectedItem().getValue() == null ? null
 										: status.getSelectedItem().getValue()));
 						Common.refreshUpdate(prestasiMahasiswa);
-						toolbar.setVisible(!prestasiMahasiswa.getStatus().equals(PrestasiMahasiswa.DISETUJUI));
+						if (aksiBoxRef[0] != null) {
+							aksiBoxRef[0].setVisible(!prestasiMahasiswa.getStatus().equals(PrestasiMahasiswa.DISETUJUI));
+						}
 
 						if (tbmuser != null && Common.getApakahAdminBolehAksesFeeder()
 								&& Common.bolehKonfigurasi("aktifkan_terhubung_langsung_ke_feeder")) {
@@ -1091,8 +1098,6 @@ public class PrestasiMahasiswaAction extends GenericAutowireComposer implements 
 
 			new Label(prestasiMahasiswa.getKeterangan()).setParent(arg0);
 
-			toolbar.setVisible(!prestasiMahasiswa.getStatus().equals(PrestasiMahasiswa.DISETUJUI) && tbmuser != null);
-
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/svg/edit-box-line.svg");
 			button.setTooltiptext("Ubah Data");
 			// button.setVisible(edit);
@@ -1105,7 +1110,7 @@ public class PrestasiMahasiswaAction extends GenericAutowireComposer implements 
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 			button.setTooltiptext("Hapus Data");
@@ -1144,12 +1149,16 @@ public class PrestasiMahasiswaAction extends GenericAutowireComposer implements 
 
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			Vbox vbox1 = new Vbox();
 			vbox1.setParent(arg0);
 
-			toolbar.setParent(vbox1);
+			// Sel aksi ini juga memuat konten NON-tombol (indikator feeder + tombol
+			// kirim feeder dgn kondisi visibilitas sendiri), jadi kebab dipasang ke
+			// vbox1 (sel yang sudah ada), bukan langsung ke Row.
+			aksiBoxRef[0] = ais.ui.util.UIHelper.buatBarisAksi(vbox1, 3, aksiButtons);
+			aksiBoxRef[0].setVisible(!prestasiMahasiswa.getStatus().equals(PrestasiMahasiswa.DISETUJUI) && tbmuser != null);
 
 			myHbox.setParent(vbox1);
 

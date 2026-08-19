@@ -1613,8 +1613,10 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 				}
 			});
 
-			Hbox toolbar = new Hbox();
-			toolbar.setHeight("30px");
+			// Kolom aksi rapi: semua tombol dibungkus kebab popup (⋯) via UIHelper.buatBarisAksi.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/svg/edit-box-line.svg");
 			button.setTooltiptext("Ubah Data");
 			button.setVisible(edit);
@@ -1628,7 +1630,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/edit-copy.svg");
 			button.setTooltiptext("Copy Data");
@@ -1658,7 +1660,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 			button.setTooltiptext("Hapus Data");
@@ -1742,7 +1744,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			if ((job.getRoleId() != null && job.getRoleId().equals(Tbmrole.DOSEN))
 					|| (job.getRoleId() != null && job.getRoleId().equals(Tbmrole.GURU))
@@ -1752,7 +1754,7 @@ public class TbmroleAction extends GenericAutowireComposer implements DataCriter
 				button.setVisible(false);
 			}
 
-			toolbar.setParent(arg0);
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 
 	}

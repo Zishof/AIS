@@ -255,7 +255,15 @@ public class JenisShiftPegawaiAction extends GenericAutowireComposer implements 
 				}
 			});
 
-			Common.copyEditDeleteButtons(edit, delete, jenisShiftPegawai, JenisShiftPegawaiAction.this).setParent(arg0);
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+
+			org.zkoss.zul.Hbox hbxAksi = Common.copyEditDeleteButtons(edit, delete, jenisShiftPegawai,
+					JenisShiftPegawaiAction.this);
+			aksiButtons.addAll(ais.ui.util.UIHelper.ambilItemAksi(hbxAksi));
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 
 	}

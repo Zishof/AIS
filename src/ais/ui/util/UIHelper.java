@@ -149,6 +149,55 @@ public class UIHelper {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // ambilItemAksi — ekstrak tombol aksi dari Hbox hasil copyEditDeleteButtons
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Ambil daftar TOMBOL AKSI dari sebuah Hbox aksi baris (mis. hasil
+     * {@code Common.copyEditDeleteButtons(...)}) untuk digabung ke daftar aksi lain
+     * sebelum dikirim ke {@link #buatBarisAksi(Component, int, List)}.
+     *
+     * <p><b>Kenapa perlu.</b> {@code copyEditDeleteButtons} SUDAH membangun kebab sendiri:
+     * anak LANGSUNG Hbox-nya adalah {@code Popup} (berisi Div item Ubah/Salin/Hapus) dan
+     * tombol pemicu "⋯" — BUKAN tombolnya. Memakai {@code hbox.getChildren()} apa adanya
+     * membuat kebab BERSARANG dua tingkat (pengguna harus klik "⋯" dua kali). Method ini
+     * menembus ke isi popup lewat atribut {@code ais_row_actions_popup} sehingga yang
+     * terkumpul adalah tombol aksinya langsung.</p>
+     *
+     * <p>Bila Hbox ternyata berisi tombol biasa (bukan pola kebab), tombol tersebut
+     * dikembalikan apa adanya — aman dipakai untuk kedua bentuk.</p>
+     *
+     * @param hbox Hbox aksi baris; boleh {@code null} (mengembalikan daftar kosong)
+     * @return daftar komponen tombol aksi, tidak pernah {@code null}
+     */
+    public static List<Component> ambilItemAksi(Hbox hbox) {
+        List<Component> hasil = new ArrayList<Component>();
+        if (hbox == null) {
+            return hasil;
+        }
+        Object attr = hbox.getAttribute("ais_row_actions_popup");
+        if (attr instanceof Div) {
+            // Pola kebab: item aksi ada di dalam Div konten popup.
+            for (Object anak : new ArrayList<Object>(((Div) attr).getChildren())) {
+                if (anak instanceof Component) {
+                    hasil.add((Component) anak);
+                }
+            }
+            return hasil;
+        }
+        // Pola lama: tombol adalah anak langsung Hbox (lewati Popup bila ada).
+        for (Object anak : new ArrayList<Object>(hbox.getChildren())) {
+            if (anak instanceof Popup) {
+                continue;
+            }
+            if (anak instanceof Component) {
+                hasil.add((Component) anak);
+            }
+        }
+        return hasil;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // addToKebab — tambahkan satu tombol ke popup yang sudah ada
     // ─────────────────────────────────────────────────────────────────────────
 

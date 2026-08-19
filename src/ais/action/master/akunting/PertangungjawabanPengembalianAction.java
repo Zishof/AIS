@@ -602,8 +602,9 @@ public class PertangungjawabanPengembalianAction extends GenericAutowireComposer
 				}
 			});
 
-			Hbox hbx = new Hbox();
-			hbx.setParent(arg0);
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/print.png");
 			button.setTooltiptext("Cetak");
@@ -615,7 +616,9 @@ public class PertangungjawabanPengembalianAction extends GenericAutowireComposer
 					cetak(pertangungjawaban);
 				}
 			});
-			button.setParent(hbx);
+			aksiButtons.add(button);
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 
 	}

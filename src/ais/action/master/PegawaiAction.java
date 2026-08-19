@@ -906,13 +906,11 @@ public class PegawaiAction extends GenericAutowireComposer
 				}
 			});
 
-			vbox = new Vbox();
-			vbox.setHeight("100%");
-			vbox.setWidth("100%");
-			vbox.setParent(arg0);
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dibungkus kebab popup (⋯)
+			// via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten antar layar.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
-			Hbox toolbar = new Hbox();
-			toolbar.setParent(vbox);
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/print.png");
 			button.setTooltiptext("Cetak Daftar Riwayat Hidup");
 			button.addEventListener("onClick", new EventListener() {
@@ -934,7 +932,7 @@ public class PegawaiAction extends GenericAutowireComposer
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			Tbmuser tbmuser = Common.getCurrentUser();
 
@@ -990,7 +988,7 @@ public class PegawaiAction extends GenericAutowireComposer
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 			button.setTooltiptext("Hapus Data");
@@ -1116,10 +1114,8 @@ public class PegawaiAction extends GenericAutowireComposer
 
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
-			toolbar = new Hbox();
-			toolbar.setParent(vbox);
 			button = new MyToolbarbuttonConfig("", "/img/svg/check2.svg");
 			button.setVisible(approve);
 			button.setTooltiptext("Setujui semua pengajuan");
@@ -1191,7 +1187,7 @@ public class PegawaiAction extends GenericAutowireComposer
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/warning-outline.svg");
 			button.setVisible(reject);
@@ -1264,7 +1260,9 @@ public class PegawaiAction extends GenericAutowireComposer
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 
 		}
 	}

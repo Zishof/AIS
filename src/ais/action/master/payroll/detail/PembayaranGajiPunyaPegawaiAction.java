@@ -180,11 +180,10 @@ public class PembayaranGajiPunyaPegawaiAction extends MyDetail {
 				}
 			});
 
-			Vbox vbox2 = new Vbox();
-			vbox2.setParent(arg0);
-
-			Hbox toolbar = new Hbox();
-			vbox2.appendChild(toolbar);
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dikumpulkan lalu dibungkus
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			Toolbarbutton button = new MyToolbarbuttonConfig("", "/img/print.png");
 			button.setOrient("vertical");
@@ -207,7 +206,7 @@ public class PembayaranGajiPunyaPegawaiAction extends MyDetail {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 			button.setTooltiptext("Hapus Data");
@@ -248,10 +247,7 @@ public class PembayaranGajiPunyaPegawaiAction extends MyDetail {
 				}
 
 			});
-			button.setParent(toolbar);
-
-			toolbar = new Hbox();
-			vbox2.appendChild(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/money-bills.svg");
 			button.setOrient("vertical");
@@ -283,7 +279,7 @@ public class PembayaranGajiPunyaPegawaiAction extends MyDetail {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/check2.svg");
 			button.setOrient("vertical");
@@ -319,7 +315,9 @@ public class PembayaranGajiPunyaPegawaiAction extends MyDetail {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 
 		}
 	}

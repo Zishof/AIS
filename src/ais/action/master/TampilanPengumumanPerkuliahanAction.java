@@ -1355,12 +1355,16 @@ public class TampilanPengumumanPerkuliahanAction extends GenericAutowireComposer
 					: Common.dateFormat3.get().format(diskusiPengumumanPerkuliahan.getTanggal())).setParent(row);
 			new Label(diskusiPengumumanPerkuliahan.getOleh()).setParent(row);
 
-			Hbox toolbar = new Hbox();
-			toolbar.setVisible(
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dikumpulkan lalu dibungkus
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			// Syarat tampil grup aksi dipindah ke pembungkus kebab agar perilakunya sama persis.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+			final boolean bolehUbahKomentar =
 					(diskusiPengumumanPerkuliahan.getTbmuser() != null && tbmuser != null && tbmuser.getUserId() != null
 							&& diskusiPengumumanPerkuliahan.getTbmuser().getUserId().equals(tbmuser.getUserId()))
 							|| (diskusiPengumumanPerkuliahan.getMahasiswa() != null && mahasiswa != null
-									&& diskusiPengumumanPerkuliahan.getMahasiswa().getId().equals(mahasiswa.getId())));
+									&& diskusiPengumumanPerkuliahan.getMahasiswa().getId().equals(mahasiswa.getId()));
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/svg/edit-box-line.svg");
 			button.setTooltiptext("Ubah Data");
 			button.addEventListener("onClick", new EventListener() {
@@ -1369,7 +1373,7 @@ public class TampilanPengumumanPerkuliahanAction extends GenericAutowireComposer
 					init(diskusiPengumumanPerkuliahan, diskusiPengumumanPerkuliahan.getPengumumanPerkuliahan(), detail);
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 			button.setTooltiptext("Hapus Data");
@@ -1411,8 +1415,8 @@ public class TampilanPengumumanPerkuliahanAction extends GenericAutowireComposer
 				}
 
 			});
-			button.setParent(toolbar);
-			toolbar.setParent(row);
+			aksiButtons.add(button);
+			ais.ui.util.UIHelper.buatBarisAksi(row, 3, aksiButtons).setVisible(bolehUbahKomentar);
 
 		}
 

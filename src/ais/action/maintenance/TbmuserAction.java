@@ -738,7 +738,10 @@ public class TbmuserAction extends GenericAutowireComposer implements DataCriter
 				}
 			});
 
-			Hbox toolbar = new Hbox();
+			// Kolom aksi rapi: semua tombol dibungkus kebab popup (⋯) via UIHelper.buatBarisAksi.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/svg/edit-box-line.svg");
 			button.setTooltiptext("Ubah Data");
 			button.setVisible(edit);
@@ -756,7 +759,7 @@ public class TbmuserAction extends GenericAutowireComposer implements DataCriter
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 			button.setTooltiptext("Hapus Data");
@@ -801,12 +804,13 @@ public class TbmuserAction extends GenericAutowireComposer implements DataCriter
 
 				}
 			});
-			button.setParent(toolbar);
-			toolbar.setParent(arg0);
+			aksiButtons.add(button);
+
+			Vbox aksiBox = ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 
 			if (ConstantValues.aktifkan_akun_demo) {
 				if (tbmuser.getUserId() != null && tbmuser.getUserId().trim().equalsIgnoreCase("demo")) {
-					toolbar.setVisible(false);
+					aksiBox.setVisible(false);
 				}
 			}
 		}

@@ -1716,11 +1716,16 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer
 			// Tombol baris SERAGAM dengan UangMuka: ikon standar Ubah/Hapus dari
 			// Common.copyEditDeleteButtons (Hapus kini MUNCUL untuk pengajuan yang
 			// masih bisa dihapus) + ikon Cetak print.png + ikon Lihat.
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dibungkus kebab popup (⋯)
+			// via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten antar layar.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+
 			boolean bolehUbahHapus = !ReimbursementPegawai.DISETUJUI.equals(st)
 					&& !ReimbursementPegawai.LUNAS.equals(st);
 			Hbox aksi = Common.copyEditDeleteButtons(bolehUbahHapus, false, bolehUbahHapus, d,
 					ReimbursementPegawaiAction.this);
-			aksi.setParent(row);
+			aksiButtons.addAll(ais.ui.util.UIHelper.ambilItemAksi(aksi));
 
 			MyToolbarbuttonConfig lihat = new MyToolbarbuttonConfig("", "/img/search.gif");
 			lihat.setTooltiptext("Lihat Rincian");
@@ -1732,7 +1737,7 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer
 					bukaForm(d, d.getDisposisiSop(), true);
 				}
 			});
-			lihat.setParent(aksi);
+			aksiButtons.add(lihat);
 
 			MyToolbarbuttonConfig cetak = new MyToolbarbuttonConfig("", "/img/print.png");
 			cetak.setTooltiptext("Cetak");
@@ -1746,7 +1751,9 @@ public class ReimbursementPegawaiAction extends GenericAutowireComposer
 					}
 				}
 			});
-			cetak.setParent(aksi);
+			aksiButtons.add(cetak);
+
+			ais.ui.util.UIHelper.buatBarisAksi(row, 3, aksiButtons);
 		}
 	}
 }

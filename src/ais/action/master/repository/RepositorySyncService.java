@@ -223,7 +223,16 @@ public class RepositorySyncService {
 					/* Entitas sumber hanya dibaca untuk membentuk metadata. Tanpa read-only,
 					 * getter legacy yang menormalisasi field dapat dianggap perubahan oleh
 					 * dirty-check Hibernate dan flush RepoItem ikut meng-UPDATE tabel sumber. */
-					session.setReadOnly(obj, true);
+					/* KE-FIX (TransientObjectException "Instance was not associated with this
+					 * persistence context"): jalur pemulihan kegagalan flush di bawah memanggil
+					 * session.clear(), sehingga SISA entitas batch ini menjadi DETACHED. Memanggil
+					 * setReadOnly() pada instance detached melempar exception dan mematikan seluruh
+					 * siklus sinkronisasi. Cukup lewati bila entitas tak lagi dikelola session --
+					 * criteria di atas sudah setReadOnly(true) sehingga proteksi dirty-check tetap
+					 * berlaku bagi entitas yang masih managed. */
+					if (session.contains(obj)) {
+						session.setReadOnly(obj, true);
+					}
 					summary.scanned++;
 					String kunci = "[" + source.label + "] " + String.valueOf(obj);
 					try {
@@ -435,6 +444,18 @@ public class RepositorySyncService {
 			return item;
 		}
 		if (item == null) {
+			/* KE-FIX (duplicate key "repo_item_oai_identifier_key"): baris RepoItem LAMA bisa
+			 * sudah memegang oai_identifier yang sama (mis. sourceClass berubah setelah refactor
+			 * atau data historis ganda). Membuat RepoItem BARU akan menabrak constraint UNIQUE
+			 * saat flush. Pakai ulang baris tersebut dan arahkan ulang ke sumber saat ini. */
+			item = findRepoItemByOai(session, buildOaiIdentifier(source, sourceId));
+			if (item != null) {
+				item.setSourceClass(source.modelClassName);
+				item.setSourceId(sourceId);
+				item.setCollectionId(collectionId);
+			}
+		}
+		if (item == null) {
 			item = new RepoItem();
 			item.setSourceClass(source.modelClassName);
 			item.setSourceId(sourceId);
@@ -464,7 +485,7 @@ public class RepositorySyncService {
 				invokeString(obj, "getPenerbit"), invokeNestedString(obj, "getPenelitianDanPengabdian", "getJudul")));
 		item.setIssuedAt(firstDate(obj, "getTanggalSidang", "getTanggalPublikasi", "getTanggalterbit", "getSetujuiTanggal"));
 		if (firstNotEmpty(item.getOaiIdentifier()).length() == 0) {
-			item.setOaiIdentifier(buildOaiIdentifier(source, sourceId));
+			item.setOaiIdentifier(oaiIdentifierBebasBentrok(session, buildOaiIdentifier(source, sourceId), item));
 		}
 		item.setLanguage(firstNotEmpty(invokeString(obj, "getBahasa"), "id"));
 		/* Konfigurasi dibaca melalui cache/sesi isolasi. Jangan membuat Konfigurasi baru
@@ -483,7 +504,14 @@ public class RepositorySyncService {
 				if (info != null) {
 					item.setDspaceUuid(info.getUuid());
 					item.setDspaceHandle(info.getLink());
-					item.setOaiIdentifier(info.getLink());
+					/* KE-FIX (duplicate key): link DSpace dapat sama untuk lebih dari satu item
+					 * (handle gagal/berulang). Pasang sebagai oai_identifier HANYA bila belum
+					 * dimiliki baris RepoItem lain; bila bentrok, identifier lama dipertahankan
+					 * sehingga UPDATE tidak melanggar constraint UNIQUE. */
+					String oaiDariDspace = firstNotEmpty(info.getLink());
+					if (oaiDariDspace.length() > 0 && !oaiIdentifierDipakaiLain(session, oaiDariDspace, item)) {
+						item.setOaiIdentifier(oaiDariDspace);
+					}
 				}
 				item.setSyncStatus(STATUS_SYNCED);
 				item.setSyncMessage("Sinkron repository berhasil.");
@@ -524,6 +552,63 @@ public class RepositorySyncService {
 	private static RepoItem findRepoItem(Session session, String sourceClass, Long sourceId) {
 		return (RepoItem) session.createCriteria(RepoItem.class).add(Restrictions.eq("sourceClass", sourceClass))
 				.add(Restrictions.eq("sourceId", sourceId)).setMaxResults(1).uniqueResult();
+	}
+
+	/** Cari RepoItem berdasarkan oai_identifier (kolom ber-constraint UNIQUE). */
+	private static RepoItem findRepoItemByOai(Session session, String oaiIdentifier) {
+		String kunci = firstNotEmpty(oaiIdentifier);
+		if (kunci.length() == 0) {
+			return null;
+		}
+		return (RepoItem) session.createCriteria(RepoItem.class).add(Restrictions.eq("oaiIdentifier", kunci))
+				.setMaxResults(1).uniqueResult();
+	}
+
+	/**
+	 * Apakah oai_identifier ini sudah dimiliki baris RepoItem LAIN (bukan item yang sedang
+	 * diproses). Kolom repo_item.oai_identifier ber-constraint UNIQUE, sehingga menuliskan
+	 * nilai milik baris lain membuat flush gagal (ConstraintViolationException) dan seluruh
+	 * siklus sinkronisasi berhenti.
+	 */
+	private static boolean oaiIdentifierDipakaiLain(Session session, String oaiIdentifier, RepoItem item) {
+		RepoItem pemilik = findRepoItemByOai(session, oaiIdentifier);
+		if (pemilik == null) {
+			return false;
+		}
+		if (item == null || item.getId() == null || pemilik.getId() == null) {
+			return true;
+		}
+		return !item.getId().equals(pemilik.getId());
+	}
+
+	/**
+	 * Kembalikan oai_identifier yang dijamin tidak bentrok. Bila nilai dasar sudah dipakai
+	 * baris lain (duplikat historis), tambahkan sufiks nama kelas sumber lalu urutan angka
+	 * sampai bebas. Identifier milik baris lain TIDAK diubah agar tautan OAI yang sudah
+	 * terpublikasi tetap valid.
+	 */
+	private static String oaiIdentifierBebasBentrok(Session session, String dasar, RepoItem item) {
+		String kandidat = firstNotEmpty(dasar);
+		if (kandidat.length() == 0 || !oaiIdentifierDipakaiLain(session, kandidat, item)) {
+			return kandidat;
+		}
+		String kelas = firstNotEmpty(item == null ? null : item.getSourceClass());
+		if (kelas.length() > 0) {
+			int titik = kelas.lastIndexOf('.');
+			String pendek = titik < 0 ? kelas : kelas.substring(titik + 1);
+			String alternatif = kandidat + ":" + pendek.toLowerCase();
+			if (!oaiIdentifierDipakaiLain(session, alternatif, item)) {
+				return alternatif;
+			}
+			kandidat = alternatif;
+		}
+		for (int urut = 2; urut < 1000; urut++) {
+			String alternatif = kandidat + "-" + urut;
+			if (!oaiIdentifierDipakaiLain(session, alternatif, item)) {
+				return alternatif;
+			}
+		}
+		return kandidat + "-" + System.currentTimeMillis();
 	}
 
 	@SuppressWarnings("unchecked")

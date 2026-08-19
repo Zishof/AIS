@@ -170,12 +170,12 @@ public class VideoGrupPertemuanHelper implements DataLoader {
 
 			if (videoPertemuan.getLink() == null) {
 
-				Hbox toolbar = new Hbox();
-				toolbar.setParent(row);
+				final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+						new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 				MyToolbarbuttonConfig toolbarbutton = new MyToolbarbuttonConfig("", "/img/flash.png");
 
 				toolbarbutton.setOrient("vertical");
-				toolbarbutton.setParent(toolbar);
+				aksiButtons.add(toolbarbutton);
 				toolbarbutton.addEventListener("onClick", new EventListener() {
 					@Override
 					public void onEvent(Event event) throws Exception {
@@ -194,7 +194,7 @@ public class VideoGrupPertemuanHelper implements DataLoader {
 				toolbarbutton = new MyToolbarbuttonConfig("Download", videoPertemuan.iconDonwload());
 
 				toolbarbutton.setOrient("vertical");
-				toolbarbutton.setParent(toolbar);
+				aksiButtons.add(toolbarbutton);
 				toolbarbutton.addEventListener("onClick", new EventListener() {
 					@Override
 					public void onEvent(Event event) throws Exception {
@@ -258,10 +258,12 @@ public class VideoGrupPertemuanHelper implements DataLoader {
 					}
 
 				});
-				button.setParent(toolbar);
+				aksiButtons.add(button);
+
+				ais.ui.util.UIHelper.buatBarisAksi(row, 3, aksiButtons);
 			} else {
-				Hbox toolbar = new Hbox();
-				toolbar.setParent(row);
+				final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+						new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 				MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 				button.setVisible(delete);
@@ -309,7 +311,9 @@ public class VideoGrupPertemuanHelper implements DataLoader {
 					}
 
 				});
-				button.setParent(toolbar);
+				aksiButtons.add(button);
+
+				ais.ui.util.UIHelper.buatBarisAksi(row, 3, aksiButtons);
 			}
 
 		}

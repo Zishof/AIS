@@ -116,7 +116,15 @@ public class DownloadAktifitasMahasiwaKkn extends MyWindow {
 		borderlayout.setHeight("2000px");
 		North north = new North();
 		north.setParent(borderlayout);
-		ais.ui.util.ZkCompat.setFlex(north, true);
+		// FIX toolbar tidak tampil (mis. tombol "Ambil Data"): pada ZK5 region North
+		// memakai tinggi bawaan (+-100px); dengan flex=true isinya diregangkan ke tinggi
+		// tersebut sehingga Toolbar yang diletakkan DI BAWAH grid filter ikut terpotong.
+		// Disamakan dengan layar sejenis yang sudah benar (DownloadMahasiswa, DownloadKrs,
+		// DownloadNilai): flex dimatikan + tinggi eksplisit. Autoscroll sebagai pengaman
+		// bila baris filter bertambah di kemudian hari.
+		ais.ui.util.ZkCompat.setFlex(north, false);
+		north.setHeight("160px");
+		north.setAutoscroll(true);
 
 		Div div = new Div();
 		div.setParent(north);

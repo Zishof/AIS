@@ -104,11 +104,11 @@ public class FilePerkuliahanSiswaHelper {
 				new Label(pertemuanFileContent.getKeterangan()).setParent(arg0);
 			}
 
-			Hbox hbox = new Hbox();
-			hbox.setParent(arg0);
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 			MyToolbarbuttonConfig toolbarbutton = new MyToolbarbuttonConfig("", pertemuanFileContent.iconDonwload());
 			toolbarbutton.setOrient("vertical");
-			toolbarbutton.setParent(hbox);
+			aksiButtons.add(toolbarbutton);
 			toolbarbutton.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
@@ -136,7 +136,7 @@ public class FilePerkuliahanSiswaHelper {
 			toolbarbutton.setVisible(siswa == null);
 			toolbarbutton.setOrient("vertical");
 			toolbarbutton.setTooltiptext("Hapus Data");
-			toolbarbutton.setParent(hbox);
+			aksiButtons.add(toolbarbutton);
 			toolbarbutton.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
@@ -172,6 +172,8 @@ public class FilePerkuliahanSiswaHelper {
 				}
 
 			});
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 	}
 

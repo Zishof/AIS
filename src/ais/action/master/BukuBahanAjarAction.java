@@ -673,7 +673,9 @@ public class BukuBahanAjarAction extends GenericAutowireComposer {
 							: new Pegawai(dosenPemimbing),
 					ases);
 
-			Hbox toolbar = new Hbox();
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/eye-icon.png");
 			button.setOrient("vertical");
@@ -685,7 +687,7 @@ public class BukuBahanAjarAction extends GenericAutowireComposer {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/edit-box-line.svg");
 			button.setTooltiptext("Ubah Data");
@@ -699,7 +701,7 @@ public class BukuBahanAjarAction extends GenericAutowireComposer {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 			button.setTooltiptext("Hapus Data");
@@ -734,8 +736,9 @@ public class BukuBahanAjarAction extends GenericAutowireComposer {
 
 				}
 			});
-			button.setParent(toolbar);
-			toolbar.setParent(arg0);
+			aksiButtons.add(button);
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 
 	}

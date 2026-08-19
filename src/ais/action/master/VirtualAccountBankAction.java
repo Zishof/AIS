@@ -1646,7 +1646,10 @@ public class VirtualAccountBankAction extends GenericAutowireComposer implements
 			new MyLabelKecilSekali(virtualAccountBankReadOnly.getKeterangan()).setParent(vbox);
 			new MyLabelKecilSekali(virtualAccountBankReadOnly.getNotif()).setParent(vbox);
 
-			Hbox hbox = new Hbox();
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dibungkus kebab popup (⋯)
+			// via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten antar layar.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 			final String bankVirtualAccount = virtualAccountBankReadOnly.getBank() == null ? ""
 					: virtualAccountBankReadOnly.getBank();
 
@@ -1731,7 +1734,7 @@ public class VirtualAccountBankAction extends GenericAutowireComposer implements
 					}
 
 				});
-				button.setParent(hbox);
+				aksiButtons.add(button);
 			}
 
 			if (bankVirtualAccount.equalsIgnoreCase("Esmartlink")
@@ -1843,7 +1846,7 @@ public class VirtualAccountBankAction extends GenericAutowireComposer implements
 					}
 
 				});
-				button.setParent(hbox);
+				aksiButtons.add(button);
 			}
 
 			if (bankVirtualAccount.equalsIgnoreCase("Maja")) {
@@ -1921,7 +1924,7 @@ public class VirtualAccountBankAction extends GenericAutowireComposer implements
 					}
 
 				});
-				button.setParent(hbox);
+				aksiButtons.add(button);
 			}
 
 			if (bankVirtualAccount.equalsIgnoreCase("Flip")
@@ -1967,7 +1970,7 @@ public class VirtualAccountBankAction extends GenericAutowireComposer implements
 					}
 
 				});
-				button.setParent(hbox);
+				aksiButtons.add(button);
 			}
 
 			if (bankVirtualAccount.equalsIgnoreCase("BJB")) {
@@ -2026,7 +2029,7 @@ public class VirtualAccountBankAction extends GenericAutowireComposer implements
 					}
 
 				});
-				button.setParent(hbox);
+				aksiButtons.add(button);
 			}
 
 			if (bankVirtualAccount.equalsIgnoreCase("Bank BTN")) {
@@ -2105,7 +2108,7 @@ public class VirtualAccountBankAction extends GenericAutowireComposer implements
 					}
 
 				});
-				button.setParent(hbox);
+				aksiButtons.add(button);
 			}
 
 			if (virtualAccountBankReadOnly.getNotif() != null
@@ -2150,7 +2153,7 @@ public class VirtualAccountBankAction extends GenericAutowireComposer implements
 					}
 
 				});
-				button.setParent(hbox);
+				aksiButtons.add(button);
 			}
 
 			// "Bank Bankaltimtara" = nilai awal saat VA dibuat; "BMS" = nilai yang
@@ -2202,7 +2205,7 @@ public class VirtualAccountBankAction extends GenericAutowireComposer implements
 					}
 
 				});
-				button.setParent(hbox);
+				aksiButtons.add(button);
 			}
 
 			if (virtualAccountBankReadOnly.getMahasiswa() != null
@@ -2331,7 +2334,7 @@ public class VirtualAccountBankAction extends GenericAutowireComposer implements
 					}
 
 				});
-				button.setParent(hbox);
+				aksiButtons.add(button);
 			}
 
 			if (virtualAccountBankReadOnly.getKegiatan() == null && tbmuser != null && tbmuser.getMahasiswa() == null
@@ -2440,14 +2443,20 @@ public class VirtualAccountBankAction extends GenericAutowireComposer implements
 					}
 
 				});
-				button.setParent(hbox);
+				aksiButtons.add(button);
 
 			} else {
 				new Label(Boolean.TRUE.equals(virtualAccountBankReadOnly.getTerjadiKendala()) ? "Ya" : "Tidak").setParent(arg0);
-				new Label("").setParent(hbox);
 			}
 
-			hbox.setParent(arg0);
+			// Sel aksi: tampilkan kebab HANYA bila ada tombol. Baris read-only (cabang else di
+			// atas) dahulu memakai Label kosong sebagai pengisi sel — bila ikut dimasukkan ke
+			// popup, tombol "..." tetap muncul padahal isinya hampa.
+			if (aksiButtons.isEmpty()) {
+				new Label("").setParent(arg0);
+			} else {
+				ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
+			}
 		}
 
 	}

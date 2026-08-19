@@ -225,6 +225,14 @@ public class PerguruanTinggiAction extends GenericAutowireComposer implements Da
 			try {
 				boolean menggunakanPtDefault = Common.bolehKonfigurasi("menggunakanPtDefault");
 				session = HibernateUtil.currentNativeSession();
+				/* KE-FIX ("Session is closed!"): reInitByDomain dapat terpanggil DARI DALAM
+				 * flush/commit (lewat getter entity seperti NomorSurat.getContohFormat) atau dari
+				 * thread latar yang sesinya sudah ditutup. Memaksa createCriteria pada sesi mati
+				 * hanya melempar exception dan menggagalkan commit pemanggil. Lewati saja --
+				 * peta domain lama tetap dipakai dan disegarkan pada pemanggilan berikutnya. */
+				if (session == null || !session.isOpen()) {
+					return;
+				}
 				List<PerguruanTinggi> perguruanTinggis = ConstantValues.simpleList(
 						session.createCriteria(PerguruanTinggi.class)
 								.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true))),

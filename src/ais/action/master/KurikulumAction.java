@@ -1094,7 +1094,11 @@ public class KurikulumAction extends GenericAutowireComposer implements DataCrit
 					+ (kurikulum.getTahunAngkatanSampai() == null ? "" : " s.d " + kurikulum.getTahunAngkatanSampai()))
 					.setParent(arg0);
 
-			Hbox toolbar = new Hbox();
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dibungkus kebab popup (⋯)
+			// via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten antar layar.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/svg/edit-box-line.svg");
 			button.setTooltiptext("Ubah Data");
 			button.setVisible(edit && Common.getCurrentUser().getMahasiswa() == null);
@@ -1106,7 +1110,7 @@ public class KurikulumAction extends GenericAutowireComposer implements DataCrit
 					addWindow.onModal();
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			MyToolbarbuttonConfig save = new MyToolbarbuttonConfig("", "/img/svg/edit-copy.svg");
 			save.setTooltiptext("Copy Data");
@@ -1121,7 +1125,7 @@ public class KurikulumAction extends GenericAutowireComposer implements DataCrit
 				}
 			});
 
-			save.setParent(toolbar);
+			aksiButtons.add(save);
 
 			buttonDelete.setTooltiptext("Hapus Data");
 			buttonDelete.setVisible(delete && Common.getCurrentUser().getMahasiswa() == null);
@@ -1164,11 +1168,13 @@ public class KurikulumAction extends GenericAutowireComposer implements DataCrit
 
 				}
 			});
-			buttonDelete.setParent(toolbar);
+			aksiButtons.add(buttonDelete);
 
 			Vbox vbox3 = new Vbox();
 			vbox3.setParent(arg0);
-			toolbar.setParent(vbox3);
+			// Sel aksi juga memuat konten non-tombol (status feeder), jadi kebab dipasang
+			// ke vbox3 (bukan ke Row) agar jumlah kolom grid tidak bertambah.
+			ais.ui.util.UIHelper.buatBarisAksi(vbox3, 3, aksiButtons);
 
 			Hbox myHbox = new Hbox();
 			myHbox.setParent(vbox3);

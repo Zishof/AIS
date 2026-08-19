@@ -350,7 +350,8 @@ public class KegiatanKedosenanPunyaDosenHelper implements DataLoader, DataCriter
 
 		Dosen dsn = kegiatanKedosenanPunyaDosen.getDosen();
 
-		Hbox toolbar = new Hbox();
+		final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+				new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 		deleteButton.setVisible(!kegiatanKedosenanPunyaDosen.getPersetujuan() && !ases);
 		if ((dsn != null && dsn.yangLoginMerupakanAtasan())
 				|| (!ases && tbmuser.ambilDosen() == null && kegiatanKedosenanPunyaDosen.getKegiatanKedosenan()
@@ -394,7 +395,7 @@ public class KegiatanKedosenanPunyaDosenHelper implements DataLoader, DataCriter
 				SertifikatAction.cetakSertifikat(kegiatanKedosenanPunyaDosen);
 			}
 		});
-		cetakToolbarbuttonSertifikat.setParent(toolbar);
+		aksiButtons.add(cetakToolbarbuttonSertifikat);
 
 		deleteButton.setOrient("vertical");
 		deleteButton.setVisible(delete);
@@ -429,8 +430,9 @@ public class KegiatanKedosenanPunyaDosenHelper implements DataLoader, DataCriter
 			}
 
 		});
-		deleteButton.setParent(toolbar);
-		toolbar.setParent(arg0);
+		aksiButtons.add(deleteButton);
+
+		ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 
 	}
 

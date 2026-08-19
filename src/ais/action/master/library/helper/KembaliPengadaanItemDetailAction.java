@@ -187,8 +187,10 @@ public class KembaliPengadaanItemDetailAction extends MyDetail {
 			tanggalEventListener.onEvent(null);
 			tanggal.addEventListener("onChange", tanggalEventListener);
 
-			Vbox toolbar = new Vbox();
-			toolbar.setParent(row);
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dibungkus kebab popup (⋯)
+			// via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten antar layar.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 			final MyToolbarbuttonConfig rubah = new MyToolbarbuttonConfig("Perpanjang", "/img/corner.gif");
 			final MyToolbarbuttonConfig batalPerpanjang = new MyToolbarbuttonConfig("Batal Perpanjang",
 					"/img/svg/warning-outline.svg");
@@ -206,7 +208,7 @@ public class KembaliPengadaanItemDetailAction extends MyDetail {
 				}
 
 			});
-			rubah.setParent(toolbar);
+			aksiButtons.add(rubah);
 
 			batalPerpanjang.setOrient("vertical");
 			batalPerpanjang.setTooltiptext("Batal Perpanjang");
@@ -222,10 +224,12 @@ public class KembaliPengadaanItemDetailAction extends MyDetail {
 				}
 
 			});
-			batalPerpanjang.setParent(toolbar);
+			aksiButtons.add(batalPerpanjang);
 
 			batalPerpanjang.setVisible(
 					kembaliPengadaanItemDetail.getPeminjamanPengadaanItemDetail().getJumlahPerpanjangan() > 0);
+
+			ais.ui.util.UIHelper.buatBarisAksi(row, 3, aksiButtons);
 		}
 	}
 

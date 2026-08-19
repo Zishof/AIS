@@ -1678,7 +1678,7 @@ public class CalonSiswaAction extends GenericAutowireComposer
 
 			Hbox tempEditDelete = Common.copyEditDeleteButtons(edit, edit, delete, calonSiswa, CalonSiswaAction.this,
 					true);
-			aksiButtons.addAll(new java.util.ArrayList<org.zkoss.zk.ui.Component>(tempEditDelete.getChildren()));
+			aksiButtons.addAll(ais.ui.util.UIHelper.ambilItemAksi(tempEditDelete));
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("No Reg.", "/img/print.png");
 			button.setOrient("vertical");

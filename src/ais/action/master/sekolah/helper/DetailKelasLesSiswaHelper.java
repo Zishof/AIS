@@ -217,7 +217,8 @@ public class DetailKelasLesSiswaHelper implements DataLoader, DataCriteria {
 			cetakToolbarbuttonSertifikat
 					.setVisible(kelasLesSiswaPunyaSiswa.getAcc() && kelasLesSiswa.getSertifikat() != null);
 
-			Hbox toolbar = new Hbox();
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			deleteButton.setTooltiptext("Hapus Data");
 			deleteButton.setOrient("vertical");
@@ -260,10 +261,10 @@ public class DetailKelasLesSiswaHelper implements DataLoader, DataCriteria {
 				}
 
 			});
-			cetakToolbarbuttonSertifikat.setParent(toolbar);
-			deleteButton.setParent(toolbar);
+			aksiButtons.add(cetakToolbarbuttonSertifikat);
+			aksiButtons.add(deleteButton);
 
-			toolbar.setParent(row);
+			ais.ui.util.UIHelper.buatBarisAksi(row, 3, aksiButtons);
 
 		}
 

@@ -326,7 +326,7 @@ public class HasilSPMIAction extends BaseSPMIAction implements FormSop {
                     new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
             Hbox actionHbox = Common.copyEditDeleteButtons(canEdit, canEdit, canDelete, item, HasilSPMIAction.this);
-            aksiButtons.addAll(new java.util.ArrayList<org.zkoss.zk.ui.Component>(actionHbox.getChildren()));
+            aksiButtons.addAll(ais.ui.util.UIHelper.ambilItemAksi(actionHbox));
 
             MyToolbarbuttonConfig downloadAmi = new MyToolbarbuttonConfig("Unduh AMI", "/img/excel.png");
             downloadAmi.setTooltiptext("Unduh format umum AMI satu XLSX: petunjuk, identitas, satu tabel seluruh indikator, ringkasan, dan referensi pilihan");

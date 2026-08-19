@@ -690,8 +690,10 @@ public class LogHostToHostAction extends GenericAutowireComposer implements Data
 			new Label(nilai == null ? "" : Common.numberFormat.get().format(nilai)).setParent(arg0);
 			new MyLabelKecil(logHostToHost.getItem()).setParent(arg0);
 
-			Vbox aksiVbox = new Vbox();
-			aksiVbox.setParent(arg0);
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dikumpulkan lalu dibungkus
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			if (logHostToHost.getKeterangan() != null && !logHostToHost.getKeterangan().trim().isEmpty() && logHostToHost.getOlehId() != null) {
 				String olehId = logHostToHost.getOlehId();
@@ -722,7 +724,7 @@ public class LogHostToHostAction extends GenericAutowireComposer implements Data
 							}
 						}
 					});
-					button.setParent(aksiVbox);
+					aksiButtons.add(button);
 
 				} else if (olehId.contains("ais.action.servlet.Va")) {
 					MyToolbarbuttonConfig button = buatTombolCekUlang("Cek Ulang");
@@ -738,7 +740,7 @@ public class LogHostToHostAction extends GenericAutowireComposer implements Data
 							}
 						}
 					});
-					button.setParent(aksiVbox);
+					aksiButtons.add(button);
 
 				} else if (olehId.contains("ais.action.servlet.Mandiri") && keterangan.contains("paymentRequest")) {
 					MyToolbarbuttonConfig button = buatTombolCekUlang("Cek Ulang");
@@ -755,7 +757,7 @@ public class LogHostToHostAction extends GenericAutowireComposer implements Data
 							}
 						}
 					});
-					button.setParent(aksiVbox);
+					aksiButtons.add(button);
 
 				} else if (olehId.contains("ais.action.servlet.OcbcNisp") && keterangan.contains("paymentRequestId")) {
 					MyToolbarbuttonConfig button = buatTombolCekUlang("Cek Ulang");
@@ -817,7 +819,7 @@ public class LogHostToHostAction extends GenericAutowireComposer implements Data
 							}
 						}
 					});
-					button.setParent(aksiVbox);
+					aksiButtons.add(button);
 
 				} else if (olehId.contains("ais.action.servlet.BMS") && keterangan.contains("paymentAmount")) {
 					MyToolbarbuttonConfig button = buatTombolCekUlang("Cek Ulang");
@@ -834,7 +836,7 @@ public class LogHostToHostAction extends GenericAutowireComposer implements Data
 							}
 						}
 					});
-					button.setParent(aksiVbox);
+					aksiButtons.add(button);
 
 				} else if (olehId.contains("ais.action.servlet.JatelindoCallback")) {
 					MyToolbarbuttonConfig button = buatTombolCekUlang("Cek Ulang");
@@ -850,7 +852,7 @@ public class LogHostToHostAction extends GenericAutowireComposer implements Data
 							}
 						}
 					});
-					button.setParent(aksiVbox);
+					aksiButtons.add(button);
 
 				} else if (olehId.contains("ais.action.servlet.BSI") && keterangan.contains("payment")) {
 					MyToolbarbuttonConfig button = buatTombolCekUlang("Cek Ulang");
@@ -867,7 +869,7 @@ public class LogHostToHostAction extends GenericAutowireComposer implements Data
 							}
 						}
 					});
-					button.setParent(aksiVbox);
+					aksiButtons.add(button);
 
 				} else if ((olehId.contains("ais.action.servlet.Finpay") && keterangan.contains("PAID")) || 
 						   // FIX BUG 1: Pengecekan OCBC sebelumnya memanggil Class Finpay!
@@ -889,7 +891,7 @@ public class LogHostToHostAction extends GenericAutowireComposer implements Data
 							}
 						}
 					});
-					button.setParent(aksiVbox);
+					aksiButtons.add(button);
 				}
 			}
 
@@ -912,8 +914,10 @@ public class LogHostToHostAction extends GenericAutowireComposer implements Data
 						org.zkoss.zk.ui.util.Clients.evalJavaScript(js);
 					}
 				});
-				copyCurl.setParent(aksiVbox);
+				aksiButtons.add(copyCurl);
 			}
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 	}
 

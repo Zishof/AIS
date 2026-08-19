@@ -1061,7 +1061,10 @@ public class CicilanPembayaranAction extends GenericAutowireComposer implements 
 
 			new Label(cicilanPembayaran.getKeterangan()).setParent(arg0);
 
-			Hbox toolbar = new Hbox();
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dibungkus kebab popup (⋯)
+			// via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten antar layar.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Cetak", "/img/print.png");
 			button.setTooltiptext("Cetak");
@@ -1077,7 +1080,7 @@ public class CicilanPembayaranAction extends GenericAutowireComposer implements 
 					}
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Reversal", "/img/svg/warning-outline.svg");
 			button.setTooltiptext("Reversal");
@@ -1156,8 +1159,9 @@ public class CicilanPembayaranAction extends GenericAutowireComposer implements 
 				}
 
 			});
-			button.setParent(toolbar);
-			toolbar.setParent(arg0);
+			aksiButtons.add(button);
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 
 	}

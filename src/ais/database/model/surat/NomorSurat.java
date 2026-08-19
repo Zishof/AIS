@@ -501,9 +501,42 @@ public class NomorSurat extends GeneralValueObject {
 		this.resetUrutanTiapTahun = resetUrutanTiapTahun;
 	}
 
+	/**
+	 * Penjaga reentransi PER-THREAD untuk {@link #getContohFormat()}.
+	 *
+	 * <p><b>Akar masalah.</b> {@code contohFormat} adalah properti yang IKUT DIBACA Hibernate
+	 * saat flush ({@code AbstractEntityTuplizer.getPropertyValues}), padahal getter-nya
+	 * menjalankan query: {@code format(...)} -&gt; {@code Common.getSatuanKerja()} -&gt;
+	 * {@code PerguruanTinggiUtil.getPerguruanTinggi()} -&gt; {@code createCriteria}. Query itu
+	 * memicu AUTO-FLUSH, dan auto-flush membaca properti lagi -&gt; getContohFormat terpanggil
+	 * berulang berlapis-lapis. Bila flush terjadi saat commit/Envers, sesi sudah dalam proses
+	 * penutupan sehingga muncul {@code SessionException: Session is closed!}.</p>
+	 *
+	 * <p><b>Perbaikan.</b> Saat penjaga aktif (artinya kita sedang berada di dalam perhitungan
+	 * atau di dalam flush yang dipicu perhitungan itu), kembalikan nilai tersimpan tanpa query.
+	 * Perilaku pemanggilan normal dari layar/laporan TIDAK berubah: perhitungan tetap jalan.</p>
+	 */
+	private static final ThreadLocal<Boolean> SEDANG_HITUNG_CONTOH_FORMAT = new ThreadLocal<Boolean>();
+
 	public String getContohFormat() {
-		contohFormat = getGunakanIndexUrut() ? format(getNomorIndex(), ais.ui.util.WaktuUtil.getDate())
-				: format(0L, ais.ui.util.WaktuUtil.getDate());
+		if (Boolean.TRUE.equals(SEDANG_HITUNG_CONTOH_FORMAT.get())) {
+			return contohFormat;
+		}
+		SEDANG_HITUNG_CONTOH_FORMAT.set(Boolean.TRUE);
+		try {
+			contohFormat = getGunakanIndexUrut() ? format(getNomorIndex(), ais.ui.util.WaktuUtil.getDate())
+					: format(0L, ais.ui.util.WaktuUtil.getDate());
+		} catch (Throwable t) {
+			/* Sesi sudah tertutup / DB tak tersedia (mis. dibaca saat commit di thread latar):
+			 * JANGAN gagalkan flush & commit hanya karena contoh format tak bisa dihitung ulang.
+			 * Nilai contoh terakhir yang tersimpan dipakai apa adanya. */
+			try {
+				ais.common.ErrorAuditUtil.record(t, "NomorSurat.getContohFormat");
+			} catch (Throwable abaikan) {
+			}
+		} finally {
+			SEDANG_HITUNG_CONTOH_FORMAT.remove();
+		}
 		return contohFormat;
 	}
 

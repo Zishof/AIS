@@ -110,7 +110,8 @@ public class DataPunyaItemHelper implements DataLoader {
 				}
 			});
 
-			Hbox toolbar = new Hbox();
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Kutipan", "/img/eye-icon.png");
 			button.setOrient("vertical");
@@ -122,7 +123,7 @@ public class DataPunyaItemHelper implements DataLoader {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Google", "/img/Apps-Google-Play-Books-icon.png");
 			button.setOrient("vertical");
@@ -142,7 +143,7 @@ public class DataPunyaItemHelper implements DataLoader {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 			button.setVisible(item.getGoogleBookId() != null && !item.getGoogleBookId().trim().isEmpty());
 
 			button = new MyToolbarbuttonConfig("Baca", "/img/Book-icon.png");
@@ -164,7 +165,7 @@ public class DataPunyaItemHelper implements DataLoader {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			Session session = StreamingHibernateUtil.getInstance().currentSession();
 
@@ -208,8 +209,9 @@ public class DataPunyaItemHelper implements DataLoader {
 				}
 
 			});
-			button.setParent(toolbar);
-			toolbar.setParent(row);
+			aksiButtons.add(button);
+
+			ais.ui.util.UIHelper.buatBarisAksi(row, 3, aksiButtons);
 
 		}
 

@@ -173,11 +173,10 @@ public class JadwalSidangTugasAkhirAction extends GenericAutowireComposer {
 					: jadwalSidangTugasAkhir.getFakultas().getNama()).setParent(arg0);
 			new Label(jadwalSidangTugasAkhir.getKeterangan()).setParent(arg0);
 
-			Vbox vbox = new Vbox();
-			vbox.setParent(arg0);
+			// Kolom aksi rapi: semua tombol dibungkus kebab popup (⋯) via UIHelper.buatBarisAksi.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
-			Hbox toolbar = new Hbox();
-			toolbar.setParent(vbox);
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Cetak", "/img/print.png");
 			button.setTooltiptext("Cetak");
 			button.addEventListener("onClick", new EventListener() {
@@ -193,7 +192,7 @@ public class JadwalSidangTugasAkhirAction extends GenericAutowireComposer {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Rekap", "/img/print.png");
 			button.setTooltiptext("Cetak");
@@ -211,10 +210,7 @@ public class JadwalSidangTugasAkhirAction extends GenericAutowireComposer {
 				}
 
 			});
-			button.setParent(toolbar);
-
-			toolbar = new Hbox();
-			toolbar.setParent(vbox);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Ubah", "/img/svg/edit-box-line.svg");
 			button.setTooltiptext("Ubah Data");
@@ -228,7 +224,7 @@ public class JadwalSidangTugasAkhirAction extends GenericAutowireComposer {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Hapus", "/img/svg/trash.svg");
 			button.setTooltiptext("Hapus Data");
@@ -262,7 +258,9 @@ public class JadwalSidangTugasAkhirAction extends GenericAutowireComposer {
 
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 
 		}
 

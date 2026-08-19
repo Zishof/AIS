@@ -484,8 +484,8 @@ public class KembaliPengadaanItemPunyaItemHelper {
 		tanggalEventListener.onEvent(null);
 		tanggal.addEventListener("onChange", tanggalEventListener);
 
-		Vbox toolbar = new Vbox();
-		toolbar.setParent(row);
+		final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+				new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 		tombolPerpanjang.setOrient("vertical");
 		tombolPerpanjang.setTooltiptext("Perpanjang");
@@ -501,7 +501,7 @@ public class KembaliPengadaanItemPunyaItemHelper {
 			}
 
 		});
-		tombolPerpanjang.setParent(toolbar);
+		aksiButtons.add(tombolPerpanjang);
 
 		batalPerpanjang.setOrient("vertical");
 		batalPerpanjang.setTooltiptext("Batal Perpanjang");
@@ -519,7 +519,7 @@ public class KembaliPengadaanItemPunyaItemHelper {
 			}
 
 		});
-		batalPerpanjang.setParent(toolbar);
+		aksiButtons.add(batalPerpanjang);
 
 		batalPerpanjang.setVisible(peminjamanPengadaanItemDetail.getJumlahPerpanjangan() > 0);
 		tombolPerpanjang.setVisible(peminjamanPengadaanItemDetail
@@ -529,7 +529,7 @@ public class KembaliPengadaanItemPunyaItemHelper {
 		button.setTooltiptext("Hapus Data");
 		button.setOrient("vertical");
 		button.setVisible(delete && checkbox.isDisabled());
-		button.setParent(toolbar);
+		aksiButtons.add(button);
 
 		button.addEventListener("onClick", new EventListener() {
 
@@ -565,6 +565,8 @@ public class KembaliPengadaanItemPunyaItemHelper {
 
 			}
 		});
+
+		ais.ui.util.UIHelper.buatBarisAksi(row, 3, aksiButtons);
 	}
 
 	public Perpustakaan getPerpustakaan() {

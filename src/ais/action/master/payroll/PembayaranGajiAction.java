@@ -290,12 +290,12 @@ public class PembayaranGajiAction extends GenericAutowireComposer implements Dat
 				new Label(pembayaranGaji.getAktif() ? "Ya" : "Tidak").setParent(arg0);
 			}
 
-			Vbox vbox = new Vbox();
-			vbox.setParent(arg0);
-			Common.copyEditDeleteButtons(edit, delete, pembayaranGaji, PembayaranGajiAction.this).setParent(vbox);
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
-			Hbox toolbar = new Hbox();
-			toolbar.setParent(vbox);
+			Hbox hbxAksi = Common.copyEditDeleteButtons(edit, delete, pembayaranGaji, PembayaranGajiAction.this);
+			aksiButtons.addAll(ais.ui.util.UIHelper.ambilItemAksi(hbxAksi));
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/print.png");
 			button.setTooltiptext("Cetak");
@@ -313,7 +313,7 @@ public class PembayaranGajiAction extends GenericAutowireComposer implements Dat
 					});
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			final MyToolbarbuttonConfig disetujui = new MyToolbarbuttonConfig("", "/img/svg/check2.svg");
 			final MyToolbarbuttonConfig ditolak = new MyToolbarbuttonConfig("", "/img/svg/deny.svg");
@@ -371,7 +371,7 @@ public class PembayaranGajiAction extends GenericAutowireComposer implements Dat
 				}
 
 			});
-			disetujui.setParent(toolbar);
+			aksiButtons.add(disetujui);
 
 			ditolak.setTooltiptext("Ditolak");
 
@@ -414,7 +414,7 @@ public class PembayaranGajiAction extends GenericAutowireComposer implements Dat
 				}
 
 			});
-			ditolak.setParent(toolbar);
+			aksiButtons.add(ditolak);
 
 			dibatalkan.setTooltiptext("Dibatalkan");
 			dibatalkan.addEventListener("onClick", new EventListener() {
@@ -463,7 +463,9 @@ public class PembayaranGajiAction extends GenericAutowireComposer implements Dat
 				}
 
 			});
-			dibatalkan.setParent(toolbar);
+			aksiButtons.add(dibatalkan);
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 
 		}
 

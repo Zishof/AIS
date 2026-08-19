@@ -759,13 +759,15 @@ public class PengaturanBiayaAction extends GenericAutowireComposer
 				}
 			});
 
-			Hbox aa;
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dikumpulkan lalu dibungkus
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+
 			if (pengaturanBiaya.getKunci() == null) {
-				(aa = Common.copyEditDeleteButtons(edit, buttonDelete, pengaturanBiaya, PengaturanBiayaAction.this))
-						.setParent(arg0);
-			} else {
-				aa = new Hbox();
-				aa.setParent(arg0);
+				Hbox tempCrud = Common.copyEditDeleteButtons(edit, buttonDelete, pengaturanBiaya,
+						PengaturanBiayaAction.this);
+				aksiButtons.addAll(ais.ui.util.UIHelper.ambilItemAksi(tempCrud));
 			}
 
 			if (pengaturanBiaya.getAktifkanNotifikasi()) {
@@ -792,16 +794,30 @@ public class PengaturanBiayaAction extends GenericAutowireComposer
 					}
 
 				});
-				button.setParent(aa);
+				aksiButtons.add(button);
 			}
 
-			PengaturanBiayaAction.tampilkanKunci(aa, pengaturanBiaya, new EventListener() {
+			// Tombol Kunci / Buka Kunci via container sementara lalu dilipat ke daftar aksi.
+			// tampilkanKunci membungkus tombolnya dalam Hbox dalam, jadi anak Box diratakan.
+			Hbox tempKunci = new Hbox();
+			PengaturanBiayaAction.tampilkanKunci(tempKunci, pengaturanBiaya, new EventListener() {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					onSearchDefault(arg0);
 				}
 			}, tbmuser);
+			for (Object anakKunci : new java.util.ArrayList<Object>(tempKunci.getChildren())) {
+				org.zkoss.zk.ui.Component compKunci = (org.zkoss.zk.ui.Component) anakKunci;
+				if (compKunci instanceof org.zkoss.zul.Box) {
+					aksiButtons.addAll(new java.util.ArrayList<org.zkoss.zk.ui.Component>(
+							((org.zkoss.zul.Box) compKunci).getChildren()));
+				} else {
+					aksiButtons.add(compKunci);
+				}
+			}
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 
 	}

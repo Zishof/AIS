@@ -223,7 +223,8 @@ public class KegiatanKesiswaanPunyaSiswaHelper implements DataLoader, DataCriter
 			cetakToolbarbuttonSertifikat.setVisible(kegiatanKesiswaanPunyaSiswa.getPersetujuan()
 					&& kegiatanKesiswaanPunyaSiswa.getKegiatanKesiswaan().getSertifikat() != null);
 
-			Hbox toolbar = new Hbox();
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 			deleteButton.setVisible(!kegiatanKesiswaanPunyaSiswa.getPersetujuan());
 			if (tbmuser.getSiswa() == null && kegiatanKesiswaan.getStatus().equals(PrestasiSiswa.DISETUJUI)) {
 				final MyCheckboxConfig checkbox = new MyCheckboxConfig("Setujui");
@@ -263,7 +264,7 @@ public class KegiatanKesiswaanPunyaSiswaHelper implements DataLoader, DataCriter
 					SertifikatAction.cetakSertifikat(kegiatanKesiswaanPunyaSiswa);
 				}
 			});
-			cetakToolbarbuttonSertifikat.setParent(toolbar);
+			aksiButtons.add(cetakToolbarbuttonSertifikat);
 
 			deleteButton.setOrient("vertical");
 			deleteButton.setVisible(delete);
@@ -300,8 +301,9 @@ public class KegiatanKesiswaanPunyaSiswaHelper implements DataLoader, DataCriter
 				}
 
 			});
-			deleteButton.setParent(toolbar);
-			toolbar.setParent(row);
+			aksiButtons.add(deleteButton);
+
+			ais.ui.util.UIHelper.buatBarisAksi(row, 3, aksiButtons);
 
 		}
 
