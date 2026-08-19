@@ -2418,9 +2418,9 @@ public final class LaporanKantinUtil {
                 judul = "Ringkasan Pencatatan Beban";
                 catatan = "Total beban per akun (jenis Laba Rugi berklasifikasi Beban/Biaya/HPP) dari jurnal TERPOSTING Satuan Kerja kantin.";
                 String w = klausaLedger(session, tglMulai, tglSampai, prm);
-                sql = "select d.kode, d.nama, coalesce(c.keterangan,'-') as kelompok, "
+                sql = "select d.kode, d.nama, " + LABEL_KLAS + " as kelompok, "
                     + " coalesce(sum(a.debet),0)-coalesce(sum(a.kredit),0) as beban " + FROM_LEDGER + JOIN_KLAS + w + FILTER_BEBAN
-                    + " group by d.kode, d.nama, c.keterangan "
+                    + " group by d.kode, d.nama, c.keterangan, m.keterangan "
                     + " having coalesce(sum(a.debet),0)-coalesce(sum(a.kredit),0) <> 0 order by 4 desc ";
                 tipe = new String[]{"text","text","text","num"};
                 kolom.add(new Kolom("Kode","text")); kolom.add(new Kolom("Nama Akun","text")); kolom.add(new Kolom("Kelompok","text")); kolom.add(new Kolom("Total Beban","num"));
@@ -2515,7 +2515,8 @@ public final class LaporanKantinUtil {
                 H.catatan = "Saldo KUMULATIF seluruh jurnal TERPOSTING sampai dengan Tgl Sampai (Tgl Mulai diabaikan, "
                     + "karena neraca bersifat kumulatif), dikelompokkan memakai klasifikasi Kelompok Laporan jenis 'Neraca'. "
                     + "Laba (rugi) berjalan dari akun Laba Rugi ditambahkan pada sisi Kewajiban & Modal agar neraca seimbang. "
-                    + "Akun yang belum dipetakan tidak ikut muncul \u2014 periksa lewat laporan 'Diagnosa Pemetaan Akun'.";
+                    + "Akun yang BELUM dipetakan tetap ditampilkan pada kelompok '(Belum dipetakan ke Kelompok Laporan)' "
+                    + "agar neraca tetap seimbang dan kekurangan pemetaan langsung terlihat; rinciannya ada di laporan 'Diagnosa Pemetaan Akun'.";
                 H.grup = -1; H.grandTotal = false;
                 H.kolom.add(new Kolom("Keterangan","text")); H.kolom.add(new Kolom("Nilai","num"));
                 H.tipe = new String[]{"text","num"};
@@ -2568,7 +2569,38 @@ public final class LaporanKantinUtil {
                         "select coalesce(sum(a.kredit),0) - coalesce(sum(a.debet),0) " + FROM_LEDGER + JOIN_KLAS + wl2
                         + " and (c.aktif is null or c.aktif) "
                         + " and ( lower(coalesce(f.keterangan,'')) like '%laba%' or lower(coalesce(f.keterangan,'')) like '%rugi%' ) ", pl2);
-                    if (nrows.isEmpty() && labaBerjalan == 0.0) {
+                    // Akun yang BELUM dipetakan tetap ditampilkan: tanpa ini neraca pasti timpang
+                    // (mis. akun KAS belum dipetakan -> TOTAL AKTIVA 0). Sisi ditentukan dari saldo alami,
+                    // dan pemakai langsung melihat apa yang masih perlu dipetakan.
+                    Map<String,Object> pu = new LinkedHashMap<String,Object>();
+                    String wu = klausaLedgerSampai(session, tglSampai, pu);
+                    String qu = "select d.kode, d.nama, coalesce(sum(a.debet),0) - coalesce(sum(a.kredit),0) as saldo_debet "
+                        + FROM_LEDGER + wu
+                        + " and not exists ( select 1 from akunting.kelompok_laporan_punya_akun b2 "
+                        + "     join akunting.kelompok_laporan c2 on c2.id = b2.kelompok_laporan "
+                        + "     where b2.akun = d.id and (c2.aktif is null or c2.aktif) ) "
+                        + " group by d.kode, d.nama "
+                        + " having coalesce(sum(a.debet),0) - coalesce(sum(a.kredit),0) <> 0 order by d.kode ";
+                    SQLQuery uq = session.createSQLQuery(qu);
+                    for (Map.Entry<String,Object> e : pu.entrySet()) { uq.setParameter(e.getKey(), e.getValue()); }
+                    List<?> urows = uq.list();
+                    String LABEL_BELUM = "(Belum dipetakan ke Kelompok Laporan)";
+                    for (Object ro : urows) {
+                        Object[] rr = (Object[]) ro;
+                        String kode = rr[0] == null ? "" : rr[0].toString();
+                        String nama = rr[1] == null ? "" : rr[1].toString();
+                        double saldoD = (rr[2] instanceof Number) ? ((Number) rr[2]).doubleValue() : 0.0;
+                        if (saldoD >= 0) {
+                            totalAktiva += saldoD;
+                            if (!grpAktiva.containsKey(LABEL_BELUM)) { grpAktiva.put(LABEL_BELUM, new ArrayList<Object[]>()); }
+                            grpAktiva.get(LABEL_BELUM).add(new Object[]{ "    " + kode + " " + nama, Double.valueOf(saldoD) });
+                        } else {
+                            totalPasiva += -saldoD;
+                            if (!grpPasiva.containsKey(LABEL_BELUM)) { grpPasiva.put(LABEL_BELUM, new ArrayList<Object[]>()); }
+                            grpPasiva.get(LABEL_BELUM).add(new Object[]{ "    " + kode + " " + nama, Double.valueOf(-saldoD) });
+                        }
+                    }
+                    if (nrows.isEmpty() && urows.isEmpty() && labaBerjalan == 0.0) {
                         H.baris.add(new Object[]{"Belum ada data. Pastikan transaksi sudah DIPOSTING ke jurnal & akun dipetakan ke Kelompok Laporan jenis 'Neraca'.", null});
                         return H;
                     }

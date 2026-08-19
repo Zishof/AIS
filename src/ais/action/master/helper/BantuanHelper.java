@@ -6,8 +6,13 @@ import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
+import java.lang.ref.SoftReference;
 
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.Sessions;
@@ -428,6 +433,8 @@ public class BantuanHelper {
 		if (k == null) {
 			return false;
 		}
+		// Isi katalog ikut berubah, sementara berkas di disk tidak; buang indeks.
+		invalidasiIndeksKatalog();
 		Session s = null;
 		Transaction tx = null;
 		try {
@@ -473,6 +480,8 @@ public class BantuanHelper {
 		if (k == null) {
 			return false;
 		}
+		// Panduan kembali ke isi bawaan; indeks lama tidak berlaku lagi.
+		invalidasiIndeksKatalog();
 		Session s = null;
 		Transaction tx = null;
 		try {
@@ -1330,7 +1339,7 @@ public class BantuanHelper {
 			if (e == null) {
 				continue;
 			}
-			if (qq.length() > 0 && (e.teksLower == null || e.teksLower.indexOf(qq) < 0)) {
+			if (qq.length() > 0 && !cocokPencarian(e, qq)) {
 				continue;
 			}
 			tampil.add(e);
@@ -1422,6 +1431,270 @@ public class BantuanHelper {
 		}
 	}
 
+	// =====================================================================
+	// INDEKS KATALOG
+	//
+	// MASALAH YANG DIPERBAIKI. Katalog dahulu memanggil muatKontenFile() untuk
+	// SETIAP berkas panduan, dan tiap panggilan itu menembakkan satu query
+	// Hibernate ke tabel Bantuan (openSession + criteria + close) hanya untuk
+	// memeriksa apakah panduan tersebut pernah dimodifikasi. Dengan 1.337
+	// panduan yang masuk katalog, sekali buka katalog berarti 1.337 query
+	// berurutan — jauh lebih mahal daripada membaca berkasnya sendiri, dan
+	// menggantung lama bila basis data sedang lambat.
+	//
+	// CARA BARU. Satu query proyeksi mengambil daftar kunci yang benar-benar
+	// pernah dimodifikasi (tabel Bantuan hanya berisi panduan yang disunting,
+	// biasanya sedikit). Hanya kunci itulah yang isinya diambil dari basis
+	// data; sisanya dibaca langsung dari berkas.
+	//
+	// Hasil olahan disimpan dalam SoftReference yang dipakai bersama antar
+	// sesi, sehingga membuka katalog berulang kali tidak mengolah ulang belasan
+	// MB teks. SoftReference dipilih agar JVM boleh membuang cache ini ketika
+	// memori menipis. Cache DIPISAH PER BAHASA karena isi panduan diterjemahkan
+	// mengikuti bahasa pengguna.
+	// =====================================================================
+
+	/**
+	 * Bagian mahal dari satu entri katalog yang TIDAK bergantung pada pengguna:
+	 * judul, cuplikan, teks untuk pencarian, dan tanggal berkas. Objek ini dipakai
+	 * bersama oleh semua sesi berbahasa sama.
+	 */
+	private static class IsiTerindeks {
+		String judul;
+		String excerpt;
+		String teksLower;
+		String tanggal;
+	}
+
+	private static final Object INDEKS_LOCK = new Object();
+
+	/** bahasa → indeks panduan. Nilainya lunak agar boleh dibuang JVM saat memori menipis. */
+	private static final Map<String, SoftReference<Map<String, IsiTerindeks>>> INDEKS_CACHE =
+			new HashMap<String, SoftReference<Map<String, IsiTerindeks>>>();
+
+	/** bahasa → sidik jari direktori saat indeks dibangun. */
+	private static final Map<String, String> INDEKS_SIDIK = new HashMap<String, String>();
+
+	/**
+	 * Buang indeks katalog agar dibangun ulang. Dipanggil setelah panduan disunting
+	 * atau dihapus lewat aplikasi, karena perubahan itu tidak mengubah berkas di
+	 * disk sehingga tidak terdeteksi oleh sidik jari direktori.
+	 */
+	public static void invalidasiIndeksKatalog() {
+		synchronized (INDEKS_LOCK) {
+			INDEKS_CACHE.clear();
+			INDEKS_SIDIK.clear();
+		}
+	}
+
+	/**
+	 * Sidik jari murah untuk mendeteksi perubahan berkas panduan: jumlah berkas,
+	 * waktu ubah terbaru, dan total ukuran. Hanya melakukan stat, tidak membaca isi.
+	 */
+	private static String sidikDirektoriBantuan(File[] berkas) {
+		int n = 0;
+		long terbaru = 0L;
+		long total = 0L;
+		for (int i = 0; i < berkas.length; i++) {
+			File f = berkas[i];
+			if (f == null || !f.isFile()) {
+				continue;
+			}
+			String nama = f.getName();
+			if (nama == null || !nama.toLowerCase().endsWith(".html")) {
+				continue;
+			}
+			n++;
+			long lm = f.lastModified();
+			if (lm > terbaru) {
+				terbaru = lm;
+			}
+			total += f.length();
+		}
+		return n + ":" + terbaru + ":" + total;
+	}
+
+	/**
+	 * Daftar kunci panduan yang pernah dimodifikasi lewat aplikasi, diambil dengan
+	 * SATU query proyeksi (hanya kolom kunci, bukan isinya). Kembalikan himpunan
+	 * kosong bila basis data tidak tersedia — katalog lalu memakai berkas bawaan,
+	 * persis seperti perilaku lama saat query gagal.
+	 */
+	private static Set<String> kunciTermodifikasiDiTabel() {
+		Set<String> hasil = new HashSet<String>();
+		Session s = null;
+		try {
+			s = HibernateUtil.openSession();
+			List<?> l = s.createCriteria(Bantuan.class)
+					.setProjection(org.hibernate.criterion.Projections.property("kunci"))
+					.list();
+			if (l != null) {
+				for (int i = 0; i < l.size(); i++) {
+					Object o = l.get(i);
+					if (o != null) {
+						hasil.add(String.valueOf(o).trim().toLowerCase());
+					}
+				}
+			}
+		} catch (Throwable t) { ais.common.ErrorAuditUtil.record(t, "auto-audit(empty-catch) src/ais/action/master/helper/BantuanHelper.java:kunciTermodifikasiDiTabel");
+			// abaikan → anggap belum ada yang dimodifikasi (jatuh ke berkas HTML)
+		} finally {
+			HibernateUtil.closeSessionQuietly(s);
+		}
+		return hasil;
+	}
+
+	/** Baca satu berkas panduan apa adanya (tanpa menyentuh basis data). */
+	private static String bacaBerkasBantuan(File f) {
+		FileInputStream in = null;
+		try {
+			in = new FileInputStream(f);
+			ByteArrayOutputStream bos = new ByteArrayOutputStream();
+			byte[] buf = new byte[8192];
+			int n;
+			while ((n = in.read(buf)) != -1) {
+				bos.write(buf, 0, n);
+			}
+			return new String(bos.toByteArray(), "UTF-8");
+		} catch (Throwable t) { ais.common.ErrorAuditUtil.record(t, "auto-audit(empty-catch) src/ais/action/master/helper/BantuanHelper.java:bacaBerkasBantuan");
+			return null;
+		} finally {
+			if (in != null) {
+				try {
+					in.close();
+				} catch (Throwable ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/helper/BantuanHelper.java:bacaBerkasBantuan-close");
+				}
+			}
+		}
+	}
+
+	/** Bahasa aktif sebagai kunci cache; aman dipanggil kapan pun. */
+	private static String bahasaSekarang() {
+		try {
+			String lang = ais.common.Common.currentLang();
+			return lang == null ? "" : lang.trim().toLowerCase();
+		} catch (Throwable t) {
+			return "";
+		}
+	}
+
+	/**
+	 * Indeks seluruh panduan yang boleh muncul di katalog (berkas berawalan "_"
+	 * dan berakhiran "_qa" tidak pernah ditampilkan sehingga tidak diindeks).
+	 * Dibangun sekali lalu dipakai bersama sampai berkas berubah.
+	 */
+	private static Map<String, IsiTerindeks> indeksKatalog() {
+		File dir = null;
+		try {
+			String path = Sessions.getCurrent().getWebApp().getRealPath("/WEB-INF/bantuan/");
+			if (path != null) {
+				dir = new File(path);
+			}
+		} catch (Throwable t) { ais.common.ErrorAuditUtil.record(t, "auto-audit(empty-catch) src/ais/action/master/helper/BantuanHelper.java:indeksKatalog-dir");
+		}
+		if (dir == null || !dir.isDirectory()) {
+			return Collections.emptyMap();
+		}
+		File[] berkas = dir.listFiles();
+		if (berkas == null) {
+			return Collections.emptyMap();
+		}
+
+		String bahasa = bahasaSekarang();
+		String sidik = sidikDirektoriBantuan(berkas);
+		synchronized (INDEKS_LOCK) {
+			SoftReference<Map<String, IsiTerindeks>> ref = INDEKS_CACHE.get(bahasa);
+			Map<String, IsiTerindeks> ada = ref == null ? null : ref.get();
+			if (ada != null && sidik.equals(INDEKS_SIDIK.get(bahasa))) {
+				return ada;
+			}
+		}
+
+		// Satu query untuk seluruh katalog, menggantikan satu query per panduan.
+		Set<String> termodifikasi = kunciTermodifikasiDiTabel();
+
+		java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("dd-MM-yyyy");
+		Map<String, IsiTerindeks> baru = new LinkedHashMap<String, IsiTerindeks>();
+		for (int i = 0; i < berkas.length; i++) {
+			File f = berkas[i];
+			if (f == null || !f.isFile()) {
+				continue;
+			}
+			String nama = f.getName();
+			if (nama == null || !nama.toLowerCase().endsWith(".html")) {
+				continue;
+			}
+			String kunci = nama.substring(0, nama.length() - 5).toLowerCase();
+			if (kunci.startsWith("_") || kunci.endsWith("_qa")) {
+				continue;
+			}
+			String html;
+			if (termodifikasi.contains(kunci)) {
+				// Hanya panduan yang memang pernah disunting yang menyentuh basis data.
+				html = muatKontenFile(kunci);
+			} else {
+				html = bacaBerkasBantuan(f);
+				html = terjemahKontenBantuanBilaPerlu(html);
+			}
+			if (html == null || html.trim().isEmpty()) {
+				continue;
+			}
+			IsiTerindeks it = new IsiTerindeks();
+			String judul = ekstrakJudul(html);
+			it.judul = judul == null ? "" : judul;
+			String teks = stripTags(html);
+			it.excerpt = ringkas(teks, 220);
+			it.teksLower = teks.toLowerCase();
+			it.tanggal = fmt.format(new java.util.Date(f.lastModified()));
+			baru.put(kunci, it);
+		}
+
+		synchronized (INDEKS_LOCK) {
+			INDEKS_CACHE.put(bahasa, new SoftReference<Map<String, IsiTerindeks>>(baru));
+			INDEKS_SIDIK.put(bahasa, sidik);
+		}
+		return baru;
+	}
+
+	/** Susun satu entri katalog dari indeks bersama. Teks pencarian dipakai ulang
+	 *  lewat rujukan, tidak disalin, agar membuka katalog tidak menggandakan memori. */
+	private static Entri entriDariIndeks(IsiTerindeks it, String key, String label) {
+		Entri e = new Entri();
+		e.key = key;
+		e.label = label == null ? "" : label.trim();
+		String judul = it.judul;
+		if (judul == null || judul.isEmpty()) {
+			judul = e.label.isEmpty() ? key : e.label;
+		}
+		e.judul = judul;
+		e.teksLower = it.teksLower;
+		e.excerpt = it.excerpt;
+		e.kategori = kategoriDariKey(key);
+		e.tanggal = it.tanggal;
+		return e;
+	}
+
+	/**
+	 * Apakah entri cocok dengan kata kunci pencarian. Judul dan label diuji
+	 * terpisah dari teks isi supaya teks isi yang besar dapat dipakai bersama
+	 * antar sesi tanpa disalin ulang per pengguna.
+	 */
+	private static boolean cocokPencarian(Entri e, String q) {
+		if (e == null || q == null || q.length() == 0) {
+			return true;
+		}
+		if (e.teksLower != null && e.teksLower.indexOf(q) >= 0) {
+			return true;
+		}
+		if (e.judul != null && e.judul.toLowerCase().indexOf(q) >= 0) {
+			return true;
+		}
+		if (e.label != null && e.label.toLowerCase().indexOf(q) >= 0) {
+			return true;
+		}
+		return false;
+	}
+
 	/**
 	 * Kumpulkan entri katalog. Bila daftar menu pengguna tersedia, hanya panduan
 	 * untuk halaman yang menu-nya dimiliki pengguna yang disertakan. Bila tidak
@@ -1429,6 +1702,7 @@ public class BantuanHelper {
 	 * cadangan agar katalog tidak kosong.
 	 */
 	private static List<Entri> kumpulkanEntriBantuan() {
+		Map<String, IsiTerindeks> indeks = indeksKatalog();
 		LinkedHashMap<String, Entri> map = new LinkedHashMap<String, Entri>();
 
 		List<Menu> menus = daftarMenuPengguna();
@@ -1444,44 +1718,18 @@ public class BantuanHelper {
 				if (key == null || map.containsKey(key)) {
 					continue;
 				}
-				String html = muatKontenFile(key);
-				if (html == null || html.trim().isEmpty()) {
+				IsiTerindeks it = indeks.get(key);
+				if (it == null) {
 					continue;
 				}
-				map.put(key, buatEntri(key, m.getLabel(), html));
+				map.put(key, entriDariIndeks(it, key, m.getLabel()));
 			}
 		}
 
-		// Cadangan: bila belum ada satu pun (mis. menu belum termuat) → seluruh berkas.
+		// Cadangan: bila belum ada satu pun (mis. menu belum termuat) seluruh panduan.
 		if (map.isEmpty()) {
-			try {
-				String dir = Sessions.getCurrent().getWebApp().getRealPath("/WEB-INF/bantuan/");
-				if (dir != null) {
-					File d = new File(dir);
-					File[] files = d.listFiles();
-					if (files != null) {
-						for (File f : files) {
-							if (f == null || !f.isFile()) {
-								continue;
-							}
-							String nama = f.getName();
-							if (nama == null || !nama.toLowerCase().endsWith(".html")) {
-								continue;
-							}
-							String key = nama.substring(0, nama.length() - 5).toLowerCase();
-								if (key.startsWith("_") || key.endsWith("_qa")) { continue; }
-							if (map.containsKey(key)) {
-								continue;
-							}
-							String html = muatKontenFile(key);
-							if (html == null || html.trim().isEmpty()) {
-								continue;
-							}
-							map.put(key, buatEntri(key, null, html));
-						}
-					}
-				}
-			} catch (Throwable ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/helper/BantuanHelper.java:1226");
+			for (Map.Entry<String, IsiTerindeks> en : indeks.entrySet()) {
+				map.put(en.getKey(), entriDariIndeks(en.getValue(), en.getKey(), null));
 			}
 		}
 
@@ -1489,35 +1737,14 @@ public class BantuanHelper {
 		// sehingga tidak akan pernah terjaring oleh penyaringan hak akses di atas. Panduan
 		// ini bersifat umum dan aman ditampilkan kepada semua pengguna, jadi selalu
 		// disertakan ke dalam katalog.
-		try {
-			String dirPanduan = Sessions.getCurrent().getWebApp().getRealPath("/WEB-INF/bantuan/");
-			if (dirPanduan != null) {
-				File dp = new File(dirPanduan);
-				File[] berkasPanduan = dp.listFiles();
-				if (berkasPanduan != null) {
-					for (int i = 0; i < berkasPanduan.length; i++) {
-						File f = berkasPanduan[i];
-						if (f == null || !f.isFile()) {
-							continue;
-						}
-						String nama = f.getName();
-						if (nama == null || !nama.toLowerCase().endsWith(".html")) {
-							continue;
-						}
-						String kunci = nama.substring(0, nama.length() - 5).toLowerCase();
-						if (!kunci.startsWith("panduan") || kunci.endsWith("_qa") || map.containsKey(kunci)) {
-							continue;
-						}
-						String htmlPanduan = muatKontenFile(kunci);
-						if (htmlPanduan == null || htmlPanduan.trim().isEmpty()) {
-							continue;
-						}
-						map.put(kunci, buatEntri(kunci, "Panduan Pengguna", htmlPanduan));
-					}
-				}
+		for (Map.Entry<String, IsiTerindeks> en : indeks.entrySet()) {
+			String kunci = en.getKey();
+			if (!kunci.startsWith("panduan") || map.containsKey(kunci)) {
+				continue;
 			}
-		} catch (Throwable ignore) { ais.common.ErrorAuditUtil.record(ignore, "auto-audit(empty-catch) src/ais/action/master/helper/BantuanHelper.java:kumpulkanEntriBantuan-panduan");
+			map.put(kunci, entriDariIndeks(en.getValue(), kunci, "Panduan Pengguna"));
 		}
+
 
 		// Isi jumlah buka untuk analitik ringan.
 		try {
@@ -1834,7 +2061,7 @@ public class BantuanHelper {
 				if (e == null) {
 					continue;
 				}
-				if (qlow.length() > 0 && (e.teksLower == null || e.teksLower.indexOf(qlow) < 0)) {
+				if (qlow.length() > 0 && !cocokPencarian(e, qlow)) {
 					continue;
 				}
 				no++;
