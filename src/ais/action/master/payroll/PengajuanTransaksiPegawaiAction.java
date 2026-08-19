@@ -531,9 +531,14 @@ public class PengajuanTransaksiPegawaiAction extends GenericAutowireComposer
 				new Label(pengajuanTransaksiPegawai.getSetujui() ? "Ya" : "Tidak").setParent(arg0);
 			}
 
-			Hbox d;
-			(d = Common.copyEditDeleteButtons(edit, delete, pengajuanTransaksiPegawai,
-					PengajuanTransaksiPegawaiAction.this)).setParent(arg0);
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dibungkus kebab popup (⋯)
+			// via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten antar layar.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+
+			Hbox d = Common.copyEditDeleteButtons(edit, delete, pengajuanTransaksiPegawai,
+					PengajuanTransaksiPegawaiAction.this);
+			aksiButtons.addAll(ais.ui.util.UIHelper.ambilItemAksi(d));
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/print.png");
 			button.setStyle("font-size:9px;");
@@ -546,7 +551,9 @@ public class PengajuanTransaksiPegawaiAction extends GenericAutowireComposer
 				}
 
 			});
-			button.setParent(d);
+			aksiButtons.add(button);
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 
 		}
 

@@ -4239,7 +4239,8 @@ public class AbsensiHelper {
 				label.setWidth("80%");
 				hbox.appendChild(label);
 
-				Hbox toolbar = new Hbox();
+				final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+						new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 				MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/print.png");
 				button.setAttribute("janganDisabled", true);
@@ -4252,7 +4253,7 @@ public class AbsensiHelper {
 					}
 
 				});
-				button.setParent(toolbar);
+				aksiButtons.add(button);
 
 				button = new MyToolbarbuttonConfig("", "/img/svg/edit-box-line.svg");
 				button.setTooltiptext("Ubah Data");
@@ -4263,7 +4264,7 @@ public class AbsensiHelper {
 					}
 
 				});
-				button.setParent(toolbar);
+				aksiButtons.add(button);
 
 				button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 				button.setTooltiptext("Hapus Data");

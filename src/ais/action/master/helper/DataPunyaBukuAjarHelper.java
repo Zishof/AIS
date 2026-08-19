@@ -129,7 +129,8 @@ public class DataPunyaBukuAjarHelper implements DataLoader {
 			new Label(bukuBahanAjar.getTahun() + " / " + bukuBahanAjar.getTahunAkademik() + " / "
 					+ bukuBahanAjar.getSemester()).setParent(arg0);
 
-			Hbox toolbar = new Hbox();
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Kutipan", "/img/eye-icon.png");
 			button.setOrient("vertical");
@@ -141,7 +142,7 @@ public class DataPunyaBukuAjarHelper implements DataLoader {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 			button.setTooltiptext("Hapus Data");
@@ -174,8 +175,9 @@ public class DataPunyaBukuAjarHelper implements DataLoader {
 				}
 
 			});
-			button.setParent(toolbar);
-			toolbar.setParent(arg0);
+			aksiButtons.add(button);
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 
 		}
 
