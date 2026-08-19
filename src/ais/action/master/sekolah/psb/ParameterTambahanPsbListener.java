@@ -116,10 +116,32 @@ public class ParameterTambahanPsbListener implements EventListener {
 								|| gelombangPendaftaranPsb.getSelectedItem() == null ? null
 										: gelombangPendaftaranPsb.getSelectedItem().getValue());
 
-		if (gel != null && formPendaftaran && !gel.getTampilFormTambahanSaatRegistrasi()) {
-			return;
-		} else if (gel != null && !formPendaftaran && !gel.getTampilFormTambahanSaatLoginCalonMhs()) {
-			return;
+		/*
+		 * SARINGAN TAMPIL FORM TAMBAHAN.
+		 *
+		 * MASALAH SEBELUMNYA: formulir pendaftaran PUBLIK (/ppdb -> PSBAction ->
+		 * CalonSiswaAction.onAddExternal) membuat listener ini dengan formPendaftaran=false,
+		 * sehingga yang diperiksa HANYA "Tampil Form Tambahan Saat Login Calon Mhs".
+		 * Centang "Tampil Form Tambahan Saat Registrasi" -- pilihan yang paling wajar dicentang
+		 * admin untuk sebuah FORM PENDAFTARAN -- TIDAK PERNAH dibaca di jalur PSB, sehingga
+		 * Form Tambahan (termasuk isian upload berkas) tidak pernah muncul walau sudah dicentang.
+		 *
+		 * PERBAIKAN: pada kondisi BELUM LOGIN (calon siswa/orang tua mengisi formulir publik),
+		 * salah satu dari kedua centang sudah cukup untuk menampilkan. Sifatnya PERMISIF: tidak
+		 * ada instalasi yang kehilangan tampilan yang selama ini sudah muncul, hanya menambah
+		 * penghormatan pada centang "Saat Registrasi" yang selama ini diabaikan. Bila keduanya
+		 * tidak dicentang, tetap disembunyikan seperti semula.
+		 */
+		Tbmuser penggunaSaatIni = Common.getCurrentUser();
+		boolean belumLogin = penggunaSaatIni == null || penggunaSaatIni.getUserId() == null;
+		if (gel != null) {
+			boolean bolehTampil = belumLogin
+					? (gel.getTampilFormTambahanSaatRegistrasi() || gel.getTampilFormTambahanSaatLoginCalonMhs())
+					: (formPendaftaran ? gel.getTampilFormTambahanSaatRegistrasi()
+							: gel.getTampilFormTambahanSaatLoginCalonMhs());
+			if (!bolehTampil) {
+				return;
+			}
 		}
 
 		Tbmuser tbmuser = Common.getCurrentUser();
