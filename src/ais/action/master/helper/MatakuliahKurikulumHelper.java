@@ -501,9 +501,9 @@ public class MatakuliahKurikulumHelper implements DataLoader {
 				}
 			});
 
-			Hbox toolbar = new Hbox();
-			toolbar.setVisible(
-					Common.getCurrentUser().getMahasiswa() == null && Common.getCurrentUser().getDosen() == null);
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			deleteButton.setVisible(delete);
 			deleteButton.setTooltiptext("Hapus Data");
@@ -537,10 +537,13 @@ public class MatakuliahKurikulumHelper implements DataLoader {
 				}
 
 			});
-			deleteButton.setParent(toolbar);
+			aksiButtons.add(deleteButton);
 			editButton.setVisible(edit);
-			editButton.setParent(toolbar);
-			toolbar.setParent(row);
+			aksiButtons.add(editButton);
+			// Susun semua tombol: max 3 per baris, rata tengah
+			Vbox aksiBox = ais.ui.util.UIHelper.buatBarisAksi(row, 3, aksiButtons);
+			aksiBox.setVisible(
+					Common.getCurrentUser().getMahasiswa() == null && Common.getCurrentUser().getDosen() == null);
 
 		}
 

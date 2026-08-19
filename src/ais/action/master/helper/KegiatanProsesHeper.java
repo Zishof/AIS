@@ -165,9 +165,16 @@ public class KegiatanProsesHeper {
 								}
 
 								final Desktop desktop = Executions.getCurrent().getDesktop();
+								/* OPTIMASI FASE 5: push dulu dinyalakan tapi tidak pernah dimatikan sehingga browser
+								 * terus polling dan menahan thread Tomcat selama tab terbuka. Ditandai di sini lalu
+								 * dilepas pada finally tugas latar di bawah (WORKER_EXECUTOR tetap dipakai apa adanya
+								 * karena ukurannya sengaja kecil, lihat catatan pada WORKER_EXECUTOR). */
+								boolean pushBaruDinyalakan = false;
 								if (!desktop.isServerPushEnabled()) {
 									desktop.enableServerPush(true);
+									pushBaruDinyalakan = true;
 								}
+								final boolean pushDinyalakanDiSini = pushBaruDinyalakan;
 
 								final Window winProgress = new Window("Sinkronisasi Data Cicilan", "normal", true);
 								winProgress.setWidth("520px");
@@ -220,6 +227,7 @@ public class KegiatanProsesHeper {
 								WORKER_EXECUTOR.execute(new Runnable() {
 									@Override
 									public void run() {
+										try {
 										ExecutorService executor = null;
 										try {
 											updateUI(desktop, lbStatus, pm, 3, "Membaca relasi cicilan dari database...");
@@ -325,6 +333,16 @@ public class KegiatanProsesHeper {
 													}
 												}
 											}, null);
+										}
+										} finally {
+											/* OPTIMASI FASE 5: push dulu dinyalakan tapi tidak pernah dimatikan sehingga browser
+											 * terus polling dan menahan thread Tomcat selama tab terbuka. Matikan HANYA bila kita
+											 * yang menyalakannya, dan hanya bila desktop masih hidup. */
+											if (pushDinyalakanDiSini && desktop != null && desktop.isAlive() && desktop.isServerPushEnabled()) {
+												try { desktop.enableServerPush(false); } catch (Exception e) {
+													ais.common.ErrorAuditUtil.record(e, "Fase5.lepasServerPush");
+												}
+											}
 										}
 									}
 								});

@@ -62,6 +62,13 @@ public class ApotikItemProfile extends GeneralValueObject {
 	private ItemMedis item;
 	private String golonganObat;
 	private Boolean lasa;
+	// IR-01 (modernisasi UI/UX apotik): atribut yang dibutuhkan kasir untuk
+	// membedakan obat secara cepat dan menandai risiko tinggi. Semua NULLABLE
+	// supaya baris profil lama tetap sah tanpa migrasi data.
+	private String bentukSediaan;
+	private String kekuatan;
+	private Boolean highAlert;
+	private Boolean coldChain;
 	private String keterangan;
 
 	private String oleh;
@@ -108,6 +115,50 @@ public class ApotikItemProfile extends GeneralValueObject {
 
 	public void setLasa(Boolean lasa) {
 		this.lasa = lasa;
+	}
+
+	/** Bentuk sediaan (tablet, sirup, injeksi, salep, ...). Teks bebas ringkas. */
+	@Column(name = "bentuk_sediaan", length = 60)
+	public String getBentukSediaan() {
+		return bentukSediaan;
+	}
+
+	public void setBentukSediaan(String bentukSediaan) {
+		this.bentukSediaan = bentukSediaan;
+	}
+
+	/** Kekuatan/dosis satuan (mis. "500 mg", "5 mg/5 mL"). */
+	@Column(name = "kekuatan", length = 60)
+	public String getKekuatan() {
+		return kekuatan;
+	}
+
+	public void setKekuatan(String kekuatan) {
+		this.kekuatan = kekuatan;
+	}
+
+	/**
+	 * Obat high-alert (risiko cedera tinggi bila salah): insulin, heparin,
+	 * elektrolit pekat, dsb. Dipakai UI untuk menandai baris secara mencolok.
+	 * BUKAN pengganti golongan obat -- keduanya berdiri sendiri.
+	 */
+	@Column(name = "high_alert")
+	public Boolean getHighAlert() {
+		return highAlert == null ? Boolean.FALSE : highAlert;
+	}
+
+	public void setHighAlert(Boolean highAlert) {
+		this.highAlert = highAlert;
+	}
+
+	/** Wajib rantai dingin (2-8 C). Menentukan peringatan penyimpanan/kirim. */
+	@Column(name = "cold_chain")
+	public Boolean getColdChain() {
+		return coldChain == null ? Boolean.FALSE : coldChain;
+	}
+
+	public void setColdChain(Boolean coldChain) {
+		this.coldChain = coldChain;
 	}
 
 	@Column(name = "keterangan", columnDefinition = "text")

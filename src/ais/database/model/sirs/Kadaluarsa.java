@@ -78,6 +78,9 @@ public class Kadaluarsa extends GeneralValueObject {
 	}
 
 	private Date tanggalKadaluarsa;
+	// IR-02 (modernisasi UI/UX apotik): status lot. NULL = ELIGIBLE supaya
+	// seluruh baris lama tetap layak pakai tanpa migrasi data.
+	private String statusLot;
 	private ItemMedis item;
 	private Double qty;
 	private String keterangan;
@@ -99,6 +102,44 @@ public class Kadaluarsa extends GeneralValueObject {
 
 	public void setId(Long id) {
 		this.id = id;
+	}
+
+	/**
+	 * Status lot (IR-02). Hanya {@link #LOT_ELIGIBLE} yang boleh dijual/
+	 * dialokasikan FEFO; sisanya DITAHAN oleh {@code ApotikApiHelper.bayar}.
+	 * Nilai null diperlakukan ELIGIBLE demi kompatibilitas data lama.
+	 */
+	public static final String LOT_ELIGIBLE = "ELIGIBLE";
+	public static final String LOT_HELD = "HELD";
+	public static final String LOT_QUARANTINE = "QUARANTINE";
+	public static final String LOT_RECALL = "RECALL";
+	public static final String LOT_DAMAGED = "DAMAGED";
+
+	/** true bila lot boleh dipakai menjual (status layak). */
+	public static boolean lotLayak(String status) {
+		return status == null || status.trim().isEmpty()
+				|| LOT_ELIGIBLE.equals(status);
+	}
+
+	/** Alasan manusiawi mengapa lot tidak dapat dipilih (null bila layak). */
+	public static String alasanLotDitahan(String status) {
+		if (lotLayak(status)) return null;
+		if (LOT_HELD.equals(status)) return "Lot ditahan sementara";
+		if (LOT_QUARANTINE.equals(status)) return "Lot dikarantina";
+		if (LOT_RECALL.equals(status)) return "Lot ditarik (recall)";
+		if (LOT_DAMAGED.equals(status)) return "Lot rusak";
+		return "Lot berstatus " + status;
+	}
+
+	@Column(name = "status_lot", length = 24)
+	public String getStatusLot() {
+		return statusLot == null || statusLot.trim().isEmpty()
+				? LOT_ELIGIBLE
+				: statusLot;
+	}
+
+	public void setStatusLot(String statusLot) {
+		this.statusLot = statusLot;
 	}
 
 	@Column(name = "keterangan", nullable = true)

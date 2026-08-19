@@ -276,7 +276,9 @@ public class SaldoAwalAction extends GenericCrudAction<SaldoAwalMedis> {
             disetujuiTanggal.setParent(arg0);
             new Label(saldoAwal.getKeterangan()).setParent(arg0);
 
-            org.zkoss.zul.Hbox toolbar = new org.zkoss.zul.Hbox();
+            // kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+            final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+                    new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
             Toolbarbutton btnCetak = new MyToolbarbuttonConfig("", "/img/print.png");
             btnCetak.setTooltiptext("Cetak Saldo Awal");
@@ -290,7 +292,7 @@ public class SaldoAwalAction extends GenericCrudAction<SaldoAwalMedis> {
                             saldoAwal.getTanggalPembuatan());
                 }
             });
-            btnCetak.setParent(toolbar);
+            aksiButtons.add(btnCetak);
 
             final Toolbarbutton btnApprove = new MyToolbarbuttonConfig("", "/img/check.png");
             final Toolbarbutton btnReject = new MyToolbarbuttonConfig("", "/img/cross.png");
@@ -401,7 +403,7 @@ public class SaldoAwalAction extends GenericCrudAction<SaldoAwalMedis> {
                             });
                 }
             });
-            btnApprove.setParent(toolbar);
+            aksiButtons.add(btnApprove);
 
             btnReject.setTooltiptext("Dibatalkan");
             btnReject.addEventListener("onClick", new EventListener() {
@@ -442,7 +444,7 @@ public class SaldoAwalAction extends GenericCrudAction<SaldoAwalMedis> {
                             });
                 }
             });
-            btnReject.setParent(toolbar);
+            aksiButtons.add(btnReject);
 
             btnEdit.setTooltiptext("Rubah Data");
             btnEdit.addEventListener("onClick", new EventListener() {
@@ -454,7 +456,7 @@ public class SaldoAwalAction extends GenericCrudAction<SaldoAwalMedis> {
                     addWindow.onModal();
                 }
             });
-            btnEdit.setParent(toolbar);
+            aksiButtons.add(btnEdit);
 
             btnDelete.setTooltiptext("Hapus Data");
             btnDelete.addEventListener("onClick", new EventListener() {
@@ -489,8 +491,9 @@ public class SaldoAwalAction extends GenericCrudAction<SaldoAwalMedis> {
                             });
                 }
             });
-            btnDelete.setParent(toolbar);
-            toolbar.setParent(arg0);
+            aksiButtons.add(btnDelete);
+            // Susun semua tombol: max 3 per baris, rata tengah
+            ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
         }
     }
 }

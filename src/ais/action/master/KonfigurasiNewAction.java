@@ -488,12 +488,17 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 	}
 
 
+	/**
+	 * OPTIMASI FASE 5: dahulu method ini memanggil {@code desktop.enableServerPush(true)}
+	 * secara langsung dan TIDAK PERNAH mematikannya, sehingga browser terus melakukan polling
+	 * (masing-masing menahan satu thread Tomcat) selama tab terbuka walau proses backup sudah
+	 * lama selesai. Sekarang push dinyalakan lewat reference counting AsyncTaskManager dan
+	 * DILEPAS di {@link #showBackupAlert} yang merupakan titik akhir seluruh alur backup.
+	 */
 	private Desktop prepareDesktopForBackgroundAlert() {
 		try {
 			Desktop desktop = Executions.getCurrent() == null ? null : Executions.getCurrent().getDesktop();
-			if (desktop != null && !desktop.isServerPushEnabled()) {
-				desktop.enableServerPush(true);
-			}
+			ais.common.AsyncTaskManager.tambahPush(desktop);
 			return desktop;
 		} catch (Exception e) {
 			return null;
@@ -605,6 +610,14 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 			}
 		} catch (Exception e) {
 			ais.common.Common.tampilErrorJikaAdmin(e);
+		}
+
+		/* OPTIMASI FASE 5: titik AKHIR alur backup -- lepaskan server push yang dinyalakan
+		 * prepareDesktopForBackgroundAlert(). Reference counting menjamin push baru benar-benar
+		 * dimatikan bila tidak ada tugas async lain yang masih berjalan pada desktop ini. */
+		try {
+			ais.common.AsyncTaskManager.lepasPush(desktop);
+		} catch (Throwable abaikan) {
 		}
 	}
 
@@ -6700,7 +6713,11 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 
-				final Desktop desktop = prepareDesktopForBackgroundAlert();
+				/* OPTIMASI FASE 5: sebelumnya dipakai prepareDesktopForBackgroundAlert() yang MENYALAKAN
+				 * server push tetapi TIDAK PERNAH mematikannya, sehingga browser terus polling (menahan
+				 * thread Tomcat) selama tab terbuka walau backup sudah selesai. Di sini desktop diambil
+				 * tanpa menyalakan push; siklus hidup push sepenuhnya diurus jalankanDenganPush() di bawah. */
+				final Desktop desktop = Executions.getCurrent() == null ? null : Executions.getCurrent().getDesktop();
 				final Label labelFilename = new Label();
 
 				final Label label = Common.displayLoadBar(new EventListener() {
@@ -6723,7 +6740,12 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 					}
 				});
 
-				new Thread(new Runnable() {
+				/* OPTIMASI FASE 5: server push dulu dinyalakan di sini tetapi TIDAK PERNAH dimatikan,
+				 * sehingga browser terus polling (menahan thread Tomcat) selama tab terbuka walau proses
+				 * sudah selesai. Tugas juga dijalankan pada thread MENTAH tanpa batas.
+				 * jalankanDenganPush() menyalakan push ber-reference-count, menjalankan tugas pada pool
+				 * daemon berbatas milik AsyncTaskManager, lalu MELEPAS push di finally. */
+				ais.common.AsyncTaskManager.jalankanDenganPush(desktop, new Runnable() {
 
 					@Override
 					public void run() {
@@ -6742,7 +6764,7 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 							showBackupAlert(desktop, "Backup Database dan Download Langsung", e);
 						}
 					}
-				}).start();
+				});
 			}
 		});
 

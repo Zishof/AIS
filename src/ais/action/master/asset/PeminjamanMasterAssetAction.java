@@ -515,7 +515,9 @@ public class PeminjamanMasterAssetAction extends GenericAutowireComposer impleme
 				new Label(peminjamanMasterAsset.getAktif() ? "Ya" : "Tidak").setParent(arg0);
 			}
 
-			Hbox toolbar = new Hbox();
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/print.png");
 			button.setTooltiptext("Cetak Peminjaman Asset");
@@ -528,7 +530,7 @@ public class PeminjamanMasterAssetAction extends GenericAutowireComposer impleme
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			final MyToolbarbuttonConfig disetujui = new MyToolbarbuttonConfig("", "/img/svg/check2.svg");
 
@@ -584,7 +586,7 @@ public class PeminjamanMasterAssetAction extends GenericAutowireComposer impleme
 				}
 
 			});
-			disetujui.setParent(toolbar);
+			aksiButtons.add(disetujui);
 
 			dibatalkan.setTooltiptext("Dibatalkan");
 			dibatalkan.addEventListener("onClick", new EventListener() {
@@ -628,7 +630,7 @@ public class PeminjamanMasterAssetAction extends GenericAutowireComposer impleme
 				}
 
 			});
-			dibatalkan.setParent(toolbar);
+			aksiButtons.add(dibatalkan);
 
 			rubah.setTooltiptext("Ubah Data");
 			rubah.setVisible(edit && peminjamanMasterAsset.getDisetujuiOleh() == null);
@@ -641,7 +643,7 @@ public class PeminjamanMasterAssetAction extends GenericAutowireComposer impleme
 				}
 
 			});
-			rubah.setParent(toolbar);
+			aksiButtons.add(rubah);
 
 			hapus.setTooltiptext("Hapus Data");
 			hapus.setVisible(delete && peminjamanMasterAsset.getDisetujuiOleh() == null);
@@ -704,8 +706,10 @@ public class PeminjamanMasterAssetAction extends GenericAutowireComposer impleme
 
 				}
 			});
-			hapus.setParent(toolbar);
-			toolbar.setParent(arg0);
+			aksiButtons.add(hapus);
+
+			// Susun semua tombol: max 3 per baris, rata tengah
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 	}
 

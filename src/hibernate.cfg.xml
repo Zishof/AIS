@@ -1902,6 +1902,8 @@
 		<mapping class="ais.database.model.sirs.BahanBakuItem" />
 		<mapping class="ais.database.model.sirs.Kadaluarsa" />
 		<mapping class="ais.database.model.sirs.ApotikItemProfile" />
+		<!-- IR-07: metode pembayaran transaksi apotik (tabel baru, hbm2ddl aman) -->
+		<mapping class="ais.database.model.sirs.ApotikPembayaranTransaksi"></mapping>
 		<mapping class="ais.database.model.sirs.ApotikBatchKonsumsi" />
 		<mapping class="ais.database.model.sirs.ApotikNarkotikaLog" />
 		<mapping class="ais.database.model.sirs.TindakanLabDetail" />

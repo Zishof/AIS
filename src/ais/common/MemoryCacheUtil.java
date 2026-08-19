@@ -67,6 +67,26 @@ public class MemoryCacheUtil {
     @SuppressWarnings("rawtypes")
     private static final ConcurrentHashMap<String, Map> MAPS = new ConcurrentHashMap<String, Map>();
 
+    /**
+     * Ringkasan isi cache untuk snapshot performa (OPTIMASI FASE 10): jumlah region dan
+     * total baris yang ditahan di heap. Dipakai memantau apakah preload/cache benar-benar
+     * terkendali setelah Fase 2 dan Fase 3. Menelan seluruh kegagalan.
+     */
+    public static String statistik() {
+        try {
+            int region = MAPS.size();
+            long totalBaris = 0L;
+            for (Map m : MAPS.values()) {
+                if (m != null) {
+                    totalBaris += m.size();
+                }
+            }
+            return "region=" + region + ", total baris=" + totalBaris;
+        } catch (Throwable t) {
+            return "gagal dibaca: " + t.getClass().getSimpleName();
+        }
+    }
+
     /** Penanda bahwa konfigurasi ringan (lokasi_file_temporary_data) sudah dibaca sekali. */
     private static volatile boolean configLoaded = false;
 

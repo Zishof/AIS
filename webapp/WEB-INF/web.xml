@@ -87,6 +87,86 @@
 	     dihapus 13-06-2026: zuljsp.jar dibuang dari WEB-INF/lib karena tidak
 	     ada JSP yang memakai taglib ZUL; listener ini membuat context gagal
 	     start (ClassNotFoundException) bila jar tidak ada. -->
+	<!--
+		KEAMANAN P0 (FASE 8) - TUTUP AKSES BERKAS INTERNAL DARI WEB.
+
+		Berkas skrip deployment dan dump SQL berada di ROOT webapp (bukan di bawah WEB-INF),
+		sehingga TANPA aturan ini semuanya dapat diunduh siapa pun lewat HTTP, contoh:
+		    https://host/<context>/update.sh
+		    https://host/<context>/cascade.sql
+		Sebelum perubahan ini TIDAK ADA satu pun security-constraint di berkas web.xml.
+
+		Isi yang terekspos: skrip deployment memuat KREDENSIAL repositori dalam bentuk teks
+		biasa, dan cascade.sql memuat struktur/relasi basis data. Nilai kredensialnya sengaja
+		TIDAK dicantumkan di sini.
+
+		auth-constraint KOSONG = tidak ada peran yang diizinkan = DITOLAK untuk semua
+		(idiom standar Servlet untuk "deny all"). Skrip tetap berfungsi normal karena
+		dijalankan dari filesystem server, bukan lewat HTTP.
+
+		TINDAK LANJUT PEMILIK SISTEM (tidak bisa dikerjakan dari sini):
+		1. ROTASI kredensial repositori yang terlanjur tertulis di skrip tersebut.
+		2. Pindahkan skrip deployment ke luar direktori webapp.
+		3. Pertimbangkan pembersihan riwayat SVN sebagai pekerjaan keamanan terpisah.
+	-->
+	<security-constraint>
+		<web-resource-collection>
+			<web-resource-name>Berkas internal (skrip, dump SQL, cadangan)</web-resource-name>
+			<url-pattern>*.sh</url-pattern>
+			<url-pattern>*.sql</url-pattern>
+			<url-pattern>*.bak</url-pattern>
+		</web-resource-collection>
+		<auth-constraint />
+	</security-constraint>
+
+	<!--
+		OPTIMASI FASE 7 - konfigurasi JasperServlet (kompilator JSP Tomcat) untuk PRODUKSI.
+
+		Aplikasi ini memiliki 10.252 berkas JSP. Secara default Tomcat MENAHAN kelas hasil
+		kompilasi SETIAP JSP yang pernah diakses di memori tanpa batas, sehingga Metaspace
+		terus tumbuh seiring makin banyak layar dibuka, dan redeploy makin lambat.
+
+		- development=false : Tomcat TIDAK lagi mengecek perubahan berkas .jsp pada setiap
+		  request (stat file per request hilang). PERHATIAN: dengan setelan ini perubahan
+		  berkas JSP TIDAK otomatis termuat - perlu redeploy/restart. Untuk mesin
+		  pengembangan, set kembali ke true.
+		- checkInterval=0 : hanya relevan saat development=true; ditulis eksplisit.
+		- mappedfile=false : Jasper tidak lagi membuat satu baris write() per baris JSP,
+		  sehingga kelas hasil kompilasi jauh lebih kecil (hemat Metaspace + waktu muat).
+		- maxLoadedJsps=500 : BATAS jumlah JSP yang ditahan di memori. Melebihi itu, JSP yang
+		  paling lama tak dipakai dibongkar (LRU). Inilah pengaman utama terhadap 10.252 JSP.
+		- jspIdleTimeout=1800 : JSP yang menganggur >30 menit dibongkar dari memori.
+
+		Kedua parameter maxLoadedJsps dan jspIdleTimeout didukung Tomcat 7+ (server di sini
+		Tomcat 9.0.82). Mendefinisikan ulang servlet bernama "jsp" hanya MENIMPA init-param
+		milik definisi bawaan conf/web.xml; pemetaan *.jsp / *.jspx bawaan tetap berlaku.
+	-->
+	<servlet>
+		<servlet-name>jsp</servlet-name>
+		<servlet-class>org.apache.jasper.servlet.JspServlet</servlet-class>
+		<init-param>
+			<param-name>development</param-name>
+			<param-value>false</param-value>
+		</init-param>
+		<init-param>
+			<param-name>checkInterval</param-name>
+			<param-value>0</param-value>
+		</init-param>
+		<init-param>
+			<param-name>mappedfile</param-name>
+			<param-value>false</param-value>
+		</init-param>
+		<init-param>
+			<param-name>maxLoadedJsps</param-name>
+			<param-value>500</param-value>
+		</init-param>
+		<init-param>
+			<param-name>jspIdleTimeout</param-name>
+			<param-value>1800</param-value>
+		</init-param>
+		<load-on-startup>3</load-on-startup>
+	</servlet>
+
 	<servlet>
 		<description>
   	The ZK loader for ZUML pages</description>

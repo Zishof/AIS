@@ -328,8 +328,9 @@ public class CariDataPesertaUjianAction extends GenericAutowireComposer {
 			new ais.ui.util.MyHtml(CariDataPesertaUjianAction.genInfo(calonSiswa)).setParent(arg0);
 			
 			
-			Hbox toolbar = new Hbox();
-			toolbar.setParent(arg0);
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Ket. Lulus", "/img/Configure.gif");
 			button.setVisible(calonSiswa.getTelahDiterima());
 			button.addEventListener("onClick", new EventListener() {
@@ -340,7 +341,7 @@ public class CariDataPesertaUjianAction extends GenericAutowireComposer {
 
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 			
 			
 			button = new MyToolbarbuttonConfig("Pernyataan Ortu.", "/img/print.png");
@@ -352,7 +353,7 @@ public class CariDataPesertaUjianAction extends GenericAutowireComposer {
 					CommonReportPsb.onCetakPernyataanOrtu(calonSiswa);
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 			
 			button = new MyToolbarbuttonConfig("Pernyataan Siswa.", "/img/print.png");
 			button.setOrient("vertical");
@@ -363,7 +364,10 @@ public class CariDataPesertaUjianAction extends GenericAutowireComposer {
 					CommonReportPsb.onCetakPernyataanSiswa(calonSiswa);
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
+
+			// Susun semua tombol: max 3 per baris, rata tengah
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 
 			// Hbox toolbar = new Hbox();
 			// toolbar.setParent(arg0);

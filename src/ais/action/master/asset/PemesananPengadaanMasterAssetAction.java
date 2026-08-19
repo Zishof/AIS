@@ -704,7 +704,9 @@ public class PemesananPengadaanMasterAssetAction extends GenericAutowireComposer
 				new Label(pemesananPengadaanMasterAsset.getAktif() ? "Ya" : "Tidak").setParent(arg0);
 			}
 
-			Hbox toolbar = new Hbox();
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/print.png");
 			button.setTooltiptext("Cetak Pemesanan Pengadaan Asset");
@@ -717,7 +719,7 @@ public class PemesananPengadaanMasterAssetAction extends GenericAutowireComposer
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			final MyToolbarbuttonConfig disetujui = new MyToolbarbuttonConfig("", "/img/svg/check2.svg");
 			final MyToolbarbuttonConfig ditolak = new MyToolbarbuttonConfig("", "/img/svg/deny.svg");
@@ -812,7 +814,7 @@ public class PemesananPengadaanMasterAssetAction extends GenericAutowireComposer
 				}
 
 			});
-			disetujui.setParent(toolbar);
+			aksiButtons.add(disetujui);
 
 			ditolak.setTooltiptext("Ditolak");
 
@@ -876,7 +878,7 @@ public class PemesananPengadaanMasterAssetAction extends GenericAutowireComposer
 				}
 
 			});
-			ditolak.setParent(toolbar);
+			aksiButtons.add(ditolak);
 
 			dibatalkan.setTooltiptext("Dibatalkan");
 			dibatalkan.addEventListener("onClick", new EventListener() {
@@ -942,7 +944,7 @@ public class PemesananPengadaanMasterAssetAction extends GenericAutowireComposer
 				}
 
 			});
-			dibatalkan.setParent(toolbar);
+			aksiButtons.add(dibatalkan);
 
 			rubah.setTooltiptext("Ubah Data");
 			rubah.setVisible(
@@ -957,7 +959,7 @@ public class PemesananPengadaanMasterAssetAction extends GenericAutowireComposer
 				}
 
 			});
-			rubah.setParent(toolbar);
+			aksiButtons.add(rubah);
 
 			hapus.setTooltiptext("Hapus Data");
 			hapus.setVisible(delete && pemesananPengadaanMasterAsset.getDisetujuiOleh() == null);
@@ -1021,8 +1023,10 @@ public class PemesananPengadaanMasterAssetAction extends GenericAutowireComposer
 
 				}
 			});
-			hapus.setParent(toolbar);
-			toolbar.setParent(arg0);
+			aksiButtons.add(hapus);
+
+			// Susun semua tombol: max 3 per baris, rata tengah
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 
 	}

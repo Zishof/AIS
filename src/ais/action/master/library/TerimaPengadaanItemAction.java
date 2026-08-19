@@ -218,7 +218,7 @@ public class TerimaPengadaanItemAction extends GenericAutowireComposer {
 					: Common.dateFormat3.get().format(terimaPengadaanItem.getTanggalPersetujuan()))).setParent(arg0);
 			new Label(terimaPengadaanItem.getKeterangan()).setParent(arg0);
 
-			Hbox toolbar = new Hbox();
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons = new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/print.png");
 			button.setTooltiptext("Cetak Terima Pengadaan Item");
@@ -231,7 +231,7 @@ public class TerimaPengadaanItemAction extends GenericAutowireComposer {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			final MyToolbarbuttonConfig disetujui = new MyToolbarbuttonConfig("", "/img/svg/check2.svg");
 
@@ -346,7 +346,7 @@ public class TerimaPengadaanItemAction extends GenericAutowireComposer {
 				}
 
 			});
-			disetujui.setParent(toolbar);
+			aksiButtons.add(disetujui);
 
 			dibatalkan.setTooltiptext("Dibatalkan");
 			dibatalkan.addEventListener("onClick", new EventListener() {
@@ -399,7 +399,7 @@ public class TerimaPengadaanItemAction extends GenericAutowireComposer {
 				}
 
 			});
-			dibatalkan.setParent(toolbar);
+			aksiButtons.add(dibatalkan);
 
 			rubah.setTooltiptext("Ubah Data");
 			rubah.setVisible(edit && terimaPengadaanItem.getDisetujuiOleh() == null);
@@ -412,7 +412,7 @@ public class TerimaPengadaanItemAction extends GenericAutowireComposer {
 				}
 
 			});
-			rubah.setParent(toolbar);
+			aksiButtons.add(rubah);
 
 			hapus.setTooltiptext("Hapus Data");
 			hapus.setVisible(delete && terimaPengadaanItem.getDisetujuiOleh() == null);
@@ -459,8 +459,8 @@ public class TerimaPengadaanItemAction extends GenericAutowireComposer {
 
 				}
 			});
-			hapus.setParent(toolbar);
-			toolbar.setParent(arg0);
+			aksiButtons.add(hapus);
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 	}
 

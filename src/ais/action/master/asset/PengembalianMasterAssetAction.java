@@ -484,7 +484,9 @@ public class PengembalianMasterAssetAction extends GenericAutowireComposer imple
 				new Label(pengembalianMasterAsset.getAktif() ? "Ya" : "Tidak").setParent(arg0);
 			}
 
-			Hbox toolbar = new Hbox();
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/print.png");
 			button.setTooltiptext("Cetak Pengembalian Asset");
@@ -497,7 +499,7 @@ public class PengembalianMasterAssetAction extends GenericAutowireComposer imple
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			final MyToolbarbuttonConfig disetujui = new MyToolbarbuttonConfig("", "/img/svg/check2.svg");
 
@@ -553,7 +555,7 @@ public class PengembalianMasterAssetAction extends GenericAutowireComposer imple
 				}
 
 			});
-			disetujui.setParent(toolbar);
+			aksiButtons.add(disetujui);
 
 			dibatalkan.setTooltiptext("Dibatalkan");
 			dibatalkan.addEventListener("onClick", new EventListener() {
@@ -597,7 +599,7 @@ public class PengembalianMasterAssetAction extends GenericAutowireComposer imple
 				}
 
 			});
-			dibatalkan.setParent(toolbar);
+			aksiButtons.add(dibatalkan);
 
 			rubah.setTooltiptext("Ubah Data");
 			rubah.setVisible(edit && pengembalianMasterAsset.getDisetujuiOleh() == null);
@@ -610,7 +612,7 @@ public class PengembalianMasterAssetAction extends GenericAutowireComposer imple
 				}
 
 			});
-			rubah.setParent(toolbar);
+			aksiButtons.add(rubah);
 
 			hapus.setTooltiptext("Hapus Data");
 			hapus.setVisible(delete && pengembalianMasterAsset.getDisetujuiOleh() == null);
@@ -672,8 +674,10 @@ public class PengembalianMasterAssetAction extends GenericAutowireComposer imple
 
 				}
 			});
-			hapus.setParent(toolbar);
-			toolbar.setParent(arg0);
+			aksiButtons.add(hapus);
+
+			// Susun semua tombol: max 3 per baris, rata tengah
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 	}
 

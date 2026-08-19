@@ -316,7 +316,7 @@ public class SaldoAwalAction extends GenericAutowireComposer {
 					: Common.dateFormat3.get().format(saldoAwal.getTanggalPersetujuan()))).setParent(arg0);
 			new Label(saldoAwal.getKeterangan()).setParent(arg0);
 
-			Hbox toolbar = new Hbox();
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons = new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/print.png");
 			button.setTooltiptext("Cetak Saldo Awal");
@@ -328,7 +328,7 @@ public class SaldoAwalAction extends GenericAutowireComposer {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			final MyToolbarbuttonConfig disetujui = new MyToolbarbuttonConfig("", "/img/svg/check2.svg");
 
@@ -433,7 +433,7 @@ public class SaldoAwalAction extends GenericAutowireComposer {
 				}
 
 			});
-			disetujui.setParent(toolbar);
+			aksiButtons.add(disetujui);
 
 			dibatalkan.setTooltiptext("Dibatalkan");
 			dibatalkan.addEventListener("onClick", new EventListener() {
@@ -478,7 +478,7 @@ public class SaldoAwalAction extends GenericAutowireComposer {
 				}
 
 			});
-			dibatalkan.setParent(toolbar);
+			aksiButtons.add(dibatalkan);
 
 			rubah.setTooltiptext("Ubah Data");
 			rubah.setVisible(edit && saldoAwal.getDisetujuiOleh() == null);
@@ -491,7 +491,7 @@ public class SaldoAwalAction extends GenericAutowireComposer {
 				}
 
 			});
-			rubah.setParent(toolbar);
+			aksiButtons.add(rubah);
 
 			hapus.setTooltiptext("Hapus Data");
 			hapus.setVisible(
@@ -538,8 +538,8 @@ public class SaldoAwalAction extends GenericAutowireComposer {
 
 				}
 			});
-			hapus.setParent(toolbar);
-			toolbar.setParent(arg0);
+			aksiButtons.add(hapus);
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 	}
 

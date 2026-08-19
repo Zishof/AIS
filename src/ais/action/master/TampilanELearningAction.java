@@ -6973,9 +6973,12 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 
 		// 2. WAJIB: Aktifkan Server Push jika belum aktif agar UI bisa di-update dari
 		// background thread
+		boolean pushBaruDinyalakan = false;
 		if (desktop != null && !desktop.isServerPushEnabled()) {
 			desktop.enableServerPush(true);
+			pushBaruDinyalakan = true;
 		}
+		final boolean pushDinyalakanDiSini = pushBaruDinyalakan;
 
 		// 3. Set label awal DI LUAR background thread agar aman dari NullPointerException.
 		//    Pesan DESKRIPTIF (biar pengguna tahu SEDANG memuat apa saat data banyak): fase ini memuat daftar
@@ -6988,6 +6991,7 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 
 			@Override
 			public void onEvent(Event evLoadSync) throws Exception {
+				try {
 				List<? extends VOPembelajaran> voPembelajarans = null;
 				// int size = 0;
 
@@ -7359,6 +7363,16 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 				}
 
 				voPembelajarans = null;
+				} finally {
+					/* OPTIMASI FASE 5: push dulu dinyalakan tapi tidak pernah dimatikan sehingga browser
+					 * terus polling dan menahan thread Tomcat selama tab terbuka. Matikan HANYA bila kita
+					 * yang menyalakannya, dan hanya bila desktop masih hidup. */
+					if (pushDinyalakanDiSini && desktop != null && desktop.isAlive() && desktop.isServerPushEnabled()) {
+						try { desktop.enableServerPush(false); } catch (Exception e) {
+							ais.common.ErrorAuditUtil.record(e, "Fase5.lepasServerPush");
+						}
+					}
+				}
 			}
 		}, "", false, 60);
 	}

@@ -135,6 +135,29 @@ public class AsyncTaskManager {
 	}
 
 	/**
+	 * Menyalakan server push untuk sebuah desktop dengan reference counting (OPTIMASI FASE 5).
+	 *
+	 * <p>Dipakai oleh alur latar yang TIDAK bisa memakai {@link #jalankanDenganPush} karena
+	 * titik mulai dan titik selesainya berada di method berbeda (mis. proses backup yang
+	 * menyalakan push saat tombol ditekan lalu menampilkan hasilnya lewat method notifikasi
+	 * terpisah). WAJIB dipasangkan dengan {@link #lepasPush(Desktop)} pada titik akhir alur,
+	 * jika tidak push akan bocor dan browser terus polling selamanya.</p>
+	 */
+	public static void tambahPush(Desktop desktop) {
+		increfServerPush(desktop);
+	}
+
+	/**
+	 * Melepas server push yang sebelumnya dinyalakan {@link #tambahPush(Desktop)}. Push baru
+	 * benar-benar dimatikan ketika seluruh tugas pada desktop tersebut sudah selesai
+	 * (reference count kembali nol), sehingga aman dipanggil walau ada tugas async lain
+	 * yang masih berjalan pada desktop yang sama.
+	 */
+	public static void lepasPush(Desktop desktop) {
+		decrefServerPush(desktop);
+	}
+
+	/**
 	 * Menjalankan tugas latar SAMBIL mengelola server push secara otomatis (OPTIMASI FASE 5).
 	 *
 	 * <p><b>Masalah yang diselesaikan.</b> Puluhan layar (laporan, dashboard, proses massal)

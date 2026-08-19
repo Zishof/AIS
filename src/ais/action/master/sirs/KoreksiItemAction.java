@@ -288,7 +288,9 @@ public class KoreksiItemAction extends GenericCrudAction<KoreksiItemMedis> {
             disetujuiTanggal.setParent(arg0);
             new Label(koreksiItem.getKeterangan()).setParent(arg0);
 
-            org.zkoss.zul.Hbox toolbar = new org.zkoss.zul.Hbox();
+            // kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+            final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+                    new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
             Toolbarbutton btnCetak = new MyToolbarbuttonConfig("", "/img/print.png");
             btnCetak.setTooltiptext("Cetak Koreksi Persediaan Barang");
@@ -302,7 +304,7 @@ public class KoreksiItemAction extends GenericCrudAction<KoreksiItemMedis> {
                             koreksiItem.getTanggalPembuatan());
                 }
             });
-            btnCetak.setParent(toolbar);
+            aksiButtons.add(btnCetak);
 
             final Toolbarbutton btnApprove = new MyToolbarbuttonConfig("", "/img/check.png");
             final Toolbarbutton btnReject = new MyToolbarbuttonConfig("", "/img/cross.png");
@@ -375,7 +377,7 @@ public class KoreksiItemAction extends GenericCrudAction<KoreksiItemMedis> {
                             });
                 }
             });
-            btnApprove.setParent(toolbar);
+            aksiButtons.add(btnApprove);
 
             btnReject.setTooltiptext("Dibatalkan");
             btnReject.addEventListener("onClick", new EventListener() {
@@ -411,7 +413,7 @@ public class KoreksiItemAction extends GenericCrudAction<KoreksiItemMedis> {
                             });
                 }
             });
-            btnReject.setParent(toolbar);
+            aksiButtons.add(btnReject);
 
             btnEdit.setTooltiptext("Rubah Data");
             btnEdit.addEventListener("onClick", new EventListener() {
@@ -423,7 +425,7 @@ public class KoreksiItemAction extends GenericCrudAction<KoreksiItemMedis> {
                     addWindow.onModal();
                 }
             });
-            btnEdit.setParent(toolbar);
+            aksiButtons.add(btnEdit);
 
             btnDelete.setTooltiptext("Hapus Data");
             btnDelete.addEventListener("onClick", new EventListener() {
@@ -458,8 +460,9 @@ public class KoreksiItemAction extends GenericCrudAction<KoreksiItemMedis> {
                             });
                 }
             });
-            btnDelete.setParent(toolbar);
-            toolbar.setParent(arg0);
+            aksiButtons.add(btnDelete);
+            // Susun semua tombol: max 3 per baris, rata tengah
+            ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
         }
     }
 }

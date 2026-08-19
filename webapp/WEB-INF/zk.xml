@@ -16,7 +16,13 @@
     <!-- ========================================================== -->
     <system-config>
         <ui-factory-class>org.zkoss.zk.ui.http.SerializableUiFactory</ui-factory-class>
-        <max-upload-size>907200</max-upload-size>
+        <!-- Batas KERAS ukuran unggah seluruh aplikasi, satuan KB (permintaan 19-08-2026).
+             SEBELUMNYA 907200 KB (+-886 MB): satu permintaan unggah bisa menahan ratusan MB
+             di memori/temp Tomcat sekaligus. SEKARANG 102400 KB = 100 MB.
+             Batas per-tombol tetap diatur terpisah lewat konfigurasi
+             "ukuran_maksimal_file_diupload" (default 1024 KB) dan TIDAK boleh melampaui
+             angka di bawah ini karena ZK menolak lebih dulu di level ini. -->
+        <max-upload-size>102400</max-upload-size>
     </system-config>
 
     <!-- ========================================================== -->

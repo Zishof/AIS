@@ -356,7 +356,15 @@ public class PenugasanAuditSPIAction extends BaseSPIAction implements FormSop {
                     cetak(item);
                 }
             });
-            printBtn.setParent(actionHbox);
+            // Masukkan ke DALAM popup kebab, bukan sebagai tombol lepas di samping "⋯".
+            // copyEditDeleteButtons SUDAH membangun kebab; menempel langsung ke Hbox-nya
+            // membuat tombol ini berdiri sendiri di luar popup (tidak konsisten dgn layar lain).
+            Object popupAksi = actionHbox.getAttribute("ais_row_actions_popup");
+            if (popupAksi instanceof org.zkoss.zul.Div) {
+                ais.ui.util.UIHelper.addToKebab((org.zkoss.zul.Div) popupAksi, printBtn);
+            } else {
+                printBtn.setParent(actionHbox);
+            }
         }
     }
 

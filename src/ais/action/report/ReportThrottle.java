@@ -64,6 +64,24 @@ public final class ReportThrottle {
 	}
 
 	/**
+	 * Ringkasan pemakaian slot cetak laporan untuk snapshot performa (OPTIMASI FASE 10).
+	 * Membuktikan batas concurrency laporan (Fase 6) benar-benar berlaku. Tidak pernah
+	 * melempar exception dan TIDAK membuat semaphore bila belum pernah dipakai.
+	 */
+	public static String statistik() {
+		try {
+			Semaphore s = izin;
+			if (s == null) {
+				return "belum ada laporan dijalankan sejak start";
+			}
+			return "slot bebas=" + s.availablePermits()
+					+ ", menunggu=" + s.getQueueLength();
+		} catch (Throwable t) {
+			return "gagal dibaca: " + t.getClass().getSimpleName();
+		}
+	}
+
+	/**
 	 * Ambil satu slot cetak; menunggu adil (FIFO) hingga batas waktu, lalu melempar
 	 * exception berpesan ramah bila server benar-benar kelebihan beban.
 	 *

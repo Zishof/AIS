@@ -1357,9 +1357,9 @@ public class SaldoAwalMasterAssetAction extends GenericAutowireComposer implemen
 				new Label(saldoAwalMasterAsset.getAktif() ? "Ya" : "Tidak").setParent(arg0);
 			}
 
-			Hbox toolbar1 = new Hbox();
-			toolbar1.setSclass("ais-row-action-bar");
-			toolbar1.setSpacing("2px");
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/svg/printer.svg");
 			button.setTooltiptext("Cetak");
@@ -1370,7 +1370,7 @@ public class SaldoAwalMasterAssetAction extends GenericAutowireComposer implemen
 					cetak(saldoAwalMasterAsset);
 				}
 			});
-			button.setParent(toolbar1);
+			aksiButtons.add(button);
 
 			MyToolbarbuttonConfig btnBreakdown = new MyToolbarbuttonConfig("", "/img/svg/list-box-line.svg");
 			btnBreakdown.setTooltiptext("Breakdown Detail Item");
@@ -1380,7 +1380,7 @@ public class SaldoAwalMasterAssetAction extends GenericAutowireComposer implemen
 					BreakdownTagihanVendorHelper.tampilkanPopup(saldoAwalMasterAsset, event.getTarget());
 				}
 			});
-			btnBreakdown.setParent(toolbar1);
+			aksiButtons.add(btnBreakdown);
 
 			final MyToolbarbuttonConfig disetujui = new MyToolbarbuttonConfig("", "/img/svg/check2.svg");
 			disetujui.setSclass("ais-row-btn-success");
@@ -1455,7 +1455,7 @@ public class SaldoAwalMasterAssetAction extends GenericAutowireComposer implemen
 				}
 
 			});
-			disetujui.setParent(toolbar1);
+			aksiButtons.add(disetujui);
 
 			dibatalkan.setTooltiptext("Dibatalkan");
 			dibatalkan.addEventListener("onClick", new EventListener() {
@@ -1499,7 +1499,7 @@ public class SaldoAwalMasterAssetAction extends GenericAutowireComposer implemen
 				}
 
 			});
-			dibatalkan.setParent(toolbar1);
+			aksiButtons.add(dibatalkan);
 
 			rubah.setTooltiptext("Ubah Data");
 			rubah.setVisible(edit && saldoAwalMasterAsset.getDisetujuiOleh() == null);
@@ -1512,7 +1512,7 @@ public class SaldoAwalMasterAssetAction extends GenericAutowireComposer implemen
 				}
 
 			});
-			rubah.setParent(toolbar1);
+			aksiButtons.add(rubah);
 
 			hapus.setTooltiptext("Hapus Data");
 			hapus.setVisible(delete && saldoAwalMasterAsset.getDisetujuiOleh() == null);
@@ -1567,8 +1567,10 @@ public class SaldoAwalMasterAssetAction extends GenericAutowireComposer implemen
 
 				}
 			});
-			hapus.setParent(toolbar1);
-			toolbar1.setParent(arg0);
+			aksiButtons.add(hapus);
+
+			// Susun semua tombol: max 3 per baris, rata tengah
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 	}
 

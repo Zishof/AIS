@@ -1057,13 +1057,21 @@ public class GDriveUtilPerPengguna {
 		});
 		timer.start();
 
-		new Thread(new Runnable() {
+		/* OPTIMASI FASE 5: dulu memakai thread MENTAH (tak berbatas, tak bernama, tidak
+		 * berhenti saat webapp redeploy) dan server push yang dinyalakan pemanggil TIDAK
+		 * PERNAH dimatikan -- browser terus polling & menahan thread Tomcat selama tab
+		 * terbuka. jalankanDenganPush() memakai pool daemon berbatas milik AsyncTaskManager
+		 * dan MELEPAS push di finally begitu unggahan selesai/gagal. Progres tetap dipantau
+		 * lewat Timer di atas (polling klien, tidak bergantung pada server push). */
+		final org.zkoss.zk.ui.Desktop desktopBackup = org.zkoss.zk.ui.Executions.getCurrent() == null
+				? null : org.zkoss.zk.ui.Executions.getCurrent().getDesktop();
+		ais.common.AsyncTaskManager.jalankanDenganPush(desktopBackup, new Runnable() {
 
 			@Override
 			public void run() {
 				kirimBackupLangsung(label, file, perguruanTinggi, folderName, folderNameLagi, eventListener);
 			}
-		}).start();
+		});
 	}
 
 }

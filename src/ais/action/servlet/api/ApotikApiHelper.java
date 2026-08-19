@@ -204,6 +204,11 @@ public final class ApotikApiHelper {
 				j.put("golonganObat", p == null ? ApotikItemProfile.GOLONGAN_BEBAS : p.getGolonganObat());
 				j.put("terkendali", p != null && ApotikItemProfile.terkendali(p.getGolonganObat()));
 				j.put("lasa", p != null && Boolean.TRUE.equals(p.getLasa()));
+				// IR-01: atribut pembeda & penanda risiko utk kartu obat kasir.
+				j.put("bentukSediaan", p == null ? "" : str(p.getBentukSediaan()));
+				j.put("kekuatan", p == null ? "" : str(p.getKekuatan()));
+				j.put("highAlert", p != null && Boolean.TRUE.equals(p.getHighAlert()));
+				j.put("coldChain", p != null && Boolean.TRUE.equals(p.getColdChain()));
 				arr.put(j);
 			}
 			hasil.put("status", "00");
@@ -218,6 +223,38 @@ public final class ApotikApiHelper {
 	// =============================================================================================
 	// apotik_item_batch -- daftar batch per item, urut FEFO; kedaluwarsa ditandai TAK BISA dipilih
 	// =============================================================================================
+
+	/**
+	 * IR-07 -- daftar metode pembayaran yang boleh dipakai kasir apotik.
+	 *
+	 * <p>Memakai ULANG master {@code CaraPembayaranKoperasi} milik POS (tidak
+	 * membuat master baru yang harus dipelihara terpisah): hanya yang berstatus
+	 * aktif yang dikirim. UI WAJIB menampilkan metode dari daftar ini saja --
+	 * tidak boleh menampilkan metode yang tidak dikonfigurasi server.</p>
+	 */
+	public static void caraBayarList(JSONObject request, JSONObject hasil) throws Exception {
+		Session session = HibernateUtil.getSessionFactory().openSession();
+		try {
+			@SuppressWarnings("unchecked")
+			List<ais.database.model.koperasi.CaraPembayaranKoperasi> daftar = session
+					.createCriteria(ais.database.model.koperasi.CaraPembayaranKoperasi.class)
+					.add(Restrictions.eq("aktif", Boolean.TRUE))
+					.addOrder(Order.asc("nama")).list();
+			JSONArray arr = new JSONArray();
+			for (ais.database.model.koperasi.CaraPembayaranKoperasi cb : daftar) {
+				JSONObject j = new JSONObject();
+				j.put("id", cb.getId());
+				j.put("kode", str(cb.getKode()));
+				j.put("nama", str(cb.getNama()));
+				j.put("manual", Boolean.TRUE.equals(cb.getManual()));
+				arr.put(j);
+			}
+			hasil.put("status", "00");
+			hasil.put("data", arr);
+		} finally {
+			HibernateUtil.closeSessionQuietly(session);
+		}
+	}
 
 	public static void itemBatch(JSONObject request, JSONObject hasil) throws Exception {
 		Long itemId = optLong(request, "item_id");
@@ -260,6 +297,11 @@ public final class ApotikApiHelper {
 				j.put("sisa", sisa);
 				j.put("lokasiId", k.getLokasi() == null ? JSONObject.NULL : k.getLokasi().getId());
 				j.put("kedaluwarsa", kedaluwarsa(k));
+				// IR-02: status lot + alasan manusiawi bila tidak dapat dipilih.
+				j.put("statusLot", k.getStatusLot());
+				j.put("lotLayak", Kadaluarsa.lotLayak(k.getStatusLot()));
+				String alasanLot = Kadaluarsa.alasanLotDitahan(k.getStatusLot());
+				j.put("alasanLot", alasanLot == null ? "" : alasanLot);
 				arr.put(j);
 			}
 			hasil.put("status", "00");
@@ -388,6 +430,10 @@ public final class ApotikApiHelper {
 					j.put("stok", stok.containsKey(it.getId()) ? stok.get(it.getId()).doubleValue() : 0);
 					j.put("golonganObat", p == null ? ApotikItemProfile.GOLONGAN_BEBAS : p.getGolonganObat());
 					j.put("terkendali", p != null && ApotikItemProfile.terkendali(p.getGolonganObat()));
+					j.put("bentukSediaan", p == null ? "" : str(p.getBentukSediaan()));
+					j.put("kekuatan", p == null ? "" : str(p.getKekuatan()));
+					j.put("highAlert", p != null && Boolean.TRUE.equals(p.getHighAlert()));
+					j.put("coldChain", p != null && Boolean.TRUE.equals(p.getColdChain()));
 					j.put("lasa", p != null && Boolean.TRUE.equals(p.getLasa()));
 				}
 				arr.put(j);
@@ -581,6 +627,16 @@ public final class ApotikApiHelper {
 							tolak(hasil, "Batch bukan milik item \"" + str(item.getNama()) + "\".");
 							return;
 						}
+						// ATURAN KERAS (IR-02): lot karantina/recall/rusak/ditahan TIDAK BISA
+						// terjual -- sejajar dengan aturan kedaluwarsa di bawah. Penahan,
+						// bukan peringatan; UI tidak boleh melewatinya.
+						if (!Kadaluarsa.lotLayak(k.getStatusLot())) {
+							tolak(hasil, "DITOLAK: "
+									+ Kadaluarsa.alasanLotDitahan(k.getStatusLot())
+									+ " pada batch \"" + str(item.getNama())
+									+ "\" -- tidak boleh dijual.");
+							return;
+						}
 						// ATURAN KERAS: kedaluwarsa TIDAK BISA terjual. Penahan, bukan peringatan.
 						if (kedaluwarsa(k)) {
 							java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("yyyy-MM-dd");
@@ -669,6 +725,21 @@ public final class ApotikApiHelper {
 					+ request.optString("keterangan", "")).trim());
 			trx.setOleh(tbmuser.getUserId());
 			trx.setOlehId(tbmuser.getUserId());
+
+			// IR-07: metode pembayaran (opsional demi kompatibilitas klien lama).
+			// Bila dikirim, WAJIB metode yang benar-benar ada & aktif -- klien
+			// tidak boleh menyodorkan metode di luar konfigurasi server.
+			Long caraBayarId = optLong(request, "cara_bayar_id");
+			ais.database.model.koperasi.CaraPembayaranKoperasi caraBayar = null;
+			if (caraBayarId != null) {
+				caraBayar = (ais.database.model.koperasi.CaraPembayaranKoperasi) session
+						.get(ais.database.model.koperasi.CaraPembayaranKoperasi.class, caraBayarId);
+				if (caraBayar == null || !Boolean.TRUE.equals(caraBayar.getAktif())) {
+					tolak(hasil, "Metode pembayaran tidak dikenal atau sudah nonaktif.");
+					return;
+				}
+			}
+
 			session.save(trx);
 
 			double total = 0;
