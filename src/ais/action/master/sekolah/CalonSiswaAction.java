@@ -3860,8 +3860,27 @@ public class CalonSiswaAction extends GenericAutowireComposer
 		rowDataG.setParent(rows);
 		ais.ui.util.ZkCompat.setSpans(rowDataG, "2");
 
+		/*
+		 * PAS FOTO SAAT PENDAFTARAN PERTAMA.
+		 *
+		 * SEBELUMNYA: baris foto di-set setVisible(tbmuser != null), sehingga pada formulir
+		 * pendaftaran PUBLIK (orang tua belum punya akun/belum login) kolom foto TIDAK PERNAH
+		 * muncul. Calon siswa baru bisa mengunggah foto setelah mendaftar dan login, dan itu
+		 * sering terlewat.
+		 *
+		 * Formulir PMB (BiodataCalonMahasiswaAction) memasang baris fotonya TANPA syarat login,
+		 * dan jalur simpan di sini pun SUDAH siap: setelah calon siswa tersimpan, foto ditautkan
+		 * lewat fotoCalonSiswa.setCalonSiswa(calonSiswa.getId()) -- lihat blok simpan di bawah.
+		 * Jadi yang menghalangi memang hanya syarat tampil ini.
+		 *
+		 * Dibuat configurable karena aplikasi dipakai banyak sekolah: sekolah yang memilih
+		 * mengumpulkan foto belakangan cukup menonaktifkan konfigurasi
+		 * "tampilkan_foto_saat_pendaftaran_psb" tanpa perlu deploy ulang.
+		 */
+		boolean tampilkanFotoSaatPendaftaran = Common.bolehKonfigurasi("tampilkan_foto_saat_pendaftaran_psb",
+				Konfigurasi.AKTIF);
 		row = new MyFormRow();
-		row.setVisible(tbmuser != null);
+		row.setVisible(tbmuser != null || tampilkanFotoSaatPendaftaran);
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig("Foto Siswa"));
 

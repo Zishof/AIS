@@ -270,6 +270,15 @@ public class GelombangPendaftaranPsbAction extends GenericAutowireComposer
 	private MyCheckboxConfig tampilKeteranganDiterima;
 	private MyCheckboxConfig tampilLogout;
 
+	/**
+	 * Centang penampil Form Tambahan pada FORMULIR PENDAFTARAN dan pada portal calon siswa
+	 * setelah login. Kolomnya sudah lama ada di entitas GelombangPendaftaranPsb dan sudah
+	 * dibaca ParameterTambahanPsbListener, tetapi layar Gelombang PSB belum pernah
+	 * menyediakan centangnya -- hanya layar Gelombang PMB (mahasiswa) yang punya. Akibatnya
+	 * admin sekolah tidak bisa mengaturnya sama sekali dan hanya bergantung nilai bawaan.
+	 */
+	private MyCheckboxConfig tampilFormTambahanSaatRegistrasi;
+	private MyCheckboxConfig tampilFormTambahanSaatLoginCalonMhs;
 	private MyCheckboxConfig tampilFormLampiranDiHalamanUtama;
 	private MyCheckboxConfig tampilFormTambahanDiHalamanUtama;
 	private Combobox kelompokGelombang;
@@ -952,6 +961,22 @@ public class GelombangPendaftaranPsbAction extends GenericAutowireComposer
 		row.appendChild(new ais.ui.util.MyLabelConfig());
 		row.appendChild(tampilLogout = new MyCheckboxConfig("Tampil Logout"));
 		tampilLogout.setChecked(gelombangPendaftaranPsb.getTampilLogout());
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig());
+		row.appendChild(tampilFormTambahanSaatRegistrasi = new MyCheckboxConfig(
+				"Tampil Form Tambahan Saat Registrasi"));
+		tampilFormTambahanSaatRegistrasi
+				.setChecked(gelombangPendaftaranPsb.getTampilFormTambahanSaatRegistrasi());
+
+		row = new MyFormRow();
+		row.setParent(rows);
+		row.appendChild(new ais.ui.util.MyLabelConfig());
+		row.appendChild(tampilFormTambahanSaatLoginCalonMhs = new MyCheckboxConfig(
+				"Tampil Form Tambahan Saat Login Calon Siswa"));
+		tampilFormTambahanSaatLoginCalonMhs
+				.setChecked(gelombangPendaftaranPsb.getTampilFormTambahanSaatLoginCalonMhs());
 
 		row = new MyFormRow();
 		row.setParent(rows);
@@ -1652,6 +1677,9 @@ public class GelombangPendaftaranPsbAction extends GenericAutowireComposer
 		gelombangPendaftaranPsb.setTampilKeteranganDiterima(tampilKeteranganDiterima.isChecked());
 		gelombangPendaftaranPsb.setTampilLogout(tampilLogout.isChecked());
 
+		gelombangPendaftaranPsb.setTampilFormTambahanSaatRegistrasi(tampilFormTambahanSaatRegistrasi.isChecked());
+		gelombangPendaftaranPsb
+				.setTampilFormTambahanSaatLoginCalonMhs(tampilFormTambahanSaatLoginCalonMhs.isChecked());
 		gelombangPendaftaranPsb.setTampilFormLampiranDiHalamanUtama(tampilFormLampiranDiHalamanUtama.isChecked());
 		gelombangPendaftaranPsb.setTampilFormTambahanDiHalamanUtama(tampilFormTambahanDiHalamanUtama.isChecked());
 
