@@ -355,6 +355,191 @@ public class JenisDiskonMahasiswa extends GeneralValueObject {
 		return calendar.getTime();
 	}
 
+	// ════════════════════════════════════════════════════════════════════════════════
+	// PROMO GLOBAL — "Berlaku Untuk Semua Mahasiswa" (perbaikan 19-08-2026)
+	// ════════════════════════════════════════════════════════════════════════════════
+	// SEBELUMNYA: centang "Berlaku Untuk Semua Mahasiswa" TIDAK pernah menjadi jalur
+	// penerapan diskon — mesin tagihan hanya menerapkan diskon yang DITAUTKAN lewat
+	// Gelombang Pendaftaran / Jenis Seleksi / assignment per-orang, sehingga promo
+	// global (mis. "Promo Kemerdekaan" berlaku 17–31 Agustus untuk semua) tidak pernah
+	// memotong tagihan. Sekarang jenis diskon ber-flag ini dicari sebagai FALLBACK
+	// TERAKHIR (hanya bila tidak ada diskon lain yang berlaku), dengan seluruh filter
+	// yang tampil di form dihormati: rentang tanggal, Fakultas (Institusi), Jurusan
+	// (Prodi), Program, Status Awal, batas semester, dan daftar item biaya.
+
+	/** Cache daftar promo global (jarang berubah) agar grid tagihan tidak query berulang. */
+	private static volatile List<JenisDiskonMahasiswa> cachePromoGlobal = null;
+	private static volatile long cachePromoGlobalWaktu = 0L;
+	private static final long TTL_CACHE_PROMO_GLOBAL_MS = 60000L;
+
+	/** Kosongkan cache promo global (dipanggil setelah jenis diskon disimpan/diubah). */
+	public static void bersihkanCachePromoGlobal() {
+		cachePromoGlobal = null;
+		cachePromoGlobalWaktu = 0L;
+	}
+
+	@SuppressWarnings("unchecked")
+	private static List<JenisDiskonMahasiswa> ambilDaftarPromoGlobal() {
+		List<JenisDiskonMahasiswa> cache = cachePromoGlobal;
+		long sekarang = System.currentTimeMillis();
+		if (cache != null && (sekarang - cachePromoGlobalWaktu) < TTL_CACHE_PROMO_GLOBAL_MS) {
+			return cache;
+		}
+		List<JenisDiskonMahasiswa> hasil = new ArrayList<JenisDiskonMahasiswa>();
+		org.hibernate.Session session = null;
+		try {
+			session = ais.database.hibernate.HibernateUtil.openSession();
+			hasil = session.createCriteria(JenisDiskonMahasiswa.class)
+					.add(org.hibernate.criterion.Restrictions.eq("berlakuUntukSemuaMahasiswa", Boolean.TRUE))
+					.add(org.hibernate.criterion.Restrictions.or(
+							org.hibernate.criterion.Restrictions.isNull("aktif"),
+							org.hibernate.criterion.Restrictions.eq("aktif", Boolean.TRUE)))
+					.addOrder(org.hibernate.criterion.Order.asc("id")).list();
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "JenisDiskonMahasiswa.ambilDaftarPromoGlobal");
+			hasil = new ArrayList<JenisDiskonMahasiswa>();
+		} finally {
+			if (session != null) {
+				ais.database.hibernate.HibernateUtil.closeSessionQuietly(session);
+			}
+		}
+		cachePromoGlobal = hasil;
+		cachePromoGlobalWaktu = sekarang;
+		return hasil;
+	}
+
+	/**
+	 * Cari promo global yang berlaku untuk satu baris tagihan. Mengembalikan {@code null}
+	 * bila tidak ada yang cocok. Bila ada beberapa yang cocok, dipilih yang PALING
+	 * MENGUNTUNGKAN mahasiswa (nilai potongan terbesar atas {@code jumlah}).
+	 *
+	 * @param kegiatan    kegiatan/tagihan yang sedang dihitung
+	 * @param detailBiaya detail biaya baris tagihan (menentukan item biaya & prodi acuan)
+	 * @param jumlah      nominal tagihan sebelum diskon (untuk membandingkan persen vs nominal)
+	 */
+	public static JenisDiskonMahasiswa cariPromoGlobal(Kegiatan kegiatan, DetailBiaya detailBiaya, Double jumlah) {
+		if (kegiatan == null || detailBiaya == null || detailBiaya.getItemBiaya() == null
+				|| detailBiaya.getItemBiaya().getId() == null) {
+			return null;
+		}
+		JenisDiskonMahasiswa terbaik = null;
+		double potonganTerbaik = 0.0;
+		double dasar = jumlah == null ? 0.0 : jumlah.doubleValue();
+		for (JenisDiskonMahasiswa promo : ambilDaftarPromoGlobal()) {
+			try {
+				if (promo == null || promo.getDiskon() == null || promo.getDiskon() <= 0.0) {
+					continue;
+				}
+				if (!promo.cocokUntukTagihanGlobal(kegiatan, detailBiaya)) {
+					continue;
+				}
+				double potongan = promo.getBerupaPersen() ? (dasar * (promo.getDiskon() / 100.0)) : promo.getDiskon();
+				if (potongan > potonganTerbaik) {
+					potonganTerbaik = potongan;
+					terbaik = promo;
+				}
+			} catch (Exception e) {
+				ais.common.ErrorAuditUtil.record(e, "JenisDiskonMahasiswa.cariPromoGlobal id="
+						+ (promo == null ? null : promo.getId()));
+			}
+		}
+		return terbaik;
+	}
+
+	/**
+	 * Kecocokan promo global untuk satu baris tagihan: item biaya, rentang tanggal, batas
+	 * semester, serta filter Fakultas (Institusi) / Jurusan (Prodi) / Program / Status Awal.
+	 * Berlaku untuk mahasiswa aktif MAUPUN calon mahasiswa (PMB).
+	 */
+	public boolean cocokUntukTagihanGlobal(Kegiatan kegiatan, DetailBiaya detailBiaya) {
+		if (kegiatan == null || detailBiaya == null || detailBiaya.getItemBiaya() == null) {
+			return false;
+		}
+		// (1) Item biaya harus termasuk daftar Default Item Biaya I..V pada jenis diskon.
+		List<Long> itemIds = ambilItemBiayaIds();
+		if (itemIds == null || itemIds.isEmpty() || !itemIds.contains(detailBiaya.getItemBiaya().getId())) {
+			return false;
+		}
+		// (2) Rentang tanggal berlaku promo.
+		if (!cocokTanggalBerlaku(kegiatan)) {
+			return false;
+		}
+		// (3) Batas semester (bila diisi).
+		Integer semester = kegiatan.getSemster();
+		if (semester != null) {
+			if (getSemesterMulai() != null && getSemesterMulai() > semester) {
+				return false;
+			}
+			if (getSemesterSampai() != null && getSemesterSampai() < semester) {
+				return false;
+			}
+		}
+		// (4) Filter Jurusan (Prodi) / Fakultas (Institusi) — acuan diambil dari kegiatan,
+		// detail biaya, lalu identitas mahasiswa/calon mahasiswa.
+		Jurusan jurusanAcuan = kegiatan.getJurusan();
+		if (jurusanAcuan == null) {
+			jurusanAcuan = detailBiaya.getJurusan();
+		}
+		if (jurusanAcuan == null && kegiatan.getMahasiswa() != null) {
+			jurusanAcuan = kegiatan.getMahasiswa().getJurusan();
+		}
+		if (jurusanAcuan == null && kegiatan.getCalonMahasiswa() != null) {
+			// ambilJurusan(): prodi kelulusan bila sudah ada, jika belum pakai pilihan prodi ke-1.
+			jurusanAcuan = kegiatan.getCalonMahasiswa().ambilJurusan();
+		}
+		if (getJurusan() != null && (jurusanAcuan == null || jurusanAcuan.getId() == null
+				|| !getJurusan().getId().equals(jurusanAcuan.getId()))) {
+			return false;
+		}
+		if (getFakultas() != null) {
+			Fakultas fakultasAcuan = jurusanAcuan == null ? null : jurusanAcuan.getFakultas();
+			if (fakultasAcuan == null) {
+				fakultasAcuan = detailBiaya.getFakultas();
+			}
+			if (fakultasAcuan == null || fakultasAcuan.getId() == null
+					|| !getFakultas().getId().equals(fakultasAcuan.getId())) {
+				return false;
+			}
+		}
+		// (5) Filter Program.
+		if (getProgram() != null && !getProgram().trim().isEmpty()) {
+			String programAcuan = kegiatan.getProgram();
+			if ((programAcuan == null || programAcuan.trim().isEmpty()) && kegiatan.getCalonMahasiswa() != null) {
+				programAcuan = kegiatan.getCalonMahasiswa().getProgram();
+			}
+			if ((programAcuan == null || programAcuan.trim().isEmpty()) && kegiatan.getMahasiswa() != null) {
+				programAcuan = kegiatan.getMahasiswa().getProgram();
+			}
+			if (programAcuan == null || !getProgram().trim().equalsIgnoreCase(programAcuan.trim())) {
+				return false;
+			}
+		}
+		// (6) Filter Status Awal (mis. Baru-A / Pindahan).
+		if (getStatusAwalMahasiswa() != null) {
+			StatusAwalMahasiswa statusAcuan = null;
+			if (kegiatan.getCalonMahasiswa() != null) {
+				statusAcuan = kegiatan.getCalonMahasiswa().getStatusAwalMahasiswa();
+			}
+			if (statusAcuan == null && kegiatan.getMahasiswa() != null) {
+				statusAcuan = kegiatan.getMahasiswa().getStatusAwalMahasiswa();
+			}
+			if (statusAcuan == null || statusAcuan.getId() == null
+					|| !getStatusAwalMahasiswa().getId().equals(statusAcuan.getId())) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Versi publik pengecekan rentang tanggal berlaku — dipakai mesin tagihan untuk rute
+	 * Gelombang Pendaftaran / Jenis Seleksi milik CALON mahasiswa yang sebelumnya sama
+	 * sekali tidak memeriksa tanggal (promo berbatas waktu tidak pernah berhenti sendiri).
+	 */
+	public boolean cocokTanggalBerlakuUntuk(Kegiatan kegiatan) {
+		return cocokTanggalBerlaku(kegiatan);
+	}
+
 	private HistoryStatusMahasiswa ambilHistoryStatusMahasiswa(Kegiatan kegiatan) {
 		try {
 			KrsMahasiswa krsMahasiswa = Common.singkronkanKrsMahasiswa(kegiatan.getMahasiswa(), kegiatan.getSemster(),

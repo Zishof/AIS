@@ -547,6 +547,15 @@ public class DetailKegiatan extends GeneralValueObject {
 
 					}
 
+					// PROMO GLOBAL ("Berlaku Untuk Semua Mahasiswa") — lihat catatan di
+					// JenisDiskonMahasiswa.cariPromoGlobal. Dipakai agar keterangan diskon pada
+					// baris tagihan menyebut nama promo yang benar-benar dipakai mesin tagihan.
+					JenisDiskonMahasiswa promoGlobal = JenisDiskonMahasiswa.cariPromoGlobal(kegiatan, detailBiaya,
+							getBiaya());
+					if (promoGlobal != null && !adaDiskon()) {
+						return promoGlobal;
+					}
+
 					if (diskonCocok(diskonMahasiswaData2)) {
 						return diskonMahasiswaData2.getJenisDiskonMahasiswa();
 
@@ -686,6 +695,25 @@ public class DetailKegiatan extends GeneralValueObject {
 				diskonMahasiswaData = getDiskonMahasiswaData();
 				diskonMahasiswaData2 = getDiskonMahasiswaData2();
 				diskonMahasiswaData3 = getDiskonMahasiswaData3();
+
+				// PROMO GLOBAL ("Berlaku Untuk Semua Mahasiswa"): hanya bila tidak ada diskon
+				// per-orang yang berlaku pada baris ini (tautan/assignment tetap diprioritaskan).
+				boolean adaDiskonPerOrang = (diskonMahasiswaData != null && diskonCocok(diskonMahasiswaData))
+						|| (diskonMahasiswaData2 != null && diskonCocok(diskonMahasiswaData2))
+						|| (diskonMahasiswaData3 != null && diskonCocok(diskonMahasiswaData3));
+				if (!adaDiskonPerOrang && !adaDiskon()) {
+					JenisDiskonMahasiswa promoGlobal = JenisDiskonMahasiswa.cariPromoGlobal(kegiatan, detailBiaya,
+							jumlahDiskon);
+					if (promoGlobal != null) {
+						double potongan = promoGlobal.getBerupaPersen()
+								? (jumlahDiskon * (promoGlobal.getDiskon() / 100.0))
+								: promoGlobal.getDiskon();
+						if (potongan > jumlahDiskon) {
+							potongan = jumlahDiskon;
+						}
+						return potongan;
+					}
+				}
 
 				try {
 

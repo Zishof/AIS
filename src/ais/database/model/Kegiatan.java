@@ -1151,6 +1151,10 @@ public class Kegiatan extends GeneralValueObject {
 						&& kegiatan.getCalonMahasiswa().getJenisSeleksi() != null
 						&& kegiatan.getCalonMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa() != null
 						&& !(detailKegiatan != null && detailKegiatan.adaDiskon())
+						// FIX 19-08-2026: rute CALON mahasiswa dahulu TIDAK memeriksa Tanggal Mulai/
+						// Sampai Berlaku, sehingga promo berbatas waktu tetap memotong setelah lewat.
+						&& kegiatan.getCalonMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa()
+								.cocokTanggalBerlakuUntuk(kegiatan)
 						&& !kegiatan.getCalonMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa().ambilItemBiayaIds()
 								.isEmpty()
 						&& kegiatan.getCalonMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa().ambilItemBiayaIds()
@@ -1202,6 +1206,9 @@ public class Kegiatan extends GeneralValueObject {
 						&& kegiatan.getCalonMahasiswa().getGelombangPendaftaran() != null
 						&& kegiatan.getCalonMahasiswa().getGelombangPendaftaran().getJenisDiskonMahasiswa() != null
 						&& !(detailKegiatan != null && detailKegiatan.adaDiskon())
+						// FIX 19-08-2026: lihat catatan tanggal berlaku pada rute Jenis Seleksi di atas.
+						&& kegiatan.getCalonMahasiswa().getGelombangPendaftaran().getJenisDiskonMahasiswa()
+								.cocokTanggalBerlakuUntuk(kegiatan)
 						&& !kegiatan.getCalonMahasiswa().getGelombangPendaftaran().getJenisDiskonMahasiswa().ambilItemBiayaIds()
 								.isEmpty()
 						&& kegiatan.getCalonMahasiswa().getGelombangPendaftaran().getJenisDiskonMahasiswa().ambilItemBiayaIds()
@@ -1294,6 +1301,30 @@ public class Kegiatan extends GeneralValueObject {
 					diskonTerhitung = diskon;
 						simpanDiskonDetailKegiatan(detailKegiatan, diskon);
 					jumlahDiskon = jumlahDiskon - diskon;
+
+				}
+
+				// PROMO GLOBAL (perbaikan 19-08-2026): jenis diskon ber-centang "Berlaku Untuk
+				// Semua Mahasiswa" kini benar-benar diterapkan tanpa perlu ditautkan ke Gelombang
+				// Pendaftaran / Jenis Seleksi. Ditempatkan SETELAH seluruh rute tautan di atas
+				// (tautan eksplisit tetap diprioritaskan) dan SEBELUM blok diskon per-orang.
+				// Seluruh filter pada form dihormati: tanggal berlaku, Fakultas (Institusi),
+				// Jurusan (Prodi), Program, Status Awal, batas semester, dan item biaya.
+				else if (kegiatan != null && !(detailKegiatan != null && detailKegiatan.adaDiskon())
+						&& JenisDiskonMahasiswa.cariPromoGlobal(kegiatan, detailBiaya, jumlah) != null) {
+
+					JenisDiskonMahasiswa promoGlobal = JenisDiskonMahasiswa.cariPromoGlobal(kegiatan, detailBiaya,
+							jumlah);
+					Double jumlahDiskon = jumlah;
+					Double diskon = promoGlobal.getBerupaPersen()
+							? (jumlahDiskon * (promoGlobal.getDiskon() / 100.0))
+							: promoGlobal.getDiskon();
+					// Potongan tidak boleh melebihi nominal tagihan baris ini.
+					if (diskon > jumlahDiskon) {
+						diskon = jumlahDiskon;
+					}
+					diskonTerhitung = diskon;
+					simpanDiskonDetailKegiatan(detailKegiatan, diskon);
 
 				}
 

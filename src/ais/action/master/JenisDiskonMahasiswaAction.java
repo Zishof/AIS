@@ -183,6 +183,9 @@ public class JenisDiskonMahasiswaAction extends GenericAutowireComposer
 				public void onEvent(Event arg0) throws Exception {
 					jenisDiskonMahasiswa.setAktif(checkbox.isChecked());
 					Common.refreshSaveOrUpdate(jenisDiskonMahasiswa);
+					// Promo global di-cache 60 detik di mesin tagihan — kosongkan agar
+					// pengaktifan/penonaktifan langsung terasa pada perhitungan tagihan.
+					JenisDiskonMahasiswa.bersihkanCachePromoGlobal();
 				}
 			});
 
@@ -487,6 +490,9 @@ public class JenisDiskonMahasiswaAction extends GenericAutowireComposer
 		}
 
 		Common.refreshSaveOrUpdate(session, jenisDiskonMahasiswa);
+		// Promo global ("Berlaku Untuk Semua Mahasiswa") di-cache 60 detik di mesin tagihan —
+		// kosongkan agar perubahan nilai/tanggal/filter langsung berlaku pada tagihan.
+		JenisDiskonMahasiswa.bersihkanCachePromoGlobal();
 
 		return true;
 	}
