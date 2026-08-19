@@ -134,7 +134,18 @@
     <session-config>
         <max-desktops-per-session>15</max-desktops-per-session>
         <max-requests-per-session>10</max-requests-per-session>
-        <max-pushes-per-session>-1</max-pushes-per-session>
+        <!--
+            OPTIMASI FASE 5: batas server push per sesi.
+            SEBELUMNYA -1 = TAK TERBATAS. Server push ZK 5.5 (PollingServerPush) membuat
+            browser terus mengirim request polling; tiap polling MENAHAN satu thread Tomcat
+            sampai timeout lalu polling lagi. Puluhan layar menyalakan push tanpa pernah
+            mematikannya, sehingga tanpa batas ini satu sesi dapat menahan thread http-nio
+            dalam jumlah besar (insiden ledakan ~15.000 thread, lihat AsyncTaskManager).
+            Nilai 15 disamakan dengan max-desktops-per-session di atas: paling banyak satu
+            push aktif per desktop/tab. Naikkan hanya bila terbukti ada layar sah yang
+            memerlukan lebih dari satu push bersamaan pada satu tab.
+        -->
+        <max-pushes-per-session>15</max-pushes-per-session>
     </session-config>
 
     <!-- ========================================================== -->

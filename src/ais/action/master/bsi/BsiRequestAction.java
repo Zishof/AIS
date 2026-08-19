@@ -495,8 +495,15 @@ public class BsiRequestAction extends GenericAutowireComposer implements DataCri
 			hbox.setParent(arg0);
 
 			new Label(bsiRequest.getStatus()).setParent(hbox);
+
+			// Kolom aksi rapi (pola MahasiswaAction): tombol dibungkus kebab popup (⋯) via
+			// UIHelper.buatBarisAksi. Induknya hbox (bukan Row) karena sel ini juga memuat
+			// label status yang harus tetap tampil di luar popup.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+
 			MyButtonConfig button = new MyButtonConfig("Cek Pembayaran");
-			button.setParent(hbox);
+			aksiButtons.add(button);
 			button.setVisible(Common.bolehKonfigurasi("tampilkan_check_ulang_pembayaran_via_bsi"));
 			button.addEventListener("onClick", new EventListener() {
 
@@ -666,8 +673,10 @@ public class BsiRequestAction extends GenericAutowireComposer implements DataCri
 
 					}
 				});
-				button.setParent(hbox);
+				aksiButtons.add(button);
 			}
+
+			ais.ui.util.UIHelper.buatBarisAksi(hbox, 3, aksiButtons);
 		}
 
 	}

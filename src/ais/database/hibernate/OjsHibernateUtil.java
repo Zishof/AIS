@@ -172,4 +172,26 @@ public class OjsHibernateUtil {
 	public void setSessionFactory(SessionFactory sessionFactory) {
 		this.sessionFactory = sessionFactory;
 	}
+
+	/**
+	 * Menutup SessionFactory OJS saat webapp berhenti/di-reload (OPTIMASI FASE 4).
+	 *
+	 * <p>Sebelumnya factory ini TIDAK PERNAH ditutup: pool koneksinya (thread
+	 * {@code mchange ... PoolThread} pada c3p0) tetap hidup setelah webapp stop sehingga
+	 * menahan classloader Tomcat -- muncul warning "appears to have started a thread ...
+	 * but has failed to stop it" dan koneksi ke database tidak dilepas pada tiap redeploy.</p>
+	 *
+	 * <p>Idempoten dan menelan seluruh kegagalan supaya proses shutdown tidak pernah gagal
+	 * karena factory ini (mis. belum pernah dibangun, atau sudah tertutup).</p>
+	 */
+	public void closeFactoryQuietly() {
+		try {
+			SessionFactory sf = sessionFactory;
+			if (sf != null && !sf.isClosed()) {
+				sf.close();
+			}
+		} catch (Throwable ignored) { ais.common.ErrorAuditUtil.record(ignored, "OjsHibernateUtil.closeFactoryQuietly");
+			// Sudah tertutup / versi berbeda: abaikan agar shutdown tetap berjalan.
+		}
+	}
 }

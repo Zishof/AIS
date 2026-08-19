@@ -570,6 +570,17 @@ public class AppStartupListener implements ServletContextListener {
 		} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "auto-audit(empty-catch) src/ais/common/AppStartupListener.java:457");
 		}
 		try {
+			/* OPTIMASI FASE 4: factory OJS & Radius sebelumnya TIDAK PERNAH ditutup sehingga
+			 * pool koneksi + thread c3p0-nya menahan classloader webapp pada tiap redeploy.
+			 * Ditutup di sini bersama factory streaming (semuanya menelan kegagalan sendiri). */
+			ais.database.hibernate.OjsHibernateUtil.getInstance().closeFactoryQuietly();
+		} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "AppStartupListener.closeOjsFactory");
+		}
+		try {
+			ais.database.hibernate.RadiusHibernateUtil.getInstance().closeFactoryQuietly();
+		} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "AppStartupListener.closeRadiusFactory");
+		}
+		try {
 			StreamingHibernateUtil.getInstance().closeFactoryQuietly();
 		} catch (Throwable abaikan) { ais.common.ErrorAuditUtil.record(abaikan, "auto-audit(empty-catch) src/ais/common/AppStartupListener.java:461");
 		}

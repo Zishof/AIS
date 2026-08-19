@@ -210,12 +210,13 @@ public class PengajuanKpiAction extends GenericAutowireComposer implements DataI
 				new Label(pengajuanKpi.getAktif() ? "Ya" : "Tidak").setParent(arg0);
 			}
 
-			Vbox vbox = new Vbox();
-			vbox.setParent(arg0);
-			Common.copyEditDeleteButtons(edit, delete, pengajuanKpi, PengajuanKpiAction.this).setParent(vbox);
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
-			Hbox toolbar = new Hbox();
-			toolbar.setParent(vbox);
+			Hbox hboxCed = Common.copyEditDeleteButtons(edit, delete, pengajuanKpi, PengajuanKpiAction.this);
+			aksiButtons.addAll(ais.ui.util.UIHelper.ambilItemAksi(hboxCed));
+
 			final MyToolbarbuttonConfig disetujui = new MyToolbarbuttonConfig("", "/img/svg/check2.svg");
 			final MyToolbarbuttonConfig ditolak = new MyToolbarbuttonConfig("", "/img/svg/deny.svg");
 			final MyToolbarbuttonConfig dibatalkan = new MyToolbarbuttonConfig("", "/img/svg/warning-outline.svg");
@@ -272,7 +273,7 @@ public class PengajuanKpiAction extends GenericAutowireComposer implements DataI
 				}
 
 			});
-			disetujui.setParent(toolbar);
+			aksiButtons.add(disetujui);
 
 			ditolak.setTooltiptext("Ditolak");
 
@@ -315,7 +316,7 @@ public class PengajuanKpiAction extends GenericAutowireComposer implements DataI
 				}
 
 			});
-			ditolak.setParent(toolbar);
+			aksiButtons.add(ditolak);
 
 			dibatalkan.setTooltiptext("Dibatalkan");
 			dibatalkan.addEventListener("onClick", new EventListener() {
@@ -364,7 +365,10 @@ public class PengajuanKpiAction extends GenericAutowireComposer implements DataI
 				}
 
 			});
-			dibatalkan.setParent(toolbar);
+			aksiButtons.add(dibatalkan);
+
+			// Susun semua tombol: max 3 per baris, rata tengah
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 
 		}
 

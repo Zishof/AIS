@@ -204,13 +204,9 @@ public class PegawaiSimpleAction extends GenericAutowireComposer implements Comm
 			// "</font>")
 			// .setParent(arg0);
 
-			Vbox vbox = new Vbox();
-			vbox.setHeight("100%");
-			vbox.setWidth("100%");
-			vbox.setParent(arg0);
-
-			Hbox toolbar = new Hbox();
-			toolbar.setParent(vbox);
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			Tbmuser tbmuser = Common.getCurrentUser();
 
@@ -235,7 +231,7 @@ public class PegawaiSimpleAction extends GenericAutowireComposer implements Comm
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 			button.setTooltiptext("Hapus Data");
@@ -365,10 +361,8 @@ public class PegawaiSimpleAction extends GenericAutowireComposer implements Comm
 
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
-			toolbar = new Hbox();
-			toolbar.setParent(vbox);
 			button = new MyToolbarbuttonConfig("", "/img/svg/check2.svg");
 			button.setVisible(approve);
 			button.setTooltiptext("Setujui semua pengajuan");
@@ -440,7 +434,7 @@ public class PegawaiSimpleAction extends GenericAutowireComposer implements Comm
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/warning-outline.svg");
 			button.setVisible(reject);
@@ -513,7 +507,9 @@ public class PegawaiSimpleAction extends GenericAutowireComposer implements Comm
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 
 		}
 	}

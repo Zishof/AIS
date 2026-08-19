@@ -469,10 +469,19 @@ public class MonitorBarangTidakHabisPakaiAction extends GenericAutowireComposer 
 
 			new Label(penerimaanPengadaanMasterAssetDetail.getKeterangan()).setParent(arg0);
 
+			// Kolom aksi rapi: seluruh tombol dibungkus kebab popup (⋯) via UIHelper.buatBarisAksi.
+			// Hbox penampung SENGAJA tidak di-setParent ke Row; tombol yang diisi oleh
+			// tampilInventaris dipanen lewat UIHelper.ambilItemAksi lalu dipindah ke kebab,
+			// sehingga jumlah sel baris tetap sama (kebab menempati posisi sel yang sama).
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+
 			Hbox toolbar = new Hbox();
-			toolbar.setParent(arg0);
 			PenerimaanPengadaanMasterAssetDetailAction.tampilInventaris(penerimaanPengadaanMasterAssetDetail,
 					penerimaanPengadaanMasterAssetDetail.getPenerimaanPengadaanMasterAsset(), toolbar, edit);
+			aksiButtons.addAll(ais.ui.util.UIHelper.ambilItemAksi(toolbar));
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 
 		}
 

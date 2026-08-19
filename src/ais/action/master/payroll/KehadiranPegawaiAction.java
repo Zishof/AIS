@@ -114,6 +114,9 @@ public class KehadiranPegawaiAction extends GenericAutowireComposer implements D
 
 	private Textbox cariPegawai;
 
+	/** Saringan jenis pengguna presensi (Semua/Dosen/Guru/Pegawai/Siswa/Mahasiswa) — lihat presensi.zul. */
+	private org.zkoss.zul.Combobox jenisPengguna;
+
 	private MyToolbarbuttonConfig find;
 
 	public void onCuti(Event event) {
@@ -850,6 +853,52 @@ public class KehadiranPegawaiAction extends GenericAutowireComposer implements D
 		}
 	}
 
+	/**
+	 * Terapkan saringan JENIS PENGGUNA pada daftar presensi.
+	 *
+	 * <p>Satu baris presensi menunjuk tepat satu subjek lewat kolom {@code mahasiswa}, {@code siswa},
+	 * {@code pegawai}, {@code dosen}, atau {@code guru}. Perlu diperhatikan: seorang <b>pegawai bisa
+	 * sekaligus terdaftar sebagai dosen atau guru</b> ({@code pegawai.dosen}/{@code pegawai.guru}),
+	 * dan renderer daftar ini memang menampilkannya sebagai "Dosen"/"Guru". Karena itu:</p>
+	 * <ul>
+	 *   <li><b>Dosen</b> = kolom dosen terisi, ATAU pegawainya tertaut ke data dosen.</li>
+	 *   <li><b>Guru</b> = kolom guru terisi, ATAU pegawainya tertaut ke data guru.</li>
+	 *   <li><b>Pegawai</b> = pegawai MURNI, yaitu bukan dosen dan bukan guru (sesuai permintaan).</li>
+	 *   <li><b>Siswa</b> / <b>Mahasiswa</b> = kolom terkait terisi.</li>
+	 *   <li><b>Semua</b> (nilai kosong) = tanpa saringan, perilaku lama dipertahankan.</li>
+	 * </ul>
+	 *
+	 * <p>Sengaja memakai {@code sqlRestriction} dan bukan {@code createAlias}: alias untuk
+	 * pegawai/dosen/guru/siswa/mahasiswa sudah dibuat secara kondisional oleh pencarian nama di
+	 * atas, sehingga menambah alias lagi berisiko "duplicate association path".</p>
+	 */
+	private void terapkanSaringanJenisPengguna(Criteria criteria) {
+		if (jenisPengguna == null || jenisPengguna.getSelectedItem() == null) {
+			return;
+		}
+		Object nilai = jenisPengguna.getSelectedItem().getValue();
+		String jenis = nilai == null ? "" : nilai.toString().trim().toLowerCase();
+		if (jenis.length() == 0) {
+			return; // "Semua" -> tanpa saringan
+		}
+
+		if (jenis.equals("siswa")) {
+			criteria.add(Restrictions.isNotNull("siswa"));
+		} else if (jenis.equals("mahasiswa")) {
+			criteria.add(Restrictions.isNotNull("mahasiswa"));
+		} else if (jenis.equals("dosen")) {
+			criteria.add(Restrictions.sqlRestriction(
+					"({alias}.dosen is not null or {alias}.pegawai in (select p.id from public.pegawai p where p.dosen is not null))"));
+		} else if (jenis.equals("guru")) {
+			criteria.add(Restrictions.sqlRestriction(
+					"({alias}.guru is not null or {alias}.pegawai in (select p.id from public.pegawai p where p.guru is not null))"));
+		} else if (jenis.equals("pegawai")) {
+			criteria.add(Restrictions.sqlRestriction(
+					"({alias}.pegawai is not null and {alias}.dosen is null and {alias}.guru is null"
+							+ " and {alias}.pegawai in (select p.id from public.pegawai p where p.dosen is null and p.guru is null))"));
+		}
+	}
+
 	public Criteria initCriteria(boolean order) {
 
 		SatuanKerja parent = (SatuanKerja) searchparent.getAttribute("satuanKerja");
@@ -903,6 +952,8 @@ public class KehadiranPegawaiAction extends GenericAutowireComposer implements D
 																	cariPegawai.getValue().trim(),
 																	MatchMode.ANYWHERE)))))));
 		}
+
+		terapkanSaringanJenisPengguna(criteria);
 
 		if (order)
 			criteria.addOrder(Order.desc("tanggal")).addOrder(Order.desc("tanggal_dirubah"));

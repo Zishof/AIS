@@ -160,6 +160,22 @@
 														id="find" label="Refresh" image="/img/search.gif">
 													</toolbarbutton>
 
+													<!-- Saringan JENIS PENGGUNA presensi. "Pegawai" sengaja berarti
+														 pegawai MURNI (bukan dosen & bukan guru) sesuai permintaan,
+														 karena satu pegawai bisa sekaligus terdaftar sbg dosen/guru. -->
+													<label
+														use="ais.ui.util.MyLabelConfig" value="Jenis" />
+													<combobox id="jenisPengguna" readonly="true"
+														value="Semua" forward="onChange=onSearchDefault" width="150px"
+														tooltiptext="Saring presensi berdasarkan jenis pengguna">
+														<comboitem label="Semua" value="" />
+														<comboitem label="Dosen" value="dosen" />
+														<comboitem label="Guru" value="guru" />
+														<comboitem label="Pegawai" value="pegawai" />
+														<comboitem label="Siswa" value="siswa" />
+														<comboitem label="Mahasiswa" value="mahasiswa" />
+													</combobox>
+
 
 												</toolbar>
 											</row>

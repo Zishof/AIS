@@ -447,12 +447,9 @@ public class DetailperkuliahanAction extends GenericAutowireComposer implements 
 				new Label().setParent(row);
 			}
 
-			Vbox vbox2 = new Vbox();
-			vbox2.setParent(row);
-
-			Hbox toolbar = new Hbox();
-			toolbar.setParent(vbox2);
-			toolbar.setVisible(edit);
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/stock_data_edit_table.png");
 			button.setTooltiptext("Pindah Data");
@@ -501,11 +498,11 @@ public class DetailperkuliahanAction extends GenericAutowireComposer implements 
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 			button.setTooltiptext("Hapus Data");
-			button.setVisible(detailperkuliahan.getPerkuliahan() != null && Common.getCurrentUser().getDosen() == null
+			button.setVisible(edit && detailperkuliahan.getPerkuliahan() != null && Common.getCurrentUser().getDosen() == null
 					&& delete && tampiHapus);
 			button.addEventListener("onClick", new EventListener() {
 				@Override
@@ -556,14 +553,11 @@ public class DetailperkuliahanAction extends GenericAutowireComposer implements 
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			if (tbmuser != null && Common.getApakahAdminBolehAksesFeeder()
 					&& Common.bolehKonfigurasi("aktifkan_terhubung_langsung_ke_feeder")
 					&& (mahasiswa != null && mahasiswa.getIdRegPd() != null && !mahasiswa.getIdRegPd().isEmpty())) {
-
-				toolbar = new Hbox();
-				toolbar.setParent(vbox2);
 
 				MyToolbarbuttonConfig buttonTagihan = new MyToolbarbuttonConfig("Kirim ke Feeder",
 						"/img/Finance-Invoice-icon.png");
@@ -685,9 +679,11 @@ public class DetailperkuliahanAction extends GenericAutowireComposer implements 
 
 					}
 				});
-				buttonTagihan.setParent(toolbar);
+				aksiButtons.add(buttonTagihan);
 
 			}
+
+			ais.ui.util.UIHelper.buatBarisAksi(row, 3, aksiButtons);
 
 		}
 

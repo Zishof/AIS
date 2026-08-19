@@ -706,8 +706,10 @@ public class PostingCicilanDibayarDimukaMahasiswaAction extends GenericAutowireC
 					: cicilanPembayaran.getPostingHistoryDimuka().toString() + ", no. bukti : " + bukti)
 					.setParent(arg0);
 
-			Hbox toolbar = new Hbox();
-			toolbar.setParent(arg0);
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dibungkus kebab popup (⋯)
+			// via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten antar layar.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			if (akunDebet != null && akunKredit != null) {
 				MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Batalkan Posting", "/img/svg/warning-outline.svg");
@@ -741,7 +743,7 @@ public class PostingCicilanDibayarDimukaMahasiswaAction extends GenericAutowireC
 					}
 
 				});
-				button.setParent(toolbar);
+				aksiButtons.add(button);
 
 				button = new MyToolbarbuttonConfig("Posting", "/img/svg/check2-circle.svg");
 				button.setTooltiptext("Posting Data");
@@ -893,8 +895,9 @@ public class PostingCicilanDibayarDimukaMahasiswaAction extends GenericAutowireC
 					}
 
 				});
-				button.setParent(toolbar);
+				aksiButtons.add(button);
 			}
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 
 		}
 	}

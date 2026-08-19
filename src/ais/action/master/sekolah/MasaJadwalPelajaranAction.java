@@ -210,7 +210,11 @@ public class MasaJadwalPelajaranAction extends GenericAutowireComposer {
 
 			new Label(masaJadwalPelajaran.getKeterangan()).setParent(arg0);
 
-			Hbox toolbar = new Hbox();
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dibungkus kebab popup (⋯)
+			// via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten antar layar.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/svg/edit-box-line.svg");
 			button.setTooltiptext("Ubah Data");
 			button.setVisible(edit);
@@ -223,7 +227,7 @@ public class MasaJadwalPelajaranAction extends GenericAutowireComposer {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 			button.setTooltiptext("Hapus Data");
@@ -256,16 +260,21 @@ public class MasaJadwalPelajaranAction extends GenericAutowireComposer {
 
 				}
 			});
-			button.setParent(toolbar);
-			toolbar.setParent(arg0);
+			aksiButtons.add(button);
 
-			GeneralValueObject.tampilKunci(toolbar, masaJadwalPelajaran, tbmuser, new EventListener() {
+			// tampilKunci sudah membangun kebab sendiri; ambil item aksinya lewat
+			// UIHelper.ambilItemAksi supaya tidak terbentuk kebab bersarang dua tingkat.
+			Hbox tempKunci = new Hbox();
+			GeneralValueObject.tampilKunci(tempKunci, masaJadwalPelajaran, tbmuser, new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
 					onSearchDefault(event);
 				}
 
 			}, false);
+			aksiButtons.addAll(ais.ui.util.UIHelper.ambilItemAksi(tempKunci));
+
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 
 	}

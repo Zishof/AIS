@@ -87,6 +87,16 @@ public final class DatabasePerformanceSampler {
 			}
 			throw e;
 		} finally {
+			/* Sesi dibuka sendiri lewat openSession() sehingga WAJIB dilepas lengkap:
+			 * clear() melepas entity dari persistence context, disconnect() mengembalikan
+			 * koneksi fisik ke pool c3p0, lalu close(). Sebelumnya hanya close() -- pada
+			 * jalur error koneksi bisa tertahan lebih lama dari yang diperlukan. */
+			try { if (session.isOpen()) session.clear(); } catch (Exception clearError) {
+				ErrorAuditUtil.record(clearError, "DatabasePerformanceSampler.clear");
+			}
+			try { if (session.isOpen()) session.disconnect(); } catch (Exception disconnectError) {
+				ErrorAuditUtil.record(disconnectError, "DatabasePerformanceSampler.disconnect");
+			}
 			try { session.close(); } catch (Exception closeError) {
 				ErrorAuditUtil.record(closeError, "DatabasePerformanceSampler.close");
 			}

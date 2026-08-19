@@ -216,7 +216,11 @@ public class RepositorySyncService {
 			int total = count == null ? 0 : count.intValue();
 			outerBatch:
 			for (int first = 0; first < total; first += DEFAULT_BATCH_SIZE) {
+				/* KE-FIX: paging setFirstResult/setMaxResults TANPA ORDER BY tidak dijamin stabil di
+				 * PostgreSQL -- baris yang sama bisa muncul di dua halaman (diproses ganda) dan baris
+				 * lain tidak pernah terbaca (tidak pernah tersinkron). Urutkan berdasarkan id. */
 				Criteria criteria = session.createCriteria(modelClass).setFirstResult(first)
+						.addOrder(org.hibernate.criterion.Order.asc("id"))
 						.setMaxResults(DEFAULT_BATCH_SIZE).setReadOnly(true);
 				List<Object> data = criteria.list();
 				for (Object obj : data) {
@@ -430,6 +434,20 @@ public class RepositorySyncService {
 			return null;
 		}
 		RepoItem item = findRepoItem(session, source.modelClassName, sourceId);
+		if (item != null && firstNotEmpty(item.getOaiIdentifier()).length() == 0) {
+			/* KE-FIX (ConstraintViolationException "could not update: [RepoItem#..]" dgn pesan
+			 * duplicate key repo_item_oai_identifier_key): baris terpilih belum memegang
+			 * identifier, sementara baris DUPLIKAT untuk sumber yang sama sudah memegangnya.
+			 * Mengisi identifier pada baris ini akan melanggar constraint UNIQUE dan mematikan
+			 * seluruh siklus sinkronisasi. Pakai baris yang sudah memegang identifier tsb. */
+			RepoItem pemegang = findRepoItemByOai(session, buildOaiIdentifier(source, sourceId));
+			if (pemegang != null && pemegang.getId() != null && !pemegang.getId().equals(item.getId())) {
+				item = pemegang;
+				item.setSourceClass(source.modelClassName);
+				item.setSourceId(sourceId);
+				item.setCollectionId(collectionId);
+			}
+		}
 		boolean eligible = isEligible(source, obj);
 		if (!eligible) {
 			if (item != null && item.getAktif()) {
@@ -550,8 +568,14 @@ public class RepositorySyncService {
 	}
 
 	private static RepoItem findRepoItem(Session session, String sourceClass, Long sourceId) {
+		/* KE-FIX (duplicate key "repo_item_oai_identifier_key"): bila terdapat LEBIH DARI SATU
+		 * baris RepoItem untuk sumber yang sama (duplikat historis), setMaxResults(1) TANPA
+		 * pengurutan membuat baris yang terpilih berubah-ubah antar siklus. Akibatnya siklus
+		 * yang memilih baris ber-oai KOSONG akan mengisi identifier milik baris saudaranya
+		 * lalu gagal saat flush. Urutkan berdasarkan id agar pilihan selalu konsisten. */
 		return (RepoItem) session.createCriteria(RepoItem.class).add(Restrictions.eq("sourceClass", sourceClass))
-				.add(Restrictions.eq("sourceId", sourceId)).setMaxResults(1).uniqueResult();
+				.add(Restrictions.eq("sourceId", sourceId))
+				.addOrder(org.hibernate.criterion.Order.asc("id")).setMaxResults(1).uniqueResult();
 	}
 
 	/** Cari RepoItem berdasarkan oai_identifier (kolom ber-constraint UNIQUE). */

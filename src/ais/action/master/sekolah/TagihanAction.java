@@ -434,8 +434,10 @@ public class TagihanAction extends GenericAutowireComposer implements DataCriter
 			} else {
 				new Label((tagihan.getAktif() ? "Ya" : "Tidak")).setParent(arg0);
 			}
-			Hbox toolbar = new Hbox();
-			toolbar.setParent(arg0);
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dibungkus kebab popup (⋯)
+			// via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten antar layar.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			if (tagihan.getPembayaranSiswaDetail() != null && tagihan.getPembayaranSiswaDetail().getId() != null
 					&& !tagihan.getNominalBiaya().getBukanTagihan()) {
@@ -477,7 +479,7 @@ public class TagihanAction extends GenericAutowireComposer implements DataCriter
 					}
 
 				});
-				button.setParent(toolbar);
+				aksiButtons.add(button);
 			}
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
@@ -513,7 +515,8 @@ public class TagihanAction extends GenericAutowireComposer implements DataCriter
 
 				}
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 
 	}

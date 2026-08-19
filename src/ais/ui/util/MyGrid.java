@@ -153,13 +153,33 @@ public class MyGrid extends Grid {
 						Common.clear(north);
 						north.setTitle("Menu");
 						north.setBorder("none");
-						north.setStyle("min-height: 250px;");
+						/* PANEL FILTER: dahulu dipaksa "min-height: 250px" sehingga layar yang
+						 * filternya hanya SATU baris (mis. Presensi) menyisakan pita kosong ~200px
+						 * antara baris filter dan tabel data. Sekarang tinggi mengikuti isi.
+						 *
+						 * Perubahan ini TIDAK menyusutkan panel yang isinya memang tinggi: bila
+						 * konten > nilai minimal, konten yang menentukan tinggi. Jadi efeknya hanya
+						 * menghapus ruang yang memang tak terpakai.
+						 *
+						 * Rollback tanpa deploy ulang: set konfigurasi "tinggi_minimal_panel_filter"
+						 * ke 250 untuk mengembalikan perilaku lama. */
+						String tinggiMinimalPanel = "0";
+						try {
+							tinggiMinimalPanel = Common.getKonfigurasi("tinggi_minimal_panel_filter", "0").getNilai()
+									.trim();
+							if (tinggiMinimalPanel.length() == 0) {
+								tinggiMinimalPanel = "0";
+							}
+						} catch (Throwable abaikan) {
+							tinggiMinimalPanel = "0";
+						}
+						north.setStyle("min-height: " + tinggiMinimalPanel + "px;");
 
 						setWidth("100%");
 
 						Groupbox toolbarData1 = new Groupbox();
 						toolbarData1.setParent(north);
-						toolbarData1.setStyle("min-height: 250px;");
+						toolbarData1.setStyle("min-height: " + tinggiMinimalPanel + "px;");
 
 						Row rowLagi = Common.tampilanScroll1(toolbarData1);
 						rowLagi.appendChild(MyGrid.this);

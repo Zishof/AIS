@@ -530,14 +530,41 @@ public class NomorSurat extends GeneralValueObject {
 			/* Sesi sudah tertutup / DB tak tersedia (mis. dibaca saat commit di thread latar):
 			 * JANGAN gagalkan flush & commit hanya karena contoh format tak bisa dihitung ulang.
 			 * Nilai contoh terakhir yang tersimpan dipakai apa adanya. */
+			/* Sesi yang sudah/sedang ditutup saat commit-Envers adalah kondisi WAJAR pada jalur
+			 * ini (getter dibaca ulang oleh flush), bukan kesalahan yang perlu ditindaklanjuti.
+			 * Mencatatnya membanjiri Error Log dgn ratusan entri "Session is closed!" yang
+			 * identik. Catat HANYA penyebab lain supaya masalah nyata tetap terlihat. */
 			try {
-				ais.common.ErrorAuditUtil.record(t, "NomorSurat.getContohFormat");
+				if (!merupakanSesiTertutup(t)) {
+					ais.common.ErrorAuditUtil.record(t, "NomorSurat.getContohFormat");
+				}
 			} catch (Throwable abaikan) {
 			}
 		} finally {
 			SEDANG_HITUNG_CONTOH_FORMAT.remove();
 		}
 		return contohFormat;
+	}
+
+	/**
+	 * Apakah kegagalan berasal dari sesi/koneksi Hibernate yang sudah ditutup? Dipakai untuk
+	 * membedakan kondisi wajar (getter dibaca ulang saat flush/commit di thread latar)
+	 * dari kesalahan nyata yang perlu dicatat ke Error Log.
+	 */
+	private static boolean merupakanSesiTertutup(Throwable t) {
+		Throwable c = t;
+		int penjaga = 0;
+		while (c != null && penjaga < 30) {
+			String pesan = c.getMessage() == null ? "" : c.getMessage().toLowerCase();
+			if (c instanceof org.hibernate.SessionException || pesan.indexOf("session is closed") >= 0
+					|| pesan.indexOf("has been closed") >= 0 || pesan.indexOf("already closed") >= 0
+					|| pesan.indexOf("connection is closed") >= 0) {
+				return true;
+			}
+			c = c.getCause();
+			penjaga++;
+		}
+		return false;
 	}
 
 	public void setContohFormat(String contohFormat) {

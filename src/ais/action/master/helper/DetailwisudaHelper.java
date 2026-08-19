@@ -211,14 +211,12 @@ public class DetailwisudaHelper implements DataLoader, DataCriteria {
 			}
 			new MyLabelKecil(mahasiswa.getJudulSkripsi()).setParent(row);
 
-			Vbox vbox = new Vbox();
-			vbox.setParent(row);
-
-			Hbox toolbar = new Hbox();
-			toolbar.setParent(vbox);
+			// kebab popup (⋯) via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
 
 			MyToolbarbutton toolbarbutton = new MyToolbarbutton("fa-certificate", "Transkrip");
-			toolbarbutton.setParent(toolbar);
+			aksiButtons.add(toolbarbutton);
 			toolbarbutton.addEventListener("onClick", new EventListener() {
 
 				@Override
@@ -235,7 +233,7 @@ public class DetailwisudaHelper implements DataLoader, DataCriteria {
 			});
 
 			MyToolbarbutton button = new MyToolbarbutton("fa-table", "No.");
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 			button.setVisible(edit);
 			button.setTooltiptext("Generate No Wisuda");
 			button.addEventListener("onClick", new EventListener() {
@@ -263,12 +261,10 @@ public class DetailwisudaHelper implements DataLoader, DataCriteria {
 				}
 			});
 
-			toolbar = new Hbox();
-			toolbar.setParent(vbox);
 
 			button = new MyToolbarbutton("fa-pencil", "Ubah");
 			button.setVisible(edit);
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 			button.setTooltiptext("Ubah Status Registrasi Wisuda");
 			button.addEventListener("onClick", new EventListener() {
 				@Override
@@ -298,7 +294,7 @@ public class DetailwisudaHelper implements DataLoader, DataCriteria {
 					DetailwisudaHelper.cetakBukti(pendaftaranWisuda);
 				}
 			});
-			cetak.setParent(toolbar);
+			aksiButtons.add(cetak);
 
 			button = new MyToolbarbutton("fa-trash", "Hapus");
 			button.setVisible(delete);
@@ -334,8 +330,9 @@ public class DetailwisudaHelper implements DataLoader, DataCriteria {
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
+			ais.ui.util.UIHelper.buatBarisAksi(row, 3, aksiButtons);
 		}
 
 	}

@@ -132,7 +132,11 @@ private Textbox searchnama;
 
 			RevisiHelper.createNewRevisi(UploadLogInfo.class, uploadLog, uploadLog.getNama()).setParent(arg0);
 
-			Hbox toolbar = new Hbox();
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dibungkus kebab popup (⋯)
+			// via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten antar layar.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Download", "/img/upload.gif");
 			button.setTooltiptext("Download Data");
 			button.addEventListener("onClick", new EventListener() {
@@ -145,7 +149,7 @@ private Textbox searchnama;
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
 			button = new MyToolbarbuttonConfig("Hapus", "/img/svg/trash.svg");
 			button.setTooltiptext("Hapus Data");
@@ -180,8 +184,8 @@ private Textbox searchnama;
 
 				}
 			});
-			toolbar.setParent(arg0);
-			button.setParent(toolbar);
+			aksiButtons.add(button);
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 
 	}

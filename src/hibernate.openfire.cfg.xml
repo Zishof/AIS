@@ -19,7 +19,40 @@
 		<property name="hibernate.show_sql">false</property>
 		<property name="hbm2ddl.auto">update</property>
 		<property name="hibernate.connection.autocommit">false</property>
-		<property name="connection.pool_size">2000</property>
+		<!--
+			OPTIMASI FASE 4 (pool bounded).
+			SEBELUMNYA: connection.pool_size=2000 memakai pool BAWAAN Hibernate
+			(DriverManagerConnectionProvider) yang tidak divalidasi, tanpa timeout, dan
+			boleh menahan sampai 2000 koneksi menganggur. Total kapasitas seluruh factory
+			dahulu 80 + 20 + 2000 + 2000 + 2000 = 6.100 koneksi - jauh di atas
+			max_connections PostgreSQL mana pun, sehingga satu lonjakan pemakaian modul ini
+			dapat menghabiskan slot koneksi untuk SELURUH aplikasi.
+
+			SEKARANG: memakai C3P0ConnectionProvider (jar c3p0-0.9.1.2.jar sudah ada di
+			WEB-INF/lib dan dipakai factory utama/streaming) dengan pool KECIL + validasi
+			koneksi. Adanya hibernate.c3p0.max_size membuat Hibernate memilih c3p0 sehingga
+			baris connection.pool_size di bawah tidak lagi dipakai (disimpan sebagai
+			dokumentasi nilai lama). CATATAN: berkas ini TIDAK dirujuk kode mana pun (nol referensi ke "hibernate.openfire.cfg.xml"); nilai tetap dibatasi sebagai pengaman bila modul diaktifkan kembali.
+			Total kapasitas baru: 80 (utama) + 20 (streaming) + 5 + 5 + 5 = 115 koneksi.
+			Naikkan max_size hanya bila metrik menunjukkan antrean koneksi pada modul ini.
+		-->
+		<property name="connection.pool_size">5</property>
+		<property name="hibernate.c3p0.min_size">0</property>
+		<property name="hibernate.c3p0.max_size">5</property>
+		<property name="hibernate.c3p0.acquire_increment">1</property>
+		<property name="hibernate.c3p0.timeout">300</property>
+		<!-- Statement cache dimatikan, sama seperti factory utama: menghindari bug
+			 GooGooStatementCache c3p0 0.9.1.2 (PostgreSQL punya prepared statement sendiri). -->
+		<property name="hibernate.c3p0.max_statements">0</property>
+		<property name="hibernate.c3p0.idle_test_period">60</property>
+		<property name="hibernate.c3p0.preferredTestQuery">SELECT 1</property>
+		<property name="hibernate.c3p0.testConnectionOnCheckin">true</property>
+		<!-- Koneksi yang tidak dikembalikan direbut kembali setelah 30 menit supaya
+			 kebocoran pada modul sampingan tidak menghabiskan pool. -->
+		<property name="hibernate.c3p0.unreturnedConnectionTimeout">1800</property>
+		<property name="hibernate.c3p0.checkoutTimeout">30000</property>
+		<property name="hibernate.c3p0.acquireRetryAttempts">3</property>
+		<property name="hibernate.c3p0.acquireRetryDelay">2000</property>
 		<property name="current_session_context_class">thread</property>
 		<!-- <property name="hibernate.cache.provider_class">org.hibernate.cache.OSCacheProvider</property> -->
 		<property name="hibernate.use_identifier_rollback">true</property>

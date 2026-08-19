@@ -134,6 +134,58 @@ public class AsyncTaskManager {
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/AsyncTaskManager.java:decrefServerPush"); }
 	}
 
+	/**
+	 * Menjalankan tugas latar SAMBIL mengelola server push secara otomatis (OPTIMASI FASE 5).
+	 *
+	 * <p><b>Masalah yang diselesaikan.</b> Puluhan layar (laporan, dashboard, proses massal)
+	 * memakai pola:</p>
+	 * <pre>
+	 *   if (!desktop.isServerPushEnabled()) desktop.enableServerPush(true);
+	 *   new Thread(runnable).start();
+	 * </pre>
+	 * <p>Push DINYALAKAN tetapi TIDAK PERNAH dimatikan. Server push ZK 5.5
+	 * (PollingServerPush) membuat browser terus-menerus mengirim request polling yang
+	 * masing-masing MENAHAN satu thread Tomcat sampai timeout, lalu polling lagi -- selamanya
+	 * selama tab masih terbuka, walau tugasnya sudah selesai dalam hitungan detik. Inilah
+	 * penyebab ledakan thread http-nio yang terdokumentasi pada kelas ini. Selain itu
+	 * {@code new Thread(...)} membuat thread MENTAH per operasi: tak berbatas, tak bernama,
+	 * dan tidak berhenti saat webapp di-redeploy.</p>
+	 *
+	 * <p><b>Cara pakai.</b> Ganti kedua baris di atas dengan satu panggilan:</p>
+	 * <pre>
+	 *   AsyncTaskManager.jalankanDenganPush(desktop, new Runnable() { public void run() { ... } });
+	 * </pre>
+	 *
+	 * <p>Push dinyalakan lewat reference counting (aman bila beberapa tugas berjalan pada
+	 * desktop yang sama) dan DILEPAS di {@code finally} begitu tugas selesai/gagal. Tugas
+	 * dijalankan pada pool daemon berbatas milik kelas ini yang sudah ditutup rapi saat
+	 * webapp berhenti -- bukan thread mentah.</p>
+	 *
+	 * @param desktop desktop ZK pemilik tugas; boleh null (tugas tetap dijalankan tanpa push)
+	 * @param tugas   pekerjaan latar; diabaikan bila null
+	 */
+	public static void jalankanDenganPush(final Desktop desktop, final Runnable tugas) {
+		if (tugas == null) {
+			return;
+		}
+		increfServerPush(desktop);
+		EXECUTOR.submit(new Runnable() {
+			@Override
+			public void run() {
+				try {
+					tugas.run();
+				} catch (Throwable t) {
+					try {
+						tampilErrorJikaAdmin(t instanceof Exception ? (Exception) t : new Exception(t));
+					} catch (Throwable abaikan) {
+					}
+				} finally {
+					decrefServerPush(desktop);
+				}
+			}
+		});
+	}
+
 	// ==============================================================================
 	// METHOD EXECUTE ASYNC (BACKGROUND PROCESS ENGINE - ZK 5.5 COMPATIBLE)
 	// ==============================================================================

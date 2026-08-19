@@ -166,11 +166,14 @@ public class AttachmentPengumumanAkademisAction extends GenericAutowireComposer 
 
 			new Label(Common.dateFormat.get().format(lampiranPengumumanAkademis.getUploadDate())).setParent(vbox);
 
-			Hbox hbox = new Hbox();
-			hbox.setParent(vbox);
+			// Kolom aksi rapi: seluruh tombol dibungkus kebab popup (⋯) via UIHelper.buatBarisAksi.
+			// Induk kebab adalah sel (vbox), bukan Row, karena sel ini juga memuat pratinjau + label.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+
 			MyToolbarbuttonConfig toolbarbutton = new MyToolbarbuttonConfig(lampiranPengumumanAkademis.getNama(),
 					lampiranPengumumanAkademis.iconDonwload());
-			toolbarbutton.setParent(hbox);
+			aksiButtons.add(toolbarbutton);
 			toolbarbutton.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
@@ -188,7 +191,7 @@ public class AttachmentPengumumanAkademisAction extends GenericAutowireComposer 
 			toolbarbutton = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 			toolbarbutton.setTooltiptext("Hapus Data");
 			toolbarbutton.setVisible(!readonly);
-			toolbarbutton.setParent(hbox);
+			aksiButtons.add(toolbarbutton);
 			toolbarbutton.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
@@ -220,6 +223,8 @@ public class AttachmentPengumumanAkademisAction extends GenericAutowireComposer 
 				}
 
 			});
+
+			ais.ui.util.UIHelper.buatBarisAksi(vbox, 3, aksiButtons);
 		}
 
 	}

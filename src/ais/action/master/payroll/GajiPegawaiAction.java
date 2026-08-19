@@ -602,8 +602,11 @@ public class GajiPegawaiAction extends GenericAutowireComposer implements DataCr
 
 			new Label(Common.numberFormat.get().format(pegawai.getNilaiGaji())).setParent(arg0);
 
-			Hbox toolbar = new Hbox();
-			toolbar.setParent(arg0);
+			// Kolom aksi rapi (pola MahasiswaAction): semua tombol dibungkus kebab popup (⋯)
+			// via UIHelper.buatBarisAksi — kolom aksi jadi kecil dan konsisten antar layar.
+			final java.util.List<org.zkoss.zk.ui.Component> aksiButtons =
+					new java.util.ArrayList<org.zkoss.zk.ui.Component>();
+
 			Toolbarbutton button = new MyToolbarbuttonConfig("Struktur Gaji", "/img/svg/edit-box-line.svg");
 			button.setTooltiptext("Rubah Data");
 			button.setVisible(edit);
@@ -616,8 +619,9 @@ public class GajiPegawaiAction extends GenericAutowireComposer implements DataCr
 				}
 
 			});
-			button.setParent(toolbar);
+			aksiButtons.add(button);
 
+			ais.ui.util.UIHelper.buatBarisAksi(arg0, 3, aksiButtons);
 		}
 
 	}
