@@ -4751,7 +4751,7 @@ public class TampilanELearningAction extends GenericAutowireComposer {
 
 								Toolbarbutton upload = FileFotoLain.tampilkanTombolUploadGdrive(null, null,
 										uploadeventListener, null, null, LampiranLain.DISKUSI, false, null, "Lampiran",
-										null, false, -Common.randLong(), false, LampiranLain.class);
+										null, false, Common.refSementara(), false, LampiranLain.class);
 								upload.setImage("");
 								upload.setLabel("Lampiran");
 								upload.setOrient("vertical");

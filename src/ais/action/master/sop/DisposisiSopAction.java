@@ -592,7 +592,7 @@ public class DisposisiSopAction extends GenericAutowireComposer
 									hbox.setWidth("100%");
 
 									LampiranLain.createDownloadUploadFileLain(hbox,
-											disposisiSop.getDisposisiStart().getId() == null ? -Common.randLong()
+											disposisiSop.getDisposisiStart().getId() == null ? Common.refSementara()
 													: disposisiSop.getDisposisiStart().getId(),
 											jenis,
 											parameterTambahan.getLabelInputan()
@@ -1080,7 +1080,7 @@ public class DisposisiSopAction extends GenericAutowireComposer
 		final Rows rowsLampiran = new Rows();
 		rowsLampiran.setParent(gridLampiran);
 
-		ref = DisposisiSopAction.this.disposisiSop.getId() == null ? -Common.randLong()
+		ref = DisposisiSopAction.this.disposisiSop.getId() == null ? Common.refSementara()
 				: DisposisiSopAction.this.disposisiSop.getId();
 
 		EventListener eventListener = new EventListener() {

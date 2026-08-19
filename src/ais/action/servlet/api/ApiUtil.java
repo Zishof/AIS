@@ -1590,16 +1590,57 @@ public class ApiUtil {
 		}
 	}
 
+	/**
+	 * Catat kegagalan saat membersihkan session API.
+	 *
+	 * <p>Kegagalan karena koneksi memang sudah mati (mis. c3p0 gagal membuka koneksi, server
+	 * restart, socket putus) BUKAN bug yang perlu di-audit: itu akibat wajar dari kegagalan
+	 * yang sebenarnya sudah dicatat lebih dulu. Mencatatnya lagi berikut stack trace justru
+	 * MENUTUPI penyebab asli di log. Karena itu kasus tersebut cukup 1 baris di stdout,
+	 * sedangkan error lain tetap dicatat penuh seperti semula.</p>
+	 */
+	private static void catatKegagalanBersihApi(Throwable e, String langkah, String lokasi) {
+		try {
+			if (HibernateUtil.isConnectionDead(e)) {
+				System.out.println("ApiUtil: " + langkah + " dilewati, koneksi database sudah tertutup ("
+						+ (e == null ? "-" : e.getClass().getName()) + ").");
+				return;
+			}
+		} catch (Throwable abaikan) {
+			// Jangan sampai proses pembersihan gagal hanya karena pendeteksian ini.
+		}
+		ais.common.ErrorAuditUtil.record(e, lokasi);
+	}
+
 	private static void rollbackApiTransactionQuietly(Session session) {
 		if (session == null) {
 			return;
 		}
+		/* Perbaikan derau log "Cannot open connection" -> rollback gagal: rollback hanya masuk
+		 * akal bila koneksi FISIK masih hidup. Saat c3p0 gagal memberi koneksi (pool habis /
+		 * database tidak dapat dihubungi), rollback justru melempar exception BARU
+		 * ("This connection has been closed") yang tidak informatif dan menimbun log sehingga
+		 * kegagalan aslinya sulit ditemukan. Status koneksi karena itu diperiksa lebih dulu;
+		 * perilaku untuk koneksi yang masih hidup TIDAK berubah. */
+		boolean koneksiHidup = false;
 		try {
-			if (session.getTransaction() != null && !session.getTransaction().wasCommitted()
+			if (session.isConnected()) {
+				java.sql.Connection connection = session.connection();
+				koneksiHidup = connection != null && !connection.isClosed();
+			}
+		} catch (Exception e) {
+			koneksiHidup = false;
+			catatKegagalanBersihApi(e, "cek koneksi sebelum rollback",
+					"auto-audit src/ais/action/servlet/api/ApiUtil.java:rollbackApiTransactionQuietly-cek");
+		}
+		try {
+			if (koneksiHidup && session.getTransaction() != null && !session.getTransaction().wasCommitted()
 					&& !session.getTransaction().wasRolledBack()) {
 				session.getTransaction().rollback();
 			}
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/api/ApiUtil.java:1532");
+		} catch (Exception e) {
+			catatKegagalanBersihApi(e, "rollback transaksi",
+					"auto-audit(empty-catch) src/ais/action/servlet/api/ApiUtil.java:1532");
 		}
 	}
 
@@ -1611,18 +1652,26 @@ public class ApiUtil {
 			if (session.isOpen()) {
 				try {
 					session.clear();
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/api/ApiUtil.java:1544");
+				} catch (Exception e) {
+					catatKegagalanBersihApi(e, "clear session",
+							"auto-audit(empty-catch) src/ais/action/servlet/api/ApiUtil.java:1544");
 				}
 				try {
 					session.disconnect();
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/api/ApiUtil.java:1548");
+				} catch (Exception e) {
+					catatKegagalanBersihApi(e, "disconnect session",
+							"auto-audit(empty-catch) src/ais/action/servlet/api/ApiUtil.java:1548");
 				}
 				try {
 					session.close();
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/api/ApiUtil.java:1552");
+				} catch (Exception e) {
+					catatKegagalanBersihApi(e, "close session",
+							"auto-audit(empty-catch) src/ais/action/servlet/api/ApiUtil.java:1552");
 				}
 			}
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/api/ApiUtil.java:1555");
+		} catch (Exception e) {
+			catatKegagalanBersihApi(e, "tutup session API",
+					"auto-audit(empty-catch) src/ais/action/servlet/api/ApiUtil.java:1555");
 		}
 	}
 

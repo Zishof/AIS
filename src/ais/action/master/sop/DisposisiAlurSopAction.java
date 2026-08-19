@@ -383,7 +383,7 @@ public class DisposisiAlurSopAction extends GenericAutowireComposer
 										hbox.setWidth("100%");
 
 										LampiranLain.createDownloadUploadFileLain(hbox,
-												disposisiAlurSop.getId() == null ? -Common.randLong() : disposisiAlurSop.getId(),
+												disposisiAlurSop.getId() == null ? Common.refSementara() : disposisiAlurSop.getId(),
 												jenis,
 												parameterTambahan.getLabelInputan() + (parameterTambahan.getLampiranWajibDiisi() ? " (*)" : " "),
 												false, new EventListener() {
@@ -741,7 +741,7 @@ public class DisposisiAlurSopAction extends GenericAutowireComposer
 		row.setParent(rows);
 		row.appendChild(new ais.ui.util.MyLabelConfig(""));
 		Hbox hboxInfo = new Hbox();
-		LampiranLain.createDownloadUploadFileLain(hboxInfo, disposisiAlurSop.getId() == null ? -Common.randLong() : disposisiAlurSop.getId(), "Lampiran Catatan Disposisi",
+		LampiranLain.createDownloadUploadFileLain(hboxInfo, disposisiAlurSop.getId() == null ? Common.refSementara() : disposisiAlurSop.getId(), "Lampiran Catatan Disposisi",
 				"Lampiran Catatan Disposisi " + (disposisiAlurSop.getAlurSop() != null && disposisiAlurSop.getAlurSop().getLampiranCatatanWajibDiisi() ? "*" : ""),
 				false, new EventListener() {
 					@Override
@@ -1211,7 +1211,7 @@ public class DisposisiAlurSopAction extends GenericAutowireComposer
 		final Rows rowsLampiran = new Rows();
 		rowsLampiran.setParent(gridLampiran);
 
-		ref = DisposisiAlurSopAction.this.disposisiAlurSop.getId() == null ? -Common.randLong() : DisposisiAlurSopAction.this.disposisiAlurSop.getId();
+		ref = DisposisiAlurSopAction.this.disposisiAlurSop.getId() == null ? Common.refSementara() : DisposisiAlurSopAction.this.disposisiAlurSop.getId();
 
 		EventListener eventListener = new EventListener() {
 			@Override

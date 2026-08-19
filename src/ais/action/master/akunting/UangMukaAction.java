@@ -1695,16 +1695,28 @@ public class UangMukaAction extends GenericAutowireComposer
 				rowAkunPilih.setVisible(tanpaAnggaran.isChecked() && !ambilDariPr.isChecked());
 				if (sisaAnggaran.getParent() != null) sisaAnggaran.getParent().setVisible(visibleAnggaran);
 
+				/* Perbaikan NullPointerException yang berulang di log: kedua komponen ini bisa
+				 * BELUM terpasang ke parent-nya saat listener ini jalan (workspace dibuat lewat
+				 * new AmbilDataWorkspaceBanbox(...) di kode, bukan dari ZUL, dan pada mode
+				 * persetujuan/viewOnly blok yang memuatnya tidak selalu dirender). getParent()
+				 * lalu bernilai null dan .setVisible() melempar NPE -- tertangkap catch di bawah
+				 * sehingga tidak merusak layar, tetapi TERCATAT ke ErrorAuditUtil pada setiap
+				 * perubahan checkbox sehingga membanjiri log. Dijaga dengan pola null-check yang
+				 * sama seperti baris-baris di atasnya (unit/saldo/tgl/akun/sisaAnggaran).
+				 * try/catch tetap dipertahankan sebagai jaring pengaman. */
 				try {
-					workspace.getParent().setVisible(!tanpaAnggaran.isChecked() && !ambilDariPr.isChecked());
+					if (workspace != null && workspace.getParent() != null) {
+						workspace.getParent().setVisible(!tanpaAnggaran.isChecked() && !ambilDariPr.isChecked());
+					}
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/akunting/UangMukaAction.java:1686");
-					// TODO: handle exception
 				}
 
 				try {
-					permintaanPengadaanMasterAsset.getParent().setVisible(ambilDariPr.isChecked());
+					if (permintaanPengadaanMasterAsset != null
+							&& permintaanPengadaanMasterAsset.getParent() != null) {
+						permintaanPengadaanMasterAsset.getParent().setVisible(ambilDariPr.isChecked());
+					}
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/akunting/UangMukaAction.java:1692");
-					// TODO: handle exception
 				}
 
 				try {

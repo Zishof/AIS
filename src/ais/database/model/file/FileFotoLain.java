@@ -439,28 +439,28 @@ public abstract class FileFotoLain extends FileFoto {
 
 	public static void createDownloadUpload(Hbox row, Long myref, String jenis, String keterangan, Boolean harusPdf,
 			EventListener eventListener, Class clazz) {
-		Long ref = myref == null ? -Common.randLong() : myref;
+		Long ref = myref == null ? Common.refSementara() : myref;
 		createDownloadUpload(row, ref, jenis, keterangan, harusPdf, eventListener, null, false, false, false, true,
 				null, clazz);
 	}
 
 	public static void createDownloadUpload(Hbox row, Long myref, String jenis, String keterangan, Boolean harusPdf,
 			EventListener eventListener, Integer cutomUkuranUpload, Class clazz) {
-		Long ref = myref == null ? -Common.randLong() : myref;
+		Long ref = myref == null ? Common.refSementara() : myref;
 		createDownloadUpload(row, ref, jenis, keterangan, harusPdf, eventListener, null, cutomUkuranUpload, clazz);
 	}
 
 	public static void createDownloadUpload(Hbox row, Long myref, String jenis, String keterangan, Boolean harusPdf,
 			EventListener eventListener, Map<String, FileFotoLain> lampiranLains, Integer cutomUkuranUpload,
 			Class clazz) {
-		Long ref = myref == null ? -Common.randLong() : myref;
+		Long ref = myref == null ? Common.refSementara() : myref;
 		createDownloadUpload(row, ref, jenis, keterangan, harusPdf, eventListener, lampiranLains, false, false, false,
 				true, cutomUkuranUpload, clazz);
 	}
 
 	public static void createDownloadUpload(Hbox row, Long myref, String jenis, String keterangan, Boolean harusPdf,
 			EventListener eventListener, Map<String, FileFotoLain> lampiranLains, Class clazz) {
-		Long ref = myref == null ? -Common.randLong() : myref;
+		Long ref = myref == null ? Common.refSementara() : myref;
 		createDownloadUpload(row, ref, jenis, keterangan, harusPdf, eventListener, lampiranLains, false, false, false,
 				true, null, clazz);
 	}
@@ -508,7 +508,7 @@ public abstract class FileFotoLain extends FileFoto {
 			final Boolean janganPreviewDiLayarUtama, final Component parentPreviewAja, final Class clazz,
 			final boolean refresh) {
 
-		final Serializable ref = myrefId == null ? -Common.randLong() : myrefId;
+		final Serializable ref = myrefId == null ? Common.refSementara() : myrefId;
 
 		// Layout setup
 		Vbox vbox = new Vbox();
@@ -845,8 +845,15 @@ public abstract class FileFotoLain extends FileFoto {
 			target.setNama(nama);
 		}
 
+		/*
+		 * Acuan sementara WAJIB negatif. Sebelumnya dipakai Math.abs(Common.randLong())
+		 * yang menghasilkan angka POSITIF <= 99_999_998 - persis rentang id asli. Acuan
+		 * seperti itu bisa menunjuk ke baris milik entitas lain yang benar-benar ada,
+		 * sehingga hapusAtauUpdate() di bawah menimpa lampiran milik data lain dan berkas
+		 * yang baru diunggah muncul di data tersebut.
+		 */
 		if (ref == null || (ref instanceof Long && (Long) ref == -1L)) {
-			ref = Math.abs(Common.randLong());
+			ref = Common.refSementara();
 		}
 
 		// 1. Hapus atau "Soft Delete" data lama

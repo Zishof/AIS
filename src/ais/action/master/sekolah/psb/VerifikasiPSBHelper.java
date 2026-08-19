@@ -516,18 +516,7 @@ public class VerifikasiPSBHelper {
 							if (refBerkas == null && verifikasiKelengkapanCalonSiswa.getId() != null) {
 								refBerkas = refSementaraBerkas.get(verifikasiKelengkapanCalonSiswa.getId());
 								if (refBerkas == null) {
-									/*
-									 * Acuan sementara SELALU negatif supaya tidak mungkin bentrok
-									 * dengan id baris penghubung yang asli.
-									 *
-									 * Dua undian randLong() digabung (ruang ~1e16, bukan ~1e8): kolom
-									 * acuan ini dipakai bersama SEMUA pendaftar yang sedang mengisi
-									 * formulir, dan berkas dicari lewat acuan itu. Ruang yang sempit
-									 * berarti dua pendaftar bisa mendapat acuan yang sama untuk jenis
-									 * berkas yang sama, lalu saling melihat berkas satu sama lain.
-									 */
-									refBerkas = Long
-											.valueOf(-((Common.randLong() + 1L) * 100000000L + Common.randLong()));
+									refBerkas = Common.refSementara();
 									refSementaraBerkas.put(verifikasiKelengkapanCalonSiswa.getId(), refBerkas);
 								}
 								subRow.setAttribute("refSementaraBerkas", refBerkas);

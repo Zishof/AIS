@@ -557,28 +557,28 @@ public static final String LOGO_PRICE_TAG_STR = "Logo Price Tag";
 
 	public static void createDownloadUploadFileLain(Component row, Long myref, String jenis, String keterangan,
 			Boolean harusPdf, EventListener eventListener) {
-		Long ref = myref == null ? -Common.randLong() : myref;
+		Long ref = myref == null ? Common.refSementara() : myref;
 		LampiranLain.createDownloadUploadFileLain(row, ref, jenis, keterangan, harusPdf, eventListener, null, false,
 				false, false, true, null);
 	}
 
 	public static void createDownloadUploadFileLain(Component row, Long myref, String jenis, String keterangan,
 			Boolean harusPdf, EventListener eventListener, Integer cutomUkuranUpload) {
-		Long ref = myref == null ? -Common.randLong() : myref;
+		Long ref = myref == null ? Common.refSementara() : myref;
 		createDownloadUploadFileLain(row, ref, jenis, keterangan, harusPdf, eventListener, null, cutomUkuranUpload);
 	}
 
 	public static void createDownloadUploadFileLain(Component row, Long myref, String jenis, String keterangan,
 			Boolean harusPdf, EventListener eventListener, Map<String, LampiranLain> lampiranLains,
 			Integer cutomUkuranUpload) {
-		Long ref = myref == null ? -Common.randLong() : myref;
+		Long ref = myref == null ? Common.refSementara() : myref;
 		LampiranLain.createDownloadUploadFileLain(row, ref, jenis, keterangan, harusPdf, eventListener, lampiranLains,
 				false, false, false, true, cutomUkuranUpload);
 	}
 
 	public static void createDownloadUploadFileLain(Component row, Long myref, String jenis, String keterangan,
 			Boolean harusPdf, EventListener eventListener, Map<String, LampiranLain> lampiranLains) {
-		Long ref = myref == null ? -Common.randLong() : myref;
+		Long ref = myref == null ? Common.refSementara() : myref;
 		LampiranLain.createDownloadUploadFileLain(row, ref, jenis, keterangan, harusPdf, eventListener, lampiranLains,
 				false, false, false, true, null);
 	}

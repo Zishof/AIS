@@ -11831,6 +11831,31 @@ public class Common {
 	}
 
 	/**
+	 * Menghasilkan acuan (ref) SEMENTARA untuk berkas yang diunggah sebelum entitas
+	 * induknya punya id, mis. lampiran pada formulir pendaftaran yang belum tersimpan.
+	 *
+	 * <p><b>Selalu negatif.</b> Nilainya dipakai pada kolom acuan yang sama dengan id
+	 * asli (lihat {@code FileFotoLain.ambil}: berkas dicari dengan
+	 * {@code Restrictions.eq(refName, ref)}). Acuan sementara yang positif bisa menunjuk
+	 * ke baris milik entitas lain yang benar-benar ada.</p>
+	 *
+	 * <p><b>Ruangnya lebar (~1e16), bukan ~1e8.</b> Kolom acuan ini dipakai BERSAMA oleh
+	 * semua pengguna yang sedang mengunggah. Dengan ruang sesempit {@link #randLong()},
+	 * dua pendaftar yang mengisi formulir bersamaan bisa mendapat acuan yang sama untuk
+	 * jenis berkas yang sama, lalu saling melihat berkas satu sama lain. Dua undian
+	 * digabung supaya bentrok praktis tidak terjadi.</p>
+	 *
+	 * <p><b>Pemeliharaan.</b> Nilai terkecil secara magnitudo adalah -100_000_000, jadi
+	 * hasilnya tidak pernah 0 dan tidak pernah muat di {@code int} - jangan simpan ke
+	 * kolom integer. Bukan kriptografi-aman.</p>
+	 *
+	 * @return acuan sementara negatif, kira-kira antara -1e16 dan -1e8
+	 */
+	public static Long refSementara() {
+		return Long.valueOf(-((randLong() + 1L) * 100000000L + randLong()));
+	}
+
+	/**
 	 * Mencari daftar {@code CicilanPembayaran} yang cocok dengan parameter identifikasi
 	 * pembayaran (kode tagihan, NIM mahasiswa, tanggal) menggunakan sesi dan log H2H sebagai
 	 * konteks pencarian.

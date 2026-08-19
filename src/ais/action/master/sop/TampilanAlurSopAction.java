@@ -1762,7 +1762,7 @@ public class TampilanAlurSopAction extends GenericAutowireComposer {
 										hbox.setWidth("100%");
 
 										LampiranLain.createDownloadUploadFileLain(hbox,
-												disposisiAlurSop.getId() == null ? -Common.randLong()
+												disposisiAlurSop.getId() == null ? Common.refSementara()
 														: disposisiAlurSop.getId(),
 												jenis,
 												parameterTambahan.getLabelInputan()

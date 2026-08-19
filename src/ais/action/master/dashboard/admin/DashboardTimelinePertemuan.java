@@ -6265,7 +6265,7 @@ public class DashboardTimelinePertemuan extends MyWindow {
 					};
 
 					Toolbarbutton upload = FileFotoLain.tampilkanTombolUploadGdrive(null, null, uploadeventListener,
-							null, null, LampiranLain.DISKUSI, false, null, "Lampiran", null, false, -Common.randLong(),
+							null, null, LampiranLain.DISKUSI, false, null, "Lampiran", null, false, Common.refSementara(),
 							false, LampiranLain.class);
 					upload.setImage("");
 					upload.setLabel(Common.getBahasaConfig("Lampiran"));

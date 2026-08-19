@@ -446,7 +446,7 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 				hbox.setStyle("border:0px;background: transparent;");
 
 				if (ref == null) {
-					ref = -Common.randLong();
+					ref = Common.refSementara();
 				}
 				FileFotoLain fileFotoLain = LampiranLain.ambil(ref, jenis);
 				if (lampiranLains == null && (fileFotoLain == null || fileFotoLain.getId() == null)) {

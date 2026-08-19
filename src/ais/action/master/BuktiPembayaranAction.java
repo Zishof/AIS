@@ -1519,7 +1519,7 @@ public class BuktiPembayaranAction extends GenericAutowireComposer implements Da
 				}
 
 				row.setValign("top");row.setAttribute("jumlahCicilan", jumlahCicilan);
-				Long idLampiran = buktiPembayaran.getIdLampiran() == null ? -Common.randLong()
+				Long idLampiran = buktiPembayaran.getIdLampiran() == null ? Common.refSementara()
 						: buktiPembayaran.getIdLampiran();
 				row.setValign("top");row.setAttribute("idLampiran", idLampiran);
 				row.setValign("top");row.setAttribute("buktiPembayaran", buktiPembayaran);

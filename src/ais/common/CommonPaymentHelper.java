@@ -1101,7 +1101,7 @@ public class CommonPaymentHelper extends Common {
 		row.setValign("top");
 		row.setAttribute("buttonHapus", buttonHapus);
 
-		final Long idLampiran = cicilanPembayaran.getIdLampiran() == null ? -Common.randLong()
+		final Long idLampiran = cicilanPembayaran.getIdLampiran() == null ? Common.refSementara()
 				: cicilanPembayaran.getIdLampiran();
 		row.setValign("top");
 		row.setAttribute("idLampiran", idLampiran);

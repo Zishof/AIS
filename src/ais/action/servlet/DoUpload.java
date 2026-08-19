@@ -534,7 +534,7 @@ public class DoUpload extends HttpServlet {
 			lampiranSession = StreamingHibernateUtil.getInstance().getSessionFactory().openSession(lampiranConn);
 
 			LampiranLain lainMahasiswa = new LampiranLain();
-			lainMahasiswa.setRef(-Common.randLong());
+			lainMahasiswa.setRef(Common.refSementara());
 			lainMahasiswa.setNama(file.getName());
 			lainMahasiswa.setKeterangan("Bukti Bayar PMB");
 			lainMahasiswa.setJenis(BuktiPembayaran.class.getName());
